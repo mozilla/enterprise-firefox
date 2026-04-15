@@ -1,6 +1,3 @@
-
-/* vim: set sw=2 ts=8 et tw=80 : */
-
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -12,9 +9,6 @@
 #include "mozilla/net/HttpChannelChild.h"
 #include "mozilla/net/ChildDNSService.h"
 #include "mozilla/net/CookieServiceChild.h"
-#ifdef MOZ_WIDGET_GTK
-#  include "mozilla/net/GIOChannelChild.h"
-#endif
 #include "mozilla/net/WebSocketChannelChild.h"
 #include "mozilla/net/WebSocketEventListenerChild.h"
 #include "mozilla/net/DNSRequestChild.h"
@@ -143,24 +137,6 @@ bool NeckoChild::DeallocPAltDataOutputStreamChild(
   child->ReleaseIPDLReference();
   return true;
 }
-
-#ifdef MOZ_WIDGET_GTK
-PGIOChannelChild* NeckoChild::AllocPGIOChannelChild(
-    PBrowserChild* aBrowser, const SerializedLoadContext& aSerialized,
-    const GIOChannelCreationArgs& aOpenArgs) {
-  // We don't allocate here: see GIOChannelChild::AsyncOpen()
-  MOZ_CRASH("AllocPGIOChannelChild should not be called");
-  return nullptr;
-}
-
-bool NeckoChild::DeallocPGIOChannelChild(PGIOChannelChild* channel) {
-  MOZ_ASSERT(IsNeckoChild(), "DeallocPGIOChannelChild called by non-child!");
-
-  GIOChannelChild* child = static_cast<GIOChannelChild*>(channel);
-  child->ReleaseIPDLReference();
-  return true;
-}
-#endif
 
 PCookieServiceChild* NeckoChild::AllocPCookieServiceChild() {
   // We don't allocate here: see CookieService::GetSingleton()

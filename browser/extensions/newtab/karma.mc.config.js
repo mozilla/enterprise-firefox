@@ -63,7 +63,7 @@ module.exports = function (config) {
     coverageIstanbulReporter: {
       reports: ["lcov", "text-summary"], // for some reason "lcov" reallys means "lcov" and "html"
       "report-config": {
-        // so the full m-c path gets printed; needed for https://coverage.moz.tools/ integration
+        // so the full m-c path gets printed; needed for Searchfox integration
         lcov: {
           projectRoot: "../../..",
         },
@@ -212,15 +212,12 @@ module.exports = function (config) {
                 functions: 0,
                 branches: 0,
               },
-            /**
-             * Tests for inline topic selection are coming in a follow-up task
-             */
             "content-src/components/DiscoveryStreamComponents/InterestPicker/*.jsx":
               {
-                statements: 0,
-                lines: 0,
-                functions: 0,
-                branches: 0,
+                statements: 40,
+                lines: 39,
+                functions: 37,
+                branches: 25,
               },
             "content-src/components/DiscoveryStreamComponents/DSCard/DSCard.jsx":
               {
@@ -323,20 +320,17 @@ module.exports = function (config) {
               functions: 0,
               branches: 0,
             },
-            /**
-             * TODO: Bug 1985362 - Write SectionsMgmtPanel Unit Tests
-             */
             "content-src/components/CustomizeMenu/SectionsMgmtPanel/*.jsx": {
-              statements: 0,
-              lines: 0,
-              functions: 0,
-              branches: 0,
+              statements: 86,
+              lines: 76,
+              functions: 86,
+              branches: 76,
             },
             "content-src/components/CustomizeMenu/ContentSection/*.jsx": {
-              statements: 65,
-              lines: 65,
-              functions: 99,
-              branches: 56,
+              statements: 82,
+              lines: 82,
+              functions: 100,
+              branches: 67,
             },
             "content-src/components/CustomizeMenu/**/*.jsx": {
               statements: 68,
@@ -384,7 +378,17 @@ module.exports = function (config) {
         },
       },
     },
-    files: [PATHS.testEntryFile],
+    files: [
+      // Load React 16 from toolkit vendor for enzyme compatibility, instead of React19
+      "../../../toolkit/content/vendor/react/react.js",
+      "../../../toolkit/content/vendor/react/react-dom.js",
+      "../../../toolkit/content/vendor/react/react-dom-server.js",
+      "test/vendor/react-dom-test-utils.js",
+      "../../../toolkit/content/vendor/react/prop-types.js",
+      "../../../toolkit/content/vendor/react/react-redux.js",
+      "../../../toolkit/content/vendor/react/redux.js",
+      PATHS.testEntryFile,
+    ],
     preprocessors,
     webpack: {
       mode: "none",
@@ -430,14 +434,43 @@ module.exports = function (config) {
         new webpack.DefinePlugin({
           "process.env.NODE_ENV": JSON.stringify("development"),
         }),
+
+        // Replace react-redux imports with React 16-compatible version from toolkit
+        new webpack.NormalModuleReplacementPlugin(
+          /^react-redux$/,
+          path.resolve(
+            __dirname,
+            "../../../toolkit/content/vendor/react/react-redux.js"
+          )
+        ),
       ],
-      externals: {
-        // enzyme needs these for backwards compatibility with 0.13.
-        // see https://github.com/airbnb/enzyme/blob/master/docs/guides/webpack.md#using-enzyme-with-webpack
-        "react/addons": true,
-        "react/lib/ReactContext": true,
-        "react/lib/ExecutionEnvironment": true,
-      },
+      externals: [
+        // Use React 16 from toolkit vendor files for enzyme compatibility
+        {
+          react: "React",
+          "react-dom": "ReactDOM",
+          "react-dom/client": "ReactDOM",
+          "react-dom/server": "ReactDOMServer",
+          "react-dom/server.browser": "ReactDOMServer",
+          "react-dom/test-utils": "ReactTestUtils",
+          "prop-types": "PropTypes",
+          "react-redux": "ReactRedux",
+          redux: "Redux",
+          // enzyme needs these for backwards compatibility with 0.13.
+          // see https://github.com/airbnb/enzyme/blob/master/docs/guides/webpack.md#using-enzyme-with-webpack
+          "react/addons": true,
+          "react/lib/ReactContext": true,
+          "react/lib/ExecutionEnvironment": true,
+        },
+        // Exclude use-sync-external-store completely
+        // eslint-disable-next-line consistent-return
+        function ({ request }, callback) {
+          if (/^use-sync-external-store/.test(request)) {
+            return callback(null, "var {}");
+          }
+          callback();
+        },
+      ],
       module: {
         rules: [
           {

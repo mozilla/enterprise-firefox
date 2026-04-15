@@ -25,7 +25,7 @@ import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
-import androidx.preference.SwitchPreference
+import androidx.preference.SwitchPreferenceCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.CoroutineScope
@@ -55,6 +55,7 @@ import org.mozilla.fenix.R
 import org.mozilla.fenix.components.Components
 import org.mozilla.fenix.components.accounts.FenixFxAEntryPoint
 import org.mozilla.fenix.databinding.AmoCollectionOverrideDialogBinding
+import org.mozilla.fenix.e2e.SystemInsetsPaddedFragment
 import org.mozilla.fenix.ext.application
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.getPreferenceKey
@@ -72,10 +73,14 @@ import org.mozilla.fenix.snackbar.FenixSnackbarDelegate
 import org.mozilla.fenix.snackbar.SnackbarBinding
 import org.mozilla.fenix.utils.Settings
 import kotlin.system.exitProcess
+import mozilla.components.ui.icons.R as iconsR
 import org.mozilla.fenix.GleanMetrics.Settings as SettingsMetrics
 
+/**
+ * Main settings screen.
+ */
 @Suppress("LargeClass", "TooManyFunctions")
-class SettingsFragment : PreferenceFragmentCompat() {
+class SettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFragment {
 
     private val args by navArgs<SettingsFragmentArgs>()
     private lateinit var accountUiView: AccountUiView
@@ -175,6 +180,10 @@ class SettingsFragment : PreferenceFragmentCompat() {
             getPreferenceKey(R.string.pref_key_translation),
         )?.isVisible = FxNimbus.features.translations.value().globalSettingsEnabled &&
             components.core.store.state.translationEngine.isEngineSupported == true
+
+        findPreference<Preference>(
+            getPreferenceKey(R.string.pref_key_page_summaries),
+        )?.isVisible = components.settings.shakeToSummarizeFeatureFlagEnabled
     }
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
@@ -226,7 +235,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
             showToolbarWithIconButton(
                 title = toolbarTitle,
                 contentDescription = getString(R.string.settings_search_button_content_description),
-                iconResId = R.drawable.ic_search,
+                iconResId = iconsR.drawable.mozac_ic_search_24,
                 onClick = {
                     SettingsSearch.opened.record()
                     findNavController().navigate(R.id.action_settingsFragment_to_settingsSearchFragment)
@@ -247,7 +256,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
             ?.hideInitialScrollBar(viewLifecycleOwner.lifecycleScope)
 
         args.preferenceToScrollTo?.let {
-            scrollToPreference(it)
+            scrollToPreferenceWithHighlight(it)
         }
         // Consider finish of `onResume` to be the point at which we consider this fragment as 'created'.
         creatingFragment = false
@@ -385,6 +394,10 @@ class SettingsFragment : PreferenceFragmentCompat() {
             resources.getString(R.string.pref_key_translation) -> {
                 Translations.action.record(Translations.ActionExtra("global_settings_from_preferences"))
                 SettingsFragmentDirections.actionSettingsFragmentToTranslationsSettingsFragment()
+            }
+
+            resources.getString(R.string.pref_key_page_summaries) -> {
+                SettingsFragmentDirections.actionSettingsFragmentToPageSummariesSettingsFragment()
             }
 
             // Privacy and security preferences
@@ -767,7 +780,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
     internal fun setupCookieBannerPreference(settings: Settings) {
         FxNimbus.features.cookieBanners.recordExposure()
         if (settings.shouldShowCookieBannerUI) {
-            with(requirePreference<SwitchPreference>(R.string.pref_key_cookie_banner_private_mode)) {
+            with(requirePreference<SwitchPreferenceCompat>(R.string.pref_key_cookie_banner_private_mode)) {
                 isVisible = settings.shouldShowCookieBannerUI
 
                 onPreferenceChangeListener = object : SharedPreferenceUpdater() {

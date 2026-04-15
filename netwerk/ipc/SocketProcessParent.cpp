@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -100,33 +99,37 @@ bool SocketProcessParent::SendRequestMemoryReport(
     const Maybe<ipc::FileDescriptor>& aDMDFile) {
   mMemoryReportRequest = MakeUnique<dom::MemoryReportRequestHost>(aGeneration);
 
-  PSocketProcessParent::SendRequestMemoryReport(
-      aGeneration, aAnonymize, aMinimizeMemoryUsage, aDMDFile,
-      [&](const uint32_t& aGeneration2) {
-        MOZ_ASSERT(gIOService);
-        if (!gIOService->SocketProcess()) {
-          return;
-        }
-        SocketProcessParent* actor = gIOService->SocketProcess()->GetActor();
-        if (!actor) {
-          return;
-        }
-        if (actor->mMemoryReportRequest) {
-          actor->mMemoryReportRequest->Finish(aGeneration2);
-          actor->mMemoryReportRequest = nullptr;
-        }
-      },
-      [&](mozilla::ipc::ResponseRejectReason) {
-        MOZ_ASSERT(gIOService);
-        if (!gIOService->SocketProcess()) {
-          return;
-        }
-        SocketProcessParent* actor = gIOService->SocketProcess()->GetActor();
-        if (!actor) {
-          return;
-        }
-        actor->mMemoryReportRequest = nullptr;
-      });
+  PSocketProcessParent::SendRequestMemoryReport(aGeneration, aAnonymize,
+                                                aMinimizeMemoryUsage, aDMDFile)
+      ->Then(
+          GetCurrentSerialEventTarget(), __func__,
+          [](uint32_t aGeneration2) {
+            MOZ_ASSERT(gIOService);
+            if (!gIOService->SocketProcess()) {
+              return;
+            }
+            SocketProcessParent* actor =
+                gIOService->SocketProcess()->GetActor();
+            if (!actor) {
+              return;
+            }
+            if (actor->mMemoryReportRequest) {
+              actor->mMemoryReportRequest->Finish(aGeneration2);
+              actor->mMemoryReportRequest = nullptr;
+            }
+          },
+          [](mozilla::ipc::ResponseRejectReason) {
+            MOZ_ASSERT(gIOService);
+            if (!gIOService->SocketProcess()) {
+              return;
+            }
+            SocketProcessParent* actor =
+                gIOService->SocketProcess()->GetActor();
+            if (!actor) {
+              return;
+            }
+            actor->mMemoryReportRequest = nullptr;
+          });
 
   return true;
 }

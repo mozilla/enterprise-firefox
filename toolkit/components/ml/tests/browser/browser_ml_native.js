@@ -73,16 +73,15 @@ async function llama_crash() {
 
       info(`ipc:content-shutdown: data=${data} subject=${subject}`);
 
-      let dumpID = null;
-
-      try {
-        dumpID = subject.getPropertyAsAString("dumpID");
-        ok(dumpID, "There should be a dumpID");
-      } catch (err) {
-        info("No dumpID");
+      const dumpID = subject.get("dumpID");
+      if (AppConstants.MOZ_CRASHREPORTER && dumpID === null) {
+        // This test does not appear to generate minidumps, it is unclear why.
+        // We should turn this into an `ok()` call once we fix the underlying
+        // issue in bug 2003271.
+        dump("There should be a dumpID");
       }
 
-      if (dumpID !== null) {
+      if (AppConstants.MOZ_CRASHREPORTER && dumpID !== null) {
         await crashMan.ensureCrashIsPresent(dumpID);
         let minidumpDirectory = Services.dirsvc.get("ProfD", Ci.nsIFile);
         minidumpDirectory.append("minidumps");

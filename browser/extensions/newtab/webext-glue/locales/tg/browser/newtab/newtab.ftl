@@ -52,7 +52,7 @@ newtab-search-box-input =
     .placeholder = Ҷустуҷӯ дар Интернет
     .aria-label = Ҷустуҷӯ дар Интернет
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Илова кардани низоми ҷустуҷӯӣ
 newtab-topsites-add-shortcut-header = Миёнбури нав
@@ -72,6 +72,11 @@ newtab-topsites-url-validation = Нишонии URL-и эътибор лозим
 newtab-topsites-image-url-label = Нишонии URL-и тасвири шахсӣ
 newtab-topsites-use-image-link = Истифодаи тасвири шахсӣ…
 newtab-topsites-image-validation = Тасвир бор карда нашуд. Нишонии URL-и дигареро кӯшиш кунед.
+
+## Clear text button for the URL and image URL input fields in the Top Sites form.
+
+newtab-topsites-clear-input =
+    .aria-label = Пок кардани матн
 
 ## Top Sites - General form dialog buttons. These are verbs/actions.
 

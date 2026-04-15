@@ -4,6 +4,7 @@
 
 import bisect
 import errno
+import functools
 import inspect
 import json
 import os
@@ -24,7 +25,7 @@ import mozpack.path as mozpath
 from mozbuild import makeutil
 from mozbuild.nodeutil import package_setup
 from mozbuild.preprocessor import Preprocessor
-from mozbuild.util import FileAvoidWrite, ensure_unicode, memoize
+from mozbuild.util import FileAvoidWrite, ensure_unicode
 from mozpack.chrome.manifest import ManifestEntry, ManifestInterfaces
 from mozpack.errors import ErrorMessage, errors
 from mozpack.executables import elfhack, is_executable, may_elfhack, may_strip, strip
@@ -1305,7 +1306,7 @@ class FileListFinder(BaseFinder):
     def __init__(self, files):
         self._files = sorted(files)
 
-    @memoize
+    @functools.cache
     def _match(self, pattern):
         """Return a sorted list of all files matching the given pattern."""
         # We don't use the utility _find_helper method because it's not tuned

@@ -383,6 +383,8 @@ class NetworkModule extends RootBiDiModule {
   #collectedNetworkData;
   #decodedBodySizeMap;
   #extraHeaders;
+  #hasExtraHeaders;
+  #hasNetworkConditionsOffline;
   #interceptMap;
   #networkCollectors;
   #networkListener;
@@ -418,6 +420,11 @@ class NetworkModule extends RootBiDiModule {
       // Map between user context ids and arrays of Header objects.
       userContextHeaders: new Map(),
     };
+
+    // Flags used to check if the internal listener should remain enabled even
+    // when no public events are subscribed.
+    this.#hasExtraHeaders = false;
+    this.#hasNetworkConditionsOffline = false;
 
     // Map of intercept id to InterceptProperties
     this.#interceptMap = new Map();
@@ -1286,15 +1293,24 @@ class NetworkModule extends RootBiDiModule {
     }
 
     const value = await collectedData.bytes.getBytesValue();
-    const type = collectedData.bytes.isBase64
-      ? BytesValueType.Base64
-      : BytesValueType.String;
 
     if (disown) {
       this.#removeCollectorFromData(collectedData, collector);
     }
 
-    return { bytes: this.#serializeAsBytesValue(value, type) };
+    const type = collectedData.bytes.isBase64
+      ? BytesValueType.Base64
+      : BytesValueType.String;
+
+    // The data retrieved here is already either a UTF8-decoded string or a
+    // base64 encoded binary. No need to re-apply the serializeAsBytesValue
+    // algorithm.
+    return {
+      bytes: {
+        type,
+        value,
+      },
+    };
   }
 
   /**
@@ -1743,7 +1759,10 @@ class NetworkModule extends RootBiDiModule {
       this.#extraHeaders.defaultHeaders = deserializedHeaders;
     }
 
-    this.#networkListener.startListening();
+    if (!this.#hasExtraHeaders && headers.length) {
+      this.#hasExtraHeaders = true;
+      this.#networkListener.startListening();
+    }
   }
 
   /**
@@ -2364,7 +2383,11 @@ class NetworkModule extends RootBiDiModule {
       return;
     }
 
-    if (!(response instanceof lazy.NetworkResponse) && !response.isDataURL) {
+    if (
+      !(response instanceof lazy.NetworkResponse) &&
+      !response.isDataURL &&
+      !response.hasCachedResponseBody
+    ) {
       lazy.logger.trace(
         `Network data not collected for request "${request.requestId}" and data type "${DataType.Response}"` +
           `: unsupported response (read from memory cache)`
@@ -2394,6 +2417,13 @@ class NetworkModule extends RootBiDiModule {
           isBase64: !isText,
         });
       size = body.length;
+    } else if (response.hasCachedResponseBody) {
+      readAndProcessBodyFn = () =>
+        new lazy.NetworkDataBytes({
+          getBytesValue: () => response.cachedResponseBody,
+          isBase64: false,
+        });
+      size = response.cachedResponseBody.length;
     } else {
       readAndProcessBodyFn = response.readAndProcessResponseBody;
       size = response.encodedBodySize;
@@ -2625,45 +2655,53 @@ class NetworkModule extends RootBiDiModule {
     const isListening = this._hasListener(protocolEventName, {
       contextId: browsingContext.id,
     });
-    if (!isListening) {
-      // If there are no listeners subscribed to this event and this context,
-      // bail out.
-      return;
-    }
 
-    this.#maybeCollectNetworkRequestBody(request);
+    if (isListening) {
+      this.#maybeCollectNetworkRequestBody(request);
 
-    const baseParameters = this.#processNetworkEvent(
-      protocolEventName,
-      request
-    );
-
-    // Bug 1805479: Handle the initiator, including stacktrace details.
-    const initiator = {
-      type: InitiatorType.Other,
-    };
-
-    const beforeRequestSentEvent = {
-      ...baseParameters,
-      initiator,
-    };
-
-    this._emitEventForBrowsingContext(
-      browsingContext.id,
-      protocolEventName,
-      beforeRequestSentEvent
-    );
-    if (beforeRequestSentEvent.isBlocked) {
-      request.wrappedChannel.suspend(
-        this.#getSuspendMarkerText(request, "beforeRequestSent")
+      const baseParameters = this.#processNetworkEvent(
+        protocolEventName,
+        request
       );
 
-      this.#addBlockedRequest(
-        beforeRequestSentEvent.request.request,
-        InterceptPhase.BeforeRequestSent,
-        {
-          request,
-        }
+      // Bug 1805479: Handle the initiator, including stacktrace details.
+      const initiator = {
+        type: InitiatorType.Other,
+      };
+
+      const beforeRequestSentEvent = {
+        ...baseParameters,
+        initiator,
+      };
+
+      this._emitEventForBrowsingContext(
+        browsingContext.id,
+        protocolEventName,
+        beforeRequestSentEvent
+      );
+      if (beforeRequestSentEvent.isBlocked) {
+        request.wrappedChannel.suspend(
+          this.#getSuspendMarkerText(request, "beforeRequestSent")
+        );
+
+        this.#addBlockedRequest(
+          beforeRequestSentEvent.request.request,
+          InterceptPhase.BeforeRequestSent,
+          {
+            request,
+          }
+        );
+      }
+    }
+
+    // If network conditions are set to "offline", most requests should be
+    // prevented, but some are still sent (e.g. keep-alive).
+    // Per https://w3c.github.io/webdriver-bidi/#webdriver-bidi-before-request-sent
+    // this should be handled after emitting the beforeRequestSent event.
+    if (browsingContext.top?.forceOffline) {
+      request.wrappedChannel.cancel(
+        Cr.NS_ERROR_OFFLINE,
+        Ci.nsILoadInfo.BLOCKING_REASON_WEBDRIVER_BIDI
       );
     }
   };
@@ -2852,10 +2890,7 @@ class NetworkModule extends RootBiDiModule {
   #serializeHeader(name, value) {
     return {
       name,
-      // TODO: For now, we handle all headers and cookies with the "string" type.
-      // See Bug 1835216 to add support for "base64" type and handle non-utf8
-      // values.
-      value: this.#serializeAsBytesValue(value, BytesValueType.String),
+      value: serializeAsBytesValue(value),
     };
   }
 
@@ -2898,34 +2933,24 @@ class NetworkModule extends RootBiDiModule {
     return headerValue;
   }
 
-  /**
-   * Serialize a value as BytesValue.
-   *
-   * Note: This does not attempt to fully implement serialize protocol bytes
-   * (https://w3c.github.io/webdriver-bidi/#serialize-protocol-bytes) as the
-   * header values read from the Channel are already serialized as strings at
-   * the moment.
-   *
-   * @param {string} value
-   *     The value to serialize.
-   */
-  #serializeAsBytesValue(value, type) {
-    return {
-      type,
-      value,
-    };
-  }
-
   #startListening(event) {
-    if (this.#subscribedEvents.size == 0) {
+    if (!this.#subscribedEvents.size) {
       this.#networkListener.startListening();
     }
+
     this.#subscribedEvents.add(event);
   }
 
   #stopListening(event) {
     this.#subscribedEvents.delete(event);
-    if (this.#subscribedEvents.size == 0) {
+
+    if (this.#hasNetworkConditionsOffline || this.#hasExtraHeaders) {
+      // If networkConditions or extraHeaders are set, the listener should
+      // remain enabled even if no public events are emitted.
+      return;
+    }
+
+    if (!this.#subscribedEvents.size) {
       this.#networkListener.stopListening();
     }
   }
@@ -3017,6 +3042,13 @@ class NetworkModule extends RootBiDiModule {
     this.#decodedBodySizeMap.setDecodedBodySize(channelId, decodedBodySize);
   }
 
+  _startListeningForNetworkConditionsOffline() {
+    if (!this.#hasNetworkConditionsOffline) {
+      this.#hasNetworkConditionsOffline = true;
+      this.#networkListener.startListening();
+    }
+  }
+
   static get supportedEvents() {
     return [
       "network.authRequired",
@@ -3031,20 +3063,87 @@ class NetworkModule extends RootBiDiModule {
 /**
  * Deserialize a network BytesValue.
  *
- * @param {BytesValue} bytesValue
+ * @see https://w3c.github.io/webdriver-bidi/#deserialize-protocol-bytes
+ *
+ * @param {BytesValue} protocolBytes
  *     The BytesValue to deserialize.
  * @returns {string}
  *     The deserialized value.
  */
-export function deserializeBytesValue(bytesValue) {
-  const { type, value } = bytesValue;
+export function deserializeBytesValue(protocolBytes) {
+  const { type, value } = protocolBytes;
 
+  let bytes;
   if (type === BytesValueType.String) {
-    return value;
+    // If protocol bytes matches the network.StringValue production
+    // Encode values as UTF-8
+    bytes = encodeAsUTF8(value);
+  } else {
+    // Otherwise if protocol bytes matches the network.Base64Value production
+    // Let bytes be forgiving-base64 decode protocol bytes["value"].
+    bytes = atob(value);
   }
 
-  // For type === BytesValueType.Base64.
-  return atob(value);
+  return bytes;
+}
+
+/**
+ * Encode the provided value as UTF-8, working around argument limits in JS.
+ *
+ * @param {string} value
+ *     The value to encode.
+ * @return {string}
+ *     The UTF-8 encoded string.
+ */
+function encodeAsUTF8(value) {
+  const CHUNK_SIZE = 65536;
+  let result = "";
+
+  const encoder = new TextEncoder();
+  const utf8Bytes = encoder.encode(value);
+  for (let i = 0; i < utf8Bytes.length; i += CHUNK_SIZE) {
+    const chunk = utf8Bytes.slice(i, i + CHUNK_SIZE);
+    result += String.fromCharCode.apply(null, chunk);
+  }
+  return result;
+}
+
+/**
+ * Serialize a value as BytesValue.
+ *
+ * @see https://w3c.github.io/webdriver-bidi/#serialize-protocol-bytes
+ *
+ * @param {string} bytes
+ *     The value to serialize.
+ * @return {BytesValue}
+ *     The serialized value.
+ */
+function serializeAsBytesValue(bytes) {
+  let text, type;
+  try {
+    type = BytesValueType.String;
+    // Let text be UTF-8 decode without BOM or fail bytes.
+    const decoder = new TextDecoder("utf-8", {
+      fatal: true,
+      ignoreBOM: true,
+    });
+    text = decoder.decode(Uint8Array.from(bytes, c => c.charCodeAt(0)));
+  } catch (e) {
+    if (e instanceof TypeError) {
+      // If text is failure, return a map matching the network.Base64Value production,
+      type = BytesValueType.Base64;
+      // Set value to forgiving-base64 encode bytes.
+      text = btoa(bytes);
+    } else {
+      // Errors other than TypeError are unexpected and should bubble up.
+      throw e;
+    }
+  }
+
+  return {
+    type,
+    value: text,
+  };
 }
 
 export const network = NetworkModule;

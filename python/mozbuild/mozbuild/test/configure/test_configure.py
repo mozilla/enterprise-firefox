@@ -6,6 +6,7 @@ import os
 import sys
 import textwrap
 import unittest
+from functools import cached_property
 from io import StringIO
 
 import mozpack.path as mozpath
@@ -18,7 +19,7 @@ from mozbuild.configure.options import (
     NegativeOptionValue,
     PositiveOptionValue,
 )
-from mozbuild.util import ReadOnlyNamespace, memoized_property
+from mozbuild.util import ReadOnlyNamespace
 
 test_data_path = mozpath.abspath(mozpath.dirname(__file__))
 test_data_path = mozpath.join(test_data_path, "data")
@@ -502,7 +503,7 @@ class TestConfigure(unittest.TestCase):
         foo = ReadOnlyNamespace(bar=bar)
 
         class BasicWrappingSandbox(ConfigureSandbox):
-            @memoized_property
+            @cached_property
             def _wrapped_foo(self):
                 return foo
 

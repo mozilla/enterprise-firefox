@@ -53,3 +53,5 @@ browser.jar:
   content/browser/aiwindow/components/smartwindow-prompts.css       (components/smartwindow-prompts/smartwindow-prompts.css)
   content/browser/aiwindow/components/smartwindow-footer.mjs        (components/smartwindow-footer/smartwindow-footer.mjs)
   content/browser/aiwindow/components/smartwindow-footer.css        (components/smartwindow-footer/smartwindow-footer.css)
+  content/browser/aiwindow/components/smartwindow-heading.mjs       (components/smartwindow-heading/smartwindow-heading.mjs)
+  content/browser/aiwindow/components/smartwindow-heading.css       (components/smartwindow-heading/smartwindow-heading.css)

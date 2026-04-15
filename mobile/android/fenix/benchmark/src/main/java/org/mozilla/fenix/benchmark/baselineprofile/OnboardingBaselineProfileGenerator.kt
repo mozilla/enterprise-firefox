@@ -48,7 +48,6 @@ class OnboardingBaselineProfileGenerator {
     @get:Rule
     val rule = BaselineProfileRule()
 
-    @Ignore("Failing: https://bugzilla.mozilla.org/show_bug.cgi?id=2021112")
     @Test
     fun generateBaselineProfile() {
         rule.collect(

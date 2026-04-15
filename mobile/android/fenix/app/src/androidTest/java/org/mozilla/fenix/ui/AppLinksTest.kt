@@ -12,27 +12,22 @@ import androidx.test.espresso.intent.Intents.intending
 import androidx.test.espresso.intent.matcher.IntentMatchers.hasAction
 import androidx.test.espresso.intent.matcher.IntentMatchers.hasDataString
 import org.hamcrest.Matchers.equalTo
-import org.junit.Before
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.mozilla.fenix.helpers.AppAndSystemHelper.assertNativeAppOpens
 import org.mozilla.fenix.helpers.Constants
+import org.mozilla.fenix.helpers.FenixTestRule
 import org.mozilla.fenix.helpers.HomeActivityIntentTestRule
 import org.mozilla.fenix.helpers.MatcherHelper.itemContainingText
-import org.mozilla.fenix.helpers.MatcherHelper.itemWithResIdAndText
+import org.mozilla.fenix.helpers.MatcherHelper.itemWithText
 import org.mozilla.fenix.helpers.OpenLinksInApp
-import org.mozilla.fenix.helpers.TestAssetHelper
 import org.mozilla.fenix.helpers.TestAssetHelper.appLinksRedirectAsset
-import org.mozilla.fenix.helpers.TestAssetHelper.getGenericAsset
 import org.mozilla.fenix.helpers.TestHelper.mDevice
-import org.mozilla.fenix.helpers.TestHelper.waitForAppWindowToBeUpdated
-import org.mozilla.fenix.helpers.TestSetup
 import org.mozilla.fenix.helpers.perf.DetectMemoryLeaksRule
 import org.mozilla.fenix.ui.robots.clickPageObject
 import org.mozilla.fenix.ui.robots.navigationToolbar
 
-class AppLinksTest : TestSetup() {
+class AppLinksTest {
     private val youtubeSchemaUrlLink = itemContainingText("Youtube schema link")
     private val youtubeUrlLink = itemContainingText("Youtube link")
     private val intentSchemaUrlLink = itemContainingText("Intent schema link")
@@ -44,6 +39,11 @@ class AppLinksTest : TestSetup() {
     private val linkWithFallbackLink = itemContainingText("Link with fallback link")
     private val linkWithBrowserFallbackLink = itemContainingText("Link with browser fallback link")
     private val phoneSchemaLink = "tel://1234567890"
+
+    @get:Rule(order = 0)
+    val fenixTestRule: FenixTestRule = FenixTestRule()
+
+    private val mockWebServer get() = fenixTestRule.mockWebServer
 
     @get:Rule
     val composeTestRule =
@@ -68,7 +68,7 @@ class AppLinksTest : TestSetup() {
         }.enterURLAndEnterToBrowser(externalLinksPage.url) {
             clickPageObject(composeTestRule, youtubeSchemaUrlLink)
             verifyOpenLinkInAnotherAppPrompt(appName = "YouTube")
-            clickPageObject(composeTestRule, itemWithResIdAndText("android:id/button2", "Cancel"))
+            clickPageObject(composeTestRule, itemContainingText("Cancel"))
             mDevice.waitForIdle()
             verifyUrl(externalLinksPage.url.toString())
         }
@@ -107,7 +107,7 @@ class AppLinksTest : TestSetup() {
         }.enterURLAndEnterToBrowser(externalLinksPage.url) {
             clickPageObject(composeTestRule, youtubeSchemaUrlLink)
             verifyOpenLinkInAnotherAppPrompt(appName = "YouTube")
-            clickPageObject(composeTestRule, itemWithResIdAndText("android:id/button2", "Cancel"))
+            clickPageObject(composeTestRule, itemContainingText("Cancel"))
             mDevice.waitForIdle()
             verifyUrl(externalLinksPage.url.toString())
             clickPageObject(composeTestRule, youtubeSchemaUrlLink)
@@ -134,7 +134,7 @@ class AppLinksTest : TestSetup() {
         }.enterURLAndEnterToBrowser(externalLinksPage.url) {
             clickPageObject(composeTestRule, youtubeSchemaUrlLink)
             verifyOpenLinkInAnotherAppPrompt(appName = "YouTube")
-            clickPageObject(composeTestRule, itemWithResIdAndText("android:id/button2", "Cancel"))
+            clickPageObject(composeTestRule, itemContainingText("Cancel"))
             mDevice.waitForIdle()
             verifyUrl(externalLinksPage.url.toString())
         }.openTabDrawer(composeTestRule) {
@@ -142,7 +142,7 @@ class AppLinksTest : TestSetup() {
         }.submitQuery(externalLinksPage.url.toString()) {
             clickPageObject(composeTestRule, youtubeSchemaUrlLink)
             verifyOpenLinkInAnotherAppPrompt(appName = "YouTube")
-            clickPageObject(composeTestRule, itemWithResIdAndText("android:id/button2", "Cancel"))
+            clickPageObject(composeTestRule, itemContainingText("Cancel"))
             mDevice.waitForIdle()
             verifyUrl(externalLinksPage.url.toString())
         }
@@ -189,7 +189,7 @@ class AppLinksTest : TestSetup() {
         }.enterURLAndEnterToBrowser(externalLinksPage.url) {
             clickPageObject(composeTestRule, youtubeSchemaUrlLink)
             verifyOpenLinkInAnotherAppPrompt(appName = "YouTube")
-            clickPageObject(composeTestRule, itemWithResIdAndText("android:id/button2", "Cancel"))
+            clickPageObject(composeTestRule, itemContainingText("Cancel"))
             mDevice.waitForIdle()
             verifyUrl(externalLinksPage.url.toString())
         }
@@ -209,7 +209,7 @@ class AppLinksTest : TestSetup() {
         }.enterURLAndEnterToBrowser(externalLinksPage.url) {
             clickPageObject(composeTestRule, youtubeUrlLink)
             verifyOpenLinkInAnotherAppPrompt(appName = "YouTube")
-            clickPageObject(composeTestRule, itemWithResIdAndText("android:id/button2", "Cancel"))
+            clickPageObject(composeTestRule, itemContainingText("Cancel"))
             mDevice.waitForIdle()
             verifyUrl("youtube.com")
         }
@@ -245,7 +245,7 @@ class AppLinksTest : TestSetup() {
         }.enterURLAndEnterToBrowser(externalLinksPage.url) {
             clickPageObject(composeTestRule, phoneUrlLink)
             verifyOpenLinkInAnotherAppPrompt(appName = "Phone")
-            clickPageObject(composeTestRule, itemWithResIdAndText("android:id/button2", "Cancel"))
+            clickPageObject(composeTestRule, itemContainingText("Cancel"))
             mDevice.waitForIdle()
             verifyUrl(externalLinksPage.url.toString())
         }
@@ -287,7 +287,7 @@ class AppLinksTest : TestSetup() {
         }.enterURLAndEnterToBrowser(externalLinksPage.url) {
             clickPageObject(composeTestRule, phoneUrlLink)
             verifyOpenLinkInAnotherAppPrompt(appName = "Phone")
-            clickPageObject(composeTestRule, itemWithResIdAndText("android:id/button1", "Open"))
+            clickPageObject(composeTestRule, itemWithText("Open"))
             mDevice.waitForIdle()
             assertNativeAppOpens(composeTestRule, Constants.PackageName.PHONE_APP, phoneSchemaLink)
             mDevice.waitForIdle()
@@ -374,7 +374,7 @@ class AppLinksTest : TestSetup() {
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(externalLinksPage.url) {
             clickPageObject(composeTestRule, intentSchemeWithExampleAppLink)
-            clickPageObject(composeTestRule, itemWithResIdAndText("android:id/button1", "Open"))
+            clickPageObject(composeTestRule, itemWithText("Open"))
             mDevice.waitForIdle()
             intended(hasAction(Intent.ACTION_VIEW))
             intended(hasDataString(equalTo("market://details?id=com.example.app")))
@@ -395,7 +395,7 @@ class AppLinksTest : TestSetup() {
         }.enterURLAndEnterToBrowser(externalLinksPage.url) {
             clickPageObject(composeTestRule, phoneWithFallbackLink)
             verifyOpenLinkInAnotherAppPrompt(appName = "Phone")
-            clickPageObject(composeTestRule, itemWithResIdAndText("android:id/button2", "Cancel"))
+            clickPageObject(composeTestRule, itemContainingText("Cancel"))
             mDevice.waitForIdle()
             verifyUrl("mozilla.org")
         }
@@ -450,6 +450,48 @@ class AppLinksTest : TestSetup() {
             clickPageObject(composeTestRule, linkWithBrowserFallbackLink)
             mDevice.waitForIdle()
             verifyUrl("mozilla.org")
+        }
+    }
+
+    /**
+     * User setting: Ask
+     * Verify the "Always open links in apps" checkbox appears in the prompt
+     * when the setting is "Ask" and the tab is not private.
+     * tel://1234567890
+     */
+    @Test
+    fun askBeforeOpeningLinkCheckboxVisibleTest() {
+        val externalLinksPage = mockWebServer.appLinksRedirectAsset
+
+        navigationToolbar(composeTestRule) {
+        }.enterURLAndEnterToBrowser(externalLinksPage.url) {
+            clickPageObject(composeTestRule, phoneUrlLink)
+            verifyOpenLinkInAnotherAppPrompt(appName = "Phone")
+            verifyAppLinksPromptCheckbox(exists = true)
+            clickPageObject(composeTestRule, itemContainingText("Cancel"))
+        }
+    }
+
+    /**
+     * User setting: Ask
+     * Verify the "Always open links in apps" checkbox is NOT shown when the
+     * app-links prompt appears from a private browsing tab.
+     * vnd.youtube://@Mozilla
+     */
+    @Test
+    fun askBeforeOpeningLinkInPrivateTabNoCheckboxTest() {
+        val externalLinksPage = mockWebServer.appLinksRedirectAsset
+
+        navigationToolbar(composeTestRule) {
+        }.enterURLAndEnterToBrowser(externalLinksPage.url) {
+        }.openTabDrawer(composeTestRule) {
+        }.toggleToPrivateTabs {
+        }.openNewTab {
+        }.submitQuery(externalLinksPage.url.toString()) {
+            clickPageObject(composeTestRule, youtubeSchemaUrlLink)
+            verifyOpenLinkInAnotherAppPrompt(appName = "YouTube")
+            verifyAppLinksPromptCheckbox(exists = false)
+            clickPageObject(composeTestRule, itemContainingText("Cancel"))
         }
     }
 }

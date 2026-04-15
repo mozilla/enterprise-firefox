@@ -1,5 +1,3 @@
-/* -*- Mode: C++; c-basic-offset: 2; indent-tabs-mode: nil; tab-width: 8 -*- */
-/* vim: set sw=2 ts=8 et tw=80 ft=cpp : */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -76,6 +74,7 @@
 #include "nsIPromptCollection.h"
 #include "nsISessionStoreFunctions.h"
 #include "nsISharePicker.h"
+#include "nsISiteIntegrityService.h"
 #include "nsITimer.h"
 #include "nsITransportSecurityInfo.h"
 #include "nsIURIMutator.h"
@@ -338,11 +337,14 @@ mozilla::ipc::IPCResult WindowGlobalParent::RecvLoadURI(
 
   RefPtr<CanonicalBrowsingContext> targetBC = aTargetBC.get_canonical();
 
-  // FIXME: For cross-process loads, we should double check CanAccess() for the
-  // source browsing context in the parent process.
-
   if (targetBC->Group() != BrowsingContext()->Group()) {
     return IPC_FAIL(this, "Illegal cross-group BrowsingContext load");
+  }
+
+  if (!nsContentUtils::CanNavigate(BrowsingContext(), targetBC.get(),
+                                   DocumentPrincipal(), true)) {
+    return IPC_FAIL(this,
+                    "Illegal cross-process load attempt (!CanNavigate())");
   }
 
   // FIXME: We should really initiate the load in the parent before bouncing
@@ -372,11 +374,14 @@ mozilla::ipc::IPCResult WindowGlobalParent::RecvInternalLoad(
   RefPtr<CanonicalBrowsingContext> targetBC =
       aLoadState->TargetBrowsingContext().get_canonical();
 
-  // FIXME: For cross-process loads, we should double check CanAccess() for the
-  // source browsing context in the parent process.
-
   if (targetBC->Group() != BrowsingContext()->Group()) {
     return IPC_FAIL(this, "Illegal cross-group BrowsingContext load");
+  }
+
+  if (!nsContentUtils::CanNavigate(BrowsingContext(), targetBC.get(),
+                                   DocumentPrincipal(), true)) {
+    return IPC_FAIL(this,
+                    "Illegal cross-process load attempt (!CanNavigate())");
   }
 
   // FIXME: We should really initiate the load in the parent before bouncing
@@ -637,8 +642,7 @@ already_AddRefed<JSActor> WindowGlobalParent::InitJSActor(
 }
 
 bool WindowGlobalParent::IsCurrentGlobal() {
-  if (mozilla::SessionHistoryInParent() && BrowsingContext() &&
-      BrowsingContext()->IsInBFCache()) {
+  if (BrowsingContext() && BrowsingContext()->IsInBFCache()) {
     return false;
   }
 
@@ -1453,6 +1457,24 @@ mozilla::ipc::IPCResult WindowGlobalParent::RecvSetDocumentDomain(
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult WindowGlobalParent::RecvSetSiteIntegrityProtected(
+    NotNull<nsIURI*> aSourceURI, uint64_t aMaxAge) {
+  nsCOMPtr<nsISiteIntegrityService> service =
+      do_GetService("@mozilla.org/security/integrity;1");
+  if (!service) {
+    return IPC_OK();
+  }
+
+  OriginAttributes originAttributes =
+      DocumentPrincipal()->OriginAttributesRef();
+  StoragePrincipalHelper::UpdateOriginAttributesForNetworkState(
+      aSourceURI, originAttributes);
+
+  (void)service->SetProtected(aSourceURI, originAttributes, aMaxAge);
+
+  return IPC_OK();
+}
+
 mozilla::ipc::IPCResult WindowGlobalParent::RecvReloadWithHttpsOnlyException() {
   nsresult rv;
   nsCOMPtr<nsIURI> currentURI = BrowsingContext()->Top()->GetCurrentURI();
@@ -1826,6 +1848,25 @@ IPCResult WindowGlobalParent::RecvRecordUserActivationForBTP() {
       principal, Some(PR_Now()), top->BrowsingContext());
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
                        "Failed to record BTP user activation.");
+
+  return IPC_OK();
+}
+
+IPCResult WindowGlobalParent::RecvRecordUserInteractionForPermissions() {
+  WindowGlobalParent* top = TopWindowContext();
+  if (!top) {
+    return IPC_OK();
+  }
+  nsIPrincipal* principal = top->DocumentPrincipal();
+  if (!principal) {
+    return IPC_OK();
+  }
+
+  nsCOMPtr<nsIPermissionManager> permMgr =
+      do_GetService(NS_PERMISSIONMANAGER_CONTRACTID);
+  if (permMgr) {
+    (void)permMgr->UpdateLastInteractionForPrincipal(principal);
+  }
 
   return IPC_OK();
 }

@@ -12,6 +12,7 @@ const {
 
 const {
   PSEUDO_CLASSES,
+  ELEMENT_SPECIFIC_PSEUDO_CLASSES,
 } = require("resource://devtools/shared/css/constants.js");
 
 loader.lazyRequireGetter(
@@ -467,7 +468,10 @@ class NodeActor extends Actor {
       return undefined;
     }
     let ret = undefined;
-    for (const pseudo of PSEUDO_CLASSES) {
+    for (const pseudo of [
+      ...PSEUDO_CLASSES,
+      ...Object.keys(ELEMENT_SPECIFIC_PSEUDO_CLASSES),
+    ]) {
       if (InspectorUtils.hasPseudoClassLock(this.rawNode, pseudo)) {
         ret = ret || [];
         ret.push(pseudo);

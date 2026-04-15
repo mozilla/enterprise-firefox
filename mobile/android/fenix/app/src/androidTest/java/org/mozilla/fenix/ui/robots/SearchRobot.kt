@@ -48,8 +48,10 @@ import org.mozilla.fenix.helpers.Constants.RETRY_COUNT
 import org.mozilla.fenix.helpers.Constants.SPEECH_RECOGNITION
 import org.mozilla.fenix.helpers.Constants.TAG
 import org.mozilla.fenix.helpers.DataGenerationHelper.getStringResource
+import org.mozilla.fenix.helpers.MatcherHelper.assertUIObjectExists
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithDescription
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithResId
+import org.mozilla.fenix.helpers.MatcherHelper.itemWithResIdContainingText
 import org.mozilla.fenix.helpers.SessionLoadedIdlingResource
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTime
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTimeShort
@@ -486,19 +488,13 @@ class SearchRobot(private val composeTestRule: ComposeTestRule) {
         Log.i(TAG, "verifyTranslatedNavigationToolbarHint: Verified that the translated toolbar has: $toolbarHintString as a hint")
     }
 
+    @OptIn(ExperimentalTestApi::class)
     fun verifyTypedToolbarText(expectedText: String, exists: Boolean) {
+        Log.i(TAG, "verifyTypedToolbarText: Waiting for $waitingTime until the edit mode toolbar search box exists")
+        composeTestRule.waitUntilAtLeastOneExists(hasTestTag(ADDRESSBAR_SEARCH_BOX), waitingTime)
+        Log.i(TAG, "verifyTypedToolbarText: Waited for $waitingTime until the edit mode toolbar search box exists")
         Log.i(TAG, "verifyTypedToolbarText: Verifying that text '$expectedText' exists?: $exists")
-
-        val editToolbar = this@SearchRobot.composeTestRule.onNode(
-            hasTestTag(ADDRESSBAR_SEARCH_BOX) and hasText(expectedText),
-            useUnmergedTree = true,
-        )
-
-        when (exists) {
-            true -> editToolbar.assertIsDisplayed()
-            false -> editToolbar.assertIsNotDisplayed()
-        }
-
+        assertUIObjectExists(itemWithResIdContainingText(ADDRESSBAR_SEARCH_BOX, expectedText), exists = exists)
         Log.i(TAG, "verifyTypedToolbarText: Verification successful.")
     }
 
@@ -540,16 +536,32 @@ class SearchRobot(private val composeTestRule: ComposeTestRule) {
         }
 
         fun submitQuery(query: String, interact: BrowserRobot.() -> Unit): BrowserRobot.Transition {
-            Log.i(TAG, "submitQuery: Trying to set toolbar text to: $query and pressing IME action")
-            composeTestRule.onNodeWithTag(ADDRESSBAR_SEARCH_BOX).apply {
-                performTextReplacement(query)
-                performImeAction()
-            }
-            Log.i(TAG, "submitQuery: Toolbar text was set to: $query and IME action performed")
-
-            Log.i(TAG, "submitQuery: Waiting for compose test rule to be idle")
+            Log.i(TAG, "submitQuery: Waiting for compose rule to be idle")
             composeTestRule.waitForIdle()
-            Log.i(TAG, "submitQuery: Waiting for compose test rule to be idle")
+            Log.i(TAG, "submitQuery: Waited for compose rule to be idle")
+
+            Log.i(TAG, "submitQuery: Trying to set toolbar text to: $query")
+            itemWithResId("ADDRESSBAR_SEARCH_BOX").setText(query)
+            Log.i(TAG, "submitQuery: Toolbar text was set to: $query")
+
+            Log.i(TAG, "submitQuery: Waiting for compose rule to be idle")
+            composeTestRule.waitForIdle()
+            Log.i(TAG, "submitQuery: Waited for compose rule to be idle")
+
+            runCatching {
+                Log.i(TAG, "submitQuery: Trying to perform Compose IME action perform on the toolbar")
+                composeTestRule.onNodeWithTag(ADDRESSBAR_SEARCH_BOX).performImeAction()
+                Log.i(TAG, "submitQuery: Compose IME action performed on the toolbar")
+            }.onFailure { throwable ->
+                Log.e(TAG, "submitQuery: Compose IME action failed with: ${throwable::class.java.simpleName} - ${throwable.message}")
+                Log.d(TAG, "submitQuery: Falling back to UiDevice pressEnter()")
+                mDevice.pressEnter()
+                Log.d(TAG, "submitQuery: Fallback UiDevice pressEnter() completed")
+            }
+
+            Log.i(TAG, "submitQuery: Waiting for compose rule to be idle")
+            composeTestRule.waitForIdle()
+            Log.i(TAG, "submitQuery: Waited for compose rule to be idle")
 
             BrowserRobot(composeTestRule).interact()
             return BrowserRobot.Transition(composeTestRule)

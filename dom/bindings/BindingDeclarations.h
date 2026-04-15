@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -46,26 +44,26 @@ struct DictionaryBase {
  protected:
   bool ParseJSON(JSContext* aCx, const nsAString& aJSON,
                  JS::MutableHandle<JS::Value> aVal);
+  bool ParseJSON(JSContext* aCx, const nsACString& aJSON,
+                 JS::MutableHandle<JS::Value> aVal);
 
   bool StringifyToJSON(JSContext* aCx, JS::Handle<JSObject*> aObj,
                        nsAString& aJSON) const;
+  bool StringifyToJSON(JSContext* aCx, JS::Handle<JSObject*> aObj,
+                       nsACString& aJSON) const;
 
   // Struct used as a way to force a dictionary constructor to not init the
   // dictionary (via constructing from a pointer to this class).  We're putting
   // it here so that all the dictionaries will have access to it, but outside
   // code will not.
   struct FastDictionaryInitializer {};
+};
 
-  bool mIsAnyMemberPresent = false;
-
- private:
-  // aString is expected to actually be an nsAString*.  Should only be
-  // called from StringifyToJSON.
-  static bool AppendJSONToString(const char16_t* aJSONData,
-                                 uint32_t aDataLength, void* aString);
-
- public:
+struct MaybeEmptyDictionaryBase : DictionaryBase {
   bool IsAnyMemberPresent() const { return mIsAnyMemberPresent; }
+
+ protected:
+  bool mIsAnyMemberPresent = false;
 };
 
 template <class T>

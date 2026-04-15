@@ -49,7 +49,7 @@ newtab-search-box-input =
     .placeholder = ค้นหาเว็บ
     .aria-label = ค้นหาเว็บ
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = เพิ่มเครื่องมือค้นหา
 newtab-topsites-add-shortcut-header = ทางลัดใหม่

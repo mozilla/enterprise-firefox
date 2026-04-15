@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -69,14 +67,21 @@ ScreenOrientation::ScreenOrientation(nsPIDOMWindowInner* aWindow,
     : DOMEventTargetHelper(aWindow), mScreen(aScreen) {
   MOZ_ASSERT(aWindow);
   MOZ_ASSERT(aScreen);
+}
 
-  mAngle = aScreen->GetOrientationAngle();
-  mType = InternalOrientationToType(aScreen->GetOrientationType());
+/* static */ already_AddRefed<ScreenOrientation> ScreenOrientation::Create(
+    nsPIDOMWindowInner* aWindow, nsScreen* aScreen) {
+  RefPtr screenOrientation = new ScreenOrientation(aWindow, aScreen);
 
-  Document* doc = GetResponsibleDocument();
+  screenOrientation->mAngle = aScreen->GetOrientationAngle();
+  screenOrientation->mType =
+      InternalOrientationToType(aScreen->GetOrientationType());
+
+  Document* doc = screenOrientation->GetResponsibleDocument();
   BrowsingContext* bc = doc ? doc->GetBrowsingContext() : nullptr;
   if (bc && !bc->IsDiscarded() && !bc->HasOrientationOverride()) {
-    MOZ_ALWAYS_SUCCEEDS(bc->SetCurrentOrientation(mType, mAngle));
+    MOZ_ALWAYS_SUCCEEDS(bc->SetCurrentOrientation(screenOrientation->mType,
+                                                  screenOrientation->mAngle));
   } else if (bc && !bc->IsTop() && bc->HasOrientationOverride()) {
     // Resync the override for newly created iframes.
     BrowsingContext* topBC = bc->Top();
@@ -84,6 +89,8 @@ ScreenOrientation::ScreenOrientation(nsPIDOMWindowInner* aWindow,
         bc->SetOrientationOverride(topBC->GetCurrentOrientationType(),
                                    topBC->GetCurrentOrientationAngle()));
   }
+
+  return screenOrientation.forget();
 }
 
 ScreenOrientation::~ScreenOrientation() {

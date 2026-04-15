@@ -398,6 +398,18 @@ impl ScaleOffset {
             1.0,
         )
     }
+
+    pub fn is_identity(&self) -> bool {
+        self.scale.x == 1.0 &&
+        self.scale.y == 1.0 &&
+        self.offset.x == 0.0 &&
+        self.offset.y == 0.0
+    }
+
+    pub fn is_reflection(&self) -> bool {
+        self.scale.x < 0.0 ||
+        self.scale.y < 0.0
+    }
 }
 
 // TODO: Implement these in euclid!

@@ -15,7 +15,7 @@
 }
 
 .dialogTitle {
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   text-align: center;
   user-select: none;
   flex: 1;

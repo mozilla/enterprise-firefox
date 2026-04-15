@@ -606,6 +606,21 @@ Preferences.addSetting({
   },
 });
 
+// Backup section
+
+Preferences.addSetting({
+  id: "backupSettings",
+  setup(emitChange) {
+    Services.obs.addObserver(emitChange, "backup-service-status-updated");
+    return () =>
+      Services.obs.removeObserver(emitChange, "backup-service-status-updated");
+  },
+  visible: () => {
+    let bs = lazy.BackupService.init();
+    return bs.archiveEnabledStatus.enabled || bs.restoreEnabledStatus.enabled;
+  },
+});
+
 var gSyncPane = {
   get page() {
     return document.getElementById("weavePrefsDeck").selectedIndex;
@@ -661,26 +676,6 @@ var gSyncPane = {
     xps.ensureLoaded();
   },
 
-  /**
-   * This method allows us to override any hidden states that were set
-   * during preferences.js init(). Currently, this is used to hide the
-   * backup section if backup is disabled.
-   *
-   * Take caution when trying to flip the hidden state to true since the
-   * element might show up unexpectedly on different pages in about:preferences
-   * since this function will run at the end of preferences.js init().
-   *
-   * See Bug 1999032 to remove this in favor of config-based prefs.
-   */
-  handlePrefControlledSection() {
-    let bs = lazy.BackupService.init();
-
-    if (!bs.archiveEnabledStatus.enabled && !bs.restoreEnabledStatus.enabled) {
-      document.getElementById("backupCategory").hidden = true;
-      document.getElementById("dataBackupGroup").hidden = true;
-    }
-  },
-
   _showLoadPage() {
     let maybeAcct = false;
     let username = Services.prefs.getCharPref("services.sync.username", "");
@@ -704,6 +699,7 @@ var gSyncPane = {
     initSettingGroup("defaultBrowserSync");
     initSettingGroup("sync");
     initSettingGroup("account");
+    initSettingGroup("backup");
 
     Weave.Svc.Obs.add(UIState.ON_UPDATE, this.updateWeavePrefs, this);
 

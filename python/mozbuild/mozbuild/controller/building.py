@@ -14,6 +14,7 @@ import sys
 import time
 from collections import Counter, OrderedDict, namedtuple
 from itertools import dropwhile, islice, takewhile
+from pathlib import Path
 from textwrap import TextWrapper
 
 from mach.logging import BUILD_ERROR, SUPPRESSED_WARNING, THIRD_PARTY_WARNING
@@ -53,7 +54,7 @@ RE_BUILD_OUTPUT = re.compile(
     |(?P<error_summary>^\d+\s+errors?\s+generated\.)
     |(?P<make_error>make(?:\[\d+\])?\s*:\s*\*\*\*)
     |(?P<nsis_warning_block>^\d+\s+warnings?:)
-    |(?P<error_block>^error:(?:\[e\d+\])?:?\s?)
+    |(?P<error_block>^error(?:\[e\d+\])?:\s?)
     |(?P<warning_standalone>^warning:\s+mkdir\s)
     |(?P<warning_num>^warning\s+\d+:)
     |(?P<warning_block>^warning:\s?)
@@ -896,7 +897,10 @@ class StaticAnalysisFooter(Footer):
         monitor = self.monitor
         total = monitor.num_files
         processed = monitor.num_files_processed
-        percent = "(%.2f%%)" % (processed * 100.0 / total)
+        if total:
+            percent = "(%.2f%%)" % (processed * 100.0 / total)
+        else:
+            percent = "(100%)"
         parts = [
             ("bright_black", "Processing"),
             ("yellow", str(processed)),
@@ -1268,6 +1272,7 @@ class BuildDriver(MozbuildObject):
         keep_going=False,
         mach_context=None,
         append_env=None,
+        allow_subdirectory_build=False,
     ):
         self._ensure_build_log_dir_exists()
         warnings_path = self._get_build_log_filename(construct_log_filename("warnings"))
@@ -1284,6 +1289,7 @@ class BuildDriver(MozbuildObject):
             keep_going,
             mach_context,
             append_env,
+            allow_subdirectory_build,
         )
 
         record_usage = True
@@ -1309,6 +1315,7 @@ class BuildDriver(MozbuildObject):
         keep_going=False,
         mach_context=None,
         append_env=None,
+        allow_subdirectory_build=False,
     ):
         """Invoke the build backend.
 
@@ -1490,6 +1497,19 @@ class BuildDriver(MozbuildObject):
                         make_dir, make_target = resolve_target_to_make(
                             self.topobjdir, path_arg.relpath()
                         )
+                        if (
+                            make_dir is not None
+                            and not allow_subdirectory_build
+                            and (Path(self.topsrcdir) / target).is_dir()
+                        ):
+                            self.log(
+                                logging.WARNING,
+                                "build",
+                                {"target": target},
+                                "Build argument '{target}' is a subdirectory and was ignored. "
+                                "Use --allow-subdirectory-build to override.",
+                            )
+                            continue
 
                     if make_dir is None and make_target is None:
                         return 1

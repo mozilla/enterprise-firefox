@@ -186,6 +186,21 @@ add_task(function test_InterestFeatures_applyThresholds() {
     3,
     "Value >= all thresholds returns length of thresholds"
   );
+  Assert.equal(
+    feature.applyThresholds(15, 0),
+    0,
+    "Threshold is overridden by debugging value."
+  );
+  Assert.equal(
+    feature.applyThresholds(15, 3),
+    3,
+    "Threshold is overridden by debugging value - top of range"
+  );
+  Assert.equal(
+    feature.applyThresholds(15, 5),
+    1,
+    "Threshold is not overridden by out of range debugging value."
+  );
 });
 
 add_task(function test_InterestFeatures_noThresholds() {
@@ -810,4 +825,63 @@ add_task(function test_computeCTRInterestTZNotInModel() {
   Assert.equal(result.coarseInferredInterests.parenting, 2); // ctr of 0.5, with vector normalized to 1
   Assert.equal(result.coarseInferredInterests.news_reader, 0);
   Assert.equal(result.coarseInferredInterests.timeZoneOffset, undefined);
+});
+
+add_task(function test_computeCTRInterestWithDebugOverride() {
+  const model = FeatureModel.fromJSON({
+    ...ctrModelData,
+    normalize_l1: true,
+  });
+  const clickInferredInterests = { parenting: 1 };
+  const impressionInferredInterests = { parenting: 2, news_reader: 4 };
+
+  const resultWithoutOverride = model.computeCTRInterestVectors({
+    clicks: clickInferredInterests,
+    impressions: impressionInferredInterests,
+    model_id: "test-ctr-model",
+  });
+
+  Assert.equal(
+    resultWithoutOverride.coarseInferredInterests.parenting,
+    2,
+    "Without override, parenting coarse value is 2"
+  );
+  Assert.equal(
+    resultWithoutOverride.coarseInferredInterests.news_reader,
+    0,
+    "Without override, news_reader coarse value is 0"
+  );
+
+  const debugOverrides = {
+    parenting: 1,
+    news_reader: 2,
+  };
+
+  const resultWithOverride = model.computeCTRInterestVectors({
+    clicks: clickInferredInterests,
+    impressions: impressionInferredInterests,
+    model_id: "test-ctr-model",
+    debugOverrideCoarseValueDictionary: debugOverrides,
+  });
+
+  Assert.equal(
+    resultWithOverride.inferredInterests.parenting,
+    0.5,
+    "Debug override doesn't affect raw inferred interests"
+  );
+  Assert.equal(
+    resultWithOverride.inferredInterests.news_reader,
+    0,
+    "Debug override doesn't affect raw inferred interests"
+  );
+  Assert.equal(
+    resultWithOverride.coarseInferredInterests.parenting,
+    1,
+    "Debug override sets parenting coarse value to 1"
+  );
+  Assert.equal(
+    resultWithOverride.coarseInferredInterests.news_reader,
+    2,
+    "Debug override sets news_reader coarse value to 2"
+  );
 });

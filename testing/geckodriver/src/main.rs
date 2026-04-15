@@ -1,4 +1,4 @@
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 
 extern crate chrono;
 #[macro_use]
@@ -210,7 +210,9 @@ fn parse_args(args: &ArgMatches) -> ProgramResult<Operation> {
             tempfile::tempdir()
         };
         if tmp_dir.is_err() {
-            bail!("Unable to write to temporary directory; consider --profile-root with a writeable directory")
+            bail!(
+                "Unable to write to temporary directory; consider --profile-root with a writeable directory"
+            )
         }
     }
 

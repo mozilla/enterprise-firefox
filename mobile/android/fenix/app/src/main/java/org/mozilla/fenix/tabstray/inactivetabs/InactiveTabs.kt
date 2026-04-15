@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-@file:Suppress("TooManyFunctions")
-
 package org.mozilla.fenix.tabstray.inactivetabs
 
 import androidx.compose.animation.animateContentSize
@@ -40,8 +38,6 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import mozilla.components.browser.state.state.ContentState
-import mozilla.components.browser.state.state.TabSessionState
 import mozilla.components.compose.base.button.TextButton
 import mozilla.components.compose.cfr.CFRPopup
 import mozilla.components.compose.cfr.CFRPopupLayout
@@ -50,7 +46,8 @@ import org.mozilla.fenix.R
 import org.mozilla.fenix.compose.list.ExpandableListHeader
 import org.mozilla.fenix.compose.list.FaviconListItem
 import org.mozilla.fenix.ext.toShortUrl
-import org.mozilla.fenix.tabstray.ext.toDisplayTitle
+import org.mozilla.fenix.tabstray.data.TabsTrayItem
+import org.mozilla.fenix.tabstray.data.createTab
 import org.mozilla.fenix.theme.FirefoxTheme
 import mozilla.components.ui.icons.R as iconsR
 
@@ -59,7 +56,7 @@ private val ROUNDED_CORNER_SHAPE = RoundedCornerShape(8.dp)
 /**
  * Top-level list for displaying an expandable section of Inactive Tabs.
  *
- * @param inactiveTabs List of [TabSessionState] to display.
+ * @param inactiveTabs List of [TabsTrayItem.Tab] to display.
  * @param expanded Whether to show the inactive tabs section expanded or collapsed.
  * @param showAutoCloseDialog Whether to show the auto close inactive tabs dialog.
  * @param showCFR Whether to show the CFR.
@@ -76,7 +73,7 @@ private val ROUNDED_CORNER_SHAPE = RoundedCornerShape(8.dp)
 @Composable
 @Suppress("LongParameterList")
 fun InactiveTabsList(
-    inactiveTabs: List<TabSessionState>,
+    inactiveTabs: List<TabsTrayItem.Tab>,
     expanded: Boolean,
     showAutoCloseDialog: Boolean,
     showCFR: Boolean,
@@ -84,8 +81,8 @@ fun InactiveTabsList(
     onDeleteAllButtonClick: () -> Unit,
     onAutoCloseDismissClick: () -> Unit,
     onEnableAutoCloseClick: () -> Unit,
-    onTabClick: (TabSessionState) -> Unit,
-    onTabCloseClick: (TabSessionState) -> Unit,
+    onTabClick: (TabsTrayItem.Tab) -> Unit,
+    onTabCloseClick: (TabsTrayItem.Tab) -> Unit,
     onCFRShown: () -> Unit,
     onCFRClick: () -> Unit,
     onCFRDismiss: () -> Unit,
@@ -124,14 +121,14 @@ fun InactiveTabsList(
 
                 Column {
                     inactiveTabs.forEach { tab ->
-                        val tabUrl = tab.content.url.toShortUrl()
-                        val faviconPainter = tab.content.icon?.run {
+                        val tabUrl = tab.url.toShortUrl()
+                        val faviconPainter = tab.icon?.run {
                             prepareToDraw()
                             BitmapPainter(asImageBitmap())
                         }
 
                         FaviconListItem(
-                            label = tab.toDisplayTitle(),
+                            label = tab.title,
                             url = tabUrl,
                             description = tabUrl,
                             faviconPainter = faviconPainter,
@@ -337,18 +334,8 @@ private fun InactiveTabsListPreview() {
     }
 }
 
-private fun generateFakeInactiveTabsList(): List<TabSessionState> =
+private fun generateFakeInactiveTabsList(): List<TabsTrayItem.Tab> =
     listOf(
-        TabSessionState(
-            id = "tabId",
-            content = ContentState(
-                url = "www.mozilla.com",
-            ),
-        ),
-        TabSessionState(
-            id = "tabId",
-            content = ContentState(
-                url = "www.google.com",
-            ),
-        ),
+        createTab("www.mozilla.com"),
+        createTab("www.example.com"),
     )

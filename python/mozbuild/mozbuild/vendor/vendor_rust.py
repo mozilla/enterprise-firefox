@@ -296,6 +296,7 @@ Please commit or stash these changes before vendoring, or re-run with `--ignore-
     # Licenses for code used at runtime. Please see the above comment before
     # adding anything to this list.
     RUNTIME_LICENSE_WHITELIST = [
+        "0BSD",
         "Apache-2.0",
         "Apache-2.0 WITH LLVM-exception",
         # BSD-2-Clause and BSD-3-Clause are ok, but packages using them

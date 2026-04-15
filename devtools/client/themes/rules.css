@@ -91,12 +91,25 @@
 
 /* Pseudo Class toggle panel */
 
-#pseudo-class-panel {
+#pseudo-class-panel:not([hidden]) {
+  display: grid;
+}
+
+.pseudo-classes {
+  display: grid;
   grid-template-columns: repeat(auto-fit, minmax(100px, max-content));
 }
 
-#pseudo-class-panel:not([hidden]) {
-  display: grid;
+#pseudo-classes-element-specific-heading {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: normal;
+  margin-block: 8px 0;
+  user-select: none;
+}
+
+#pseudo-classes-element-specific label:has(input:disabled) {
+  display: none;
 }
 
 /* Class toggle panel */

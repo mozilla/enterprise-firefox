@@ -1,0 +1,114 @@
+/**
+ * Nova Grid System
+ *
+ * Layout structure:
+ * .container (full grid)
+ *   ├── .sidebar-inline-start (148px - left sidebar for logo/navigation)
+ *   ├── .content (flexible - fills remaining space with 74px columns)
+ *   └── .sidebar-inline-end (148px - right sidebar for mini widgets)
+ *
+ * Column width:
+ *   1 column = 1/4 of an IAB Medium Rectangle (MREC) = 300px ÷ 4 = 75px
+ */
+
+:root {
+  // IAB Medium Rectangle ad unit dimensions
+  --mrec-width: 300px;
+
+  // A card spans exactly 4 columns. Use this as our base unit.
+  --col-width: calc(var(--mrec-width) / 4);
+
+  // Bug 2020983: Enable property to set card height
+  --mrec-height: 250px;
+  --row-height: calc(var(--mrec-height) / 4);
+
+  // Side Columns (.sidebar-inline-start/end) are 2 columns wide each side
+  --side-col-width: calc(2 * var(--col-width));
+  // Usage note: We use --row-heigh as the spacing unit to create consistent spacing both
+  // vertically and horizontal for the logo
+  --side-col-space-logo: var(--row-height);
+
+  // Content area (.content): minimum 4 columns wide, grows up to 16 columns max
+  --content-col-width: minmax(calc((4 * var(--col-width)) + 34px), var(--content-max-width));
+
+  // Maximum width of .content: 16 columns + 15 gaps
+  --content-max-width: calc(16 * var(--col-width) + 15 * var(--space-medium));
+}
+
+.container {
+  container-type: inline-size;
+  container-name: outer-grid;
+  display: grid;
+  grid-template-columns: var(--side-col-width) var(--content-col-width) var(--side-col-width);
+  grid-auto-rows: var(--row-height);
+  gap: var(--space-medium);
+  justify-content: center;
+  margin-inline: auto;
+}
+
+.content {
+  container-type: inline-size;
+  container-name: content-grid;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, var(--col-width));
+  gap: var(--space-medium);
+  justify-content: center;
+  grid-column: 2;
+  grid-row: 3 / span 2;
+}
+
+.sidebar-inline-end {
+  grid-column: 3;
+  grid-row: 2 / span 2;
+}
+
+.sidebar-inline-start {
+  grid-column: 1;
+  grid-row: 2 / span 2;
+
+  @include at-outer-grid-cols(6) {
+    // Note - This is intentional (using the row height as horizontal spacing unit).
+    /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+    margin-inline-start: var(--side-col-space-logo);
+  }
+}
+
+.content > * {
+  grid-column: 1 / -1;
+  container-type: inline-size;
+  container-name: component;
+}
+
+// Fixed-width columns - always span the specified number
+.col-1 {
+  grid-column: span 1;
+}
+
+.col-2 {
+  grid-column: span 2;
+}
+
+.col-3 {
+  grid-column: span 3;
+}
+
+.col-4 {
+  grid-column: span 4;
+}
+
+.col-8 {
+  grid-column: span 8;
+}
+
+.col-12 {
+  grid-column: span 12;
+}
+
+.col-18 {
+  grid-column: span 18;
+}
+
+.col-26 {
+  grid-column: span 26;
+}
+

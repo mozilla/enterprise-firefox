@@ -237,10 +237,13 @@ let JSWINDOWACTORS = {
         "AIChatContent:Ready": { wantUntrusted: true },
         "AIChatContent:DispatchAction": { wantUntrusted: true },
         "AIChatContent:OpenLink": { wantUntrusted: true },
+        "AIChatContent:DispatchNewChat": { wantUntrusted: true },
+        "AIChatContent:AccountSignIn": { wantUntrusted: true },
       },
     },
     allFrames: true,
     matches: ["about:aichatcontent"],
+    remoteTypes: ["privilegedabout"],
     enablePreference: "browser.smartwindow.enabled",
   },
 
@@ -809,14 +812,6 @@ let JSWINDOWACTORS = {
     },
 
     allFrames: true,
-  },
-
-  TLSCertificateBinding: {
-    child: {
-      esModuleURI: "resource:///actors/TLSCertificateBindingChild.sys.mjs",
-    },
-
-    messageManagerGroups: ["browsers"],
   },
 
   UITour: {

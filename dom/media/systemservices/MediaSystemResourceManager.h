@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -55,9 +53,7 @@ class MediaSystemResourceManager {
   MediaSystemResourceManager();
   virtual ~MediaSystemResourceManager();
 
-  void OpenIPC();
   void CloseIPC();
-  bool IsIpcClosed();
 
   void DoAcquire(uint32_t aId);
 
@@ -65,13 +61,13 @@ class MediaSystemResourceManager {
 
   void HandleAcquireResult(uint32_t aId, bool aSuccess);
 
-  ReentrantMonitor mReentrantMonitor MOZ_UNANNOTATED;
+  ReentrantMonitor mReentrantMonitor{
+      "MediaSystemResourceManager.mReentrantMonitor"};
 
-  bool mShutDown;
+  media::MediaSystemResourceManagerChild* mChild = nullptr;
 
-  media::MediaSystemResourceManagerChild* mChild;
-
-  nsTHashMap<nsUint32HashKey, MediaSystemResourceClient*> mResourceClients;
+  nsTHashMap<nsUint32HashKey, MediaSystemResourceClient*> mResourceClients
+      MOZ_GUARDED_BY(mReentrantMonitor);
 
   static StaticRefPtr<MediaSystemResourceManager> sSingleton;
 };

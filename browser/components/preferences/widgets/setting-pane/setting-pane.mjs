@@ -12,7 +12,9 @@ import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
  * @property {string[]} groupIds What setting groups should be rendered.
  * @property {string} [iconSrc] Optional icon shown in the page header.
  * @property {string} [module] Import path for module housing the config.
+ * @property {"beta" | "new"} [badge] Badge type to display in the page header.
  * @property {() => boolean} [visible] If this pane is visible.
+ * @property {string} [replaces] ID of legacy pane getting replaced by new pane.
  */
 
 export class SettingPane extends MozLitElement {
@@ -71,17 +73,7 @@ export class SettingPane extends MozLitElement {
 
     this.handleVisibility();
 
-    document.addEventListener(
-      "paneshown",
-      /**
-       * @param {CustomEvent} e
-       */
-      e => {
-        if (this.isSubPane && e.detail.category === this.name) {
-          this.pageHeaderEl.backButtonEl.focus();
-        }
-      }
-    );
+    document.addEventListener("paneshown", this.handlePaneShown);
     this.setAttribute("data-category", this.name);
     this.hidden = true;
     if (this.isSubPane) {
@@ -90,6 +82,20 @@ export class SettingPane extends MozLitElement {
       this._createCategoryButton();
     }
   }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    document.removeEventListener("paneshown", this.handlePaneShown);
+  }
+
+  /**
+   * @param {CustomEvent} e
+   */
+  handlePaneShown = e => {
+    if (this.isSubPane && e.detail.category === this.name) {
+      this.pageHeaderEl.backButtonEl.focus();
+    }
+  };
 
   init() {
     if (!this.hasUpdated) {
@@ -128,6 +134,7 @@ export class SettingPane extends MozLitElement {
           data-l10n-id=${this.config.l10nId}
           .iconSrc=${this.config.iconSrc}
           .supportPage=${this.config.supportPage}
+          .badge=${this.config.badge}
           .backButton=${this.isSubPane}
           @navigate-back=${this.goBack}
         ></moz-page-header>

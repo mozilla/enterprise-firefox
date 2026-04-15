@@ -23,6 +23,7 @@ vendoring:
   patches:
     - patches/trace-constiterator-operator-not-equal.patch
     - patches/public-regexp-destructor.patch
+    - patches/icu4x.patch
 
   update-actions:
     - action: run-script

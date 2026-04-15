@@ -182,6 +182,23 @@ sealed class MenuAction : Action {
     data object OnCFRDismiss : MenuAction()
 
     /**
+     * [MenuAction] dispatched when the menu is clicked.
+     */
+    data object OnMoreMenuClicked : MenuAction()
+
+    /**
+     * [MenuAction] dispatched to record that the summarize page menu has been exposed to the user
+     */
+    data object OnSummarizationMenuExposed : MenuAction()
+
+    /**
+     * [MenuAction] dispatched to initialize the state of the summarize page menu.
+     *
+     * @property state The [SummarizationMenuState] to set up
+     */
+    data class InitializeSummarizationMenuState(val state: SummarizationMenuState) : MenuAction()
+
+    /**
      * [MenuAction] dispatched when a navigation event occurs for a specific destination.
      */
     sealed class Navigate : MenuAction() {

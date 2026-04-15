@@ -111,6 +111,8 @@ skip-if = [
 
 ["test_readonly.html"]
 
+["test_select_ctrl_a.html"]
+
 ["test_select_collapsed_page_keys.html"]
 skip-if = [
   "os == 'mac' && os_version == '10.15' && arch == 'x86_64'", # select control keyboard behavior is different

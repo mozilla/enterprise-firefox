@@ -128,8 +128,8 @@ export const SpecialMessageActions = {
    *
    * @param {Window} window Reference to a window object
    */
-  setDefaultPDFHandler(window, onlyIfKnownBrowser = false) {
-    window.getShellService().setAsDefaultPDFHandler(onlyIfKnownBrowser);
+  async setDefaultPDFHandler(window, onlyIfKnownBrowser = false) {
+    await window.getShellService().setAsDefaultPDFHandler(onlyIfKnownBrowser);
   },
 
   /**
@@ -743,7 +743,7 @@ export const SpecialMessageActions = {
         await this.setDefaultBrowser(window);
         break;
       case "SET_DEFAULT_PDF_HANDLER":
-        this.setDefaultPDFHandler(
+        await this.setDefaultPDFHandler(
           window,
           action.data?.onlyIfKnownBrowser ?? false
         );
@@ -847,13 +847,6 @@ export const SpecialMessageActions = {
         throw new Error(
           `Special message action with type ${action.type} is unsupported.`
         );
-      case "CLICK_ELEMENT": {
-        const clickElement = window.document.querySelector(
-          action.data.selector
-        );
-        clickElement?.click();
-        break;
-      }
       case "RELOAD_BROWSER":
         browser.reload();
         break;

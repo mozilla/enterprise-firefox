@@ -120,9 +120,9 @@ async function check_homepage({
     gBrowser,
     "about:preferences"
   );
-  await ContentTask.spawn(
+  await SpecialPowers.spawn(
     tab.linkedBrowser,
-    { expectedURL, expectedPageVal, locked },
+    [{ expectedURL, expectedPageVal, locked }],
     // eslint-disable-next-line no-shadow
     async function ({ expectedURL, expectedPageVal, locked }) {
       if (expectedPageVal != -1) {

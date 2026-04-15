@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -21,6 +19,7 @@
 #include "mozilla/dom/FetchEventOpProxyChild.h"
 #include "mozilla/dom/IndexedDatabaseManager.h"
 #include "mozilla/dom/MessagePort.h"
+#include "mozilla/dom/OffThreadCSPContext.h"
 #include "mozilla/dom/PolicyContainer.h"
 #include "mozilla/dom/RemoteWorkerTypes.h"
 #include "mozilla/dom/ServiceWorkerDescriptor.h"
@@ -30,7 +29,6 @@
 #include "mozilla/dom/ServiceWorkerShutdownState.h"
 #include "mozilla/dom/ServiceWorkerUtils.h"
 #include "mozilla/dom/SharedWorkerOp.h"
-#include "mozilla/dom/WorkerCSPContext.h"
 #include "mozilla/dom/WorkerError.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerRef.h"
@@ -305,8 +303,8 @@ nsresult RemoteWorkerChild::ExecWorkerOnMainThread(
           clientInfo.ref().GetPolicyContainerArgs();
       if (policyContainerArgs.isSome() && policyContainerArgs->csp().isSome()) {
         info.mCSP = CSPInfoToCSP(*policyContainerArgs->csp(), nullptr);
-        mozilla::Result<UniquePtr<WorkerCSPContext>, nsresult> ctx =
-            WorkerCSPContext::CreateFromCSP(info.mCSP);
+        mozilla::Result<UniquePtr<OffThreadCSPContext>, nsresult> ctx =
+            OffThreadCSPContext::CreateFromCSP(info.mCSP);
         if (ctx.isErr()) {
           return ctx.unwrapErr();
         }

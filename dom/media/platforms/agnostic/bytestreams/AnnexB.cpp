@@ -177,7 +177,8 @@ Result<Ok, nsresult> AnnexB::ConvertHVCCSampleToAnnexB(
 }
 
 already_AddRefed<mozilla::MediaByteBuffer> AnnexB::ConvertAVCCExtraDataToAnnexB(
-    const mozilla::MediaByteBuffer* aExtraData) {
+    const mozilla::MediaByteBuffer* aExtraData,
+    size_t* aSPSLength /* = nullptr */) {
   // AVCC 6 byte header looks like:
   //     +------+------+------+------+------+------+------+------+
   // [0] |   0  |   0  |   0  |   0  |   0  |   0  |   0  |   1  |
@@ -201,6 +202,9 @@ already_AddRefed<mozilla::MediaByteBuffer> AnnexB::ConvertAVCCExtraDataToAnnexB(
     // Append SPS then PPS
     (void)reader.ReadU8().map(
         [&](uint8_t x) { return ConvertSPSOrPPS(reader, x & 31, annexB); });
+    if (aSPSLength) {
+      *aSPSLength = annexB->Length();
+    }
     (void)reader.ReadU8().map(
         [&](uint8_t x) { return ConvertSPSOrPPS(reader, x, annexB); });
     // MP4Box adds extra bytes that we ignore. I don't know what they do.
@@ -393,6 +397,40 @@ static Result<mozilla::Ok, nsresult> ParseNALUnits(ByteWriter<BigEndian>& aBw,
     }
   }
   return Ok();
+}
+
+/* static */
+RefPtr<MediaByteBuffer> AnnexB::ExtractExtraData(
+    const Span<const uint8_t>& aSpan) {
+  if (!IsAnnexB(aSpan)) {
+    return nullptr;
+  }
+
+  nsTArray<NALEntry> paramSets;
+  ParseNALEntries(aSpan, paramSets);
+
+  size_t spsIndex =
+      FindNalType(aSpan, paramSets, H264_NAL_SPS, /* aStartIndex */ 0);
+  if (spsIndex == SIZE_MAX) {
+    return nullptr;
+  }
+
+  size_t ppsIndex =
+      FindNalType(aSpan, paramSets, H264_NAL_PPS, /* aStartIndex */ 0);
+  if (ppsIndex == SIZE_MAX) {
+    return nullptr;
+  }
+
+  auto annexb = MakeRefPtr<MediaByteBuffer>();
+  const auto& spsEntry = paramSets.ElementAt(spsIndex);
+  const auto& ppsEntry = paramSets.ElementAt(ppsIndex);
+  const auto sps = aSpan.Subspan(spsEntry.mOffset, spsEntry.mSize);
+  const auto pps = aSpan.Subspan(ppsEntry.mOffset, ppsEntry.mSize);
+  annexb->AppendElements(kAnnexBDelimiter, std::size(kAnnexBDelimiter));
+  annexb->AppendElements(sps);
+  annexb->AppendElements(kAnnexBDelimiter, std::size(kAnnexBDelimiter));
+  annexb->AppendElements(pps);
+  return annexb;
 }
 
 /* static */

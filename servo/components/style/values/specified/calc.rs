@@ -21,7 +21,7 @@ use crate::values::specified::length::{AbsoluteLength, FontRelativeLength, NoCal
 use crate::values::specified::length::{ContainerRelativeLength, ViewportPercentageLength};
 use crate::values::specified::{self, Angle, Resolution, Time};
 use crate::values::{
-    reify_percentage, serialize_number, serialize_percentage, CSSFloat, DashedIdent,
+    reify_number, reify_percentage, serialize_number, serialize_percentage, CSSFloat, DashedIdent,
 };
 use cssparser::{match_ignore_ascii_case, CowRcStr, Parser, Token};
 use debug_unreachable::debug_unreachable;
@@ -32,6 +32,7 @@ use style_traits::values::specified::AllowedNumericType;
 use style_traits::{
     CssWriter, ParseError, SpecifiedValueInfo, StyleParseErrorKind, ToCss, ToTyped, TypedValue,
 };
+use thin_vec::ThinVec;
 
 /// The name of the mathematical function that we're parsing.
 #[derive(Clone, Copy, Debug, Parse)]
@@ -127,12 +128,13 @@ impl ToCss for Leaf {
 }
 
 impl ToTyped for Leaf {
-    fn to_typed(&self) -> Option<TypedValue> {
-        // XXX Only supporting Length and Percentage for now
+    fn to_typed(&self, dest: &mut ThinVec<TypedValue>) -> Result<(), ()> {
+        // XXX Only supporting Length, Number and Percentage for now
         match *self {
-            Self::Length(ref l) => l.to_typed(),
-            Self::Percentage(p) => Some(TypedValue::Numeric(reify_percentage(p))),
-            _ => None,
+            Self::Length(ref l) => l.to_typed(dest),
+            Self::Number(n) => reify_number(n, /* was_calc = */ false, dest),
+            Self::Percentage(p) => reify_percentage(p, /* was_calc = */ false, dest),
+            _ => Err(()),
         }
     }
 }
@@ -483,6 +485,9 @@ impl generic::CalcNodeLeaf for Leaf {
             },
             (&Length(ref one), &Length(ref other)) => {
                 return Ok(Leaf::Length(one.try_op(other, op)?));
+            },
+            (&ColorComponent(..), &ColorComponent(..)) => {
+                return Err(());
             },
             _ => {
                 match *other {

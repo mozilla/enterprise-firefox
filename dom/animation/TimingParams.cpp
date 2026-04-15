@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -98,7 +96,7 @@ TimingParams TimingParams::FromEffectTiming(
     return result;
   }
 
-  result.mDuration = duration;
+  result.mDuration = std::move(duration);
   result.mDelay = TimeDuration::FromMilliseconds(aEffectTiming.mDelay);
   result.mEndDelay = TimeDuration::FromMilliseconds(aEffectTiming.mEndDelay);
   result.mIterations = aEffectTiming.mIterations;
@@ -157,7 +155,7 @@ TimingParams TimingParams::MergeOptionalEffectTiming(
   // Assign values
 
   if (aEffectTiming.mDuration.WasPassed()) {
-    result.mDuration = duration;
+    result.mDuration = std::move(duration);
   }
   if (aEffectTiming.mDelay.WasPassed()) {
     result.mDelay =
@@ -180,7 +178,7 @@ TimingParams TimingParams::MergeOptionalEffectTiming(
     result.mFill = aEffectTiming.mFill.Value();
   }
   if (aEffectTiming.mEasing.WasPassed()) {
-    result.mFunction = easing;
+    result.mFunction = std::move(easing);
   }
 
   result.Update();

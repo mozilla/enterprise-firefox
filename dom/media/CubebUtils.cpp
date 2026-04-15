@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -655,14 +653,6 @@ RefPtr<CubebHandle> GetCubebUnlocked() {
     return sCubebHandle;
   }
 
-  if (!sBrandName && NS_IsMainThread()) {
-    InitBrandName();
-  } else {
-    NS_WARNING_ASSERTION(
-        sBrandName,
-        "Did not initialize sbrandName, and not on the main thread?");
-  }
-
   int rv = CUBEB_ERROR;
 #ifdef MOZ_CUBEB_REMOTING
   MOZ_LOG(gCubebLog, LogLevel::Info,
@@ -670,6 +660,9 @@ RefPtr<CubebHandle> GetCubebUnlocked() {
 
   if (sCubebSandbox) {
     if (XRE_IsParentProcess() && !sIPCConnection) {
+      if (!sBrandName && NS_IsMainThread()) {
+        InitBrandName();
+      }
       // TODO: Don't use audio IPC when within the same process.
       auto fd = CreateAudioIPCConnectionUnlocked();
       if (fd.IsValid()) {
@@ -695,12 +688,19 @@ RefPtr<CubebHandle> GetCubebUnlocked() {
     initParams.mThreadDestroyCallback = []() { PROFILER_UNREGISTER_THREAD(); };
 
     cubeb* temp = nullptr;
-    rv = audioipc2::audioipc2_client_init(&temp, sBrandName, &initParams);
+    rv = audioipc2::audioipc2_client_init(&temp, &initParams);
     if (temp) {
       sCubebHandle = new CubebHandle(temp);
     }
   } else {
 #endif  // MOZ_CUBEB_REMOTING
+    // When not using the audio IPC sandbox, cubeb_init below consumes
+    // sBrandName directly. InitLibrary dispatches InitBrandName
+    // asynchronously, so initialize it here if we are on the main thread and
+    // it hasn't been set yet.
+    if (!sBrandName && NS_IsMainThread()) {
+      InitBrandName();
+    }
 #ifdef XP_WIN
     mozilla::mscom::EnsureMTA([&]() -> void {
 #endif
@@ -842,8 +842,14 @@ void InitLibrary() {
   }
 
 #ifndef MOZ_WIDGET_ANDROID
-  NS_DispatchToMainThread(
-      NS_NewRunnableFunction("CubebUtils::InitLibrary", &InitBrandName));
+  if (XRE_IsParentProcess()
+#  ifdef MOZ_CUBEB_REMOTING
+      || !sCubebSandbox
+#  endif
+  ) {
+    NS_DispatchToMainThread(
+        NS_NewRunnableFunction("CubebUtils::InitLibrary", &InitBrandName));
+  }
 #endif
 #ifdef MOZ_CUBEB_REMOTING
   if (sCubebSandbox && XRE_IsContentProcess()) {

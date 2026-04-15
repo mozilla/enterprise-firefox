@@ -54,7 +54,6 @@ import mozilla.components.compose.browser.toolbar.concept.PageOrigin.Companion.C
 import mozilla.components.compose.browser.toolbar.concept.PageOrigin.Companion.PageOriginContextualMenuInteractions.CopyToClipboardClicked
 import mozilla.components.compose.browser.toolbar.concept.PageOrigin.Companion.PageOriginContextualMenuInteractions.LoadFromClipboardClicked
 import mozilla.components.compose.browser.toolbar.concept.PageOrigin.Companion.PageOriginContextualMenuInteractions.PasteFromClipboardClicked
-import mozilla.components.compose.browser.toolbar.store.BrowserEditToolbarAction.SearchQueryUpdated
 import mozilla.components.compose.browser.toolbar.store.BrowserToolbarAction
 import mozilla.components.compose.browser.toolbar.store.BrowserToolbarInteraction.BrowserToolbarEvent
 import mozilla.components.compose.browser.toolbar.store.BrowserToolbarInteraction.BrowserToolbarEvent.Source
@@ -67,7 +66,6 @@ import mozilla.components.compose.browser.toolbar.store.BrowserToolbarMenuItem.B
 import mozilla.components.compose.browser.toolbar.store.BrowserToolbarMenuItem.BrowserToolbarMenuDivider
 import mozilla.components.compose.browser.toolbar.store.BrowserToolbarStore
 import mozilla.components.compose.browser.toolbar.store.ProgressBarConfig
-import mozilla.components.compose.browser.toolbar.ui.BrowserToolbarQuery
 import mozilla.components.concept.engine.Engine
 import mozilla.components.concept.engine.EngineSession
 import mozilla.components.concept.engine.EngineSession.LoadUrlFlags
@@ -83,7 +81,6 @@ import mozilla.components.lib.publicsuffixlist.PublicSuffixList
 import mozilla.components.lib.state.Middleware
 import mozilla.components.support.ktx.util.URLStringUtils
 import mozilla.components.support.test.middleware.CaptureActionsMiddleware
-import mozilla.components.support.test.mock
 import mozilla.components.support.test.robolectric.testContext
 import mozilla.components.support.utils.ClipboardHandler
 import org.junit.Assert.assertEquals
@@ -102,7 +99,6 @@ import org.mozilla.fenix.GleanMetrics.ReaderMode
 import org.mozilla.fenix.GleanMetrics.Translations
 import org.mozilla.fenix.NavGraphDirections
 import org.mozilla.fenix.R
-import org.mozilla.fenix.browser.BrowserAnimator
 import org.mozilla.fenix.browser.BrowserFragmentDirections
 import org.mozilla.fenix.browser.PageTranslationStatus
 import org.mozilla.fenix.browser.ReaderModeStatus
@@ -157,7 +153,7 @@ import org.mozilla.fenix.components.usecases.FenixBrowserUseCases
 import org.mozilla.fenix.ext.directionsEq
 import org.mozilla.fenix.helpers.FenixGleanTestRule
 import org.mozilla.fenix.settings.ShortcutType
-import org.mozilla.fenix.tabstray.Page
+import org.mozilla.fenix.tabstray.redux.state.Page
 import org.mozilla.fenix.tabstray.ui.AccessPoint
 import org.mozilla.fenix.utils.Settings
 import org.robolectric.annotation.Config
@@ -183,7 +179,6 @@ class BrowserToolbarMiddlewareTest {
     private val clipboard: ClipboardHandler = mockk(relaxed = true)
     private val navController: NavController = mockk(relaxed = true)
     private val browsingModeManager = SimpleBrowsingModeManager(Normal)
-    private val browserAnimator: BrowserAnimator = mockk(relaxed = true)
     private val thumbnailsFeature: BrowserThumbnails = mockk(relaxed = true)
     private val readerModeController: ReaderModeController = mockk(relaxed = true)
     private val useCases: UseCases = mockk(relaxed = true)
@@ -469,13 +464,6 @@ class BrowserToolbarMiddlewareTest {
 
     @Test
     fun `WHEN clicking the new tab button THEN navigate to application's home screen`() {
-        val browserAnimatorActionCaptor = slot<(Boolean) -> Unit>()
-        every {
-            browserAnimator.captureEngineViewAndDrawStatically(
-                any<Long>(),
-                capture(browserAnimatorActionCaptor),
-            )
-        } answers { browserAnimatorActionCaptor.captured.invoke(true) }
         val middleware = buildMiddleware()
         val toolbarStore = buildStore(middleware)
         val newTabButton = toolbarStore.state.displayState.browserActionsEnd[0] as ActionButtonRes
@@ -486,13 +474,6 @@ class BrowserToolbarMiddlewareTest {
 
     @Test
     fun `GIVEN homepage as new tab is enabled WHEN clicking the new tab button THEN navigate to home screen without focus`() {
-        val browserAnimatorActionCaptor = slot<(Boolean) -> Unit>()
-        every {
-            browserAnimator.captureEngineViewAndDrawStatically(
-                any<Long>(),
-                capture(browserAnimatorActionCaptor),
-            )
-        } answers { browserAnimatorActionCaptor.captured.invoke(true) }
         every { settings.enableHomepageAsNewTab } returns true
         val middleware = buildMiddleware()
         val toolbarStore = buildStore(middleware)
@@ -504,13 +485,6 @@ class BrowserToolbarMiddlewareTest {
 
     @Test
     fun `WHEN clicking the new tab button with homepage search bar enabled THEN navigate to home screen without focus`() {
-        val browserAnimatorActionCaptor = slot<(Boolean) -> Unit>()
-        every {
-            browserAnimator.captureEngineViewAndDrawStatically(
-                any<Long>(),
-                capture(browserAnimatorActionCaptor),
-            )
-        } answers { browserAnimatorActionCaptor.captured.invoke(true) }
         every { settings.enableHomepageSearchBar } returns true
         val middleware = buildMiddleware()
         val toolbarStore = buildStore(middleware)
@@ -654,6 +628,7 @@ class BrowserToolbarMiddlewareTest {
         verify(exactly = 0) { navController.navigate(any<NavDirections>()) }
         verify { appStore.dispatch(SearchStarted(currentTab.id)) }
         assertEquals(currentTab.content.searchTerms, toolbarStore.state.editState.query.current)
+        assertTrue(toolbarStore.state.editState.isQueryPrefilled)
     }
 
     @Test
@@ -760,8 +735,9 @@ class BrowserToolbarMiddlewareTest {
         toolbarStore.dispatch(PasteFromClipboardClicked)
 
         verify {
-            toolbarStore.dispatch(SearchQueryUpdated(BrowserToolbarQuery(queryText)))
             appStore.dispatch(SearchStarted(currentTab.id))
+            assertEquals(queryText, toolbarStore.state.editState.query.current)
+            assertTrue(toolbarStore.state.editState.isQueryPrefilled)
         }
     }
 
@@ -2126,7 +2102,7 @@ class BrowserToolbarMiddlewareTest {
         }
 
         val tabSessionState: TabSessionState = mockk(relaxed = true) {
-           every { content } returns contentState
+            every { content } returns contentState
         }
 
         val browserState = BrowserState(
@@ -2733,13 +2709,6 @@ class BrowserToolbarMiddlewareTest {
 
     @Test
     fun `WHEN clicking the homepage button THEN navigate to application's home screen`() = runTest(testDispatcher) {
-        val browserAnimatorActionCaptor = slot<(Boolean) -> Unit>()
-        every {
-            browserAnimator.captureEngineViewAndDrawStatically(
-                any<Long>(),
-                capture(browserAnimatorActionCaptor),
-            )
-        } answers { browserAnimatorActionCaptor.captured.invoke(true) }
         every { settings.shouldShowToolbarCustomization } returns true
         every { settings.toolbarSimpleShortcut } returns ShortcutType.HOMEPAGE.value
 
@@ -3259,7 +3228,6 @@ class BrowserToolbarMiddlewareTest {
         navController: NavController = this.navController,
         browsingModeManager: BrowsingModeManager = this.browsingModeManager,
         readerModeController: ReaderModeController = this.readerModeController,
-        browserAnimator: BrowserAnimator = this.browserAnimator,
         thumbnailsFeature: () -> BrowserThumbnails = { this.thumbnailsFeature },
         isWideScreen: () -> Boolean = { false },
         isTallScreen: () -> Boolean = { true },
@@ -3281,7 +3249,6 @@ class BrowserToolbarMiddlewareTest {
         navController = navController,
         browsingModeManager = browsingModeManager,
         readerModeController = readerModeController,
-        browserAnimator = browserAnimator,
         thumbnailsFeature = thumbnailsFeature,
         isWideScreen = isWideScreen,
         isTallScreen = isTallScreen,
@@ -3309,25 +3276,25 @@ class BrowserToolbarMiddlewareTest {
     private fun fakeSearchState() = SearchState(
         region = RegionState("US", "US"),
         regionSearchEngines = listOf(
-            SearchEngine("engine-a", "Engine A", mock(), type = SearchEngine.Type.BUNDLED),
-            SearchEngine("engine-b", "Engine B", mock(), type = SearchEngine.Type.BUNDLED),
+            SearchEngine("engine-a", "Engine A", mockk(), type = SearchEngine.Type.BUNDLED),
+            SearchEngine("engine-b", "Engine B", mockk(), type = SearchEngine.Type.BUNDLED),
         ),
         customSearchEngines = listOf(
-            SearchEngine("engine-c", "Engine C", mock(), type = SearchEngine.Type.CUSTOM),
+            SearchEngine("engine-c", "Engine C", mockk(), type = SearchEngine.Type.CUSTOM),
         ),
         applicationSearchEngines = listOf(
-            SearchEngine(TABS_SEARCH_ENGINE_ID, "Tabs", mock(), type = SearchEngine.Type.APPLICATION),
-            SearchEngine(BOOKMARKS_SEARCH_ENGINE_ID, "Bookmarks", mock(), type = SearchEngine.Type.APPLICATION),
-            SearchEngine(HISTORY_SEARCH_ENGINE_ID, "History", mock(), type = SearchEngine.Type.APPLICATION),
+            SearchEngine(TABS_SEARCH_ENGINE_ID, "Tabs", mockk(), type = SearchEngine.Type.APPLICATION),
+            SearchEngine(BOOKMARKS_SEARCH_ENGINE_ID, "Bookmarks", mockk(), type = SearchEngine.Type.APPLICATION),
+            SearchEngine(HISTORY_SEARCH_ENGINE_ID, "History", mockk(), type = SearchEngine.Type.APPLICATION),
         ),
         additionalSearchEngines = listOf(
-            SearchEngine("engine-e", "Engine E", mock(), type = SearchEngine.Type.BUNDLED_ADDITIONAL),
+            SearchEngine("engine-e", "Engine E", mockk(), type = SearchEngine.Type.BUNDLED_ADDITIONAL),
         ),
         additionalAvailableSearchEngines = listOf(
-            SearchEngine("engine-f", "Engine F", mock(), type = SearchEngine.Type.BUNDLED_ADDITIONAL),
+            SearchEngine("engine-f", "Engine F", mockk(), type = SearchEngine.Type.BUNDLED_ADDITIONAL),
         ),
         hiddenSearchEngines = listOf(
-            SearchEngine("engine-g", "Engine G", mock(), type = SearchEngine.Type.BUNDLED),
+            SearchEngine("engine-g", "Engine G", mockk(), type = SearchEngine.Type.BUNDLED),
         ),
         regionDefaultSearchEngineId = null,
         userSelectedSearchEngineId = null,

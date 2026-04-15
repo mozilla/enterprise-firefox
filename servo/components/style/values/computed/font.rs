@@ -28,6 +28,7 @@ use num_traits::abs;
 use num_traits::cast::AsPrimitive;
 use std::fmt::{self, Write};
 use style_traits::{CssWriter, ParseError, ToCss, ToTyped, TypedValue};
+use thin_vec::ThinVec;
 
 pub use crate::values::computed::Length as MozScriptMinSize;
 pub use crate::values::specified::font::MozScriptSizeMultiplier;
@@ -145,7 +146,6 @@ pub type FontWeightFixedPoint = FixedPoint<u16, FONT_WEIGHT_FRACTION_BITS>;
     PartialEq,
     PartialOrd,
     ToResolvedValue,
-    ToTyped,
 )]
 #[cfg_attr(feature = "servo", derive(Deserialize, Serialize))]
 #[repr(C)]
@@ -170,6 +170,12 @@ impl ToCss for FontWeight {
         W: fmt::Write,
     {
         self.value().to_css(dest)
+    }
+}
+
+impl ToTyped for FontWeight {
+    fn to_typed(&self, dest: &mut ThinVec<TypedValue>) -> Result<(), ()> {
+        self.value().to_typed(dest)
     }
 }
 
@@ -1390,11 +1396,11 @@ impl ToCss for FontStretch {
 }
 
 impl ToTyped for FontStretch {
-    fn to_typed(&self) -> Option<TypedValue> {
-        self.as_keyword()
-            .map_or(self.to_percentage().to_typed(), |keyword| {
-                keyword.to_typed()
-            })
+    fn to_typed(&self, dest: &mut ThinVec<TypedValue>) -> Result<(), ()> {
+        match self.as_keyword() {
+            Some(keyword) => keyword.to_typed(dest),
+            None => self.to_percentage().to_typed(dest),
+        }
     }
 }
 

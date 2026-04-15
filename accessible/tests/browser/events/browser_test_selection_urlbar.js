@@ -13,9 +13,10 @@ ChromeUtils.defineESModuleGetters(this, {
 // Check that the URL bar manages accessibility
 // selection notifications appropriately on startup (new window).
 async function runTests() {
+  // XXX: See bug 2016839
   let focused = waitForEvent(
     EVENT_FOCUS,
-    event => event.accessible.role == ROLE_ENTRY
+    event => event.accessible.role == ROLE_EDITCOMBOBOX
   );
   info("Creating new window");
   let newWin = await BrowserTestUtils.openNewBrowserWindow();
@@ -34,9 +35,10 @@ async function runTests() {
   newWin.focus();
   await focused;
 
+  // XXX: See bug 2016839
   let caretMoved = waitForEvent(
     EVENT_TEXT_CARET_MOVED,
-    event => event.accessible.role == ROLE_ENTRY
+    event => event.accessible.role == ROLE_EDITCOMBOBOX
   );
 
   info("Autofilling after typing `a` in new window URL bar.");

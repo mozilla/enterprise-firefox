@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -198,9 +196,9 @@ class GPUProcessManager final : public GPUProcessHost::Listener {
   void AddListener(GPUProcessListener* aListener);
   void RemoveListener(GPUProcessListener* aListener);
 
-  // Send a message to the GPU process observer service to broadcast. Returns
-  // true if the message was sent, false if not.
-  bool NotifyGpuObservers(const char* aTopic);
+  // Send a message to the GPU process to flush any active checkerboard reports.
+  // Returns true if the message was sent, false if not.
+  bool FlushActiveCheckerboardReports();
 
   // Kills the GPU process. Used in normal operation to recover from an error,
   // as well as for tests and diagnostics.

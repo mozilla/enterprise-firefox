@@ -15,6 +15,11 @@ let gDummyHandlers = [];
 let gOriginalPreferredMailHandler;
 let gOriginalPreferredPDFHandler;
 
+/**
+ * @type {Promise<void>}
+ */
+let appHandlerInitialized;
+
 registerCleanupFunction(function () {
   function removeDummyHandlers(handlers) {
     // Remove any of the dummy handlers we created.
@@ -77,6 +82,10 @@ function scrubMailtoHandlers(handlerInfo) {
 ("use strict");
 
 add_setup(async function () {
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.settings-redesign.enabled", true]],
+  });
+
   // Create our dummy handlers
   let handler1 = Cc["@mozilla.org/uriloader/web-handler-app;1"].createInstance(
     Ci.nsIWebHandlerApp
@@ -127,7 +136,10 @@ add_setup(async function () {
   pdfHandlerInfo.preferredAction = Ci.nsIHandlerInfo.useHelperApp;
   gHandlerService.store(pdfHandlerInfo);
 
+  appHandlerInitialized = TestUtils.topicObserved("app-handler-loaded");
+
   await openPreferencesViaOpenPreferencesAPI("general", { leaveOpen: true });
+
   info("Preferences page opened on the general pane.");
 
   await gBrowser.selectedBrowser.contentWindow.promiseLoadHandlersList;
@@ -137,30 +149,25 @@ add_setup(async function () {
 add_task(async function dialogShowsCorrectContent() {
   let win = gBrowser.selectedBrowser.contentWindow;
 
-  let container = win.document.getElementById("handlersView");
+  let container = win.document.getElementById("applicationsHandlersView");
+  await appHandlerInitialized;
 
   // First, find the PDF item.
-  let pdfItem = container.querySelector("richlistitem[type='application/pdf']");
+  let pdfItem = container.querySelector("moz-box-item[type='application/pdf']");
   Assert.ok(pdfItem, "pdfItem is present in handlersView.");
   pdfItem.scrollIntoView({ block: "center" });
-  pdfItem.closest("richlistbox").selectItem(pdfItem);
 
   // Open its menu
   let list = pdfItem.querySelector(".actionsMenu");
-  let popup = list.menupopup;
-  let popupShown = BrowserTestUtils.waitForEvent(popup, "popupshown");
   EventUtils.synthesizeMouseAtCenter(list, {}, win);
-  await popupShown;
 
   // Then open the dialog
   const promiseDialogLoaded = promiseLoadSubDialog(
     "chrome://browser/content/preferences/dialogs/applicationManager.xhtml"
   );
-  EventUtils.synthesizeMouseAtCenter(
-    popup.querySelector(".manage-app-item"),
-    {},
-    win
-  );
+  list.value = list.querySelector(".manage-app-item").value;
+  list.dispatchEvent(new CustomEvent("change"));
+
   let dialogWin = await promiseDialogLoaded;
 
   // Then verify that the description is correct.

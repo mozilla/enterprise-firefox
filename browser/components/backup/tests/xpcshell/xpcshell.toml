@@ -8,8 +8,6 @@ prefs = [
   "browser.backup.log=true",
   "browser.backup.archive.enabled=true",
   "browser.backup.restore.enabled=true",
-  "browser.backup.archive.overridePlatformCheck=true",
-  "browser.backup.restore.overridePlatformCheck=true",
 ]
 
 ["test_AddonsBackupResource.js"]
@@ -48,6 +46,13 @@ prefs = [
 ["test_BackupService_enable_disable_encryption.js"]
 
 ["test_BackupService_enabled.js"]
+
+["test_BackupService_enabledListPref.js"]
+head = "../../../../../toolkit/profile/test/xpcshell/head.js ../../../profiles/tests/unit/head.js head.js"
+prefs = [
+  "browser.profiles.created=false",
+  "browser.profiles.enabled=true",
+]
 
 ["test_BackupService_finalizeSingleFileArchive.js"]
 

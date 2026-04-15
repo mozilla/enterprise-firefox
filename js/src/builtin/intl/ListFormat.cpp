@@ -213,17 +213,11 @@ static bool ListFormat(JSContext* cx, unsigned argc, Value* vp) {
   // Step 3. (Inlined ResolveOptions)
 
   // ResolveOptions, step 1.
-  Rooted<LocalesList> requestedLocales(cx, cx);
-  if (!CanonicalizeLocaleList(cx, args.get(0), &requestedLocales)) {
+  auto* requestedLocales = CanonicalizeLocaleList(cx, args.get(0));
+  if (!requestedLocales) {
     return false;
   }
-
-  Rooted<ArrayObject*> requestedLocalesArray(
-      cx, LocalesListToArray(cx, requestedLocales));
-  if (!requestedLocalesArray) {
-    return false;
-  }
-  listFormat->setRequestedLocales(requestedLocalesArray);
+  listFormat->setRequestedLocales(requestedLocales);
 
   ListFormatOptions lfOptions{};
 

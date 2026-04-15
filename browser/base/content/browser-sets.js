@@ -234,7 +234,7 @@ document.addEventListener(
             OpenBrowserWindow({ aiWindow: false });
             break;
           case "Tools:AIWindow":
-            AIWindow.launchWindow(gBrowser?.selectedBrowser, true);
+            AIWindow.launchWindow(gBrowser?.selectedBrowser, true, "menu");
             break;
           case "Tools:ChatsHistory":
             FirefoxViewHandler.openTab("chats");

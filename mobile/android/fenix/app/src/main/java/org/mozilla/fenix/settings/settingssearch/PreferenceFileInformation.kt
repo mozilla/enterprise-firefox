@@ -162,4 +162,14 @@ sealed class PreferenceFileInformation(
         categoryHeaderResourceId = R.string.preferences_category_privacy_security,
         fragmentId = R.id.trackingProtectionFragment,
     )
+
+    /**
+     * Represents the Secret Settings screen.
+     */
+    object SecretSettingsPreferences : PreferenceFileInformation(
+        xmlResourceId = R.xml.secret_settings_preferences,
+        topBreadcrumbResourceId = R.string.preferences_debug_settings,
+        categoryHeaderResourceId = R.string.preferences_debug_settings,
+        fragmentId = R.id.secretSettingsPreference,
+    )
 }

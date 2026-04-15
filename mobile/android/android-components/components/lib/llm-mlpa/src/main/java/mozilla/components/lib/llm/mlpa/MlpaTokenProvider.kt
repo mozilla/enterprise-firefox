@@ -8,6 +8,7 @@ import mozilla.components.concept.integrity.IntegrityClient
 import mozilla.components.lib.llm.mlpa.service.AuthenticationService
 import mozilla.components.lib.llm.mlpa.service.AuthenticationService.Request
 import mozilla.components.lib.llm.mlpa.service.AuthorizationToken
+import mozilla.components.lib.llm.mlpa.service.PackageName
 import mozilla.components.lib.llm.mlpa.service.UserId
 
 /**
@@ -71,17 +72,20 @@ fun interface MlpaTokenProvider {
          * @param authenticationService Service that verifies the integrity token
          * and exchanges it for an access token.
          * @param userIdProvider Supplies the current user's [UserId].
+         * @param packageName The package name of the app requesting verification.
          */
         fun mlpaIntegrityHandshake(
             integrityClient: IntegrityClient,
             authenticationService: AuthenticationService,
             userIdProvider: UserIdProvider,
+            packageName: PackageName,
         ) = MlpaTokenProvider {
             integrityClient.request().fold(
                 onSuccess = { token ->
                     val request = Request(
                         userId = userIdProvider.getUserId(),
                         integrityToken = token,
+                        packageName = packageName,
                     )
 
                     authenticationService.verify(request).map { it.accessToken }

@@ -152,7 +152,7 @@ var openColorPickerAndSelectColor = async function (
   newRgba,
   expectedChange
 ) {
-  const ruleEditor = getRuleViewRuleEditor(view, ruleIndex);
+  const ruleEditor = getRuleViewRuleEditorAt(view, ruleIndex);
   const propEditor = ruleEditor.rule.textProps[propIndex].editor;
   const swatch = propEditor.valueSpan.querySelector(".inspector-colorswatch");
   const cPicker = view.tooltips.getTooltip("colorPicker");
@@ -195,7 +195,7 @@ var openCubicBezierAndChangeCoords = async function (
   coords,
   expectedChange
 ) {
-  const ruleEditor = getRuleViewRuleEditor(view, ruleIndex);
+  const ruleEditor = getRuleViewRuleEditorAt(view, ruleIndex);
   const propEditor = ruleEditor.rule.textProps[propIndex].editor;
   const swatch = propEditor.valueSpan.querySelector(".inspector-bezierswatch");
   const bezierTooltip = view.tooltips.getTooltip("cubicBezier");
@@ -254,7 +254,7 @@ var addProperty = async function (
 ) {
   info("Adding new property " + name + ":" + value + " to rule " + ruleIndex);
 
-  const ruleEditor = getRuleViewRuleEditor(view, ruleIndex);
+  const ruleEditor = getRuleViewRuleEditorAt(view, ruleIndex);
   let editor = await focusNewRuleViewProperty(ruleEditor);
   const numOfProps = ruleEditor.rule.textProps.length;
 
@@ -292,7 +292,7 @@ var addProperty = async function (
     );
   });
 
-  info("Adding name " + name);
+  info(`Adding name "${name}"`);
   editor.input.value = name;
   is(
     editor.input.getAttribute("aria-label"),
@@ -307,7 +307,7 @@ var addProperty = async function (
   // Focus has moved to the value inplace-editor automatically.
   editor = inplaceEditor(view.styleDocument.activeElement);
   const textProps = ruleEditor.rule.textProps;
-  const textProp = textProps[textProps.length - 1];
+  const textProp = textProps.at(-1);
 
   is(
     ruleEditor.rule.textProps.length,
@@ -320,12 +320,6 @@ var addProperty = async function (
     "The inplace editor appeared for the value"
   );
 
-  info("Adding value " + value);
-  // Setting the input value schedules a preview to be shown in 10ms which
-  // triggers a ruleview-changed event (see bug 1209295).
-  const onPreview = view.once("ruleview-changed");
-  editor.input.value = value;
-
   ok(
     !!editor.input.getAttribute("aria-labelledby"),
     "The value input has an aria-labelledby attribute…"
@@ -336,8 +330,35 @@ var addProperty = async function (
     "…which references the property name input"
   );
 
-  view.debounce.flush();
-  await onPreview;
+  // At first, we have an empty input and in most of the case, that might show the
+  // autocomplete popup
+  if (editor.cssProperties.getValues(name).length) {
+    info("Wait for the popup to open");
+    await waitFor(() => editor.popup.isOpen);
+    const onPreview = view.once("ruleview-changed");
+    // Flush debounce so it does trigger the preview code
+    view.debounce.flush();
+    await onPreview;
+  }
+
+  info(`Setting the value for "${name}": "${value}"`);
+  // Setting the input value schedules a preview to be shown in 10ms which
+  // triggers a ruleview-changed event (see bug 1209295).
+  if (value) {
+    const onAfterSuggest = editor.once("after-suggest");
+
+    // Setting the input value to the wanted value minus the last char…
+    editor.input.value = value.substring(0, value.length - 1);
+    // …so we can actually simulate typing the last char, which will trigger autocomplete
+    // code in the InplaceEditor. Attempts to simulate typing the whole string was triggering
+    // too many events that wouldn't be ideal to track here.
+    EventUtils.sendString(value.at(-1), view.styleWindow);
+    await onAfterSuggest;
+    const onPreview = view.once("ruleview-changed");
+    // Flush debounce so it does trigger the preview code
+    view.debounce.flush();
+    await onPreview;
+  }
 
   if (commitValueWith === null) {
     return textProp;
@@ -481,7 +502,7 @@ async function addNewRuleAndDismissEditor(
   const rule = await addNewRule(inspector, view);
 
   info("Getting the new rule at index " + expectedIndex);
-  const ruleEditor = getRuleViewRuleEditor(view, expectedIndex);
+  const ruleEditor = getRuleViewRuleEditorAt(view, expectedIndex);
   const editor = ruleEditor.selectorText.ownerDocument.activeElement;
   is(
     editor.value,
@@ -683,10 +704,8 @@ async function openEyedropper(view, swatch) {
  * @param {ruleView} view
  *        The rule-view instance.
  * @param {number} ruleIndex
- *        The index we expect the rule to have in the rule-view. If an array, the first
- *        item is the children index in the rule view, and the second item is the child
- *        node index in the retrieved rule view element. This is helpful to select rules
- *        inside the pseudo element section.
+ *        The index we expect the rule to have in the rule-view.
+ *        (the index consider hidden rules when their container is collapsed)
  * @param {boolean} addCompatibilityData
  *        Optional argument to add compatibility dat with the property data
  *
@@ -713,11 +732,7 @@ async function getPropertiesForRuleIndex(
   addCompatibilityData = false
 ) {
   const declaration = new Map();
-  let nodeIndex;
-  if (Array.isArray(ruleIndex)) {
-    [ruleIndex, nodeIndex] = ruleIndex;
-  }
-  const ruleEditor = getRuleViewRuleEditor(view, ruleIndex, nodeIndex);
+  const ruleEditor = getRuleViewRuleEditorAt(view, ruleIndex);
 
   for (const currProp of ruleEditor?.rule?.textProps || []) {
     const icon = currProp.editor.inactiveCssState;
@@ -898,12 +913,19 @@ async function checkDeclarationCompatibility(
  *        The index we expect the rule to have in the rule-view.
  * @param {object} declaration
  *        An object representing the declaration e.g. { color: "red" }.
+ * @param {string} expectedMsgId
+ *        The expected inactive CSS msgId that should be displayed in the inactive CSS tooltip
  */
-async function checkDeclarationIsInactive(view, ruleIndex, declaration) {
+async function checkDeclarationIsInactive(
+  view,
+  ruleIndex,
+  declaration,
+  expectedMsgId
+) {
   const declarations = await getPropertiesForRuleIndex(view, ruleIndex);
   const [[name, value]] = Object.entries(declaration);
   const dec = `${name}:${value}`;
-  const { used, warning, icon } = declarations.get(dec);
+  const { used, warning, icon, data } = declarations.get(dec);
 
   ok(!used, `"${dec}" is inactive`);
   ok(warning, `"${dec}" has a warning`);
@@ -912,6 +934,7 @@ async function checkDeclarationIsInactive(view, ruleIndex, declaration) {
     "Icon has expected icon"
   );
   is(icon.hidden, false, "Icon is visible");
+  is(data.msgId, expectedMsgId, `"${dec}" has expected inactive CSS msgId`);
 
   await checkInteractiveTooltip(
     view,
@@ -1110,6 +1133,7 @@ async function runCSSCompatibilityTests(view, inspector, tests) {
  *                    "flex-direction": "row",
  *                  },
  *                  ruleIndex: [1, 0],
+ *                  msgId: "inactive-css-not-grid-or-flex-container-or-multicol-container",
  *                },
  *              ],
  *            },
@@ -1145,7 +1169,8 @@ async function runInactiveCSSTests(view, inspector, tests) {
         await checkDeclarationIsInactive(
           view,
           inactiveDeclaration.ruleIndex,
-          inactiveDeclaration.declaration
+          inactiveDeclaration.declaration,
+          inactiveDeclaration.msgId
         );
       }
     }
@@ -1398,12 +1423,11 @@ function getSmallIncrementKey() {
  * @param {boolean|undefined} expectedElements[].declarations[].dirty - Is the declaration dirty,
  *        i.e. was it added/modified by the user (should have a left green border).
  *        Defaults to false
- * @param {boolean|undefined} expectedElements[].declarations[].highlighted - Is the declaration
- *        highlighted by a search.
  * @param {boolean|undefined} expectedElements[].declarations[].inactiveCSS - Is the declaration
  *        inactive.
  * @param {string} expectedElements[].header - If we're expecting a header (Inherited from,
  *        Pseudo-elements, …), the text of said header.
+ * @param {string[]} expectedElements[].highlighted - List of highlighted text (when using filter input).
  */
 function checkRuleViewContent(view, expectedElements) {
   const elementsInView = _getRuleViewElements(view);
@@ -1492,6 +1516,22 @@ function checkRuleViewContent(view, expectedElements) {
       `Element #${i} ("${selector}") is ${expectedElement.inherited ? "inherited" : "not inherited"}`
     );
 
+    const highlightedElements = Array.from(
+      elementInView.querySelectorAll(".ruleview-highlight")
+    ).map(el => el.textContent.trim());
+    Assert.deepEqual(
+      highlightedElements,
+      expectedElement.highlighted ?? [],
+      "The expected elements are highlighted"
+    );
+
+    // Bail out if callsite didn't provide any declarations
+    // we then ignore checking anything around declarations
+    if (!("declarations" in expectedElement)) {
+      info(`Ignore declarations for ${selector}`);
+      return;
+    }
+
     const ruleViewPropertyElements =
       elementInView.querySelectorAll(".ruleview-property");
     is(
@@ -1554,11 +1594,6 @@ function checkRuleViewContent(view, expectedElements) {
         !!expectedDeclaration?.dirty,
         `Element #${i} ("${selector}") declaration #${j} ("${propName.innerText}: ${propValue.innerText}") is ${expectedDeclaration?.dirty ? "dirty" : "not dirty"}`
       );
-      is(
-        ruleViewPropertyElement.querySelector(".ruleview-highlight") !== null,
-        !!expectedDeclaration?.highlighted,
-        `Element #${i} ("${selector}") declaration #${j} ("${propName.innerText}: ${propValue.innerText}") is ${expectedDeclaration?.highlighted ? "highlighted" : "not highlighted"} `
-      );
     });
   });
 }
@@ -1586,8 +1621,42 @@ function _getRuleViewElements(view) {
   return elementsInView;
 }
 
-function getUnusedVariableButton(view, elementIndexInView) {
-  return view.element.children[elementIndexInView].querySelector(
-    ".ruleview-show-unused-custom-css-properties"
+function getUnusedVariableButton(view, index) {
+  return view.styleDocument
+    .querySelectorAll(".ruleview-rule")
+    [index].querySelector(".ruleview-show-unused-custom-css-properties");
+}
+
+/**
+ * Assert the number and label of all containers headers displayed in the rule view.
+ * (pseudo elements, this element, keyframes, inherited,...)
+ *
+ * @param {RuleView} view
+ * @param {Array<string>} expected
+ *        List of labels for all the expected containers.
+ * @return {Iterator<DOMElement>}
+ *        List of header DOM Elements.
+ */
+function assertRuleViewHeaders(view, expected) {
+  const headers = view.element.querySelectorAll(
+    ".ruleview-header:not([hidden])"
   );
+
+  is(
+    headers.length,
+    expected.length,
+    "There are " + expected.length + " rule view headers"
+  );
+
+  let i = 0;
+  for (const header of headers) {
+    is(
+      header.textContent,
+      expected[i],
+      "Correct " + header.textContent + " header"
+    );
+    i++;
+  }
+
+  return headers;
 }

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -183,11 +181,15 @@ nsresult nsAttributeTextNode::BindToTree(BindContext& aContext,
   NS_ENSURE_SUCCESS(rv, rv);
 
   NS_ASSERTION(!mOriginatingElement, "We were already bound!");
-  mOriginatingElement = aParent.GetParent()->AsElement();
-  while (PseudoStyle::IsPseudoElement(
-      mOriginatingElement->GetPseudoElementType())) {
-    mOriginatingElement = mOriginatingElement->GetParent()->AsElement();
+  Element* elem = aParent.GetParent()->AsElement();
+  while (PseudoStyle::IsPseudoElement(elem->GetPseudoElementType())) {
+    nsINode* node = elem->GetClosestNativeAnonymousSubtreeRootParentOrHost();
+    if (!node || !node->IsElement()) {
+      return NS_ERROR_UNEXPECTED;
+    }
+    elem = node->AsElement();
   }
+  mOriginatingElement = elem;
   mOriginatingElement->AddMutationObserver(this);
 
   // Note that there is no need to notify here, since we have no

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -154,8 +152,8 @@ VRManager::VRManager()
 #if !defined(MOZ_WIDGET_ANDROID)
   // XRE_IsGPUProcess() is helping us to check some platforms like
   // Win 7 try which are not using GPU process but VR process is enabled.
-  mVRProcessEnabled =
-      StaticPrefs::dom_vr_process_enabled_AtStartup() && XRE_IsGPUProcess();
+  mVRProcessEnabled = StaticPrefs::dom_vr_process_enabled_AtStartup() &&
+                      StaticPrefs::dom_vr_enabled() && XRE_IsGPUProcess();
   VRServiceHost::Init(mVRProcessEnabled);
   mServiceHost = VRServiceHost::Get();
   // We must shutdown before VRServiceHost, which is cleared

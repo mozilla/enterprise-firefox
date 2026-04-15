@@ -10,6 +10,10 @@ import "chrome://browser/content/aiwindow/components/assistant-message-footer.mj
 import "chrome://browser/content/aiwindow/components/chat-assistant-error.mjs";
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/chat-assistant-loader.mjs";
+// eslint-disable-next-line import/no-unassigned-import
+import "chrome://browser/content/aiwindow/components/website-chip-container.mjs";
+
+const FOLLOW_UP_QTY = 2;
 
 /**
  * A custom element for managing AI Chat Content
@@ -19,22 +23,37 @@ export class AIChatContent extends MozLitElement {
     assistantIsLoading: { type: Boolean },
     conversationState: { type: Array },
     followUpSuggestions: { type: Array },
-    errorStatus: { type: String },
+    errorObj: { type: Object },
     isSearching: { type: Boolean },
-    searchQuery: { type: String },
-    showErrorMessage: { type: Boolean },
     tokens: { type: Object },
+    seenUrls: { type: Object },
+    conversationId: { type: String },
   };
+
+  #lastScrollReq = null;
 
   constructor() {
     super();
     this.assistantIsLoading = false;
     this.conversationState = [];
-    this.errorStatus = null;
     this.followUpSuggestions = [];
+    this.errorObj = null;
     this.isSearching = false;
-    this.searchQuery = null;
-    this.showErrorMessage = false;
+
+    /**
+     * The set of URLs that have been seen by the conversation. Used for determining
+     * if a URL will be unfurled or not.
+     *
+     * @type {Set<string>}
+     */
+    this.seenUrls = new Set();
+
+    /**
+     * The current conversationId for the seenUrls.
+     *
+     * @type {null | string}
+     */
+    this.conversationId = null;
   }
 
   connectedCallback() {
@@ -81,6 +100,11 @@ export class AIChatContent extends MozLitElement {
     );
 
     this.addEventListener(
+      "aiChatContentActor:seen-urls",
+      this.#handleSeenUrls.bind(this)
+    );
+
+    this.addEventListener(
       "aiChatError:retry-message",
       this.retryUserMessageAfterError.bind(this)
     );
@@ -88,6 +112,16 @@ export class AIChatContent extends MozLitElement {
     this.addEventListener(
       "SmartWindowPrompt:prompt-selected",
       this.#onFollowUpSelected.bind(this)
+    );
+
+    this.addEventListener(
+      "aiChatError:new-chat",
+      this.openNewChatAfterError.bind(this)
+    );
+
+    this.addEventListener(
+      "aiChatError:sign-in",
+      this.openAccountSignInAfterError.bind(this)
     );
   }
 
@@ -114,6 +148,18 @@ export class AIChatContent extends MozLitElement {
     this.addEventListener("remove-applied-memory", event => {
       this.#dispatchAction("remove-applied-memory", event.detail);
     });
+
+    this.addEventListener("toggle-applied-memories", event => {
+      this.#dispatchAction("toggle-applied-memories", event.detail);
+    });
+
+    this.addEventListener("manage-memories", event => {
+      this.#dispatchAction("manage-memories", event.detail);
+    });
+
+    this.addEventListener("open-memories-learn-more", event => {
+      this.#dispatchAction("open-memories-learn-more", event.detail);
+    });
   }
 
   #getAssistantMessageBody(messageId) {
@@ -139,15 +185,32 @@ export class AIChatContent extends MozLitElement {
     );
   }
 
+  /**
+   * Add new seen URLs to the current conversation.
+   *
+   * @param {object} event
+   * @param {object} event.detail
+   * @param {string} event.detail.conversationId
+   * @param {Set<string>} event.detail.seenUrls
+   */
+  #handleSeenUrls({ detail: { conversationId, seenUrls } }) {
+    if (this.conversationId == conversationId) {
+      this.seenUrls = this.seenUrls.union(seenUrls);
+    } else {
+      this.conversationId = conversationId;
+      this.seenUrls = seenUrls;
+    }
+  }
+
   messageEvent(event) {
     const message = event.detail;
 
     if (message?.content?.isError) {
-      this.handleErrorEvent(message?.content?.status);
+      this.handleErrorEvent(message?.content);
       return;
     }
 
-    this.showErrorMessage = false;
+    this.errorObj = null;
     this.#checkConversationState(message);
 
     switch (message.role) {
@@ -188,6 +251,8 @@ export class AIChatContent extends MozLitElement {
     // If the conversation ID has changed, reset the conversation state
     if (convIdChanged || isReloadingSameConvo) {
       this.conversationState = [];
+      this.followUpSuggestions = [];
+      this.requestUpdate();
     }
   }
 
@@ -196,14 +261,12 @@ export class AIChatContent extends MozLitElement {
     this.isSearching = !!isSearching;
     this.assistantIsLoading = true;
     this.requestUpdate();
-    this.#scrollToBottom();
   }
 
-  handleErrorEvent(errorStatus) {
+  handleErrorEvent(error) {
     this.assistantIsLoading = false;
     this.isSearching = false;
-    this.errorStatus = errorStatus;
-    this.showErrorMessage = true;
+    this.errorObj = error;
     this.requestUpdate();
   }
 
@@ -215,23 +278,36 @@ export class AIChatContent extends MozLitElement {
 
   handleUserPromptEvent(event) {
     this.followUpSuggestions = [];
-    const { convId, content, ordinal } = event.detail;
-    this.assistantIsLoading = true;
+    const { convId, content, ordinal, isPreviousMessage } = event.detail;
+    if (!isPreviousMessage) {
+      this.assistantIsLoading = true;
+    }
     this.conversationState[ordinal] = {
       role: "user",
       body: content.body,
+      contextMentions: content.contextMentions,
+      pageUrl: content.contextPageUrl ?? null,
       convId,
       ordinal,
     };
     this.requestUpdate();
-    this.#scrollToBottom();
+    this.#scrollUserMessageIntoView();
   }
 
   retryUserMessageAfterError() {
-    const lastMessage = this.conversationState.at(-1);
+    const lastMessage = this.conversationState.findLast(m => m);
+
+    if (!lastMessage) {
+      return;
+    }
+
     this.#dispatchAction("retry-after-error", {
       ...lastMessage,
-      content: { type: "text", body: lastMessage.body },
+      content: {
+        type: "text",
+        body: lastMessage.body,
+        contextMentions: lastMessage.contextMentions,
+      },
     });
   }
 
@@ -251,22 +327,19 @@ export class AIChatContent extends MozLitElement {
       id: messageId,
       content,
       memoriesApplied,
-      tokens,
+      showMemoriesCallout,
       webSearchQueries,
+      followUpSuggestions = [],
     } = event.detail;
 
     if (typeof content.body !== "string" || !content.body) {
       return;
     }
 
-    // The "webSearchQueries" are coming from a conversation that is being initialized
-    // and "tokens" are streaming in from a live conversation.
-    const searchTokens = webSearchQueries ?? tokens?.search ?? [];
-
-    // Prefer showing web search handoff over followup suggestions.
-    this.followUpSuggestions = searchTokens.length
+    // favor web search display over follow ups.
+    this.followUpSuggestions = webSearchQueries.length
       ? []
-      : (tokens?.followup ?? []).slice(0, 2);
+      : followUpSuggestions.slice(0, FOLLOW_UP_QTY);
 
     this.conversationState[ordinal] = {
       role: "assistant",
@@ -274,18 +347,39 @@ export class AIChatContent extends MozLitElement {
       messageId,
       body: content.body,
       appliedMemories: memoriesApplied ?? [],
-      searchTokens,
+      showCallout: showMemoriesCallout ?? false,
+      searchTokens: webSearchQueries ?? [],
     };
 
     this.requestUpdate();
   }
 
-  #scrollToBottom() {
+  #scrollUserMessageIntoView() {
+    let scrollReq = {};
+    this.#lastScrollReq = scrollReq;
     this.updateComplete.then(() => {
-      const wrapper = this.shadowRoot?.querySelector(".chat-content-wrapper");
-      wrapper?.lastElementChild?.scrollIntoView({
-        behavior: "smooth",
-        block: "end",
+      const msgs = this.shadowRoot?.querySelectorAll(".chat-bubble-user");
+      if (!msgs?.length) {
+        return;
+      }
+      let lastMessage = msgs[msgs.length - 1];
+      let haveMultipleMessages = msgs.length > 1;
+      requestAnimationFrame(() => {
+        if (scrollReq !== this.#lastScrollReq) {
+          return;
+        }
+        let elTop = lastMessage.offsetTop;
+        let spacer = haveMultipleMessages ? "small" : "large";
+        lastMessage.parentNode.style.setProperty(
+          "--content-height",
+          `calc(${elTop}px + 100% - var(--space-${spacer}))`
+        );
+
+        requestAnimationFrame(() => {
+          if (scrollReq == this.#lastScrollReq) {
+            lastMessage.scrollIntoView({ block: "start" });
+          }
+        });
       });
     });
   }
@@ -320,22 +414,73 @@ export class AIChatContent extends MozLitElement {
     this.requestUpdate();
   }
 
-  #renderMessage(msg) {
+  openNewChatAfterError() {
+    const event = new CustomEvent("AIChatContent:DispatchNewChat", {
+      bubbles: true,
+      composed: true,
+    });
+    this.dispatchEvent(event);
+  }
+
+  /**
+   * Returns the chips to display for a message, suppressing the current-tab
+   * chip when the page context hasn't changed since the previous user message.
+   *
+   * @param {object} msg - A conversationState entry.
+   * @param {string|null} lastContextPageUrl - The page URL of the preceding
+   * user message, or undefined if there is none.
+   * @returns {ContextWebsite[]}
+   */
+  #getVisibleChips(msg, lastContextPageUrl) {
+    // If this message is on the same page as the previous message,
+    // hide the page URL chip to avoid showing duplicate page context
+    if (!msg || msg.role !== "user" || !msg.contextMentions?.length) {
+      return [];
+    }
+    const currentPageUrl = msg.pageUrl;
+    const shouldHideDuplicatePageChip =
+      currentPageUrl && currentPageUrl === lastContextPageUrl;
+    if (shouldHideDuplicatePageChip) {
+      return msg.contextMentions.filter(
+        chip => URL.parse(chip.url)?.href !== currentPageUrl
+      );
+    }
+    return msg.contextMentions;
+  }
+
+  openAccountSignInAfterError() {
+    const event = new CustomEvent("AIChatContent:AccountSignIn", {
+      bubbles: true,
+      composed: true,
+    });
+    this.dispatchEvent(event);
+  }
+
+  #renderMessage(msg, chips) {
     if (!msg) {
       return nothing;
     }
     return html`
       <div class=${`chat-bubble chat-bubble-${msg.role}`}>
+        ${chips?.length
+          ? html`<website-chip-container
+              .websites=${chips}
+            ></website-chip-container>`
+          : nothing}
         <ai-chat-message
           .message=${msg.body}
           .role=${msg.role}
+          .messageId=${msg.messageId}
           .searchTokens=${msg.searchTokens || []}
+          .conversationId=${this.conversationId}
+          .seenUrls=${this.seenUrls}
         ></ai-chat-message>
         ${msg.role === "assistant"
           ? html`
               <assistant-message-footer
                 .messageId=${msg.messageId}
                 .appliedMemories=${msg.appliedMemories}
+                .showCallout=${msg.showCallout}
               ></assistant-message-footer>
             `
           : nothing}
@@ -366,12 +511,23 @@ export class AIChatContent extends MozLitElement {
   }
 
   #renderError() {
-    if (!this.showErrorMessage) {
+    if (!this.errorObj) {
       return nothing;
     }
     return html`<chat-assistant-error
-      .errorStatus=${this.errorStatus}
+      .error=${this.errorObj}
     ></chat-assistant-error>`;
+  }
+
+  #renderMessages() {
+    let lastContextPageUrl;
+    return this.conversationState.map(msg => {
+      const chips = this.#getVisibleChips(msg, lastContextPageUrl);
+      if (msg?.role === "user") {
+        lastContextPageUrl = msg.pageUrl;
+      }
+      return this.#renderMessage(msg, chips);
+    });
   }
 
   render() {
@@ -381,9 +537,10 @@ export class AIChatContent extends MozLitElement {
         href="chrome://browser/content/aiwindow/components/ai-chat-content.css"
       />
       <div class="chat-content-wrapper">
-        ${this.conversationState.map(msg => this.#renderMessage(msg))}
-        ${this.#renderFollowUpSuggestions()} ${this.#renderLoader()}
-        ${this.#renderError()}
+        <div class="chat-inner-wrapper">
+          ${this.#renderMessages()} ${this.#renderFollowUpSuggestions()}
+          ${this.#renderLoader()} ${this.#renderError()}
+        </div>
       </div>
     `;
   }

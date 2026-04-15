@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -9,6 +7,7 @@
 #include "mozilla/AlreadyAddRefed.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/RefPtr.h"
+#include "mozilla/ServoStyleConsts.h"
 #include "mozilla/dom/BindingDeclarations.h"
 #include "mozilla/dom/CSSKeywordValueBinding.h"
 
@@ -18,6 +17,12 @@ CSSKeywordValue::CSSKeywordValue(nsCOMPtr<nsISupports> aParent,
                                  const nsACString& aValue)
     : CSSStyleValue(std::move(aParent), StyleValueType::KeywordValue),
       mValue(aValue) {}
+
+// static
+RefPtr<CSSKeywordValue> CSSKeywordValue::Create(
+    nsCOMPtr<nsISupports> aParent, const StyleKeywordValue& aKeywordValue) {
+  return MakeRefPtr<CSSKeywordValue>(std::move(aParent), aKeywordValue._0);
+}
 
 JSObject* CSSKeywordValue::WrapObject(JSContext* aCx,
                                       JS::Handle<JSObject*> aGivenProto) {

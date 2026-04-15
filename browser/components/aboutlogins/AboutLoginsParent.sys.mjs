@@ -19,6 +19,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   MigrationUtils: "resource:///modules/MigrationUtils.sys.mjs",
   UIState: "resource://services-sync/UIState.sys.mjs",
   FxAccounts: "resource://gre/modules/FxAccounts.sys.mjs",
+  ChangePasswordURLs: "resource:///modules/ChangePasswordURLs.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
@@ -543,6 +544,7 @@ class AboutLoginsInternal {
   subscribers = new WeakSet();
   #observersAdded = false;
   authExpirationTime = Number.NEGATIVE_INFINITY;
+  changePasswordURLsByLoginGUID = new Map();
 
   async observe(subject, topic, type) {
     if (!ChromeUtils.nondeterministicGetWeakSetKeys(this.subscribers).length) {
@@ -614,7 +616,10 @@ class AboutLoginsInternal {
         );
       }
     }
-
+    this.#messageSubscribers(
+      "AboutLogins:UpdateChangePasswordURLs",
+      await lazy.ChangePasswordURLs.getChangePasswordURLsByLoginGUID([login])
+    );
     this.#messageSubscribers("AboutLogins:LoginAdded", login);
   }
 
@@ -647,7 +652,10 @@ class AboutLoginsInternal {
         );
       }
     }
-
+    this.#messageSubscribers(
+      "AboutLogins:UpdateChangePasswordURLs",
+      await lazy.ChangePasswordURLs.getChangePasswordURLsByLoginGUID([login])
+    );
     this.#messageSubscribers("AboutLogins:LoginModified", login);
   }
 
@@ -824,6 +832,11 @@ class AboutLoginsInternal {
         );
       }
     }
+
+    sendMessageFn(
+      "AboutLogins:SetChangePasswordURLs",
+      await lazy.ChangePasswordURLs.getChangePasswordURLsByLoginGUID(logins)
+    );
   }
 
   async getSyncState() {

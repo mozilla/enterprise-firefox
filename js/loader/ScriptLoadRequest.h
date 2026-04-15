@@ -170,7 +170,11 @@ class ScriptLoadRequest : public nsISupports,
 
   // Convert a CheckingCache ScriptLoadRequest into a Ready one, by populating
   // the script data from cached script.
-  void CacheEntryFound(LoadedScript* aLoadedScript);
+  //
+  // aFetchOptions is the current request's fetch option, which can have
+  // different nonce value.
+  void CacheEntryFound(LoadedScript* aLoadedScript,
+                       ScriptFetchOptions* aFetchOptions);
 
   void CacheEntryRevived(LoadedScript* aLoadedScript);
 
@@ -181,7 +185,8 @@ class ScriptLoadRequest : public nsISupports,
                          ScriptFetchOptions* aFetchOptions, nsIURI* aURI);
 
  private:
-  void SetCacheEntry(LoadedScript* aLoadedScript);
+  void SetCacheEntry(LoadedScript* aLoadedScript,
+                     ScriptFetchOptions* aFetchOptions);
 
  public:
   bool PassedConditionForDiskCache() const {

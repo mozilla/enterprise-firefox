@@ -1,4 +1,3 @@
-/* vim:set ts=4 sw=2 sts=2 et cin: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -8,9 +7,9 @@
 
 #include "PendingTransactionInfo.h"
 #include "PendingTransactionQueue.h"
-#include "DnsAndConnectSocket.h"
-#include "DashboardTypes.h"
+#include "ConnectionAttemptPool.h"
 #include "mozilla/WeakPtr.h"
+#include "nsTHashSet.h"
 
 namespace mozilla {
 namespace net {
@@ -23,7 +22,8 @@ namespace net {
 class ConnectionEntry : public SupportsWeakPtr {
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(ConnectionEntry)
-  explicit ConnectionEntry(nsHttpConnectionInfo* ci);
+  ConnectionEntry(nsHttpConnectionInfo* ci,
+                  nsTHashSet<ConnectionEntry*>& aPendingQSet);
 
   void ReschedTransaction(nsHttpTransaction* aTrans);
 
@@ -74,7 +74,7 @@ class ConnectionEntry : public SupportsWeakPtr {
   void InsertIntoExtendedCONNECTConns(HttpConnectionBase* conn);
   void RemoveExtendedCONNECTConns(HttpConnectionBase* conn);
 
-  HttpConnectionBase* GetH2orH3ActiveConn();
+  HttpConnectionBase* GetH2orH3ActiveConn(bool aNoHttp2, bool aNoHttp3);
   // Find an H2 tunnel connection (nsHttpConnection with UsingSpdy()) in active
   // connections. This is used for WebSocket/WebTransport through H3 proxy.
   already_AddRefed<nsHttpConnection> GetH2TunnelActiveConn();
@@ -93,12 +93,11 @@ class ConnectionEntry : public SupportsWeakPtr {
   void MoveConnection(HttpConnectionBase* proxyConn, ConnectionEntry* otherEnt);
 
   size_t DnsAndConnectSocketsLength() const {
-    return mDnsAndConnectSockets.Length();
+    return mConnectionAttemptPool->Length();
   }
 
-  void InsertIntoDnsAndConnectSockets(DnsAndConnectSocket* sock);
-  void RemoveDnsAndConnectSocket(DnsAndConnectSocket* dnsAndSock, bool abandon);
-  void CloseAllDnsAndConnectSockets();
+  void RemoveConnectionAttempt(ConnectionAttempt* sock, bool abandon);
+  void CloseAllConnectionAttempts();
 
   HttpRetParams GetConnectionData();
   Http3ConnectionStatsParams GetHttp3ConnectionStatsData();
@@ -107,13 +106,6 @@ class ConnectionEntry : public SupportsWeakPtr {
   const RefPtr<nsHttpConnectionInfo> mConnInfo;
 
   bool AvailableForDispatchNow();
-
-  // calculate the number of half open sockets that have not had at least 1
-  // connection complete
-  uint32_t UnconnectedDnsAndConnectSockets() const;
-
-  // Remove a particular DnsAndConnectSocket from the mDnsAndConnectSocket array
-  bool RemoveDnsAndConnectSocket(DnsAndConnectSocket*);
 
   bool MaybeProcessCoalescingKeys(nsIDNSAddrRecord* dnsRecord,
                                   bool aIsHttp3 = false);
@@ -129,7 +121,7 @@ class ConnectionEntry : public SupportsWeakPtr {
   // to build the hash key for hosts in the same ip pool.
   //
 
-  nsTArray<nsCString> mCoalescingKeys;
+  nsTArray<HashNumber> mCoalescingKeys;
 
   // This is a list of addresses matching the coalescing keys.
   // This is necessary to check if the origin's DNS entries
@@ -160,9 +152,16 @@ class ConnectionEntry : public SupportsWeakPtr {
   // True if this connection entry has initiated a socket
   bool mUsedForConnection : 1;
 
-  bool mDoNotDestroy : 1;
+  // Returns true when the entry has no connections, no pending transactions,
+  // and no in-progress connection attempts. Used to determine whether the
+  // entry can be removed from the connection table.
+  bool IsEmpty() const {
+    return IdleConnectionsLength() == 0 && ActiveConnsLength() == 0 &&
+           DnsAndConnectSocketsLength() == 0 && PendingQueueIsEmpty() &&
+           UrgentStartQueueIsEmpty() && mPendingConns.IsEmpty() &&
+           mExtendedCONNECTConns.IsEmpty();
+  }
 
-  bool IsHttp3() const { return mConnInfo->IsHttp3(); }
   bool IsHttp3ProxyConnection() const {
     return mConnInfo->IsHttp3ProxyConnection();
   }
@@ -210,6 +209,8 @@ class ConnectionEntry : public SupportsWeakPtr {
   // active connections and unconnected half open connections.
   uint32_t TotalActiveConnections() const;
 
+  bool HasActiveH3Connection() const;
+
   bool RemoveTransFromPendingQ(nsHttpTransaction* aTrans);
 
   void MaybeUpdateEchConfig(nsHttpConnectionInfo* aConnInfo);
@@ -221,9 +222,11 @@ class ConnectionEntry : public SupportsWeakPtr {
 
   const nsTArray<RefPtr<nsIWebTransportHash>>& GetServerCertHashes();
 
-  const nsCString& OriginFrameHashKey();
+  const HashNumber& OriginFrameHashKey();
 
  private:
+  void MaybeRemoveFromPendingSet();
+  nsTHashSet<ConnectionEntry*>& mPendingQSet;
   void InsertIntoIdleConnections_internal(nsHttpConnection* conn);
   void RemoveFromIdleConnectionsIndex(size_t inx);
   bool RemoveFromIdleConnections(nsHttpConnection* conn);
@@ -240,8 +243,7 @@ class ConnectionEntry : public SupportsWeakPtr {
   // on shutdown
   nsTArray<RefPtr<HttpConnectionBase>> mExtendedCONNECTConns;
 
-  nsTArray<RefPtr<DnsAndConnectSocket>>
-      mDnsAndConnectSockets;  // dns resolution and half open connections
+  RefPtr<ConnectionAttemptPool> mConnectionAttemptPool;
 
   // If serverCertificateHashes are used, these are stored here
   nsTArray<RefPtr<nsIWebTransportHash>> mServerCertHashes;
@@ -249,7 +251,7 @@ class ConnectionEntry : public SupportsWeakPtr {
   PendingTransactionQueue mPendingQ;
   ~ConnectionEntry();
 
-  nsCString mOriginFrameHashKey;
+  Maybe<HashNumber> mOriginFrameHashKey;
 
   bool mRetriedDifferentIPFamilyForHttp3 = false;
 };

@@ -4,15 +4,18 @@
 
 import { BANDWIDTH } from "chrome://browser/content/ipprotection/ipprotection-constants.mjs";
 
+const BANDWIDTH_WARNING_DISMISSED_PREF =
+  "browser.ipProtection.bandwidthWarningDismissedThreshold";
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   IPPProxyManager:
-    "moz-src:///browser/components/ipprotection/IPPProxyManager.sys.mjs",
+    "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
   IPProtectionService:
-    "moz-src:///browser/components/ipprotection/IPProtectionService.sys.mjs",
+    "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
   IPProtectionStates:
-    "moz-src:///browser/components/ipprotection/IPProtectionService.sys.mjs",
+    "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
 });
 
 /**
@@ -82,7 +85,13 @@ class IPProtectionInfobarManagerClass {
       // Calculate what percentage of bandwidth remains
       const remainingPercent = Number(usage.remaining) / Number(usage.max);
 
-      if (remainingPercent === 0) {
+      /* Covers the cases where bandwidth hits max or is reset
+         Could check for remainingPercent = 1, but there is a chance
+         of not having exactly 100% left when this is called, and we
+         want to clear the infobar if it's showing and there is less than
+         75% usage */
+      if (remainingPercent === 0 || remainingPercent > 0.25) {
+        Services.prefs.setIntPref(BANDWIDTH_WARNING_DISMISSED_PREF, 0);
         this.#hideInfobar(75);
         this.#hideInfobar(90);
         return;
@@ -133,6 +142,13 @@ class IPProtectionInfobarManagerClass {
       return;
     }
 
+    if (
+      Services.prefs.getIntPref(BANDWIDTH_WARNING_DISMISSED_PREF, 0) >=
+      threshold
+    ) {
+      return;
+    }
+
     // Skip if this window already has the notification
     const existing =
       win.gNotificationBox.getNotificationWithValue(notificationId);
@@ -143,19 +159,49 @@ class IPProtectionInfobarManagerClass {
     // Convert bytes to GB for display, using same logic as bandwidth-usage component
     // Convert BigInt to Number first to avoid division errors
     const remainingGB = Number(usage.remaining) / BANDWIDTH.BYTES_IN_GB;
-    const formattedGB = Math.round(remainingGB).toString();
+
+    let usageLeft;
+    let l10nId;
+
+    if (threshold === 90 && remainingGB < 1) {
+      usageLeft = Math.floor(
+        Number(usage.remaining) / BANDWIDTH.BYTES_IN_MB
+      ).toString();
+      l10nId = "ip-protection-bandwidth-warning-infobar-message-90-mb";
+    } else if (threshold === 90) {
+      usageLeft = Math.round(remainingGB).toString();
+      l10nId = "ip-protection-bandwidth-warning-infobar-message-90";
+    } else {
+      // 75% threshold
+      usageLeft = remainingGB.toFixed(1);
+      l10nId = "ip-protection-bandwidth-warning-infobar-message-75";
+    }
 
     // Show the infobar with localized message
     win.gNotificationBox.appendNotification(
       notificationId,
       {
         label: {
-          "l10n-id": `ip-protection-bandwidth-warning-infobar-message-${threshold}`,
+          "l10n-id": l10nId,
           "l10n-args": {
-            usageLeft: formattedGB,
+            usageLeft,
           },
         },
         priority: win.gNotificationBox.PRIORITY_WARNING_HIGH,
+        eventCallback: event => {
+          if (event === "dismissed") {
+            const current = Services.prefs.getIntPref(
+              BANDWIDTH_WARNING_DISMISSED_PREF,
+              0
+            );
+            if (threshold > current) {
+              Services.prefs.setIntPref(
+                BANDWIDTH_WARNING_DISMISSED_PREF,
+                threshold
+              );
+            }
+          }
+        },
       },
       [],
       false,

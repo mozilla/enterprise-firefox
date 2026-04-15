@@ -441,6 +441,11 @@ typedef struct {
    */
   int use_default_intra_tx_type;
 
+  /*! Whether to limit the intra transform search type to the ones in the table
+   * av1_derived_intra_tx_used_flag[INTRA_MODES].
+   */
+  int use_derived_intra_tx_type_set;
+
   /*! Probability threshold used for conditionally forcing tx type*/
   int default_inter_tx_type_prob_thresh;
 
@@ -952,6 +957,11 @@ typedef struct macroblock {
    *   prediction.
    */
   uint8_t *tmp_pred_bufs[2];
+
+  /*!
+   *  Buffer used for upsampled prediction.
+   */
+  uint8_t *upsample_pred;
   /**@}*/
 
   /*****************************************************************************

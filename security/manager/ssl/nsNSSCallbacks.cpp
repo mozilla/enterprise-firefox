@@ -1,5 +1,4 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
- *
+/*
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -7,7 +6,6 @@
 #include "nsNSSCallbacks.h"
 
 #include "NSSSocketControl.h"
-#include "PSMRunnable.h"
 #include "ScopedNSSTypes.h"
 #include "SharedCertVerifier.h"
 #include "mozilla/Assertions.h"
@@ -18,6 +16,7 @@
 #include "mozilla/Span.h"
 #include "mozilla/SpinEventLoopUntil.h"
 #include "mozilla/StaticPrefs_security.h"
+#include "mozilla/SyncRunnable.h"
 #include "mozilla/glean/SecurityManagerSslMetrics.h"
 #include "mozilla/intl/Localization.h"
 #include "nsContentUtils.h"
@@ -38,6 +37,7 @@
 #include "nsNetUtil.h"
 #include "nsProxyRelease.h"
 #include "nsStringStream.h"
+#include "nsThreadUtils.h"
 #include "mozpkix/pkixtypes.h"
 #include "ssl.h"
 #include "sslproto.h"
@@ -541,28 +541,36 @@ static char* ShowProtectedAuthPrompt(PK11SlotInfo* slot, nsIPrompt* prompt) {
   }
 }
 
-class PK11PasswordPromptRunnable : public SyncRunnableBase {
+class PK11PasswordPromptRunnable final : public nsIRunnable {
  public:
   PK11PasswordPromptRunnable(PK11SlotInfo* slot, nsIInterfaceRequestor* ir)
       : mResult(nullptr), mSlot(slot), mIR(ir) {}
-  virtual ~PK11PasswordPromptRunnable() = default;
+
+  NS_DECL_THREADSAFE_ISUPPORTS
+  NS_DECL_NSIRUNNABLE
 
   char* mResult;  // out
-  virtual void RunOnTargetThread() override;
 
  private:
+  ~PK11PasswordPromptRunnable() = default;
+
+  // Accessed only on the main thread. True if any instance of
+  // PK11PasswordPromptRunnable is already running.
   static bool mRunning;
 
   PK11SlotInfo* mSlot;
   nsIInterfaceRequestor* mIR;
 };
 
+NS_IMPL_ISUPPORTS(PK11PasswordPromptRunnable, nsIRunnable)
+
 bool PK11PasswordPromptRunnable::mRunning = false;
 
-void PK11PasswordPromptRunnable::RunOnTargetThread() {
+NS_IMETHODIMP
+PK11PasswordPromptRunnable::Run() {
   MOZ_ASSERT(NS_IsMainThread());
   if (!NS_IsMainThread()) {
-    return;
+    return NS_ERROR_NOT_SAME_THREAD;
   }
 
   // If we've reentered due to the nested event loop implicit in using
@@ -572,7 +580,7 @@ void PK11PasswordPromptRunnable::RunOnTargetThread() {
   // to fail, but this is better than littering the screen with a bunch of
   // password prompts that the user will probably just cancel anyway.
   if (mRunning) {
-    return;
+    return NS_OK;
   }
   mRunning = true;
   auto setRunningToFalseOnExit = MakeScopeExit([&]() { mRunning = false; });
@@ -582,7 +590,7 @@ void PK11PasswordPromptRunnable::RunOnTargetThread() {
   if (!mIR) {
     rv = nsNSSComponent::GetNewPrompter(getter_AddRefs(prompt));
     if (NS_FAILED(rv)) {
-      return;
+      return rv;
     }
   } else {
     prompt = do_GetInterface(mIR);
@@ -590,12 +598,12 @@ void PK11PasswordPromptRunnable::RunOnTargetThread() {
   }
 
   if (!prompt) {
-    return;
+    return NS_ERROR_FAILURE;
   }
 
   if (PK11_ProtectedAuthenticationPath(mSlot)) {
     mResult = ShowProtectedAuthPrompt(mSlot, prompt);
-    return;
+    return NS_OK;
   }
 
   nsAutoString promptString;
@@ -608,7 +616,7 @@ void PK11PasswordPromptRunnable::RunOnTargetThread() {
                                        promptString);
   }
   if (NS_FAILED(rv)) {
-    return;
+    return rv;
   }
 
   nsString password;
@@ -616,10 +624,11 @@ void PK11PasswordPromptRunnable::RunOnTargetThread() {
   rv = prompt->PromptPassword(nullptr, promptString.get(),
                               getter_Copies(password), &userClickedOK);
   if (NS_FAILED(rv) || !userClickedOK) {
-    return;
+    return rv;
   }
 
   mResult = ToNewUTF8String(password);
+  return NS_OK;
 }
 
 char* PK11PasswordPrompt(PK11SlotInfo* slot, PRBool /*retry*/, void* arg) {
@@ -628,7 +637,8 @@ char* PK11PasswordPrompt(PK11SlotInfo* slot, PRBool /*retry*/, void* arg) {
   }
   RefPtr<PK11PasswordPromptRunnable> runnable(new PK11PasswordPromptRunnable(
       slot, static_cast<nsIInterfaceRequestor*>(arg)));
-  runnable->DispatchToMainThreadAndWait();
+  MOZ_ALWAYS_SUCCEEDS(SyncRunnable::DispatchToThread(
+      GetMainThreadSerialEventTarget(), runnable));
   return runnable->mResult;
 }
 

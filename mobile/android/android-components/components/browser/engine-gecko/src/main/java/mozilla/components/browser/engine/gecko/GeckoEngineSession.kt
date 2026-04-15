@@ -38,6 +38,7 @@ import mozilla.components.concept.engine.history.HistoryTrackingDelegate
 import mozilla.components.concept.engine.manifest.WebAppManifest
 import mozilla.components.concept.engine.manifest.WebAppManifestParser
 import mozilla.components.concept.engine.pageextraction.PageExtractionError
+import mozilla.components.concept.engine.pageextraction.PageMetadata
 import mozilla.components.concept.engine.request.RequestInterceptor
 import mozilla.components.concept.engine.request.RequestInterceptor.InterceptionResponse
 import mozilla.components.concept.engine.translate.TranslationError
@@ -83,6 +84,7 @@ import org.mozilla.geckoview.GeckoSession.PermissionDelegate.ContentPermission
 import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.WebRequestError
 import org.mozilla.geckoview.WebResponse
+import java.security.cert.X509Certificate
 import java.util.Locale
 import kotlin.coroutines.CoroutineContext
 import org.mozilla.geckoview.TranslationsController.SessionTranslation as GeckoViewTranslateSession
@@ -878,6 +880,37 @@ class GeckoEngineSession(
     }
 
     /**
+     * See [EngineSession.getPageMetadata]
+     */
+    @OptIn(ExperimentalGeckoViewApi::class)
+    override fun getPageMetadata(
+        onResult: (PageMetadata) -> Unit,
+        onException: (Throwable) -> Unit,
+    ) {
+        geckoSession.sessionPageExtractor.pageMetadata
+            .then(
+                { metadata ->
+                    if (metadata == null) {
+                        onException(PageExtractionError.UnexpectedNull())
+                        return@then GeckoResult()
+                    }
+                    onResult(
+                        PageMetadata(
+                            structuredDataTypes = metadata.structuredDataTypes.toList(),
+                            wordCount = metadata.wordCount,
+                            language = metadata.language,
+                        ),
+                    )
+                    GeckoResult<Unit>()
+                },
+                { error ->
+                    onException(error.intoPageExtractionError())
+                    GeckoResult()
+                },
+            )
+    }
+
+    /**
      * Purges the history for the session (back and forward history).
      */
     override fun purgeHistory() {
@@ -953,6 +986,9 @@ class GeckoEngineSession(
                 }
             }
 
+            if (hasUserGesture) {
+                pageLoadingUrl = url
+            }
             currentUrl = url
             initialLoad = false
             initialLoadRequest = null
@@ -1628,6 +1664,13 @@ class GeckoEngineSession(
         }
     }
 
+    override fun qwacStatus(onResult: (X509Certificate?) -> Unit) {
+      geckoSession.qwacStatus().then({ qwac ->
+        onResult(qwac)
+        GeckoResult<Void>()
+      })
+    }
+
     private fun createGeckoSession(shouldOpen: Boolean = true) {
         this.geckoSession = geckoSessionProvider()
 
@@ -1645,6 +1688,7 @@ class GeckoEngineSession(
         defaultSettings?.clearColor?.let { geckoSession.compositorController.clearColor = it }
 
         if (shouldOpen) {
+            runtime.warmUp()
             geckoSession.open(runtime)
         }
 

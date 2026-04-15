@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -32,6 +30,7 @@
 #include "mozilla/ipc/PBackgroundChild.h"
 #include "mozilla/ipc/UtilityMediaServiceChild.h"
 #include "mozilla/layers/ISurfaceAllocator.h"
+#include "mozilla/layers/ImageDataSerializer.h"
 #include "nsContentUtils.h"
 #include "nsIObserver.h"
 #include "nsPrintfCString.h"
@@ -48,6 +47,8 @@ namespace mozilla {
 
 #define LOG(msg, ...) \
   MOZ_LOG(gRemoteDecodeLog, LogLevel::Debug, (msg, ##__VA_ARGS__))
+#define LOGE(msg, ...) \
+  MOZ_LOG(gRemoteDecodeLog, LogLevel::Error, (msg, ##__VA_ARGS__))
 
 using namespace layers;
 using namespace gfx;
@@ -65,7 +66,7 @@ static EnumeratedArray<RemoteMediaIn, StaticRefPtr<GenericNonExclusivePromise>,
 // Only modified on the main-thread, read on any thread. While it could be read
 // on the main thread directly, for clarity we force access via the DataMutex
 // wrapper.
-MOZ_RUNINIT static StaticDataMutex<StaticRefPtr<nsIThread>>
+constinit static StaticDataMutex<StaticRefPtr<nsIThread>>
     sRemoteMediaManagerChildThread("sRemoteMediaManagerChildThread");
 
 // Only accessed from sRemoteMediaManagerChildThread
@@ -1064,6 +1065,35 @@ bool RemoteMediaManagerChild::DeallocShmem(mozilla::ipc::Shmem& aShmem) {
   return PRemoteMediaManagerChild::DeallocShmem(aShmem);
 }
 
+static already_AddRefed<gfx::DataSourceSurface> GetSurfaceForDescriptor(
+    const SurfaceDescriptor& aDescriptor) {
+  const auto& sdb = aDescriptor.get_SurfaceDescriptorBuffer();
+  const auto& shmem = sdb.data().get_Shmem();
+  const auto& rgb = sdb.desc().get_RGBDescriptor();
+  const auto stride = ImageDataSerializer::GetRGBStride(rgb);
+  if (stride.isNothing()) {
+    LOGE("Invalid stride for buffer");
+    return nullptr;
+  }
+  const auto requiredSize =
+      ImageDataSerializer::ComputeRGBBufferSize(rgb.size(), rgb.format());
+  if (requiredSize.isNothing() || shmem.Size<uint8_t>() < *requiredSize) {
+    LOGE("Shmem too small for required buffer size");
+    return nullptr;
+  }
+
+  return gfx::Factory::CreateWrappingDataSourceSurface(
+      shmem.get<uint8_t>(), *stride, rgb.size(), rgb.format());
+}
+
+static void DestroySurfaceDescriptor(ipc::IShmemAllocator* aAllocator,
+                                     SurfaceDescriptor* aSurface) {
+  MOZ_ASSERT(aSurface);
+  const SurfaceDescriptorBuffer& desc = aSurface->get_SurfaceDescriptorBuffer();
+  aAllocator->DeallocShmem(desc.data().get_Shmem());
+  *aSurface = SurfaceDescriptor();
+}
+
 struct SurfaceDescriptorUserData {
   SurfaceDescriptorUserData(RemoteMediaManagerChild* aAllocator,
                             SurfaceDescriptor& aSD)
@@ -1099,14 +1129,20 @@ already_AddRefed<SourceSurface> RemoteMediaManagerChild::Readback(
       });
   SyncRunnable::DispatchToThread(managerThread, task);
 
-  if (!IsSurfaceDescriptorValid(sd)) {
+  if (sd.type() != SurfaceDescriptor::TSurfaceDescriptorBuffer) {
+    LOGE("Unexpected SurfaceDescriptor type in Readback");
+    return nullptr;
+  }
+  auto& sdb = sd.get_SurfaceDescriptorBuffer();
+  if (sdb.data().type() != MemoryOrShmem::TShmem) {
+    LOGE("Unexpected SurfaceDescriptorBuffer data type in Readback");
     return nullptr;
   }
 
   RefPtr<DataSourceSurface> source = GetSurfaceForDescriptor(sd);
   if (!source) {
     DestroySurfaceDescriptor(this, &sd);
-    NS_WARNING("Failed to map SurfaceDescriptor in Readback");
+    LOGE("Failed to map SurfaceDescriptor in Readback");
     return nullptr;
   }
 
@@ -1226,5 +1262,6 @@ void RemoteMediaManagerChild::SetSupported(
 }
 
 #undef LOG
+#undef LOGE
 
 }  // namespace mozilla

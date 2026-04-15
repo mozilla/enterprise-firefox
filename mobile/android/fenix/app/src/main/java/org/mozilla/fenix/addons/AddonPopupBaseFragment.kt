@@ -5,7 +5,6 @@
 package org.mozilla.fenix.addons
 
 import android.os.Bundle
-import android.os.Environment
 import android.view.Gravity
 import android.view.View
 import androidx.appcompat.app.AlertDialog
@@ -27,12 +26,13 @@ import mozilla.components.concept.engine.EngineSession
 import mozilla.components.concept.engine.prompt.PromptRequest
 import mozilla.components.concept.engine.window.WindowRequest
 import mozilla.components.concept.fetch.Response
-import mozilla.components.feature.downloads.AbstractFetchDownloadService
 import mozilla.components.feature.downloads.DownloadsFeature
 import mozilla.components.feature.downloads.manager.FetchDownloadManager
 import mozilla.components.feature.prompts.PromptFeature
 import mozilla.components.support.base.feature.UserInteractionHandler
 import mozilla.components.support.base.feature.ViewBoundFeatureWrapper
+import mozilla.components.support.utils.DefaultDownloadFileUtils
+import mozilla.components.support.utils.DownloadFileUtils
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.downloads.DownloadService
@@ -41,6 +41,7 @@ import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.getPreferenceKey
 import org.mozilla.fenix.ext.pixelSizeFor
 import org.mozilla.fenix.ext.requireComponents
+import org.mozilla.fenix.settings.downloads.DownloadLocationManager
 import org.mozilla.fenix.theme.ThemeManager
 import mozilla.components.feature.downloads.R as downloadsR
 
@@ -76,10 +77,17 @@ abstract class AddonPopupBaseFragment : Fragment(), EngineSession.Observer, User
                 owner = this,
                 view = view,
             )
+            val downloadFileUtils: DownloadFileUtils = DefaultDownloadFileUtils(
+                context = requireContext(),
+                downloadLocation = {
+                    DownloadLocationManager(requireContext()).defaultLocation
+                },
+            )
             val downloadFeature = DownloadsFeature(
                 requireContext().applicationContext,
                 store = provideBrowserStore(),
                 useCases = requireContext().components.useCases.downloadUseCases,
+                downloadFileUtils = downloadFileUtils,
                 fragmentManager = childFragmentManager,
                 tabId = it.id,
                 downloadManager = FetchDownloadManager(
@@ -184,7 +192,7 @@ abstract class AddonPopupBaseFragment : Fragment(), EngineSession.Observer, User
                 view = view,
             )
             downloadFeature.onDownloadStopped = { downloadState, _, downloadJobStatus ->
-                handleOnDownloadFinished(downloadState, downloadJobStatus)
+                handleOnDownloadFinished(downloadState, downloadJobStatus, downloadFileUtils)
             }
         }
     }
@@ -209,9 +217,9 @@ abstract class AddonPopupBaseFragment : Fragment(), EngineSession.Observer, User
                 contentType,
                 fileSize,
                 0,
-                DownloadState.Status.INITIATED,
+                Status.INITIATED,
                 userAgent,
-                Environment.DIRECTORY_DOWNLOADS,
+                directoryPath = DownloadLocationManager(requireContext()).defaultLocation,
                 private = isPrivate,
                 skipConfirmation = skipConfirmation,
                 openInApp = openInApp,
@@ -321,18 +329,15 @@ abstract class AddonPopupBaseFragment : Fragment(), EngineSession.Observer, User
     private fun handleOnDownloadFinished(
         downloadState: DownloadState,
         downloadJobStatus: Status,
+        downloadFileUtils: DownloadFileUtils,
     ) {
         // If the download is just paused, don't show any in-app notification
         if (shouldShowCompletedDownloadDialog(downloadState, downloadJobStatus)) {
-            val safeContext = context ?: return
-
             if (downloadState.openInApp && downloadJobStatus == Status.COMPLETED) {
-                val fileWasOpened = AbstractFetchDownloadService.openFile(
-                    applicationContext = safeContext.applicationContext,
-                    packageName = safeContext.applicationContext.packageName,
-                    downloadFileName = downloadState.fileName,
-                    downloadFilePath = downloadState.filePath,
-                    downloadContentType = downloadState.contentType,
+                val fileWasOpened = downloadFileUtils.openFile(
+                    fileName = downloadState.fileName,
+                    directoryPath = downloadState.directoryPath,
+                    contentType = downloadState.contentType,
                 )
                 if (!fileWasOpened) {
                     requireComponents.appStore.dispatch(

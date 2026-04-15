@@ -33,6 +33,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import mozilla.components.compose.base.button.TextButton
+import mozilla.components.support.base.log.logger.Logger
 import org.mozilla.fenix.R
 import org.mozilla.fenix.theme.FirefoxTheme
 
@@ -42,6 +43,8 @@ private val ROUNDED_CORNER_SHAPE = RoundedCornerShape(28.dp)
  * The tag used for links in the text for annotated strings.
  */
 private const val URL_TAG = "URL_TAG"
+
+private val logger = Logger("LinkText")
 
 /**
  * Model containing link text, url and action.
@@ -160,6 +163,9 @@ private fun LinksDialog(
     }
 }
 
+/**
+ * @throws IllegalArgumentException if any of the given [linkTextStates] text are not found in [fullText].
+ */
 private fun buildUrlAnnotatedString(
     fullText: String,
     linkTextStates: List<LinkTextState>,
@@ -170,7 +176,19 @@ private fun buildUrlAnnotatedString(
 
     var previousWordEndIndex = 0
 
-    linkTextStates.forEach { linkTextStates ->
+    linkTextStates.forEach { linkTextState ->
+
+        if (linkTextState.text.isBlank()) {
+            logger.error("Link text was blank")
+        }
+
+        val startIndex = fullText.indexOf(linkTextState.text, previousWordEndIndex)
+        if (startIndex < 0) {
+            logger.error("LinkText: \"${linkTextState.text}\" not found in \"$fullText\"")
+        }
+
+        val endIndex = startIndex + linkTextState.text.length
+
         val link = LinkAnnotation.Clickable(
             tag = URL_TAG,
             styles = TextLinkStyles(
@@ -180,13 +198,9 @@ private fun buildUrlAnnotatedString(
                 ),
             ),
             linkInteractionListener = {
-                linkTextStates.onClick(linkTextStates.url)
+                linkTextState.onClick(linkTextState.url)
             },
         )
-
-        val startIndex = fullText.indexOf(linkTextStates.text, previousWordEndIndex)
-        val endIndex = startIndex + linkTextStates.text.length
-
         addLink(link, startIndex, endIndex)
 
         previousWordEndIndex = endIndex

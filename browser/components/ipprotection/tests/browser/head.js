@@ -10,11 +10,11 @@ const { IPProtection, IPProtectionWidget } = ChromeUtils.importESModule(
 );
 
 const { IPProtectionService, IPProtectionStates } = ChromeUtils.importESModule(
-  "moz-src:///browser/components/ipprotection/IPProtectionService.sys.mjs"
+  "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs"
 );
 
 const { IPPProxyManager, IPPProxyStates } = ChromeUtils.importESModule(
-  "moz-src:///browser/components/ipprotection/IPPProxyManager.sys.mjs"
+  "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs"
 );
 
 const { IPProtectionAlertManager } = ChromeUtils.importESModule(
@@ -22,11 +22,11 @@ const { IPProtectionAlertManager } = ChromeUtils.importESModule(
 );
 
 const { IPPSignInWatcher } = ChromeUtils.importESModule(
-  "moz-src:///browser/components/ipprotection/IPPSignInWatcher.sys.mjs"
+  "moz-src:///toolkit/components/ipprotection/IPPSignInWatcher.sys.mjs"
 );
 
 const { IPPEnrollAndEntitleManager } = ChromeUtils.importESModule(
-  "moz-src:///browser/components/ipprotection/IPPEnrollAndEntitleManager.sys.mjs"
+  "moz-src:///toolkit/components/ipprotection/IPPEnrollAndEntitleManager.sys.mjs"
 );
 
 const { HttpServer, HTTP_403 } = ChromeUtils.importESModule(
@@ -38,7 +38,7 @@ const { NimbusTestUtils } = ChromeUtils.importESModule(
 );
 
 const { Server } = ChromeUtils.importESModule(
-  "moz-src:///browser/components/ipprotection/IPProtectionServerlist.sys.mjs"
+  "moz-src:///toolkit/components/ipprotection/IPProtectionServerlist.sys.mjs"
 );
 
 ChromeUtils.defineESModuleGetters(this, {
@@ -49,7 +49,7 @@ ChromeUtils.defineESModuleGetters(this, {
 });
 
 const { ProxyPass, ProxyUsage, Entitlement } = ChromeUtils.importESModule(
-  "moz-src:///browser/components/ipprotection/GuardianClient.sys.mjs"
+  "moz-src:///toolkit/components/ipprotection/GuardianClient.sys.mjs"
 );
 const { RemoteSettings } = ChromeUtils.importESModule(
   "resource://services-settings/remote-settings.sys.mjs"
@@ -102,7 +102,11 @@ const defaultState = new IPProtectionPanel().state;
 async function openPanel(state, win = window) {
   let panel = IPProtection.getPanel(win);
   if (state) {
-    panel.setState(state);
+    panel.setState({
+      isCheckingEntitlement: false,
+      unauthenticated: false,
+      ...state,
+    });
   }
 
   let panelShownPromise = waitForPanelEvent(win.document, "popupshown");
@@ -280,6 +284,10 @@ let DEFAULT_SERVICE_STATUS = {
 let STUBS = {
   isEnrolledAndEntitled: undefined,
   hasUpgraded: undefined,
+  isEnrolling: undefined,
+  isCheckingEntitlement: undefined,
+  updateEntitlement: undefined,
+  refetchEntitlement: undefined,
   enroll: undefined,
   fetchUserInfo: undefined,
   fetchProxyPass: undefined,
@@ -377,6 +385,20 @@ function setupStubs(stubs = STUBS) {
     IPPEnrollAndEntitleManager,
     "hasUpgraded"
   );
+  // Stub isEnrolling, isCheckingEntitlement, updateEntitlement, and refetchEntitlement
+  // to prevent loading skeleton from rendering unexpectedly during tests.
+  stubs.isEnrolling = setupSandbox
+    .stub(IPPEnrollAndEntitleManager, "isEnrolling")
+    .get(() => false);
+  stubs.isCheckingEntitlement = setupSandbox
+    .stub(IPPEnrollAndEntitleManager, "isCheckingEntitlement")
+    .get(() => false);
+  stubs.updateEntitlement = setupSandbox
+    .stub(IPPEnrollAndEntitleManager, "updateEntitlement")
+    .resolves();
+  stubs.refetchEntitlement = setupSandbox
+    .stub(IPPEnrollAndEntitleManager, "refetchEntitlement")
+    .resolves();
 
   const guardianStub = {
     enroll: setupSandbox.stub(),
@@ -501,13 +523,8 @@ async function cleanupExperiment() {
  */
 function createTestEntitlement(overrides = {}) {
   return new Entitlement({
-    autostart: false,
-    created_at: "2023-01-01T12:00:00.000Z",
-    limited_bandwidth: false,
-    location_controls: false,
     subscribed: false,
     uid: 42,
-    website_inclusion: false,
     maxBytes: "0",
     ...overrides,
   });

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -508,7 +506,7 @@ static void LogMessage(
     doc = aWindow->GetExtantDoc();
   }
   nsContentUtils::ReportToConsole(nsIScriptError::warningFlag, "DOM"_ns, doc,
-                                  nsContentUtils::eDOM_PROPERTIES, aWarning,
+                                  PropertiesFile::DOM_PROPERTIES, aWarning,
                                   aParams);
 }
 
@@ -1651,7 +1649,7 @@ void XMLHttpRequestMainThread::Open(const nsACString& aMethod,
   DisconnectDoneNotifier();
   mFlagSend = false;
   mRequestMethod.Assign(method);
-  mRequestURL = parsedURL;
+  mRequestURL = std::move(parsedURL);
   mFlagSynchronous = !aAsync;
   mAuthorRequestHeaders.Clear();
   ResetResponse();
@@ -2507,6 +2505,7 @@ void XMLHttpRequestMainThread::ChangeStateToDone(bool aWasSync) {
 
 void XMLHttpRequestMainThread::ChangeStateToDoneInternal() {
   DEBUG_WORKERREFS;
+  RefPtr<XMLHttpRequestMainThread> kungfuDeathGrip(this);
   DisconnectDoneNotifier();
   StopProgressEventTimer();
 
@@ -3118,6 +3117,16 @@ void XMLHttpRequestMainThread::SendInternal(const BodyExtractorBase* aBody,
     mFlagSend = true;  // so CloseRequestWithError sets us to DONE.
     aRv = MaybeSilentSendFailure(mErrorLoadDetail);
     return;
+  }
+
+  // https://fetch.spec.whatwg.org/#concept-fetch
+  // XHR uses the Fetch algorithm; MIME sniffing does not apply to fetch
+  // requests, only to browsing contexts.
+  // Exception: when responseType is "document", XHR needs the content type
+  // to parse the response as HTML/XML, so allow sniffing as a fallback.
+  if (mResponseType != XMLHttpRequestResponseType::Document) {
+    nsCOMPtr<nsILoadInfo> loadInfo = mChannel->LoadInfo();
+    loadInfo->SetSkipContentSniffing(true);
   }
 
   // XXX We should probably send a warning to the JS console
@@ -3805,13 +3814,23 @@ void XMLHttpRequestMainThread::HandleProgressTimerCallback() {
                             mUploadTotal);
     }
   } else {
-    FireReadystatechangeEvent();
-    DispatchProgressEvent(this, Events::progress, mLoadTransferred, mLoadTotal);
+    // Don't fire events when state is UNSENT. This can happen if abort() was
+    // called and changed the state to UNSENT, but this timer callback was
+    // already queued. Per spec, readystatechange doesn't fire when changing to
+    // UNSENT, and progress events only fire during data transmission.
+    if (mState != XMLHttpRequest_Binding::UNSENT) {
+      FireReadystatechangeEvent();
+      DispatchProgressEvent(this, Events::progress, mLoadTransferred,
+                            mLoadTotal);
+    }
   }
 
   mProgressSinceLastProgressEvent = false;
 
-  StartProgressEventTimer();
+  // Don't restart the timer if we're in UNSENT state.
+  if (mState != XMLHttpRequest_Binding::UNSENT) {
+    StartProgressEventTimer();
+  }
 }
 
 void XMLHttpRequestMainThread::StopProgressEventTimer() {

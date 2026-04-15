@@ -34,9 +34,9 @@ const mochitestTestPaths = [
 ];
 
 const xpcshellTestPaths = [
-  "**/test*/unit*/**/",
+  "**/test*/unit*/",
   "**/test*/*/unit*/",
-  "**/test*/xpcshell/**/",
+  "**/test*/xpcshell/",
 ];
 
 // DO NOT add more items to this list. Please see the note at the top

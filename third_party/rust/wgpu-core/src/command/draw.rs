@@ -46,17 +46,14 @@ pub enum DrawError {
     },
     #[error("Index {last_index} extends beyond limit {index_limit}. Did you bind the correct index buffer?")]
     IndexBeyondLimit { last_index: u64, index_limit: u64 },
-    #[error(
-        "Index buffer format {buffer_format:?} doesn't match {pipeline}'s index format {pipeline_format:?}"
-    )]
-    UnmatchedIndexFormats {
+    #[error("For indexed drawing with strip topology, {pipeline}'s strip index format {strip_index_format:?} must match index buffer format {buffer_format:?}")]
+    UnmatchedStripIndexFormat {
         pipeline: ResourceErrorIdent,
-        pipeline_format: wgt::IndexFormat,
+        strip_index_format: Option<wgt::IndexFormat>,
         buffer_format: wgt::IndexFormat,
     },
     #[error(transparent)]
     BindingSizeTooSmall(#[from] LateMinBufferBindingSizeMismatch),
-
     #[error(
         "Wrong pipeline type for this draw command. Attempted to call {} draw command on {} pipeline",
         if *wanted_mesh_pipeline {"mesh shader"} else {"standard"},
@@ -133,14 +130,14 @@ pub enum RenderCommandError {
 
 impl WebGpuError for RenderCommandError {
     fn webgpu_error_type(&self) -> ErrorType {
-        let e: &dyn WebGpuError = match self {
-            Self::IncompatiblePipelineTargets(e) => e,
-            Self::ResourceUsageCompatibility(e) => e,
-            Self::DestroyedResource(e) => e,
-            Self::MissingBufferUsage(e) => e,
-            Self::MissingTextureUsage(e) => e,
-            Self::ImmediateData(e) => e,
-            Self::BindingError(e) => e,
+        match self {
+            Self::IncompatiblePipelineTargets(e) => e.webgpu_error_type(),
+            Self::ResourceUsageCompatibility(e) => e.webgpu_error_type(),
+            Self::DestroyedResource(e) => e.webgpu_error_type(),
+            Self::MissingBufferUsage(e) => e.webgpu_error_type(),
+            Self::MissingTextureUsage(e) => e.webgpu_error_type(),
+            Self::ImmediateData(e) => e.webgpu_error_type(),
+            Self::BindingError(e) => e.webgpu_error_type(),
 
             Self::BindGroupIndexOutOfRange { .. }
             | Self::VertexBufferIndexOutOfRange { .. }
@@ -152,9 +149,8 @@ impl WebGpuError for RenderCommandError {
             | Self::InvalidViewportRectPosition { .. }
             | Self::InvalidViewportDepth(..)
             | Self::InvalidScissorRect(..)
-            | Self::Unimplemented(..) => return ErrorType::Validation,
-        };
-        e.webgpu_error_type()
+            | Self::Unimplemented(..) => ErrorType::Validation,
+        }
     }
 }
 

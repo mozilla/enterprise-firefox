@@ -17,11 +17,12 @@
   grid-template-areas:
     "browser"
     "."
+    "heading"
     "smartbar"
     "prompts"
     "."
     "footer";
-  grid-template-rows: 0 1fr auto auto 1fr auto;
+  grid-template-rows: 0 1fr auto auto auto 1fr auto;
   align-content: stretch;
 }
 
@@ -30,24 +31,27 @@
     "sidebar-header"
     "browser"
     "prompts"
-    "smartbar";
-  grid-template-rows: auto 1fr auto auto;
+    "smartbar"
+    "disclaimer";
+  grid-template-rows: auto 1fr auto auto auto;
 }
 
 /* Expands browser to full height and removes prompts from grid when chat starts */
 :host(.chat-active) {
   grid-template-areas:
     "browser"
-    "smartbar";
-  grid-template-rows: 1fr auto;
+    "smartbar"
+    "disclaimer";
+  grid-template-rows: 1fr auto auto;
 }
 
 :host([mode="sidebar"].chat-active) {
   grid-template-areas:
     "sidebar-header"
     "browser"
-    "smartbar";
-  grid-template-rows: auto 1fr auto;
+    "smartbar"
+    "disclaimer";
+  grid-template-rows: auto 1fr auto auto;
 }
 
 #browser-container {
@@ -64,7 +68,7 @@
 #smartbar-wrapper {
   grid-area: smartbar;
   height: var(--smartbar-height, auto);
-  margin-block-end: var(--space-medium);
+  margin-block-end: var(--space-small);
   /* smartbar max width must be the same as the child context (ai-window-content.css) container */
   max-width: var(--smartwindow-content-max-width);
   position: relative;
@@ -74,6 +78,48 @@
 #ai-window-smartbar {
   position: absolute;
   z-index: 1;
+}
+
+.disclaimer {
+  --disclaimer-text-color: light-dark(var(--color-gray-60), var(--color-gray-30));
+  color: var(--disclaimer-text-color);
+  font-size: var(--font-size-small);
+  grid-area: disclaimer;
+  margin-block-end: var(--space-small);
+  user-select: none;
+}
+
+/* These colors are duplicated from `.message-assistant a` styles in
+ * `ai-chat-message.css` to ensure the disclaimer links have the same color
+ *  and behavior as assistant message links, even outside of the chat message
+ * context. We can consider centralizing these styles if we find more use cases
+ * for assistant-styled links outside of chat messages and the disclaimer.
+ */
+.disclaimer a {
+  --smartwindow-assistant-link-color: light-dark(var(--color-violet-50), var(--color-violet-20));
+  --smartwindow-assistant-link-color-hover: light-dark(var(--color-violet-90), var(--color-violet-50));
+  --smartwindow-assistant-link-color-visited: light-dark(var(--color-violet-70), var(--color-violet-40));
+  --smartwindow-assistant-link-color-active: light-dark(var(--color-violet-90), var(--color-violet-50));
+  --smartwindow-assistant-accent-color-focus: light-dark(var(--color-violet-70), var(--color-violet-40));
+  color: var(--smartwindow-assistant-link-color);
+}
+
+.disclaimer a:visited {
+  color: var(--smartwindow-assistant-link-color-visited);
+}
+
+.disclaimer a:hover {
+  color: var(--smartwindow-assistant-link-color-hover);
+}
+
+.disclaimer a:active {
+  color: var(--smartwindow-assistant-link-color-active);
+}
+
+.disclaimer a:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-offset);
+  accent-color: var(--smartwindow-assistant-accent-color-focus);
 }
 
 :host([mode="fullpage"]) #ai-window-smartbar {
@@ -97,13 +143,19 @@ smartwindow-prompts {
   box-sizing: border-box;
   grid-area: sidebar-header;
   padding: var(--space-small);
-  display: flex;
-  justify-content: flex-end;
   width: 100%;
 }
 
 moz-button.new-chat-icon-button {
   --button-border-radius: var(--border-radius-large);
+  /* Updating background color for light only, persisting default dark background-color */
+  --button-background-color: light-dark(var(--color-white), rgba(0, 0, 0, 0.33));
+  --button-text-color: light-dark(var(--color-violet-80), var(--color-white));
+  --button-background-color-hover: color-mix(in srgb, currentColor 11%, transparent);
+}
+
+moz-button.new-chat-icon-button::part(button) {
+  box-shadow: var(--box-shadow-level-1);
 }
 
 #smartbar-toggle-button:not([hidden]) {
@@ -132,6 +184,14 @@ moz-button.new-chat-icon-button {
   color: var(--smartbar-button-text-color);
   font-size: var(--button-font-size);
   font-weight: var(--font-weight);
+}
+
+smartwindow-heading {
+  grid-area: heading;
+}
+
+:host(.chat-active) smartwindow-heading {
+  display: none;
 }
 
 smartwindow-footer {

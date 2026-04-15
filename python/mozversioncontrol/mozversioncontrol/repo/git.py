@@ -193,6 +193,26 @@ class GitRepository(Repository):
             return None
         return name.strip()
 
+    def get_remote_url(self, remote=None, push=False):
+        if not remote:
+            keys = [f"branch.{self.branch}.remote"]
+            if push:
+                keys[0:0] = [f"branch.{self.branch}.pushRemote", "remote.pushDefault"]
+
+            for key in keys:
+                if remote := self._run("config", key, return_codes=[0, 1]):
+                    break
+            else:
+                return None
+
+            remote = remote.strip()
+
+        cmd = ["remote", "get-url", remote]
+        if push:
+            cmd.append("--push")
+        url = self._run(*cmd, return_codes=[0, 2, 128], stderr=subprocess.DEVNULL)
+        return url.strip() if url else None
+
     def get_changed_files(self, diff_filter="ADM", mode="unstaged", rev=None):
         assert all(f.lower() in self._valid_diff_filter for f in diff_filter)
 
@@ -288,9 +308,9 @@ class GitRepository(Repository):
         if exclude_file is not None:
             with open(exclude_file) as exclude_pattern_file:
                 for pattern in exclude_pattern_file.readlines():
-                    pattern = self._translate_exclude_expr(pattern.rstrip())
-                    if pattern is not None:
-                        args.append(pattern)
+                    translated = self._translate_exclude_expr(pattern.rstrip())
+                    if translated is not None:
+                        args.append(translated)
         return self._pipefrom(*args)
 
     def working_directory_clean(self, untracked=False, ignored=False):
@@ -318,6 +338,24 @@ class GitRepository(Repository):
 
     def update(self, ref):
         self._run("checkout", ref)
+
+    def push(
+        self,
+        remote: Optional[str] = None,
+        ref: Optional[str] = None,
+        force: bool = False,
+    ):
+        if ref and not remote:
+            raise ValueError("Cannot specify ref without specifying remote")
+
+        args = ["push"]
+        if force:
+            args.append("--force")
+        if remote:
+            args.append(remote)
+        if ref:
+            args.append(ref)
+        self._run(*args)
 
     def push_to_try(
         self,
@@ -491,25 +529,17 @@ class GitRepository(Repository):
         return datetime.strptime(out.strip(), "%Y-%m-%d %H:%M:%S %z")
 
     def get_config_key_value(self, key: str):
-        try:
-            value = subprocess.check_output(
-                [self._tool, "config", "--get", key],
-                stderr=subprocess.DEVNULL,
-                text=True,
-            ).strip()
-            return value or None
-        except subprocess.CalledProcessError:
-            return None
+        value = self._run(
+            "config", "--get", key, stderr=subprocess.DEVNULL, return_codes=[0, 1]
+        ).strip()
+        return value or None
 
     def set_config_key_value(self, key: str, value: str):
         """
         Set a git config value in the given repo and print
         logging output indicating what was done.
         """
-        subprocess.check_call(
-            [self._tool, "config", key, value],
-            cwd=str(self.path),
-        )
+        self._run("config", key, value)
         print(f'Set git config: "{key} = {value}"')
 
     def configure(self, state_dir: Path, update_only: bool = False):

@@ -278,10 +278,10 @@ void EmitterScope::dump(BytecodeEmitter* bce) {
   fprintf(stdout, "EmitterScope [%s] %p\n", ScopeKindString(scope(bce).kind()),
           this);
 
-  for (NameLocationMap::Range r = nameCache_->all(); !r.empty(); r.popFront()) {
-    const NameLocation& l = r.front().value();
+  for (auto iter = nameCache_->iter(); !iter.done(); iter.next()) {
+    const NameLocation& l = iter.get().value();
 
-    auto atom = r.front().key();
+    auto atom = iter.get().key();
     UniqueChars bytes = bce->parserAtoms().toPrintableString(atom);
     if (!bytes) {
       ReportOutOfMemory(bce->fc);

@@ -49,7 +49,7 @@ newtab-search-box-input =
     .placeholder = Buscar na web
     .aria-label = Buscar na web
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Engadir buscador
 newtab-topsites-add-shortcut-header = Novo atallo

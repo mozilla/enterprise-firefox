@@ -74,9 +74,10 @@ addAccessibleTask(
 
 function focusURLBar() {
   info("Focusing the URL bar");
+  // XXX: See bug 2016839
   const focused = waitForEvent(
     EVENT_FOCUS,
-    event => event.accessible.role == ROLE_ENTRY
+    event => event.accessible.role == ROLE_EDITCOMBOBOX
   );
   gURLBar.focus();
   return focused;

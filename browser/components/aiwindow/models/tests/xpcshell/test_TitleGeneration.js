@@ -108,8 +108,9 @@ add_task(async function test_generateChatTitle_success() {
       systemContent.includes(currentTab.url),
       "System prompt should include tab URL"
     );
+
     Assert.ok(
-      systemContent.includes(currentTab.title),
+      systemContent.includes(JSON.stringify(currentTab.title)),
       "System prompt should include tab title"
     );
     Assert.ok(

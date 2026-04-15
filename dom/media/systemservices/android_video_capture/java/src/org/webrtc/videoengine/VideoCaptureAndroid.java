@@ -75,6 +75,7 @@ public class VideoCaptureAndroid implements CameraVideoCapturer.CameraEventsHand
       cameraVideoCapturer.initialize(surfaceTextureHelper, context, this);
     } catch (java.lang.RuntimeException e) {
       Log.e(TAG, "VideoCaptureAndroid: Exception while creating capturer: " + e);
+      cameraVideoCapturer = null;
     }
   }
 

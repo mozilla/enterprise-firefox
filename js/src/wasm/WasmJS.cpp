@@ -2029,6 +2029,15 @@ JSObject& WasmInstanceObject::exportsObj() const {
   return getReservedSlot(EXPORTS_OBJ_SLOT).toObject();
 }
 
+WasmFunctionScope* WasmInstanceObject::getExistingFunctionScope(
+    uint32_t funcIndex) const {
+  if (auto p = scopes().asWasmFunctionScopeMap().lookup(funcIndex)) {
+    return p->value();
+  }
+
+  return nullptr;
+}
+
 WasmInstanceObject::UnspecifiedScopeMap& WasmInstanceObject::scopes() const {
   return *(UnspecifiedScopeMap*)(getReservedSlot(SCOPES_SLOT).toPrivate());
 }
@@ -2410,6 +2419,12 @@ bool WasmMemoryObject::toFixedLengthBufferImpl(JSContext* cx,
     return true;
   }
 
+  if (!memory->isShared() && buffer->as<ArrayBufferObject>().isLengthPinned()) {
+    JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
+                              JSMSG_ARRAYBUFFER_LENGTH_PINNED);
+    return false;
+  }
+
   Rooted<ArrayBufferObjectMaybeShared*> fixedBuffer(cx);
   if (memory->isShared()) {
     Rooted<SharedArrayBufferObject*> oldBuffer(
@@ -2454,6 +2469,12 @@ bool WasmMemoryObject::toResizableBufferImpl(JSContext* cx,
   if (buffer->wasmSourceMaxPages().isNothing()) {
     JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                               JSMSG_WASM_MEMORY_NOT_RESIZABLE);
+    return false;
+  }
+
+  if (!memory->isShared() && buffer->as<ArrayBufferObject>().isLengthPinned()) {
+    JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
+                              JSMSG_ARRAYBUFFER_LENGTH_PINNED);
     return false;
   }
 
@@ -2735,9 +2756,8 @@ uint64_t WasmMemoryObject::grow(Handle<WasmMemoryObject*> memory,
   // Only notify moving-grow-observers after the BUFFER_SLOT has been updated
   // since observers will call buffer().
   if (memory->hasObservers()) {
-    for (InstanceSet::Range r = memory->observers().all(); !r.empty();
-         r.popFront()) {
-      r.front()->instance().onMovingGrowMemory(memory);
+    for (auto iter = memory->observers().iter(); !iter.done(); iter.next()) {
+      iter.get()->instance().onMovingGrowMemory(memory);
     }
   }
 
@@ -5483,6 +5503,11 @@ bool WasmSuspendingObject::construct(JSContext* cx, unsigned argc, Value* vp) {
 
 static bool WebAssembly_promising(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
+
+  if (!JSPromiseIntegrationAvailable(cx)) {
+    JS_ReportErrorASCII(cx, "JS-PI is not enabled");
+    return false;
+  }
 
   if (!args.requireAtLeast(cx, "WebAssembly.promising", 1)) {
     return false;

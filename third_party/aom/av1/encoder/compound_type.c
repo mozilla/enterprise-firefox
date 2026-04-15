@@ -1307,8 +1307,6 @@ int av1_compound_type_rd(const AV1_COMP *const cpi, MACROBLOCK *x,
     const bool skip_mv_refinement_for_avg_distwtd =
         enable_fast_compound_mode_search == 3 ||
         (enable_fast_compound_mode_search == 2 && (this_mode != NEW_NEWMV));
-    const bool skip_mv_refinement_for_diffwtd =
-        (!enable_fast_compound_mode_search && cur_type == COMPOUND_DIFFWTD);
 
     // Case COMPOUND_AVERAGE and COMPOUND_DISTWTD
     if (cur_type < COMPOUND_WEDGE) {
@@ -1524,7 +1522,8 @@ int av1_compound_type_rd(const AV1_COMP *const cpi, MACROBLOCK *x,
       mbmi->mv[1] = tmp_mv[1];
       tmp_rate_mv = best_rate_mv;
       rs2 = best_rs2;
-    } else if (skip_mv_refinement_for_diffwtd) {
+    } else if (!enable_fast_compound_mode_search &&
+               cur_type == COMPOUND_DIFFWTD) {
       int_mv tmp_mv[2];
       int best_mask_index = 0;
       rs2 += get_interinter_compound_mask_rate(&x->mode_costs, mbmi);

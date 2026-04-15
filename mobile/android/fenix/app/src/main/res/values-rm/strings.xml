@@ -1487,12 +1487,8 @@
   <string name="studies_remove">Allontanar</string>
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">Activs</string>
-  <!-- Description for studies -->
-  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">Emprova novas funcziuns ed ideas avant ch’ellas stettian a disposiziun a mintgin.</string>
   <!-- Description for studies. Note: The word "Firefox" should NOT be translated -->
   <string name="studies_description_4" tools:ignore="BrandUsage">Firefox tscherna casualmain utilisad:ras per testar funcziunalitads che megliereschan la qualitad per ina e mintgin.</string>
-  <!-- Title of the Studies data preference -->
-  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">Installar ed exequir studis</string>
   <!-- Title of the Studies data preference -->
   <string name="studies_title_2">Permetter studis davart funcziuns</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
@@ -1987,7 +1983,11 @@
   <string name="bookmark_delete_single_item" tools:ignore="UnusedResources" moz:removedIn="150">Stizzà %s</string>
   <!-- Bookmark snackbar message for deleting multiple items. %s is the number of items being deleted -->
   <string name="bookmark_delete_multiple_items" tools:ignore="UnusedResources" moz:removedIn="150">Elements stizzads: %s</string>
-  <!-- Content description for the bookmark navigation bar back button -->
+  <!--
+    Bookmark undo button for deletion snackbar action
+
+    Content description for the bookmark navigation bar back button
+  -->
   <string name="bookmark_navigate_back_button_content_description">Turnar</string>
   <!-- Content description for the bookmark list new folder navigation bar button -->
   <string name="bookmark_add_new_folder_button_content_description">Agiuntar in nov ordinatur</string>
@@ -2325,8 +2325,6 @@
   <string name="preference_accessibility_text_size_summary">Engrondescha u empitschnescha il text sin websites</string>
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">Grondezza da scrittira</string>
-  <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">Adattaziun automatica da la grondezza da scrittira</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -3346,7 +3344,7 @@
   <!-- The title of the warning card informs the user that the list of languages cannot be loaded. -->
   <string name="translation_error_could_not_load_languages_warning_text">Impussibel da chargiar las linguas. Controllescha tia connexiun cun l’internet ed emprova anc ina giada.</string>
   <!-- The title of the warning card informs the user that a language is not supported. %1$s is the name of the language that is not supported. -->
-  <string name="translation_error_language_not_supported_warning_text">Perstgisa, nus na sustegnain anc betg %1$s.</string>
+  <string name="translation_error_language_not_supported_warning_text" tools:ignore="UnusedResources" moz:removedIn="150">Perstgisa, nus na sustegnain anc betg %1$s.</string>
   <!-- Snackbar title shown if the user closes the Translation Request dialogue and a translation is in progress. -->
   <string name="translation_in_progress_snackbar">Translatar…</string>
   <!--

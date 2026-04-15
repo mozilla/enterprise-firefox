@@ -13,12 +13,12 @@ static void VerifyFragments(const nsACString& aURL,
   LookupCache::GetLookupFragments(aURL, &fragments);
 
   ASSERT_EQ(aExpected.Length(), fragments.Length())
-      << "Fragments generated from " << aURL.BeginReading()
+      << "Fragments generated from " << PromiseFlatCString(aURL).get()
       << " are not the same as expected";
 
   for (const auto& fragment : fragments) {
     ASSERT_TRUE(aExpected.Contains(fragment))
-    << "Fragments generated from " << aURL.BeginReading()
+    << "Fragments generated from " << PromiseFlatCString(aURL).get()
     << " are not the same as expected";
   }
 }

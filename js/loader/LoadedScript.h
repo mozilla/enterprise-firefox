@@ -19,13 +19,16 @@
 #include "mozilla/Utf8.h"  // mozilla::Utf8Unit
 #include "mozilla/Variant.h"
 #include "mozilla/Vector.h"
+#include "mozilla/UniquePtr.h"  // mozilla::UniquePtr
 
+#include "mozilla/dom/SRIMetadata.h"  // mozilla::dom::SRIMetadata
 #include "nsCOMPtr.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsICacheInfoChannel.h"  // nsICacheInfoChannel
 #include "nsIMemoryReporter.h"
 
 #include "jsapi.h"
+#include "ResolvedModuleSet.h"
 #include "ScriptKind.h"
 #include "ScriptFetchOptions.h"
 
@@ -60,7 +63,7 @@ class LoadedScript : public nsIMemoryReporter {
   LoadedScript(ScriptKind aKind, mozilla::dom::ReferrerPolicy aReferrerPolicy,
                ScriptFetchOptions* aFetchOptions, nsIURI* aURI);
 
-  LoadedScript(const LoadedScript& aOther);
+  LoadedScript(const LoadedScript& aOther, ScriptFetchOptions* aFetchOptions);
 
   template <typename T, typename... Args>
   friend RefPtr<T> mozilla::MakeRefPtr(Args&&... aArgs);
@@ -80,6 +83,18 @@ class LoadedScript : public nsIMemoryReporter {
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS;
   NS_DECL_NSIMEMORYREPORTER;
   NS_DECL_CYCLE_COLLECTION_CLASS(LoadedScript)
+
+  // Create a new instance from a cache, with a different aFetchOptions.
+  static already_AddRefed<LoadedScript> FromCache(
+      const LoadedScript& aScript, ScriptFetchOptions* aFetchOptions);
+
+  uint16_t ClampedRefCountForTelemetry() const {
+    uintptr_t count = mRefCnt.get();
+    if (count > 100) {
+      return 100;
+    }
+    return uint16_t(count);
+  }
 
   bool IsClassicScript() const { return mKind == ScriptKind::eClassic; }
   bool IsModuleScript() const { return mKind == ScriptKind::eModule; }
@@ -340,6 +355,9 @@ class LoadedScript : public nsIMemoryReporter {
   void SetTookLongInPreviousRuns() { mTookLongInPreviousRuns = true; }
   bool TookLongInPreviousRuns() const { return mTookLongInPreviousRuns; }
 
+  void SetIsEverHitFromMemoryCache() { mIsEverHitFromMemoryCache = true; }
+  bool IsEverHitFromMemoryCache() const { return mIsEverHitFromMemoryCache; }
+
   /*
    * Set the mBaseURL, based on aChannel.
    * aOriginalURI is the result of aChannel->GetOriginalURI.
@@ -374,6 +392,12 @@ class LoadedScript : public nsIMemoryReporter {
       mFetchCount++;
     }
   }
+
+  void SetSRIMetadata(const mozilla::dom::SRIMetadata& aSRIMetadata);
+
+  // Returns true if this script has compatible SRI metadata as the provided
+  // one.
+  bool IsSRIMetadataReusableBy(const mozilla::dom::SRIMetadata& aSRIMetadata);
 
  public:
   // Fields.
@@ -438,11 +462,19 @@ class LoadedScript : public nsIMemoryReporter {
   // TODO: Move this into JS::Stencil, and save to the disk cache (bug 2005128)
   uint64_t mTookLongInPreviousRuns : 1;
 
+  // Set to true if this entry is ever used in the current process.
+  uint64_t mIsEverHitFromMemoryCache : 1;
+
   RefPtr<ScriptFetchOptions> mFetchOptions;
   nsCOMPtr<nsIURI> mURI;
 
   // The base URL used for resolving relative module imports.
   nsCOMPtr<nsIURI> mBaseURL;
+
+  // An optional field to store the SRI metadata used by the request that
+  // first creates this instance.
+  // nullptr if the SRI metadata was empty, or not yet set.
+  mozilla::UniquePtr<mozilla::dom::SRIMetadata> mSRIMetadata;
 
  public:
   // Holds script source data for non-inline scripts, or raw bytes for wasm
@@ -651,6 +683,8 @@ class ModuleScript final : public LoadedScript {
   bool mForPreload = false;
   bool mHadImportMap = false;
 
+  mozilla::UniquePtr<JS::loader::ResolvedModuleSet> mPreloadedResolvedSet;
+
   ~ModuleScript();
 
  public:
@@ -663,7 +697,7 @@ class ModuleScript final : public LoadedScript {
   ModuleScript(mozilla::dom::ReferrerPolicy aReferrerPolicy,
                ScriptFetchOptions* aFetchOptions, nsIURI* aURI);
 
-  explicit ModuleScript(const LoadedScript& other);
+  ModuleScript(const LoadedScript& other, ScriptFetchOptions* aFetchOptions);
 
   template <typename T, typename... Args>
   friend RefPtr<T> mozilla::MakeRefPtr(Args&&... aArgs);
@@ -673,7 +707,8 @@ class ModuleScript final : public LoadedScript {
  public:
   // Convert between cacheable LoadedScript instance, which is used by
   // mozilla::dom::SharedScriptCache.
-  static already_AddRefed<ModuleScript> FromCache(const LoadedScript& aScript);
+  static already_AddRefed<ModuleScript> FromCache(
+      const LoadedScript& aScript, ScriptFetchOptions* aFetchOptions);
   already_AddRefed<LoadedScript> ToCache();
 
   void SetModuleRecord(Handle<JSObject*> aModuleRecord);
@@ -691,6 +726,9 @@ class ModuleScript final : public LoadedScript {
   bool ForPreload() const { return mForPreload; }
   bool HadImportMap() const { return mHadImportMap; }
 
+  // This is used to reset the module graph information which happened during
+  // preload.
+  void ResetPreload();
   void Shutdown();
 
   void UnlinkModuleRecord();
@@ -700,6 +738,10 @@ class ModuleScript final : public LoadedScript {
   void UpdateReferrerPolicy(mozilla::dom::ReferrerPolicy aReferrerPolicy) {
     mReferrerPolicy = aReferrerPolicy;
   }
+
+  bool HasPreloadedResolvedSet() { return !!mPreloadedResolvedSet; }
+  ResolvedModuleSet* GetPreloadedResolvedSet();
+  void ReleasePreloadedResolvedSet() { mPreloadedResolvedSet = nullptr; }
 };
 
 ClassicScript* LoadedScript::AsClassicScript() {

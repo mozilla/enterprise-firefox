@@ -2,6 +2,7 @@
 support-files = ["head.js"]
 run-if = [
   "os == 'win'",
+  "os == 'linux'",
 ]
 prefs = [
   "browser.taskbarTabs.enabled=true"
@@ -20,9 +21,6 @@ prefs = [
 ["browser_taskbarTabs_nimbus.js"]
 
 ["browser_taskbarTabs_pageAction.js"]
-skip-if = [
-  "msix", # Bug 1984762 - Web Apps page action has been disabled until MSIX supports secondary tile pinning.
-]
 
 ["browser_taskbarTabs_telemetry.js"]
 

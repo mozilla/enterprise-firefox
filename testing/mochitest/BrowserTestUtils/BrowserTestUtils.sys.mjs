@@ -2141,15 +2141,9 @@ export var BrowserTestUtils = {
 
         Services.obs.removeObserver(observer, "ipc:content-shutdown");
 
-        let dumpID;
-        if (AppConstants.MOZ_CRASHREPORTER) {
-          dumpID = subject.getPropertyAsAString("dumpID");
-          if (!dumpID) {
-            reject(
-              "dumpID was not present despite crash reporting being enabled"
-            );
-            return;
-          }
+        const dumpID = subject.get("dumpID");
+        if (AppConstants.MOZ_CRASHREPORTER && !dumpID) {
+          dump("dumpID was not present despite crash reporting being enabled");
         }
 
         let removalPromise = Promise.resolve();

@@ -61,6 +61,4 @@ data class Account(
     val email: String?,
     val avatar: Avatar?,
     val displayName: String?,
-    val currentDeviceId: String?,
-    val sessionToken: String?,
 )

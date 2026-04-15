@@ -92,7 +92,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   Extension: "resource://gre/modules/Extension.sys.mjs",
   ObjectUtils: "resource://gre/modules/ObjectUtils.sys.mjs",
   RemoteSettings: "resource://services-settings/remote-settings.sys.mjs",
-  TelemetryTimestamps: "resource://gre/modules/TelemetryTimestamps.sys.mjs",
   TelemetryUtils: "resource://gre/modules/TelemetryUtils.sys.mjs",
   isGatedPermissionType:
     "resource://gre/modules/addons/siteperms-addon-utils.sys.mjs",
@@ -568,10 +567,6 @@ var AddonManagerInternal = {
   upgradeListeners: new Map(),
   externalExtensionLoaders: new Map(),
 
-  recordTimestamp(name, value) {
-    lazy.TelemetryTimestamps.add(name, value);
-  },
-
   /**
    * Start up a provider, and register its shutdown hook if it has one
    *
@@ -652,7 +647,6 @@ var AddonManagerInternal = {
         return;
       }
 
-      this.recordTimestamp("AMI_startup_begin");
       Glean.addonsManager.startupTimeline.AMI_startup_begin.set(
         Services.telemetry.msSinceProcessStart()
       );
@@ -824,7 +818,6 @@ var AddonManagerInternal = {
 
       gStartupComplete = true;
       gStartedPromise.resolve();
-      this.recordTimestamp("AMI_startup_end");
       Glean.addonsManager.startupTimeline.AMI_startup_end.set(
         Services.telemetry.msSinceProcessStart()
       );
@@ -3933,10 +3926,6 @@ export var AddonManagerPrivate = {
 
     // TODO bug 1761093: Use _getProviderByName instead of gXPIProvider.
     gXPIProvider.unregisterDictionaries(aDicts);
-  },
-
-  recordTimestamp(name, value) {
-    AddonManagerInternal.recordTimestamp(name, value);
   },
 
   _simpleMeasures: {},

@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -70,6 +69,10 @@ class ChromiumCDMChild final : public PChromiumCDMChild,
 
  protected:
   ~ChromiumCDMChild();
+
+  cdm::Exception ClampException(cdm::Exception aValue) const;
+  cdm::Status ClampStatus(cdm::Status aValue, cdm::Status aFallback) const;
+  cdm::KeyStatus ClampKeyStatus(cdm::KeyStatus aValue) const;
 
   bool OnResolveNewSessionPromiseInternal(uint32_t aPromiseId,
                                           const nsACString& aSessionId);

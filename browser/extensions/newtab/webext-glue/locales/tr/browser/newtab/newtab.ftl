@@ -52,7 +52,7 @@ newtab-search-box-input =
     .placeholder = Web’de ara
     .aria-label = Web’de ara
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Arama motoru ekle
 newtab-topsites-add-shortcut-header = Yeni kısayol
@@ -72,6 +72,11 @@ newtab-topsites-url-validation = Geçerli bir adres gerekli
 newtab-topsites-image-url-label = Özel resim adresi
 newtab-topsites-use-image-link = Özel resim kullan…
 newtab-topsites-image-validation = Resim yüklenemedi. Başka bir adres deneyin.
+
+## Clear text button for the URL and image URL input fields in the Top Sites form.
+
+newtab-topsites-clear-input =
+    .aria-label = Metni temizle
 
 ## Top Sites - General form dialog buttons. These are verbs/actions.
 
@@ -628,6 +633,8 @@ newtab-report-cancel = Vazgeç
 newtab-report-submit = Gönder
 newtab-toast-thanks-for-reporting =
     .message = Raporunuz için teşekkür ederiz.
+newtab-toast-widgets-hidden =
+    .message = Araçları istediğiniz zaman geri eklemek için kalem simgesine tıklayın.
 
 ## Strings for task / to-do list productivity widget
 
@@ -668,6 +675,7 @@ newtab-widget-lists-name-placeholder-default =
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Yeni liste
 newtab-widget-section-title = Araçlar
+newtab-widget-menu-hide = Aracı gizle
 # Tooltip for hide all widgets button
 newtab-widget-section-hide-all-button =
     .title = Araçları gizle
@@ -678,6 +686,7 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Araçları küçült
     .aria-label = Tüm araçları kompakt boyuta küçült
+newtab-widget-section-feedback = Ne düşündüğünüzü bize anlatın
 
 ## Strings for timer productivity widget
 ## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown

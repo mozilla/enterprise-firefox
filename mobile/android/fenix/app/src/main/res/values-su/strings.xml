@@ -1097,7 +1097,11 @@
   <string name="bookmark_deletion_snackbar_message">Mupus %1$s</string>
   <!-- Bookmark undo button for deletion snackbar action -->
   <string name="bookmark_undo_deletion" tools:ignore="UnusedResources" moz:removedIn="150">BEDO</string>
-  <!-- Content description for the bookmark navigation bar back button -->
+  <!--
+    Bookmark undo button for deletion snackbar action
+
+    Content description for the bookmark navigation bar back button
+  -->
   <string name="bookmark_navigate_back_button_content_description">Mundur</string>
   <!-- Content description for the bookmark list new folder navigation bar button -->
   <string name="bookmark_add_new_folder_button_content_description">Tambahkeun map anyar</string>
@@ -2162,7 +2166,7 @@
   <!-- The title of the warning card informs the user that the list of languages cannot be loaded. -->
   <string name="translation_error_could_not_load_languages_warning_text">Teu bisa ngamuat basa. Pariksa sambungan internét anjeun sarta cobaan deui.</string>
   <!-- The title of the warning card informs the user that a language is not supported. %1$s is the name of the language that is not supported. -->
-  <string name="translation_error_language_not_supported_warning_text">Hampura, urang acan ngadukung %1$s.</string>
+  <string name="translation_error_language_not_supported_warning_text" tools:ignore="UnusedResources" moz:removedIn="150">Hampura, urang acan ngadukung %1$s.</string>
   <!-- Snackbar title shown if the user closes the Translation Request dialogue and a translation is in progress. -->
   <string name="translation_in_progress_snackbar">Narjamahkeun…</string>
   <!--

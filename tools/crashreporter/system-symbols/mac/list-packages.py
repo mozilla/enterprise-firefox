@@ -49,7 +49,7 @@ for product_id, product in products.items():
         title.startswith("OS X")
         or title.startswith("Mac OS X")
         or title.startswith("macOS")
-    ) and major_version <= 10:
+    ):
         args.append(product_id)
     else:
         print("Skipping %r for repo_sync" % title, file=sys.stderr)

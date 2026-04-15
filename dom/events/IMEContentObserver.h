@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -47,6 +45,7 @@ class IMEContentObserver final : public nsStubMutationObserver,
   using SelectionChangeData = widget::IMENotification::SelectionChangeData;
   using TextChangeData = widget::IMENotification::TextChangeData;
   using TextChangeDataBase = widget::IMENotification::TextChangeDataBase;
+  using IMENotificationRequest = widget::IMENotificationRequest;
   using IMENotificationRequests = widget::IMENotificationRequests;
   using IMEMessage = widget::IMEMessage;
   enum class ForRemoval : bool { No, Yes };
@@ -163,7 +162,8 @@ class IMEContentObserver final : public nsStubMutationObserver,
   bool IsEditorHandlingEventForComposition() const;
   bool KeepAliveDuringDeactive() const {
     return mIMENotificationRequests &&
-           mIMENotificationRequests->WantDuringDeactive();
+           mIMENotificationRequests->contains(
+               IMENotificationRequest::NotifyDuringInactive);
   }
   [[nodiscard]] bool EditorIsTextEditor() const {
     return mEditorBase && mEditorBase->IsTextEditor();
@@ -198,15 +198,6 @@ class IMEContentObserver final : public nsStubMutationObserver,
   void OnEditActionHandled();
   void BeforeEditAction();
   void CancelEditAction();
-
-  /**
-   * Called when text control value is changed while this is not observing
-   * mRootElement.  This is typically there is no frame for the editor (i.e.,
-   * no proper anonymous <div> element for the editor yet) or the TextEditor
-   * has not been created (i.e., IMEStateManager has not been reinitialized
-   * this instance with new anonymous <div> element yet).
-   */
-  void OnTextControlValueChangedWhileNotObservable(const nsAString& aNewValue);
 
   /**
    * Return an Element if and only if this instance is observing the element.
@@ -363,12 +354,13 @@ class IMEContentObserver final : public nsStubMutationObserver,
   void UnregisterObservers();
   void FlushMergeableNotifications();
   bool NeedsTextChangeNotification() const {
-    return mIMENotificationRequests &&
-           mIMENotificationRequests->WantTextChange();
+    return mIMENotificationRequests && mIMENotificationRequests->contains(
+                                           IMENotificationRequest::TextChange);
   }
   bool NeedsPositionChangeNotification() const {
     return mIMENotificationRequests &&
-           mIMENotificationRequests->WantPositionChanged();
+           mIMENotificationRequests->contains(
+               IMENotificationRequest::PositionChange);
   }
   void ClearPendingNotifications() {
     mNeedsToNotifyIMEOfFocusSet = false;

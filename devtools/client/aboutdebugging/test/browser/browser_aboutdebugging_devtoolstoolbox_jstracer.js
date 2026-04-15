@@ -52,7 +52,7 @@ add_task(async function () {
   await toggleJsTracer(toolbox);
 
   info("Invoke some code that will be traced");
-  await ContentTask.spawn(testTab.linkedBrowser, {}, function () {
+  await SpecialPowers.spawn(testTab.linkedBrowser, [], function () {
     content.wrappedJSObject.foo();
   });
 

@@ -41,7 +41,7 @@ add_task(async function () {
 
   // force a pause at the breakpoint
   info("Invoke fetch, expect the service worker script to pause on line 11");
-  await ContentTask.spawn(tab.linkedBrowser, {}, async function () {
+  await SpecialPowers.spawn(tab.linkedBrowser, [], async function () {
     content.wrappedJSObject.fetchFromWorker();
   });
   await waitForPaused(debuggerContext);

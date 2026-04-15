@@ -810,6 +810,8 @@
   <!-- Preference for open links in third party apps never open in apps option -->
   <string name="preferences_open_links_in_apps_never">Pas jamai</string>
   <!-- Preference for downloads -->
+  <string name="preferences_downloads_2">Paramètres de telecargament</string>
+  <!-- Preference for downloads -->
   <string name="preferences_downloads">Telecargaments</string>
   <!-- Preference for enabling gecko engine logs -->
   <string name="preferences_enable_gecko_logs">Activar los jornals Gecko</string>
@@ -1285,10 +1287,6 @@
   <string name="studies_remove">Suprimir</string>
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">Actiu</string>
-  <!-- Description for studies -->
-  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">Provatz las foncions e idèas abans que sián disponiblas per tot lo monde.</string>
-  <!-- Title of the Studies data preference -->
-  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">Installar e lançar los estudis</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
   <string name="studies_learn_more">Ne saber mai</string>
   <!--
@@ -1333,6 +1331,12 @@
   <string name="tab_tray_menu_tab_settings">Paramètres dels onglets</string>
   <!-- Text shown in the menu for closing all tabs -->
   <string name="tab_tray_menu_item_close">Tampar totes los onglets</string>
+  <!-- Text shown as the title of the Close all tabs confirmation dialog in Tab Manager -->
+  <string name="tab_manager_close_all_tabs_dialog_title">Tampar totes los onglets\u00a0?</string>
+  <!-- Text shown on the confirm button in the Close all tabs confirmation dialog -->
+  <string name="tab_manager_close_all_tabs_dialog_confirm">Tampar los onglets</string>
+  <!-- Text shown on the cancel button in the Close all tabs confirmation dialog -->
+  <string name="tab_manager_close_all_tabs_dialog_cancel">Anullar</string>
   <!-- Text shown in the multiselect menu for bookmarking selected tabs. -->
   <string name="tab_tray_multiselect_menu_item_bookmark" tools:ignore="UnusedResources" moz:removedIn="149">Marcar los onglets</string>
   <!-- Content description (not visible, for screen readers etc.): Bookmarks selected tabs. -->
@@ -1377,6 +1381,13 @@
   <string name="delete_from_history">Suprimir de l’istoric</string>
   <!-- Postfix for private WebApp titles. %1$s is the name of the app (for example "Firefox"). -->
   <string name="pwa_site_controls_title_private">%1$s (mòde privat)</string>
+  <!-- Title for the edit tab group bottom sheet -->
+  <string name="edit_tab_group_title">Modificar lo grop</string>
+  <string name="create_tab_group_save_button">Enregistrar</string>
+  <!-- Default tab group name when creating a tab group -->
+  <string name="create_tab_group_default_name" tools:ignore="UnusedResources" moz:removedIn="150">Grop</string>
+  <!-- Text shown on the cancel button in the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_cancel">Anullar</string>
   <!--
     History
 
@@ -1709,7 +1720,11 @@
   <string name="bookmark_delete_single_item" tools:ignore="UnusedResources" moz:removedIn="150">%s suprimit</string>
   <!-- Bookmark snackbar message for deleting multiple items. %s is the number of items being deleted -->
   <string name="bookmark_delete_multiple_items" tools:ignore="UnusedResources" moz:removedIn="150">%s elements suprimits</string>
-  <!-- Content description for the bookmark navigation bar back button -->
+  <!--
+    Bookmark undo button for deletion snackbar action
+
+    Content description for the bookmark navigation bar back button
+  -->
   <string name="bookmark_navigate_back_button_content_description">Tornar</string>
   <!-- Content description for the bookmark list new folder navigation bar button -->
   <string name="bookmark_add_new_folder_button_content_description">Apondre un dossièr novèl</string>
@@ -2039,8 +2054,6 @@
   <string name="preference_accessibility_text_size_summary">Va venir lo tèxt dels sites mai grand o mai pichon</string>
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">Talha de polissa</string>
-  <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d\u00a0%%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">Talha de polissa automatica</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -3002,7 +3015,7 @@
   <!-- The title of the warning card informs the user that the list of languages cannot be loaded. -->
   <string name="translation_error_could_not_load_languages_warning_text">Cargament impossible de las lengas. Mercés de verificar la connexion Internet puèi tornar ensajar.</string>
   <!-- The title of the warning card informs the user that a language is not supported. %1$s is the name of the language that is not supported. -->
-  <string name="translation_error_language_not_supported_warning_text">Desolat, prenèm pas encara en carga aquesta lenga : %1$s.</string>
+  <string name="translation_error_language_not_supported_warning_text" tools:ignore="UnusedResources" moz:removedIn="150">Desolat, prenèm pas encara en carga aquesta lenga : %1$s.</string>
   <!-- Snackbar title shown if the user closes the Translation Request dialogue and a translation is in progress. -->
   <string name="translation_in_progress_snackbar">Traduccions…</string>
   <!--

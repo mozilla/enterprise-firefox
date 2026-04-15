@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -451,6 +449,17 @@ ia2Accessible::get_attributes(BSTR* aAttributes) {
     // IAccessible2 expects heading level to be exposed as an object attribute.
     // However, all other group position info is exposed via groupPosition.
     nsAccUtils::SetAccGroupAttrs(attributes, acc);
+  } else if (acc->IsEditableRoot()) {
+    // JAWS requires text-model:a1 to be specified on editable text controls
+    // with a role other than ROLE_SYSTEM_TEXT outside of web content in order
+    // for it to use IAccessibleText. For example, this is needed for the
+    // Firefox address bar, which has role="combobox". Although we don't really
+    // need to expose it on editable text controls beyond this specific case,
+    // there's no harm in doing so and Chromium also does this. This attribute
+    // is documented here:
+    // https://wiki.linuxfoundation.org/accessibility/ia2/ia2_implementation_guide#iaccessibletext_model
+    RefPtr<nsAtom> textModel = NS_Atomize("text-model");
+    attributes->SetAttributeStringCopy(textModel, u"a1"_ns);
   }
   return ConvertToIA2Attributes(attributes, aAttributes);
 }

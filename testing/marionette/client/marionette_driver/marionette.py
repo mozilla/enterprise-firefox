@@ -386,6 +386,15 @@ class WebElement:
             "WebDriver:GetComputedRole", {"id": self.id}, key="value"
         )
 
+    @property
+    def accessibility_properties(self):
+        """Gets the accessibility properties for the current element"""
+        return self.marionette._send_message(
+            "Marionette:GetAccessibilityPropertiesForElement",
+            {"id": self.id},
+            key="value",
+        )
+
     @classmethod
     def _from_json(cls, json, marionette):
         if isinstance(json, dict):
@@ -2235,3 +2244,11 @@ class Marionette:
             "state": state,
         }
         return self._send_message("WebDriver:SetPermission", body)
+
+    def get_accessibility_properties_for_accessibility_node(self, id):
+        """Gets the properties for the accessibility node with the given id."""
+        return self._send_message(
+            "Marionette:GetAccessibilityPropertiesForAccessibilityNode",
+            {"id": id},
+            key="value",
+        )

@@ -14,21 +14,22 @@ use std::{
 };
 
 use enum_map::{Enum, EnumMap};
-use neqo_common::{hex, qdebug, qinfo, qtrace, Buffer, Decoder, Encoder, Role};
+use neqo_common::{Buffer, Decoder, Encoder, Role, hex, qdebug, qinfo, qtrace};
 use neqo_crypto::{
+    HandshakeMessage, ZeroRttCheckResult, ZeroRttChecker,
     constants::{TLS_HS_CLIENT_HELLO, TLS_HS_ENCRYPTED_EXTENSIONS},
     ext::{ExtensionHandler, ExtensionHandlerResult, ExtensionWriterResult},
-    random, HandshakeMessage, ZeroRttCheckResult, ZeroRttChecker,
+    random,
 };
 use strum::FromRepr;
 
 use crate::{
+    Error, Res,
     cid::{ConnectionId, ConnectionIdEntry, ConnectionIdManager},
     packet::MIN_INITIAL_PACKET_SIZE,
     stateless_reset::Token as Srt,
     tracking::DEFAULT_REMOTE_ACK_DELAY,
     version::{self, Version},
-    Error, Res,
 };
 
 #[derive(Debug, Clone, Enum, PartialEq, Eq, Copy, FromRepr)]
@@ -52,6 +53,7 @@ pub enum TransportParameterId {
     InitialSourceConnectionId = 0x0f,
     RetrySourceConnectionId = 0x10,
     VersionInformation = 0x11,
+    Scone = 0x219e,
     GreaseQuicBit = 0x2ab2,
     MinAckDelay = 0xff02_de1a,
     MaxDatagramFrameSize = 0x0020,
@@ -315,9 +317,9 @@ impl TransportParameter {
                 Some(v) if v >= 2 => Self::Integer(v),
                 _ => return Err(Error::TransportParameter),
             },
-            TransportParameterId::DisableMigration | TransportParameterId::GreaseQuicBit => {
-                Self::Empty
-            }
+            TransportParameterId::DisableMigration
+            | TransportParameterId::GreaseQuicBit
+            | TransportParameterId::Scone => Self::Empty,
             TransportParameterId::PreferredAddress => Self::decode_preferred_address(&mut d)?,
             TransportParameterId::MinAckDelay => match d.decode_varint() {
                 Some(v) if v < (1 << 24) => Self::Integer(v),
@@ -492,7 +494,9 @@ impl TransportParameters {
     /// When the transport parameter isn't recognized as being empty.
     pub fn set_empty(&mut self, tp: TransportParameterId) {
         match tp {
-            TransportParameterId::DisableMigration | TransportParameterId::GreaseQuicBit => {
+            TransportParameterId::DisableMigration
+            | TransportParameterId::GreaseQuicBit
+            | TransportParameterId::Scone => {
                 self.set(tp, TransportParameter::Empty);
             }
             _ => panic!("Transport parameter not known or not type empty"),
@@ -558,6 +562,7 @@ impl TransportParameters {
                         | TransportParameterId::MaxAckDelay
                         | TransportParameterId::ActiveConnectionIdLimit
                         | TransportParameterId::PreferredAddress
+                        | TransportParameterId::Scone
                 )
             {
                 continue;
@@ -900,14 +905,14 @@ where
 mod tests {
     use std::net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6};
 
-    use neqo_common::{qdebug, Decoder, Encoder};
     use TransportParameterId::*;
+    use neqo_common::{Decoder, Encoder, qdebug};
 
     use super::PreferredAddress;
     use crate::{
+        ConnectionId, Error, Version,
         stateless_reset::Token as Srt,
         tparams::{TransportParameter, TransportParameterId, TransportParameters},
-        ConnectionId, Error, Version,
     };
 
     #[test]
@@ -938,6 +943,8 @@ mod tests {
         assert!(!tps2.has_value(OriginalDestinationConnectionId));
         assert!(!tps2.has_value(InitialSourceConnectionId));
         assert!(!tps2.has_value(RetrySourceConnectionId));
+        assert!(!tps2.has_value(Scone));
+        assert!(!tps2.has_value(PreferredAddress));
         assert!(tps2.has_value(StatelessResetToken));
 
         let mut enc = Encoder::default();
@@ -984,13 +991,7 @@ mod tests {
         F: FnOnce(&mut Option<SocketAddrV4>, &mut Option<SocketAddrV6>, &mut ConnectionId),
     {
         let mut spa = make_spa();
-        if let TransportParameter::PreferredAddress {
-            ref mut v4,
-            ref mut v6,
-            ref mut cid,
-            ..
-        } = &mut spa
-        {
+        if let TransportParameter::PreferredAddress { v4, v6, cid, .. } = &mut spa {
             wrecker(v4, v6, cid);
         } else {
             unreachable!();

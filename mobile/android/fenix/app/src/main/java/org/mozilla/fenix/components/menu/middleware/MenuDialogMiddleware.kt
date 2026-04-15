@@ -39,7 +39,11 @@ import org.mozilla.fenix.components.bookmarks.BookmarksUseCase
 import org.mozilla.fenix.components.menu.store.BookmarkState
 import org.mozilla.fenix.components.menu.store.MenuAction
 import org.mozilla.fenix.components.menu.store.MenuState
+import org.mozilla.fenix.components.menu.store.SummarizationMenuState
 import org.mozilla.fenix.components.metrics.MetricsUtils
+import org.mozilla.fenix.summarization.onboarding.SummarizationFeatureDiscoveryConfiguration
+import org.mozilla.fenix.summarization.onboarding.SummarizeDiscoveryEvent
+import org.mozilla.fenix.tabstray.ext.isNormalTab
 import org.mozilla.fenix.utils.LastSavedFolderCache
 import org.mozilla.fenix.utils.Settings
 
@@ -51,6 +55,9 @@ import org.mozilla.fenix.utils.Settings
  * @param addonManager An instance of the [AddonManager] used to provide access to [Addon]s.
  * @param settings An instance of [Settings] to read and write to the [SharedPreferences]
  * properties.
+ * @param summarizeMenuSettings An instance of [SummarizationFeatureDiscoveryConfiguration] to manage the feature's
+ * settings in the menu.
+ * @param evaluateEligibilityForSummarization Callback to check whether a page is eligibile for summarization.
  * @param bookmarksStorage An instance of the [BookmarksStorage] used
  * to query matching bookmarks.
  * @param pinnedSiteStorage An instance of the [PinnedSiteStorage] used
@@ -79,6 +86,8 @@ class MenuDialogMiddleware(
     private val appStore: AppStore,
     private val addonManager: AddonManager,
     private val settings: Settings,
+    private val summarizeMenuSettings: SummarizationFeatureDiscoveryConfiguration,
+    private val evaluateEligibilityForSummarization: suspend () -> Boolean,
     private val bookmarksStorage: BookmarksStorage,
     private val pinnedSiteStorage: PinnedSiteStorage,
     private val appLinksUseCases: AppLinksUseCases,
@@ -120,6 +129,8 @@ class MenuDialogMiddleware(
             is MenuAction.CustomMenuItemAction -> customMenuItemAction(action.intent, action.url)
             is MenuAction.CustomizeReaderView -> customizeReaderView()
             is MenuAction.OnCFRShown -> onCFRShown()
+            is MenuAction.OnSummarizationMenuExposed -> cacheMenuExposure(store)
+            is MenuAction.OnMoreMenuClicked -> cacheMoreMenuClick(store)
             is MenuAction.RequestDesktopSite,
             is MenuAction.RequestMobileSite,
             -> requestSiteMode(
@@ -139,6 +150,31 @@ class MenuDialogMiddleware(
         setupBookmarkState(store)
         setupPinnedState(store)
         setupExtensionState(store)
+        setupPageSummarizationState(store)
+    }
+
+    private suspend fun setupPageSummarizationState(store: Store<MenuState, MenuAction>) {
+        val isNormalTab = store.state.browserMenuState?.selectedTab?.isNormalTab() ?: false
+        val isLoading = store.state.browserMenuState?.isLoading ?: false
+
+        val summarizationState = SummarizationMenuState.Default.copy(
+            visible = summarizeMenuSettings.showMenuItem,
+            highlighted = summarizeMenuSettings.shouldHighlightMenuItem && isNormalTab,
+            overflowMenuHighlighted = summarizeMenuSettings.shouldHighlightOverflowMenuItem && isNormalTab,
+            showNewFeatureBadge = true,
+            enabled = summarizeMenuSettings.showMenuItem &&
+                    isNormalTab &&
+                    !isLoading &&
+                    evaluateEligibilityForSummarization(),
+        )
+        store.dispatch(
+            MenuAction.InitializeSummarizationMenuState(summarizationState),
+        )
+        if (isNormalTab) {
+            // the user must have interacted with the toolbar to open the menu
+            // so we want to cache that interaction for normal tabs.
+            summarizeMenuSettings.cacheDiscoveryEvent(SummarizeDiscoveryEvent.ToolbarOverflowInteraction)
+        }
     }
 
     private suspend fun setupBookmarkState(
@@ -401,6 +437,18 @@ class MenuDialogMiddleware(
     private fun onCFRShown() = scope.launch {
         settings.shouldShowMenuCFR = false
         settings.lastCfrShownTimeInMillis = System.currentTimeMillis()
+    }
+
+    private fun cacheMenuExposure(store: Store<MenuState, MenuAction>) = scope.launch {
+        if (store.state.summarizationMenuState.enabled) {
+            summarizeMenuSettings.cacheDiscoveryEvent(SummarizeDiscoveryEvent.MenuItemExposure)
+        }
+    }
+
+    private fun cacheMoreMenuClick(store: Store<MenuState, MenuAction>) = scope.launch {
+        if (store.state.summarizationMenuState.overflowMenuHighlighted) {
+            summarizeMenuSettings.cacheDiscoveryEvent(SummarizeDiscoveryEvent.MenuOverflowInteraction)
+        }
     }
 
     companion object {

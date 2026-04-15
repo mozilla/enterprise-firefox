@@ -95,6 +95,11 @@ interface SuggestionsStringsProvider {
      * "Firefox Suggest" header.
      */
     val firefoxSuggestHeader: String
+
+    /**
+     * Firefox Suggest Online header
+     */
+    val firefoxSuggestOnlineHeader: String
 }
 
 /**
@@ -182,6 +187,15 @@ class DefaultSuggestionsStringsProvider(
      */
     override val firefoxSuggestHeader =
         context.getString(R.string.firefox_suggest_header)
+
+    /**
+     * Returns the static string for the "Firefox Suggest Online" header.
+     *
+     * This header is used in the awesomebar to indicate and group suggestions
+     * that are powered by Firefox Suggest Online.
+     */
+    override val firefoxSuggestOnlineHeader =
+        context.getString(R.string.firefox_suggest_online_header)
 
     /**
      * Returns the title for the search shortcuts engine settings.

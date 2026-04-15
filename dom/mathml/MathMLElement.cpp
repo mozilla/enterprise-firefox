@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -42,7 +40,7 @@ static nsresult ReportLengthParseError(const nsString& aValue,
   AutoTArray<nsString, 1> arg = {aValue};
   return nsContentUtils::ReportToConsole(
       nsIScriptError::errorFlag, "MathML"_ns, aDocument,
-      nsContentUtils::eMATHML_PROPERTIES, "LengthParsingError", arg);
+      PropertiesFile::MATHML_PROPERTIES, "LengthParsingError", arg);
 }
 
 static nsresult ReportParseErrorNoTag(const nsString& aValue, nsAtom* aAtom,
@@ -50,7 +48,7 @@ static nsresult ReportParseErrorNoTag(const nsString& aValue, nsAtom* aAtom,
   AutoTArray<nsString, 2> argv = {aValue, nsDependentAtomString(aAtom)};
   return nsContentUtils::ReportToConsole(
       nsIScriptError::errorFlag, "MathML"_ns, &aDocument,
-      nsContentUtils::eMATHML_PROPERTIES, "AttributeParsingErrorNoTag", argv);
+      PropertiesFile::MATHML_PROPERTIES, "AttributeParsingErrorNoTag", argv);
 }
 
 MathMLElement::MathMLElement(

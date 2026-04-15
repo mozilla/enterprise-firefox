@@ -18,6 +18,7 @@
  */
 #include "aom/aom.h"
 #include "aom/aom_encoder.h"
+#include "aom/aom_ext_ratectrl.h"
 #include "aom/aom_external_partition.h"
 
 /*!\file
@@ -1595,9 +1596,10 @@ enum aome_enc_control_id {
   /*!\brief Codec control to set the screen content detection mode,
    * aom_screen_detection_mode parameter.
    *
-   * - 1: AOM_SCREEN_DETECTION_STANDARD = standard (default)
+   * - 1: AOM_SCREEN_DETECTION_STANDARD = standard (default in good quality and
+       realtime modes)
    * - 2: AOM_SCREEN_DETECTION_ANTIALIASING_AWARE = anti-aliased text and
-   *   graphics aware
+   *   graphics aware (default in all intra mode)
    */
   AV1E_SET_SCREEN_CONTENT_DETECTION_MODE = 171,
 
@@ -1616,6 +1618,18 @@ enum aome_enc_control_id {
    * sharpness only has effects when sharpness is greater than 0.
    */
   AV1E_SET_ENABLE_ADAPTIVE_SHARPNESS = 172,
+
+  /*!\brief Codec control function to enable external rate control library.
+   *
+   * args: a pointer to aom_rc_funcs_t that contains implementation of callbacks
+   */
+  AV1E_SET_EXTERNAL_RATE_CONTROL = 173,
+
+  /*!\brief Codec control function to get GOP structure from the encoder.
+   *
+   * args: a pointer to aom_gop_info_t
+   */
+  AV1E_GET_GOP_INFO,
 
   // Any new encoder control IDs should be added above.
   // Maximum allowed encoder control ID is 229.
@@ -1730,7 +1744,6 @@ typedef enum {
  *   * --enable-cdef=3
  *   * --enable-chroma-deltaq=1
  *   * --deltaq-mode=6
- *   * --screen-detection-mode=2
  * AOM_TUNE_IQ additionally sets the following options:
  *   * --enable-adaptive-sharpness=1
  */
@@ -1754,8 +1767,18 @@ typedef enum {
 /*!\brief Allows detection of the presence of AOM_TUNE_SSIMULACRA2 at compile
  * time. */
 #define AOM_HAVE_TUNE_SSIMULACRA2 1
-  /* Tune that optimizes for maximum SSIMULACRA 2 scores. Shares the rdmult code
-     with AOM_TUNE_SSIM. */
+  /* A tuning mode that optimizes for maximum SSIMULACRA 2 scores. Shares the
+   * rdmult code with AOM_TUNE_SSIM.
+   * Unlike metrics like AOM_TUNE_VMAF_* or AOM_TUNE_BUTTERAUGLI,
+   * AOM_TUNE_SSIMULACRA2 doesn't use the SSIMULACRA 2 metric for
+   * rate-distortion optimization decisions. Instead, the tuning mode relies
+   * purely on hand-crafted heuristics. This means no additional external
+   * dependencies are required.
+   * AOM_TUNE_SSIMULACRA2 shares most of the tweaks and optimizations with
+   * AOM_TUNE_IQ. However, AOM_TUNE_SSIMULACRA2 fine-tunes the encoder in ways
+   * that have been shown to not come with a corresponding positive impact on
+   * subjective quality in human evaluations.
+   */
   AOM_TUNE_SSIMULACRA2 = 11,
 } aom_tune_metric;
 
@@ -1852,6 +1875,20 @@ typedef enum {
   AOM_LAYER_DROP,           /**< Any spatial layer can drop. */
   AOM_FULL_SUPERFRAME_DROP, /**< Only full superframe can drop. */
 } AOM_SVC_FRAME_DROP_MODE;
+
+/*!\brief The GOP structure information determined by the encoder.
+ * 250 is MAX_STATIC_GF_GROUP_LENGTH defined in av1/firstpass.h.
+ * This is a subset of GF_GROUP. More fields can be added if needed.
+ */
+typedef struct aom_gop_info {
+  int gop_size; /**< The number of frames of this GOP */
+  /*! The coding index for each entry in the gop */
+  int coding_index[250];
+  /*! The display index for each entry in the gop */
+  int display_index[250];
+  /*! The layer depth for each entry in the gop */
+  int layer_depth[250];
+} aom_gop_info_t;
 
 /*!\cond */
 /*!\brief Encoder control function parameter type
@@ -2359,6 +2396,12 @@ AOM_CTRL_USE_TYPE(AV1E_SET_SCREEN_CONTENT_DETECTION_MODE,
 
 AOM_CTRL_USE_TYPE(AV1E_SET_ENABLE_ADAPTIVE_SHARPNESS, unsigned int)
 #define AOM_CTRL_AV1E_SET_ENABLE_ADAPTIVE_SHARPNESS
+
+AOM_CTRL_USE_TYPE(AV1E_SET_EXTERNAL_RATE_CONTROL, aom_rc_funcs_t *)
+#define AOM_CTRL_AV1E_SET_EXTERNAL_RATE_CONTROL
+
+AOM_CTRL_USE_TYPE(AV1E_GET_GOP_INFO, aom_gop_info_t *)
+#define AOM_CTRL_AV1E_GET_GOP_INFO
 
 /*!\endcond */
 /*! @} - end defgroup aom_encoder */

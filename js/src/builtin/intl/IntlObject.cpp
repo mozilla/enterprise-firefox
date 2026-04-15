@@ -171,13 +171,9 @@ static bool intl_getCalendarInfo(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 
   // 1. Let requestedLocales be ? CanonicalizeLocaleList(locales).
-  Rooted<LocalesList> requestedLocales(cx, cx);
-  if (!CanonicalizeLocaleList(cx, args.get(0), &requestedLocales)) {
-    return false;
-  }
-
-  Rooted<ArrayObject*> reqLocales(cx, LocalesListToArray(cx, requestedLocales));
-  if (!reqLocales) {
+  Rooted<ArrayObject*> requestedLocales(
+      cx, CanonicalizeLocaleList(cx, args.get(0)));
+  if (!requestedLocales) {
     return false;
   }
 
@@ -193,7 +189,7 @@ static bool intl_getCalendarInfo(JSContext* cx, unsigned argc, Value* vp) {
   };
 
   Rooted<ResolvedLocale> resolved(cx);
-  if (!ResolveLocale(cx, AvailableLocaleKind::DateTimeFormat, reqLocales,
+  if (!ResolveLocale(cx, AvailableLocaleKind::DateTimeFormat, requestedLocales,
                      localeOptions, relevantExtensionKeys, localeData,
                      &resolved)) {
     return false;
@@ -333,6 +329,24 @@ static bool EnumerationIntoList(JSContext* cx, auto values,
 }
 
 /**
+ * Create an array from an intl::ICU4XEnumeration.
+ */
+static bool ICU4XEnumerationIntoList(JSContext* cx, auto& values,
+                                     MutableHandle<StringList> list) {
+  for (mozilla::Span<const char> value : values) {
+    auto* string = NewStringCopy<CanGC>(cx, value);
+    if (!string) {
+      return false;
+    }
+    if (!list.append(string)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
  * Returns the list of calendar types which mustn't be returned by
  * |Intl.supportedValuesOf()|.
  */
@@ -371,38 +385,15 @@ static ArrayObject* AvailableCalendars(JSContext* cx) {
 }
 
 /**
- * Returns the list of collation types which mustn't be returned by
- * |Intl.supportedValuesOf()|.
- */
-static constexpr auto UnsupportedCollations() {
-  return std::array{
-      "search",
-      "standard",
-  };
-}
-
-/**
  * AvailableCollations ( )
  */
 static ArrayObject* AvailableCollations(JSContext* cx) {
   Rooted<StringList> list(cx, StringList(cx));
 
-  {
-    // Hazard analysis complains that the mozilla::Result destructor calls a
-    // GC function, which is unsound when returning an unrooted value. Work
-    // around this issue by restricting the lifetime of |keywords| to a
-    // separate block.
-    auto keywords = mozilla::intl::Collator::GetBcp47KeywordValues();
-    if (keywords.isErr()) {
-      ReportInternalError(cx, keywords.unwrapErr());
-      return nullptr;
-    }
+  auto keywords = mozilla::intl::Collator::GetBcp47KeywordValues();
 
-    static constexpr auto unsupported = UnsupportedCollations();
-
-    if (!EnumerationIntoList<unsupported>(cx, keywords.unwrap(), &list)) {
-      return nullptr;
-    }
+  if (!ICU4XEnumerationIntoList(cx, keywords, &list)) {
+    return nullptr;
   }
 
   return CreateArrayFromList(cx, &list);
@@ -516,14 +507,8 @@ static ArrayObject* AvailableUnits(JSContext* cx) {
 static bool intl_getCanonicalLocales(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 
-  // Step 1.
-  Rooted<LocalesList> locales(cx, cx);
-  if (!CanonicalizeLocaleList(cx, args.get(0), &locales)) {
-    return false;
-  }
-
-  // Step 2.
-  auto* array = LocalesListToArray(cx, locales);
+  // Steps 1-2.
+  auto* array = CanonicalizeLocaleList(cx, args.get(0));
   if (!array) {
     return false;
   }

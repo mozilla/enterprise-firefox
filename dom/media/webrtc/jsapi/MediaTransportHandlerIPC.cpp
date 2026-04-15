@@ -402,6 +402,15 @@ mozilla::ipc::IPCResult MediaTransportChild::RecvOnCandidate(
   return ipc::IPCResult::Ok();
 }
 
+mozilla::ipc::IPCResult MediaTransportChild::RecvOnCandidateError(
+    IceCandidateErrorInfo&& errorInfo) {
+  MutexAutoLock lock(mMutex);
+  if (mUser) {
+    mUser->OnCandidateError(std::move(errorInfo));
+  }
+  return ipc::IPCResult::Ok();
+}
+
 mozilla::ipc::IPCResult MediaTransportChild::RecvOnAlpnNegotiated(
     const string& alpn) {
   MutexAutoLock lock(mMutex);

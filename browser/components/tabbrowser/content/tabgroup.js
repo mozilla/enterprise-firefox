@@ -469,8 +469,8 @@
         `[${LAST_ITEM_ATTRIBUTE}]`
       );
       if (prevLastTabOrSplitView !== currentLastTabOrSplitView) {
-        prevLastTabOrSplitView?.toggleAttribute(LAST_ITEM_ATTRIBUTE);
-        currentLastTabOrSplitView.toggleAttribute(LAST_ITEM_ATTRIBUTE);
+        prevLastTabOrSplitView?.removeAttribute(LAST_ITEM_ATTRIBUTE);
+        currentLastTabOrSplitView.setAttribute(LAST_ITEM_ATTRIBUTE, true);
       }
     }
 

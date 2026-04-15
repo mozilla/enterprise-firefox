@@ -1079,6 +1079,13 @@ impl SpatialTree {
 
         if child.coordinate_system_id == parent.coordinate_system_id {
             let scale_offset = child.content_transform.then(&parent.content_transform.inverse());
+
+            // Optimization - detect identity scale-offsets and treat them as
+            // local to skip following math
+            if scale_offset.is_identity() {
+                return CoordinateSpaceMapping::Local;
+            }
+
             return CoordinateSpaceMapping::ScaleOffset(scale_offset);
         }
 

@@ -117,7 +117,7 @@ export default class BandwidthUsageCustomElement extends MozLitElement {
       <div class="container">
         <h3
           id="bandwidth-header"
-          data-l10n-id="ip-protection-bandwidth-header"
+          data-l10n-id="ip-protection-bandwidth-header-1"
         ></h3>
         <div>
           <span
@@ -137,7 +137,7 @@ export default class BandwidthUsageCustomElement extends MozLitElement {
           <progress
             id="progress-bar"
             max=${this.maxGB}
-            value=${this.maxGB - this.remainingGB}
+            value=${parseFloat(this.bandwidthUsedGB.toFixed(1))}
             percent=${this.bandwidthPercent}
           ></progress>
           <div id="min-progress"></div>

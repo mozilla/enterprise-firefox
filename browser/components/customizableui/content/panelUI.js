@@ -94,6 +94,26 @@ const PanelUI = {
       }
     );
 
+    XPCOMUtils.defineLazyPreferenceGetter(
+      this,
+      "AIControlDefault",
+      "browser.ai.control.default",
+      "available",
+      (_pref, _previousValue, _newValue) => {
+        this._showAIMenuItem();
+      }
+    );
+
+    XPCOMUtils.defineLazyPreferenceGetter(
+      this,
+      "AIControlSmartWindow",
+      "browser.ai.control.smartWindow",
+      "default",
+      (_pref, _previousValue, _newValue) => {
+        this._showAIMenuItem();
+      }
+    );
+
     if (this.autoHideToolbarInFullScreen) {
       window.addEventListener("fullscreen", this);
     } else {
@@ -1073,6 +1093,11 @@ const PanelUI = {
 
   _showAIMenuItem() {
     const isAIWindowActive = document.documentElement.hasAttribute("ai-window");
+    const isBlocked =
+      (this.AIControlSmartWindow === "default" &&
+        this.AIControlDefault === "blocked") ||
+      this.AIControlSmartWindow === "blocked";
+    const isSmartWindowAvailable = this.isAIWindowEnabled && !isBlocked;
     const aiMenuItem = PanelMultiView.getViewNode(
       document,
       "appMenu-new-ai-window-button"
@@ -1086,10 +1111,10 @@ const PanelUI = {
       "appMenu-chats-history-button"
     );
 
-    aiMenuItem.hidden = !this.isAIWindowEnabled || isAIWindowActive;
-    classicWindowMenuItem.hidden = !this.isAIWindowEnabled || !isAIWindowActive;
+    aiMenuItem.hidden = !isSmartWindowAvailable || isAIWindowActive;
+    classicWindowMenuItem.hidden = !isSmartWindowAvailable || !isAIWindowActive;
 
-    chatHistoryMenuItem.hidden = !this.isAIWindowEnabled || !isAIWindowActive;
+    chatHistoryMenuItem.hidden = !isSmartWindowAvailable || !isAIWindowActive;
   },
 
   _showBadge(notification) {

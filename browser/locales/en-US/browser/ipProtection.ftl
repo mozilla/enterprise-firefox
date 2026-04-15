@@ -47,10 +47,11 @@ unauthenticated-hide-location-message-2 = Hide your location while browsing in {
 unauthenticated-bandwidth-limit-message = Get { $maxUsage } GB of free VPN data every month.
 unauthenticated-get-started = Get started
 
-site-exclusion-toggle-label = Use VPN for this site
-site-exclusion-toggle-enabled =
+site-exclusion-toggle-enabled-1 =
+  .label = Use VPN for this site
   .aria-label = VPN is on for this site
-site-exclusion-toggle-disabled =
+site-exclusion-toggle-disabled-1 =
+  .label = Use VPN for this site
   .aria-label = VPN is off for this site
 
 ipprotection-settings-link =
@@ -87,9 +88,13 @@ upgrade-vpn-button = Try { -mozilla-vpn-brand-name }
 
 ipprotection-connection-status-generic-error-title = Couldn’t connect to VPN
 ipprotection-connection-status-generic-error-description = Try again in a few minutes.
+ipprotection-connection-status-generic-error-try-again = Please try again later.
 
 ipprotection-connection-status-network-error-title = Check your internet connection
 ipprotection-connection-status-network-error-description = Connect to the internet, then try turning VPN on.
+
+ipprotection-connection-status-blocked-error-title = VPN is unavailable
+ipprotection-connection-status-blocked-error-description = Local laws prevent us from providing VPN service in this region. <a data-l10n-name="learn-more-link">Learn more</a>
 
 # Variables
 #   $usageLeft (number) - The amount of data a user has left in a month (in GB)
@@ -126,15 +131,16 @@ ip-protection-bandwidth-warning-infobar-message-75 = <strong>Getting close to yo
 #   $usageLeft (number) - The amount of data a user has left in a month (in GB)
 ip-protection-bandwidth-warning-infobar-message-90 = <strong>You’re almost out of VPN data.</strong> You have { $usageLeft } GB left. Once you use it all, your VPN will pause until your data resets on the first of next month.
 
+# Variables
+#   $usageLeft (number) - The amount of data a user has left in a month (in MB)
+ip-protection-bandwidth-warning-infobar-message-90-mb = <strong>You’re almost out of VPN data.</strong> You have { $usageLeft } MB left. Once you use it all, your VPN will pause until your data resets on the first of next month.
+
 ## IP Protection Settings
 
 ip-protection-description =
   .label = VPN
   .description = Built-in VPN to enhance your privacy while browsing on { -brand-short-name }.
 ip-protection-learn-more = Learn more
-
-ip-protection-site-exceptions =
-  .label = Site specific settings
 
 # Variables:
 #   $maxUsage (number) - The bandwidth limit of free VPN, in GB
@@ -172,7 +178,7 @@ ip-protection-exclusions-desc = Use VPN for all websites except ones on this lis
 
 ## IP Protection Bandwidth
 
-ip-protection-bandwidth-header = Monthly VPN data
+ip-protection-bandwidth-header-1 = Monthly data limit
 
 # Variables
 #   $usageLeft (number) - The amount of data a user has left in a month (in GB)

@@ -4,6 +4,7 @@
 
 package org.mozilla.fenix.onboarding
 
+import mozilla.components.support.base.log.logger.Logger
 import org.mozilla.fenix.GleanMetrics.Onboarding
 import org.mozilla.fenix.GleanMetrics.Pings
 import org.mozilla.fenix.GleanMetrics.TermsOfUse
@@ -18,13 +19,24 @@ class OnboardingTelemetryRecorder(
     private val onboardingReason: OnboardingReason,
     private val installSource: String,
 ) {
+    val logger = Logger("OnboardingTelemetryRecorder")
 
     /**
      * Records "onboarding_completed" telemetry event and sends the onboarding ping.
      * @param sequenceId The identifier of the onboarding sequence shown to the user.
      * @param sequencePosition The sequence position of the page on which the completed event occurred.
+     * @param dismissedMethod The method used to dismiss the onboarding flow.
      */
-    fun onOnboardingComplete(sequenceId: String, sequencePosition: String) {
+    fun onOnboardingComplete(
+        sequenceId: String,
+        sequencePosition: String,
+        dismissedMethod: DismissedMethod = DismissedMethod.COMPLETED,
+        ) {
+        logger.debug(
+            "Recording onboarding completed event, sequenceId: $sequenceId, " +
+                "sequencePosition: $sequencePosition, dismissedMethod: $dismissedMethod",
+        )
+
         Onboarding.completed.record(
             Onboarding.CompletedExtra(
                 sequenceId = sequenceId,
@@ -35,7 +47,7 @@ class OnboardingTelemetryRecorder(
         )
         Onboarding.dismissed.record(
             Onboarding.DismissedExtra(
-                method = "complete",
+                method = dismissedMethod.telemetryId,
                 onboardingReason = onboardingReason.value,
                 installSource = installSource,
             ),
@@ -67,6 +79,11 @@ class OnboardingTelemetryRecorder(
         pageType: OnboardingPageUiData.Type,
         sequencePosition: String,
     ) {
+        logger.debug(
+            "Recording on impression event, sequenceId: $sequenceId, " +
+                "pageType: $pageType, sequencePosition: $sequencePosition",
+        )
+
         when (pageType) {
             OnboardingPageUiData.Type.DEFAULT_BROWSER -> {
                 Onboarding.setToDefaultCard.record(
@@ -180,6 +197,11 @@ class OnboardingTelemetryRecorder(
      * @param sequencePosition The sequence position of the page for which the impression occurred.
      */
     fun onSetToDefaultClick(sequenceId: String, sequencePosition: String) {
+        logger.debug(
+            "Recording set to default click event, sequenceId: $sequenceId, " +
+                "sequencePosition: $sequencePosition",
+        )
+
         Onboarding.setToDefault.record(
             Onboarding.SetToDefaultExtra(
                 action = ACTION_CLICK,
@@ -198,6 +220,11 @@ class OnboardingTelemetryRecorder(
      * @param sequencePosition The sequence position of the page for which the impression occurred.
      */
     fun onSyncSignInClick(sequenceId: String, sequencePosition: String) {
+        logger.debug(
+            "Recording sync sign in click event, sequenceId: $sequenceId, " +
+                "sequencePosition: $sequencePosition",
+        )
+
         Onboarding.signIn.record(
             Onboarding.SignInExtra(
                 action = ACTION_CLICK,
@@ -216,6 +243,11 @@ class OnboardingTelemetryRecorder(
      * @param sequencePosition The sequence position of the page for which the impression occurred.
      */
     fun onNotificationPermissionClick(sequenceId: String, sequencePosition: String) {
+        logger.debug(
+            "Recording notification permission click event, sequenceId: $sequenceId, " +
+                "sequencePosition: $sequencePosition",
+        )
+
         Onboarding.turnOnNotifications.record(
             Onboarding.TurnOnNotificationsExtra(
                 action = ACTION_CLICK,
@@ -268,12 +300,22 @@ class OnboardingTelemetryRecorder(
      * Records skip sign in click event.
      * @param sequenceId The identifier of the onboarding sequence shown to the user.
      * @param sequencePosition The sequence position of the page for which the impression occurred.
+     * @param elementType The type of UI element that triggered the click event.
      */
-    fun onSkipSignInClick(sequenceId: String, sequencePosition: String) {
+    fun onSkipSignInClick(
+        sequenceId: String,
+        sequencePosition: String,
+        elementType: String = ET_SECONDARY_BUTTON,
+    ) {
+        logger.debug(
+            "Recording skip sign in click event, sequenceId: $sequenceId, " +
+                "sequencePosition: $sequencePosition, elementType: $elementType",
+        )
+
         Onboarding.skipSignIn.record(
             Onboarding.SkipSignInExtra(
                 action = ACTION_CLICK,
-                elementType = ET_SECONDARY_BUTTON,
+                elementType = elementType,
                 sequenceId = sequenceId,
                 sequencePosition = sequencePosition,
                 onboardingReason = onboardingReason.value,
@@ -304,12 +346,22 @@ class OnboardingTelemetryRecorder(
      * Records skip notification permission click event.
      * @param sequenceId The identifier of the onboarding sequence shown to the user.
      * @param sequencePosition The sequence position of the page for which the impression occurred.
+     * @param elementType The type of UI element that triggered the click event.
      */
-    fun onSkipTurnOnNotificationsClick(sequenceId: String, sequencePosition: String) {
+    fun onSkipTurnOnNotificationsClick(
+        sequenceId: String,
+        sequencePosition: String,
+        elementType: String = ET_SECONDARY_BUTTON,
+    ) {
+        logger.debug(
+            "Recording skip notification permission click event, " +
+                "sequenceId: $sequenceId, sequencePosition: $sequencePosition, elementType: $elementType",
+        )
+
         Onboarding.skipTurnOnNotifications.record(
             Onboarding.SkipTurnOnNotificationsExtra(
                 action = ACTION_CLICK,
-                elementType = ET_SECONDARY_BUTTON,
+                elementType = elementType,
                 sequenceId = sequenceId,
                 sequencePosition = sequencePosition,
                 onboardingReason = onboardingReason.value,
@@ -488,5 +540,17 @@ class OnboardingTelemetryRecorder(
         private const val ET_ONBOARDING_CARD = "onboarding_card"
         private const val ET_PRIMARY_BUTTON = "primary_button"
         private const val ET_SECONDARY_BUTTON = "secondary_button"
+        const val ET_CARD_CLOSE_BUTTON = "card_close_button"
     }
+}
+
+/**
+ * Enum representing the method used to dismiss the onboarding flow.
+ * @property telemetryId The telemetry identifier.
+ *
+ * @see [Onboarding.DismissedExtra.method].
+ */
+enum class DismissedMethod(val telemetryId: String) {
+    COMPLETED("completed"),
+    SKIPPED("skipped"),
 }

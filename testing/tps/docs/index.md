@@ -289,61 +289,24 @@ To write new TPS tests follow the following instructions:
 4. Make sure to test the file by [running TPS](#how-to-run-tps)
 
 ## How to run TPS
-### Installation
-TPS requires several packages to operate properly. To install TPS and
-required packages, use the create_venv.py script provided in the `testing/tps` directory:
+Run all enabled TPS tests:
 ```sh
-python3 create_venv.py /path/to/create/virtualenv
+./mach tps-test --auto-account
 ```
 
-This script will create a virtalenv and install TPS into it.
-
-You must then activate the virtualenv by executing:
-
--  (mac/linux):
+Run a single test:
 ```sh
-source /path/to/virtualenv/Scripts/activate
-```
--  (win):
-```sh
-/path/to/virtualenv/Scripts/activate.bat
+./mach tps-test --testfile services/sync/tests/tps/test_sync.js --auto-account
 ```
 
-TPS can then be run by executing:
+Run headless:
 ```sh
-runtps --binary=/path/to/firefox
+MOZ_HEADLESS=1 ./mach tps-test --auto-account
 ```
 
-> Note: You can run the tps tests in headless mode by using `MOZ_HEADLESS=1`. This will make
-> your computer somewhat useable while the tests are running.
-
-When you are done with TPS, you can deactivate the virtualenv by executing
-`deactivate`
-
-### Configuration
-To edit the TPS configuration, do not edit config/config.json.in in the tree.
-Instead, edit config.json inside your virtualenv; it will be located at the
-top level of where you specified the virtualenv be created - eg, for the
-example above, it will be `/path/to/create/virtualenv/config.json`
-
-#### Setting Up Test Accounts
-
-##### Mozilla Accounts
-To create a test account for using the Mozilla Account authentication perform the
-following steps:
-
-> Note: Currently, the TPS tests rely on how restmail returns the verification code
-> You should use restmail or something very similar.
-> Gmail and other providers might give a `The request was blocked for security reasons`
-
-1. Go to the URL: http://restmail.net/mail/%account_prefix%@restmail.net
-  - Replace `%account_prefix%` with your own test name
-2. Go to https://accounts.firefox.com/signup?service=sync&context=fx_desktop_v1
-3. Sign in with the previous chosen email address and a password
-4. Go back to the Restmail URL, reload the page
-5. Search for the verification link and open that page
-
-Now you will be able to use this account for TPS. Note that these
-steps can be done in either a test profile or in a private browsing window - you
-might want to avoid doing that in a "real" profile that's already connected to
-Sync.
+Use existing account credentials:
+```sh
+./mach tps-test --testfile services/sync/tests/tps/test_sync.js \
+  --username your-test@restmail.net \
+  --password your-password
+```

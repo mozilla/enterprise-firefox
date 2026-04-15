@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -91,6 +90,34 @@ struct ParamTraits<cdm::HdcpVersion>
     : public ContiguousEnumSerializerInclusive<
           cdm::HdcpVersion, cdm::HdcpVersion::kHdcpVersionNone,
           cdm::HdcpVersion::kHdcpVersion2_3> {};
+
+using CDMStatusEnumValidator =
+    ContiguousEnumValidatorInclusive<cdm::Status, cdm::Status::kSuccess,
+                                     cdm::kHighestStatus>;
+template <>
+struct ParamTraits<cdm::Status>
+    : public EnumSerializer<cdm::Status, CDMStatusEnumValidator> {};
+
+using CDMExceptionEnumValidator = ContiguousEnumValidatorInclusive<
+    cdm::Exception, cdm::Exception::kExceptionTypeError,
+    cdm::Exception::kExceptionQuotaExceededError>;
+template <>
+struct ParamTraits<cdm::Exception>
+    : public EnumSerializer<cdm::Exception, CDMExceptionEnumValidator> {};
+
+using CDMKeyStatusEnumValidator =
+    ContiguousEnumValidatorInclusive<cdm::KeyStatus, cdm::KeyStatus::kUsable,
+                                     cdm::KeyStatus::kReleased>;
+template <>
+struct ParamTraits<cdm::KeyStatus>
+    : public EnumSerializer<cdm::KeyStatus, CDMKeyStatusEnumValidator> {};
+
+using CDMMessageTypeEnumValidator = ContiguousEnumValidatorInclusive<
+    cdm::MessageType, cdm::MessageType::kLicenseRequest,
+    cdm::MessageType::kIndividualizationRequest>;
+template <>
+struct ParamTraits<cdm::MessageType>
+    : public EnumSerializer<cdm::MessageType, CDMMessageTypeEnumValidator> {};
 
 template <>
 struct ParamTraits<GMPSimulcastStream> {

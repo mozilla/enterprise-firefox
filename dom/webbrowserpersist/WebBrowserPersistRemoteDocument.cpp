@@ -1,5 +1,4 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
- *
+/*
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -193,14 +192,6 @@ WebBrowserPersistRemoteDocument::WriteContent(
              subActor, map, requestedContentType, aEncoderFlags, aWrapColumn)
              ? NS_OK
              : NS_ERROR_FAILURE;
-}
-
-// Forcing WebBrowserPersistRemoteDocument to implement GetHistory is the
-// easiest way to ensure that we can call GetHistory in
-// WebBrowserPersistDocumentChild::Start
-already_AddRefed<nsISHEntry> WebBrowserPersistRemoteDocument::GetHistory() {
-  MOZ_CRASH("We should not call GetHistory on WebBrowserPersistRemoteDocument");
-  return nullptr;
 }
 
 }  // namespace mozilla

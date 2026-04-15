@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -43,6 +41,7 @@
 #include "mozilla/URLExtraData.h"
 #include "mozilla/css/ImageLoader.h"
 #include "mozilla/dom/CSSMozDocumentRule.h"
+#include "mozilla/dom/CSSTransition.h"
 #include "mozilla/dom/DocumentInlines.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/ElementInlines.h"
@@ -576,6 +575,13 @@ void Gecko_UpdateAnimations(const Element* aElement,
   const auto [element, pseudoRequest] =
       AnimationUtils::GetElementPseudoPair(aElement);
 
+  // Handle timeline scopes first, because our own scroll/view-linked animations
+  // may be affected.
+  if (aTasks & UpdateAnimationsTasks::TimelineScopes) {
+    presContext->TimelineManager()->UpdateTimelineScopes(element,
+                                                         aComputedData);
+  }
+
   // Handle scroll/view timelines first because CSS animations may refer to the
   // timeline defined by itself.
   if (aTasks & UpdateAnimationsTasks::ScrollTimelines) {
@@ -895,9 +901,14 @@ bool Gecko_IsSelectListBox(const Element* aElement) {
   return select && !select->IsCombobox();
 }
 
-bool Gecko_LookupAttrValue(const Element* aElement, const nsAtom& aName,
-                           nsAString& aResult) {
-  return aElement->GetAttr(&aName, aResult);
+bool Gecko_LookupAttrValue(const Element* aElement, nsAtom& aNamespace,
+                           const nsAtom& aName, nsAString& aResult) {
+  int32_t attrNameSpace = kNameSpaceID_None;
+  if (!aNamespace.IsEmpty()) {
+    attrNameSpace = nsNameSpaceManager::GetInstance()->GetNameSpaceID(
+        &aNamespace, nsContentUtils::IsChromeDoc(aElement->OwnerDoc()));
+  }
+  return aElement->GetAttr(attrNameSpace, &aName, aResult);
 }
 
 template <typename Implementor>

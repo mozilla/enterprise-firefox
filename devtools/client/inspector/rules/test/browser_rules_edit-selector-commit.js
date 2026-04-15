@@ -79,7 +79,7 @@ async function runTestData(inspector, view, data) {
   info("Selecting the test element");
   await selectNode(node, inspector);
 
-  let idRuleEditor = getRuleViewRuleEditor(view, 1);
+  let idRuleEditor = getRuleViewRuleEditorAt(view, 1);
 
   info("Focusing an existing selector name in the rule-view");
   const editor = await focusEditableField(view, idRuleEditor.selectorText);
@@ -116,7 +116,7 @@ async function runTestData(inspector, view, data) {
   );
 
   if (modifiers.shiftKey) {
-    idRuleEditor = getRuleViewRuleEditor(view, 0);
+    idRuleEditor = getRuleViewRuleEditorAt(view, 0);
   }
 
   if (

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -44,6 +42,7 @@ enum class CrossProcessPaintFlags {
   DrawView = 1 << 1,
   ResetScrollPosition = 1 << 2,
   UseHighQualityScaling = 1 << 3,
+  ForPrinting = 1 << 4,
 };
 
 MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(CrossProcessPaintFlags)
@@ -130,7 +129,9 @@ class CrossProcessPaint final {
                     float aScale, nscolor aBackgroundColor,
                     CrossProcessPaintFlags aFlags, dom::Promise* aPromise);
 
-  static RefPtr<ResolvePromise> Start(nsTHashSet<uint64_t>&& aDependencies);
+  static RefPtr<ResolvePromise> Start(
+      nsTHashSet<uint64_t>&& aDependencies,
+      CrossProcessPaintFlags aFlags = CrossProcessPaintFlags::None);
 
   void ReceiveFragment(dom::WindowGlobalParent* aWGP,
                        PaintFragment&& aFragment);
@@ -169,10 +170,11 @@ class CrossProcessPaint final {
     return mPromise.Ensure(__func__);
   }
 
-  // UseHighQualityScaling is the only flag that dependencies inherit, and we
-  // always want to use DrawView for dependencies.
+  // Dependencies inherit only a small subset of flags and we always want to use
+  // DrawView for dependencies.
   CrossProcessPaintFlags GetFlagsForDependencies() const {
-    return (mFlags & CrossProcessPaintFlags::UseHighQualityScaling) |
+    return (mFlags & (CrossProcessPaintFlags::UseHighQualityScaling |
+                      CrossProcessPaintFlags::ForPrinting)) |
            CrossProcessPaintFlags::DrawView;
   }
 

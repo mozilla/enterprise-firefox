@@ -91,6 +91,7 @@ pub struct LinearGradientTemplate {
     pub stops_opacity: PrimitiveOpacity,
     pub stops: Vec<GradientStop>,
     pub brush_segments: Vec<BrushSegment>,
+    pub border_nine_patch: Option<Box<NinePatchDescriptor>>,
     pub reverse_stops: bool,
     pub is_fast_path: bool,
     pub cached: bool,
@@ -101,6 +102,7 @@ impl PatternBuilder for LinearGradientTemplate {
     fn build(
         &self,
         _sub_rect: Option<DeviceRect>,
+        offset: LayoutVector2D,
         ctx: &PatternBuilderContext,
         state: &mut PatternBuilderState,
     ) -> Pattern {
@@ -112,7 +114,7 @@ impl PatternBuilder for LinearGradientTemplate {
         // LinearGradientTemplate stores the start and end points relative to the
         // primitive origin, but the shader works with start/end points in "proper"
         // layout coordinates (relative to the primitive's spatial node).
-        let offset = self.common.prim_rect.min.to_vector();
+        let offset = offset + ctx.prim_origin.to_vector();
         linear_gradient_pattern(
             start + offset,
             end + offset,
@@ -121,19 +123,6 @@ impl PatternBuilder for LinearGradientTemplate {
             ctx.fb_config.is_software,
             state.frame_gpu_data,
         )
-    }
-
-    fn get_base_color(
-        &self,
-        _ctx: &PatternBuilderContext,
-    ) -> ColorF {
-        ColorF::WHITE
-    }
-
-    fn use_shared_pattern(
-        &self,
-    ) -> bool {
-        true
     }
 }
 
@@ -389,7 +378,7 @@ impl From<LinearGradientKey> for LinearGradientTemplate {
         let mut brush_segments = Vec::new();
 
         if let Some(ref nine_patch) = item.nine_patch {
-            brush_segments = nine_patch.create_segments(common.prim_rect.size());
+            brush_segments = nine_patch.create_brush_segments(common.prim_size);
         }
 
         // Save opacity of the stops for use in
@@ -423,14 +412,14 @@ impl From<LinearGradientKey> for LinearGradientTemplate {
         let mut is_fast_path = false;
         if item.cached && stops.len() == 2 && brush_segments.is_empty() {
             if horizontal
-                && stretch_size.width >= common.prim_rect.width()
+                && stretch_size.width >= common.prim_size.width
                 && start_point.x.approx_eq(&0.0)
                 && end_point.x.approx_eq(&stretch_size.width) {
                 is_fast_path = true;
                 task_size.width = task_size.width.min(256.0);
             }
             if vertical
-                && stretch_size.height >= common.prim_rect.height()
+                && stretch_size.height >= common.prim_size.height
                 && start_point.y.approx_eq(&0.0)
                 && end_point.y.approx_eq(&stretch_size.height) {
                 is_fast_path = true;
@@ -477,6 +466,7 @@ impl From<LinearGradientKey> for LinearGradientTemplate {
             stops_opacity,
             stops,
             brush_segments,
+            border_nine_patch: item.nine_patch,
             reverse_stops: item.reverse_stops,
             is_fast_path,
             cached: item.cached,
@@ -545,6 +535,7 @@ impl LinearGradientTemplate {
 
             frame_state.resource_cache.request_render_task(
                 Some(RenderTaskCacheKey {
+                    origin: DeviceIntPoint::zero(),
                     size: self.task_size,
                     kind: RenderTaskCacheKeyKind::FastLinearGradient(gradient),
                 }),
@@ -573,6 +564,7 @@ impl LinearGradientTemplate {
 
             frame_state.resource_cache.request_render_task(
                 Some(RenderTaskCacheKey {
+                    origin: DeviceIntPoint::zero(),
                     size: self.task_size,
                     kind: RenderTaskCacheKeyKind::LinearGradient(cache_key),
                 }),

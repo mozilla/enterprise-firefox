@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1145,20 +1143,14 @@ static void UserSelectRangesToAdd(nsRange* aItem,
   }
 }
 
-static nsINode* DetermineSelectstartEventTarget(
-    const bool aSelectionEventsOnTextControlsEnabled, const nsRange& aRange) {
+static nsINode* DetermineSelectstartEventTarget(const nsRange& aRange) {
   nsINode* target = aRange.GetStartContainer();
-  if (aSelectionEventsOnTextControlsEnabled) {
-    // Get the first element which isn't in a native anonymous subtree
-    while (target && target->IsInNativeAnonymousSubtree()) {
-      target = target->GetParent();
-    }
-  } else {
-    if (target->IsInNativeAnonymousSubtree()) {
-      // This is a selection under a text control, so don't dispatch the
-      // event.
-      target = nullptr;
-    }
+  if (target && target->IsInNativeAnonymousSubtree()) {
+    // This is a selection under a text control, selectstart target depends on
+    // the pref.
+    target = StaticPrefs::dom_select_events_textcontrols_selectstart_enabled()
+                 ? target->GetClosestNativeAnonymousSubtreeRootParentOrHost()
+                 : nullptr;
   }
   return target;
 }
@@ -1166,11 +1158,10 @@ static nsINode* DetermineSelectstartEventTarget(
 /**
  * @return true, iff the default action should be executed.
  */
-static bool MaybeDispatchSelectstartEvent(
-    const nsRange& aRange, const bool aSelectionEventsOnTextControlsEnabled,
-    Document* aDocument) {
-  nsCOMPtr<nsINode> selectstartEventTarget = DetermineSelectstartEventTarget(
-      aSelectionEventsOnTextControlsEnabled, aRange);
+static bool MaybeDispatchSelectstartEvent(const nsRange& aRange,
+                                          Document* aDocument) {
+  nsCOMPtr<nsINode> selectstartEventTarget =
+      DetermineSelectstartEventTarget(aRange);
 
   bool executeDefaultAction = true;
 
@@ -1241,10 +1232,8 @@ nsresult Selection::AddRangesForUserSelectableNodes(
       // on text controls, so for now we only support doing that under a
       // pref, disabled by default.
       // See https://github.com/w3c/selection-api/issues/53.
-      const bool executeDefaultAction = MaybeDispatchSelectstartEvent(
-          *aRange,
-          StaticPrefs::dom_select_events_textcontrols_selectstart_enabled(),
-          doc);
+      const bool executeDefaultAction =
+          MaybeDispatchSelectstartEvent(*aRange, doc);
 
       if (!executeDefaultAction) {
         return NS_OK;
@@ -4225,7 +4214,7 @@ void Selection::Modify(const nsAString& aAlter, const nsAString& aDirection,
       AutoTArray<nsString, 1> params;
       params.AppendElement(aGranularity);
       nsContentUtils::ReportToConsole(nsIScriptError::warningFlag, "DOM"_ns,
-                                      document, nsContentUtils::eDOM_PROPERTIES,
+                                      document, PropertiesFile::DOM_PROPERTIES,
                                       "SelectionModifyGranualirtyUnsupported",
                                       params);
     }

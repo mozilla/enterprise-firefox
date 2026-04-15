@@ -574,7 +574,7 @@ class BrowsingContextModule extends WindowGlobalBiDiModule {
 
     const contextNodes = [];
     if (startNodes === null) {
-      contextNodes.push(this.messageHandler.window.document.documentElement);
+      contextNodes.push(this.messageHandler.window.document);
     } else {
       for (const serializedStartNode of startNodes) {
         const startNode = this.deserialize(serializedStartNode, realm);

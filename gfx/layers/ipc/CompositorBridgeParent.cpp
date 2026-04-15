@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -129,11 +127,12 @@ void CompositorBridgeParentBase::NotifyNotUsed(PTextureParent* aTexture,
   }
 
   uint64_t textureId = TextureHost::GetTextureSerial(aTexture);
-  mPendingAsyncMessage.push_back(OpNotifyNotUsed(textureId, aTransactionId));
+  mPendingAsyncMessage.AppendElement(
+      OpNotifyNotUsed(textureId, aTransactionId));
 }
 
 void CompositorBridgeParentBase::SendAsyncMessage(
-    const nsTArray<AsyncParentMessageData>& aMessage) {
+    Span<const AsyncParentMessageData> aMessage) {
   (void)SendParentAsyncMessages(aMessage);
 }
 
@@ -345,6 +344,10 @@ void CompositorBridgeParent::StopAndClearResources() {
     indirectBridgeParents.clear();
 
     RefPtr<wr::WebRenderAPI> api = mWrBridge->GetWebRenderAPI();
+    {
+      StaticMonitorAutoLock lock(sIndirectLayerTreesLock);
+      sIndirectLayerTrees[mRootLayerTreeID].mWebRenderAPI = nullptr;
+    }
     // Ensure we are not holding the sIndirectLayerTreesLock here because we
     // are going to block on WR threads in order to shut it down properly.
     mWrBridge->Destroy();
@@ -1129,6 +1132,7 @@ bool CompositorBridgeParent::DeallocPWebRenderBridgeParent(
     auto it = sIndirectLayerTrees.find(wr::AsLayersId(parent->PipelineId()));
     if (it != sIndirectLayerTrees.end()) {
       it->second.mWrBridge = nullptr;
+      it->second.mWebRenderAPI = nullptr;
     }
   }
   parent->Release();  // IPDL reference
@@ -1190,6 +1194,11 @@ void CompositorBridgeParent::EnsureWebRenderBridgeParentInitialized() {
   mAsyncImageManager =
       new AsyncImagePipelineManager(api->Clone(), useCompositorWnd);
   RefPtr<AsyncImagePipelineManager> asyncMgr = mAsyncImageManager;
+
+  {
+    StaticMonitorAutoLock lock(sIndirectLayerTreesLock);
+    sIndirectLayerTrees[mRootLayerTreeID].mWebRenderAPI = api;
+  }
 
   mWrBridge->FinishInitialization(std::move(api), std::move(asyncMgr));
 
@@ -1755,8 +1764,7 @@ CompositorBridgeParent::GetGeckoContentControllerForRoot(
 PTextureParent* CompositorBridgeParent::AllocPTextureParent(
     const SurfaceDescriptor& aSharedData, ReadLockDescriptor& aReadLock,
     const LayersBackend& aLayersBackend, const TextureFlags& aFlags,
-    const LayersId& aId, const uint64_t& aSerial,
-    const wr::MaybeExternalImageId& aExternalImageId) {
+    const uint64_t& aSerial, const wr::MaybeExternalImageId& aExternalImageId) {
   return TextureHost::CreateIPDLActor(
       this, aSharedData, std::move(aReadLock), aLayersBackend, aFlags,
       mCompositorManager->GetContentId(), aSerial, aExternalImageId);

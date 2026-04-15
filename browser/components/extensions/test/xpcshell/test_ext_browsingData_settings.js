@@ -3,7 +3,6 @@
 "use strict";
 
 ChromeUtils.defineESModuleGetters(this, {
-  Preferences: "resource://gre/modules/Preferences.sys.mjs",
   Sanitizer: "resource:///modules/Sanitizer.sys.mjs",
 });
 
@@ -52,7 +51,7 @@ add_task(async function testSettingsProperties() {
   let dataTypeSet = settings.dataToRemove;
   for (let key of Object.keys(dataTypeSet)) {
     equal(
-      Preferences.get(`${PREF_DOMAIN}${key.toLowerCase()}`),
+      Services.prefs.getBoolPref(`${PREF_DOMAIN}${key.toLowerCase()}`),
       dataTypeSet[key],
       `${key} property of dataToRemove matches the expected pref.`
     );
@@ -72,10 +71,10 @@ add_task(async function testSettingsProperties() {
   const SINGLE_PREF = "privacy.cpd.cache";
 
   registerCleanupFunction(() => {
-    Preferences.reset(SINGLE_PREF);
+    Services.prefs.clearUserPref(SINGLE_PREF);
   });
 
-  Preferences.set(SINGLE_PREF, true);
+  Services.prefs.setBoolPref(SINGLE_PREF, true);
 
   extension.sendMessage("settings");
   settings = await extension.awaitMessage("settings");
@@ -85,7 +84,7 @@ add_task(async function testSettingsProperties() {
     "Preference that was set to true returns true."
   );
 
-  Preferences.set(SINGLE_PREF, false);
+  Services.prefs.setBoolPref(SINGLE_PREF, false);
 
   extension.sendMessage("settings");
   settings = await extension.awaitMessage("settings");
@@ -125,11 +124,11 @@ add_task(async function testSettingsSince() {
   await extension.startup();
 
   registerCleanupFunction(() => {
-    Preferences.reset(TIMESPAN_PREF);
+    Services.prefs.clearUserPref(TIMESPAN_PREF);
   });
 
   for (let timespan in TEST_DATA) {
-    Preferences.set(TIMESPAN_PREF, Sanitizer[timespan]);
+    Services.prefs.setIntPref(TIMESPAN_PREF, Sanitizer[timespan]);
 
     extension.sendMessage("settings");
     let settings = await extension.awaitMessage("settings");

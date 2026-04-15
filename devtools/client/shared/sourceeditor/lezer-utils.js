@@ -79,6 +79,7 @@ const nodeTypeSets = {
     nodeTypes.PropertyName,
   ]),
   expressionProperty: new Set([nodeTypes.PropertyName]),
+  variables: new Set([nodeTypes.VariableName, nodeTypes.this]),
 };
 
 const ast = new Map();

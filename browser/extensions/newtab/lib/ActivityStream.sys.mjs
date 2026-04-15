@@ -44,6 +44,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PlacesFeed: "resource://newtab/lib/PlacesFeed.sys.mjs",
   Region: "resource://gre/modules/Region.sys.mjs",
   SectionsFeed: "resource://newtab/lib/SectionsManager.sys.mjs",
+  SectionsLayoutFeed: "resource://newtab/lib/SectionsLayoutFeed.sys.mjs",
   StartupCacheInit: "resource://newtab/lib/StartupCacheInit.sys.mjs",
   Store: "resource://newtab/lib/Store.sys.mjs",
   SystemTickFeed: "resource://newtab/lib/SystemTickFeed.sys.mjs",
@@ -115,9 +116,6 @@ const PREF_IMAGE_PROXY_ENABLED =
   "browser.newtabpage.activity-stream.discoverystream.imageProxy.enabled";
 
 const PREF_IMAGE_PROXY_ENABLED_STORE = "discoverystream.imageProxy.enabled";
-
-const PREF_SHOULD_ENABLE_EXTERNAL_COMPONENTS_FEED =
-  "browser.newtabpage.activity-stream.externalComponents.enabled";
 
 export const PREF_DEFAULT_VALUE_TOPSITES_ENABLED = true;
 export const PREF_DEFAULT_VALUE_TOPSTORIES_ENABLED = true;
@@ -456,7 +454,24 @@ export const PREFS_CONFIG = new Map([
     {
       title:
         "Toggle the weather widget to include a text summary of the current conditions",
-      value: "simple",
+      value: "detailed",
+    },
+  ],
+  [
+    "weather.reportEndpoint",
+    {
+      title:
+        "Temporary measure for trainhopping. This adds the Merino endpoint for the weather report",
+      value: "https://merino.services.mozilla.com/api/v1/suggest",
+    },
+  ],
+  [
+    "weather.hourlyEndpoint",
+    {
+      title:
+        "Temporary measure for trainhopping. This adds the Merino endpoint for the hourly forecasts to display in Weather Forecast widget",
+      value:
+        "https://merino.services.mozilla.com/api/v1/weather/hourly-forecasts",
     },
   ],
   [
@@ -497,6 +512,13 @@ export const PREFS_CONFIG = new Map([
     {
       title: "Number of rows of Top Sites to display",
       value: 1,
+    },
+  ],
+  [
+    "topSitesMaxSitesPerRow",
+    {
+      title: "Max number of Top Sites to display per row",
+      value: 8,
     },
   ],
   [
@@ -1150,6 +1172,20 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "widgets.feedback.enabled",
+    {
+      title: "Enables the feedback link in the widgets container",
+      value: false,
+    },
+  ],
+  [
+    "widgets.hideAllToast.enabled",
+    {
+      title: "Shows a toast when all widgets are hidden via the X button",
+      value: false,
+    },
+  ],
+  [
     "improvesearch.noDefaultSearchTile",
     {
       title: "Remove tiles that are the same as the default search",
@@ -1383,7 +1419,8 @@ export const PREFS_CONFIG = new Map([
   [
     "discoverystream.sections.clientLayout.enabled",
     {
-      title: "Enables client side layout for recommended stories",
+      title:
+        "Enables client side and remote settings layout for recommended stories",
       value: false,
     },
   ],
@@ -1452,11 +1489,18 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "nova.enabled",
+    {
+      title: "Boolean flag to enable Nova",
+      value: false,
+    },
+  ],
+  [
     "selfLoading.enabled",
     {
       title:
         "Communicates to AboutNewTabChild whether or not it should load the classic scripts or do nothing.",
-      value: false,
+      value: true,
     },
   ],
 ]);
@@ -1591,9 +1635,15 @@ const FEEDS_DATA = [
     value: true,
   },
   {
+    name: "sectionslayoutfeed",
+    factory: () => new lazy.SectionsLayoutFeed(),
+    title: "Fetches section layout configurations from Remote Settings",
+    value: true,
+  },
+  {
     name: "wallpaperfeed",
     factory: () => new lazy.WallpaperFeed(),
-    title: "Handles fetching and managing wallpaper data from RemoteSettings",
+    title: "Handles fetching and managing wallpaper data from Remote Settings",
     value: true,
   },
   {
@@ -1650,15 +1700,7 @@ const FEEDS_DATA = [
     name: "externalcomponentsfeed",
     factory: () => new lazy.ExternalComponentsFeed(),
     title: "Handles updating the registry of external components",
-    getValue() {
-      // This feed should only be enabled on versions of the app that have the
-      // AboutNewTabComponents module. Those versions of the app have this
-      // preference set to true.
-      return Services.prefs.getBoolPref(
-        PREF_SHOULD_ENABLE_EXTERNAL_COMPONENTS_FEED,
-        false
-      );
-    },
+    value: true,
   },
 ];
 

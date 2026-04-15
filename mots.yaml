@@ -8,7 +8,7 @@
 # documentation and how to modify this file.
 repo: mozilla-central
 created_at: '2021-10-14T12:50:40.073465'
-updated_at: '2026-02-19T16:52:21.341701+00:00'
+updated_at: '2026-03-20T09:34:11.282579+00:00'
 export:
   path: ./docs/mots/index.rst
   format: rst
@@ -376,6 +376,10 @@ people:
     bmo_id: 566192
     name: Andreas Farre
     nick: farre
+  - &fchasen
+    bmo_id: 710281
+    name: Fred Chasen
+    nick: fchasen
   - bmo_id: 417695
     name: Nick Fitzgerald
     nick: fitzgen
@@ -725,6 +729,10 @@ people:
     bmo_id: 240353
     name: Marco Bonardo
     nick: mak
+  - &manuel
+    bmo_id: 688976
+    name: Manuel Bucher
+    nick: manuel
   - &marco
     bmo_id: 420453
     name: Marco Castelluccio
@@ -945,6 +953,10 @@ people:
     bmo_id: 573202
     name: Ryan Hunt
     nick: rhunt
+  - &rking
+    bmo_id: 760874
+    name: Becca King
+    nick: rking
   - &rkraesig
     bmo_id: 699639
     name: Ray Kraesig
@@ -1366,6 +1378,7 @@ modules:
       - *dimi
       - *emz
       - *tjr
+      - *manuel
     machine_name: core_antitracking
 
   - name: 'Core: APZ (Graphics submodule)'
@@ -1914,6 +1927,8 @@ modules:
     includes:
       - gfx/**/*
       - dom/canvas/**/*
+    excludes:
+      - gfx/wgpu_bindings/**/*
     meta:
       owners_emeritus:
         - Robert O'Callahan
@@ -3731,6 +3746,24 @@ modules:
           - *janika
         machine_name: form_autofill
 
+      - name: IP Protection
+        description: Built-in IP Protection (VPN) in the browser.
+        includes:
+          - browser/components/ipprotection/**/*
+          - toolkit/components/ipprotection/**/*
+        meta:
+          components:
+            - Firefox::IP Protection
+          url: https://firefox-source-docs.mozilla.org/toolkit/ipprotection/
+          review_group: ip-protection-reviewers
+        owners:
+          - *fchasen
+        peers:
+          - *kpatenio
+          - *rking
+          - *niklas
+        machine_name: ip_protection
+
       - name: In-product Messaging
         description: The system for delivering in-product messaging and onboarding,
           including ASRouter, about:welcome, and reusable messaging templates like
@@ -4708,10 +4741,10 @@ modules:
       - netwerk/url-classifier/**/*
     excludes: []
     owners:
-      - *dimi
+      - *timhuang
       - *groovecoder
     peers:
-      - *timhuang
+      - *dimi
       - *gcp
     meta:
       url: https://github.com/mozilla-services/shavar https://wiki.mozilla.org/Phishing_Protection
@@ -4723,5 +4756,5 @@ modules:
         - Ryan Tilder
       group: dev-platform
 hashes:
-  config: 646c8326f315b7fe2474f195e552e5336cd8e6a2
-  export: a558bad93dcd116f12d934fb441ba2238f40d648
+  config: 8a84000338470da76a72781426a74b0e160c8a2e
+  export: d1955b830228b17ffcf1ed35b2798978aeb77381

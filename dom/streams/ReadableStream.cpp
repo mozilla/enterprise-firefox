@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -109,6 +107,16 @@ ReadableStream::~ReadableStream() {
 JSObject* ReadableStream::WrapObject(JSContext* aCx,
                                      JS::Handle<JSObject*> aGivenProto) {
   return ReadableStream_Binding::Wrap(aCx, this, aGivenProto);
+}
+
+void ReadableStream::GetStoredError(JSContext* aCx,
+                                    JS::MutableHandle<JS::Value> aStoredError,
+                                    ErrorResult& aRv) const {
+  aStoredError.set(mStoredError);
+  if (!JS_WrapValue(aCx, aStoredError)) {
+    aStoredError.setUndefined();
+    aRv.StealExceptionFromJSContext(aCx);
+  }
 }
 
 ReadableStreamDefaultReader* ReadableStream::GetDefaultReader() {
@@ -585,7 +593,12 @@ already_AddRefed<Promise> ReadableStreamCancel(JSContext* aCx,
 
   // Step 3.
   if (aStream->State() == ReadableStream::ReaderState::Errored) {
-    JS::Rooted<JS::Value> storedError(aCx, aStream->StoredError());
+    JS::Rooted<JS::Value> storedError(aCx);
+    aStream->GetStoredError(aCx, &storedError, aRv);
+    if (aRv.Failed()) {
+      return nullptr;
+    }
+
     return Promise::CreateRejected(aStream->GetParentObject(), storedError,
                                    aRv);
   }
@@ -891,13 +904,21 @@ ReadableStreamDefaultTeeSourceAlgorithms::CancelCallback(
       return nullptr;
     }
 
-    JS::Rooted<JS::Value> reason1(aCx, mTeeState->Reason1());
+    JS::Rooted<JS::Value> reason1(aCx);
+    mTeeState->GetReason1(aCx, &reason1, aRv);
+    if (aRv.Failed()) {
+      return nullptr;
+    }
     if (!JS_SetElement(aCx, compositeReason, 0, reason1)) {
       aRv.StealExceptionFromJSContext(aCx);
       return nullptr;
     }
 
-    JS::Rooted<JS::Value> reason2(aCx, mTeeState->Reason2());
+    JS::Rooted<JS::Value> reason2(aCx);
+    mTeeState->GetReason2(aCx, &reason2, aRv);
+    if (aRv.Failed()) {
+      return nullptr;
+    }
     if (!JS_SetElement(aCx, compositeReason, 1, reason2)) {
       aRv.StealExceptionFromJSContext(aCx);
       return nullptr;

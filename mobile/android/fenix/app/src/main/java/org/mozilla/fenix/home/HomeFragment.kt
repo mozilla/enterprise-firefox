@@ -99,10 +99,13 @@ import org.mozilla.fenix.components.appstate.AppAction.MessagingAction.Microsurv
 import org.mozilla.fenix.components.appstate.AppAction.ReviewPromptAction.CheckIfEligibleForReviewPrompt
 import org.mozilla.fenix.components.appstate.OrientationMode
 import org.mozilla.fenix.components.components
+import org.mozilla.fenix.components.metrics.installSourcePackage
 import org.mozilla.fenix.components.toolbar.BottomToolbarContainerView
 import org.mozilla.fenix.compose.snackbar.Snackbar
 import org.mozilla.fenix.compose.snackbar.SnackbarState
 import org.mozilla.fenix.databinding.FragmentHomeBinding
+import org.mozilla.fenix.e2e.SystemInsetsPaddedFragment
+import org.mozilla.fenix.ext.application
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.getBottomToolbarHeight
 import org.mozilla.fenix.ext.getTopToolbarHeight
@@ -155,6 +158,10 @@ import org.mozilla.fenix.microsurvey.ui.MicrosurveyRequestPrompt
 import org.mozilla.fenix.microsurvey.ui.ext.MicrosurveyUIData
 import org.mozilla.fenix.microsurvey.ui.ext.toMicrosurveyUIData
 import org.mozilla.fenix.nimbus.FxNimbus
+import org.mozilla.fenix.onboarding.OnboardingReason
+import org.mozilla.fenix.onboarding.OnboardingTelemetryRecorder
+import org.mozilla.fenix.onboarding.continuous.ContinuousOnboardingFeatureDefault
+import org.mozilla.fenix.onboarding.continuous.ContinuousOnboardingStageProviderDefault
 import org.mozilla.fenix.pbmlock.NavigationOrigin
 import org.mozilla.fenix.pbmlock.observePrivateModeLock
 import org.mozilla.fenix.perf.MarkersFragmentLifecycleCallbacks
@@ -166,7 +173,7 @@ import org.mozilla.fenix.search.toolbar.DefaultSearchSelectorController
 import org.mozilla.fenix.search.toolbar.SearchSelectorMenu
 import org.mozilla.fenix.snackbar.FenixSnackbarDelegate
 import org.mozilla.fenix.snackbar.SnackbarBinding
-import org.mozilla.fenix.tabstray.Page
+import org.mozilla.fenix.tabstray.redux.state.Page
 import org.mozilla.fenix.tabstray.ui.AccessPoint
 import org.mozilla.fenix.termsofuse.store.DefaultPrivacyNoticeBannerRepository
 import org.mozilla.fenix.termsofuse.store.PrivacyNoticeBannerAction
@@ -176,13 +183,17 @@ import org.mozilla.fenix.termsofuse.store.PrivacyNoticeBannerStore
 import org.mozilla.fenix.termsofuse.store.PrivacyNoticeBannerTelemetryMiddleware
 import org.mozilla.fenix.termsofuse.store.Surface
 import org.mozilla.fenix.theme.FirefoxTheme
+import org.mozilla.fenix.trackingprotection.TrackersBlockedFeature
 import org.mozilla.fenix.utils.allowUndo
 import org.mozilla.fenix.utils.showAddSearchWidgetPromptIfSupported
 import org.mozilla.fenix.wallpapers.Wallpaper
 import java.lang.ref.WeakReference
 
+/**
+ * The home screen.
+ */
 @Suppress("TooManyFunctions", "LargeClass")
-class HomeFragment : Fragment() {
+class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
     private val args by navArgs<HomeFragmentArgs>()
 
     @VisibleForTesting
@@ -275,6 +286,7 @@ class HomeFragment : Fragment() {
     private val snackbarBinding = ViewBoundFeatureWrapper<SnackbarBinding>()
     private val showReviewPromptBinding = ViewBoundFeatureWrapper<ShowReviewPromptBinding>()
     private val topSitesBinding = ViewBoundFeatureWrapper<TopSitesBinding>()
+    private val trackersBlockedFeature = ViewBoundFeatureWrapper<TrackersBlockedFeature>()
 
     private val homepageEdgeToEdgeFeature = ViewBoundFeatureWrapper<HomepageEdgeToEdgeFeature>()
     private var qrScanFenixFeature: ViewBoundFeatureWrapper<QrScanFenixFeature>? =
@@ -309,6 +321,37 @@ class HomeFragment : Fragment() {
                 }
             }
         }
+
+    private val continuousOnboardingDefaultBrowserLauncher: ActivityResultLauncher<Intent> =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            continuousOnboardingFeature.onDefaultBrowserStepCompleted(
+                activity = requireActivity(),
+                resultCode = result.resultCode,
+            )
+        }
+
+    private val telemetryRecorder by lazy {
+        OnboardingTelemetryRecorder(
+            onboardingReason = if (requireComponents.settings.enablePersistentOnboarding) {
+                OnboardingReason.EXISTING_USER
+            } else {
+                OnboardingReason.NEW_USER
+            },
+            installSource = installSourcePackage(
+                packageManager = requireContext().application.packageManager,
+                packageName = requireContext().application.packageName,
+            ),
+        )
+    }
+
+    private val continuousOnboardingFeature by lazy {
+        val settings = requireContext().settings()
+        ContinuousOnboardingFeatureDefault(
+            settings = settings,
+            telemetryRecorder = telemetryRecorder,
+            stageProvider = ContinuousOnboardingStageProviderDefault(settings),
+        )
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // DO NOT ADD ANYTHING ABOVE THIS getProfilerTime CALL!
@@ -350,7 +393,11 @@ class HomeFragment : Fragment() {
 
         lifecycleScope.launch(IO) {
             val settings = requireContext().settings()
-            val showStories = settings.showPocketRecommendationsFeature
+
+            val showStories =
+                settings.showPocketRecommendationsFeature ||
+                    settings.privateModeAndStoriesEntryPointEnabled
+
             val showSponsoredStories = showStories && settings.showPocketSponsoredStories
 
             if (showStories) {
@@ -426,6 +473,17 @@ class HomeFragment : Fragment() {
                     accountManager = requireComponents.backgroundServices.accountManager,
                     historyStorage = requireComponents.core.historyStorage,
                     coroutineScope = viewLifecycleOwner.lifecycleScope,
+                ),
+                owner = viewLifecycleOwner,
+                view = binding.root,
+            )
+        }
+
+        if (requireContext().settings().showPrivacyReportFeature) {
+            trackersBlockedFeature.set(
+                feature = TrackersBlockedFeature(
+                    appStore = components.appStore,
+                    protectionsStorage = components.core.protectionsStorage,
                 ),
                 owner = viewLifecycleOwner,
                 view = binding.root,
@@ -1025,6 +1083,11 @@ class HomeFragment : Fragment() {
             view = view,
         )
 
+        continuousOnboardingFeature.maybeRunContinuousOnboarding(
+            activity = requireActivity(),
+            launcher = continuousOnboardingDefaultBrowserLauncher,
+        )
+
         // DO NOT MOVE ANYTHING BELOW THIS addMarker CALL!
         requireComponents.core.engine.profiler?.addMarker(
             MarkersFragmentLifecycleCallbacks.MARKER_NAME,
@@ -1222,6 +1285,11 @@ class HomeFragment : Fragment() {
     override fun onStart() {
         super.onStart()
 
+        val settings = requireContext().settings()
+        if (settings.privateModeAndStoriesEntryPointEnabled) {
+            settings.incrementNewsButtonForegroundCount()
+        }
+
         findNavController().addOnDestinationChangedListener(destinationChangedListener)
 
         subscribeToTabCollections()
@@ -1287,7 +1355,7 @@ class HomeFragment : Fragment() {
         evaluateMessagesForMicrosurvey(components)
 
         maybeShowEncourageSearchCfr(
-            canShowCfr = components.settings.canShowCfr,
+            canShowCfr = components.settings.canShowCfr && components.settings.cfrPopupsEnabled,
             shouldShowCFR = components.settings.shouldShowSearchBarCFR,
             showCfr = ::showEncourageSearchCfr,
             recordExposure = { FxNimbus.features.encourageSearchCfr.recordExposure() },
@@ -1470,9 +1538,6 @@ class HomeFragment : Fragment() {
         // Navigation arguments passed to HomeFragment
         const val FOCUS_ON_ADDRESS_BAR = "focusOnAddressBar"
         private const val SESSION_TO_DELETE = "sessionToDelete"
-
-        // Elevation for undo toasts
-        internal const val TOAST_ELEVATION = 80f
 
         private const val ENCOURAGE_SEARCH_CFR_VERTICAL_OFFSET = 0
     }

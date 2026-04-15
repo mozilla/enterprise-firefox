@@ -674,11 +674,6 @@ void ReceiveStatisticsProxy::OnDecodedFrame(
       &content_specific_stats_[content_type];
 
   ++stats_.frames_decoded;
-  if (frame_type == VideoFrameType::kVideoFrameKey) {
-    ++stats_.frame_counts.key_frames;
-  } else {
-    ++stats_.frame_counts.delta_frames;
-  }
   if (qp) {
     if (!stats_.qp_sum) {
       if (stats_.frames_decoded != 1) {
@@ -791,6 +786,12 @@ void ReceiveStatisticsProxy::OnCompleteFrame(bool is_keyframe,
 
   TRACE_EVENT2("webrtc", "ReceiveStatisticsProxy::OnCompleteFrame",
                "remote_ssrc", remote_ssrc_, "is_keyframe", is_keyframe);
+
+  if (is_keyframe) {
+    ++stats_.frame_counts.key_frames;
+  } else {
+    ++stats_.frame_counts.delta_frames;
+  }
 
   // Content type extension is set only for keyframes and should be propagated
   // for all the following delta frames. Here we may receive frames out of order

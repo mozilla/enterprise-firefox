@@ -507,7 +507,8 @@ if (
         popup.setAttribute("id", "share-tab-popup");
         popup.addEventListener("popupshowing", () => {
           let browser = aDocument.defaultView.gBrowser.selectedBrowser;
-          node.browserToShare = Cu.getWeakReference(browser);
+          node.contextBrowserToShare = Cu.getWeakReference(browser);
+          node.browsersToShare = null;
 
           lazy.SharingUtils.populateShareMenu(popup);
         });
@@ -516,7 +517,8 @@ if (
       } else {
         node.addEventListener("command", () => {
           let browser = aDocument.defaultView.gBrowser.selectedBrowser;
-          node.browserToShare = Cu.getWeakReference(browser);
+          node.contextBrowserToShare = Cu.getWeakReference(browser);
+          node.browsersToShare = null;
 
           if (AppConstants.platform == "win") {
             lazy.SharingUtils.shareOnWindows(node);
@@ -556,6 +558,7 @@ if (Services.prefs.getBoolPref("identity.fxaccounts.enabled")) {
         lazy.PanelMultiView.getViewNode(doc, "PanelUI-remotetabs-tabslist")
       );
       panelview.addEventListener("command", this);
+      panelview.addEventListener("click", this);
       let syncNowButton = lazy.PanelMultiView.getViewNode(
         aEvent.target.ownerDocument,
         "PanelUI-remotetabs-syncnow"
@@ -567,6 +570,7 @@ if (Services.prefs.getBoolPref("identity.fxaccounts.enabled")) {
       panelview.syncedTabsPanelList.destroy();
       panelview.syncedTabsPanelList = null;
       panelview.removeEventListener("command", this);
+      panelview.removeEventListener("click", this);
       let syncNowButton = lazy.PanelMultiView.getViewNode(
         aEvent.target.ownerDocument,
         "PanelUI-remotetabs-syncnow"
@@ -588,6 +592,11 @@ if (Services.prefs.getBoolPref("identity.fxaccounts.enabled")) {
             case "PanelUI-remotetabs-view-managedevices":
               gSync.openDevicesManagementPage("syncedtabs-menupanel");
               break;
+          }
+          break;
+        }
+        case "click": {
+          switch (button.id) {
             case "PanelUI-remotetabs-tabsdisabledpane-button":
             case "PanelUI-remotetabs-setupsync-button":
             case "PanelUI-remotetabs-syncdisabled-button":
@@ -599,6 +608,7 @@ if (Services.prefs.getBoolPref("identity.fxaccounts.enabled")) {
               gSync.openConnectAnotherDevice("synced-tabs");
               break;
           }
+          break;
         }
       }
     },

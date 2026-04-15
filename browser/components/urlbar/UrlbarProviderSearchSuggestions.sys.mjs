@@ -70,6 +70,9 @@ function looksLikeUrl(str, ignoreAlphanumericHosts = false) {
  * Class used to create the provider.
  */
 export class UrlbarProviderSearchSuggestions extends UrlbarProvider {
+  // Rich suggestions icon size in px.
+  static RICH_ICON_SIZE = 28;
+
   constructor() {
     super();
   }
@@ -227,8 +230,9 @@ export class UrlbarProviderSearchSuggestions extends UrlbarProvider {
    * @param {UrlbarQueryContext} queryContext
    * @param {(provider: UrlbarProvider, result: UrlbarResult) => void} addCallback
    *   Callback invoked by the provider to add a new result.
+   * @param {UrlbarController} controller The UrlbarController instance.
    */
-  async startQuery(queryContext, addCallback) {
+  async startQuery(queryContext, addCallback, controller) {
     let instance = this.queryInstance;
 
     let aliasEngine = await this._maybeGetAlias(queryContext);
@@ -290,7 +294,8 @@ export class UrlbarProviderSearchSuggestions extends UrlbarProvider {
       queryContext,
       engine,
       query,
-      alias
+      alias,
+      controller.browserWindow
     );
 
     if (!results || instance != this.queryInstance) {
@@ -381,7 +386,13 @@ export class UrlbarProviderSearchSuggestions extends UrlbarProvider {
    */
   #suggestionsController;
 
-  async #fetchSearchSuggestions(queryContext, engine, searchString, alias) {
+  async #fetchSearchSuggestions(
+    queryContext,
+    engine,
+    searchString,
+    alias,
+    win
+  ) {
     if (!engine) {
       return null;
     }
@@ -529,7 +540,13 @@ export class UrlbarProviderSearchSuggestions extends UrlbarProvider {
               trending: entry.trending,
               description: entry.description || undefined,
               query,
-              icon: !entry.value ? await engine.getIconURL() : entry.icon,
+              icon: !entry.value
+                ? await engine.getIconURL()
+                : UrlbarUtils.getRemoteIconUrl(
+                    entry.icon,
+                    UrlbarProviderSearchSuggestions.RICH_ICON_SIZE,
+                    win
+                  ),
               helpUrl: entry.trending ? TRENDING_HELP_URL : undefined,
             },
             highlights: {

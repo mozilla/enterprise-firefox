@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -7,7 +5,6 @@
 #ifndef MOZILLA_DOM_MEDIA_WEBRTC_JSAPI_RTCENCODEDVIDEOFRAME_H_
 #define MOZILLA_DOM_MEDIA_WEBRTC_JSAPI_RTCENCODEDVIDEOFRAME_H_
 
-#include "mozilla/RefPtr.h"
 #include "mozilla/dom/RTCEncodedFrameBase.h"
 #include "mozilla/dom/RTCEncodedVideoFrameBinding.h"
 #include "nsIGlobalObject.h"
@@ -41,11 +38,6 @@ class RTCEncodedVideoFrame final : public RTCEncodedVideoFrameData,
   explicit RTCEncodedVideoFrame(nsIGlobalObject* aGlobal,
                                 RTCEncodedVideoFrameData&& aData);
 
-  // nsISupports
-  NS_DECL_ISUPPORTS_INHERITED
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(RTCEncodedVideoFrame,
-                                                         RTCEncodedFrameBase)
-
   // webidl (timestamp and data accessors live in base class)
   JSObject* WrapObject(JSContext* aCx,
                        JS::Handle<JSObject*> aGivenProto) override;
@@ -53,8 +45,6 @@ class RTCEncodedVideoFrame final : public RTCEncodedVideoFrameData,
   static already_AddRefed<RTCEncodedVideoFrame> Constructor(
       const GlobalObject& aGlobal, const RTCEncodedVideoFrame& aOriginalFrame,
       const RTCEncodedVideoFrameOptions& aOptions, ErrorResult& aRv);
-
-  nsIGlobalObject* GetParentObject() const;
 
   RTCEncodedVideoFrameType Type() const;
 
@@ -77,7 +67,7 @@ class RTCEncodedVideoFrame final : public RTCEncodedVideoFrameData,
                             StructuredCloneHolder* aHolder) const;
 
  private:
-  virtual ~RTCEncodedVideoFrame();
+  virtual ~RTCEncodedVideoFrame() = default;
 
   // forbid copy/move to keep mState member in base valid
   RTCEncodedVideoFrame(const RTCEncodedVideoFrame&) = delete;
@@ -89,8 +79,6 @@ class RTCEncodedVideoFrame final : public RTCEncodedVideoFrameData,
   void AssertIsOnOwningThread() const {
     NS_ASSERT_OWNINGTHREAD(RTCEncodedVideoFrame);
   }
-
-  RefPtr<RTCRtpScriptTransformer> mOwner;
 };
 
 }  // namespace mozilla::dom

@@ -191,7 +191,8 @@ class CheckedUnsafePtrBaseCheckingEnabled {
   void DumpDebugMsg() {
     fprintf(stderr, "CheckedUnsafePtr [%p]\n", this);
     fprintf(stderr, "Location of creation: %s, %s:%d\n", mFunctionName.get(),
-            GetSourceFileRelativePath(mSourceFile).BeginReading(), mLineNo);
+            PromiseFlatCString(GetSourceFileRelativePath(mSourceFile)).get(),
+            mLineNo);
     fprintf(stderr, "Stack of creation:\n%s\n", mCreationStack.get());
     fprintf(stderr, "Stack of last assignment\n%s\n\n",
             mLastAssignmentStack.get());

@@ -101,6 +101,7 @@ option(
 set_config("BUILT_BY_MOZILLA", depends("--built-by-mozilla")(lambda v: bool(v) or None))
 set_define("BUILT_BY_MOZILLA", depends("--built-by-mozilla")(lambda v: bool(v) or None))
 
+
 @depends("MOZ_APP_VENDOR", build_project)
 def check_moz_app_vendor(moz_app_vendor, build_project):
     if not moz_app_vendor:
@@ -172,47 +173,16 @@ set_config("MOZ_FOLD_LIBS", fold_libs)
 # Some of the options here imply an option from js/moz.configure,
 # so, need to be declared before the include.
 
-option("--disable-gecko-profiler", help="Disable the Gecko profiler")
-
-
-@depends("--disable-gecko-profiler", target)
-def gecko_profiler(enable_gecko_profiler, target):
-    if not enable_gecko_profiler:
-        return False
-
-    if target.os == "Android":
-        return target.cpu in ("aarch64", "arm", "x86", "x86_64")
-    elif target.kernel == "Linux":
-        return target.cpu in ("aarch64", "arm", "x86", "x86_64", "mips64")
-    elif target.kernel == "FreeBSD":
-        return target.cpu in ("aarch64", "x86_64")
-    return target.kernel in ("Darwin", "WINNT")
-
-
-@depends(gecko_profiler)
-def gecko_profiler_define(value):
-    if value:
-        return True
-
-
-set_config("MOZ_GECKO_PROFILER", gecko_profiler_define)
-set_define("MOZ_GECKO_PROFILER", gecko_profiler_define)
-
-
 # Enable perfetto on Android if gecko profiling is enabled and only for
 # nightly builds. Linux support requires at least linux-headers-3.18 for <linux/vm_sockets.h>
-set_config(
-    "MOZ_PERFETTO", gecko_profiler_define, when=target_is_android & milestone.is_nightly
-)
-set_define(
-    "MOZ_PERFETTO", gecko_profiler_define, when=target_is_android & milestone.is_nightly
-)
+set_config("MOZ_PERFETTO", True, when=target_is_android & milestone.is_nightly)
+set_define("MOZ_PERFETTO", True, when=target_is_android & milestone.is_nightly)
 
 
 # Whether code to parse ELF binaries should be compiled for the Gecko profiler
 # (for symbol table dumping).
-@depends(gecko_profiler, target)
-def gecko_profiler_parse_elf(value, target):
+@depends(target)
+def gecko_profiler_parse_elf(target):
     # Currently we only want to build this code on Linux (including Android) and BSD.
     # For Android, this is in order to dump symbols from Android system, where
     # on other platforms there exist alternatives that don't require bloating
@@ -222,7 +192,7 @@ def gecko_profiler_parse_elf(value, target):
     # MozDescribeCodeAddress to call into some Rust crates that parse ELF and
     # DWARF data, but build system issues currently prevent Rust from being
     # used in mozglue.)
-    if value and (target.kernel == "Linux" or target.kernel == "FreeBSD"):
+    if target.kernel == "Linux" or target.kernel == "FreeBSD":
         return True
 
 
@@ -230,8 +200,8 @@ set_config("MOZ_GECKO_PROFILER_PARSE_ELF", gecko_profiler_parse_elf)
 
 # enable this by default if the profiler is enabled
 # Note: also requires jemalloc
-set_config("MOZ_PROFILER_MEMORY", gecko_profiler_define)
-set_define("MOZ_PROFILER_MEMORY", gecko_profiler_define)
+set_config("MOZ_PROFILER_MEMORY", True)
+set_define("MOZ_PROFILER_MEMORY", True)
 
 
 @depends(
@@ -879,28 +849,19 @@ set_define("MOZ_FFMPEG", ffmpeg)
 
 # AV1 Video Codec Support
 # ==============================================================
-option("--disable-av1", help="Disable av1 video support")
-
-
-@depends("--enable-av1")
-def av1(value):
-    if value:
-        return True
-
-
 option("--with-system-av1", help="Use system av1 (located with pkg-config)")
 
 pkg_check_modules("MOZ_SYSTEM_LIBAOM", "aom >= 3.0.0", when="--with-system-av1")
 pkg_check_modules("MOZ_SYSTEM_LIBDAV1D", "dav1d >= 1.2.1", when="--with-system-av1")
 
 
-@depends(target, "--with-system-av1", when=av1 & compile_environment)
+@depends(target, "--with-system-av1", when=compile_environment)
 def dav1d_asm(target, system_av1):
     if not system_av1 and target.cpu in ("arm", "aarch64", "x86", "x86_64"):
         return True
 
 
-@depends(target, "--with-system-av1", when=av1 & compile_environment)
+@depends(target, "--with-system-av1", when=compile_environment)
 def dav1d_nasm(target, system_av1):
     if not system_av1 and target.cpu in ("x86", "x86_64"):
         return namespace(version="2.14", what="AV1")
@@ -908,8 +869,6 @@ def dav1d_nasm(target, system_av1):
 
 set_config("MOZ_DAV1D_ASM", dav1d_asm)
 set_define("MOZ_DAV1D_ASM", dav1d_asm)
-set_config("MOZ_AV1", av1)
-set_define("MOZ_AV1", av1)
 set_config("MOZ_SYSTEM_AV1", True, when="--with-system-av1")
 
 # JXL Image Codec Support
@@ -1757,7 +1716,7 @@ with only_when("--enable-compile-environment"):
                     "int main() { return 0; }\nint (*ptr)() = main;",
                     pack_rel_relocs
                     + ["-pie", "-o", path]
-                    + (extra_toolchain_flags or [])
+                    + extra_toolchain_flags
                     + linker_ldflags,
                     wrapper=c_compiler.wrapper,
                     onerror=lambda: None,
@@ -2418,8 +2377,7 @@ with only_when(compile_environment):
             flags=jpeg_flags.cflags,
             check_msg="for sufficient jpeg library version",
             onerror=lambda: die(
-                "Insufficient JPEG library version for "
-                "--with-system-jpeg (62 required)"
+                "Insufficient JPEG library version for --with-system-jpeg (62 required)"
             ),
         )
 
@@ -2437,7 +2395,7 @@ with only_when(compile_environment):
             flags=jpeg_flags.cflags,
             check_msg="for sufficient libjpeg-turbo JCS_EXTENSIONS",
             onerror=lambda: die(
-                "libjpeg-turbo JCS_EXTENSIONS required for " "--with-system-jpeg"
+                "libjpeg-turbo JCS_EXTENSIONS required for --with-system-jpeg"
             ),
         )
 
@@ -2760,7 +2718,7 @@ with only_when(target_is_windows):
         dxc_dll_path,
         when=dxc_supports_target,
     )
-    @checking("for dxcompiler.dll")
+    @checking("for dxcompiler.dll", lambda x: x.dxc_path if x.enabled else "not found")
     @imports("os.path")
     def dxcompiler(target, artifact, windows_sdk_dir, dxc_path):
         if not windows_sdk_dir and not artifact:
@@ -3331,7 +3289,6 @@ confvar(
 
 
 with only_when(target_is_android):
-
     confvar(
         env="ANDROID_APPEND_USERNAME_TO_PACKAGE_NAME",
         set_as_config=False,
@@ -3514,6 +3471,7 @@ def crashreporter_default(target, developer_options, artifacts):
         # The crash reporter prevents crash stacktraces to be logged in the
         # logs on Android, so we leave it out by default in developer builds.
         return target.os != "Android" or not developer_options or artifacts
+    return False
 
 
 option(

@@ -17,6 +17,7 @@ DIRS += [
 DevToolsModules(
     "Accordion.js",
     "AppErrorBoundary.js",
+    "FileSearchBar.js",
     "Frame.js",
     "HSplitBox.js",
     "List.js",

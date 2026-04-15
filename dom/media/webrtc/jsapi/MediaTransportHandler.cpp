@@ -35,6 +35,7 @@
 #include <string>
 #include <vector>
 
+#include "mozilla/ProfilerMarkers.h"
 #include "mozilla/PublicSSL.h"  // For psm::InitializeCipherSuite
 #include "mozilla/dom/RTCStatsReportBinding.h"
 #include "nsDNSService2.h"
@@ -42,18 +43,10 @@
 #include "nss.h"  // For NSS_NoDB_Init
 #include "sdp/SdpAttribute.h"
 #include "transport/runnable_utils.h"
-
-#ifdef MOZ_GECKO_PROFILER
-#  include "mozilla/ProfilerMarkers.h"
-
-#  define MEDIA_TRANSPORT_HANDLER_PACKET_RECEIVED(aPacket) \
-    PROFILER_MARKER_TEXT(                                  \
-        "WebRTC Packet Received", MEDIA_RT, {},            \
-        ProfilerString8View::WrapNullTerminatedString(     \
-            MediaPacket::EnumValueToString((aPacket).type())));
-#else
-#  define MEDIA_TRANSPORT_HANDLER_PACKET_RECEIVED(aPacket)
-#endif
+#define MEDIA_TRANSPORT_HANDLER_PACKET_RECEIVED(aPacket)              \
+  PROFILER_MARKER_TEXT("WebRTC Packet Received", MEDIA_RT, {},        \
+                       ProfilerString8View::WrapNullTerminatedString( \
+                           MediaPacket::EnumValueToString((aPacket).type())));
 
 namespace mozilla {
 
@@ -144,6 +137,7 @@ class MediaTransportHandlerSTS : public MediaTransportHandler,
 
   using MediaTransportHandler::OnAlpnNegotiated;
   using MediaTransportHandler::OnCandidate;
+  using MediaTransportHandler::OnCandidateError;
   using MediaTransportHandler::OnConnectionStateChange;
   using MediaTransportHandler::OnEncryptedSending;
   using MediaTransportHandler::OnGatheringStateChange;
@@ -159,6 +153,9 @@ class MediaTransportHandlerSTS : public MediaTransportHandler,
                         const std::string& aCandidate,
                         const std::string& aUfrag, const std::string& aMDNSAddr,
                         const std::string& aActualAddr);
+  void OnCandidateError(NrIceMediaStream* aStream, const std::string& aAddress,
+                        uint16_t aPort, const std::string& aUrl,
+                        uint16_t aErrorCode, const std::string& aErrorText);
   void OnStateChange(TransportLayer* aLayer, TransportLayer::State);
   void OnRtcpStateChange(TransportLayer* aLayer, TransportLayer::State);
   void PacketReceived(TransportLayer* aLayer, MediaPacket& aPacket);
@@ -514,7 +511,7 @@ static Maybe<NrIceCtx::NatSimulatorConfig> GetNatConfig() {
       CSFLogDebug(LOGTAG, "Redirect address: %s", redirect_address.get());
       CSFLogDebug(LOGTAG, "Redirect targets: %s", redirect_targets.get());
       natConfig.mRedirectAddress = redirect_address;
-      std::stringstream str(redirect_targets.Data());
+      std::stringstream str(redirect_targets.get());
       std::string target;
       while (getline(str, target, ',')) {
         CSFLogDebug(LOGTAG, "Adding target: %s", target.c_str());
@@ -769,6 +766,8 @@ void MediaTransportHandlerSTS::EnsureProvisionalTransport(
 
           stream->SignalCandidate.connect(
               this, &MediaTransportHandlerSTS::OnCandidateFound);
+          stream->SignalCandidateError.connect(
+              this, &MediaTransportHandlerSTS::OnCandidateError);
           stream->SignalGatheringStateChange.connect(
               this, &MediaTransportHandlerSTS::OnGatheringStateChange);
         }
@@ -1139,6 +1138,11 @@ TransportLayer::State MediaTransportHandler::GetState(
 void MediaTransportHandler::OnCandidate(const std::string& aTransportId,
                                         CandidateInfo&& aCandidateInfo) {
   mCandidateGathered.Notify(aTransportId, std::move(aCandidateInfo));
+}
+
+void MediaTransportHandler::OnCandidateError(
+    IceCandidateErrorInfo&& aErrorInfo) {
+  mCandidateError.Notify(std::move(aErrorInfo));
 }
 
 void MediaTransportHandler::OnAlpnNegotiated(const std::string& aAlpn) {
@@ -1608,6 +1612,21 @@ void MediaTransportHandlerSTS::OnCandidateFound(
   info.mActualAddress = aActualAddr;
 
   OnCandidate(aStream->GetId(), std::move(info));
+}
+
+void MediaTransportHandlerSTS::OnCandidateError(NrIceMediaStream* aStream,
+                                                const std::string& aAddress,
+                                                uint16_t aPort,
+                                                const std::string& aUrl,
+                                                uint16_t aErrorCode,
+                                                const std::string& aErrorText) {
+  IceCandidateErrorInfo info;
+  info.mAddress = aAddress;
+  info.mPort = aPort;
+  info.mUrl = aUrl;
+  info.mErrorCode = aErrorCode;
+  info.mErrorText = aErrorText;
+  OnCandidateError(std::move(info));
 }
 
 void MediaTransportHandlerSTS::OnStateChange(TransportLayer* aLayer,

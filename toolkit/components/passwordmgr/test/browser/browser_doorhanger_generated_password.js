@@ -241,9 +241,9 @@ async function openAndVerifyDoorhanger(browser, type, expected) {
 }
 
 async function appendContentInputvalue(browser, selector, str) {
-  await ContentTask.spawn(
+  await SpecialPowers.spawn(
     browser,
-    { selector, str },
+    [{ selector, str }],
     async function ({ selector, str }) {
       const EventUtils = ContentTaskUtils.getEventUtils(content);
       let input = content.document.querySelector(selector);

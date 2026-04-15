@@ -1,5 +1,4 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
- *
+/*
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -10,6 +9,7 @@
 
 #include "AnimationParams.h"
 #include "mozilla/CheckedInt.h"
+#include "gfxPlatform.h"
 #include "RasterImage.h"
 #include "SurfacePipeFactory.h"
 #include "mozilla/Vector.h"
@@ -31,7 +31,27 @@ nsJXLDecoder::nsJXLDecoder(RasterImage* aImage)
 
 nsresult nsJXLDecoder::InitInternal() {
   bool premultiply = !(GetSurfaceFlags() & SurfaceFlags::NO_PREMULTIPLY_ALPHA);
-  mDecoder.reset(jxl_decoder_new(IsMetadataDecode(), premultiply));
+
+  qcms_profile* outputProfile = nullptr;
+  const uint8_t* iccData = nullptr;
+  size_t iccLen = 0;
+
+  // All jpeg xl images are tagged with some color space info, so we provide an
+  // output color space exactly when cms is not turned off completely.
+  if (GetCMSOutputProfile() && mCMSMode != CMSMode::Off) {
+    outputProfile = GetCMSOutputProfile();
+    if (!qcms_profile_is_sRGB(GetCMSOutputProfile())) {
+      const auto& outputICC = gfxPlatform::GetCMSOutputICCProfileData();
+      if (outputICC.isSome() && !outputICC->IsEmpty()) {
+        iccData = outputICC->Elements();
+        iccLen = outputICC->Length();
+      }
+    }
+  }
+
+  mDecoder.reset(jxl_decoder_new(IsMetadataDecode(), premultiply,
+                                 gfxPlatform::GetRenderingIntent(),
+                                 outputProfile, iccData, iccLen));
   return NS_OK;
 }
 
@@ -251,7 +271,6 @@ nsresult nsJXLDecoder::ProcessFrame(Vector<uint8_t>& aPixelBuffer) {
     if (!frameInfo.frame_duration_valid) {
       return NS_ERROR_FAILURE;
     }
-    // jxl-rs renders complete frames, replacing the previous frame entirely.
     animParams.emplace(FullFrame().ToUnknownRect(),
                        FrameTimeout::FromRawMilliseconds(frameInfo.duration_ms),
                        mFrameIndex, BlendMethod::SOURCE, DisposalMethod::KEEP);

@@ -39,10 +39,7 @@ body {
   background-image:
     var(--newtab-wallpaper, ''),
     linear-gradient(to right, var(--newtab-wallpaper-color, ''), var(--newtab-wallpaper-color, ''));
-}
-
-.no-scroll {
-  overflow: hidden;
+  overflow-y: scroll;
 }
 
 h1,

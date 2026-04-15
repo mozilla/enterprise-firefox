@@ -32,10 +32,9 @@ plugins {
 ext.topsrcdir = rootProject.projectDir.absolutePath
 
 apply from: "${topsrcdir}/mobile/android/shared-settings.gradle"
-apply from: "${topsrcdir}/mobile/android/autopublish-settings.gradle"
 
 if (gradle.ext.mozconfig.substs.MOZ_APPSERVICES_IN_TREE) {
-    apply from: "${topsrcdir}/services/app-services/settings.gradle"
+    apply from: "${topsrcdir}/third_party/application-services/settings.gradle"
 }
 
 // Set the Android SDK location.  This is the *least specific* mechanism, which
@@ -58,6 +57,10 @@ project(':android-components').projectDir = new File("${gradle.mozconfig.topsrcd
 if (!gradle.mozconfig.substs.MOZ_ANDROID_SUBPROJECT || gradle.mozconfig.substs.MOZ_ANDROID_SUBPROJECT == "fenix") {
     include ':fenix'
     project(':fenix').projectDir = new File("${gradle.mozconfig.topsrcdir}/mobile/android/fenix/app")
+    include ':fenix:longfox'
+    project(':fenix:longfox').projectDir = new File("${gradle.mozconfig.topsrcdir}/mobile/android/fenix/app/longfox")
+    include ':fenix:benchmark'
+    project(':fenix:benchmark').projectDir = new File("${gradle.mozconfig.topsrcdir}/mobile/android/fenix/benchmark")
 }
 if (!gradle.mozconfig.substs.MOZ_ANDROID_SUBPROJECT || gradle.mozconfig.substs.MOZ_ANDROID_SUBPROJECT == "focus") {
     include ':focus-android'

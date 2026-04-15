@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -211,8 +209,15 @@ StackingContextHelper::StackingContextHelper(
           : wr::RasterSpace::Screen();
 
   MOZ_ASSERT(!aParams.clip.IsNone());
+  wr::SpatialTreeItemKey scOriginKey{0, 0};
+  if (aContainerFrame) {
+    scOriginKey =
+        wr::SpatialKey(uint64_t(aContainerFrame),
+                       aContainerItem ? aContainerItem->GetPerFrameKey() : 0,
+                       wr::SpatialKeyKind::SCOrigin);
+  }
   mReferenceFrameId = mBuilder->PushStackingContext(
-      aParams, wr::ToLayoutRect(aBounds), rasterSpace);
+      aParams, wr::ToLayoutRect(aBounds), rasterSpace, scOriginKey);
 
   if (mReferenceFrameId) {
     mSpaceAndClipChainHelper.emplace(aBuilder, mReferenceFrameId.ref());

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -557,8 +555,8 @@ struct FrameMetrics {
   // For RCD-RSF this is the width of the composition bounds ignoring
   // scrollbars. For everything else this will be the same as the width of the
   // composition bounds. Only needed for the "resolution changed" check in
-  // NotifyLayersUpdated, once that switches to using IsResolutionUpdated we can
-  // remove this.
+  // NotifyMainThreadTransaction, once that switches to using
+  // IsResolutionUpdated we can remove this.
   ParentLayerCoord mCompositionBoundsWidthIgnoringScrollbars;
 
   // The area of a scroll frame's contents that has been painted, relative to
@@ -734,7 +732,7 @@ struct FrameMetrics {
   //  - Otherwise, the following places should be updated to include them
   //    (as needed):
   //      FrameMetrics::operator ==
-  //      AsyncPanZoomController::NotifyLayersUpdated
+  //      AsyncPanZoomController::NotifyMainThreadTransaction
   //      The ParamTraits specialization in LayersMessageUtils.h
   //
   // Please add new fields above this comment.
@@ -1053,7 +1051,7 @@ struct ScrollMetadata {
   // When adding new fields to ScrollMetadata, the following places should be
   // updated to include them (as needed):
   //    1. ScrollMetadata::operator ==
-  //    2. AsyncPanZoomController::NotifyLayersUpdated
+  //    2. AsyncPanZoomController::NotifyMainThreadTransaction
   //    3. The ParamTraits specialization in LayersMessageUtils.h
   //
   // Please add new fields above this comment.

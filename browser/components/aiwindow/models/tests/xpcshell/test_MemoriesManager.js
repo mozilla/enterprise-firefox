@@ -24,6 +24,9 @@ const { EmbeddingsGenerator } = ChromeUtils.importESModule(
   "chrome://global/content/ml/EmbeddingsGenerator.sys.mjs"
 );
 
+const { sanitizeUntrustedContent } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/aiwindow/models/ChatUtils.sys.mjs"
+);
 /**
  * Constants for test memories
  */
@@ -152,12 +155,21 @@ add_task(async function test_getAggregatedBrowserHistory() {
   );
   Assert.deepEqual(
     titleItems[0],
-    ["Internet for people, not profit — Mozilla | mozilla.org", 100],
+    [
+      sanitizeUntrustedContent(
+        "Internet for people, not profit — Mozilla | mozilla.org",
+        true
+      ),
+      100,
+    ],
     "Top title should be 'Internet for people, not profit — Mozilla' with score 100"
   );
   Assert.equal(
     searchItems[0].q[0],
-    "Google Search: firefox history | www.google.com",
+    sanitizeUntrustedContent(
+      "Google Search: firefox history | www.google.com",
+      true
+    ),
     "Top search item query should be 'Google Search: firefox history'"
   );
   Assert.equal(searchItems[0].r, 1, "Top search item rank should be 1");
@@ -205,10 +217,9 @@ add_task(async function test_getMemoriesByID() {
   const firstMemoryToRetrieve = memories[0];
   const secontMemoryToRetreive = memories[2];
 
-  const memoryRetrievedById = await MemoriesManager.getMemoriesByID([
-    firstMemoryToRetrieve.id,
-    secontMemoryToRetreive.id,
-  ]);
+  const memoryRetrievedById = await MemoriesManager.getMemoriesByID(
+    new Set([firstMemoryToRetrieve.id, secontMemoryToRetreive.id])
+  );
   const retrievedMemorySummaries = memoryRetrievedById.map(
     mem => mem.memory_summary
   );

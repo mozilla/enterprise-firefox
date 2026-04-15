@@ -1,5 +1,4 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
- *
+/*
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -13,7 +12,6 @@
 #include "NSSCertDBTrustDomain.h"
 #include "NSSErrorsService.h"
 #include "NSSSocketControl.h"
-#include "PSMRunnable.h"
 #include "SSLServerCertVerification.h"
 #include "ScopedNSSTypes.h"
 #include "TLSClientAuthCertSelection.h"
@@ -980,10 +978,22 @@ void nsSSLIOLayerHelpers::GlobalCleanup() {
   MOZ_ASSERT(NS_IsMainThread(), "Not on main thread");
 
   if (gPrivateSSLIOLayerHelpers) {
+    Preferences::RemoveObserver(gPrivateSSLIOLayerHelpers,
+                                "security.tls.version.fallback-limit");
+#ifdef DEBUG
+    gPrivateSSLIOLayerHelpers->mRegisteredPrefObservers = false;
+#endif
     gPrivateSSLIOLayerHelpers = nullptr;
   }
 
   if (gPublicSSLIOLayerHelpers) {
+    Preferences::RemoveObserver(gPublicSSLIOLayerHelpers,
+                                "security.tls.version.fallback-limit");
+    Preferences::RemoveObserver(gPublicSSLIOLayerHelpers,
+                                "security.tls.insecure_fallback_hosts");
+#ifdef DEBUG
+    gPublicSSLIOLayerHelpers->mRegisteredPrefObservers = false;
+#endif
     gPublicSSLIOLayerHelpers = nullptr;
   }
 }
@@ -1013,8 +1023,10 @@ static int32_t PlaintextRecv(PRFileDesc* fd, void* buf, int32_t amount,
 }
 
 nsSSLIOLayerHelpers::~nsSSLIOLayerHelpers() {
-  Preferences::RemoveObserver(this, "security.tls.version.fallback-limit");
-  Preferences::RemoveObserver(this, "security.tls.insecure_fallback_hosts");
+  // Pref observers must have been removed before destruction, since the
+  // destructor may run off the main thread.
+  MOZ_ASSERT(!mRegisteredPrefObservers,
+             "Pref observers should have been removed before destruction");
 }
 
 template <typename R, R return_value, typename... Args>
@@ -1095,6 +1107,9 @@ nsresult nsSSLIOLayerHelpers::Init() {
   if (NS_IsMainThread()) {
     initInsecureFallbackSites();
 
+#ifdef DEBUG
+    mRegisteredPrefObservers = true;
+#endif
     Preferences::AddStrongObserver(this, "security.tls.version.fallback-limit");
     if (isPublic()) {
       // Changes to the allowlist on the public side will update the pref.

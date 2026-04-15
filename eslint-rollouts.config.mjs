@@ -348,7 +348,7 @@ export default [
       "mobile/android/**",
       "mobile/shared/**",
       "modules/**",
-      "netwerk/**",
+      "netwerk/test/**",
       "parser/htmlparser/**",
       "remote/cdp/**",
       "remote/components/**",
@@ -448,9 +448,9 @@ export default [
     // TODO: Bug 1997306. Fix these instances after the jsdoc 60.8.0 upgrade.
     name: "rollout-jsdoc-valid-types-updates",
     files: [
-      "browser/components/ipprotection/IPPNetworkErrorObserver.sys.mjs",
-      "browser/components/ipprotection/IPProtectionService.sys.mjs",
       "browser/components/uitour/UITour-lib.js",
+      "toolkit/components/ipprotection/IPPNetworkErrorObserver.sys.mjs",
+      "toolkit/components/ipprotection/IPProtectionService.sys.mjs",
     ],
     rules: {
       "jsdoc/valid-types": "off",
@@ -757,7 +757,6 @@ export default [
       "browser/components/pagedata/tests/browser/browser_pagedata_background.js",
       "browser/components/pagedata/tests/browser/browser_pagedata_cache.js",
       "browser/components/preferences/tests/browser_applications_selection.js",
-      "browser/components/preferences/tests/browser_bug410900.js",
       "browser/components/preferences/tests/browser_contentblocking.js",
       "browser/components/preferences/tests/browser_cookie_exceptions_addRemove.js",
       "browser/components/preferences/tests/browser_cookies_exceptions.js",
@@ -1193,7 +1192,6 @@ export default [
       "dom/encoding/test/test_in_lk_TLD.html",
       "dom/events/test/browser_beforeinput_by_execCommand_in_contentscript.js",
       "dom/events/test/browser_dragimage.js",
-      "dom/events/test/browser_keyboard_event_init_key_event_enabled_in_contentscript.js",
       "dom/events/test/browser_mouse_enterleave_switch_tab.js",
       "dom/events/test/test_DataTransferItemList.html",
       "dom/events/test/test_bug1037990.html",

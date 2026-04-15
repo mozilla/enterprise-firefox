@@ -3,7 +3,7 @@
 set -v -e -x
 
 base="$(realpath "$(dirname "$0")")"
-export PATH="$PATH:$base:${MOZ_FETCHES_DIR}/dmg"
+export PATH="$PATH:$base:${MOZ_FETCHES_DIR}/dmg:${MOZ_FETCHES_DIR}/7zz"
 
 cd /builds/worker
 mkdir -p /opt/data-reposado artifacts
@@ -21,6 +21,14 @@ fi
 if [ ! -d /opt/data-reposado/html ] || [ ! -d /opt/data-reposado/metadata ]; then
   mkdir -p /opt/data-reposado/html /opt/data-reposado/metadata
 fi
+
+# First, just fetch all the update info.
+python3 /usr/local/bin/repo_sync --no-download
+
+# Save the update catalog metadata for reuse in future runs
+tar -czf artifacts/reposado-metadata.tar.gz \
+  --exclude='html/content/downloads' \
+  -C /opt/data-reposado html metadata
 
 # Restore processed-packages list
 if test "$ROUTE" && test "$PROCESSED_PACKAGES_PATH" && test "$TASKCLUSTER_ROOT_URL"; then
@@ -43,12 +51,6 @@ if test "$PROCESSED_PACKAGES"; then
     done
   fi
 fi
-
-# First, just fetch all the update info.
-python3 /usr/local/bin/repo_sync --no-download
-
-# Save the update catalog metadata for reuse in future runs
-tar -czf artifacts/reposado-metadata.tar.gz -C /opt/data-reposado html metadata
 
 # Next, fetch just the update packages we're interested in.
 packages=$(python3 "${base}/list-packages.py")

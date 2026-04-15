@@ -2858,29 +2858,6 @@ void ParseSearchTermsFromQuery(const RefPtr<nsNavHistoryQuery>& aQuery,
 
 }  // namespace
 
-const mozilla::intl::Collator* nsNavHistory::GetCollator() {
-  if (mCollator) {
-    return mCollator.get();
-  }
-
-  auto result = mozilla::intl::LocaleService::TryCreateComponent<
-      mozilla::intl::Collator>();
-  NS_ENSURE_TRUE(result.isOk(), nullptr);
-  auto collator = result.unwrap();
-
-  // Sort in a case-insensitive way, where "base" letters are considered
-  // equal, e.g: a = á, a = A, a ≠ b.
-  using mozilla::intl::Collator;
-  Collator::Options options{};
-  options.sensitivity = Collator::Sensitivity::Base;
-  auto optResult = collator->SetOptions(options);
-  NS_ENSURE_TRUE(optResult.isOk(), nullptr);
-
-  mCollator = UniquePtr<const Collator>(collator.release());
-
-  return mCollator.get();
-}
-
 nsIStringBundle* nsNavHistory::GetBundle() {
   if (!mBundle) {
     nsCOMPtr<nsIStringBundleService> bundleService =

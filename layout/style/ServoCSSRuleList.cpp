@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -10,6 +8,7 @@
 
 #include "mozilla/ServoBindings.h"
 #include "mozilla/StyleSheet.h"
+#include "mozilla/dom/CSSAppearanceBaseRule.h"
 #include "mozilla/dom/CSSContainerRule.h"
 #include "mozilla/dom/CSSCounterStyleRule.h"
 #include "mozilla/dom/CSSCustomMediaRule.h"
@@ -106,6 +105,7 @@ css::Rule* ServoCSSRuleList::GetRule(uint32_t aIndex) {
       CASE_RULE_UNLOCKED(Container, Container)
       CASE_RULE_UNLOCKED(Scope, Scope)
       CASE_RULE_UNLOCKED(StartingStyle, StartingStyle)
+      CASE_RULE_UNLOCKED(AppearanceBase, AppearanceBase)
       CASE_RULE_LOCKED(PositionTry, PositionTry)
       CASE_RULE_LOCKED(NestedDeclarations, NestedDeclarations)
       CASE_RULE_UNLOCKED(CustomMedia, CustomMedia)
@@ -286,6 +286,7 @@ void ServoCSSRuleList::SetRawContents(RefPtr<StyleLockedCssRules> aNewRules,
       RULE_CASE_UNLOCKED(Container, Container)
       RULE_CASE_UNLOCKED(Scope, Scope)
       RULE_CASE_UNLOCKED(StartingStyle, StartingStyle)
+      RULE_CASE_UNLOCKED(AppearanceBase, AppearanceBase)
       RULE_CASE_LOCKED(PositionTry, PositionTry)
       RULE_CASE_LOCKED(NestedDeclarations, NestedDeclarations)
       RULE_CASE_UNLOCKED(CustomMedia, CustomMedia)

@@ -550,6 +550,7 @@ export class RTCPeerConnection {
       "Use peerConnection.ontrack instead."
     );
     this.makeGetterSetterEH("onicecandidate");
+    this.makeGetterSetterEH("onicecandidateerror");
     this.makeGetterSetterEH("onnegotiationneeded");
     this.makeGetterSetterEH("onsignalingstatechange");
     this.makeGetterSetterEH("ondatachannel");
@@ -1837,7 +1838,13 @@ export class PeerConnectionObserver {
     this._dompc = dompc._innerObject;
   }
 
-  newError({ message, name }) {
+  newError({ message, name, errorDetail, sdpLineNumber }) {
+    if (errorDetail !== undefined) {
+      return new this._dompc._win.RTCError(
+        { errorDetail, sdpLineNumber },
+        message
+      );
+    }
     return new this._dompc._win.DOMException(message, name);
   }
 
@@ -1892,6 +1899,19 @@ export class PeerConnectionObserver {
     }
     this.dispatchEvent(
       new win.RTCPeerConnectionIceEvent("icecandidate", { candidate })
+    );
+  }
+
+  onIceCandidateError(address, port, url, errorCode, errorText) {
+    let win = this._dompc._win;
+    this.dispatchEvent(
+      new win.RTCPeerConnectionIceErrorEvent("icecandidateerror", {
+        address: address !== "" ? address : null,
+        port: port !== 0 ? port : null,
+        url,
+        errorCode,
+        errorText,
+      })
     );
   }
 

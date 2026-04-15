@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -114,7 +112,7 @@ mozilla::ipc::IPCResult ExternalHelperAppParent::RecvOnStartRequest(
 }
 
 mozilla::ipc::IPCResult ExternalHelperAppParent::RecvOnDataAvailable(
-    const nsACString& data, const uint64_t& offset, const uint32_t& count) {
+    const nsACString& data, const uint64_t& offset) {
   if (NS_FAILED(mStatus)) {
     return IPC_OK();
   }
@@ -123,9 +121,10 @@ mozilla::ipc::IPCResult ExternalHelperAppParent::RecvOnDataAvailable(
 
   nsCOMPtr<nsIInputStream> stringStream;
   DebugOnly<nsresult> rv = NS_NewByteInputStream(
-      getter_AddRefs(stringStream), Span(data).To(count), NS_ASSIGNMENT_DEPEND);
+      getter_AddRefs(stringStream), Span(data), NS_ASSIGNMENT_DEPEND);
   NS_ASSERTION(NS_SUCCEEDED(rv), "failed to create dependent string!");
-  mStatus = mListener->OnDataAvailable(this, stringStream, offset, count);
+  mStatus =
+      mListener->OnDataAvailable(this, stringStream, offset, data.Length());
 
   return IPC_OK();
 }
@@ -162,7 +161,7 @@ ExternalHelperAppParent::OnStopRequest(nsIRequest* request, nsresult status) {
   return rv;
 }
 
-ExternalHelperAppParent::~ExternalHelperAppParent() {}
+ExternalHelperAppParent::~ExternalHelperAppParent() = default;
 
 //
 // nsIRequest implementation...

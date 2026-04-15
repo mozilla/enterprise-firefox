@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -62,7 +60,8 @@ class DateInputType : public DateTimeInputTypeBase {
 
   nsresult GetBadInputMessage(nsAString& aMessage) override;
 
-  StringToNumberResult ConvertStringToNumber(const nsAString&) const override;
+  StringToNumberResult ConvertStringToNumber(const nsAString&,
+                                             Localized) const override;
   bool ConvertNumberToString(Decimal, Localized,
                              nsAString& aResultString) const override;
 
@@ -80,7 +79,8 @@ class TimeInputType : public DateTimeInputTypeBase {
 
   nsresult GetBadInputMessage(nsAString& aMessage) override;
 
-  StringToNumberResult ConvertStringToNumber(const nsAString&) const override;
+  StringToNumberResult ConvertStringToNumber(const nsAString&,
+                                             Localized) const override;
   bool ConvertNumberToString(Decimal, Localized, nsAString&) const override;
   bool IsRangeOverflow() const override;
   bool IsRangeUnderflow() const override;
@@ -105,7 +105,8 @@ class WeekInputType : public DateTimeInputTypeBase {
   }
 
   nsresult GetBadInputMessage(nsAString& aMessage) override;
-  StringToNumberResult ConvertStringToNumber(const nsAString&) const override;
+  StringToNumberResult ConvertStringToNumber(const nsAString&,
+                                             Localized) const override;
   bool ConvertNumberToString(Decimal, Localized, nsAString&) const override;
 
  private:
@@ -121,7 +122,8 @@ class MonthInputType : public DateTimeInputTypeBase {
   }
 
   nsresult GetBadInputMessage(nsAString& aMessage) override;
-  StringToNumberResult ConvertStringToNumber(const nsAString&) const override;
+  StringToNumberResult ConvertStringToNumber(const nsAString&,
+                                             Localized) const override;
   bool ConvertNumberToString(Decimal, Localized, nsAString&) const override;
 
  private:
@@ -137,7 +139,8 @@ class DateTimeLocalInputType : public DateTimeInputTypeBase {
   }
 
   nsresult GetBadInputMessage(nsAString& aMessage) override;
-  StringToNumberResult ConvertStringToNumber(const nsAString&) const override;
+  StringToNumberResult ConvertStringToNumber(const nsAString&,
+                                             Localized) const override;
   bool ConvertNumberToString(Decimal, Localized, nsAString&) const override;
 
  private:

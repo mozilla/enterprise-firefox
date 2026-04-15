@@ -22,7 +22,8 @@ ChromeUtils.defineESModuleGetters(this, {
 });
 
 function isEventForAutocompleteItem(event) {
-  return event.accessible.role == ROLE_COMBOBOX_OPTION;
+  // XXX: See bug 2016839
+  return event.accessible.role == ROLE_OPTION;
 }
 
 function isEventForButton(event) {
@@ -49,9 +50,9 @@ function isEventForMenuItem(event) {
 
 function isEventForResultButton(event) {
   let parent = event.accessible.parent;
+  // XXX: See bug 2016839
   return (
-    event.accessible.role == ROLE_PUSHBUTTON &&
-    parent?.role == ROLE_COMBOBOX_LIST
+    event.accessible.role == ROLE_PUSHBUTTON && parent?.role == ROLE_LISTBOX
   );
 }
 
@@ -108,9 +109,10 @@ async function runTests() {
   // Ensure initial state.
   await UrlbarTestUtils.promisePopupClose(window);
 
+  // XXX: See bug 2016839
   let focused = waitForEvent(
     EVENT_FOCUS,
-    event => event.accessible.role == ROLE_ENTRY
+    event => event.accessible.role == ROLE_EDITCOMBOBOX
   );
   gURLBar.focus();
   let event = await focused;
@@ -379,9 +381,10 @@ async function runTipTests() {
     providersManager.unregisterProvider(provider);
   });
 
+  // XXX: See bug 2016839
   let focused = waitForEvent(
     EVENT_FOCUS,
-    event => event.accessible.role == ROLE_ENTRY
+    event => event.accessible.role == ROLE_EDITCOMBOBOX
   );
   gURLBar.focus();
   let event = await focused;

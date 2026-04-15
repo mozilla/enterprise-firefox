@@ -1,5 +1,4 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
- *
+/*
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -68,13 +67,6 @@ interface nsINSSComponent : nsISupports {
    * must first wait for the module to be loaded.
    */
   [noscript] void blockUntilLoadableCertsLoaded();
-
-  /**
-   * In theory a token on a PKCS#11 module can be inserted or removed at any
-   * time. Operations that may depend on resources on external tokens should
-   * call this to ensure they have a recent view of the token.
-   */
-  [noscript] void checkForSmartCardChanges();
 
   /**
    * Used to potentially detect when a user's internet connection is being

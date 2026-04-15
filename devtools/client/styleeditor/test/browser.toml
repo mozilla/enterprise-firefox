@@ -243,4 +243,5 @@ fail-if = [
 ["browser_toolbox_styleeditor.js"]
 skip-if = [
   "os == 'mac' && os_version == '14.70' && arch == 'x86_64'", # Bug 1929428
+  "os == 'mac' && os_version == '15.30' && arch == 'aarch64'", # Bug 1929428, Bug 2028047
 ]

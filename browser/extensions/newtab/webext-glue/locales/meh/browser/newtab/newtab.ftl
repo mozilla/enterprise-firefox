@@ -33,7 +33,7 @@ newtab-search-box-input =
     .placeholder = Nánuku nuu Web
     .aria-label = Nánuku nuu Web
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Chisó ka̱a̱ nánuku
 newtab-topsites-add-shortcut-header = A jíía acceso ñama

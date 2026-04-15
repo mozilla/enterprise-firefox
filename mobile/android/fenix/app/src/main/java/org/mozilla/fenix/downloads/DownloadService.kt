@@ -4,18 +4,20 @@
 
 package org.mozilla.fenix.downloads
 
-import android.os.Environment
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.feature.downloads.AbstractFetchDownloadService
 import mozilla.components.feature.downloads.DefaultPackageNameProvider
 import mozilla.components.feature.downloads.DownloadEstimator
 import mozilla.components.feature.downloads.FileSizeFormatter
 import mozilla.components.feature.downloads.PackageNameProvider
+import mozilla.components.feature.downloads.filewriter.DefaultDownloadFileWriter
+import mozilla.components.feature.downloads.filewriter.DownloadFileWriter
 import mozilla.components.support.base.android.NotificationsDelegate
 import mozilla.components.support.utils.DefaultDownloadFileUtils
 import mozilla.components.support.utils.DownloadFileUtils
 import org.mozilla.fenix.R
 import org.mozilla.fenix.ext.components
+import org.mozilla.fenix.settings.downloads.DownloadLocationManager
 
 class DownloadService : AbstractFetchDownloadService() {
     override val httpClient by lazy { components.core.client }
@@ -31,10 +33,14 @@ class DownloadService : AbstractFetchDownloadService() {
         DefaultDownloadFileUtils(
             context = applicationContext,
             downloadLocation = {
-                Environment.getExternalStoragePublicDirectory(
-                    Environment.DIRECTORY_DOWNLOADS,
-                ).path
+                DownloadLocationManager(applicationContext).defaultLocation
             },
+        )
+    }
+    override val downloadFileWriter: DownloadFileWriter by lazy {
+        DefaultDownloadFileWriter(
+            context = applicationContext,
+            downloadFileUtils = downloadFileUtils,
         )
     }
 }

@@ -138,8 +138,6 @@ fail-if = [
 
 ["browser_rules_imported_stylesheet_edit.js"]
 
-["browser_rules_inactive_css_display-justify.js"]
-
 ["browser_rules_inactive_css_flexbox.js"]
 
 ["browser_rules_inactive_css_grid.js"]
@@ -147,6 +145,8 @@ fail-if = [
 ["browser_rules_inactive_css_inline.js"]
 
 ["browser_rules_inactive_css_split-condition.js"]
+
+["browser_rules_inactive_css_update.js"]
 
 ["browser_rules_inactive_css_visited.js"]
 
@@ -271,6 +271,8 @@ fail-if = [
 
 ["browser_rules_pseudo_lock_options.js"]
 
+["browser_rules_element_specific_pseudo_classes.js"]
+
 ["browser_rules_refresh-no-flicker.js"]
 
 ["browser_rules_refresh-on-attribute-change_01.js"]
@@ -347,6 +349,7 @@ fail-if = [
 ["browser_rules_selector_warnings.js"]
 skip-if = [
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64'", # Bug 1945519, perma failing on windows.
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64'", # Bug 1945519, perma failing on windows.
 ]
 
 ["browser_rules_shadowdom_slot_rules.js"]

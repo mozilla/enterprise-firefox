@@ -52,7 +52,7 @@ newtab-search-box-input =
     .placeholder = Eheka ñandutípe
     .aria-label = Eheka ñandutípe
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Embojuaju hekaha
 newtab-topsites-add-shortcut-header = Mbopya’eha pyahu
@@ -72,6 +72,11 @@ newtab-topsites-url-validation = Oñeikotevẽ URL oiko porãva
 newtab-topsites-image-url-label = URL ra’ãnga ñemomba’etepyre
 newtab-topsites-use-image-link = Ta’ãnga ñemomba’etepyre…
 newtab-topsites-image-validation = Ta’ãnga nehenyhẽkuái. Eiporu peteĩ URL iñambuéva.
+
+## Clear text button for the URL and image URL input fields in the Top Sites form.
+
+newtab-topsites-clear-input =
+    .aria-label = Emopotĩ moñe’ẽrã
 
 ## Top Sites - General form dialog buttons. These are verbs/actions.
 
@@ -631,6 +636,8 @@ newtab-report-cancel = Heja
 newtab-report-submit = Mondo
 newtab-toast-thanks-for-reporting =
     .message = Aguyje emomarandu haguére.
+newtab-toast-widgets-hidden =
+    .message = Eiporavo ta’ãnga’i haiháva embojuaju jey hag̃ua widgets eipota vove.
 
 ## Strings for task / to-do list productivity widget
 
@@ -671,6 +678,7 @@ newtab-widget-lists-name-placeholder-default =
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Tysýi pyahu
 newtab-widget-section-title = Widgets
+newtab-widget-menu-hide = Eñomi widget
 # Tooltip for hide all widgets button
 newtab-widget-section-hide-all-button =
     .title = Eñomi widgets
@@ -681,6 +689,7 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Emomichĩ widgets
     .aria-label = Emomichĩmbaite widgets tuichaháicha
+newtab-widget-section-feedback = Ja’e mba’épa opensa
 
 ## Strings for timer productivity widget
 ## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown

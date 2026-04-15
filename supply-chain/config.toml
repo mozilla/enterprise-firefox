@@ -68,11 +68,51 @@ notes = "The dependencies on tokio-reactor and tokio-threadpools are just a hack
 criteria = "safe-to-run"
 notes = "Used for fuzzing."
 
+[policy.harfbuzz]
+audit-as-crates-io = true
+notes = "Patched version of upstream to fix Android build"
+
+[policy.harfbuzz-sys]
+audit-as-crates-io = true
+notes = "Patched version of upstream to remove bundled HarfBuzz"
+
+[policy.harfbuzz-traits]
+audit-as-crates-io = true
+notes = "Vendored with harfbuzz to avoid duplicates"
+
 [policy.http3server]
 criteria = "safe-to-run"
 notes = "Used for testing."
 
 [policy.icu_capi]
+audit-as-crates-io = true
+notes = "Patched version of upstream"
+
+[policy.icu_collator]
+audit-as-crates-io = true
+notes = "Patched version of upstream"
+
+[policy.icu_collator_data]
+audit-as-crates-io = true
+notes = "Patched version of upstream"
+
+[policy.icu_collections]
+audit-as-crates-io = true
+notes = "Patched version of upstream"
+
+[policy.icu_normalizer]
+audit-as-crates-io = true
+notes = "Patched version of upstream"
+
+[policy.icu_normalizer_data]
+audit-as-crates-io = true
+notes = "Patched version of upstream"
+
+[policy.icu_properties]
+audit-as-crates-io = true
+notes = "Patched version of upstream"
+
+[policy.icu_properties_data]
 audit-as-crates-io = true
 notes = "Patched version of upstream"
 
@@ -110,6 +150,10 @@ audit-as-crates-io = true
 [policy.midir]
 audit-as-crates-io = true
 notes = "This is a pinned version of the upstream code, presumably to get a fix that hadn't been released yet. We should consider switching to the latest official release."
+
+[policy."mio:1.1.1@git:5e8b202db39facecc343170f50a07916640a607c"]
+audit-as-crates-io = false
+notes = "Fork of mio 1.1.1 with windows-sys downgraded to 0.52."
 
 [policy.mls-rs]
 audit-as-crates-io = true
@@ -252,6 +296,12 @@ audit-as-crates-io = true
 notes = "This is a first-party crate which is also published to crates.io"
 
 [policy.unicode-bidi]
+audit-as-crates-io = true
+
+[policy.utf16_iter]
+audit-as-crates-io = true
+
+[policy.utf8_iter]
 audit-as-crates-io = true
 
 [policy.viaduct]
@@ -496,6 +546,10 @@ criteria = "safe-to-deploy"
 version = "0.1.1"
 criteria = "safe-to-deploy"
 
+[[exemptions.harfbuzz-sys]]
+version = "0.6.1"
+criteria = "safe-to-deploy"
+
 [[exemptions.hashlink]]
 version = "0.7.0"
 criteria = "safe-to-deploy"
@@ -552,10 +606,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.minimal-lexical]]
 version = "0.2.1"
-criteria = "safe-to-deploy"
-
-[[exemptions.mio]]
-version = "0.8.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.murmurhash3]]

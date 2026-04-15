@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -13,11 +11,28 @@
 namespace mozilla::dom {
 
 /* static */
-bool FileSystemUtils::IsDescendantPath(const nsAString& aPath,
-                                       const nsAString& aDescendantPath) {
+bool FileSystemUtils::IsDescendantPath(const nsAString& aAuthorizedRoot,
+                                       const nsAString& aRequestedDescendant) {
   // Check the sub-directory path to see if it has the parent path as prefix.
-  if (!aDescendantPath.Equals(aPath) &&
-      !StringBeginsWith(aDescendantPath, aPath)) {
+  if (aRequestedDescendant.Equals(aAuthorizedRoot)) {
+    return true;
+  }
+
+  if (!StringBeginsWith(/*aSource*/ aRequestedDescendant,
+                        /*aSubstring*/ aAuthorizedRoot)) {
+    return false;
+  }
+
+  // Require a path separator immediately after the granted prefix.
+  const uint32_t prefixLen = aAuthorizedRoot.Length();
+  if (prefixLen > 0 &&
+      aAuthorizedRoot.Last() == FILESYSTEM_DOM_PATH_SEPARATOR_CHAR) {
+    return true;
+  }
+
+  if (aRequestedDescendant.Length() <= prefixLen ||
+      aRequestedDescendant.CharAt(prefixLen) !=
+          FILESYSTEM_DOM_PATH_SEPARATOR_CHAR) {
     return false;
   }
 

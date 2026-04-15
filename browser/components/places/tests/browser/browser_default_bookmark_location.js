@@ -179,10 +179,8 @@ add_task(async function test_change_location_panel() {
   let prefChangedPromise = TestUtils.waitForPrefChange(LOCATION_PREF);
 
   // Click the choose item.
-  EventUtils.synthesizeMouseAtCenter(
-    win.document.getElementById("editBMPanel_bmRootItem"),
-    {},
-    win
+  menuList.menupopup.activateItem(
+    win.document.getElementById("editBMPanel_bmRootItem")
   );
 
   await TestUtils.waitForCondition(
@@ -231,10 +229,8 @@ add_task(async function test_change_location_panel() {
   await promisePopup;
 
   // Click the toolbar item.
-  EventUtils.synthesizeMouseAtCenter(
-    win.document.getElementById("editBMPanel_toolbarFolderItem"),
-    {},
-    win
+  menuList.menupopup.activateItem(
+    win.document.getElementById("editBMPanel_toolbarFolderItem")
   );
 
   await TestUtils.waitForCondition(

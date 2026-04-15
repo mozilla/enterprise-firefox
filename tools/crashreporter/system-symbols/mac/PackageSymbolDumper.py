@@ -101,7 +101,8 @@ def expand_zip(zip_path, out_path):
     @param out_path: a path to hold the archive contents
     """
     subprocess.check_call(
-        ["unzip", "-d", out_path, zip_path], stdout=subprocess.DEVNULL
+        ["7zz", "-bd", "x", zip_path, f"-o{out_path}"],
+        stdout=subprocess.DEVNULL,
     )
 
 
@@ -391,6 +392,7 @@ def dump_symbols_from_package(executor, dump_syms, pkg, dest):
                 res = dump_symbols_from_package(executor, dump_syms, subpackage, dest)
                 if not res:
                     logging.error("Error while dumping subpackage: " + subpackage)
+                    successful = False
 
             # dump symbols from any payloads (only expecting one) in the package
             for payload in find_payloads(temp_dir):

@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -550,7 +549,9 @@ ExternalTextureSourceHost::CreateFromBufferDesc(
         .bytes_per_row = &stride,
         .rows_per_image = nullptr,
     };
-    const Span<uint8_t> slice = buffer.to(size.height * stride);
+    const auto len = CheckedInt<size_t>(size.height) * stride;
+    MOZ_RELEASE_ASSERT(len.isValid());
+    const Span<uint8_t> slice = buffer.to(len.value());
     const ffi::WGPUFfiSlice_u8 data{
         .data = slice.data(),
         .length = slice.size(),
@@ -600,9 +601,15 @@ ExternalTextureSourceHost::CreateFromBufferDesc(
                               mozilla::ToString(rgbDesc.format()).c_str()));
           return CreateError();
       }
+      auto stride = layers::ImageDataSerializer::GetRGBStride(rgbDesc);
+      if (stride.isNothing()) {
+        gfxCriticalErrorOnce() << "Invalid stride";
+        aParent->ReportError(aDeviceId, dom::GPUErrorFilter::Internal,
+                             "Invalid stride"_ns);
+        return CreateError();
+      }
       createPlane(aDesc.mTextureIds[0], aDesc.mViewIds[0], planeFormat,
-                  rgbDesc.size(), aBuffer,
-                  layers::ImageDataSerializer::GetRGBStride(rgbDesc));
+                  rgbDesc.size(), aBuffer, stride.value());
       usedTextureIds.AppendElement(aDesc.mTextureIds[0]);
       usedViewIds.AppendElement(aDesc.mViewIds[0]);
       colorSpace = gfx::YUVRangedColorSpace::GbrIdentity;

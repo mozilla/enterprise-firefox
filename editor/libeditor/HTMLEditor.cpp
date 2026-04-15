@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1961,7 +1960,13 @@ nsresult HTMLEditor::InsertElementAtSelectionAsAction(
     if (MOZ_LIKELY(aElement->IsInComposedDoc())) {
       const auto afterElement = EditorDOMPoint::After(*aElement);
       if (MOZ_LIKELY(afterElement.IsInContentNode())) {
-        nsresult rv = EnsureNoFollowingUnnecessaryLineBreak(afterElement);
+        nsresult rv = EnsureNoFollowingUnnecessaryLineBreak(
+            afterElement,
+            // When user inserting content, the web app may expect that nothing
+            // extant content will be deleted. Therefore, we should preserve
+            // preformatted linefeed at least.
+            PreservePreformattedLineBreak::Yes,
+            PaddingForEmptyBlock::Significant, *editingHost);
         if (NS_FAILED(rv)) {
           NS_WARNING(
               "HTMLEditor::EnsureNoFollowingUnnecessaryLineBreak() failed");
@@ -4319,8 +4324,11 @@ Result<CreateLineBreakResult, nsresult> HTMLEditor::InsertLineBreak(
 }
 
 nsresult HTMLEditor::EnsureNoFollowingUnnecessaryLineBreak(
-    const EditorDOMPoint& aNextOrAfterModifiedPoint) {
+    const EditorDOMPoint& aNextOrAfterModifiedPoint,
+    PreservePreformattedLineBreak aPreservePreformattedLineBreak,
+    PaddingForEmptyBlock aPaddingForEmptyBlock, const Element& aEditingHost) {
   MOZ_ASSERT(aNextOrAfterModifiedPoint.IsInContentNode());
+  MOZ_ASSERT(aNextOrAfterModifiedPoint.IsSetAndValid());
 
   // If the point is in a mailcite in plaintext mail composer (it is a <span>
   // styled as block), we should not treat its padding <br> as unnecessary
@@ -4345,11 +4353,14 @@ nsresult HTMLEditor::EnsureNoFollowingUnnecessaryLineBreak(
       EditorUtils::IsNewLinePreformatted(
           *aNextOrAfterModifiedPoint.ContainerAs<nsIContent>());
 
-  const Maybe<EditorLineBreak> unnecessaryLineBreak =
-      HTMLEditUtils::GetFollowingUnnecessaryLineBreak<EditorLineBreak>(
-          aNextOrAfterModifiedPoint);
-  if (MOZ_LIKELY(unnecessaryLineBreak.isNothing() ||
-                 !unnecessaryLineBreak->IsDeletableFromComposedDoc())) {
+  const WSScanResult nextThing =
+      HTMLEditUtils::ScanInclusiveNextThingWithIgnoringUnnecessaryLineBreak(
+          aNextOrAfterModifiedPoint, aPaddingForEmptyBlock, aEditingHost);
+  const Maybe<EditorLineBreak>& unnecessaryLineBreak =
+      nextThing.MaybeIgnoredLineBreak();
+  if (unnecessaryLineBreak.isNothing() ||
+      !unnecessaryLineBreak->IsInclusiveDescendantOf(aEditingHost) ||
+      !unnecessaryLineBreak->IsDeletableFromComposedDoc()) [[likely]] {
     return NS_OK;
   }
   if (unnecessaryLineBreak->IsHTMLBRElement()) {
@@ -4357,9 +4368,6 @@ nsresult HTMLEditor::EnsureNoFollowingUnnecessaryLineBreak(
     // <span> styled as block, we need to preserve the <br> element for the
     // serializer to cause a line break before the mailcite.
     if (IsPlaintextMailComposer()) {
-      const WSScanResult nextThing =
-          WSRunScanner::ScanInclusiveNextVisibleNodeOrBlockBoundary(
-              {}, unnecessaryLineBreak->After<EditorRawDOMPoint>());
       if (nextThing.ReachedOtherBlockElement() &&
           HTMLEditUtils::IsMailCiteElement(*nextThing.ElementPtr()) &&
           HTMLEditUtils::IsInlineContent(
@@ -4383,6 +4391,16 @@ nsresult HTMLEditor::EnsureNoFollowingUnnecessaryLineBreak(
     return rv;
   }
   MOZ_ASSERT(isNewLinePreformatted);
+  if (aPreservePreformattedLineBreak == PreservePreformattedLineBreak::Yes) {
+    // Do not preserve preformatted linefeed if it's a padding for empty block
+    // even if the caller wants to preserve unnecessary preformatted linefeed
+    // because it's set to "Yes" when the caller inserts new content, but the
+    // other browsers do not preserve the padding linefeed for empty block.
+    if (aPaddingForEmptyBlock == PaddingForEmptyBlock::Significant ||
+        !unnecessaryLineBreak->IsPaddingForEmptyBlock()) {
+      return NS_OK;
+    }
+  }
   const auto IsVisibleChar = [&](char16_t aChar) {
     switch (aChar) {
       case HTMLEditUtils::kNewLine:

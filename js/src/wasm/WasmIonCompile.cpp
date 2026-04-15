@@ -19,9 +19,9 @@
 #include "wasm/WasmIonCompile.h"
 
 #include "mozilla/DebugOnly.h"
-#include "mozilla/MathAlgorithms.h"
 
 #include <algorithm>
+#include <bit>
 
 #include "jit/ABIArgGenerator.h"
 #include "jit/CodeGenerator.h"
@@ -50,7 +50,6 @@ using namespace js;
 using namespace js::jit;
 using namespace js::wasm;
 
-using mozilla::IsPowerOfTwo;
 using mozilla::Nothing;
 
 namespace {
@@ -1121,6 +1120,15 @@ class FunctionCompiler {
         MOZ_CRASH("Bad sign extension");
       }
     }
+    curBlock_->add(ins);
+    return ins;
+  }
+
+  MDefinition* wrapI32(MDefinition* op) {
+    if (inDeadCode()) {
+      return nullptr;
+    }
+    auto* ins = MWrapInt64ToInt32::New(alloc(), op, /*bottomHalf=*/true);
     curBlock_->add(ins);
     return ins;
   }
@@ -2998,7 +3006,7 @@ class FunctionCompiler {
       const TableDesc& table = codeMeta().tables[tableIndex];
       // ensured by asm.js validation
       MOZ_ASSERT(table.initialLength() <= UINT32_MAX);
-      MOZ_ASSERT(IsPowerOfTwo(table.initialLength()));
+      MOZ_ASSERT(std::has_single_bit(table.initialLength()));
 
       MDefinition* mask = constantI32(int32_t(table.initialLength() - 1));
       MBitAnd* maskedAddress =
@@ -5536,7 +5544,8 @@ class FunctionCompiler {
     MInstruction* dstData = MWasmLoadField::New(
         alloc(), dstArrayObject, nullptr, WasmArrayObject::offsetOfData(),
         mozilla::Nothing(), MIRType::WasmArrayData, MWideningOp::None,
-        AliasSet::Load(AliasSet::WasmArrayDataPointer));
+        AliasSet::Load(AliasSet::WasmArrayDataPointer),
+        mozilla::Some(trapSiteDesc()));
     if (!dstData) {
       return false;
     }
@@ -5545,7 +5554,8 @@ class FunctionCompiler {
     MInstruction* srcData = MWasmLoadField::New(
         alloc(), srcArrayObject, nullptr, WasmArrayObject::offsetOfData(),
         mozilla::Nothing(), MIRType::WasmArrayData, MWideningOp::None,
-        AliasSet::Load(AliasSet::WasmArrayDataPointer));
+        AliasSet::Load(AliasSet::WasmArrayDataPointer),
+        mozilla::Some(trapSiteDesc()));
     if (!srcData) {
       return false;
     }
@@ -5963,6 +5973,7 @@ class FunctionCompiler {
                     bool isSaturating);
   bool emitSignExtend(uint32_t srcSize, uint32_t targetSize);
   bool emitExtendI32(bool isUnsigned);
+  bool emitWrapI32();
   bool emitConvertI64ToFloatingPoint(ValType resultType, MIRType mirType,
                                      bool isUnsigned);
   bool emitReinterpret(ValType resultType, ValType operandType,
@@ -6024,6 +6035,8 @@ class FunctionCompiler {
   bool emitRefFunc();
   bool emitRefNull();
   bool emitRefIsNull();
+  bool emitI64AddSub128(bool isAdd);
+  bool emitI64MulWide(bool isSigned);
   bool emitConstSimd128();
   bool emitBinarySimd128(bool commutative, SimdOp op);
   bool emitTernarySimd128(wasm::SimdOp op);
@@ -6972,6 +6985,16 @@ bool FunctionCompiler::emitExtendI32(bool isUnsigned) {
   }
 
   iter().setResult(extendI32(input, isUnsigned));
+  return true;
+}
+
+bool FunctionCompiler::emitWrapI32() {
+  MDefinition* input;
+  if (!iter().readConversion(ValType::I64, ValType::I32, &input)) {
+    return false;
+  }
+
+  iter().setResult(wrapI32(input));
   return true;
 }
 
@@ -8299,6 +8322,182 @@ bool FunctionCompiler::emitRefIsNull() {
   iter().setResult(test);
   return true;
 }
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// Wide Arithmetic support
+
+bool FunctionCompiler::emitI64AddSub128(bool isAdd) {
+  MDefinition* xLo;
+  MDefinition* xHi;
+  MDefinition* yLo;
+  MDefinition* yHi;
+  if (!iter().readBinaryI128(&xLo, &xHi, &yLo, &yHi)) {
+    return false;
+  }
+  if (inDeadCode()) {
+    return true;
+  }
+
+  // Compute zHi:zLo = xHi:xLo +/- yHi:yLo.
+  MInstruction* zHi;
+  MInstruction* zLo;
+
+#ifdef JS_64BIT
+  // 64 bit implementation.  Produce inline code.
+  if (isAdd) {
+    zLo = MAdd::NewWasm(alloc(), xLo, yLo, MIRType::Int64);
+  } else {
+    zLo = MSub::NewWasm(alloc(), xLo, yLo, MIRType::Int64,
+                        /*mustPreserveNaN=*/false);
+  }
+  if (!zLo) {
+    return false;
+  }
+  curBlock_->add(zLo);
+
+  zHi = MWasmAddSubI128HI64::New(alloc(), xLo, xHi, yLo, yHi, isAdd);
+  if (!zHi) {
+    return false;
+  }
+  curBlock_->add(zHi);
+
+#else
+  // 32 bit implementation.  Call a helper function.  The arguments and return
+  // value are passed in Instance::baselineScratchWords_[0..7]; see
+  // Instance::addSubI128 for details.
+  MDefinition* storeSequence[4] = {xLo, xHi, yLo, yHi};
+  for (int i = 0; i < 4; i++) {
+    auto* store = MWasmStoreInstanceScratch2xI32::New(
+        alloc(),
+        /*byteOffset=*/i * 8, storeSequence[i], instancePointer_);
+    if (!store) {
+      return false;
+    }
+    curBlock_->add(store);
+  }
+
+  MDefinition* mIsAdd = constantI32(isAdd ? 1 : 0);
+  if (!mIsAdd ||
+      !emitInstanceCall1(readBytecodeOffset(), SASigAddSubI128, mIsAdd)) {
+    return false;
+  }
+
+  zLo = MWasmLoadInstanceScratch2xI32::New(alloc(), /*byteOffset=*/0,
+                                           instancePointer_);
+  if (!zLo) {
+    return false;
+  }
+  curBlock_->add(zLo);
+
+  zHi = MWasmLoadInstanceScratch2xI32::New(alloc(), /*byteOffset=*/8,
+                                           instancePointer_);
+  if (!zHi) {
+    return false;
+  }
+  curBlock_->add(zHi);
+#endif  // JS_64BIT
+
+  DefVector results;
+  if (!results.reserve(2)) {
+    return false;
+  }
+  results.infallibleAppend(zLo);
+  results.infallibleAppend(zHi);
+  iter().setResults(results.length(), results);
+
+  return true;
+}
+
+bool FunctionCompiler::emitI64MulWide(bool isSigned) {
+  MDefinition* x;
+  MDefinition* y;
+  if (!iter().readBinaryI64Wide(&x, &y)) {
+    return false;
+  }
+  if (inDeadCode()) {
+    return true;
+  }
+
+  // Compute zHi:zLo = x *widen y
+  MInstruction* zLo;
+  MInstruction* zHi;
+
+#ifdef JS_64BIT
+  // 64 bit implementation.  Produce inline code.
+
+  // We can compute the low and high halves in either order.  However, the
+  // RiscV specification advises computing the high half first, in the hope
+  // that microarchitectures can merge it with the immediately following low
+  // half multiply, hence avoiding the duplicate multiply.
+  zHi = MWasmMulI64WideHI64::New(alloc(), x, y, isSigned);
+  if (!zHi) {
+    return false;
+  }
+  curBlock_->add(zHi);
+
+  zLo = MMul::NewWasm(alloc(), x, y, MIRType::Int64,
+                      /*mode=*/MMul::Normal, /*mustPreserveNaN=*/false);
+  if (!zLo) {
+    return false;
+  }
+  curBlock_->add(zLo);
+
+#else
+  // 32 bit implementation.  Call a helper function.  The arguments and return
+  // value are passed in Instance::baselineScratchWords_[0..4]; see
+  // Instance::mulI64Wide for details.
+  auto* store = MWasmStoreInstanceScratch2xI32::New(alloc(),
+                                                    /*byteOffset=*/0, x,
+                                                    instancePointer_);
+  if (!store) {
+    return false;
+  }
+  curBlock_->add(store);
+
+  store = MWasmStoreInstanceScratch2xI32::New(alloc(),
+                                              /*byteOffset=*/8, y,
+                                              instancePointer_);
+  if (!store) {
+    return false;
+  }
+  curBlock_->add(store);
+
+  MDefinition* mIsSigned = constantI32(isSigned ? 1 : 0);
+  if (!mIsSigned ||
+      !emitInstanceCall1(readBytecodeOffset(), SASigMulI64Wide, mIsSigned)) {
+    return false;
+  }
+
+  zLo = MWasmLoadInstanceScratch2xI32::New(alloc(), /*byteOffset=*/0,
+                                           instancePointer_);
+  if (!zLo) {
+    return false;
+  }
+  curBlock_->add(zLo);
+
+  zHi = MWasmLoadInstanceScratch2xI32::New(alloc(), /*byteOffset=*/8,
+                                           instancePointer_);
+  if (!zHi) {
+    return false;
+  }
+  curBlock_->add(zHi);
+#endif
+
+  DefVector results;
+  if (!results.reserve(2)) {
+    return false;
+  }
+  results.infallibleAppend(zLo);
+  results.infallibleAppend(zHi);
+  iter().setResults(results.length(), results);
+
+  return true;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// SIMD support
 
 #ifdef ENABLE_WASM_SIMD
 bool FunctionCompiler::emitConstSimd128() {
@@ -9768,7 +9967,7 @@ bool FunctionCompiler::emitBodyExprs() {
 
       // Conversions
       case uint16_t(Op::I32WrapI64):
-        CHECK(emitConversion<MWrapInt64ToInt32>(ValType::I64, ValType::I32));
+        CHECK(emitWrapI32());
       case uint16_t(Op::I32TruncF32S):
       case uint16_t(Op::I32TruncF32U):
         CHECK(emitTruncate(ValType::F32, ValType::I32,
@@ -10327,6 +10526,28 @@ bool FunctionCompiler::emitBodyExprs() {
             CHECK(emitTableGrow());
           case uint32_t(MiscOp::TableSize):
             CHECK(emitTableSize());
+
+          case uint32_t(MiscOp::I64Add128):
+            if (!codeMeta().wideArithmeticEnabled()) {
+              return iter().unrecognizedOpcode(&op);
+            }
+            CHECK(emitI64AddSub128(/*isAdd=*/true));
+          case uint32_t(MiscOp::I64Sub128):
+            if (!codeMeta().wideArithmeticEnabled()) {
+              return iter().unrecognizedOpcode(&op);
+            }
+            CHECK(emitI64AddSub128(/*isAdd=*/false));
+          case uint32_t(MiscOp::I64MulWideS):
+            if (!codeMeta().wideArithmeticEnabled()) {
+              return iter().unrecognizedOpcode(&op);
+            }
+            CHECK(emitI64MulWide(/*isSigned=*/true));
+          case uint32_t(MiscOp::I64MulWideU):
+            if (!codeMeta().wideArithmeticEnabled()) {
+              return iter().unrecognizedOpcode(&op);
+            }
+            CHECK(emitI64MulWide(/*isSigned=*/false));
+
           default:
             return iter().unrecognizedOpcode(&op);
         }

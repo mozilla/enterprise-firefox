@@ -212,10 +212,17 @@ class TabNotesControllerClass {
           const browser = event.target;
           const { canonicalUrl } = event.detail;
           const gBrowser = browser.getTabBrowser();
+          /** @type {MozTabbrowserTab} */
           const tab = gBrowser.getTabForBrowser(browser);
           tab.canonicalUrl = canonicalUrl;
           lazy.TabNotes.has(tab).then(hasTabNote => {
             tab.hasTabNote = hasTabNote;
+            lazy.logConsole.debug("TabNote:Determined", tab, hasTabNote);
+            tab.dispatchEvent(
+              new CustomEvent("TabNote:Determined", {
+                detail: { hasTabNote },
+              })
+            );
           });
 
           lazy.logConsole.debug("CanonicalURL:Identified", tab, canonicalUrl);
@@ -223,10 +230,11 @@ class TabNotesControllerClass {
         break;
       case "TabNote:Created":
         {
-          const { telemetrySource } = event.detail;
+          const { note, telemetrySource } = event.detail;
           if (telemetrySource) {
             Glean.tabNotes.added.record({
               source: telemetrySource,
+              note_length: note.text.length,
             });
           }
           // A new tab note was created for a specific canonical URL. Ensure that
@@ -246,10 +254,11 @@ class TabNotesControllerClass {
       case "TabNote:Edited":
         {
           const { canonicalUrl } = event.target;
-          const { telemetrySource } = event.detail;
+          const { note, telemetrySource } = event.detail;
           if (telemetrySource) {
             Glean.tabNotes.edited.record({
               source: telemetrySource,
+              note_length: note.text.length,
             });
           }
           lazy.logConsole.debug("TabNote:Edited", canonicalUrl);

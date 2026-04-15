@@ -601,7 +601,7 @@ StreamFilterParent::OnStartRequest(nsIRequest* aRequest) {
   if (aRequest != mChannel) {
     nsCOMPtr<nsIChannel> channel = do_QueryInterface(aRequest);
     nsCOMPtr<nsILoadInfo> loadInfo = channel ? channel->LoadInfo() : nullptr;
-    mChannel = channel;
+    mChannel = std::move(channel);
 
     if (!(loadInfo &&
           loadInfo->RedirectChainIncludingInternalRedirects().IsEmpty())) {

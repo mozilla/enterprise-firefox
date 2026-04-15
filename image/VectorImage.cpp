@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1603,6 +1602,10 @@ void VectorImage::OnSVGDocumentError() {
   // We won't enter OnSVGDocumentLoaded, so report use counters now for this
   // invalid document.
   ReportDocumentUseCounters();
+
+  // ProgressTracker::SyncNotifyProgress may release us, so ensure we
+  // stick around long enough to complete our work.
+  RefPtr<VectorImage> kungFuDeathGrip(this);
 
   if (mProgressTracker) {
     // Notify observers about the error and unblock page load.

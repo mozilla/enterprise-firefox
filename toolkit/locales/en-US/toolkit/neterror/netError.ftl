@@ -24,7 +24,8 @@ neterror-override-exception-button = Accept the Risk and Continue
 neterror-pref-reset-button = Restore default settings
 neterror-return-to-previous-page-button = Go Back
 neterror-return-to-previous-page-recommended-button = Go Back (Recommended)
-neterror-try-again-button = Try Again
+neterror-try-again-button-2 = Try Again
+    .accesskey = T
 neterror-add-exception-button = Always continue for this site
 neterror-settings-button = Change DNS settings
 neterror-view-certificate-link = View Certificate
@@ -83,6 +84,11 @@ neterror-dns-not-found-trr-unknown-problem = Unexpected problem.
 
 neterror-file-not-found-filename = Check the file name for capitalization or other typing errors.
 neterror-file-not-found-moved = Check to see if the file was moved, renamed or deleted.
+
+# Variables:
+#   $path (String) - Path of the local file that could not be found.
+neterror-file-not-found-intro = { -brand-short-name } can’t find the file at <strong>{ $path }</strong>. It either doesn’t exist or the path is incorrect.
+neterror-file-not-found-what-can-you-do = If you typed the address manually, check for capitalization mistakes or typos in the file name or path. If you followed a saved bookmark or link, the file may have been moved, renamed, or deleted since it was saved. Try locating it using your file manager or a recent search.
 
 neterror-access-denied = It may have been removed, moved, or file permissions may be preventing access.
 
@@ -195,11 +201,15 @@ neterror-response-status-code = Error code: { $responsestatus } { $responsestatu
 
 fp-neterror-offline-body-title = Looks like there’s a problem with your internet connection
 
+fp-neterror-illustration-alt =
+  .alt = Illustration of a fox looking at disconnected network cables.
+
 ## Variables:
 ##   $hostname (String) - Hostname of the website to which the user was trying to connect.
 
 fp-neterror-connection-intro = { -brand-short-name } can’t create a secure connection to the server at { $hostname }.
 fp-neterror-offline-intro = { -brand-short-name } can’t connect to the server at <strong>{ $hostname }</strong>
+fp-neterror-net-timeout-intro = The server at <strong>{ $hostname }</strong> is taking too long to respond.
 # Variables:
 #   $hostname (String) - Hostname of the website to which the user was trying to connect.
 fp-neterror-http-error-page-intro = <strong>{ $hostname }</strong> sent back an error.

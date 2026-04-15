@@ -1,4 +1,4 @@
-// |reftest| skip-if(!this.hasOwnProperty('Intl')||!this.wrapWithProto)
+// |reftest| skip-if(!this.wrapWithProto)
 
 var tag = "de-Latn-AT-1996-u-ca-gregory-nu-latn-co-phonebk-kf-false-kn-hc-h23";
 var locale = new Intl.Locale(tag);

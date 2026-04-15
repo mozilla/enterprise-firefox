@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -117,6 +115,7 @@
 #include "mozilla/dom/ServiceWorkerUtils.h"
 #include "mozilla/dom/SessionHistoryEntry.h"
 #include "mozilla/dom/SessionStorageManager.h"
+#include "mozilla/dom/SharedScriptCache.h"
 #include "mozilla/dom/StorageIPC.h"
 #include "mozilla/dom/URLClassifierParent.h"
 #include "mozilla/dom/UserActivation.h"
@@ -131,6 +130,9 @@
 #include "mozilla/extensions/StreamFilterParent.h"
 #include "mozilla/gfx/GPUProcessManager.h"
 #include "mozilla/gfx/gfxVars.h"
+#ifdef MOZ_WMF
+#  include "mozilla/glean/DomMediaPlatformsWmfMetrics.h"
+#endif
 #include "mozilla/glean/DomMetrics.h"
 #include "mozilla/glean/GleanPings.h"
 #include "mozilla/glean/IpcMetrics.h"
@@ -1550,6 +1552,16 @@ void ContentParent::BroadcastMediaCodecsSupportedUpdate(
 
   // Merge incoming support with existing support list from other locations
   media::MCSInfo::AddSupport(aSupported);
+
+#ifdef MOZ_WMF
+  if (aSupported.contains(media::MediaCodecsSupport::AV1LackOfExtension)) {
+    glean::media::wmf_codec_no_extension.Get("av1"_ns).Set(true);
+  }
+  if (aSupported.contains(media::MediaCodecsSupport::HEVCLackOfExtension)) {
+    glean::media::wmf_codec_no_extension.Get("hevc"_ns).Set(true);
+  }
+#endif
+
   auto fullSupport = media::MCSInfo::GetSupport();
 
   // Generate + save FULL support string for display in about:support
@@ -4318,7 +4330,7 @@ void ContentParent::GeneratePairedMinidump(const char* aReason) {
 
 void ContentParent::HandleOrphanedMinidump(nsString* aDumpId) {
   if (CrashReporter::FinalizeOrphanedMinidump(
-          OtherPid(), GeckoProcessType_Content, aDumpId)) {
+          OtherChildID(), GeckoProcessType_Content, aDumpId)) {
     CrashReporterHost::RecordCrash(GeckoProcessType_Content,
                                    nsICrashService::CRASH_TYPE_CRASH, *aDumpId);
   } else {
@@ -4418,7 +4430,7 @@ void ContentParent::FriendlyName(nsAString& aName, bool aAnonymize) {
 mozilla::ipc::IPCResult ContentParent::RecvInitCrashReporter(
     const CrashReporter::CrashReporterInitArgs& aInitArgs) {
   mCrashReporter = MakeUnique<CrashReporterHost>(GeckoProcessType_Content,
-                                                 OtherPid(), aInitArgs);
+                                                 OtherChildID(), aInitArgs);
   return IPC_OK();
 }
 
@@ -4447,22 +4459,21 @@ bool ContentParent::SendRequestMemoryReport(
     const bool& aMinimizeMemoryUsage, const Maybe<FileDescriptor>& aDMDFile) {
   // This automatically cancels the previous request.
   mMemoryReportRequest = MakeUnique<MemoryReportRequestHost>(aGeneration);
-  // If we run the callback in response to a reply, then by definition |this|
-  // is still alive, so the ref pointer is redundant, but it seems easier
-  // to hold a strong reference than to worry about that.
   RefPtr<ContentParent> self(this);
-  PContentParent::SendRequestMemoryReport(
-      aGeneration, aAnonymize, aMinimizeMemoryUsage, aDMDFile,
-      [&, self](const uint32_t& aGeneration2) {
-        if (self->mMemoryReportRequest) {
-          self->mMemoryReportRequest->Finish(aGeneration2);
-          self->mMemoryReportRequest = nullptr;
-        }
-      },
-      [&, self](mozilla::ipc::ResponseRejectReason) {
-        self->mMemoryReportRequest = nullptr;
-      });
-  return IPC_OK();
+  PContentParent::SendRequestMemoryReport(aGeneration, aAnonymize,
+                                          aMinimizeMemoryUsage, aDMDFile)
+      ->Then(
+          GetCurrentSerialEventTarget(), __func__,
+          [self](uint32_t aGeneration2) {
+            if (self->mMemoryReportRequest) {
+              self->mMemoryReportRequest->Finish(aGeneration2);
+              self->mMemoryReportRequest = nullptr;
+            }
+          },
+          [self](mozilla::ipc::ResponseRejectReason) {
+            self->mMemoryReportRequest = nullptr;
+          });
+  return true;
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvAddMemoryReport(
@@ -4500,6 +4511,12 @@ PScriptCacheParent* ContentParent::AllocPScriptCacheParent(
 bool ContentParent::DeallocPScriptCacheParent(PScriptCacheParent* cache) {
   delete static_cast<loader::ScriptCacheParent*>(cache);
   return true;
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvUpdateScriptCacheEverHitTelemetry(
+    const uint64_t& aChildId, const uint32_t& aRate) {
+  mozilla::dom::SharedScriptCache::RecvUpdateEverHitTelemetry(aChildId, aRate);
+  return IPC_OK();
 }
 
 already_AddRefed<PNeckoParent> ContentParent::AllocPNeckoParent() {
@@ -5737,68 +5754,6 @@ mozilla::ipc::IPCResult ContentParent::RecvBeginDriverCrashGuard(
 mozilla::ipc::IPCResult ContentParent::RecvEndDriverCrashGuard(
     const uint32_t& aGuardType) {
   mDriverCrashGuard = nullptr;
-  return IPC_OK();
-}
-
-mozilla::ipc::IPCResult ContentParent::RecvNotifyPushObservers(
-    const nsACString& aScope, nsIPrincipal* aPrincipal,
-    const nsAString& aMessageId) {
-  if (!aPrincipal) {
-    return IPC_FAIL(this, "No principal");
-  }
-
-  if (!ValidatePrincipal(aPrincipal)) {
-    LogAndAssertFailedPrincipalValidationInfo(aPrincipal, __func__);
-  }
-  PushMessageDispatcher dispatcher(aScope, aPrincipal, aMessageId, Nothing());
-  (void)NS_WARN_IF(NS_FAILED(dispatcher.NotifyObserversAndWorkers()));
-  return IPC_OK();
-}
-
-mozilla::ipc::IPCResult ContentParent::RecvNotifyPushObserversWithData(
-    const nsACString& aScope, nsIPrincipal* aPrincipal,
-    const nsAString& aMessageId, nsTArray<uint8_t>&& aData) {
-  if (!aPrincipal) {
-    return IPC_FAIL(this, "No principal");
-  }
-
-  if (!ValidatePrincipal(aPrincipal)) {
-    LogAndAssertFailedPrincipalValidationInfo(aPrincipal, __func__);
-  }
-  PushMessageDispatcher dispatcher(aScope, aPrincipal, aMessageId,
-                                   Some(std::move(aData)));
-  (void)NS_WARN_IF(NS_FAILED(dispatcher.NotifyObserversAndWorkers()));
-  return IPC_OK();
-}
-
-mozilla::ipc::IPCResult ContentParent::RecvPushError(const nsACString& aScope,
-                                                     nsIPrincipal* aPrincipal,
-                                                     const nsAString& aMessage,
-                                                     const uint32_t& aFlags) {
-  if (!aPrincipal) {
-    return IPC_FAIL(this, "No principal");
-  }
-
-  if (!ValidatePrincipal(aPrincipal)) {
-    LogAndAssertFailedPrincipalValidationInfo(aPrincipal, __func__);
-  }
-  PushErrorDispatcher dispatcher(aScope, aPrincipal, aMessage, aFlags);
-  (void)NS_WARN_IF(NS_FAILED(dispatcher.NotifyObserversAndWorkers()));
-  return IPC_OK();
-}
-
-mozilla::ipc::IPCResult
-ContentParent::RecvNotifyPushSubscriptionModifiedObservers(
-    const nsACString& aScope, nsIPrincipal* aPrincipal) {
-  if (!aPrincipal) {
-    return IPC_FAIL(this, "No principal");
-  }
-
-  if (!ValidatePrincipal(aPrincipal)) {
-    LogAndAssertFailedPrincipalValidationInfo(aPrincipal, __func__);
-  }
-  PushSubscriptionModifiedDispatcher dispatcher(aScope, aPrincipal);
-  (void)NS_WARN_IF(NS_FAILED(dispatcher.NotifyObservers()));
   return IPC_OK();
 }
 
@@ -7612,7 +7567,7 @@ ContentParent::RecvSessionHistoryEntryStoreWindowNameInContiguousEntries(
 
   if (entry) {
     nsSHistory::WalkContiguousEntries(
-        entry, [&](nsISHEntry* aEntry) { aEntry->SetName(aName); });
+        entry, [&](SessionHistoryEntry* aEntry) { aEntry->SetName(aName); });
   }
 
   return IPC_OK();
@@ -7706,14 +7661,12 @@ mozilla::ipc::IPCResult ContentParent::RecvRemoveFromBFCache(
   for (uint32_t i = 0; i < count; ++i) {
     nsCOMPtr<nsISHEntry> entry;
     shistory->GetEntryAtIndex(i, getter_AddRefs(entry));
-    nsCOMPtr<SessionHistoryEntry> she = do_QueryInterface(entry);
-    if (she) {
-      if (RefPtr<nsFrameLoader> frameLoader = she->GetFrameLoader()) {
-        if (frameLoader->GetMaybePendingBrowsingContext() == aContext.get()) {
-          she->SetFrameLoader(nullptr);
-          frameLoader->Destroy();
-          break;
-        }
+    RefPtr she = entry->GetAsSessionHistoryEntry();
+    if (RefPtr<nsFrameLoader> frameLoader = she->GetFrameLoader()) {
+      if (frameLoader->GetMaybePendingBrowsingContext() == aContext.get()) {
+        she->SetFrameLoader(nullptr);
+        frameLoader->Destroy();
+        break;
       }
     }
   }

@@ -36,6 +36,7 @@ class SearchActionTest {
         var state = BrowserState()
         val searchEngineList = listOf(engine1, engine2)
         assertTrue(state.search.regionSearchEngines.isEmpty())
+        assertTrue(state.search.isNewSearchConfigurationAvailable)
 
         state = BrowserStateReducer.reduce(
             state,
@@ -50,6 +51,7 @@ class SearchActionTest {
                 additionalSearchEngines = emptyList(),
                 additionalAvailableSearchEngines = emptyList(),
                 regionSearchEnginesOrder = listOf("id1", "id2"),
+                searchEnginesConfigurationId = 33,
             ),
         )
 
@@ -58,6 +60,8 @@ class SearchActionTest {
         assertEquals(2, searchEngines.size)
         assertEquals(engine1, searchEngines[0])
         assertEquals(engine2, searchEngines[1])
+        assertEquals(33, state.search.searchEnvironmentId)
+        assertFalse(state.search.isNewSearchConfigurationAvailable)
     }
 
     @Test
@@ -108,6 +112,7 @@ class SearchActionTest {
 
         val searchEngineList = listOf(engine1, engine2)
         assertTrue(state.search.customSearchEngines.isEmpty())
+        assertTrue(state.search.isNewSearchConfigurationAvailable)
 
         state = BrowserStateReducer.reduce(
             state,
@@ -122,6 +127,7 @@ class SearchActionTest {
                 additionalSearchEngines = emptyList(),
                 additionalAvailableSearchEngines = emptyList(),
                 regionSearchEnginesOrder = emptyList(),
+                searchEnginesConfigurationId = 21,
             ),
         )
 
@@ -130,6 +136,8 @@ class SearchActionTest {
         assertEquals(2, searchEngines.size)
         assertEquals(engine1, searchEngines[0])
         assertEquals(engine2, searchEngines[1])
+        assertEquals(21, state.search.searchEnvironmentId)
+        assertFalse(state.search.isNewSearchConfigurationAvailable)
     }
 
     @Test
@@ -538,5 +546,37 @@ class SearchActionTest {
             BrowserStateReducer.reduce(initialState, SearchAction.RefreshSearchEnginesAction)
 
         assertEquals(initialState.search, state.search)
+    }
+
+    @Test
+    fun `GIVEN a new search configuration isn't available WHEN this changes THEN update this in the state`() {
+        val initialState = BrowserState(
+            search = SearchState(
+                isNewSearchConfigurationAvailable = false,
+            ),
+        )
+
+        val updatedState = BrowserStateReducer.reduce(
+            initialState,
+            SearchAction.SearchConfigurationAvailabilityChanged(true),
+        )
+
+        assertTrue(updatedState.search.isNewSearchConfigurationAvailable)
+    }
+
+    @Test
+    fun `GIVEN a new search configuration is available WHEN this changes THEN update this in the state`() {
+        val initialState = BrowserState(
+            search = SearchState(
+                isNewSearchConfigurationAvailable = true,
+            ),
+        )
+
+        val updatedState = BrowserStateReducer.reduce(
+            initialState,
+            SearchAction.SearchConfigurationAvailabilityChanged(false),
+        )
+
+        assertFalse(updatedState.search.isNewSearchConfigurationAvailable)
     }
 }

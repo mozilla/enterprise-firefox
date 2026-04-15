@@ -28,6 +28,9 @@ export class AIChatContentChild extends JSWindowActorChild {
     "AIChatContent:RemoveAppliedMemory": {
       event: "aiChatContentActor:remove-applied-memory",
     },
+    "AIChatContent:SeenUrls": {
+      event: "aiChatContentActor:seen-urls",
+    },
   };
 
   static #VALID_EVENTS_FROM_CONTENT = new Set([
@@ -36,6 +39,8 @@ export class AIChatContentChild extends JSWindowActorChild {
     "AIChatContent:Ready",
     "AIChatContent:DispatchAction",
     "AIChatContent:OpenLink",
+    "AIChatContent:DispatchNewChat",
+    "AIChatContent:AccountSignIn",
   ]);
 
   /**
@@ -54,13 +59,23 @@ export class AIChatContentChild extends JSWindowActorChild {
         this.#handleSearchDispatch(event);
         break;
 
-      case "AIChatContent:DispatchAction": {
+      case "AIChatContent:DispatchAction":
         this.#handleActionDispatch(event);
         break;
-      }
 
       case "AIChatContent:DispatchFollowUp":
         this.#handleFollowUpDispatch(event);
+        break;
+
+      case "AIChatContent:DispatchNewChat":
+        /*
+         * This message round-trips:
+         * child
+         * -> parent (to reset conversation state in ai-window)
+         * -> child (to clear the UI via "clear-conversation").
+         * The parent owns the conversation state, so we must go through it to start a new chat.
+         */
+        this.sendAsyncMessage("AIChatContent:DispatchNewChat");
         break;
 
       case "AIChatContent:Ready":
@@ -69,6 +84,10 @@ export class AIChatContentChild extends JSWindowActorChild {
 
       case "AIChatContent:OpenLink":
         this.sendAsyncMessage("AIChatContent:OpenLink", event.detail);
+        break;
+
+      case "AIChatContent:AccountSignIn":
+        this.sendAsyncMessage("AIChatContent:AccountSignIn", event.detail);
         break;
 
       default:

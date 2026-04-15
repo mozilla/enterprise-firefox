@@ -358,12 +358,6 @@ interface MultiAction {
 }
 ```
 
-### `CLICK_ELEMENT`
-
-* args: `string` A CSS selector for the HTML element to be clicked
-
-Selects an element in the current Window's document and triggers a click action
-
 
 ### `RELOAD_BROWSER`
 
@@ -458,7 +452,7 @@ interface SearchMode {
   "data": {
     "engineName": "test_engine",
     "source": 3,
-    "entry": "other",
+    "entry": "messagingSystem",
     "isPreview": false,
   }
 }

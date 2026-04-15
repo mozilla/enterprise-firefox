@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -11,6 +9,7 @@
 #include "TCPSocketParent.h"
 #include "mozilla/BasePrincipal.h"
 #include "mozilla/ErrorResult.h"
+#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/SyncRunnable.h"
 #include "mozilla/dom/RootedDictionary.h"
 #include "mozilla/dom/ScriptSettings.h"
@@ -1164,6 +1163,10 @@ TCPSocket::Observe(nsISupports* aSubject, const char* aTopic,
 
 /* static */
 bool TCPSocket::ShouldTCPSocketExist(JSContext* aCx, JSObject* aGlobal) {
+  if (XRE_IsContentProcess() &&
+      !StaticPrefs::dom_tcpsocket_in_child_enabled()) {
+    return false;
+  }
   JS::Rooted<JSObject*> global(aCx, aGlobal);
   return nsContentUtils::ObjectPrincipal(global)->IsSystemPrincipal();
 }

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -28,6 +26,7 @@
 #include "mozilla/dom/ServiceWorkerRegistrar.h"
 #include "mozilla/dom/UIDirectionManager.h"
 #include "mozilla/dom/nsMixedContentBlocker.h"
+#include "mozilla/intl/AppCollator.h"
 #include "mozilla/intl/AppDateTimeFormat.h"
 #include "mozilla/intl/EncodingToLang.h"
 #include "nsAttrValue.h"
@@ -132,6 +131,8 @@ nsresult nsLayoutStatics::Initialize() {
                 1);
 
   nsresult rv;
+
+  mozilla::intl::AppCollator::Initialize();
 
   ContentParent::StartUp();
 
@@ -316,7 +317,6 @@ void nsLayoutStatics::Shutdown() {
   // Release all of our atoms
   nsRepeatService::Shutdown();
 
-  nsXULContentUtils::Finish();
   nsXULPrototypeCache::ReleaseGlobals();
 
   SVGElementFactory::Shutdown();

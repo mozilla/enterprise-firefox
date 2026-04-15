@@ -1363,6 +1363,11 @@ nsresult Database::InitSchema(bool* aDatabaseMigrated) {
 
       // Firefox 147 uses schema version 84
 
+      if (currentSchemaVersion < 86) {
+        rv = MigrateV86Up();
+        NS_ENSURE_SUCCESS(rv, rv);
+      }
+
       // Schema Upgrades must add migration code here.
       // >>> IMPORTANT! <<<
       // NEVER MIX UP SYNC AND ASYNC EXECUTION IN MIGRATORS, YOU MAY LOCK THE
@@ -2296,6 +2301,31 @@ nsresult Database::MigrateV85Up() {
       "SET recalc_frecency = 1 "
       "WHERE frecency > 1"_ns);
   NS_ENSURE_SUCCESS(rv, rv);
+  return NS_OK;
+}
+
+nsresult Database::MigrateV86Up() {
+  nsCOMPtr<mozIStorageStatement> stmt;
+
+  // Check and add block_until_ms if missing.
+  nsresult rv = mMainConn->CreateStatement(
+      "SELECT block_until_ms FROM moz_origins"_ns, getter_AddRefs(stmt));
+  if (NS_FAILED(rv)) {
+    rv = mMainConn->ExecuteSimpleSQL(
+        "ALTER TABLE moz_origins "
+        "ADD COLUMN block_until_ms INTEGER"_ns);
+    NS_ENSURE_SUCCESS(rv, rv);
+  }
+
+  // Check and add block_pages_until_ms if missing.
+  rv = mMainConn->CreateStatement(
+      "SELECT block_pages_until_ms FROM moz_origins"_ns, getter_AddRefs(stmt));
+  if (NS_FAILED(rv)) {
+    rv = mMainConn->ExecuteSimpleSQL(
+        "ALTER TABLE moz_origins "
+        "ADD COLUMN block_pages_until_ms INTEGER"_ns);
+    NS_ENSURE_SUCCESS(rv, rv);
+  }
   return NS_OK;
 }
 

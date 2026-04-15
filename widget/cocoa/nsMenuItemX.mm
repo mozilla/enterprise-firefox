@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -90,24 +89,27 @@ nsMenuItemX::nsMenuItemX(nsMenuX* aParent, const nsString& aLabel,
 
   mIsVisible = !nsMenuUtilsX::NodeIsHiddenOrCollapsed(mContent);
 
-  // All menu items other than the "Copy" menu item share the same target and
-  // action, and are differentiated be a unique (representedObject, tag) pair.
-  // The "Copy" menu item is a special case that requires a macOS-default
-  // action of `copy:` and a default target in order for the "Edit" menu to be
-  // populated with OS-provided menu items such as the Emoji picker,
-  // especially in multi-language environments (see bug 1478347). Our
-  // application delegate implements `copy:` by simply forwarding it to
-  // [nsMenuBarX::sNativeEventTarget menuItemHit:].
-  if (mContent->AsElement()->AttrValueIs(kNameSpaceID_None, nsGkAtoms::id,
-                                         u"menu_copy"_ns, eCaseMatters)) {
-    mNativeMenuItem.action = @selector(copy:);
-  } else {
-    mNativeMenuItem.action = @selector(menuItemHit:);
-    mNativeMenuItem.target = nsMenuBarX::sNativeEventTarget;
-  }
+  // Separators don't need actions, targets, or command registration.
+  if (mType != eSeparatorMenuItemType) {
+    // All menu items other than the "Copy" menu item share the same target and
+    // action, and are differentiated be a unique (representedObject, tag) pair.
+    // The "Copy" menu item is a special case that requires a macOS-default
+    // action of `copy:` and a default target in order for the "Edit" menu to be
+    // populated with OS-provided menu items such as the Emoji picker,
+    // especially in multi-language environments (see bug 1478347). Our
+    // application delegate implements `copy:` by simply forwarding it to
+    // [nsMenuBarX::sNativeEventTarget menuItemHit:].
+    if (mContent->AsElement()->AttrValueIs(kNameSpaceID_None, nsGkAtoms::id,
+                                           u"menu_copy"_ns, eCaseMatters)) {
+      mNativeMenuItem.action = @selector(copy:);
+    } else {
+      mNativeMenuItem.action = @selector(menuItemHit:);
+      mNativeMenuItem.target = nsMenuBarX::sNativeEventTarget;
+    }
 
-  mNativeMenuItem.representedObject = mMenuGroupOwner->GetRepresentedObject();
-  mNativeMenuItem.tag = mMenuGroupOwner->RegisterForCommand(this);
+    mNativeMenuItem.representedObject = mMenuGroupOwner->GetRepresentedObject();
+    mNativeMenuItem.tag = mMenuGroupOwner->RegisterForCommand(this);
+  }
 
   if (mIsVisible) {
     SetupIcon();
@@ -149,8 +151,6 @@ void nsMenuItemX::DetachFromGroupOwner() {
 }
 
 nsresult nsMenuItemX::ModifyChecked(bool aIsChecked) {
-  NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
-
   // update the content model. This will also handle unchecking our siblings
   // if we are a radiomenu
   mContent->AsElement()->SetBoolAttr(nsGkAtoms::checked, aIsChecked);
@@ -159,8 +159,6 @@ nsresult nsMenuItemX::ModifyChecked(bool aIsChecked) {
   SetChecked();
 
   return NS_OK;
-
-  NS_OBJC_END_TRY_ABORT_BLOCK;
 }
 
 EMenuItemType nsMenuItemX::GetMenuItemType() { return mType; }
@@ -302,14 +300,14 @@ void nsMenuItemX::SetBadge() {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
 
   if (@available(macOS 14.0, *)) {
-    // Set key shortcut and modifiers
     nsAutoString badgeValue;
     if (!mContent->AsElement()->GetAttr(nsGkAtoms::badge, badgeValue)) {
       mNativeMenuItem.badge = nullptr;
       return;
     }
-    mNativeMenuItem.badge = [[NSMenuItemBadge alloc]
-        initWithString:nsMenuUtilsX::GetTruncatedCocoaLabel(badgeValue)];
+    mNativeMenuItem.badge = [[[NSMenuItemBadge alloc]
+        initWithString:nsMenuUtilsX::GetTruncatedCocoaLabel(badgeValue)]
+        autorelease];
   }
 
   NS_OBJC_END_TRY_ABORT_BLOCK;
@@ -504,6 +502,7 @@ void nsMenuItemX::ObserveContentRemoved(dom::Document* aDocument,
   if (aChild == mImageElement) {
     mMenuGroupOwner->UnregisterForContentChanges(mImageElement);
     mImageElement = nullptr;
+    SetupIcon();
   }
   if (IsMenuStructureElement(aChild)) {
     mMenuParent->SetRebuild(true);
@@ -513,6 +512,7 @@ void nsMenuItemX::ObserveContentRemoved(dom::Document* aDocument,
 void nsMenuItemX::ObserveContentInserted(dom::Document* aDocument,
                                          nsIContent* aContainer,
                                          nsIContent* aChild) {
+  MOZ_RELEASE_ASSERT(mMenuGroupOwner);
   MOZ_RELEASE_ASSERT(mMenuParent);
 
   // The child node could come from the custom element that is for display, so

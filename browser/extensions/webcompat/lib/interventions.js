@@ -464,14 +464,19 @@ class Interventions {
     });
   }
 
-  #whichInterventionsShouldBeSkipped(config, customFunctionNames) {
+  #whichInterventionsShouldBeSkipped(
+    config,
+    customFunctionNames,
+    isForceEnabled
+  ) {
     const reasons = new Map();
     for (const intervention of config.interventions) {
       let reason = InterventionHelpers.shouldSkip(
         intervention,
         this.appVersionOverride ?? this.#appVersion,
         this.#updateChannel,
-        customFunctionNames
+        customFunctionNames,
+        isForceEnabled
       );
       if (reason) {
         reasons.set(intervention, reason);
@@ -541,24 +546,27 @@ class Interventions {
         continue;
       }
 
+      const disablingPref = this.#getInterventionDisablingPref(config.id);
+      const disablingPrefValue =
+        browser.aboutConfigPrefs.getPref(disablingPref);
+
       const whichInterventionsShouldBeSkipped =
-        this.#whichInterventionsShouldBeSkipped(config, customFunctionNames);
+        this.#whichInterventionsShouldBeSkipped(
+          config,
+          customFunctionNames,
+          disablingPrefValue === false
+        );
 
       // about:compat uses this var to determine whether to show interventions.
       config.availableOnPlatform =
+        disablingPrefValue !== undefined ||
         whichInterventionsShouldBeSkipped.size < config.interventions.length;
 
       try {
-        const disablingPref = this.#getInterventionDisablingPref(config.id);
-        const disablingPrefValue =
-          browser.aboutConfigPrefs.getPref(disablingPref);
-
-        if (config.availableOnPlatform) {
-          this.#ensureListeningForIndividualInterventionTogglingPref(
-            config.id,
-            disablingPref
-          );
-        }
+        this.#ensureListeningForIndividualInterventionTogglingPref(
+          config.id,
+          disablingPref
+        );
 
         // If disabled in about:config, and not being force-enabled
         // in about:compat, we can skip the rest of the checks.

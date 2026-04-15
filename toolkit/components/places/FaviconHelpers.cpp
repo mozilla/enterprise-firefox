@@ -312,7 +312,7 @@ nsresult FetchMostFrecentSubPageIcon(const UniquePtr<ConnectionAdapter>& aConn,
       "JOIN moz_icons i ON itp.icon_id = i.id "
       "JOIN moz_places p ON p.url_hash = pwi.page_url_hash "
       "WHERE p.rev_host = get_unreversed_host(:pageHost || '.') || '.' "
-      "AND p.url BETWEEN :pageRoot AND :pageRoot || X'FFFF' "
+      "AND p.url BETWEEN :pageRoot || '/' AND :pageRoot || '/'  || X'FFFF' "
       "ORDER BY p.frecency DESC, i.width DESC "
       "LIMIT 1"_ns);
   NS_ENSURE_STATE(stmt);

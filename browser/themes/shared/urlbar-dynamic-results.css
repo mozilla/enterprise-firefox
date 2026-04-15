@@ -49,7 +49,7 @@
 }
 
 .urlbarView-dynamic-quickSuggestContextualOptIn-title {
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
 }
 
 .urlbarView-dynamic-quickSuggestContextualOptIn-description {
@@ -158,9 +158,13 @@
   }
 
   &::before {
-    content: "\2014";
+    content: "·";
     margin: 0 0.4em;
     opacity: 0.6;
+    /* stylelint-disable-next-line media-query-no-invalid */
+    @media not -moz-pref("browser.urlbar.nova.featureGate") {
+      content: "\2014";
+    }
   }
 }
 

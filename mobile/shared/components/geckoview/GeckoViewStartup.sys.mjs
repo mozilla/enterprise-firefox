@@ -145,15 +145,13 @@ export class GeckoViewStartup {
           lazy.ActorManagerParent.addJSWindowActors(JSWINDOWACTORS);
           lazy.ActorManagerParent.addJSProcessActors(JSPROCESSACTORS);
 
-          if (Services.appinfo.sessionHistoryInParent) {
-            GeckoViewUtils.addLazyGetter(this, "GeckoViewSessionStore", {
-              module: "resource://gre/modules/GeckoViewSessionStore.sys.mjs",
-              observers: [
-                "browsing-context-did-set-embedder",
-                "browsing-context-discarded",
-              ],
-            });
-          }
+          GeckoViewUtils.addLazyGetter(this, "GeckoViewSessionStore", {
+            module: "resource://gre/modules/GeckoViewSessionStore.sys.mjs",
+            observers: [
+              "browsing-context-did-set-embedder",
+              "browsing-context-discarded",
+            ],
+          });
 
           GeckoViewUtils.addLazyGetter(this, "GeckoViewWebExtension", {
             module: "resource://gre/modules/GeckoViewWebExtension.sys.mjs",
@@ -203,6 +201,15 @@ export class GeckoViewStartup {
             "GeckoView:CrashPullController.Delegate:Attached",
           ]);
         }
+
+        GeckoViewUtils.addLazyGetter(this, "GeckoViewAIFeatures", {
+          module: "resource://gre/modules/GeckoViewAIFeatures.sys.mjs",
+          ged: [
+            "GeckoView:AIFeature:ListFeatures",
+            "GeckoView:AIFeature:SetEnabled",
+            "GeckoView:AIFeature:Reset",
+          ],
+        });
 
         GeckoViewUtils.addLazyGetter(this, "GeckoViewTranslationsSettings", {
           module: "resource://gre/modules/GeckoViewTranslations.sys.mjs",

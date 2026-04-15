@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-<toolbox id="navigator-toolbox" class="browser-toolbox-background">
+<toolbox id="navigator-toolbox">
   <script src="chrome://browser/content/navigator-toolbox.js" />
 
   <!-- Menu -->
@@ -250,7 +250,7 @@
                       data-l10n-id="urlbar-camera-blocked"/>
                 <image data-permission-id="microphone" class="blocked-permission-icon microphone-icon" role="button"
                       data-l10n-id="urlbar-microphone-blocked"/>
-                <image data-permission-id="localhost" class="blocked-permission-icon localhost-icon" role="button"
+                <image data-permission-id="loopback-network" class="blocked-permission-icon loopback-network-icon" role="button"
                       data-l10n-id="urlbar-localhost-blocked"/>
                 <image data-permission-id="local-network" class="blocked-permission-icon local-network-icon" role="button"
                       data-l10n-id="urlbar-local-network-blocked"/>
@@ -281,7 +281,7 @@
                       data-l10n-id="urlbar-default-notification-anchor"/>
               <image id="geo-notification-icon" class="notification-anchor-icon geo-icon" role="button"
                       data-l10n-id="urlbar-geolocation-notification-anchor"/>
-              <image id="localhost-notification-icon" class="notification-anchor-icon localhost-icon" role="button"
+              <image id="loopback-network-notification-icon" class="notification-anchor-icon loopback-network-icon" role="button"
                       data-l10n-id="urlbar-localhost-notification-anchor"/>
               <image id="local-network-notification-icon" class="notification-anchor-icon local-network-icon" role="button"
                       data-l10n-id="urlbar-local-network-notification-anchor"/>
@@ -490,13 +490,16 @@
     <toolbarbutton id="taskbar-tabs-audio" class="toolbarbutton-1 chromeclass-toolbar-additional"
                     removable="false" overflows="false"/>
 
-    <toolbarbutton id="smartwindow-ask-button"
-                    class="toolbarbutton-1 chromeclass-toolbar-additional"
-                    data-l10n-id="smartwindow-ask-button"
-                    hidden="true"
-                    overflows="false"
-                    removable="false">
-    </toolbarbutton>
+    <toolbaritem id="smartwindow-ask-button"
+                 class="chromeclass-toolbar-additional"
+                 hidden="true"
+                 overflows="false"
+                 removable="false">
+      <toolbarbutton id="smartwindow-ask-button-inner"
+                      class="toolbarbutton-1"
+                      data-l10n-id="smartwindow-ask-button">
+      </toolbarbutton>
+    </toolbaritem>
 
     <toolbarbutton id="nav-bar-overflow-button"
                    class="toolbarbutton-1 chromeclass-toolbar-additional"

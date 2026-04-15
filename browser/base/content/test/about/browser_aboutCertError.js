@@ -835,11 +835,11 @@ async function assertNetErrorPage({
 
         // Assert Error Card Basics
         Assert.ok(
-          netErrorCard.certErrorBodyTitle,
+          netErrorCard.errorTitle,
           "The error page title should exist."
         );
 
-        const shortDesc = netErrorCard.certErrorIntro;
+        const shortDesc = netErrorCard.errorIntro;
         const shortDescArgs = JSON.parse(shortDesc.dataset.l10nArgs);
         Assert.equal(
           shortDescArgs.hostname,
@@ -1223,10 +1223,7 @@ add_task(async function checkSandboxedIframe_feltPrivacyToTrue() {
     await netErrorCard.getUpdateComplete();
 
     // Assert Error Card Basics
-    Assert.ok(
-      netErrorCard.certErrorBodyTitle,
-      "The error page title should exist."
-    );
+    Assert.ok(netErrorCard.errorTitle, "The error page title should exist.");
     const advancedButton = netErrorCard.advancedButton;
     advancedButton.scrollIntoView(true);
     EventUtils.synthesizeMouseAtCenter(advancedButton, {}, content);

@@ -1030,10 +1030,6 @@ void js::GCMarker::markAndTraverse(T* thing) {
 //    weakmap key and thereby recurse into weakmapped values.
 
 template <uint32_t opts>
-void GCMarker::traverse(BaseShape* thing) {
-  traceChildren<opts>(thing);
-}
-template <uint32_t opts>
 void GCMarker::traverse(GetterSetter* thing) {
   traceChildren<opts>(thing);
 }
@@ -1059,6 +1055,10 @@ void GCMarker::traverse(JSString* thing) {
 }
 template <uint32_t opts>
 void GCMarker::traverse(Shape* thing) {
+  scanChildren<opts>(thing);
+}
+template <uint32_t opts>
+void GCMarker::traverse(BaseShape* thing) {
   scanChildren<opts>(thing);
 }
 template <uint32_t opts>
@@ -1423,7 +1423,8 @@ bool GCMarker::markOneObjectForTest(JSObject* obj) {
 // concurrent marking and interrupt the main thread to do this work.
 static constexpr size_t MainThreadBufferThreshold = 16384;
 
-inline bool GCMarker::addToMainThreadBuffer(JS::GCCellPtr ptr) {
+inline bool GCMarker::addToMainThreadBuffer(JS::GCCellPtr ptr,
+                                            SliceBudget& budget) {
   auto& buffer = markColor() == MarkColor::Black ? blackMainThreadBuffer_.ref()
                                                  : grayMainThreadBuffer_.ref();
   if (!buffer.append(ptr)) {
@@ -1431,9 +1432,9 @@ inline bool GCMarker::addToMainThreadBuffer(JS::GCCellPtr ptr) {
   }
 
   if (MOZ_UNLIKELY(buffer.length() == MainThreadBufferThreshold)) {
-    AutoLockHelperThreadState lock;
-    GCRuntime* gc = &runtime()->gc;
-    gc->maybeRequestGCAfterBackgroundTask(lock);
+    // Ensure |budget.isOverBudget()| will return true if the buffer is full.
+    budget.setInterrupted();
+    budget.forceCheck();
   }
 
   return true;
@@ -1450,7 +1451,11 @@ bool GCMarker::processMainThreadBuffers(SliceBudget& budget) {
   }
 
   if (!grayMainThreadBuffer_.ref().empty()) {
-    AutoSetMarkColor autoSetGray(*this, MarkColor::Gray);
+    // Allow pushing gray marking even if there is still black marking
+    // work. This reduces the amount of handshaking between the main thread and
+    // the marking thread.
+    AutoSetMarkColor autoSetGray(*this, MarkColor::Gray,
+                                 AllowGrayMarkingBeforeEndOfBlackMarking::Yes);
     if (!processMainThreadBuffer(grayMainThreadBuffer_.ref(), budget)) {
       return false;
     }
@@ -1465,6 +1470,13 @@ bool GCMarker::processMainThreadBuffer(MainThreadBuffer& buffer,
                                        SliceBudget& budget) {
   while (!buffer.empty()) {
     JS::GCCellPtr cell = buffer.popCopy();
+
+    MOZ_ASSERT(cell.asCell()->isMarkedAtLeast(markColor()));
+    if (markColor() == MarkColor::Gray && cell.asCell()->isMarkedBlack()) {
+      // We subsequently marked this black so we can skip marking it gray.
+      continue;
+    }
+
     if (cell.is<JSObject>()) {
       JSObject* obj = &cell.as<JSObject>();
       const JSClass* clasp = obj->getClass();
@@ -1684,8 +1696,8 @@ inline bool GCMarker::processMarkStackTop(SliceBudget& budget) {
         if constexpr (bool(opts & MarkingOptions::ConcurrentMarking)) {
           bool skippedJitScript = false;
           script->traceChildrenConcurrently(tracer(), &skippedJitScript);
-          if (skippedJitScript &&
-              MOZ_UNLIKELY(!addToMainThreadBuffer(JS::GCCellPtr(script)))) {
+          if (skippedJitScript && MOZ_UNLIKELY(!addToMainThreadBuffer(
+                                      JS::GCCellPtr(script), budget))) {
             delayMarkingChildrenOnOOM(script);
           }
           return true;
@@ -1768,7 +1780,7 @@ scan_obj: {
   markAndTraverseEdge<opts>(obj, obj->shape());
 
   const JSClass* clasp = obj->getClass();
-  if (clasp->hasTrace() && !callOrDelayTraceHook<opts>(obj, clasp)) {
+  if (clasp->hasTrace() && !callOrDelayTraceHook<opts>(obj, clasp, budget)) {
     return false;
   }
 
@@ -1837,14 +1849,15 @@ scan_obj: {
 }
 
 template <uint32_t opts>
-bool GCMarker::callOrDelayTraceHook(JSObject* obj, const JSClass* clasp) {
+bool GCMarker::callOrDelayTraceHook(JSObject* obj, const JSClass* clasp,
+                                    JS::SliceBudget& budget) {
   MOZ_ASSERT(clasp->hasTrace());
 
 #ifdef JS_GC_CONCURRENT_MARKING
   if constexpr (bool(opts & MarkingOptions::ConcurrentMarking)) {
     // TODO: Add a class flag to allow us to call the trace hook concurrently
     // for classes that support it.
-    if (MOZ_UNLIKELY(!addToMainThreadBuffer(JS::GCCellPtr(obj)))) {
+    if (MOZ_UNLIKELY(!addToMainThreadBuffer(JS::GCCellPtr(obj), budget))) {
       delayMarkingChildrenOnOOM(obj);
       return false;
     }
@@ -2445,13 +2458,16 @@ static void ClearEphemeronEdges(JSRuntime* rt) {
 void GCMarker::stop() {
   MOZ_ASSERT(isDrained());
   MOZ_ASSERT(markColor() == MarkColor::Black);
-  MOZ_ASSERT(!haveSwappedStacks);
 
   if (state == NotActive) {
+    MOZ_ASSERT(!haveSwappedStacks);
     return;
   }
   state = NotActive;
 
+  if (haveSwappedStacks) {
+    swapMarkStacks();
+  }
   otherStack.clearAndFreeStack();
   ClearEphemeronEdges(runtime());
   unmarkGrayStack.clearAndFree();
@@ -2459,6 +2475,11 @@ void GCMarker::stop() {
 
 void GCMarker::reset() {
   state = NotActive;
+
+  setMarkColor(MarkColor::Black);
+  if (haveSwappedStacks) {
+    swapMarkStacks();
+  }
 
   stack.clearAndResetCapacity();
   otherStack.clearAndFreeStack();
@@ -2470,8 +2491,6 @@ void GCMarker::reset() {
 #endif
 
   MOZ_ASSERT(isDrained());
-
-  setMarkColor(MarkColor::Black);
   MOZ_ASSERT(!haveSwappedStacks);
 
   unmarkGrayStack.clearAndFree();
@@ -2482,17 +2501,19 @@ void GCMarker::setMarkColor(gc::MarkColor newColor) {
     return;
   }
 
-  // We don't support gray marking while there is black marking work to do.
-  MOZ_ASSERT(!hasBlackEntries());
-
   markColor_ = newColor;
 
   // Switch stacks. We only need to do this if there are any stack entries (as
-  // empty stacks are interchangeable) or to swtich back to the original stack.
-  if (!isDrained() || haveSwappedStacks) {
-    stack.swap(otherStack);
-    haveSwappedStacks = !haveSwappedStacks;
+  // empty stacks are interchangeable) or to switch back to the original stack.
+  if (!isMarkStackEmpty() ||
+      (haveSwappedStacks && newColor == MarkColor::Black)) {
+    swapMarkStacks();
   }
+}
+
+void GCMarker::swapMarkStacks() {
+  stack.swap(otherStack);
+  haveSwappedStacks = !haveSwappedStacks;
 }
 
 bool GCMarker::hasEntries(MarkColor color) const {
@@ -2604,7 +2625,7 @@ IncrementalProgress JS::Zone::enterWeakMarkingMode(GCMarker* marker,
 
   if (!marker->incrementalWeakMapMarkingEnabled) {
     ForAllWeakMapsInZone(this, [marker](WeakMapBase* map) {
-      if (IsMarked(map->mapColor())) {
+      if (map->isMarked()) {
         (void)map->markEntries(marker);
       }
     });
@@ -2624,11 +2645,11 @@ IncrementalProgress JS::Zone::enterWeakMarkingMode(GCMarker* marker,
     return IncrementalProgress::Finished;
   }
 
-  for (auto r = gcEphemeronEdges().all(); !r.empty(); r.popFront()) {
-    Cell* src = r.front().key();
+  for (auto iter = gcEphemeronEdges().iter(); !iter.done(); iter.next()) {
+    Cell* src = iter.get().key();
     CellColor srcColor = gc::detail::GetEffectiveColor(marker, src);
 
-    auto& edges = r.front().value();
+    auto& edges = iter.get().value();
     size_t numEdges = edges.length();
     if (IsMarked(srcColor) && edges.length() > 0) {
       marker->markEphemeronEdges(edges, AsMarkColor(srcColor));

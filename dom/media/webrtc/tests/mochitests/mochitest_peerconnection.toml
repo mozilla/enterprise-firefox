@@ -520,7 +520,9 @@ skip-if = [
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && opt", # 1974205
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && tsan", # 1974205
   "os == 'win' && os_version == '11.26100' && arch == 'x86' && debug", # Bug 1974205
+  "os == 'win' && os_version == '11.26200' && arch == 'x86' && debug", # Bug 1974205
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64'", # 1974205
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64'", # 1974205
 ]
 
 ["test_peerConnection_videoRenegotiationInactiveAnswer.html"]

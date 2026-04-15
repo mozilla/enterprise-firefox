@@ -20,10 +20,6 @@ void NaNExprChecker::registerMatchers(MatchFinder *AstMatcher) {
 }
 
 void NaNExprChecker::check(const MatchFinder::MatchResult &Result) {
-  if (!Result.Context->getLangOpts().CPlusPlus) {
-    return;
-  }
-
   const BinaryOperator *Expression =
       Result.Nodes.getNodeAs<BinaryOperator>("node");
   const DeclRefExpr *LHS = Result.Nodes.getNodeAs<DeclRefExpr>("lhs");

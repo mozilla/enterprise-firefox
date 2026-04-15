@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -111,9 +109,13 @@ void nsCanvasFrame::Destroy(DestroyContext& aContext) {
 
 void nsCanvasFrame::SetInitialChildList(ChildListID aListID,
                                         nsFrameList&& aChildList) {
+  // In printing, canvas frame's continuations may have multiple children in the
+  // principal child list when nsCSSFrameConstructor::ReplicateFixedFrames
+  // creates placeholders for fixed-pos elements.
   NS_ASSERTION(aListID != FrameChildListID::Principal || aChildList.IsEmpty() ||
-                   aChildList.OnlyChild(),
-               "Primary child list can have at most one frame in it");
+                   aChildList.OnlyChild() || GetPrevInFlow(),
+               "Principal child list of first-in-flow canvas frame can have at "
+               "most one frame in it!");
   nsContainerFrame::SetInitialChildList(aListID, std::move(aChildList));
 }
 

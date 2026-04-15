@@ -1559,6 +1559,7 @@ class DebugEnvironments {
                            const jsbytecode* pc);
   static void onPopWith(AbstractFramePtr frame);
   static void onPopModule(JSContext* cx, const EnvironmentIter& ei);
+  static void onPopWasm(JSContext* cx, AbstractFramePtr frame);
   static void onRealmUnsetIsDebuggee(Realm* realm);
 };
 

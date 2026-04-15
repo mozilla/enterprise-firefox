@@ -146,7 +146,7 @@ TEST_F(TestDHCPUtils, TestGetAdaptersAddresses) {
   ASSERT_EQ(NS_OK, GetActiveDHCPNetworkAdapterName(networkAdapterName,
                                                    mMockWindowsFunctions));
 
-  ASSERT_STREQ(networkAdapterName.Data(), "my favourite network adapter");
+  ASSERT_STREQ(networkAdapterName.get(), "my favourite network adapter");
 }
 
 TEST_F(TestDHCPUtils, TestGetAdaptersAddressesNoAvailableNetworks) {
@@ -162,7 +162,7 @@ TEST_F(TestDHCPUtils, TestGetAdaptersAddressesNoAvailableNetworks) {
             GetActiveDHCPNetworkAdapterName(networkAdapterName,
                                             mMockWindowsFunctions));
 
-  ASSERT_STREQ(networkAdapterName.Data(), "");
+  ASSERT_STREQ(networkAdapterName.get(), "");
 }
 
 TEST_F(TestDHCPUtils, TestGetAdaptersAddressesNoNetworksWithDHCP) {
@@ -177,7 +177,7 @@ TEST_F(TestDHCPUtils, TestGetAdaptersAddressesNoNetworksWithDHCP) {
             GetActiveDHCPNetworkAdapterName(networkAdapterName,
                                             mMockWindowsFunctions));
 
-  ASSERT_STREQ(networkAdapterName.Data(), "");
+  ASSERT_STREQ(networkAdapterName.get(), "");
 }
 
 TEST_F(TestDHCPUtils, TestGetAdaptersAddressesSecondNetworkIsAvailable) {
@@ -199,8 +199,7 @@ TEST_F(TestDHCPUtils, TestGetAdaptersAddressesSecondNetworkIsAvailable) {
   ASSERT_EQ(NS_OK, GetActiveDHCPNetworkAdapterName(networkAdapterName,
                                                    mMockWindowsFunctions));
 
-  ASSERT_STREQ(networkAdapterName.Data(),
-               "my second favourite network adapter");
+  ASSERT_STREQ(networkAdapterName.get(), "my second favourite network adapter");
 }
 
 TEST_F(TestDHCPUtils, TestGetOption) {
@@ -262,10 +261,10 @@ TEST_F(TestNsWindowsDHCPClient, TestGettingOptionThroughNSWindowsDHCPClient) {
       new nsWindowsDHCPClient(mMockWindowsFunctions);
   nsresult retVal = dhcpClient->GetOption(252, optionValue);
 
-  ASSERT_STREQ("http://pac.com", optionValue.Data());
+  ASSERT_STREQ("http://pac.com", optionValue.get());
   ASSERT_STREQ(
       L"my favourite network adapter",
-      mMockWindowsFunctions->GetLastRequestedNetworkAdapterName().Data());
+      mMockWindowsFunctions->GetLastRequestedNetworkAdapterName().get());
   ASSERT_EQ(NS_OK, retVal);
 }
 
@@ -284,7 +283,7 @@ TEST_F(
       new nsWindowsDHCPClient(mMockWindowsFunctions);
   nsresult retVal = dhcpClient->GetOption(252, optionValue);
 
-  ASSERT_STREQ("", optionValue.Data());
+  ASSERT_STREQ("", optionValue.get());
   ASSERT_EQ(NS_ERROR_NOT_AVAILABLE, retVal);
 }
 
@@ -302,6 +301,6 @@ TEST_F(TestNsWindowsDHCPClient,
       new nsWindowsDHCPClient(mMockWindowsFunctions);
   nsresult retVal = dhcpClient->GetOption(252, optionValue);
 
-  ASSERT_STREQ("", optionValue.Data());
+  ASSERT_STREQ("", optionValue.get());
   ASSERT_EQ(NS_ERROR_NOT_AVAILABLE, retVal);
 }

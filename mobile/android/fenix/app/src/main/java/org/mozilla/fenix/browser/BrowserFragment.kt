@@ -6,6 +6,7 @@ package org.mozilla.fenix.browser
 
 import android.content.Context
 import android.content.Intent
+import android.hardware.SensorManager
 import android.os.StrictMode
 import android.view.View
 import android.view.ViewGroup
@@ -13,10 +14,13 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.VisibleForTesting
 import androidx.appcompat.content.res.AppCompatResources
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.Observer
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import mozilla.components.browser.state.selector.findTab
@@ -31,6 +35,8 @@ import mozilla.components.feature.contextmenu.ContextMenuCandidate
 import mozilla.components.feature.readerview.ReaderViewFeature
 import mozilla.components.feature.tab.collections.TabCollection
 import mozilla.components.feature.tabs.WindowFeature
+import mozilla.components.lib.accelerometer.sensormanager.LifecycleAwareSensorManagerAccelerometer
+import mozilla.components.lib.shake.detectShakes
 import mozilla.components.support.base.feature.UserInteractionHandler
 import mozilla.components.support.base.feature.ViewBoundFeatureWrapper
 import mozilla.components.support.ktx.kotlin.isContentUrl
@@ -41,6 +47,7 @@ import org.mozilla.fenix.browser.store.BrowserScreenAction.ReaderModeStatusUpdat
 import org.mozilla.fenix.components.QrScanFenixFeature
 import org.mozilla.fenix.components.TabCollectionStorage
 import org.mozilla.fenix.components.VoiceSearchFeature
+import org.mozilla.fenix.components.metrics.installSourcePackage
 import org.mozilla.fenix.components.toolbar.BrowserToolbarComposable
 import org.mozilla.fenix.components.toolbar.BrowserToolbarView
 import org.mozilla.fenix.components.toolbar.FenixBrowserToolbarView
@@ -48,6 +55,8 @@ import org.mozilla.fenix.components.toolbar.ToolbarMenu
 import org.mozilla.fenix.components.toolbar.ui.createShareBrowserAction
 import org.mozilla.fenix.compose.snackbar.Snackbar
 import org.mozilla.fenix.compose.snackbar.SnackbarState
+import org.mozilla.fenix.e2e.SystemInsetsPaddedFragment
+import org.mozilla.fenix.ext.application
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.isLargeWindow
 import org.mozilla.fenix.ext.nav
@@ -57,6 +66,11 @@ import org.mozilla.fenix.ext.runIfFragmentIsAttached
 import org.mozilla.fenix.ext.settings
 import org.mozilla.fenix.home.HomeFragment
 import org.mozilla.fenix.nimbus.FxNimbus
+import org.mozilla.fenix.onboarding.OnboardingReason
+import org.mozilla.fenix.onboarding.OnboardingTelemetryRecorder
+import org.mozilla.fenix.onboarding.continuous.ContinuousOnboardingFeatureDefault
+import org.mozilla.fenix.onboarding.continuous.ContinuousOnboardingStageProviderDefault
+import org.mozilla.fenix.settings.downloads.DownloadLocationManager
 import org.mozilla.fenix.settings.quicksettings.protections.cookiebanners.getCookieBannerUIMode
 import org.mozilla.fenix.shortcut.PwaOnboardingObserver
 import org.mozilla.fenix.telemetry.ACTION_SHARE_CLICKED
@@ -70,7 +84,7 @@ import org.mozilla.fenix.GleanMetrics.Toolbar as GleanMetricsToolbar
  * Fragment used for browsing the web within the main app.
  */
 @Suppress("TooManyFunctions", "LargeClass")
-class BrowserFragment : BaseBrowserFragment(), UserInteractionHandler {
+class BrowserFragment : BaseBrowserFragment(), UserInteractionHandler, SystemInsetsPaddedFragment {
     private val windowFeature = ViewBoundFeatureWrapper<WindowFeature>()
     private val openInAppOnboardingObserver = ViewBoundFeatureWrapper<OpenInAppOnboardingObserver>()
     private val translationsBinding = ViewBoundFeatureWrapper<TranslationsBinding>()
@@ -88,6 +102,37 @@ class BrowserFragment : BaseBrowserFragment(), UserInteractionHandler {
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             voiceSearchFeature?.get()?.handleVoiceSearchResult(result.resultCode, result.data)
         }
+
+    private val continuousOnboardingDefaultBrowserLauncher: ActivityResultLauncher<Intent> =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            continuousOnboardingFeature.onDefaultBrowserStepCompleted(
+                activity = requireActivity(),
+                resultCode = result.resultCode,
+            )
+        }
+
+    private val telemetryRecorder by lazy {
+        OnboardingTelemetryRecorder(
+            onboardingReason = if (requireComponents.settings.enablePersistentOnboarding) {
+                OnboardingReason.EXISTING_USER
+            } else {
+                OnboardingReason.NEW_USER
+            },
+            installSource = installSourcePackage(
+                packageManager = requireContext().application.packageManager,
+                packageName = requireContext().application.packageName,
+            ),
+        )
+    }
+
+    private val continuousOnboardingFeature by lazy {
+        val settings = requireContext().settings()
+        ContinuousOnboardingFeatureDefault(
+            settings = settings,
+            telemetryRecorder = telemetryRecorder,
+            stageProvider = ContinuousOnboardingStageProviderDefault(settings),
+        )
+    }
 
     private var readerModeAvailable = false
     private var translationsAvailable = false
@@ -166,6 +211,87 @@ class BrowserFragment : BaseBrowserFragment(), UserInteractionHandler {
                 ),
                 owner = this,
                 view = view,
+            )
+        }
+
+        setupShakeDetection()
+
+        continuousOnboardingFeature.maybeRunContinuousOnboarding(
+            activity = requireActivity(),
+            launcher = continuousOnboardingDefaultBrowserLauncher,
+        )
+    }
+
+    private fun setupShakeDetection() {
+        val shouldSetupShake = requireComponents.core.summarizeFeatureSettings.canShowFeature &&
+                requireComponents.core.summarizationSettings.isGestureEnabled.value
+        if (!shouldSetupShake) {
+            return
+        }
+
+        val sensorManager = requireActivity().getSystemService(SensorManager::class.java) ?: return
+        val accelerometer = LifecycleAwareSensorManagerAccelerometer(sensorManager)
+        with(viewLifecycleOwner) {
+            lifecycle.addObserver(accelerometer)
+            lifecycleScope.launch {
+                viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    accelerometer.detectShakes()
+                        .onStart {
+                            summarizeToolbarCfrBinding.get()?.maybeDismissCfr()
+                        }
+                        .collect {
+                            navigateToSummarizationIfEligible()
+                        }
+                }
+            }
+        }
+    }
+
+    private suspend fun navigateToSummarizationIfEligible() {
+        findNavController().apply {
+            // If the shake gesture was disabled in the bottom sheet hosted settings but the fragment
+            // has not been recreated yet, we need to check if it's still active before proceeding.
+            val shakeEnabled = requireComponents.core.summarizationSettings.isGestureEnabled.value
+
+            if (!shakeEnabled) {
+                return
+            }
+
+            // We don't want to navigate to the summarization fragment if the current
+            // tab is private.
+            val isPrivate = getSafeCurrentTab()?.content?.private == true
+
+            // We don't want to navigate to the summarization fragment if the current
+            // tab is loading.
+            val isPageLoading = getSafeCurrentTab()?.content?.loading == true
+
+            // Since the summarization fragment is in a dialog, it's possible that we
+            // can still detect shakes in the background. Don't try to navigate twice.
+            val currentDestinationIsNotTheBrowser = currentDestination?.id != R.id.browserFragment
+
+            // evaluate this lazy, to try and avoid querying the engine unless necessary
+            val isEnglishContent: suspend () -> Boolean = {
+                getSafeCurrentTab()?.engineState?.engineSession?.let { session ->
+                    requireComponents.core.summarizationEligibilityChecker
+                        .checkLanguage(session)
+                        .getOrNull()
+                } ?: false
+            }
+
+            // this can be removed when we get rid of language gating
+            @Suppress("ComplexCondition")
+            if (isPrivate ||
+                isPageLoading ||
+                currentDestinationIsNotTheBrowser ||
+                !isEnglishContent()
+            ) {
+                return
+            }
+
+            navigate(
+                BrowserFragmentDirections.actionBrowserFragmentToSummarizationFragment(
+                    true,
+                ),
             )
         }
     }
@@ -708,11 +834,14 @@ class BrowserFragment : BaseBrowserFragment(), UserInteractionHandler {
         )
 
         return ContextMenuCandidate.defaultCandidates(
-            context,
-            context.components.useCases.tabsUseCases,
-            context.components.useCases.contextMenuUseCases,
-            view,
-            ContextMenuSnackbarDelegate(),
+            context = context,
+            tabsUseCases = context.components.useCases.tabsUseCases,
+            contextMenuUseCases = context.components.useCases.contextMenuUseCases,
+            snackBarParentView = view,
+            snackbarDelegate = ContextMenuSnackbarDelegate(),
+            downloadsLocation = {
+                DownloadLocationManager(requireContext()).defaultLocation
+            },
         ) + ContextMenuCandidate.createOpenInExternalAppCandidate(
             requireContext(),
             contextMenuCandidateAppLinksUseCases,

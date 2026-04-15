@@ -879,7 +879,7 @@ while (rerun) {
             try {
                 debuggeeGlobal.evaluate(read(task.script), { 'fileName': task.script, 'lineNumber': 1 });
             } catch (exc) {
-                print("Caught exception " + exc);
+                print(`Caught exception ${exc} at ${exc.fileName}:${exc.lineNumber}:${exc.columnNumber}`);
                 print(exc.stack);
                 break;
             }

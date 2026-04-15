@@ -24,6 +24,7 @@ XPCOMUtils.defineLazyServiceGetter(
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserTelemetryUtils: "resource://gre/modules/BrowserTelemetryUtils.sys.mjs",
   GleanStopwatch: "resource://gre/modules/GeckoViewTelemetry.sys.mjs",
+  QWACs: "resource://gre/modules/psm/QWACs.sys.mjs",
 });
 
 var IdentityHandler = {
@@ -158,6 +159,23 @@ var IdentityHandler = {
     } catch (e) {}
 
     return result;
+  },
+
+  qwacStatus(aState, aBrowser, aCallback) {
+    if (
+      aState != Ci.nsIWebProgressListener.STATE_IS_SECURE ||
+      !aBrowser.securityUI.secInfo
+    ) {
+      aCallback.onSuccess(null);
+      return;
+    }
+    lazy.QWACs.determineQWACStatus(
+      aBrowser.securityUI.secInfo,
+      aBrowser.currentURI,
+      aBrowser.browsingContext
+    ).then(qwac => {
+      aCallback.onSuccess(qwac?.getBase64DERString());
+    });
   },
 };
 
@@ -522,6 +540,10 @@ class SecurityTracker extends Tracker {
       identity,
     });
   }
+
+  qwacStatus(aCallback) {
+    IdentityHandler.qwacStatus(this._state, this.browser, aCallback);
+  }
 }
 
 export class GeckoViewProgress extends GeckoViewModule {
@@ -545,7 +567,10 @@ export class GeckoViewProgress extends GeckoViewModule {
     this.progressFilter.addProgressListener(this, flags);
     this.browser.addProgressListener(this.progressFilter, flags);
     Services.obs.addObserver(this, "oop-frameloader-crashed");
-    this.registerListener("GeckoView:FlushSessionState");
+    this.registerListener([
+      "GeckoView:FlushSessionState",
+      "GeckoView:GetQWACStatus",
+    ]);
   }
 
   onDisable() {
@@ -557,7 +582,10 @@ export class GeckoViewProgress extends GeckoViewModule {
     }
 
     Services.obs.removeObserver(this, "oop-frameloader-crashed");
-    this.unregisterListener("GeckoView:FlushSessionState");
+    this.unregisterListener([
+      "GeckoView:FlushSessionState",
+      "GeckoView:GetQWACStatus",
+    ]);
   }
 
   receiveMessage(aMsg) {
@@ -580,12 +608,15 @@ export class GeckoViewProgress extends GeckoViewModule {
     }
   }
 
-  onEvent(aEvent, aData) {
+  onEvent(aEvent, aData, aCallback) {
     debug`onEvent: event=${aEvent}, data=${aData}`;
 
     switch (aEvent) {
       case "GeckoView:FlushSessionState":
         this.messageManager.sendAsyncMessage("GeckoView:FlushSessionState");
+        break;
+      case "GeckoView:GetQWACStatus":
+        this._securityTracker.qwacStatus(aCallback);
         break;
     }
   }

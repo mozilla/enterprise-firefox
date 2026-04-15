@@ -19,7 +19,7 @@ CompiledModules(
     "index.js",
     "InlinePreview.js",
     "InlinePreviews.js",
-    "SearchInFileBar.js",
+    "FileSearch.js",
     "Tab.js",
     "Tabs.js",
     "TracePanel.js",

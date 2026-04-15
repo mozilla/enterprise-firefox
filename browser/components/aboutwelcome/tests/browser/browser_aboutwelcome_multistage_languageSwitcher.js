@@ -85,7 +85,7 @@ async function openAboutWelcome() {
     true
   );
 
-  await ContentTask.spawn(tab.linkedBrowser, {}, async () => {
+  await SpecialPowers.spawn(tab.linkedBrowser, [], async () => {
     await ContentTaskUtils.waitForCondition(
       () => content.document.querySelector(".AW_EASY_SETUP_ONLY_IMPORT"),
       `Should render AW_EASY_SETUP_ONLY_IMPORT when opening about:welcome, current screen is: ${
@@ -110,7 +110,7 @@ async function openAboutWelcome() {
 
 async function clickVisibleButton(browser, selector) {
   // eslint-disable-next-line no-shadow
-  await ContentTask.spawn(browser, { selector }, async ({ selector }) => {
+  await SpecialPowers.spawn(browser, [{ selector }], async ({ selector }) => {
     function getVisibleElement() {
       for (const el of content.document.querySelectorAll(selector)) {
         if (el.offsetParent !== null) {
@@ -139,9 +139,9 @@ async function testScreenContent(
   expectedSelectors = [],
   unexpectedSelectors = []
 ) {
-  await ContentTask.spawn(
+  await SpecialPowers.spawn(
     browser,
-    { expectedSelectors, name, unexpectedSelectors },
+    [{ expectedSelectors, name, unexpectedSelectors }],
     async ({
       expectedSelectors: expected,
       name: experimentName,

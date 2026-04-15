@@ -63,7 +63,6 @@ platform_names:
             linux64-devedition: 'linux-x86_64'
             linux64-aarch64-shippable: 'linux-aarch64'
             linux64-aarch64-devedition: 'linux-aarch64'
-            linux64-asan-reporter-shippable: 'linux-x86_64-asan-reporter'
             macosx64-shippable: 'mac'
             macosx64-devedition: 'mac'
             win32-shippable: 'win32'
@@ -72,10 +71,8 @@ platform_names:
             win64-devedition: 'win64'
             win64-aarch64-shippable: 'win64-aarch64'
             win64-aarch64-devedition: 'win64-aarch64'
-            win64-asan-reporter-shippable: 'win64-asan-reporter'
     stage_platform:
         by-platform:
-            linux64-asan-reporter-shippable: 'linux64-asan-reporter'
             linux64-shippable: 'linux64'
             linux64-devedition: 'linux64'
             linux64-aarch64-shippable: 'linux64-aarch64'
@@ -88,7 +85,6 @@ platform_names:
             win64-devedition: 'win64'
             win64-aarch64-shippable: 'win64-aarch64'
             win64-aarch64-devedition: 'win64-aarch64'
-            win64-asan-reporter-shippable: 'win64-asan-reporter'
 
 default: &default
     from:
@@ -142,9 +138,6 @@ mapping:
         description: "Crashreporter symbols to be consumed by Socorro"
         pretty_name: firefox-${version}.${locale}.${filename_platform}.crashreporter-symbols.zip
         checksums_path: firefox-${version}.${locale}.${filename_platform}.crashreporter-symbols.zip
-        not_for_platforms:
-            - linux64-asan-reporter-shippable
-            - win64-asan-reporter-shippable
     target.json:
         <<: *default
         description: "Various compile and moz_app flags baked together in a json file"
@@ -175,9 +168,6 @@ mapping:
         description: "Set of shells to allow test snippets of Javascript code without needing to reload the page"
         pretty_name: jsshell-${filename_platform}.zip
         checksums_path: jsshell-${filename_platform}.zip
-        not_for_platforms:
-            - linux64-asan-reporter-shippable
-            - win64-asan-reporter-shippable
     target.langpack.xpi:
         <<: *default
         all_locales: true
@@ -193,8 +183,6 @@ mapping:
             - win32-shippable
             - win64-shippable
             - win64-aarch64-shippable
-            - win64-asan-reporter-shippable
-            - linux64-asan-reporter-shippable
         pretty_name: firefox-${version}.${locale}.langpack.xpi
         checksums_path: firefox-${version}.${locale}.langpack.xpi
         destinations:
@@ -236,7 +224,6 @@ mapping:
             - win32-shippable
             - win64-shippable
             - win64-aarch64-shippable
-            - win64-asan-reporter-shippable
         destinations:
             - ${year}/${month}/${upload_date}-${branch}/mar-tools/${stage_platform}
             - latest-${branch}/mar-tools/${stage_platform}
@@ -250,7 +237,6 @@ mapping:
             - win32-shippable
             - win64-shippable
             - win64-aarch64-shippable
-            - win64-asan-reporter-shippable
         destinations:
             - ${year}/${month}/${upload_date}-${branch}/mar-tools/${stage_platform}
             - latest-${branch}/mar-tools/${stage_platform}
@@ -263,7 +249,6 @@ mapping:
         only_for_platforms:
             - linux64-shippable
             - linux64-aarch64-shippable
-            - linux64-asan-reporter-shippable
         pretty_name: firefox-${version}.${locale}.${filename_platform}.tar.xz
         checksums_path: firefox-${version}.${locale}.${filename_platform}.tar.xz
         destinations:
@@ -284,7 +269,6 @@ mapping:
         only_for_platforms:
             - linux64-shippable
             - linux64-aarch64-shippable
-            - linux64-asan-reporter-shippable
         pretty_name: firefox-${version}.${locale}.${filename_platform}.tar.xz.asc
         checksums_path: firefox-${version}.${locale}.${filename_platform}.tar.xz.asc
         destinations:
@@ -347,7 +331,6 @@ mapping:
             - win64-shippable
             - win32-shippable
             - win64-aarch64-shippable
-            - win64-asan-reporter-shippable
         pretty_name: firefox-${version}.${locale}.${filename_platform}.zip
         checksums_path: firefox-${version}.${locale}.${filename_platform}.zip
     target.installer.exe:
@@ -356,17 +339,12 @@ mapping:
         all_locales: true
         source_path_modifier: ''
         from:
-            by-platform:
-                win64-asan-reporter-shippable:
-                    - repackage-signing
-                default:
-                    - attribution
-                    - attribution-l10n
+            - attribution
+            - attribution-l10n
         only_for_platforms:
             - win64-shippable
             - win32-shippable
             - win64-aarch64-shippable
-            - win64-asan-reporter-shippable
         pretty_name: firefox-${version}.${locale}.${filename_platform}.installer.exe
         checksums_path: firefox-${version}.${locale}.${filename_platform}.installer.exe
         destinations:

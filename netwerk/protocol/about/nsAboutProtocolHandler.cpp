@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -211,7 +210,7 @@ nsAboutProtocolHandler::NewChannel(nsIURI* uri, nsILoadInfo* aLoadInfo,
     nsContentUtils::ReportToConsole(
         nsIScriptError::warningFlag, "Security by Default"_ns,
         nullptr,  // aDocument
-        nsContentUtils::eNECKO_PROPERTIES, "APIDeprecationWarning", params);
+        PropertiesFile::NECKO_PROPERTIES, "APIDeprecationWarning", params);
     (*result)->SetLoadInfo(aLoadInfo);
   }
 

@@ -47,6 +47,11 @@ Cell* cell() {
   return &c;
 }
 
+union CellPtr {
+  Cell* c;
+  void* vp;
+};
+
 template <typename T, typename U>
 struct SimpleTemplate {
   int member;
@@ -75,6 +80,8 @@ Cell* f() {
   Container<Container<SimpleTemplate<int, int>, float>,
             Container<float, SimpleTemplate<char, char>>>
       c4;
+  Container<Cell*, Cell*> c5;
+  CellPtr cp;
 
   return nullptr;
 }

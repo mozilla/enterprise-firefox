@@ -44,6 +44,8 @@ skip-if = [
 
 ["test_pbm_cleanup.js"]
 
+["test_pbm_cleanup_telemetry.js"]
+
 ["test_permissions.js"]
 
 ["test_quota.js"]

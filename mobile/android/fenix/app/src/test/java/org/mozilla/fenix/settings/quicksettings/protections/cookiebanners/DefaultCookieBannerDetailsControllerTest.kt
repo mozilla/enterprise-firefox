@@ -11,9 +11,10 @@ import androidx.navigation.NavDirections
 import io.mockk.MockKAnnotations
 import io.mockk.Runs
 import io.mockk.coEvery
+import io.mockk.coJustRun
 import io.mockk.coVerifyOrder
 import io.mockk.every
-import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.slot
@@ -57,16 +58,16 @@ internal class DefaultCookieBannerDetailsControllerTest {
 
     private lateinit var context: Context
 
-    @MockK(relaxed = true)
+    @RelaxedMockK
     private lateinit var navController: NavController
 
-    @MockK(relaxed = true)
+    @RelaxedMockK
     private lateinit var fragment: Fragment
 
-    @MockK(relaxed = true)
+    @RelaxedMockK
     private lateinit var sitePermissions: SitePermissions
 
-    @MockK(relaxed = true)
+    @RelaxedMockK
     private lateinit var cookieBannersStorage: CookieBannersStorage
 
     private lateinit var controller: DefaultCookieBannerDetailsController
@@ -75,16 +76,16 @@ internal class DefaultCookieBannerDetailsControllerTest {
 
     private lateinit var browserStore: BrowserStore
 
-    @MockK(relaxed = true)
+    @RelaxedMockK
     private lateinit var protectionsStore: ProtectionsStore
 
-    @MockK(relaxed = true)
+    @RelaxedMockK
     private lateinit var reload: SessionUseCases.ReloadUrlUseCase
 
-    @MockK(relaxed = true)
+    @RelaxedMockK
     private lateinit var engine: Engine
 
-    @MockK(relaxed = true)
+    @RelaxedMockK
     private lateinit var publicSuffixList: PublicSuffixList
 
     private val testDispatcher = StandardTestDispatcher()
@@ -181,7 +182,7 @@ internal class DefaultCookieBannerDetailsControllerTest {
 
             assertNull(CookieBanners.exceptionRemoved.testGetValue())
             every { protectionsStore.dispatch(any()) } returns mockk()
-            coEvery { controller.clearSiteData(any()) } just Runs
+            coJustRun { controller.clearSiteData(any()) }
 
             controller.handleTogglePressed(false)
 

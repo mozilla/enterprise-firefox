@@ -49,25 +49,28 @@
     static AI_ICON = "chrome://global/skin/icons/highlights.svg";
 
     static headerSection = /*html*/ `
-      <html:div  id="tab-group-default-header">
-        <html:div class="panel-header" >
-          <html:h1
-            id="tab-group-editor-title-create"
-            class="tab-group-create-mode-only"
-            data-l10n-id="tab-group-editor-title-create">
-          </html:h1>
-          <html:h1
-            id="tab-group-editor-title-edit"
-            class="tab-group-edit-mode-only"
-            data-l10n-id="tab-group-editor-title-edit">
-          </html:h1>
-        </html:div>
+      <html:div class="panel-header" >
+        <html:h1
+          id="tab-group-editor-title-create"
+          class="tab-group-create-mode-only"
+          data-l10n-id="tab-group-editor-title-create">
+        </html:h1>
+        <html:h1
+          id="tab-group-editor-title-edit"
+          class="tab-group-edit-mode-only"
+          data-l10n-id="tab-group-editor-title-edit">
+        </html:h1>
+        <html:h1
+          id="tab-group-editor-title-suggest"
+          data-l10n-id="tab-group-editor-title-suggest"
+          hidden=""
+        ></html:h1>
       </html:div>
     `;
 
     static editActions = /*html*/ `
       <html:div
-        class="panel-body tab-group-edit-actions tab-group-edit-mode-only">
+        class="tab-group-edit-actions tab-group-edit-mode-only">
         <toolbarbutton
           tabindex="0"
           id="tabGroupEditor_addNewTabInGroup"
@@ -92,11 +95,7 @@
           class="subviewbutton"
           data-l10n-id="tab-group-editor-action-ungroup">
         </toolbarbutton>
-      </html:div>
-
-      <toolbarseparator class="tab-group-edit-mode-only" />
-
-      <html:div class="tab-group-edit-mode-only panel-body tab-group-delete">
+        <toolbarseparator class="tab-group-edit-mode-only" />
         <toolbarbutton
           tabindex="0"
           id="tabGroupEditor_deleteGroup"
@@ -106,16 +105,10 @@
       </html:div>
     `;
 
-    static suggestionsHeader = /*html*/ `
-      <html:div id="tab-group-suggestions-heading" hidden="true">
-        <html:div class="panel-header">
-          <html:h1 data-l10n-id="tab-group-editor-title-suggest"></html:h1>
-        </html:div>
-      </html:div>
-    `;
-
     static suggestionsSection = /*html*/ `
-      <html:div id="tab-group-suggestions-container" hidden="true">
+      <html:div id="tab-group-suggestions-container"
+        class="panel-subview-body"
+        hidden="">
 
         <html:moz-checkbox
           checked=""
@@ -129,7 +122,7 @@
           data-l10n-id="tab-group-editor-information-message">
         </html:p>
 
-        <html:moz-button-group class="panel-body tab-group-create-actions">
+        <html:moz-button-group class="panel-footer tab-group-create-actions">
           <html:moz-button
             id="tab-group-cancel-suggestions-button"
             data-l10n-id="tab-group-editor-cancel">
@@ -148,6 +141,7 @@
       <html:moz-button
         hidden="true"
         id="tab-group-suggestion-button"
+        class="subviewbutton"
         type="icon ghost"
         data-l10n-id="tab-group-editor-smart-suggest-button-create">
       </html:moz-button>
@@ -167,7 +161,7 @@
 
     static defaultActions = /*html*/ `
       <html:moz-button-group
-        class="tab-group-create-actions tab-group-create-mode-only"
+        class="tab-group-create-actions tab-group-create-mode-only panel-footer"
         id="tab-group-default-actions">
         <html:moz-button
           id="tab-group-editor-button-cancel"
@@ -182,7 +176,10 @@
     `;
 
     static loadingActions = /*html*/ `
-      <html:moz-button-group id="tab-group-suggestions-load-actions" hidden="true">
+      <html:moz-button-group
+        id="tab-group-suggestions-load-actions"
+        class="panel-footer"
+        hidden="">
         <html:moz-button
           id="tab-group-suggestions-load-cancel"
           data-l10n-id="tab-group-editor-cancel">
@@ -192,27 +189,25 @@
 
     static optinSection = /*html*/ `
       <html:div
-        id="tab-group-suggestions-optin-container">
+        id="tab-group-suggestions-optin-container" hidden="">
       </html:div>
     `;
 
     static markup = /*html*/ `
-    <panel
+      <panel
         type="arrow"
-        class="tab-group-editor-panel"
+        class="tab-group-editor-panel panel-no-padding"
         orient="vertical"
         role="dialog"
         ignorekeys="true"
         norolluponanchor="true">
 
         ${this.headerSection}
-        ${this.suggestionsHeader}
 
         <toolbarseparator />
 
         <html:div
-          class="panel-body
-          tab-group-editor-name">
+          class="tab-group-editor-name">
           <html:label
             for="tab-group-name"
             data-l10n-id="tab-group-editor-name-label">
@@ -226,45 +221,45 @@
           />
         </html:div>
 
+        <html:div id="tab-group-main" class="panel-subview-body">
+          <html:div id="tab-group-properties-and-actions">
+            <html:div
+              class="tab-group-editor-swatches"
+              role="radiogroup"
+              data-l10n-id="tab-group-editor-color-selector"
+            />
 
-      <html:div id="tab-group-main">
-        <html:div
-          class="panel-body tab-group-editor-swatches"
-          role="radiogroup"
-          data-l10n-id="tab-group-editor-color-selector"
-        />
+            <toolbarseparator class="tab-group-edit-mode-only"/>
 
-        <toolbarseparator class="tab-group-edit-mode-only"/>
+            ${this.editActions}
 
-        ${this.editActions}
+            <toolbarseparator id="tab-group-suggestions-separator" hidden="true"/>
 
-        <toolbarseparator id="tab-group-suggestions-separator" hidden="true"/>
+            ${this.suggestionsButton}
 
-        ${this.suggestionsButton}
+            <html:div id="tab-group-suggestions-message-container" hidden="true">
+              <html:moz-button
+                disabled="true"
+                type="icon ghost"
+                id="tab-group-suggestions-message"
+                data-l10n-id="tab-group-editor-no-tabs-found-title">
+              </html:moz-button>
+              <html:p
+                data-l10n-id="tab-group-editor-no-tabs-found-message">
+              </html:p>
+            </html:div>
 
-        <html:div id="tab-group-suggestions-message-container" hidden="true">
-          <html:moz-button
-            disabled="true"
-            type="icon ghost"
-            id="tab-group-suggestions-message"
-            data-l10n-id="tab-group-editor-no-tabs-found-title">
-          </html:moz-button>
-          <html:p
-            data-l10n-id="tab-group-editor-no-tabs-found-message">
-          </html:p>
+            ${this.defaultActions}
+
+          </html:div>
+
+          ${this.loadingSection}
+          ${this.loadingActions}
+          ${this.suggestionsSection}
+          ${this.optinSection}
         </html:div>
-
-        ${this.defaultActions}
-
-      </html:div>
-
-      ${this.loadingSection}
-      ${this.loadingActions}
-      ${this.suggestionsSection}
-      ${this.optinSection}
-
-    </panel>
-       `;
+      </panel>
+    `;
 
     static State = {
       // Standard create mode (No AI UI)
@@ -294,6 +289,7 @@
     };
 
     #tabGroupMain;
+    #tabGroupPropertiesActions;
     #activeGroup;
     #cancelButton;
     #commandButtons;
@@ -307,7 +303,8 @@
     #defaultActions;
     #suggestionState = MozTabbrowserTabGroupMenu.State.CREATE_STANDARD_INITIAL;
     #suggestionsHeading;
-    #defaultHeader;
+    #createTabGroupHeading;
+    #editTabGroupHeading;
     /** @type {string} */
     #initialTabGroupName;
     #suggestionsContainer;
@@ -394,9 +391,17 @@
       this.#swatchesContainer = this.querySelector(
         ".tab-group-editor-swatches"
       );
-      this.#defaultHeader = this.querySelector("#tab-group-default-header");
+      this.#createTabGroupHeading = this.querySelector(
+        "#tab-group-editor-title-create"
+      );
+      this.#editTabGroupHeading = this.querySelector(
+        "#tab-group-editor-title-edit"
+      );
       this.#defaultActions = this.querySelector("#tab-group-default-actions");
       this.#tabGroupMain = this.querySelector("#tab-group-main");
+      this.#tabGroupPropertiesActions = this.querySelector(
+        "#tab-group-properties-and-actions"
+      );
       this.#initSuggestions();
 
       this.#populateSwatches();
@@ -555,6 +560,7 @@
           ? MozTabbrowserTabGroupMenu.State.CREATE_AI_INITIAL
           : MozTabbrowserTabGroupMenu.State.EDIT_AI_INITIAL;
         this.#setFormToDisabled(false);
+        this.#suggestionsOptinContainer.hidden = true;
       });
 
       // On Cancel Model Download
@@ -568,6 +574,7 @@
             ? MozTabbrowserTabGroupMenu.State.CREATE_AI_INITIAL
             : MozTabbrowserTabGroupMenu.State.EDIT_AI_INITIAL;
           this.#setFormToDisabled(false);
+          this.#suggestionsOptinContainer.hidden = true;
         }
       );
 
@@ -591,6 +598,7 @@
         }
       );
 
+      this.#suggestionsOptinContainer.hidden = false;
       this.#suggestionsOptinContainer.appendChild(this.#suggestionsOptin);
     }
 
@@ -620,7 +628,7 @@
 
       // Init Suggestions UI
       this.#suggestionsHeading = this.querySelector(
-        "#tab-group-suggestions-heading"
+        "#tab-group-editor-title-suggest"
       );
       this.#suggestionsContainer = this.querySelector(
         "#tab-group-suggestions-container"
@@ -1263,9 +1271,10 @@
      * @param {boolean} value
      */
     #setSuggestModeSuggestionState(value) {
-      this.#setElementVisibility(this.#tabGroupMain, !value);
+      this.#setElementVisibility(this.#tabGroupPropertiesActions, !value);
+      this.#setElementVisibility(this.#createTabGroupHeading, !value);
+      this.#setElementVisibility(this.#editTabGroupHeading, !value);
       this.#setElementVisibility(this.#suggestionsHeading, value);
-      this.#setElementVisibility(this.#defaultHeader, !value);
       this.#panel.classList.toggle("tab-group-editor-panel-expanded", value);
     }
 
@@ -1283,6 +1292,7 @@
       this.#showSmartSuggestionsContainer(false);
       if (this.#suggestionsOptinContainer) {
         this.#suggestionsOptinContainer.replaceChildren();
+        this.#suggestionsOptinContainer.hidden = true;
       }
     }
 

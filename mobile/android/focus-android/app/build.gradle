@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.python.envs.plugin)
+    id 'org.mozilla.conventions.zip-test-reports'
     id 'org.mozilla.nimbus-gradle-plugin'
 }
 
@@ -98,8 +99,8 @@ android {
 
             // If building locally, just use debug signing. In official automation builds, the
             // files are signed using a separate service and not within gradle.
-            // Also skip during buildconfig linting.
-            if (!gradle.mozconfig.substs.MOZ_AUTOMATION && System.getenv("MOZ_BUILD_CONFIG_LINT") != "1") {
+            // Also skip during buildconfig linting, and skip if the `disableDebugSigning` Gradle property is set.
+            if (!project.hasProperty("disableDebugSigning") && !gradle.hasProperty("localProperties.disableDebugSigning") && !gradle.mozconfig.substs.MOZ_AUTOMATION && System.getenv("MOZ_BUILD_CONFIG_LINT") != "1") {
                 signingConfig = signingConfigs.debug
             }
 
@@ -364,6 +365,7 @@ dependencies {
     constraints {
         implementation(libs.androidx.concurrent)
     }
+    androidTestImplementation project(':components:support-android-test')
     androidTestImplementation libs.androidx.concurrent
     androidTestImplementation libs.androidx.test.core
     androidTestImplementation libs.androidx.test.espresso.core
@@ -375,6 +377,15 @@ dependencies {
     androidTestImplementation libs.androidx.test.runner
     androidTestImplementation libs.androidx.test.uiautomator
     androidTestImplementation libs.mockwebserver
+    androidTestImplementation libs.okhttp
+    androidTestRuntimeOnly libs.okio
+    constraints {
+        // Various AndroidX dependencies pull in 1.1.1 transitively; OkHttp 5 requires 1.2.0.
+        implementation(libs.androidx.startup.runtime)
+        // okhttp is test-only; prevents older releases being resolved on the main classpath.
+        implementation(libs.okio)
+    }
+
     androidTestUtil libs.androidx.test.orchestrator
 
     lintChecks project(':components:tooling-lint')

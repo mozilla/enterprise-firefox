@@ -8,12 +8,20 @@ import android.content.res.Configuration
 import android.os.Build
 import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
+import android.view.View
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.navArgs
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
-import androidx.preference.SwitchPreference
+import androidx.preference.SwitchPreferenceCompat
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
+import mozilla.components.feature.summarize.settings.SummarizationSettings
 import org.mozilla.fenix.FeatureFlags
 import org.mozilla.fenix.GleanMetrics.AppTheme
 import org.mozilla.fenix.GleanMetrics.CustomizationSettings
@@ -21,6 +29,7 @@ import org.mozilla.fenix.GleanMetrics.PullToRefreshInBrowser
 import org.mozilla.fenix.GleanMetrics.ToolbarSettings
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.toolbar.ToolbarPosition
+import org.mozilla.fenix.e2e.SystemInsetsPaddedFragment
 import org.mozilla.fenix.ext.isTallWindow
 import org.mozilla.fenix.ext.isWideWindow
 import org.mozilla.fenix.ext.requireComponents
@@ -34,7 +43,7 @@ import org.mozilla.fenix.utils.view.addToRadioGroup
  */
 
 @Suppress("TooManyFunctions")
-class CustomizationFragment : PreferenceFragmentCompat() {
+class CustomizationFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFragment {
     private lateinit var radioLightTheme: RadioButtonPreference
     private lateinit var radioDarkTheme: RadioButtonPreference
     private lateinit var radioAutoBatteryTheme: RadioButtonPreference
@@ -44,18 +53,47 @@ class CustomizationFragment : PreferenceFragmentCompat() {
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         setPreferencesFromResource(R.xml.customization_preferences, rootKey)
 
-        setupPreferences()
+        setupPreferences(
+            isSummarizationEnabled = false,
+            isSummarizationGestureEnabled = false,
+        )
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.CREATED) {
+                val dataStore = SummarizationSettings.dataStore(requireContext())
+                combine(
+                    dataStore.getFeatureEnabledUserStatus(),
+                    dataStore.getGestureEnabledUserStatus(),
+                ) { isFeatureEnabled, isGestureEnabled ->
+                    isFeatureEnabled to isGestureEnabled
+                }
+                    .distinctUntilChanged()
+                    .collect { (isFeatureEnabled, isGestureEnabled) ->
+                        setupPreferences(
+                            isSummarizationEnabled = isFeatureEnabled,
+                            isSummarizationGestureEnabled = isGestureEnabled,
+                        )
+                    }
+            }
+        }
     }
 
     override fun onResume() {
         super.onResume()
         showToolbar(getString(R.string.preferences_customize))
         args.preferenceToScrollTo?.let {
-            scrollToPreference(it)
+            scrollToPreferenceWithHighlight(it)
         }
     }
 
-    private fun setupPreferences() {
+    private fun setupPreferences(
+        isSummarizationEnabled: Boolean,
+        isSummarizationGestureEnabled: Boolean,
+    ) {
         bindFollowDeviceTheme()
         bindDarkTheme()
         bindLightTheme()
@@ -69,7 +107,11 @@ class CustomizationFragment : PreferenceFragmentCompat() {
 
         // if tab strip is enabled, swipe toolbar to switch tabs should not be enabled so the
         // preference is not shown
-        setupGesturesCategory(isSwipeToolbarToSwitchTabsVisible = !tabletAndTabStripEnabled)
+        setupGesturesCategory(
+            isSwipeToolbarToSwitchTabsVisible = !tabletAndTabStripEnabled,
+            isSummarizationEnabled = isSummarizationEnabled,
+            isSummarizationGestureEnabled = isSummarizationGestureEnabled,
+        )
         setupAppIconCategory()
     }
 
@@ -212,7 +254,7 @@ class CustomizationFragment : PreferenceFragmentCompat() {
     }
 
     private fun setupTabStripCategory() {
-        val tabStripSwitch = requirePreference<SwitchPreference>(R.string.pref_key_tab_strip_show)
+        val tabStripSwitch = requirePreference<SwitchPreferenceCompat>(R.string.pref_key_tab_strip_show)
         val context = requireContext()
 
         tabStripSwitch.isChecked = Settings(requireContext()).isTabStripEnabled
@@ -250,20 +292,36 @@ class CustomizationFragment : PreferenceFragmentCompat() {
         }
     }
 
-    private fun setupGesturesCategory(isSwipeToolbarToSwitchTabsVisible: Boolean) {
-        requirePreference<SwitchPreference>(R.string.pref_key_website_pull_to_refresh).apply {
+    private fun setupGesturesCategory(
+        isSwipeToolbarToSwitchTabsVisible: Boolean,
+        isSummarizationEnabled: Boolean,
+        isSummarizationGestureEnabled: Boolean,
+    ) {
+        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_website_pull_to_refresh).apply {
             isVisible = FeatureFlags.PULL_TO_REFRESH_ENABLED
             isChecked = context.settings().isPullToRefreshEnabledInBrowser
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
-        requirePreference<SwitchPreference>(R.string.pref_key_dynamic_toolbar).apply {
+        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_dynamic_toolbar).apply {
             isChecked = context.settings().isDynamicToolbarEnabled
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
-        requirePreference<SwitchPreference>(R.string.pref_key_swipe_toolbar_switch_tabs).apply {
+        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_swipe_toolbar_switch_tabs).apply {
             isChecked = context.settings().isSwipeToolbarToSwitchTabsEnabled
             isVisible = isSwipeToolbarToSwitchTabsVisible
             onPreferenceChangeListener = SharedPreferenceUpdater()
+        }
+        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_shake_gesture_enabled).apply {
+            isVisible = context.settings().shakeToSummarizeFeatureFlagEnabled &&
+                    isSummarizationEnabled
+            isChecked = isSummarizationGestureEnabled
+            onPreferenceChangeListener = { _, newValue ->
+                val updatedValue = (newValue as? Boolean) ?: false
+                viewLifecycleOwner.lifecycleScope.launch {
+                    SummarizationSettings.dataStore(requireContext()).setGestureEnabledUserStatus(updatedValue)
+                }
+                true
+            }
         }
     }
 

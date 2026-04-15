@@ -146,7 +146,7 @@ export class BackupUIParent extends JSWindowActorParent {
       try {
         let { parentDirPath, password } = message.data;
         if (parentDirPath) {
-          this.#bs.setParentDirPath(parentDirPath);
+          await this.#bs.setParentDirPath(parentDirPath);
         }
 
         if (password) {
@@ -223,12 +223,15 @@ export class BackupUIParent extends JSWindowActorParent {
       const window = this.browsingContext.topChromeWindow;
       this.#bs.filePickerForRestore(window);
     } else if (message.name == "RestoreFromBackupFile") {
-      let { backupFile, backupPassword } = message.data;
+      let { backupFile, backupPassword, restoreType } = message.data;
       try {
         await this.#bs.recoverFromBackupArchive(
           backupFile,
           backupPassword,
-          true /* shouldLaunchOrQuit */
+          true /* shouldLaunchOrQuit */,
+          undefined,
+          undefined,
+          restoreType === "replace" /* replaceCurrentProfile */
         );
       } catch (e) {
         lazy.logConsole.error(`Failed to restore file: ${backupFile}`, e);
@@ -264,8 +267,8 @@ export class BackupUIParent extends JSWindowActorParent {
     } else if (message.name == "ShowBackupLocation") {
       this.#bs.showBackupLocation();
     } else if (message.name == "EditBackupLocation") {
-      const window = this.browsingContext.topChromeWindow;
-      this.#bs.editBackupLocation(window);
+      const path = message.data?.path;
+      this.#bs.editBackupLocation(path);
     } else if (message.name == "QuitCurrentProfile") {
       // Notify windows that a quit has been requested.
       let cancelQuit = Cc["@mozilla.org/supports-PRBool;1"].createInstance(

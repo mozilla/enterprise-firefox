@@ -10,7 +10,7 @@ use crate::properties::{ComputedValues, StyleBuilder};
 use crate::rule_tree::StrongRuleNode;
 use crate::selector_parser::PseudoElement;
 use crate::shared_lock::StylesheetGuards;
-use crate::values::computed::{NonNegativeLength, Zoom};
+use crate::values::computed::{Context, NonNegativeLength, Zoom};
 use crate::values::specified::color::ColorSchemeFlags;
 use rustc_hash::FxHashMap;
 use servo_arc::Arc;
@@ -138,12 +138,12 @@ impl RuleCache {
         guards: &StylesheetGuards,
         mut rule_node: Option<&'r StrongRuleNode>,
     ) -> Option<&'r StrongRuleNode> {
-        use crate::rule_tree::CascadeLevel;
+        use crate::rule_tree::CascadeOrigin;
         while let Some(node) = rule_node {
             let priority = node.cascade_priority();
             let cascade_level = priority.cascade_level();
             let should_try_to_skip = cascade_level.is_animation()
-                || matches!(cascade_level, CascadeLevel::PresHints)
+                || cascade_level.origin() == CascadeOrigin::PresHints
                 || priority.layer_order().is_style_attribute_layer();
             if !should_try_to_skip {
                 break;
@@ -163,14 +163,11 @@ impl RuleCache {
     ///
     /// This needs to receive a `StyleBuilder` with the `early` properties
     /// already applied.
-    pub fn find(
-        &self,
-        guards: &StylesheetGuards,
-        builder_with_early_props: &StyleBuilder,
-    ) -> Option<&ComputedValues> {
+    pub fn find(&self, guards: &StylesheetGuards, context: &Context) -> Option<&ComputedValues> {
         // A pseudo-element with property restrictions can result in different
         // computed values if it's also used for a non-pseudo.
-        if builder_with_early_props
+        if context
+            .builder
             .pseudo
             .and_then(|p| p.property_restriction())
             .is_some()
@@ -178,12 +175,16 @@ impl RuleCache {
             return None;
         }
 
-        let rules = builder_with_early_props.rules.as_ref();
+        if !context.included_cascade_flags.is_empty() {
+            return None;
+        }
+
+        let rules = context.builder.rules.as_ref();
         let rules = Self::get_rule_node_for_cache(guards, rules)?;
         let cached_values = self.map.get(rules)?;
 
         for &(ref conditions, ref values) in cached_values.iter() {
-            if conditions.matches(builder_with_early_props) {
+            if conditions.matches(&context.builder) {
                 debug!("Using cached reset style with conditions {:?}", conditions);
                 return Some(&**values);
             }

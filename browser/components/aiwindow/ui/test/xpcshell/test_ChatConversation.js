@@ -8,6 +8,10 @@ const { ChatConversation, MESSAGE_ROLE, ChatMessage } =
     "moz-src:///browser/components/aiwindow/ui/modules/ChatStore.sys.mjs"
   );
 
+const { SecurityProperties } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/aiwindow/models/SecurityProperties.sys.mjs"
+);
+
 const { MEMORIES_FLAG_SOURCE, SYSTEM_PROMPT_TYPE } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/ui/modules/ChatEnums.sys.mjs"
 );
@@ -16,6 +20,18 @@ const { UserRoleOpts, AssistantRoleOpts, ToolRoleOpts } =
   ChromeUtils.importESModule(
     "moz-src:///browser/components/aiwindow/ui/modules/ChatMessage.sys.mjs"
   );
+
+const { MemoryStore } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/aiwindow/services/MemoryStore.sys.mjs"
+);
+
+const { MemoriesManager } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/aiwindow/models/memories/MemoriesManager.sys.mjs"
+);
+
+const { EmbeddingsGenerator } = ChromeUtils.importESModule(
+  "chrome://global/content/ml/EmbeddingsGenerator.sys.mjs"
+);
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -26,7 +42,7 @@ add_task(function test_ChatConversation_constructor_defaults() {
   const conversation = new ChatConversation({});
 
   Assert.withSoftAssertions(function (soft) {
-    soft.equal(conversation.id.length, 12);
+    soft.equal(conversation.id.length, 36);
     soft.ok(Array.isArray(conversation.messages));
     soft.ok(!isNaN(conversation.createdDate));
     soft.ok(!isNaN(conversation.updatedDate));
@@ -174,6 +190,7 @@ add_task(function test_ChatConversation_addUserMessage() {
       type: "text",
       body: "user to assistant msg",
       userContext: {},
+      contextPageUrl: "https://www.mozilla.com/",
     });
   });
 });
@@ -219,6 +236,29 @@ add_task(async function test_userContext_ChatConversation_addUserMessage() {
   const message = conversation.messages[0];
 
   Assert.deepEqual(message.content.userContext, userContext);
+});
+
+add_task(function test_contextPageUrl_ChatConversation_addUserMessage() {
+  const conversation = new ChatConversation({});
+
+  conversation.addUserMessage(
+    "user msg",
+    new URL("https://www.mozilla.com/page")
+  );
+
+  const message = conversation.messages[0];
+
+  Assert.equal(message.content.contextPageUrl, "https://www.mozilla.com/page");
+});
+
+add_task(function test_noContextPageUrl_ChatConversation_addUserMessage() {
+  const conversation = new ChatConversation({});
+
+  conversation.addUserMessage("user msg", null);
+
+  const message = conversation.messages[0];
+
+  Assert.ok(!("contextPageUrl" in message.content));
 });
 
 add_task(function test_ChatConversation_addAssistantMessage() {
@@ -589,7 +629,7 @@ add_task(
 
     const conversation = new ChatConversation({});
 
-    sandbox.stub(conversation, "getRealTimeInfo").callsFake(() => {
+    sandbox.stub(ChatConversation, "getRealTimeInfo").callsFake(() => {
       conversation.addSystemMessage(
         SYSTEM_PROMPT_TYPE.REAL_TIME,
         "real time data"
@@ -744,10 +784,12 @@ add_task(async function test_returnsContent_ChatConversation_getRealTimeInfo() {
       .resolves("Current date: {todayDate}\nLocale: {locale}"),
   };
 
-  const conversation = new ChatConversation({});
-  const realTimeInfo = await conversation.getRealTimeInfo(mockEngineInstance, {
-    getRealTimeMapping: mockGetRealTimeMapping,
-  });
+  const realTimeInfo = await ChatConversation.getRealTimeInfo(
+    mockEngineInstance,
+    {
+      getRealTimeMapping: mockGetRealTimeMapping,
+    }
+  );
 
   Assert.withSoftAssertions(function (soft) {
     soft.ok(
@@ -770,8 +812,7 @@ add_task(
 
     const mockGetRealTimeMapping = lazy.sinon.stub().resolves(null);
 
-    const conversation = new ChatConversation({});
-    const realTimeInfo = await conversation.getRealTimeInfo(
+    const realTimeInfo = await ChatConversation.getRealTimeInfo(
       mockEngineInstance,
       {
         getRealTimeMapping: mockGetRealTimeMapping,
@@ -800,7 +841,8 @@ add_task(
     const memoriesContext = await conversation.getMemoriesContext(
       "hello",
       mockEngineInstance,
-      constructMemories
+      constructMemories,
+      new SecurityProperties()
     );
 
     Assert.withSoftAssertions(function (soft) {
@@ -866,6 +908,47 @@ add_task(function test_ChatConversation_renderState_filters_phantom_messages() {
   Assert.equal(renderState[1].content.body, "Here is the weather forecast.");
 });
 
+add_task(
+  async function test_deduplicatesMemoryIds_ChatConversation_receiveResponse() {
+    let sandbox = lazy.sinon.createSandbox();
+
+    const mockMemories = [{ id: "mem-1" }, { id: "mem-2" }];
+    sandbox.stub(MemoryStore, "getMemories").resolves(mockMemories);
+
+    const conversation = new ChatConversation({});
+    conversation.addAssistantMessage("text", "some response");
+    const assistantMsg = conversation.messages.at(-1);
+    assistantMsg._pendingMemoryIds = ["mem-1", "mem-1", "mem-2", "mem-2"];
+
+    async function* emptyStream() {}
+    await conversation.receiveResponse(emptyStream());
+
+    Assert.ok(
+      MemoryStore.getMemories.calledOnce,
+      "MemoryStore.getMemories should be called exactly once"
+    );
+    const { memoryIds } = MemoryStore.getMemories.firstCall.args[0];
+    Assert.equal(
+      memoryIds.size,
+      2,
+      "memoryIds should be a deduplicated Set of size 2"
+    );
+    Assert.ok(memoryIds.has("mem-1"), "memoryIds should contain mem-1");
+    Assert.ok(memoryIds.has("mem-2"), "memoryIds should contain mem-2");
+    Assert.deepEqual(
+      assistantMsg.memoriesApplied,
+      mockMemories,
+      "memoriesApplied should be set to the resolved memories"
+    );
+    Assert.ok(
+      !("_pendingMemoryIds" in assistantMsg),
+      "_pendingMemoryIds should be deleted after processing"
+    );
+
+    sandbox.restore();
+  }
+);
+
 add_task(async function test_addUserMessage_sets_memories_fields() {
   const conversation = new ChatConversation({});
 
@@ -891,4 +974,426 @@ add_task(async function test_addUserMessage_sets_memories_fields() {
     MEMORIES_FLAG_SOURCE.CONVERSATION,
     "memoriesFlagSource is persisted on the user message"
   );
+});
+
+add_task(async function test_generatePrompt_emitsUserMessage() {
+  const sandbox = lazy.sinon.createSandbox();
+  const conversation = new ChatConversation({});
+  const mockEngineInstance = {
+    loadPrompt: lazy.sinon.stub().resolves("system prompt"),
+  };
+  sandbox.stub(ChatConversation, "getRealTimeInfo").resolves(null);
+  sandbox.stub(conversation, "getMemoriesContext").resolves(null);
+
+  let emittedMessage = null;
+  conversation.on("chat-conversation:message-update", (_, msg) => {
+    emittedMessage = msg;
+  });
+
+  await conversation.generatePrompt("hello", null, mockEngineInstance);
+
+  Assert.ok(emittedMessage, "event should have been emitted");
+  Assert.equal(emittedMessage.content.body, "hello");
+  Assert.equal(emittedMessage.role, MESSAGE_ROLE.USER);
+  sandbox.restore();
+});
+
+add_task(async function test_generatePrompt_skipUserDispatch() {
+  const sandbox = lazy.sinon.createSandbox();
+  const conversation = new ChatConversation({});
+  const mockEngineInstance = {
+    loadPrompt: lazy.sinon.stub().resolves("system prompt"),
+  };
+  sandbox.stub(ChatConversation, "getRealTimeInfo").resolves(null);
+  sandbox.stub(conversation, "getMemoriesContext").resolves(null);
+
+  let emitted = false;
+  conversation.on("chat-conversation:message-update", () => {
+    emitted = true;
+  });
+
+  await conversation.generatePrompt(
+    "hello",
+    null,
+    mockEngineInstance,
+    undefined,
+    true
+  );
+
+  Assert.ok(
+    !emitted,
+    "event should not be emitted when skipUserDispatch is true"
+  );
+  sandbox.restore();
+});
+
+add_task(async function test_generatePrompt_memoriesContextErrorDoesNotThrow() {
+  let sandbox = lazy.sinon.createSandbox();
+
+  // Seed a memory so getRelevantMemories reaches the embeddings path
+  await MemoryStore.addMemory({
+    id: "memory-embed-fail",
+    memory_summary: "User likes hiking",
+    category: "preference",
+    intent: "profile",
+    reasoning: "Test memory",
+    score: 0.5,
+    updated_at: Date.now(),
+    is_deleted: false,
+  });
+  MemoriesManager._clearEmbeddingsCache();
+
+  sandbox
+    .stub(EmbeddingsGenerator.prototype, "embedMany")
+    .rejects(new Error("Failed to download embedding model"));
+
+  const conversation = new ChatConversation({});
+  const mockEngineInstance = {
+    loadPrompt: sandbox.stub().resolves("system prompt"),
+  };
+  sandbox
+    .stub(ChatConversation, "getRealTimeInfo")
+    .resolves("real time context");
+
+  const result = await conversation.generatePrompt(
+    "hello",
+    null,
+    mockEngineInstance,
+    { memoriesEnabled: true }
+  );
+
+  Assert.ok(result, "generatePrompt should resolve successfully");
+
+  const userMessage = conversation.messages.find(
+    m => m.role === MESSAGE_ROLE.USER
+  );
+
+  Assert.ok(
+    EmbeddingsGenerator.prototype.embedMany.calledOnce,
+    "embedMany should have been called exactly once"
+  );
+  Assert.equal(
+    userMessage.content.userContext.realTimeContext,
+    "real time context",
+    "realTimeContext should still be set despite embeddings failure"
+  );
+  Assert.ok(
+    !("memoriesContext" in userMessage.content.userContext),
+    "memoriesContext should not be set when embedMany rejects"
+  );
+
+  await MemoryStore.hardDeleteMemory("memory-embed-fail", "other");
+  MemoriesManager._clearEmbeddingsCache();
+  sandbox.restore();
+});
+
+add_task(
+  async function test_generatePrompt_userContextPopulatedBeforeResolving() {
+    const sandbox = lazy.sinon.createSandbox();
+    const conversation = new ChatConversation({});
+    const mockEngineInstance = {
+      loadPrompt: lazy.sinon.stub().resolves("system prompt"),
+    };
+    sandbox
+      .stub(ChatConversation, "getRealTimeInfo")
+      .resolves("real time context");
+    sandbox
+      .stub(conversation, "getMemoriesContext")
+      .resolves("memories context");
+
+    await conversation.generatePrompt("hello", null, mockEngineInstance, {
+      memoriesEnabled: true,
+    });
+
+    const userMessage = conversation.messages.find(
+      m => m.role === MESSAGE_ROLE.USER
+    );
+
+    Assert.withSoftAssertions(function (soft) {
+      soft.equal(
+        userMessage.content.userContext.realTimeContext,
+        "real time context",
+        "realTimeContext should be set on userContext before generatePrompt resolves"
+      );
+      soft.equal(
+        userMessage.content.userContext.memoriesContext,
+        "memories context",
+        "memoriesContext should be set on userContext before generatePrompt resolves"
+      );
+    });
+    sandbox.restore();
+  }
+);
+
+add_task(async function test_getRealTimeInfo_setsPrivateData_when_hasTabInfo() {
+  const securityProperties = new SecurityProperties();
+  const mockGetRealTimeMapping = lazy.sinon.stub().resolves({
+    todayDate: "2024-01-15",
+    url: "https://example.com",
+    title: "Example Page",
+    hasTabInfo: true,
+    locale: "en-US",
+    timezone: "America/Los_Angeles",
+    isoTimestamp: "2024-01-15T10:30:00",
+  });
+  const mockEngineInstance = {
+    loadPrompt: lazy.sinon.stub().resolves("{todayDate}"),
+  };
+
+  await ChatConversation.getRealTimeInfo(mockEngineInstance, {
+    getRealTimeMapping: mockGetRealTimeMapping,
+    securityProperties,
+  });
+
+  securityProperties.commit();
+  Assert.ok(
+    securityProperties.privateData,
+    "privateData should be true after commit when hasTabInfo is true"
+  );
+});
+
+add_task(
+  async function test_getRealTimeInfo_doesNotSetPrivateData_when_noTabInfo() {
+    const securityProperties = new SecurityProperties();
+    const mockGetRealTimeMapping = lazy.sinon.stub().resolves({
+      todayDate: "2024-01-15",
+      hasTabInfo: false,
+      locale: "en-US",
+      timezone: "America/Los_Angeles",
+      isoTimestamp: "2024-01-15T10:30:00",
+    });
+    const mockEngineInstance = {
+      loadPrompt: lazy.sinon.stub().resolves("{todayDate}"),
+    };
+
+    await ChatConversation.getRealTimeInfo(mockEngineInstance, {
+      getRealTimeMapping: mockGetRealTimeMapping,
+      securityProperties,
+    });
+
+    securityProperties.commit();
+    Assert.ok(
+      !securityProperties.privateData,
+      "privateData should remain false when hasTabInfo is false"
+    );
+  }
+);
+
+add_task(
+  async function test_getMemoriesContext_setsPrivateData_when_memoriesFound() {
+    const securityProperties = new SecurityProperties();
+    const constructMemories = lazy.sinon
+      .stub()
+      .resolves({ content: "some memory" });
+    const mockEngineInstance = {};
+
+    const conversation = new ChatConversation({});
+    await conversation.getMemoriesContext(
+      "hello",
+      mockEngineInstance,
+      constructMemories,
+      securityProperties
+    );
+
+    securityProperties.commit();
+    Assert.ok(
+      securityProperties.privateData,
+      "privateData should be true after commit when memories were found"
+    );
+  }
+);
+
+add_task(
+  async function test_getMemoriesContext_doesNotSetPrivateData_when_noMemories() {
+    const securityProperties = new SecurityProperties();
+    const constructMemories = lazy.sinon.stub().resolves(null);
+    const mockEngineInstance = {};
+
+    const conversation = new ChatConversation({});
+    await conversation.getMemoriesContext(
+      "hello",
+      mockEngineInstance,
+      constructMemories,
+      securityProperties
+    );
+
+    securityProperties.commit();
+    Assert.ok(
+      !securityProperties.privateData,
+      "privateData should remain false when no memories were found"
+    );
+  }
+);
+
+add_task(
+  async function test_generatePrompt_commitsPrivateData_when_hasTabInfo() {
+    const mockEngineInstance = {
+      loadPrompt: lazy.sinon.stub().resolves("system prompt"),
+    };
+    const conversation = new ChatConversation({});
+    const sandbox = lazy.sinon.createSandbox();
+
+    sandbox
+      .stub(ChatConversation, "getRealTimeInfo")
+      .callsFake(async (_, opts) => {
+        opts.securityProperties?.setPrivateData();
+        return "real time info";
+      });
+    sandbox.stub(conversation, "getMemoriesContext").resolves(null);
+
+    await conversation.generatePrompt("hello", null, mockEngineInstance);
+
+    Assert.ok(
+      conversation.securityProperties.privateData,
+      "privateData should be committed true when getRealTimeInfo stages it"
+    );
+    sandbox.restore();
+  }
+);
+
+add_task(
+  async function test_generatePrompt_commitsPrivateData_when_memoriesEnabled() {
+    const mockEngineInstance = {
+      loadPrompt: lazy.sinon.stub().resolves("system prompt"),
+    };
+    const conversation = new ChatConversation({});
+    const sandbox = lazy.sinon.createSandbox();
+
+    sandbox.stub(ChatConversation, "getRealTimeInfo").resolves(null);
+    sandbox
+      .stub(conversation, "getMemoriesContext")
+      .callsFake(async (_, _engine, _construct, sp) => {
+        sp?.setPrivateData();
+        return "some memories";
+      });
+
+    await conversation.generatePrompt("hello", null, mockEngineInstance, {
+      memoriesEnabled: true,
+    });
+
+    Assert.ok(
+      conversation.securityProperties.privateData,
+      "privateData should be committed true when getMemoriesContext stages it"
+    );
+    sandbox.restore();
+  }
+);
+
+add_task(
+  async function test_generatePrompt_doesNotSetPrivateData_when_noTabOrMemories() {
+    const mockEngineInstance = {
+      loadPrompt: lazy.sinon.stub().resolves("system prompt"),
+    };
+    const conversation = new ChatConversation({});
+    const sandbox = lazy.sinon.createSandbox();
+
+    sandbox.stub(ChatConversation, "getRealTimeInfo").resolves(null);
+    sandbox.stub(conversation, "getMemoriesContext").resolves(null);
+
+    await conversation.generatePrompt("hello", null, mockEngineInstance);
+
+    Assert.ok(
+      !conversation.securityProperties.privateData,
+      "privateData should remain false when no private data was staged"
+    );
+    sandbox.restore();
+  }
+);
+
+add_task(function test_securityProperties_plainObject_normalization() {
+  const conversation = new ChatConversation({
+    securityProperties: { untrustedInput: true },
+  });
+
+  Assert.withSoftAssertions(function (soft) {
+    soft.ok(
+      conversation.securityProperties instanceof SecurityProperties,
+      "securityProperties should be a SecurityProperties instance"
+    );
+    soft.equal(
+      conversation.securityProperties.untrustedInput,
+      true,
+      "untrustedInput should be true when explicitly set"
+    );
+    soft.equal(
+      conversation.securityProperties.privateData,
+      false,
+      "privateData should default to false when missing from input"
+    );
+  });
+});
+
+add_task(async function test_convertUrlToToken_tokenGeneration() {
+  const cases = [
+    {
+      message: "Works for a URL with a path.",
+      url: "http://www.github.com/foo/bar/baz",
+      expected: "GITHUB_COM_FOO_BAR_BAZ_1",
+    },
+    {
+      message:
+        "Returns a new number for a URL that is different but creates the same token.",
+      url: "http://www.github.com/foo/bar/baz?ignored",
+      expected: "GITHUB_COM_FOO_BAR_BAZ_2",
+    },
+    {
+      message: "Returns the exact same token given another URL",
+      url: "http://www.github.com/foo/bar/baz",
+      expected: "GITHUB_COM_FOO_BAR_BAZ_1",
+    },
+    {
+      message:
+        "Returns a different token given the same URL with a different protocol",
+      url: "https://www.github.com/foo/bar/baz",
+      expected: "GITHUB_COM_FOO_BAR_BAZ_3",
+    },
+    {
+      message: "Can handle about URLs.",
+      url: "about:config",
+      expected: "ABOUT_CONFIG_1",
+    },
+    {
+      message: "Uses non-http protocols",
+      url: "ftp://github.com/foo/bar/baz",
+      expected: "FTP_GITHUB_COM_FOO_BAR_BAZ_1",
+    },
+    {
+      message: "Uses invalid protocols",
+      url: "asdf://github.com/foo/bar/baz",
+      expected: "ASDF_GITHUB_COM_FOO_BAR_BAZ_1",
+    },
+    {
+      message: "Ignores the port.",
+      url: "http://github.com:1234/ignore/port",
+      expected: "GITHUB_COM_IGNORE_PORT_1",
+    },
+    {
+      message: "Ignores the params.",
+      url: "http://www.github.com/ignore/params?token=xxx",
+      expected: "GITHUB_COM_IGNORE_PARAMS_1",
+    },
+    {
+      message: "Ignores the hash.",
+      url: "http://www.github.com/ignore/hash/part?token=xxx#hash",
+      expected: "GITHUB_COM_IGNORE_HASH_PART_1",
+    },
+    {
+      message: "Truncates text in the host from 110 to 100.",
+      url: `http://www.${"a".repeat(110)}.com/foo`,
+      expected: "A".repeat(100) + "_1",
+    },
+    {
+      message: "Skips text in the path that is too long",
+      url: `http://github.com/skip/long/path/` + "A".repeat(100),
+      expected: "GITHUB_COM_SKIP_LONG_PATH_1",
+    },
+  ];
+
+  // Re-use the chat conversation.
+  const conversation = new ChatConversation({});
+
+  for (const { message, url, expected } of cases) {
+    const token = conversation.convertUrlToToken(url);
+    Assert.equal(token, expected, message);
+  }
 });

@@ -474,7 +474,6 @@ mozilla::ipc::IPCResult MFCDMChild::RecvOnSessionClosed(
 
 void MFCDMChild::IPDLActorDestroyed() {
   AssertOnManagerThread();
-  mIPDLSelfRef = nullptr;
   if (!mShutdown) {
     LOG("IPDLActorDestroyed, remote process crashed!");
     mState = NS_ERROR_NOT_AVAILABLE;
@@ -482,6 +481,7 @@ void MFCDMChild::IPDLActorDestroyed() {
       mProxyCallback->OnRemoteProcessCrashed();
     }
   }
+  mIPDLSelfRef = nullptr;
 }
 
 #undef SLOG

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -7,6 +5,9 @@
 #include "ARIAMap.h"
 #include "CachedTableAccessible.h"
 #include "DocAccessibleParent.h"
+#ifdef MOZ_ENABLE_SKIA_PDF
+#  include "mozilla/a11y/PdfStructTreeBuilder.h"
+#endif
 #include "mozilla/a11y/Platform.h"
 #include "mozilla/Components.h"  // for mozilla::components
 #include "mozilla/dom/BrowserBridgeParent.h"
@@ -117,6 +118,11 @@ mozilla::ipc::IPCResult DocAccessibleParent::ProcessShowEvent(
       return IPC_OK();
 #endif
     }
+
+    if (parent->IsOuterDoc()) {
+      return IPC_FAIL(this, "Cannot attach non-doc to OuterDoc");
+    }
+
     lastParent = parent;
     lastParentID = accData.ParentID();
 
@@ -222,6 +228,11 @@ mozilla::ipc::IPCResult DocAccessibleParent::ProcessShowEvent(
 
 RemoteAccessible* DocAccessibleParent::CreateAcc(
     const AccessibleData& aAccData) {
+  if (aAccData.ID() == 0) {
+    MOZ_ASSERT_UNREACHABLE("An ID of 0 is reserved for the document itself");
+    return nullptr;
+  }
+
   RemoteAccessible* newProxy;
   if ((newProxy = GetAccessible(aAccData.ID()))) {
     // This is a move. Reuse the Accessible; don't destroy it.
@@ -907,16 +918,16 @@ mozilla::ipc::IPCResult DocAccessibleParent::RecvBindChildDoc(
   MOZ_ASSERT(CheckDocTree());
 
   auto childDoc = static_cast<DocAccessibleParent*>(aChildDoc.get());
+  if (childDoc->IsShutdown()) {
+    return IPC_FAIL(this, "Attempt to bind a shutdown child doc");
+  }
+
   ipc::IPCResult result = AddChildDoc(childDoc, aID, false);
   MOZ_ASSERT(result);
   MOZ_ASSERT(CheckDocTree());
-#ifdef DEBUG
   if (!result) {
     return result;
   }
-#else
-  result = IPC_OK();
-#endif
 
   return result;
 }
@@ -929,16 +940,15 @@ ipc::IPCResult DocAccessibleParent::AddChildDoc(DocAccessibleParent* aChildDoc,
                     "Attempt to add child doc which already has a parent");
   }
 
+  if (aChildDoc->IsShutdown()) {
+    return IPC_FAIL(this, "Attempt to add a shutdown child doc");
+  }
+
   // We do not use GetAccessible here because we want to be sure to not get the
   // document it self.
   ProxyEntry* e = mAccessibles.GetEntry(aParentID);
   if (!e) {
-#ifndef FUZZING_SNAPSHOT
-    // This diagnostic assert and the one down below expect a well-behaved
-    // child process. In IPC fuzzing, we directly fuzz parameters of each
-    // method over IPDL and the asserts are not valid under these conditions.
-    MOZ_DIAGNOSTIC_CRASH("Binding to nonexistent proxy!");
-#endif
+    MOZ_ASSERT_UNREACHABLE("Binding to nonexistent proxy!");
     return IPC_FAIL(this, "binding to nonexistant proxy!");
   }
 
@@ -950,9 +960,7 @@ ipc::IPCResult DocAccessibleParent::AddChildDoc(DocAccessibleParent* aChildDoc,
   // here.
   if (!outerDoc->IsOuterDoc() || outerDoc->ChildCount() > 1 ||
       (outerDoc->ChildCount() == 1 && !outerDoc->RemoteChildAt(0)->IsDoc())) {
-#ifndef FUZZING_SNAPSHOT
-    MOZ_DIAGNOSTIC_CRASH("Binding to parent that isn't a valid OuterDoc!");
-#endif
+    MOZ_ASSERT_UNREACHABLE("Binding to parent that isn't a valid OuterDoc!");
     return IPC_FAIL(this, "Binding to parent that isn't a valid OuterDoc!");
   }
 
@@ -1031,6 +1039,9 @@ void DocAccessibleParent::Destroy() {
   // If we are already shutdown that is because our containing tab parent is
   // shutting down in which case we don't need to do anything.
   if (mShutdown) {
+    // Just in case there is a cycle in the document heirarchy.
+    mParent = nullptr;
+    mIndexInParent = -1;
     return;
   }
 
@@ -1113,6 +1124,9 @@ void DocAccessibleParent::ActorDestroy(ActorDestroyReason aWhy) {
   if (!mShutdown) {
     ACQUIRE_ANDROID_LOCK
     Destroy();
+  } else if (RemoteParent()) {
+    ACQUIRE_ANDROID_LOCK
+    Unbind();
   }
 }
 
@@ -1423,6 +1437,15 @@ DocAccessibleParent::CollectReports(nsIHandleReportCallback* aHandleReport,
 }
 
 NS_IMPL_ISUPPORTS(DocAccessibleParent, nsIMemoryReporter);
+
+#ifdef MOZ_ENABLE_SKIA_PDF
+mozilla::ipc::IPCResult DocAccessibleParent::RecvPrinting() {
+  if (dom::CanonicalBrowsingContext* bc = GetBrowsingContext()) {
+    PdfStructTreeBuilder::Init(bc);
+  }
+  return IPC_OK();
+}
+#endif
 
 }  // namespace a11y
 }  // namespace mozilla

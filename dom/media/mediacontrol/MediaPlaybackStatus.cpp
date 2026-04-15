@@ -164,7 +164,7 @@ void MediaPlaybackStatus::SetOwningAudioFocusContextId(
   if (mOwningAudioFocusContextId == aContextId) {
     return;
   }
-  mOwningAudioFocusContextId = aContextId;
+  mOwningAudioFocusContextId = std::move(aContextId);
 }
 
 bool MediaPlaybackStatus::ShouldRequestAudioFocusForInfo(

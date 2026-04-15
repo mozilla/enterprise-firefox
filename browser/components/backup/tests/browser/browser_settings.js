@@ -25,13 +25,25 @@ add_setup(async () => {
  */
 add_task(async function test_preferences_visibility() {
   await BrowserTestUtils.withNewTab("about:preferences#sync", async browser => {
-    let settings = browser.contentDocument.querySelector("backup-settings");
+    let settings = await waitForBackupSettings(browser);
 
-    // Our mochitest-browser tests are configured to have the section visible
-    // by default.
+    // Wait for the sections to be rendered (they're conditionally rendered based on state)
+    await BrowserTestUtils.waitForMutationCondition(
+      settings.shadowRoot,
+      { childList: true, subtree: true },
+      () => {
+        return (
+          settings.shadowRoot.getElementById("backup-toggle-restore-button") &&
+          settings.shadowRoot.getElementById("scheduled-backups")
+        );
+      }
+    );
+
+    let restoreSection = settings.restoreSectionEl;
+    let archiveSection = settings.archiveSectionEl;
     Assert.ok(
-      BrowserTestUtils.isVisible(settings.restoreSectionEl) &&
-        BrowserTestUtils.isVisible(settings.archiveSectionEl),
+      BrowserTestUtils.isVisible(restoreSection) &&
+        BrowserTestUtils.isVisible(archiveSection),
       "Backup section is visible"
     );
   });
@@ -96,7 +108,7 @@ add_task(async function test_disable_backup_encryption_confirm() {
       set: [[SCHEDULED_BACKUPS_ENABLED_PREF, true]],
     });
 
-    let settings = browser.contentDocument.querySelector("backup-settings");
+    let settings = await waitForBackupSettings(browser);
 
     /**
      * For this test, we can pretend that browser-settings receives a backupServiceState
@@ -110,6 +122,14 @@ add_task(async function test_disable_backup_encryption_confirm() {
     settings.backupServiceState.encryptionEnabled = true;
     await settings.requestUpdate();
     await settings.updateComplete;
+
+    // Wait for the sensitive data section to render (requires archiveEnabledStatus
+    // and scheduledBackupsEnabled to be set by BackupService state updates)
+    await BrowserTestUtils.waitForMutationCondition(
+      settings.shadowRoot,
+      { childList: true, subtree: true },
+      () => settings.shadowRoot.querySelector("moz-checkbox")
+    );
 
     let sensitiveDataCheckbox = settings.sensitiveDataCheckboxInputEl;
 
@@ -257,6 +277,7 @@ add_task(async function test_restore_from_backup() {
         date: new Date(),
         isEncrypted: true,
       },
+      selectableProfilesAllowed: false,
     };
     await restoreFromBackup.updateComplete;
 
@@ -291,14 +312,20 @@ add_task(async function test_restore_from_backup() {
     restoreFromBackup.confirmButtonEl.click();
 
     await restorePromise.then(e => {
-      let mockEvent = {
-        backupFile: mockBackupFile.path,
-        backupPassword: "h-*@Vfge3_hGxdpwqr@w",
-      };
-      Assert.deepEqual(
-        e.detail,
-        mockEvent,
-        "Event should contain the file and password"
+      Assert.equal(
+        e.detail.backupFile,
+        mockBackupFile.path,
+        "Event should contain the file path"
+      );
+      Assert.equal(
+        e.detail.backupPassword,
+        "h-*@Vfge3_hGxdpwqr@w",
+        "Event should contain the password"
+      );
+      Assert.equal(
+        e.detail.restoreType,
+        "add",
+        "restoreType should default to 'add'"
       );
     });
 
@@ -414,7 +441,7 @@ add_task(async function test_last_backup_info_and_location() {
       "BackupService:StateUpdate",
       false,
       () => {
-        return bs.state.backupDirPath.startsWith(TEST_NEW_BACKUP_PARENT_PATH);
+        return bs.state.backupDirPath?.startsWith(TEST_NEW_BACKUP_PARENT_PATH);
       }
     );
     let filePickerShownPromise = new Promise(resolve => {
@@ -426,7 +453,29 @@ add_task(async function test_last_backup_info_and_location() {
     });
     MockFilePicker.returnValue = MockFilePicker.returnOK;
 
-    settings.backupLocationEditButtonEl.click();
+    // Wait for the location input to be rendered
+    await BrowserTestUtils.waitForMutationCondition(
+      settings.shadowRoot,
+      { childList: true, subtree: true },
+      () => settings.shadowRoot.getElementById("last-backup-location")
+    );
+
+    let locationInput = settings.shadowRoot.getElementById(
+      "last-backup-location"
+    );
+    await locationInput.updateComplete;
+
+    stateUpdated = BrowserTestUtils.waitForEvent(
+      bs,
+      "BackupService:StateUpdate",
+      false,
+      () => {
+        return bs.state.backupDirPath?.startsWith(TEST_NEW_BACKUP_PARENT_PATH);
+      }
+    );
+
+    let editButton = locationInput.chooseFolderButtonEl;
+    editButton.click();
     await filePickerShownPromise;
     await stateUpdated;
 

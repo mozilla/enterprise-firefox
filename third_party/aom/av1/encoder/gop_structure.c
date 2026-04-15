@@ -17,10 +17,12 @@
 
 #include "aom/aom_codec.h"
 #include "aom/aom_encoder.h"
+#include "aom/aom_ext_ratectrl.h"
 
 #include "av1/common/av1_common_int.h"
 
 #include "av1/encoder/encoder.h"
+#include "av1/encoder/av1_ext_ratectrl.h"
 #include "av1/encoder/firstpass.h"
 #include "av1/encoder/gop_structure.h"
 #include "av1/encoder/pass2_strategy.h"
@@ -839,7 +841,54 @@ static void set_ld_layer_depth(GF_GROUP *gf_group, int gop_length) {
   gf_group->max_layer_depth = AOMMIN(log_gop_length, MAX_ARF_LAYERS);
 }
 
-void av1_gop_setup_structure(AV1_COMP *cpi) {
+static void construct_gop_structure_from_rc(
+    GF_GROUP *gf_group, aom_rc_gop_decision_t *rc_gop_decision) {
+  gf_group->size = rc_gop_decision->gop_frame_count;
+  for (int frame_index = 0; frame_index < gf_group->size; ++frame_index) {
+    aom_rc_gop_frame_t *gop_frame_rc =
+        &rc_gop_decision->gop_frame_list[frame_index];
+    gf_group->update_type[frame_index] = gop_frame_rc->update_type;
+    gf_group->layer_depth[frame_index] = gop_frame_rc->layer_depth;
+    gf_group->update_ref_idx[frame_index] = gop_frame_rc->update_ref_idx;
+    // `display_idx` means differently in libaom and RC.
+    // - in libaom: it is display order index in the GOP, equivalent to
+    //              `order_idx` in RC
+    // - in RC: it is the number of display frames precedeing this frame, which
+    //          is equivalent to `cur_frame_idx` in libaom.
+    gf_group->display_idx[frame_index] = gop_frame_rc->order_idx;
+    gf_group->cur_frame_idx[frame_index] = gop_frame_rc->display_idx;
+    switch (gf_group->update_type[frame_index]) {
+      case LF_UPDATE:
+      case INTNL_OVERLAY_UPDATE:
+        gf_group->arf_src_offset[frame_index] = 0;
+        break;
+      case ARF_UPDATE:
+      case INTNL_ARF_UPDATE:
+        gf_group->arf_src_offset[frame_index] =
+            gop_frame_rc->order_idx - gop_frame_rc->display_idx;
+        break;
+      default: gf_group->arf_src_offset[frame_index] = 0;
+    }
+    gf_group->frame_type[frame_index] =
+        gop_frame_rc->is_key_frame ? KEY_FRAME : INTER_FRAME;
+    gf_group->refbuf_state[frame_index] =
+        gop_frame_rc->is_key_frame ? REFBUF_RESET : REFBUF_UPDATE;
+    // Always override the ref frame map from external RC.
+    gf_group->use_ext_ref_frame_map[frame_index] = 1;
+    for (int i = 0; i < REF_FRAMES; ++i) {
+      gf_group->ref_frame_list[frame_index][i] = INVALID_IDX;
+    }
+    for (int i = 0; i < AOM_RC_MAX_REF_FRAMES; ++i) {
+      int ref_name = gop_frame_rc->ref_frame_list.name[i];
+      int buf_idx = gop_frame_rc->ref_frame_list.index[i];
+      if (ref_name >= LAST_FRAME && ref_name <= ALTREF_FRAME) {
+        gf_group->ref_frame_list[frame_index][ref_name] = (int8_t)buf_idx;
+      }
+    }
+  }
+}
+
+void av1_gop_setup_structure(AV1_COMP *cpi, const int is_final_pass) {
   RATE_CONTROL *const rc = &cpi->rc;
   PRIMARY_RATE_CONTROL *const p_rc = &cpi->ppi->p_rc;
   GF_GROUP *const gf_group = &cpi->ppi->gf_group;
@@ -848,26 +897,45 @@ void av1_gop_setup_structure(AV1_COMP *cpi) {
   const int key_frame = rc->frames_since_key == 0;
   FRAME_UPDATE_TYPE first_frame_update_type = ARF_UPDATE;
 
-  if (key_frame) {
-    first_frame_update_type = KF_UPDATE;
-    if (cpi->oxcf.kf_max_pyr_height != -1) {
-      gf_group->max_layer_depth_allowed = AOMMIN(
-          cpi->oxcf.kf_max_pyr_height, gf_group->max_layer_depth_allowed);
+  // define_gf_group() is called twice in av1_set_second_pass_params() with
+  // `is_final_pass` being 0 and 1 separately. But only one GOP can be advanced
+  // with the external RC. That is only done when `is_final_pass` is true.
+  if (cpi->ext_ratectrl.ready &&
+      (cpi->ext_ratectrl.funcs.rc_type & AOM_RC_GOP) != 0 &&
+      cpi->ext_ratectrl.funcs.get_gop_decision != NULL && is_final_pass) {
+    aom_rc_gop_decision_t gop_decision;
+    aom_codec_err_t codec_status =
+        av1_extrc_get_gop_decision(&cpi->ext_ratectrl, &gop_decision);
+    if (codec_status != AOM_CODEC_OK) {
+      aom_internal_error(cpi->common.error, codec_status,
+                         "av1_extrc_get_gop_decision() failed");
     }
-  } else if (!cpi->ppi->gf_state.arf_gf_boost_lst) {
-    first_frame_update_type = GF_UPDATE;
+    construct_gop_structure_from_rc(gf_group, &gop_decision);
+    if (gop_decision.gop_frame_list[0].is_key_frame) {
+      rc->frames_since_key = 0;
+    }
+  } else {
+    if (key_frame) {
+      first_frame_update_type = KF_UPDATE;
+      if (cpi->oxcf.kf_max_pyr_height != -1) {
+        gf_group->max_layer_depth_allowed = AOMMIN(
+            cpi->oxcf.kf_max_pyr_height, gf_group->max_layer_depth_allowed);
+      }
+    } else if (!cpi->ppi->gf_state.arf_gf_boost_lst) {
+      first_frame_update_type = GF_UPDATE;
+    }
+
+    if (cpi->oxcf.algo_cfg.sharpness == 3)
+      gf_group->max_layer_depth_allowed =
+          AOMMIN(gf_group->max_layer_depth_allowed, 2);
+
+    gf_group->size = construct_multi_layer_gf_structure(
+        cpi, twopass, gf_group, rc, frame_info, p_rc->baseline_gf_interval,
+        first_frame_update_type);
+
+    if (gf_group->max_layer_depth_allowed == 0)
+      set_ld_layer_depth(gf_group, p_rc->baseline_gf_interval);
   }
-
-  if (cpi->oxcf.algo_cfg.sharpness == 3)
-    gf_group->max_layer_depth_allowed =
-        AOMMIN(gf_group->max_layer_depth_allowed, 2);
-
-  gf_group->size = construct_multi_layer_gf_structure(
-      cpi, twopass, gf_group, rc, frame_info, p_rc->baseline_gf_interval,
-      first_frame_update_type);
-
-  if (gf_group->max_layer_depth_allowed == 0)
-    set_ld_layer_depth(gf_group, p_rc->baseline_gf_interval);
 }
 
 int av1_gop_check_forward_keyframe(const GF_GROUP *gf_group,

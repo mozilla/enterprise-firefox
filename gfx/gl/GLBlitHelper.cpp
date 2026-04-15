@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -364,7 +362,7 @@ ScopedSaveMultiTex::ScopedSaveMultiTex(GLContext* const gl,
       mTexUnits(texUnits),
       mTexTarget(texTarget),
       mOldTexUnit(mGL.GetIntAs<GLenum>(LOCAL_GL_ACTIVE_TEXTURE)) {
-  MOZ_RELEASE_ASSERT(texUnits >= 1);
+  MOZ_RELEASE_ASSERT(texUnits >= 1 && texUnits <= std::size(mOldTex));
 
   GLenum texBinding;
   switch (mTexTarget) {
@@ -833,7 +831,7 @@ std::unique_ptr<const DrawBlitProg> GLBlitHelper::CreateDrawBlitProg(
     if (key.fragHeader) {
       parts.push_back(key.fragHeader);
     }
-    parts.push_back(precisionLine.BeginReading());
+    parts.push_back(precisionLine.get());
     parts.push_back(kFragDeclHeader);
     for (const auto& part : key.fragParts) {
       if (part) {
@@ -978,6 +976,9 @@ bool GLBlitHelper::BlitSdToFramebuffer(const layers::SurfaceDescriptor& asd,
     case layers::SurfaceDescriptor::TSurfaceDescriptorDMABuf: {
       const auto& sd = asd.get_SurfaceDescriptorDMABuf();
       RefPtr<DMABufSurface> surface = DMABufSurface::CreateDMABufSurface(sd);
+      if (!surface) {
+        return false;
+      }
       return Blit(surface, destRect, destOrigin, fbSize, convertAlpha);
     }
 #endif
@@ -1633,6 +1634,12 @@ bool GLBlitHelper::Blit(DMABufSurface* surface, const gfx::IntRect& destRect,
 
   const DrawBlitProg::YUVArgs* pYuvArgs = nullptr;
   const auto planes = surface->GetTextureCount();
+
+  // The shaders used below currently only support 1-3 planes.
+  if (planes < 1 || planes > 3) {
+    gfxCriticalError() << "Unexpected DMABuf planes count: " << planes;
+    return false;
+  }
 
   // -
   // Ensure textures for all planes have been created.

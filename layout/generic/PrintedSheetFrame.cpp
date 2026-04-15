@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -150,10 +148,13 @@ void PrintedSheetFrame::Reflow(nsPresContext* aPresContext,
     // scaled to fit their sheet. Hence why we get the page's own dimensions to
     // use as its "available space"/"container size" here.
     const nsSize physPageSize = pageFrame->ComputePageSize();
-    const LogicalSize pageSize(wm, physPageSize);
+    LogicalSize availSize(wm, physPageSize);
+    if (aReflowInput.mFlags.mIsInFragmentainerMeasuringReflow) {
+      availSize.BSize(wm) = aReflowInput.AvailableBSize();
+    }
 
     ReflowInput pageReflowInput(aPresContext, aReflowInput, pageFrame,
-                                pageSize);
+                                availSize);
 
     // For layout purposes, we position *all* our nsPageFrame children at our
     // origin. Then, if we have multiple pages-per-sheet, we'll shrink & shift

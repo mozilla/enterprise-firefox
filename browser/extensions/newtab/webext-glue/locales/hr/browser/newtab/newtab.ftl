@@ -52,7 +52,7 @@ newtab-search-box-input =
     .placeholder = Pretraži web
     .aria-label = Pretraži web
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Dodaj tražilicu
 newtab-topsites-add-shortcut-header = Novi prečac

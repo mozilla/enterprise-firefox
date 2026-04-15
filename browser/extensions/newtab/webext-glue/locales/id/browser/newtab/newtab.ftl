@@ -49,7 +49,7 @@ newtab-search-box-input =
     .placeholder = Cari di web
     .aria-label = Cari di web
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Tambahkan Mesin Pencari
 newtab-topsites-add-shortcut-header = Pintasan Baru

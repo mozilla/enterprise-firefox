@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -360,7 +359,7 @@ IMENotificationRequests IMEHandler::GetIMENotificationRequests() {
     // an editor has focus isn't supported by IMEContentObserver nor
     // ContentCacheInParent.  Therefore, we need to request whole notifications
     // which are necessary either IMMHandler or TSFTextStore.
-    return IMMHandler::GetIMENotificationRequests() |
+    return IMMHandler::GetIMENotificationRequests() +
            TSFUtils::GetIMENotificationRequests();
   }
 

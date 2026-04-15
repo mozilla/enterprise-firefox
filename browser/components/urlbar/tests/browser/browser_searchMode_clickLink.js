@@ -78,7 +78,7 @@ async function doClickLinkTest(searchString, href) {
 
     // Add a link to the page and click it.
     let loadPromise = BrowserTestUtils.browserLoaded(gBrowser.selectedBrowser);
-    await ContentTask.spawn(gBrowser.selectedBrowser, href, async cHref => {
+    await SpecialPowers.spawn(gBrowser.selectedBrowser, [href], async cHref => {
       let link = this.content.document.createElement("a");
       link.textContent = "Click me";
       link.href = cHref;

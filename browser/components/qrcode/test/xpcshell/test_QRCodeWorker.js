@@ -65,3 +65,23 @@ add_task(async function test_worker_can_generate_simple_qrcode() {
   // Clean up
   await worker.terminate();
 });
+
+add_task(async function test_worker_can_generate_qrcode_for_long_url() {
+  info("Testing QRCodeWorker can generate a QR code for a longer URL");
+
+  const worker = new QRCodeWorker();
+
+  // Test generating a long URL QR code
+  const testUrl =
+    "https://www.cnet.com/home/kitchen-and-household/keep-these-7-devices-far-away-from-extension-cords-or-power-strips/?utm_source=firefox-newtab-en-us";
+  const result = await worker.generateQRCode(testUrl);
+
+  Assert.ok(result, "Should get a result from generateQRCode");
+  Assert.ok(result.width, "Result should have a width");
+  Assert.ok(result.height, "Result should have a height");
+  Assert.ok(result.src, "Result should have a src data URI");
+  Assert.ok(result.src.startsWith("data:image/"), "src should be a data URI");
+
+  // Clean up
+  await worker.terminate();
+});

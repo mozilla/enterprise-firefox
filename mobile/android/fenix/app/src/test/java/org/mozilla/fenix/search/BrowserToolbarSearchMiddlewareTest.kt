@@ -49,7 +49,6 @@ import mozilla.components.concept.toolbar.AutocompleteResult
 import mozilla.components.feature.awesomebar.provider.SessionAutocompleteProvider
 import mozilla.components.feature.syncedtabs.SyncedTabsAutocompleteProvider
 import mozilla.components.support.test.middleware.CaptureActionsMiddleware
-import mozilla.components.support.test.mock
 import mozilla.components.support.test.robolectric.testContext
 import mozilla.telemetry.glean.testing.GleanTestRule
 import org.junit.Assert.assertEquals
@@ -349,6 +348,49 @@ class BrowserToolbarSearchMiddlewareTest {
         )
         assertEquals(store.state.editState.suggestion?.text, "history")
         verify { engine.speculativeConnect("history.com") }
+        assertEquals(2, store.state.editState.editActionsEnd.size)
+        assertEquals(expectedVoiceSearchButton, store.state.editState.editActionsEnd.first())
+        assertEquals(expectedClearButton, store.state.editState.editActionsEnd.last())
+    }
+
+    @Test
+    fun `GIVEN default engine selected WHEN new query is prefilled THEN update end buttons but don't autocomplete`() = runTest(testDispatcher) {
+        every { settings.shouldAutocompleteInAwesomebar } returns true
+        every { settings.shouldShowHistorySuggestions } returns true
+        every { settings.shouldShowBookmarkSuggestions } returns true
+        every { settings.shouldShowVoiceSearch } returns true
+        val engine: Engine = mockk {
+            every { speculativeConnect(any()) } just Runs
+        }
+        every { components.core.engine } returns engine
+        configureAutocompleteProvidersInComponents()
+        val middleware = spyk(buildMiddleware())
+        every { middleware.isSpeechRecognitionAvailable() } returns true
+        val store = buildStore(middleware)
+        val autocompleteProvidersSlot = slot<List<AutocompleteProvider>>()
+
+        store.dispatch(EnterEditMode(false))
+        testDispatcher.scheduler.advanceUntilIdle()
+        coVerify(exactly = 0) {
+            middleware.fetchAutocomplete(
+                autocompleteProviders = any(),
+                input = "",
+            )
+        }
+        assertNull(store.state.editState.suggestion)
+        assertEquals(2, store.state.editState.editActionsEnd.size)
+        assertEquals(expectedVoiceSearchButton, store.state.editState.editActionsEnd.first())
+        assertEquals(expectedQrButton, store.state.editState.editActionsEnd.last())
+
+        store.dispatch(SearchQueryUpdated(BrowserToolbarQuery("test"), true))
+        testDispatcher.scheduler.advanceUntilIdle()
+        coVerify(exactly = 0) {
+            middleware.fetchAutocomplete(
+                autocompleteProviders = capture(autocompleteProvidersSlot),
+                input = "test",
+            )
+        }
+        assertNull(store.state.editState.suggestion)
         assertEquals(2, store.state.editState.editActionsEnd.size)
         assertEquals(expectedVoiceSearchButton, store.state.editState.editActionsEnd.first())
         assertEquals(expectedClearButton, store.state.editState.editActionsEnd.last())
@@ -692,6 +734,50 @@ class BrowserToolbarSearchMiddlewareTest {
     }
 
     @Test
+    fun `GIVEN a user typed search query WHEN the search engines are updated in BrowserStore THEN update the search selector, search providers and autocompletions`() {
+        every { settings.shouldAutocompleteInAwesomebar } returns true
+        every { settings.shouldShowHistorySuggestions } returns true
+        every { settings.shouldShowBookmarkSuggestions } returns true
+        every { settings.shouldShowVoiceSearch } returns true
+        val engine: Engine = mockk {
+            every { speculativeConnect(any()) } just Runs
+        }
+        every { components.core.engine } returns engine
+        configureAutocompleteProvidersInComponents()
+        val browserStore = BrowserStore()
+        val middleware = spyk(buildMiddleware(browserStore = browserStore))
+        val store = buildStore(middleware)
+        val autocompleteProvidersSlots = mutableListOf<List<AutocompleteProvider>>()
+        val newSearchEngines = fakeSearchState().applicationSearchEngines
+        store.dispatch(EnterEditMode(false))
+        store.dispatch(SearchQueryUpdated(BrowserToolbarQuery("test")))
+
+        browserStore.dispatch(ApplicationSearchEnginesLoaded(newSearchEngines))
+        testDispatcher.scheduler.advanceUntilIdle() // wait for observing and processing the search engines update
+
+        assertSearchSelectorEquals(
+            expectedSearchSelector(newSearchEngines[0], newSearchEngines),
+            store.state.editState.editActionsStart[0] as SearchSelectorAction,
+        )
+        coVerify {
+            middleware.fetchAutocomplete(
+                autocompleteProviders = capture(autocompleteProvidersSlots),
+                input = "test",
+            )
+        }
+        assertEquals(
+            autocompleteProvidersSlots.last().map { it.javaClass::getSimpleName },
+            listOfNotNull(
+                components.core.historyStorage,
+                components.core.bookmarksStorage,
+                components.core.domainsAutocompleteProvider,
+            ).map { it.javaClass::getSimpleName },
+        )
+        assertEquals(store.state.editState.suggestion?.text, "history")
+        verify { engine.speculativeConnect("history.com") }
+    }
+
+    @Test
     fun `GIVEN a search engine is already selected WHEN the search engines are updated in BrowserStore THEN don't change the selected search engine`() {
         val selectedSearchEngine = fakeSearchState().applicationSearchEngines.first().copy(id = "test")
         val appStore = AppStore(
@@ -985,6 +1071,7 @@ class BrowserToolbarSearchMiddlewareTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals("mozilla.test", store.state.editState.query.current)
+        assertTrue(store.state.editState.isQueryPrefilled)
         appStoreActionsCaptor.assertLastAction(QrScannerInputConsumed::class)
         verify {
             browserUseCases.loadUrlOrSearch(
@@ -1019,6 +1106,7 @@ class BrowserToolbarSearchMiddlewareTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals("test.mozilla", store.state.editState.query.current)
+        assertTrue(store.state.editState.isQueryPrefilled)
         appStoreActionsCaptor.assertLastAction(QrScannerInputConsumed::class)
         verify {
             browserUseCases.loadUrlOrSearch(
@@ -1058,6 +1146,7 @@ class BrowserToolbarSearchMiddlewareTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals("test.com", store.state.editState.query.current)
+        assertTrue(store.state.editState.isQueryPrefilled)
         appStoreActionsCaptor.assertLastAction(QrScannerInputConsumed::class)
         verify {
             browserUseCases.loadUrlOrSearch(
@@ -1217,25 +1306,25 @@ class BrowserToolbarSearchMiddlewareTest {
     private fun fakeSearchState() = SearchState(
         region = RegionState("US", "US"),
         regionSearchEngines = listOf(
-            SearchEngine("engine-a", "Engine A", mock(), type = SearchEngine.Type.BUNDLED),
-            SearchEngine("engine-b", "Engine B", mock(), type = SearchEngine.Type.BUNDLED),
+            SearchEngine("engine-a", "Engine A", mockk(relaxed = true), type = SearchEngine.Type.BUNDLED),
+            SearchEngine("engine-b", "Engine B", mockk(relaxed = true), type = SearchEngine.Type.BUNDLED),
         ),
         customSearchEngines = listOf(
-            SearchEngine("engine-c", "Engine C", mock(), type = SearchEngine.Type.CUSTOM),
+            SearchEngine("engine-c", "Engine C", mockk(relaxed = true), type = SearchEngine.Type.CUSTOM),
         ),
         applicationSearchEngines = listOf(
-            SearchEngine(TABS_SEARCH_ENGINE_ID, "Tabs", mock(), type = SearchEngine.Type.APPLICATION),
-            SearchEngine(BOOKMARKS_SEARCH_ENGINE_ID, "Bookmarks", mock(), type = SearchEngine.Type.APPLICATION),
-            SearchEngine(HISTORY_SEARCH_ENGINE_ID, "History", mock(), type = SearchEngine.Type.APPLICATION),
+            SearchEngine(TABS_SEARCH_ENGINE_ID, "Tabs", mockk(relaxed = true), type = SearchEngine.Type.APPLICATION),
+            SearchEngine(BOOKMARKS_SEARCH_ENGINE_ID, "Bookmarks", mockk(relaxed = true), type = SearchEngine.Type.APPLICATION),
+            SearchEngine(HISTORY_SEARCH_ENGINE_ID, "History", mockk(relaxed = true), type = SearchEngine.Type.APPLICATION),
         ),
         additionalSearchEngines = listOf(
-            SearchEngine("engine-e", "Engine E", mock(), type = SearchEngine.Type.BUNDLED_ADDITIONAL),
+            SearchEngine("engine-e", "Engine E", mockk(relaxed = true), type = SearchEngine.Type.BUNDLED_ADDITIONAL),
         ),
         additionalAvailableSearchEngines = listOf(
-            SearchEngine("engine-f", "Engine F", mock(), type = SearchEngine.Type.BUNDLED_ADDITIONAL),
+            SearchEngine("engine-f", "Engine F", mockk(relaxed = true), type = SearchEngine.Type.BUNDLED_ADDITIONAL),
         ),
         hiddenSearchEngines = listOf(
-            SearchEngine("engine-g", "Engine G", mock(), type = SearchEngine.Type.BUNDLED),
+            SearchEngine("engine-g", "Engine G", mockk(relaxed = true), type = SearchEngine.Type.BUNDLED),
         ),
         regionDefaultSearchEngineId = null,
         userSelectedSearchEngineId = "engine-c",

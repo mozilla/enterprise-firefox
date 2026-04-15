@@ -8,31 +8,53 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.rememberNestedScrollInteropConnection
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import mozilla.components.compose.base.annotation.FlexibleWindowLightDarkPreview
+import mozilla.components.compose.base.modifier.thenConditional
 import mozilla.components.compose.base.theme.AcornTheme
-import mozilla.components.feature.summarize.ui.DownloadConsent
+import mozilla.components.concept.llm.LlmProvider
+import mozilla.components.feature.summarize.settings.SettingsAppBar
+import mozilla.components.feature.summarize.settings.SummarizeSettingsContent
+import mozilla.components.feature.summarize.settings.SummarizeSettingsState
+import mozilla.components.feature.summarize.settings.SummarizeSettingsStore
+import mozilla.components.feature.summarize.settings.summarizeSettingsReducer
 import mozilla.components.feature.summarize.ui.DownloadError
-import mozilla.components.feature.summarize.ui.DownloadProgress
 import mozilla.components.feature.summarize.ui.InfoError
 import mozilla.components.feature.summarize.ui.OffDeviceSummarizationConsent
 import mozilla.components.feature.summarize.ui.OnDeviceSummarizationConsent
+import mozilla.components.feature.summarize.ui.SummarizingContent
+import mozilla.components.feature.summarize.ui.SummaryContentLoaded
+import mozilla.components.feature.summarize.ui.gradient.summaryLoadingGradient
 
 /**
  * The corner ration of the handle shape
@@ -45,31 +67,58 @@ private const val DRAG_HANDLE_CORNER_RATIO = 50
 @Composable
 fun SummarizationUi(
     productName: String,
+    store: SummarizationStore,
+    settingsStore: SummarizeSettingsStore? = null,
 ) {
-    SummarizationScreen(
-        modifier = Modifier.fillMaxWidth(),
-        store = SummarizationStore(
-            initialState = SummarizationState(
-                pageSummarizationState = PageSummarizationState.Inert,
-                productName = productName,
-            ),
-            reducer = ::summarizationReducer,
-            middleware = listOf(SummarizationMiddleware()),
-        ),
-    )
+    LaunchedEffect(Unit) {
+        store.dispatch(ViewAppeared)
+    }
+
+    CompositionLocalProvider(LocalProductName provides ProductName(productName)) {
+        SummarizationScreen(
+            modifier = Modifier.fillMaxWidth(),
+            store = store,
+            settingsStore = settingsStore,
+        )
+    }
 }
+
+@JvmInline
+internal value class ProductName(val value: String)
+internal val LocalProductName = compositionLocalOf { ProductName("Firefox Debug") }
 
 @Composable
 private fun SummarizationScreen(
     modifier: Modifier = Modifier,
     store: SummarizationStore,
+    settingsStore: SummarizeSettingsStore? = null,
 ) {
+    val haptic = LocalHapticFeedback.current
+
     val state by store.stateFlow.collectAsStateWithLifecycle()
 
-    SummarizationScreenScaffold(modifier = modifier) {
-        when (val pageState = state.pageSummarizationState) {
-            is PageSummarizationState.Inert, // TODO remove once we wire middleware
-            is PageSummarizationState.ShakeConsentRequired,
+    LaunchedEffect(state) {
+        if (state is SummarizationState.Summarized) {
+            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+        }
+    }
+
+    SummarizationScreenScaffold(
+        modifier = modifier
+            .thenConditional(Modifier.summaryLoadingGradient()) {
+                state is SummarizationState.Summarizing
+            }
+            .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom))
+            .nestedScroll(rememberNestedScrollInteropConnection()),
+        color = if (state is SummarizationState.Summarizing) {
+            Color.Transparent
+        } else {
+            MaterialTheme.colorScheme.surface
+        },
+    ) {
+        when (val state = state) {
+            is SummarizationState.Inert -> Unit
+            is SummarizationState.ShakeConsentRequired,
             -> {
                 OffDeviceSummarizationConsent(
                     dispatchAction = {
@@ -77,27 +126,30 @@ private fun SummarizationScreen(
                     },
                 )
             }
-            is PageSummarizationState.ShakeConsentWithDownloadRequired -> {
+            is SummarizationState.ShakeConsentWithDownloadRequired -> {
                 OnDeviceSummarizationConsent(
-                    productName = state.productName,
                     dispatchAction = {
                         store.dispatch(it)
                     },
                 )
             }
-            is PageSummarizationState.DownloadConsentRequired -> {
-                DownloadConsent(
-                    productName = state.productName,
-                    dispatchAction = {
-                        store.dispatch(it)
-                    },
-                )
-            }
-            is PageSummarizationState.Downloading -> DownloadProgress(
-                downloadState = pageState,
+            is SummarizationState.Summarizing -> SummarizingContent(
+                modifier = Modifier.height(252.dp),
             )
-            is PageSummarizationState.Error -> {
-                if (pageState.error is SummarizationError.DownloadFailed) {
+            is SummarizationState.Summarized -> SummaryContentLoaded(
+                info = state.info,
+                text = state.text,
+                onSettingsClicked = { store.dispatch(SettingsClicked) },
+            )
+            is SummarizationState.Settings -> {
+                SettingsAppBar(onBackClicked = { store.dispatch(SettingsBackClicked) })
+
+                if (settingsStore != null) {
+                    SummarizeSettingsContent(store = settingsStore)
+                }
+            }
+            is SummarizationState.Error -> {
+                if (state.error is SummarizationError.DownloadFailed) {
                     DownloadError()
                 } else {
                     InfoError()
@@ -112,12 +164,15 @@ private fun SummarizationScreen(
 @Composable
 private fun SummarizationScreenScaffold(
     modifier: Modifier,
+    color: Color = Color.Transparent,
     content: @Composable (() -> Unit),
 ) {
     Surface(
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        color = MaterialTheme.colorScheme.surface,
-        modifier = modifier
+        color = color,
+        modifier = Modifier
+            .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+            .then(modifier)
             .widthIn(max = AcornTheme.layout.size.containerMaxWidth)
             .fillMaxWidth(),
     ) {
@@ -153,43 +208,51 @@ private fun DragHandle(
     }
 }
 
+private val previewSummarizedText = """
+    **What's happening:** Lucasfilm has announced a new Star Wars trilogy set in the Old Republic era, thousands of years before the Skywalker saga.
+
+    **Why it matters:** Fans have long requested stories from this period, which explores the ancient conflict between the Jedi and the Sith at the height of their power.
+
+    **Key details:**
+    - Setting: The Old Republic, approximately 4,000 years before the Empire
+    - Director: Yet to be announced
+    - First film expected: 2028
+    - Will feature the original Sith Wars and the founding of the Jedi Order
+""".trimIndent()
+
 private class SummarizationStatePreviewProvider : PreviewParameterProvider<SummarizationState> {
+    val info = LlmProvider.Info(R.string.mozac_summarize_fake_llm_name)
     override val values: Sequence<SummarizationState> = sequenceOf(
-        SummarizationState(
-            PageSummarizationState.Summarizing,
-            summarizedText = "Lorem Ipsum",
-        ),
-        SummarizationState(
-            PageSummarizationState.Error(SummarizationError.ContentTooLong),
-        ),
-        SummarizationState(
-            PageSummarizationState.ShakeConsentRequired,
-        ),
-        SummarizationState(
-            PageSummarizationState.ShakeConsentWithDownloadRequired,
-        ),
-        SummarizationState(
-            PageSummarizationState.DownloadConsentRequired,
-        ),
-        SummarizationState(
-            PageSummarizationState.Downloading(12.13f, 9.04f),
-        ),
-        SummarizationState(
-            PageSummarizationState.Error(SummarizationError.NetworkError),
-        ),
+        SummarizationState.Summarizing(info = info),
+        SummarizationState.Summarized(info = info, text = previewSummarizedText),
+        SummarizationState.Settings(info = info, summarizedText = previewSummarizedText),
+        SummarizationState.Error(SummarizationError.ContentTooLong),
+        SummarizationState.ShakeConsentRequired,
+        SummarizationState.ShakeConsentWithDownloadRequired,
+        SummarizationState.Error(SummarizationError.NetworkError),
     )
 }
 
-@Preview
+@FlexibleWindowLightDarkPreview
 @Composable
 private fun SummarizationScreenPreview(
     @PreviewParameter(SummarizationStatePreviewProvider::class) state: SummarizationState,
 ) {
-    SummarizationScreen(
-        store = SummarizationStore(
-            initialState = state.copy(productName = "Firefox"),
-            reducer = ::summarizationReducer,
-            middleware = listOf(SummarizationMiddleware()),
-        ),
-    )
+    AcornTheme {
+        SummarizationScreen(
+            store = SummarizationStore(
+                initialState = state,
+                reducer = ::summarizationReducer,
+                middleware = listOf(),
+            ),
+            settingsStore = SummarizeSettingsStore(
+                initialState = SummarizeSettingsState(
+                    isFeatureEnabled = true,
+                    isGestureEnabled = true,
+                ),
+                reducer = ::summarizeSettingsReducer,
+                middleware = listOf(),
+            ),
+        )
+    }
 }

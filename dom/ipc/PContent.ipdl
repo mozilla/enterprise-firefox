@@ -1,5 +1,3 @@
-/* -*- tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -82,6 +80,7 @@ include "mozilla/dom/DocShellMessageUtils.h";
 include "mozilla/dom/FeaturePolicyUtils.h";
 include "mozilla/dom/GeolocationIPCUtils.h";
 include "mozilla/dom/MediaSessionIPCUtils.h";
+include "mozilla/dom/NavigationAPIIPCUtils.h";
 include "mozilla/dom/PageLoadEventUtils.h";
 include "mozilla/dom/ReferrerInfoUtils.h";
 include "mozilla/glean/DomMetrics.h";
@@ -106,6 +105,7 @@ using mozilla::gfx::SurfaceFormat from "mozilla/gfx/Types.h";
 using gfxPlatform::GlobalReflowFlags from "gfxPlatform.h";
 using mozilla::dom::TabId from "mozilla/dom/ipc/IdType.h";
 using mozilla::dom::ContentParentId from "mozilla/dom/ipc/IdType.h";
+using mozilla::dom::NavigationType from "mozilla/dom/NavigationAPIIPCUtils.h";
 using mozilla::EventMessage from "mozilla/EventForwards.h";
 using mozilla::LayoutDeviceIntPoint from "Units.h";
 using mozilla::ImagePoint from "Units.h";
@@ -144,8 +144,8 @@ using mozilla::dom::PermitUnloadResult from "nsIDocumentViewer.h";
 using mozilla::dom::MaybeDiscardedWindowContext from "mozilla/dom/WindowContext.h";
 using mozilla::dom::WindowContextTransaction from "mozilla/dom/WindowContext.h";
 [MoveOnly] using mozilla::ipc::ReadOnlySharedMemoryHandle from "mozilla/ipc/SharedMemoryHandle.h";
-using gfxSparseBitSet from "gfxFontUtils.h";
-using FontVisibility from "gfxFontEntry.h";
+using gfxSparseBitSet from "gfxSparseBitSet.h";
+using FontVisibility from "gfxTypes.h";
 using mozilla::dom::MediaControlAction from "mozilla/dom/MediaControlKeySource.h";
 using mozilla::dom::MediaPlaybackState from "mozilla/dom/MediaPlaybackStatus.h";
 using mozilla::dom::MediaAudibleState from "mozilla/dom/MediaPlaybackStatus.h";
@@ -162,8 +162,9 @@ using mozilla::dom::JSActorMessageMeta from "mozilla/dom/PWindowGlobal.h";
 using mozilla::PermissionDelegateHandler::DelegatedPermissionList from "mozilla/PermissionDelegateHandler.h";
 [RefCounted] using class nsILayoutHistoryState from "nsILayoutHistoryState.h";
 using class mozilla::dom::SessionHistoryInfo from "mozilla/dom/SessionHistoryEntry.h";
-using struct nsPoint from "nsPoint.h";
+using class mozilla::dom::PreviousSessionHistoryInfo from "mozilla/dom/SessionHistoryEntry.h";
 using struct mozilla::dom::LoadingSessionHistoryInfo from "mozilla/dom/SessionHistoryEntry.h";
+using struct nsPoint from "nsPoint.h";
 using mozilla::media::MediaCodecsSupported from "MediaCodecsSupport.h";
 using mozilla::RemoteMediaIn from "mozilla/RemoteMediaManagerChild.h";
 using mozilla::dom::PerformanceTimingData from "mozilla/dom/PerformanceTiming.h";
@@ -692,6 +693,10 @@ child:
 
     async InvalidateScriptCache();
 
+parent:
+    async UpdateScriptCacheEverHitTelemetry(uint64_t aChildId, uint32_t aRate);
+
+child:
     async SetOffline(bool offline);
     async SetConnectivity(bool connectivity);
     async SetCaptivePortalState(int32_t aState);
@@ -876,17 +881,6 @@ child:
      */
     async NotifyEmptyHTTPCache();
 
-    /**
-     * Send a `push` event without data to a service worker in the child.
-     */
-    async Push(nsCString scope, nullable nsIPrincipal principal, nsString messageId);
-
-    /**
-     * Send a `push` event with data to a service worker in the child.
-     */
-    async PushWithData(nsCString scope, nullable nsIPrincipal principal,
-                       nsString messageId, uint8_t[] data);
-
     async GetFilesResponse(nsID aID, GetFilesResponseResult aResult);
 
     async BlobURLRegistration(nsCString aURI, IPCBlob aBlob,
@@ -1033,6 +1027,12 @@ child:
     async GoToIndex(MaybeDiscardedBrowsingContext aContext, int32_t aIndex, int32_t? aCancelContentJSEpoch, bool aUserActivation);
     async Reload(MaybeDiscardedBrowsingContext aContext, uint32_t aReloadFlags);
     async StopLoad(MaybeDiscardedBrowsingContext aContext, uint32_t aStopFlags);
+
+    async DeactivateDocuments(MaybeDiscardedBrowsingContext aContext);
+    async ReactivateDocuments(MaybeDiscardedBrowsingContext aContext,
+                              SessionHistoryInfo? aReactivatedEntry,
+                              SessionHistoryInfo[] aNewSHEs,
+                              PreviousSessionHistoryInfo? aPreviousEntryForActivation);
 
     async OnAllowAccessFor(MaybeDiscardedBrowsingContext aParentContext,
                            nsCString aTrackingOrigin,
@@ -1576,18 +1576,6 @@ parent:
       bool aUserActivation,
       bool aTextDirectiveUserActivation);
 
-    /**
-     * Notify `push-message` observers without data in the parent.
-     */
-    async NotifyPushObservers(nsCString scope, nullable nsIPrincipal principal,
-                              nsString messageId);
-
-    /**
-     * Notify `push-message` observers with data in the parent.
-     */
-    async NotifyPushObserversWithData(nsCString scope, nullable nsIPrincipal principal,
-                                      nsString messageId, uint8_t[] data);
-
      async GetFilesRequest(nsID aID, nsString[] aDirectories, bool aRecursiveFlag);
      async DeleteGetFilesRequest(nsID aID);
 
@@ -1843,19 +1831,6 @@ both:
     async AsyncMessage(nsString aMessage, StructuredCloneData aData);
 
     /**
-     * Notify `push-subscription-modified` observers in the parent and child.
-     */
-    async NotifyPushSubscriptionModifiedObservers(nsCString scope,
-                                                  nullable nsIPrincipal principal);
-
-    /**
-     * Send a Push error message to all service worker clients in the parent or
-     * child.
-     */
-    async PushError(nsCString scope, nullable nsIPrincipal principal, nsString message,
-                    uint32_t flags);
-
-    /**
      * Creates a new BrowsingContext, initialized with the values provided in
      * `BrowsingContextInitializer`.
      *
@@ -1961,7 +1936,7 @@ parent:
                                     MaybeFeaturePolicyInfo aContainerFeaturePolicyInfo);
 
     // Notify parent process that aContext must update its ancestor origins list
-    // This is only used for about:blank, because for normal navigations 
+    // This is only used for about:blank, because for normal navigations
     // the internal ancestor origins list will be created during load.
     async UpdateAncestorOriginsList(MaybeDiscardedBrowsingContext aContext);
 

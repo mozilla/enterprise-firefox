@@ -641,11 +641,10 @@ const av1_codec_arg_definitions_t g_av1_codec_arg_defs = {
 
   .use_fixed_qp_offsets =
       ARG_DEF(NULL, "use-fixed-qp-offsets", 1,
-              "Enable fixed QP offsets for frames at different levels of the "
-              "pyramid. Selected automatically from --cq-level if "
-              "--fixed-qp-offsets is not provided. If this option is not "
-              "specified (default), offsets are adaptively chosen by the "
-              "encoder."),
+              "Controls how the encoder applies fixed QP offsets for frames at "
+              "different levels of the pyramid (0: adaptively-chosen offsets "
+              "from --cq-level if --fixed-qp-offsets is not provided "
+              "(default), 1: fixed QP offsets, 2: no QP offsets)"),
 
   .fixed_qp_offsets = ARG_DEF(
       NULL, "fixed-qp-offsets", 1,
@@ -714,9 +713,10 @@ const av1_codec_arg_definitions_t g_av1_codec_arg_defs = {
       "Enable low complexity decode (0: false (default), 1: true). As of now, "
       "this only supports good-quality encoding (speed 1 to 3) for vertical "
       "videos between 608p and 720p."),
-  .screen_detection_mode =
-      ARG_DEF(NULL, "screen-detection-mode", 1,
-              "Screen content detection mode (1: standard (default), "
-              "2: anti-aliased text and graphics aware)"),
+  .screen_detection_mode = ARG_DEF(
+      NULL, "screen-detection-mode", 1,
+      "Screen content detection mode (1: standard (default in good quality and "
+      "realtime modes), 2: anti-aliased text and graphics aware (default in "
+      "all intra mode))"),
 #endif  // CONFIG_AV1_ENCODER
 };

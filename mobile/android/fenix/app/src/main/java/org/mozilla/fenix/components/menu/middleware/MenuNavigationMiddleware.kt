@@ -10,14 +10,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import mozilla.appservices.places.BookmarkRoot
-import mozilla.components.browser.state.action.ShareResourceAction
 import mozilla.components.browser.state.ext.getUrl
 import mozilla.components.browser.state.selector.selectedTab
 import mozilla.components.browser.state.state.CustomTabSessionState
-import mozilla.components.browser.state.state.content.ShareResourceState
+import mozilla.components.browser.state.state.SessionState
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.concept.engine.EngineSession.LoadUrlFlags
-import mozilla.components.concept.engine.prompt.ShareData
 import mozilla.components.feature.pwa.WebAppUseCases
 import mozilla.components.feature.session.SessionUseCases
 import mozilla.components.lib.state.Middleware
@@ -26,7 +24,6 @@ import mozilla.components.service.fxa.manager.AccountState.Authenticated
 import mozilla.components.service.fxa.manager.AccountState.Authenticating
 import mozilla.components.service.fxa.manager.AccountState.AuthenticationProblem
 import mozilla.components.service.fxa.manager.AccountState.NotAuthenticated
-import mozilla.components.support.ktx.kotlin.isContentUrl
 import org.mozilla.fenix.R
 import org.mozilla.fenix.browser.BrowserFragmentDirections
 import org.mozilla.fenix.collections.SaveCollectionStep
@@ -36,6 +33,7 @@ import org.mozilla.fenix.components.menu.store.MenuAction
 import org.mozilla.fenix.components.menu.store.MenuState
 import org.mozilla.fenix.components.menu.store.MenuStore
 import org.mozilla.fenix.components.menu.toFenixFxAEntryPoint
+import org.mozilla.fenix.components.share.ShareSheetLauncher
 import org.mozilla.fenix.ext.nav
 import org.mozilla.fenix.settings.SupportUtils.AMO_HOMEPAGE_FOR_ANDROID
 import org.mozilla.fenix.utils.Settings
@@ -58,6 +56,7 @@ import org.mozilla.fenix.webcompat.WebCompatReporterMoreInfoSender
  * @param scope [CoroutineScope] used to launch coroutines.
  * @param customTab [CustomTabSessionState] used for sharing custom tab.
  * @param webCompatReporterMoreInfoSender [WebCompatReporterMoreInfoSender] used
+ * @param shareSheetLauncher [ShareSheetLauncher] used to launch the share sheet.
  * to send WebCompat info to webcompat.com.
  */
 @Suppress("LongParameterList")
@@ -72,6 +71,7 @@ class MenuNavigationMiddleware(
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main),
     private val customTab: CustomTabSessionState?,
     private val webCompatReporterMoreInfoSender: WebCompatReporterMoreInfoSender,
+    private val shareSheetLauncher: ShareSheetLauncher,
 ) : Middleware<MenuState, MenuAction> {
 
     @Suppress("CyclomaticComplexMethod", "LongMethod", "CognitiveComplexMethod")
@@ -88,7 +88,7 @@ class MenuNavigationMiddleware(
 
         next(action)
 
-        scope.launch(Dispatchers.Main) {
+        scope.launch {
             when (action) {
                 is MenuAction.Navigate.MozillaAccount -> {
                     when (action.accountState) {
@@ -202,40 +202,25 @@ class MenuNavigationMiddleware(
                 )
 
                 is MenuAction.Navigate.Share -> {
-                    val session = customTab ?: currentState.browserMenuState?.selectedTab
+                    val session: SessionState? = customTab ?: currentState.browserMenuState?.selectedTab
                     val url = customTab?.content?.url ?: currentState.browserMenuState?.selectedTab?.getUrl()
-
-                    session?.let {
-                        if (url?.isContentUrl() == true) {
-                            browserStore.dispatch(
-                                ShareResourceAction.AddShareAction(
-                                    session.id,
-                                    ShareResourceState.LocalResource(url),
-                                ),
-                            )
-                            onDismiss()
-                        } else {
-                            val shareData = ShareData(title = it.content.title, url = url)
-                            val direction = MenuDialogFragmentDirections.actionGlobalShareFragment(
-                                sessionId = it.id,
-                                data = arrayOf(shareData),
-                                showPage = true,
-                            )
-
-                            val popUpToId = if (customTab != null) {
-                                R.id.externalAppBrowserFragment
-                            } else {
-                                R.id.browserFragment
-                            }
-
-                            navController.nav(
-                                R.id.menuDialogFragment,
-                                direction,
-                                navOptions = NavOptions.Builder()
-                                    .setPopUpTo(popUpToId, false)
-                                    .build(),
+                    if (settings.nativeShareSheetEnabled) {
+                        val title = session?.content?.title
+                        url?.let {
+                            shareSheetLauncher.showNativeShareSheet(
+                                id = session?.id,
+                                url = it,
+                                title = title,
+                                isCustomTab = customTab != null,
                             )
                         }
+                    } else {
+                        shareSheetLauncher.showCustomShareSheet(
+                            id = session?.id,
+                            url = url,
+                            title = session?.content?.title,
+                            isCustomTab = customTab != null,
+                        )
                     }
                 }
 

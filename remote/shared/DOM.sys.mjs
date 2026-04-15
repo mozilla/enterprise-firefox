@@ -1080,7 +1080,7 @@ dom.isEnabled = function (el) {
  */
 dom.getShadowRoot = function (el) {
   const shadowRoot = el.openOrClosedShadowRoot;
-  if (!shadowRoot) {
+  if (!shadowRoot || shadowRoot.isUAWidget()) {
     throw new lazy.error.NoSuchShadowRootError();
   }
   return shadowRoot;

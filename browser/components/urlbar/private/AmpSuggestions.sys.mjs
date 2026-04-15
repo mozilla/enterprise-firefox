@@ -29,6 +29,11 @@ const TIMESTAMP_REGEXP = /^\d{10}$/;
  * A feature that manages AMP suggestions.
  */
 export class AmpSuggestions extends SuggestProvider {
+  // Serializes `quick-suggest` ping submissions so that pings are submitted in
+  // the order they were initiated, despite the async ContextId.request() call
+  // inside each submission.
+  #lastPingSubmission = Promise.resolve();
+
   get enablingPreferences() {
     return [
       "ampFeatureGate",
@@ -332,49 +337,54 @@ export class AmpSuggestions extends SuggestProvider {
     return TIMESTAMP_REGEXP.test(maybeTimestamp);
   }
 
-  async #submitQuickSuggestPing({
-    queryContext,
-    result,
-    pingType,
-    ...pingData
-  }) {
+  #submitQuickSuggestPing({ queryContext, result, pingType, ...pingData }) {
     if (queryContext.isPrivate) {
-      return;
+      return Promise.resolve();
     }
 
-    let allPingData = {
-      pingType,
-      // Suggest initialization awaits `Region.init()`, so safe to assume it's
-      // already been initialized here.
-      country: lazy.Region.home,
-      ...pingData,
-      matchType: result.isBestMatch ? "best-match" : "firefox-suggest",
-      // Always use lowercase to make the reporting consistent.
-      advertiser: result.payload.sponsoredAdvertiser.toLocaleLowerCase(),
-      blockId: result.payload.sponsoredBlockId,
-      improveSuggestExperience:
-        lazy.UrlbarPrefs.get("quickSuggestOnlineAvailable") &&
-        lazy.UrlbarPrefs.get("quicksuggest.online.enabled"),
-      // `position` is 1-based, unlike `rowIndex`, which is zero-based.
-      position: result.rowIndex + 1,
-      suggestedIndex: result.suggestedIndex.toString(),
-      suggestedIndexRelativeToGroup: !!result.isSuggestedIndexRelativeToGroup,
-      requestId: result.payload.requestId,
-      source: result.payload.source,
-      contextId: await lazy.ContextId.request(),
-    };
+    // Chain this submission to the previous one so that pings are always
+    // submitted in the order they were initiated. Without this, multiple
+    // concurrent calls can race at the async ContextId.request() and submit
+    // their pings out of order.
+    let submission = this.#lastPingSubmission.then(async () => {
+      let allPingData = {
+        pingType,
+        // Suggest initialization awaits `Region.init()`, so safe to assume
+        // it's already been initialized here.
+        country: lazy.Region.home,
+        ...pingData,
+        matchType: result.isBestMatch ? "best-match" : "firefox-suggest",
+        // Always use lowercase to make the reporting consistent.
+        advertiser: result.payload.sponsoredAdvertiser.toLocaleLowerCase(),
+        blockId: result.payload.sponsoredBlockId,
+        improveSuggestExperience:
+          lazy.UrlbarPrefs.get("quickSuggestOnlineAvailable") &&
+          lazy.UrlbarPrefs.get("quicksuggest.online.enabled"),
+        // `position` is 1-based, unlike `rowIndex`, which is zero-based.
+        position: result.rowIndex + 1,
+        suggestedIndex: result.suggestedIndex.toString(),
+        suggestedIndexRelativeToGroup: !!result.isSuggestedIndexRelativeToGroup,
+        requestId: result.payload.requestId,
+        source: result.payload.source,
+        contextId: await lazy.ContextId.request(),
+      };
 
-    for (let [gleanKey, value] of Object.entries(allPingData)) {
-      let glean = Glean.quickSuggest[gleanKey];
-      if (value !== undefined && value !== "") {
-        glean.set(value);
+      for (let [gleanKey, value] of Object.entries(allPingData)) {
+        let glean = Glean.quickSuggest[gleanKey];
+        if (value !== undefined && value !== "") {
+          glean.set(value);
+        }
       }
-    }
-    GleanPings.quickSuggest.submit();
+      GleanPings.quickSuggest.submit();
+    });
+
+    // Ensure the queue keeps working even if this submission fails.
+    this.#lastPingSubmission = submission.catch(console.error);
+    return submission;
   }
 
   #submitQuickSuggestImpressionPing({ queryContext, result, details }) {
-    this.#submitQuickSuggestPing({
+    return this.#submitQuickSuggestPing({
       result,
       queryContext,
       pingType: lazy.CONTEXTUAL_SERVICES_PING_TYPES.QS_IMPRESSION,

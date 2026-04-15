@@ -397,6 +397,27 @@ describe("<Lists>", () => {
     assert.deepEqual(reorderedTasks, [task2, task1]);
   });
 
+  it("should hide Lists widget when 'Hide widget' option is clicked", () => {
+    const menuItem = wrapper.find(
+      "panel-item[data-l10n-id='newtab-widget-menu-hide']"
+    );
+    menuItem.props().onClick();
+
+    assert.ok(dispatch.calledTwice);
+
+    const [setPrefAction] = dispatch.getCall(0).args;
+    assert.equal(setPrefAction.type, at.SET_PREF);
+    assert.equal(setPrefAction.data.name, "widgets.lists.enabled");
+    assert.equal(setPrefAction.data.value, false);
+
+    const [telemetryEvent] = dispatch.getCall(1).args;
+    assert.equal(telemetryEvent.type, at.WIDGETS_ENABLED);
+    assert.equal(telemetryEvent.data.widget_name, "lists");
+    assert.equal(telemetryEvent.data.widget_source, "context_menu");
+    assert.equal(telemetryEvent.data.enabled, false);
+    assert.equal(telemetryEvent.data.widget_size, "medium");
+  });
+
   it("should dispatch OPEN_LINK when the Learn More option is clicked", () => {
     const learnMoreItem = wrapper.find(".learn-more");
     learnMoreItem.props().onClick();
@@ -636,7 +657,7 @@ describe("<Lists>", () => {
       "Expected telemetry event on cancel"
     );
 
-    const listsState = localWrapper.find("Provider").prop("store").getState()
+    const listsState = localWrapper.find(Provider).prop("store").getState()
       .ListsWidget.lists;
     assert.strictEqual(
       Object.keys(listsState).length,

@@ -5,10 +5,10 @@
 "use strict";
 
 const { ERRORS } = ChromeUtils.importESModule(
-  "chrome://browser/content/ipprotection/ipprotection-constants.mjs"
+  "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs"
 );
 const { IPPNetworkUtils } = ChromeUtils.importESModule(
-  "moz-src:///browser/components/ipprotection/IPPNetworkUtils.sys.mjs"
+  "moz-src:///toolkit/components/ipprotection/IPPNetworkUtils.sys.mjs"
 );
 
 /**
@@ -69,14 +69,9 @@ add_task(async function test_toolbar_button_icon_on_activation_failure() {
   setupService({
     isSignedIn: true,
     isEnrolledAndEntitled: true,
-    canEnroll: true,
-    proxyPass: {
-      status: 200,
-      error: undefined,
-      pass: makePass(),
-    },
   });
-  await IPPEnrollAndEntitleManager.refetchEntitlement();
+  IPProtectionService.updateState();
+  await waitForProxyState(IPPProxyStates.READY);
 
   let button = document.getElementById(IPProtectionWidget.WIDGET_ID);
   Assert.ok(button, "Toolbar button should exist");
@@ -96,7 +91,10 @@ add_task(async function test_toolbar_button_icon_on_activation_failure() {
   );
 
   // Open panel and try to activate while offline
-  let content = await openPanel();
+  let content = await openPanel({
+    isSignedIn: true,
+    isEnrolledAndEntitled: true,
+  });
   let turnOnButton = content.statusCardEl?.actionButtonEl;
   Assert.ok(turnOnButton, "Turn on button should be present");
 
@@ -109,8 +107,8 @@ add_task(async function test_toolbar_button_icon_on_activation_failure() {
   );
 
   Assert.ok(
-    button.classList.contains("ipprotection-error"),
-    "Toolbar button should show error icon after panel activation failure"
+    button.classList.contains("ipprotection-network-error"),
+    "Toolbar button should show network error icon after panel activation failure"
   );
 
   // Back online
@@ -121,8 +119,8 @@ add_task(async function test_toolbar_button_icon_on_activation_failure() {
   await panelHiddenPromise;
 
   Assert.ok(
-    !button.classList.contains("ipprotection-error"),
-    "Toolbar button should clear error icon when panel closes"
+    !button.classList.contains("ipprotection-network-error"),
+    "Toolbar button should clear network error icon when panel closes"
   );
 
   cleanupService();
@@ -135,19 +133,17 @@ add_task(async function test_network_error_when_activating_offline() {
   setupService({
     isSignedIn: true,
     isEnrolledAndEntitled: true,
-    canEnroll: true,
-    proxyPass: {
-      status: 200,
-      error: undefined,
-      pass: makePass(),
-    },
   });
-  await IPPEnrollAndEntitleManager.refetchEntitlement();
+  IPProtectionService.updateState();
+  await waitForProxyState(IPPProxyStates.READY);
 
   // Go offline before opening panel
   Services.io.offline = true;
 
-  let content = await openPanel();
+  let content = await openPanel({
+    isSignedIn: true,
+    isEnrolledAndEntitled: true,
+  });
 
   await content.updateComplete;
 

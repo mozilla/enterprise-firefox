@@ -27,7 +27,6 @@
 #include "rtc_base/socket_address.h"
 #include "rtc_base/ssl_certificate.h"
 #include "rtc_base/ssl_stream_adapter.h"           // IWYU pragma: keep
-#include "rtc_base/third_party/sigslot/sigslot.h"  // IWYU pragma: keep
 #include "rtc_base/thread.h"
 #include "test/gmock.h"
 #include "test/gtest.h"
@@ -71,7 +70,7 @@ class MockCertVerifier : public SSLCertificateVerifier {
 
 #if defined(WEBRTC_EXCLUDE_BUILT_IN_SSL_ROOT_CERTS)
 // Helper class to handle SSL connection events and state for testing.
-class SSLConnectionHandler : public sigslot::has_slots<> {
+class SSLConnectionHandler {
  public:
   explicit SSLConnectionHandler(absl::string_view hostname)
       : hostname_(hostname) {}

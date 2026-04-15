@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -78,6 +76,16 @@ JSObject* WritableStream::WrapObject(JSContext* aCx,
   return WritableStream_Binding::Wrap(aCx, this, aGivenProto);
 }
 
+void WritableStream::GetStoredError(JSContext* aCx,
+                                    JS::MutableHandle<JS::Value> aStoredError,
+                                    ErrorResult& aRv) const {
+  aStoredError.set(mStoredError);
+  if (!JS_WrapValue(aCx, aStoredError)) {
+    aStoredError.setUndefined();
+    aRv.StealExceptionFromJSContext(aCx);
+  }
+}
+
 // https://streams.spec.whatwg.org/#writable-stream-deal-with-rejection
 void WritableStream::DealWithRejection(JSContext* aCx,
                                        JS::Handle<JS::Value> aError,
@@ -139,6 +147,10 @@ void WritableStream::FinishErroring(JSContext* aCx, ErrorResult& aRv) {
   // Step 9. Let abortRequest be stream.[[pendingAbortRequest]].
   RefPtr<Promise> abortPromise = mPendingAbortRequestPromise;
   JS::Rooted<JS::Value> abortReason(aCx, mPendingAbortRequestReason);
+  if (!JS_WrapValue(aCx, &abortReason)) {
+    aRv.StealExceptionFromJSContext(aCx);
+    return;
+  }
   bool abortWasAlreadyErroring = mPendingAbortRequestWasAlreadyErroring;
 
   // Step 10. Set stream.[[pendingAbortRequest]] to undefined.

@@ -142,18 +142,11 @@ export class AboutTranslationsParent extends JSWindowActorParent {
       case "AboutTranslations:GetEnabledState": {
         return lazy.TranslationsParent.AIFeature.isEnabled;
       }
-      case "AboutTranslations:OpenSupportPage": {
-        const browser = this.browsingContext.top.embedderElement;
-        browser.ownerGlobal.openTrustedLinkIn(
-          "https://support.mozilla.org/kb/website-translation",
-          "tab",
-          {
-            forceForeground: true,
-            triggeringPrincipal:
-              Services.scriptSecurityManager.getSystemPrincipal(),
-          }
-        );
-
+      case "AboutTranslations:IsEnabledStateManagedByPolicy": {
+        return lazy.TranslationsParent.AIFeature.isManagedByPolicy;
+      }
+      case "AboutTranslations:EnableTranslationsFeature": {
+        await lazy.TranslationsParent.AIFeature.enable();
         return undefined;
       }
       case "AboutTranslations:Telemetry": {
@@ -169,7 +162,7 @@ export class AboutTranslationsParent extends JSWindowActorParent {
           );
         }
 
-        aboutTranslationsTelemetry[telemetryFunctionName](telemetryData);
+        telemetryFunction(telemetryData);
 
         return undefined;
       }

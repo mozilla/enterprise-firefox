@@ -51,7 +51,7 @@ pub type HorizontalPosition = PositionComponent<HorizontalPositionKeyword>;
 pub type VerticalPosition = PositionComponent<VerticalPositionKeyword>;
 
 /// The specified value of a component of a CSS `<position>`.
-#[derive(Clone, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToCss, ToShmem)]
+#[derive(Clone, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToCss, ToShmem, ToTyped)]
 pub enum PositionComponent<S> {
     /// `center`
     Center,
@@ -409,7 +409,7 @@ impl AnchorName {
     }
 }
 
-/// https://drafts.csswg.org/css-anchor-position-1/#propdef-scope
+/// Keyword for a scoped name.
 #[derive(
     Clone,
     Debug,
@@ -423,7 +423,7 @@ impl AnchorName {
     ToTyped,
 )]
 #[repr(u8)]
-pub enum AnchorScopeKeyword {
+pub enum ScopedNameKeyword {
     /// `none`
     None,
     /// `all`
@@ -437,14 +437,14 @@ pub enum AnchorScopeKeyword {
     ),
 }
 
-impl AnchorScopeKeyword {
+impl ScopedNameKeyword {
     /// Return the `none` value.
     pub fn none() -> Self {
         Self::None
     }
 }
 
-impl Parse for AnchorScopeKeyword {
+impl Parse for ScopedNameKeyword {
     fn parse<'i, 't>(
         context: &ParserContext,
         input: &mut Parser<'i, 't>,
@@ -464,19 +464,25 @@ impl Parse for AnchorScopeKeyword {
         while input.try_parse(|input| input.expect_comma()).is_ok() {
             idents.push(DashedIdent::parse(context, input)?);
         }
-        Ok(AnchorScopeKeyword::Idents(ArcSlice::from_iter(
+        Ok(ScopedNameKeyword::Idents(ArcSlice::from_iter(
             idents.drain(..),
         )))
     }
 }
 
-/// https://drafts.csswg.org/css-anchor-position-1/#propdef-scope
-pub type AnchorScope = TreeScoped<AnchorScopeKeyword>;
+/// A scoped name type, such as:
+/// * https://drafts.csswg.org/css-anchor-position-1/#propdef-scope
+pub type ScopedName = TreeScoped<ScopedNameKeyword>;
 
-impl AnchorScope {
+impl ScopedName {
     /// Return the `none` value.
     pub fn none() -> Self {
-        Self::with_default_level(AnchorScopeKeyword::none())
+        Self::with_default_level(ScopedNameKeyword::none())
+    }
+
+    /// Returns true if no scoped name is specified.
+    pub fn is_none(&self) -> bool {
+        self.value == ScopedNameKeyword::none()
     }
 }
 

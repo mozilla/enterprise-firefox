@@ -25,11 +25,11 @@ static const wchar_t kImageSuffix[] = L"|Image";
 static const wchar_t kTelemetrySuffix[] = L"|Telemetry";
 static const wchar_t kCrashTimestampSuffix[] = L"|LauncherCrashTime";
 
-MOZ_RUNINIT static std::wstring gBrowserValue;
-MOZ_RUNINIT static std::wstring gLauncherValue;
-MOZ_RUNINIT static std::wstring gImageValue;
-MOZ_RUNINIT static std::wstring gTelemetryValue;
-MOZ_RUNINIT static std::wstring gCrashTimestampValue;
+constinit static std::wstring gBrowserValue;
+constinit static std::wstring gLauncherValue;
+constinit static std::wstring gImageValue;
+constinit static std::wstring gTelemetryValue;
+constinit static std::wstring gCrashTimestampValue;
 
 static DWORD gMyImageTimestamp;
 

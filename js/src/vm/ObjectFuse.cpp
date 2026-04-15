@@ -74,8 +74,8 @@ void ObjectFuse::invalidateDependentIonScriptsForProperty(JSContext* cx,
 
 void ObjectFuse::invalidateAllDependentIonScripts(JSContext* cx,
                                                   const char* reason) {
-  for (auto r = dependencies_.all(); !r.empty(); r.popFront()) {
-    r.front().value().invalidateAndClear(cx, reason);
+  for (auto iter = dependencies_.iter(); !iter.done(); iter.next()) {
+    iter.get().value().invalidateAndClear(cx, reason);
   }
   dependencies_.clear();
 }
@@ -206,8 +206,8 @@ size_t ObjectFuse::sizeOfIncludingThis(
     result += mallocSizeOf(propertyStateBits_.get());
   }
   result += dependencies_.shallowSizeOfExcludingThis(mallocSizeOf);
-  for (auto r = dependencies_.all(); !r.empty(); r.popFront()) {
-    result += r.front().value().sizeOfExcludingThis(mallocSizeOf);
+  for (auto iter = dependencies_.iter(); !iter.done(); iter.next()) {
+    result += iter.get().value().sizeOfExcludingThis(mallocSizeOf);
   }
   return result;
 }
@@ -234,8 +234,8 @@ ObjectFuse* ObjectFuseMap::get(NativeObject* obj) {
 size_t ObjectFuseMap::sizeOfExcludingThis(
     mozilla::MallocSizeOf mallocSizeOf) const {
   size_t result = objectFuses_.sizeOfExcludingThis(mallocSizeOf);
-  for (auto r = objectFuses_.all(); !r.empty(); r.popFront()) {
-    result += r.front().value()->sizeOfIncludingThis(mallocSizeOf);
+  for (auto iter = objectFuses_.iter(); !iter.done(); iter.next()) {
+    result += iter.get().value()->sizeOfIncludingThis(mallocSizeOf);
   }
   return result;
 }

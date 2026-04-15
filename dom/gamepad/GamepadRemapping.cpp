@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -478,10 +476,16 @@ class Dualshock4Remapper final : public GamepadRemapper {
     return MAX_INPUT_LEN;
   }
 
-  virtual void ProcessTouchData(GamepadHandle aHandle, void* aInput) override {
+  static constexpr size_t kMinTouchReportLen = 43;
+
+  virtual void ProcessTouchData(GamepadHandle aHandle, const uint8_t* aInput,
+                                size_t aInputLen) override {
+    if (aInputLen < kMinTouchReportLen) {
+      return;
+    }
     nsTArray<GamepadTouchState> touches(TOUCH_EVENT_COUNT);
     touches.SetLength(TOUCH_EVENT_COUNT);
-    uint8_t* rawData = (uint8_t*)aInput;
+    const uint8_t* rawData = aInput;
 
     const uint32_t kTouchDimensionX = 1920;
     const uint32_t kTouchDimensionY = 942;

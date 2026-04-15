@@ -26,7 +26,7 @@ async function addTabAndLoadBrowser() {
 
 /**
  * @param {MozTabbrowserTab} tab
- * @param {function(splitViewMenuItem: Element, unsplitMenuItem: Element) => Promise<void>} callback
+ * @param {function(splitViewMenuItem: Element, unsplitMenuItem: Element, addSplitViewToNewGroup: Element, removeSplitViewFromGroup: Element, reverseTabsItem: Element) => Promise<void>} callback
  */
 const withTabMenu = async function (tab, callback) {
   const tabContextMenu = document.getElementById("tabContextMenu");
@@ -57,6 +57,7 @@ const withTabMenu = async function (tab, callback) {
   const removeSplitViewFromGroup = document.getElementById(
     "context_ungroupSplitView"
   );
+  const reverseTabsItem = document.getElementById("context_reverseSplitView");
 
   let contextMenuHidden = BrowserTestUtils.waitForPopupEvent(
     tabContextMenu,
@@ -66,7 +67,8 @@ const withTabMenu = async function (tab, callback) {
     moveTabToNewSplitViewItem,
     unsplitTabItem,
     addSplitViewToNewGroup,
-    removeSplitViewFromGroup
+    removeSplitViewFromGroup,
+    reverseTabsItem
   );
   tabContextMenu.hidePopup();
   info("Hide popup");
@@ -606,6 +608,121 @@ add_task(async function test_new_tab_to_right_of_tab_before_splitview() {
 
   splitview.close();
   BrowserTestUtils.removeTab(newTab);
+  while (gBrowser.tabs.length > 1) {
+    BrowserTestUtils.removeTab(gBrowser.tabs.at(-1));
+  }
+});
+
+add_task(
+  async function test_contextMenuReverseSplitViewWhileOtherTabSelected() {
+    const tab1 = await addTabAndLoadBrowser();
+    const tab2 = await addTabAndLoadBrowser();
+    const tab3 = await addTabAndLoadBrowser();
+
+    let splitViewCreated = BrowserTestUtils.waitForEvent(
+      gBrowser.tabContainer,
+      "SplitViewCreated"
+    );
+    gBrowser.addTabSplitView([tab1, tab2]);
+    await splitViewCreated;
+
+    let splitview = tab1.splitview;
+    Assert.equal(splitview.tabs[0], tab1, "tab1 is first in split view");
+    Assert.equal(splitview.tabs[1], tab2, "tab2 is second in split view");
+
+    // Focus tab3 which is outside the split view
+    gBrowser.selectedTab = tab3;
+    Assert.ok(!splitview.hasActiveTab, "split view has no active tab");
+
+    await withTabMenu(
+      tab1,
+      async (
+        _moveTabToNewSplitViewItem,
+        _unsplitTabItem,
+        _addSplitViewToNewGroup,
+        _removeSplitViewFromGroup,
+        reverseTabsItem
+      ) => {
+        await BrowserTestUtils.waitForMutationCondition(
+          reverseTabsItem,
+          { attributes: true },
+          () => !reverseTabsItem.hidden,
+          "reverseTabsItem is visible"
+        );
+
+        info(
+          "Click menu option to reverse split view tabs while tab3 is selected"
+        );
+        let tabMoved = BrowserTestUtils.waitForEvent(tab2, "TabMove");
+        reverseTabsItem.click();
+        await tabMoved;
+      }
+    );
+
+    Assert.equal(splitview.tabs[0], tab2, "tab2 is first after reversing");
+    Assert.equal(splitview.tabs[1], tab1, "tab1 is second after reversing");
+    Assert.equal(
+      gBrowser.selectedTab,
+      tab3,
+      "tab3 is still the selected tab after reversing"
+    );
+    Assert.ok(!tab3.splitview, "tab3 is not part of the split view");
+    Assert.equal(
+      gBrowser.tabpanels.splitViewPanels.length,
+      0,
+      "split view panels are not displayed after reversing an inactive split view"
+    );
+
+    splitview.close();
+    while (gBrowser.tabs.length > 1) {
+      BrowserTestUtils.removeTab(gBrowser.tabs.at(-1));
+    }
+  }
+);
+
+add_task(async function test_contextMenuReverseSplitView() {
+  const tab1 = await addTabAndLoadBrowser();
+  const tab2 = await addTabAndLoadBrowser();
+
+  let splitViewCreated = BrowserTestUtils.waitForEvent(
+    gBrowser.tabContainer,
+    "SplitViewCreated"
+  );
+  gBrowser.addTabSplitView([tab1, tab2]);
+  await splitViewCreated;
+
+  let splitview = tab1.splitview;
+  Assert.equal(splitview.tabs[0], tab1, "tab1 is first in split view");
+  Assert.equal(splitview.tabs[1], tab2, "tab2 is second in split view");
+
+  await withTabMenu(
+    tab1,
+    async (
+      moveTabToNewSplitViewItem,
+      unsplitTabItem,
+      _addSplitViewToNewGroup,
+      _removeSplitViewFromGroup,
+      reverseTabsItem
+    ) => {
+      await BrowserTestUtils.waitForMutationCondition(
+        reverseTabsItem,
+        { attributes: true },
+        () => !reverseTabsItem.hidden,
+        "reverseTabsItem is visible"
+      );
+      Assert.ok(!reverseTabsItem.hidden, "reverseTabsItem is visible");
+
+      info("Click menu option to reverse split view tabs");
+      let tabMoved = BrowserTestUtils.waitForEvent(tab2, "TabMove");
+      reverseTabsItem.click();
+      await tabMoved;
+    }
+  );
+
+  Assert.equal(splitview.tabs[0], tab2, "tab2 is first after reversing");
+  Assert.equal(splitview.tabs[1], tab1, "tab1 is second after reversing");
+
+  splitview.close();
   while (gBrowser.tabs.length > 1) {
     BrowserTestUtils.removeTab(gBrowser.tabs.at(-1));
   }

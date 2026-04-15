@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -74,6 +72,7 @@
 #include "mozilla/dom/LSObject.h"
 #include "mozilla/dom/MemoryReportRequest.h"
 #include "mozilla/dom/Navigation.h"
+#include "mozilla/dom/NavigationHistoryEntry.h"
 #include "mozilla/dom/PSessionStorageObserverChild.h"
 #include "mozilla/dom/PolicyContainer.h"
 #include "mozilla/dom/PostMessageEvent.h"
@@ -3243,40 +3242,6 @@ mozilla::ipc::IPCResult ContentChild::RecvPWebBrowserPersistDocumentConstructor(
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult ContentChild::RecvPush(const nsCString& aScope,
-                                               nsIPrincipal* aPrincipal,
-                                               const nsString& aMessageId) {
-  PushMessageDispatcher dispatcher(aScope, aPrincipal, aMessageId, Nothing());
-  (void)NS_WARN_IF(NS_FAILED(dispatcher.NotifyObserversAndWorkers()));
-  return IPC_OK();
-}
-
-mozilla::ipc::IPCResult ContentChild::RecvPushWithData(
-    const nsCString& aScope, nsIPrincipal* aPrincipal,
-    const nsString& aMessageId, nsTArray<uint8_t>&& aData) {
-  PushMessageDispatcher dispatcher(aScope, aPrincipal, aMessageId,
-                                   Some(std::move(aData)));
-  (void)NS_WARN_IF(NS_FAILED(dispatcher.NotifyObserversAndWorkers()));
-  return IPC_OK();
-}
-
-mozilla::ipc::IPCResult ContentChild::RecvPushError(const nsCString& aScope,
-                                                    nsIPrincipal* aPrincipal,
-                                                    const nsString& aMessage,
-                                                    const uint32_t& aFlags) {
-  PushErrorDispatcher dispatcher(aScope, aPrincipal, aMessage, aFlags);
-  (void)NS_WARN_IF(NS_FAILED(dispatcher.NotifyObserversAndWorkers()));
-  return IPC_OK();
-}
-
-mozilla::ipc::IPCResult
-ContentChild::RecvNotifyPushSubscriptionModifiedObservers(
-    const nsCString& aScope, nsIPrincipal* aPrincipal) {
-  PushSubscriptionModifiedDispatcher dispatcher(aScope, aPrincipal);
-  (void)NS_WARN_IF(NS_FAILED(dispatcher.NotifyObservers()));
-  return IPC_OK();
-}
-
 mozilla::ipc::IPCResult ContentChild::RecvBlobURLRegistration(
     const nsCString& aURI, const IPCBlob& aBlob, nsIPrincipal* aPrincipal,
     const nsCString& aPartitionKey) {
@@ -4637,6 +4602,38 @@ mozilla::ipc::IPCResult ContentChild::RecvStopLoad(
   if (auto* docShell = nsDocShell::Cast(bc->GetDocShell())) {
     docShell->Stop(aStopFlags);
   }
+
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentChild::RecvDeactivateDocuments(
+    const MaybeDiscarded<BrowsingContext>& aContext) {
+  if (aContext.IsNullOrDiscarded()) {
+    return IPC_OK();
+  }
+  BrowsingContext* browsingContext = aContext.get();
+  MOZ_DIAGNOSTIC_ASSERT(browsingContext->IsTopContent());
+
+  browsingContext->DeactivateDocuments();
+
+  return IPC_OK();
+}
+
+// https://html.spec.whatwg.org/#update-document-for-history-step-application
+// Perform steps 7 and 9 for the BFCache case.
+mozilla::ipc::IPCResult ContentChild::RecvReactivateDocuments(
+    const MaybeDiscarded<BrowsingContext>& aContext,
+    const Maybe<SessionHistoryInfo>& aReactivatedEntry,
+    const nsTArray<SessionHistoryInfo>& aNewSHEs,
+    const Maybe<PreviousSessionHistoryInfo>& aPreviousEntryForActivation) {
+  if (aContext.IsNullOrDiscarded()) {
+    return IPC_OK();
+  }
+  RefPtr browsingContext = aContext.get();
+  MOZ_DIAGNOSTIC_ASSERT(browsingContext->IsTopContent());
+
+  browsingContext->ReactivateDocuments(aReactivatedEntry, aNewSHEs,
+                                       aPreviousEntryForActivation);
 
   return IPC_OK();
 }

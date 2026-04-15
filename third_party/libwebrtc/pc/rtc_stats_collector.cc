@@ -897,12 +897,13 @@ CreateOutboundRTPStreamStatsFromVideoSenderInfo(
 }
 
 std::unique_ptr<RTCRemoteInboundRtpStreamStats>
-ProduceRemoteInboundRtpStreamStatsFromReportBlockData(
+ProduceRemoteInboundRtpStreamStats(
     const std::string& transport_id,
     const ReportBlockData& report_block,
     MediaType media_type,
     const std::map<std::string, RTCOutboundRtpStreamStats*>& outbound_rtps,
     const RTCStatsReport& report,
+    const Call::Stats& call_stats,
     const bool stats_timestamp_with_environment_clock) {
   // RTCStats' timestamp generally refers to when the metric was sampled, but
   // for "remote-[outbound/inbound]-rtp" it refers to the local time when the
@@ -914,7 +915,8 @@ ProduceRemoteInboundRtpStreamStatsFromReportBlockData(
       RTCRemoteInboundRtpStreamStatsIdFromSourceSsrc(
           media_type, report_block.source_ssrc()),
       arrival_timestamp);
-  remote_inbound->ssrc = report_block.source_ssrc();
+  uint32_t ssrc = report_block.source_ssrc();
+  remote_inbound->ssrc = ssrc;
   remote_inbound->kind = media_type == MediaType::AUDIO ? "audio" : "video";
   remote_inbound->packets_lost = report_block.cumulative_lost();
   remote_inbound->fraction_lost = report_block.fraction_lost();
@@ -924,6 +926,20 @@ ProduceRemoteInboundRtpStreamStatsFromReportBlockData(
   remote_inbound->total_round_trip_time =
       report_block.sum_rtts().seconds<double>();
   remote_inbound->round_trip_time_measurements = report_block.num_rtts();
+
+  if (auto it = call_stats.received_ccfb_stats_per_ssrc.find(ssrc);
+      it != call_stats.received_ccfb_stats_per_ssrc.end()) {
+    remote_inbound->packets_received_with_ect1 =
+        it->second.num_packets_received_with_ect1;
+    remote_inbound->packets_received_with_ce =
+        it->second.num_packets_received_with_ce;
+    remote_inbound->packets_reported_as_lost =
+        it->second.num_packets_reported_as_lost;
+    remote_inbound->packets_reported_as_lost_but_recovered =
+        it->second.num_packets_reported_as_lost_but_recovered;
+    remote_inbound->packets_with_bleached_ect1_marking =
+        it->second.num_packets_with_bleached_ect1_marking;
+  }
 
   std::string local_id = RTCOutboundRtpStreamStatsIDFromSSRC(
       transport_id, media_type, report_block.source_ssrc());
@@ -1613,6 +1629,11 @@ void RTCStatsCollector::ProduceMediaSourceStats_s(
        transceiver_stats_infos_) {
     const auto& track_media_info_map =
         transceiver_stats_info.track_media_info_map;
+    // The transceiver will still exist but in a stopped state after pc.close().
+    if (transceiver_stats_info.current_direction ==
+        RtpTransceiverDirection::kStopped) {
+      continue;
+    }
     for (const auto& sender : transceiver_stats_info.transceiver->senders()) {
       const auto& sender_internal = sender->internal();
       const auto& track = sender_internal->track();
@@ -1855,9 +1876,9 @@ void RTCStatsCollector::ProduceAudioRTPStreamStats_n(
   for (const VoiceSenderInfo& voice_sender_info :
        stats.track_media_info_map.voice_media_info()->senders) {
     for (const auto& report_block_data : voice_sender_info.report_block_datas) {
-      report->AddStats(ProduceRemoteInboundRtpStreamStatsFromReportBlockData(
+      report->AddStats(ProduceRemoteInboundRtpStreamStats(
           transport_id, report_block_data, MediaType::AUDIO,
-          audio_outbound_rtps, *report,
+          audio_outbound_rtps, *report, call_stats_,
           stats_timestamp_with_environment_clock_));
     }
   }
@@ -1965,9 +1986,9 @@ void RTCStatsCollector::ProduceVideoRTPStreamStats_n(
   for (const VideoSenderInfo& video_sender_info :
        stats.track_media_info_map.video_media_info()->senders) {
     for (const auto& report_block_data : video_sender_info.report_block_datas) {
-      report->AddStats(ProduceRemoteInboundRtpStreamStatsFromReportBlockData(
+      report->AddStats(ProduceRemoteInboundRtpStreamStats(
           transport_id, report_block_data, MediaType::VIDEO,
-          video_outbound_rtps, *report,
+          video_outbound_rtps, *report, call_stats_,
           stats_timestamp_with_environment_clock_));
     }
   }
@@ -2203,6 +2224,9 @@ void RTCStatsCollector::PrepareTransceiverStatsInfosAndCallStats_s_w_n() {
       }
     }
   });
+  for (auto& stats : transceiver_stats_infos_) {
+    stats.current_direction = stats.transceiver->current_direction();
+  }
 
   // We jump to the worker thread and call GetStats() on each media channel as
   // well as GetCallStats(). At the same time we construct the
@@ -2237,6 +2261,11 @@ void RTCStatsCollector::PrepareTransceiverStatsInfosAndCallStats_s_w_n() {
     // and keep track of whether we have at least one audio receiver.
     bool has_audio_receiver = false;
     for (auto& stats : transceiver_stats_infos_) {
+      // The transceiver will still exist but in a stopped state after
+      // pc.close().
+      if (stats.current_direction == RtpTransceiverDirection::kStopped) {
+        continue;
+      }
       auto transceiver = stats.transceiver;
       std::optional<VoiceMediaInfo> voice_media_info;
       std::optional<VideoMediaInfo> video_media_info;
@@ -2278,10 +2307,6 @@ void RTCStatsCollector::PrepareTransceiverStatsInfosAndCallStats_s_w_n() {
     audio_device_stats_ =
         has_audio_receiver ? pc_->GetAudioDeviceStats() : std::nullopt;
   });
-
-  for (auto& stats : transceiver_stats_infos_) {
-    stats.current_direction = stats.transceiver->current_direction();
-  }
 }
 
 void RTCStatsCollector::OnSctpDataChannelStateChanged(

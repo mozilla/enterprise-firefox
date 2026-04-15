@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.9"
 
 [[package]]
@@ -441,15 +441,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/cc/a1/50fccd68a12bcfc27adfc9969c090286670a9109a0259f3f70943390b721/esprima-4.0.1.tar.gz", hash = "sha256:08db1a876d3c2910db9cfaeb83108193af5411fc3a3a66ebefacd390d21323ee", size = 47021, upload-time = "2018-08-24T13:59:11.374Z" }
 
 [[package]]
-name = "filelock"
-version = "3.18.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/0a/10/c23352565a6544bdc5353e0b15fc1c563352101f30e24bf500207a54df9a/filelock-3.18.0.tar.gz", hash = "sha256:adbc88eabb99d2fec8c9c1b229b171f18afa655400173ddc653d5d01501fb9f2", size = 18075, upload-time = "2025-03-14T07:11:40.47Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/4d/36/2a115987e2d8c300a974597416d9de88f2444426de9571f4b59b2cca3acc/filelock-3.18.0-py3-none-any.whl", hash = "sha256:c401f4f8377c4464e6db25fff06205fd89bdd83b65eb0488ed1b160f780e21de", size = 16215, upload-time = "2025-03-14T07:11:39.145Z" },
-]
-
-[[package]]
 name = "fluent-migrate"
 version = "0.13.3"
 source = { registry = "https://pypi.org/simple" }
@@ -846,7 +837,6 @@ dependencies = [
     { name = "distro" },
     { name = "ecdsa" },
     { name = "esprima" },
-    { name = "filelock" },
     { name = "fluent-migrate" },
     { name = "fluent-syntax" },
     { name = "glean-parser" },
@@ -906,7 +896,6 @@ requires-dist = [
     { name = "distro", specifier = "~=1.8" },
     { name = "ecdsa", specifier = "==0.19.1" },
     { name = "esprima", specifier = "==4.0.1" },
-    { name = "filelock", specifier = "~=3.6" },
     { name = "fluent-migrate", specifier = "~=0.13" },
     { name = "fluent-syntax", specifier = "==0.19.0" },
     { name = "glean-parser", specifier = "==18.2.0" },

@@ -359,7 +359,7 @@ void WebrtcAudioConduit::OnControlConfigChange() {
           const auto& info =
               mSendStreamConfig.encoder_factory->QueryAudioEncoder(spec.format);
           spec.target_bitrate_bps =
-              std::clamp(AssertedCast<int>(*maxBps), info->min_bitrate_bps,
+              std::clamp(SaturatingCast<int>(*maxBps), info->min_bitrate_bps,
                          info->max_bitrate_bps);
         }
         mSendStreamConfig.send_codec_spec = std::move(spec);

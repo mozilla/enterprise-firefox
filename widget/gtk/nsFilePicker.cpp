@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -32,6 +31,7 @@
 
 #include "gfxPlatform.h"
 #include "nsXULAppAPI.h"
+#include "GRefPtr.h"
 #include "nsFilePicker.h"
 
 #undef LOG
@@ -860,10 +860,10 @@ bool nsFilePicker::WarnForNonReadableFile() {
       mParentWidget
           ? GTK_WINDOW(mParentWidget->GetNativeData(NS_NATIVE_SHELLWIDGET))
           : nullptr;
-  auto* cancel_dialog = gtk_message_dialog_new(
+  RefPtr<GtkWidget> cancel_dialog = gtk_message_dialog_new(
       parent_window, flags, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "%s",
       NS_ConvertUTF16toUTF8(errorMessage).get());
-  gtk_dialog_run(GTK_DIALOG(cancel_dialog));
+  gtk_dialog_run(GTK_DIALOG(cancel_dialog.get()));
   gtk_widget_destroy(cancel_dialog);
 
   return true;

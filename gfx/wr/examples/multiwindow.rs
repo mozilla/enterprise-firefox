@@ -170,22 +170,18 @@ impl Window {
         }
 
         let context = unsafe { self.context.take().unwrap().make_current().unwrap() };
-        let device_pixel_ratio = context.window().scale_factor() as f32;
         let device_size = {
             let size = context
                 .window()
                 .inner_size();
             DeviceIntSize::new(size.width as i32, size.height as i32)
         };
-        let layout_size = device_size.to_f32() / euclid::Scale::new(device_pixel_ratio);
         let mut txn = Transaction::new();
         let mut builder = DisplayListBuilder::new(self.pipeline_id);
         let space_and_clip = SpaceAndClipInfo::root_scroll(self.pipeline_id);
         builder.begin();
 
-        let bounds = LayoutRect::from_size(layout_size);
         builder.push_simple_stacking_context(
-            bounds.min,
             space_and_clip.spatial_id,
             PrimitiveFlags::IS_BACKFACE_VISIBLE,
         );

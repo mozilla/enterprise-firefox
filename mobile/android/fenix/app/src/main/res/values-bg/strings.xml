@@ -19,6 +19,8 @@
   <string name="content_description_menu">Повече настройки</string>
   <!-- Content description (not visible, for screen readers etc.): "Private Browsing" menu button. -->
   <string name="content_description_private_browsing">Поверително разглеждане</string>
+  <!-- Content description (not visible, for screen readers etc.): "Normal Browsing" menu button. -->
+  <string name="content_description_normal_browsing">Нормално разглеждане</string>
   <!-- Placeholder text shown in the search bar before a user enters text for the default engine -->
   <string name="search_hint">Търсете или въведете адрес</string>
   <!-- Placeholder text shown in the search bar before a user enters text for a general engine -->
@@ -314,6 +316,8 @@
   <string name="browser_menu_edit_bookmark">Промяна на отметка</string>
   <!-- Browser menu label that the saves the currently visited page as a PDF -->
   <string name="browser_menu_save_as_pdf_2">Запазване като PDF</string>
+  <!-- Browser menu label for moving the current private tab to a non-private tab -->
+  <string name="browser_menu_move_to_non_private_tab">Преместване в не-поверителен раздел</string>
   <!-- Browser menu label for navigating to the translation feature, which provides language translation options the current visited page -->
   <string name="browser_menu_translate_page_2">Превеждане на страницатa</string>
   <!-- Browser menu label for navigating to the summarization feature, which provides site summarization for the current visited page -->
@@ -616,8 +620,12 @@
 
   <!-- "Continue" onboarding button. -->
   <string name="nova_onboarding_continue_button">Продължаване</string>
+  <!-- "Continue browsing" onboarding button. -->
+  <string name="nova_onboarding_continue_browsing_button" tools:ignore="UnusedResources">Продължете да разглеждате</string>
   <!-- "Not now" onboarding button. -->
   <string name="nova_onboarding_negative_button">Не сега</string>
+  <!-- "Skip" onboarding button. -->
+  <string name="nova_onboarding_skip_button" tools:ignore="UnusedResources">Пропускане</string>
   <!-- Terms of use (ToU) onboarding title. -->
   <string name="nova_onboarding_tou_title" tools:ignore="UnusedResources">Пригответе се за свобода</string>
   <!-- Terms of use (ToU) onboarding subtitle. -->
@@ -692,6 +700,25 @@
   <string name="nova_onboarding_add_search_widget_subtitle" tools:ignore="BrandUsage">Започвайте търсене от началния екран на телефона със знанието, че автоматичните защити на Firefox ви пазят.</string>
   <!-- "Add search widget" onboarding button. 'Firefox' is intentionally hardcoded. -->
   <string name="nova_onboarding_add_search_widget_button" tools:ignore="BrandUsage">Добавяне на джаджа за Firefox</string>
+  <!-- Customize prompt onboarding title. -->
+  <string name="nova_onboarding_customize_prompt_title" tools:ignore="UnusedResources">Лесен за персонализиране и по-поверителен с всяко докосване</string>
+  <plurals name="nova_onboarding_customize_prompt_body" tools:ignore="UnusedResources">
+    <!--
+      Customize prompt onboarding body.
+      %1$s is replaced by the product name (for example "Firefox"),
+      %2$,d is replaced by the number of trackers blocked. The comma represents the thousand
+      separator (e.g. 1,000 in English), and it will automatically use the correct character
+      for your locale (don't change or remove it).
+    -->
+    <item quantity="one">%1$s спряха %2$,d тракер, докато сте обикаляли в мрежата.</item>
+    <item quantity="other">%1$s спряха %2$,d проследявания, докато сте обикаляли в мрежата.</item>
+  </plurals>
+  <!-- Customize prompt onboarding positive button. -->
+  <string name="nova_onboarding_customize_prompt_positive_button" tools:ignore="UnusedResources">Започнете да персонализирате</string>
+  <!-- App icon onboarding title. -->
+  <string name="nova_onboarding_app_icon_prompt_title" tools:ignore="UnusedResources">Изберете персонализирана икона на приложение</string>
+  <!-- App icon onboarding body. -->
+  <string name="nova_onboarding_app_icon_prompt_body" tools:ignore="UnusedResources">Придайте индивидуалност на началния екран.</string>
   <!-- ==== End of Project "Nova" onboarding strings ==== -->
 
   <!-- Onboarding header for the toolbar selection card, used by Nimbus experiments. -->
@@ -759,6 +786,12 @@
   <string name="preferences_category_about">Относно</string>
   <!-- Preference category for settings related to changing the default search engine -->
   <string name="preferences_category_select_default_search_engine">Изберете</string>
+  <!-- Preference category for settings related to changing the default search engine -->
+  <string name="preferences_category_select_default_search_engine_2">Търсеща машина по подразбиране за нормално четене</string>
+  <!-- Preference category for settings related to changing the private browsing search engine -->
+  <string name="preferences_category_select_private_search_engine">Търсеща машина по подразбиране за частно сърфиране</string>
+  <!-- Option to set the private browsing mode to use the normal default search engine -->
+  <string name="search_engine_use_default">Използвайте същата търсачка като при нормално разглеждане</string>
   <!-- Preference for settings related to managing search shortcuts for the quick search menu -->
   <string name="preferences_manage_search_shortcuts_2">Управляване на алтернативни търсачки</string>
   <!-- Summary for preference for settings related to managing search shortcuts for the quick search menu -->
@@ -975,6 +1008,15 @@
   <string name="preference_downloads_folder_permission_lost" tools:ignore="UnusedResources">Нямате правo да използвате тази папка. Опитайте да изберете другa.</string>
   <!-- Preference title for choosing an app to handle downloads -->
   <string name="preferences_choose_app_for_downloads">Управляване на изтеглянията с друго приложение</string>
+  <!-- Preference category for deleting or removing downloads -->
+  <string name="preferences_category_delete_or_remove_downloads">Изтриване или премахване на изтеглените файлове</string>
+  <string name="preferences_downloads_delete_from_device">Изтриване от устройството</string>
+  <string name="preferences_downloads_delete_from_device_description">Файлът е изтрит от устройството и премахнат от историята на изтеглянията</string>
+  <string name="preferences_downloads_remove_from_download_history">Премахване от историята на изтеглянията</string>
+  <string name="preferences_downloads_remove_from_download_history_description">Файлът е премахнат от историята на изтеглянията, но все още е запазен на устройството ви</string>
+  <string name="preferences_downloads_ask_when_to_delete_files">Питай при изтриване на файлове</string>
+  <!-- Preference for downloads -->
+  <string name="preferences_downloads_2">Настройки за изтегляне</string>
   <!-- Title for the setting to automatically clean up downloaded files. %s is the name of the app (for example "Firefox"). -->
   <string name="preferences_downloads_settings_clean_up_files_title">Изтриване от %s и устройството</string>
   <!-- Summary for the setting to automatically clean up downloaded files -->
@@ -1337,6 +1379,8 @@
   <string name="toolbar_customize_shortcut_homepage">Начална страница</string>
   <!-- Back shortcut in toolbar customization -->
   <string name="toolbar_customize_shortcut_back">Назад</string>
+  <!-- Label for choosing in toolbar customization settings to not use any custom shortcut button. -->
+  <string name="toolbar_customize_shortcut_none">Няма</string>
   <!--
     App icon Preferences
 
@@ -1505,12 +1549,8 @@
   <string name="studies_remove">Премахване</string>
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">Активни</string>
-  <!-- Description for studies -->
-  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">Изпробвайте функциите и идеите, преди да са достъпни за всички.</string>
   <!-- Description for studies. Note: The word "Firefox" should NOT be translated -->
   <string name="studies_description_4" tools:ignore="BrandUsage">Firefox произволно избира потребители, които да тестват функции, което подобрява качеството за всички.</string>
-  <!-- Title of the Studies data preference -->
-  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">Инсталиране и стартиране на проучвания</string>
   <!-- Title of the Studies data preference -->
   <string name="studies_title_2">Разрешаване на проучванията</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
@@ -1657,10 +1697,32 @@
     %d is the number of existing tab groups + 1.
   -->
   <string name="create_tab_group_form_default_name">Група %d</string>
-  <!-- Label for the tab group name field in the bottom sheet to create a new tab group. -->
-  <string name="create_tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">Име</string>
   <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
-  <string name="tab_group_name_label">Име</string>
+  <string name="create_tab_group_name_label">Име</string>
+  <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
+  <string name="tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">Име</string>
+  <!-- Title for adding more tabs to a tab group. -->
+  <string name="add_to_tab_group_title">Добавяне към</string>
+  <!-- Content Description for closing the "Add to Tab Group" panel. -->
+  <string name="add_to_tab_group_bottom_sheet_close_content_description">Затваряне на добавянето към групата раздели</string>
+  <!-- Label for adding to a new tab group. -->
+  <string name="add_to_new_tab_group_title">Нова група раздели</string>
+  <plurals name="tab_group_tabs_count_subtitle">
+    <!--
+      Subtitle for the number of tabs in a tab group.
+      %1$d is the number of tabs in a tab group.
+    -->
+    <item quantity="one">%1$d</item>
+    <item quantity="other">%1$d раздела</item>
+  </plurals>
+  <!-- Title for the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_title">Изтриване на група раздели?</string>
+  <!-- Text shown in the body of the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_body">Така групата ще бъде изтрита безвъзвратно.</string>
+  <!-- Text shown on the confirm button in the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_confirm">Премахване на групата</string>
+  <!-- Text shown on the cancel button in the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_cancel">Отказ</string>
   <!--
     History
 
@@ -1739,6 +1801,11 @@
     This button will dismiss the dialog.
   -->
   <string name="download_file_has_not_enough_storage_dialog_cancel_button_text">Отказ</string>
+  <plurals name="downloads_delete_dialog_title">
+    <!-- Title for the download deletion confirmation dialog. The message changes depending on how many files are selected. %d is the number of files to be deleted. -->
+    <item quantity="one">Изтриване на файл?</item>
+    <item quantity="other">Изтриване на %d файла?</item>
+  </plurals>
   <!-- Text for the button to delete a single downloaded file item -->
   <string name="download_delete_item">Изтриване</string>
   <!-- Content description for the toolbar "Navigate back" button -->
@@ -1770,6 +1837,14 @@
   <string name="download_delete_multi_select_dialog_confirm">Изтриване</string>
   <!-- Alert dialog confirmation before deleting multiple download items, this is the negative action. -->
   <string name="download_delete_multi_select_dialog_cancel">Отказ</string>
+  <!-- Alert dialog confirmation before deleting a single download item or many download items, this is one of the radio buttons within the dialog box for the user to select. -->
+  <string name="download_delete_dialog_from_device">Изтриване от устройството</string>
+  <!-- Alert dialog confirmation before deleting a single download item or many download items, this is one of the radio buttons within the dialog box for the user to select. -->
+  <string name="download_delete_dialog_from_history">Премахване само от историята на изтеглянията</string>
+  <!-- Alert dialog confirmation before deleting a single download item or many download items, this is the negative action. -->
+  <string name="download_delete_dialog_cancel">Отказ</string>
+  <!-- Alert dialog confirmation before deleting a single download item or many download items, this is the positive action. -->
+  <string name="download_delete_dialog_confirm">Потвърждение</string>
   <!-- Title for the alert dialog confirmation before renaming a download item. -->
   <string name="download_rename_dialog_title">Преименуване на файл</string>
   <!-- Label for the name field in the alert dialog confirmation before renaming a download item. -->
@@ -1867,6 +1942,16 @@
   <string name="download_content_type_filter_document">Документи</string>
   <!-- Text for the filter button to show all other file types in the downloads list -->
   <string name="download_content_type_filter_other_1">Друго</string>
+  <!--
+    Title for the alert dialog to rename a file and/or change its download location before downloading it.
+    %s is the formatted size of the file (e.g., "12.5 MB").
+  -->
+  <string name="download_rename_and_change_location_dialog_title">Изтегляне на файла? (%s)</string>
+  <!--
+    Title for the alert dialog to rename a file and/or change its download location
+    when the file size is not available before downloading it.
+  -->
+  <string name="download_rename_and_change_location_dialog_title_with_unknown_size">Изтегляне на файла?</string>
   <!--
     WebCompat Reporter
 
@@ -2056,7 +2141,11 @@
   <string name="bookmark_delete_single_item" tools:ignore="UnusedResources" moz:removedIn="150">Отметката %s е премахната</string>
   <!-- Bookmark snackbar message for deleting multiple items. %s is the number of items being deleted -->
   <string name="bookmark_delete_multiple_items" tools:ignore="UnusedResources" moz:removedIn="150">Изтрити елементи: %s</string>
-  <!-- Content description for the bookmark navigation bar back button -->
+  <!--
+    Bookmark undo button for deletion snackbar action
+
+    Content description for the bookmark navigation bar back button
+  -->
   <string name="bookmark_navigate_back_button_content_description">Връщане назад</string>
   <!-- Content description for the bookmark list new folder navigation bar button -->
   <string name="bookmark_add_new_folder_button_content_description">Добавяне на нова папка</string>
@@ -2265,6 +2354,24 @@
   <string name="menu_print">Отпечатване</string>
   <!-- Sub-header in the dialog to share a link to another sync device -->
   <string name="share_device_subheader">Изпращане към устройство</string>
+  <!-- Content description for the drag handle that dismisses the Send to Device bottom sheet -->
+  <string name="send_to_devices_bottom_sheet_close_content_description">Затворете „Изпращане към устройство“.</string>
+  <!-- Text for the QR code action in the native share sheet -->
+  <string name="share_qr_code">QR код</string>
+  <!-- Title shown in the QR code display screen -->
+  <string name="qr_code_display_title">QR код</string>
+  <!-- Content description for the close button in the QR code display screen -->
+  <string name="qr_code_display_close">Затваряне</string>
+  <!-- Heading on the QR code display screen -->
+  <string name="qr_code_display_share_nearby">Споделяне на връзка наблизо</string>
+  <!-- Body text on the QR code display screen instructing the user to have others scan the code -->
+  <string name="qr_code_display_instructions">За да споделите тази връзка с хора наоколо, нека сканират кода за бърза реакция по-долу.</string>
+  <!-- Label for the download button on the QR code display screen -->
+  <string name="qr_code_display_download">Изтегляне</string>
+  <!-- Toast shown when the QR code is successfully saved to Downloads -->
+  <string name="qr_code_download_success">QR кодът е запазен в Изтегляния</string>
+  <!-- Toast shown when saving the QR code to Downloads fails -->
+  <string name="qr_code_download_failure">Неуспешно запазване на QR кода</string>
   <!-- Sub-header in the dialog to share a link to an app from the full list -->
   <string name="share_link_all_apps_subheader">Всички действия</string>
   <!-- Sub-header in the dialog to share a link to an app from the most-recent sorted list -->
@@ -2394,8 +2501,6 @@
   <string name="preference_accessibility_text_size_summary">Направи текста в уебсайтовете по-голям или по-малък</string>
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">Размер на шрифт</string>
-  <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">Автоматичен размер на шрифта</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -3240,6 +3345,8 @@
     which navigates the user to a screen displaying all the shortcuts.
   -->
   <string name="homepage_shortcuts_show_all_content_description">Показване на всички преки пътища</string>
+  <!-- Label for the "Add shortcut" button displayed as a tile. -->
+  <string name="homepage_shortcuts_add_shortcut">Добавете пряк път</string>
   <!-- Title text displayed in the dialog when shortcuts limit is reached. -->
   <string name="shortcut_max_limit_title">Пределът за преки пътища е достигнат</string>
   <!-- Content description text displayed in the dialog when shortcut limit is reached. -->
@@ -3338,6 +3445,8 @@
     Header text for a section on the home screen.
   -->
   <string name="pocket_stories_header_2">Истории</string>
+  <!-- Header text for the Stories screen. -->
+  <string name="stories_screen_text_news">Новини</string>
   <!--
     Context description text for the "Discover more" button in the stories home screen section
     which navigates the user to a screen displaying more stories.
@@ -3430,7 +3539,9 @@
   <!-- The title of the warning card informs the user that the list of languages cannot be loaded. -->
   <string name="translation_error_could_not_load_languages_warning_text">Езиците не можаха да бъдат заредени. Проверете връзката си с интернет и опитайте отново.</string>
   <!-- The title of the warning card informs the user that a language is not supported. %1$s is the name of the language that is not supported. -->
-  <string name="translation_error_language_not_supported_warning_text">За съжаление, все още не поддържаме %1$s.</string>
+  <string name="translation_error_language_not_supported_warning_text" tools:ignore="UnusedResources" moz:removedIn="150">За съжаление, все още не поддържаме %1$s.</string>
+  <!-- The title of the warning card informs the user that translations from a language are not supported yet. %1$s is the name of the source language. -->
+  <string name="translation_error_language_not_supported_warning_text_2">За съжаление, все още не се поддържат преводи от %1$s.</string>
   <!-- Snackbar title shown if the user closes the Translation Request dialogue and a translation is in progress. -->
   <string name="translation_in_progress_snackbar">Превеждане…</string>
   <!--

@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -15,6 +14,7 @@
 #include "mozIStorageCompletionCallback.h"
 #include "mozIStorageStatement.h"
 #include "mozIStorageStatementCallback.h"
+#include "nsIAsyncShutdown.h"
 
 class mozIStorageAsyncStatement;
 class mozIStorageService;
@@ -24,10 +24,14 @@ class nsIEffectiveTLDService;
 namespace mozilla {
 namespace net {
 
-class CookiePersistentStorage final : public CookieStorage {
+class CookiePersistentStorage final : public CookieStorage,
+                                      public nsIAsyncShutdownBlocker {
  public:
   // Result codes for TryInitDB() and Read().
   enum OpenDBResult { RESULT_OK, RESULT_RETRY, RESULT_FAILURE };
+
+  NS_DECL_ISUPPORTS_INHERITED
+  NS_DECL_NSIASYNCSHUTDOWNBLOCKER
 
   static already_AddRefed<CookiePersistentStorage> Create();
 
@@ -85,6 +89,7 @@ class CookiePersistentStorage final : public CookieStorage {
 
  private:
   CookiePersistentStorage();
+  ~CookiePersistentStorage() = default;
 
   static void UpdateCookieInList(Cookie* aCookie, int64_t aLastAccessed,
                                  mozIStorageBindingParamsArray* aParamsArray);
@@ -155,6 +160,9 @@ class CookiePersistentStorage final : public CookieStorage {
   nsCOMPtr<mozIStorageStatementCallback> mUpdateListener;
   nsCOMPtr<mozIStorageStatementCallback> mRemoveListener;
   nsCOMPtr<mozIStorageCompletionCallback> mCloseListener;
+
+  nsCOMPtr<nsIAsyncShutdownClient> mShutdownBarrier;
+  void RemoveShutdownBlocker();
 };
 
 }  // namespace net

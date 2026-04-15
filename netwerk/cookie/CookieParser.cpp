@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -527,8 +526,8 @@ bool CookieParser::GetExpiry(CookieStruct& aCookieData,
   if (!aExpires.IsEmpty()) {
     // parse expiry time
     PRTime expiresTimeInUSec;
-    if (PR_ParseTimeString(aExpires.BeginReading(), true, &expiresTimeInUSec) !=
-        PR_SUCCESS) {
+    if (PR_ParseTimeString(PromiseFlatCString(aExpires).get(), true,
+                           &expiresTimeInUSec) != PR_SUCCESS) {
       return true;
     }
 
@@ -542,7 +541,7 @@ bool CookieParser::GetExpiry(CookieStruct& aCookieData,
       MOZ_ASSERT(aFromHttp);
 
       PRTime dateHeaderTimeInUSec;
-      if (PR_ParseTimeString(aDateHeader.BeginReading(), true,
+      if (PR_ParseTimeString(PromiseFlatCString(aDateHeader).get(), true,
                              &dateHeaderTimeInUSec) == PR_SUCCESS &&
           StaticPrefs::network_cookie_useServerTime()) {
         int64_t serverTimeInMSec =

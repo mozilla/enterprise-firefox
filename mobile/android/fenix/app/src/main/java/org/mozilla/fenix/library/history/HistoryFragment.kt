@@ -107,6 +107,7 @@ import org.mozilla.fenix.components.history.DefaultPagedHistoryProvider
 import org.mozilla.fenix.components.metrics.MetricsUtils
 import org.mozilla.fenix.components.search.HISTORY_SEARCH_ENGINE_ID
 import org.mozilla.fenix.databinding.FragmentHistoryBinding
+import org.mozilla.fenix.e2e.SystemInsetsPaddedFragment
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.getRootView
 import org.mozilla.fenix.ext.nav
@@ -133,15 +134,22 @@ import org.mozilla.fenix.search.SearchFragmentAction.SuggestionSelected
 import org.mozilla.fenix.search.SearchFragmentStore
 import org.mozilla.fenix.search.awesomebar.DeleteHistoryEntryDelegate
 import org.mozilla.fenix.search.createInitialSearchFragmentState
-import org.mozilla.fenix.tabstray.Page
+import org.mozilla.fenix.tabstray.redux.state.Page
 import org.mozilla.fenix.theme.FirefoxTheme
 import org.mozilla.fenix.utils.allowUndo
 import org.mozilla.fenix.GleanMetrics.History as GleanHistory
 
 private const val MATERIAL_DESIGN_SCRIM = "#52000000"
 
+/**
+ * Browser history screen.
+ */
 @SuppressWarnings("TooManyFunctions", "LargeClass")
-class HistoryFragment : LibraryPageFragment<History>(), UserInteractionHandler, MenuProvider {
+class HistoryFragment :
+    LibraryPageFragment<History>(),
+    UserInteractionHandler,
+    MenuProvider,
+    SystemInsetsPaddedFragment {
     private lateinit var historyStore: HistoryFragmentStore
     private lateinit var searchStore: SearchFragmentStore
     private val toolbarStore by buildToolbarStore()

@@ -618,7 +618,7 @@ DEFINES['MOZ_SKIA'] = True
 
 DEFINES['SKIA_IMPLEMENTATION'] = 1
 
-DEFINES['SK_PDF_USE_HARFBUZZ_SUBSETTING'] = 1
+DEFINES['SK_PDF_USE_HARFBUZZ_SUBSET'] = 1
 
 if CONFIG['MOZ_TREE_FREETYPE']:
     DEFINES['SK_CAN_USE_DLOPEN'] = 0
@@ -643,6 +643,10 @@ if CONFIG['CC_TYPE'] in ('clang', 'clang-cl'):
         '-Wno-macro-redefined',
         '-Wno-unused-private-field',
     ]
+
+LOCAL_INCLUDES += [
+    "/gfx/harfbuzz/src",
+]
 
 if CONFIG['MOZ_WIDGET_TOOLKIT'] in ('gtk', 'android'):
     LOCAL_INCLUDES += [

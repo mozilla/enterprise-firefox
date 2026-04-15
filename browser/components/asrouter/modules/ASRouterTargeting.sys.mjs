@@ -612,11 +612,8 @@ async function getAutofillRecords(data) {
     // JSActors, but that would import a lot of code for a targeting attribute.
     return 0;
   }
-  let records = await actor?.receiveMessage({
-    name: "FormAutofill:GetRecords",
-    data,
-  });
-  return records?.records?.length ?? 0;
+  let records = await actor?.getRecords(data);
+  return records?.length ?? 0;
 }
 
 // Attribution data can be encoded multiple times so we need this function to
@@ -776,12 +773,17 @@ const TargetingGetters = {
       lazy.SearchService.getAppProvidedEngines()
         .then(engines => {
           let { defaultEngine } = lazy.SearchService;
+          let hasEnteredSearchMode = Object.fromEntries(
+            engines.map(e => [e.id, e.hasBeenUsed])
+          );
+
           resolve({
             // Skip reporting the id for third party engines.
             current: defaultEngine.isAppProvided ? defaultEngine.id : null,
             // We don't need to filter the id here, as getAppProvidedEngines has
             // already done that for us.
             installed: engines.map(engine => engine.id),
+            hasEnteredSearchMode,
           });
         })
         .catch(() => resolve(NONE));
@@ -1420,6 +1422,25 @@ const TargetingGetters = {
    */
   get tabNotesCount() {
     return lazy.TabNotes.init().then(() => lazy.TabNotes.count());
+  },
+
+  // Number of weekdays in the past month the user was active
+  get userWeekdaysActiveInLastMonth() {
+    return QueryCache.queries.UserMonthlyActivity.get().then(activity => {
+      return activity.filter(entry => {
+        const [year, month, date] = String(entry[1]).split("-").map(Number);
+        //JavaScript's Date constructor takes a 0-indexed month — January is 0, December is 11. So if the date string is "2024-01-08", splitting gives you month = 1, and you need to pass 0 to get January.
+        const day = new Date(year, month - 1, date).getDay(); // 0 = Sun, 6 = Sat, local time avoids UTC shift
+        return day !== 0 && day !== 6;
+      }).length;
+    });
+  },
+
+  // Number of days in the past month with 100+ site visits
+  get userActiveDaysWithHundredPlusSites() {
+    return QueryCache.queries.UserMonthlyActivity.get().then(activity => {
+      return activity.filter(entry => entry[0] >= 100).length;
+    });
   },
 };
 

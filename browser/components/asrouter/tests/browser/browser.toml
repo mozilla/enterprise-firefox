@@ -44,6 +44,9 @@ https_first_disabled = true
 ["browser_asrouter_momentspagehub.js"]
 tags = "remote-settings"
 
+["browser_asrouter_newtab_messages.js"]
+tags = "newtab"
+
 ["browser_asrouter_targeting.js"]
 
 ["browser_asrouter_toast_notification-gif.js"]
@@ -84,8 +87,6 @@ skip-if = [
 ["browser_multistage_spotlight_telemetry.js"]
 
 ["browser_remote_l10n.js"]
-
-["browser_spotlight_default_messages.js"]
 
 ["browser_trigger_listeners.js"]
 https_first_disabled = true

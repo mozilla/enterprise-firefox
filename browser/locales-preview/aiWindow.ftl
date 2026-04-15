@@ -6,6 +6,7 @@
 
 appmenuitem-new-ai-window =
     .label = New smart window
+    .value = New smart window
 
 appmenuitem-new-classic-window =
     .label = New classic window
@@ -22,6 +23,8 @@ menu-history-chats =
 menu-history-chats-recent =
     .label = Recent Chats
 
+smartwindow-fullpage-heading = Smart Window
+
 smartwindow-document-title = New Tab
 
 ## Smart Window Toggle Button
@@ -35,6 +38,7 @@ ai-window-toggleview-switch-classic =
 
 ai-window-toggleview-switch-ai =
     .label = Smart Window
+    .value = Smart Window
 
 ai-window-toggleview-switch-private =
     .label = Private Window
@@ -76,6 +80,7 @@ smartbar-context-menu-button =
 ## Website Chip
 
 aiwindow-website-chip-placeholder = Tag a tab or site
+aiwindow-website-chip-history-deleted = History deleted
 aiwindow-website-chip-remove-button =
     .aria-label = Remove
 
@@ -86,6 +91,9 @@ aiwindow-firstrun-model-title = What’s important to you?
 aiwindow-firstrun-model-subtitle = Pick a model to power Smart Window. Switch anytime.
 aiwindow-firstrun-model-fast-label = Fast
 aiwindow-firstrun-model-fast-body = Answers quickly
+# $modelName (string) - The name of the AI model
+# $ownerName (string) - The name of the model owner/provider
+aiwindow-firstrun-model-chip-subtitle = Model { $modelName } by { $ownerName }
 aiwindow-firstrun-model-allpurpose-label = Flexible
 aiwindow-firstrun-model-allpurpose-body = Solid fit for most needs
 aiwindow-firstrun-model-personal-label = Personal
@@ -114,7 +122,7 @@ aiwindow-new-chat =
 
 ## Sign out dialog
 
-fxa-signout-dialog-body-aiwindow = Synced data will remain in your account. Your open Smart Windows will switch to standard windows.
+fxa-signout-dialog-body-aiwindow = Synced data will remain in your account. Open Smart Windows will switch to Classic Windows.
 
 ## Smart Window Toggle Button (in-page)
 
@@ -131,6 +139,11 @@ smartwindow-footer-history =
     .tooltiptext = History
     .aria-label = History
     .label = History
+
+## Disclaimer
+## Text displayed to user to warn user about potential mistakes.
+
+smartwindow-disclaimer = AI can make mistakes. <a data-l10n-name="report-link">Report any issues</a>.
 
 ## FirefoxView Chats
 ## Chats in this context refers to chats saved from the Smart Window Assistant
@@ -158,3 +171,21 @@ firefoxview-chat-date-prev-month = { DATETIME($date, month: "long", year: "numer
 
 firefoxview-chats-empty-header = Get back to your chats
 firefoxview-chats-empty-description = As you use Smart Window, your chats will be saved here.
+
+## Count displayed in fxview chat search results
+
+# Variables:
+#   $count (Number) - The number of chats matching the search query.
+
+firefoxview-search-chat-results-count = { $count ->
+  [one] { $count } chat
+ *[other] { $count } chats
+}
+
+## Clear browsing data dialog
+
+item-history-downloads-and-chat =
+    .label = Browsing, download, & chat history
+    .accesskey = B
+
+item-history-downloads-and-chat-description = Clears site, download, and chat history

@@ -213,40 +213,23 @@ class OutOfLineCode : public TempObject {
   // All other registers must be explicitly saved and restored by the OOL code
   // before being used.
 
-  virtual void generate(MacroAssembler* masm) = 0;
+  virtual void generate(MacroAssembler* masm, BaseCompiler* bc) = 0;
 };
 
-class OutOfLineAbortingTrap : public OutOfLineCode {
-  Trap trap_;
-  TrapSiteDesc desc_;
-
- public:
-  OutOfLineAbortingTrap(Trap trap, const TrapSiteDesc& desc)
-      : trap_(trap), desc_(desc) {}
-
-  virtual void generate(MacroAssembler* masm) override {
-    masm->wasmTrap(trap_, desc_);
-    MOZ_ASSERT(!rejoin()->bound());
-  }
-};
-
-class OutOfLineResumableTrap : public OutOfLineCode {
+class OutOfLineTrap : public OutOfLineCode {
   Trap trap_;
   TrapSiteDesc desc_;
   wasm::StackMap* stackMap_;
-  wasm::StackMaps* stackMaps_;
 
  public:
-  OutOfLineResumableTrap(Trap trap, const TrapSiteDesc& desc,
-                         wasm::StackMap* stackMap, wasm::StackMaps* stackMaps)
-      : trap_(trap), desc_(desc), stackMap_(stackMap), stackMaps_(stackMaps) {}
+  OutOfLineTrap(Trap trap, const TrapSiteDesc& desc, wasm::StackMap* stackMap)
+      : trap_(trap), desc_(desc), stackMap_(stackMap) {}
 
-  virtual void generate(MacroAssembler* masm) override {
-    masm->wasmTrap(trap_, desc_);
-    if (stackMap_ && !stackMaps_->add(masm->currentOffset(), stackMap_)) {
-      masm->setOOM();
+  virtual void generate(MacroAssembler* masm, BaseCompiler* bc) override {
+    bc->trap(trap_, desc_, stackMap_);
+    if (rejoin()) {
+      masm->jump(rejoin());
     }
-    masm->jump(rejoin());
   }
 };
 
@@ -264,7 +247,7 @@ bool BaseCompiler::generateOutOfLineCode() {
       continue;
     }
     ool->bind(&fr, &masm);
-    ool->generate(&masm);
+    ool->generate(&masm, this);
   }
 
   return !masm.oom();
@@ -583,17 +566,16 @@ bool BaseCompiler::beginFunction() {
   }
 
   OutOfLineCode* oolStackOverflowTrap =
-      addOutOfLineCode(new (alloc_) OutOfLineAbortingTrap(
+      addOutOfLineCode(new (alloc_) OutOfLineTrap(
           Trap::StackOverflow,
-          TrapSiteDesc(BytecodeOffset(func_.lineOrBytecode))));
+          TrapSiteDesc(BytecodeOffset(func_.lineOrBytecode)), nullptr));
   if (!oolStackOverflowTrap) {
     return false;
   }
   fr.checkStack(ABINonArgReg0, ABINonArgReg1, oolStackOverflowTrap->entry());
 
-  OutOfLineCode* oolInterruptTrap = addOutOfLineCode(
-      new (alloc_) OutOfLineResumableTrap(Trap::CheckInterrupt, trapSiteDesc(),
-                                          functionEntryStackMap, stackMaps_));
+  OutOfLineCode* oolInterruptTrap = addOutOfLineCode(new (alloc_) OutOfLineTrap(
+      Trap::CheckInterrupt, trapSiteDesc(), functionEntryStackMap));
   if (!oolInterruptTrap) {
     return false;
   }
@@ -1128,7 +1110,7 @@ class OutOfLineRequestTierUp : public OutOfLineCode {
       : instance_(instance),
         scratch_(scratch),
         lastOpcodeOffset_(lastOpcodeOffset) {}
-  virtual void generate(MacroAssembler* masm) override {
+  virtual void generate(MacroAssembler* masm, BaseCompiler* bc) override {
     // Generate:
     //
     // [optionally, if `instance_` != InstanceReg: swap(instance_, InstanceReg)]
@@ -2071,8 +2053,12 @@ bool BaseCompiler::callIndirect(uint32_t funcTypeIndex, uint32_t tableIndex,
   CallSiteDesc desc(bytecodeOffset(), CallSiteKind::Indirect);
   CalleeDesc callee =
       CalleeDesc::wasmTable(codeMeta_, table, tableIndex, callIndirectId);
-  OutOfLineCode* oob = addOutOfLineCode(
-      new (alloc_) OutOfLineAbortingTrap(Trap::OutOfBounds, trapSiteDesc()));
+  StackMap* oobTrapStackMap;
+  if (!createAbortingOutOfLineTrapStackMap(&oobTrapStackMap)) {
+    return false;
+  }
+  OutOfLineCode* oob = addOutOfLineCode(new (alloc_) OutOfLineTrap(
+      Trap::OutOfBounds, trapSiteDesc(), oobTrapStackMap));
   if (!oob) {
     return false;
   }
@@ -2103,8 +2089,12 @@ bool BaseCompiler::callIndirect(uint32_t funcTypeIndex, uint32_t tableIndex,
 
   Label* nullCheckFailed = nullptr;
 #ifndef WASM_HAS_HEAPREG
-  OutOfLineCode* nullref = addOutOfLineCode(new (alloc_) OutOfLineAbortingTrap(
-      Trap::IndirectCallToNull, trapSiteDesc()));
+  StackMap* nullTrapStackMap;
+  if (!createAbortingOutOfLineTrapStackMap(&nullTrapStackMap)) {
+    return false;
+  }
+  OutOfLineCode* nullref = addOutOfLineCode(new (alloc_) OutOfLineTrap(
+      Trap::IndirectCallToNull, trapSiteDesc(), nullTrapStackMap));
   if (!nullref) {
     return false;
   }
@@ -2123,7 +2113,7 @@ bool BaseCompiler::callIndirect(uint32_t funcTypeIndex, uint32_t tableIndex,
 
 class OutOfLineUpdateCallRefMetrics : public OutOfLineCode {
  public:
-  virtual void generate(MacroAssembler* masm) override {
+  virtual void generate(MacroAssembler* masm, BaseCompiler* bc) override {
     // Call the stub pointed to by Instance::updateCallRefMetricsStub, then
     // rejoin.  See "Register management" in BaseCompiler::updateCallRefMetrics
     // for details of register management.
@@ -2611,7 +2601,7 @@ class OutOfLineTruncateCheckF32OrF64ToI32 : public OutOfLineCode {
                                       TrapSiteDesc trapSiteDesc)
       : src(src), dest(dest), flags(flags), trapSiteDesc(trapSiteDesc) {}
 
-  virtual void generate(MacroAssembler* masm) override {
+  virtual void generate(MacroAssembler* masm, BaseCompiler* bc) override {
     if (src.tag == AnyReg::F32) {
       masm->oolWasmTruncateCheckF32ToI32(src.f32(), dest, flags, trapSiteDesc,
                                          rejoin());
@@ -2669,7 +2659,7 @@ class OutOfLineTruncateCheckF32OrF64ToI64 : public OutOfLineCode {
                                       TrapSiteDesc trapSiteDesc)
       : src(src), dest(dest), flags(flags), trapSiteDesc(trapSiteDesc) {}
 
-  virtual void generate(MacroAssembler* masm) override {
+  virtual void generate(MacroAssembler* masm, BaseCompiler* bc) override {
     if (src.tag == AnyReg::F32) {
       masm->oolWasmTruncateCheckF32ToI64(src.f32(), dest, flags, trapSiteDesc,
                                          rejoin());
@@ -7195,6 +7185,185 @@ bool BaseCompiler::emitTableSetAnyRef(uint32_t tableIndex) {
 
 //////////////////////////////////////////////////////////////////////////////
 //
+// Wide Arithmetic support
+
+bool BaseCompiler::emitI64AddSub128(bool isAdd) {
+  Nothing nothing;
+  if (!iter_.readBinaryI128(&nothing, &nothing, &nothing, &nothing)) {
+    return false;
+  }
+  if (deadCode_) {
+    return true;
+  }
+
+#ifdef JS_64BIT
+  // All 64-bit targets.  Produce inline code.
+  RegI64 temp = needI64();
+  RegI64 xHi, xLo, yHi, yLo;
+  pop2xI64(&yLo, &yHi);
+  pop2xI64(&xLo, &xHi);
+
+  // Compute zHi:zLo = xHi:xLo +/- yHi:yLo.
+  masm.move64(xLo, temp);
+  if (isAdd) {
+    masm.add64(yLo, temp);
+  } else {
+    masm.sub64(yLo, temp);
+  }
+  pushI64(temp);  // zLo
+
+  temp = needI64();
+  masm.wasmAddSubI128HI64(xLo.reg, xHi.reg, yLo.reg, yHi.reg, temp.reg, isAdd);
+  pushI64(temp);  // zHi
+  freeI64(xHi);
+  freeI64(yHi);
+  freeI64(xLo);
+  freeI64(yLo);
+
+#else
+  // All 32-bit targets.  Call a helper function; doing it inline is too
+  // difficult, given x86_32's lack of registers.  The arguments and return
+  // value are passed in Instance::baselineScratchWords_[0..7]; see
+  // Instance::addSubI128 for details.
+  RegPtr instance = needPtr();
+  fr.loadInstancePtr(instance);
+
+  // Pop 4 args, in the sequence yHi, yLo, xHi, xLo, and put them into
+  // Instance::baselineScratchWords_ slots as specified by `wordOffsets`.
+  const int wordOffsets[4] = {6, 4, 2, 0};
+  for (int i = 0; i < 4; i++) {
+    RegI64 reg64 = popI64();
+    stashWord(instance, wordOffsets[i] + 0, RegPtr(reg64.low));
+    stashWord(instance, wordOffsets[i] + 1, RegPtr(reg64.high));
+    freeI64(reg64);
+  }
+
+  freePtr(instance);
+
+  // Compute zHi:zLo = xHi:xLo +/- yHi:yLo.
+  pushI32(isAdd ? 1 : 0);
+  if (!emitInstanceCall(SASigAddSubI128)) {
+    return false;
+  }
+
+  instance = needPtr();
+  fr.loadInstancePtr(instance);
+
+  RegI64 reg64 = needI64();
+  unstashWord(instance, 0, RegPtr(reg64.low));
+  unstashWord(instance, 1, RegPtr(reg64.high));
+  pushI64(reg64);  // zLo
+
+  reg64 = needI64();
+  unstashWord(instance, 2, RegPtr(reg64.low));
+  unstashWord(instance, 3, RegPtr(reg64.high));
+  pushI64(reg64);  // zHi
+
+  freePtr(instance);
+#endif  // JS_64BIT
+
+  return true;
+}
+
+bool BaseCompiler::emitI64MulWide(bool isSigned) {
+  Nothing nothing;
+  if (!iter_.readBinaryI64Wide(&nothing, &nothing)) {
+    return false;
+  }
+  if (deadCode_) {
+    return true;
+  }
+
+#ifdef JS_CODEGEN_X64
+  // 64-bit Intel implementation.  Produce inline code.  The inputs need to be
+  // in rax/rdx, and we also need three temporaries.
+  need2xI64(specific_.rax, specific_.rdx);
+  RegI64 y = popI64ToSpecific(specific_.rdx);
+  RegI64 x = popI64ToSpecific(specific_.rax);
+  RegI64 temp0 = needI64();
+  RegI64 temp1 = needI64();
+  RegI64 temp2 = needI64();
+
+  // Compute zHi:zLo = x *widen y.
+  masm.move64(x, temp0);
+  masm.mul64(y, temp0);
+  pushI64(temp0);  // zLo
+
+  temp0 = needI64();
+  masm.wasmMulI64WideHI64(x.reg, y.reg, temp1.reg, temp2.reg, temp0.reg,
+                          isSigned);
+  pushI64(temp0);  // zHi
+
+  free(temp1);
+  free(temp2);
+  free(x);
+  free(y);
+
+#elif JS_64BIT
+  // All other 64-bit targets.  Produce inline code.  We need just one
+  // temporary.
+  RegI64 y = popI64();
+  RegI64 x = popI64();
+  RegI64 temp0 = needI64();
+
+  // Compute zHi:zLo = x *widen y.
+  masm.move64(x, temp0);
+  masm.mul64(y, temp0);
+  pushI64(temp0);  // zLo
+
+  temp0 = needI64();
+  masm.wasmMulI64WideHI64(x.reg, y.reg, temp0.reg, isSigned);
+  pushI64(temp0);  // zHi
+
+  free(x);
+  free(y);
+
+#else
+  // All 32-bit targets.  Call a helper function.  The arguments and return
+  // value are passed in Instance::baselineScratchWords_[0..4]; see
+  // Instance::mulI64Wide for details.
+  RegPtr instance = needPtr();
+  fr.loadInstancePtr(instance);
+
+  RegI64 reg64 = popI64();  // y
+  stashWord(instance, 2, RegPtr(reg64.low));
+  stashWord(instance, 3, RegPtr(reg64.high));
+  freeI64(reg64);
+
+  reg64 = popI64();  // x
+  stashWord(instance, 0, RegPtr(reg64.low));
+  stashWord(instance, 1, RegPtr(reg64.high));
+  freeI64(reg64);
+
+  freePtr(instance);
+
+  // Compute zHi:zLo = x *widen y.
+  pushI32(isSigned ? 1 : 0);
+  if (!emitInstanceCall(SASigMulI64Wide)) {
+    return false;
+  }
+
+  instance = needPtr();
+  fr.loadInstancePtr(instance);
+
+  reg64 = needI64();
+  unstashWord(instance, 0, RegPtr(reg64.low));
+  unstashWord(instance, 1, RegPtr(reg64.high));
+  pushI64(reg64);  // zLo
+
+  reg64 = needI64();
+  unstashWord(instance, 2, RegPtr(reg64.low));
+  unstashWord(instance, 3, RegPtr(reg64.high));
+  pushI64(reg64);  // zHi
+
+  freePtr(instance);
+#endif  // JS_64BIT
+
+  return true;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//
 // Data and element segment management.
 
 bool BaseCompiler::emitDataOrElemDrop(bool isData) {
@@ -8957,8 +9126,12 @@ bool BaseCompiler::emitRefCast(bool nullable) {
 
   RegRef ref = popRef();
 
+  StackMap* trapStackMap;
+  if (!createAbortingOutOfLineTrapStackMap(&trapStackMap)) {
+    return false;
+  }
   OutOfLineCode* ool = addOutOfLineCode(
-      new (alloc_) OutOfLineAbortingTrap(Trap::BadCast, trapSiteDesc()));
+      new (alloc_) OutOfLineTrap(Trap::BadCast, trapSiteDesc(), trapStackMap));
   if (!ool) {
     return false;
   }
@@ -11916,6 +12089,26 @@ bool BaseCompiler::emitBody() {
             CHECK_NEXT(emitTableGrow());
           case uint32_t(MiscOp::TableSize):
             CHECK_NEXT(emitTableSize());
+          case uint32_t(MiscOp::I64Add128):
+            if (!codeMeta_.wideArithmeticEnabled()) {
+              return iter_.unrecognizedOpcode(&op);
+            }
+            CHECK_NEXT(emitI64AddSub128(/*isAdd=*/true));
+          case uint32_t(MiscOp::I64Sub128):
+            if (!codeMeta_.wideArithmeticEnabled()) {
+              return iter_.unrecognizedOpcode(&op);
+            }
+            CHECK_NEXT(emitI64AddSub128(/*isAdd=*/false));
+          case uint32_t(MiscOp::I64MulWideS):
+            if (!codeMeta_.wideArithmeticEnabled()) {
+              return iter_.unrecognizedOpcode(&op);
+            }
+            CHECK_NEXT(emitI64MulWide(/*isSigned=*/true));
+          case uint32_t(MiscOp::I64MulWideU):
+            if (!codeMeta_.wideArithmeticEnabled()) {
+              return iter_.unrecognizedOpcode(&op);
+            }
+            CHECK_NEXT(emitI64MulWide(/*isSigned=*/false));
           default:
             break;
         }  // switch (op.b1)

@@ -99,6 +99,9 @@ let plugin = {
       .default,
     "reject-addtask-only": (await import("./rules/reject-addtask-only.mjs"))
       .default,
+    "reject-contenttask-spawn": (
+      await import("./rules/reject-contenttask-spawn.mjs")
+    ).default,
     "reject-eager-module-in-lazy-getter": (
       await import("./rules/reject-eager-module-in-lazy-getter.mjs")
     ).default,

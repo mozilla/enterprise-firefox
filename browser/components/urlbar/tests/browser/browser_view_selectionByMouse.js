@@ -490,7 +490,10 @@ add_task(async function buttons() {
         }
 
         // Mouseup and check the selection.
+        // XXX: See bug 2016839
+        AccessibilityUtils.setEnv({ labelRule: false });
         EventUtils.synthesizeMouseAtCenter(upElement, { type: "mouseup" });
+        AccessibilityUtils.resetEnv();
         Assert.ok(
           !downElement.hasAttribute("selected"),
           "Mousedown element should not be selected after mouseup"

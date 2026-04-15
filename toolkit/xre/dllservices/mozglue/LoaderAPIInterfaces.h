@@ -114,7 +114,7 @@ struct WinLauncherServices final {
   nt::LoaderAPI::HandleLauncherErrorFnPtr mHandleLauncherError;
   SharedSection* mSharedSection;
 
-  WinLauncherServices()
+  constexpr WinLauncherServices()
       : mInitDllBlocklistOOP(nullptr),
         mHandleLauncherError(nullptr),
         mSharedSection(nullptr) {}

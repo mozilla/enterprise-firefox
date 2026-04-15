@@ -1360,6 +1360,15 @@ should use `ErrorResult::ThrowTypeError()` instead of calling
 Our Web IDL parser and code generator recognize several extended
 attributes that are not present in the Web IDL spec.
 
+### `[AllowLarge]`
+
+Can be specified on buffer source types (`ArrayBuffer`, `ArrayBufferView`,
+typed arrays) to skip the default 2 GB size check. This allows
+incremental migration of consumers to support buffers larger than 2 GB.
+Can be combined with `[AllowShared]`. On the C++ side, use
+`ProcessData<true>(...)` or `ProcessFixedData<true>(...)` to access the
+data.
+
 ### `[Alias=propName]`
 
 This extended attribute can be specified on a method and indicates that
@@ -1410,14 +1419,14 @@ implementing `MyInterface`.
 Multiple `[BindingAlias]` extended attributes can be used on a single
 attribute.
 
-### `[BindingTemplate=(name, value)]`
+### `[BindingTemplate=(name, type, value)]`
 
 This extended attribute can be specified on an attribute, and causes the getter
 and setter for this attribute to forward to a common generated implementation,
 shared with all other attributes that have a `[BindingTemplate]` with the same
 value for the `name` argument. The `TemplatedAttributes` dictionary in
 Bindings.conf needs to contain a definition for the template with the name
-`name`. The `value` will be passed as an argument when calling the common
+`name`. The argument `type::value` will be passed when calling the common
 generated implementation.
 
 This is aimed at very specialized use cases where an interface has a
@@ -1842,7 +1851,7 @@ the first time the object is constructed, or any static method on the
 object is invoked.
 
 The complete list of valid deprecation tags is maintained in
-[nsDeprecatedOperationList.inc](https://searchfox.org/mozilla-central/source/dom/base/nsDeprecatedOperationList.h).
+[nsDeprecatedOperationList.inc](https://searchfox.org/firefox-main/source/dom/base/nsDeprecatedOperationList.inc).
 Each new tag requires that a localized string be defined, containing the
 deprecation message to display.
 
@@ -1918,11 +1927,12 @@ These methods will initialize the dictionary from `val` by following WebIDL's
 
 ### `[GenerateInitFromJSON]`
 
-When set on a dictionary it will add an `Init` method to the generated C++
-class with the following signature:
+When set on a dictionary it will add `Init` methods to the generated C++
+class with the following signatures:
 
 ``` cpp
 bool Init(const nsAString& aJSON);
+bool Init(const nsACString& aJSON);
 ```
 
 This extended attribute will only have an effect if all of the types of the
@@ -1941,11 +1951,12 @@ extended attribute.
 
 ### `[GenerateToJSON]`
 
-When set on a dictionary it will add a `ToJSON` method to the generated C++
-class with the following signature:
+When set on a dictionary it will add `ToJSON` methods to the generated C++
+class with the following signatures:
 
 ``` cpp
 bool ToJSON(nsAString& aJSON);
+bool ToJSON(nsACString& aJSON);
 ```
 
 The method will generate a JSON representation of the dictionary members' values
@@ -2094,6 +2105,10 @@ the relevant type (`uint8_t` for `ArrayBuffer` and
 in units of `*Data()`. So for example, `Int32Array` has a `Data()`
 returning `int32_t*` and a `Length()` that returns the number of
 32-bit ints in the array.
+
+By default, the generated bindings reject typed arrays, `ArrayBuffer`,
+and `ArrayBufferView` objects larger than 2 GB. To allow larger buffers,
+use the [`[AllowLarge]`](#allowlarge) extended attribute.
 
 ### `Sequence<T>`
 

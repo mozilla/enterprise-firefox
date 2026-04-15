@@ -190,6 +190,8 @@ body > div > div {width: 1000px;height: 1000px;}\
       );
       BrowserTestUtils.startLoadingURIString(gBrowser, test.dataUri);
       await loadedPromise;
+      // TODO: Switch to SpecialPowers.spawn
+      // eslint-disable-next-line mozilla/reject-contenttask-spawn
       await ContentTask.spawn(gBrowser.selectedBrowser, {}, async () => {
         // Wait for a paint so that hit-testing works correctly.
         await new Promise(resolve =>
@@ -216,6 +218,8 @@ body > div > div {width: 1000px;height: 1000px;}\
 
     // This ensures bug 605127 is fixed: pagehide in an unrelated document
     // should not cancel the autoscroll.
+    // TODO: Switch to SpecialPowers.spawn
+    // eslint-disable-next-line mozilla/reject-contenttask-spawn
     await ContentTask.spawn(
       gBrowser.selectedBrowser,
       { waitForAutoScrollStart: test.expected != expectScrollNone },

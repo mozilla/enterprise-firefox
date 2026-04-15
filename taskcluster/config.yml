@@ -165,6 +165,7 @@ treeherder:
         'Flatpak': 'Flatpak image generation'
         'langpack': 'Langpack sigatures and uploads'
         'TPS': 'Sync tests'
+        'UpInt': 'MAR integrity tests'
         'UV': 'Update verify'
         'UVnext': 'Update verify for esr-next'
         'pydep': 'python dependency update'
@@ -178,6 +179,7 @@ treeherder:
         'py': 'Python checks'
         'java': 'Java checks'
         'rust': 'Rust checks'
+        'android': 'Android checks'
         'Static-Analysis': 'Full tree static-analysis'
         'SS': 'Shadow scheduler'
         'Sentry': 'Sentry synchronization'
@@ -578,6 +580,11 @@ workers:
             implementation: generic-worker
             os: windows
             worker-type: 'win11-a64-24h2-builder'
+        b-win-aarch64-25h2:
+            provisioner: '{trust-domain}-{level}'
+            implementation: generic-worker
+            os: windows
+            worker-type: 'win11-a64-25h2-builder'
         images.*:
             provisioner: '{trust-domain}-{level}'
             implementation: docker-worker
@@ -747,17 +754,7 @@ workers:
             implementation: docker-worker
             os: linux
             worker-type: 't-linux-docker-kvm'
-        t-linux-talos:
-            provisioner: releng-hardware
-            implementation: generic-worker
-            os: linux
-            worker-type: 'gecko-{alias}'
-        t-linux-netperf-1804:
-            provisioner: releng-hardware
-            implementation: generic-worker
-            os: linux
-            worker-type: 'gecko-{alias}'
-        t-linux-talos-1804:
+        t-linux-(talos|netperf)(-1804|-2404)?:
             provisioner: releng-hardware
             implementation: generic-worker
             os: linux
@@ -843,17 +840,22 @@ workers:
             implementation: generic-worker
             os: windows
             worker-type: '{alias}'
-        win11-64-24h2(|-gpu|-large|-webgpu):
+        win11-64-24h2(|-gpu|-source|-large|-webgpu|-privileged):
             provisioner: '{trust-domain}-t'
             implementation: generic-worker
             os: windows
             worker-type: '{alias}'
-        win11-64-24h2-source:
+        win11-64-25h2(|-gpu|-source|-large|-webgpu|-privileged):
             provisioner: '{trust-domain}-t'
             implementation: generic-worker
             os: windows
             worker-type: '{alias}'
         win11-a64-24h2:
+            provisioner: '{trust-domain}-t'
+            implementation: generic-worker
+            os: windows
+            worker-type: '{alias}'
+        win11-a64-25h2:
             provisioner: '{trust-domain}-t'
             implementation: generic-worker
             os: windows

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -478,7 +476,7 @@ class HTMLMediaElement::MediaControlKeyListener final
   }
 
   void HandleMediaKey(MediaControlKey aKey,
-                      Maybe<SeekDetails> aDetails) override {
+                      const MediaControlActionParams& aParams) override {
     MOZ_ASSERT(NS_IsMainThread());
     MOZ_ASSERT(IsStarted());
     MEDIACONTROL_LOG("HandleEvent '%s'", GetEnumString(aKey).get());
@@ -494,22 +492,32 @@ class HTMLMediaElement::MediaControlKeyListener final
         StopIfNeeded();
         break;
       case MediaControlKey::Seekto:
-        MOZ_ASSERT(aDetails->mAbsolute);
-        if (aDetails->mAbsolute->mFastSeek) {
-          Owner()->FastSeek(aDetails->mAbsolute->mSeekTime, IgnoreErrors());
+        MOZ_ASSERT(aParams.mAbsolute);
+        if (aParams.mAbsolute->mFastSeek) {
+          Owner()->FastSeek(aParams.mAbsolute->mSeekTime, IgnoreErrors());
         } else {
-          Owner()->SetCurrentTime(aDetails->mAbsolute->mSeekTime);
+          Owner()->SetCurrentTime(aParams.mAbsolute->mSeekTime);
         }
         break;
       case MediaControlKey::Seekforward:
-        MOZ_ASSERT(aDetails->mRelativeSeekOffset);
+        MOZ_ASSERT(aParams.mRelativeSeekOffset);
         Owner()->SetCurrentTime(Owner()->CurrentTime() +
-                                aDetails->mRelativeSeekOffset.value());
+                                aParams.mRelativeSeekOffset.value());
         break;
       case MediaControlKey::Seekbackward:
-        MOZ_ASSERT(aDetails->mRelativeSeekOffset);
+        MOZ_ASSERT(aParams.mRelativeSeekOffset);
         Owner()->SetCurrentTime(Owner()->CurrentTime() -
-                                aDetails->mRelativeSeekOffset.value());
+                                aParams.mRelativeSeekOffset.value());
+        break;
+      case MediaControlKey::Setvolume:
+        MOZ_ASSERT(aParams.mVolume);
+        Owner()->SetVolume(aParams.mVolume.value(), IgnoreErrors());
+        break;
+      case MediaControlKey::Mute:
+        Owner()->SetMuted(true);
+        break;
+      case MediaControlKey::Unmute:
+        Owner()->SetMuted(false);
         break;
       default:
         MOZ_ASSERT_UNREACHABLE(
@@ -772,7 +780,13 @@ class HTMLMediaElement::MediaStreamRenderer {
     if (mFirstFrameVideoOutput) {
       mWatchManager.Watch(mFirstFrameVideoOutput->mFirstFrameRendered,
                           &MediaStreamRenderer::SetFirstFrameRendered);
+      mWatchManager.Watch(mFirstFrameVideoOutput->mAttachment,
+                          &MediaStreamRenderer::UpdateVideoTrackListeners);
     }
+    mWatchManager.Watch(mVideoTrack,
+                        &MediaStreamRenderer::UpdateVideoTrackListeners);
+    mWatchManager.Watch(mRendering,
+                        &MediaStreamRenderer::UpdateVideoTrackListeners);
   }
 
   void Shutdown() {
@@ -781,11 +795,12 @@ class HTMLMediaElement::MediaStreamRenderer {
         RemoveTrack(t->AsAudioStreamTrack());
       }
     }
-    if (mVideoTrack) {
-      RemoveTrack(mVideoTrack->AsVideoStreamTrack());
+    if (mVideoTrack.Ref()) {
+      RemoveTrack(mVideoTrack.Ref()->AsVideoStreamTrack());
     }
     mWatchManager.Shutdown();
     mFirstFrameVideoOutput = nullptr;
+    mVideoOutput = nullptr;
   }
 
   void UpdateGraphTime() {
@@ -797,12 +812,14 @@ class HTMLMediaElement::MediaStreamRenderer {
     if (!mFirstFrameVideoOutput) {
       return;
     }
-    if (mVideoTrack) {
-      mVideoTrack->AsVideoStreamTrack()->RemoveVideoOutput(
+    if (mVideoTrack.Ref()) {
+      mVideoTrack.Ref()->AsVideoStreamTrack()->RemoveVideoOutput(
           mFirstFrameVideoOutput);
     }
     mWatchManager.Unwatch(mFirstFrameVideoOutput->mFirstFrameRendered,
                           &MediaStreamRenderer::SetFirstFrameRendered);
+    mWatchManager.Unwatch(mFirstFrameVideoOutput->mAttachment,
+                          &MediaStreamRenderer::UpdateVideoTrackListeners);
     mFirstFrameVideoOutput = nullptr;
   }
 
@@ -844,10 +861,8 @@ class HTMLMediaElement::MediaStreamRenderer {
                                                       mAudioOutputVolume);
       }
     }
-
-    if (mVideoTrack) {
-      mVideoTrack->AsVideoStreamTrack()->AddVideoOutput(mVideoContainer);
-    }
+    // Video attachment is handled by UpdateVideoTrackListeners via mRendering
+    // Watchable.
   }
 
   void Stop() {
@@ -871,8 +886,11 @@ class HTMLMediaElement::MediaStreamRenderer {
     // device may not start.  Ensure the promise is resolved.
     ResolveAudioDevicePromiseIfExists(__func__);
 
-    if (mVideoTrack) {
-      mVideoTrack->AsVideoStreamTrack()->RemoveVideoOutput(mVideoContainer);
+    if (mVideoTrack.Ref() && mVideoOutput) {
+      // This is fine even if mVideoOutput is not attached to mVideoTrack (might
+      // be pending removal from an earlier mVideoTrack), as RemoveVideoOutput
+      // is idempotent.
+      mVideoTrack.Ref()->AsVideoStreamTrack()->RemoveVideoOutput(mVideoOutput);
     }
   }
 
@@ -961,21 +979,16 @@ class HTMLMediaElement::MediaStreamRenderer {
     }
   }
   void AddTrack(VideoStreamTrack* aTrack) {
-    MOZ_DIAGNOSTIC_ASSERT(!mVideoTrack);
+    MOZ_DIAGNOSTIC_ASSERT(!mVideoTrack.Ref());
     if (!mVideoContainer) {
       return;
     }
     mVideoTrack = aTrack;
     EnsureGraphTimeDummy();
-    if (mFirstFrameVideoOutput) {
-      // Add the first frame output even if we are rendering. It will only
-      // accept one frame. If we are rendering, then the main output will
-      // overwrite that with the same frame (and possibly more frames).
-      aTrack->AddVideoOutput(mFirstFrameVideoOutput);
-    }
-    if (mRendering) {
-      aTrack->AddVideoOutput(mVideoContainer);
-    }
+    // Video output attachment is handled by UpdateVideoTrackListeners via the
+    // mVideoTrack Watchable, when mVideoContainer is known to not be in use
+    // from a VideoOutput for a previous track on a potentially different
+    // MediaTrackGraph.
   }
 
   void RemoveTrack(AudioStreamTrack* aTrack) {
@@ -992,15 +1005,18 @@ class HTMLMediaElement::MediaStreamRenderer {
     }
   }
   void RemoveTrack(VideoStreamTrack* aTrack) {
-    MOZ_DIAGNOSTIC_ASSERT(mVideoTrack == aTrack);
+    MOZ_DIAGNOSTIC_ASSERT(mVideoTrack.Ref() == aTrack);
     if (!mVideoContainer) {
       return;
     }
     if (mFirstFrameVideoOutput) {
       aTrack->RemoveVideoOutput(mFirstFrameVideoOutput);
     }
-    if (mRendering) {
-      aTrack->RemoveVideoOutput(mVideoContainer);
+    if (mRendering && mVideoOutput) {
+      // This is fine even if mVideoOutput is not attached to mVideoTrack (might
+      // be pending removal from an earlier mVideoTrack), as RemoveVideoOutput
+      // is idempotent.
+      aTrack->RemoveVideoOutput(mVideoOutput);
     }
     mVideoTrack = nullptr;
   }
@@ -1037,8 +1053,8 @@ class HTMLMediaElement::MediaStreamRenderer {
       }
     }
 
-    if (!graph && mVideoTrack && !mVideoTrack->Ended()) {
-      graph = mVideoTrack->Graph();
+    if (!graph && mVideoTrack.Ref() && !mVideoTrack.Ref()->Ended()) {
+      graph = mVideoTrack.Ref()->Graph();
     }
 
     if (!graph) {
@@ -1048,6 +1064,43 @@ class HTMLMediaElement::MediaStreamRenderer {
     // This dummy keeps `graph` alive and ensures access to it.
     mGraphTimeDummy = MakeRefPtr<SharedDummyTrack>(
         graph->CreateSourceTrack(MediaSegment::AUDIO));
+  }
+
+  void UpdateVideoTrackListeners() {
+    if (mFirstFrameVideoOutput &&
+        mFirstFrameVideoOutput->mAttachment == VideoOutput::State::Detached &&
+        mVideoTrack.Ref()) {
+      // The first-frame VideoOutput is detached but should attach to
+      // mVideoTrack. Attach now.
+      // If we are rendering, then a subsequently registered mVideoOutput will
+      // overwrite the frame from mFirstFrameVideoOutput with the same frame
+      // (and possibly more frames).
+      MOZ_ASSERT_IF(mVideoOutput,
+                    mVideoOutput->mAttachment != VideoOutput::State::Attached);
+      mVideoTrack.Ref()->AsVideoStreamTrack()->AddVideoOutput(
+          mFirstFrameVideoOutput);
+    }
+    if (mVideoOutput &&
+        mVideoOutput->mAttachment == VideoOutput::State::Detached) {
+      // mVideoOutput became detached. Clear it.
+      mWatchManager.Unwatch(mVideoOutput->mAttachment,
+                            &MediaStreamRenderer::UpdateVideoTrackListeners);
+      mVideoOutput = nullptr;
+    }
+    if (mRendering && mVideoTrack.Ref() && !mVideoOutput) {
+      // There is no attached VideoOutput but there should be one because we are
+      // rendering a track. Create one and attach now.
+      MOZ_ASSERT_IF(
+          mFirstFrameVideoOutput,
+          mFirstFrameVideoOutput->mAttachment == VideoOutput::State::Attached);
+      RefPtr o = new VideoOutput(mVideoContainer, AbstractThread::MainThread());
+      mVideoTrack.Ref()->AsVideoStreamTrack()->AddVideoOutput(o);
+      if (o->mAttachment == VideoOutput::State::Attached) {
+        mVideoOutput = std::move(o);
+        mWatchManager.Watch(mVideoOutput->mAttachment,
+                            &MediaStreamRenderer::UpdateVideoTrackListeners);
+      }
+    }
   }
 
   void ResolveAudioDevicePromiseIfExists(StaticString aMethodName) {
@@ -1062,7 +1115,7 @@ class HTMLMediaElement::MediaStreamRenderer {
 
   // True when all tracks are being rendered, i.e., when the media element is
   // playing.
-  bool mRendering = false;
+  Watchable<bool> mRendering = {false, "MediaStreamRenderer::mRendering"};
 
   // True while we're progressing mGraphTime. False otherwise.
   bool mProgressingCurrentTime = false;
@@ -1080,7 +1133,6 @@ class HTMLMediaElement::MediaStreamRenderer {
   MozPromiseRequestHolder<GenericPromise::AllSettledPromiseType>
       mDeviceStartedRequest;
 
-  // WatchManager for mGraphTime.
   WatchManager<MediaStreamRenderer> mWatchManager;
 
   // A dummy MediaTrack to guarantee a MediaTrackGraph is kept alive while
@@ -1100,13 +1152,22 @@ class HTMLMediaElement::MediaStreamRenderer {
   // Currently enabled (and rendered) audio tracks.
   nsTArray<WeakPtr<MediaStreamTrack>> mAudioTracks;
 
-  // Currently selected (and rendered) video track.
-  WeakPtr<MediaStreamTrack> mVideoTrack;
+  // Currently selected video track. Attachment of VideoOutputs to the track is
+  // deferred to UpdateVideoTrackListeners.
+  Watchable<WeakPtr<MediaStreamTrack>> mVideoTrack = {
+      nullptr, "MediaStreamRenderer::mVideoTrack"};
 
   // Holds a reference to the first-frame-getting video output attached to
   // mVideoTrack. Set by the constructor, unset when the media element tells us
   // it has rendered the first frame.
   RefPtr<FirstFrameVideoOutput> mFirstFrameVideoOutput;
+
+  // Reference to the video output currently attached to a video track. A new
+  // mVideoTrack gets a new VideoOutput such that it sends frames with a new
+  // ProducerID. Detaching from mVideoTrack is async, so even if mVideoTrack
+  // changes, this remains until it has detached asynchronously from the
+  // underlying track.
+  RefPtr<VideoOutput> mVideoOutput;
 };
 
 static uint32_t sDecoderCaptureSourceId = 0;
@@ -1568,7 +1629,7 @@ void HTMLMediaElement::ReportToConsole(
     uint32_t aErrorFlags, const char* aMsg,
     const nsTArray<nsString>& aParams) const {
   nsContentUtils::ReportToConsole(aErrorFlags, "Media"_ns, OwnerDoc(),
-                                  nsContentUtils::eDOM_PROPERTIES, aMsg,
+                                  PropertiesFile::DOM_PROPERTIES, aMsg,
                                   aParams);
 }
 
@@ -1948,7 +2009,7 @@ class HTMLMediaElement::ChannelLoader final {
     // Else the channel must be open and starting to download. If it encounters
     // a non-catastrophic failure, it will set a new task to continue loading
     // another candidate.  It's safe to set it as mChannel now.
-    mChannel = channel;
+    mChannel = std::move(channel);
 
     // loadListener will be unregistered either on shutdown or when
     // OnStartRequest for the channel we just opened fires.
@@ -2079,30 +2140,21 @@ class HTMLMediaElement::ErrorSink {
   void ReportErrorProbe(uint16_t aErrorCode,
                         const Maybe<MediaResult>& aResult) {
     MOZ_ASSERT(IsValidErrorCode(aErrorCode));
-    auto getErrorType = [&]() {
+    auto getErrorTypeLabel = [&]() {
       if (aErrorCode == MEDIA_ERR_ABORTED) {
-        return "AbortError"_ns;
+        return "abort_error"_ns;
       }
       if (aErrorCode == MEDIA_ERR_NETWORK) {
-        return "NetworkError"_ns;
+        return "network_error"_ns;
       }
       if (aErrorCode == MEDIA_ERR_DECODE) {
-        return "DecodeErr"_ns;
+        return "decode_error"_ns;
       }
-      return "SrcNotSupportedErr"_ns;
+      return "not_supported_error"_ns;
     };
-
-    glean::media::ErrorExtra extraData;
-    extraData.errorType = Some(getErrorType());
-    if (aResult) {
-      extraData.errorName = Some(aResult->ErrorName());
-    }
-    nsAutoString keySystem;
-    if (mOwner->mMediaKeys) {
-      mOwner->mMediaKeys->GetKeySystem(keySystem);
-      extraData.keySystem = Some(NS_ConvertUTF16toUTF8(keySystem));
-    }
-    glean::media::error.Record(Some(extraData));
+    nsCString encryptedLabel =
+        mOwner->mMediaKeys ? "encrypted"_ns : "non_encrypted"_ns;
+    glean::media::error.Get(getErrorTypeLabel(), encryptedLabel).Add();
   }
 
   // Media elememt's life cycle would be longer than error sink, so we use the
@@ -5437,7 +5489,7 @@ void HTMLMediaElement::UnbindFromTree(UnbindContext& aContext) {
   mVisibilityState = Visibility::Untracked;
 
   if (IsInComposedDoc()) {
-    NotifyUAWidgetTeardown();
+    TeardownUAShadowRoot();
   }
 
   nsGenericHTMLElement::UnbindFromTree(aContext);
@@ -5560,7 +5612,7 @@ template <typename DecoderType, typename... LoadArgs>
 nsresult HTMLMediaElement::SetupDecoder(DecoderType* aDecoder,
                                         LoadArgs&&... aArgs) {
   LOG(LogLevel::Debug, ("%p Created decoder %p for type %s", this, aDecoder,
-                        aDecoder->ContainerType().OriginalString().Data()));
+                        aDecoder->ContainerType().OriginalString().get()));
 
   nsresult rv = aDecoder->Load(std::forward<LoadArgs>(aArgs)...);
   if (NS_FAILED(rv)) {

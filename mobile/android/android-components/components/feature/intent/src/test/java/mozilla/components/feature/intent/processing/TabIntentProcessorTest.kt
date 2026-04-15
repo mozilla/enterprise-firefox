@@ -8,6 +8,7 @@ import android.app.SearchManager
 import android.content.Intent
 import android.nfc.NfcAdapter.ACTION_NDEF_DISCOVERED
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.test.TestScope
 import mozilla.components.browser.state.action.BrowserAction
 import mozilla.components.browser.state.action.TabListAction
 import mozilla.components.browser.state.engine.EngineMiddleware
@@ -30,7 +31,6 @@ import mozilla.components.feature.session.SessionUseCases
 import mozilla.components.feature.tabs.TabsUseCases
 import mozilla.components.support.test.middleware.CaptureActionsMiddleware
 import mozilla.components.support.test.mock
-import mozilla.components.support.test.rule.MainCoroutineRule
 import mozilla.components.support.test.whenever
 import mozilla.components.support.utils.SafeIntent
 import org.junit.Assert.assertEquals
@@ -39,7 +39,6 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mockito.anyBoolean
@@ -49,9 +48,7 @@ import org.mockito.Mockito.doReturn
 @RunWith(AndroidJUnit4::class)
 class TabIntentProcessorTest {
 
-    @get:Rule
-    val coroutinesTestRule = MainCoroutineRule()
-    private val scope = coroutinesTestRule.scope
+    private val scope = TestScope()
 
     private lateinit var middleware: CaptureActionsMiddleware<BrowserState, BrowserAction>
 

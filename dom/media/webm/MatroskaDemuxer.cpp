@@ -1,14 +1,10 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "MatroskaDemuxer.h"
 
-#ifdef MOZ_AV1
-#  include "AOMDecoder.h"
-#endif
+#include "AOMDecoder.h"
 #include "H264.h"
 #include "H265.h"
 #include "VPXDecoder.h"
@@ -252,10 +248,8 @@ bool MatroskaDemuxer::CheckKeyFrameByExamineByteStream(
       return VPXDecoder::IsKeyframe(*aSample, VPXDecoder::Codec::VP8);
     case NESTEGG_CODEC_VP9:
       return VPXDecoder::IsKeyframe(*aSample, VPXDecoder::Codec::VP9);
-#ifdef MOZ_AV1
     case NESTEGG_CODEC_AV1:
       return AOMDecoder::IsKeyframe(*aSample);
-#endif
     default:
       MOZ_ASSERT_UNREACHABLE(
           "Cannot detect keyframes in unknown Matroska video codec");

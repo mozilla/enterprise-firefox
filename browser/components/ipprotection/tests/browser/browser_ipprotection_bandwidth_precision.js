@@ -243,3 +243,95 @@ add_task(async function test_bandwidth_mb_display_below_1gb() {
   await closePanel();
   await cleanupBandwidthPrecisionTest();
 });
+
+add_task(async function test_progress_bar_value_always_in_gb() {
+  const maxBytes = BANDWIDTH.MAX_IN_GB * BANDWIDTH.BYTES_IN_GB;
+
+  const usedBytes = {
+    MINIMAL: Math.floor(0.23 * BANDWIDTH.BYTES_IN_GB),
+    LESS_THAN_1_GB: Math.floor(0.97 * BANDWIDTH.BYTES_IN_GB),
+    USAGE_50_PCT: maxBytes * 0.5,
+    USAGE_75_PCT: maxBytes * 0.75,
+    USAGE_75_PCT_BUCKET: maxBytes * 0.85,
+    USAGE_90_PCT: maxBytes * 0.9,
+    USAGE_90_PCT_BUCKET: maxBytes * 0.95,
+    NEAR_MAX: maxBytes - Math.floor(0.123 * BANDWIDTH.BYTES_IN_GB),
+  };
+
+  const testCases = [
+    {
+      name: "minimal usage (0.23 GB used)",
+      remaining: maxBytes - usedBytes.MINIMAL,
+      expectedValue: 0.2,
+    },
+    {
+      name: "less than 1 GB used (0.97 GB used)",
+      remaining: maxBytes - usedBytes.LESS_THAN_1_GB,
+      expectedValue: 1.0,
+    },
+    {
+      name: "50% usage",
+      remaining: maxBytes - usedBytes.USAGE_50_PCT,
+      expectedValue: 25.0,
+    },
+    {
+      name: "75% usage",
+      remaining: maxBytes - usedBytes.USAGE_75_PCT,
+      expectedValue: 37.5,
+    },
+    {
+      name: "75% usage bucket (7.5 GB remaining)",
+      remaining: maxBytes - usedBytes.USAGE_75_PCT_BUCKET,
+      expectedValue: 42.5,
+    },
+    {
+      name: "90% usage",
+      remaining: maxBytes - usedBytes.USAGE_90_PCT,
+      expectedValue: 45,
+    },
+    {
+      name: "90% usage bucket (2.5 GB remaining)",
+      remaining: maxBytes - usedBytes.USAGE_90_PCT_BUCKET,
+      expectedValue: 47.5,
+    },
+    {
+      name: "approaching max usage (0.123 GB remaining)",
+      remaining: maxBytes - usedBytes.NEAR_MAX,
+      expectedValue: 49.9,
+    },
+  ];
+
+  for (const testCase of testCases) {
+    await setupBandwidthPrecisionTest(
+      String(maxBytes),
+      String(testCase.remaining)
+    );
+
+    let content = await openPanel({
+      location: mockLocation,
+      isProtectionEnabled: true,
+    });
+
+    const bandwidthEl = await getBandwidthEl(content);
+    const usedGB = bandwidthEl.bandwidthUsedGB;
+
+    Assert.greaterOrEqual(
+      usedGB,
+      0,
+      `${testCase.name}: used GB should not be negative`
+    );
+    Assert.lessOrEqual(
+      usedGB,
+      bandwidthEl.maxGB,
+      `${testCase.name}: used GB should not exceed maxGB`
+    );
+    Assert.equal(
+      parseFloat(usedGB.toFixed(1)),
+      testCase.expectedValue,
+      `${testCase.name}: progress bar value should be ${testCase.expectedValue} GB`
+    );
+
+    await closePanel();
+    await cleanupBandwidthPrecisionTest();
+  }
+});

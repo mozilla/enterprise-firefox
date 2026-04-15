@@ -14,7 +14,7 @@ const { MemoriesConversationScheduler } = ChromeUtils.importESModule(
 const { MemoriesManager } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/models/memories/MemoriesManager.sys.mjs"
 );
-const { PREF_GENERATE_MEMORIES } = ChromeUtils.importESModule(
+const { PREF_GENERATE_MEMORIES_FROM_CONVERSATION } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs"
 );
 const { ChatStore, ChatMessage, MESSAGE_ROLE } = ChromeUtils.importESModule(
@@ -24,7 +24,7 @@ const { ChatStore, ChatMessage, MESSAGE_ROLE } = ChromeUtils.importESModule(
 // Clear memories pref after testing
 add_setup(async function () {
   registerCleanupFunction(() => {
-    Services.prefs.clearUserPref(PREF_GENERATE_MEMORIES);
+    Services.prefs.clearUserPref(PREF_GENERATE_MEMORIES_FROM_CONVERSATION);
   });
 });
 
@@ -58,7 +58,7 @@ async function buildFakeChatHistory(numMessagesToCreate = 10) {
  * Tests the scheduler does not initialize when the memories preference is false
  */
 add_task(async function test_schedule_not_init_when_pref_false() {
-  Services.prefs.setBoolPref(PREF_GENERATE_MEMORIES, false);
+  Services.prefs.setBoolPref(PREF_GENERATE_MEMORIES_FROM_CONVERSATION, false);
 
   let scheduler = MemoriesConversationScheduler.maybeInit();
   Assert.equal(
@@ -72,7 +72,7 @@ add_task(async function test_schedule_not_init_when_pref_false() {
  * Tests the scheduler initializes but does not run when there aren't enough messages
  */
 add_task(async function test_scheduler_doesnt_run_with_insufficient_messages() {
-  Services.prefs.setBoolPref(PREF_GENERATE_MEMORIES, true);
+  Services.prefs.setBoolPref(PREF_GENERATE_MEMORIES_FROM_CONVERSATION, true);
 
   // Need at least 10 messages for memories generation to trigger
   // 5 will cause the expected failure
@@ -94,7 +94,9 @@ add_task(async function test_scheduler_doesnt_run_with_insufficient_messages() {
       .stub(MemoriesManager, "generateMemoriesFromConversationHistory")
       .resolves();
 
-    sb.stub(MemoriesManager, "shouldEnableMemoriesSchedulers").returns(true);
+    sb.stub(MemoriesManager, "shouldEnableMemoriesFromSchedulers").returns(
+      true
+    );
 
     let scheduler = MemoriesConversationScheduler.maybeInit();
     Assert.ok(scheduler, "Scheduler should be initialized when pref is true");
@@ -118,13 +120,15 @@ add_task(async function test_scheduler_doesnt_run_with_insufficient_messages() {
  * Tests the scheduler initializes and runs when there are enough messages
  */
 add_task(async function test_scheduler_runs_with_small_history() {
-  Services.prefs.setBoolPref(PREF_GENERATE_MEMORIES, true);
+  Services.prefs.setBoolPref(PREF_GENERATE_MEMORIES_FROM_CONVERSATION, true);
 
   const messages = await buildFakeChatHistory();
   const sb = sinon.createSandbox();
 
   try {
-    sb.stub(MemoriesManager, "shouldEnableMemoriesSchedulers").returns(true);
+    sb.stub(MemoriesManager, "shouldEnableMemoriesFromSchedulers").returns(
+      true
+    );
 
     const findMessagesStub = sb
       .stub(ChatStore, "findMessagesByDate")

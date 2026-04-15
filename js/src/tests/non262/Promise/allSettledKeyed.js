@@ -186,5 +186,44 @@ feature: [Promise.allSettledKeyed]
     assertEq(result.c.reason, "error3");
 }
 
+// Calling both onFulfilled and onRejected should prioritize the
+// first one, and ignore the second one.
+{
+  let fulfilled = false;
+  let result;
+
+  const pa = Promise.resolve("x");
+  Object.defineProperty(pa, "then", {
+    value: (onFulfilled, onRejected) => {
+      onFulfilled("first fulfillment");
+      onRejected("should be ignored 1");
+      onFulfilled("should be ignored 2");
+      onRejected("should be ignored 3");
+    }
+  });
+
+  const pb = Promise.resolve("x");
+  Object.defineProperty(pb, "then", {
+    value: (onFulfilled, onRejected) => {
+      onRejected("first rejection");
+      onFulfilled("should be ignored 1");
+      onRejected("should be ignored 2");
+      onFulfilled("should be ignored 3");
+    }
+  });
+
+  Promise.allSettledKeyed({ a: pa, b: pb }).then(v => {
+    fulfilled = true;
+    result = v;
+  });
+  drainJobQueue();
+
+  assertEq(fulfilled, true);
+  assertEq(result.a.status, "fulfilled");
+  assertEq(result.a.value, "first fulfillment");
+  assertEq(result.b.status, "rejected");
+  assertEq(result.b.reason, "first rejection");
+}
+
 if (typeof reportCompare === "function")
     reportCompare(0, 0);

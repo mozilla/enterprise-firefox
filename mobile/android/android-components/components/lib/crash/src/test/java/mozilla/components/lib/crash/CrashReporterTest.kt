@@ -723,6 +723,8 @@ class CrashReporterTest {
         var nativeCrash = false
 
         val telemetryService = object : CrashTelemetryService {
+            override fun setTelemetryEnabled(enabled: Boolean) = Unit
+
             override fun record(crash: Crash.UncaughtExceptionCrash) = Unit
 
             override fun record(crash: Crash.NativeCodeCrash) {
@@ -756,6 +758,36 @@ class CrashReporterTest {
         testScheduler.advanceUntilIdle()
 
         assertTrue(nativeCrash)
+    }
+
+    @Test
+    fun `CrashReporter forwards telemetry enable to telemetry service`() = runTest {
+        var enabledValue: Boolean? = null
+
+        val telemetryService = object : CrashTelemetryService {
+            override fun setTelemetryEnabled(enabled: Boolean) {
+                enabledValue = enabled
+            }
+
+            override fun record(crash: Crash.UncaughtExceptionCrash) = Unit
+            override fun record(crash: Crash.NativeCodeCrash) = Unit
+            override fun record(throwable: Throwable) = Unit
+        }
+
+        val reporter = spy(
+            CrashReporter(
+                context = testContext,
+                shouldPrompt = CrashReporter.Prompt.NEVER,
+                telemetryServices = listOf(telemetryService),
+                mainDispatcher = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher,
+                scope = this,
+            ),
+        ).install(testContext)
+
+        reporter.setTelemetryEnabled(true)
+        assertEquals(enabledValue, true)
+        reporter.setTelemetryEnabled(false)
+        assertEquals(enabledValue, false)
     }
 
     @Test

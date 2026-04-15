@@ -93,8 +93,12 @@ skip-if = [
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11'", # Bug 1997197
   "os == 'win' && os_version == '10.2009' && arch == 'x86_64' && debug", # Bug 1997197
   "os == 'win' && os_version == '11.26100' && arch == 'x86' && debug", # Bug 1997197
+  "os == 'win' && os_version == '11.26200' && arch == 'x86' && debug", # Bug 1997197
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && debug", # Bug 1997197
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && debug", # Bug 1997197
 ]
+
+["test_moz_select_panel.html"]
 
 ["test_moz_support_link.html"]
 
@@ -115,6 +119,8 @@ skip-if = [
 ["test_panel_list_in_xul_panel.html"]
 
 ["test_panel_list_min_width_from_anchor.html"]
+
+["test_panel_list_popover.html"]
 
 ["test_popupanchor.xhtml"]
 

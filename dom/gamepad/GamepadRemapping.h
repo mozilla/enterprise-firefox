@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -152,7 +150,8 @@ class GamepadRemapper {
   virtual GamepadMappingType GetMappingType() const {
     return GamepadMappingType::Standard;
   }
-  virtual void ProcessTouchData(GamepadHandle aHandle, void* aInput) {}
+  virtual void ProcessTouchData(GamepadHandle aHandle, const uint8_t* aInput,
+                                size_t aInputLen) {}
   virtual void RemapAxisMoveEvent(GamepadHandle aHandle, uint32_t aAxis,
                                   double aValue) const = 0;
   virtual void RemapButtonEvent(GamepadHandle aHandle, uint32_t aButton,

@@ -355,7 +355,7 @@ void ClearSiteData::LogToConsoleInternal(
   }
 
   httpChannel->AddConsoleReport(nsIScriptError::infoFlag, "Clear-Site-Data"_ns,
-                                nsContentUtils::eSECURITY_PROPERTIES, uri, 0, 0,
+                                PropertiesFile::SECURITY_PROPERTIES, uri, 0, 0,
                                 nsDependentCString(aMsg), aParams);
 }
 

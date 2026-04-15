@@ -2550,13 +2550,12 @@ class BrowsingContextModule extends RootBiDiModule {
     }
 
     if (targetHeight !== currentHeight || targetWidth !== currentWidth) {
-      if (!navigable.isActive) {
-        // Force a synchronous update of the remote browser dimensions so that
-        // background tabs get resized.
-        browser.ownerDocument.synchronouslyUpdateRemoteBrowserDimensions(
-          /* aIncludeInactive = */ true
-        );
-      }
+      // Force a synchronous update of the remote browser dimensions so that
+      // background tabs get resized.
+      browser.ownerDocument.synchronouslyUpdateRemoteBrowserDimensions(
+        /* aIncludeInactive = */ true
+      );
+
       // Wait until the viewport has been resized
       await this._forwardToWindowGlobal(
         "_awaitViewportDimensions",

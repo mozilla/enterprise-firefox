@@ -64,7 +64,9 @@
                 <menuseparator/>
                 <menuitem id="goOfflineMenuitem"
                           type="checkbox"
-                          command="cmd_toggleOfflineStatus" data-l10n-id="menu-file-go-offline"/>
+                          command="cmd_toggleOfflineStatus"
+                          observes="cmd_toggleOfflineStatus"
+                          data-l10n-id="menu-file-go-offline"/>
                 <menuitem id="menu_FileQuitItem"
 #ifdef XP_MACOSX
                           data-l10n-id="menu-quit-mac"
@@ -409,8 +411,12 @@
 #endif
 #ifdef XP_MACOSX
 <!-- nsMenuBarX hides these and uses them to build the Application menu. -->
+<!-- macOS 13 changed "Preferences" to "Settings" so one of these gets picked. -->
               <menuitem id="menu_preferences"
                         data-l10n-id="menu-application-preferences"
+                        key="key_preferencesCmdMac"/>
+              <menuitem id="menu_settings"
+                        data-l10n-id="menu-application-settings"
                         key="key_preferencesCmdMac"/>
               <menuitem id="menu_mac_services" data-l10n-id="menu-application-services"/>
               <menuitem id="menu_mac_hide_app" data-l10n-id="menu-application-hide-this" key="key_hideThisAppCmdMac"/>

@@ -411,6 +411,47 @@ def test_backfill_task(mocker, run_action, get_artifact):
     assert "test-task" in to_run
 
 
+def test_backfill_task_chunk_not_found(mocker, run_action, get_artifact):
+    """When the original chunk doesn't exist in the target push, the backfill
+    should still apply the original manifests via MOZHARNESS_TEST_PATHS."""
+    task_def = {
+        "name": "test-linux-wpt-1",
+        "payload": {"env": {}},
+        "metadata": {"name": "test-linux-wpt-1"},
+        "extra": {"treeherder": {"symbol": "wpt1", "groupSymbol": "W"}},
+        "tags": {},
+    }
+    graph = make_graph(
+        make_task(label="test-linux-wpt-1", task_def=task_def),
+    )
+    m = mocker.patch("gecko_taskgraph.actions.backfill.fetch_graph_and_labels")
+    m.return_value = ("gid", graph, {}, None)
+    mocker.patch("gecko_taskgraph.actions.backfill.combine_task_graph_files")
+
+    original_manifests = {"web-platform-tests": ["/css/test1.html", "/dom/test2.html"]}
+    run_action(
+        "backfill-task",
+        input={
+            "label": "test-linux-wpt-9",
+            "revision": "abc123",
+            "symbol": "wpt9",
+            "test_manifests": original_manifests,
+        },
+    )
+
+    to_run = get_artifact("to-run-0.json")
+    assert "test-linux-wpt-1" in to_run
+
+    task_graph = get_artifact("task-graph-0.json")
+    task_data = list(task_graph.values())[0]
+    task_def = task_data.get("task", task_data)
+    assert task_def["payload"]["env"]["MOZHARNESS_TEST_PATHS"] == json.dumps(
+        original_manifests
+    )
+    assert task_def["metadata"]["name"] == "test-linux-wpt-9"
+    assert task_def["extra"]["treeherder"]["symbol"] == "wpt9-abc123-bk"
+
+
 def test_confirm_failures(mocker, responses, run_action, get_artifact):
     task_id = "test-task-id"
     task_def = {

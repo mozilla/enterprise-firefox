@@ -26,6 +26,7 @@
 #include "api/dtls_transport_interface.h"
 #include "api/environment/environment.h"
 #include "api/field_trials_view.h"
+#include "api/ice_transport_interface.h"
 #include "api/rtc_error.h"
 #include "api/scoped_refptr.h"
 #include "api/sequence_checker.h"
@@ -65,7 +66,7 @@ class StreamInterfaceChannel : public StreamInterface {
   StreamInterfaceChannel& operator=(const StreamInterfaceChannel&) = delete;
 
   // Push in a packet; this gets pulled out from Read().
-  bool OnPacketReceived(const char* data, size_t size);
+  bool OnPacketReceived(ArrayView<const uint8_t> data);
 
   // Sets the options for the next packet to be written to ice_transport,
   // corresponding to the next Write() call. Safe since BoringSSL guarantees
@@ -84,7 +85,6 @@ class StreamInterfaceChannel : public StreamInterface {
   StreamResult Write(ArrayView<const uint8_t> data,
                      size_t& written,
                      int& error) override;
-
   bool Flush() override;
 
  private:
@@ -140,6 +140,15 @@ class DtlsTransportInternalImpl : public DtlsTransportInternal {
   // whether GCM crypto suites are negotiated.
   DtlsTransportInternalImpl(
       const Environment& env,
+      scoped_refptr<IceTransportInterface> ice_transport,
+      const CryptoOptions& crypto_options,
+      SSLProtocolVersion max_version = SSL_PROTOCOL_DTLS_12,
+      SslStreamFactory ssl_stream_factory = nullptr);
+
+  // This is only here while there is code outside of webrtc that calls it.
+  [[deprecated("Using internal webrtc code from outside webrtc?")]]
+  DtlsTransportInternalImpl(
+      const Environment& env,
       IceTransportInternal* ice_transport,
       const CryptoOptions& crypto_options,
       SSLProtocolVersion max_version = SSL_PROTOCOL_DTLS_12,
@@ -168,15 +177,7 @@ class DtlsTransportInternalImpl : public DtlsTransportInternal {
   // this certificate on construction or "Start".
   bool SetLocalCertificate(
       const scoped_refptr<RTCCertificate>& certificate) override;
-  scoped_refptr<RTCCertificate> GetLocalCertificate() const override;
-
-  // SetRemoteFingerprint must be called after SetLocalCertificate, and any
-  // other methods like SetDtlsRole. It's what triggers the actual DTLS setup.
-  // TODO(deadbeef): Rename to "Start" like in ORTC?
-  bool SetRemoteFingerprint(absl::string_view digest_alg,
-                            const uint8_t* digest,
-                            size_t digest_len) override;
-
+  scoped_refptr<RTCCertificate> GetLocalCertificateForTesting() const;
   // SetRemoteParameters must be called after SetLocalCertificate.
   RTCError SetRemoteParameters(absl::string_view digest_alg,
                                const uint8_t* digest,
@@ -287,14 +288,21 @@ class DtlsTransportInternalImpl : public DtlsTransportInternal {
                               const ReceivedIpPacket& packet)> callback);
   void PeriodicRetransmitDtlsPacketUntilDtlsConnected();
 
+  // SetRemoteFingerprint must be called after SetLocalCertificate, and any
+  // other methods like SetDtlsRole. It's what triggers the actual DTLS setup.
+  // TODO(deadbeef): Rename to "Start" like in ORTC?
+  bool SetRemoteFingerprint(absl::string_view digest_alg,
+                            const uint8_t* digest,
+                            size_t digest_len);
+
   SslStreamFactory ssl_stream_factory_;
   const Environment env_;
   RTC_NO_UNIQUE_ADDRESS SequenceChecker thread_checker_;
 
   const int component_;
   DtlsTransportState dtls_state_ = DtlsTransportState::kNew;
-  // Underlying ice_transport, not owned by this class.
-  IceTransportInternal* const ice_transport_;
+  // Underlying ice_transport.
+  const scoped_refptr<IceTransportInterface> ice_transport_;
   std::unique_ptr<SSLStreamAdapter> dtls_;  // The DTLS stream
   StreamInterfaceChannel*
       downward_;  // Wrapper for ice_transport_, owned by dtls_.

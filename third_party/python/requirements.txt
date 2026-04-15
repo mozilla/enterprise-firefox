@@ -132,7 +132,7 @@ aiosignal==1.4.0 \
     --hash=sha256:053243f8b92b990551949e63930a839ff0cf0b0ebbe0597b0f3fb19e1a0fe82e \
     --hash=sha256:f47eecd9468083c2029cc99945502cb7708b082c232f9aca65da147157b251c7
     # via aiohttp
-ansicon==1.89.0 ; sys_platform == 'win32' \
+ansicon==1.89.0  \
     --hash=sha256:e4d039def5768a47e4afec8e89e83ec3ae5a26bf00ad851f914d1240b444d2b1 \
     --hash=sha256:f1def52d17f65c2c9682cf8370c03f541f410c1752d6a14029f97318e4b9dfec
     # via jinxed
@@ -324,10 +324,6 @@ ecdsa==0.19.1 \
 esprima==4.0.1 \
     --hash=sha256:08db1a876d3c2910db9cfaeb83108193af5411fc3a3a66ebefacd390d21323ee
     # via mozilla-third-party-python-vendor-dir
-filelock==3.18.0 \
-    --hash=sha256:adbc88eabb99d2fec8c9c1b229b171f18afa655400173ddc653d5d01501fb9f2 \
-    --hash=sha256:c401f4f8377c4464e6db25fff06205fd89bdd83b65eb0488ed1b160f780e21de
-    # via mozilla-third-party-python-vendor-dir
 fluent-migrate==0.13.3 \
     --hash=sha256:a190d5e76ea4a47061821d3688fb7eb9075916ab1439d838e2a54fe62305b80f \
     --hash=sha256:dafb8c7a4024e46aa2de359db7265f49fb4fb593fdb1d61b6b014a1a9f16ad5c
@@ -482,7 +478,7 @@ jinja2==3.1.6 \
     # via
     #   glean-parser
     #   mozilla-third-party-python-vendor-dir
-jinxed==1.3.0 ; sys_platform == 'win32' \
+jinxed==1.3.0  \
     --hash=sha256:1593124b18a41b7a3da3b078471442e51dbad3d77b4d4f2b0c26ab6f7d660dbf \
     --hash=sha256:b993189f39dc2d7504d802152671535b06d380b26d78070559551cbf92df4fc5
     # via blessed
@@ -1065,7 +1061,7 @@ toml==0.10.2 \
     # via
     #   compare-locales
     #   mozilla-third-party-python-vendor-dir
-tomli==2.2.1 ; python_full_version < '3.11' \
+tomli==2.2.1  \
     --hash=sha256:023aa114dd824ade0100497eb2318602af309e5a55595f76b626d6d9f3b7b0a6 \
     --hash=sha256:02abe224de6ae62c19f090f68da4e27b10af2b93213d36cf44e6e1c5abd19fdd \
     --hash=sha256:286f0ca2ffeeb5b9bd4fcc8d6c330534323ec51b2f52da063b11c502da16f30c \

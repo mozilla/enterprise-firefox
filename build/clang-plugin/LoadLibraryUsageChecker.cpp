@@ -24,11 +24,8 @@ void LoadLibraryUsageChecker::registerMatchers(MatchFinder *AstMatcher) {
 
 void LoadLibraryUsageChecker::check(const MatchFinder::MatchResult &Result) {
   const CallExpr *FuncCall = Result.Nodes.getNodeAs<CallExpr>("funcCall");
-
-  if (FuncCall) {
-    diag(FuncCall->getBeginLoc(),
-         "Usage of ASCII file functions (such as %0) is forbidden.",
-         DiagnosticIDs::Error)
-        << FuncCall->getDirectCallee()->getName();
-  }
+  diag(FuncCall->getBeginLoc(),
+       "Usage of ASCII file functions (such as %0) is forbidden.",
+       DiagnosticIDs::Error)
+      << FuncCall->getDirectCallee()->getName();
 }

@@ -52,7 +52,7 @@ newtab-search-box-input =
     .placeholder = Cerca sul Web
     .aria-label = Cerca sul Web
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Aggiungi motore di ricerca
 newtab-topsites-add-shortcut-header = Nuova scorciatoia
@@ -72,6 +72,11 @@ newtab-topsites-url-validation = È necessario fornire un URL valido
 newtab-topsites-image-url-label = Indirizzo immagine personalizzata
 newtab-topsites-use-image-link = Utilizza un’immagine personalizzata…
 newtab-topsites-image-validation = Errore durante il caricamento dell’immagine. Prova con un altro indirizzo.
+
+## Clear text button for the URL and image URL input fields in the Top Sites form.
+
+newtab-topsites-clear-input =
+    .aria-label = Cancella testo
 
 ## Top Sites - General form dialog buttons. These are verbs/actions.
 
@@ -634,6 +639,8 @@ newtab-report-cancel = Annulla
 newtab-report-submit = Invia
 newtab-toast-thanks-for-reporting =
     .message = Grazie per la segnalazione.
+newtab-toast-widgets-hidden =
+    .message = Seleziona l’icona a forma di matita per ripristinare i widget in qualsiasi momento.
 
 ## Strings for task / to-do list productivity widget
 
@@ -674,6 +681,7 @@ newtab-widget-lists-name-placeholder-default =
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Nuova lista
 newtab-widget-section-title = Widget
+newtab-widget-menu-hide = Nascondi widget
 # Tooltip for hide all widgets button
 newtab-widget-section-hide-all-button =
     .title = Nascondi widget
@@ -684,6 +692,7 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Minimizza widget
     .aria-label = Comprimi tutti i widget alle dimensione più compatta
+newtab-widget-section-feedback = Dicci cosa ne pensi
 
 ## Strings for timer productivity widget
 ## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown

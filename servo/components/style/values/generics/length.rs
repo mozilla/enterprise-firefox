@@ -362,6 +362,7 @@ impl<L, N: Zero> Zero for LengthOrNumber<L, N> {
 )]
 #[repr(C, u8)]
 #[allow(missing_docs)]
+#[typed_value(derive_fields)]
 pub enum GenericLengthPercentageOrNormal<LengthPercent> {
     LengthPercentage(LengthPercent),
     Normal,
@@ -607,6 +608,7 @@ impl TryTacticAdjustment for AnchorSizeKeyword {
     ToTyped,
 )]
 #[repr(C)]
+#[typed_value(derive_fields)]
 pub enum GenericMargin<LP> {
     /// A `<length-percentage>` value.
     LengthPercentage(LP),

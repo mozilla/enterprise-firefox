@@ -3,6 +3,7 @@ tags = "devtools"
 subsuite = "devtools"
 support-files = [
   "doc_alert.svg",
+  "doc_anchor_names.html",
   "doc_at_scope.css",
   "doc_blob_stylesheet.html",
   "doc_copystyles.css",
@@ -70,6 +71,8 @@ support-files = [
 
 ["browser_rules_add-rule.js"]
 
+["browser_rules_anchor-names-autocomplete.js"]
+
 ["browser_rules_at_scope.js"]
 
 ["browser_rules_at_starting-style.js"]
@@ -83,6 +86,7 @@ support-files = [
 ["browser_rules_authored_color.js"]
 skip-if = [
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && opt", # Bug 1781471
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && opt", # Bug 1781471
 ]
 
 ["browser_rules_authored_override.js"]

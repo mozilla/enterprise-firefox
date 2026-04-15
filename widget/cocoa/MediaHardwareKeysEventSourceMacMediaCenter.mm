@@ -79,9 +79,9 @@ MediaCenterEventHandler MediaHardwareKeysEventSourceMacMediaCenter::
   return Block_copy(^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent* event) {
     MPChangePlaybackPositionCommandEvent* changePosEvent =
         (MPChangePlaybackPositionCommandEvent*)event;
-    HandleEvent(
-        MediaControlAction(MediaControlKey::Seekto,
-                           SeekDetails(changePosEvent.positionTime, false)));
+    HandleEvent(MediaControlAction(
+        MediaControlKey::Seekto,
+        MediaControlActionParams(changePosEvent.positionTime, false)));
     return MPRemoteCommandHandlerStatusSuccess;
   });
 }
@@ -250,7 +250,7 @@ void MediaHardwareKeysEventSourceMacMediaCenter::SetMediaMetadata(
 
   // The procedure of updating `nowPlayingInfo` is actually an async operation
   // from our testing, Apple's documentation doesn't mention that though. So be
-  // aware that checking `nowPlayingInfo` immedately after setting it might not
+  // aware that checking `nowPlayingInfo` immediately after setting it might not
   // yield the expected result.
   center.nowPlayingInfo = nowPlayingInfo;
 }

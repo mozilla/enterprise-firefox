@@ -442,6 +442,10 @@ void MacroAssembler::subFloat32(FloatRegister src, FloatRegister dest) {
   as_fsub_s(dest, dest, src);
 }
 
+void MacroAssembler::mul64(const Register64& rhs, const Register64& srcDest) {
+  mul64(rhs, srcDest, Register::Invalid());
+}
+
 void MacroAssembler::mul64(Imm64 imm, const Register64& dest) {
   UseScratchRegisterScope temps(asMasm());
   Register scratch = temps.Acquire();
@@ -887,7 +891,7 @@ void MacroAssembler::ctz32(Register src, Register dest, bool knownNotZero) {
 }
 
 void MacroAssembler::popcnt32(Register input, Register output, Register tmp) {
-  // Equivalent to GCC output of mozilla::CountPopulation32()
+  // Equivalent to GCC output of std::popcount()
   as_or(output, input, zero);
   as_srai_w(tmp, input, 1);
   ma_and(tmp, tmp, Imm32(0x55555555));
@@ -2345,6 +2349,37 @@ void MacroAssembler::fallibleUnboxPtr(const BaseIndex& src, Register dest,
                                       JSValueType type, Label* fail) {
   loadValue(src, ValueOperand(dest));
   fallibleUnboxPtr(ValueOperand(dest), dest, type, fail);
+}
+
+// ===============================================================
+// 128-bit arithmetic
+
+void MacroAssembler::wasmAddSubI128HI64(Register lhsLo, Register lhsHi,
+                                        Register rhsLo, Register rhsHi,
+                                        Register output, bool isAdd) {
+  // Require: the output is not the same as any of the inputs.
+  MOZ_RELEASE_ASSERT(output != lhsLo && output != lhsHi && output != rhsLo &&
+                     output != rhsHi);
+  // We use `output` as a temp to hold the carry or borrow.
+  if (isAdd) {
+    as_add_d(output, lhsLo, rhsLo);   // output = lhsLo + rhsLo
+    as_sltu(output, output, lhsLo);   // output = carry from `lhsLo + rhsLo`
+    as_add_d(output, output, lhsHi);  // output = carry + lhsHi
+    as_add_d(output, output, rhsHi);  // output = carry + lhsHi + rhsHi
+  } else {
+    as_sltu(output, lhsLo, rhsLo);    // output = borrow from `lhsLo - rhsLo`
+    as_sub_d(output, lhsHi, output);  // output = lhsHi - borrow
+    as_sub_d(output, output, rhsHi);  // output = lhsHi - borrow - rhsHi
+  }
+}
+
+void MacroAssembler::wasmMulI64WideHI64(Register lhs, Register rhs,
+                                        Register output, bool isSigned) {
+  if (isSigned) {
+    as_mulh_d(output, lhs, rhs);
+  } else {
+    as_mulh_du(output, lhs, rhs);
+  }
 }
 
 //}}} check_macroassembler_style

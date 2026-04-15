@@ -11,6 +11,7 @@
 #include "mozilla/FloatingPoint.h"
 #include "mozilla/MathAlgorithms.h"
 
+#include <bit>
 #include <type_traits>
 
 #include "jit/ABIArgGenerator.h"
@@ -332,7 +333,7 @@ void LIRGenerator::visitCreateThis(MCreateThis* ins) {
 }
 
 void LIRGenerator::visitCreateArgumentsObject(MCreateArgumentsObject* ins) {
-  LAllocation callObj = useRegisterAtStart(ins->getCallObject());
+  LAllocation callObj = useRegisterAtStart(ins->callObject());
   LCreateArgumentsObject* lir = new (alloc())
       LCreateArgumentsObject(callObj, tempFixed(CallTempReg0),
                              tempFixed(CallTempReg1), tempFixed(CallTempReg2));
@@ -2137,7 +2138,7 @@ void LIRGenerator::visitPow(MPow* ins) {
       // Restrict this optimization to |base <= 256| to avoid generating too
       // many consecutive shift instructions.
       int32_t base = input->toConstant()->toInt32();
-      if (2 <= base && base <= 256 && mozilla::IsPowerOfTwo(uint32_t(base))) {
+      if (2 <= base && base <= 256 && std::has_single_bit(uint32_t(base))) {
         lowerPowOfTwoI(ins);
         return;
       }
@@ -2565,7 +2566,7 @@ void LIRGenerator::visitMod(MMod* ins) {
         double d = ins->rhs()->toConstant()->toDouble();
         int32_t div;
         if (mozilla::NumberIsInt32(d, &div) && div > 0 &&
-            mozilla::IsPowerOfTwo(uint32_t(div))) {
+            std::has_single_bit(uint32_t(div))) {
           auto* lir = new (alloc()) LModPowTwoD(useRegister(ins->lhs()), div);
           define(lir, ins);
           return;
@@ -2743,7 +2744,7 @@ void LIRGenerator::visitBigIntPtrDiv(MBigIntPtrDiv* ins) {
 
   if (ins->rhs()->isConstant()) {
     intptr_t rhs = ins->rhs()->toConstant()->toIntPtr();
-    if (mozilla::IsPowerOfTwo(mozilla::Abs(rhs))) {
+    if (std::has_single_bit(mozilla::Abs(rhs))) {
       int32_t shift = mozilla::FloorLog2(mozilla::Abs(rhs));
       auto* lir = new (alloc())
           LBigIntPtrDivPowTwo(useRegister(ins->lhs()), shift, rhs < 0);
@@ -2764,7 +2765,7 @@ void LIRGenerator::visitBigIntPtrMod(MBigIntPtrMod* ins) {
 
   if (ins->rhs()->isConstant()) {
     intptr_t rhs = ins->rhs()->toConstant()->toIntPtr();
-    if (mozilla::IsPowerOfTwo(mozilla::Abs(rhs))) {
+    if (std::has_single_bit(mozilla::Abs(rhs))) {
       int32_t shift = mozilla::FloorLog2(mozilla::Abs(rhs));
       auto* lir = new (alloc())
           LBigIntPtrModPowTwo(useRegister(ins->lhs()), temp(), shift);
@@ -3214,7 +3215,7 @@ void LIRGenerator::visitStringEndsWith(MStringEndsWith* ins) {
 void LIRGenerator::visitStringConvertCase(MStringConvertCase* ins) {
   MOZ_ASSERT(ins->string()->type() == MIRType::String);
 
-  if (ins->mode() == MStringConvertCase::LowerCase) {
+  if (ins->stringCase() == StringCase::Lower) {
 #ifdef JS_CODEGEN_X86
     // Due to lack of registers on x86, we reuse the string register as
     // temporary. As a result we only need four temporary registers and take a
@@ -3239,7 +3240,7 @@ void LIRGenerator::visitStringConvertCase(MStringConvertCase* ins) {
 void LIRGenerator::visitCharCodeConvertCase(MCharCodeConvertCase* ins) {
   MOZ_ASSERT(ins->code()->type() == MIRType::Int32);
 
-  if (ins->mode() == MCharCodeConvertCase::LowerCase) {
+  if (ins->stringCase() == StringCase::Lower) {
     auto* lir = new (alloc())
         LCharCodeToLowerCase(useRegister(ins->code()), tempByteOpRegister());
     define(lir, ins);
@@ -6989,6 +6990,19 @@ void LIRGenerator::visitWasmLoadInstanceDataField(
   }
 }
 
+void LIRGenerator::visitWasmLoadInstanceScratch2xI32(
+    MWasmLoadInstanceScratch2xI32* ins) {
+#ifndef JS_64BIT
+  LWasmLoadInstanceScratch2xI32* lir =
+      new (alloc()) LWasmLoadInstanceScratch2xI32(useRegister(ins->instance()),
+                                                  ins->byteOffset());
+  defineInt64(lir, ins);
+#else
+  // On 64-bit targets, we never create MWasmLoadInstanceScratch2xI32 nodes.
+  MOZ_CRASH();
+#endif
+}
+
 void LIRGenerator::visitWasmLoadGlobalCell(MWasmLoadGlobalCell* ins) {
   if (ins->type() == MIRType::Int64) {
 #ifdef JS_PUNBOX64
@@ -7038,6 +7052,20 @@ void LIRGenerator::visitWasmStoreInstanceDataField(
                                      MNarrowingOp::None, mozilla::Nothing()),
         ins);
   }
+}
+
+void LIRGenerator::visitWasmStoreInstanceScratch2xI32(
+    MWasmStoreInstanceScratch2xI32* ins) {
+#ifndef JS_64BIT
+  LWasmStoreInstanceScratch2xI32* lir = new (alloc())
+      LWasmStoreInstanceScratch2xI32(useInt64Register(ins->value()),
+                                     useRegister(ins->instance()),
+                                     ins->byteOffset());
+  add(lir, ins);
+#else
+  // On 64-bit targets, we never create MWasmStoreInstanceScratch2xI32 nodes.
+  MOZ_CRASH();
+#endif
 }
 
 void LIRGenerator::visitWasmStoreGlobalCell(MWasmStoreGlobalCell* ins) {
@@ -8897,6 +8925,38 @@ void LIRGenerator::visitWasmNewArrayObject(MWasmNewArrayObject* ins) {
                           useRegister(ins->allocSite()), temp(), temp());
   define(lir, ins);
   assignWasmSafepoint(lir);
+}
+
+void LIRGenerator::visitWasmAddSubI128HI64(MWasmAddSubI128HI64* ins) {
+#ifdef JS_64BIT
+  // Don't change any of the operands to the `useRegisterAtStart` variant,
+  // since some of the operands are used multiple times within the LIR.
+  LWasmAddSubI128HI64* lir = new (alloc()) LWasmAddSubI128HI64(
+      useRegister(ins->lhsLo()), useRegister(ins->lhsHi()),
+      useRegister(ins->rhsLo()), useRegister(ins->rhsHi()), ins->isAdd());
+  define(lir, ins);
+#else
+  // On 32-bit targets, we never create MWasmAddSubI128HI64 nodes.
+  MOZ_CRASH();
+#endif
+}
+
+void LIRGenerator::visitWasmMulI64WideHI64(MWasmMulI64WideHI64* ins) {
+#if defined(JS_CODEGEN_X64)
+  // X86_64 only
+  LWasmMulI64WideHI64* lir = new (alloc())
+      LWasmMulI64WideHI64(useFixed(ins->lhs(), rax), useFixed(ins->rhs(), rdx),
+                          temp(), temp(), ins->isSigned());
+  define(lir, ins);
+#elif defined(JS_64BIT)
+  // All other 64-bit targets
+  LWasmMulI64WideHI64* lir = new (alloc()) LWasmMulI64WideHI64(
+      useRegister(ins->lhs()), useRegister(ins->rhs()), ins->isSigned());
+  define(lir, ins);
+#else
+  // On 32-bit targets, we never create MWasmMulI64WideHI64 nodes.
+  MOZ_CRASH();
+#endif
 }
 
 #ifdef ENABLE_EXPLICIT_RESOURCE_MANAGEMENT

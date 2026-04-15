@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -225,7 +223,7 @@ void HTMLFormElement::ReportInvalidUnfocusableElements(
 
       nsContentUtils::ReportToConsole(
           nsIScriptError::errorFlag, "DOM"_ns, element->GetOwnerDocument(),
-          nsContentUtils::eDOM_PROPERTIES, messageName.get(), params,
+          PropertiesFile::DOM_PROPERTIES, messageName.get(), params,
           SourceLocation(element->GetBaseURI()));
     }
   }
@@ -243,7 +241,7 @@ void HTMLFormElement::MaybeSubmit(Element* aSubmitter) {
 
   // 1-4 of
   // https://html.spec.whatwg.org/multipage/forms.html#concept-form-submit
-  Document* doc = GetComposedDoc();
+  RefPtr<Document> doc = GetComposedDoc();
   if (mIsConstructingEntryList || !doc ||
       (doc->GetSandboxFlags() & SANDBOXED_FORMS)) {
     return;
@@ -1825,7 +1823,7 @@ nsresult HTMLFormElement::AddElementToTableInternal(
         nsCOMPtr<nsISupports> listSupports = do_QueryObject(list);
 
         // Replace the element with the list.
-        entry.Data() = listSupports;
+        entry.Data() = std::move(listSupports);
       } else {
         // There's already a list in the hash, add the child to the list.
         MOZ_ASSERT(nsCOMPtr<RadioNodeList>(do_QueryInterface(entry.Data())));

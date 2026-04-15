@@ -100,9 +100,6 @@ body {
   --browser-area-z-index-sidebar-expand-on-hover: 4;
   --browser-area-z-index-sidebar-splitter: 3;
 
-  /* on macOS the animation of the toolbox in fullscreen needs the toolbox to be higher */
-  --browser-area-z-index-toolbox-while-animating: 4;
-
   --lwt-additional-images: none;
   --lwt-background-alignment: right top;
   --lwt-background-tiling: no-repeat;
@@ -147,42 +144,11 @@ body {
   &[fullscreenShouldAnimate] {
     transition: 0.8s margin-top ease-out;
   }
-
-  /* While we are animating / have animated in the titlebar from macOS,
-   * the z-indices are subtly different to accommodate the sidebar better.
-   *
-   * We also give the toolbox a shadow and border in this case.
-   */
-  &.fullscreen-with-menubar {
-    z-index: var(--browser-area-z-index-toolbox-while-animating);
-    box-shadow: var(--content-area-shadow);
-    border-bottom-color: var(--chrome-content-separator-color);
-  }
-
-  /* Themes define a set of toolbox foreground and background colors which we
-   * want to use across the toolbox and sidebar areas. That happens via the
-   * .browser-toolbox-background class. It's hard to make a theme's background
-   * images work with something other than the toolbox, so for now we ignore
-   * them on other things like the sidebar that could have
-   * .browser-toolbox-background */
-  :root[lwtheme] & {
-    background-image: var(--lwt-additional-images);
-    background-repeat: var(--lwt-background-tiling);
-    background-position: var(--lwt-background-alignment);
-  }
-
-  /* When a theme defines both theme_frame and additional_backgrounds, show
-     the latter atop the former. */
-  :root[lwtheme-image] & {
-    background-image: var(--lwt-header-image), var(--lwt-additional-images);
-    background-repeat: no-repeat, var(--lwt-background-tiling);
-    background-position:
-      right top,
-      var(--lwt-background-alignment);
-  }
 }
 
-.browser-toolbox-background {
+body {
+  /* Prevents the background from propagating to the viewport */
+  contain: paint;
   position: relative;
   background-color: var(--toolbox-bgcolor);
   color: var(--toolbox-textcolor);
@@ -224,6 +190,25 @@ body {
         appearance: auto;
       }
     }
+  }
+}
+
+/* Images go on the body by default, unless they are aligned in the y axis in
+ * which case they go on the toolbox for backwards compatibility */
+:root[lwtheme]:not([lwtheme-image-y-align]) body,
+:root[lwtheme][lwtheme-image-y-align] #navigator-toolbox {
+  background-image: var(--lwt-additional-images);
+  background-repeat: var(--lwt-background-tiling);
+  background-position: var(--lwt-background-alignment);
+
+  /* When a theme defines both theme_frame and additional_backgrounds, show
+     the latter atop the former. */
+  :root[lwtheme-image] & {
+    background-image: var(--lwt-header-image), var(--lwt-additional-images);
+    background-repeat: no-repeat, var(--lwt-background-tiling);
+    background-position:
+      right top,
+      var(--lwt-background-alignment);
   }
 }
 
@@ -605,7 +590,7 @@ menupopup::part(drop-indicator) {
 
   :root[lwtheme] & {
     background-color: var(--lwt-accent-color);
-    background-image: linear-gradient(var(--toolbar-bgcolor), var(--toolbar-bgcolor)), var(--lwt-additional-images);
+    background-image: linear-gradient(var(--toolbar-bgcolor)), var(--lwt-additional-images);
     background-repeat: no-repeat, var(--lwt-background-tiling);
     background-position:
       right bottom,
@@ -1219,7 +1204,7 @@ popupnotificationcontent {
 .relay-integration-header-variation {
   display: flex;
   align-items: center;
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   font-size: 1.5em;
   margin: auto;
 
@@ -1386,19 +1371,26 @@ popupnotificationcontent {
 
 #ai-window-toggle {
   list-style-image: url("chrome://branding/content/icon32.png");
-  padding-inline-end: var(--space-small);
   border-radius: var(--border-radius-medium);
+  padding-inline-end: var(--space-small);
 
-  /* Toggle button icon is designed to be slightly larger at 20px */
+  /* Toggle button should only have padding-inline-end if #PanelUI-button both visible and rendered next to it */
+  :root:not([aiwindow-first-run]) &:has(+ #PanelUI-button) {
+    padding: 0 var(--toolbarbutton-outer-padding);
+  }
+
   > .toolbarbutton-icon {
     padding: 8px;
     box-shadow: 0 0 16px 4px var(--box-shadow-color-darker-layer-1) inset;
   }
 
+  /* Smart Window toggle */
   :root[ai-window] & {
-    list-style-image: url("chrome://browser/skin/ai-window.svg");
+    list-style-image: url("chrome://browser/skin/smart-window-simplified.svg");
 
     > .toolbarbutton-icon {
+      /* Smart Window icon has additional 2px padding per side, to be slightly smaller than Classic Window icon when used in Switcher */
+      padding: var(--toolbarbutton-inner-padding);
       box-shadow: 0 0 16px 4px var(--smartwindow-toggle-shadow-color) inset;
     }
   }
@@ -1422,6 +1414,7 @@ popupnotificationcontent {
     fill: currentColor;
     width: 16px;
     height: 16px;
+    margin-inline-start: auto;
   }
 }
 
@@ -1434,11 +1427,24 @@ popupnotificationcontent {
 }
 
 #ai-window-switch-ai {
-  list-style-image: url("chrome://browser/skin/ai-window.svg");
+  list-style-image: url("chrome://browser/skin/smart-window-simplified.svg");
 
   :root:not([ai-window]) &::after {
     display: none;
   }
+
+  & > .toolbarbutton-icon {
+    /* Smart Window icon has additional 2px padding per side, to be slightly smaller than Classic Window icon when used in Switcher */
+    padding: 2px;
+  }
+
+  & > moz-badge {
+    margin-inline-start: var(--space-medium);
+  }
+}
+
+#appMenu-new-ai-window-button > moz-badge {
+  margin-inline-start: auto;
 }
 
 /* AI window immersive view (hidden nav bar and buttons) */
@@ -1452,13 +1458,16 @@ popupnotificationcontent {
   #urlbar-container,
   #nav-bar-customization-target > *:not(#sidebar-button),
   #nav-bar-overflow-button,
-  #PanelUI-button,
   #smartwindow-ask-button {
     visibility: hidden;
   }
 
   /* immersive view styles exclusive for first run */
   &[aiwindow-first-run] {
+    #PanelUI-button {
+      display: none;
+    }
+
     #TabsToolbar > .toolbar-items {
       opacity: 0.2;
       pointer-events: none;

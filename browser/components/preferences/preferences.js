@@ -53,6 +53,8 @@ var { FxAccounts, getFxAccountsSingleton } = ChromeUtils.importESModule(
 );
 var fxAccounts = getFxAccountsSingleton();
 
+var TAB_SESSION_ID = crypto.randomUUID();
+
 XPCOMUtils.defineLazyServiceGetters(this, {
   gApplicationUpdateService: [
     "@mozilla.org/updates/update-service;1",
@@ -171,53 +173,13 @@ function srdSectionEnabled(section) {
   return srdSectionPrefs.all || srdSectionPrefs[section];
 }
 
-var SettingPaneManager = {
-  /** @type {Map<string, SettingPaneConfig>} */
-  _data: new Map(),
-
-  /**
-   * @param {string} id
-   */
-  get(id) {
-    if (!this._data.has(id)) {
-      throw new Error(`Setting pane "${id}" not found`);
+var { SettingPaneManager, friendlyPrefCategoryNameToInternalName } =
+  ChromeUtils.importESModule(
+    "chrome://browser/content/preferences/config/SettingPaneManager.mjs",
+    {
+      global: "current",
     }
-    return this._data.get(id);
-  },
-
-  /**
-   * @param {string} id
-   * @param {SettingPaneConfig} config
-   */
-  registerPane(id, config) {
-    if (this._data.has(id)) {
-      throw new Error(`Setting pane "${id}" already registered`);
-    }
-    this._data.set(id, config);
-    let subPane = friendlyPrefCategoryNameToInternalName(id);
-    let settingPane = /** @type {SettingPane} */ (
-      document.createElement("setting-pane")
-    );
-    settingPane.name = subPane;
-    settingPane.config = config;
-    settingPane.isSubPane = !!config.parent;
-    document.getElementById("mainPrefPane").append(settingPane);
-    register_module(subPane, {
-      init() {
-        settingPane.init();
-      },
-    });
-  },
-
-  /**
-   * @param {Record<string, SettingPaneConfig>} paneConfigs
-   */
-  registerPanes(paneConfigs) {
-    for (let id in paneConfigs) {
-      this.registerPane(id, paneConfigs[id]);
-    }
-  },
-};
+  );
 
 var SettingGroupManager = ChromeUtils.importESModule(
   "chrome://browser/content/preferences/config/SettingGroupManager.mjs",
@@ -233,10 +195,53 @@ var SettingGroupManager = ChromeUtils.importESModule(
  * @type {Record<string, SettingPaneConfig>}
  */
 const CONFIG_PANES = Object.freeze({
+  ai: {
+    l10nId: "preferences-ai-controls-header",
+    iconSrc: "chrome://global/skin/icons/highlights.svg",
+    groupIds: ["aiControlsDescription", "aiFeatures", "aiStatesDescription"],
+    module: "chrome://browser/content/preferences/config/aiFeatures.mjs",
+    visible: () =>
+      Services.prefs.getBoolPref("browser.preferences.aiControls", false),
+  },
   dnsOverHttps: {
     parent: "privacy",
     l10nId: "preferences-doh-header2",
     groupIds: ["dnsOverHttpsAdvanced"],
+  },
+  etp: {
+    parent: "privacy",
+    l10nId: "preferences-etp-header",
+    groupIds: ["etpBanner", "etpAdvanced"],
+  },
+  etpCustomize: {
+    parent: "etp",
+    l10nId: "preferences-etp-customize-header",
+    groupIds: ["etpCustomize", "etpReset"],
+  },
+  history: {
+    parent: "privacy",
+    l10nId: "history-header2",
+    groupIds: ["historyAdvanced"],
+  },
+  home: {
+    l10nId: "home-section",
+    iconSrc: "chrome://browser/skin/home.svg",
+    groupIds: ["defaultBrowserHome", "startupHome", "homepage", "home"],
+    module: "chrome://browser/content/preferences/config/home-startup.mjs",
+    replaces: "home",
+  },
+  manageAddresses: {
+    parent: "privacy",
+    l10nId: "autofill-addresses-manage-addresses-title",
+    groupIds: ["manageAddresses"],
+    iconSrc: "chrome://browser/skin/notification-icons/geo.svg",
+  },
+  manageMemories: {
+    parent: "personalizeSmartWindow",
+    l10nId: "ai-window-manage-memories-header",
+    groupIds: ["manageMemories"],
+    module: "chrome://browser/content/preferences/config/aiFeatures.mjs",
+    supportPage: "smart-window-memories",
   },
   managePayments: {
     parent: "privacy",
@@ -249,21 +254,13 @@ const CONFIG_PANES = Object.freeze({
     l10nId: "preferences-profiles-group-header",
     groupIds: ["profilePane"],
   },
-  etp: {
-    parent: "privacy",
-    l10nId: "preferences-etp-header",
-    groupIds: ["etpBanner", "etpAdvanced"],
-  },
-  etpCustomize: {
-    parent: "etp",
-    l10nId: "preferences-etp-customize-header",
-    groupIds: ["etpCustomize", "etpReset"],
-  },
-  manageAddresses: {
-    parent: "privacy",
-    l10nId: "autofill-addresses-manage-addresses-title",
-    groupIds: ["manageAddresses"],
-    iconSrc: "chrome://browser/skin/notification-icons/geo.svg",
+  personalizeSmartWindow: {
+    parent: "ai",
+    l10nId: "ai-window-personalize-header",
+    iconSrc: "chrome://browser/skin/smart-window-mono.svg",
+    badge: "beta",
+    groupIds: ["assistantDefaultGroup", "assistantModelGroup", "memoriesGroup"],
+    module: "chrome://browser/content/preferences/config/aiFeatures.mjs",
   },
   translations: {
     parent: "general",
@@ -273,38 +270,6 @@ const CONFIG_PANES = Object.freeze({
       "translationsDownloadLanguages",
     ],
     iconSrc: "chrome://browser/skin/translations.svg",
-  },
-  ai: {
-    l10nId: "preferences-ai-controls-header",
-    iconSrc: "chrome://global/skin/icons/highlights.svg",
-    groupIds: ["aiControlsDescription", "aiFeatures", "aiStatesDescription"],
-    module: "chrome://browser/content/preferences/config/aiFeatures.mjs",
-    visible: () =>
-      Services.prefs.getBoolPref("browser.preferences.aiControls", false),
-  },
-  history: {
-    parent: "privacy",
-    l10nId: "history-header2",
-    groupIds: ["historyAdvanced"],
-  },
-  customHomepage: {
-    parent: "home",
-    l10nId: "home-custom-homepage-subpage",
-    groupIds: ["customHomepage"],
-  },
-  personalizeSmartWindow: {
-    parent: "ai",
-    l10nId: "ai-window-personalize-header",
-    iconSrc: "chrome://devtools/skin/images/globe.svg",
-    groupIds: ["assistantModelGroup", "memoriesGroup"],
-    module: "chrome://browser/content/preferences/config/aiFeatures.mjs",
-  },
-  manageMemories: {
-    parent: "personalizeSmartWindow",
-    l10nId: "ai-window-manage-memories-header",
-    groupIds: ["manageMemories"],
-    module: "chrome://browser/content/preferences/config/aiFeatures.mjs",
-    supportPage: "smart-window-memories",
   },
 });
 
@@ -360,8 +325,25 @@ function init_all() {
   register_module("panePrivacy", gPrivacyPane);
   register_module("paneContainers", gContainersPane);
 
+  let redesignEnabled = Services.prefs.getBoolPref(
+    "browser.settings-redesign.enabled"
+  );
   for (let [id, config] of Object.entries(CONFIG_PANES)) {
+    if (!redesignEnabled && config.replaces) {
+      continue;
+    }
     SettingPaneManager.registerPane(id, config);
+  }
+
+  // customHomepage is registered separately because its groups are set up by
+  // AboutPreferences.observe(), which only fires in the redesign path.
+  if (redesignEnabled) {
+    SettingPaneManager.registerPane("customHomepage", {
+      parent: "home",
+      l10nId: "home-custom-homepage-subpage",
+      groupIds: ["customHomepage"],
+      module: "chrome://browser/content/preferences/config/home-startup.mjs",
+    });
   }
 
   if (ExperimentAPI.labsEnabled) {
@@ -410,6 +392,7 @@ function init_all() {
   maybeDisplayPoliciesNotice();
 
   window.addEventListener("hashchange", onHashChange);
+  window.addEventListener("beforeunload", onBeforeunload);
 
   document.getElementById("focusSearch1").addEventListener("command", () => {
     gSearchResultsPane.searchInput.focus();
@@ -437,6 +420,25 @@ function init_all() {
 
 function onHashChange() {
   gotoPref(null, "Hash");
+}
+
+function onBeforeunload() {
+  Glean.aboutpreferences.close.record({ session: TAB_SESSION_ID });
+}
+
+/**
+ * This is called by BrowserUsageTelemetry when it would record a change as a
+ * labelled_counter. This could potentially integrate with Setting instead, but
+ * we would miss changes for settings that haven't been converted to Setting.
+ *
+ * @param {string} id The Setting id or telemetry id for the change.
+ */
+function recordSettingChangeTelemetry(id) {
+  Glean.aboutpreferences.change.record({
+    session: TAB_SESSION_ID,
+    setting: id,
+    pane: gLastCategory.category,
+  });
 }
 
 /**
@@ -571,19 +573,14 @@ async function gotoPref(
     spotlight(subcategory, category);
   }
 
-  // Handle any visibility changes that are controlled by pref logic.
-  //
-  // Take caution when trying to flip the hidden state to true since the
-  // element might show up unexpectedly on different pages in about:preferences.
-  //
-  // See Bug 1999032 to remove this in favor of config-based prefs.
-  categoryModule.handlePrefControlledSection?.();
-
   // Record which category is shown
   let gleanId = /** @type {"showClick" | "showHash" | "showInitial"} */ (
     "show" + aShowReason
   );
-  Glean.aboutpreferences[gleanId].record({ value: category });
+  Glean.aboutpreferences[gleanId].record({
+    value: category,
+    session: TAB_SESSION_ID,
+  });
 
   document.dispatchEvent(
     new CustomEvent("paneshown", {
@@ -655,13 +652,6 @@ function scrollAndHighlight(subcategory) {
   for (let element of elements) {
     element.classList.add("spotlight");
   }
-}
-
-function friendlyPrefCategoryNameToInternalName(aName) {
-  if (aName.startsWith("pane")) {
-    return aName;
-  }
-  return "pane" + aName.substring(0, 1).toUpperCase() + aName.substr(1);
 }
 
 // This function is duplicated inside of utilityOverlay.js's openPreferences.

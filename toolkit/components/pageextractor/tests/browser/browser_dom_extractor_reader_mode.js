@@ -32,6 +32,12 @@ add_task(async function test_dom_extractor_reader_mode() {
 
   const text = `${title} ${article}`;
 
+  /** @type {GetTextOptions} */
+  const forceBoilerplateRemoval = {
+    removeBoilerplate: true,
+    _forceRemoveBoilerplate: true,
+  };
+
   is(
     normalizeWhitespace((await getPageExtractor().getText()).text),
     text,
@@ -39,24 +45,21 @@ add_task(async function test_dom_extractor_reader_mode() {
   );
 
   is(
-    normalizeWhitespace((await getPageExtractor().getReaderModeContent()).text),
+    normalizeWhitespace(
+      (await getPageExtractor(forceBoilerplateRemoval).getText()).text
+    ),
     text,
-    "Normal page content supports getReaderModeContent"
+    "Normal page content supports boilerplate removal through reader mode"
   );
 
   await toggleReaderMode();
 
-  is(
-    normalizeWhitespace((await getPageExtractor().getText()).text),
-    text,
-    "about:reader is supported with getText"
-  );
-
-  is(
-    normalizeWhitespace((await getPageExtractor().getReaderModeContent()).text),
-    text,
-    "about:reader is supported with getReaderModeContent"
-  );
+  {
+    const result = normalizeWhitespace(
+      (await getPageExtractor().getText(forceBoilerplateRemoval)).text
+    );
+    ok(result.includes(text), "about:reader is supported with getText");
+  }
 
   await cleanup();
 });

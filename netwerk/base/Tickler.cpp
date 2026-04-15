@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -22,8 +21,6 @@
 
 namespace mozilla {
 namespace net {
-
-NS_IMPL_ISUPPORTS(Tickler, nsISupportsWeakReference, Tickler)
 
 Tickler::Tickler()
     : mLock("Tickler::mLock"),
@@ -182,9 +179,7 @@ class TicklerTimer final : public nsITimerCallback, public nsINamed {
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSITIMERCALLBACK
 
-  explicit TicklerTimer(Tickler* aTickler) {
-    mTickler = do_GetWeakReference(aTickler);
-  }
+  explicit TicklerTimer(Tickler* t) : mTickler(t) {}
 
   // nsINamed
   NS_IMETHOD GetName(nsACString& aName) override {
@@ -195,7 +190,7 @@ class TicklerTimer final : public nsITimerCallback, public nsINamed {
  private:
   ~TicklerTimer() {}
 
-  nsWeakPtr mTickler;
+  ThreadSafeWeakPtr<Tickler> mTickler;
 };
 
 void Tickler::StartTickler() {
@@ -219,7 +214,7 @@ void Tickler::SetIPV4Port(uint16_t port) { mAddr.inet.port = port; }
 NS_IMPL_ISUPPORTS(TicklerTimer, nsITimerCallback, nsINamed)
 
 NS_IMETHODIMP TicklerTimer::Notify(nsITimer* timer) {
-  RefPtr<Tickler> tickler = do_QueryReferent(mTickler);
+  RefPtr<Tickler> tickler(mTickler);
   if (!tickler) return NS_ERROR_FAILURE;
   MutexAutoLock lock(tickler->mLock);
 

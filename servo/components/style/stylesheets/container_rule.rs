@@ -29,14 +29,22 @@ use euclid::default::Size2D;
 use malloc_size_of::{MallocSizeOfOps, MallocUnconditionalShallowSizeOf};
 use selectors::kleene_value::KleeneValue;
 use servo_arc::Arc;
+use smallvec::SmallVec;
 use std::fmt::{self, Write};
 use style_traits::{CssStringWriter, CssWriter, ParseError, StyleParseErrorKind, ToCss};
+
+/// Contains all container conditions for a container rule.
+///
+/// https://drafts.csswg.org/css-conditional-5/#container-rule
+#[derive(Clone, Debug, ToCss, ToShmem)]
+#[css(comma)]
+pub struct ContainerConditions(#[css(iterable)] pub SmallVec<[Arc<ContainerCondition>; 1]>);
 
 /// A container rule.
 #[derive(Debug, ToShmem)]
 pub struct ContainerRule {
-    /// The container query and name.
-    pub condition: Arc<ContainerCondition>,
+    /// The container queries and name.
+    pub conditions: ContainerConditions,
     /// The nested rules inside the block.
     pub rules: Arc<Locked<CssRules>>,
     /// The source position where this rule was found.
@@ -45,13 +53,23 @@ pub struct ContainerRule {
 
 impl ContainerRule {
     /// Returns the query condition, if any.
+    ///
+    /// This currently only returns the query condition for the first condition.
+    /// The spec is currently incomplete on how this should be handled.
+    /// https://github.com/w3c/csswg-drafts/issues/10845
     pub fn query_condition(&self) -> Option<&QueryCondition> {
-        self.condition.condition.as_ref()
+        debug_assert_eq!(self.conditions.0.len(), 1);
+        self.conditions.0[0].condition.as_ref()
     }
 
     /// Returns the query name filter.
+    ///
+    /// This currently only returns the container name for the first condition.
+    /// The spec is currently incomplete on how this should be handled.
+    /// https://github.com/w3c/csswg-drafts/issues/10845
     pub fn container_name(&self) -> &ContainerName {
-        &self.condition.name
+        debug_assert_eq!(self.conditions.0.len(), 1);
+        &self.conditions.0[0].name
     }
 
     /// Measure heap usage.
@@ -67,7 +85,7 @@ impl DeepCloneWithLock for ContainerRule {
     fn deep_clone_with_lock(&self, lock: &SharedRwLock, guard: &SharedRwLockReadGuard) -> Self {
         let rules = self.rules.read_with(guard);
         Self {
-            condition: self.condition.clone(),
+            conditions: self.conditions.clone(),
             rules: Arc::new(lock.wrap(rules.deep_clone_with_lock(lock, guard))),
             source_location: self.source_location.clone(),
         }
@@ -79,15 +97,7 @@ impl ToCssWithGuard for ContainerRule {
         dest.write_str("@container ")?;
         {
             let mut writer = CssWriter::new(dest);
-            if !self.condition.name.is_none() {
-                self.condition.name.to_css(&mut writer)?;
-                if self.condition.condition.is_some() {
-                    writer.write_char(' ')?;
-                }
-            }
-            if let Some(ref condition) = self.condition.condition {
-                condition.to_css(&mut writer)?;
-            }
+            self.conditions.to_css(&mut writer)?;
         }
         self.rules.read_with(guard).to_css_block(guard, dest)
     }
@@ -286,30 +296,34 @@ impl ContainerCondition {
             },
         };
         let (container, info) = match result {
-            Some(r) => (Some(r.element), Some((r.info, r.style))),
-            None => (None, None),
+            Some(r) => (r.element, (r.info, r.style)),
+            None => {
+                // If we did not find the named (or any) container,
+                // the query must fail to match.
+                return KleeneValue::False;
+            },
         };
         // Set up the lookup for the container in question, as the condition may be using container
         // query lengths.
-        let size_query_container_lookup = ContainerSizeQuery::for_option_element(
+        let size_query_container_lookup = ContainerSizeQuery::for_element(
             container, /* known_parent_style = */ None, /* is_pseudo = */ false,
         );
         Context::for_container_query_evaluation(
             stylist.device(),
             Some(stylist),
-            info,
+            Some(info),
             size_query_container_lookup,
             |context| {
                 let matches = condition.matches(context, &mut CustomMediaEvaluator::none());
-                if context
-                    .style()
-                    .flags()
-                    .contains(ComputedValueFlags::USES_VIEWPORT_UNITS)
-                {
+                let flags = context.style().flags();
+                if flags.contains(ComputedValueFlags::USES_VIEWPORT_UNITS) {
                     // TODO(emilio): Might need something similar to improve
                     // invalidation of font relative container-query lengths.
                     invalidation_flags
                         .insert(ComputedValueFlags::USES_VIEWPORT_UNITS_ON_CONTAINER_QUERIES);
+                }
+                if flags.contains(ComputedValueFlags::DEPENDS_ON_CONTAINER_STYLE_QUERY) {
+                    invalidation_flags.insert(ComputedValueFlags::DEPENDS_ON_CONTAINER_STYLE_QUERY);
                 }
                 matches
             },

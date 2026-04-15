@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -539,6 +537,12 @@ IPCResult BackgroundParentImpl::RecvPSharedWorkerConstructor(
     PSharedWorkerParent* aActor, const mozilla::dom::RemoteWorkerData& aData,
     const uint64_t& aWindowID,
     const mozilla::dom::MessagePortIdentifier& aPortIdentifier) {
+
+  if (MOZ_UNLIKELY(aData.serviceWorkerData().type() !=
+                   OptionalServiceWorkerData::Tvoid_t)) {
+    return IPC_FAIL(this, "Invalid worker type for PSharedWorkerParent");
+  }
+
   mozilla::dom::SharedWorkerParent* actor =
       static_cast<mozilla::dom::SharedWorkerParent*>(aActor);
   actor->Initialize(aData, aWindowID, aPortIdentifier);
@@ -678,6 +682,10 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvPUDPSocketConstructor(
     const nsACString& aFilter) {
   AssertIsInMainProcess();
   AssertIsOnBackgroundThread();
+
+  if (!StaticPrefs::dom_udpsocket_enabled() && aFilter.IsEmpty()) {
+    return IPC_FAIL(this, "udp socket not enabled");
+  }
 
   if (aOptionalPrincipal.isSome()) {
     // Support for checking principals (for non-mtransport use) will be handled

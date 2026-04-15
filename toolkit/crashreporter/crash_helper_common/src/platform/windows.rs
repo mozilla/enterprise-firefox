@@ -26,6 +26,8 @@ use windows_sys::Win32::{
     },
 };
 
+pub(crate) const CHILD_RENDEZVOUS_ANCILLARY_DATA_LEN: usize = 0;
+
 pub type ProcessHandle = OwnedHandle;
 
 #[derive(Error, Debug)]

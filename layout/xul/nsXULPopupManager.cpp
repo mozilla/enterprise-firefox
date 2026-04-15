@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -784,14 +782,6 @@ static bool ShouldUseNativeAnchoredMenus() {
 #endif
 }
 
-static bool ShouldUseNativeAnchoredMenulists() {
-#ifdef HAS_NATIVE_MENU_SUPPORT
-  return mozilla::widget::NativeMenuSupport::ShouldUseNativeAnchoredMenulists();
-#else
-  return false;
-#endif
-}
-
 static bool ShouldUseNativeContextMenus() {
 #ifdef HAS_NATIVE_MENU_SUPPORT
   return mozilla::widget::NativeMenuSupport::ShouldUseNativeContextMenus();
@@ -874,9 +864,14 @@ bool nsXULPopupManager::ShowMenuAsNativeMenu(nsIContent* aMenu,
     return false;
   }
 
-  if (!ShouldUseNativeAnchoredMenus() ||
-      (aMenu->IsXULElement(nsGkAtoms::menulist) &&
-       !ShouldUseNativeAnchoredMenulists())) {
+  RefPtr popup = &popupFrame->PopupElement();
+
+  if (!ShouldUseNativeAnchoredMenus()) {
+#ifdef XP_MACOSX
+    // When native menus are disabled, add the native="false" attribute so that
+    // CSS can be conditionally applied where necessary.
+    popup->SetAttr(kNameSpaceID_None, nsGkAtoms::native, u"false"_ns, true);
+#endif
     return false;
   }
 
@@ -884,20 +879,19 @@ bool nsXULPopupManager::ShowMenuAsNativeMenu(nsIContent* aMenu,
   if (!frame) {
     return false;
   }
-  CSSIntRect rect = frame->GetScreenRect();
-
-  RefPtr popup = &popupFrame->PopupElement();
   PendingPopup pendingPopup(popup, nullptr);
 
   return ShowNativeMenuInternal(
       popup, pendingPopup,
-      [&](nsMenuPopupFrame* frame) {
+      [&](nsMenuPopupFrame* popupFrame) {
         nsCOMPtr<nsIContent> triggerContent = pendingPopup.GetTriggerContent();
-        frame->InitializePopupAsNativeAnchoredMenu(
-            aMenu, triggerContent, aPosition, rect, parentIsContextMenu);
+        popupFrame->InitializePopupAsNativeAnchoredMenu(
+            aMenu, triggerContent, aPosition, frame->GetScreenRect(),
+            parentIsContextMenu);
       },
-      [&](NativeMenu* menu, nsMenuPopupFrame* frame) {
-        menu->ShowMenuAnchored(frame, rect, aPosition);
+      [&](NativeMenu* menu, nsMenuPopupFrame* popupFrame) {
+        menu->ShowMenuAnchored(frame, popupFrame->GetScreenAnchorRect(),
+                               aPosition);
       });
 }
 
@@ -1246,7 +1240,8 @@ bool nsXULPopupManager::ShowPopupAsNativeAnchoredMenu(
         if (!frame) {
           frame = popupFrame->PresContext()->PresShell()->GetRootFrame();
         }
-        menu->ShowMenuAnchored(frame, aRect, aPosition);
+        menu->ShowMenuAnchored(frame, popupFrame->GetScreenAnchorRect(),
+                               aPosition);
       });
 }
 
@@ -1916,8 +1911,7 @@ bool nsXULPopupManager::BeginShowingPopup(const PendingPopup& aPendingPopup,
   // Using noautofocus="true" will disable this behaviour, which is needed for
   // the autocomplete widget as it manages focus itself.
   if (popupType == PopupType::Panel &&
-      !popup->AttrValueIs(kNameSpaceID_None, nsGkAtoms::noautofocus,
-                          nsGkAtoms::_true, eCaseMatters)) {
+      !popup->GetBoolAttr(nsGkAtoms::noautofocus)) {
     if (RefPtr<nsFocusManager> fm = nsFocusManager::GetFocusManager()) {
       Document* doc = popup->GetUncomposedDoc();
 
@@ -1984,8 +1978,7 @@ void nsXULPopupManager::FirePopupHidingEvent(Element* aPopup,
 
   // when a panel is closed, blur whatever has focus inside the popup
   if (aPopupType == PopupType::Panel &&
-      (!aPopup->AttrValueIs(kNameSpaceID_None, nsGkAtoms::noautofocus,
-                            nsGkAtoms::_true, eCaseMatters))) {
+      !aPopup->GetBoolAttr(nsGkAtoms::noautofocus)) {
     if (RefPtr<nsFocusManager> fm = nsFocusManager::GetFocusManager()) {
       Document* doc = aPopup->GetUncomposedDoc();
 

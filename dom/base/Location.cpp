@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -185,12 +183,28 @@ void Location::SetHash(const nsACString& aHash, nsIPrincipal& aSubjectPrincipal,
     return;
   }
 
+  nsAutoCString currentHash;
+  aRv = uri->GetRef(currentHash);
+  if (NS_WARN_IF(aRv.Failed())) {
+    return;
+  }
+
   if (aHash.IsEmpty() || aHash.First() != '#') {
     aRv = NS_MutateURI(uri).SetRef("#"_ns + aHash).Finalize(uri);
   } else {
     aRv = NS_MutateURI(uri).SetRef(aHash).Finalize(uri);
   }
   if (NS_WARN_IF(aRv.Failed()) || !uri) {
+    return;
+  }
+
+  // If the new hash is the same as the current hash, then return without
+  // navigating to the anchor again. This bailout is necessary for
+  // compatibility with deployed content, which redundantly sets
+  // location.hash on scroll. https://github.com/whatwg/html/issues/7386
+  nsAutoCString newHash;
+  aRv = uri->GetRef(newHash);
+  if (NS_WARN_IF(aRv.Failed()) || newHash == currentHash) {
     return;
   }
 

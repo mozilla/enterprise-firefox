@@ -25,7 +25,7 @@ export const TRUSTED_FAVICON_SCHEMES = Object.freeze([
  * @param {object} options Further configuration options for loading.
  * @param {number} options.size The size of the final image. Should be > 0.
  * @param {string} options.colorScheme Either "dark" or "light". Used for SVGs.
- * @param {number} options.contentParentId Which process to render the image in.
+ * @param {number} [options.contentParentId] Which process to render the image in.
  */
 function getMozRemoteImageURL(url, options = {}) {
   if (options.size !== undefined) {
@@ -61,5 +61,6 @@ export function blobAsDataURL(blob) {
 // Shim for tabbrowser.js that uses `defineESModuleGetters`.
 export let FaviconUtils = {
   SVG_DATA_URI_PREFIX,
+  TRUSTED_FAVICON_SCHEMES,
   getMozRemoteImageURL,
 };

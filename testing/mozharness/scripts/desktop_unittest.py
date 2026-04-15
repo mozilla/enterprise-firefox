@@ -877,10 +877,6 @@ class DesktopUnittest(TestingMixin, MercurialScript, MozbaseMixin, CodeCoverageM
                     option = option % str_format_values
                     if not option.endswith("None"):
                         base_cmd.append(option)
-                if self.structured_output(
-                    suite_category, self._query_try_flavor(suite_category, suite)
-                ):
-                    base_cmd.append("--log-raw=-")
                 return base_cmd
             else:
                 self.warning(

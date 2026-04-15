@@ -1,5 +1,4 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
- *
+/*
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -320,7 +319,7 @@ static Mp4parseStatus CreateSampleIterator(
 
   UniquePtr<IndiceWrapper> wrapper = MakeUnique<IndiceWrapper>(data);
   RefPtr<MP4SampleIndex> index = new MP4SampleIndex(
-      *wrapper, aBuffer, trackID, false, AssertedCast<int32_t>(timescale));
+      *wrapper, aBuffer, trackID, false, AssertedCast<uint32_t>(timescale));
   aIteratorOut = MakeUnique<SampleIterator>(index);
   return MP4PARSE_STATUS_OK;
 }

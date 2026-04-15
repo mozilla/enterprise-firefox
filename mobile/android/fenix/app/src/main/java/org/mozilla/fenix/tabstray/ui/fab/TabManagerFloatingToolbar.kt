@@ -39,7 +39,6 @@ import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
-import mozilla.components.browser.state.state.createTab
 import mozilla.components.compose.base.button.ExtendedFloatingActionButton
 import mozilla.components.compose.base.button.FloatingActionButtonDefaults
 import mozilla.components.compose.base.button.TextButton
@@ -49,12 +48,13 @@ import mozilla.components.compose.base.modifier.animateRotation
 import mozilla.components.compose.base.text.Text
 import mozilla.components.compose.base.theme.surfaceDimVariant
 import org.mozilla.fenix.R
-import org.mozilla.fenix.tabstray.Page
-import org.mozilla.fenix.tabstray.TabsTrayAction
-import org.mozilla.fenix.tabstray.TabsTrayState
-import org.mozilla.fenix.tabstray.TabsTrayState.Mode
-import org.mozilla.fenix.tabstray.TabsTrayStore
 import org.mozilla.fenix.tabstray.TabsTrayTestTag
+import org.mozilla.fenix.tabstray.data.createTab
+import org.mozilla.fenix.tabstray.redux.action.TabsTrayAction
+import org.mozilla.fenix.tabstray.redux.state.Page
+import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
+import org.mozilla.fenix.tabstray.redux.state.TabsTrayState.Mode
+import org.mozilla.fenix.tabstray.redux.store.TabsTrayStore
 import org.mozilla.fenix.theme.FirefoxTheme
 import androidx.compose.material3.FloatingActionButtonDefaults as M3FloatingActionButtonDefaults
 import mozilla.components.ui.icons.R as iconsR
@@ -102,11 +102,12 @@ internal fun TabManagerFloatingToolbar(
         exit = fadeOut(),
     ) {
         Row(
+            modifier = Modifier.padding(horizontal = FirefoxTheme.layout.space.static200),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier.weight(1f),
-                contentAlignment = Alignment.CenterEnd,
+                contentAlignment = Alignment.CenterStart,
             ) {
                 FloatingToolbarActions(
                     state = state,
@@ -130,7 +131,7 @@ internal fun TabManagerFloatingToolbar(
 
             Box(
                 modifier = Modifier.weight(1f),
-                contentAlignment = Alignment.CenterStart,
+                contentAlignment = Alignment.CenterEnd,
             ) {
                 FloatingToolbarFAB(
                     state = state,
@@ -163,7 +164,7 @@ private fun FloatingToolbarActions(
     val menuItems = generateMenuItems(
         selectedPage = state.selectedPage,
         normalTabCount = state.normalTabs.size,
-        privateTabCount = state.privateTabs.size,
+        privateTabCount = state.privateBrowsing.tabs.size,
         onAccountSettingsClick = onAccountSettingsClick,
         onTabSettingsClick = onTabSettingsClick,
         onRecentlyClosedClick = onRecentlyClosedClick,
@@ -263,7 +264,7 @@ private fun FloatingToolbarFAB(
         Page.SyncedTabs -> {
             icon = iconsR.drawable.mozac_ic_sync_24
             contentDescription = stringResource(id = R.string.resync_button_content_description)
-            label = if (state.syncing) {
+            label = if (state.sync.isSyncing) {
                 stringResource(id = R.string.sync_syncing_in_progress)
             } else {
                 stringResource(id = R.string.tab_manager_floating_action_button_sync_tabs)
@@ -282,7 +283,7 @@ private fun FloatingToolbarFAB(
                     hoveredElevation = 0.dp,
                 )
             }
-            iconModifier = Modifier.animateRotation(animate = state.syncing)
+            iconModifier = Modifier.animateRotation(animate = state.sync.isSyncing)
         }
     }
 
@@ -427,7 +428,9 @@ private class TabManagerFloatingToolbarParameterProvider :
             TabManagerFloatingToolbarPreviewModel(
                 state = TabsTrayState(
                     selectedPage = Page.NormalTabs,
-                    tabSearchEnabled = false,
+                    config = TabsTrayState.TabsTrayConfig(
+                        tabSearchEnabled = false,
+                    ),
                     normalTabs = listOf(createTab(url = "url")),
                 ),
                 expanded = false,
@@ -435,7 +438,9 @@ private class TabManagerFloatingToolbarParameterProvider :
             TabManagerFloatingToolbarPreviewModel(
                 state = TabsTrayState(
                     selectedPage = Page.NormalTabs,
-                    tabSearchEnabled = false,
+                    config = TabsTrayState.TabsTrayConfig(
+                        tabSearchEnabled = false,
+                    ),
                     normalTabs = listOf(createTab(url = "url")),
                 ),
                 expanded = true,
@@ -443,7 +448,9 @@ private class TabManagerFloatingToolbarParameterProvider :
             TabManagerFloatingToolbarPreviewModel(
                 state = TabsTrayState(
                     selectedPage = Page.NormalTabs,
-                    tabSearchEnabled = true,
+                    config = TabsTrayState.TabsTrayConfig(
+                        tabSearchEnabled = false,
+                    ),
                     normalTabs = listOf(createTab(url = "url")),
                 ),
                 expanded = false,
@@ -451,7 +458,9 @@ private class TabManagerFloatingToolbarParameterProvider :
             TabManagerFloatingToolbarPreviewModel(
                 state = TabsTrayState(
                     selectedPage = Page.NormalTabs,
-                    tabSearchEnabled = true,
+                    config = TabsTrayState.TabsTrayConfig(
+                        tabSearchEnabled = false,
+                    ),
                     normalTabs = listOf(createTab(url = "url")),
                 ),
                 expanded = true,
@@ -459,7 +468,9 @@ private class TabManagerFloatingToolbarParameterProvider :
             TabManagerFloatingToolbarPreviewModel(
                 state = TabsTrayState(
                     selectedPage = Page.NormalTabs,
-                    tabSearchEnabled = true,
+                    config = TabsTrayState.TabsTrayConfig(
+                        tabSearchEnabled = true,
+                    ),
                     normalTabs = emptyList(),
                 ),
                 expanded = true,
@@ -467,31 +478,45 @@ private class TabManagerFloatingToolbarParameterProvider :
             TabManagerFloatingToolbarPreviewModel(
                 state = TabsTrayState(
                     selectedPage = Page.PrivateTabs,
-                    tabSearchEnabled = true,
-                    privateTabs = listOf(createTab(url = "url", private = true)),
+                    config = TabsTrayState.TabsTrayConfig(
+                        tabSearchEnabled = true,
+                    ),
+                    privateBrowsing = TabsTrayState.PrivateBrowsingState(
+                        tabs = listOf(createTab(url = "url")),
+                    ),
                 ),
                 expanded = false,
             ),
             TabManagerFloatingToolbarPreviewModel(
                 state = TabsTrayState(
                     selectedPage = Page.PrivateTabs,
-                    tabSearchEnabled = true,
-                    privateTabs = listOf(createTab(url = "url", private = true)),
+                    config = TabsTrayState.TabsTrayConfig(
+                        tabSearchEnabled = true,
+                    ),
+                    privateBrowsing = TabsTrayState.PrivateBrowsingState(
+                        tabs = listOf(createTab(url = "url")),
+                    ),
                 ),
                 expanded = true,
             ),
             TabManagerFloatingToolbarPreviewModel(
                 state = TabsTrayState(
                     selectedPage = Page.PrivateTabs,
-                    tabSearchEnabled = true,
-                    privateTabs = emptyList(),
+                    config = TabsTrayState.TabsTrayConfig(
+                        tabSearchEnabled = true,
+                    ),
+                    privateBrowsing = TabsTrayState.PrivateBrowsingState(
+                        tabs = emptyList(),
+                    ),
                 ),
                 expanded = true,
             ),
             TabManagerFloatingToolbarPreviewModel(
                 state = TabsTrayState(
                     selectedPage = Page.SyncedTabs,
-                    tabSearchEnabled = true,
+                    config = TabsTrayState.TabsTrayConfig(
+                        tabSearchEnabled = true,
+                    ),
                 ),
                 expanded = false,
                 isSignedIn = true,
@@ -499,7 +524,9 @@ private class TabManagerFloatingToolbarParameterProvider :
             TabManagerFloatingToolbarPreviewModel(
                 state = TabsTrayState(
                     selectedPage = Page.SyncedTabs,
-                    tabSearchEnabled = true,
+                    config = TabsTrayState.TabsTrayConfig(
+                        tabSearchEnabled = true,
+                    ),
                 ),
                 expanded = true,
                 isSignedIn = true,
@@ -507,7 +534,9 @@ private class TabManagerFloatingToolbarParameterProvider :
             TabManagerFloatingToolbarPreviewModel(
                 state = TabsTrayState(
                     selectedPage = Page.SyncedTabs,
-                    tabSearchEnabled = true,
+                    config = TabsTrayState.TabsTrayConfig(
+                        tabSearchEnabled = true,
+                    ),
                 ),
                 expanded = false,
                 isSignedIn = false,
@@ -515,7 +544,9 @@ private class TabManagerFloatingToolbarParameterProvider :
             TabManagerFloatingToolbarPreviewModel(
                 state = TabsTrayState(
                     selectedPage = Page.SyncedTabs,
-                    tabSearchEnabled = true,
+                    config = TabsTrayState.TabsTrayConfig(
+                        tabSearchEnabled = true,
+                    ),
                 ),
                 expanded = true,
                 isSignedIn = false,

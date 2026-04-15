@@ -642,6 +642,25 @@ TEST_F(SdpOfferAnswerTest, AlwaysNegotiateDataChannelsNegotiationNeeded) {
   EXPECT_FALSE(caller->pc()->ShouldFireNegotiationNeededEvent(
       caller->observer()->latest_negotiation_needed_event()));
 }
+
+TEST_F(SdpOfferAnswerTest, AlwaysNegotiateDataChannelsSetConfiguration) {
+  RTCConfiguration config;
+  config.always_negotiate_data_channels = false;
+  auto caller = CreatePeerConnection(config, /*field_trials=*/"");
+
+  RTCConfiguration pc_config = caller->pc()->GetConfiguration();
+  pc_config.always_negotiate_data_channels = true;
+  EXPECT_TRUE(caller->pc()->SetConfiguration(pc_config).ok());
+
+  // No data channels are created.
+  auto offer = caller->CreateOffer();
+  ASSERT_THAT(offer, NotNull());
+
+  auto& contents = offer->description()->contents();
+  ASSERT_THAT(contents, SizeIs(1));
+  // SCTP is negotiated.
+  EXPECT_EQ(MediaProtocolType::kSctp, contents[0].type);
+}
 #endif  // WEBRTC_HAVE_SCTP
 
 TEST_F(SdpOfferAnswerTest, SimulcastAnswerWithNoRidsIsRejected) {
@@ -1795,6 +1814,157 @@ TEST_F(SdpOfferAnswerTest, PayloadTypeMatchingWithSubsequentOfferAnswer) {
   EXPECT_EQ(codecs[1].id, av1.id);
 }
 
+TEST_F(SdpOfferAnswerTest, TransceiverReceptive) {
+  auto caller = CreatePeerConnection();
+  auto callee = CreatePeerConnection();
+
+  auto transceiver = caller->AddTransceiver(MediaType::VIDEO);
+  EXPECT_TRUE(
+      transceiver->SetDirectionWithError(RtpTransceiverDirection::kRecvOnly)
+          .ok());
+
+  EXPECT_FALSE(transceiver->receptive());
+  auto offer = caller->CreateOfferAndSetAsLocal();
+  EXPECT_TRUE(transceiver->receptive());
+
+  EXPECT_TRUE(callee->SetRemoteDescription(std::move(offer)));
+  ASSERT_THAT(callee->pc()->GetTransceivers(), SizeIs(1));
+  auto callee_transceiver = callee->pc()->GetTransceivers()[0];
+  EXPECT_FALSE(callee_transceiver->receptive());
+  EXPECT_TRUE(callee_transceiver
+                  ->SetDirectionWithError(RtpTransceiverDirection::kSendRecv)
+                  .ok());
+
+  auto answer = callee->CreateAnswerAndSetAsLocal();
+  EXPECT_FALSE(callee_transceiver->receptive());
+  EXPECT_TRUE(caller->SetRemoteDescription(std::move(answer)));
+  EXPECT_TRUE(transceiver->receptive());
+
+  // Renegotiate, switching roles.
+  EXPECT_TRUE(
+      transceiver->SetDirectionWithError(RtpTransceiverDirection::kSendOnly)
+          .ok());
+
+  EXPECT_TRUE(transceiver->receptive());
+  auto reoffer = caller->CreateOfferAndSetAsLocal();
+  EXPECT_FALSE(transceiver->receptive());
+
+  EXPECT_TRUE(callee->SetRemoteDescription(std::move(reoffer)));
+  ASSERT_THAT(callee->pc()->GetTransceivers(), SizeIs(1));
+  EXPECT_FALSE(callee_transceiver->receptive());
+
+  auto reanswer = callee->CreateAnswerAndSetAsLocal();
+  EXPECT_TRUE(callee_transceiver->receptive());
+  EXPECT_TRUE(caller->SetRemoteDescription(std::move(reanswer)));
+  EXPECT_FALSE(transceiver->receptive());
+}
+
+TEST_F(SdpOfferAnswerTest, TransceiverReceptiveInactive) {
+  auto caller = CreatePeerConnection();
+  auto callee = CreatePeerConnection();
+
+  auto transceiver = caller->AddTransceiver(MediaType::VIDEO);
+  EXPECT_TRUE(
+      transceiver->SetDirectionWithError(RtpTransceiverDirection::kRecvOnly)
+          .ok());
+
+  EXPECT_FALSE(transceiver->receptive());
+  auto offer = caller->CreateOfferAndSetAsLocal();
+  EXPECT_TRUE(transceiver->receptive());
+
+  EXPECT_TRUE(callee->SetRemoteDescription(std::move(offer)));
+  ASSERT_THAT(callee->pc()->GetTransceivers(), SizeIs(1));
+  auto callee_transceiver = callee->pc()->GetTransceivers()[0];
+  EXPECT_FALSE(callee_transceiver->receptive());
+
+  EXPECT_TRUE(callee_transceiver
+                  ->SetDirectionWithError(RtpTransceiverDirection::kInactive)
+                  .ok());
+
+  auto answer = callee->CreateAnswerAndSetAsLocal();
+  EXPECT_FALSE(callee_transceiver->receptive());
+  EXPECT_TRUE(caller->SetRemoteDescription(std::move(answer)));
+  EXPECT_FALSE(transceiver->receptive());
+}
+
+TEST_F(SdpOfferAnswerTest, TransceiverReceptiveRollback) {
+  auto caller = CreatePeerConnection();
+  auto callee = CreatePeerConnection();
+
+  auto transceiver = caller->AddTransceiver(MediaType::VIDEO);
+  EXPECT_TRUE(
+      transceiver->SetDirectionWithError(RtpTransceiverDirection::kRecvOnly)
+          .ok());
+
+  EXPECT_FALSE(transceiver->receptive());
+  auto offer = caller->CreateOfferAndSetAsLocal();
+  EXPECT_TRUE(transceiver->receptive());
+
+  auto rollback = caller->CreateRollback();
+  ASSERT_THAT(rollback, NotNull());
+
+  EXPECT_TRUE(caller->SetLocalDescription(std::move(rollback)));
+  EXPECT_FALSE(transceiver->receptive());
+}
+
+TEST_F(SdpOfferAnswerTest, TransceiverReceptiveRollbackAfterFullNegotiation) {
+  auto caller = CreatePeerConnection();
+  auto callee = CreatePeerConnection();
+
+  auto transceiver = caller->AddTransceiver(MediaType::VIDEO);
+  EXPECT_TRUE(
+      transceiver->SetDirectionWithError(RtpTransceiverDirection::kInactive)
+          .ok());
+
+  EXPECT_FALSE(transceiver->receptive());
+  auto offer = caller->CreateOfferAndSetAsLocal();
+  EXPECT_FALSE(transceiver->receptive());
+
+  EXPECT_TRUE(callee->SetRemoteDescription(std::move(offer)));
+  auto answer = callee->CreateAnswerAndSetAsLocal();
+  EXPECT_TRUE(caller->SetRemoteDescription(std::move(answer)));
+  EXPECT_FALSE(transceiver->receptive());
+
+  EXPECT_TRUE(
+      transceiver->SetDirectionWithError(RtpTransceiverDirection::kSendRecv)
+          .ok());
+  auto reoffer = caller->CreateOfferAndSetAsLocal();
+  EXPECT_TRUE(transceiver->receptive());
+
+  auto rollback = caller->CreateRollback();
+  ASSERT_THAT(rollback, NotNull());
+
+  EXPECT_TRUE(caller->SetLocalDescription(std::move(rollback)));
+  EXPECT_FALSE(transceiver->receptive());
+}
+
+TEST_F(SdpOfferAnswerTest,
+       TransceiverReceptiveRollbackAfterFullNegotiationRemote) {
+  auto callee = CreatePeerConnection();
+  callee->AddVideoTrack("a");
+  auto caller = CreatePeerConnection();
+  caller->AddAudioTrack("b");
+  caller->AddVideoTrack("c");
+  EXPECT_TRUE(callee->SetRemoteDescription(caller->CreateOfferAndSetAsLocal()));
+  EXPECT_TRUE(
+      caller->SetRemoteDescription(callee->CreateAnswerAndSetAsLocal()));
+  // In stable don't add or remove anything.
+  callee->observer()->clear_legacy_renegotiation_needed();
+  callee->observer()->clear_latest_negotiation_needed_event();
+  ASSERT_THAT(caller->pc()->GetTransceivers(), SizeIs(2));
+  auto caller_transceiver = caller->pc()->GetTransceivers()[1];
+  EXPECT_TRUE(caller_transceiver
+                  ->SetDirectionWithError(RtpTransceiverDirection::kInactive)
+                  .ok());
+  ASSERT_THAT(callee->pc()->GetTransceivers(), SizeIs(2));
+  auto callee_transceiver = callee->pc()->GetTransceivers()[0];
+  EXPECT_TRUE(callee_transceiver->receptive());
+  EXPECT_TRUE(callee->SetRemoteDescription(caller->CreateOffer()));
+  EXPECT_FALSE(callee_transceiver->receptive());
+  EXPECT_TRUE(callee->SetRemoteDescription(caller->CreateRollback()));
+  EXPECT_TRUE(callee_transceiver->receptive());
+}
+
 #ifdef WEBRTC_HAVE_SCTP
 TEST_F(SdpOfferAnswerTest, SctpInitDisabled) {
   auto pc1 = CreatePeerConnection("WebRTC-Sctp-Snap/Disabled/");
@@ -2044,5 +2214,117 @@ INSTANTIATE_TEST_SUITE_P(SdpOfferAnswerDirectionTest,
                              std::make_tuple(RtpTransceiverDirection::kInactive,
                                              RtpTransceiverDirection::kInactive,
                                              true)));
+
+TEST_F(SdpOfferAnswerTest, NegotiatesCcfbButNotTransportCc) {
+  auto pc =
+      CreatePeerConnection("WebRTC-RFC8888CongestionControlFeedback/Enabled/");
+
+  std::string sdp_offer =
+      "v=0\r\n"
+      "o=- 0 0 IN IP4 127.0.0.1\r\n"
+      "s=-\r\n"
+      "t=0 0\r\n"
+      "a=group:BUNDLE 0 1\r\n"
+      "a=ice-ufrag:TESTUFRAG\r\n"
+      "a=ice-pwd:ThisIsATestIcePasswordThatIsLongEnough\r\n"
+      "a=fingerprint:sha-256 "
+      "AD:52:52:E0:B1:37:34:21:0E:15:8E:B7:56:56:7B:B4:39:0E:6D:1C:F5:84:A7:EE:"
+      "B5:27:3E:30:B1:7D:69:42\r\n"
+      "m=audio 9 UDP/TLS/RTP/SAVPF 111\r\n"
+      "c=IN IP4 0.0.0.0\r\n"
+      "a=mid:0\r\n"
+      "a=sendrecv\r\n"
+      "a=rtcp-mux\r\n"
+      "a=rtpmap:111 opus/48000/2\r\n"
+      "a=rtcp-fb:* ack ccfb\r\n"
+      "a=rtcp-fb:111 transport-cc\r\n"
+      "m=video 9 UDP/TLS/RTP/SAVPF 96\r\n"
+      "c=IN IP4 0.0.0.0\r\n"
+      "a=mid:1\r\n"
+      "a=sendrecv\r\n"
+      "a=rtcp-mux\r\n"
+      "a=rtpmap:96 VP8/90000\r\n"
+      "a=rtcp-fb:* ack ccfb\r\n"
+      "a=rtcp-fb:96 transport-cc\r\n";
+
+  auto offer = CreateSessionDescription(SdpType::kOffer, sdp_offer);
+  ASSERT_NE(offer, nullptr);
+  EXPECT_TRUE(pc->SetRemoteDescription(std::move(offer)));
+
+  auto answer = pc->CreateAnswerAndSetAsLocal();
+  ASSERT_NE(answer, nullptr);
+  auto* desc = answer->description();
+  ASSERT_EQ(desc->contents().size(), 2u);
+  for (const auto& content : desc->contents()) {
+    auto* media_desc = content.media_description();
+    EXPECT_TRUE(media_desc->rtcp_fb_ack_ccfb());
+    for (const auto& codec : media_desc->codecs()) {
+      EXPECT_FALSE(
+          codec.feedback_params.Has(FeedbackParam(kRtcpFbParamTransportCc)));
+    }
+  }
+}
+
+TEST_F(SdpOfferAnswerTest, NegotiatesTransportCcWhenCcfbMissingInOneSection) {
+  auto pc =
+      CreatePeerConnection("WebRTC-RFC8888CongestionControlFeedback/Enabled/");
+
+  std::string sdp_offer =
+      "v=0\r\n"
+      "o=- 0 0 IN IP4 127.0.0.1\r\n"
+      "s=-\r\n"
+      "t=0 0\r\n"
+      "a=group:BUNDLE 0 1\r\n"
+      "a=ice-ufrag:TESTUFRAG\r\n"
+      "a=ice-pwd:ThisIsATestIcePasswordThatIsLongEnough\r\n"
+      "a=fingerprint:sha-256 "
+      "AD:52:52:E0:B1:37:34:21:0E:15:8E:B7:56:56:7B:B4:39:0E:6D:1C:F5:84:A7:EE:"
+      "B5:27:3E:30:B1:7D:69:42\r\n"
+      "m=audio 9 UDP/TLS/RTP/SAVPF 111\r\n"
+      "c=IN IP4 0.0.0.0\r\n"
+      "a=mid:0\r\n"
+      "a=sendrecv\r\n"
+      "a=rtcp-mux\r\n"
+      "a=rtpmap:111 opus/48000/2\r\n"
+      "m=video 9 UDP/TLS/RTP/SAVPF 96\r\n"
+      "c=IN IP4 0.0.0.0\r\n"
+      "a=mid:1\r\n"
+      "a=sendrecv\r\n"
+      "a=rtcp-mux\r\n"
+      "a=rtpmap:96 VP8/90000\r\n"
+      "a=rtcp-fb:* ack ccfb\r\n"
+      "a=rtcp-fb:96 transport-cc\r\n";
+
+  auto offer = CreateSessionDescription(SdpType::kOffer, sdp_offer);
+  ASSERT_NE(offer, nullptr);
+  EXPECT_TRUE(pc->SetRemoteDescription(std::move(offer)));
+
+  auto answer = pc->CreateAnswerAndSetAsLocal();
+  ASSERT_NE(answer, nullptr);
+  auto* desc = answer->description();
+  ASSERT_EQ(desc->contents().size(), 2u);
+
+  auto* audio_content = desc->GetContentByName("0");
+  ASSERT_TRUE(audio_content);
+  auto* audio_desc = audio_content->media_description();
+  EXPECT_FALSE(audio_desc->rtcp_fb_ack_ccfb());
+  for (const auto& codec : audio_desc->codecs()) {
+    EXPECT_FALSE(
+        codec.feedback_params.Has(FeedbackParam(kRtcpFbParamTransportCc)));
+  }
+
+  auto* video_content = desc->GetContentByName("1");
+  ASSERT_TRUE(video_content);
+  auto* video_desc = video_content->media_description();
+  EXPECT_FALSE(video_desc->rtcp_fb_ack_ccfb());
+  bool found_transport_cc = false;
+  for (const auto& codec : video_desc->codecs()) {
+    if (codec.feedback_params.Has(FeedbackParam(kRtcpFbParamTransportCc))) {
+      found_transport_cc = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(found_transport_cc);
+}
 
 }  // namespace webrtc

@@ -9,7 +9,7 @@
  */
 
 /**
- * @import { GetDOMOptions, DOMExtractionResult } from './PageExtractor.d.ts'
+ * @import { GetTextOptions, DOMExtractionResult } from './PageExtractor.d.ts'
  */
 
 const WHITESPACE_REGEX = /\s+/g;
@@ -31,7 +31,7 @@ class ExtractionContext {
   /**
    * The text-extraction options, provided at initialization.
    *
-   * @type {GetDOMOptions}
+   * @type {GetTextOptions}
    */
   #options;
 
@@ -73,7 +73,7 @@ class ExtractionContext {
    * Constructs a new extraction context with the provided options.
    *
    * @param {Document} document
-   * @param {GetDOMOptions} options
+   * @param {GetTextOptions} options
    */
   constructor(document, options) {
     this.#options = options;
@@ -359,7 +359,15 @@ class ExtractionContext {
     }
 
     if (innerText) {
-      this.#textContent += "\n" + innerText;
+      if (node.ownerGlobal) {
+        // Use whitespace behavior from the DOM.
+        this.#textContent += "\n" + innerText;
+      } else {
+        // Manually collapse whitespace since the DOM is not attached to a window.
+        // The behavior of innerText is different here, and whitespace does not
+        // automatically get collapsed.
+        this.#textContent = collapseWhitespace(innerText, this.#textContent);
+      }
     }
   }
 
@@ -523,7 +531,8 @@ class ExtractionContext {
  * the supported options @see {GetTextOptions}.
  *
  * @param {Document} document
- * @param {GetDOMOptions} options
+ * @param {HTMLElement} rootNode
+ * @param {GetTextOptions} options
  *
  * @returns {DOMExtractionResult}
  *
@@ -575,10 +584,10 @@ class ExtractionContext {
  * determine visibility and the actually computed block status (e.g. "display: block"
  * and "display: inline")
  */
-export function extractTextFromDOM(document, options) {
+export function extractTextFromDOM(document, rootNode, options) {
   const context = new ExtractionContext(document, options);
 
-  subdivideAndExtractText(document.body, context);
+  subdivideAndExtractText(rootNode, context);
 
   return {
     text: context.textContent.trim(),
@@ -749,6 +758,12 @@ function nodeNeedsSubdividing(node) {
  * @returns {boolean}
  */
 function isNodeHidden(node) {
+  if (!node.ownerGlobal) {
+    // This node is not actually connected to a live browser context, so we can't
+    // determine if it's hidden or not. This can happen for a DOMParser document.
+    return false;
+  }
+
   const element = getHTMLElementForStyle(node);
 
   if (!element) {
@@ -1008,6 +1023,19 @@ function* getAncestorsIterator(node) {
 }
 
 /**
+ * This list is not really exhaustive, as it's just covering common block elements that
+ * can be used in reader mode.
+ */
+// prettier-ignore
+const blockLikeElements = new Set([
+  "ARTICLE", "ASIDE", "BLOCKQUOTE", "BODY", "CAPTION", "COL", "COLGROUP", "DD", "DETAILS",
+  "DIALOG", "DIV", "DL", "DT", "FIELDSET", "FIGCAPTION", "FIGURE", "FOOTER", "FORM",
+  "H1", "H2", "H3", "H4", "H5", "H6", "HEADER", "HGROUP", "HR", "HTML", "LEGEND", "LI",
+  "MAIN", "NAV", "OL", "P", "PRE", "SECTION", "TABLE", "TBODY", "TD", "TFOOT", "TH",
+  "THEAD", "TR", "UL",
+]);
+
+/**
  * Reads the elements computed style and determines if the element is a block-like
  * element or not. Every element that lays out like a block should be used as a unit
  * for text extraction.
@@ -1023,7 +1051,9 @@ function getIsBlockLike(node) {
 
   const { ownerGlobal } = element;
   if (!ownerGlobal) {
-    return false;
+    // This root node is detached from a window, and so there is no computed style.
+    // Just use the assumed style.
+    return blockLikeElements.has(element.tagName);
   }
 
   if (element.namespaceURI === "http://www.w3.org/2000/svg") {
@@ -1106,4 +1136,104 @@ function getHTMLElementForStyle(node) {
 
   // If the text node is not connected or doesn't have a frame.
   return null;
+}
+
+/**
+ * Ensure whitespace isn't repeated in the text. This algorithm maintains at most 2
+ * newlines in some whitespace, or 1 whitespace character. Only "\n" and " " are retained.
+ * This is similar to the whitespace collapsing behavior of rendered HTML. Note that this
+ * algorithm ignores Unicode whitespace characters, which are a larger set of potential
+ * characters.
+ *
+ * https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Text/Whitespace
+ *
+ * So:
+ *   "\t\n \t"       => "\n"
+ *   "\t\n \t\n\n\n" => "\n\n"
+ *   "example     text" => "example text"
+ *   "\n\r"      => ""
+ *
+ * @param {string} currentText
+ * @param {string} [previousText]
+ * @returns {string}
+ */
+export function collapseWhitespace(currentText, previousText = "") {
+  // Find the lastWhitespaceIndex in the previousText.
+  let lastWhitespaceIndex;
+  for (
+    lastWhitespaceIndex = previousText.length;
+    lastWhitespaceIndex > 0;
+    lastWhitespaceIndex--
+  ) {
+    const ch = previousText[lastWhitespaceIndex - 1];
+    if (ch != " " && ch != "\n" && ch != "\t" && ch != "\r") {
+      break;
+    }
+  }
+
+  // Collect the trailling whitespace from the previousText.
+  let trailingWhitespace = previousText.slice(
+    lastWhitespaceIndex,
+    previousText.length
+  );
+
+  // Move the trailing whitespace from the previousText to the currentText so that
+  // the whitespace collapses correctly.
+  const prefixText = previousText.slice(0, lastWhitespaceIndex);
+  const postfixText = trailingWhitespace + currentText;
+
+  let collapsedText = "";
+  let prevWasWhitespace = !!prefixText;
+  let newLinesCount = prefixText ? 1 : 0;
+
+  for (let i = 0; i < postfixText.length; i++) {
+    const ch = postfixText[i];
+
+    if (
+      // Is this a whitespace character that is used in HTML whitespace collapsing?
+      ch === " " ||
+      ch === "\n" ||
+      ch === "\t" ||
+      ch === "\r"
+    ) {
+      // Remember that there was whitespace and count the newlines.
+      if (ch === "\n") {
+        newLinesCount++;
+      }
+      prevWasWhitespace = true;
+    } else {
+      // There is a character that needs to be added. Also add any whitespace that
+      // was encountered.
+
+      if (prevWasWhitespace) {
+        // Add the collapsed version of the whitespace.
+        if (newLinesCount == 0) {
+          collapsedText += " ";
+        } else if (newLinesCount == 1) {
+          collapsedText += "\n";
+        } else {
+          collapsedText += "\n\n";
+        }
+        // Reset the whitespace tracking varaibles.
+        newLinesCount = 0;
+        prevWasWhitespace = false;
+      }
+
+      // Add the next character.
+      collapsedText += ch;
+    }
+  }
+
+  if (prevWasWhitespace) {
+    // Add the collapsed version of the whitespace.
+    if (newLinesCount == 0) {
+      collapsedText += " ";
+    } else if (newLinesCount == 1) {
+      collapsedText += "\n";
+    } else {
+      collapsedText += "\n\n";
+    }
+  }
+
+  return prefixText + collapsedText;
 }

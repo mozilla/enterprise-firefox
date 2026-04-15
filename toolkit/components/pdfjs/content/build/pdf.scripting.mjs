@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 5.5.70
- * pdfjsBuild = 30ed527a8
+ * pdfjsVersion = 5.6.110
+ * pdfjsBuild = a1cc75126
  */
 
 ;// ./src/scripting_api/constants.js
@@ -159,13 +159,7 @@ const FieldType = {
   time: 4
 };
 function createActionsMap(actions) {
-  const actionsMap = new Map();
-  if (actions) {
-    for (const [eventType, actionsForEvent] of Object.entries(actions)) {
-      actionsMap.set(eventType, actionsForEvent);
-    }
-  }
-  return actionsMap;
+  return new Map(actions ? Object.entries(actions) : null);
 }
 function getFieldType(actions) {
   let format = actions.get("Format");
@@ -263,20 +257,20 @@ class PDFObject {
 
 
 class Color extends PDFObject {
+  transparent = ["T"];
+  black = ["G", 0];
+  white = ["G", 1];
+  red = ["RGB", 1, 0, 0];
+  green = ["RGB", 0, 1, 0];
+  blue = ["RGB", 0, 0, 1];
+  cyan = ["CMYK", 1, 0, 0, 0];
+  magenta = ["CMYK", 0, 1, 0, 0];
+  yellow = ["CMYK", 0, 0, 1, 0];
+  dkGray = ["G", 0.25];
+  gray = ["G", 0.5];
+  ltGray = ["G", 0.75];
   constructor() {
     super({});
-    this.transparent = ["T"];
-    this.black = ["G", 0];
-    this.white = ["G", 1];
-    this.red = ["RGB", 1, 0, 0];
-    this.green = ["RGB", 0, 1, 0];
-    this.blue = ["RGB", 0, 0, 1];
-    this.cyan = ["CMYK", 1, 0, 0, 0];
-    this.magenta = ["CMYK", 0, 1, 0, 0];
-    this.yellow = ["CMYK", 0, 0, 1, 0];
-    this.dkGray = ["G", 0.25];
-    this.gray = ["G", 0.5];
-    this.ltGray = ["G", 0.75];
   }
   static _isValidSpace(cColorSpace) {
     return typeof cColorSpace === "string" && (cColorSpace === "T" || cColorSpace === "G" || cColorSpace === "RGB" || cColorSpace === "CMYK");
@@ -361,6 +355,8 @@ function serializeError(error) {
     value
   };
 }
+const makeArr = () => [];
+const makeMap = () => new Map();
 
 ;// ./src/scripting_api/field.js
 
@@ -727,10 +723,7 @@ class Field extends PDFObject {
       fillArrayWithKids(this._kidIds);
       return array;
     }
-    if (this._children === null) {
-      this._children = this._document.obj._getTerminalChildren(this._fieldPath);
-    }
-    return this._children;
+    return this._children ??= this._document.obj._getTerminalChildren(this._fieldPath);
   }
   getLock() {
     return undefined;
@@ -1224,8 +1217,8 @@ class AForm {
   }
   AFSimple_Calculate(cFunction, cFields) {
     const actions = {
-      AVG: args => args.reduce((acc, value) => acc + value, 0) / args.length,
-      SUM: args => args.reduce((acc, value) => acc + value, 0),
+      AVG: args => Math.sumPrecise(args) / args.length,
+      SUM: args => Math.sumPrecise(args),
       PRD: args => args.reduce((acc, value) => acc * value, 1),
       MIN: args => Math.min(...args),
       MAX: args => Math.max(...args)
@@ -1692,19 +1685,16 @@ class EventDispatcher {
 
 
 class FullScreen extends PDFObject {
-  constructor(data) {
-    super(data);
-    this._backgroundColor = [];
-    this._clickAdvances = true;
-    this._cursor = Cursor.hidden;
-    this._defaultTransition = "";
-    this._escapeExits = true;
-    this._isFullScreen = true;
-    this._loop = false;
-    this._timeDelay = 3600;
-    this._usePageTiming = false;
-    this._useTimer = false;
-  }
+  _backgroundColor = [];
+  _clickAdvances = true;
+  _cursor = Cursor.hidden;
+  _defaultTransition = "";
+  _escapeExits = true;
+  _isFullScreen = true;
+  _loop = false;
+  _timeDelay = 3600;
+  _usePageTiming = false;
+  _useTimer = false;
   get backgroundColor() {
     return this._backgroundColor;
   }
@@ -1756,13 +1746,10 @@ class FullScreen extends PDFObject {
 ;// ./src/scripting_api/thermometer.js
 
 class Thermometer extends PDFObject {
-  constructor(data) {
-    super(data);
-    this._cancelled = false;
-    this._duration = 100;
-    this._text = "";
-    this._value = 0;
-  }
+  _cancelled = false;
+  _duration = 100;
+  _text = "";
+  _value = 0;
   get cancelled() {
     return this._cancelled;
   }
@@ -1816,11 +1803,7 @@ class App extends PDFObject {
     this._objects = Object.create(null);
     this._eventDispatcher = new EventDispatcher(this._document, data.calculationOrder, this._objects, data.externalCall);
     this._timeoutIds = new WeakMap();
-    if (typeof FinalizationRegistry !== "undefined") {
-      this._timeoutIdsRegistry = new FinalizationRegistry(this._cleanTimeout.bind(this));
-    } else {
-      this._timeoutIdsRegistry = null;
-    }
+    this._timeoutIdsRegistry = new FinalizationRegistry(this._cleanTimeout.bind(this));
     this._timeoutCallbackIds = new Map();
     this._timeoutCallbackId = USERACTIVATION_CALLBACKID + 1;
     this._globalEval = data.globalEval;
@@ -1864,11 +1847,11 @@ class App extends PDFObject {
       interval
     };
     this._timeoutIds.set(timeout, id);
-    this._timeoutIdsRegistry?.register(timeout, id);
+    this._timeoutIdsRegistry.register(timeout, id);
     return timeout;
   }
   _unregisterTimeout(timeout) {
-    this._timeoutIdsRegistry?.unregister(timeout);
+    this._timeoutIdsRegistry.unregister(timeout);
     const data = this._timeoutIds.get(timeout);
     if (!data) {
       return;
@@ -1899,13 +1882,10 @@ class App extends PDFObject {
     return "UNIX";
   }
   static _getLanguage(language) {
-    const [main, sub] = language.toLowerCase().split(/[-_]/);
+    const [main, sub] = language.toLowerCase().split(/[-_]/, 2);
     switch (main) {
       case "zh":
-        if (sub === "cn" || sub === "sg") {
-          return "CHS";
-        }
-        return "CHT";
+        return sub === "cn" || sub === "sg" ? "CHS" : "CHT";
       case "da":
         return "DAN";
       case "de":
@@ -1925,10 +1905,7 @@ class App extends PDFObject {
       case "no":
         return "NOR";
       case "pt":
-        if (sub === "br") {
-          return "PTB";
-        }
-        return "ENU";
+        return sub === "br" ? "PTB" : "ENU";
       case "fi":
         return "SUO";
       case "SV":
@@ -1982,12 +1959,9 @@ class App extends PDFObject {
     throw new Error("app.fromPDFConverters is read-only");
   }
   get fs() {
-    if (this._fs === null) {
-      this._fs = new Proxy(new FullScreen({
-        send: this._send
-      }), this._proxyHandler);
-    }
-    return this._fs;
+    return this._fs ??= new Proxy(new FullScreen({
+      send: this._send
+    }), this._proxyHandler);
   }
   set fs(_) {
     throw new Error("app.fs is read-only");
@@ -2061,12 +2035,9 @@ class App extends PDFObject {
     }
   }
   get thermometer() {
-    if (this._thermometer === null) {
-      this._thermometer = new Proxy(new Thermometer({
-        send: this._send
-      }), this._proxyHandler);
-    }
-    return this._thermometer;
+    return this._thermometer ??= new Proxy(new Thermometer({
+      send: this._send
+    }), this._proxyHandler);
   }
   set thermometer(_) {
     throw new Error("app.thermometer is read-only");
@@ -2420,6 +2391,8 @@ class InfoProxyHandler {
   }
 }
 class Doc extends PDFObject {
+  #pageActions = null;
+  #otherPageActions = null;
   constructor(data) {
     super(data);
     this._expandos = globalThis;
@@ -2471,11 +2444,9 @@ class Doc extends PDFObject {
     this._zoom = data.zoom || 100;
     this._actions = createActionsMap(data.actions);
     this._globalEval = data.globalEval;
-    this._pageActions = null;
     this._userActivation = false;
     this._disablePrinting = false;
     this._disableSaving = false;
-    this._otherPageActions = null;
   }
   _initActions() {
     for (const {
@@ -2531,13 +2502,13 @@ class Doc extends PDFObject {
   }
   _dispatchPageEvent(name, actions, pageNumber) {
     if (name === "PageOpen") {
-      this._pageActions ||= new Map();
-      if (!this._pageActions.has(pageNumber)) {
-        this._pageActions.set(pageNumber, createActionsMap(actions));
+      this.#pageActions ??= new Map();
+      if (!this.#pageActions.has(pageNumber)) {
+        this.#pageActions.set(pageNumber, createActionsMap(actions));
       }
       this._pageNum = pageNumber - 1;
     }
-    for (const acts of [this._pageActions, this._otherPageActions]) {
+    for (const acts of [this.#pageActions, this.#otherPageActions]) {
       actions = acts?.get(pageNumber)?.get(name);
       if (actions) {
         for (const action of actions) {
@@ -2568,27 +2539,13 @@ class Doc extends PDFObject {
     const po = field.obj._actions.get("PageOpen");
     const pc = field.obj._actions.get("PageClose");
     if (po || pc) {
-      this._otherPageActions ||= new Map();
-      let actions = this._otherPageActions.get(field.obj._page + 1);
-      if (!actions) {
-        actions = new Map();
-        this._otherPageActions.set(field.obj._page + 1, actions);
-      }
+      this.#otherPageActions ??= new Map();
+      const actions = this.#otherPageActions.getOrInsertComputed(field.obj._page + 1, makeMap);
       if (po) {
-        let poActions = actions.get("PageOpen");
-        if (!poActions) {
-          poActions = [];
-          actions.set("PageOpen", poActions);
-        }
-        poActions.push(...po);
+        actions.getOrInsertComputed("PageOpen", makeArr).push(...po);
       }
       if (pc) {
-        let pcActions = actions.get("PageClose");
-        if (!pcActions) {
-          pcActions = [];
-          actions.set("PageClose", pcActions);
-        }
-        pcActions.push(...pc);
+        actions.getOrInsertComputed("PageClose", makeArr).push(...pc);
       }
     }
   }
@@ -3081,7 +3038,7 @@ class Doc extends PDFObject {
       childIndex = Math.floor(parseFloat(parts[1]));
       cName = parts[0];
     }
-    for (const [name, field] of this._fields.entries()) {
+    for (const [name, field] of this._fields) {
       if (name.endsWith(cName)) {
         if (!isNaN(childIndex)) {
           const children = this._getChildren(name);
@@ -3110,7 +3067,7 @@ class Doc extends PDFObject {
     const len = fieldName.length;
     const children = [];
     const pattern = /^\.[^.]+$/;
-    for (const [name, field] of this._fields.entries()) {
+    for (const [name, field] of this._fields) {
       if (name.startsWith(fieldName)) {
         const finalPart = name.slice(len);
         if (pattern.test(finalPart)) {
@@ -3123,7 +3080,7 @@ class Doc extends PDFObject {
   _getTerminalChildren(fieldName) {
     const children = [];
     const len = fieldName.length;
-    for (const [name, field] of this._fields.entries()) {
+    for (const [name, field] of this._fields) {
       if (name.startsWith(fieldName)) {
         const finalPart = name.slice(len);
         if (field.obj._hasValue && (finalPart === "" || finalPart.startsWith("."))) {
@@ -3284,9 +3241,7 @@ class Doc extends PDFObject {
 
 ;// ./src/scripting_api/proxy.js
 class ProxyHandler {
-  constructor() {
-    this.nosend = new Set(["delay"]);
-  }
+  nosend = new Set(["delay"]);
   get(obj, prop) {
     if (prop in obj._expandos) {
       const val = obj._expandos[prop];

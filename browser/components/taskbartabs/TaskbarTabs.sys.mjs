@@ -22,6 +22,7 @@ let lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   ManifestObtainer: "resource://gre/modules/ManifestObtainer.sys.mjs",
+  ShellService: "moz-src:///browser/components/shell/ShellService.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "logConsole", () => {
@@ -290,7 +291,9 @@ async function fetchIconForTaskbarTab(aTaskbarTab, aCreatedForUrl) {
 async function loadSavedTaskbarTabIcon(aTaskbarTabId) {
   let iconPath = TaskbarTabsUtils.getTaskbarTabsFolder();
   iconPath.append("icons");
-  iconPath.append(aTaskbarTabId + ".ico");
+  iconPath.append(
+    aTaskbarTabId + "." + lazy.ShellService.shortcutIconType.extension
+  );
   try {
     return await TaskbarTabsUtils._imageFromLocalURI(
       Services.io.newFileURI(iconPath)

@@ -331,12 +331,10 @@ var allowlist = [
     file: "resource://app/modules/backup/CookiesBackupResource.sys.mjs",
   },
 
-  // Bug 1996315: QR code generation modules
+  // Bug 2023223: Replace loginOrigin, addresses, payments, and form history
+  // richlist items with autocomplete-row-item
   {
-    file: "moz-src:///browser/components/qrcode/QRCodeGenerator.sys.mjs",
-  },
-  {
-    file: "moz-src:///browser/components/qrcode/QRCodeWorker.sys.mjs",
+    file: "chrome://global/content/autocomplete-row-item/autocomplete-row-item.mjs",
   },
 ];
 
@@ -345,6 +343,15 @@ if (AppConstants.NIGHTLY_BUILD) {
     // A debug tool that is only available in Nightly builds, and is accessed
     // directly by developers via the chrome URI (bug 1888491)
     { file: "chrome://browser/content/backup/debug.html" }
+  );
+}
+
+if (!AppConstants.RELEASE_OR_BETA) {
+  allowlist.push(
+    // browser/extensions/newtab/actors/AboutNewTabChild.sys.mjs constructs the
+    // URL dynamically: `chrome://global/content/vendor/react${debugString}.js`
+    { file: "chrome://global/content/vendor/react-dev.js" },
+    { file: "chrome://global/content/vendor/react-dom-dev.js" }
   );
 }
 

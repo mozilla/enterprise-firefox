@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -286,6 +284,9 @@ IPCResult BrowserBridgeParent::RecvSetEmbedderAccessible(
   if (mEmbedderAccessibleDoc && aDoc && mEmbedderAccessibleDoc != aDoc) {
     return IPC_FAIL(this,
                     "Embedder doc shouldn't change from one doc to another");
+  }
+  if (aDoc && aDoc->Manager() != Manager()) {
+    return IPC_FAIL(this, "Embedder doc not managed by our PBrowser");
   }
   if (!aDoc && mEmbedderAccessibleDoc &&
       !mEmbedderAccessibleDoc->IsShutdown()) {

@@ -159,7 +159,11 @@ class BackupReplaceCurrentProfileTest(BackupTestBase):
 
         custom_name = "My Custom Profile"
         custom_avatar = "book"
-        custom_theme = {"themeBg": "#ff5500", "themeFg": "#ffffff"}
+        custom_theme = {
+            "themeId": "default-theme@mozilla.org",
+            "themeBg": "#ff5500",
+            "themeFg": "#ffffff",
+        }
         self.run_async(
             """
             const { SelectableProfileService } = ChromeUtils.importESModule(

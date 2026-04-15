@@ -95,7 +95,7 @@ class DetailedCacheHitTelemetry {
  private:
   class HitRate {
    public:
-    HitRate();
+    HitRate() = default;
 
     void AddRecord(ERecType aType);
     uint32_t GetHitRateBucket() const;
@@ -172,7 +172,12 @@ class CachePerfStats {
   //       a = 1 / weight
   class MMA {
    public:
-    MMA(uint32_t aTotalWeight, bool aFilter);
+    constexpr MMA(uint32_t aTotalWeight, bool aFilter)
+        : mSum(0),
+          mSumSq(0),
+          mCnt(0),
+          mWeight(aTotalWeight),
+          mFilter(aFilter) {}
 
     void AddValue(uint32_t aValue);
     uint32_t GetAverage();
@@ -188,7 +193,7 @@ class CachePerfStats {
 
   class PerfData {
    public:
-    PerfData();
+    constexpr PerfData() : mFilteredAvg(50, true), mShortAvg(3, false) {}
 
     void AddValue(uint32_t aValue, bool aShortOnly);
     uint32_t GetAverage(bool aFiltered);

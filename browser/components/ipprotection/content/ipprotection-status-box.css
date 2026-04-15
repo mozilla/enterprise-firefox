@@ -5,7 +5,7 @@
 @import "chrome://global/skin/global.css";
 
 :host {
-  --border-color: var(--border-color-card);
+  --border-color: var(--card-border-color);
 }
 
 .disconnected,
@@ -16,7 +16,7 @@
 .connected {
   background-color: var(--background-color-success);
 
-  ::slotted([slot="icon"]) {
+  ::slotted([slot="image"]) {
     -moz-context-properties: fill;
     fill: var(--icon-color-success);
   }
@@ -25,34 +25,44 @@
 .excluded {
   background-color: var(--background-color-success);
 
-  ::slotted([slot="icon"]) {
+  ::slotted([slot="image"]) {
     -moz-context-properties: fill, stroke;
     fill: transparent;
     stroke: var(--icon-color-success);
   }
 }
 
+.paused {
+  background-color: var(--background-color-box-info);
+
+  ::slotted([slot="image"]) {
+    -moz-context-properties: fill;
+    fill: var(--icon-color);
+  }
+}
+
 .connecting {
   background-color: var(--background-color-box-info);
 
-  ::slotted([slot="icon"]) {
+  ::slotted([slot="image"]) {
     -moz-context-properties: fill;
     fill: var(--icon-color);
   }
 }
 
 .network-error {
-  background-color: var(--background-color-critical);
+  background-color: var(--background-color-information);
 
-  ::slotted([slot="icon"]) {
+  ::slotted([slot="image"]) {
     -moz-context-properties: fill;
-    fill: var(--icon-color-critical);
+    fill: var(--icon-color-information);
   }
 }
 
 #content-container {
   display: flex;
   flex-direction: column;
+  border: var(--border-width) solid var(--border-color);
   border-radius: var(--border-radius-medium);
   padding: var(--space-medium);
 }
@@ -60,6 +70,7 @@
 #header {
   display: flex;
   justify-content: space-between;
+  gap: var(--space-medium);
 }
 
 #title {
@@ -96,9 +107,9 @@
   margin-top: var(--space-large);
 }
 
-::slotted([slot="icon"]) {
-  height: var(--icon-size-large);
-  width: var(--icon-size-large);
+::slotted([slot="image"]) {
+  height: var(--size-image-small);
+  width: var(--size-image-small);
 }
 
 ::slotted([slot="location-icon"]) {
@@ -118,6 +129,6 @@
 }
 
 ::slotted([slot="action"]) {
-  align-self: flex-end;
+  align-self: flex-start;
   margin-block-start: var(--space-large);
 }

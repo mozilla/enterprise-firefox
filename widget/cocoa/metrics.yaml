@@ -28,3 +28,15 @@ widget:
       - mnakano.birchill@mozilla.com
     expires: never
     telemetry_mirror: WIDGET_IME_NAME_ON_MAC
+
+  mac_application_menu_opened:
+    type: counter
+    description: >
+      Counts how often the macOS Firefox application menu is opened
+    bugs:
+      - https://bugzil.la/2018748
+    data_reviews:
+      - https://bugzil.la/2018748
+    notification_emails:
+      - rfambro@mozilla.com
+    expires: never

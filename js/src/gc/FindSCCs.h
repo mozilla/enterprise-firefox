@@ -156,8 +156,8 @@ class ComponentFinder {
 
     Node* old = cur;
     cur = v;
-    for (auto r = cur->gcGraphEdges.all(); !r.empty(); r.popFront()) {
-      addEdgeTo(r.front());
+    for (auto iter = cur->gcGraphEdges.iter(); !iter.done(); iter.next()) {
+      addEdgeTo(iter.get());
     }
     cur = old;
 

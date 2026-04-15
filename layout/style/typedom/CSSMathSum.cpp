@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -31,7 +29,7 @@ RefPtr<CSSMathSum> CSSMathSum::Create(nsCOMPtr<nsISupports> aParent,
   for (const auto& value : aMathSum.values) {
     // XXX Only supporting units for now
     if (value.IsUnit()) {
-      auto unitValue = value.AsUnit();
+      const auto& unitValue = value.AsUnit();
 
       values.AppendElement(CSSUnitValue::Create(aParent, unitValue));
     }
@@ -39,7 +37,7 @@ RefPtr<CSSMathSum> CSSMathSum::Create(nsCOMPtr<nsISupports> aParent,
 
   auto array = MakeRefPtr<CSSNumericArray>(aParent, std::move(values));
 
-  return MakeRefPtr<CSSMathSum>(aParent, std::move(array));
+  return MakeRefPtr<CSSMathSum>(std::move(aParent), std::move(array));
 }
 
 NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED_0(CSSMathSum, CSSMathValue)

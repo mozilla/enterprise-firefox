@@ -10,6 +10,8 @@
 
 #include "gc/Tenuring.h"
 
+#include <bit>
+
 #include "gc/Cell.h"
 #include "gc/GCInternals.h"
 #include "gc/GCProbes.h"
@@ -337,8 +339,8 @@ void js::gc::StoreBuffer::MonoTypeBuffer<T>::trace(TenuringTracer& mover,
     last_.trace(mover);
   }
 
-  for (typename StoreSet::Range r = stores_.all(); !r.empty(); r.popFront()) {
-    r.front().trace(mover);
+  for (auto iter = stores_.iter(); !iter.done(); iter.next()) {
+    iter.get().trace(mover);
   }
 }
 
@@ -444,8 +446,12 @@ template <typename T>
 bool TenuringTracer::traceBufferedCells(Arena* arena, ArenaCellSet* cells) {
   for (size_t i = 0; i < MaxArenaCellIndex; i += cells->BitsPerWord) {
     ArenaCellSet::WordT bitset = cells->getWord(i / cells->BitsPerWord);
+    static_assert(std::is_same_v<ArenaCellSet::WordT, uint32_t> ||
+                      std::is_same_v<ArenaCellSet::WordT, uint64_t>,
+                  "unexpected word size");
+
     while (bitset) {
-      size_t bit = i + js::detail::CountTrailingZeroes(bitset);
+      size_t bit = i + std::countr_zero(bitset);
       bitset &= bitset - 1;  // Clear the low bit.
 
       auto cell =
@@ -1620,13 +1626,13 @@ void PromotionStats::printObjectCounts(JSContext* cx,
                                        const JS::AutoRequireNoGC& nogc) {
   CountsVector counts;
 
-  for (auto r = objectCountByBaseShape.all(); !r.empty(); r.popFront()) {
-    size_t count = r.front().value();
+  for (auto iter = objectCountByBaseShape.iter(); !iter.done(); iter.next()) {
+    size_t count = iter.get().value();
     if (count < AttentionThreshold) {
       continue;
     }
 
-    BaseShape* baseShape = r.front().key();
+    BaseShape* baseShape = iter.get().key();
 
     const char* className = baseShape->clasp()->name;
 

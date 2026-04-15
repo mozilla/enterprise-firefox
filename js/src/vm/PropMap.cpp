@@ -830,11 +830,11 @@ void SharedPropMap::fixupAfterMovingGC() {
   }
 
   SharedChildrenSet* set = childrenRef.toChildrenSet();
-  for (SharedChildrenSet::Enum e(*set); !e.empty(); e.popFront()) {
-    SharedPropMapAndIndex child = e.front();
+  for (auto iter = set->modIter(); !iter.done(); iter.next()) {
+    SharedPropMapAndIndex child = iter.get();
     if (IsForwarded(child.map())) {
       child = SharedPropMapAndIndex(Forwarded(child.map()), child.index());
-      e.mutableFront() = child;
+      iter.getMutable() = child;
     }
   }
 }
@@ -870,8 +870,7 @@ void SharedPropMap::removeChild(JS::GCContext* gcx, SharedPropMap* child) {
 
   if (set->count() == 1) {
     // Convert from set form back to single child form.
-    SharedChildrenSet::Range r = set->all();
-    SharedPropMapAndIndex remainingChild = r.front();
+    SharedPropMapAndIndex remainingChild = set->iter().get();
     childrenRef.setSingleChild(remainingChild);
     clearHasChildrenSet();
     gcx->delete_(this, set, MemoryUse::PropMapChildren);
@@ -930,11 +929,11 @@ bool PropMapTable::init(JSContext* cx, LinkedPropMap* map) {
 void PropMapTable::trace(JSTracer* trc) {
   purgeCache();
 
-  for (Set::Enum e(set_); !e.empty(); e.popFront()) {
-    PropMap* map = e.front().map();
+  for (auto iter = set_.modIter(); !iter.done(); iter.next()) {
+    PropMap* map = iter.get().map();
     TraceManuallyBarrieredEdge(trc, &map, "PropMapTable map");
-    if (map != e.front().map()) {
-      e.mutableFront() = PropMapAndIndex(map, e.front().index());
+    if (map != iter.get().map()) {
+      iter.getMutable() = PropMapAndIndex(map, iter.get().index());
     }
   }
 }

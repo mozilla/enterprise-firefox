@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=4 sw=2 sts=2 et cin: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -557,7 +555,7 @@ already_AddRefed<nsIInputStream> HttpConnectionUDP::CreateProxyConnectStream(
   if (LOG1_ENABLED()) {
     LOG(("HttpConnectionUDP::MakeConnectString for transaction=%p[",
          trans->QueryHttpTransaction()));
-    LogHeaders(result.BeginReading());
+    LogHeaders(result.get());
     LOG(("]"));
   }
   result.AppendLiteral("\r\n");
@@ -1208,6 +1206,12 @@ Http3Stats HttpConnectionUDP::GetStats() {
     return Http3Stats();
   }
   return mHttp3Session->GetStats();
+}
+
+void HttpConnectionUDP::SetDontExclude() {
+  if (mHttp3Session) {
+    mHttp3Session->SetDontExclude();
+  }
 }
 
 }  // namespace net

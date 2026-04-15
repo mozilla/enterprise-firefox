@@ -39,7 +39,7 @@ newtab-search-box-input =
     .placeholder = Tikanöx pan ajk'amaya'l
     .aria-label = Tikanöx pan ajk'amaya'l
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Titz'aqatisäx Kanob'äl
 newtab-topsites-add-shortcut-header = K'ak'a' Chojokem

@@ -103,7 +103,7 @@ int NR_reg_del(NR_registry_name name);
 int NR_reg_get_child_count(NR_registry_name parent, unsigned int *count);
 int NR_reg_get_child_registry(NR_registry_name parent, unsigned int i, NR_registry child);
 
-/* convenience methods, call RFREE on the returned data */
+/* convenience methods, call free on the returned data */
 int NR_reg_alloc_data(NR_registry_name name, Data *data);
 int NR_reg_alloc_string(NR_registry_name name, char **data);
 

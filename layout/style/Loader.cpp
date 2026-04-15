@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -283,6 +281,7 @@ SheetLoadData::SheetLoadData(
       mPreloadKind(aPreloadKind),
       mObserver(aObserver),
       mTriggeringPrincipal(aTriggeringPrincipal),
+      mLoaderPrincipal(aLoader->LoaderPrincipal()),
       mReferrerInfo(aReferrerInfo),
       mNonce(aNonce),
       mFetchPriority{aFetchPriority},
@@ -326,6 +325,7 @@ SheetLoadData::SheetLoadData(
       mPreloadKind(StylePreloadKind::None),
       mObserver(aObserver),
       mTriggeringPrincipal(aTriggeringPrincipal),
+      mLoaderPrincipal(aLoader->LoaderPrincipal()),
       mReferrerInfo(aReferrerInfo),
       mNonce(u""_ns),
       mFetchPriority(FetchPriority::Auto),
@@ -372,6 +372,7 @@ SheetLoadData::SheetLoadData(
       mPreloadKind(aPreloadKind),
       mObserver(aObserver),
       mTriggeringPrincipal(aTriggeringPrincipal),
+      mLoaderPrincipal(aLoader->LoaderPrincipal()),
       mReferrerInfo(aReferrerInfo),
       mNonce(aNonce),
       mFetchPriority(aFetchPriority),
@@ -525,6 +526,7 @@ void Loader::DeregisterFromSheetCache() {
 }
 
 void Loader::DropDocumentReference() {
+  MOZ_ASSERT(NS_IsMainThread());
   // Flush out pending datas just so we don't leak by accident.
   if (mSheets) {
     DeregisterFromSheetCache();
@@ -673,7 +675,7 @@ void SheetLoadData::OnStartRequest(nsIRequest* aRequest) {
     if (mSheet->GetCORSMode() != CORS_NONE) {
       return true;
     }
-    if (!mLoader->LoaderPrincipal()->Subsumes(mSheet->Principal())) {
+    if (!mLoaderPrincipal->Subsumes(mSheet->Principal())) {
       return false;
     }
     if (nsCOMPtr<nsITimedChannel> timedChannel = do_QueryInterface(channel)) {
@@ -745,8 +747,7 @@ nsresult SheetLoadData::VerifySheetReadyToParse(nsresult aStatus,
     // FIXME(emilio, bug 1995647): This should arguably use IsOriginClean(),
     // though test_css_cross_domain_no_orb.html tests precisely this behavior
     // intentionally, and this is quirks-only...
-    const bool sameOrigin =
-        mLoader->LoaderPrincipal()->Subsumes(mSheet->Principal());
+    const bool sameOrigin = mLoaderPrincipal->Subsumes(mSheet->Principal());
     const auto flag = sameOrigin && mCompatMode == eCompatibility_NavQuirks
                           ? nsIScriptError::warningFlag
                           : nsIScriptError::errorFlag;
@@ -761,7 +762,7 @@ nsresult SheetLoadData::VerifySheetReadyToParse(nsresult aStatus,
       referrer->GetSpec(referrerSpec);
     }
     mLoader->mReporter->AddConsoleReport(
-        flag, "CSS Loader"_ns, nsContentUtils::eCSS_PROPERTIES, referrerSpec, 0,
+        flag, "CSS Loader"_ns, PropertiesFile::CSS_PROPERTIES, referrerSpec, 0,
         0, errorMessage, {sheetUri, contentType16});
     if (flag == nsIScriptError::errorFlag) {
       LOG_WARN(
@@ -2353,6 +2354,7 @@ size_t Loader::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const {
 }
 
 nsIPrincipal* Loader::LoaderPrincipal() const {
+  MOZ_ASSERT(NS_IsMainThread());
   if (mDocument) {
     return mDocument->NodePrincipal();
   }
@@ -2361,10 +2363,12 @@ nsIPrincipal* Loader::LoaderPrincipal() const {
 }
 
 nsIPrincipal* Loader::PartitionedPrincipal() const {
+  MOZ_ASSERT(NS_IsMainThread());
   return mDocument ? mDocument->PartitionedPrincipal() : LoaderPrincipal();
 }
 
 bool Loader::ShouldBypassCache() const {
+  MOZ_ASSERT(NS_IsMainThread());
   return mDocument && nsContentUtils::ShouldBypassSubResourceCache(mDocument);
 }
 

@@ -673,7 +673,7 @@ PK11_ImportAndReturnPrivateKey(PK11SlotInfo *slot, SECKEYRawPrivateKey *lpk,
 
     /* create and return a SECKEYPrivateKey */
     if (rv == SECSuccess && privk != NULL) {
-        *privk = PK11_MakePrivKey(slot, lpk->keyType, !isPerm, objectID, wincx);
+        *privk = pk11_MakePrivKey(slot, lpk->keyType, !isPerm, objectID, wincx);
         if (*privk == NULL) {
             rv = SECFailure;
         }
@@ -845,12 +845,15 @@ PK11_ImportPrivateKeyInfoAndReturnKey(PK11SlotInfo *slot,
 
     rv = PK11_ImportAndReturnPrivateKey(slot, lpk, nickname, publicValue, isPerm,
                                         isPrivate, keyUsage, privk, wincx);
-loser:
-    if (arena != NULL) {
-        PORT_FreeArena(arena, PR_TRUE);
+    if (rv != SECSuccess) {
+        goto loser;
     }
+    PORT_FreeArena(arena, PR_TRUE);
+    return SECSuccess;
 
-    return rv;
+loser:
+    PORT_FreeArena(arena, PR_TRUE);
+    return SECFailure;
 }
 
 SECStatus

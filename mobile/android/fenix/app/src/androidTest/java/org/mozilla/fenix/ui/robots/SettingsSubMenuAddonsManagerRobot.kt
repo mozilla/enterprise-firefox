@@ -51,6 +51,7 @@ import org.mozilla.fenix.helpers.HomeActivityIntentTestRule
 import org.mozilla.fenix.helpers.MatcherHelper.assertUIObjectExists
 import org.mozilla.fenix.helpers.MatcherHelper.assertUIObjectIsGone
 import org.mozilla.fenix.helpers.MatcherHelper.itemContainingText
+import org.mozilla.fenix.helpers.MatcherHelper.itemWithDescription
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithResId
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithResIdContainingText
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithText
@@ -348,9 +349,16 @@ class SettingsSubMenuAddonsManagerRobot(private val composeTestRule: ComposeTest
             try {
                 recommendedExtensionTitle = getRecommendedExtensionTitle(composeTestRule)
                 waitForAppWindowToBeUpdated()
+                assertUIObjectExists(itemContainingText(recommendedExtensionTitle))
                 Log.i(TAG, "installRecommendedAddon: Trying to click addon: $recommendedExtensionTitle install button")
-                composeTestRule.onNodeWithContentDescription("Add $recommendedExtensionTitle", substring = true).performClick()
+                itemWithDescription("Add $recommendedExtensionTitle").click()
                 Log.i(TAG, "installRecommendedAddon: Clicked addon: $recommendedExtensionTitle install button")
+                assertUIObjectExists(
+                    itemWithResIdContainingText(
+                        "$packageName:id/allow_button",
+                        getStringResource(addonsR.string.mozac_feature_addons_permissions_dialog_add),
+                    ),
+                )
 
                 return recommendedExtensionTitle
             } catch (e: AssertionError) {

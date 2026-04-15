@@ -4,8 +4,9 @@
 
 use crate::context::QuirksMode;
 use crate::derives::*;
+use crate::device::Device;
 use crate::error_reporting::{ContextualParseError, ParseErrorReporter};
-use crate::media_queries::{Device, MediaList};
+use crate::media_queries::MediaList;
 use crate::parser::ParserContext;
 use crate::shared_lock::{DeepCloneWithLock, Locked};
 use crate::shared_lock::{SharedRwLock, SharedRwLockReadGuard};
@@ -358,7 +359,8 @@ impl SanitizationKind {
             // TODO(dshin): Same comment as Layer applies - shouldn't give away
             // something like display size - erring on the side of "safe" for now.
             CssRule::Scope(..) |
-            CssRule::StartingStyle(..) => false,
+            CssRule::StartingStyle(..) |
+            CssRule::AppearanceBase(..) => false,
 
             CssRule::FontFace(..) |
             CssRule::Namespace(..) |

@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import static org.mozilla.conventions.BuildConfigKt.updateExtensionVersion
+
 plugins {
     alias(libs.plugins.dependency.analysis)
     alias(libs.plugins.kotlin.android)
@@ -62,11 +64,11 @@ android {
 }
 
 tasks.register("updateBorderifyExtensionVersion", Copy) { task ->
-    updateExtensionVersion(task, 'src/main/assets/extensions/borderify')
+    updateExtensionVersion(task, 'src/main/assets/extensions/borderify', rootProject.ext.config.componentsVersion)
 }
 
 tasks.register("updateTestExtensionVersion", Copy) { task ->
-    updateExtensionVersion(task, 'src/main/assets/extensions/test')
+    updateExtensionVersion(task, 'src/main/assets/extensions/test', rootProject.ext.config.componentsVersion)
 }
 
 // Make sure DAGP asset-source exploding happens after ExtensionVersion tasks
@@ -169,7 +171,14 @@ dependencies {
     androidTestImplementation libs.androidx.test.runner
     androidTestImplementation libs.androidx.test.uiautomator
     androidTestImplementation libs.leakcanary.instrumentation
-    androidTestImplementation libs.mockwebserver
+    androidTestImplementation libs.okhttp
+    androidTestRuntimeOnly libs.okio
+    constraints {
+        // Various AndroidX dependencies pull in 1.1.1 transitively; OkHttp 5 requires 1.2.0.
+        implementation(libs.androidx.startup.runtime)
+        // okhttp is test-only; prevents older releases being resolved on the main classpath.
+        implementation(libs.okio)
+    }
 }
 
 preBuild.dependsOn updateBorderifyExtensionVersion

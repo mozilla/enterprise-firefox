@@ -26,7 +26,6 @@ use std::mem;
 use std::os::fd::{FromRawFd, IntoRawFd, OwnedFd, RawFd};
 use std::os::raw::c_char;
 use std::ptr;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 
 #[allow(unused_imports)]
@@ -47,7 +46,6 @@ use ash::{khr, vk};
 /// signed 32 bits integer, so beyond a certain size, large allocations will need some form
 /// of driver allow/blocklist.
 pub const MAX_BUFFER_SIZE: wgt::BufferAddress = 1u64 << 30u64;
-const MAX_BUFFER_SIZE_U32: u32 = MAX_BUFFER_SIZE as u32;
 
 // Mesa has issues with height/depth that don't fit in a 16 bits signed integers.
 const MAX_TEXTURE_EXTENT: u32 = std::i16::MAX as u32;
@@ -90,10 +88,10 @@ fn restrict_limits(limits: wgt::Limits) -> wgt::Limits {
             .min(MAX_BINDINGS_PER_RESOURCE_TYPE),
         max_uniform_buffer_binding_size: limits
             .max_uniform_buffer_binding_size
-            .min(MAX_BUFFER_SIZE_U32),
+            .min(MAX_BUFFER_SIZE),
         max_storage_buffer_binding_size: limits
             .max_storage_buffer_binding_size
-            .min(MAX_BUFFER_SIZE_U32),
+            .min(MAX_BUFFER_SIZE),
         max_non_sampler_bindings: 500_000,
         ..limits
     }
@@ -145,7 +143,6 @@ pub extern "C" fn wgpu_server_new(owner: WebGPUParentPtr) -> *mut Global {
 
     let dx12_shader_compiler = wgt::Dx12Compiler::DynamicDxc {
         dxc_path: "dxcompiler.dll".into(),
-        max_shader_model: wgt::DxcShaderModel::V6_6,
     };
 
     let global = wgc::global::Global::new(
@@ -157,6 +154,7 @@ pub extern "C" fn wgpu_server_new(owner: WebGPUParentPtr) -> *mut Global {
                 gl: wgt::GlBackendOptions {
                     gles_minor_version: wgt::Gles3MinorVersion::Automatic,
                     fence_behavior: wgt::GlFenceBehavior::Normal,
+                    debug_fns: wgt::GlDebugFns::Auto,
                 },
                 dx12: wgt::Dx12BackendOptions {
                     shader_compiler: dx12_shader_compiler,
@@ -359,7 +357,28 @@ fn support_use_shared_texture_in_swap_chain(
     false
 }
 
-static TRACE_IDX: AtomicU32 = AtomicU32::new(0);
+fn create_next_numbered_dir(dir: &std::path::Path) -> std::io::Result<std::path::PathBuf> {
+    use std::fs;
+
+    loop {
+        let next = match fs::read_dir(dir) {
+            Ok(entries) => entries
+                .filter_map(|entry| entry.ok())
+                .filter_map(|entry| entry.file_name().to_str()?.parse::<u64>().ok())
+                .max()
+                .map(|n| n + 1),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+            Err(e) => return Err(e),
+        };
+
+        let path = dir.join(next.unwrap_or(0).to_string());
+        match fs::create_dir_all(&path) {
+            Ok(()) => return Ok(path),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(e),
+        }
+    }
+}
 
 unsafe fn adapter_request_device(
     global: &Global,
@@ -380,14 +399,9 @@ unsafe fn adapter_request_device(
     }
     desc.trace = wgt::Trace::Off;
     if let Some(env_dir) = std::env::var_os("WGPU_TRACE") {
-        let mut path = std::path::PathBuf::from(env_dir);
-        let idx = TRACE_IDX.fetch_add(1, Ordering::Relaxed);
-        path.push(idx.to_string());
-
-        if std::fs::create_dir_all(&path).is_err() {
-            log::warn!("Failed to create directory {:?} for wgpu recording.", path);
-        } else {
-            desc.trace = wgt::Trace::Directory(path);
+        match create_next_numbered_dir(&std::path::PathBuf::from(env_dir)) {
+            Ok(path) => desc.trace = wgt::Trace::Directory(path),
+            Err(err) => log::warn!("Failed to create directory for wgpu recording: {err:?}"),
         }
     }
 
@@ -507,6 +521,7 @@ unsafe fn adapter_request_device(
                     None,
                     &enabled_extensions,
                     desc.required_features,
+                    &desc.required_limits,
                     &desc.memory_hints,
                     family_info.queue_family_index,
                     0,
@@ -701,9 +716,13 @@ impl From<Result<(), BufferAccessError>> for BufferMapAsyncStatus {
             | Err(BufferAccessError::UnalignedOffset { .. }) => {
                 BufferMapAsyncStatus::InvalidAlignment
             }
-            Err(BufferAccessError::OutOfBoundsUnderrun { .. })
-            | Err(BufferAccessError::OutOfBoundsOverrun { .. })
-            | Err(BufferAccessError::NegativeRange { .. }) => BufferMapAsyncStatus::InvalidRange,
+            Err(BufferAccessError::OutOfBoundsStartOffsetUnderrun { .. })
+            | Err(BufferAccessError::OutOfBoundsStartOffsetOverrun { .. })
+            | Err(BufferAccessError::OutOfBoundsEndOffsetOverrun { .. })
+            | Err(BufferAccessError::MapStartOffsetOverrun { .. })
+            | Err(BufferAccessError::MapEndOffsetOverrun { .. }) => {
+                BufferMapAsyncStatus::InvalidRange
+            }
             Err(BufferAccessError::Failed)
             | Err(BufferAccessError::NotMapped)
             | Err(BufferAccessError::MapAborted) => BufferMapAsyncStatus::Error,
@@ -852,7 +871,7 @@ pub unsafe extern "C" fn wgpu_server_texture_create_view(
 
 #[no_mangle]
 pub extern "C" fn wgpu_server_texture_view_drop(global: &Global, id: id::TextureViewId) {
-    global.texture_view_drop(id).unwrap();
+    global.texture_view_drop(id);
 }
 
 #[allow(unused_variables)]
@@ -1015,10 +1034,8 @@ pub extern "C" fn wgpu_vkimage_create_with_dma_buf(
         let mut export_memory_alloc_info = vk::ExportMemoryAllocateInfo::default()
             .handle_types(vk::ExternalMemoryHandleTypeFlags::DMA_BUF_EXT);
 
-        let flags = vk::ImageCreateFlags::empty();
-
         let vk_info = vk::ImageCreateInfo::default()
-            .flags(flags)
+            .flags(vk::ImageCreateFlags::ALIAS)
             .image_type(vk::ImageType::TYPE_2D)
             // Bug 1971883: Rather than hard-coding this format, we should use
             // whatever format was negotiated between `GPUCanvasContext.configure`
@@ -2419,6 +2436,75 @@ pub unsafe extern "C" fn wgpu_server_messages(
     }
 }
 
+fn process_buffer_map(
+    global: &Global,
+    msg: Message,
+    response_byte_buf: &mut ByteBuf,
+    error_buf: &mut OwnedErrorBuffer,
+) {
+    let Message::BufferMap {
+        device_id,
+        buffer_id,
+        mode,
+        offset,
+        size,
+    } = msg
+    else {
+        unreachable!();
+    };
+    let mode = match mode {
+        /* GPUMapMode.READ */ 1 => wgc::device::HostMap::Read,
+        /* GPUMapMode.WRITE */ 2 => wgc::device::HostMap::Write,
+        _ => {
+            let message = concat!(
+                "GPUBuffer.mapAsync 'mode' argument must be ",
+                "either GPUMapMode.READ or GPUMapMode.WRITE"
+            );
+
+            error_buf.init(
+                ErrMsg {
+                    message: message.into(),
+                    r#type: ErrorType::Validation,
+                },
+                device_id,
+            );
+
+            // Synthesize the `BufferMapResponse` that is normally
+            // generated in the callback set up below.
+            let response = BufferMapResult::Error(message.into());
+            *response_byte_buf =
+                make_byte_buf(&ServerMessage::BufferMapResponse(buffer_id, response));
+            return;
+        }
+    };
+
+    let closure = unsafe {
+        let closure = wgpu_parent_build_buffer_map_closure(
+            global.owner,
+            device_id,
+            buffer_id,
+            mode,
+            offset,
+            size,
+        );
+
+        Box::new(move |result| {
+            let _ = &closure;
+            (closure.callback)(closure.user_data, BufferMapAsyncStatus::from(result))
+        })
+    };
+
+    let operation = wgc::resource::BufferMapOperation {
+        host: mode,
+        callback: Some(closure),
+    };
+    let result = global.buffer_map_async(buffer_id, offset, Some(size), operation);
+
+    if let Err(error) = result {
+        error_buf.init(error, device_id);
+    }
+}
+
 unsafe fn process_message(
     global: &Global,
     data_buffers: &[ByteBuf],
@@ -2621,57 +2707,8 @@ unsafe fn process_message(
                 error_buf.init(err, device_id);
             }
         }
-        Message::BufferMap {
-            device_id,
-            buffer_id,
-            mode,
-            offset,
-            size,
-        } => {
-            let mode = match mode {
-                /* GPUMapMode.READ */ 1 => wgc::device::HostMap::Read,
-                /* GPUMapMode.WRITE */ 2 => wgc::device::HostMap::Write,
-                _ => {
-                    let message = concat!(
-                        "GPUBuffer.mapAsync 'mode' argument must be ",
-                        "either GPUMapMode.READ or GPUMapMode.WRITE"
-                    );
-                    error_buf.init(
-                        ErrMsg {
-                            message: message.into(),
-                            r#type: ErrorType::Validation,
-                        },
-                        device_id,
-                    );
-                    let response = BufferMapResult::Error(message.into());
-                    *response_byte_buf =
-                        make_byte_buf(&ServerMessage::BufferMapResponse(buffer_id, response));
-                    return;
-                }
-            };
-
-            let closure = wgpu_parent_build_buffer_map_closure(
-                global.owner,
-                device_id,
-                buffer_id,
-                mode,
-                offset,
-                size,
-            );
-
-            let closure = Box::new(move |result| {
-                let _ = &closure;
-                (closure.callback)(closure.user_data, BufferMapAsyncStatus::from(result))
-            });
-            let operation = wgc::resource::BufferMapOperation {
-                host: mode,
-                callback: Some(closure),
-            };
-            let result = global.buffer_map_async(buffer_id, offset, Some(size), operation);
-
-            if let Err(error) = result {
-                error_buf.init(error, device_id);
-            }
+        msg @ Message::BufferMap { .. } => {
+            process_buffer_map(global, msg, response_byte_buf, error_buf);
         }
         Message::BufferUnmap(device_id, buffer_id, flush) => {
             wgpu_parent_buffer_unmap(global.owner, device_id, buffer_id, flush);
@@ -2789,7 +2826,7 @@ unsafe fn process_message(
             wgpu_server_remove_shared_texture(global.owner, id);
             global.texture_drop(id);
         }
-        Message::DropTextureView(id) => global.texture_view_drop(id).unwrap(),
+        Message::DropTextureView(id) => global.texture_view_drop(id),
         Message::DropExternalTexture(id) => global.external_texture_drop(id),
         Message::DropExternalTextureSource(id) => {
             wgpu_parent_drop_external_texture_source(global.owner, id)

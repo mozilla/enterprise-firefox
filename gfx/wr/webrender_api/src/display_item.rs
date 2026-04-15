@@ -425,7 +425,6 @@ pub struct TextDisplayItem {
     pub font_key: font::FontInstanceKey,
     pub color: ColorF,
     pub glyph_options: Option<font::GlyphOptions>,
-    pub ref_frame_offset: LayoutVector2D,
 } // IMPLICIT: glyphs: Vec<font::GlyphInstance>
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, MallocSizeOf, PartialEq, Serialize, PeekPoke)]
@@ -901,11 +900,9 @@ pub struct SnapshotInfo {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, PeekPoke)]
 pub struct PushStackingContextDisplayItem {
-    pub origin: LayoutPoint,
     pub spatial_id: SpatialId,
     pub snapshot: Option<SnapshotInfo>,
     pub prim_flags: PrimitiveFlags,
-    pub ref_frame_offset: LayoutVector2D,
     pub stacking_context: StackingContext,
 }
 

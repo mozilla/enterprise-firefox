@@ -19,6 +19,8 @@
   <string name="content_description_menu">Více možností</string>
   <!-- Content description (not visible, for screen readers etc.): "Private Browsing" menu button. -->
   <string name="content_description_private_browsing">Anonymní prohlížení</string>
+  <!-- Content description (not visible, for screen readers etc.): "Normal Browsing" menu button. -->
+  <string name="content_description_normal_browsing">Normální prohlížení</string>
   <!-- Placeholder text shown in the search bar before a user enters text for the default engine -->
   <string name="search_hint">Zadejte hledání nebo adresu</string>
   <!-- Placeholder text shown in the search bar before a user enters text for a general engine -->
@@ -301,7 +303,7 @@
   <!-- Content description (not visible, for screen readers etc.) for main menu navigation header. -->
   <string name="browser_main_menu_content_description_navigation_header">Navigace</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar extensions menu. -->
-  <string name="browser_extensions_menu_handlebar_content_description" tools:ignore="UnusedResources" moz:removedIn="149">Zavřít seznam s nabídnou rozšíření</string>
+  <string name="browser_extensions_menu_handlebar_content_description" tools:ignore="UnusedResources" moz:removedIn="149">Zavřít seznam s nabídkou rozšíření</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar save menu. -->
   <string name="browser_save_menu_handlebar_content_description" tools:ignore="UnusedResources" moz:removedIn="149">Zavřít seznam s nabídkou uložení</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar tools menu. -->
@@ -314,6 +316,8 @@
   <string name="browser_menu_edit_bookmark">Upravit záložku</string>
   <!-- Browser menu label that the saves the currently visited page as a PDF -->
   <string name="browser_menu_save_as_pdf_2">Uložit jako PDF</string>
+  <!-- Browser menu label for moving the current private tab to a non-private tab -->
+  <string name="browser_menu_move_to_non_private_tab">Přesunout na neanonymní panel</string>
   <!-- Browser menu label for navigating to the translation feature, which provides language translation options the current visited page -->
   <string name="browser_menu_translate_page_2">Přeložit stránku</string>
   <!-- Browser menu label for navigating to the summarization feature, which provides site summarization for the current visited page -->
@@ -616,8 +620,12 @@
 
   <!-- "Continue" onboarding button. -->
   <string name="nova_onboarding_continue_button">Pokračovat</string>
+  <!-- "Continue browsing" onboarding button. -->
+  <string name="nova_onboarding_continue_browsing_button" tools:ignore="UnusedResources">Pokračovat v prohlížení</string>
   <!-- "Not now" onboarding button. -->
   <string name="nova_onboarding_negative_button">Teď ne</string>
+  <!-- "Skip" onboarding button. -->
+  <string name="nova_onboarding_skip_button" tools:ignore="UnusedResources">Přeskočit</string>
   <!-- Terms of use (ToU) onboarding title. -->
   <string name="nova_onboarding_tou_title" tools:ignore="UnusedResources">Připravte se na volnost</string>
   <!-- Terms of use (ToU) onboarding subtitle. -->
@@ -692,6 +700,27 @@
   <string name="nova_onboarding_add_search_widget_subtitle" tools:ignore="BrandUsage">Každé vyhledávání můžete začít z domovské obrazovky telefonu a vědět, že vám automatická ochrana Firefoxu kryje záda.</string>
   <!-- "Add search widget" onboarding button. 'Firefox' is intentionally hardcoded. -->
   <string name="nova_onboarding_add_search_widget_button" tools:ignore="BrandUsage">Přidat miniaplikaci Firefox</string>
+  <!-- Customize prompt onboarding title. -->
+  <string name="nova_onboarding_customize_prompt_title" tools:ignore="UnusedResources">Snadné přizpůsobení a větší soukromí s každým klepnutím</string>
+  <plurals name="nova_onboarding_customize_prompt_body" tools:ignore="UnusedResources">
+    <!--
+      Customize prompt onboarding body.
+      %1$s is replaced by the product name (for example "Firefox"),
+      %2$,d is replaced by the number of trackers blocked. The comma represents the thousand
+      separator (e.g. 1,000 in English), and it will automatically use the correct character
+      for your locale (don't change or remove it).
+    -->
+    <item quantity="one">%1$s zablokoval v průběhu vašeho prohlížení webu %2$,d sledovací prvek.</item>
+    <item quantity="few">%1$s zablokoval v průběhu vašeho prohlížení webu %2$,d sledovací prvky.</item>
+    <item quantity="many">%1$s zablokoval v průběhu vašeho prohlížení webu %2$,d sledovacích prvků.</item>
+    <item quantity="other">%1$s zablokoval v průběhu vašeho prohlížení webu %2$,d sledovacích prvků.</item>
+  </plurals>
+  <!-- Customize prompt onboarding positive button. -->
+  <string name="nova_onboarding_customize_prompt_positive_button" tools:ignore="UnusedResources">Začít s přizpůsobováním</string>
+  <!-- App icon onboarding title. -->
+  <string name="nova_onboarding_app_icon_prompt_title" tools:ignore="UnusedResources">Vyberte vlastní ikonu aplikace</string>
+  <!-- App icon onboarding body. -->
+  <string name="nova_onboarding_app_icon_prompt_body" tools:ignore="UnusedResources">Dejte své domovské obrazovce osobní nádech.</string>
   <!-- ==== End of Project "Nova" onboarding strings ==== -->
 
   <!-- Onboarding header for the toolbar selection card, used by Nimbus experiments. -->
@@ -759,6 +788,12 @@
   <string name="preferences_category_about">O aplikaci</string>
   <!-- Preference category for settings related to changing the default search engine -->
   <string name="preferences_category_select_default_search_engine">Zvolte nějaký</string>
+  <!-- Preference category for settings related to changing the default search engine -->
+  <string name="preferences_category_select_default_search_engine_2">Výchozí vyhledávač pro běžné prohlížení</string>
+  <!-- Preference category for settings related to changing the private browsing search engine -->
+  <string name="preferences_category_select_private_search_engine">Výchozí vyhledávač anonymního prohlížení</string>
+  <!-- Option to set the private browsing mode to use the normal default search engine -->
+  <string name="search_engine_use_default">Použít stejný vyhledávač jako při běžném prohlížení</string>
   <!-- Preference for settings related to managing search shortcuts for the quick search menu -->
   <string name="preferences_manage_search_shortcuts_2">Spravovat alternativní vyhledávače</string>
   <!-- Summary for preference for settings related to managing search shortcuts for the quick search menu -->
@@ -975,6 +1010,15 @@
   <string name="preference_downloads_folder_permission_lost" tools:ignore="UnusedResources">Nemáte oprávnění používat tuto složku. Zkuste vybrat jinou.</string>
   <!-- Preference title for choosing an app to handle downloads -->
   <string name="preferences_choose_app_for_downloads">Spravovat stahování pomocí jiné aplikace</string>
+  <!-- Preference category for deleting or removing downloads -->
+  <string name="preferences_category_delete_or_remove_downloads">Smazání nebo odebrání stahování</string>
+  <string name="preferences_downloads_delete_from_device">Smazat ze zařízení</string>
+  <string name="preferences_downloads_delete_from_device_description">Soubor bude smazán z vašeho zařízení a odstraněn z historie stahování</string>
+  <string name="preferences_downloads_remove_from_download_history">Odebrat z historie stahování</string>
+  <string name="preferences_downloads_remove_from_download_history_description">Soubor bude odstraněn z vaší historie stahování, ale zůstane uložen ve vašem zařízení</string>
+  <string name="preferences_downloads_ask_when_to_delete_files">Při smazání souboru se ptát</string>
+  <!-- Preference for downloads -->
+  <string name="preferences_downloads_2">Nastavení stahování</string>
   <!-- Title for the setting to automatically clean up downloaded files. %s is the name of the app (for example "Firefox"). -->
   <string name="preferences_downloads_settings_clean_up_files_title">Smazat z aplikace %s a zařízení</string>
   <!-- Summary for the setting to automatically clean up downloaded files -->
@@ -1337,6 +1381,8 @@
   <string name="toolbar_customize_shortcut_homepage">Domovská stránka</string>
   <!-- Back shortcut in toolbar customization -->
   <string name="toolbar_customize_shortcut_back">Zpět</string>
+  <!-- Label for choosing in toolbar customization settings to not use any custom shortcut button. -->
+  <string name="toolbar_customize_shortcut_none">Žádné</string>
   <!--
     App icon Preferences
 
@@ -1505,12 +1551,8 @@
   <string name="studies_remove">Odstranit</string>
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">Aktivní</string>
-  <!-- Description for studies -->
-  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">Vyzkoušejte funkce a nápady dříve, než budou veřejně dostupné.</string>
   <!-- Description for studies. Note: The word "Firefox" should NOT be translated -->
   <string name="studies_description_4" tools:ignore="BrandUsage">Firefox náhodně vybírá uživatele k testování funkcí, což zlepšuje kvalitu pro všechny.</string>
-  <!-- Title of the Studies data preference -->
-  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">Instalovat a spouštět studie</string>
   <!-- Title of the Studies data preference -->
   <string name="studies_title_2">Povolit studie funkcí</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
@@ -1657,10 +1699,34 @@
     %d is the number of existing tab groups + 1.
   -->
   <string name="create_tab_group_form_default_name">Skupina %d</string>
-  <!-- Label for the tab group name field in the bottom sheet to create a new tab group. -->
-  <string name="create_tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">Název skupiny panelů</string>
   <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
-  <string name="tab_group_name_label">Název</string>
+  <string name="create_tab_group_name_label">Název</string>
+  <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
+  <string name="tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">Název</string>
+  <!-- Title for adding more tabs to a tab group. -->
+  <string name="add_to_tab_group_title">Přidat do</string>
+  <!-- Content Description for closing the "Add to Tab Group" panel. -->
+  <string name="add_to_tab_group_bottom_sheet_close_content_description">Zavře panel pro přidání do skupiny</string>
+  <!-- Label for adding to a new tab group. -->
+  <string name="add_to_new_tab_group_title">Nová skupina panelů</string>
+  <plurals name="tab_group_tabs_count_subtitle">
+    <!--
+      Subtitle for the number of tabs in a tab group.
+      %1$d is the number of tabs in a tab group.
+    -->
+    <item quantity="one">%1$d panel</item>
+    <item quantity="few">%1$d panely</item>
+    <item quantity="many">%1$d panelů</item>
+    <item quantity="other">%1$d panelů</item>
+  </plurals>
+  <!-- Title for the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_title">Smazat skupinu panelů?</string>
+  <!-- Text shown in the body of the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_body">Tímto se skupina natrvalo odstraní.</string>
+  <!-- Text shown on the confirm button in the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_confirm">Smazat skupinu</string>
+  <!-- Text shown on the cancel button in the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_cancel">Zrušit</string>
   <!--
     History
 
@@ -1739,6 +1805,13 @@
     This button will dismiss the dialog.
   -->
   <string name="download_file_has_not_enough_storage_dialog_cancel_button_text">Zrušit</string>
+  <plurals name="downloads_delete_dialog_title">
+    <!-- Title for the download deletion confirmation dialog. The message changes depending on how many files are selected. %d is the number of files to be deleted. -->
+    <item quantity="one">Smazat soubor?</item>
+    <item quantity="few">Smazat %d soubory?</item>
+    <item quantity="many">Smazat %d souborů?</item>
+    <item quantity="other">Smazat %d souborů?</item>
+  </plurals>
   <!-- Text for the button to delete a single downloaded file item -->
   <string name="download_delete_item">Smazat</string>
   <!-- Content description for the toolbar "Navigate back" button -->
@@ -1770,6 +1843,14 @@
   <string name="download_delete_multi_select_dialog_confirm">Smazat</string>
   <!-- Alert dialog confirmation before deleting multiple download items, this is the negative action. -->
   <string name="download_delete_multi_select_dialog_cancel">Zrušit</string>
+  <!-- Alert dialog confirmation before deleting a single download item or many download items, this is one of the radio buttons within the dialog box for the user to select. -->
+  <string name="download_delete_dialog_from_device">Smazat ze zařízení</string>
+  <!-- Alert dialog confirmation before deleting a single download item or many download items, this is one of the radio buttons within the dialog box for the user to select. -->
+  <string name="download_delete_dialog_from_history">Odstranit pouze z historie stahování</string>
+  <!-- Alert dialog confirmation before deleting a single download item or many download items, this is the negative action. -->
+  <string name="download_delete_dialog_cancel">Zrušit</string>
+  <!-- Alert dialog confirmation before deleting a single download item or many download items, this is the positive action. -->
+  <string name="download_delete_dialog_confirm">Potvrdit</string>
   <!-- Title for the alert dialog confirmation before renaming a download item. -->
   <string name="download_rename_dialog_title">Přejmenování souboru</string>
   <!-- Label for the name field in the alert dialog confirmation before renaming a download item. -->
@@ -1867,6 +1948,16 @@
   <string name="download_content_type_filter_document">Dokumenty</string>
   <!-- Text for the filter button to show all other file types in the downloads list -->
   <string name="download_content_type_filter_other_1">Ostatní</string>
+  <!--
+    Title for the alert dialog to rename a file and/or change its download location before downloading it.
+    %s is the formatted size of the file (e.g., "12.5 MB").
+  -->
+  <string name="download_rename_and_change_location_dialog_title">Stáhnout soubor?\n(%s)</string>
+  <!--
+    Title for the alert dialog to rename a file and/or change its download location
+    when the file size is not available before downloading it.
+  -->
+  <string name="download_rename_and_change_location_dialog_title_with_unknown_size">Stáhnout soubor?</string>
   <!--
     WebCompat Reporter
 
@@ -2056,7 +2147,11 @@
   <string name="bookmark_delete_single_item" tools:ignore="UnusedResources" moz:removedIn="150">Záložka %s byla smazána</string>
   <!-- Bookmark snackbar message for deleting multiple items. %s is the number of items being deleted -->
   <string name="bookmark_delete_multiple_items" tools:ignore="UnusedResources" moz:removedIn="150">Smazané položky: %s</string>
-  <!-- Content description for the bookmark navigation bar back button -->
+  <!--
+    Bookmark undo button for deletion snackbar action
+
+    Content description for the bookmark navigation bar back button
+  -->
   <string name="bookmark_navigate_back_button_content_description">Návrat zpět</string>
   <!-- Content description for the bookmark list new folder navigation bar button -->
   <string name="bookmark_add_new_folder_button_content_description">Přidat novou složku</string>
@@ -2265,6 +2360,24 @@
   <string name="menu_print">Tisk</string>
   <!-- Sub-header in the dialog to share a link to another sync device -->
   <string name="share_device_subheader">Poslat do zařízení</string>
+  <!-- Content description for the drag handle that dismisses the Send to Device bottom sheet -->
+  <string name="send_to_devices_bottom_sheet_close_content_description">Zavřít možnost Odeslat do zařízení</string>
+  <!-- Text for the QR code action in the native share sheet -->
+  <string name="share_qr_code">QR kód</string>
+  <!-- Title shown in the QR code display screen -->
+  <string name="qr_code_display_title">QR kód</string>
+  <!-- Content description for the close button in the QR code display screen -->
+  <string name="qr_code_display_close">Zavřít</string>
+  <!-- Heading on the QR code display screen -->
+  <string name="qr_code_display_share_nearby">Sdílet odkaz s lidmi v okolí</string>
+  <!-- Body text on the QR code display screen instructing the user to have others scan the code -->
+  <string name="qr_code_display_instructions">Chcete-li tento odkaz sdílet s lidmi ve svém okolí, požádejte je, aby naskenovali níže uvedený QR kód.</string>
+  <!-- Label for the download button on the QR code display screen -->
+  <string name="qr_code_display_download">Stáhnout</string>
+  <!-- Toast shown when the QR code is successfully saved to Downloads -->
+  <string name="qr_code_download_success">QR kód uložen do složky stažených souborů</string>
+  <!-- Toast shown when saving the QR code to Downloads fails -->
+  <string name="qr_code_download_failure">QR kód se nepodařilo uložit</string>
   <!-- Sub-header in the dialog to share a link to an app from the full list -->
   <string name="share_link_all_apps_subheader">Všechny akce</string>
   <!-- Sub-header in the dialog to share a link to an app from the most-recent sorted list -->
@@ -2348,7 +2461,7 @@
     Text shown in the fullscreen message that pops up to ask user to take a short survey.
     The app name is in the text, due to limitations with localizing Nimbus experiments
   -->
-  <string name="nimbus_survey_message_text" tools:ignore="BrandUsage">Pomozte ním prosím zlepšit Firefox vyplněním krátkého dotazníku.</string>
+  <string name="nimbus_survey_message_text" tools:ignore="BrandUsage">Pomozte nám, prosím, zlepšit Firefox vyplněním krátkého dotazníku.</string>
   <!-- Preference for taking the short survey. -->
   <string name="preferences_take_survey">Vyplnit průzkum</string>
   <!-- Preference for not taking the short survey. -->
@@ -2394,8 +2507,6 @@
   <string name="preference_accessibility_text_size_summary">Úprava velikosti textu na webových stránkách</string>
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">Velikost písma</string>
-  <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">Automatická velikost písma</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -2707,7 +2818,7 @@
   <!-- Bullet point 1 for "Increased Protection" information page under "DNS over HTTPS" -->
   <string name="preference_doh_increased_protection_info_1">Použije se poskytovatel, kterého jste si vybrali</string>
   <!-- Bullet point 2 for "Increased Protection" information page under "DNS over HTTPS" -->
-  <string name="preference_doh_increased_protection_info_2">Výchozí překladač DNS se použijte jen v případě problému se zabezpečeným DNS</string>
+  <string name="preference_doh_increased_protection_info_2">Výchozí překladač DNS se použije jen v případě problému se zabezpečeným DNS</string>
   <!-- Title displayed for "Max Protection" option under "DNS over HTTPS" -->
   <string name="preference_doh_max_protection">Maximální ochrana</string>
   <!-- Summary displayed for "Max Protection" option under "DNS over HTTPS". %1$s is the name of the application (e.g. Fenix). -->
@@ -3242,6 +3353,8 @@
     which navigates the user to a screen displaying all the shortcuts.
   -->
   <string name="homepage_shortcuts_show_all_content_description">Zobrazit všechny zkratky</string>
+  <!-- Label for the "Add shortcut" button displayed as a tile. -->
+  <string name="homepage_shortcuts_add_shortcut">Přidat zkratku</string>
   <!-- Title text displayed in the dialog when shortcuts limit is reached. -->
   <string name="shortcut_max_limit_title">Dosažen maximální počet zkratek</string>
   <!-- Content description text displayed in the dialog when shortcut limit is reached. -->
@@ -3340,6 +3453,8 @@
     Header text for a section on the home screen.
   -->
   <string name="pocket_stories_header_2">Příběhy</string>
+  <!-- Header text for the Stories screen. -->
+  <string name="stories_screen_text_news">Novinky</string>
   <!--
     Context description text for the "Discover more" button in the stories home screen section
     which navigates the user to a screen displaying more stories.
@@ -3432,7 +3547,9 @@
   <!-- The title of the warning card informs the user that the list of languages cannot be loaded. -->
   <string name="translation_error_could_not_load_languages_warning_text">Nelze načíst jazyky. Zkontrolujte připojení k internetu a zkuste to znovu.</string>
   <!-- The title of the warning card informs the user that a language is not supported. %1$s is the name of the language that is not supported. -->
-  <string name="translation_error_language_not_supported_warning_text">Je nám líto, ale jazyk %1$s zatím není podporován.</string>
+  <string name="translation_error_language_not_supported_warning_text" tools:ignore="UnusedResources" moz:removedIn="150">Je nám líto, ale jazyk %1$s zatím není podporován.</string>
+  <!-- The title of the warning card informs the user that translations from a language are not supported yet. %1$s is the name of the source language. -->
+  <string name="translation_error_language_not_supported_warning_text_2">Překlady z jazyka %1$s zatím nejsou k dispozici.</string>
   <!-- Snackbar title shown if the user closes the Translation Request dialogue and a translation is in progress. -->
   <string name="translation_in_progress_snackbar">Probíhá překlad…</string>
   <!--
@@ -3683,7 +3800,7 @@
     Description text for a dialog confirming whether the user wants to delete all data for current site.
     %s is a placeholder for the base domain of website.
   -->
-  <string name="clear_site_data_dialog_description"><![CDATA[Smazání cookies a dat stránek <b>%s</b> vás může odhlásit ze stránek nebo vymazat nákupní košík.]]></string>
+  <string name="clear_site_data_dialog_description"><![CDATA[Smazání cookies a dat stránek pro <b>%s</b> vás může odhlásit z webů a vyprázdnit vám nákupní košíky.]]></string>
   <!-- Button text on the clear site data dialog to allow users to confirm they wish to clear the site data. -->
   <string name="clear_site_data_dialog_positive_button_text">Vymazat</string>
   <!-- Button text on the clear site data dialog to allow users to cancel the action and not clear the site data. -->
@@ -4107,7 +4224,7 @@
   <!-- Title for a prompt asking the user send us feedback. %1$s is the name of the app (for example "Firefox"). -->
   <string name="review_prompt_feedback_header">Je nám líto, že nastaly problémy. Dejte nám vědět, jak můžeme aplikaci %1$s vylepšit.</string>
   <!-- Label for a button opening a feedback forum -->
-  <string name="review_prompt_feedback_button">Zanechání zpětné vazby</string>
+  <string name="review_prompt_feedback_button">Zanechat zpětné vazby</string>
   <!--
     Settings Search Strings
 

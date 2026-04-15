@@ -83,9 +83,10 @@ pub mod ${property.ident} {
                             context.builder.inherit_${property.ident}();
                         % endif
                     }
+                    CSSWideKeyword::RevertRule |
                     CSSWideKeyword::RevertLayer |
                     CSSWideKeyword::Revert => {
-                        declaration.debug_crash("Found revert/revert-layer not dealt with");
+                        declaration.debug_crash("Found revert* not dealt with");
                     },
                 }
                 return;
@@ -162,10 +163,16 @@ pub mod ${property.ident} {
         pub use crate::values::computed::${property.predefined_type} as T;
     }
     % if property.initial_value:
-    #[inline] pub fn get_initial_value() -> computed_value::T { ${property.initial_value} }
-    % endif
+    #[inline]
+    pub fn get_initial_value() -> computed_value::T { ${property.initial_value} }
+    #[inline]
+    pub fn get_initial_specified_value() -> SpecifiedValue {
     % if property.initial_specified_value:
-    #[inline] pub fn get_initial_specified_value() -> SpecifiedValue { ${property.initial_specified_value} }
+        ${property.initial_specified_value}
+    % else:
+        ToComputedValue::from_computed_value(&get_initial_value())
+    % endif
+    }
     % endif
     #[allow(unused_variables)]
     #[inline]
@@ -307,6 +314,7 @@ pub mod ${property.ident} {
         % if property.vector.separator == "Comma":
         #[css(comma)]
         % endif
+        #[typed_value(derive_fields)]
         pub struct OwnedList<T>(
             % if not allow_empty:
             #[css(iterable)]
@@ -327,6 +335,7 @@ pub mod ${property.ident} {
         % if property.vector.separator == "Comma":
         #[css(comma)]
         % endif
+        #[typed_value(derive_fields)]
         pub struct ComputedList(
             % if not allow_empty:
             #[css(iterable)]
@@ -444,6 +453,7 @@ pub mod ${property.ident} {
     % if property.vector.separator == "Comma":
     #[css(comma)]
     % endif
+    #[typed_value(derive_fields)]
     pub struct SpecifiedValue(
         % if not allow_empty:
         #[css(iterable)]

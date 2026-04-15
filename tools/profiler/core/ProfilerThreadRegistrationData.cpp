@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -81,32 +79,27 @@ ThreadRegistrationData::ThreadRegistrationData(const char* aName,
 static void profiler_add_js_marker(mozilla::MarkerCategory aCategory,
                                    const char* aMarkerName,
                                    const char* aMarkerText) {
-#ifdef MOZ_GECKO_PROFILER
   AUTO_PROFILER_STATS(js_marker);
   profiler_add_marker(
       mozilla::ProfilerString8View::WrapNullTerminatedString(aMarkerName),
       aCategory, {}, ::geckoprofiler::markers::TextMarker{},
       mozilla::ProfilerString8View::WrapNullTerminatedString(aMarkerText));
-#endif
 }
 
 static void profiler_add_js_interval(mozilla::MarkerCategory aCategory,
                                      const char* aMarkerName,
                                      mozilla::TimeStamp aStartTime,
                                      const char* aMarkerText) {
-#ifdef MOZ_GECKO_PROFILER
   AUTO_PROFILER_STATS(js_interval);
   profiler_add_marker(
       mozilla::ProfilerString8View::WrapNullTerminatedString(aMarkerName),
       aCategory, mozilla::MarkerTiming::IntervalUntilNowFrom(aStartTime),
       ::geckoprofiler::markers::TextMarker{},
       mozilla::ProfilerString8View::WrapNullTerminatedString(aMarkerText));
-#endif
 }
 
 static void profiler_add_js_flow(mozilla::MarkerCategory aCategory,
                                  const char* aMarkerName, uint64_t aFlowId) {
-#ifdef MOZ_GECKO_PROFILER
   if (!profiler_feature_active(ProfilerFeature::Flows)) {
     return;
   }
@@ -115,13 +108,11 @@ static void profiler_add_js_flow(mozilla::MarkerCategory aCategory,
       mozilla::ProfilerString8View::WrapNullTerminatedString(aMarkerName),
       aCategory, {}, ::geckoprofiler::markers::FlowMarker{},
       Flow::ProcessScoped(aFlowId));
-#endif
 }
 
 static void profiler_add_js_terminating_flow(mozilla::MarkerCategory aCategory,
                                              const char* aMarkerName,
                                              uint64_t aFlowId) {
-#ifdef MOZ_GECKO_PROFILER
   if (!profiler_feature_active(ProfilerFeature::Flows)) {
     return;
   }
@@ -130,7 +121,6 @@ static void profiler_add_js_terminating_flow(mozilla::MarkerCategory aCategory,
       mozilla::ProfilerString8View::WrapNullTerminatedString(aMarkerName),
       aCategory, {}, ::geckoprofiler::markers::TerminatingFlowMarker{},
       Flow::ProcessScoped(aFlowId));
-#endif
 }
 
 static void profiler_add_js_allocation_marker(JS::RecordAllocationInfo&& info) {

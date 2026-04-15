@@ -76,6 +76,7 @@ gecko_metrics = [
     "toolkit/components/antitracking/metrics.yaml",
     "toolkit/components/backgroundhangmonitor/metrics.yaml",
     "toolkit/components/captchadetection/metrics.yaml",
+    "toolkit/components/cleardata/metrics.yaml",
     "toolkit/components/cookiebanners/metrics.yaml",
     "toolkit/components/doh/metrics.yaml",
     "toolkit/components/downloads/metrics.yaml",
@@ -84,6 +85,7 @@ gecko_metrics = [
     "toolkit/components/formautofill/metrics.yaml",
     "toolkit/components/gecko-trace/generated-metrics.yaml",
     "toolkit/components/glean/metrics.yaml",
+    "toolkit/components/ipprotection/metrics.yaml",
     "toolkit/components/mediasniffer/metrics.yaml",
     "toolkit/components/messaging-system/metrics.yaml",
     "toolkit/components/ml/metrics.yaml",
@@ -116,6 +118,7 @@ gecko_metrics = [
 # Order is lexicographical, enforced by t/c/glean/tests/pytest/test_yaml_indices.py
 firefox_desktop_metrics = [
     "browser/actors/metrics.yaml",
+    "browser/components/aiwindow/metrics.yaml",
     "browser/components/asrouter/metrics.yaml",
     "browser/components/attribution/metrics.yaml",
     "browser/components/backup/metrics.yaml",

@@ -14,6 +14,7 @@ If you are looking for the absolute authority on what moz.build files can
 contain, you've come to the right place.
 """
 
+import functools
 import itertools
 import operator
 import os
@@ -33,8 +34,6 @@ from mozbuild.util import (
     StrictOrderingOnAppendListWithFlagsFactory,
     TypedList,
     TypedNamedTuple,
-    memoize,
-    memoized_property,
 )
 
 from .. import schedules
@@ -79,6 +78,8 @@ class Context(KeyedDefaultDict):
 
     config is the ConfigEnvironment for this context.
     """
+
+    __hash__ = object.__hash__
 
     def __init__(self, allowed_variables={}, config=None, finder=None):
         self._allowed_variables = allowed_variables
@@ -147,11 +148,11 @@ class Context(KeyedDefaultDict):
             return []
         return self._all_paths[self._all_paths.index(self.main_path) :]
 
-    @memoized_property
+    @functools.cached_property
     def objdir(self):
         return mozpath.join(self.config.topobjdir, self.relobjdir).rstrip("/")
 
-    @memoize
+    @functools.cache
     def _srcdir(self, path):
         return mozpath.join(self.config.topsrcdir, self._relsrcdir(path)).rstrip("/")
 
@@ -159,7 +160,7 @@ class Context(KeyedDefaultDict):
     def srcdir(self):
         return self._srcdir(self.current_path or self.main_path)
 
-    @memoize
+    @functools.cache
     def _relsrcdir(self, path):
         return mozpath.relpath(mozpath.dirname(path), self.config.topsrcdir)
 
@@ -168,7 +169,7 @@ class Context(KeyedDefaultDict):
         assert self.main_path
         return self._relsrcdir(self.current_path or self.main_path)
 
-    @memoized_property
+    @functools.cached_property
     def relobjdir(self):
         assert self.main_path
         return mozpath.relpath(mozpath.dirname(self.main_path), self.config.topsrcdir)
@@ -903,7 +904,7 @@ class Path(ContextDerivedValue, str, metaclass=PathMeta):
     def __hash__(self):
         return hash(self.full_path)
 
-    @memoized_property
+    @functools.cached_property
     def target_basename(self):
         return mozpath.basename(self.full_path)
 
@@ -929,7 +930,7 @@ class SourcePath(Path):
         self.full_path = mozpath.normpath(path)
         return self
 
-    @memoized_property
+    @functools.cached_property
     def translated(self):
         """Returns the corresponding path in the objdir.
 
@@ -990,7 +991,7 @@ class AbsolutePath(Path):
         return self
 
 
-@memoize
+@functools.cache
 def ContextDerivedTypedList(klass, base_class=List):
     """Specialized TypedList for use with ContextDerivedValue types."""
     assert issubclass(klass, ContextDerivedValue)
@@ -1008,7 +1009,7 @@ def ContextDerivedTypedList(klass, base_class=List):
     return _TypedList
 
 
-@memoize
+@functools.cache
 def ContextDerivedTypedListWithItems(type, base_class=List):
     """Specialized TypedList for use with ContextDerivedValue types."""
 
@@ -1020,7 +1021,7 @@ def ContextDerivedTypedListWithItems(type, base_class=List):
     return _TypedListWithItems
 
 
-@memoize
+@functools.cache
 def ContextDerivedTypedRecord(*fields):
     """Factory for objects with certain properties and dynamic
     type checks.
@@ -1133,7 +1134,7 @@ class Schedules:
         return Schedules(inclusive=inclusive, exclusive=exclusive)
 
 
-@memoize
+@functools.cache
 def ContextDerivedTypedHierarchicalStringList(type):
     """Specialized HierarchicalStringList for use with ContextDerivedValue
     types."""

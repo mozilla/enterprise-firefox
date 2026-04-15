@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -11,6 +9,7 @@
 #include "jsapi.h"
 #include "mozilla/AsyncEventDispatcher.h"
 #include "mozilla/AutoRestore.h"
+#include "mozilla/ClearOnShutdown.h"
 #include "mozilla/CycleCollectedJSContext.h"
 #include "mozilla/CycleCollectedUniquePtr.h"
 #include "mozilla/HoldDropJSObjects.h"
@@ -19,9 +18,11 @@
 #include "mozilla/dom/CustomElementRegistryBinding.h"
 #include "mozilla/dom/CustomEvent.h"
 #include "mozilla/dom/DocGroup.h"
+#include "mozilla/dom/Element.h"
 #include "mozilla/dom/ElementBinding.h"
 #include "mozilla/dom/HTMLElement.h"
 #include "mozilla/dom/HTMLElementBinding.h"
+#include "mozilla/dom/LifecycleCallbackArgs.h"
 #include "mozilla/dom/PrimitiveConversions.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/ShadowIncludingTreeIterator.h"
@@ -512,8 +513,11 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(CustomElementRegistry)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-CustomElementRegistry::CustomElementRegistry(nsPIDOMWindowInner* aWindow)
-    : mWindow(aWindow), mIsCustomDefinitionRunning(false) {
+CustomElementRegistry::CustomElementRegistry(nsPIDOMWindowInner* aWindow,
+                                             bool aIsScoped)
+    : mWindow(aWindow),
+      mIsCustomDefinitionRunning(false),
+      mIsScoped(aIsScoped) {
   MOZ_ASSERT(aWindow);
 
   mozilla::HoldJSObjects(this);
@@ -521,6 +525,15 @@ CustomElementRegistry::CustomElementRegistry(nsPIDOMWindowInner* aWindow)
 
 CustomElementRegistry::~CustomElementRegistry() {
   mozilla::DropJSObjects(this);
+}
+
+// https://html.spec.whatwg.org/#dom-customelementregistry
+already_AddRefed<CustomElementRegistry> CustomElementRegistry::Constructor(
+    const GlobalObject& aGlobal) {
+  nsCOMPtr<nsPIDOMWindowInner> win = do_QueryInterface(aGlobal.GetAsSupports());
+  // The new CustomElementRegistry() constructor steps are to set this's is
+  // scoped to true.
+  return MakeAndAddRef<CustomElementRegistry>(win, true);
 }
 
 NS_IMETHODIMP
@@ -561,10 +574,14 @@ CustomElementRegistry::RunCustomElementCreationCallback::Run() {
   return NS_OK;
 }
 
+/* https://html.spec.whatwg.org/#look-up-a-custom-element-definition
+ * Steps 1 and 2 are handled by nsContentUtils::LookupCustomElementDefinition.
+ */
 CustomElementDefinition* CustomElementRegistry::LookupCustomElementDefinition(
     nsAtom* aNameAtom, int32_t aNameSpaceID, nsAtom* aTypeAtom) {
   CustomElementDefinition* data = mCustomDefinitions.GetWeak(aTypeAtom);
 
+  // XXX Chrome-only creation callback mechanism; not in spec.
   if (!data) {
     RefPtr<CustomElementCreationCallback> callback;
     mElementCreationCallbacks.Get(aTypeAtom, getter_AddRefs(callback));
@@ -578,11 +595,16 @@ CustomElementDefinition* CustomElementRegistry::LookupCustomElementDefinition(
     }
   }
 
+  // 3. If registry's custom element definition set contains an item with name
+  //    and local name both equal to localName, then return that item.
+  // 4. If registry's custom element definition set contains an item with name
+  //    equal to is and local name equal to localName, then return that item.
   if (data && data->mLocalName == aNameAtom &&
       data->mNamespaceID == aNameSpaceID) {
     return data;
   }
 
+  // 5. Return null.
   return nullptr;
 }
 
@@ -655,11 +677,12 @@ void CustomElementRegistry::UnregisterUnresolvedElement(Element* aElement,
   }
 }
 
-// https://html.spec.whatwg.org/commit-snapshots/65f39c6fc0efa92b0b2b23b93197016af6ac0de6/#enqueue-a-custom-element-callback-reaction
+/* https://html.spec.whatwg.org/#enqueue-a-custom-element-callback-reaction */
 /* static */
 void CustomElementRegistry::EnqueueLifecycleCallback(
     ElementCallbackType aType, Element* aCustomElement,
     const LifecycleCallbackArgs& aArgs, CustomElementDefinition* aDefinition) {
+  // 1. Let definition be element's custom element definition.
   CustomElementDefinition* definition = aDefinition;
   if (!definition) {
     definition = aCustomElement->GetCustomElementDefinition();
@@ -674,8 +697,13 @@ void CustomElementRegistry::EnqueueLifecycleCallback(
     }
   }
 
+  // XXX: Steps 2-3 performed by CustomElementCallback::Create:
+  // 2. Let callback be the value of the entry in definition's lifecycle
+  //    callbacks with key callbackName.
+  // 3. If callbackName is "connectedMoveCallback" and callback is null...
   auto callback =
       CustomElementCallback::Create(aType, aCustomElement, aArgs, definition);
+  // 4. If callback is null, then return.
   if (!callback) {
     return;
   }
@@ -685,15 +713,59 @@ void CustomElementRegistry::EnqueueLifecycleCallback(
     return;
   }
 
+  // 5. If callbackName is "attributeChangedCallback":
   if (aType == ElementCallbackType::eAttributeChanged) {
+    // 5.1. Let attributeName be the first element of args.
+    // 5.2. If definition's observed attributes does not contain attributeName,
+    //      then return.
     if (!definition->mObservedAttributes.Contains(aArgs.mName)) {
       return;
     }
   }
 
+  // 6. Add a new callback reaction to element's custom element reaction queue,
+  //    with callback function callback and arguments args.
   CustomElementReactionsStack* reactionsStack =
       docGroup->CustomElementReactionsStack();
+
+  // 7. Enqueue an element on the appropriate element queue given element.
   reactionsStack->EnqueueCallbackReaction(aCustomElement, std::move(callback));
+}
+
+using ScopedRegistryMap =
+    nsRefPtrHashtable<nsPtrHashKey<nsINode>, CustomElementRegistry>;
+
+static StaticAutoPtr<ScopedRegistryMap> gScopedRegistryMap;
+
+/* static */
+already_AddRefed<CustomElementRegistry>
+CustomElementRegistry::GetScopedRegistry(nsINode& aNode) {
+  if (!gScopedRegistryMap) {
+    return nullptr;
+  }
+  RefPtr<CustomElementRegistry> registry = gScopedRegistryMap->Get(&aNode);
+  if (registry) {
+    return registry.forget();
+  }
+  return nullptr;
+}
+
+/* static */
+void CustomElementRegistry::SetScopedRegistry(
+    nsINode& aNode, CustomElementRegistry& aRegistry) {
+  MOZ_ASSERT(aRegistry.IsScoped());
+  if (!gScopedRegistryMap) {
+    gScopedRegistryMap = new ScopedRegistryMap();
+    ClearOnShutdown(&gScopedRegistryMap);
+  }
+  gScopedRegistryMap->InsertOrUpdate(&aNode, &aRegistry);
+}
+
+/* static */
+void CustomElementRegistry::RemoveScopedRegistry(nsINode& aNode) {
+  if (gScopedRegistryMap) {
+    gScopedRegistryMap->Remove(&aNode);
+  }
 }
 
 namespace {
@@ -754,6 +826,7 @@ nsTArray<nsCOMPtr<Element>> CandidateFinder::OrderedCandidates() {
 
 }  // namespace
 
+// https://html.spec.whatwg.org/#upgrade-particular-elements-within-a-document
 void CustomElementRegistry::UpgradeCandidates(
     nsAtom* aKey, CustomElementDefinition* aDefinition, ErrorResult& aRv) {
   DocGroup* docGroup = mWindow->GetDocGroup();
@@ -762,6 +835,13 @@ void CustomElementRegistry::UpgradeCandidates(
     return;
   }
 
+  // 1. Let upgradeCandidates be all elements that are shadow-including
+  //    descendants of document, whose custom element registry is registry,
+  //    whose namespace is the HTML namespace, and whose local name is
+  //    localName, in shadow-including tree order. Additionally, if name is not
+  //    localName, only include elements whose is value is equal to name.
+  // TODO(keithamus): The "whose custom element registry is registry" filter is
+  // not yet implemented (scoped registries).
   mozilla::UniquePtr<nsTHashSet<RefPtr<nsIWeakReference>>> candidates;
   if (mCandidatesMap.Remove(aKey, &candidates)) {
     MOZ_ASSERT(candidates);
@@ -769,6 +849,8 @@ void CustomElementRegistry::UpgradeCandidates(
         docGroup->CustomElementReactionsStack();
 
     CandidateFinder finder(*candidates, mWindow->GetExtantDoc());
+    // 2. For each element element of upgradeCandidates: enqueue a custom
+    //    element upgrade reaction given element and definition.
     for (auto& elem : finder.OrderedCandidates()) {
       reactionsStack->EnqueueUpgradeReaction(elem, aDefinition);
     }
@@ -859,7 +941,7 @@ bool CustomElementRegistry::JSObjectToAtomArray(
   return true;
 }
 
-// https://html.spec.whatwg.org/commit-snapshots/b48bb2238269d90ea4f455a52cdf29505aff3df0/#dom-customelementregistry-define
+// https://html.spec.whatwg.org/#dom-customelementregistry-define
 void CustomElementRegistry::Define(
     JSContext* aCx, const nsAString& aName,
     CustomElementConstructor& aFunctionConstructor,
@@ -938,19 +1020,21 @@ void CustomElementRegistry::Define(
    * 6. Let extends be the value of the extends member of options, or null if
    *    no such member exists.
    * 7. If extends is not null, then:
-   *    1. If extends is a valid custom element name, then throw a
+   *    1. If this's is scoped is true, then throw a "NotSupportedError"
+   *       DOMException.
+   *    2. If extends is a valid custom element name, then throw a
    *       "NotSupportedError" DOMException.
-   *    2. If the element interface for extends and the HTML namespace is
+   *    3. If the element interface for extends and the HTML namespace is
    *       HTMLUnknownElement (e.g., if extends does not indicate an element
    *       definition in this specification), then throw a "NotSupportedError"
    *       DOMException.
-   *    3. Set localName to extends.
+   *    4. Set localName to extends.
    *
    * Special note for XUL elements:
    *
-   * For step 7.1, we'll subject XUL to the same rules as HTML, so that a
+   * For step 7.2, we'll subject XUL to the same rules as HTML, so that a
    * custom built-in element will not be extending from a dashed name.
-   * Step 7.2 is disregarded. But, we do check if the name is a dashed name
+   * Step 7.3 is disregarded. But, we do check if the name is a dashed name
    * (i.e. step 2) given that there is no reason for a custom built-in element
    * type to take on a non-dashed name.
    * This also ensures the name of the built-in custom element type can never
@@ -960,6 +1044,8 @@ void CustomElementRegistry::Define(
   RefPtr<nsAtom> localNameAtom = nameAtom;
   if (aOptions.mExtends.WasPassed()) {
     doc->SetUseCounter(eUseCounter_custom_CustomizedBuiltin);
+
+    // TODO(keithamus): 7.1 is not yet implemented (scoped registries).
 
     RefPtr<nsAtom> extendsAtom(NS_Atomize(aOptions.mExtends.Value()));
     if (nsContentUtils::IsCustomElementName(extendsAtom, kNameSpaceID_XHTML)) {
@@ -1155,17 +1241,22 @@ void CustomElementRegistry::Define(
              "Number of entries should be the same");
 
   /**
-   * 17. 18. 19. Upgrade candidates
+   * 17. If this's is scoped is true, then for each document of this's scoped
+   *     document set: upgrade particular elements within a document given
+   *     this, document, definition, and localName.
+   * 18. Otherwise, upgrade particular elements within a document given this,
+   *     this's relevant global object's associated Document, definition,
+   *     localName, and name.
+   *
+   * TODO(keithamus): Step 17 is not yet implemented (scoped registries). We
+   * currently always take the step 18 path.
    */
   UpgradeCandidates(nameAtom, def, aRv);
 
   /**
-   * 20. If this CustomElementRegistry's when-defined promise map contains an
-   *     entry with key name:
-   *     1. Let promise be the value of that entry.
-   *     2. Resolve promise with undefined.
-   *     3. Delete the entry with key name from this CustomElementRegistry's
-   *        when-defined promise map.
+   * 19. If this's when-defined promise map contains an entry with key name:
+   *     1. Resolve this's when-defined promise map[name] with constructor.
+   *     2. Remove this's when-defined promise map[name].
    */
   RefPtr<Promise> promise;
   mWhenDefinedPromiseMap.Remove(nameAtom, getter_AddRefs(promise));
@@ -1221,15 +1312,24 @@ void CustomElementRegistry::SetElementCreationCallback(
   }
 }
 
+// https://html.spec.whatwg.org/#dom-customelementregistry-upgrade
 void CustomElementRegistry::Upgrade(nsINode& aRoot) {
+  // 1. For each shadow-including inclusive descendant candidate of root, in
+  //    shadow-including tree order:
   for (nsINode* node : ShadowIncludingTreeIterator(aRoot)) {
+    // 1.1. If candidate is not an Element node, then continue.
     Element* element = Element::FromNode(node);
     if (!element) {
       continue;
     }
 
+    // TODO(keithamus): 1.2. If candidate's custom element registry is not this,
+    // then continue. Not yet implemented -- we don't check the element's
+    // registry against |this|. We always look up via the document's registry
+    // (scoped registries).
     CustomElementData* ceData = element->GetCustomElementData();
     if (ceData) {
+      // 1.3. Try to upgrade candidate.
       NodeInfo* nodeInfo = element->NodeInfo();
       nsAtom* typeAtom = ceData->GetCustomElementType();
       CustomElementDefinition* definition =
@@ -1243,12 +1343,16 @@ void CustomElementRegistry::Upgrade(nsINode& aRoot) {
   }
 }
 
+/* https://html.spec.whatwg.org/#dom-customelementregistry-get */
 void CustomElementRegistry::Get(
     const nsAString& aName,
     OwningCustomElementConstructorOrUndefined& aRetVal) {
   RefPtr<nsAtom> nameAtom(NS_Atomize(aName));
   CustomElementDefinition* data = mCustomDefinitions.GetWeak(nameAtom);
 
+  // 1. If this's custom element definition set contains an item with name
+  //    name, then return that item's constructor.
+  // 2. Return undefined.
   if (!data) {
     aRetVal.SetUndefined();
     return;
@@ -1257,12 +1361,16 @@ void CustomElementRegistry::Get(
   aRetVal.SetAsCustomElementConstructor() = data->mConstructor;
 }
 
+/* https://html.spec.whatwg.org/#dom-customelementregistry-getname */
 void CustomElementRegistry::GetName(JSContext* aCx,
                                     CustomElementConstructor& aConstructor,
                                     nsAString& aResult) {
   CustomElementDefinition* aDefinition =
       LookupCustomElementDefinition(aCx, aConstructor.CallableOrNull());
 
+  // 1. If this's custom element definition set contains an item with
+  //    constructor constructor, then return that item's name.
+  // 2. Return null.
   if (aDefinition) {
     aDefinition->mType->ToString(aResult);
   } else {
@@ -1270,6 +1378,7 @@ void CustomElementRegistry::GetName(JSContext* aCx,
   }
 }
 
+// https://html.spec.whatwg.org/#dom-customelementregistry-whendefined
 already_AddRefed<Promise> CustomElementRegistry::WhenDefined(
     const nsAString& aName, ErrorResult& aRv) {
   // Define a function that lazily creates a Promise and perform some action on
@@ -1288,6 +1397,8 @@ already_AddRefed<Promise> CustomElementRegistry::WhenDefined(
     return promise.forget();
   };
 
+  // 1. If name is not a valid custom element name, then return a promise
+  //    rejected with a "SyntaxError" DOMException.
   RefPtr<nsAtom> nameAtom(NS_Atomize(aName));
   Document* doc = mWindow->GetExtantDoc();
   uint32_t nameSpaceID =
@@ -1299,6 +1410,8 @@ already_AddRefed<Promise> CustomElementRegistry::WhenDefined(
     return nullptr;
   }
 
+  // 2. If this's custom element definition set contains an item with name name,
+  //    then return a promise resolved with that item's constructor.
   if (CustomElementDefinition* definition =
           mCustomDefinitions.GetWeak(nameAtom)) {
     return createPromise([&](const RefPtr<Promise>& promise) {
@@ -1306,6 +1419,9 @@ already_AddRefed<Promise> CustomElementRegistry::WhenDefined(
     });
   }
 
+  // 3. If this's when-defined promise map[name] does not exist, then set this's
+  //    when-defined promise map[name] to a new promise.
+  // 4. Return this's when-defined promise map[name].
   return mWhenDefinedPromiseMap.WithEntryHandle(
       nameAtom, [&](auto&& entry) -> already_AddRefed<Promise> {
         if (!entry) {
@@ -1319,10 +1435,13 @@ already_AddRefed<Promise> CustomElementRegistry::WhenDefined(
 
 namespace {
 
+/* Part of https://html.spec.whatwg.org/#concept-upgrade-an-element step 9 */
 MOZ_CAN_RUN_SCRIPT
 static void DoUpgrade(Element* aElement, CustomElementDefinition* aDefinition,
                       CustomElementConstructor* aConstructor,
                       ErrorResult& aRv) {
+  // 9.1. If definition's disable shadow is true and element's shadow root is
+  //      non-null, then throw a "NotSupportedError" DOMException.
   if (aDefinition->mDisableShadow && aElement->GetShadowRoot()) {
     aRv.ThrowNotSupportedError(nsPrintfCString(
         "Custom element upgrade to '%s' is disabled because a shadow root "
@@ -1331,10 +1450,13 @@ static void DoUpgrade(Element* aElement, CustomElementDefinition* aDefinition,
     return;
   }
 
+  // 9.2. Set element's custom element state to "precustomized".
   CustomElementData* data = aElement->GetCustomElementData();
   MOZ_ASSERT(data, "CustomElementData should exist");
   data->mState = CustomElementData::State::ePrecustomized;
 
+  // 9.3. Let constructResult be the result of constructing C, with no
+  //      arguments.
   JS::Rooted<JS::Value> constructResult(RootingCx());
   // Rethrow the exception since it might actually throw the exception from the
   // upgrade steps back out to the caller of document.createElement.
@@ -1344,6 +1466,8 @@ static void DoUpgrade(Element* aElement, CustomElementDefinition* aDefinition,
     return;
   }
 
+  // 9.4. If SameValue(constructResult, element) is false, then throw a
+  //      TypeError.
   Element* element;
   // constructResult is an ObjectValue because construction with a callback
   // always forms the return value from a JSObject.
@@ -1356,7 +1480,7 @@ static void DoUpgrade(Element* aElement, CustomElementDefinition* aDefinition,
 
 }  // anonymous namespace
 
-// https://html.spec.whatwg.org/commit-snapshots/2793ee4a461c6c39896395f1a45c269ea820c47e/#upgrades
+/* https://html.spec.whatwg.org/#concept-upgrade-an-element */
 /* static */
 void CustomElementRegistry::Upgrade(Element* aElement,
                                     CustomElementDefinition* aDefinition,
@@ -1364,18 +1488,21 @@ void CustomElementRegistry::Upgrade(Element* aElement,
   CustomElementData* data = aElement->GetCustomElementData();
   MOZ_ASSERT(data, "CustomElementData should exist");
 
-  // Step 1.
+  // 1. If element's custom element state is not "undefined" or "uncustomized",
+  //    then return.
   if (data->mState != CustomElementData::State::eUndefined) {
     return;
   }
 
-  // Step 2.
+  // 2. Set element's custom element definition to definition.
   aElement->SetCustomElementDefinition(aDefinition);
 
-  // Step 3.
+  // 3. Set element's custom element state to "failed".
   data->mState = CustomElementData::State::eFailed;
 
-  // Step 4.
+  // 4. For each attribute in element's attribute list, in order, enqueue a
+  //    custom element callback reaction with element, callback name
+  //    "attributeChangedCallback", and arguments.
   if (!aDefinition->mObservedAttributes.IsEmpty()) {
     uint32_t count = aElement->GetAttrCount();
     for (uint32_t i = 0; i < count; i++) {
@@ -1405,16 +1532,22 @@ void CustomElementRegistry::Upgrade(Element* aElement,
     }
   }
 
-  // Step 5.
+  // 5. If element is connected, then enqueue a custom element callback reaction
+  //    with element, callback name "connectedCallback", and an empty list.
   if (aElement->IsInComposedDoc()) {
     nsContentUtils::EnqueueLifecycleCallback(ElementCallbackType::eConnected,
                                              aElement, {}, aDefinition);
   }
 
-  // Step 6.
+  // 6. Add element to the end of definition's construction stack.
   AutoConstructionStackEntry acs(aDefinition->mConstructionStack, aElement);
 
-  // Step 7 and step 8.
+  // XXX: Steps 7-9 performed by DoUpgrade:
+  // 7. Let C be definition's constructor.
+  // TODO(keithamus): 8. Set the active custom element constructor map[C] to
+  // element's custom element registry. Not yet using element's registry (scoped
+  // registries).
+  // 9. Run the following steps while catching any exceptions:
   DoUpgrade(aElement, aDefinition, MOZ_KnownLive(aDefinition->mConstructor),
             aRv);
   if (aRv.Failed()) {
@@ -1431,8 +1564,10 @@ void CustomElementRegistry::Upgrade(Element* aElement,
     return;
   }
 
-  // Step 9.
+  // 10. If element is a form-associated custom element, then:
   if (data->IsFormAssociated()) {
+    // 10.1. Reset the form owner of element.
+    // 10.2. ...
     ElementInternals* internals = data->GetElementInternals();
     MOZ_ASSERT(internals);
     MOZ_ASSERT(aElement->IsHTMLElement());
@@ -1441,7 +1576,7 @@ void CustomElementRegistry::Upgrade(Element* aElement,
     internals->UpdateFormOwner();
   }
 
-  // Step 10.
+  // 11. Set element's custom element state to "custom".
   data->mState = CustomElementData::State::eCustom;
   aElement->SetDefined(true);
 }

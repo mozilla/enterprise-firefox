@@ -355,9 +355,8 @@ void JSRuntime::addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf,
     auto& table = scriptDataTableHolder().getWithoutLock();
 
     rtSizes->scriptData += table.shallowSizeOfExcludingThis(mallocSizeOf);
-    for (SharedImmutableScriptDataTable::Range r = table.all(); !r.empty();
-         r.popFront()) {
-      rtSizes->scriptData += r.front()->sizeOfIncludingThis(mallocSizeOf);
+    for (auto iter = table.iter(); !iter.done(); iter.next()) {
+      rtSizes->scriptData += iter.get()->sizeOfIncludingThis(mallocSizeOf);
     }
   }
 
@@ -367,9 +366,8 @@ void JSRuntime::addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf,
     auto& table = js::globalSharedScriptDataTableHolder.get(lock);
 
     rtSizes->scriptData += table.shallowSizeOfExcludingThis(mallocSizeOf);
-    for (SharedImmutableScriptDataTable::Range r = table.all(); !r.empty();
-         r.popFront()) {
-      rtSizes->scriptData += r.front()->sizeOfIncludingThis(mallocSizeOf);
+    for (auto iter = table.iter(); !iter.done(); iter.next()) {
+      rtSizes->scriptData += iter.get()->sizeOfIncludingThis(mallocSizeOf);
     }
   }
 

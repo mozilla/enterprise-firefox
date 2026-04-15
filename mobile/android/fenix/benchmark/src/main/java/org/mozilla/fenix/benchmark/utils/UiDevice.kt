@@ -42,25 +42,47 @@ fun UiDevice.dismissCFR() {
 }
 
 fun UiDevice.completeOnboarding() {
-    val dismissSetAsDefault = findObject(UiSelector().resourceId("android:id/button2"))
-    dismissSetAsDefault.waitForExists(WAITING_TIME_MS)
-    dismissSetAsDefault.click()
+    // Step 1: Terms of use
+    clickIfExistsWithText("Continue")
 
-    val dismissFirefoxSearchWidget = findObject(UiSelector().text("Not now"))
-    dismissFirefoxSearchWidget.waitForExists(WAITING_TIME_MS)
-    dismissFirefoxSearchWidget.click()
+    // Step 2: Set as default browser
+    clickIfExistsWithResourceId("android:id/button2")
 
-    val dismissSignInOnboarding = findObject(UiSelector().text("Not now"))
-    dismissSignInOnboarding.waitForExists(WAITING_TIME_MS)
-    dismissSignInOnboarding.click()
+    // Step3: Add Firefox Widget
+    clickIfExistsWithText("Not now")
 
-    val enableNotificationOnboarding = findObject(UiSelector().text("Turn on notifications"))
-    enableNotificationOnboarding.waitForExists(WAITING_TIME_MS)
-    enableNotificationOnboarding.click()
+    // Step 4: Sync
+    clickIfExistsWithText("Not now")
 
-    val systemAllow = findObject(UiSelector().text("Allow"))
-    systemAllow.waitForExists(WAITING_TIME_MS)
-    systemAllow.click()
+    // Step 5: Notifications
+    clickIfExistsWithText("Not now")
+
+    // Step 6: Notifications
+    clickIfExistsWithText("Turn on notifications")
+    clickIfExistsWithText("Allow")
+
+    // Stp 7: Address bar position
+    clickIfExistsWithText("Continue")
+}
+
+fun UiDevice.waitForHomepage() {
+    findObject(UiSelector().resourceId("$TARGET_PACKAGE:id/toolbar_text")).run {
+        waitForExists(WAITING_TIME_MS)
+    }
+}
+
+fun UiDevice.clickIfExistsWithText(text: String) {
+    findObject(UiSelector().text(text)).run {
+        waitForExists(WAITING_TIME_MS)
+        click()
+    }
+}
+
+fun UiDevice.clickIfExistsWithResourceId(resourceId: String) {
+    findObject(UiSelector().resourceId(resourceId)).run {
+        waitForExists(WAITING_TIME_MS)
+        click()
+    }
 }
 
 fun UiDevice.waitUntilPageLoaded() {

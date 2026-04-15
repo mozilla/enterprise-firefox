@@ -25,6 +25,7 @@
 #include "NoPrincipalGetURI.h"
 #include "NeedsNoVTableTypeChecker.h"
 #include "NoAddRefReleaseOnReturnChecker.h"
+#include "NonTerminatedStringChecker.h"
 #include "NoAutoTypeChecker.h"
 #include "NoDuplicateRefCntMemberChecker.h"
 #include "NoExplicitMoveConstructorChecker.h"

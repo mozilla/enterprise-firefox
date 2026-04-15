@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -65,11 +64,13 @@ class NativeLayerRootWayland final : public NativeLayerRoot {
       RefPtr<widget::WaylandSurface> aWaylandSurface);
 
   // Overridden methods
+  NativeLayerRootWayland* AsNativeLayerRootWayland() override { return this; }
   already_AddRefed<NativeLayer> CreateLayer(
       const gfx::IntSize& aSize, bool aIsOpaque,
       SurfacePoolHandle* aSurfacePoolHandle) override;
   already_AddRefed<NativeLayer> CreateLayerForExternalTexture(
       bool aIsOpaque) override;
+  UniquePtr<NativeLayerRootSnapshotter> CreateSnapshotter() override;
 
   void AppendLayer(NativeLayer* aLayer) override;
   void RemoveLayer(NativeLayer* aLayer) override;
@@ -111,6 +112,10 @@ class NativeLayerRootWayland final : public NativeLayerRoot {
     mIsFullscreen = aIsFullscreen;
   }
 
+  NativeLayerWaylandRender* GetLayerForSnapshot();
+
+  void SetGLContext(gl::GLContext* aGL) { mGL = aGL; }
+
  private:
   ~NativeLayerRootWayland();
 
@@ -127,6 +132,8 @@ class NativeLayerRootWayland final : public NativeLayerRoot {
 #ifdef MOZ_LOGGING
   void* mLoggingWidget = nullptr;
 #endif
+
+  RefPtr<gl::GLContext> mGL;
 
   // WaylandSurface of nsWindow (our root window).
   // This WaylandSurface is owned by nsWindow so we don't map/unmap it
@@ -342,6 +349,9 @@ class NativeLayerWaylandRender final : public NativeLayerWayland {
                            const gfx::IntSize& aSize, bool aIsOpaque,
                            SurfacePoolHandleWayland* aSurfacePoolHandle);
 
+  void CopyFrontBufferToFrameBuffer(GLuint aFB);
+  gl::GLContext* gl();
+
  private:
   ~NativeLayerWaylandRender() override;
 
@@ -386,6 +396,40 @@ class NativeLayerWaylandExternal final : public NativeLayerWayland {
       const widget::WaylandSurfaceLock& aProofOfLock) override;
 
   RefPtr<wr::RenderDMABUFTextureHost> mTextureHost;
+};
+
+class NativeLayerRootSnapshotterWayland final
+    : public NativeLayerRootSnapshotter {
+ public:
+  static UniquePtr<NativeLayerRootSnapshotterWayland> Create(
+      NativeLayerRootWayland* aRootLayer, gl::GLContext* aGL);
+  virtual ~NativeLayerRootSnapshotterWayland();
+
+  bool ReadbackPixels(const gfx::IntSize& aReadbackSize,
+                      gfx::SurfaceFormat aReadbackFormat,
+                      const Range<uint8_t>& aReadbackBuffer) override;
+  already_AddRefed<profiler_screenshots::RenderSource> GetWindowContents(
+      const gfx::IntSize& aWindowSize) override;
+  already_AddRefed<profiler_screenshots::DownscaleTarget> CreateDownscaleTarget(
+      const gfx::IntSize& aSize) override;
+  already_AddRefed<profiler_screenshots::AsyncReadbackBuffer>
+  CreateAsyncReadbackBuffer(const gfx::IntSize& aSize) override;
+
+#ifdef MOZ_LOGGING
+  nsAutoCString GetDebugTag() const;
+#endif
+
+ protected:
+  NativeLayerRootSnapshotterWayland(NativeLayerRootWayland* aRootLayer,
+                                    gl::GLContext* aGL);
+  void UpdateSnapshot(const gfx::IntSize& aSize);
+
+  RefPtr<NativeLayerRootWayland> mRootLayer;
+  RefPtr<NativeLayerWaylandRender> mLayerForSnapshot;
+  RefPtr<gl::GLContext> mGL;
+
+  // Can be null. Created and updated in UpdateSnapshot.
+  RefPtr<RenderSourceNLRS> mSnapshot;
 };
 
 }  // namespace mozilla::layers

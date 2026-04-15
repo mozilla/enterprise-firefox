@@ -65,7 +65,13 @@ class ContextMenuFeatureTest {
         val feature = ContextMenuFeature(
             fragmentManager,
             store,
-            ContextMenuCandidate.defaultCandidates(testContext, mock(), mock(), mock()),
+            ContextMenuCandidate.defaultCandidates(
+                context = testContext,
+                tabsUseCases = mock(),
+                contextMenuUseCases = mock(),
+                snackBarParentView = mock(),
+                downloadsLocation = { "downloads" },
+            ),
             engineView,
             mock(),
             mainDispatcher = testDispatcher,
@@ -95,7 +101,13 @@ class ContextMenuFeatureTest {
         val feature = ContextMenuFeature(
             fragmentManager,
             store,
-            ContextMenuCandidate.defaultCandidates(testContext, mock(), mock(), mock()),
+            ContextMenuCandidate.defaultCandidates(
+                context = testContext,
+                tabsUseCases = mock(),
+                contextMenuUseCases = mock(),
+                snackBarParentView = mock(),
+                downloadsLocation = { "downloads" },
+            ),
             engineView,
             mock(),
             mainDispatcher = testDispatcher,
@@ -137,7 +149,13 @@ class ContextMenuFeatureTest {
         val feature = ContextMenuFeature(
             fragmentManager,
             store,
-            ContextMenuCandidate.defaultCandidates(testContext, mock(), mock(), mock()),
+            ContextMenuCandidate.defaultCandidates(
+                context = testContext,
+                tabsUseCases = mock(),
+                contextMenuUseCases = mock(),
+                snackBarParentView = mock(),
+                downloadsLocation = { "downloads" },
+            ),
             engineView,
             mock(),
             mainDispatcher = testDispatcher,
@@ -168,7 +186,13 @@ class ContextMenuFeatureTest {
         val feature = ContextMenuFeature(
             fragmentManager,
             store,
-            ContextMenuCandidate.defaultCandidates(testContext, mock(), mock(), mock()),
+            ContextMenuCandidate.defaultCandidates(
+                context = testContext,
+                tabsUseCases = mock(),
+                contextMenuUseCases = mock(),
+                snackBarParentView = mock(),
+                downloadsLocation = { "downloads" },
+            ),
             engineView,
             mock(),
             mainDispatcher = testDispatcher,
@@ -200,7 +224,13 @@ class ContextMenuFeatureTest {
         val feature = ContextMenuFeature(
             fragmentManager,
             store,
-            ContextMenuCandidate.defaultCandidates(testContext, mock(), mock(), mock()),
+            ContextMenuCandidate.defaultCandidates(
+                context = testContext,
+                tabsUseCases = mock(),
+                contextMenuUseCases = mock(),
+                snackBarParentView = mock(),
+                downloadsLocation = { "downloads" },
+            ),
             engineView,
             mock(),
             mainDispatcher = testDispatcher,
@@ -271,7 +301,13 @@ class ContextMenuFeatureTest {
         val feature = ContextMenuFeature(
             mockFragmentManager(),
             store,
-            ContextMenuCandidate.defaultCandidates(testContext, mock(), mock(), mock()),
+            ContextMenuCandidate.defaultCandidates(
+                context = testContext,
+                tabsUseCases = mock(),
+                contextMenuUseCases = mock(),
+                snackBarParentView = mock(),
+                downloadsLocation = { "downloads" },
+            ),
             engineView,
             ContextMenuUseCases(store),
             mainDispatcher = testDispatcher,

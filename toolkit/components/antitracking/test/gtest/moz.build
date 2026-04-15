@@ -8,6 +8,7 @@ UNIFIED_SOURCES += [
     "TestPartitioningExceptionList.cpp",
     "TestStoragePrincipalHelper.cpp",
     "TestURLQueryStringStripper.cpp",
+    "TestURLStripOnShare.cpp",
 ]
 
 LOCAL_INCLUDES += [

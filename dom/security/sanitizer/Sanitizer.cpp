@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -537,32 +535,43 @@ void Sanitizer::IsValid(ErrorResult& aRv) {
   // thrown an error for duplicate elements/attributes by this point. The map
   // and sets can't have duplicates by definition.
 
-  // Step 5. If both config[elements] and config[replaceWithChildrenElements]
-  // exist, then the intersection of config[elements] and
-  // config[replaceWithChildrenElements] is empty.
-  if (mElements && mReplaceWithChildrenElements) {
-    for (const CanonicalElement& name : mElements->Keys()) {
-      if (mReplaceWithChildrenElements->Contains(name)) {
-        aRv.ThrowTypeError(
-            nsFmtCString("Element {} can't be in both 'elements' "
-                         "and 'replaceWithChildrenElements'.",
-                         name));
-        return;
-      }
+  // Step 11. If config["replaceWithChildrenElements"] exists:
+  if (mReplaceWithChildrenElements) {
+    // Step 11.1. If configuration["replaceWithChildrenElements"] contains «[
+    // "name" → "html", "namespace" → HTML namespace ]», then return false.
+    CanonicalElement htmlElement(nsGkAtoms::html, nsGkAtoms::nsuri_xhtml);
+    if (mReplaceWithChildrenElements->Contains(htmlElement)) {
+      aRv.ThrowTypeError(nsFmtCString(
+          "Element {} is not allowed in 'replaceWithChildrenElements'",
+          htmlElement));
+      return;
     }
-  }
 
-  // Step 6. If both config[removeElements] and
-  // config[replaceWithChildrenElements] exist, then the intersection of
-  // config[removeElements] and config[replaceWithChildrenElements] is empty.
-  if (mRemoveElements && mReplaceWithChildrenElements) {
-    for (const CanonicalElement& name : *mRemoveElements) {
-      if (mReplaceWithChildrenElements->Contains(name)) {
-        aRv.ThrowTypeError(
-            nsFmtCString("Element {} can't be in both 'removeElements' and "
-                         "'replaceWithChildrenElements'.",
-                         name));
-        return;
+    // Step 11.2. If config["elements"] exists:
+    if (mElements) {
+      // Step 11.2.1. If the intersection of config["elements"] and
+      // config["replaceWithChildrenElements"] is not empty, then return false.
+      for (const CanonicalElement& name : mElements->Keys()) {
+        if (mReplaceWithChildrenElements->Contains(name)) {
+          aRv.ThrowTypeError(
+              nsFmtCString("Element {} can't be in both 'elements' "
+                           "and 'replaceWithChildrenElements'.",
+                           name));
+          return;
+        }
+      }
+    } else {
+      // Step 11.3. Otherwise:
+      // Step 11.3.1. If the intersection of config["removeElements"] and
+      // config["replaceWithChildrenElements"] is not empty, then return false.
+      for (const CanonicalElement& name : *mRemoveElements) {
+        if (mReplaceWithChildrenElements->Contains(name)) {
+          aRv.ThrowTypeError(
+              nsFmtCString("Element {} can't be in both 'removeElements' and "
+                           "'replaceWithChildrenElements'.",
+                           name));
+          return;
+        }
       }
     }
   }
@@ -1066,10 +1075,9 @@ bool Sanitizer::AllowElement(
     // Step 3.1.1. The user agent may report a warning to the console that this
     // operation is not supported.
     if (auto* win = mGlobal->GetAsInnerWindow()) {
-      nsContentUtils::ReportToConsole(nsIScriptError::warningFlag,
-                                      "Sanitizer"_ns, win->GetDoc(),
-                                      nsContentUtils::eSECURITY_PROPERTIES,
-                                      "SanitizerAllowElementIgnored2");
+      nsContentUtils::ReportToConsole(
+          nsIScriptError::warningFlag, "Sanitizer"_ns, win->GetDoc(),
+          PropertiesFile::SECURITY_PROPERTIES, "SanitizerAllowElementIgnored2");
     }
 
     // Step 3.1.2. Return false.
@@ -1164,34 +1172,43 @@ bool Sanitizer::RemoveElementCanonical(CanonicalElement&& aElement) {
 // https://wicg.github.io/sanitizer-api/#sanitizer-replace-an-element-with-its-children
 bool Sanitizer::ReplaceElementWithChildren(
     const StringOrSanitizerElementNamespace& aElement) {
+  // Step 1. Let configuration be this’s configuration.
+  // Step 2. Assert: configuration is valid.
   MaybeMaterializeDefaultConfig();
 
-  // Step 1. Set element to the result of canonicalize a sanitizer element
-  // with element.
+  // Step 3. Set element to the result of canonicalize a sanitizer element with
+  // element.
   CanonicalElement element = CanonicalizeElement(aElement);
 
-  // Step 2. If configuration["replaceWithChildrenElements"] contains element:
-  if (mReplaceWithChildrenElements &&
-      mReplaceWithChildrenElements->Contains(element)) {
-    // Step 2.1. Return false.
+  // Step 4. If element["name"] equals "html" and element["namespace"] equals
+  // HTML namespace:
+  if (element == CanonicalElement(nsGkAtoms::html, nsGkAtoms::nsuri_xhtml)) {
+    // Step 4.1. Return false.
     return false;
   }
 
-  // Step 3. Remove element from configuration["removeElements"].
+  // Step 5. If configuration["replaceWithChildrenElements"] contains element:
+  if (mReplaceWithChildrenElements &&
+      mReplaceWithChildrenElements->Contains(element)) {
+    // Step 5.1. Return false.
+    return false;
+  }
+
+  // Step 6. Remove element from configuration["removeElements"].
   if (mRemoveElements) {
     mRemoveElements->Remove(element);
   } else {
-    // Step 4. Remove element from configuration["elements"] list.
+    // Step 7. Remove element from configuration["elements"] list.
     mElements->Remove(element);
   }
 
-  // Step 5. Add element to configuration["replaceWithChildrenElements"].
+  // Step 8. Add element to configuration["replaceWithChildrenElements"].
   if (!mReplaceWithChildrenElements) {
     mReplaceWithChildrenElements.emplace();
   }
   mReplaceWithChildrenElements->Insert(std::move(element));
 
-  // Step 6. Return true.
+  // Step 9. Return true.
   return true;
 }
 
@@ -1583,7 +1600,7 @@ void Sanitizer::SanitizeChildren(nsINode* aNode, bool aSafe) {
       // Step 1.4.1 If configuration["comments"] is not true, then remove
       // child.
       if (!mComments) {
-        child->RemoveFromParent();
+        child->Remove();
       }
       continue;
     }
@@ -1612,7 +1629,7 @@ void Sanitizer::SanitizeChildren(nsINode* aNode, bool aSafe) {
       // The default config's "elements" allow list does not contain any
       // unsafe elements so we can skip this.
       if (aSafe && IsUnsafeElement(nameAtom, namespaceID)) {
-        child->RemoveFromParent();
+        child->Remove();
         continue;
       }
 
@@ -1620,14 +1637,12 @@ void Sanitizer::SanitizeChildren(nsINode* aNode, bool aSafe) {
       // and if configuration["replaceWithChildrenElements"] contains
       // elementName:
       if (mReplaceWithChildrenElements &&
-          mReplaceWithChildrenElements->Contains(*elementName) &&
-          // Temporary fix for Bug 2004112
-          // To be specified by https://github.com/WICG/sanitizer-api/issues/365
-          !!child->GetParent()) {
+          mReplaceWithChildrenElements->Contains(*elementName)) {
         // Note: This follows nsTreeSanitizer by first inserting the
         // child's children in place of the current child and then
         // continueing the sanitization from the first inserted grandchild.
         nsCOMPtr<nsIContent> parent = child->GetParent();
+        MOZ_DIAGNOSTIC_ASSERT(parent);
         nsCOMPtr<nsIContent> firstChild = child->GetFirstChild();
         nsCOMPtr<nsIContent> newChild = firstChild;
         for (; newChild; newChild = child->GetFirstChild()) {
@@ -1639,7 +1654,7 @@ void Sanitizer::SanitizeChildren(nsINode* aNode, bool aSafe) {
           }
         }
 
-        child->RemoveFromParent();
+        child->Remove();
         if (firstChild) {
           next = firstChild;
         }
@@ -1651,7 +1666,7 @@ void Sanitizer::SanitizeChildren(nsINode* aNode, bool aSafe) {
       if (mRemoveElements) {
         if (mRemoveElements->Contains(*elementName)) {
           // Step 1.5.3.1. Remove child.
-          child->RemoveFromParent();
+          child->Remove();
           // Step 1.5.3.2.Continue.
           continue;
         }
@@ -1662,7 +1677,7 @@ void Sanitizer::SanitizeChildren(nsINode* aNode, bool aSafe) {
       if (mElements) {
         if (!mElements->Contains(*elementName)) {
           // Step 1.5.4.1. Remove child.
-          child->RemoveFromParent();
+          child->Remove();
           // Step 1.5.4.2. Continue.
           continue;
         }
@@ -1695,7 +1710,7 @@ void Sanitizer::SanitizeChildren(nsINode* aNode, bool aSafe) {
       }
       if (!found) {
         // Step 1.5.4.1. Remove child.
-        child->RemoveFromParent();
+        child->Remove();
         // Step 1.5.4.2. Continue.
         continue;
       }
@@ -1799,9 +1814,8 @@ static bool RemoveJavascriptNavigationURLAttribute(Element* aElement,
   // then remove attr.
   if (aLocalName == nsGkAtoms::attributeName &&
       aNamespaceID == kNameSpaceID_None &&
-      aElement->IsAnyOfSVGElements(nsGkAtoms::animate, nsGkAtoms::animateMotion,
-                                   nsGkAtoms::animateTransform,
-                                   nsGkAtoms::set)) {
+      aElement->IsAnyOfSVGElements(
+          nsGkAtoms::animate, nsGkAtoms::animateTransform, nsGkAtoms::set)) {
     nsAutoString value;
     if (!aElement->GetAttr(aNamespaceID, aLocalName, value)) {
       return false;

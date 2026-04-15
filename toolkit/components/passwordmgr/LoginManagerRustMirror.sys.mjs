@@ -423,6 +423,49 @@ export class LoginManagerRustMirror {
         await this.#migrate();
         break;
 
+      case "addPotentiallyVulnerablePassword":
+        this.#logger.log(
+          `adding ${subject.guid} to potentially vulnerable passwords...`
+        );
+        try {
+          await this.#rustStorage.addPotentiallyVulnerablePassword(subject);
+          this.#logger.log(
+            `added ${subject.guid} to potentially vulnerable passwords.`
+          );
+        } catch (e) {
+          status = "failure";
+          recordMirrorFailure(
+            runId,
+            "addPotentiallyVulnerablePassword",
+            e,
+            subject
+          );
+          this.#logger.error("mirror-error:", e);
+        }
+        recordMirrorStatus(runId, "addPotentiallyVulnerablePassword", status);
+        break;
+
+      case "clearAllPotentiallyVulnerablePasswords":
+        this.#logger.log("clearing all potentially vulnerable passwords");
+        try {
+          await this.#rustStorage.clearAllPotentiallyVulnerablePasswords();
+          this.#logger.log("cleared all potentially vulnerable passwords");
+        } catch (e) {
+          status = "failure";
+          recordMirrorFailure(
+            runId,
+            "clearAllPotentiallyVulnerablePasswords",
+            e
+          );
+          this.#logger.error("mirror-error:", e);
+        }
+        recordMirrorStatus(
+          runId,
+          "clearAllPotentiallyVulnerablePasswords",
+          status
+        );
+        break;
+
       default:
         this.#logger.error(`error: received unhandled event "${eventName}"`);
         break;
@@ -456,6 +499,16 @@ export class LoginManagerRustMirror {
     await this.#migrate();
   }
 
+  /**
+   * Migrates logins from JSON storage to Rust storage.
+   *
+   * This migration is run once per profile (and can be re-run via
+   * ProfileDataUpgrader.sys.mjs).
+   *
+   * Note: This will perform encryption operations; therefore can trigger
+   * primary password UI. However, by now primary password is excluded,
+   * as it only runs if no primary password is set.
+   */
   async #migrate() {
     if (this.#migrationInProgress) {
       this.#logger.log("Migration already in progress.");
@@ -476,6 +529,8 @@ export class LoginManagerRustMirror {
 
     try {
       this.#rustStorage.removeAllLogins();
+      await this.#rustStorage.clearAllPotentiallyVulnerablePasswords();
+
       this.#logger.log("Cleared existing Rust logins.");
 
       Services.prefs.setBoolPref("signon.rustMirror.poisoned", false);
@@ -497,6 +552,24 @@ export class LoginManagerRustMirror {
       this.#logger.log(
         `Successfully migrated ${numberOfLoginsMigrated}/${numberOfLoginsToMigrate} logins.`
       );
+
+      const potentiallyVulnerablePasswords =
+        this.#jsonStorage.decryptedPotentiallyVulnerablePasswords;
+
+      try {
+        await this.#rustStorage.addPotentiallyVulnerablePasswords(
+          potentiallyVulnerablePasswords
+        );
+
+        this.#logger.log(
+          `Successfully migrated ${potentiallyVulnerablePasswords.length} potentially vulnerable passwords.`
+        );
+      } catch (e) {
+        this.#logger.error(
+          "potentially vulnerable passwords migration error:",
+          e
+        );
+      }
 
       // Migration complete, don't run again
       Services.prefs.setBoolPref("signon.rustMirror.migrationNeeded", false);

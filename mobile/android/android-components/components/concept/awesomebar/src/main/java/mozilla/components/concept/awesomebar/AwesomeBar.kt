@@ -7,7 +7,11 @@ package mozilla.components.concept.awesomebar
 import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
 import android.view.View
-import mozilla.components.concept.awesomebar.AwesomeBar.Suggestion.Flag.BOOKMARK
+import mozilla.components.concept.awesomebar.AwesomeBar.Suggestion.Flag
+import mozilla.components.concept.awesomebar.optimizedsuggestions.SportSuggestionDate
+import mozilla.components.concept.awesomebar.optimizedsuggestions.SportSuggestionStatus
+import mozilla.components.concept.awesomebar.optimizedsuggestions.SportSuggestionStatusType
+import mozilla.components.concept.awesomebar.optimizedsuggestions.SportSuggestionTeam
 import java.util.UUID
 
 /**
@@ -91,7 +95,7 @@ interface AwesomeBar {
          * An ordered map of the currently visible [SuggestionProviderGroup]s, and the visible [Suggestion]s in each
          * group. The groups and their suggestions are ordered top to bottom.
          */
-        val visibleProviderGroups: Map<SuggestionProviderGroup, List<Suggestion>> = emptyMap(),
+        val visibleProviderGroups: Map<SuggestionProviderGroup, List<SuggestionItem>> = emptyMap(),
     )
 
     /**
@@ -99,9 +103,121 @@ interface AwesomeBar {
      * [Suggestion] should be shown.
      */
     data class GroupedSuggestion(
-        val suggestion: Suggestion,
+        val suggestion: SuggestionItem,
         val groupId: String,
     )
+
+    /**
+     * This interface decouples the [StocksOnlineSuggestionProvider] from the
+     * underlying data source (e.g. mocked data, network API, local cache, etc.).
+     */
+    interface StocksSuggestionDataSource {
+        /**
+         * Fetch stock suggestions for the given [query].
+         *
+         * @param query The current user input from the address/search bar.
+         *
+         * @return A list of [StockItem] representing stock suggestions relevant to the query.
+         * Implementations may return an empty list if no matches are found.
+         */
+        suspend fun fetch(query: String): List<StockItem>
+    }
+
+    /**
+     * Domain model representing a single stock suggestion result.
+     *
+     * This model is independent of UI classes and is used as an intermediate
+     * data representation before being mapped into an AwesomeBar-specific
+     * suggestion type (e.g. [AwesomeBar.StockSuggestion]).
+     *
+     * @property query The full query string that triggered this suggestion.
+     * @property name The full display name of the stock or fund.
+     * @property ticker The stock ticker symbol.
+     * @property changePercToday The percentage change today.
+     * @property lastPrice The last traded price, including currency.
+     * @property exchange The index the stock belongs to.
+     * @property imageUrl The URL of the stock's logo.
+     */
+    data class StockItem(
+        val query: String,
+        val name: String,
+        val ticker: String,
+        val changePercToday: String,
+        val lastPrice: String,
+        val exchange: String,
+        val imageUrl: String?,
+    )
+
+    /**
+     * This interface decouples the [SportsOnlineSuggestionProvider] from the
+     * underlying data source (e.g. mocked data, network API, local cache, etc.).
+     */
+    interface SportsSuggestionDataSource {
+        /**
+         * Fetch sports suggestions for the given [query].
+         *
+         * @param query The current user input from the address/search bar.
+         *
+         * @return A list of [StockItem] representing stock suggestions relevant to the query.
+         * Implementations may return an empty list if no matches are found.
+         */
+        suspend fun fetch(query: String): List<SportItem>
+    }
+
+    /**
+     * Domain model representing a single sport suggestion result.
+     *
+     * This model is independent of UI classes and is used as an intermediate
+     * data representation before being mapped into an AwesomeBar-specific
+     * suggestion type (e.g. [AwesomeBar.SportSuggestion]).
+     *
+     * @property query The full query string that triggered this suggestion.
+     * @property sport The sport name.
+     * @property date The date of the event.
+     * @property status The status of the event.
+     * @property statusType The type of the status.
+     * @property homeTeam The home team information.
+     * @property awayTeam The away team information.
+     */
+    data class SportItem(
+        val query: String,
+        val sport: String,
+        val date: String,
+        val status: String,
+        val statusType: String,
+        val homeTeam: Team,
+        val awayTeam: Team,
+    ) {
+        /**
+         * Represents a team in a sport suggestion.
+         */
+        data class Team(
+            val key: String,
+            val name: String,
+            val colors: List<String>,
+            val score: Int?,
+        )
+    }
+
+    /**
+     * Represents the change percent used by the Stocks Suggestion.
+     */
+    sealed class ChangePercent(val value: String) {
+        /**
+         * Represents a positive percentage change.
+         */
+        class Positive(value: String) : ChangePercent(value)
+
+        /**
+         * Represents a negative percentage change.
+         */
+        class Negative(value: String) : ChangePercent(value)
+
+        /**
+         * Represents a neutral (zero) percentage change.
+         */
+        object Neutral : ChangePercent(value = "0")
+    }
 
     /**
      * Interface to be implemented by suggestion implementations.
@@ -126,6 +242,11 @@ interface AwesomeBar {
          * A callback to be executed when the suggestion was clicked by the user.
          */
         val onSuggestionClicked: (() -> Unit)?
+
+        /**
+         * A set of [Flag] values for this [Suggestion].
+         */
+        val flags: Set<Flag>
     }
 
     /**
@@ -162,7 +283,7 @@ interface AwesomeBar {
         val icon: Bitmap? = null,
         val indicatorIcon: Drawable? = null,
         val chips: List<Chip> = emptyList(),
-        val flags: Set<Flag> = emptySet(),
+        override val flags: Set<Flag> = emptySet(),
         override val onSuggestionClicked: (() -> Unit)? = null,
         val onChipClicked: ((Chip) -> Unit)? = null,
         val onRemovalClicked: (() -> Unit)? = null,
@@ -216,8 +337,8 @@ interface AwesomeBar {
      * @property name The full name of the stock.
      * @property index The stock index or exchange where the stock is listed (e.g., "NASDAQ", "NYSE").
      * @property lastPrice The ask price from the most recent quote for this ticker.
-     * @property currency The currency of the stock.
      * @property changePercToday The percentage change since the previous day.
+     * @property flags A set of [Flag] values for this [Suggestion].
      */
     data class StockSuggestion(
         override val provider: SuggestionProvider,
@@ -229,8 +350,39 @@ interface AwesomeBar {
         val name: String,
         val index: String,
         val lastPrice: String,
-        val currency: String,
-        val changePercToday: String,
+        val changePercToday: ChangePercent,
+        override val flags: Set<Flag> = emptySet(),
+    ) : SuggestionItem
+
+    /**
+     * [SportSuggestion] to be displayed by an [AwesomeBar] implementation for sport information.
+     *
+     * @property provider The provider this suggestion came from.
+     * @property id A unique ID (provider scope) identifying this [SportSuggestion].
+     * @property score A score used to rank suggestions of this provider against each other.
+     * @property onSuggestionClicked A callback to be executed when the [SportSuggestion] was clicked by the user.
+     * @property query The user input in the toolbar.
+     * @property sport The sport name.
+     * @property date The date of the event.
+     * @property status The status of the event.
+     * @property statusType The type of the status.
+     * @property homeTeam The home team information.
+     * @property awayTeam The away team information.
+     * @property flags A set of [Flag] values for this [Suggestion].
+     */
+    data class SportSuggestion(
+        override val provider: SuggestionProvider,
+        override val id: String = UUID.randomUUID().toString(),
+        override val score: Int = 0,
+        override val onSuggestionClicked: (() -> Unit)? = null,
+        val query: String,
+        val sport: String,
+        val date: SportSuggestionDate,
+        val status: SportSuggestionStatus,
+        val statusType: SportSuggestionStatusType,
+        val homeTeam: SportSuggestionTeam,
+        val awayTeam: SportSuggestionTeam,
+        override val flags: Set<Flag> = emptySet(),
     ) : SuggestionItem
 
     /**
@@ -249,6 +401,11 @@ interface AwesomeBar {
          * A header title for grouping the suggestions.
          **/
         fun groupTitle(): String? = null
+
+        /**
+         * Display the header title for grouping the suggestions.
+         **/
+        fun displayGroupTitle(): Boolean = true
 
         /**
          * Fired when the user starts interacting with the awesome bar by entering text in the toolbar.
@@ -271,7 +428,7 @@ interface AwesomeBar {
          * @param text The current user input in the toolbar.
          * @return A list of suggestions to be displayed by the [AwesomeBar].
          */
-        suspend fun onInputChanged(text: String): List<Suggestion>
+        suspend fun onInputChanged(text: String): List<SuggestionItem>
 
         /**
          * Fired when the user has cancelled their interaction with the awesome bar.
@@ -308,6 +465,7 @@ interface AwesomeBar {
      * in the AwesomeBar suggestions. Group having the highest integer value will have the highest priority.
      * @property title An optional title for this group. The title may be rendered by an AwesomeBar
      * implementation.
+     * @property displayTitle display the above title.
      * @property limit The maximum number of suggestions that will be shown in this group.
      * @property id A unique ID for this group (uses a generated UUID by default)
      */
@@ -315,6 +473,7 @@ interface AwesomeBar {
         val providers: List<SuggestionProvider>,
         var priority: Int = 0,
         val title: String? = null,
+        val displayTitle: Boolean = true,
         val limit: Int = Integer.MAX_VALUE,
         val id: String = UUID.randomUUID().toString(),
     )

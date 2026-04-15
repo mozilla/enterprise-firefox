@@ -35,7 +35,7 @@ async function testImmersiveView(isVerticalTabs) {
     "Chrome window has the aiwindow-immersive-view attribute"
   );
 
-  const askButton = win.document.getElementById("smartwindow-ask-button");
+  const askButton = win.document.getElementById("smartwindow-ask-button-inner");
   Assert.ok(askButton, "Ask button exists in the toolbar");
   Assert.ok(
     BrowserTestUtils.isHidden(askButton),
@@ -64,10 +64,12 @@ add_task(async function test_ask_button() {
       "Example url tab should be open"
     );
 
-    const askButton = win.document.getElementById("smartwindow-ask-button");
+    const askButton = win.document.getElementById(
+      "smartwindow-ask-button-inner"
+    );
     Assert.ok(askButton, "Ask button exists in the toolbar");
     Assert.ok(
-      !askButton.hidden,
+      BrowserTestUtils.isVisible(askButton),
       "Ask button is initially visible for AI Window"
     );
 
@@ -108,14 +110,14 @@ add_task(async function test_ask_button() {
 
     const sidebar = win.document.getElementById("ai-window-box");
     if (sidebar) {
-      Assert.ok(!sidebar.hidden, "AI Sidebar exists and is not hidden");
+      Assert.ok(!sidebar.collapsed, "AI Sidebar exists and is not hidden");
     }
     EventUtils.synthesizeMouseAtCenter(askButton, {}, win);
     Assert.ok(
       !askButton.classList.contains("sidebar-is-open"),
       "Ask button removed the sidebar-is-open class after second click"
     );
-    Assert.ok(sidebar.hidden, "AI Sidebar is hidden after second click");
+    Assert.ok(sidebar.collapsed, "AI Sidebar is hidden after second click");
 
     askButton.setAttribute("tabindex", "-1");
     askButton.focus();
@@ -138,7 +140,7 @@ add_task(async function test_ask_button() {
       !askButton.classList.contains("sidebar-is-open"),
       "Ask button removed the sidebar-is-open class after second tab enter"
     );
-    Assert.ok(sidebar.hidden, "AI Sidebar is hidden after second tab enter");
+    Assert.ok(sidebar.collapsed, "AI Sidebar is hidden after second tab enter");
     askButton.removeAttribute("tabindex");
   } finally {
     await BrowserTestUtils.closeWindow(win);
@@ -163,7 +165,9 @@ add_task(async function test_classic_window() {
   }
 
   try {
-    const askButton = win.document.getElementById("smartwindow-ask-button");
+    const askButton = win.document.getElementById(
+      "smartwindow-ask-button-inner"
+    );
     Assert.ok(
       BrowserTestUtils.isHidden(askButton),
       "Ask button is not visible in the toolbar for classic window"

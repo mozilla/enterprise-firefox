@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -211,15 +209,18 @@ ImageContainer::~ImageContainer() {
     const gfx::IntSize& aSize, gfx::SurfaceFormat aFormat, uint8_t*& aOutBuffer,
     SurfaceDescriptorBuffer& aSdBuffer, int32_t& aStride,
     const std::function<layers::MemoryOrShmem(uint32_t)>& aAllocate) {
-  aStride = ImageDataSerializer::ComputeRGBStride(aFormat, aSize.width);
-  size_t length = ImageDataSerializer::ComputeRGBBufferSize(aSize, aFormat);
+  auto stride = ImageDataSerializer::ComputeRGBStride(aFormat, aSize.width);
+  Maybe<uint32_t> length =
+      ImageDataSerializer::ComputeRGBBufferSize(aSize, aFormat);
 
-  if (aStride <= 0 || length == 0) {
+  if (stride.isNothing() || length.isNothing()) {
     return NS_ERROR_INVALID_ARG;
   }
 
+  aStride = stride.value();
+
   aSdBuffer.desc() = RGBDescriptor(aSize, aFormat);
-  aSdBuffer.data() = aAllocate(length);
+  aSdBuffer.data() = aAllocate(length.value());
 
   const layers::MemoryOrShmem& memOrShmem = aSdBuffer.data();
   switch (memOrShmem.type()) {
@@ -814,15 +815,15 @@ nsresult PlanarYCbCrImage::BuildSurfaceDescriptorBuffer(
                                            pdata->mCbCrStride, cbcrSize.height,
                                            yOffset, cbOffset, crOffset);
 
-  uint32_t bufferSize = ImageDataSerializer::ComputeYCbCrBufferSize(
+  Maybe<uint32_t> bufferSize = ImageDataSerializer::ComputeYCbCrBufferSize(
       pdata->mPictureRect, ySize, pdata->mYStride, cbcrSize, pdata->mCbCrStride,
       yOffset, cbOffset, crOffset, pdata->mColorDepth,
       pdata->mChromaSubsampling);
-  if (bufferSize == 0) {
+  if (bufferSize.isNothing()) {
     return NS_ERROR_FAILURE;
   }
 
-  aSdBuffer.data() = aAllocate(bufferSize);
+  aSdBuffer.data() = aAllocate(bufferSize.value());
 
   uint8_t* buffer = nullptr;
   const MemoryOrShmem& memOrShmem = aSdBuffer.data();
@@ -1078,7 +1079,6 @@ already_AddRefed<SourceSurface> NVImage::GetAsSourceSurface() {
 
   if (NS_WARN_IF(NS_FAILED(gfx::ConvertYCbCrToRGB(
           aData, format, size, mapping.GetData(), mapping.GetStride())))) {
-    MOZ_ASSERT_UNREACHABLE("Failed to convert YUV into RGB data");
     return nullptr;
   }
 

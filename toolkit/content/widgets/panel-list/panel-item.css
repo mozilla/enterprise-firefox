@@ -8,7 +8,7 @@
 }
 
 ::slotted(a) {
-  margin-inline-end: 12px;
+  margin-inline-end: var(--space-medium);
 }
 
 :host button {
@@ -30,8 +30,8 @@ button {
   position: relative;
   display: block;
   font: inherit;
-  padding: 4px 8px;
-  padding-inline-start: 32px;
+  padding: var(--space-xsmall) var(--space-small);
+  padding-inline-start: var(--space-xxlarge);
   text-align: start;
   width: 100%;
 }
@@ -42,15 +42,23 @@ button:-moz-locale-dir(rtl) {
 }
 
 :host([badged]) button::after {
+  --panel-item-badge-size: 5px;
+  --panel-item-badge-background-color: var(--color-accent-primary);
+  --panel-item-badge-inset-block-start: var(--dimension-4);
+  --panel-item-badge-inset-inline-start: var(--dimension-24);
+
   content: "";
   display: block;
-  width: 5px;
-  height: 5px;
+  /* The size of the dot is in between dimension token sizes. */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  width: var(--panel-item-badge-size);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  height: var(--panel-item-badge-size);
   border-radius: var(--border-radius-circle);
-  background-color: var(--color-accent-primary);
+  background-color: var(--panel-item-badge-background-color);
   position: absolute;
-  top: 4px;
-  inset-inline-start: 24px;
+  inset-block-start: var(--panel-item-badge-inset-block-start);
+  inset-inline-start: var(--panel-item-badge-inset-inline-start);
 }
 
 button:enabled:hover {
@@ -68,7 +76,8 @@ button:focus-visible {
 }
 
 button:disabled {
-  opacity: 0.4;
+  opacity: var(--button-opacity-disabled);
+  color: var(--button-text-color-disabled);
 }
 
 .submenu-container {

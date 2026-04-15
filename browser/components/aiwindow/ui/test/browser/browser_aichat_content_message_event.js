@@ -244,3 +244,109 @@ add_task(async function test_messageEvent_clear_conversation() {
 
   await SpecialPowers.popPrefEnv();
 });
+
+/**
+ * Test that a user message with contextMentions renders website chips.
+ */
+add_task(async function test_messageEvent_user_context_mentions() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.smartwindow.enabled", true]],
+  });
+
+  await BrowserTestUtils.withNewTab("about:aichatcontent", async browser => {
+    const actor =
+      browser.browsingContext.currentWindowGlobal.getActor("AIChatContent");
+
+    await actor.dispatchMessageToChatContent({
+      role: "user",
+      convId: "conv1",
+      ordinal: 0,
+      content: {
+        body: "Summarize this page",
+        contextMentions: [
+          {
+            url: "https://example.com",
+            label: "Example",
+            iconSrc: "chrome://global/skin/icons/defaultFavicon.svg",
+          },
+        ],
+      },
+    });
+
+    await SpecialPowers.spawn(browser, [], async () => {
+      const chatContent = content.document.querySelector("ai-chat-content");
+
+      let chipContainer;
+      await ContentTaskUtils.waitForMutationCondition(
+        chatContent.shadowRoot,
+        { childList: true, subtree: true },
+        () => {
+          chipContainer = chatContent.shadowRoot.querySelector(
+            "website-chip-container"
+          );
+          return chipContainer;
+        }
+      );
+      Assert.ok(chipContainer, "website-chip-container should be rendered");
+
+      let chip;
+      await ContentTaskUtils.waitForMutationCondition(
+        chipContainer.shadowRoot,
+        { childList: true, subtree: true },
+        () => {
+          chip = chipContainer.shadowRoot?.querySelector("ai-website-chip");
+          return chip;
+        }
+      );
+      Assert.ok(chip, "ai-website-chip should be rendered");
+
+      const chipJS = chip.wrappedJSObject || chip;
+      Assert.equal(chipJS.label, "Example", "Chip should have correct label");
+      Assert.equal(
+        chipJS.href,
+        "https://example.com",
+        "Chip should have correct href"
+      );
+    });
+  });
+
+  await SpecialPowers.popPrefEnv();
+});
+
+/**
+ * Test that a user message without contextMentions renders no website chips.
+ */
+add_task(async function test_messageEvent_user_no_context_mentions() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.smartwindow.enabled", true]],
+  });
+
+  await BrowserTestUtils.withNewTab("about:aichatcontent", async browser => {
+    const actor =
+      browser.browsingContext.currentWindowGlobal.getActor("AIChatContent");
+
+    await actor.dispatchMessageToChatContent({
+      role: "user",
+      convId: "conv1",
+      ordinal: 0,
+      content: { body: "Hello" },
+    });
+
+    await SpecialPowers.spawn(browser, [], async () => {
+      const chatContent = content.document.querySelector("ai-chat-content");
+
+      await ContentTaskUtils.waitForMutationCondition(
+        chatContent.shadowRoot,
+        { childList: true, subtree: true },
+        () => chatContent.shadowRoot.querySelector("ai-chat-message")
+      );
+
+      Assert.ok(
+        !chatContent.shadowRoot.querySelector("website-chip-container"),
+        "website-chip-container should not be rendered without contextMentions"
+      );
+    });
+  });
+
+  await SpecialPowers.popPrefEnv();
+});

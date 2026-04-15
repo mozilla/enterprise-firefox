@@ -18,6 +18,8 @@ internal object SearchReducer {
             is SearchAction.RefreshSearchEnginesAction -> state // This is handled in [RegionMiddleware].
             is SearchAction.ApplicationSearchEnginesLoaded -> state.setApplicationEngines(action)
             is SearchAction.SetSearchEnginesAction -> state.setSearchEngines(action)
+            is SearchAction.SearchConfigurationAvailabilityChanged ->
+                state.setNewSearchConfigurationAvailability(action)
             is SearchAction.SetRegionAction -> state.setRegion(action)
             is SearchAction.UpdateCustomSearchEngineAction -> state.updateCustomSearchEngine(action)
             is SearchAction.RemoveCustomSearchEngineAction -> state.removeSearchEngine(action)
@@ -58,10 +60,20 @@ private fun BrowserState.setSearchEngines(
             additionalSearchEngines = action.additionalSearchEngines,
             additionalAvailableSearchEngines = action.additionalAvailableSearchEngines,
             regionSearchEnginesOrder = action.regionSearchEnginesOrder,
+            searchEnvironmentId = action.searchEnginesConfigurationId,
+            isNewSearchConfigurationAvailable = false,
             complete = true,
         ),
     )
 }
+
+private fun BrowserState.setNewSearchConfigurationAvailability(
+    action: SearchAction.SearchConfigurationAvailabilityChanged,
+) = copy(
+    search = search.copy(
+        isNewSearchConfigurationAvailable = action.isNewSearchConfigurationAvailable,
+    ),
+)
 
 private fun BrowserState.setRegion(
     action: SearchAction.SetRegionAction,

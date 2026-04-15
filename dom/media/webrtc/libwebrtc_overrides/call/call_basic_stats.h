@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -27,6 +25,8 @@ struct CallBasicStats {
   std::optional<int64_t> ccfb_messages_received = std::nullopt;
   flat_map<uint32_t, SentCongestionControllerFeedbackStats>
       sent_ccfb_stats_per_ssrc;
+  flat_map<uint32_t, ReceivedCongestionControlFeedbackStats>
+      received_ccfb_stats_per_ssrc;
 };
 
 }  // namespace webrtc

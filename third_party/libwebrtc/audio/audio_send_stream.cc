@@ -10,6 +10,7 @@
 
 #include "audio/audio_send_stream.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -508,7 +509,8 @@ uint32_t AudioSendStream::OnBitrateUpdated(BitrateAllocationUpdate update) {
   std::optional<TargetAudioBitrateConstraints> constraints =
       GetMinMaxBitrateConstraints();
   if (constraints) {
-    update.target_bitrate.Clamp(constraints->min, constraints->max);
+    update.target_bitrate =
+        std::clamp(update.target_bitrate, constraints->min, constraints->max);
   }
   channel_send_->OnBitrateAllocation(update);
   // The amount of audio protection is not exposed by the encoder, hence

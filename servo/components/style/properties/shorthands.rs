@@ -1858,6 +1858,84 @@ pub mod view_timeline {
     }
 }
 
+#[cfg(feature = "gecko")]
+pub mod animation_range {
+    pub use crate::properties::generated::shorthands::animation_range::*;
+
+    use super::*;
+    use crate::properties::longhands::{animation_range_end, animation_range_start};
+    use crate::values::specified::LengthPercentage;
+
+    pub fn parse_value<'i>(
+        context: &ParserContext,
+        input: &mut Parser<'i, '_>,
+    ) -> Result<Longhands, ParseError<'i>> {
+        let mut starts = Vec::with_capacity(1);
+        let mut ends = Vec::with_capacity(1);
+        input.parse_comma_separated(|input| {
+            let start = animation_range_start::single_value::parse(context, input)?;
+            let end = input
+                .try_parse(|i| animation_range_end::single_value::parse(context, i))
+                .unwrap_or_else(|_| {
+                    use crate::values::generics::animation::AnimationRangeEnd;
+                    use crate::values::specified::animation::{
+                        AnimationRangeValue, TimelineRangeName,
+                    };
+
+                    // If `<animation-range-start>` includes a timeline range name,
+                    // `animation-range-end` is set to that same timeline range name and 100%.
+                    // Otherwise, any omitted longhand is set to its initial value.
+                    let name = if start.0.name.is_none() {
+                        TimelineRangeName::Normal
+                    } else {
+                        start.0.name
+                    };
+                    AnimationRangeEnd(AnimationRangeValue::new(
+                        name,
+                        LengthPercentage::hundred_percent(),
+                    ))
+                });
+
+            starts.push(start);
+            ends.push(end);
+            Ok(())
+        })?;
+
+        Ok(expanded! {
+            animation_range_start: animation_range_start::SpecifiedValue(starts.into()),
+            animation_range_end: animation_range_end::SpecifiedValue(ends.into()),
+        })
+    }
+
+    impl<'a> ToCss for LonghandsToSerialize<'a> {
+        fn to_css<W>(&self, dest: &mut CssWriter<W>) -> fmt::Result
+        where
+            W: fmt::Write,
+        {
+            use crate::values::specified::length::EqualsPercentage;
+            let starts = &self.animation_range_start.0;
+            let ends = &self.animation_range_end.0;
+            if starts.len() != ends.len() {
+                return Ok(());
+            }
+
+            for (i, (start, end)) in std::iter::zip(starts.iter(), ends.iter()).enumerate() {
+                if i != 0 {
+                    dest.write_str(", ")?;
+                }
+                start.to_css(dest)?;
+                let can_omit_end = (start.0.name == end.0.name && end.0.lp.equals_percentage(1.0))
+                    || (start.0.name.is_none() && end.0.name.is_normal());
+                if !can_omit_end {
+                    dest.write_char(' ')?;
+                    end.to_css(dest)?;
+                }
+            }
+            Ok(())
+        }
+    }
+}
+
 pub mod transition {
     pub use crate::properties::generated::shorthands::transition::*;
 
@@ -3053,6 +3131,7 @@ pub mod font_synthesis {
     }
 }
 
+#[cfg(feature = "gecko")]
 pub mod text_box {
     pub use crate::properties::generated::shorthands::text_box::*;
 
@@ -3246,8 +3325,8 @@ pub mod animation {
     use super::*;
     use crate::properties::longhands::{
         animation_delay, animation_direction, animation_duration, animation_fill_mode,
-        animation_iteration_count, animation_name, animation_play_state, animation_timeline,
-        animation_timing_function,
+        animation_iteration_count, animation_name, animation_play_state, animation_range_end,
+        animation_range_start, animation_timeline, animation_timing_function,
     };
 
     pub fn parse_value<'i, 't>(
@@ -3382,6 +3461,15 @@ pub mod animation {
             animation_timeline: animation_timeline::SpecifiedValue(
                 vec![animation_timeline::single_value::get_initial_specified_value()].into()
             ),
+            // The animation-range properties are reset-only sub-properties of the animation
+            // shorthand.
+            // https://drafts.csswg.org/scroll-animations-1/#named-range-animation-declaration
+            animation_range_start: animation_range_start::SpecifiedValue(
+                vec![animation_range_start::single_value::get_initial_specified_value()].into()
+            ),
+            animation_range_end: animation_range_end::SpecifiedValue(
+                vec![animation_range_end::single_value::get_initial_specified_value()].into()
+            ),
         })
     }
 
@@ -3424,9 +3512,23 @@ pub mod animation {
                 return Ok(());
             }
 
+            // We don't serialize animation-timeline, animation-range-start and animation-range-end
+            // if any of them are not the initial value.
             if self
                 .animation_timeline
                 .map_or(false, |v| v.0.len() != 1 || !v.0[0].is_auto())
+            {
+                return Ok(());
+            }
+            if self
+                .animation_range_start
+                .map_or(false, |v| v.0.len() != 1 || !v.0[0].0.is_normal())
+            {
+                return Ok(());
+            }
+            if self
+                .animation_range_end
+                .map_or(false, |v| v.0.len() != 1 || !v.0[0].0.is_normal())
             {
                 return Ok(());
             }

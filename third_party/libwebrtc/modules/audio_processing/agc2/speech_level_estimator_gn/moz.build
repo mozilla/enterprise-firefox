@@ -34,8 +34,13 @@ LOCAL_INCLUDES += [
     "/tools/profiler/public"
 ]
 
+SOURCES += [
+    "/third_party/libwebrtc/modules/audio_processing/agc2/speech_level_estimator_experimental_impl.cc"
+]
+
 UNIFIED_SOURCES += [
-    "/third_party/libwebrtc/modules/audio_processing/agc2/speech_level_estimator.cc"
+    "/third_party/libwebrtc/modules/audio_processing/agc2/speech_level_estimator.cc",
+    "/third_party/libwebrtc/modules/audio_processing/agc2/speech_level_estimator_impl.cc"
 ]
 
 if not CONFIG["MOZ_DEBUG"]:

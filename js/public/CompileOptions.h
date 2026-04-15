@@ -821,14 +821,7 @@ class JS_PUBLIC_API InstantiateOptions {
   //
   // This can be used when instantiation is performed as separate step than
   // compile-to-stencil, and CompileOptions isn't available there.
-  void assertDefault() const {
-    MOZ_ASSERT(skipFilenameValidation == false);
-    MOZ_ASSERT(hideScriptFromDebugger == false);
-    MOZ_ASSERT(deferDebugMetadata == false);
-    MOZ_ASSERT(eagerDelazificationStrategy_ ==
-               DelazificationOption::OnDemandOnly);
-    MOZ_ASSERT(eagerBaselineStrategy_ == EagerBaselineOption::None);
-  }
+  void assertDefault() const;
 
   // Assert that all fields have values compatible with the default value.
   //

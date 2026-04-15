@@ -2,6 +2,17 @@ const { TabGroupTestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/TabGroupTestUtils.sys.mjs"
 );
 
+async function expectFocusAfterKey(expectedActiveElement, keyName, keyOptions) {
+  let focused = BrowserTestUtils.waitForEvent(expectedActiveElement, "focus");
+  EventUtils.synthesizeKey(keyName, keyOptions);
+  await focused;
+  Assert.equal(
+    document.activeElement,
+    expectedActiveElement,
+    `After ${keyName}${keyOptions?.shiftKey ? " (Shift)" : ""}, the expected element has focus`
+  );
+}
+
 function updateTabContextMenu(tab) {
   let menu = document.getElementById("tabContextMenu");
   if (!tab) {
@@ -279,7 +290,7 @@ async function dragAndDrop(
 
   if (destWindow != origWindow) {
     // Make sure that both tab1 and tab2 are visible
-    origWindow.focus();
+    await SimpleTest.promiseFocus(origWindow);
     origWindow.moveTo(rect.left, rect.top + rect.height * 3);
   }
 

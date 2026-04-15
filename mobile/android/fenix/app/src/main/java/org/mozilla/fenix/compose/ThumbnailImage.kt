@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -47,7 +48,7 @@ private val FallbackIconSize = 36.dp
 /**
  * Thumbnail belonging to a [TabSessionState]. Asynchronously fetches the bitmap from storage.
  *
- * @param tab The [TabSessionState] of the thumbnail to fetch.
+ * @param tabThumbnailImageData The image data of the thumbnail to fetch.
  * @param thumbnailSizePx The requested size of the thumbnail in pixels.
  * @param alignment [Alignment] used to draw the image content.
  * @param modifier [Modifier] used to draw the image content.
@@ -56,16 +57,16 @@ private val FallbackIconSize = 36.dp
  */
 @Composable
 fun ThumbnailImage(
-    tab: TabSessionState,
+    tabThumbnailImageData: TabThumbnailImageData,
     thumbnailSizePx: Int,
     alignment: Alignment,
     modifier: Modifier = Modifier,
     contentDescription: String? = null,
 ) {
     val request = ImageLoadRequest(
-        id = tab.id,
+        id = tabThumbnailImageData.tabId,
         size = thumbnailSizePx,
-        isPrivate = tab.content.private,
+        isPrivate = tabThumbnailImageData.isPrivate,
     )
 
     ThumbnailImage(
@@ -74,7 +75,8 @@ fun ThumbnailImage(
         alignment = alignment,
         fallbackContent = {
             FallbackContent(
-                tab = tab,
+                tabUrl = tabThumbnailImageData.tabUrl,
+                icon = tabThumbnailImageData.tabIcon,
                 modifier = modifier,
                 contentDescription = contentDescription,
             )
@@ -100,7 +102,16 @@ fun ThumbnailImage(
     fallbackContent: @Composable () -> Unit,
 ) {
     if (inComposePreview) {
-        Box(modifier = modifier)
+        Box(modifier = modifier, contentAlignment = Alignment.Center) {
+            Image(
+                painter = painterResource(id = R.drawable.ic_japan_onboarding_favicon),
+                contentDescription = null,
+                modifier = modifier
+                    .size(FallbackIconSize),
+                contentScale = contentScale,
+                alignment = alignment,
+            )
+        }
     } else {
         trace(TabsTrayTraceTag.TRACE_THUMBNAIL_IMAGE_CREATION) {
             var state by remember { mutableStateOf(ThumbnailImageState(null, false)) }
@@ -153,14 +164,16 @@ fun ThumbnailImage(
  *
  * If a favicon is available through [tab], this icon will be used. Otherwise, a new favicon will be fetched.
  *
- * @param tab [TabSessionState] containing the tab data and potential fallback favicon.
+ * @param tabUrl The tab's URL
+ * @param icon Icon used for fallback content
  * @param modifier [Modifier] used to draw the image content.
  * @param contentDescription Optional text used by accessibility services to describe what this content
  * represents.
  */
 @Composable
 private fun FallbackContent(
-    tab: TabSessionState,
+    tabUrl: String,
+    icon: ImageBitmap?,
     modifier: Modifier = Modifier,
     contentDescription: String? = null,
 ) {
@@ -170,7 +183,6 @@ private fun FallbackContent(
             .fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
-        val icon = tab.content.icon?.asImageBitmap()
         if (icon != null) {
             LaunchedEffect(icon) {
                 icon.prepareToDraw()
@@ -184,7 +196,7 @@ private fun FallbackContent(
                     .clip(RoundedCornerShape(8.dp)),
                 contentScale = ContentScale.FillWidth,
             )
-        } else if (tab.content.url == ABOUT_HOME_URL) {
+        } else if (tabUrl == ABOUT_HOME_URL) {
             Image(
                 painter = painterResource(id = R.drawable.ic_firefox),
                 contentDescription = null,
@@ -194,7 +206,7 @@ private fun FallbackContent(
             )
         } else {
             Favicon(
-                url = tab.content.url,
+                url = tabUrl,
                 size = FallbackIconSize,
             )
         }
@@ -226,7 +238,10 @@ private fun ThumbnailImagePreview() {
             )
 
             ThumbnailImage(
-                tab = createTab(url = "www.mozilla.com", title = "Mozilla"),
+                tabThumbnailImageData = createTab(
+                    url = "www.mozilla.com",
+                    title = "Mozilla",
+                ).thumbnailImageData(),
                 thumbnailSizePx = 100,
                 alignment = Alignment.Center,
                 modifier = Modifier
@@ -235,7 +250,8 @@ private fun ThumbnailImagePreview() {
             )
 
             FallbackContent(
-                tab = createTab(url = ABOUT_HOME_URL, title = "Mozilla"),
+                tabUrl = ABOUT_HOME_URL,
+                icon = null,
                 modifier = Modifier.size(50.dp),
             )
         }

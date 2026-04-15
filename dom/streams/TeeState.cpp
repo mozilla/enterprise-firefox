@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -34,6 +32,24 @@ TeeState::TeeState(ReadableStream* aStream, bool aCloneForBranch2)
   mozilla::HoldJSObjects(this);
   MOZ_RELEASE_ASSERT(!aCloneForBranch2,
                      "cloneForBranch2 path is not implemented.");
+}
+
+void TeeState::GetReason1(JSContext* aCx, JS::MutableHandle<JS::Value> aReason,
+                          ErrorResult& aRv) const {
+  aReason.set(mReason1);
+  if (!JS_WrapValue(aCx, aReason)) {
+    aReason.setUndefined();
+    aRv.StealExceptionFromJSContext(aCx);
+  }
+}
+
+void TeeState::GetReason2(JSContext* aCx, JS::MutableHandle<JS::Value> aReason,
+                          ErrorResult& aRv) const {
+  aReason.set(mReason2);
+  if (!JS_WrapValue(aCx, aReason)) {
+    aReason.setUndefined();
+    aRv.StealExceptionFromJSContext(aCx);
+  }
 }
 
 already_AddRefed<TeeState> TeeState::Create(ReadableStream* aStream,

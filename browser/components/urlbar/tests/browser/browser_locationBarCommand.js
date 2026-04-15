@@ -274,7 +274,7 @@ add_task(async function changing_ref_does_not_reload() {
   for (let protocol of ["http://", "https://"]) {
     let url = protocol + "example.com/#ref";
     await BrowserTestUtils.withNewTab({ gBrowser, url }, async function () {
-      await ContentTask.spawn(gBrowser.selectedBrowser, null, () => {
+      await SpecialPowers.spawn(gBrowser.selectedBrowser, [], () => {
         let link = content.document.createElement("a");
         link.textContent = "Click me";
         link.name = "refmod";
@@ -385,7 +385,7 @@ function promiseCheckChildNoFocusedElement(browser) {
     return null;
   }
 
-  return ContentTask.spawn(browser, null, async function () {
+  return SpecialPowers.spawn(browser, [], async function () {
     Assert.equal(
       Services.focus.focusedElement,
       null,

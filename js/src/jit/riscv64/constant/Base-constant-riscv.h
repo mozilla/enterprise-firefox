@@ -586,9 +586,8 @@ class InstructionBase {
   inline int32_t InstructionOpcodeType() const {
     if (IsShortInstruction()) {
       return InstructionBits() & kRvcOpcodeMask;
-    } else {
-      return InstructionBits() & kBaseOpcodeMask;
     }
+    return InstructionBits() & kBaseOpcodeMask;
   }
 
   // Get the encoding type of the instruction.
@@ -729,9 +728,8 @@ class InstructionGetters : public T {
                 this->BaseOpcode() == MISC_MEM));
     if (is_pred) {
       return this->Bits(kPredOrderShift + kMemOrderBits - 1, kPredOrderShift);
-    } else {
-      return this->Bits(kSuccOrderShift + kMemOrderBits - 1, kSuccOrderShift);
     }
+    return this->Bits(kSuccOrderShift + kMemOrderBits - 1, kSuccOrderShift);
   }
 
   inline int Imm12Value() const {
@@ -933,8 +931,9 @@ class InstructionGetters : public T {
   inline int vl_vs_width() {
     int width = 0;
     if ((this->InstructionBits() & kBaseOpcodeMask) != LOAD_FP &&
-        (this->InstructionBits() & kBaseOpcodeMask) != STORE_FP)
+        (this->InstructionBits() & kBaseOpcodeMask) != STORE_FP) {
       return -1;
+    }
     switch (this->InstructionBits() & (kRvvWidthMask | kRvvMewMask)) {
       case 0x0:
         width = 8;

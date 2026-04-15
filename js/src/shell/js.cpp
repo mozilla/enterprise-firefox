@@ -892,7 +892,7 @@ bool shell::dumpEntrainedVariables = false;
 bool shell::OOM_printAllocationCount = false;
 #endif
 
-MOZ_RUNINIT UniqueChars shell::processWideModuleLoadPath;
+constinit UniqueChars shell::processWideModuleLoadPath;
 
 static bool SetTimeoutValue(JSContext* cx, double t);
 
@@ -7573,9 +7573,10 @@ static bool DumpObjectWrappers(JSContext* cx, unsigned argc, Value* vp) {
     bool printedZoneInfo = false;
     for (CompartmentsInZoneIter comp(zone); !comp.done(); comp.next()) {
       bool printedCompartmentInfo = false;
-      for (Compartment::ObjectWrapperEnum e(comp); !e.empty(); e.popFront()) {
-        JSObject* wrapper = e.front().value().unbarrieredGet();
-        JSObject* wrapped = e.front().key();
+      for (auto iter = comp->objectWrapperMappings(); !iter.done();
+           iter.next()) {
+        JSObject* wrapper = iter.get().value().unbarrieredGet();
+        JSObject* wrapped = iter.get().key();
         if (!printedHeader) {
           fprintf(stderr, "Cross-compartment object wrappers:\n");
           printedHeader = true;

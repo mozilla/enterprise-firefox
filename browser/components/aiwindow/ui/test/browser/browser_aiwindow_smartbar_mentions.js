@@ -66,82 +66,9 @@ add_setup(async function () {
   });
 });
 
-/**
- * Wait for mentions to be open.
- *
- * @param {MozBrowser} browser - The browser element
- * @returns {Promise<boolean>} True if mentions are open
- */
-async function waitForMentionsOpen(browser) {
-  return SpecialPowers.spawn(browser, [], async () => {
-    const aiWindowElement = content.document.querySelector("ai-window");
-    const smartbar = aiWindowElement.shadowRoot.querySelector(
-      "#ai-window-smartbar"
-    );
-    const editor = smartbar.querySelector("moz-multiline-editor");
-
-    await ContentTaskUtils.waitForCondition(
-      () => editor.isHandlingMentions,
-      "Wait for mentions to open"
-    );
-
-    return editor.isHandlingMentions;
-  });
-}
-
-/**
- * Wait for panel list to be visible.
- *
- * @param {MozBrowser} browser - The browser element
- * @returns {Promise<boolean>} True if panel is visible
- */
-async function waitForPanelOpen(browser) {
-  return SpecialPowers.spawn(browser, [], async () => {
-    const aiWindowElement = content.document.querySelector("ai-window");
-    const smartbar = aiWindowElement.shadowRoot.querySelector(
-      "#ai-window-smartbar"
-    );
-    const panelList = smartbar.querySelector("smartwindow-panel-list");
-    const panel = panelList.shadowRoot.querySelector("panel-list");
-
-    await ContentTaskUtils.waitForMutationCondition(
-      panel,
-      { attributes: true, attributeFilter: ["open"] },
-      () => panel.hasAttribute("open")
-    );
-
-    return panel.hasAttribute("open");
-  });
-}
-
-/**
- * Wait for a mention to be inserted.
- *
- * @param {MozBrowser} browser - The browser element
- * @returns {Promise<boolean>} True if the mention exists
- */
-async function waitForMentionInserted(browser) {
-  return SpecialPowers.spawn(browser, [], async () => {
-    const aiWindowElement = content.document.querySelector("ai-window");
-    const smartbar = aiWindowElement.shadowRoot.querySelector(
-      "#ai-window-smartbar"
-    );
-    const editor = smartbar.querySelector("moz-multiline-editor");
-
-    await ContentTaskUtils.waitForMutationCondition(
-      editor.shadowRoot,
-      { childList: true, subtree: true },
-      () => editor.shadowRoot.querySelector("ai-website-chip") !== null
-    );
-
-    return !!editor.shadowRoot.querySelector("ai-website-chip");
-  });
-}
-
 add_task(async function test_mentions_trigger_zero_prefix() {
   const win = await openAIWindow();
   const browser = win.gBrowser.selectedBrowser;
-  await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
 
   const mentionsOpen = waitForMentionsOpen(browser);
   await typeInSmartbar(browser, "@");
@@ -158,7 +85,6 @@ add_task(async function test_mentions_trigger_zero_prefix() {
 add_task(async function test_mentions_trigger_after_text() {
   const win = await openAIWindow();
   const browser = win.gBrowser.selectedBrowser;
-  await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
 
   const mentionsOpen = waitForMentionsOpen(browser);
   await typeInSmartbar(browser, "test @");
@@ -175,9 +101,8 @@ add_task(async function test_mentions_trigger_after_text() {
 add_task(async function test_mentions_suggestions_panel_shows() {
   const win = await openAIWindow();
   const browser = win.gBrowser.selectedBrowser;
-  await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
 
-  const panelVisible = waitForPanelOpen(browser);
+  const panelVisible = waitForMentionsOpen(browser);
   await typeInSmartbar(browser, "@");
   await panelVisible;
 
@@ -192,7 +117,6 @@ add_task(async function test_mentions_suggestions_panel_shows() {
 add_task(async function test_mentions_insert_on_click() {
   const win = await openAIWindow();
   const browser = win.gBrowser.selectedBrowser;
-  await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
 
   const waitMention = waitForMentionInserted(browser);
   await typeInSmartbar(browser, "@");
@@ -222,24 +146,9 @@ add_task(async function test_mentions_insert_on_click() {
 add_task(async function test_mentions_insert_on_enter() {
   const win = await openAIWindow();
   const browser = win.gBrowser.selectedBrowser;
-  await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
 
-  const waitPanel = SpecialPowers.spawn(browser, [], async () => {
-    const aiWindowElement = content.document.querySelector("ai-window");
-    const smartbar = aiWindowElement.shadowRoot.querySelector(
-      "#ai-window-smartbar"
-    );
-    const panelList = smartbar.querySelector("smartwindow-panel-list");
-    const panel = panelList.shadowRoot.querySelector("panel-list");
-
-    await ContentTaskUtils.waitForMutationCondition(
-      panel,
-      { childList: true, subtree: true },
-      () => panel.querySelector("panel-item:not(.panel-section-header)")
-    );
-  });
   await typeInSmartbar(browser, "@");
-  await waitPanel;
+  await waitForMentionsOpen(browser);
 
   await BrowserTestUtils.synthesizeKey("KEY_ArrowDown", {}, browser);
   await BrowserTestUtils.synthesizeKey("KEY_Enter", {}, browser);
@@ -253,7 +162,6 @@ add_task(async function test_mentions_insert_from_context_button() {
   const win = await openAIWindow();
   const browser = win.gBrowser.selectedBrowser;
 
-  await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
   await SpecialPowers.spawn(browser, [], async () => {
     const aiWindowElement = content.document.querySelector("ai-window");
     const smartbar = aiWindowElement.shadowRoot.querySelector(
@@ -316,9 +224,8 @@ add_task(async function test_panel_shows_unified_group() {
   const win = await openAIWindow();
   const browser = win.gBrowser.selectedBrowser;
 
-  await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
   await typeInSmartbar(browser, "@");
-  await waitForPanelOpen(browser);
+  await waitForMentionsOpen(browser);
 
   const groupInfo = await SpecialPowers.spawn(browser, [], async () => {
     const aiWindowElement = content.document.querySelector("ai-window");
@@ -386,9 +293,8 @@ add_task(async function test_deduplication_by_url() {
   const win = await openAIWindow();
   const browser = win.gBrowser.selectedBrowser;
 
-  await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
   await typeInSmartbar(browser, "@");
-  await waitForPanelOpen(browser);
+  await waitForMentionsOpen(browser);
 
   const itemInfo = await SpecialPowers.spawn(browser, [], async () => {
     const aiWindowElement = content.document.querySelector("ai-window");
@@ -456,9 +362,8 @@ add_task(async function test_maxResults_total_limit() {
   const win = await openAIWindow();
   const browser = win.gBrowser.selectedBrowser;
 
-  await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
   await typeInSmartbar(browser, "@");
-  await waitForPanelOpen(browser);
+  await waitForMentionsOpen(browser);
 
   const itemInfo = await SpecialPowers.spawn(browser, [], async () => {
     const aiWindowElement = content.document.querySelector("ai-window");
@@ -491,8 +396,6 @@ add_task(async function test_maxResults_total_limit() {
 add_task(async function test_default_context_chip_sidebar_mode() {
   const win = await openAIWindow();
   const browser = win.gBrowser.selectedBrowser;
-
-  await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
 
   await SpecialPowers.spawn(browser, [], async () => {
     const aiWindowElement = content.document.querySelector("ai-window");
@@ -529,8 +432,6 @@ add_task(async function test_no_default_context_chip_fullpage_mode() {
   const win = await openAIWindow();
   const browser = win.gBrowser.selectedBrowser;
 
-  await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
-
   await SpecialPowers.spawn(browser, [], async () => {
     const aiWindowElement = content.document.querySelector("ai-window");
     const smartbar = aiWindowElement.shadowRoot.querySelector(
@@ -553,8 +454,6 @@ add_task(async function test_no_default_context_chip_fullpage_mode() {
 add_task(async function test_context_mentions_added_smartbar_header_fullpage() {
   const win = await openAIWindow();
   const browser = win.gBrowser.selectedBrowser;
-
-  await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
 
   await SpecialPowers.spawn(browser, [], async () => {
     const aiWindowElement = content.document.querySelector("ai-window");
@@ -592,11 +491,9 @@ add_task(async function test_context_mentions_added_smartbar_header_fullpage() {
 });
 
 add_task(async function test_context_mentions_added_smartbar_header_sidebar() {
-  const win = await openAIWindow();
-  AIWindowUI.toggleSidebar(win);
-  const browser = win.document.getElementById("ai-window-browser");
+  const { win, sidebarBrowser } = await openAIWindowWithSidebar();
 
-  await SpecialPowers.spawn(browser, [], async () => {
+  await SpecialPowers.spawn(sidebarBrowser, [], async () => {
     const smartbar = await ContentTaskUtils.waitForCondition(() => {
       const aiWindowElement = content.document.querySelector("ai-window");
       return aiWindowElement?.shadowRoot?.querySelector("#ai-window-smartbar");
@@ -641,8 +538,6 @@ add_task(
     const win = await openAIWindow();
     const browser = win.gBrowser.selectedBrowser;
 
-    await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
-
     await SpecialPowers.spawn(browser, [], async () => {
       const aiWindowElement = content.document.querySelector("ai-window");
       const smartbar = aiWindowElement.shadowRoot.querySelector(
@@ -678,8 +573,6 @@ add_task(
   async function test_context_mentions_can_be_removed_from_smartbar_header() {
     const win = await openAIWindow();
     const browser = win.gBrowser.selectedBrowser;
-
-    await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
 
     await SpecialPowers.spawn(browser, [], async () => {
       const aiWindowElement = content.document.querySelector("ai-window");
@@ -717,6 +610,155 @@ add_task(
         "Context mention should be removed from smartbar header"
       );
     });
+
+    await BrowserTestUtils.closeWindow(win);
+  }
+);
+
+add_task(async function test_suggestions_closes_when_mentions_panel_opens() {
+  const win = await openAIWindow();
+  const browser = win.gBrowser.selectedBrowser;
+
+  await promiseSmartbarSuggestionsOpen(browser, () =>
+    typeInSmartbar(browser, "test")
+  );
+
+  await typeInSmartbar(browser, " @");
+  await waitForMentionsOpen(browser);
+
+  await promiseSmartbarSuggestionsClose(browser);
+
+  await BrowserTestUtils.closeWindow(win);
+});
+
+add_task(
+  async function test_suggestions_reopens_after_mentions_trigger_removed() {
+    const win = await openAIWindow();
+    const browser = win.gBrowser.selectedBrowser;
+
+    await typeInSmartbar(browser, "test @");
+    await waitForMentionsOpen(browser);
+
+    await promiseSmartbarSuggestionsClose(browser);
+
+    await promiseSmartbarSuggestionsOpen(browser, async () => {
+      await BrowserTestUtils.synthesizeKey("KEY_Backspace", {}, browser);
+    });
+
+    await BrowserTestUtils.closeWindow(win);
+  }
+);
+
+add_task(async function test_suggestions_hidden_when_inline_mentions_exists() {
+  const win = await openAIWindow();
+  const browser = win.gBrowser.selectedBrowser;
+
+  await typeInSmartbar(browser, "@");
+  await waitForMentionsOpen(browser);
+
+  await SpecialPowers.spawn(browser, [], async () => {
+    const aiWindowElement = content.document.querySelector("ai-window");
+    const smartbar = aiWindowElement.shadowRoot.querySelector(
+      "#ai-window-smartbar"
+    );
+    const panelList = smartbar.querySelector("smartwindow-panel-list");
+    const panel = panelList.shadowRoot.querySelector("panel-list");
+    const firstItem = panel.querySelector(
+      "panel-item:not(.panel-section-header)"
+    );
+    firstItem.click();
+  });
+
+  await waitForMentionInserted(browser);
+  await typeInSmartbar(browser, " test query");
+
+  await promiseSmartbarSuggestionsClose(browser);
+
+  await BrowserTestUtils.closeWindow(win);
+});
+
+add_task(async function test_suggestions_show_after_inline_mentions_removed() {
+  const win = await openAIWindow();
+  const browser = win.gBrowser.selectedBrowser;
+
+  const mentionsOpen = waitForMentionsOpen(browser);
+  await typeInSmartbar(browser, "test @");
+  await mentionsOpen;
+
+  await SpecialPowers.spawn(browser, [], async () => {
+    const aiWindowElement = content.document.querySelector("ai-window");
+    const smartbar = aiWindowElement.shadowRoot.querySelector(
+      "#ai-window-smartbar"
+    );
+    const panelList = smartbar.querySelector("smartwindow-panel-list");
+    const panel = panelList.shadowRoot.querySelector("panel-list");
+    const firstItem = panel.querySelector(
+      "panel-item:not(.panel-section-header)"
+    );
+    firstItem.click();
+  });
+
+  await waitForMentionInserted(browser);
+  await BrowserTestUtils.synthesizeKey("KEY_Backspace", {}, browser);
+
+  await promiseSmartbarSuggestionsOpen(browser, async () => {
+    await BrowserTestUtils.synthesizeKey("KEY_Backspace", {}, browser);
+  });
+
+  await BrowserTestUtils.closeWindow(win);
+});
+
+add_task(async function test_inline_mention_does_not_create_context_chip() {
+  const win = await openAIWindow();
+  const browser = win.gBrowser.selectedBrowser;
+
+  await insertInlineMention(browser);
+
+  const chips = await getSmartbarContextChips(browser);
+  Assert.equal(
+    chips.length,
+    0,
+    "Inline @mention should not create a context chip in the smartbar header"
+  );
+
+  await BrowserTestUtils.closeWindow(win);
+});
+
+add_task(async function test_inline_mention_available_via_getAllMentions() {
+  const win = await openAIWindow();
+  const browser = win.gBrowser.selectedBrowser;
+
+  await insertInlineMention(browser);
+
+  const mentions = await getEditorInlineMentions(browser);
+  Assert.equal(mentions.length, 1, "getAllMentions should return one mention");
+  Assert.equal(
+    mentions[0].id,
+    "https://example.com/1",
+    "Mention id should match the selected tab URL"
+  );
+
+  await BrowserTestUtils.closeWindow(win);
+});
+
+add_task(
+  async function test_deleted_inline_mention_excluded_from_getAllMentions() {
+    const win = await openAIWindow();
+    const browser = win.gBrowser.selectedBrowser;
+
+    await insertInlineMention(browser);
+
+    // Delete the mention by pressing Backspace twice (once for trailing space,
+    // once for the atomic mention node).
+    await BrowserTestUtils.synthesizeKey("KEY_Backspace", {}, browser);
+    await BrowserTestUtils.synthesizeKey("KEY_Backspace", {}, browser);
+
+    const mentions = await getEditorInlineMentions(browser);
+    Assert.equal(
+      mentions.length,
+      0,
+      "getAllMentions should return empty after deleting the inline mention"
+    );
 
     await BrowserTestUtils.closeWindow(win);
   }

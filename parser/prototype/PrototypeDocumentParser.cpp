@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -27,7 +25,7 @@ PrototypeDocumentParser::PrototypeDocumentParser(nsIURI* aDocumentURI,
       mPrototypeAlreadyLoaded(false),
       mIsComplete(false) {}
 
-PrototypeDocumentParser::~PrototypeDocumentParser() {}
+PrototypeDocumentParser::~PrototypeDocumentParser() = default;
 
 NS_INTERFACE_TABLE_HEAD(PrototypeDocumentParser)
   NS_INTERFACE_TABLE(PrototypeDocumentParser, nsIParser, nsIStreamListener,
@@ -100,7 +98,7 @@ PrototypeDocumentParser::Parse(nsIURI* aURL) {
     NS_ASSERTION(NS_SUCCEEDED(rv), "parser doesn't support nsIStreamListener");
     if (NS_FAILED(rv)) return rv;
 
-    mStreamListener = listener;
+    mStreamListener = std::move(listener);
 
     parser->Parse(mDocumentURI);
   }

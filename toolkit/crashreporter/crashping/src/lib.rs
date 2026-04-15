@@ -124,6 +124,11 @@ pub fn send(annotations: &serde_json::Value, reason: Option<&str>) -> anyhow::Re
     Ok(())
 }
 
+/// Set whether upload is enabled or not.
+pub fn set_collection_enabled(enabled: bool) {
+    glean::set_collection_enabled(enabled);
+}
+
 /// **Test-only API**
 ///
 /// Register a callback that will be called before the next ping is sent.

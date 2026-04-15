@@ -321,4 +321,6 @@ export default [
   // Test files for circular import in modules.
   "dom/base/test/jsmodules/import_circular.mjs",
   "dom/base/test/jsmodules/import_circular_1.mjs",
+  "dom/base/test/jsmodules/importmaps/multiple/import_circular.mjs",
+  "dom/base/test/jsmodules/importmaps/multiple/import_circular_1.mjs",
 ];

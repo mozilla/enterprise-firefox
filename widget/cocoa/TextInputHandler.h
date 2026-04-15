@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 sw=2 et tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1255,14 +1253,14 @@ class IMEInputHandler : public TextInputHandlerBase {
                                       NSString* aString, const NSRange& aRange,
                                       PreventSetSelection aPreventSetSelection);
 
-  // The focused IME handler.  Please note that the handler might lost the
+  // The focused IME handler.  Please note that the handler might lose the
   // actual focus by deactivating the application.  If we are active, this
   // must have the actual focused handle.
-  // We cannot access to the NSInputManager during we aren't active, so, the
-  // focused handler can have an IME transaction even if we are deactive.
+  // We cannot access the NSInputManager while we aren't active, so the
+  // focused handler can have an IME transaction even if we are deactivated.
   static IMEInputHandler* sFocusedIMEHandler;
 
-  static bool sCachedIsForRTLLangage;
+  static bool sCachedIsForRTLLanguage;
 };
 
 /**

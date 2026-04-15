@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -101,16 +99,16 @@ already_AddRefed<TextureHost> VideoBridgeParent::LookupTextureAsync(
 
   MOZ_ASSERT(mCompositorThreadHolder->IsInThread());
 
-  auto* actor = mTextureMap[aSerial];
-  if (NS_WARN_IF(!actor)) {
+  const auto i = mTextureMap.find(aSerial);
+  if (NS_WARN_IF(i == mTextureMap.end())) {
     return nullptr;
   }
 
-  if (NS_WARN_IF(aContentId != TextureHost::GetTextureContentId(actor))) {
+  if (NS_WARN_IF(aContentId != i->second.mContentId)) {
     return nullptr;
   }
 
-  return do_AddRef(TextureHost::AsTextureHost(actor));
+  return do_AddRef(i->second.mTextureHost);
 }
 
 already_AddRefed<TextureHost> VideoBridgeParent::LookupTexture(
@@ -122,12 +120,12 @@ already_AddRefed<TextureHost> VideoBridgeParent::LookupTexture(
     return nullptr;
   }
 
-  auto* actor = mTextureMap[aSerial];
-  if (actor) {
-    if (NS_WARN_IF(aContentId != TextureHost::GetTextureContentId(actor))) {
+  auto i = mTextureMap.find(aSerial);
+  if (i != mTextureMap.end()) {
+    if (NS_WARN_IF(aContentId != i->second.mContentId)) {
       return nullptr;
     }
-    return do_AddRef(TextureHost::AsTextureHost(actor));
+    return do_AddRef(i->second.mTextureHost);
   }
 
   // We cannot block on the Compositor thread because that is the thread we get
@@ -168,16 +166,16 @@ already_AddRefed<TextureHost> VideoBridgeParent::LookupTexture(
     lock.Wait();
   }
 
-  actor = mTextureMap[aSerial];
-  if (!actor) {
+  i = mTextureMap.find(aSerial);
+  if (NS_WARN_IF(i == mTextureMap.end())) {
     return nullptr;
   }
 
-  if (NS_WARN_IF(aContentId != TextureHost::GetTextureContentId(actor))) {
+  if (NS_WARN_IF(aContentId != i->second.mContentId)) {
     return nullptr;
   }
 
-  return do_AddRef(TextureHost::AsTextureHost(actor));
+  return do_AddRef(i->second.mTextureHost);
 }
 
 void VideoBridgeParent::ActorDestroy(ActorDestroyReason aWhy) {
@@ -261,19 +259,27 @@ PTextureParent* VideoBridgeParent::AllocPTextureParent(
   }
 
   MonitorAutoLock lock(mMonitor);
-  mTextureMap[aSerial] = parent;
+  mTextureMap.insert(
+      {aSerial, {TextureHost::AsTextureHost(parent), aContentId}});
   return parent;
 }
 
 bool VideoBridgeParent::DeallocPTextureParent(PTextureParent* actor) {
-  MonitorAutoLock lock(mMonitor);
-  mTextureMap.erase(TextureHost::GetTextureSerial(actor));
+  RefPtr<TextureHost> textureHost;
+  {
+    MonitorAutoLock lock(mMonitor);
+    auto i = mTextureMap.find(TextureHost::GetTextureSerial(actor));
+    if (i != mTextureMap.end()) {
+      textureHost = std::move(i->second.mTextureHost);
+      mTextureMap.erase(i);
+    }
+  }
   return TextureHost::DestroyIPDLActor(actor);
 }
 
 void VideoBridgeParent::SendAsyncMessage(
-    const nsTArray<AsyncParentMessageData>& aMessage) {
-  MOZ_ASSERT(false, "AsyncMessages not supported");
+    Span<const AsyncParentMessageData> aMessage) {
+  MOZ_ASSERT_UNREACHABLE("AsyncMessages not supported");
 }
 
 bool VideoBridgeParent::AllocShmem(size_t aSize, ipc::Shmem* aShmem) {

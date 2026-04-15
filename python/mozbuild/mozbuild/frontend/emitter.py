@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import functools
 import logging
 import os
 import sys
@@ -16,7 +17,7 @@ from mach.mixin.logging import LoggingMixin
 from mozpack.chrome.manifest import Manifest
 
 from mozbuild.base import ExecutionSummary
-from mozbuild.util import HierarchicalStringList, memoize
+from mozbuild.util import HierarchicalStringList
 
 from ..testing import REFTEST_FLAVORS, TEST_MANIFESTS, SupportFilesConverter
 from .context import Context, ObjDirPath, Path, SourcePath, SubContext
@@ -273,7 +274,7 @@ class TreeMetadataEmitter(LoggingMixin):
                     contexts[os.path.normcase(lib.objdir)],
                 )
 
-        @memoize
+        @functools.cache
         def rust_libraries(obj):
             libs = []
             for o in obj.linked_libraries:
@@ -497,7 +498,7 @@ class TreeMetadataEmitter(LoggingMixin):
             self._static_linking_shared.add(obj)
         obj.link_library(candidates[0])
 
-    @memoize
+    @functools.cache
     def _get_external_library(self, dir, name, force_static):
         # Create ExternalStaticLibrary or ExternalSharedLibrary object with a
         # context more or less truthful about where the external library is.

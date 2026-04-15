@@ -27,17 +27,18 @@ class FetchClientMlpaServiceTest {
             """.trimIndent()
 
             val mlpaService =
-                FetchClientMlpaService(FakeClient.success(json.asBody), MlpaConfig.live)
+                FetchClientMlpaService(FakeClient.success(json.asBody), MlpaConfig.prodProd)
 
             val response = mlpaService.verify(
                 request = AuthenticationService.Request(
                     userId = UserId("my-user-id"),
                     integrityToken = IntegrityToken("my-integrity-token"),
+                    packageName = PackageName("my.package.name"),
                 ),
             )
 
             val expected = AuthenticationService.Response(
-                accessToken = AuthorizationToken("my-authorization-token"),
+                accessToken = AuthorizationToken.Integrity("my-authorization-token"),
                 tokenType = "bearer",
                 expiresIn = 6000,
             )
@@ -58,12 +59,13 @@ class FetchClientMlpaServiceTest {
             """.trimIndent()
 
             val mlpaService =
-                FetchClientMlpaService(FakeClient.success(json.asBody), MlpaConfig.live)
+                FetchClientMlpaService(FakeClient.success(json.asBody), MlpaConfig.prodProd)
 
             val response = mlpaService.verify(
                 request = AuthenticationService.Request(
                     userId = UserId("my-user-id"),
                     integrityToken = IntegrityToken("my-integrity-token"),
+                    packageName = PackageName("my.package.name"),
                 ),
             )
 
@@ -78,12 +80,13 @@ class FetchClientMlpaServiceTest {
     @Test
     fun `GIVEN a failure response WHEN we try to verify an integrity THEN return a failure`() =
         runTest {
-            val mlpaService = FetchClientMlpaService(FakeClient.failure(401), MlpaConfig.live)
+            val mlpaService = FetchClientMlpaService(FakeClient.failure(401), MlpaConfig.prodProd)
 
             val response = mlpaService.verify(
                 request = AuthenticationService.Request(
                     userId = UserId("my-user-id"),
                     integrityToken = IntegrityToken("my-integrity-token"),
+                    packageName = PackageName("my.package.name"),
                 ),
             )
 
@@ -109,11 +112,11 @@ class FetchClientMlpaServiceTest {
                 }
             """.trimIndent()
 
-            val mlpaService =
-                FetchClientMlpaService(FakeClient.success(json.asBody), MlpaConfig.live)
+            val fakeClient = FakeClient.success(json.asBody)
+            val mlpaService = FetchClientMlpaService(fakeClient, MlpaConfig.prodProd)
 
             val response = mlpaService.completion(
-                authorizationToken = AuthorizationToken("my-token"),
+                authorizationToken = AuthorizationToken.Integrity("my-token"),
                 request = ChatService.Request(
                     model = ChatService.Request.ModelID.mistral,
                     messages = listOf(ChatService.Request.Message.user("hello")),
@@ -127,6 +130,45 @@ class FetchClientMlpaServiceTest {
             )
 
             assertEquals(response.getOrThrow(), expected)
+            assertEquals("s2s-android", fakeClient.lastRequest?.headers?.get("service-type"))
+            assertEquals("true", fakeClient.lastRequest?.headers?.get("use-play-integrity"))
+        }
+
+    @Test
+    fun `GIVEN a successful response with an fxa token WHEN try to chat THEN dont include the use-play-integrity header`() =
+        runTest {
+            val json = """
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "content" : "world!"
+                            }
+                        }
+                    ]
+                }
+            """.trimIndent()
+
+            val fakeClient = FakeClient.success(json.asBody)
+            val mlpaService = FetchClientMlpaService(fakeClient, MlpaConfig.prodProd)
+
+            val response = mlpaService.completion(
+                authorizationToken = AuthorizationToken.Fxa("my-token"),
+                request = ChatService.Request(
+                    model = ChatService.Request.ModelID.mistral,
+                    messages = listOf(ChatService.Request.Message.user("hello")),
+                ),
+            )
+
+            val expected = ChatService.Response(
+                choices = listOf(
+                    ChatService.Response.Choice(ChatService.Response.Message("world!")),
+                ),
+            )
+
+            assertEquals(response.getOrThrow(), expected)
+            assertEquals("s2s-android", fakeClient.lastRequest?.headers?.get("service-type"))
+            assertEquals(null, fakeClient.lastRequest?.headers?.get("use-play-integrity"))
         }
 
     @OptIn(ExperimentalSerializationApi::class)
@@ -146,10 +188,10 @@ class FetchClientMlpaServiceTest {
             """.trimIndent()
 
             val mlpaService =
-                FetchClientMlpaService(FakeClient.success(json.asBody), MlpaConfig.live)
+                FetchClientMlpaService(FakeClient.success(json.asBody), MlpaConfig.prodProd)
 
             val response = mlpaService.completion(
-                authorizationToken = AuthorizationToken("my-token"),
+                authorizationToken = AuthorizationToken.Integrity("my-token"),
                 request = ChatService.Request(
                     model = ChatService.Request.ModelID.mistral,
                     messages = listOf(ChatService.Request.Message.user("hello")),
@@ -166,10 +208,10 @@ class FetchClientMlpaServiceTest {
     @Test
     fun `GIVEN an error status code WHEN try to chat THEN return a failure`() =
         runTest {
-            val mlpaService = FetchClientMlpaService(FakeClient.failure(401), MlpaConfig.live)
+            val mlpaService = FetchClientMlpaService(FakeClient.failure(401), MlpaConfig.prodProd)
 
             val response = mlpaService.completion(
-                authorizationToken = AuthorizationToken("my-token"),
+                authorizationToken = AuthorizationToken.Integrity("my-token"),
                 request = ChatService.Request(
                     model = ChatService.Request.ModelID.mistral,
                     messages = listOf(ChatService.Request.Message.user("hello")),
@@ -179,7 +221,7 @@ class FetchClientMlpaServiceTest {
             assertTrue(response.isFailure)
 
             response.onFailure {
-                assertEquals("Verification Service Failed: Received status code 401", it.message)
+                assertEquals("Chat Service Failed: Received status code 401", it.message)
             }
         }
 }

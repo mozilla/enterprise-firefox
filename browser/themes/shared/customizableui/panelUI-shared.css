@@ -229,7 +229,7 @@ panelview {
   transition: height var(--panelui-subview-transition-duration);
 }
 
-.panel-subview-body {
+.panel-subview-body:where(:not([hidden])) {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -619,7 +619,7 @@ toolbarbutton[constrain-size="true"][cui-areatype="panel"] > .toolbarbutton-badg
     height: 16px;
     -moz-context-properties: fill;
     fill: var(--warning-icon-bgcolor);
-    margin-inline-start: 10px;
+    margin-inline-start: var(--space-medium);
   }
 }
 
@@ -702,7 +702,6 @@ toolbarbutton[constrain-size="true"][cui-areatype="panel"] > .toolbarbutton-badg
       padding: 6px 12px;
       color: var(--button-text-color);
       background-color: var(--button-background-color);
-      font-size: 0.8em;
       font-weight: var(--font-weight-semibold);
 
       &:hover {
@@ -743,18 +742,9 @@ toolbarbutton[constrain-size="true"][cui-areatype="panel"] > .toolbarbutton-badg
 
 #PanelUI-fxa-cta-menu,
 #PanelUI-fxa-menu-services {
-  .fxa-cta-button {
-    margin: var(--space-xsmall);
+  .fxa-cta-button label {
+    margin: 0;
   }
-}
-
-.PanelUI-fxa-menu-section-title,
-.PanelUI-remotetabs-clientcontainer > label[itemtype="client"] {
-  /* FIXME: these elements should use the subview-subheader class */
-  color: var(--text-color-deemphasized);
-  font-size: 0.9em;
-  margin-top: 6px;
-  margin-bottom: 2px;
 }
 
 #appMenu-fxa-status2 {
@@ -952,7 +942,7 @@ toolbarbutton[constrain-size="true"][cui-areatype="panel"] > .toolbarbutton-badg
 
 #fxa-menu-header-description {
   color: var(--text-color-deemphasized);
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   text-wrap: wrap;
 }
 
@@ -971,9 +961,9 @@ toolbarbutton[constrain-size="true"][cui-areatype="panel"] > .toolbarbutton-badg
 }
 
 .ctaMenuLogo {
-  width: 16px;
-  height: 16px;
-  margin-inline-start: 5px;
+  width: var(--icon-size);
+  height: var(--icon-size);
+  margin-inline-end: var(--space-xsmall);
 }
 
 #PanelUI-fxa-menu-monitor-button {
@@ -1075,27 +1065,12 @@ panelmultiview[mainViewId="PanelUI-fxa"] #PanelUI-remotetabs-syncnow {
 
 .PanelUI-fxa-signin-button,
 .PanelUI-remotetabs-button {
-  appearance: none;
-  background-color: #0060df;
-  /* !important for the color as an OSX specific rule when a lightweight theme
-     is used for buttons in the toolbox overrides. See bug 1238531 for details */
-  color: white !important;
-  border-radius: var(--border-radius-xsmall);
   /* If you change the margin or padding below, the min-height of the synced tabs
      panel (e.g. #PanelUI-remotetabs[mainview] #PanelUI-remotetabs-setupsync,
      etc) may need adjusting (see bug 1248506) */
   margin-block: 15px;
-  text-shadow: none;
   min-width: 200px;
   padding: 1em;
-
-  &:hover {
-    background-color: #003eaa;
-
-    &:active {
-      background-color: #002275;
-    }
-  }
 }
 
 .remotetabs-promo-link {
@@ -1125,12 +1100,6 @@ panelmultiview[mainViewId="PanelUI-fxa"] #PanelUI-remotetabs-syncnow {
 
 .fxaSyncIllustrationIssue {
   list-style-image: url(chrome://browser/skin/fxa/sync-illustration-issue.svg);
-}
-
-.PanelUI-fxa-signin-button > .toolbarbutton-text,
-.PanelUI-remotetabs-button > .toolbarbutton-text {
-  /* Overrides toolbar[mode="icons"] from xul.css */
-  display: block;
 }
 
 #PanelUI-remotetabs[mainview] {
@@ -1221,16 +1190,11 @@ panelview .toolbarbutton-1,
   &[shortcut]::after {
     content: attr(shortcut);
     display: flex;
+    margin-inline-start: var(--space-medium);
   }
 
   &[shortcut]:not([disabled])::after {
     color: var(--text-color-deemphasized);
-  }
-
-  &[shortcut]::after,
-  .widget-overflow-list .subviewbutton-nav::after,
-  .PanelUI-subView .subviewbutton-nav::after {
-    margin-inline-start: 10px;
   }
 
   &[checked] {
@@ -1386,6 +1350,7 @@ panelview .toolbarbutton-1,
     fill: currentColor;
     fill-opacity: 0.6;
     display: flex;
+    margin-inline-start: var(--space-medium);
   }
 
   &:-moz-locale-dir(rtl)::after {
@@ -1913,7 +1878,7 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
   .protections-popup-message-title {
     display: grid;
     font-size: 1.3em;
-    font-weight: var(--heading-font-weight);
+    font-weight: var(--font-weight-heading);
     line-height: 1.4em;
     margin: 14px 0 0;
     grid-column-start: 1;
@@ -1996,7 +1961,7 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
 
 .PanelUI-profiler-description-title {
   font-size: 1.3em;
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   margin-block: 2px;
 }
 
@@ -2142,7 +2107,7 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
 }
 
 #reset-pbm-panel-header > description {
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
 }
 
 #reset-pbm-panel-checkbox {
@@ -2185,7 +2150,7 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    border: var(--border-width) solid var(--border-color-card);
+    border: var(--border-width) solid var(--card-border-color);
     border-radius: var(--border-radius-medium);
     background-color: var(--background-color-box);
     box-sizing: border-box;
@@ -2217,7 +2182,7 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
       }
 
       &:not(:first-of-type) > summary {
-        border-top: 1px solid var(--border-color-card);
+        border-top: 1px solid var(--card-border-color);
       }
 
       > summary {
@@ -2422,7 +2387,7 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
   z-index: -1;
   position: absolute;
   top: 0;
-  border-block-end: 1px solid var(--border-color-card);
+  border-block-end: 1px solid var(--card-border-color);
 }
 
 #PanelUI-profiles > .panel-subview-body {
@@ -2466,10 +2431,6 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
   margin-inline-start: var(--space-xsmall);
   display: inline-block;
   color: var(--text-color-deemphasized);
-}
-
-#ipprotection-header-button {
-  list-style-image: url(chrome://global/skin/icons/help.svg);
 }
 
 #confirmation-hint[data-message-id="confirmation-hint-ipprotection-navigated-to-excluded-site"] {

@@ -10,7 +10,8 @@ use crate::values::generics::animation as generics;
 use crate::values::specified::animation as specified;
 use crate::values::CSSFloat;
 use std::fmt::{self, Write};
-use style_traits::{CssWriter, ToCss};
+use style_traits::{CssString, CssWriter, KeywordValue, ToCss, ToTyped, TypedValue};
+use thin_vec::ThinVec;
 
 pub use crate::values::specified::animation::{
     AnimationComposition, AnimationDirection, AnimationFillMode, AnimationName, AnimationPlayState,
@@ -80,8 +81,43 @@ impl ToCss for AnimationIterationCount {
     }
 }
 
+impl ToTyped for AnimationIterationCount {
+    fn to_typed(&self, dest: &mut ThinVec<TypedValue>) -> Result<(), ()> {
+        if self.0.is_infinite() {
+            dest.push(TypedValue::Keyword(KeywordValue(CssString::from(
+                "infinite",
+            ))));
+            Ok(())
+        } else {
+            self.0.to_typed(dest)
+        }
+    }
+}
+
 /// A computed value for the `animation-timeline` property.
 pub type AnimationTimeline = generics::GenericAnimationTimeline<LengthPercentage>;
 
 /// A computed value for the `view-timeline-inset` property.
 pub type ViewTimelineInset = generics::GenericViewTimelineInset<LengthPercentage>;
+
+/// A computed value for the `animation-range-start` property.
+pub type AnimationRangeStart = generics::GenericAnimationRangeStart<LengthPercentage>;
+impl AnimationRangeStart {
+    /// The `normal` value.
+    pub fn normal() -> Self {
+        Self(generics::GenericAnimationRangeValue::normal(
+            LengthPercentage::zero_percent(),
+        ))
+    }
+}
+
+/// A computed value for the `animation-range-end` property.
+pub type AnimationRangeEnd = generics::GenericAnimationRangeEnd<LengthPercentage>;
+impl AnimationRangeEnd {
+    /// The `normal` value.
+    pub fn normal() -> Self {
+        Self(generics::GenericAnimationRangeValue::normal(
+            LengthPercentage::hundred_percent(),
+        ))
+    }
+}

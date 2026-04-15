@@ -1,8 +1,10 @@
 package org.mozilla.fenix.ui.robots
 
 import android.util.Log
+import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -13,6 +15,7 @@ import androidx.core.text.HtmlCompat
 import org.mozilla.fenix.R
 import org.mozilla.fenix.helpers.Constants.TAG
 import org.mozilla.fenix.helpers.DataGenerationHelper.getStringResource
+import org.mozilla.fenix.helpers.TestAssetHelper.waitingTime
 import org.mozilla.fenix.helpers.TestHelper.appName
 import org.mozilla.fenix.helpers.TestHelper.waitForAppWindowToBeUpdated
 
@@ -135,7 +138,11 @@ class UnifiedTrustPanelRobot {
         composeTestRule.waitForIdle()
     }
 
+    @OptIn(ExperimentalTestApi::class)
     fun clickTheClearCookiesAndSiteDataButton(composeTestRule: ComposeTestRule) {
+        Log.i(TAG, "clickSearchButton: Waiting for $waitingTime for the \"Clear cookies and site data\" button to exist")
+        composeTestRule.waitUntilAtLeastOneExists(hasContentDescription(getStringResource(R.string.clear_site_data)), waitingTime)
+        Log.i(TAG, "clickSearchButton: Waited for $waitingTime for the \"Clear cookies and site data\" button to exist")
         Log.i(TAG, "clickTheClearCookiesAndSiteDataButton: Trying to click the \"Clear cookies and site data\" button")
         composeTestRule.onNodeWithText(getStringResource(R.string.clear_site_data), useUnmergedTree = true).performClick()
         Log.i(TAG, "clickTheClearCookiesAndSiteDataButton: Clicked the \"Clear cookies and site data\" button")

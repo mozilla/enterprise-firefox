@@ -1,5 +1,4 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
- * This Source Code Form is subject to the terms of the Mozilla Public
+/* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
@@ -1017,6 +1016,8 @@ NS_IMPL_CYCLE_COLLECTING_RELEASE(CanvasRenderingContext2D)
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(CanvasRenderingContext2D)
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(CanvasRenderingContext2D)
+  tmp->RemoveShutdownObserver();
+  tmp->OnShutdown();
   // Make sure we remove ourselves from the list of demotable contexts (raw
   // pointers), since we're logically destructed at this point.
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mCanvasElement)
@@ -3028,8 +3029,12 @@ void CanvasRenderingContext2D::GetLetterSpacing(nsACString& aLetterSpacing) {
 
 void CanvasRenderingContext2D::SetLetterSpacing(
     const nsACString& aLetterSpacing) {
-  ParseSpacing(aLetterSpacing, &CurrentState().letterSpacing,
-               CurrentState().letterSpacingStr);
+  nsAutoCString normalized;
+  Maybe<float> value = ParseSpacing(aLetterSpacing, normalized);
+  if (value) {
+    CurrentState().letterSpacing = *value;
+    CurrentState().letterSpacingStr = normalized;
+  }
 }
 
 void CanvasRenderingContext2D::GetWordSpacing(nsACString& aWordSpacing) {
@@ -3041,8 +3046,12 @@ void CanvasRenderingContext2D::GetWordSpacing(nsACString& aWordSpacing) {
 }
 
 void CanvasRenderingContext2D::SetWordSpacing(const nsACString& aWordSpacing) {
-  ParseSpacing(aWordSpacing, &CurrentState().wordSpacing,
-               CurrentState().wordSpacingStr);
+  nsAutoCString normalized;
+  Maybe<float> value = ParseSpacing(aWordSpacing, normalized);
+  if (value) {
+    CurrentState().wordSpacing = *value;
+    CurrentState().wordSpacingStr = normalized;
+  }
 }
 
 static GeckoFontMetrics GetFontMetricsFromCanvas(void* aContext) {
@@ -3073,9 +3082,8 @@ static GeckoFontMetrics GetFontMetricsFromCanvas(void* aContext) {
           0.0f};
 }
 
-void CanvasRenderingContext2D::ParseSpacing(const nsACString& aSpacing,
-                                            float* aValue,
-                                            nsACString& aNormalized) {
+Maybe<float> CanvasRenderingContext2D::ParseSpacing(const nsACString& aSpacing,
+                                                    nsACString& aNormalized) {
   // Normalize whitespace in the string before trying to parse it, as we want
   // to store it in normalized form, and this allows a simple check against the
   // 'normal' keyword, which is not accepted.
@@ -3083,28 +3091,28 @@ void CanvasRenderingContext2D::ParseSpacing(const nsACString& aSpacing,
   normalized.CompressWhitespace(true, true);
   ToLowerCase(normalized);
   if (normalized.EqualsLiteral("normal")) {
-    return;
+    return Nothing();
   }
   float value;
   if (!Servo_ParseLengthWithoutStyleContext(&normalized, &value,
                                             GetFontMetricsFromCanvas, this)) {
     if (!GetPresShell()) {
-      return;
+      return Nothing();
     }
     // This will parse aSpacing as a <length-percentage>...
     RefPtr<const ComputedStyle> style =
         ResolveStyleForProperty(eCSSProperty_letter_spacing, aSpacing);
     if (!style) {
-      return;
+      return Nothing();
     }
     // ...but only <length> is allowed according to the canvas spec.
     if (!style->StyleText()->mLetterSpacing.IsLength()) {
-      return;
+      return Nothing();
     }
     value = style->StyleText()->mLetterSpacing.AsLength().ToCSSPixels();
   }
   aNormalized = normalized;
-  *aValue = value;
+  return Some(value);
 }
 
 class CanvasUserSpaceMetrics final : public UserSpaceMetricsWithSize {
@@ -4890,6 +4898,7 @@ struct MOZ_STACK_CLASS CanvasBidiProcessor final
     }
 
     mCtx->EnsureTarget();
+    const bool needBounds = mCtx->NeedToCalculateBounds();
     if (!mCtx->IsTargetValid()) {
       return;
     }
@@ -4904,7 +4913,7 @@ struct MOZ_STACK_CLASS CanvasBidiProcessor final
     const ContextState& state = mCtx->CurrentState();
 
     gfx::Rect bounds;
-    if (mCtx->NeedToCalculateBounds()) {
+    if (needBounds) {
       bounds = ToRect(mBoundingBox);
       bounds.MoveBy(mPt / mAppUnitsPerDevPixel);
       if (style == Style::STROKE) {
@@ -5052,6 +5061,9 @@ UniquePtr<TextMetrics> CanvasRenderingContext2D::DrawOrMeasureText(
     canvasStyle = nsComputedDOMStyle::GetComputedStyle(mCanvasElement);
   }
 
+  // This is only needed to know if we can know the drawing bounding box easily.
+  const bool doCalculateBounds = NeedToCalculateBounds();
+
   // Get text direction, either from the property or inherited from context.
   const ContextState& state = CurrentState();
   bool isRTL;
@@ -5077,8 +5089,6 @@ UniquePtr<TextMetrics> CanvasRenderingContext2D::DrawOrMeasureText(
       MOZ_CRASH("unknown direction!");
   }
 
-  // This is only needed to know if we can know the drawing bounding box easily.
-  const bool doCalculateBounds = NeedToCalculateBounds();
   if (presShell && presShell->IsDestroying()) {
     aError = NS_ERROR_FAILURE;
     return nullptr;
@@ -5367,50 +5377,55 @@ gfxFontGroup* CanvasRenderingContext2D::GetCurrentFontStyle() {
     visProvider = mOffscreenCanvas;
   }
 
-  // If we have a cached fontGroup, check that it is valid for the current
-  // prescontext or canvas; if not, we need to discard and re-create it.
-  RefPtr<gfxFontGroup>& fontGroup = CurrentState().fontGroup;
-  if (fontGroup) {
-    if (fontGroup->GetFontVisibilityProvider() != visProvider) {
-      fontGroup = nullptr;
-    }
-  }
-
-  if (!fontGroup) {
-    ErrorResult err;
-    constexpr auto kDefaultFontStyle = "10px sans-serif"_ns;
-    const float kDefaultFontSize = 10.0;
-    // If the font has already been set, we're re-creating the fontGroup
-    // and should re-use the existing font attribute; if not, we initialize
-    // it to the canvas default.
-    const nsCString& currentFont = CurrentState().font;
-    bool fontUpdated = SetFontInternal(
-        currentFont.IsEmpty() ? kDefaultFontStyle : currentFont, err);
-    if (err.Failed() || !fontUpdated) {
-      err.SuppressException();
-      // XXX Should we get a default lang from the prescontext or something?
-      nsAtom* language = nsGkAtoms::x_western;
-      bool explicitLanguage = false;
-      gfxFontStyle style;
-      style.size = kDefaultFontSize;
-      int32_t perDevPixel, perCSSPixel;
-      GetAppUnitsValues(&perDevPixel, &perCSSPixel);
-      gfxFloat devToCssSize = gfxFloat(perDevPixel) / gfxFloat(perCSSPixel);
-      const auto* sans =
-          Servo_FontFamily_Generic(StyleGenericFontFamily::SansSerif);
-      fontGroup = new gfxFontGroup(
-          visProvider, sans->families, &style, language, explicitLanguage,
-          presContext ? presContext->GetTextPerfMetrics() : nullptr, nullptr,
-          devToCssSize, StyleFontVariantEmoji::Normal);
-      if (fontGroup) {
-        CurrentState().font = kDefaultFontStyle;
-      } else {
-        NS_ERROR("Default canvas font is invalid");
+  {
+    // If we have a cached fontGroup, check that it is valid for the current
+    // prescontext or canvas; if not, we need to discard and re-create it.
+    RefPtr<gfxFontGroup>& fontGroup = CurrentState().fontGroup;
+    if (fontGroup) {
+      if (fontGroup->GetFontVisibilityProvider() != visProvider) {
+        fontGroup = nullptr;
       }
     }
+    if (fontGroup) {
+      return fontGroup;
+    }
   }
 
-  return fontGroup;
+  ErrorResult err;
+  constexpr auto kDefaultFontStyle = "10px sans-serif"_ns;
+  const float kDefaultFontSize = 10.0;
+  // If the font has already been set, we're re-creating the fontGroup
+  // and should re-use the existing font attribute; if not, we initialize
+  // it to the canvas default.
+  nsAutoCString currentFont(CurrentState().font);
+  if (currentFont.IsEmpty()) {
+    currentFont = kDefaultFontStyle;
+  }
+  bool fontUpdated = SetFontInternal(currentFont, err);
+  if (err.Failed() || !fontUpdated) {
+    err.SuppressException();
+    // XXX Should we get a default lang from the prescontext or something?
+    nsAtom* language = nsGkAtoms::x_western;
+    bool explicitLanguage = false;
+    gfxFontStyle style;
+    style.size = kDefaultFontSize;
+    int32_t perDevPixel, perCSSPixel;
+    GetAppUnitsValues(&perDevPixel, &perCSSPixel);
+    gfxFloat devToCssSize = gfxFloat(perDevPixel) / gfxFloat(perCSSPixel);
+    const auto* sans =
+        Servo_FontFamily_Generic(StyleGenericFontFamily::SansSerif);
+    CurrentState().fontGroup = new gfxFontGroup(
+        visProvider, sans->families, &style, language, explicitLanguage,
+        presContext ? presContext->GetTextPerfMetrics() : nullptr, nullptr,
+        devToCssSize, StyleFontVariantEmoji::Normal);
+    if (CurrentState().fontGroup) {
+      CurrentState().font = kDefaultFontStyle;
+    } else {
+      NS_ERROR("Default canvas font is invalid");
+    }
+  }
+
+  return CurrentState().fontGroup;
 }
 
 //

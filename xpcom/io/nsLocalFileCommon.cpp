@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -53,6 +51,7 @@ const char* const sExecutableExts[] = {
   ".chm",
   ".cmd",
   ".com",
+  ".command",     // Mac script
   ".cpl",
   ".crt",
   ".der",
@@ -115,6 +114,7 @@ const char* const sExecutableExts[] = {
   ".scf",         // Windows explorer command
   ".scr",
   ".sct",
+  ".search-ms",  // Windows Saved Search
   ".settingcontent-ms",
   ".shb",
   ".shs",
@@ -362,6 +362,18 @@ nsLocalFile::GetRelativeDescriptor(nsIFile* aFromFile, nsACString& aResult) {
   if (NS_FAILED(rv)) {
     return rv;
   }
+
+#ifdef XP_WIN
+  // Ignore string parsing disable prefix on Windows
+  // https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#short-vs-long-names
+  static constexpr nsLiteralString kPrefix = u"\\\\?\\"_ns;
+  if (StringBeginsWith(thisPath, kPrefix)) {
+    thisPath.Cut(0, kPrefix.Length());
+  }
+  if (StringBeginsWith(fromPath, kPrefix)) {
+    fromPath.Cut(0, kPrefix.Length());
+  }
+#endif
 
   // get raw pointer to mutable string buffer
   char16_t* thisPathPtr = thisPath.BeginWriting();

@@ -5,6 +5,7 @@
 import React, { useCallback, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
+import { HideWidgetsToast } from "./Toasts/HideWidgetsToast";
 import { ReportContentToast } from "./Toasts/ReportContentToast";
 
 function Notifications({ dispatch }) {
@@ -47,6 +48,14 @@ function Notifications({ dispatch }) {
       case "reportSuccessToast":
         return (
           <ReportContentToast
+            onDismissClick={syncHiddenToastData}
+            onAnimationEnd={syncHiddenToastData}
+            key={toastCounter}
+          />
+        );
+      case "hideWidgetsToast":
+        return (
+          <HideWidgetsToast
             onDismissClick={syncHiddenToastData}
             onAnimationEnd={syncHiddenToastData}
             key={toastCounter}

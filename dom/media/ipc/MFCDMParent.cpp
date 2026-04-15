@@ -100,7 +100,7 @@ DEFINE_PROPERTYKEY(EME_CONTENTDECRYPTIONMODULE_ORIGIN_ID, 0x1218a3e2, 0xcfb0,
 MOZ_RUNINIT static StaticDataMutex<
     nsTHashMap<nsStringHashKey, ComPtr<IMFContentDecryptionModuleFactory>>>
     sFactoryMap("sFactoryMap");
-MOZ_RUNINIT static StaticDataMutex<CopyableTArray<MFCDMCapabilitiesIPDL>>
+constinit static StaticDataMutex<CopyableTArray<MFCDMCapabilitiesIPDL>>
     sCapabilities("sCapabilities");
 MOZ_RUNINIT static StaticDataMutex<ComPtr<IUnknown>> sMediaEngineClassFactory(
     "sMediaEngineClassFactory");
@@ -443,6 +443,71 @@ MFCDMParent::MFCDMParent(const nsAString& aKeySystem,
                                           &MFCDMParent::SendOnSessionClosed);
 
   RETURN_VOID_IF_FAILED(GetOrCreateFactory(mKeySystem, mFactory));
+}
+
+void MFCDMParent::OnHardwareContextReset() {
+  ASSERT_CDM_ACCESS_ON_MANAGER_THREAD();
+  MFCDM_PARENT_LOG("OnHardwareContextReset");
+  // All CDM sessions are in an invalid state after a hardware context reset.
+  // Close them so the content process can re-request keys.
+  for (auto& iter : mSessions) {
+    iter.second->Close(
+        dom::MediaKeySessionClosedReason::Hardware_context_reset);
+  }
+  mSessions.clear();
+  if (MFCDMProxy* proxy = GetMFCDMProxy()) {
+    proxy->OnHardwareContextReset();
+  }
+  // The underlying CDM object is invalidated by the hardware reset. Recreate it
+  // so the new MFMediaEngineParent can attach to a valid CDM after recovery.
+  if (mInitParams.isSome()) {
+    HRESULT rv = RecreateCDM();
+    if (FAILED(rv)) {
+      MFCDM_PARENT_LOG("Failed to recreate CDM after hardware reset, hr=%lx",
+                       rv);
+    }
+  }
+}
+
+HRESULT MFCDMParent::RecreateCDM() {
+  ASSERT_CDM_ACCESS_ON_MANAGER_THREAD();
+  MOZ_ASSERT(mInitParams.isSome());
+  MFCDM_PARENT_LOG("Recreating CDM");
+
+  MutexAutoLock lock(Mutex());
+  mCDMAccessLock.NoteExclusiveAccess();
+  mCDMProxy = nullptr;
+  mCDM.Reset();
+  mPMPHostWrapper.Reset();
+
+  MFCDM_RETURN_IF_FAILED(CreateContentDecryptionModule(
+      mFactory, MapKeySystem(mKeySystem), *mInitParams, mCDM));
+  if (!mCDM) {
+    return E_FAIL;
+  }
+  mCDMProxy = new MFCDMProxy(mCDM.Get(), mId);
+
+  MFCDM_RETURN_IF_FAILED(SetupPMPHostApp());
+
+  return S_OK;
+}
+
+HRESULT MFCDMParent::SetupPMPHostApp() {
+  if (!IsPlayReadyKeySystemAndSupported(mKeySystem)) {
+    return S_OK;
+  }
+  ComPtr<IMFPMPHost> pmpHost;
+  ComPtr<IMFGetService> cdmService;
+  MFCDM_RETURN_IF_FAILED(mCDM.As(&cdmService));
+  MFCDM_RETURN_IF_FAILED(cdmService->GetService(
+      MF_CONTENTDECRYPTIONMODULE_SERVICE, IID_PPV_ARGS(&pmpHost)));
+  MFCDM_RETURN_IF_FAILED(
+      SUCCEEDED(MakeAndInitialize<MFPMPHostWrapper>(&mPMPHostWrapper, pmpHost))
+          ? S_OK
+          : E_FAIL);
+  MFCDM_RETURN_IF_FAILED(mCDM->SetPMPHostApp(mPMPHostWrapper.Get()));
+  MFCDM_PARENT_LOG("Set PMPHostWrapper on CDM!");
+  return S_OK;
 }
 
 void MFCDMParent::ShutdownCDM() {
@@ -1249,24 +1314,11 @@ mozilla::ipc::IPCResult MFCDMParent::RecvInit(
     PROFILER_MARKER_UNTYPED("MFCDMParent::RecvInit(created CDM)",
                             MEDIA_PLAYBACK);
     // This is only required by PlayReady.
-    if (IsPlayReadyKeySystemAndSupported(mKeySystem)) {
-      ComPtr<IMFPMPHost> pmpHost;
-      ComPtr<IMFGetService> cdmService;
-      MFCDM_REJECT_IF_FAILED(mCDM.As(&cdmService), NS_ERROR_FAILURE);
-      MFCDM_REJECT_IF_FAILED(
-          cdmService->GetService(MF_CONTENTDECRYPTIONMODULE_SERVICE,
-                                 IID_PPV_ARGS(&pmpHost)),
-          NS_ERROR_FAILURE);
-      MFCDM_REJECT_IF_FAILED(SUCCEEDED(MakeAndInitialize<MFPMPHostWrapper>(
-                                 &mPMPHostWrapper, pmpHost)),
-                             NS_ERROR_FAILURE);
-      MFCDM_REJECT_IF_FAILED(mCDM->SetPMPHostApp(mPMPHostWrapper.Get()),
-                             NS_ERROR_FAILURE);
-      MFCDM_PARENT_LOG("Set PMPHostWrapper on CDM!");
-    }
+    MFCDM_REJECT_IF_FAILED(SetupPMPHostApp(), NS_ERROR_FAILURE);
   }
 
   mIsInited = true;
+  mInitParams = Some(aParams);
   aResolver(MFCDMInitIPDL{mId});
   return IPC_OK();
 }

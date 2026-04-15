@@ -1,4 +1,3 @@
-/* vim:set ts=4 sw=2 sts=2 et cin: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -646,6 +645,24 @@ nsresult nsHttpConnectionMgr::UpdateParam(nsParamName name, uint16_t value) {
                    static_cast<int32_t>(param), nullptr);
 }
 
+void nsHttpConnectionMgr::ProcessPendingQForEntry(ConnectionEntry* aEntry) {
+  LOG(("nsHttpConnectionMgr::ProcessPendingQForEntry [aEntry=%p]\n", aEntry));
+  RefPtr<ConnectionEntry> entry = aEntry;
+  NS_DispatchToCurrentThread(NS_NewRunnableFunction(
+      "nsHttpConnectionMgr::ProcessPendingQForEntry",
+      [self = RefPtr{this}, entry]() {
+        if (!self->ProcessPendingQForEntry(entry, false)) {
+          // if we reach here, it means that we couldn't dispatch a transaction
+          // for the specified connection info.  walk the connection table...
+          for (const auto& ent : self->mCT.Values()) {
+            if (self->ProcessPendingQForEntry(ent.get(), false)) {
+              break;
+            }
+          }
+        }
+      }));
+}
+
 nsresult nsHttpConnectionMgr::ProcessPendingQ(nsHttpConnectionInfo* aCI) {
   LOG(("nsHttpConnectionMgr::ProcessPendingQ [ci=%s]\n", aCI->HashKey().get()));
   RefPtr<nsHttpConnectionInfo> ci;
@@ -687,10 +704,8 @@ void nsHttpConnectionMgr::OnMsgClearConnectionHistory(int32_t,
 
   for (auto iter = mCT.Iter(); !iter.Done(); iter.Next()) {
     RefPtr<ConnectionEntry> ent = iter.Data();
-    if (ent->IdleConnectionsLength() == 0 && ent->ActiveConnsLength() == 0 &&
-        ent->DnsAndConnectSocketsLength() == 0 &&
-        ent->UrgentStartQueueIsEmpty() && ent->PendingQueueIsEmpty() &&
-        !ent->mDoNotDestroy) {
+    if (ent->IsEmpty()) {
+      mPendingQEntries.Remove(ent.get());
       iter.Remove();
     }
   }
@@ -732,7 +747,7 @@ nsresult nsHttpConnectionMgr::RemoveIdleConnection(nsHttpConnection* conn) {
 }
 
 HttpConnectionBase* nsHttpConnectionMgr::FindCoalescableConnectionByHashKey(
-    ConnectionEntry* ent, const nsCString& key, bool justKidding, bool aNoHttp2,
+    ConnectionEntry* ent, HashNumber key, bool justKidding, bool aNoHttp2,
     bool aNoHttp3) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   MOZ_ASSERT(!aNoHttp2 || !aNoHttp3);
@@ -782,16 +797,15 @@ HttpConnectionBase* nsHttpConnectionMgr::FindCoalescableConnectionByHashKey(
     }
     if (couldJoin) {
       LOG(
-          ("FindCoalescableConnectionByHashKey() found match conn=%p key=%s "
-           "newCI=%s matchedCI=%s join ok\n",
-           potentialMatch.get(), key.get(), ci->HashKey().get(),
+          ("FindCoalescableConnectionByHashKey() found match conn=%p "
+           "key=%" PRIu32 " newCI=%s matchedCI=%s join ok\n",
+           potentialMatch.get(), key, ci->HashKey().get(),
            potentialMatch->ConnectionInfo()->HashKey().get()));
       return potentialMatch.get();
     }
-    LOG(
-        ("FindCoalescableConnectionByHashKey() found match conn=%p key=%s "
-         "newCI=%s matchedCI=%s join failed\n",
-         potentialMatch.get(), key.get(), ci->HashKey().get(),
+    LOG(("FindCoalescableConnectionByHashKey() found match conn=%p key=%" PRIu32
+         " newCI=%s matchedCI=%s join failed\n",
+         potentialMatch.get(), key, ci->HashKey().get(),
          potentialMatch->ConnectionInfo()->HashKey().get()));
 
     ++j;  // bypassed by continue when weakptr fails
@@ -820,8 +834,8 @@ HttpConnectionBase* nsHttpConnectionMgr::FindCoalescableConnection(
   HttpConnectionBase* conn = FindCoalescableConnectionByHashKey(
       ent, ent->OriginFrameHashKey(), justKidding, aNoHttp2, aNoHttp3);
   if (conn) {
-    LOG(("FindCoalescableConnection(%s) match conn %p on frame key %s\n",
-         ci->HashKey().get(), conn, ent->OriginFrameHashKey().get()));
+    LOG(("FindCoalescableConnection(%s) match conn %p on frame key %" PRIu32,
+         ci->HashKey().get(), conn, ent->OriginFrameHashKey()));
     return conn;
   }
 
@@ -874,7 +888,8 @@ void nsHttpConnectionMgr::UpdateCoalescingForNewConn(
   MOZ_ASSERT(newConn);
   MOZ_ASSERT(newConn->ConnectionInfo());
   MOZ_ASSERT(ent);
-  MOZ_ASSERT(mCT.GetWeak(newConn->ConnectionInfo()->HashKey()) == ent);
+  MOZ_ASSERT_IF(!newConn->ConnectionInfo()->GetHappyEyeballsEnabled(),
+                mCT.GetWeak(newConn->ConnectionInfo()->HashKey()) == ent);
   LOG(("UpdateCoalescingForNewConn newConn=%p aNoHttp3=%d", newConn, aNoHttp3));
   if (newConn->ConnectionInfo()->GetWebTransport()) {
     LOG(("Don't coalesce a WebTransport conn %p", newConn));
@@ -932,10 +947,11 @@ void nsHttpConnectionMgr::UpdateCoalescingForNewConn(
 
   uint32_t keyLen = ent->mCoalescingKeys.Length();
   for (uint32_t i = 0; i < keyLen; ++i) {
-    LOG((
-        "UpdateCoalescingForNewConn() registering newConn %p %s under key %s\n",
-        newConn, newConn->ConnectionInfo()->HashKey().get(),
-        ent->mCoalescingKeys[i].get()));
+    LOG(
+        ("UpdateCoalescingForNewConn() registering newConn %p %s under key "
+         "%" PRIu32 "\n",
+         newConn, newConn->ConnectionInfo()->HashKey().get(),
+         ent->mCoalescingKeys[i]));
 
     mCoalescingHash
         .LookupOrInsertWith(
@@ -971,6 +987,10 @@ void nsHttpConnectionMgr::ReportSpdyConnection(nsHttpConnection* conn,
   if (!conn->ConnectionInfo()) {
     return;
   }
+  if (conn->IsRacing()) {
+    // We are not sure if this connection will be used or not. Don't report it.
+    return;
+  }
   ConnectionEntry* ent = mCT.GetWeak(conn->ConnectionInfo()->HashKey());
   if (!ent || !usingSpdy) {
     return;
@@ -1004,13 +1024,20 @@ void nsHttpConnectionMgr::ReportSpdyConnection(nsHttpConnection* conn,
   }
 }
 
-void nsHttpConnectionMgr::ReportHttp3Connection(HttpConnectionBase* conn) {
+void nsHttpConnectionMgr::ReportHttp3Connection(HttpConnectionBase* conn,
+                                                ConnectionEntry* entry) {
+  LOG(("nsHttpConnectionMgr::ReportHttp3Connection conn=%p", conn));
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   if (!conn->ConnectionInfo()) {
     return;
   }
-  ConnectionEntry* ent = mCT.GetWeak(conn->ConnectionInfo()->HashKey());
+  ConnectionEntry* ent =
+      entry ? entry : mCT.GetWeak(conn->ConnectionInfo()->HashKey());
   if (!ent) {
+    return;
+  }
+  if (conn->IsRacing()) {
+    // We are not sure if this connection will be used or not. Don't report it.
     return;
   }
 
@@ -1236,6 +1263,7 @@ bool nsHttpConnectionMgr::ProcessPendingQForEntry(ConnectionEntry* ent,
     ent->RemoveEmptyPendingQ();
   }
 
+  MaybeRemoveEntryFromPendingSet(ent);
   return dispatchedSuccessfully;
 }
 
@@ -1255,16 +1283,15 @@ bool nsHttpConnectionMgr::ProcessPendingQForEntry(nsHttpConnectionInfo* ci) {
 bool nsHttpConnectionMgr::AtActiveConnectionLimit(ConnectionEntry* ent,
                                                   uint32_t caps) {
   nsHttpConnectionInfo* ci = ent->mConnInfo;
-  uint32_t totalCount = ent->TotalActiveConnections();
-
-  if (ci->IsHttp3() || ci->IsHttp3ProxyConnection()) {
-    if (ci->GetWebTransport()) {
-      // TODO: implement this properly in bug 1815735.
-      return false;
-    }
-    return totalCount > 0;
+  if (ci->GetWebTransport()) {
+    // TODO: implement this properly in bug 1815735.
+    return false;
+  }
+  if (ent->HasActiveH3Connection()) {
+    return true;
   }
 
+  uint32_t totalCount = ent->TotalActiveConnections();
   uint32_t maxPersistConns = MaxPersistConnections(ent);
 
   LOG(
@@ -1756,17 +1783,6 @@ nsresult nsHttpConnectionMgr::DispatchTransaction(ConnectionEntry* ent,
 
   TimeStamp now = TimeStamp::Now();
   TimeDuration elapsed = now - trans->GetPendingTime();
-  auto recordPendingTimeForHTTPSRR = [&](nsCString& aKey) {
-    uint32_t stage = trans->HTTPSSVCReceivedStage();
-    if (HTTPS_RR_IS_USED(stage)) {
-      glean::networking::transaction_wait_time_https_rr.AccumulateRawDuration(
-          elapsed);
-
-    } else {
-      glean::networking::transaction_wait_time.AccumulateRawDuration(elapsed);
-    }
-  };
-
   PerfStats::RecordMeasurement(PerfStats::Metric::HttpTransactionWaitTime,
                                elapsed);
 
@@ -1793,7 +1809,6 @@ nsresult nsHttpConnectionMgr::DispatchTransaction(ConnectionEntry* ent,
         glean::http::transaction_wait_time_http3.AccumulateRawDuration(
             now - trans->GetPendingTime());
       }
-      recordPendingTimeForHTTPSRR(httpVersionkey);
       trans->SetPendingTime(false);
     }
     return rv;
@@ -1807,7 +1822,6 @@ nsresult nsHttpConnectionMgr::DispatchTransaction(ConnectionEntry* ent,
   if (NS_SUCCEEDED(rv) && !trans->GetPendingTime().IsNull()) {
     glean::http::transaction_wait_time_http.AccumulateRawDuration(
         now - trans->GetPendingTime());
-    recordPendingTimeForHTTPSRR(httpVersionkey);
     trans->SetPendingTime(false);
   }
   return rv;
@@ -1937,7 +1951,7 @@ nsresult nsHttpConnectionMgr::ProcessNewTransaction(nsHttpTransaction* trans) {
 
       if (!specificEnt) {
         RefPtr<nsHttpConnectionInfo> clone(ci->Clone());
-        specificEnt = new ConnectionEntry(clone);
+        specificEnt = new ConnectionEntry(clone, mPendingQEntries);
         mCT.InsertOrUpdate(clone->HashKey(), RefPtr{specificEnt});
       }
 
@@ -2085,6 +2099,13 @@ void nsHttpConnectionMgr::DispatchSpdyPendingQ(
   pendingQ = std::move(leftovers);
 }
 
+void nsHttpConnectionMgr::MaybeRemoveEntryFromPendingSet(ConnectionEntry* ent) {
+  MOZ_ASSERT(OnSocketThread(), "not on socket thread");
+  if (ent->PendingQueueIsEmpty() && ent->UrgentStartQueueIsEmpty()) {
+    mPendingQEntries.Remove(ent);
+  }
+}
+
 // This function tries to dispatch the pending h2 or h3 transactions on
 // the connection entry sent in as an argument. It will do so on the
 // active h2 or h3 connection either in that same entry or from the
@@ -2126,8 +2147,13 @@ void nsHttpConnectionMgr::ProcessSpdyPendingQ(ConnectionEntry* ent) {
 void nsHttpConnectionMgr::OnMsgProcessAllSpdyPendingQ(int32_t, ARefBase*) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   LOG(("nsHttpConnectionMgr::OnMsgProcessAllSpdyPendingQ\n"));
-  for (const auto& entry : mCT.Values()) {
+  AutoTArray<RefPtr<ConnectionEntry>, 16> entries;
+  for (ConnectionEntry* entry : mPendingQEntries) {
+    entries.AppendElement(entry);
+  }
+  for (const auto& entry : entries) {
     ProcessSpdyPendingQ(entry.get());
+    MaybeRemoveEntryFromPendingSet(entry.get());
   }
 }
 
@@ -2141,14 +2167,9 @@ HttpConnectionBase* nsHttpConnectionMgr::GetH2orH3ActiveConn(
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   MOZ_ASSERT(ent);
 
-  bool isHttp3 = ent->IsHttp3() || ent->IsHttp3ProxyConnection();
-  // First look at ent. If protocol that ent provides is no forbidden,
-  // i.e. ent use HTTP3 and !aNoHttp3 or en uses HTTP over TCP and !aNoHttp2.
-  if ((!aNoHttp3 && isHttp3) || (!aNoHttp2 && !isHttp3)) {
-    HttpConnectionBase* conn = ent->GetH2orH3ActiveConn();
-    if (conn) {
-      return conn;
-    }
+  HttpConnectionBase* conn = ent->GetH2orH3ActiveConn(aNoHttp2, aNoHttp3);
+  if (conn) {
+    return conn;
   }
 
   nsHttpConnectionInfo* ci = ent->mConnInfo;
@@ -2200,12 +2221,12 @@ void nsHttpConnectionMgr::AbortAndCloseAllConnections(int32_t, ARefBase*) {
     ent->CancelAllTransactions(NS_ERROR_ABORT);
 
     // Close all half open tcp connections.
-    ent->CloseAllDnsAndConnectSockets();
+    ent->CloseAllConnectionAttempts();
 
-    MOZ_ASSERT(!ent->mDoNotDestroy);
     iter.Remove();
   }
 
+  mPendingQEntries.Clear();
   mActiveTransactions[false].Clear();
   mActiveTransactions[true].Clear();
 }
@@ -2442,15 +2463,18 @@ void nsHttpConnectionMgr::OnMsgPruneDeadConnections(int32_t, ARefBase*) {
   // Reset mTimeOfNextWakeUp so that we can find a new shortest value.
   mTimeOfNextWakeUp = UINT64_MAX;
 
-  // check canreuse() for all idle connections plus any active connections on
-  // connection entries that are using spdy.
-  if (mNumIdleConns ||
-      (mNumActiveConns && StaticPrefs::network_http_http2_enabled())) {
-    for (auto iter = mCT.Iter(); !iter.Done(); iter.Next()) {
-      RefPtr<ConnectionEntry> ent = iter.Data();
+  // Prune dead connections from entries that have idle or active connections.
+  // Empty entries are always removed regardless of table size.
+  bool shouldPrune =
+      mNumIdleConns ||
+      (mNumActiveConns && StaticPrefs::network_http_http2_enabled());
 
-      LOG(("  pruning [ci=%s]\n", ent->mConnInfo->HashKey().get()));
+  for (auto iter = mCT.Iter(); !iter.Done(); iter.Next()) {
+    RefPtr<ConnectionEntry> ent = iter.Data();
 
+    LOG(("  pruning [ci=%s]\n", ent->mConnInfo->HashKey().get()));
+
+    if (shouldPrune) {
       // Find out how long it will take for next idle connection to not
       // be reusable anymore.
       uint32_t timeToNextExpire = ent->PruneDeadConnections();
@@ -2470,22 +2494,18 @@ void nsHttpConnectionMgr::OnMsgPruneDeadConnections(int32_t, ARefBase*) {
       } else {
         ConditionallyStopPruneDeadConnectionsTimer();
       }
+    }
 
-      ent->RemoveEmptyPendingQ();
+    ent->RemoveEmptyPendingQ();
 
-      // If this entry is empty, we have too many entries busy then
-      // we can clean it up and restart
-      if (mCT.Count() > 125 && ent->IdleConnectionsLength() == 0 &&
-          ent->ActiveConnsLength() == 0 &&
-          ent->DnsAndConnectSocketsLength() == 0 &&
-          ent->PendingQueueIsEmpty() && ent->UrgentStartQueueIsEmpty() &&
-          !ent->mDoNotDestroy && (!ent->mUsingSpdy || mCT.Count() > 300)) {
-        LOG(("    removing empty connection entry\n"));
-        iter.Remove();
-        continue;
-      }
+    if (ent->IsEmpty()) {
+      LOG(("    removing empty connection entry\n"));
+      mPendingQEntries.Remove(ent.get());
+      iter.Remove();
+      continue;
+    }
 
-      // Otherwise use this opportunity to compact our arrays...
+    if (shouldPrune) {
       ent->Compact();
     }
   }
@@ -3526,9 +3546,9 @@ ConnectionEntry* nsHttpConnectionMgr::GetOrCreateConnectionEntry(
   // step 1 repeated for an inverted anonymous flag; we return an entry
   // only when it has an h2 established connection that is not authenticated
   // with a client certificate.
-  RefPtr<nsHttpConnectionInfo> anonInvertedCI(specificCI->Clone());
-  anonInvertedCI->SetAnonymous(!specificCI->GetAnonymous());
-  ConnectionEntry* invertedEnt = mCT.GetWeak(anonInvertedCI->HashKey());
+  nsAutoCString anonInvertedKey;
+  specificCI->AnonymousInvertedHashKey(anonInvertedKey);
+  ConnectionEntry* invertedEnt = mCT.GetWeak(anonInvertedKey);
   if (invertedEnt) {
     HttpConnectionBase* h2orh3conn =
         GetH2orH3ActiveConn(invertedEnt, aNoHttp2, aNoHttp3);
@@ -3572,7 +3592,7 @@ ConnectionEntry* nsHttpConnectionMgr::GetOrCreateConnectionEntry(
   LOG(("GetOrCreateConnectionEntry step 3"));
   if (!specificEnt) {
     RefPtr<nsHttpConnectionInfo> clone(specificCI->Clone());
-    specificEnt = new ConnectionEntry(clone);
+    specificEnt = new ConnectionEntry(clone, mPendingQEntries);
     mCT.InsertOrUpdate(clone->HashKey(), RefPtr{specificEnt});
   }
   return specificEnt;
@@ -3718,15 +3738,15 @@ void nsHttpConnectionMgr::RegisterOriginCoalescingKey(HttpConnectionBase* conn,
     return;
   }
 
-  nsAutoCString newKey;
-  nsHttpConnectionInfo::BuildOriginFrameHashKey(newKey, ci, host, port);
+  HashNumber newKey =
+      nsHttpConnectionInfo::BuildOriginFrameHashKey(ci, host, port);
   mCoalescingHash.GetOrInsertNew(newKey, 1)->AppendElement(
       do_GetWeakReference(static_cast<nsISupportsWeakReference*>(conn)));
 
   LOG(
       ("nsHttpConnectionMgr::RegisterOriginCoalescingKey "
-       "Established New Coalescing Key %s to %p %s\n",
-       newKey.get(), conn, ci->HashKey().get()));
+       "Established New Coalescing Key %" PRIu32 " to %p %s\n",
+       newKey, conn, ci->HashKey().get()));
 }
 
 bool nsHttpConnectionMgr::GetConnectionData(nsTArray<HttpRetParams>* aArg) {
@@ -3762,7 +3782,7 @@ void nsHttpConnectionMgr::ResetIPFamilyPreference(nsHttpConnectionInfo* ci) {
 
 void nsHttpConnectionMgr::ExcludeHttp2(const nsHttpConnectionInfo* ci) {
   LOG(("nsHttpConnectionMgr::ExcludeHttp2 excluding ci %s",
-       ci->HashKey().BeginReading()));
+       ci->HashKey().get()));
   ConnectionEntry* ent = mCT.GetWeak(ci->HashKey());
   if (!ent) {
     LOG(("nsHttpConnectionMgr::ExcludeHttp2 no entry found?!"));
@@ -3773,8 +3793,7 @@ void nsHttpConnectionMgr::ExcludeHttp2(const nsHttpConnectionInfo* ci) {
 }
 
 void nsHttpConnectionMgr::ExcludeHttp3(const nsHttpConnectionInfo* ci) {
-  LOG(("nsHttpConnectionMgr::ExcludeHttp3 exclude ci %s",
-       ci->HashKey().BeginReading()));
+  LOG(("nsHttpConnectionMgr::ExcludeHttp3 exclude ci %s", ci->HashKey().get()));
   ConnectionEntry* ent = mCT.GetWeak(ci->HashKey());
   if (!ent) {
     LOG(("nsHttpConnectionMgr::ExcludeHttp3 no entry found?!"));

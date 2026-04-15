@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -42,6 +40,7 @@ class CompositorWidget;
 }
 
 namespace wr {
+class WebRenderAPI;
 class WebRenderPipelineInfo;
 struct Epoch;
 struct MemoryReport;
@@ -131,8 +130,7 @@ class CompositorBridgeParentBase : public PCompositorBridgeParent,
   dom::ContentParentId GetContentId() override;
   void NotifyNotUsed(PTextureParent* aTexture,
                      uint64_t aTransactionId) override;
-  void SendAsyncMessage(
-      const nsTArray<AsyncParentMessageData>& aMessage) override;
+  void SendAsyncMessage(Span<const AsyncParentMessageData>) override;
 
   // IShmemAllocator
   bool AllocShmem(size_t aSize, mozilla::ipc::Shmem* aShmem) override;
@@ -169,7 +167,7 @@ class CompositorBridgeParentBase : public PCompositorBridgeParent,
   virtual PTextureParent* AllocPTextureParent(
       const SurfaceDescriptor& aSharedData, ReadLockDescriptor& aReadLock,
       const LayersBackend& aBackend, const TextureFlags& aTextureFlags,
-      const LayersId& id, const uint64_t& aSerial,
+      const uint64_t& aSerial,
       const MaybeExternalImageId& aExternalImageId) = 0;
   virtual bool DeallocPTextureParent(PTextureParent* aActor) = 0;
 
@@ -343,7 +341,7 @@ class CompositorBridgeParent final : public CompositorBridgeParentBase,
   PTextureParent* AllocPTextureParent(
       const SurfaceDescriptor& aSharedData, ReadLockDescriptor& aReadLock,
       const LayersBackend& aLayersBackend, const TextureFlags& aFlags,
-      const LayersId& aId, const uint64_t& aSerial,
+      const uint64_t& aSerial,
       const wr::MaybeExternalImageId& aExternalImageId) override;
   bool DeallocPTextureParent(PTextureParent* actor) override;
 
@@ -427,6 +425,9 @@ class CompositorBridgeParent final : public CompositorBridgeParentBase,
     APZInputBridgeParent* mApzInputBridgeParent;
     RefPtr<CompositorBridgeParent> mParent;
     RefPtr<WebRenderBridgeParent> mWrBridge;
+    // The mWebRenderAPI is only populated for LayerTreeState objects
+    // corresponding to root LayerIds (one for each top-level window).
+    RefPtr<wr::WebRenderAPI> mWebRenderAPI;
     // Pointer to the ContentCompositorBridgeParent. Used by APZCs to share
     // their FrameMetrics with the corresponding child process that holds
     // the PCompositorBridgeChild

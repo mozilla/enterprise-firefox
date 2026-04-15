@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -33,16 +31,16 @@ RefPtr<CSSNumericValue> CSSNumericValue::Create(
 
   switch (aNumericValue.tag) {
     case StyleNumericValue::Tag::Unit: {
-      auto unitValue = aNumericValue.AsUnit();
+      const auto& unitValue = aNumericValue.AsUnit();
 
-      numericValue = CSSUnitValue::Create(aParent, unitValue);
+      numericValue = CSSUnitValue::Create(std::move(aParent), unitValue);
       break;
     }
 
     case StyleNumericValue::Tag::Sum: {
-      auto mathSum = aNumericValue.AsSum();
+      const auto& mathSum = aNumericValue.AsSum();
 
-      numericValue = CSSMathSum::Create(aParent, mathSum);
+      numericValue = CSSMathSum::Create(std::move(aParent), mathSum);
       break;
     }
   }

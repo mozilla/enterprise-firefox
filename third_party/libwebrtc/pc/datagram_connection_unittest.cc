@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -26,6 +27,7 @@
 #include "api/transport/enums.h"
 #include "api/units/time_delta.h"
 #include "api/units/timestamp.h"
+#include "modules/rtp_rtcp/source/rtp_packet.h"
 #include "modules/rtp_rtcp/source/rtp_packet_received.h"
 #include "modules/rtp_rtcp/source/rtp_util.h"
 #include "p2p/base/ice_transport_internal.h"
@@ -33,21 +35,22 @@
 #include "p2p/test/fake_ice_transport.h"
 #include "pc/datagram_connection_internal.h"
 #include "pc/test/fake_rtc_certificate_generator.h"
+#include "rtc_base/copy_on_write_buffer.h"
 #include "rtc_base/event.h"
-#include "rtc_base/gunit.h"
 #include "rtc_base/rtc_certificate.h"
 #include "rtc_base/socket_address.h"
 #include "rtc_base/ssl_fingerprint.h"
-#include "rtc_base/third_party/sigslot/sigslot.h"
 #include "rtc_base/thread.h"
 #include "test/gmock.h"
 #include "test/gtest.h"
+#include "test/wait_until.h"
 
 namespace webrtc {
 namespace {
 
 using ::testing::_;
 using ::testing::ElementsAre;
+using ::testing::ElementsAreArray;
 using ::testing::Invoke;
 using ::testing::NiceMock;
 using ::testing::Return;
@@ -56,12 +59,15 @@ using PacketSendParameters = DatagramConnection::PacketSendParameters;
 using SendOutcome = DatagramConnection::Observer::SendOutcome;
 using WireProtocol = DatagramConnection::WireProtocol;
 
-class DatagramConnectionTest : public ::testing::Test,
-                               public sigslot::has_slots<> {
+bool IsRtpOrRtcpPacket(uint8_t first_byte) {
+  return (first_byte & 0xc0) == 0x80;
+}
+
+class DatagramConnectionTest : public ::testing::Test {
  public:
   DatagramConnectionTest() : env_(CreateEnvironment()) {}
 
-  ~DatagramConnectionTest() override {
+  ~DatagramConnectionTest() {
     conn1_->Terminate([] {});
     conn2_->Terminate([] {});
   }
@@ -79,11 +85,11 @@ class DatagramConnectionTest : public ::testing::Test,
     std::string transport_name1 = "FakeTransport1";
     std::string transport_name2 = "FakeTransport2";
 
-    auto ice1 = std::make_unique<FakeIceTransport>(transport_name1,
-                                                   ICE_CANDIDATE_COMPONENT_RTP);
+    auto ice1 = std::make_unique<FakeIceTransportInternal>(
+        transport_name1, ICE_CANDIDATE_COMPONENT_RTP);
     ice1->SetAsync(true);
-    auto ice2 = std::make_unique<FakeIceTransport>(transport_name2,
-                                                   ICE_CANDIDATE_COMPONENT_RTP);
+    auto ice2 = std::make_unique<FakeIceTransportInternal>(
+        transport_name2, ICE_CANDIDATE_COMPONENT_RTP);
     ice2->SetAsync(true);
     ice1_ = ice1.get();
     ice2_ = ice2.get();
@@ -120,9 +126,19 @@ class DatagramConnectionTest : public ::testing::Test,
   scoped_refptr<RTCCertificate> cert2_;
   scoped_refptr<DatagramConnectionInternal> conn1_;
   scoped_refptr<DatagramConnectionInternal> conn2_;
-  FakeIceTransport* ice1_;
-  FakeIceTransport* ice2_;
+  FakeIceTransportInternal* ice1_;
+  FakeIceTransportInternal* ice2_;
 };
+
+CopyOnWriteBuffer MakeRtpPacketBuffer(int sequence_number = 1) {
+  RtpPacket rtp_packet;
+  rtp_packet.SetSequenceNumber(sequence_number);
+  rtp_packet.SetTimestamp(2);
+  rtp_packet.SetSsrc(12345);
+  std::vector<uint8_t> data = {1, 2, 3, 4, 5};
+  rtp_packet.SetPayload(data);
+  return rtp_packet.Buffer();
+}
 
 TEST_F(DatagramConnectionTest, CreateAndDestroy) {
   CreateConnections();
@@ -130,11 +146,21 @@ TEST_F(DatagramConnectionTest, CreateAndDestroy) {
   EXPECT_TRUE(conn2_);
 }
 
+TEST_F(DatagramConnectionTest, IceCredsGettersReturnCorrectValues) {
+  CreateConnections();
+
+  auto* ice_parameters = ice1_->local_ice_parameters();
+  EXPECT_EQ(ice_parameters->ufrag, conn1_->IceUsernameFragment());
+  EXPECT_EQ(ice_parameters->pwd, conn1_->IcePassword());
+}
+
 TEST_F(DatagramConnectionTest, TransportsBecomeWritable) {
   main_thread_.BlockingCall([&]() {
     CreateConnections();
     Connect();
-    WAIT(conn1_->Writable() && conn2_->Writable(), 1000);
+
+    ASSERT_TRUE(
+        WaitUntil([&]() { return conn1_->Writable() && conn2_->Writable(); }));
     EXPECT_TRUE(conn1_->Writable());
     EXPECT_TRUE(conn2_->Writable());
   });
@@ -151,19 +177,20 @@ TEST_F(DatagramConnectionTest, ObserverNotifiedOnWritableChange) {
 
   main_thread_.BlockingCall([&]() { Connect(); });
 
-  WAIT(conn1_->Writable() && conn2_->Writable(), 1000);
+  ASSERT_TRUE(
+      WaitUntil([&]() { return conn1_->Writable() && conn2_->Writable(); }));
 
   ASSERT_TRUE(event.Wait(TimeDelta::Millis(1000)));
   EXPECT_TRUE(conn1_->Writable());
 }
 
-TEST_F(DatagramConnectionTest, ObserverCalledOnReceivedPacket) {
+TEST_F(DatagramConnectionTest, ObserverCalledOnReceivedRtpPacket) {
   CreateConnections();
 
   Event event;
-  std::vector<uint8_t> packet_data = {1, 2, 3, 4};
+  auto packet_data = MakeRtpPacketBuffer();
   RtpPacketReceived packet;
-  packet.SetPayload(packet_data);
+  packet.Parse(packet_data);
   packet.set_arrival_time(Timestamp::Seconds(1234));
 
   EXPECT_CALL(*observer1_ptr_, OnPacketReceived(_, _))
@@ -182,13 +209,15 @@ TEST_F(DatagramConnectionTest, ObserverCalledOnReceivedPacket) {
   ASSERT_TRUE(event.Wait(TimeDelta::Millis(1000)));
 }
 
-TEST_F(DatagramConnectionTest, PacketsAreSent) {
+TEST_F(DatagramConnectionTest, RtpPacketsAreSent) {
   // Calling SendPacket causes the packet to be sent on ice1_
   CreateConnections();
   Connect();
-  WAIT(conn1_->Writable() && conn2_->Writable(), 1000);
 
-  std::vector<uint8_t> data = {1, 2, 3, 4, 5};
+  ASSERT_TRUE(
+      WaitUntil([&]() { return conn1_->Writable() && conn2_->Writable(); }));
+
+  auto data = MakeRtpPacketBuffer();
   Event event;
   EXPECT_CALL(*observer1_ptr_, OnSendOutcome(_))
       .WillOnce([&](const SendOutcome& outcome) {
@@ -197,19 +226,25 @@ TEST_F(DatagramConnectionTest, PacketsAreSent) {
         EXPECT_NE(outcome.send_time, Timestamp::MinusInfinity());
         event.Set();
       });
-  conn1_->SendPacket(data, PacketSendParameters{.id = 1});
+  std::vector<PacketSendParameters> packets = {
+      PacketSendParameters{.id = 1, .payload = data}};
+  conn1_->SendPackets(packets);
+
   // Pull the RTP sequence number from ice1's last_sent_packet
   uint16_t seq_num = ParseRtpSequenceNumber(ice1_->last_sent_packet());
-  EXPECT_EQ(seq_num, 0);
+  EXPECT_EQ(seq_num, 1);
   ASSERT_TRUE(event.Wait(TimeDelta::Millis(1000)));
 }
 
-TEST_F(DatagramConnectionTest, PacketsAreReceived) {
+TEST_F(DatagramConnectionTest, RtpPacketsAreReceived) {
   CreateConnections();
   Connect();
-  WAIT(conn1_->Writable() && conn2_->Writable(), 1000);
 
-  std::vector<uint8_t> data = {1, 2, 3, 4, 5};
+  ASSERT_TRUE(
+      WaitUntil([&]() { return conn1_->Writable() && conn2_->Writable(); }));
+
+  auto data = MakeRtpPacketBuffer();
+
   Event receive_event;
   EXPECT_CALL(*observer2_ptr_, OnPacketReceived(_, _))
       .WillOnce(
@@ -231,17 +266,76 @@ TEST_F(DatagramConnectionTest, PacketsAreReceived) {
         send_event.Set();
       });
 
-  conn1_->SendPacket(data, PacketSendParameters{.id = 1});
+  std::vector<PacketSendParameters> packets = {
+      PacketSendParameters{.id = 1, .payload = data}};
+  conn1_->SendPackets(packets);
   // Process the message queue to ensure the packet is sent.
   Thread::Current()->ProcessMessages(0);
   ASSERT_TRUE(receive_event.Wait(TimeDelta::Millis(1000)));
   ASSERT_TRUE(send_event.Wait(TimeDelta::Millis(1000)));
 }
 
-TEST_F(DatagramConnectionTest, SendPacketFailsWhenNotWritable) {
+TEST_F(DatagramConnectionTest, SendMultipleRtpPackets) {
+  CreateConnections();
+  Connect();
+
+  ASSERT_TRUE(
+      WaitUntil([&]() { return conn1_->Writable() && conn2_->Writable(); }));
+
+  std::vector<CopyOnWriteBuffer> data = {
+      MakeRtpPacketBuffer(1), MakeRtpPacketBuffer(2), MakeRtpPacketBuffer(3)};
+  std::vector<PacketSendParameters> packets;
+  for (size_t i = 0; i < data.size(); i++) {
+    packets.push_back(
+        PacketSendParameters{.id = static_cast<DatagramConnection::PacketId>(i),
+                             .payload = data[i]});
+  }
+
+  std::set<DatagramConnection::PacketId> expected_send_ids = {0, 1, 2};
+  Event send_event;
+  EXPECT_CALL(*observer1_ptr_, OnSendOutcome(_))
+      .WillRepeatedly([&](const SendOutcome& outcome) {
+        EXPECT_EQ(outcome.status, SendOutcome::Status::kSuccess);
+        EXPECT_NE(outcome.send_time, Timestamp::MinusInfinity());
+        EXPECT_NE(expected_send_ids.find(outcome.id), expected_send_ids.end());
+        expected_send_ids.erase(outcome.id);
+
+        if (expected_send_ids.size() == 0) {
+          send_event.Set();
+        }
+      });
+
+  Event recieve_event;
+  std::vector<std::vector<uint8_t>> received_packets;
+  EXPECT_CALL(*observer2_ptr_, OnPacketReceived(_, _))
+      .Times(data.size())
+      .WillRepeatedly(
+          [&](ArrayView<const uint8_t> received_data,
+              const DatagramConnection::Observer::PacketMetadata& metadata) {
+            received_packets.emplace_back(received_data.begin(),
+                                          received_data.end());
+            if (received_packets.size() == data.size()) {
+              recieve_event.Set();
+            }
+          });
+
+  conn1_->SendPackets(packets);
+
+  // Process the message queue to ensure the packet is sent.
+  Thread::Current()->ProcessMessages(0);
+  EXPECT_TRUE(send_event.Wait(TimeDelta::Millis(1000)));
+
+  ASSERT_TRUE(recieve_event.Wait(TimeDelta::Millis(1000)));
+  EXPECT_EQ(received_packets.size(), data.size());
+  for (size_t i = 0; i < data.size(); i++) {
+    EXPECT_THAT(received_packets[i], ElementsAreArray(data[i]));
+  }
+}
+
+TEST_F(DatagramConnectionTest, SendRtpPacketFailsWhenNotWritable) {
   CreateConnections();
   // Don't call Connect(), so the transports are not writable.
-  std::vector<uint8_t> data = {1, 2, 3, 4, 5};
+  CopyOnWriteBuffer data = MakeRtpPacketBuffer();
   EXPECT_FALSE(conn1_->Writable());
   EXPECT_CALL(*observer1_ptr_, OnSendOutcome(_))
       .WillOnce([&](const SendOutcome& outcome) {
@@ -249,15 +343,17 @@ TEST_F(DatagramConnectionTest, SendPacketFailsWhenNotWritable) {
         EXPECT_EQ(outcome.status, SendOutcome::Status::kNotSent);
         EXPECT_EQ(outcome.send_time, Timestamp::MinusInfinity());
       });
-  conn1_->SendPacket(data, PacketSendParameters{.id = 1});
+  std::vector<PacketSendParameters> packets = {
+      PacketSendParameters{.id = 1, .payload = data}};
+  conn1_->SendPackets(packets);
 }
 
-TEST_F(DatagramConnectionTest, SendPacketFailsWhenDtlsNotActive) {
+TEST_F(DatagramConnectionTest, SendRtpPacketFailsWhenDtlsNotActive) {
   CreateConnections();
   // Set destination to make the transport channel writable, but don't set DTLS
   // parameters, so DTLS is not active.
   ice1_->SetDestination(ice2_);
-  WAIT(ice1_->writable(), 1000);
+  ASSERT_TRUE(WaitUntil([&]() { return ice1_->writable(); }));
   EXPECT_TRUE(ice1_->writable());
   EXPECT_FALSE(
       conn1_->Writable());  // Should be false because DTLS is not active.
@@ -269,7 +365,43 @@ TEST_F(DatagramConnectionTest, SendPacketFailsWhenDtlsNotActive) {
         EXPECT_EQ(outcome.status, SendOutcome::Status::kNotSent);
         EXPECT_EQ(outcome.send_time, Timestamp::MinusInfinity());
       });
-  conn1_->SendPacket(data, PacketSendParameters{.id = 1});
+  std::vector<PacketSendParameters> packets = {
+      PacketSendParameters{.id = 1, .payload = data}};
+  conn1_->SendPackets(packets);
+}
+
+TEST_F(DatagramConnectionTest, NonRtpPacketsInSRTPModeAreDTLSProtected) {
+  CreateConnections();
+  Connect();
+
+  ASSERT_TRUE(
+      WaitUntil([&]() { return conn1_->Writable() && conn2_->Writable(); }));
+
+  std::vector<uint8_t> non_rtp_data = {1, 2, 3, 4, 5};
+
+  EXPECT_CALL(*observer1_ptr_, OnSendOutcome(_));
+  std::vector<PacketSendParameters> packets = {
+      PacketSendParameters{.id = 1, .payload = non_rtp_data}};
+  conn1_->SendPackets(packets);
+
+  // Payload isn't an RTP packet, so it should be sent as a DTLS packet.
+  CopyOnWriteBuffer sent_buffer = ice1_->last_sent_packet();
+  EXPECT_FALSE(IsRtpOrRtcpPacket(sent_buffer[0]));
+
+  Event receive_event;
+  EXPECT_CALL(*observer2_ptr_, OnPacketReceived(_, _))
+      .WillOnce(
+          [&](ArrayView<const uint8_t> received_data,
+              const DatagramConnection::Observer::PacketMetadata& metadata) {
+            // Check the data is decrypted correctly.
+            EXPECT_EQ(received_data.size(), non_rtp_data.size());
+            EXPECT_THAT(received_data, ElementsAreArray(non_rtp_data));
+            receive_event.Set();
+          });
+
+  // Process the message queue to ensure the packet is sent.
+  Thread::Current()->ProcessMessages(0);
+  ASSERT_TRUE(receive_event.Wait(TimeDelta::Millis(1000)));
 }
 
 TEST_F(DatagramConnectionTest, OnCandidateGathered) {
@@ -310,7 +442,8 @@ TEST_F(DatagramConnectionTest, ObserverNotifiedOnConnectionError) {
 TEST_F(DatagramConnectionTest, DirectDtlsPacketsAreSent) {
   CreateConnections(WireProtocol::kDtls);
   Connect();
-  WAIT(conn1_->Writable() && conn2_->Writable(), 1000);
+  ASSERT_TRUE(
+      WaitUntil([&]() { return conn1_->Writable() && conn2_->Writable(); }));
 
   std::vector<uint8_t> data = {1, 2, 3, 4, 5};
   Event event;
@@ -321,7 +454,9 @@ TEST_F(DatagramConnectionTest, DirectDtlsPacketsAreSent) {
         EXPECT_NE(outcome.send_time, Timestamp::MinusInfinity());
         event.Set();
       });
-  conn1_->SendPacket(data, PacketSendParameters{.id = 1});
+  std::vector<PacketSendParameters> packets = {
+      PacketSendParameters{.id = 1, .payload = data}};
+  conn1_->SendPackets(packets);
   // For direct DTLS, the sent packet should be larger than the data due to
   // DTLS overhead.
   EXPECT_GT(ice1_->last_sent_packet().size(), data.size());
@@ -331,7 +466,9 @@ TEST_F(DatagramConnectionTest, DirectDtlsPacketsAreSent) {
 TEST_F(DatagramConnectionTest, DirectDtlsPacketsAreReceived) {
   CreateConnections(WireProtocol::kDtls);
   Connect();
-  WAIT(conn1_->Writable() && conn2_->Writable(), 1000);
+
+  ASSERT_TRUE(
+      WaitUntil([&]() { return conn1_->Writable() && conn2_->Writable(); }));
 
   std::vector<uint8_t> data = {1, 2, 3, 4, 5};
   Event receive_event;
@@ -355,7 +492,9 @@ TEST_F(DatagramConnectionTest, DirectDtlsPacketsAreReceived) {
         send_event.Set();
       });
 
-  conn1_->SendPacket(data, PacketSendParameters{.id = 1});
+  std::vector<PacketSendParameters> packets = {
+      PacketSendParameters{.id = 1, .payload = data}};
+  conn1_->SendPackets(packets);
   // Process the message queue to ensure the packet is sent.
   Thread::Current()->ProcessMessages(0);
   ASSERT_TRUE(receive_event.Wait(TimeDelta::Millis(1000)));

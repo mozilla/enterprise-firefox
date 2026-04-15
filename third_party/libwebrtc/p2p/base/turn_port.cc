@@ -56,7 +56,6 @@
 #include "rtc_base/ssl_certificate.h"
 #include "rtc_base/string_encode.h"
 #include "rtc_base/strings/string_builder.h"
-#include "rtc_base/third_party/sigslot/sigslot.h"
 #include "system_wrappers/include/metrics.h"
 
 namespace webrtc {
@@ -166,11 +165,11 @@ class TurnChannelBindRequest : public StunRequest {
 
 // Manages a "connection" to a remote destination. We will attempt to bring up
 // a channel for this remote destination to reduce the overhead of sending data.
-class TurnEntry : public sigslot::has_slots<> {
+class TurnEntry {
  public:
   enum BindState { STATE_UNBOUND, STATE_BINDING, STATE_BOUND };
   TurnEntry(TurnPort* port, Connection* conn, int channel_id);
-  ~TurnEntry() override;
+  ~TurnEntry();
 
   TurnPort* port() { return port_; }
 
@@ -296,8 +295,11 @@ TurnPort::~TurnPort() {
 
   entries_.clear();
 
-  if (socket_)
+  if (socket_) {
+    socket_->UnsubscribeSentPacket(this);
+    socket_->UnsubscribeConnect(this);
     socket_->UnsubscribeCloseEvent(this);
+  }
 }
 
 void TurnPort::set_realm(absl::string_view realm) {
@@ -480,9 +482,20 @@ bool TurnPort::CreateTurnClientSocket() {
         });
   }
 
-  socket_->SignalReadyToSend.connect(this, &TurnPort::OnReadyToSend);
+  socket_->SubscribeReadyToSend(
+      this, [this, flag = task_safety_.flag()](AsyncPacketSocket* socket) {
+        if (flag->alive()) {
+          OnReadyToSend(socket);
+        }
+      });
 
-  socket_->SignalSentPacket.connect(this, &TurnPort::OnSentPacket);
+  socket_->SubscribeSentPacket(
+      this, [this, flag = task_safety_.flag()](AsyncPacketSocket* socket,
+                                               const SentPacketInfo& info) {
+        if (flag->alive()) {
+          OnSentPacket(socket, info);
+        }
+      });
 
   // TCP port is ready to send stun requests after the socket is connected,
   // while UDP port is ready to do so once the socket is created.
@@ -784,7 +797,7 @@ void TurnPort::OnReadPacket(AsyncPacketSocket* socket,
 
 void TurnPort::OnSentPacket(AsyncPacketSocket* socket,
                             const SentPacketInfo& sent_packet) {
-  PortInterface::SignalSentPacket(sent_packet);
+  NotifySentPacket(sent_packet);
 }
 
 void TurnPort::OnReadyToSend(AsyncPacketSocket* socket) {

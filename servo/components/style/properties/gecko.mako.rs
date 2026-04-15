@@ -11,6 +11,7 @@ use crate::Atom;
 use crate::logical_geometry::PhysicalSide;
 use crate::computed_value_flags::*;
 use crate::custom_properties::ComputedCustomProperties;
+use crate::device::Device;
 use crate::gecko_bindings::bindings;
 % for style_struct in data.style_structs:
 use crate::gecko_bindings::bindings::Gecko_Construct_Default_${style_struct.gecko_ffi_name};
@@ -24,7 +25,6 @@ use crate::gecko_bindings::structs;
 use crate::gecko_bindings::structs::mozilla::PseudoStyleType;
 use crate::gecko::data::PerDocumentStyleData;
 use crate::logical_geometry::WritingMode;
-use crate::media_queries::Device;
 use crate::properties::longhands;
 use crate::rule_tree::StrongRuleNode;
 use crate::selector_parser::PseudoElement;
@@ -288,6 +288,21 @@ impl ComputedValuesInner {
     }
 </%def>
 
+<%def name="impl_simple_eq(ident, gecko_ffi_name)">
+    #[allow(non_snake_case)]
+    pub fn ${ident}_equals(&self, other: &Self) -> bool {
+        self.${gecko_ffi_name} == other.${gecko_ffi_name}
+    }
+</%def>
+
+<%def name="impl_fallback_eq(ident)">
+    #[allow(non_snake_case)]
+    pub fn ${ident}_equals(&self, other: &Self) -> bool {
+        // TODO: Could be more efficient
+        self.clone_${ident}() == other.clone_${ident}()
+    }
+</%def>
+
 <%def name="impl_simple_clone(ident, gecko_ffi_name)">
     #[allow(non_snake_case)]
     pub fn clone_${ident}(&self) -> longhands::${ident}::computed_value::T {
@@ -391,12 +406,14 @@ def set_gecko_property(ffi_name, expr):
 <%call expr="impl_keyword_setter(ident, gecko_ffi_name, keyword, cast_type, **kwargs)"></%call>
 <%call expr="impl_simple_copy(ident, gecko_ffi_name, **kwargs)"></%call>
 <%call expr="impl_keyword_clone(ident, gecko_ffi_name, keyword, cast_type)"></%call>
+<%call expr="impl_simple_eq(ident, gecko_ffi_name)"></%call>
 </%def>
 
 <%def name="impl_simple(ident, gecko_ffi_name)">
 <%call expr="impl_simple_setter(ident, gecko_ffi_name)"></%call>
 <%call expr="impl_simple_copy(ident, gecko_ffi_name)"></%call>
 <%call expr="impl_simple_clone(ident, gecko_ffi_name)"></%call>
+<%call expr="impl_simple_eq(ident, gecko_ffi_name)"></%call>
 </%def>
 
 <%def name="impl_border_width(ident, gecko_ffi_name, inherit_from)">
@@ -430,6 +447,8 @@ def set_gecko_property(ffi_name, expr):
     pub fn clone_${ident}(&self) -> Au {
         Au(self.${gecko_ffi_name})
     }
+
+    ${impl_simple_eq(ident, gecko_ffi_name)}
 </%def>
 
 <%def name="impl_style_struct(style_struct)">
@@ -514,7 +533,8 @@ impl Clone for ${style_struct.gecko_struct_name} {
         self.mFont.${gecko_ffi_name}.extend(iter);
     }
 
-    <% impl_simple_copy(ident, "mFont." + gecko_ffi_name) %>
+    ${impl_simple_copy(ident, "mFont." + gecko_ffi_name)}
+    ${impl_fallback_eq(ident)}
 
     pub fn clone_${ident}(&self) -> longhands::${ident}::computed_value::T {
         use crate::values::generics::font::{FontSettings, FontTag, ${tag_type}};
@@ -641,6 +661,10 @@ fn static_assert() {
         self.copy_font_size_from(other)
     }
 
+    pub fn font_size_equals(&self, other: &Self) -> bool {
+        self.mSize == other.mSize
+    }
+
     pub fn set_font_size(&mut self, v: FontSize) {
         let computed_size = v.computed_size;
         self.mScriptUnconstrainedSize = computed_size;
@@ -697,36 +721,13 @@ fn static_assert() {
             Atom::from_raw(self.mLanguage.mRawPtr)
         })
     }
+
+    #[allow(non_snake_case)]
+    pub fn _x_lang_equals(&self, other: &Self) -> bool {
+        self.mLanguage.mRawPtr == other.mLanguage.mRawPtr
+    }
 </%self:impl_trait>
 
-<%def name="impl_coordinated_property_copy(type, ident, gecko_ffi_name)">
-    #[allow(non_snake_case)]
-    pub fn copy_${type}_${ident}_from(&mut self, other: &Self) {
-        self.m${to_camel_case(type)}s.ensure_len(other.m${to_camel_case(type)}s.len());
-
-        let count = other.m${to_camel_case(type)}${gecko_ffi_name}Count;
-        self.m${to_camel_case(type)}${gecko_ffi_name}Count = count;
-
-        let iter = self.m${to_camel_case(type)}s.iter_mut().take(count as usize).zip(
-            other.m${to_camel_case(type)}s.iter()
-        );
-
-        for (ours, others) in iter {
-            ours.m${gecko_ffi_name} = others.m${gecko_ffi_name}.clone();
-        }
-    }
-    #[allow(non_snake_case)]
-    pub fn reset_${type}_${ident}(&mut self, other: &Self) {
-        self.copy_${type}_${ident}_from(other)
-    }
-</%def>
-
-<%def name="impl_coordinated_property_count(type, ident, gecko_ffi_name)">
-    #[allow(non_snake_case)]
-    pub fn ${type}_${ident}_count(&self) -> usize {
-        self.m${to_camel_case(type)}${gecko_ffi_name}Count as usize
-    }
-</%def>
 
 <%def name="impl_coordinated_property(type, ident, gecko_ffi_name)">
     #[allow(non_snake_case)]
@@ -750,8 +751,45 @@ fn static_assert() {
         -> longhands::${type}_${ident}::computed_value::SingleComputedValue {
         self.m${to_camel_case(type)}s[index % self.${type}_${ident}_count()].m${gecko_ffi_name}.clone()
     }
-    ${impl_coordinated_property_copy(type, ident, gecko_ffi_name)}
-    ${impl_coordinated_property_count(type, ident, gecko_ffi_name)}
+    #[allow(non_snake_case)]
+    pub fn copy_${type}_${ident}_from(&mut self, other: &Self) {
+        self.m${to_camel_case(type)}s.ensure_len(other.m${to_camel_case(type)}s.len());
+
+        let count = other.m${to_camel_case(type)}${gecko_ffi_name}Count;
+        self.m${to_camel_case(type)}${gecko_ffi_name}Count = count;
+
+        let iter = self.m${to_camel_case(type)}s.iter_mut().take(count as usize).zip(
+            other.m${to_camel_case(type)}s.iter()
+        );
+
+        for (ours, others) in iter {
+            ours.m${gecko_ffi_name} = others.m${gecko_ffi_name}.clone();
+        }
+    }
+    #[allow(non_snake_case)]
+    pub fn reset_${type}_${ident}(&mut self, other: &Self) {
+        self.copy_${type}_${ident}_from(other)
+    }
+    #[allow(non_snake_case)]
+    pub fn ${type}_${ident}_count(&self) -> usize {
+        self.m${to_camel_case(type)}${gecko_ffi_name}Count as usize
+    }
+    #[allow(non_snake_case)]
+    pub fn ${type}_${ident}_equals(&self, other: &Self) -> bool {
+        let count = self.${type}_${ident}_count();
+        if count != other.${type}_${ident}_count() {
+            return false;
+        }
+        let iter = self.m${to_camel_case(type)}s.iter().take(count as usize).zip(
+            other.m${to_camel_case(type)}s.iter()
+        );
+        for (ours, others) in iter {
+            if ours.m${gecko_ffi_name} != others.m${gecko_ffi_name} {
+                return false;
+            }
+        }
+        true
+    }
 </%def>
 
 <% skip_box_longhands= """display contain""" %>
@@ -787,6 +825,11 @@ fn static_assert() {
     }
 
     #[inline]
+    pub fn display_equals(&self, other: &Self) -> bool {
+        self.mDisplay == other.mDisplay
+    }
+
+    #[inline]
     pub fn set_contain(&mut self, v: longhands::contain::computed_value::T) {
         self.mContain = v;
         self.mEffectiveContainment = v;
@@ -805,6 +848,11 @@ fn static_assert() {
     #[inline]
     pub fn clone_contain(&self) -> longhands::contain::computed_value::T {
         self.mContain
+    }
+
+    #[inline]
+    pub fn contain_equals(&self, other: &Self) -> bool {
+        self.mContain == other.mContain
     }
 
     #[inline]
@@ -828,8 +876,8 @@ fn static_assert() {
     %>
 
     pub fn set_${shorthand}_${name}<I>(&mut self, v: I)
-        where I: IntoIterator<Item=longhands::${shorthand}_${name}::computed_value::single_value::T>,
-              I::IntoIter: ExactSizeIterator
+    where I: IntoIterator<Item=longhands::${shorthand}_${name}::computed_value::single_value::T>,
+          I::IntoIter: ExactSizeIterator
     {
         use crate::gecko_bindings::structs::nsStyleImageLayers_LayerType as LayerType;
         let v = v.into_iter();
@@ -846,6 +894,7 @@ fn static_assert() {
             };
         }
     }
+    ${impl_fallback_eq(f"{shorthand}_{name}")}
 </%def>
 
 <%def name="copy_simple_image_array_property(name, shorthand, layers_field_name, field_name)">
@@ -910,27 +959,17 @@ fn static_assert() {
         }
     }
 
+    ${impl_fallback_eq(ident)}
+
     pub fn clone_${ident}(&self) -> longhands::${ident}::computed_value::T {
         use crate::properties::longhands::${ident}::single_value::computed_value::T as Keyword;
-
-        % if keyword.needs_cast():
-        % for value in keyword.values_for('gecko'):
-        const ${keyword.casted_constant_name(value, "u8")} : u8 =
-            structs::${keyword.gecko_constant(value)} as u8;
-        % endfor
-        % endif
-
         longhands::${ident}::computed_value::List(
             self.${layer_field_name}.mLayers.iter()
                 .take(self.${layer_field_name}.${field_name}Count as usize)
                 .map(|ref layer| {
                     match layer.${field_name} {
                         % for value in longhand.keyword.values_for("gecko"):
-                        % if keyword.needs_cast():
-                        ${keyword.casted_constant_name(value, "u8")}
-                        % else:
                         structs::${keyword.gecko_constant(value)}
-                        % endif
                             => Keyword::${to_camel_case(value)},
                         % endfor
                         % if keyword.gecko_inexhaustive:
@@ -1035,11 +1074,12 @@ fn static_assert() {
         )
     }
 
-    pub fn set_${shorthand}_position_${orientation[0]}<I>(&mut self,
-                                     v: I)
-        where I: IntoIterator<Item = longhands::${shorthand}_position_${orientation[0]}
-                                              ::computed_value::single_value::T>,
-              I::IntoIter: ExactSizeIterator
+    ${impl_fallback_eq(f"{shorthand}_position_{orientation}")}
+
+    pub fn set_${shorthand}_position_${orientation[0]}<I>(&mut self, v: I)
+    where
+        I: IntoIterator<Item = longhands::${shorthand}_position_${orientation[0]}::computed_value::single_value::T>,
+        I::IntoIter: ExactSizeIterator
     {
         use crate::gecko_bindings::structs::nsStyleImageLayers_LayerType as LayerType;
 
@@ -1091,8 +1131,9 @@ fn static_assert() {
 
     #[allow(unused_variables)]
     pub fn set_${shorthand}_image<I>(&mut self, images: I)
-        where I: IntoIterator<Item = longhands::${shorthand}_image::computed_value::single_value::T>,
-              I::IntoIter: ExactSizeIterator
+    where
+        I: IntoIterator<Item = longhands::${shorthand}_image::computed_value::single_value::T>,
+        I::IntoIter: ExactSizeIterator
     {
         use crate::gecko_bindings::structs::nsStyleImageLayers_LayerType as LayerType;
 
@@ -1107,11 +1148,12 @@ fn static_assert() {
         }
 
         self.${image_layers_field}.mImageCount = images.len() as u32;
-        for (image, geckoimage) in images.zip(self.${image_layers_field}
-                                                  .mLayers.iter_mut()) {
+        for (image, geckoimage) in images.zip(self.${image_layers_field}.mLayers.iter_mut()) {
             geckoimage.mImage = image;
         }
     }
+
+    ${impl_fallback_eq(f"{shorthand}_image")}
 
     pub fn clone_${shorthand}_image(&self) -> longhands::${shorthand}_image::computed_value::T {
         longhands::${shorthand}_image::computed_value::List(
@@ -1218,6 +1260,7 @@ mask-mode mask-repeat mask-clip mask-origin mask-composite mask-position-x mask-
                           animation-direction animation-fill-mode
                           animation-play-state animation-iteration-count
                           animation-timing-function animation-composition animation-timeline
+                          animation-range-start animation-range-end
                           transition-behavior transition-duration transition-delay
                           transition-timing-function transition-property
                           scroll-timeline-name scroll-timeline-axis
@@ -1264,6 +1307,8 @@ mask-mode mask-repeat mask-clip mask-origin mask-composite mask-position-x mask-
             && self.mAnimationTimingFunctionCount == other.mAnimationTimingFunctionCount
             && self.mAnimationCompositionCount == other.mAnimationCompositionCount
             && self.mAnimationTimelineCount == other.mAnimationTimelineCount
+            && self.mAnimationRangeStartCount == other.mAnimationRangeStartCount
+            && self.mAnimationRangeEndCount == other.mAnimationRangeEndCount
             && unsafe { bindings::Gecko_StyleAnimationsEquals(&self.mAnimations, &other.mAnimations) }
     }
 
@@ -1277,6 +1322,8 @@ mask-mode mask-repeat mask-clip mask-origin mask-composite mask-position-x mask-
     ${impl_coordinated_property('animation', 'iteration_count', 'IterationCount')}
     ${impl_coordinated_property('animation', 'timeline', 'Timeline')}
     ${impl_coordinated_property('animation', 'timing_function', 'TimingFunction')}
+    ${impl_coordinated_property('animation', 'range_start', 'RangeStart')}
+    ${impl_coordinated_property('animation', 'range_end', 'RangeEnd')}
 
     ${impl_coordinated_property('scroll_timeline', 'name', 'Name')}
     ${impl_coordinated_property('scroll_timeline', 'axis', 'Axis')}
@@ -1466,6 +1513,5 @@ pub mod system_font {
         % endfor
         pub system_font: SystemFont,
     }
-
 }
 % endif

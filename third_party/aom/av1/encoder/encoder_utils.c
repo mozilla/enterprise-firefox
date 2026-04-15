@@ -9,6 +9,7 @@
  * PATENTS file, you can obtain it at www.aomedia.org/license/patent.
  */
 
+#include <assert.h>
 #include <string.h>
 
 #include "aom/aomcx.h"
@@ -681,55 +682,65 @@ void av1_set_size_dependent_vars(AV1_COMP *cpi, int *q, int *bottom_index,
   }
 #endif
 
-  // Decide q and q bounds.
-  *q = av1_rc_pick_q_and_bounds(cpi, cm->width, cm->height, cpi->gf_frame_index,
-                                bottom_index, top_index);
+  if (cpi->oxcf.q_cfg.use_fixed_qp_offsets == 2 &&
+      cpi->oxcf.rc_cfg.mode == AOM_Q) {
+    // Disable scaling, and use the same q for all frames of the pyramid
+    *q = cpi->oxcf.rc_cfg.cq_level;
+    *top_index = *bottom_index = *q;
+    cpi->ppi->p_rc.arf_q = *q;
+  } else {
+    // Decide q and q bounds.
+    *q = av1_rc_pick_q_and_bounds(cpi, cm->width, cm->height,
+                                  cpi->gf_frame_index, bottom_index, top_index);
 
-  if (cpi->oxcf.rc_cfg.mode == AOM_CBR && cpi->rc.force_max_q) {
-    *q = cpi->rc.worst_quality;
-    cpi->rc.force_max_q = 0;
-  }
+    if (cpi->oxcf.rc_cfg.mode == AOM_CBR && cpi->rc.force_max_q) {
+      *q = cpi->rc.worst_quality;
+      cpi->rc.force_max_q = 0;
+    }
 
 #if !CONFIG_REALTIME_ONLY
-  if (cpi->oxcf.rc_cfg.mode == AOM_Q &&
-      cpi->ppi->tpl_data.tpl_frame[cpi->gf_frame_index].is_valid &&
-      !is_lossless_requested(&cpi->oxcf.rc_cfg)) {
-    const RateControlCfg *const rc_cfg = &cpi->oxcf.rc_cfg;
-    const int tpl_q = av1_tpl_get_q_index(
-        &cpi->ppi->tpl_data, cpi->gf_frame_index, cpi->rc.active_worst_quality,
-        cm->seq_params->bit_depth);
-    *q = clamp(tpl_q, rc_cfg->best_allowed_q, rc_cfg->worst_allowed_q);
-    *top_index = *bottom_index = *q;
-    if (gf_group->update_type[cpi->gf_frame_index] == ARF_UPDATE)
-      cpi->ppi->p_rc.arf_q = *q;
-  }
-
-  if (cpi->oxcf.q_cfg.use_fixed_qp_offsets && cpi->oxcf.rc_cfg.mode == AOM_Q) {
-    if (is_frame_tpl_eligible(gf_group, cpi->gf_frame_index)) {
-      const double qratio_grad =
-          cpi->ppi->p_rc.baseline_gf_interval > 20 ? 0.2 : 0.3;
-      const double qstep_ratio =
-          0.2 +
-          (1.0 - (double)cpi->rc.active_worst_quality / MAXQ) * qratio_grad;
-      *q = av1_get_q_index_from_qstep_ratio(
-          cpi->rc.active_worst_quality, qstep_ratio, cm->seq_params->bit_depth);
+    if (cpi->oxcf.rc_cfg.mode == AOM_Q &&
+        cpi->ppi->tpl_data.tpl_frame[cpi->gf_frame_index].is_valid &&
+        !is_lossless_requested(&cpi->oxcf.rc_cfg)) {
+      const RateControlCfg *const rc_cfg = &cpi->oxcf.rc_cfg;
+      const int tpl_q = av1_tpl_get_q_index(
+          &cpi->ppi->tpl_data, cpi->gf_frame_index,
+          cpi->rc.active_worst_quality, cm->seq_params->bit_depth);
+      *q = clamp(tpl_q, rc_cfg->best_allowed_q, rc_cfg->worst_allowed_q);
       *top_index = *bottom_index = *q;
-      if (gf_group->update_type[cpi->gf_frame_index] == ARF_UPDATE ||
-          gf_group->update_type[cpi->gf_frame_index] == KF_UPDATE ||
-          gf_group->update_type[cpi->gf_frame_index] == GF_UPDATE)
+      if (gf_group->update_type[cpi->gf_frame_index] == ARF_UPDATE)
         cpi->ppi->p_rc.arf_q = *q;
-    } else if (gf_group->layer_depth[cpi->gf_frame_index] <
-               gf_group->max_layer_depth) {
-      int this_height = gf_group->layer_depth[cpi->gf_frame_index];
-      int arf_q = cpi->ppi->p_rc.arf_q;
-      while (this_height > 1) {
-        arf_q = (arf_q + cpi->oxcf.rc_cfg.cq_level + 1) / 2;
-        --this_height;
-      }
-      *top_index = *bottom_index = *q = arf_q;
     }
-  }
+
+    if (cpi->oxcf.q_cfg.use_fixed_qp_offsets == 1 &&
+        cpi->oxcf.rc_cfg.mode == AOM_Q) {
+      if (is_frame_tpl_eligible(gf_group, cpi->gf_frame_index)) {
+        const double qratio_grad =
+            cpi->ppi->p_rc.baseline_gf_interval > 20 ? 0.2 : 0.3;
+        const double qstep_ratio =
+            0.2 +
+            (1.0 - (double)cpi->rc.active_worst_quality / MAXQ) * qratio_grad;
+        *q = av1_get_q_index_from_qstep_ratio(cpi->rc.active_worst_quality,
+                                              qstep_ratio,
+                                              cm->seq_params->bit_depth);
+        *top_index = *bottom_index = *q;
+        if (gf_group->update_type[cpi->gf_frame_index] == ARF_UPDATE ||
+            gf_group->update_type[cpi->gf_frame_index] == KF_UPDATE ||
+            gf_group->update_type[cpi->gf_frame_index] == GF_UPDATE)
+          cpi->ppi->p_rc.arf_q = *q;
+      } else if (gf_group->layer_depth[cpi->gf_frame_index] <
+                 gf_group->max_layer_depth) {
+        int this_height = gf_group->layer_depth[cpi->gf_frame_index];
+        int arf_q = cpi->ppi->p_rc.arf_q;
+        while (this_height > 1) {
+          arf_q = (arf_q + cpi->oxcf.rc_cfg.cq_level + 1) / 2;
+          --this_height;
+        }
+        *top_index = *bottom_index = *q = arf_q;
+      }
+    }
 #endif
+  }
 
   // Configure experimental use of segmentation for enhanced coding of
   // static regions if indicated.
@@ -738,6 +749,9 @@ void av1_set_size_dependent_vars(AV1_COMP *cpi, int *q, int *bottom_index,
   if (is_stat_consumption_stage_twopass(cpi) &&
       cpi->sf.hl_sf.static_segmentation)
     configure_static_seg_features(cpi);
+
+  if (cpi->oxcf.rc_cfg.over_shoot_pct == 0) *top_index = MAXQ;
+  if (cpi->oxcf.rc_cfg.under_shoot_pct == 0) *bottom_index = MINQ;
 }
 
 #if !CONFIG_REALTIME_ONLY
@@ -1314,6 +1328,8 @@ void av1_finalize_encoded_frame(AV1_COMP *const cpi) {
 
   if (!cm->seq_params->reduced_still_picture_hdr &&
       encode_show_existing_frame(cm)) {
+    assert(cpi->existing_fb_idx_to_show >= 0 &&
+           cpi->existing_fb_idx_to_show < REF_FRAMES);
     RefCntBuffer *const frame_to_show =
         cm->ref_frame_map[cpi->existing_fb_idx_to_show];
 
@@ -1544,6 +1560,8 @@ static void save_extra_coding_context(AV1_COMP *cpi) {
   cc->cdef_info = cm->cdef_info;
   cc->rc = cpi->rc;
   cc->mv_stats = cpi->ppi->mv_stats;
+  cc->frame_number = cpi->common.current_frame.frame_number;
+  cc->frame_index_set = cpi->frame_index_set;
 }
 
 void av1_save_all_coding_context(AV1_COMP *cpi) {

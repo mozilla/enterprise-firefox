@@ -1,5 +1,3 @@
-/* -*- Mode: c++; c-basic-offset: 2; indent-tabs-mode: nil; tab-width: 40 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -132,6 +130,11 @@ class nsMainThreadPtrHolder<
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(nsMainThreadPtrHolder<Holder>)
 
+  // Copy constructor and operator= not implemented. Once constructed, the
+  // holder is immutable.
+  Holder& operator=(const nsMainThreadPtrHolder& aOther) = delete;
+  nsMainThreadPtrHolder(const nsMainThreadPtrHolder& aOther) = delete;
+
  private:
   // Our holder.
   Holder mHolder;
@@ -139,11 +142,6 @@ class nsMainThreadPtrHolder<
 #ifndef RELEASE_OR_BETA
   const char* mName = nullptr;
 #endif
-
-  // Copy constructor and operator= not implemented. Once constructed, the
-  // holder is immutable.
-  Holder& operator=(const nsMainThreadPtrHolder& aOther) = delete;
-  nsMainThreadPtrHolder(const nsMainThreadPtrHolder& aOther) = delete;
 };
 
 namespace mozilla {

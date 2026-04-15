@@ -112,7 +112,7 @@ class NetworkEventContentWatcher {
     });
   };
 
-  httpOnResourceCacheResponse = (subject, topic) => {
+  httpOnResourceCacheResponse = (subject, topic, memoryCacheKey) => {
     if (
       topic != "http-on-resource-cache-response" ||
       !(subject instanceof Ci.nsIHttpChannel)
@@ -150,6 +150,7 @@ class NetworkEventContentWatcher {
 
     this.onNetworkEventAvailable(channel, {
       fromCache: true,
+      memoryCacheKey,
       networkEventOptions: {},
       type: RESOURCE_TYPES.CACHED,
     });
@@ -188,7 +189,10 @@ class NetworkEventContentWatcher {
     });
   };
 
-  onNetworkEventAvailable(channel, { fromCache, networkEventOptions, type }) {
+  onNetworkEventAvailable(
+    channel,
+    { fromCache, memoryCacheKey, networkEventOptions, type }
+  ) {
     const networkEventActor = new NetworkEventActor(
       this.targetActor.conn,
       this.targetActor.sessionContext,
@@ -228,6 +232,9 @@ class NetworkEventContentWatcher {
 
     this.onAvailable([resource]);
 
+    if (memoryCacheKey) {
+      networkEventActor.addMemoryCacheData(channel, memoryCacheKey);
+    }
     networkEventActor.addCacheDetails({ fromCache });
     if (type == RESOURCE_TYPES.BLOCKED) {
       lazy.NetworkUtils.setEventAsAvailable(networkEvent.resourceUpdates, [

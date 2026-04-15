@@ -10,6 +10,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesManager.sys.mjs",
   getRecentChats:
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesChatSource.sys.mjs",
+  CONVERSATION:
+    "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "console", function () {
   return console.createInstance({
@@ -45,7 +47,11 @@ export class MemoriesConversationScheduler {
   static #instance = null;
 
   static maybeInit() {
-    if (!lazy.MemoriesManager.shouldEnableMemoriesSchedulers()) {
+    if (
+      !lazy.MemoriesManager.shouldEnableMemoriesFromSchedulers(
+        lazy.CONVERSATION
+      )
+    ) {
       return null;
     }
     if (!this.#instance) {
@@ -94,9 +100,13 @@ export class MemoriesConversationScheduler {
     }
 
     // Re-check gating conditions on every tick (AIWindow may have closed, prefs may have changed).
-    if (!lazy.MemoriesManager.shouldEnableMemoriesSchedulers()) {
+    if (
+      !lazy.MemoriesManager.shouldEnableMemoriesFromSchedulers(
+        lazy.CONVERSATION
+      )
+    ) {
       lazy.console.debug(
-        "Memories schedulers no longer enabled; stopping conversation scheduler."
+        "Memories from conversation scheduler no longer enabled; stopping conversation scheduler."
       );
       this.destroy();
       // Also clear singleton so it can be re-initialized later when conditions become true again.
@@ -155,7 +165,9 @@ export class MemoriesConversationScheduler {
     } finally {
       if (
         !this.#destroyed &&
-        lazy.MemoriesManager.shouldEnableMemoriesSchedulers()
+        lazy.MemoriesManager.shouldEnableMemoriesFromSchedulers(
+          lazy.CONVERSATION
+        )
       ) {
         this.#startInterval();
       }

@@ -25,10 +25,27 @@
     <!-- Secret Settings Strings -->
     <!-- Label for the secret settings preference -->
     <string name="preferences_debug_settings">Secret Settings</string>
+
+    <!-- Label for the secret settings homepage preference category -->
+    <string name="homepage_debug_settings_homepage_category_title">Homepage</string>
+    <string name="homepage_debug_settings_homepage_category_key">homepage</string>
+
     <!-- Label for the secret settings preference -->
     <string name="preferences_debug_info" translatable="false">Secret Debug Info</string>
-    <!-- Label for using remote settings server url -->
-    <string name="preferences_debug_settings_remote_settings_server" translatable="false">Use Remote Settings Production server \n(Staging will be used when disabled) \n(requires restart)</string>
+    <!-- Label for remote settings server preference -->
+    <string name="preferences_debug_settings_remote_settings_server_label" translatable="false">Remote Settings Server (requires restart)</string>
+    <!-- Label for Production server option -->
+    <string name="preferences_remote_settings_server_prod_label" translatable="false">Production</string>
+    <!-- Label for Staging server option -->
+    <string name="preferences_remote_settings_server_stage_label" translatable="false">Staging</string>
+    <!-- Label for Development server option -->
+    <string name="preferences_remote_settings_server_dev_label" translatable="false">Development</string>
+    <!-- Toast message shown when starting to sync remote settings -->
+    <string name="preferences_remote_settings_syncing" translatable="false">Syncing remote settings…</string>
+    <!-- Toast message shown when remote settings sync completes successfully -->
+    <string name="preferences_remote_settings_synced" translatable="false">Remote settings synced successfully</string>
+    <!-- Toast message shown when remote settings sync fails. %s is replaced with the error message -->
+    <string name="preferences_remote_settings_sync_failed" translatable="false">Failed to sync remote settings: %s</string>
     <!-- Label for allowing third party root certificates from the Android OS CA store preference -->
     <string name="preferences_debug_settings_allow_third_party_root_certs">Use third party CA certificates</string>
     <!-- Label for a longer description of allowing third party root certificates from the Android OS CA store preference -->
@@ -67,14 +84,14 @@
     <string name="preferences_debug_settings_homepage_as_new_tab" translatable="false">Enable Homepage as a New Tab</string>
     <!-- Label for enabling Firefox Labs -->
     <string name="preferences_debug_settings_firefox_labs" translatable="false">Enable Firefox Labs</string>
-    <!-- Label for enabling Browser Mode Toggle -->
-    <string name="preferences_debug_settings_browser_mode_toggle" translatable="false">Enable Browser Mode Toggle</string>
     <!-- Label for enabling Merino Client -->
     <string name="preferences_debug_settings_merino_client" translatable="false">Enable Merino Client</string>
     <!-- Label for enabling Mozilla Ads Client -->
     <string name="preferences_debug_settings_mozilla_ads_client" translatable="false">Enable Mozilla Ads Client</string>
     <!-- Label for enabling Discover more stories -->
     <string name="preferences_debug_settings_discover_more_stories" translatable="false">Enable Discover More Stories</string>
+    <!-- Label for enabling Privacy Report on homepage -->
+    <string name="preferences_debug_settings_privacy_report" translatable="false">Enable Privacy Report</string>
     <!-- Label for enabling the custom tab extension -->
     <string name="preferences_debug_settings_custom_tab_extensions" translatable="false">Enable Custom Tab Extension List</string>
     <!-- Label for a longer description of the custom tab extensions depending on the menu redesign or composable toolbar feature -->
@@ -104,7 +121,7 @@
     <!-- Label for enabling the microsurvey feature -->
     <string name="preferences_debug_settings_microsurvey_feature" translatable="false">Enable Microsurvey Feature</string>
     <!-- Label for enabling shake to summarize -->
-    <string name="preferences_key_enable_shake_to_summarize" translatable="false">Enable Shake to Summarize Feature</string>
+    <string name="preferences_key_enable_shake_to_summarize" translatable="false">Enable Shake to Summarize Feature Flag</string>
     <!-- Label for enabling Unified Trust Panel -->
     <string name="preferences_debug_settings_unified_trust_panel" translatable="false">Enable Unified Trust Panel</string>
     <!-- Label for enabling remote search configuration -->
@@ -119,15 +136,29 @@
     <string name="preferences_debug_settings_enable_persistent_onboarding" translatable="false">Show onboarding on each app cold open</string>
 
     <!-- Search Optimization Secret Settings -->
+    <string name="preferences_debug_settings_search_optimization" translatable="false">Search Optimization Feature</string>
     <string name="preferences_debug_settings_enable_search_optimization" translatable="false">Enable Search Optimization Feature</string>
     <string name="preferences_debug_settings_enable_search_optimization_stock" translatable="false">Show Search Optimization Stock cards</string>
-    <string name="preferences_debug_settings_search_optimization_stock_summary" translatable="false">This needs the Search Optimization Feature enabled</string>
+    <string name="preferences_debug_settings_enable_search_optimization_sport" translatable="false">Show Search Optimization Sport cards</string>
+    <string name="preferences_debug_settings_search_optimization_card_summary" translatable="false">This needs the Search Optimization Feature enabled</string>
+
+    <!-- Label for enabling Private Mode and Stories Entry Point -->
+    <string name="preferences_debug_settings_private_mode_and_stories_entry_point" translatable="false">Enable Private Mode and Stories Entry Point</string>
+
+    <!-- longfox secret setting -->
+    <string name="preferences_debug_settings_enable_longfox" translatable="false">Enable Longfox</string>
+
+    <!-- Search suggestions title for Firefox Suggest Online -->
+    <string name="firefox_suggest_online_header" tools:ignore="BrandUsage" translatable="false">Firefox Suggest Online</string>
 
     <!-- Label for toggling the native android share sheet feature -->
     <string name="preferences_debug_settings_native_android_share_sheet" translatable="false">Enable Native Android Share Sheet</string>
 
     <!-- Label for toggling the Tab Search feature -->
     <string name="preferences_tab_search_feature" translatable="false">Enable Tab Search</string>
+
+    <!-- Label for toggling the Tab Groups feature -->
+    <string name="preferences_tab_groups_feature" translatable="false">Enable Tab Groups</string>
 
     <!-- Label for toggling the Tab Manager opening animation -->
     <string name="preferences_tab_manager_opening_animation" translatable="false">Enable Tab Manager opening animation</string>
@@ -144,6 +175,12 @@
     <!-- Label for enabling isolated content processes in secret settings. -->
     <string name="preferences_debug_settings_isolated_process" translatable="false">Enable Isolated Content Process (requires restart)</string>
     <string name="preferences_debug_settings_app_zygote" translatable="false">Enable Isolated Processes with Zygote Preloading (requires restart)</string>
+
+  <!-- Label for the defaults section and reset action in secret settings. -->
+  <string name="preferences_debug_settings_reset_defaults" translatable="false">Reset switches to defaults</string>
+  <string name="preferences_debug_settings_reset_defaults_message" translatable="false">This will reset all toggle switches to their defaults. Custom Glean Server and Remote Settings Server are not affected.</string>
+  <string name="preferences_debug_settings_reset_defaults_confirm" translatable="false">Reset</string>
+  <string name="preferences_debug_settings_reset_defaults_cancel" translatable="false">Cancel</string>
 
     <!-- A secret menu option in the tabs tray for making a tab inactive for testing. -->
     <string name="inactive_tabs_menu_item_2">Make tabs inactive</string>
@@ -309,4 +346,9 @@
     <string name="firefox_labs_restore_defaults_dialog_title">Restore defaults?</string>
     <!-- The description used in a confirmation dialog when restoring the application to its defaults by turning off any experimental features. -->
     <string name="firefox_labs_restore_defaults_dialog_message">Resetting experimental features will restart %s.</string>
+
+    <!-- Preference for page summaries -->
+    <string name="preferences_page_summaries">Page summaries</string>
+    <!-- Title for the shake to summarize toggle in page summaries and customize settings -->
+    <string name="preferences_shake_to_summarize">Shake to summarize</string>
 </resources>

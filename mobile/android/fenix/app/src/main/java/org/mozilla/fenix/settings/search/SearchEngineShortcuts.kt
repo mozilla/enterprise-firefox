@@ -37,6 +37,7 @@ import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.createBitmap
+import mozilla.components.browser.state.search.DefaultSearchEngineProvider
 import mozilla.components.browser.state.search.SearchEngine
 import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.state.SearchState
@@ -75,8 +76,10 @@ fun SearchEngineShortcuts(
     onAddEngineClicked: () -> Unit,
 ) {
     val searchState = store.observeAsComposableState { it.search }.value
+    val defaultSearchEngineId = DefaultSearchEngineProvider(store).getDefaultSearchEngine()?.id
     val searchEngines = with(searchState) {
-        regionSearchEngines + additionalSearchEngines + availableSearchEngines + customSearchEngines
+        (regionSearchEngines + additionalSearchEngines + availableSearchEngines + customSearchEngines)
+            .filter { it.id != defaultSearchEngineId }
     }
     val disabledShortcutsIds = searchState.disabledSearchEngineIds
 
@@ -292,6 +295,7 @@ private fun SearchEngineShortcutsPreview(
                     search = SearchState(
                         regionSearchEngines = generateFakeEnginesList(),
                         disabledSearchEngineIds = listOf("7", "8"),
+                        regionDefaultSearchEngineId = "1",
                     ),
                 ),
             ),

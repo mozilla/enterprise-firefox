@@ -242,9 +242,14 @@ static bool GetModuleType(JSContext* cx,
         moduleType = JS::ModuleType::JSON;
       } else if (js::EqualStrings(typeStr, cx->names().css)) {
         moduleType = JS::ModuleType::CSS;
-      } else if (js::EqualStrings(typeStr, cx->names().bytes)) {
+      }
+#ifdef NIGHTLY_BUILD
+      else if (JS::Prefs::experimental_import_bytes() &&
+               js::EqualStrings(typeStr, cx->names().bytes)) {
         moduleType = JS::ModuleType::Bytes;
-      } else {
+      }
+#endif
+      else {
         moduleType = JS::ModuleType::Unknown;
       }
 
@@ -325,15 +330,15 @@ void IndirectBindingMap::trace(JSTracer* trc) {
     return;
   }
 
-  for (Map::Enum e(*map_); !e.empty(); e.popFront()) {
-    Binding& b = e.front().value();
+  for (auto iter = map_->modIter(); !iter.done(); iter.next()) {
+    Binding& b = iter.get().value();
     TraceEdge(trc, &b.environment, "module bindings environment");
 #ifdef DEBUG
     TraceEdge(trc, &b.targetName, "module bindings target name");
 #endif
-    mozilla::DebugOnly<jsid> prev(e.front().key());
-    TraceEdge(trc, &e.front().mutableKey(), "module bindings binding name");
-    MOZ_ASSERT(e.front().key() == prev);
+    mozilla::DebugOnly<jsid> prev(iter.get().key());
+    TraceEdge(trc, &iter.get().mutableKey(), "module bindings binding name");
+    MOZ_ASSERT(iter.get().key() == prev);
   }
 }
 
@@ -1178,7 +1183,8 @@ void ModuleObject::setStatus(ModuleStatus newStatus) {
   // Note that under OOM conditions we can fail the module linking process even
   // after modules have been marked as linked.
   MOZ_ASSERT((status() <= ModuleStatus::Linked &&
-              newStatus == ModuleStatus::Unlinked) ||
+              (newStatus == ModuleStatus::Unlinked ||
+               newStatus == ModuleStatus::New)) ||
                  newStatus > status(),
              "New module status inconsistent with current status");
 
@@ -1274,6 +1280,10 @@ ModuleObject* ModuleObject::getCycleRoot() const {
   return cyclicModuleFields()->cycleRoot;
 }
 
+bool ModuleObject::hasCycleRoot() const {
+  return bool(cyclicModuleFields()->cycleRoot);
+}
+
 LoadedModuleMap& ModuleObject::loadedModules() {
   return cyclicModuleFields()->loadedModules;
 }
@@ -1341,6 +1351,16 @@ void ModuleObject::setMetaObject(JSObject* obj) {
   MOZ_ASSERT(!metaObject());
   cyclicModuleFields()->metaObject = obj;
 }
+
+#ifdef DEBUG
+void ModuleObject::setPreload(bool isPreload) {
+  setReservedSlot(PreloadSlot, BooleanValue(isPreload));
+}
+
+bool ModuleObject::isPreload() const {
+  return getReservedSlot(PreloadSlot).toBoolean();
+}
+#endif
 
 /* static */
 void ModuleObject::trace(JSTracer* trc, JSObject* obj) {
@@ -1703,8 +1723,8 @@ bool ModuleBuilder::buildTables(frontend::StencilModuleMetadata& metadata) {
     js::ReportOutOfMemory(fc_);
     return false;
   }
-  for (auto r = importEntries_.all(); !r.empty(); r.popFront()) {
-    frontend::StencilModuleEntry& entry = r.front().value();
+  for (auto iter = importEntries_.iter(); !iter.done(); iter.next()) {
+    frontend::StencilModuleEntry& entry = iter.get().value();
     metadata.importEntries.infallibleAppend(entry);
   }
 

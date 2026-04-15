@@ -142,7 +142,7 @@ END_TEST(testTracingIncomingCCWs)
 
 static size_t countObjectWrappers(JS::Compartment* comp) {
   size_t count = 0;
-  for (JS::Compartment::ObjectWrapperEnum e(comp); !e.empty(); e.popFront()) {
+  for (auto iter = comp->objectWrapperMappings(); !iter.done(); iter.next()) {
     ++count;
   }
   return count;

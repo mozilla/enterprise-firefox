@@ -1474,7 +1474,7 @@ class StyleRuleActor extends Actor {
         decl.name
       );
 
-      if (!decl.inactiveCssData !== !inactiveCssData) {
+      if (decl.inactiveCssData?.msgId !== inactiveCssData?.msgId) {
         if (inactiveCssData) {
           decl.inactiveCssData = inactiveCssData;
         } else {

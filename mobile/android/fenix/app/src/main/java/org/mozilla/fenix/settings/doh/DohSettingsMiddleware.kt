@@ -45,6 +45,7 @@ internal class DohSettingsMiddleware(
             }
 
             is LearnMoreClicked -> {
+                @Suppress("DEPRECATION")
                 getHomeActivity().openToBrowserAndLoad(
                     searchTermOrURL = action.url,
                     newTab = true,

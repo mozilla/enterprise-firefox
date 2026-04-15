@@ -98,6 +98,7 @@ class PropertyEnumerator {
   uint32_t ownPropertyCount_;
 
   bool enumeratingProtoChain_ = false;
+  bool forObjectKeys_ = false;
 
   enum class IndicesState {
     // Every property that has been enumerated so far can be represented as a
@@ -142,6 +143,8 @@ class PropertyEnumerator {
     return indicesState_ == IndicesState::Allocating;
   }
   uint32_t ownPropertyCount() const { return ownPropertyCount_; }
+
+  void setForObjectKeys(bool value) { forObjectKeys_ = value; }
 
  private:
   template <bool CheckForDuplicates>
@@ -303,16 +306,18 @@ bool PropertyEnumerator::enumerateNativeProperties(JSContext* cx) {
     size_t firstElemIndex = props_.length();
     size_t initlen = pobj->getDenseInitializedLength();
     const Value* elements = pobj->getDenseElements();
+    bool elementsAreFrozen = pobj->denseElementsAreFrozen();
     bool hasHoles = false;
     for (uint32_t i = 0; i < initlen; ++i) {
       if (elements[i].isMagic(JS_ELEMENTS_HOLE)) {
         hasHoles = true;
       } else {
+        PropertyIndex index = elementsAreFrozen ? PropertyIndex::Invalid()
+                                                : PropertyIndex::ForElement(i);
         // Dense arrays never get so large that i would not fit into an
         // integer id.
         if (!enumerate<CheckForDuplicates>(cx, PropertyKey::Int(i),
-                                           /* enumerable = */ true,
-                                           PropertyIndex::ForElement(i))) {
+                                           /* enumerable = */ true, index)) {
           return false;
         }
       }
@@ -612,6 +617,10 @@ static bool ProtoMayHaveEnumerableProperties(JSObject* obj) {
 }
 
 bool PropertyEnumerator::snapshot(JSContext* cx) {
+  if (forObjectKeys_) {
+    flags_ |= JSITER_OWNONLY;
+  }
+
   // If we're only interested in enumerable properties and the proto chain has
   // no enumerable properties (the common case), we can optimize this to ignore
   // the proto chain. This also lets us take advantage of the no-duplicate-check
@@ -691,7 +700,8 @@ bool PropertyEnumerator::snapshot(JSContext* cx) {
   } while (obj_ != nullptr);
 
 #ifdef DEBUG
-  if (js::SupportDifferentialTesting() && !supportsIndices()) {
+  if (js::SupportDifferentialTesting() && !supportsIndices() &&
+      !forObjectKeys_) {
     /*
      * In some cases the enumeration order for an object depends on the
      * execution mode (interpreter vs. JIT), especially for native objects
@@ -1242,11 +1252,8 @@ static PropertyIteratorObject* GetIteratorImpl(JSContext* cx, HandleObject obj,
       return nullptr;
     }
   } else {
-    uint32_t flags = 0;
-    if (forObjectKeys) {
-      flags |= JSITER_OWNONLY;
-    }
-    PropertyEnumerator enumerator(cx, obj, flags, &keys, &indices);
+    PropertyEnumerator enumerator(cx, obj, /*flags*/ 0, &keys, &indices);
+    enumerator.setForObjectKeys(forObjectKeys);
     if (!enumerator.snapshot(cx)) {
       return nullptr;
     }

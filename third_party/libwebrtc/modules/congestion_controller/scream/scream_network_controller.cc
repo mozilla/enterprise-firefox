@@ -20,6 +20,7 @@
 #include "api/units/time_delta.h"
 #include "api/units/timestamp.h"
 #include "modules/congestion_controller/scream/scream_v2.h"
+#include "rtc_base/checks.h"
 #include "rtc_base/logging.h"
 namespace webrtc {
 
@@ -29,9 +30,12 @@ ScreamNetworkController::ScreamNetworkController(NetworkControllerConfig config)
     : env_(config.env),
       params_(env_.field_trials()),
       default_pacing_window_(config.default_pacing_time_window),
+      allow_initial_bwe_before_media_(
+          config.stream_based_config.enable_repeated_initial_probing),
       current_pacing_window_(config.default_pacing_time_window),
       scream_(std::in_place, env_),
       target_rate_constraints_(config.constraints),
+      streams_config_(config.stream_based_config),
       last_padding_interval_started_(Timestamp::Zero()) {
   if (config.constraints.min_data_rate.has_value() ||
       config.constraints.max_data_rate.has_value()) {
@@ -41,17 +45,36 @@ ScreamNetworkController::ScreamNetworkController(NetworkControllerConfig config)
   }
 }
 
+NetworkControlUpdate ScreamNetworkController::CreateFirstUpdate(Timestamp now) {
+  RTC_DCHECK(network_available_);
+  RTC_DCHECK(!first_update_created_);
+  first_update_created_ = true;
+  NetworkControlUpdate update = CreateUpdate(
+      now, target_rate_constraints_.starting_rate.value_or(kDefaultStartRate));
+
+  if (allow_initial_bwe_before_media_) {
+    // Creating a probe packet allows padding packets to be sent. So this is
+    // only used for triggering padding.
+    update.probe_cluster_configs.emplace_back(ProbeClusterConfig{
+        .at_time = now,
+        .target_data_rate = DataRate::KilobitsPerSec(50),
+        .target_duration = TimeDelta::Millis(1),
+        .min_probe_delta = TimeDelta::Millis(10),
+        // Use two probe packets even though one should be enough. This is a
+        // workaround needed because the pacer will not generate or send padding
+        // packets until after two probing packets.
+        .target_probe_count = 2,
+    });
+  }
+  return update;
+}
+
 NetworkControlUpdate ScreamNetworkController::OnNetworkAvailability(
     NetworkAvailability msg) {
-  RTC_LOG(LS_INFO) << " OnNetworkAvailability network_available:"
-                   << msg.network_available;
-  if (msg.network_available) {
-    // TODO: bugs.webrtc.org/447037083 - rtt must currently be set on every
-    // update. But here it is not yet known.
-    return CreateUpdate(
-        msg.at_time,
-        target_rate_constraints_.starting_rate.value_or(kDefaultStartRate),
-        /*rtt=*/TimeDelta::Zero());
+  network_available_ = msg.network_available;
+  if (!first_update_created_ && network_available_ &&
+      streams_config_.max_total_allocated_bitrate > DataRate::Zero()) {
+    return CreateFirstUpdate(msg.at_time);
   }
   return NetworkControlUpdate();
 }
@@ -61,18 +84,19 @@ NetworkControlUpdate ScreamNetworkController::OnNetworkRouteChange(
   RTC_LOG(LS_INFO) << " OnNetworkRouteChange, resetting ScreamV2.";
   target_rate_constraints_ = msg.constraints;
   scream_.emplace(env_);
+  first_update_created_ = false;
   // TODO: bugs.webrtc.org/447037083 - We should use the minimum rate from
   // constraints, REMB and remote network state estimates.
   scream_->SetTargetBitrateConstraints(
       target_rate_constraints_.min_data_rate.value_or(DataRate::Zero()),
       target_rate_constraints_.max_data_rate.value_or(
           DataRate::PlusInfinity()));
-  // TODO: bugs.webrtc.org/447037083 - rtt must currently be set on every
-  // update. But here it is not yet known.
-  return CreateUpdate(
-      msg.at_time,
-      target_rate_constraints_.starting_rate.value_or(kDefaultStartRate),
-      /*rtt=*/TimeDelta::Zero());
+
+  if (network_available_ &&
+      streams_config_.max_total_allocated_bitrate > DataRate::Zero()) {
+    return CreateFirstUpdate(msg.at_time);
+  }
+  return NetworkControlUpdate();
 }
 
 NetworkControlUpdate ScreamNetworkController::OnProcessInterval(
@@ -94,7 +118,11 @@ NetworkControlUpdate ScreamNetworkController::OnRoundTripTimeUpdate(
 }
 
 NetworkControlUpdate ScreamNetworkController::OnSentPacket(SentPacket msg) {
-  // Scream does not have to know about sent packets.
+  if (msg.data_in_flight > scream_->max_data_in_flight()) {
+    RTC_LOG(LS_VERBOSE) << " Send window full:" << msg.data_in_flight << " > "
+                        << scream_->max_data_in_flight();
+    return CreateUpdate(msg.send_time, scream_->target_rate());
+  }
   return NetworkControlUpdate();
 }
 
@@ -107,6 +135,10 @@ NetworkControlUpdate ScreamNetworkController::OnReceivedPacket(
 NetworkControlUpdate ScreamNetworkController::OnStreamsConfig(
     StreamsConfig msg) {
   streams_config_ = msg;
+  if (!first_update_created_ && network_available_ &&
+      streams_config_.max_total_allocated_bitrate > DataRate::Zero()) {
+    return CreateFirstUpdate(msg.at_time);
+  }
   return NetworkControlUpdate();
 }
 
@@ -138,31 +170,35 @@ NetworkControlUpdate ScreamNetworkController::OnNetworkStateEstimate(
 
 NetworkControlUpdate ScreamNetworkController::OnTransportPacketsFeedback(
     TransportPacketsFeedback msg) {
-  DataRate target_rate = scream_->OnTransportPacketsFeedback(msg);
-  return CreateUpdate(msg.feedback_time, target_rate, msg.smoothed_rtt);
+  scream_->OnTransportPacketsFeedback(msg);
+  return CreateUpdate(msg.feedback_time, scream_->target_rate());
 }
 
-NetworkControlUpdate ScreamNetworkController::CreateUpdate(Timestamp now,
-                                                           DataRate target_rate,
-                                                           TimeDelta rtt) {
-  TargetTransferRate target_rate_msg;
-  target_rate_msg.at_time = now;
-  target_rate_msg.target_rate = target_rate;
-
-  target_rate_msg.network_estimate.at_time = now;
-  target_rate_msg.network_estimate.round_trip_time = rtt;
-  // TODO: bugs.webrtc.org/447037083 - bwe_period must currently be set but
-  // it seems like it is not used for anything sensible. Try to remove it.
-  target_rate_msg.network_estimate.bwe_period = TimeDelta::Millis(25);
-
+NetworkControlUpdate ScreamNetworkController::CreateUpdate(
+    Timestamp now,
+    DataRate target_rate) {
   NetworkControlUpdate update;
-  update.target_rate = target_rate_msg;
-  update.pacer_config = CreatePacerConfig(target_rate);
-
+  if (target_rate != reported_target_rate_) {
+    reported_target_rate_ = target_rate;
+    TargetTransferRate target_rate_msg;
+    target_rate_msg.at_time = now;
+    target_rate_msg.target_rate = target_rate;
+    target_rate_msg.network_estimate.at_time = now;
+    target_rate_msg.network_estimate.round_trip_time = scream_->rtt();
+    // TODO: bugs.webrtc.org/447037083 - bwe_period must currently be set but
+    // it seems like it is not used for anything sensible. Try to remove it.
+    target_rate_msg.network_estimate.bwe_period = TimeDelta::Millis(25);
+    update.target_rate = target_rate_msg;
+  }
+  update.pacer_config = MaybeCreatePacerConfig(target_rate);
+  // TODO: bugs.webrtc.org/447037083 - How do we ensure packets are resent
+  // eventually if all feedback packets are lost or all data in flight is lost?
+  update.congestion_window = scream_->max_data_in_flight();
   return update;
 }
 
-PacerConfig ScreamNetworkController::CreatePacerConfig(DataRate target_rate) {
+std::optional<PacerConfig> ScreamNetworkController::MaybeCreatePacerConfig(
+    DataRate target_rate) {
   constexpr double kPacingRateFactor = 1.5;
   // Time window used for calculating pacing window if target rate is
   // constrained by CE markings.
@@ -175,6 +211,8 @@ PacerConfig ScreamNetworkController::CreatePacerConfig(DataRate target_rate) {
       streams_config_.max_total_allocated_bitrate.value_or(DataRate::Zero());
 
   DataRate padding_rate = DataRate::Zero();
+  TimeDelta pacing_window = current_pacing_window_;
+
   Timestamp now = env_.clock().CurrentTime();
   if (target_rate < max_needed_rate * kPacingRateFactor &&
       target_rate < target_rate_constraints_.max_data_rate.value_or(
@@ -196,13 +234,21 @@ PacerConfig ScreamNetworkController::CreatePacerConfig(DataRate target_rate) {
       target_rate < max_needed_rate &&
       scream_->l4s_alpha() > kL4sAlphaThreshold) {
     // Do stricter pacing if target rate is lower than what is needed and it
-    // seems like L4S is enabled. Note that once stricter pacing is enabled, it
-    // is not stopped.
-    current_pacing_window_ =
-        std::min(default_pacing_window_, kReducedPacingWindow);
+    // seems like L4S is enabled. Note that once stricter pacing is enabled,
+    // it is not stopped.
+    pacing_window = std::min(default_pacing_window_, kReducedPacingWindow);
   }
-  return PacerConfig::Create(now, target_rate * kPacingRateFactor, padding_rate,
-                             current_pacing_window_);
+  DataRate pacing_rate = target_rate * kPacingRateFactor;
+  if (padding_rate != reported_padding_rate_ ||
+      pacing_rate != reported_pacing_rate_ ||
+      current_pacing_window_ != pacing_window) {
+    reported_padding_rate_ = padding_rate;
+    reported_pacing_rate_ = pacing_rate;
+    current_pacing_window_ = pacing_window;
+    return PacerConfig::Create(now, pacing_rate, padding_rate,
+                               current_pacing_window_);
+  }
+  return std::nullopt;
 }
 
 }  // namespace webrtc

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -18,7 +16,8 @@ class PolicyContainerArgs;
 
 namespace mozilla::dom {
 class Document;
-}
+class IntegrityPolicyWAICT;
+}  // namespace mozilla::dom
 
 #define NS_POLICYCONTAINER_CONTRACTID "@mozilla.org/policycontainer;1"
 
@@ -37,7 +36,7 @@ class PolicyContainer : public nsIPolicyContainer {
   NS_DECL_NSISERIALIZABLE
   NS_DECL_NSIPOLICYCONTAINER
 
-  PolicyContainer() = default;
+  PolicyContainer();
 
   static void ToArgs(const PolicyContainer* aPolicy,
                      mozilla::ipc::PolicyContainerArgs& aArgs);
@@ -71,9 +70,17 @@ class PolicyContainer : public nsIPolicyContainer {
   static nsIIntegrityPolicy* GetIntegrityPolicy(
       const nsIPolicyContainer* aPolicyContainer);
 
+  // == WAICT Integrity Policy ===
+  // TODO(Bug 2017658): Support WAICT in workers
+  mozilla::dom::IntegrityPolicyWAICT* GetIntegrityPolicyWAICT() const;
+  void SetIntegrityPolicyWAICT(mozilla::dom::IntegrityPolicyWAICT* aPolicy);
+  static mozilla::dom::IntegrityPolicyWAICT* GetIntegrityPolicyWAICT(
+      const nsIPolicyContainer* aPolicyContainer);
+
  private:
   nsCOMPtr<nsIContentSecurityPolicy> mCSP;
   nsCOMPtr<nsIIntegrityPolicy> mIntegrityPolicy;
+  RefPtr<mozilla::dom::IntegrityPolicyWAICT> mIntegrityPolicyWAICT;
 
  protected:
   virtual ~PolicyContainer();

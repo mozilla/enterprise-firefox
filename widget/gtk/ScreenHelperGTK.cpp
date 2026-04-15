@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -72,12 +70,18 @@ static already_AddRefed<Screen> MakeScreenGtk(unsigned int aMonitor,
       ScreenHelperGTK::GetGTKMonitorScaleFactor(aMonitor);
   GdkScreen* defaultScreen = gdk_screen_get_default();
 
+  LOG_SCREEN("MakeScreenGtk() Monitor [%d] scale %d aIsHDR %d", aMonitor,
+             geometryScaleFactor, aIsHDR);
+
   GdkRectangle workarea;
   gdk_screen_get_monitor_workarea(defaultScreen, aMonitor, &workarea);
   LayoutDeviceIntRect availRect(workarea.x * geometryScaleFactor,
                                 workarea.y * geometryScaleFactor,
                                 workarea.width * geometryScaleFactor,
                                 workarea.height * geometryScaleFactor);
+
+  LOG_SCREEN("  workarea [%d, %d] -> [%d x %d]", availRect.x, availRect.y,
+             availRect.width, availRect.height);
 
   DesktopToLayoutDeviceScale contentsScale(1.0);
   CSSToLayoutDeviceScale defaultCssScale(geometryScaleFactor);
@@ -90,16 +94,21 @@ static already_AddRefed<Screen> MakeScreenGtk(unsigned int aMonitor,
       // In such case use workarea is already scaled by fractional scale factor.
       nsWaylandDisplay::MonitorConfig* config =
           WaylandDisplayGet()->GetMonitorConfig(workarea.x, workarea.y);
-      (void)NS_WARN_IF(!config);
-      if (config && workarea.width > config->pixelWidth / geometryScaleFactor &&
-          workarea.height > config->pixelHeight / geometryScaleFactor) {
-        float fractionalScale = (float)config->pixelWidth / workarea.width;
-        LOG_SCREEN("Monitor %d uses fractional scale %f", aMonitor,
-                   fractionalScale);
-        availRect.width = config->pixelWidth;
-        availRect.height = config->pixelHeight;
-        defaultCssScale = CSSToLayoutDeviceScale(fractionalScale);
-        contentsScale.scale = fractionalScale;
+      (void)NS_WARN_IF(!config || !config->pendingChanges);
+      if (config && !config->pendingChanges) {
+        LOG_SCREEN("  MonitorConfig pixel size [%d, %d] -> [%d x %d]",
+                   config->x, config->y, config->pixelWidth,
+                   config->pixelHeight);
+        if (workarea.width > config->pixelWidth / geometryScaleFactor &&
+            workarea.height > config->pixelHeight / geometryScaleFactor) {
+          float fractionalScale = (float)config->pixelWidth / workarea.width;
+          LOG_SCREEN("Monitor %d uses fractional scale %f", aMonitor,
+                     fractionalScale);
+          availRect.width = config->pixelWidth;
+          availRect.height = config->pixelHeight;
+          defaultCssScale = CSSToLayoutDeviceScale(fractionalScale);
+          contentsScale.scale = fractionalScale;
+        }
       }
     }
     // Don't report screen shift in Wayland, see bug 1795066.
@@ -118,6 +127,10 @@ static already_AddRefed<Screen> MakeScreenGtk(unsigned int aMonitor,
                                monitor.height * geometryScaleFactor);
   } else {
     rect = availRect;
+  }
+
+  if (!rect.width || !rect.height) {
+    NS_WARNING("Reporting screen with zero size!");
   }
 
   uint32_t pixelDepth = GetGTKPixelDepth();
@@ -712,6 +725,7 @@ float ScreenHelperGTK::GetGTKMonitorFractionalScaleFactor(gint aMonitor) {
   return GetGTKMonitorScaleFactor(aMonitor);
 }
 
+#ifdef MOZ_X11
 static void monitors_changed(GdkScreen* aScreen, gpointer unused) {
   LOG_SCREEN("Received monitors-changed event");
   ScreenHelperGTK::RequestRefreshScreens();
@@ -726,7 +740,6 @@ static void screen_resolution_changed(GdkScreen* aScreen, GParamSpec* aPspec,
 static GdkFilterReturn root_window_event_filter(GdkXEvent* aGdkXEvent,
                                                 GdkEvent* aGdkEvent,
                                                 gpointer aClosure) {
-#ifdef MOZ_X11
   static Atom netWorkareaAtom =
       XInternAtom(GDK_WINDOW_XDISPLAY(gdk_get_default_root_window()),
                   "_NET_WORKAREA", X11False);
@@ -743,10 +756,9 @@ static GdkFilterReturn root_window_event_filter(GdkXEvent* aGdkXEvent,
     default:
       break;
   }
-#endif
-
   return GDK_FILTER_CONTINUE;
 }
+#endif
 
 #ifdef MOZ_WAYLAND
 /* static */
@@ -767,23 +779,25 @@ ScreenHelperGTK::ScreenHelperGTK() {
             ("defaultScreen is nullptr, running headless"));
     return;
   }
-  sRootWindow = gdk_get_default_root_window();
-  MOZ_ASSERT(sRootWindow);
-  g_object_ref(sRootWindow);
 
-  // GDK_PROPERTY_CHANGE_MASK ==> PropertyChangeMask, for PropertyNotify
-  gdk_window_set_events(sRootWindow,
-                        GdkEventMask(gdk_window_get_events(sRootWindow) |
-                                     GDK_PROPERTY_CHANGE_MASK));
-
-  g_signal_connect(defaultScreen, "monitors-changed",
-                   G_CALLBACK(monitors_changed), this);
-  // Use _after to ensure this callback is run after gfxPlatformGtk.cpp's
-  // handler.
-  g_signal_connect_after(defaultScreen, "notify::resolution",
-                         G_CALLBACK(screen_resolution_changed), this);
 #ifdef MOZ_X11
-  gdk_window_add_filter(sRootWindow, root_window_event_filter, this);
+  if (GdkIsX11Display()) {
+    g_signal_connect(defaultScreen, "monitors-changed",
+                     G_CALLBACK(monitors_changed), this);
+    // Use _after to ensure this callback is run after gfxPlatformGtk.cpp's
+    // handler.
+    g_signal_connect_after(defaultScreen, "notify::resolution",
+                           G_CALLBACK(screen_resolution_changed), this);
+
+    sRootWindow = gdk_get_default_root_window();
+    MOZ_ASSERT(sRootWindow);
+    g_object_ref(sRootWindow);
+    gdk_window_add_filter(sRootWindow, root_window_event_filter, this);
+    // GDK_PROPERTY_CHANGE_MASK ==> PropertyChangeMask, for PropertyNotify
+    gdk_window_set_events(sRootWindow,
+                          GdkEventMask(gdk_window_get_events(sRootWindow) |
+                                       GDK_PROPERTY_CHANGE_MASK));
+  }
 #endif
 
   // Get initial screen list without async HDR info to have something
@@ -813,12 +827,14 @@ int ScreenHelperGTK::GetMonitorCount() {
 
 ScreenHelperGTK::~ScreenHelperGTK() {
   LOG_SCREEN("ScreenHelperGTK::~ScreenHelperGTK() deleted");
+#ifdef MOZ_X11
   if (sRootWindow) {
     g_signal_handlers_disconnect_by_data(gdk_screen_get_default(), this);
     gdk_window_remove_filter(sRootWindow, root_window_event_filter, this);
     g_object_unref(sRootWindow);
     sRootWindow = nullptr;
   }
+#endif
   if (gLastScreenGetter) {
     gLastScreenGetter->Finish();
   }

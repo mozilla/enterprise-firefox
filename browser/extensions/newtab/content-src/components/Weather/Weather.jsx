@@ -520,10 +520,7 @@ export class _Weather extends React.PureComponent {
 
     const WEATHER_SUGGESTION = Weather.suggestions?.[0];
 
-    const nimbusWeatherDisplay = Prefs.values.trainhopConfig?.weather?.display;
-    const showDetailedView =
-      nimbusWeatherDisplay === "detailed" ||
-      Prefs.values["weather.display"] === "detailed";
+    const showDetailedView = Prefs.values["weather.display"] === "detailed";
 
     const nimbusWeatherForecastTrainhopEnabled =
       Prefs.values.trainhopConfig?.widgets?.weatherForecastEnabled;
@@ -572,13 +569,12 @@ export class _Weather extends React.PureComponent {
     // - weather opt-in pref is enabled
     // - static weather data is enabled
     const showStaticData = isOptInEnabled && staticWeather;
-    const showFullMenu = !showStaticData;
     const isLocationSearchEnabled =
       Prefs.values["weather.locationSearchEnabled"];
     const isFahrenheit = Prefs.values["weather.temperatureUnits"] === "f";
     const isSimpleDisplay = Prefs.values["weather.display"] === "simple";
 
-    const contextMenu = (showFullContextMenu = true) => (
+    const contextMenu = () => (
       <div className="weatherButtonContextMenuWrapper">
         {/* Bug 2013136 - Using a custom button instead of moz-button due to styling constraints.
             The moz-button component cannot be styled to match the existing design,
@@ -605,37 +601,35 @@ export class _Weather extends React.PureComponent {
               onClick={this.handleDetectLocation}
             />
           )}
-          {showFullContextMenu &&
-            (isFahrenheit ? (
-              <panel-item
-                id="weather-menu-temp-celsius"
-                data-l10n-id="newtab-weather-menu-change-temperature-units-celsius"
-                onClick={() => this.handleChangeTempUnit("c")}
-              />
-            ) : (
-              <panel-item
-                id="weather-menu-temp-fahrenheit"
-                data-l10n-id="newtab-weather-menu-change-temperature-units-fahrenheit"
-                onClick={() => this.handleChangeTempUnit("f")}
-              />
-            ))}
-          {showFullContextMenu &&
-            (isSimpleDisplay ? (
-              <panel-item
-                id="weather-menu-display-detailed"
-                data-l10n-id="newtab-weather-menu-change-weather-display-detailed"
-                onClick={() => this.handleChangeDisplay("detailed")}
-              />
-            ) : (
-              <panel-item
-                id="weather-menu-display-simple"
-                data-l10n-id="newtab-weather-menu-change-weather-display-simple"
-                onClick={() => this.handleChangeDisplay("simple")}
-              />
-            ))}
+          {isFahrenheit ? (
+            <panel-item
+              id="weather-menu-temp-celsius"
+              data-l10n-id="newtab-weather-menu-change-temperature-units-celsius"
+              onClick={() => this.handleChangeTempUnit("c")}
+            />
+          ) : (
+            <panel-item
+              id="weather-menu-temp-fahrenheit"
+              data-l10n-id="newtab-weather-menu-change-temperature-units-fahrenheit"
+              onClick={() => this.handleChangeTempUnit("f")}
+            />
+          )}
+          {isSimpleDisplay ? (
+            <panel-item
+              id="weather-menu-display-detailed"
+              data-l10n-id="newtab-weather-menu-change-weather-display-detailed"
+              onClick={() => this.handleChangeDisplay("detailed")}
+            />
+          ) : (
+            <panel-item
+              id="weather-menu-display-simple"
+              data-l10n-id="newtab-weather-menu-change-weather-display-simple"
+              onClick={() => this.handleChangeDisplay("simple")}
+            />
+          )}
           <panel-item
             id="weather-menu-hide"
-            data-l10n-id="newtab-weather-menu-hide-weather-v2"
+            data-l10n-id="newtab-widget-menu-hide"
             onClick={this.handleHideWeather}
           />
           <panel-item
@@ -734,7 +728,7 @@ export class _Weather extends React.PureComponent {
               </a>
             )}
 
-            {contextMenu(showFullMenu)}
+            {contextMenu()}
           </div>
           <span className="weatherSponsorText" aria-hidden="true">
             <span
@@ -780,8 +774,7 @@ export class _Weather extends React.PureComponent {
         <div className="weatherNotAvailable">
           <span className="icon icon-info-warning" />{" "}
           <p data-l10n-id="newtab-weather-error-not-available"></p>
-          {/* We're passing false to only render applicable menu items during an error */}
-          {contextMenu(false)}
+          {contextMenu()}
         </div>
       </div>
     );

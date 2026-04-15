@@ -52,7 +52,7 @@ newtab-search-box-input =
     .placeholder = Tìm kiếm trên mạng
     .aria-label = Tìm kiếm trên mạng
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Thêm công cụ tìm kiếm
 newtab-topsites-add-shortcut-header = Lối tắt mới
@@ -72,6 +72,11 @@ newtab-topsites-url-validation = Yêu cầu URL hợp lệ
 newtab-topsites-image-url-label = Hình ảnh Tuỳ chỉnh URL
 newtab-topsites-use-image-link = Sử dụng hình ảnh tùy chỉnh…
 newtab-topsites-image-validation = Không tải được hình ảnh. Hãy thử một URL khác.
+
+## Clear text button for the URL and image URL input fields in the Top Sites form.
+
+newtab-topsites-clear-input =
+    .aria-label = Xoá văn bản
 
 ## Top Sites - General form dialog buttons. These are verbs/actions.
 
@@ -631,6 +636,8 @@ newtab-report-cancel = Hủy bỏ
 newtab-report-submit = Gửi
 newtab-toast-thanks-for-reporting =
     .message = Cảm ơn bạn đã báo cáo điều này.
+newtab-toast-widgets-hidden =
+    .message = Chọn biểu tượng bút chì để thêm lại widget bất cứ lúc nào.
 
 ## Strings for task / to-do list productivity widget
 
@@ -649,7 +656,7 @@ newtab-widget-task-list-menu-copy = Sao chép
 newtab-widget-lists-menu-edit = Chỉnh sửa tên danh sách
 newtab-widget-lists-menu-create = Tạo một danh sách mới
 newtab-widget-lists-menu-delete = Xóa danh sách này
-newtab-widget-lists-menu-copy = Sao chép danh sách vào khay nhớ tạm
+newtab-widget-lists-menu-copy = Sao chép danh sách vào bộ nhớ tạm
 newtab-widget-lists-menu-hide = Ẩn tất cả danh sách
 newtab-widget-lists-menu-learn-more = Tìm hiểu thêm
 newtab-widget-lists-input-add-an-item =
@@ -671,6 +678,7 @@ newtab-widget-lists-name-placeholder-default =
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Danh sách mới
 newtab-widget-section-title = Widget
+newtab-widget-menu-hide = Ẩn widget
 # Tooltip for hide all widgets button
 newtab-widget-section-hide-all-button =
     .title = Ẩn widget
@@ -681,6 +689,7 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Thu nhỏ widget
     .aria-label = Thu nhỏ tất cả widget thành kích thước nhỏ gọn
+newtab-widget-section-feedback = Hãy cho chúng tôi biết suy nghĩ của bạn
 
 ## Strings for timer productivity widget
 ## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown

@@ -452,14 +452,12 @@ nsresult nsTypeAheadFind::FindItNow(uint32_t aMode, bool aIsLinksOnly,
         nsINode* node = returnRange->GetStartContainer();
         while (node) {
           nsCOMPtr<nsIEditor> editor;
-          if (RefPtr<HTMLInputElement> input =
-                  HTMLInputElement::FromNode(node)) {
+          if (RefPtr input = HTMLInputElement::FromNode(node)) {
             editor = input->GetTextEditor();
-          } else if (RefPtr<HTMLTextAreaElement> textarea =
-                         HTMLTextAreaElement::FromNode(node)) {
+          } else if (RefPtr textarea = HTMLTextAreaElement::FromNode(node)) {
             editor = textarea->GetTextEditor();
           } else {
-            node = node->GetParentNode();
+            node = node->GetParentOrShadowHostNode();
             continue;
           }
 

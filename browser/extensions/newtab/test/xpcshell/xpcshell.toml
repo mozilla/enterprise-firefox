@@ -39,6 +39,9 @@ support-files = ["topstories.json"]
 
 ["test_PlacesFeed.js"]
 
+["test_SectionsLayoutFeed.js"]
+tags = "remote-settings"
+
 ["test_ShortcutRanker.js"]
 
 ["test_SmartShortcutsFeed.js"]

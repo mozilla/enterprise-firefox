@@ -14,7 +14,7 @@
 #include "jsapi-tests/tests.h"
 #include "vm/JSContext.h"
 
-MOZ_RUNINIT static ProfilingStack profilingStack;
+static ProfilingStack profilingStack;
 static uint32_t peakStackPointer = 0;
 
 static void reset(JSContext* cx) {

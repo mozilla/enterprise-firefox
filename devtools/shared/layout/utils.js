@@ -784,7 +784,7 @@ function isRemoteBrowserElement(node) {
   return (
     ChromeUtils.getClassName(node) == "XULFrameElement" &&
     !node.childNodes.length &&
-    node.getAttribute("remote") == "true"
+    node.hasAttribute("remote")
   );
 }
 exports.isRemoteBrowserElement = isRemoteBrowserElement;

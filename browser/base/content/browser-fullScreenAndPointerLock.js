@@ -46,10 +46,15 @@ var PointerlockFsWarning = {
     }
   },
 
-  showFullScreen(aOrigin) {
+  // Show info that top level has entered fullscreen. Ultimately, it is always
+  // ancestors who are in control of what is displayed on screen.
+  // By always displaying the top level, we try to make that clear to the user.
+  showFullScreen(browsingContext) {
+    const origin =
+      browsingContext.top.currentWindowGlobal.documentPrincipal.originNoSuffix;
     let timeout = Services.prefs.getIntPref("full-screen-api.warning.timeout");
     let delay = Services.prefs.getIntPref("full-screen-api.warning.delay");
-    this.show(aOrigin, "fullscreen-warning", timeout, delay);
+    this.show(origin, "fullscreen-warning", timeout, delay);
   },
 
   // Shows a warning that the site has entered fullscreen or
@@ -458,15 +463,13 @@ var FullScreen = {
     // shiftSize is sent from Cocoa widget code as a very precise double. We
     // don't need that kind of precision in our CSS.
     shiftSize = shiftSize.toFixed(2);
-    gNavToolbox.classList.toggle("fullscreen-with-menubar", shiftSize > 0);
-
-    let transform = shiftSize > 0 ? `translateY(${shiftSize}px)` : "";
-    gNavToolbox.style.transform = transform;
-    gURLBar.style.transform = gURLBar.hasAttribute("breakout") ? transform : "";
+    let translate = shiftSize > 0 ? `0 ${shiftSize}px` : "";
+    document.body.style.translate = translate;
+    gURLBar.style.translate = gURLBar.hasAttribute("breakout") ? translate : "";
     let searchbar = document.getElementById("searchbar-new");
     if (searchbar) {
-      searchbar.style.transform = searchbar.hasAttribute("breakout")
-        ? transform
+      searchbar.style.translate = searchbar.hasAttribute("breakout")
+        ? translate
         : "";
     }
     if (shiftSize > 0) {
@@ -805,7 +808,7 @@ var FullScreen = {
   },
 
   _isRemoteBrowser(aBrowser) {
-    return gMultiProcessBrowser && aBrowser.getAttribute("remote") == "true";
+    return gMultiProcessBrowser && aBrowser.hasAttribute("remote");
   },
 
   getMouseTargetRect() {

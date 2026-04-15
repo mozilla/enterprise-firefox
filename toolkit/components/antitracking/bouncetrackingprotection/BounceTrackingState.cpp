@@ -231,7 +231,7 @@ nsresult BounceTrackingState::Init(
 }
 
 void BounceTrackingState::ResetBounceTrackingRecord() {
-  mBounceTrackingRecord = Nothing();
+  mBounceTrackingRecord = nullptr;
 }
 
 void BounceTrackingState::OnBrowsingContextDiscarded() {
@@ -252,8 +252,7 @@ void BounceTrackingState::OnBrowsingContextDiscarded() {
   }
 }
 
-const Maybe<BounceTrackingRecord>&
-BounceTrackingState::GetBounceTrackingRecord() {
+BounceTrackingRecord* BounceTrackingState::GetBounceTrackingRecord() {
   return mBounceTrackingRecord;
 }
 
@@ -633,7 +632,7 @@ nsresult BounceTrackingState::OnStartNavigation(
   // tracking record to a new bounce tracking record with initial host set to
   // initialHost.
   if (!mBounceTrackingRecord) {
-    mBounceTrackingRecord = Some(BounceTrackingRecord());
+    mBounceTrackingRecord = MakeRefPtr<BounceTrackingRecord>();
     mBounceTrackingRecord->SetInitialHost(siteHost);
     if (hasUserActivation) {
       mBounceTrackingRecord->AddUserActivationHost(siteHost);
@@ -656,7 +655,7 @@ nsresult BounceTrackingState::OnStartNavigation(
     NS_ENSURE_SUCCESS(rv, rv);
 
     MOZ_ASSERT(!mBounceTrackingRecord);
-    mBounceTrackingRecord = Some(BounceTrackingRecord());
+    mBounceTrackingRecord = MakeRefPtr<BounceTrackingRecord>();
     mBounceTrackingRecord->SetInitialHost(siteHost);
     mBounceTrackingRecord->AddUserActivationHost(siteHost);
 

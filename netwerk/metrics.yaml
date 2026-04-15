@@ -361,26 +361,6 @@ networking:
     expires: never
     telemetry_mirror: DNS_LOOKUP_TIME
 
-  trr_fetch_duration:
-    type: labeled_timing_distribution
-    time_unit: millisecond
-    description: >
-      Time for a successful DoH request, from AsyncOpen to ReturnData
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1922235
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1922235
-    notification_emails:
-      - necko@mozilla.com
-    labels:
-      - h1
-      - h1_network_only
-      - h2
-      - h2_network_only
-      - h3
-      - h3_network_only
-    expires: never
-
   trr_dns_start: &trr_dns_start
     type: labeled_timing_distribution
     time_unit: millisecond
@@ -1093,6 +1073,26 @@ networking:
       - minden@mozilla.com
     expires: never
 
+  http_3_loss_ratio_filtered:
+    type: custom_distribution
+    unit: integer
+    range_min: 0
+    range_max: 2000
+    bucket_count: 100
+    histogram_type: exponential
+    description: >
+      HTTP3: packet loss ratio (multiply by 10000). Is filtered to only record connections that saw congestion window growth. Co-exists with http_3_loss_ratio to measure the impact congestion control changes have on packet loss.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024352
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024352
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - necko@mozilla.com
+      - omansfeld@mozilla.com
+    expires: never
+
   http_3_spurious_congestion_event_ratio:
     type: custom_distribution
     unit: integer
@@ -1130,6 +1130,274 @@ networking:
     labels:
       - exited
       - not_exited
+
+  http_3_slow_start_exited_filtered:
+    type: labeled_counter
+    description: >
+      Counts whether an HTTP3 connections exited slow start. Is filtered against connections that never grew past the initial congestion window, i.e. only records those that did see growth. Co-exists with http_3_slow_start_exited which is not filtered and also records for connections that never grew the congestion window or never sent data.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024352
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024352
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - necko@mozilla.com
+      - omansfeld@mozilla.com
+    expires: 157
+    labels:
+      - exited
+      - not_exited
+
+  http_3_slow_start_exit_cwnd:
+    type: memory_distribution
+    memory_unit: byte
+    description: >
+      HTTP3: congestion window size in bytes when exiting slow start.
+      Only recorded for connections that exited slow start. Also only records connections that grew past the initial congestion window size (new as of Bug 2024352).
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2020969
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024352
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2020969
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - necko@mozilla.com
+      - minden@mozilla.com
+      - omansfeld@mozilla.com
+    expires: never
+
+  http_3_slow_start_exit_reason:
+    type: labeled_counter
+    description: >
+      Records if slow start was exited heuristically or because of a congestion event. Can be used to measure how good an algorithm is at detecting slow start exit before loss occurs. Only records for connections that ever saw congestion window growth.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024352
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024352
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - necko@mozilla.com
+      - omansfeld@mozilla.com
+    expires: 157
+    labels:
+      - ce
+      - heuristic
+
+  http_3_slow_start_exit_accuracy:
+    type: labeled_custom_distribution
+    range_min: 0
+    range_max: 150
+    bucket_count: 100
+    histogram_type: linear
+    description: >
+      HTTP3: Absolute congestion window size difference between exiting slow start and closing the connection, as a percentage of the window size when closing the connection.
+      Only recorded for connections that exited slow start and saw congestion window growth. Is used to approximate accuracy of slow start exit per connection. The labels separate slow start exit reasons, because congestion event and heuristic based exits are fundamentally different cases that would obscure each other if mixed.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2021867
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024352
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2021867
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - necko@mozilla.com
+      - omansfeld@mozilla.com
+    expires: 157
+    labels:
+      - ce_exit
+      - heuristic_exit
+
+  http_3_slow_start_exit_accuracy_w_max:
+    type: labeled_custom_distribution
+    range_min: 0
+    range_max: 150
+    bucket_count: 100
+    histogram_type: linear
+    description: >
+      HTTP3: Absolute congestion window size difference between exiting slow start and Cubic's w_max parameter value when closing the connection, as a percentage of the w_max parameter value.
+      Only recorded for connections that exited slow start and saw congestion window growth. Is used to approximate accuracy of slow start exit per connection. The labels separate slow start exit reasons, because congestion event and heuristic based exits are fundamentally different cases that would obscure each other if mixed. Acts as an alternative measure to http_3_slow_start_exit_accuracy, which uses the final congestion window instead of w_max.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024352
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024352
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - necko@mozilla.com
+      - omansfeld@mozilla.com
+    expires: 157
+    labels:
+      - ce_exit
+      - heuristic_exit
+
+  http_3_slow_start_exit_direction_loss:
+    type: labeled_counter
+    description: >
+      HTTP3: Records if a congestion-event-based slow start exit undershot, overshot or exactly matches the congestion window size when closing the connection. This mostly exists to confirm the expected assumption that loss- or ecn-based exit almost always overshoots. Only records for connections that saw congestion window growth (new as of Bug 2024352).
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2021867
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024352
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2021867
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - necko@mozilla.com
+      - omansfeld@mozilla.com
+    expires: 157
+    labels:
+      - overshoot
+      - undershoot
+      - exact
+
+  http_3_slow_start_exit_direction_heuristic:
+    type: labeled_counter
+    description: >
+      HTTP3: Records if a heuristic-based slow start exit undershot, overshot or exactly matches the congestion window size when closing the connection. Is used to look for systematic tendencies in slow start exit algorithm accuracy direction. Only records for connections that saw congestion window growth.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024352
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024352
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - necko@mozilla.com
+      - omansfeld@mozilla.com
+    expires: 157
+    labels:
+      - overshoot
+      - undershoot
+      - exact
+
+  http_3_hystart_css_rounds_finished:
+    type: labeled_custom_distribution
+    range_min: 0
+    range_max: 100
+    bucket_count: 30
+    histogram_type: exponential
+    description: >
+      Measures how many CSS (Conservative Slow Start) rounds were finished when using HyStart++. Only records for connections that saw congestion window growth. A count that is higher than the RFC threshold value of 5 rounds that are completed by design points at spurious CSS entries and time spent throttling congestion window growth rate during those extra CSS rounds. Values below 5 mean that slow start was not exited (heuristically) on that connection.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024352
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024352
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - necko@mozilla.com
+      - omansfeld@mozilla.com
+    expires: 157
+    labels:
+      - exited_hystart
+      - exited_ce
+      - not_exited
+
+  http_3_hystart_css_entries:
+    type: labeled_custom_distribution
+    range_min: 0
+    range_max: 1000
+    bucket_count: 100
+    histogram_type: exponential
+    description: >
+      Measures how often CSS (Conservative Slow Start) was entered when using HyStart++. Only records for connections that saw congestion window growth. A jitter-free connection should only see 1 CSS entry. A high value points at spurious CSS entries mid-round, i.e. CSS is entered and exited within 1 RTT, which results time spent throttling congestion window growth rate during those extra ACKs where CSS was active.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024352
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024352
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - necko@mozilla.com
+      - omansfeld@mozilla.com
+    expires: 157
+    labels:
+      - exited_hystart
+      - exited_ce
+      - not_exited
+
+  http_3_congestion_window_growth:
+    type: labeled_counter
+    description: >
+      Records if a connection ended with a congestion window higher than the initial window size and if it saw slow start exit (in this case because of a congestion event) before ever growing the congestion window.
+
+      Label explanation:
+        - had_growth: Connection saw congestion window growth
+        - no_growth: Connection never surpassed the initial window size
+        - no_growth_but_exit: Connection never surpassed the initial window size but slow start was exited
+        - no_growth_then_exit_then_growth: Connection exited slow start before then later growing the congestion window past the initial window size
+
+      This metric can be used to judge how HTTP3 connections behave in regard to their congestion window and keep an eye on the phenomeon that prompted the filtering on most other congestion control metrics, where we only record connections that had congestion window growth past the initial window.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024352
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024352
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - necko@mozilla.com
+      - omansfeld@mozilla.com
+    expires: never
+    labels:
+      - had_growth
+      - no_growth
+      - no_growth_but_exit
+      - no_growth_then_exit_then_growth
+
+  http_3_final_cwnd:
+    type: memory_distribution
+    memory_unit: byte
+    description: >
+      HTTP3: Final congestion window size in bytes at connection close. Only records connections that grew past the initial congestion window (new as of Bug 2024352).
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2020969
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024352
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2020969
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - necko@mozilla.com
+      - minden@mozilla.com
+      - omansfeld@mozilla.com
+    expires: never
+
+  http_3_final_w_max:
+    type: memory_distribution
+    memory_unit: byte
+    description: >
+      HTTP3: Cubic's w_max parameter value in bytes at connection close. Only records connections that grew past the initial congestion window and set w_max. The parameter stores the congestion window prior to the last congestion event, i.e. the window size at which congestion occurred. Can be used to approximate a path's capacity.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024352
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024352
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - necko@mozilla.com
+      - omansfeld@mozilla.com
+    expires: 157
+
+  http_3_congestion_event_count:
+    type: custom_distribution
+    range_min: 0
+    range_max: 180
+    bucket_count: 30
+    histogram_type: exponential
+    description: >
+      HTTP3: Records how many congestion events a connection has, with spurious congestion events filtered out. A max range of 180 still gives high granularity in the lower buckets while letting us confirm if we ever actually see connections having very high congestion event counts.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2021867
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2021867
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - necko@mozilla.com
+      - omansfeld@mozilla.com
+    expires: 157
 
   http_3_congestion_event_reason:
     type: labeled_counter
@@ -1778,26 +2046,6 @@ networking:
       - success
       - failure
 
-  local_network_access_port:
-    type: custom_distribution
-    description: >
-       port used for local network access
-    range_min: 1
-    range_max: 65535
-    bucket_count: 65535
-    unit: port number
-    histogram_type: linear
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1960582
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=2010463
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1960582
-    notification_emails:
-     - smayya@mozilla.com
-     - vgosu@mozilla.com
-     - necko@gmail.com
-    expires: 155
-
   local_network_access_prompts_shown:
     type: labeled_counter
     description: >
@@ -1898,22 +2146,6 @@ networking:
       - kershaw@mozilla.com
     expires: never
 
-  transaction_wait_time_https_rr:
-    type: timing_distribution
-    time_unit: millisecond
-    description: >
-      Time from submission to dispatch of transaction when HTTPS RR is used (ms)
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1697480
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1697480
-    data_sensitivity:
-      - technical
-    notification_emails:
-      - necko@mozilla.com
-      - kershaw@mozilla.com
-    expires: never
-
   proxy_info_type:
     type: labeled_counter
     description: >
@@ -1946,22 +2178,6 @@ networking:
       # No proxy
       - direct
       - unknown
-
-  transaction_wait_time:
-    type: timing_distribution
-    time_unit: millisecond
-    description: >
-      Time from submission to dispatch of transaction without HTTPS RR (ms)
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1697480
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1697480
-    data_sensitivity:
-      - technical
-    notification_emails:
-      - necko@mozilla.com
-      - kershaw@mozilla.com
-    expires: never
 
   os_socket_limit_reached:
     type: counter
@@ -2088,364 +2304,29 @@ networking:
       - minden@mozilla.com
     expires: never
 
-  prconnect_blocking_time_normal:
-    type: timing_distribution
+  http_3_peer_max_udp_payload:
+    type: custom_distribution
+    unit: byte
+    # > Values below 1200 are invalid.
+    #
+    # See https://www.rfc-editor.org/rfc/rfc9000.html#section-18.2.
+    range_min: 1200
+    range_max: 1501
+    bucket_count: 100
+    histogram_type: linear
     description: >
-      Time spent blocked in PR_Connect when we are not shutting down and there
-      has been niether a network nor an offline state change in the last 60s
-      (ms).
-
-      This metric was generated to correspond to the Legacy Telemetry
-      exponential histogram PRCONNECT_BLOCKING_TIME_NORMAL.
-    time_unit: millisecond
+      HTTP3: peer's max_udp_payload_size transport parameter in bytes.
+      Only recorded when the peer advertises this parameter.
     bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2020969
     data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2020969
+    data_sensitivity:
+      - technical
     notification_emails:
       - necko@mozilla.com
+      - minden@mozilla.com
     expires: never
-    telemetry_mirror: PRCONNECT_BLOCKING_TIME_NORMAL
-
-  prconnect_blocking_time_shutdown:
-    type: timing_distribution
-    description: >
-      Time spent blocked in PR_Connect during a shutdown (ms).
-
-      This metric was generated to correspond to the Legacy Telemetry
-      exponential histogram PRCONNECT_BLOCKING_TIME_SHUTDOWN.
-    time_unit: millisecond
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    notification_emails:
-      - necko@mozilla.com
-    expires: never
-    telemetry_mirror: PRCONNECT_BLOCKING_TIME_SHUTDOWN
-
-  prconnect_blocking_time_connectivity_change:
-    type: timing_distribution
-    description: >
-      Time spent blocked in PR_Connect when there has been the connectiviy
-      change in the last 60s (ms).
-
-      This metric was generated to correspond to the Legacy Telemetry
-      exponential histogram PRCONNECT_BLOCKING_TIME_CONNECTIVITY_CHANGE.
-    time_unit: millisecond
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    notification_emails:
-      - necko@mozilla.com
-    expires: never
-    telemetry_mirror: PRCONNECT_BLOCKING_TIME_CONNECTIVITY_CHANGE
-
-  prconnect_blocking_time_link_change:
-    type: timing_distribution
-    description: >
-      Time spent blocked in PR_Connect when there has been a link change in the
-      last 60s (ms).
-
-      This metric was generated to correspond to the Legacy Telemetry
-      exponential histogram PRCONNECT_BLOCKING_TIME_LINK_CHANGE.
-    time_unit: millisecond
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    notification_emails:
-      - necko@mozilla.com
-    expires: never
-    telemetry_mirror: PRCONNECT_BLOCKING_TIME_LINK_CHANGE
-
-  prconnect_blocking_time_offline:
-    type: timing_distribution
-    description: >
-      Time spent blocked in PR_Connect when the offline state has changed in the
-      last 60s (ms).
-
-      This metric was generated to correspond to the Legacy Telemetry
-      exponential histogram PRCONNECT_BLOCKING_TIME_OFFLINE.
-    time_unit: millisecond
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    notification_emails:
-      - necko@mozilla.com
-    expires: never
-    telemetry_mirror: PRCONNECT_BLOCKING_TIME_OFFLINE
-
-  prconnect_fail_blocking_time_normal:
-    type: timing_distribution
-    description: >
-      Time spent blocked in a failed PR_Connect when we are not shutting down
-      and there has been niether a network nor an offline state change in the
-      last 60s (ms).
-
-      This metric was generated to correspond to the Legacy Telemetry
-      exponential histogram PRCONNECT_FAIL_BLOCKING_TIME_NORMAL.
-    time_unit: millisecond
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1257809
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1257809
-    notification_emails:
-      - necko@mozilla.com
-    expires: never
-    telemetry_mirror: PRCONNECT_FAIL_BLOCKING_TIME_NORMAL
-
-  prconnect_fail_blocking_time_shutdown:
-    type: timing_distribution
-    description: >
-      Time spent blocked in a failed PR_Connect during a shutdown (ms).
-
-      This metric was generated to correspond to the Legacy Telemetry
-      exponential histogram PRCONNECT_FAIL_BLOCKING_TIME_SHUTDOWN.
-    time_unit: millisecond
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1257809
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1257809
-    notification_emails:
-      - necko@mozilla.com
-    expires: never
-    telemetry_mirror: PRCONNECT_FAIL_BLOCKING_TIME_SHUTDOWN
-
-  prconnect_fail_blocking_time_connectivity_change:
-    type: timing_distribution
-    description: >
-      Time spent blocked in a failed PR_Connect when there has been the
-      connectiviy change in the last 60s (ms).
-
-      This metric was generated to correspond to the Legacy Telemetry
-      exponential histogram PRCONNECT_FAIL_BLOCKING_TIME_CONNECTIVITY_CHANGE.
-    time_unit: millisecond
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1257809
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1257809
-    notification_emails:
-      - necko@mozilla.com
-    expires: never
-    telemetry_mirror: PRCONNECT_FAIL_BLOCKING_TIME_CONNECTIVITY_CHANGE
-
-  prconnect_fail_blocking_time_link_change:
-    type: timing_distribution
-    description: >
-      Time spent blocked in a failed PR_Connect when there has been a link
-      change in the last 60s (ms).
-
-      This metric was generated to correspond to the Legacy Telemetry
-      exponential histogram PRCONNECT_FAIL_BLOCKING_TIME_LINK_CHANGE.
-    time_unit: millisecond
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1257809
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1257809
-    notification_emails:
-      - necko@mozilla.com
-    expires: never
-    telemetry_mirror: PRCONNECT_FAIL_BLOCKING_TIME_LINK_CHANGE
-
-  prconnect_fail_blocking_time_offline:
-    type: timing_distribution
-    description: >
-      Time spent blocked in a failed PR_Connect when the offline state has
-      changed in the last 60s (ms).
-
-      This metric was generated to correspond to the Legacy Telemetry
-      exponential histogram PRCONNECT_FAIL_BLOCKING_TIME_OFFLINE.
-    time_unit: millisecond
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1257809
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1257809
-    notification_emails:
-      - necko@mozilla.com
-    expires: never
-    telemetry_mirror: PRCONNECT_FAIL_BLOCKING_TIME_OFFLINE
-
-  prconnectcontinue_blocking_time_normal:
-    type: timing_distribution
-    description: >
-      Time spent blocked in PR_ConnectContinue when we are not shutting down and
-      there has been niether a network nor an offline state change in the last
-      60s (ms).
-
-      This metric was generated to correspond to the Legacy Telemetry
-      exponential histogram PRCONNECTCONTINUE_BLOCKING_TIME_NORMAL.
-    time_unit: millisecond
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    notification_emails:
-      - necko@mozilla.com
-    expires: never
-    telemetry_mirror: PRCONNECTCONTINUE_BLOCKING_TIME_NORMAL
-
-  prconnectcontinue_blocking_time_shutdown:
-    type: timing_distribution
-    description: >
-      Time spent blocked in PR_ConnectContinue during a shutdown (ms).
-
-      This metric was generated to correspond to the Legacy Telemetry
-      exponential histogram PRCONNECTCONTINUE_BLOCKING_TIME_SHUTDOWN.
-    time_unit: millisecond
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    notification_emails:
-      - necko@mozilla.com
-    expires: never
-    telemetry_mirror: PRCONNECTCONTINUE_BLOCKING_TIME_SHUTDOWN
-
-  prconnectcontinue_blocking_time_connectivity_change:
-    type: timing_distribution
-    description: >
-      Time spent blocked in PR_ConnectContinue when there has been the
-      connectivity change in the last 60s (ms).
-
-      This metric was generated to correspond to the Legacy Telemetry
-      exponential histogram PRCONNECTCONTINUE_BLOCKING_TIME_CONNECTIVITY_CHANGE.
-    time_unit: millisecond
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    notification_emails:
-      - necko@mozilla.com
-    expires: never
-    telemetry_mirror: PRCONNECTCONTINUE_BLOCKING_TIME_CONNECTIVITY_CHANGE
-
-  prconnectcontinue_blocking_time_link_change:
-    type: timing_distribution
-    description: >
-      Time spent blocked in PR_ConnectContinue when there has been a link change
-      in the last 60s (ms).
-
-      This metric was generated to correspond to the Legacy Telemetry
-      exponential histogram PRCONNECTCONTINUE_BLOCKING_TIME_LINK_CHANGE.
-    time_unit: millisecond
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    notification_emails:
-      - necko@mozilla.com
-    expires: never
-    telemetry_mirror: PRCONNECTCONTINUE_BLOCKING_TIME_LINK_CHANGE
-
-  prconnectcontinue_blocking_time_offline:
-    type: timing_distribution
-    description: >
-      Time spent blocked in PR_ConnectContinue when the offline state has
-      changed in the last 60s (ms).
-
-      This metric was generated to correspond to the Legacy Telemetry
-      exponential histogram PRCONNECTCONTINUE_BLOCKING_TIME_OFFLINE.
-    time_unit: millisecond
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    notification_emails:
-      - necko@mozilla.com
-    expires: never
-    telemetry_mirror: PRCONNECTCONTINUE_BLOCKING_TIME_OFFLINE
-
-  prclose_tcp_blocking_time_normal:
-    type: timing_distribution
-    description: >
-      Time spent blocked in PR_Close when we are not shutting down and there has
-      been niether a network nor an offline state change in the last 60s (ms).
-
-      This metric was generated to correspond to the Legacy Telemetry
-      exponential histogram PRCLOSE_TCP_BLOCKING_TIME_NORMAL.
-    time_unit: millisecond
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    notification_emails:
-      - necko@mozilla.com
-    expires: never
-    telemetry_mirror: PRCLOSE_TCP_BLOCKING_TIME_NORMAL
-
-  prclose_tcp_blocking_time_shutdown:
-    type: timing_distribution
-    description: >
-      Time spent blocked in PR_Close during a shutdown (ms).
-
-      This metric was generated to correspond to the Legacy Telemetry
-      exponential histogram PRCLOSE_TCP_BLOCKING_TIME_SHUTDOWN.
-    time_unit: millisecond
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    notification_emails:
-      - necko@mozilla.com
-    expires: never
-    telemetry_mirror: PRCLOSE_TCP_BLOCKING_TIME_SHUTDOWN
-
-  prclose_tcp_blocking_time_connectivity_change:
-    type: timing_distribution
-    description: >
-      Time spent blocked in PR_Close when there has been the connectivity change
-      in the last 60s (ms).
-
-      This metric was generated to correspond to the Legacy Telemetry
-      exponential histogram PRCLOSE_TCP_BLOCKING_TIME_CONNECTIVITY_CHANGE.
-    time_unit: millisecond
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    notification_emails:
-      - necko@mozilla.com
-    expires: never
-    telemetry_mirror: PRCLOSE_TCP_BLOCKING_TIME_CONNECTIVITY_CHANGE
-
-  prclose_tcp_blocking_time_link_change:
-    type: timing_distribution
-    description: >
-      Time spent blocked in PR_Close when there has been a link change in the
-      last 60s (ms).
-
-      This metric was generated to correspond to the Legacy Telemetry
-      exponential histogram PRCLOSE_TCP_BLOCKING_TIME_LINK_CHANGE.
-    time_unit: millisecond
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    notification_emails:
-      - necko@mozilla.com
-    expires: never
-    telemetry_mirror: PRCLOSE_TCP_BLOCKING_TIME_LINK_CHANGE
-
-  prclose_tcp_blocking_time_offline:
-    type: timing_distribution
-    description: >
-      Time spent blocked in PR_Close when the offline state has changed in the
-      last 60s (ms).
-
-      This metric was generated to correspond to the Legacy Telemetry
-      exponential histogram PRCLOSE_TCP_BLOCKING_TIME_OFFLINE.
-    time_unit: millisecond
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1944631
-    notification_emails:
-      - necko@mozilla.com
-    expires: never
-    telemetry_mirror: PRCLOSE_TCP_BLOCKING_TIME_OFFLINE
 
   prclose_udp_blocking_time_normal:
     type: timing_distribution
@@ -2498,7 +2379,6 @@ networking:
     notification_emails:
       - necko@mozilla.com
     expires: never
-    telemetry_mirror: PRCLOSE_UDP_BLOCKING_TIME_CONNECTIVITY_CHANGE
 
   prclose_udp_blocking_time_link_change:
     type: timing_distribution
@@ -2739,7 +2619,6 @@ network:
     notification_emails:
       - necko@mozilla.com
     expires: never
-    telemetry_mirror: IPV4_AND_IPV6_ADDRESS_CONNECTIVITY
 
   rel_preload_miss_ratio:
     type: labeled_counter

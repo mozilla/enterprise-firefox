@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -44,7 +42,7 @@ RemoteMediaDataEncoderParent::~RemoteMediaDataEncoderParent() = default;
 
 IPCResult RemoteMediaDataEncoderParent::RecvConstruct(
     ConstructResolver&& aResolver) {
-  if (mEncoder) {
+  if (mEncoder || mShutdown) {
     aResolver(MediaResult(NS_ERROR_ALREADY_INITIALIZED, __func__));
     return IPC_OK();
   }
@@ -64,7 +62,8 @@ IPCResult RemoteMediaDataEncoderParent::RecvConstruct(
                  return;
                }
 
-               if (self->mEncoder) {
+               if (self->mEncoder || self->mShutdown) {
+                 aValue.ResolveValue()->Shutdown();
                  resolver(MediaResult(NS_ERROR_ALREADY_INITIALIZED, __func__));
                  return;
                }
@@ -278,6 +277,7 @@ IPCResult RemoteMediaDataEncoderParent::RecvShutdown(
         resolver(aValue.IsResolve());
       });
   mEncoder = nullptr;
+  mShutdown = true;
   return IPC_OK();
 }
 

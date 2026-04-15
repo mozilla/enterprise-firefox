@@ -129,19 +129,13 @@ export class UrlbarProviderGlobalActions extends UrlbarProvider {
     addCallback(this, result);
   }
 
-  onSelection(result, element) {
-    let key = element.dataset.action;
-    let action = result.payload.actionsResults.find(a => a.key == key);
-    action.onSelection?.(result, element);
-  }
-
-  onEngagement(queryContext, controller, details) {
+  async onEngagement(queryContext, controller, details) {
     let key = details.element.dataset.action;
     let action = details.result.payload.actionsResults.find(a => a.key == key);
-    let options = action.onPick(queryContext, controller);
-    if (options?.focusContent) {
-      details.element.ownerGlobal.gBrowser.selectedBrowser.focus();
-    }
+    let provider = globalActionsProviders.find(
+      p => p.name == action.providerName
+    );
+    provider.onPick(queryContext, controller, action);
     controller.view.close();
   }
 

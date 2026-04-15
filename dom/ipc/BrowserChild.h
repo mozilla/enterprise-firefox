@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -765,6 +763,10 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
 
   mozilla::ipc::IPCResult RecvReleasePointerLock();
 
+#if defined(ACCESSIBILITY) && defined(MOZ_ENABLE_SKIA_PDF)
+  mozilla::ipc::IPCResult RecvRequestDocAccessibleForPrint();
+#endif
+
  private:
   void HandleDoubleTap(const CSSPoint& aPoint, const Modifiers& aModifiers,
                        const ScrollableLayerGuid& aGuid,
@@ -847,7 +849,14 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   RefPtr<BrowsingContext> mBrowsingContext;
   RefPtr<nsIDragSession> mDragSession;
 
+  // Tracks the keydown event currently being dispatched.
+  // This allows us to detect whether the event loop is being spun during
+  // keydown dispatch, which can cause key event IPC messages to be handled
+  // out of order.
+  Maybe<CodeNameIndex> mCurrentBeingDispatchedKeyDownCode;
+  // Tracks the most recent keydown event that was consumed.
   Maybe<CodeNameIndex> mPreviousConsumedKeyDownCode;
+
   uint32_t mChromeFlags;
   uint32_t mMaxTouchPoints;
   // The number of windows which may have ePointerRawUpdate event listener.

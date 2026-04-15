@@ -14,6 +14,9 @@ const MODEL_PREF = "browser.smartwindow.firstrun.modelChoice";
 const AUTO_ADVANCE_PREF = "browser.smartwindow.firstrun.autoAdvanceMS";
 const FIRST_RUN_COMPLETE_PREF = "browser.smartwindow.firstrun.hasCompleted";
 const EXPLAINER_PAGE_PREF = "browser.smartwindow.firstrun.explainerURL";
+const { MODELS } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/aiwindow/ui/modules/AIWindowConstants.sys.mjs"
+);
 
 const autoAdvanceMS = Services.prefs.getIntPref(AUTO_ADVANCE_PREF);
 
@@ -101,6 +104,10 @@ const AI_WINDOW_CONFIG = {
                 fontSize: "15px",
                 fontWeight: 320,
               },
+              subtitle: {
+                string_id: "aiwindow-firstrun-model-chip-subtitle",
+                args: MODELS["1"],
+              },
               action: {
                 type: "SET_PREF",
                 data: {
@@ -127,6 +134,10 @@ const AI_WINDOW_CONFIG = {
                 fontSize: "15px",
                 fontWeight: 320,
               },
+              subtitle: {
+                string_id: "aiwindow-firstrun-model-chip-subtitle",
+                args: MODELS["2"],
+              },
               action: {
                 type: "SET_PREF",
                 data: {
@@ -152,6 +163,10 @@ const AI_WINDOW_CONFIG = {
                 string_id: "aiwindow-firstrun-model-personal-body",
                 fontSize: "15px",
                 fontWeight: 320,
+              },
+              subtitle: {
+                string_id: "aiwindow-firstrun-model-chip-subtitle",
+                args: MODELS["3"],
               },
               action: {
                 type: "SET_PREF",
@@ -199,17 +214,48 @@ function renderFirstRun() {
   window.AWGetSelectedTheme = () => ({});
   window.AWGetInstalledAddons = () => [];
   window.AWSendToParent = (name, data) => receive(name)(data);
+  window.AWSendEventTelemetry = ({
+    event,
+    message_id,
+    event_context: { source },
+  }) => {
+    switch (event) {
+      case "IMPRESSION":
+        Glean.smartWindow.onboardingScreenImpression.record({
+          message_id,
+        });
+        break;
+
+      case "CLICK_BUTTON":
+        if (["model_1", "model_2", "model_3"].includes(source)) {
+          Glean.smartWindow.onboardingModelSelected.record({
+            model: source.split("_")[1],
+          });
+        } else if (
+          source === "primary_button" &&
+          message_id.includes("AI_WINDOW_CHOOSE_MODEL")
+        ) {
+          const prefValue = Services.prefs.getStringPref(MODEL_PREF, "");
+          Glean.smartWindow.onboardingModelNavigate.record({
+            model: prefValue || "",
+          });
+        }
+        break;
+    }
+  };
+
   window.AWFinish = () => {
     window.AWSendToParent("SPECIAL_ACTION", {
       type: "OPEN_URL",
       data: {
         args: Services.prefs.getStringPref(
           EXPLAINER_PAGE_PREF,
-          "https://www.mozilla.org/"
+          "http://www.firefox.com/smart-window/?v=product"
         ),
         where: "tab",
       },
     });
+    Glean.smartWindow.onboardingComplete.record();
     window.location.href = lazy.AIWindow.newTabURL;
   };
 

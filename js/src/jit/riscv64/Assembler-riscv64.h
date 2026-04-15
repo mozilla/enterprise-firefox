@@ -127,10 +127,8 @@ static const Scale ScalePointer = TimesEight;
 
 class Assembler;
 
-static constexpr int32_t SliceSize = 1024;
-
-typedef js::jit::AssemblerBufferWithConstantPools<
-    SliceSize, 4, Instruction, Assembler, NumShortBranchRangeTypes>
+typedef js::jit::AssemblerBufferWithConstantPools<4, Instruction, Assembler,
+                                                  NumShortBranchRangeTypes>
     Buffer;
 
 class Assembler : public AssemblerShared,
@@ -314,7 +312,6 @@ class Assembler : public AssemblerShared,
       va_end(va);
     }
   }
-
 #else
   MOZ_ALWAYS_INLINE void spew(const char* fmt, ...) MOZ_FORMAT_PRINTF(2, 3) {}
 #endif
@@ -378,7 +375,9 @@ class Assembler : public AssemblerShared,
 
   Register getStackPointer() const { return StackPointer; }
   void flushBuffer() {}
+#ifdef JS_DISASM_RISCV64
   static int disassembleInstr(Instr instr, bool enable_spew = false);
+#endif /* JS_DISASM_RISCV64 */
   int jumpChainTargetAt(BufferOffset pos, bool is_internal);
   static int jumpChainTargetAt(Instruction* instruction, BufferOffset pos,
                                bool is_internal,
@@ -395,8 +394,8 @@ class Assembler : public AssemblerShared,
 
   // Determines if Label is bound and near enough so that branch instruction
   // can be used to reach it, instead of jump instruction.
-  bool is_near(Label* L);
-  bool is_near(Label* L, OffsetSize bits);
+  bool isNear(Label* L);
+  bool isNear(Label* L, OffsetSize bits);
   bool is_near_branch(Label* L);
 
   void nopAlign(int m) {
@@ -408,7 +407,7 @@ class Assembler : public AssemblerShared,
   virtual BufferOffset emit(Instr x) {
     MOZ_ASSERT(hasCreator());
     BufferOffset offset = m_buffer.putInt(x);
-#if defined(DEBUG) || defined(JS_JITSPEW)
+#if (defined(DEBUG) || defined(JS_JITSPEW)) && defined(JS_DISASM_RISCV64)
     if (!oom()) {
       DEBUG_PRINTF(
           "0x%" PRIx64 "(%" PRIxPTR "):",
@@ -429,14 +428,23 @@ class Assembler : public AssemblerShared,
     return m_buffer.putInt(x);
   }
 
-  void instr_at_put(BufferOffset offset, Instr instr) {
-    DEBUG_PRINTF("\t[instr_at_put\n");
+  void putInstrAt(BufferOffset offset, Instr instr) {
+#ifdef JS_DISASM_RISCV64
+    DEBUG_PRINTF("\t[putInstrAt\n");
     DEBUG_PRINTF("\t%p %d \n\t", editSrc(offset), offset.getOffset());
     disassembleInstr(editSrc(offset)->InstructionBits());
     DEBUG_PRINTF("\t");
     *reinterpret_cast<Instr*>(editSrc(offset)) = instr;
     disassembleInstr(editSrc(offset)->InstructionBits());
     DEBUG_PRINTF("\t]\n");
+#else
+    DEBUG_PRINTF(
+        "\t[putInstrAt\n"
+        "\t%p %d \n\t"
+        "\t]\n",
+        editSrc(offset), offset.getOffset());
+    *reinterpret_cast<Instr*>(editSrc(offset)) = instr;
+#endif /* JS_DISASM_RISCV64 */
   }
 
   static Condition InvertCondition(Condition);
@@ -541,7 +549,7 @@ class Assembler : public AssemblerShared,
   void assertNoGCThings() const {
 #ifdef DEBUG
     MOZ_ASSERT(dataRelocations_.length() == 0);
-    for (auto& j : jumps_) {
+    for (const auto& j : jumps_) {
       MOZ_ASSERT(j.kind == RelocationKind::HARDCODED);
     }
 #endif

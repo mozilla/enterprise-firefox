@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -81,7 +79,7 @@ bool IMEStateManager::sInstalledMenuKeyboardListener = false;
 bool IMEStateManager::sIsGettingNewIMEState = false;
 bool IMEStateManager::sCleaningUpForStoppingIMEStateManagement = false;
 bool IMEStateManager::sIsActive = false;
-MOZ_RUNINIT Maybe<IMEStateManager::PendingFocusedBrowserSwitchingData>
+constinit Maybe<IMEStateManager::PendingFocusedBrowserSwitchingData>
     IMEStateManager::sPendingFocusedBrowserSwitchingData;
 
 class PseudoFocusChangeRunnable : public Runnable {
@@ -195,13 +193,12 @@ void IMEStateManager::OnFocusMovedBetweenBrowsers(BrowserParent* aBlur,
     RefPtr<TextComposition> composition =
         sTextCompositions->GetCompositionFor(oldWidget);
     if (composition) {
-      MOZ_LOG(
-          sISMLog, LogLevel::Debug,
-          ("  OnFocusMovedBetweenBrowsers(), requesting to commit "
-           "composition to "
-           "the (previous) focused widget (would request=%s)",
-           TrueOrFalse(
-               !oldWidget->IMENotificationRequestsRef().WantDuringDeactive())));
+      MOZ_LOG(sISMLog, LogLevel::Debug,
+              ("  OnFocusMovedBetweenBrowsers(), requesting to commit "
+               "composition to "
+               "the (previous) focused widget (would request=%s)",
+               TrueOrFalse(!oldWidget->IMENotificationRequestsRef().contains(
+                   IMENotificationRequest::NotifyDuringInactive))));
       NotifyIME(REQUEST_TO_COMMIT_COMPOSITION, oldWidget,
                 composition->GetBrowserParent());
     }
@@ -748,8 +745,8 @@ nsresult IMEStateManager::OnChangeFocusInternal(nsPresContext* aPresContext,
       // such case, sFocusedIMEWidget is perhaps nullptr).  For example, IME
       // may receive only blur notification but still has composition.
       // We need to clean up only the oldWidget's composition state here.
-      if (aPresContext ||
-          !oldWidget->IMENotificationRequestsRef().WantDuringDeactive()) {
+      if (aPresContext || !oldWidget->IMENotificationRequestsRef().contains(
+                              IMENotificationRequest::NotifyDuringInactive)) {
         MOZ_LOG(
             sISMLog, LogLevel::Info,
             ("  OnChangeFocusInternal(), requesting to commit composition to "
@@ -1340,15 +1337,11 @@ void IMEStateManager::OnReFocus(nsPresContext& aPresContext,
       MOZ_ASSERT(textControlElement);
       if (textControlElement &&
           textControlElement->IsSingleLineTextControlOrTextArea()) {
-        nsTextControlFrame* const boundFrame =
-            textControlElement->GetTextControlState()->GetBoundFrame();
-        MOZ_ASSERT(!boundFrame);
         MOZ_LOG(
             sISMLog, LogLevel::Warning,
             ("  OnReFocus(), Temporarily disabling IME for the focused element "
              "because probably the TextControlState could not return "
-             "TextEditor (textControlFrame: %p, textEditor: %p)",
-             boundFrame,
+             "TextEditor (textEditor: %p)",
              textControlElement->GetTextControlState()->GetExtantTextEditor()));
       }
     } else {

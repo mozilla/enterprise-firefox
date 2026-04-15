@@ -182,7 +182,6 @@ def set_treeherder_machine_platform(config, tasks):
         "macosx1500-64/opt": "osx-1500/opt",
         "macosx1500-64-shippable/opt": "osx-1500-shippable/opt",
         "win64-asan/opt": "windows11-64-24h2/asan",
-        "win64-aarch64/opt": "windows11-aarch64/opt",
     }
     for task in tasks:
         # For most desktop platforms, the above table is not used for "regular"
@@ -233,6 +232,7 @@ def handle_keyed_by(config, tasks):
         "docker-image",
         "max-run-time",
         "chunks",
+        "default-chunks",
         "suite",
         "run-on-projects",
         "os-groups",
@@ -1045,11 +1045,16 @@ def add_gecko_profile_symbolication_deps(config, tasks):
     """Add symbolication dependencies when profiling raptor, talos, or mochitest tests"""
 
     try_task_config = config.params.get("try_task_config", {})
-    gecko_profile = try_task_config.get("gecko-profile", False)
-    env = try_task_config.get("env", {})
-    startup_profile = env.get("MOZ_PROFILER_STARTUP") == "1"
+    gecko_profile_from_try = try_task_config.get("gecko-profile", False)
+    startup_profile = try_task_config.get("env", {}).get("MOZ_PROFILER_STARTUP") == "1"
 
     for task in tasks:
+        extra_options = task.get("mozharness", {}).get("extra-options", [])
+        has_gecko_profile_option = any(
+            "--gecko-profile" in option for option in extra_options
+        )
+        gecko_profile = gecko_profile_from_try or has_gecko_profile_option
+
         if (gecko_profile and task["suite"] in ["talos", "raptor"]) or (
             startup_profile and "mochitest" in task["suite"]
         ):

@@ -7,9 +7,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-dependencies {
-    implementation(libs.kaml)
-}
+group = "org.mozilla"
 
 val mozconfig = gradle.extra["mozconfig"] as Map<*, *>
 val topobjdir = mozconfig["topobjdir"] as String
@@ -25,4 +23,24 @@ gradlePlugin {
         id = "org.mozilla.conventions.project"
         implementationClass = "org.mozilla.conventions.ProjectPlugin"
     }
+    plugins.register("org.mozilla.conventions.mach-tasks") {
+        id = "org.mozilla.conventions.mach-tasks"
+        implementationClass = "org.mozilla.conventions.MachTasksPlugin"
+    }
+    plugins.register("org.mozilla.conventions.zip-test-reports") {
+        id = "org.mozilla.conventions.zip-test-reports"
+        implementationClass = "org.mozilla.conventions.ZipTestReportsPlugin"
+    }
+}
+
+dependencies {
+    implementation(libs.kaml)
+    compileOnly(libs.android.gradle.plugin)
+    testImplementation(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+tasks.test {
+    useJUnitPlatform()
 }

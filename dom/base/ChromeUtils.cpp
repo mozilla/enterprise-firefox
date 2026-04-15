@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -801,6 +799,10 @@ void ChromeUtils::ImportESModule(
   nsresult rv =
       moduleloader->ImportESModule(cx, registryLocation, &moduleNamespace);
   if (NS_FAILED(rv)) {
+    if (maybeSyncLoaderScope) {
+      // Import error itself should be propagated.
+      maybeSyncLoaderScope->Finish();
+    }
     aRv.Throw(rv);
     return;
   }
@@ -1018,6 +1020,10 @@ static bool ESModuleGetter(JSContext* aCx, unsigned aArgc, JS::Value* aVp) {
   JS::Rooted<JSObject*> moduleNamespace(aCx);
   nsresult rv = moduleloader->ImportESModule(aCx, uri, &moduleNamespace);
   if (NS_FAILED(rv)) {
+    if (maybeSyncLoaderScope) {
+      // Import error itself should be propagated.
+      maybeSyncLoaderScope->Finish();
+    }
     Throw(aCx, rv);
     return false;
   }
@@ -1170,6 +1176,11 @@ void ChromeUtils::GetLibcConstants(const GlobalObject&,
   aConsts.mO_CREAT.Construct(O_CREAT);
   aConsts.mO_NONBLOCK.Construct(O_NONBLOCK);
   aConsts.mO_WRONLY.Construct(O_WRONLY);
+#  ifdef O_CLOEXEC
+  aConsts.mO_CLOEXEC.Construct(O_CLOEXEC);
+  // In the unlikely event of a target where O_CLOEXEC isn't defined
+  // (Solaris 10?), the property will be absent in JS.
+#  endif
 
   aConsts.mPOLLERR.Construct(POLLERR);
   aConsts.mPOLLHUP.Construct(POLLHUP);
@@ -1181,6 +1192,7 @@ void ChromeUtils::GetLibcConstants(const GlobalObject&,
 
 #  ifdef XP_LINUX
   aConsts.mPR_CAPBSET_READ.Construct(PR_CAPBSET_READ);
+  aConsts.mO_PATH.Construct(O_PATH);
 #  endif
 }
 #endif
@@ -1792,6 +1804,17 @@ void ChromeUtils::ClearResourceCache(
 void ChromeUtils::InvalidateResourceCache(GlobalObject& aGlobal,
                                           ErrorResult& aRv) {
   SharedScriptCache::Invalidate();
+}
+
+void ChromeUtils::GetCachedJavaScriptSource(
+    GlobalObject& aGlobal, const nsACString& aKey, const nsACString& aURI,
+    const nsACString& aHintCharset, JS::MutableHandle<JS::Value> aRetval,
+    ErrorResult& aRv) {
+  JSContext* cx = aGlobal.Context();
+  if (!SharedScriptCache::GetCachedScriptSource(cx, aKey, aURI, aHintCharset,
+                                                aRetval)) {
+    aRv.NoteJSContextException(aGlobal.Context());
+  }
 }
 
 void ChromeUtils::ClearBfcacheByPrincipal(GlobalObject& aGlobal,

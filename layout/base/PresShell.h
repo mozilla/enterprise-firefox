@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -766,6 +764,8 @@ class PresShell final : public nsStubDocumentObserver,
   // https://drafts.csswg.org/css-anchor-position-1/#target
   nsIFrame* GetAnchorPosAnchor(const ScopedNameRef& aName,
                                const nsIFrame* aPositionedFrame) const;
+  void CollectAnchorNames(const nsIFrame* aPositionedFrame,
+                          nsTArray<nsString>& aResult);
   void AddAnchorPosAnchor(const nsAtom* aName, nsIFrame* aFrame);
   void RemoveAnchorPosAnchor(const nsAtom* aName, nsIFrame* aFrame);
   enum class AnchorPosUpdateResult {
@@ -987,13 +987,6 @@ class PresShell final : public nsStubDocumentObserver,
    * only visible if the contents of the view as a whole are translucent.
    */
   nscolor ComputeBackstopColor(nsIFrame* aDisplayRoot);
-
-  void ObserveNativeAnonMutationsForPrint(bool aObserve) {
-    mObservesMutationsForPrint = aObserve;
-  }
-  bool ObservesNativeAnonMutationsForPrint() {
-    return mObservesMutationsForPrint;
-  }
 
   void ActivenessMaybeChanged();
   bool IsActive() const { return mIsActive; }
@@ -2445,11 +2438,10 @@ class PresShell final : public nsStubDocumentObserver,
      *
      * @param aGUIEvent                 The handling event.
      * @return                          true if this actually flushes pending
-     *                                  layout and that has caused changing the
      *                                  layout.
      */
-    MOZ_CAN_RUN_SCRIPT
-    bool MaybeFlushPendingNotifications(WidgetGUIEvent* aGUIEvent);
+    MOZ_CAN_RUN_SCRIPT bool MaybeFlushPendingNotifications(
+        WidgetGUIEvent* aGUIEvent);
 
     /**
      * GetFrameToHandleNonTouchEvent() returns a frame to handle the event.
@@ -3473,7 +3465,6 @@ class PresShell final : public nsStubDocumentObserver,
   bool mIsActive : 1;
   bool mFrozen : 1;
   bool mIsFirstPaint : 1;
-  bool mObservesMutationsForPrint : 1;
 
   // Whether the most recent interruptible reflow was actually interrupted:
   bool mWasLastReflowInterrupted : 1;

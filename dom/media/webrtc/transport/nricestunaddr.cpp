@@ -5,10 +5,8 @@
 #include "logging.h"
 
 // nICEr includes
-extern "C" {
 #include "local_addr.h"
 #include "nr_api.h"
-}
 
 // Local includes
 #include "nricestunaddr.h"

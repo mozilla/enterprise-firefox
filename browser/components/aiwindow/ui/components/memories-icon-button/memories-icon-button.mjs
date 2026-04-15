@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-import { html } from "chrome://global/content/vendor/lit.all.mjs";
+import { html, nothing } from "chrome://global/content/vendor/lit.all.mjs";
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
 
 /**
@@ -17,6 +17,7 @@ export class MemoriesIconButton extends MozLitElement {
   static properties = {
     pressed: { type: Boolean, reflect: true },
     disabled: { type: Boolean, reflect: true },
+    show: { type: Boolean, reflect: true },
   };
 
   #onClick() {
@@ -31,6 +32,9 @@ export class MemoriesIconButton extends MozLitElement {
   }
 
   render() {
+    if (!this.show) {
+      return nothing;
+    }
     const ariaPressed = String(this.pressed);
     // TODO: using placeholder icons here. Update iconSrc with final path name
     // when memories on/off icons are ready.

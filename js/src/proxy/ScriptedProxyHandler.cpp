@@ -945,7 +945,7 @@ bool ScriptedProxyHandler::ownPropertyKeys(JSContext* cx, HandleObject proxy,
 
   // Step 22.
   if (!uncheckedResultKeys.empty()) {
-    RootedId id(cx, uncheckedResultKeys.all().front());
+    RootedId id(cx, uncheckedResultKeys.iter().get());
     return js::Throw(cx, id, JSMSG_CANT_REPORT_NEW);
   }
 
@@ -1173,7 +1173,7 @@ void ScriptedProxyHandler::reportGetTrapValidationError(
       js::Throw(cx, id, JSMSG_MUST_REPORT_SAME_VALUE);
       return;
     case GetTrapValidationResult::MustReportUndefined:
-      js::Throw(cx, id, JSMSG_MUST_REPORT_SAME_VALUE);
+      js::Throw(cx, id, JSMSG_MUST_REPORT_UNDEFINED);
       return;
     case GetTrapValidationResult::Exception:
       return;

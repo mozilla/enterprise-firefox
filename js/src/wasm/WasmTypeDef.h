@@ -1385,6 +1385,9 @@ inline bool RefType::isAnyHierarchy() const {
 inline bool RefType::isExnHierarchy() const {
   return hierarchy() == RefTypeHierarchy::Exn;
 }
+inline bool RefType::isInhabitable() const {
+  return !(isRefBottom() && !isNullable());
+}
 
 /* static */
 inline bool RefType::isSubTypeOf(RefType subType, RefType superType) {

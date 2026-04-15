@@ -86,7 +86,7 @@ The `crash-ping-ingest <https://github.com/mozilla/crash-ping-ingest>`_ repo is 
 taskcluster) to run daily ingestion. It will retrieve crash pings with submissions as recent as the
 prior UTC day, ensuring that indexed results for the past week are available by default (in case of
 outages/hiccups/etc). This runs at 2:00 UTC and takes 1-2 hours, so you can expect data to be
-availalbe for the prior UTC day around 4:00 UTC. It also supplies a taskcluster action to manually
+available for the prior UTC day around 4:00 UTC. It also supplies a taskcluster action to manually
 generate data for a given date, if necessary.
 
 Data Availability

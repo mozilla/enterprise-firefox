@@ -1,4 +1,3 @@
-// -*- indent-tabs-mode: nil; js-indent-level: 2 -*-
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -157,7 +156,7 @@ pref("editor.htmleditor.inputevent.hack.no_dispatch_before_compositionend.addl",
 // Blocklist of domains of web apps which we should not dispatch `input` event
 // immediately after `compositionend`.
 pref("editor.texteditor.inputevent.hack.no_dispatch_after_compositionend", "");
-pref("editor.htmleditor.inputevent.hack.no_dispatch_after_compositionend", "");
+pref("editor.htmleditor.inputevent.hack.no_dispatch_after_compositionend", "www.icloud.com");
 // Pref for end-users and policy to add additional values.
 pref("editor.texteditor.inputevent.hack.no_dispatch_after_compositionend.addl", "");
 pref("editor.htmleditor.inputevent.hack.no_dispatch_after_compositionend.addl", "");
@@ -3700,6 +3699,7 @@ pref("browser.ai.control.pdfjsAltText", "default");
 pref("browser.ai.control.smartTabGroups", "default");
 pref("browser.ai.control.linkPreviewKeyPoints", "default");
 pref("browser.ai.control.sidebarChatbot", "default");
+pref("browser.ai.control.smartWindow", "default");
 
 // Enable the experimental machine learning inference engine.
 pref("browser.ml.enable", true);

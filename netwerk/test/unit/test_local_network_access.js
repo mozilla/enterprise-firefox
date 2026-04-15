@@ -106,7 +106,7 @@ add_setup(async () => {
 
   // enable prompt for prefs testing, with this we can simulate the prompt actions by
   // network.lna.blocking.prompt.allow = false/true
-  Services.prefs.setBoolPref("network.localhost.prompt.testing", true);
+  Services.prefs.setBoolPref("network.loopback-network.prompt.testing", true);
   Services.prefs.setBoolPref("network.localnetwork.prompt.testing", true);
 
   Services.prefs.setBoolPref(
@@ -139,7 +139,9 @@ add_setup(async () => {
       await httpServer.stop();
       Services.prefs.clearUserPref("network.lna.blocking");
       Services.prefs.clearUserPref("network.lna.blocking.prompt.testing");
-      Services.prefs.clearUserPref("network.localhost.prompt.testing.allow");
+      Services.prefs.clearUserPref(
+        "network.loopback-network.prompt.testing.allow"
+      );
       Services.prefs.clearUserPref("network.localnetwork.prompt.testing.allow");
       Services.prefs.clearUserPref(
         "network.lna.local-network-to-localhost.skip-checks"
@@ -278,7 +280,10 @@ add_task(async function lna_blocking_tests_localhost_prompt() {
   for (let [allow, space, suffix, expectedStatus, url] of localHostTestCases) {
     info(`do_test ${url}${suffix}, ${space} -> ${expectedStatus}`);
 
-    Services.prefs.setBoolPref("network.localhost.prompt.testing.allow", allow);
+    Services.prefs.setBoolPref(
+      "network.loopback-network.prompt.testing.allow",
+      allow
+    );
 
     let chan = makeChannel(url + suffix);
     chan.loadInfo.parentIpAddressSpace = space;
@@ -579,7 +584,10 @@ add_task(async function lna_domain_skip_tests() {
     Services.prefs.setCharPref("network.lna.skip-domains", skipDomains);
 
     // Disable prompt simulation for clean testing
-    Services.prefs.setBoolPref("network.localhost.prompt.testing.allow", false);
+    Services.prefs.setBoolPref(
+      "network.loopback-network.prompt.testing.allow",
+      false
+    );
 
     let chan = makeChannel(url + "/test_lna");
     chan.loadInfo.parentIpAddressSpace = parentSpace;
@@ -677,7 +685,10 @@ add_task(async function lna_local_network_to_localhost_skip_checks() {
     );
 
     // Disable prompt simulation for clean testing (prompt should not affect skip logic)
-    Services.prefs.setBoolPref("network.localhost.prompt.testing.allow", false);
+    Services.prefs.setBoolPref(
+      "network.loopback-network.prompt.testing.allow",
+      false
+    );
 
     let chan = makeChannel(url + suffix);
     chan.loadInfo.parentIpAddressSpace = parentSpace;
@@ -773,7 +784,10 @@ add_task(async function lna_same_origin_skip_checks() {
     info(`Testing same origin check: ${description}`);
 
     // Disable prompt simulation for clean testing
-    Services.prefs.setBoolPref("network.localhost.prompt.testing.allow", false);
+    Services.prefs.setBoolPref(
+      "network.loopback-network.prompt.testing.allow",
+      false
+    );
 
     // Use makeChannel with explicit triggering principal
     let chan = makeChannel(targetURL, triggeringOriginURI);

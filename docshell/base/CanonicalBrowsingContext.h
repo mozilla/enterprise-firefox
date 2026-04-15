@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -36,6 +34,7 @@ class nsBrowserStatusFilter;
 class nsSecureBrowserUI;
 class CallerWillNotifyHistoryIndexAndLengthChanges;
 class nsITimer;
+class nsIScopedPrefs;
 
 namespace mozilla {
 enum class CallState;
@@ -309,8 +308,8 @@ class CanonicalBrowsingContext final : public BrowsingContext {
   void ReplacedBy(CanonicalBrowsingContext* aNewContext,
                   const NavigationIsolationOptions& aRemotenessOptions);
 
-  bool HasHistoryEntry(nsISHEntry* aEntry);
-  bool HasLoadingHistoryEntry(nsISHEntry* aEntry) {
+  bool HasHistoryEntry(SessionHistoryEntry* aEntry);
+  bool HasLoadingHistoryEntry(SessionHistoryEntry* aEntry) {
     for (const LoadingSessionHistoryEntry& loading : mLoadingEntries) {
       if (loading.mEntry == aEntry) {
         return true;
@@ -319,7 +318,8 @@ class CanonicalBrowsingContext final : public BrowsingContext {
     return false;
   }
 
-  void SwapHistoryEntries(nsISHEntry* aOldEntry, nsISHEntry* aNewEntry);
+  void SwapHistoryEntries(SessionHistoryEntry* aOldEntry,
+                          SessionHistoryEntry* aNewEntry);
 
   void AddLoadingSessionHistoryEntry(uint64_t aLoadId,
                                      SessionHistoryEntry* aEntry);
@@ -329,6 +329,12 @@ class CanonicalBrowsingContext final : public BrowsingContext {
 
   MOZ_CAN_RUN_SCRIPT
   void HistoryCommitIndexAndLength();
+
+  void DeactivateDocuments();
+
+  MOZ_CAN_RUN_SCRIPT
+  void ReactivateDocuments(SessionHistoryEntry* aEntry,
+                           SessionHistoryEntry* aPreviousEntryForActivation);
 
   void SynchronizeLayoutHistoryState();
 
@@ -367,7 +373,7 @@ class CanonicalBrowsingContext final : public BrowsingContext {
 
  private:
   static nsresult ContainsSameOriginBfcacheEntry(
-      nsISHEntry* aEntry, mozilla::dom::BrowsingContext* aBC,
+      SessionHistoryEntry* aEntry, mozilla::dom::BrowsingContext* aBC,
       int32_t aChildIndex, void* aData);
 
  public:
@@ -391,16 +397,7 @@ class CanonicalBrowsingContext final : public BrowsingContext {
   void SetIsActiveInternal(bool aIsActive, ErrorResult& aRv) {
     ExplicitActiveStatus newValue = aIsActive ? ExplicitActiveStatus::Active
                                               : ExplicitActiveStatus::Inactive;
-    bool changed = GetExplicitActive() != newValue;
     SetExplicitActive(newValue, aRv);
-    if (changed) {
-      nsCOMPtr<nsIObserverService> observerService =
-          mozilla::services::GetObserverService();
-      if (observerService) {
-        observerService->NotifyObservers(
-            ToSupports(this), "browsing-context-active-change", nullptr);
-      }
-    }
   }
 
   void SetTouchEventsOverride(dom::TouchEventsOverride, ErrorResult& aRv);
@@ -442,9 +439,13 @@ class CanonicalBrowsingContext final : public BrowsingContext {
   void SetForceAppWindowActive(bool, ErrorResult&);
   void RecomputeAppWindowVisibility();
 
+  void IncrementDocumentPiPWindowCount();
+  void DecrementDocumentPiPWindowCount();
+
   already_AddRefed<nsISHEntry> GetMostRecentLoadingSessionHistoryEntry();
 
   already_AddRefed<BounceTrackingState> GetBounceTrackingState();
+  already_AddRefed<nsIScopedPrefs> GetScopedPrefs();
 
   bool CanOpenModalPicker();
 
@@ -651,6 +652,10 @@ class CanonicalBrowsingContext final : public BrowsingContext {
   RefPtr<nsSecureBrowserUI> mSecureBrowserUI;
   RefPtr<BrowsingContextWebProgress> mWebProgress;
 
+  // ScopedPrefs is set on all top-level browsing contexts and is shared
+  // across navigation, therefore lifetime of tab.
+  nsCOMPtr<nsIScopedPrefs> mScopedPrefs;
+
   nsCOMPtr<nsIWebProgressListener> mDocShellProgressBridge;
   RefPtr<nsBrowserStatusFilter> mStatusFilter;
 
@@ -677,6 +682,8 @@ class CanonicalBrowsingContext final : public BrowsingContext {
 
   // See CanonicalBrowsingContext.forceAppWindowActive.
   bool mForceAppWindowActive = false;
+
+  uint32_t mDocumentPiPWindowCount = 0;
 
   bool mIsReplaced = false;
 

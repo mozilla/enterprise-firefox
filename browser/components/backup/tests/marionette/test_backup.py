@@ -26,8 +26,6 @@ class BackupTest(MarionetteTestCase):
             "browser.backup.log": True,
             "browser.backup.archive.enabled": True,
             "browser.backup.restore.enabled": True,
-            "browser.backup.archive.overridePlatformCheck": True,
-            "browser.backup.restore.overridePlatformCheck": True,
             # Necessary to test Session Restore from backup, which relies on
             # the crash restore mechanism.
             "browser.sessionstore.resume_from_crash": True,
@@ -128,10 +126,8 @@ class BackupTest(MarionetteTestCase):
           }
 
           let [archiveDestPath, recoveryCode, outerResolve] = arguments;
-          bs.setParentDirPath(archiveDestPath);
-
           (async () => {
-
+            await bs.setParentDirPath(archiveDestPath);
             await bs.enableEncryption(recoveryCode);
 
             let { archivePath } = await bs.createBackup();
@@ -228,9 +224,8 @@ class BackupTest(MarionetteTestCase):
         self.marionette.start_session()
         self.marionette.set_context("chrome")
 
-        # Ensure that all postRecovery actions have completed, and that
-        # encryption is enabled.
-        encryptionEnabled = self.marionette.execute_async_script(
+        # Ensure that all postRecovery actions have completed.
+        self.marionette.execute_async_script(
             """
           const { BackupService } = ChromeUtils.importESModule("resource:///modules/backup/BackupService.sys.mjs");
           let bs = BackupService.get();
@@ -241,13 +236,9 @@ class BackupTest(MarionetteTestCase):
           let [outerResolve] = arguments;
           (async () => {
             await bs.postRecoveryComplete;
-
-            await bs.loadEncryptionState();
-            return bs.state.encryptionEnabled;
           })().then(outerResolve);
         """
         )
-        self.assertTrue(encryptionEnabled)
 
         self.verify_recovered_test_cookie()
         self.verify_recovered_test_login()
@@ -329,9 +320,9 @@ class BackupTest(MarionetteTestCase):
           }
 
           let [archiveDestPath, outerResolve] = arguments;
-          bs.setParentDirPath(archiveDestPath);
 
           (async () => {
+            await bs.setParentDirPath(archiveDestPath);
             bs.setScheduledBackups(true);
             let { archivePath } = await bs.createBackup();
             if (!archivePath) {

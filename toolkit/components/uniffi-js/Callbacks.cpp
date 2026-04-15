@@ -57,11 +57,13 @@ uint32_t CallbackHandleAddRef(uint64_t aHandle) {
 uint32_t CallbackHandleRelease(uint64_t aHandle) {
   HandleRefCount* handlePointer =
       reinterpret_cast<HandleRefCount*>(aHandle & ~1);
-  auto refCount = --(*handlePointer);
-  if (refCount == 0) {
-    delete handlePointer;
-  }
-  return refCount;
+  return --(*handlePointer);
+}
+
+void CallbackHandleFree(uint64_t aHandle) {
+  HandleRefCount* handlePointer =
+      reinterpret_cast<HandleRefCount*>(aHandle & ~1);
+  delete handlePointer;
 }
 
 void AsyncCallbackMethodHandlerBase::ScheduleAsyncCall(

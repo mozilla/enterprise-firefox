@@ -33,7 +33,7 @@ async function addBrowserTabs(numberOfTabs) {
 }
 
 function injectBeforeUnload(browser) {
-  return ContentTask.spawn(browser, null, async function () {
+  return SpecialPowers.spawn(browser, [], async function () {
     content.window.addEventListener(
       "beforeunload",
       function (event) {

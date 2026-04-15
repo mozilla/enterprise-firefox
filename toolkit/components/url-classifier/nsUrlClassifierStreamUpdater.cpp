@@ -122,7 +122,8 @@ nsresult nsUrlClassifierStreamUpdater::FetchUpdate(
   // UrlClassifierRemoteSettingsService.
   if (aUpdateUrl->SchemeIs("moz-sbrs")) {
 #ifdef DEBUG
-    LOG(("Fetching update %s from RemoteSettings", aRequestPayload.Data()));
+    LOG(("Fetching update %s from RemoteSettings",
+         PromiseFlatCString(aRequestPayload).get()));
 #endif
     nsCOMPtr<nsIUrlClassifierRemoteSettingsService> rsService =
         do_GetService("@mozilla.org/url-classifier/list-service;1");
@@ -136,7 +137,8 @@ nsresult nsUrlClassifierStreamUpdater::FetchUpdate(
     }
   } else {
 #ifdef DEBUG
-    LOG(("Fetching update %s from %s", aRequestPayload.Data(),
+    LOG(("Fetching update %s from %s",
+         PromiseFlatCString(aRequestPayload).get(),
          aUpdateUrl->GetSpecOrDefault().get()));
 #endif
     uint32_t loadFlags = nsIChannel::INHIBIT_CACHING |
@@ -274,8 +276,9 @@ nsUrlClassifierStreamUpdater::DownloadUpdates(
   NS_ENSURE_ARG(aDownloadErrorCallback);
 
   if (mIsUpdating) {
-    LOG(("Already updating, queueing update %s from %s", aRequestPayload.Data(),
-         aUpdateUrl.Data()));
+    LOG(("Already updating, queueing update %s from %s",
+         PromiseFlatCString(aRequestPayload).get(),
+         PromiseFlatCString(aUpdateUrl).get()));
     *_retval = false;
     UpdateRequest* request = mPendingRequests.AppendElement(fallible);
     if (!request) {
@@ -313,7 +316,8 @@ nsUrlClassifierStreamUpdater::DownloadUpdates(
   rv = mDBService->BeginUpdate(this, aRequestTables, aProvider);
   if (rv == NS_ERROR_NOT_AVAILABLE) {
     LOG(("Service busy, already updating, queuing update %s from %s",
-         aRequestPayload.Data(), aUpdateUrl.Data()));
+         PromiseFlatCString(aRequestPayload).get(),
+         PromiseFlatCString(aUpdateUrl).get()));
     *_retval = false;
     UpdateRequest* request = mPendingRequests.AppendElement(fallible);
     if (!request) {
@@ -354,7 +358,7 @@ nsUrlClassifierStreamUpdater::DownloadUpdates(
   mIsUpdating = true;
   *_retval = true;
 
-  LOG(("FetchUpdate: %s", mCurrentRequest->mUrl.Data()));
+  LOG(("FetchUpdate: %s", mCurrentRequest->mUrl.get()));
 
   return FetchUpdate(aUpdateUrl, aRequestPayload, aRequestQueryParameters,
                      aIsPostRequest, ""_ns);

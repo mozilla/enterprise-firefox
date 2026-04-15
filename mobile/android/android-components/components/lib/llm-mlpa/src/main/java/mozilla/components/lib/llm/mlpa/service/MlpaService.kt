@@ -26,7 +26,7 @@ class VerificationServiceFailed(reason: String) : Exception("Verification Servic
  *
  * @param reason A human-readable explanation of the failure.
  */
-class ChatServiceFailed(reason: String) : Exception("Verification Service Failed: $reason")
+class ChatServiceFailed(reason: String) : Exception("Chat Service Failed: $reason")
 
 /**
  * Configuration for connecting to MLPA services.
@@ -40,21 +40,47 @@ data class MlpaConfig(
         /**
          * Preconfigured MLPA configuration targeting the live (non-prod stage) environment.
          */
-        val live
+        val nonProd
             get() = MlpaConfig(
-                baseUrl = "https://mlpa-nonprod-stage-mozilla.global.ssl.fastly.net/v1",
+                baseUrl = "https://mlpa-nonprod-dev-mozilla.global.ssl.fastly.net",
+            )
+
+        /**
+         * Preconfigured MLPA configuration targeting the live (prod-prod) environment.
+         */
+        val prodProd
+            get() = MlpaConfig(
+                baseUrl = "https://mlpa-prod-prod-mozilla.global.ssl.fastly.net",
             )
     }
 }
 
 /**
- * Represents an MLPA authorization token used to authenticate API calls.
+ * Represents a bearer token used to authenticate API calls.
  *
  * @property value The raw authorization token string.
  */
-@JvmInline
-@Serializable
-value class AuthorizationToken(val value: String)
+sealed interface AuthorizationToken {
+    val value: String
+
+    /**
+     * An integrity-based authorization token issued by the MLPA verification service.
+     *
+     * @property value The raw token string.
+     */
+    @JvmInline
+    @Serializable
+    value class Integrity(override val value: String) : AuthorizationToken
+
+    /**
+     * A Firefox Accounts (FxA) authorization token.
+     *
+     * @property value The raw token string.
+     */
+    @JvmInline
+    @Serializable
+    value class Fxa(override val value: String) : AuthorizationToken
+}
 
 /**
  * Represents a unique identifier for a user in MLPA requests.
@@ -64,6 +90,15 @@ value class AuthorizationToken(val value: String)
 @JvmInline
 @Serializable
 value class UserId(val value: String)
+
+/**
+ * Represents the name of a package in MLPA requests.
+ *
+ * @property value The raw package name.
+ */
+@JvmInline
+@Serializable
+value class PackageName(val value: String)
 
 /**
  * Aggregated MLPA service interface combining:
@@ -89,11 +124,15 @@ fun interface AuthenticationService {
      *
      * @property userId The identifier of the user requesting verification.
      * @property integrityToken The integrity token obtained from the client.
+     * @property packageName The package name for the app requesting verification.
      */
     @Serializable
     data class Request(
         @SerialName("user_id") val userId: UserId,
-        @Serializable(with = IntegrityTokenSerializer::class) val integrityToken: IntegrityToken,
+        @SerialName("integrity_token")
+        @Serializable(with = IntegrityTokenSerializer::class)
+        val integrityToken: IntegrityToken,
+        @SerialName("package_name") val packageName: PackageName,
     )
 
     /**
@@ -105,7 +144,7 @@ fun interface AuthenticationService {
      */
     @Serializable
     data class Response(
-        @SerialName("access_token") val accessToken: AuthorizationToken,
+        @SerialName("access_token") val accessToken: AuthorizationToken.Integrity,
         @SerialName("token_type") val tokenType: String,
         @SerialName("expires_in") val expiresIn: Int,
     )

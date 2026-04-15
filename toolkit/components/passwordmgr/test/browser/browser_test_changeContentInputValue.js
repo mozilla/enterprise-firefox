@@ -76,9 +76,9 @@ async function testStringChange({
       await checkForm(browser, originalValue);
       info("form checked");
 
-      await ContentTask.spawn(
+      await SpecialPowers.spawn(
         browser,
-        { USERNAME_INPUT_SELECTOR, expectedKeypresses },
+        [{ USERNAME_INPUT_SELECTOR, expectedKeypresses }],
         async function ({ USERNAME_INPUT_SELECTOR, expectedKeypresses }) {
           let input = content.document.querySelector(USERNAME_INPUT_SELECTOR);
 
@@ -102,18 +102,19 @@ async function testStringChange({
         }
       );
 
-      changeContentInputValue(browser, USERNAME_INPUT_SELECTOR, inputEvent);
+      await changeContentInputValue(
+        browser,
+        USERNAME_INPUT_SELECTOR,
+        inputEvent
+      );
     }
   );
 }
 
 async function checkForm(browser, expectedUsername) {
-  await ContentTask.spawn(
+  await SpecialPowers.spawn(
     browser,
-    {
-      expectedUsername,
-      USERNAME_INPUT_SELECTOR,
-    },
+    [{ expectedUsername, USERNAME_INPUT_SELECTOR }],
     async function contentCheckForm({
       expectedUsername,
       USERNAME_INPUT_SELECTOR,

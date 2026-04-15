@@ -48,7 +48,7 @@ add_task(async function test_net_empty_response_copy() {
   await pageLoaded;
 
   Assert.ok("Loaded empty server response.");
-  await ContentTask.spawn(browser, null, async () => {
+  await SpecialPowers.spawn(browser, [], async () => {
     await ContentTaskUtils.waitForCondition(
       () => content?.document?.querySelector("net-error-card"),
       "Wait for empty-response copy to render"
@@ -56,23 +56,20 @@ add_task(async function test_net_empty_response_copy() {
     const doc = content.document;
     const netErrorCard = doc.querySelector("net-error-card").wrappedJSObject;
     Assert.ok(netErrorCard, "NetErrorCard supports empty server responses.");
-    Assert.ok(
-      netErrorCard.netErrorTitleText,
-      "NetErrorCard has netErrorTitleText."
-    );
-    Assert.ok(netErrorCard.netErrorIntro, "NetErrorCard has netErrorIntro.");
+    Assert.ok(netErrorCard.errorTitle, "NetErrorCard has errorTitle.");
+    Assert.ok(netErrorCard.errorIntro, "NetErrorCard has errorIntro.");
     Assert.ok(
       netErrorCard.whatCanYouDo,
       "NetErrorCard has whatCanYouDo section."
     );
     Assert.ok(netErrorCard.tryAgainButton, "NetErrorCard has tryAgainButton.");
     Assert.equal(
-      netErrorCard.netErrorTitleText.dataset.l10nId,
+      netErrorCard.errorTitle.dataset.l10nId,
       "problem-with-this-site-title",
       "Using the 'problem with this site' title"
     );
     Assert.equal(
-      netErrorCard.netErrorIntro.dataset.l10nId,
+      netErrorCard.errorIntro.dataset.l10nId,
       "neterror-http-empty-response-description",
       "Using the 'empty response' intro."
     );

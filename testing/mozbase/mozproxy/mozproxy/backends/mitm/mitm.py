@@ -32,6 +32,9 @@ MITMDUMP_COMMAND_TIMEOUT = 30
 class Mitmproxy(Playback):
     def __init__(self, config):
         self.config = config
+        # Register signal handlers to cleanup mitmdump on interrupt
+        if not self._is_test_environment():
+            self._register_signals()
 
         self.host = (
             "127.0.0.1" if "localhost" in self.config["host"] else self.config["host"]
@@ -119,6 +122,41 @@ class Mitmproxy(Playback):
 
         LOG.info("Playback tool: %s" % self.config["playback_tool"])
         LOG.info("Playback tool version: %s" % self.config["playback_version"])
+
+    def _is_test_environment(self):
+        """Check if running under pytest.
+
+        Signal handlers are skipped during tests since they call sys.exit()
+        which would kill the test runner. Tests also mock processes and send
+        signals deliberately for testing.
+        """
+        return (
+            "pytest" in sys.modules or os.environ.get("PYTEST_CURRENT_TEST") is not None
+        )
+
+    def _register_signals(self):
+        """Register signal handlers for cleanup.
+
+        SIGINT: Ctrl+C from terminal
+        SIGTERM: kill command
+        SIGHUP: terminal closed/SSH disconnected (Unix only)
+        """
+        signal.signal(signal.SIGINT, self._handle_signal)
+        signal.signal(signal.SIGTERM, self._handle_signal)
+        if hasattr(signal, "SIGHUP"):
+            signal.signal(signal.SIGHUP, self._handle_signal)
+
+    def _handle_signal(self, sig, frame):
+        """Called when one of the signals is received.
+        Performs cleanup and exits the program cleanly.
+        """
+        LOG.info(f"Signal {sig} received. Cleaning up...")
+        try:
+            self.stop()
+        except Exception as e:
+            LOG.error(f"Error during cleanup: {e}")
+        finally:
+            sys.exit(128 + sig)
 
     def generate_mitmdump_path(self):
         mitmdump_path_tail = ["mitmdump"]
@@ -242,7 +280,7 @@ class Mitmproxy(Playback):
     def stop(self):
         LOG.info("Mitmproxy stop!!")
         self.stop_mitmproxy_playback()
-        if self.record_mode:
+        if self.record_mode and self.recording is not None:
             LOG.info("Record mode ON. Generating zip file ")
             self.recording.generate_zip_file()
 

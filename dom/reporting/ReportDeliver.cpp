@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -153,6 +151,8 @@ void SendReports(nsTArray<ReportDeliver::ReportData>& aReports,
   JSONStringWriteFunc<nsAutoCString> body;
   ReportJSONWriter w(body);
 
+  uint64_t associatedBrowsingContextId = aReports[0].mAssociatedBrowsingContext;
+
   w.StartArrayElement();
   for (const auto& report : aReports) {
     MOZ_ASSERT(report.mPrincipal == aPrincipal);
@@ -228,6 +228,7 @@ void SendReports(nsTArray<ReportDeliver::ReportData>& aReports,
   if (aReports[0].mCookieJarSettings) {
     internalRequest->SetCookieJarSettings(aReports[0].mCookieJarSettings);
   }
+  internalRequest->SetAssociatedBrowsingContextID(associatedBrowsingContextId);
 
   RefPtr<Request> request =
       new Request(globalObject, std::move(internalRequest), nullptr);
@@ -258,7 +259,8 @@ void SendReports(nsTArray<ReportDeliver::ReportData>& aReports,
 void ReportDeliver::AttemptDelivery(nsIGlobalObject* aGlobal,
                                     const nsAString& aType,
                                     const nsAString& aGroupName,
-                                    const nsAString& aURL, ReportBody* aBody) {
+                                    const nsAString& aURL, ReportBody* aBody,
+                                    uint64_t aAssociatedBrowsingContextId) {
   MOZ_ASSERT(aGlobal && aBody);
 
   if (NS_WARN_IF(!gReportDeliver)) {
@@ -284,8 +286,8 @@ void ReportDeliver::AttemptDelivery(nsIGlobalObject* aGlobal,
       [aGlobalKey = reinterpret_cast<uintptr_t>(aGlobal),
        type = nsString{aType}, group = nsString{aGroupName},
        reportUrl = nsString{aURL},
-       reportBody = std::move(reportBodyJSON).StringRRef(),
-       principal]() mutable {
+       reportBody = std::move(reportBodyJSON).StringRRef(), principal,
+       browsingContextId = aAssociatedBrowsingContextId]() mutable {
         ReportData data;
 
         // https://w3c.github.io/reporting/#report-delivery
@@ -307,6 +309,7 @@ void ReportDeliver::AttemptDelivery(nsIGlobalObject* aGlobal,
         data.mReportBodyJSON = std::move(reportBody);
         data.mPrincipal = std::move(principal);
         data.mFailures = 0;
+        data.mAssociatedBrowsingContext = browsingContextId;
         gReportDeliver->SetGlobalAndUserAgentData(data, aGlobalKey);
         ReportDeliver::Fetch(data);
       });

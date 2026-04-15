@@ -728,11 +728,6 @@ export class ViewPopup extends BasePopup {
 // Checks whether there is anything preventing a panel from being opened via
 // action.openPopup(), browserAction.openPopup() or pageAction.openPopup().
 export function isGloballyBlockingOpenPopup(window) {
-  if (
-    Services.prefs.getBoolPref("extensions.openPopup.undoBug2022281", false)
-  ) {
-    return false;
-  }
   // Avoid covering existing menus and panels. We only need to check before
   // opening the extension popup, because any menus/panels that are opened
   // later will render on top of the extension popup.

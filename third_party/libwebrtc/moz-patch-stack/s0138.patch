@@ -1,0 +1,33 @@
+From: Jan Grulich <jgrulich@redhat.com>
+Date: Tue, 27 Jan 2026 14:48:00 +0000
+Subject: Bug 2012006 - WebRTC backport: PipeWire capture: clear existing
+ capabilities before re-enumeration r=pehrsons
+
+Prevent duplicate capability entries by clearing the capabilities vector
+before re-enumerating node formats.
+
+This is a simple backport of an WebRTC upstream change.
+
+Upstream commit: 15229a1c98fcd07afe19ca131ccdc5c8ac9180f5
+
+Differential Revision: https://phabricator.services.mozilla.com/D280359
+Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/3905f189b8ac5e48713f1e7f7e4ccd9b14d7f20e
+---
+ modules/video_capture/linux/pipewire_session.cc | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/modules/video_capture/linux/pipewire_session.cc b/modules/video_capture/linux/pipewire_session.cc
+index 036739b74a..7b8d915ae9 100644
+--- a/modules/video_capture/linux/pipewire_session.cc
++++ b/modules/video_capture/linux/pipewire_session.cc
+@@ -138,6 +138,10 @@ void PipeWireNode::OnNodeInfo(void* data, const pw_node_info* info) {
+       uint32_t id = info->params[i].id;
+       if (id == SPA_PARAM_EnumFormat &&
+           info->params[i].flags & SPA_PARAM_INFO_READ) {
++        RTC_LOG(LS_INFO)
++            << "Clearing existing capabilities before re-enumeration for "
++            << that->display_name_;
++        that->capabilities_.clear();
+         pw_node_enum_params(reinterpret_cast<pw_node*>(that->proxy_), 0, id, 0,
+                             UINT32_MAX, nullptr);
+         break;

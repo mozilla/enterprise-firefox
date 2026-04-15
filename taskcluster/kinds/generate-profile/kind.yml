@@ -5,6 +5,7 @@
 loader: taskgraph.loader.transform:loader
 
 kind-dependencies:
+    - fetch
     - toolchain
     - instrumented-build
 
@@ -24,6 +25,9 @@ task-defaults:
         kind: build
         tier: 1
     use-python: default
+    fetches:
+        fetch:
+            - pgo-extended-corpus
 
 tasks:
     linux64-shippable/opt:
@@ -264,7 +268,7 @@ tasks:
         worker-type: b-win-aarch64
         worker:
             chain-of-trust: true
-            max-run-time: 2400
+            max-run-time: 3600
             env:
                 UPLOAD_PATH: "artifacts"
             artifacts:

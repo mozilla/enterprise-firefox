@@ -154,10 +154,11 @@
   <html:h1 data-l10n-id="files-and-applications-title"/>
 </hbox>
 
-<!--Downloads-->
+<!-- Downloads -->
 <html:setting-group groupid="downloads" data-category="paneGeneral" hidden="true"/>
 
-<groupbox id="applicationsGroup" data-category="paneGeneral" hidden="true">
+<!-- Applications -->
+<groupbox id="applicationsGroup" data-category="paneGeneral" hidden="true" data-srd-groupid="applications">
   <label><html:h2 data-l10n-id="applications-header"/></label>
   <description class="description-deemphasized" data-l10n-id="applications-description"/>
   <html:moz-input-search
@@ -189,6 +190,7 @@
   </radiogroup>
 </groupbox>
 
+<html:setting-group data-category="paneGeneral" groupid="applications" hidden="true" />
 
 <!-- DRM Content -->
 <html:setting-group groupid="drm" data-category="paneGeneral" data-subcategory="drm" hidden="true" />

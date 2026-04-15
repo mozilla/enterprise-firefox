@@ -145,11 +145,10 @@ NonParamAnnotation NonParam;
 void NonParamInsideFunctionDeclChecker::registerMatchers(
     MatchFinder *AstMatcher) {
   AstMatcher->addMatcher(
-      functionDecl(
-          anyOf(allOf(isDefinition(),
-                      hasAncestor(
-                          classTemplateSpecializationDecl().bind("spec"))),
-                isDefinition()))
+      functionDecl(isDefinition(),
+                   optionally(hasAncestor(
+                       classTemplateSpecializationDecl().bind("spec"))),
+                   unless(isDeleted()))
           .bind("func"),
       this);
   AstMatcher->addMatcher(lambdaExpr().bind("lambda"), this);
@@ -161,18 +160,7 @@ void NonParamInsideFunctionDeclChecker::check(
 
   const FunctionDecl *func = Result.Nodes.getNodeAs<FunctionDecl>("func");
   if (!func) {
-    const LambdaExpr *lambda = Result.Nodes.getNodeAs<LambdaExpr>("lambda");
-    if (lambda) {
-      func = lambda->getCallOperator();
-    }
-  }
-
-  if (!func) {
-    return;
-  }
-
-  if (func->isDeleted()) {
-    return;
+    func = Result.Nodes.getNodeAs<LambdaExpr>("lambda")->getCallOperator();
   }
 
   // We need to skip decls which have these types as parameters in system

@@ -103,8 +103,8 @@ tasks:
             win64-opt: build-win64/opt
         fetches:
             toolchain:
+                - linux64-7zz
                 - linux64-node
+                - linux64-upx
                 - linux64-wine
                 - nsis
-            fetch:
-                - upx-3.95-win

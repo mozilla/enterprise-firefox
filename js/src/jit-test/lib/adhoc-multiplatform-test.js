@@ -90,8 +90,7 @@ const archOptions =
            prefix: `mov x29, sp
                     mov x28, sp(
                     str x23, \\[x29, #16\\])?`,
-           suffix: `ldr x30, \\[sp, #8\\]
-                    ldr x29, \\[sp\\]`
+           suffix: `ldp x29, x30, \\[sp\\], #16`
        },
        arm: {
            encoding: `${HEX}{8}\\s+${HEX}{8}`,

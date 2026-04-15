@@ -52,7 +52,7 @@ newtab-search-box-input =
     .placeholder = 웹 검색
     .aria-label = 웹 검색
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = 검색 엔진 추가
 newtab-topsites-add-shortcut-header = 새 바로 가기
@@ -72,6 +72,11 @@ newtab-topsites-url-validation = 유효한 URL이 필요합니다
 newtab-topsites-image-url-label = 사용자 지정 이미지 URL
 newtab-topsites-use-image-link = 사용자 지정 이미지 사용…
 newtab-topsites-image-validation = 이미지를 읽어오지 못했습니다. 다른 URL을 시도하세요.
+
+## Clear text button for the URL and image URL input fields in the Top Sites form.
+
+newtab-topsites-clear-input =
+    .aria-label = 텍스트 지우기
 
 ## Top Sites - General form dialog buttons. These are verbs/actions.
 
@@ -631,6 +636,8 @@ newtab-report-cancel = 취소
 newtab-report-submit = 보내기
 newtab-toast-thanks-for-reporting =
     .message = 신고해 주셔서 감사합니다.
+newtab-toast-widgets-hidden =
+    .message = 언제든지 위젯을 다시 추가하려면 연필 아이콘을 선택하세요.
 
 ## Strings for task / to-do list productivity widget
 
@@ -671,6 +678,7 @@ newtab-widget-lists-name-placeholder-default =
 newtab-widget-lists-name-placeholder-new =
     .placeholder = 새 목록
 newtab-widget-section-title = 위젯
+newtab-widget-menu-hide = 위젯 숨기기
 # Tooltip for hide all widgets button
 newtab-widget-section-hide-all-button =
     .title = 위젯 숨기기
@@ -681,6 +689,7 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = 위젯 최소화
     .aria-label = 모든 위젯을 작은 크기로 접기
+newtab-widget-section-feedback = 의견을 알려주세요
 
 ## Strings for timer productivity widget
 ## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown

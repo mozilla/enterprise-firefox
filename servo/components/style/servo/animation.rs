@@ -19,7 +19,7 @@ use crate::properties::{
     ComputedValues, Importance, LonghandId, PropertyDeclarationBlock, PropertyDeclarationId,
     PropertyDeclarationIdSet,
 };
-use crate::rule_tree::CascadeLevel;
+use crate::rule_tree::{CascadeLevel, CascadeOrigin, RuleCascadeFlags};
 use crate::selector_parser::PseudoElement;
 use crate::shared_lock::{Locked, SharedRwLock};
 use crate::style_resolver::StyleResolverForElement;
@@ -231,7 +231,7 @@ impl IntermediateComputedKeyframe {
         let mut important_rules_changed = false;
         let rule_node = base_style.rules().clone();
         let new_node = context.stylist.rule_tree().update_rule_at_level(
-            CascadeLevel::Animations,
+            CascadeLevel::new(CascadeOrigin::Animations),
             LayerOrder::root(),
             Some(locked_block.borrow_arc()),
             &rule_node,
@@ -247,6 +247,7 @@ impl IntermediateComputedKeyframe {
             rules: new_node,
             visited_rules: base_style.visited_rules().cloned(),
             flags: base_style.flags.for_cascade_inputs(),
+            included_cascade_flags: RuleCascadeFlags::empty(),
         };
         resolver
             .cascade_style_and_visited_with_default_parents(inputs)
@@ -895,13 +896,13 @@ impl ElementAnimationSet {
         let mutable_style = Arc::make_mut(style);
         if let Some(map) = self.get_value_map_for_active_animations(now) {
             for value in map.values() {
-                value.set_in_style_for_servo(mutable_style);
+                value.set_in_style_for_servo(mutable_style, context);
             }
         }
 
         if let Some(map) = self.get_value_map_for_transitions(now, IgnoreTransitions::Canceled) {
             for value in map.values() {
-                value.set_in_style_for_servo(mutable_style);
+                value.set_in_style_for_servo(mutable_style, context);
             }
         }
     }

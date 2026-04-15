@@ -19,6 +19,8 @@
   <string name="content_description_menu">更多选项</string>
   <!-- Content description (not visible, for screen readers etc.): "Private Browsing" menu button. -->
   <string name="content_description_private_browsing">隐私浏览</string>
+  <!-- Content description (not visible, for screen readers etc.): "Normal Browsing" menu button. -->
+  <string name="content_description_normal_browsing">常规浏览</string>
   <!-- Placeholder text shown in the search bar before a user enters text for the default engine -->
   <string name="search_hint">搜索或输入网址</string>
   <!-- Placeholder text shown in the search bar before a user enters text for a general engine -->
@@ -255,7 +257,7 @@
     Browser menu button shown in custom tabs that opens the current tab in Fenix
     %1$s is the name of the app (for example "Firefox").
   -->
-  <string name="browser_menu_open_in_fenix">用 %1$s 打开</string>
+  <string name="browser_menu_open_in_fenix">用“%1$s”打开</string>
   <!--
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
@@ -318,6 +320,8 @@
   <string name="browser_menu_translate_page_2">翻译页面</string>
   <!-- Browser menu label for navigating to the summarization feature, which provides site summarization for the current visited page -->
   <string name="browser_menu_summarize_page">生成页面摘要</string>
+  <!-- Browser menu badge text for summarization feature -->
+  <string name="browser_menu_summarize_page_badge">新</string>
   <!-- Browser menu label for navigating to the Web Compat Reporter feature, which provides users the ability to send bug reports for broken sites. -->
   <string name="browser_menu_webcompat_reporter" tools:ignore="UnusedResources" moz:removedIn="149">反馈网站问题…</string>
   <!-- Browser menu label for navigating to the Web Compat Reporter feature, which provides users the ability to send bug reports for broken sites. -->
@@ -370,6 +374,8 @@
     %2$s is the name of the language which the page was translated to. (For example: French)
   -->
   <string name="browser_toolbar_translated_successfully">已将页面从%1$s翻译成%2$s｡</string>
+  <!-- CFR description for the browser toolbar describing the "Shake to summarize feature" -->
+  <string name="browser_toolbar_summarize_cfr_description">摇动设备，几秒钟即可生成页面摘要。⚡️</string>
   <!--
     Translation Toolbar
 
@@ -612,8 +618,12 @@
 
   <!-- "Continue" onboarding button. -->
   <string name="nova_onboarding_continue_button">继续</string>
+  <!-- "Continue browsing" onboarding button. -->
+  <string name="nova_onboarding_continue_browsing_button" tools:ignore="UnusedResources">继续浏览</string>
   <!-- "Not now" onboarding button. -->
   <string name="nova_onboarding_negative_button">暂时不要</string>
+  <!-- "Skip" onboarding button. -->
+  <string name="nova_onboarding_skip_button" tools:ignore="UnusedResources">跳过</string>
   <!-- Terms of use (ToU) onboarding title. -->
   <string name="nova_onboarding_tou_title" tools:ignore="UnusedResources">准备好畅游网络</string>
   <!-- Terms of use (ToU) onboarding subtitle. -->
@@ -688,6 +698,24 @@
   <string name="nova_onboarding_add_search_widget_subtitle" tools:ignore="BrandUsage">直接从手机主屏幕开始搜索，Firefox 的自动保护功能时刻为您护航。</string>
   <!-- "Add search widget" onboarding button. 'Firefox' is intentionally hardcoded. -->
   <string name="nova_onboarding_add_search_widget_button" tools:ignore="BrandUsage">添加 Firefox 小组件</string>
+  <!-- Customize prompt onboarding title. -->
+  <string name="nova_onboarding_customize_prompt_title" tools:ignore="UnusedResources">定制好轻松，浏览更私密</string>
+  <plurals name="nova_onboarding_customize_prompt_body" tools:ignore="UnusedResources">
+    <!--
+      Customize prompt onboarding body.
+      %1$s is replaced by the product name (for example "Firefox"),
+      %2$,d is replaced by the number of trackers blocked. The comma represents the thousand
+      separator (e.g. 1,000 in English), and it will automatically use the correct character
+      for your locale (don't change or remove it).
+    -->
+    <item quantity="other">%1$s 在您上网时拦截了 %2$,d 个跟踪器。</item>
+  </plurals>
+  <!-- Customize prompt onboarding positive button. -->
+  <string name="nova_onboarding_customize_prompt_positive_button" tools:ignore="UnusedResources">开始定制</string>
+  <!-- App icon onboarding title. -->
+  <string name="nova_onboarding_app_icon_prompt_title" tools:ignore="UnusedResources">选取自定义应用图标</string>
+  <!-- App icon onboarding body. -->
+  <string name="nova_onboarding_app_icon_prompt_body" tools:ignore="UnusedResources">为您的主屏幕增添个性。</string>
   <!-- ==== End of Project "Nova" onboarding strings ==== -->
 
   <!-- Onboarding header for the toolbar selection card, used by Nimbus experiments. -->
@@ -940,6 +968,8 @@
   <string name="preferences_show_nonsponsored_suggestions">来自 %1$s 的建议</string>
   <!-- Summary for preference to show Firefox Suggest search suggestions for web content -->
   <string name="preferences_show_nonsponsored_suggestions_summary">从网络上获取与您的搜索关键词相关的建议</string>
+  <!-- Preference title for switch preference to show search optimization cards -->
+  <string name="preferences_show_search_optimization_cards">在键入时获取来自 Mozilla 的建议</string>
   <!-- Preference for link sharing -->
   <string name="preferences_link_sharing">分享链接</string>
   <!-- Title for the link sharing toggle. %1$s is replaced by the brand name (e.g. Firefox). -->
@@ -1027,6 +1057,12 @@
   <string name="customize_addon_collection_user_hint">收藏集所有者（用户 ID）</string>
   <!-- Toast shown after confirming the custom extension collection configuration -->
   <string name="toast_customize_extension_collection_done">已更改扩展收藏集设置。正在退出应用程序以应用更改…</string>
+  <!--
+    Customize Home
+
+    Title for the customize home screen section with privacy report.
+  -->
+  <string name="customize_toggle_privacy_report">隐私报告</string>
   <!-- Header text for jumping back into the recent tab in customize the home screen -->
   <string name="customize_toggle_jump_back_in">回到先前页面</string>
   <!-- Title for the customize home screen section with bookmarks. -->
@@ -1493,12 +1529,8 @@
   <string name="studies_remove">移除</string>
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">进行中</string>
-  <!-- Description for studies -->
-  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">抢先体验尚未全面推出的功能和概念。</string>
   <!-- Description for studies. Note: The word "Firefox" should NOT be translated -->
-  <string name="studies_description_4" tools:ignore="BrandUsage">Firefox 将随机选择用户测试功能，以为全体用户改进质量。</string>
-  <!-- Title of the Studies data preference -->
-  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">安装并运行研究</string>
+  <string name="studies_description_4" tools:ignore="BrandUsage">Firefox 会随机选择用户测试功能，以为全体用户改进质量。</string>
   <!-- Title of the Studies data preference -->
   <string name="studies_title_2">允许功能研究</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
@@ -1586,6 +1618,8 @@
   <string name="tab_manager_multiselect_menu_item_share">分享</string>
   <!-- Text shown in the multiselect menu for adding selected tabs to collections. -->
   <string name="tab_manager_multiselect_menu_item_add_to_collection">添加到收藏集</string>
+  <!-- Text shown in the multiselect menu for adding selected tabs to a tab group. -->
+  <string name="tab_manager_multiselect_menu_item_add_to_tab_group">添加到群组</string>
   <!-- Content description for tabs tray multiselect share button -->
   <string name="tab_tray_multiselect_share_content_description" tools:ignore="UnusedResources" moz:removedIn="149">分享所选标签页</string>
   <!-- Content description for tabs tray multiselect menu -->
@@ -1626,6 +1660,37 @@
   <string name="pwa_site_controls_title_private">%1$s（隐私模式）</string>
   <!-- Content description (not visible, for screen readers etc.) for the button to open the Tab Search feature to search through tabs. -->
   <string name="tab_manager_open_tab_search">打开标签页搜索</string>
+  <!--
+    Tab Group
+
+    Title for the create tab group bottom sheet
+  -->
+  <string name="create_tab_group_title">创建标签页群组</string>
+  <!-- Title for the edit tab group bottom sheet -->
+  <string name="edit_tab_group_title">编辑群组</string>
+  <string name="create_tab_group_save_button">保存</string>
+  <string name="edit_tab_group_bottom_sheet_close_content_description">关闭“编辑标签页群组”</string>
+  <!-- Default tab group name when creating a tab group -->
+  <string name="create_tab_group_default_name" tools:ignore="UnusedResources" moz:removedIn="150">群组</string>
+  <!--
+    Default tab group name when creating a tab group
+    %d is the number of existing tab groups + 1.
+  -->
+  <string name="create_tab_group_form_default_name">群组“%d”</string>
+  <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
+  <string name="create_tab_group_name_label">名称</string>
+  <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
+  <string name="tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">名称</string>
+  <!-- Title for adding more tabs to a tab group. -->
+  <string name="add_to_tab_group_title">添加到</string>
+  <!-- Content Description for closing the "Add to Tab Group" panel. -->
+  <string name="add_to_tab_group_bottom_sheet_close_content_description">关闭“添加到标签页群组”</string>
+  <!-- Text shown in the body of the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_body">将永久删除此群组。</string>
+  <!-- Text shown on the confirm button in the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_confirm">删除群组</string>
+  <!-- Text shown on the cancel button in the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_cancel">取消</string>
   <!--
     History
 
@@ -1741,11 +1806,26 @@
   <string name="download_rename_dialog_label">名称</string>
   <string name="download_rename_dialog_confirm_button">保存</string>
   <string name="download_rename_dialog_cancel_button">取消</string>
+  <!--
+    Error message when renaming with a name that already exists.
+    %s is the proposed file name.
+  -->
+  <string name="download_rename_error_exists_error">此位置已存在名为“%s”的文件</string>
+  <!-- Error message when renaming with an invalid file name. -->
+  <string name="download_rename_error_invalid_name_error">文件名不能使用“/”</string>
   <!-- Title for the alert dialog when the file cannot be renamed. -->
   <string name="download_rename_error_cannot_rename_title">无法重命名文件</string>
   <!-- Description message for the alert dialog when the file cannot be renamed. -->
   <string name="download_rename_error_cannot_rename_description">由于系统或存储限制，无法重命名此文件。</string>
   <string name="download_rename_error_dismiss_button">确定</string>
+  <!--
+    Title for the alert dialog to change file extension.
+    %s is the file type to change to.
+  -->
+  <string name="change_file_extension_title">将文件类型更改为 %s?</string>
+  <string name="change_file_extension_description">此操作可能在其他应用中打开该文件，并对您的设备造成风险。</string>
+  <string name="change_file_extension_cancel_button">取消</string>
+  <string name="change_file_extension_confirm_button">是，更改</string>
   <!-- Text for the header of in progress downloads -->
   <string name="download_header_in_progress">进行中</string>
   <!--
@@ -2006,7 +2086,11 @@
   <string name="bookmark_delete_single_item" tools:ignore="UnusedResources" moz:removedIn="150">已删除“%s”</string>
   <!-- Bookmark snackbar message for deleting multiple items. %s is the number of items being deleted -->
   <string name="bookmark_delete_multiple_items" tools:ignore="UnusedResources" moz:removedIn="150">已删除 %s 个项目</string>
-  <!-- Content description for the bookmark navigation bar back button -->
+  <!--
+    Bookmark undo button for deletion snackbar action
+
+    Content description for the bookmark navigation bar back button
+  -->
   <string name="bookmark_navigate_back_button_content_description">浏览上一页</string>
   <!-- Content description for the bookmark list new folder navigation bar button -->
   <string name="bookmark_add_new_folder_button_content_description">添加新文件夹</string>
@@ -2215,6 +2299,8 @@
   <string name="menu_print">打印</string>
   <!-- Sub-header in the dialog to share a link to another sync device -->
   <string name="share_device_subheader">发送到设备</string>
+  <!-- Content description for the drag handle that dismisses the Send to Device bottom sheet -->
+  <string name="send_to_devices_bottom_sheet_close_content_description">关闭“发送到设备”</string>
   <!-- Sub-header in the dialog to share a link to an app from the full list -->
   <string name="share_link_all_apps_subheader">所有操作</string>
   <!-- Sub-header in the dialog to share a link to an app from the most-recent sorted list -->
@@ -2344,8 +2430,6 @@
   <string name="preference_accessibility_text_size_summary">使网站上的文字更大或更小</string>
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">字号</string>
-  <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%。</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">自动调整字号</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -2467,6 +2551,16 @@
   <string name="preference_enhanced_tracking_protection_explanation_2">%s 保护您免受众多常见跟踪器对您在线活动的窥视。</string>
   <!-- Text displayed that links to website about enhanced tracking protection -->
   <string name="preference_enhanced_tracking_protection_explanation_learn_more">详细了解</string>
+  <plurals name="trackers_blocked_count">
+    <!--
+      Trackers blocked card on homepage
+
+      Text shown on the trackers blocked card. %d is the number of trackers blocked.
+    -->
+    <item quantity="other">已拦截 %d 个跟踪器</item>
+  </plurals>
+  <!-- Text shown on the trackers blocked card when no trackers have been blocked yet -->
+  <string name="trackers_blocked_empty">您已受保护</string>
   <!-- Preference for enhanced tracking protection for the standard protection settings -->
   <string name="preference_enhanced_tracking_protection_standard_default_1">标准（默认）</string>
   <!-- Preference description for enhanced tracking protection for the standard protection settings -->
@@ -2863,6 +2957,10 @@
   <string name="preferences_email_masks_suggest_learn_more">详细了解</string>
   <!-- Title for the Manage Email Masks links to Firefox Relay dashboard -->
   <string name="preferences_email_masks_manage_title">管理马甲邮箱</string>
+  <!-- The message displayed when a user has used all of their free-tier email masks, so now the application will choose an existing one at random. -->
+  <string name="email_masks_max_free_tier_reached">您的 5 个免费马甲邮箱已用完，我们选择了一个供您重复使用。</string>
+  <!-- The message displayed when there was an error with the email mask or Firefox Account services. -->
+  <string name="email_masks_error_retrieving_masks">目前无法使用马甲邮箱，请过几分钟再试。</string>
   <!--
     Autofill
 
@@ -3273,6 +3371,8 @@
     Header text for a section on the home screen.
   -->
   <string name="pocket_stories_header_2">文章</string>
+  <!-- Header text for the Stories screen. -->
+  <string name="stories_screen_text_news">新闻</string>
   <!--
     Context description text for the "Discover more" button in the stories home screen section
     which navigates the user to a screen displaying more stories.
@@ -3337,9 +3437,9 @@
   <!-- Text that links to additional information about the Firefox translations feature. -->
   <string name="translations_bottom_sheet_info_message_learn_more">详细了解</string>
   <!-- Label for the dropdown to select which language to translate from on the translations dialog. Usually the translate from language selected will be the same as the page language. -->
-  <string name="translations_bottom_sheet_translate_from">原始语言</string>
+  <string name="translations_bottom_sheet_translate_from">从</string>
   <!-- Label for the dropdown to select which language to translate to on the translations dialog. Usually the translate to language selected will be the user's preferred language. -->
-  <string name="translations_bottom_sheet_translate_to">目标语言</string>
+  <string name="translations_bottom_sheet_translate_to">翻译成</string>
   <!-- Label for the dropdown to select which language to translate from on the translations dialog when the page language is not supported. This selection is to allow the user to select another language, in case we automatically detected the page language incorrectly. -->
   <string name="translations_bottom_sheet_translate_from_unsupported_language">选择其他原始语言</string>
   <!-- Button text on the translations dialog to dismiss the dialog and return to the browser. -->
@@ -3365,7 +3465,7 @@
   <!-- The title of the warning card informs the user that the list of languages cannot be loaded. -->
   <string name="translation_error_could_not_load_languages_warning_text">无法加载语言包。请检查互联网连接，然后重试。</string>
   <!-- The title of the warning card informs the user that a language is not supported. %1$s is the name of the language that is not supported. -->
-  <string name="translation_error_language_not_supported_warning_text">抱歉，我们尚未支持%1$s。</string>
+  <string name="translation_error_language_not_supported_warning_text" tools:ignore="UnusedResources" moz:removedIn="150">抱歉，我们尚未支持%1$s。</string>
   <!-- Snackbar title shown if the user closes the Translation Request dialogue and a translation is in progress. -->
   <string name="translation_in_progress_snackbar">正在翻译…</string>
   <!--
@@ -3633,6 +3733,13 @@
   -->
   <string name="connection_security_panel_verified_by">验证者：%s</string>
   <!--
+    Text for the connection security panel when the site uses a QWAC.
+    %s is a placeholder for the organization for which the certificate was issued.
+  -->
+  <string name="connection_security_panel_issued_to">颁发给：%s</string>
+  <!-- Text for the connection security panel when the site uses a QWAC. -->
+  <string name="connection_security_panel_qualified_certificate">符合 (EU) 2024/1183 法规规范。</string>
+  <!--
     Debug drawer
 
     The user-facing title of the Debug Drawer feature.
@@ -3722,6 +3829,14 @@
   <string name="likert_scale_option_7" tools:ignore="BrandUsage,UnusedResources">我没用过 Firefox 的搜索功能</string>
   <!-- Option for likert scale -->
   <string name="likert_scale_option_8" tools:ignore="UnusedResources">我没用过同步功能</string>
+  <!-- Option for likert scale -->
+  <string name="likert_scale_option_slow_or_buggy" tools:ignore="UnusedResources">运行缓慢或存在问题</string>
+  <!-- Option for likert scale -->
+  <string name="likert_scale_option_confusing_or_hard_to_use" tools:ignore="UnusedResources">界面混乱或使用困难</string>
+  <!-- Option for likert scale -->
+  <string name="likert_scale_option_its_okay" tools:ignore="UnusedResources">体验尚可，但未优于其他浏览器</string>
+  <!-- Option for likert scale. Note: The word "Firefox" should NOT be translated. -->
+  <string name="likert_scale_option_i_plan_to_keep_using" tools:ignore="BrandUsage,UnusedResources">我打算继续使用 Firefox</string>
   <!-- Text shown in prompt for printing microsurvey. "sec" It's an abbreviation for "second". Note: The word "Firefox" should NOT be translated. -->
   <string name="microsurvey_prompt_printing_title" tools:ignore="BrandUsage,UnusedResources">请帮助 Firefox 的打印更出色。只需片刻</string>
   <!-- Text shown in prompt for search microsurvey. Note: The word "Firefox" should NOT be translated. -->
@@ -3736,6 +3851,8 @@
   <string name="microsurvey_search_title" tools:ignore="BrandUsage,UnusedResources">您对 Firefox 的搜索体验满意度如何？</string>
   <!-- Text shown in the survey title for sync experience microsurvey. Note: The word "Firefox" should NOT be translated. -->
   <string name="microsurvey_sync_title" tools:ignore="BrandUsage,UnusedResources">您对 Firefox 的同步体验满意度如何？</string>
+  <!-- Text shown in the survey title for 'describe your experience so far' microsurvey. Note: The word "Firefox" should NOT be translated. -->
+  <string name="microsurvey_describe_your_experience_title" tools:ignore="BrandUsage,UnusedResources">帮助我们改进 Firefox。以下哪项最符合您目前的使用体验？</string>
   <!--
     Accessibility
 

@@ -42,7 +42,6 @@ from mozbuild.util import (
     HierarchicalStringList,
     ReadOnlyDefaultDict,
     cpu_count,
-    memoize,
 )
 
 from .context import (
@@ -289,7 +288,7 @@ class MozbuildSandbox(Sandbox):
 
         self.templates[name] = TemplateFunction(func, self)
 
-    @memoize
+    @functools.cache
     def _create_subcontext(self, cls):
         """Return a function object that creates SubContext instances."""
 
@@ -298,7 +297,7 @@ class MozbuildSandbox(Sandbox):
 
         return fn
 
-    @memoize
+    @functools.cache
     def _create_function(self, function_def):
         """Returns a function object for use within the sandbox for the given
         function definition.
@@ -321,7 +320,7 @@ class MozbuildSandbox(Sandbox):
 
         return function
 
-    @memoize
+    @functools.cache
     def _create_template_wrapper(self, template):
         """Returns a function object for use within the sandbox for the given
         TemplateFunction instance..
@@ -1327,7 +1326,7 @@ class BuildReader:
         root = self.config.topsrcdir
         result = {}
 
-        @memoize
+        @functools.cache
         def exists(path):
             return self._relevant_mozbuild_finder.get(path) is not None
 

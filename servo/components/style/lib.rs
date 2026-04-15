@@ -37,6 +37,7 @@ extern crate gecko_profiler;
 pub mod gecko_string_cache;
 #[macro_use]
 extern crate log;
+#[macro_use]
 extern crate serde;
 pub use servo_arc;
 #[cfg(feature = "servo")]
@@ -71,6 +72,7 @@ pub mod counter_style;
 pub mod custom_properties;
 pub mod custom_properties_map;
 pub mod data;
+pub mod device;
 pub mod dom;
 pub mod dom_apis;
 pub mod driver;

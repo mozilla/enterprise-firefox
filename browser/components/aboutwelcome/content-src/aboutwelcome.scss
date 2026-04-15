@@ -103,6 +103,8 @@ html {
   .screen[pos='split'][fullscreen] {
     .section-main {
       .main-content {
+        text-align: start;
+
         .welcome-text {
           margin-block: 15px 22px;
 
@@ -143,6 +145,7 @@ html {
   --tile-info-hover-background-color: oklch(from var(--color-violet-10) l c h / 30%);
   --screen-1-yellow-circle-background-color: var(--color-purple-60);
   --screen-2-yellow-circle-background-color: var(--color-pink-50);
+  --message-bar-icon-color: light-dark(var(--color-blue-60), var(--color-blue-20));
 
   @media (forced-colors: active) {
     --picker-background-color: ButtonFace;
@@ -518,7 +521,7 @@ html {
           .addon-title {
             margin: 10px 0 3px;
             font-size: 16px;
-            font-weight: var(--heading-font-weight);
+            font-weight: var(--font-weight-heading);
           }
 
           .addon-description {
@@ -1160,7 +1163,7 @@ html {
             max-width: 450px;
 
             h1 {
-              font-weight: var(--heading-font-weight);
+              font-weight: var(--font-weight-heading);
               font-size: 80px;
               margin: 0;
               width: 100%;
@@ -1171,7 +1174,7 @@ html {
               font-size: 20px;
               margin: 0;
               margin-block-start: 24px;
-              font-weight: var(--heading-font-weight);
+              font-weight: var(--font-weight-heading);
               width: 100%;
             }
           }
@@ -1184,7 +1187,7 @@ html {
             max-width: 450px;
 
             h1 {
-              font-weight: var(--heading-font-weight);
+              font-weight: var(--font-weight-heading);
               font-size: 84px;
               margin: 0;
               width: 100%;
@@ -1258,7 +1261,7 @@ html {
 
                   .addon-title {
                     font-size: 16px;
-                    font-weight: var(--heading-font-weight);
+                    font-weight: var(--font-weight-heading);
                   }
 
                   .addon-author {
@@ -1566,7 +1569,8 @@ html {
               }
             }
 
-            .dismiss-button {
+            .dismiss-button,
+            .more-button {
               top: -$small-secondary-section-height;
             }
 
@@ -1728,7 +1732,7 @@ html {
 
     h1 {
       font-size: 24px;
-      font-weight: var(--heading-font-weight);
+      font-weight: var(--font-weight-heading);
       margin: 0 6px;
       letter-spacing: -0.02em;
       outline: none;
@@ -1789,14 +1793,19 @@ html {
 
       .cta-paragraph-icon {
         display: inline-block;
+        fill: currentColor;
+        stroke: currentColor;
+        color: var(--message-bar-icon-color);
+        -moz-context-properties: fill, stroke;
       }
 
       &.info-tile {
         display: flex;
         background-color: var(--background-color-information);
         border-radius: var(--border-radius-small);
-        border: 1px solid var(--border-color-card);
+        border: 1px solid var(--card-border-color);
         padding: 10px 12px;
+        gap: 0.5em;
       }
 
       a {
@@ -2195,8 +2204,8 @@ html {
       resize: none;
 
       &.invalid {
-        border-color: var(--outline-color-error);
-        outline-color: var(--outline-color-error);
+        border-color: var(--border-color-error);
+        outline-color: var(--border-color-error);
       }
     }
   }
@@ -2524,7 +2533,7 @@ html {
 
   .tile-title {
     font-size: 24px;
-    font-weight: var(--heading-font-weight);
+    font-weight: var(--font-weight-heading);
     margin-block: 0;
 
     &:not(:last-child) {
@@ -2537,7 +2546,8 @@ html {
     margin-block: 0;
   }
 
-  .dismiss-button {
+  .dismiss-button,
+  .more-button {
     position: absolute;
     z-index: 2;
     top: 0;
@@ -2575,6 +2585,10 @@ html {
         background-color: var(--button-background-color-active);
       }
     }
+  }
+
+  .more-button {
+    background: url('chrome://global/skin/icons/more.svg') no-repeat center / 16px;
   }
 
   @keyframes fadein {
@@ -2747,7 +2761,8 @@ html {
   .primary,
   .secondary,
   .additional-cta,
-  .submenu-button {
+  .submenu-button,
+  .more-button {
     font-size: 13px;
     line-height: 16px;
     padding: 11px 15px;
@@ -2988,7 +3003,8 @@ html {
 
     .dialog-initial {
       .main-content,
-      .dismiss-button {
+      .dismiss-button,
+      .more-button {
         translate: 0 calc(-2 * var(--translate));
       }
 
@@ -3120,7 +3136,8 @@ html {
       }
 
       .main-content,
-      .dismiss-button {
+      .dismiss-button,
+      .more-button {
         opacity: 0;
         translate: 0 calc(2 * var(--translate));
         transition-delay: 0.4s;

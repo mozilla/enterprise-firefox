@@ -697,8 +697,7 @@ class Operand {
   }
 };
 
-static constexpr int32_t SliceSize = 1024;
-typedef js::jit::AssemblerBuffer<SliceSize, Instruction> MIPSBuffer;
+typedef js::jit::AssemblerBuffer<Instruction> MIPSBuffer;
 
 class MIPSBufferWithExecutableCopy : public MIPSBuffer {
  public:
@@ -706,21 +705,12 @@ class MIPSBufferWithExecutableCopy : public MIPSBuffer {
     if (this->oom()) {
       return;
     }
-
-    for (Slice* cur = head; cur != nullptr; cur = cur->getNext()) {
-      memcpy(buffer, &cur->instructions, cur->length());
-      buffer += cur->length();
-    }
+    memcpy(buffer, this->data(), this->size());
   }
 
   bool appendRawCode(const uint8_t* code, size_t numBytes) {
     if (this->oom()) {
       return false;
-    }
-    while (numBytes > SliceSize) {
-      this->putBytes(SliceSize, code);
-      numBytes -= SliceSize;
-      code += SliceSize;
     }
     this->putBytes(numBytes, code);
     return !this->oom();

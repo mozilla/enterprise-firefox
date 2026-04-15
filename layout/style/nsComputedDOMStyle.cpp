@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -511,6 +509,15 @@ static bool IsInFlatTree(const Element& aElement) {
 }
 
 already_AddRefed<const ComputedStyle>
+nsComputedDOMStyle::GetComputedStyleNoFlush(const Element* aElement,
+                                            const PseudoStyleRequest& aPseudo,
+                                            StyleType aStyleType) {
+  return DoGetComputedStyleNoFlush(
+      aElement, aPseudo, nsContentUtils::GetPresShellForContent(aElement),
+      aStyleType);
+}
+
+already_AddRefed<const ComputedStyle>
 nsComputedDOMStyle::DoGetComputedStyleNoFlush(const Element* aElement,
                                               const PseudoStyleRequest& aPseudo,
                                               PresShell* aPresShell,
@@ -889,7 +896,8 @@ static Side SideForPaddingOrMarginOrInsetProperty(
 
 static bool PaddingNeedsUsedValue(const LengthPercentage& aValue,
                                   const ComputedStyle& aStyle) {
-  return !aValue.ConvertsToLength() || aStyle.StyleDisplay()->HasAppearance();
+  return !aValue.ConvertsToLength() ||
+         aStyle.StyleDisplay()->HasNativeAppearance();
 }
 
 static bool HasPositionFallbacks(nsIFrame* aFrame) {

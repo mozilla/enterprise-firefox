@@ -11,6 +11,8 @@ const XPCOMUtils = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
 ).XPCOMUtils;
 const lazy = XPCOMUtils.declareLazy({
+  AIWindow:
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
   GenAI: "resource:///modules/GenAI.sys.mjs",
   LinkPreview: "moz-src:///browser/components/genai/LinkPreview.sys.mjs",
   PdfJsGuessAltTextFeature: "resource://pdf.js/PdfJsAIFeature.sys.mjs",
@@ -29,6 +31,7 @@ const OnDeviceModelFeatures = Object.freeze({
   PdfAltText: "pdfjsAltText",
   Translations: "translations",
   SidebarChatbot: "sidebarChatbot",
+  SmartWindow: "smartWindow",
 });
 
 /** @type {Record<OnDeviceModelFeaturesEnum, string[]>} */
@@ -52,6 +55,10 @@ const FeaturePrefs = Object.freeze({
   [OnDeviceModelFeatures.SidebarChatbot]: [
     "browser.ml.chat.provider",
     "browser.ml.chat.enabled",
+  ],
+  [OnDeviceModelFeatures.SmartWindow]: [
+    "browser.smartwindow.enabled",
+    "browser.smartwindow.tos.consentTime",
   ],
 });
 
@@ -120,6 +127,8 @@ export const OnDeviceModelManager = {
         return lazy.TranslationsFeature;
       case OnDeviceModelFeatures.SidebarChatbot:
         return lazy.GenAI;
+      case OnDeviceModelFeatures.SmartWindow:
+        return lazy.AIWindow;
       default:
         throw new Error(`Unknown feature "${feature}"`);
     }
@@ -142,6 +151,8 @@ export const OnDeviceModelManager = {
         return "browser.ai.control.translations";
       case OnDeviceModelFeatures.SidebarChatbot:
         return "browser.ai.control.sidebarChatbot";
+      case OnDeviceModelFeatures.SmartWindow:
+        return "browser.ai.control.smartWindow";
       default:
         throw new Error(`Unknown feature "${feature}"`);
     }

@@ -205,7 +205,7 @@ add_task(async function test_update_us() {
 
   // Setting the region to US whilst within a US timezone should work.
   let stub = sinon.stub(Region, "_isUSTimezone").returns(true);
-  Region._home = null;
+  Region._setHomeRegion(null, false);
   RegionTestUtils.setNetworkRegion("US");
   await Region._fetchRegion();
 
@@ -221,7 +221,7 @@ add_task(async function test_update_us() {
 
   // Setting the region to US whilst not within a US timezone should not work.
   stub.returns(false);
-  Region._home = null;
+  Region._setHomeRegion(null, false);
   RegionTestUtils.setNetworkRegion("US");
   await Region._fetchRegion();
 
@@ -232,7 +232,7 @@ add_task(async function test_update_us() {
 });
 
 add_task(async function test_max_retry() {
-  Region._home = null;
+  Region._setHomeRegion(null, false);
   let requestsSeen = 0;
   Services.prefs.setIntPref("browser.region.retry-timeout", RESPONSE_TIMEOUT);
   Services.prefs.setIntPref("browser.region.timeout", RESPONSE_TIMEOUT);
@@ -257,7 +257,7 @@ add_task(async function test_max_retry() {
 });
 
 add_task(async function test_retry() {
-  Region._home = null;
+  Region._setHomeRegion(null, false);
   let requestsSeen = 0;
   Services.prefs.setIntPref("browser.region.retry-timeout", RESPONSE_TIMEOUT);
   Services.prefs.setIntPref("browser.region.timeout", RESPONSE_TIMEOUT);
@@ -329,7 +329,7 @@ function send(res, json) {
 
 async function cleanup(srv = null) {
   Services.prefs.clearUserPref("browser.search.region");
-  Region._home = null;
+  Region._setHomeRegion(null, false);
   if (srv) {
     await new Promise(r => srv.stop(r));
   }

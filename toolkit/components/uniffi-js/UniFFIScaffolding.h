@@ -54,6 +54,7 @@ class UniFFIScaffolding {
   static uint64_t CallbackHandleCreate(GlobalObject& aGlobal);
   static uint32_t CallbackHandleRelease(GlobalObject& aGlobal,
                                         uint64_t aHandle);
+  static void CallbackHandleFree(GlobalObject& aGlobal, uint64_t aHandle);
 };
 
 }  // namespace mozilla::dom

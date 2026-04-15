@@ -1505,12 +1505,8 @@
   <string name="studies_remove">Thoir air falbh</string>
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">Gnìomhach</string>
-  <!-- Description for studies -->
-  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">Feuch gleusan ùra mus fhaigh càch cothrom orra.</string>
   <!-- Description for studies. Note: The word "Firefox" should NOT be translated -->
   <string name="studies_description_4" tools:ignore="BrandUsage">Taghaidh Firefox cleachdaichean air thuaiream is bheir e dhaibh cothrom gleusan a chur fo dheuchainn, rud a nì e nas fheàrr dhan a h-uile duine.</string>
-  <!-- Title of the Studies data preference -->
-  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">Stàlaich is ruith obair-rannsachaidh</string>
   <!-- Title of the Studies data preference -->
   <string name="studies_title_2">Ceadaich obair-rannsachaidh air gleusan</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
@@ -1657,10 +1653,10 @@
     %d is the number of existing tab groups + 1.
   -->
   <string name="create_tab_group_form_default_name">Buidheann %d</string>
-  <!-- Label for the tab group name field in the bottom sheet to create a new tab group. -->
-  <string name="create_tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">Ainm</string>
   <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
-  <string name="tab_group_name_label">Ainm</string>
+  <string name="create_tab_group_name_label">Ainm</string>
+  <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
+  <string name="tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">Ainm</string>
   <!--
     History
 
@@ -2056,7 +2052,11 @@
   <string name="bookmark_delete_single_item" tools:ignore="UnusedResources" moz:removedIn="150">Chaidh %s a sguabadh às</string>
   <!-- Bookmark snackbar message for deleting multiple items. %s is the number of items being deleted -->
   <string name="bookmark_delete_multiple_items" tools:ignore="UnusedResources" moz:removedIn="150">Chaidh na nithean a sguabadh às, %s dhiubh</string>
-  <!-- Content description for the bookmark navigation bar back button -->
+  <!--
+    Bookmark undo button for deletion snackbar action
+
+    Content description for the bookmark navigation bar back button
+  -->
   <string name="bookmark_navigate_back_button_content_description">Air ais</string>
   <!-- Content description for the bookmark list new folder navigation bar button -->
   <string name="bookmark_add_new_folder_button_content_description">Cuir pasgan ùr ris</string>
@@ -2394,8 +2394,6 @@
   <string name="preference_accessibility_text_size_summary">Dèan an teacsa air làraichean-lìn nas motha no nas lugha</string>
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">Meud a’ chrutha-chlò</string>
-  <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">Ath-mheudachadh fèin-obrachail a’ chrutha-chlò</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -3432,7 +3430,7 @@
   <!-- The title of the warning card informs the user that the list of languages cannot be loaded. -->
   <string name="translation_error_could_not_load_languages_warning_text">Cha b’ urrainn dhuinn na cànain a luchdadh. Dèan cinnteach gu bheil ceangal ris an eadar-lìon is feuch ris a-rithist an uair sin.</string>
   <!-- The title of the warning card informs the user that a language is not supported. %1$s is the name of the language that is not supported. -->
-  <string name="translation_error_language_not_supported_warning_text">Tha sinn duilich ach chan eil taic againn dhan chànan seo (%1$s) fhathast.</string>
+  <string name="translation_error_language_not_supported_warning_text" tools:ignore="UnusedResources" moz:removedIn="150">Tha sinn duilich ach chan eil taic againn dhan chànan seo (%1$s) fhathast.</string>
   <!-- Snackbar title shown if the user closes the Translation Request dialogue and a translation is in progress. -->
   <string name="translation_in_progress_snackbar">’Ga eadar-theangachadh…</string>
   <!--

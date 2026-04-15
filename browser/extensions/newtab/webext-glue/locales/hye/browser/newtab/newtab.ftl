@@ -43,7 +43,7 @@ newtab-search-box-input =
     .placeholder = Որոնել առցանց
     .aria-label = Որոնել առցանց
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Աւելացնել որոնիչ
 newtab-topsites-add-shortcut-header = Նոր դիւրանցում

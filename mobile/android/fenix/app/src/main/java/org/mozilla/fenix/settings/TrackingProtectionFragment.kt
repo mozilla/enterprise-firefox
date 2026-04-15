@@ -16,12 +16,13 @@ import androidx.preference.CheckBoxPreference
 import androidx.preference.DropDownPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
-import androidx.preference.SwitchPreference
+import androidx.preference.SwitchPreferenceCompat
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.mozilla.fenix.BrowserDirection
 import org.mozilla.fenix.GleanMetrics.TrackingProtection
 import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.R
+import org.mozilla.fenix.e2e.SystemInsetsPaddedFragment
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.nav
 import org.mozilla.fenix.ext.settings
@@ -33,7 +34,7 @@ import org.mozilla.fenix.utils.view.addToRadioGroup
  * Displays the toggle for tracking protection, options for tracking protection policy and a button
  * to open info about the tracking protection [org.mozilla.fenix.settings.TrackingProtectionFragment].
  */
-class TrackingProtectionFragment : PreferenceFragmentCompat() {
+class TrackingProtectionFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFragment {
     private val args by navArgs<TrackingProtectionFragmentArgs>()
 
     private val exceptionsClickListener = Preference.OnPreferenceClickListener {
@@ -123,6 +124,7 @@ class TrackingProtectionFragment : PreferenceFragmentCompat() {
 
         val learnMorePreference = requirePreference<Preference>(R.string.pref_key_etp_learn_more)
         learnMorePreference.setOnPreferenceClickListener {
+            @Suppress("DEPRECATION")
             (activity as HomeActivity).openToBrowserAndLoad(
                 searchTermOrURL = SupportUtils.getGenericSumoURLForTopic
                     (SupportUtils.SumoTopic.TRACKING_PROTECTION),
@@ -140,7 +142,7 @@ class TrackingProtectionFragment : PreferenceFragmentCompat() {
             requirePreference<Preference>(R.string.pref_key_tracking_protection_exceptions)
         preferenceExceptions.onPreferenceClickListener = exceptionsClickListener
 
-        requirePreference<SwitchPreference>(R.string.pref_key_privacy_enable_global_privacy_control).apply {
+        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_privacy_enable_global_privacy_control).apply {
             onPreferenceChangeListener = object : SharedPreferenceUpdater() {
                 override fun onPreferenceChange(preference: Preference, newValue: Any?): Boolean {
                     context.components.core.engine.settings.globalPrivacyControlEnabled = newValue as Boolean
@@ -151,7 +153,7 @@ class TrackingProtectionFragment : PreferenceFragmentCompat() {
         }
 
         args.preferenceToScrollTo?.let {
-            scrollToPreference(it)
+            scrollToPreferenceWithHighlight(it)
         }
     }
 
@@ -441,6 +443,7 @@ class TrackingProtectionFragment : PreferenceFragmentCompat() {
     }
 
     private fun openSumoArticle() {
+        @Suppress("DEPRECATION")
         (activity as HomeActivity).openToBrowserAndLoad(
             searchTermOrURL = SupportUtils.getGenericSumoURLForTopic(
                 SupportUtils.SumoTopic.TRACKING_PROTECTION,

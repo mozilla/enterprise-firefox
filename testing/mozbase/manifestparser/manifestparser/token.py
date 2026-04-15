@@ -157,6 +157,9 @@ class ManifestTokens:
         _v1126100: Token = self.add(
             Token(t_type=t_os_version, depends=win, value="11.26100")
         )
+        _v1126200: Token = self.add(
+            Token(t_type=t_os_version, depends=win, value="11.26200")
+        )
 
         _aarch64: Token = self.add(Token(t_type=t_arch, value="aarch64"))
         _armeabi_v7a: Token = self.add(

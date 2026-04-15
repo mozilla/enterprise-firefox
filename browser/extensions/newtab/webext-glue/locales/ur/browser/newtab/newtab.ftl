@@ -27,7 +27,7 @@ newtab-search-box-input =
     .placeholder = ويب پر تلاش کريں
     .aria-label = ويب پر تلاش کريں
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = تلاش انجن کا اضافہ کریں
 newtab-topsites-add-shortcut-header = نیا شارٹ کٹ

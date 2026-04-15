@@ -178,6 +178,24 @@ export const FEATURES = {
   "smart-intent": {
     engineId: "smart-intent",
   },
+  chat: {
+    engineId: "smart-openai",
+  },
+  "title-generation": {
+    engineId: "title-generation-engine",
+  },
+  "conversation-suggestions-sidebar-starter": {
+    engineId: "smart-openai",
+  },
+  "conversation-suggestions-followup": {
+    engineId: "smart-openai",
+  },
+  "memories-initial-generation-system": {
+    engineId: "smart-openai-memories-generation",
+  },
+  "memories-message-classification-system": {
+    engineId: "smart-openai-memories-usage",
+  },
 };
 
 /**
@@ -346,6 +364,7 @@ export const AllowedBoolean = [false, true];
 /**
  * @import { TranslationsEngineParent } from "../../translations/actors/TranslationsEngineParent.sys.mjs"
  * @import { StaticEmbeddingsOptions } from "./backends/StaticEmbeddingsPipeline.d.ts"
+ * @import { PURPOSES, SERVICE_TYPES } from "../../../../browser/components/aiwindow/models/Utils.sys.mjs"
  */
 
 const PIPELINE_TEST_NAMES = ["moz-echo", "test-echo"];
@@ -607,9 +626,16 @@ export class PipelineOptions {
   /**
    * The service type for an OpenAIPipeline.
    *
-   * @type {"ai" | "memories" | "s2s" | null}
+   * @type {SERVICE_TYPES[keyof SERVICE_TYPES] | null}
    */
   serviceType = null;
+
+  /**
+   * The purpose of the request, used for telemetry tracking.
+   *
+   * @type {PURPOSES[keyof PURPOSES] | null}
+   */
+  purpose = null;
 
   /**
    * This option allows for extra headers to be passed to
@@ -801,6 +827,7 @@ export class PipelineOptions {
       "timeoutMS",
       "modelId",
       "modelRevision",
+      "flowId",
       "tokenizerId",
       "tokenizerRevision",
       "processorId",
@@ -826,6 +853,7 @@ export class PipelineOptions {
       "apiKey",
       "staticEmbeddingsOptions",
       "serviceType",
+      "purpose",
       "extraHeaders",
     ];
 
@@ -948,6 +976,7 @@ export class PipelineOptions {
       timeoutMS: this.timeoutMS,
       modelId: this.modelId,
       modelRevision: this.modelRevision,
+      flowId: this.flowId,
       tokenizerId: this.tokenizerId,
       tokenizerRevision: this.tokenizerRevision,
       processorId: this.processorId,
@@ -973,6 +1002,7 @@ export class PipelineOptions {
       apiKey: this.apiKey,
       staticEmbeddingsOptions: this.staticEmbeddingsOptions,
       serviceType: this.serviceType,
+      purpose: this.purpose,
       extraHeaders: this.extraHeaders,
     };
   }
@@ -1177,6 +1207,7 @@ export async function createEngine(
       engineId: options.engineId || "",
       modelId: options.modelId || "",
       featureId: options.featureId || "",
+      flow_id: options.flowId || "",
       taskName: options.taskName || "",
       error: e.constructor.name || "",
     });

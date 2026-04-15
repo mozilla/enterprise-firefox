@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -274,7 +273,7 @@ void WebGLContext::GenErrorIllegalUse(const GLenum useTarget,
   GenerateError(LOCAL_GL_INVALID_OPERATION,
                 "Illegal use of buffer at %s"
                 " while also bound to %s.",
-                useName.BeginReading(), boundName.BeginReading());
+                useName.get(), boundName.get());
 }
 
 bool WebGLContext::ValidateBufferForNonTf(const WebGLBuffer& nonTfBuffer,

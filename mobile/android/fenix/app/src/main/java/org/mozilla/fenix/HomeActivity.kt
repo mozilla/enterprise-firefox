@@ -73,9 +73,9 @@ import mozilla.components.support.ktx.android.arch.lifecycle.addObservers
 import mozilla.components.support.ktx.android.content.call
 import mozilla.components.support.ktx.android.content.email
 import mozilla.components.support.ktx.android.content.share
-import mozilla.components.support.ktx.android.view.setupPersistentInsets
 import mozilla.components.support.locale.LocaleAwareAppCompatActivity
 import mozilla.components.support.utils.BootUtils
+import mozilla.components.support.utils.Browsers
 import mozilla.components.support.utils.BrowsersCache
 import mozilla.components.support.utils.BuildManufacturerChecker
 import mozilla.components.support.utils.SafeIntent
@@ -91,13 +91,16 @@ import org.mozilla.fenix.GleanMetrics.StartOnHome
 import org.mozilla.fenix.addons.ExtensionsProcessDisabledBackgroundController
 import org.mozilla.fenix.addons.ExtensionsProcessDisabledForegroundController
 import org.mozilla.fenix.bindings.ExternalAppLinkStatusBinding
+import org.mozilla.fenix.bindings.SummarizeToolbarHighlightBinding
 import org.mozilla.fenix.bookmarks.DesktopFolders
+import org.mozilla.fenix.browser.BrowserFragment
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
 import org.mozilla.fenix.browser.browsingmode.DefaultBrowsingModeManager
 import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.components.appstate.AppAction.ShareAction
 import org.mozilla.fenix.components.appstate.OrientationMode
+import org.mozilla.fenix.components.menu.MenuAccessPoint
 import org.mozilla.fenix.components.metrics.BreadcrumbsRecorder
 import org.mozilla.fenix.components.metrics.GrowthDataWorker
 import org.mozilla.fenix.components.metrics.MarketingAttributionService
@@ -109,6 +112,7 @@ import org.mozilla.fenix.databinding.ActivityHomeBinding
 import org.mozilla.fenix.debugsettings.data.DefaultDebugSettingsRepository
 import org.mozilla.fenix.debugsettings.ui.FenixOverlay
 import org.mozilla.fenix.downloads.DownloadSnackbar
+import org.mozilla.fenix.e2e.EdgeToEdgeFragmentLifecycleCallbacks
 import org.mozilla.fenix.experiments.ResearchSurfaceDialogFragment
 import org.mozilla.fenix.ext.alreadyOnDestination
 import org.mozilla.fenix.ext.breadcrumb
@@ -133,14 +137,12 @@ import org.mozilla.fenix.home.intent.OpenBrowserIntentProcessor
 import org.mozilla.fenix.home.intent.OpenPasswordManagerIntentProcessor
 import org.mozilla.fenix.home.intent.OpenRecentlyClosedIntentProcessor
 import org.mozilla.fenix.home.intent.OpenSpecificTabIntentProcessor
-import org.mozilla.fenix.home.intent.ReEngagementIntentProcessor
 import org.mozilla.fenix.home.intent.SpeechProcessingIntentProcessor
 import org.mozilla.fenix.home.intent.StartSearchIntentProcessor
 import org.mozilla.fenix.home.topsites.DefaultTopSitesBinding
 import org.mozilla.fenix.messaging.FenixMessageSurfaceId
 import org.mozilla.fenix.messaging.MessageNotificationWorker
 import org.mozilla.fenix.nimbus.FxNimbus
-import org.mozilla.fenix.onboarding.ReEngagementNotificationWorker
 import org.mozilla.fenix.pbmlock.DefaultPrivateBrowsingLockStorage
 import org.mozilla.fenix.pbmlock.PrivateBrowsingLockFeature
 import org.mozilla.fenix.perf.DefaultStartupPathProvider
@@ -204,6 +206,7 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity {
             navController = navHost.navController,
             onLinkClicked = { url, shouldOpenInBrowser ->
                 if (shouldOpenInBrowser) {
+                    @Suppress("DEPRECATION")
                     openToBrowserAndLoad(
                         searchTermOrURL = url,
                         newTab = true,
@@ -262,6 +265,15 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity {
         )
     }
 
+    private val summarizeToolbarHighlightBinding by lazy {
+        SummarizeToolbarHighlightBinding(
+            appStore = components.appStore,
+            featureDiscoverySettings = components.core.summarizeFeatureSettings,
+            browserStore = components.core.store,
+            mainDispatcher = Main,
+        )
+    }
+
     private val extensionsProcessDisabledForegroundController by lazy {
         ExtensionsProcessDisabledForegroundController(this@HomeActivity)
     }
@@ -299,12 +311,11 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity {
             HomeDeepLinkIntentProcessor(this),
             SpeechProcessingIntentProcessor(this, components.core.store),
             AssistIntentProcessor(),
-            StartSearchIntentProcessor(),
+            StartSearchIntentProcessor { components.fenixOnboarding.userHasBeenOnboarded() },
             OpenBrowserIntentProcessor(this, ::getIntentSessionId),
             OpenSpecificTabIntentProcessor(this),
             OpenPasswordManagerIntentProcessor(),
             OpenRecentlyClosedIntentProcessor(),
-            ReEngagementIntentProcessor(this, settings()),
         )
     }
 
@@ -427,6 +438,9 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity {
             storage = DefaultSplashScreenStorage(components.settings),
             showSplashScreen = { installSplashScreen().setKeepOnScreenCondition(it) },
             onSplashScreenFinished = { result ->
+                // Before the slashscreen ends the application has a different theme not supporting edge to edge.
+                EdgeToEdgeFragmentLifecycleCallbacks.register(supportFragmentManager, window)
+
                 if (result.sendTelemetry) {
                     SplashScreen.firstLaunchExtended.record(
                         SplashScreen.FirstLaunchExtendedExtra(dataFetched = result.wasDataFetched),
@@ -551,6 +565,8 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity {
             downloadSnackbar,
             privateBrowsingLockFeature,
             externalAppLinkStatusBinding,
+            summarizeToolbarHighlightBinding,
+            components.core.summarizationSettings,
         )
 
         if (!isCustomTabIntent(intent)) {
@@ -622,7 +638,7 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity {
     @VisibleForTesting
     internal fun maybeShowSetAsDefaultBrowserPrompt(
         shouldShowSetAsDefaultPrompt: Boolean = settings().shouldShowSetAsDefaultPrompt(),
-        isDefaultBrowser: Boolean = BrowsersCache.all(applicationContext).isDefaultBrowser,
+        isDefaultBrowser: Boolean = Browsers.isDefaultBrowser(applicationContext),
         isTheCorrectBuildVersion: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q,
     ) {
         if (shouldShowSetAsDefaultPrompt && !isDefaultBrowser && isTheCorrectBuildVersion) {
@@ -701,6 +717,8 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity {
                 if (components.appStore.state.wasNativeDefaultBrowserPromptShown) {
                     Metrics.defaultBrowserChangedViaNativeSystemPrompt.record(NoExtras())
                 }
+
+                components.appStore.dispatch(AppAction.UpdateDefaultBrowserStatus(true))
                 Events.defaultBrowserChanged.record(NoExtras())
             }
 
@@ -708,7 +726,6 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity {
             FontEnumerationWorker.sendActivatedSignalIfNeeded(applicationContext)
 
             if (NotificationManagerCompat.from(applicationContext).areNotificationsEnabled()) {
-                ReEngagementNotificationWorker.setReEngagementNotificationIfNeeded(applicationContext)
                 MessageNotificationWorker.setMessageNotificationWorker(applicationContext)
             }
 
@@ -734,8 +751,6 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity {
     final override fun onStart() {
         // DO NOT MOVE ANYTHING ABOVE THIS getProfilerTime CALL.
         val startProfilerTime = components.core.engine.profiler?.getProfilerTime()
-
-        window.setupPersistentInsets()
 
         components.termsOfUseManager.onStart()
 
@@ -1049,6 +1064,35 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity {
         return super.dispatchTouchEvent(ev)
     }
 
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // The KEYCODE_MENU event is handled here instead of onKeyDown or onKeyUp because
+        // after navigating to another fragment like Settings or Bookmarks, and then back this
+        // key event is somehow getting consumed before it reaches onKeyDown or onKeyUp.
+        if (event.action == KeyEvent.ACTION_DOWN && event.keyCode == KeyEvent.KEYCODE_MENU) {
+            val navHostFragment =
+                supportFragmentManager.findFragmentById(R.id.container) as? NavHostFragment
+            val currentFragment = navHostFragment?.childFragmentManager?.primaryNavigationFragment
+            when (currentFragment) {
+                is HomeFragment -> {
+                    val action = NavGraphDirections.actionGlobalMenuDialogFragment(
+                        MenuAccessPoint.Home,
+                    )
+                    navHost.navController.navigate(action)
+                    return true
+                }
+
+                is BrowserFragment -> {
+                    val action = NavGraphDirections.actionGlobalMenuDialogFragment(
+                        MenuAccessPoint.Browser,
+                    )
+                    navHost.navController.navigate(action)
+                    return true
+                }
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     final override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         // Inspired by https://searchfox.org/mozilla-esr68/source/mobile/android/base/java/org/mozilla/gecko/BrowserApp.java#584-613
         // Android N and Huawei devices have broken onKeyLongPress events for the back button, so we
@@ -1222,6 +1266,11 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity {
      * was opened from history.
      * @param additionalHeaders The extra headers to use when loading the URL.
      */
+    @Deprecated(
+        message = "Use NavController.openToBrowser() and " +
+            "components.useCases.fenixBrowserUseCases.loadUrlOrSearch() instead",
+        level = DeprecationLevel.WARNING,
+    )
     fun openToBrowserAndLoad(
         searchTermOrURL: String,
         newTab: Boolean,

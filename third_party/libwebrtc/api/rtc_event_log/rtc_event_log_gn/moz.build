@@ -34,7 +34,6 @@ LOCAL_INCLUDES += [
 ]
 
 UNIFIED_SOURCES += [
-    "/third_party/libwebrtc/api/rtc_event_log/rtc_event.cc",
     "/third_party/libwebrtc/api/rtc_event_log/rtc_event_log.cc"
 ]
 
@@ -127,13 +126,6 @@ if CONFIG["OS_TARGET"] == "WINNT":
     DEFINES["_WINDOWS"] = True
     DEFINES["_WINSOCK_DEPRECATED_NO_WARNINGS"] = True
     DEFINES["__STD_C"] = True
-
-    OS_LIBS += [
-        "crypt32",
-        "iphlpapi",
-        "secur32",
-        "winmm"
-    ]
 
 if CONFIG["TARGET_CPU"] == "aarch64":
 

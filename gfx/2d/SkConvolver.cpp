@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 // Copyright (c) 2011-2016 Google Inc.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the gfx/skia/LICENSE file.
@@ -488,7 +486,7 @@ bool SkConvolutionFilter1D::ComputeFilterValues(
 
     // Compute the (inclusive) range of source pixels the filter covers.
     float srcBegin = std::max(0.0f, floorf(srcPixel - srcSupport));
-    float srcEnd = std::min(aSrcSize - 1.0f, ceilf(srcPixel + srcSupport));
+    float srcEnd = std::min(float(aSrcSize - 1), ceilf(srcPixel + srcSupport));
 
     // Compute the unnormalized filter value at each location of the source
     // it covers.

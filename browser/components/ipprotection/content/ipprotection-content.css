@@ -30,8 +30,8 @@ hr {
     --button-border-radius: var(--border-radius-small);
     --button-font-weight: var(--font-weight);
     --button-icon-fill: var(--icon-color);
-    --button-padding: var(--space-small) var(--space-medium);
-
+    --button-padding: var(--space-small);
+    --focus-outline-offset: calc(-1 * var(--focus-outline-width));
     width: 100%;
   }
 }
@@ -101,25 +101,74 @@ ipprotection-message-bar.vpn-top-content {
   }
 }
 
-#site-exclusion-control {
+#enrolling-container {
+  background-color: var(--background-color-box-info);
+  border-radius: var(--border-radius-medium);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-large);
+  padding: var(--space-medium);
+}
+
+#enrolling-header {
   display: flex;
   justify-content: space-between;
 
-  padding-inline: var(--space-medium);
-  padding-block: var(--space-medium);
+  > span {
+    gap: var(--space-medium);
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
 
-  &:has(+ .vpn-bottom-content) {
-    border-bottom: var(--border-width) solid var(--border-color-card);
+  img {
+    height: var(--size-image-small);
+    width: var(--size-image-small);
+    -moz-context-properties: fill;
+    fill: var(--icon-color);
   }
 }
 
-#site-exclusion-icon {
-  -moz-context-properties: fill;
-  fill: var(--icon-color);
+.skeleton {
+  background-color: var(--card-border-color);
 }
 
-#site-exclusion-label-container {
+.skeleton-title {
+  /* Intentionally use a larger font size to match font size of actual status box title */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  font-size: 1.4lh;
+  height: 1lh;
+  width: 102px;
+  border-radius: var(--space-xxsmall);
+}
+
+.skeleton-line {
+  /* Intentionally use a larger font size to match font size of actual status box description */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  font-size: 1.23em;
+  height: 1lh;
+  width: 239px;
+  border-radius: var(--space-xxsmall);
+}
+
+.skeleton-line-thick {
+  height: var(--button-min-height, 32px);
+  width: 126px;
+  border-radius: var(--border-radius-small);
+}
+
+#site-exclusion-control {
   display: flex;
-  flex-grow: 1;
-  gap: var(--space-small);
+
+  margin-block-start: var(--space-small);
+  padding: var(--space-small);
+  padding-bottom: calc(var(--space-xsmall) + var(--space-small));
+
+  &:has(+ .vpn-bottom-content) {
+    border-bottom: var(--border-width) solid var(--card-border-color);
+  }
+}
+
+#site-exclusion-toggle {
+  flex: 1;
 }

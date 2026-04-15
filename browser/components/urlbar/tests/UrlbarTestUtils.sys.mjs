@@ -1509,11 +1509,26 @@ class UrlbarInputTestUtils {
     );
   }
 
+  /**
+   * @param {ChromeWindow} win
+   * @returns {XULPopupElement}
+   */
   searchModeSwitcherPopup(win) {
     return this.#urlbar(win).querySelector(".searchmode-switcher-popup");
   }
 
-  async openSearchModeSwitcher(win) {
+  /**
+   * Opens the search mode switcher and returns the popup.
+   *
+   * @param {ChromeWindow} win
+   *   The search mode switcher's window.
+   * @param {?Function} [openFn]
+   * Function to be used to open the popup. If not supplied,
+   * it will default to a opening the popup directly.
+   * @returns {Promise<XULPopupElement>}
+   *   The search mode switcher popup.
+   */
+  async openSearchModeSwitcher(win, openFn = null) {
     //Flush the popup previous state since it might be still remaining.
     await new Promise(resolve => win.requestAnimationFrame(resolve));
 
@@ -1527,8 +1542,12 @@ class UrlbarInputTestUtils {
       "shown"
     );
     let rebuildPromise = lazy.BrowserTestUtils.waitForEvent(popup, "rebuild");
-    // Ensure the pop-up opens.
-    button.open = true;
+    if (openFn) {
+      await openFn();
+    } else {
+      // Ensure the pop-up opens.
+      button.open = true;
+    }
     await Promise.all([promiseMenuOpen, rebuildPromise]);
 
     return popup;

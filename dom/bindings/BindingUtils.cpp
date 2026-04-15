@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -2368,17 +2366,42 @@ bool DictionaryBase::ParseJSON(JSContext* aCx, const nsAString& aJSON,
   return JS_ParseJSON(aCx, aJSON.BeginReading(), aJSON.Length(), aVal);
 }
 
+bool DictionaryBase::ParseJSON(JSContext* aCx, const nsACString& aJSON,
+                               JS::MutableHandle<JS::Value> aVal) {
+  if (aJSON.IsEmpty()) {
+    return true;
+  }
+  if (IsAscii(aJSON)) {
+    return JS_ParseJSON(
+        aCx, reinterpret_cast<const JS::Latin1Char*>(aJSON.BeginReading()),
+        aJSON.Length(), aVal);
+  }
+  nsAutoString utf16;
+  if (!CopyUTF8toUTF16(aJSON, utf16, fallible)) {
+    return false;
+  }
+  return JS_ParseJSON(aCx, utf16.BeginReading(), utf16.Length(), aVal);
+}
+
+static bool AppendJSONToString(const char16_t* aJSONData, uint32_t aDataLength,
+                               void* aString) {
+  nsAString* string = static_cast<nsAString*>(aString);
+  string->Append(aJSONData, aDataLength);
+  return true;
+}
+
 bool DictionaryBase::StringifyToJSON(JSContext* aCx, JS::Handle<JSObject*> aObj,
                                      nsAString& aJSON) const {
   return JS::ToJSONMaybeSafely(aCx, aObj, AppendJSONToString, &aJSON);
 }
 
-/* static */
-bool DictionaryBase::AppendJSONToString(const char16_t* aJSONData,
-                                        uint32_t aDataLength, void* aString) {
-  nsAString* string = static_cast<nsAString*>(aString);
-  string->Append(aJSONData, aDataLength);
-  return true;
+bool DictionaryBase::StringifyToJSON(JSContext* aCx, JS::Handle<JSObject*> aObj,
+                                     nsACString& aJSON) const {
+  nsAutoString json;
+  if (!StringifyToJSON(aCx, aObj, json)) {
+    return false;
+  }
+  return CopyUTF16toUTF8(json, aJSON, fallible);
 }
 
 void UpdateReflectorGlobal(JSContext* aCx, JS::Handle<JSObject*> aObjArg,
@@ -2466,8 +2489,7 @@ void UpdateReflectorGlobal(JSContext* aCx, JS::Handle<JSObject*> aObjArg,
   }
 
   // We've set up |newobj|, so we make it own the native by setting its reserved
-  // slot and nulling out the reserved slot of |obj|. Update the wrapper cache
-  // to keep everything consistent in case GC moves newobj.
+  // slot and nulling out the reserved slot of |obj|.
   //
   // NB: It's important to do this _after_ copying the properties to
   // propertyHolder. Otherwise, an object with |foo.x === foo| will
@@ -2491,16 +2513,23 @@ void UpdateReflectorGlobal(JSContext* aCx, JS::Handle<JSObject*> aObjArg,
 
   nsWrapperCache* cache = nullptr;
   CallQueryInterface(native, &cache);
-  cache->UpdateWrapperForNewGlobal(native, newobj);
+
+  // For preserved wrappers the store buffer keeps mWrapper consistent across
+  // the transplant. For non-preserved wrappers clear mWrapper so that
+  // JSObjectsTenured doesn't follow a stale pointer if nursery GC fires.
+  bool preserving = cache->PreservingWrapper();
+  if (preserving) {
+    cache->UpdateWrapperForNewGlobal(native, newobj);
+  } else {
+    cache->ClearWrapper();
+  }
 
   aObj = xpc::TransplantObjectRetainingXrayExpandos(aCx, aObj, newobj);
   if (!aObj) {
     MOZ_CRASH();
   }
 
-  // Update the wrapper cache again if transplanting didn't use newobj but
-  // returned some other object.
-  if (aObj != newobj) {
+  if (!preserving || aObj != newobj) {
     MOZ_ASSERT(UnwrapDOMObjectToISupports(aObj) == native);
     cache->UpdateWrapperForNewGlobal(native, aObj);
   }
@@ -3569,6 +3598,7 @@ static bool GetBackingObject(JSContext* aCx, JS::Handle<JSObject*> aObj,
                   ? aObj
                   : js::UncheckedUnwrap(aObj,
                                         /* stopAtWindowProxy = */ false);
+  MOZ_ASSERT(aSlotIndex < JSCLASS_RESERVED_SLOTS(JS::GetClass(reflector)));
 
   // Retrieve the backing object from the reserved slot on the maplike/setlike
   // object. If it doesn't exist yet, create it.
@@ -3804,7 +3834,7 @@ class MOZ_RAII AutoConstructionDepth final {
 
 }  // anonymous namespace
 
-// https://html.spec.whatwg.org/multipage/dom.html#htmlconstructor
+/* https://html.spec.whatwg.org/#html-element-constructors */
 namespace binding_detail {
 bool HTMLConstructor(JSContext* aCx, unsigned aArgc, JS::Value* aVp,
                      constructors::id::ID aConstructorId,
@@ -3812,10 +3842,8 @@ bool HTMLConstructor(JSContext* aCx, unsigned aArgc, JS::Value* aVp,
                      CreateInterfaceObjectsMethod aCreator) {
   JS::CallArgs args = JS::CallArgsFromVp(aArgc, aVp);
 
-  // Per spec, this is technically part of step 3, but doing the check
-  // directly lets us provide a better error message.  And then in
-  // step 2 we can work with newTarget in a simpler way because we
-  // know it's an object.
+  // 1. "If NewTarget is equal to the active function object, then throw a
+  //    TypeError."
   if (!args.isConstructing()) {
     return ThrowConstructorWithoutNew(aCx,
                                       NamesOfInterfacesWithProtos(aProtoId));
@@ -3832,14 +3860,21 @@ bool HTMLConstructor(JSContext* aCx, unsigned aArgc, JS::Value* aVp,
     return false;
   }
 
-  // Now we start the [HTMLConstructor] algorithm steps from
-  // https://html.spec.whatwg.org/multipage/dom.html#htmlconstructor
-
   ErrorResult rv;
   auto scopeExit =
       MakeScopeExit([&]() { (void)rv.MaybeSetPendingException(aCx); });
 
-  // Step 1.
+  // 2. Let registry be null.
+  // 3. If the surrounding agent's active custom element constructor
+  //    map[NewTarget] exists:
+  // 3.1. Set registry to the surrounding agent's active custom element
+  //      constructor map[NewTarget].
+  // 3.2. Remove the surrounding agent's active custom element constructor
+  //      map[NewTarget].
+  // TODO(keithamus): Scoped registries
+
+  // 4. "Otherwise, set registry to the current global object's associated
+  //    Document's custom element registry."
   nsCOMPtr<nsPIDOMWindowInner> window =
       do_QueryInterface(global.GetAsSupports());
   if (!window) {
@@ -3860,8 +3895,6 @@ bool HTMLConstructor(JSContext* aCx, unsigned aArgc, JS::Value* aVp,
     return false;
   }
 
-  // Step 2.
-
   // The newTarget might be a cross-compartment wrapper. Get the underlying
   // object so we can do the spec's object-identity checks.  If we ever stop
   // unwrapping here, carefully audit uses of newTarget below!
@@ -3876,6 +3909,9 @@ bool HTMLConstructor(JSContext* aCx, unsigned aArgc, JS::Value* aVp,
     return false;
   }
 
+  // 1. "If NewTarget is equal to the active function object, then throw a
+  //    TypeError."
+  //
   // Enter the compartment of our underlying newTarget object, so we end
   // up comparing to the constructor object for our interface from that global.
   // XXXbz This is not what the spec says to do, and it's not super-clear to me
@@ -3896,7 +3932,9 @@ bool HTMLConstructor(JSContext* aCx, unsigned aArgc, JS::Value* aVp,
     }
   }
 
-  // Step 3.
+  // 5. "Let definition be the item in registry's custom element definition set
+  //    with constructor equal to NewTarget. If there is no such item, then
+  //    throw a TypeError."
   RefPtr<CustomElementDefinition> definition =
       registry->LookupCustomElementDefinition(aCx, newTarget);
   if (!definition) {
@@ -3904,9 +3942,15 @@ bool HTMLConstructor(JSContext* aCx, unsigned aArgc, JS::Value* aVp,
     return false;
   }
 
-  // Steps 4, 5, 6 do some sanity checks on our callee.  We add to those a
+  // 7. "If definition's local name is equal to definition's name (i.e.,
+  //    definition is for an autonomous custom element):"
+  // 8. "Otherwise (i.e., if definition is for a customized built-in element):"
+  //    "Let valid local names be the list of local names..."
+  //    "If valid local names does not contain definition's local name, then
+  //    throw a TypeError."
+  // XXX: Steps 7 and 8 do some sanity checks on our callee. We add to those a
   // determination of what sort of element we're planning to construct.
-  // Technically, this should happen (implicitly) in step 8, but this
+  // Technically, this should happen (implicitly) in step 9, but this
   // determination is side-effect-free, so it's OK.
   int32_t ns = definition->mNamespaceID;
 
@@ -3937,9 +3981,8 @@ bool HTMLConstructor(JSContext* aCx, unsigned aArgc, JS::Value* aVp,
 
   int32_t tag = eHTMLTag_userdefined;
   if (!definition->IsCustomBuiltIn()) {
-    // Step 4.
-    // If the definition is for an autonomous custom element, the active
-    // function should be HTMLElement or extend from XULElement.
+    // 7.1. "If the active function object is not HTMLElement, then throw a
+    //       TypeError."
     if (!cb) {
       cb = HTMLElement_Binding::GetConstructorObjectHandle;
     }
@@ -3957,10 +4000,10 @@ bool HTMLConstructor(JSContext* aCx, unsigned aArgc, JS::Value* aVp,
     }
   } else {
     if (ns == kNameSpaceID_XHTML) {
-      // Step 5.
-      // If the definition is for a customized built-in element, the localName
-      // should be one of the ones defined in the specification for this
-      // interface.
+      // 8.1. "Let valid local names be the list of local names for elements
+      //       defined in this specification..."
+      // 8.2. "If valid local names does not contain definition's local name,
+      //       then throw a TypeError."
       tag = nsHTMLTags::CaseSensitiveAtomTagToId(definition->mLocalName);
       if (tag == eHTMLTag_userdefined) {
         rv.ThrowTypeError<MSG_ILLEGAL_CONSTRUCTOR>();
@@ -3995,7 +4038,10 @@ bool HTMLConstructor(JSContext* aCx, unsigned aArgc, JS::Value* aVp,
     }
   }
 
-  // Steps 7 and 8.
+  // 10. "Let prototype be ? Get(NewTarget, "prototype")."
+  // 11. "If prototype is not an Object, then: Let realm be
+  //     ? GetFunctionRealm(NewTarget). Set prototype to the interface prototype
+  //     object..."
   JS::Rooted<JSObject*> desiredProto(aCx);
 
   // Check which construction path we're taking before running any JS.
@@ -4018,15 +4064,11 @@ bool HTMLConstructor(JSContext* aCx, unsigned aArgc, JS::Value* aVp,
 
   MOZ_ASSERT(desiredProto, "How could we not have a prototype by now?");
 
-  // We need to do some work to actually return an Element, so we do step 8 on
-  // one branch and steps 9-12 on another branch, then common up the "return
-  // element" work.
   RefPtr<Element> element;
   if (isDirectConstruction) {
-    // Step 8.
-    // Now we go to construct an element.  We want to do this in global's
-    // realm, not caller realm (the normal constructor behavior),
-    // just in case those elements create JS things.
+    // 9. "If definition's construction stack is empty:"
+    // 9.1. "Let element be the result of internally creating a new object
+    //       implementing the interface..."
     JSAutoRealm ar(aCx, global.Get());
 
     RefPtr<NodeInfo> nodeInfo = doc->NodeInfoManager()->GetNodeInfo(
@@ -4047,15 +4089,19 @@ bool HTMLConstructor(JSContext* aCx, unsigned aArgc, JS::Value* aVp,
       }
     }
 
+    // 9.7. "Set element's custom element state to "custom"."
+    // 9.8. "Set element's custom element definition to definition."
     element->SetCustomElementData(MakeUnique<CustomElementData>(
         definition->mType, CustomElementData::State::eCustom));
 
     element->SetCustomElementDefinition(definition);
+    // 9.10. "Return element."
   } else {
-    // Step 9.
+    // 12. "Let element be the last entry in definition's construction stack."
     element = constructionStack.LastElement();
 
-    // Step 10.
+    // 13. "If element is an already constructed marker, then throw a
+    //      TypeError."
     if (element == ALREADY_CONSTRUCTED_MARKER) {
       rv.ThrowTypeError(
           "Cannot instantiate a custom element inside its own constructor "
@@ -4063,7 +4109,7 @@ bool HTMLConstructor(JSContext* aCx, unsigned aArgc, JS::Value* aVp,
       return false;
     }
 
-    // Step 11.
+    // 14. "Perform ? element.[[SetPrototypeOf]](prototype)."
     // Do prototype swizzling for upgrading a custom element here, for cases
     // when we have a reflector already.  If we don't have one yet, we will
     // create it with the right proto (by calling GetOrCreateDOMReflector with
@@ -4081,13 +4127,12 @@ bool HTMLConstructor(JSContext* aCx, unsigned aArgc, JS::Value* aVp,
       PreserveWrapper(element.get());
     }
 
-    // Step 12.
+    // 15. "Replace the last entry in definition's construction stack with an
+    //      already constructed marker."
     constructionStack.LastElement() = ALREADY_CONSTRUCTED_MARKER;
   }
 
-  // Tail end of step 8 and step 13: returning the element.  We want to do this
-  // part in the global's realm, though in practice it won't matter much
-  // because Element always knows which realm it should be created in.
+  // 16. "Return element."
   JSAutoRealm ar(aCx, global.Get());
   if (!js::IsObjectInContextCompartment(desiredProto, aCx) &&
       !JS_WrapObject(aCx, &desiredProto)) {
@@ -4171,7 +4216,7 @@ void ReportDeprecation(nsIGlobalObject* aGlobal, Document* aDoc, nsIURI* aURI,
   key.AppendASCII("Warning");
 
   nsAutoString msg;
-  rv = nsContentUtils::GetMaybeLocalizedString(nsContentUtils::eDOM_PROPERTIES,
+  rv = nsContentUtils::GetMaybeLocalizedString(PropertiesFile::DOM_PROPERTIES,
                                                key.get(), aDoc, msg);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return;

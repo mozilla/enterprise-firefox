@@ -40,8 +40,8 @@
   color: var(--select-text-color);
   margin-block: var(--select-margin-block);
   margin-inline: var(--select-margin-inline);
-  min-width: var(--select-min-width);
-  max-width: var(--select-max-width);
+  min-width: var(--select-min-width, none);
+  max-width: var(--select-max-width, none);
   -moz-context-properties: fill;
   fill: var(--select-icon-fill);
 

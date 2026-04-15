@@ -64,13 +64,6 @@ user-id = 696
 user-login = "fitzgen"
 user-name = "Nick Fitzgerald"
 
-[[publisher.byteorder]]
-version = "1.5.0"
-when = "2023-10-06"
-user-id = 189
-user-login = "BurntSushi"
-user-name = "Andrew Gallant"
-
 [[publisher.bytes]]
 version = "1.11.1"
 when = "2026-02-03"
@@ -144,13 +137,6 @@ user-name = "John Schanck"
 [[publisher.core-foundation]]
 version = "0.9.3"
 when = "2022-02-07"
-user-id = 5946
-user-login = "jrmuizel"
-user-name = "Jeff Muizelaar"
-
-[[publisher.core-foundation-sys]]
-version = "0.8.4"
-when = "2023-04-03"
 user-id = 5946
 user-login = "jrmuizel"
 user-name = "Jeff Muizelaar"
@@ -261,15 +247,15 @@ user-login = "jrmuizel"
 user-name = "Jeff Muizelaar"
 
 [[publisher.glean]]
-version = "67.0.0"
-when = "2026-01-21"
+version = "67.1.0"
+when = "2026-03-12"
 user-id = 48
 user-login = "badboy"
 user-name = "Jan-Erik Rediger"
 
 [[publisher.glean-core]]
-version = "67.0.0"
-when = "2026-01-21"
+version = "67.1.0"
+when = "2026-03-12"
 user-id = 48
 user-login = "badboy"
 user-name = "Jan-Erik Rediger"
@@ -305,13 +291,6 @@ user-name = "Yarik"
 [[publisher.headers]]
 version = "0.3.9"
 when = "2023-08-31"
-user-id = 359
-user-login = "seanmonstar"
-user-name = "Sean McArthur"
-
-[[publisher.httparse]]
-version = "1.8.0"
-when = "2022-08-30"
 user-id = 359
 user-login = "seanmonstar"
 user-name = "Sean McArthur"
@@ -352,11 +331,10 @@ user-login = "alexcrichton"
 user-name = "Alex Crichton"
 
 [[publisher.libc]]
-version = "0.2.153"
-when = "2024-01-31"
-user-id = 51017
-user-login = "JohnTitor"
-user-name = "Yuki Okushi"
+version = "0.2.183"
+when = "2026-03-08"
+user-id = 55123
+user-login = "rust-lang-owner"
 
 [[publisher.linux-raw-sys]]
 version = "0.4.14"
@@ -1199,15 +1177,6 @@ criteria = "safe-to-deploy"
 version = "0.11.1"
 notes = "This library uses `forbid(unsafe_code)` and has no filesystem or network I/O."
 
-[[audits.bytecode-alliance.audits.core-foundation-sys]]
-who = "Dan Gohman <dev@sunfishcode.online>"
-criteria = "safe-to-deploy"
-delta = "0.8.4 -> 0.8.6"
-notes = """
-The changes here are all typical bindings updates: new functions, types, and
-constants. I have not audited all the bindings for ABI conformance.
-"""
-
 [[audits.bytecode-alliance.audits.cpufeatures]]
 who = "Alex Crichton <alex@alexcrichton.com>"
 criteria = "safe-to-deploy"
@@ -1436,26 +1405,6 @@ who = "Alex Crichton <alex@alexcrichton.com>"
 criteria = "safe-to-deploy"
 version = "0.1.0"
 notes = "Well-scoped crate do doing LEB encoding with no `unsafe` code and does what it says on the tin."
-
-[[audits.bytecode-alliance.audits.libc]]
-who = "Alex Crichton <alex@alexcrichton.com>"
-criteria = "safe-to-deploy"
-delta = "0.2.153 -> 0.2.158"
-notes = "More platforms, more definitions, more headers, it's still just `libc`"
-
-[[audits.bytecode-alliance.audits.libc]]
-who = "Dan Gohman <dev@sunfishcode.online>"
-criteria = "safe-to-deploy"
-delta = "0.2.158 -> 0.2.161"
-
-[[audits.bytecode-alliance.audits.libc]]
-who = "Alex Crichton <alex@alexcrichton.com>"
-criteria = "safe-to-deploy"
-delta = "0.2.161 -> 0.2.171"
-notes = """
-Lots of unsafe, but that's par for the course with libc, it's all FFI type
-definitions updates/adjustments/etc.
-"""
 
 [[audits.bytecode-alliance.audits.memoffset]]
 who = "Alex Crichton <alex@alexcrichton.com>"
@@ -1956,6 +1905,13 @@ criteria = "safe-to-deploy"
 delta = "1.8.1 -> 1.9.2"
 aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
 
+[[audits.google.audits.byteorder]]
+who = "danakj <danakj@chromium.org>"
+criteria = "safe-to-deploy"
+version = "1.5.0"
+notes = "Unsafe review in https://crrev.com/c/5838022"
+aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
+
 [[audits.google.audits.calendrical_calculations]]
 who = "Manish Goregaokar <manishearth@google.com>"
 criteria = "safe-to-deploy"
@@ -1977,6 +1933,13 @@ notes = '''
 Grepped for `-i cipher`, `-i crypto`, `'\bfs\b'`, `'\bnet\b'`, `'\bunsafe\b'`
 and there were no hits.
 '''
+aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
+
+[[audits.google.audits.core-foundation-sys]]
+who = "Manish Goregaokar <manishearth@google.com>"
+criteria = "safe-to-deploy"
+version = "0.8.7"
+notes = "OSX system APIs"
 aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
 
 [[audits.google.audits.crc32fast]]
@@ -2127,16 +2090,16 @@ https://source.chromium.org/chromium/chromium/src/+/28841c33c77833cc30b286f9ae24
 """
 aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
 
-[[audits.google.audits.http]]
-who = "ChromeOS"
-criteria = "safe-to-run"
-version = "0.2.8"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
 [[audits.google.audits.http-body]]
 who = "ChromeOS"
 criteria = "safe-to-run"
 version = "0.4.5"
+aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
+
+[[audits.google.audits.httparse]]
+who = "George Burgess IV <gbiv@google.com>"
+criteria = "safe-to-run"
+version = "1.8.0"
 aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
 
 [[audits.google.audits.iana-time-zone]]
@@ -2214,6 +2177,18 @@ who = "Manish Goregaokar <manishearth@google.com>"
 criteria = "safe-to-deploy"
 delta = "2.0.0-beta1 -> 2.0.0-beta2"
 notes = "Contains codegenned unsafe only, using safe Bake impls from zerovec/zerotrie"
+aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
+
+[[audits.google.audits.icu_collator]]
+who = "Manish Goregaokar <manishearth@google.com>"
+criteria = "safe-to-deploy"
+version = "2.0.0-beta2"
+notes = """
+All unsafe code commented (and improved from prior version):
+ - enum construction from discriminant with masks or other checks
+ - from_u32 for Hangul Jamo, with math that is in range
+ - from_u32 from a packed type that maintains a valid char invariant
+"""
 aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
 
 [[audits.google.audits.icu_collections]]
@@ -2440,28 +2415,28 @@ aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_p
 [[audits.google.audits.jxl]]
 who = "Łukasz Anforowicz <lukasza@chromium.org>"
 criteria = "safe-to-deploy"
-version = "0.3.0"
-notes = "Delta review from v0.1.5"
+version = "0.4.0"
+notes = "Delta review from v0.3.0"
 aggregated-from = "https://raw.githubusercontent.com/google/rust-crate-audits/main/manual-sources/additional-audits.toml"
 
 [[audits.google.audits.jxl_macros]]
 who = "Luca Versari <veluca@chromium.org>"
 criteria = "safe-to-deploy"
-version = "0.3.0"
+version = "0.4.0"
 notes = "No unsafe code, no fs access outside of test-only functionality"
 aggregated-from = "https://raw.githubusercontent.com/google/rust-crate-audits/main/manual-sources/additional-audits.toml"
 
 [[audits.google.audits.jxl_simd]]
 who = "Łukasz Anforowicz <lukasza@chromium.org>"
 criteria = "safe-to-deploy"
-version = "0.3.0"
-notes = "Delta review from v0.1.5"
+version = "0.4.0"
+notes = "Delta review from v0.3.0"
 aggregated-from = "https://raw.githubusercontent.com/google/rust-crate-audits/main/manual-sources/additional-audits.toml"
 
 [[audits.google.audits.jxl_transforms]]
 who = "Luca Versari <veluca@chromium.org>"
 criteria = "safe-to-deploy"
-version = "0.3.0"
+version = "0.4.0"
 notes = "No unsafe code, no fs access"
 aggregated-from = "https://raw.githubusercontent.com/google/rust-crate-audits/main/manual-sources/additional-audits.toml"
 
@@ -3004,6 +2979,21 @@ who = "Ameer Ghani <inahga@divviup.org>"
 criteria = "safe-to-deploy"
 delta = "0.4.0 -> 0.4.1"
 
+[[audits.isrg.audits.libz-rs-sys]]
+who = "Ameer Ghani <inahga@letsencrypt.org>"
+criteria = "safe-to-deploy"
+delta = "0.4.2 -> 0.5.0"
+
+[[audits.isrg.audits.libz-rs-sys]]
+who = "Ameer Ghani <inahga@letsencrypt.org>"
+criteria = "safe-to-deploy"
+delta = "0.5.0 -> 0.5.1"
+
+[[audits.isrg.audits.libz-rs-sys]]
+who = "Ameer Ghani <inahga@letsencrypt.org>"
+criteria = "safe-to-deploy"
+delta = "0.5.1 -> 0.5.2"
+
 [[audits.isrg.audits.num-iter]]
 who = "David Cook <dcook@divviup.org>"
 criteria = "safe-to-deploy"
@@ -3123,6 +3113,21 @@ delta = "0.4.0 -> 0.4.1"
 who = "Ameer Ghani <inahga@divviup.org>"
 criteria = "safe-to-deploy"
 delta = "0.4.1 -> 0.4.2"
+
+[[audits.isrg.audits.zlib-rs]]
+who = "Ameer Ghani <inahga@letsencrypt.org>"
+criteria = "safe-to-deploy"
+delta = "0.4.2 -> 0.5.0"
+
+[[audits.isrg.audits.zlib-rs]]
+who = "Ameer Ghani <inahga@letsencrypt.org>"
+criteria = "safe-to-deploy"
+delta = "0.5.0 -> 0.5.1"
+
+[[audits.isrg.audits.zlib-rs]]
+who = "Ameer Ghani <inahga@letsencrypt.org>"
+criteria = "safe-to-deploy"
+delta = "0.5.1 -> 0.5.2"
 
 [[audits.mozilla.wildcard-audits.uniffi]]
 who = "Jan-Erik Rediger <jrediger@mozilla.com>"

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -93,7 +91,7 @@ nsresult HTMLDetailsElement::BindToTree(BindContext& aContext,
 
 void HTMLDetailsElement::SetupShadowTree() {
   const bool kNotify = false;
-  AttachAndSetUAShadowRoot(NotifyUAWidgetSetup::No);
+  AttachAndSetUAShadowRoot(NotifyUAWidget::No);
   RefPtr<ShadowRoot> sr = GetShadowRoot();
   if (NS_WARN_IF(!sr)) {
     return;
@@ -122,7 +120,7 @@ void HTMLDetailsElement::SetupShadowTree() {
     }
 
     nsAutoString defaultSummaryText;
-    nsContentUtils::GetMaybeLocalizedString(nsContentUtils::eFORMS_PROPERTIES,
+    nsContentUtils::GetMaybeLocalizedString(PropertiesFile::FORMS_PROPERTIES,
                                             "DefaultSummary", OwnerDoc(),
                                             defaultSummaryText);
     RefPtr<nsTextNode> description = new (nim) nsTextNode(nim);

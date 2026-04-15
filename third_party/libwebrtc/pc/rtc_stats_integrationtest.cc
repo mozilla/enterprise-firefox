@@ -939,6 +939,8 @@ class RTCStatsReportVerifier {
         remote_inbound_stream.packets_reported_as_lost);
     verifier.TestAttributeIsUndefined<int64_t>(
         remote_inbound_stream.packets_reported_as_lost_but_recovered);
+    verifier.TestAttributeIsUndefined<int64_t>(
+        remote_inbound_stream.packets_with_bleached_ect1_marking);
 
     return verifier.ExpectAllAttributesSuccessfullyTested();
   }
@@ -1232,6 +1234,16 @@ TEST_F(RTCStatsIntegrationTest, GetStatsContainsNoDuplicateAttributes) {
   }
 }
 
+TEST_F(RTCStatsIntegrationTest, GetStatsAfterClose) {
+  StartCall();
+
+  caller_->pc()->Close();
+
+  scoped_refptr<const RTCStatsReport> report = GetStatsFromCaller();
+  ASSERT_EQ(report->size(), 1u);
+  EXPECT_EQ(report->begin()->type(), RTCPeerConnectionStats::kType);
+}
+
 TEST_F(RTCStatsIntegrationTest, ExperimentalPsnrStats) {
   StartCall("WebRTC-Video-CalculatePsnr/Enabled,sampling_interval:1000ms/");
 
@@ -1267,6 +1279,32 @@ TEST_F(RTCStatsIntegrationTest, ExperimentalTransportCcfbStats) {
       RTCStatsVerifier verifier(report.get(), &transport);
       verifier.TestAttributeIsNonNegative<int>(
           transport.ccfb_messages_received);
+    } else if (stats.type() == RTCInboundRtpStreamStats::kType) {
+      const RTCInboundRtpStreamStats& inbound(
+          stats.cast_to<RTCInboundRtpStreamStats>());
+      RTCStatsVerifier verifier(report.get(), &inbound);
+      verifier.TestAttributeIsNonNegative<int64_t>(
+          inbound.packets_received_with_ect1);
+      verifier.TestAttributeIsNonNegative<int64_t>(
+          inbound.packets_received_with_ce);
+      verifier.TestAttributeIsNonNegative<int64_t>(
+          inbound.packets_reported_as_lost);
+      verifier.TestAttributeIsNonNegative<int64_t>(
+          inbound.packets_reported_as_lost_but_recovered);
+    } else if (stats.type() == RTCRemoteInboundRtpStreamStats::kType) {
+      const RTCRemoteInboundRtpStreamStats& remote_inbound =
+          stats.cast_to<RTCRemoteInboundRtpStreamStats>();
+      RTCStatsVerifier verifier(report.get(), &remote_inbound);
+      verifier.TestAttributeIsNonNegative<int64_t>(
+          remote_inbound.packets_received_with_ect1);
+      verifier.TestAttributeIsNonNegative<int64_t>(
+          remote_inbound.packets_received_with_ce);
+      verifier.TestAttributeIsNonNegative<int64_t>(
+          remote_inbound.packets_reported_as_lost);
+      verifier.TestAttributeIsNonNegative<int64_t>(
+          remote_inbound.packets_reported_as_lost_but_recovered);
+      verifier.TestAttributeIsNonNegative<int64_t>(
+          remote_inbound.packets_with_bleached_ect1_marking);
     }
   }
 }

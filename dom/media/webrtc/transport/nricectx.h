@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -363,6 +361,8 @@ class NrIceCtx {
                          int potential_ct);
   static int stream_gathering(void* obj, nr_ice_media_stream* stream);
   static int stream_gathered(void* obj, nr_ice_media_stream* stream);
+  static int candidate_error(void* obj, nr_ice_media_stream* stream,
+                             nr_ice_candidate* candidate);
   static int stream_checking(void* obj, nr_ice_media_stream* stream);
   static int stream_ready(void* obj, nr_ice_media_stream* stream);
   static int stream_disconnected(void* obj, nr_ice_media_stream* stream);

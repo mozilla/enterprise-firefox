@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -2744,6 +2742,35 @@ static bool NeedsToReframeForConditionallyCreatedPseudoElement(
   return false;
 }
 
+// Diff lazily-cached highlight pseudo styles (::selection, ::highlight,
+// ::target-text) between the old and new primary styles. These pseudos are
+// resolved on demand and cached on the primary style, so CalcStyleDifference
+// during the Servo traversal doesn't cover them. The cache may contain
+// null entries (null mStyle) for pseudos that were probed but had no
+// matching rules, allowing us to detect when a pseudo newly appears.
+static nsChangeHint DiffCachedHighlightPseudos(Element& aElement,
+                                               ServoStyleSet& aStyleSet,
+                                               const ComputedStyle& aOldStyle,
+                                               ComputedStyle& aNewStyle) {
+  nsChangeHint hint = nsChangeHint(0);
+  aOldStyle.ForEachCachedLazyPseudoEntry(
+      [&](ComputedStyle* aStyle, nsAtom* aParam, PseudoStyleType aType) {
+        RefPtr<ComputedStyle> newPseudo = aStyleSet.ProbePseudoElementStyle(
+            aElement, aType, aParam, &aNewStyle);
+        if (!aStyle && !newPseudo) {
+          return;
+        }
+        if (!aStyle || !newPseudo) {
+          hint |=
+              nsChangeHint_RepaintFrame | nsChangeHint_UpdateSubtreeOverflow;
+          return;
+        }
+        uint32_t equalStructs = 0;
+        hint |= aStyle->CalcStyleDifference(*newPseudo, &equalStructs);
+      });
+  return hint;
+}
+
 bool RestyleManager::ProcessPostTraversal(Element* aElement,
                                           ServoRestyleState& aRestyleState,
                                           ServoPostTraversalFlags aFlags) {
@@ -2814,6 +2841,15 @@ bool RestyleManager::ProcessPostTraversal(Element* aElement,
         NeedsToReframeForConditionallyCreatedPseudoElement(
             aElement, upToDateStyleIfRestyled, styleFrame, aRestyleState)) {
       changeHint |= nsChangeHint_ReconstructFrame;
+    }
+
+    // Diff lazily-cached highlight pseudo styles (::selection, ::highlight,
+    // ::target-text). These are not covered by the Servo traversal's
+    // CalcStyleDifference, so we merge the hint here before appending.
+    if (wasRestyled && !(changeHint & nsChangeHint_ReconstructFrame)) {
+      changeHint |= DiffCachedHighlightPseudos(
+          *aElement, *mPresContext->StyleSet(), *styleFrame->Style(),
+          *upToDateStyleIfRestyled);
     }
   }
 

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -26,6 +24,7 @@
 #include "mozilla/CycleCollectedJSContext.h"
 #include "mozilla/LoadInfo.h"
 #include "mozilla/Maybe.h"
+#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StyleSheet.h"
 #include "mozilla/StyleSheetInlines.h"
 #include "mozilla/dom/AutoEntryScript.h"
@@ -97,7 +96,7 @@ bool ModuleLoader::CanStartLoad(ModuleLoadRequest* aRequest, nsresult* aRvOut) {
 
 nsresult ModuleLoader::StartFetch(ModuleLoadRequest* aRequest) {
   if (aRequest->IsCachedStencil()) {
-    GetScriptLoader()->EmulateNetworkEvents(aRequest);
+    GetScriptLoader()->EmulateNetworkEvents(aRequest, Nothing());
     SetModuleFetchStarted(aRequest);
     return aRequest->OnFetchComplete(NS_OK);
   }
@@ -130,7 +129,8 @@ nsresult ModuleLoader::StartFetch(ModuleLoadRequest* aRequest) {
 
   // https://html.spec.whatwg.org/multipage/webappapis.html#fetch-an-import()-module-script-graph
   // Step 1. Disallow further import maps given settings object.
-  if (!aRequest->GetScriptLoadContext()->IsPreload()) {
+  if (!aRequest->GetScriptLoadContext()->IsPreload() &&
+      !StaticPrefs::dom_multiple_import_maps_enabled()) {
     LOG(("ScriptLoadRequest (%p): Disallow further import maps.", aRequest));
     DisallowImportMaps();
   }
@@ -401,13 +401,15 @@ nsresult ModuleLoader::CompileCssModule(
     nsCOMPtr<nsPIDOMWindowInner> window =
         do_QueryInterface(aRequest->GetGlobalObject());
     if (!window) {
-      error.ThrowNotSupportedError("Not supported when there is no document");
+      error.ThrowNotSupportedError(
+          "CSS module scripts not supported when there is no window");
       return;
     }
 
     Document* constructorDocument = window->GetExtantDoc();
     if (!constructorDocument) {
-      error.ThrowNotSupportedError("Not supported when there is no document");
+      error.ThrowNotSupportedError(
+          "CSS module scripts not supported when there is no document");
       return;
     }
 
@@ -496,6 +498,9 @@ already_AddRefed<ModuleLoadRequest> ModuleLoader::CreateRequest(
     MOZ_ASSERT(root);
     LoadContextBase* loadContext = root->mLoadContext;
     context->mScriptMode = loadContext->AsWindowContext()->mScriptMode;
+    if (loadContext->AsWindowContext()->mIsPreload) {
+      context->mIsPreload = true;
+    }
     kind = ModuleLoadRequest::Kind::StaticImport;
   }
 

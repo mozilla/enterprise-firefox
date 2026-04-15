@@ -99,7 +99,6 @@ private fun Title() {
     Text(
         text = stringResource(R.string.onboarding_preferences_dialog_title),
         style = FirefoxTheme.typography.headline7,
-        maxLines = 1,
     )
 }
 

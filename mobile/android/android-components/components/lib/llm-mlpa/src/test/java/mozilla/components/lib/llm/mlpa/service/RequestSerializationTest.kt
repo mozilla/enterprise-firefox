@@ -1,0 +1,48 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+package mozilla.components.lib.llm.mlpa.service
+
+import kotlinx.serialization.json.Json
+import mozilla.components.concept.integrity.IntegrityToken
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class RequestSerializationTest {
+
+    val json = Json { ignoreUnknownKeys = true }
+
+    @Test
+    fun `authentication service request gets serialized to json correctly`() {
+        val request = AuthenticationService.Request(
+            userId = UserId("my-user-id"),
+            integrityToken = IntegrityToken(value = "my-integrity-token"),
+            packageName = PackageName("my.package.name"),
+        )
+
+        assertEquals(
+            "{" +
+                "\"user_id\":\"my-user-id\"," +
+                "\"integrity_token\":\"my-integrity-token\"," +
+                "\"package_name\":\"my.package.name\"" +
+                "}",
+            json.encodeToString(request),
+        )
+    }
+
+    @Test
+    fun `chat service completion request gets serialized to json correctly`() {
+        val request = ChatService.Request(
+            model = ChatService.Request.ModelID.mistral,
+            messages = listOf(
+                ChatService.Request.Message.user("hello"),
+            ),
+        )
+
+        assertEquals(
+            "{\"model\":\"vertex_ai/mistral-small-2503\",\"messages\":[{\"role\":\"user\",\"content\":\"hello\"}]}",
+            json.encodeToString(request),
+        )
+    }
+}

@@ -899,7 +899,23 @@
             customElements.setElementCreationCallback(
               tag,
               function customElementCreationCallback() {
-                ChromeUtils.importESModule(script, { global: "current" });
+                try {
+                  ChromeUtils.importESModule(script, { global: "current" });
+                } catch (e) {
+                  // If the module is imported also by the regular module
+                  // loader as part of <script> tags or the dynamic import
+                  // before this point, and if the import failed due to, e.g.
+                  // the channel get cancelled, the module record keeps the
+                  // import error for the script URI, and
+                  // ChromeUtils.importESModule fails to import the module.
+                  //
+                  // Given that the CustomElementRegistry expects the callback
+                  // not to throw, and also it to define a custom element,
+                  // report the error here and define an empty implementation,
+                  // assuming the page is getting discarded anyway.
+                  console.error("Failed to import custom element module", e);
+                  customElements.define(tag, class extends MozHTMLElement {});
+                }
               }
             );
           }

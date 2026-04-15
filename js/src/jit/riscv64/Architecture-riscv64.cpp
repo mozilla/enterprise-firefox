@@ -8,8 +8,10 @@
 
 #include "jit/FlushICache.h"  // js::jit::FlushICache
 #include "jit/RegisterSets.h"
-#include "jit/riscv64/MacroAssembler-riscv64.h"
-#include "jit/Simulator.h"
+#include "jit/riscv64/Assembler-riscv64.h"
+#if defined(JS_SIMULATOR)
+#  include "jit/riscv64/Simulator-riscv64.h"
+#endif
 
 namespace js {
 namespace jit {

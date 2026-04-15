@@ -512,6 +512,11 @@ void MacroAssembler::mulPtr(Register rhs, Register srcDest) {
   Mul(ARMRegister(srcDest, 64), ARMRegister(srcDest, 64), ARMRegister(rhs, 64));
 }
 
+void MacroAssembler::mul64(const Register64& rhs, const Register64& srcDest) {
+  Mul(ARMRegister(srcDest.reg, 64), ARMRegister(srcDest.reg, 64),
+      ARMRegister(rhs.reg, 64));
+}
+
 void MacroAssembler::mulPtr(ImmWord rhs, Register srcDest) {
   vixl::UseScratchRegisterScope temps(this);
   const ARMRegister scratch64 = temps.AcquireX();
@@ -1082,7 +1087,7 @@ void MacroAssembler::popcnt32(Register src_, Register dest_, Register tmp_) {
 
   MOZ_ASSERT(tmp_ != Register::Invalid());
 
-  // Equivalent to mozilla::CountPopulation32().
+  // Equivalent to std::popcount().
 
   ARMRegister tmp(tmp_, 32);
 
@@ -1116,7 +1121,7 @@ void MacroAssembler::popcnt64(Register64 src_, Register64 dest_,
 
   MOZ_ASSERT(tmp_ != Register::Invalid());
 
-  // Equivalent to mozilla::CountPopulation64(), though likely more efficient.
+  // Equivalent to std::popcount(), though likely more efficient.
 
   ARMRegister tmp(tmp_, 64);
 
@@ -2495,8 +2500,41 @@ void MacroAssembler::fallibleUnboxPtr(const BaseIndex& src, Register dest,
   fallibleUnboxPtr(ValueOperand(dest), dest, type, fail);
 }
 
+// ===============================================================
+// 128-bit arithmetic
+
+void MacroAssembler::wasmAddSubI128HI64(Register lhsLo, Register lhsHi,
+                                        Register rhsLo, Register rhsHi,
+                                        Register output, bool isAdd) {
+  // Require: the output is not the same as any of the inputs.
+  MOZ_RELEASE_ASSERT(output != lhsLo && output != lhsHi && output != rhsLo &&
+                     output != rhsHi);
+  // Set the carry flag (indicating carry or borrow, respectively) from the
+  // low-half operation, but ignore the actual result.  Then compute the high
+  // half result and roll the carry flag into it.
+  if (isAdd) {
+    Adds(vixl::xzr, ARMRegister(lhsLo, 64), ARMRegister(rhsLo, 64));
+    Adc(ARMRegister(output, 64), ARMRegister(lhsHi, 64),
+        ARMRegister(rhsHi, 64));
+  } else {
+    Subs(vixl::xzr, ARMRegister(lhsLo, 64), ARMRegister(rhsLo, 64));
+    Sbc(ARMRegister(output, 64), ARMRegister(lhsHi, 64),
+        ARMRegister(rhsHi, 64));
+  }
+}
+
+void MacroAssembler::wasmMulI64WideHI64(Register lhs, Register rhs,
+                                        Register output, bool isSigned) {
+  if (isSigned) {
+    Smulh(ARMRegister(output, 64), ARMRegister(lhs, 64), ARMRegister(rhs, 64));
+  } else {
+    Umulh(ARMRegister(output, 64), ARMRegister(lhs, 64), ARMRegister(rhs, 64));
+  }
+}
+
 //}}} check_macroassembler_style
 
+// ===============================================================
 // Wasm SIMD
 
 static inline ARMFPRegister SimdReg(FloatRegister r) {

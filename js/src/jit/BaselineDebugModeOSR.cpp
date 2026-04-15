@@ -519,9 +519,8 @@ bool jit::RecompileOnStackBaselineScriptsForDebugMode(
       return false;
     }
   } else {
-    using ZoneRange = DebugAPI::ExecutionObservableSet::ZoneRange;
-    for (ZoneRange r = obs.zones()->all(); !r.empty(); r.popFront()) {
-      if (!InvalidateScriptsInZone(cx, r.front(), entries)) {
+    for (auto iter = obs.zones()->iter(); !iter.done(); iter.next()) {
+      if (!InvalidateScriptsInZone(cx, iter.get(), entries)) {
         return false;
       }
     }

@@ -71,6 +71,7 @@ const RESPONSE_PAYLOAD = L10N.getStr("responsePayload");
 const RAW_RESPONSE_PAYLOAD = L10N.getStr("netmonitor.response.raw");
 const HTML_RESPONSE = L10N.getStr("netmonitor.response.html");
 const RESPONSE_EMPTY_TEXT = L10N.getStr("responseEmptyText");
+const RESPONSE_REDIRECT_EMPTY_TEXT = L10N.getStr("responseRedirectEmptyText");
 const RESPONSE_TRUNCATED = L10N.getStr("responseTruncated");
 
 const JSON_VIEW_MIME_TYPE = "application/vnd.mozilla.json.view";
@@ -421,7 +422,7 @@ class ResponsePanel extends Component {
 
   render() {
     const { connector, showMessagesView, request } = this.props;
-    const { blockedReason, responseContent, url } = request;
+    const { blockedReason, responseContent, url, isRedirect } = request;
     const { filterText, rawResponsePayloadDisplayed } = this.state;
 
     // Display CORS blocked Reason info box
@@ -440,7 +441,10 @@ class ResponsePanel extends Component {
       return div(
         { className: "panel-container" },
         CORSBlockedReasonDetails,
-        div({ className: "empty-notice" }, RESPONSE_EMPTY_TEXT)
+        div(
+          { className: "empty-notice" },
+          isRedirect ? RESPONSE_REDIRECT_EMPTY_TEXT : RESPONSE_EMPTY_TEXT
+        )
       );
     }
 

@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -3189,7 +3188,7 @@ IMENotificationRequests TSFTextStore::GetIMENotificationRequests() const {
   if (NS_WARN_IF(!mDocumentMgr)) {
     // If there is no active text store, we don't need any notifications
     // since there is no sink which needs notifications.
-    return IMENotificationRequests();
+    return {};
   }
 
   // Otherwise, requests all notifications since even if some of them may not
@@ -3207,11 +3206,10 @@ IMENotificationRequests TSFTextStore::GetIMENotificationRequests() const {
   // focused element isn't changed.  Therefore, if sEnabledTextStore isn't
   // nullptr, we need to keep notifying the sink even when it is not focused
   // text store for the thread manager.
-  return IMENotificationRequests(
-      IMENotificationRequests::NOTIFY_TEXT_CHANGE |
-      IMENotificationRequests::NOTIFY_POSITION_CHANGE |
-      IMENotificationRequests::NOTIFY_MOUSE_BUTTON_EVENT_ON_CHAR |
-      IMENotificationRequests::NOTIFY_DURING_DEACTIVE);
+  return {IMENotificationRequest::TextChange,
+          IMENotificationRequest::PositionChange,
+          IMENotificationRequest::MouseEventOnChar,
+          IMENotificationRequest::NotifyDuringInactive};
 }
 
 nsresult TSFTextStore::OnTextChangeInternal(

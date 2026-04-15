@@ -11,6 +11,7 @@ const {
 } = require("resource://devtools/shared/constants.js");
 const {
   PSEUDO_CLASSES,
+  ELEMENT_SPECIFIC_PSEUDO_CLASSES,
 } = require("resource://devtools/shared/css/constants.js");
 const OutputParser = require("resource://devtools/client/shared/output-parser.js");
 const { PrefObserver } = require("resource://devtools/client/shared/prefs.js");
@@ -184,6 +185,15 @@ class CssRuleView extends EventEmitter {
     this.searchClearButton = doc.getElementById("ruleview-searchinput-clear");
     this.pseudoClassPanel = doc.getElementById("pseudo-class-panel");
     this.pseudoClassToggle = doc.getElementById("pseudo-class-panel-toggle");
+    this.pseudoClassesStandardPanel = doc.getElementById(
+      "pseudo-classes-standard"
+    );
+    this.pseudoClassesElementSpecificPanel = doc.getElementById(
+      "pseudo-classes-element-specific"
+    );
+    this.pseudoClassesElementSpecificHeading = doc.getElementById(
+      "pseudo-classes-element-specific-heading"
+    );
     this.classPanel = doc.getElementById("ruleview-class-panel");
     this.classToggle = doc.getElementById("class-panel-toggle");
     this.colorSchemeLightSimulationButton = doc.getElementById(
@@ -287,7 +297,14 @@ class CssRuleView extends EventEmitter {
     this.#handleInplaceEditorFocusNextOnEnterPrefChange();
 
     // Used from tests
-    this.pseudoClassCheckboxes = this.#createPseudoClassCheckboxes();
+    this.pseudoClassCheckboxes = this.#createCheckboxes(
+      PSEUDO_CLASSES,
+      this.pseudoClassesStandardPanel
+    );
+    this.elementSpecificPseudoClassCheckboxes = this.#createCheckboxes(
+      Object.keys(ELEMENT_SPECIFIC_PSEUDO_CLASSES),
+      this.pseudoClassesElementSpecificPanel
+    );
     this.#showUserAgentStyles = Services.prefs.getBoolPref(PREF_UA_STYLES);
 
     // Add the tooltips and highlighters to the view
@@ -1041,6 +1058,10 @@ class CssRuleView extends EventEmitter {
     this.pseudoClassPanel = null;
     this.pseudoClassToggle = null;
     this.pseudoClassCheckboxes = null;
+    this.pseudoClassesStandardPanel = null;
+    this.pseudoClassesElementSpecificPanel = null;
+    this.pseudoClassesElementSpecificHeading = null;
+    this.elementSpecificPseudoClassCheckboxes = null;
     this.classPanel = null;
     this.classToggle = null;
 
@@ -1114,7 +1135,7 @@ class CssRuleView extends EventEmitter {
       return;
     }
 
-    const isProfilerActive = Services.profiler?.IsActive();
+    const isProfilerActive = Services.profiler.IsActive();
     const startTime = isProfilerActive ? ChromeUtils.now() : null;
 
     this.pageStyle = element.inspectorFront.pageStyle;
@@ -1208,39 +1229,69 @@ class CssRuleView extends EventEmitter {
    * attributes for each checkbox.
    */
   #clearPseudoClassPanel() {
-    this.pseudoClassCheckboxes.forEach(checkbox => {
+    for (const checkbox of this.pseudoClassCheckboxes) {
       checkbox.checked = false;
       checkbox.disabled = false;
-    });
+    }
+    for (const checkbox of this.elementSpecificPseudoClassCheckboxes) {
+      checkbox.checked = false;
+      checkbox.disabled = true;
+    }
   }
 
   /**
-   * For each item in PSEUDO_CLASSES, create a checkbox input element for toggling a
-   * pseudo-class on the selected element and append it to the pseudo-class panel.
+   * For each pseudo-class item, create a checkbox input element for toggling a
+   * pseudo-class on the selected element and append it to passed container.
    *
-   * Returns an array with the checkbox input elements for pseudo-classes.
+   * @param {Array} items
+   *        An array of pseudo-class items to create checkboxes for.
+   * @param {HTMLElement} container
+   *        The container element to which the checkboxes will be appended.
    *
-   * @return {Array}
+   * @returns {Array<HTMLInputElement>} An array with the checkbox input elements for pseudo-classes.
    */
-  #createPseudoClassCheckboxes() {
+  #createCheckboxes(items, container) {
     const doc = this.styleDocument;
     const fragment = doc.createDocumentFragment();
-
-    for (const pseudo of PSEUDO_CLASSES) {
+    const checkboxes = [];
+    for (const item of items) {
       const label = doc.createElement("label");
       const checkbox = doc.createElement("input");
-      checkbox.setAttribute("tabindex", "-1");
       checkbox.setAttribute("type", "checkbox");
-      checkbox.setAttribute("value", pseudo);
+      checkbox.setAttribute("value", item);
 
-      label.append(checkbox, pseudo);
+      label.append(checkbox, item);
       fragment.append(label);
+      checkboxes.push(checkbox);
     }
 
-    this.pseudoClassPanel.append(fragment);
-    return Array.from(
-      this.pseudoClassPanel.querySelectorAll("input[type=checkbox]")
-    );
+    container.append(fragment);
+    return checkboxes;
+  }
+
+  /**
+   * Get the element-specific pseudo-classes that apply to the currently selected element.
+   *
+   * @returns {Array} Array of pseudo-classes that apply to the current element
+   */
+  #getApplicableElementSpecificPseudoClasses() {
+    if (!this.elementStyle?.element) {
+      return [];
+    }
+
+    const element = this.elementStyle.element;
+    const tagName = element.tagName?.toLowerCase();
+    const applicablePseudoClasses = [];
+
+    for (const [pseudo, elementTypes] of Object.entries(
+      ELEMENT_SPECIFIC_PSEUDO_CLASSES
+    )) {
+      if (elementTypes.has(tagName)) {
+        applicablePseudoClasses.push(pseudo);
+      }
+    }
+
+    return applicablePseudoClasses;
   }
 
   /**
@@ -1251,17 +1302,46 @@ class CssRuleView extends EventEmitter {
       !this.elementStyle ||
       !this.inspector.canTogglePseudoClassForSelectedNode()
     ) {
-      this.pseudoClassCheckboxes.forEach(checkbox => {
+      for (const checkbox of [
+        ...this.pseudoClassCheckboxes,
+        ...this.elementSpecificPseudoClassCheckboxes,
+      ]) {
         checkbox.disabled = true;
-      });
+      }
+      this.#updateElementSpecificPseudoClassPanel();
       return;
     }
 
     const pseudoClassLocks = this.elementStyle.element.pseudoClassLocks;
-    this.pseudoClassCheckboxes.forEach(checkbox => {
+    for (const checkbox of this.pseudoClassCheckboxes) {
       checkbox.disabled = false;
       checkbox.checked = pseudoClassLocks.includes(checkbox.value);
-    });
+    }
+
+    const applicablePseudoClasses =
+      this.#getApplicableElementSpecificPseudoClasses();
+    for (const checkbox of this.elementSpecificPseudoClassCheckboxes) {
+      const isApplicable = applicablePseudoClasses.includes(checkbox.value);
+      checkbox.disabled = !isApplicable;
+      if (isApplicable) {
+        checkbox.checked = pseudoClassLocks.includes(checkbox.value);
+      }
+    }
+
+    this.#updateElementSpecificPseudoClassPanel();
+  }
+
+  /**
+   * Update the visibility of the element-specific pseudo-class panel.
+   * Show the panel if there are applicable pseudo-classes, otherwise hide it.
+   */
+  #updateElementSpecificPseudoClassPanel() {
+    const applicablePseudoClasses =
+      this.#getApplicableElementSpecificPseudoClasses();
+    const hasApplicablePseudoClasses = !!applicablePseudoClasses.length;
+
+    this.pseudoClassesElementSpecificHeading.hidden =
+      !hasApplicablePseudoClasses;
   }
 
   async #populate() {
@@ -2012,17 +2092,13 @@ class CssRuleView extends EventEmitter {
     this.hideClassPanel();
 
     this.pseudoClassToggle.setAttribute("aria-pressed", "true");
-    this.pseudoClassCheckboxes.forEach(checkbox => {
-      checkbox.setAttribute("tabindex", "0");
-    });
+    this.pseudoClassPanel.inert = false;
     this.pseudoClassPanel.hidden = false;
   }
 
   hidePseudoClassPanel() {
     this.pseudoClassToggle.setAttribute("aria-pressed", "false");
-    this.pseudoClassCheckboxes.forEach(checkbox => {
-      checkbox.setAttribute("tabindex", "-1");
-    });
+    this.pseudoClassPanel.inert = true;
     this.pseudoClassPanel.hidden = true;
   }
 

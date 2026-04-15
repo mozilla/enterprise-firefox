@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -898,8 +896,6 @@ nsDisplayListBuilder::nsDisplayListBuilder(nsIFrame* aReferenceFrame,
 }
 
 void nsDisplayListBuilder::BeginFrame() {
-  nsCSSRendering::BeginFrameTreesLocked();
-
   mIsPaintingToWindow = false;
   mUseHighQualityScaling = false;
   mIgnoreSuppression = false;
@@ -916,7 +912,6 @@ void nsDisplayListBuilder::EndFrame() {
   FreeClipChains();
   FreeTemporaryItems();
   mAsyncScrollsWithAnchor.Clear();
-  nsCSSRendering::EndFrameTreesLocked();
 }
 
 void nsDisplayListBuilder::MarkFrameForDisplay(nsIFrame* aFrame,
@@ -1196,6 +1191,8 @@ void nsDisplayListBuilder::IncrementPresShellPaintCount(PresShell* aPresShell) {
 
 void nsDisplayListBuilder::EnterPresShell(const nsIFrame* aReferenceFrame,
                                           bool aPointerEventsNoneDoc) {
+  nsCSSRendering::PresShellChanged();
+
   PresShellState* state = mPresShellStates.AppendElement();
   state->mPresShell = aReferenceFrame->PresShell();
   state->mFirstFrameMarkedForDisplay = mFramesMarkedForDisplay.Length();
@@ -1364,6 +1361,7 @@ void nsDisplayListBuilder::LeavePresShell(const nsIFrame* aReferenceFrame,
       CurrentPresShellState()->mPresShell == aReferenceFrame->PresShell(),
       "Presshell mismatch");
 
+  nsCSSRendering::PresShellChanged();
   if (mIsPaintingToWindow && aPaintedContents) {
     nsPresContext* pc = aReferenceFrame->PresContext();
     if (!pc->HadNonBlankPaint()) {
@@ -8836,6 +8834,11 @@ void nsDisplayDestination::Paint(nsDisplayListBuilder* aBuilder,
   aCtx->GetDrawTarget()->Destination(
       mDestinationName.get(),
       NSPointToPoint(GetPaintRect(aBuilder, aCtx).TopLeft(), appPerDev));
+}
+
+void nsDisplayAccessibleId::Paint(nsDisplayListBuilder* aBuilder,
+                                  gfxContext* aCtx) {
+  aCtx->GetDrawTarget()->AccessibleId(mBrowsingContextId, mAccId);
 }
 
 void nsDisplayListCollection::SerializeWithCorrectZOrder(

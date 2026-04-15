@@ -185,6 +185,8 @@
       "recalc_frecency INTEGER NOT NULL DEFAULT 0, "     \
       "alt_frecency INTEGER, "                           \
       "recalc_alt_frecency INTEGER NOT NULL DEFAULT 0, " \
+      "block_until_ms INTEGER, "                         \
+      "block_pages_until_ms INTEGER, "                   \
       "UNIQUE (prefix, host) "                           \
       ")")
 

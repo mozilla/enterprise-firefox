@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -56,14 +54,14 @@ bool UDPSocketParent::Init(nsIPrincipal* aPrincipal,
         printf_stderr(
             "Cannot create filter that content specified. "
             "filter name: %s, error code: %u.",
-            aFilter.BeginReading(), static_cast<uint32_t>(rv));
+            PromiseFlatCString(aFilter).get(), static_cast<uint32_t>(rv));
         return false;
       }
     } else {
       printf_stderr(
           "Content doesn't have a valid filter. "
           "filter name: %s.",
-          aFilter.BeginReading());
+          PromiseFlatCString(aFilter).get());
       return false;
     }
   }
@@ -137,7 +135,7 @@ nsresult UDPSocketParent::BindInternal(const nsCString& aHost,
   } else {
     PRNetAddr prAddr;
     PR_InitializeNetAddr(PR_IpAddrAny, aPort, &prAddr);
-    PRStatus status = PR_StringToNetAddr(aHost.BeginReading(), &prAddr);
+    PRStatus status = PR_StringToNetAddr(aHost.get(), &prAddr);
     if (status != PR_SUCCESS) {
       return NS_ERROR_FAILURE;
     }
@@ -191,7 +189,7 @@ nsresult UDPSocketParent::BindInternal(const nsCString& aHost,
     return rv;
   }
 
-  mSocket = sock;
+  mSocket = std::move(sock);
 
   return NS_OK;
 }
@@ -285,7 +283,7 @@ nsresult UDPSocketParent::ConnectInternal(const nsCString& aHost,
   PRNetAddr prAddr;
   memset(&prAddr, 0, sizeof(prAddr));
   PR_InitializeNetAddr(PR_IpAddrAny, aPort, &prAddr);
-  PRStatus status = PR_StringToNetAddr(aHost.BeginReading(), &prAddr);
+  PRStatus status = PR_StringToNetAddr(aHost.get(), &prAddr);
   if (status != PR_SUCCESS) {
     return NS_ERROR_FAILURE;
   }
@@ -305,6 +303,10 @@ mozilla::ipc::IPCResult UDPSocketParent::RecvOutgoingData(
     NS_WARNING("sending socket is closed");
     FireInternalError(__LINE__);
     return IPC_OK();
+  }
+
+  if (!mFilter && aData.type() == UDPData::TIPCStream) {
+    return IPC_FAIL(this, "IPCStream payload requires a filter");
   }
 
   nsresult rv;

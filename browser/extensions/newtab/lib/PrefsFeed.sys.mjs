@@ -49,6 +49,28 @@ const TOP_SITES_USER_VALUE_TEMP_PREF =
   "activationWindow.temp.topSitesUserValue";
 const TOP_STORIES_USER_VALUE_TEMP_PREF =
   "activationWindow.temp.topStoriesUserValue";
+const PREF_DEFAULTS = [
+  { type: "bool", key: "logowordmark.alwaysVisible", defaultValue: false },
+  { type: "bool", key: "feeds.section.topstories", defaultValue: false },
+  { type: "bool", key: "discoverystream.enabled", defaultValue: false },
+  {
+    type: "bool",
+    key: "discoverystream.hardcoded-basic-layout",
+    defaultValue: false,
+  },
+  { type: "string", key: "discoverystream.spocs-endpoint", defaultValue: "" },
+  {
+    type: "string",
+    key: "discoverystream.spocs-endpoint-query",
+    defaultValue: "",
+  },
+  {
+    type: "string",
+    key: "discoverystream.sections.personalization.inferred.debug.override",
+    defaultValue: "",
+  },
+  { type: "string", key: "newNewtabExperience.colors", defaultValue: "" },
+];
 
 ChromeUtils.defineLazyGetter(lazy, "logConsole", function () {
   return console.createInstance({
@@ -76,6 +98,7 @@ export class PrefsFeed {
     this.onOhttpImagesUpdated = this.onOhttpImagesUpdated.bind(this);
     this.onInferredPersonalizationExperimentUpdated =
       this.onInferredPersonalizationExperimentUpdated.bind(this);
+    this.onAdsBackendUpdated = this.onAdsBackendUpdated.bind(this);
 
     XPCOMUtils.defineLazyPreferenceGetter(
       this,
@@ -225,6 +248,58 @@ export class PrefsFeed {
       return accumulator;
     }, {});
 
+    // Bug 2021055: Write weather.display to the default branch so Nimbus sets
+    // the initial value without overriding an explicit user choice (user branch
+    // always takes precedence over the default branch).
+    if (valueObj.widgets?.weatherForecastEnabled && valueObj.weather?.display) {
+      Services.prefs
+        .getDefaultBranch(this._prefs._branchStr)
+        .setStringPref("weather.display", valueObj.weather.display);
+    }
+
+    // Write topSitesRows to the default branch to enable experiments with
+    // the default row count without overriding an explicit user choice.
+    if (valueObj.topSites?.topSitesRows) {
+      Services.prefs
+        .getDefaultBranch(this._prefs._branchStr)
+        .setIntPref("topSitesRows", valueObj.topSites.topSitesRows);
+    }
+
+    return valueObj;
+  }
+
+  /**
+   * Computes the adsBackend features by processing all enrollments.
+   * This only looks at the flags variable within the adsBackend feature
+   * and merges each flags object, preferring an experiment over a rollout.
+   *
+   */
+  _getAdsBackendFeatures() {
+    /**
+     * @backward-compat { version 149 }
+     *
+     * We can replace `adsBackend?` with `adsBackend` once 149 hits the
+     * release channel.
+     */
+    const allEnrollments =
+      lazy.NimbusFeatures.adsBackend?.getAllEnrollments() || [];
+
+    const valueObj = {};
+    allEnrollments.reduce((accumulator, currentValue) => {
+      if (currentValue?.value?.flags) {
+        for (const [key, value] of Object.entries(currentValue.value.flags)) {
+          if (
+            !accumulator[key] ||
+            (accumulator[key].meta.isRollout && !currentValue.meta.isRollout)
+          ) {
+            accumulator[key] = currentValue;
+            valueObj[key] = value;
+          }
+        }
+      }
+      return accumulator;
+    }, {});
+
     return valueObj;
   }
 
@@ -333,6 +408,23 @@ export class PrefsFeed {
     );
   }
 
+  /**
+   * Handler for when adsBackend experiment data updates.
+   */
+  onAdsBackendUpdated() {
+    const valueObj = this._getAdsBackendFeatures();
+
+    this.store.dispatch(
+      ac.BroadcastToContent({
+        type: at.PREF_CHANGED,
+        data: {
+          name: "adsBackendConfig",
+          value: valueObj,
+        },
+      })
+    );
+  }
+
   init() {
     this._prefs.observeBranch(this);
     lazy.NimbusFeatures.newtab.onUpdate(this.onExperimentUpdated);
@@ -348,6 +440,13 @@ export class PrefsFeed {
     );
     lazy.NimbusFeatures.newtabWidgets.onUpdate(this.onWidgetsUpdated);
     lazy.NimbusFeatures.newtabOhttpImages.onUpdate(this.onOhttpImagesUpdated);
+    /**
+     * @backward-compat { version 149 }
+     *
+     * We can replace `adsBackend?` with `adsBackend` once 149 hits the
+     * release channel.
+     */
+    lazy.NimbusFeatures.adsBackend?.onUpdate(this.onAdsBackendUpdated);
 
     // Get the initial value of each activity stream pref
     const values = {};
@@ -406,15 +505,14 @@ export class PrefsFeed {
     values.widgetsConfig =
       lazy.NimbusFeatures.newtabWidgets.getAllVariables() || {};
     values.trainhopConfig = this._getTrainhopConfig();
-    this._setBoolPref(values, "logowordmark.alwaysVisible", false);
-    this._setBoolPref(values, "feeds.section.topstories", false);
-    this._setBoolPref(values, "discoverystream.enabled", false);
-    this._setBoolPref(values, "discoverystream.hardcoded-basic-layout", false);
-    this._setStringPref(values, "discoverystream.spocs-endpoint", "");
-    this._setStringPref(values, "discoverystream.spocs-endpoint-query", "");
-    this._setStringPref(values, "newNewtabExperience.colors", "");
-    this._setBoolPref(values, "search.useHandoffComponent", false);
-    this._setBoolPref(values, "externalComponents.enabled", false);
+    values.adsBackendConfig = this._getAdsBackendFeatures();
+    for (const { type, key, defaultValue } of PREF_DEFAULTS) {
+      if (type === "bool") {
+        this._setBoolPref(values, key, defaultValue);
+      } else if (type === "string") {
+        this._setStringPref(values, key, defaultValue);
+      }
+    }
 
     // Set the initial state of all prefs in redux
     this.store.dispatch(
@@ -449,6 +547,13 @@ export class PrefsFeed {
     );
     lazy.NimbusFeatures.newtabWidgets.offUpdate(this.onWidgetsUpdated);
     lazy.NimbusFeatures.newtabOhttpImages.offUpdate(this.onOhttpImagesUpdated);
+    /**
+     * @backward-compat { version 149 }
+     *
+     * We can replace `adsBackend?` with `adsBackend` once 149 hits the
+     * release channel.
+     */
+    lazy.NimbusFeatures.adsBackend?.offUpdate(this.onAdsBackendUpdated);
 
     if (this.geo === "") {
       Services.obs.removeObserver(this, lazy.Region.REGION_TOPIC);

@@ -9,7 +9,7 @@
 //! Radial gradients are rendered via cached render tasks and composited with the image brush.
 
 use euclid::{vec2, size2};
-use api::{ColorF, ColorU, ExtendMode, GradientStop, PremultipliedColorF};
+use api::{ColorU, ExtendMode, GradientStop, PremultipliedColorF};
 use api::units::*;
 use crate::gpu_types::ImageBrushPrimitiveData;
 use crate::pattern::gradient::{radial_gradient_pattern};
@@ -103,6 +103,7 @@ pub struct RadialGradientTemplate {
     pub stretch_size: LayoutSize,
     pub tile_spacing: LayoutSize,
     pub brush_segments: Vec<BrushSegment>,
+    pub border_nine_patch: Option<Box<NinePatchDescriptor>>,
     pub stops_opacity: PrimitiveOpacity,
     pub stops: Vec<GradientStop>,
     pub src_color: Option<RenderTaskId>,
@@ -112,6 +113,7 @@ impl PatternBuilder for RadialGradientTemplate {
     fn build(
         &self,
         _sub_rect: Option<DeviceRect>,
+        offset: LayoutVector2D,
         ctx: &PatternBuilderContext,
         state: &mut PatternBuilderState,
     ) -> Pattern {
@@ -122,7 +124,7 @@ impl PatternBuilder for RadialGradientTemplate {
         // RadialGradientTemplate stores the center point relative to the primitive
         // origin, but the shader works with start/end points in "proper" layout
         // coordinates (relative to the primitive's spatial node).
-        let center = self.center.cast_unit() + self.common.prim_rect.min.to_vector();
+        let center = self.center.cast_unit() + ctx.prim_origin.to_vector() + offset;
 
         radial_gradient_pattern(
             center,
@@ -135,19 +137,6 @@ impl PatternBuilder for RadialGradientTemplate {
             ctx.fb_config.is_software,
             state.frame_gpu_data,
         )
-    }
-
-    fn get_base_color(
-        &self,
-        _ctx: &PatternBuilderContext,
-    ) -> ColorF {
-        ColorF::WHITE
-    }
-
-    fn use_shared_pattern(
-        &self,
-    ) -> bool {
-        true
     }
 }
 
@@ -170,7 +159,7 @@ impl From<RadialGradientKey> for RadialGradientTemplate {
         let mut brush_segments = Vec::new();
 
         if let Some(ref nine_patch) = item.nine_patch {
-            brush_segments = nine_patch.create_segments(common.prim_rect.size());
+            brush_segments = nine_patch.create_brush_segments(common.prim_size);
         }
 
         let (stops, min_alpha) = stops_and_min_alpha(&item.stops);
@@ -181,8 +170,8 @@ impl From<RadialGradientKey> for RadialGradientTemplate {
         let stops_opacity = PrimitiveOpacity::from_alpha(min_alpha);
 
         let mut stretch_size: LayoutSize = item.stretch_size.into();
-        stretch_size.width = stretch_size.width.min(common.prim_rect.width());
-        stretch_size.height = stretch_size.height.min(common.prim_rect.height());
+        stretch_size.width = stretch_size.width.min(common.prim_size.width);
+        stretch_size.height = stretch_size.height.min(common.prim_size.height);
 
         // Avoid rendering enormous gradients. Radial gradients are mostly made of soft transitions,
         // so it is unlikely that rendering at a higher resolution that 1024 would produce noticeable
@@ -209,6 +198,7 @@ impl From<RadialGradientKey> for RadialGradientTemplate {
             scale,
             tile_spacing: item.tile_spacing.into(),
             brush_segments,
+            border_nine_patch: item.nine_patch,
             stops_opacity,
             stops,
             src_color: None,
@@ -254,6 +244,7 @@ impl RadialGradientTemplate {
 
         let task_id = frame_state.resource_cache.request_render_task(
             Some(RenderTaskCacheKey {
+                origin: DeviceIntPoint::zero(),
                 size: task_size,
                 kind: RenderTaskCacheKeyKind::RadialGradient(cache_key),
             }),

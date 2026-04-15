@@ -10,6 +10,8 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
   ASRouter: "resource:///modules/asrouter/ASRouter.sys.mjs",
+  WindowsVersionInfo:
+    "resource://gre/modules/components-utils/WindowsVersionInfo.sys.mjs",
 });
 
 XPCOMUtils.defineLazyServiceGetter(
@@ -31,6 +33,20 @@ XPCOMUtils.defineLazyServiceGetter(
   "imgTools",
   "@mozilla.org/image/tools;1",
   Ci.imgITools
+);
+
+XPCOMUtils.defineLazyServiceGetter(
+  lazy,
+  "iniParserFactory",
+  "@mozilla.org/xpcom/ini-parser-factory;1",
+  Ci.nsIINIParserFactory
+);
+
+XPCOMUtils.defineLazyServiceGetter(
+  lazy,
+  "secondaryTileService",
+  "@mozilla.org/browser/secondary-tile-service;1",
+  Ci.nsISecondaryTileService
 );
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
@@ -304,7 +320,7 @@ let ShellServiceInternal = {
         );
       } catch (err) {
         telemetryResult = "ErrOther";
-        this._handleWDBAResult(err.result || Cr.NS_ERROR_FAILURE);
+        this._throwForWDBAResult(err.result || Cr.NS_ERROR_FAILURE);
       }
       telemetryResult = "Success";
     } catch (ex) {
@@ -323,30 +339,14 @@ let ShellServiceInternal = {
       throw new Error("Windows-only");
     }
 
-    let telemetryResult = "ErrOther";
-
+    const aumi = lazy.XreDirProvider.getInstallHash();
     try {
-      const aumi = lazy.XreDirProvider.getInstallHash();
-      try {
-        this.defaultAgent.setDefaultExtensionHandlersUserChoice(aumi, [
-          ".pdf",
-          "FirefoxPDF",
-        ]);
-      } catch (err) {
-        telemetryResult = "ErrOther";
-        this._handleWDBAResult(err.result || Cr.NS_ERROR_FAILURE);
-      }
-      telemetryResult = "Success";
-    } catch (ex) {
-      if (ex instanceof WDBAError) {
-        telemetryResult = ex.telemetryResult;
-      }
-
-      throw ex;
-    } finally {
-      Glean.browser.setDefaultPdfHandlerUserChoiceResult[telemetryResult].add(
-        1
-      );
+      this.defaultAgent.setDefaultExtensionHandlersUserChoice(aumi, [
+        ".pdf",
+        "FirefoxPDF",
+      ]);
+    } catch (err) {
+      this._throwForWDBAResult(err.result || Cr.NS_ERROR_FAILURE);
     }
   },
 
@@ -407,13 +407,65 @@ let ShellServiceInternal = {
     Glean.browser.setDefaultError[setAsDefaultError ? "true" : "false"].add();
   },
 
-  setAsDefaultPDFHandler(onlyIfKnownBrowser = false) {
+  _isWindows11() {
+    return (
+      lazy.WindowsVersionInfo.get({ throwOnError: false }).buildNumber >= 22000
+    );
+  },
+
+  async setAsDefaultPDFHandler(onlyIfKnownBrowser = false) {
+    if (AppConstants.platform != "win") {
+      throw new Error("Windows-only");
+    }
+
     if (onlyIfKnownBrowser && !this.getDefaultPDFHandler().knownBrowser) {
       return;
     }
 
-    if (AppConstants.platform == "win") {
-      this.setAsDefaultPDFHandlerUserChoice();
+    try {
+      await this.setAsDefaultPDFHandlerUserChoice();
+      Glean.browser.setDefaultPdfHandlerUserChoiceResult.Success.add(1);
+      return;
+    } catch (e) {
+      const telemetryResult =
+        e instanceof WDBAError ? e.telemetryResult : "ErrOther";
+      Glean.browser.setDefaultPdfHandlerUserChoiceResult[telemetryResult].add(
+        1
+      );
+      lazy.log.debug(
+        "Setting default by user-choice failed, falling through to open with launcher",
+        e
+      );
+    }
+
+    const winShell = this.shellService.QueryInterface(
+      Ci.nsIWindowsShellService
+    );
+
+    try {
+      winShell.launchOpenWithDefaultPickerForFileType(".pdf");
+      Glean.browser.setDefaultPdfHandlerOpenWithResult.Success.add(1);
+      return;
+    } catch (e) {
+      Glean.browser.setDefaultPdfHandlerOpenWithResult.Failure.add(1);
+      lazy.log.debug(
+        "Setting default by open with launcher failed, possibly falling through to modern settings",
+        e
+      );
+    }
+
+    // PDF default app settings are only available in Windows 11 (build 22000+).
+    if (this._isWindows11()) {
+      try {
+        winShell.launchModernSettingsDialogDefaultApps();
+        Glean.browser.setDefaultPdfHandlerModernSettingsResult.Success.add(1);
+      } catch (e) {
+        Glean.browser.setDefaultPdfHandlerModernSettingsResult.Failure.add(1);
+        lazy.log.debug(
+          "Last attempt to set as default PDF failed through modern settings",
+          e
+        );
+      }
     }
   },
 
@@ -586,7 +638,7 @@ let ShellServiceInternal = {
     }
   },
 
-  _handleWDBAResult(exitCode) {
+  _throwForWDBAResult(exitCode) {
     if (exitCode != Cr.NS_OK) {
       const telemetryResult =
         new Map([
@@ -598,6 +650,22 @@ let ShellServiceInternal = {
 
       throw new WDBAError(exitCode, telemetryResult);
     }
+
+    throw new Error(
+      `_throwForWDBAResult called with unexpected exit code: ${exitCode}`
+    );
+  },
+
+  get shortcutIconType() {
+    if (AppConstants.platform === "win") {
+      return { extension: "ico", mimeType: "image/vnd.microsoft.icon" };
+    }
+
+    if (AppConstants.platform === "linux") {
+      return { extension: "png", mimeType: "image/png" };
+    }
+
+    throw new Error("Shortcut icons are not supported on this platform");
   },
 
   /**
@@ -607,16 +675,10 @@ let ShellServiceInternal = {
    * @param {nsIFile} file - The file to write to.
    * @param {imgIContainer} imgContainer - The container holding the image.
    */
-  async createWindowsIcon(file, imgContainer) {
-    if (AppConstants.platform !== "win") {
-      throw new Error(
-        "createWindowsIcon is not supported on non-Windows platforms"
-      );
-    }
-
+  async writeShortcutIcon(file, imgContainer) {
     let stream = lazy.imgTools.encodeScaledImage(
       imgContainer,
-      "image/vnd.microsoft.icon",
+      ShellService.shortcutIconType.mimeType,
       256,
       256
     );
@@ -629,6 +691,144 @@ let ShellServiceInternal = {
     let newByteArray = new Uint8Array(streamSize);
     bis.readArrayBuffer(streamSize, newByteArray.buffer);
     await IOUtils.write(file.path, newByteArray);
+  },
+
+  /**
+   * Creates a new Linux desktop entry for the current user.
+   *
+   * A Linux desktop entry is an INI-like file that complies with the
+   * freedesktop.org Desktop Entry Specification [0]. It's similar to a Windows
+   * shortcut, and it can appear on the desktop or application menus on
+   * supported environments.
+   *
+   * [0]: https://specifications.freedesktop.org/desktop-entry/latest/
+   *
+   * @param {string} appId - The application ID that this desktop entry will be
+   * used for. This should match the app_id or WM_CLASS that will be associated
+   * with the window.
+   * @param {string} title - The default user-visible name of the desktop
+   * entry. (Localization is currently not supported.)
+   * @param {string[]} argv - Arguments that should be passed to the Firefox
+   * executable.
+   * @param {string} iconPath - Path to the icon that should be associated with
+   * the desktop entry.
+   */
+  async createLinuxDesktopEntry(appId, title, argv, iconPath) {
+    if (AppConstants.platform !== "linux") {
+      throw new Error(
+        "createLinuxDesktopEntry is only supported on Linux-like systems"
+      );
+    }
+
+    let ini = lazy.iniParserFactory.createINIParser();
+    ini.QueryInterface(Ci.nsIINIParserWriter);
+
+    // https://specifications.freedesktop.org/desktop-entry/latest/file-naming
+    let isValidSegment = segment =>
+      !!segment.match(/^[A-Za-z-_][A-Za-z0-9-_]*$/);
+    let segments = appId.split(".");
+    if (!segments || segments.map(isValidSegment).includes(false)) {
+      throw new Error(`Desktop entry ID '${appId}' is invalid`);
+    }
+
+    ini.setString("Desktop Entry", "Type", "Application");
+    ini.setString("Desktop Entry", "Version", "1.5");
+    ini.setString("Desktop Entry", "Name", title);
+    ini.setString("Desktop Entry", "Icon", iconPath);
+
+    // Require using the Firefox executable for now.
+    argv.unshift(Services.dirsvc.get("XREExeF", Ci.nsIFile).path);
+
+    // https://specifications.freedesktop.org/desktop-entry/latest/exec-variables
+    // (\x60 = backtick, \x24 = dollar sign, \x22 = double quote, and
+    // \x5c = backslash; escaped to avoid messing with syntax highlighting)
+    const escapeArg = arg => arg.replaceAll(/[\x60\x24\x22\x5c]/g, "\\$&");
+
+    ini.setString(
+      "Desktop Entry",
+      "Exec",
+      argv.map(arg => `"${escapeArg(arg)}"`).join(" ")
+    );
+
+    await IOUtils.writeUTF8(
+      ShellService._getLinuxDesktopEntryPath(appId),
+      ini.writeToString()
+    );
+  },
+
+  /**
+   * Removes the Linux desktop entry given its app ID.
+   *
+   * This only removes entries within XDG_DATA_HOME as it is now, i.e. system
+   * shortcuts will not be removed.
+   *
+   * @param {string} appId - The appId given to createLinuxDesktopEntry.
+   */
+  async deleteLinuxDesktopEntry(appId) {
+    if (AppConstants.platform !== "linux") {
+      throw new Error(
+        "deleteLinuxDesktopEntry is only supported on Linux-like systems"
+      );
+    }
+
+    await IOUtils.remove(ShellService._getLinuxDesktopEntryPath(appId));
+  },
+
+  /**
+   * Determines the location of a Linux desktop entry given its app ID.
+   *
+   * @param {string} appId - The basename of the desktop file's name.
+   * @returns {string} The path to the desktop entry.
+   */
+  _getLinuxDesktopEntryPath(appId) {
+    // TODO is there any way to reuse existing logic for this?
+    // Find the location of ~/.local/share/applications.
+    let dataHome = Services.env.get("XDG_DATA_HOME");
+    if (!dataHome || !PathUtils.isAbsolute(dataHome)) {
+      let home = Services.dirsvc.get("Home", Ci.nsIFile);
+      dataHome = PathUtils.join(home.path, ".local", "share");
+    }
+
+    return PathUtils.join(dataHome, "applications", `${appId}.desktop`);
+  },
+
+  async requestCreateAndPinSecondaryTile(tileId, name, iconPath, args) {
+    let resolver = Promise.withResolvers();
+
+    lazy.secondaryTileService.requestCreateAndPin(
+      tileId,
+      name,
+      iconPath,
+      args,
+      this._secondaryTileListener("Secondary tile pinning failed", resolver)
+    );
+
+    return resolver.promise;
+  },
+
+  async requestDeleteSecondaryTile(tileId) {
+    let resolver = Promise.withResolvers();
+
+    lazy.secondaryTileService.requestDelete(
+      tileId,
+      this._secondaryTileListener("Secondary tile unpinning failed", resolver)
+    );
+
+    return resolver.promise;
+  },
+
+  _secondaryTileListener(errorMessage, resolver) {
+    return {
+      QueryInterface: ChromeUtils.generateQI([Ci.nsISecondaryTileListener]),
+      succeeded(outcome) {
+        resolver.resolve(outcome);
+      },
+      failed(hresult) {
+        let formatted = hresult.toString(16).padStart(8, "0");
+        let error = new Error(`${errorMessage} (HRESULT ${formatted})`);
+        resolver.reject(error);
+      },
+    };
   },
 };
 

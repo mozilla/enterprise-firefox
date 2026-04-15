@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -994,11 +992,23 @@ nsGlobalWindowInner::nsGlobalWindowInner(nsGlobalWindowOuter* aOuterWindow,
 #ifdef DEBUG
   mSerial = nsContentUtils::InnerOrOuterWindowCreated();
 
-  MOZ_LOG(gDocShellAndDOMWindowLeakLogging, LogLevel::Info,
-          ("++DOMWINDOW == %d (%p) [pid = %d] [serial = %d] [outer = %p]\n",
-           nsContentUtils::GetCurrentInnerOrOuterWindowCount(),
-           static_cast<void*>(ToCanonicalSupports(this)), getpid(), mSerial,
-           static_cast<void*>(ToCanonicalSupports(aOuterWindow))));
+  if (MOZ_LOG_TEST(gDocShellAndDOMWindowLeakLogging, LogLevel::Info)) {
+    MOZ_LOG(gDocShellAndDOMWindowLeakLogging, LogLevel::Info,
+            ("++DOMWINDOW == %d (%p) [pid = %d] [serial = %d] [outer = %p]\n",
+             nsContentUtils::GetCurrentInnerOrOuterWindowCount(),
+             static_cast<void*>(ToCanonicalSupports(this)), getpid(), mSerial,
+             static_cast<void*>(ToCanonicalSupports(aOuterWindow))));
+
+    nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
+    if (obs) {
+      nsString data;
+      data.AppendPrintf(
+          "serial=%d address=0x%" PRIxPTR " type=inner outer=0x%" PRIxPTR,
+          mSerial, reinterpret_cast<uintptr_t>(ToCanonicalSupports(this)),
+          reinterpret_cast<uintptr_t>(ToCanonicalSupports(aOuterWindow)));
+      obs->NotifyObservers(nullptr, "debug-domwindow-created", data.get());
+    }
+  }
 #endif
 
   MOZ_LOG(gDOMLeakPRLogInner, LogLevel::Debug,
@@ -1083,6 +1093,23 @@ nsGlobalWindowInner::~nsGlobalWindowInner() {
          nsContentUtils::GetCurrentInnerOrOuterWindowCount(),
          static_cast<void*>(ToCanonicalSupports(this)), getpid(), mSerial,
          static_cast<void*>(ToCanonicalSupports(outer)), url.get()));
+
+    uint32_t serial = mSerial;
+    NS_DispatchToMainThread(
+        NS_NewRunnableFunction(
+            "TestDOMWindowDestroyed",
+            [serial, url = std::move(url)] {
+              nsCOMPtr<nsIObserverService> obs =
+                  mozilla::services::GetObserverService();
+              if (obs) {
+                nsString data;
+                data.AppendPrintf("serial=%d type=inner url=%s", serial,
+                                  url.get());
+                obs->NotifyObservers(nullptr, "debug-domwindow-destroyed",
+                                     data.get());
+              }
+            }),
+        NS_DISPATCH_FALLIBLE);
   }
 #endif
   MOZ_LOG(gDOMLeakPRLogInner, LogLevel::Debug,
@@ -1560,6 +1587,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsGlobalWindowInner)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDocumentPolicyContainer)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mBrowserChild)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDoc)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mWebIdentityHandler)
 
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mGamepads)
 
@@ -1705,9 +1733,8 @@ mozilla::dom::StorageManager* nsGlobalWindowInner::GetStorageManager() {
 bool nsGlobalWindowInner::IsEligibleForMessaging() { return IsFullyActive(); }
 
 void nsGlobalWindowInner::ReportToConsole(
-    uint32_t aErrorFlags, const nsCString& aCategory,
-    nsContentUtils::PropertiesFile aFile, const nsCString& aMessageName,
-    const nsTArray<nsString>& aParams,
+    uint32_t aErrorFlags, const nsCString& aCategory, PropertiesFile aFile,
+    const nsCString& aMessageName, const nsTArray<nsString>& aParams,
     const mozilla::SourceLocation& aLocation) {
   nsContentUtils::ReportToConsole(aErrorFlags, aCategory, mDoc, aFile,
                                   aMessageName.get(), aParams, aLocation);
@@ -2270,7 +2297,13 @@ MOZ_CAN_RUN_SCRIPT static bool IsDeferredLoadEmptyFrame(Element& aEmbedder) {
       MOZ_ASSERT_UNREACHABLE();
       return false;
     case EmptyFrameLibrary::ZE:
-      return property.mZE_Init.WasPassed();
+      if (!property.mZE_Init.WasPassed()) {
+        return false;
+      }
+      // No use counter at least for now.
+      aEmbedder.OwnerDoc()->WarnOnceAbout(
+          DeprecatedOperations::eOldZECompatHack);
+      return true;
     case EmptyFrameLibrary::CKEditor:
       const auto* version = [&]() -> const CkEditorVersion* {
         if (property.mCKEDITOR.WasPassed()) {
@@ -2614,7 +2647,7 @@ VisualViewport* nsGlobalWindowInner::VisualViewport() {
 
 nsScreen* nsGlobalWindowInner::Screen() {
   if (!mScreen) {
-    mScreen = new nsScreen(this);
+    mScreen = nsScreen::Create(this);
   }
   return mScreen;
 }
@@ -3118,8 +3151,7 @@ void nsGlobalWindowInner::AudioPlaybackChanged(bool aIsPlayingAudio) {
 }
 
 bool nsPIDOMWindowInner::IsCurrentInnerWindow() const {
-  if (mozilla::SessionHistoryInParent() && mBrowsingContext &&
-      mBrowsingContext->IsInBFCache()) {
+  if (mBrowsingContext && mBrowsingContext->IsInBFCache()) {
     return false;
   }
 
@@ -5273,9 +5305,8 @@ nsGlobalWindowInner::ShowSlowScriptDialog(JSContext* aCx,
   }
 
   bool failed = false;
-  auto getString = [&](const char* name,
-                       nsContentUtils::PropertiesFile propFile =
-                           nsContentUtils::eDOM_PROPERTIES) {
+  auto getString = [&](const char* name, PropertiesFile propFile =
+                                             PropertiesFile::DOM_PROPERTIES) {
     nsAutoString result;
     nsresult rv = nsContentUtils::GetLocalizedString(propFile, name, result);
 
@@ -5295,7 +5326,7 @@ nsGlobalWindowInner::ShowSlowScriptDialog(JSContext* aCx,
     checkboxMsg = getString("KillAddonScriptGlobalMessage");
 
     auto appName =
-        getString("brandShortName", nsContentUtils::eBRAND_PROPERTIES);
+        getString("brandShortName", PropertiesFile::BRAND_PROPERTIES);
 
     nsCOMPtr<nsIAddonPolicyService> aps =
         do_GetService("@mozilla.org/addons/policy-service;1");
@@ -5305,7 +5336,7 @@ nsGlobalWindowInner::ShowSlowScriptDialog(JSContext* aCx,
     }
 
     rv = nsContentUtils::FormatLocalizedString(
-        msg, nsContentUtils::eDOM_PROPERTIES, "KillAddonScriptMessage",
+        msg, PropertiesFile::DOM_PROPERTIES, "KillAddonScriptMessage",
         addonName, appName);
 
     failed = failed || NS_FAILED(rv);
@@ -5359,7 +5390,7 @@ nsGlobalWindowInner::ShowSlowScriptDialog(JSContext* aCx,
       filenameUTF16.ReplaceLiteral(cutStart, cutLength, u"\x2026");
     }
     rv = nsContentUtils::FormatLocalizedString(
-        scriptLocation, nsContentUtils::eDOM_PROPERTIES, "KillScriptLocation",
+        scriptLocation, PropertiesFile::DOM_PROPERTIES, "KillScriptLocation",
         filenameUTF16);
 
     if (NS_SUCCEEDED(rv)) {
@@ -6758,8 +6789,7 @@ void nsGlobalWindowInner::EventListenerAdded(nsAtom* aType) {
   }
 
   if (aType == nsGkAtoms::onbeforeunload && mWindowGlobalChild) {
-    if (!mozilla::SessionHistoryInParent() ||
-        !StaticPrefs::
+    if (!StaticPrefs::
             docshell_shistory_bfcache_ship_allow_beforeunload_listeners()) {
       if (++mUnloadOrBeforeUnloadListenerCount == 1) {
         mWindowGlobalChild->BlockBFCacheFor(
@@ -6796,8 +6826,7 @@ void nsGlobalWindowInner::EventListenerRemoved(nsAtom* aType) {
   }
 
   if (aType == nsGkAtoms::onbeforeunload && mWindowGlobalChild) {
-    if (!mozilla::SessionHistoryInParent() ||
-        !StaticPrefs::
+    if (!StaticPrefs::
             docshell_shistory_bfcache_ship_allow_beforeunload_listeners()) {
       if (--mUnloadOrBeforeUnloadListenerCount == 0) {
         mWindowGlobalChild->UnblockBFCacheFor(

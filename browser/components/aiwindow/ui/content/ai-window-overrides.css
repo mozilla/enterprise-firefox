@@ -10,8 +10,10 @@
   --box-shadow-color-lighter-layer-1: color-mix(in srgb, var(--color-violet-50) 15%, transparent);
   --box-shadow-color-lighter-layer-2: color-mix(in srgb, var(--color-violet-50) 25%, transparent);
   --smartwindow-shadow: var(--box-shadow-level-2);
-  /* TODO - Sidebar is overriding some base vars that common have, manually setting them here for now. */
-  --font-size-small: 0.867rem; /* 13px */
+}
+
+.ai-window {
+  background: transparent;
 }
 
 body {

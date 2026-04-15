@@ -11312,6 +11312,73 @@ function runCompositionOnlyWhiteSpace() {
   );
 }
 
+function runCompositionTestFollowedByPreformattedLinefeed() {
+  const desc = "runCompositionTestFollowedByPreformattedLinefeed";
+  const selection = windowOfContenteditable.getSelection();
+  contenteditable.innerHTML = "<p>A</p>";
+  contenteditable.focus();
+  {
+    contenteditable.innerHTML = "<div style=white-space:pre>abc\n</div>";
+    const preformattedDiv = contenteditable.querySelector("div[style]");
+    selection.collapse(preformattedDiv.firstChild, "abc".length);
+    synthesizeCompositionChange({
+      composition: {
+        string: "X",
+        clauses: [
+          { length: 1, attr: COMPOSITION_ATTR_RAW_CLAUSE },
+        ],
+      },
+      caret: { start: 1, length: 0 },
+    });
+    is(
+      preformattedDiv.innerHTML,
+      "abcX\n",
+      `${desc}: The following preformatted linefeed shouldn't be deleted at composition start`
+    );
+    synthesizeComposition({ type: "compositioncommitasis" });
+    is(
+      preformattedDiv.innerHTML,
+      "abcX\n",
+      `${desc}: The following preformatted linefeed shouldn't be deleted at committing composition`
+    );
+    is(
+      selection.focusOffset,
+      "abcX".length,
+      `${desc}: Selection should be collapsed before the invisible preformatted linefeed`
+    );
+  }
+  {
+    contenteditable.innerHTML = "<div style=white-space:pre>\n</div>";
+    const preformattedDiv = contenteditable.querySelector("div[style]");
+    selection.collapse(preformattedDiv.firstChild, 0);
+    synthesizeCompositionChange({
+      composition: {
+        string: "X",
+        clauses: [
+          { length: 1, attr: COMPOSITION_ATTR_RAW_CLAUSE },
+        ],
+      },
+      caret: { start: 1, length: 0 },
+    });
+    is(
+      preformattedDiv.innerHTML,
+      "X",
+      `${desc}: The padding preformatted linefeed for the empty block should be deleted at composition start`
+    );
+    synthesizeComposition({ type: "compositioncommitasis" });
+    is(
+      preformattedDiv.innerHTML,
+      "X",
+      `${desc}: The padding preformatted linefeed for the empty block should be deleted at committing composition`
+    );
+    is(
+      selection.focusOffset,
+      "X".length,
+      `${desc}: Selection should be collapsed at end of the composition`
+    );
+  }
+}
+
 async function runTest()
 {
   await SpecialPowers.pushPrefEnv({
@@ -11365,6 +11432,7 @@ async function runTest()
   runCommitCompositionWithSpaceKey();
   runCancelCompositionAfterCollapseWhileSpace();
   runCompositionOnlyWhiteSpace();
+  runCompositionTestFollowedByPreformattedLinefeed();
   runCompositionWithSelectionChange();
   runCompositionWithClick();
   runForceCommitTest();

@@ -48,6 +48,8 @@ support-files = [
   "html_post-raw-test-page.html",
   "html_header-test-page.html",
   "html_post-raw-with-headers-test-page.html",
+  "html_reporting_api-test-page.html",
+  "html_reporting_api-test-page.html^headers^",
   "html_simple-test-page.html",
   "html_single-get-page.html",
   "html_single_get_page_favicon.html",
@@ -80,6 +82,7 @@ support-files = [
   "sjs_long-polling-server.sjs",
   "sjs_search-test-server.sjs",
   "sjs_method-test-server.sjs",
+  "sjs_no-response-server.sjs",
   "sjs_set-cookie-same-site.sjs",
   "sjs_simple-test-server.sjs",
   "sjs_simple-unsorted-cookies-test-server.sjs",
@@ -243,6 +246,10 @@ fail-if = [
 ["browser_net_domain-not-found.js"]
 
 ["browser_net_duration-sort.js"]
+skip-if = [
+  "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && !opt", # Bug 2021427 Frequent delays on windows non-opt builds
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && !opt", # Bug 2021427 Frequent delays on windows non-opt builds
+]
 
 ["browser_net_duration.js"]
 
@@ -266,6 +273,7 @@ skip-if = [
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11'", # Bug 1479782
   "os == 'mac' && os_version == '14.70' && arch == 'x86_64'", # Bug 1479782
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64'", # Bug 1479782
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64'", # Bug 1479782
 ]
 
 ["browser_net_header-docs.js"]
@@ -338,6 +346,8 @@ fail-if = [
 
 ["browser_net_leak_on_tab_close.js"]
 
+["browser_net_non_ascii_headers.js"]
+
 ["browser_net_offline_mode.js"]
 
 ["browser_net_open_in_debugger.js"]
@@ -369,9 +379,12 @@ fail-if = [
 ["browser_net_persistent_logs.js"]
 skip-if = [
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && debug", # Bug 1661612
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && debug", # Bug 1661612
 ]
 
 ["browser_net_post-data-json-payloads.js"]
+
+["browser_net_post-data-no-response.js"]
 
 ["browser_net_post-data-raw-payloads-with-upload-stream-headers.js"]
 
@@ -388,6 +401,8 @@ skip-if = [
 ["browser_net_raw_response.js"]
 
 ["browser_net_reload-button.js"]
+
+["browser_net_reporting_api.js"]
 
 ["browser_net_req-resp-bodies.js"]
 
@@ -451,7 +466,9 @@ fail-if = [
 skip-if = [
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11'", # Bug 1667115
   "os == 'mac' && os_version == '14.70' && arch == 'x86_64'", # Bug 1667115
+  "os == 'mac' && os_version == '15.30' && arch == 'aarch64'", # Bug 1667115, Bug 2028047
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64'", # Bug 1667115
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64'", # Bug 1667115
 ]
 
 ["browser_net_simple-request-details.js"]

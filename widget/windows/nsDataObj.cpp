@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1375,14 +1374,12 @@ nsDataObj ::GetFileContentsInternetShortcut(FORMATETC& aFE, STGMEDIUM& aSTG) {
           "IDList=\r\nHotKey=0\r\nIconFile=%s\r\n"
           "IconIndex=0\r\n";
     } else {
-      int len =
-          WideCharToMultiByte(CP_UTF7, 0, char16ptr_t(path.BeginReading()),
-                              path.Length(), nullptr, 0, nullptr, nullptr);
+      int len = WideCharToMultiByte(CP_UTF7, 0, path.getW(), path.Length(),
+                                    nullptr, 0, nullptr, nullptr);
       NS_ENSURE_TRUE(len > 0, E_FAIL);
       asciiPath.SetLength(len);
-      WideCharToMultiByte(CP_UTF7, 0, char16ptr_t(path.BeginReading()),
-                          path.Length(), asciiPath.BeginWriting(), len, nullptr,
-                          nullptr);
+      WideCharToMultiByte(CP_UTF7, 0, path.getW(), path.Length(),
+                          asciiPath.BeginWriting(), len, nullptr, nullptr);
       shortcutFormatStr =
           "[InternetShortcut]\r\nURL=%s\r\n"
           "IDList=\r\nHotKey=0\r\nIconIndex=0\r\n"

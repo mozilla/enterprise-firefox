@@ -75,7 +75,7 @@ import org.mozilla.fenix.home.toolbar.TabCounterInteractions.TabCounterLongClick
 import org.mozilla.fenix.search.BrowserToolbarSearchMiddleware
 import org.mozilla.fenix.search.ext.searchEngineShortcuts
 import org.mozilla.fenix.settings.ShortcutType
-import org.mozilla.fenix.tabstray.Page
+import org.mozilla.fenix.tabstray.redux.state.Page
 import org.mozilla.fenix.utils.Settings
 import mozilla.components.lib.state.Action as MVIAction
 import mozilla.components.ui.icons.R as iconsR
@@ -227,7 +227,7 @@ class BrowserToolbarMiddleware(
         searchTerms: String? = null,
     ) {
         browsingMode?.let { browsingModeManager.mode = it }
-        store.dispatch(SearchQueryUpdated(BrowserToolbarQuery(searchTerms ?: "")))
+        store.dispatch(SearchQueryUpdated(BrowserToolbarQuery(searchTerms ?: ""), true))
         appStore.dispatch(SearchStarted())
     }
 
@@ -490,6 +490,7 @@ class BrowserToolbarMiddleware(
 
         HomeToolbarAction.Menu -> {
             val highlighted = appStore.state.supportedMenuNotifications
+                .filterNot { it is SupportedMenuNotifications.Summarize }
                 .any { it != SupportedMenuNotifications.OpenInApp }
             ActionButtonRes(
                 drawableResId = iconsR.drawable.mozac_ic_ellipsis_vertical_24,

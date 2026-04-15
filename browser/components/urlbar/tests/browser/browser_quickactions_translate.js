@@ -408,3 +408,46 @@ add_task(async function test_translate_switches_to_existing_tab() {
   BrowserTestUtils.removeTab(otherTab);
   BrowserTestUtils.removeTab(translateTab);
 });
+
+add_task(async function test_translate_reenabled() {
+  info("Disable the translate quick action and ensure it is hidden");
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.translations.quickAction.enabled", false]],
+  });
+
+  info("Search for the translate quick action keyword");
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    value: "tran",
+  });
+
+  Assert.ok(
+    !window.document.querySelector(
+      `.urlbarView-action-btn[data-action=translate]`
+    ),
+    "Translate action is not shown when disabled"
+  );
+
+  await UrlbarTestUtils.promisePopupClose(window, () => {
+    EventUtils.synthesizeKey("KEY_Escape");
+  });
+
+  await SpecialPowers.popPrefEnv();
+
+  info("Search for the translate quick action keyword");
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    value: "tran",
+  });
+
+  Assert.ok(
+    window.document.querySelector(
+      ".urlbarView-action-btn[data-action=translate]"
+    ),
+    "Translate action is now shown"
+  );
+
+  await UrlbarTestUtils.promisePopupClose(window, () => {
+    EventUtils.synthesizeKey("KEY_Escape");
+  });
+});

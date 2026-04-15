@@ -160,6 +160,9 @@ interface nsIXPCComponents_Utils : nsISupports
      *        - forceSecureContext: {Boolean} Determines whether content windows and
      *          workers are marked as "Secure Context"s. If principal is the system
      *          principal, the value is forced to true. Otherwise defaults to false.
+     *        - freezeBuiltins: {Boolean} Whether builtins and their prototypes
+     *          should be frozen. Defaults to true for system principals, defaults
+     *          to false for non-system principals.
      *        - freshCompartment: {Boolean} Whether the sandbox should be created
      *          using a new compartment. Defaults to false.
      *        - freshZone: {Boolean} if true creates a new GC region separate from

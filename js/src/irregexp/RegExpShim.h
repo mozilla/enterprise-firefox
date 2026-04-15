@@ -19,6 +19,7 @@
 #include "mozilla/Sprintf.h"
 
 #include <algorithm>
+#include <bit>
 #include <cctype>
 #include <optional>
 
@@ -252,7 +253,7 @@ template <typename... Args>
 namespace bits {
 
 inline uint64_t CountTrailingZeros(uint64_t value) {
-  return mozilla::CountTrailingZeroes64(value);
+  return std::countr_zero(value);
 }
 
 inline size_t RoundUpToPowerOfTwo32(size_t value) {
@@ -261,7 +262,7 @@ inline size_t RoundUpToPowerOfTwo32(size_t value) {
 
 template <typename T>
 constexpr bool IsPowerOfTwo(T value) {
-  return value > 0 && (value & (value - 1)) == 0;
+  return std::has_single_bit(value);
 }
 
 }  // namespace bits

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -159,10 +157,10 @@ BufferTextureData* BufferTextureData::CreateForYCbCr(
     gfx::ColorDepth aColorDepth, gfx::YUVColorSpace aYUVColorSpace,
     gfx::ColorRange aColorRange, gfx::ChromaSubsampling aSubsampling,
     TextureFlags aTextureFlags) {
-  uint32_t bufSize = ImageDataSerializer::ComputeYCbCrBufferSize(
+  Maybe<uint32_t> bufSize = ImageDataSerializer::ComputeYCbCrBufferSize(
       aDisplay, aYSize, aYStride, aCbCrSize, aCbCrStride, aColorDepth,
       aSubsampling);
-  if (bufSize == 0) {
+  if (bufSize.isNothing()) {
     return nullptr;
   }
 
@@ -179,8 +177,8 @@ BufferTextureData* BufferTextureData::CreateForYCbCr(
                       aYUVColorSpace, aColorRange, aSubsampling);
 
   return CreateInternal(
-      aAllocator ? aAllocator->GetTextureForwarder() : nullptr, descriptor,
-      gfx::BackendType::NONE, bufSize, aTextureFlags);
+      aAllocator ? aAllocator->GetTextureForwarder().get() : nullptr,
+      descriptor, gfx::BackendType::NONE, bufSize.value(), aTextureFlags);
 }
 
 void BufferTextureData::FillInfo(TextureData::Info& aInfo) const {
@@ -251,18 +249,22 @@ already_AddRefed<gfx::DrawTarget> BufferTextureData::BorrowDrawTarget() {
 
   const RGBDescriptor& rgb = mDescriptor.get_RGBDescriptor();
 
-  uint32_t stride = ImageDataSerializer::GetRGBStride(rgb);
+  auto stride = ImageDataSerializer::GetRGBStride(rgb);
+  if (stride.isNothing()) {
+    return nullptr;
+  }
+
   RefPtr<gfx::DrawTarget> dt;
   if (gfx::Factory::DoesBackendSupportDataDrawtarget(mMoz2DBackend)) {
     dt = gfx::Factory::CreateDrawTargetForData(mMoz2DBackend, GetBuffer(),
-                                               rgb.size(), stride, rgb.format(),
-                                               true, mIsClear);
+                                               rgb.size(), stride.value(),
+                                               rgb.format(), true, mIsClear);
   }
   if (!dt) {
     // Fall back to supported platform backend.  Note that mMoz2DBackend
     // does not match the draw target type.
-    dt = gfxPlatform::CreateDrawTargetForData(GetBuffer(), rgb.size(), stride,
-                                              rgb.format(), true, mIsClear);
+    dt = gfxPlatform::CreateDrawTargetForData(
+        GetBuffer(), rgb.size(), stride.value(), rgb.format(), true, mIsClear);
   }
 
   if (!dt) {
@@ -281,14 +283,14 @@ bool BufferTextureData::BorrowMappedData(MappedTextureData& aData) {
   gfx::IntSize size = GetSize();
 
   auto stride = ImageDataSerializer::ComputeRGBStride(GetFormat(), size.width);
-  if (stride == 0) {
+  if (stride.isNothing()) {
     return false;
   }
 
   aData.data = GetBuffer();
   aData.size = size;
   aData.format = GetFormat();
-  aData.stride = stride;
+  aData.stride = stride.value();
   mIsClear = false;
 
   return true;
@@ -337,9 +339,14 @@ bool BufferTextureData::UpdateFromSurface(gfx::SourceSurface* aSurface) {
   }
   const RGBDescriptor& rgb = mDescriptor.get_RGBDescriptor();
 
-  uint32_t stride = ImageDataSerializer::GetRGBStride(rgb);
+  auto stride = ImageDataSerializer::GetRGBStride(rgb);
+  if (stride.isNothing()) {
+    gfxCriticalError() << "Invalid stride!";
+    return false;
+  }
+
   RefPtr<gfx::DataSourceSurface> surface =
-      gfx::Factory::CreateWrappingDataSourceSurface(GetBuffer(), stride,
+      gfx::Factory::CreateWrappingDataSourceSurface(GetBuffer(), stride.value(),
                                                     rgb.size(), rgb.format());
 
   if (!surface) {
@@ -443,13 +450,14 @@ MemoryTextureData* MemoryTextureData::Create(gfx::IntSize aSize,
     return nullptr;
   }
 
-  uint32_t bufSize = ImageDataSerializer::ComputeRGBBufferSize(aSize, aFormat);
-  if (!bufSize) {
+  Maybe<uint32_t> bufSize =
+      ImageDataSerializer::ComputeRGBBufferSize(aSize, aFormat);
+  if (bufSize.isNothing()) {
     return nullptr;
   }
 
-  uint8_t* buf = new (fallible) uint8_t[bufSize];
-  if (!InitBuffer(buf, bufSize, aFormat, aAllocFlags, false)) {
+  uint8_t* buf = new (fallible) uint8_t[bufSize.value()];
+  if (!InitBuffer(buf, bufSize.value(), aFormat, aAllocFlags, false)) {
     return nullptr;
   }
 
@@ -461,7 +469,7 @@ MemoryTextureData* MemoryTextureData::Create(gfx::IntSize aSize,
   // that memory is freed when the owning MemoryTextureData goes away.
   bool autoDeallocate = !!(aFlags & TextureFlags::REMOTE_TEXTURE);
   bool isClear = (aAllocFlags & ALLOC_CLEAR_BUFFER) != 0;
-  return new MemoryTextureData(descriptor, aMoz2DBackend, buf, bufSize,
+  return new MemoryTextureData(descriptor, aMoz2DBackend, buf, bufSize.value(),
                                autoDeallocate, isClear);
 }
 
@@ -513,18 +521,19 @@ ShmemTextureData* ShmemTextureData::Create(gfx::IntSize aSize,
     return nullptr;
   }
 
-  uint32_t bufSize = ImageDataSerializer::ComputeRGBBufferSize(aSize, aFormat);
-  if (!bufSize) {
+  Maybe<uint32_t> bufSize =
+      ImageDataSerializer::ComputeRGBBufferSize(aSize, aFormat);
+  if (bufSize.isNothing()) {
     return nullptr;
   }
 
   mozilla::ipc::Shmem shm;
-  if (!aAllocator->AllocUnsafeShmem(bufSize, &shm)) {
+  if (!aAllocator->AllocUnsafeShmem(bufSize.value(), &shm)) {
     return nullptr;
   }
 
   uint8_t* buf = shm.get<uint8_t>();
-  if (!InitBuffer(buf, bufSize, aFormat, aAllocFlags, true)) {
+  if (!InitBuffer(buf, bufSize.value(), aFormat, aAllocFlags, true)) {
     return nullptr;
   }
 

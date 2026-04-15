@@ -4,13 +4,13 @@
 
 
 import argparse
+import functools
 import importlib
 import os
 import sys
 
 from mach.decorators import Command, SubCommand
 from mach.util import get_state_dir
-from mozbuild.util import memoize
 
 from tryselect import TRYSELECT_METRICS_PATH
 
@@ -50,7 +50,7 @@ def init(command_context):
     task_config.SKIP_ARTIFACT_BUILD_CHECK = mach_context.settings["try"]["noartifact"]
 
 
-@memoize
+@functools.cache
 def presets(command_context):
     from tryselect.preset import MergedHandler
 

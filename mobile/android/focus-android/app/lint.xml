@@ -7,6 +7,7 @@
          there will always be missing or extra translations. -->
     <issue id="MissingTranslation" severity="ignore" />
     <issue id="MissingQuantity" severity="ignore" />
+    <issue id="ImpliedQuantity" severity="ignore" />
     <issue id="PluralsCandidate" severity="ignore" />
     <issue id="StringFormatCount" severity="ignore" />
     <issue id="TypographyEllipsis" severity="ignore" />

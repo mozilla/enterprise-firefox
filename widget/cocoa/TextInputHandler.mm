@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 sw=2 et tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1007,7 +1005,7 @@ void TISInputSourceWrapper::ComputeInsertStringForCharCode(
                     ? static_cast<char16_t>(aResult[0] + ('A' - 1))
                     : static_cast<char16_t>(aResult[0] + ('a' - 1));
     }
-    // If Meta key is pressed, it may cause to switch the keyboard layout like
+    // If Meta key is pressed, it may cause switching the keyboard layout like
     // Arabic, Russian, Hebrew, Greek and Dvorak-QWERTY.
     else if (aKeyEvent.IsMeta() &&
              !(aKeyEvent.IsControl() || aKeyEvent.IsAlt())) {
@@ -2763,7 +2761,7 @@ bool TextInputHandler::HandleCommand(Command aCommand) {
   //       command to the keypress event and it should be handled as
   //       the key press in editor.
 
-  // If it's handling actual key event and hasn't cause any composition
+  // If it's handling actual key event and hasn't caused any composition
   // events nor other key events, we should expose actual modifier state.
   // Otherwise, we should adjust Control, Option and Command state since
   // editor may behave differently if some of them are active.
@@ -3192,7 +3190,7 @@ bool TextInputHandler::DoCommandBySelector(const char* aSelector) {
  ******************************************************************************/
 
 bool IMEInputHandler::sStaticMembersInitialized = false;
-bool IMEInputHandler::sCachedIsForRTLLangage = false;
+bool IMEInputHandler::sCachedIsForRTLLanguage = false;
 CFStringRef IMEInputHandler::sLatestIMEOpenedModeInputSourceID = nullptr;
 IMEInputHandler* IMEInputHandler::sFocusedIMEHandler = nullptr;
 
@@ -3303,11 +3301,11 @@ void IMEInputHandler::OnCurrentTextInputSourceChange(
   /**
    * When the direction is changed, all the children are notified.
    * No need to treat the initial case separately because it is covered
-   * by the general case (sCachedIsForRTLLangage is initially false)
+   * by the general case (sCachedIsForRTLLanguage is initially false)
    */
-  if (sCachedIsForRTLLangage != tis.IsForRTLLanguage()) {
+  if (sCachedIsForRTLLanguage != tis.IsForRTLLanguage()) {
     WidgetUtils::SendBidiKeyboardInfoToContent();
-    sCachedIsForRTLLangage = tis.IsForRTLLanguage();
+    sCachedIsForRTLLanguage = tis.IsForRTLLanguage();
   }
 }
 
@@ -3372,7 +3370,7 @@ TSMDocumentID IMEInputHandler::GetCurrentTSMDocumentID() {
 /******************************************************************************
  *
  *  IMEInputHandler implementation #1
- *    The methods are releated to the pending methods.  Some jobs should be
+ *    The methods are related to the pending methods.  Some jobs should be
  *    run after the stack is finished, e.g, some methods cannot run the jobs
  *    during processing the focus event.  And also some other jobs should be
  *    run at the next focus event is processed.
@@ -3442,7 +3440,7 @@ IMEInputHandler::GetIMENotificationRequests() {
   // XXX Shouldn't we move floating window which shows composition string
   //     when plugin has focus and its parent is scrolled or the window is
   //     moved?
-  return IMENotificationRequests(IMENotificationRequests::NOTIFY_TEXT_CHANGE);
+  return {IMENotificationRequest::TextChange};
 }
 
 NS_IMETHODIMP_(void)
@@ -3778,8 +3776,8 @@ bool IMEInputHandler::DispatchCompositionStartEvent() {
                             currentKeyEvent->mKeyEvent);
 
   nsEventStatus status;
-  // IME may have already reterieved the selection and cache it.  Therefore, we
-  // should retreive selection range before dispatching eCompositionStart.
+  // IME may have already retrieved the selection and cached it.  Therefore, we
+  // should retrieve selection range before dispatching eCompositionStart.
   mIMECompositionStartBeforeStart = mIMECompositionStartInContent =
       Some(SelectedRange().location);
   mSelectedRangeOverride = Some(SelectedRange());
@@ -3800,7 +3798,7 @@ bool IMEInputHandler::DispatchCompositionStartEvent() {
     return false;
   }
 
-  // FYI: Dispathcing eCompositionStart may cause committing the composition if
+  // FYI: Dispatching eCompositionStart may cause committing the composition if
   // the focused editor is in chrome UI.
   return mIsIMEComposing;
 }
@@ -4092,7 +4090,7 @@ void IMEInputHandler::InsertTextAsCommittingComposition(
       MOZ_LOG(
           gIMELog, LogLevel::Info,
           ("%p   IMEInputHandler::InsertTextAsCommittingComposition, "
-           "destroyed by commiting composition for setting replacement range",
+           "destroyed by committing composition for setting replacement range",
            this));
       return;
     }
@@ -4123,9 +4121,9 @@ void IMEInputHandler::InsertTextAsCommittingComposition(
       return;
     }
 
-    // Otherise, emulate an IME composition.  This is our traditional behavior,
+    // Otherwise, emulate an IME composition.  This is our traditional behavior,
     // but `beforeinput` events are not cancelable since they should be so for
-    // native IME limitation.  So, this is now seriously imcompatible with the
+    // native IME limitation.  So, this is now seriously incompatible with the
     // other browsers.
     if (!DispatchCompositionStartEvent()) {
       MOZ_LOG(gIMELog, LogLevel::Info,
@@ -4218,7 +4216,7 @@ void IMEInputHandler::SetMarkedText(NSAttributedString* aAttrString,
       MOZ_LOG(
           gIMELog, LogLevel::Info,
           ("%p   IMEInputHandler::SetMarkedText, "
-           "destroyed by commiting composition for setting replacement range",
+           "destroyed by committing composition for setting replacement range",
            this));
       return;
     }
@@ -4394,7 +4392,7 @@ NSRange IMEInputHandler::MarkedRange() {
     return NSMakeRange(NSNotFound, 0);
   }
 
-  // XXX If MarkedRange() is requred by IME, we could return actual range in
+  // XXX If MarkedRange() is required by IME, we could return actual range in
   // content.  If we do that, IME can interact with the latest content
   // information.  E.g., actual surrounding text which may have already been
   // modified by the web apps during the composition.  On the other hand,

@@ -21,7 +21,10 @@ function getTabDetails(portID, url = "about:newtab", extraArgs = {}) {
   };
   let browser = {
     getAttribute: () => (extraArgs.preloaded ? "preloaded" : ""),
-    ownerGlobal: {},
+    ownerGlobal: {
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    },
   };
   let browsingContext = {
     top: {
@@ -171,6 +174,8 @@ describe("ActivityStreamMessageChannel", () => {
           STATE_FULLSCREEN: 4,
           windowState: 3,
           isFullyOccluded: false,
+          addEventListener: () => {},
+          removeEventListener: () => {},
         };
         mm.loadedTabs.set(msg4.data.browser, msg4.data);
         mm.simulateMessagesForExistingTabs();

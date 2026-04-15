@@ -396,8 +396,8 @@ class JS_PUBLIC_API DominatorTree {
       if (!predecessorVectors[i].reserve(predecessors->count())) {
         return false;
       }
-      for (auto range = predecessors->all(); !range.empty(); range.popFront()) {
-        auto ptr = nodeToPostOrderIndex.lookup(range.front());
+      for (auto iter = predecessors->iter(); !iter.done(); iter.next()) {
+        auto ptr = nodeToPostOrderIndex.lookup(iter.get());
         MOZ_ASSERT(ptr);
         predecessorVectors[i].infallibleAppend(ptr->value());
       }

@@ -37,13 +37,6 @@ toolbar[overflowable][customizing] > .customization-target {
      * displayed while the container is still hidden. */
     display: flex;
   }
-
-  :root[lwtheme] & {
-    /* Ensure toolbar color displays on top of the frame/toolbox color to
-     * guarantee full opacity */
-    background-color: var(--lwt-accent-color);
-    background-image: linear-gradient(var(--toolbar-bgcolor), var(--toolbar-bgcolor));
-  }
 }
 
 #customization-content-container {
@@ -53,7 +46,7 @@ toolbar[overflowable][customizing] > .customization-target {
 }
 
 #customization-header {
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   font-size: 1.2em;
   margin: 20px 20px 15px;
 }
@@ -464,7 +457,7 @@ toolbarpaletteitem {
 
 #customization-panelHeader {
   font-size: 1.3em;
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   padding: 2px 12px;
   margin: 0;
 }

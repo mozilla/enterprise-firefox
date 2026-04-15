@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1632,7 +1631,7 @@ LocalAccessible* nsAccessibilityService::CreateAccessible(
 #  include "mozilla/Monitor.h"
 #  include "mozilla/Maybe.h"
 
-MOZ_RUNINIT static Maybe<Monitor> sAndroidMonitor;
+constinit static Maybe<Monitor> sAndroidMonitor;
 
 mozilla::Monitor& nsAccessibilityService::GetAndroidMonitor() {
   if (!sAndroidMonitor.isSome()) {
@@ -1718,11 +1717,11 @@ bool nsAccessibilityService::Init(uint64_t aCacheDomains) {
   if (XRE_IsParentProcess() &&
       StaticPrefs::accessibility_enable_all_cache_domains_AtStartup()) {
     gCacheDomains = CacheDomain::All;
+  } else {
+    // Set the active accessibility cache domains. We might want to modify the
+    // domains that we activate based on information about the instantiator.
+    gCacheDomains = ::GetCacheDomainsForKnownClients(aCacheDomains);
   }
-
-  // Set the active accessibility cache domains. We might want to modify the
-  // domains that we activate based on information about the instantiator.
-  gCacheDomains = ::GetCacheDomainsForKnownClients(aCacheDomains);
 
   static const char16_t kInitIndicator[] = {'1', 0};
   observerService->NotifyObservers(nullptr, "a11y-init-or-shutdown",

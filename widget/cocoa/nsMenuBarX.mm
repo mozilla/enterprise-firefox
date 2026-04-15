@@ -1,11 +1,9 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include <objc/objc-runtime.h>
 
-#include "nsChildView.h"
 #include "nsCocoaFeatures.h"
 #include "nsCocoaUtils.h"
 #include "nsCocoaWindow.h"
@@ -21,7 +19,6 @@
 #include "nsThreadUtils.h"
 
 #include "nsIContent.h"
-#include "nsIWidget.h"
 #include "mozilla/dom/Document.h"
 #include "nsIAppStartup.h"
 #include "nsIStringBundle.h"
@@ -29,6 +26,7 @@
 
 #include "mozilla/Components.h"
 #include "mozilla/dom/Element.h"
+#include "mozilla/glean/WidgetCocoaMetrics.h"
 
 using namespace mozilla;
 using mozilla::dom::Element;
@@ -162,13 +160,15 @@ void nsMenuBarX::ConstructFallbackNativeMenus() {
     return;
   }
 
-  nsCOMPtr<nsIStringBundle> stringBundle;
-
   nsCOMPtr<nsIStringBundleService> bundleSvc =
       do_GetService(NS_STRINGBUNDLE_CONTRACTID);
+  if (!bundleSvc) {
+    return;
+  }
+
+  nsCOMPtr<nsIStringBundle> stringBundle;
   bundleSvc->CreateBundle("chrome://global/locale/fallbackMenubar.properties",
                           getter_AddRefs(stringBundle));
-
   if (!stringBundle) {
     return;
   }
@@ -437,6 +437,8 @@ static bool RemoveProblematicMenuItems(NSMenu* aMenu) {
   NSMutableArray* itemsToRemove =
       [NSMutableArray arrayWithCapacity:problematicMenuItemCount];
 
+  bool didRemoveItems = false;
+
   for (NSInteger i = 0; i < aMenu.numberOfItems; i++) {
     NSMenuItem* item = [aMenu itemAtIndex:i];
 
@@ -446,12 +448,11 @@ static bool RemoveProblematicMenuItems(NSMenu* aMenu) {
       [itemsToRemove addObject:@(i)];
     }
 
-    if (item.hasSubmenu && RemoveProblematicMenuItems(item.submenu)) {
-      return true;
+    if (item.hasSubmenu) {
+      didRemoveItems |= RemoveProblematicMenuItems(item.submenu);
     }
   }
 
-  bool didRemoveItems = false;
   for (NSNumber* index in [itemsToRemove reverseObjectEnumerator]) {
     [aMenu removeItemAtIndex:index.integerValue];
     didRemoveItems = true;
@@ -556,6 +557,8 @@ void nsMenuBarX::ResetNativeApplicationMenu() {
 void nsMenuBarX::SetNeedsRebuild() { mNeedsRebuild = true; }
 
 void nsMenuBarX::ApplicationMenuOpened() {
+  glean::widget::mac_application_menu_opened.Add(1);
+
   if (mNeedsRebuild) {
     if (!mMenuArray.IsEmpty()) {
       ResetNativeApplicationMenu();
@@ -633,7 +636,17 @@ void nsMenuBarX::AquifyMenuBar() {
     // remove prefs item and its separator, but save off the pref content node
     // so we can invoke its command later.
     HideItem(domDoc, u"menu_PrefsSeparator"_ns);
-    mPrefItemContent = HideItem(domDoc, u"menu_preferences"_ns);
+
+    // Ventura changed the name of the "Preferences" menu item to "Settings"
+    // so store the correct one and hide the other.
+    if (nsCocoaFeatures::OnVenturaOrLater()) {
+      HideItem(domDoc, u"menu_preferences"_ns);
+      mPrefItemContent = HideItem(domDoc, u"menu_settings"_ns);
+    } else {
+      mPrefItemContent = HideItem(domDoc, u"menu_preferences"_ns);
+      HideItem(domDoc, u"menu_settings"_ns);
+    }
+
     if (!sPrefItemContent) {
       sPrefItemContent = mPrefItemContent;
     }
@@ -814,8 +827,11 @@ void nsMenuBarX::CreateApplicationMenu(nsMenuX* aMenu) {
 
     // Add the Preferences menu item
     itemBeingAdded = CreateNativeAppMenuItem(
-        aMenu, u"menu_preferences"_ns, @selector(menuItemHit:),
-        eCommand_ID_Prefs, nsMenuBarX::sNativeEventTarget);
+        aMenu,
+        nsCocoaFeatures::OnVenturaOrLater() ? u"menu_settings"_ns
+                                            : u"menu_preferences"_ns,
+        @selector(menuItemHit:), eCommand_ID_Prefs,
+        nsMenuBarX::sNativeEventTarget);
     if (itemBeingAdded) {
       [sApplicationMenu addItem:itemBeingAdded];
       [itemBeingAdded release];
@@ -1130,7 +1146,10 @@ void nsMenuBarX::CreateApplicationMenu(nsMenuX* aMenu) {
     if (menuBar && menuBar->mAboutItemContent) {
       mostSpecificContent = menuBar->mAboutItemContent;
     }
-    nsMenuUtilsX::DispatchCommandTo(mostSpecificContent, modifierFlags, button);
+    if (mostSpecificContent) {
+      nsMenuUtilsX::DispatchCommandTo(mostSpecificContent, modifierFlags,
+                                      button);
+    }
     return;
   }
   if (tag == eCommand_ID_Prefs) {
@@ -1138,7 +1157,10 @@ void nsMenuBarX::CreateApplicationMenu(nsMenuX* aMenu) {
     if (menuBar && menuBar->mPrefItemContent) {
       mostSpecificContent = menuBar->mPrefItemContent;
     }
-    nsMenuUtilsX::DispatchCommandTo(mostSpecificContent, modifierFlags, button);
+    if (mostSpecificContent) {
+      nsMenuUtilsX::DispatchCommandTo(mostSpecificContent, modifierFlags,
+                                      button);
+    }
     return;
   }
   if (tag == eCommand_ID_Account) {
@@ -1146,7 +1168,10 @@ void nsMenuBarX::CreateApplicationMenu(nsMenuX* aMenu) {
     if (menuBar && menuBar->mAccountItemContent) {
       mostSpecificContent = menuBar->mAccountItemContent;
     }
-    nsMenuUtilsX::DispatchCommandTo(mostSpecificContent, modifierFlags, button);
+    if (mostSpecificContent) {
+      nsMenuUtilsX::DispatchCommandTo(mostSpecificContent, modifierFlags,
+                                      button);
+    }
     return;
   }
   if (tag == eCommand_ID_HideApp) {

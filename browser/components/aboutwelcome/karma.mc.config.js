@@ -63,7 +63,7 @@ module.exports = function (config) {
     coverageIstanbulReporter: {
       reports: ["lcov", "text-summary"], // for some reason "lcov" reallys means "lcov" and "html"
       "report-config": {
-        // so the full m-c path gets printed; needed for https://coverage.moz.tools/ integration
+        // so the full m-c path gets printed; needed for Searchfox integration
         lcov: {
           projectRoot: "../../..",
         },
@@ -168,6 +168,7 @@ module.exports = function (config) {
               branches: 75,
             },
             "content-src/components/MultiStageProtonScreen.jsx": {
+              functions: 78,
               branches: 78,
             },
             // The install actions and dynamic label of the InstallButton are covered

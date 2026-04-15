@@ -8,6 +8,7 @@
 #define mozilla_BounceTrackingState_h
 
 #include "BounceTrackingRecord.h"
+#include "mozilla/RefPtr.h"
 #include "mozilla/WeakPtr.h"
 #include "mozilla/OriginAttributes.h"
 #include "nsIPrincipal.h"
@@ -62,7 +63,7 @@ class BounceTrackingState : public nsIWebProgressListener,
   static void ResetAllForOriginAttributesPattern(
       const OriginAttributesPattern& aPattern);
 
-  const Maybe<BounceTrackingRecord>& GetBounceTrackingRecord();
+  BounceTrackingRecord* GetBounceTrackingRecord();
 
   void ResetBounceTrackingRecord();
 
@@ -137,7 +138,7 @@ class BounceTrackingState : public nsIWebProgressListener,
 
   // Record to keep track of extended navigation data. Reset on extended
   // navigation end.
-  Maybe<BounceTrackingRecord> mBounceTrackingRecord;
+  RefPtr<BounceTrackingRecord> mBounceTrackingRecord;
 
   // Timer to wait to wait for a client redirect after a navigation ends.
   RefPtr<nsITimer> mClientBounceDetectionTimeout;

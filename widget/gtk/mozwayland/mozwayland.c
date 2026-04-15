@@ -1,6 +1,3 @@
-/* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:expandtab:shiftwidth=4:tabstop=4:
- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -23,6 +20,7 @@ const struct wl_interface wl_callback_interface;
 const struct wl_interface wl_compositor_interface;
 const struct wl_interface wl_data_device_interface;
 const struct wl_interface wl_data_device_manager_interface;
+const struct wl_interface wl_fixes_interface;
 const struct wl_interface wl_keyboard_interface;
 const struct wl_interface wl_output_interface;
 const struct wl_interface wl_pointer_interface;

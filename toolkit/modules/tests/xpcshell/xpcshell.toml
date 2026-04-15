@@ -43,6 +43,11 @@ skip-if = [
   "os == 'mac' && os_version == '15.30' && arch == 'aarch64'", # osx: Bug 1550141
 ]
 
+["test_DeferredTask_gc.js"]
+
+["test_DeferredTask_window.js"]
+support-files = ["test_DeferredTask_window/*"]
+
 ["test_E10SUtils_getRemoteTypeForURIObject.js"]
 
 ["test_EventEmitter.js"]

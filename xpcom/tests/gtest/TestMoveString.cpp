@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -23,12 +21,12 @@ static void SetAsOwned(nsACString& aStr, const char* aValue) {
   memcpy(data, aValue, len + 1);
   aStr.Adopt(data, len);
   EXPECT_EQ(aStr.GetDataFlags(), Df::OWNED | Df::TERMINATED);
-  EXPECT_STREQ(aStr.BeginReading(), aValue);
+  EXPECT_STREQ(PromiseFlatCString(aStr).get(), aValue);
 }
 
 static void ExpectTruncated(const nsACString& aStr) {
   EXPECT_EQ(aStr.Length(), uint32_t(0));
-  EXPECT_STREQ(aStr.BeginReading(), "");
+  EXPECT_STREQ(PromiseFlatCString(aStr).get(), "");
   EXPECT_EQ(aStr.GetDataFlags(), Df::TERMINATED);
 }
 

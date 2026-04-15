@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -135,3 +134,5 @@ GFXINFO_FEATURE(HARDWARE_VIDEO_ENCODING, "HARDWARE_VIDEO_ENCODING", "hardwarevid
 GFXINFO_FEATURE(WEBGPU_EXTERNAL_TEXTURE, "WEBGPU_EXTERNAL_TEXTURE", "webgpu.external-texture")
 /* Whether Mesa threading is allowed, starting in 146. */
 GFXINFO_FEATURE(MESA_THREADING, "MESA_THREADING", "mesa.threading")
+/* Whether WebGL is allowed, starting in 150. */
+GFXINFO_FEATURE(WEBGL, "WEBGL", "webgl")

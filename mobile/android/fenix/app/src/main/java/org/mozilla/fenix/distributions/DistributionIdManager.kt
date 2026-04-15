@@ -9,6 +9,7 @@ import android.os.Build
 import androidx.annotation.VisibleForTesting
 import mozilla.components.support.base.log.logger.Logger
 import mozilla.components.support.utils.ext.PackageManagerWrapper
+import org.mozilla.fenix.Config
 import org.mozilla.fenix.GleanMetrics.Metrics
 import org.mozilla.fenix.GleanMetrics.Partnerships
 import org.mozilla.fenix.components.metrics.MetricController
@@ -117,16 +118,42 @@ class DistributionIdManager(
      * @return true if the marketing consent screen can be skipped during onboarding
      */
     suspend fun shouldSkipMarketingConsentScreen(): Boolean {
+        val adjustStartupStrategy = getDistributionAdjustStartupStrategy()
+
+        return when (adjustStartupStrategy) {
+            DistributionAdjustStartupStrategy.NONE,
+            DistributionAdjustStartupStrategy.SHOW_CONSENT_SCREEN,
+                -> false
+
+            DistributionAdjustStartupStrategy.IMMEDIATE_WITH_COPPA,
+            DistributionAdjustStartupStrategy.IMMEDIATE_WITH_PLAY_STORE_KIDS,
+                -> true
+        }
+    }
+
+    /**
+     * Get the Adjust startup strategy for the current distribution.
+     *
+     * @return the Adjust startup strategy.
+     */
+    suspend fun getDistributionAdjustStartupStrategy(): DistributionAdjustStartupStrategy {
         val id = Distribution.fromId(getDistributionId())
 
         return when (id) {
-            Distribution.DEFAULT -> false
-            Distribution.VIVO_001 -> true
-            Distribution.DT_001 -> true
-            Distribution.DT_002 -> true
-            Distribution.DT_003 -> true
-            Distribution.AURA_001 -> false
-            Distribution.XIAOMI_001 -> true
+            Distribution.DEFAULT -> DistributionAdjustStartupStrategy.NONE
+
+            Distribution.VIVO_001,
+            Distribution.DT_001,
+            Distribution.DT_002,
+            Distribution.DT_003,
+            Distribution.XIAOMI_001,
+                -> DistributionAdjustStartupStrategy.IMMEDIATE_WITH_COPPA
+
+            Distribution.AURA_001 -> if (Config.channel.isNightlyOrDebug) {
+                DistributionAdjustStartupStrategy.IMMEDIATE_WITH_PLAY_STORE_KIDS
+            } else {
+                DistributionAdjustStartupStrategy.SHOW_CONSENT_SCREEN
+            }
         }
     }
 
@@ -197,6 +224,25 @@ class DistributionIdManager(
         browserStoreProvider.updateDistributionId(distribution.id)
         distributionSettings.saveDistributionId(distribution.id)
     }
+}
+
+/**
+ * This enum represents how / when adjust starts up for distributions.
+ */
+enum class DistributionAdjustStartupStrategy {
+    NONE,
+
+    // Show the adjust data collection consent screen during onboarding and start
+    // adjust after the user has consented.
+    SHOW_CONSENT_SCREEN,
+
+    // Start adjust immediately but enabled COPPA mode in adjust. COPPA mode will prevent
+    // adjust from collecting personal identifiers and sharing data with third parties.
+    IMMEDIATE_WITH_COPPA,
+
+    // Start adjust immediately but enable Play Store Kids mode in adjust. This mode will prevent
+    // adjust from collecting personal identifiers.
+    IMMEDIATE_WITH_PLAY_STORE_KIDS,
 }
 
 /**

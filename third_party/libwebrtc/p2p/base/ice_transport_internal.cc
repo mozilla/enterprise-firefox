@@ -21,7 +21,6 @@
 #include "api/rtc_error.h"
 #include "api/units/time_delta.h"
 #include "p2p/base/p2p_constants.h"
-#include "p2p/base/transport_description.h"
 #include "rtc_base/checks.h"
 #include "rtc_base/net_helper.h"
 
@@ -235,22 +234,9 @@ RTCError IceConfig::IsValid() const {
   return RTCError::OK();
 }
 
-IceTransportInternal::IceTransportInternal()
-    : role_conflict_trampoline_(this),
-      ice_transport_state_changed_trampoline_(this),
-      destroyed_trampoline_(this) {}
+IceTransportInternal::IceTransportInternal() = default;
 
 IceTransportInternal::~IceTransportInternal() = default;
-
-void IceTransportInternal::SetIceCredentials(absl::string_view ice_ufrag,
-                                             absl::string_view ice_pwd) {
-  SetIceParameters(IceParameters(ice_ufrag, ice_pwd, false));
-}
-
-void IceTransportInternal::SetRemoteIceCredentials(absl::string_view ice_ufrag,
-                                                   absl::string_view ice_pwd) {
-  SetRemoteIceParameters(IceParameters(ice_ufrag, ice_pwd, false));
-}
 
 void IceTransportInternal::AddGatheringStateCallback(
     const void* removal_tag,
@@ -270,25 +256,12 @@ void IceTransportInternal::SubscribeCandidateGathered(
 
 void IceTransportInternal::SubscribeRoleConflict(
     absl::AnyInvocable<void(IceTransportInternal*)> callback) {
-  role_conflict_trampoline_.Subscribe(std::move(callback));
+  role_conflict_callbacks_.AddReceiver(std::move(callback));
 }
 
 void IceTransportInternal::SubscribeIceTransportStateChanged(
     absl::AnyInvocable<void(IceTransportInternal*)> callback) {
-  ice_transport_state_changed_trampoline_.Subscribe(std::move(callback));
-}
-
-void IceTransportInternal::SubscribeDestroyed(
-    absl::AnyInvocable<void(IceTransportInternal*)> callback) {
-  destroyed_trampoline_.Subscribe(std::move(callback));
-}
-void IceTransportInternal::SubscribeDestroyed(
-    void* tag,
-    absl::AnyInvocable<void(IceTransportInternal*)> callback) {
-  destroyed_trampoline_.Subscribe(tag, std::move(callback));
-}
-void IceTransportInternal::UnsubscribeDestroyed(void* tag) {
-  destroyed_trampoline_.Unsubscribe(tag);
+  ice_transport_state_changed_callbacks_.AddReceiver(std::move(callback));
 }
 
 }  // namespace webrtc

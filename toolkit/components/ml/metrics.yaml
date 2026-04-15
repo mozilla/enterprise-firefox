@@ -107,7 +107,7 @@ firefox.ai.runtime:
     notification_emails:
       - tziade@mozilla.com
     expires: never
-    labels:
+    labels: &engine_labels
       - autofill-ml
       - pdfjs
       - ml-suggest-intent
@@ -119,6 +119,10 @@ firefox.ai.runtime:
       - smart-tab-embedding-engine
       - smart-tab-topic-engine
       - smart-intent
+      - smart-openai
+      - title-generation-engine
+      - smart-openai-memories-generation
+      - smart-openai-memories-usage
 
   engine_creation_failure:
     type: event
@@ -248,18 +252,7 @@ firefox.ai.runtime:
     notification_emails:
       - tziade@mozilla.com
     expires: never
-    labels:
-      - autofill-ml
-      - pdfjs
-      - ml-suggest-intent
-      - ml-suggest-ner
-      - about-inference
-      - webextension
-      - wllamapreview
-      - default-engine
-      - smart-tab-embedding-engine
-      - smart-tab-topic-engine
-      - smart-intent
+    labels: *engine_labels
 
   model_download:
     type: event

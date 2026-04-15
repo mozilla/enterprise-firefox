@@ -10,8 +10,8 @@
 
 body {
   --tabpanel-background-color: transparent;
-  background-color: white;
-  background-image: var(--ai-gradient);
+  background-color: white !important;
+  background-image: var(--ai-gradient) !important;
 }
 
 /* LightWeightThemeConsumer forces these backgrounds to be opaque, but we want
@@ -37,8 +37,12 @@ body {
 }
 
 /* Urlbar */
-#urlbar:not([open]) > .urlbar-background {
-  border-radius: var(--border-radius-circle);
+#urlbar:not([open]) {
+  > .urlbar-background,
+  #identity-icon-box,
+  #urlbar-searchmode-switcher {
+    border-radius: var(--border-radius-circle);
+  }
 }
 
 /* Tab preview thumbnail */

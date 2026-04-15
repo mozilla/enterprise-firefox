@@ -40,7 +40,7 @@ use crate::values::generics::length::AnchorResolutionResult;
 use crate::values::generics::position::GenericAnchorSide;
 use crate::values::generics::{calc, ClampToNonNegative, NonNegative};
 use crate::values::resolved::{Context as ResolvedContext, ToResolvedValue};
-use crate::values::specified::length::{FontBaseSize, LineHeightBase};
+use crate::values::specified::length::{EqualsPercentage, FontBaseSize, LineHeightBase};
 use crate::values::{specified, CSSFloat};
 use crate::{Zero, ZeroNoPercent};
 use app_units::Au;
@@ -50,6 +50,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{self, Write};
 use style_traits::values::specified::AllowedNumericType;
 use style_traits::{CssWriter, ToCss, ToTyped, TypedValue};
+use thin_vec::ThinVec;
 
 #[doc(hidden)]
 #[derive(Clone, Copy)]
@@ -208,6 +209,15 @@ impl ToResolvedValue for LengthPercentage {
     }
 }
 
+impl EqualsPercentage for LengthPercentage {
+    fn equals_percentage(&self, v: CSSFloat) -> bool {
+        match self.unpack() {
+            Unpacked::Percentage(p) => p.0 == v,
+            _ => false,
+        }
+    }
+}
+
 /// An unpacked `<length-percentage>` that borrows the `calc()` variant.
 #[derive(Clone, Debug, PartialEq, ToCss, ToTyped)]
 #[typed_value(derive_fields)]
@@ -247,6 +257,12 @@ impl LengthPercentage {
     #[inline]
     pub fn zero_percent() -> Self {
         Self::new_percent(Percentage::zero())
+    }
+
+    /// 100%
+    #[inline]
+    pub fn hundred_percent() -> Self {
+        Self::new_percent(Percentage::hundred())
     }
 
     fn to_calc_node(&self) -> CalcNode {
@@ -648,8 +664,8 @@ impl ToCss for LengthPercentage {
 }
 
 impl ToTyped for LengthPercentage {
-    fn to_typed(&self) -> Option<TypedValue> {
-        self.unpack().to_typed()
+    fn to_typed(&self, dest: &mut ThinVec<TypedValue>) -> Result<(), ()> {
+        self.unpack().to_typed(dest)
     }
 }
 

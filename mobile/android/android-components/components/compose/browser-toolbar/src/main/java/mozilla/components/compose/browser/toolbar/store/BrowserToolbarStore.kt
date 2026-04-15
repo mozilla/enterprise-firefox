@@ -106,6 +106,16 @@ private fun reduce(state: BrowserToolbarState, action: BrowserToolbarAction): Br
             ),
         )
 
+        is BrowserDisplayToolbarAction.ToolbarCFRShown -> state.copy(
+            displayState = state.displayState.copy(
+                cfr = action.cfr,
+            ),
+        )
+
+        is BrowserDisplayToolbarAction.ToolbarCFRDismissed -> state.copy(
+            displayState = state.displayState.copy(cfr = null),
+        )
+
         is BrowserEditToolbarAction.SearchQueryUpdated -> state.copy(
             editState = state.editState.copy(
                 query = action.query,

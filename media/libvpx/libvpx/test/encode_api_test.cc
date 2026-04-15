@@ -8,6 +8,7 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
+#include <array>
 #include <cassert>
 #include <climits>
 #include <cstdint>
@@ -21,6 +22,7 @@
 #include "test/acm_random.h"
 #include "test/video_source.h"
 #include "test/y4m_video_source.h"
+#include "test/yuv_video_source.h"
 
 #include "./vpx_config.h"
 #include "vpx/vp8cx.h"
@@ -708,6 +710,53 @@ TEST(EncodeAPI, OssFuzz69906) {
   for (int cpu_used = -16; cpu_used <= -5; ++cpu_used) {
     EncodeOssFuzz69906(cpu_used, VPX_DL_REALTIME);
   }
+}
+
+TEST(EncodeAPI, OssFuzz471723682) {
+  // Initialize libvpx encoder.
+  vpx_codec_iface_t *const iface = vpx_codec_vp8_cx();
+  vpx_codec_ctx_t enc;
+  vpx_codec_enc_cfg_t cfg;
+
+  ASSERT_EQ(vpx_codec_enc_config_default(iface, &cfg, 0), VPX_CODEC_OK);
+
+  cfg.g_w = 253;
+  cfg.g_h = 252;
+  cfg.rc_target_bitrate = 2611345883;
+  cfg.kf_max_dist = 16515082;
+  cfg.g_timebase.num = 89;
+  cfg.g_timebase.den = 655613;
+  cfg.g_pass = VPX_RC_ONE_PASS;
+  cfg.rc_dropframe_thresh = 0;
+
+  ASSERT_EQ(vpx_codec_enc_init(&enc, iface, &cfg, 0), VPX_CODEC_OK);
+
+  ASSERT_EQ(vpx_codec_control(&enc, VP8E_SET_CPUUSED, 1), VPX_CODEC_OK);
+  ASSERT_EQ(vpx_codec_control(&enc, VP8E_SET_ARNR_MAXFRAMES, 0), VPX_CODEC_OK);
+  ASSERT_EQ(vpx_codec_control(&enc, VP8E_SET_ARNR_STRENGTH, 3), VPX_CODEC_OK);
+  ASSERT_EQ(vpx_codec_control_(&enc, VP8E_SET_ARNR_TYPE, 3),
+            VPX_CODEC_OK);  // deprecated
+  ASSERT_EQ(vpx_codec_control(&enc, VP8E_SET_NOISE_SENSITIVITY, 0),
+            VPX_CODEC_OK);
+  ASSERT_EQ(vpx_codec_control(&enc, VP8E_SET_TOKEN_PARTITIONS, 0),
+            VPX_CODEC_OK);
+  ASSERT_EQ(vpx_codec_control(&enc, VP8E_SET_STATIC_THRESHOLD, 0),
+            VPX_CODEC_OK);
+
+  libvpx_test::YUVVideoSource video(
+      "repro-oss-fuzz-471723682.yuv", VPX_IMG_FMT_I420, cfg.g_w, cfg.g_h,
+      /*rate_numerator=*/786684, /*rate_denominator=*/4980772,
+      /*start=*/0,
+      /*limit=*/8);
+  video.Begin();
+  do {
+    ASSERT_EQ(vpx_codec_encode(&enc, video.img(), /*pts=*/0, /*duration=*/46640,
+                               /*flags=*/0, VPX_DL_GOOD_QUALITY),
+              VPX_CODEC_OK);
+    video.Next();
+  } while (video.img() != nullptr);
+
+  ASSERT_EQ(vpx_codec_destroy(&enc), VPX_CODEC_OK);
 }
 #endif  // CONFIG_VP8_ENCODER
 
@@ -1642,6 +1691,64 @@ TEST(EncodeAPI, AssertIssueGoodQualitySpeed1Lossless) {
               VPX_CODEC_OK);
     video.Next();
   } while (video.img() != nullptr);
+  ASSERT_EQ(vpx_codec_destroy(&enc), VPX_CODEC_OK);
+}
+
+void FillPlane(uint8_t *plane, int stride, int width, int height,
+               uint8_t value) {
+  for (int y = 0; y < height; ++y) {
+    memset(plane + y * stride, value, width);
+  }
+}
+
+// Test case to capture ioc in vp9_caq_select_segment()
+// in b/475394382
+TEST(EncodeAPI, Buganizer475394382) {
+  vpx_codec_iface_t *const iface = vpx_codec_vp9_cx();
+  vpx_codec_ctx_t enc;
+  vpx_codec_enc_cfg_t cfg;
+  ASSERT_EQ(vpx_codec_enc_config_default(iface, &cfg, 0), VPX_CODEC_OK);
+
+  cfg.g_w = 41;
+  cfg.g_h = 43;
+  cfg.g_timebase.num = 1;
+  cfg.g_timebase.den = 30;
+  cfg.g_pass = VPX_RC_ONE_PASS;
+  cfg.g_lag_in_frames = 2;
+
+  ASSERT_EQ(vpx_codec_enc_init(&enc, iface, &cfg, 0), VPX_CODEC_OK);
+
+  ASSERT_EQ(vpx_codec_control(&enc, VP9E_SET_AQ_MODE, 2), VPX_CODEC_OK);
+
+  cfg.rc_target_bitrate = 141452;
+  cfg.g_lag_in_frames = 0;
+  vpx_codec_enc_config_set(&enc, &cfg);
+
+  vpx_image_t *img =
+      vpx_img_alloc(NULL, VPX_IMG_FMT_I420, cfg.g_w, cfg.g_h, 16);
+  ASSERT_NE(img, nullptr);
+
+  FillPlane(img->planes[VPX_PLANE_Y], img->stride[VPX_PLANE_Y], cfg.g_w,
+            cfg.g_h, 0x80);
+  FillPlane(img->planes[VPX_PLANE_U], img->stride[VPX_PLANE_U],
+            (cfg.g_w + 1) / 2, (cfg.g_h + 1) / 2, 0x40);
+  FillPlane(img->planes[VPX_PLANE_V], img->stride[VPX_PLANE_V],
+            (cfg.g_w + 1) / 2, (cfg.g_h + 1) / 2, 0xC0);
+
+  static constexpr std::array<vpx_enc_frame_flags_t, 3> frame_flags = {
+    VPX_EFLAG_FORCE_KF, VP8_EFLAG_NO_REF_LAST | VP8_EFLAG_NO_REF_GF, 0
+  };
+
+  int frame_idx = 0;
+  for (const auto flags : frame_flags) {
+    vpx_codec_encode(&enc, img, frame_idx, 1, flags, VPX_DL_GOOD_QUALITY);
+    vpx_codec_iter_t iter = nullptr;
+    while (vpx_codec_get_cx_data(&enc, &iter)) {
+    }
+    ++frame_idx;
+  }
+
+  vpx_img_free(img);
   ASSERT_EQ(vpx_codec_destroy(&enc), VPX_CODEC_OK);
 }
 

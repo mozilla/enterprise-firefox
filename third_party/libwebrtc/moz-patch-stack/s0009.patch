@@ -68,7 +68,7 @@ index 32e2eb35b2..0ce48a02f1 100644
    if (number_of_cores <= 0) {
      RTC_LOG(LS_ERROR) << "Failed to get number of cores";
 diff --git a/rtc_base/physical_socket_server.cc b/rtc_base/physical_socket_server.cc
-index c7bc1ede7f..45ecdd9ba8 100644
+index 4d986f1752..1936e3b85d 100644
 --- a/rtc_base/physical_socket_server.cc
 +++ b/rtc_base/physical_socket_server.cc
 @@ -78,7 +78,10 @@

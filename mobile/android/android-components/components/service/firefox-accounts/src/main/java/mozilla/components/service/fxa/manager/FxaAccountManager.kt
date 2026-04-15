@@ -260,12 +260,19 @@ open class FxaAccountManager(
     }
 
     /**
-     * Main point for interaction with an [OAuthAccount] instance.
-     * @return [OAuthAccount] if we're in an authenticated state, null otherwise. Returned [OAuthAccount]
-     * may need to be re-authenticated; consumers are expected to check [accountNeedsReauth].
+     * Get the [OAuthAccount] instance if it's not disconnected.
+     * Returned [OAuthAccount] may need to be re-authenticated; consumers are expected to check [accountNeedsReauth].
      */
     fun authenticatedAccount(): OAuthAccount? = when (state) {
         FxaState.Connected, FxaState.AuthIssues -> account
+        else -> null
+    }
+
+    /**
+     * Get the [OAuthAccount] instance if it's connected.
+     */
+    fun connectedAccount(): OAuthAccount? = when (state) {
+        FxaState.Connected -> account
         else -> null
     }
 

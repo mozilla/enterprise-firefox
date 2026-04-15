@@ -69,7 +69,8 @@ export class UrlbarProviderActionsSearchMode extends UrlbarProvider {
     lazy.ActionsProviderQuickActions.pickAction(
       queryContext,
       controller,
-      details.element
+      details.element,
+      details.element.ownerGlobal
     );
   }
 

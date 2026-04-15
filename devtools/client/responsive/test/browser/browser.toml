@@ -225,7 +225,9 @@ fail-if = [
 ]
 skip-if = [
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && asan", # Bug 1767692
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && asan", # Bug 1767692
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && opt", # Bug 1767692
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && opt", # Bug 1767692
 ]
 
 ["browser_touch_event_should_bubble.js"]
@@ -265,6 +267,9 @@ https_first_disabled = true
 ["browser_viewport_zoom_toggle.js"]
 
 ["browser_window_close.js"]
+skip-if = [
+  "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && asan", # Bug 2016837
+]
 
 ["browser_window_sizing.js"]
 

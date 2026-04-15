@@ -542,21 +542,24 @@ class RecursiveMakeBackend(MakeBackend):
                 tier = "pre-compile"
             else:
                 tier = "misc"
-            relobjdir = mozpath.relpath(obj.objdir, self.environment.topobjdir)
             if tier == "pre-compile":
-                self._pre_compile.add(relobjdir)
+                self._pre_compile.add(obj.relobjdir)
             else:
-                self._no_skip[tier].add(relobjdir)
+                self._no_skip[tier].add(obj.relobjdir)
             backend_file.write_once("include $(topsrcdir)/config/AB_rCD.mk\n")
             reldir = mozpath.relpath(obj.objdir, backend_file.objdir)
             if not reldir:
                 for out in obj.outputs:
-                    out = mozpath.join(relobjdir, out)
-                    assert out not in self._target_per_file
-                    self._target_per_file[out] = (relobjdir, tier)
+                    target = mozpath.join(obj.relobjdir, out)
+                    assert target not in self._target_per_file
+                    self._target_per_file[target] = (obj.relobjdir, tier)
                 for input in obj.inputs:
                     if isinstance(input, ObjDirPath):
-                        self._post_process_dependencies.append((relobjdir, tier, input))
+                        self._post_process_dependencies.append((
+                            obj.relobjdir,
+                            tier,
+                            input,
+                        ))
             # For generated files that we handle in the top-level backend file,
             # we want to have a `directory/tier` target depending on the file.
             # For the others, we want a `tier` target.
@@ -1458,10 +1461,7 @@ class RecursiveMakeBackend(MakeBackend):
             target_name = obj.KIND
         if target_name == "wasm":
             target_name = "target"
-        return "%s/%s" % (
-            mozpath.relpath(obj.objdir, self.environment.topobjdir),
-            target_name,
-        )
+        return f"{obj.relobjdir}/{target_name}"
 
     def _process_linked_libraries(self, obj, backend_file):
         objs, shared_libs, os_libs, static_libs = self._expand_libs(obj)
@@ -1556,8 +1556,7 @@ class RecursiveMakeBackend(MakeBackend):
                         self._compile_graph[build_target].add(
                             self._build_target_for_obj(lib)
                         )
-                relobjdir = mozpath.relpath(obj.objdir, self.environment.topobjdir)
-                objects_target = mozpath.join(relobjdir, "%s-objects" % obj.KIND)
+                objects_target = mozpath.join(obj.relobjdir, f"{obj.KIND}-objects")
                 if objects_target in self._compile_graph:
                     self._compile_graph[build_target].add(objects_target)
 

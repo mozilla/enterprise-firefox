@@ -1,4 +1,3 @@
-/* -*- Mode: IDL; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -285,6 +284,31 @@ namespace ChromeUtils {
    */
   [Throws]
   undefined invalidateResourceCache();
+
+  /**
+   * Get the script source for the in-memory cached JavaScript.
+   * Returns an empty string if the cache is not found.
+   *
+   * The key parameter should be the data parameter passed to the
+   * http-on-resource-cache-response observer notification, and uri and
+   * hintCharset parameters should be extracted from the channel
+   * of the notification.
+   * nonce and hintCharset should be empty strings if they're not set for the
+   * channel.
+   *
+   * If the cached entry has already been cleared, for example by
+   * `clearResourceCache` above, this returns undefined.
+   *
+   * For cached entries invalidated with `invalidateResourceCache` above,
+   * this API doesn't check the state nor re-validate, and just returns the
+   * script source.
+   *
+   * This function uses `any` as the return value to avoid the
+   * JS::Value -> Gecko String -> JS::Value turnaround.
+   */
+  [Throws]
+  any getCachedJavaScriptSource(UTF8String key, UTF8String uri,
+                                UTF8String hintCharset);
 
   /**
    * Clears the bfcache (backward-forward cache)
@@ -1263,6 +1287,7 @@ dictionary LibcConstants {
   long O_CREAT;
   long O_NONBLOCK;
   long O_WRONLY;
+  long O_CLOEXEC;
 
   long POLLIN;
   long POLLOUT;
@@ -1274,6 +1299,7 @@ dictionary LibcConstants {
 
 #ifdef XP_LINUX
   long PR_CAPBSET_READ;
+  long O_PATH;
 #endif
 };
 #endif

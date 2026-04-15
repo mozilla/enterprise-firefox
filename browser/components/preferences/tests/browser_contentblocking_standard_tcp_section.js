@@ -5,10 +5,6 @@
  * Tests the TCP info box in the ETP standard section of about:preferences#privacy.
  */
 
-ChromeUtils.defineESModuleGetters(this, {
-  Preferences: "resource://gre/modules/Preferences.sys.mjs",
-});
-
 const COOKIE_BEHAVIOR_PREF = "network.cookie.cookieBehavior";
 const CAT_PREF = "browser.contentblocking.category";
 

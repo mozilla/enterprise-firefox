@@ -3226,8 +3226,8 @@ var gUnifiedExtensions = {
       } else {
         BrowserAddonUI.openAddonsMgr("addons://list/extension");
       }
-      // Close panel.
-      this.togglePanel();
+      // The panel closes automatically when the `<moz-button>` is pressed since
+      // the `closepanel` attribute was not set to `none`.
     });
 
     return discoverButton;

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -77,6 +75,14 @@ enum class NativeKeyBindingsType : uint8_t;
 enum class WindowButtonType : uint8_t;
 struct FontRange;
 struct SwipeEventQueue;
+
+enum class HapticFeedbackType : uint8_t {
+  ShortPress = 0,
+  LongPress = 1,
+  TextHandleMove = 2,
+
+  End,  // Not a feedback type, only to mark the upper boundary
+};
 
 enum class WindowShadow : uint8_t {
   None,
@@ -417,6 +423,7 @@ class nsIWidget : public nsSupportsWeakReference {
   typedef mozilla::widget::IMEEnabled IMEEnabled;
   typedef mozilla::widget::IMEMessage IMEMessage;
   typedef mozilla::widget::IMENotification IMENotification;
+  typedef mozilla::widget::IMENotificationRequest IMENotificationRequest;
   typedef mozilla::widget::IMENotificationRequests IMENotificationRequests;
   typedef mozilla::widget::IMEState IMEState;
   typedef mozilla::widget::InputContext InputContext;
@@ -2347,6 +2354,11 @@ class nsIWidget : public nsSupportsWeakReference {
    */
   virtual void SetWindowButtonRect(WindowButtonType aButtonType,
                                    const LayoutDeviceIntRect& aClientRect) {}
+
+  /**
+   * Provide haptic feedback for this widget.
+   */
+  virtual void PerformHapticFeedback(mozilla::HapticFeedbackType aType) {}
 
 #ifdef DEBUG
   virtual nsresult SetHiDPIMode(bool aHiDPI) {

@@ -146,8 +146,8 @@ nsresult BounceTrackingStateGlobal::ClearByTimeRange(
       aEntryType.value() ==
           BounceTrackingProtectionStorage::EntryType::BounceTracker) {
     for (auto iter = mBounceTrackers.Iter(); !iter.Done(); iter.Next()) {
-      if (iter.Data() >= aFrom &&
-          (aTo.isNothing() || iter.Data() <= aTo.value())) {
+      if (iter.Data().mBounceTime >= aFrom &&
+          (aTo.isNothing() || iter.Data().mBounceTime <= aTo.value())) {
         MOZ_LOG_FMT(gBounceTrackingProtectionLog, LogLevel::Debug,
                     "{}: Remove bouncer tracker for {}", __FUNCTION__,
                     iter.Key());
@@ -200,13 +200,15 @@ bool BounceTrackingStateGlobal::HasBounceTracker(
 }
 
 nsresult BounceTrackingStateGlobal::RecordBounceTracker(
-    const nsACString& aSiteHost, PRTime aTime, bool aSkipStorage) {
+    const nsACString& aSiteHost, PRTime aTime, bool aSkipStorage,
+    BounceTrackingRecord* aRecord) {
   NS_ENSURE_TRUE(aSiteHost.Length(), NS_ERROR_INVALID_ARG);
   NS_ENSURE_TRUE(aTime > 0, NS_ERROR_INVALID_ARG);
 
   // Can not record a bounce tracker if the site has a user activation.
   NS_ENSURE_TRUE(!mUserActivation.Contains(aSiteHost), NS_ERROR_FAILURE);
-  mBounceTrackers.InsertOrUpdate(aSiteHost, aTime);
+  mBounceTrackers.InsertOrUpdate(aSiteHost,
+                                 BounceTrackerCandidate{aTime, aRecord});
 
   if (aSkipStorage || !ShouldPersistToDisk()) {
     return NS_OK;

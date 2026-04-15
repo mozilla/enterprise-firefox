@@ -52,7 +52,7 @@ newtab-search-box-input =
     .placeholder = Αναζήτηση στο διαδίκτυο
     .aria-label = Αναζήτηση στο διαδίκτυο
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Προσθήκη μηχανής αναζήτησης
 newtab-topsites-add-shortcut-header = Νέα συντόμευση
@@ -72,6 +72,11 @@ newtab-topsites-url-validation = Απαιτείται έγκυρο URL
 newtab-topsites-image-url-label = URL προσαρμοσμένης εικόνας
 newtab-topsites-use-image-link = Χρήση προσαρμοσμένης εικόνας…
 newtab-topsites-image-validation = Αποτυχία φόρτωσης εικόνας. Δοκιμάστε ένα διαφορετικό URL.
+
+## Clear text button for the URL and image URL input fields in the Top Sites form.
+
+newtab-topsites-clear-input =
+    .aria-label = Απαλοιφή κειμένου
 
 ## Top Sites - General form dialog buttons. These are verbs/actions.
 
@@ -632,6 +637,8 @@ newtab-report-cancel = Ακύρωση
 newtab-report-submit = Υποβολή
 newtab-toast-thanks-for-reporting =
     .message = Ευχαριστούμε για την αναφορά σας.
+newtab-toast-widgets-hidden =
+    .message = Επιλέξτε το εικονίδιο μολυβιού για να προσθέσετε γραφικά στοιχεία ανά πάσα στιγμή.
 
 ## Strings for task / to-do list productivity widget
 
@@ -672,6 +679,7 @@ newtab-widget-lists-name-placeholder-default =
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Νέα λίστα
 newtab-widget-section-title = Γραφικά στοιχεία
+newtab-widget-menu-hide = Απόκρυψη γραφικού στοιχείου
 # Tooltip for hide all widgets button
 newtab-widget-section-hide-all-button =
     .title = Απόκρυψη widgets
@@ -682,6 +690,7 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Ελαχιστοποίηση γραφικών στοιχείων
     .aria-label = Σύμπτυξη όλων των γραφικών στοιχείων σε μικρό μέγεθος
+newtab-widget-section-feedback = Πείτε μας τη γνώμη σας
 
 ## Strings for timer productivity widget
 ## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown

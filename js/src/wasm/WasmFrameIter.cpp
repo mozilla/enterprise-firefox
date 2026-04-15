@@ -524,13 +524,12 @@ static const unsigned PoppedFPJitEntry = 0;
 // PushedRetAddr and PushedFP are used in some restricted contexts
 // and must be superficially meaningful.
 static const unsigned BeforePushRetAddr = 0;
-static const unsigned PushedRetAddr = 8;
-static const unsigned PushedFP = 12;
-static const unsigned SetFP = 16;
-static const unsigned PoppedFP = 8;
-static const unsigned PoppedFPJitEntry = 8;
+static const unsigned PushedRetAddr = 4;
+static const unsigned PushedFP = 4;
+static const unsigned SetFP = 8;
+static const unsigned PoppedFP = 4;
+static const unsigned PoppedFPJitEntry = 4;
 static_assert(BeforePushRetAddr == 0, "Required by StartUnwinding");
-static_assert(PushedFP > PushedRetAddr, "Required by StartUnwinding");
 #elif defined(JS_CODEGEN_MIPS64)
 static const unsigned PushedRetAddr = 8;
 static const unsigned PushedFP = 16;
@@ -648,15 +647,15 @@ static void GenerateCallablePrologue(MacroAssembler& masm, uint32_t* entry) {
     masm.SetStackPointer64(vixl::sp);
 
     AutoForbidPoolsAndNops afp(&masm,
-                               /* number of instructions in scope = */ 4);
+                               /* number of instructions in scope = */ 2);
 
     *entry = masm.currentOffset();
 
-    masm.Sub(sp, sp, sizeof(Frame));
-    masm.Str(ARMRegister(lr, 64), MemOperand(sp, Frame::returnAddressOffset()));
+    static_assert(Frame::callerFPOffset() == 0 &&
+                  Frame::returnAddressOffset() == 8);
+    masm.Stp(ARMRegister(FramePointer, 64), ARMRegister(lr, 64),
+             MemOperand(sp, -(int64_t)sizeof(Frame), vixl::PreIndex));
     MOZ_ASSERT_IF(!masm.oom(), PushedRetAddr == masm.currentOffset() - *entry);
-    masm.Str(ARMRegister(FramePointer, 64),
-             MemOperand(sp, Frame::callerFPOffset()));
     MOZ_ASSERT_IF(!masm.oom(), PushedFP == masm.currentOffset() - *entry);
     masm.Mov(ARMRegister(FramePointer, 64), sp);
     MOZ_ASSERT_IF(!masm.oom(), SetFP == masm.currentOffset() - *entry);
@@ -736,14 +735,13 @@ static void GenerateCallableEpilogue(MacroAssembler& masm, unsigned framePushed,
   const vixl::Register stashedSPreg = masm.GetStackPointer64();
   masm.SetStackPointer64(vixl::sp);
 
-  AutoForbidPoolsAndNops afp(&masm, /* number of instructions in scope = */ 5);
+  AutoForbidPoolsAndNops afp(&masm, /* number of instructions in scope = */ 3);
 
-  masm.Ldr(ARMRegister(lr, 64), MemOperand(sp, Frame::returnAddressOffset()));
-  masm.Ldr(ARMRegister(FramePointer, 64),
-           MemOperand(sp, Frame::callerFPOffset()));
+  static_assert(Frame::callerFPOffset() == 0 &&
+                Frame::returnAddressOffset() == 8);
+  masm.Ldp(ARMRegister(FramePointer, 64), ARMRegister(lr, 64),
+           MemOperand(sp, sizeof(Frame), vixl::PostIndex));
   poppedFP = masm.currentOffset();
-
-  masm.Add(sp, sp, sizeof(Frame));
 
   // Reinitialise PSP from SP. This is less than elegant because the prologue
   // operates on the raw stack pointer SP and does not keep the PSP in sync.
@@ -1311,13 +1309,13 @@ void wasm::GenerateJitEntryPrologue(MacroAssembler& masm,
 #elif defined(JS_CODEGEN_ARM64)
     {
       AutoForbidPoolsAndNops afp(&masm,
-                                 /* number of instructions in scope = */ 4);
+                                 /* number of instructions in scope = */ 2);
       offsets->begin = masm.currentOffset();
       static_assert(BeforePushRetAddr == 0);
-      // Subtract from SP first as SP must be aligned before offsetting.
-      masm.Sub(sp, sp, 16);
+      static_assert(JitFrameLayout::offsetOfCallerFramePtr() == 0);
       static_assert(JitFrameLayout::offsetOfReturnAddress() == 8);
-      masm.Str(ARMRegister(lr, 64), MemOperand(sp, 8));
+      masm.Stp(ARMRegister(FramePointer, 64), ARMRegister(lr, 64),
+               MemOperand(sp, -16, vixl::PreIndex));
     }
 #else
     // The x86/x64 call instruction pushes the return address.
@@ -1326,10 +1324,7 @@ void wasm::GenerateJitEntryPrologue(MacroAssembler& masm,
     MOZ_ASSERT_IF(!masm.oom(),
                   PushedRetAddr == masm.currentOffset() - offsets->begin);
     // Save jit frame pointer, so unwinding from wasm to jit frames is trivial.
-#if defined(JS_CODEGEN_ARM64)
-    static_assert(JitFrameLayout::offsetOfCallerFramePtr() == 0);
-    masm.Str(ARMRegister(FramePointer, 64), MemOperand(sp, 0));
-#else
+#if !defined(JS_CODEGEN_ARM64)
     masm.Push(FramePointer);
 #endif
     MOZ_ASSERT_IF(!masm.oom(),
@@ -1347,14 +1342,13 @@ void wasm::GenerateJitEntryEpilogue(MacroAssembler& masm,
   DebugOnly<uint32_t> poppedFP{};
 #ifdef JS_CODEGEN_ARM64
   {
-    RegisterOrSP sp = masm.getStackPointer();
+    const ARMRegister& sp = masm.GetStackPointer64();
     AutoForbidPoolsAndNops afp(&masm,
-                               /* number of instructions in scope = */ 5);
-    masm.loadPtr(Address(sp, 8), lr);
-    masm.loadPtr(Address(sp, 0), FramePointer);
+                               /* number of instructions in scope = */ 3);
+    masm.Ldp(ARMRegister(FramePointer, 64), ARMRegister(lr, 64),
+             MemOperand(sp, 2 * sizeof(void*), vixl::PostIndex));
     poppedFP = masm.currentOffset();
 
-    masm.addToStackPtr(Imm32(2 * sizeof(void*)));
     // Copy SP into PSP to enforce return-point invariants (SP == PSP).
     // `addToStackPtr` won't sync them because SP is the active pointer here.
     // For the same reason, we can't use initPseudoStackPtr to do the sync, so
@@ -1722,14 +1716,11 @@ bool js::wasm::StartUnwinding(const RegisterState& registers,
         AssertMatchesCallSite(fixedPC, fixedFP);
       } else
 #elif defined(JS_CODEGEN_ARM64)
-      if (offsetFromEntry < PushedFP || codeRange->isThunk()) {
-        // Constraints above ensure that this covers BeforePushRetAddr and
-        // PushedRetAddr.
-        //
-        // On ARM64 we subtract the size of the Frame from SP and then store
-        // values into the stack.  Execution can be interrupted at various
-        // places in that sequence.  We rely on the register state for our
-        // values.
+      if (offsetFromEntry < SetFP || codeRange->isThunk()) {
+        // On ARM64 we rely on register state instead of state saved on
+        // stack until the wasm::Frame is completely built.
+        // On entry the return address is in lr, and fp holds the caller's fp.
+        // SetFP condition covers BeforePushRetAddr and PushedFP states.
         fixedPC = (uint8_t*)registers.lr;
         fixedFP = fp;
         AssertMatchesCallSite(fixedPC, fixedFP);
@@ -2139,6 +2130,10 @@ static const char* ThunkedNativeToDescription(SymbolicAddress func) {
       return "call to asm.js native f64 Math.pow";
     case SymbolicAddress::ATan2D:
       return "call to asm.js native f64 Math.atan2";
+    case SymbolicAddress::AddSubI128:
+      return "call to native 128-bit add/sub function";
+    case SymbolicAddress::MulI64Wide:
+      return "call to native 64x64-to-128-bit multiply function";
     case SymbolicAddress::ArrayMemMove:
       return "call to native array.copy (data)";
     case SymbolicAddress::ArrayRefsMove:

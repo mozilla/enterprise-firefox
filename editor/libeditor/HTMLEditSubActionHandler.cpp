@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 sw=2 et tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -9,6 +7,7 @@
 #include "HTMLEditorInlines.h"
 #include "HTMLEditorNestedClasses.h"
 
+#include <fmt/format.h>
 #include <utility>
 
 #include "AutoClonedRangeArray.h"
@@ -336,7 +335,7 @@ nsresult HTMLEditor::OnEndHandlingTopLevelEditSubAction() {
     rv = OnEndHandlingTopLevelEditSubActionInternal();
     NS_WARNING_ASSERTION(
         NS_SUCCEEDED(rv),
-        "HTMLEditor::OnEndHandlingTopLevelEditSubActionInternal() failied");
+        "HTMLEditor::OnEndHandlingTopLevelEditSubActionInternal() failed");
     // Perhaps, we need to do the following jobs even if the editor has been
     // destroyed since they adjust some states of HTML document but don't
     // modify the DOM tree nor Selection.
@@ -487,10 +486,14 @@ nsresult HTMLEditor::OnEndHandlingTopLevelEditSubActionInternal() {
         NS_WARNING("There was no selection range");
         return NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE;
       }
+      Element* const editingHost = ComputeEditingHost(LimitInBodyElement::No);
+      if (!editingHost) [[unlikely]] {
+        return NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE;
+      }
       Result<CreateLineBreakResult, nsresult>
           insertPaddingBRElementResultOrError =
               InsertPaddingBRElementToMakeEmptyLineVisibleIfNeeded(
-                  newCaretPosition);
+                  newCaretPosition, *editingHost);
       if (MOZ_UNLIKELY(insertPaddingBRElementResultOrError.isErr())) {
         NS_WARNING(
             "HTMLEditor::"
@@ -785,38 +788,65 @@ nsresult HTMLEditor::EnsureCaretNotAfterInvisibleBRElement(
     return NS_OK;
   }
 
-  nsIContent* previousBRElement = HTMLEditUtils::GetPreviousLeafContent(
-      atSelectionStart, {}, BlockInlineCheck::UseComputedDisplayStyle,
-      &aEditingHost);
-  if (!previousBRElement || !previousBRElement->IsHTMLElement(nsGkAtoms::br) ||
-      !previousBRElement->GetParent() ||
-      !EditorUtils::IsEditableContent(*previousBRElement->GetParent(),
-                                      EditorType::HTML) ||
-      !HTMLEditUtils::IsInvisibleBRElement(*previousBRElement)) {
+  const WSScanResult prevThing =
+      WSRunScanner::ScanPreviousVisibleNodeOrBlockBoundary(
+          {WSRunScanner::Option::StopAtVisibleEmptyInlineContainers},
+          atSelectionStart, &aEditingHost);
+  if (!prevThing.ReachedLineBreak()) {
     return NS_OK;
   }
-
-  const RefPtr<const Element> blockElementAtSelectionStart =
-      HTMLEditUtils::GetInclusiveAncestorElement(
-          *atSelectionStart.ContainerAs<nsIContent>(),
-          HTMLEditUtils::ClosestBlockElement,
-          BlockInlineCheck::UseComputedDisplayStyle);
-  const RefPtr<const Element> parentBlockElementOfBRElement =
-      HTMLEditUtils::GetAncestorElement(
-          *previousBRElement, HTMLEditUtils::ClosestBlockElement,
-          BlockInlineCheck::UseComputedDisplayStyle);
-
-  if (!blockElementAtSelectionStart ||
-      blockElementAtSelectionStart != parentBlockElementOfBRElement) {
+  EditorRawLineBreak unnecessaryLineBreak =
+      prevThing.CreateEditorLineBreak<EditorRawLineBreak>();
+  if (!unnecessaryLineBreak.IsFollowedByBlockBoundary()) {
     return NS_OK;
   }
+  if (!unnecessaryLineBreak.ContentRef().GetParent() ||
+      !unnecessaryLineBreak.ContentRef().IsInclusiveDescendantOf(&aEditingHost))
+      [[unlikely]] {
+    return NS_OK;
+  }
+  if (unnecessaryLineBreak.IsPreformattedLineBreak() &&
+      NS_WARN_IF(
+          !HTMLEditUtils::IsSimplyEditableNode(
+              unnecessaryLineBreak.ContentRef()) &&
+          !unnecessaryLineBreak.IsPreformattedLineBreakAtStartOfText())) {
+    // If the preceding unnecessary preformatted line break is a part of a
+    // non-editable visible Text, we cannot put caret into it. Then, typing
+    // something will cause a new line because the unnecessary line break
+    // becomes visible.
+    return NS_OK;
+  }
+  EditorRawDOMPoint pointToPutCaret =
+      unnecessaryLineBreak.To<EditorRawDOMPoint>();
+  for (nsIContent* container :
+       pointToPutCaret.GetContainer()->InclusiveAncestorsOfType<nsIContent>()) {
+    if (!HTMLEditUtils::IsSimplyEditableNode(*container)) [[unlikely]] {
+      if (NS_WARN_IF(container->GetPreviousSibling())) {
+        // If the non-editable node is not the first child, we need to put caret
+        // too far. Therefore, we should keep current selection. Although typing
+        // something will cause a new line because the unnecessary line break
+        // becomes visible.
+        return NS_OK;
+      }
+      continue;
+    }
+    if (container != pointToPutCaret.GetContainer()) {
+      MOZ_ASSERT(container->GetFirstChild());
+      MOZ_ASSERT(
+          !HTMLEditUtils::IsSimplyEditableNode(*container->GetFirstChild()));
+      pointToPutCaret = EditorRawDOMPoint(container, 0);
+    }
+    break;
+  }
+  MOZ_ASSERT(pointToPutCaret.IsSet());
+  MOZ_ASSERT(
+      pointToPutCaret.GetContainer()->IsInclusiveDescendantOf(&aEditingHost));
 
-  // If we are here then the selection is right after a padding <br>
-  // element for empty last line that is in the same block as the
-  // selection.  We need to move the selection start to be before the
-  // padding <br> element.
-  EditorRawDOMPoint atInvisibleBRElement(previousBRElement);
-  nsresult rv = CollapseSelectionTo(atInvisibleBRElement);
+  // If we are here then the selection is right after a padding line break for
+  // empty last line that is in the same block as the selection.  We need to
+  // move the selection start to be before the padding line break node.
+  // FIXME: We should return the position instead of updating the Selection.
+  nsresult rv = CollapseSelectionTo(pointToPutCaret);
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
                        "EditorBase::CollapseSelectionTo() failed");
   return rv;
@@ -1105,7 +1135,12 @@ Result<EditActionResult, nsresult> HTMLEditor::HandleInsertText(
       // caret position explicitly.
       insertEmptyTextResult.IgnoreCaretPointSuggestion();
       nsresult rv = EnsureNoFollowingUnnecessaryLineBreak(
-          insertEmptyTextResult.EndOfInsertedTextRef());
+          insertEmptyTextResult.EndOfInsertedTextRef(),
+          // When user inserting text, the web app may expect that nothing
+          // extant content will be deleted. Therefore, we should preserve
+          // preformatted linefeed at least.
+          PreservePreformattedLineBreak::Yes, PaddingForEmptyBlock::Unnecessary,
+          *editingHost);
       if (NS_FAILED(rv)) {
         NS_WARNING(
             "HTMLEditor::EnsureNoFollowingUnnecessaryLineBreak() failed");
@@ -1168,19 +1203,12 @@ Result<EditActionResult, nsresult> HTMLEditor::HandleInsertText(
               compositionEndPoint.IsSet()
                   ? EditorDOMRange(pointToInsert, compositionEndPoint)
                   : EditorDOMRange(pointToInsert),
-              aPurpose);
+              aPurpose, *editingHost);
       if (MOZ_UNLIKELY(replaceTextResult.isErr())) {
         NS_WARNING("WhiteSpaceVisibilityKeeper::ReplaceText() failed");
         return replaceTextResult.propagateErr();
       }
       InsertTextResult unwrappedReplaceTextResult = replaceTextResult.unwrap();
-      nsresult rv = EnsureNoFollowingUnnecessaryLineBreak(
-          unwrappedReplaceTextResult.EndOfInsertedTextRef());
-      if (NS_FAILED(rv)) {
-        NS_WARNING(
-            "HTMLEditor::EnsureNoFollowingUnnecessaryLineBreak() failed");
-        return Err(rv);
-      }
       endOfInsertedText = unwrappedReplaceTextResult.EndOfInsertedTextRef();
       if (InsertingTextForCommittingComposition(aPurpose)) {
         // If we're committing the composition,
@@ -1293,6 +1321,47 @@ Result<EditActionResult, nsresult> HTMLEditor::HandleInsertText(
     // its a lot cheaper to search the input string for only newlines than
     // it is to search for both tabs and newlines.
     if (!isWhiteSpaceCollapsible || IsPlaintextMailComposer()) {
+      if (!aInsertionString.IsEmpty()) [[likely]] {
+        // If the inserting string is not empty, we need to delete padding
+        // line break after the insertion point first because X (Twitter)
+        // expects that character data change will be notified at last.
+        const WSScanResult nextThing = HTMLEditUtils::
+            ScanInclusiveNextThingWithIgnoringUnnecessaryLineBreak(
+                currentPoint, PaddingForEmptyBlock::Unnecessary, *editingHost);
+        if (nextThing.MaybeIgnoredLineBreak().isSome()) {
+          const EditorLineBreak& lineBreak =
+              nextThing.MaybeIgnoredLineBreak().ref();
+          // When user inserting content, the web app may expect that nothing
+          // extant content will be deleted. Therefore, we should preserve
+          // preformatted linefeed at least. However, we should delete it if
+          // it's a padding for empty block for the compatibility with the other
+          // browsers.
+          if (lineBreak.IsHTMLBRElement() ||
+              lineBreak.IsPaddingForEmptyBlock()) {
+            const RefPtr<Element> ancestorLimiterToDeleteEmptyInlines =
+                lineBreak.ContentRef().IsInclusiveDescendantOf(
+                    currentPoint.GetContainer())
+                    ? currentPoint.GetContainerOrContainerParentElement()
+                    : editingHost.get();
+            {
+              AutoTrackDOMPoint trackCurrentPoint(RangeUpdaterRef(),
+                                                  &currentPoint);
+              Result<EditorDOMPoint, nsresult> deleteLineBreakResultOrError =
+                  DeleteLineBreakWithTransaction(
+                      lineBreak, nsIEditor::eStrip,
+                      *ancestorLimiterToDeleteEmptyInlines);
+              if (deleteLineBreakResultOrError.isErr()) [[unlikely]] {
+                NS_WARNING(
+                    "HTMLEditor::DeleteLineBreakWithTransaction() failed");
+                return deleteLineBreakResultOrError.propagateErr();
+              }
+            }
+            if (NS_WARN_IF(!currentPoint.IsSetAndValidInComposedDoc())) {
+              return Err(NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE);
+            }
+          }
+        }
+      }
       if (*lineBreakType == LineBreakType::Linefeed) {
         // Both Chrome and us inserts a preformatted linefeed with its own
         // `Text` node in various cases.  However, when inserting multiline
@@ -1324,8 +1393,8 @@ Result<EditActionResult, nsresult> HTMLEditor::HandleInsertText(
         uint32_t nextOffset = 0;
         while (nextOffset < aInsertionString.Length()) {
           const uint32_t lineStartOffset = nextOffset;
-          const int32_t inclusiveNextLinefeedOffset =
-              aInsertionString.FindChar(nsCRT::LF, lineStartOffset);
+          const int32_t inclusiveNextLinefeedOffset = aInsertionString.FindChar(
+              HTMLEditUtils::kNewLine, lineStartOffset);
           const uint32_t lineLength =
               inclusiveNextLinefeedOffset != -1
                   ? static_cast<uint32_t>(inclusiveNextLinefeedOffset) -
@@ -1392,7 +1461,7 @@ Result<EditActionResult, nsresult> HTMLEditor::HandleInsertText(
       while (nextOffset < aInsertionString.Length()) {
         const uint32_t lineStartOffset = nextOffset;
         const int32_t inclusiveNextLinefeedOffset =
-            aInsertionString.FindChar(nsCRT::LF, lineStartOffset);
+            aInsertionString.FindChar(HTMLEditUtils::kNewLine, lineStartOffset);
         const uint32_t lineLength =
             inclusiveNextLinefeedOffset != -1
                 ? static_cast<uint32_t>(inclusiveNextLinefeedOffset) -
@@ -1408,14 +1477,15 @@ Result<EditActionResult, nsresult> HTMLEditor::HandleInsertText(
             if (!lineText.Contains(u'\t')) {
               return WhiteSpaceVisibilityKeeper::InsertText(
                   *this, lineText, currentPoint,
-                  GetInsertTextTo(inclusiveNextLinefeedOffset,
-                                  lineStartOffset));
+                  GetInsertTextTo(inclusiveNextLinefeedOffset, lineStartOffset),
+                  *editingHost);
             }
             nsAutoString formattedLineText(lineText);
             formattedLineText.ReplaceSubstring(u"\t"_ns, u"    "_ns);
             return WhiteSpaceVisibilityKeeper::InsertText(
                 *this, formattedLineText, currentPoint,
-                GetInsertTextTo(inclusiveNextLinefeedOffset, lineStartOffset));
+                GetInsertTextTo(inclusiveNextLinefeedOffset, lineStartOffset),
+                *editingHost);
           }();
           if (MOZ_UNLIKELY(insertTextResult.isErr())) {
             NS_WARNING("WhiteSpaceVisibilityKeeper::InsertText() failed");
@@ -1488,10 +1558,33 @@ Result<EditActionResult, nsresult> HTMLEditor::HandleInsertText(
       mLastCollapsibleWhiteSpaceAppendedTextNode =
           currentPoint.ContainerAs<Text>();
     }
-    nsresult rv = EnsureNoFollowingUnnecessaryLineBreak(currentPoint);
-    if (NS_FAILED(rv)) {
-      NS_WARNING("HTMLEditor::EnsureNoFollowingUnnecessaryLineBreak() failed");
-      return Err(rv);
+    if (!aInsertionString.IsEmpty() &&
+        aInsertionString.Last() == HTMLEditUtils::kNewLine) {
+      Result<CreateLineBreakResult, nsresult> insertPaddingLineBreakResult =
+          InsertPaddingBRElementToMakeEmptyLineVisibleIfNeeded(currentPoint,
+                                                               *editingHost);
+      if (insertPaddingLineBreakResult.isErr()) [[unlikely]] {
+        NS_WARNING(
+            "HTMLEditor::InsertPaddingBRElementToMakeEmptyLineVisibleIfNeeded()"
+            " failed");
+        return insertPaddingLineBreakResult.propagateErr();
+      }
+      if (insertPaddingLineBreakResult.inspect().HasCaretPointSuggestion()) {
+        currentPoint = insertPaddingLineBreakResult.unwrap().UnwrapCaretPoint();
+      }
+    } else {
+      nsresult rv = EnsureNoFollowingUnnecessaryLineBreak(
+          currentPoint,
+          // When user inserting text, the web app may expect that nothing
+          // extant content will be deleted. Therefore, we should preserve
+          // preformatted linefeed at least.
+          PreservePreformattedLineBreak::Yes, PaddingForEmptyBlock::Unnecessary,
+          *editingHost);
+      if (NS_FAILED(rv)) {
+        NS_WARNING(
+            "HTMLEditor::EnsureNoFollowingUnnecessaryLineBreak() failed");
+        return Err(rv);
+      }
     }
     currentPoint.SetInterlinePosition(InterlinePosition::EndOfLine);
     rv = CollapseSelectionTo(currentPoint);
@@ -2616,7 +2709,9 @@ HTMLEditor::DeleteTextAndNormalizeSurroundingWhiteSpaces(
   {
     AutoTrackDOMPoint trackPointToPutCaret(RangeUpdaterRef(),
                                            &newCaretPosition);
-    nsresult rv = EnsureNoFollowingUnnecessaryLineBreak(newCaretPosition);
+    nsresult rv = EnsureNoFollowingUnnecessaryLineBreak(
+        newCaretPosition, PreservePreformattedLineBreak::No,
+        PaddingForEmptyBlock::Significant, aEditingHost);
     if (NS_FAILED(rv)) {
       NS_WARNING("HTMLEditor::EnsureNoFollowingUnnecessaryLineBreak() failed");
       return Err(rv);
@@ -2770,18 +2865,13 @@ bool HTMLEditor::CanInsertLineBreak(LineBreakType aLineBreakType,
 
 Result<CreateLineBreakResult, nsresult>
 HTMLEditor::InsertPaddingBRElementToMakeEmptyLineVisibleIfNeeded(
-    const EditorDOMPoint& aPointToInsert) {
+    const EditorDOMPoint& aPointToInsert, const Element& aEditingHost) {
   MOZ_ASSERT(IsEditActionDataAvailable());
   MOZ_ASSERT(aPointToInsert.IsSet());
 
-  if (MOZ_UNLIKELY(!aPointToInsert.IsInContentNode())) {
-    return CreateLineBreakResult::NotHandled();
-  }
-
-  // If we cannot insert a line break here, do nothing.
-  if (!HTMLEditor::CanInsertLineBreak(
-          LineBreakType::BRElement,
-          *aPointToInsert.ContainerAs<nsIContent>())) {
+  if (!aPointToInsert.IsInContentNode() ||
+      NS_WARN_IF(!aPointToInsert.GetContainerOrContainerParentElement()))
+      [[unlikely]] {
     return CreateLineBreakResult::NotHandled();
   }
 
@@ -2793,7 +2883,8 @@ HTMLEditor::InsertPaddingBRElementToMakeEmptyLineVisibleIfNeeded(
   // here.
   const WSScanResult previousThing =
       WSRunScanner::ScanPreviousVisibleNodeOrBlockBoundary(
-          {WSRunScanner::Option::OnlyEditableNodes}, aPointToInsert);
+          {WSRunScanner::Option::OnlyEditableNodes}, aPointToInsert,
+          &aEditingHost);
   if (!previousThing.ReachedLineBoundary()) {
     return CreateLineBreakResult::NotHandled();
   }
@@ -2802,18 +2893,94 @@ HTMLEditor::InsertPaddingBRElementToMakeEmptyLineVisibleIfNeeded(
   // line break here.
   const WSScanResult nextThing =
       WSRunScanner::ScanInclusiveNextVisibleNodeOrBlockBoundary(
-          {WSRunScanner::Option::OnlyEditableNodes}, aPointToInsert);
-  if (!nextThing.ReachedBlockBoundary()) {
+          {}, aPointToInsert,
+          // FIXME: We should not limit the scan range into the editing host.
+          // However, WSRunScanner does not check the visibility so that
+          // following invisible text like the conent of <script> may change the
+          // result. Fortunately, inline editing host is not used so widely.
+          // We should treat the inline editing host boundary as a block
+          // boundary.
+          &aEditingHost);
+  if (!nextThing.ReachedBlockBoundary() &&
+      !nextThing.ReachedInlineEditingHostBoundary()) {
     return CreateLineBreakResult::NotHandled();
   }
 
-  Result<CreateLineBreakResult, nsresult> insertLineBreakResultOrError =
-      InsertLineBreak(WithTransaction::Yes, LineBreakType::BRElement,
-                      aPointToInsert, nsIEditor::ePrevious);
-  NS_WARNING_ASSERTION(insertLineBreakResultOrError.isOk(),
-                       "HTMLEditor::InsertLineBreak(WithTransaction::Yes, "
-                       "LineBreakType::BRElement, ePrevious) failed");
-  return insertLineBreakResultOrError;
+  EditorDOMPoint pointToInsert(aPointToInsert);
+  AutoTrackDOMPoint trackPointToInsert(RangeUpdaterRef(), &pointToInsert);
+
+  // Okay, there is no meaningful content in the line. However, there might be
+  // visible empty inline containers or some invisible nodes like Comment.
+  // For the compatibility with the other browsers, we should put <br> as far as
+  // near aPointToInsert.
+  if (previousThing.ReachedPreformattedLineBreak() &&
+      !EditorUtils::IsWhiteSpacePreformatted(*previousThing.TextPtr())) {
+    const EditorDOMPoint pointAfterLineBreak =
+        previousThing.PointAtReachedContent<EditorDOMPoint>();
+    if (!pointAfterLineBreak.IsEndOfContainer()) [[unlikely]] {
+      // If the previous thing is a preformatted line break but it's middle of a
+      // Text, we want to delete the invisible trailing white-spaces.
+      Result<CaretPoint, nsresult> caretPointOrError =
+          WhiteSpaceVisibilityKeeper::DeleteInvisibleASCIIWhiteSpaces(
+              *this, pointAfterLineBreak);
+      if (caretPointOrError.isErr()) [[unlikely]] {
+        NS_WARNING(
+            "WhiteSpaceVisibilityKeeper::DeleteInvisibleASCIIWhiteSpaces() "
+            "failed");
+      }
+      caretPointOrError.unwrap().IgnoreCaretPointSuggestion();
+      trackPointToInsert.Flush(StopTracking::No);
+    }
+  }
+  if (Element* const containerElement =
+          pointToInsert.GetContainerOrContainerParentElement()) {
+    if (!HTMLEditor::CanInsertLineBreak(LineBreakType::BRElement,
+                                        *containerElement)) [[unlikely]] {
+      // FIXME: We're deleting empty blocks at the post-processing after this
+      // this called. Therefore, here may be in an empty list element.
+      // Therefore, even if we cannot insert a <br>, we should return "not
+      // handled" for now. We should make the delete handler delete empty blocks
+      // by themselves and stop doing it in the post-processor. Then, return
+      // error via PrepareToInsertLineBreak(). See bug 2019187.
+      return CreateLineBreakResult::NotHandled();
+    }
+  } else {
+    return Err(NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE);
+  }
+  Result<EditorDOMPoint, nsresult> pointToInsertOrError =
+      PrepareToInsertLineBreak(LineBreakType::BRElement, pointToInsert);
+  if (pointToInsertOrError.isErr()) [[unlikely]] {
+    NS_WARNING(
+        "HTMLEditor::PrepareToInsertLineBreak(LineBreakType::BRElement) "
+        "failed");
+    return pointToInsertOrError.propagateErr();
+  }
+  trackPointToInsert.Flush(StopTracking::Yes);
+  EditorDOMPoint pointToPutCaret = pointToInsert;
+  pointToInsert = pointToInsertOrError.unwrap();
+  AutoTrackDOMPoint trackPointToPutCaret(RangeUpdaterRef(), &pointToPutCaret);
+  const BRElementType brElementType = [&]() {
+    // The serializer requires a normal <br> in the empty block. See bug
+    // 1385905.
+    if (nextThing.ReachedCurrentBlockBoundary() &&
+        previousThing.ReachedCurrentBlockBoundary()) {
+      return BRElementType::Normal;
+    }
+    return BRElementType::PaddingForEmptyLastLine;
+  }();
+  Result<CreateElementResult, nsresult> insertLineBreakResultOrError =
+      InsertBRElement(WithTransaction::Yes, brElementType, pointToInsert);
+  if (insertLineBreakResultOrError.isErr()) [[unlikely]] {
+    NS_WARNING(
+        fmt::format(
+            "HTMLEditor::InsertLineBreak(WithTransaction::Yes, {}) failed",
+            brElementType)
+            .c_str());
+    return insertLineBreakResultOrError.propagateErr();
+  }
+  trackPointToPutCaret.Flush(StopTracking::Yes);
+  return CreateLineBreakResult(insertLineBreakResultOrError.unwrap(),
+                               std::move(pointToPutCaret));
 }
 
 Result<EditActionResult, nsresult>
@@ -6400,7 +6567,8 @@ Result<EditorDOMPoint, nsresult> HTMLEditor::CreateStyleForInsertText(
     NS_WARNING("AutoClonedRangeArray::AutoClonedRangeArray() failed");
     return Err(NS_ERROR_FAILURE);
   }
-  nsresult rv = SetInlinePropertiesAroundRanges(ranges, stylesToSet);
+  nsresult rv =
+      SetInlinePropertiesAroundRanges(ranges, stylesToSet, aEditingHost);
   if (NS_FAILED(rv)) {
     NS_WARNING("HTMLEditor::SetInlinePropertiesAroundRanges() failed");
     return Err(rv);
@@ -8987,7 +9155,8 @@ nsresult HTMLEditor::AdjustCaretPositionAndEnsurePaddingBRElement(
         previousEditableContent->IsHTMLElement(nsGkAtoms::br)) {
       // If it's an invisible `<br>` element, we need to insert a padding
       // `<br>` element for making empty line have one-line height.
-      if (HTMLEditUtils::IsInvisibleBRElement(*previousEditableContent) &&
+      if (HTMLEditUtils::IsBRElementFollowedByBlockBoundary(
+              *previousEditableContent) &&
           !EditorUtils::IsPaddingBRElementForEmptyLastLine(
               *previousEditableContent)) {
         AutoEditorDOMPointChildInvalidator lockOffset(point);

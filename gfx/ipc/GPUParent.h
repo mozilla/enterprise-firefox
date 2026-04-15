@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -98,7 +96,7 @@ class GPUParent final : public PGPUParent {
       const LayerTreeIdMapping& aMapping);
   mozilla::ipc::IPCResult RecvRemoveLayerTreeIdMapping(
       const LayerTreeIdMapping& aMapping);
-  mozilla::ipc::IPCResult RecvNotifyGpuObservers(const nsCString& aTopic);
+  mozilla::ipc::IPCResult RecvFlushActiveCheckerboardReports();
   mozilla::ipc::IPCResult RecvRequestMemoryReport(
       const uint32_t& generation, const bool& anonymize,
       const bool& minimizeMemoryUsage,

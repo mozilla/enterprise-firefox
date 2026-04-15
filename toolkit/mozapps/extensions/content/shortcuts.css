@@ -24,7 +24,7 @@
 
 .card-heading {
   display: flex;
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
 }
 
 .shortcut-row {

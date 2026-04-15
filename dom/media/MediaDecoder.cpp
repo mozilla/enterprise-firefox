@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -359,6 +357,12 @@ void MediaDecoder::OnPlaybackEvent(const MediaPlaybackEvent& aEvent) {
       break;
     case MediaPlaybackEvent::VideoOnlySeekCompleted:
       GetOwner()->QueueEvent(u"mozvideoonlyseekcompleted"_ns);
+      break;
+    case MediaPlaybackEvent::PlaybackRateFallback:
+      nsContentUtils::ReportToConsoleNonLocalized(
+          u"Failed to initialize the audio time stretcher. Audio will play at "
+          u"normal speed."_ns,
+          nsIScriptError::warningFlag, "Media"_ns, GetOwner()->GetDocument());
       break;
     default:
       break;
@@ -778,7 +782,7 @@ void MediaDecoder::EnsureTelemetryReported() {
   }
   if (codecs.IsEmpty()) {
     codecs.AppendElement(nsPrintfCString(
-        "resource; %s", ContainerType().OriginalString().Data()));
+        "resource; %s", ContainerType().OriginalString().get()));
   }
   for (const nsCString& codec : codecs) {
     LOG("Telemetry MEDIA_CODEC_USED= '%s'", codec.get());

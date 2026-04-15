@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -357,7 +355,7 @@ CompositorBridgeChild* WebRenderBridgeChild::GetCompositorBridgeChild() {
   return static_cast<CompositorBridgeChild*>(Manager());
 }
 
-TextureForwarder* WebRenderBridgeChild::GetTextureForwarder() {
+RefPtr<TextureForwarder> WebRenderBridgeChild::GetTextureForwarder() {
   return static_cast<TextureForwarder*>(GetCompositorBridgeChild());
 }
 
@@ -591,9 +589,8 @@ void WebRenderBridgeChild::DeallocResourceShmem(RefCountedShmem& aShm) {
 
 void WebRenderBridgeChild::Capture() { this->SendCapture(); }
 
-void WebRenderBridgeChild::StartCaptureSequence(const nsCString& aPath,
-                                                uint32_t aFlags) {
-  this->SendStartCaptureSequence(aPath, aFlags);
+void WebRenderBridgeChild::StartCaptureSequence(uint32_t aFlags) {
+  this->SendStartCaptureSequence(aFlags);
 }
 
 void WebRenderBridgeChild::StopCaptureSequence() {

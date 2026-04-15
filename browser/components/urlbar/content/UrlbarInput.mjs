@@ -50,6 +50,7 @@ const lazy = XPCOMUtils.declareLazy({
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SearchModeSwitcher:
     "moz-src:///browser/components/urlbar/SearchModeSwitcher.sys.mjs",
+  SharingUtils: "resource:///modules/SharingUtils.sys.mjs",
   SearchUIUtils: "moz-src:///browser/components/search/SearchUIUtils.sys.mjs",
   SearchUtils: "moz-src:///toolkit/components/search/SearchUtils.sys.mjs",
   UrlbarController:
@@ -138,14 +139,11 @@ export class UrlbarInput extends HTMLElement {
         <moz-urlbar-slot name="site-info"> </moz-urlbar-slot>
         <moz-input-box tooltip="aHTMLTooltip"
                        class="urlbar-input-box"
-                       flex="1"
-                       role="combobox"
-                       aria-owns="urlbar-results">
+                       flex="1">
           <html:input id="urlbar-scheme"
                       required="required"/>
-          <html:input id="urlbar-input"
-                      class="urlbar-input textbox-input"
-                      aria-controls="urlbar-results"
+          <html:input class="urlbar-input textbox-input"
+                      role="combobox"
                       aria-autocomplete="both"
                       inputmode="mozAwesomebar"
                       data-l10n-id="urlbar-placeholder"/>
@@ -162,8 +160,7 @@ export class UrlbarInput extends HTMLElement {
             tooltip="aHTMLTooltip">
         <html:div class="urlbarView-body-outer">
           <html:div class="urlbarView-body-inner">
-            <html:div id="urlbar-results"
-                      class="urlbarView-results"
+            <html:div class="urlbarView-results"
                       role="listbox"/>
           </html:div>
         </html:div>
@@ -329,14 +326,22 @@ export class UrlbarInput extends HTMLElement {
     }
 
     this.panel = this.querySelector(".urlbarView");
+    this._inputContainer = this.querySelector(".urlbar-input-container");
     this.inputField = /** @type {HTMLInputElement} */ (
       this.querySelector(".urlbar-input")
     );
+
+    let resultListboxId = this.#sapName + "-results";
+    this.querySelector(".urlbarView-results").id = resultListboxId;
+    this.inputField.setAttribute("aria-controls", resultListboxId);
+
+    if (this.#isAddressbar) {
+      this.inputField.id = "urlbar-input";
+    }
     if (this.#sapName == "searchbar") {
       // This adds a native clear button.
       this.inputField.setAttribute("type", "search");
     }
-    this._inputContainer = this.querySelector(".urlbar-input-container");
 
     this.controller = new lazy.UrlbarController({ input: this });
     this.view = new lazy.UrlbarView(this);
@@ -404,6 +409,7 @@ export class UrlbarInput extends HTMLElement {
     if (this.inOverflowPanel && this.view.isOpen) {
       this.view.close();
     }
+    this.toggleAttribute("focused", this.focused);
 
     // Don't attach event listeners if the toolbar is not visible
     // in this window or the urlbar is readonly.
@@ -581,6 +587,12 @@ export class UrlbarInput extends HTMLElement {
   #onContextMenuRebuilt() {
     this._initStripOnShare();
     this._initPasteAndGo();
+    if (this.#isAddressbar && AppConstants.platform == "macosx") {
+      this.#initShareURL();
+    }
+    if (this.sapName == "searchbar") {
+      this.#initClearSearchHistory();
+    }
   }
 
   addGBrowserListeners() {
@@ -2334,7 +2346,7 @@ export class UrlbarInput extends HTMLElement {
     }
     this.selectionStart = -1;
 
-    this.window.openTrustedLinkIn(url, where);
+    this.window.openTrustedLinkIn(url, where, { inBackground: true });
   }
 
   /**
@@ -2831,11 +2843,16 @@ export class UrlbarInput extends HTMLElement {
 
   /**
    * @param {{wrappedJSObject: SearchEngine}} subject
-   * @param {"browser-search-engine-modified"} topic
+   * @param {"browser-search-engine-modified"|"ai-window-state-changed"} topic
    * @param {string} data
    */
   observe(subject, topic, data) {
     switch (topic) {
+      case "ai-window-state-changed":
+        if (subject == this.window && data == "classic") {
+          this.#updateLayoutBreakout();
+        }
+        break;
       case lazy.SearchUtils.TOPIC_ENGINE_MODIFIED: {
         let engine = subject.wrappedJSObject;
         switch (data) {
@@ -2869,10 +2886,12 @@ export class UrlbarInput extends HTMLElement {
   }
 
   /**
-   * Get search source.
+   * Get search source for telemetry.
    *
-   * @param {Event} event
+   * @param {Event} [event]
    *   The event that triggered this query.
+   *   This is not needed for urlbar.* telemetry and will be obsolete for
+   *   all types of telemetry once the pre-scotch bonnet code is removed.
    * @returns {keyof typeof lazy.BrowserSearchTelemetry.KNOWN_SEARCH_SOURCES}
    *   The source name.
    */
@@ -2938,6 +2957,7 @@ export class UrlbarInput extends HTMLElement {
       lazy.SearchUtils.TOPIC_ENGINE_MODIFIED,
       true
     );
+    Services.obs.addObserver(this._observer, "ai-window-state-changed", true);
   }
 
   _removeObservers() {
@@ -2946,6 +2966,7 @@ export class UrlbarInput extends HTMLElement {
         this._observer,
         lazy.SearchUtils.TOPIC_ENGINE_MODIFIED
       );
+      Services.obs.removeObserver(this._observer, "ai-window-state-changed");
       this._observer = null;
     }
   }
@@ -3201,6 +3222,8 @@ export class UrlbarInput extends HTMLElement {
         );
       case lazy.UrlbarUtils.RESULT_TYPE.RESTRICT:
         return result.payload.autofillKeyword + " ";
+      case lazy.UrlbarUtils.RESULT_TYPE.AI_CHAT:
+        return result.payload.query ?? "";
       case lazy.UrlbarUtils.RESULT_TYPE.TIP: {
         let value = element?.dataset.url || element?.dataset.input;
         if (value) {
@@ -4378,6 +4401,46 @@ export class UrlbarInput extends HTMLElement {
   }
 
   /**
+   * Initializes the share URL context menu item.
+   * This is only shown on the addressbar and only on macOS.
+   */
+  #initShareURL() {
+    let contextMenu = this.querySelector("moz-input-box").menupopup;
+    let insertLocation = this.#findMenuItemLocation("cmd_selectAll");
+
+    let separator = this.document.createXULElement("menuseparator");
+    insertLocation.insertAdjacentElement("afterend", separator);
+
+    contextMenu.addEventListener("popupshowing", () => {
+      let browser = this.window.gBrowser?.selectedBrowser;
+      if (browser) {
+        lazy.SharingUtils.updateShareURLMenuItem(browser, null, separator);
+      }
+    });
+  }
+
+  /**
+   * Initializes the clear search history context menu item.
+   * This is only shown on the searchbar.
+   */
+  #initClearSearchHistory() {
+    let insertLocation = this.#findMenuItemLocation("cmd_selectAll");
+
+    let separator = this.document.createXULElement("menuseparator");
+    insertLocation.after(separator);
+
+    let clearHistory = this.document.createXULElement("menuitem");
+    separator.after(clearHistory);
+
+    clearHistory.setAttribute("anonid", "clear-search-history");
+    this.document.l10n.setAttributes(clearHistory, "clear-search-history");
+    clearHistory.addEventListener("command", () => {
+      lazy.UrlbarUtils.clearFormHistory();
+      this.handleRevert();
+    });
+  }
+
+  /**
    * This notifies observers that the user has entered or selected something in
    * the URL bar which will cause navigation.
    *
@@ -5405,8 +5468,12 @@ export class UrlbarInput extends HTMLElement {
   }
 
   _on_beforeinput(event) {
-    if (event.data && this._keyDownEnterDeferred) {
+    if (
       // Ignore char key input while processing enter key.
+      (event.data && this._keyDownEnterDeferred) ||
+      // Ignore space key while the result menu will be activated by space.
+      (event.data == " " && this.view.shouldSpaceActivateSelectedElement())
+    ) {
       event.preventDefault();
     }
   }

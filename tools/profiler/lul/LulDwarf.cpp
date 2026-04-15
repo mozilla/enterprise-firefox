@@ -1,6 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
-
 // Copyright (c) 2010 Google Inc. All Rights Reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -76,7 +73,7 @@ ByteReader::ByteReader(enum Endianness endian)
       have_data_base_(),
       have_function_base_() {}
 
-ByteReader::~ByteReader() {}
+ByteReader::~ByteReader() = default;
 
 void ByteReader::SetOffsetSize(uint8 size) {
   offset_size_ = size;
@@ -599,7 +596,7 @@ class CallFrameInfo::Rule final {
   // For debugging only
   string show() const {
     char buf[100];
-    string s = "";
+    string s;
     switch (tag_) {
       case Tag::INVALID:
         s = "INVALID";

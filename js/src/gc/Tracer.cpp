@@ -69,15 +69,15 @@ void js::gc::TraceIncomingCCWs(JSTracer* trc,
       continue;
     }
     // Iterate over all compartments that |source| has wrappers for.
-    for (Compartment::WrappedObjectCompartmentEnum dest(source); !dest.empty();
-         dest.popFront()) {
+    for (auto dest = source->wrappedObjectCompartments(); !dest.done();
+         dest.next()) {
       if (!compartments.has(dest)) {
         continue;
       }
       // Iterate over all wrappers from |source| to |dest| compartments.
-      for (Compartment::ObjectWrapperEnum e(source, dest); !e.empty();
-           e.popFront()) {
-        JSObject* obj = e.front().key();
+      for (auto iter = source->objectWrapperMappingsTo(dest); !iter.done();
+           iter.next()) {
+        JSObject* obj = iter.get().key();
         MOZ_ASSERT(compartments.has(obj->compartment()));
         mozilla::DebugOnly<JSObject*> prior = obj;
         TraceManuallyBarrieredEdge(trc, &obj,

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -83,6 +81,11 @@ class WebRenderBridgeParent final : public PWebRenderBridgeParent,
   static WebRenderBridgeParent* CreateDestroyed(
       const wr::PipelineId& aPipelineId, nsCString&& aError);
 
+  // Ensures the WebRenderBridgeParent has completed initialization, returning
+  // true if successful, or false if initialization failed or the bridge is
+  // alreay destroyed. Must only be called from Compositor thread.
+  bool EnsureInitialized();
+
   // Called for root WebRenderBridgeParents to complete initialization once the
   // WebRenderAPI and AsyncImagePipelineManager have been created.
   void FinishInitialization(RefPtr<wr::WebRenderAPI>&& aApi,
@@ -90,15 +93,12 @@ class WebRenderBridgeParent final : public PWebRenderBridgeParent,
   void FinishInitializationError(nsCString&& aError);
 
   wr::PipelineId PipelineId() { return mPipelineId; }
-  already_AddRefed<wr::WebRenderAPI> GetWebRenderAPI() {
-    return do_AddRef(mLateInit->mApi);
-  }
-  AsyncImagePipelineManager* AsyncImageManager() {
-    return mLateInit->mAsyncImageManager;
-  }
-  CompositorVsyncScheduler* CompositorScheduler() {
-    return mLateInit->mCompositorScheduler.get();
-  }
+  // Must only be called from Compositor thread.
+  already_AddRefed<wr::WebRenderAPI> GetWebRenderAPI();
+  // Must only be called from Compositor thread.
+  AsyncImagePipelineManager* AsyncImageManager();
+  // Must only be called from Compositor thread.
+  CompositorVsyncScheduler* CompositorScheduler();
   CompositorBridgeParentBase* GetCompositorBridge() {
     return mCompositorBridge;
   }
@@ -158,7 +158,7 @@ class WebRenderBridgeParent final : public PWebRenderBridgeParent,
       const wr::RenderReasons& aReasons) override;
   mozilla::ipc::IPCResult RecvCapture() override;
   mozilla::ipc::IPCResult RecvStartCaptureSequence(
-      const nsACString& path, const uint32_t& aFlags) override;
+      const uint32_t& aFlags) override;
   mozilla::ipc::IPCResult RecvStopCaptureSequence() override;
   mozilla::ipc::IPCResult RecvSyncWithCompositor() override;
 
@@ -209,8 +209,7 @@ class WebRenderBridgeParent final : public PWebRenderBridgeParent,
   dom::ContentParentId GetContentId() override;
   void NotifyNotUsed(PTextureParent* aTexture,
                      uint64_t aTransactionId) override;
-  void SendAsyncMessage(
-      const nsTArray<AsyncParentMessageData>& aMessage) override;
+  void SendAsyncMessage(Span<const AsyncParentMessageData>) override;
   void SendPendingAsyncMessages() override;
   void SetAboutToSendAsyncMessages() override;
 
@@ -240,7 +239,6 @@ class WebRenderBridgeParent final : public PWebRenderBridgeParent,
       nsTArray<ImageCompositeNotificationInfo>* aNotifications);
 
   wr::Epoch GetCurrentEpoch() const { return mWrEpoch; }
-  wr::IdNamespace GetIdNamespace() { return mLateInit->mIdNamespace; }
 
   bool MatchesNamespace(const wr::ImageKey& aImageKey) const {
     return aImageKey.mNamespace == mLateInit->mIdNamespace;

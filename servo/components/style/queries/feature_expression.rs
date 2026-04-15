@@ -7,18 +7,23 @@
 
 use super::feature::{Evaluator, QueryFeatureDescription};
 use super::feature::{FeatureFlags, KeywordDiscriminant};
+use crate::context::QuirksMode;
 use crate::derives::*;
 use crate::parser::{Parse, ParserContext};
+use crate::properties::CSSWideKeyword;
+use crate::properties_and_values::value::{ComputedValueComponent as Component, ValueInner};
+use crate::selector_map::PrecomputedHashSet;
 use crate::str::{starts_with_ignore_ascii_case, string_as_ascii_lowercase};
-use crate::values::computed::{self, Ratio, ToComputedValue};
-use crate::values::specified::{Integer, Length, Number, Resolution};
-use crate::values::CSSFloat;
+use crate::stylesheets::{CssRuleType, Origin, UrlExtraData};
+use crate::values::computed::{self, CSSPixelLength, Ratio, ToComputedValue};
+use crate::values::specified::{Angle, Integer, Length, Number, Percentage, Resolution, Time};
+use crate::values::{CSSFloat, DashedIdent};
 use crate::{Atom, Zero};
-use cssparser::{Parser, Token};
+use cssparser::{Parser, ParserInput, Token};
 use selectors::kleene_value::KleeneValue;
 use std::cmp::Ordering;
 use std::fmt::{self, Write};
-use style_traits::{CssWriter, ParseError, StyleParseErrorKind, ToCss};
+use style_traits::{CssWriter, ParseError, ParsingMode, StyleParseErrorKind, ToCss};
 
 /// Whether we're parsing a media or container query feature.
 #[derive(Clone, Copy, Debug, Eq, MallocSizeOf, PartialEq, ToShmem)]
@@ -34,7 +39,7 @@ impl FeatureType {
         #[cfg(feature = "gecko")]
         use crate::gecko::media_features::MEDIA_FEATURES;
         #[cfg(feature = "servo")]
-        use crate::servo::media_queries::MEDIA_FEATURES;
+        use crate::servo::media_features::MEDIA_FEATURES;
 
         use crate::stylesheets::container_rule::CONTAINER_FEATURES;
 
@@ -63,7 +68,7 @@ enum LegacyRange {
 
 /// The operator that was specified in this feature.
 #[derive(Clone, Copy, Debug, Eq, MallocSizeOf, PartialEq, ToShmem)]
-enum Operator {
+pub enum Operator {
     /// =
     Equal,
     /// >
@@ -272,14 +277,14 @@ impl ToCss for QueryFeatureExpression {
             | QueryFeatureExpressionKind::LegacyRange(_, ref v) => {
                 self.write_name(dest)?;
                 dest.write_str(": ")?;
-                v.to_css(dest, self)?;
+                v.to_css(dest, Some(self))?;
             },
             QueryFeatureExpressionKind::Range {
                 ref left,
                 ref right,
             } => {
                 if let Some((ref op, ref val)) = left {
-                    val.to_css(dest, self)?;
+                    val.to_css(dest, Some(self))?;
                     dest.write_char(' ')?;
                     op.to_css(dest)?;
                     dest.write_char(' ')?;
@@ -289,7 +294,7 @@ impl ToCss for QueryFeatureExpression {
                     dest.write_char(' ')?;
                     op.to_css(dest)?;
                     dest.write_char(' ')?;
-                    val.to_css(dest, self)?;
+                    val.to_css(dest, Some(self))?;
                 }
             },
         }
@@ -560,7 +565,7 @@ impl QueryFeatureExpression {
         Ok(Self::new(feature_type, feature_index, kind))
     }
 
-    /// Returns whether this query evaluates to true for the given device.
+    /// Returns whether this "plain" feature query evaluates to true for the given device.
     pub fn matches(&self, context: &computed::Context) -> KleeneValue {
         macro_rules! expect {
             ($variant:ident, $v:expr) => {
@@ -662,10 +667,28 @@ pub enum QueryExpressionValue {
     /// An enumerated value, defined by the variant keyword table in the
     /// feature's `mData` member.
     Enumerated(KeywordDiscriminant),
+    /// Value types only used by style-range query expressions, not feature queries.
+    /// A CSS-wide keyword.
+    Keyword(CSSWideKeyword),
+    /// A percentage.
+    Percentage(Percentage),
+    /// An angle.
+    Angle(Angle),
+    /// A time value.
+    Time(Time),
+    /// A custom property name.
+    Custom(DashedIdent),
+    /// A simple var(...) reference without a default (equivalent to a bare Custom ident,
+    /// but will serialize with the `var()` wrapper)
+    Var(DashedIdent),
 }
 
 impl QueryExpressionValue {
-    fn to_css<W>(&self, dest: &mut CssWriter<W>, for_expr: &QueryFeatureExpression) -> fmt::Result
+    fn to_css<W>(
+        &self,
+        dest: &mut CssWriter<W>,
+        for_expr: Option<&QueryFeatureExpression>,
+    ) -> fmt::Result
     where
         W: fmt::Write,
     {
@@ -676,7 +699,21 @@ impl QueryExpressionValue {
             QueryExpressionValue::BoolInteger(v) => dest.write_str(if v { "1" } else { "0" }),
             QueryExpressionValue::NumberRatio(ratio) => ratio.to_css(dest),
             QueryExpressionValue::Resolution(ref r) => r.to_css(dest),
-            QueryExpressionValue::Enumerated(value) => match for_expr.feature().evaluator {
+            QueryExpressionValue::Keyword(k) => k.to_css(dest),
+            QueryExpressionValue::Percentage(v) => v.to_css(dest),
+            QueryExpressionValue::Angle(v) => v.to_css(dest),
+            QueryExpressionValue::Time(v) => v.to_css(dest),
+            QueryExpressionValue::Custom(ref v) => v.to_css(dest),
+            QueryExpressionValue::Var(ref v) => {
+                dest.write_str("var(")?;
+                v.to_css(dest)?;
+                dest.write_char(')')
+            },
+            QueryExpressionValue::Enumerated(value) => match for_expr
+                .expect("caller should have passed for_expr")
+                .feature()
+                .evaluator
+            {
                 Evaluator::Enumerated { serializer, .. } => dest.write_str(&*serializer(value)),
                 _ => unreachable!(),
             },
@@ -721,5 +758,314 @@ impl QueryExpressionValue {
                 QueryExpressionValue::Enumerated(parser(context, input)?)
             },
         })
+    }
+
+    // Parse any of the types that can occur in a <style-range> query:
+    // <number>, <percentage>, <length>, <angle>, <time>, <frequency> or <resolution>,
+    // or a custom property name.
+    // NB: we don't currently implement the <frequency> type anywhere, so it is not
+    // parsed here.
+    fn parse_for_style_range<'i, 't>(
+        context: &ParserContext,
+        input: &mut Parser<'i, 't>,
+    ) -> Result<Self, ParseError<'i>> {
+        if let Ok(number) = input.try_parse(|i| Number::parse(context, i)) {
+            return Ok(Self::Float(number.get()));
+        }
+        if let Ok(percent) = input.try_parse(|i| Percentage::parse(context, i)) {
+            return Ok(Self::Percentage(percent));
+        }
+        if let Ok(length) = input.try_parse(|i| Length::parse(context, i)) {
+            return Ok(Self::Length(length));
+        }
+        if let Ok(angle) = input.try_parse(|i| Angle::parse(context, i)) {
+            return Ok(Self::Angle(angle));
+        }
+        if let Ok(time) = input.try_parse(|i| Time::parse(context, i)) {
+            return Ok(Self::Time(time));
+        }
+        if let Ok(resolution) = input.try_parse(|i| Resolution::parse(context, i)) {
+            return Ok(Self::Resolution(resolution));
+        }
+        if let Ok(ident) = input.try_parse(|i| DashedIdent::parse(context, i)) {
+            return Ok(Self::Custom(ident));
+        }
+        if let Ok(keyword) = input.try_parse(|i| CSSWideKeyword::parse(i)) {
+            return Ok(Self::Keyword(keyword));
+        }
+        if let Ok(Token::Function(ref name)) = input.next() {
+            // Here, we only handle simple `var(--foo)` references when used as individual
+            // query expression values. More complex usages such as `var(...)` with default,
+            // or `var(...)` used within `calc(...)` expressions, will be substituted and
+            // resolved at query evaluation time.
+            if name.eq_ignore_ascii_case("var") {
+                if let Ok(ident) =
+                    input.try_parse(|i| i.parse_nested_block(|i| DashedIdent::parse(context, i)))
+                {
+                    return Ok(Self::Var(ident));
+                }
+            }
+        }
+        Err(input.new_custom_error(StyleParseErrorKind::UnspecifiedError))
+    }
+}
+
+/// https://drafts.csswg.org/css-conditional-5/#typedef-style-range
+#[derive(Clone, Debug, MallocSizeOf, ToShmem, PartialEq)]
+pub enum QueryStyleRange {
+    /// A style-range for style container queries with two values
+    /// (val1 OP val2).
+    #[allow(missing_docs)]
+    StyleRange2 {
+        value1: QueryExpressionValue,
+        op1: Operator,
+        value2: QueryExpressionValue,
+    },
+
+    /// A style-range for style container queries with three values
+    /// (val1 OP val2 OP val3).
+    #[allow(missing_docs)]
+    StyleRange3 {
+        value1: QueryExpressionValue,
+        op1: Operator,
+        value2: QueryExpressionValue,
+        op2: Operator,
+        value3: QueryExpressionValue,
+    },
+}
+
+impl ToCss for QueryStyleRange {
+    fn to_css<W>(&self, dest: &mut CssWriter<W>) -> fmt::Result
+    where
+        W: fmt::Write,
+    {
+        dest.write_char('(')?;
+        match self {
+            Self::StyleRange2 {
+                ref value1,
+                ref op1,
+                ref value2,
+            } => {
+                value1.to_css(dest, None)?;
+                dest.write_char(' ')?;
+                op1.to_css(dest)?;
+                dest.write_char(' ')?;
+                value2.to_css(dest, None)?;
+            },
+            Self::StyleRange3 {
+                ref value1,
+                ref op1,
+                ref value2,
+                ref op2,
+                ref value3,
+            } => {
+                value1.to_css(dest, None)?;
+                dest.write_char(' ')?;
+                op1.to_css(dest)?;
+                dest.write_char(' ')?;
+                value2.to_css(dest, None)?;
+                dest.write_char(' ')?;
+                op2.to_css(dest)?;
+                dest.write_char(' ')?;
+                value3.to_css(dest, None)?;
+            },
+        }
+        dest.write_char(')')
+    }
+}
+
+impl QueryStyleRange {
+    /// Parses the following range syntax:
+    ///
+    ///   value <operator> value
+    ///   value <operator> value <operator> value
+    ///
+    /// This is only used when parsing @container style() queries; the feature_type
+    /// and index is hardcoded (and ignored).
+    pub fn parse<'i, 't>(
+        context: &ParserContext,
+        input: &mut Parser<'i, 't>,
+    ) -> Result<Self, ParseError<'i>> {
+        let value1 = QueryExpressionValue::parse_for_style_range(context, input)?;
+        let op1 = Operator::parse(input)?;
+        let value2 = QueryExpressionValue::parse_for_style_range(context, input)?;
+
+        if let Ok(op2) = input.try_parse(|i| Operator::parse(i)) {
+            if op1.is_compatible_with(op2) {
+                let value3 = QueryExpressionValue::parse_for_style_range(context, input)?;
+                return Ok(Self::StyleRange3 {
+                    value1,
+                    op1,
+                    value2,
+                    op2,
+                    value3,
+                });
+            }
+        }
+
+        Ok(Self::StyleRange2 {
+            value1,
+            op1,
+            value2,
+        })
+    }
+
+    /// Returns whether this style-range query evaluates to true for the given context.
+    pub fn evaluate(&self, context: &computed::Context) -> KleeneValue {
+        match self {
+            QueryStyleRange::StyleRange2 {
+                ref value1,
+                ref op1,
+                ref value2,
+            } => Self::compare_values(
+                Self::resolve_value(value1, context, &mut PrecomputedHashSet::default()).as_ref(),
+                Self::resolve_value(value2, context, &mut PrecomputedHashSet::default()).as_ref(),
+            )
+            .is_some_and(|c| op1.evaluate(c))
+            .into(),
+
+            QueryStyleRange::StyleRange3 {
+                ref value1,
+                ref op1,
+                ref value2,
+                ref op2,
+                ref value3,
+            } => {
+                let v1 = Self::resolve_value(value1, context, &mut PrecomputedHashSet::default());
+                let v2 = Self::resolve_value(value2, context, &mut PrecomputedHashSet::default());
+                Self::compare_values(v1.as_ref(), v2.as_ref())
+                    .is_some_and(|c1| {
+                        op1.evaluate(c1)
+                            && Self::compare_values(
+                                v2.as_ref(),
+                                Self::resolve_value(
+                                    value3,
+                                    context,
+                                    &mut PrecomputedHashSet::default(),
+                                )
+                                .as_ref(),
+                            )
+                            .is_some_and(|c2| op2.evaluate(c2))
+                    })
+                    .into()
+            },
+        }
+    }
+
+    // Resolve a QueryExpressionValue to its computed value for comparison.
+    fn resolve_value(
+        value: &QueryExpressionValue,
+        context: &computed::Context,
+        visited_set: &mut PrecomputedHashSet<DashedIdent>,
+    ) -> Option<Component> {
+        match value {
+            QueryExpressionValue::Custom(ident) | QueryExpressionValue::Var(ident) => {
+                // `ident` is the dashed ident, but we need the name
+                // without "--" for custom-property lookup.
+                let name = ident.undashed();
+                let stylist = context
+                    .builder
+                    .stylist
+                    .expect("container queries should have a stylist around");
+                let registration = stylist.get_custom_property_registration(&name);
+                let current_value = context
+                    .inherited_custom_properties()
+                    .get(registration, &name)?;
+                match &current_value.v {
+                    ValueInner::Component(component) => Some(component.clone()),
+                    ValueInner::Universal(v) => {
+                        // If visited_set.insert() returns false, ident was already seen
+                        // and we risk infinite recursion, so instead return None
+                        // (i.e. the value cannot be resolved).
+                        if visited_set.insert(ident.clone()) {
+                            Self::resolve_universal(&v.css, &v.url_data, context, visited_set)
+                        } else {
+                            None
+                        }
+                    },
+                    ValueInner::List(_) => {
+                        debug_assert!(false, "We don't parse list values in style queries");
+                        None
+                    },
+                }
+            },
+            QueryExpressionValue::Length(v) => {
+                Some(Component::Length(v.to_computed_value(context)))
+            },
+            QueryExpressionValue::Float(v) => Some(Component::Number(v.to_computed_value(context))),
+            QueryExpressionValue::Resolution(v) => {
+                Some(Component::Resolution(v.to_computed_value(context)))
+            },
+            QueryExpressionValue::Percentage(v) => {
+                Some(Component::Percentage(v.to_computed_value(context)))
+            },
+            QueryExpressionValue::Angle(v) => Some(Component::Angle(v.to_computed_value(context))),
+            QueryExpressionValue::Time(v) => Some(Component::Time(v.to_computed_value(context))),
+            // It's unclear to me what CSS-wide keywords would mean in a style-range query;
+            // for now, at least, they'll just fail to resolve.
+            QueryExpressionValue::Keyword(_) => None,
+            _ => {
+                debug_assert!(false, "unexpected value type in style range");
+                None
+            },
+        }
+    }
+
+    // If a custom-property QueryExpressionValue has a "universal-syntax" value, we need to
+    // send the current CSS text of the value to QueryExpressionValue::parse_for_style_range
+    // to try and resolve to a specific typed value.
+    // After parsing, this will call back to QueryExpressionValue::resolve_value with the
+    // parsed result, which has the potential for mutual recursion; we keep track of a
+    // visited_set of custom property names to protect against this.
+    fn resolve_universal(
+        css_text: &str,
+        url_data: &UrlExtraData,
+        context: &computed::Context,
+        visited_set: &mut PrecomputedHashSet<DashedIdent>,
+    ) -> Option<Component> {
+        let parser_context = ParserContext::new(
+            Origin::Author,
+            url_data,
+            Some(CssRuleType::Container),
+            ParsingMode::DEFAULT,
+            QuirksMode::NoQuirks,
+            /* namespaces = */ Default::default(),
+            /* error_reporter = */ None,
+            /* use_counters = */ None,
+        );
+        let mut input = ParserInput::new(css_text);
+        QueryExpressionValue::parse_for_style_range(&parser_context, &mut Parser::new(&mut input))
+            .ok()
+            .and_then(|parsed| Self::resolve_value(&parsed, context, visited_set))
+    }
+
+    fn compare_values(value1: Option<&Component>, value2: Option<&Component>) -> Option<Ordering> {
+        let value1 = value1?;
+        let value2 = value2?;
+        match (value1, value2) {
+            (Component::Length(v1), Component::Length(v2)) => v1.partial_cmp(&v2),
+            (Component::Number(v1), Component::Number(v2)) => v1.partial_cmp(&v2),
+            (Component::Resolution(v1), Component::Resolution(v2)) => {
+                v1.dppx().partial_cmp(&v2.dppx())
+            },
+            (Component::Percentage(v1), Component::Percentage(v2)) => v1.partial_cmp(&v2),
+            (Component::Angle(v1), Component::Angle(v2)) => v1.partial_cmp(&v2),
+            (Component::Time(v1), Component::Time(v2)) => v1.partial_cmp(&v2),
+            (Component::Length(v1), Component::Number(v2)) => {
+                if v2.is_zero() {
+                    v1.partial_cmp(&CSSPixelLength::zero())
+                } else {
+                    None
+                }
+            },
+            (Component::Number(v1), Component::Length(v2)) => {
+                if v1.is_zero() {
+                    CSSPixelLength::zero().partial_cmp(&v2)
+                } else {
+                    None
+                }
+            },
+            _ => None,
+        }
     }
 }

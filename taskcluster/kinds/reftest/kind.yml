@@ -107,6 +107,10 @@ tasks:
                 default: null  # don't load tests in the taskgraph
         chunks:
             by-test-platform:
+                linux.*64-tsan(-qr)?/opt: dynamic
+                default: 1
+        default-chunks:
+            by-test-platform:
                 linux.*64-tsan(-qr)?/opt: 4
                 default: 1
         variants:
@@ -242,7 +246,8 @@ tasks:
         description: "Reftest run"
         treeherder-symbol: R(R)
         virtualization: virtual-with-gpu
-        chunks:
+        chunks: dynamic
+        default-chunks:
             by-test-platform:
                 android-em.*: 6
                 linux2404-64(-shippable)?/opt: 5
@@ -259,7 +264,6 @@ tasks:
                 default: 8
         variants:
             - draw-snapshot
-            - geckoview-no-fission-no-ship
             - no-fission
             - no-gpu-process
             - webrender-dcomp-disabled
@@ -296,11 +300,6 @@ tasks:
                         linux2404-64(-shippable)?/opt: ['mozilla-central']
                         linux2404-64-asan/opt: ['mozilla-central']
                         android.*: built-projects
-                        default: []
-                geckoview-no-fission-no-ship:
-                    by-test-platform:
-                        android-em.*/debug-isolated-process: ['trunk']
-                        android-em.*: built-projects
                         default: []
                 no-gpu-process:
                     by-test-platform:

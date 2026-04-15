@@ -1681,10 +1681,6 @@ Sync11Service.prototype = {
       }
     })();
   },
-
-  recordTelemetryEvent(object, method, value, extra = undefined) {
-    Svc.Obs.notify("weave:telemetry:event", { object, method, value, extra });
-  },
 };
 
 export var Service = new Sync11Service();

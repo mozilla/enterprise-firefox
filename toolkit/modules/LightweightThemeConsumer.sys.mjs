@@ -311,9 +311,6 @@ LightweightThemeConsumer.prototype = {
     // Store user's theme before replacing with aiThemeData.
     this._lastData = themeData;
 
-    // Capture original theme's color scheme before replacing with aiThemeData.
-    let originalThemeColorScheme = themeData?.theme?.color_scheme;
-
     if (this._isAIWindow) {
       if (manager.aiThemeData) {
         themeData = manager.aiThemeData;
@@ -336,18 +333,6 @@ LightweightThemeConsumer.prototype = {
 
       if (!supportsDarkTheme) {
         return false;
-      }
-
-      // AI windows: use color scheme from original user's theme
-      if (this._isAIWindow) {
-        switch (originalThemeColorScheme) {
-          case "dark":
-            return true;
-          case "system":
-            break;
-          default:
-            return false;
-        }
       }
 
       if (this.darkThemeMediaQuery?.matches) {
@@ -385,6 +370,17 @@ LightweightThemeConsumer.prototype = {
     this._doc.forceNonNativeTheme = !!builtinThemeConfig?.nonNative;
     let root = this._doc.documentElement;
     root.toggleAttribute("lwtheme-image", !!(hasTheme && theme.headerURL));
+    root.toggleAttribute(
+      "lwtheme-image-y-align",
+      hasTheme &&
+        !!theme.backgroundsAlignment?.split(",").some(alignment => {
+          if (alignment == "center" || alignment == "bottom") {
+            return true;
+          }
+          let [, y] = alignment.split(" ");
+          return y == "center" || y == "bottom";
+        })
+    );
     this._setExperiment(hasTheme, themeData.experiment, theme.experimental);
     _setImage(this._win, root, hasTheme, "--lwt-header-image", theme.headerURL);
     _setImage(

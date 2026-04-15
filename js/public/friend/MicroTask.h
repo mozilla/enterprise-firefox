@@ -116,6 +116,11 @@ JS_PUBLIC_API GenericMicroTask DequeueNextMicroTask(JSContext* cx);
 JS_PUBLIC_API GenericMicroTask DequeueNextDebuggerMicroTask(JSContext* cx);
 JS_PUBLIC_API GenericMicroTask DequeueNextRegularMicroTask(JSContext* cx);
 
+// Peek at the next MicroTask without removing it from the queue.
+// Returns JS::NullValue() if there are no MicroTasks.
+// Checks debugger queue first, then regular queue.
+JS_PUBLIC_API GenericMicroTask PeekNextMicroTask(JSContext* cx);
+
 // Returns true if there are -any- microtasks pending in the queue.
 JS_PUBLIC_API bool HasAnyMicroTasks(JSContext* cx);
 

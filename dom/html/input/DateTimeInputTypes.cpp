@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -114,7 +112,7 @@ nsresult DateTimeInputTypeBase::GetRangeOverflowMessage(nsAString& aMessage) {
   mInputElement->GetAttr(nsGkAtoms::max, maxStr);
 
   return nsContentUtils::FormatMaybeLocalizedString(
-      aMessage, nsContentUtils::eDOM_PROPERTIES,
+      aMessage, PropertiesFile::DOM_PROPERTIES,
       "FormValidationDateTimeRangeOverflow", mInputElement->OwnerDoc(), maxStr);
 }
 
@@ -123,7 +121,7 @@ nsresult DateTimeInputTypeBase::GetRangeUnderflowMessage(nsAString& aMessage) {
   mInputElement->GetAttr(nsGkAtoms::min, minStr);
 
   return nsContentUtils::FormatMaybeLocalizedString(
-      aMessage, nsContentUtils::eDOM_PROPERTIES,
+      aMessage, PropertiesFile::DOM_PROPERTIES,
       "FormValidationDateTimeRangeUnderflow", mInputElement->OwnerDoc(),
       minStr);
 }
@@ -163,11 +161,12 @@ bool DateTimeInputTypeBase::GetTimeFromMs(double aValue, uint16_t* aHours,
 
 nsresult DateInputType::GetBadInputMessage(nsAString& aMessage) {
   return nsContentUtils::GetMaybeLocalizedString(
-      nsContentUtils::eDOM_PROPERTIES, "FormValidationInvalidDate",
+      PropertiesFile::DOM_PROPERTIES, "FormValidationInvalidDate",
       mInputElement->OwnerDoc(), aMessage);
 }
 
-auto DateInputType::ConvertStringToNumber(const nsAString& aValue) const
+auto DateInputType::ConvertStringToNumber(const nsAString& aValue,
+                                          Localized) const
     -> StringToNumberResult {
   uint32_t year, month, day;
   if (!ParseDate(aValue, &year, &month, &day)) {
@@ -205,11 +204,12 @@ bool DateInputType::ConvertNumberToString(Decimal aValue, Localized,
 
 nsresult TimeInputType::GetBadInputMessage(nsAString& aMessage) {
   return nsContentUtils::GetMaybeLocalizedString(
-      nsContentUtils::eDOM_PROPERTIES, "FormValidationInvalidTime",
+      PropertiesFile::DOM_PROPERTIES, "FormValidationInvalidTime",
       mInputElement->OwnerDoc(), aMessage);
 }
 
-auto TimeInputType::ConvertStringToNumber(const nsAString& aValue) const
+auto TimeInputType::ConvertStringToNumber(const nsAString& aValue,
+                                          Localized) const
     -> StringToNumberResult {
   uint32_t milliseconds;
   if (!ParseTime(aValue, &milliseconds)) {
@@ -301,7 +301,7 @@ nsresult TimeInputType::GetReversedRangeUnderflowAndOverflowMessage(
   mInputElement->GetAttr(nsGkAtoms::min, minStr);
 
   return nsContentUtils::FormatMaybeLocalizedString(
-      aMessage, nsContentUtils::eDOM_PROPERTIES,
+      aMessage, PropertiesFile::DOM_PROPERTIES,
       "FormValidationTimeReversedRangeUnderflowAndOverflow",
       mInputElement->OwnerDoc(), minStr, maxStr);
 }
@@ -322,11 +322,12 @@ nsresult TimeInputType::GetRangeUnderflowMessage(nsAString& aMessage) {
 
 nsresult WeekInputType::GetBadInputMessage(nsAString& aMessage) {
   return nsContentUtils::GetMaybeLocalizedString(
-      nsContentUtils::eDOM_PROPERTIES, "FormValidationInvalidWeek",
+      PropertiesFile::DOM_PROPERTIES, "FormValidationInvalidWeek",
       mInputElement->OwnerDoc(), aMessage);
 }
 
-auto WeekInputType::ConvertStringToNumber(const nsAString& aValue) const
+auto WeekInputType::ConvertStringToNumber(const nsAString& aValue,
+                                          Localized) const
     -> StringToNumberResult {
   uint32_t year, week;
   if (!ParseWeek(aValue, &year, &week)) {
@@ -398,11 +399,12 @@ bool WeekInputType::ConvertNumberToString(Decimal aValue, Localized,
 
 nsresult MonthInputType::GetBadInputMessage(nsAString& aMessage) {
   return nsContentUtils::GetMaybeLocalizedString(
-      nsContentUtils::eDOM_PROPERTIES, "FormValidationInvalidMonth",
+      PropertiesFile::DOM_PROPERTIES, "FormValidationInvalidMonth",
       mInputElement->OwnerDoc(), aMessage);
 }
 
-auto MonthInputType::ConvertStringToNumber(const nsAString& aValue) const
+auto MonthInputType::ConvertStringToNumber(const nsAString& aValue,
+                                           Localized) const
     -> StringToNumberResult {
   uint32_t year, month;
   if (!ParseMonth(aValue, &year, &month)) {
@@ -452,12 +454,13 @@ bool MonthInputType::ConvertNumberToString(Decimal aValue, Localized,
 
 nsresult DateTimeLocalInputType::GetBadInputMessage(nsAString& aMessage) {
   return nsContentUtils::GetMaybeLocalizedString(
-      nsContentUtils::eDOM_PROPERTIES, "FormValidationInvalidDateTime",
+      PropertiesFile::DOM_PROPERTIES, "FormValidationInvalidDateTime",
       mInputElement->OwnerDoc(), aMessage);
 }
 
-auto DateTimeLocalInputType::ConvertStringToNumber(
-    const nsAString& aValue) const -> StringToNumberResult {
+auto DateTimeLocalInputType::ConvertStringToNumber(const nsAString& aValue,
+                                                   Localized) const
+    -> StringToNumberResult {
   uint32_t year, month, day, timeInMs;
   if (!ParseDateTimeLocal(aValue, &year, &month, &day, &timeInMs)) {
     return {};

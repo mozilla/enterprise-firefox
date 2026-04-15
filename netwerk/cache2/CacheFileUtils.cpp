@@ -353,10 +353,8 @@ ValidityPair& ValidityMap::operator[](uint32_t aIdx) {
 
 StaticMutex DetailedCacheHitTelemetry::sLock;
 uint32_t DetailedCacheHitTelemetry::sRecordCnt = 0;
-MOZ_RUNINIT DetailedCacheHitTelemetry::HitRate
+constinit DetailedCacheHitTelemetry::HitRate
     DetailedCacheHitTelemetry::sHRStats[kNumOfRanges];
-
-DetailedCacheHitTelemetry::HitRate::HitRate() { Reset(); }
 
 void DetailedCacheHitTelemetry::HitRate::AddRecord(ERecType aType) {
   if (aType == HIT) {
@@ -463,13 +461,9 @@ void DetailedCacheHitTelemetry::AddRecord(ERecType aType,
 }
 
 StaticMutex CachePerfStats::sLock;
-MOZ_RUNINIT CachePerfStats::PerfData
-    CachePerfStats::sData[CachePerfStats::LAST];
+constinit CachePerfStats::PerfData CachePerfStats::sData[CachePerfStats::LAST];
 uint32_t CachePerfStats::sCacheSlowCnt = 0;
 uint32_t CachePerfStats::sCacheNotSlowCnt = 0;
-
-CachePerfStats::MMA::MMA(uint32_t aTotalWeight, bool aFilter)
-    : mSum(0), mSumSq(0), mCnt(0), mWeight(aTotalWeight), mFilter(aFilter) {}
 
 void CachePerfStats::MMA::AddValue(uint32_t aValue) {
   if (mFilter) {
@@ -534,9 +528,6 @@ uint32_t CachePerfStats::MMA::GetStdDev() {
   variance -= avgSq;
   return sqrt(static_cast<double>(variance));
 }
-
-CachePerfStats::PerfData::PerfData()
-    : mFilteredAvg(50, true), mShortAvg(3, false) {}
 
 void CachePerfStats::PerfData::AddValue(uint32_t aValue, bool aShortOnly) {
   if (!aShortOnly) {

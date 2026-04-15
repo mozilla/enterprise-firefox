@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -203,6 +201,7 @@ struct SynthesizeTouchEventData;
 struct SynthesizeTouchEventOptions;
 class TrustedHTMLOrString;
 class VoidFunction;
+class WindowContext;
 class WorkerPrivate;
 enum class ElementCallbackType;
 enum class ReferrerPolicy : uint8_t;
@@ -263,6 +262,26 @@ struct EventNameMapping {
   int32_t mType;
   mozilla::EventMessage mMessage;
   mozilla::EventClassID mEventClassID;
+};
+
+enum class PropertiesFile : uint8_t {
+  CSS_PROPERTIES,
+  XUL_PROPERTIES,
+  LAYOUT_PROPERTIES,
+  FORMS_PROPERTIES,
+  PRINTING_PROPERTIES,
+  DOM_PROPERTIES,
+  HTMLPARSER_PROPERTIES,
+  SVG_PROPERTIES,
+  BRAND_PROPERTIES,
+  COMMON_DIALOG_PROPERTIES,
+  MATHML_PROPERTIES,
+  SECURITY_PROPERTIES,
+  NECKO_PROPERTIES,
+  FORMS_PROPERTIES_en_US,
+  DOM_PROPERTIES_en_US,
+  NECKO_PROPERTIES_en_US,
+  COUNT
 };
 
 namespace mozilla::dom {
@@ -961,6 +980,13 @@ class nsContentUtils {
       nsIContent* aContent, const nsAString& aAttrValue,
       nsIPrincipal* aSubjectPrincipal);
 
+  /* Returns true if browser allowed to navigate aTarget BrowsingContext using
+   * aSource BrowsingContext and aDocumentPrincipal */
+  static bool CanNavigate(mozilla::dom::BrowsingContext* aSource,
+                          mozilla::dom::BrowsingContext* aTarget,
+                          nsIPrincipal* aDocumentPrincipal,
+                          bool aConsiderOpener);
+
   /**
    * Returns true if the given string is guaranteed to be treated as an absolute
    * URL, rather than a relative URL. In practice, this means any complete URL
@@ -1068,8 +1094,8 @@ class nsContentUtils {
    * If aColon is non-null, it's set to the position of the first colon
    * (or null if no colon).
    * If aLocalNameEnd is non-null, it's set to the end of the local name
-   * (the second colon if present, otherwise the end of the string).
-   * Per "strictly split", "f:o:o" gives prefix="f", localName="o".
+   * (always the end of the string).
+   * Splits on the first colon only: "f:o:o" gives prefix="f", localName="o:o".
    * aNodeType indicates whether this is for an element or attribute (to
    * determine the correct local-name validation).
    */
@@ -1351,25 +1377,6 @@ class nsContentUtils {
               localized message.
    *   @param aLocation message location. Pass the empty location to omit it.
    */
-  enum PropertiesFile {
-    eCSS_PROPERTIES,
-    eXUL_PROPERTIES,
-    eLAYOUT_PROPERTIES,
-    eFORMS_PROPERTIES,
-    ePRINTING_PROPERTIES,
-    eDOM_PROPERTIES,
-    eHTMLPARSER_PROPERTIES,
-    eSVG_PROPERTIES,
-    eBRAND_PROPERTIES,
-    eCOMMON_DIALOG_PROPERTIES,
-    eMATHML_PROPERTIES,
-    eSECURITY_PROPERTIES,
-    eNECKO_PROPERTIES,
-    eFORMS_PROPERTIES_en_US,
-    eDOM_PROPERTIES_en_US,
-    eNECKO_PROPERTIES_en_US,
-    PropertiesFile_COUNT
-  };
   static nsresult ReportToConsole(
       uint32_t aErrorFlags, const nsACString& aCategory,
       const Document* aDocument, PropertiesFile aFile, const char* aMessageName,
@@ -2500,14 +2507,14 @@ class nsContentUtils {
    * Strip all \n, \r and nulls from the given string
    * @param aString the string to remove newlines from [in/out]
    */
-  static void RemoveNewlines(nsString& aString);
+  static void RemoveNewlines(nsAString& aString);
 
   /**
    * Convert Windows and Mac platform linebreaks to \n.
    * @param aString the string to convert the newlines inside [in/out]
    */
-  static void PlatformToDOMLineBreaks(nsString& aString);
-  [[nodiscard]] static bool PlatformToDOMLineBreaks(nsString& aString,
+  static void PlatformToDOMLineBreaks(nsAString& aString);
+  [[nodiscard]] static bool PlatformToDOMLineBreaks(nsAString& aString,
                                                     const mozilla::fallible_t&);
 
   static bool IsHandlingKeyBoardEvent() { return sIsHandlingKeyBoardEvent; }
@@ -2854,21 +2861,6 @@ class nsContentUtils {
                                         Element* aRoot,
                                         uint32_t& aOutStartOffset,
                                         uint32_t& aOutEndOffset);
-
-  /**
-   * Takes a frame for anonymous content within a text control (<input> or
-   * <textarea>), and returns an offset in the text content, adjusted for a
-   * trailing <br> frame.
-   *
-   * @param aOffsetFrame      Frame for the text content in which the offset
-   *                          lies
-   * @param aOffset           Offset as calculated by GetContentOffsetsFromPoint
-   * @param aOutOffset        Output adjusted offset
-   *
-   * @see GetSelectionInTextControl for the original basis of this function.
-   */
-  static int32_t GetAdjustedOffsetInTextControl(nsIFrame* aOffsetFrame,
-                                                int32_t aOffset);
 
   /**
    * Returns pointer to HTML editor instance for the aPresContext when there is.
@@ -3230,6 +3222,8 @@ class nsContentUtils {
   static void TryToUpgradeElement(Element* aElement);
 
   /**
+   * https://dom.spec.whatwg.org/#concept-create-element
+   *
    * Creates a new XUL or XHTML element applying any appropriate custom element
    * definition.
    *
@@ -3242,6 +3236,9 @@ class nsContentUtils {
       mozilla::dom::FromParser aFromParser, nsAtom* aIsAtom,
       mozilla::dom::CustomElementDefinition* aDefinition);
 
+  /*
+   * https://html.spec.whatwg.org/#look-up-a-custom-element-registry
+   */
   static mozilla::dom::CustomElementRegistry* GetCustomElementRegistry(
       Document*);
 
@@ -3638,7 +3635,8 @@ class nsContentUtils {
   MOZ_CAN_RUN_SCRIPT_BOUNDARY
   static nsIContent* AttachDeclarativeShadowRoot(
       nsIContent* aHost, mozilla::dom::ShadowRootMode aMode, bool aIsClonable,
-      bool aIsSerializable, bool aDelegatesFocus, const nsAString&);
+      bool aIsSerializable, bool aDelegatesFocus, bool aCustomElementRegistry,
+      const nsAString&);
 
   static bool NavigationMustBeAReplace(nsIURI& aURI, const Document& aDocument);
 

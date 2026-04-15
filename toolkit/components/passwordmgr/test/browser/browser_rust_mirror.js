@@ -223,6 +223,7 @@ add_task(async function test_migration_is_triggered_by_pref_change() {
     "migrationNeeded is set to true"
   );
 
+  Services.prefs.setBoolPref("signon.rustMirror.migrationNeeded", true);
   const prefChangePromise = TestUtils.waitForPrefChange(
     "signon.rustMirror.migrationNeeded"
   );
@@ -274,6 +275,7 @@ add_task(async function test_migration_is_idempotent() {
   await SpecialPowers.pushPrefEnv({
     set: [["signon.rustMirror.enabled", false]],
   });
+  Services.prefs.setBoolPref("signon.rustMirror.migrationNeeded", true);
   const migrationFinishedPromise = TestUtils.topicObserved(
     "rust-mirror.migration.finished"
   );
@@ -328,6 +330,7 @@ add_task(async function test_migration_partial_failure() {
   await Services.logins.addLoginAsync(login_bad);
 
   // trigger again
+  Services.prefs.setBoolPref("signon.rustMirror.migrationNeeded", true);
   const migrationFinishedPromise = TestUtils.topicObserved(
     "rust-mirror.migration.finished"
   );
@@ -375,6 +378,7 @@ add_task(async function test_migration_rejects_when_bulk_add_rejects() {
   await Services.logins.addLoginAsync(login);
 
   // trigger again
+  Services.prefs.setBoolPref("signon.rustMirror.migrationNeeded", true);
   const migrationFinishedPromise = TestUtils.topicObserved(
     "rust-mirror.migration.finished"
   );
@@ -441,6 +445,7 @@ add_task(async function test_rust_migration_failure_event() {
   });
   await Services.logins.addLoginAsync(login_bad);
 
+  Services.prefs.setBoolPref("signon.rustMirror.migrationNeeded", true);
   const waitForGleanEvent = BrowserTestUtils.waitForCondition(
     () => Glean.pwmgr.rustWriteFailure.testGetValue()?.length == 1,
     "event has been emitted"
@@ -492,6 +497,7 @@ add_task(async function test_migration_time_under_threshold() {
 
   const start = Date.now();
   // using the migrationNeeded pref change as an indicator that the migration did run
+  Services.prefs.setBoolPref("signon.rustMirror.migrationNeeded", true);
   const prefChangePromise = TestUtils.waitForPrefChange(
     "signon.rustMirror.migrationNeeded"
   );
@@ -952,6 +958,7 @@ add_task(async function test_migration_performance_probe() {
   await Services.logins.addLoginAsync(login);
 
   // using the migrationNeeded pref change as an indicator that the migration did run
+  Services.prefs.setBoolPref("signon.rustMirror.migrationNeeded", true);
   const prefChangePromise = TestUtils.waitForPrefChange(
     "signon.rustMirror.migrationNeeded"
   );
@@ -985,5 +992,179 @@ add_task(async function test_migration_performance_probe() {
 
   sinon.restore();
   LoginTestUtils.clearData();
+  await SpecialPowers.flushPrefEnv();
+});
+
+/**
+ * Tests addPotentiallyVulnerablePassword gets synced to Rust Storage
+ */
+add_task(async function test_mirror_addPotentiallyVulnerablePassword() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["signon.rustMirror.enabled", true]],
+  });
+
+  const loginInfo = LoginTestUtils.testData.formLogin({
+    username: "vuln-user",
+    password: "vuln-password",
+  });
+  const addLoginFinishedPromise = TestUtils.topicObserved(
+    "rust-mirror.event.addLogin.finished"
+  );
+  await Services.logins.addLoginAsync(loginInfo);
+  await addLoginFinishedPromise;
+
+  const addVulnFinishedPromise = TestUtils.topicObserved(
+    "rust-mirror.event.addPotentiallyVulnerablePassword.finished"
+  );
+  const [storedLogin] = await Services.logins.getAllLogins();
+  await Services.logins.addPotentiallyVulnerablePassword(storedLogin);
+  await addVulnFinishedPromise;
+
+  const rustStorage = new LoginManagerRustStorage();
+  Assert.ok(
+    await rustStorage.isPotentiallyVulnerablePassword(storedLogin),
+    "login should be vulnerable in Rust storage after mirror sync"
+  );
+
+  await rustStorage.clearAllPotentiallyVulnerablePasswords();
+  LoginTestUtils.clearData();
+  await rustStorage.removeAllLoginsAsync();
+  await SpecialPowers.flushPrefEnv();
+});
+
+/**
+ * Tests that breach alert dismissals are migrated to Rust during migration
+ */
+add_task(async function test_migration_includes_breach_alert_dismissals() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["signon.rustMirror.enabled", false]],
+  });
+
+  const loginInfo = LoginTestUtils.testData.formLogin({
+    username: "breach-dismissed-user",
+    password: "breach-dismissed-password",
+  });
+  await Services.logins.addLoginAsync(loginInfo);
+  const [storedLogin] = await Services.logins.getAllLogins();
+  await Services.logins.recordBreachAlertDismissal(storedLogin.guid);
+
+  const jsonDismissals =
+    await Services.logins.getBreachAlertDismissalsByLoginGUID();
+  Assert.ok(
+    jsonDismissals[storedLogin.guid],
+    "breach alert dismissal recorded in JSON storage"
+  );
+
+  Services.prefs.setBoolPref("signon.rustMirror.migrationNeeded", true);
+  const migrationFinishedPromise = TestUtils.topicObserved(
+    "rust-mirror.migration.finished"
+  );
+  await SpecialPowers.pushPrefEnv({
+    set: [["signon.rustMirror.enabled", true]],
+  });
+  await migrationFinishedPromise;
+
+  const rustStorage = new LoginManagerRustStorage();
+  const rustDismissals =
+    await rustStorage.getBreachAlertDismissalsByLoginGUID();
+  Assert.ok(
+    rustDismissals[storedLogin.guid],
+    "breach alert dismissal should be migrated to Rust storage"
+  );
+  Assert.greater(
+    rustDismissals[storedLogin.guid].timeBreachAlertDismissed,
+    0,
+    "dismissal timestamp should be positive"
+  );
+
+  LoginTestUtils.clearData();
+  await rustStorage.removeAllLoginsAsync();
+  await SpecialPowers.flushPrefEnv();
+});
+
+/**
+ * Tests clearAllPotentiallyVulnerablePasswords gets synced to Rust Storage
+ */
+add_task(async function test_mirror_clearAllPotentiallyVulnerablePasswords() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["signon.rustMirror.enabled", true]],
+  });
+
+  const loginInfo = LoginTestUtils.testData.formLogin({
+    username: "vuln-user",
+    password: "vuln-password",
+  });
+  const addLoginFinishedPromise = TestUtils.topicObserved(
+    "rust-mirror.event.addLogin.finished"
+  );
+  await Services.logins.addLoginAsync(loginInfo);
+  await addLoginFinishedPromise;
+
+  const addVulnFinishedPromise = TestUtils.topicObserved(
+    "rust-mirror.event.addPotentiallyVulnerablePassword.finished"
+  );
+  const [storedLogin] = await Services.logins.getAllLogins();
+  await Services.logins.addPotentiallyVulnerablePassword(storedLogin);
+  await addVulnFinishedPromise;
+
+  const rustStorage = new LoginManagerRustStorage();
+  Assert.ok(
+    await rustStorage.isPotentiallyVulnerablePassword(storedLogin),
+    "login should be vulnerable before clearing"
+  );
+
+  const clearVulnFinishedPromise = TestUtils.topicObserved(
+    "rust-mirror.event.clearAllPotentiallyVulnerablePasswords.finished"
+  );
+  await Services.logins.clearAllPotentiallyVulnerablePasswords();
+  await clearVulnFinishedPromise;
+
+  Assert.ok(
+    !(await rustStorage.isPotentiallyVulnerablePassword(storedLogin)),
+    "login should not be vulnerable in Rust storage after clearing"
+  );
+
+  LoginTestUtils.clearData();
+  await rustStorage.removeAllLoginsAsync();
+  await SpecialPowers.flushPrefEnv();
+});
+
+/**
+ * Tests that vulnerable passwords are migrated to Rust during migration
+ */
+add_task(async function test_migration_includes_vulnerable_passwords() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["signon.rustMirror.enabled", false],
+      ["signon.management.page.vulnerable-passwords.enabled", true],
+    ],
+  });
+
+  const loginInfo = LoginTestUtils.testData.formLogin({
+    username: "migrate-vuln-user",
+    password: "migrate-vuln-password",
+  });
+  await Services.logins.addLoginAsync(loginInfo);
+  const [storedLogin] = await Services.logins.getAllLogins();
+  await Services.logins.addPotentiallyVulnerablePassword(storedLogin);
+
+  Services.prefs.setBoolPref("signon.rustMirror.migrationNeeded", true);
+  const migrationFinishedPromise = TestUtils.topicObserved(
+    "rust-mirror.migration.finished"
+  );
+  await SpecialPowers.pushPrefEnv({
+    set: [["signon.rustMirror.enabled", true]],
+  });
+  await migrationFinishedPromise;
+
+  const rustStorage = new LoginManagerRustStorage();
+  Assert.ok(
+    await rustStorage.isPotentiallyVulnerablePassword(storedLogin),
+    "vulnerable password should be migrated to Rust storage"
+  );
+
+  await rustStorage.clearAllPotentiallyVulnerablePasswords();
+  LoginTestUtils.clearData();
+  await rustStorage.removeAllLoginsAsync();
   await SpecialPowers.flushPrefEnv();
 });

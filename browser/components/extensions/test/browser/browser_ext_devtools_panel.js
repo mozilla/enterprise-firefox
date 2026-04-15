@@ -8,10 +8,6 @@ requestLongerTimeout(4);
 
 loadTestSubscript("head_devtools.js");
 
-ChromeUtils.defineESModuleGetters(this, {
-  Preferences: "resource://gre/modules/Preferences.sys.mjs",
-});
-
 const DEVTOOLS_THEME_PREF = "devtools.theme";
 
 /**
@@ -45,7 +41,7 @@ async function test_theme_name(testWithPanel = false) {
 
   function switchTheme(theme) {
     const waitforThemeChanged = gDevTools.once("theme-changed");
-    Preferences.set(DEVTOOLS_THEME_PREF, theme);
+    Services.prefs.setStringPref(DEVTOOLS_THEME_PREF, theme);
     return waitforThemeChanged;
   }
 

@@ -1766,7 +1766,7 @@ const MESSAGES = () => [
             progress_bar: true,
             logo: {
               imageURL:
-                "https://firefox-settings-attachments.cdn.mozilla.net/main-workspace/ms-images/a3c640c8-7594-4bb2-bc18-8b4744f3aaf2.gif",
+                "chrome://activity-stream/content/data/content/assets/fox-doodle-waving-static.png",
             },
             title: "A dialog with a background",
             subtitle:
@@ -1794,7 +1794,8 @@ const MESSAGES = () => [
             progress_bar: true,
             logo: {
               height: "200px",
-              imageURL: "",
+              imageURL:
+                "chrome://activity-stream/content/data/content/assets/fox-doodle-tail.png",
             },
             title: {
               fontSize: "36px",
@@ -2782,6 +2783,39 @@ const MESSAGES = () => [
     groups: [],
   },
   {
+    id: "TEST_ASROUTER_NEWTAB_MESSAGE",
+    template: "newtab_message",
+    content: {
+      messageType: "ASRouterNewTabMessage",
+      // eslint-disable-next-line mozilla/no-newtab-refs-outside-newtab
+      imageSrc: "chrome://newtab/content/data/content/assets/kit-in-circle.svg",
+      heading: "Most browsers track you. Firefox blocks that.",
+      body: "Many browsers track you. Firefox blocks a lot of that automatically, without extra work.",
+      hideDismissButton: false,
+      primaryButton: {
+        label: "Label",
+        action: {
+          type: "OPEN_URL",
+          data: { args: "https://www.mozilla.org/" },
+        },
+      },
+      secondaryButton: {
+        label: "Label",
+        action: {
+          dismiss: true,
+        },
+      },
+    },
+    frequency: {
+      lifetime: 3,
+    },
+    trigger: {
+      id: "newtabMessageCheck",
+    },
+    targeting: `!isDefaultBrowser`,
+    groups: ["cfr"],
+  },
+  {
     id: "UNIVERSAL_INFOBAR_WITH_EMBEDDED_LINKS",
     content: {
       text: [
@@ -3173,6 +3207,62 @@ const MESSAGES = () => [
     targeting:
       "source == 'newtab' && !isMajorUpgrade && !activeNotifications && userPrefs.cfrFeatures && previousSessionEnd && !hasActiveEnterprisePolicies",
   },
+  {
+    id: "TEST_CONTENT_ANCHOR",
+    template: "feature_callout",
+    content: {
+      id: "TEST_CONTENT_ANCHOR",
+      padding: "16",
+      template: "multistage",
+      backdrop: "transparent",
+      transitions: false,
+      disableHistoryUpdates: true,
+      screens: [
+        {
+          id: "TEST_CONTENT_ANCHOR_SCREEN",
+          anchors: [
+            {
+              selector:
+                "hbox.deck-selected browser::%document%ai-window::%shadow%context-icon-button::%shadow% .context-icon-button",
+              panel_position: {
+                anchor_attachment: "bottomcenter",
+                callout_attachment: "topright",
+              },
+            },
+          ],
+          content: {
+            position: "callout",
+            width: "400px",
+            padding: 16,
+            title: {
+              raw: "Test Content Anchor",
+            },
+            subtitle: {
+              raw: "This callout is for testing content anchors.",
+            },
+            additional_button: {
+              action: {
+                dismiss: true,
+              },
+              label: {
+                string_id: "dismiss-button-label",
+                fontWeight: "590",
+                fontSize: "11px",
+              },
+              style: "secondary",
+            },
+          },
+        },
+      ],
+    },
+    frequency: {
+      lifetime: 2,
+    },
+    trigger: {
+      id: "smartWindowNewTab",
+    },
+    targeting: "isAIWindow",
+  },
 ];
 
 export const PanelTestProvider = {
@@ -3180,7 +3270,11 @@ export const PanelTestProvider = {
     return Promise.resolve(
       MESSAGES().map(message => ({
         ...message,
-        targeting: `providerCohorts.panel_local_testing == "SHOW_TEST"`,
+        targeting:
+          typeof message.targeting === "string" &&
+          message.targeting?.includes("isAIWindow")
+            ? `isAIWindow && providerCohorts.panel_local_testing == "SHOW_TEST"`
+            : `providerCohorts.panel_local_testing == "SHOW_TEST"`,
       }))
     );
   },

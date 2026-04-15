@@ -4,20 +4,20 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { createRawValuesObject } from "./helpers.mjs";
-import { SYSTEM_COLORS } from "./referenceColors.mjs";
+import { SYSTEM_COLORS, createRawValuesObject } from "./helpers.mjs";
 
 /**
  * @typedef {object} PropertyTypeConfig
  * @property {string[]} allow Allowed keyword values (e.g., "auto", "none", "transparent")
  * @property {string[]} allowAlias Allowed keyword values that should only be used via local variables
- * @property {string[]} [tokenTypes] Token categories from tokens-table.mjs whose tokens are valid
- * @property {string[]} [aliasTokenTypes] Token categories from tokens-table.mjs whose tokens are valid only when used through local custom properties
+ * @property {string[]} [tokenTypes] Token categories from semantic-categories.mjs whose tokens are valid
+ * @property {string[]} [aliasTokenTypes] Token categories from semantic-categories.mjs whose tokens are valid only when used through local custom properties
  * @property {string[]} [allowFunctions] Allowed CSS function names (e.g., "url", "linear-gradient")
  * @property {boolean} [allowUnits] Whether values with CSS units (e.g., "10px", "50%") are allowed
  * @property {string[]} [allowedUnits] Specific unit types allowed (e.g., ["em", "ch", "%"]). If provided, only these units are allowed when allowUnits is true
  * @property {Record<string, string>} [customFixes] Map of raw values to their token replacements for autofix
  * @property {Record<string, string>} [customSuggestions] Map of raw values to their token replacements for suggested fixes
+ * @property {boolean} [warnSystemColors] Whether to warn about system colors when there are no suitable tokens to use.
  */
 
 const customColorFixes = {
@@ -160,6 +160,7 @@ const BackgroundColor = {
   aliasTokenTypes: ["color", "text-color", "border-color", "icon-color"],
   customFixes: customColorFixes,
   customSuggestions: systemColorSuggestions,
+  warnSystemColors: true,
 };
 
 /** @type {PropertyTypeConfig} */
@@ -286,6 +287,7 @@ const BorderColor = {
   aliasTokenTypes: ["color", "background-color", "text-color"],
   customFixes: customColorFixes,
   customSuggestions: systemColorSuggestions,
+  warnSystemColors: true,
 };
 
 /** @type {PropertyTypeConfig} */
@@ -358,11 +360,12 @@ const TextColor = {
   aliasTokenTypes: ["color", "background-color", "border-color"],
   customFixes: customColorFixes,
   customSuggestions: systemColorSuggestions,
+  warnSystemColors: true,
 };
 
 /** @type {PropertyTypeConfig} */
 const Space = {
-  allow: ["0", "auto"],
+  allow: ["0", "1px", "auto"],
   tokenTypes: ["space"],
   aliasTokenTypes: ["dimension"],
   customFixes: {
@@ -378,7 +381,16 @@ const Space = {
 
 /** @type {PropertyTypeConfig} */
 const Size = {
-  allow: ["0", "auto", "none", "fit-content", "min-content", "max-content"],
+  allow: [
+    "0",
+    "1px",
+    "auto",
+    "none",
+    "fit-content",
+    "min-content",
+    "max-content",
+    "stretch",
+  ],
   tokenTypes: ["size", "icon-size"],
   aliasTokenTypes: ["dimension"],
   allowUnits: true,

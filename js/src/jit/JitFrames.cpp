@@ -281,7 +281,10 @@ static void HandleExceptionIon(JSContext* cx, const InlineFrameIterator& frame,
     *hitBailoutException = true;
   }
 
-  RootedScript script(cx, frame.script());
+  RootedTuple<JSScript*, Value, Value> ionRoots(cx);
+  RootedField<JSScript*> script(ionRoots, frame.script());
+  RootedField<Value, 1> exception(ionRoots);
+  RootedField<Value, 2> exceptionStack(ionRoots);
 
   for (TryNoteIterIon tni(cx, frame); !tni.done(); ++tni) {
     const TryNote* tn = *tni;
@@ -343,8 +346,8 @@ static void HandleExceptionIon(JSContext* cx, const InlineFrameIterator& frame,
         ExceptionBailoutInfo excInfo(cx, frame.frameNo(), finallyPC,
                                      tn->stackDepth);
 
-        RootedValue exception(cx);
-        RootedValue exceptionStack(cx);
+        exception = UndefinedValue();
+        exceptionStack = UndefinedValue();
         if (!cx->getPendingException(&exception) ||
             !cx->getPendingExceptionStack(&exceptionStack)) {
           exception = UndefinedValue();
@@ -473,7 +476,12 @@ static bool ProcessTryNotesBaseline(JSContext* cx, const JSJitFrameIter& frame,
   MOZ_ASSERT(frame.baselineFrame()->runningInInterpreter(),
              "Caller must ensure frame is an interpreter frame");
 
-  RootedScript script(cx, frame.baselineFrame()->script());
+  RootedTuple<JSScript*, Value, Value, Value, JSObject*> baselineRoots(cx);
+  RootedField<JSScript*> script(baselineRoots, frame.baselineFrame()->script());
+  RootedField<Value, 1> exception(baselineRoots);
+  RootedField<Value, 2> exceptionStack(baselineRoots);
+  RootedField<Value, 3> doneValue(baselineRoots);
+  RootedField<JSObject*> iterObject(baselineRoots);
 
   for (TryNoteIterBaseline tni(cx, frame, *pc); !tni.done(); ++tni) {
     const TryNote* tn = *tni;
@@ -516,8 +524,8 @@ static bool ProcessTryNotesBaseline(JSContext* cx, const JSJitFrameIter& frame,
         }
 
         // Drop the exception instead of leaking cross compartment data.
-        RootedValue exception(cx);
-        RootedValue exceptionStack(cx);
+        exception = UndefinedValue();
+        exceptionStack = UndefinedValue();
         if (!cx->getPendingException(&exception) ||
             !cx->getPendingExceptionStack(&exceptionStack)) {
           rfe->exception = UndefinedValue();
@@ -548,12 +556,12 @@ static bool ProcessTryNotesBaseline(JSContext* cx, const JSJitFrameIter& frame,
                                                  &stackPointer);
         // Note: if this ever changes, also update the
         // TryNoteKind::Destructuring code in WarpBuilder.cpp!
-        RootedValue doneValue(cx, *(reinterpret_cast<Value*>(stackPointer)));
+        doneValue = *(reinterpret_cast<Value*>(stackPointer));
         MOZ_RELEASE_ASSERT(!doneValue.isMagic());
         bool done = ToBoolean(doneValue);
         if (!done) {
           Value iterValue(*(reinterpret_cast<Value*>(stackPointer) + 1));
-          RootedObject iterObject(cx, &iterValue.toObject());
+          iterObject = &iterValue.toObject();
           if (!IteratorCloseForException(cx, iterObject)) {
             SettleOnTryNote(cx, tn, frame, ei, rfe, pc);
             return false;
@@ -1575,9 +1583,8 @@ RInstructionResults& RInstructionResults::operator=(RInstructionResults&& rhs) {
   return *this;
 }
 
-RInstructionResults::~RInstructionResults() {
-  // results_ is freed by the UniquePtr.
-}
+// results_ is freed by the UniquePtr.
+RInstructionResults::~RInstructionResults() = default;
 
 bool RInstructionResults::init(JSContext* cx, uint32_t numResults) {
   if (numResults) {

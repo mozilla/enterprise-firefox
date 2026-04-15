@@ -22,15 +22,14 @@ const SessionHistoryDiagram = require("resource://devtools/client/application/sr
 class SessionHistoryPage extends PureComponent {
   static get propTypes() {
     return {
-      count: PropTypes.number.isRequired,
       current: PropTypes.number.isRequired,
-      rows: PropTypes.object.isRequired,
+      diagrams: PropTypes.arrayOf(PropTypes.object).isRequired,
       entriesByKey: PropTypes.object.isRequired,
     };
   }
 
   render() {
-    const { count, current, rows, entriesByKey } = this.props;
+    const { current, diagrams, entriesByKey } = this.props;
     return section(
       {
         className: `app-page js-session-history-page`,
@@ -38,9 +37,8 @@ class SessionHistoryPage extends PureComponent {
       div(
         { id: "diagram-container" },
         createElement(SessionHistoryDiagram, {
-          count,
           current,
-          rows,
+          diagrams,
           entriesByKey,
         })
       )

@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -970,7 +969,7 @@ bool TRRService::IsDomainBlocked(const nsACString& aHost,
         *val + int32_t(StaticPrefs::network_trr_temp_blocklist_duration_sec());
     int32_t expire = NowInSeconds();
     if (until > expire) {
-      LOG(("Host [%s] is TRR blocklisted\n", nsCString(aHost).get()));
+      LOG(("Host [%s] is TRR blocklisted\n", PromiseFlatCString(aHost).get()));
       return true;
     }
 
@@ -996,7 +995,8 @@ bool TRRService::IsTemporarilyBlocked(const nsACString& aHost,
     return false;  // might as well try
   }
 
-  LOG(("Checking if host [%s] is blocklisted", aHost.BeginReading()));
+  LOG(("Checking if host [%s] is blocklisted",
+       nsPromiseFlatCString(aHost).get()));
 
   int32_t dot = aHost.FindChar('.');
   if ((dot == kNotFound) && aParentsToo) {
@@ -1042,19 +1042,22 @@ bool TRRService::IsExcludedFromTRR_unlocked(const nsACString& aHost) {
 
     if (mExcludedDomains.Contains(subdomain)) {
       LOG(("Subdomain [%s] of host [%s] Is Excluded From TRR via pref\n",
-           subdomain.BeginReading(), aHost.BeginReading()));
+           nsPromiseFlatCString(subdomain).get(),
+           nsPromiseFlatCString(aHost).get()));
       return true;
     }
     if (mDNSSuffixDomains.Contains(subdomain)) {
       LOG(
           ("Subdomain [%s] of host [%s] Is Excluded From TRR via DNSSuffix "
            "domains\n",
-           subdomain.BeginReading(), aHost.BeginReading()));
+           nsPromiseFlatCString(subdomain).get(),
+           nsPromiseFlatCString(aHost).get()));
       return true;
     }
     if (mEtcHostsDomains.Contains(subdomain)) {
       LOG(("Subdomain [%s] of host [%s] Is Excluded From TRR by /etc/hosts\n",
-           subdomain.BeginReading(), aHost.BeginReading()));
+           nsPromiseFlatCString(subdomain).get(),
+           nsPromiseFlatCString(aHost).get()));
       return true;
     }
 
@@ -1076,7 +1079,7 @@ void TRRService::AddToBlocklist(const nsACString& aHost,
     return;
   }
 
-  LOG(("TRR blocklist %s\n", nsCString(aHost).get()));
+  LOG(("TRR blocklist %s\n", PromiseFlatCString(aHost).get()));
   nsAutoCString hashkey(aHost + aOriginSuffix);
 
   // this overwrites any existing entry

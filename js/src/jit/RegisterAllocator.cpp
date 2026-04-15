@@ -474,8 +474,8 @@ void AllocationIntegrityState::dump() {
     return;
   }
 
-  for (IntegrityItemSet::Enum iter(seen); !iter.empty(); iter.popFront()) {
-    IntegrityItem item = iter.front();
+  for (auto iter = seen.iter(); !iter.done(); iter.next()) {
+    IntegrityItem item = iter.get();
     seenOrdered[item.index] = item;
   }
 

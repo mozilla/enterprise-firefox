@@ -76,7 +76,7 @@ export class NetErrorChild extends RemotePageChild {
     // Note: not document.documentURIObject, which will be the network error
     // page's URI - we want the URI of the page that failed to load.
     let uri = document.mozDocumentURIIfNotForErrorPages;
-    return lazy.BrowserUtils.formatURIForDisplay(uri);
+    return lazy.BrowserUtils.formatURIForDisplay(uri, { showWWW: true });
   }
 
   /**
@@ -155,7 +155,7 @@ export class NetErrorChild extends RemotePageChild {
         const netErrorCard =
           doc.querySelector("net-error-card").wrappedJSObject;
         if (netErrorCard) {
-          const learnMoreLink = netErrorCard.netErrorLearnMoreLink;
+          const learnMoreLink = netErrorCard.learnMoreLink;
           if (learnMoreLink) {
             learnMoreLink.href = displaySpec;
           }

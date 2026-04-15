@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -217,8 +215,7 @@ APZCTreeManager::CheckerboardFlushObserver::Observe(nsISupports* aSubject,
   }
   if (XRE_IsGPUProcess()) {
     if (gfx::GPUParent* gpu = gfx::GPUParent::GetSingleton()) {
-      nsCString topic("APZ:FlushActiveCheckerboard:Done");
-      (void)gpu->SendNotifyUiObservers(topic);
+      (void)gpu->SendFlushActiveCheckerboardReportsDone();
     }
   } else {
     MOZ_ASSERT(XRE_IsParentProcess());
@@ -1340,7 +1337,7 @@ HitTestingTreeNode* APZCTreeManager::PrepareNodeForLayer(
                apzc.get(), aLayer.GetLayer(), uint64_t(aLayersId),
                aMetrics.GetScrollId());
 
-    apzc->NotifyLayersUpdated(
+    apzc->NotifyMainThreadTransaction(
         aLayer.Metadata(), AsyncPanZoomController::LayersUpdateFlags{
                                .mIsFirstPaint = aLayer.IsFirstPaint(),
                                .mThisLayerTreeUpdated =
@@ -2434,14 +2431,13 @@ void APZCTreeManager::MaybeOverrideLayersIdForWheelEvent(InputData& aEvent) {
     txn = mInputQueue->GetCurrentPanGestureBlock();
   }
 
-  APZCTM_LOG("Maybe override txn (0x%p) wheel transactions enabled=%d", txn,
-             StaticPrefs::dom_event_wheel_event_groups_enabled());
+  APZCTM_LOG("Maybe override txn (0x%p)", txn);
 
   // If we're in a wheel transaction, subsequent events in the transaction
   // should be sent to the same content process as the first event, even
   // if content rendered by a different process has scrolled under the
   // cursor.
-  if (!txn || !StaticPrefs::dom_event_wheel_event_groups_enabled()) {
+  if (!txn) {
     return;
   }
 
@@ -3724,11 +3720,8 @@ LayerToParentLayerMatrix4x4 APZCTreeManager::ComputeTransformForScrollThumbNode(
 already_AddRefed<wr::WebRenderAPI> APZCTreeManager::GetWebRenderAPI() const {
   RefPtr<wr::WebRenderAPI> api;
   CompositorBridgeParent::CallWithIndirectShadowTree(
-      mRootLayersId, [&](LayerTreeState& aState) -> void {
-        if (aState.mWrBridge) {
-          api = aState.mWrBridge->GetWebRenderAPI();
-        }
-      });
+      mRootLayersId,
+      [&](LayerTreeState& aState) -> void { api = aState.mWebRenderAPI; });
   return api.forget();
 }
 

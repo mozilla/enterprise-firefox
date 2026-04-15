@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=4 sw=2 sts=2 et cin: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1162,7 +1160,8 @@ bool IsScriptLikeOrInvalid(const nsAString& aAs);
 bool CheckPreloadAttrs(const nsAttrValue& aAs, const nsAString& aType,
                        const nsAString& aMedia,
                        mozilla::dom::Document* aDocument);
-void WarnIgnoredPreload(const mozilla::dom::Document&, nsIURI&);
+void WarnIgnoredPreload(const mozilla::dom::Document& aDoc, nsIURI* aURI,
+                        const nsAString& aSrcset = nsString());
 
 // Implements parsing of Use-As-Dictionary headers for Compression Dictionary
 // support.

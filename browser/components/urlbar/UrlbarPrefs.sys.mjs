@@ -70,6 +70,12 @@ const PREF_URLBAR_DEFAULTS = /** @type {PreferenceDefinition[]} */ ([
   // Nimbus variable `autoFillAdaptiveHistoryEnabled`.
   ["autoFill.adaptiveHistory.enabled", false],
 
+  // Duration in ms to block after backspace penalty. Default: 2 days.
+  ["autoFill.adaptiveHistory.backspaceBlockDurationMs", 172800000],
+
+  // Duration in ms to block an origin/URL after dismiss. Default: 7 days.
+  ["autoFill.adaptiveHistory.dismissalBlockDurationMs", 604800000],
+
   // Minimum char length of the user's search string to enable adaptive history
   // autofill. This pref is a fallback for the Nimbus variable
   // `autoFillAdaptiveHistoryMinCharsThreshold`.
@@ -245,19 +251,21 @@ const PREF_URLBAR_DEFAULTS = /** @type {PreferenceDefinition[]} */ ([
   ["merino.providers", ""],
 
   // Timeout for Merino fetches (ms).
-  ["merino.timeoutMs", 200],
+  ["merino.timeoutMs", 500],
+
+  // Merino endpoint prefs to be used for weather widgets
+  ["merino.weather.reportEndpointURL", ""],
+  ["merino.weather.hourlyEndpointURL", ""],
 
   // Set default NER threshold value of 0.5
   ["nerThreshold", [0.5, "float"]],
 
+  // Feature gate pref for Nova UI.
+  ["nova.featureGate", false],
+
   // Whether addresses and search results typed into the address bar
   // should be opened in new tabs by default.
   ["openintab", false],
-
-  // Once Perplexity has entered search mode at least once,
-  // we no longer show the Perplexity onboarding callout.
-  // This pref will be set to true when perplexity search mode is detected.
-  ["perplexity.hasBeenInSearchMode", false],
 
   // If disabled, QuickActions will not be included in either the default search
   // mode or the QuickActions search mode.
@@ -708,7 +716,7 @@ const PREF_OTHER_DEFAULTS = /** @type {PreferenceDefinition[]} */ ([
   ["browser.search.openintab", false],
   ["browser.search.suggest.enabled", true],
   ["browser.search.suggest.enabled.private", false],
-  ["browser.search.widget.new", false],
+  ["browser.search.widget.new", true],
   ["keyword.enabled", true],
   ["security.insecure_connection_text.enabled", true],
   [TelemetryReportingPolicy.TOU_ACCEPTED_DATE_PREF, 0],

@@ -122,7 +122,7 @@ One of the direct consequences of E10S on tests is that you cannot retrieve and 
 
 So when creating a new test, if this test needs to access the content page in any way, you can use [the message manager or JSActors](https://firefox-source-docs.mozilla.org/dom/ipc/jsactors.html) to communicate with a script loaded in the content process to do things for you instead of accessing objects in the page directly.
 
-You can use the helper `ContentTask.spawn()` for this. See [this list of DevTools tests that use that helper for examples](https://searchfox.org/mozilla-central/search?q=ContentTask.spawn%28&path=devtools%2Fclient).
+You can use the helper `SpecialPowers.spawn()` for this. See [this list of DevTools tests that use that helper for examples](https://searchfox.org/mozilla-central/search?q=SpecialPowers.spawn%28&path=devtools%2Fclient).
 
 Note that a lot of tests only need to access the DevTools UI anyway, and don't need to interact with the content process at all. Since the UI lives in the same process as the test, you won't need to use the message manager to access it.
 

@@ -28,7 +28,6 @@ const LAST_BACKUP_TIMESTAMP_PREF_NAME =
 const LAST_BACKUP_FILE_NAME_PREF_NAME =
   "browser.backup.scheduled.last-backup-file";
 const BACKUP_ARCHIVE_ENABLED_PREF_NAME = "browser.backup.archive.enabled";
-const BACKUP_RESTORE_ENABLED_PREF_NAME = "browser.backup.restore.enabled";
 
 /** @type {nsIToolkitProfile} */
 let currentProfile;
@@ -44,6 +43,7 @@ const OS_NAME = "test-os-name";
 const OS_VERSION = "test-os-version";
 const TELEMETRY_ENABLED = true;
 const LEGACY_CLIENT_ID = "legacy-client-id";
+const PROFILE_NAME = "test-profile-name";
 
 add_setup(function () {
   currentProfile = setupProfile();
@@ -884,17 +884,6 @@ add_task(
       "newBackupLocation"
     );
 
-    let pickerDir = await IOUtils.getDirectory(newBackupLocation);
-    const reg = MockRegistrar.register("@mozilla.org/filepicker;1", {
-      init() {},
-      open(cb) {
-        cb.done(Ci.nsIFilePicker.returnOK);
-      },
-      displayDirectory: null,
-      file: pickerDir,
-      QueryInterface: ChromeUtils.generateQI(["nsIFilePicker"]),
-    });
-
     const backupService = new BackupService({});
 
     const sandbox = sinon.createSandbox();
@@ -902,124 +891,21 @@ add_task(
       .stub(backupService, "deleteLastBackup")
       .rejects(new Error("Exception while deleting backup"));
 
-    await backupService.editBackupLocation({ browsingContext: null });
+    await backupService.editBackupLocation(newBackupLocation);
 
-    pickerDir.append("Restore Firefox");
+    let expectedPath = PathUtils.join(newBackupLocation, "Restore Firefox");
     Assert.equal(
       Services.prefs.getStringPref(backupLocationPref),
-      pickerDir.path,
+      expectedPath,
       "Backup location pref should have updated to the new directory."
     );
 
     Services.prefs.setStringPref(backupLocationPref, resetLocation);
     sinon.restore();
-    MockRegistrar.unregister(reg);
     await Promise.all([
       IOUtils.remove(exceptionBackupLocation, { recursive: true }),
       IOUtils.remove(newBackupLocation, { recursive: true }),
     ]);
-  }
-);
-
-/**
- * Tests that the existence of selectable profiles prevent backups (see bug
- * 1990980).
- *
- * @param {boolean} aSetCreatedSelectableProfilesBeforeSchedulingBackups
- *    If true (respectively, false), set browser.profiles.created before
- *    (respectively, after) attempting to setScheduledBackups.
- */
-async function testSelectableProfilesPreventBackup(
-  aSetCreatedSelectableProfilesBeforeSchedulingBackups
-) {
-  let sandbox = sinon.createSandbox();
-  Services.fog.testResetFOG();
-  const TEST_UID = "ThisIsMyTestUID";
-  const TEST_EMAIL = "foxy@mozilla.org";
-  sandbox.stub(UIState, "get").returns({
-    status: UIState.STATUS_SIGNED_IN,
-    uid: TEST_UID,
-    email: TEST_EMAIL,
-  });
-
-  const SELECTABLE_PROFILES_CREATED_PREF = "browser.profiles.created";
-
-  Services.prefs.setBoolPref(BACKUP_ARCHIVE_ENABLED_PREF_NAME, true);
-  Services.prefs.setBoolPref(BACKUP_RESTORE_ENABLED_PREF_NAME, true);
-
-  // Make sure created profiles pref is not set until we want it to be.
-  Services.prefs.setBoolPref(SELECTABLE_PROFILES_CREATED_PREF, false);
-
-  const setHasSelectableProfiles = () => {
-    // "Enable" selectable profiles by pref.
-    Services.prefs.setBoolPref(SELECTABLE_PROFILES_CREATED_PREF, true);
-    Assert.ok(
-      Services.prefs.getBoolPref(SELECTABLE_PROFILES_CREATED_PREF),
-      "set has selectable profiles | browser.profiles.created = true"
-    );
-  };
-
-  if (aSetCreatedSelectableProfilesBeforeSchedulingBackups) {
-    setHasSelectableProfiles();
-  }
-
-  let bs = new BackupService({});
-  bs.initBackupScheduler();
-  bs.setScheduledBackups(true);
-
-  const SCHEDULED_BACKUP_ENABLED_PREF = "browser.backup.scheduled.enabled";
-  if (!aSetCreatedSelectableProfilesBeforeSchedulingBackups) {
-    Assert.ok(
-      Services.prefs.getBoolPref(SCHEDULED_BACKUP_ENABLED_PREF, true),
-      "enabled scheduled backups | browser.backup.scheduled.enabled = true"
-    );
-    registerCleanupFunction(() => {
-      // Just in case the test fails.
-      bs.setScheduledBackups(false);
-      info("cleared scheduled backups");
-    });
-
-    setHasSelectableProfiles();
-  }
-
-  // Backups attempts should be rejected because of selectable profiles.
-  let fakeProfilePath = await IOUtils.createUniqueDirectory(
-    PathUtils.tempDir,
-    "testSelectableProfilesPreventBackup"
-  );
-  registerCleanupFunction(async () => {
-    await maybeRemovePath(fakeProfilePath);
-  });
-  let failedBackup = await bs.createBackup({
-    profilePath: fakeProfilePath,
-  });
-  Assert.equal(failedBackup, null, "Backup returned null");
-
-  // Test cleanup
-  if (!aSetCreatedSelectableProfilesBeforeSchedulingBackups) {
-    bs.uninitBackupScheduler();
-  }
-
-  Services.prefs.clearUserPref(SELECTABLE_PROFILES_CREATED_PREF);
-  // These tests assume that backups and restores have been enabled.
-  Services.prefs.setBoolPref(BACKUP_ARCHIVE_ENABLED_PREF_NAME, true);
-  Services.prefs.setBoolPref(BACKUP_RESTORE_ENABLED_PREF_NAME, true);
-  sandbox.restore();
-}
-
-add_task(
-  async function test_managing_profiles_before_scheduling_prevents_backup() {
-    await testSelectableProfilesPreventBackup(
-      true /* aSetCreatedSelectableProfilesBeforeSchedulingBackups */
-    );
-  }
-);
-
-add_task(
-  async function test_managing_profiles_after_scheduling_prevents_backup() {
-    await testSelectableProfilesPreventBackup(
-      false /* aSetCreatedSelectableProfilesBeforeSchedulingBackups */
-    );
   }
 );
 
@@ -1088,6 +974,70 @@ add_task(async function test_checkForPostRecovery() {
 });
 
 /**
+ * Tests that if one resource's postRecovery rejects, the remaining resources
+ * still get their postRecovery called and the post-recovery.json file is
+ * cleaned up.
+ */
+add_task(
+  async function test_checkForPostRecovery_resilient_to_resource_failure() {
+    let sandbox = sinon.createSandbox();
+
+    let testProfilePath = await IOUtils.createUniqueDirectory(
+      PathUtils.tempDir,
+      "checkForPostRecoveryResilienceTest"
+    );
+    let fakePostRecoveryObject = {
+      [FakeBackupResource1.key]: "test 1",
+      [FakeBackupResource3.key]: "test 3",
+    };
+    await IOUtils.writeJSON(
+      PathUtils.join(testProfilePath, BackupService.POST_RECOVERY_FILE_NAME),
+      fakePostRecoveryObject
+    );
+
+    sandbox
+      .stub(FakeBackupResource1.prototype, "postRecovery")
+      .rejects(new Error("Simulated postRecovery failure"));
+    sandbox.stub(FakeBackupResource2.prototype, "postRecovery").resolves();
+    sandbox.stub(FakeBackupResource3.prototype, "postRecovery").resolves();
+
+    let bs = new BackupService({
+      FakeBackupResource1,
+      FakeBackupResource2,
+      FakeBackupResource3,
+    });
+
+    await bs.checkForPostRecovery(testProfilePath);
+    await bs.postRecoveryComplete;
+
+    Assert.ok(
+      FakeBackupResource1.prototype.postRecovery.calledOnce,
+      "FakeBackupResource1.postRecovery was called once (and rejected)"
+    );
+    Assert.ok(
+      FakeBackupResource2.prototype.postRecovery.notCalled,
+      "FakeBackupResource2.postRecovery was not called (no entry in post-recovery)"
+    );
+    Assert.ok(
+      FakeBackupResource3.prototype.postRecovery.calledOnce,
+      "FakeBackupResource3.postRecovery was still called despite FakeBackupResource1 failure"
+    );
+
+    let postRecoveryFilePath = PathUtils.join(
+      testProfilePath,
+      BackupService.POST_RECOVERY_FILE_NAME
+    );
+    Assert.ok(
+      !(await IOUtils.exists(postRecoveryFilePath)),
+      "post-recovery.json should be cleaned up even after a resource failure"
+    );
+
+    await IOUtils.remove(testProfilePath, { recursive: true });
+    sandbox.restore();
+  }
+);
+
+/**
  * Tests that getBackupFileInfo updates backupFileInfo in the state with a subset
  * of info from the fake SampleArchiveResult returned by sampleArchive().
  */
@@ -1110,6 +1060,7 @@ add_task(async function test_getBackupFileInfo() {
         osVersion: OS_VERSION,
         healthTelemetryEnabled: TELEMETRY_ENABLED,
         legacyClientID: LEGACY_CLIENT_ID,
+        profileName: PROFILE_NAME,
       },
       encConfig: {},
     },
@@ -1141,6 +1092,7 @@ add_task(async function test_getBackupFileInfo() {
       osVersion: OS_VERSION,
       healthTelemetryEnabled: TELEMETRY_ENABLED,
       legacyClientID: LEGACY_CLIENT_ID,
+      profileName: PROFILE_NAME,
     },
     "State should match a subset from the archive sample."
   );
@@ -1205,6 +1157,7 @@ add_task(async function test_getBackupFileInfo_error_handling() {
           osVersion: OS_VERSION,
           healthTelemetryEnabled: TELEMETRY_ENABLED,
           legacyClientID: LEGACY_CLIENT_ID,
+          profileName: PROFILE_NAME,
         },
         encConfig: {},
       },
@@ -1229,6 +1182,7 @@ add_task(async function test_getBackupFileInfo_error_handling() {
         osVersion: OS_VERSION,
         healthTelemetryEnabled: TELEMETRY_ENABLED,
         legacyClientID: LEGACY_CLIENT_ID,
+        profileName: PROFILE_NAME,
       },
       "Initial state should be set correctly"
     );
@@ -1266,8 +1220,8 @@ add_task(async function test_getBackupFileInfo_error_handling() {
     );
     Assert.strictEqual(
       bs.state.backupFileToRestore,
-      null,
-      `backupFileToRestore should be cleared for error ${testError}`
+      "test-backup.html",
+      `backupFileToRestore should be kept the same`
     );
 
     sandbox.restore();
@@ -1304,34 +1258,4 @@ add_task(async function test_changing_prefs_cleanup() {
   );
 
   Services.prefs.clearUserPref(BACKUP_ARCHIVE_ENABLED_PREF_NAME);
-});
-
-add_task(function test_checkOsSupportsBackup_win10() {
-  const osParams = {
-    name: "Windows_NT",
-    version: "10.0",
-    build: "20000",
-  };
-  const result = BackupService.checkOsSupportsBackup(osParams);
-  Assert.ok(result);
-});
-
-add_task(function test_checkOsSupportsBackup_win11() {
-  const osParams = {
-    name: "Windows_NT",
-    version: "10.0",
-    build: "22000",
-  };
-  const result = BackupService.checkOsSupportsBackup(osParams);
-  Assert.ok(!result);
-});
-
-add_task(function test_checkOsSupportsBackup_linux() {
-  const osParams = {
-    name: "Linux",
-    version: "10.0",
-    build: "22000",
-  };
-  const result = BackupService.checkOsSupportsBackup(osParams);
-  Assert.ok(!result);
 });

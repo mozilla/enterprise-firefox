@@ -24,8 +24,10 @@
 #include "jstypes.h"  // JS_PUBLIC_API
 
 #include "js/CompileOptions.h"  // JS::ReadOnlyCompileOptions, JS::InstantiateOptions, JS::ReadOnlyDecodeOptions
+#include "js/RootingAPI.h"   // JS::MutableHandle
 #include "js/SourceText.h"   // JS::SourceText
 #include "js/Transcoding.h"  // JS::TranscodeBuffer, JS::TranscodeRange
+#include "js/Value.h"        // JS::Value
 
 struct JS_PUBLIC_API JSContext;
 class JS_PUBLIC_API JSTracer;
@@ -267,6 +269,13 @@ extern JS_PUBLIC_API bool IsStencilCacheable(JS::Stencil* stencil);
 // Returns the uncompressed source text length of given stencil.
 // Returns 0 if the source is discarded or somehow not accessible.
 extern JS_PUBLIC_API size_t GetScriptSourceLength(JS::Stencil* stencil);
+
+// Returns the uncompressed source text of given stencil, to the `result` out
+// parameter, as a string value either in Latin1 or char16.
+// `result` is set to undefined if the source is discarded or somehow not
+// accessible.
+extern JS_PUBLIC_API bool GetScriptSourceText(
+    JSContext* cx, JS::Stencil* stencil, JS::MutableHandle<JS::Value> result);
 
 }  // namespace JS
 

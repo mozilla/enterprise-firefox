@@ -9,7 +9,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.ResolveInfo
-import android.os.Environment
 import android.widget.Toast
 import androidx.annotation.ColorRes
 import androidx.annotation.VisibleForTesting
@@ -46,7 +45,6 @@ import mozilla.components.support.ktx.android.content.appName
 import mozilla.components.support.ktx.android.content.isPermissionGranted
 import mozilla.components.support.ktx.kotlin.isSameOriginAs
 import mozilla.components.support.utils.Browsers
-import mozilla.components.support.utils.DefaultDownloadFileUtils
 import mozilla.components.support.utils.DownloadFileUtils
 import mozilla.components.support.utils.ext.packageManagerCompatHelper
 
@@ -136,14 +134,7 @@ class DownloadsFeature(
     private val fileSystemHelper: FileSystemHelper = DefaultFileSystemHelper(),
     override var onNeedToRequestPermissions: OnNeedToRequestPermissions = { },
     onDownloadStopped: onDownloadStopped = noop,
-    private val downloadFileUtils: DownloadFileUtils = DefaultDownloadFileUtils(
-        context = applicationContext,
-        downloadLocation = {
-            Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_DOWNLOADS,
-            ).path
-        },
-    ),
+    private val downloadFileUtils: DownloadFileUtils,
     private val downloadManager: DownloadManager = AndroidDownloadManager(applicationContext, store, downloadFileUtils),
     private val tabId: String? = null,
     private val fragmentManager: FragmentManager? = null,
@@ -219,7 +210,10 @@ class DownloadsFeature(
                 .collect { state ->
                     state.content.download?.let { downloadState ->
                         previousTab = state
-                        processDownload(state, downloadState)
+                        val updatedDownloadState = downloadState.copy(
+                            directoryPath = downloadFileUtils.currentDownloadLocation,
+                        )
+                        processDownload(state, updatedDownloadState)
                     }
                 }
         }
@@ -322,14 +316,17 @@ class DownloadsFeature(
                 it.url == download.url &&
                     it.status == DownloadState.Status.COMPLETED &&
                     it.etag == download.etag &&
-                    fileSystemHelper.fileExists(it.filePath)
+                    it.directoryPath == download.directoryPath &&
+                    downloadFileUtils.fileExists(
+                        directoryPath = it.directoryPath,
+                        fileName = it.fileName,
+                    )
             }
             .minByOrNull { it.createdTime }
 
     @VisibleForTesting
     internal fun startDownload(download: DownloadState): Boolean {
         fileSystemHelper.createDirectoryIfNotExists(download.directoryPath)
-
         if (isDownloadBiggerThanAvailableSpace(download)) {
             fileHasNotEnoughStorageDialog.invoke(
                 Filename(download.getRealFilenameOrGuessed(downloadFileUtils)),
@@ -366,7 +363,10 @@ class DownloadsFeature(
                     startDownload(download)
                     useCases.consumeDownload(tab.id, download.id)
                 } else {
-                    processDownload(tab, download)
+                    val updatedDownloadState = download.copy(
+                        directoryPath = downloadFileUtils.currentDownloadLocation,
+                    )
+                    processDownload(tab, updatedDownloadState)
                 }
             } else {
                 useCases.cancelDownloadRequest.invoke(tab.id, download.id)

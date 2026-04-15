@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -118,6 +116,7 @@
 #endif
 
 #if defined(GP_OS_linux) || defined(GP_OS_android) || defined(GP_OS_freebsd)
+#  include <signal.h>
 #  include <ucontext.h>
 #endif
 
@@ -289,7 +288,7 @@ class CorePS {
  private:
   CorePS() : mProcessStartTime(TimeStamp::ProcessCreation()) {}
 
-  ~CorePS() {}
+  ~CorePS() = default;
 
  public:
   static void Create(PSLockRef aLock) {
@@ -2027,6 +2026,9 @@ class SamplerThread {
   // This runs on the main thread.
   void Stop(PSLockRef aLock);
 
+  SamplerThread(const SamplerThread&) = delete;
+  void operator=(const SamplerThread&) = delete;
+
  private:
   // This suspends the calling thread for the given number of microseconds.
   // Best effort timing.
@@ -2053,9 +2055,6 @@ class SamplerThread {
   bool mNoTimerResolutionChange = true;
   HANDLE mHiResTimer;
 #endif
-
-  SamplerThread(const SamplerThread&) = delete;
-  void operator=(const SamplerThread&) = delete;
 };
 
 // This function is required because we need to create a SamplerThread within
@@ -2274,7 +2273,7 @@ void SamplerThread::Run() {
 #elif defined(GP_OS_linux) || defined(GP_OS_android) || defined(GP_OS_freebsd)
 #  include "platform-linux-android.cpp"
 #else
-#  error "bad platform"
+#  include "platform-noop.cpp"
 #endif
 
 namespace mozilla {

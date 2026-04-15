@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
-/* vim:set ts=4 sw=4 sts=4 et cin: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -18,6 +16,7 @@
 #include "nsIThreadRetargetableStreamListener.h"
 #include "nsITransportSecurityInfo.h"
 #include "nsNetUtil.h"
+#include "nsProxyRelease.h"
 #include "nsQueryObject.h"
 #include "nsSerializationHelper.h"
 #include "nsStreamUtils.h"
@@ -36,11 +35,31 @@ NS_INTERFACE_MAP_END
 
 NS_IMETHODIMP_(MozExternalRefCountType) HttpTransactionParent::Release(void) {
   MOZ_ASSERT(int32_t(mRefCnt) > 0, "dup release");
+
+  if (!NS_IsMainThread()) {
+    // Use DecrementWithLimit to atomically decrement only while count > 2.
+    // This ensures a background thread never drops the count to 1 or 0,
+    // avoiding the race where the main thread frees the object (via
+    // ActorDisconnected) between our decrement and the count==1 handling.
+    auto [success, count] = mRefCnt.DecrementWithLimit<2>();
+    if (success) {
+      NS_LOG_RELEASE(this, count, "HttpTransactionParent");
+      return count;
+    }
+    // mRefCnt <= 2: the next decrement could trigger Send__delete__ or
+    // deletion, both of which must happen on the main thread. Transfer
+    // our reference there without decrementing.
+    NS_ProxyRelease("HttpTransactionParent::Release",
+                    GetMainThreadSerialEventTarget(),
+                    dont_AddRef(static_cast<nsIRequest*>(this)));
+    return 1;
+  }
+
   nsrefcnt count = --mRefCnt;
   NS_LOG_RELEASE(this, count, "HttpTransactionParent");
   if (count == 0) {
     mRefCnt = 1; /* stabilize */
-    delete (this);
+    delete this;
     return 0;
   }
 
@@ -48,17 +67,7 @@ NS_IMETHODIMP_(MozExternalRefCountType) HttpTransactionParent::Release(void) {
   // we are done with this transaction. We should send a delete message
   // to delete the transaction child in socket process.
   if (count == 1 && CanSend()) {
-    if (!NS_IsMainThread()) {
-      RefPtr<HttpTransactionParent> self = this;
-      MOZ_ALWAYS_SUCCEEDS(NS_DispatchToMainThread(
-          NS_NewRunnableFunction("HttpTransactionParent::Release", [self]() {
-            (void)self->Send__delete__(self);
-            // Make sure we can not send IPC after Send__delete__().
-            MOZ_ASSERT(!self->CanSend());
-          })));
-    } else {
-      (void)Send__delete__(this);
-    }
+    (void)Send__delete__(this);
     return 1;
   }
   return count;
@@ -541,16 +550,16 @@ mozilla::ipc::IPCResult HttpTransactionParent::RecvOnTransportStatus(
 }
 
 mozilla::ipc::IPCResult HttpTransactionParent::RecvOnDataAvailable(
-    const nsCString& aData, const uint64_t& aOffset, const uint32_t& aCount,
+    const nsCString& aData, const uint64_t& aOffset,
     const TimeStamp& aOnDataAvailableStartTime) {
   LOG(("HttpTransactionParent::RecvOnDataAvailable [this=%p, aOffset= %" PRIu64
-       " aCount=%" PRIu32,
-       this, aOffset, aCount));
+       " aCount=%zu",
+       this, aOffset, aData.Length()));
 
   // The final transfer size is updated in OnStopRequest ipc message, but in the
   // case that the socket process is crashed or something went wrong, we might
   // not get the OnStopRequest. So, let's update the transfer size here.
-  mTransferSize += aCount;
+  mTransferSize += aData.Length();
 
   if (mCanceled) {
     return IPC_OK();
@@ -560,16 +569,15 @@ mozilla::ipc::IPCResult HttpTransactionParent::RecvOnDataAvailable(
       [self = UnsafePtr<HttpTransactionParent>(this)]() {
         return self->GetODATarget();
       },
-      [self = UnsafePtr<HttpTransactionParent>(this), aData, aOffset, aCount,
+      [self = UnsafePtr<HttpTransactionParent>(this), aData, aOffset,
        aOnDataAvailableStartTime]() {
-        self->DoOnDataAvailable(aData, aOffset, aCount,
-                                aOnDataAvailableStartTime);
+        self->DoOnDataAvailable(aData, aOffset, aOnDataAvailableStartTime);
       }));
   return IPC_OK();
 }
 
 void HttpTransactionParent::DoOnDataAvailable(
-    const nsCString& aData, const uint64_t& aOffset, const uint32_t& aCount,
+    const nsCString& aData, const uint64_t& aOffset,
     const TimeStamp& aOnDataAvailableStartTime) {
   LOG(("HttpTransactionParent::DoOnDataAvailable [this=%p]\n", this));
   if (mCanceled) {
@@ -577,9 +585,9 @@ void HttpTransactionParent::DoOnDataAvailable(
   }
 
   nsCOMPtr<nsIInputStream> stringStream;
-  nsresult rv =
-      NS_NewByteInputStream(getter_AddRefs(stringStream),
-                            Span(aData.get(), aCount), NS_ASSIGNMENT_DEPEND);
+  nsresult rv = NS_NewByteInputStream(getter_AddRefs(stringStream),
+                                      Span(aData.get(), aData.Length()),
+                                      NS_ASSIGNMENT_DEPEND);
 
   if (NS_FAILED(rv)) {
     CancelOnMainThread(rv);
@@ -588,7 +596,7 @@ void HttpTransactionParent::DoOnDataAvailable(
 
   mOnDataAvailableStartTime = aOnDataAvailableStartTime;
   AutoEventEnqueuer ensureSerialDispatch(mEventQ);
-  rv = mChannel->OnDataAvailable(this, stringStream, aOffset, aCount);
+  rv = mChannel->OnDataAvailable(this, stringStream, aOffset, aData.Length());
   if (NS_FAILED(rv)) {
     CancelOnMainThread(rv);
   }

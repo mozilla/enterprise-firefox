@@ -47,7 +47,6 @@ import mozilla.components.browser.state.state.createTab
 import mozilla.components.concept.engine.HitResult
 import mozilla.components.feature.app.links.AppLinksFeature
 import mozilla.components.feature.contextmenu.ContextMenuFeature
-import mozilla.components.feature.downloads.AbstractFetchDownloadService
 import mozilla.components.feature.downloads.DownloadsFeature
 import mozilla.components.feature.downloads.manager.FetchDownloadManager
 import mozilla.components.feature.downloads.temporary.ShareResourceFeature
@@ -70,6 +69,8 @@ import mozilla.components.support.ktx.android.view.ImeInsetsSynchronizer
 import mozilla.components.support.ktx.android.view.exitImmersiveMode
 import mozilla.components.support.locale.ActivityContextWrapper
 import mozilla.components.support.utils.Browsers
+import mozilla.components.support.utils.DefaultDownloadFileUtils
+import mozilla.components.support.utils.DownloadFileUtils
 import mozilla.components.support.utils.ext.requestInPlacePermissions
 import mozilla.telemetry.glean.private.NoExtras
 import org.mozilla.focus.Components
@@ -156,6 +157,7 @@ class BrowserFragment :
     private lateinit var requestPermissionLauncher: ActivityResultLauncher<Array<String>>
     private lateinit var cookieBannerReducerStore: CookieBannerReducerStore
     private lateinit var defaultCookieBannerInteractor: DefaultCookieBannerReducerInteractor
+    private lateinit var downloadFileUtils: DownloadFileUtils
     private var tabsPopup: TabsPopup? = null
     private var siteNotSupportedSnackBarScope: CoroutineScope? = null
 
@@ -198,6 +200,7 @@ class BrowserFragment :
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        initDownloadFileUtils()
         requestPermissionLauncher =
             registerForActivityResult(
                 ActivityResultContracts.RequestMultiplePermissions(),
@@ -219,6 +222,12 @@ class BrowserFragment :
             }
 
         HomeScreen.checkIfPinningSupported(requireContext(), lifecycleScope)
+    }
+
+    private fun initDownloadFileUtils() {
+        downloadFileUtils = DefaultDownloadFileUtils(
+            context = requireContext(),
+        )
     }
 
     /**
@@ -439,6 +448,7 @@ class BrowserFragment :
                 onDownloadStopped = { state, _, status ->
                     handleDownloadStopped(state, status)
                 },
+                downloadFileUtils = downloadFileUtils,
             ),
             this,
             view,
@@ -828,12 +838,10 @@ class BrowserFragment :
         )
 
         snackbar.setAction(getString(R.string.download_snackbar_open)) { context ->
-            val opened = AbstractFetchDownloadService.openFile(
-                applicationContext = context.applicationContext,
-                packageName = context.applicationContext.packageName,
-                downloadFileName = state.fileName,
-                downloadFilePath = state.filePath,
-                downloadContentType = state.contentType,
+            val opened = downloadFileUtils.openFile(
+                fileName = state.fileName,
+                directoryPath = state.directoryPath,
+                contentType = state.contentType,
             )
 
             if (!opened) {
@@ -1121,6 +1129,7 @@ class BrowserFragment :
     private fun showConnectionInfo() {
         val connectionInfoPanel = ConnectionDetailsPanel(
             context = requireContext(),
+            engineSession = tab.engineState.engineSession,
             tabTitle = tab.content.title,
             tabUrl = tab.content.url,
             isConnectionSecure = tab.content.securityInfo.isSecure,

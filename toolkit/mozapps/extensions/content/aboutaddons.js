@@ -4241,6 +4241,75 @@ class ForcedColorsNotice extends HTMLElement {
 }
 customElements.define("forced-colors-notice", ForcedColorsNotice);
 
+const PREF_SMARTWINDOW_TOS_CONSENT_TIME = "browser.smartwindow.tos.consentTime";
+const PREF_SMARTWINDOW_THEME_NOTICE = "browser.smartwindow.showThemesNotice";
+
+class SmartWindowThemesNotice extends HTMLElement {
+  #prefObserver;
+
+  connectedCallback() {
+    this.addEventListener("message-bar:user-dismissed", this);
+    this.#prefObserver = this.observe.bind(this);
+    Services.prefs.addObserver(
+      PREF_SMARTWINDOW_TOS_CONSENT_TIME,
+      this.#prefObserver
+    );
+    Services.prefs.addObserver(
+      PREF_SMARTWINDOW_THEME_NOTICE,
+      this.#prefObserver
+    );
+    this.render();
+  }
+
+  disconnectedCallback() {
+    this.removeEventListener("message-bar:user-dismissed", this);
+    Services.prefs.removeObserver(
+      PREF_SMARTWINDOW_TOS_CONSENT_TIME,
+      this.#prefObserver
+    );
+    Services.prefs.removeObserver(
+      PREF_SMARTWINDOW_THEME_NOTICE,
+      this.#prefObserver
+    );
+    this.#prefObserver = null;
+  }
+
+  render() {
+    let hasConsent =
+      Services.prefs.getIntPref(PREF_SMARTWINDOW_TOS_CONSENT_TIME, 0) > 0;
+    let shouldShowNotice = Services.prefs.getBoolPref(
+      PREF_SMARTWINDOW_THEME_NOTICE,
+      false
+    );
+    this.hidden = !(hasConsent && shouldShowNotice);
+    if (!this.hidden && this.childElementCount == 0) {
+      this.appendChild(importTemplate("smartwindow-themes-notice"));
+    }
+  }
+
+  handleEvent(e) {
+    if (e.type === "message-bar:user-dismissed") {
+      Services.prefs.setBoolPref(PREF_SMARTWINDOW_THEME_NOTICE, false);
+    }
+  }
+
+  observe(_subject, topic, data) {
+    if (topic !== "nsPref:changed") {
+      return;
+    }
+    if (
+      ![
+        PREF_SMARTWINDOW_TOS_CONSENT_TIME,
+        PREF_SMARTWINDOW_THEME_NOTICE,
+      ].includes(data)
+    ) {
+      return;
+    }
+    this.render();
+  }
+}
+customElements.define("smartwindow-themes-notice", SmartWindowThemesNotice);
+
 class TaarMessageBar extends HTMLElement {
   connectedCallback() {
     this.hidden =
@@ -4408,13 +4477,19 @@ gViewController.defineView("list", async type => {
     filterFn: disabledAddonsFilterFn,
   });
 
-  // Show the colorway and forced-colors notice only in themes list view.
+  // Show the colorway, forced-colors and smart window theme notices only
+  // in themes list view.
   if (type === "theme") {
     const colorwayNotice = document.createElement("colorway-removal-notice");
     frag.appendChild(colorwayNotice);
 
     const forcedColorsNotice = document.createElement("forced-colors-notice");
     frag.appendChild(forcedColorsNotice);
+
+    const smartWindowNotice = document.createElement(
+      "smartwindow-themes-notice"
+    );
+    frag.appendChild(smartWindowNotice);
   }
 
   list.setSections(sections);

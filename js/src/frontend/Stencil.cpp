@@ -2815,10 +2815,12 @@ bool CompilationStencil::instantiateStencils(JSContext* cx,
     return false;
   }
 
-  if (input.options.eagerBaselineStrategy() != JS::EagerBaselineOption::None) {
-    MOZ_ASSERT(!input.isDelazifying(),
-               "No current support for eager baseline during delazifications.");
-
+  // While eager baseline is not supported during delazifications,
+  // we instantiate delazifications as a part of
+  // InitialStencilAndDelazifications::instantiateStencils.
+  // Just skip them.
+  if (input.options.eagerBaselineStrategy() != JS::EagerBaselineOption::None &&
+      !input.isDelazifying()) {
     bool doAggressive = input.options.eagerBaselineStrategy() ==
                         JS::EagerBaselineOption::Aggressive;
     if (!MaybeDoEagerBaselineCompilations(cx, stencil, gcOutput,
@@ -6280,4 +6282,19 @@ JS_PUBLIC_API size_t JS::GetScriptSourceLength(JS::Stencil* stencil) {
     return 0;
   }
   return source->length();
+}
+
+JS_PUBLIC_API bool JS::GetScriptSourceText(
+    JSContext* cx, JS::Stencil* stencil, JS::MutableHandle<JS::Value> result) {
+  ScriptSource* source = stencil->getInitial()->source;
+  if (!source->hasSourceText()) {
+    result.setUndefined();
+    return true;
+  }
+  JSLinearString* s = source->substring(cx, 0, source->length());
+  if (!s) {
+    return false;
+  }
+  result.setString(s);
+  return true;
 }

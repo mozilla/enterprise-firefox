@@ -842,6 +842,20 @@ header-guards:
             - 'tools/lint/header-guards.yml'
             - 'tools/lint/header_guards/**'
 
+android-expired-strings:
+    description: Check for references to Android strings marked for removal
+    treeherder:
+        symbol: android(expired-strings)
+    run:
+        mach: lint -v -l android-expired-strings -f treeherder -f json:/builds/worker/mozlint.json .
+    when:
+        files-changed:
+            - 'mobile/android/**/*.kt'
+            - 'mobile/android/**/*.java'
+            - 'mobile/android/**/*.xml'
+            - 'tools/lint/android-expired-strings.yml'
+            - 'tools/lint/android-expired-strings/**'
+
 gecko-trace:
     description: Check that all `gecko-trace.yaml` files are correct
     treeherder:

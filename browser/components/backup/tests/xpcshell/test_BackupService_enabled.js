@@ -10,14 +10,15 @@ const { NimbusTestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/NimbusTestUtils.sys.mjs"
 );
 
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  SelectableProfileService:
+    "resource:///modules/profiles/SelectableProfileService.sys.mjs",
+});
+
 const BACKUP_DIR_PREF_NAME = "browser.backup.location";
 const BACKUP_ARCHIVE_ENABLED_PREF_NAME = "browser.backup.archive.enabled";
-const BACKUP_ARCHIVE_ENABLED_OVERRIDE_PREF_NAME =
-  "browser.backup.archive.overridePlatformCheck";
 const BACKUP_RESTORE_ENABLED_PREF_NAME = "browser.backup.restore.enabled";
-const BACKUP_RESTORE_ENABLED_OVERRIDE_PREF_NAME =
-  "browser.backup.restore.overridePlatformCheck";
-const SELECTABLE_PROFILES_CREATED_PREF_NAME = "browser.profiles.created";
 
 add_setup(async () => {
   setupProfile();
@@ -50,27 +51,15 @@ add_setup(async () => {
 
 add_task(async function test_archive_killswitch_enrollment() {
   let cleanupExperiment;
-  const savedPref = Services.prefs.getBoolPref(
-    BACKUP_ARCHIVE_ENABLED_OVERRIDE_PREF_NAME,
-    false
-  );
   await archiveTemplate({
     internalReason: "nimbus",
     async disable() {
-      Services.prefs.setBoolPref(
-        BACKUP_ARCHIVE_ENABLED_OVERRIDE_PREF_NAME,
-        false
-      );
       cleanupExperiment = await NimbusTestUtils.enrollWithFeatureConfig({
         featureId: "backupService",
         value: { archiveKillswitch: true },
       });
     },
     async enable() {
-      Services.prefs.setBoolPref(
-        BACKUP_ARCHIVE_ENABLED_OVERRIDE_PREF_NAME,
-        savedPref
-      );
       await cleanupExperiment();
     },
   });
@@ -109,95 +98,17 @@ add_task(async function test_archive_policy() {
   });
 });
 
-add_task(async function test_archive_selectable_profiles() {
-  await archiveTemplate({
-    internalReason: "selectable profiles",
-    async disable() {
-      Services.prefs.setBoolPref(SELECTABLE_PROFILES_CREATED_PREF_NAME, true);
-    },
-    async enable() {
-      Services.prefs.setBoolPref(SELECTABLE_PROFILES_CREATED_PREF_NAME, false);
-    },
-  });
-});
-
-add_task(async function test_archive_disabled_unsupported_os() {
-  const sandbox = sinon.createSandbox();
-  const archiveWasEnabled = Services.prefs.getBoolPref(
-    BACKUP_ARCHIVE_ENABLED_OVERRIDE_PREF_NAME,
-    false
-  );
-  Services.prefs.setBoolPref(BACKUP_ARCHIVE_ENABLED_OVERRIDE_PREF_NAME, false);
-  sandbox.stub(BackupService, "checkOsSupportsBackup").returns(false);
-  const cleanupExperiment = await NimbusTestUtils.enrollWithFeatureConfig({
-    featureId: "backupService",
-    value: { archiveKillswitch: false },
-  });
-
-  try {
-    const bs = new BackupService();
-    const status = bs.archiveEnabledStatus;
-    Assert.equal(false, status.enabled);
-    Assert.equal("os version", status.internalReason);
-  } finally {
-    sandbox.restore();
-    Services.prefs.setBoolPref(
-      BACKUP_ARCHIVE_ENABLED_OVERRIDE_PREF_NAME,
-      archiveWasEnabled
-    );
-    await cleanupExperiment();
-  }
-});
-
-add_task(async function test_archive_enabled_supported_os() {
-  const sandbox = sinon.createSandbox();
-  const archiveWasEnabled = Services.prefs.getBoolPref(
-    BACKUP_ARCHIVE_ENABLED_OVERRIDE_PREF_NAME,
-    false
-  );
-  Services.prefs.setBoolPref(BACKUP_ARCHIVE_ENABLED_OVERRIDE_PREF_NAME, false);
-  sandbox.stub(BackupService, "checkOsSupportsBackup").returns(true);
-  const cleanupExperiment = await NimbusTestUtils.enrollWithFeatureConfig({
-    featureId: "backupService",
-    value: { archiveKillswitch: false },
-  });
-  try {
-    const bs = new BackupService();
-    const status = bs.archiveEnabledStatus;
-    Assert.equal(true, status.enabled);
-  } finally {
-    sandbox.restore();
-    Services.prefs.setBoolPref(
-      BACKUP_ARCHIVE_ENABLED_OVERRIDE_PREF_NAME,
-      archiveWasEnabled
-    );
-    await cleanupExperiment();
-  }
-});
-
 add_task(async function test_restore_killswitch_enrollment() {
   let cleanupExperiment;
-  const savedPref = Services.prefs.getBoolPref(
-    BACKUP_RESTORE_ENABLED_OVERRIDE_PREF_NAME,
-    false
-  );
   await restoreTemplate({
     internalReason: "nimbus",
     async disable() {
-      Services.prefs.setBoolPref(
-        BACKUP_RESTORE_ENABLED_OVERRIDE_PREF_NAME,
-        false
-      );
       cleanupExperiment = await NimbusTestUtils.enrollWithFeatureConfig({
         featureId: "backupService",
         value: { restoreKillswitch: true },
       });
     },
     async enable() {
-      Services.prefs.setBoolPref(
-        BACKUP_RESTORE_ENABLED_OVERRIDE_PREF_NAME,
-        savedPref
-      );
       await cleanupExperiment();
     },
   });
@@ -233,17 +144,56 @@ add_task(async function test_restore_policy() {
   });
 });
 
-add_task(async function test_restore_selectable_profiles() {
-  await restoreTemplate({
-    internalReason: "selectable profiles",
-    async disable() {
-      Services.prefs.setBoolPref(SELECTABLE_PROFILES_CREATED_PREF_NAME, true);
-    },
-    async enable() {
-      Services.prefs.setBoolPref(SELECTABLE_PROFILES_CREATED_PREF_NAME, false);
-    },
-  });
-});
+add_task(
+  async function test_selectableProfilesAllowed_updates_on_enableChanged() {
+    let sandbox = sinon.createSandbox();
+    let isEnabledValue = false;
+
+    sandbox
+      .stub(lazy.SelectableProfileService, "isEnabled")
+      .get(() => isEnabledValue);
+
+    let bs = new BackupService();
+    bs.initStatusObservers();
+
+    Assert.equal(
+      bs.state.selectableProfilesAllowed,
+      false,
+      "selectableProfilesAllowed should initially be false"
+    );
+
+    let stateUpdatePromise = new Promise(resolve => {
+      bs.addEventListener("BackupService:StateUpdate", resolve, { once: true });
+    });
+
+    isEnabledValue = true;
+    lazy.SelectableProfileService.emit("enableChanged", true);
+    await stateUpdatePromise;
+
+    Assert.equal(
+      bs.state.selectableProfilesAllowed,
+      true,
+      "selectableProfilesAllowed should be true after enableChanged fires"
+    );
+
+    stateUpdatePromise = new Promise(resolve => {
+      bs.addEventListener("BackupService:StateUpdate", resolve, { once: true });
+    });
+
+    isEnabledValue = false;
+    lazy.SelectableProfileService.emit("enableChanged", false);
+    await stateUpdatePromise;
+
+    Assert.equal(
+      bs.state.selectableProfilesAllowed,
+      false,
+      "selectableProfilesAllowed should be false after disabling"
+    );
+
+    bs.uninitStatusObservers();
+    sandbox.restore();
+  }
+);
 
 async function archiveTemplate({ internalReason, disable, enable }) {
   Services.telemetry.clearScalars();

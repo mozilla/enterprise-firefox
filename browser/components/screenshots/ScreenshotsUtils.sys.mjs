@@ -65,6 +65,35 @@ export const MAX_CAPTURE_DIMENSION = 32766;
 export const MAX_CAPTURE_AREA = 472907776;
 export const MAX_SNAPSHOT_DIMENSION = 1024;
 
+/**
+ * Clamps dimensions to fit within MAX_CAPTURE_DIMENSION and MAX_CAPTURE_AREA constraints.
+ *
+ * @param {number} width - The width to potentially crop
+ * @param {number} height - The height to potentially crop
+ * @returns {object} Object with:
+ *   - width: The cropped width
+ *   - height: The cropped height
+ *   - cropped: Boolean indicating if any cropping occurred
+ */
+export function clampDimensionsIfNeeded(width, height) {
+  let cropped = false;
+
+  if (width > MAX_CAPTURE_DIMENSION) {
+    width = MAX_CAPTURE_DIMENSION;
+    cropped = true;
+  }
+  if (height > MAX_CAPTURE_DIMENSION) {
+    height = MAX_CAPTURE_DIMENSION;
+    cropped = true;
+  }
+  if (width * height > MAX_CAPTURE_AREA) {
+    height = Math.floor(MAX_CAPTURE_AREA / width);
+    cropped = true;
+  }
+
+  return { width, height, cropped };
+}
+
 export class ScreenshotsComponentParent extends JSWindowActorParent {
   async receiveMessage(message) {
     let region, title;
@@ -1055,29 +1084,17 @@ export var ScreenshotsUtils = {
    * modified in place
    */
   cropScreenshotRectIfNeeded(rect) {
-    let cropped = false;
-    let width = rect.width * rect.devicePixelRatio;
-    let height = rect.height * rect.devicePixelRatio;
+    const width = rect.width * rect.devicePixelRatio;
+    const height = rect.height * rect.devicePixelRatio;
 
-    if (width > MAX_CAPTURE_DIMENSION) {
-      width = MAX_CAPTURE_DIMENSION;
-      cropped = true;
-    }
-    if (height > MAX_CAPTURE_DIMENSION) {
-      height = MAX_CAPTURE_DIMENSION;
-      cropped = true;
-    }
-    if (width * height > MAX_CAPTURE_AREA) {
-      height = Math.floor(MAX_CAPTURE_AREA / width);
-      cropped = true;
-    }
+    const result = clampDimensionsIfNeeded(width, height);
 
-    rect.width = Math.floor(width / rect.devicePixelRatio);
-    rect.height = Math.floor(height / rect.devicePixelRatio);
+    rect.width = Math.floor(result.width / rect.devicePixelRatio);
+    rect.height = Math.floor(result.height / rect.devicePixelRatio);
     rect.right = rect.left + rect.width;
     rect.bottom = rect.top + rect.height;
 
-    if (cropped) {
+    if (result.cropped) {
       let [errorTitle, errorMessage] =
         lazy.screenshotsLocalization.formatMessagesSync([
           { id: "screenshots-too-large-error-title" },

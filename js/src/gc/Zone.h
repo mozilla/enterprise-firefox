@@ -16,10 +16,12 @@
 #include "mozilla/TimeStamp.h"
 
 #include <array>
+#include <bit>
 
 #include "jstypes.h"
 
 #include "ds/Bitmap.h"
+#include "ds/SlimLinkedList.h"
 #include "gc/ArenaList.h"
 #include "gc/Barrier.h"
 #include "gc/BufferAllocator.h"
@@ -344,7 +346,7 @@ class AtomCacheHashTable {
   // This value was picked empirically based on performance testing using SP2
   // and SP3. 2k was better than 1k but 4k was not much better than 2k.
   static constexpr uint32_t sSize = 2 * 1024;
-  static_assert(mozilla::IsPowerOfTwo(sSize));
+  static_assert(std::has_single_bit(sSize));
   std::array<EntrySet, sSize> mEntrySets;
 };
 
@@ -462,10 +464,13 @@ class Zone : public js::ZoneAllocator, public js::gc::GraphNodeBase<JS::Zone> {
 
   // Live weakmaps in this zone, used internally by the JS engine and used to
   // implement JS WeakMap objects respectively.
-  js::MainThreadOrGCTaskData<mozilla::LinkedList<js::WeakMapBase>>
+  js::MainThreadOrGCTaskData<js::SlimLinkedList<js::WeakMapBase>>
       gcSystemWeakMaps_;
-  js::MainThreadOrGCTaskData<mozilla::LinkedList<js::WeakMapBase>>
+  js::MainThreadOrGCTaskData<js::SlimLinkedList<js::WeakMapBase>>
       gcUserWeakMaps_;
+  // During marking this holds user weak maps that have been marked.
+  js::MainThreadOrGCTaskData<js::SlimLinkedList<js::WeakMapBase>>
+      gcMarkedUserWeakMaps_;
 
   // The set of compartments in this zone.
   using CompartmentVector =
@@ -781,11 +786,14 @@ class Zone : public js::ZoneAllocator, public js::gc::GraphNodeBase<JS::Zone> {
     return res;
   }
 
-  mozilla::LinkedList<js::WeakMapBase>& gcSystemWeakMaps() {
+  js::SlimLinkedList<js::WeakMapBase>& gcSystemWeakMaps() {
     return gcSystemWeakMaps_.ref();
   }
-  mozilla::LinkedList<js::WeakMapBase>& gcUserWeakMaps() {
+  js::SlimLinkedList<js::WeakMapBase>& gcUserWeakMaps() {
     return gcUserWeakMaps_.ref();
+  }
+  js::SlimLinkedList<js::WeakMapBase>& gcMarkedUserWeakMaps() {
+    return gcMarkedUserWeakMaps_.ref();
   }
 
   bool gcUserWeakMapsMayHaveKeyDelegates() const {

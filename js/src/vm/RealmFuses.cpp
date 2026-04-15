@@ -129,8 +129,8 @@ bool js::OptimizeGetIteratorBytecodeFuse::checkInvariant(JSContext* cx) {
   // If there's a DebugScript for a script in this realm, this fuse should have
   // been popped.
   if (DebugScriptMap* map = cx->zone()->debugScriptMap) {
-    for (DebugScriptMap::Range r = map->all(); !r.empty(); r.popFront()) {
-      JSScript* script = r.front().key();
+    for (auto iter = map->iter(); !iter.done(); iter.next()) {
+      JSScript* script = iter.get().key();
       if (script->realm() == cx->realm()) {
         return false;
       }

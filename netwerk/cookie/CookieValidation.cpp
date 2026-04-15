@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -450,7 +449,7 @@ CookieValidation::GetErrorString(nsAString& aResult) {
   RetrieveErrorLogData(&flags, category, key, params);
 
   return nsContentUtils::FormatLocalizedString(
-      nsContentUtils::eNECKO_PROPERTIES_en_US, key.get(), params, aResult);
+      PropertiesFile::NECKO_PROPERTIES_en_US, key.get(), params, aResult);
 }
 
 // static

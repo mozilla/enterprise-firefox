@@ -167,7 +167,7 @@ object DownloadUtils {
      */
     private const val MIN_FILE_NAME_LENGTH = 5
 
-    private const val SCHEME_CONTENT = "content://"
+    const val SCHEME_CONTENT = "content://"
 
     /**
      * The HTTP response code for a successful request.

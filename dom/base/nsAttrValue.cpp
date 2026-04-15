@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1334,7 +1332,11 @@ void nsAttrValue::ParseAtom(const nsAString& aValue) {
 void nsAttrValue::ParseAtomArray(nsAtom* aValue) {
   if (MiscContainer* cont = AtomArrayCache::Lookup(aValue)) {
     // Set our MiscContainer to the cached one.
+    // AddRef must happen before ResetIfSet: the cache does not hold a strong
+    // reference, and ResetIfSet could release the last reference to cont if
+    // this nsAttrValue is already holding it.
     NS_ADDREF(cont);
+    ResetIfSet();
     SetPtrValueAndType(cont, eOtherBase);
     return;
   }
@@ -1934,7 +1936,11 @@ bool nsAttrValue::ParseStyleAttribute(const nsAString& aString,
   if (cachingAllowed) {
     if (MiscContainer* cont = attrStyles->LookupStyleAttr(aString)) {
       // Set our MiscContainer to the cached one.
+      // AddRef must happen before ResetIfSet: the cache does not hold a strong
+      // reference, and ResetIfSet could release the last reference to cont if
+      // this nsAttrValue is already holding it.
       NS_ADDREF(cont);
+      ResetIfSet();
       SetPtrValueAndType(cont, eOtherBase);
       return true;
     }

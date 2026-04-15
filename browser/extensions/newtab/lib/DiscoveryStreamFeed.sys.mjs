@@ -5,7 +5,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   ContextId: "moz-src:///browser/modules/ContextId.sys.mjs",
-  SectionsLayoutManager: "resource://newtab/lib/SectionsLayoutManager.sys.mjs",
+  SectionsLayoutManager: "resource://newtab/lib/SectionsLayoutFeed.sys.mjs",
   NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
   NewTabUtils: "resource://gre/modules/NewTabUtils.sys.mjs",
   ObliviousHTTP: "resource://gre/modules/ObliviousHTTP.sys.mjs",
@@ -1226,8 +1226,12 @@ export class DiscoveryStreamFeed {
             }
           }
 
+          const adsBackendConfig =
+            this.store.getState().Prefs.values?.adsBackendConfig || {};
+
           body = {
             context_id: await lazy.ContextId.request(),
+            flags: adsBackendConfig,
             placements: unifiedAdsPlacements,
             blocks: blockedSponsors.split(","),
           };
@@ -1800,6 +1804,8 @@ export class DiscoveryStreamFeed {
                 receivedRank: sectionData.receivedFeedRank,
                 layout: sectionData.layout,
                 iab: sectionData.iab,
+                allowAds: sectionData.allowAds ?? true,
+                followable: sectionData.followable ?? true,
                 // property if initially shown (with interest picker)
                 visible: sectionData.isInitiallyVisible,
               });
@@ -1809,19 +1815,16 @@ export class DiscoveryStreamFeed {
           if (useClientLayout || sections.some(s => !s.layout)) {
             sections.sort((a, b) => a.receivedRank - b.receivedRank);
 
+            const rsConfigs =
+              this.store.getState().SectionsLayout?.configs || {};
+
             sections.forEach((section, index) => {
               if (useClientLayout || !section.layout) {
-                // is there a config for the selected index,
+                // is there a config that exists in remote settings for the selected index,
                 // otherwise we rotate through default layouts
-                if (this.sectionLayoutConfig[index]) {
-                  const sectionLayoutName = this.sectionLayoutConfig[index];
-                  section.layout =
-                    lazy.SectionsLayoutManager.SECTION_CONFIGS[
-                      sectionLayoutName
-                    ] ||
-                    lazy.SectionsLayoutManager.SECTION_CONFIGS[
-                      "7-double-row-2-ad"
-                    ];
+                const sectionLayoutName = this.sectionLayoutConfig[index] || "";
+                if (sectionLayoutName && rsConfigs[sectionLayoutName]) {
+                  section.layout = rsConfigs[sectionLayoutName];
                 } else {
                   section.layout =
                     lazy.SectionsLayoutManager.DEFAULT_SECTION_LAYOUT[
@@ -1860,10 +1863,14 @@ export class DiscoveryStreamFeed {
           feedResponse.interestPicker.sections =
             feedResponse.interestPicker.sections.map(section => {
               const { sectionId } = section;
-              const title = sections.find(
+              const found = sections.find(
                 ({ sectionKey }) => sectionKey === sectionId
-              )?.title;
-              return { sectionId, title };
+              );
+              return {
+                sectionId,
+                title: found?.title,
+                followable: found?.followable,
+              };
             });
         }
         if (feedResponse.inferredLocalModel) {
@@ -2391,8 +2398,8 @@ export class DiscoveryStreamFeed {
     );
   }
 
-  topicSelectionMaybeLaterEvent() {
-    const age = this.retreiveProfileAge();
+  async topicSelectionMaybeLaterEvent() {
+    const age = await this.retreiveProfileAge();
     const newProfile = age <= 1;
     const day = 24 * 60 * 60 * 1000;
     this.store.dispatch(

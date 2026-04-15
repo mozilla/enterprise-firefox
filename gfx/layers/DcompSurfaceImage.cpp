@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -34,7 +33,7 @@ already_AddRefed<TextureClient> DcompSurfaceTexture::CreateTextureClient(
     KnowsCompositor* aKnowsCompositor) {
   RefPtr<TextureClient> textureClient = MakeAndAddRef<TextureClient>(
       new DcompSurfaceTexture(aHandle, aSize, aFormat), TextureFlags::NO_FLAGS,
-      aKnowsCompositor->GetTextureForwarder());
+      aKnowsCompositor->GetTextureForwarder().get());
   return textureClient.forget();
 }
 
@@ -107,7 +106,12 @@ void DcompSurfaceHandleHost::PushResourceUpdates(
     return;
   }
   MOZ_ASSERT(mHandle);
-  MOZ_ASSERT(aImageKeys.length() == 1);
+
+  if (aImageKeys.length() != 1) {
+    MOZ_ASSERT_UNREACHABLE("unexpected key length");
+    return;
+  }
+
   auto method = aOp == TextureHost::ADD_IMAGE
                     ? &wr::TransactionBuilder::AddExternalImage
                     : &wr::TransactionBuilder::UpdateExternalImage;
@@ -138,7 +142,10 @@ void DcompSurfaceHandleHost::PushDisplayItems(
     return;
   }
   LOG("DcompSurfaceHandleHost %p PushDisplayItems", this);
-  MOZ_ASSERT(aImageKeys.length() == 1);
+  if (aImageKeys.length() != 1) {
+    MOZ_ASSERT_UNREACHABLE("unexpected key length");
+    return;
+  }
   aBuilder.PushImage(
       aBounds, aClip, true, false, aFilter, aImageKeys[0],
       !(mFlags & TextureFlags::NON_PREMULTIPLIED),

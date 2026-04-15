@@ -80,12 +80,10 @@ void DynamicFpiNavigationHeuristic::MaybeGrantStorageAccess(
     return;
   }
 
-  const Maybe<BounceTrackingRecord>& maybeRecord =
-      bounceTrackingState->GetBounceTrackingRecord();
-  if (maybeRecord.isNothing()) {
+  BounceTrackingRecord* record = bounceTrackingState->GetBounceTrackingRecord();
+  if (!record) {
     return;
   }
-  const BounceTrackingRecord& record = maybeRecord.ref();
 
   // Get the session history and the current index (of the opening document)
   nsCOMPtr<nsISHistory> shistory = aBrowsingContext->GetSessionHistory();
@@ -151,7 +149,7 @@ void DynamicFpiNavigationHeuristic::MaybeGrantStorageAccess(
     if (NS_FAILED(rv)) {
       continue;
     }
-    if (record.GetUserActivationHosts().Contains(entrySiteHost)) {
+    if (record->GetUserActivationHosts().Contains(entrySiteHost)) {
       candidateURIs.AppendElement(entryURI);
     }
   }

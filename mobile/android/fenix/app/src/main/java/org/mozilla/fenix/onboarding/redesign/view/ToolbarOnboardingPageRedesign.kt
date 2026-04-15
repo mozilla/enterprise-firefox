@@ -6,6 +6,7 @@ package org.mozilla.fenix.onboarding.redesign.view
 
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -29,6 +31,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -42,10 +45,13 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Devices
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import mozilla.components.compose.base.annotation.FlexibleWindowLightDarkPreview
 import mozilla.components.compose.base.button.FilledButton
 import org.mozilla.fenix.R
+import org.mozilla.fenix.compose.ScrollIndicator
 import org.mozilla.fenix.onboarding.store.OnboardingStore
 import org.mozilla.fenix.onboarding.view.Action
 import org.mozilla.fenix.onboarding.view.OnboardingPageState
@@ -55,6 +61,8 @@ import org.mozilla.fenix.theme.FirefoxTheme
 import mozilla.components.ui.icons.R as iconsR
 
 private val TOOLBAR_IMAGE_HEIGHT = 150.dp
+
+private val buttonHeight = 40.dp
 
 /**
  * A Composable for displaying toolbar placement onboarding page content.
@@ -74,35 +82,58 @@ fun ToolbarOnboardingPageRedesign(
         elevation = CardDefaults.cardElevation(if (pageState.shouldShowElevation) 6.dp else 0.dp),
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp),
+            modifier = Modifier.padding(
+                horizontal = 16.dp,
+                vertical = if (pageState.isSmallDevice) 0.dp else 24.dp,
+            ),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(modifier = Modifier.weight(TITLE_TOP_SPACER_WEIGHT))
+            Spacer(Modifier.weight(TITLE_TOP_SPACER_WEIGHT)).takeIf { !pageState.isSmallDevice }
 
-            Column(
+            Box(
                 modifier = Modifier
-                    .padding(horizontal = 20.dp)
                     .weight(CONTENT_WEIGHT)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(36.dp),
+                    .fillMaxWidth(),
             ) {
-                Text(
-                    text = pageState.title,
-                    textAlign = TextAlign.Start,
-                    style = MaterialTheme.typography.headlineSmall,
-                )
+                val scrollState = rememberScrollState()
 
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center,
+                CompositionLocalProvider(
+                    LocalOverscrollFactory provides null,
                 ) {
-                    ToolbarPositionOptions(
-                        onboardingStore = onboardingStore,
-                        pageState = pageState,
-                        onToolbarSelectionClicked = onToolbarSelectionClicked,
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(scrollState)
+                            .padding(start = 20.dp, end = 32.dp),
+                        verticalArrangement = Arrangement.spacedBy(36.dp),
+                    ) {
+                        Text(
+                            text = pageState.title,
+                            textAlign = TextAlign.Start,
+                            style = MaterialTheme.typography.headlineSmall,
+                        )
+
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            ToolbarPositionOptions(
+                                onboardingStore = onboardingStore,
+                                pageState = pageState,
+                                onToolbarSelectionClicked = onToolbarSelectionClicked,
+                            )
+                        }
+                    }
                 }
+
+                ScrollIndicator(
+                    scrollState = scrollState,
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                    enabled = pageState.isSmallDevice,
+                )
             }
+
+            Spacer(Modifier.height(buttonHeight))
 
             FilledButton(
                 text = pageState.primaryButton.text,
@@ -116,7 +147,7 @@ fun ToolbarOnboardingPageRedesign(
         }
     }
 
-    LaunchedEffect(pageState) {
+    LaunchedEffect(Unit) {
         pageState.onRecordImpressionEvent()
     }
 }
@@ -130,11 +161,17 @@ private fun ToolbarPositionOptions(
     val state by onboardingStore.stateFlow.collectAsState()
     pageState.toolbarOptions?.let { options ->
         Row(horizontalArrangement = Arrangement.spacedBy(26.dp)) {
-            options.forEach {
+            options.forEachIndexed { index, option ->
                 ToolbarPositionOption(
-                    option = it,
-                    isSelected = it.toolbarType == state.toolbarOptionSelected,
-                    onClick = { onToolbarSelectionClicked(it.toolbarType) },
+                    modifier = Modifier.weight(1f),
+                    option = option,
+                    isSelected = option.toolbarType == state.toolbarOptionSelected,
+                    onClick = { onToolbarSelectionClicked(option.toolbarType) },
+                    contentAlignment = if (index == 0) {
+                        Alignment.CenterEnd
+                    } else {
+                        Alignment.CenterStart
+                    },
                 )
             }
         }
@@ -146,35 +183,43 @@ private fun ToolbarPositionOption(
     option: ToolbarOption,
     isSelected: Boolean,
     onClick: () -> Unit,
+    contentAlignment: Alignment,
+    modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = Modifier.clickable(
-            role = Role.Button,
-            interactionSource = remember { MutableInteractionSource() },
-            indication = null, // Prevents onClick press/ripple animation
-            onClick = onClick,
-        ),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Box(
+        modifier = modifier,
+        contentAlignment = contentAlignment,
     ) {
-        Spacer(Modifier.height(8.dp))
+        Column(
+            modifier = Modifier.clickable(
+                role = Role.Button,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null, // Prevents onClick press/ripple animation
+                onClick = onClick,
+            ),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Spacer(Modifier.height(8.dp))
 
-        Image(
-            painter = painterResource(option.toolbarType.imageRes(isSelected)),
-            contentDescription = null, // Decorative only
-            modifier = Modifier.height(TOOLBAR_IMAGE_HEIGHT),
-        )
+            Image(
+                painter = painterResource(option.toolbarType.imageRes(isSelected)),
+                contentDescription = null, // Decorative only
+                modifier = Modifier.height(TOOLBAR_IMAGE_HEIGHT),
+            )
 
-        Spacer(Modifier.height(26.dp))
+            Spacer(Modifier.height(26.dp))
 
-        Text(
-            text = option.label,
-            modifier = Modifier.align(Alignment.CenterHorizontally),
-            style = FirefoxTheme.typography.headline7,
-        )
+            Text(
+                text = option.label,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+                style = FirefoxTheme.typography.headline7,
+                textAlign = TextAlign.Center,
+            )
 
-        Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(12.dp))
 
-        SelectedCheckmark(isSelected)
+            SelectedCheckmark(isSelected)
+        }
     }
 }
 
@@ -233,6 +278,50 @@ private fun SelectedCheckmark(selected: Boolean = false) {
 @FlexibleWindowLightDarkPreview
 @Composable
 private fun OnboardingPagePreview() {
+    FirefoxTheme {
+        ToolbarOnboardingPageRedesign(
+            onboardingStore = OnboardingStore(),
+            pageState = OnboardingPageState(
+                imageRes = R.drawable.ic_onboarding_customize_toolbar,
+                title = stringResource(id = R.string.nova_onboarding_toolbar_selection_title),
+                description = "", // Unused in redesign
+                primaryButton = Action(
+                    text = stringResource(
+                        id = R.string.nova_onboarding_continue_button,
+                    ),
+                    onClick = {},
+                ),
+                toolbarOptions = listOf(
+                    ToolbarOption(
+                        toolbarType = ToolbarOptionType.TOOLBAR_TOP,
+                        imageRes = R.drawable.ic_onboarding_top_toolbar,
+                        label = stringResource(R.string.nova_onboarding_toolbar_selection_top_label),
+                    ),
+                    ToolbarOption(
+                        toolbarType = ToolbarOptionType.TOOLBAR_BOTTOM,
+                        imageRes = R.drawable.ic_onboarding_bottom_toolbar,
+                        label = stringResource(R.string.nova_onboarding_toolbar_selection_bottom_label),
+                    ),
+                ),
+                onRecordImpressionEvent = {},
+            ),
+            onToolbarSelectionClicked = {},
+        )
+    }
+}
+
+@Preview(
+    locale = "es",
+    fontScale = 2f,
+)
+@Preview(
+    locale = "es",
+    fontScale = 2f,
+    widthDp = 1000,
+    device = Devices.PIXEL_TABLET,
+)
+@Composable
+private fun SpanishOnboardingPagePreview() {
     FirefoxTheme {
         ToolbarOnboardingPageRedesign(
             onboardingStore = OnboardingStore(),

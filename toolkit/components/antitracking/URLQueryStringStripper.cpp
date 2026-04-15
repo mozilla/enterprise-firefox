@@ -405,12 +405,9 @@ bool URLQueryStringStripper::ShouldStripParam(const nsACString& aHost,
   nsAutoCString lowerCaseName;
   ToLowerCase(aName, lowerCaseName);
 
-  // There should always be a global rule.
-  MOZ_ASSERT(mStripOnShareGlobal.isSome());
-  const dom::StripRule& globalRule = mStripOnShareGlobal.ref();
-
   // Look through the global rules.
   if (mStripOnShareGlobal.isSome()) {
+    const dom::StripRule& globalRule = mStripOnShareGlobal.ref();
     for (const auto& param : globalRule.mQueryParams) {
       if (param == lowerCaseName) {
         return true;

@@ -81,7 +81,7 @@ class OnboardingSecondFragment : Fragment() {
         super.onResume()
         // check if the default browser was changed from OS settings for devices with Android 8 & 9.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
-            Browsers.all(requireContext()).isDefaultBrowser
+            Browsers.isDefaultBrowser(requireContext())
         ) {
             onboardingInteractor.onFinishOnBoarding()
         }

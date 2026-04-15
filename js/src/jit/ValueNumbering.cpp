@@ -161,8 +161,10 @@ static void ReplaceAllUsesWith(MDefinition* from, MDefinition* to) {
   // solution. Does it make sense to find the common ref type between `(field
   // i31ref)` and `(field structref)`, potentially? Not really, but since
   // struct.get will trap on a null input anyway, it doesn't really matter.
-  to->setWasmRefType(wasm::MaybeRefType::greatestLowerBound(from->wasmRefType(),
-                                                            to->wasmRefType()));
+  wasm::MaybeRefType glb = wasm::MaybeRefType::greatestLowerBound(
+      from->wasmRefType(), to->wasmRefType());
+  MOZ_RELEASE_ASSERT(glb.isNothing() || glb.value().isInhabitable());
+  to->setWasmRefType(glb);
 
   // We don't need the extra setting of ImplicitlyUsed flags that the regular
   // replaceAllUsesWith does because we do it ourselves.
@@ -793,6 +795,12 @@ bool ValueNumberer::visitDefinition(MDefinition* def) {
       return false;
     }
 
+    wasm::MaybeRefType glb = wasm::MaybeRefType::greatestLowerBound(
+        def->wasmRefType(), sim->wasmRefType());
+    if (glb.isSome() && !glb.value().isInhabitable()) {
+      return true;
+    }
+
     bool isNewInstruction = sim->block() == nullptr;
 
     // If |sim| doesn't belong to a block, insert it next to |def|.
@@ -894,6 +902,12 @@ bool ValueNumberer::visitDefinition(MDefinition* def) {
   if (rep != def) {
     if (rep == nullptr) {
       return false;
+    }
+
+    wasm::MaybeRefType glb = wasm::MaybeRefType::greatestLowerBound(
+        def->wasmRefType(), rep->wasmRefType());
+    if (glb.isSome() && !glb.value().isInhabitable()) {
+      return true;
     }
 
     if (rep->isPhi()) {

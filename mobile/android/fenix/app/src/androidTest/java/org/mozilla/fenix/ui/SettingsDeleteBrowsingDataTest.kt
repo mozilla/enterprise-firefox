@@ -12,6 +12,7 @@ import org.junit.Test
 import org.mozilla.fenix.customannotations.SkipLeaks
 import org.mozilla.fenix.customannotations.SmokeTest
 import org.mozilla.fenix.helpers.AppAndSystemHelper.setNetworkEnabled
+import org.mozilla.fenix.helpers.FenixTestRule
 import org.mozilla.fenix.helpers.HomeActivityIntentTestRule
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithResId
 import org.mozilla.fenix.helpers.TestAssetHelper.getGenericAsset
@@ -20,20 +21,23 @@ import org.mozilla.fenix.helpers.TestAssetHelper.storageWritePageAsset
 import org.mozilla.fenix.helpers.TestHelper.exitMenu
 import org.mozilla.fenix.helpers.TestHelper.mDevice
 import org.mozilla.fenix.helpers.TestHelper.restartApp
-import org.mozilla.fenix.helpers.TestSetup
 import org.mozilla.fenix.helpers.perf.DetectMemoryLeaksRule
 import org.mozilla.fenix.ui.robots.browserScreen
 import org.mozilla.fenix.ui.robots.clickPageObject
 import org.mozilla.fenix.ui.robots.homeScreen
 import org.mozilla.fenix.ui.robots.navigationToolbar
-import org.mozilla.fenix.ui.robots.settingsScreen
 
 /**
  *  Tests for verifying the Settings for:
  *  Delete Browsing Data
  */
 
-class SettingsDeleteBrowsingDataTest : TestSetup() {
+class SettingsDeleteBrowsingDataTest {
+    @get:Rule(order = 0)
+    val fenixTestRule: FenixTestRule = FenixTestRule()
+
+    private val mockWebServer get() = fenixTestRule.mockWebServer
+
     @get:Rule
     val composeTestRule =
         AndroidComposeTestRule(
@@ -117,9 +121,6 @@ class SettingsDeleteBrowsingDataTest : TestSetup() {
             verifyDeleteBrowsingDataDialog()
             confirmDeletionAndAssertSnackbar()
         }
-        settingsScreen {
-            verifyGeneralHeading()
-        }
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/353531
@@ -143,10 +144,6 @@ class SettingsDeleteBrowsingDataTest : TestSetup() {
             clickDeleteBrowsingDataButton()
             verifyDeleteBrowsingDataDialog()
             confirmDeletionAndAssertSnackbar()
-        }
-        settingsScreen {
-            verifyGeneralHeading()
-        }.openSettingsSubMenuDeleteBrowsingData {
             verifyOpenTabsDetails("0")
         }.goBack {
         }.goBack(composeTestRule) {

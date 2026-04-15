@@ -1,5 +1,4 @@
-/* -*- Mode: IDL; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
- *
+/*
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -7,11 +6,9 @@
 #ifndef nsPrintSettingsService_h
 #define nsPrintSettingsService_h
 
-#include "nsCOMPtr.h"
 #include "nsIPrintSettings.h"
 #include "nsIPrintSettingsService.h"
 #include "nsString.h"
-#include "nsFont.h"
 
 /**
  * Class nsPrintSettingsService.  Base class for the platform specific widget

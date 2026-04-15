@@ -16,7 +16,7 @@ newtab-search-box-search-button =
     .title = Çerca
     .aria-label = Çerca
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Azonzi motô de riçerca
 newtab-topsites-edit-topsites-header = Cangia scito prinçipâ

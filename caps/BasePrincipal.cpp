@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 sw=2 et tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -345,7 +343,8 @@ already_AddRefed<BasePrincipal> BasePrincipal::FromJSON(
           reinterpret_cast<const JS::Latin1Char*>(aJSON.BeginReading()),
           aJSON.Length(), &handler)) {
     NS_WARNING(
-        nsPrintfCString("Unable to parse: %s", aJSON.BeginReading()).get());
+        nsPrintfCString("Unable to parse: %s", PromiseFlatCString(aJSON).get())
+            .get());
     MOZ_ASSERT(false,
                "Unable to parse string as JSON to deserialize as a principal");
     return nullptr;

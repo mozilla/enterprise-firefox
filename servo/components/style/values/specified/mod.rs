@@ -18,24 +18,25 @@ use crate::context::QuirksMode;
 use crate::derives::*;
 use crate::parser::{Parse, ParserContext};
 use crate::values::specified::calc::CalcNode;
-use crate::values::{serialize_atom_identifier, serialize_number, AtomString};
+use crate::values::{reify_number, serialize_atom_identifier, serialize_number, AtomString};
 use crate::{Atom, Namespace, One, Prefix, Zero};
 use cssparser::{Parser, Token};
+use rustc_hash::FxHashMap;
 use std::fmt::{self, Write};
 use std::ops::Add;
 use style_traits::values::specified::AllowedNumericType;
 use style_traits::{
-    CssString, CssWriter, NumericValue, ParseError, SpecifiedValueInfo, StyleParseErrorKind, ToCss,
-    ToTyped, TypedValue, UnitValue,
+    CssWriter, ParseError, SpecifiedValueInfo, StyleParseErrorKind, ToCss, ToTyped, TypedValue,
 };
+use thin_vec::ThinVec;
 
 pub use self::align::{ContentDistribution, ItemPlacement, JustifyItems, SelfAlignment};
 pub use self::angle::{AllowUnitlessZeroAngle, Angle};
 pub use self::animation::{
     AnimationComposition, AnimationDirection, AnimationDuration, AnimationFillMode,
-    AnimationIterationCount, AnimationName, AnimationPlayState, AnimationTimeline, ScrollAxis,
-    TimelineName, TransitionBehavior, TransitionProperty, ViewTimelineInset, ViewTransitionClass,
-    ViewTransitionName,
+    AnimationIterationCount, AnimationName, AnimationPlayState, AnimationRangeEnd,
+    AnimationRangeStart, AnimationTimeline, ScrollAxis, TimelineName, TransitionBehavior,
+    TransitionProperty, ViewTimelineInset, ViewTransitionClass, ViewTransitionName,
 };
 pub use self::background::{BackgroundRepeat, BackgroundSize};
 pub use self::basic_shape::FillRule;
@@ -87,8 +88,6 @@ pub use self::percentage::{NonNegativePercentage, Percentage};
 pub use self::position::AnchorFunction;
 pub use self::position::AnchorName;
 pub use self::position::AnchorNameIdent;
-pub use self::position::AnchorScope;
-pub use self::position::AnchorScopeKeyword;
 pub use self::position::AspectRatio;
 pub use self::position::Inset;
 pub use self::position::PositionAnchor;
@@ -96,6 +95,8 @@ pub use self::position::PositionAnchorKeyword;
 pub use self::position::PositionTryFallbacks;
 pub use self::position::PositionTryOrder;
 pub use self::position::PositionVisibility;
+pub use self::position::ScopedName;
+pub use self::position::ScopedNameKeyword;
 pub use self::position::{GridAutoFlow, GridTemplateAreas, Position, PositionOrAuto};
 pub use self::position::{MasonryAutoFlow, MasonryItemOrder, MasonryPlacement};
 pub use self::position::{PositionArea, PositionAreaKeyword};
@@ -305,6 +306,28 @@ impl Number {
         .max(f32::MIN)
     }
 
+    /// Return the unit, as a string.
+    pub fn unit(&self) -> &'static str {
+        "number"
+    }
+
+    /// Return no canonical unit (number values do not have one).
+    pub fn canonical_unit(&self) -> Option<&'static str> {
+        None
+    }
+
+    /// Convert only if the unit is the same (conversion to other units does
+    /// not make sense).
+    pub fn to(&self, unit: &str) -> Result<Self, ()> {
+        if !unit.eq_ignore_ascii_case("number") {
+            return Err(());
+        }
+        Ok(Self {
+            value: self.value,
+            calc_clamping_mode: self.calc_clamping_mode,
+        })
+    }
+
     #[allow(missing_docs)]
     pub fn parse_non_negative<'i, 't>(
         context: &ParserContext,
@@ -358,13 +381,8 @@ impl ToCss for Number {
 }
 
 impl ToTyped for Number {
-    fn to_typed(&self) -> Option<TypedValue> {
-        let value = self.value;
-        let unit = CssString::from("number");
-        Some(TypedValue::Numeric(NumericValue::Unit(UnitValue {
-            value,
-            unit,
-        })))
+    fn to_typed(&self, dest: &mut ThinVec<TypedValue>) -> Result<(), ()> {
+        reify_number(self.value, self.calc_clamping_mode.is_some(), dest)
     }
 }
 
@@ -582,6 +600,7 @@ impl Parse for NonNegativeNumberOrPercentage {
     ToShmem,
     ToTyped,
 )]
+#[typed_value(derive_fields)]
 pub struct Opacity(Number);
 
 impl Parse for Opacity {
@@ -898,6 +917,37 @@ impl AllowQuirks {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, MallocSizeOf, ToShmem)]
+/// A namespace wrapper to distinguish between valid variants
+pub enum ParsedNamespace {
+    /// Unregistered namespace
+    Unknown,
+    /// Registered namespace
+    Known(Namespace),
+}
+
+impl ParsedNamespace {
+    /// Parse a namespace prefix and resolve it to the correct
+    /// namespace URI.
+    pub fn parse<'i, 't>(
+        namespaces: &FxHashMap<Prefix, Namespace>,
+        input: &mut Parser<'i, 't>,
+    ) -> Result<Self, ParseError<'i>> {
+        // We don't need to keep the prefix because different
+        // prefixes can resolve to the same id. Additionally,
+        // we also don't need it for serialization as substitution
+        // functions serialize from the direct css declaration.
+        parse_namespace(namespaces, input, /*allow_non_registered*/ true)
+            .map(|(_prefix, namespace)| namespace)
+    }
+}
+
+impl Default for ParsedNamespace {
+    fn default() -> Self {
+        Self::Known(Namespace::default())
+    }
+}
+
 /// An attr(...) rule
 ///
 /// `[namespace? `|`]? ident`
@@ -935,16 +985,13 @@ impl Parse for Attr {
     }
 }
 
-/// Get the Namespace for a given prefix from the namespace map.
-fn get_namespace_for_prefix(prefix: &Prefix, context: &ParserContext) -> Option<Namespace> {
-    context.namespaces.prefixes.get(prefix).cloned()
-}
-
 /// Try to parse a namespace and return it if parsed, or none if there was not one present
-fn parse_namespace<'i, 't>(
-    context: &ParserContext,
+pub fn parse_namespace<'i, 't>(
+    namespaces: &FxHashMap<Prefix, Namespace>,
     input: &mut Parser<'i, 't>,
-) -> Result<(Prefix, Namespace), ParseError<'i>> {
+    // TODO: Once general attr is enabled, we should remove this flag
+    allow_non_registered: bool,
+) -> Result<(Prefix, ParsedNamespace), ParseError<'i>> {
     let ns_prefix = match input.next()? {
         Token::Ident(ref prefix) => Some(Prefix::from(prefix.as_ref())),
         Token::Delim('|') => None,
@@ -956,13 +1003,19 @@ fn parse_namespace<'i, 't>(
     }
 
     if let Some(prefix) = ns_prefix {
-        let ns = match get_namespace_for_prefix(&prefix, context) {
-            Some(ns) => ns,
-            None => return Err(input.new_custom_error(StyleParseErrorKind::UnspecifiedError)),
+        let ns = match namespaces.get(&prefix).cloned() {
+            Some(ns) => ParsedNamespace::Known(ns),
+            None => {
+                if allow_non_registered {
+                    ParsedNamespace::Unknown
+                } else {
+                    return Err(input.new_custom_error(StyleParseErrorKind::UnspecifiedError));
+                }
+            },
         };
         Ok((prefix, ns))
     } else {
-        Ok((Prefix::default(), Namespace::default()))
+        Ok((Prefix::default(), ParsedNamespace::default()))
     }
 }
 
@@ -975,10 +1028,19 @@ impl Attr {
     ) -> Result<Attr, ParseError<'i>> {
         // Syntax is `[namespace? '|']? ident [',' fallback]?`
         let namespace = input
-            .try_parse(|input| parse_namespace(context, input))
+            .try_parse(|input| {
+                parse_namespace(
+                    &context.namespaces.prefixes,
+                    input,
+                    /*allow_non_registered*/ false,
+                )
+            })
             .ok();
         let namespace_is_some = namespace.is_some();
         let (namespace_prefix, namespace_url) = namespace.unwrap_or_default();
+        let ParsedNamespace::Known(namespace_url) = namespace_url else {
+            unreachable!("Non-registered url not allowed (see parse namespace flag).")
+        };
 
         // If there is a namespace, ensure no whitespace following '|'
         let attribute = Atom::from(if namespace_is_some {

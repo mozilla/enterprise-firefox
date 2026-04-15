@@ -49,7 +49,7 @@ newtab-search-box-input =
     .placeholder = Търсене в мрежата
     .aria-label = Търсене в мрежата
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Добавяне на търсеща машина
 newtab-topsites-add-shortcut-header = Нова клавишна комбинация

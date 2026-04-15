@@ -54,7 +54,7 @@ marionette-unittest:
     test-manifest-loader: null  # don't load in taskgraph
     mozharness:
         extra-options:
-            - --subsuite=unittest
+            - --subsuite=marionette-unittest
             - --test-manifest=unit/unit-tests.toml
 
 marionette-integration:
@@ -93,14 +93,16 @@ marionette-integration:
             .*/debug: 3600
             default: 2700
     instance-size: default
-    chunks:
-        by-variant:
-            inc-origin-init: dynamic
-            default:
-                by-test-platform:
-                    .*-asan.*: 2
-                    .*-tsan.*: 2
-                    default: 1
+    chunks: dynamic
+    default-chunks:
+        by-test-platform:
+            .*-asan.*: 2
+            .*-tsan.*: 2
+            default: 1
+    mozharness:
+        extra-options:
+            - --subsuite=marionette-integration
+            - --test-manifest=integration-tests.toml
 
 marionette-enterprise:
     description: "Marionette integration enterprise run"
@@ -135,5 +137,5 @@ marionette-enterprise:
                     - marionette/enterprise_config.py
                     - remove_executables.py
         extra-options:
-            - --subsuite=enterprise
+            - --subsuite=marionette-enterprise
             - --test-manifest=enterprise-tests.toml

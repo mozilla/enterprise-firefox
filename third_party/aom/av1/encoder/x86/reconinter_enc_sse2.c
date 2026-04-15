@@ -126,8 +126,7 @@ void aom_upsampled_pred_sse2(MACROBLOCKD *xd, const struct AV1Common *const cm,
     aom_convolve8_vert(ref, ref_stride, comp_pred, width, NULL, -1, kernel, 16,
                        width, height);
   } else {
-    DECLARE_ALIGNED(16, uint8_t,
-                    temp[((MAX_SB_SIZE * 2 + 16) + 16) * MAX_SB_SIZE]);
+    uint8_t *temp = comp_pred;
     const int16_t *const kernel_x =
         av1_get_interp_filter_subpel_kernel(filter, subpel_x_q3 << 1);
     const int16_t *const kernel_y =
@@ -230,8 +229,7 @@ void aom_highbd_upsampled_pred_sse2(MACROBLOCKD *xd,
     aom_highbd_convolve8_vert(ref8, ref_stride, comp_pred8, width, NULL, -1,
                               kernel, 16, width, height, bd);
   } else {
-    DECLARE_ALIGNED(16, uint16_t,
-                    temp[((MAX_SB_SIZE + 16) + 16) * MAX_SB_SIZE]);
+    uint16_t *temp = CONVERT_TO_SHORTPTR(comp_pred8);
     const int16_t *const kernel_x =
         av1_get_interp_filter_subpel_kernel(filter, subpel_x_q3 << 1);
     const int16_t *const kernel_y =

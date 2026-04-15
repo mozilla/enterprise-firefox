@@ -1647,11 +1647,7 @@ export class SpecialPowersChild extends JSWindowActorChild {
   }
 
   async evictAllDocumentViewers() {
-    if (Services.appinfo.sessionHistoryInParent) {
-      await this.sendQuery("EvictAllDocumentViewers");
-    } else {
-      this.browsingContext.top.childSessionHistory.legacySHistory.evictAllDocumentViewers();
-    }
+    await this.sendQuery("EvictAllDocumentViewers");
   }
 
   /**
@@ -2128,25 +2124,6 @@ export class SpecialPowersChild extends JSWindowActorChild {
       },
     };
     return this._pu;
-  }
-
-  createDOMWalker(node, showAnonymousContent) {
-    node = lazy.WrapPrivileged.unwrap(node);
-    let walker = Cc["@mozilla.org/inspector/deep-tree-walker;1"].createInstance(
-      Ci.inIDeepTreeWalker
-    );
-    walker.showAnonymousContent = showAnonymousContent;
-    walker.init(node.ownerDocument, NodeFilter.SHOW_ALL);
-    walker.currentNode = node;
-    let contentWindow = this.contentWindow;
-    return {
-      get firstChild() {
-        return lazy.WrapPrivileged.wrap(walker.firstChild(), contentWindow);
-      },
-      get lastChild() {
-        return lazy.WrapPrivileged.wrap(walker.lastChild(), contentWindow);
-      },
-    };
   }
 
   /**

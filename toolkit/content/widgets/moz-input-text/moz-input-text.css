@@ -17,7 +17,7 @@
 
 #input {
   width: 100%;
-  max-width: var(--input-text-max-width);
+  max-width: var(--input-text-max-width, none);
   min-height: var(--input-text-min-height);
   padding-inline: var(--space-medium);
   border: var(--input-text-border);
@@ -29,6 +29,7 @@
   @media (-moz-platform: macos) {
     /* TODO(emilio, bug 1815264): The default macOS system font size is too
      * small. Ensure some sane minimum. */
+    /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
     font-size: max(1em, 12px);
   }
 

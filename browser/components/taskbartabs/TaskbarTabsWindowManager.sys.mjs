@@ -3,6 +3,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const kTaskbarTabsWindowFeatures =
@@ -122,8 +123,23 @@ export class TaskbarTabsWindowManager {
 
     this.#trackWindow(aTaskbarTab.id, win);
 
-    lazy.WindowsUIUtils.setWindowIcon(win, aIcon, aIcon);
-    lazy.WinTaskbar.setGroupIdForWindow(win, aTaskbarTab.id);
+    if (AppConstants.platform === "win") {
+      lazy.WindowsUIUtils.setWindowIcon(win, aIcon, aIcon);
+
+      // If on MSIX, we need to match the system's expectations.
+      let pfn = Services.sysinfo.getProperty("winPackageFamilyName");
+      if (pfn) {
+        lazy.WinTaskbar.setGroupIdForWindow(
+          win,
+          // This is based on the tile ID set when we create the secondary tile
+          // in TaskbarTabsPin.sys.mjs.
+          `${pfn}!App:taskbartab-${aTaskbarTab.id}`
+        );
+      } else {
+        // If on non-MSIX, use the AUMID of the shortcut (which is just the ID).
+        lazy.WinTaskbar.setGroupIdForWindow(win, aTaskbarTab.id);
+      }
+    }
 
     this.#attachWindowFocusTelemetry(win);
     Glean.webApp.activate.record({});

@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 import json
+import time
 from collections import defaultdict, namedtuple
 
 from mozsystemmonitor.resourcemonitor import SystemResourceMonitor
@@ -98,6 +99,9 @@ class StructuredOutputParser(OutputParser):
             return
 
         self.prev_was_unstructured = False
+
+        if "time" not in data:
+            data["time"] = int(time.time() * 1000)
 
         self.handler(data)
 

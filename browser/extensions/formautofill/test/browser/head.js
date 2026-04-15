@@ -1597,7 +1597,7 @@ async function add_heuristic_tests(
 
     let regionInfo = null;
     if (testPattern.region) {
-      regionInfo = { home: Region._home, current: Region._current };
+      regionInfo = { home: Region._home, current: Region.current };
 
       const region = testPattern.region;
       Region._setCurrentRegion(region);

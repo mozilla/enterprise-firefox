@@ -5,7 +5,7 @@
 //! An iterator over a list of rules.
 
 use crate::context::QuirksMode;
-use crate::media_queries::Device;
+use crate::device::Device;
 use crate::shared_lock::SharedRwLockReadGuard;
 use crate::stylesheets::{
     CssRule, CssRuleRef, CustomMediaEvaluator, CustomMediaMap, DocumentRule, ImportRule, MediaRule,
@@ -136,6 +136,7 @@ where
             CssRule::LayerBlock(ref layer_rule) => Some(layer_rule.rules.read_with(guard).0.iter()),
             CssRule::Scope(ref rule) => Some(rule.rules.read_with(guard).0.iter()),
             CssRule::StartingStyle(ref rule) => Some(rule.rules.read_with(guard).0.iter()),
+            CssRule::AppearanceBase(ref rule) => Some(rule.rules.read_with(guard).0.iter()),
         }
     }
 }

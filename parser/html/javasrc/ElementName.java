@@ -584,7 +584,7 @@ public final class ElementName
 //     * Regenerate self
 //     *
 //     * The args should be the paths to m-c files
-//     * parser/htmlparser/nsHTMLTagList.inc and dom/svg/SVGTagList.inc.
+//     * parser/htmlparser/nsHTMLTagList.h and dom/svg/SVGTagList.h.
 //     */
 //    public static void main(String[] args) {
 //        File htmlList = new File(args[0]);
@@ -1424,7 +1424,7 @@ TreeBuilder.OTHER);
 public static final ElementName SELECT = new ElementName("select", "select",
 // CPPONLY: NS_NewHTMLSelectElement,
 // CPPONLY: NS_NewSVGUnknownElement,
-TreeBuilder.SELECT | SPECIAL);
+TreeBuilder.SELECT | SPECIAL | SCOPING);
 public static final ElementName SLOT = new ElementName("slot", "slot",
 // CPPONLY: NS_NewHTMLSlotElement,
 // CPPONLY: NS_NewSVGUnknownElement,

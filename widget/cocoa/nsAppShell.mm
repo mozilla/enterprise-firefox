@@ -1,5 +1,3 @@
-/* -*- tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -371,7 +369,11 @@ nsresult nsAppShell::Init() {
   mAutoreleasePools = ::CFArrayCreateMutable(nullptr, 0, nullptr);
   NS_ENSURE_STATE(mAutoreleasePools);
 
+  // Don't call -[NSBundle loadNibNamed:owner:options:] for child process types
+  // that don't need graphics. The loadNibNamed call triggers some graphics-
+  // related initialization that is not needed for these process types.
   bool isNSApplicationProcessType =
+      (XRE_GetProcessType() != GeckoProcessType_Content) &&
       (XRE_GetProcessType() != GeckoProcessType_RDD) &&
       (XRE_GetProcessType() != GeckoProcessType_Socket);
 
@@ -1128,7 +1130,7 @@ void nsAppShell::OnMemoryPressureChanged(
 
 // Called by the OS after [MacApplicationDelegate applicationShouldTerminate:]
 // has returned NSTerminateNow.  This method "subclasses" and replaces the
-// OS's original implementation.  The only thing the orginal method does which
+// OS's original implementation.  The only thing the original method does which
 // we need is that it posts NSApplicationWillTerminateNotification.  Everything
 // else is unneeded (because it's handled elsewhere), or actively interferes
 // with Gecko's shutdown sequence.  For example the original terminate: method

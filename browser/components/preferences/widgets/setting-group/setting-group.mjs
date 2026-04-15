@@ -25,6 +25,9 @@ import { SettingControl } from "chrome://browser/content/preferences/widgets/set
  * browser.settings-redesign.<groupid>.enabled prefs are true.
  * @property {"default"|"always"|"never"} [card]
  * Whether to use a card. Default: use a card after SRD or in a sub-pane.
+ * @property {boolean} [hiddenFromSearch]
+ * Whether this group should be hidden from search.
+ * @property {boolean} [hidden] Whether this group should be visible.
  */
 /** @typedef {SettingElementConfig & SettingGroupConfigExtensions} SettingGroupConfig */
 
@@ -70,6 +73,9 @@ export class SettingGroup extends SettingElement {
    * get all ancestors.
    */
   get childControlEls() {
+    if (!this.config) {
+      return [];
+    }
     // @ts-expect-error bug 1997478
     return [...this.fieldsetEl.children].filter(
       child => child instanceof SettingControl
@@ -107,12 +113,23 @@ export class SettingGroup extends SettingElement {
     if (!this.srdEnabled) {
       this.classList.toggle("subcategory", this.config?.headingLevel == 1);
     }
+    this.toggleAttribute(HiddenAttr.Search, !!this.config?.hiddenFromSearch);
+    this.toggleAttribute(HiddenAttr.Self, !!this.config?.hidden);
   }
 
   async handleVisibilityChange() {
     await this.updateComplete;
-    let hasVisibleControls = this.childControlEls.some(el => !el.hidden);
+
+    // Don't change visibility if explicitly hidden by config
+    if (this.config?.hidden) {
+      return;
+    }
+
+    let hasVisibleControls =
+      !!this.childControlEls?.length &&
+      this.childControlEls?.some(el => !el.hidden);
     let groupbox = /** @type {XULElement} */ (this.closest("groupbox"));
+
     if (hasVisibleControls) {
       if (this.hasAttribute(HiddenAttr.Self)) {
         this.removeAttribute(HiddenAttr.Self);

@@ -1,4 +1,3 @@
-/* -*- Mode: IDL; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -8,6 +7,7 @@ interface nsIDocShell;
 interface nsIDOMGeoPosition;
 interface nsISecureBrowserUI;
 interface nsISHEntry;
+interface nsIScopedPrefs;
 interface nsIPrintSettings;
 interface nsIWebProgress;
 
@@ -467,6 +467,12 @@ interface CanonicalBrowsingContext : BrowsingContext {
                               unsigned long aPresShellId);
 
   readonly attribute nsISHEntry? mostRecentLoadingSessionHistoryEntry;
+
+  /**
+   * Prefs that are stored in the top-level browsing context which persist for
+   * the lifetime of the tab
+   */
+  readonly attribute nsIScopedPrefs? scopedPrefs;
 
   /**
    * Indicates if the embedder element or an ancestor has hidden

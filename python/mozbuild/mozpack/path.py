@@ -9,6 +9,7 @@ Also contains a few additional utilities not found in :py:mod:`os.path`.
 """
 
 import ctypes
+import functools
 import os
 import posixpath
 import re
@@ -42,6 +43,7 @@ def cargo_workaround(path):
     return path
 
 
+@functools.cache
 def relpath(path, start):
     path = normsep(path)
     start = normsep(start)

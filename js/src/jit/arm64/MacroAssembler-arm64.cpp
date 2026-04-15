@@ -9,6 +9,8 @@
 #include "mozilla/MathAlgorithms.h"
 #include "mozilla/Maybe.h"
 
+#include <bit>
+
 #include "jit/arm64/MoveEmitter-arm64.h"
 #include "jit/arm64/SharedICRegisters-arm64.h"
 #include "jit/Bailouts.h"
@@ -68,14 +70,14 @@ static constexpr int32_t PayloadSize(JSValueType type) {
 }
 #endif
 
-static void AssertValidPayload(MacroAssemblerCompat& masm, JSValueType type,
+static void AssertValidPayload(MacroAssembler& masm, JSValueType type,
                                Register payload, Register scratch) {
 #ifdef DEBUG
   // All bits above the payload must be zeroed.
   Label upperBitsZeroed;
   masm.Lsr(ARMRegister(scratch, 64), ARMRegister(payload, 64),
            PayloadSize(type));
-  masm.Cbz(ARMRegister(scratch, 64), &upperBitsZeroed);
+  masm.branchTestPtr(Assembler::Zero, scratch, scratch, &upperBitsZeroed);
   masm.breakpoint();
   masm.bind(&upperBitsZeroed);
 #endif
@@ -90,7 +92,7 @@ void MacroAssemblerCompat::tagValue(JSValueType type, Register payload,
     vixl::UseScratchRegisterScope temps(this);
     Register scratch = temps.AcquireX().asUnsized();
 
-    AssertValidPayload(*this, type, payload, scratch);
+    AssertValidPayload(asMasm(), type, payload, scratch);
   }
 #endif
 
@@ -103,7 +105,7 @@ void MacroAssemblerCompat::boxValue(JSValueType type, Register src,
   MOZ_ASSERT(type != JSVAL_TYPE_UNDEFINED && type != JSVAL_TYPE_NULL);
   MOZ_ASSERT(src != dest);
 
-  AssertValidPayload(*this, type, src, dest);
+  AssertValidPayload(asMasm(), type, src, dest);
 
   Orr(ARMRegister(dest, 64), ARMRegister(src, 64),
       Operand(ImmShiftedTag(type).value));
@@ -893,7 +895,7 @@ static bool IsLSImmediateOffset(uint64_t address, size_t accessByteSize) {
 
   // The access size is always a power of 2, so computing the log amounts to
   // counting trailing zeroes.
-  unsigned logAccessSize = mozilla::CountTrailingZeroes32(accessByteSize);
+  unsigned logAccessSize = std::countr_zero(accessByteSize);
   return (MacroAssemblerCompat::IsImmLSUnscaled(int64_t(address)) ||
           MacroAssemblerCompat::IsImmLSScaled(int64_t(address), logAccessSize));
 }
@@ -989,7 +991,7 @@ void MacroAssemblerCompat::wasmStoreAbsolute(
     const wasm::MemoryAccessDesc& access, AnyRegister value, Register64 value64,
     Register memoryBase, uint64_t address) {
   // See comments in wasmLoadAbsolute.
-  unsigned logAccessSize = mozilla::CountTrailingZeroes32(access.byteSize());
+  unsigned logAccessSize = std::countr_zero(access.byteSize());
   if (address > INT64_MAX || !(IsImmLSScaled(int64_t(address), logAccessSize) ||
                                IsImmLSUnscaled(int64_t(address)))) {
     vixl::UseScratchRegisterScope temps(this);

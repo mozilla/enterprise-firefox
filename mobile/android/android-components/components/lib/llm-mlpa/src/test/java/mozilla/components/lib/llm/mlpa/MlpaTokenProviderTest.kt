@@ -11,6 +11,7 @@ import mozilla.components.lib.llm.mlpa.fakes.successAuthenticationService
 import mozilla.components.lib.llm.mlpa.fakes.successIntegrityClient
 import mozilla.components.lib.llm.mlpa.fakes.userIdProvider
 import mozilla.components.lib.llm.mlpa.service.AuthorizationToken
+import mozilla.components.lib.llm.mlpa.service.PackageName
 import mozilla.components.lib.llm.mlpa.service.UserId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -20,7 +21,7 @@ class MlpaTokenProviderTest {
     @Test
     fun `GIVEN a static provider WHEN I fetch the token THEN return the provided token`() =
         runTest {
-            val expected = AuthorizationToken("my-test-token")
+            val expected = AuthorizationToken.Integrity("my-test-token")
             val provider = MlpaTokenProvider.static(expected)
             val result = provider.fetchToken()
 
@@ -42,6 +43,7 @@ class MlpaTokenProviderTest {
                 successAuthenticationService.verify(request)
             },
             userIdProvider = userIdProvider,
+            packageName = PackageName("my.package.name"),
         )
 
         val actual = provider.fetchToken()
@@ -57,6 +59,7 @@ class MlpaTokenProviderTest {
                 integrityClient = failureIntegrityClient,
                 authenticationService = successAuthenticationService,
                 userIdProvider = userIdProvider,
+                packageName = PackageName("my.package.name"),
             )
 
             val actual = provider.fetchToken()
@@ -75,6 +78,7 @@ class MlpaTokenProviderTest {
                 integrityClient = successIntegrityClient,
                 authenticationService = failureAuthenticationService,
                 userIdProvider = userIdProvider,
+                packageName = PackageName("my.package.name"),
             )
 
             val actual = provider.fetchToken()

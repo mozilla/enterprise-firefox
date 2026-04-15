@@ -170,15 +170,12 @@ const NimbusLogging = {
   },
 };
 
-let _testSuite = null;
-
 export const NimbusTestUtils = {
   init(testCase) {
-    _testSuite = testCase;
-
+    const assert = testCase.Assert;
     Object.defineProperty(NimbusTestUtils, "Assert", {
       configurable: true,
-      get: () => _testSuite.Assert,
+      get: () => assert,
     });
   },
 

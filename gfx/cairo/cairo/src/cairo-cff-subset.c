@@ -1,4 +1,3 @@
-/* -*- Mode: c; tab-width: 8; c-basic-offset: 4; indent-tabs-mode: t; -*- */
 /* cairo - a vector graphics library with display and print output
  *
  * Copyright © 2006 Adrian Johnson
@@ -930,6 +929,8 @@ cairo_cff_font_read_private_dict (cairo_cff_font_t   *font,
     if (operand) {
         decode_integer (operand, &offset);
         p = ptr + offset;
+        if (unlikely (p < font->data || p > font->data_end))
+            return CAIRO_INT_STATUS_UNSUPPORTED;
         status = cff_index_read (local_sub_index, &p, font->data_end);
 	if (unlikely (status))
 	    return status;
@@ -1866,6 +1867,10 @@ cairo_cff_font_subset_fontdict (cairo_cff_font_t  *font)
 	}
 
         fd = font->fdselect[gid];
+        if (fd < 0 || (unsigned int) fd >= font->num_fontdicts) {
+            free (reverse_map);
+            return CAIRO_INT_STATUS_UNSUPPORTED;
+        }
         if (reverse_map[fd] < 0) {
             font->fd_subset_map[font->num_subset_fontdicts] = fd;
             reverse_map[fd] = font->num_subset_fontdicts++;

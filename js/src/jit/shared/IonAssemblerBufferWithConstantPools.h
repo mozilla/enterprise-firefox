@@ -8,12 +8,14 @@
 #define jit_shared_IonAssemblerBufferWithConstantPools_h
 
 #include "mozilla/CheckedInt.h"
-#include "mozilla/MathAlgorithms.h"
 
 #include <algorithm>
+#include <bit>
+#include <deque>
 
 #include "jit/JitSpewer.h"
 #include "jit/shared/IonAssemblerBuffer.h"
+#include "util/PolicyAllocator.h"
 
 // [SMDOC] JIT AssemblerBuffer constant pooling (ARM/ARM64/RISCV64)
 //
@@ -176,83 +178,85 @@ template <unsigned NumRanges>
 class BranchDeadlineSet {
   // Maintain a list of pending deadlines for each range separately.
   //
-  // The offsets in each vector are always kept in ascending order.
+  // The offsets in each list are always kept in ascending order.
   //
-  // Because we have a separate vector for different ranges, as forward
+  // Because we have a separate list for different ranges, as forward
   // branches are added to the assembler buffer, their deadlines will
-  // always be appended to the vector corresponding to their range.
+  // always be appended to the list corresponding to their range.
   //
   // When binding labels, we expect a more-or-less LIFO order of branch
   // resolutions. This would always hold if we had strictly structured control
   // flow.
   //
-  // We allow branch deadlines to be added and removed in any order, but
-  // performance is best in the expected case of near LIFO order.
+  // Lists are implemented using a deque. This gives good performance when
+  // removing from the beginning (because a deadline has been reached) or the
+  // end (because of LIFO order), while still allowing for deadlines to be added
+  // and removed in any order.
   //
-  using RangeVector = Vector<BufferOffset, 8, LifoAllocPolicy<Fallible>>;
+  using LifoAllocator =
+      PolicyAllocator<BufferOffset, LifoAllocPolicy<Fallible>>;
+  using DeadlineList = std::deque<BufferOffset, LifoAllocator>;
 
-  // We really just want "RangeVector deadline_[NumRanges];", but each vector
+  // We really just want "DeadlineList deadline_[NumRanges];", but each list
   // needs to be initialized with a LifoAlloc, and C++ doesn't bend that way.
   //
   // Use raw aligned storage instead and explicitly construct NumRanges
-  // vectors in our constructor.
-  mozilla::AlignedStorage2<RangeVector[NumRanges]> deadlineStorage_;
+  // lists in our constructor.
+  mozilla::AlignedStorage2<DeadlineList[NumRanges]> deadlineStorage_;
 
-  // Always access the range vectors through this method.
-  RangeVector& vectorForRange(unsigned rangeIdx) {
+  // Always access the deadline lists through this method.
+  DeadlineList& listForRange(unsigned rangeIdx) {
     MOZ_ASSERT(rangeIdx < NumRanges, "Invalid branch range index");
     return (*deadlineStorage_.addr())[rangeIdx];
   }
 
-  const RangeVector& vectorForRange(unsigned rangeIdx) const {
+  const DeadlineList& listForRange(unsigned rangeIdx) const {
     MOZ_ASSERT(rangeIdx < NumRanges, "Invalid branch range index");
     return (*deadlineStorage_.addr())[rangeIdx];
   }
 
   // Maintain a precomputed earliest deadline at all times.
-  // This is unassigned only when all deadline vectors are empty.
+  // This is unassigned only when all deadline lists are empty.
   BufferOffset earliest_;
 
-  // The range vector owning earliest_. Uninitialized when empty.
+  // The deadline list owning earliest_. Uninitialized when empty.
   unsigned earliestRange_;
 
   // Recompute the earliest deadline after it's been invalidated.
   void recomputeEarliest() {
     earliest_ = BufferOffset();
     for (unsigned r = 0; r < NumRanges; r++) {
-      auto& vec = vectorForRange(r);
-      if (!vec.empty() && (!earliest_.assigned() || vec[0] < earliest_)) {
-        earliest_ = vec[0];
+      auto& list = listForRange(r);
+      if (!list.empty() && (!earliest_.assigned() || list[0] < earliest_)) {
+        earliest_ = list[0];
         earliestRange_ = r;
       }
     }
   }
 
   // Update the earliest deadline if needed after inserting (rangeIdx,
-  // deadline). Always return true for convenience:
-  // return insert() && updateEarliest().
-  bool updateEarliest(unsigned rangeIdx, BufferOffset deadline) {
+  // deadline).
+  void updateEarliest(unsigned rangeIdx, BufferOffset deadline) {
     if (!earliest_.assigned() || deadline < earliest_) {
       earliest_ = deadline;
       earliestRange_ = rangeIdx;
     }
-    return true;
   }
 
  public:
   explicit BranchDeadlineSet(LifoAlloc& alloc) : earliestRange_(0) {
-    // Manually construct vectors in the uninitialized aligned storage.
+    // Manually construct lists in the uninitialized aligned storage.
     // This is because C++ arrays can otherwise only be constructed with
     // the default constructor.
     for (unsigned r = 0; r < NumRanges; r++) {
-      new (&vectorForRange(r)) RangeVector(alloc);
+      new (&listForRange(r)) DeadlineList(LifoAllocator(alloc));
     }
   }
 
   ~BranchDeadlineSet() {
     // Aligned storage doesn't destruct its contents automatically.
     for (unsigned r = 0; r < NumRanges; r++) {
-      vectorForRange(r).~RangeVector();
+      listForRange(r).~DeadlineList();
     }
   }
 
@@ -263,7 +267,7 @@ class BranchDeadlineSet {
   size_t size() const {
     size_t count = 0;
     for (unsigned r = 0; r < NumRanges; r++) {
-      count += vectorForRange(r).length();
+      count += listForRange(r).size();
     }
     return count;
   }
@@ -272,7 +276,7 @@ class BranchDeadlineSet {
   size_t maxRangeSize() const {
     size_t count = 0;
     for (unsigned r = 0; r < NumRanges; r++) {
-      count = std::max(count, vectorForRange(r).length());
+      count = std::max(count, listForRange(r).size());
     }
     return count;
   }
@@ -294,65 +298,62 @@ class BranchDeadlineSet {
   // It is assumed that this tuple is not already in the set.
   // This function performs best id the added deadline is later than any
   // existing deadline for the same range index.
-  //
-  // Return true if the tuple was added, false if the tuple could not be added
-  // because of an OOM error.
-  bool addDeadline(unsigned rangeIdx, BufferOffset deadline) {
+  void addDeadline(unsigned rangeIdx, BufferOffset deadline) {
     MOZ_ASSERT(deadline.assigned(), "Can only store assigned buffer offsets");
-    // This is the vector where deadline should be saved.
-    auto& vec = vectorForRange(rangeIdx);
+    // This is the list where deadline should be saved.
+    auto& list = listForRange(rangeIdx);
 
-    // Fast case: Simple append to the relevant array. This never affects
-    // the earliest deadline.
-    if (!vec.empty() && vec.back() < deadline) {
-      return vec.append(deadline);
+    if (!list.empty() && list.back() < deadline) {
+      // Fast case: Simple append to the relevant array. This never affects
+      // the earliest deadline.
+      list.push_back(deadline);
+    } else if (list.empty()) {
+      // Fast case: First entry to the list. We need to update earliest_.
+      list.push_back(deadline);
+      updateEarliest(rangeIdx, deadline);
+    } else {
+      addDeadlineSlow(rangeIdx, deadline);
     }
-
-    // Fast case: First entry to the vector. We need to update earliest_.
-    if (vec.empty()) {
-      return vec.append(deadline) && updateEarliest(rangeIdx, deadline);
-    }
-
-    return addDeadlineSlow(rangeIdx, deadline);
   }
 
  private:
   // General case of addDeadline. This is split into two functions such that
   // the common case in addDeadline can be inlined while this part probably
   // won't inline.
-  bool addDeadlineSlow(unsigned rangeIdx, BufferOffset deadline) {
-    auto& vec = vectorForRange(rangeIdx);
+  void addDeadlineSlow(unsigned rangeIdx, BufferOffset deadline) {
+    auto& list = listForRange(rangeIdx);
 
-    // Inserting into the middle of the vector. Use a log time binary search
+    // Inserting into the middle of the list. Use a log time binary search
     // and a linear time insert().
-    // Is it worthwhile special-casing the empty vector?
-    auto at = std::lower_bound(vec.begin(), vec.end(), deadline);
-    MOZ_ASSERT(at == vec.end() || *at != deadline,
+    // Is it worthwhile special-casing the empty list?
+    auto at = std::lower_bound(list.begin(), list.end(), deadline);
+    MOZ_ASSERT(at == list.end() || *at != deadline,
                "Cannot insert duplicate deadlines");
-    return vec.insert(at, deadline) && updateEarliest(rangeIdx, deadline);
+    list.insert(at, deadline);
+    updateEarliest(rangeIdx, deadline);
   }
 
  public:
   // Remove a deadline from the set.
   // If (rangeIdx, deadline) is not in the set, nothing happens.
   void removeDeadline(unsigned rangeIdx, BufferOffset deadline) {
-    auto& vec = vectorForRange(rangeIdx);
+    auto& list = listForRange(rangeIdx);
 
-    if (vec.empty()) {
+    if (list.empty()) {
       return;
     }
 
-    if (deadline == vec.back()) {
+    if (deadline == list.back()) {
       // Expected fast case: Structured control flow causes forward
       // branches to be bound in reverse order.
-      vec.popBack();
+      list.pop_back();
     } else {
       // Slow case: Binary search + linear erase.
-      auto where = std::lower_bound(vec.begin(), vec.end(), deadline);
-      if (where == vec.end() || *where != deadline) {
+      auto where = std::lower_bound(list.begin(), list.end(), deadline);
+      if (where == list.end() || *where != deadline) {
         return;
       }
-      vec.erase(where);
+      list.erase(where);
     }
     if (deadline == earliest_) {
       recomputeEarliest();
@@ -371,7 +372,7 @@ class BranchDeadlineSet<0u> {
   size_t maxRangeSize() const { return 0; }
   BufferOffset earliestDeadline() const { MOZ_CRASH(); }
   unsigned earliestDeadlineRange() const { MOZ_CRASH(); }
-  bool addDeadline(unsigned rangeIdx, BufferOffset deadline) { MOZ_CRASH(); }
+  void addDeadline(unsigned rangeIdx, BufferOffset deadline) { MOZ_CRASH(); }
   void removeDeadline(unsigned rangeIdx, BufferOffset deadline) { MOZ_CRASH(); }
 };
 
@@ -502,10 +503,6 @@ struct Pool {
 
 // Template arguments:
 //
-// SliceSize
-//   Number of bytes in each allocated BufferSlice. See
-//   AssemblerBuffer::SliceSize.
-//
 // InstSize
 //   Size in bytes of the fixed-size instructions. This should be equal to
 //   sizeof(Inst). This is only needed here because the buffer is defined before
@@ -529,10 +526,9 @@ struct Pool {
 //   (range-index, deadline) pair.
 //
 //
-template <size_t SliceSize, size_t InstSize, class Inst, class Asm,
+template <size_t InstSize, class Inst, class Asm,
           unsigned NumShortBranchRanges = 0>
-struct AssemblerBufferWithConstantPools
-    : public AssemblerBuffer<SliceSize, Inst> {
+struct AssemblerBufferWithConstantPools : public AssemblerBuffer<Inst> {
  private:
   // The PoolEntry index counter. Each PoolEntry is given a unique index,
   // counting up from zero, and these can be mapped back to the actual pool
@@ -552,9 +548,6 @@ struct AssemblerBufferWithConstantPools
   };
 
  private:
-  using Parent = AssemblerBuffer<SliceSize, Inst>;
-  using typename Parent::Slice;
-
   // The size of a pool guard, in instructions. A branch around the pool.
   const unsigned guardSize_;
   // The size of the header that is put at the beginning of a full pool, in
@@ -641,11 +634,6 @@ struct AssemblerBufferWithConstantPools
   // they are being inserted.  The zero-vs-nonzero meaning is the same as that
   // documented for `inhibitPools_` above.
   unsigned int inhibitNops_;
-
- private:
-  // The buffer slices are in a double linked list.
-  Slice* getHead() const { return this->head; }
-  Slice* getTail() const { return this->tail; }
 
  public:
   AssemblerBufferWithConstantPools(unsigned guardSize, unsigned headerSize,
@@ -899,7 +887,7 @@ struct AssemblerBufferWithConstantPools
     defined(JS_CODEGEN_RISCV64)
     return this->putU32Aligned(value);
 #else
-    return this->AssemblerBuffer<SliceSize, Inst>::putInt(value);
+    return this->AssemblerBuffer<Inst>::putInt(value);
 #endif
   }
 
@@ -925,8 +913,8 @@ struct AssemblerBufferWithConstantPools
   //   directly.
   //
   void registerBranchDeadline(unsigned rangeIdx, BufferOffset deadline) {
-    if (!this->oom() && !branchDeadlines_.addDeadline(rangeIdx, deadline)) {
-      this->fail_oom();
+    if (!this->oom()) {
+      branchDeadlines_.addDeadline(rangeIdx, deadline);
     }
 #ifdef DEBUG
     if (inhibitPools_ > 0) {
@@ -1000,8 +988,8 @@ struct AssemblerBufferWithConstantPools
     // Dump the pool with a guard branch around the pool.
     BufferOffset guard = this->putBytes(guardSize_ * InstSize, nullptr);
     BufferOffset header = this->putBytes(headerSize_ * InstSize, nullptr);
-    BufferOffset data = this->putBytesLarge(pool_.getPoolSize(),
-                                            (const uint8_t*)pool_.poolData());
+    BufferOffset data =
+        this->putBytes(pool_.getPoolSize(), (const uint8_t*)pool_.poolData());
     if (this->oom()) {
       return;
     }
@@ -1189,7 +1177,7 @@ struct AssemblerBufferWithConstantPools
   void align(unsigned alignment) { align(alignment, alignFillInst_); }
 
   void align(unsigned alignment, uint32_t pattern) {
-    MOZ_ASSERT(mozilla::IsPowerOfTwo(alignment));
+    MOZ_ASSERT(std::has_single_bit(alignment));
     MOZ_ASSERT(alignment >= InstSize);
 
     // A pool many need to be dumped at this point, so insert NOP fill here.
@@ -1225,23 +1213,14 @@ struct AssemblerBufferWithConstantPools
     }
     // The pools should have all been flushed, check.
     MOZ_ASSERT(pool_.numEntries() == 0);
-    for (Slice* cur = getHead(); cur != nullptr; cur = cur->getNext()) {
-      memcpy(dest, &cur->instructions[0], cur->length());
-      dest += cur->length();
-    }
+    memcpy(dest, this->data(), this->size());
   }
 
   bool appendRawCode(const uint8_t* code, size_t numBytes) {
     if (this->oom()) {
       return false;
     }
-    // The pools should have all been flushed, check.
     MOZ_ASSERT(pool_.numEntries() == 0);
-    while (numBytes > SliceSize) {
-      this->putBytes(SliceSize, code);
-      numBytes -= SliceSize;
-      code += SliceSize;
-    }
     this->putBytes(numBytes, code);
     return !this->oom();
   }

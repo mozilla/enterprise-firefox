@@ -5,9 +5,6 @@
 const { AddonManager } = ChromeUtils.importESModule(
   "resource://gre/modules/AddonManager.sys.mjs"
 );
-const { Preferences } = ChromeUtils.importESModule(
-  "resource://gre/modules/Preferences.sys.mjs"
-);
 
 const { TestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/TestUtils.sys.mjs"
@@ -64,7 +61,7 @@ function makeExtension(opts) {
 }
 
 add_task(async function test_langpack_startup_cache() {
-  Preferences.set("extensions.logging.enabled", false);
+  Services.prefs.setBoolPref("extensions.logging.enabled", false);
   await AddonTestUtils.promiseStartupManager();
 
   // Install langpacks to get proper locale startup.

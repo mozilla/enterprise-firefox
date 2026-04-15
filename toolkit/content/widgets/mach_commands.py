@@ -280,6 +280,16 @@ def addstory(command_context, name, project_name, path):
     description="Build the design tokens CSS files",
 )
 def buildtokens(command_context):
+    if run_mach(
+        command_context,
+        "npm",
+        args=["ls", "--prefix=toolkit/themes/shared/design-system"],
+    ):
+        run_mach(
+            command_context,
+            "npm",
+            args=["ci", "--prefix=toolkit/themes/shared/design-system"],
+        )
     run_mach(
         command_context,
         "npm",

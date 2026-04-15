@@ -522,17 +522,6 @@ fn set_bind_group(
     num_dynamic_offsets: usize,
     bind_group_id: Option<id::Id<id::markers::BindGroup>>,
 ) -> Result<(), RenderBundleErrorInner> {
-    if bind_group_id.is_none() {
-        // TODO: do appropriate cleanup for null bind_group.
-        return Ok(());
-    }
-
-    let bind_group_id = bind_group_id.unwrap();
-
-    let bind_group = bind_group_guard.get(bind_group_id).get()?;
-
-    bind_group.same_device(&state.device)?;
-
     let max_bind_groups = state.device.limits.max_bind_groups;
     if index >= max_bind_groups {
         return Err(
@@ -549,14 +538,31 @@ fn set_bind_group(
     state.next_dynamic_offset = offsets_range.end;
     let offsets = &dynamic_offsets[offsets_range.clone()];
 
-    bind_group.validate_dynamic_bindings(index, offsets)?;
+    let bind_group = bind_group_id.map(|id| bind_group_guard.get(id));
 
-    unsafe { state.trackers.merge_bind_group(&bind_group.used)? };
-    let bind_group = state.trackers.bind_groups.insert_single(bind_group);
+    if let Some(bind_group) = bind_group {
+        let bind_group = bind_group.get()?;
+        bind_group.same_device(&state.device)?;
+        bind_group.validate_dynamic_bindings(index, offsets)?;
 
-    state
-        .binder
-        .assign_group(index as usize, bind_group, offsets);
+        unsafe { state.trackers.merge_bind_group(&bind_group.used)? };
+        let bind_group = state.trackers.bind_groups.insert_single(bind_group);
+
+        state
+            .binder
+            .assign_group(index as usize, bind_group, offsets);
+    } else {
+        if !offsets.is_empty() {
+            return Err(RenderBundleErrorInner::Bind(
+                BindError::DynamicOffsetCountNotZero {
+                    group: index,
+                    actual: offsets.len(),
+                },
+            ));
+        }
+
+        state.binder.clear_group(index as usize);
+    }
 
     Ok(())
 }
@@ -694,14 +700,12 @@ fn set_immediates(
     size_bytes: u32,
     values_offset: Option<u32>,
 ) -> Result<(), RenderBundleErrorInner> {
-    let end_offset = offset + size_bytes;
-
     let pipeline_state = state.pipeline()?;
 
     pipeline_state
         .pipeline
         .layout
-        .validate_immediates_ranges(offset, end_offset)?;
+        .validate_immediates_ranges(offset, size_bytes)?;
 
     state.commands.push(ArcRenderCommand::SetImmediate {
         offset,
@@ -718,7 +722,7 @@ fn draw(
     first_vertex: u32,
     first_instance: u32,
 ) -> Result<(), RenderBundleErrorInner> {
-    state.is_ready()?;
+    state.is_ready(DrawCommandFamily::Draw)?;
     let pipeline = state.pipeline()?;
 
     let vertex_limits = super::VertexLimits::new(state.vertex_buffer_sizes(), &pipeline.steps);
@@ -746,13 +750,10 @@ fn draw_indexed(
     base_vertex: i32,
     first_instance: u32,
 ) -> Result<(), RenderBundleErrorInner> {
-    state.is_ready()?;
+    state.is_ready(DrawCommandFamily::DrawIndexed)?;
     let pipeline = state.pipeline()?;
 
-    let index = match state.index {
-        Some(ref index) => index,
-        None => return Err(DrawError::MissingIndexBuffer.into()),
-    };
+    let index = state.index.as_ref().unwrap();
 
     let vertex_limits = super::VertexLimits::new(state.vertex_buffer_sizes(), &pipeline.steps);
 
@@ -788,7 +789,7 @@ fn draw_mesh_tasks(
     group_count_y: u32,
     group_count_z: u32,
 ) -> Result<(), RenderBundleErrorInner> {
-    state.is_ready()?;
+    state.is_ready(DrawCommandFamily::DrawMeshTasks)?;
 
     let groups_size_limit = state.device.limits.max_task_mesh_workgroups_per_dimension;
     let max_groups = state.device.limits.max_task_mesh_workgroup_total_count;
@@ -822,7 +823,7 @@ fn multi_draw_indirect(
     offset: u64,
     family: DrawCommandFamily,
 ) -> Result<(), RenderBundleErrorInner> {
-    state.is_ready()?;
+    state.is_ready(family)?;
     state
         .device
         .require_downlevel_flags(wgt::DownlevelFlags::INDIRECT_EXECUTION)?;
@@ -846,10 +847,7 @@ fn multi_draw_indirect(
         ));
 
     let vertex_or_index_limit = if family == DrawCommandFamily::DrawIndexed {
-        let index = match state.index {
-            Some(ref mut index) => index,
-            None => return Err(DrawError::MissingIndexBuffer.into()),
-        };
+        let index = state.index.as_mut().unwrap();
         state.commands.extend(index.flush());
         index.limit()
     } else {
@@ -983,17 +981,12 @@ impl RenderBundle {
                     num_dynamic_offsets,
                     bind_group,
                 } => {
-                    let mut bg = None;
-                    if bind_group.is_some() {
-                        let bind_group = bind_group.as_ref().unwrap();
-                        let raw_bg = bind_group.try_raw(snatch_guard)?;
-                        bg = Some(raw_bg);
-                    }
+                    let raw_bg = bind_group.as_ref().unwrap().try_raw(snatch_guard)?;
                     unsafe {
                         raw.set_bind_group(
                             pipeline_layout.as_ref().unwrap().raw(),
                             *index,
-                            bg,
+                            raw_bg,
                             &offsets[..*num_dynamic_offsets],
                         )
                     };
@@ -1408,11 +1401,29 @@ impl State {
     /// Validation for a draw command.
     ///
     /// This should be further deduplicated with similar validation on render/compute passes.
-    fn is_ready(&mut self) -> Result<(), DrawError> {
+    fn is_ready(&mut self, family: DrawCommandFamily) -> Result<(), DrawError> {
         if let Some(pipeline) = self.pipeline.as_ref() {
             self.binder
                 .check_compatibility(pipeline.pipeline.as_ref())?;
             self.binder.check_late_buffer_bindings()?;
+
+            if family == DrawCommandFamily::DrawIndexed {
+                let pipeline = &pipeline.pipeline;
+                let index_format = match &self.index {
+                    Some(index) => index.format,
+                    None => return Err(DrawError::MissingIndexBuffer),
+                };
+
+                if pipeline.topology.is_strip() && pipeline.strip_index_format != Some(index_format)
+                {
+                    return Err(DrawError::UnmatchedStripIndexFormat {
+                        pipeline: pipeline.error_ident(),
+                        strip_index_format: pipeline.strip_index_format,
+                        buffer_format: index_format,
+                    });
+                }
+            }
+
             Ok(())
         } else {
             Err(DrawError::MissingPipeline(pass::MissingPipeline))
@@ -1423,26 +1434,24 @@ impl State {
     ///
     /// This should be further deduplicated with similar code on render/compute passes.
     fn flush_bindings(&mut self) {
-        let range = self.binder.take_rebind_range();
-        let entries = self.binder.entries(range);
+        let start = self.binder.take_rebind_start_index();
+        let entries = self.binder.list_valid_with_start(start);
 
-        self.commands.extend(entries.map(|(i, entry)| {
-            let bind_group = entry.group.as_ref().unwrap();
+        self.commands
+            .extend(entries.map(|(i, bind_group, dynamic_offsets)| {
+                self.buffer_memory_init_actions
+                    .extend_from_slice(&bind_group.used_buffer_ranges);
+                self.texture_memory_init_actions
+                    .extend_from_slice(&bind_group.used_texture_ranges);
 
-            self.buffer_memory_init_actions
-                .extend_from_slice(&bind_group.used_buffer_ranges);
-            self.texture_memory_init_actions
-                .extend_from_slice(&bind_group.used_texture_ranges);
+                self.flat_dynamic_offsets.extend_from_slice(dynamic_offsets);
 
-            self.flat_dynamic_offsets
-                .extend_from_slice(&entry.dynamic_offsets);
-
-            ArcRenderCommand::SetBindGroup {
-                index: i.try_into().unwrap(),
-                bind_group: Some(bind_group.clone()),
-                num_dynamic_offsets: entry.dynamic_offsets.len(),
-            }
-        }));
+                ArcRenderCommand::SetBindGroup {
+                    index: i.try_into().unwrap(),
+                    bind_group: Some(bind_group.clone()),
+                    num_dynamic_offsets: dynamic_offsets.len(),
+                }
+            }));
     }
 
     fn vertex_buffer_sizes(&self) -> impl Iterator<Item = Option<wgt::BufferAddress>> + '_ {
@@ -1490,15 +1499,14 @@ pub struct RenderBundleError {
 impl WebGpuError for RenderBundleError {
     fn webgpu_error_type(&self) -> ErrorType {
         let Self { scope: _, inner } = self;
-        let e: &dyn WebGpuError = match inner {
-            RenderBundleErrorInner::Device(e) => e,
-            RenderBundleErrorInner::RenderCommand(e) => e,
-            RenderBundleErrorInner::Draw(e) => e,
-            RenderBundleErrorInner::MissingDownlevelFlags(e) => e,
-            RenderBundleErrorInner::Bind(e) => e,
-            RenderBundleErrorInner::InvalidResource(e) => e,
-        };
-        e.webgpu_error_type()
+        match inner {
+            RenderBundleErrorInner::Device(e) => e.webgpu_error_type(),
+            RenderBundleErrorInner::RenderCommand(e) => e.webgpu_error_type(),
+            RenderBundleErrorInner::Draw(e) => e.webgpu_error_type(),
+            RenderBundleErrorInner::MissingDownlevelFlags(e) => e.webgpu_error_type(),
+            RenderBundleErrorInner::Bind(e) => e.webgpu_error_type(),
+            RenderBundleErrorInner::InvalidResource(e) => e.webgpu_error_type(),
+        }
     }
 }
 

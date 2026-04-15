@@ -5,6 +5,7 @@
 package org.mozilla.fenix.components.menu.store
 
 import android.graphics.Bitmap
+import androidx.compose.runtime.Immutable
 import mozilla.components.browser.state.state.TabSessionState
 import mozilla.components.feature.addons.Addon
 import mozilla.components.lib.state.State
@@ -19,6 +20,8 @@ import org.mozilla.fenix.components.menu.MenuAccessPoint
  * @property customTabSessionId The ID of the custom tab session if navigating from
  * an external access point, and null otherwise.
  * @property extensionMenuState The [ExtensionMenuState] to display.
+ * @property summarizationMenuState The [SummarizationMenuState] that handles summarization menu item
+ * @property isMoreMenuExpanded Whether or not the "more menu" is expanded.
  * @property isDesktopMode Whether or not the desktop mode is enabled for the currently visited
  * page.
  */
@@ -26,6 +29,8 @@ data class MenuState(
     val browserMenuState: BrowserMenuState? = null,
     val customTabSessionId: String? = null,
     val extensionMenuState: ExtensionMenuState = ExtensionMenuState(),
+    val summarizationMenuState: SummarizationMenuState = SummarizationMenuState.Default,
+    val isMoreMenuExpanded: Boolean = false,
     val isDesktopMode: Boolean = false,
 ) : State {
 
@@ -117,6 +122,34 @@ data class BookmarkState(
     val guid: String? = null,
     val isBookmarked: Boolean = false,
 )
+
+/**
+ * Represents the state of the summarization menu items.
+ *
+ * @property visible Whether the menu item is visible altogether.
+ * @property enabled Whether the menu item is enabled.
+ * @property highlighted Whether the menu item is highlighted.
+ * @property showNewFeatureBadge Whether the "new" badge should be shown
+ * @property overflowMenuHighlighted Whether the overflow menu item is highlighted
+ */
+@Immutable
+data class SummarizationMenuState(
+    val visible: Boolean,
+    val enabled: Boolean,
+    val highlighted: Boolean,
+    val showNewFeatureBadge: Boolean,
+    val overflowMenuHighlighted: Boolean,
+) {
+    companion object {
+        val Default = SummarizationMenuState(
+            visible = false,
+            highlighted = false,
+            enabled = false,
+            showNewFeatureBadge = false,
+            overflowMenuHighlighted = false,
+        )
+    }
+}
 
 /**
  * Installed extensions actions to display relevant to the browser as a whole.

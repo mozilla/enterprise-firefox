@@ -141,6 +141,10 @@ main-context-menu-open-link-new-tab =
     .label = Open Link in New Tab
     .accesskey = T
 
+main-context-menu-open-link-split-view =
+    .label = Open Link in Split View
+    .accesskey = M
+
 main-context-menu-open-link-container-tab =
     .label = Open Link in New Container Tab
     .accesskey = w
@@ -346,6 +350,10 @@ main-context-menu-send-to-device-2 =
     .label = Send to Device
     .accesskey = n
 
+main-context-menu-send-to-mobile-2 =
+    .label = Send to Mobile
+    .accesskey = n
+
 # Displayed when there are saved passwords and the user clicks inside a username or password field
 main-context-menu-use-saved-password =
     .label = Use Saved Password
@@ -369,6 +377,10 @@ main-context-menu-add-engine =
 
 main-context-menu-link-send-to-device =
     .label = Send Link to Device
+    .accesskey = n
+
+main-context-menu-link-send-to-mobile =
+    .label = Send Link to Mobile
     .accesskey = n
 
 main-context-menu-frame =
@@ -458,3 +470,15 @@ main-context-menu-reveal-password =
 
 # The label of a badge shown in menu items to call out new features.
 main-context-menu-new-feature-badge = New
+
+main-context-menu-pdfjs-copy-page =
+    .label = Copy page
+
+main-context-menu-pdfjs-cut-page =
+    .label = Cut page
+
+main-context-menu-pdfjs-delete-page =
+    .label = Delete page
+
+main-context-menu-pdfjs-save-page =
+    .label = Save selection as…

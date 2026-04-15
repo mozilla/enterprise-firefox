@@ -252,6 +252,21 @@ browser.startup:
     expires: never
     lifetime: application
 
+qrcode:
+  opened:
+    type: counter
+    description: >
+      Records how often the QR code dialog is opened from the Share menu.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1996321
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1996321
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - overholt@mozilla.com
+    expires: never
+
 datasanitization:
   privacy_sanitize_sanitize_on_shutdown:
     type: boolean
@@ -905,11 +920,46 @@ browser:
     expires: never
     telemetry_mirror: h#BROWSER_SET_DEFAULT_ERROR
 
+  set_default_pdf_handler_open_with_result:
+    type: labeled_counter
+    description: >
+      Result of each attempt to set the default PDF handler with the undocumented
+      IOpenWithLauncher API for pdfs.
+    labels:
+      - Success
+      - Failure
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2022617
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2022617
+    notification_emails:
+      - hsohaney@mozilla.com
+      - application-update-telemetry-alerts@mozilla.com
+    expires: never
+
+  set_default_pdf_handler_modern_settings_result:
+    type: labeled_counter
+    description: >
+      Result of each attempt to set the default PDF handler by opening modern settings
+      through the ms-settings protocol (ms-settings:defaultapps).
+    labels:
+      - Success
+      - Failure
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2022617
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2022617
+    notification_emails:
+      - hsohaney@mozilla.com
+      - application-update-telemetry-alerts@mozilla.com
+    expires: never
+
+
   set_default_pdf_handler_user_choice_result:
     type: labeled_counter
     description: >
-      Result of each attempt to set the default browser with
-      SetDefaultExtensionHandlersUserChoice() for pdf extension
+      Result of each attempt to set the default browser by setting the user-choice
+      regkey for pdf extension.
 
       This metric was generated to correspond to the Legacy Telemetry
       categorical histogram BROWSER_SET_DEFAULT_PDF_HANDLER_USER_CHOICE_RESULT.

@@ -3,6 +3,10 @@
 
 "use strict";
 
+const { RunSearch } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/aiwindow/models/Tools.sys.mjs"
+);
+
 /**
  * Test that run_search tool calls work end-to-end from the AI window.
  *
@@ -41,9 +45,9 @@ add_task(async function test_run_search_fullpage_opens_sidebar() {
     // Stub run_search to navigate the browser away (like the real
     // RunSearch does) so the original browsingContext becomes stale.
     const runSearchStub = sb
-      .stub(Chat.toolMap, "run_search")
-      .callsFake(async (_params, ctx) => {
-        const browser = ctx.browsingContext.embedderElement;
+      .stub(RunSearch, "runSearch")
+      .callsFake(async (_params, browsingContext) => {
+        const browser = browsingContext.embedderElement;
         BrowserTestUtils.startLoadingURIString(
           browser,
           "https://example.com/search_results"
@@ -63,7 +67,6 @@ add_task(async function test_run_search_fullpage_opens_sidebar() {
       async () => {
         const win = await openAIWindow();
         const browser = win.gBrowser.selectedBrowser;
-        await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
 
         await dispatchSmartbarCommit(
           browser,
@@ -103,9 +106,9 @@ add_task(
 
     try {
       const runSearchStub = sb
-        .stub(Chat.toolMap, "run_search")
-        .callsFake(async (_params, ctx) => {
-          const ctxBrowser = ctx.browsingContext.embedderElement;
+        .stub(RunSearch, "runSearch")
+        .callsFake(async (_params, browsingContext) => {
+          const ctxBrowser = browsingContext.embedderElement;
           Assert.notEqual(
             ctxBrowser.id,
             "ai-window-browser",
@@ -144,8 +147,6 @@ add_task(
         },
         async () => {
           const win = await openAIWindow();
-          const browser = win.gBrowser.selectedBrowser;
-          await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
 
           // Open a content tab so there's a real tab adjacent to the sidebar.
           const tab = await BrowserTestUtils.openNewForegroundTab(

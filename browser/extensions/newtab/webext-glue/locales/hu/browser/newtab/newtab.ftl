@@ -52,7 +52,7 @@ newtab-search-box-input =
     .placeholder = Keresés a weben
     .aria-label = Keresés a weben
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Keresőszolgáltatás hozzáadása
 newtab-topsites-add-shortcut-header = Új gyorskereső
@@ -72,6 +72,11 @@ newtab-topsites-url-validation = Érvényes webcím szükséges
 newtab-topsites-image-url-label = Egyéni kép webcíme
 newtab-topsites-use-image-link = Egyéni kép használata…
 newtab-topsites-image-validation = A kép betöltése nem sikerült. Próbáljon meg egy másik webcímet.
+
+## Clear text button for the URL and image URL input fields in the Top Sites form.
+
+newtab-topsites-clear-input =
+    .aria-label = Szöveg törlése
 
 ## Top Sites - General form dialog buttons. These are verbs/actions.
 
@@ -632,6 +637,8 @@ newtab-report-cancel = Mégse
 newtab-report-submit = Elküldés
 newtab-toast-thanks-for-reporting =
     .message = Köszönjük, hogy bejelentette.
+newtab-toast-widgets-hidden =
+    .message = Válassza a ceruza ikont, hogy bármikor újra kisalkalmazásokat adjon hozzá.
 
 ## Strings for task / to-do list productivity widget
 
@@ -672,6 +679,7 @@ newtab-widget-lists-name-placeholder-default =
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Új lista
 newtab-widget-section-title = Kisalkalmazások
+newtab-widget-menu-hide = Kisalkalmazás elrejtése
 # Tooltip for hide all widgets button
 newtab-widget-section-hide-all-button =
     .title = Kisalkalmazások elrejtése
@@ -682,6 +690,7 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Kisalkalmazások minimalizálása
     .aria-label = Összes kisalkalmazás összecsukása kompakt méretre
+newtab-widget-section-feedback = Mondja el nekünk mit gondol
 
 ## Strings for timer productivity widget
 ## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown

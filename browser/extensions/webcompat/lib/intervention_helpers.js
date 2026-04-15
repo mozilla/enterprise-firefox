@@ -210,17 +210,20 @@ const GOOGLE_TLDS = [
 
 var InterventionHelpers = {
   skip_if_functions: {
-    getWeekInfo_defined: () => {
-      return !!Intl?.Locale?.prototype?.getWeekInfo;
-    },
     InstallTrigger_defined: () => {
       return "InstallTrigger" in window;
     },
     InstallTrigger_undefined: () => {
       return !("InstallTrigger" in window);
     },
-    text_event_supported: () => {
-      return !!window.TextEvent;
+    relaxed_name_validation_rules: () => {
+      const n = document.createElement("div");
+      try {
+        n.setAttribute(",", "");
+      } catch (_) {
+        return false;
+      }
+      return true;
     },
   },
 
@@ -309,7 +312,8 @@ var InterventionHelpers = {
     intervention,
     firefoxVersion,
     firefoxChannel,
-    customFunctionNames
+    customFunctionNames,
+    isForceEnabled
   ) {
     const {
       bug,
@@ -320,6 +324,27 @@ var InterventionHelpers = {
       skip_if,
       ua_string,
     } = intervention;
+
+    if (ua_string) {
+      for (let ua of Array.isArray(ua_string) ? ua_string : [ua_string]) {
+        if (!InterventionHelpers.ua_change_functions[ua.change ?? ua]) {
+          return `unknown UA string helper ${ua.change ?? ua} (webcompat addon may be too old)`;
+        }
+      }
+    }
+
+    const missingFn = InterventionHelpers.isMissingCustomFunctions(
+      intervention,
+      customFunctionNames
+    );
+    if (missingFn) {
+      return `needed function ${missingFn} unavailable (webcompat addon may be too old)`;
+    }
+
+    if (isForceEnabled) {
+      return undefined;
+    }
+
     if (firefoxChannel) {
       if (only_channels && !only_channels.includes(firefoxChannel)) {
         return `not for Firefox ${firefoxChannel}`;
@@ -340,13 +365,6 @@ var InterventionHelpers = {
         }
       } else if (Math.floor(firefoxVersion) > max_version) {
         return `only for Firefox ${max_version} or older`;
-      }
-    }
-    if (ua_string) {
-      for (let ua of Array.isArray(ua_string) ? ua_string : [ua_string]) {
-        if (!InterventionHelpers.ua_change_functions[ua.change ?? ua]) {
-          return `unknown UA string helper ${ua.change ?? ua} (webcompat addon may be too old)`;
-        }
       }
     }
     if (skip_if) {
@@ -373,14 +391,6 @@ var InterventionHelpers = {
       !InterventionHelpers.checkPlatformMatches(intervention)
     ) {
       return "unneeded on this platform";
-    }
-
-    const missingFn = InterventionHelpers.isMissingCustomFunctions(
-      intervention,
-      customFunctionNames
-    );
-    if (missingFn) {
-      return `needed function ${missingFn} unavailable (webcompat addon may be too old)`;
     }
 
     return undefined;

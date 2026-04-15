@@ -1138,7 +1138,11 @@
   <string name="bookmark_undo_deletion" tools:ignore="UnusedResources" moz:removedIn="150">اݨ کیتا کرو</string>
   <!-- Bookmark snackbar message for deleting a single item. %s is the title of the item being deleted -->
   <string name="bookmark_delete_single_item" tools:ignore="UnusedResources" moz:removedIn="150">مٹ ڳیا %s</string>
-  <!-- Content description for the bookmark navigation bar back button -->
+  <!--
+    Bookmark undo button for deletion snackbar action
+
+    Content description for the bookmark navigation bar back button
+  -->
   <string name="bookmark_navigate_back_button_content_description">واپس ون٘ڄو</string>
   <!-- Content description for the bookmark list new folder navigation bar button -->
   <string name="bookmark_add_new_folder_button_content_description">نواں فولڈر شامل کرو</string>
@@ -2215,7 +2219,7 @@
   <!-- The title of the warning card informs the user that the list of languages cannot be loaded. -->
   <string name="translation_error_could_not_load_languages_warning_text">ٻولیاں لوڈ نِھیں تِھی سڳیاں۔ آپݨاں انٹرنیٹ کنکشن ݙیکھو اَتے وَلا کوشِش کرو۔</string>
   <!-- The title of the warning card informs the user that a language is not supported. %1$s is the name of the language that is not supported. -->
-  <string name="translation_error_language_not_supported_warning_text">معذرت، اَساں ہالی تئیں %1$s دی حمایت نِھسے کرین٘دے۔</string>
+  <string name="translation_error_language_not_supported_warning_text" tools:ignore="UnusedResources" moz:removedIn="150">معذرت، اَساں ہالی تئیں %1$s دی حمایت نِھسے کرین٘دے۔</string>
   <!-- Snackbar title shown if the user closes the Translation Request dialogue and a translation is in progress. -->
   <string name="translation_in_progress_snackbar">ترجمہ کریندا پئے۔۔۔</string>
   <!--

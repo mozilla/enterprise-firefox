@@ -240,20 +240,20 @@ int Decoder::switch_sew(Instruction* instr) {
 
 // Handle all register based formatting in this function to reduce the
 // complexity of FormatOption.
-int Decoder::FormatRegister(Instruction* instr, const char* format) {
-  MOZ_ASSERT(format[0] == 'r');
-  if (format[1] == 's') {  // 'rs[12]: Rs register.
-    if (format[2] == '1') {
+int Decoder::FormatRegister(Instruction* instr, const char* option) {
+  MOZ_ASSERT(option[0] == 'r');
+  if (option[1] == 's') {  // 'rs[12]: Rs register.
+    if (option[2] == '1') {
       int reg = instr->Rs1Value();
       PrintRegister(reg);
       return 3;
-    } else if (format[2] == '2') {
+    } else if (option[2] == '2') {
       int reg = instr->Rs2Value();
       PrintRegister(reg);
       return 3;
     }
     MOZ_CRASH();
-  } else if (format[1] == 'd') {  // 'rd: rd register.
+  } else if (option[1] == 'd') {  // 'rd: rd register.
     int reg = instr->RdValue();
     PrintRegister(reg);
     return 2;
@@ -264,29 +264,29 @@ int Decoder::FormatRegister(Instruction* instr, const char* format) {
 // Handle all FPUregister based formatting in this function to reduce the
 // complexity of FormatOption.
 int Decoder::FormatFPURegisterOrRoundMode(Instruction* instr,
-                                          const char* format) {
-  MOZ_ASSERT(format[0] == 'f');
-  if (format[1] == 's') {  // 'fs[1-3]: Rs register.
-    if (format[2] == '1') {
+                                          const char* option) {
+  MOZ_ASSERT(option[0] == 'f');
+  if (option[1] == 's') {  // 'fs[1-3]: Rs register.
+    if (option[2] == '1') {
       int reg = instr->Rs1Value();
       PrintFPURegister(reg);
       return 3;
-    } else if (format[2] == '2') {
+    } else if (option[2] == '2') {
       int reg = instr->Rs2Value();
       PrintFPURegister(reg);
       return 3;
-    } else if (format[2] == '3') {
+    } else if (option[2] == '3') {
       int reg = instr->Rs3Value();
       PrintFPURegister(reg);
       return 3;
     }
     MOZ_CRASH();
-  } else if (format[1] == 'd') {  // 'fd: fd register.
+  } else if (option[1] == 'd') {  // 'fd: fd register.
     int reg = instr->RdValue();
     PrintFPURegister(reg);
     return 2;
-  } else if (format[1] == 'r') {  // 'frm
-    MOZ_ASSERT(STRING_STARTS_WITH(format, "frm"));
+  } else if (option[1] == 'r') {  // 'frm
+    MOZ_ASSERT(STRING_STARTS_WITH(option, "frm"));
     PrintRoundingMode(instr);
     return 3;
   }
@@ -295,51 +295,51 @@ int Decoder::FormatFPURegisterOrRoundMode(Instruction* instr,
 
 // Handle all C extension register based formatting in this function to reduce
 // the complexity of FormatOption.
-int Decoder::FormatRvcRegister(Instruction* instr, const char* format) {
-  MOZ_ASSERT(format[0] == 'C');
-  MOZ_ASSERT(format[1] == 'r' || format[1] == 'f');
-  if (format[2] == 's') {  // 'Crs[12]: Rs register.
-    if (format[3] == '1') {
-      if (format[4] == 's') {  // 'Crs1s: 3-bits register
+int Decoder::FormatRvcRegister(Instruction* instr, const char* option) {
+  MOZ_ASSERT(option[0] == 'C');
+  MOZ_ASSERT(option[1] == 'r' || option[1] == 'f');
+  if (option[2] == 's') {  // 'Crs[12]: Rs register.
+    if (option[3] == '1') {
+      if (option[4] == 's') {  // 'Crs1s: 3-bits register
         int reg = instr->RvcRs1sValue();
-        if (format[1] == 'r') {
+        if (option[1] == 'r') {
           PrintRegister(reg);
-        } else if (format[1] == 'f') {
+        } else if (option[1] == 'f') {
           PrintFPURegister(reg);
         }
         return 5;
       }
       int reg = instr->RvcRs1Value();
-      if (format[1] == 'r') {
+      if (option[1] == 'r') {
         PrintRegister(reg);
-      } else if (format[1] == 'f') {
+      } else if (option[1] == 'f') {
         PrintFPURegister(reg);
       }
       return 4;
-    } else if (format[3] == '2') {
-      if (format[4] == 's') {  // 'Crs2s: 3-bits register
+    } else if (option[3] == '2') {
+      if (option[4] == 's') {  // 'Crs2s: 3-bits register
         int reg = instr->RvcRs2sValue();
-        if (format[1] == 'r') {
+        if (option[1] == 'r') {
           PrintRegister(reg);
-        } else if (format[1] == 'f') {
+        } else if (option[1] == 'f') {
           PrintFPURegister(reg);
         }
         return 5;
       }
       int reg = instr->RvcRs2Value();
-      if (format[1] == 'r') {
+      if (option[1] == 'r') {
         PrintRegister(reg);
-      } else if (format[1] == 'f') {
+      } else if (option[1] == 'f') {
         PrintFPURegister(reg);
       }
       return 4;
     }
     MOZ_CRASH();
-  } else if (format[2] == 'd') {  // 'Crd: rd register.
+  } else if (option[2] == 'd') {  // 'Crd: rd register.
     int reg = instr->RvcRdValue();
-    if (format[1] == 'r') {
+    if (option[1] == 'r') {
       PrintRegister(reg);
-    } else if (format[1] == 'f') {
+    } else if (option[1] == 'f') {
       PrintFPURegister(reg);
     }
     return 3;
@@ -349,43 +349,43 @@ int Decoder::FormatRvcRegister(Instruction* instr, const char* format) {
 
 // Handle all C extension immediates based formatting in this function to reduce
 // the complexity of FormatOption.
-int Decoder::FormatRvcImm(Instruction* instr, const char* format) {
+int Decoder::FormatRvcImm(Instruction* instr, const char* option) {
   // TODO(riscv): add other rvc imm format
-  MOZ_ASSERT(STRING_STARTS_WITH(format, "Cimm"));
-  if (format[4] == '6') {
-    if (format[5] == 'U') {
-      MOZ_ASSERT(STRING_STARTS_WITH(format, "Cimm6U"));
+  MOZ_ASSERT(STRING_STARTS_WITH(option, "Cimm"));
+  if (option[4] == '6') {
+    if (option[5] == 'U') {
+      MOZ_ASSERT(STRING_STARTS_WITH(option, "Cimm6U"));
       PrintRvcImm6U(instr);
       return 6;
-    } else if (format[5] == 'A') {
-      if (format[9] == '1' && format[10] == '6') {
-        MOZ_ASSERT(STRING_STARTS_WITH(format, "Cimm6Addi16sp"));
+    } else if (option[5] == 'A') {
+      if (option[9] == '1' && option[10] == '6') {
+        MOZ_ASSERT(STRING_STARTS_WITH(option, "Cimm6Addi16sp"));
         PrintRvcImm6Addi16sp(instr);
         return 13;
       }
       MOZ_CRASH();
-    } else if (format[5] == 'L') {
-      if (format[6] == 'd') {
-        if (format[7] == 's') {
-          MOZ_ASSERT(STRING_STARTS_WITH(format, "Cimm6Ldsp"));
+    } else if (option[5] == 'L') {
+      if (option[6] == 'd') {
+        if (option[7] == 's') {
+          MOZ_ASSERT(STRING_STARTS_WITH(option, "Cimm6Ldsp"));
           PrintRvcImm6Ldsp(instr);
           return 9;
         }
-      } else if (format[6] == 'w') {
-        if (format[7] == 's') {
-          MOZ_ASSERT(STRING_STARTS_WITH(format, "Cimm6Lwsp"));
+      } else if (option[6] == 'w') {
+        if (option[7] == 's') {
+          MOZ_ASSERT(STRING_STARTS_WITH(option, "Cimm6Lwsp"));
           PrintRvcImm6Lwsp(instr);
           return 9;
         }
       }
       MOZ_CRASH();
-    } else if (format[5] == 'S') {
-      if (format[6] == 'w') {
-        MOZ_ASSERT(STRING_STARTS_WITH(format, "Cimm6Swsp"));
+    } else if (option[5] == 'S') {
+      if (option[6] == 'w') {
+        MOZ_ASSERT(STRING_STARTS_WITH(option, "Cimm6Swsp"));
         PrintRvcImm6Swsp(instr);
         return 9;
-      } else if (format[6] == 'd') {
-        MOZ_ASSERT(STRING_STARTS_WITH(format, "Cimm6Sdsp"));
+      } else if (option[6] == 'd') {
+        MOZ_ASSERT(STRING_STARTS_WITH(option, "Cimm6Sdsp"));
         PrintRvcImm6Sdsp(instr);
         return 9;
       }
@@ -393,34 +393,34 @@ int Decoder::FormatRvcImm(Instruction* instr, const char* format) {
     }
     PrintRvcImm6(instr);
     return 5;
-  } else if (format[4] == '5') {
-    MOZ_ASSERT(STRING_STARTS_WITH(format, "Cimm5"));
-    if (format[5] == 'W') {
-      MOZ_ASSERT(STRING_STARTS_WITH(format, "Cimm5W"));
+  } else if (option[4] == '5') {
+    MOZ_ASSERT(STRING_STARTS_WITH(option, "Cimm5"));
+    if (option[5] == 'W') {
+      MOZ_ASSERT(STRING_STARTS_WITH(option, "Cimm5W"));
       PrintRvcImm5W(instr);
       return 6;
-    } else if (format[5] == 'D') {
-      MOZ_ASSERT(STRING_STARTS_WITH(format, "Cimm5D"));
+    } else if (option[5] == 'D') {
+      MOZ_ASSERT(STRING_STARTS_WITH(option, "Cimm5D"));
       PrintRvcImm5D(instr);
       return 6;
     }
     MOZ_CRASH();
-  } else if (format[4] == '8') {
-    MOZ_ASSERT(STRING_STARTS_WITH(format, "Cimm8"));
-    if (format[5] == 'A') {
-      MOZ_ASSERT(STRING_STARTS_WITH(format, "Cimm8Addi4spn"));
+  } else if (option[4] == '8') {
+    MOZ_ASSERT(STRING_STARTS_WITH(option, "Cimm8"));
+    if (option[5] == 'A') {
+      MOZ_ASSERT(STRING_STARTS_WITH(option, "Cimm8Addi4spn"));
       PrintRvcImm8Addi4spn(instr);
       return 13;
-    } else if (format[5] == 'B') {
-      MOZ_ASSERT(STRING_STARTS_WITH(format, "Cimm8B"));
+    } else if (option[5] == 'B') {
+      MOZ_ASSERT(STRING_STARTS_WITH(option, "Cimm8B"));
       PrintRvcImm8B(instr);
       return 6;
     }
     MOZ_CRASH();
-  } else if (format[4] == '1') {
-    MOZ_ASSERT(STRING_STARTS_WITH(format, "Cimm1"));
-    if (format[5] == '1') {
-      MOZ_ASSERT(STRING_STARTS_WITH(format, "Cimm11CJ"));
+  } else if (option[4] == '1') {
+    MOZ_ASSERT(STRING_STARTS_WITH(option, "Cimm1"));
+    if (option[5] == '1') {
+      MOZ_ASSERT(STRING_STARTS_WITH(option, "Cimm11CJ"));
       PrintRvcImm11CJ(instr);
       return 8;
     }
@@ -434,23 +434,23 @@ int Decoder::FormatRvcImm(Instruction* instr, const char* format) {
 // character of the option string (the option escape has already been
 // consumed by the caller.)  FormatOption returns the number of
 // characters that were consumed from the formatting string.
-int Decoder::FormatOption(Instruction* instr, const char* format) {
-  switch (format[0]) {
+int Decoder::FormatOption(Instruction* instr, const char* option) {
+  switch (option[0]) {
     case 'C': {  // `C extension
-      if (format[1] == 'r' || format[1] == 'f') {
-        return FormatRvcRegister(instr, format);
-      } else if (format[1] == 'i') {
-        return FormatRvcImm(instr, format);
-      } else if (format[1] == 's') {
-        MOZ_ASSERT(STRING_STARTS_WITH(format, "Cshamt"));
+      if (option[1] == 'r' || option[1] == 'f') {
+        return FormatRvcRegister(instr, option);
+      } else if (option[1] == 'i') {
+        return FormatRvcImm(instr, option);
+      } else if (option[1] == 's') {
+        MOZ_ASSERT(STRING_STARTS_WITH(option, "Cshamt"));
         PrintRvcShamt(instr);
         return 6;
       }
       MOZ_CRASH();
     }
     case 'c': {  // `csr: CSR registers
-      if (format[1] == 's') {
-        if (format[2] == 'r') {
+      if (option[1] == 's') {
+        if (option[2] == 'r') {
           PrintCSRReg(instr);
           return 3;
         }
@@ -458,25 +458,25 @@ int Decoder::FormatOption(Instruction* instr, const char* format) {
       MOZ_CRASH();
     }
     case 'i': {  // 'imm12, 'imm12x, 'imm20U, or 'imm20J: Immediates.
-      if (format[3] == '1') {
-        if (format[4] == '2') {
-          MOZ_ASSERT(STRING_STARTS_WITH(format, "imm12"));
-          if (format[5] == 'x') {
+      if (option[3] == '1') {
+        if (option[4] == '2') {
+          MOZ_ASSERT(STRING_STARTS_WITH(option, "imm12"));
+          if (option[5] == 'x') {
             PrintImm12X(instr);
             return 6;
           }
           PrintImm12(instr);
           return 5;
         }
-      } else if (format[3] == '2' && format[4] == '0') {
-        MOZ_ASSERT(STRING_STARTS_WITH(format, "imm20"));
-        switch (format[5]) {
+      } else if (option[3] == '2' && option[4] == '0') {
+        MOZ_ASSERT(STRING_STARTS_WITH(option, "imm20"));
+        switch (option[5]) {
           case 'U':
-            MOZ_ASSERT(STRING_STARTS_WITH(format, "imm20U"));
+            MOZ_ASSERT(STRING_STARTS_WITH(option, "imm20U"));
             PrintImm20U(instr);
             break;
           case 'J':
-            MOZ_ASSERT(STRING_STARTS_WITH(format, "imm20J"));
+            MOZ_ASSERT(STRING_STARTS_WITH(option, "imm20J"));
             PrintImm20J(instr);
             break;
         }
@@ -485,92 +485,92 @@ int Decoder::FormatOption(Instruction* instr, const char* format) {
       MOZ_CRASH();
     }
     case 'o': {  // 'offB or 'offS: Offsets.
-      if (format[3] == 'B') {
-        MOZ_ASSERT(STRING_STARTS_WITH(format, "offB"));
+      if (option[3] == 'B') {
+        MOZ_ASSERT(STRING_STARTS_WITH(option, "offB"));
         PrintBranchOffset(instr);
         return 4;
-      } else if (format[3] == 'S') {
-        MOZ_ASSERT(STRING_STARTS_WITH(format, "offS"));
+      } else if (option[3] == 'S') {
+        MOZ_ASSERT(STRING_STARTS_WITH(option, "offS"));
         PrintStoreOffset(instr);
         return 4;
       }
       MOZ_CRASH();
     }
     case 'r': {  // 'r: registers.
-      return FormatRegister(instr, format);
+      return FormatRegister(instr, option);
     }
     case 'f': {  // 'f: FPUregisters or `frm
-      return FormatFPURegisterOrRoundMode(instr, format);
+      return FormatFPURegisterOrRoundMode(instr, option);
     }
     case 'a': {  // 'a: Atomic acquire and release.
       PrintAcquireRelease(instr);
       return 1;
     }
     case 'p': {  // `pre
-      MOZ_ASSERT(STRING_STARTS_WITH(format, "pre"));
+      MOZ_ASSERT(STRING_STARTS_WITH(option, "pre"));
       PrintMemoryOrder(instr, true);
       return 3;
     }
     case 's': {  // 's32 or 's64: Shift amount.
-      if (format[1] == '3') {
-        MOZ_ASSERT(STRING_STARTS_WITH(format, "s32"));
+      if (option[1] == '3') {
+        MOZ_ASSERT(STRING_STARTS_WITH(option, "s32"));
         PrintShamt32(instr);
         return 3;
-      } else if (format[1] == '6') {
-        MOZ_ASSERT(STRING_STARTS_WITH(format, "s64"));
+      } else if (option[1] == '6') {
+        MOZ_ASSERT(STRING_STARTS_WITH(option, "s64"));
         PrintShamt(instr);
         return 3;
-      } else if (format[1] == 'u') {
-        MOZ_ASSERT(STRING_STARTS_WITH(format, "suc"));
+      } else if (option[1] == 'u') {
+        MOZ_ASSERT(STRING_STARTS_WITH(option, "suc"));
         PrintMemoryOrder(instr, false);
         return 3;
-      } else if (format[1] == 'e') {
-        MOZ_ASSERT(STRING_STARTS_WITH(format, "sew"));
+      } else if (option[1] == 'e') {
+        MOZ_ASSERT(STRING_STARTS_WITH(option, "sew"));
         PrintRvvSEW(instr);
         return 3;
-      } else if (format[1] == 'i') {
-        MOZ_ASSERT(STRING_STARTS_WITH(format, "simm5"));
+      } else if (option[1] == 'i') {
+        MOZ_ASSERT(STRING_STARTS_WITH(option, "simm5"));
         PrintRvvSimm5(instr);
         return 5;
       }
       MOZ_CRASH();
     }
     case 'v': {
-      if (format[1] == 'd') {
-        MOZ_ASSERT(STRING_STARTS_WITH(format, "vd"));
+      if (option[1] == 'd') {
+        MOZ_ASSERT(STRING_STARTS_WITH(option, "vd"));
         PrintVd(instr);
         return 2;
-      } else if (format[2] == '1') {
-        MOZ_ASSERT(STRING_STARTS_WITH(format, "vs1"));
+      } else if (option[2] == '1') {
+        MOZ_ASSERT(STRING_STARTS_WITH(option, "vs1"));
         PrintVs1(instr);
         return 3;
-      } else if (format[2] == '2') {
-        MOZ_ASSERT(STRING_STARTS_WITH(format, "vs2"));
+      } else if (option[2] == '2') {
+        MOZ_ASSERT(STRING_STARTS_WITH(option, "vs2"));
         PrintVs2(instr);
         return 3;
       } else {
-        MOZ_ASSERT(STRING_STARTS_WITH(format, "vm"));
+        MOZ_ASSERT(STRING_STARTS_WITH(option, "vm"));
         PrintRvvVm(instr);
         return 2;
       }
     }
     case 'l': {
-      MOZ_ASSERT(STRING_STARTS_WITH(format, "lmul"));
+      MOZ_ASSERT(STRING_STARTS_WITH(option, "lmul"));
       PrintRvvLMUL(instr);
       return 4;
     }
     case 'u': {
-      if (STRING_STARTS_WITH(format, "uimm5")) {
+      if (STRING_STARTS_WITH(option, "uimm5")) {
         PrintRvvUimm5(instr);
         return 5;
       } else {
-        MOZ_ASSERT(STRING_STARTS_WITH(format, "uimm"));
+        MOZ_ASSERT(STRING_STARTS_WITH(option, "uimm"));
         PrintUimm(instr);
         return 4;
       }
     }
     case 't': {  // 'target: target of branch instructions'
-      MOZ_ASSERT(STRING_STARTS_WITH(format, "target"));
+      MOZ_ASSERT(STRING_STARTS_WITH(option, "target"));
       PrintTarget(instr);
       return 6;
     }
@@ -2188,8 +2188,8 @@ int Decoder::ConstantPoolSizeAt(uint8_t* instr_ptr) {
 }
 
 // Disassemble the instruction at *instr_ptr into the output buffer.
-int Decoder::InstructionDecode(byte* instr_ptr) {
-  Instruction* instr = Instruction::At(instr_ptr);
+int Decoder::InstructionDecode(uint8_t* instruction) {
+  Instruction* instr = Instruction::At(instruction);
   // Print raw instruction bytes.
   out_buffer_pos_ += SNPrintF(out_buffer_ + out_buffer_pos_, "%08x       ",
                               instr->InstructionBits());

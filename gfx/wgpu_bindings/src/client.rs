@@ -161,13 +161,34 @@ impl PrimitiveState<'_> {
 }
 
 #[repr(C)]
+pub struct DepthStencilState {
+    format: wgt::TextureFormat,
+    depth_write_enabled: FfiOption<bool>,
+    depth_compare: FfiOption<wgt::CompareFunction>,
+    stencil: wgt::StencilState,
+    bias: wgt::DepthBiasState,
+}
+
+impl DepthStencilState {
+    fn to_wgpu(&self) -> wgt::DepthStencilState {
+        wgt::DepthStencilState {
+            format: self.format,
+            depth_write_enabled: self.depth_write_enabled.to_std(),
+            depth_compare: self.depth_compare.to_std(),
+            stencil: self.stencil.clone(),
+            bias: self.bias,
+        }
+    }
+}
+
+#[repr(C)]
 pub struct RenderPipelineDescriptor<'a> {
     label: Option<&'a nsACString>,
     layout: Option<id::PipelineLayoutId>,
     vertex: &'a VertexState<'a>,
     primitive: PrimitiveState<'a>,
     fragment: Option<&'a FragmentState<'a>>,
-    depth_stencil: Option<&'a wgt::DepthStencilState>,
+    depth_stencil: Option<&'a DepthStencilState>,
     multisample: wgt::MultisampleState,
 }
 
@@ -259,7 +280,7 @@ pub struct BindGroupDescriptor<'a> {
 #[repr(C)]
 pub struct PipelineLayoutDescriptor<'a> {
     label: Option<&'a nsACString>,
-    bind_group_layouts: FfiSlice<'a, id::BindGroupLayoutId>,
+    bind_group_layouts: FfiSlice<'a, Option<id::BindGroupLayoutId>>,
 }
 
 #[repr(C)]
@@ -1720,7 +1741,7 @@ pub unsafe extern "C" fn wgpu_client_create_render_pipeline(
         vertex: desc.vertex.to_wgpu(),
         fragment: desc.fragment.map(FragmentState::to_wgpu),
         primitive: desc.primitive.to_wgpu(),
-        depth_stencil: desc.depth_stencil.cloned(),
+        depth_stencil: desc.depth_stencil.map(DepthStencilState::to_wgpu),
         multisample: desc.multisample.clone(),
         multiview_mask: None,
         cache: None,

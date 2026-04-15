@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -617,8 +615,8 @@ void StyleSheet::MaybeResolveReplacePromise() {
   }
 
   SetModificationDisallowed(false);
-  mReplacePromise->MaybeResolve(this);
-  mReplacePromise = nullptr;
+  RefPtr replacePromise = std::move(mReplacePromise);
+  replacePromise->MaybeResolve(this);
 }
 
 void StyleSheet::MaybeRejectReplacePromise() {
@@ -628,9 +626,9 @@ void StyleSheet::MaybeRejectReplacePromise() {
   }
 
   SetModificationDisallowed(false);
-  mReplacePromise->MaybeRejectWithNetworkError(
+  RefPtr replacePromise = std::move(mReplacePromise);
+  replacePromise->MaybeRejectWithNetworkError(
       "@import style sheet load failed");
-  mReplacePromise = nullptr;
 }
 
 // https://drafts.csswg.org/cssom/#dom-cssstylesheet-replace

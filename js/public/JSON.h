@@ -48,7 +48,7 @@ namespace JS {
  * allow a replacer or a custom space and has the following constraints on its
  * input:
  *
- * 1) The input must be a plain object or array, not an abitrary value.
+ * 1) The input must be a plain object or array, not an arbitrary value.
  * 2) Every value in the graph reached by the algorithm starting with this
  *    object must be one of the following: null, undefined, a string (NOT a
  *    string object!), a boolean, a finite number (i.e. no NaN or Infinity or

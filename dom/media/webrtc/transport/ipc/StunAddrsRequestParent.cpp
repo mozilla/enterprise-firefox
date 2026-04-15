@@ -6,16 +6,13 @@
 
 #include "../mdns_service/mdns_service.h"
 #include "../runnable_utils.h"
+#include "local_addr.h"
 #include "mozilla/StaticPtr.h"
 #include "nsIThread.h"
 #include "nsNetUtil.h"
 #include "transport/nricectx.h"
 #include "transport/nricemediastream.h"  // needed only for including nricectx.h
 #include "transport/nricestunaddr.h"
-
-extern "C" {
-#include "local_addr.h"
-}
 
 using namespace mozilla::ipc;
 
@@ -68,8 +65,8 @@ mozilla::ipc::IPCResult StunAddrsRequestParent::RecvRegisterMDNSHostname(
   }
 
   if (mSharedMDNSService) {
-    mSharedMDNSService->RegisterHostname(aHostname.BeginReading(),
-                                         aAddress.BeginReading());
+    mSharedMDNSService->RegisterHostname(PromiseFlatCString(aHostname).get(),
+                                         PromiseFlatCString(aAddress).get());
   }
 
   return IPC_OK();
@@ -84,7 +81,8 @@ mozilla::ipc::IPCResult StunAddrsRequestParent::RecvQueryMDNSHostname(
   }
 
   if (mSharedMDNSService) {
-    mSharedMDNSService->QueryHostname(this, aHostname.BeginReading());
+    mSharedMDNSService->QueryHostname(this,
+                                      PromiseFlatCString(aHostname).get());
   }
 
   return IPC_OK();
@@ -99,7 +97,7 @@ mozilla::ipc::IPCResult StunAddrsRequestParent::RecvUnregisterMDNSHostname(
   }
 
   if (mSharedMDNSService) {
-    mSharedMDNSService->UnregisterHostname(aHostname.BeginReading());
+    mSharedMDNSService->UnregisterHostname(PromiseFlatCString(aHostname).get());
   }
 
   return IPC_OK();

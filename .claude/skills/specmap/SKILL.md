@@ -4,16 +4,12 @@ description: Map relationships between a web spec section, its Firefox implement
 argument-hint: "[spec-url-or-fragment] [optional: specific-algorithm]"
 allowed-tools:
   - Bash(searchfox-cli:*)
+  - Bash(webspec-index:*)
   - Bash(curl:*)
   - Bash(jq:*)
   - Read
   - Grep
   - Glob
-  - WebFetch(domain:*.csswg.org)
-  - WebFetch(domain:*.whatwg.org)
-  - WebFetch(domain:w3.org)
-  - WebFetch(domain:wicg.github.io)
-  - WebFetch(domain:w3c.github.io)
 ---
 
 # SpecMap: Spec-Code-WPT Mapping
@@ -21,33 +17,35 @@ allowed-tools:
 **Spec URL or fragment**: $0
 **Specific algorithm** (optional): $1
 
-## Step 1: Identify the Spec Target and Fetch Webref Data
+## Step 1: Identify the Spec Target and Read Spec Content
 
-Parse the input to determine the spec domain, fragment identifier, and spec
-shortname. If only a feature name is given, use the webref index to find it:
+If you have a spec URL (from a bug report, code comment, etc.), query it directly:
 
 ```bash
-curl -s "https://w3c.github.io/webref/ed/index.json" | jq '.results[] | select(.url | test("DOMAIN_OR_KEYWORD")) | {shortname, url, title, dfns, algorithms, idl}'
+webspec-index query 'https://html.spec.whatwg.org/#navigate' --format markdown
+webspec-index refs 'https://html.spec.whatwg.org/#navigate'
 ```
 
-Common shortname mappings: `dom.spec.whatwg.org` -> `dom`, `html.spec.whatwg.org`
--> `html`, `drafts.csswg.org/css-grid-1/` -> `css-grid-1`.
-
-Then fetch structured extracts using the shortname:
+If you only have a feature name, search for it:
 
 ```bash
-# Algorithm steps (pre-parsed with names, hrefs, and step text)
-curl -s "https://w3c.github.io/webref/ed/algorithms/SHORTNAME.json" | jq '.algorithms[] | select(.href | test("FRAGMENT"))'
+webspec-index search "FEATURE_NAME" --limit 5
+webspec-index search "FEATURE_NAME" --spec HTML --limit 5
+```
 
-# Definitions (fragment IDs -> linking text, types, headings)
-curl -s "https://w3c.github.io/webref/ed/dfns/SHORTNAME.json" | jq '.dfns[] | select(.id == "FRAGMENT" or (.linkingText[] | test("TERM"; "i")))'
+If the exact fragment is unknown, find it by pattern or by listing sections:
 
-# WebIDL extract
+```bash
+webspec-index anchors '*navigate*' --spec HTML
+webspec-index list HTML
+```
+
+For WebIDL interface definitions (not provided by webspec-index), use the spec
+shortname (visible in search results or derivable from the URL hostname/path):
+
+```bash
 curl -s "https://w3c.github.io/webref/ed/idl/SHORTNAME.idl"
 ```
-
-Not all specs have all extracts. If the algorithms extract is absent, fall back to
-fetching the spec section page directly via WebFetch.
 
 ## Step 2: Query Searchfox for References
 
@@ -127,7 +125,16 @@ are Mozilla tests (mochitest, browser-chrome, xpcshell).
 ## Step 5: Offer to Add Missing References
 
 If implementation code lacks a spec URL comment or step annotations, offer to add
-them. Ask for confirmation before making edits. Examples:
+them. Ask for confirmation before making edits. Before inserting any spec URL,
+verify the anchor exists:
+
+```bash
+webspec-index exists 'SHORTNAME#FRAGMENT' && echo "valid"
+# e.g.:
+webspec-index exists 'HTML#navigate' && echo "valid"
+```
+
+Examples of references to add:
 
 - `// https://spec.example.org/#section` at the top of an implementing function
 - `// Step N.` comments for algorithm implementations
@@ -137,3 +144,4 @@ them. Ask for confirmation before making edits. Examples:
 
 - WHATWG fragments follow patterns: `#dom-interface-method`, `#the-element-name-element`, `#concept-name`
 - Firefox code references specs as `// https://html.spec.whatwg.org/#fragment` or `// Step N of https://...`
+- When a spec URL is in a code comment, you can pass it directly to `webspec-index query 'URL'` to read the referenced section

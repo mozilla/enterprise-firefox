@@ -78,12 +78,15 @@ internal sealed class HomepageState {
      * @property collectionsState State of the collections section to display.
      * @property pocketState State of the pocket section to display.
      * @property showTopSites Whether to show top sites or not.
+     * @property showTopSitesHeader Whether to show the shortcuts section header and "show all" button.
      * @property showRecentTabs Whether to show recent tabs or not.
      * @property showRecentSyncedTab Whether to show recent synced tab or not.
      * @property showBookmarks Whether to show bookmarks.
      * @property showRecentlyVisited Whether to show recent history section.
-     * @property showPocketStories Whether to show the pocket stories section.
+     * @property showPocketStoriesCarousel Whether to show the pocket stories section.
      * @property showCollections Whether to show the collections section.
+     * @property showPrivacyReport Whether to show the privacy report section.
+     * @property trackersBlockedCount The number of trackers blocked for the privacy report.
      * @property headerState State related to the header of the homepage.
      * @property searchBarVisible Whether the middle search bar should be visible or not.
      * @property searchBarEnabled Whether the middle search bar is enabled or not.
@@ -107,12 +110,15 @@ internal sealed class HomepageState {
         val collectionsState: CollectionsState,
         val pocketState: PocketState,
         val showTopSites: Boolean,
+        val showTopSitesHeader: Boolean,
         val showRecentTabs: Boolean,
         val showRecentSyncedTab: Boolean,
         val showBookmarks: Boolean,
         val showRecentlyVisited: Boolean,
-        val showPocketStories: Boolean,
+        val showPocketStoriesCarousel: Boolean,
         val showCollections: Boolean,
+        val showPrivacyReport: Boolean,
+        val trackersBlockedCount: Int,
         override val headerState: HeaderState,
         val searchBarVisible: Boolean,
         val searchBarEnabled: Boolean,
@@ -181,7 +187,7 @@ internal sealed class HomepageState {
          * Builds a new [HomepageState.Private] from the current [AppState] and [Settings].
          *
          * @param appState State to build the [HomepageState.Private] from.
-         * @param settings [Settings] corresponding to how the homepage should be displayed.
+         * @param settings [Settings] to build the [HomepageState.Private] from.
          */
         @Composable
         private fun buildPrivateState(
@@ -189,15 +195,7 @@ internal sealed class HomepageState {
             settings: Settings,
         ) = with(appState) {
             Private(
-                headerState = HeaderState(
-                    showHeader = settings.showHomepageHeader,
-                    wordmarkTextColor = null,
-                    privateBrowsingButtonColor = colorResource(
-                        getAttr(
-                            R.attr.mozac_ic_private_mode_circle_fill_icon_color,
-                        ),
-                    ),
-                ),
+                headerState = buildPrivateHeaderState(settings = settings),
                 firstFrameDrawn = firstFrameDrawn,
                 isSearchInProgress = searchState.isSearchActive,
             )
@@ -238,16 +236,20 @@ internal sealed class HomepageState {
                 ),
                 pocketState = PocketState.build(appState = appState, settings = settings),
                 showTopSites = settings.showTopSitesFeature && topSites.isNotEmpty(),
+                showTopSitesHeader = !(settings.privateModeAndStoriesEntryPointEnabled && topSites.size <= 8),
                 showRecentTabs = shouldShowRecentTabs(settings),
                 showBookmarks = settings.showBookmarksHomeFeature && bookmarks.isNotEmpty(),
                 showRecentSyncedTab = shouldShowRecentSyncedTabs() && settings.showSyncedTabs,
                 showRecentlyVisited = settings.historyMetadataUIFeature && recentHistory.isNotEmpty(),
-                showPocketStories = settings.showPocketRecommendationsFeature &&
-                    recommendationState.pocketStories.isNotEmpty(),
+                showPocketStoriesCarousel = settings.showPocketRecommendationsFeature &&
+                    recommendationState.pocketStories.isNotEmpty() && !settings.privateModeAndStoriesEntryPointEnabled,
                 showCollections = settings.collections,
-                headerState = HeaderState(
-                    showHeader = settings.showHomepageHeader,
-                    wordmarkTextColor = wallpaperState.textColor,
+                showPrivacyReport = settings.showPrivacyReportSectionToggle &&
+                    settings.showPrivacyReportFeature,
+                trackersBlockedCount = trackersBlockedCount,
+                headerState = buildHeaderState(
+                    settings = settings,
+                    textColor = wallpaperState.textColor,
                     privateBrowsingButtonColor = wallpaperState.iconColor,
                 ),
                 searchBarVisible = shouldShowSearchBar(appState = appState),
@@ -271,18 +273,82 @@ internal sealed class HomepageState {
     }
 }
 
+@Composable
+private fun buildHeaderState(
+    settings: Settings,
+    textColor: Color,
+    privateBrowsingButtonColor: Color,
+): HeaderState {
+    return if (settings.privateModeAndStoriesEntryPointEnabled) {
+        HeaderState.Experimental.Normal(
+            wordmarkTextColor = textColor,
+            showButtonAnimation = settings.shouldShowNewsButtonAnimation(),
+            showStoriesButton = settings.showPocketRecommendationsFeature,
+        )
+    } else {
+        HeaderState.Normal(
+            wordmarkTextColor = textColor,
+            privateBrowsingButtonColor = privateBrowsingButtonColor,
+        )
+    }
+}
+
+@Composable
+private fun buildPrivateHeaderState(settings: Settings): HeaderState {
+    return if (settings.privateModeAndStoriesEntryPointEnabled) {
+        HeaderState.Experimental.Private
+    } else {
+        HeaderState.Normal(
+            wordmarkTextColor = null,
+            privateBrowsingButtonColor = colorResource(
+                getAttr(
+                    R.attr.mozac_ic_private_mode_circle_fill_icon_color,
+                ),
+            ),
+        )
+    }
+}
+
 /**
  * A simple wrapper around state required for the homepage header.
- *
- * @property showHeader whether the header should be shown
- * @property wordmarkTextColor an optional color for the wordmark text
- * @property privateBrowsingButtonColor the color to use for the private browsing button
  */
-internal data class HeaderState(
-    val showHeader: Boolean,
-    val wordmarkTextColor: Color?,
-    val privateBrowsingButtonColor: Color,
-)
+internal sealed class HeaderState {
+
+    /**
+     * Represents the non-experimental header state for both normal and private mode.
+     *
+     * @property wordmarkTextColor an optional color for the wordmark text.
+     * @property privateBrowsingButtonColor the color to use for the private browsing button.
+     */
+    data class Normal(
+        val wordmarkTextColor: Color?,
+        val privateBrowsingButtonColor: Color,
+    ) : HeaderState()
+
+    /**
+     * Represents the experimental states for the entry points experiment.
+     */
+    sealed class Experimental : HeaderState() {
+
+        /**
+         * Represents the header in normal mode for the entry points experiment.
+         *
+         * @property wordmarkTextColor Color for the wordmark.
+         * @property showStoriesButton Whether to show the stories button.
+         * @property showButtonAnimation Whether to animate the news button label.
+         */
+        data class Normal(
+            val wordmarkTextColor: Color?,
+            val showStoriesButton: Boolean,
+            val showButtonAnimation: Boolean,
+        ) : Experimental()
+
+        /**
+         * Represents the header in private mode for the entry points experiment.
+         */
+        data object Private : Experimental()
+    }
+}
 
 /**
  * Returns whether the search bar should be shown. Only show if the search dialog

@@ -273,9 +273,10 @@ static RefPtr<MediaByteBuffer> ExtractCodecConfig(
     const int32_t aSize, const bool aAsAVCC) {
   auto config = MakeRefPtr<MediaByteBuffer>(aSize);
   config->SetLength(aSize);
-  jni::ByteBuffer::LocalRef dest =
-      jni::ByteBuffer::New(config->Elements(), aSize);
-  aBuffer->WriteToByteBuffer(dest, aOffset, aSize);
+  NS_ENSURE_SUCCESS(
+      aBuffer->NativeCopy(reinterpret_cast<jlong>(config->Elements()), aOffset,
+                          aSize),
+      nullptr);
   if (!aAsAVCC) {
     return config;
   }
@@ -373,8 +374,9 @@ RefPtr<MediaRawData> AndroidDataEncoder::GetOutputData(
     return nullptr;
   }
 
-  jni::ByteBuffer::LocalRef buf = jni::ByteBuffer::New(writer->Data(), aSize);
-  aBuffer->WriteToByteBuffer(buf, aOffset, aSize);
+  NS_ENSURE_SUCCESS(aBuffer->NativeCopy(reinterpret_cast<jlong>(writer->Data()),
+                                        aOffset, aSize),
+                    nullptr);
   output->mKeyframe = aIsKeyFrame;
 
   return output;
@@ -407,9 +409,10 @@ RefPtr<MediaRawData> AndroidDataEncoder::GetOutputDataH264(
     PodCopy(writer->Data(), mConfigData->Elements(), prependSize);
   }
 
-  jni::ByteBuffer::LocalRef buf =
-      jni::ByteBuffer::New(writer->Data() + prependSize, aSize);
-  aBuffer->WriteToByteBuffer(buf, aOffset, aSize);
+  NS_ENSURE_SUCCESS(
+      aBuffer->NativeCopy(reinterpret_cast<jlong>(writer->Data() + prependSize),
+                          aOffset, aSize),
+      nullptr);
 
   if (asAVCC && !AnnexB::ConvertSampleToAVCC(output, avccHeader)) {
     AND_ENC_LOGE("fail to convert annex-b sample to AVCC");

@@ -40,9 +40,9 @@ git = "https://github.com/gfx-rs/rspirv"
 rev = "89ce4d0e64c91b0635f617409dc57cb031749a39"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/gfx-rs/wgpu?rev=b285d3f9bb128a4c9c00951aa8e54303f6ac0b78"]
+[source."git+https://github.com/gfx-rs/wgpu?rev=5a9b30f2d09548eac623fca5209246c766d16f1d"]
 git = "https://github.com/gfx-rs/wgpu"
-rev = "b285d3f9bb128a4c9c00951aa8e54303f6ac0b78"
+rev = "5a9b30f2d09548eac623fca5209246c766d16f1d"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/glandium/allocator-api2?rev=ad5f3d56a5a4519eff52af4ff85293431466ef5c"]
@@ -70,24 +70,39 @@ git = "https://github.com/hsivonen/chardetng_c"
 rev = "2f0aba284677d098de14f91ffe5a9e5b9a4922c2"
 replace-with = "vendored-sources"
 
+[source."git+https://github.com/hsivonen/rust-harfbuzz?rev=9d58a23a98772a197291d04af93f7041b7093d95"]
+git = "https://github.com/hsivonen/rust-harfbuzz"
+rev = "9d58a23a98772a197291d04af93f7041b7093d95"
+replace-with = "vendored-sources"
+
 [source."git+https://github.com/jfkthame/mapped_hyph.git?rev=eff105f6ad7ec9b79816cfc1985a28e5340ad14b"]
 git = "https://github.com/jfkthame/mapped_hyph.git"
 rev = "eff105f6ad7ec9b79816cfc1985a28e5340ad14b"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/audioipc?rev=c8d3f03cb5f889e4cab18cc1360ad0daa074f17a"]
-git = "https://github.com/mozilla/audioipc"
-rev = "c8d3f03cb5f889e4cab18cc1360ad0daa074f17a"
+[source."git+https://github.com/kinetiknz/mio?rev=5e8b202db39facecc343170f50a07916640a607c"]
+git = "https://github.com/kinetiknz/mio"
+rev = "5e8b202db39facecc343170f50a07916640a607c"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/cubeb-coreaudio-rs?rev=5b689a7f90086e07c271ad1cf79325ee06112ab6"]
+[source."git+https://github.com/mozilla/audioipc?rev=0339c4732ceadbc5f54898b77498c33fff0f3f90"]
+git = "https://github.com/mozilla/audioipc"
+rev = "0339c4732ceadbc5f54898b77498c33fff0f3f90"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/mozilla/cubeb-coreaudio-rs?rev=0bb8a45a040e85d313eb18deb36570e87df3a6af"]
 git = "https://github.com/mozilla/cubeb-coreaudio-rs"
-rev = "5b689a7f90086e07c271ad1cf79325ee06112ab6"
+rev = "0bb8a45a040e85d313eb18deb36570e87df3a6af"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/mozilla/cubeb-pulse-rs?rev=9cebfcceb073e9dd10cfb275a7590bca58d4c251"]
 git = "https://github.com/mozilla/cubeb-pulse-rs"
 rev = "9cebfcceb073e9dd10cfb275a7590bca58d4c251"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/mozilla/happy-eyeballs?tag=v0.2.0"]
+git = "https://github.com/mozilla/happy-eyeballs"
+tag = "v0.2.0"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/mozilla/ipc-channel?rev=f2b5aed36a60f07589579d31aaace2f90d2e5e9e"]
@@ -110,9 +125,9 @@ git = "https://github.com/mozilla/mp4parse-rust"
 rev = "f2d96807b8becf7485f035b393575fcfc76cec4c"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/neqo?tag=v0.22.2"]
+[source."git+https://github.com/mozilla/neqo?tag=v0.24.1"]
 git = "https://github.com/mozilla/neqo"
-tag = "v0.22.2"
+tag = "v0.24.1"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/rust-lang/rust-bindgen?rev=9366e0af8da529c958b4cd4fcbe492d951c86f5c"]

@@ -3,19 +3,11 @@
 
 "use strict";
 
-const { openAIEngine } = ChromeUtils.importESModule(
-  "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs"
-);
-
 const { OAUTH_CLIENT_ID, SCOPE_PROFILE_UID, SCOPE_SMART_WINDOW } =
   ChromeUtils.importESModule("resource://gre/modules/FxAccountsCommon.sys.mjs");
 
 const { getFxAccountsSingleton } = ChromeUtils.importESModule(
   "resource://gre/modules/FxAccounts.sys.mjs"
-);
-
-const { sinon } = ChromeUtils.importESModule(
-  "resource://testing-common/Sinon.sys.mjs"
 );
 
 add_task(async function test_getFxAccountToken_passes_correct_scope() {

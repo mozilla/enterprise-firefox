@@ -161,6 +161,8 @@ skip-if = [
   "tsan", # Bug 1683730
 ]
 
+["test_ext_contentscript_create_document.js"]
+
 ["test_ext_contentscript_create_iframe.js"]
 
 ["test_ext_contentscript_csp.js"]
@@ -435,6 +437,8 @@ skip-if = [
 ["test_ext_geturl.js"]
 
 ["test_ext_idle.js"]
+
+["test_ext_import_attributes.js"]
 
 ["test_ext_incognito.js"]
 run-if = [
@@ -821,6 +825,8 @@ skip-if = [
 skip-if = [
   "os == 'android' && debug",
 ]
+
+["text_ext_webRequest_js_cache.js"]
 
 ["test_ext_webRequest_mergecsp.js"]
 skip-if = [

@@ -77,7 +77,7 @@ add_task(async function checkUntrustedCertIssuerCopy() {
       "Proceed button should be shown for certificates from untrusted issuers."
     );
     Assert.equal(
-      netErrorCard.certErrorIntro.dataset.l10nId,
+      netErrorCard.errorIntro.dataset.l10nId,
       "fp-certerror-intro",
       "Using the 'certificate error' intro."
     );

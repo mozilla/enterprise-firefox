@@ -136,10 +136,6 @@ class ProxiedConnection {
   // We don't have connected compositor yet. Try to connect
   bool mCompositorConnected = false;
 
-  // Don't cycle endlessly over compositor connection
-  int mFailedCompositorConnections = 0;
-  static constexpr int sMaxFailedCompositorConnections = 100;
-
   // We're disconnected from app or compositor. We will close such connection.
   bool mApplicationFailed = false;
   bool mCompositorFailed = false;
@@ -319,7 +315,7 @@ bool ProxiedConnection::Init(int aApplicationSocket, char* aWaylandDisplay) {
   mWaylandDisplay = aWaylandDisplay;
   mApplicationSocket = aApplicationSocket;
   mCompositorSocket =
-      socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+      socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
   if (mCompositorSocket == -1) {
     Error("WaylandProxy: ProxiedConnection::Init() socket()");
   }
@@ -374,28 +370,9 @@ bool ProxiedConnection::ConnectToCompositor() {
       connect(mCompositorSocket, (const struct sockaddr*)&addr,
               sizeof(struct sockaddr_un)) != -1;
   if (!mCompositorConnected) {
-    switch (errno) {
-      case EAGAIN:
-      case EALREADY:
-      case ECONNREFUSED:
-      case EINPROGRESS:
-      case EINTR:
-      case EISCONN:
-      case ETIMEDOUT:
-        mFailedCompositorConnections++;
-        if (mFailedCompositorConnections > sMaxFailedCompositorConnections) {
-          Error("ConnectToCompositor() connect() failed repeatedly");
-          WaylandProxy::AddState(WAYLAND_PROXY_COMPOSITOR_SOCKET_FAILED);
-          return false;
-        }
-        // We can recover from these errors and try again
-        Warning("ConnectToCompositor() try again");
-        return true;
-      default:
-        Error("ConnectToCompositor() connect()");
-        WaylandProxy::AddState(WAYLAND_PROXY_COMPOSITOR_SOCKET_FAILED);
-        return false;
-    }
+    Error("ConnectToCompositor() connect()");
+    WaylandProxy::AddState(WAYLAND_PROXY_COMPOSITOR_SOCKET_FAILED);
+    return false;
   }
 
   Print("ConnectToCompositor() Connected to compositor\n");

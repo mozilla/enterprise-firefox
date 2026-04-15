@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -9,13 +7,12 @@
 #include <algorithm>
 #include <queue>
 
+#include "AOMDecoder.h"
 #include "AllocationPolicy.h"
-#ifdef MOZ_AV1
-#  include "AOMDecoder.h"
-#endif
 #include "MP4Decoder.h"
 #include "MediaData.h"
 #include "MediaDataDecoderProxy.h"
+#include "MediaGleanMetrics.h"
 #include "MediaInfo.h"
 #include "PDMFactory.h"
 #include "PerformanceRecorder.h"
@@ -2078,12 +2075,9 @@ void MediaFormatReader::DecoderData::StartRecordDecodingPerf(
       flag |= MediaInfoFlag::VIDEO_VP9;
     } else if (MP4Decoder::IsHEVC(mimeType)) {
       flag |= MediaInfoFlag::VIDEO_HEVC;
-    }
-#ifdef MOZ_AV1
-    else if (AOMDecoder::IsAV1(mimeType)) {
+    } else if (AOMDecoder::IsAV1(mimeType)) {
       flag |= MediaInfoFlag::VIDEO_AV1;
     }
-#endif
   }
   mDecodePerfRecorder->Start(aSample->mTime.ToMicroseconds(),
                              MediaStage::RequestDecode, height, flag);
@@ -2469,16 +2463,24 @@ void MediaFormatReader::Update(TrackType aTrack) {
     } else if (decoder.HasFatalError()) {
       nsCString mimeType = decoder.GetCurrentInfo()->mMimeType;
       if (!mimeType.IsEmpty()) {
-        glean::media_playback::DecodeErrorExtra extraData;
-        extraData.mimeType = Some(mimeType);
-        extraData.errorName = Some(decoder.mError->ErrorName());
-        if (mCDMProxy) {
-          extraData.keySystem =
-              Some(NS_ConvertUTF16toUTF8(mCDMProxy->KeySystem()));
+        const nsCString& errorName = decoder.mError->ErrorName();
+        if (!IsNotRealDecodeError(errorName)) {
+          nsCString errorLabel = ErrorNameToLabel(errorName);
+          if (mCDMProxy) {
+            glean::media_playback::encrypted_decode_error
+                .Get(MimeTypeToEncryptedLabel(mimeType),
+                     KeySystemToLabel(mCDMProxy->KeySystem()))
+                .Add();
+          } else if (decoder.mIsHardwareAccelerated) {
+            glean::media_playback::unencrypted_hw_decode_error
+                .Get(MimeTypeToUnencryptedLabel(mimeType), errorLabel)
+                .Add();
+          } else {
+            glean::media_playback::unencrypted_sw_decode_error
+                .Get(MimeTypeToUnencryptedLabel(mimeType), errorLabel)
+                .Add();
+          }
         }
-        extraData.decoderName = Some(decoder.mDescription);
-        extraData.isHardwareAccelerated = Some(decoder.mIsHardwareAccelerated);
-        glean::media_playback::decode_error.Record(Some(extraData));
       }
       LOG("Rejecting %s promise for %s : DECODE_ERROR", TrackTypeToStr(aTrack),
           mimeType.get());
@@ -3103,7 +3105,7 @@ void MediaFormatReader::OnSeekFailed(TrackType aTrack,
       } else {
         mFallbackSeekTime.reset();
       }
-      mPendingSeekTime = nextSeekTime;
+      mPendingSeekTime = std::move(nextSeekTime);
       DoAudioSeek();
       return;
     }

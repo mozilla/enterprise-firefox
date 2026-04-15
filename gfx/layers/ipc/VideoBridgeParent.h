@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -50,8 +48,7 @@ class VideoBridgeParent final : public PVideoBridgeParent,
   base::ProcessId GetChildProcessId() override { return OtherPid(); }
   void NotifyNotUsed(PTextureParent* aTexture,
                      uint64_t aTransactionId) override;
-  void SendAsyncMessage(
-      const nsTArray<AsyncParentMessageData>& aMessage) override;
+  void SendAsyncMessage(Span<const AsyncParentMessageData>) override;
 
   // ISurfaceAllocator
   IShmemAllocator* AsShmemAllocator() override { return this; }
@@ -74,10 +71,15 @@ class VideoBridgeParent final : public PVideoBridgeParent,
 
   void DoUnregisterExternalImages();
 
+  struct TextureHolder {
+    RefPtr<TextureHost> mTextureHost;
+    dom::ContentParentId mContentId;
+  };
+
   Monitor mMonitor;
   RefPtr<CompositorThreadHolder> mCompositorThreadHolder
       MOZ_GUARDED_BY(mMonitor);
-  std::map<uint64_t, PTextureParent*> mTextureMap MOZ_GUARDED_BY(mMonitor);
+  std::map<uint64_t, TextureHolder> mTextureMap MOZ_GUARDED_BY(mMonitor);
   bool mClosed;
 };
 

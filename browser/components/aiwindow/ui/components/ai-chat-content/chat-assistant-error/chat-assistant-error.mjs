@@ -5,41 +5,58 @@
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
 import { html, nothing } from "chrome://global/content/vendor/lit.all.mjs";
 
-const ERROR_TYPES = {
-  PAYLOAD_TOO_LARGE: 413,
-  RATE_LIMIT: 429,
-  SERVER_ERROR_MIN: 500,
-  SERVER_ERROR_MAX: 599,
+/**
+ * Numeric error codes received from the back-end via error.error.
+ * These are the only reliable identifiers as the HTTP status codes
+ * do not propagate to the front-end.
+ */
+const ERROR_CODES = {
+  BUDGET_EXCEEDED: 1,
+  RATE_LIMIT_EXCEEDED: 2,
+  CHAT_MAX_LENGTH: 3,
+  ACCOUNT_ERROR: 4,
 };
 
 /**
- * Shows an error message based on an error status
+ * Shows an error message based on an error code
  */
 export class ChatAssistantError extends MozLitElement {
+  /**
+   * @typedef {object} ErrorObject
+   * @property {number|string} [error] - Error subcode - number for 429, string for others
+   */
   static properties = {
-    errorStatus: { type: Number },
+    error: { type: Object },
     actionButton: { type: Object },
     errorText: { type: Object },
   };
 
   constructor() {
     super();
-    this.actionButton = null;
-    this.errorText = {
-      header: "smartwindow-assistant-error-generic-header",
-    };
+    this.setGenericError();
   }
 
   willUpdate(changed) {
-    if (changed.has("errorStatus")) {
+    if (changed.has("error")) {
       this.getErrorInformation();
     }
   }
 
-  // TO DO: implement action buttons functionality
+  openNewChat() {
+    const event = new CustomEvent("aiChatError:new-chat", {
+      bubbles: true,
+      composed: true,
+    });
+    this.dispatchEvent(event);
+  }
 
-  /* https://mozilla-hub.atlassian.net/browse/GENAI-2863
-  also needs its own error message/functionality */
+  openAccountSignIn() {
+    const event = new CustomEvent("aiChatError:sign-in", {
+      bubbles: true,
+      composed: true,
+    });
+    this.dispatchEvent(event);
+  }
 
   retryAssistantMessage() {
     const event = new CustomEvent("aiChatError:retry-message", {
@@ -49,48 +66,60 @@ export class ChatAssistantError extends MozLitElement {
     this.dispatchEvent(event);
   }
 
-  /* https://mozilla-hub.atlassian.net/browse/GENAI-3170
-  switchToClassic() {
-    console.log("switch to classic..");
+  setGenericError() {
+    this.errorText = {
+      header: "smartwindow-assistant-error-generic-header",
+    };
+    this.actionButton = {
+      label: "smartwindow-retry-btn",
+      action: this.retryAssistantMessage.bind(this),
+    };
   }
-  */
-
-  /* https://mozilla-hub.atlassian.net/browse/GENAI-3171
-  clearChat() {
-    console.log("open a new chat..");
-  }
-  */
 
   getErrorInformation() {
-    if (this.errorStatus === ERROR_TYPES.PAYLOAD_TOO_LARGE) {
-      this.errorText = {
-        header: "smartwindow-assistant-error-long-message-header",
-      };
-      // this.actionButton = {
-      //   label: "smartwindow-clear-btn",
-      //   action: this.clearChat,
-      // };
+    if (!this.error) {
       return;
     }
-    if (this.errorStatus === ERROR_TYPES.RATE_LIMIT) {
-      this.errorText = {
-        header: "smartwindow-assistant-error-budget-header",
-        body: "smartwindow-assistant-error-budget-body",
-      };
-      // this.actionButton = {
-      //   label: "smartwindow-switch-btn",
-      //   action: this.switchToClassic,
-      // };
-      return;
-    }
-    if (
-      this.errorStatus >= ERROR_TYPES.SERVER_ERROR_MIN &&
-      this.errorStatus <= ERROR_TYPES.SERVER_ERROR_MAX
-    ) {
-      this.actionButton = {
-        label: "smartwindow-retry-btn",
-        action: this.retryAssistantMessage.bind(this),
-      };
+
+    switch (this.error.error) {
+      case ERROR_CODES.CHAT_MAX_LENGTH:
+        this.errorText = {
+          header: "smartwindow-assistant-error-max-length-header",
+        };
+        this.actionButton = {
+          label: "smartwindow-clear-btn",
+          action: this.openNewChat.bind(this),
+        };
+        break;
+
+      case ERROR_CODES.RATE_LIMIT_EXCEEDED:
+        this.errorText = {
+          header: "smartwindow-assistant-error-many-requests-header",
+        };
+        this.actionButton = null;
+        break;
+
+      case ERROR_CODES.BUDGET_EXCEEDED:
+        this.errorText = {
+          header: "smartwindow-assistant-error-budget-header",
+          body: "smartwindow-assistant-error-budget-body",
+        };
+        this.actionButton = null;
+        break;
+
+      case ERROR_CODES.ACCOUNT_ERROR:
+        this.errorText = {
+          header: "smartwindow-assistant-error-account-header",
+        };
+        this.actionButton = {
+          label: "smartwindow-signin-btn",
+          action: this.openAccountSignIn.bind(this),
+        };
+        break;
+
+      default:
+        this.setGenericError();
+        break;
     }
   }
 

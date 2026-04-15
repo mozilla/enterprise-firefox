@@ -132,6 +132,8 @@ class NetworkEventActor extends Actor {
     };
 
     this._resource = this._createResource(networkEventOptions, channel);
+
+    this._memoryCacheData = null;
   }
 
   /**
@@ -439,6 +441,28 @@ class NetworkEventActor extends Actor {
    *         The response packet - network response content.
    */
   getResponseContent() {
+    if (!this._response.content.text && this._memoryCacheData) {
+      const data = this._memoryCacheData;
+      this._memoryCacheData = null;
+
+      if (data.key.startsWith("SharedScriptCache:")) {
+        // This should be performed on the same process as the
+        // http-on-resource-cache-response observer notification is received, in
+        // order to query on the SharedScriptCache instance that has the
+        // corresponding cache entry.
+        const text = ChromeUtils.getCachedJavaScriptSource(
+          data.key,
+          this._resource.url,
+          data.charset
+        );
+        if (text !== undefined) {
+          this._response.content.text = text;
+        } else {
+          this._discardResponseBody = true;
+        }
+      }
+    }
+
     const content = { ...this._response.content };
     if (this._response.contentLongStringActor) {
       // Remove the old actor from the pool as new actor will be created
@@ -491,6 +515,17 @@ class NetworkEventActor extends Actor {
       fromCache,
       fromServiceWorker,
     });
+  }
+
+  addMemoryCacheData(channel, memoryCacheKey) {
+    let charset = "";
+    if (channel instanceof Ci.nsIHttpChannel) {
+      charset = channel.classicScriptHintCharset || "";
+    }
+    this._memoryCacheData = {
+      key: memoryCacheKey,
+      charset,
+    };
   }
 
   addRawHeaders({ channel, rawHeaders }) {

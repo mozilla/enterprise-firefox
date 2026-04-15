@@ -124,6 +124,11 @@ window.addEventListener("AboutLoginsChromeToContent", event => {
       gElements.loginItem.setVulnerableLogins(event.detail.value);
       break;
     }
+    case "SetChangePasswordURLs": {
+      gElements.loginList.setChangePasswordURLs(event.detail.value);
+      gElements.loginItem.setChangePasswordURLs(event.detail.value);
+      break;
+    }
     case "Setup": {
       gElements.loginList.selectLoginByDomainOrGuid(
         event.detail.value.preselectedLogin

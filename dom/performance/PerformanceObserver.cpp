@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -232,7 +230,7 @@ void PerformanceObserver::Observe(const PerformanceObserverInit& aOptions,
     if (!invalidTypesJoined.IsEmpty()) {
       AutoTArray<nsString, 1> params = {invalidTypesJoined};
       mOwner->ReportToConsole(nsIScriptError::warningFlag, "DOM"_ns,
-                              nsContentUtils::eDOM_PROPERTIES,
+                              PropertiesFile::DOM_PROPERTIES,
                               "UnsupportedEntryTypesIgnored"_ns, params);
       // (we don't return because we're ignoring and we keep going)
     }
@@ -240,7 +238,7 @@ void PerformanceObserver::Observe(const PerformanceObserverInit& aOptions,
     /* 3.3.1.5.3 */
     if (validEntryTypes.IsEmpty()) {
       mOwner->ReportToConsole(nsIScriptError::warningFlag, "DOM"_ns,
-                              nsContentUtils::eDOM_PROPERTIES,
+                              PropertiesFile::DOM_PROPERTIES,
                               "AllEntryTypesIgnored"_ns);
       return;
     }
@@ -282,7 +280,7 @@ void PerformanceObserver::Observe(const PerformanceObserverInit& aOptions,
     if (!typeValid) {
       AutoTArray<nsString, 1> params = {type};
       mOwner->ReportToConsole(nsIScriptError::warningFlag, "DOM"_ns,
-                              nsContentUtils::eDOM_PROPERTIES,
+                              PropertiesFile::DOM_PROPERTIES,
                               "UnsupportedEntryTypesIgnored"_ns, params);
       return;
     }

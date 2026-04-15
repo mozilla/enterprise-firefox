@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -124,20 +122,13 @@ HTMLSelectElement::HTMLSelectElement(
       mOptGroupCount(0),
       mSelectedIndex(-1) {
   SetHasWeirdParserInsertionMode();
-
-  // DoneAddingChildren() will be called later if it's from the parser,
-  // otherwise it is
-
   // Set up our default state: enabled, optional, and valid.
   AddStatesSilently(ElementState::ENABLED | ElementState::OPTIONAL_ |
                     ElementState::VALID);
-
-  AddMutationObserver(this);
-  SetupShadowTree();
 }
 
 void HTMLSelectElement::SetupShadowTree() {
-  AttachAndSetUAShadowRoot(NotifyUAWidgetSetup::No);
+  AttachAndSetUAShadowRoot(NotifyUAWidget::No);
   RefPtr<ShadowRoot> sr = GetShadowRoot();
   if (NS_WARN_IF(!sr)) {
     return;
@@ -155,7 +146,7 @@ void HTMLSelectElement::SetupShadowTree() {
   }
   sr->AppendChildTo(label, false, IgnoreErrors());
   RefPtr icon = doc->CreateHTMLElement(nsGkAtoms::span);
-  icon->SetPseudoElementType(PseudoStyleType::MozSelectPickerIcon);
+  icon->SetPseudoElementType(PseudoStyleType::PickerIcon);
   {
     RefPtr text = doc->CreateTextNode(u"\ufeff"_ns);
     icon->AppendChildTo(text, false, IgnoreErrors());
@@ -168,7 +159,7 @@ void HTMLSelectElement::SetupShadowTree() {
 Text* HTMLSelectElement::GetSelectedContentText() const {
   auto* sr = GetShadowRoot();
   if (!sr) {
-    MOZ_ASSERT(OwnerDoc()->IsStaticDocument());
+    MOZ_ASSERT(OwnerDoc()->IsStaticDocument() || !IsInComposedDoc());
     return nullptr;
   }
   auto* label = sr->GetFirstChild();
@@ -678,7 +669,7 @@ void HTMLSelectElement::SetLength(uint32_t aLength, ErrorResult& aRv) {
 
       nsContentUtils::ReportToConsole(
           nsIScriptError::warningFlag, "DOM"_ns, OwnerDoc(),
-          nsContentUtils::eDOM_PROPERTIES,
+          PropertiesFile::DOM_PROPERTIES,
           "SelectOptionsLengthAssignmentWarning", {strOptionsLength, strLimit});
       return;
     }
@@ -1084,9 +1075,8 @@ bool HTMLSelectElement::SelectSomething(bool aNotify) {
 
 nsresult HTMLSelectElement::BindToTree(BindContext& aContext,
                                        nsINode& aParent) {
-  nsresult rv =
-      nsGenericHTMLFormControlElementWithState::BindToTree(aContext, aParent);
-  NS_ENSURE_SUCCESS(rv, rv);
+  MOZ_TRY(
+      nsGenericHTMLFormControlElementWithState::BindToTree(aContext, aParent));
 
   // If there is a disabled fieldset in the parent chain, the element is now
   // barred from constraint validation.
@@ -1097,10 +1087,24 @@ nsresult HTMLSelectElement::BindToTree(BindContext& aContext,
   // And now make sure our state is up to date
   UpdateValidityElementStates(false);
 
-  return rv;
+  if (IsInComposedDoc()) {
+    if (!GetShadowRoot()) {
+      SetupShadowTree();
+    }
+    SelectedContentTextMightHaveChanged(false);
+    AddMutationObserver(this);
+  }
+
+  return NS_OK;
 }
 
 void HTMLSelectElement::UnbindFromTree(UnbindContext& aContext) {
+  if (IsInComposedDoc()) {
+    RemoveMutationObserver(this);
+    // We don't bother clearing up the shadow tree here if we already have it
+    // around.
+  }
+
   nsGenericHTMLFormControlElementWithState::UnbindFromTree(aContext);
 
   // We might be no longer disabled because our parent chain changed.
@@ -1542,7 +1546,7 @@ nsresult HTMLSelectElement::GetValidationMessage(nsAString& aValidationMessage,
     case VALIDITY_STATE_VALUE_MISSING: {
       nsAutoString message;
       nsresult rv = nsContentUtils::GetMaybeLocalizedString(
-          nsContentUtils::eDOM_PROPERTIES, "FormValidationSelectMissing",
+          PropertiesFile::DOM_PROPERTIES, "FormValidationSelectMissing",
           OwnerDoc(), message);
       aValidationMessage = message;
       return rv;
@@ -1637,7 +1641,7 @@ static void OptionValueMightHaveChanged(nsIContent* aMutatingNode) {
 #endif
 }
 
-void HTMLSelectElement::SelectedContentTextMightHaveChanged() {
+void HTMLSelectElement::SelectedContentTextMightHaveChanged(bool aNotify) {
   RefPtr textNode = GetSelectedContentText();
   if (!textNode) {
     return;
@@ -1649,7 +1653,7 @@ void HTMLSelectElement::SelectedContentTextMightHaveChanged() {
     selectedOption->GetRenderedLabel(newText);
   }
   ButtonControlFrame::EnsureNonEmptyLabel(newText);
-  textNode->SetText(newText, true);
+  textNode->SetText(newText, aNotify);
 #ifdef ACCESSIBILITY
   if (nsAccessibilityService* acc = GetAccService()) {
     if (nsIFrame* f = GetPrimaryFrame()) {

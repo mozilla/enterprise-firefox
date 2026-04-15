@@ -5,19 +5,7 @@
 import {
   actionCreators as ac,
   actionTypes as at,
-  actionUtils as au,
 } from "resource://newtab/common/Actions.mjs";
-
-// We use importESModule here instead of static import so that
-// the Karma test environment won't choke on this module. This
-// is because the Karma test environment already stubs out
-// AboutNewTab, and overrides importESModule to be a no-op (which
-// can't be done for a static import statement).
-
-// eslint-disable-next-line mozilla/use-static-import
-const { AboutNewTab } = ChromeUtils.importESModule(
-  "resource:///modules/AboutNewTab.sys.mjs"
-);
 
 const lazy = {};
 
@@ -26,7 +14,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   NewTabUtils: "resource://gre/modules/NewTabUtils.sys.mjs",
   PartnerLinkAttribution: "resource:///modules/PartnerLinkAttribution.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
-  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
 });
 
@@ -90,7 +77,7 @@ class PlacesObserver {
             source === lazy.PlacesUtils.bookmarks.SOURCES.SYNC ||
             (!url.startsWith("http://") && !url.startsWith("https://"))
           ) {
-            return;
+            continue;
           }
 
           this.dispatch({ type: at.PLACES_LINKS_CHANGED });
@@ -331,81 +318,6 @@ export class PlacesFeed {
   }
 
   /**
-   * @backward-compat { version 148 }
-   *
-   * This, and all newtab-specific handoff searchbar handling can be removed
-   * once 147 is released, as all handoff UI and logic will be handled by
-   * contentSearchHandoffUI and the ContentSearch JSWindowActors.
-   */
-  handoffSearchToAwesomebar(action) {
-    const { _target, data, meta } = action;
-    const searchEngine = this._getDefaultSearchEngine(
-      lazy.PrivateBrowsingUtils.isBrowserPrivate(_target.browser)
-    );
-    const urlBar = _target.browser.ownerGlobal.gURLBar;
-    let isFirstChange = true;
-
-    const newtabSession = AboutNewTab.activityStream.store.feeds
-      .get("feeds.telemetry")
-      ?.sessions.get(au.getPortIdOfSender(action));
-    if (!data || !data.text) {
-      urlBar.setHiddenFocus();
-    } else {
-      urlBar.handoff(data.text, searchEngine, newtabSession?.session_id);
-      isFirstChange = false;
-    }
-
-    const checkFirstChange = () => {
-      // Check if this is the first change since we hidden focused. If it is,
-      // remove hidden focus styles, prepend the search alias and hide the
-      // in-content search.
-      if (isFirstChange) {
-        isFirstChange = false;
-        urlBar.removeHiddenFocus(true);
-        urlBar.handoff("", searchEngine, newtabSession?.session_id);
-        this.store.dispatch(
-          ac.OnlyToOneContent({ type: at.DISABLE_SEARCH }, meta.fromTarget)
-        );
-        urlBar.removeEventListener("compositionstart", checkFirstChange);
-        urlBar.removeEventListener("paste", checkFirstChange);
-      }
-    };
-
-    const onKeydown = ev => {
-      // Check if the keydown will cause a value change.
-      if (ev.key.length === 1 && !ev.altKey && !ev.ctrlKey && !ev.metaKey) {
-        checkFirstChange();
-      }
-      // If the Esc button is pressed, we are done. Show in-content search and cleanup.
-      if (ev.key === "Escape") {
-        onDone(); // eslint-disable-line no-use-before-define
-      }
-    };
-
-    const onDone = ev => {
-      // We are done. Show in-content search again and cleanup.
-      this.store.dispatch(
-        ac.OnlyToOneContent({ type: at.SHOW_SEARCH }, meta.fromTarget)
-      );
-
-      const forceSuppressFocusBorder = ev?.type === "mousedown";
-      urlBar.removeHiddenFocus(forceSuppressFocusBorder);
-
-      urlBar.removeEventListener("keydown", onKeydown);
-      urlBar.removeEventListener("mousedown", onDone);
-      urlBar.removeEventListener("blur", onDone);
-      urlBar.removeEventListener("compositionstart", checkFirstChange);
-      urlBar.removeEventListener("paste", checkFirstChange);
-    };
-
-    urlBar.addEventListener("keydown", onKeydown);
-    urlBar.addEventListener("mousedown", onDone);
-    urlBar.addEventListener("blur", onDone);
-    urlBar.addEventListener("compositionstart", checkFirstChange);
-    urlBar.addEventListener("paste", checkFirstChange);
-  }
-
-  /**
    * Add the hostnames of the given urls to the Top Sites sponsor blocklist.
    *
    * @param {Array} urls
@@ -535,9 +447,6 @@ export class PlacesFeed {
         break;
       case at.FILL_SEARCH_TERM:
         this.fillSearchTopSiteTerm(action);
-        break;
-      case at.HANDOFF_SEARCH_TO_AWESOMEBAR:
-        this.handoffSearchToAwesomebar(action);
         break;
       case at.OPEN_LINK: {
         this.openLink(action);

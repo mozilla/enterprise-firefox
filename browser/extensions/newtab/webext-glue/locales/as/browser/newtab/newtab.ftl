@@ -39,7 +39,7 @@ newtab-search-box-input =
     .placeholder = ৱেবত সন্ধান কৰক
     .aria-label = ৱেবত সন্ধান কৰক
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = ছাৰ্চ ইঞ্জিন যোগ কৰক
 newtab-topsites-edit-topsites-header = শীৰ্ষ ছাইট সম্পাদনা কৰক

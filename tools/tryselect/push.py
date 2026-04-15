@@ -6,6 +6,7 @@
 import json
 import os
 import sys
+from functools import cache
 
 from mach.util import get_state_dir
 from mozbuild.base import MozbuildObject
@@ -50,6 +51,9 @@ get results faster.
 MAX_HISTORY = 10
 
 MACH_TRY_PUSH_TO_VCS = os.getenv("MACH_TRY_PUSH_TO_VCS") == "1"
+
+HG_TRY_URL = "ssh://hg.mozilla.org/try"
+MACH_TRY_REMOTE = HG_TRY_URL
 
 TREEHERDER_LANDO_TRY_RUN_URL = (
     "https://treeherder.mozilla.org/jobs?repo=try&landoCommitID={job_id}"
@@ -165,6 +169,14 @@ def get_sys_argv(injected_argv=None):
     return " ".join(formatted_argv)
 
 
+@cache
+def _is_hg_try():
+    remote = MACH_TRY_REMOTE
+    if remote_url := vcs.get_remote_url(remote, push=True):
+        remote = remote_url
+    return HG_TRY_URL in remote
+
+
 def push_to_try(
     method,
     msg,
@@ -179,7 +191,9 @@ def push_to_try(
 ):
     metrics.mach_try.commit_prep.start()
     push = not stage_changes and not dry_run
-    push_to_vcs |= MACH_TRY_PUSH_TO_VCS
+
+    # Use direct push if explicitly requested or we aren't pushing to hg.mozilla.org/try.
+    push_to_vcs |= MACH_TRY_PUSH_TO_VCS or not _is_hg_try()
     check_working_directory(push)
 
     # Format the commit message
@@ -218,11 +232,16 @@ def push_to_try(
     metrics.mach_try.commit_prep.stop()
     try:
         if push_to_vcs:
-            vcs.push_to_try(
-                commit_message,
-                changed_files=changed_files,
-                allow_log_capture=allow_log_capture,
-            )
+            if _is_hg_try():
+                vcs.push_to_try(
+                    commit_message,
+                    changed_files=changed_files,
+                    allow_log_capture=allow_log_capture,
+                )
+            else:
+                with vcs.try_commit(commit_message, changed_files) as head:
+                    ref = vcs.branch or head
+                    vcs.push(MACH_TRY_REMOTE, ref=ref, force=True)
         else:
             job_id = push_to_lando_try(vcs, commit_message, changed_files, metrics)
             if job_id:

@@ -231,6 +231,11 @@ const embedHelperLib = (() => {
         // Source: dom/security/sanitizer/SanitizerDefaultConfig.h kDefaultHTMLElements
         // Sanitizer unwraps these elements (replaces them with their children)
         const sanitizer = new Sanitizer({
+          attributes: [],
+          elements: [
+            { name: "a", attributes: ["href", "target", "title"] },
+            "br",
+          ],
           replaceWithChildrenElements: [
             "abbr",
             "address",
@@ -267,7 +272,7 @@ const embedHelperLib = (() => {
             "header",
             "hgroup",
             "hr",
-            "html",
+            // "html" (not allowed here, but not relevant for setHTML)
             "i",
             "ins",
             "kbd",

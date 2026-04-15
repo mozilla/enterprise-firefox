@@ -127,6 +127,8 @@ list(APPEND AOM_AV1_ENCODER_SOURCES
             "${AOM_ROOT}/av1/encoder/allintra_vis.c"
             "${AOM_ROOT}/av1/encoder/allintra_vis.h"
             "${AOM_ROOT}/av1/encoder/enc_enums.h"
+            "${AOM_ROOT}/av1/encoder/av1_ext_ratectrl.c"
+            "${AOM_ROOT}/av1/encoder/av1_ext_ratectrl.h"
             "${AOM_ROOT}/av1/encoder/av1_fwd_txfm1d.c"
             "${AOM_ROOT}/av1/encoder/av1_fwd_txfm1d.h"
             "${AOM_ROOT}/av1/encoder/av1_fwd_txfm1d_cfg.h"
@@ -460,11 +462,11 @@ list(APPEND AOM_AV1_COMMON_INTRIN_NEON_I8MM
             "${AOM_ROOT}/av1/common/arm/av1_convolve_scale_neon_i8mm.c"
             "${AOM_ROOT}/av1/common/arm/compound_convolve_neon_i8mm.c"
             "${AOM_ROOT}/av1/common/arm/convolve_neon_i8mm.c"
+            "${AOM_ROOT}/av1/common/arm/reconintra_neon_i8mm.c"
             "${AOM_ROOT}/av1/common/arm/resize_neon_i8mm.c"
             "${AOM_ROOT}/av1/common/arm/warp_plane_neon_i8mm.c")
 
 list(APPEND AOM_AV1_COMMON_INTRIN_SVE
-            "${AOM_ROOT}/av1/common/arm/highbd_warp_plane_sve.c"
             "${AOM_ROOT}/av1/common/arm/warp_plane_sve.c")
 
 list(APPEND AOM_AV1_COMMON_INTRIN_SVE2
@@ -477,7 +479,9 @@ list(APPEND AOM_AV1_COMMON_INTRIN_VSX "${AOM_ROOT}/av1/common/ppc/cfl_ppc.c")
 
 list(APPEND AOM_AV1_COMMON_INTRIN_RVV
             "${AOM_ROOT}/av1/common/riscv/cdef_block_rvv.c"
+            "${AOM_ROOT}/av1/common/riscv/compound_convolve_rvv.c"
             "${AOM_ROOT}/av1/common/riscv/convolve_rvv.c"
+            "${AOM_ROOT}/av1/common/riscv/highbd_compound_convolve_rvv.c"
             "${AOM_ROOT}/av1/common/riscv/highbd_convolve_rvv.c")
 
 if(CONFIG_THREE_PASS)
@@ -547,6 +551,9 @@ if(CONFIG_AV1_HIGHBITDEPTH)
               "${AOM_ROOT}/av1/common/arm/highbd_reconintra_neon.c"
               "${AOM_ROOT}/av1/common/arm/highbd_warp_plane_neon.c"
               "${AOM_ROOT}/av1/common/arm/highbd_wiener_convolve_neon.c")
+
+  list(APPEND AOM_AV1_COMMON_INTRIN_SVE
+              "${AOM_ROOT}/av1/common/arm/highbd_warp_plane_sve.c")
 
   list(APPEND AOM_AV1_COMMON_INTRIN_SVE2
               "${AOM_ROOT}/av1/common/arm/highbd_compound_convolve_sve2.c"
@@ -670,6 +677,7 @@ if(CONFIG_REALTIME_ONLY)
                    "${AOM_ROOT}/av1/encoder/arm/temporal_filter_neon_dotprod.c")
 
   list(REMOVE_ITEM AOM_AV1_ENCODER_INTRIN_SVE
+                   "${AOM_ROOT}/av1/encoder/arm/highbd_pickrst_sve.c"
                    "${AOM_ROOT}/av1/encoder/arm/pickrst_sve.c")
 
   list(REMOVE_ITEM AOM_AV1_ENCODER_SOURCES

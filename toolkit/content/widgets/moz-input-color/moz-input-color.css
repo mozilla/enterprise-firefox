@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 :host {
-  --moz-input-color-swatch-size: 24px;
+  --moz-input-color-swatch-size: var(--dimension-24);
 
   display: flex;
   align-items: center;

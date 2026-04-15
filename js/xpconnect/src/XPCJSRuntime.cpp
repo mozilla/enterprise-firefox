@@ -27,6 +27,7 @@
 #include "nsIMemoryReporter.h"
 #include "nsIObserverService.h"
 #include "mozilla/dom/Document.h"
+#include "mozilla/dom/NodeBinding.h"
 #include "nsIRunnable.h"
 #include "nsPIDOMWindow.h"
 #include "nsPrintfCString.h"
@@ -952,6 +953,8 @@ void XPCJSRuntime::WeakPointerZonesCallback(JSTracer* trc, void* data) {
 
   self->mWrappedJSMap->UpdateWeakPointersAfterGC(trc);
   self->mUAWidgetScopeMap.traceWeak(trc);
+
+  BrowsingContext::SweepWindowProxies(trc);
 }
 
 /* static */
@@ -3271,7 +3274,7 @@ bool XPCJSRuntime::InitializeStrings(JSContext* cx) {
 }
 
 bool XPCJSRuntime::DescribeCustomObjects(JSObject* obj, const JSClass* clasp,
-                                         char (&name)[72]) const {
+                                         char (&name)[512]) const {
   if (clasp != &XPC_WN_Proto_JSClass) {
     return false;
   }

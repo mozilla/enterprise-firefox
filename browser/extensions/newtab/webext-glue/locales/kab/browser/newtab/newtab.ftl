@@ -49,7 +49,7 @@ newtab-search-box-input =
     .placeholder = Nadi di web
     .aria-label = Nadi di web
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Rnu amsedday n unadi
 newtab-topsites-add-shortcut-header = Anegzum amaynut

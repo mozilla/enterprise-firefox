@@ -7,6 +7,7 @@
 #ifndef mozilla_BounceTrackingMapEntry_h
 #define mozilla_BounceTrackingMapEntry_h
 
+#include "BounceTrackingRecord.h"
 #include "mozilla/OriginAttributes.h"
 #include "nsIBounceTrackingMapEntry.h"
 #include "nsString.h"
@@ -72,11 +73,16 @@ class BounceTrackingPurgeEntry final : public BTPMapEntry,
 
   const PRTime& PurgeTimeRefConst() const { return mPurgeTime; }
 
+  void SetBounceChainRecord(BounceTrackingRecord* aRecord) {
+    mChainRecord = aRecord;
+  }
+
  private:
   ~BounceTrackingPurgeEntry() = default;
   // Timestamp of when the purge completed. mTimeStamp is the time of when the
   // bounce ocurred.
   PRTime mPurgeTime;
+  RefPtr<BounceTrackingRecord> mChainRecord;
 };
 
 }  // namespace mozilla

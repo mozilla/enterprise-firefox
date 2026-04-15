@@ -25,6 +25,8 @@ ChromeUtils.defineESModuleGetters(this, {
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
   UrlbarProviderOpenTabs:
     "moz-src:///browser/components/urlbar/UrlbarProviderOpenTabs.sys.mjs",
+  UrlbarProviderSearchSuggestions:
+    "moz-src:///browser/components/urlbar/UrlbarProviderSearchSuggestions.sys.mjs",
   ProvidersManager:
     "moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs",
   UrlbarResult: "moz-src:///browser/components/urlbar/UrlbarResult.sys.mjs",
@@ -807,8 +809,10 @@ function makeSearchResult(
   }
 
   if (isRichSuggestion) {
-    payload.icon =
-      "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
+    payload.icon = UrlbarUtils.getRemoteIconUrl(
+      "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
+      UrlbarProviderSearchSuggestions.RICH_ICON_SIZE
+    );
     payload.description = "description";
   }
 
@@ -976,7 +980,8 @@ function makeGlobalActionsResult({
  *   The value that would be filled if the autofill result was confirmed.
  *   Has no effect if `autofilled` is not specified.
  * @param {object} [options.conditionalPayloadProperties]
- *   An object mapping payload property names to objects { optional, ignore }.
+ *   An object mapping payload property names to objects
+ *   { optional, ignore, custom }.
  *   See the code below.
  * @param {Array} options.matches
  *   An array of UrlbarResults.
@@ -1145,6 +1150,11 @@ async function check_results({
           condition?.ignore ||
           (condition?.optional && !expected.hasOwnProperty(key))
         ) {
+          continue;
+        }
+
+        if (condition?.custom?.(i, actual)) {
+          // The custom assertion consumed this assertion.
           continue;
         }
 

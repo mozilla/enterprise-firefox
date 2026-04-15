@@ -46,10 +46,12 @@ import mozilla.components.concept.storage.Address
 import mozilla.components.concept.storage.CreditCardEntry
 import mozilla.components.concept.storage.Login
 import mozilla.components.concept.storage.LoginEntry
+import mozilla.components.concept.storage.LoginHint
 import mozilla.components.feature.prompts.address.AddressDelegate
 import mozilla.components.feature.prompts.address.AddressPicker
 import mozilla.components.feature.prompts.certificate.CertificatePicker
 import mozilla.components.feature.prompts.concept.AutocompletePrompt
+import mozilla.components.feature.prompts.concept.EmailMaskPromptView
 import mozilla.components.feature.prompts.concept.PasswordPromptView
 import mozilla.components.feature.prompts.creditcard.CreditCardDelegate
 import mozilla.components.feature.prompts.creditcard.CreditCardPicker
@@ -59,6 +61,7 @@ import mozilla.components.feature.prompts.dialog.ConfirmDialogFragment
 import mozilla.components.feature.prompts.dialog.MultiButtonDialogFragment
 import mozilla.components.feature.prompts.dialog.PromptDialogFragment
 import mozilla.components.feature.prompts.dialog.SaveLoginDialogFragment
+import mozilla.components.feature.prompts.emailmask.EmailMaskDelegate
 import mozilla.components.feature.prompts.facts.CreditCardAutofillDialogFacts
 import mozilla.components.feature.prompts.file.FilePicker.Companion.FILE_PICKER_ACTIVITY_REQUEST_CODE
 import mozilla.components.feature.prompts.login.LoginDelegate
@@ -3595,6 +3598,125 @@ class PromptFeatureTest {
             dialog.negativeButtonText,
         )
     }
+
+    @Test
+    fun `GIVEN isEmailMaskFeatureEnabled is false WHEN handleEmailMaskOrLoginPrompt is called THEN no prompt is shown`() {
+        val emailMaskView: EmailMaskPromptView = mock()
+        val feature = spy(
+            createPromptFeature(
+                emailMaskDelegate = mockEmailMaskDelegate(emailMaskView),
+                isEmailMaskFeatureEnabled = false,
+            ),
+        )
+
+        val emailMaskLogin = mockEmailMaskLogin()
+        val selectLoginRequest = createSelectLoginPrompt(emailMaskLogin)
+
+        feature.handleEmailMaskOrLoginPrompt(
+            selectLoginRequest,
+            tab()!!,
+            mapOf(LoginHint.EMAIL_MASK to listOf(emailMaskLogin)),
+        )
+
+        verify(emailMaskView, never()).showPrompt()
+        verify(feature, never()).handleDialogsRequest(any(), any())
+    }
+
+    @Test
+    fun `GIVEN isSuggestEmailMaskEnabled is false WHEN handleEmailMaskOrLoginPrompt is called THEN no prompt is shown`() {
+        val emailMaskView: EmailMaskPromptView = mock()
+        val feature = spy(
+            createPromptFeature(
+                emailMaskDelegate = mockEmailMaskDelegate(emailMaskView),
+                isSuggestEmailMaskEnabled = false,
+            ),
+        )
+
+        val emailMaskLogin = mockEmailMaskLogin()
+        val selectLoginRequest = createSelectLoginPrompt(emailMaskLogin)
+
+        feature.handleEmailMaskOrLoginPrompt(
+            selectLoginRequest,
+            tab()!!,
+            mapOf(LoginHint.EMAIL_MASK to listOf(emailMaskLogin)),
+        )
+
+        verify(emailMaskView, never()).showPrompt()
+        verify(feature, never()).handleDialogsRequest(any(), any())
+    }
+
+    @Test
+    fun `GIVEN both email mask flags are true AND no emailMaskDelegate WHEN handleEmailMaskOrLoginPrompt is called THEN handleDialogsRequest is called`() {
+        val feature = spy(createPromptFeature())
+
+        val emailMaskLogin = mockEmailMaskLogin()
+        val selectLoginRequest = createSelectLoginPrompt(emailMaskLogin)
+
+        feature.handleEmailMaskOrLoginPrompt(
+            selectLoginRequest,
+            tab()!!,
+            mapOf(LoginHint.EMAIL_MASK to listOf(emailMaskLogin)),
+        )
+
+        verify(feature).handleDialogsRequest(eq(selectLoginRequest), any())
+    }
+
+    @Test
+    fun `GIVEN both email mask flags are true AND emailMaskDelegate is set WHEN handleEmailMaskOrLoginPrompt is called THEN email mask prompt is shown`() {
+        val emailMaskView: EmailMaskPromptView = mock()
+        val feature = createPromptFeature(emailMaskDelegate = mockEmailMaskDelegate(emailMaskView))
+
+        val emailMaskLogin = mockEmailMaskLogin()
+        val selectLoginRequest = spy(createSelectLoginPrompt(emailMaskLogin))
+
+        feature.handleEmailMaskOrLoginPrompt(
+            selectLoginRequest,
+            tab()!!,
+            mapOf(LoginHint.EMAIL_MASK to listOf(emailMaskLogin)),
+        )
+
+        verify(emailMaskView).showPrompt()
+    }
+
+    private fun createPromptFeature(
+        emailMaskDelegate: EmailMaskDelegate? = null,
+        isEmailMaskFeatureEnabled: Boolean = true,
+        isSuggestEmailMaskEnabled: Boolean = true,
+    ) = PromptFeature(
+        activity = mock(),
+        store = store,
+        fragmentManager = fragmentManager,
+        tabsUseCases = mock(),
+        fileUploadsDirCleaner = mock(),
+        emailMaskDelegate = emailMaskDelegate,
+        isEmailMaskFeatureEnabled = { isEmailMaskFeatureEnabled },
+        isSuggestEmailMaskEnabled = { isSuggestEmailMaskEnabled },
+        onNeedToRequestPermissions = { },
+    )
+
+    private fun mockEmailMaskDelegate(emailMaskView: EmailMaskPromptView) =
+        object : EmailMaskDelegate {
+            override val emailMaskPromptViewListenerView = emailMaskView
+            override fun shouldShowEmailMaskCfr() = false
+            override fun onEmailMaskCfrDismissed() = Unit
+            override suspend fun onEmailMaskClick(generatedFor: String) = null
+        }
+
+    private fun mockEmailMaskLogin() = Login(
+        guid = "A",
+        origin = "https://www.mozilla.org",
+        username = "user@example.com",
+        password = "password",
+        hint = LoginHint.EMAIL_MASK,
+    )
+
+    private fun createSelectLoginPrompt(emailMaskLogin: Login): PromptRequest.SelectLoginPrompt =
+        PromptRequest.SelectLoginPrompt(
+            logins = listOf(emailMaskLogin),
+            generatedPassword = null,
+            onConfirm = {},
+            onDismiss = {},
+        )
 
     private fun mockFragmentManager(): FragmentManager {
         val fragmentManager: FragmentManager = mock()

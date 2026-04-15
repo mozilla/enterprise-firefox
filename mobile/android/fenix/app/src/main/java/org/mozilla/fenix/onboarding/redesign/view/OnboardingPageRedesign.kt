@@ -34,7 +34,7 @@ import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import mozilla.components.compose.base.button.FilledButton
-import mozilla.components.compose.base.button.TextButton
+import mozilla.components.compose.base.button.OutlinedButton
 import org.mozilla.fenix.R
 import org.mozilla.fenix.compose.ScrollIndicator
 import org.mozilla.fenix.onboarding.view.Action
@@ -50,16 +50,14 @@ val CONTENT_IMAGE_HEIGHT = 176.dp
  * A composable for displaying onboarding page content.
  *
  * @param pageState [OnboardingPageState] The page content that's displayed.
- * @param isSmallDevice Whether to apply layout optimizations for constrained screen heights.
  */
 @Composable
 fun OnboardingPageRedesign(
     pageState: OnboardingPageState,
-    isSmallDevice: Boolean = false,
 ) {
-    CardView(pageState, isSmallDevice)
+    CardView(pageState, pageState.isSmallDevice)
 
-    LaunchedEffect(pageState) {
+    LaunchedEffect(Unit) {
         pageState.onRecordImpressionEvent()
     }
 }
@@ -69,7 +67,7 @@ private fun SecondaryButton(
     title: String,
     secondaryButton: Action,
 ) {
-    TextButton(
+    OutlinedButton(
         modifier = Modifier
             .width(width = FirefoxTheme.layout.size.maxWidth.small)
             .semantics {
@@ -192,7 +190,6 @@ private fun OnboardingPageSetToDefaultPreview() {
                 ),
                 onRecordImpressionEvent = {},
             ),
-            isSmallDevice = false,
         )
     }
 }
@@ -216,7 +213,6 @@ private fun OnboardingPageSyncPreview() {
                 ),
                 onRecordImpressionEvent = {},
             ),
-            isSmallDevice = false,
         )
     }
 }
@@ -240,7 +236,6 @@ private fun OnboardingPageNotificationPreview() {
                 ),
                 onRecordImpressionEvent = {},
             ),
-            isSmallDevice = false,
         )
     }
 }
@@ -264,7 +259,6 @@ private fun OnboardingPageSearchWidgetPreview() {
                 ),
                 onRecordImpressionEvent = {},
             ),
-            isSmallDevice = false,
         )
     }
 }

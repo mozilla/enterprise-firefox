@@ -19,9 +19,12 @@ export type GetTextOptions = Partial<{
   maxCanvasDimension: number;
   // WebP quality 0-1
   canvasQuality: number;
+  // Make two attempts to extract the text content. First prefer reader mode for the
+  // content as it will remove boilerplate, but then fall back to the DOMExtractor.
+  removeBoilerplate: boolean;
+  // A test-only option for forcing this behavior.
+  _forceRemoveBoilerplate: boolean;
 }>;
-
-export type GetDOMOptions = GetTextOptions;
 
 export type CanvasSnapshot = {
   blob: Blob;
@@ -40,3 +43,62 @@ export type ExtractionResult = {
   links: string[];
   canvasSnapshots: CanvasSnapshot[];
 };
+
+export type PageMetadata = {
+  // JSON-LD types as defined by https://schema.org/Thing
+  // this is used to understand context about the content, where expected values could be things like:
+  // ["Recipe", "NewsArticle"] or ["Book"] or ["Person", "Blog", "Article"]
+  structuredDataTypes: string[];
+  // word count of all the content on the page
+  wordCount: number;
+  // lang-tag of the page
+  language: string;
+};
+
+/**
+ * Reader mode doesn't provide the types for the result. This a stub for making
+ * the results easier to interpret.
+ */
+export interface ReaderModeDocument {
+  title: string;
+  byline: null | string;
+  dir: "ltr" | "rtl";
+
+  /**
+   * The HTML content of the article
+   */
+  content: string;
+
+  /**
+   * The text content of the artice without whitespace collapsing.
+   */
+  textContent: string;
+
+  /**
+   * The text length of textContent.
+   */
+  length: number;
+
+  /**
+   * A shorter excerpt of the article.
+   */
+  excerpt: string;
+  siteName: null | string;
+  publishedTime: null | string;
+  url: string;
+
+  /**
+   * The language tag, e.g. "en".
+   */
+  detectedLanguage: string;
+
+  /**
+   * Minutes at a slower reading pace.
+   */
+  readingTimeMinsSlow: number;
+
+  /**
+   * Minutes at a faster reading pace.
+   */
+  readingTimeMinsFast: number;
+}

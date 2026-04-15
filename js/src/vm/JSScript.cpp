@@ -1036,9 +1036,9 @@ void UncompressedSourceCache::purge() {
     return;
   }
 
-  for (Map::Range r = map_->all(); !r.empty(); r.popFront()) {
-    if (holder_ && r.front().key() == holder_->sourceChunk()) {
-      holder_->deferDelete(std::move(r.front().value()));
+  for (auto iter = map_->modIter(); !iter.done(); iter.next()) {
+    if (holder_ && iter.get().key() == holder_->sourceChunk()) {
+      holder_->deferDelete(std::move(iter.get().value()));
       holder_ = nullptr;
     }
   }
@@ -1051,8 +1051,8 @@ size_t UncompressedSourceCache::sizeOfExcludingThis(
   size_t n = 0;
   if (map_ && !map_->empty()) {
     n += map_->shallowSizeOfIncludingThis(mallocSizeOf);
-    for (Map::Range r = map_->all(); !r.empty(); r.popFront()) {
-      n += mallocSizeOf(r.front().value().get());
+    for (auto iter = map_->iter(); !iter.done(); iter.next()) {
+      n += mallocSizeOf(iter.get().value().get());
     }
   }
   return n;
@@ -2424,12 +2424,11 @@ static void SweepScriptDataTable(SharedImmutableScriptDataTable& table) {
   // Entries are removed from the table when their reference count is one,
   // i.e. when the only reference to them is from the table entry.
 
-  for (SharedImmutableScriptDataTable::Enum e(table); !e.empty();
-       e.popFront()) {
-    SharedImmutableScriptData* sharedData = e.front();
+  for (auto iter = table.modIter(); !iter.done(); iter.next()) {
+    SharedImmutableScriptData* sharedData = iter.get();
     if (sharedData->refCount() == 1) {
       sharedData->Release();
-      e.removeFront();
+      iter.remove();
     }
   }
 }

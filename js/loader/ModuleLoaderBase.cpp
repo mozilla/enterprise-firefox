@@ -36,10 +36,10 @@
 using mozilla::AutoSlowOperation;
 using mozilla::CycleCollectedJSContext;
 using mozilla::Err;
+using mozilla::MakeUnique;
 using mozilla::MicroTaskRunnable;
 using mozilla::Preferences;
 using mozilla::UniquePtr;
-using mozilla::WrapNotNull;
 using mozilla::dom::AutoJSAPI;
 using mozilla::dom::ReferrerPolicy;
 
@@ -210,8 +210,19 @@ bool ModuleLoaderBase::HostLoadImportedModule(
     }
 
     MOZ_ASSERT(result.isOk());
-    nsCOMPtr<nsIURI> uri = result.unwrap();
+    auto record = result.unwrap();
+    nsCOMPtr<nsIURI> uri = record->Result();
     MOZ_ASSERT(uri, "Failed to resolve module specifier");
+
+    if (ImportMap::IsMultipleImportMapsSupported()) {
+      // This implements the 'Add module to resolved module set' part defined in
+      // 'resolve a module specifier'. This is done here because we need to
+      // process the resolved specifiers differently for preloading module
+      // scripts.
+      //
+      // See https://html.spec.whatwg.org/#resolve-a-module-specifier
+      loader->AddToResolvedModuleSet(std::move(record), script, aHostDefined);
+    }
 
     ModuleType moduleType = GetModuleRequestType(aCx, aModuleRequest);
     if (!loader->IsModuleTypeAllowed(moduleType)) {
@@ -332,10 +343,14 @@ bool ModuleLoaderBase::FinishLoadingImportedModule(
 bool ModuleLoaderBase::ImportMetaResolve(JSContext* cx, unsigned argc,
                                          Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
-  RootedValue modulePrivate(
+  RootedValue moduleValue(
       cx, js::GetFunctionNativeReserved(
               &args.callee(),
-              static_cast<size_t>(ImportMetaSlots::ModulePrivateSlot)));
+              static_cast<size_t>(ImportMetaSlots::ModuleRecordSlot)));
+  MOZ_ASSERT(!moduleValue.isUndefined());
+  RootedObject moduleRecord(cx, &moduleValue.toObject());
+  RootedValue modulePrivate(cx, GetModulePrivate(moduleRecord));
+  MOZ_ASSERT(!modulePrivate.isUndefined());
 
   // https://html.spec.whatwg.org/#hostgetimportmetaproperties
   // Step 4.1. Set specifier to ? ToString(specifier).
@@ -398,7 +413,16 @@ JSString* ModuleLoaderBase::ImportMetaResolveImpl(
       return nullptr;
     }
 
-    nsCOMPtr<nsIURI> uri = result.unwrap();
+    MOZ_ASSERT(result.isOk());
+    auto record = result.unwrap();
+
+    nsCOMPtr<nsIURI> uri = record->Result();
+    if (ImportMap::IsMultipleImportMapsSupported()) {
+      // This implements the 'Add module to resolved module set' part defined in
+      // 'resolve a module specifier'.
+      loader->AddToResolvedModuleSet(std::move(record));
+    }
+
     nsAutoCString url;
     MOZ_ALWAYS_SUCCEEDS(uri->GetAsciiSpec(url));
 
@@ -443,11 +467,15 @@ bool ModuleLoaderBase::HostPopulateImportMeta(JSContext* aCx,
   }
 
   // Store the 'active script' of the meta object into the function slot.
-  // https://html.spec.whatwg.org/#active-script
+  // See https://html.spec.whatwg.org/#active-script
+  //
+  // Note: Hold a reference to the module record which in turn keeps the
+  // ModuleScript alive when import.resolve is called.
   RootedObject resolveFuncObj(aCx, JS_GetFunctionObject(resolveFunc));
+  RootedObject moduleRecord(aCx, script->ModuleRecord());
   js::SetFunctionNativeReserved(
-      resolveFuncObj, static_cast<size_t>(ImportMetaSlots::ModulePrivateSlot),
-      aReferencingPrivate);
+      resolveFuncObj, static_cast<size_t>(ImportMetaSlots::ModuleRecordSlot),
+      JS::ObjectValue(*moduleRecord));
 
   return true;
 }
@@ -1035,8 +1063,8 @@ nsresult ModuleLoaderBase::CreateModuleScript(ModuleLoadRequest* aRequest) {
     moduleScript->SetModuleRecord(module);
   }
 
-  LOG(("ScriptLoadRequest (%p):   module script == %p", aRequest,
-       aRequest->mModuleScript.get()));
+  LOG(("ScriptLoadRequest (%p):   module script == %p ForPreload %d", aRequest,
+       aRequest->mModuleScript.get(), aRequest->mModuleScript->ForPreload()));
 
   return rv;
 }
@@ -1048,7 +1076,7 @@ nsresult ModuleLoaderBase::GetResolveFailureMessage(ResolveError aError,
   errorParams.AppendElement(aSpecifier);
 
   nsresult rv = nsContentUtils::FormatLocalizedString(
-      nsContentUtils::eDOM_PROPERTIES, ResolveErrorInfo::GetString(aError),
+      PropertiesFile::DOM_PROPERTIES, ResolveErrorInfo::GetString(aError),
       errorParams, aResult);
   NS_ENSURE_SUCCESS(rv, rv);
   return NS_OK;
@@ -1099,6 +1127,184 @@ ResolveResult ModuleLoaderBase::ResolveModuleSpecifier(
   // the Import Maps spec.
   return ImportMap::ResolveModuleSpecifier(mImportMap.get(), mLoader, aScript,
                                            aSpecifier);
+}
+
+ResolvedModuleSet* ModuleLoaderBase::GetResolvedModuleSet() {
+  MOZ_ASSERT(ImportMap::IsMultipleImportMapsSupported());
+  if (!mResolvedModuleSet) {
+    mResolvedModuleSet = MakeUnique<ResolvedModuleSet>();
+  }
+
+  return mResolvedModuleSet.get();
+}
+
+static void AddToResolvedSet(ResolvedModuleSet* aSet,
+                             UniquePtr<SpecifierResolutionRecord> aRecord) {
+  MOZ_ASSERT(ImportMap::IsMultipleImportMapsSupported());
+  auto ptr = aSet->lookupForAdd(aRecord);
+  if (ptr) {
+    return;
+  }
+
+  MOZ_ALWAYS_TRUE(aSet->add(ptr, std::move(aRecord)));
+}
+
+void ModuleLoaderBase::AddToPreloadedResolvedSet(
+    ModuleLoadRequest* aRootRequest,
+    UniquePtr<SpecifierResolutionRecord> aRecord) {
+  MOZ_ASSERT(aRootRequest);
+  MOZ_ASSERT(aRootRequest->mModuleScript);
+
+  ResolvedModuleSet* set =
+      aRootRequest->mModuleScript->GetPreloadedResolvedSet();
+  MOZ_ASSERT(set);
+  AddToResolvedSet(set, std::move(aRecord));
+}
+
+void ModuleLoaderBase::AddToGlobalResolvedSet(
+    UniquePtr<SpecifierResolutionRecord> aRecord) {
+  AddToResolvedSet(GetResolvedModuleSet(), std::move(aRecord));
+}
+
+static ModuleLoadRequest* GetPreloadRootModuleRequest(
+    JS::Handle<JS::Value> aHostDefined) {
+  MOZ_ASSERT(!aHostDefined.isUndefined());
+  ModuleLoadRequest* parent =
+      static_cast<ModuleLoadRequest*>(aHostDefined.toPrivate());
+  MOZ_ASSERT(parent);
+  return parent->GetRootModule();
+}
+
+void ModuleLoaderBase::AddToResolvedModuleSet(
+    UniquePtr<SpecifierResolutionRecord> aRecord, LoadedScript* aScript,
+    Handle<Value> aHostDefined) {
+  // 2. If global does not implement Window, then return.
+  if (!mLoader->IsImportMapSupported()) {
+    return;
+  }
+
+  bool isPreloadModule = aScript && aScript->IsModuleScript() &&
+                         aScript->AsModuleScript()->ForPreload();
+  if (isPreloadModule) {
+    RefPtr<ModuleLoadRequest> root = GetPreloadRootModuleRequest(aHostDefined);
+    AddToPreloadedResolvedSet(root, std::move(aRecord));
+    return;
+  }
+
+  // release the mResult from the record as it is not needed.
+  nsCOMPtr<nsIURI> _ = aRecord->TakeResult();
+  AddToGlobalResolvedSet(std::move(aRecord));
+}
+
+// This just flip the preload flag in the module script and ModuleObject.
+void ModuleLoaderBase::ResetPreloadFlag(nsIURI* aURI) {
+  MOZ_ASSERT(aURI);
+  ModuleMapKey key(aURI, ModuleType::JavaScript);
+  if (!IsModuleFetched(key)) {
+    return;
+  }
+
+  RefPtr<ModuleScript> ms;
+  MOZ_ALWAYS_TRUE(mFetchedModules.Get(key, getter_AddRefs(ms)));
+
+  // This function is called from a preloaded module graph, but it may have a
+  // module script from another preloaded module graph which has been turned
+  // into a normal load, so we don't assert the module script is a preloaded
+  // one.
+  ms->SetForPreload(false);
+}
+
+// This is called when a preloaded module request is reused, so we need to move
+// the resolved set into the global's set.
+// Also, we need to flip the preload flag in the module script.
+void ModuleLoaderBase::MovePreloadedSetToResolvedSet(
+    ModuleLoadRequest* aRootRequest) {
+  LOG(("ScriptLoadRequest (%p): MovePreloadedSetToResolvedSet", aRootRequest));
+  MOZ_ASSERT(ImportMap::IsMultipleImportMapsSupported());
+  MOZ_ASSERT(aRootRequest);
+
+  // ScriptLoader has flipped the preload flag to false.
+  MOZ_ASSERT(!aRootRequest->mLoadContext->IsPreload());
+
+  ModuleScript* ms = aRootRequest->mModuleScript;
+  if (!ms) {
+    return;
+  }
+
+  ms->SetForPreload(false);
+  if (!ms->HasPreloadedResolvedSet()) {
+    return;
+  }
+
+  ResolvedModuleSet* set = ms->GetPreloadedResolvedSet();
+  for (auto iter = set->modIter(); !iter.done(); iter.next()) {
+    auto record = std::move(iter.getMutable());
+    nsCOMPtr<nsIURI> uri = record->TakeResult();
+    ResetPreloadFlag(uri);
+    AddToGlobalResolvedSet(std::move(record));
+  }
+
+  set->clear();
+  ms->ReleasePreloadedResolvedSet();
+}
+
+// If the module script is preloaded, reset the [[LoadedModules]]
+//
+void ModuleLoaderBase::ResetPreloadedModule(nsIURI* aURI) {
+  MOZ_ASSERT(aURI);
+  ModuleMapKey key(aURI, ModuleType::JavaScript);
+  if (!IsModuleFetched(key)) {
+    return;
+  }
+
+  RefPtr<ModuleScript> ms;
+  MOZ_ALWAYS_TRUE(mFetchedModules.Get(key, getter_AddRefs(ms)));
+  if (!ms->ForPreload()) {
+    return;
+  }
+
+  LOG(
+      ("ModuleLoaderBase::ResetPreloadedModule: module script (%p) reset "
+       "preloaded info",
+       ms.get()));
+  ms->ResetPreload();
+}
+
+// This is called before registering an import map, so we clear the remaing
+// mPreloads from the ScriptLoader
+void ModuleLoaderBase::ClearPreloadedModuleGraph(
+    ModuleLoadRequest* aRootRequest) {
+  MOZ_ASSERT(ImportMap::IsMultipleImportMapsSupported());
+  MOZ_ASSERT(aRootRequest);
+  MOZ_ASSERT(aRootRequest->mLoadContext->IsPreload());
+  LOG(("ScriptLoadRequest (%p): ClearPreloadedModuleGraph", aRootRequest));
+
+  ModuleScript* ms = aRootRequest->mModuleScript;
+  if (!ms) {
+    return;
+  }
+
+  // If the preloaded request has a module script which has been used previously
+  // in another preloaed module graph, which has been reused and is a normal
+  // load now, we don't need to reset its data anymore.
+  if (!ms->ForPreload()) {
+    return;
+  }
+
+  ms->ResetPreload();
+
+  if (!ms->HasPreloadedResolvedSet()) {
+    return;
+  }
+
+  ResolvedModuleSet* set = ms->GetPreloadedResolvedSet();
+  for (auto iter = set->iter(); !iter.done(); iter.next()) {
+    nsCOMPtr<nsIURI> uri = iter.get()->TakeResult();
+    MOZ_ASSERT(uri);
+    ResetPreloadedModule(uri);
+  }
+  set->clear();
+  ms->ReleasePreloadedResolvedSet();
 }
 
 void ModuleLoaderBase::StartFetchingModuleDependencies(
@@ -1624,62 +1830,74 @@ UniquePtr<ImportMap> ModuleLoaderBase::ParseImportMap(
   return ImportMap::ParseString(jsapi.cx(), text, aRequest->BaseURL(), warning);
 }
 
-void ModuleLoaderBase::RegisterImportMap(UniquePtr<ImportMap> aImportMap) {
+void ModuleLoaderBase::RegisterImportMap(UniquePtr<ImportMap> aImportMap,
+                                         ScriptLoadRequest* aRequest) {
+  LOG(("RegisterImportMap"));
+
   // Check for aImportMap is done in ScriptLoader.
   MOZ_ASSERT(aImportMap);
 
   // https://html.spec.whatwg.org/multipage/webappapis.html#register-an-import-map
   // The step 1(report the exception if there's an error) is done in
   // ParseImportMap.
-  //
-  // Step 2. Assert: global's import map is an empty import map.
-  // Impl note: The default import map from the spec is an empty import map, but
-  // from the implementation it defaults to nullptr, so we check if the global's
-  // import map is null here.
-  //
-  // Also see
-  // https://html.spec.whatwg.org/multipage/webappapis.html#empty-import-map
-  MOZ_ASSERT(!mImportMap);
 
-  // Step 3. Set global's import map to result's import map.
-  mImportMap = std::move(aImportMap);
+  bool multiImportMapsEnabled = ImportMap::IsMultipleImportMapsSupported();
+  if (!multiImportMapsEnabled) {
+    MOZ_ASSERT(!mImportMap);
+    mImportMap = std::move(aImportMap);
+  } else {
+    ReportWarningHelper warning{mLoader, aRequest};
 
-  // Any import resolution has been invalidated by the addition of the import
-  // map. If speculative preloading is currently fetching any modules then
+    // Step 2. Merge existing and new import maps, given global and result's
+    //         import map.
+    ImportMap::Merge(this, std::move(aImportMap), warning);
+    MOZ_ASSERT(mImportMap);
+  }
+
+  // If speculative preloading is currently fetching any modules then
   // cancel their requests and remove them from the map.
   //
   // The cancelled requests will still complete later so we have to check this
   // in SetModuleFetchFinishedAndGetWaitingRequests.
-  for (const auto& entry : mFetchingModules) {
-    LoadingRequest* loadingRequest = entry.GetData();
-    MOZ_DIAGNOSTIC_ASSERT(loadingRequest->mRequest->mLoadContext->IsPreload());
+  mFetchingModules.RemoveIf([](auto& iter) {
+    LoadingRequest* loadingRequest = iter.Data();
+    bool isPreload = loadingRequest->mRequest->mLoadContext->IsPreload();
+    if (!isPreload) {
+      return false;
+    }
+
     loadingRequest->mRequest->Cancel();
     for (const auto& request : loadingRequest->mWaiting) {
       MOZ_DIAGNOSTIC_ASSERT(request->mLoadContext->IsPreload());
       request->Cancel();
     }
-  }
-  mFetchingModules.Clear();
+    return true;
+  });
 
-  // If speculative preloading has added modules to the module map, remove
-  // them.
-  for (const auto& entry : mFetchedModules) {
-    ModuleScript* script = entry.GetData();
-    if (script) {
-      MOZ_DIAGNOSTIC_ASSERT(
-          script->ForPreload(),
-          "Non-preload module loads should block import maps");
-      MOZ_DIAGNOSTIC_ASSERT(!script->HadImportMap(),
-                            "Only one import map can be registered");
+  // When the pref of multiple import maps is enabled, for preloaded and fetched
+  // module scripts, the module graphs have been cleared in
+  // ClearPreloadedModuleGraph.
+  if (!multiImportMapsEnabled) {
+    // If speculative preloading has added modules to the module map, remove
+    // them.
+    for (const auto& entry : mFetchedModules) {
+      ModuleScript* script = entry.GetData();
+      if (script) {
+        MOZ_DIAGNOSTIC_ASSERT(
+            script->ForPreload(),
+            "Non-preload module loads should block import maps");
+        MOZ_DIAGNOSTIC_ASSERT(!script->HadImportMap(),
+                              "Only one import map can be registered");
 #if defined(MOZ_DIAGNOSTIC_ASSERT_ENABLED)
-      if (JSObject* module = script->ModuleRecord()) {
-        MOZ_DIAGNOSTIC_ASSERT(!ModuleIsLinked(module));
-      }
+        if (JSObject* module = script->ModuleRecord()) {
+          MOZ_DIAGNOSTIC_ASSERT(!ModuleIsLinked(module));
+        }
 #endif
-      script->Shutdown();
+        script->Shutdown();
+      }
     }
+    mFetchedModules.Clear();
   }
-  mFetchedModules.Clear();
 }
 
 void ModuleLoaderBase::CopyModulesTo(ModuleLoaderBase* aDest) {
@@ -1689,9 +1907,9 @@ void ModuleLoaderBase::CopyModulesTo(ModuleLoaderBase* aDest) {
 
   for (const auto& entry : mFetchedModules) {
     RefPtr<ModuleScript> moduleScript = entry.GetData();
-    if (!moduleScript) {
-      continue;
-    }
+
+    // NOTE: moduleScript can be nullptr for modules that fails to import.
+    //       Copy them too, so that we don't import them again.
     aDest->mFetchedModules.InsertOrUpdate(entry, moduleScript);
   }
 }
@@ -1702,9 +1920,6 @@ void ModuleLoaderBase::MoveModulesTo(ModuleLoaderBase* aDest) {
 
   for (const auto& entry : mFetchedModules) {
     RefPtr<ModuleScript> moduleScript = entry.GetData();
-    if (!moduleScript) {
-      continue;
-    }
 
 #ifdef DEBUG
     if (auto existingEntry = aDest->mFetchedModules.Lookup(entry)) {

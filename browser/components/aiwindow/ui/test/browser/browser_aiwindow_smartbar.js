@@ -10,14 +10,6 @@
 
 "use strict";
 
-const lazy = {};
-ChromeUtils.defineESModuleGetters(lazy, {
-  IntentClassifier:
-    "moz-src:///browser/components/aiwindow/models/IntentClassifier.sys.mjs",
-});
-
-let gIntentEngineStub;
-
 add_setup(async function () {
   // Prevent network requests for remote search suggestions during testing.
   await SpecialPowers.pushPrefEnv({
@@ -27,23 +19,6 @@ add_setup(async function () {
     ],
   });
 });
-
-/**
- * Submit the smartbar by pressing Enter.
- *
- * @param {MozBrowser} browser - The browser element
- */
-async function submitSmartbar(browser) {
-  await SpecialPowers.spawn(browser, [], async () => {
-    const aiWindowElement = content.document.querySelector("ai-window");
-    const smartbar = aiWindowElement.shadowRoot.querySelector(
-      "#ai-window-smartbar"
-    );
-    const inputField = smartbar.inputField;
-    inputField.focus();
-    EventUtils.synthesizeKey("KEY_Enter", {}, content);
-  });
-}
 
 /**
  * Dispatch a `smartbar-commit` event.
@@ -86,7 +61,6 @@ add_setup(async function () {
         formattedPrompt.includes(keyword)
       );
 
-      // Simulate model confidence scores
       if (isSearch) {
         return [
           { label: "search", score: 0.95 },
@@ -100,12 +74,7 @@ add_setup(async function () {
     },
   };
 
-  gIntentEngineStub = sinon
-    .stub(lazy.IntentClassifier, "_createEngine")
-    .resolves(fakeIntentEngine);
-  registerCleanupFunction(() => {
-    sinon.restore();
-  });
+  gIntentEngineStub.resolves(fakeIntentEngine);
 });
 
 add_task(async function test_smartbar_submit_chat() {
@@ -120,7 +89,6 @@ add_task(async function test_smartbar_submit_chat() {
     const win = await openAIWindow();
     const browser = win.gBrowser.selectedBrowser;
 
-    await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
     await dispatchSmartbarCommit(browser, "Test prompt", "chat");
     await TestUtils.waitForTick();
 
@@ -129,7 +97,7 @@ add_task(async function test_smartbar_submit_chat() {
       "Should call fetchWithHistory once"
     );
 
-    const conversation = fetchWithHistoryStub.firstCall.args[0];
+    const conversation = fetchWithHistoryStub.firstCall.args[0].conversation;
     const messages = conversation.getMessagesInOpenAiFormat();
     const userMessage = messages.findLast(message => message.role === "user");
 
@@ -152,8 +120,6 @@ add_task(async function test_smartbar_action_navigate() {
     const fetchWithHistoryStub = sb.stub(this.Chat, "fetchWithHistory");
     const win = await openAIWindow();
     const browser = win.gBrowser.selectedBrowser;
-
-    await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
 
     const loaded = BrowserTestUtils.browserLoaded(
       browser,
@@ -194,8 +160,6 @@ add_task(async function test_smartbar_explicit_navigate_action() {
   const win = await openAIWindow();
   const browser = win.gBrowser.selectedBrowser;
 
-  await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
-
   const testURL = "https://example.org/";
   const loaded = BrowserTestUtils.browserLoaded(browser, false, testURL);
   await SpecialPowers.spawn(browser, [testURL], async url => {
@@ -223,8 +187,6 @@ add_task(async function test_smartbar_explicit_navigate_action() {
 add_task(async function test_smartbar_explicit_search_action() {
   const win = await openAIWindow();
   const browser = win.gBrowser.selectedBrowser;
-
-  await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
 
   const searchQuery = "Test";
   const searchResult = await SpecialPowers.spawn(
@@ -279,7 +241,6 @@ add_task(async function test_smartbar_empty_submit() {
     const win = await openAIWindow();
     const browser = win.gBrowser.selectedBrowser;
 
-    await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
     await dispatchSmartbarCommit(browser, "", "chat");
 
     Assert.ok(
@@ -296,8 +257,6 @@ add_task(async function test_smartbar_empty_submit() {
 add_task(async function test_smartbar_cta_default_search_engine_label() {
   const win = await openAIWindow();
   const browser = win.gBrowser.selectedBrowser;
-
-  await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
 
   const defaultSearchEngineInfo = await SpecialPowers.spawn(
     browser,
@@ -347,8 +306,6 @@ add_task(async function test_smartbar_cta_intent() {
   const win = await openAIWindow();
   const browser = win.gBrowser.selectedBrowser;
 
-  await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
-
   await SpecialPowers.spawn(browser, [], async () => {
     const aiWindowElement = content.document.querySelector("ai-window");
     const smartbar = aiWindowElement.shadowRoot.querySelector(
@@ -390,7 +347,6 @@ add_task(
     const win = await openAIWindow();
     const browser = win.gBrowser.selectedBrowser;
 
-    await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
     await promiseSmartbarSuggestionsOpen(browser, () =>
       typeInSmartbar(browser, "test")
     );
@@ -473,7 +429,6 @@ add_task(async function test_smartbar_runs_search_for_initial_prompt() {
 
     const win = await openAIWindow();
     const browser = win.gBrowser.selectedBrowser;
-    await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
     const aiWindowElement =
       browser.contentWindow.document.querySelector("ai-window");
     const smartbar = aiWindowElement.shadowRoot.querySelector(
@@ -505,7 +460,6 @@ add_task(async function test_smartbar_suppresses_search_for_followup_prompts() {
 
     const win = await openAIWindow();
     const browser = win.gBrowser.selectedBrowser;
-    await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
 
     const prompt = "Follow-up prompt";
     await typeInSmartbar(browser, prompt);
@@ -552,7 +506,7 @@ add_task(async function test_smartbar_can_submit_followup_prompts() {
     await typeInSmartbar(browser, followupPrompt);
     await submitSmartbar(browser);
 
-    const conversation = fetchWithHistoryStub.firstCall.args[0];
+    const conversation = fetchWithHistoryStub.firstCall.args[0].conversation;
     const messages = conversation.getMessagesInOpenAiFormat();
     const initialUserMessage = messages.find(
       message => message.content === intialPrompt
@@ -730,3 +684,116 @@ add_task(async function test_smartbar_click_on_suggestion_navigates() {
     sb.restore();
   }
 });
+
+add_task(async function test_smartbar_max_length_is_set() {
+  const win = await openAIWindow();
+  const browser = win.gBrowser.selectedBrowser;
+
+  const maxLength = await SpecialPowers.spawn(browser, [], async () => {
+    const aiWindowElement = content.document.querySelector("ai-window");
+    await ContentTaskUtils.waitForMutationCondition(
+      aiWindowElement.shadowRoot,
+      { childList: true, subtree: true },
+      () => aiWindowElement.shadowRoot?.querySelector("#ai-window-smartbar")
+    );
+    const smartbar = aiWindowElement.shadowRoot.querySelector(
+      "#ai-window-smartbar"
+    );
+    const editor = smartbar.querySelector("moz-multiline-editor");
+    await ContentTaskUtils.waitForMutationCondition(
+      editor,
+      { attributes: true },
+      () => editor.maxLength > 0
+    );
+
+    return editor.maxLength;
+  });
+
+  // 32k is the MAX_INPUT_LENGTH from SmartbarInput.mjs
+  Assert.equal(
+    maxLength,
+    32000,
+    "Smartbar editor should have maxLength set to 32000"
+  );
+
+  await BrowserTestUtils.closeWindow(win);
+});
+
+add_task(
+  async function test_smartbar_suggestions_suppressed_on_typing_when_chat_active() {
+    const sb = this.sinon.createSandbox();
+
+    try {
+      sb.stub(this.Chat, "fetchWithHistory");
+      sb.stub(this.openAIEngine, "build").resolves({
+        loadPrompt: () => Promise.resolve("Mock system prompt"),
+      });
+
+      const win = await openAIWindow();
+      const browser = win.gBrowser.selectedBrowser;
+
+      await dispatchSmartbarCommit(browser, "initial prompt", "chat");
+      await TestUtils.waitForTick();
+
+      await typeInSmartbar(browser, "follow up");
+
+      const viewIsOpen = await SpecialPowers.spawn(browser, [], async () => {
+        const aiWindowElement = content.document.querySelector("ai-window");
+        const smartbar = aiWindowElement.shadowRoot.querySelector(
+          "#ai-window-smartbar"
+        );
+        return smartbar.view.isOpen;
+      });
+
+      Assert.ok(
+        !viewIsOpen,
+        "Suggestions view should not open when chat is active"
+      );
+
+      await BrowserTestUtils.closeWindow(win);
+    } finally {
+      sb.restore();
+    }
+  }
+);
+
+add_task(
+  async function test_smartbar_suggestions_suppressed_on_focus_when_chat_active() {
+    const sb = this.sinon.createSandbox();
+
+    try {
+      sb.stub(this.Chat, "fetchWithHistory");
+      sb.stub(this.openAIEngine, "build").resolves({
+        loadPrompt: () => Promise.resolve("Mock system prompt"),
+      });
+
+      const win = await openAIWindow();
+      const browser = win.gBrowser.selectedBrowser;
+
+      await dispatchSmartbarCommit(browser, "initial prompt", "chat");
+      await TestUtils.waitForTick();
+
+      const viewIsOpen = await SpecialPowers.spawn(browser, [], async () => {
+        const aiWindowElement = content.document.querySelector("ai-window");
+        const smartbar = aiWindowElement.shadowRoot.querySelector(
+          "#ai-window-smartbar"
+        );
+        smartbar.inputField.blur();
+        smartbar.dispatchEvent(
+          new content.MouseEvent("mousedown", { bubbles: true })
+        );
+        smartbar.inputField.focus();
+        return smartbar.view.isOpen;
+      });
+
+      Assert.ok(
+        !viewIsOpen,
+        "Suggestions view should not open on focus when chat is active"
+      );
+
+      await BrowserTestUtils.closeWindow(win);
+    } finally {
+      sb.restore();
+    }
+  }
+);

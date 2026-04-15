@@ -7,9 +7,10 @@
 #ifndef mozilla_BounceTrackingRecord_h
 #define mozilla_BounceTrackingRecord_h
 
+#include "nsIBounceTrackingRecord.h"
+#include "mozilla/RefPtr.h"
 #include "nsStringFwd.h"
 #include "nsTHashSet.h"
-#include "mozilla/Maybe.h"
 #include "fmt/format.h"
 
 namespace mozilla {
@@ -19,9 +20,14 @@ class CanonicalBrowsingContext;
 }
 
 // Stores per-tab data relevant to bounce tracking protection for every extended
-// navigation.
-class BounceTrackingRecord final {
+// navigation. Also implements nsIBounceTrackingRecord for XPCOM exposure.
+class BounceTrackingRecord final : public nsIBounceTrackingRecord {
  public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIBOUNCETRACKINGRECORD
+
+  BounceTrackingRecord() = default;
+
   void SetInitialHost(const nsACString& aHost);
 
   const nsACString& GetInitialHost() const;
@@ -43,6 +49,8 @@ class BounceTrackingRecord final {
   const nsTHashSet<nsCStringHashKey>& GetUserActivationHosts() const;
 
  private:
+  ~BounceTrackingRecord();
+
   // A site's host. The initiator site of the current extended navigation.
   nsAutoCString mInitialHost;
 
@@ -89,9 +97,9 @@ struct fmt::formatter<mozilla::BounceTrackingRecord>
 };
 
 template <>
-struct fmt::formatter<mozilla::Maybe<mozilla::BounceTrackingRecord>>
+struct fmt::formatter<RefPtr<mozilla::BounceTrackingRecord>>
     : fmt::formatter<std::string_view> {
-  auto format(const mozilla::Maybe<mozilla::BounceTrackingRecord>& aRec,
+  auto format(const RefPtr<mozilla::BounceTrackingRecord>& aRec,
               fmt::format_context& aCtx) const {
     if (aRec) {
       return fmt::formatter<mozilla::BounceTrackingRecord>{}.format(*aRec,

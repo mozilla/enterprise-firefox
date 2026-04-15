@@ -14,6 +14,7 @@ import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 const CONTAINER_ACTION_TYPES = {
   HIDE_ALL: "hide_all",
   CHANGE_SIZE_ALL: "change_size_all",
+  FEEDBACK: "feedback",
 };
 
 const PREF_WIDGETS_LISTS_ENABLED = "widgets.lists.enabled";
@@ -24,6 +25,10 @@ const PREF_WIDGETS_SYSTEM_WEATHER_FORECAST_ENABLED =
   "widgets.system.weatherForecast.enabled";
 const PREF_WIDGETS_MAXIMIZED = "widgets.maximized";
 const PREF_WIDGETS_SYSTEM_MAXIMIZED = "widgets.system.maximized";
+const PREF_WIDGETS_FEEDBACK_ENABLED = "widgets.feedback.enabled";
+const PREF_WIDGETS_HIDE_ALL_TOAST_ENABLED = "widgets.hideAllToast.enabled";
+const WIDGETS_FEEDBACK_URL =
+  "https://connect.mozilla.org/t5/discussions/feedback-welcome-for-new-tab-widgets-now-available-via-firefox/td-p/108354";
 
 // resets timer to default values (exported for testing)
 // In practice, this logic runs inside a useEffect when
@@ -77,6 +82,14 @@ function Widgets() {
     prefs.trainhopConfig?.widgets?.weatherForecastEnabled;
   const nimbusMaximizedTrainhopEnabled =
     prefs.trainhopConfig?.widgets?.maximized;
+  const feedbackEnabled =
+    prefs.trainhopConfig?.widgets?.feedbackEnabled ||
+    prefs[PREF_WIDGETS_FEEDBACK_ENABLED];
+  const hideAllToastEnabled =
+    prefs.trainhopConfig?.widgets?.hideAllToastEnabled ||
+    prefs[PREF_WIDGETS_HIDE_ALL_TOAST_ENABLED];
+  const feedbackUrl =
+    prefs.trainhopConfig?.widgets?.feedbackUrl ?? WIDGETS_FEEDBACK_URL;
 
   const listsEnabled =
     (nimbusListsTrainhopEnabled ||
@@ -100,10 +113,7 @@ function Widgets() {
     nimbusWeatherForecastTrainhopEnabled ||
     prefs[PREF_WIDGETS_SYSTEM_WEATHER_FORECAST_ENABLED];
 
-  const nimbusWeatherDisplay = prefs.trainhopConfig?.weather?.display;
-  const showDetailedView =
-    nimbusWeatherDisplay === "detailed" ||
-    prefs["weather.display"] === "detailed";
+  const showDetailedView = prefs["weather.display"] === "detailed";
 
   // Check if weather is enabled (browser.newtabpage.activity-stream.showWeather)
   const { showWeather } = prefs;
@@ -204,6 +214,18 @@ function Widgets() {
           })
         );
       }
+
+      if (hideAllToastEnabled) {
+        dispatch(
+          ac.OnlyToOneContent(
+            {
+              type: at.SHOW_TOAST_MESSAGE,
+              data: { toastId: "hideWidgetsToast", showNotifications: true },
+            },
+            "ActivityStream:Content"
+          )
+        );
+      }
     });
   }
 
@@ -254,6 +276,27 @@ function Widgets() {
       e.preventDefault();
       toggleMaximize();
     }
+  }
+
+  function handleFeedbackClick(e) {
+    e.preventDefault();
+    batch(() => {
+      dispatch(
+        ac.OnlyToMain({
+          type: at.OPEN_LINK,
+          data: { url: feedbackUrl },
+        })
+      );
+      dispatch(
+        ac.OnlyToMain({
+          type: at.WIDGETS_CONTAINER_ACTION,
+          data: {
+            action_type: CONTAINER_ACTION_TYPES.FEEDBACK,
+            widget_size: widgetSize,
+          },
+        })
+      );
+    });
   }
 
   function handleUserInteraction(widgetName) {
@@ -337,6 +380,14 @@ function Widgets() {
             />
           )}
         </div>
+        {feedbackEnabled && (
+          <a
+            className="widgets-feedback-link"
+            href={feedbackUrl}
+            data-l10n-id="newtab-widget-section-feedback"
+            onClick={handleFeedbackClick}
+          />
+        )}
       </div>
     </div>
   );

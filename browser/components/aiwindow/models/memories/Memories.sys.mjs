@@ -17,7 +17,7 @@
  * 3. `existingMemoriesList`: an array of existing memory summary strings to deduplicate against
  *
  * Example Usage:
- * const engine = await openAIEngine.build(MODEL_FEATURES.MEMORIES, DEFAULT_ENGINE_ID, SERVICE_TYPES.MEMORIES);
+ * const engine = await openAIEngine.build(MODEL_FEATURES.MEMORIES, DEFAULT_ENGINE_ID, SERVICE_TYPES.MEMORIES, PURPOSES.MEMORY_GENERATION);
  * const sources = {history: [domainItems, titleItems, searchItems]};
  * const existingMemoriesList = [...]; // Array of existing memory summary strings; this should be fetched from memory storage
  * const newMemories = await generateMemories(engine, sources, existingMemoriesList);
@@ -33,6 +33,7 @@ import {
   CATEGORIES_LIST,
   INTENTS,
   INTENTS_LIST,
+  MAX_MEMORY_SUMMARY_LENGTH,
 } from "./MemoriesConstants.sys.mjs";
 
 import {
@@ -205,6 +206,17 @@ export async function renderRecentConversationForPrompt(conversationMessages) {
 function sanitizeMemory(memory) {
   // Shortcut to return nothing if memory is bad
   if (!memory || typeof memory !== "object") {
+    return null;
+  }
+
+  // Check for maximum memory summary length
+  if (
+    memory.memory_summary &&
+    memory.memory_summary.length > MAX_MEMORY_SUMMARY_LENGTH
+  ) {
+    console.warn(
+      `Memory rejected: memory_summary exceeds max length of ${MAX_MEMORY_SUMMARY_LENGTH}: "${memory.memory_summary}"`
+    );
     return null;
   }
 

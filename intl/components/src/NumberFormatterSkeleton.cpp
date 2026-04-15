@@ -10,25 +10,44 @@
 
 #include <algorithm>
 #include <limits>
+#include <string>
+#include <tuple>
+#include <utility>
 
+#include "unicode/unumberformatter.h"
 #include "unicode/unumberrangeformatter.h"
+#include "unicode/utypes.h"
 
 namespace mozilla::intl {
 
 NumberFormatterSkeleton::NumberFormatterSkeleton(
     const NumberFormatOptions& options) {
-  if (options.mCurrency.isSome()) {
-    if (!currency(options.mCurrency->first) ||
-        !currencyDisplay(options.mCurrency->second)) {
-      return;
+  switch (options.mStyle) {
+    case NumberFormatOptions::Style::Decimal:
+      break;
+    case NumberFormatOptions::Style::Percent: {
+      if (!percent()) {
+        return;
+      }
+      break;
     }
-  } else if (options.mUnit.isSome()) {
-    if (!unit(options.mUnit->first) || !unitDisplay(options.mUnit->second)) {
-      return;
+    case NumberFormatOptions::Style::Currency: {
+      MOZ_ASSERT(options.mCurrency);
+
+      if (!currency(std::get<std::string_view>(*options.mCurrency)) ||
+          !currencyDisplay(std::get<NumberFormatOptions::CurrencyDisplay>(
+              *options.mCurrency))) {
+        return;
+      }
+      break;
     }
-  } else if (options.mPercent) {
-    if (!percent()) {
-      return;
+    case NumberFormatOptions::Style::Unit: {
+      MOZ_ASSERT(options.mUnit);
+
+      if (!unit(options.mUnit->first) || !unitDisplay(options.mUnit->second)) {
+        return;
+      }
+      break;
     }
   }
 
@@ -84,8 +103,16 @@ NumberFormatterSkeleton::NumberFormatterSkeleton(
     return;
   }
 
-  if (!signDisplay(options.mSignDisplay)) {
-    return;
+  if (options.mStyle == NumberFormatOptions::Style::Currency &&
+      std::get<NumberFormatOptions::CurrencySign>(*options.mCurrency) ==
+          NumberFormatOptions::CurrencySign::Accounting) {
+    if (!accountingSignDisplay(options.mSignDisplay)) {
+      return;
+    }
+  } else {
+    if (!signDisplay(options.mSignDisplay)) {
+      return;
+    }
   }
 
   if (!roundingMode(options.mRoundingMode)) {
@@ -295,13 +322,23 @@ bool NumberFormatterSkeleton::signDisplay(
       return appendToken(u"sign-except-zero");
     case NumberFormatOptions::SignDisplay::Negative:
       return appendToken(u"sign-negative");
-    case NumberFormatOptions::SignDisplay::Accounting:
+  }
+  MOZ_ASSERT_UNREACHABLE("unexpected sign display type");
+  return false;
+}
+
+bool NumberFormatterSkeleton::accountingSignDisplay(
+    NumberFormatOptions::SignDisplay display) {
+  switch (display) {
+    case NumberFormatOptions::SignDisplay::Auto:
       return appendToken(u"sign-accounting");
-    case NumberFormatOptions::SignDisplay::AccountingAlways:
+    case NumberFormatOptions::SignDisplay::Always:
       return appendToken(u"sign-accounting-always");
-    case NumberFormatOptions::SignDisplay::AccountingExceptZero:
+    case NumberFormatOptions::SignDisplay::Never:
+      return appendToken(u"sign-never");
+    case NumberFormatOptions::SignDisplay::ExceptZero:
       return appendToken(u"sign-accounting-except-zero");
-    case NumberFormatOptions::SignDisplay::AccountingNegative:
+    case NumberFormatOptions::SignDisplay::Negative:
       return appendToken(u"sign-accounting-negative");
   }
   MOZ_ASSERT_UNREACHABLE("unexpected sign display type");

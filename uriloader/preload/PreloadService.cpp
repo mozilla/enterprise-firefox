@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -186,7 +185,8 @@ PreloadService::PreloadOrCoalesceResult PreloadService::PreloadOrCoalesce(
     const nsAString& aIntegrity, const nsAString& aCORS,
     const nsAString& aReferrerPolicy, const nsAString& aFetchPriority,
     bool aFromHeader, uint64_t aEarlyHintPreloaderId) {
-  if (!aURI) {
+  if (!aURI &&
+      !(aPolicyType == nsIContentPolicy::TYPE_IMAGE && !aSrcset.IsEmpty())) {
     MOZ_ASSERT_UNREACHABLE("Should not pass null nsIURI");
     return {nullptr, false};
   }

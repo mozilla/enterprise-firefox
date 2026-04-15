@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1109,7 +1107,8 @@ class CDMStorageTest {
     SchedulerGroup::Dispatch(task.forget());
   }
 
-  void SessionMessage(const nsACString& aSessionId, uint32_t aMessageType,
+  void SessionMessage(const nsACString& aSessionId,
+                      cdm::MessageType aMessageType,
                       const nsTArray<uint8_t>& aMessage) {
     MonitorAutoLock mon(mMonitor);
 
@@ -1162,14 +1161,15 @@ class CDMStorageTest {
                                    bool aSuccessful) override {}
 
     void ResolvePromiseWithKeyStatus(uint32_t aPromiseId,
-                                     uint32_t aKeyStatus) override {}
+                                     cdm::KeyStatus aKeyStatus) override {}
 
     void ResolvePromise(uint32_t aPromiseId) override {}
 
     void RejectPromise(uint32_t aPromiseId, ErrorResult&& aError,
                        const nsCString& aErrorMessage) override {}
 
-    void SessionMessage(const nsACString& aSessionId, uint32_t aMessageType,
+    void SessionMessage(const nsACString& aSessionId,
+                        cdm::MessageType aMessageType,
                         nsTArray<uint8_t>&& aMessage) override {
       mRunner->SessionMessage(aSessionId, aMessageType, std::move(aMessage));
     }

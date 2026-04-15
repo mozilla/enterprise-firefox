@@ -56,10 +56,6 @@ const { AppUiTestDelegate, AppUiTestInternals } = ChromeUtils.importESModule(
   "resource://testing-common/AppUiTestDelegate.sys.mjs"
 );
 
-const { Preferences } = ChromeUtils.importESModule(
-  "resource://gre/modules/Preferences.sys.mjs"
-);
-
 ChromeUtils.defineESModuleGetters(this, {
   Management: "resource://gre/modules/Extension.sys.mjs",
 });
@@ -194,9 +190,9 @@ async function promiseBrowserContentUnloaded(browser) {
     });
   });
 
-  await ContentTask.spawn(
+  await SpecialPowers.spawn(
     browser,
-    MSG_WINDOW_DESTROYED,
+    [MSG_WINDOW_DESTROYED],
     MSG_WINDOW_DESTROYED => {
       let innerWindowId = this.content.windowGlobalChild.innerWindowId;
       let observer = subject => {
@@ -860,15 +856,6 @@ function closePageAction(extension, win = window) {
   return AppUiTestDelegate.closePageAction(win, extension.id);
 }
 
-function promisePrefChangeObserved(pref) {
-  return new Promise(resolve =>
-    Preferences.observe(pref, function prefObserver() {
-      Preferences.ignore(pref, prefObserver);
-      resolve();
-    })
-  );
-}
-
 function promiseWindowRestored(window) {
   return new Promise(resolve =>
     window.addEventListener("SSWindowRestored", resolve, { once: true })
@@ -1135,10 +1122,10 @@ function isRectContained(actualRect, maxRect) {
 }
 
 function getToolboxBackgroundColor() {
-  let toolbox = document.getElementById("navigator-toolbox");
+  let body = document.body;
   // Ignore any potentially ongoing transition.
-  toolbox.style.transitionProperty = "none";
-  let color = window.getComputedStyle(toolbox).backgroundColor;
-  toolbox.style.transitionProperty = "";
+  body.style.transitionProperty = "none";
+  let color = window.getComputedStyle(body).backgroundColor;
+  body.style.transitionProperty = "";
   return color;
 }

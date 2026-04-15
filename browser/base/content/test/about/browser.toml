@@ -11,6 +11,8 @@ skip-if = [
   "os == 'mac' && os_version == '15.30' && arch == 'aarch64'", # Bug 1996741
 ]
 
+["browser_aboutCertError_accesskey.js"]
+
 ["browser_aboutCertError_cca_telemetry.js"]
 
 ["browser_aboutCertError_clockSkew.js"]
@@ -47,6 +49,7 @@ support-files = [
 ["browser_aboutDialog_distribution.js"]
 skip-if = [
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && msix && verify-standalone",
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && msix && verify-standalone",
 ]
 
 ["browser_aboutNetError.js"]
@@ -70,6 +73,13 @@ support-files = [
 
 ["browser_aboutNetError_emptyResponse.js"]
 
+["browser_aboutNetError_feltprivacy_illustrations.js"]
+support-files = [
+  "server_error.sjs",
+]
+
+["browser_aboutNetError_fileNotFound.js"]
+
 ["browser_aboutNetError_httpAuthDisabled.js"]
 
 ["browser_aboutNetError_internet_connection_offline.js"]
@@ -87,9 +97,15 @@ support-files = [
   "server_error.sjs",
 ]
 
+["browser_aboutNetError_timeout.js"]
+skip-if = [
+  "socketprocess_networking",
+]
+
 ["browser_aboutNetError_trr.js"]
 skip-if = [
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && asan", # Bug 1831977
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && asan", # Bug 1831977
   "socketprocess_networking",
 ]
 

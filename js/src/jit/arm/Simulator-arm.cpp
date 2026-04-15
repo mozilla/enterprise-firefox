@@ -32,7 +32,8 @@
 #include "mozilla/DebugOnly.h"
 #include "mozilla/EndianUtils.h"
 #include "mozilla/Likely.h"
-#include "mozilla/MathAlgorithms.h"
+
+#include <bit>
 
 #include "jit/arm/Assembler-arm.h"
 #include "jit/arm/disasm/Constants-arm.h"
@@ -2238,7 +2239,7 @@ int32_t Simulator::processPU(SimInstruction* instr, int num_regs, int reg_size,
 // Addressing Mode 4 - Load and Store Multiple
 void Simulator::handleRList(SimInstruction* instr, bool load) {
   int rlist = instr->rlistValue();
-  int num_regs = mozilla::CountPopulation32(rlist);
+  int num_regs = std::popcount(unsigned(rlist));
 
   intptr_t start_address = 0;
   intptr_t end_address = 0;
@@ -2844,12 +2845,7 @@ void Simulator::decodeType01(SimInstruction* instr) {
       switch (instr->bits(7, 4)) {
         case 1: {  // CLZ
           uint32_t bits = get_register(rm);
-          int leading_zeros = 0;
-          if (bits == 0) {
-            leading_zeros = 32;
-          } else {
-            leading_zeros = mozilla::CountLeadingZeroes32(bits);
-          }
+          int leading_zeros = std::countl_zero(bits);
           set_register(rd, leading_zeros);
           break;
         }

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -55,7 +53,7 @@ MediaStreamTrackAudioSourceNode::Create(
     nsGlobalWindowInner* pWindow = aAudioContext.GetOwnerWindow();
     Document* document = pWindow ? pWindow->GetExtantDoc() : nullptr;
     nsContentUtils::ReportToConsole(nsIScriptError::warningFlag, "Web Audio"_ns,
-                                    document, nsContentUtils::eDOM_PROPERTIES,
+                                    document, PropertiesFile::DOM_PROPERTIES,
                                     "MediaStreamAudioSourceNodeDifferentRate");
     // This is not a spec-required exception, just a limitation of our
     // implementation.
@@ -167,7 +165,7 @@ void MediaStreamTrackAudioSourceNode::PrincipalChanged(
 
   if (!enabled && doc) {
     nsContentUtils::ReportToConsole(nsIScriptError::warningFlag, "Web Audio"_ns,
-                                    doc, nsContentUtils::eDOM_PROPERTIES,
+                                    doc, PropertiesFile::DOM_PROPERTIES,
                                     CrossOriginErrorString());
   }
 }

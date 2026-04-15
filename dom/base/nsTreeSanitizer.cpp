@@ -1,15 +1,13 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsTreeSanitizer.h"
 
+#include <algorithm>
 #include <iterator>
 
 #include "NonCustomCSSPropertyId.h"
-#include "mozilla/Algorithm.h"
 #include "mozilla/DeclarationBlock.h"
 #include "mozilla/NullPrincipal.h"
 #include "mozilla/StaticPrefs_dom.h"
@@ -636,14 +634,16 @@ constexpr const nsStaticAtom* const kAttributesSVG[] = {
 constexpr const nsStaticAtom* const kURLAttributesSVG[] = {nsGkAtoms::href,
                                                            nullptr};
 
-static_assert(AllOf(std::begin(kURLAttributesSVG), std::end(kURLAttributesSVG),
-                    [](auto aURLAttributeSVG) {
-                      return AnyOf(std::begin(kAttributesSVG),
-                                   std::end(kAttributesSVG),
-                                   [&](auto aAttributeSVG) {
-                                     return aAttributeSVG == aURLAttributeSVG;
-                                   });
-                    }));
+static_assert(std::all_of(std::begin(kURLAttributesSVG),
+                          std::end(kURLAttributesSVG),
+                          [](auto aURLAttributeSVG) {
+                            return std::any_of(std::begin(kAttributesSVG),
+                                               std::end(kAttributesSVG),
+                                               [&](auto aAttributeSVG) {
+                                                 return aAttributeSVG ==
+                                                        aURLAttributeSVG;
+                                               });
+                          }));
 
 const nsStaticAtom* const kElementsMathML[] = {
     nsGkAtoms::abs,                  // abs
@@ -1388,7 +1388,7 @@ void nsTreeSanitizer::SanitizeChildren(nsINode* aRoot) {
           }
         }
         nsIContent* next = node->GetNextNonChildNode(aRoot);
-        node->RemoveFromParent();
+        node->Remove();
         node = next;
         continue;
       }
@@ -1444,7 +1444,7 @@ void nsTreeSanitizer::SanitizeChildren(nsINode* aRoot) {
             break;
           }
         }
-        node->RemoveFromParent();
+        node->Remove();
         node = next;
         continue;
       }
@@ -1476,7 +1476,7 @@ void nsTreeSanitizer::SanitizeChildren(nsINode* aRoot) {
     NS_ASSERTION(!node->GetFirstChild(), "How come non-element node had kids?");
     nsIContent* next = node->GetNextNonChildNode(aRoot);
     if (!mAllowComments && node->IsComment()) {
-      node->RemoveFromParent();
+      node->Remove();
     }
     node = next;
   }

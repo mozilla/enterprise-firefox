@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -599,8 +597,7 @@ class ReportErrorToConsoleRunnable final : public WorkerParentThreadRunnable {
  public:
   // aWorkerPrivate is the worker thread we're on (or the main thread, if null)
   static void Report(WorkerPrivate* aWorkerPrivate, uint32_t aErrorFlags,
-                     const nsCString& aCategory,
-                     nsContentUtils::PropertiesFile aFile,
+                     const nsCString& aCategory, PropertiesFile aFile,
                      const nsCString& aMessageName,
                      const nsTArray<nsString>& aParams,
                      const mozilla::SourceLocation& aLocation) {
@@ -628,7 +625,7 @@ class ReportErrorToConsoleRunnable final : public WorkerParentThreadRunnable {
  private:
   ReportErrorToConsoleRunnable(WorkerPrivate* aWorkerPrivate,
                                uint32_t aErrorFlags, const nsCString& aCategory,
-                               nsContentUtils::PropertiesFile aFile,
+                               PropertiesFile aFile,
                                const nsCString& aMessageName,
                                const nsTArray<nsString>& aParams,
                                const mozilla::SourceLocation& aLocation)
@@ -659,7 +656,7 @@ class ReportErrorToConsoleRunnable final : public WorkerParentThreadRunnable {
 
   const uint32_t mErrorFlags;
   const nsCString mCategory;
-  const nsContentUtils::PropertiesFile mFile;
+  const PropertiesFile mFile;
   const nsCString mMessageName;
   const nsTArray<nsString> mParams;
   const mozilla::SourceLocation mLocation;
@@ -1409,7 +1406,7 @@ nsresult WorkerPrivate::SetCsp(nsIContentSecurityPolicy* aCSP) {
   aCSP->EnsureEventTarget(mMainThreadEventTarget);
 
   mLoadInfo.mCSP = aCSP;
-  auto ctx = WorkerCSPContext::CreateFromCSP(aCSP);
+  auto ctx = OffThreadCSPContext::CreateFromCSP(aCSP);
   if (NS_WARN_IF(ctx.isErr())) {
     return ctx.unwrapErr();
   }
@@ -1477,7 +1474,7 @@ nsresult WorkerPrivate::SetCSPFromHeaderValues(
 
   mLoadInfo.mCSP = csp;
 
-  auto ctx = WorkerCSPContext::CreateFromCSP(csp);
+  auto ctx = OffThreadCSPContext::CreateFromCSP(csp);
   if (NS_WARN_IF(ctx.isErr())) {
     return ctx.unwrapErr();
   }
@@ -5959,9 +5956,8 @@ void WorkerPrivate::ReportError(JSContext* aCx,
 
 // static
 void WorkerPrivate::ReportErrorToConsole(
-    uint32_t aErrorFlags, const nsCString& aCategory,
-    nsContentUtils::PropertiesFile aFile, const nsCString& aMessageName,
-    const nsTArray<nsString>& aParams,
+    uint32_t aErrorFlags, const nsCString& aCategory, PropertiesFile aFile,
+    const nsCString& aMessageName, const nsTArray<nsString>& aParams,
     const mozilla::SourceLocation& aLocation) {
   WorkerPrivate* wp = nullptr;
   if (!NS_IsMainThread()) {

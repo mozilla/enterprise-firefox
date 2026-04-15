@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -507,7 +505,6 @@ DecodedStream::DecodedStream(
     MediaQueue<AudioData>& aAudioQueue, MediaQueue<VideoData>& aVideoQueue)
     : mOwnerThread(aOwnerThread),
       mDummyTrack(std::move(aDummyTrack)),
-
       mWatchManager(this, mOwnerThread),
       mPlaying(false, "DecodedStream::mPlaying"),
       mPrincipalHandle(aOwnerThread, PRINCIPAL_HANDLE_NONE,
@@ -519,6 +516,7 @@ DecodedStream::DecodedStream(
       mPreservesPitch(aPreservesPitch),
       mShouldConfigAudioOutput(aShouldConfigAudioOutput),
       mDevice(aDevice),
+      mPlaybackRateFallbackForwarder(aOwnerThread),
       mAudioQueue(aAudioQueue),
       mVideoQueue(aVideoQueue) {}
 
@@ -662,6 +660,10 @@ nsresult DecodedStream::Start(const TimeUnit& aStartTime,
     mVideoEndedPromise = mData->mVideoEndedPromise;
     mOutputListener = mData->OnOutput().Connect(mOwnerThread, this,
                                                 &DecodedStream::NotifyOutput);
+    if (mData->mAudioTrack) {
+      mPlaybackRateFallbackForwarder.Forward(
+          mData->mAudioTrack->OnPlaybackRateFallback());
+    }
     SendData();
   }
   return NS_OK;
@@ -715,6 +717,7 @@ void DecodedStream::DestroyData(UniquePtr<DecodedStreamData>&& aData) {
 
   TRACE("DecodedStream::DestroyData");
   mOutputListener.Disconnect();
+  mPlaybackRateFallbackForwarder.DisconnectAll();
 
   aData->Close();
   NS_DispatchToMainThread(
@@ -869,12 +872,12 @@ already_AddRefed<AudioData> DecodedStream::CreateSilenceDataIfGapExists(
       TimeUnitToFrames(*mStartTime, aNextAudio->mRate);
   CheckedInt64 frameOffset =
       TimeUnitToFrames(aNextAudio->mTime, aNextAudio->mRate);
-  if (audioWrittenOffset.value() >= frameOffset.value()) {
+  CheckedInt64 missingFrames = frameOffset - audioWrittenOffset;
+  if (!missingFrames.isValid() || missingFrames.value() <= 0) {
     return nullptr;
   }
   // We've written less audio than our frame offset, return a silence data so we
   // have enough audio to be at the correct offset for our current frames.
-  CheckedInt64 missingFrames = frameOffset - audioWrittenOffset;
   AlignedAudioBuffer silenceBuffer(missingFrames.value() *
                                    aNextAudio->mChannels);
   if (!silenceBuffer) {

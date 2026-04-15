@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -117,6 +115,10 @@ static mozilla::LazyLogModule sRootScrollbarsLog("rootscrollbars");
     MOZ_LOG(sRootScrollbarsLog, LogLevel::Debug, (__VA_ARGS__)); \
   }
 static mozilla::LazyLogModule sDisplayportLog("apz.displayport");
+
+static mozilla::LazyLogModule sScrollEndLog("apz.scrollend");
+#define SCROLLEND_LOG(...) \
+  MOZ_LOG(sScrollEndLog, LogLevel::Debug, (__VA_ARGS__));
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -302,6 +304,21 @@ ScrollContainerFrame::ScrollContainerFrame(ComputedStyle* aStyle,
 }
 
 ScrollContainerFrame::~ScrollContainerFrame() = default;
+
+static nsSliderFrame* GetSliderFrame(nsIFrame* aScrollbarFrame) {
+  if (!aScrollbarFrame) {
+    return nullptr;
+  }
+
+  for (const auto& childList : aScrollbarFrame->ChildLists()) {
+    for (nsIFrame* frame : childList.mList) {
+      if (nsSliderFrame* sliderFrame = do_QueryFrame(frame)) {
+        return sliderFrame;
+      }
+    }
+  }
+  return nullptr;
+}
 
 void ScrollContainerFrame::ScrollbarActivityStarted() const {
   if (mScrollbarActivity) {
@@ -1619,7 +1636,7 @@ a11y::AccType ScrollContainerFrame::AccessibleType() {
 
   // Create an accessible regardless of focusable state because the state can be
   // changed during frame life cycle without any notifications to accessibility.
-  if (mContent->IsRootOfNativeAnonymousSubtree() ||
+  if (Style()->IsPseudoElement() ||
       GetScrollStyles().IsHiddenInBothDirections()) {
     return a11y::eNoType;
   }
@@ -1708,7 +1725,16 @@ void ScrollContainerFrame::SetHasOutOfFlowContentInsideFilter() {
   mHasOutOfFlowContentInsideFilter = true;
 }
 
-bool ScrollContainerFrame::WantAsyncScroll() const {
+bool ScrollContainerFrame::WantAsyncScroll(
+    NonZeroScrollRangeOnly aNonZeroScrollRangeOnly) const {
+  if (!bool(aNonZeroScrollRangeOnly)) {
+    const nsStyleDisplay* disp = GetFrameForStyle()->StyleDisplay();
+    if (disp->mOverscrollBehaviorX != StyleOverscrollBehavior::Auto ||
+        disp->mOverscrollBehaviorY != StyleOverscrollBehavior::Auto) {
+      return true;
+    }
+  }
+
   ScrollStyles styles = GetScrollStyles();
 
   // First, as an optimization because getting the scrollrange is
@@ -1839,7 +1865,19 @@ void ScrollContainerFrame::ScrollbarReleased(nsScrollbarFrame* aScrollbar) {
 
   // Perform scroll snapping, if needed.  Scrollbar movement uses the same
   // smooth scrolling animation as keyboard scrolling.
-  ScrollSnap(mDestination, ScrollMode::Smooth);
+  bool didSnap = ScrollSnap(mDestination, ScrollMode::Smooth);
+
+  SCROLLEND_LOG("%s: did-snap=%s scrollend-pending=%s", __FUNCTION__,
+                didSnap ? "true" : "false",
+                mScrollbarClickAndHoldScrollendPending ? "true" : "false");
+  // If a scrollbar click and hold scroll has occured and a scroll-snap will
+  // not occur, post a scrollend event. If a scroll snap will occur. Let the
+  // scroll-snap scroll post the scrollend event.
+  if (!didSnap && mScrollbarClickAndHoldScrollendPending) {
+    PostScrollEndEvent();
+  }
+
+  mScrollbarClickAndHoldScrollendPending = false;
 }
 
 void ScrollContainerFrame::ScrollByUnit(nsScrollbarFrame* aScrollbar,
@@ -2246,6 +2284,20 @@ void ScrollContainerFrame::AsyncScrollCallback(ScrollContainerFrame* aInstance,
                                  aInstance->mAsyncScroll->TakeSnapTargetIds());
 }
 
+bool ScrollContainerFrame::SliderFrameInClickAndHold() const {
+  if (nsSliderFrame* sliderFrame = GetSliderFrame(mVScrollbarBox)) {
+    if (sliderFrame->ClickAndHoldActive()) {
+      return true;
+    }
+  }
+
+  if (nsSliderFrame* sliderFrame = GetSliderFrame(mHScrollbarBox)) {
+    return sliderFrame->ClickAndHoldActive();
+  }
+
+  return false;
+}
+
 void ScrollContainerFrame::SetTransformingByAPZ(bool aTransforming) {
   if (mTransformingByAPZ == aTransforming) {
     return;
@@ -2255,7 +2307,7 @@ void ScrollContainerFrame::SetTransformingByAPZ(bool aTransforming) {
     ScrollbarActivityStarted();
   } else {
     ScrollbarActivityStopped();
-    PostScrollEndEvent();
+    PostOrDeferScrollEndEvent();
   }
   if (!css::TextOverflow::HasClippedTextOverflow(this) ||
       css::TextOverflow::HasBlockEllipsis(mScrolledFrame)) {
@@ -2282,9 +2334,19 @@ void ScrollContainerFrame::CompleteAsyncScroll(
   if (!weakFrame.IsAlive()) {
     return;
   }
+
+  nsPoint finalPos = GetScrollPosition();
+
+  SCROLLEND_LOG(
+      "%s: start=%s destination=%s final=%s "
+      "is-handled-by-apz=%s",
+      __FUNCTION__, ToString(aStartPosition).c_str(),
+      ToString(mDestination).c_str(), ToString(finalPos).c_str(),
+      !isNotHandledByApz ? "true" : "false");
+
   // We are done scrolling, set our destination to wherever we actually ended
   // up scrolling to.
-  mDestination = GetScrollPosition();
+  mDestination = finalPos;
   // Post a `scrollend` event for scrolling not handled by APZ, including:
   //
   //  - programmatic instant scrolls
@@ -2296,7 +2358,7 @@ void ScrollContainerFrame::CompleteAsyncScroll(
   // The scrollend event should not be fired for a scroll that does not
   // result in a scroll position change.
   if (isNotHandledByApz && scrollPositionChanged) {
-    PostScrollEndEvent();
+    PostOrDeferScrollEndEvent();
   }
 }
 
@@ -4971,7 +5033,7 @@ void ScrollContainerFrame::ScrollByCSSPixelsInternal(
   // 'this' might be destroyed here
 }
 
-void ScrollContainerFrame::ScrollSnap(ScrollMode aMode) {
+bool ScrollContainerFrame::ScrollSnap(ScrollMode aMode) {
   float flingSensitivity =
       StaticPrefs::layout_css_scroll_snap_prediction_sensitivity();
   int maxVelocity =
@@ -4985,10 +5047,10 @@ void ScrollContainerFrame::ScrollSnap(ScrollMode aMode) {
   predictedOffset.Clamp(maxOffset);
   nsPoint pos = GetScrollPosition();
   nsPoint destinationPos = pos + predictedOffset;
-  ScrollSnap(destinationPos, aMode);
+  return ScrollSnap(destinationPos, aMode);
 }
 
-void ScrollContainerFrame::ScrollSnap(const nsPoint& aDestination,
+bool ScrollContainerFrame::ScrollSnap(const nsPoint& aDestination,
                                       ScrollMode aMode) {
   nsRect scrollRange = GetLayoutScrollRange();
   nsPoint pos = GetScrollPosition();
@@ -5003,19 +5065,14 @@ void ScrollContainerFrame::ScrollSnap(const nsPoint& aDestination,
   // site using `GetScrollPosition()` as |aStartPos|.
   if (auto snapDestination = GetSnapPointForDestination(
           ScrollUnit::DEVICE_PIXELS, snapFlags, pos, destination)) {
-    // Bail out if there's no scroll position change to do a workaround for bug
-    // 1665932 (even if the __layout__ scroll position is unchanged, the
-    // corresponding scroll offset update will change the __visual__ scroll
-    // offset in APZ).
-    if (snapDestination->mPosition == destination) {
-      return;
-    }
     destination = snapDestination->mPosition;
     ScrollToWithOrigin(
         destination, nullptr /* range */,
         ScrollOperationParams{aMode, ScrollOrigin::Other,
                               std::move(snapDestination->mTargetIds)});
+    return true;
   }
+  return false;
 }
 
 nsSize ScrollContainerFrame::GetLineScrollAmount() const {
@@ -5134,15 +5191,15 @@ static nsSize GetScrollPortSizeExcludingHeadersAndFooters(
 }
 
 nsSize ScrollContainerFrame::GetPageScrollAmount() const {
-  nsSize effectiveScrollPortSize;
+  nsSize effectiveScrollPortSize = GetVisualOptimalViewingRect().Size();
 
-  if (GetVisualViewportSize() != mScrollPort.Size()) {
-    // We want to use the visual viewport size if one is set.
-    // The headers/footers adjustment is too complicated to do if there is a
-    // visual viewport that differs from the layout viewport, this is probably
-    // okay.
-    effectiveScrollPortSize = GetVisualViewportSize();
-  } else {
+  // We want to use the visual viewport size if one is set.
+  // The headers/footers adjustment is too complicated to do if there is a
+  // visual viewport that differs from the layout viewport, this is probably
+  // okay.
+  // We also assume that if scroll-padding is in use, the author knows what
+  // they're doing and we don't need to auto-account for sticky / fixed stuff.
+  if (effectiveScrollPortSize == mScrollPort.Size()) {
     // Reduce effective scrollport height by the height of any
     // fixed-pos/sticky-pos headers or footers
     effectiveScrollPortSize = GetScrollPortSizeExcludingHeadersAndFooters(
@@ -5355,9 +5412,25 @@ nsresult ScrollContainerFrame::FireScrollPortEvent() {
       nullptr);
   event.mOrient = orient;
 
-  RefPtr<nsIContent> content = GetContent();
   RefPtr<nsPresContext> presContext = PresContext();
-  return EventDispatcher::Dispatch(content, presContext, &event);
+  RefPtr target = ScrollEventTargetNode(RootTargetsDocument::No);
+  return EventDispatcher::Dispatch(target, presContext, &event);
+}
+
+void ScrollContainerFrame::PostOrDeferScrollEndEvent() {
+  bool isInScrollbarButtonClickAndHold =
+      (mVScrollbarBox ? mVScrollbarBox->GetButtonScrollDirection() : false) ||
+      (mHScrollbarBox ? mHScrollbarBox->GetButtonScrollDirection() : false);
+  bool isInScrollbarClickAndHold =
+      SliderFrameInClickAndHold() || isInScrollbarButtonClickAndHold;
+
+  SCROLLEND_LOG("%s: is-in-click-and-hold=%s", __FUNCTION__,
+                isInScrollbarClickAndHold ? "true" : "false");
+  if (!isInScrollbarClickAndHold) {
+    PostScrollEndEvent();
+  } else {
+    mScrollbarClickAndHoldScrollendPending = true;
+  }
 }
 
 void ScrollContainerFrame::PostScrollEndEvent() {
@@ -5365,8 +5438,33 @@ void ScrollContainerFrame::PostScrollEndEvent() {
     return;
   }
 
+  // If this is the rood document and is not an iframe, we may need to post
+  // a scrollend event to the VisualViewport.
+  if (mIsRoot && PresContext()->IsRootContentDocumentCrossProcess() &&
+      PresShell()->IsVisualViewportOffsetSet()) {
+    if (auto* window = nsGlobalWindowInner::Cast(
+            PresContext()->Document()->GetInnerWindow())) {
+      window->VisualViewport()->PostScrollEndEvent();
+    }
+  }
+
   // The ScrollEndEvent constructor registers itself.
   mScrollEndEvent = new ScrollEndEvent(this);
+}
+
+RefPtr<nsINode> ScrollContainerFrame::ScrollEventTargetNode(
+    RootTargetsDocument aRootTargetsDocument) const {
+  if (aRootTargetsDocument == RootTargetsDocument::Yes && mIsRoot) {
+    return PresContext()->Document();
+  }
+  if (Style()->GetPseudoType() == PseudoStyleType::MozTextControlEditingRoot) {
+    // Scroll events from the inner editor root should propagate to the <input>
+    // <textarea>. Note we might want to change a bit the set-up in the future,
+    // to have one scroller for everything (probably owned by the text control
+    // itself), see bug 1239595.
+    return mContent->GetContainingShadowHost();
+  }
+  return mContent.get();
 }
 
 void ScrollContainerFrame::FireScrollEndEvent() {
@@ -5379,8 +5477,7 @@ void ScrollContainerFrame::FireScrollEndEvent() {
   WidgetGUIEvent event(true, eScrollend, nullptr);
   event.mFlags.mBubbles = mIsRoot;
   event.mFlags.mCancelable = false;
-  RefPtr<nsINode> target =
-      mIsRoot ? static_cast<nsINode*>(presContext->Document()) : GetContent();
+  RefPtr<nsINode> target = ScrollEventTargetNode(RootTargetsDocument::Yes);
   EventDispatcher::Dispatch(target, presContext, &event, nullptr, &status);
 }
 
@@ -5810,16 +5907,11 @@ void ScrollContainerFrame::FireScrollEvent() {
   mozilla::layers::ScrollLinkedEffectDetector detector(
       content->GetComposedDoc(),
       presContext->RefreshDriver()->MostRecentRefresh());
-  if (mIsRoot) {
-    if (RefPtr<Document> doc = content->GetUncomposedDoc()) {
-      EventDispatcher::Dispatch(doc, presContext, &event, nullptr, &status);
-    }
-  } else {
-    // scroll events fired at elements don't bubble (although scroll events
-    // fired at documents do, to the window)
-    event.mFlags.mBubbles = false;
-    EventDispatcher::Dispatch(content, presContext, &event, nullptr, &status);
-  }
+  RefPtr target = ScrollEventTargetNode(RootTargetsDocument::Yes);
+  // scroll events fired at elements don't bubble (although scroll events
+  // fired at documents do, to the window)
+  event.mFlags.mBubbles = mIsRoot;
+  EventDispatcher::Dispatch(target, presContext, &event, nullptr, &status);
 }
 
 void ScrollContainerFrame::PostScrollEvent() {
@@ -7686,21 +7778,6 @@ bool ScrollContainerFrame::DragScroll(WidgetEvent* aEvent) {
   }
 
   return willScroll;
-}
-
-static nsSliderFrame* GetSliderFrame(nsIFrame* aScrollbarFrame) {
-  if (!aScrollbarFrame) {
-    return nullptr;
-  }
-
-  for (const auto& childList : aScrollbarFrame->ChildLists()) {
-    for (nsIFrame* frame : childList.mList) {
-      if (nsSliderFrame* sliderFrame = do_QueryFrame(frame)) {
-        return sliderFrame;
-      }
-    }
-  }
-  return nullptr;
 }
 
 static void AsyncScrollbarDragInitiated(uint64_t aDragBlockId,

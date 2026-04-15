@@ -334,7 +334,6 @@ function checkPayload(payload, reason, successfulPings) {
   checkPayloadInfo(payload.info, reason);
 
   Assert.greaterOrEqual(payload.simpleMeasurements.totalTime, 0);
-  Assert.equal(payload.simpleMeasurements.shutdownDuration, SHUTDOWN_TIME);
 
   let activeTicks = payload.simpleMeasurements.activeTicks;
   Assert.greaterOrEqual(activeTicks, 0);
@@ -346,10 +345,6 @@ function checkPayload(payload, reason, successfulPings) {
     );
   }
 
-  Assert.equal(
-    payload.simpleMeasurements.failedProfileLockCount,
-    FAILED_PROFILE_LOCK_ATTEMPTS
-  );
   let profileDirectory = Services.dirsvc.get("ProfD", Ci.nsIFile);
   let failedProfileLocksFile = profileDirectory.clone();
   failedProfileLocksFile.append("Telemetry.FailedProfileLocks.txt");
@@ -357,14 +352,6 @@ function checkPayload(payload, reason, successfulPings) {
 
   let isWindows = "@mozilla.org/windows-registry-key;1" in Cc;
   if (isWindows) {
-    Assert.greater(
-      payload.simpleMeasurements.startupSessionRestoreReadBytes,
-      0
-    );
-    Assert.greater(
-      payload.simpleMeasurements.startupSessionRestoreWriteBytes,
-      0
-    );
     Assert.greater(Glean.startupIo.read.sessionRestore.testGetValue(), 0);
     Assert.greater(Glean.startupIo.write.sessionRestore.testGetValue(), 0);
   }
@@ -2185,10 +2172,6 @@ add_task(async function test_pingExtendedStats() {
     );
   }
 
-  Assert.ok(
-    "addonManager" in ping.payload.simpleMeasurements,
-    "addonManager must be sent if the extended set is on."
-  );
   Assert.ok(
     !("UITelemetry" in ping.payload.simpleMeasurements),
     "UITelemetry must not be sent."

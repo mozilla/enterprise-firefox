@@ -17,6 +17,8 @@ const USER_ACTION_TYPES = {
   TIMER_TOGGLE_BREAK: "timer_toggle_break",
 };
 
+const PREF_NOVA_ENABLED = "nova.enabled";
+
 /**
  * Calculates the remaining time (in seconds) by subtracting elapsed time from the original duration
  *
@@ -691,9 +693,12 @@ export const FocusTimer = ({
     handleTimerInteraction();
   }
 
+  // @nova-cleanup(remove-pref): Remove pref check, always apply col-4 class after Nova ships
+  const novaEnabled = prefs[PREF_NOVA_ENABLED];
+
   return timerData ? (
     <article
-      className={`focus-timer ${isMaximized ? "is-maximized" : ""}`}
+      className={`focus-timer widget ${novaEnabled ? "col-4" : ""} ${isMaximized ? "is-maximized" : ""}`}
       ref={el => {
         timerRef.current = [el];
       }}
@@ -722,7 +727,7 @@ export const FocusTimer = ({
               }}
             />
             <panel-item
-              data-l10n-id="newtab-widget-timer-menu-hide"
+              data-l10n-id="newtab-widget-menu-hide"
               onClick={() => {
                 batch(() => {
                   handlePrefUpdate("widgets.focusTimer.enabled", false);

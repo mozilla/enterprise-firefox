@@ -1505,12 +1505,8 @@
   <string name="studies_remove">Caccià</string>
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">Attivi</string>
-  <!-- Description for studies -->
-  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">Pruvate funzioni è idee prima ch’elle sianu dispunibule à tutti.</string>
   <!-- Description for studies. Note: The word "Firefox" should NOT be translated -->
   <string name="studies_description_4" tools:ignore="BrandUsage">Firefox selezziuneghja à l’azardu certi utilizatori per pruvà e funzioni, ciò chì aumenteghja a qualità per tutte è tutti.</string>
-  <!-- Title of the Studies data preference -->
-  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">Installà è lancià studii</string>
   <!-- Title of the Studies data preference -->
   <string name="studies_title_2">Permette e studii nant’à e funzioni</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
@@ -1657,10 +1653,10 @@
     %d is the number of existing tab groups + 1.
   -->
   <string name="create_tab_group_form_default_name">Gruppu %d</string>
-  <!-- Label for the tab group name field in the bottom sheet to create a new tab group. -->
-  <string name="create_tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">Nome</string>
   <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
-  <string name="tab_group_name_label">Nome</string>
+  <string name="create_tab_group_name_label">Nome</string>
+  <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
+  <string name="tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">Nome</string>
   <!--
     History
 
@@ -2056,7 +2052,11 @@
   <string name="bookmark_delete_single_item" tools:ignore="UnusedResources" moz:removedIn="150">%s squassatu</string>
   <!-- Bookmark snackbar message for deleting multiple items. %s is the number of items being deleted -->
   <string name="bookmark_delete_multiple_items" tools:ignore="UnusedResources" moz:removedIn="150">Elementi squassati : %s</string>
-  <!-- Content description for the bookmark navigation bar back button -->
+  <!--
+    Bookmark undo button for deletion snackbar action
+
+    Content description for the bookmark navigation bar back button
+  -->
   <string name="bookmark_navigate_back_button_content_description">Navigazione in daretu</string>
   <!-- Content description for the bookmark list new folder navigation bar button -->
   <string name="bookmark_add_new_folder_button_content_description">Aghjunghje un cartulare novu</string>
@@ -2394,8 +2394,6 @@
   <string name="preference_accessibility_text_size_summary">Aummentà o riduce a dimensione di u testu di i siti web</string>
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">Dimensione di grafia</string>
-  <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d\u00a0%%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">Dimensione autumatica di e grafie</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -3430,7 +3428,7 @@
   <!-- The title of the warning card informs the user that the list of languages cannot be loaded. -->
   <string name="translation_error_could_not_load_languages_warning_text">Ùn si pò micca caricà e lingue. Ci vole à verificà a vostra cunnessione internet è pruvà torna.</string>
   <!-- The title of the warning card informs the user that a language is not supported. %1$s is the name of the language that is not supported. -->
-  <string name="translation_error_language_not_supported_warning_text">Per disgrazia, a lingua %1$s ùn hè ancu accettata.</string>
+  <string name="translation_error_language_not_supported_warning_text" tools:ignore="UnusedResources" moz:removedIn="150">Per disgrazia, a lingua %1$s ùn hè ancu accettata.</string>
   <!-- Snackbar title shown if the user closes the Translation Request dialogue and a translation is in progress. -->
   <string name="translation_in_progress_snackbar">Traduzzione…</string>
   <!--

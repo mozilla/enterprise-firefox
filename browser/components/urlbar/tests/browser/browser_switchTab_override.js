@@ -428,10 +428,6 @@ add_task(async function test_move_tab_from_split_view_to_another_split_view() {
   let tab2 = await BrowserTestUtils.openNewForegroundTab(gBrowser);
 
   info("Create destination split view");
-  let aboutOpenTabsTab = await BrowserTestUtils.openNewForegroundTab(
-    gBrowser,
-    "about:opentabs"
-  );
   let destTab = await BrowserTestUtils.openNewForegroundTab(gBrowser);
 
   let tabbrowserTabs = gBrowser.tabContainer;
@@ -447,8 +443,11 @@ add_task(async function test_move_tab_from_split_view_to_another_split_view() {
     tabbrowserTabs,
     "SplitViewCreated"
   );
-  let destSplitView = gBrowser.addTabSplitView([aboutOpenTabsTab, destTab]);
+  TabContextMenu.contextTab = destTab;
+  TabContextMenu.contextTabs = [destTab];
+  TabContextMenu.moveTabsToSplitView();
   await splitViewCreated2;
+  let destSplitView = destTab.splitview;
 
   info("Select destTab so destSplitView is active");
   gBrowser.selectedTab = destTab;
@@ -520,10 +519,8 @@ add_task(async function test_move_tab_from_split_view_to_another_split_view() {
   );
 
   info("Cleanup");
-  await destSplitView.close();
-  if (gBrowser.tabs.includes(tab2)) {
-    gBrowser.removeTab(tab2);
-  }
+  destSplitView.close();
+  gBrowser.removeTab(tab2);
   await UrlbarTestUtils.promisePopupClose(window);
 });
 
@@ -531,24 +528,24 @@ add_task(async function test_move_tab_to_split_view_same_window_selection() {
   info("Test that moving a tab from the same window properly selects it");
 
   info("Create split view with two tabs");
-  let splitTab1 = await BrowserTestUtils.openNewForegroundTab(
-    gBrowser,
-    "about:opentabs"
-  );
-  let splitTab2 = await BrowserTestUtils.openNewForegroundTab(gBrowser);
-
+  let splitTab1 = await BrowserTestUtils.openNewForegroundTab(gBrowser);
   let tabbrowserTabs = gBrowser.tabContainer;
   let splitViewCreated = BrowserTestUtils.waitForEvent(
     tabbrowserTabs,
     "SplitViewCreated"
   );
-  let splitView = gBrowser.addTabSplitView([splitTab1, splitTab2], {
-    id: 1,
-  });
+  TabContextMenu.contextTab = splitTab1;
+  TabContextMenu.contextTabs = [splitTab1];
+  TabContextMenu.moveTabsToSplitView();
+
   await splitViewCreated;
+  let splitView = splitTab1.splitview;
 
   info("Create target tab that will be moved to split view");
-  await BrowserTestUtils.openNewForegroundTab(gBrowser, TEST_URL);
+  let targetTab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    TEST_URL
+  );
 
   info("Open another regular tab");
   let otherTab = await BrowserTestUtils.openNewForegroundTab(
@@ -557,7 +554,7 @@ add_task(async function test_move_tab_to_split_view_same_window_selection() {
   );
 
   info("Select one of the split view tabs to enable 'Move tab to Split View'");
-  gBrowser.selectedTab = splitTab2;
+  gBrowser.selectedTab = splitTab1;
 
   info("Verify a split view tab is selected");
   Assert.ok(
@@ -620,9 +617,8 @@ add_task(async function test_move_tab_to_split_view_same_window_selection() {
   );
 
   info("Cleanup");
-  await splitView.close();
-  if (gBrowser.tabs.includes(otherTab)) {
-    gBrowser.removeTab(otherTab);
-  }
+  splitView.close();
+  gBrowser.removeTab(targetTab);
+  gBrowser.removeTab(otherTab);
   await UrlbarTestUtils.promisePopupClose(window);
 });

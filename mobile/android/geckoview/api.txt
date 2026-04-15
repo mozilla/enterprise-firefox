@@ -45,6 +45,7 @@ import androidx.annotation.AnyThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
+import androidx.annotation.VisibleForTesting;
 import androidx.core.view.OnApplyWindowInsetsListener;
 import androidx.core.view.WindowInsetsCompat;
 import java.io.File;
@@ -83,6 +84,7 @@ import java.util.List;
 import java.util.Map;
 import org.json.JSONObject;
 import org.mozilla.gecko.util.GeckoBundle;
+import org.mozilla.geckoview.AIFeaturesController;
 import org.mozilla.geckoview.AllowOrDeny;
 import org.mozilla.geckoview.Autocomplete;
 import org.mozilla.geckoview.Autofill;
@@ -131,6 +133,37 @@ import org.mozilla.geckoview.WebRequestError;
 import org.mozilla.geckoview.WebResponse;
 
 package org.mozilla.geckoview {
+
+  public class AIFeaturesController {
+    ctor public AIFeaturesController();
+  }
+
+  public static class AIFeaturesController.AIFeature {
+    ctor @VisibleForTesting protected AIFeature();
+    field @NonNull public final String id;
+    field public final boolean isAllowed;
+    field public final boolean isEnabled;
+  }
+
+  public static class AIFeaturesController.AIFeaturesException extends Exception {
+    ctor public AIFeaturesException(int);
+    field public static final int ERROR_COULD_NOT_PARSE = -2;
+    field public static final int ERROR_COULD_NOT_RESET = -5;
+    field public static final int ERROR_COULD_NOT_SET = -4;
+    field public static final int ERROR_UNKNOWN = -1;
+    field public static final int ERROR_UNKNOWN_FEATURE = -3;
+    field public final int code;
+  }
+
+  @Retention(value=RetentionPolicy.SOURCE) public static interface AIFeaturesController.AIFeaturesException.Code {
+  }
+
+  public static class AIFeaturesController.RuntimeAIFeatures {
+    ctor public RuntimeAIFeatures();
+    method @HandlerThread @NonNull public static GeckoResult<Map<String,AIFeaturesController.AIFeature>> listFeatures();
+    method @HandlerThread @NonNull public static GeckoResult<Void> resetFeature(@NonNull String);
+    method @HandlerThread @NonNull public static GeckoResult<Void> setFeatureEnablement(@NonNull String, boolean);
+  }
 
   @AnyThread public final enum AllowOrDeny {
     method public static AllowOrDeny valueOf(String);
@@ -697,6 +730,7 @@ package org.mozilla.geckoview {
     field public static final int COOKIES_LOADED_SOCIALTRACKER = 524288;
     field public static final int COOKIES_LOADED_TRACKER = 262144;
     field public static final int COOKIES_PARTITIONED_FOREIGN = -2147483648;
+    field public static final int COOKIES_PARTITIONED_TRACKER = 2;
     field public static final int LOADED_CRYPTOMINING_CONTENT = 2097152;
     field public static final int LOADED_EMAILTRACKING_LEVEL_1_CONTENT = 8388608;
     field public static final int LOADED_EMAILTRACKING_LEVEL_2_CONTENT = 256;
@@ -970,6 +1004,7 @@ package org.mozilla.geckoview {
     method @UiThread public void setServiceWorkerDelegate(@Nullable GeckoRuntime.ServiceWorkerDelegate);
     method @UiThread public void setWebNotificationDelegate(@Nullable WebNotificationDelegate);
     method @AnyThread public void shutdown();
+    method @UiThread public void warmUp();
     field public static final String ACTION_CRASHED = "org.mozilla.gecko.ACTION_CRASHED";
     field public static final String CRASHED_PROCESS_VISIBILITY_BACKGROUND_CHILD = "BACKGROUND_CHILD";
     field public static final String CRASHED_PROCESS_VISIBILITY_FOREGROUND_CHILD = "FOREGROUND_CHILD";
@@ -1015,7 +1050,7 @@ package org.mozilla.geckoview {
     method @Nullable public Class<? extends android.app.Service> getCrashHandler();
     method @NonNull public String getCrliteChannel();
     method @Nullable public String getDefaultRecursiveResolverUri();
-    method @Nullable public Boolean getDisableShip();
+    method @Deprecated @DeprecationSchedule(id="disable-ship-removal",version=153) @Nullable public Boolean getDisableShip();
     method @Nullable public Float getDisplayDensityOverride();
     method @Nullable public Integer getDisplayDpiOverride();
     method public boolean getDohAutoselectEnabled();
@@ -1157,7 +1192,7 @@ package org.mozilla.geckoview {
     method @NonNull public GeckoRuntimeSettings.Builder crashPullNeverShowAgain(boolean);
     method @NonNull public GeckoRuntimeSettings.Builder debugLogging(boolean);
     method @NonNull public GeckoRuntimeSettings.Builder defaultRecursiveResolverUri(@NonNull String);
-    method @NonNull public GeckoRuntimeSettings.Builder disableShip(boolean);
+    method @Deprecated @DeprecationSchedule(id="disable-ship-removal",version=153) @NonNull public GeckoRuntimeSettings.Builder disableShip(boolean);
     method @NonNull public GeckoRuntimeSettings.Builder displayDensityOverride(float);
     method @NonNull public GeckoRuntimeSettings.Builder displayDpiOverride(int);
     method @NonNull public GeckoRuntimeSettings.Builder doubleTapZoomingEnabled(boolean);
@@ -1274,6 +1309,7 @@ package org.mozilla.geckoview {
     method @AnyThread public void printPageContent();
     method @NonNull @UiThread public GeckoResult<Boolean> processBackPressed();
     method @AnyThread public void purgeHistory();
+    method @NonNull @UiThread public GeckoResult<X509Certificate> qwacStatus();
     method @UiThread public void releaseDisplay(@NonNull GeckoDisplay);
     method @AnyThread public void reload();
     method @AnyThread public void reload(int);
@@ -2301,9 +2337,17 @@ package org.mozilla.geckoview {
     field @NonNull public final String errorType;
   }
 
+  public static class PageExtractionController.PageMetadata {
+    ctor public PageMetadata(@NonNull String[], int, @NonNull String);
+    field @NonNull public final String language;
+    field @NonNull public final String[] structuredDataTypes;
+    field public final int wordCount;
+  }
+
   public static class PageExtractionController.SessionPageExtractor {
     ctor public SessionPageExtractor(GeckoSession);
     method @HandlerThread @NonNull public GeckoResult<String> getPageContent();
+    method @HandlerThread @NonNull public GeckoResult<PageExtractionController.PageMetadata> getPageMetadata();
   }
 
   @UiThread public class PanZoomController {

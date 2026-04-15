@@ -1,0 +1,11 @@
+{
+  "margin": {
+    "inline": {
+      "value": "{space.small}"
+    }
+  },
+  "size": {
+    "comment": "TODO Bug 1876537: Make this em-based, probably?",
+    "value": "{size.item.small}"
+  }
+}

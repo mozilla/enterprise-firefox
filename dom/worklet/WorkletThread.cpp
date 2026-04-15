@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -18,6 +16,7 @@
 #include "mozilla/StaticPrefs_javascript.h"
 #include "mozilla/ThreadEventQueue.h"
 #include "mozilla/dom/AtomList.h"
+#include "mozilla/dom/OffThreadCSPContext.h"
 #include "mozilla/dom/WorkletGlobalScope.h"
 #include "mozilla/ipc/BackgroundChild.h"
 #include "nsContentUtils.h"
@@ -181,18 +180,28 @@ class WorkletJSContext final : public CycleCollectedJSContext {
   void ReportError(JSErrorReport* aReport,
                    JS::ConstUTF8CharsZ aToStringResult) override;
 
-  uint64_t GetCurrentWorkletWindowID() {
+  WorkletImpl* GetWorkletImpl() const {
     JSObject* global = JS::CurrentGlobalOrNull(Context());
     if (NS_WARN_IF(!global)) {
-      return 0;
+      return nullptr;
     }
+
     nsIGlobalObject* nativeGlobal = xpc::NativeGlobal(global);
     nsCOMPtr<WorkletGlobalScope> workletGlobal =
         do_QueryInterface(nativeGlobal);
     if (NS_WARN_IF(!workletGlobal)) {
       return 0;
     }
-    return workletGlobal->Impl()->LoadInfo().InnerWindowID();
+
+    return workletGlobal->Impl();
+  }
+
+  uint64_t GetCurrentWorkletWindowID() {
+    if (WorkletImpl* impl = GetWorkletImpl()) {
+      return impl->LoadInfo().InnerWindowID();
+    }
+
+    return 0;
   }
 };
 
@@ -348,6 +357,49 @@ static bool DelayedDispatchToEventLoop(
   return false;
 }
 
+namespace {
+bool ContentSecurityPolicyAllows(
+    JSContext* aCx, JS::RuntimeCode aKind, JS::Handle<JSString*> aCodeString,
+    JS::CompilationType aCompilationType,
+    JS::Handle<JS::StackGCVector<JSString*>> aParameterStrings,
+    JS::Handle<JSString*> aBodyString,
+    JS::Handle<JS::StackGCVector<JS::Value>> aParameterArgs,
+    JS::Handle<JS::Value> aBodyArg, bool* aOutCanCompileStrings) {
+  WorkletThread::AssertIsOnWorkletThread();
+
+  CycleCollectedJSContext* ccjscx = CycleCollectedJSContext::GetFor(aCx);
+  if (!ccjscx) {
+    return false;
+  }
+
+  WorkletJSContext* wcx = ccjscx->GetAsWorkletJSContext();
+  if (!wcx) {
+    return false;
+  }
+
+  WorkletImpl* impl = wcx->GetWorkletImpl();
+  if (!impl) {
+    return false;
+  }
+
+  // Allow eval by default without a CSP.
+  *aOutCanCompileStrings = true;
+  bool reportViolation = false;
+  if (OffThreadCSPContext* ctx = impl->GetCSPContext()) {
+    if (aKind == JS::RuntimeCode::JS) {
+      *aOutCanCompileStrings = ctx->IsEvalAllowed(reportViolation);
+    } else {
+      *aOutCanCompileStrings = ctx->IsWasmEvalAllowed(reportViolation);
+    }
+  }
+
+  // TODO: report violations
+  return true;
+}
+
+const JSSecurityCallbacks SecurityCallbacks = {ContentSecurityPolicyAllows};
+}  // namespace
+
 // static
 void WorkletThread::EnsureCycleCollectedJSContext(
     JSRuntime* aParentRuntime, const JS::ContextOptions& aOptions) {
@@ -368,9 +420,10 @@ void WorkletThread::EnsureCycleCollectedJSContext(
 
   JS_SetGCParameter(context->Context(), JSGC_MAX_BYTES, uint32_t(-1));
 
+  JS_SetSecurityCallbacks(context->Context(), &SecurityCallbacks);
+
   // FIXME: JS_SetDefaultLocale
   // FIXME: JSSettings
-  // FIXME: JS_SetSecurityCallbacks
   // FIXME: JS::SetAsyncTaskCallbacks
   // FIXME: JS::SetCTypesActivityCallback
   // FIXME: JS::SetGCZeal

@@ -18,6 +18,7 @@
 
 #include "wasm/WasmBCFrame.h"
 
+#include "mozilla/Likely.h"
 #include "wasm/WasmBaselineCompile.h"  // For BaseLocalIter
 #include "wasm/WasmBCClass.h"
 
@@ -162,6 +163,18 @@ bool BaseCompiler::createStackMap(
   return stackMapGenerator_.createStackMap(
              who, noExtras, debugFrameWithLiveRefs, stk_, &stackMap) &&
          (!stackMap || stackMaps_->add(masm.currentOffset(), stackMap));
+}
+
+[[nodiscard]] bool BaseCompiler::createAbortingOutOfLineTrapStackMap(
+    StackMap** result) {
+  if (MOZ_LIKELY(!compilerEnv_.debugEnabled())) {
+    *result = nullptr;
+    return true;
+  }
+
+  ExitStubMapVector extras;
+  return stackMapGenerator_.createStackMap(
+      "OutOfLineTrap", extras, HasDebugFrameWithLiveRefs::Maybe, stk_, result);
 }
 
 bool MachineStackTracker::cloneTo(MachineStackTracker* dst) {

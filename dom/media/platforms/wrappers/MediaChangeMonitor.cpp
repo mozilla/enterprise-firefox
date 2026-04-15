@@ -1,11 +1,10 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "MediaChangeMonitor.h"
 
+#include "AOMDecoder.h"
 #include "Adts.h"
 #include "AnnexB.h"
 #include "GeckoProfiler.h"
@@ -16,14 +15,11 @@
 #include "MediaInfo.h"
 #include "PDMFactory.h"
 #include "VPXDecoder.h"
-#include "nsPrintfCString.h"
-#ifdef MOZ_AV1
-#  include "AOMDecoder.h"
-#endif
 #include "gfxUtils.h"
 #include "mozilla/ProfilerMarkers.h"
 #include "mozilla/StaticPrefs_media.h"
 #include "mozilla/TaskQueue.h"
+#include "nsPrintfCString.h"
 
 namespace mozilla {
 
@@ -681,7 +677,6 @@ class VPXChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
   double mPixelAspectRatio;
 };
 
-#ifdef MOZ_AV1
 class AV1ChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
  public:
   explicit AV1ChangeMonitor(const VideoInfo& aInfo)
@@ -812,7 +807,6 @@ class AV1ChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
   RefPtr<TrackInfoSharedPtr> mTrackInfo;
   double mPixelAspectRatio;
 };
-#endif
 
 class AACCodecChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
  public:
@@ -900,10 +894,8 @@ RefPtr<PlatformDecoderModule::CreateDecoderPromise> MediaChangeMonitor::Create(
     const VideoInfo& config = aParams.VideoConfig();
     if (VPXDecoder::IsVPX(config.mMimeType)) {
       changeMonitor = MakeUnique<VPXChangeMonitor>(config);
-#ifdef MOZ_AV1
     } else if (AOMDecoder::IsAV1(config.mMimeType)) {
       changeMonitor = MakeUnique<AV1ChangeMonitor>(config);
-#endif
     } else if (MP4Decoder::IsHEVC(config.mMimeType)) {
       changeMonitor = MakeUnique<HEVCChangeMonitor>(config);
     } else {
@@ -1054,7 +1046,7 @@ RefPtr<MediaDataDecoder::FlushPromise> MediaChangeMonitor::Flush() {
       - The old decoder is no longer referenced by the MediaChangeMonitor.
 
     If during (4):
-      - mDecoderRequest won't be empty.
+      - mCreateAndInitRequest won't be empty.
       - mDecoder is not set. Steps will continue to (5) to set and initialize it
 
     If during (5):
@@ -1063,7 +1055,7 @@ RefPtr<MediaDataDecoder::FlushPromise> MediaChangeMonitor::Flush() {
   */
 
   if (mDrainRequest.Exists() || mFlushRequest.Exists() ||
-      mShutdownRequest.Exists() || mDecoderRequest.Exists() ||
+      mShutdownRequest.Exists() || mCreateAndInitRequest.Exists() ||
       mInitPromiseRequest.Exists()) {
     // We let the current decoder complete and will resume after.
     RefPtr<FlushPromise> p = mFlushPromise.Ensure(__func__);
@@ -1089,12 +1081,20 @@ RefPtr<ShutdownPromise> MediaChangeMonitor::Shutdown() {
   AssertOnThread();
   mInitPromiseRequest.DisconnectIfExists();
   mInitPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
+  mCreateAndInitRequest.DisconnectIfExists();
   mDecodePromiseRequest.DisconnectIfExists();
   mDecodePromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
   mDrainRequest.DisconnectIfExists();
   mFlushRequest.DisconnectIfExists();
   mFlushPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
   mShutdownRequest.DisconnectIfExists();
+
+  mCreateDecoderHolder.RejectIfExists(
+      MediaResult(NS_ERROR_DOM_MEDIA_CANCELED, __func__), __func__);
+
+  if (mCreateDecoderRequest.Exists()) {
+    return mShutdownWhileCreationPromise.Ensure(__func__);
+  }
 
   if (mShutdownPromise) {
     // We have a shutdown in progress, return that promise instead as we can't
@@ -1154,22 +1154,43 @@ MediaChangeMonitor::CreateDecoder() {
   currentParams.mWrappers -= media::Wrapper::MediaChangeMonitor;
   LOG("MediaChangeMonitor::CreateDecoder, current params = %s",
       currentParams.ToString().get());
-  RefPtr<CreateDecoderPromise> p =
-      mPDMFactory->CreateDecoder(currentParams)
-          ->Then(
-              GetCurrentSerialEventTarget(), __func__,
-              [self = RefPtr{this}, this](RefPtr<MediaDataDecoder>&& aDecoder) {
-                MutexAutoLock lock(mMutex);
-                mDecoder = std::move(aDecoder);
-                DDLINKCHILD("decoder", mDecoder.get());
-                return CreateDecoderPromise::CreateAndResolve(true, __func__);
-              },
-              [self = RefPtr{this}](const MediaResult& aError) {
-                return CreateDecoderPromise::CreateAndReject(aError, __func__);
-              });
 
   mDecoderInitialized = false;
   mNeedKeyframe = true;
+
+  RefPtr<CreateDecoderPromise> p = mCreateDecoderHolder.Ensure(__func__);
+
+  mPDMFactory->CreateDecoder(currentParams)
+      ->Then(
+          GetCurrentSerialEventTarget(), __func__,
+          [self = RefPtr{this}, this](RefPtr<MediaDataDecoder>&& aDecoder) {
+            mCreateDecoderRequest.Complete();
+            if (!mShutdownWhileCreationPromise.IsEmpty()) {
+              aDecoder->Shutdown()->Then(
+                  GetCurrentSerialEventTarget(), __func__,
+                  [self,
+                   this](const ShutdownPromise::ResolveOrRejectValue& aValue) {
+                    mShutdownWhileCreationPromise.ResolveOrReject(aValue,
+                                                                  __func__);
+                  });
+              return;
+            }
+            {
+              MutexAutoLock lock(mMutex);
+              mDecoder = std::move(aDecoder);
+              DDLINKCHILD("decoder", mDecoder.get());
+            }
+            mCreateDecoderHolder.Resolve(true, __func__);
+          },
+          [self = RefPtr{this}, this](const MediaResult& aError) {
+            mCreateDecoderRequest.Complete();
+            if (!mShutdownWhileCreationPromise.IsEmpty()) {
+              mShutdownWhileCreationPromise.Resolve(true, __func__);
+              return;
+            }
+            mCreateDecoderHolder.Reject(aError, __func__);
+          })
+      ->Track(mCreateDecoderRequest);
 
   return p;
 }
@@ -1191,7 +1212,7 @@ MediaResult MediaChangeMonitor::CreateDecoderAndInit(MediaRawData* aSample) {
       ->Then(
           GetCurrentSerialEventTarget(), __func__,
           [self = RefPtr{this}, this, sample = RefPtr{aSample}] {
-            mDecoderRequest.Complete();
+            mCreateAndInitRequest.Complete();
             mDecoder->Init()
                 ->Then(
                     GetCurrentSerialEventTarget(), __func__,
@@ -1232,7 +1253,7 @@ MediaResult MediaChangeMonitor::CreateDecoderAndInit(MediaRawData* aSample) {
                 ->Track(mInitPromiseRequest);
           },
           [self = RefPtr{this}, this](const MediaResult& aError) {
-            mDecoderRequest.Complete();
+            mCreateAndInitRequest.Complete();
             if (!mFlushPromise.IsEmpty()) {
               // A Flush is pending, abort the current operation.
               mFlushPromise.Reject(aError, __func__);
@@ -1243,7 +1264,7 @@ MediaResult MediaChangeMonitor::CreateDecoderAndInit(MediaRawData* aSample) {
                             RESULT_DETAIL("Unable to create decoder")),
                 __func__);
           })
-      ->Track(mDecoderRequest);
+      ->Track(mCreateAndInitRequest);
   return NS_ERROR_DOM_MEDIA_INITIALIZING_DECODER;
 }
 

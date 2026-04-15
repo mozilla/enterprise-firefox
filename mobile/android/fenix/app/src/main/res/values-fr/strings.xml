@@ -19,6 +19,8 @@
   <string name="content_description_menu">Plus d’options</string>
   <!-- Content description (not visible, for screen readers etc.): "Private Browsing" menu button. -->
   <string name="content_description_private_browsing">Navigation privée</string>
+  <!-- Content description (not visible, for screen readers etc.): "Normal Browsing" menu button. -->
+  <string name="content_description_normal_browsing">Navigation classique</string>
   <!-- Placeholder text shown in the search bar before a user enters text for the default engine -->
   <string name="search_hint">Recherche ou adresse</string>
   <!-- Placeholder text shown in the search bar before a user enters text for a general engine -->
@@ -314,6 +316,8 @@
   <string name="browser_menu_edit_bookmark">Modifier le marque-page</string>
   <!-- Browser menu label that the saves the currently visited page as a PDF -->
   <string name="browser_menu_save_as_pdf_2">Enregistrer en PDF</string>
+  <!-- Browser menu label for moving the current private tab to a non-private tab -->
+  <string name="browser_menu_move_to_non_private_tab">Déplacer vers un onglet non privé</string>
   <!-- Browser menu label for navigating to the translation feature, which provides language translation options the current visited page -->
   <string name="browser_menu_translate_page_2">Traduire la page</string>
   <!-- Browser menu label for navigating to the summarization feature, which provides site summarization for the current visited page -->
@@ -616,8 +620,12 @@
 
   <!-- "Continue" onboarding button. -->
   <string name="nova_onboarding_continue_button">Continuer</string>
+  <!-- "Continue browsing" onboarding button. -->
+  <string name="nova_onboarding_continue_browsing_button" tools:ignore="UnusedResources">Continuer la navigation</string>
   <!-- "Not now" onboarding button. -->
   <string name="nova_onboarding_negative_button">Plus tard</string>
+  <!-- "Skip" onboarding button. -->
+  <string name="nova_onboarding_skip_button" tools:ignore="UnusedResources">Ignorer</string>
   <!-- Terms of use (ToU) onboarding title. -->
   <string name="nova_onboarding_tou_title" tools:ignore="UnusedResources">Préparez-vous à naviguer en toute liberté</string>
   <!-- Terms of use (ToU) onboarding subtitle. -->
@@ -692,6 +700,25 @@
   <string name="nova_onboarding_add_search_widget_subtitle" tools:ignore="BrandUsage">Lancez chaque recherche depuis l’écran d’accueil de votre téléphone et bénéficiez des protections automatiques de Firefox.</string>
   <!-- "Add search widget" onboarding button. 'Firefox' is intentionally hardcoded. -->
   <string name="nova_onboarding_add_search_widget_button" tools:ignore="BrandUsage">Ajouter le widget Firefox</string>
+  <!-- Customize prompt onboarding title. -->
+  <string name="nova_onboarding_customize_prompt_title" tools:ignore="UnusedResources">Simple à personnaliser et toujours plus privé à chaque interaction</string>
+  <plurals name="nova_onboarding_customize_prompt_body" tools:ignore="UnusedResources">
+    <!--
+      Customize prompt onboarding body.
+      %1$s is replaced by the product name (for example "Firefox"),
+      %2$,d is replaced by the number of trackers blocked. The comma represents the thousand
+      separator (e.g. 1,000 in English), and it will automatically use the correct character
+      for your locale (don't change or remove it).
+    -->
+    <item quantity="one">%1$s a bloqué %2$,d\u00a0traqueur pendant que vous naviguiez sur le Web.</item>
+    <item quantity="other">%1$s a bloqué %2$,d\u00a0traqueurs pendant que vous naviguiez sur le Web.</item>
+  </plurals>
+  <!-- Customize prompt onboarding positive button. -->
+  <string name="nova_onboarding_customize_prompt_positive_button" tools:ignore="UnusedResources">Commencer la personnalisation</string>
+  <!-- App icon onboarding title. -->
+  <string name="nova_onboarding_app_icon_prompt_title" tools:ignore="UnusedResources">Choisissez une icône d’application personnalisée</string>
+  <!-- App icon onboarding body. -->
+  <string name="nova_onboarding_app_icon_prompt_body" tools:ignore="UnusedResources">Personnalisez votre écran d’accueil.</string>
   <!-- ==== End of Project "Nova" onboarding strings ==== -->
 
   <!-- Onboarding header for the toolbar selection card, used by Nimbus experiments. -->
@@ -759,6 +786,12 @@
   <string name="preferences_category_about">À propos</string>
   <!-- Preference category for settings related to changing the default search engine -->
   <string name="preferences_category_select_default_search_engine">Sélectionnez une des options</string>
+  <!-- Preference category for settings related to changing the default search engine -->
+  <string name="preferences_category_select_default_search_engine_2">Moteur de recherche par défaut pour la navigation classique</string>
+  <!-- Preference category for settings related to changing the private browsing search engine -->
+  <string name="preferences_category_select_private_search_engine">Moteur de recherche par défaut pour la navigation privée</string>
+  <!-- Option to set the private browsing mode to use the normal default search engine -->
+  <string name="search_engine_use_default">Utiliser le même moteur de recherche que pour la navigation classique</string>
   <!-- Preference for settings related to managing search shortcuts for the quick search menu -->
   <string name="preferences_manage_search_shortcuts_2">Gérer les autres moteurs de recherche</string>
   <!-- Summary for preference for settings related to managing search shortcuts for the quick search menu -->
@@ -975,6 +1008,15 @@
   <string name="preference_downloads_folder_permission_lost" tools:ignore="UnusedResources">Vous n’avez pas la permission d’utiliser ce dossier. Essayez d’en choisir un autre.</string>
   <!-- Preference title for choosing an app to handle downloads -->
   <string name="preferences_choose_app_for_downloads">Gérer les téléchargements avec une autre application</string>
+  <!-- Preference category for deleting or removing downloads -->
+  <string name="preferences_category_delete_or_remove_downloads">Supprimer ou retirer des téléchargements</string>
+  <string name="preferences_downloads_delete_from_device">Supprimer de l’appareil</string>
+  <string name="preferences_downloads_delete_from_device_description">Le fichier est supprimé de votre appareil et retiré de l’historique des téléchargements</string>
+  <string name="preferences_downloads_remove_from_download_history">Supprimer de l’historique des téléchargements</string>
+  <string name="preferences_downloads_remove_from_download_history_description">Le fichier est supprimé de votre historique de téléchargement, mais il est toujours enregistré sur votre appareil</string>
+  <string name="preferences_downloads_ask_when_to_delete_files">Demander lors de la suppression de fichiers</string>
+  <!-- Preference for downloads -->
+  <string name="preferences_downloads_2">Paramètres de téléchargement</string>
   <!-- Title for the setting to automatically clean up downloaded files. %s is the name of the app (for example "Firefox"). -->
   <string name="preferences_downloads_settings_clean_up_files_title">Supprimer de %s et de l’appareil</string>
   <!-- Summary for the setting to automatically clean up downloaded files -->
@@ -1337,6 +1379,8 @@
   <string name="toolbar_customize_shortcut_homepage">Page d’accueil</string>
   <!-- Back shortcut in toolbar customization -->
   <string name="toolbar_customize_shortcut_back">Retour</string>
+  <!-- Label for choosing in toolbar customization settings to not use any custom shortcut button. -->
+  <string name="toolbar_customize_shortcut_none">Aucun</string>
   <!--
     App icon Preferences
 
@@ -1505,12 +1549,8 @@
   <string name="studies_remove">Supprimer</string>
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">Activées</string>
-  <!-- Description for studies -->
-  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">Testez des fonctionnalités et des idées avant qu’elles ne soient disponibles pour tout le monde.</string>
   <!-- Description for studies. Note: The word "Firefox" should NOT be translated -->
   <string name="studies_description_4" tools:ignore="BrandUsage">Firefox sélectionne au hasard des utilisateurs et utilisatrices pour tester des fonctionnalités, ce qui améliore la qualité pour tout le monde.</string>
-  <!-- Title of the Studies data preference -->
-  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">Installer et lancer des études</string>
   <!-- Title of the Studies data preference -->
   <string name="studies_title_2">Autoriser les études sur des fonctionnalités</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
@@ -1657,10 +1697,32 @@
     %d is the number of existing tab groups + 1.
   -->
   <string name="create_tab_group_form_default_name">Groupe %d</string>
-  <!-- Label for the tab group name field in the bottom sheet to create a new tab group. -->
-  <string name="create_tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">Nom</string>
   <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
-  <string name="tab_group_name_label">Nom</string>
+  <string name="create_tab_group_name_label">Nom</string>
+  <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
+  <string name="tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">Nom</string>
+  <!-- Title for adding more tabs to a tab group. -->
+  <string name="add_to_tab_group_title">Ajouter à</string>
+  <!-- Content Description for closing the "Add to Tab Group" panel. -->
+  <string name="add_to_tab_group_bottom_sheet_close_content_description">Fermer Ajouter au groupe d’onglets</string>
+  <!-- Label for adding to a new tab group. -->
+  <string name="add_to_new_tab_group_title">Nouveau groupe d’onglets</string>
+  <plurals name="tab_group_tabs_count_subtitle">
+    <!--
+      Subtitle for the number of tabs in a tab group.
+      %1$d is the number of tabs in a tab group.
+    -->
+    <item quantity="one">%1$d\u00a0onglet</item>
+    <item quantity="other">%1$d\u00a0onglets</item>
+  </plurals>
+  <!-- Title for the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_title">Supprimer le groupe d’onglets\u00a0?</string>
+  <!-- Text shown in the body of the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_body">Cette action supprime le groupe définitivement.</string>
+  <!-- Text shown on the confirm button in the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_confirm">Supprimer le groupe</string>
+  <!-- Text shown on the cancel button in the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_cancel">Annuler</string>
   <!--
     History
 
@@ -1739,6 +1801,11 @@
     This button will dismiss the dialog.
   -->
   <string name="download_file_has_not_enough_storage_dialog_cancel_button_text">Annuler</string>
+  <plurals name="downloads_delete_dialog_title">
+    <!-- Title for the download deletion confirmation dialog. The message changes depending on how many files are selected. %d is the number of files to be deleted. -->
+    <item quantity="one">Supprimer le fichier\u00a0?</item>
+    <item quantity="other">Supprimer %d\u00a0fichiers\u00a0?</item>
+  </plurals>
   <!-- Text for the button to delete a single downloaded file item -->
   <string name="download_delete_item">Supprimer</string>
   <!-- Content description for the toolbar "Navigate back" button -->
@@ -1770,6 +1837,14 @@
   <string name="download_delete_multi_select_dialog_confirm">Supprimer</string>
   <!-- Alert dialog confirmation before deleting multiple download items, this is the negative action. -->
   <string name="download_delete_multi_select_dialog_cancel">Annuler</string>
+  <!-- Alert dialog confirmation before deleting a single download item or many download items, this is one of the radio buttons within the dialog box for the user to select. -->
+  <string name="download_delete_dialog_from_device">Supprimer de l’appareil</string>
+  <!-- Alert dialog confirmation before deleting a single download item or many download items, this is one of the radio buttons within the dialog box for the user to select. -->
+  <string name="download_delete_dialog_from_history">Supprimer uniquement de l’historique des téléchargements</string>
+  <!-- Alert dialog confirmation before deleting a single download item or many download items, this is the negative action. -->
+  <string name="download_delete_dialog_cancel">Annuler</string>
+  <!-- Alert dialog confirmation before deleting a single download item or many download items, this is the positive action. -->
+  <string name="download_delete_dialog_confirm">Confirmer</string>
   <!-- Title for the alert dialog confirmation before renaming a download item. -->
   <string name="download_rename_dialog_title">Renommer le fichier</string>
   <!-- Label for the name field in the alert dialog confirmation before renaming a download item. -->
@@ -1867,6 +1942,16 @@
   <string name="download_content_type_filter_document">Documents</string>
   <!-- Text for the filter button to show all other file types in the downloads list -->
   <string name="download_content_type_filter_other_1">Autre</string>
+  <!--
+    Title for the alert dialog to rename a file and/or change its download location before downloading it.
+    %s is the formatted size of the file (e.g., "12.5 MB").
+  -->
+  <string name="download_rename_and_change_location_dialog_title">Télécharger le fichier\u00a0?\n(%s)</string>
+  <!--
+    Title for the alert dialog to rename a file and/or change its download location
+    when the file size is not available before downloading it.
+  -->
+  <string name="download_rename_and_change_location_dialog_title_with_unknown_size">Télécharger le fichier\u00a0?</string>
   <!--
     WebCompat Reporter
 
@@ -2056,7 +2141,11 @@
   <string name="bookmark_delete_single_item" tools:ignore="UnusedResources" moz:removedIn="150">%s\u00a0: suppression effectuée</string>
   <!-- Bookmark snackbar message for deleting multiple items. %s is the number of items being deleted -->
   <string name="bookmark_delete_multiple_items" tools:ignore="UnusedResources" moz:removedIn="150">%s éléments supprimés</string>
-  <!-- Content description for the bookmark navigation bar back button -->
+  <!--
+    Bookmark undo button for deletion snackbar action
+
+    Content description for the bookmark navigation bar back button
+  -->
   <string name="bookmark_navigate_back_button_content_description">Remonter</string>
   <!-- Content description for the bookmark list new folder navigation bar button -->
   <string name="bookmark_add_new_folder_button_content_description">Ajouter un dossier</string>
@@ -2265,6 +2354,24 @@
   <string name="menu_print">Imprimer</string>
   <!-- Sub-header in the dialog to share a link to another sync device -->
   <string name="share_device_subheader">Envoyer à l’appareil</string>
+  <!-- Content description for the drag handle that dismisses the Send to Device bottom sheet -->
+  <string name="send_to_devices_bottom_sheet_close_content_description">Fermer Envoyer à un appareil</string>
+  <!-- Text for the QR code action in the native share sheet -->
+  <string name="share_qr_code">Code QR</string>
+  <!-- Title shown in the QR code display screen -->
+  <string name="qr_code_display_title">Code QR</string>
+  <!-- Content description for the close button in the QR code display screen -->
+  <string name="qr_code_display_close">Fermer</string>
+  <!-- Heading on the QR code display screen -->
+  <string name="qr_code_display_share_nearby">Partager le lien à proximité</string>
+  <!-- Body text on the QR code display screen instructing the user to have others scan the code -->
+  <string name="qr_code_display_instructions">Pour partager ce lien avec des personnes à proximité, demandez-leur de scanner le code QR ci-dessous.</string>
+  <!-- Label for the download button on the QR code display screen -->
+  <string name="qr_code_display_download">Télécharger</string>
+  <!-- Toast shown when the QR code is successfully saved to Downloads -->
+  <string name="qr_code_download_success">Code QR enregistré dans Téléchargements</string>
+  <!-- Toast shown when saving the QR code to Downloads fails -->
+  <string name="qr_code_download_failure">Échec de l’enregistrement du code QR</string>
   <!-- Sub-header in the dialog to share a link to an app from the full list -->
   <string name="share_link_all_apps_subheader">Toutes les actions</string>
   <!-- Sub-header in the dialog to share a link to an app from the most-recent sorted list -->
@@ -2394,8 +2501,6 @@
   <string name="preference_accessibility_text_size_summary">Agrandir ou réduire la taille du texte des sites web</string>
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">Taille de police</string>
-  <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d\u00a0%%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">Dimensionnement automatique des polices</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -3240,6 +3345,8 @@
     which navigates the user to a screen displaying all the shortcuts.
   -->
   <string name="homepage_shortcuts_show_all_content_description">Afficher tous les raccourcis</string>
+  <!-- Label for the "Add shortcut" button displayed as a tile. -->
+  <string name="homepage_shortcuts_add_shortcut">Ajouter un raccourci</string>
   <!-- Title text displayed in the dialog when shortcuts limit is reached. -->
   <string name="shortcut_max_limit_title">Nombre maximal de raccourcis atteint</string>
   <!-- Content description text displayed in the dialog when shortcut limit is reached. -->
@@ -3338,6 +3445,8 @@
     Header text for a section on the home screen.
   -->
   <string name="pocket_stories_header_2">Articles</string>
+  <!-- Header text for the Stories screen. -->
+  <string name="stories_screen_text_news">Actualités</string>
   <!--
     Context description text for the "Discover more" button in the stories home screen section
     which navigates the user to a screen displaying more stories.
@@ -3430,7 +3539,9 @@
   <!-- The title of the warning card informs the user that the list of languages cannot be loaded. -->
   <string name="translation_error_could_not_load_languages_warning_text">Impossible de charger les langues. Veuillez vérifier votre connexion Internet puis réessayer.</string>
   <!-- The title of the warning card informs the user that a language is not supported. %1$s is the name of the language that is not supported. -->
-  <string name="translation_error_language_not_supported_warning_text">Désolé, nous ne prenons pas encore en charge cette langue\u00a0: %1$s.</string>
+  <string name="translation_error_language_not_supported_warning_text" tools:ignore="UnusedResources" moz:removedIn="150">Désolé, nous ne prenons pas encore en charge cette langue\u00a0: %1$s.</string>
+  <!-- The title of the warning card informs the user that translations from a language are not supported yet. %1$s is the name of the source language. -->
+  <string name="translation_error_language_not_supported_warning_text_2">Désolé, nous ne prenons pas encore en charge les traductions depuis cette langue\u00a0: %1$s.</string>
   <!-- Snackbar title shown if the user closes the Translation Request dialogue and a translation is in progress. -->
   <string name="translation_in_progress_snackbar">Traduction…</string>
   <!--

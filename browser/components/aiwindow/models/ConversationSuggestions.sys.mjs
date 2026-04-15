@@ -10,11 +10,15 @@ import {
   openAIEngine,
   renderPrompt,
   MODEL_FEATURES,
+  DEFAULT_ENGINE_ID,
+  SERVICE_TYPES,
+  PURPOSES,
 } from "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs";
 
 import { MESSAGE_ROLE } from "moz-src:///browser/components/aiwindow/ui/modules/ChatStore.sys.mjs";
 
 import { MemoriesManager } from "moz-src:///browser/components/aiwindow/models/memories/MemoriesManager.sys.mjs";
+import { sanitizeUntrustedContent } from "moz-src:///browser/components/aiwindow/models/ChatUtils.sys.mjs";
 
 // Max number of memories to include in prompts
 const MAX_NUM_MEMORIES = 8;
@@ -164,19 +168,24 @@ export const NewTabStarterGenerator = {
  * @param {Array} contextTabs - Array of tab objects with title, url, favicon
  * @param {number} n - Number of suggestions to generate (default 6)
  * @param {boolean} useMemories - Whether to include user memories in prompt (default false)
+ * @param {string | null} flowId - Flow ID for correlating with firefox_ai_runtime telemetry
  * @returns {Promise<Array>} Array of {text, type} suggestion objects
  */
 export async function generateConversationStartersSidebar(
   contextTabs = [],
   n = 2,
-  useMemories = false
+  useMemories = false,
+  flowId = null
 ) {
   try {
     const today = new Date().toISOString().slice(0, 10);
 
     // Format current tab (first in context or empty)
     const currentTab = contextTabs.length
-      ? formatJson({ title: contextTabs[0].title, url: contextTabs[0].url })
+      ? formatJson({
+          title: sanitizeUntrustedContent(contextTabs[0].title),
+          url: contextTabs[0].url,
+        })
       : "No current tab";
 
     // Format opened tabs
@@ -186,7 +195,10 @@ export async function generateConversationStartersSidebar(
         contextTabs.length === 1
           ? "Only current tab is open"
           : formatJson(
-              contextTabs.slice(1).map(t => ({ title: t.title, url: t.url }))
+              contextTabs.slice(1).map(t => ({
+                title: sanitizeUntrustedContent(t.title),
+                url: t.url,
+              }))
             );
     } else {
       openedTabs = "No tabs available";
@@ -194,7 +206,15 @@ export async function generateConversationStartersSidebar(
 
     // Build engine and load prompt
     const engineInstance = await openAIEngine.build(
-      MODEL_FEATURES.CONVERSATION_SUGGESTIONS_SIDEBAR_STARTER
+      MODEL_FEATURES.CONVERSATION_SUGGESTIONS_SIDEBAR_STARTER,
+      DEFAULT_ENGINE_ID,
+      SERVICE_TYPES.AI,
+      PURPOSES.CONVERSATION_STARTERS_SIDEBAR,
+      flowId
+    );
+
+    const conversationStarterSystemPrompt = await engineInstance.loadPrompt(
+      MODEL_FEATURES.CONVERSATION_STARTERS_SIDEBAR_SYSTEM
     );
 
     const conversationStarterPrompt = await engineInstance.loadPrompt(
@@ -230,7 +250,7 @@ export async function generateConversationStartersSidebar(
       args: [
         {
           role: "system",
-          content: "Return only the requested suggestions, one per line.",
+          content: conversationStarterSystemPrompt,
         },
         { role: "user", content: filled },
       ],
@@ -257,25 +277,34 @@ export async function generateConversationStartersSidebar(
  * @param {object} currentTab - Current tab object with title, url
  * @param {number} n - Number of suggestions to generate (default 6)
  * @param {boolean} useMemories - Whether to include user memories in prompt (default false)
+ * @param {string | null} flowId - Flow ID for correlating with firefox_ai_runtime telemetry
  * @returns {Promise<Array>} Array of {text, type} suggestion objects
  */
 export async function generateFollowupPrompts(
   conversationHistory,
   currentTab,
   n = 2,
-  useMemories = false
+  useMemories = false,
+  flowId = null
 ) {
   try {
     const today = new Date().toISOString().slice(0, 10);
     const convo = trimConversation(conversationHistory);
     const currentTabStr =
       currentTab && Object.keys(currentTab).length
-        ? formatJson({ title: currentTab.title, url: currentTab.url })
+        ? formatJson({
+            title: sanitizeUntrustedContent(currentTab.title),
+            url: currentTab.url,
+          })
         : "No tab";
 
     // Build engine and load prompt
     const engineInstance = await openAIEngine.build(
-      MODEL_FEATURES.CONVERSATION_SUGGESTIONS_FOLLOWUP
+      MODEL_FEATURES.CONVERSATION_SUGGESTIONS_FOLLOWUP,
+      DEFAULT_ENGINE_ID,
+      SERVICE_TYPES.AI,
+      PURPOSES.CONVERSATION_STARTERS_SIDEBAR,
+      flowId
     );
 
     const conversationFollowupPrompt = await engineInstance.loadPrompt(

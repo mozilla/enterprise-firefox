@@ -12,7 +12,6 @@ import mozilla.components.browser.state.search.SearchEngine
 import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.state.SearchState
 import mozilla.components.browser.state.store.BrowserStore
-import mozilla.components.support.test.mock
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -38,7 +37,7 @@ class ShortcutsSuggestionProviderTest {
                 ),
             ),
         )
-        val provider = ShortcutsSuggestionProvider(store, mock(), "Search engine settings", {}, {})
+        val provider = ShortcutsSuggestionProvider(store, mockk(), "Search engine settings", {}, {})
 
         val suggestions = provider.onInputChanged("")
 
@@ -75,7 +74,7 @@ class ShortcutsSuggestionProviderTest {
         val provider = spyk(
             ShortcutsSuggestionProvider(
                 store,
-                mock(),
+                mockk(),
                 "Search engine settings",
                 { selectEngine = it },
                 { selectShortcutEngineSettingsChanged = true },

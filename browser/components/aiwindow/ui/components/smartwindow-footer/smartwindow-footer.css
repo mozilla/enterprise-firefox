@@ -25,7 +25,6 @@ moz-button.footer-action-button {
 moz-button.footer-action-button::part(button) {
   --icon-size: var(--icon-size-medium);
   --button-font-weight: var(--font-weight);
-  /* --button-font-size: var(--font-size-small); */
   flex-direction: column;
   gap: var(--space-small);
 }

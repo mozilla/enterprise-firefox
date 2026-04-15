@@ -570,6 +570,8 @@ aboutpreferences:
         "click" is used when a pane is shown when user clicks category name inside about:preferences.
         "hash" is used when a pane is shown via a hash change in url.
       The value field records identifier of pane shown
+    extra_keys:
+      session: The session ID for this tab.
     bug_numbers: [1738187]
     notification_emails:
       - "pdahiya@mozilla.com"
@@ -2394,7 +2396,6 @@ uptake.remotecontent.result:
       - uptake
     objects:
       - remotesettings
-      - normandy
     extra_keys:
       source: >
         A label to distinguish what is being pulled or updated in the component (eg. recipe id,

@@ -178,7 +178,7 @@ class UsedNameTracker {
       MOZ_ASSERT_IF(!isPublic(), p.isSome());
 
       if (empty() && !isPublic()) {
-        firstUsePos_ = p;
+        firstUsePos_ = std::move(p);
       }
     }
   };

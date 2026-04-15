@@ -23,6 +23,9 @@ newtab-personalize-dialog-label =
     .aria-label = Prilagodi
 newtab-logo-and-wordmark =
     .aria-label = { -brand-full-name }
+newtab-card-dismiss-button =
+    .title = Zapri
+    .aria-label = Zapri
 
 ## Search box component.
 
@@ -49,7 +52,7 @@ newtab-search-box-input =
     .placeholder = Iskanje po spletu
     .aria-label = Iskanje po spletu
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Dodaj iskalnik
 newtab-topsites-add-shortcut-header = Nova bližnjica
@@ -714,3 +717,24 @@ newtab-promo-card-cta = Več o tem
 newtab-promo-card-dismiss-button =
     .title = Opusti
     .aria-label = Opusti
+
+## Strings for activation window message variants. In certain experiment configurations,
+## the strings from these variants may be displayed in a message below the search input
+## for the first 48 hours of a new profile's lifetime. Some messages include buttons with
+## labels, but not all.
+
+newtab-activation-window-message-dismiss-button =
+    .title = Zapri
+    .aria-label = Zapri
+# "This space" refers to about:newtab. The call to action here ("make it your own")
+# is to customize newtab with a background image or colour, or by tweaking the
+# existing widgetry that appears on it.
+newtab-activation-window-message-customization-focus-header = Uredite ta prostor po svoje
+newtab-activation-window-message-customization-focus-message = Izberite si prijetno ozadje, dodajte bližnjice do svojih priljubljenih spletnih mest in ostanite na tekočem z zgodbami, ki vas zanimajo.
+newtab-activation-window-message-customization-focus-primary-button =
+    .label = Začni s prilagajanjem
+# "This space" refers to about:newtab. The sentiment of "plays by your rules" is
+# meant to evoke the idea that newtab is malleable and customizable. The call to
+# action is to customize newtab with a background image or colour, or by tweaking
+# the existing widgetry that appears on it.
+newtab-activation-window-message-values-focus-header = Ta prostor igra po vaših pravilih

@@ -301,6 +301,11 @@ add_task(async function test_about() {
   await UrlbarTestUtils.openTrustPanel(window);
   Assert.ok(true, "The panel can be opened.");
 
+  Assert.ok(
+    window.document.getElementById("trustpanel-toggle").disabled,
+    "Tracking protection toggle is diabled when not applicable"
+  );
+
   await BrowserTestUtils.removeTab(tab);
 });
 

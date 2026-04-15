@@ -146,6 +146,10 @@ impl crate::AddressSpace {
             | crate::AddressSpace::Handle
             | crate::AddressSpace::Immediate
             | crate::AddressSpace::TaskPayload => false,
+
+            crate::AddressSpace::RayPayload | crate::AddressSpace::IncomingRayPayload => {
+                unreachable!()
+            }
         }
     }
 }
@@ -222,7 +226,8 @@ impl Version {
     }
 
     fn supports_std430_layout(&self) -> bool {
-        *self >= Version::Desktop(430) || *self >= Version::new_gles(310)
+        // std430 is available from 400 via GL_ARB_shader_storage_buffer_object.
+        *self >= Version::Desktop(400) || *self >= Version::new_gles(310)
     }
 
     fn supports_fma_function(&self) -> bool {
@@ -509,7 +514,15 @@ impl fmt::Display for VaryingName<'_> {
                     (ShaderStage::Vertex, true) | (ShaderStage::Fragment, false) => "vs2fs",
                     // fragment to pipeline
                     (ShaderStage::Fragment, true) => "fs2p",
-                    (ShaderStage::Task | ShaderStage::Mesh, _) => unreachable!(),
+                    (
+                        ShaderStage::Task
+                        | ShaderStage::Mesh
+                        | ShaderStage::RayGeneration
+                        | ShaderStage::AnyHit
+                        | ShaderStage::ClosestHit
+                        | ShaderStage::Miss,
+                        _,
+                    ) => unreachable!(),
                 };
                 write!(f, "_{prefix}_location{location}",)
             }
@@ -526,7 +539,12 @@ impl ShaderStage {
             ShaderStage::Compute => "cs",
             ShaderStage::Fragment => "fs",
             ShaderStage::Vertex => "vs",
-            ShaderStage::Task | ShaderStage::Mesh => unreachable!(),
+            ShaderStage::Task
+            | ShaderStage::Mesh
+            | ShaderStage::RayGeneration
+            | ShaderStage::AnyHit
+            | ShaderStage::ClosestHit
+            | ShaderStage::Miss => unreachable!(),
         }
     }
 }
@@ -598,4 +616,30 @@ fn is_value_init_supported(module: &crate::Module, ty: Handle<crate::Type>) -> b
             .all(|member| is_value_init_supported(module, member.ty)),
         _ => false,
     }
+}
+
+pub fn supported_capabilities() -> valid::Capabilities {
+    use valid::Capabilities as Caps;
+
+    // Lots of these aren't supported on GLES in general, but naga is able to write them without panicking.
+
+    Caps::IMMEDIATES
+        | Caps::FLOAT64
+        | Caps::PRIMITIVE_INDEX
+        | Caps::CLIP_DISTANCE
+        | Caps::MULTIVIEW
+        | Caps::EARLY_DEPTH_TEST
+        | Caps::MULTISAMPLED_SHADING
+        | Caps::DUAL_SOURCE_BLENDING
+        | Caps::CUBE_ARRAY_TEXTURES
+        | Caps::SHADER_INT64
+        | Caps::SHADER_INT64_ATOMIC_ALL_OPS
+        | Caps::TEXTURE_ATOMIC
+        | Caps::TEXTURE_INT64_ATOMIC
+        | Caps::SUBGROUP
+        | Caps::SUBGROUP_BARRIER
+        | Caps::SHADER_FLOAT16
+        | Caps::SHADER_FLOAT16_IN_FLOAT32
+        | Caps::SHADER_BARYCENTRICS
+        | Caps::DRAW_INDEX
 }

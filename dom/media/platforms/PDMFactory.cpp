@@ -1,14 +1,10 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "PDMFactory.h"
 
-#ifdef MOZ_AV1
-#  include "AOMDecoder.h"
-#endif
+#include "AOMDecoder.h"
 #include "AgnosticDecoderModule.h"
 #include "AudioTrimmer.h"
 #include "BlankDecoderModule.h"
@@ -74,7 +70,7 @@ namespace mozilla {
 
 extern already_AddRefed<PlatformDecoderModule> CreateNullDecoderModule();
 
-MOZ_RUNINIT static StaticDataMutex<StaticRefPtr<PlatformDecoderModule>>
+constinit static StaticDataMutex<StaticRefPtr<PlatformDecoderModule>>
     sForcedPDM("Forced PDM");
 
 class PDMInitializer final {
@@ -445,9 +441,7 @@ PDMFactory::CreateDecoderWithPDM(PlatformDecoderModule* aPDM,
   }
 
   if ((MP4Decoder::IsH264(config.mMimeType) ||
-#ifdef MOZ_AV1
        AOMDecoder::IsAV1(config.mMimeType) ||
-#endif
        VPXDecoder::IsVPX(config.mMimeType) ||
        MP4Decoder::IsHEVC(config.mMimeType)) &&
       !aParams.mUseNullDecoder.mUse &&
@@ -887,11 +881,9 @@ DecodeSupportSet PDMFactory::SupportsMimeType(
     if (VPXDecoder::IsVP8(aMimeType)) {
       return MCSInfo::GetDecodeSupportSet(MediaCodec::VP8, aSupported);
     }
-#ifdef MOZ_AV1
     if (AOMDecoder::IsAV1(aMimeType)) {
       return MCSInfo::GetDecodeSupportSet(MediaCodec::AV1, aSupported);
     }
-#endif
     if (MP4Decoder::IsHEVC(aMimeType)) {
       return MCSInfo::GetDecodeSupportSet(MediaCodec::HEVC, aSupported);
     }

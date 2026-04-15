@@ -83,7 +83,6 @@ import org.mozilla.fenix.GleanMetrics.Events
 import org.mozilla.fenix.GleanMetrics.ReaderMode
 import org.mozilla.fenix.GleanMetrics.Translations
 import org.mozilla.fenix.R
-import org.mozilla.fenix.browser.BrowserAnimator
 import org.mozilla.fenix.browser.BrowserFragmentDirections
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode.Normal
@@ -128,8 +127,8 @@ import org.mozilla.fenix.ext.navigateSafe
 import org.mozilla.fenix.nimbus.FxNimbus
 import org.mozilla.fenix.settings.ShortcutType
 import org.mozilla.fenix.settings.quicksettings.protections.cookiebanners.getCookieBannerUIMode
-import org.mozilla.fenix.tabstray.Page
 import org.mozilla.fenix.tabstray.ext.isActiveDownload
+import org.mozilla.fenix.tabstray.redux.state.Page
 import org.mozilla.fenix.utils.Settings
 import org.mozilla.fenix.utils.lastSavedFolderCache
 import mozilla.components.browser.toolbar.R as toolbarR
@@ -200,7 +199,6 @@ internal sealed class PageEndActionsInteractions(override val source: Source) : 
  * @param navController [NavController] to use for navigating to other in-app destinations.
  * @param browsingModeManager [BrowsingModeManager] for querying the current browsing mode.
  * @param readerModeController [ReaderModeController] for showing or hiding the reader view UX.
- * @param browserAnimator Helper for animating the browser content when navigating to other screens.
  * @param thumbnailsFeature [BrowserThumbnails] for requesting screenshots of the current tab.
  * @param isWideScreen Callback for checking if the screen is wide.
  * @param isTallScreen Callback for checking if the screen is tall.
@@ -226,7 +224,6 @@ class BrowserToolbarMiddleware(
     private val navController: NavController,
     private val browsingModeManager: BrowsingModeManager,
     private val readerModeController: ReaderModeController,
-    private val browserAnimator: BrowserAnimator,
     private val thumbnailsFeature: () -> BrowserThumbnails?,
     private val isWideScreen: () -> Boolean,
     private val isTallScreen: () -> Boolean,
@@ -361,7 +358,7 @@ class BrowserToolbarMiddleware(
                         ),
                     )
                 } else {
-                    store.dispatch(SearchQueryUpdated(BrowserToolbarQuery(searchTerms)))
+                    store.dispatch(SearchQueryUpdated(BrowserToolbarQuery(searchTerms), true))
                     appStore.dispatch(SearchStarted(selectedTab.id))
                 }
             }
@@ -381,7 +378,7 @@ class BrowserToolbarMiddleware(
                 }
             }
             is PasteFromClipboardClicked -> {
-                store.dispatch(SearchQueryUpdated(BrowserToolbarQuery(clipboard.text.orEmpty())))
+                store.dispatch(SearchQueryUpdated(BrowserToolbarQuery(clipboard.text.orEmpty()), true))
                 appStore.dispatch(SearchStarted(browserStore.state.selectedTabId))
             }
             is LoadFromClipboardClicked -> {
@@ -574,9 +571,7 @@ class BrowserToolbarMiddleware(
                     useCases.fenixBrowserUseCases.navigateToHomepage()
                 } else {
                     val directions = BrowserFragmentDirections.actionGlobalHome()
-                    browserAnimator.captureEngineViewAndDrawStatically {
-                        navController.navigate(directions)
-                    }
+                    navController.navigate(directions)
                 }
                 next(action)
             }

@@ -207,6 +207,42 @@
           "support link is placed next to the description when provided."
         );
       });
+
+      add_task(async function testMozBoxItemSlottedDescription() {
+        let slottedTemplate = testHelpers.templateFn({
+          label: "Testing slotted description",
+        });
+        let renderTarget = await testHelpers.renderTemplate(slottedTemplate);
+        let item = renderTarget.firstElementChild;
+
+        ok(!item.hasDescription, "Item initially has no description.");
+
+        const SLOTTED_DESCRIPTION = "This is a slotted description";
+        let slottedDesc = document.createElement("span");
+        slottedDesc.textContent = SLOTTED_DESCRIPTION;
+        slottedDesc.slot = "description";
+
+        item.append(slottedDesc);
+        await item.updateComplete;
+
+        let descriptionSlot = item.shadowRoot.querySelector(
+          "slot[name='description']"
+        );
+        ok(descriptionSlot, "Description slot exists in shadow DOM");
+
+        let slottedElements = descriptionSlot.assignedElements();
+        is(
+          slottedElements.length,
+          1,
+          "Description slot has one assigned element"
+        );
+        is(
+          slottedElements[0],
+          slottedDesc,
+          "Slotted description is assigned to description slot"
+        );
+        ok(item.hasDescription, "Item has description after slotting content");
+      });
     </script>
   </head>
   <body>

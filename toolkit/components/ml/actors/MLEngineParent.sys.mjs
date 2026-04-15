@@ -1145,7 +1145,6 @@ export class MLEngine {
    * @returns {object|null} The validated request, or null if blocked
    */
   #validateRequest(request) {
-    lazy.console.debug("[MLSecurity] Validating request:", request);
     return request;
   }
 
@@ -1700,6 +1699,7 @@ export class MLEngine {
           tokens: chunk.metadata.tokens,
           isPrompt: chunk.metadata.isPrompt,
           toolCalls: chunk.metadata.toolCalls,
+          usage: chunk.metadata.usage,
         };
 
         // Be a bit defensive here in getting the metadata, as different engines may

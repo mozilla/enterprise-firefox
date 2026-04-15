@@ -74,7 +74,11 @@ sealed interface DownloadUIAction : Action {
     /**
      * [DownloadUIAction] to share the file of a [FileItem].
      */
-    data class ShareFileClicked(val filePath: String, val contentType: String?) : DownloadUIAction
+    data class ShareFileClicked(
+        val directoryPath: String,
+        val fileName: String?,
+        val contentType: String?,
+    ) : DownloadUIAction
 
     /**
      * [DownloadUIAction] to rename the file of a [FileItem].

@@ -90,6 +90,18 @@ or the following alias:
 
 Like ``run_on_projects``, the same behavior applies if it is set to an empty list.
 
+run_on_git_branches
+===================
+
+On a given project, the git branches where this task should be in the target
+task set.  This is how requirements like "only run on this branch" get implemented.
+These are either the regular expression of a branch (e.g.: ``GECKOVIEW_\d+_RELBRANCH``)
+or the following alias:
+
+ * `all` -- everywhere (the default)
+
+Like ``run_on_projects``, the same behavior applies if it is set to an empty list.
+
 task_duplicates
 ===============
 
@@ -593,6 +605,11 @@ dxc-crash-symbols
 =================
 
 Indicates that the job produces crash symbols for `dxcompiler.dll`.
+
+flatpak_name
+============
+
+name of the built flatpak app (e.g. `org.mozilla.firefox`)
 
 required_checks
 ===============

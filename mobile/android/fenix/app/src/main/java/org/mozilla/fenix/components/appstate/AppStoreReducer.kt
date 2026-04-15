@@ -197,6 +197,10 @@ internal object AppStoreReducer {
             state.copy(openInFirefoxRequested = false)
         }
 
+        is AppAction.UpdateDefaultBrowserStatus -> state.copy(
+            isDefaultBrowser = action.isDefault,
+        )
+
         is AppAction.UserAccountAuthenticated -> state.copy(
             snackbarState = SnackbarState.UserAccountAuthenticated,
         )
@@ -273,6 +277,10 @@ internal object AppStoreReducer {
 
         is AppAction.MenuNotification.RemoveMenuNotification -> state.copy(
             supportedMenuNotifications = state.supportedMenuNotifications - action.notification,
+        )
+
+        is AppAction.UpdateTrackersBlockedCount -> state.copy(
+            trackersBlockedCount = action.count,
         )
     }
 }

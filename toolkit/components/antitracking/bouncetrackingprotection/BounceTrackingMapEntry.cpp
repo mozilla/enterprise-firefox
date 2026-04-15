@@ -40,4 +40,11 @@ NS_IMETHODIMP BounceTrackingPurgeEntry::GetPurgeTime(PRTime* aPurgeTime) {
   return NS_OK;
 }
 
+NS_IMETHODIMP BounceTrackingPurgeEntry::GetBounceTrackingRecord(
+    nsIBounceTrackingRecord** aResult) {
+  RefPtr<BounceTrackingRecord> record = mChainRecord;
+  record.forget(aResult);
+  return NS_OK;
+}
+
 }  // namespace mozilla

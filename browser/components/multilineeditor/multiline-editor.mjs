@@ -53,6 +53,7 @@ export class MultilineEditor extends MozLitElement {
     placeholder: { type: String, reflect: true, fluent: true },
     readOnly: { type: Boolean, reflect: true, attribute: "readonly" },
     plugins: { type: Array, attribute: false },
+    maxLength: { type: Number, attribute: "maxlength" },
   };
 
   static schema = new Schema({
@@ -76,6 +77,7 @@ export class MultilineEditor extends MozLitElement {
     this.placeholder = "";
     this.plugins = [];
     this.readOnly = false;
+    this.maxLength = 0;
     this.#placeholderPlugin = this.#createPlaceholderPlugin();
     const plugins = [
       historyPlugin(),
@@ -152,13 +154,7 @@ export class MultilineEditor extends MozLitElement {
     }
 
     const state = this.#view.state;
-    const schema = state.schema;
-    const lines = val.split("\n");
-    const paragraphs = lines.map(line => {
-      const content = line ? [schema.text(line)] : [];
-      return schema.node("paragraph", null, content);
-    });
-    const doc = schema.node("doc", null, paragraphs);
+    const doc = this.#textToDoc(val, state.schema);
 
     const tr = state.tr.replaceWith(0, state.doc.content.size, doc.content);
     tr.setMeta("addToHistory", false);
@@ -456,6 +452,23 @@ export class MultilineEditor extends MozLitElement {
       return;
     }
 
+    if (
+      tr.docChanged &&
+      this.maxLength > 0 &&
+      tr.doc.content.size > this.maxLength
+    ) {
+      const newText = tr.doc.textBetween(0, tr.doc.content.size, "\n", "\n");
+      const truncated = newText.slice(0, this.maxLength);
+
+      /* tr.doc.content.size includes ProseMirror structural tokens, so check actual text length here */
+      if (newText.length > this.maxLength && truncated !== this.value) {
+        const doc = this.#textToDoc(truncated, this.#view.state.schema);
+        tr = this.#view.state.tr
+          .replaceWith(0, this.#view.state.doc.content.size, doc.content)
+          .scrollIntoView();
+      }
+    }
+
     const prevText = this.value;
     const prevSelection = this.#view.state.selection;
     const nextState = this.#view.state.apply(tr);
@@ -606,6 +619,14 @@ export class MultilineEditor extends MozLitElement {
       editable: () => !this.readOnly,
     });
     this.#view.dispatch(this.#view.state.tr);
+  }
+
+  #textToDoc(text, schema) {
+    const paragraphs = text.split("\n").map(line => {
+      const content = line ? [schema.text(line)] : [];
+      return schema.node("paragraph", null, content);
+    });
+    return schema.node("doc", null, paragraphs);
   }
 
   #textOffsetFromPos(pos, doc = this.#view?.state.doc) {

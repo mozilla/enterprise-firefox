@@ -19,6 +19,8 @@
   <string name="content_description_menu">കൂടുതൽ ഐച്ഛികങ്ങൾ</string>
   <!-- Content description (not visible, for screen readers etc.): "Private Browsing" menu button. -->
   <string name="content_description_private_browsing">സ്വകാര്യ തിരയൽ</string>
+  <!-- Content description (not visible, for screen readers etc.): "Normal Browsing" menu button. -->
+  <string name="content_description_normal_browsing">പൊതുതിരച്ചിൽ</string>
   <!-- Placeholder text shown in the search bar before a user enters text for the default engine -->
   <string name="search_hint">തിരയുക അല്ലെങ്കിൽ വിലാസം നൽകുക</string>
   <!-- Placeholder text shown in the search bar before a user enters text for a general engine -->
@@ -429,6 +431,8 @@
   <string name="search_engine_selector_content_description">%s: തിരയൽയന്ത്ര തിരഞ്ഞെടുക്കൽസഹായി</string>
   <!-- Text for the snackbar shown to confirm the deletion of a single browsing history item. %1$s is the shortened URL of the deleted history entry or the the actual deleted search term. Only one such item is deleted at a time. -->
   <string name="search_suggestions_delete_history_item_snackbar">നാൾവഴിയിൽ നിന്നു %1$s-നെ മായിച്ചു</string>
+  <!-- Content description (not visible, for screen readers etc.): Button shown near a history search result allowing to delete it from browsing history. -->
+  <string name="mozac_browser_awesomebar_remove_suggestion" tools:ignore="UnusedResources">ഈ നാൾവഴിയിനം മായ്ക്കുക</string>
   <!--
     Home onboarding
 
@@ -576,8 +580,12 @@
 
   <!-- "Continue" onboarding button. -->
   <string name="nova_onboarding_continue_button">തുടരുക</string>
+  <!-- "Continue browsing" onboarding button. -->
+  <string name="nova_onboarding_continue_browsing_button" tools:ignore="UnusedResources">തിരയൽ തുടരുക</string>
   <!-- "Not now" onboarding button. -->
   <string name="nova_onboarding_negative_button">ഇപ്പോഴല്ല</string>
+  <!-- "Skip" onboarding button. -->
+  <string name="nova_onboarding_skip_button" tools:ignore="UnusedResources">ഒഴിവാക്കുക</string>
   <!--
     Terms of use (ToU) onboarding body line one.
     %1$s is replaced by an active link, using nova_onboarding_tou_body_line_1_link_text as text (“Firefox Terms of Use”).
@@ -635,6 +643,10 @@
   <string name="nova_onboarding_notifications_button">അറിയിപ്പുകൾ തുടങ്ങിവയ്ക്കുക</string>
   <!-- "Add search widget" onboarding title. -->
   <string name="nova_onboarding_add_search_widget_title">ഓരോ തിരച്ചിലും ഇനിയും സ്വകാര്യമാക്കുക</string>
+  <!-- Customize prompt onboarding positive button. -->
+  <string name="nova_onboarding_customize_prompt_positive_button" tools:ignore="UnusedResources">ഇഷ്ടാനുസൃതമാക്കൽ തുടങ്ങുക</string>
+  <!-- App icon onboarding title. -->
+  <string name="nova_onboarding_app_icon_prompt_title" tools:ignore="UnusedResources">ഇഷ്ടാനുസൃത പ്രയോഗയടയാളം തിരഞ്ഞെടുക്കുക</string>
   <!-- ==== End of Project "Nova" onboarding strings ==== -->
 
   <!-- Onboarding header for the toolbar selection card, used by Nimbus experiments. -->
@@ -1374,14 +1386,20 @@
   <string name="studies_remove">മാറ്റുക</string>
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">സജീവം</string>
-  <!-- Description for studies -->
-  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">എല്ലാവൎക്കും കിട്ടുന്നതിനു് മുമ്പെ പുതിയ സവിശേഷകൾ ഉപയോഗിച്ചു നോക്കുക.</string>
   <!-- Title of the Studies data preference -->
-  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">പാഠനങ്ങൾ സ്ഥാപിച്ചിട്ടു് അവയെ നടത്തുക</string>
+  <string name="studies_title_2">സവിശേഷതപഠനങ്ങൾ അനുവദിക്കുക</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
   <string name="studies_learn_more">കൂടുതലറിയുക</string>
+  <!--
+    Remote Improvements (Rollouts)
+
+    Title of the Remote Improvements (rollouts) data preference
+  -->
+  <string name="remote_improvements_title">അകന്നേറിയ മെച്ചപ്പെടുത്തലുകൾ അനുവദിക്കുക</string>
   <!-- Learn more link for remote improvements, links to an article for more information about rollouts. -->
   <string name="remote_improvements_learn_more">കൂടുതല്‍ അറിയുക</string>
+  <!-- Title for remote improvements preference in Advanced settings -->
+  <string name="preferences_remote_improvements">അകന്നേറിയ മെച്ചപ്പെടുത്തലുകൾ</string>
   <!--
     Sessions
 
@@ -1453,6 +1471,8 @@
   <string name="tab_manager_multiselect_menu_item_share">പങ്കിടുക</string>
   <!-- Text shown in the multiselect menu for adding selected tabs to collections. -->
   <string name="tab_manager_multiselect_menu_item_add_to_collection">ശേഖരത്തിലോട്ടു ചേൎക്കുക</string>
+  <!-- Text shown in the multiselect menu for adding selected tabs to a tab group. -->
+  <string name="tab_manager_multiselect_menu_item_add_to_tab_group">ടാബുകൂട്ടത്തിലേക്കു ചേൎക്കുക</string>
   <!-- Content description for tabs tray multiselect share button -->
   <string name="tab_tray_multiselect_share_content_description" tools:ignore="UnusedResources" moz:removedIn="149">തിരഞ്ഞെടുത്ത ടാബുകൾ പങ്കിടുക</string>
   <!-- Content description for tabs tray multiselect menu -->
@@ -1497,6 +1517,8 @@
     Title for the create tab group bottom sheet
   -->
   <string name="create_tab_group_title">ടാബുകൂട്ടം ഉണ്ടാക്കുക</string>
+  <!-- Title for the edit tab group bottom sheet -->
+  <string name="edit_tab_group_title">ടാബുകൂട്ടം തിരുത്തുക</string>
   <string name="create_tab_group_save_button">കരുതിവയ്ക്കുക</string>
   <string name="edit_tab_group_bottom_sheet_close_content_description">\"ടാബുകൂട്ടം തിരുത്തുക\" എന്നതു് അടയ്ക്കുക</string>
   <!-- Default tab group name when creating a tab group -->
@@ -1506,10 +1528,24 @@
     %d is the number of existing tab groups + 1.
   -->
   <string name="create_tab_group_form_default_name">%d കൂട്ടം</string>
-  <!-- Label for the tab group name field in the bottom sheet to create a new tab group. -->
-  <string name="create_tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">പേരു്</string>
   <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
-  <string name="tab_group_name_label">പേരു്</string>
+  <string name="create_tab_group_name_label">പേരു്</string>
+  <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
+  <string name="tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">പേരു്</string>
+  <!-- Title for adding more tabs to a tab group. -->
+  <string name="add_to_tab_group_title">ഇതിലേക്കു ചേൎക്കുക</string>
+  <!-- Content Description for closing the "Add to Tab Group" panel. -->
+  <string name="add_to_tab_group_bottom_sheet_close_content_description">\"ടാബുകൂട്ടത്തിൽ ചേൎക്കുക\" എന്നതു് അടയ്ക്കുക</string>
+  <!-- Label for adding to a new tab group. -->
+  <string name="add_to_new_tab_group_title">പുതിയ ടാബുകൂട്ടം</string>
+  <plurals name="tab_group_tabs_count_subtitle">
+    <!--
+      Subtitle for the number of tabs in a tab group.
+      %1$d is the number of tabs in a tab group.
+    -->
+    <item quantity="one">%1$d ടാബു്</item>
+    <item quantity="other">%1$d ടാബുകൾ</item>
+  </plurals>
   <!--
     History
 
@@ -1886,7 +1922,11 @@
   <string name="bookmark_delete_single_item" tools:ignore="UnusedResources" moz:removedIn="150">%s മായച്ചതു്</string>
   <!-- Bookmark snackbar message for deleting multiple items. %s is the number of items being deleted -->
   <string name="bookmark_delete_multiple_items" tools:ignore="UnusedResources" moz:removedIn="150">മായച്ച ഇനങ്ങൾ: %s</string>
-  <!-- Content description for the bookmark navigation bar back button -->
+  <!--
+    Bookmark undo button for deletion snackbar action
+
+    Content description for the bookmark navigation bar back button
+  -->
   <string name="bookmark_navigate_back_button_content_description">പുറകോട്ട് ചെല്ലുക</string>
   <!-- Content description for the bookmark list new folder navigation bar button -->
   <string name="bookmark_add_new_folder_button_content_description">പുതിയ അറ ഉണ്ടാക്കുക</string>
@@ -2222,8 +2262,6 @@
   <string name="preference_accessibility_text_size_summary">വെബ്സൈറ്റുകളിലെ അക്ഷരങ്ങൾ വലുതോ ചെറുതോ ആക്കുക</string>
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">ഫോണ്ട് വലുപ്പം</string>
-  <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">ഫോണ്ടിന്റെ വലുപ്പത്തിന്റെ യാന്ത്രിക ക്രമീകരണം</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -3177,7 +3215,7 @@
   <!-- The title of the warning card informs the user that the list of languages cannot be loaded. -->
   <string name="translation_error_could_not_load_languages_warning_text">ഭാഷാകൾ ലഭ്യമാക്കാൻ കഴിഞ്ഞില്ല. താങ്ങളുടെ ഗോളാന്തരവല സമ്പർക്കം പരിശോധിച്ച് വീണ്ടും ശ്രമിക്കുക.</string>
   <!-- The title of the warning card informs the user that a language is not supported. %1$s is the name of the language that is not supported. -->
-  <string name="translation_error_language_not_supported_warning_text">പൊറുക്കണം, ഞങ്ങൾ ഇതുവരെ %1$s-നെ പിന്തുണയ്ക്കുന്നില്ല.</string>
+  <string name="translation_error_language_not_supported_warning_text" tools:ignore="UnusedResources" moz:removedIn="150">പൊറുക്കണം, ഞങ്ങൾ ഇതുവരെ %1$s-നെ പിന്തുണയ്ക്കുന്നില്ല.</string>
   <!-- Snackbar title shown if the user closes the Translation Request dialogue and a translation is in progress. -->
   <string name="translation_in_progress_snackbar">വിവർത്തനം ചെയ്യുന്നു…</string>
   <!--

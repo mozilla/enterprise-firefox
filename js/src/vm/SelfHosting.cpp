@@ -1800,6 +1800,8 @@ static const JSFunctionSpec intrinsic_functions[] = {
     JS_FN("new_List", intrinsic_newList, 0, 0),
     JS_INLINABLE_FN("std_Array", array_construct, 1, 0, Array),
     JS_INLINABLE_FN("std_Array_pop", array_pop, 0, 0, ArrayPop),
+    JS_INLINABLE_FN("std_Array_shift", array_shift, 0, 0, ArrayShift),
+    JS_INLINABLE_FN("std_Array_slice", array_slice, 2, 0, ArraySlice),
     JS_TRAMPOLINE_FN("std_Array_sort", array_sort, 1, 0, ArraySort),
     JS_FN("std_Function_apply", fun_apply, 2, 0),
     JS_FN("std_Map_entries", MapObject::entries, 0, 0),

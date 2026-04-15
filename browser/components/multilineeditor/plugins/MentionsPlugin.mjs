@@ -59,6 +59,27 @@ class Mentions {
   }
 
   /**
+   * Returns true after finding the first mention node.
+   *
+   * @returns {boolean} Whether mentions exist.
+   */
+  hasMention() {
+    const { state } = this.#editor.view;
+    const { doc, schema } = state;
+
+    let foundMention = false;
+    doc.nodesBetween(0, doc.content.size, node => {
+      if (node.type === schema.nodes.mention) {
+        foundMention = true;
+        return false;
+      }
+      return true;
+    });
+
+    return foundMention;
+  }
+
+  /**
    * Get all mentions.
    *
    * @returns {Array<MentionData & {pos: number}>} Mentions with positions

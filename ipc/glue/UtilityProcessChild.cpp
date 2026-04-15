@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -235,9 +233,10 @@ mozilla::ipc::IPCResult UtilityProcessChild::RecvRequestMemoryReport(
 
 #if defined(NIGHTLY_BUILD) && !defined(MOZ_NO_SMART_CARDS)
 IPCResult UtilityProcessChild::RecvStartPKCS11ModuleService(
-    Endpoint<PPKCS11ModuleChild>&& aEndpoint) {
+    Endpoint<PPKCS11ModuleChild>&& aEndpoint, nsCString&& aProfilePath) {
   auto child = MakeRefPtr<psm::PKCS11ModuleChild>();
-  if (!child || NS_FAILED(child->Start(std::move(aEndpoint)))) {
+  if (!child ||
+      NS_FAILED(child->Start(std::move(aEndpoint), std::move(aProfilePath)))) {
     return IPC_FAIL(this, "Failed to create and start PKCS11ModuleChild");
   }
 

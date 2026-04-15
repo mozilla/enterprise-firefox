@@ -185,14 +185,17 @@ LoginManagerAuthPromptFactory.prototype = {
       return;
     }
 
-    let hasLogins = Services.logins.countLogins(origin, null, httpRealm) > 0;
+    let hasLogins =
+      (await Services.logins.countLoginsAsync(origin, null, httpRealm)) > 0;
     if (
       !hasLogins &&
       lazy.LoginHelper.schemeUpgrades &&
       origin.startsWith("https://")
     ) {
       let httpOrigin = origin.replace(/^https:\/\//, "http://");
-      hasLogins = Services.logins.countLogins(httpOrigin, null, httpRealm) > 0;
+      hasLogins =
+        (await Services.logins.countLoginsAsync(httpOrigin, null, httpRealm)) >
+        0;
     }
     // We don't depend on saved logins.
     if (!hasLogins) {

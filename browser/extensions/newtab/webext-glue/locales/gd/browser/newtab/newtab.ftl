@@ -39,7 +39,7 @@ newtab-search-box-input =
     .placeholder = Lorg air an lìon
     .aria-label = Lorg air an lìon
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Cuir einnsean-luirg ris
 newtab-topsites-add-shortcut-header = Ath-ghoirid ùr

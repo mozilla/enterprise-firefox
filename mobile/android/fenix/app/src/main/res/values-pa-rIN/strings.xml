@@ -19,6 +19,8 @@
   <string name="content_description_menu">ਹੋਰ ਚੋਣਾਂ</string>
   <!-- Content description (not visible, for screen readers etc.): "Private Browsing" menu button. -->
   <string name="content_description_private_browsing">ਪ੍ਰਾਈਵੇਟ ਬਰਾਊਜ਼ਿੰਗ</string>
+  <!-- Content description (not visible, for screen readers etc.): "Normal Browsing" menu button. -->
+  <string name="content_description_normal_browsing">ਸਧਾਰਨ ਬਰਾਊਜ਼ਿੰਗ</string>
   <!-- Placeholder text shown in the search bar before a user enters text for the default engine -->
   <string name="search_hint">ਖੋਜੋ ਜਾਂ ਸਿਰਨਾਵਾਂ ਦਿਓ</string>
   <!-- Placeholder text shown in the search bar before a user enters text for a general engine -->
@@ -314,6 +316,8 @@
   <string name="browser_menu_edit_bookmark">ਬੁੱਕਮਾਰਕ ਨੂੰ ਸੋਧੋ</string>
   <!-- Browser menu label that the saves the currently visited page as a PDF -->
   <string name="browser_menu_save_as_pdf_2">PDF ਵਜੋਂ ਸੰਭਾਲੋ</string>
+  <!-- Browser menu label for moving the current private tab to a non-private tab -->
+  <string name="browser_menu_move_to_non_private_tab">ਗ਼ੈਰ-ਨਿੱਜੀ ਟੈਬ ਉੱਤੇ ਭੇਜੋ</string>
   <!-- Browser menu label for navigating to the translation feature, which provides language translation options the current visited page -->
   <string name="browser_menu_translate_page_2">ਸਫ਼ੇ ਦਾ ਉਲੱਥਾ ਕਰੋ</string>
   <!-- Browser menu label for navigating to the summarization feature, which provides site summarization for the current visited page -->
@@ -616,8 +620,12 @@
 
   <!-- "Continue" onboarding button. -->
   <string name="nova_onboarding_continue_button">ਜਾਰੀ ਰੱਖੋ</string>
+  <!-- "Continue browsing" onboarding button. -->
+  <string name="nova_onboarding_continue_browsing_button" tools:ignore="UnusedResources">ਬਰਾਊਜ਼ ਕਰਨਾ ਜਾਰੀ ਰੱਖੋ</string>
   <!-- "Not now" onboarding button. -->
   <string name="nova_onboarding_negative_button">ਹੁਣੇ ਨਹੀਂ</string>
+  <!-- "Skip" onboarding button. -->
+  <string name="nova_onboarding_skip_button" tools:ignore="UnusedResources">ਛੱਡੋ</string>
   <!-- Terms of use (ToU) onboarding title. -->
   <string name="nova_onboarding_tou_title" tools:ignore="UnusedResources">ਆਜ਼ਾਦ ਹੋਣ ਲੀ ਤਿਆਰ ਹੋ ਜਾਓ</string>
   <!-- Terms of use (ToU) onboarding subtitle. -->
@@ -692,6 +700,25 @@
   <string name="nova_onboarding_add_search_widget_subtitle" tools:ignore="BrandUsage">ਹਰ ਖੋਜ ਨੂੰ ਆਪਣੇ ਫ਼ੋਨ ਦੀ ਮੁੱਖ ਸਕਰੀਨ ਤੋਂ ਸ਼ੁਰੂ ਕਰੋ ਅਤੇ ਯਾਦ ਰੱਖੋ ਕਿ Firefox ਆਪਣੇ-ਆਪ ਹੀ ਤੁਹਾਨੂੰ ਸੁਰੱਖਿਅਤ ਰੱਖਦਾ ਹੈ।</string>
   <!-- "Add search widget" onboarding button. 'Firefox' is intentionally hardcoded. -->
   <string name="nova_onboarding_add_search_widget_button" tools:ignore="BrandUsage">Firefox ਵਿਜੈਟ ਨੂੰ ਜੋੜੋ</string>
+  <!-- Customize prompt onboarding title. -->
+  <string name="nova_onboarding_customize_prompt_title" tools:ignore="UnusedResources">ਹਰ ਟੈਪ ਨਾਲ ਕਸਟਮਾਈਜ਼ ਕਰਨਾ ਸੌਖਾ ਅਤੇ ਵੱਧ ਪ੍ਰਾਈਵੇਟ</string>
+  <plurals name="nova_onboarding_customize_prompt_body" tools:ignore="UnusedResources">
+    <!--
+      Customize prompt onboarding body.
+      %1$s is replaced by the product name (for example "Firefox"),
+      %2$,d is replaced by the number of trackers blocked. The comma represents the thousand
+      separator (e.g. 1,000 in English), and it will automatically use the correct character
+      for your locale (don't change or remove it).
+    -->
+    <item quantity="one">ਜਦੋਂ ਤੁਸੀਂ ਵੈੱਬ ਉੱਤੇ ਕੰਮ ਕਰ ਰਹੇ ਸੀ ਤਾਂ %1$s ਨੇ %2$,d ਟਰੈਕਰਾਂ ਉੱਤੇ ਪਾਬੰਦੀ ਲਾਈ ਹੈ।</item>
+    <item quantity="other">ਜਦੋਂ ਤੁਸੀਂ ਵੈੱਬ ਉੱਤੇ ਕੰਮ ਕਰ ਰਹੇ ਸੀ ਤਾਂ %1$s ਨੇ %2$,d ਟਰੈਕਰਾਂ ਉੱਤੇ ਪਾਬੰਦੀ ਲਾਈ ਹੈ।</item>
+  </plurals>
+  <!-- Customize prompt onboarding positive button. -->
+  <string name="nova_onboarding_customize_prompt_positive_button" tools:ignore="UnusedResources">ਪਸੰਦੀਦਾ ਬਣਾਉਣਾ ਸ਼ੁਰੂ ਕਰੋ</string>
+  <!-- App icon onboarding title. -->
+  <string name="nova_onboarding_app_icon_prompt_title" tools:ignore="UnusedResources">ਕਸਟਮ ਐਪ ਆਈਕਾਨ ਨੂੰ ਚੁਣੋ</string>
+  <!-- App icon onboarding body. -->
+  <string name="nova_onboarding_app_icon_prompt_body" tools:ignore="UnusedResources">ਆਪਣੀ ਮੁੱਖ ਸਕਰੀਨ ਨੂੰ ਆਪਣਾ ਬਣਾਓ।</string>
   <!-- ==== End of Project "Nova" onboarding strings ==== -->
 
   <!-- Onboarding header for the toolbar selection card, used by Nimbus experiments. -->
@@ -759,6 +786,12 @@
   <string name="preferences_category_about">ਇਸ ਬਾਰੇ</string>
   <!-- Preference category for settings related to changing the default search engine -->
   <string name="preferences_category_select_default_search_engine">ਇੱਕ ਚੁਣੋ</string>
+  <!-- Preference category for settings related to changing the default search engine -->
+  <string name="preferences_category_select_default_search_engine_2">ਆਮ ਬਰਾਊਜ਼ਿੰਗ ਮੂਲ ਖੋਜ ਇੰਜਣ</string>
+  <!-- Preference category for settings related to changing the private browsing search engine -->
+  <string name="preferences_category_select_private_search_engine">ਪ੍ਰਾਈਵੇਟ ਬਰਾਊਜ਼ ਕਰਨ ਲਈ ਮੂਲ ਖੋਜ ਇੰਜਣ</string>
+  <!-- Option to set the private browsing mode to use the normal default search engine -->
+  <string name="search_engine_use_default">ਆਮ ਬਰਾਊਜ਼ਿੰਗ ਵਜੋਂ ਉਹੀ ਖੋਜ ਇੰਜਣ ਨੂੰ ਵਰਤੋਂ</string>
   <!-- Preference for settings related to managing search shortcuts for the quick search menu -->
   <string name="preferences_manage_search_shortcuts_2">ਬਦਲਵੇਂ ਖੋਜ ਇੰਜਣਾਂ ਦਾ ਇੰਤਜ਼ਾਮ ਕਰੋ</string>
   <!-- Summary for preference for settings related to managing search shortcuts for the quick search menu -->
@@ -975,6 +1008,15 @@
   <string name="preference_downloads_folder_permission_lost" tools:ignore="UnusedResources">ਤੁਹਾਨੂੰ ਇਹ ਫੋਲਡਰ ਵਰਤਣ ਲਈ ਇਜਾਜ਼ਤ ਨਹੀਂ ਹੈ। ਵੱਖਰੇ ਨੂੰ ਚੁਣਨ ਦੀ ਕੋਸ਼ਿਸ਼ ਕਰੋ।</string>
   <!-- Preference title for choosing an app to handle downloads -->
   <string name="preferences_choose_app_for_downloads">ਹੋਰ ਐਪ ਨਾਲ ਡਾਊਨਲੋਡਾਂ ਦਾ ਇੰਤਜ਼ਾਮ ਕਰੋ</string>
+  <!-- Preference category for deleting or removing downloads -->
+  <string name="preferences_category_delete_or_remove_downloads">ਡਾਊਨਲੋਡ ਨੂੰ ਹਟਾਓ ਜਾਂ ਮਿਟਾਓ</string>
+  <string name="preferences_downloads_delete_from_device">ਡਿਵਾਈਸ ਤੋਂ ਹਟਾਓ</string>
+  <string name="preferences_downloads_delete_from_device_description">ਫ਼ਾਈਲ ਨੂੰ ਤੁਹਾਡੇ ਡਿਵਾਈਸ ਤੋਂ ਹਟਾਇਆ ਅਤੇ ਡਾਊਨਲੋਡ ਅਤੀਤ ਤੋਂ ਮਿਟਾਇਆ ਗਿਆ</string>
+  <string name="preferences_downloads_remove_from_download_history">ਡਾਊਨਲੋਡ ਅਤੀਤ ਵਿੱਚੋਂ ਹਟਾਓ</string>
+  <string name="preferences_downloads_remove_from_download_history_description">ਫ਼ਾਈਲ ਨੂੰ ਤੁਹਾਡੇ ਡਾਊਨਲੋਡ ਅਤੀਤ ਵਿੱਚੋਂ ਮਿਟਾਇਆ ਗਿਆ, ਪਰ ਇਹ ਹਾਲੇ ਵੀ ਤੁਹਾਡੇ ਡਿਵਾਈਸ ਉੱਤੇ ਮੌਜੂਦ ਹੈ</string>
+  <string name="preferences_downloads_ask_when_to_delete_files">ਜਦੋਂ ਮੈ ਫਾਇਲਾਂ ਨੂੰ ਹਟਾਵਾਂ ਤਾਂ ਪੁੱਛੋ</string>
+  <!-- Preference for downloads -->
+  <string name="preferences_downloads_2">ਡਾਊਨਲੋਡ ਸੈਟਿੰਗਾਂ</string>
   <!-- Title for the setting to automatically clean up downloaded files. %s is the name of the app (for example "Firefox"). -->
   <string name="preferences_downloads_settings_clean_up_files_title">%s ਅਤੇ ਡਿਵਾਈਸ ਤੋਂ ਹਟਾਓ</string>
   <!-- Summary for the setting to automatically clean up downloaded files -->
@@ -1337,6 +1379,8 @@
   <string name="toolbar_customize_shortcut_homepage">ਮੁੱਖ ਸਫ਼ਾ</string>
   <!-- Back shortcut in toolbar customization -->
   <string name="toolbar_customize_shortcut_back">ਪਿੱਛੇ</string>
+  <!-- Label for choosing in toolbar customization settings to not use any custom shortcut button. -->
+  <string name="toolbar_customize_shortcut_none">ਕੋਈ ਨਹੀਂ</string>
   <!--
     App icon Preferences
 
@@ -1505,12 +1549,8 @@
   <string name="studies_remove">ਹਟਾਓ</string>
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">ਸਰਗਰਮ</string>
-  <!-- Description for studies -->
-  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">ਫ਼ੀਚਰ ਅਤੇ ਵਿਚਾਰਾਂ ਨੂੁੰ ਹਰ ਕਿਸੇ ਕੋਲ ਪਹੁੰਚਣ ਤੋਂ ਪਹਿਲਾਂ ਅਜ਼ਮਾਓ।</string>
   <!-- Description for studies. Note: The word "Firefox" should NOT be translated -->
   <string name="studies_description_4" tools:ignore="BrandUsage">Firefox ਫ਼ੀਚਰ, ਜੋ ਕਿ ਹਰ ਕਿਸ ਲਈ ਕੁਆਲਟੀ ਨੂੰ ਸੁਧਾਰ ਸਕਦੇ ਹਨ, ਨੂੰ ਟੈਸਟ ਕਰਨ ਲਈ ਰਲਵੇਂ ਰੂਪ ਵਿੱਚ ਵਰਤੋਂਕਾਰਾਂ ਦੀ ਚੋਣ ਕਰਦਾ ਹੈ।</string>
-  <!-- Title of the Studies data preference -->
-  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">ਅਧਿਐਨ ਇੰਸਟਾਲ ਕਰੋ ਅਤੇ ਚਲਾਓ</string>
   <!-- Title of the Studies data preference -->
   <string name="studies_title_2">ਫ਼ੀਚਰ ਅਧਿਐਨਾਂ ਦੀ ਮਨਜ਼ੂਰੀ</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
@@ -1657,10 +1697,32 @@
     %d is the number of existing tab groups + 1.
   -->
   <string name="create_tab_group_form_default_name">ਗਰੁੱਪ %d</string>
-  <!-- Label for the tab group name field in the bottom sheet to create a new tab group. -->
-  <string name="create_tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">ਟੈਬ ਗਰੁੱਪ ਦਾ ਨਾਂ</string>
   <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
-  <string name="tab_group_name_label">ਨਾਂ</string>
+  <string name="create_tab_group_name_label">ਨਾਂ</string>
+  <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
+  <string name="tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">ਨਾਂ</string>
+  <!-- Title for adding more tabs to a tab group. -->
+  <string name="add_to_tab_group_title">ਇਸ ਵਿੱਚ ਜੋੜੋ</string>
+  <!-- Content Description for closing the "Add to Tab Group" panel. -->
+  <string name="add_to_tab_group_bottom_sheet_close_content_description">ਟੈਗ ਗਰੁੱਪ ਵਿੱਚ ਜੋੜੋ ਨੂੰ ਬੰਦ ਕਰੋ</string>
+  <!-- Label for adding to a new tab group. -->
+  <string name="add_to_new_tab_group_title">ਨਵਾਂ ਟੈਬ ਗਰੁੱਪ</string>
+  <plurals name="tab_group_tabs_count_subtitle">
+    <!--
+      Subtitle for the number of tabs in a tab group.
+      %1$d is the number of tabs in a tab group.
+    -->
+    <item quantity="one">%1$d ਟੈਬ</item>
+    <item quantity="other">%1$d ਟੈਬ</item>
+  </plurals>
+  <!-- Title for the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_title">ਟੈਬ ਗਰੁੱਪ ਨੂੰ ਹਟਾਉਣਾ ਹੈ?</string>
+  <!-- Text shown in the body of the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_body">ਇਹ ਗਰੁੱਪ ਨੂੰ ਪੱਕੇ ਤੌਰ ਉੱਤੇ ਹਟਾਉਂਦਾ ਹੈ।</string>
+  <!-- Text shown on the confirm button in the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_confirm">ਗਰੁੱਪ ਨੂੰ ਹਟਾਓ</string>
+  <!-- Text shown on the cancel button in the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_cancel">ਰੱਦ ਕਰੋ</string>
   <!--
     History
 
@@ -1739,6 +1801,11 @@
     This button will dismiss the dialog.
   -->
   <string name="download_file_has_not_enough_storage_dialog_cancel_button_text">ਰੱਦ ਕਰੋ</string>
+  <plurals name="downloads_delete_dialog_title">
+    <!-- Title for the download deletion confirmation dialog. The message changes depending on how many files are selected. %d is the number of files to be deleted. -->
+    <item quantity="one">ਫ਼ਾਈਲ ਨੂੰ ਹਟਾਉਣਾ ਹੈ?</item>
+    <item quantity="other">%d ਫ਼ਾਈਲਾਂ ਨੂੰ ਹਟਾਉਣਾ ਹੈ?</item>
+  </plurals>
   <!-- Text for the button to delete a single downloaded file item -->
   <string name="download_delete_item">ਹਟਾਓ</string>
   <!-- Content description for the toolbar "Navigate back" button -->
@@ -1770,6 +1837,14 @@
   <string name="download_delete_multi_select_dialog_confirm">ਹਟਾਓ</string>
   <!-- Alert dialog confirmation before deleting multiple download items, this is the negative action. -->
   <string name="download_delete_multi_select_dialog_cancel">ਰੱਦ ਕਰੋ</string>
+  <!-- Alert dialog confirmation before deleting a single download item or many download items, this is one of the radio buttons within the dialog box for the user to select. -->
+  <string name="download_delete_dialog_from_device">ਡਿਵਾਈਸ ਤੋਂ ਹਟਾਓ</string>
+  <!-- Alert dialog confirmation before deleting a single download item or many download items, this is one of the radio buttons within the dialog box for the user to select. -->
+  <string name="download_delete_dialog_from_history">ਸਿਰਫ਼ ਡਾਊਨਲੋਡ ਅਤੀਤ ਵਿੱਚੋਂ ਹਟਾਓ</string>
+  <!-- Alert dialog confirmation before deleting a single download item or many download items, this is the negative action. -->
+  <string name="download_delete_dialog_cancel">ਰੱਦ ਕਰੋ</string>
+  <!-- Alert dialog confirmation before deleting a single download item or many download items, this is the positive action. -->
+  <string name="download_delete_dialog_confirm">ਤਸਦੀਕ</string>
   <!-- Title for the alert dialog confirmation before renaming a download item. -->
   <string name="download_rename_dialog_title">ਫ਼ਾਇਲ ਦਾ ਨਾਂ ਬਦਲੋ</string>
   <!-- Label for the name field in the alert dialog confirmation before renaming a download item. -->
@@ -1867,6 +1942,16 @@
   <string name="download_content_type_filter_document">ਦਸਤਾਵੇਜ</string>
   <!-- Text for the filter button to show all other file types in the downloads list -->
   <string name="download_content_type_filter_other_1">ਹੋਰ</string>
+  <!--
+    Title for the alert dialog to rename a file and/or change its download location before downloading it.
+    %s is the formatted size of the file (e.g., "12.5 MB").
+  -->
+  <string name="download_rename_and_change_location_dialog_title">ਫ਼ਾਈਲ ਨੂੰ ਡਾਊਨਲੋਡ ਕਰਨਾ ਹੈ?\n(%s)</string>
+  <!--
+    Title for the alert dialog to rename a file and/or change its download location
+    when the file size is not available before downloading it.
+  -->
+  <string name="download_rename_and_change_location_dialog_title_with_unknown_size">ਫ਼ਾਈਲ ਨੂੰ ਡਾਊਨਲੋਡ ਕਰਨਾ ਹੈ?</string>
   <!--
     WebCompat Reporter
 
@@ -2056,7 +2141,11 @@
   <string name="bookmark_delete_single_item" tools:ignore="UnusedResources" moz:removedIn="150">%s ਨੂੰ ਹਟਾਇਆ</string>
   <!-- Bookmark snackbar message for deleting multiple items. %s is the number of items being deleted -->
   <string name="bookmark_delete_multiple_items" tools:ignore="UnusedResources" moz:removedIn="150">ਹਟਾਈਆਂ ਆਈਟਮਾਂ: %s</string>
-  <!-- Content description for the bookmark navigation bar back button -->
+  <!--
+    Bookmark undo button for deletion snackbar action
+
+    Content description for the bookmark navigation bar back button
+  -->
   <string name="bookmark_navigate_back_button_content_description">ਪਿੱਛੇ ਵੱਲ ਨੈਵੀਗੇਟ ਕਰੋ</string>
   <!-- Content description for the bookmark list new folder navigation bar button -->
   <string name="bookmark_add_new_folder_button_content_description">ਨਵਾਂ ਫੋਲਡਰ ਜੋੜੋ</string>
@@ -2265,6 +2354,24 @@
   <string name="menu_print">ਪਰਿੰਟ ਕਰੋ</string>
   <!-- Sub-header in the dialog to share a link to another sync device -->
   <string name="share_device_subheader">ਡਿਵਾਈਸ ‘ਤੇ ਭੇਜੋ</string>
+  <!-- Content description for the drag handle that dismisses the Send to Device bottom sheet -->
+  <string name="send_to_devices_bottom_sheet_close_content_description">ਡਿਵਾਈਸ ਉੱਤੇ ਭੇਜੋ ਨੂੰ ਬੰਦ ਕਰੋ</string>
+  <!-- Text for the QR code action in the native share sheet -->
+  <string name="share_qr_code">QR ਕੋਡ</string>
+  <!-- Title shown in the QR code display screen -->
+  <string name="qr_code_display_title">QR ਕੋਡ</string>
+  <!-- Content description for the close button in the QR code display screen -->
+  <string name="qr_code_display_close">ਬੰਦ ਕਰੋ</string>
+  <!-- Heading on the QR code display screen -->
+  <string name="qr_code_display_share_nearby">ਲਿੰਕ ਨੂੰ ਨੇੜਲਿਆਂ ਨਾਲ ਸਾਂਝਾ ਕਰੋ</string>
+  <!-- Body text on the QR code display screen instructing the user to have others scan the code -->
+  <string name="qr_code_display_instructions">ਇਸ ਲਿੰਕ ਨੂੰ ਨੇੜਲੇ ਲੋਕਾਂ ਨਾਲ ਸਾਂਝਾ ਕਰਨ ਲਈ, ਉਹਨਾਂ ਨੂੰ ਹੇਠ ਦਿੱਤਾ QR ਕੋਡ ਸਕੈਨ ਕਰਨ ਲਈ ਕਰੋ।</string>
+  <!-- Label for the download button on the QR code display screen -->
+  <string name="qr_code_display_download">ਡਾਊਨਲੋਡ</string>
+  <!-- Toast shown when the QR code is successfully saved to Downloads -->
+  <string name="qr_code_download_success">QR ਕੋਡ ਨੂੰ ਡਾਊਨਲੋਡ ਵਿੱਚ ਸੰਭਾਲਿਆ</string>
+  <!-- Toast shown when saving the QR code to Downloads fails -->
+  <string name="qr_code_download_failure">QR ਕੋਡ ਨੂੰ ਸੰਭਾਲਣ ਲਈ ਅਸਫ਼ਲ ਹੈ</string>
   <!-- Sub-header in the dialog to share a link to an app from the full list -->
   <string name="share_link_all_apps_subheader">ਸਾਰੀਆਂ ਕਾਰਵਾਈਆਂ</string>
   <!-- Sub-header in the dialog to share a link to an app from the most-recent sorted list -->
@@ -2394,8 +2501,6 @@
   <string name="preference_accessibility_text_size_summary">ਵੈੱਬਸਾਈਟਾਂ ‘ਤੇ ਲਿਖਤ ਤੋਂ ਹੋਰ ਵੱਡਾ ਜਾਂ ਛੋਟਾ ਬਣਾਓ</string>
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">ਫ਼ੋਂਟ ਦਾ ਆਕਾਰ</string>
-  <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%।</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">ਆਪਣੇ-ਆਪ ਫ਼ੋਂਟ ਆਕਾਰ</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -3240,6 +3345,8 @@
     which navigates the user to a screen displaying all the shortcuts.
   -->
   <string name="homepage_shortcuts_show_all_content_description">ਸਭ ਸ਼ਾਰਟਕੱਟਾਂ ਨੂੰ ਵੇਖਾਓ</string>
+  <!-- Label for the "Add shortcut" button displayed as a tile. -->
+  <string name="homepage_shortcuts_add_shortcut">ਸ਼ਾਰਟਕੱਟ ਨੂੰ ਜੋੜੋ</string>
   <!-- Title text displayed in the dialog when shortcuts limit is reached. -->
   <string name="shortcut_max_limit_title">ਸ਼ਾਰਟਕੱਟ ਦੀ ਲਿਮਟ ਅੱਪੜੀ</string>
   <!-- Content description text displayed in the dialog when shortcut limit is reached. -->
@@ -3338,6 +3445,8 @@
     Header text for a section on the home screen.
   -->
   <string name="pocket_stories_header_2">ਲੇਖ</string>
+  <!-- Header text for the Stories screen. -->
+  <string name="stories_screen_text_news">ਖ਼ਬਰਾਂ</string>
   <!--
     Context description text for the "Discover more" button in the stories home screen section
     which navigates the user to a screen displaying more stories.
@@ -3430,7 +3539,9 @@
   <!-- The title of the warning card informs the user that the list of languages cannot be loaded. -->
   <string name="translation_error_could_not_load_languages_warning_text">ਭਾਸ਼ਾਵਾਂ ਨੂੰ ਲੋਡ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ। ਆਪਣੇ ਇੰਟਰਨੈੱਟ ਕਨੈਕਸ਼ਨ ਦੀ ਜਾਂਚ ਕਰਕੇ ਫੇਰ ਕੋਸ਼ਿਸ਼ ਕਰੋ।</string>
   <!-- The title of the warning card informs the user that a language is not supported. %1$s is the name of the language that is not supported. -->
-  <string name="translation_error_language_not_supported_warning_text">ਅਫ਼ਸੋਸ ਅਸੀਂ ਹਾਲੇ %1$s ਲਈ ਸਹਾਇਕ ਨਹੀਂ ਹਾਂ।</string>
+  <string name="translation_error_language_not_supported_warning_text" tools:ignore="UnusedResources" moz:removedIn="150">ਅਫ਼ਸੋਸ ਅਸੀਂ ਹਾਲੇ %1$s ਲਈ ਸਹਾਇਕ ਨਹੀਂ ਹਾਂ।</string>
+  <!-- The title of the warning card informs the user that translations from a language are not supported yet. %1$s is the name of the source language. -->
+  <string name="translation_error_language_not_supported_warning_text_2">ਅਫਸੋਸ ਹੈ ਪਰ ਅਸੀਂ ਹਾਲੇ %1$s ਤੋਂ ਅਨੁਵਾਦ ਕਰਨ ਲਈ ਸਹਿਯੋਗੀ ਨਹੀਂ ਹੈ।</string>
   <!-- Snackbar title shown if the user closes the Translation Request dialogue and a translation is in progress. -->
   <string name="translation_in_progress_snackbar">…ਉਲੱਥਾ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ</string>
   <!--

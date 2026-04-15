@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -145,6 +144,10 @@ class HttpConnectionBase : public nsSupportsWeakReference {
   void SetTrafficCategory(HttpTrafficCategory);
 
   void BootstrapTimings(TimingStruct times);
+  void SetDnsBootstrapTimings(TimeStamp domainLookupStart,
+                              TimeStamp domainLookupEnd);
+  void SetConnectBootstrapTimings(TimeStamp connectStart,
+                                  TimeStamp tcpConnectEnd);
 
   virtual bool IsPersistent() = 0;
   virtual bool IsReused() = 0;
@@ -184,6 +187,10 @@ class HttpConnectionBase : public nsSupportsWeakReference {
   void SetOwner(ConnectionEntry* aEntry);
   ConnectionEntry* OwnerEntry() const;
 
+  void SetIsRacing(bool aValue) { mIsRacing = aValue; }
+  bool IsRacing() const { return mIsRacing; }
+  virtual void SetDontExclude() {}
+
  protected:
   // The capabailities associated with the most recent transaction
   uint32_t mTransactionCaps{0};
@@ -216,6 +223,8 @@ class HttpConnectionBase : public nsSupportsWeakReference {
   ConnectionCloseReason mCloseReason = ConnectionCloseReason::UNSET;
 
   bool mAddressTypeReported{false};
+
+  bool mIsRacing{false};
 
   // Tunnel retated functions:
   enum HttpConnectionState {

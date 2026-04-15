@@ -43,7 +43,7 @@ newtab-search-box-input =
     .placeholder = జాలంలో వెతకండి
     .aria-label = జాలంలో వెతకండి
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = శోధన యంత్రాన్ని జోడించండి
 newtab-topsites-edit-topsites-header = టాప్ సైట్ను సవరించండి

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set sw=2 ts=8 et tw=80 : */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -16,6 +14,7 @@
 #include "mozilla/AlreadyAddRefed.h"
 #include "ARefBase.h"
 #include "nsIRequest.h"
+#include "mozilla/net/happy_eyeballs_glue.h"
 
 //-----------------------------------------------------------------------------
 // nsHttpConnectionInfo - holds the properties of a connection
@@ -64,9 +63,9 @@ class nsHttpConnectionInfo final : public ARefBase {
   DeserializeHttpConnectionInfoCloneArgs(
       const HttpConnectionInfoCloneArgs& aInfoArgs);
 
-  static void BuildOriginFrameHashKey(nsACString& newKey,
-                                      nsHttpConnectionInfo* ci,
-                                      const nsACString& host, int32_t port);
+  static HashNumber BuildOriginFrameHashKey(nsHttpConnectionInfo* ci,
+                                            const nsACString& host,
+                                            int32_t port);
 
  private:
   virtual ~nsHttpConnectionInfo() {
@@ -90,6 +89,7 @@ class nsHttpConnectionInfo final : public ARefBase {
     AnonymousAllowClientCert,
     FallbackConnection,
     WebTransport,
+    HappyEyeballs,
     End,
   };
   constexpr inline auto UnderlyingIndex(HashKeyIndex aIndex) const {
@@ -115,6 +115,9 @@ class nsHttpConnectionInfo final : public ARefBase {
   // mRoutedPort and mNPNToken will be replaced as well.
   already_AddRefed<nsHttpConnectionInfo> CloneAndAdoptHTTPSSVCRecord(
       nsISVCBRecord* aRecord) const;
+  already_AddRefed<nsHttpConnectionInfo> CloneAndAdoptPortAndAlpn(
+      uint16_t aPort,
+      happy_eyeballs::ConnectionAttemptHttpVersions aProtocol) const;
   void CloneAsDirectRoute(nsHttpConnectionInfo** outCI,
                           nsProxyInfo* aProxyInfo = nullptr);
 
@@ -172,6 +175,11 @@ class nsHttpConnectionInfo final : public ARefBase {
   bool GetAnonymous() const {
     return GetHashCharAt(HashKeyIndex::Anonymous) == 'A';
   }
+  void AnonymousInvertedHashKey(nsACString& aResult) const {
+    aResult = mHashKey;
+    aResult.BeginWriting()[UnderlyingIndex(HashKeyIndex::Anonymous)] =
+        GetAnonymous() ? '.' : 'A';
+  }
   void SetPrivate(bool priv) {
     SetHashCharAt(priv ? 'P' : '.', HashKeyIndex::Private);
   }
@@ -213,6 +221,17 @@ class nsHttpConnectionInfo final : public ARefBase {
   }
   bool GetFallbackConnection() const {
     return GetHashCharAt(HashKeyIndex::FallbackConnection) == 'F';
+  }
+
+  void SetHappyEyeballsEnabled(bool aEnabled) {
+    SetHashCharAt(aEnabled ? 'H' : '.', HashKeyIndex::HappyEyeballs);
+    if (aEnabled && !mHappyEyeballsEnabled) {
+      mHappyEyeballsEnabled = aEnabled;
+      RebuildHashKey();
+    }
+  }
+  bool GetHappyEyeballsEnabled() const {
+    return GetHashCharAt(HashKeyIndex::HappyEyeballs) == 'H';
   }
 
   void SetTlsFlags(uint32_t aTlsFlags);
@@ -336,6 +355,8 @@ class nsHttpConnectionInfo final : public ARefBase {
 
   uint64_t mWebTransportId = 0;  // current dedicated Id only used for
                                  // Webtransport, zero means not dedicated
+
+  bool mHappyEyeballsEnabled = false;
 
   // for RefPtr
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(nsHttpConnectionInfo, override)

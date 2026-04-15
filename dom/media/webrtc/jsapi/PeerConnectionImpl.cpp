@@ -575,6 +575,9 @@ nsresult PeerConnectionImpl::Initialize(PeerConnectionObserver& aObserver,
   mCandidateListener = mTransportHandler->GetCandidateGathered().Connect(
       GetMainThreadSerialEventTarget(), this,
       &PeerConnectionImpl::OnCandidateFound);
+  mCandidateErrorListener = mTransportHandler->GetCandidateError().Connect(
+      GetMainThreadSerialEventTarget(), this,
+      &PeerConnectionImpl::OnCandidateError);
   mAlpnNegotiatedListener = mTransportHandler->GetAlpnNegotiated().Connect(
       GetMainThreadSerialEventTarget(), this,
       &PeerConnectionImpl::OnAlpnNegotiated);
@@ -1445,6 +1448,14 @@ static std::unique_ptr<dom::PCErrorData> buildJSErrorData(
   std::unique_ptr<dom::PCErrorData> result(new dom::PCErrorData);
   result->mName = *aResult.mError;
   result->mMessage = NS_ConvertASCIItoUTF16(aMessage.c_str());
+  // Populate RTCError-specific fields when the error has an errorDetail.
+  if (aResult.mErrorDetail.isSome()) {
+    result->mErrorDetail.Construct(
+        NS_ConvertASCIItoUTF16(aResult.mErrorDetail->c_str()));
+    if (aResult.mSdpLineNumber.isSome()) {
+      result->mSdpLineNumber.Construct((int32_t)aResult.mSdpLineNumber.value());
+    }
+  }
   return result;
 }
 
@@ -1880,7 +1891,11 @@ PeerConnectionImpl::SetPeerIdentity(const nsAString& aPeerIdentity) {
 
 nsresult PeerConnectionImpl::OnAlpnNegotiated(const std::string& aAlpn,
                                               bool aPrivacyRequested) {
-  PC_AUTO_ENTER_API_CALL(false);
+  MOZ_ASSERT(NS_IsMainThread(), "Wrong thread");
+  RefPtr<PeerConnectionImpl> kungFuDeathGrip(this);
+  if (IsClosed()) {
+    return NS_OK;  // Nod and smile
+  }
   MOZ_DIAGNOSTIC_ASSERT(!mRequestedPrivacy ||
                         (*mRequestedPrivacy == PrincipalPrivacy::Private) ==
                             aPrivacyRequested);
@@ -1898,6 +1913,12 @@ nsresult PeerConnectionImpl::OnAlpnNegotiated(const std::string& aAlpn,
 
 void PeerConnectionImpl::OnDtlsStateChange(const std::string& aTransportId,
                                            TransportLayer::State aState) {
+  MOZ_ASSERT(NS_IsMainThread(), "Wrong thread");
+  RefPtr<PeerConnectionImpl> kungFuDeathGrip(this);
+  if (IsClosed()) {
+    return;
+  }
+
   nsCString key(aTransportId.data(), aTransportId.size());
   RefPtr<RTCDtlsTransport> dtlsTransport =
       mTransportIdToRTCDtlsTransport.Get(key);
@@ -2448,6 +2469,7 @@ PeerConnectionImpl::Close() {
   mGatheringStateChangeListener.DisconnectIfExists();
   mConnectionStateChangeListener.DisconnectIfExists();
   mCandidateListener.DisconnectIfExists();
+  mCandidateErrorListener.DisconnectIfExists();
   mAlpnNegotiatedListener.DisconnectIfExists();
   mStateChangeListener.DisconnectIfExists();
   mRtcpStateChangeListener.DisconnectIfExists();
@@ -3078,6 +3100,15 @@ void PeerConnectionImpl::DoSetDescriptionSuccessPostProcessing(
           }
         }
 
+        if (aSdpType == dom::RTCSdpType::Answer) {
+          dom::RTCIceRole role = mJsepSession->IsIceControlling()
+                                     ? dom::RTCIceRole::Controlling
+                                     : dom::RTCIceRole::Controlled;
+          for (const auto& dtlsTransport : GetActiveTransports()) {
+            dtlsTransport->IceTransport()->SetRole(role);
+          }
+        }
+
         // Make sure to wait until after we've calculated track changes before
         // doing this.
         for (size_t i = 0; i < mTransceivers.Length();) {
@@ -3305,8 +3336,16 @@ void PeerConnectionImpl::SendLocalIceCandidateToContent(
 
 void PeerConnectionImpl::IceConnectionStateChange(
     const std::string& aTransportId, dom::RTCIceTransportState domState) {
+  MOZ_ASSERT(NS_IsMainThread(), "Wrong thread");
+
+  // Let connection be the RTCPeerConnection object associated with this ICE
+  // Agent.
+  RefPtr<PeerConnectionImpl> connection(this);
+
   // If connection.[[IsClosed]] is true, abort these steps.
-  PC_AUTO_ENTER_API_CALL_VOID_RETURN(false);
+  if (IsClosed()) {
+    return;
+  }
 
   CSFLogDebug(LOGTAG, "IceConnectionStateChange: %s %d (%p)",
               aTransportId.c_str(), static_cast<int>(domState), this);
@@ -3466,6 +3505,9 @@ bool PeerConnectionImpl::UpdateIceConnectionState() {
 
 void PeerConnectionImpl::OnCandidateFound(const std::string& aTransportId,
                                           const CandidateInfo& aCandidateInfo) {
+  MOZ_ASSERT(NS_IsMainThread(), "Wrong thread");
+  RefPtr<PeerConnectionImpl> kungFuDeathGrip(this);
+
   if (mStunAddrsRequest && !aCandidateInfo.mMDNSAddress.empty()) {
     MOZ_ASSERT(!aCandidateInfo.mActualAddress.empty());
 
@@ -3496,10 +3538,34 @@ void PeerConnectionImpl::OnCandidateFound(const std::string& aTransportId,
                  aCandidateInfo.mUfrag);
 }
 
+void PeerConnectionImpl::OnCandidateError(
+    const IceCandidateErrorInfo& aErrorInfo) {
+  MOZ_ASSERT(NS_IsMainThread(), "Wrong thread");
+  RefPtr<PeerConnectionImpl> kungFuDeathGrip(this);
+
+  // Spec does not actually say to do this. That's probably a spec bug.
+  if (IsClosed()) {
+    return;
+  }
+
+  STAMP_TIMECARD(mTimeCard, "Sending icecandidateerror event");
+  uint16_t errorCode = aErrorInfo.mErrorCode ? aErrorInfo.mErrorCode : 701;
+  JSErrorResult rv;
+  mPCObserver->OnIceCandidateError(ObString(aErrorInfo.mAddress.c_str()),
+                                   aErrorInfo.mPort,
+                                   ObString(aErrorInfo.mUrl.c_str()), errorCode,
+                                   ObString(aErrorInfo.mErrorText.c_str()), rv);
+}
+
 void PeerConnectionImpl::IceGatheringStateChange(
     const std::string& aTransportId, dom::RTCIceGathererState state) {
+  MOZ_ASSERT(NS_IsMainThread(), "Wrong thread");
+  RefPtr<PeerConnectionImpl> kungFuDeathGrip(this);
+
   // If connection.[[IsClosed]] is true, abort these steps.
-  PC_AUTO_ENTER_API_CALL_VOID_RETURN(false);
+  if (IsClosed()) {
+    return;
+  }
 
   CSFLogWarn(LOGTAG, "IceGatheringStateChange: %s %d (%p)",
              aTransportId.c_str(), static_cast<int>(state), this);
@@ -4061,13 +4127,13 @@ void PeerConnectionImpl::StunAddrsHandler::OnMDNSQueryComplete(
   if (!pcw.impl()) {
     return;
   }
-  auto itor = pcw.impl()->mQueriedMDNSHostnames.find(hostname.BeginReading());
+  auto itor = pcw.impl()->mQueriedMDNSHostnames.find(hostname.get());
   if (itor != pcw.impl()->mQueriedMDNSHostnames.end()) {
     if (address) {
       for (auto& cand : itor->second) {
         // Replace obfuscated address with actual address
         std::string obfuscatedAddr = cand.mTokenizedCandidate[4];
-        cand.mTokenizedCandidate[4] = address->BeginReading();
+        cand.mTokenizedCandidate[4] = address->get();
         std::ostringstream o;
         for (size_t i = 0; i < cand.mTokenizedCandidate.size(); ++i) {
           o << cand.mTokenizedCandidate[i];

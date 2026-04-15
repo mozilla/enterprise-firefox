@@ -12,6 +12,6 @@ GeneratedFile(
     entry_point="process_tokens",
     inputs=[
         "aiwindow/manifest.in.json",
-        "/toolkit/themes/shared/design-system/src/design-tokens.json",
+        "/toolkit/themes/shared/design-system/src/tokens/base/color.tokens.json",
     ],
 )

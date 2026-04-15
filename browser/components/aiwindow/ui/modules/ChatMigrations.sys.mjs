@@ -59,9 +59,58 @@ async function applyV3(conn, version) {
   );
 }
 
+// Add page_history_deleted to flag if the page_url value for the message
+// has been removed due to a history delete type action
+async function applyV4(conn, version) {
+  if (version >= 4) {
+    return;
+  }
+
+  const columns = await getColumns(conn, "message");
+  if (columns.has("page_history_deleted")) {
+    return;
+  }
+
+  await conn.execute(
+    "ALTER TABLE message ADD COLUMN page_history_deleted BOOLEAN NOT NULL DEFAULT false"
+  );
+}
+
+// Persist securityProperties flags to conversation table (Bug 2019693)
+async function applyV5(conn, version) {
+  if (version >= 5) {
+    return;
+  }
+
+  const columns = await getColumns(conn, "conversation");
+  if (columns.has("security_properties_jsonb")) {
+    return;
+  }
+
+  await conn.execute(
+    "ALTER TABLE conversation ADD COLUMN security_properties_jsonb BLOB"
+  );
+}
+
+// Persist seen URLs to conversation table (Bug 2023001)
+async function applyV6(conn, version) {
+  if (version >= 6) {
+    return;
+  }
+
+  const columns = await getColumns(conn, "conversation");
+  if (columns.has("seen_urls_jsonb")) {
+    return;
+  }
+
+  await conn.execute(
+    "ALTER TABLE conversation ADD COLUMN seen_urls_jsonb BLOB"
+  );
+}
+
 /**
  * Array of migration functions to run in the order they should be run in.
  *
  * @returns {Array<Function>}
  */
-export const migrations = [applyV2, applyV3];
+export const migrations = [applyV2, applyV3, applyV4, applyV5, applyV6];

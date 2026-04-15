@@ -1,15 +1,12 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+#include "MediaCodecsSupport.h"
+
 #include <array>
 
-#ifdef MOZ_AV1
-#  include "AOMDecoder.h"
-#endif
+#include "AOMDecoder.h"
 #include "MP4Decoder.h"
-#include "MediaCodecsSupport.h"
 #include "PDMFactory.h"
 #include "PEMFactory.h"
 #include "PlatformDecoderModule.h"
@@ -24,8 +21,7 @@ using MediaCodecsSupport = mozilla::media::MediaCodecsSupport;
 namespace mozilla::media {
 
 static StaticAutoPtr<MCSInfo> sInstance;
-static StaticMutex sInitMutex;
-static StaticMutex sUpdateMutex;
+static StaticMutex sMutex;
 
 #define CODEC_SUPPORT_LOG(msg, ...) \
   MOZ_LOG(sPDMLog, LogLevel::Debug, ("MediaCodecsSupport, " msg, ##__VA_ARGS__))
@@ -38,8 +34,8 @@ MediaCodecsSupported MCSInfo::GetSupportFromFactory(
 }
 
 void MCSInfo::AddSupport(const MediaCodecsSupported& aSupport) {
-  StaticMutexAutoLock lock(sUpdateMutex);
-  MCSInfo* instance = GetInstance();
+  StaticMutexAutoLock lock(sMutex);
+  MCSInfo* instance = GetInstance(lock);
   if (!instance) {
     CODEC_SUPPORT_LOG("Can't add codec support without a MCSInfo instance!");
     return;
@@ -48,8 +44,8 @@ void MCSInfo::AddSupport(const MediaCodecsSupported& aSupport) {
 }
 
 MediaCodecsSupported MCSInfo::GetSupport() {
-  StaticMutexAutoLock lock(sUpdateMutex);
-  MCSInfo* instance = GetInstance();
+  StaticMutexAutoLock lock(sMutex);
+  MCSInfo* instance = GetInstance(lock);
   if (!instance) {
     CODEC_SUPPORT_LOG("Can't get codec support without a MCSInfo instance!");
     return MediaCodecsSupported{};
@@ -58,8 +54,8 @@ MediaCodecsSupported MCSInfo::GetSupport() {
 }
 
 void MCSInfo::ResetSupport() {
-  StaticMutexAutoLock lock(sUpdateMutex);
-  MCSInfo* instance = GetInstance();
+  StaticMutexAutoLock lock(sMutex);
+  MCSInfo* instance = GetInstance(lock);
   if (!instance) {
     CODEC_SUPPORT_LOG("Can't reset codec support without a MCSInfo instance!");
     return;
@@ -153,7 +149,8 @@ void MCSInfo::GetMediaCodecsSupportedString(
     nsCString& aSupportString, const MediaCodecsSupported& aSupportedCodecs) {
   CodecDefinition supportInfo;
   aSupportString = ""_ns;
-  MCSInfo* instance = GetInstance();
+  StaticMutexAutoLock lock(sMutex);
+  MCSInfo* instance = GetInstance(lock);
   if (!instance) {
     CODEC_SUPPORT_LOG("Can't get codec support string w/o a MCSInfo instance!");
     return;
@@ -200,8 +197,7 @@ void MCSInfo::GetMediaCodecsSupportedString(
   }
 }
 
-MCSInfo* MCSInfo::GetInstance() {
-  StaticMutexAutoLock lock(sInitMutex);
+MCSInfo* MCSInfo::GetInstance(const StaticMutexAutoLock& /* unused */) {
   if (AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdownConfirmed)) {
     CODEC_SUPPORT_LOG("In XPCOM shutdown - not returning MCSInfo instance!");
     return nullptr;
@@ -226,13 +222,10 @@ MCSInfo::MCSInfo() {
   }
 
   GetMainThreadSerialEventTarget()->Dispatch(
-      NS_NewRunnableFunction("MCSInfo::MCSInfo", [&] {
-        // Ensure hash tables freed on shutdown
+      NS_NewRunnableFunction("MCSInfo::MCSInfo", [] {
         RunOnShutdown(
-            [&] {
-              mHashTableMCS.reset();
-              mHashTableString.reset();
-              mHashTableCodec.reset();
+            [] {
+              StaticMutexAutoLock lock(sMutex);
               sInstance = nullptr;
             },
             ShutdownPhase::XPCOMShutdown);
@@ -241,7 +234,8 @@ MCSInfo::MCSInfo() {
 
 CodecDefinition MCSInfo::GetCodecDefinition(const MediaCodec& aCodec) {
   CodecDefinition info;
-  MCSInfo* instance = GetInstance();
+  StaticMutexAutoLock lock(sMutex);
+  MCSInfo* instance = GetInstance(lock);
   if (!instance) {
     CODEC_SUPPORT_LOG("Can't get codec definition without a MCSInfo instance!");
   } else if (!instance->mHashTableCodec->Get(aCodec, &info)) {
@@ -303,14 +297,12 @@ MediaCodec MCSInfo::GetMediaCodecFromMimeType(const nsACString& aMimeType) {
   if (MP4Decoder::IsHEVC(aMimeType)) {
     return MediaCodec::HEVC;
   }
-#ifdef MOZ_AV1
   if (AOMDecoder::IsAV1(aMimeType)) {
     return MediaCodec::AV1;
   }
   if (aMimeType.EqualsLiteral("video/av01")) {
     return MediaCodec::AV1;
   }
-#endif
   // TODO: Should this be Android only?
 #ifdef ANDROID
   if (aMimeType.EqualsLiteral("video/x-vnd.on2.vp8")) {

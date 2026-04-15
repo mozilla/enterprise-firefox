@@ -180,12 +180,9 @@ add_task(async function checkWrongSystemTimeWarning_feltPrivacyToTrue() {
         content.document.querySelector("net-error-card").wrappedJSObject;
       await netErrorCard.getUpdateComplete();
 
-      Assert.ok(
-        netErrorCard.certErrorBodyTitle,
-        "The error page title should exist."
-      );
+      Assert.ok(netErrorCard.errorTitle, "The error page title should exist.");
 
-      const shortDesc = netErrorCard.certErrorIntro;
+      const shortDesc = netErrorCard.errorIntro;
       const advancedButton = netErrorCard.advancedButton;
       Assert.ok(advancedButton, "The advanced button should exist.");
 

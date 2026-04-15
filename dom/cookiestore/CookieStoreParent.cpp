@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -11,6 +9,7 @@
 #include "mozilla/Components.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/ScopeExit.h"
+#include "mozilla/StaticPrefs_network.h"
 #include "mozilla/ipc/BackgroundParent.h"
 #include "mozilla/ipc/URIUtils.h"  // for ParamTraits<nsIURI*>
 #include "mozilla/net/Cookie.h"
@@ -315,6 +314,9 @@ void CookieStoreParent::GetRequestOnMainThread(
 
   nsTArray<CookieStruct> list;
 
+  bool hasBothPartitionedAndUnpartitioned =
+      aPartitionedOriginAttributes.isSome();
+
   for (const OriginAttributes& attrs : attrsList) {
     nsTArray<RefPtr<Cookie>> cookies;
     service->GetCookiesFromHost(baseDomain, attrs, cookies);
@@ -339,6 +341,14 @@ void CookieStoreParent::GetRequestOnMainThread(
       }
 
       if (!net::CookieCommons::PathMatches(cookie->Path(), aPath)) {
+        continue;
+      }
+
+      // Skipping sending TCP cookies when the page has StorageAccess if
+      // configured so that CHIPS doesn't affect TCP.
+      if (!StaticPrefs::network_cookie_CHIPS_affectsTCP() &&
+          hasBothPartitionedAndUnpartitioned &&
+          !attrs.mPartitionKey.IsEmpty() && !cookie->RawIsPartitioned()) {
         continue;
       }
 

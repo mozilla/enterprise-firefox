@@ -3006,8 +3006,8 @@ var CustomizableUIInternal = {
         // Find containing browser or iframe element in the parent doc.
         return target.defaultView.docShell.chromeEventHandler;
       }
-      // Skip any parent shadow roots
-      return target.parentNode?.host?.parentNode || target.parentNode;
+      // Iterate up through any shadow roots
+      return target.parentNode?.host || target.parentNode;
     }
 
     // While keeping track of that, we go from the original target back up,
@@ -3049,6 +3049,9 @@ var CustomizableUIInternal = {
       if (tagName == "menuitem") {
         // If we're in a nested menu we don't need to close this panel.
         return true;
+      }
+      if (tagName == "moz-button") {
+        return false;
       }
     }
 
@@ -3101,6 +3104,14 @@ var CustomizableUIInternal = {
     // of the real ones, so looking for the 'stoooop, don't close me' attributes
     // is more involved.
     let target = aEvent.originalTarget;
+
+    if (!target.isConnected) {
+      // If the item that the event dispatched on is no longer part of the DOM,
+      // let's ignore it. This is particularly useful for items that remove
+      // themselves, like dismissable `moz-message-bar` elements.
+      return;
+    }
+
     while (target.parentNode && target.localName != "panel") {
       if (
         target.getAttribute("closemenu") == "none" ||

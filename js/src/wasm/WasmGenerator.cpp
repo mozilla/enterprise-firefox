@@ -973,9 +973,8 @@ bool ModuleGenerator::finishCodeBlock(CodeBlockResult* result) {
     codeLength = codeSource.lengthBytes();
     uint32_t allocationLength;
     codeBlock_->segment = CodeSegment::allocate(codeSource, nullptr,
-                                                /* allowLastDitchGC */ true,
+                                                /* allowLastDitchGC = */ true,
                                                 &codeStart, &allocationLength);
-    // Record the code usage for this tier.
     tierStats_.codeBytesUsed += codeLength;
     tierStats_.codeBytesMapped += allocationLength;
   }

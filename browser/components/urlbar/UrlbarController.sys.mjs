@@ -5,7 +5,9 @@
 import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 /**
+ * @import {BrowserSearchTelemetry} from "moz-src:///browser/components/search/BrowserSearchTelemetry.sys.mjs"
  * @import {ProvidersManager} from "moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs"
+ * @import {SapLocation, SmartbarInput} from "moz-src:///browser/components/urlbar/content/SmartbarInput.mjs"
  * @import {UrlbarView} from "moz-src:///browser/components/urlbar/UrlbarView.sys.mjs"
  */
 
@@ -351,11 +353,13 @@ export class UrlbarController {
           } else if (
             lazy.UrlbarPrefs.get("focusContentDocumentOnEsc") &&
             !this.input.searchMode &&
-            (this.input.getAttribute("pageproxystate") == "valid" ||
-              (this.input.value == "" &&
-                this.browserWindow.isBlankPageURL(
-                  this.browserWindow.gBrowser.currentURI.spec
-                )))
+            (this.input.sapName == "searchbar"
+              ? this.input.value == ""
+              : this.input.getAttribute("pageproxystate") == "valid" ||
+                (this.input.value == "" &&
+                  this.browserWindow.isBlankPageURL(
+                    this.browserWindow.gBrowser.currentURI.spec
+                  )))
           ) {
             this.browserWindow.gBrowser.selectedBrowser.focus();
           } else {
@@ -780,6 +784,10 @@ export class UrlbarController {
  * @see Events.yaml
  */
 class TelemetryEvent {
+  /**
+   * @param {UrlbarController} controller
+   *  The associated UrlbarController.
+   */
   constructor(controller) {
     this._controller = controller;
     lazy.UrlbarPrefs.addObserver(this);
@@ -882,6 +890,9 @@ class TelemetryEvent {
    *   One of "unknown", "autofill", "visiturl", "bookmark", "help", "history",
    *   "keyword", "searchengine", "searchsuggestion", "switchtab", "remotetab",
    *   "extension", "oneoff", "dismiss".
+   * @property {SapLocation} [location]
+   *   The location where the interaction occurred.
+   *   Required when sap is "smartbar".
    */
 
   /**
@@ -1022,6 +1033,8 @@ class TelemetryEvent {
       searchMode: internalDetails.searchMode,
       selIndex: internalDetails.selIndex,
       selType: internalDetails.selType,
+      location: internalDetails.location,
+      ...this.#getOptionalSmartbarTelemetry(internalDetails.searchSource),
     });
 
     if (!internalDetails.isSessionOngoing) {
@@ -1054,6 +1067,49 @@ class TelemetryEvent {
   }
 
   /**
+   * Converts a search source string to a sap string.
+   * Both are the same concept but they have slightly different values.
+   * The sap string is used in urlbar.* telemetry.
+   *
+   * @see {BrowserSearchTelemetry.KNOWN_SEARCH_SOURCES} For an overview
+   * of the available values of search source and which telemetry uses it.
+   *
+   * @param {string} searchSource
+   *   The search source string to convert.
+   * @returns {null|"urlbar"|"searchbar"|"smartbar"|"handoff"|"urlbar_newtab"|"urlbar_addonpage"}
+   *   The sap value for urlbar.* telemetry or null if the browser window
+   *   already started closing. In that case, no telemetry should be recorded.
+   */
+  #searchSourceToSap(searchSource) {
+    let browserWindow = this._controller.browserWindow;
+    if (searchSource === "urlbar_handoff") {
+      return "handoff";
+    }
+    // TODO (bug 2024630): Ideally, we would not add every new SAP here.
+    if (searchSource === "searchbar") {
+      return "searchbar";
+    }
+    if (searchSource === "smartbar") {
+      return "smartbar";
+    }
+    if (browserWindow.closed) {
+      // If the browser window has already started closing, then we bail-out.
+      // We would rather return no telemetry than have telemetry with an
+      // incorrect SAP. Generally, this should only happen in tests, since
+      // the timing would need to be very close for the code not to have got
+      // here before the user started closing the window.
+      return null;
+    }
+    if (browserWindow.isBlankPageURL(browserWindow.gBrowser.currentURI.spec)) {
+      return "urlbar_newtab";
+    }
+    if (lazy.ExtensionUtils.isExtensionUrl(browserWindow.gBrowser.currentURI)) {
+      return "urlbar_addonpage";
+    }
+    return "urlbar";
+  }
+
+  /**
    * Records the relevant telemetry information for the given parameters.
    *
    * @param {"abandonment" | "engagement" | "disable" | "bounce"} method
@@ -1083,6 +1139,16 @@ class TelemetryEvent {
    *   "extension", "oneoff", "dismiss".
    * @param {number} [details.viewTime]
    *   The length of the view time in milliseconds.
+   * @param {SapLocation} [details.location]
+   *   The location where the interaction occurred.
+   *   Required when sap is "smartbar".
+   * @param {string} [details.chatId]
+   *   UUID for this smart window session. Unique identifier for each chat
+   *   conversation. Only set when sap is `smartbar`.
+   * @param {string} [details.intent]
+   *   The detected intent for the input. Only set when sap is `smartbar`.
+   * @param {string} [details.model]
+   *   Model selected by the user. Only set when sap is `smartbar`.
    */
   #recordSearchEngagementTelemetry(
     method,
@@ -1098,31 +1164,23 @@ class TelemetryEvent {
       selIndex,
       selType,
       viewTime = 0,
+      location = null,
+      chatId = "",
+      intent = "",
+      model = "",
     }
   ) {
-    const browserWindow = this._controller.browserWindow;
-    let sap = "urlbar";
-    if (searchSource === "urlbar_handoff") {
-      sap = "handoff";
-    } else if (searchSource === "searchbar") {
-      sap = "searchbar";
-    } else if (browserWindow.closed) {
-      // If the browser window has already started closing, then we bail-out.
-      // We would rather return no telemetry than have telemetry with an
-      // incorrect SAP. Generally, this should only happen in tests, since
-      // the timing would need to be very close for the code not to have got
-      // here before the user started closing the window.
+    let sap = this.#searchSourceToSap(searchSource);
+    if (!sap) {
       return;
-    } else if (
-      browserWindow.isBlankPageURL(browserWindow.gBrowser.currentURI.spec)
-    ) {
-      sap = "urlbar_newtab";
-    } else if (
-      lazy.ExtensionUtils.isExtensionUrl(browserWindow.gBrowser.currentURI)
-    ) {
-      sap = "urlbar_addonpage";
     }
-
+    // The extra_key `location` is optional, but required for the smartbar.
+    // TODO (bug 2024631): Support location for all SAPs.
+    if (this._controller.input.sapName === "smartbar" && !location) {
+      throw new Error(
+        "Telemetry extra_key `location` is required for smartbar"
+      );
+    }
     searchMode = searchMode ?? this._controller.input.searchMode;
 
     // Distinguish user typed search strings from persisted search terms.
@@ -1180,7 +1238,7 @@ class TelemetryEvent {
           search_mode,
           n_chars: numChars.toString(),
           n_words: numWords.toString(),
-          n_results: numResults,
+          n_results: numResults.toString(),
           selected_position: (selIndex + 1).toString(),
           selected_result,
           provider,
@@ -1197,6 +1255,9 @@ class TelemetryEvent {
           results,
           actions,
           available_semantic_sources,
+          ...(sap === "smartbar"
+            ? { location, chat_id: chatId, intent, model }
+            : {}),
         };
         lazy.logger.info(`engagement event:`, eventInfo);
         Glean.urlbar.engagement.record(eventInfo);
@@ -1210,12 +1271,15 @@ class TelemetryEvent {
           search_mode,
           n_chars: numChars.toString(),
           n_words: numWords.toString(),
-          n_results: numResults,
+          n_results: numResults.toString(),
           search_engine_default_id,
           groups,
           results,
           actions,
           available_semantic_sources,
+          ...(sap === "smartbar"
+            ? { location, chat_id: chatId, intent, model }
+            : {}),
         };
         lazy.logger.info(`abandonment event:`, eventInfo);
         Glean.urlbar.abandonment.record(eventInfo);
@@ -1240,10 +1304,13 @@ class TelemetryEvent {
           search_engine_default_id,
           n_chars: numChars.toString(),
           n_words: numWords.toString(),
-          n_results: numResults,
+          n_results: numResults.toString(),
           selected_result,
           results,
           feature: "suggest",
+          ...(sap === "smartbar"
+            ? { location, chat_id: chatId, intent, model }
+            : {}),
         };
         lazy.logger.info(`disable event:`, eventInfo);
         Glean.urlbar.disable.record(eventInfo);
@@ -1261,7 +1328,7 @@ class TelemetryEvent {
           search_engine_default_id,
           n_chars: numChars.toString(),
           n_words: numWords.toString(),
-          n_results: numResults,
+          n_results: numResults.toString(),
           selected_result,
           selected_position: (selIndex + 1).toString(),
           provider,
@@ -1272,6 +1339,9 @@ class TelemetryEvent {
           threshold: lazy.UrlbarPrefs.get(
             "events.bounce.maxSecondsFromLastSearch"
           ),
+          ...(sap === "smartbar"
+            ? { location, chat_id: chatId, intent, model }
+            : {}),
         };
         lazy.logger.info(`bounce event:`, eventInfo);
         Glean.urlbar.bounce.record(eventInfo);
@@ -1281,6 +1351,30 @@ class TelemetryEvent {
         console.error(`Unknown telemetry event method: ${method}`);
       }
     }
+  }
+
+  /**
+   * Returns Smart Window telemetry data for SAP `smartbar`.
+   *
+   * @param {string} searchSource
+   *   The search source identifier.
+   * @returns {{ chatId: string, intent: string, model: string } | null}
+   *   Telemetry for the smartbar.
+   */
+  #getOptionalSmartbarTelemetry(searchSource) {
+    const isSmartbar = this.#searchSourceToSap(searchSource) === "smartbar";
+    if (!isSmartbar) {
+      return null;
+    }
+    // If SAP is `smartbar` we can safely cast to type `SmartbarInput`.
+    const input = /** @type {SmartbarInput} */ (
+      /** @type {unknown} */ (this._controller.input)
+    );
+    return {
+      chatId: input.conversationTelemetryInfo?.chat_id ?? "",
+      intent: input.smartbarAction ?? "",
+      model: input.modelName ?? "",
+    };
   }
 
   /**
@@ -1309,11 +1403,19 @@ class TelemetryEvent {
     return sources;
   }
 
+  /**
+   * @param {UrlbarQueryContext} queryContext
+   */
   #recordExposures(queryContext) {
     let exposures = this.#exposures;
     this.#exposures = [];
     this.#tentativeExposures = [];
     if (!exposures.length) {
+      return;
+    }
+    let sap = this.#searchSourceToSap(this._controller.input.getSearchSource());
+    if (!sap) {
+      // Window started closing.
       return;
     }
 
@@ -1339,6 +1441,7 @@ class TelemetryEvent {
           keyword,
           terminal: terminal.toString(),
           result: resultType,
+          sap,
         };
         lazy.logger.debug("Recording keyword_exposure event", data);
         Glean.urlbar.keywordExposure.record(data);
@@ -1351,6 +1454,7 @@ class TelemetryEvent {
     let exposure = {
       results: tuples.map(t => t[0]).join(","),
       terminal: tuples.map(t => t[1]).join(","),
+      sap,
     };
     lazy.logger.debug("Recording exposure event", exposure);
     Glean.urlbar.exposure.record(exposure);
@@ -1811,6 +1915,8 @@ class TelemetryEvent {
       searchMode: details.searchMode,
       selIndex: details.selIndex,
       selType: details.selType,
+      location: details.location,
+      ...this.#getOptionalSmartbarTelemetry(details.searchSource),
     });
 
     this._lastSearchDetailsForDisableSuggestTracking = null;
@@ -1951,6 +2057,8 @@ class TelemetryEvent {
       selIndex: details.selIndex,
       selType: details.selType,
       viewTime: viewTime / 1000,
+      location: details.location,
+      ...this.#getOptionalSmartbarTelemetry(details.searchSource),
     });
   }
 }

@@ -408,11 +408,13 @@ class StructuredLogger:
 
     @log_action(
         Unicode("name"),
+        Dict(Any, "extra", default=None, optional=True),
     )
     def group_start(self, data):
         """Log a group_start message
 
         :param str name: Name to identify the test group.
+        :param dict extra: Extra metadata, e.g. thread count for parallel groups.
         """
         self._log_data("group_start", data)
 

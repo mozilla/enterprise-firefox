@@ -1865,6 +1865,14 @@ sealed class SearchAction : BrowserAction() {
         val userSelectedSearchEngineName: String?,
         val regionDefaultSearchEngineId: String,
         val regionSearchEnginesOrder: List<String>,
+        val searchEnginesConfigurationId: Int?,
+    ) : SearchAction()
+
+    /**
+     * Indicates that a new search engines configuration is available for the application to use.
+     */
+    data class SearchConfigurationAvailabilityChanged(
+        val isNewSearchConfigurationAvailable: Boolean,
     ) : SearchAction()
 
     /**

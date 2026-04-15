@@ -4,14 +4,13 @@
 
 package org.mozilla.fenix.settings.trustpanel
 
+import io.mockk.every
+import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import mozilla.components.browser.state.state.content.PermissionHighlightsState
 import mozilla.components.concept.engine.permission.SitePermissions
 import mozilla.components.concept.engine.permission.SitePermissions.Status.ALLOWED
 import mozilla.components.feature.sitepermissions.SitePermissionsRules.Action.ASK_TO_ALLOW
-import mozilla.components.support.test.any
-import mozilla.components.support.test.mock
-import mozilla.components.support.test.whenever
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -71,12 +70,12 @@ class TrustPanelStoreTest {
 
     @Test
     fun `WHEN create website permission state method is called THEN website permission state is created`() {
-        val settings: Settings = mock()
-        val sitePermissions: SitePermissions = mock()
-        val permissionHighlights: PermissionHighlightsState = mock()
+        val settings: Settings = mockk(relaxed = true)
+        val sitePermissions: SitePermissions = mockk(relaxed = true)
+        val permissionHighlights: PermissionHighlightsState = mockk()
 
         initializeSitePermissions(sitePermissions)
-        whenever(permissionHighlights.isAutoPlayBlocking).thenReturn(true)
+        every { permissionHighlights.isAutoPlayBlocking } returns true
 
         val state = TrustPanelStore.createWebsitePermissionState(
             settings = settings,
@@ -113,17 +112,17 @@ class TrustPanelStoreTest {
 
     @Test
     fun `WHEN LNA blocking disabled THEN LNA permissions are not visible in website permission state`() {
-        val settings: Settings = mock()
-        val sitePermissions: SitePermissions = mock()
-        val permissionHighlights: PermissionHighlightsState = mock()
+        val settings: Settings = mockk(relaxed = true)
+        val sitePermissions: SitePermissions = mockk(relaxed = true)
+        val permissionHighlights: PermissionHighlightsState = mockk()
 
         initializeSitePermissions(sitePermissions)
 
-        whenever(sitePermissions.localDeviceAccess).thenReturn(ALLOWED)
-        whenever(sitePermissions.localNetworkAccess).thenReturn(ALLOWED)
+        every { sitePermissions.localDeviceAccess } returns ALLOWED
+        every { sitePermissions.localNetworkAccess } returns ALLOWED
 
-        whenever(permissionHighlights.isAutoPlayBlocking).thenReturn(true)
-        whenever(settings.isLnaFeatureEnabled).thenReturn(false)
+        every { permissionHighlights.isAutoPlayBlocking } returns true
+        every { settings.isLnaFeatureEnabled } returns false
 
         val state = TrustPanelStore.createWebsitePermissionState(
             settings = settings,
@@ -149,15 +148,15 @@ class TrustPanelStoreTest {
 
     @Test
     fun `WHEN LNA blocking is enabled THEN LNA permissions are visible in website permission state`() {
-        val settings: Settings = mock()
-        val sitePermissions: SitePermissions = mock()
-        val permissionHighlights: PermissionHighlightsState = mock()
+        val settings: Settings = mockk(relaxed = true)
+        val sitePermissions: SitePermissions = mockk(relaxed = true)
+        val permissionHighlights: PermissionHighlightsState = mockk()
 
         initializeSitePermissions(sitePermissions)
-        whenever(sitePermissions.localDeviceAccess).thenReturn(ALLOWED)
-        whenever(sitePermissions.localNetworkAccess).thenReturn(ALLOWED)
-        whenever(permissionHighlights.isAutoPlayBlocking).thenReturn(true)
-        whenever(settings.isLnaFeatureEnabled).thenReturn(true)
+        every { sitePermissions.localDeviceAccess } returns ALLOWED
+        every { sitePermissions.localNetworkAccess } returns ALLOWED
+        every { permissionHighlights.isAutoPlayBlocking } returns true
+        every { settings.isLnaFeatureEnabled } returns true
 
         val state = TrustPanelStore.createWebsitePermissionState(
             settings = settings,
@@ -183,12 +182,12 @@ class TrustPanelStoreTest {
 
     @Test
     fun `WHEN create website permission state method is called THEN te AUTOPLAY_AUDIBLE and AUTOPLAY_INAUDIBLE permissions aren't included`() {
-        val settings: Settings = mock()
-        val sitePermissions: SitePermissions = mock()
-        val permissionHighlights: PermissionHighlightsState = mock()
+        val settings: Settings = mockk(relaxed = true)
+        val sitePermissions: SitePermissions = mockk(relaxed = true)
+        val permissionHighlights: PermissionHighlightsState = mockk()
 
         initializeSitePermissions(sitePermissions)
-        whenever(permissionHighlights.isAutoPlayBlocking).thenReturn(true)
+        every { permissionHighlights.isAutoPlayBlocking } returns true
 
         val state = TrustPanelStore.createWebsitePermissionState(
             settings = settings,
@@ -205,12 +204,12 @@ class TrustPanelStoreTest {
 
     @Test
     fun `GIVEN site permissions are null WHEN create website permission state method is called THEN autoplay defaults to settings autoplay state`() {
-        val settings: Settings = mock()
-        val permissionHighlights: PermissionHighlightsState = mock()
+        val settings: Settings = mockk(relaxed = true)
+        val permissionHighlights: PermissionHighlightsState = mockk()
 
-        whenever(permissionHighlights.isAutoPlayBlocking).thenReturn(true)
-        whenever(settings.getSitePermissionsPhoneFeatureAction(any(), any())).thenReturn(ASK_TO_ALLOW)
-        whenever(settings.getAutoplayUserSetting()).thenReturn(AUTOPLAY_ALLOW_ALL)
+        every { permissionHighlights.isAutoPlayBlocking } returns true
+        every { settings.getSitePermissionsPhoneFeatureAction(any(), any()) } returns ASK_TO_ALLOW
+        every { settings.getAutoplayUserSetting() } returns AUTOPLAY_ALLOW_ALL
 
         val state = TrustPanelStore.createWebsitePermissionState(
             settings = settings,
@@ -233,11 +232,11 @@ class TrustPanelStoreTest {
 
     @Test
     fun `GIVEN site permissions are null and autoplay is not blocking WHEN create website permission state method is called THEN autoplay isn't visible`() {
-        val settings: Settings = mock()
-        val permissionHighlights: PermissionHighlightsState = mock()
+        val settings: Settings = mockk(relaxed = true)
+        val permissionHighlights: PermissionHighlightsState = mockk()
 
-        whenever(permissionHighlights.isAutoPlayBlocking).thenReturn(false)
-        whenever(settings.getSitePermissionsPhoneFeatureAction(any(), any())).thenReturn(ASK_TO_ALLOW)
+        every { permissionHighlights.isAutoPlayBlocking } returns false
+        every { settings.getSitePermissionsPhoneFeatureAction(any(), any()) } returns ASK_TO_ALLOW
 
         val state = TrustPanelStore.createWebsitePermissionState(
             settings = settings,
@@ -261,7 +260,7 @@ class TrustPanelStoreTest {
     @Test
     fun `WHEN update site permissions action is dispatched THEN site permissions state is updated`() = runTest {
         val store = TrustPanelStore(initialState = TrustPanelState())
-        val newSitePermissions: SitePermissions = mock()
+        val newSitePermissions: SitePermissions = mockk()
 
         store.dispatch(TrustPanelAction.UpdateSitePermissions(newSitePermissions))
 
@@ -344,14 +343,14 @@ class TrustPanelStoreTest {
     private fun initializeSitePermissions(
         sitePermissions: SitePermissions,
     ) {
-        whenever(sitePermissions.camera).thenReturn(SitePermissions.Status.NO_DECISION)
-        whenever(sitePermissions.microphone).thenReturn(SitePermissions.Status.NO_DECISION)
-        whenever(sitePermissions.notification).thenReturn(SitePermissions.Status.NO_DECISION)
-        whenever(sitePermissions.location).thenReturn(ALLOWED) // Only location allowed
-        whenever(sitePermissions.localStorage).thenReturn(SitePermissions.Status.NO_DECISION)
-        whenever(sitePermissions.crossOriginStorageAccess).thenReturn(SitePermissions.Status.NO_DECISION)
-        whenever(sitePermissions.mediaKeySystemAccess).thenReturn(SitePermissions.Status.NO_DECISION)
-        whenever(sitePermissions.localDeviceAccess).thenReturn(SitePermissions.Status.NO_DECISION)
-        whenever(sitePermissions.localNetworkAccess).thenReturn(SitePermissions.Status.NO_DECISION)
+        every { sitePermissions.camera } returns SitePermissions.Status.NO_DECISION
+        every { sitePermissions.microphone } returns SitePermissions.Status.NO_DECISION
+        every { sitePermissions.notification } returns SitePermissions.Status.NO_DECISION
+        every { sitePermissions.location } returns ALLOWED // Only location allowed
+        every { sitePermissions.localStorage } returns SitePermissions.Status.NO_DECISION
+        every { sitePermissions.crossOriginStorageAccess } returns SitePermissions.Status.NO_DECISION
+        every { sitePermissions.mediaKeySystemAccess } returns SitePermissions.Status.NO_DECISION
+        every { sitePermissions.localDeviceAccess } returns SitePermissions.Status.NO_DECISION
+        every { sitePermissions.localNetworkAccess } returns SitePermissions.Status.NO_DECISION
     }
 }

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -213,7 +211,9 @@ void nsMathMLmfracFrame::Place(DrawTarget* aDrawTarget,
   // in the core since our last visit there)
   nscoord leftSpace = 0;
   nscoord rightSpace = 0;
-  if (outermostEmbellished) {
+  if (!StaticPrefs::
+          mathml_lspace_rspace_for_child_spacing_during_mrow_layout_enabled() &&
+      outermostEmbellished) {
     const bool isRTL = StyleVisibility()->mDirection == StyleDirection::Rtl;
     nsEmbellishData coreData;
     GetEmbellishDataFrom(mEmbellishData.coreFrame, coreData);

@@ -43,7 +43,8 @@ add_task(async function test_inline_sheet() {
   );
 
   info(`Modify "h1::before" into ".foo::before"`);
-  let ruleEditor = getRuleViewRuleEditor(view, 1, 0);
+  let ruleEditor = getRuleViewRuleEditorAt(view, 0);
+  is(ruleEditor.selectorText.textContent, "h1::before");
   let editor = await focusEditableField(view, ruleEditor.selectorText);
   let onRuleViewChanged = view.once("ruleview-changed");
   editor.input.value = ".foo::before";
@@ -51,7 +52,7 @@ add_task(async function test_inline_sheet() {
   await onRuleViewChanged;
 
   // Get the new rule editor reference
-  ruleEditor = getRuleViewRuleEditor(view, 1, 0);
+  ruleEditor = getRuleViewRuleEditorAt(view, 0);
   is(ruleEditor.selectorText.textContent, ".foo::before");
   is(
     ruleEditor.element.getAttribute("unmatched"),
@@ -60,7 +61,7 @@ add_task(async function test_inline_sheet() {
   );
 
   info(`Modify ".foo::before" into ".foo::after"`);
-  ruleEditor = getRuleViewRuleEditor(view, 1, 0);
+  ruleEditor = getRuleViewRuleEditorAt(view, 0);
   editor = await focusEditableField(view, ruleEditor.selectorText);
   onRuleViewChanged = view.once("ruleview-changed");
   editor.input.value = ".foo::after";
@@ -68,7 +69,7 @@ add_task(async function test_inline_sheet() {
   await onRuleViewChanged;
 
   // Get the new rule editor reference
-  ruleEditor = getRuleViewRuleEditor(view, 1, 0);
+  ruleEditor = getRuleViewRuleEditorAt(view, 0);
   is(ruleEditor.selectorText.textContent, ".foo::after");
   is(
     ruleEditor.element.getAttribute("unmatched"),
@@ -77,7 +78,7 @@ add_task(async function test_inline_sheet() {
   );
 
   info(`Modify ".foo::after" into unmatching "h2::after"`);
-  ruleEditor = getRuleViewRuleEditor(view, 1, 0);
+  ruleEditor = getRuleViewRuleEditorAt(view, 0);
   editor = await focusEditableField(view, ruleEditor.selectorText);
   onRuleViewChanged = view.once("ruleview-changed");
   editor.input.value = "h2::after";
@@ -85,7 +86,7 @@ add_task(async function test_inline_sheet() {
   await onRuleViewChanged;
 
   // Get the new rule editor reference
-  ruleEditor = getRuleViewRuleEditor(view, 1, 0);
+  ruleEditor = getRuleViewRuleEditorAt(view, 0);
   is(ruleEditor.selectorText.textContent, "h2::after");
   is(
     ruleEditor.element.getAttribute("unmatched"),
@@ -94,7 +95,7 @@ add_task(async function test_inline_sheet() {
   );
 
   info(`Modify "h2::after" back into matching "h1::after"`);
-  ruleEditor = getRuleViewRuleEditor(view, 1, 0);
+  ruleEditor = getRuleViewRuleEditorAt(view, 0);
   editor = await focusEditableField(view, ruleEditor.selectorText);
   onRuleViewChanged = view.once("ruleview-changed");
   editor.input.value = "h1::after";
@@ -102,7 +103,7 @@ add_task(async function test_inline_sheet() {
   await onRuleViewChanged;
 
   // Get the new rule editor reference
-  ruleEditor = getRuleViewRuleEditor(view, 1, 0);
+  ruleEditor = getRuleViewRuleEditorAt(view, 0);
   is(ruleEditor.selectorText.textContent, "h1::after");
   is(
     ruleEditor.element.getAttribute("unmatched"),
@@ -125,7 +126,7 @@ add_task(async function test_inline_sheet() {
   );
 
   info(`Modify "h1::after" into ".foo::after"`);
-  ruleEditor = getRuleViewRuleEditor(view, 0);
+  ruleEditor = getRuleViewRuleEditorAt(view, 0);
   editor = await focusEditableField(view, ruleEditor.selectorText);
   onRuleViewChanged = view.once("ruleview-changed");
   editor.input.value = ".foo::after";
@@ -134,7 +135,7 @@ add_task(async function test_inline_sheet() {
   await onRuleViewChanged;
 
   // Get the new rule editor reference
-  ruleEditor = getRuleViewRuleEditor(view, 0);
+  ruleEditor = getRuleViewRuleEditorAt(view, 0);
   is(ruleEditor.selectorText.textContent, ".foo::after");
   is(
     ruleEditor.element.getAttribute("unmatched"),
@@ -143,7 +144,7 @@ add_task(async function test_inline_sheet() {
   );
 
   info(`Modify ".foo::after" into "h2::after"`);
-  ruleEditor = getRuleViewRuleEditor(view, 0);
+  ruleEditor = getRuleViewRuleEditorAt(view, 0);
   editor = await focusEditableField(view, ruleEditor.selectorText);
   const onSelection = inspector.selection.once("new-node-front");
   editor.input.value = "h2::after";

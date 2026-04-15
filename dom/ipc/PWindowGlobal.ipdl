@@ -1,9 +1,8 @@
-/* -*- Mode: C++; c-basic-offset: 2; indent-tabs-mode: nil; tab-width: 8 -*- */
-/* vim: set sw=2 ts=8 et tw=80 ft=cpp : */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+include "ipc/ErrorIPCUtils.h";
 include "mozilla/dom/DocShellMessageUtils.h";
 include "mozilla/dom/IdentityCredentialSerializationHelpers.h";
 include "mozilla/dom/PermissionMessageUtils.h";
@@ -23,6 +22,7 @@ include ClientIPCTypes;
 include JSIPCValue;
 include NeckoChannelParams;
 include SessionStoreTypes;
+include ModelContextTypes;
 
 include "mozilla/layers/LayersMessageUtils.h";
 
@@ -41,6 +41,7 @@ using mozilla::dom::CredentialMediationRequirement from "mozilla/dom/CredentialM
 using mozilla::dom::IdentityCredentialDisconnectOptions from "mozilla/dom/IdentityCredentialBinding.h";
 using mozilla::dom::IdentityCredentialRequestOptions from "mozilla/dom/IdentityCredentialBinding.h";
 using mozilla::dom::LoginStatus from "mozilla/dom/LoginStatusBinding.h";
+using mozilla::CopyableErrorResult from "mozilla/ErrorResult.h";
 
 namespace mozilla {
 namespace dom {
@@ -207,6 +208,8 @@ parent:
 
   async SetDocumentDomain(nsIURI aDomain);
 
+  async SetSiteIntegrityProtected(nsIURI aSourceURI, uint64_t aMaxAge);
+
   async Destroy();
 
   async ReloadWithHttpsOnlyException();
@@ -228,6 +231,9 @@ parent:
   // User activation notifications for BounceTrackingProtection.
   async RecordUserActivationForBTP();
 
+  // User interaction notification for permission expiry tracking.
+  async RecordUserInteractionForPermissions();
+
   async PDigitalCredential();
   async PWebAuthnTransaction();
   async PWebIdentity();
@@ -236,6 +242,11 @@ child:
   async NotifyPermissionChange(nsCString type, uint32_t permission);
 
   async ProcessCloseRequest(MaybeDiscardedBrowsingContext aFocused);
+
+  async GetModelContextTools() returns (nsresult rv, IPCModelContextToolDefinition[] tools);
+
+  async InvokeModelContextTool(nsCString toolName, StructuredCloneData input)
+      returns (CopyableErrorResult rv, nullable StructuredCloneData output);
 };
 
 } // namespace dom

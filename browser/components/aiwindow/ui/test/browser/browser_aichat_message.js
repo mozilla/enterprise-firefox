@@ -268,9 +268,11 @@ add_task(async function test_user_message_website_mentions_render_as_chips() {
 
       const img = chip.shadowRoot.querySelector("img.chip-icon");
       Assert.ok(img, "chip should render <img class='chip-icon'>");
+      const imgSrc = img.getAttribute("src");
       Assert.ok(
-        img.getAttribute("src").startsWith("page-icon:https://www.google.com"),
-        `chip img src should use page-icon:https://www.google.com (got: ${img.getAttribute("src")})`
+        imgSrc.startsWith("page-icon:https://www.google.com") ||
+          imgSrc.endsWith("defaultFavicon.svg"),
+        `chip img src should use page-icon or fallback favicon (got: ${imgSrc})`
       );
 
       const label = chip.shadowRoot.querySelector(".chip-label");

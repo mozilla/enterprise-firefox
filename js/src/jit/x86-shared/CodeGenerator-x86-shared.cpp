@@ -9,6 +9,8 @@
 #include "mozilla/DebugOnly.h"
 #include "mozilla/MathAlgorithms.h"
 
+#include <bit>
+
 #include "jit/CodeGenerator.h"
 #include "jit/InlineScriptTree.h"
 #include "jit/JitRuntime.h"
@@ -796,7 +798,7 @@ void CodeGenerator::visitMulI(LMulI* ins) {
           return;
         default:
           // Use shift if cannot overflow and constant is power of 2
-          int32_t shift = FloorLog2(constant);
+          int32_t shift = FloorLog2(uint32_t(constant));
           if (constant > 0 && (1 << shift) == constant) {
             if (lhs != out) {
               masm.movl(lhs, out);
@@ -1001,7 +1003,7 @@ static void UnsignedDivideWithConstant(MacroAssembler& masm, LUDivOrUMod* ins,
 #endif
 
   // The denominator isn't a power of 2 (see LDivPowTwoI and LModPowTwoI).
-  MOZ_ASSERT(!mozilla::IsPowerOfTwo(d));
+  MOZ_ASSERT(!std::has_single_bit(d));
 
   auto rmc = ReciprocalMulConstants::computeUnsignedDivisionConstants(d);
 
@@ -1231,7 +1233,7 @@ static void DivideWithConstant(MacroAssembler& masm, LDivOrMod* ins,
 
   // The absolute value of the denominator isn't a power of 2 (see LDivPowTwoI
   // and LModPowTwoI).
-  MOZ_ASSERT(!mozilla::IsPowerOfTwo(mozilla::Abs(d)));
+  MOZ_ASSERT(!std::has_single_bit(mozilla::Abs(d)));
 
   auto* mir = ins->mir();
 

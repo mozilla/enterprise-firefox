@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -415,6 +414,9 @@ RefPtr<FocusRequestPromise> RequestWaylandFocusPromise() {
     return nullptr;
   }
   wl_surface* surface = gdk_wayland_window_get_wl_surface(gdkWindow);
+  if (!surface) {
+    return nullptr;
+  }
 
   RefPtr<FocusRequestPromise::Private> transferPromise =
       new FocusRequestPromise::Private(__func__);

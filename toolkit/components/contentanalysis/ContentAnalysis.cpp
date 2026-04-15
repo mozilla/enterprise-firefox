@@ -401,9 +401,9 @@ nsresult ContentAnalysis::CreateContentAnalysisClient(
   std::shared_ptr<content_analysis::sdk::Client> client;
   bool isShutDown = IsShutDown();
   if (!isShutDown) {
-    client.reset(content_analysis::sdk::Client::Create(
-                     {aPipePathName.Data(), aIsPerUser})
-                     .release());
+    client.reset(
+        content_analysis::sdk::Client::Create({aPipePathName.get(), aIsPerUser})
+            .release());
     LOGD("Content analysis is %s", client ? "connected" : "not available");
   } else {
     LOGD("ContentAnalysis::IsShutDown is true");
@@ -414,7 +414,7 @@ nsresult ContentAnalysis::CreateContentAnalysisClient(
     std::string agentPath = client->GetAgentInfo().binary_path;
     nsString agentWidePath = NS_ConvertUTF8toUTF16(agentPath);
     UniquePtr<wchar_t[]> orgName =
-        mozilla::DllServices::Get()->GetBinaryOrgName(agentWidePath.Data());
+        mozilla::DllServices::Get()->GetBinaryOrgName(agentWidePath.get());
     bool signatureMatches = false;
     if (orgName) {
       auto dependentOrgName = nsDependentString(orgName.get());
@@ -1259,7 +1259,7 @@ ContentAnalysis::UrlFilterResult ContentAnalysis::FilterByUrlLists(
   LOGD("Content Analysis checking URL against URL filter list | URL: %s",
        urlString.get());
 
-  std::string url = urlString.BeginReading();
+  std::string url = urlString.get();
   size_t count = 0;
   for (const auto& denyFilter : mDenyUrlList) {
     if (std::regex_match(url, denyFilter)) {
@@ -3481,7 +3481,7 @@ ContentAnalysis::CancelAllRequestsAssociatedWithUserAction(
   // end up canceling requests that are already completed here -- that is a
   // no-op.
   LOGD("Cancelling %u requests associated with user action ID: %s",
-       compoundUserAction->count(), aUserActionId.Data());
+       compoundUserAction->count(), PromiseFlatCString(aUserActionId).get());
   nsresult rv = NS_OK;
   for (auto iter = compoundUserAction->iter(); !iter.done(); iter.next()) {
     nsresult rv2 = CancelRequestsByUserAction(iter.get());
@@ -3499,7 +3499,7 @@ ContentAnalysis::CancelAllRequestsAssociatedWithUserAction(
   LOGD(
       "Cancelling compound request associated with user action ID: %s %s | "
       "Error code: %s",
-      aUserActionId.Data(),
+      PromiseFlatCString(aUserActionId).get(),
       (!mCompoundUserActions.has(compoundUserAction)) ? "succeeded" : "failed",
       SafeGetStaticErrorName(rv));
   return rv;

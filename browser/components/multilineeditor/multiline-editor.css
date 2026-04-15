@@ -18,6 +18,9 @@
   border: var(--multiline-editor-border);
   color: var(--multiline-editor-color);
   flex: 1;
+  max-height: var(--multiline-editor-max-height, none);
+  overflow-y: auto;
+  scrollbar-width: var(--multiline-editor-scrollbar-width, auto);
   padding: var(--space-small) var(--space-medium);
 }
 
@@ -27,6 +30,7 @@
 
 .multiline-editor .ProseMirror {
   height: 100%;
+  overflow-wrap: anywhere;
 }
 
 .multiline-editor .ProseMirror:focus {

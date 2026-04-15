@@ -81,6 +81,9 @@ DEFINE_IPC_SERIALIZER_WITH_FIELDS(mozilla::CandidateInfo, mCandidate, mUfrag,
                                   mDefaultHostRtcp, mDefaultPortRtcp,
                                   mMDNSAddress, mActualAddress)
 
+DEFINE_IPC_SERIALIZER_WITH_FIELDS(mozilla::IceCandidateErrorInfo, mAddress,
+                                  mPort, mUrl, mErrorCode, mErrorText)
+
 DEFINE_IPC_SERIALIZER_WITH_FIELDS(mozilla::DtlsDigest, algorithm_, value_)
 
 }  // namespace IPC

@@ -413,7 +413,7 @@ index 7ca5481bca..a386e9ba81 100644
  
  bool RtpExtension::IsSupportedForVideo(absl::string_view uri) {
 diff --git a/call/BUILD.gn b/call/BUILD.gn
-index 3e7d6904a1..ea1630210b 100644
+index 9146441348..aa25942030 100644
 --- a/call/BUILD.gn
 +++ b/call/BUILD.gn
 @@ -20,6 +20,7 @@ rtc_library("call_interfaces") {
@@ -521,7 +521,7 @@ index 732aa4d29d..50a3147b31 100644
      x_display_->AddEventHandler(xfixes_event_base_ + XFixesCursorNotify, this);
  
 diff --git a/modules/desktop_capture/linux/x11/screen_capturer_x11.cc b/modules/desktop_capture/linux/x11/screen_capturer_x11.cc
-index f10dcabc7e..3a60fa935f 100644
+index fc66a8e8b6..77529fbc1a 100644
 --- a/modules/desktop_capture/linux/x11/screen_capturer_x11.cc
 +++ b/modules/desktop_capture/linux/x11/screen_capturer_x11.cc
 @@ -307,7 +307,7 @@ bool ScreenCapturerX11::GetSourceList(SourceList* sources) {
@@ -534,7 +534,7 @@ index f10dcabc7e..3a60fa935f 100644
    }
  
 diff --git a/modules/desktop_capture/linux/x11/window_capturer_x11.cc b/modules/desktop_capture/linux/x11/window_capturer_x11.cc
-index 9505205b76..9e5a4dc337 100644
+index fca67dfaec..b4a1de562c 100644
 --- a/modules/desktop_capture/linux/x11/window_capturer_x11.cc
 +++ b/modules/desktop_capture/linux/x11/window_capturer_x11.cc
 @@ -62,6 +62,7 @@ bool WindowCapturerX11::GetSourceList(SourceList* sources) {
@@ -1392,10 +1392,10 @@ index 133c229ba3..5017d67c1a 100644
    const bool enable_svc_for_simulcast_;
    std::optional<SimulcastToSvcConverter> simulcast_to_svc_converter_;
 diff --git a/rtc_base/BUILD.gn b/rtc_base/BUILD.gn
-index 88f9f4295c..fc768d490f 100644
+index 341fdb21ca..7ae9389189 100644
 --- a/rtc_base/BUILD.gn
 +++ b/rtc_base/BUILD.gn
-@@ -450,6 +450,12 @@ rtc_library("logging") {
+@@ -460,6 +460,12 @@ rtc_library("logging") {
      "//third_party/abseil-cpp/absl/strings:string_view",
    ]
  
@@ -1510,7 +1510,7 @@ index b7933130bd..428fc9615d 100644
    vcm_ = nullptr;
  }
 diff --git a/webrtc.gni b/webrtc.gni
-index b18c04d6bb..0a291ff95c 100644
+index 5c69818f10..fd7e9775b1 100644
 --- a/webrtc.gni
 +++ b/webrtc.gni
 @@ -110,7 +110,7 @@ declare_args() {

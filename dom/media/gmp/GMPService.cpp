@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -459,12 +458,10 @@ GeckoMediaPluginService::GetGMPVideoDecoder(
             RefPtr<GMPContentParent> parent = wrapper->mParent;
             UniquePtr<GetGMPVideoDecoderCallback> callback(rawCallback);
             GMPVideoDecoderParent* actor = nullptr;
-            GMPVideoHostImpl* host = nullptr;
             if (parent && NS_SUCCEEDED(parent->GetGMPVideoDecoder(&actor))) {
-              host = &(actor->Host());
               actor->SetCrashHelper(helper);
             }
-            callback->Done(actor, host);
+            callback->Done(actor, actor);
           },
           [rawCallback] {
             UniquePtr<GetGMPVideoDecoderCallback> callback(rawCallback);
@@ -499,12 +496,10 @@ GeckoMediaPluginService::GetGMPVideoEncoder(
             RefPtr<GMPContentParent> parent = wrapper->mParent;
             UniquePtr<GetGMPVideoEncoderCallback> callback(rawCallback);
             GMPVideoEncoderParent* actor = nullptr;
-            GMPVideoHostImpl* host = nullptr;
             if (parent && NS_SUCCEEDED(parent->GetGMPVideoEncoder(&actor))) {
-              host = &(actor->Host());
               actor->SetCrashHelper(helper);
             }
-            callback->Done(actor, host);
+            callback->Done(actor, actor);
           },
           [rawCallback] {
             UniquePtr<GetGMPVideoEncoderCallback> callback(rawCallback);

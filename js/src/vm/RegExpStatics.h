@@ -302,8 +302,10 @@ inline bool RegExpStatics::updateFromMatchPairs(JSContext* cx,
 
   if (!matches.initArrayFrom(newPairs)) {
     ReportOutOfMemory(cx);
+    clear();
     return false;
   }
+
   clearInvalidation();
   return true;
 }

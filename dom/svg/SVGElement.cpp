@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -38,6 +36,7 @@
 #include "mozilla/dom/BindContext.h"
 #include "mozilla/dom/CSSRuleBinding.h"
 #include "mozilla/dom/Document.h"
+#include "mozilla/dom/DocumentInlines.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/MutationObservers.h"
 #include "mozilla/dom/SVGElementBinding.h"
@@ -266,11 +265,11 @@ nsresult SVGElement::CopyInnerTo(mozilla::dom::Element* aDest) {
 // SVGElement methods
 
 void SVGElement::DidAnimateClass() {
+  auto* doc = GetComposedDoc();
   // For Servo, snapshot the element before we change it.
-  PresShell* presShell = OwnerDoc()->GetPresShell();
-  if (presShell) {
-    if (nsPresContext* presContext = presShell->GetPresContext()) {
-      presContext->RestyleManager()->ClassAttributeWillBeChangedBySMIL(this);
+  if (doc) {
+    if (auto* pc = doc->GetPresContext()) {
+      pc->RestyleManager()->ClassAttributeWillBeChangedBySMIL(this);
     }
   }
 
@@ -286,11 +285,12 @@ void SVGElement::DidAnimateClass() {
   UpdateSubtreeBloomFilterForAttribute(nsGkAtoms::_class);
   PropagateBloomFilterToParents();
 
-  // FIXME(emilio): This re-selector-matches, but we do the snapshot stuff right
-  // above... Is this needed anymore?
-  if (presShell) {
-    presShell->RestyleForAnimation(this, RestyleHint::RESTYLE_SELF);
+  if (doc) {
+    if (PresShell* presShell = doc->GetPresShell()) {
+      presShell->RestyleForAnimation(this, RestyleHint::RESTYLE_SELF);
+    }
   }
+
   DidAnimateAttribute(kNameSpaceID_None, nsGkAtoms::_class);
 }
 

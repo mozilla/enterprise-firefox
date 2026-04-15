@@ -5,9 +5,6 @@
 const { AddonManager } = ChromeUtils.importESModule(
   "resource://gre/modules/AddonManager.sys.mjs"
 );
-const { Preferences } = ChromeUtils.importESModule(
-  "resource://gre/modules/Preferences.sys.mjs"
-);
 
 const {
   createAppInfo,
@@ -115,7 +112,7 @@ async function expectEvents(
 }
 
 add_task(async function test_should_fire_on_addon_update() {
-  Preferences.set("extensions.logging.enabled", false);
+  Services.prefs.setBoolPref("extensions.logging.enabled", false);
 
   await promiseStartupManager();
 

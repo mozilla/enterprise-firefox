@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -12,7 +10,7 @@
 #include "mozilla/Assertions.h"
 #include "mozilla/CachedInheritingStyles.h"
 #include "mozilla/Maybe.h"
-#include "mozilla/PseudoStyleType.h"
+#include "mozilla/PseudoStyleRequest.h"
 #include "mozilla/ServoComputedData.h"
 #include "mozilla/ServoStyleConsts.h"
 #include "nsColor.h"
@@ -72,7 +70,7 @@ class ComputedStyle {
 
   // Returns the computed typed value of the given property.
   bool GetPropertyTypedValue(const nsACString& aProperty,
-                             StylePropertyTypedValueResult& aOut) const {
+                             StylePropertyTypedValue& aOut) const {
     return Servo_GetComputedTypedValue(this, &aProperty, &aOut);
   }
 
@@ -198,6 +196,9 @@ class ComputedStyle {
     mCachedInheritingStyles.AppendTo(aArray);
   }
 
+  template <typename Func>
+  void ForEachCachedLazyPseudoEntry(Func&& aFunc) const;
+
   // Is the only link whose visitedness is allowed to influence the
   // style of the node this ComputedStyle is for (which is that element
   // or its nearest ancestor that is a link) visited?
@@ -214,6 +215,10 @@ class ComputedStyle {
     return bool(Flags() & Flag::IS_IN_OPACITY_ZERO_SUBTREE);
   }
 
+  bool HasAuthorSpecifiedGridAutoFlow() const {
+    return bool(Flags() & Flag::HAS_AUTHOR_SPECIFIED_GRID_AUTO_FLOW);
+  }
+
   bool HasAnchorPosReference() const;
 
   bool MaybeAnchorPosReferencesDiffer(const ComputedStyle* aOther) const;
@@ -225,17 +230,24 @@ class ComputedStyle {
   }
 
   void SetCachedInheritedAnonBoxStyle(ComputedStyle* aStyle) {
-    mCachedInheritingStyles.Insert(aStyle);
+    mCachedInheritingStyles.Insert(aStyle, aStyle->GetPseudoType());
   }
 
   ComputedStyle* GetCachedLazyPseudoStyle(const PseudoStyleRequest&) const;
 
-  void SetCachedLazyPseudoStyle(ComputedStyle* aStyle,
+  // aStyle may be null to record a probe that returned no matching rules.
+  void SetCachedLazyPseudoStyle(ComputedStyle* aStyle, PseudoStyleType aType,
                                 nsAtom* aFunctionalPseudoParameter) {
-    MOZ_ASSERT(aStyle->IsPseudoElement());
-    MOZ_ASSERT(!GetCachedLazyPseudoStyle(
-        {aStyle->GetPseudoType(), aFunctionalPseudoParameter}));
-    MOZ_ASSERT(aStyle->IsLazilyCascadedPseudoElement());
+    MOZ_ASSERT_IF(aStyle, aStyle->IsPseudoElement());
+    MOZ_ASSERT_IF(aStyle, aStyle->GetPseudoType() == aType);
+    // If a null entry was already cached for this pseudo (from a prior probe),
+    // avoid re-inserting. Lookup() returns nullptr for both "not cached" and
+    // "cached as null", so we need HasEntry() to distinguish them.
+    if (!aStyle &&
+        mCachedInheritingStyles.HasEntry({aType, aFunctionalPseudoParameter})) {
+      return;
+    }
+    MOZ_ASSERT(!GetCachedLazyPseudoStyle({aType, aFunctionalPseudoParameter}));
 
     // Since we're caching lazy pseudo styles on the ComputedValues of the
     // originating element, we can assume that we either have the same
@@ -246,11 +258,11 @@ class ComputedStyle {
     //
     // The one place this optimization breaks is with pseudo-elements that
     // support state (like :hover). So we just avoid sharing in those cases.
-    if (PseudoStyle::SupportsUserActionState(aStyle->GetPseudoType())) {
+    if (PseudoStyle::SupportsUserActionState(aType)) {
       return;
     }
 
-    mCachedInheritingStyles.Insert(aStyle, aFunctionalPseudoParameter);
+    mCachedInheritingStyles.Insert(aStyle, aType, aFunctionalPseudoParameter);
   }
 
 #define GENERATE_ACCESSOR(name_)                                         \

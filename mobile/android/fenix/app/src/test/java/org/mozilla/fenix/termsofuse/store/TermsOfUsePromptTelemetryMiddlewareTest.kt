@@ -1,5 +1,6 @@
 package org.mozilla.fenix.termsofuse.store
 
+import io.mockk.mockk
 import mozilla.components.support.test.robolectric.testContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -7,7 +8,6 @@ import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.mockito.Mockito.mock
 import org.mozilla.fenix.GleanMetrics.TermsOfUse
 import org.mozilla.fenix.helpers.FenixGleanTestRule
 import org.robolectric.RobolectricTestRunner
@@ -107,7 +107,7 @@ class TermsOfUsePromptTelemetryMiddlewareTest {
 
     private fun invokeMiddlewareWith(action: TermsOfUsePromptAction) {
         TermsOfUsePromptTelemetryMiddleware()(
-            store = mock(),
+            store = mockk(),
             next = {},
             action = action,
         )

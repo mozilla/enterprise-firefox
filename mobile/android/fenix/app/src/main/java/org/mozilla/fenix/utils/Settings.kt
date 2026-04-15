@@ -34,7 +34,7 @@ import mozilla.components.support.ktx.android.content.longPreference
 import mozilla.components.support.ktx.android.content.stringPreference
 import mozilla.components.support.ktx.android.content.stringSetPreference
 import mozilla.components.support.locale.LocaleManager
-import mozilla.components.support.utils.BrowsersCache
+import mozilla.components.support.utils.Browsers
 import mozilla.components.support.utils.ext.PackageManagerCompatHelper
 import mozilla.components.support.utils.ext.packageManagerCompatHelper
 import org.mozilla.experiments.nimbus.NimbusEventStore
@@ -78,6 +78,7 @@ import java.security.InvalidParameterException
 import java.util.concurrent.TimeUnit.MILLISECONDS
 
 private const val AUTOPLAY_USER_SETTING = "AUTOPLAY_USER_SETTING"
+private const val MAX_ANIMATION_FOREGROUND = 5
 
 /**
  * A simple wrapper for SharedPreferences that makes reading preference a little bit easier.
@@ -271,14 +272,6 @@ class Settings(
         get() = FxNimbus.features.firefoxJpGuideDefaultSite.value().enabled
 
     /**
-     * Indicates whether or not the homepage header should be shown.
-     */
-    var showHomepageHeader by booleanPreference(
-        appContext.getPreferenceKey(R.string.pref_key_enable_homepage_header),
-        default = { homescreenSections[HomeScreenSection.HEADER] == true },
-    )
-
-    /**
      * Indicates whether or not top sites should be shown on the home screen.
      */
     var showTopSitesFeature by booleanPreference(
@@ -286,8 +279,26 @@ class Settings(
         default = { homescreenSections[HomeScreenSection.TOP_SITES] == true },
     )
 
+    /**
+     * Indicates whether or not the privacy report should be shown on the home screen.
+     */
+    var showPrivacyReportFeature by booleanPreference(
+        appContext.getPreferenceKey(R.string.pref_key_privacy_report),
+        default = { homescreenSections[HomeScreenSection.PRIVACY_REPORT] == true },
+    )
+
     private val homescreenSections: Map<HomeScreenSection, Boolean>
         get() = FxNimbus.features.homescreen.value().sectionsEnabled
+
+    /**
+     * Indicates if the privacy report homepage section settings should be visible.
+     * Controlled by secret settings toggle.
+     */
+    val showPrivacyReportSectionToggle: Boolean
+        get() = preferences.getBoolean(
+            appContext.getPreferenceKey(R.string.pref_key_enable_privacy_report),
+            false,
+        )
 
     /**
      * Indicates if the recent tabs homepage section settings should be visible
@@ -372,6 +383,16 @@ class Settings(
 
     val canShowCfr: Boolean
         get() = (System.currentTimeMillis() - lastCfrShownTimeInMillis) > THREE_DAYS_MS
+
+    val cfrPopupsEnabled by booleanPreference(
+        appContext.getPreferenceKey(R.string.pref_cfr_popups_enabled),
+        default = { FxNimbus.features.enablePopups.value().cfrPopupsEnabled },
+    )
+
+    val inAppMessagesEnabled by booleanPreference(
+        appContext.getPreferenceKey(R.string.pref_in_app_messages_enabled),
+        default = { FxNimbus.features.enablePopups.value().inAppMessagesEnabled },
+    )
 
     var forceEnableZoom by booleanPreference(
         appContext.getPreferenceKey(R.string.pref_key_accessibility_force_enable_zoom),
@@ -1075,6 +1096,25 @@ class Settings(
             }
         }
 
+    /**
+     * Get the display string for the current remote settings server setting
+     */
+    fun getRemoteSettingsServerString(): String =
+        when (remoteSettingsServer) {
+            appContext.getString(R.string.remote_settings_server_prod) -> {
+                appContext.getString(R.string.preferences_remote_settings_server_prod_label)
+            }
+            appContext.getString(R.string.remote_settings_server_stage) -> {
+                appContext.getString(R.string.preferences_remote_settings_server_stage_label)
+            }
+            appContext.getString(R.string.remote_settings_server_dev) -> {
+                appContext.getString(R.string.preferences_remote_settings_server_dev_label)
+            }
+            else -> {
+                appContext.getString(R.string.preferences_remote_settings_server_prod_label)
+            }
+        }
+
     var shouldUseDarkTheme by booleanPreference(
         appContext.getPreferenceKey(R.string.pref_key_dark_theme),
         default = false,
@@ -1153,43 +1193,8 @@ class Settings(
      * G5+).
      */
     fun isDefaultBrowserBlocking(): Boolean {
-        val browsers = BrowsersCache.all(appContext)
-        return browsers.isDefaultBrowser
+        return Browsers.isDefaultBrowser(appContext)
     }
-
-    var reEngagementNotificationShown by booleanPreference(
-        appContext.getPreferenceKey(R.string.pref_key_re_engagement_notification_shown),
-        default = false,
-    )
-
-    /**
-     * Check if we should set the re-engagement notification.
-     */
-    fun shouldSetReEngagementNotification(): Boolean {
-        return numberOfAppLaunches <= 1 && !reEngagementNotificationShown
-    }
-
-    /**
-     * Check if we should show the re-engagement notification.
-     */
-    fun shouldShowReEngagementNotification(): Boolean {
-        return !reEngagementNotificationShown && !isDefaultBrowserBlocking()
-    }
-
-    /**
-     * Indicates if the re-engagement notification feature is enabled
-     */
-    var reEngagementNotificationEnabled by booleanPreference(
-        key = appContext.getPreferenceKey(R.string.pref_key_re_engagement_notification_enabled),
-        default = { FxNimbus.features.reEngagementNotification.value().enabled },
-    )
-
-    /**
-     * Indicates if the re-engagement notification feature is enabled
-     */
-    val reEngagementNotificationType: Int
-        get() =
-            FxNimbus.features.reEngagementNotification.value().type
 
     val shouldUseAutoBatteryTheme by booleanPreference(
         appContext.getPreferenceKey(R.string.pref_key_auto_battery_theme),
@@ -1258,9 +1263,9 @@ class Settings(
         true,
     )
 
-    val useProductionRemoteSettingsServer by booleanPreference(
-        key = appContext.getPreferenceKey(R.string.pref_key_remote_server_prod),
-        default = true,
+    var remoteSettingsServer by stringPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_remote_settings_server),
+        default = appContext.getString(R.string.remote_settings_server_prod),
     )
 
     /**
@@ -1410,7 +1415,7 @@ class Settings(
 
     var shouldUseBottomToolbar by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_toolbar_bottom),
-        default = false,
+        default = { FxNimbus.features.defaultBottomToolbar.value().enabled },
         persistDefaultIfNotExists = true,
     )
 
@@ -1586,7 +1591,7 @@ class Settings(
 
     val shouldShowPwaCfr: Boolean
         get() {
-            if (!canShowCfr) return false
+            if (!canShowCfr || !inAppMessagesEnabled || continuousOnboardingFeatureEnabled) return false
             // We only want to show this on the 3rd time a user visits a site
             if (userNeedsToVisitInstallableSites) return false
 
@@ -1974,9 +1979,24 @@ class Settings(
         default = { FxNimbus.features.searchOptimizationOption.value().enabled },
     )
 
+    var shouldShowSearchOptimizationCards by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_search_optimization_cards),
+        default = { isSearchOptimizationEnabled },
+    )
+
     var shouldShowSearchOptimizationStockCard by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_search_optimization_stocks),
         default = { FxNimbus.features.searchOptimizationOption.value().showStocksCard },
+    )
+
+    var shouldShowSearchOptimizationFlightCard by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_search_optimization_flights),
+        default = { FxNimbus.features.searchOptimizationOption.value().showFlightsCard },
+    )
+
+    var shouldShowSearchOptimizationSportCard by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_search_optimization_sports),
+        default = { FxNimbus.features.searchOptimizationOption.value().showSportsCard },
     )
 
     var isTabStripEnabled by booleanPreference(
@@ -2153,6 +2173,46 @@ class Settings(
      * Indicates if the onboarding feature is enabled.
      */
     var onboardingFeatureEnabled = FeatureFlags.onboardingFeatureEnabled
+
+    /**
+     * The completion timestamp of the initial onboarding flow.
+     */
+    var onboardingCompletedTimestamp: Long by longPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_onboarding_completed_timestamp),
+        default = -1L,
+    )
+
+    /**
+     * Indicates if the continuous onboarding feature is enabled.
+     */
+    var continuousOnboardingFeatureEnabled by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_continuous_onboarding_enabled),
+        default = { FxNimbus.features.continuousOnboarding.value().enabled },
+    )
+
+    /**
+     * The completion timestamp of the second day of continuous onboarding.
+     */
+    var secondDayOnboardingCompletedTimestamp by longPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_continuous_onboarding_day_two_completed_timestamp),
+        default = -1L,
+    )
+
+    /**
+     * The completion timestamp of the third day of continuous onboarding.
+     */
+    var thirdDayOnboardingCompletedTimestamp by longPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_continuous_onboarding_day_three_completed_timestamp),
+        default = -1L,
+    )
+
+    /**
+     * The completion timestamp of the seventh day of continuous onboarding.
+     */
+    var seventhDayOnboardingCompletedTimestamp by longPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_continuous_onboarding_day_seven_completed_timestamp),
+        default = -1L,
+    )
 
     /**
      * Indicates if the onboarding redesign should be used.
@@ -2371,14 +2431,6 @@ class Settings(
     )
 
     /**
-     * Indicates if Browser Mode Toggle is enabled.
-     */
-    var enableBrowserModeToggle by booleanPreference(
-        key = appContext.getPreferenceKey(R.string.pref_key_enable_browser_mode_toggle),
-        default = { FxNimbus.features.browserModeToggle.value().enabled },
-    )
-
-    /**
      * Indicates if Merino Client is enabled.
      */
     var enableMerinoClient by booleanPreference(
@@ -2557,11 +2609,47 @@ class Settings(
     )
 
     /**
-     * Indicates if the Shake to Summarize feature is enabled.
+     * Nimbus controlled feature flag that Indicates if the Shake to Summarize feature should be
+     * enabled
      */
-    var shakeToSummarizeFeatureEnabled by booleanPreference(
+    var shakeToSummarizeFeatureFlagEnabled by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_enable_shake_to_summarize),
-        default = Config.channel.isDebug,
+        default = { FxNimbus.features.shakeToSummarize.value().enabled },
+    )
+
+    /**
+     * Tracks how many times the summarize menu item has been shown.
+     * Used to control highlight/badge visibility for feature discovery.
+     */
+    val shakeToSummarizeMenuItemExposureCount = counterPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_summarize_highlight_menu_item_exposure_count),
+        maxCount = 2,
+    )
+
+    /**
+     * Tracks how many times the user has interacted with the more menu item.
+     * Used to control highlight/badge visibility for feature discovery.
+     */
+    val shakeToSummarizeMoreMenuItemInteractionCount = counterPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_summarize_highlight_more_item_interaction_count),
+        maxCount = 1,
+    )
+
+    /**
+     * Tracks how many times the user has interacted with the toolbar menu entry point.
+     * Used to control highlight/badge visibility for feature discovery.
+     */
+    val shakeToSummarizeToolbarInteractionCount = counterPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_summarize_highlight_toolbar_interaction_count),
+        maxCount = 1,
+    )
+
+    /**
+     * Tracks if the user has been shown the shake to summarize toolbar CFR
+     */
+    var shakeToSummarizeToolbarCfrShown by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_summarize_toolbar_cfr_shown),
+        default = false,
     )
 
     /**
@@ -2856,11 +2944,79 @@ class Settings(
     )
 
     /**
+     * Whether the private mode and stories entry point experiment is enabled.
+     */
+    var privateModeAndStoriesEntryPointEnabled by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_private_mode_and_stories_entry_point),
+        default = { FxNimbus.features.privateModeAndStoriesEntryPoint.value().enabled },
+    )
+
+    /**
+     * The number of times the app has been brought to the foreground since the news button
+     * animation was last shown.
+     */
+    var newsButtonForegroundCount by intPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_news_button_foreground_count),
+        default = 0,
+    )
+
+    /**
+     * The timestamp in milliseconds when the news button animation was last shown.
+     */
+    var newsButtonAnimationLastShownMillis by longPreference(
+        appContext.getPreferenceKey(R.string.pref_key_news_button_animation_last_shown),
+        default = 0L,
+    )
+
+    /**
+     * Increments [newsButtonForegroundCount] up to a maximum of 5.
+     */
+    fun incrementNewsButtonForegroundCount() {
+        if (newsButtonForegroundCount < MAX_ANIMATION_FOREGROUND) {
+            newsButtonForegroundCount++
+        }
+    }
+
+    /**
+     * Returns whether the news button animation should be shown. The animation is shown every
+     * 5 foreground visits and at most once per week.
+     */
+    fun shouldShowNewsButtonAnimation(): Boolean {
+        return (newsButtonForegroundCount % MAX_ANIMATION_FOREGROUND == 0) &&
+            (System.currentTimeMillis() - newsButtonAnimationLastShownMillis >= ONE_WEEK_MS)
+    }
+
+    /**
+     * Records that the news button animation has been shown by updating the last shown timestamp
+     * and resetting [newsButtonForegroundCount].
+     */
+    fun recordNewsButtonAnimationShown() {
+        newsButtonAnimationLastShownMillis = System.currentTimeMillis()
+        newsButtonForegroundCount = 0
+    }
+
+    /**
+     * Whether the Tab Groups feature is enabled.
+     */
+    var tabGroupsEnabled by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_tab_groups),
+        default = { DefaultTabManagementFeatureHelper.tabGroupsEnabled },
+    )
+
+    /**
      * Whether the Native Share Sheet feature is enabled.
      */
     var nativeShareSheetEnabled by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_native_share_sheet),
         default = { FxNimbus.features.nativeShareSheet.value().enabled },
+    )
+
+    /**
+     * Whether Longfox is enabled.
+     */
+    var longfoxEnabled by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_enable_longfox),
+        default = false,
     )
 
     /**

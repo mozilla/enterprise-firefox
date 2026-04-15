@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -548,10 +547,19 @@ void NativeKeyBindings::GetEditCommandsForTests(
           aCommands);
       break;
     case KEY_NAME_INDEX_ArrowLeft:
-      if (aEvent.IsAlt()) {
+      if (aEvent.IsControl()) {
+        if (aEvent.IsShift() && !aEvent.IsAlt() && !aEvent.IsMeta()) {
+          instance->AppendEditCommandsForSelector(
+              ToObjcSelectorPtr(@selector
+                                (moveToLeftEndOfLineAndModifySelection:)),
+              aCommands);
+        }
         break;
       }
-      if (aEvent.IsMeta() || (aEvent.IsControl() && aEvent.IsShift())) {
+      if (aEvent.IsMeta()) {
+        if (aEvent.IsAlt()) {
+          break;
+        }
         instance->AppendEditCommandsForSelector(
             !aEvent.IsShift()
                 ? ToObjcSelectorPtr(@selector(moveToLeftEndOfLine:))
@@ -560,7 +568,12 @@ void NativeKeyBindings::GetEditCommandsForTests(
             aCommands);
         break;
       }
-      if (aEvent.IsControl()) {
+      if (aEvent.IsAlt()) {
+        instance->AppendEditCommandsForSelector(
+            !aEvent.IsShift()
+                ? ToObjcSelectorPtr(@selector(moveWordLeft:))
+                : ToObjcSelectorPtr(@selector(moveWordLeftAndModifySelection:)),
+            aCommands);
         break;
       }
       instance->AppendEditCommandsForSelector(
@@ -570,10 +583,19 @@ void NativeKeyBindings::GetEditCommandsForTests(
           aCommands);
       break;
     case KEY_NAME_INDEX_ArrowRight:
-      if (aEvent.IsAlt()) {
+      if (aEvent.IsControl()) {
+        if (aEvent.IsShift() && !aEvent.IsAlt() && !aEvent.IsMeta()) {
+          instance->AppendEditCommandsForSelector(
+              ToObjcSelectorPtr(@selector
+                                (moveToRightEndOfLineAndModifySelection:)),
+              aCommands);
+        }
         break;
       }
-      if (aEvent.IsMeta() || (aEvent.IsControl() && aEvent.IsShift())) {
+      if (aEvent.IsMeta()) {
+        if (aEvent.IsAlt()) {
+          break;
+        }
         instance->AppendEditCommandsForSelector(
             !aEvent.IsShift()
                 ? ToObjcSelectorPtr(@selector(moveToRightEndOfLine:))
@@ -582,7 +604,12 @@ void NativeKeyBindings::GetEditCommandsForTests(
             aCommands);
         break;
       }
-      if (aEvent.IsControl()) {
+      if (aEvent.IsAlt()) {
+        instance->AppendEditCommandsForSelector(
+            !aEvent.IsShift() ? ToObjcSelectorPtr(@selector(moveWordRight:))
+                              : ToObjcSelectorPtr(@selector(
+                                    moveWordRightAndModifySelection:)),
+            aCommands);
         break;
       }
       instance->AppendEditCommandsForSelector(
@@ -603,7 +630,7 @@ void NativeKeyBindings::GetEditCommandsForTests(
             !aEvent.IsShift()
                 ? ToObjcSelectorPtr(@selector(moveToBeginningOfDocument:))
                 : ToObjcSelectorPtr(
-                      @selector(moveToBegginingOfDocumentAndModifySelection:)),
+                      @selector(moveToBeginningOfDocumentAndModifySelection:)),
             aCommands);
         break;
       }

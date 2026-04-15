@@ -953,6 +953,38 @@ export let ProfileDataUpgrader = {
       Services.prefs.setBoolPref("signon.rustMirror.migrationNeeded", true);
     }
 
+    if (existingDataVersion < 166) {
+      // Bug 1978550: Migrate Local Network Access permissions from old
+      // "localhost" type to new "loopback-network" type.
+      try {
+        Services.perms.getAllByTypes(["localhost"]).forEach(permission => {
+          Services.perms.removePermission(permission);
+          Services.perms.addFromPrincipal(
+            permission.principal,
+            "loopback-network",
+            permission.capability,
+            permission.expireType,
+            permission.expireTime
+          );
+        });
+      } catch (e) {
+        console.error("Error migrating localhost permission", e);
+      }
+
+      // Migrate permissions.default.localhost preference to
+      // permissions.default.loopback-network
+      try {
+        const oldValue = Services.prefs.getIntPref(
+          "permissions.default.localhost"
+        );
+        Services.prefs.setIntPref(
+          "permissions.default.loopback-network",
+          oldValue
+        );
+        Services.prefs.clearUserPref("permissions.default.localhost");
+      } catch (e) {}
+    }
+
     // Update the migration version.
     Services.prefs.setIntPref("browser.migration.version", newVersion);
   },

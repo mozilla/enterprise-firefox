@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -11,7 +9,7 @@
 #include "mozilla/MathAlgorithms.h"
 #include "mozilla/Span.h"
 
-#include <climits>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>
@@ -180,11 +178,7 @@ class BitSet {
     size_t count = 0;
 
     for (const Word word : mStorage) {
-      if constexpr (kBitsPerWord > 32) {
-        count += CountPopulation64(word);
-      } else {
-        count += CountPopulation32(word);
-      }
+      count += std::popcount(word);
     }
 
     return count;
@@ -234,7 +228,7 @@ class BitSet {
       word = mStorage[wordIndex];
     }
 
-    uint_fast8_t pos = CountTrailingZeroes(word);
+    size_t pos = std::countr_zero(word);
     return wordIndex * kBitsPerWord + pos;
   }
 

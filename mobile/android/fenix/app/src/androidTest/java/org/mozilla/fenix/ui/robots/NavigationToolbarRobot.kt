@@ -27,6 +27,7 @@ import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.action.ViewActions
 import androidx.test.espresso.action.ViewActions.pressImeActionButton
 import androidx.test.espresso.assertion.PositionAssertions.isCompletelyAbove
+import androidx.test.espresso.assertion.PositionAssertions.isCompletelyBelow
 import androidx.test.espresso.assertion.PositionAssertions.isPartiallyBelow
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.Visibility
@@ -184,7 +185,7 @@ class NavigationToolbarRobot(private val composeTestRule: ComposeTestRule) {
             ),
         )
 
-    fun verifySearchBarPlaceholder() {
+    fun verifySearchBarPlaceholder(string: String) {
         Log.i(TAG, "verifySearchBarPlaceholder: Trying to verify that the search bar place holder is \"Search or enter address\"")
         composeTestRule.onNodeWithTag(ADDRESSBAR_URL_BOX).assert(hasContentDescription("Search or enter address"))
         Log.i(TAG, "verifySearchBarPlaceholder: Verified that the search bar place holder is \"Search or enter address\"")
@@ -304,6 +305,18 @@ class NavigationToolbarRobot(private val composeTestRule: ComposeTestRule) {
         Log.i(TAG, "verifyNavBarBarPosition: Verified the toolbar navbar position is at the bottom: $isAtBottom.")
     }
 
+    fun verifyNavBarPositionWithTabStripEnabled(isAtBottom: Boolean) {
+        Log.i(TAG, "verifyNavBarPositionWithTabStripEnabled: Trying to verify the toolbar navbar position is at the bottom: $isAtBottom.")
+        onView(allOf(withId(R.id.navigation_bar), isCompletelyDisplayed())).check(
+            if (isAtBottom) {
+                isCompletelyBelow(withId(R.id.composable_toolbar))
+            } else {
+                isCompletelyAbove(withId(R.id.composable_toolbar))
+            },
+        )
+        Log.i(TAG, "verifyNavBarPositionWithTabStripEnabled: Verified the toolbar navbar position is at the bottom: $isAtBottom.")
+    }
+
     fun verifyTheTabCounter(numberOfOpenTabs: String, isPrivateBrowsingEnabled: Boolean = false) {
         if (isPrivateBrowsingEnabled) {
             Log.i(TAG, "verifyTabCounter: Trying to verify that the number of open private tabs is : $numberOfOpenTabs")
@@ -334,6 +347,47 @@ class NavigationToolbarRobot(private val composeTestRule: ComposeTestRule) {
             composeTestRule.onNodeWithContentDescription("New tab").assertIsDisplayed()
             Log.i(TAG, "verifyTheNewTabButton: Verified that the \"New tab\" button is displayed.")
         }
+    }
+
+    fun verifyTheTheTabStripPageViewNavigationBarBookmarkButton() {
+        Log.i(TAG, "verifyTheTheTabStripPageViewNavigationBarBookmarkButton: Trying to verify that the bookmark page button is displayed in the navigation bar")
+        composeTestRule.onNodeWithContentDescription("Bookmark page").assertIsDisplayed()
+        Log.i(TAG, "verifyTheTheTabStripPageViewNavigationBarBookmarkButton: Verified that the bookmark page button is displayed in the navigation bar")
+    }
+
+    fun verifyTheTabStripNavigationBarShareButton() {
+        Log.i(TAG, "verifyTheTabStripNavigationBarShareButton: Trying to verify that the share button is displayed in the navigation bar")
+        composeTestRule.onNodeWithContentDescription("Share").assertIsDisplayed()
+        Log.i(TAG, "verifyTheTabStripNavigationBarShareButton: Verified that the share button is displayed in the navigation bar")
+    }
+
+    fun verifyTheTabStripOpenTab(tabName: String) {
+        Log.i(TAG, "verifyTheTabStripOpenTab: Trying to verify that the opened tab is displayed in the tab strip")
+        composeTestRule.onNodeWithText(tabName, ignoreCase = true).assertIsDisplayed()
+        Log.i(TAG, "verifyTheTabStripOpenTab: Verified that the opened tab is displayed in the tab strip")
+    }
+
+    fun verifyTheTabStripCloseTabButton(tabName: String) {
+        Log.i(TAG, "verifyTheTabStripCloseTabButton: Trying to verify close button for tab in tab strip is displayed")
+        composeTestRule.onNodeWithContentDescription("Close tab $tabName").assertIsDisplayed()
+        Log.i(TAG, "verifyTheTabStripCloseTabButton: Verified close button for tab in tab strip is displayed")
+    }
+
+    fun verifyTheBackButton() {
+        Log.i(TAG, "verifyTheBackButton: Trying to verify that the \"Back\" nav bar button is displayed in landscape mode.")
+        composeTestRule.onNodeWithContentDescription("Back").assertIsDisplayed()
+        Log.i(TAG, "verifyTheBackButton: Verified that the \"Back\" nav bar button is displayed in landscape mode.")
+    }
+
+    fun verifyTheForwardButton() {
+        Log.i(TAG, "verifyTheForwardButton: Trying to verify that the \"Forward\" nav bar button is displayed in landscape mode.")
+        composeTestRule.onNodeWithContentDescription("Forward").assertIsDisplayed()
+        Log.i(TAG, "verifyTheForwardButton: Verified that the \"Forward\" nav bar button is displayed in landscape mode.")
+    }
+    fun verifyTheRefreshButton() {
+        Log.i(TAG, "verifyTheRefreshButton: Trying to verify that the \"Refresh\" nav bar button is displayed in landscape mode.")
+        composeTestRule.onNodeWithContentDescription("Refresh").assertIsDisplayed()
+        Log.i(TAG, "verifyTheRefreshButton: Verified that the \"Refresh\" nav bar button is displayed in landscape mode.")
     }
 
     class Transition(private val composeTestRule: ComposeTestRule) {

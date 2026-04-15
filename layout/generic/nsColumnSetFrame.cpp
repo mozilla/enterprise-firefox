@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -667,7 +665,7 @@ nsColumnSetFrame::ColumnBalanceData nsColumnSetFrame::ReflowColumns(
       kidReflowInput.mFlags.mIsColumnBalancing = aConfig.mIsBalancing;
       kidReflowInput.mFlags.mIsInLastColumnBalancingReflow =
           aConfig.mIsLastBalancingReflow;
-      kidReflowInput.mFlags.mIsInColumnMeasuringReflow =
+      kidReflowInput.mFlags.mIsInFragmentainerMeasuringReflow =
           aConfig.mIsInMeasuringReflow;
       kidReflowInput.mBreakType = ReflowInput::BreakType::Column;
 
@@ -1245,7 +1243,7 @@ void nsColumnSetFrame::Reflow(nsPresContext* aPresContext,
       // Only the top-level multicol can initiate a measuring reflow. If we are
       // a nested multicol, perform a measuring reflow only when the top-level
       // one is doing it.
-      return aReflowInput.mFlags.mIsInColumnMeasuringReflow;
+      return aReflowInput.mFlags.mIsInFragmentainerMeasuringReflow;
     }
     // Below is logic for top-level multicols.
     if (GetPrevInFlow()) {

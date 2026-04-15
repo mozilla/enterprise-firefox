@@ -4,10 +4,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+import { sanitizeUntrustedContent } from "moz-src:///browser/components/aiwindow/models/ChatUtils.sys.mjs";
+
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  PageThumbs: "resource://gre/modules/PageThumbs.sys.mjs",
-  PageThumbsStorage: "resource://gre/modules/PageThumbs.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   getPlacesSemanticHistoryManager:
     "resource://gre/modules/PlacesSemanticHistoryManager.sys.mjs",
@@ -31,16 +31,27 @@ function isoToMicroseconds(iso) {
 }
 
 /**
+ * A history row from the moz_places databases, normalized for usage.
+ *
+ * @typedef {object} HistoryRow
+ * @property {string} title - Sanitized title (falls back to URL if missing).
+ * @property {string} url - Page URL.
+ * @property {string|null} visitDate - ISO timestamp of last visit, or null.
+ * @property {number} visitCount - Number of visits (defaults to 0).
+ * @property {number} relevanceScore - Ranking score (semantic relevance or frecency fallback).
+ */
+
+/**
  * Normalize a history row from either:
  * - semantic SQL result (mozIStorageRow), or
  * - Places history node (plain object from nsINavHistoryResultNode).
  *
  * @param {object} row
  * @param {boolean} [fromNode=false]  // true if row came from Places node
- * @returns {Promise<object>}         // normalized history entry
+ * @returns {HistoryRow}              // normalized history entry
  */
-async function buildHistoryRow(row, fromNode = false) {
-  let title, url, visitDateIso, visitCount, distance, frecency, previewImageURL;
+function buildHistoryRow(row, fromNode = false) {
+  let title, url, visitDateIso, visitCount, distance, frecency;
 
   if (!fromNode) {
     // from semantic / SQL result (mozIStorageRow)
@@ -49,7 +60,6 @@ async function buildHistoryRow(row, fromNode = false) {
     visitCount = row.getResultByName("visit_count");
     distance = row.getResultByName("distance");
     frecency = row.getResultByName("frecency");
-    previewImageURL = row.getResultByName("preview_image_url");
 
     // convert last_visit_date to ISO format
     const lastVisitRaw = row.getResultByName("last_visit_date");
@@ -80,34 +90,12 @@ async function buildHistoryRow(row, fromNode = false) {
     relevanceScore = frecency;
   }
 
-  // Get thumbnail URL for the page if preview_image_url does not exist
-  try {
-    if (!previewImageURL) {
-      if (await lazy.PageThumbsStorage.fileExistsForURL(url)) {
-        previewImageURL = lazy.PageThumbs.getThumbnailURL(url);
-      }
-    }
-  } catch (e) {
-    // If thumbnail lookup fails, skip it
-  }
-
-  // Get favicon URL for the page
-  let faviconUrl = null;
-  try {
-    const faviconURI = Services.io.newURI(url);
-    faviconUrl = `page-icon:${faviconURI.spec}`;
-  } catch (e) {
-    // If favicon lookup fails, skip it
-  }
-
   return {
-    title: title || url,
+    title: sanitizeUntrustedContent(title || url),
     url,
     visitDate: visitDateIso, // ISO timestamp format
     visitCount: visitCount || 0,
     relevanceScore: relevanceScore || 0, // Use embedding's distance as relevance score when available
-    ...(faviconUrl && { favicon: faviconUrl }), // Only include favicon if available
-    ...(previewImageURL && { thumbnail: previewImageURL }), // Only include thumbnail if available
   };
 }
 
@@ -118,7 +106,7 @@ async function buildHistoryRow(row, fromNode = false) {
  * @param {number|null} params.startTs
  * @param {number|null} params.endTs
  * @param {number} params.historyLimit
- * @returns {Promise<object[]>}
+ * @returns {Promise<HistoryRow[]>}
  */
 async function searchBrowsingHistoryTimeRange({
   startTs,
@@ -137,8 +125,7 @@ async function searchBrowsingHistoryTimeRange({
                  NULL AS distance,
                  visit_count,
                  frecency,
-                 last_visit_date,
-                 preview_image_url
+                 last_visit_date
           FROM moz_places
           WHERE frecency <> 0
           AND (:startTs IS NULL OR last_visit_date >= :startTs)
@@ -161,7 +148,7 @@ async function searchBrowsingHistoryTimeRange({
 
   const rows = [];
   for (let row of results) {
-    rows.push(await buildHistoryRow(row));
+    rows.push(buildHistoryRow(row));
   }
   return rows;
 }
@@ -227,7 +214,7 @@ function extractVectorFromTensor(tensor) {
  * @param {number|null} params.endTs
  * @param {number} params.historyLimit
  * @param {number} params.distanceThreshold
- * @returns {Promise<object[]>}
+ * @returns {Promise<HistoryRow[]>}
  */
 async function searchBrowsingHistorySemantic({
   searchTerm,
@@ -269,8 +256,7 @@ async function searchBrowsingHistorySemantic({
            distance,
            visit_count,
            frecency,
-           last_visit_date,
-           preview_image_url
+           last_visit_date
     FROM moz_places
     JOIN matches USING (url_hash)
     WHERE frecency <> 0
@@ -289,7 +275,7 @@ async function searchBrowsingHistorySemantic({
 
   const rows = [];
   for (let row of results) {
-    rows.push(await buildHistoryRow(row));
+    rows.push(buildHistoryRow(row));
   }
 
   // Domain fallback for general-category queries (games, movies, news, etc.)
@@ -325,7 +311,7 @@ async function searchBrowsingHistorySemantic({
  * @param {object} params
  * @param {string} params.searchTerm
  * @param {number} params.historyLimit
- * @returns {Promise<object[]>}
+ * @returns {Promise<HistoryRow[]>}
  */
 async function searchBrowsingHistoryBasic({ searchTerm, historyLimit }) {
   let root;
@@ -357,7 +343,7 @@ async function searchBrowsingHistoryBasic({ searchTerm, historyLimit }) {
     const rows = [];
     for (let i = 0; i < root.childCount && rows.length < historyLimit; i++) {
       const node = root.getChild(i);
-      rows.push(await buildHistoryRow(node, true));
+      rows.push(buildHistoryRow(node, true));
     }
     return rows;
   } catch (error) {
@@ -369,6 +355,15 @@ async function searchBrowsingHistoryBasic({ searchTerm, historyLimit }) {
     }
   }
 }
+
+/**
+ * @typedef {object} HistorySearchSummary
+ * @property {string} searchTerm - The search term.
+ * @property {number} count - The history count.
+ * @property {HistoryRow[]} results - The history row results.
+ * @property {string} [message] - A message if there are no results.
+ * @property {string} [error] - An error message if there is an error.
+ */
 
 /**
  * Searches browser history using semantic search when possible, otherwise basic
@@ -390,7 +385,7 @@ async function searchBrowsingHistoryBasic({ searchTerm, historyLimit }) {
  *  Optional local ISO-8601 end timestamp (e.g. "2025-11-07T09:00:00").
  * @param {number} params.historyLimit
  *  Maximum number of history results to return.
- * @returns {Promise<object>}
+ * @returns {Promise<HistorySearchSummary>}
  *  A promise resolving to an object with the search term and history results.
  *  Includes `count` when matches exist, a `message` when none are found, or an
  *  `error` string on failure.
@@ -401,6 +396,7 @@ export async function searchBrowsingHistory({
   endTs = null,
   historyLimit = 15,
 }) {
+  /** @type {HistoryRow[]} */
   let rows = [];
 
   try {
@@ -446,29 +442,29 @@ export async function searchBrowsingHistory({
     }
 
     if (rows.length === 0) {
-      return JSON.stringify({
+      return {
         searchTerm,
         count: 0,
         results: [],
         message: searchTerm
           ? `No browser history found for "${searchTerm}".`
           : "No browser history found in the requested time range.",
-      });
+      };
     }
 
     // Return as JSON string with metadata
-    return JSON.stringify({
+    return {
       searchTerm,
       count: rows.length,
       results: rows,
-    });
+    };
   } catch (error) {
     console.error("Error searching browser history:", error);
-    return JSON.stringify({
+    return {
       searchTerm,
       count: 0,
       results: [],
       error: `Error searching browser history: ${error.message}`,
-    });
+    };
   }
 }

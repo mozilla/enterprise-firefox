@@ -175,17 +175,17 @@ class MacroAssemblerRiscv64 : public Assembler {
   void GenPCRelativeJumpAndLink(Register rd, int32_t imm32);
 
 #define DEFINE_INSTRUCTION(instr)                                           \
-  void instr(Register rd, Register rj, Operand rt);                         \
-  void instr(Register rd, Register rj, Imm32 imm) {                         \
-    instr(rd, rj, Operand(imm.value));                                      \
+  void instr(Register rd, Register rs, Operand rt);                         \
+  void instr(Register rd, Register rs, Imm32 imm) {                         \
+    instr(rd, rs, Operand(imm.value));                                      \
   }                                                                         \
   void instr(Register rd, Imm32 imm) { instr(rd, rd, Operand(imm.value)); } \
   void instr(Register rd, Register rs) { instr(rd, rd, Operand(rs)); }
 
 #define DEFINE_INSTRUCTION2(instr)                                 \
-  void instr(Register rs, const Operand& rt);                      \
-  void instr(Register rs, Register rt) { instr(rs, Operand(rt)); } \
-  void instr(Register rs, Imm32 j) { instr(rs, Operand(j.value)); }
+  void instr(Register rd, const Operand& rt);                      \
+  void instr(Register rd, Register rt) { instr(rd, Operand(rt)); } \
+  void instr(Register rd, Imm32 j) { instr(rd, Operand(j.value)); }
 
   DEFINE_INSTRUCTION(ma_and);
   DEFINE_INSTRUCTION(ma_or);
@@ -435,9 +435,10 @@ class MacroAssemblerRiscv64 : public Assembler {
   void RoundHelper(FPURegister dst, FPURegister src, FPURegister fpu_scratch,
                    FPURoundingMode mode);
 
-  template <typename TruncFunc>
+  template <typename CvtFunc>
   void RoundFloatingPointToInteger(Register rd, FPURegister fs, Register result,
-                                   TruncFunc trunc, bool Inexact = false);
+                                   CvtFunc fcvt_generator,
+                                   bool Inexact = false);
 
   void Clear_if_nan_d(Register rd, FPURegister fs);
   void Clear_if_nan_s(Register rd, FPURegister fs);
@@ -889,19 +890,20 @@ class MacroAssemblerRiscv64Compat : public MacroAssemblerRiscv64 {
   void unboxString(const ValueOperand& operand, Register dest);
   void unboxString(Register src, Register dest);
   void unboxString(const Address& src, Register dest);
-  void unboxSymbol(const ValueOperand& src, Register dest);
+  void unboxSymbol(const ValueOperand& operand, Register dest);
   void unboxSymbol(Register src, Register dest);
   void unboxSymbol(const Address& src, Register dest);
   void unboxBigInt(const ValueOperand& operand, Register dest);
   void unboxBigInt(Register src, Register dest);
   void unboxBigInt(const Address& src, Register dest);
-  void unboxObject(const ValueOperand& src, Register dest);
+  void unboxObject(const ValueOperand& operand, Register dest);
   void unboxObject(Register src, Register dest);
   void unboxObject(const Address& src, Register dest);
   void unboxObject(const BaseIndex& src, Register dest) {
     unboxNonDouble(src, dest, JSVAL_TYPE_OBJECT);
   }
-  void unboxValue(const ValueOperand& src, AnyRegister dest, JSValueType type);
+  void unboxValue(const ValueOperand& operand, AnyRegister dest,
+                  JSValueType type);
 
   void notBoolean(const ValueOperand& val) {
     xori(val.valueReg(), val.valueReg(), 1);

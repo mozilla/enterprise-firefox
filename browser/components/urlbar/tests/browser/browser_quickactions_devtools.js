@@ -21,6 +21,16 @@ add_setup(async function setup() {
       ["browser.urlbar.shortcuts.quickactions", true],
     ],
   });
+
+  registerCleanupFunction(async function () {
+    [
+      "browser.urlbar.quickactions.timesShownOnboardingLabel",
+      "devtools.toolsidebar-width.inspector.splitsidebar",
+      "devtools.toolsidebar-height.inspector",
+      "devtools.everOpened",
+      "devtools.toolsidebar-width.inspector",
+    ].forEach(pref => Services.prefs.clearUserPref(pref));
+  });
 });
 
 const assertActionButtonStatus = async (name, expectedEnabled, description) => {

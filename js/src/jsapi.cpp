@@ -758,13 +758,15 @@ JS_PUBLIC_API void js::RemapRemoteWindowProxies(
     oomUnsafe.crash("js::RemapRemoteWindowProxies");
   }
 
-  RootedObject targetCompartmentProxy(cx);
+  RootedTuple<JSObject*, JSObject*, JSObject*> roots(cx);
+  RootedField<JSObject*, 0> targetCompartmentProxy(roots);
   JS::RootedVector<JSObject*> otherProxies(cx);
 
   // Use the callback to find remote proxies in all compartments that match
   // whatever criteria callback uses.
+  RootedField<JSObject*, 1> remoteProxy(roots);
   for (CompartmentsIter c(cx->runtime()); !c.done(); c.next()) {
-    RootedObject remoteProxy(cx, callback->getObjectToTransplant(c));
+    remoteProxy = callback->getObjectToTransplant(c);
     if (!remoteProxy) {
       continue;
     }
@@ -796,8 +798,9 @@ JS_PUBLIC_API void js::RemapRemoteWindowProxies(
     target.set(targetCompartmentProxy);
   }
 
+  RootedField<JSObject*, 2> deadWrapper(roots);
   for (JSObject*& obj : otherProxies) {
-    RootedObject deadWrapper(cx, obj);
+    deadWrapper = obj;
     js::RemapDeadWrapper(cx, deadWrapper, target);
   }
 }
@@ -1811,6 +1814,15 @@ JS::RealmBehaviors& JS::RealmBehaviors::setTimeZoneOverride(
   return *this;
 }
 
+void JS::RealmBehaviors::copyOverrideStrings() {
+  if (localeOverride_) {
+    setLocaleOverride(localeOverride_->chars());
+  }
+  if (timeZoneOverride_) {
+    setTimeZoneOverride(timeZoneOverride_->chars());
+  }
+}
+
 const JS::RealmBehaviors& JS::RealmBehaviorsRef(JS::Realm* realm) {
   return realm->behaviors();
 }
@@ -2646,6 +2658,22 @@ JS::InstantiateOptions::InstantiateOptions() {
   }
 }
 
+#ifdef DEBUG
+void JS::InstantiateOptions::assertDefault() const {
+  MOZ_ASSERT(skipFilenameValidation == false);
+  MOZ_ASSERT(hideScriptFromDebugger == false);
+  MOZ_ASSERT(deferDebugMetadata == false);
+  if (coverage::IsLCovEnabled()) {
+    MOZ_ASSERT(eagerDelazificationStrategy_ ==
+               DelazificationOption::ParseEverythingEagerly);
+  } else {
+    MOZ_ASSERT(eagerDelazificationStrategy_ ==
+               DelazificationOption::OnDemandOnly);
+  }
+  MOZ_ASSERT(eagerBaselineStrategy_ == EagerBaselineOption::None);
+}
+#endif
+
 CompileOptions& CompileOptions::setIntroductionInfoToCaller(
     JSContext* cx, const char* introductionType,
     MutableHandle<JSScript*> introductionScript) {
@@ -3093,7 +3121,7 @@ JS_PUBLIC_API bool JS::AddPromiseReactionsIgnoringUnhandledRejection(
 }
 
 JS_PUBLIC_API JS::PromiseUserInputEventHandlingState
-JS::GetPromiseUserInputEventHandlingState(JS::HandleObject promiseObj_) {
+JS::GetPromiseUserInputEventHandlingState(JSObject* promiseObj_) {
   PromiseObject* promise = promiseObj_->maybeUnwrapIf<PromiseObject>();
   if (!promise) {
     return JS::PromiseUserInputEventHandlingState::DontCare;

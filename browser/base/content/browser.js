@@ -69,6 +69,8 @@ ChromeUtils.defineESModuleGetters(this, {
   PopupAndRedirectBlockerObserver:
     "resource:///modules/PopupAndRedirectBlockerObserver.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  ReducedProtectionNotification:
+    "resource:///modules/ReducedProtectionNotification.sys.mjs",
   PrivateBrowsingUI: "moz-src:///browser/modules/PrivateBrowsingUI.sys.mjs",
   ProcessHangMonitor: "resource:///modules/ProcessHangMonitor.sys.mjs",
   ProfilesDatastoreService:
@@ -1859,6 +1861,7 @@ let gFileMenu = {
       if (AppConstants.platform == "macosx") {
         SharingUtils.updateShareURLMenuItem(
           gBrowser.selectedBrowser,
+          null,
           document.getElementById("menu_savePage")
         );
       }
@@ -2205,7 +2208,8 @@ var XULBrowserWindow = {
     if (
       (location == "about:blank" &&
         BrowserUIUtils.checkEmptyPageOrigin(gBrowser.selectedBrowser)) ||
-      location == ""
+      location == "" ||
+      window.browsingContext.isDocumentPiP
     ) {
       // Second condition is for new tabs, otherwise
       // reload function is enabled until tab is refreshed.
@@ -3798,6 +3802,12 @@ function WindowIsClosing(event) {
     return false;
   }
 
+  // Dismiss Spotlight before permitUnload triggers beforeunload dialogs.
+  const { Spotlight } = ChromeUtils.importESModule(
+    "resource:///modules/asrouter/Spotlight.sys.mjs"
+  );
+  Spotlight.close(window);
+
   // In theory we should exit here and the Window's internal Close
   // method should trigger canClose on BrowserDOMWindow. However, by
   // that point it's too late to be able to show a prompt for
@@ -5045,16 +5055,27 @@ var FirefoxViewHandler = {
   },
   _recordViewIfTabSelected() {
     if (this.tab?.selected) {
-      const PREF_NAME = "browser.firefox-view.view-count";
-      const MAX_VIEW_COUNT = 10;
-      let viewCount = Services.prefs.getIntPref(PREF_NAME, 0);
-
+      const PREF_NAME = "browser.firefox-view.button-clicks";
+      const MAX_DAYS_COUNT = 30 * 24 * 60 * 60 * 1000;
+      let buttonClicksData = JSON.parse(
+        Services.prefs.getStringPref(
+          PREF_NAME,
+          '{"count":0,"lastCountTime":""}'
+        )
+      );
+      let { count, lastCountTime } = buttonClicksData;
       // Record telemetry
       Glean.firefoxviewNext.tabSelectedToolbarbutton.record();
 
-      if (viewCount < MAX_VIEW_COUNT) {
-        Services.prefs.setIntPref(PREF_NAME, viewCount + 1);
+      if (Math.round(Date.now()) - lastCountTime >= MAX_DAYS_COUNT) {
+        // reset count every 30 days
+        count = 0;
+      } else {
+        count++;
       }
+      buttonClicksData.lastCountTime = Math.round(Date.now());
+      buttonClicksData.count = count;
+      Services.prefs.setStringPref(PREF_NAME, JSON.stringify(buttonClicksData));
     }
   },
 };

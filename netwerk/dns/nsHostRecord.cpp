@@ -1,4 +1,3 @@
-/* vim:set ts=4 sw=2 sts=2 et cin: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -189,10 +188,7 @@ NS_IMPL_ISUPPORTS_INHERITED(AddrHostRecord, nsHostRecord, AddrHostRecord)
 
 AddrHostRecord::AddrHostRecord(const nsHostKey& key) : nsHostRecord(key) {}
 
-AddrHostRecord::~AddrHostRecord() {
-  mCallbacks.clear();
-  glean::dns::blocklist_count.AccumulateSingleSample(mUnusableCount);
-}
+AddrHostRecord::~AddrHostRecord() { mCallbacks.clear(); }
 
 bool AddrHostRecord::Blocklisted(const NetAddr* aQuery) {
   addr_info_lock.AssertCurrentThreadOwns();
@@ -227,15 +223,13 @@ void AddrHostRecord::ReportUnusable(const NetAddr* aAddress) {
        "used trr=%d\n",
        host.get(), this, mTRRSuccess));
 
-  ++mUnusableCount;
-
-  char buf[kIPv6CStrBufSize];
-  if (aAddress->ToStringBuffer(buf, sizeof(buf))) {
+  nsCString item;
+  if (aAddress->ToString(item)) {
     LOG(
         ("Successfully adding address [%s] to blocklist for host "
          "[%s].\n",
-         buf, host.get()));
-    mUnusableItems.AppendElement(nsCString(buf));
+         item.get(), host.get()));
+    mUnusableItems.AppendElement(item);
   }
 }
 

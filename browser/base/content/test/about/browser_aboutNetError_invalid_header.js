@@ -45,7 +45,7 @@ add_task(async function test_invalidHeaderValue() {
         const card = netErrorCard.wrappedJSObject;
         await card.getUpdateComplete();
 
-        titleEl = card.netErrorTitleText;
+        titleEl = card.errorTitle;
       } else {
         titleEl = doc.querySelector(".title-text");
 

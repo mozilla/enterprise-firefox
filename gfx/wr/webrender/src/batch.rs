@@ -1813,7 +1813,7 @@ impl BatchBuilder {
                 let glyph_keys = &ctx.scratch.glyph_keys[run.glyph_keys_range];
                 let prim_header = PrimitiveHeader {
                     local_rect: LayoutRect {
-                        min: prim_rect.min - run.reference_frame_relative_offset,
+                        min: prim_rect.min,
                         max: run.snapped_reference_frame_relative_offset.to_point(),
                     },
                     specific_prim_address: prim_cache_address.as_int(),
@@ -3103,7 +3103,7 @@ impl ClipBatcher {
             let clip_node = &ctx.data_stores.clip[clip_instance.handle];
 
             let clip_transform_id = transforms.gpu.get_id(
-                clip_node.item.spatial_node_index,
+                clip_instance.spatial_node_index,
                 ctx.root_spatial_node_index,
                 ctx.spatial_tree,
             );
@@ -3169,7 +3169,7 @@ impl ClipBatcher {
                         if self.add_tiled_clip_mask(
                             actual_rect,
                             rect,
-                            clip_node.item.spatial_node_index,
+                            clip_instance.spatial_node_index,
                             ctx.spatial_tree,
                             &ctx.screen_world_rect,
                             ctx.global_device_pixel_scale,

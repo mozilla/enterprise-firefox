@@ -11,7 +11,7 @@ Usage: buildlist.py <filename> <entry> [<entry> ...]
 import os.path
 import sys
 
-from filelock import SoftFileLock
+from mach.filelock import SoftFileLock
 
 from mozbuild.dirutils import ensureParentDir
 

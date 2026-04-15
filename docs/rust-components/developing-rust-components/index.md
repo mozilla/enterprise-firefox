@@ -27,7 +27,7 @@ generation.
 
 ### Neutral
 
-* Performance is usually similar to a JavaScript/Kotlin code.
+* Performance is usually similar to JavaScript/Kotlin code.
   FFI overhead typically negates any speedups from using Rust.
 
 ## Shared Rust component ownership
@@ -44,5 +44,6 @@ Error reports are currently only available for Android, but we will soon be exte
 example-component
 uniffi
 logging
+observability
 threading
 other-desktop-specific-concerns

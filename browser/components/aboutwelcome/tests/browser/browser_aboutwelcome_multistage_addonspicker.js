@@ -16,7 +16,7 @@ const { InternalTestingProfileMigrator } = ChromeUtils.importESModule(
 
 async function clickVisibleButton(browser, selector) {
   // eslint-disable-next-line no-shadow
-  await ContentTask.spawn(browser, { selector }, async ({ selector }) => {
+  await SpecialPowers.spawn(browser, [{ selector }], async ({ selector }) => {
     function getVisibleElement() {
       for (const el of content.document.querySelectorAll(selector)) {
         if (el.offsetParent !== null) {

@@ -16,7 +16,7 @@ newtab-search-box-search-button =
     .title = ស្វែងរក
     .aria-label = ស្វែងរក
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = បន្ថែម​ម៉ាស៊ីន​ស្វែងរក
 newtab-topsites-edit-topsites-header = កែសម្រួលសាយកំពូល

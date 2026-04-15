@@ -3,7 +3,10 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use anyhow::Result;
-use crash_helper_common::{IPCConnector, Pid, RawIPCConnector};
+use crash_helper_common::{
+    messages::ChildProcessRendezVousReply, GeckoChildId, IPCConnector, Pid, RawIPCConnector,
+};
+use std::process;
 
 use crate::CrashHelperClient;
 
@@ -18,8 +21,10 @@ impl CrashHelperClient {
         })
     }
 
-    pub(crate) fn prepare_for_minidump(_crash_helper_pid: Pid) -> bool {
-        // On Android this is currently a no-op
-        true
+    pub(crate) fn prepare_for_minidump(
+        _crash_helper_pid: Pid,
+        id: GeckoChildId,
+    ) -> ChildProcessRendezVousReply {
+        ChildProcessRendezVousReply::new(/* dumpable */ true, process::id() as Pid, id, [])
     }
 }

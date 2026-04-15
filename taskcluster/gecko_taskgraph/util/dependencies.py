@@ -58,6 +58,20 @@ def platform_grouping(config, tasks):
     return groups.values()
 
 
+@group_by("platform-no-l10n")
+def platform_no_l10n_grouping(config, tasks):
+    """The same as `platform` grouping, but ignores l10n tasks. Useful when
+    grouping by multiple upstream kinds, only some of which contain l10n
+    tasks."""
+    groups = []
+    for grouped_tasks in platform_grouping(config, tasks):
+        group = [task for task in grouped_tasks if "locale" not in task.attributes]
+        if group:
+            groups.append(group)
+
+    return groups
+
+
 @group_by("single-locale")
 def single_locale_grouping(config, tasks):
     """Split by a single locale (but also by platform, build-type, product)
@@ -153,4 +167,20 @@ def partner_repack_ids_grouping(config, tasks):
         if task not in groups[partner_repack_ids_key]:
             groups[partner_repack_ids_key].append(task)
 
+    return groups.values()
+
+
+@group_by("product")
+def product_grouping(config, tasks):
+    groups = {}
+    for task in tasks:
+        if task.kind not in config.config.get("kind-dependencies", []):
+            continue
+        if skip_only_or_not(config.config, task):
+            continue
+        product = task.attributes.get(
+            "shipping_product", task.task.get("shipping-product")
+        )
+
+        groups.setdefault(product, []).append(task)
     return groups.values()

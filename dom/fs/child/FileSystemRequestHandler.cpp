@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -213,12 +211,13 @@ void ResolveCallback(
   HandleFailedStatus(aResponse.get_nsresult(), aPromise);
 }
 
-template <>
 void ResolveCallback(
     FileSystemMoveEntryResponse&& aResponse,
     RefPtr<Promise> aPromise,  // NOLINT(performance-unnecessary-value-param)
-    FileSystemEntryMetadata* const& aEntry, const Name& aName) {
+    RefPtr<FileSystemHandle> aHandle, FileSystemEntryMetadata* const& aEntry,
+    const Name& aName) {
   MOZ_ASSERT(aPromise);
+  MOZ_ASSERT(aHandle);
   QM_TRY(OkIf(Promise::PromiseState::Pending == aPromise->State()), QM_VOID);
 
   if (FileSystemMoveEntryResponse::TEntryId == aResponse.type()) {
@@ -552,7 +551,7 @@ void FileSystemRequestHandler::RemoveEntry(
 }
 
 void FileSystemRequestHandler::MoveEntry(
-    RefPtr<FileSystemManager>& aManager, FileSystemHandle* aHandle,
+    RefPtr<FileSystemManager>& aManager, RefPtr<FileSystemHandle> aHandle,
     FileSystemEntryMetadata* const aEntry,
     const FileSystemChildMetadata& aNewEntry,
     RefPtr<Promise> aPromise,  // NOLINT(performance-unnecessary-value-param)
@@ -576,7 +575,7 @@ void FileSystemRequestHandler::MoveEntry(
   aManager->BeginRequest(
       [request = FileSystemMoveEntryRequest(*aEntry, aNewEntry),
        onResolve = SelectResolveCallback<FileSystemMoveEntryResponse, void>(
-           aPromise, aEntry, aNewEntry.childName()),
+           aPromise, std::move(aHandle), aEntry, aNewEntry.childName()),
        onReject = GetRejectCallback(aPromise)](const auto& actor) mutable {
         actor->SendMoveEntry(request, std::move(onResolve),
                              std::move(onReject));
@@ -585,7 +584,7 @@ void FileSystemRequestHandler::MoveEntry(
 }
 
 void FileSystemRequestHandler::RenameEntry(
-    RefPtr<FileSystemManager>& aManager, FileSystemHandle* aHandle,
+    RefPtr<FileSystemManager>& aManager, RefPtr<FileSystemHandle> aHandle,
     FileSystemEntryMetadata* const aEntry, const Name& aName,
     RefPtr<Promise> aPromise,  // NOLINT(performance-unnecessary-value-param)
     ErrorResult& aError) {
@@ -608,7 +607,7 @@ void FileSystemRequestHandler::RenameEntry(
   aManager->BeginRequest(
       [request = FileSystemRenameEntryRequest(*aEntry, aName),
        onResolve = SelectResolveCallback<FileSystemMoveEntryResponse, void>(
-           aPromise, aEntry, aName),
+           aPromise, std::move(aHandle), aEntry, aName),
        onReject = GetRejectCallback(aPromise)](const auto& actor) mutable {
         actor->SendRenameEntry(request, std::move(onResolve),
                                std::move(onReject));

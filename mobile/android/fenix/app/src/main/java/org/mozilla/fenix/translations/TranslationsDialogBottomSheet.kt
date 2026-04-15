@@ -534,7 +534,7 @@ private fun TranslationErrorWarning(
             documentLangDisplayName?.let {
                 InfoCard(
                     description = stringResource(
-                        id = R.string.translation_error_language_not_supported_warning_text,
+                        id = R.string.translation_error_language_not_supported_warning_text_2,
                         it,
                     ),
                     type = InfoType.Info,

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -93,10 +91,12 @@ void FontFaceSetImpl::DestroyLoaders() {
     return;
   }
   if (NS_IsMainThread()) {
-    for (const auto& key : mLoaders.Keys()) {
+    // Move mLoaders to a local, because Cancel() calls RemoveLoader() which
+    // would otherwise mutate the table during the iteration.
+    auto loaders = std::move(mLoaders);
+    for (const auto& key : loaders.Keys()) {
       key->Cancel();
     }
-    mLoaders.Clear();
     return;
   }
 
@@ -783,7 +783,7 @@ void FontFaceSetImpl::CheckLoadingStarted() {
                          [self = RefPtr{this}]() { self->OnLoadingStarted(); });
 }
 
-void FontFaceSetImpl::OnLoadingStarted() {
+void FontFaceSetImpl::DispatchLoadingEventAndReplaceReadyPromise() {
   RecursiveMutexAutoLock lock(mMutex);
   if (mOwner) {
     mOwner->DispatchLoadingEventAndReplaceReadyPromise();

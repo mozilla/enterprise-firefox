@@ -12,6 +12,7 @@ include "mozilla/net/NrIceStunAddrMessageUtils.h";
 include "mozilla/media/webrtc/WebrtcIPCTraits.h";
 using mozilla::StringVector from "mozilla/media/webrtc/WebrtcIPCTraits.h";
 using mozilla::CandidateInfo from "mozilla/media/webrtc/WebrtcIPCTraits.h";
+using mozilla::IceCandidateErrorInfo from "mozilla/media/webrtc/WebrtcIPCTraits.h";
 using mozilla::DtlsDigestList from "mozilla/media/webrtc/WebrtcIPCTraits.h";
 using std::string from "string";
 using struct mozilla::dom::RTCStatsCollection from "mozilla/dom/RTCStatsReportBinding.h";
@@ -87,6 +88,7 @@ parent:
 
 child:
   async OnCandidate(string transportId, CandidateInfo candidateInfo);
+  async OnCandidateError(IceCandidateErrorInfo errorInfo);
   async OnAlpnNegotiated(string alpn);
   async OnGatheringStateChange(string transportId, int state);
   async OnConnectionStateChange(string transportId, int state);

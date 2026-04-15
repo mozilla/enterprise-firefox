@@ -227,12 +227,10 @@ function testSortByDir(aOrganizerWin, aPlaceContentTree, aUnsortFirst) {
   });
 }
 
-function test() {
-  waitForExplicitFinish();
-
-  openLibrary(function (win) {
-    let tree = win.document.getElementById("placeContent");
+add_task(async function test() {
+  await withLibraryWindow("BookmarksToolbar", async ({ right: tree }) => {
     isnot(tree, null, "sanity check: placeContent tree should exist");
+    let win = tree.ownerGlobal;
     // Run the tests.
     testSortByColAndDir(win, tree, true);
     testSortByColAndDir(win, tree, false);
@@ -241,8 +239,5 @@ function test() {
     testInvalid(win, tree);
     // Reset the sort to SORT_BY_NONE.
     setSort(win, tree, false, false);
-    // Close the window and finish.
-    win.close();
-    finish();
   });
-}
+});

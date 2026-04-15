@@ -21,8 +21,6 @@
 #include "nsNavHistoryQuery.h"
 #include "Database.h"
 #include "mozilla/Atomics.h"
-#include "mozilla/intl/Collator.h"
-#include "mozilla/UniquePtr.h"
 #include "mozIStorageVacuumParticipant.h"
 
 #define QUERYUPDATE_TIME 0
@@ -154,7 +152,6 @@ class nsNavHistory final : public nsSupportsWeakReference,
    * objects for places components.
    */
   nsIStringBundle* GetBundle();
-  const mozilla::intl::Collator* GetCollator();
   void GetStringFromName(const char* aName, nsACString& aResult);
   void GetAgeInDaysString(int32_t aInt, const char* aName, nsACString& aResult);
   static void GetMonthName(const PRExplodedTime& aTime, nsACString& aResult);
@@ -416,7 +413,6 @@ class nsNavHistory final : public nsSupportsWeakReference,
 
   // localization
   nsCOMPtr<nsIStringBundle> mBundle;
-  mozilla::UniquePtr<const mozilla::intl::Collator> mCollator;
 
   // recent events
   typedef nsTHashMap<nsCStringHashKey, int64_t> RecentEventHash;

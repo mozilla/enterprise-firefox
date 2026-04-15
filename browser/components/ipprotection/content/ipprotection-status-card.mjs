@@ -36,27 +36,10 @@ export default class IPProtectionStatusCard extends MozLitElement {
     isActivating: { type: Boolean },
   };
 
-  constructor() {
-    super();
-
-    this.keyListener = this.#keyListener.bind(this);
-  }
-
-  connectedCallback() {
-    super.connectedCallback();
-    this.addEventListener("keydown", this.keyListener, { capture: true });
-  }
-
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    this.removeEventListener("keydown", this.keyListener, { capture: true });
-  }
-
   handleButtonClick() {
-    const type =
-      this.isActivating || this.protectionEnabled
-        ? this.TOGGLE_OFF_EVENT
-        : this.TOGGLE_ON_EVENT;
+    const type = this.protectionEnabled
+      ? this.TOGGLE_OFF_EVENT
+      : this.TOGGLE_ON_EVENT;
     this.dispatchEvent(
       new CustomEvent(type, {
         bubbles: true,
@@ -68,30 +51,6 @@ export default class IPProtectionStatusCard extends MozLitElement {
   focus() {
     const button = this.shadowRoot.querySelector(`moz-button[slot="action"]`);
     button?.focus();
-  }
-
-  #keyListener(event) {
-    let keyCode = event.code;
-    switch (keyCode) {
-      case "ArrowUp":
-      // Intentional fall-through
-      case "ArrowDown": {
-        event.stopPropagation();
-        event.preventDefault();
-
-        let direction =
-          keyCode == "ArrowDown"
-            ? Services.focus.MOVEFOCUS_FORWARD
-            : Services.focus.MOVEFOCUS_BACKWARD;
-        Services.focus.moveFocus(
-          window,
-          null,
-          direction,
-          Services.focus.FLAG_BYKEY
-        );
-        break;
-      }
-    }
   }
 
   bandwidthUsageTemplate() {
@@ -128,7 +87,7 @@ export default class IPProtectionStatusCard extends MozLitElement {
       <ipprotection-status-box .headerL10nId=${headerL10nId} .type=${type}>
         ${iconSrc
           ? html`<img
-              slot="icon"
+              slot="image"
               role="presentation"
               class="icon"
               src=${iconSrc}
@@ -141,6 +100,7 @@ export default class IPProtectionStatusCard extends MozLitElement {
           data-l10n-id=${buttonL10nId}
           @click=${this.handleButtonClick}
           ?disabled=${buttonDisabled}
+          closemenu="none"
         ></moz-button>
       </ipprotection-status-box>
     `;
@@ -153,9 +113,10 @@ export default class IPProtectionStatusCard extends MozLitElement {
           type: "connecting",
           headerL10nId: "ipprotection-connection-status-connecting",
           buttonL10nId: "ipprotection-button-connecting",
-          iconSrc: "chrome://global/skin/icons/loading.svg",
+          iconSrc:
+            "chrome://browser/content/ipprotection/assets/states/ipprotection-loading.svg",
           buttonType: "primary",
-          buttonDisabled: false,
+          buttonDisabled: true,
         })}
       `;
     }
@@ -166,6 +127,7 @@ export default class IPProtectionStatusCard extends MozLitElement {
           type: "excluded",
           headerL10nId: "ipprotection-connection-status-excluded",
           buttonL10nId: "ipprotection-button-turn-vpn-off-excluded-site",
+          buttonType: "primary",
           iconSrc:
             "chrome://browser/content/ipprotection/assets/states/ipprotection-excluded.svg",
         })}
@@ -178,6 +140,7 @@ export default class IPProtectionStatusCard extends MozLitElement {
           type: "connected",
           headerL10nId: "ipprotection-connection-status-connected",
           buttonL10nId: "ipprotection-button-turn-vpn-off",
+          buttonType: "primary",
           iconSrc:
             "chrome://browser/content/ipprotection/assets/states/ipprotection-on.svg",
         })}

@@ -32,12 +32,9 @@ if (AppConstants.MOZ_UPDATER) {
   );
 }
 
-let openUrlFun = url => () => openUrl(url);
-let openUrl = url => {
-  let window = lazy.BrowserWindowTracker.getTopWindow({
-    allowFromInactiveWorkspace: true,
-  });
-
+let openUrlFun = url => (_queryContext, controller) =>
+  openUrl(url, controller.browserWindow);
+let openUrl = (url, window) => {
   if (url.startsWith("about:")) {
     window.switchToTabHavingURI(Services.io.newURI(url), true, {
       ignoreFragment: "whenComparing",
@@ -52,13 +49,10 @@ let openUrl = url => {
 };
 
 let openAddonsUrl = url => {
-  return () => {
-    // bug 1983835 - should this only look for windows on the current
-    // workspace?
-    let window = lazy.BrowserWindowTracker.getTopWindow({
-      allowFromInactiveWorkspace: true,
+  return (_queryContext, controller) => {
+    controller.browserWindow.BrowserAddonUI.openAddonsMgr(url, {
+      selectTabByViewId: true,
     });
-    window.BrowserAddonUI.openAddonsMgr(url, { selectTabByViewId: true });
   };
 };
 
@@ -67,11 +61,6 @@ let openAddonsUrl = url => {
 let currentBrowser = () =>
   lazy.BrowserWindowTracker.getTopWindow({ allowFromInactiveWorkspace: true })
     ?.gBrowser.selectedBrowser;
-// bug 1983835 - should this only look for windows on the current
-// workspace?
-let currentTab = () =>
-  lazy.BrowserWindowTracker.getTopWindow({ allowFromInactiveWorkspace: true })
-    ?.gBrowser.selectedTab;
 
 ChromeUtils.defineLazyGetter(lazy, "gFluentStrings", function () {
   return new Localization(
@@ -95,10 +84,10 @@ const DEFAULT_ACTIONS = {
     l10nCommands: ["quickactions-cmd-bookmarks", "quickactions-bookmarks2"],
     icon: "chrome://browser/skin/bookmark.svg",
     label: "quickactions-bookmarks2",
-    onPick: () => {
-      lazy.BrowserWindowTracker.getTopWindow({
-        allowFromInactiveWorkspace: true,
-      }).top.PlacesCommandHook.showPlacesOrganizer("BookmarksToolbar");
+    onPick: (_queryContext, controller) => {
+      controller.browserWindow.top.PlacesCommandHook.showPlacesOrganizer(
+        "BookmarksToolbar"
+      );
     },
   },
   clear: {
@@ -107,11 +96,9 @@ const DEFAULT_ACTIONS = {
       "quickactions-clearrecenthistory",
     ],
     label: "quickactions-clearrecenthistory",
-    onPick: () => {
-      lazy.BrowserWindowTracker.getTopWindow({
-        allowFromInactiveWorkspace: true,
-      })
-        .document.getElementById("Tools:Sanitize")
+    onPick: (_queryContext, controller) => {
+      controller.browserWindow.document
+        .getElementById("Tools:Sanitize")
         .doCommand();
     },
   },
@@ -139,10 +126,8 @@ const DEFAULT_ACTIONS = {
     l10nCommands: ["quickactions-cmd-firefoxview"],
     icon: "chrome://browser/skin/firefox-view.svg",
     label: "quickactions-firefoxview",
-    onPick: () => {
-      lazy.BrowserWindowTracker.getTopWindow({
-        allowFromInactiveWorkspace: true,
-      }).FirefoxViewHandler.openTab();
+    onPick: (_queryContext, controller) => {
+      controller.browserWindow.FirefoxViewHandler.openTab();
     },
   },
   inspect: {
@@ -155,16 +140,19 @@ const DEFAULT_ACTIONS = {
       // 2. The user can be considered as a DevTools user.
       // 3. The url is not about:devtools-toolbox.
       // 4. The inspector is not opened yet on the page.
+      let win = lazy.BrowserWindowTracker.getTopWindow({
+        allowFromInactiveWorkspace: true,
+      });
       return (
         lazy.DevToolsShim.isEnabled() &&
         lazy.DevToolsShim.isDevToolsUser() &&
-        !currentBrowser()?.currentURI.spec.startsWith(
-          "about:devtools-toolbox"
-        ) &&
-        !lazy.DevToolsShim.hasToolboxForTab(currentTab())
+        !win.gBrowser.currentURI.spec.startsWith("about:devtools-toolbox") &&
+        !lazy.DevToolsShim.hasToolboxForTab(win.gBrowser.selectedTab)
       );
     },
-    onPick: openInspector,
+    onPick: (_queryContext, controller) => {
+      openInspector(controller.browserWindow);
+    },
   },
   logins: {
     l10nCommands: ["quickactions-cmd-logins"],
@@ -178,36 +166,24 @@ const DEFAULT_ACTIONS = {
     isVisible: () => {
       return Services.prefs.getBoolPref("print.enabled");
     },
-    onPick: () => {
-      lazy.BrowserWindowTracker.getTopWindow({
-        allowFromInactiveWorkspace: true,
-      })
-        .document.getElementById("cmd_print")
-        .doCommand();
+    onPick: (_queryContext, controller) => {
+      controller.browserWindow.document.getElementById("cmd_print").doCommand();
     },
   },
   private: {
     l10nCommands: ["quickactions-cmd-private"],
     label: "quickactions-private2",
     icon: "chrome://global/skin/icons/indicator-private-browsing.svg",
-    onPick: () => {
-      lazy.BrowserWindowTracker.getTopWindow({
-        allowFromInactiveWorkspace: true,
-      }).OpenBrowserWindow({
-        private: true,
-      });
+    onPick: (_queryContext, controller) => {
+      controller.browserWindow.OpenBrowserWindow({ private: true });
     },
   },
   refresh: {
     l10nCommands: ["quickactions-cmd-refresh"],
     label: "quickactions-refresh",
     isVisible: () => lazy.ResetProfile.resetSupported(),
-    onPick: () => {
-      lazy.ResetProfile.openConfirmationDialog(
-        lazy.BrowserWindowTracker.getTopWindow({
-          allowFromInactiveWorkspace: true,
-        })
-      );
+    onPick: (_queryContext, controller) => {
+      lazy.ResetProfile.openConfirmationDialog(controller.browserWindow);
     },
   },
   restart: {
@@ -222,20 +198,17 @@ const DEFAULT_ACTIONS = {
     isVisible: () => {
       return Services.prefs.getBoolPref("print.enabled");
     },
-    onPick: () => {
+    onPick: (_queryContext, controller) => {
       // This writes over the users last used printer which we
       // should not do. Refactor to launch the print preview with
       // custom settings.
-      let win = lazy.BrowserWindowTracker.getTopWindow({
-        allowFromInactiveWorkspace: true,
-      });
       Cc["@mozilla.org/gfx/printsettings-service;1"]
         .getService(Ci.nsIPrintSettingsService)
         .maybeSaveLastUsedPrinterNameToPrefs(
-          win.PrintUtils.SAVE_TO_PDF_PRINTER
+          controller.browserWindow.PrintUtils.SAVE_TO_PDF_PRINTER
         );
-      win.PrintUtils.startPrintWindow(
-        win.gBrowser.selectedBrowser.browsingContext,
+      controller.browserWindow.PrintUtils.startPrintWindow(
+        controller.browserWindow.gBrowser.selectedBrowser.browsingContext,
         {}
       );
     },
@@ -247,11 +220,9 @@ const DEFAULT_ACTIONS = {
     isVisible: () => {
       return lazy.ScreenshotsUtils.screenshotsEnabled;
     },
-    onPick: () => {
+    onPick: (_queryContext, controller) => {
       Services.obs.notifyObservers(
-        lazy.BrowserWindowTracker.getTopWindow({
-          allowFromInactiveWorkspace: true,
-        }),
+        controller.browserWindow,
         "menuitem-screenshot",
         "QuickActions"
       );
@@ -283,7 +254,7 @@ const DEFAULT_ACTIONS = {
         )
       );
     },
-    onPick: async () => {
+    onPick: async (_queryContext, controller) => {
       let url = "about:translations";
       let targetLanguage;
 
@@ -302,7 +273,7 @@ const DEFAULT_ACTIONS = {
         url = urlObj.href;
       }
 
-      return openUrl(url);
+      return openUrl(url, controller.browserWindow);
     },
   },
   update: {
@@ -323,16 +294,18 @@ const DEFAULT_ACTIONS = {
     icon: "chrome://global/skin/icons/settings.svg",
     label: "quickactions-viewsource2",
     isVisible: () => currentBrowser()?.currentURI.scheme !== "view-source",
-    onPick: () => openUrl("view-source:" + currentBrowser().currentURI.spec),
+    onPick: (_queryContext, controller) =>
+      openUrl(
+        "view-source:" + controller.browserWindow.gBrowser.currentURI.spec,
+        controller.browserWindow
+      ),
   },
 };
 
-function openInspector() {
-  lazy.DevToolsShim.showToolboxForTab(
-    lazy.BrowserWindowTracker.getTopWindow({ allowFromInactiveWorkspace: true })
-      .gBrowser.selectedTab,
-    { toolId: "inspector" }
-  );
+function openInspector(window) {
+  lazy.DevToolsShim.showToolboxForTab(window.gBrowser.selectedTab, {
+    toolId: "inspector",
+  });
 }
 
 // TODO: We likely want a prompt to confirm with the user that they want to restart

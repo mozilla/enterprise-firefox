@@ -124,13 +124,13 @@ use crate::scene::SceneProperties;
 use crate::spatial_tree::CoordinateSystemId;
 use crate::surface::{SurfaceDescriptor, SurfaceTileDescriptor, get_surface_rects};
 pub use crate::surface::{SurfaceIndex, SurfaceInfo, SubpixelMode};
-pub use crate::surface::{calculate_screen_uv, calculate_uv_rect_kind};
+pub use crate::surface::calculate_screen_uv;
 use smallvec::SmallVec;
 use std::{mem, u8, u32};
 use std::ops::Range;
 use crate::picture_textures::PictureCacheTextureHandle;
 use crate::util::{MaxRect, Recycler, ScaleOffset};
-use crate::tile_cache::{SliceDebugInfo, TileDebugInfo, DirtyTileDebugInfo};
+use crate::tile_cache::{SliceDebugInfo, TileDebugInfo, DirtyTileDebugInfo, CompositorClipDebugInfo};
 use crate::tile_cache::{SliceId, TileCacheInstance, TileSurface, NativeSurface};
 use crate::tile_cache::{BackdropKind, BackdropSurface};
 use crate::tile_cache::{TileKey, SubSliceIndex};
@@ -2137,6 +2137,14 @@ fn prepare_tiled_picture_surface(
     // If testing mode is enabled, write some information about the current state
     // of this picture cache (made available in RenderResults).
     if frame_context.fb_config.testing {
+        debug_info.compositor_clip = tile_cache.compositor_clip.map(|clip_index| {
+            let clip = frame_state.composite_state.get_compositor_clip(clip_index);
+            CompositorClipDebugInfo {
+                rect: clip.rect,
+                radius: clip.radius,
+            }
+        });
+
         frame_state.composite_state
             .picture_cache_debug
             .slices

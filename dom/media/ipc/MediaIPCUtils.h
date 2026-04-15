@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -44,32 +42,26 @@ struct ParamTraits<mozilla::VideoInfo> {
     WriteParam(aWriter, aParam.mColorPrimaries);
     WriteParam(aWriter, aParam.mTransferFunction);
     WriteParam(aWriter, aParam.mColorRange);
-    WriteParam(aWriter, aParam.HasAlpha());
+    WriteParam(aWriter, aParam.mAlphaPresent);
     WriteParam(aWriter, aParam.mCrypto);
   }
 
   static bool Read(MessageReader* aReader, paramType* aResult) {
-    mozilla::gfx::IntRect imageRect;
-    bool alphaPresent;
-    if (ReadParam(aReader, &aResult->mMimeType) &&
-        ReadParam(aReader, &aResult->mDisplay) &&
-        ReadParam(aReader, &aResult->mStereoMode) &&
-        ReadParam(aReader, &aResult->mImage) &&
-        ReadParam(aReader, &aResult->mImageRect) &&
-        ReadParam(aReader, aResult->mCodecSpecificConfig.get()) &&
-        ReadParam(aReader, aResult->mExtraData.get()) &&
-        ReadParam(aReader, &aResult->mRotation) &&
-        ReadParam(aReader, &aResult->mColorDepth) &&
-        ReadParam(aReader, &aResult->mColorSpace) &&
-        ReadParam(aReader, &aResult->mColorPrimaries) &&
-        ReadParam(aReader, &aResult->mTransferFunction) &&
-        ReadParam(aReader, &aResult->mColorRange) &&
-        ReadParam(aReader, &alphaPresent) &&
-        ReadParam(aReader, &aResult->mCrypto)) {
-      aResult->SetAlpha(alphaPresent);
-      return true;
-    }
-    return false;
+    return ReadParam(aReader, &aResult->mMimeType) &&
+           ReadParam(aReader, &aResult->mDisplay) &&
+           ReadParam(aReader, &aResult->mStereoMode) &&
+           ReadParam(aReader, &aResult->mImage) &&
+           ReadParam(aReader, &aResult->mImageRect) &&
+           ReadParam(aReader, aResult->mCodecSpecificConfig.get()) &&
+           ReadParam(aReader, aResult->mExtraData.get()) &&
+           ReadParam(aReader, &aResult->mRotation) &&
+           ReadParam(aReader, &aResult->mColorDepth) &&
+           ReadParam(aReader, &aResult->mColorSpace) &&
+           ReadParam(aReader, &aResult->mColorPrimaries) &&
+           ReadParam(aReader, &aResult->mTransferFunction) &&
+           ReadParam(aReader, &aResult->mColorRange) &&
+           ReadParam(aReader, &aResult->mAlphaPresent) &&
+           ReadParam(aReader, &aResult->mCrypto);
   }
 };
 
@@ -245,6 +237,10 @@ struct ParamTraits<mozilla::media::TimeUnit> {
     if (ReadParam(aReader, &valid) && ReadParam(aReader, &ticks) &&
         ReadParam(aReader, &base)) {
       if (valid) {
+        if (base <= 0 || base > int64_t(UINT32_MAX)) {
+          return false;
+        }
+
         *aResult = mozilla::media::TimeUnit(ticks, base);
       } else {
         *aResult = mozilla::media::TimeUnit::Invalid();
@@ -329,22 +325,24 @@ struct ParamTraits<mozilla::DecoderDoctorDiagnostics::DiagnosticsType>
 };
 
 template <>
+struct ParamTraits<mozilla::DecoderDoctorEvent::Domain>
+    : public ContiguousEnumSerializerInclusive<
+          mozilla::DecoderDoctorEvent::Domain,
+          mozilla::DecoderDoctorEvent::Domain::eAudioSinkStartup,
+          mozilla::DecoderDoctorEvent::Domain::eAudioSinkStartup> {};
+
+template <>
 struct ParamTraits<mozilla::DecoderDoctorEvent> {
   typedef mozilla::DecoderDoctorEvent paramType;
 
   static void Write(MessageWriter* aWriter, const paramType& aParam) {
-    int domain = aParam.mDomain;
-    WriteParam(aWriter, domain);
+    WriteParam(aWriter, aParam.mDomain);
     WriteParam(aWriter, aParam.mResult);
   }
 
   static bool Read(MessageReader* aReader, paramType* aResult) {
-    int domain = 0;
-    if (ReadParam(aReader, &domain) && ReadParam(aReader, &aResult->mResult)) {
-      aResult->mDomain = paramType::Domain(domain);
-      return true;
-    }
-    return false;
+    return ReadParam(aReader, &aResult->mDomain) &&
+           ReadParam(aReader, &aResult->mResult);
   };
 };
 

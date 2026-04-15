@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -12,7 +10,6 @@
 #include "mozilla/dom/BrowsingContext.h"
 #include "mozilla/dom/CloseWatcherManager.h"
 #include "mozilla/dom/Document.h"
-#include "mozilla/dom/DocumentPictureInPicture.h"
 #include "mozilla/dom/UserActivationIPCUtils.h"
 #include "mozilla/dom/WorkerCommon.h"
 #include "mozilla/PermissionDelegateIPCUtils.h"
@@ -73,12 +70,7 @@ bool WindowContext::IsCurrent() const {
   return mBrowsingContext->mCurrentWindowContext == this;
 }
 
-bool WindowContext::IsInBFCache() {
-  if (mozilla::SessionHistoryInParent()) {
-    return mBrowsingContext->IsInBFCache();
-  }
-  return TopWindowContext()->GetWindowStateSaved();
-}
+bool WindowContext::IsInBFCache() { return mBrowsingContext->IsInBFCache(); }
 
 already_AddRefed<nsIRFPTargetSetIDL>
 WindowContext::GetOverriddenFingerprintingSettingsWebIDL() const {
@@ -479,12 +471,6 @@ void WindowContext::DidSet(FieldIndex<IDX_HasReportedShadowDOMUsage>,
   }
 }
 
-bool WindowContext::CanSet(FieldIndex<IDX_WindowStateSaved>, bool aValue,
-                           ContentParent* aSource) {
-  return !mozilla::SessionHistoryInParent() && IsTop() &&
-         CheckOnlyOwningProcessCanSet(aSource);
-}
-
 void WindowContext::CreateFromIPC(IPCInitializer&& aInit) {
   MOZ_RELEASE_ASSERT(XRE_IsContentProcess(),
                      "Should be a WindowGlobalParent in the parent");
@@ -630,15 +616,7 @@ static void ConsumeUserGestureActivationBetweenPiP(BrowsingContext* aTop,
     opener->GetBrowsingContext()->PreOrderWalk(aCallback);
   } else {
     // 5. Get top-level navigable's last opened PiP window
-    nsPIDOMWindowOuter* outer = aTop->GetDOMWindow();
-    NS_ENSURE_TRUE_VOID(outer);
-    nsPIDOMWindowInner* inner = outer->GetCurrentInnerWindow();
-    NS_ENSURE_TRUE_VOID(inner);
-    DocumentPictureInPicture* dpip = inner->GetExtantDocumentPictureInPicture();
-    if (!dpip) {
-      return;
-    }
-    nsGlobalWindowInner* pip = dpip->GetWindow();
+    nsGlobalWindowInner* pip = aTop->GetOpenedDocumentPiPWindow();
     if (!pip) {
       return;
     }
@@ -750,6 +728,18 @@ bool WindowContext::CanShowPopup() {
   }
 
   return !StaticPrefs::dom_disable_open_during_load();
+}
+
+bool WindowContext::CanFramebust() {
+  uint32_t permit = GetPopupPermission();
+  if (permit == nsIPermissionManager::ALLOW_ACTION) {
+    return true;
+  }
+  if (permit == nsIPermissionManager::DENY_ACTION) {
+    return false;
+  }
+
+  return !StaticPrefs::dom_security_framebusting_intervention_enabled();
 }
 
 void WindowContext::TransientSetHasActivePeerConnections() {

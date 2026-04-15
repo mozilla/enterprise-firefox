@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -100,6 +98,7 @@
 #include "mozilla/dom/HTMLTemplateElement.h"
 #include "mozilla/dom/KeyframeAnimationOptionsBinding.h"
 #include "mozilla/dom/KeyframeEffect.h"
+#include "mozilla/dom/LifecycleCallbackArgs.h"
 #include "mozilla/dom/MouseEvent.h"
 #include "mozilla/dom/MouseEventBinding.h"
 #include "mozilla/dom/MutationObservers.h"
@@ -244,14 +243,14 @@ namespace mozilla::dom {
 
 // Note that mozjemalloc uses a 16 byte quantum, so 64, 80 and 128 are
 // bucket sizes.
-ASSERT_NODE_SIZE(Element, 128, 80);
-ASSERT_NODE_SIZE(HTMLDivElement, 128, 80);
-ASSERT_NODE_SIZE(HTMLElement, 128, 80);
-ASSERT_NODE_SIZE(HTMLParagraphElement, 128, 80);
-ASSERT_NODE_SIZE(HTMLPreElement, 128, 80);
-ASSERT_NODE_SIZE(HTMLSpanElement, 128, 80);
-ASSERT_NODE_SIZE(HTMLTableCellElement, 128, 80);
-ASSERT_NODE_SIZE(Text, 120, 80);
+ASSERT_NODE_SIZE(Element, 136, 84);
+ASSERT_NODE_SIZE(HTMLDivElement, 136, 84);
+ASSERT_NODE_SIZE(HTMLElement, 136, 84);
+ASSERT_NODE_SIZE(HTMLParagraphElement, 136, 84);
+ASSERT_NODE_SIZE(HTMLPreElement, 136, 84);
+ASSERT_NODE_SIZE(HTMLSpanElement, 136, 84);
+ASSERT_NODE_SIZE(HTMLTableCellElement, 136, 84);
+ASSERT_NODE_SIZE(Text, 128, 84);
 
 #undef ASSERT_NODE_SIZE
 #undef EXTRA_DOM_NODE_BYTES
@@ -281,8 +280,9 @@ nsIFrame* nsIContent::GetPrimaryFrame(mozilla::FlushType aType) {
     return nullptr;
   }
 
+  RefPtr<mozilla::PresShell> presShell = frame->PresShell();
   if (aType == mozilla::FlushType::Layout) {
-    frame->PresShell()->EnsureReflowIfFrameHasHiddenContent(frame);
+    presShell->EnsureReflowIfFrameHasHiddenContent(frame);
     frame = GetPrimaryFrame();
   }
 
@@ -498,6 +498,29 @@ int32_t Element::TabIndex() {
   return TabIndexDefault();
 }
 
+/* static */
+void Element::TraverseCustomElementRegistry(
+    Element* aElement, nsCycleCollectionTraversalCallback& aCb) {
+  if (aElement->GetCustomElementRegistryState() ==
+      CustomElementRegistryState::Scoped) {
+    RefPtr<CustomElementRegistry> registry =
+        CustomElementRegistry::GetScopedRegistry(*aElement);
+    if (registry) {
+      NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(aCb, "scoped CustomElementRegistry");
+      aCb.NoteXPCOMChild(registry.get());
+    }
+  }
+}
+
+/* static */
+void Element::UnlinkCustomElementRegistry(Element* aElement) {
+  if (aElement->GetCustomElementRegistryState() ==
+      CustomElementRegistryState::Scoped) {
+    CustomElementRegistry::RemoveScopedRegistry(*aElement);
+    aElement->SetCustomElementRegistryState(CustomElementRegistryState::Global);
+  }
+}
+
 void Element::Focus(const FocusOptions& aOptions, CallerType aCallerType,
                     ErrorResult& aError) {
   const RefPtr<nsFocusManager> fm = nsFocusManager::GetFocusManager();
@@ -535,6 +558,41 @@ void Element::SetShadowRoot(ShadowRoot* aShadowRoot) {
   MOZ_ASSERT(!aShadowRoot || !slots->mShadowRoot,
              "We shouldn't clear the shadow root without unbind first");
   slots->mShadowRoot = aShadowRoot;
+}
+
+void Element::SetCustomElementRegistry(
+    CustomElementRegistry* aCustomElementRegistry) {
+  MOZ_ASSERT(StaticPrefs::dom_scoped_custom_element_registries_enabled());
+  MOZ_ASSERT(!!aCustomElementRegistry,
+             "We shouldn't be setting a null custom element registry");
+  MOZ_ASSERT(
+      GetCustomElementRegistryState() != CustomElementRegistryState::Scoped,
+      "We shouldn't override an already assigned scoped registry");
+
+  if (aCustomElementRegistry->IsScoped()) {
+    SetCustomElementRegistryState(CustomElementRegistryState::Scoped);
+    CustomElementRegistry::SetScopedRegistry(*this, *aCustomElementRegistry);
+  } else {
+    SetCustomElementRegistryState(CustomElementRegistryState::Global);
+  }
+}
+
+/* https://dom.spec.whatwg.org/#element-custom-element-registry */
+CustomElementRegistry* Element::GetCustomElementRegistry() {
+  switch (GetCustomElementRegistryState()) {
+    case CustomElementRegistryState::Global:
+      return OwnerDoc()->GetEffectiveGlobalCustomElementRegistry();
+    case CustomElementRegistryState::Null:
+      return nullptr;
+    case CustomElementRegistryState::Scoped: {
+      RefPtr<CustomElementRegistry> registry =
+          CustomElementRegistry::GetScopedRegistry(*this);
+      MOZ_ASSERT(registry);
+      return registry;
+    }
+  }
+  MOZ_ASSERT_UNREACHABLE("Invalid CustomElementRegistryState");
+  return nullptr;
 }
 
 void Element::SetLastRememberedBSize(float aBSize) {
@@ -1392,42 +1450,39 @@ bool Element::CanAttachShadowDOM() const {
   return true;
 }
 
-// https://dom.spec.whatwg.org/#dom-element-attachshadow
+/* https://dom.spec.whatwg.org/#dom-element-attachshadow */
 already_AddRefed<ShadowRoot> Element::AttachShadow(const ShadowRootInit& aInit,
                                                    ErrorResult& aError) {
-  /**
-   * Step 1, 2, and 3.
-   */
+  // 1. Let registry be this's node document's custom element registry.
+  // 2. If init["customElementRegistry"] exists, then set registry to it.
+  // 3. If registry is non-null, registry's is scoped is false, and registry is
+  //    not this's node document's custom element registry, then throw.
+  // TODO(keithamus): Scoped Registries
+  // 4. Run attach a shadow root...
+  //    XXX: Steps 1-3 performed by CanAttachShadowDOM:
   if (!CanAttachShadowDOM()) {
     aError.ThrowNotSupportedError("Unable to attach ShadowDOM");
     return nullptr;
   }
 
-  /**
-   * 4. If element is a shadow host, then:
-   */
+  //    Step 4. If element is a shadow host, then:
   if (RefPtr<ShadowRoot> root = GetShadowRoot()) {
-    /**
-     *  1. Let currentShadowRoot be element’s shadow root.
-     *
-     *  2. If any of the following are true:
-     *      currentShadowRoot’s declarative is false; or
-     *      currentShadowRoot’s mode is not mode,
-     *  then throw a "NotSupportedError" DOMException.
-     */
+    // 4.1. Let currentShadowRoot be element's shadow root.
+    // 4.2. If any of the following are true:
+    //      - currentShadowRoot's declarative is false; or
+    //      - currentShadowRoot's mode is not mode,
+    //      then throw a "NotSupportedError" DOMException.
     if (!root->IsDeclarative() || root->Mode() != aInit.mMode) {
       aError.ThrowNotSupportedError(
           "Unable to re-attach to existing ShadowDOM");
       return nullptr;
     }
-    /**
-     * 3. Otherwise:
-     *      1. Remove all of currentShadowRoot’s children, in tree order.
-     *      2. Set currentShadowRoot’s declarative to false.
-     *      3. Return.
-     */
+    // 4.3. Otherwise:
+    // 4.3.1. Remove all of currentShadowRoot's children, in tree order.
     root->ReplaceChildren(nullptr, aError);
+    // 4.3.2. Set currentShadowRoot's declarative to false.
     root->SetIsDeclarative(ShadowRootDeclarative::No);
+    // 4.3.3. Return.
     return root.forget();
   }
 
@@ -1435,62 +1490,58 @@ already_AddRefed<ShadowRoot> Element::AttachShadow(const ShadowRootInit& aInit,
     OwnerDoc()->ReportShadowDOMUsage();
   }
 
-  const nsString& referenceTarget = aInit.mReferenceTarget.WasPassed()
-                                        ? aInit.mReferenceTarget.Value()
-                                        : VoidString();
-  return AttachShadowWithoutNameChecks(
-      aInit.mMode, DelegatesFocus(aInit.mDelegatesFocus), aInit.mSlotAssignment,
-      ShadowRootClonable(aInit.mClonable),
-      ShadowRootSerializable(aInit.mSerializable), referenceTarget);
+  //    XXX: Steps 5-13 performed by AttachShadowWithoutNameChecks:
+  // 5. Return this's shadow root.
+  return AttachShadowWithoutNameChecks(aInit);
 }
 
+/* https://dom.spec.whatwg.org/#concept-attach-a-shadow-root */
 already_AddRefed<ShadowRoot> Element::AttachShadowWithoutNameChecks(
-    ShadowRootMode aMode, DelegatesFocus aDelegatesFocus,
-    SlotAssignmentMode aSlotAssignment, ShadowRootClonable aClonable,
-    ShadowRootSerializable aSerializable, const nsAString& aReferenceTarget) {
+    const ShadowRootInit& aInit, bool aNotify) {
   nsAutoScriptBlocker scriptBlocker;
 
   auto* nim = NodeInfoManager();
   RefPtr<mozilla::dom::NodeInfo> nodeInfo = nim->GetDocumentFragmentNodeInfo();
 
-  // If there are no children, the flat tree is not changing due to the presence
-  // of the shadow root, so we don't need to invalidate style / layout.
-  //
-  // This is a minor optimization, but also works around nasty stuff like
-  // bug 1397876.
-  if (Document* doc = GetComposedDoc()) {
-    if (PresShell* presShell = doc->GetPresShell()) {
-      presShell->ShadowRootWillBeAttached(*this);
+  if (aNotify) {
+    if (Document* doc = GetComposedDoc()) {
+      if (PresShell* presShell = doc->GetPresShell()) {
+        presShell->ShadowRootWillBeAttached(*this);
+      }
     }
   }
 
-  /**
-   * 5. Let shadow be a new shadow root whose node document is
-   *    context object's node document, host is context object,
-   *    and mode is init's mode.
-   */
+  // 5. Let shadow be a new shadow root whose node document is element's node
+  //    document, host is element, and mode is mode.
+  // 6. Set shadow's delegates focus to delegatesFocus.
+  // 8. Set shadow's slot assignment to slotAssignment.
+  // 9. Set shadow's declarative to false.
+  // 10. Set shadow's clonable to clonable.
+  // 11. Set shadow's serializable to serializable.
   RefPtr<ShadowRoot> shadowRoot = new (nim)
-      ShadowRoot(this, aMode, aDelegatesFocus, aSlotAssignment, aClonable,
-                 aSerializable, ShadowRootDeclarative::No, nodeInfo.forget());
-  shadowRoot->SetReferenceTarget(aReferenceTarget);
+      ShadowRoot(this, aInit.mMode, DelegatesFocus(aInit.mDelegatesFocus),
+                 aInit.mSlotAssignment, ShadowRootClonable(aInit.mClonable),
+                 ShadowRootSerializable(aInit.mSerializable),
+                 ShadowRootDeclarative::No, nodeInfo.forget());
+  // 12. Set shadow's custom element registry to registry.
+  // TODO(keithamus): Scoped Registries
+  if (aInit.mReferenceTarget.WasPassed()) {
+    shadowRoot->SetReferenceTarget(aInit.mReferenceTarget.Value());
+  }
 
   if (NodeOrAncestorHasDirAuto()) {
     shadowRoot->SetAncestorHasDirAuto();
   }
 
-  /**
-   * 7. If this’s custom element state is "precustomized" or "custom", then set
-   *    shadow’s available to element internals to true.
-   */
+  // 7. If element's custom element state is "precustomized" or "custom", then
+  //    set shadow's available to element internals to true.
   CustomElementData* ceData = GetCustomElementData();
   if (ceData && (ceData->mState == CustomElementData::State::ePrecustomized ||
                  ceData->mState == CustomElementData::State::eCustom)) {
     shadowRoot->SetAvailableToElementInternals();
   }
 
-  /**
-   * 9. Set context object's shadow root to shadow.
-   */
+  // 13. Set element's shadow root to shadow.
   SetShadowRoot(shadowRoot);
 
   // Dispatch a "shadowrootattached" event for devtools if needed.
@@ -1518,28 +1569,29 @@ already_AddRefed<ShadowRoot> Element::AttachShadowWithoutNameChecks(
       }
     }
   }
-  /**
-   * 10. Return shadow.
-   */
   return shadowRoot.forget();
 }
 
-void Element::AttachAndSetUAShadowRoot(NotifyUAWidgetSetup aNotify,
-                                       DelegatesFocus aDelegatesFocus) {
+void Element::AttachAndSetUAShadowRoot(NotifyUAWidget aNotifyUAWidget,
+                                       DelegatesFocus aDelegatesFocus,
+                                       bool aNotify) {
   MOZ_DIAGNOSTIC_ASSERT(!CanAttachShadowDOM(),
-                        "Cannot be used to attach UI shadow DOM");
+                        "Cannot be used to attach UA shadow DOM");
   if (OwnerDoc()->IsStaticDocument()) {
     return;
   }
 
   if (!GetShadowRoot()) {
+    ShadowRootInit init;
+    init.mMode = ShadowRootMode::Closed;
+    init.mDelegatesFocus = aDelegatesFocus == DelegatesFocus::Yes;
     RefPtr<ShadowRoot> shadowRoot =
-        AttachShadowWithoutNameChecks(ShadowRootMode::Closed, aDelegatesFocus);
+        AttachShadowWithoutNameChecks(init, aNotify);
     shadowRoot->SetIsUAWidget();
   }
 
   MOZ_ASSERT(GetShadowRoot()->IsUAWidget());
-  if (aNotify == NotifyUAWidgetSetup::Yes) {
+  if (aNotifyUAWidget == NotifyUAWidget::Yes) {
     NotifyUAWidgetSetupOrChange();
   }
 }
@@ -1565,7 +1617,8 @@ void Element::NotifyUAWidgetSetupOrChange() {
       }));
 }
 
-void Element::NotifyUAWidgetTeardown(UnattachShadowRoot aUnattachShadowRoot) {
+void Element::TeardownUAShadowRoot(NotifyUAWidget aNotify,
+                                   UnattachShadowRoot aUnattachShadowRoot) {
   MOZ_ASSERT(IsInComposedDoc());
   if (!GetShadowRoot()) {
     return;
@@ -1573,6 +1626,10 @@ void Element::NotifyUAWidgetTeardown(UnattachShadowRoot aUnattachShadowRoot) {
   MOZ_ASSERT(GetShadowRoot()->IsUAWidget());
   if (aUnattachShadowRoot == UnattachShadowRoot::Yes) {
     UnattachShadow();
+  }
+
+  if (aNotify == NotifyUAWidget::No) {
+    return;
   }
 
   Document* doc = OwnerDoc();
@@ -2864,31 +2921,21 @@ nsresult Element::BindToTree(BindContext& aContext, nsINode& aParent) {
   MOZ_ASSERT_IF(!aContext.IsMove(),
                 !HasAnyOfFlags(Element::kAllServoDescendantBits));
 
-  // Finally, set the document
-  if (aParent.IsInUncomposedDoc() || aParent.IsInShadowTree()) {
-    // We no longer need to track the subtree pointer (and in fact we'll assert
-    // if we do this any later).
-    ClearSubtreeRootPointer();
-    SetIsConnected(aParent.IsInComposedDoc());
-
-    if (aParent.IsInUncomposedDoc()) {
-      SetIsInDocument();
-    } else {
-      SetFlags(NODE_IS_IN_SHADOW_TREE);
-      MOZ_ASSERT(aParent.IsContent() &&
-                 aParent.AsContent()->GetContainingShadow());
-      ExtendedDOMSlots()->mContainingShadow =
-          aParent.AsContent()->GetContainingShadow();
-    }
+  SetSubtreeRootPointer(aParent.SubtreeRoot());
+  const bool connected = aParent.IsInComposedDoc();
+  SetIsConnected(connected);
+  if (connected) {
     // Clear the lazy frame construction bits.
+    // XXX Why here?
     UnsetFlags(NODE_NEEDS_FRAME | NODE_DESCENDANTS_NEED_FRAMES);
-  } else {
-    // If we're not in the doc and not in a shadow tree,
-    // update our subtree pointer.
-    SetSubtreeRootPointer(aParent.SubtreeRoot());
+  }
+  if (aParent.IsInUncomposedDoc()) {
+    SetIsInDocument();
+  } else if (aParent.IsInShadowTree()) {
+    SetFlags(NODE_IS_IN_SHADOW_TREE);
   }
 
-  if (IsInComposedDoc()) {
+  if (connected) {
     if (IsPendingMappedAttributeEvaluation()) {
       aContext.OwnerDoc().ScheduleForPresAttrEvaluation(this);
     }
@@ -3041,7 +3088,7 @@ void Element::UnbindFromTree(UnbindContext& aContext) {
     // The element being removed is an ancestor of the fullscreen element,
     // exit fullscreen state.
     nsContentUtils::ReportToConsole(nsIScriptError::warningFlag, "DOM"_ns,
-                                    OwnerDoc(), nsContentUtils::eDOM_PROPERTIES,
+                                    OwnerDoc(), PropertiesFile::DOM_PROPERTIES,
                                     "RemovedFullscreenElement");
     // Fully exit fullscreen.
     Document::ExitFullscreenInDocTree(OwnerDoc());
@@ -3111,14 +3158,9 @@ void Element::UnbindFromTree(UnbindContext& aContext) {
 
   if (nullParent || !mParent->IsInShadowTree()) {
     UnsetFlags(NODE_IS_IN_SHADOW_TREE);
-
-    // Begin keeping track of our subtree root.
-    SetSubtreeRootPointer(nullParent ? this : mParent->SubtreeRoot());
-
-    if (nsExtendedDOMSlots* slots = GetExistingExtendedDOMSlots()) {
-      slots->mContainingShadow = nullptr;
-    }
   }
+
+  SetSubtreeRootPointer(nullParent ? this : mParent->SubtreeRoot());
 
   if (document) {
     // Disconnected must be enqueued whenever a connected custom element becomes
@@ -3490,6 +3532,7 @@ bool Element::OnlyNotifySameValueSet(int32_t aNamespaceID, nsAtom* aName,
   }
 
   nsAutoScriptBlocker scriptBlocker;
+  OnAttrSetButNotChanged(aNamespaceID, aName, aValue, aNotify);
   MutationObservers::NotifyAttributeSetToCurrentValue(this, aNamespaceID,
                                                       aName);
   return true;
@@ -3597,7 +3640,6 @@ nsresult Element::SetAttrInternal(int32_t aNamespaceID, nsAtom* aName,
 
   if (OnlyNotifySameValueSet(aNamespaceID, aName, aPrefix, aValue, aNotify,
                              oldValue, &modType, &oldValueSet)) {
-    OnAttrSetButNotChanged(aNamespaceID, aName, aValue, aNotify);
     return NS_OK;
   }
 
@@ -3641,7 +3683,6 @@ nsresult Element::SetParsedAttr(int32_t aNamespaceID, nsAtom* aName,
     const nsAttrValueOrString value(aParsedValue);
     if (OnlyNotifySameValueSet(aNamespaceID, aName, aPrefix, value, aNotify,
                                oldValue, &modType, &oldValueSet)) {
-      OnAttrSetButNotChanged(aNamespaceID, aName, value, aNotify);
       return NS_OK;
     }
   }
@@ -4489,12 +4530,18 @@ void Element::GetLinkTarget(nsAString& aTarget) {
 
 void Element::GetLinkTargetImpl(nsAString& aTarget) { aTarget.Truncate(); }
 
+/* Part of https://dom.spec.whatwg.org/#concept-cloning-steps-for-a-single-node
+   step 2 (if node is an element). */
 nsresult Element::CopyInnerTo(Element* aDst, ReparseAttributes aReparse) {
   nsresult rv = aDst->mAttrs.EnsureCapacityToClone(mAttrs);
   NS_ENSURE_SUCCESS(rv, rv);
 
   const bool reparse = aReparse == ReparseAttributes::Yes;
 
+  // 2.5. For each attribute of node's attribute list:
+  //      2.5.1. Let copyAttribute be the result of cloning a single node given
+  //             attribute, document, and null.
+  //      2.5.2. Append copyAttribute to copy.
   uint32_t count = mAttrs.AttrCount();
   for (uint32_t i = 0; i < count; ++i) {
     BorrowedAttrInfo info = mAttrs.AttrInfoAt(i);
@@ -4524,6 +4571,26 @@ nsresult Element::CopyInnerTo(Element* aDst, ReparseAttributes aReparse) {
     }
   }
 
+  // https://dom.spec.whatwg.org/#clone-a-single-node
+  // Step 2.1. Let registry be node's custom element registry.
+  // Step 2.2. If registry is null, then set registry to fallbackRegistry.
+  // Step 2.3. If registry is a global custom element registry, then set
+  //           registry to document's effective global custom element registry.
+  // XXX Steps 2.1-2.3 are partially handled here by propagating registry
+  // state; the full registry resolution happens in "create an element".
+  CustomElementRegistryState state = GetCustomElementRegistryState();
+  if (state == CustomElementRegistryState::Scoped) {
+    MOZ_ASSERT(StaticPrefs::dom_scoped_custom_element_registries_enabled());
+    RefPtr<CustomElementRegistry> scopedRegistry =
+        CustomElementRegistry::GetScopedRegistry(*this);
+    aDst->SetCustomElementRegistry(scopedRegistry);
+  } else {
+    MOZ_ASSERT(state == CustomElementRegistryState::Global ||
+               StaticPrefs::dom_scoped_custom_element_registries_enabled());
+    aDst->SetCustomElementRegistryState(state);
+  }
+
+  // https://html.spec.whatwg.org/#enqueue-a-custom-element-upgrade-reaction
   dom::NodeInfo* dstNodeInfo = aDst->NodeInfo();
   if (CustomElementData* data = GetCustomElementData()) {
     // The cloned node may be a custom element that may require
@@ -5161,9 +5228,12 @@ void Element::SetOuterHTML(const TrustedHTMLOrNullIsEmptyString& aOuterHTML,
 
 enum nsAdjacentPosition { eBeforeBegin, eAfterBegin, eBeforeEnd, eAfterEnd };
 
+/* https://html.spec.whatwg.org/#dom-element-insertadjacenthtml */
 void Element::InsertAdjacentHTML(
     const nsAString& aPosition, const TrustedHTMLOrString& aTrustedHTMLOrString,
     nsIPrincipal* aSubjectPrincipal, ErrorResult& aError) {
+  // 1. "Let compliantString be the result of invoking the get trusted type
+  //    compliant string algorithm..."
   constexpr nsLiteralString kSink = u"Element insertAdjacentHTML"_ns;
 
   Maybe<nsAutoString> compliantStringHolder;
@@ -5176,6 +5246,8 @@ void Element::InsertAdjacentHTML(
     return;
   }
 
+  // 2. "Let context be null."
+  // 3. "Use the first matching item from this list:"
   nsAdjacentPosition position;
   if (aPosition.LowerCaseEqualsLiteral("beforebegin")) {
     position = eBeforeBegin;
@@ -5186,18 +5258,22 @@ void Element::InsertAdjacentHTML(
   } else if (aPosition.LowerCaseEqualsLiteral("afterend")) {
     position = eAfterEnd;
   } else {
+    // 3. "Otherwise: Throw a "SyntaxError" DOMException."
     aError.Throw(NS_ERROR_DOM_SYNTAX_ERR);
     return;
   }
 
   nsCOMPtr<nsIContent> destination;
   if (position == eBeforeBegin || position == eAfterEnd) {
+    // 3. "Set context to this's parent. If context is null or a Document,
+    //    throw a "NoModificationAllowedError" DOMException."
     destination = GetParent();
     if (!destination) {
       aError.Throw(NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR);
       return;
     }
   } else {
+    // 3. "Set context to this."
     destination = this;
   }
 
@@ -5209,7 +5285,8 @@ void Element::InsertAdjacentHTML(
   mozAutoDocUpdate updateBatch(doc, true);
   nsAutoScriptLoaderDisabler sld(doc);
 
-  // Parse directly into destination if possible
+  // XXX: Fast path - parse directly into destination if possible, bypassing
+  // the fragment creation in steps 4-5.
   nsIContent* oldLastChild = destination->GetLastChild();
   bool oldLastChildIsText = oldLastChild && oldLastChild->IsText();
   if (doc->IsHTMLDocument() && !OwnerDoc()->MayHaveDOMMutationObservers() &&
@@ -5237,7 +5314,11 @@ void Element::InsertAdjacentHTML(
     return;
   }
 
-  // couldn't parse directly
+  // 4. "If context is not an Element or all of the following are true...
+  //    then set context to the result of creating an element given this's
+  //    node document, "body", and the HTML namespace."
+  // 5. "Let fragment be the result of invoking the fragment parsing algorithm
+  //    steps with context and compliantString."
   RefPtr<DocumentFragment> fragment = nsContentUtils::CreateContextualFragment(
       destination, *compliantString, true, aError);
   if (aError.Failed()) {
@@ -5249,18 +5330,23 @@ void Element::InsertAdjacentHTML(
   // listeners on the fragment that comes from the parser.
   nsAutoScriptBlockerSuppressNodeRemoved scriptBlocker;
 
+  // 6. "Use the first matching item from this list:"
   switch (position) {
     case eBeforeBegin:
+      // "Insert fragment into this's parent before this."
       destination->InsertBefore(*fragment, this, aError);
       break;
     case eAfterBegin:
+      // "Insert fragment into this before its first child."
       static_cast<nsINode*>(this)->InsertBefore(*fragment, GetFirstChild(),
                                                 aError);
       break;
     case eBeforeEnd:
+      // "Append fragment to this."
       static_cast<nsINode*>(this)->AppendChild(*fragment, aError);
       break;
     case eAfterEnd:
+      // "Insert fragment into this's parent before this's next sibling."
       destination->InsertBefore(*fragment, GetNextSibling(), aError);
       break;
   }
@@ -6208,6 +6294,7 @@ EditorBase* Element::GetExtantEditor() const {
   return docShell ? docShell->GetHTMLEditorInternal() : nullptr;
 }
 
+/* https://html.spec.whatwg.org/#dom-element-sethtmlunsafe */
 void Element::SetHTMLUnsafe(const TrustedHTMLOrString& aHTML,
                             const SetHTMLUnsafeOptions& aOptions,
                             nsIPrincipal* aSubjectPrincipal,

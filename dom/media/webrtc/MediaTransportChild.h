@@ -20,6 +20,8 @@ class MediaTransportChild : public dom::PMediaTransportChild {
 
   mozilla::ipc::IPCResult RecvOnCandidate(const string& transportId,
                                           CandidateInfo&& candidateInfo);
+  mozilla::ipc::IPCResult RecvOnCandidateError(
+      IceCandidateErrorInfo&& errorInfo);
   mozilla::ipc::IPCResult RecvOnAlpnNegotiated(const string& alpn);
   mozilla::ipc::IPCResult RecvOnGatheringStateChange(const string& transportId,
                                                      const int& state);

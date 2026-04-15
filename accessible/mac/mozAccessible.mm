@@ -1,5 +1,4 @@
 /* clang-format off */
-/* -*- Mode: Objective-C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* clang-format on */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -158,6 +157,12 @@ using namespace mozilla::a11y;
                                                     (moxARIASetSize)) {
     GroupPos groupPos = mGeckoAccessible->GroupPosition();
     return groupPos.setSize == 0;
+  }
+
+  if (selector == @selector(moxARIABrailleRoleDescription)) {
+    NSString* brailleRoleDescription =
+        utils::GetAccAttr(self, nsGkAtoms::aria_brailleroledescription);
+    return [brailleRoleDescription length] == 0;
   }
 
   if (selector == @selector(moxExpanded)) {
@@ -564,11 +569,7 @@ static bool ProvidesTitle(const Accessible* aAccessible, nsString& aName) {
   EDescriptionValueFlag descFlag = mGeckoAccessible->Description(desc);
 
   if (@available(macOS 11.0, *)) {
-    // Provide AXHelp only on non-aria descriptions (eg. title attribute),
-    // or if the accessible is a fieldset or radio group.
-    if (descFlag == eDescriptionFromARIA &&
-        mGeckoAccessible->Role() != roles::GROUPING &&
-        mGeckoAccessible->Role() != roles::RADIO_GROUP) {
+    if (descFlag == eDescriptionFromARIA) {
       return nil;
     }
   }
@@ -743,6 +744,10 @@ static bool ProvidesTitle(const Accessible* aAccessible, nsString& aName) {
 - (NSNumber*)moxARIASetSize {
   GroupPos groupPos = mGeckoAccessible->GroupPosition();
   return @(groupPos.setSize);
+}
+
+- (NSString*)moxARIABrailleRoleDescription {
+  return utils::GetAccAttr(self, nsGkAtoms::aria_brailleroledescription);
 }
 
 - (NSString*)moxARIARelevant {

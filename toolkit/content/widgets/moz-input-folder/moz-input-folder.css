@@ -11,16 +11,21 @@
 }
 
 #input {
-  min-width: var(--input-folder-min-width);
-  max-width: var(--input-folder-max-width);
+  min-width: var(--input-folder-min-width, none);
+  max-width: var(--input-folder-max-width, none);
 }
 
 .container {
   display: flex;
   align-items: flex-end;
   gap: var(--input-folder-space-inline);
+  flex-wrap: var(--input-folder-wrap);
 }
 
 #choose-folder-button {
+  white-space: nowrap;
+}
+
+slot[name="actions"]::slotted(moz-button) {
   white-space: nowrap;
 }

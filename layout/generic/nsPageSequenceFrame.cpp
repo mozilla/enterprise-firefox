@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -80,6 +78,12 @@ inline void SanityCheckPagesPerSheetInfo() {
     prevInfoPPS = info.mNumPages;
   }
 #endif
+}
+
+static void MarkPrincipalChildrenDirty(nsIFrame* aFrame) {
+  for (nsIFrame* childFrame : aFrame->PrincipalChildList()) {
+    childFrame->MarkSubtreeDirty();
+  }
 }
 
 const nsPagesPerSheetInfo& nsPagesPerSheetInfo::LookupInfo(int32_t aPPS) {
@@ -303,6 +307,69 @@ void nsPageSequenceFrame::Reflow(nsPresContext* aPresContext,
     return;
   }
 
+  const bool shouldDoMeasuringReflow = [&]() {
+    if (!aPresContext->FragmentainerAwarePositioningEnabled()) {
+      return false;
+    }
+    if (GetPrevInFlow()) {
+      // A measuring reflow is only needed on first-in-flow.
+      return false;
+    }
+    // Only do measuring reflow if there are absolutely positioned descendants
+    // since the purpose is to compute their unfragmented positions, sizes, etc.
+    return nsLayoutUtils::HasAbsolutelyPositionedDescendants(this);
+  }();
+
+  if (shouldDoMeasuringReflow) {
+    if (!HasAnyStateBits(NS_FRAME_FIRST_REFLOW)) {
+      // Mark sheets dirty for an incremental measuring reflow.
+      MarkPrincipalChildrenDirty(this);
+    }
+
+    for (nsIFrame* kidFrame : mFrames) {
+      auto* sheet = static_cast<PrintedSheetFrame*>(kidFrame);
+      sheet->SetSharedPageData(&mPageData);
+
+      // If we want to reliably access the nsPageFrame before reflowing the
+      // sheet frame, we need to call this:
+      sheet->ClaimPageFrameFromPrevInFlow();
+
+      const nsSize sheetSize = sheet->ComputeSheetSize(aPresContext);
+
+      const auto kidWM = kidFrame->GetWritingMode();
+      LogicalSize availSize(kidWM, sheetSize);
+
+      // Reflow the kid with an unconstrained available block-size, to compute
+      // unfragmented positions, sizes, etc. for absolutely positioned
+      // descendants.
+      availSize.BSize(kidWM) = NS_UNCONSTRAINEDSIZE;
+
+      ReflowInput kidReflowInput(aPresContext, aReflowInput, kidFrame,
+                                 availSize);
+
+      // Given the kid is reflowed under an unconstrained available block-size,
+      // BreakType::Page doesn't really have any effect, but we keep it for
+      // consistency with the normal reflow below.
+      kidReflowInput.mBreakType = ReflowInput::BreakType::Page;
+      kidReflowInput.mFlags.mIsInFragmentainerMeasuringReflow = true;
+
+      ReflowOutput kidReflowOutput(kidReflowInput);
+      nsReflowStatus status;
+
+      // Position doesn't matter for measuring reflow.
+      const WritingMode wm = kidFrame->GetWritingMode();
+      ReflowChild(kidFrame, aPresContext, kidReflowOutput, kidReflowInput, wm,
+                  LogicalPoint(wm), sheetSize, ReflowChildFlags::Default,
+                  status);
+      FinishReflowChild(kidFrame, aPresContext, kidReflowOutput,
+                        &kidReflowInput, wm, LogicalPoint(wm), sheetSize,
+                        ReflowChildFlags::Default);
+    }
+
+    // Mark sheets dirty for normal reflow below.
+    MarkPrincipalChildrenDirty(this);
+  }
+
   nsIntMargin unwriteableTwips =
       mPageData.mPrintSettings->GetUnwriteableMarginInTwips();
 
@@ -453,7 +520,7 @@ void nsPageSequenceFrame::SetPageNumberFormat(const char* aPropName,
   nsAutoString pageNumberFormat;
   // Now go get the Localized Page Formating String
   nsresult rv = nsContentUtils::GetLocalizedString(
-      nsContentUtils::ePRINTING_PROPERTIES, aPropName, pageNumberFormat);
+      PropertiesFile::PRINTING_PROPERTIES, aPropName, pageNumberFormat);
   if (NS_FAILED(rv)) {  // back stop formatting
     pageNumberFormat.AssignASCII(aDefPropVal);
   }

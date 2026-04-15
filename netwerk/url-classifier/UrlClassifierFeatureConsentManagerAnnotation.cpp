@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -10,6 +8,7 @@
 #include "mozilla/Logging.h"
 #include "mozilla/StaticPrefs_privacy.h"
 #include "mozilla/StaticPtr.h"
+#include "mozilla/ScopedPrefs.h"
 #include "mozilla/net/UrlClassifierCommon.h"
 #include "nsIChannel.h"
 #include "nsIClassifiedChannel.h"
@@ -101,9 +100,8 @@ UrlClassifierFeatureConsentManagerAnnotation::MaybeCreate(
   }
 
   // We also don't need to annotate the channel if we are not blocking trackers
-  if (!StaticPrefs::privacy_trackingprotection_enabled() &&
-      !(NS_UsePrivateBrowsing(aChannel) &&
-        StaticPrefs::privacy_trackingprotection_pbmode_enabled())) {
+  if (!ScopedPrefs::BoolPrefScoped(
+          ScopedPrefs::PRIVACY_TRACKINGPROTECTION_ENABLED, aChannel)) {
     return nullptr;
   }
 

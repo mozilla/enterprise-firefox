@@ -39,6 +39,8 @@ class BackupSelectableToSelectableTest(BackupTestBase):
             f"Source selectable profile storeID: {original_backup_store_id}"
         )
 
+        shared_profile_name = "TestProfile"
+        self.set_selectable_profile_metadata(shared_profile_name, "book")
         self.set_prefs({"test.selectable.backup.pref": "test-value"})
 
         self.marionette.restart(clean=False, in_app=True)
@@ -66,6 +68,7 @@ class BackupSelectableToSelectableTest(BackupTestBase):
         )
 
         recovery_selectable_info = self.setup_selectable_profile()
+        self.set_selectable_profile_metadata(shared_profile_name, "book")
         recovery_env_store_id = recovery_selectable_info["store_id"]
         self.assertIsNotNone(recovery_env_store_id, "Recovery env should have storeID")
         self.assertNotEqual(
@@ -113,6 +116,16 @@ class BackupSelectableToSelectableTest(BackupTestBase):
         self.assertIsNotNone(
             recovered_profile_in_db,
             "Recovered profile should exist in the database",
+        )
+        self.assertNotEqual(
+            recovered_profile_in_db["name"],
+            shared_profile_name,
+            "Recovered profile should have been renamed to avoid duplicate",
+        )
+        self.assertIn(
+            "Restored from",
+            recovered_profile_in_db["name"],
+            "Recovered profile name should contain 'Restored from'",
         )
         self.logger.info(
             f"Found recovered profile in database: {recovered_profile_in_db}"

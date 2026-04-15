@@ -108,8 +108,11 @@ TRAILING WHITESPACE: xml/xslt/resources/testu1LINE.xml
 PRINT STATEMENT: dom/nodes/Document-createElement-namespace-tests/generate.py
 PRINT STATEMENT: encrypted-media/polyfill/make-polyfill-tests.py
 PRINT STATEMENT: resources/test/conftest.py
-PRINT STATEMENT: webdriver/tests/support/helpers.py
 PRINT STATEMENT: webdriver/tests/bidi/browser/set_download_behavior/conftest.py
+PRINT STATEMENT: webdriver/tests/bidi/browsing_context/print/*
+PRINT STATEMENT: webdriver/tests/classic/print/*
+PRINT STATEMENT: webdriver/tests/support/bidi/fixtures.py
+PRINT STATEMENT: webdriver/tests/support/classic/helpers.py
 
 # semi-legitimate use of console.*
 CONSOLE: console/*
@@ -750,10 +753,6 @@ REFERENCE-IN-OTHER-TYPE: css/css-transforms/css-transform-scale-001-manual.html
 # Needs control of page size
 REFERENCE-IN-OTHER-TYPE: css/css-multicol/moz-multicol3-column-balancing-break-inside-avoid-1.html
 
-PRINT STATEMENT: webdriver/tests/bidi/browsing_context/print/*
-PRINT STATEMENT: webdriver/tests/classic/print/*
-PRINT STATEMENT: webdriver/tests/support/fixtures_bidi.py
-
 DUPLICATE-BASENAME-PATH: acid/acid3/empty.html
 DUPLICATE-BASENAME-PATH: acid/acid3/empty.xml
 DUPLICATE-BASENAME-PATH: dom/nodes/Document-createElement-namespace-tests/*
@@ -832,11 +831,11 @@ TESTDRIVER-IN-UNSUPPORTED-TYPE: file-system-access/showDirectoryPicker-manual.ht
 TESTDRIVER-IN-UNSUPPORTED-TYPE: file-system-access/showOpenFilePicker-manual.https.html
 TESTDRIVER-IN-UNSUPPORTED-TYPE: file-system-access/showSaveFilePicker-manual.https.html
 TESTDRIVER-IN-UNSUPPORTED-TYPE: mediacapture-streams/MediaStreamTrack-end-manual.https.html
-TESTDRIVER-IN-UNSUPPORTED-TYPE: payment-handler/change-payment-method-manual.https.html
-TESTDRIVER-IN-UNSUPPORTED-TYPE: payment-handler/change-shipping-address-manual.https.html
-TESTDRIVER-IN-UNSUPPORTED-TYPE: payment-handler/change-shipping-option-manual.https.html
-TESTDRIVER-IN-UNSUPPORTED-TYPE: payment-handler/payment-request-event-manual.https.html
-TESTDRIVER-IN-UNSUPPORTED-TYPE: payment-handler/supports-shipping-contact-delegation-manual.https.html
+TESTDRIVER-IN-UNSUPPORTED-TYPE: web-based-payment-handler/change-payment-method-manual.https.html
+TESTDRIVER-IN-UNSUPPORTED-TYPE: web-based-payment-handler/change-shipping-address-manual.https.html
+TESTDRIVER-IN-UNSUPPORTED-TYPE: web-based-payment-handler/change-shipping-option-manual.https.html
+TESTDRIVER-IN-UNSUPPORTED-TYPE: web-based-payment-handler/payment-request-event-manual.https.html
+TESTDRIVER-IN-UNSUPPORTED-TYPE: web-based-payment-handler/supports-shipping-contact-delegation-manual.https.html
 TESTDRIVER-IN-UNSUPPORTED-TYPE: speech-api/SpeechRecognition-phrases-manual.https.html
 
 # Tests automatically imported from the WebAssembly/spec repository that should be removed after getting fixed upstream.

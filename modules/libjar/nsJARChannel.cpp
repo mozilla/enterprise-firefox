@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set sw=2 ts=8 et tw=80 : */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -247,7 +245,7 @@ nsresult nsJARChannel::CreateJarInput(nsIZipReaderCache* jarCache,
     if (NS_FAILED(rv)) return rv;
 
     if (mInnerJarEntry.IsEmpty())
-      reader = outerReader;
+      reader = std::move(outerReader);
     else {
       reader = do_CreateInstance(kZipReaderCID, &rv);
       if (NS_FAILED(rv)) return rv;
@@ -261,6 +259,9 @@ nsresult nsJARChannel::CreateJarInput(nsIZipReaderCache* jarCache,
       new nsJARInputThunk(reader, mJarEntry, jarCache != nullptr);
   rv = input->Init();
   if (NS_FAILED(rv)) {
+    if (rv == NS_ERROR_FILE_NOT_FOUND) {
+      CheckForBrokenChromeURL(mLoadInfo, mOriginalURI);
+    }
     return rv;
   }
 
@@ -1161,7 +1162,7 @@ nsJARChannel::AsyncOpen(nsIStreamListener* aListener) {
   // Initialize mProgressSink
   NS_QueryNotificationCallbacks(mCallbacks, mLoadGroup, mProgressSink);
 
-  mListener = listener;
+  mListener = std::move(listener);
   mIsPending = true;
 
   rv = LookupFile();

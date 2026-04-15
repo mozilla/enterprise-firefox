@@ -39,7 +39,7 @@ newtab-search-box-input =
     .placeholder = Ieškokite saityne
     .aria-label = Ieškokite saityne
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Pridėti ieškyklę
 newtab-topsites-add-shortcut-header = Naujas leistukas

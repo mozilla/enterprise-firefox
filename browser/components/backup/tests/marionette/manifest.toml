@@ -1,4 +1,6 @@
 [DEFAULT]
+subsuite = "integration"
+tags = "os_integration"
 run-if = [
   "buildapp == 'browser'",
 ]
@@ -30,7 +32,10 @@ skip-if = [
 ]
 
 ["test_compatibility.py"]
-support-files = ["backups/v1_backup.html"]
+support-files = [
+  "compat-files/backups/v1_backup.html",
+  "compat-files/backups/v2_legacy_backup.html",
+  "compat-files/backups/v2_selectable_backup.html"]
 skip-if = [
   "os == 'linux' && os_version == '22.04' && arch == 'x86_64' && display == 'wayland'", # 1924781: Gnome keyring not unlocked
 ]

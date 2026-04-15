@@ -274,7 +274,7 @@
     }
 
     > .ac-title .ac-emphasize-text-title {
-      font-weight: var(--heading-font-weight);
+      font-weight: var(--font-weight-heading);
     }
 
     > .ac-site-icon {

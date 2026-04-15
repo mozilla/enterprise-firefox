@@ -59,7 +59,6 @@
 #include "rtc_base/network/received_packet.h"
 #include "rtc_base/socket.h"
 #include "rtc_base/socket_address.h"
-#include "rtc_base/third_party/sigslot/sigslot.h"
 #include "rtc_base/thread.h"
 #include "rtc_base/virtual_socket_server.h"
 #include "system_wrappers/include/metrics.h"
@@ -184,7 +183,7 @@ class TurnPortTestVirtualSocketServer : public VirtualSocketServer {
   using VirtualSocketServer::LookupBinding;
 };
 
-class TestConnectionWrapper : public sigslot::has_slots<> {
+class TestConnectionWrapper {
  public:
   explicit TestConnectionWrapper(Connection* conn) : connection_(conn) {
     conn->SubscribeDestroyed(this, [this](Connection* connection) {
@@ -192,7 +191,7 @@ class TestConnectionWrapper : public sigslot::has_slots<> {
     });
   }
 
-  ~TestConnectionWrapper() override {
+  ~TestConnectionWrapper() {
     if (connection_) {
       connection_->UnsubscribeDestroyed(this);
     }
@@ -211,9 +210,7 @@ class TestConnectionWrapper : public sigslot::has_slots<> {
 
 // Note: This test uses a fake clock with a simulated network round trip
 // (between local port and TURN server) of kSimulatedRtt.
-class TurnPortTest : public ::testing::Test,
-                     public TurnPort::CallbacksForTest,
-                     public sigslot::has_slots<> {
+class TurnPortTest : public ::testing::Test, public TurnPort::CallbacksForTest {
  public:
   TurnPortTest()
       : ss_(new TurnPortTestVirtualSocketServer()),

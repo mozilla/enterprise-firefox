@@ -652,6 +652,7 @@ impl RenderTaskKind {
                     // sized box-shadow rect.
                     source.render_task = Some(resource_cache.request_render_task(
                         Some(RenderTaskCacheKey {
+                            origin: DeviceIntPoint::zero(),
                             size: cache_size,
                             kind: RenderTaskCacheKeyKind::BoxShadow(cache_key),
                         }),

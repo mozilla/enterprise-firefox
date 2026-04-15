@@ -102,6 +102,7 @@ const CM_MAPPING = [
 ];
 
 const ONLY_SPACES_REGEXP = /^\s*$/;
+const PREF_CMNEXT_ENABLED = "devtools.webconsole.codemirrorNext";
 
 const editors = new WeakMap();
 
@@ -132,15 +133,16 @@ class Editor extends EventEmitter {
   /**
    * Returns a string representation of a shortcut 'key' with
    * a OS specific modifier. Cmd- for Macs, Ctrl- for other
-   * platforms. Useful with extraKeys configuration option.
+   * platforms (in cm5). For cm6 Mod- is used instead. Useful with extraKeys configuration option.
    *
    * CodeMirror defines all keys with modifiers in the following
    * order: Shift - Ctrl/Cmd - Alt - Key
    */
   static accel(key, modifiers = {}) {
+    const osShortcut = Services.appinfo.OS == "Darwin" ? "Cmd-" : "Ctrl-";
     return (
       (modifiers.shift ? "Shift-" : "") +
-      (Services.appinfo.OS == "Darwin" ? "Cmd-" : "Ctrl-") +
+      (Services.prefs.getBoolPref(PREF_CMNEXT_ENABLED) ? "Mod-" : osShortcut) +
       (modifiers.alt ? "Alt-" : "") +
       key
     );
@@ -155,6 +157,33 @@ class Editor extends EventEmitter {
   static keyFor(cmd, opts = { noaccel: false }) {
     const key = L10N.getStr(cmd + ".commandkey");
     return opts.noaccel ? key : Editor.accel(key);
+  }
+
+  /**
+   * This maps key binding from the Codemirror 5 format (an Object) to the Codemirror 6
+   * expected format (an Array).
+   *
+   * @param {object} keyBindings
+   * @returns {Array}
+   */
+  static mapKeyBindings(keyBindings) {
+    // Key Events which have different key values from CM5 and CM6
+    const keyEvents = {
+      Up: "ArrowUp",
+      Down: "ArrowDown",
+      Left: "ArrowLeft",
+      Right: "ArrowRight",
+    };
+    const keyBindingsArr = [];
+    for (const key in keyBindings) {
+      if (typeof keyBindings[key] == "function") {
+        keyBindingsArr.push({
+          key: keyEvents[key] ? keyEvents[key] : key,
+          run: keyBindings[key],
+        });
+      }
+    }
+    return keyBindingsArr;
   }
 
   static modes = {
@@ -230,6 +259,7 @@ class Editor extends EventEmitter {
   // for the source and the values are the scroll snapshots for the sources.
   #scrollSnapshots = new Map();
   #updateListener = null;
+  #beforeUpdateListener = null;
 
   // This stores the language support objects used to syntax highlight code,
   // These are keyed of the modes.
@@ -511,6 +541,10 @@ class Editor extends EventEmitter {
   // to the codemiror editor.
   setUpdateListener(listener = null) {
     this.#updateListener = listener;
+  }
+
+  setBeforeUpdateListener(listener = null) {
+    this.#beforeUpdateListener = listener;
   }
 
   /**
@@ -843,6 +877,25 @@ class Editor extends EventEmitter {
       highlightSelectionMatches(),
       // keep last so other extension take precedence
       codemirror.minimalSetup,
+      EditorState.transactionFilter.of(tr => {
+        if (tr.docChanged) {
+          // A change is about to happen, any custom defined
+          // before update listener  should be called
+          if (typeof this.#beforeUpdateListener == "function") {
+            const a = [];
+            tr.changes.iterChanges((fromA, toA, fromB, toB, inserted) => {
+              a.push({
+                from: lezerUtils.positionToLocation(tr.state.doc, fromA),
+                to: lezerUtils.positionToLocation(tr.newDoc, toB),
+                origin: !inserted.length ? "+delete" : "+input",
+                text: inserted.toString(),
+              });
+            });
+            this.#beforeUpdateListener(a);
+          }
+        }
+        return tr;
+      }),
     ];
 
     if (!this.config.disableSearchAddon && this.config.useSearchAddonPanel) {
@@ -2134,6 +2187,21 @@ class Editor extends EventEmitter {
     return cm.getDoc().getRange({ line: 0, ch: 0 }, cm.getCursor());
   }
 
+  /**
+   * Gets the location of the cursor
+   *
+   * @returns {object}
+   */
+  getCursorPos() {
+    const cm = editors.get(this);
+    if (this.config.cm6) {
+      const pos = cm.state.selection.main.head;
+      const line = cm.state.doc.lineAt(pos);
+      return { line: line.number, ch: pos - line.from };
+    }
+    return cm.getCursor();
+  }
+
   getDoc() {
     if (!this.config) {
       return null;
@@ -2577,6 +2645,58 @@ class Editor extends EventEmitter {
       scope = scope.parent;
     }
     return bindingReferences;
+  }
+
+  /**
+   * Retrieve variables declared in the expression from the CodeMirror state, in order
+   * to display them in the autocomplete popup.
+   *
+   * @returns Array
+   */
+  async getExpressionVariables() {
+    const cm = editors.get(this);
+    const variables = [];
+
+    if (this.config.cm6) {
+      const { codemirrorLanguage } = this.#CodeMirror6;
+      const cursorLocation = this.getSelectionCursor();
+      const line = cm.state.doc.line(cursorLocation.from.line);
+      const tokPos = line.from + cursorLocation.from.ch;
+
+      await lezerUtils.walkTree(cm, codemirrorLanguage, {
+        filterSet: lezerUtils.nodeTypeSets.variables,
+        enterVisitor: node => {
+          if (node.from <= tokPos && node.to >= tokPos) {
+            variables.push(cm.state.doc.sliceString(node.from, node.to));
+          }
+        },
+        walkFrom: line.from,
+        walkTo: line.to,
+      });
+    } else {
+      const { state } = cm.getTokenAt(cm.getCursor());
+      if (state.context) {
+        for (let c = state.context; c; c = c.prev) {
+          for (let v = c.vars; v; v = v.next) {
+            if (v.name) {
+              variables.push(v.name);
+            }
+          }
+        }
+      }
+
+      const keys = ["localVars", "globalVars"];
+      for (const key of keys) {
+        if (state[key]) {
+          for (let v = state[key]; v; v = v.next) {
+            if (v.name) {
+              variables.push(v.name);
+            }
+          }
+        }
+      }
+    }
+    return variables;
   }
 
   /**
@@ -3532,7 +3652,8 @@ class Editor extends EventEmitter {
         return false;
       }
       const { x, y, width, height } = cm.dom.getBoundingClientRect();
-      const gutterWidth = cm.dom.querySelector(".cm-gutters").clientWidth;
+      const gutterEl = cm.dom.querySelector(".cm-gutters");
+      const gutterWidth = gutterEl ? gutterEl.clientWidth : 0;
 
       inXView = coords.left > x + gutterWidth && coords.right < x + width;
       inYView = coords.top > y && coords.bottom < y + height;
@@ -3864,6 +3985,7 @@ class Editor extends EventEmitter {
     this.version = null;
     this.#ownerDoc = null;
     this.#updateListener = null;
+    this.#beforeUpdateListener = null;
     this.#lineGutterMarkers.clear();
     this.#lineContentMarkers.clear();
     this.#scrollSnapshots.clear();
@@ -4061,13 +4183,14 @@ class Editor extends EventEmitter {
 
 // Since Editor is a thin layer over CodeMirror some methods
 // are mapped directly—without any changes.
-
-CM_MAPPING.forEach(name => {
-  Editor.prototype[name] = function (...args) {
-    const cm = editors.get(this);
-    return cm[name].apply(cm, args);
-  };
-});
+if (!Services.prefs.getBoolPref(PREF_CMNEXT_ENABLED)) {
+  CM_MAPPING.forEach(name => {
+    Editor.prototype[name] = function (...args) {
+      const cm = editors.get(this);
+      return cm[name].apply(cm, args);
+    };
+  });
+}
 
 /**
  * We compute the CSS property names, values, and color names to be used with

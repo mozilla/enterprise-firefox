@@ -103,9 +103,9 @@ async function test_screen_content(
   expectedSelectors = [],
   unexpectedSelectors = []
 ) {
-  await ContentTask.spawn(
+  await SpecialPowers.spawn(
     browser,
-    { expectedSelectors, experiment, unexpectedSelectors },
+    [{ expectedSelectors, experiment, unexpectedSelectors }],
     async ({
       expectedSelectors: expected,
       experiment: experimentName,
@@ -173,9 +173,9 @@ async function openMultiStageWithUserAgentAttribution() {
 }
 
 async function onButtonClick(browser, elementId) {
-  await ContentTask.spawn(
+  await SpecialPowers.spawn(
     browser,
-    { elementId },
+    [{ elementId }],
     async ({ elementId: buttonId }) => {
       await ContentTaskUtils.waitForCondition(
         () => content.document.querySelector(buttonId),

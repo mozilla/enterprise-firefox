@@ -66,6 +66,10 @@ class SendCrashTelemetryServiceTest {
                 shouldPrompt = CrashReporter.Prompt.NEVER,
                 telemetryServices = listOf(
                     object : CrashTelemetryService {
+                        override fun setTelemetryEnabled(enabled: Boolean) {
+                            fail("Didn't expect telemetry disable")
+                        }
+
                         override fun record(crash: Crash.UncaughtExceptionCrash) {
                             fail("Didn't expect uncaught exception crash")
                         }

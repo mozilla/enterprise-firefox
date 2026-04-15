@@ -61,5 +61,6 @@ tasks-from:
     - rust-size.yml
     - sccache.yml
     - sysroot.yml
+    - upx.yml
     - uv.yml
     - dist-toolchains.yml

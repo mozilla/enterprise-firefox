@@ -14,6 +14,7 @@ endif() # AOM_BUILD_CMAKE_AOM_CONFIGURE_CMAKE_
 set(AOM_BUILD_CMAKE_AOM_CONFIGURE_CMAKE_ 1)
 
 include(FindThreads)
+include(CheckSymbolExists)
 
 include("${AOM_ROOT}/build/cmake/aom_config_defaults.cmake")
 include("${AOM_ROOT}/build/cmake/aom_experiment_deps.cmake")
@@ -258,6 +259,15 @@ fix_experiment_configs()
 set(HAVE_PTHREAD_H ${CMAKE_USE_PTHREADS_INIT})
 aom_check_source_compiles("unistd_check" "#include <unistd.h>" HAVE_UNISTD_H)
 
+if(HAVE_PTHREAD_H)
+  # Check for pthread setname_np API
+  aom_push_var(CMAKE_REQUIRED_DEFINITIONS "-D_GNU_SOURCE")
+  check_symbol_exists(pthread_setname_np pthread.h _HAS_PTHREAD_SETNAME_NP)
+  aom_pop_var(CMAKE_REQUIRED_DEFINITIONS)
+
+  set(HAVE_PTHREAD_SETNAME_NP ${_HAS_PTHREAD_SETNAME_NP})
+endif()
+
 if(NOT WIN32)
   aom_push_var(CMAKE_REQUIRED_LIBRARIES "m")
   aom_check_c_compiles("fenv_check" "#define _GNU_SOURCE
@@ -431,6 +441,20 @@ if(EMSCRIPTEN)
   # of target_link_libraries() used by Emscripten.cmake.
   unset(AOM_LIB_LINK_TYPE)
 endif()
+
+# Sanitize boolean variables to ensure they are 0 or 1.
+foreach(aom_config_var ${AOM_CONFIG_VARS})
+  if(
+    NOT aom_config_var MATCHES
+    "AOM_RTCD_FLAGS|CONFIG_MAX_DECODE_PROFILE|DECODE_HEIGHT_LIMIT|DECODE_WIDTH_LIMIT"
+    )
+    if(${aom_config_var})
+      set(${aom_config_var} 1)
+    else()
+      set(${aom_config_var} 0)
+    endif()
+  endif()
+endforeach()
 
 # Generate aom_config templates.
 set(aom_config_asm_template "${AOM_CONFIG_DIR}/config/aom_config.asm.cmake")

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -75,15 +73,15 @@ ContentPermissionRequestParent::ContentPermissionRequestParent(
     Element* aElement, nsIPrincipal* aPrincipal,
     nsIPrincipal* aTopLevelPrincipal,
     const bool aHasValidTransientUserGestureActivation,
-    const bool aIsRequestDelegatedToUnsafeThirdParty) {
+    const bool aIsRequestDelegatedToUnsafeThirdParty)
+    : mPrincipal(aPrincipal),
+      mTopLevelPrincipal(aTopLevelPrincipal),
+      mElement(aElement),
+      mHasValidTransientUserGestureActivation(
+          aHasValidTransientUserGestureActivation),
+      mIsRequestDelegatedToUnsafeThirdParty(
+          aIsRequestDelegatedToUnsafeThirdParty) {
   MOZ_COUNT_CTOR(ContentPermissionRequestParent);
-
-  mPrincipal = aPrincipal;
-  mTopLevelPrincipal = aTopLevelPrincipal;
-  mElement = aElement;
-  mHasValidTransientUserGestureActivation =
-      aHasValidTransientUserGestureActivation;
-  mIsRequestDelegatedToUnsafeThirdParty = aIsRequestDelegatedToUnsafeThirdParty;
 }
 
 ContentPermissionRequestParent::~ContentPermissionRequestParent() {
@@ -633,8 +631,7 @@ nsresult TranslateChoices(
 
       JS::Rooted<JS::Value> val(cx);
 
-      if (!JS_GetProperty(cx, obj, type.BeginReading(), &val) ||
-          !val.isString()) {
+      if (!JS_GetProperty(cx, obj, type.get(), &val) || !val.isString()) {
         // no setting for the permission type, clear exception and skip it
         jsapi.ClearException();
       } else {

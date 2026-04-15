@@ -58,6 +58,7 @@ import org.mozilla.fenix.components.menu.compose.MenuGroup
 import org.mozilla.fenix.components.menu.compose.MenuItem
 import org.mozilla.fenix.components.menu.compose.MenuItemState
 import org.mozilla.fenix.components.menu.compose.MenuScaffold
+import org.mozilla.fenix.components.menu.compose.MenuTextItem
 import org.mozilla.fenix.compose.LinkText
 import org.mozilla.fenix.compose.LinkTextState
 import org.mozilla.fenix.settings.PhoneFeature
@@ -93,6 +94,7 @@ internal fun ProtectionPanel(
     onAutoplayValueClick: (AutoplayValue) -> Unit,
     onToggleablePermissionClick: (WebsitePermission.Toggleable) -> Unit,
     onViewCertificateClick: () -> Unit,
+    onViewQWACClick: () -> Unit,
 ) {
     val isSiteProtectionEnabled = isTrackingProtectionEnabled && isGlobalTrackingProtectionEnabled
     MenuScaffold(
@@ -169,6 +171,16 @@ internal fun ProtectionPanel(
                     ),
                     onClick = onViewCertificateClick,
                 )
+                websiteInfoState.qwac?.let {
+                    MenuTextItem(
+                        label = stringResource(
+                            id = R.string.connection_security_panel_issued_to,
+                            CertificateUtils.subjectOrganization(it) ?: "",
+                        ),
+                        description = stringResource(id = R.string.connection_security_panel_qualified_certificate),
+                        onClick = onViewQWACClick,
+                    )
+                }
             } else {
                 MenuItem(
                     label = stringResource(id = R.string.connection_security_panel_not_secure),
@@ -467,6 +479,7 @@ private fun ProtectionPanelPreview() {
                 onAutoplayValueClick = {},
                 onToggleablePermissionClick = {},
                 onViewCertificateClick = {},
+                onViewQWACClick = {},
             )
         }
     }

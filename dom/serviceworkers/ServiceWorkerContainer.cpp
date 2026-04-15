@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -291,7 +289,7 @@ already_AddRefed<Promise> ServiceWorkerContainer::Register(
     AutoTArray<nsString, 1> param;
     CopyUTF8toUTF16(cleanedScopeURL, *param.AppendElement());
     aGlobal->ReportToConsole(nsIScriptError::errorFlag, "Service Workers"_ns,
-                             nsContentUtils::eDOM_PROPERTIES,
+                             PropertiesFile::DOM_PROPERTIES,
                              "ServiceWorkerRegisterStorageError"_ns, param);
   });
 
@@ -366,7 +364,7 @@ already_AddRefed<Promise> ServiceWorkerContainer::GetRegistrations(
     ErrorResult& aRv) {
   nsIGlobalObject* global = GetGlobalIfValid(aRv, [](nsIGlobalObject* aGlobal) {
     aGlobal->ReportToConsole(nsIScriptError::errorFlag, "Service Workers"_ns,
-                             nsContentUtils::eDOM_PROPERTIES,
+                             PropertiesFile::DOM_PROPERTIES,
                              "ServiceWorkerGetRegistrationStorageError"_ns);
   });
   if (aRv.Failed()) {
@@ -451,7 +449,7 @@ already_AddRefed<Promise> ServiceWorkerContainer::GetRegistration(
     const nsAString& aURL, ErrorResult& aRv) {
   nsIGlobalObject* global = GetGlobalIfValid(aRv, [](nsIGlobalObject* aGlobal) {
     aGlobal->ReportToConsole(nsIScriptError::errorFlag, "Service Workers"_ns,
-                             nsContentUtils::eDOM_PROPERTIES,
+                             PropertiesFile::DOM_PROPERTIES,
                              "ServiceWorkerGetRegistrationStorageError"_ns);
   });
   if (aRv.Failed()) {

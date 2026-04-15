@@ -67,6 +67,7 @@ class MicrosurveyMessageControllerTest {
         microsurveyMessageController.onPrivacyPolicyLinkClicked(message.id, "homepage")
 
         verify {
+            @Suppress("DEPRECATION")
             homeActivity.openToBrowserAndLoad(
                 searchTermOrURL = "$PRIVACY_POLICY_URL&utm_content=homepage",
                 newTab = true,
@@ -81,6 +82,7 @@ class MicrosurveyMessageControllerTest {
 
         verify { appStore.dispatch(OnPrivacyNoticeTapped(message.id)) }
         verify {
+            @Suppress("DEPRECATION")
             homeActivity.openToBrowserAndLoad(
                 searchTermOrURL = PRIVACY_POLICY_URL,
                 newTab = true,

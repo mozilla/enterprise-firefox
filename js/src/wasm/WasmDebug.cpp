@@ -267,9 +267,8 @@ void DebugState::clearBreakpointsIn(JS::GCContext* gcx,
   if (breakpointSites_.empty()) {
     return;
   }
-  for (WasmBreakpointSiteMap::Enum e(breakpointSites_); !e.empty();
-       e.popFront()) {
-    WasmBreakpointSite* site = e.front().value();
+  for (auto iter = breakpointSites_.modIter(); !iter.done(); iter.next()) {
+    WasmBreakpointSite* site = iter.get().value();
     MOZ_ASSERT(site->instanceObject == instance);
 
     Breakpoint* nextbp;
@@ -283,7 +282,7 @@ void DebugState::clearBreakpointsIn(JS::GCContext* gcx,
     }
     if (site->isEmpty()) {
       gcx->delete_(instance, site, MemoryUse::BreakpointSite);
-      e.removeFront();
+      iter.remove();
     }
   }
 }

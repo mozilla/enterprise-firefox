@@ -188,8 +188,11 @@ class InterventionTest(MozbuildObject):
             uname[0]
         )
 
-        if platform_name in ("linux", "win"):
-            bits = "64" if uname[4] == "x86_64" else "32"
+        arch = uname[4].lower()
+        if arch in {"aarch64", "arm64"}:
+            bits = "-aarch64"
+        elif platform_name in ("linux", "win"):
+            bits = "64" if arch == "x86_64" else "32"
         elif platform_name == "macos":
             bits = ""
         else:

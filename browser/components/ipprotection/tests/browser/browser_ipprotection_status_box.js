@@ -4,8 +4,11 @@
 
 "use strict";
 
-const { BANDWIDTH, LINKS, ERRORS } = ChromeUtils.importESModule(
+const { BANDWIDTH, LINKS } = ChromeUtils.importESModule(
   "chrome://browser/content/ipprotection/ipprotection-constants.mjs"
+);
+const { ERRORS } = ChromeUtils.importESModule(
+  "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs"
 );
 const lazy = {};
 
@@ -176,7 +179,7 @@ add_task(async function test_network_error() {
   );
 
   // Check for the error icon in the network error case
-  let errorIcon = statusBox.querySelector('img[slot="icon"]');
+  let errorIcon = statusBox.querySelector('img[slot="image"]');
   Assert.ok(errorIcon, "Error icon should be present for network error");
 
   Assert.ok(!content.statusCardEl, "Status card should be hidden when error");

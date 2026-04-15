@@ -604,6 +604,18 @@
     </description>
   </hbox>
 
+  <html:moz-message-bar id="backup-multi-profile-warning-message-bar"
+                   type="info"
+                   dismissable="true"
+                   data-l10n-id="backup-multi-profile-warning-message"
+                   data-l10n-attrs="message"
+                   hidden="true">
+    <html:a id="dataCollectionViewProfilesMultiProfileBackupWarning"
+            slot="support-link"
+            target="_blank"
+            data-l10n-id="preferences-view-profiles"/>
+  </html:moz-message-bar>
+
   <vbox data-subcategory="reports">
     <checkbox id="submitHealthReportBox"
               data-l10n-id="collection-health-report2"/>

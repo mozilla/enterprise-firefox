@@ -32,6 +32,8 @@
 namespace js {
 namespace wasm {
 
+struct StackMap;
+
 // Container for a piece of out-of-line code, the slow path that supports an
 // operation.
 class OutOfLineCode;
@@ -957,6 +959,10 @@ struct BaseCompiler final {
   [[nodiscard]] bool createStackMap(
       const char* who, HasDebugFrameWithLiveRefs debugFrameWithLiveRefs);
 
+  // Creates a stack map for an aborting trap instruction that will be emitted
+  // OOL.
+  [[nodiscard]] bool createAbortingOutOfLineTrapStackMap(StackMap** result);
+
   ////////////////////////////////////////////////////////////
   //
   // Control stack
@@ -1362,7 +1368,10 @@ struct BaseCompiler final {
   inline TrapSiteDesc trapSiteDesc() const;
 
   // Generate a trap instruction for the current bytecodeOffset.
-  inline void trap(Trap t) const;
+  inline void trap(Trap t);
+
+  // Generate a trap instruction for given location and stack map.
+  inline void trap(Trap t, const TrapSiteDesc& trapSite, StackMap* stackMap);
 
   // Abstracted helper for throwing, used for throw, rethrow, and rethrowing
   // at the end of a series of catch blocks (if none matched the exception).
@@ -1743,6 +1752,8 @@ struct BaseCompiler final {
   [[nodiscard]] bool emitTableGrow();
   [[nodiscard]] bool emitTableSet();
   [[nodiscard]] bool emitTableSize();
+  [[nodiscard]] bool emitI64AddSub128(bool isAdd);
+  [[nodiscard]] bool emitI64MulWide(bool isSigned);
 
   void emitTableBoundsCheck(uint32_t tableIndex, RegI32 address,
                             RegPtr instance);

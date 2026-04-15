@@ -382,6 +382,55 @@
       }
     },
 
+    async function iceCandidateErrorWithBadCredentials() {
+      const pc = new RTCPeerConnection();
+      pc.setConfiguration({iceServers: [{
+        urls: [`turn:${turnAddressV4}`],
+        username: "wronguser",
+        credential: "wrongpass",
+      }]});
+      try {
+        const candidateErrorPromise = new Promise(resolve =>
+          pc.addEventListener('icecandidateerror', resolve, { once: true })
+        );
+        await pc.setLocalDescription(
+          await pc.createOffer({ offerToReceiveAudio: true })
+        );
+        const event = await candidateErrorPromise;
+        ok(event instanceof RTCPeerConnectionIceErrorEvent,
+           'event is RTCPeerConnectionIceErrorEvent');
+        is(event.errorCode, 401, "401 for bad TURN credentials");
+        ok(event.url.startsWith("turn:"), "URL starts with turn:");
+      } finally {
+        pc.close();
+      }
+    },
+
+    async function noIceCandidateErrorWithGoodCredentials() {
+      const pc = new RTCPeerConnection();
+      pc.setConfiguration({iceServers: [{
+        urls: [`turn:${turnAddressV4}`],
+        username,
+        credential,
+      }]});
+      try {
+        let errorFired = false;
+        pc.addEventListener('icecandidateerror', () => { errorFired = true; });
+        await pc.setLocalDescription(
+          await pc.createOffer({ offerToReceiveAudio: true })
+        );
+        await new Promise(resolve => {
+          pc.addEventListener('icegatheringstatechange', () => {
+            if (pc.iceGatheringState === 'complete') resolve();
+          });
+          if (pc.iceGatheringState === 'complete') resolve();
+        });
+        ok(!errorFired, "No icecandidateerror event should fire with valid credentials");
+      } finally {
+        pc.close();
+      }
+    },
+
     async function addOffererTurnServerAllowsIceToConnect() {
       await pushPrefs(
           ['media.peerconnection.nat_simulator.filtering_type', 'PORT_DEPENDENT'],

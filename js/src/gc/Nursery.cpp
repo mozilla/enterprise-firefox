@@ -1755,7 +1755,7 @@ size_t js::Nursery::doPretenuring(JSRuntime* rt, JS::GCReason reason,
       }
       if (disableNurseryBigInts) {
         zone->nurseryBigIntsDisabled = true;
-        zonesWhereStringsDisabled++;
+        zonesWhereBigIntsDisabled++;
       }
       updateAllocFlagsForZone(zone);
     }
@@ -1951,9 +1951,8 @@ size_t Nursery::sizeOfMallocedBuffers(
   MOZ_ASSERT(fromSpace.mallocedBuffers.empty());
 
   size_t total = 0;
-  for (BufferSet::Range r = toSpace.mallocedBuffers.all(); !r.empty();
-       r.popFront()) {
-    total += mallocSizeOf(r.front());
+  for (auto iter = toSpace.mallocedBuffers.iter(); !iter.done(); iter.next()) {
+    total += mallocSizeOf(iter.get());
   }
   total += toSpace.mallocedBuffers.shallowSizeOfExcludingThis(mallocSizeOf);
 
@@ -2015,14 +2014,14 @@ void js::Nursery::sweepStringsWithBuffer() {
   ExtensibleStringBuffers buffers(std::move(extensibleStringBuffers_));
   MOZ_ASSERT(extensibleStringBuffers_.empty());
 
-  for (ExtensibleStringBuffers::Enum e(buffers); !e.empty(); e.popFront()) {
-    if (JSLinearString* dst = sweep(e.front().key(), e.front().value())) {
-      if (!extensibleStringBuffers_.putNew(dst, e.front().value())) {
+  for (auto iter = buffers.modIter(); !iter.done(); iter.next()) {
+    if (JSLinearString* dst = sweep(iter.get().key(), iter.get().value())) {
+      if (!extensibleStringBuffers_.putNew(dst, iter.get().value())) {
         oomUnsafe.crash("sweepStringsWithBuffer");
       }
       // Ensure mallocedBufferBytes includes the buffer size for
       // removeExtensibleStringBuffer.
-      addMallocedBufferBytes(e.front().value()->AllocationSize());
+      addMallocedBufferBytes(iter.get().value()->AllocationSize());
     }
   }
 }

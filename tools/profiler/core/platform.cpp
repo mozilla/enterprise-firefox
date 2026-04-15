@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -360,7 +358,7 @@ class GeckoJavaSampler
     // devtools/client/performance-new/shared/background.sys.mjs
     auto filtersTempPtr =
         mozilla::TransformIntoNewArray(filtersTemp, convertToPtr);
-    profiler_start(PowerOfTwo32(128 * 1024 * 1024), 5.0, features,
+    profiler_start(PowerOfTwo32(128u * 1024 * 1024), 5.0, features,
                    filtersTempPtr.Elements(), filtersTempPtr.Length(), 0,
                    Nothing());
   }
@@ -489,7 +487,7 @@ Json::String ToCompactString(const Json::Value& aJsonValue) {
 
 MOZ_RUNINIT /* static */ mozilla::baseprofiler::detail::BaseProfilerMutex
     ProfilingLog::gMutex;
-MOZ_RUNINIT /* static */ mozilla::UniquePtr<Json::Value> ProfilingLog::gLog;
+constinit /* static */ mozilla::UniquePtr<Json::Value> ProfilingLog::gLog;
 
 /* static */ void ProfilingLog::Init() {
   mozilla::baseprofiler::detail::BaseProfilerAutoLock lock{gMutex};
@@ -1604,9 +1602,8 @@ class ActivePS {
   // shared between all threads.
   static nsTArray<mozilla::JSSourceEntry> GatherJSSources(PSLockRef aLock) {
     nsTArray<mozilla::JSSourceEntry> jsSourceEntries;
-    if (!ProfilerFeature::HasJSSources(ActivePS::Features(aLock))) {
-      return jsSourceEntries;
-    }
+    bool gatherSourceText =
+        ProfilerFeature::HasJSSources(ActivePS::Features(aLock));
 
     ThreadRegistry::LockedRegistry lockedRegistry;
     ActivePS::ProfiledThreadList threads =
@@ -1625,8 +1622,10 @@ class ActivePS {
     }
     JSContext* jsContext = mainThread->mJSContext;
 
-    js::ProfilerJSSources threadSources =
-        js::GetProfilerScriptSources(JS_GetRuntime(jsContext));
+    // Always gather source metadata (filename, sourceMapURL), but only gather
+    // actual source text if the JS sources feature is enabled.
+    js::ProfilerJSSources threadSources = js::GetProfilerScriptSources(
+        JS_GetRuntime(jsContext), gatherSourceText);
 
     // Compute hash for each source based on filepath and source text.
     // This replaces random UUIDs with deterministic hashes, which enables us to
@@ -3009,6 +3008,11 @@ void DoNativeBacktraceDirect(const void* stackTop, NativeStack& aNativeStack,
   aNativeStack.mCount = 0;
 #  endif
 }
+#else
+void DoNativeBacktraceDirect(const void* stackTop, NativeStack& aNativeStack,
+                             StackWalkControl* aStackWalkControlIfSupported) {
+  aNativeStack.mCount = 0;
+}
 #endif
 
 // Writes some components shared by periodic and synchronous profiles to
@@ -3918,13 +3922,10 @@ locked_profiler_stream_json_for_this_process(
   nsTArray<mozilla::JSSourceEntry> jsSourceEntries =
       ActivePS::GatherJSSources(aLock);
 
-  // If there are sources, stream the sources table that is shared between the
-  // threads, and get the UUID to index mappings needed for frame serialization.
-  Maybe<nsTHashMap<SourceId, IndexIntoSourceTable>> sourceIdToIndexMap;
-  if (!jsSourceEntries.IsEmpty()) {
-    sourceIdToIndexMap.emplace(
-        buffer.StreamSourceTableToJSON(aWriter, jsSourceEntries));
-  }
+  // Always stream the sources table that is shared between the threads, and get
+  // the UUID to index mappings needed for frame serialization.
+  nsTHashMap<SourceId, IndexIntoSourceTable> sourceIdToIndexMap =
+      buffer.StreamSourceTableToJSON(aWriter, jsSourceEntries);
 
   // Lists the samples for each thread profile
   aWriter.StartArrayProperty("threads");
@@ -3953,8 +3954,7 @@ locked_profiler_stream_json_for_this_process(
       MOZ_RELEASE_ASSERT(thread.mProfiledThreadData);
       processStreamingContext.AddThreadStreamingContext(
           *thread.mProfiledThreadData, buffer, thread.mJSContext, aService,
-          std::move(progressLogger),
-          sourceIdToIndexMap.isSome() ? sourceIdToIndexMap.ptr() : nullptr);
+          std::move(progressLogger), &sourceIdToIndexMap);
       if (aWriter.Failed()) {
         return Err(ProfilerError::JsonGenerationFailed);
       }
@@ -3998,7 +3998,7 @@ locked_profiler_stream_json_for_this_process(
       for (java::GeckoJavaSampler::ThreadInfo::LocalRef& threadInfo :
            javaThreads) {
         ProfiledThreadData threadData(ThreadRegistrationInfo{
-            threadInfo->GetName()->ToCString().BeginReading(),
+            threadInfo->GetName()->ToCString().get(),
             ProfilerThreadId::FromNumber(threadInfo->GetId()), false,
             CorePS::ProcessStartTime()});
 
@@ -4465,6 +4465,9 @@ class SamplerThread {
         std::move(mPostSamplingCallbackList), std::move(aCallback));
   }
 
+  SamplerThread(const SamplerThread&) = delete;
+  void operator=(const SamplerThread&) = delete;
+
  private:
   void SpyOnUnregisteredThreads();
 
@@ -4587,9 +4590,6 @@ class SamplerThread {
   // Unregistered threads that have been found, and are being spied on.
   using SpiedThreads = AutoTArray<SpiedThread, 128>;
   SpiedThreads mSpiedThreads;
-
-  SamplerThread(const SamplerThread&) = delete;
-  void operator=(const SamplerThread&) = delete;
 };
 
 namespace geckoprofiler::markers {
@@ -5554,7 +5554,7 @@ void SamplerThread::SpyOnUnregisteredThreads() {
 #elif defined(GP_OS_linux) || defined(GP_OS_android) || defined(GP_OS_freebsd)
 #  include "platform-linux-android.cpp"
 #else
-#  error "bad platform"
+#  include "platform-noop.cpp"
 #endif
 
 // END SamplerThread
@@ -6384,8 +6384,9 @@ WriteProfileToJSONWriter(SpliceableChunkedJSONWriter& aWriter,
 
 void profiler_set_process_name(const nsACString& aProcessName,
                                const nsACString* aETLDplus1) {
-  LOG("profiler_set_process_name(\"%s\", \"%s\")", aProcessName.Data(),
-      aETLDplus1 ? aETLDplus1->Data() : "<none>");
+  LOG("profiler_set_process_name(\"%s\", \"%s\")",
+      PromiseFlatCString(aProcessName).get(),
+      aETLDplus1 ? PromiseFlatCString(*aETLDplus1).get() : "<none>");
   PSAutoLock lock;
   CorePS::SetProcessName(lock, aProcessName);
   if (aETLDplus1) {
@@ -7565,7 +7566,11 @@ struct CPUAwakeMarker {
     return MakeStringSpan("Awake");
   }
   static void StreamJSONMarkerData(baseprofiler::SpliceableJSONWriter& aWriter,
-                                   int64_t aCPUTimeNs, int64_t aCPUId
+                                   int64_t aCPUTimeNs
+#if !defined(GP_PLAT_unknown) && !defined(GP_PLAT_arm64_darwin)
+                                   ,
+                                   int64_t aCPUId
+#endif
 #ifdef GP_OS_darwin
                                    ,
                                    uint32_t aQoS
@@ -7585,7 +7590,7 @@ struct CPUAwakeMarker {
       return;
     }
 
-#ifndef GP_PLAT_arm64_darwin
+#if !defined(GP_PLAT_unknown) && !defined(GP_PLAT_arm64_darwin)
     aWriter.IntProperty("CPU Id", aCPUId);
 #endif
 #ifdef GP_OS_windows
@@ -7628,7 +7633,7 @@ struct CPUAwakeMarker {
     using MS = MarkerSchema;
     MS schema{MS::Location::MarkerChart, MS::Location::MarkerTable};
     schema.AddKeyFormat("CPU Time", MS::Format::Duration);
-#ifndef GP_PLAT_arm64_darwin
+#if !defined(GP_PLAT_unknown) && !defined(GP_PLAT_arm64_darwin)
     schema.AddKeyFormat("CPU Id", MS::Format::Integer);
     schema.SetTableLabel("Awake - CPU Id = {marker.data.CPU Id}");
 #endif
@@ -7660,16 +7665,19 @@ void profiler_mark_thread_asleep() {
             .GetNewCpuTimeInNs();
       },
       0);
-  PROFILER_MARKER("Awake", OTHER, MarkerTiming::IntervalEnd(), CPUAwakeMarker,
-                  cpuTimeNs, 0 /* cpuId */
+  PROFILER_MARKER(
+      "Awake", OTHER, MarkerTiming::IntervalEnd(), CPUAwakeMarker, cpuTimeNs
+#if !defined(GP_PLAT_unknown) && !defined(GP_PLAT_arm64_darwin)
+      ,
+      0 /* cpuId */
+#endif
 #if defined(GP_OS_darwin)
-                  ,
-                  0 /* qos_class */
+      ,
+      0 /* qos_class */
 #endif
 #if defined(GP_OS_windows)
-                  ,
-                  0 /* priority */, 0 /* thread priority */,
-                  0 /* current priority */
+      ,
+      0 /* priority */, 0 /* thread priority */, 0 /* current priority */
 #endif
   );
 }
@@ -7758,11 +7766,12 @@ void profiler_mark_thread_awake() {
     return;
   }
 
+#if !defined(GP_PLAT_unknown) && !defined(GP_PLAT_arm64_darwin)
   int64_t cpuId = 0;
-#if defined(GP_OS_windows)
+#  if defined(GP_OS_windows)
   cpuId = GetCurrentProcessorNumber();
-#elif defined(GP_OS_darwin)
-#  ifdef GP_PLAT_amd64_darwin
+#  elif defined(GP_OS_darwin)
+#    ifdef GP_PLAT_amd64_darwin
   unsigned int eax, ebx, ecx, edx;
   __cpuid_count(1, 0, eax, ebx, ecx, edx);
   // Check if we have an APIC.
@@ -7770,9 +7779,10 @@ void profiler_mark_thread_awake() {
     // APIC ID is bits 24-31 of EBX
     cpuId = ebx >> 24;
   }
-#  endif
-#else
+#    endif
+#  else
   cpuId = sched_getcpu();
+#  endif
 #endif
 
 #if defined(GP_OS_windows)
@@ -7803,7 +7813,11 @@ void profiler_mark_thread_awake() {
   }
 #endif
   PROFILER_MARKER("Awake", OTHER, MarkerTiming::IntervalStart(), CPUAwakeMarker,
-                  0 /* CPU time */, cpuId
+                  0 /* CPU time */
+#if !defined(GP_PLAT_unknown) && !defined(GP_PLAT_arm64_darwin)
+                  ,
+                  cpuId
+#endif
 #if defined(GP_OS_darwin)
                   ,
                   qos_class_self()

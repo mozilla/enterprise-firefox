@@ -12,6 +12,7 @@ import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -46,6 +47,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Dispatchers
@@ -85,8 +87,10 @@ import org.mozilla.fenix.components.menu.store.ExtensionMenuState
 import org.mozilla.fenix.components.menu.store.MenuAction
 import org.mozilla.fenix.components.menu.store.MenuState
 import org.mozilla.fenix.components.menu.store.MenuStore
+import org.mozilla.fenix.components.menu.store.SummarizationMenuState
 import org.mozilla.fenix.components.menu.store.TranslationInfo
 import org.mozilla.fenix.components.menu.store.WebExtensionMenuItem
+import org.mozilla.fenix.components.share.ShareSheetLauncherImpl
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.openSetDefaultBrowserOption
 import org.mozilla.fenix.ext.openToBrowser
@@ -168,7 +172,18 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         Events.toolbarMenuVisible.record(NoExtras())
 
-        return super.onCreateDialog(savedInstanceState).apply {
+        return object : BottomSheetDialog(requireContext(), theme) {
+            override fun onKeyDown(
+                keyCode: Int,
+                event: KeyEvent,
+            ): Boolean {
+                if (event.action == KeyEvent.ACTION_DOWN && event.keyCode == KeyEvent.KEYCODE_MENU) {
+                    dismiss()
+                    return true
+                }
+                return super.onKeyDown(keyCode, event)
+            }
+        }.apply {
             setOnShowListener {
                 val safeActivity = activity ?: return@setOnShowListener
                 val appStore = safeActivity.components.appStore
@@ -305,6 +320,14 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                                 appStore = appStore,
                                 addonManager = components.addonManager,
                                 settings = settings,
+                                summarizeMenuSettings = components.core.summarizeFeatureSettings,
+                                evaluateEligibilityForSummarization = {
+                                    selectedTab?.engineState?.engineSession?.let { session ->
+                                        requireComponents.core.summarizationEligibilityChecker
+                                            .checkLanguage(session)
+                                            .getOrNull()
+                                    } ?: false
+                                },
                                 bookmarksStorage = components.core.bookmarksStorage,
                                 pinnedSiteStorage = components.core.pinnedSiteStorage,
                                 appLinksUseCases = appLinksUseCases,
@@ -347,6 +370,15 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                                 scope = coroutineScope,
                                 customTab = customTab,
                                 webCompatReporterMoreInfoSender = webCompatReporterMoreInfoSender,
+                                shareSheetLauncher = ShareSheetLauncherImpl(
+                                    browserStore = browserStore,
+                                    navController = findNavController(),
+                                    onDismiss = {
+                                        lifecycleScope.launch(Dispatchers.Main) {
+                                            this@MenuDialogFragment.dismiss()
+                                        }
+                                    },
+                                ),
                             ),
                             MenuTelemetryMiddleware(
                                 accessPoint = args.accesspoint,
@@ -366,7 +398,9 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
 
                 var isExtensionsExpanded by remember { mutableStateOf(false) }
 
-                var isMoreMenuExpanded by remember { mutableStateOf(false) }
+                val isMoreMenuExpanded by remember {
+                    store.stateFlow.map { state -> state.isMoreMenuExpanded }
+                }.collectAsState(initial = false)
 
                 MenuDialogBottomSheet(
                     modifier = Modifier
@@ -379,9 +413,9 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                             (isExtensionsExpanded || isMoreMenuExpanded) &&
                             args.accesspoint == MenuAccessPoint.Browser,
                     cornerShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-                    menuCfrState = if (settings.shouldShowMenuCFR) {
+                    menuCfrState = if (settings.shouldShowMenuCFR && settings.cfrPopupsEnabled) {
                         MenuCFRState(
-                            showCFR = settings.shouldShowMenuCFR,
+                            showCFR = settings.shouldShowMenuCFR && settings.cfrPopupsEnabled,
                             titleRes = R.string.menu_cfr_title,
                             messageRes = R.string.menu_cfr_body,
                             orientation = appStore.state.orientation,
@@ -516,6 +550,10 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                         },
                     )
 
+                    val summarizationMenuState by remember {
+                        store.stateFlow.map { state -> state.summarizationMenuState }
+                    }.collectAsState(initial = SummarizationMenuState.Default)
+
                     val contentState: Route by remember { mutableStateOf(initRoute) }
 
                     var shouldShowMenuBanner by
@@ -630,7 +668,8 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                                     isPdf = isPdf,
                                     isPrivate = isPrivate,
                                     isReaderViewActive = isReaderViewActive,
-                                    isMoreMenuHighlighted = isOpenInAppMenuHighlighted,
+                                    isMoreMenuHighlighted = isOpenInAppMenuHighlighted ||
+                                            summarizationMenuState.overflowMenuHighlighted,
                                     canGoBack = selectedTab?.content?.canGoBack ?: true,
                                     canGoForward = selectedTab?.content?.canGoForward ?: true,
                                     extensionsMenuItemDescription = extensionsMenuItemDescription,
@@ -686,7 +725,7 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                                         }
                                     },
                                     onMoreMenuClick = {
-                                        isMoreMenuExpanded = !isMoreMenuExpanded
+                                        store.dispatch(MenuAction.OnMoreMenuClicked)
                                     },
                                     onBookmarksMenuClick = {
                                         store.dispatch(MenuAction.Navigate.Bookmarks)
@@ -738,9 +777,14 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                                             translationInfo = translationInfo,
                                             showShortcuts = settings.showTopSitesFeature,
                                             isAndroidAutomotiveAvailable = context.isAndroidAutomotiveAvailable(),
-                                            showSummarization = settings.shakeToSummarizeFeatureEnabled,
+                                            summarizationMenuState = summarizationMenuState,
                                             onWebCompatReporterClick = {
                                                 store.dispatch(MenuAction.Navigate.WebCompatReporter)
+                                            },
+                                            onSummarizePageMenuExposed = {
+                                                store.dispatch(
+                                                    MenuAction.OnSummarizationMenuExposed,
+                                                )
                                             },
                                             onSummarizePageClick = {
                                                 store.dispatch(MenuAction.Navigate.Summarizer)

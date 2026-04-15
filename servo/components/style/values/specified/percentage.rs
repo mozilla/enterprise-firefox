@@ -15,9 +15,7 @@ use crate::values::{normalize, reify_percentage, serialize_percentage, CSSFloat}
 use cssparser::{Parser, Token};
 use std::fmt::{self, Write};
 use style_traits::values::specified::AllowedNumericType;
-use style_traits::{
-    CssWriter, MathSum, NumericValue, ParseError, SpecifiedValueInfo, ToCss, ToTyped, TypedValue,
-};
+use style_traits::{CssWriter, ParseError, SpecifiedValueInfo, ToCss, ToTyped, TypedValue};
 use thin_vec::ThinVec;
 
 /// A percentage value.
@@ -51,16 +49,8 @@ impl ToCss for Percentage {
 }
 
 impl ToTyped for Percentage {
-    fn to_typed(&self) -> Option<TypedValue> {
-        let numeric_value = reify_percentage(self.value);
-
-        if self.calc_clamping_mode.is_some() {
-            Some(TypedValue::Numeric(NumericValue::Sum(MathSum {
-                values: ThinVec::from([numeric_value]),
-            })))
-        } else {
-            Some(TypedValue::Numeric(numeric_value))
-        }
+    fn to_typed(&self, dest: &mut ThinVec<TypedValue>) -> Result<(), ()> {
+        reify_percentage(self.value, self.calc_clamping_mode.is_some(), dest)
     }
 }
 

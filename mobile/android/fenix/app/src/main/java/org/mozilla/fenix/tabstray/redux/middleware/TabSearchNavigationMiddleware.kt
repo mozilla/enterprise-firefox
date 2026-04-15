@@ -4,20 +4,20 @@
 
 package org.mozilla.fenix.tabstray.redux.middleware
 
-import mozilla.components.browser.state.state.TabSessionState
 import mozilla.components.lib.state.Middleware
 import mozilla.components.lib.state.Store
-import org.mozilla.fenix.tabstray.TabSearchAction
-import org.mozilla.fenix.tabstray.TabsTrayAction
-import org.mozilla.fenix.tabstray.TabsTrayState
+import org.mozilla.fenix.tabstray.data.TabsTrayItem
+import org.mozilla.fenix.tabstray.redux.action.TabSearchAction
+import org.mozilla.fenix.tabstray.redux.action.TabsTrayAction
+import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
 
 /**
  * [Middleware] that produces navigation side effects in response to [TabSearchAction].
  *
- * @param onSearchResultClicked Invoked with the selected [TabSessionState] when a search result is clicked.
+ * @param onSearchResultClicked Invoked with the selected [TabsTrayItem] when a search result is clicked.
  **/
 class TabSearchNavigationMiddleware(
-    private val onSearchResultClicked: (TabSessionState) -> Unit,
+    private val onSearchResultClicked: (TabsTrayItem) -> Unit,
 ) : Middleware<TabsTrayState, TabsTrayAction> {
 
     override fun invoke(

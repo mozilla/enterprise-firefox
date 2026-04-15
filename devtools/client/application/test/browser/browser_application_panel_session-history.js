@@ -55,20 +55,23 @@ add_task(async function () {
 
   // We're navigating to a very specific session history setup, which should in
   // diagram form look like this:
-  //
   // +------------------+------------------+------------------+
   // |        0         |        1         |        2         |
   // +------------------+------------------+------------------+
   // | index.html                                             |
   // +------------------+------------------+------------------+
-  // | iframe.html      | iframe.html?1                       |
+  // | iframe.html      | iframe.html?0                       |
   // +------------------+------------------+------------------+
-  // | iframe.html                         | iframe.html?2    |
+  // | iframe.html                         | iframe.html?1    |
   // +------------------+------------------+------------------+
   //
+  // Session History is represented as a single flat table. Diagrams for
+  // different same-document navigation groups are placed side by side,
+  // separated by spacer columns. Within each group, rows capture the iframe
+  // hierarchy.
 
   info("Start checking.");
-  let table = doc.querySelector("table");
+  let table = doc.querySelector("#diagram-container-table");
   Assert.equal(4, table.rows.length);
   Assert.equal(1, table.tHead.rows.length);
   Assert.equal(1, table.tBodies.length);
@@ -172,14 +175,46 @@ add_task(async function () {
     uriString: uri.href,
   });
 
-  table = doc.querySelector("table");
+  table = doc.querySelector("#diagram-container-table");
   tBodyRows = table.tBodies[0].rows;
 
-  Assert.equal(2, tBodyRows[0].cells.length);
-  Assert.equal(uri.pathname, tBodyRows[0].cells[1].innerText);
+  // When navigating to a new top level we're going to add a spacer between the
+  // entries. Because of that the diagram contains five columns. four for
+  // entries and one for spacing.
+  //
+  // +-----+-----+------------------+   +------------------+
+  // | ... | ... |        2         |   |        3         |
+  // +-----+-----+------------------+   +------------------+
+  // | ...                          |   | index_with_...   |
+  // +-----+-----+------------------+   +------------------+
+  // | ... | ...                    |
+  // +-----+-----+------------------+
+  // | ...       | iframe.html?1    |
+  // +-----+-----+------------------+
+  //                                  ^
+  //                                  spacing column
+  //
+  // It should also be noted that column three has a borderless cell below its
+  // entry.
+
+  Assert.equal(3, tBodyRows[0].cells.length);
+  Assert.equal(uri.pathname, tBodyRows[0].cells[2].innerText);
+  Assert.ok(tBodyRows[0].cells[1].getAttribute("aria-hidden"));
+  Assert.equal(
+    2,
+    tBodyRows[1].cells[2].getAttribute("rowspan"),
+    "empty cell below entry 3"
+  );
+
+  // Finally, when we have an interesting colgroup, make sure that it
+  // corresponds to the table depicted above.
+  const colgroup = table.querySelector("colgroup");
+  Assert.equal(3, colgroup.children.length);
+  Assert.equal(3, colgroup.children[0].getAttribute("span"));
+  Assert.equal("diagram-spacer", colgroup.children[1].getAttribute("class"));
 
   info("Click on a button to bring up entry info");
-  tBodyRows[0].cells[1].firstChild.click();
+  tBodyRows[0].cells[2].firstChild.click();
 
   popover = doc.querySelector(":popover-open");
   Assert.equal(
@@ -214,7 +249,7 @@ add_task(async function () {
   tBodyRows = table.tBodies[0].rows;
 
   Assert.stringContains(
-    tBodyRows[0].cells[2].getAttribute("class"),
+    tBodyRows[0].cells[3].getAttribute("class"),
     "same-document-nav"
   );
 

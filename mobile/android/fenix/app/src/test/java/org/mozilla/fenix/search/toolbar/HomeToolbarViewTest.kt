@@ -11,7 +11,7 @@ import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toBitmap
 import io.mockk.MockKAnnotations
 import io.mockk.every
-import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.spyk
@@ -51,10 +51,11 @@ import org.mozilla.fenix.search.fixtures.EMPTY_SEARCH_FRAGMENT_STATE
 import org.mozilla.fenix.utils.Settings
 import org.robolectric.RobolectricTestRunner
 import java.util.UUID
+import mozilla.components.ui.icons.R as iconsR
 
 @RunWith(RobolectricTestRunner::class)
 class HomeToolbarViewTest {
-    @MockK(relaxed = true)
+    @RelaxedMockK
     private lateinit var interactor: ToolbarInteractor
 
     private lateinit var context: Context
@@ -63,7 +64,7 @@ class HomeToolbarViewTest {
         searchEngineSource = SearchEngineSource.Default(
             mockk {
                 every { name } returns "Search Engine"
-                every { icon } returns testContext.getDrawable(R.drawable.ic_search)!!.toBitmap()
+                every { icon } returns testContext.getDrawable(iconsR.drawable.mozac_ic_search_24)!!.toBitmap()
                 every { type } returns SearchEngine.Type.BUNDLED
                 every { isGeneral } returns true
             },
@@ -851,7 +852,7 @@ class HomeToolbarViewTest {
     ) = SearchEngine(
         id = id,
         name = UUID.randomUUID().toString(),
-        icon = testContext.getDrawable(R.drawable.ic_search)!!.toBitmap(),
+        icon = testContext.getDrawable(iconsR.drawable.mozac_ic_search_24)!!.toBitmap(),
         type = type,
         isGeneral = isGeneral,
     )

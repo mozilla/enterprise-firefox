@@ -106,6 +106,9 @@ class MenuController {
    * @param {MouseEvent|KeyboardEvent} event
    */
   openPanelList = event => {
+    if (event.type == "click") {
+      event.preventDefault();
+    }
     if (
       (event.type == "mousedown" && event.button == 0) ||
       event.inputSource == MouseEvent.MOZ_SOURCE_KEYBOARD ||
@@ -155,6 +158,12 @@ class MenuController {
     }
     this.host.ariaHasPopup = "menu";
     this.host.ariaExpanded = this.#menuEl?.open ? "true" : "false";
+    let triggerEl = this.#hostIsSplitButton
+      ? this.host.chevronButtonEl
+      : this.host.buttonEl;
+    if (triggerEl) {
+      triggerEl.popoverTargetElement = this.#menuEl;
+    }
   }
 
   /**
@@ -165,6 +174,12 @@ class MenuController {
     this.removePanelListListeners();
     this.host.ariaHasPopup = null;
     this.host.ariaExpanded = null;
+    let triggerEl = this.#hostIsSplitButton
+      ? this.host.chevronButtonEl
+      : this.host.buttonEl;
+    if (triggerEl) {
+      triggerEl.popoverTargetElement = null;
+    }
   }
 }
 

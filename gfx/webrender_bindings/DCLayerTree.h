@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -77,6 +75,8 @@ class RenderDcompSurfaceTextureHost;
 struct GpuOverlayInfo {
   bool mSupportsOverlays = false;
   bool mSupportsHardwareOverlays = false;
+  bool mSupportsHardwareOverlayRGB10A2 = false;
+  bool mSupportsHardwareOverlayRGBA16F = false;
   DXGI_FORMAT mOverlayFormatUsed = DXGI_FORMAT_B8G8R8A8_UNORM;
   DXGI_FORMAT mOverlayFormatUsedHdr = DXGI_FORMAT_R16G16B16A16_FLOAT;
   UINT mNv12OverlaySupportFlags = 0;
@@ -200,6 +200,8 @@ class DCLayerTree {
   GLuint GetOrCreateFbo(int aWidth, int aHeight);
 
   bool SupportsHardwareOverlays();
+  bool SupportsHardwareOverlayRGB10A2();
+  bool SupportsHardwareOverlayRGBA16F();
   DXGI_FORMAT GetOverlayFormatForSDR();
 
   bool SupportsSwapChainTearing();
@@ -614,7 +616,8 @@ class DCSurfaceVideo : public DCSurface {
  protected:
   virtual ~DCSurfaceVideo();
 
-  DXGI_FORMAT GetSwapChainFormat(bool aUseVpAutoHDR, bool aUseHDR);
+  DXGI_FORMAT GetSwapChainFormat(bool aUseVpAutoHDR, bool aUseRGB10A2,
+                                 bool aUseRGBA16F);
   bool CreateVideoSwapChain(DXGI_FORMAT aFormat);
   bool CallVideoProcessorBlt();
   void ReleaseDecodeSwapChainResources();

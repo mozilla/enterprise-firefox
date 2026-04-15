@@ -48,10 +48,15 @@ uint64_t CallbackHandleCreate();
 uint32_t CallbackHandleAddRef(uint64_t aHandle);
 
 /**
- * Decrease the refconut for a callback interface handle.  Returns the new
+ * Decrease the refcount for a callback interface handle.  Returns the new
  * refcount.
  */
 uint32_t CallbackHandleRelease(uint64_t aHandle);
+
+/**
+ * Free a callback interface handle
+ */
+void CallbackHandleFree(uint64_t aHandle);
 
 /**
  * Base class for async callback interface method handlers

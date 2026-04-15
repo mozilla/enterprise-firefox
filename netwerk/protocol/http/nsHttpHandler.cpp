@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=4 sw=2 sts=2 et cin: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -48,6 +46,7 @@
 #include "nsIXULAppInfo.h"
 #include "nsICookieService.h"
 #include "nsIObserverService.h"
+#include "nsISiteIntegrityService.h"
 #include "nsISiteSecurityService.h"
 #include "nsIStreamConverterService.h"
 #include "nsCRT.h"
@@ -218,9 +217,7 @@ already_AddRefed<nsHttpHandler> nsHttpHandler::GetInstance() {
 static nsCString ImageAcceptHeader() {
   nsCString mimeTypes;
 
-#ifdef MOZ_AV1
   mimeTypes.Append("image/avif,");
-#endif
 
 #ifdef MOZ_JXL
   if (mozilla::StaticPrefs::image_jxl_enabled()) {
@@ -245,9 +242,7 @@ static nsCString DocumentAcceptHeader() {
 
   // we also insert all of the image formats before */* when the pref is set
   if (mozilla::StaticPrefs::network_http_accept_include_images()) {
-#ifdef MOZ_AV1
     mimeTypes.Append("image/avif,");
-#endif
 
 #ifdef MOZ_JXL
     if (mozilla::StaticPrefs::image_jxl_enabled()) {
@@ -371,6 +366,7 @@ nsresult nsHttpHandler::Init() {
   if (!IsNeckoChild()) {
     if (XRE_IsParentProcess()) {
       mDictionaryCache = DictionaryCache::GetInstance();
+      // mDictionaryCache can be null if shutdown has occurred
 
       std::bitset<3> usageOfHTTPSRRPrefs;
       usageOfHTTPSRRPrefs[0] = StaticPrefs::network_dns_upgrade_with_https_rr();
@@ -678,7 +674,7 @@ nsresult nsHttpHandler::AddAcceptAndDictionaryHeaders(
   // Add the "Accept-Encoding" header and possibly Dictionary headers
   if (aSecure) {
     // The dictionary info may require us to check the cache.
-    if (StaticPrefs::network_http_dictionaries_enable()) {
+    if (StaticPrefs::network_http_dictionaries_enable() && mDictionaryCache) {
       // Note: this is async; the lambda can happen later
       // aCallback will now be owned by GetDictionaryFor
       guard.release();
@@ -859,6 +855,16 @@ bool nsHttpHandler::IsAcceptableEncoding(const char* enc, bool isSecure) {
   LOG(("nsHttpHandler::IsAceptableEncoding %s https=%d %d\n", enc, isSecure,
        rv));
   return rv;
+}
+
+nsISiteIntegrityService* nsHttpHandler::GetSiteIntegrityService() {
+  if (!mSiteIntegrityService) {
+    nsCOMPtr<nsISiteIntegrityService> service;
+    service = mozilla::components::SiteIntegrity::Service();
+    mSiteIntegrityService = new nsMainThreadPtrHolder<nsISiteIntegrityService>(
+        "nsHttpHandler::mSiteIntegrityService", service);
+  }
+  return mSiteIntegrityService;
 }
 
 nsISiteSecurityService* nsHttpHandler::GetSSService() {
@@ -2763,26 +2769,24 @@ void nsHttpHandler::NotifyActiveTabLoadOptimization() {
 }
 
 TimeStamp nsHttpHandler::GetLastActiveTabLoadOptimizationHit() {
-  MutexAutoLock lock(mLastActiveTabLoadOptimizationLock);
-
-  return mLastActiveTabLoadOptimizationHit;
+  auto lastTimestamp = mLastActiveTabLoadOptimizationHit.Lock();
+  return *lastTimestamp;
 }
 
 void nsHttpHandler::SetLastActiveTabLoadOptimizationHit(TimeStamp const& when) {
-  MutexAutoLock lock(mLastActiveTabLoadOptimizationLock);
-
-  if (mLastActiveTabLoadOptimizationHit.IsNull() ||
-      (!when.IsNull() && mLastActiveTabLoadOptimizationHit < when)) {
-    mLastActiveTabLoadOptimizationHit = when;
+  if (when.IsNull()) {
+    return;
+  }
+  auto lastTimestamp = mLastActiveTabLoadOptimizationHit.Lock();
+  if (lastTimestamp->IsNull() || *lastTimestamp < when) {
+    *lastTimestamp = when;
   }
 }
 
 bool nsHttpHandler::IsBeforeLastActiveTabLoadOptimization(
     TimeStamp const& when) {
-  MutexAutoLock lock(mLastActiveTabLoadOptimizationLock);
-
-  return !mLastActiveTabLoadOptimizationHit.IsNull() &&
-         when <= mLastActiveTabLoadOptimizationHit;
+  auto lastTimestamp = mLastActiveTabLoadOptimizationHit.Lock();
+  return !lastTimestamp->IsNull() && when <= *lastTimestamp;
 }
 
 void nsHttpHandler::ExcludeHttp2OrHttp3Internal(
@@ -2811,13 +2815,13 @@ void nsHttpHandler::ExcludeHttp2OrHttp3Internal(
   MOZ_ASSERT_IF(!nsIOService::UseSocketProcess(), OnSocketThread());
 
   if (ci->IsHttp3()) {
-    if (!mExcludedHttp3Origins.Contains(ci->GetRoutedHost())) {
+    {
       MutexAutoLock lock(mHttpExclusionLock);
       mExcludedHttp3Origins.Insert(ci->GetRoutedHost());
     }
     mConnMgr->ExcludeHttp3(ci);
   } else {
-    if (!mExcludedHttp2Origins.Contains(ci->GetOrigin())) {
+    {
       MutexAutoLock lock(mHttpExclusionLock);
       mExcludedHttp2Origins.Insert(ci->GetOrigin());
     }

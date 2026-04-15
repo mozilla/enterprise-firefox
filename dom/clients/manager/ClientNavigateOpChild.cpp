@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -279,7 +277,7 @@ RefPtr<ClientOpPromise> ClientNavigateOpChild::DoNavigate(
     return ClientOpPromise::CreateAndReject(result, __func__);
   }
 
-  if (!aProxy->Get()) {
+  if (!aProxy->Get() || !CanSend()) {
     CopyableErrorResult result;
     result.ThrowInvalidStateError("Unknown Client");
     return ClientOpPromise::CreateAndReject(result, __func__);
@@ -315,7 +313,7 @@ void ClientNavigateOpChild::ActorDestroy(ActorDestroyReason aReason) {
 void ClientNavigateOpChild::Init(const ClientNavigateOpConstructorArgs& aArgs,
                                  mozilla::ipc::ActorLifecycleProxy* aProxy) {
   RefPtr<ClientOpPromise> promise = DoNavigate(aArgs, aProxy);
-  if (!aProxy->Get()) {
+  if (!aProxy->Get() || !CanSend()) {
     return;
   }
 

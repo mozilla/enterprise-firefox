@@ -1,5 +1,4 @@
-/* -*- Mode: C++; tab-width: 20; indent-tabs-mode: nil; c-basic-offset: 2 -*-
- * This Source Code Form is subject to the terms of the Mozilla Public
+/* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
@@ -1127,10 +1126,13 @@ RefPtr<ID3D11Device> DeviceManagerDx::CreateMediaEngineDevice() {
 
   HRESULT hr;
   RefPtr<ID3D11Device> device;
-  UINT flags = D3D11_CREATE_DEVICE_VIDEO_SUPPORT |
-               D3D11_CREATE_DEVICE_BGRA_SUPPORT |
+  UINT flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT |
                D3D11_CREATE_DEVICE_PREVENT_INTERNAL_THREADING_OPTIMIZATIONS;
-  if (!CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, flags, hr, device)) {
+  RefPtr<IDXGIAdapter1> adapter = GetDXGIAdapterLocked();
+  if (!adapter) {
+    return nullptr;
+  }
+  if (!CreateDevice(adapter, D3D_DRIVER_TYPE_UNKNOWN, flags, hr, device)) {
     return nullptr;
   }
   if (FAILED(hr) || !device || !D3D11Checks::DoesDeviceWork()) {

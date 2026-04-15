@@ -232,6 +232,8 @@ add_task(async function test_multistage_aboutwelcome_experimentAPI() {
     ["main.AW_STEP1", "main.AW_STEP2"]
   );
   await onButtonClick(browser, "button.primary");
+
+  await BrowserTestUtils.browserLoaded(browser, false, "about:home");
   await test_screen_content(
     browser,
     "home",

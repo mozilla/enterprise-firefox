@@ -26,7 +26,11 @@ const lazy = XPCOMUtils.declareLazy({
   GenAI: "resource:///modules/GenAI.sys.mjs",
   MemoryStore:
     "moz-src:///browser/components/aiwindow/services/MemoryStore.sys.mjs",
+  MODELS:
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindowConstants.sys.mjs",
 });
+
+let previousAssistantModel = "No model";
 
 Preferences.addAll([
   // browser.ai.control.* prefs defined in main.js
@@ -35,9 +39,11 @@ Preferences.addAll([
   { id: "browser.smartwindow.enabled", type: "bool" },
   { id: "browser.smartwindow.endpoint", type: "string" },
   { id: "browser.smartwindow.firstrun.modelChoice", type: "string" },
-  { id: "browser.smartwindow.memories", type: "bool" },
+  { id: "browser.smartwindow.memories.generateFromConversation", type: "bool" },
+  { id: "browser.smartwindow.memories.generateFromHistory", type: "bool" },
   { id: "browser.smartwindow.model", type: "string" },
   { id: "browser.smartwindow.preferences.endpoint", type: "string" },
+  { id: "browser.smartwindow.sidebar.openByDefault", type: "bool" },
   { id: "browser.smartwindow.tos.consentTime", type: "int" },
   { id: "browser.preferences.aiControls.showUnavailable", type: "bool" },
 ]);
@@ -194,6 +200,9 @@ class BlockAiConfirmationDialog extends MozLitElement {
             ></li>
             <li
               data-l10n-id="preferences-ai-controls-block-confirmation-key-points"
+            ></li>
+            <li
+              data-l10n-id="preferences-ai-controls-block-confirmation-smart-window"
             ></li>
             <li
               data-l10n-id="preferences-ai-controls-block-confirmation-sidebar-chatbot"
@@ -506,32 +515,47 @@ Preferences.addSetting({
   id: "smartWindowEnabled",
   pref: "browser.smartwindow.enabled",
 });
-
-Preferences.addSetting({
-  id: "smartWindowFieldset",
-  deps: ["smartWindowEnabled"],
-  visible: deps => {
-    return deps.smartWindowEnabled.value;
-  },
-});
-
-Preferences.addSetting({
-  id: "aiFeaturesSmartWindowGroup",
-});
-
 Preferences.addSetting({
   id: "smartWindowToConsentTime",
   pref: "browser.smartwindow.tos.consentTime",
 });
 
 Preferences.addSetting({
-  id: "activateSmartWindowLink",
-  deps: ["smartWindowEnabled", "smartWindowToConsentTime"],
-  visible: deps => {
-    return (
-      deps.smartWindowEnabled.value && !deps.smartWindowToConsentTime.value
+  id: "smartWindowFieldset",
+  deps: ["smartWindowEnabled"],
+  visible: deps => deps.smartWindowEnabled.value,
+});
+
+Preferences.addSetting({
+  id: "aiFeaturesSmartWindowGroup",
+});
+
+Preferences.addSetting({ id: "smartWindowControlItem" });
+makeAiControlSetting({
+  id: "aiControlSmartWindowSelect",
+  pref: "browser.ai.control.smartWindow",
+  feature: OnDeviceModelManager.features.SmartWindow,
+  getControlConfig(config) {
+    let isEnabled = OnDeviceModelManager.isEnabled(
+      OnDeviceModelManager.features.SmartWindow
     );
+
+    config.options = AI_CONTROL_OPTIONS.filter(option => {
+      if (option.value == AiControlStates.available) {
+        return !isEnabled;
+      } else if (option.value == AiControlStates.enabled) {
+        return isEnabled;
+      }
+      return true;
+    });
+    return config;
   },
+});
+Preferences.addSetting({
+  id: "activateSmartWindowLink",
+  deps: ["aiControlSmartWindowSelect"],
+  visible: deps =>
+    deps.aiControlSmartWindowSelect.value === AiControlStates.available,
   onUserClick(e) {
     e.preventDefault();
     const browser = window.browsingContext.embedderElement;
@@ -541,14 +565,18 @@ Preferences.addSetting({
 
 Preferences.addSetting({
   id: "personalizeSmartWindowButton",
-  deps: ["smartWindowEnabled", "smartWindowToConsentTime"],
-  visible: deps => {
-    return deps.smartWindowEnabled.value && deps.smartWindowToConsentTime.value;
-  },
+  deps: ["aiControlSmartWindowSelect"],
+  visible: deps =>
+    deps.aiControlSmartWindowSelect.value == AiControlStates.enabled,
   onUserClick(e) {
     e.preventDefault();
     window.gotoPref("panePersonalizeSmartWindow");
   },
+});
+
+Preferences.addSetting({
+  id: "openSidebarByDefault",
+  pref: "browser.smartwindow.sidebar.openByDefault",
 });
 
 Preferences.addSetting({
@@ -594,6 +622,9 @@ Preferences.addSetting({
     return null;
   },
   set(value, deps) {
+    const prev = deps.smartWindowFirstRunModelChoice.value;
+    previousAssistantModel = prev ? lazy.MODELS[prev].modelName : "No model";
+
     // Save model selection
     // Preset models save pref immediately, "Custom" waits for clicking the Save button
     if (value !== "0") {
@@ -609,6 +640,18 @@ Preferences.addSetting({
 
     // Write index to firstrun.modelChoice
     deps.smartWindowFirstRunModelChoice.value = value;
+  },
+  onUserChange(value, _) {
+    // sending telemetry only for the preset models
+    // custom model telemetry is sent after user hits the save button
+    if (value !== "0") {
+      const new_model = lazy.MODELS[value].modelName;
+      Glean.smartWindow.settingsModel.record({
+        previous_model: previousAssistantModel,
+        new_model,
+      });
+      previousAssistantModel = value;
+    }
   },
 });
 
@@ -712,6 +755,13 @@ Preferences.addSetting({
       return;
     }
 
+    const new_model = lazy.MODELS["0"].modelName;
+    Glean.smartWindow.settingsModel.record({
+      previous_model: previousAssistantModel,
+      new_model,
+    });
+    previousAssistantModel = new_model;
+
     // custom uses .model pref
     deps.smartWindowModel.value = modelName;
     deps.smartWindowEndpoint.value = modelEndpoint;
@@ -721,17 +771,40 @@ Preferences.addSetting({
   },
 });
 
-Preferences.addSetting({ id: "learnFromActivityWrapper" });
+Preferences.addSetting({ id: "learnFromChatActivityWrapper" });
+Preferences.addSetting({ id: "learnFromBrowsingActivityWrapper" });
 Preferences.addSetting({
-  id: "learnFromActivity",
-  pref: "browser.smartwindow.memories",
+  id: "learnFromChatActivity",
+  pref: "browser.smartwindow.memories.generateFromConversation",
+  onUserChange(val) {
+    Glean.smartWindow.settingsMemories.record({
+      type: "chat",
+      enabled: val,
+    });
+  },
+});
+Preferences.addSetting({
+  id: "learnFromBrowsingActivity",
+  pref: "browser.smartwindow.memories.generateFromHistory",
+  onUserChange(val) {
+    Glean.smartWindow.settingsMemories.record({
+      type: "browsing",
+      enabled: val,
+    });
+  },
 });
 
 Preferences.addSetting({
   id: "manageMemoriesButton",
-  onUserClick(e) {
+  async onUserClick(e) {
     e.preventDefault();
     window.gotoPref("manageMemories");
+
+    const memories = await lazy.MemoryStore.getMemories();
+    Glean.smartWindow.memoriesPanelDisplayed.record({
+      source: "settings",
+      memories: memories?.length ?? 0,
+    });
   },
 });
 
@@ -743,7 +816,7 @@ Preferences.addSetting({
     const action = e.target.getAttribute("action");
     const memoryId = e.target.getAttribute("memoryId");
     if (action === "delete") {
-      lazy.MemoryStore.hardDeleteMemory(memoryId);
+      lazy.MemoryStore.hardDeleteMemory(memoryId, "settings");
     }
   },
 });
@@ -787,9 +860,10 @@ Preferences.addSetting({
     );
 
     if (result.get("buttonNumClicked") === 0) {
+      Glean.smartWindow.memoriesNuke.record();
       for (const memory of memories) {
         try {
-          await lazy.MemoryStore.hardDeleteMemory(memory.id);
+          await lazy.MemoryStore.hardDeleteMemory(memory.id, "settings");
         } catch (err) {
           console.error("Failed to delete memory:", memory.id, err);
         }
@@ -808,13 +882,21 @@ Preferences.addSetting(
     setup() {
       Services.obs.addObserver(this.emitChange, "memory-store-changed");
       Services.prefs.addObserver(
-        "browser.smartwindow.memories",
+        "browser.smartwindow.memories.generateFromConversation",
+        this.emitChange
+      );
+      Services.prefs.addObserver(
+        "browser.smartwindow.memories.generateFromHistory",
         this.emitChange
       );
       return () => {
         Services.obs.removeObserver(this.emitChange, "memory-store-changed");
         Services.prefs.removeObserver(
-          "browser.smartwindow.memories",
+          "browser.smartwindow.memories.generateFromConversation",
+          this.emitChange
+        );
+        Services.prefs.removeObserver(
+          "browser.smartwindow.memories.generateFromHistory",
           this.emitChange
         );
       };
@@ -826,10 +908,15 @@ Preferences.addSetting(
 
     async getControlConfig() {
       const memories = await this.getMemories();
-      const isLearningEnabled = Services.prefs.getBoolPref(
-        "browser.smartwindow.memories",
-        false
-      );
+      const isLearningEnabled =
+        Services.prefs.getBoolPref(
+          "browser.smartwindow.memories.generateFromConversation",
+          false
+        ) ||
+        Services.prefs.getBoolPref(
+          "browser.smartwindow.memories.generateFromHistory",
+          false
+        );
 
       if (!memories.length) {
         return {
@@ -1099,14 +1186,32 @@ SettingGroupManager.registerGroups({
         id: "smartWindowFieldset",
         l10nId: "ai-window-features-group",
         control: "moz-fieldset",
+        supportPage: "smart-window",
         controlAttrs: {
           headinglevel: 2,
+          iconsrc: "chrome://browser/skin/smart-window-mono.svg",
+          badge: "beta",
         },
         items: [
           {
             id: "aiFeaturesSmartWindowGroup",
             control: "moz-box-group",
             items: [
+              {
+                id: "smartWindowControlItem",
+                control: "moz-box-item",
+                items: [
+                  {
+                    id: "aiControlSmartWindowSelect",
+                    l10nId: "smart-window-select-label",
+                    control: "moz-select",
+                    controlAttrs: {
+                      inputlayout: "inline-end",
+                    },
+                    options: [...AI_CONTROL_OPTIONS],
+                  },
+                ],
+              },
               {
                 id: "activateSmartWindowLink",
                 l10nId: "ai-window-activate-link",
@@ -1160,10 +1265,21 @@ SettingGroupManager.registerGroups({
       },
     ],
   },
+  assistantDefaultGroup: {
+    l10nId: "ai-window-default-section",
+    headingLevel: 2,
+    items: [
+      {
+        id: "openSidebarByDefault",
+        l10nId: "ai-window-open-sidebar",
+        control: "moz-checkbox",
+      },
+    ],
+  },
   assistantModelGroup: {
     l10nId: "smart-window-model-section",
     headingLevel: 2,
-    supportPage: "smart-window-model",
+    supportPage: "smart-window-models",
     items: [
       {
         id: "modelSelection",
@@ -1172,17 +1288,23 @@ SettingGroupManager.registerGroups({
           {
             value: "1",
             l10nId: "smart-window-model-fast",
-            l10nArgs: { modelName: "gemini-flash-lite" },
+            get l10nArgs() {
+              return lazy.MODELS["1"];
+            },
           },
           {
             value: "2",
             l10nId: "smart-window-model-flexible",
-            l10nArgs: { modelName: "Qwen3-235B-A22B-throughput" },
+            get l10nArgs() {
+              return lazy.MODELS["2"];
+            },
           },
           {
             value: "3",
             l10nId: "smart-window-model-personal",
-            l10nArgs: { modelName: "gpt-oss-120b" },
+            get l10nArgs() {
+              return lazy.MODELS["3"];
+            },
           },
           {
             value: "0",
@@ -1216,7 +1338,8 @@ SettingGroupManager.registerGroups({
                     l10nId: "smart-window-model-custom-more-link",
                     slot: "support-link",
                     controlAttrs: {
-                      href: "",
+                      is: "moz-support-link",
+                      "support-page": "smart-window-byom",
                     },
                   },
                 ],
@@ -1238,7 +1361,6 @@ SettingGroupManager.registerGroups({
   memoriesGroup: {
     l10nId: "ai-window-memories-section",
     headingLevel: 2,
-    // TODO: Finalize SUMO support page slug (GENAI-3016)
     supportPage: "smart-window-memories",
     items: [
       {
@@ -1246,12 +1368,23 @@ SettingGroupManager.registerGroups({
         control: "moz-box-group",
         items: [
           {
-            id: "learnFromActivityWrapper",
+            id: "learnFromChatActivityWrapper",
             control: "moz-box-item",
             items: [
               {
-                id: "learnFromActivity",
-                l10nId: "ai-window-learn-from-activity",
+                id: "learnFromChatActivity",
+                l10nId: "ai-window-learn-from-chat-activity",
+                control: "moz-checkbox",
+              },
+            ],
+          },
+          {
+            id: "learnFromBrowsingActivityWrapper",
+            control: "moz-box-item",
+            items: [
+              {
+                id: "learnFromBrowsingActivity",
+                l10nId: "ai-window-learn-from-browsing-activity",
                 control: "moz-checkbox",
               },
             ],

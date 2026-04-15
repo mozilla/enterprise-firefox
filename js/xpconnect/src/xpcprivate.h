@@ -476,7 +476,7 @@ class XPCJSRuntime final : public mozilla::CycleCollectedJSRuntime {
   bool InitializeStrings(JSContext* cx);
 
   virtual bool DescribeCustomObjects(JSObject* aObject, const JSClass* aClasp,
-                                     char (&aName)[72]) const override;
+                                     char (&aName)[512]) const override;
   virtual bool NoteCustomGCThingXPCOMChildren(
       const JSClass* aClasp, JSObject* aObj,
       nsCycleCollectionTraversalCallback& aCb) const override;
@@ -2254,6 +2254,7 @@ class MOZ_STACK_CLASS OptionsBase {
   bool ParseValue(const char* name, JS::MutableHandleValue prop,
                   bool* found = nullptr);
   bool ParseBoolean(const char* name, bool* prop);
+  bool ParseOptionalBoolean(const char* name, mozilla::Maybe<bool>& prop);
   bool ParseObject(const char* name, JS::MutableHandleObject prop);
   bool ParseJSString(const char* name, JS::MutableHandleString prop);
   bool ParseString(const char* name, nsCString& prop);
@@ -2301,6 +2302,7 @@ class MOZ_STACK_CLASS SandboxOptions : public OptionsBase {
   nsCString sandboxName;
   JS::RootedObject sameZoneAs;
   bool forceSecureContext;
+  mozilla::Maybe<bool> freezeBuiltins;
   bool freshCompartment;
   bool freshZone;
   bool isUAWidgetScope;

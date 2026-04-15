@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -187,10 +185,13 @@ class Key {
 
   Result<Ok, nsresult> MaybeUpdateAutoIncrementKey(int64_t aKey);
 
+  using EncodedDataType = unsigned char;
+
+  static uint32_t LengthOfEncodedBinary(const EncodedDataType* aPos,
+                                        const EncodedDataType* aEnd);
+
  private:
   class MOZ_STACK_CLASS ArrayValueEncoder;
-
-  using EncodedDataType = unsigned char;
 
   const EncodedDataType* BufferStart() const {
     // TODO it would be nicer if mBuffer was also using EncodedDataType
@@ -263,9 +264,6 @@ class Key {
   static uint32_t CalcDecodedStringySize(
       const EncodedDataType* aBegin, const EncodedDataType* aEnd,
       const EncodedDataType** aOutEncodedSectionEnd);
-
-  static uint32_t LengthOfEncodedBinary(const EncodedDataType* aPos,
-                                        const EncodedDataType* aEnd);
 
   template <typename T>
   static void DecodeAsStringy(const EncodedDataType* aEncodedSectionBegin,

@@ -28,6 +28,7 @@
 #include "mozilla/dom/PlacesBookmarkTitle.h"
 #include "mozilla/dom/PlacesBookmarkUrl.h"
 #include "mozilla/dom/PlacesFavicon.h"
+#include "mozilla/intl/AppCollator.h"
 
 #include "nsCycleCollectionParticipant.h"
 
@@ -896,18 +897,6 @@ bool nsNavHistoryContainerResultNode::DoesChildNeedResorting(
   return false;
 }
 
-/* static */
-int32_t nsNavHistoryContainerResultNode::SortComparison_StringLess(
-    const nsAString& a, const nsAString& b) {
-  nsNavHistory* history = nsNavHistory::GetHistoryService();
-  NS_ENSURE_TRUE(history, 0);
-  const mozilla::intl::Collator* collator = history->GetCollator();
-  NS_ENSURE_TRUE(collator, 0);
-
-  int32_t res = collator->CompareStrings(a, b);
-  return res;
-}
-
 /**
  * When there are bookmark indices, we should never have ties, so we don't
  * need to worry about tiebreaking.  When there are no bookmark indices,
@@ -931,8 +920,7 @@ int32_t nsNavHistoryContainerResultNode::SortComparison_TitleLess(
   uint32_t aType;
   a->GetType(&aType);
 
-  int32_t value = SortComparison_StringLess(NS_ConvertUTF8toUTF16(a->mTitle),
-                                            NS_ConvertUTF8toUTF16(b->mTitle));
+  int32_t value = mozilla::intl::AppCollator::CompareBase(a->mTitle, b->mTitle);
   if (value == 0) {
     // resolve by URI
     if (a->IsURI()) {
@@ -961,8 +949,7 @@ int32_t nsNavHistoryContainerResultNode::SortComparison_DateLess(
     nsNavHistoryResultNode* a, nsNavHistoryResultNode* b) {
   int32_t value = ComparePRTime(a->mTime, b->mTime);
   if (value == 0) {
-    value = SortComparison_StringLess(NS_ConvertUTF8toUTF16(a->mTitle),
-                                      NS_ConvertUTF8toUTF16(b->mTitle));
+    value = mozilla::intl::AppCollator::CompareBase(a->mTitle, b->mTitle);
     if (value == 0) {
       value = nsNavHistoryContainerResultNode::SortComparison_Bookmark(a, b);
     }
@@ -978,8 +965,7 @@ int32_t nsNavHistoryContainerResultNode::SortComparison_DateAddedLess(
     nsNavHistoryResultNode* a, nsNavHistoryResultNode* b) {
   int32_t value = ComparePRTime(a->mDateAdded, b->mDateAdded);
   if (value == 0) {
-    value = SortComparison_StringLess(NS_ConvertUTF8toUTF16(a->mTitle),
-                                      NS_ConvertUTF8toUTF16(b->mTitle));
+    value = mozilla::intl::AppCollator::CompareBase(a->mTitle, b->mTitle);
     if (value == 0) {
       value = nsNavHistoryContainerResultNode::SortComparison_Bookmark(a, b);
     }
@@ -995,8 +981,7 @@ int32_t nsNavHistoryContainerResultNode::SortComparison_LastModifiedLess(
     nsNavHistoryResultNode* a, nsNavHistoryResultNode* b) {
   int32_t value = ComparePRTime(a->mLastModified, b->mLastModified);
   if (value == 0) {
-    value = SortComparison_StringLess(NS_ConvertUTF8toUTF16(a->mTitle),
-                                      NS_ConvertUTF8toUTF16(b->mTitle));
+    value = mozilla::intl::AppCollator::CompareBase(a->mTitle, b->mTitle);
     if (value == 0) {
       value = nsNavHistoryContainerResultNode::SortComparison_Bookmark(a, b);
     }
@@ -1026,8 +1011,7 @@ int32_t nsNavHistoryContainerResultNode::SortComparison_URILess(
     return 1;
   } else {
     // For everything else, use title sorting.
-    value = SortComparison_StringLess(NS_ConvertUTF8toUTF16(a->mTitle),
-                                      NS_ConvertUTF8toUTF16(b->mTitle));
+    value = mozilla::intl::AppCollator::CompareBase(a->mTitle, b->mTitle);
   }
 
   if (value == 0) {
@@ -1073,7 +1057,7 @@ int32_t nsNavHistoryContainerResultNode::SortComparison_TagsLess(
   rv = b->GetTags(bTags);
   NS_ENSURE_SUCCESS(rv, 0);
 
-  value = SortComparison_StringLess(aTags, bTags);
+  value = mozilla::intl::AppCollator::CompareBase(aTags, bTags);
 
   // fall back to title sorting
   if (value == 0) {

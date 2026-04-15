@@ -39,12 +39,14 @@ export class VulnerablePasswordAlert extends MozLitElement {
   static get properties() {
     return {
       hostname: { type: String, reflect: true },
+      changePasswordURL: { type: String },
     };
   }
 
   constructor() {
     super();
     this.hostname = "";
+    this.changePasswordURL = "";
   }
   render() {
     return html`
@@ -92,6 +94,7 @@ export class LoginBreachAlert extends MozLitElement {
       date: { type: Number, reflect: true },
       hostname: { type: String, reflect: true },
       breachName: { type: String, reflect: true },
+      changePasswordURL: { type: String },
     };
   }
 
@@ -100,6 +103,7 @@ export class LoginBreachAlert extends MozLitElement {
     this.date = 0;
     this.hostname = "";
     this.breachName = "";
+    this.changePasswordURL = "";
   }
 
   get displayHostname() {

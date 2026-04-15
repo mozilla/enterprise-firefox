@@ -16,7 +16,7 @@
     "about:privatebrowsing":
       "chrome://browser/skin/privatebrowsing/favicon.svg",
     "chrome://browser/content/aiwindow/aiWindow.html":
-      "chrome://global/skin/icons/highlights.svg",
+      "chrome://browser/skin/smart-window-simplified.svg",
   };
 
   const {
@@ -674,6 +674,7 @@
         tab.setAttribute("usercontextid", userContextId);
         ContextualIdentityService.setTabStyle(tab);
       }
+      updateUserContextUIIndicator();
 
       this._tabForBrowser.set(browser, tab);
 
@@ -725,8 +726,90 @@
       return this.selectedBrowser.reload();
     }
 
-    reloadWithFlags(aFlags) {
-      return this.selectedBrowser.reloadWithFlags(aFlags);
+    reloadWithFlags(reloadFlags) {
+      const unchangedRemoteness = [];
+
+      for (const tab of this.selectedTabs) {
+        const browser = tab.linkedBrowser;
+        const url = browser.currentURI;
+        const urlSpec = url.spec;
+        // We need to cache the content principal here because the browser will be
+        // reconstructed when the remoteness changes and the content prinicpal will
+        // be cleared after reconstruction.
+        const principal = tab.linkedBrowser.contentPrincipal;
+        if (this.updateBrowserRemotenessByURL(browser, urlSpec)) {
+          // If the remoteness has changed, the new browser doesn't have any
+          // information of what was loaded before, so we need to load the previous
+          // URL again.
+          if (tab.linkedPanel) {
+            loadBrowserURI(browser, url, principal);
+          } else {
+            // Shift to fully loaded browser and make
+            // sure load handler is instantiated.
+            tab.addEventListener(
+              "SSTabRestoring",
+              () => loadBrowserURI(browser, url, principal),
+              { once: true }
+            );
+            this._insertBrowser(tab);
+          }
+        } else {
+          unchangedRemoteness.push(tab);
+        }
+      }
+
+      if (!unchangedRemoteness.length) {
+        return;
+      }
+
+      // Reset temporary permissions on the remaining tabs to reload.
+      // This is done here because we only want to reset
+      // permissions on user reload.
+      for (const tab of unchangedRemoteness) {
+        SitePermissions.clearTemporaryBlockPermissions(tab.linkedBrowser);
+        // Also reset DOS mitigations for the basic auth prompt on reload.
+        delete tab.linkedBrowser.authPromptAbuseCounter;
+      }
+      gIdentityHandler.hidePopup();
+      gPermissionPanel.hidePopup();
+
+      if (document.hasValidTransientUserGestureActivation) {
+        reloadFlags |= Ci.nsIWebNavigation.LOAD_FLAGS_USER_ACTIVATION;
+      }
+
+      for (const tab of unchangedRemoteness) {
+        reloadBrowser(tab);
+      }
+
+      function reloadBrowser(tab) {
+        if (tab.linkedPanel) {
+          const { browsingContext } = tab.linkedBrowser;
+          const { sessionHistory } = browsingContext;
+          if (sessionHistory) {
+            sessionHistory.reload(reloadFlags);
+          } else {
+            browsingContext.reload(reloadFlags);
+          }
+        } else {
+          // Shift to fully loaded browser and make
+          // sure load handler is instantiated.
+          tab.addEventListener(
+            "SSTabRestoring",
+            () => tab.linkedBrowser.browsingContext.reload(reloadFlags),
+            {
+              once: true,
+            }
+          );
+          this._insertBrowser(tab);
+        }
+      }
+
+      function loadBrowserURI(browser, url, principal) {
+        browser.loadURI(url, {
+          loadFlags: reloadFlags,
+          triggeringPrincipal: principal,
+        });
+      }
     }
 
     stop() {
@@ -1411,6 +1494,7 @@
 
       let profileIdentifier =
         SelectableProfileService?.isEnabled &&
+        SelectableProfileService.getCachedProfileCount() > 1 &&
         SelectableProfileService.currentProfile?.name.replace(/\0/g, "");
       // Note that empty/falsy bits get filtered below.
 
@@ -2325,7 +2409,7 @@
     }
 
     updateBrowserRemoteness(aBrowser, { newFrameloader, remoteType } = {}) {
-      let isRemote = aBrowser.getAttribute("remote") == "true";
+      let isRemote = aBrowser.hasAttribute("remote");
 
       // We have to be careful with this here, as the "no remote type" is null,
       // not a string. Make sure to check only for undefined, since null is
@@ -2388,7 +2472,7 @@
         aBrowser.setAttribute("remote", "true");
         aBrowser.setAttribute("remoteType", remoteType);
       } else {
-        aBrowser.setAttribute("remote", "false");
+        aBrowser.removeAttribute("remote");
         aBrowser.removeAttribute("remoteType");
       }
 
@@ -2660,7 +2744,7 @@
             getter = () => () => this;
             break;
           case "isRemoteBrowser":
-            getter = () => browser.getAttribute("remote") == "true";
+            getter = () => browser.hasAttribute("remote");
             break;
           case "permitUnload":
             getter = () => () => ({ permitUnload: true });
@@ -3543,17 +3627,6 @@
     }
 
     /**
-     * Hide the list of tabs <browsers> that are part of a split view.
-     *
-     * @param {MozTabbrowserTab[]} tabs
-     */
-    hideSplitViewPanels(tabs) {
-      for (const tab of tabs) {
-        this.tabpanels.removePanelFromSplitView(tab.linkedPanel);
-      }
-    }
-
-    /**
      * Toggle split view active attribute
      *
      * @param {boolean} isActive
@@ -3916,10 +3989,6 @@
         selectTab && container.ownerGlobal.gBrowser.selectedTab;
       let newTabs = [];
 
-      if (typeof elementIndex == "number") {
-        tabIndex = this.#elementIndexToTabIndex(elementIndex);
-      }
-
       // When tabs are adopted across windows, they exit the tab split of the
       // source window, moved to the new window, and finally moved into a split
       // view in the new window. Although the splitViewId stays effectively the
@@ -3929,11 +3998,14 @@
       for (let tab of container.tabs) {
         tab.removedByAdoption = true;
         let adoptedTab = this.adoptTab(tab, {
-          tabIndex,
           selectTab: tab === oldSelectedTab,
+          tabIndex,
+          elementIndex,
         });
         adoptedTab.addedByAdoption = true;
         newTabs.push(adoptedTab);
+        // Put next tab after current one.
+        elementIndex = undefined;
         tabIndex = adoptedTab._tPos + 1;
       }
 
@@ -7264,7 +7336,8 @@
      */
     #handleTabMove(element, moveActionCallback, metricsContext) {
       let tabs;
-      if (this.isTab(element) && element.splitview) {
+      // TODO bug 2024173: consider removing element.splitview check.
+      if (this.isTab(element) && element.splitview?.shouldMoveAllTabsAtOnce) {
         tabs = element.splitview.tabs;
       } else if (this.isTab(element)) {
         tabs = [element];
@@ -7291,8 +7364,8 @@
         this.selectedTab.focus();
       }
 
-      // When a tab group with multiple tabs is moved forwards, emit TabMove in
-      // the reverse order, so that the index in previousTabState values are
+      // When multiple tabs are moved forwards (tab group, split view), reverse
+      // the order of TabMove, so that the index in previousTabState values are
       // still accurate until the event is dispatched. If we were to start with
       // the front tab, then logically that tab moves, and all following tabs
       // would shift, which would invalidate the index in previousTabState.
@@ -10000,13 +10073,6 @@ var TabBarVisibility = {
       CustomTitlebar.enabled && hideTabsToolbar
     );
 
-    document
-      .getElementById("browser")
-      .classList.toggle(
-        "browser-toolbox-background",
-        CustomTitlebar.enabled && hasVerticalTabs
-      );
-
     if (
       hideTabsToolbar == tabsToolbar.collapsed &&
       !force &&
@@ -10311,9 +10377,14 @@ var TabContextMenu = {
     let contextSeparateSplitView = document.getElementById(
       "context_separateSplitView"
     );
+    let contextReverseSplitView = document.getElementById(
+      "context_reverseSplitView"
+    );
     let hasSplitViewTab = this.contextTabs.some(tab => tab.splitview);
     contextMoveTabToNewSplitView.hidden = !splitViewEnabled || hasSplitViewTab;
     contextSeparateSplitView.hidden = !splitViewEnabled || !hasSplitViewTab;
+    contextReverseSplitView.hidden =
+      !splitViewEnabled || !hasSplitViewTab || this.multiselected;
     if (splitViewEnabled) {
       contextMoveTabToNewSplitView.removeAttribute("data-l10n-id");
       contextMoveTabToNewSplitView.setAttribute(
@@ -10550,6 +10621,7 @@ var TabContextMenu = {
 
     SharingUtils.updateShareURLMenuItem(
       this.contextTab.linkedBrowser,
+      this.multiselected ? this.contextTabs.map(t => t.linkedBrowser) : null,
       document.getElementById("context_moveTabOptions")
     );
   },
@@ -10817,18 +10889,14 @@ var TabContextMenu = {
     });
   },
 
-  ungroupTabs() {
-    for (let i = this.contextTabs.length - 1; i >= 0; i--) {
-      gBrowser.ungroupTab(this.contextTabs[i]);
-    }
-  },
-
-  ungroupSplitViews() {
+  ungroupTabsAndSplitViews() {
     let splitViews = new Set();
     for (const tab of this.contextTabs) {
-      if (!splitViews.has(tab.splitview)) {
+      if (tab.splitview && !splitViews.has(tab.splitview)) {
         splitViews.add(tab.splitview);
         gBrowser.ungroupSplitView(tab.splitview);
+      } else if (!tab.splitview) {
+        gBrowser.ungroupTab(tab);
       }
     }
   },
@@ -10874,6 +10942,10 @@ var TabContextMenu = {
     splitviews.forEach(splitview =>
       gBrowser.unsplitTabs(splitview, "menu_separate")
     );
+  },
+
+  reverseSplitView() {
+    this.contextTab.splitview?.reverseTabs("menu");
   },
 
   /**

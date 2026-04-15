@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -9,7 +7,6 @@
 #include "nsDocShell.h"
 #include "nsILoadInfo.h"
 #include "nsIProtocolHandler.h"
-#include "nsISHEntry.h"
 #include "nsIURIFixup.h"
 #include "nsIWebNavigation.h"
 #include "nsIChannel.h"
@@ -28,6 +25,7 @@
 #include "mozilla/dom/LoadURIOptionsBinding.h"
 #include "mozilla/dom/Navigation.h"
 #include "mozilla/dom/NavigationUtils.h"
+#include "mozilla/dom/SessionHistoryEntry.h"
 #include "mozilla/dom/nsHTTPSOnlyUtils.h"
 #include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/StaticPrefs_fission.h"
@@ -772,18 +770,27 @@ void nsDocShellLoadState::SetUserNavigationInvolvement(
   mUserNavigationInvolvement = aUserNavigationInvolvement;
 }
 
-nsISHEntry* nsDocShellLoadState::SHEntry() const { return mSHEntry; }
+SessionHistoryEntry* nsDocShellLoadState::SHEntry() const { return mSHEntry; }
 
-void nsDocShellLoadState::SetSHEntry(nsISHEntry* aSHEntry) {
+void nsDocShellLoadState::SetSHEntry(SessionHistoryEntry* aSHEntry) {
   mSHEntry = aSHEntry;
-  nsCOMPtr<SessionHistoryEntry> she = do_QueryInterface(aSHEntry);
-  if (she) {
-    mLoadingSessionHistoryInfo = MakeUnique<LoadingSessionHistoryInfo>(she);
+  if (aSHEntry) {
+    mLoadingSessionHistoryInfo =
+        MakeUnique<LoadingSessionHistoryInfo>(aSHEntry);
     mLoadingSessionHistoryInfo->mTriggeringNavigationType =
         NavigationUtils::NavigationTypeFromLoadType(LoadType());
     MOZ_ASSERT(mLoadingSessionHistoryInfo->mTriggeringNavigationType);
   } else {
     mLoadingSessionHistoryInfo = nullptr;
+  }
+}
+
+void nsDocShellLoadState::SetPreviousEntryForActivation(nsISHEntry* aSHEntry) {
+  MOZ_DIAGNOSTIC_ASSERT(mSHEntry);
+  nsCOMPtr<SessionHistoryEntry> she = do_QueryInterface(aSHEntry);
+  if (mLoadingSessionHistoryInfo) {
+    mLoadingSessionHistoryInfo->mPreviousEntry =
+        Some(PreviousSessionHistoryInfo(she->Info()));
   }
 }
 
@@ -1071,8 +1078,7 @@ void nsDocShellLoadState::AssertProcessCouldTriggerLoadIfSystem() {
   // If this assertion fails, the load will fail later during
   // nsContentSecurityManager checks, however this assertion should happen
   // closer to whichever caller is triggering the system-principal load.
-  if (mozilla::SessionHistoryInParent() &&
-      TriggeringPrincipal()->IsSystemPrincipal() &&
+  if (TriggeringPrincipal()->IsSystemPrincipal() &&
       mozilla::dom::IsWebRemoteType(GetEffectiveTriggeringRemoteType())) {
     bool localFile = false;
     if (NS_SUCCEEDED(NS_URIChainHasFlags(

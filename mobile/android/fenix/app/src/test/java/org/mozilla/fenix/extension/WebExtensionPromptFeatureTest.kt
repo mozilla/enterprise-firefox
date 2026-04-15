@@ -27,8 +27,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.mockito.Mockito.doReturn
-import org.mockito.Mockito.spy
 import org.mozilla.fenix.BuildConfig
 import org.mozilla.fenix.R
 import org.mozilla.fenix.addons.AddonsManagementFragmentDirections
@@ -453,19 +451,19 @@ class WebExtensionPromptFeatureTest {
     @Test
     fun `WHEN clicking Learn More on the Permissions Dialog THEN open the correct SUMO page in a custom tab`() = runTest(testDispatcher) {
         val addon: Addon = mockk(relaxed = true)
-        val fragment = spy(
-            webExtensionPromptFeature.showPermissionDialog(
-                addon = addon,
-                promptRequest = mockk(),
-                forOptionalPermissions = false,
-                permissions = emptyList(),
-                origins = emptyList(),
-                dataCollectionPermissions = emptyList(),
-            ),
+        val fragment = webExtensionPromptFeature.showPermissionDialog(
+            addon = addon,
+            promptRequest = mockk(),
+            forOptionalPermissions = false,
+            permissions = emptyList(),
+            origins = emptyList(),
+            dataCollectionPermissions = emptyList(),
         )
-        doReturn(testContext).`when`(fragment)?.requireContext()
+        val spyFragment = fragment?.let { spyk(it) }
 
-        val dialog = fragment?.onCreateDialog(null)
+        every { spyFragment?.requireContext() } returns testContext
+
+        val dialog = spyFragment?.onCreateDialog(null)
         dialog?.findViewById<TextView>(addonsR.id.learn_more_link)?.performClick()
 
         val expectedUrl = SupportUtils.getSumoURLForTopic(
@@ -478,7 +476,7 @@ class WebExtensionPromptFeatureTest {
     @Test
     fun `WHEN clicking the link in the description THEN navigates to the add-on detail view`() = runTest(testDispatcher) {
         val addon: Addon = mockk(relaxed = true)
-        val fragment = spy(webExtensionPromptFeature.showPostInstallationDialog(addon = addon))
+        val fragment = webExtensionPromptFeature.showPostInstallationDialog(addon = addon)
 
         // Simulate a click to the link in the description.
         fragment?.onExtensionSettingsLinkClicked?.invoke(addon)

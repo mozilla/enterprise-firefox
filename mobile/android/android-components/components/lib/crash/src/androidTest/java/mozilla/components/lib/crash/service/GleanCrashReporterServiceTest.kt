@@ -53,6 +53,19 @@ class GleanCrashReporterServiceTest {
         assertNotNull(getNativeCrashTools())
     }
 
+    /**
+     * This tests that the JNI path works without e.g. crashing. There's no
+     * convenient way to test whether Glean sends the pings at this point (e.g.
+     * the `testMetricsValuesBeforeNextSend` callback is still called).
+     */
+    @Test
+    fun nativeCrashToolsCanDisableTelemetry() {
+        getNativeCrashTools()?.run {
+            setPingCollectionEnabled(false)
+            setPingCollectionEnabled(true)
+        }
+    }
+
     @Test
     fun gleanCrashReporterServiceSendsCrashPings() {
         val service = GleanCrashReporterService(context)

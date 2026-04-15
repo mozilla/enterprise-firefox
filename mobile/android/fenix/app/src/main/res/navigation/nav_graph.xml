@@ -215,7 +215,7 @@
         <argument
             android:name="page"
             android:defaultValue="NormalTabs"
-            app:argType="org.mozilla.fenix.tabstray.Page" />
+            app:argType="org.mozilla.fenix.tabstray.redux.state.Page" />
         <argument
             android:name="accessPoint"
             android:defaultValue="None"
@@ -416,6 +416,9 @@
         <action
             android:id="@+id/action_browserFragment_to_webCompatReporterFragment"
             app:destination="@id/webCompatReporterFragment" />
+        <action
+            android:id="@+id/action_browserFragment_to_summarizationFragment"
+            app:destination="@id/summarizationFragment" />
     </fragment>
 
     <fragment
@@ -725,6 +728,13 @@
             app:popEnterAnim="@anim/slide_in_left"
             app:popExitAnim="@anim/slide_out_right" />
         <action
+            android:id="@+id/action_settingsFragment_to_pageSummariesSettingsFragment"
+            app:destination="@id/pageSummariesSettingsFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+        <action
             android:id="@+id/action_settingsFragment_to_addonsFragment"
             app:destination="@id/addons_management_graph"
             app:enterAnim="@anim/slide_in_right"
@@ -967,11 +977,54 @@
         android:id="@+id/secretSettingsPreference"
         android:name="org.mozilla.fenix.settings.SecretSettingsFragment"
         android:label="@string/preferences_debug_settings">
+        <argument
+            android:name="preference_to_scroll_to"
+            android:defaultValue="@null"
+            app:argType="string"
+            app:nullable="true" />
+        <argument
+            android:name="search_in_progress"
+            android:defaultValue="false"
+            app:argType="boolean" />
+        <action
+            android:id="@+id/action_secretSettingsFragment_to_secretSettingsSearchFragment"
+            app:destination="@id/secretSettingsSearchFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right"
+            app:popUpTo="@id/secretSettingsPreference" />
+        <action
+            android:id="@+id/action_secretSettingsFragment_to_remoteSettingsServerFragment"
+            app:destination="@id/remoteSettingsServerFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+        <action
+            android:id="@+id/action_secretSettingsFragment_to_searchOptimizationFragment"
+            app:destination="@id/searchOptimizationFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
     </fragment>
+    <fragment
+        android:id="@+id/secretSettingsSearchFragment"
+        android:name="org.mozilla.fenix.settings.settingssearch.secretsettings.SecretSettingsSearchFragment"
+        android:label="@string/settings_search_title" />
     <fragment
         android:id="@+id/secretInfoSettingsFragment"
         android:name="org.mozilla.fenix.settings.SecretDebugSettingsFragment"
         android:label="@string/preferences_debug_info" />
+    <fragment
+        android:id="@+id/remoteSettingsServerFragment"
+        android:name="org.mozilla.fenix.settings.RemoteSettingsServerFragment"
+        android:label="@string/preferences_debug_settings_remote_settings_server_label" />
+    <fragment
+        android:id="@+id/searchOptimizationFragment"
+        android:name="org.mozilla.fenix.settings.SearchOptimizationFragment"
+        android:label="@string/preferences_debug_settings_search_optimization" />
     <fragment
         android:id="@+id/aboutLibrariesFragment"
         android:name="org.mozilla.fenix.settings.about.AboutLibrariesFragment"
@@ -1631,7 +1684,17 @@
 
     <dialog
         android:id="@+id/summarizationFragment"
-        android:name="org.mozilla.fenix.summarization.SummarizationFragment" />
+        android:name="org.mozilla.fenix.summarization.SummarizationFragment">
+        <argument
+            android:name="fromShake"
+            android:defaultValue="false"
+            app:nullable="false"
+            app:argType="boolean" />
+    </dialog>
+
+    <fragment
+        android:id="@+id/pageSummariesSettingsFragment"
+        android:name="org.mozilla.fenix.settings.pagesummaries.PageSummariesSettingsFragment" />
 
     <navigation
         android:id="@+id/translations_settings_graph"

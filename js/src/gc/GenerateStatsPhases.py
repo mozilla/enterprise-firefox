@@ -206,6 +206,7 @@ PhaseKindGraphRoots = [
             addPhaseKind("DESTROY", "Deallocate"),
             getPhaseKind("JOIN_PARALLEL_TASKS"),
             addPhaseKind("FIND_DEAD_COMPARTMENTS", "Find Dead Compartments"),
+            getPhaseKind("WAIT_BACKGROUND_THREAD"),
         ],
     ),
     addPhaseKind(

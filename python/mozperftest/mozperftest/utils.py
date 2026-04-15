@@ -207,10 +207,10 @@ class MachLogger:
         self._logger(logging.ERROR, name, kwargs, msg)
 
     def group_start(self, msg=None, name="mozperftest", **kwargs):
-        self._logger(logging.INFO, name, kwargs, msg)
+        self._logger(logging.INFO, name, kwargs, msg or "")
 
     def group_end(self, msg=None, name="mozperftest", **kwargs):
-        self._logger(logging.INFO, name, kwargs, msg)
+        self._logger(logging.INFO, name, kwargs, msg or "")
 
 
 def install_package(virtualenv_manager, package, ignore_failure=False):
@@ -468,7 +468,7 @@ def strtobool(val):
     elif val in ("n", "no", "f", "false", "off", "0"):
         return 0
     else:
-        raise ValueError("invalid truth value %r" % (val,))
+        raise ValueError(f"invalid truth value {val!r}")
 
 
 @contextlib.contextmanager
@@ -612,7 +612,7 @@ _WPT_URL = "{0}/secrets/v1/secret/project/perftest/gecko/level-{1}/perftest-logi
 _DEFAULT_SERVER = "https://firefox-ci-tc.services.mozilla.com"
 
 
-@functools.lru_cache
+@functools.cache
 def get_tc_secret(wpt=False):
     """Returns the Taskcluster secret.
 

@@ -99,9 +99,6 @@ class ProviderContextualSearch extends ActionsProvider {
       l10nId: "urlbar-result-search-with",
       l10nArgs: { engine: engine.name || engine.title },
       icon,
-      onPick: (context, controller) => {
-        this.pickAction(context, controller);
-      },
     };
 
     if (type == INSTALLED_ENGINE) {
@@ -226,6 +223,8 @@ class ProviderContextualSearch extends ActionsProvider {
    */
   async #matchTabToSearchEngine(queryContext) {
     let searchStr = queryContext.trimmedSearchString.toLocaleLowerCase();
+    let defaultEngine = lazy.SearchService.defaultEngine;
+    let matchedEngine = null;
 
     for (let engine of await lazy.SearchService.getVisibleEngines()) {
       let engineName = engine.name.toLocaleLowerCase();
@@ -240,14 +239,29 @@ class ProviderContextualSearch extends ActionsProvider {
         ((await this.#shouldskipRecentVisitCheck(searchStr)) ||
           (await this.#engineDomainHasRecentVisits(engine.searchUrlDomain)))
       ) {
-        return {
-          type: INSTALLED_ENGINE,
-          engine,
-          key: "matched-contextual-search",
-        };
+        if (engine.name == defaultEngine.name) {
+          return {
+            type: INSTALLED_ENGINE,
+            engine,
+            key: "matched-contextual-search",
+          };
+        }
+
+        if (!matchedEngine) {
+          matchedEngine = engine;
+        }
       }
     }
-    return null;
+
+    if (!matchedEngine) {
+      return null;
+    }
+
+    return {
+      type: INSTALLED_ENGINE,
+      engine: matchedEngine,
+      key: "matched-contextual-search",
+    };
   }
 
   /*
@@ -291,6 +305,10 @@ class ProviderContextualSearch extends ActionsProvider {
         lazy.PrivateBrowsingUtils.permanentPrivateBrowsing
       )
     );
+  }
+
+  onPick(queryContext, controller) {
+    this.pickAction(queryContext, controller);
   }
 
   async pickAction(queryContext, controller, _element) {

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -2373,6 +2371,14 @@ class nsLayoutUtils {
                               aSurfaceFlags, target);
   }
 
+  // Computes the target size for a resize operation given the source size
+  // and optional resize dimensions. If only one dimension is given, the other
+  // is computed to preserve the aspect ratio. Returns Nothing on overflow.
+  static mozilla::Maybe<mozilla::gfx::IntSize> ComputeResizedSize(
+      const mozilla::gfx::IntSize& aSrcSize,
+      const mozilla::Maybe<int32_t>& aResizeWidth,
+      const mozilla::Maybe<int32_t>& aResizeHeight);
+
   // There are a bunch of callers of SurfaceFromElement.  Just mark it as
   MOZ_CAN_RUN_SCRIPT_BOUNDARY
   static mozilla::SurfaceFromElementResult SurfaceFromElement(
@@ -2440,11 +2446,10 @@ class nsLayoutUtils {
    * want to maintain a mapping from gfxFontEntry to InspectorFontFace
    * records, so use a temporary hashtable for that.
    */
-  typedef nsTArray<mozilla::UniquePtr<mozilla::dom::InspectorFontFace>>
-      UsedFontFaceList;
-  typedef nsTHashMap<nsPtrHashKey<gfxFontEntry>,
-                     mozilla::dom::InspectorFontFace*>
-      UsedFontFaceTable;
+  using UsedFontFaceList =
+      nsTArray<mozilla::UniquePtr<mozilla::dom::InspectorFontFace>>;
+  using UsedFontFaceTable =
+      nsTHashMap<nsPtrHashKey<gfxFontEntry>, mozilla::dom::InspectorFontFace*>;
 
   /**
    * Adds all font faces used in the frame tree starting from aFrame

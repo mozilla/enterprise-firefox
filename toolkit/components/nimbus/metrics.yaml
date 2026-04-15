@@ -35,6 +35,7 @@ nimbus_targeting_environment:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1997164
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1995896
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2011286
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2017267
     data_reviews: &targeting_context_data_reviews
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1928107
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1937207
@@ -48,6 +49,7 @@ nimbus_targeting_environment:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1997164
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1995896
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2011286
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2017267
     notification_emails: &targeting_context_notification_emails
       - beth@mozilla.com
       - project-nimbus@mozilla.com
@@ -102,6 +104,9 @@ nimbus_targeting_environment:
       - "nimbus.qa.pref-2"
       - "security.sandbox.content.level"
       - "termsofuse.acceptedDate"
+      - "termsofuse.acceptedVersion"
+      - "termsofuse.bypassNotification"
+      - "termsofuse.firstAcceptedDate"
       - "trailhead.firstrun.didSeeAboutWelcome"
 
   attr_eval_errors:
@@ -224,6 +229,12 @@ nimbus_targeting_environment:
         security__sandbox__content__level:
           type: number
         termsofuse__acceptedDate:
+          type: string
+        termsofuse__acceptedVersion:
+          type: number
+        termsofuse__bypassNotification:
+          type: boolean
+        termsofuse__firstAcceptedDate:
           type: string
         trailhead__firstrun__didSeeAboutWelcome:
           type: boolean
@@ -1060,7 +1071,6 @@ nimbus_events:
       - chumphreys@mozilla.com
       - project-nimbus@mozilla.com
     expires: never
-    disabled: true
     send_in_pings: *targeting_context_pings
 
   migration:

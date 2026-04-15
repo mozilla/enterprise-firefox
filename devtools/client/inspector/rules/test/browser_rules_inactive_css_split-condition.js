@@ -26,5 +26,10 @@ add_task(async function () {
 
   await checkDeclarationIsActive(view, 1, { gap: "1em" });
   await toggleDeclaration(view, 2, { display: "grid" });
-  await checkDeclarationIsInactive(view, 1, { gap: "1em" });
+  await checkDeclarationIsInactive(
+    view,
+    1,
+    { gap: "1em" },
+    "inactive-css-not-grid-or-flex-container-or-multicol-container"
+  );
 });

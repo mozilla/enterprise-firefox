@@ -34,17 +34,9 @@
   "1448747": {
     "label": "FastClick breakage",
     "bugs": {
-      "1829947": {
-        "issue": "broken-interactive-elements",
-        "matches": ["*://*.arcsivr.com/*"]
-      },
       "1901449": {
         "issue": "broken-interactive-elements",
         "matches": ["*://teikiyoyaku.tokyu.co.jp/*"]
-      },
-      "1906654": {
-        "issue": "broken-interactive-elements",
-        "matches": ["*://*.dublinexpress.ie/*"]
       },
       "1913099": {
         "issue": "broken-interactive-elements",
@@ -58,21 +50,9 @@
         "issue": "broken-interactive-elements",
         "matches": ["*://*.franmar.com/*"]
       },
-      "1944009": {
-        "issue": "broken-interactive-elements",
-        "matches": ["*://*.iledefrance-mobilites.fr/*"]
-      },
-      "1944010": {
-        "issue": "broken-interactive-elements",
-        "matches": ["*://*.lafoodbank.org/*"]
-      },
       "1944015": {
         "issue": "broken-interactive-elements",
         "matches": ["*://*.lawnmowerpartsworld.com/*"]
-      },
-      "1944018": {
-        "issue": "broken-interactive-elements",
-        "matches": ["*://*.oregonfoodbank.org/*"]
       },
       "1944019": {
         "issue": "broken-interactive-elements",
@@ -97,10 +77,6 @@
       "1944027": {
         "issue": "broken-interactive-elements",
         "matches": ["*://rutamayacoffee.com/*"]
-      },
-      "1944029": {
-        "issue": "broken-interactive-elements",
-        "matches": ["*://weaversofireland.com/*"]
       },
       "1968640": {
         "issue": "broken-interactive-elements",
@@ -507,33 +483,6 @@
       }
     ]
   },
-  "1739489": {
-    "label": "Sites using draft.js",
-    "bugs": {
-      "1739489": {
-        "issue": "broken-editor",
-        "matches": ["*://draftjs.org/*", "*://www.facebook.com/*"]
-      },
-      "1776229": {
-        "issue": "broken-editor",
-        "matches": [
-          "*://mobile.twitter.com/*",
-          "*://mobile.x.com/*",
-          "*://twitter.com/*",
-          "*://x.com/*"
-        ]
-      }
-    },
-    "interventions": [
-      {
-        "platforms": ["desktop"],
-        "skip_if": ["text_event_supported"],
-        "content_scripts": {
-          "js": ["bug1739489-draftjs-beforeinput.js"]
-        }
-      }
-    ]
-  },
   "1741234": {
     "label": "patient.alphalabs.ca",
     "bugs": {
@@ -860,6 +809,10 @@
       "1818818": {
         "issue": "broken-interactive-elements",
         "matches": ["*://*.wellcare.com/*"]
+      },
+      "2012965": {
+        "issue": "broken-interactive-elements",
+        "matches": ["*://www.coolstuffinc.com/*"]
       }
     },
     "interventions": [
@@ -1026,21 +979,6 @@
       }
     ]
   },
-  "1827678_83269": {
-    "label": "jelly.jd.com",
-    "bugs": {
-      "1899051": {
-        "issue": "firefox-blocked-completely",
-        "matches": ["*://jelly.jd.com/*"]
-      }
-    },
-    "interventions": [
-      {
-        "platforms": ["all"],
-        "ua_string": ["add_Chrome"]
-      }
-    ]
-  },
   "1827678_119402": {
     "label": "oirsa.org",
     "bugs": {
@@ -1096,7 +1034,8 @@
           "*://cdk.fairgocasinowins.com/*",
           "*://cdk.fairgo-pokies.com/*",
           "*://cdk.fgwinners.com/*",
-          "*://cdk.play-fg.com/*"
+          "*://cdk.play-fg.com/*",
+          "*://cdk.fairg0games.club/*"
         ]
       },
       "1902493": {
@@ -1142,6 +1081,14 @@
       "1964350": {
         "issue": "firefox-blocked-completely",
         "matches": ["*://*.bonusblitz.com/*"]
+      },
+      "2016407": {
+        "issue": "firefox-blocked-completely",
+        "matches": ["*://*.123whitesector.com/*"]
+      },
+      "2017590": {
+        "issue": "firefox-blocked-completely",
+        "matches": ["*://*.slotsofvegas.com/*"]
       }
     },
     "interventions": [
@@ -1429,23 +1376,6 @@
         "platforms": ["android"],
         "content_scripts": {
           "js": ["bug1847971-ebay.com-barcode-scanner.js"]
-        }
-      }
-    ]
-  },
-  "1848713": {
-    "label": "cleanrider.com",
-    "bugs": {
-      "1848713": {
-        "issue": "broken-interactive-elements",
-        "matches": ["*://*.cleanrider.com/*"]
-      }
-    },
-    "interventions": [
-      {
-        "platforms": ["all"],
-        "content_scripts": {
-          "css": ["bug1848713-cleanrider.com-slider.css"]
         }
       }
     ]
@@ -1959,21 +1889,6 @@
       {
         "platforms": ["all"],
         "ua_string": ["Chrome"]
-      }
-    ]
-  },
-  "1897941": {
-    "label": "biodiscover.com",
-    "bugs": {
-      "1897941": {
-        "issue": "desktop-layout-not-mobile",
-        "matches": ["*://biodiscover.com/*"]
-      }
-    },
-    "interventions": [
-      {
-        "platforms": ["android"],
-        "ua_string": ["Chrome_with_FxQuantum"]
       }
     ]
   },
@@ -2563,7 +2478,7 @@
     "bugs": {
       "1899829": {
         "issue": "broken-images",
-        "matches": ["*://www3.animeflv.net/*"]
+        "matches": ["*://*.animeflv.net/*"]
       }
     },
     "interventions": [
@@ -3247,7 +3162,16 @@
       },
       {
         "platforms": ["windows"],
-        "ua_string": ["Chrome_with_FxQuantum"]
+        "content_scripts": {
+          "js": ["bug1902520-keisan.nta.go.jp-ua-override.js"]
+        }
+      },
+      {
+        "platforms": ["linux"],
+        "only_channels": ["nightly"],
+        "content_scripts": {
+          "js": ["bug1902520-keisan.nta.go.jp-ua-override.js"]
+        }
       }
     ]
   },
@@ -3689,23 +3613,6 @@
       }
     ]
   },
-  "1925276": {
-    "label": "xtralife.com",
-    "bugs": {
-      "1925276": {
-        "issue": "broken-layout",
-        "matches": ["*://www.xtralife.com/*"]
-      }
-    },
-    "interventions": [
-      {
-        "platforms": ["desktop"],
-        "content_scripts": {
-          "css": ["bug1925276-xtralife.com-fix-search-results.css"]
-        }
-      }
-    ]
-  },
   "1924441": {
     "label": "contractorinduction.colesgroup.com.au",
     "bugs": {
@@ -3783,25 +3690,6 @@
       {
         "platforms": ["all"],
         "ua_string": ["add_Chrome"]
-      }
-    ]
-  },
-  "1927121": {
-    "label": "southerndevilhd.com",
-    "bugs": {
-      "1927121": {
-        "issue": "broken-images",
-        "matches": ["*://www.southerndevilhd.com/*"]
-      }
-    },
-    "interventions": [
-      {
-        "platforms": ["all"],
-        "content_scripts": {
-          "js": [
-            "bug1927121-southerndevilhd.com-shim-WebkitMutationObserver.js"
-          ]
-        }
       }
     ]
   },
@@ -3909,21 +3797,6 @@
       {
         "platforms": ["desktop"],
         "ua_string": ["Chrome", "add_Firefox_as_Gecko"]
-      }
-    ]
-  },
-  "1933811": {
-    "label": "indices.circana.com",
-    "bugs": {
-      "1898959": {
-        "issue": "firefox-blocked-completely",
-        "matches": ["*://indices.circana.com/*"]
-      }
-    },
-    "interventions": [
-      {
-        "platforms": ["all"],
-        "ua_string": ["add_Chrome"]
       }
     ]
   },
@@ -4803,6 +4676,15 @@
     "interventions": [
       {
         "platforms": ["all"],
+        "max_version": 148,
+        "content_scripts": {
+          "js": ["bug1963270-app.kosmi.io-unprefix-mozCaptureStream.js"]
+        }
+      },
+      {
+        "platforms": ["all"],
+        "min_version": 149,
+        "pref_check": { "media.captureStream.enabled": false },
         "content_scripts": {
           "js": ["bug1963270-app.kosmi.io-unprefix-mozCaptureStream.js"]
         }
@@ -4858,25 +4740,6 @@
       }
     ]
   },
-  "1966389": {
-    "label": "boots.com",
-    "bugs": {
-      "1966389": {
-        "issue": "broken-layout",
-        "matches": ["*://appointments.boots.com/*"]
-      }
-    },
-    "interventions": [
-      {
-        "platforms": ["all"],
-        "pref_check": { "layout.css.webkit-fill-available.enabled": false },
-        "content_scripts": {
-          "all_frames": true,
-          "css": ["bug1966389-boots.com-align-element-widths.css"]
-        }
-      }
-    ]
-  },
   "1966585": {
     "label": "hiskin.care",
     "bugs": {
@@ -4894,6 +4757,21 @@
       }
     ]
   },
+  "1967694": {
+    "label": "onlyfaucet.com",
+    "bugs": {
+      "1967694": {
+        "issue": "firefox-blocked-completely",
+        "matches": ["*://*.onlyfaucet.com/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "ua_string": ["Chrome_with_FxQuantum"]
+      }
+    ]
+  },
   "1968187": {
     "label": "authface.liquid-auth.com",
     "bugs": {
@@ -4906,41 +4784,6 @@
       {
         "platforms": ["android"],
         "ua_string": ["add_Chrome"]
-      }
-    ]
-  },
-  "1968198": {
-    "label": "www.metacritic.com",
-    "bugs": {
-      "1968198": {
-        "issue": "broken-interactive-elements",
-        "matches": ["*://www.metacritic.com/browse/*"]
-      }
-    },
-    "interventions": [
-      {
-        "platforms": ["all"],
-        "content_scripts": {
-          "css": ["bug1968198-metacritic.com-fix-release-year-filter.css"]
-        }
-      }
-    ]
-  },
-  "1969165": {
-    "label": "appointments.mpi.mb.ca",
-    "bugs": {
-      "1969165": {
-        "issue": "page-fails-to-load",
-        "matches": ["*://appointments.mpi.mb.ca/*"]
-      }
-    },
-    "interventions": [
-      {
-        "platforms": ["all"],
-        "skip_if": ["getWeekInfo_defined"],
-        "content_scripts": {
-          "js": ["bug196916-mpi.mb.ca-polyfill-getWeekInfo.js"]
-        }
       }
     ]
   },
@@ -5025,36 +4868,17 @@
       }
     ]
   },
-  "1975953": {
-    "label": "envios.mercadolibre.com.ar",
+  "1975927": {
+    "label": "trafficnews.jp",
     "bugs": {
-      "1975953": {
-        "issue": "broken-layout",
-        "matches": [
-          "*://envios.mercadolibre.com.ar/shipping/agencies-map/pick-up*"
-        ]
+      "1975927": {
+        "issue": "desktop-layout-not-mobile",
+        "matches": ["*://trafficnews.jp/*"]
       }
     },
     "interventions": [
       {
         "platforms": ["android"],
-        "content_scripts": {
-          "css": ["bug1975953-envios.mercadolibre.com.ar-reveal-content.css"]
-        }
-      }
-    ]
-  },
-  "1976200": {
-    "label": "unak.medlemssidor.org",
-    "bugs": {
-      "1976200": {
-        "issue": "firefox-blocked-completely",
-        "matches": ["*://unak.medlemssidor.org/*"]
-      }
-    },
-    "interventions": [
-      {
-        "platforms": ["all"],
         "ua_string": ["Chrome_with_FxQuantum"]
       }
     ]
@@ -5273,19 +5097,18 @@
       }
     ]
   },
-  "1902507": {
-    "label": "riverside.fm",
+  "1902507_1": {
+    "label": "riverside.com/riverside.fm",
     "bugs": {
       "1902507": {
         "issue": "broken-meetings",
-        "matches": ["https://riverside.fm/*"]
+        "matches": ["https://riverside.fm/*", "https://riverside.com/*"]
       }
     },
     "interventions": [
       {
         "platforms": ["all"],
         "only_channels": ["nightly"],
-        "ua_string": ["Chrome_with_FxQuantum"],
         "content_scripts": {
           "all_frames": true,
           "js": ["bug1994562-shim-mstp-mstg-on-window.js"]
@@ -5294,11 +5117,64 @@
       {
         "platforms": ["all"],
         "only_channels": ["nightly"],
-        "ua_string": ["Chrome_with_FxQuantum"],
         "content_scripts": {
           "all_frames": true,
           "js": ["bug1913599-shim-createencodedstreams.js"]
         }
+      },
+      {
+        "platforms": ["all"],
+        "only_channels": ["nightly"],
+        "content_scripts": {
+          "all_frames": true,
+          "js": ["bug1902507-nofrozenicecandidatepairstats.js"]
+        }
+      },
+      {
+        "platforms": ["all"],
+        "only_channels": ["nightly"],
+        "content_scripts": {
+          "all_frames": true,
+          "js": ["bug1902507-ssrcmsid.js"]
+        }
+      }
+    ]
+  },
+  "1902507_2": {
+    "label": "riverside.com/riverside.fm studio",
+    "bugs": {
+      "1902507": {
+        "issue": "broken-meetings",
+        "matches": [
+          "https://riverside.fm/studio*",
+          "https://riverside.com/studio*"
+        ]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "only_channels": ["nightly"],
+        "ua_string": ["Safari"]
+      }
+    ]
+  },
+  "1902507_3": {
+    "label": "riverside.com/riverside.fm dashboard",
+    "bugs": {
+      "1902507": {
+        "issue": "broken-login",
+        "matches": [
+          "https://riverside.fm/dashboard*",
+          "https://riverside.com/dashboard*"
+        ]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "only_channels": ["nightly"],
+        "ua_string": ["Chrome"]
       }
     ]
   },
@@ -5611,21 +5487,6 @@
     "interventions": [
       {
         "platforms": ["android"],
-        "ua_string": ["add_Chrome"]
-      }
-    ]
-  },
-  "1990193": {
-    "label": "zeit.werkheim.de",
-    "bugs": {
-      "1990193": {
-        "issue": "page-fails-to-load",
-        "matches": ["*://zeit.werkheim.de/*"]
-      }
-    },
-    "interventions": [
-      {
-        "platforms": ["all"],
         "ua_string": ["add_Chrome"]
       }
     ]
@@ -6102,6 +5963,21 @@
       }
     ]
   },
+  "2010589": {
+    "label": "lite.airtelkenya.com",
+    "bugs": {
+      "2010589": {
+        "issue": "firefox-blocked-completely",
+        "matches": ["*://lite.airtelkenya.com/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["android"],
+        "ua_string": ["Chrome_with_FxQuantum"]
+      }
+    ]
+  },
   "2005520": {
     "label": "portal.adtpulse.com",
     "bugs": {
@@ -6129,7 +6005,7 @@
     },
     "interventions": [
       {
-        "platforms": ["all"],
+        "not_platforms": ["linux"],
         "content_scripts": {
           "all_frames": true,
           "js": ["bug2006036-fbo.fubon.com-unblock-firefox.js"]
@@ -6155,6 +6031,73 @@
       }
     ]
   },
+  "2008115": {
+    "label": "pge.com",
+    "bugs": {
+      "2008115": {
+        "issue": "unsupported-warning",
+        "matches": ["*://www.pge.com/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "content_scripts": {
+          "css": ["bug2008115-pge.com-hide-unsupported-message.css"]
+        }
+      }
+    ]
+  },
+  "2009174": {
+    "label": "otr.oregon.gov",
+    "bugs": {
+      "2009174": {
+        "issue": "firefox-blocked-completely",
+        "matches": ["*://otr.oregon.gov/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "ua_string": ["Chrome_with_FxQuantum"]
+      }
+    ]
+  },
+  "2009380": {
+    "label": "circuitdesremparts.com",
+    "bugs": {
+      "2009380": {
+        "issue": "page-fails-to-load",
+        "matches": [
+          "*://www.circuitdesremparts.com/prochaine-edition/billetterie/*"
+        ]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "skip_if": ["relaxed_name_validation_rules"],
+        "ua_string": ["add_Chrome"]
+      }
+    ]
+  },
+  "2010102": {
+    "label": "osmosis.org",
+    "bugs": {
+      "2010102": {
+        "issue": "broken-layout",
+        "matches": ["*://www.osmosis.org/notes/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "content_scripts": {
+          "css": ["bug2010102-osmosis.org-center-pages.css"]
+        }
+      }
+    ]
+  },
   "2010794": {
     "label": "ipn2.paymentus.com",
     "bugs": {
@@ -6168,6 +6111,23 @@
     "interventions": [
       {
         "platforms": ["all"]
+      }
+    ]
+  },
+  "2011819": {
+    "label": "ogcrush.com",
+    "bugs": {
+      "2011819": {
+        "issue": "broken-scrolling",
+        "matches": ["*://www.ogcrush.ogcrush.com/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "content_scripts": {
+          "css": ["bug2011819-ogcrush.com-fix-slick-slide-height.css"]
+        }
       }
     ]
   },
@@ -6189,6 +6149,233 @@
       }
     ]
   },
+  "2011898": {
+    "label": "vanguard.com",
+    "bugs": {
+      "2011898": {
+        "issue": "broken-interactive-elements",
+        "matches": ["*://funds.web.vanguard.com/n/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "content_scripts": {
+          "css": ["bug2011898-vanguard.com-fix-obscured-inputs.css"]
+        }
+      }
+    ]
+  },
+  "2012708": {
+    "label": "myordbok.com",
+    "bugs": {
+      "2012708": {
+        "issue": "broken-layout",
+        "matches": ["*://myordbok.com/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["desktop"],
+        "content_scripts": {
+          "css": ["bug2012708-myordbok.com-fix-layout.css"]
+        }
+      }
+    ]
+  },
+  "2012789": {
+    "label": "zoopla.co.uk",
+    "bugs": {
+      "2012789": {
+        "issue": "broken-interactive-elements",
+        "matches": ["*://www.zoopla.co.uk/for-sale/map/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["desktop"],
+        "content_scripts": {
+          "js": ["bug2012789-zoopla.co.uk-fix-drawing.js"]
+        }
+      }
+    ]
+  },
+  "2013856": {
+    "label": "4gamer.net",
+    "bugs": {
+      "2013856": {
+        "issue": "desktop-layout-not-mobile",
+        "matches": ["*://www.4gamer.net/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "ua_string": ["Chrome_with_FxQuantum"]
+      }
+    ]
+  },
+  "2013906": {
+    "label": "tibi.be",
+    "bugs": {
+      "2013906": {
+        "issue": "firefox-blocked-completely",
+        "matches": ["*://tibi.monconteneur.be/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "ua_string": ["add_Chrome"]
+      }
+    ]
+  },
+  "2014713": {
+    "label": "javalab.org",
+    "bugs": {
+      "2014713": {
+        "issue": "broken-interactive-elements",
+        "matches": ["*://javalab.org/*potential_energy_by_gravity*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "ua_string": ["add_Safari"]
+      }
+    ]
+  },
+  "2015723": {
+    "label": "bchydro.com",
+    "bugs": {
+      "2015723": {
+        "issue": "firefox-blocked-completely",
+        "matches": ["*://app.bchydro.com/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["android"],
+        "ua_string": ["add_Chrome"]
+      }
+    ]
+  },
+  "2015962": {
+    "label": "usbank.com",
+    "bugs": {
+      "2015962": {
+        "issue": "broken-layout",
+        "matches": ["*://onlinebanking.usbank.com/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "content_scripts": {
+          "css": ["bug2015962-usbank.com-font-fix.css"]
+        }
+      }
+    ]
+  },
+  "2016030": {
+    "label": "prodamus.ru",
+    "bugs": {
+      "2016030": {
+        "issue": "broken-layout",
+        "matches": ["*://prodamus.ru/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "content_scripts": {
+          "css": ["bug2016030-prodamus.ru-fix-hidden-content.css"]
+        }
+      }
+    ]
+  },
+  "2018543": {
+    "label": "lacunacoil.com",
+    "bugs": {
+      "2018543": {
+        "issue": "broken-interactive-elements",
+        "matches": ["*://lacunacoil.com/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "content_scripts": {
+          "js": ["bug2018543-lacunacoil.com-ua-change.js"]
+        }
+      }
+    ]
+  },
+  "2018641": {
+    "label": "cloudplay.jiogames.com",
+    "bugs": {
+      "2018641": {
+        "issue": "firefox-blocked-completely",
+        "matches": ["*://cloudplay.jiogames.com/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "ua_string": ["add_Chrome"]
+      }
+    ]
+  },
+  "2018892": {
+    "label": "museumofpragueai.com",
+    "bugs": {
+      "2018892": {
+        "issue": "unsupported-warning",
+        "matches": ["*://demo.museumofpragueai.com/chatbot/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "pref_check": { "media.webspeech.recognition.enable": false },
+        "content_scripts": {
+          "js": ["bug2018892-museumofpragueai.com-shim-SpeechRecognition.js"]
+        }
+      }
+    ]
+  },
+  "2019231": {
+    "label": "setmore.com",
+    "bugs": {
+      "2019231": {
+        "issue": "page-fails-to-load",
+        "matches": ["*://*.setmore.com/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "content_scripts": {
+          "js": ["bug2019231-setmore.com-Date.toLocaleString-fix.js"]
+        }
+      }
+    ]
+  },
+  "2019543": {
+    "label": "showroom-live.com",
+    "bugs": {
+      "2019231": {
+        "issue": "page-fails-to-load",
+        "matches": ["*://www.showroom-live.com/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["desktop"],
+        "ua_string": ["Chrome_with_FxQuantum"]
+      }
+    ]
+  },
   "2020285": {
     "label": "Eurocontrol Network Operations Portal",
     "bugs": {
@@ -6207,6 +6394,24 @@
           "all_frames": true,
           "match_origin_as_fallback": true,
           "run_at": "document_start"
+        }
+      }
+    ]
+  },
+  "2021019": {
+    "label": "rudder.taleez.com",
+    "bugs": {
+      "2021019": {
+        "issue": "broken-layout",
+        "matches": ["*://rudder.taleez.com/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "pref_check": { "layout.css.webkit-fill-available.enabled": true },
+        "content_scripts": {
+          "css": ["bug2021019-rudder.taleez.com-fix-overlapping-content.css"]
         }
       }
     ]

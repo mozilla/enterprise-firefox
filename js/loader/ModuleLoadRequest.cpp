@@ -97,6 +97,10 @@ void ModuleLoadRequest::ModuleLoaded() {
   MOZ_ASSERT(IsFetching());
 
   mModuleScript = mLoader->GetFetchedModule(ModuleMapKey(URI(), mModuleType));
+
+  if (mModuleScript->ForPreload() != mLoadContext->IsPreload()) {
+    mModuleScript->SetForPreload(mLoadContext->IsPreload());
+  }
 }
 
 void ModuleLoadRequest::LoadFailed() {

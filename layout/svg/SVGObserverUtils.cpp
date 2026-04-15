@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1783,8 +1781,10 @@ SVGPaintServerFrame* SVGObserverUtils::GetAndObservePaintServer(
   // anonymous block frame, then we look up to its parent (the SVGTextFrame).
   nsIFrame* paintedFrame = aPaintedFrame;
   if (paintedFrame->IsInSVGTextSubtree()) {
-    paintedFrame = paintedFrame->GetParent();
-    nsIFrame* grandparent = paintedFrame->GetParent();
+    // Continuations can come and go during reflow, and we don't need to
+    // observe the referenced element more than once for a given node.
+    paintedFrame = paintedFrame->GetParent()->FirstContinuation();
+    nsIFrame* grandparent = paintedFrame->GetParent()->FirstContinuation();
     if (grandparent && grandparent->IsSVGTextFrame()) {
       paintedFrame = grandparent;
     }

@@ -31,7 +31,7 @@ android {
         }
     }
 
-    targetProjectPath = ":app"
+    targetProjectPath = project.findProject(":app") != null ? ":app" : ":fenix"
     experimentalProperties["android.experimental.self-instrumenting"] = true
 
     testOptions {
@@ -69,6 +69,7 @@ dependencies {
     implementation libs.androidx.test.junit
     implementation libs.androidx.test.uiautomator
     implementation libs.mockwebserver
+    implementation project(':components:support-android-test')
 }
 
 androidComponents {

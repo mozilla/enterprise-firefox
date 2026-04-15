@@ -20,6 +20,11 @@ import org.mozilla.fenix.GleanMetrics.TabSearch
 import org.mozilla.fenix.GleanMetrics.TabsTray
 import org.mozilla.fenix.helpers.FenixGleanTestRule
 import org.mozilla.fenix.nimbus.FakeNimbusEventStore
+import org.mozilla.fenix.tabstray.data.TabsTrayItem
+import org.mozilla.fenix.tabstray.redux.action.TabSearchAction
+import org.mozilla.fenix.tabstray.redux.action.TabsTrayAction
+import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
+import org.mozilla.fenix.tabstray.redux.store.TabsTrayStore
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class) // for gleanTestRule
@@ -131,7 +136,7 @@ class TabsTrayTelemetryMiddlewareTest {
         assertEquals("1", snapshot.single().extra?.getValue("tab_count"))
         assertEquals(1, Metrics.bookmarksAdd["tabs_tray"].testGetValue())
 
-        eventStore.assertSingleEventEquals("bookmark_added")
+        eventStore.assertRecorded("bookmark_added")
     }
 
     @Test
@@ -146,7 +151,7 @@ class TabsTrayTelemetryMiddlewareTest {
         assertEquals("2", snapshot.single().extra?.getValue("tab_count"))
         assertEquals(2, Metrics.bookmarksAdd["tabs_tray"].testGetValue())
 
-        eventStore.assertEventsEqual(listOf("bookmark_added", "bookmark_added"))
+        eventStore.assertRecorded("bookmark_added", "bookmark_added")
     }
 
     @Test
@@ -185,8 +190,8 @@ class TabsTrayTelemetryMiddlewareTest {
         TestCase.assertNull(TabSearch.resultClicked.testGetValue())
 
         val tabs = listOf(
-            createTab(url = "mozilla.com"),
-            createTab(url = "developer.mozilla.org"),
+            TabsTrayItem.Tab(tab = createTab(url = "mozilla.com")),
+            TabsTrayItem.Tab(tab = createTab(url = "developer.mozilla.org")),
         )
         store.dispatch(TabSearchAction.SearchResultsUpdated(results = tabs))
 

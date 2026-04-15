@@ -19,6 +19,8 @@
   <string name="content_description_menu">Rhagor o ddewisiadau</string>
   <!-- Content description (not visible, for screen readers etc.): "Private Browsing" menu button. -->
   <string name="content_description_private_browsing">Pori preifat</string>
+  <!-- Content description (not visible, for screen readers etc.): "Normal Browsing" menu button. -->
+  <string name="content_description_normal_browsing">Pori arferol</string>
   <!-- Placeholder text shown in the search bar before a user enters text for the default engine -->
   <string name="search_hint">Chwilio neu gyfeiriad gwe</string>
   <!-- Placeholder text shown in the search bar before a user enters text for a general engine -->
@@ -314,6 +316,8 @@
   <string name="browser_menu_edit_bookmark">Golygu nod tudalen</string>
   <!-- Browser menu label that the saves the currently visited page as a PDF -->
   <string name="browser_menu_save_as_pdf_2">Cadw fel PDF</string>
+  <!-- Browser menu label for moving the current private tab to a non-private tab -->
+  <string name="browser_menu_move_to_non_private_tab">Symud i dab nad yw\'n breifat</string>
   <!-- Browser menu label for navigating to the translation feature, which provides language translation options the current visited page -->
   <string name="browser_menu_translate_page_2">Cyfieithu\'r dudalen</string>
   <!-- Browser menu label for navigating to the summarization feature, which provides site summarization for the current visited page -->
@@ -616,8 +620,12 @@
 
   <!-- "Continue" onboarding button. -->
   <string name="nova_onboarding_continue_button">Parhau</string>
+  <!-- "Continue browsing" onboarding button. -->
+  <string name="nova_onboarding_continue_browsing_button" tools:ignore="UnusedResources">Parhau i bori</string>
   <!-- "Not now" onboarding button. -->
   <string name="nova_onboarding_negative_button">Nid nawr</string>
+  <!-- "Skip" onboarding button. -->
+  <string name="nova_onboarding_skip_button" tools:ignore="UnusedResources">Hepgor</string>
   <!-- Terms of use (ToU) onboarding title. -->
   <string name="nova_onboarding_tou_title" tools:ignore="UnusedResources">Paratowch i redeg yn rhydd</string>
   <!-- Terms of use (ToU) onboarding subtitle. -->
@@ -692,6 +700,29 @@
   <string name="nova_onboarding_add_search_widget_subtitle" tools:ignore="BrandUsage">Dechreuwch bob chwilio o sgrin gartref eich ffôn a gwybod bod diogeledd awtomatig Firefox yn eich cefnogi.</string>
   <!-- "Add search widget" onboarding button. 'Firefox' is intentionally hardcoded. -->
   <string name="nova_onboarding_add_search_widget_button" tools:ignore="BrandUsage">Ychwanegu teclyn Firefox</string>
+  <!-- Customize prompt onboarding title. -->
+  <string name="nova_onboarding_customize_prompt_title" tools:ignore="UnusedResources">Hawdd i\'w addasu ac yn fwy preifat gyda phob tap</string>
+  <plurals name="nova_onboarding_customize_prompt_body" tools:ignore="UnusedResources">
+    <!--
+      Customize prompt onboarding body.
+      %1$s is replaced by the product name (for example "Firefox"),
+      %2$,d is replaced by the number of trackers blocked. The comma represents the thousand
+      separator (e.g. 1,000 in English), and it will automatically use the correct character
+      for your locale (don't change or remove it).
+    -->
+    <item quantity="one">Mae %1$s wedi rhwystro %2$,d traciwr wrth i chi grwydro\'r we.</item>
+    <item quantity="zero">Mae %1$s wedi rhwystro %2$,d tracwyr wrth i chi grwydro\'r we.</item>
+    <item quantity="two">Mae %1$s wedi rhwystro %2$,d traciwr wrth i chi grwydro\'r we.</item>
+    <item quantity="few">Mae %1$s wedi rhwystro %2$,d traciwr wrth i chi grwydro\'r we.</item>
+    <item quantity="many">Mae %1$s wedi rhwystro %2$,d traciwr wrth i chi grwydro\'r we.</item>
+    <item quantity="other">Mae %1$s wedi rhwystro %2$,d traciwr wrth i chi grwydro\'r we.</item>
+  </plurals>
+  <!-- Customize prompt onboarding positive button. -->
+  <string name="nova_onboarding_customize_prompt_positive_button" tools:ignore="UnusedResources">Cychwyn cyfaddasu</string>
+  <!-- App icon onboarding title. -->
+  <string name="nova_onboarding_app_icon_prompt_title" tools:ignore="UnusedResources">Dewiswch eicon ap cyfaddas</string>
+  <!-- App icon onboarding body. -->
+  <string name="nova_onboarding_app_icon_prompt_body" tools:ignore="UnusedResources">Rhowch deimlad personol i\'ch sgrin gartref.</string>
   <!-- ==== End of Project "Nova" onboarding strings ==== -->
 
   <!-- Onboarding header for the toolbar selection card, used by Nimbus experiments. -->
@@ -759,6 +790,12 @@
   <string name="preferences_category_about">Ynghylch</string>
   <!-- Preference category for settings related to changing the default search engine -->
   <string name="preferences_category_select_default_search_engine">Dewiswch un</string>
+  <!-- Preference category for settings related to changing the default search engine -->
+  <string name="preferences_category_select_default_search_engine_2">Peiriant chwilio rhagosodedig pori arferol</string>
+  <!-- Preference category for settings related to changing the private browsing search engine -->
+  <string name="preferences_category_select_private_search_engine">Peiriant chwilio rhagosodedig pori preifat</string>
+  <!-- Option to set the private browsing mode to use the normal default search engine -->
+  <string name="search_engine_use_default">Defnyddio\'r un peiriant chwilio â phori arferol</string>
   <!-- Preference for settings related to managing search shortcuts for the quick search menu -->
   <string name="preferences_manage_search_shortcuts_2">Rheoli peiriannau chwilio eraill</string>
   <!-- Summary for preference for settings related to managing search shortcuts for the quick search menu -->
@@ -975,6 +1012,15 @@
   <string name="preference_downloads_folder_permission_lost" tools:ignore="UnusedResources">Does gennych chi ddim caniatâd i ddefnyddio\'r ffolder hon. Ceisiwch ddewis un gwahanol.</string>
   <!-- Preference title for choosing an app to handle downloads -->
   <string name="preferences_choose_app_for_downloads">Rheoli\'r llwytho i lawr gydag ap arall</string>
+  <!-- Preference category for deleting or removing downloads -->
+  <string name="preferences_category_delete_or_remove_downloads">Dileu neu ddileu llwythi</string>
+  <string name="preferences_downloads_delete_from_device">Dileu o\'r ddyfais</string>
+  <string name="preferences_downloads_delete_from_device_description">Mae\'r ffeil wedi cael ei dileu o\'r ddyfais a\'i thynnu o\'r hanes llwytho</string>
+  <string name="preferences_downloads_remove_from_download_history">Dileu o\'r hanes llwytho</string>
+  <string name="preferences_downloads_remove_from_download_history_description">Mae\'r ffeil yn cael ei thynnu o\'r hanes llwytho, ond mae\'n dal i gael ei chadw ar y ddyfais</string>
+  <string name="preferences_downloads_ask_when_to_delete_files">Gofyn pan fydd ffeiliau\'n cael eu dileu</string>
+  <!-- Preference for downloads -->
+  <string name="preferences_downloads_2">Gosodiadau Llwytho i Lawr</string>
   <!-- Title for the setting to automatically clean up downloaded files. %s is the name of the app (for example "Firefox"). -->
   <string name="preferences_downloads_settings_clean_up_files_title">Dileu o %s a dyfais</string>
   <!-- Summary for the setting to automatically clean up downloaded files -->
@@ -1337,6 +1383,8 @@
   <string name="toolbar_customize_shortcut_homepage">Tudalen Cartref</string>
   <!-- Back shortcut in toolbar customization -->
   <string name="toolbar_customize_shortcut_back">Nôl</string>
+  <!-- Label for choosing in toolbar customization settings to not use any custom shortcut button. -->
+  <string name="toolbar_customize_shortcut_none">Dim</string>
   <!--
     App icon Preferences
 
@@ -1505,12 +1553,8 @@
   <string name="studies_remove">Tynnu</string>
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">Gweithredol</string>
-  <!-- Description for studies -->
-  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">Rhowch gynnig ar nodweddion a syniadau cyn iddyn nhw gael eu rhyddhau i bawb.</string>
   <!-- Description for studies. Note: The word "Firefox" should NOT be translated -->
   <string name="studies_description_4" tools:ignore="BrandUsage">Mae Firefox yn dewis defnyddwyr ar hap i brofi nodweddion, sy\'n gwella ansawdd i bawb.</string>
-  <!-- Title of the Studies data preference -->
-  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">Gosod a rhedeg astudiaethau</string>
   <!-- Title of the Studies data preference -->
   <string name="studies_title_2">Caniatáu astudiaethau nodwedd</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
@@ -1657,10 +1701,36 @@
     %d is the number of existing tab groups + 1.
   -->
   <string name="create_tab_group_form_default_name">Grŵp %d</string>
-  <!-- Label for the tab group name field in the bottom sheet to create a new tab group. -->
-  <string name="create_tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">Enw</string>
   <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
-  <string name="tab_group_name_label">Enw</string>
+  <string name="create_tab_group_name_label">Enw</string>
+  <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
+  <string name="tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">Enw</string>
+  <!-- Title for adding more tabs to a tab group. -->
+  <string name="add_to_tab_group_title">Ychwanegu at</string>
+  <!-- Content Description for closing the "Add to Tab Group" panel. -->
+  <string name="add_to_tab_group_bottom_sheet_close_content_description">Cau ychwanegu at grŵp tabiau</string>
+  <!-- Label for adding to a new tab group. -->
+  <string name="add_to_new_tab_group_title">Grŵp tabiau newydd</string>
+  <plurals name="tab_group_tabs_count_subtitle">
+    <!--
+      Subtitle for the number of tabs in a tab group.
+      %1$d is the number of tabs in a tab group.
+    -->
+    <item quantity="one">%1$d tab</item>
+    <item quantity="zero">%1$d tabiau</item>
+    <item quantity="two">%1$d dab</item>
+    <item quantity="few">%1$d tab</item>
+    <item quantity="many">%1$d thab</item>
+    <item quantity="other">%1$d tab</item>
+  </plurals>
+  <!-- Title for the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_title">Dileu grŵp tabiau?</string>
+  <!-- Text shown in the body of the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_body">Mae hyn yn dileu\'r grŵp yn barhaol.</string>
+  <!-- Text shown on the confirm button in the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_confirm">Dileu grŵp</string>
+  <!-- Text shown on the cancel button in the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_cancel">Diddymu</string>
   <!--
     History
 
@@ -1739,6 +1809,15 @@
     This button will dismiss the dialog.
   -->
   <string name="download_file_has_not_enough_storage_dialog_cancel_button_text">Diddymu</string>
+  <plurals name="downloads_delete_dialog_title">
+    <!-- Title for the download deletion confirmation dialog. The message changes depending on how many files are selected. %d is the number of files to be deleted. -->
+    <item quantity="one">Dileu ffeil?</item>
+    <item quantity="zero">Dileu %d ffeiliau?</item>
+    <item quantity="two">Dileu %d ffeil?</item>
+    <item quantity="few">Dileu %d ffeil?</item>
+    <item quantity="many">Dileu %d ffeil?</item>
+    <item quantity="other">Dileu %d ffeil?</item>
+  </plurals>
   <!-- Text for the button to delete a single downloaded file item -->
   <string name="download_delete_item">Dileu</string>
   <!-- Content description for the toolbar "Navigate back" button -->
@@ -1770,6 +1849,14 @@
   <string name="download_delete_multi_select_dialog_confirm">Dileu</string>
   <!-- Alert dialog confirmation before deleting multiple download items, this is the negative action. -->
   <string name="download_delete_multi_select_dialog_cancel">Diddymu</string>
+  <!-- Alert dialog confirmation before deleting a single download item or many download items, this is one of the radio buttons within the dialog box for the user to select. -->
+  <string name="download_delete_dialog_from_device">Dileu o\'r ddyfais</string>
+  <!-- Alert dialog confirmation before deleting a single download item or many download items, this is one of the radio buttons within the dialog box for the user to select. -->
+  <string name="download_delete_dialog_from_history">Tynnu dim ond o\'r hanes llwytho i lawr</string>
+  <!-- Alert dialog confirmation before deleting a single download item or many download items, this is the negative action. -->
+  <string name="download_delete_dialog_cancel">Diddymu</string>
+  <!-- Alert dialog confirmation before deleting a single download item or many download items, this is the positive action. -->
+  <string name="download_delete_dialog_confirm">Cadarnhau</string>
   <!-- Title for the alert dialog confirmation before renaming a download item. -->
   <string name="download_rename_dialog_title">Ail-enwi ffeil</string>
   <!-- Label for the name field in the alert dialog confirmation before renaming a download item. -->
@@ -1867,6 +1954,16 @@
   <string name="download_content_type_filter_document">Dogfennau</string>
   <!-- Text for the filter button to show all other file types in the downloads list -->
   <string name="download_content_type_filter_other_1">Arall</string>
+  <!--
+    Title for the alert dialog to rename a file and/or change its download location before downloading it.
+    %s is the formatted size of the file (e.g., "12.5 MB").
+  -->
+  <string name="download_rename_and_change_location_dialog_title">Llwytho ffeil i lawr?\n(%s)</string>
+  <!--
+    Title for the alert dialog to rename a file and/or change its download location
+    when the file size is not available before downloading it.
+  -->
+  <string name="download_rename_and_change_location_dialog_title_with_unknown_size">Llwytho ffeil i lawr?</string>
   <!--
     WebCompat Reporter
 
@@ -2056,7 +2153,11 @@
   <string name="bookmark_delete_single_item" tools:ignore="UnusedResources" moz:removedIn="150">Dilëwyd %s</string>
   <!-- Bookmark snackbar message for deleting multiple items. %s is the number of items being deleted -->
   <string name="bookmark_delete_multiple_items" tools:ignore="UnusedResources" moz:removedIn="150">Eitemau dilëwyd: %s</string>
-  <!-- Content description for the bookmark navigation bar back button -->
+  <!--
+    Bookmark undo button for deletion snackbar action
+
+    Content description for the bookmark navigation bar back button
+  -->
   <string name="bookmark_navigate_back_button_content_description">Symud nôl</string>
   <!-- Content description for the bookmark list new folder navigation bar button -->
   <string name="bookmark_add_new_folder_button_content_description">Ychwanegu ffolder newydd</string>
@@ -2265,6 +2366,24 @@
   <string name="menu_print">Argraffu</string>
   <!-- Sub-header in the dialog to share a link to another sync device -->
   <string name="share_device_subheader">Anfon i ddyfais</string>
+  <!-- Content description for the drag handle that dismisses the Send to Device bottom sheet -->
+  <string name="send_to_devices_bottom_sheet_close_content_description">Cau Anfon i Ddyfais</string>
+  <!-- Text for the QR code action in the native share sheet -->
+  <string name="share_qr_code">Cod QR</string>
+  <!-- Title shown in the QR code display screen -->
+  <string name="qr_code_display_title">Cod QR</string>
+  <!-- Content description for the close button in the QR code display screen -->
+  <string name="qr_code_display_close">Cau</string>
+  <!-- Heading on the QR code display screen -->
+  <string name="qr_code_display_share_nearby">Rhannu dolen gerllaw</string>
+  <!-- Body text on the QR code display screen instructing the user to have others scan the code -->
+  <string name="qr_code_display_instructions">Er mwyn rhannu\'r ddolen hon â phobl gerllaw, gofynnwch iddyn nhw sganio\'r cod QR isod.</string>
+  <!-- Label for the download button on the QR code display screen -->
+  <string name="qr_code_display_download">Llwytho i Lawr</string>
+  <!-- Toast shown when the QR code is successfully saved to Downloads -->
+  <string name="qr_code_download_success">Cod QR wedi\'i gadw i\'r Llwythi</string>
+  <!-- Toast shown when saving the QR code to Downloads fails -->
+  <string name="qr_code_download_failure">Wedi methu cadw\'r Cod QR</string>
   <!-- Sub-header in the dialog to share a link to an app from the full list -->
   <string name="share_link_all_apps_subheader">Pob gweithred</string>
   <!-- Sub-header in the dialog to share a link to an app from the most-recent sorted list -->
@@ -2394,8 +2513,6 @@
   <string name="preference_accessibility_text_size_summary">Gwneud testun ar wefannau yn fwy neu’n llai</string>
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">Maint Ffont</string>
-  <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">Newid maint ffont awtomatig</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -3244,6 +3361,8 @@
     which navigates the user to a screen displaying all the shortcuts.
   -->
   <string name="homepage_shortcuts_show_all_content_description">Dangos pob llwybr byr</string>
+  <!-- Label for the "Add shortcut" button displayed as a tile. -->
+  <string name="homepage_shortcuts_add_shortcut">Ychwanegu llwybr byr</string>
   <!-- Title text displayed in the dialog when shortcuts limit is reached. -->
   <string name="shortcut_max_limit_title">Cyrhaeddwyd terfyn llwybr byr</string>
   <!-- Content description text displayed in the dialog when shortcut limit is reached. -->
@@ -3342,6 +3461,8 @@
     Header text for a section on the home screen.
   -->
   <string name="pocket_stories_header_2">Straeon</string>
+  <!-- Header text for the Stories screen. -->
+  <string name="stories_screen_text_news">Newyddion</string>
   <!--
     Context description text for the "Discover more" button in the stories home screen section
     which navigates the user to a screen displaying more stories.
@@ -3434,7 +3555,9 @@
   <!-- The title of the warning card informs the user that the list of languages cannot be loaded. -->
   <string name="translation_error_could_not_load_languages_warning_text">Methu llwytho ieithoedd. Gwiriwch eich cysylltiad rhyngrwyd a rhowch gynnig arall arni.</string>
   <!-- The title of the warning card informs the user that a language is not supported. %1$s is the name of the language that is not supported. -->
-  <string name="translation_error_language_not_supported_warning_text">Ymddiheuriadau, nid ydym yn cefnogi %1$s eto.</string>
+  <string name="translation_error_language_not_supported_warning_text" tools:ignore="UnusedResources" moz:removedIn="150">Ymddiheuriadau, nid ydym yn cefnogi %1$s eto.</string>
+  <!-- The title of the warning card informs the user that translations from a language are not supported yet. %1$s is the name of the source language. -->
+  <string name="translation_error_language_not_supported_warning_text_2">Ymddiheuriadau, dydyn ni ddim yn cefnogi cyfieithiadau o %1$s eto.</string>
   <!-- Snackbar title shown if the user closes the Translation Request dialogue and a translation is in progress. -->
   <string name="translation_in_progress_snackbar">Wrthi\'n cyfieithu…</string>
   <!--

@@ -1,5 +1,4 @@
-/* -*- Mode: Java; c-basic-offset: 4; tab-width: 4; indent-tabs-mode: nil; -*-
- * Any copyright is dedicated to the Public Domain.
+/* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
 package org.mozilla.geckoview.test
@@ -1108,8 +1107,7 @@ class AccessibilityTest : BaseSessionTest() {
             override fun onFocused(event: AccessibilityEvent) {
                 nodeId = getSourceId(event)
                 val node = createNodeInfo(nodeId)
-                val nodeChild = createNodeInfo(node.getChildId(0))
-                assertThat("Focused outsideSelectable", nodeChild.text.toString(), equalTo("outside selectable "))
+                assertThat("Focused outsideSelectable", node.text.toString(), equalTo("outside selectable"))
             }
         })
     }

@@ -40,10 +40,10 @@ const gExperimentalPane = {
 
     window.addEventListener("unload", () => this._removeObservers());
 
-    await this._queueRender();
-
     Services.obs.addObserver(this, ExperimentAPI.ENROLLMENTS_UPDATED);
     this._observerAdded = true;
+
+    await this._queueRender();
   },
 
   /**

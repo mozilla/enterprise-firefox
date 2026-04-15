@@ -64,8 +64,7 @@ void GCRuntime::beginCompactPhase() {
 #endif
 }
 
-IncrementalProgress GCRuntime::compactPhase(JS::GCReason reason,
-                                            SliceBudget& sliceBudget,
+IncrementalProgress GCRuntime::compactPhase(SliceBudget& sliceBudget,
                                             AutoGCSession& session) {
   assertBackgroundSweepingFinished();
   MOZ_ASSERT(startedCompacting);
@@ -88,7 +87,7 @@ IncrementalProgress GCRuntime::compactPhase(JS::GCReason reason,
     MOZ_ASSERT(nursery().isEmpty());
     zone->changeGCState(this, Zone::Finished, Zone::Compact);
 
-    if (relocateArenas(zone, reason, relocatedArenas, sliceBudget)) {
+    if (relocateArenas(zone, relocatedArenas, sliceBudget)) {
       updateZonePointersToRelocatedCells(zone);
       relocatedZones.append(zone);
       zonesCompacted++;
@@ -111,10 +110,10 @@ IncrementalProgress GCRuntime::compactPhase(JS::GCReason reason,
     } while (!relocatedZones.isEmpty());
   }
 
-  clearRelocatedArenas(relocatedArenas, reason);
+  clearRelocatedArenas(relocatedArenas);
 
 #ifdef DEBUG
-  protectOrReleaseRelocatedArenas(relocatedArenas, reason);
+  protectOrReleaseRelocatedArenas(relocatedArenas);
 #else
   releaseRelocatedArenas(relocatedArenas);
 #endif
@@ -422,8 +421,7 @@ bool ArenaLists::relocateArenas(Arena*& relocatedListOut, JS::GCReason reason,
   return true;
 }
 
-bool GCRuntime::relocateArenas(Zone* zone, JS::GCReason reason,
-                               Arena*& relocatedListOut,
+bool GCRuntime::relocateArenas(Zone* zone, Arena*& relocatedListOut,
                                SliceBudget& sliceBudget) {
   gcstats::AutoPhase ap(stats(), gcstats::PhaseKind::COMPACT_MOVE);
 
@@ -432,7 +430,7 @@ bool GCRuntime::relocateArenas(Zone* zone, JS::GCReason reason,
 
   js::CancelOffThreadCompile(rt, JS::Zone::Compact);
 
-  if (!zone->arenas.relocateArenas(relocatedListOut, reason, sliceBudget,
+  if (!zone->arenas.relocateArenas(relocatedListOut, sliceReason, sliceBudget,
                                    stats())) {
     return false;
   }
@@ -869,14 +867,9 @@ void GCRuntime::updateRuntimePointersToRelocatedCells(AutoGCSession& session) {
   callWeakPointerZonesCallbacks(&trc);
 }
 
-void GCRuntime::clearRelocatedArenas(Arena* arenaList, JS::GCReason reason) {
+void GCRuntime::clearRelocatedArenas(Arena* arenaList) {
   AutoLockGC lock(this);
-  clearRelocatedArenasWithoutUnlocking(arenaList, reason, lock);
-}
 
-void GCRuntime::clearRelocatedArenasWithoutUnlocking(Arena* arenaList,
-                                                     JS::GCReason reason,
-                                                     const AutoLockGC& lock) {
   // Clear the relocated arenas, now containing only forwarding pointers
   while (arenaList) {
     Arena* arena = arenaList;
@@ -904,7 +897,7 @@ void GCRuntime::clearRelocatedArenasWithoutUnlocking(Arena* arenaList,
     //    have allocated a similar number of arenas. (This only happens for
     //    collections triggered by GC zeal.)
     //  - if they were allocated since the start of the GC.
-    bool allArenasRelocated = ShouldRelocateAllArenas(reason);
+    bool allArenasRelocated = ShouldRelocateAllArenas(sliceReason);
     bool updateRetainedSize = !allArenasRelocated && !arena->isNewlyCreated();
     Zone* zone = arena->zone();
     zone->gcHeapSize.removeBytes(ArenaSize, updateRetainedSize, heapSize);
@@ -936,9 +929,8 @@ static inline bool ShouldProtectRelocatedArenas(JS::GCReason reason) {
   return reason == JS::GCReason::DEBUG_GC && CanProtectArenas();
 }
 
-void GCRuntime::protectOrReleaseRelocatedArenas(Arena* arenaList,
-                                                JS::GCReason reason) {
-  if (ShouldProtectRelocatedArenas(reason)) {
+void GCRuntime::protectOrReleaseRelocatedArenas(Arena* arenaList) {
+  if (ShouldProtectRelocatedArenas(sliceReason)) {
     protectAndHoldArenas(arenaList);
     return;
   }

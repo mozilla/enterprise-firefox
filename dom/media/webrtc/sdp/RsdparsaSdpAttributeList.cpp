@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -17,7 +15,7 @@
 
 namespace mozilla {
 
-MOZ_RUNINIT const std::string RsdparsaSdpAttributeList::kEmptyString = "";
+MOZ_GLIBCXX_CONSTINIT const std::string RsdparsaSdpAttributeList::kEmptyString;
 
 RsdparsaSdpAttributeList::~RsdparsaSdpAttributeList() {
   for (size_t i = 0; i < kNumAttributeTypes; ++i) {
@@ -1293,7 +1291,7 @@ void RsdparsaSdpAttributeList::LoadCandidate(RustAttributeList* attributeList) {
 
   auto candidates =
       MakeUnique<SdpMultiStringAttribute>(SdpAttribute::kCandidateAttribute);
-  candidates->mValues = candidatesStrings;
+  candidates->mValues = std::move(candidatesStrings);
 
   SetAttribute(candidates.release());
 }

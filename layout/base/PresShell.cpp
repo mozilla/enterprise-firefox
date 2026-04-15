@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -705,7 +703,6 @@ PresShell::PresShell(Document* aDocument)
       mIsActive(true),
       mFrozen(false),
       mIsFirstPaint(true),
-      mObservesMutationsForPrint(false),
       mWasLastReflowInterrupted(false),
       mResizeEventPending(false),
       mVisualViewportResizeEventPending(false),
@@ -3134,15 +3131,6 @@ nsresult PresShell::GoToAnchor(const nsAString& aAnchorName,
   // 3.2. Set the Document's target element to target.
   esm->SetContentState(target, ElementState::URLTARGET);
 
-  // TODO: Spec probably needs a section to account for this.
-  if (ScrollContainerFrame* rootScroll = GetRootScrollContainerFrame()) {
-    if (rootScroll->DidHistoryRestore()) {
-      // Scroll position restored from history trumps scrolling to anchor.
-      aScroll = false;
-      rootScroll->ClearDidHistoryRestore();
-    }
-  }
-
   if (target) {
     // 3.4 Run the ancestor revealing algorithm on target.
     ErrorResult rv;
@@ -4880,7 +4868,10 @@ nsresult PresShell::RenderDocument(const nsRect& aRect,
 
   nsLayoutUtils::PaintFrame(aThebesContext, rootFrame, nsRegion(aRect),
                             aBackgroundColor,
-                            nsDisplayListBuilderMode::Painting, flags);
+                            (aFlags & RenderDocumentFlags::ForPrinting)
+                                ? nsDisplayListBuilderMode::PaintForPrinting
+                                : nsDisplayListBuilderMode::Painting,
+                            flags);
 
   return NS_OK;
 }
@@ -5078,6 +5069,9 @@ UniquePtr<RangePaintInfo> PresShell::CreateRangePaintInfo(
     // XXX deal with frame being null due to display:contents
     for (; frame;
          frame = nsLayoutUtils::GetNextContinuationOrIBSplitSibling(frame)) {
+      if (frame->HasAnyStateBits(NS_FRAME_IS_NONDISPLAY)) {
+        continue;
+      }
       info->mBuilder.SetVisibleRect(frame->InkOverflowRect());
       info->mBuilder.SetDirtyRect(frame->InkOverflowRect());
       frame->BuildDisplayListForStackingContext(&info->mBuilder, &info->mList);
@@ -7811,17 +7805,13 @@ bool PresShell::EventHandler::MaybeFlushPendingNotifications(
 
   switch (aGUIEvent->mMessage) {
     case eMouseDown:
-    case eMouseUp: {
-      RefPtr<nsPresContext> presContext = mPresShell->GetPresContext();
-      if (NS_WARN_IF(!presContext)) {
+    case eMouseUp:  // XXX How about eContextMenu?
+    {
+      if (NS_WARN_IF(!mPresShell->GetPresContext())) {
         return false;
       }
-      uint64_t framesConstructedCount = presContext->FramesConstructedCount();
-      uint64_t framesReflowedCount = presContext->FramesReflowedCount();
-
       MOZ_KnownLive(mPresShell)->FlushPendingNotifications(FlushType::Layout);
-      return framesConstructedCount != presContext->FramesConstructedCount() ||
-             framesReflowedCount != presContext->FramesReflowedCount();
+      return true;
     }
     default:
       return false;
@@ -7891,18 +7881,19 @@ nsIFrame* PresShell::EventHandler::GetFrameToHandleNonTouchEvent(
   // If target is in a child document, we've not flushed its layout yet.
   PresShell* childPresShell = targetFrame->PresShell();
   EventHandler childEventHandler(*childPresShell);
-  bool layoutChanged =
+  const AutoWeakFrame targetFrameWeak(targetFrame);
+  const DebugOnly<bool> flushedPendingNotifications =
       childEventHandler.MaybeFlushPendingNotifications(aGUIEvent);
   if (!aWeakRootFrameToHandleEvent.IsAlive()) {
     // Stop handling the event if the root frame to handle event is destroyed
     // by the reflow. (but why?)
     return nullptr;
   }
-  if (!layoutChanged) {
-    // If the layout in the child PresShell hasn't been changed, we don't
-    // need to recompute the target.
+  if (targetFrameWeak.IsAlive()) {
+    // If the target frame is alive, we don't need to recompute the target.
     return targetFrame;
   }
+  MOZ_ASSERT(flushedPendingNotifications);
 
   // Finally, we need to recompute the target with the latest layout.
   targetFrame =
@@ -11359,6 +11350,21 @@ nsIFrame* PresShell::GetAnchorPosAnchor(
   return nullptr;
 }
 
+void PresShell::CollectAnchorNames(const nsIFrame* aPositionedFrame,
+                                   nsTArray<nsString>& aResult) {
+  const auto* pos = aPositionedFrame->StylePosition();
+  StyleCascadeLevel anchorTreeScope = pos->mPositionAnchor.scope;
+
+  for (auto iter = mAnchorPosAnchors.Iter(); !iter.Done(); iter.Next()) {
+    const auto& name = iter.Key();
+    ScopedNameRef scopedName{name, anchorTreeScope};
+    if (AnchorPositioningUtils::FindFirstAcceptableAnchor(
+            scopedName, aPositionedFrame, iter.Data())) {
+      aResult.AppendElement(nsDependentAtomString(name));
+    }
+  }
+}
+
 void PresShell::AddAnchorPosAnchorImpl(const nsAtom* aName, nsIFrame* aFrame,
                                        bool aForMerge) {
   MOZ_ASSERT(aName);
@@ -11638,6 +11644,14 @@ bool PresShell::ComputeActiveness() const {
   if (StaticPrefs::layout_testing_top_level_always_active() && bc &&
       bc->IsTop()) {
     MOZ_LOG(gLog, LogLevel::Debug, (" > Activeness overridden by pref"));
+    return true;
+  }
+
+  if (bc && bc->GetControlsDocumentPiP()) {
+    MOZ_ASSERT(inActiveTab,
+               "BrowsingContext should be active due to PiP window");
+    MOZ_LOG(gLog, LogLevel::Debug,
+            (" > BrowsingContext controls a PiP window"));
     return true;
   }
 
@@ -12652,16 +12666,15 @@ void PresShell::EventHandler::EventTargetData::UpdateWheelEventTarget(
     return;
   }
 
-  // If dom.event.wheel-event-groups.enabled is not set or the stored
-  // event target is removed, we will not get a event target frame from the
-  // wheel transaction here.
+  // If the stored event target is removed, we will not get an event target
+  // frame from the wheel transaction here.
   nsIFrame* groupFrame = WheelTransaction::GetEventTargetFrame();
   if (!groupFrame) {
     return;
   }
 
-  // If dom.event.wheel-event-groups.enabled is set and whe have a stored
-  // event target from the wheel transaction, override the event target.
+  // If we have a stored event target from the wheel transaction, override
+  // the event target.
   SetFrameAndComputePresShellAndContent(groupFrame, aGUIEvent);
 }
 

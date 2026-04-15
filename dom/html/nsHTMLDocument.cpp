@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -636,7 +634,7 @@ void nsHTMLDocument::NamedGetter(JSContext* aCx, const nsAString& aName,
     AutoTArray<nsString, 1> params;
     params.AppendElement(aName);
     nsContentUtils::ReportToConsole(nsIScriptError::warningFlag, "DOM"_ns, this,
-                                    nsContentUtils::eDOM_PROPERTIES,
+                                    PropertiesFile::DOM_PROPERTIES,
                                     "DocumentShadowingBlockedWarning", params);
     return;
   }

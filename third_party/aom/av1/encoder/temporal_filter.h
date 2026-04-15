@@ -30,7 +30,7 @@ struct ThreadData;
 #define BW 32
 
 // Block size used in temporal filtering.
-#define TF_BLOCK_SIZE BLOCK_32X32
+#define TF_BLOCK_SIZE BLOCK_64X64
 
 // Window size for temporal filtering.
 #define TF_WINDOW_LENGTH 5

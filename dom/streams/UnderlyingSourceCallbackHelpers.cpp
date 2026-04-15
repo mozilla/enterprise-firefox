@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -223,10 +221,10 @@ nsresult InputStreamHolder::AsyncWait(uint32_t aFlags, uint32_t aRequestedCount,
 NS_IMETHODIMP InputStreamHolder::OnInputStreamReady(
     nsIAsyncInputStream* aStream) {
   mAsyncWaitWorkerRef = nullptr;
-  mAsyncWaitAlgorithms = nullptr;
   // We may get called back after ::Shutdown()
-  if (mCallback) {
-    return mCallback->OnInputStreamReady(aStream);
+  if (RefPtr<InputToReadableStreamAlgorithms> callback =
+          mAsyncWaitAlgorithms.forget()) {
+    return callback->OnInputStreamReady(aStream);
   }
   return NS_ERROR_FAILURE;
 }

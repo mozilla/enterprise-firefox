@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -593,7 +591,8 @@ Element* nsContentList::NamedItem(const nsAString& aName, bool aDoFlush) {
   return mNamedItemsCache->Get(name);
 }
 
-void nsContentList::GetSupportedNames(nsTArray<nsString>& aNames) {
+void nsContentList::GetSupportedNames(nsTArray<nsString>& aNames,
+                                      FilterElementWithName aFilter) {
   BringSelfUpToDate(true);
 
   AutoTArray<nsAtom*, 8> atoms;
@@ -607,14 +606,14 @@ void nsContentList::GetSupportedNames(nsTArray<nsString>& aNames) {
       }
     }
 
-    nsGenericHTMLElement* el = nsGenericHTMLElement::FromNode(content);
-    if (el) {
+    if (nsGenericHTMLElement* el = nsGenericHTMLElement::FromNode(content)) {
       // XXXbz should we be checking for particular tags here?  How
       // stable is this part of the spec?
       // Note: nsINode::HasName means the name is exposed on the document,
       // which is false for options, so we don't check it here.
       const nsAttrValue* val = el->GetParsedAttr(nsGkAtoms::name);
-      if (val && val->Type() == nsAttrValue::eAtom) {
+      if (val && val->Type() == nsAttrValue::eAtom &&
+          (!aFilter || aFilter(el))) {
         nsAtom* name = val->GetAtomValue();
         MOZ_ASSERT(name != nsGkAtoms::_empty, "Empty names don't get atomized");
         if (!atoms.Contains(name)) {

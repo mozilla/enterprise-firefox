@@ -38,6 +38,9 @@ const DEVTOOLS_ENABLE_PERSISTENT_LOG_PREF = "devtools.netmonitor.persistlog";
  * Connector to Firefox backend.
  */
 class Connector {
+  #destroyed;
+  #harMetadataCollector;
+
   constructor() {
     // Public methods
     this.connect = this.connect.bind(this);
@@ -106,8 +109,8 @@ class Connector {
       owner: this.owner,
     });
 
-    this._harMetadataCollector = new HarMetadataCollector(this.commands);
-    await this._harMetadataCollector.connect();
+    this.#harMetadataCollector = new HarMetadataCollector(this.commands);
+    await this.#harMetadataCollector.connect();
 
     await this.commands.resourceCommand.watchResources([TYPES.DOCUMENT_EVENT], {
       onAvailable: this.onResourceAvailable,
@@ -128,11 +131,11 @@ class Connector {
 
   disconnect() {
     // As this function might be called twice, we need to guard if already called.
-    if (this._destroyed) {
+    if (this.#destroyed) {
       return;
     }
 
-    this._destroyed = true;
+    this.#destroyed = true;
 
     this.commands.resourceCommand.unwatchResources([TYPES.DOCUMENT_EVENT], {
       onAvailable: this.onResourceAvailable,
@@ -151,7 +154,7 @@ class Connector {
 
     this.dataProvider.destroy();
     this.dataProvider = null;
-    this._harMetadataCollector.destroy();
+    this.#harMetadataCollector.destroy();
   }
 
   /**
@@ -166,7 +169,7 @@ class Connector {
     // Clear all the caches in the data provider
     this.dataProvider.clear();
 
-    this._harMetadataCollector.clear();
+    this.#harMetadataCollector.clear();
 
     if (isExplicitClear) {
       // Only clear the resources if the clear was initiated explicitly by the
@@ -487,7 +490,7 @@ class Connector {
    * Used for HAR generation.
    */
   getHarData() {
-    return this._harMetadataCollector.getHarData();
+    return this.#harMetadataCollector.getHarData();
   }
 
   /**

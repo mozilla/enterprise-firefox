@@ -37,7 +37,7 @@
 .tab-preview-title {
   overflow: hidden;
   -webkit-line-clamp: 2;
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
 }
 
 .tab-preview-uri {
@@ -84,7 +84,7 @@
   &::after {
     /* The badge is a flex child of the toolbarbutton, so without this the
      * arrow would appear immediately after the badge rather than at the end. */
-    margin-inline-start: auto;
+    margin-inline-start: auto !important;
   }
 
   > .toolbarbutton-text {
@@ -108,7 +108,7 @@
   --tab-note-text-border-color: transparent;
   @media (prefers-contrast) {
     --tab-note-text-background: transparent;
-    --tab-note-text-border-color: var(--border-color-card);
+    --tab-note-text-border-color: var(--card-border-color);
   }
 }
 

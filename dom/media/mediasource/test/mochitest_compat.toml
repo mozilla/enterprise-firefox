@@ -293,6 +293,7 @@ run-if = [
 ["test_PlayEventsAutoPlaying.html"]
 skip-if = [
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && ccov",
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && ccov",
 ]
 
 ["test_PlayEventsAutoPlaying2.html"]

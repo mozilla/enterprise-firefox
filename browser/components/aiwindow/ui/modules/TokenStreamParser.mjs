@@ -5,7 +5,12 @@
  */
 
 export const TOKEN_CHARACTER = "§";
-const ALLOWED_TOKEN_STARTS = ["search:", "existing_memory:", "followup:"];
+const ALLOWED_TOKEN_STARTS = [
+  "search:",
+  "existing_memory:",
+  "followup:",
+  "url_token:",
+];
 const MAX_START_LEN = Math.max(
   ...ALLOWED_TOKEN_STARTS.map(string => string.length)
 );
@@ -83,13 +88,13 @@ export function parseToken(raw) {
  *   tokenCandidate: boolean,
  *   pendingOpen: boolean
  * }} state - Parser state object (mutated in place).
- * @param {(msg: string) => void} [logDebug] - Optional debug logger for parse failures.
+ * @param {Map<string, string>} tokenToUrl - Map a URL token to the full URL.
  * @returns {{
  *   plainText: string,
  *   tokens: Array<{key: string, value: string}>
  * }} Parsed plain text and tokens.
  */
-export function consumeStreamChunk(chunk, state, logDebug) {
+export function consumeStreamChunk(chunk, state, tokenToUrl = new Map()) {
   const tokens = [];
   const plain = [];
 
@@ -163,11 +168,18 @@ export function consumeStreamChunk(chunk, state, logDebug) {
     } else {
       try {
         const parsed = parseToken(state.tokenBuffer);
-        if (parsed) {
+
+        if (parsed?.key == "url_token") {
+          // Eagerly convert the url_token back to its original URL. The URL tokens
+          // should only exist during the conversation to the language model. They
+          // get expanded everywhere else in the system for URL security tracking
+          // and the rendering of messages for users.
+          plain.push(tokenToUrl.get(parsed.value) ?? "");
+        } else if (parsed) {
           tokens.push(parsed);
         }
-      } catch (e) {
-        logDebug?.(`Failed to parse token: ${String(e)}`);
+      } catch {
+        // Do nothing.
       }
     }
 

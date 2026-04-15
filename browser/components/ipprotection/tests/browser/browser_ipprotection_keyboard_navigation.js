@@ -15,10 +15,17 @@ async function expectFocusAfterKey(aKey, aFocus) {
     key = "KEY_" + res[2]; // Tab, ArrowRight, etc.
   }
   info("Waiting for focus on " + aFocus.id);
-  let focused = BrowserTestUtils.waitForEvent(aFocus, "focus");
+  // Attempts to capture a nested button element (ie. inside of a moz-button)
+  let focused = BrowserTestUtils.waitForEvent(
+    aFocus.buttonEl ?? aFocus,
+    "focus"
+  );
   EventUtils.synthesizeKey(key, { shiftKey: shift });
   await focused;
-  ok(true, aFocus.id + " focused after " + aKey + " pressed");
+  ok(
+    true,
+    `${aFocus.id || "unidentified element"} focused after [${aKey}] pressed`
+  );
 }
 
 /**
@@ -26,20 +33,10 @@ async function expectFocusAfterKey(aKey, aFocus) {
  * and that the help button responds to the Enter key
  */
 add_task(async function test_keyboard_navigation_in_panel() {
-  setupService({
-    isSignedIn: true,
-    isEnrolledAndEntitled: true,
-    canEnroll: true,
-    proxyPass: {
-      status: 200,
-      error: undefined,
-      pass: makePass(),
-    },
-  });
-  await IPPEnrollAndEntitleManager.refetchEntitlement();
-
   const openLinkStub = sinon.stub(window, "openWebLinkIn");
-  let content = await openPanel();
+  let content = await openPanel({
+    isEnrolledAndEntitled: true,
+  });
 
   Assert.ok(
     BrowserTestUtils.isVisible(content),
@@ -77,22 +74,21 @@ add_task(async function test_keyboard_navigation_in_panel() {
 
   await expectFocusAfterKey("Tab", content.settingsButtonEl);
 
-  // Loop back around
-  await expectFocusAfterKey(
-    "ArrowDown",
-    content.ownerDocument.querySelector(
-      `#${IPProtectionPanel.HEADER_BUTTON_ID}`
-    )
+  // Loop back around with ArrowDown
+  let headerButton = content.ownerDocument.querySelector(
+    `#${IPProtectionPanel.HEADER_BUTTON_ID}`
   );
+  await expectFocusAfterKey("ArrowDown", headerButton);
   await expectFocusAfterKey("ArrowDown", turnOnButton);
 
-  // Loop backwards
-  await expectFocusAfterKey(
-    "Shift+Tab",
-    content.ownerDocument.querySelector(
-      `#${IPProtectionPanel.HEADER_BUTTON_ID}`
-    )
-  );
+  // Test ArrowUp (backward)
+  await expectFocusAfterKey("ArrowUp", headerButton);
+
+  // Navigate forward to turnOnButton to set up for Shift+Tab test
+  await expectFocusAfterKey("ArrowDown", turnOnButton);
+
+  // Loop backwards with Shift+Tab
+  await expectFocusAfterKey("Shift+Tab", headerButton);
 
   // Check that header button responds to enter key
   let panelHiddenPromise = waitForPanelEvent(document, "popuphidden");

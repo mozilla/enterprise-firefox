@@ -82,7 +82,7 @@ void ChromeCompatCallbackHandler::ReportUncheckedLastError(
 
   RefPtr<ConsoleReportCollector> reporter = new ConsoleReportCollector();
   reporter->AddConsoleReport(nsIScriptError::errorFlag, "content javascript"_ns,
-                             nsContentUtils::eDOM_PROPERTIES, sourceSpec, line,
+                             PropertiesFile::DOM_PROPERTIES, sourceSpec, line,
                              column, "WebExtensionUncheckedLastError"_ns,
                              params);
 

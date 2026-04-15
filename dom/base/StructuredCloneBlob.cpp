@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -15,6 +13,7 @@
 #include "js/Value.h"
 #include "js/Wrapper.h"
 #include "jsapi.h"
+#include "mozilla/CheckedInt.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/Span.h"
@@ -214,8 +213,13 @@ bool StructuredCloneBlob::WriteStructuredClone(JSContext* aCx,
 bool StructuredCloneBlob::Holder::WriteStructuredClone(
     JSContext* aCx, JSStructuredCloneWriter* aWriter,
     StructuredCloneHolder* aHolder) {
-  auto& data = mBuffer->data();
-  if (!JS_WriteUint32Pair(aWriter, data.Size(), JS_STRUCTURED_CLONE_VERSION) ||
+  const auto& data = mBuffer->data();
+  CheckedUint32 dataSize(data.Size());
+  if (!dataSize.isValid()) {
+    return false;
+  }
+  if (!JS_WriteUint32Pair(aWriter, dataSize.value(),
+                          JS_STRUCTURED_CLONE_VERSION) ||
       !JS_WriteUint32Pair(aWriter, aHolder->BlobImpls().Length(),
                           BlobImpls().Length())) {
     return false;

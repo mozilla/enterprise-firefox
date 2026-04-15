@@ -67,13 +67,13 @@ struct NumberFormatDigitOptions {
 };
 
 struct NumberFormatUnitOptions {
-  enum class Style : int8_t { Decimal, Percent, Currency, Unit };
+  using Style = mozilla::intl::NumberFormatOptions::Style;
   Style style = Style::Decimal;
 
   using CurrencyDisplay = mozilla::intl::NumberFormatOptions::CurrencyDisplay;
   CurrencyDisplay currencyDisplay = CurrencyDisplay::Symbol;
 
-  enum class CurrencySign : int8_t { Standard, Accounting };
+  using CurrencySign = mozilla::intl::NumberFormatOptions::CurrencySign;
   CurrencySign currencySign = CurrencySign::Standard;
 
   using UnitDisplay = mozilla::intl::NumberFormatOptions::UnitDisplay;
@@ -157,7 +157,7 @@ struct NumberFormatOptions {
   using UseGrouping = mozilla::intl::NumberFormatOptions::Grouping;
   UseGrouping useGrouping = UseGrouping::Auto;
 
-  enum class SignDisplay : int8_t { Auto, Never, Always, ExceptZero, Negative };
+  using SignDisplay = mozilla::intl::NumberFormatOptions::SignDisplay;
   SignDisplay signDisplay = SignDisplay::Auto;
 };
 

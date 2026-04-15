@@ -25,6 +25,9 @@ prefs = [
 ["browser_ConsoleStoragePBTest_perwindowpb.js"]
 
 ["browser_alert_from_about_blank.js"]
+skip-if = [
+  "os == 'win' && os_version == '11.26200' && asan", # Bug 2019745
+]
 
 ["browser_autofocus_background.js"]
 
@@ -229,6 +232,9 @@ support-files = [
   "file_test_report_missing_child_module_parent.mjs",
   "file_test_report_missing_child_module_parent_02.mjs",
   "page_test_report_missing_child_module.html",
+]
+skip-if = [
+  "os == 'mac' && os_version == '15.30' && arch == 'aarch64'", # Bug 2019466
 ]
 
 ["browser_test_toolbars_visibility.js"]

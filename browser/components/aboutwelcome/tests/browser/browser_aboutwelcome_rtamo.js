@@ -76,9 +76,9 @@ async function test_screen_content(
   expectedSelectors = [],
   unexpectedSelectors = []
 ) {
-  await ContentTask.spawn(
+  await SpecialPowers.spawn(
     browser,
-    { expectedSelectors, experiment, unexpectedSelectors },
+    [{ expectedSelectors, experiment, unexpectedSelectors }],
     async ({
       expectedSelectors: expected,
       experiment: experimentName,

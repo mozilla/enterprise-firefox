@@ -45,6 +45,7 @@ class MicrosurveyMessageController(
         val url = getPrivacyPolicyUrlFor(utmContent)
 
         appStore.dispatch(OnPrivacyNoticeTapped(id))
+        @Suppress("DEPRECATION")
         homeActivity.openToBrowserAndLoad(
             searchTermOrURL = url,
             newTab = true,

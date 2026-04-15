@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -843,7 +841,7 @@ void ReferrerInfo::LogMessageToConsole(
 
   nsAutoString localizedMsg;
   rv = nsContentUtils::FormatLocalizedString(
-      nsContentUtils::eSECURITY_PROPERTIES, aMsg, aParams, localizedMsg);
+      PropertiesFile::SECURITY_PROPERTIES, aMsg, aParams, localizedMsg);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return;
   }
@@ -1400,13 +1398,13 @@ nsresult ReferrerInfo::ComputeReferrer(nsIHttpChannel* aChannel) {
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
-    referrer = userSpoofReferrer;
+    referrer = std::move(userSpoofReferrer);
   }
 
   // strip away any userpass; we don't want to be giving out passwords ;-)
   // This is required by Referrer Policy stripping algorithm.
   nsCOMPtr<nsIURI> exposableURI = nsIOService::CreateExposableURI(referrer);
-  referrer = exposableURI;
+  referrer = std::move(exposableURI);
 
   // Don't send referrer when the request is cross-origin and policy is
   // "same-origin".

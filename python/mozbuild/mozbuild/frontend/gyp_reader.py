@@ -73,7 +73,7 @@ class GypContext(TemplateContext):
     """
 
     def __init__(self, config, relobjdir):
-        self._relobjdir = relobjdir
+        self.relobjdir = relobjdir
         TemplateContext.__init__(
             self, template="Gyp", allowed_variables=VARIABLES, config=config
         )

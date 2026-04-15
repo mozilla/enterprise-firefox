@@ -49,11 +49,11 @@ Compartment::Compartment(Zone* zone, bool invisibleToDebugger)
 #ifdef JSGC_HASH_TABLE_CHECKS
 
 void Compartment::checkObjectWrappersAfterMovingGC() {
-  for (ObjectWrapperEnum e(this); !e.empty(); e.popFront()) {
-    auto key = e.front().key();
+  for (auto iter = objectWrapperMappings(); !iter.done(); iter.next()) {
+    auto key = iter.get().key();
     CheckGCThingAfterMovingGC(key.get());  // Keys may be in a different zone.
-    CheckGCThingAfterMovingGC(e.front().value().unbarrieredGet(), zone());
-    CheckTableEntryAfterMovingGC(crossCompartmentObjectWrappers, e, key);
+    CheckGCThingAfterMovingGC(iter.get().value().unbarrieredGet(), zone());
+    CheckTableEntryAfterMovingGC(crossCompartmentObjectWrappers, iter, key);
   }
 }
 
@@ -483,14 +483,14 @@ void Compartment::traceWrapperTargetsInCollectedZones(JSTracer* trc,
   MOZ_ASSERT(!zone()->isCollectingFromAnyThread() ||
              trc->runtime()->gc.isHeapCompacting());
 
-  for (WrappedObjectCompartmentEnum c(this); !c.empty(); c.popFront()) {
-    Zone* zone = c.front()->zone();
+  for (auto c = wrappedObjectCompartments(); !c.done(); c.next()) {
+    Zone* zone = c.get()->zone();
     if (!zone->isCollectingFromAnyThread()) {
       continue;
     }
 
-    for (ObjectWrapperEnum e(this, c); !e.empty(); e.popFront()) {
-      JSObject* obj = e.front().value().unbarrieredGet();
+    for (auto iter = objectWrapperMappingsTo(c); !iter.done(); iter.next()) {
+      JSObject* obj = iter.get().value().unbarrieredGet();
       ProxyObject* wrapper = &obj->as<ProxyObject>();
       if (ShouldTraceWrapper(wrapper, whichEdges)) {
         ProxyObject::traceEdgeToTarget(trc, wrapper);

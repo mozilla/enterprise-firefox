@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+<resources xmlns:tools="http://schemas.android.com/tools" xmlns:moz="http://mozac.org/tools">
+    <!-- Description for the sport suggestion card when the game is final after over time.
+         "OT" is the abbreviation for "overtime". “Overtime” means the extra period(s) played
+         after regular time when the score is tied to determine a winner. Use the standard sports
+         term and abbreviation for this in your locale.  -->
+    <string name="mozac_browser_awesomebar_sport_suggestion_final_over_time" translatable="false" tools:ignore="UnusedResources" moz:removedIn="150">Final(OT)</string>
+    <!-- Description for the sport suggestion card when the game is final after a penalty shoot out.
+         "SO" is the abbreviation for "shootout". “Shootout” is a tie-breaking method used to
+         determine a winner when a match remains tied after regular play and any extra time.
+         Use the standard sports term and abbreviation for this in your locale.  -->
+    <string name="mozac_browser_awesomebar_sport_suggestion_final_shoot_out" translatable="false" tools:ignore="UnusedResources" moz:removedIn="150">Final(SO)</string>
+    <!-- Description for the sport suggestion card when the game is live. -->
+    <string name="mozac_browser_awesomebar_sport_suggestion_live" translatable="false">LIVE</string>
+    <!-- Description for the sport suggestion card when the game is scheduled. -->
+    <string name="mozac_browser_awesomebar_sport_suggestion_scheduled" translatable="false">Scheduled</string>
+    <!-- Description for the sport suggestion card when the game is delayed. -->
+    <string name="mozac_browser_awesomebar_sport_suggestion_delayed" translatable="false">Delayed</string>
+    <!-- Description for the sport suggestion card when the game is postponed. -->
+    <string name="mozac_browser_awesomebar_sport_suggestion_postponed" translatable="false">Postponed</string>
+    <!-- Description for the sport suggestion card when the game is in progress. -->
+    <string name="mozac_browser_awesomebar_sport_suggestion_in_progress" translatable="false">In Progress</string>
+    <!-- Description for the sport suggestion card when the game is suspended. -->
+    <string name="mozac_browser_awesomebar_sport_suggestion_suspended" translatable="false">Suspended</string>
+    <!-- Description for the sport suggestion card when the game is canceled. -->
+    <string name="mozac_browser_awesomebar_sport_suggestion_canceled" translatable="false">Canceled</string>
+    <!-- Description for the sport suggestion card when the game is final. -->
+    <string name="mozac_browser_awesomebar_sport_suggestion_final" translatable="false">Final</string>
+    <!-- Description for the sport suggestion card when the game was forfeited. -->
+    <string name="mozac_browser_awesomebar_sport_suggestion_forfeited" translatable="false">Forfeited</string>
+    <!-- Description for the sport suggestion card's date when the game will hold today. -->
+    <string name="mozac_browser_awesomebar_sport_suggestion_date_today" translatable="false">Today</string>
+    <!--
+      The description for the sport suggestion card's date when the game will hold tomorrow.
+      %s is a placeholder that will be replaced by the time e.g. 5:00 PM or 17:00 depending on the locale
+    -->
+    <string name="mozac_browser_awesomebar_sport_suggestion_date_tomorrow" translatable="false">Tomorrow at %s</string>
+    <!--
+      The description for the sport suggestion teams to be read by talkback when there are no sports scores displayed.
+      %1$s and %2$s are placeholders that will be replaced by the team names e.g. Yankees versus Lakers.
+    -->
+    <string name="mozac_browser_awesomebar_sport_suggestion_talkback_team_description_no_score" translatable="false">%1$s versus %2$s</string>
+</resources>

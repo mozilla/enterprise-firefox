@@ -12,23 +12,27 @@ import org.mozilla.fenix.customannotations.SmokeTest
 import org.mozilla.fenix.helpers.AppAndSystemHelper.assertExternalAppOpens
 import org.mozilla.fenix.helpers.AppAndSystemHelper.clickSystemHomeScreenShortcutAddButton
 import org.mozilla.fenix.helpers.Constants.PackageName.GOOGLE_DOCS
+import org.mozilla.fenix.helpers.FenixTestRule
 import org.mozilla.fenix.helpers.HomeActivityIntentTestRule
 import org.mozilla.fenix.helpers.MatcherHelper
 import org.mozilla.fenix.helpers.MatcherHelper.itemContainingText
-import org.mozilla.fenix.helpers.MatcherHelper.itemWithResIdAndText
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithText
 import org.mozilla.fenix.helpers.TestAssetHelper.getGenericAsset
 import org.mozilla.fenix.helpers.TestHelper.appName
 import org.mozilla.fenix.helpers.TestHelper.clickSnackbarButton
 import org.mozilla.fenix.helpers.TestHelper.mDevice
-import org.mozilla.fenix.helpers.TestSetup
 import org.mozilla.fenix.helpers.perf.DetectMemoryLeaksRule
 import org.mozilla.fenix.ui.robots.browserScreen
 import org.mozilla.fenix.ui.robots.clickPageObject
 import org.mozilla.fenix.ui.robots.navigationToolbar
 import org.mozilla.fenix.ui.robots.notificationShade
 
-class PDFViewerTest : TestSetup() {
+class PDFViewerTest {
+    @get:Rule(order = 0)
+    val fenixTestRule: FenixTestRule = FenixTestRule()
+
+    private val mockWebServer get() = fenixTestRule.mockWebServer
+
     private val downloadTestPage =
         "https://storage.googleapis.com/mobile_test_assets/test_app/downloads.html"
     private val pdfFileName = "washington.pdf"
@@ -53,7 +57,7 @@ class PDFViewerTest : TestSetup() {
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(genericURL.url) {
             clickPageObject(composeTestRule, itemContainingText("PDF form file"))
-            clickPageObject(composeTestRule, itemWithResIdAndText("android:id/button2", "Cancel"))
+            clickPageObject(composeTestRule, itemContainingText("Cancel"))
             verifyPageContent("Washington Crossing the Delaware")
             verifyTabCounter("1")
         }
@@ -69,7 +73,7 @@ class PDFViewerTest : TestSetup() {
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(genericURL.url) {
             clickPageObject(composeTestRule, itemWithText("PDF form file"))
-            clickPageObject(composeTestRule, itemWithResIdAndText("android:id/button2", "Cancel"))
+            clickPageObject(composeTestRule, itemContainingText("Cancel"))
         }.clickDownloadPDFButton {
             verifyDownloadCompleteSnackbar(fileName = downloadFile)
             clickSnackbarButton(composeTestRule = composeTestRule, "OPEN")
@@ -85,7 +89,7 @@ class PDFViewerTest : TestSetup() {
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(genericURL.url) {
             clickPageObject(composeTestRule, itemWithText("PDF form file"))
-            clickPageObject(composeTestRule, itemWithResIdAndText("android:id/button2", "Cancel"))
+            clickPageObject(composeTestRule, itemContainingText("Cancel"))
         }.openThreeDotMenu {
         }.clickFindInPageButton {
             verifyFindInPageNextButton()
@@ -137,7 +141,7 @@ class PDFViewerTest : TestSetup() {
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(genericURL.url) {
             clickPageObject(composeTestRule, itemWithText("PDF form file"))
-            clickPageObject(composeTestRule, itemWithResIdAndText("android:id/button2", "Cancel"))
+            clickPageObject(composeTestRule, itemContainingText("Cancel"))
             verifyTabCounter("1")
         }.openThreeDotMenu {
             clickTheMoreButton()
@@ -161,7 +165,7 @@ class PDFViewerTest : TestSetup() {
             navigationToolbar(composeTestRule) {
             }.enterURLAndEnterToBrowser(genericURL.url) {
                 clickPageObject(composeTestRule, itemWithText("PDF form file"))
-                clickPageObject(composeTestRule, itemWithResIdAndText("android:id/button2", "Cancel"))
+                clickPageObject(composeTestRule, itemContainingText("Cancel"))
             }.clickDownloadPDFButton {
             }
 

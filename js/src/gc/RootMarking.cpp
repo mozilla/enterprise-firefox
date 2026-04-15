@@ -30,9 +30,7 @@ using mozilla::LinkedList;
 using JS::AutoGCRooter;
 using JS::SliceBudget;
 
-using RootRange = RootedValueMap::Range;
 using RootEntry = RootedValueMap::Entry;
-using RootEnum = RootedValueMap::Enum;
 
 template <typename Base, typename T>
 inline void TypedRootedGCThingBase<Base, T>::trace(JSTracer* trc,
@@ -309,8 +307,8 @@ void js::gc::GCRuntime::traceRuntimeCommon(JSTracer* trc,
     // Trace C stack roots.
     TraceExactStackRoots(cx, trc);
 
-    for (RootRange r = rootsHash.ref().all(); !r.empty(); r.popFront()) {
-      const RootEntry& entry = r.front();
+    for (auto iter = rootsHash.ref().iter(); !iter.done(); iter.next()) {
+      const RootEntry& entry = iter.get();
       TraceRoot(trc, entry.key(), entry.value());
     }
   }

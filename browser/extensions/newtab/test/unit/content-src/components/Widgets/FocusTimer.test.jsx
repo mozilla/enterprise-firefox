@@ -670,7 +670,7 @@ describe("<FocusTimer>", () => {
 
       assert.ok(
         wrapper
-          .find("panel-item[data-l10n-id='newtab-widget-timer-menu-hide']")
+          .find("panel-item[data-l10n-id='newtab-widget-menu-hide']")
           .exists()
       );
 
@@ -742,7 +742,7 @@ describe("<FocusTimer>", () => {
 
     it("should hide Focus Timer when 'Hide timer' option is clicked", () => {
       const menuItem = wrapper.find(
-        "panel-item[data-l10n-id='newtab-widget-timer-menu-hide']"
+        "panel-item[data-l10n-id='newtab-widget-menu-hide']"
       );
       menuItem.props().onClick();
 

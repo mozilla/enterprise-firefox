@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -319,8 +317,9 @@ NSDictionary<NSData*, ASAuthorizationPublicKeyCredentialPRFAssertionInputValues*
   }
 
   uint32_t count = prfEvalByCredIds.Length();
-  NSData* keys[count];
-  ASAuthorizationPublicKeyCredentialPRFAssertionInputValues* objects[count];
+  NSMutableArray<NSData*>* keys = [NSMutableArray arrayWithCapacity:count];
+  NSMutableArray<ASAuthorizationPublicKeyCredentialPRFAssertionInputValues*>*
+      objects = [NSMutableArray arrayWithCapacity:count];
   for (size_t i = 0; i < count; i++) {
     NSData* saltInput1 = [NSData dataWithBytes:prfEvalByCredFirsts[i].Elements()
                                         length:prfEvalByCredFirsts[i].Length()];
@@ -329,15 +328,15 @@ NSDictionary<NSData*, ASAuthorizationPublicKeyCredentialPRFAssertionInputValues*
       saltInput2 = [NSData dataWithBytes:prfEvalByCredSeconds[i].Elements()
                                   length:prfEvalByCredSeconds[i].Length()];
     }
-    keys[i] = [NSData dataWithBytes:prfEvalByCredIds[i].Elements()
-                             length:prfEvalByCredIds[i].Length()];
-    objects[i] =
-        [[ASAuthorizationPublicKeyCredentialPRFAssertionInputValues alloc]
-            initWithSaltInput1:saltInput1
-                    saltInput2:saltInput2];
+    [keys addObject:[NSData dataWithBytes:prfEvalByCredIds[i].Elements()
+                                   length:prfEvalByCredIds[i].Length()]];
+    [objects
+        addObject:[[ASAuthorizationPublicKeyCredentialPRFAssertionInputValues
+                      alloc] initWithSaltInput1:saltInput1
+                                     saltInput2:saltInput2]];
   }
 
-  return [NSDictionary dictionaryWithObjects:objects forKeys:keys count:count];
+  return [NSDictionary dictionaryWithObjects:objects forKeys:keys];
 }
 
 @implementation MacOSAuthenticatorRequestDelegate {

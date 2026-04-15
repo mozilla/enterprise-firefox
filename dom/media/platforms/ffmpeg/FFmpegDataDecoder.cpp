@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -69,7 +67,7 @@ FFmpegDataDecoder<LIBAV_VER>::~FFmpegDataDecoder() {
 
 MediaResult FFmpegDataDecoder<LIBAV_VER>::AllocateExtraData() {
   if (mExtraData) {
-    mCodecContext->extradata_size = mExtraData->Length();
+    mCodecContext->extradata_size = AssertedCast<int>(mExtraData->Length());
     // FFmpeg may use SIMD instructions to access the data which reads the
     // data in 32 bytes block. Must ensure we have enough data to read.
     uint32_t padding_size =
@@ -79,7 +77,7 @@ MediaResult FFmpegDataDecoder<LIBAV_VER>::AllocateExtraData() {
         FF_INPUT_BUFFER_PADDING_SIZE;
 #endif
     mCodecContext->extradata = static_cast<uint8_t*>(
-        mLib->av_malloc(mExtraData->Length() + padding_size));
+        mLib->av_mallocz(mExtraData->Length() + padding_size));
     if (!mCodecContext->extradata) {
       return MediaResult(NS_ERROR_OUT_OF_MEMORY,
                          RESULT_DETAIL("Couldn't init ffmpeg extradata"));
@@ -298,7 +296,7 @@ MediaResult FFmpegDataDecoder<LIBAV_VER>::DoDecode(
   MOZ_ASSERT(mTaskQueue->IsOnCurrentThread());
 
   uint8_t* inputData = const_cast<uint8_t*>(aSample->Data());
-  size_t inputSize = aSample->Size();
+  int inputSize = AssertedCast<int>(aSample->Size());
 
   mLastInputDts = aSample->mTimecode;
 
@@ -313,7 +311,7 @@ MediaResult FFmpegDataDecoder<LIBAV_VER>::DoDecode(
           mCodecParser, mCodecContext, &data, &size, inputData, inputSize,
           aSample->mTime.ToMicroseconds(), aSample->mTimecode.ToMicroseconds(),
           aSample->mOffset);
-      if (size_t(len) > inputSize) {
+      if (len > inputSize) {
         return NS_ERROR_DOM_MEDIA_DECODE_ERR;
       }
       if (size) {

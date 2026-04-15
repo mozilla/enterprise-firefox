@@ -77,6 +77,7 @@ support-files = [
   "sync_and_async_in_worker.js",
   "lazy_non_shared_in_worker.js",
   "lazy_shared_in_worker.js",
+  "error_twice.mjs",
 ]
 
 ["test_Cu_reportError_column.js"]
@@ -322,6 +323,8 @@ head = "head_ongc.js"
 ["test_sandbox_DOMException.js"]
 
 ["test_sandbox_atob.js"]
+
+["test_sandbox_builtins.js"]
 
 ["test_sandbox_csp.js"]
 

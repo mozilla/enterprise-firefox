@@ -20,7 +20,6 @@ import mozilla.components.browser.state.state.createTab
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.concept.engine.EngineSession
 import mozilla.components.support.test.middleware.CaptureActionsMiddleware
-import mozilla.components.support.test.mock
 import mozilla.components.support.test.robolectric.testContext
 import mozilla.telemetry.glean.private.NoReasonCodes
 import mozilla.telemetry.glean.private.PingType
@@ -599,7 +598,7 @@ class WebCompatReporterSubmissionMiddlewareTest {
         val tab = createTab(
             url = "https://www.mozilla.org",
             id = "test-tab",
-            engineSession = mock(),
+            engineSession = mockk(),
         )
         val browserStore = BrowserStore(
             initialState = BrowserState(
@@ -687,7 +686,7 @@ class WebCompatReporterSubmissionMiddlewareTest {
         nimbusExperimentsProvider: NimbusExperimentsProvider = FakeNimbusExperimentsProvider(),
         scope: CoroutineScope,
     ): WebCompatReporterStore {
-        val engineSession: EngineSession = mock()
+        val engineSession: EngineSession = mockk()
         val tab = createTab(
             url = "",
             id = "test-tab",

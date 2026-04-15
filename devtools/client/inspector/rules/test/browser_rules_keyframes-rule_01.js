@@ -26,10 +26,7 @@ async function testPacman(inspector, view) {
     keyframeRules: ["100%", "100%"],
   });
 
-  assertGutters(view, {
-    guttersNbs: 2,
-    gutterHeading: ["Keyframes pacman", "Keyframes pacman"],
-  });
+  assertRuleViewHeaders(view, ["Keyframes pacman", "Keyframes pacman"]);
 }
 
 async function testBoxy(inspector, view) {
@@ -42,10 +39,7 @@ async function testBoxy(inspector, view) {
     keyframeRules: ["10%", "20%", "100%"],
   });
 
-  assertGutters(view, {
-    guttersNbs: 1,
-    gutterHeading: ["Keyframes boxy"],
-  });
+  assertRuleViewHeaders(view, ["Keyframes boxy"]);
 }
 
 async function testMoxy(inspector, view) {
@@ -58,10 +52,7 @@ async function testMoxy(inspector, view) {
     keyframeRules: ["10%", "20%", "100%", "100%"],
   });
 
-  assertGutters(view, {
-    guttersNbs: 2,
-    gutterHeading: ["Keyframes boxy", "Keyframes moxy"],
-  });
+  assertRuleViewHeaders(view, ["Keyframes boxy", "Keyframes moxy"]);
 }
 
 async function assertKeyframeRules(selector, inspector, view, expected) {
@@ -98,26 +89,4 @@ async function assertKeyframeRules(selector, inspector, view, expected) {
     );
     i++;
   }
-}
-
-function assertGutters(view, expected) {
-  const gutters = view.element.querySelectorAll(".ruleview-header");
-
-  is(
-    gutters.length,
-    expected.guttersNbs,
-    "There are " + gutters.length + " gutter headings"
-  );
-
-  let i = 0;
-  for (const gutter of gutters) {
-    is(
-      gutter.textContent,
-      expected.gutterHeading[i],
-      "Correct " + gutter.textContent + " gutter headings"
-    );
-    i++;
-  }
-
-  return gutters;
 }

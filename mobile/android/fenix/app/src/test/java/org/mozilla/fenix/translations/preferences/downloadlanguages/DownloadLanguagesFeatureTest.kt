@@ -9,13 +9,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import mozilla.components.support.test.mock
 import mozilla.components.support.test.robolectric.testContext
 import org.junit.Assert
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.mockito.Mockito
 import org.mozilla.fenix.wifi.WifiConnectionMonitor
 
 @RunWith(AndroidJUnit4::class)
@@ -28,7 +26,7 @@ class DownloadLanguagesFeatureTest {
     @Before
     fun setUp() {
         wifiConnectionMonitor = mockk(relaxed = true)
-        dataSaverAndWifiChanged = mock()
+        dataSaverAndWifiChanged = mockk(relaxed = true)
         connectivityManager = mockk()
         downloadLanguagesFeature =
             DownloadLanguagesFeature(
@@ -79,7 +77,7 @@ class DownloadLanguagesFeatureTest {
 
         downloadLanguagesFeature.wifiConnectedListener(false)
 
-        Mockito.verify(dataSaverAndWifiChanged).invoke(true)
+        verify { dataSaverAndWifiChanged.invoke(true) }
     }
 
     @Test
@@ -91,7 +89,7 @@ class DownloadLanguagesFeatureTest {
 
         downloadLanguagesFeature.wifiConnectedListener(false)
 
-        Mockito.verify(dataSaverAndWifiChanged).invoke(true)
+        verify { dataSaverAndWifiChanged.invoke(true) }
     }
 
     @Test
@@ -103,7 +101,7 @@ class DownloadLanguagesFeatureTest {
 
         downloadLanguagesFeature.wifiConnectedListener(true)
 
-        Mockito.verify(dataSaverAndWifiChanged).invoke(false)
+        verify { dataSaverAndWifiChanged.invoke(false) }
     }
 
     @Test
@@ -115,6 +113,6 @@ class DownloadLanguagesFeatureTest {
 
         downloadLanguagesFeature.wifiConnectedListener(true)
 
-        Mockito.verify(dataSaverAndWifiChanged).invoke(false)
+        verify { dataSaverAndWifiChanged.invoke(false) }
     }
 }

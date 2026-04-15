@@ -13,6 +13,7 @@ const {
   parseChatHistoryViewRows,
   parseJSONOrNull,
   getRoleLabel,
+  getKeepSidebarOpenState,
 } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/ui/modules/ChatUtils.sys.mjs"
 );
@@ -51,6 +52,8 @@ add_task(function test_parseConversationRow() {
     created_date: now,
     updated_date: now,
     status: "a status",
+    security_properties: '{"privateData": false, "untrustedInput": true}',
+    seen_urls: '["https://example.com/page1"]',
   });
 
   const conversation = parseConversationRow(testRow);
@@ -67,6 +70,18 @@ add_task(function test_parseConversationRow() {
     soft.equal(conversation.createdDate, now);
     soft.equal(conversation.updatedDate, now);
     soft.equal(conversation.status, "a status");
+    soft.ok(
+      conversation.securityProperties.untrustedInput,
+      "untrustedInput should be true"
+    );
+    soft.ok(
+      !conversation.securityProperties.privateData,
+      "privateData should be false"
+    );
+    soft.ok(
+      conversation.seenUrls.has("https://example.com/page1"),
+      "seenUrls should contain the persisted URL"
+    );
   });
 });
 
@@ -108,6 +123,7 @@ add_task(function test_parseConversationRow() {
     memories_flag_source: 1,
     memories_applied: '{ "some": "memories" }',
     web_search_queries: '{ "some": "web search queries" }',
+    page_history_deleted: false,
   });
 
   const rows = parseMessageRows([testRow]);
@@ -256,5 +272,37 @@ add_task(function test_parseChatHistoryViewRows() {
     soft.equal(viewRows[2].createdDate, 168298919);
     soft.equal(viewRows[2].updatedDate, 168298919);
     soft.deepEqual(viewRows[2].urls, [new URL("https://www.firefox.com")]);
+  });
+});
+
+// [state, sidebarOpenByDefault, expected, message]
+const keepSidebarPermutations = [
+  [false, false, false, "falsy state, pref false: defers to pref"],
+  [false, true, true, "falsy state, pref true: defers to pref"],
+  [true, false, false, "truthy non-object state, pref false: defers to pref"],
+  [true, true, true, "truthy non-object state, pref true: defers to pref"],
+  [undefined, false, false, "undefined state, pref false: defers to pref"],
+  [undefined, true, true, "undefined state, pref true: defers to pref"],
+  [
+    { keepSidebarOpen: true },
+    false,
+    true,
+    "explicit true overrides pref false",
+  ],
+  [{ keepSidebarOpen: true }, true, true, "explicit true with pref true"],
+  [{ keepSidebarOpen: false }, false, false, "explicit false with pref false"],
+  [
+    { keepSidebarOpen: false },
+    true,
+    false,
+    "explicit false overrides pref true",
+  ],
+  [{}, false, false, "no keepSidebarOpen in state, pref false: defers to pref"],
+  [{}, true, true, "no keepSidebarOpen in state, pref true: defers to pref"],
+];
+
+keepSidebarPermutations.forEach(([state, pref, expected, message]) => {
+  add_task(function () {
+    Assert.equal(getKeepSidebarOpenState(state, pref), expected, message);
   });
 });

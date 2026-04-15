@@ -155,7 +155,11 @@ class SuspenderObject : public NativeObject {
   static SuspenderObject* create(JSContext* cx);
 
   SuspenderState state() const {
-    return (SuspenderState)getFixedSlot(StateSlot).toInt32();
+    const Value& state = getFixedSlot(StateSlot);
+    if (state.isUndefined()) {
+      return SuspenderState::Moribund;
+    }
+    return (SuspenderState)state.toInt32();
   }
   void setState(SuspenderState state) {
     setFixedSlot(StateSlot, JS::Int32Value((int32_t)state));

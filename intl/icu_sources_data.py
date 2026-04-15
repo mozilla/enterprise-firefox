@@ -240,6 +240,8 @@ def update_data_file(topsrcdir):
             + "-DUCONFIG_NO_BREAK_ITERATION "
             + "-DUCONFIG_NO_IDNA "
             + "-DUCONFIG_NO_MF2 "
+            + "-DUCONFIG_NO_NORMALIZATION=1 "
+            + "-DUCONFIG_NO_COLLATION "
             + "-DU_CHARSET_IS_UTF8 "
         )
     })

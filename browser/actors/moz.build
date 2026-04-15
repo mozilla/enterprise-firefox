@@ -140,7 +140,6 @@ FINAL_TARGET_FILES.actors += [
     "SpeechDispatcherChild.sys.mjs",
     "SpeechDispatcherParent.sys.mjs",
     "SwitchDocumentDirectionChild.sys.mjs",
-    "TLSCertificateBindingChild.sys.mjs",
     "WebRTCChild.sys.mjs",
     "WebRTCParent.sys.mjs",
 ]

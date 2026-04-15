@@ -13,6 +13,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   FXA_PWDMGR_REALM: "resource://gre/modules/FxAccountsCommon.sys.mjs",
   LoginBreaches: "resource:///modules/LoginBreaches.sys.mjs",
   LoginHelper: "resource://gre/modules/LoginHelper.sys.mjs",
+  PrivacyMetricsService:
+    "moz-src:///browser/components/protections/PrivacyMetricsService.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   Region: "resource://gre/modules/Region.sys.mjs",
 });
@@ -177,12 +179,12 @@ export class AboutProtectionsParent extends JSWindowActorParent {
     }
 
     const userFacingLogins =
-      Services.logins.countLogins("", "", "") -
-      Services.logins.countLogins(
+      (await Services.logins.countLoginsAsync("", "", "")) -
+      (await Services.logins.countLoginsAsync(
         lazy.FXA_PWDMGR_HOST,
         null,
         lazy.FXA_PWDMGR_REALM
-      );
+      ));
 
     let potentiallyBreachedLogins = null;
     // Get the stats for number of potentially breached Lockwise passwords
@@ -438,6 +440,12 @@ export class AboutProtectionsParent extends JSWindowActorParent {
 
       case "FetchShowVPNCard":
         return lazy.BrowserUtils.shouldShowVPNPromo();
+
+      case "FetchPrivacyMetrics":
+        if (lazy.PrivateBrowsingUtils.isWindowPrivate(win)) {
+          return { isPrivate: true };
+        }
+        return lazy.PrivacyMetricsService.getWeeklyStats();
     }
 
     return undefined;

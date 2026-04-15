@@ -1,7 +1,3 @@
-const { NimbusTestUtils } = ChromeUtils.importESModule(
-  "resource://testing-common/NimbusTestUtils.sys.mjs"
-);
-
 const TEST_URL_PATH = `https://example.org${DIRECTORY_PATH}form_basic_signup.html`;
 
 Services.scriptloader.loadSubScript(
@@ -129,33 +125,12 @@ add_task(
         await openACPopup(acPopup, browser, "#form-basic-username");
         await clickRelayItemAndWaitForPopup(acPopup);
 
-        const fxaRelayOptInPrompt =
-          document.getElementById(
-            "fxa-and-relay-integration-offer-notification"
-          ) ||
-          document.getElementById(
-            "fxa-and-relay-integration-offer-with-domain-notification"
-          ) ||
-          document.querySelector(
-            "[id^='fxa-and-relay-integration-offer'][id$='-notification']"
-          );
+        const fxaRelayOptInPrompt = document.getElementById(
+          "fxa-and-relay-integration-offer-with-domain-and-value-prop-notification"
+        );
         Assert.ok(
           fxaRelayOptInPrompt,
           "Clicking on Relay auto-complete item should open the FXA + Relay opt-in prompt"
-        );
-        const relayTermsLink = fxaRelayOptInPrompt.querySelector(
-          ".firefox-fxa-and-relay-offer-tos-url"
-        );
-        Assert.ok(
-          relayTermsLink && relayTermsLink.href,
-          "Relay opt-in prompt includes link to terms of service."
-        );
-        const relayPrivacyLink = fxaRelayOptInPrompt.querySelector(
-          ".firefox-fxa-and-relay-offer-privacy-url"
-        );
-        Assert.ok(
-          relayPrivacyLink && relayPrivacyLink.href,
-          "Relay opt-in prompt includes link to privacy notice."
         );
         const relayLearnMoreLink =
           fxaRelayOptInPrompt.querySelector(".firefox-relay-learn-more-url") ||
@@ -175,67 +150,6 @@ add_task(
     rsSandbox.restore();
   }
 );
-
-add_task(async function test_experimenter_feature_value_changes_UI() {
-  const rsSandbox = await stubRemoteSettingsAllowList();
-  try {
-    for (const firstOfferVersion of Object.keys(autocompleteUXTreatments)) {
-      const doExperimentCleanup = await NimbusTestUtils.enrollWithFeatureConfig(
-        {
-          featureId: "email-autocomplete-relay",
-          value: { firstOfferVersion },
-        }
-      );
-      const treatmentTitleMessageId =
-        autocompleteUXTreatments[firstOfferVersion].messageIds[0];
-      const expectedACTitle = await new Localization([
-        "browser/firefoxRelay.ftl",
-        "toolkit/branding/brandings.ftl",
-      ]).formatMessages([treatmentTitleMessageId]);
-      await BrowserTestUtils.withNewTab(
-        {
-          gBrowser,
-          url: TEST_URL_PATH,
-        },
-        async function (browser) {
-          const acPopup = document.getElementById("PopupAutoComplete");
-          await openACPopup(acPopup, browser, "#form-basic-username");
-          const relayItem = await clickRelayItemAndWaitForPopup(
-            acPopup,
-            firstOfferVersion
-          );
-          Assert.equal(
-            relayItem.getAttribute("ac-value"),
-            expectedACTitle[0].value
-          );
-
-          const offerPopupNotificationId =
-            firstOfferVersion === "control"
-              ? "fxa-and-relay-integration-offer-notification"
-              : `fxa-and-relay-integration-offer-${firstOfferVersion}-notification`;
-          let fxaRelayOptInPrompt = document.getElementById(
-            offerPopupNotificationId
-          );
-          if (!fxaRelayOptInPrompt) {
-            fxaRelayOptInPrompt = document.querySelector(
-              "[id^='fxa-and-relay-integration-offer'][id$='-notification']"
-            );
-          }
-          Assert.ok(
-            fxaRelayOptInPrompt,
-            "Clicking on Relay auto-complete item should open the FXA + Relay opt-in prompt that matches the offer version of the experiment."
-          );
-        }
-      );
-      await doExperimentCleanup();
-      try {
-        Services.prefs.clearUserPref("signon.firefoxRelay.feature");
-      } catch (_) {}
-    }
-  } finally {
-    rsSandbox.restore();
-  }
-});
 
 add_task(async function test_dismiss_Relay_optin_shows_Relay_again_later() {
   const rsSandbox = await stubRemoteSettingsAllowList();
@@ -374,16 +288,10 @@ add_task(
 
 add_task(
   async function test_unauthenticated_browser_use_email_mask_opens_fxa_signin() {
-    // We need the configured signup url to set up a mock server to respond to
-    // the proper path value. Note: this test is effectively hard-coded to the "control" variation
     const relayParams = {
       service: "relay",
-      entrypoint_experiment: "first_offer_version",
-      entrypoint_variation: "control",
       utm_source: "relay-integration",
       utm_medium: "firefox-desktop",
-      utm_campaign: "first_offer_version",
-      utm_content: "control",
     };
     const fxaSigninUrlString =
       await gFxAccounts.constructor.config.promiseConnectAccountURI(

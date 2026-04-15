@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set expandtab ts=4 sw=2 sts=2 cin: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -96,9 +94,10 @@
 #include "nsIPrompt.h"
 #include "nsInputStreamPump.h"
 #include "nsURLHelper.h"
+#include "nsISiteIntegrityService.h"
+#include "nsISiteSecurityService.h"
 #include "nsISocketTransport.h"
 #include "nsIStreamConverterService.h"
-#include "nsISiteSecurityService.h"
 #include "nsIURIMutator.h"
 #include "nsString.h"
 #include "nsStringStream.h"
@@ -490,6 +489,7 @@ nsHttpChannel::nsHttpChannel() : HttpAsyncAborter<nsHttpChannel>(this) {
 }
 
 nsHttpChannel::~nsHttpChannel() {
+  MOZ_ASSERT(NS_IsMainThread(), "Must be released on main thread");
   PROFILER_MARKER("~nsHttpChannel", NETWORK, {}, TerminatingFlowMarker,
                   Flow::FromPointer(this));
   LOG(("Destroying nsHttpChannel [this=%p, nsIChannel=%p]\n", this,
@@ -509,7 +509,6 @@ nsHttpChannel::~nsHttpChannel() {
     MOZ_ASSERT(NS_SUCCEEDED(rv));
   }
 
-  ReleaseMainThreadOnlyReferences();
   if (gHttpHandler) {
     gHttpHandler->RemoveHttpChannel(mChannelId);
   }
@@ -517,36 +516,6 @@ nsHttpChannel::~nsHttpChannel() {
   if (mDictDecompress && mUsingDictionary) {
     mDictDecompress->UseCompleted();
   }
-}
-
-void nsHttpChannel::ReleaseMainThreadOnlyReferences() {
-  if (NS_IsMainThread()) {
-    // Already on main thread, let dtor to
-    // take care of releasing references
-    return;
-  }
-
-  nsTArray<nsCOMPtr<nsISupports>> arrayToRelease;
-  arrayToRelease.AppendElement(mAuthProvider.forget());
-  arrayToRelease.AppendElement(mRedirectChannel.forget());
-  arrayToRelease.AppendElement(mPreflightChannel.forget());
-  arrayToRelease.AppendElement(mDNSPrefetch.forget());
-
-  MOZ_DIAGNOSTIC_ASSERT(
-      !mEarlyHintObserver,
-      "Early hint observer should have been released in ReleaseListeners()");
-  arrayToRelease.AppendElement(mEarlyHintObserver.forget());
-  MOZ_DIAGNOSTIC_ASSERT(
-      !mChannelClassifier,
-      "Channel classifier should have been released in ReleaseListeners()");
-  arrayToRelease.AppendElement(
-      mChannelClassifier.forget().downcast<nsIURIClassifierCallback>());
-  MOZ_DIAGNOSTIC_ASSERT(
-      !mWarningReporter,
-      "Warning reporter should have been released in ReleaseListeners()");
-  arrayToRelease.AppendElement(mWarningReporter.forget());
-
-  NS_DispatchToMainThread(new ProxyReleaseRunnable(std::move(arrayToRelease)));
 }
 
 nsresult nsHttpChannel::Init(nsIURI* uri, uint32_t caps, nsProxyInfo* proxyInfo,
@@ -1354,6 +1323,11 @@ nsresult nsHttpChannel::HandleOverrideResponse() {
     }
   }
 
+  rv = ProcessWAICTHeader();
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+
   rv = ProcessSecurityHeaders();
   if (NS_FAILED(rv)) {
     NS_WARNING("ProcessSecurityHeaders failed, continuing load.");
@@ -1725,7 +1699,10 @@ void nsHttpChannel::SpeculativeConnect() {
   NS_NewNotificationCallbacksAggregation(mCallbacks, mLoadGroup,
                                          getter_AddRefs(callbacks));
   if (!callbacks) return;
-  bool httpsRRAllowed = !(mCaps & NS_HTTP_DISALLOW_HTTPS_RR);
+  // Disable HTTPS RR, since the new HappyEyeballs implementation will handle
+  // it.
+  bool httpsRRAllowed = !(mCaps & NS_HTTP_DISALLOW_HTTPS_RR) &&
+                        !(mCaps & NS_HTTP_USE_HAPPY_EYEBALLS);
   (void)gHttpHandler->MaybeSpeculativeConnectWithHTTPSRR(
       mConnectionInfo, callbacks,
       mCaps & (NS_HTTP_DISALLOW_SPDY | NS_HTTP_TRR_MODE_MASK |
@@ -2072,9 +2049,9 @@ LNAPermission nsHttpChannel::UpdateLocalNetworkAccessPermissions(
   // We should arrive at this point after LNA has been detected at the
   // transaction layer and has errored
 
-  MOZ_ASSERT(aPermissionType == LOCAL_HOST_PERMISSION_KEY ||
+  MOZ_ASSERT(aPermissionType == LOOPBACK_NETWORK_PERMISSION_KEY ||
              aPermissionType == LOCAL_NETWORK_PERMISSION_KEY);
-  LNAPermission userPerms = aPermissionType == LOCAL_HOST_PERMISSION_KEY
+  LNAPermission userPerms = aPermissionType == LOOPBACK_NETWORK_PERMISSION_KEY
                                 ? mLNAPermission.mLocalHostPermission
                                 : mLNAPermission.mLocalNetworkPermission;
 
@@ -2133,6 +2110,21 @@ LNAPermission nsHttpChannel::UpdateLocalNetworkAccessPermissions(
                 CF::CLASSIFIED_ANY_SOCIAL_TRACKING)) != 0) {
     userPerms = LNAPermission::Denied;
     return userPerms;
+  }
+
+  // Check if we should block LNA requests from insecure contexts
+  if (StaticPrefs::network_lna_block_insecure_contexts()) {
+    nsCOMPtr<nsIPrincipal> triggeringPrincipal =
+        mLoadInfo->TriggeringPrincipal();
+    if (triggeringPrincipal &&
+        !triggeringPrincipal->GetIsOriginPotentiallyTrustworthy()) {
+      LOG(
+          ("nsHttpChannel::UpdateLocalNetworkAccessPermissions [this=%p] "
+           "blocking LNA request from insecure context\n",
+           this));
+      userPerms = LNAPermission::Denied;
+      return userPerms;
+    }
   }
 
   // Step 3
@@ -2507,7 +2499,8 @@ nsresult nsHttpChannel::CallOnStartRequest() {
                mConnectionInfo->OriginPort() !=
                    mConnectionInfo->DefaultPort()) {
       mResponseHead->SetContentType(nsLiteralCString(TEXT_PLAIN));
-    } else {
+    } else if (!mLoadInfo->GetSkipContentSniffing() ||
+               opaqueResponse == OpaqueResponse::Sniff) {
       // Uh-oh.  We had better find out what type we are!
       mListener = new nsUnknownDecoder(mListener);
       unknownDecoderStarted = true;
@@ -2642,7 +2635,7 @@ nsresult nsHttpChannel::CallOnStartRequest() {
                  "the child process directly. We MUST NOT apply content "
                  "converter in this case.");
       mListener = listener;
-      mCompressListener = listener;
+      mCompressListener = std::move(listener);
 
       StoreHasAppliedConversion(true);
     }
@@ -2796,6 +2789,73 @@ nsresult nsHttpChannel::ProcessHSTSHeader(nsITransportSecurityInfo* aSecInfo) {
     LOG(("nsHttpChannel: Failed to parse %s header, continuing load.\n",
          atom.get()));
   }
+  return NS_OK;
+}
+
+// https://github.com/rozbb/waict-integrity-draft/
+nsresult nsHttpChannel::ProcessWAICTHeader() {
+#ifdef NIGHTLY_BUILD
+  if (!StaticPrefs::security_waict_downgrade_protection_enable()) {
+    return NS_OK;
+  }
+
+  // The WAICT header is only relevant for document loads.
+  ExtContentPolicyType type = mLoadInfo->GetExternalContentPolicyType();
+  if (type != ExtContentPolicy::TYPE_DOCUMENT &&
+      type != ExtContentPolicy::TYPE_SUBDOCUMENT) {
+    return NS_OK;
+  }
+
+  nsISiteIntegrityService* integrityService =
+      gHttpHandler->GetSiteIntegrityService();
+  NS_ENSURE_TRUE(integrityService, NS_ERROR_OUT_OF_MEMORY);
+
+  // Unlike HSTS, WAICT is supported for HTTP as well, so we need to use the
+  // correct helper.
+  OriginAttributes originAttributes;
+  if (mURI->SchemeIs("https")) {
+    if (NS_WARN_IF(!StoragePrincipalHelper::GetOriginAttributesForHTTPSRR(
+            this, originAttributes))) {
+      return NS_ERROR_FAILURE;
+    }
+  } else {
+    if (NS_WARN_IF(!StoragePrincipalHelper::GetOriginAttributesForHSTS(
+            this, originAttributes))) {
+      return NS_ERROR_FAILURE;
+    }
+  }
+
+  nsAutoCString headerValue;
+  nsresult rv =
+      mResponseHead->GetHeader(nsHttp::Integrity_Policy_WAICT, headerValue);
+  if (rv == NS_ERROR_NOT_AVAILABLE || headerValue.IsEmpty()) {
+    LOG(
+        ("nsHttpChannel: No Integrity-Policy-WAICT header, checking if URI is "
+         "protected.\n"));
+
+    bool isProtected = false;
+    rv = integrityService->IsProtectedURI(mURI, originAttributes, &isProtected);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+
+    if (isProtected) {
+      LOG(
+          ("nsHttpChannel: URI is protected but missing WAICT header, "
+           "aborting load.\n"));
+      Cancel(NS_ERROR_CORRUPTED_CONTENT);
+      DoNotifyListener();
+      return NS_ERROR_CORRUPTED_CONTENT;
+    }
+
+    LOG(("nsHttpChannel: URI is not protected, continuing load.\n"));
+    return NS_OK;
+  }
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
+#endif
+
   return NS_OK;
 }
 
@@ -3132,7 +3192,8 @@ nsresult nsHttpChannel::ContinueProcessResponse1(
       RefPtr<HttpChannelParent> httpParent;
       CookieServiceParent::CookieProcessingGuard cookieProcessingGuard;
 
-      if (!LoadOnStartRequestCalled()) {
+      // Skip parent channel interaction for background revalidating channels.
+      if (!LoadOnStartRequestCalled() && !mStaleRevalidation) {
         // This can only happen when a range request is created again in
         // nsHttpChannel::ContinueOnStopRequest. If OnStartRequest is already
         // called, we shouldn't call SetCookieHeaders.
@@ -3156,9 +3217,14 @@ nsresult nsHttpChannel::ContinueProcessResponse1(
       }
     }
 
+    rv = ProcessWAICTHeader();
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+
     // Given a successful connection, process any STS or PKP data that's
     // relevant.
-    nsresult rv = ProcessSecurityHeaders();
+    rv = ProcessSecurityHeaders();
     if (NS_FAILED(rv)) {
       NS_WARNING("ProcessSTSHeader failed, continuing load.");
     }
@@ -3719,7 +3785,7 @@ nsresult nsHttpChannel::ContinueProcessNormal(nsresult rv) {
         LOG_DICTIONARIES(("Installed nsHTTPCompressConv %p without cache tee",
                           listener.get()));
         mListener = listener;
-        mCompressListener = listener;
+        mCompressListener = std::move(listener);
         StoreHasAppliedConversion(true);
       } else {
         LOG_DICTIONARIES(("Didn't install decompressor without cache tee"));
@@ -5011,7 +5077,7 @@ nsresult nsHttpChannel::OpenCacheEntryInternal(bool isHttps) {
   }
 
   if (mPostID) {
-    mCacheIdExtension.Append(nsPrintfCString("%d", mPostID));
+    mCacheIdExtension.AppendInt(mPostID);
   }
   if (LoadIsTRRServiceChannel()) {
     mCacheIdExtension.Append("TRR");
@@ -6078,7 +6144,7 @@ void nsHttpChannel::CloseCacheEntry(bool doomOnFailure) {
   if (LoadInitedCacheEntry()) {
     MOZ_ASSERT(mResponseHead, "oops");
     if (NS_FAILED(mStatus) && doomOnFailure && LoadCacheEntryIsWriteOnly() &&
-        !mResponseHead->IsResumable()) {
+        (!mResponseHead || !mResponseHead->IsResumable())) {
       doom = true;
     }
   } else if (LoadCacheEntryIsWriteOnly()) {
@@ -6405,6 +6471,10 @@ bool nsHttpChannel::ParseDictionary(nsICacheEntry* aEntry,
     nsCString hash;
     // Available now for use
     RefPtr<DictionaryCache> dicts(DictionaryCache::GetInstance());
+    if (!dicts) {
+      // Shutdown has occurred, cannot add dictionary
+      return false;
+    }
     LOG_DICTIONARIES(
         ("Adding DictionaryCache entry for %s: key %s, matchval %s, id=%s, "
          "match-dest[0]=%s, type=%s",
@@ -6601,7 +6671,7 @@ nsresult nsHttpChannel::DoInstallCacheListener(bool aSaveDecompressed,
       LOG_DICTIONARIES(
           ("Installed nsHTTPCompressConv %p before tee", listener.get()));
       mListener = listener;
-      mCompressListener = listener;
+      mCompressListener = std::move(listener);
       StoreHasAppliedConversion(true);
 
     } else {
@@ -7128,7 +7198,29 @@ NS_IMETHODIMP nsHttpChannel::ConnectionRestartable(bool aRestartable) {
 //-----------------------------------------------------------------------------
 
 NS_IMPL_ADDREF_INHERITED(nsHttpChannel, HttpBaseChannel)
-NS_IMPL_RELEASE_INHERITED(nsHttpChannel, HttpBaseChannel)
+bool nsHttpChannel::DispatchRelease() {
+  if (NS_IsMainThread()) {
+    return false;
+  }
+
+  NS_DispatchToMainThread(
+      NewNonOwningRunnableMethod("net::nsHttpChannel::Release", this,
+                                 &nsHttpChannel::Release),
+      NS_DISPATCH_NORMAL);
+
+  return true;
+}
+
+NS_IMETHODIMP_(MozExternalRefCountType)
+nsHttpChannel::Release() {
+  nsrefcnt count = mRefCnt - 1;
+  if (DispatchRelease()) {
+    // Redispatched to the main thread.
+    return count;
+  }
+
+  NS_IMPL_RELEASE_INHERITED_GUTS(nsHttpChannel, HttpBaseChannel);
+}
 
 NS_INTERFACE_MAP_BEGIN(nsHttpChannel)
   NS_INTERFACE_MAP_ENTRY(nsIRequest)
@@ -7328,7 +7420,7 @@ nsresult nsHttpChannel::CancelInternal(nsresult status) {
     const nsACString& permissionKey =
         (mTransaction && mTransaction->GetTargetIPAddressSpace() ==
                              nsILoadInfo::IPAddressSpace::Local)
-            ? LOCAL_HOST_PERMISSION_KEY
+            ? LOOPBACK_NETWORK_PERMISSION_KEY
             : LOCAL_NETWORK_PERMISSION_KEY;
     OnPermissionPromptResult(false, permissionKey);
     return NS_OK;
@@ -7340,7 +7432,8 @@ nsresult nsHttpChannel::CancelInternal(nsresult status) {
 
   // We don't want the content process to see any header values
   // when the request is blocked by ORB
-  if (mChannelBlockedByOpaqueResponse && mCachedOpaqueResponseBlockingPref) {
+  if (mChannelBlockedByOpaqueResponse && mCachedOpaqueResponseBlockingPref &&
+      mResponseHead) {
     mResponseHead->ClearHeaders();
   }
 
@@ -7608,6 +7701,10 @@ nsHttpChannel::GetSecurityInfo(nsITransportSecurityInfo** securityInfo) {
 // any error.
 NS_IMETHODIMP
 nsHttpChannel::AsyncOpen(nsIStreamListener* aListener) {
+  // doContentSecurityCheck and OnOpeningRequest fire observers that may
+  // spin nested event loops; hold a strong ref to this.
+  RefPtr<nsHttpChannel> self(this);
+
   AUTO_PROFILER_FLOW_MARKER("nsHttpChannel::AsyncOpen", NETWORK,
                             Flow::FromPointer(this));
   nsCOMPtr<nsIStreamListener> listener = aListener;
@@ -7727,7 +7824,7 @@ nsHttpChannel::AsyncOpen(nsIStreamListener* aListener) {
   StoreIsPending(true);
   StoreWasOpened(true);
 
-  mListener = listener;
+  mListener = std::move(listener);
 
   if (nsIOService::UseSocketProcess() &&
       !gIOService->IsSocketProcessLaunchComplete()) {
@@ -8088,6 +8185,38 @@ nsresult nsHttpChannel::BeginConnect() {
       mCaps |= NS_HTTP_FORCE_WAIT_HTTP_RR;
     }
   }
+
+  auto canUseHappyEyeballs = [&]() {
+    if (!StaticPrefs::network_http_happy_eyeballs_enabled()) {
+      return false;
+    }
+
+    if (LoadBeConservative() || (mCaps & NS_HTTP_BE_CONSERVATIVE)) {
+      return false;
+    }
+
+    if (mProxyInfo) {
+      return false;
+    }
+
+    if (mWebTransportSessionEventListener) {
+      return false;
+    }
+
+    if (mUpgradeProtocolCallback) {
+      return false;
+    }
+
+    return true;
+  };
+
+  if (canUseHappyEyeballs()) {
+    LOG(("%p NS_HTTP_USE_HAPPY_EYEBALLS ", this));
+    mCaps |= NS_HTTP_USE_HAPPY_EYEBALLS;
+    mCaps &= ~NS_HTTP_FORCE_WAIT_HTTP_RR;
+    mConnectionInfo->SetHappyEyeballsEnabled(true);
+  }
+
   // No need to lookup HTTPSSVC record if mHTTPSSVCRecord already contains a
   // value.
   StoreUseHTTPSSVC(StaticPrefs::network_dns_upgrade_with_https_rr() &&
@@ -8958,6 +9087,7 @@ nsresult nsHttpChannel::ProcessLNAActions() {
     // the transaction in ReadFromCache
     return NS_ERROR_LOCAL_NETWORK_ACCESS_DENIED;
   }
+
   // Suspend to block any notification to the channel.
   // This will get resumed in
   // nsHttpChannel::OnPermissionPromptResult
@@ -8966,7 +9096,7 @@ nsresult nsHttpChannel::ProcessLNAActions() {
   Suspend();
   auto permissionKey = mTransaction->GetTargetIPAddressSpace() ==
                                nsILoadInfo::IPAddressSpace::Local
-                           ? LOCAL_HOST_PERMISSION_KEY
+                           ? LOOPBACK_NETWORK_PERMISSION_KEY
                            : LOCAL_NETWORK_PERMISSION_KEY;
   LNAPermission permissionUpdateResult =
       UpdateLocalNetworkAccessPermissions(permissionKey);
@@ -9380,7 +9510,7 @@ nsresult nsHttpChannel::OnPermissionPromptResult(bool aGranted,
          this));
     // we need to cache this data as permission manager is updated async and
     // might not be reflected immediately
-    if (aType == LOCAL_HOST_PERMISSION_KEY) {
+    if (aType == LOOPBACK_NETWORK_PERMISSION_KEY) {
       mLNAPermission.mLocalHostPermission = LNAPermission::Granted;
     }
 
@@ -9418,7 +9548,7 @@ nsresult nsHttpChannel::OnPermissionPromptResult(bool aGranted,
 
   Resume();
 
-  if (aType == LOCAL_HOST_PERMISSION_KEY) {
+  if (aType == LOOPBACK_NETWORK_PERMISSION_KEY) {
     mLNAPermission.mLocalHostPermission = LNAPermission::Denied;
   }
 
@@ -9452,7 +9582,7 @@ nsresult nsHttpChannel::ContinueOnStartRequest1(nsresult result) {
   if (mAPIRedirectTo && !mCanceled) {
     nsAutoCString redirectToSpec;
     mAPIRedirectTo->first()->GetAsciiSpec(redirectToSpec);
-    LOG(("  redirectTo called with uri=%s", redirectToSpec.BeginReading()));
+    LOG(("  redirectTo called with uri=%s", redirectToSpec.get()));
 
     MOZ_ASSERT(!LoadOnStartRequestCalled());
     PushRedirectAsyncFunc(&nsHttpChannel::ContinueOnStartRequest2);
@@ -9626,7 +9756,7 @@ nsresult nsHttpChannel::LogConsoleError(const char* aTag) {
 
   nsAutoString errorText;
   nsresult rv = nsContentUtils::GetLocalizedString(
-      nsContentUtils::eNECKO_PROPERTIES, aTag, errorText);
+      PropertiesFile::NECKO_PROPERTIES, aTag, errorText);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIScriptError> error(do_CreateInstance(NS_SCRIPTERROR_CONTRACTID));
@@ -9833,10 +9963,7 @@ static void RecordLNATelemetry(nsHttpChannel* aChannel, bool aLoadSuccess) {
   }
 
   uint16_t port = 0;
-  if (NS_SUCCEEDED(peerAddr.GetPort(&port))) {
-    mozilla::glean::networking::local_network_access_port
-        .AccumulateSingleSample(port);
-  }
+  peerAddr.GetPort(&port);
 
   // label format is <parentAddressSpace>_to_<targetAddressSpace>_<scheme>
   // At this point we are sure that the request is a LNA,
@@ -10021,7 +10148,9 @@ nsHttpChannel::OnStopRequest(nsIRequest* request, nsresult status) {
 
   nsCOMPtr<nsICompressConvStats> conv = do_QueryInterface(mCompressListener);
   if (conv) {
-    conv->GetDecodedDataLength(&mDecodedBodySize);
+    uint64_t decodedDataLength = 0;
+    conv->GetDecodedDataLength(&decodedDataLength);
+    mDecodedBodySize = decodedDataLength;
   }
 
   bool isFromNet = request == mTransactionPump;
@@ -10449,7 +10578,13 @@ nsresult nsHttpChannel::ContinueOnStopRequest(nsresult aStatus, bool aIsFromNet,
           LOG(("  but range request setup failed rv=0x%08" PRIx32
                ", failing load",
                static_cast<uint32_t>(rv)));
+          aStatus = NS_ERROR_NET_INTERRUPT;
         }
+
+        // Range-request recovery failed. Restore mResponseHead so that
+        // it's available to late callers of Cancel (such as the ORB
+        // async JS-validation callback)
+        mResponseHead = std::move(mCachedResponseHead);
       }
     }
   }
@@ -10560,7 +10695,8 @@ nsresult nsHttpChannel::ContinueOnStopRequest(nsresult aStatus, bool aIsFromNet,
 
   RemoveAsNonTailRequest();
 
-  if (mChannelBlockedByOpaqueResponse && mCachedOpaqueResponseBlockingPref) {
+  if (mChannelBlockedByOpaqueResponse && mCachedOpaqueResponseBlockingPref &&
+      mResponseHead) {
     mResponseHead->ClearHeaders();
   }
   // If a preferred alt-data type was set, this signals the consumer is
@@ -12760,9 +12896,11 @@ nsHttpChannel::EarlyHint(const nsACString& aLinkHeader,
                          const nsACString& aCspHeader) {
   LOG(("nsHttpChannel::EarlyHint.\n"));
 
-  if (mEarlyHintObserver && nsContentUtils::ComputeIsSecureContext(this)) {
-    LOG(("nsHttpChannel::EarlyHint propagated.\n"));
-    mEarlyHintObserver->EarlyHint(aLinkHeader, aReferrerPolicy, aCspHeader);
+  if (nsCOMPtr<nsIEarlyHintObserver> obs = mEarlyHintObserver) {
+    if (nsContentUtils::ComputeIsSecureContext(this)) {
+      LOG(("nsHttpChannel::EarlyHint propagated.\n"));
+      obs->EarlyHint(aLinkHeader, aReferrerPolicy, aCspHeader);
+    }
   }
   return NS_OK;
 }

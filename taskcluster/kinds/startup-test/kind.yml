@@ -93,6 +93,10 @@ tasks:
             build_platform: macosx64-shippable
         treeherder:
             platform: macosx64-shippable/opt
+        priority:
+            by-project:
+                mozilla-central: high
+                default: null
 
     win32:
         dependencies:

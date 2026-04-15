@@ -1,5 +1,3 @@
-// |reftest| skip-if(!this.hasOwnProperty('Intl'))
-
 const defaultLocale = "en";
 const defaultCalendar = new Intl.DateTimeFormat(defaultLocale).resolvedOptions().calendar;
 

@@ -853,14 +853,14 @@ nsresult CacheIndex::RemoveEntry(const SHA1Sum::Hash* aHash,
   // error out - async since removal happens on MainThread.
 
   // TODO XXX There may be a hole here where a dictionary entry can get
-  // referenced for a request before RemoveDictionaryFor can run, but after
+  // referenced for a request before RemoveDictionaryOMT can run, but after
   // the entry is removed here.
 
   // Note: we don't want to (re)clear dictionaries when the
   // CacheFileContextEvictor purges entries; they've already been cleared
   // via CacheIndex::EvictByContext synchronously
   if (aClearDictionary) {
-    DictionaryCache::RemoveDictionaryFor(aKey);
+    DictionaryCache::RemoveDictionaryOMT(aKey);
   }
 
   StaticMutexAutoLock lock(sLock);

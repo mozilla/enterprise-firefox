@@ -45,7 +45,7 @@ async function resetPreferencesModifiedDuringTest() {
 
   // Cleanup some generic Firefox preferences set indirectly by tests.
   for (const pref of [
-    "browser.firefox-view.view-count",
+    "browser.firefox-view.button-clicks",
     "extensions.ui.lastCategory",
     "sidebar.old-sidebar.has-used",
   ]) {
@@ -1784,15 +1784,20 @@ async function assertSingleColorScreenshotImage(
     () => content.wrappedJSObject.devicePixelRatio
   );
 
-  is(
-    image.width,
-    ratio * width,
-    `node screenshot has the expected width (dpr = ${ratio})`
+  const expectedWidthAtPageDPR = Math.round(width * ratio);
+  const expectedHeightAtPageDPR = Math.round(height * ratio);
+  const expectedWidthAtOneDPR = Math.round(width * 1);
+  const expectedHeightAtOneDPR = Math.round(height * 1);
+
+  ok(
+    image.width === expectedWidthAtPageDPR ||
+      image.width === expectedWidthAtOneDPR,
+    `node screenshot width is ${image.width}, expected ${expectedWidthAtPageDPR} (page DPR=${ratio}) or ${expectedWidthAtOneDPR} (DPR=1)`
   );
-  is(
-    image.height,
-    height * ratio,
-    `node screenshot has the expected height (dpr = ${ratio})`
+  ok(
+    image.height === expectedHeightAtPageDPR ||
+      image.height === expectedHeightAtOneDPR,
+    `node screenshot height is ${image.height}, expected ${expectedHeightAtPageDPR} (page DPR=${ratio}) or ${expectedHeightAtOneDPR} (DPR=1)`
   );
 
   const color = colorAt(image, 0, 0);

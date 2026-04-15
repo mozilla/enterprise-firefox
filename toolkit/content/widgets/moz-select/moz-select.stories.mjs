@@ -14,6 +14,7 @@ export default {
         "moz-select-label",
         "moz-select-description",
         "moz-select-long-label",
+        "moz-select-aria-label",
       ],
       control: { type: "select" },
     },
@@ -31,6 +32,8 @@ moz-select-long-label =
 moz-select-description =
   .label = Select an option
   .description = This is a description for the select dropdown
+moz-select-aria-label =
+  .aria-label = Select an option
 moz-option-1 =
     .label = Option 1
 moz-option-2 =
@@ -171,6 +174,12 @@ export const WithIcon = Template.bind({});
 WithIcon.args = {
   ...Default.args,
   iconSrc: "chrome://global/skin/icons/highlights.svg",
+};
+
+export const WithAriaLabel = Template.bind({});
+WithAriaLabel.args = {
+  ...Default.args,
+  l10nId: "moz-select-aria-label",
 };
 
 export const WithDescription = Template.bind({});

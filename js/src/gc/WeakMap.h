@@ -8,10 +8,12 @@
 #define gc_WeakMap_h
 
 #include "mozilla/Atomics.h"
-#include "mozilla/LinkedList.h"
+#include "mozilla/Maybe.h"
 
+#include "ds/SlimLinkedList.h"
 #include "gc/AllocKind.h"
 #include "gc/Barrier.h"
+#include "gc/Cell.h"
 #include "gc/Marking.h"
 #include "gc/Tracer.h"
 #include "gc/ZoneAllocator.h"
@@ -36,6 +38,10 @@ struct WeakMapKeyHasher;
 extern void DumpWeakMapLog(JSRuntime* rt);
 
 namespace gc {
+
+// Ensure a Symbol read out of a weak map is marked black in |zone|'s atom
+// marking bitmap before it can escape to script.
+void MarkSymbolForWeakMapReadBarrier(JS::Zone* zone, JS::Symbol* sym);
 
 #if defined(JS_GC_ZEAL) || defined(DEBUG)
 // Check whether a weak map entry is marked correctly.
@@ -120,7 +126,7 @@ using WeakMapColors = HashMap<WeakMapBase*, js::gc::CellColor,
 
 // Common base class for all WeakMap specializations, used for calling
 // subclasses' GC-related methods.
-class WeakMapBase : public mozilla::LinkedListElement<WeakMapBase> {
+class WeakMapBase : public SlimLinkedListElement<WeakMapBase> {
   friend class js::GCMarker;
 
  public:
@@ -142,6 +148,8 @@ class WeakMapBase : public mozilla::LinkedListElement<WeakMapBase> {
   static void unmarkZone(JS::Zone* zone);
 #ifdef DEBUG
   static void checkZoneUnmarked(JS::Zone* zone);
+#else
+  static void checkZoneUnmarked(JS::Zone* zone) {}
 #endif
 
   // Check all weak maps in a zone that have been marked as live in this garbage
@@ -205,7 +213,11 @@ class WeakMapBase : public mozilla::LinkedListElement<WeakMapBase> {
 
   gc::CellColor mapColor() const { return gc::CellColor(uint32_t(mapColor_)); }
   void setMapColor(gc::CellColor newColor) { mapColor_ = uint32_t(newColor); }
-  bool markMap(gc::MarkColor markColor);
+
+  bool isMarked() const { return gc::IsMarked(mapColor()); }
+
+  // Attempt to mark the map and return the old color if successful.
+  mozilla::Maybe<gc::CellColor> markMap(gc::MarkColor markColor);
 
   void setHasNurseryEntries();
 
@@ -341,7 +353,8 @@ class WeakMap : public WeakMapBase {
  public:
   using Lookup = typename Map::Lookup;
   using Entry = typename Map::Entry;
-  using Range = typename Map::Range;
+  using Iterator = typename Map::Iterator;
+  using ModIterator = typename Map::ModIterator;
 
   // Restrict the interface of HashMap::Ptr and AddPtr to remove mutable access
   // to the hash table entry which could otherwise bypass our barriers.
@@ -372,10 +385,6 @@ class WeakMap : public WeakMapBase {
     const Entry* operator->() const { return &*ptr; }
   };
 
-  struct Enum : public Map::Enum {
-    explicit Enum(WeakMap& map) : Map::Enum(map.map()) {}
-  };
-
   // Create a weak map owned by a JS object. Used for script-facing objects.
   explicit WeakMap(JSContext* cx, JSObject* memOf);
 
@@ -384,7 +393,8 @@ class WeakMap : public WeakMapBase {
 
   ~WeakMap() override;
 
-  Range all() const { return map().all(); }
+  Iterator iter() const { return map().iter(); }
+  ModIterator modIter() { return map().modIter(); }
   uint32_t count() const { return map().count(); }
   bool empty() const override { return map().empty(); }
   bool has(const Lookup& lookup) const { return map().has(lookup); }
@@ -462,14 +472,14 @@ class WeakMap : public WeakMapBase {
   }
 #endif
 
-  bool markEntry(GCMarker* marker, gc::CellColor mapColor, Enum& iter,
+  bool markEntry(GCMarker* marker, gc::CellColor mapColor, ModIterator& iter,
                  bool populateWeakKeysTable);
 
   void trace(JSTracer* trc) override;
 
   // Used by the debugger to trace cross-compartment edges.
   void traceKeys(JSTracer* trc);
-  void traceKey(JSTracer* trc, Enum& iter);
+  void traceKey(JSTracer* trc, ModIterator& iter);
 
   size_t shallowSizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf);
 
@@ -516,8 +526,11 @@ class WeakMap : public WeakMapBase {
     return map().lookup(l);
   }
 
-  static void valueReadBarrier(const JS::Value& v) {
+  void valueReadBarrier(const JS::Value& v) const {
     JS::ExposeValueToActiveJS(v);
+    if (MOZ_UNLIKELY(v.isSymbol())) {
+      gc::MarkSymbolForWeakMapReadBarrier(zone(), v.toSymbol());
+    }
   }
   static void valueReadBarrier(JSObject* obj) {
     JS::ExposeObjectToActiveJS(obj);

@@ -96,21 +96,28 @@ class StringBuilderAllocPolicy {
 
   // See ComputeGrowth in mfbt/Vector.h.
   template <size_t EltSize>
-  static size_t computeGrowth(size_t aOldElts, size_t aIncr) {
-    return detail::GrowEltsAggressively<EltSize>(aOldElts, aIncr);
+  static size_t computeGrowth(size_t oldElts, size_t incr) {
+    // Make a best effort to catch runaway string growth. Since this method
+    // almost always returns more than the requested size (and the string can
+    // then grow into it) it's unlikely we will catch this immediately.
+    if (oldElts + incr >= size_t(JSString::MAX_LENGTH)) {
+      return 0;
+    }
+    return detail::GrowEltsAggressively<EltSize>(oldElts, incr);
   }
 };
 
 /*
- * String builder that eagerly checks for over-allocation past the maximum
- * string length.
+ * String builder used to create a JSString by appending segments to a growable
+ * buffer.
  *
- * Any operation which would exceed the maximum string length causes an
- * exception report on the context and results in a failed return value.
+ * This has some basic checks for over-allocation past the maximum string length
+ * but does not check on every append. If this condition is detected it will set
+ * an exception on the context and the operation will fail.
  *
- * Well-sized extractions (which waste no more than 1/4 of their char
- * buffer space) are guaranteed for strings built by this interface.
- * See |extractWellSized|.
+ * Well-sized extractions (which waste no more than 1/4 of their char buffer
+ * space) are guaranteed for strings built by this interface.  See
+ * |extractWellSized|.
  */
 class StringBuilder {
  protected:

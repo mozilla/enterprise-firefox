@@ -76,7 +76,7 @@ add_task(async function testNotYetValidCert() {
       "Proceed button should be shown for not-yet-valid certificates."
     );
     Assert.equal(
-      netErrorCard.certErrorIntro.dataset.l10nId,
+      netErrorCard.errorIntro.dataset.l10nId,
       "fp-certerror-intro",
       "Using the 'certificate error' intro."
     );

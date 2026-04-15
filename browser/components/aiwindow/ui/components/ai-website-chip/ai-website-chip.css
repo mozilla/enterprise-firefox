@@ -143,11 +143,11 @@ button.chip {
   font-size: var(--font-size-small);
 }
 
-:host([type="context-chip"]) .chip:hover .chip-icon {
+:host([type="context-chip"]) .chip[data-removable]:hover .chip-icon {
   display: none;
 }
 
-:host([type="context-chip"]) .chip:hover .chip-remove {
+:host([type="context-chip"]) .chip[data-removable]:hover .chip-remove {
   display: flex;
 }
 

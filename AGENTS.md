@@ -1,6 +1,8 @@
 # Global instructions
 Limit the amount of comments you put in the code to a strict minimum. You should almost never add comments, except sometimes on non-trivial code, function definitions if the arguments aren't self-explanatory, and class definitions and their members.
 
+Do not remove existing comments unless they are directly related to what you are changing.
+
 The Firefox repository is very big and so it isn't advised to blindly run grep or rg commands without specifying a narrow set of directories to search. There are tools available to help, see next section.
 
 ## Tooling for Firefox work
@@ -20,12 +22,12 @@ searchfox-cli --id AudioSink -l 150 --cpp # search for identifier audio sink in 
 that has definitely changed locally. If you're unsure, ask.
 - If you can't find something quickly, it is better to ask than run local searches.
 - `./mach` is the main interface to the Mozilla build system and common developer tasks. Important commands are listed here, and you can run `./mach help` for a full list of commands. If you want additional details for a given command, you can run `./mach COMMAND --help`
-- `./mach lint`: Run linters. Run it without additional parameters to lint all the files you have modified
 - `./mach format`: Format code. Run it without additional parameters to format all the files you have modified
 - `./mach build`: Build the project. Full builds can take a long time, up to tens of minutes.
 - `./mach test --auto`: Run tests
 - `./mach run`: Run the project
 - `./mach doc --no-serve --no-open`: Build the documentation
+- `./mach python --virtualenv <virtualenv_name>`: Execute Python of a Mach command's virtualenv. Value of `virtualenv_name` is in relevant `@Command` decorator. This avoids `ImportError`s.
 - `treeherder-cli`: Pull CI results for a try push
 - Use the MCP resource `@moz:bugzilla://bug/{bug_id}` to retrieve a bug
 - Use the MCP resource `@moz:phabricator://revision/D{revision_id}` to retrieve a Phabricator revision
@@ -42,11 +44,10 @@ You can find the review identifier by inspecting the commit log with:
 - Our style guide forbids the use of emoji.
 
 ## Workflow
-- After making code changes, ensure the code is formatted by using `./mach format`, linted by using `./mach lint`, and build it using `./mach build`. If there are no errors, you can use `mach run` to ensure the browser still runs. Occasionally run `./mach clang-format -p path/to/modifiedfile path/to/othermodifiedfile` to format C++, `./mach lint --fix path/to/file` for most other files.
 - You can run tests by using `./mach test --auto`. Once you are satisfied with the tests you run locally, use `mach try auto` to run tests in CI
+- When running slow commands like `./mach test`, `./mach mochitest`, etc., NEVER pipe their output through `tail`, `grep`, `head`, or other filters. Instead, redirect output to a temporary file (e.g. `./mach test ... > /tmp/test_output.txt 2>&1`) and then read/search that file separately. This avoids having to re-run slow commands multiple times to extract different pieces of information.
+- Do not run `./mach build faster` when only front-end test files (JS, HTML, etc.) were modified — they don't need compilation.
 - Ask if you should run a test. If you do, you probably want to run the test with `--headless`
 - Do not perform commits yourself, ever
-- It's better to just run `./mach build` without subdirectory, the build system is well optimized
-- Always build normally, never use subdirectories, e.g. `./mach build` is the only command to run
-- Never build with a subdirectory. Always simply do `./mach build`
-- The only exception is for Android and Desktop front-end-only changes, in which case you can use the special `./mach build faster` to skip all C++/Rust compilation.
+- When doing Android and Desktop front-end-only changes, use the special `./mach build faster` to skip all C++/Rust compilation.
+- Conversely, for C++/Rust only changes you can use the special `./mach build binaries` to skip all front-end-related tasks.

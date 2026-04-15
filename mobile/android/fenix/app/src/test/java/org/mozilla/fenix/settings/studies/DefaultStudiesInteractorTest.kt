@@ -38,6 +38,7 @@ class DefaultStudiesInteractorTest {
         interactor.openWebsite(url)
 
         verify {
+            @Suppress("DEPRECATION")
             activity.openToBrowserAndLoad(url, true, BrowserDirection.FromStudiesFragment)
         }
     }

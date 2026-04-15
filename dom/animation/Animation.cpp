@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -18,6 +16,7 @@
 #include "mozilla/Maybe.h"  // For Maybe
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/dom/AnimationBinding.h"
+#include "mozilla/dom/CSSTransition.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/DocumentInlines.h"
 #include "mozilla/dom/DocumentTimeline.h"
@@ -347,6 +346,29 @@ void Animation::SetTimelineNoUpdate(AnimationTimeline* aTimeline) {
   // MutationObservers::NotifyAnimationChanged(this) here.
 }
 
+void Animation::SetTimelineRange(AnimationRange&& aRange) {
+  SetTimelineRangeNoUpdate(std::move(aRange));
+  PostUpdate();
+}
+
+void Animation::SetTimelineRangeNoUpdate(AnimationRange&& aRange) {
+  if (mTimelineRange == aRange) {
+    return;
+  }
+
+  // TODO: Bug 2006262. We may have to rewrite this when adding the attribute:
+  // https://drafts.csswg.org/web-animations-2/#dom-animation-rangestart
+  // https://drafts.csswg.org/web-animations-2/#dom-animation-rangeend
+  //
+  // For now, this is not exposed and is set during initialization of the CSS
+  // Animations.
+  mTimelineRange = std::move(aRange);
+
+  if (mEffect) {
+    mEffect->UpdateNormalizedTiming();
+  }
+}
+
 // https://drafts.csswg.org/web-animations/#set-the-animation-start-time
 void Animation::SetStartTime(const Nullable<TimeDuration>& aNewStartTime) {
   // Return early if the start time will not change. However, if we
@@ -386,11 +408,9 @@ void Animation::SetStartTime(const Nullable<TimeDuration>& aNewStartTime) {
   }
 
   CancelPendingTasks();
-  if (mReady) {
-    // We may have already resolved mReady, but in that case calling
-    // MaybeResolve is a no-op, so that's okay.
-    mReady->MaybeResolve(this);
-  }
+  // We may have already resolved mReady, but in that case calling
+  // MaybeResolve is a no-op, so that's okay.
+  MaybeResolvePromiseWithThis(mReady);
 
   UpdateTiming(SeekFlag::DidSeek, SyncNotifyFlag::Async);
   if (IsRelevant()) {
@@ -449,9 +469,7 @@ void Animation::SetCurrentTimeNoUpdate(const TimeDuration& aSeekTime) {
     ApplyPendingPlaybackRate();
     mStartTime.SetNull();
 
-    if (mReady) {
-      mReady->MaybeResolve(this);
-    }
+    MaybeResolvePromiseWithThis(mReady);
     CancelPendingTasks();
   }
 
@@ -640,9 +658,23 @@ Promise* Animation::GetReady(ErrorResult& aRv) {
     return nullptr;
   }
   if (!Pending()) {
-    mReady->MaybeResolve(this);
+    MaybeResolvePromiseWithThis(mReady);
   }
   return mReady;
+}
+
+void Animation::MaybeResolvePromiseWithThis(Promise* aPromise) {
+  if (!aPromise) {
+    return;
+  }
+  if (!nsContentUtils::IsSafeToRunScript()) [[unlikely]] {
+    nsContentUtils::AddScriptRunner(NewRunnableMethod<RefPtr<Promise>>(
+        "MaybeResolvePromiseWithThis", this,
+        &Animation::MaybeResolvePromiseWithThis, aPromise));
+    return;
+  }
+  RefPtr promise = aPromise;
+  promise->MaybeResolve(this);
 }
 
 Promise* Animation::GetFinished(ErrorResult& aRv) {
@@ -747,9 +779,7 @@ void Animation::Finish(ErrorResult& aRv) {
     }
     CancelPendingTasks();
     didChange = true;
-    if (mReady) {
-      mReady->MaybeResolve(this);
-    }
+    MaybeResolvePromiseWithThis(mReady);
   }
   UpdateTiming(SeekFlag::DidSeek, SyncNotifyFlag::Sync);
   if (didChange && IsRelevant()) {
@@ -789,7 +819,7 @@ void Animation::Reverse(ErrorResult& aRv) {
   // If Play() threw, restore state and don't report anything to mutation
   // observers.
   if (aRv.Failed()) {
-    mPendingPlaybackRate = originalPendingPlaybackRate;
+    mPendingPlaybackRate = std::move(originalPendingPlaybackRate);
   }
 
   // Play(), above, unconditionally calls PostUpdate so we don't need to do
@@ -1640,9 +1670,7 @@ void Animation::ResumeAt(const TimeDuration& aReadyTime) {
     MutationObservers::NotifyAnimationChanged(this);
   }
 
-  if (mReady) {
-    mReady->MaybeResolve(this);
-  }
+  MaybeResolvePromiseWithThis(mReady);
 }
 
 void Animation::PauseAt(const TimeDuration& aReadyTime) {
@@ -1659,9 +1687,7 @@ void Animation::PauseAt(const TimeDuration& aReadyTime) {
 
   UpdateTiming(SeekFlag::NoSeek, SyncNotifyFlag::Async);
 
-  if (mReady) {
-    mReady->MaybeResolve(this);
-  }
+  MaybeResolvePromiseWithThis(mReady);
 }
 
 void Animation::UpdateTiming(SeekFlag aSeekFlag,
@@ -1761,6 +1787,17 @@ void Animation::PostUpdate() {
 
 void Animation::CancelPendingTasks() {
   mPendingState = PendingState::NotPending;
+
+  // If we cancel the pending animation, we need to remove it from the pending
+  // scroll-driven animation tracker. Also, the caller should put this animation
+  // back into the pending animation tracker if needed, for scroll-timeline or
+  // view-timeline.
+  if (Document* doc = GetRenderedDocument()) {
+    if (auto* tracker = doc->GetScrollTimelineAnimationTracker()) {
+      // no-op if |this| is not in the tracker.
+      tracker->RemovePending(*this);
+    }
+  }
 }
 
 // https://drafts.csswg.org/web-animations/#reset-an-animations-pending-tasks
@@ -1824,6 +1861,14 @@ Animation::AtProgressTimelineBoundary(
                      effectiveTimelineTime, aTimelineDuration.Value()))
              ? ProgressTimelinePosition::Boundary
              : ProgressTimelinePosition::NotBoundary;
+}
+
+void Animation::UpdateNormalizedTimingForTimelineDataChange() {
+  if (!mEffect) {
+    return;
+  }
+
+  mEffect->UpdateNormalizedTiming();
 }
 
 StickyTimeDuration Animation::EffectEnd() const {
@@ -1911,10 +1956,8 @@ void Animation::ResetFinishedPromise() {
 }
 
 void Animation::MaybeResolveFinishedPromise() {
-  if (mFinished) {
-    mFinished->MaybeResolve(this);
-  }
   mFinishedIsResolved = true;
+  MaybeResolvePromiseWithThis(mFinished);
 }
 
 void Animation::DoFinishNotificationImmediately(MicroTaskRunnable* aAsync) {

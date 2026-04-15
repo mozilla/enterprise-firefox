@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 20; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -46,6 +45,7 @@
 #include "gfxSVGGlyphs.h"
 #include "gfx2DGlue.h"
 #include "TextDrawTarget.h"
+#include "COLRFonts.h"
 
 #include "ThebesRLBox.h"
 
@@ -1074,7 +1074,6 @@ gfxFont::RoundingFlags gfxFont::GetRoundOffsetsToPixels(
 gfxHarfBuzzShaper* gfxFont::GetHarfBuzzShaper() {
   if (!mHarfBuzzShaper) {
     auto* shaper = new gfxHarfBuzzShaper(this);
-    shaper->Initialize();
     if (!mHarfBuzzShaper.compareExchange(nullptr, shaper)) {
       delete shaper;
     }
@@ -2679,7 +2678,7 @@ bool gfxFont::RenderColorGlyph(DrawTarget* aDrawTarget, gfxContext* aContext,
     // We need the hbShaper to get color glyph bounds, so check that it's
     // usable.
     hbShaper = GetHarfBuzzShaper();
-    if (!hbShaper && !hbShaper->IsInitialized()) {
+    if (!hbShaper) {
       return false;
     }
     if (aTextDrawer) {

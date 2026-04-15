@@ -49,7 +49,7 @@ newtab-search-box-input =
     .placeholder = Tschertgar en il web
     .aria-label = Tschertgar en il web
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Agiuntar maschina da tschertgar
 newtab-topsites-add-shortcut-header = Nova scursanida

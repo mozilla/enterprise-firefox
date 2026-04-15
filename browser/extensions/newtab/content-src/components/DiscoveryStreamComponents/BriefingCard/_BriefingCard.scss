@@ -2,7 +2,7 @@
   @include newtab-card-style;
 
   border-radius: var(--border-radius-medium);
-  box-shadow: var(--box-shadow-card);
+  box-shadow: var(--card-box-shadow);
   padding: var(--space-large);
   display: flex;
   flex-direction: column;
@@ -36,7 +36,7 @@
 
 .briefing-card-title {
   font-size: var(--font-size-root);
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   color: var(--text-color);
   margin: 0;
   margin-block-start: var(--space-xxsmall);
@@ -101,7 +101,7 @@ hr {
 
 .briefing-card-headline-title {
   font-size: var(--font-size-small);
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   color: var(--text-color);
   -webkit-line-clamp: 2;
   overflow: hidden;

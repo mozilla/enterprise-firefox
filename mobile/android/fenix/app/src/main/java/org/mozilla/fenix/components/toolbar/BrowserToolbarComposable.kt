@@ -13,10 +13,11 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams
 import mozilla.components.browser.state.action.AwesomeBarAction
 import mozilla.components.browser.state.selector.selectedTab
@@ -94,7 +95,9 @@ class BrowserToolbarComposable(
         val customColors = browserScreenStore.observeAsComposableState { it.customTabColors }
         val shouldUseBottomToolbar = remember(settings) { settings.shouldUseBottomToolbar }
 
-        var toolbarCFR = toolbarCFRData(browserStore, settings, customTabSession)
+        val toolbarState by toolbarStore.stateFlow.collectAsState()
+        val toolbarCFR = toolbarCFRData(browserStore, settings, customTabSession)
+            ?: toolbarState.displayState.cfr
 
         DisposableEffect(activity) {
             val toolbarController = ToolbarBehaviorController(
@@ -218,21 +221,27 @@ private fun toolbarCFRData(
     settings: Settings,
     customTabSession: CustomTabSessionState?,
 ): BrowserToolbarCFR? {
-    if (settings.hasSeenBrowserToolbarCFR || !settings.toolbarRedesignEnabled || customTabSession != null) {
+    // Note: when this CFR is eventually removed, please remove the following:
+    // 1. BrowserToolbarCFR.onShown
+    // 2. BrowserToolbarCFR.onDismiss
+    val canShow = settings.cfrPopupsEnabled &&
+        !settings.hasSeenBrowserToolbarCFR &&
+        settings.toolbarRedesignEnabled &&
+        customTabSession == null
+    if (!canShow) {
         return null
     }
 
     val session = browserStore.observeAsComposableState { it.selectedTab?.content }.value
     val shouldShowCFR = session != null && session.progress == 100 && !session.loading
 
-    val title = stringResource(R.string.mozac_toolbar_cfr_title)
-    val description = stringResource(R.string.mozac_toolbar_cfr_description)
-    return remember(shouldShowCFR, title, description) {
+    return remember(shouldShowCFR) {
         if (shouldShowCFR) {
             BrowserToolbarCFR(
-                enabled = shouldShowCFR,
-                title = title,
-                description = description,
+                tag = "toolbar-redesign",
+                enabled = true,
+                title = R.string.mozac_toolbar_cfr_title,
+                description = R.string.mozac_toolbar_cfr_description,
                 onShown = {
                     settings.hasSeenBrowserToolbarCFR = true
                     Toolbar.cfrShown.record(NoExtras())

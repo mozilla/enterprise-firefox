@@ -23,6 +23,9 @@ newtab-personalize-dialog-label =
     .aria-label = Personalizojeni
 newtab-logo-and-wordmark =
     .aria-label = { -brand-full-name }
+newtab-card-dismiss-button =
+    .title = Hidhe tej
+    .aria-label = Hidhe tej
 
 ## Search box component.
 
@@ -49,7 +52,7 @@ newtab-search-box-input =
     .placeholder = Kërkoni në Web
     .aria-label = Kërkoni në Web
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Shtoni Motor Kërkimesh
 newtab-topsites-add-shortcut-header = Shkurtore e Re
@@ -69,6 +72,11 @@ newtab-topsites-url-validation = Lypset URL e vlefshme
 newtab-topsites-image-url-label = URL Figure Vetjake
 newtab-topsites-use-image-link = Përdorni një figurë vetjake…
 newtab-topsites-image-validation = Dështoi ngarkimi i figurës. Provoni një URL tjetër.
+
+## Clear text button for the URL and image URL input fields in the Top Sites form.
+
+newtab-topsites-clear-input =
+    .aria-label = Spastroje tekstin
 
 ## Top Sites - General form dialog buttons. These are verbs/actions.
 
@@ -335,6 +343,8 @@ newtab-custom-widget-section-title = Widget-e
 newtab-custom-widget-section-toggle =
     .label = Widget-e
 newtab-widget-manage-title = Widget-e
+newtab-widget-manage-widget-button =
+    .label = Administroni widget-e
 # Tooltip for close button
 newtab-custom-close-menu-button =
     .title = Mbylle
@@ -462,6 +472,8 @@ newtab-weather-change-location-search-input-placeholder =
     .placeholder = Kërkoni për vendndodhje
     .aria-label = Kërkoni për vendndodhje
 newtab-weather-menu-weather-display = Shfaqje moti
+newtab-weather-todays-forecast = Moti për sot
+newtab-weather-see-full-forecast = Shihni parashikimin e plotë të motit
 # Display options are:
 # - Simple: Displays a current weather condition icon and the current temperature
 # - Detailed: Include simple information plus a short text summary: e.g. "Mostly cloudy"
@@ -474,6 +486,7 @@ newtab-weather-menu-temperature-option-fahrenheit = Farenajt
 newtab-weather-menu-temperature-option-celsius = Celsius
 newtab-weather-menu-change-temperature-units-fahrenheit = Kalo në Farenajt
 newtab-weather-menu-change-temperature-units-celsius = Kalo në Celsius
+newtab-weather-menu-hide-weather-v2 = Fshihe motin
 newtab-weather-menu-hide-weather = Fshihe motin në Skedë të Re
 newtab-weather-menu-learn-more = Mësoni më tepër
 newtab-weather-menu-detect-my-location = Pikas vendndodhjen time
@@ -619,6 +632,8 @@ newtab-report-cancel = Anuloje
 newtab-report-submit = Parashtroje
 newtab-toast-thanks-for-reporting =
     .message = Faleminderit për njoftimin rreth kësaj.
+newtab-toast-widgets-hidden =
+    .message = Përzgjidhni ikonën laps për të rishtuar kurdo widget-e.
 
 ## Strings for task / to-do list productivity widget
 
@@ -659,6 +674,7 @@ newtab-widget-lists-name-placeholder-default =
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Listë e re
 newtab-widget-section-title = Widget-e
+newtab-widget-menu-hide = Fshihe widget-in
 # Tooltip for hide all widgets button
 newtab-widget-section-hide-all-button =
     .title = Fshihni widget-et
@@ -669,6 +685,7 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Minimizoji widget-et
     .aria-label = Tkurri krejt widget-et sa madhësia kompakte
+newtab-widget-section-feedback = Tregonani si ju duket
 
 ## Strings for timer productivity widget
 ## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown
@@ -691,6 +708,12 @@ newtab-widget-timer-menu-notifications = Çaktivizoni njoftimet
 newtab-widget-timer-menu-notifications-on = Aktivizoni njoftimet
 newtab-widget-timer-menu-hide = Fshihe kohëmatësin
 newtab-widget-timer-menu-learn-more = Mësoni më tepër
+# The title displays above a set of top news headlines.
+newtab-daily-briefing-card-title = Tituj Kryesues
+newtab-daily-briefing-card-menu-dismiss = Hidhe tej
+# Variables:
+#   $minutes (number) - Time since the feed has been refreshed
+newtab-daily-briefing-card-timestamp = Përditësuar { $minutes }m më parë
 newtab-widget-message-title = Mbani përqendrimin, me lista dhe kohëmatës të brendshëm
 # to-dos stands for "things to do".
 newtab-widget-message-copy = Nga kujtues të shpejtë e deri te për-t’u-bërë të përditshme, nga sesione përqendrimi e deri te pushime — merruni me punë dhe ndiqni kohën.
@@ -700,3 +723,25 @@ newtab-promo-card-cta = Mësoni më tepër
 newtab-promo-card-dismiss-button =
     .title = Hidhe tej
     .aria-label = Hidheni tej
+
+## Strings for activation window message variants. In certain experiment configurations,
+## the strings from these variants may be displayed in a message below the search input
+## for the first 48 hours of a new profile's lifetime. Some messages include buttons with
+## labels, but not all.
+
+newtab-activation-window-message-dismiss-button =
+    .title = Hidhe tej
+    .aria-label = Hidhe tej
+# "This space" refers to about:newtab. The call to action here ("make it your own")
+# is to customize newtab with a background image or colour, or by tweaking the
+# existing widgetry that appears on it.
+newtab-activation-window-message-customization-focus-header = Bëjeni tuajën këtë hapësirë
+newtab-activation-window-message-customization-focus-message = Zgjidhni një sfond të ri, shtoni shkurtore për te sajtet tuaj të parapëlqyer, dhe qëndroni i përditësuar me histori që ju interesojnë.
+newtab-activation-window-message-customization-focus-primary-button =
+    .label = Filloni ta përshtatni
+# "This space" refers to about:newtab. The sentiment of "plays by your rules" is
+# meant to evoke the idea that newtab is malleable and customizable. The call to
+# action is to customize newtab with a background image or colour, or by tweaking
+# the existing widgetry that appears on it.
+newtab-activation-window-message-values-focus-header = Kjo hapësirë u bindet rregullave tuaja
+newtab-activation-window-message-values-focus-message = { -brand-product-name }-i ju lejon të shfletoni si doni, me një mënyrë më personale për t’ia filluar ditës suaj në internet. Bëjeni { -brand-product-name }-in tuajin.

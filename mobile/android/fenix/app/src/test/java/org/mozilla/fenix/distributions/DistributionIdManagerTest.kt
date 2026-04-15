@@ -280,10 +280,64 @@ class DistributionIdManagerTest {
             assertEquals(true, subject.shouldSkipMarketingConsentScreen())
 
             subject.setDistribution(DistributionIdManager.Distribution.AURA_001)
-            assertEquals(false, subject.shouldSkipMarketingConsentScreen())
+            assertEquals(true, subject.shouldSkipMarketingConsentScreen())
 
             subject.setDistribution(DistributionIdManager.Distribution.XIAOMI_001)
             assertEquals(true, subject.shouldSkipMarketingConsentScreen())
+        }
+
+    @Test
+    fun `WHEN checking the distribution startup strategy THEN the correct strategy is returned`() =
+        runBlocking {
+            val subject = DistributionIdManager(
+                packageManager = testContext.packageManagerWrapper,
+                testBrowserStoreProvider,
+                distributionProviderChecker = testDistributionProviderChecker,
+                distributionSettings = testDistributionSettings,
+                metricController = FakeMetricController(),
+            )
+
+            subject.setDistribution(DistributionIdManager.Distribution.DEFAULT)
+            assertEquals(
+                DistributionAdjustStartupStrategy.NONE,
+                subject.getDistributionAdjustStartupStrategy(),
+            )
+
+            subject.setDistribution(DistributionIdManager.Distribution.VIVO_001)
+            assertEquals(
+                DistributionAdjustStartupStrategy.IMMEDIATE_WITH_COPPA,
+                subject.getDistributionAdjustStartupStrategy(),
+            )
+
+            subject.setDistribution(DistributionIdManager.Distribution.DT_001)
+            assertEquals(
+                DistributionAdjustStartupStrategy.IMMEDIATE_WITH_COPPA,
+                subject.getDistributionAdjustStartupStrategy(),
+            )
+
+            subject.setDistribution(DistributionIdManager.Distribution.DT_002)
+            assertEquals(
+                DistributionAdjustStartupStrategy.IMMEDIATE_WITH_COPPA,
+                subject.getDistributionAdjustStartupStrategy(),
+            )
+
+            subject.setDistribution(DistributionIdManager.Distribution.DT_003)
+            assertEquals(
+                DistributionAdjustStartupStrategy.IMMEDIATE_WITH_COPPA,
+                subject.getDistributionAdjustStartupStrategy(),
+            )
+
+            subject.setDistribution(DistributionIdManager.Distribution.AURA_001)
+            assertEquals(
+                DistributionAdjustStartupStrategy.IMMEDIATE_WITH_PLAY_STORE_KIDS,
+                subject.getDistributionAdjustStartupStrategy(),
+            )
+
+            subject.setDistribution(DistributionIdManager.Distribution.XIAOMI_001)
+            assertEquals(
+                DistributionAdjustStartupStrategy.IMMEDIATE_WITH_COPPA,
+                subject.getDistributionAdjustStartupStrategy(),
+            )
         }
 
     @Test

@@ -20,18 +20,25 @@ import androidx.compose.runtime.Composable
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.getSystemService
 import androidx.core.net.toUri
+import androidx.emoji2.text.DefaultEmojiCompatConfig
+import androidx.emoji2.text.EmojiCompat
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.work.Configuration.Builder
 import androidx.work.Configuration.Provider
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import mozilla.appservices.autofill.AutofillApiException
+import mozilla.components.ExperimentalAndroidComponentsApi
+import mozilla.components.browser.state.action.SearchAction.SearchConfigurationAvailabilityChanged
 import mozilla.components.browser.state.action.SystemAction
 import mozilla.components.browser.state.selector.selectedTab
 import mozilla.components.browser.state.store.BrowserStore
@@ -69,7 +76,7 @@ import mozilla.components.support.ktx.android.content.runOnlyInMainProcess
 import mozilla.components.support.locale.LocaleManager
 import mozilla.components.support.remotesettings.GlobalRemoteSettingsDependencyProvider
 import mozilla.components.support.rusthttp.RustHttpConfig
-import mozilla.components.support.utils.BrowsersCache
+import mozilla.components.support.utils.Browsers
 import mozilla.components.support.utils.RunWhenReadyQueue
 import mozilla.components.support.utils.logElapsedTime
 import mozilla.components.support.webextensions.WebExtensionSupport
@@ -93,7 +100,6 @@ import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.components.initializeGlean
 import org.mozilla.fenix.components.metrics.MozillaProductDetector
 import org.mozilla.fenix.components.startMetricsIfEnabled
-import org.mozilla.fenix.experiments.NimbusGeckoPrefHandler
 import org.mozilla.fenix.experiments.maybeFetchExperiments
 import org.mozilla.fenix.ext.application
 import org.mozilla.fenix.ext.components
@@ -126,7 +132,6 @@ import org.mozilla.fenix.theme.ThemeProvider
 import org.mozilla.fenix.utils.Settings
 import org.mozilla.fenix.utils.isLargeScreenSize
 import org.mozilla.fenix.wallpapers.Wallpaper
-import org.mozilla.geckoview.ExperimentalGeckoViewApi
 import java.util.Date
 import java.util.concurrent.TimeUnit
 import kotlin.math.roundToLong
@@ -162,6 +167,8 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
     var visibilityLifecycleCallback: VisibilityLifecycleCallback? = null
         private set
 
+    protected val applicationScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    protected val ioDispatcher = Dispatchers.IO
     override fun onCreate() {
         super.onCreate()
         initializeFenixProcess()
@@ -278,10 +285,16 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
 
         ProfilerMarkerFactProcessor.create { components.core.engine.profiler }.register()
 
+        applicationScope.launch {
+            initializeEmojiCompat()
+        }
+
         // Ensure the Engine instance is initialized such that it can receive commands. Note
         // that full initialization is typically running off-thread and it may be a while
         // before pages can begin to render.
-        components.core.engine.warmUp()
+        // Here we access the engine property, which will cause the lazy property getter to
+        // construct the instance.
+        components.core.engine
 
         // Kick off initialization of Glean backend off-thread. Glean will continue to queue
         // metric samples until the backend is ready. If we don't have data-upload consent then
@@ -304,7 +317,6 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
 
         setDayNightTheme()
         components.strictMode.enableStrictMode(true)
-        warmBrowsersCache()
 
         initializeWebExtensionSupport()
 
@@ -409,6 +421,7 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
         // startup path, before the UI finishes drawing (i.e. visual completeness).
         queueInitStorageAndServices(queue)
         queueMetrics(queue)
+        queueEngineWarmup(queue)
         queueIncrementNumberOfAppLaunches(queue)
         queueRestoreLocale(queue)
         queueStorageMaintenance(queue)
@@ -508,6 +521,15 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
         StorageStatsMetrics.report(this.applicationContext)
     }
 
+    @OptIn(DelicateCoroutinesApi::class)
+    private fun queueEngineWarmup(queue: RunWhenReadyQueue) = {
+        runOnVisualCompleteness(queue) {
+            GlobalScope.launch(Dispatchers.Main) {
+                components.core.engine.warmUp()
+            }
+        }
+    }
+
     @OptIn(DelicateCoroutinesApi::class) // GlobalScope usage
     private fun queueIncrementNumberOfAppLaunches(queue: RunWhenReadyQueue) =
         runOnVisualCompleteness(queue) {
@@ -541,15 +563,15 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
             }
         }
 
-    @OptIn(DelicateCoroutinesApi::class) // GlobalScope usage
+    @OptIn(DelicateCoroutinesApi::class, ExperimentalAndroidComponentsApi::class) // GlobalScope usage
     private fun queueNimbusFetchInForeground(queue: RunWhenReadyQueue) =
         runOnVisualCompleteness(queue) {
+            components.nimbus.geckoPrefHandler.start()
             GlobalScope.launch(IO) {
                 components.nimbus.sdk.maybeFetchExperiments(
                     context = this@FenixApplication,
                 )
-                @ExperimentalGeckoViewApi
-                NimbusGeckoPrefHandler.getPreferenceStateFromGecko().await()
+                components.nimbus.geckoPrefHandler.getPreferenceStateFromGecko().await()
             }
         }
 
@@ -771,18 +793,27 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
         }
     }
 
-    @OptIn(DelicateCoroutinesApi::class) // GlobalScope usage
-    private fun warmBrowsersCache() {
-        // We avoid blocking the main thread for BrowsersCache on startup by loading it on
-        // background thread.
-        GlobalScope.launch(Dispatchers.Default) {
-            BrowsersCache.all(this@FenixApplication)
-        }
+    private fun initializeRemoteSettingsSupport() {
+        GlobalRemoteSettingsDependencyProvider.initialize(
+            remoteSettingsService = components.remoteSettingsService.value,
+            onRemoteCollectionsUpdated = ::setupRefreshingSearchEngines,
+        )
+        components.remoteSettingsSyncScheduler.registerForSync()
     }
 
-    private fun initializeRemoteSettingsSupport() {
-        GlobalRemoteSettingsDependencyProvider.initialize(components.remoteSettingsService.value)
-        components.remoteSettingsSyncScheduler.registerForSync()
+    @VisibleForTesting
+    internal fun setupRefreshingSearchEngines(
+        updatedCollections: List<String>,
+        browserStore: BrowserStore = components.core.store,
+    ) {
+        val searchRelatedCollections = listOf(
+            "search-config-v2",
+            "search-config-overrides-v2",
+            "search-config-icons",
+        )
+        if (searchRelatedCollections.any { it in updatedCollections }) {
+            browserStore.dispatch(SearchConfigurationAvailabilityChanged(true))
+        }
     }
 
     @Suppress("ForbiddenComment")
@@ -868,7 +899,6 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
             components.core.engine,
             settings,
         ),
-        browsersCache: BrowsersCache = BrowsersCache,
         mozillaProductDetector: MozillaProductDetector = MozillaProductDetector,
     ) {
         setPreferenceMetrics(settings, dohSettingsProvider)
@@ -880,7 +910,7 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
                 setTermsOfUseStartUpMetrics(settings)
             }
 
-            defaultBrowser.set(browsersCache.all(applicationContext).isDefaultBrowser)
+            defaultBrowser.set(Browsers.isDefaultBrowser(applicationContext))
             mozillaProductDetector.getMozillaBrowserDefault(applicationContext)?.also {
                 defaultMozBrowser.set(it)
             }
@@ -1169,7 +1199,8 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
         }
     }
 
-    override val workManagerConfiguration = Builder().setMinimumLoggingLevel(INFO).build()
+    override val workManagerConfiguration
+        get() = Builder().setMinimumLoggingLevel(INFO).build()
 
     @OptIn(DelicateCoroutinesApi::class)
     open fun downloadWallpapers() {
@@ -1184,6 +1215,46 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
             Private
         } else {
             DefaultThemeProvider.provideTheme()
+        }
+    }
+
+    /**
+     * Initializes EmojiCompat manually on a background thread.
+     *
+     * By initializing manually, we avoid the startup penalty associated with the default
+     * EmojiCompat initializer's ContentProvider. [DefaultEmojiCompatConfig] is used to
+     * automatically find a compatible font provider (such as Google Play Services).
+     *
+     * @param dispatcher The [CoroutineDispatcher] on which the initialization will occur.
+     * Defaults to [ioDispatcher].
+     */
+    private suspend fun initializeEmojiCompat(dispatcher: CoroutineDispatcher = ioDispatcher) {
+        withContext(dispatcher) {
+            // If the device has no compatible provider (e.g. no Play Services), config will be null.
+            val config = DefaultEmojiCompatConfig.create(applicationContext) ?: return@withContext
+
+            config.setReplaceAll(true)
+
+            config.registerInitCallback(
+                object : EmojiCompat.InitCallback() {
+                    override fun onInitialized() {
+                        Log.log(
+                            tag = "EmojiCompat",
+                            message = "EmojiCompat initialization completed",
+                        )
+                    }
+
+                    override fun onFailed(throwable: Throwable?) {
+                        Log.log(
+                            tag = "EmojiCompat",
+                            throwable = throwable,
+                            message = "EmojiCompat initialization failed",
+                        )
+                    }
+                },
+            )
+
+            EmojiCompat.init(config)
         }
     }
 }

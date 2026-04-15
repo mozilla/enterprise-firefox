@@ -9,6 +9,7 @@ import mozilla.components.concept.engine.permission.SitePermissions
 import mozilla.components.lib.state.Action
 import org.mozilla.fenix.settings.PhoneFeature
 import org.mozilla.fenix.trackingprotection.TrackingProtectionCategory
+import java.security.cert.X509Certificate
 
 /**
  * Actions to dispatch through the [TrustPanelStore] to modify the [TrustPanelState].
@@ -68,6 +69,18 @@ sealed class TrustPanelAction : Action {
      * @property sitePermissions Updated [SitePermissions] for the current site.
      */
     data class UpdateSitePermissions(val sitePermissions: SitePermissions) : TrustPanelAction()
+
+    /**
+     * [TrustPanelAction] dispatched when QWAC status is requested.
+     */
+    data object RequestQWAC : TrustPanelAction()
+
+    /**
+     * [TrustPanelAction] dispatched when QWAC status is determined.
+     *
+     * @property qwac The QWAC ([X509Certificate]) in use, or null if none.
+     */
+    data class UpdateQWAC(val qwac: X509Certificate?) : TrustPanelAction()
 
     /**
      * [TrustPanelAction] dispatched when a toggleable permission is toggled.
@@ -140,5 +153,10 @@ sealed class TrustPanelAction : Action {
          * [Navigate] action dispatched when navigating to view the security certificate.
          */
         data object SecurityCertificate : Navigate()
+
+        /**
+         * [Navigate] action dispatched when navigating to view the QWAC.
+         */
+        data object QWAC : Navigate()
     }
 }

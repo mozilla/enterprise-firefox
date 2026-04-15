@@ -13,7 +13,6 @@
 #include "mozilla/widget/ThemeChangeKind.h"
 #include "nsIClipboard.h"
 #include "nsIWidget.h"
-#include "nsStyleConsts.h"
 
 namespace IPC {
 
@@ -21,6 +20,14 @@ template <>
 struct ParamTraits<mozilla::widget::ThemeChangeKind>
     : public BitFlagsEnumSerializer<mozilla::widget::ThemeChangeKind,
                                     mozilla::widget::ThemeChangeKind::AllBits> {
+};
+
+template <>
+struct ParamTraits<mozilla::HapticFeedbackType>
+    : public ContiguousEnumSerializer<mozilla::HapticFeedbackType,
+                                      mozilla::HapticFeedbackType(0),
+                                      mozilla::HapticFeedbackType::End> {
+  using IdType = std::underlying_type_t<mozilla::HapticFeedbackType>;
 };
 
 template <>

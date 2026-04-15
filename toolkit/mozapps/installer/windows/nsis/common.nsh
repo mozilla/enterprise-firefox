@@ -1569,7 +1569,9 @@
 !define GetProgramsFolder       "!insertmacro GetSpecialFolder ${CSIDL_PROGRAMS}"
 
 ; Current User's Local App Data (e.g. C:\Users\<user>\AppData\Local)
-!define GetLocalAppDataFolder   "!insertmacro GetSpecialFolder ${CSIDL_LOCAL_APPDATA}"
+!ifndef GetLocalAppDataFolder
+  !define GetLocalAppDataFolder   "!insertmacro GetSpecialFolder ${CSIDL_LOCAL_APPDATA}"
+!endif
 
 ; Common App Data (e.g. C:\ProgramData)
 !define GetCommonAppDataFolder  "!insertmacro GetSpecialFolder ${CSIDL_COMMON_APPDATA}"

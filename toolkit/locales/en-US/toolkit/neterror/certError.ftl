@@ -158,6 +158,9 @@ certerror-mitm-title = Software is Preventing { -brand-short-name } From Safely 
 fp-certerror-page-title = Warning: Security Risk
 fp-certerror-body-title = Be careful. Something doesn’t look right.
 
+fp-certerror-illustration-alt =
+  .alt = Illustration of a fox looking at an orange warning sign.
+
 fp-certerror-why-site-dangerous = What makes the site look dangerous?
 fp-certerror-what-can-you-do = What can you do about it?
 
@@ -169,7 +172,8 @@ fp-certerror-hide-advanced-button = Hide advanced
 ## Variables:
 ##   $hostname (String) - Hostname of the website to which the user was trying to connect.
 
-fp-certerror-override-exception-button = Proceed to { $hostname } (Risky)
+fp-certerror-override-exception-button-2 = Proceed to { $hostname } (Risky)
+    .accesskey = P
 fp-certerror-intro = { -brand-short-name } spotted a potentially serious security issue with <strong>{ $hostname }</strong>. Someone pretending to be the site could try to steal things like credit card info, passwords, or emails.
 fp-certerror-expired-into = { -brand-short-name } spotted a security issue with <strong>{ $hostname }</strong>. Either the site isn’t set up right or your device’s clock is set to the wrong date/time.
 fp-certerror-transparency-intro = Someone pretending to be <strong>{ $hostname }</strong> could try to steal things like credit card info, passwords, or emails.
@@ -177,7 +181,8 @@ fp-certerror-transparency-intro = Someone pretending to be <strong>{ $hostname }
 ##
 
 fp-certerror-view-certificate-link = View the site’s certificate
-fp-certerror-return-to-previous-page-recommended-button = Go back (Recommended)
+fp-certerror-return-to-previous-page-recommended-button-2 = Go back (Recommended)
+    .accesskey = G
 
 # This string appears after the following string: "What makes the site look dangerous?" (fp-certerror-why-site-dangerous)
 # Variables:

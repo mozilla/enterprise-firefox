@@ -20,7 +20,7 @@ use crate::logical_geometry::WritingMode;
 use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
 use crate::computed_value_flags::*;
 use cssparser::Parser;
-use crate::media_queries::Device;
+use crate::device::Device;
 use crate::parser::ParserContext;
 use crate::selector_parser::PseudoElement;
 use crate::stylist::Stylist;
@@ -273,13 +273,13 @@ impl PropertyDeclaration {
     }
 
     /// Like the method on ToTyped.
-    pub fn to_typed(&self) -> Option<TypedValue> {
+    pub fn to_typed_value(&self) -> Option<TypedValue> {
         use self::PropertyDeclaration::*;
 
         match *self {
             % for ty, vs in groupby(data.declaration_variants, key=lambda x: x["type"]):
             ${" | ".join("{}(ref value)".format(v["name"]) for v in vs)} => {
-                value.to_typed()
+                value.to_typed_value()
             }
             % endfor
         }
@@ -391,7 +391,10 @@ impl NonCustomPropertyId {
                             pref = getattr(property, "servo_pref")
                         %>
                         % if pref:
-                            Some("${pref}"),
+                            {
+                                const_assert!(!static_prefs::default_value!("${pref}"));
+                                Some("${pref}")
+                            },
                         % else:
                             None,
                         % endif
@@ -402,7 +405,8 @@ impl NonCustomPropertyId {
                     Some(pref) => pref,
                 };
 
-                style_config::get_bool(pref)
+                // The assertions above guarantee that the pref defaults to false.
+                static_prefs::Preference::get(pref, false)
             % endif
         };
 
@@ -1379,6 +1383,13 @@ pub mod style_structs {
                     pub fn clone_${longhand.ident}(&self) -> longhands::${longhand.ident}::computed_value::T {
                         self.${longhand.ident}.clone()
                     }
+
+                    /// Whether `self` and `other` have the same computed value for ${longhand.name}.
+                    #[allow(non_snake_case)]
+                    #[inline]
+                    pub fn ${longhand.ident}_equals(&self, other: &Self) -> bool {
+                        self.${longhand.ident} == other.${longhand.ident}
+                    }
                 % endif
                 % if longhand.vector and longhand.vector.need_index:
                     /// If this longhand is indexed, get the number of elements.
@@ -1513,14 +1524,20 @@ pub mod style_structs {
             /// scroll-timeline-name other than `none`.
             #[cfg(feature = "gecko")]
             pub fn specifies_scroll_timelines(&self) -> bool {
-                self.scroll_timeline_name_iter().any(|name| !name.is_none())
+                self.scroll_timeline_name_iter().any(|name| !name.value.is_none())
+            }
+
+            /// Returns whether there is any timeline scope specified.
+            #[cfg(feature = "gecko")]
+            pub fn specifies_timeline_scope(&self) -> bool {
+                !self.mTimelineScope.is_none()
             }
 
             /// Returns whether there is any named progress timeline specified with
             /// view-timeline-name other than `none`.
             #[cfg(feature = "gecko")]
             pub fn specifies_view_timelines(&self) -> bool {
-                self.view_timeline_name_iter().any(|name| !name.is_none())
+                self.view_timeline_name_iter().any(|name| !name.value.is_none())
             }
 
             /// Returns true if animation properties are equal between styles, but without
@@ -1675,7 +1692,14 @@ impl ComputedValues {
     pub fn clone_${prop.ident}(
         &self,
     ) -> longhands::${prop.ident}::computed_value::T {
-        self.get_${prop.style_struct.ident.strip("_")}().clone_${prop.ident}()
+        self.get_${prop.style_struct.name_lower}().clone_${prop.ident}()
+    }
+
+    /// Gets the computed value of a given property.
+    #[inline(always)]
+    #[allow(non_snake_case)]
+    pub fn ${prop.ident}_equals(&self, other: &Self) -> bool {
+        self.get_${prop.style_struct.name_lower}().${prop.ident}_equals(other.get_${prop.style_struct.name_lower}())
     }
 % endif
 % endfor
@@ -1735,7 +1759,7 @@ impl ComputedValues {
                     % endfor
                     _ => unsafe { debug_unreachable!() },
                 };
-                value.to_typed()
+                value.to_typed_value()
             }
             % endfor
         }
@@ -1934,6 +1958,14 @@ impl ComputedValues {
                 value.map_or(String::new(), |value| value.to_css_string())
             }
         }
+    }
+
+    /// Calls the given function for each cached lazy pseudo-element style.
+    pub fn each_cached_lazy_pseudo<F>(&self, mut _f: F)
+    where
+        F: FnMut(&Self),
+    {
+        // Servo doesn't currently cache lazy pseudo-element styles.
     }
 }
 
@@ -2873,3 +2905,199 @@ pub(crate) fn restyle_damage_${effect_name} (old: &ComputedValues, new: &Compute
 }
 % endfor
 % endif
+
+/// Descriptor types for @-rules like @font-face and @counter-style.
+<%def name="generate_descriptors(descriptors)">
+use super::*;
+#[allow(unused_imports)]
+use crate::values::specified;
+
+/// Descriptor identifier.
+#[derive(Clone, Copy, Debug, Eq, Hash, FromPrimitive, Parse, PartialEq)]
+#[repr(u8)]
+pub enum DescriptorId {
+    % for descriptor in descriptors:
+    /// The "${descriptor.name}" descriptor.
+    ${descriptor.camel_case},
+    % endfor
+}
+
+impl DescriptorId {
+    /// The total number of descriptors.
+    pub const COUNT: usize = ${len(descriptors)};
+
+    /// The CSS name of this descriptor.
+    pub fn name(&self) -> &'static str {
+        const NAMES: [&'static str; DescriptorId::COUNT] = [
+        % for descriptor in descriptors:
+            "${descriptor.name}",
+        % endfor
+        ];
+        NAMES[*self as usize]
+    }
+}
+
+/// All descriptor values.
+#[derive(Clone, Debug, Default, ToShmem, PartialEq, MallocSizeOf)]
+pub struct Descriptors {
+    % for descriptor in descriptors:
+    /// The "${descriptor.name}" descriptor value.
+    % if descriptor.ignore_malloc_size_of:
+    #[ignore_malloc_size_of = "${descriptor.ignore_malloc_size_of}"]
+    % endif
+    pub ${descriptor.ident}: Option<${descriptor.type}>,
+    % endfor
+}
+
+impl Descriptors {
+    /// Gets a descriptor in CSS syntax.
+    pub fn get(&self, id: DescriptorId, dest: &mut CssStringWriter) -> fmt::Result {
+        let mut dest = CssWriter::new(dest);
+        match id {
+        % for descriptor in descriptors:
+            DescriptorId::${descriptor.camel_case} => self.${descriptor.ident}.to_css(&mut dest),
+        % endfor
+        }
+    }
+
+    /// Parses a given descriptor. Returns whether the descriptor changed.
+    pub fn set<'i, 't>(&mut self, id: DescriptorId, context: &ParserContext, input: &mut Parser<'i, 't>) -> Result<bool, ParseError<'i>> {
+        use crate::parser::Parse;
+        // DeclarationParser also calls parse_entirely so we’d normally not need to, but in this
+        // case we do because we set the value as a side effect rather than returning it.
+        match id {
+        % for descriptor in descriptors:
+            DescriptorId::${descriptor.camel_case} => {
+                let value = Some(input.parse_entirely(|i| Parse::parse(context, i))?);
+                let change = self.${descriptor.ident} != value;
+                self.${descriptor.ident} = value;
+                Ok(change)
+            },
+        % endfor
+        }
+    }
+
+    /// Removes a descriptor. Returns true if it used to be set.
+    pub fn remove(&mut self, id: DescriptorId) -> bool {
+        match id {
+        % for descriptor in descriptors:
+            DescriptorId::${descriptor.camel_case} => self.${descriptor.ident}.take().is_some(),
+        % endfor
+        }
+    }
+
+    /// Returns the count of set descriptors.
+    pub fn len(&self) -> usize {
+        let mut count = 0;
+        % for descriptor in descriptors:
+        if self.${descriptor.ident}.is_some() {
+            count += 1;
+        }
+        % endfor
+        count
+    }
+
+    /// Returns the descriptor at position `i`.
+    pub fn at(&self, i: usize) -> Option<DescriptorId> {
+        let mut cur = 0;
+        % for descriptor in descriptors:
+        if self.${descriptor.ident}.is_some() {
+            if cur == i {
+                return Some(DescriptorId::${descriptor.camel_case});
+            }
+            cur += 1;
+        }
+        % endfor
+        let _ = cur; // Silences warning on the last descriptor
+        None
+    }
+}
+
+impl ToCss for Descriptors {
+    fn to_css<W>(&self, dest: &mut CssWriter<W>) -> fmt::Result
+    where
+        W: fmt::Write,
+    {
+        use std::fmt::Write;
+        % for descriptor in descriptors:
+        if let Some(ref value) = self.${descriptor.ident} {
+            dest.write_str("${descriptor.name}: ")?;
+            value.to_css(dest)?;
+            dest.write_str("; ")?;
+        }
+        % endfor
+        Ok(())
+    }
+}
+
+/// Parser for descriptor declarations in at-rules.
+pub struct DescriptorParser<'a, 'b: 'a> {
+    /// The parser context.
+    pub context: &'a ParserContext<'b>,
+    /// The descriptors to parse into.
+    pub descriptors: &'a mut Descriptors,
+}
+
+impl<'a, 'b, 'i> cssparser::AtRuleParser<'i> for DescriptorParser<'a, 'b> {
+    type Prelude = ();
+    type AtRule = ();
+    type Error = StyleParseErrorKind<'i>;
+}
+
+impl<'a, 'b, 'i> cssparser::QualifiedRuleParser<'i> for DescriptorParser<'a, 'b> {
+    type Prelude = ();
+    type QualifiedRule = ();
+    type Error = StyleParseErrorKind<'i>;
+}
+
+impl<'a, 'b, 'i> cssparser::RuleBodyItemParser<'i, (), StyleParseErrorKind<'i>>
+    for DescriptorParser<'a, 'b>
+{
+    fn parse_qualified(&self) -> bool {
+        false
+    }
+    fn parse_declarations(&self) -> bool {
+        true
+    }
+}
+
+impl<'a, 'b, 'i> cssparser::DeclarationParser<'i> for DescriptorParser<'a, 'b> {
+    type Declaration = ();
+    type Error = StyleParseErrorKind<'i>;
+
+    fn parse_value<'t>(
+        &mut self,
+        name: cssparser::CowRcStr<'i>,
+        input: &mut Parser<'i, 't>,
+        _declaration_start: &cssparser::ParserState,
+    ) -> Result<(), ParseError<'i>> {
+        let Ok(id) = DescriptorId::from_ident(name.as_ref()) else {
+            return Err(
+                input.new_custom_error(
+                    selectors::parser::SelectorParseErrorKind::UnexpectedIdent(name.clone())
+                )
+            );
+        };
+        self.descriptors.set(id, self.context, input)?;
+        Ok(())
+    }
+}
+</%def>
+
+/// Generated code for @font-face descriptors.
+pub mod font_face {
+    use crate::font_face::*;
+${generate_descriptors(data.font_face_descriptors)}
+}
+
+/// Generated code for @counter-style descriptors.
+pub mod counter_style {
+    use crate::counter_style::*;
+${generate_descriptors(data.counter_style_descriptors)}
+}
+
+/// Generated code for @property descriptors.
+pub mod property {
+    use crate::properties_and_values::rule::*;
+${generate_descriptors(data.property_descriptors)}
+}

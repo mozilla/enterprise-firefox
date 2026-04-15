@@ -21,6 +21,11 @@ interface TabManagementFeatureHelper {
      * Whether the Tab Search feature is enabled.
      */
     val tabSearchEnabled: Boolean
+
+    /**
+     * Whether the Tab Groups feature is enabled.
+     */
+    val tabGroupsEnabled: Boolean
 }
 
 /**
@@ -38,4 +43,7 @@ data object DefaultTabManagementFeatureHelper : TabManagementFeatureHelper {
             Config.channel.isRelease -> FxNimbus.features.tabSearch.value().enabled
             else -> false
         }
+
+    override val tabGroupsEnabled: Boolean
+        get() = FxNimbus.features.tabGroups.value().enabled
 }

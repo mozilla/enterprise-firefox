@@ -307,6 +307,8 @@ settings-tabs-show-image-in-preview =
     .label = Show an image preview when you hover on a tab
     .accessKey = h
 
+settings-tabs-drag-to-create-tab-groups =
+    .label = Drag tabs together to create tab groups
 
 browser-layout-header2 =
     .label = Browser Layout
@@ -587,6 +589,10 @@ applications-header = Applications
 
 applications-description = Choose how { -brand-short-name } handles the files you download from the web or the applications you use while browsing.
 
+applications-setting =
+    .label = Applications
+    .description = Choose how { -brand-short-name } handles the files you download from the web or the applications you use while browsing.
+
 applications-filter =
     .placeholder = Search file types or applications
 
@@ -594,9 +600,13 @@ applications-type-column =
     .label = Content Type
     .accesskey = T
 
+applications-type-heading = Content Type
+
 applications-action-column =
     .label = Action
     .accesskey = A
+
+applications-action-heading = Action
 
 # Variables:
 #   $extension (String) - file extension (e.g .TXT)
@@ -672,6 +682,9 @@ applications-use-os-default-label =
 ##
 
 applications-handle-new-file-types-description = What should { -brand-short-name } do with other files?
+
+applications-setting-new-file-types =
+     .label = What should { -brand-short-name } do with other files?
 
 applications-save-for-new-types =
     .label = Save files
@@ -850,6 +863,9 @@ network-proxy-connection-settings2 =
     .accesskey = p
 
 ## Home Section
+
+home-section =
+    .heading = Home and startup
 
 home-new-windows-tabs-header = New Windows and Tabs
 
@@ -1692,7 +1708,7 @@ address-moz-box-item =
 history-group =
     .label = History
 
-history-remember-option-all =
+history-remember-option-all2 =
     .label = Remember history
 history-remember-option-never2 =
     .label = Never remember history
@@ -1998,8 +2014,9 @@ permissions-block-popups2 =
 
 # "popup" is a misspelling that is more popular than the correct spelling of
 # "pop-up" so it's included as a search keyword, not displayed in the UI.
-permissions-block-popups-exceptions-button2 =
-    .label = Manage pop-up and third-party redirect exceptions
+permissions-block-popups-exceptions-button4 =
+    .label = Manage exceptions
+    .description = Add websites that can open pop-ups and use third-party redirects.
     .accesskey = E
     .searchkeywords = popups
 
@@ -2023,6 +2040,9 @@ preferences-view-profiles = View all profiles
 
 collection-health-report-telemetry-disabled = You’re no longer allowing { -vendor-short-name } to capture technical and interaction data. All past data will be deleted within 30 days.
 collection-health-report-telemetry-disabled-link = Learn more
+
+backup-multi-profile-warning-message =
+    .message = To make sure this change is included in your backups, open each profile and choose “Backup now” in Settings.
 
 collection-usage-ping =
     .label = Send daily usage ping to { -vendor-short-name }
@@ -2239,14 +2259,14 @@ preferences-doh-radio-default =
 
 preferences-doh-radio-custom =
     .label = Custom
-    .description = Always use secure DNS with control over your provider and fallback behavior.
+    .description = Always use secure DNS with control over your provider and fallback behavior
 
 preferences-doh-radio-off =
     .label = Off
     .description = Use your default DNS resolver
 
 preferences-doh-fallback-label =
-    .label = Always warn me if secure DNS isn’t available.
+    .label = Always warn me if secure DNS isn’t available
 
 preferences-doh-status-item-off =
     .message = DNS over HTTPS is off

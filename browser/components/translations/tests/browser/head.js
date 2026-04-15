@@ -49,6 +49,8 @@ function median(numbers) {
  * Opens a new tab in the foreground.
  *
  * @param {string} url
+ * @param {string} message
+ * @param {Window} [win=window]
  */
 async function addTab(url, message, win = window) {
   logAction(url);
@@ -72,6 +74,8 @@ async function addTab(url, message, win = window) {
      * @returns {Promise<void>}
      */
     runInPage(callback, data = {}) {
+      // TODO: Switch to SpecialPowers.spawn
+      // eslint-disable-next-line mozilla/reject-contenttask-spawn
       return ContentTask.spawn(
         tab.linkedBrowser,
         { contentData: data, callbackSource: callback.toString() }, // Data to inject.
@@ -2807,13 +2811,7 @@ class FullPageTranslationsTestUtils {
     const menuItem = menuPopup.querySelector(`[value="${langTag}"]`);
     await FullPageTranslationsTestUtils.waitForPanelPopupEvent(
       "popuphidden",
-      () => {
-        click(menuItem);
-        // Synthesizing a click on the menuitem isn't closing the popup
-        // as a click normally would, so this tab keypress is added to
-        // ensure the popup closes.
-        EventUtils.synthesizeKey("KEY_Tab", {}, win);
-      },
+      () => menuPopup.activateItem(menuItem),
       null /* postEventAssertion */,
       win
     );
@@ -3384,7 +3382,7 @@ class SelectTranslationsTestUtils {
     );
     SharedTranslationsTestUtils._assertL10nId(
       unsupportedLanguageMessageBar,
-      "select-translations-panel-unsupported-language-message-known"
+      "select-translations-panel-unsupported-language-message-known-2"
     );
     SharedTranslationsTestUtils._assertHasFocus(tryAnotherSourceMenuList);
     SharedTranslationsTestUtils._assertTabIndexOrder([
@@ -4127,13 +4125,7 @@ class SelectTranslationsTestUtils {
       const menuItem = menuPopup.querySelector(`[value="${langTag}"]`);
       await SelectTranslationsTestUtils.waitForPanelPopupEvent(
         "popuphidden",
-        () => {
-          click(menuItem);
-          // Synthesizing a click on the menuitem isn't closing the popup
-          // as a click normally would, so this tab keypress is added to
-          // ensure the popup closes.
-          EventUtils.synthesizeKey("KEY_Tab");
-        }
+        () => menuPopup.activateItem(menuItem)
       );
 
       await SelectTranslationsTestUtils.handleDownloads(options);

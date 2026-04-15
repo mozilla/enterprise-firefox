@@ -9,7 +9,7 @@ use crate::clip::{rounded_rectangle_contains_point, ClipNodeId, ClipTreeBuilder}
 use crate::clip::{polygon_contains_point, ClipItemKey, ClipItemKeyKind};
 use crate::prim_store::PolygonKey;
 use crate::scene_builder_thread::Interners;
-use crate::spatial_tree::{SpatialNodeIndex, SpatialTree, get_external_scroll_offset};
+use crate::spatial_tree::{SpatialNodeIndex, SpatialTree};
 use crate::internal_types::{FastHashMap, LayoutPrimitiveInfo};
 use std::sync::{Arc, Mutex};
 use crate::util::LayoutToWorldFastTransform;
@@ -62,8 +62,6 @@ struct HitTestSpatialNode {
     /// World viewport transform for content transformed by this node.
     world_viewport_transform: LayoutToWorldFastTransform,
 
-    /// The accumulated external scroll offset for this spatial node.
-    external_scroll_offset: LayoutVector2D,
 }
 
 #[derive(MallocSizeOf)]
@@ -82,6 +80,7 @@ impl HitTestClipNode {
         item: &ClipItemKey,
         interners: &Interners,
         parent: ClipNodeId,
+        spatial_node_index: SpatialNodeIndex,
     ) -> Self {
         let region = match item.kind {
             ClipItemKeyKind::Rectangle(rect, mode) => {
@@ -104,7 +103,7 @@ impl HitTestClipNode {
 
         HitTestClipNode {
             region,
-            spatial_node_index: item.spatial_node_index,
+            spatial_node_index,
             parent,
         }
     }
@@ -210,6 +209,7 @@ impl HitTestingScene {
                 &clip_item.key,
                 interners,
                 src_clip_node.parent,
+                src_clip_node.spatial_node_index,
             );
 
             self.clip_nodes.insert(clip_node_id, clip_node);
@@ -324,7 +324,6 @@ impl HitTester {
                 world_viewport_transform: spatial_tree
                     .get_world_viewport_transform(index)
                     .into_fast_transform(),
-                external_scroll_offset: get_external_scroll_offset(spatial_tree, index),
             });
         });
     }

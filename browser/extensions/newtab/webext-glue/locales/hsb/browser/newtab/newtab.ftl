@@ -52,7 +52,7 @@ newtab-search-box-input =
     .placeholder = Web přepytać
     .aria-label = Web přepytać
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Pytawu přidać
 newtab-topsites-add-shortcut-header = Nowe zwjazanje
@@ -72,6 +72,11 @@ newtab-topsites-url-validation = Płaćiwy URL trěbny
 newtab-topsites-image-url-label = URL swójskeho wobraza
 newtab-topsites-use-image-link = Swójski wobraz wužiwać…
 newtab-topsites-image-validation = Wobraz njeda so začitać. Spytajće druhi URL.
+
+## Clear text button for the URL and image URL input fields in the Top Sites form.
+
+newtab-topsites-clear-input =
+    .aria-label = Tekst zhašeć
 
 ## Top Sites - General form dialog buttons. These are verbs/actions.
 
@@ -634,6 +639,8 @@ newtab-report-cancel = Přetorhnyć
 newtab-report-submit = Wotpósłać
 newtab-toast-thanks-for-reporting =
     .message = Wulki dźak, zo sće to zdźělił.
+newtab-toast-widgets-hidden =
+    .message = Wubjerće symbol pisaka, zo byšće  kóždy čas zaso asistenty přidał.
 
 ## Strings for task / to-do list productivity widget
 
@@ -674,6 +681,7 @@ newtab-widget-lists-name-placeholder-default =
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Nowa lisćina
 newtab-widget-section-title = Asistenty
+newtab-widget-menu-hide = Asistent schować
 # Tooltip for hide all widgets button
 newtab-widget-section-hide-all-button =
     .title = Asistenty schować
@@ -684,6 +692,7 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Asistenty miniměrować
     .aria-label = Wšě asistenty z kompaktnej wulkosću schować
+newtab-widget-section-feedback = Prajće nam swoje měnjenje
 
 ## Strings for timer productivity widget
 ## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown

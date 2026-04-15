@@ -48,7 +48,10 @@ add_task(async function test_logins_decrypt_failure() {
   );
 
   // The function that counts logins sees the non-decryptable entries also.
-  Assert.equal(Services.logins.countLogins("", "", ""), logins.length);
+  Assert.equal(
+    await Services.logins.countLoginsAsync("", "", ""),
+    logins.length
+  );
 
   // Equivalent logins can be added.
   await Services.logins.addLogins(logins);
@@ -58,7 +61,10 @@ add_task(async function test_logins_decrypt_failure() {
     logins.length,
     "getAllLogins length"
   );
-  Assert.equal(Services.logins.countLogins("", "", ""), logins.length * 2);
+  Assert.equal(
+    await Services.logins.countLoginsAsync("", "", ""),
+    logins.length * 2
+  );
 
   // Finding logins doesn't return the non-decryptable duplicates.
   Assert.equal(
@@ -78,12 +84,15 @@ add_task(async function test_logins_decrypt_failure() {
     await Services.logins.removeLoginAsync(loginInfo);
   }
   Assert.equal((await Services.logins.getAllLogins()).length, 0);
-  Assert.equal(Services.logins.countLogins("", "", ""), logins.length);
+  Assert.equal(
+    await Services.logins.countLoginsAsync("", "", ""),
+    logins.length
+  );
 
   // Removing all logins removes the non-decryptable entries also.
   await Services.logins.removeAllUserFacingLoginsAsync();
   Assert.equal((await Services.logins.getAllLogins()).length, 0);
-  Assert.equal(Services.logins.countLogins("", "", ""), 0);
+  Assert.equal(await Services.logins.countLoginsAsync("", "", ""), 0);
 });
 
 // Bug 621846 - If a login has a GUID but can't be decrypted, a search for

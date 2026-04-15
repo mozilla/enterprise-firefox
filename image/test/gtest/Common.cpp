@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -156,7 +155,7 @@ already_AddRefed<nsIInputStream> LoadFile(const char* aRelativePath) {
     rv = NS_NewBufferedInputStream(getter_AddRefs(bufStream),
                                    inputStream.forget(), 1024);
     ASSERT_TRUE_OR_RETURN(NS_SUCCEEDED(rv), nullptr);
-    inputStream = bufStream;
+    inputStream = std::move(bufStream);
   }
 
   return inputStream.forget();

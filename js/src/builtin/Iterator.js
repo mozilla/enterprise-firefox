@@ -2042,7 +2042,122 @@ function* IteratorChunksGenerator(iterator, nextMethod, chunkSize) {
  *  https://tc39.es/proposal-iterator-chunking/#sec-iterator.prototype.windows
  */
 function IteratorWindows(windowSize, undersized) {
-  return false;
+  // Step 1. Let O be the this value.
+  var iterator = this;
+
+  // Step 2. If O is not an Object, throw a TypeError exception.
+  if (!IsObject(iterator)) {
+    ThrowTypeError(JSMSG_OBJECT_REQUIRED, iterator === null ? "null" : typeof iterator);
+  }
+
+  // Step 3. Let iterated be the Iterator Record
+  //         { [[Iterator]]: O, [[NextMethod]]: undefined, [[Done]]: false }.
+
+  // Step 4. If windowSize is not an integral Number
+  //         in the inclusive interval from 1𝔽 to 𝔽(2**32 - 1), then
+  if (!Number_isInteger(windowSize) || (windowSize < 1 || windowSize > (2 ** 32) - 1)) {
+    // Step 4.a. Let error be ThrowCompletion(a newly created RangeError object).
+    // Step 4.b. Return ? IteratorClose(iterated, error).
+    try {
+      IteratorClose(iterator);
+    } catch {}
+    ThrowRangeError(JSMSG_INVALID_WINDOWSIZE);
+  }
+
+  // Step 5. If undersized is undefined, set undersized to "only-full".
+  if (undersized === undefined) {
+    undersized = "only-full";
+  }
+
+  // Step 6. If undersized is not "only-full" or "allow-partial", then
+  if (undersized !== "only-full" && undersized !== "allow-partial") {
+    // Step 6.a. Let error be ThrowCompletion(a newly created TypeError object).
+    // Step 6.b. Return ? IteratorClose(iterated, error).
+    try {
+      IteratorClose(iterator);
+    } catch {}
+    ThrowTypeError(
+      JSMSG_INVALID_UNDERSIZED_OPTION_VALUE, "undersized", ToSource(undersized)
+    );
+  }
+
+  // Step 7. Set iterated to ? GetIteratorDirect(O).
+  var nextMethod = iterator.next;
+
+  // Step 8. Let closure be a new Abstract Closure with ...
+  // (Handled in IteratorWindowsGenerator.)
+
+  // Step 9. Let result be CreateIteratorFromClosure(
+  //         closure, "Iterator Helper", %IteratorHelperPrototype%,
+  //         « [[UnderlyingIterators]] »).
+  var result = NewIteratorHelper();
+  var generator = IteratorWindowsGenerator(iterator, nextMethod, windowSize, undersized);
+
+  // Step 10. Set result.[[UnderlyingIterators]] to « iterated ».
+  UnsafeSetReservedSlot(
+    result,
+    ITERATOR_HELPER_GENERATOR_SLOT,
+    generator
+  );
+  UnsafeSetReservedSlot(
+    result,
+    ITERATOR_HELPER_UNDERLYING_ITERATOR_SLOT,
+    iterator
+  );
+
+  // Step 11. Return result.
+  return result;
+}
+
+/**
+ *  Iterator.prototype.windows ( windowSize, undersized )
+ *
+ *  Abstract closure definition.
+ *
+ *  https://tc39.es/proposal-iterator-chunking/#sec-iterator.prototype.windows
+ */
+function* IteratorWindowsGenerator(iterator, nextMethod, windowSize, undersized) {
+  // Step 8. Let closure be a new Abstract Closure with no parameters that captures
+  //         iterated, windowSize, and undersized
+  //         and performs the following steps when called:
+
+  // Step 8.a. Let buffer be a new empty List.
+  var buffer = new_List();
+
+  // Step 8.b. Repeat,
+  // Step 8.b.i. Let value be ? IteratorStepValue(iterated).
+  for (var value of allowContentIterWithNext(iterator, nextMethod)) {
+    // Step 8.b.iii. If the number of elements in buffer is ℝ(windowSize), then
+    if (buffer.length === windowSize) {
+      // Step 8.b.iii.1. Remove the first element from buffer.
+      callFunction(std_Array_shift, buffer);
+    }
+
+    // Step 8.b.iv. Append value to buffer.
+    DefineDataProperty(buffer, buffer.length, value);
+
+    // Step 8.b.v. If the number of elements in buffer is ℝ(windowSize), then
+    if (buffer.length === windowSize) {
+      // Step 8.b.v.1. Let completion be Completion(Yield(CreateArrayFromList(buffer))).
+      // Step 8.b.v.2. IfAbruptCloseIterator(completion, iterated).
+      // NOTE: The abrupt return completion case is automatically handled by the for-of loop.
+      yield callFunction(std_Array_slice, buffer);
+    }
+  }
+
+  // Step 8.b.ii. If value is done, then
+  // Step 8.b.ii.1. If undersized is "allow-partial", buffer is not empty,
+  //                and the number of elements in buffer < ℝ(windowSize), then
+  if (undersized === "allow-partial" && buffer.length && buffer.length < windowSize) {
+    // Step 8.b.ii.1.a. Perform Completion(Yield(CreateArrayFromList(buffer))).
+    // Iterator helper doesn't have throw methods, and only "normal" or "return"
+    // completion can appear here.
+    // Given that this is the last step inside the function, there's no
+    // difference between handling and ignoring the completion.
+    yield callFunction(std_Array_slice, buffer);
+  }
+  // Step 8.b.ii.2. Return ReturnCompletion(undefined).
+  // (implicit)
 }
 
 /**

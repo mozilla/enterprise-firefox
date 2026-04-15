@@ -135,7 +135,7 @@ This section contains the :doc:`../collection/scalars` that are valid for the cu
 
 simpleMeasurements
 ------------------
-This section contains a list of simple measurements, or counters. In addition to the ones highlighted below, Telemetry timestamps (see `here <https://searchfox.org/mozilla-central/search?q=TelemetryTimestamps.add&redirect=false&case=true>`__ and `here <https://searchfox.org/mozilla-central/search?q=recordTimestamp&redirect=false&case=true>`__) can be reported.
+This section contains a list of simple measurements, or counters. Only specific simple measurements are supported by the data pipeline.
 
 totalTime
 ~~~~~~~~~
@@ -143,6 +143,8 @@ A non-monotonic integer representing the number of seconds the session has been 
 
 addonManager
 ~~~~~~~~~~~~
+As of Firefox 150 this section is no longer present.
+
 Only available in the extended set of measures, it contains a set of counters related to Addons. See `here <https://searchfox.org/mozilla-central/search?q=AddonManagerPrivate.recordSimpleMeasure&redirect=false&case=true>`__ for a list of recorded measures.
 
 UITelemetry
@@ -450,6 +452,10 @@ Structure:
 
 Version History
 ---------------
+
+- Firefox 150:
+
+  - Stopped reporting ``simpleMeasurements`` that the pipeline doesn't provide columns for (`bug 2017318 <https://bugzilla.mozilla.org/show_bug.cgi?id=2017318>`_).
 
 - Firefox 142:
 

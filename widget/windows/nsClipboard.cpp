@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1495,6 +1494,8 @@ nsresult nsClipboard::SaveStorageOrStream(IDataObject* aDataObject, UINT aIndex,
     return NS_ERROR_FAILURE;
   }
 
+  nsPromiseFlatString flatFileName(aFileName);
+
   auto releaseMediumGuard =
       mozilla::MakeScopeExit([&] { ReleaseStgMedium(&stm); });
 
@@ -1514,7 +1515,7 @@ nsresult nsClipboard::SaveStorageOrStream(IDataObject* aDataObject, UINT aIndex,
 
     RefPtr<IStorage> file;
     hres = StgCreateStorageEx(
-        aFileName.Data(), STGM_CREATE | STGM_READWRITE | STGM_SHARE_EXCLUSIVE,
+        flatFileName.get(), STGM_CREATE | STGM_READWRITE | STGM_SHARE_EXCLUSIVE,
         STGFMT_STORAGE, 0, NULL, NULL, IID_IStorage, getter_AddRefs(file));
     if (FAILED(hres)) {
       return NS_ERROR_FAILURE;
@@ -1537,7 +1538,7 @@ nsresult nsClipboard::SaveStorageOrStream(IDataObject* aDataObject, UINT aIndex,
     return NS_ERROR_FAILURE;
   }
 
-  HANDLE handle = CreateFile(aFileName.Data(), GENERIC_WRITE, FILE_SHARE_READ,
+  HANDLE handle = CreateFile(flatFileName.get(), GENERIC_WRITE, FILE_SHARE_READ,
                              NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
   if (handle == INVALID_HANDLE_VALUE) {
     return NS_ERROR_FAILURE;

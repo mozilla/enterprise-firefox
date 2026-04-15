@@ -13,7 +13,6 @@ yarn build-symbolicator-cli
 
 mkdir -p "${ARTIFACT}"
 cp ./dist/*symbolicator* "${ARTIFACT}"
-cp ./dist/*.module.wasm "${ARTIFACT}"
 tar -acf "${ARTIFACT}.tar.zst" "${ARTIFACT}"
 
 mkdir -p "$UPLOAD_DIR"

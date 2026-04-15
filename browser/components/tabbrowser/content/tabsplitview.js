@@ -41,6 +41,8 @@
 
     #isClosing = false;
 
+    #shouldMoveAllTabsAtOnce = true;
+
     #storedPanelWidths = new WeakMap();
 
     /**
@@ -48,6 +50,10 @@
      */
     get hasActiveTab() {
       return this.hasAttribute("hasactivetab");
+    }
+
+    get shouldMoveAllTabsAtOnce() {
+      return this.#shouldMoveAllTabsAtOnce;
     }
 
     /**
@@ -231,9 +237,10 @@
      * Remove Split View tabs from the content area.
      */
     #deactivate() {
-      gBrowser.hideSplitViewPanels(
+      gBrowser.tabpanels.removeTabsFromSplitview(
         this.#tabs.filter(tab => !tab.splitview || tab.splitview === this)
       );
+
       updateUrlbarButton.arm();
       this.container.dispatchEvent(
         new CustomEvent("TabSplitViewDeactivate", {
@@ -379,10 +386,14 @@
      */
     reverseTabs(trigger = null) {
       const [firstTab, secondTab] = this.#tabs;
+      this.#shouldMoveAllTabsAtOnce = false;
       gBrowser.moveTabBefore(secondTab, firstTab);
+      this.#shouldMoveAllTabsAtOnce = true;
       this.#tabs = [secondTab, firstTab];
-      gBrowser.showSplitViewPanels(this.#tabs);
-      updateUrlbarButton.arm();
+      if (this.hasActiveTab) {
+        gBrowser.showSplitViewPanels(this.#tabs);
+        updateUrlbarButton.arm();
+      }
 
       // Record telemetry
       if (trigger) {

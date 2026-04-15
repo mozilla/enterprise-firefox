@@ -2,10 +2,6 @@
   @return 0 0 0 1px $color, 0 0 0 $textbox-shadow-size rgba($color, 0.3);
 }
 
-@mixin textbox-focus($color) {
-  --newtab-textbox-focus-boxshadow: #{textbox-shadow($color)};
-}
-
 // scss variables related to the theme.
 $inner-box-shadow: 0 0 0 1px var(--newtab-inner-box-shadow-color);
 $input-error-boxshadow: #{textbox-shadow(var(--newtab-status-error))};
@@ -83,8 +79,6 @@ $shadow-image-inset: inset 0 0 0 0.5px $black-15;
 
   // Custom border radius
   --border-radius-large: 16px;
-
-  @include textbox-focus(var(--newtab-primary-action-background));
 
   // Buttons
   --newtab-button-secondary-color: inherit;

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -2570,7 +2568,13 @@ nsTHashMap<SourceId, IndexIntoSourceTable>
 ProfileBuffer::StreamSourceTableToJSON(
     SpliceableJSONWriter& aWriter,
     const nsTArray<mozilla::JSSourceEntry>& aJSSourceEntries) const {
-  enum Schema : uint32_t { UUID = 0, FILENAME = 1 };
+  enum Schema : uint32_t {
+    ID = 0,
+    FILENAME = 1,
+    START_LINE = 2,
+    START_COLUMN = 3,
+    SOURCE_MAP_URL = 4
+  };
   nsTHashMap<SourceId, IndexIntoSourceTable> sourceIdToIndexMap;
 
   aWriter.StartObjectProperty("sources");
@@ -2578,8 +2582,11 @@ ProfileBuffer::StreamSourceTableToJSON(
     // Write the schema
     {
       JSONSchemaWriter schema(aWriter);
-      schema.WriteField("uuid");
+      schema.WriteField("id");
       schema.WriteField("filename");
+      schema.WriteField("startLine");
+      schema.WriteField("startColumn");
+      schema.WriteField("sourceMapURL");
     }
 
     // Write data array and build sourceId-to-index mapping.
@@ -2592,7 +2599,7 @@ ProfileBuffer::StreamSourceTableToJSON(
     uint32_t index = 0;
     for (const auto& entry : aJSSourceEntries) {
       IndexIntoSourceTable targetIndex;
-      auto hashEntry = hashToIndexMap.Lookup(entry.uuid);
+      auto hashEntry = hashToIndexMap.Lookup(entry.id);
 
       if (hashEntry) {
         // We've seen this hash before, reuse the existing index.
@@ -2604,13 +2611,21 @@ ProfileBuffer::StreamSourceTableToJSON(
           // TODO: Use AutoArraySchemaWithStringsWriter to write string indexes
           // into string table once we have "process global" string table.
           // Currently string tables are per-thread.
-          aWriter.StringElement(MakeStringSpan(entry.uuid.get()));
+          aWriter.StringElement(MakeStringSpan(entry.id.get()));
           aWriter.StringElement(MakeStringSpan(entry.sourceData.filePath()));
+          aWriter.IntElement(entry.sourceData.startLine());
+          aWriter.IntElement(entry.sourceData.startColumn());
+          if (entry.sourceData.sourceMapURLLength() > 0) {
+            aWriter.StringElement(
+                NS_ConvertUTF16toUTF8(entry.sourceData.sourceMapURL()));
+          }
+          // If you add a new element after sourceMapURL, make sure to write a
+          // null element for sourceMapURL when it's empty.
         }
         aWriter.EndArray();
 
         targetIndex = index;
-        hashToIndexMap.InsertOrUpdate(entry.uuid, index);
+        hashToIndexMap.InsertOrUpdate(entry.id, index);
         index++;
       }
 

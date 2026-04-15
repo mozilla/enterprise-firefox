@@ -353,8 +353,8 @@ static PlainObject* countMapToObject(JSContext* cx, Map& map, GetName getName) {
     return nullptr;
   }
 
-  for (auto r = map.all(); !r.empty(); r.popFront()) {
-    entries.infallibleAppend(&r.front());
+  for (auto iter = map.iter(); !iter.done(); iter.next()) {
+    entries.infallibleAppend(&iter.get());
   }
 
   if (entries.length()) {
@@ -443,8 +443,8 @@ CountBasePtr ByObjectClass::makeCount() {
 
 void ByObjectClass::traceCount(CountBase& countBase, JSTracer* trc) {
   Count& count = static_cast<Count&>(countBase);
-  for (Table::Range r = count.table.all(); !r.empty(); r.popFront()) {
-    r.front().value()->trace(trc);
+  for (auto iter = count.table.iter(); !iter.done(); iter.next()) {
+    iter.get().value()->trace(trc);
   }
   count.other->trace(trc);
 }
@@ -548,8 +548,8 @@ CountBasePtr ByDomObjectClass::makeCount() {
 
 void ByDomObjectClass::traceCount(CountBase& countBase, JSTracer* trc) {
   Count& count = static_cast<Count&>(countBase);
-  for (Table::Range r = count.table.all(); !r.empty(); r.popFront()) {
-    r.front().value()->trace(trc);
+  for (auto iter = count.table.iter(); !iter.done(); iter.next()) {
+    iter.get().value()->trace(trc);
   }
 }
 
@@ -642,8 +642,8 @@ CountBasePtr ByUbinodeType::makeCount() {
 
 void ByUbinodeType::traceCount(CountBase& countBase, JSTracer* trc) {
   Count& count = static_cast<Count&>(countBase);
-  for (Table::Range r = count.table.all(); !r.empty(); r.popFront()) {
-    r.front().value()->trace(trc);
+  for (auto iter = count.table.iter(); !iter.done(); iter.next()) {
+    iter.get().value()->trace(trc);
   }
 }
 
@@ -675,8 +675,8 @@ bool ByUbinodeType::report(JSContext* cx, CountBase& countBase,
   if (!entries.reserve(count.table.count())) {
     return false;
   }
-  for (Table::Range r = count.table.all(); !r.empty(); r.popFront()) {
-    entries.infallibleAppend(&r.front());
+  for (auto iter = count.table.iter(); !iter.done(); iter.next()) {
+    entries.infallibleAppend(&iter.get());
   }
   if (entries.length()) {
     qsort(entries.begin(), entries.length(), sizeof(*entries.begin()),
@@ -791,13 +791,13 @@ CountBasePtr ByAllocationStack::makeCount() {
 
 void ByAllocationStack::traceCount(CountBase& countBase, JSTracer* trc) {
   Count& count = static_cast<Count&>(countBase);
-  for (Table::Range r = count.table.all(); !r.empty(); r.popFront()) {
+  for (auto iter = count.table.iter(); !iter.done(); iter.next()) {
     // Trace our child Counts.
-    r.front().value()->trace(trc);
+    iter.get().value()->trace(trc);
 
     // Trace the StackFrame that is this entry's key. Do not re-key if
     // it has moved; see comments for ByAllocationStack::Count::table.
-    const StackFrame* key = &r.front().key();
+    const StackFrame* key = &iter.get().key();
     auto& k = *const_cast<StackFrame*>(key);
     k.trace(trc);
   }
@@ -845,8 +845,8 @@ bool ByAllocationStack::report(JSContext* cx, CountBase& countBase,
   if (!entries.reserve(count.table.count())) {
     return false;
   }
-  for (Table::Range r = count.table.all(); !r.empty(); r.popFront()) {
-    entries.infallibleAppend(&r.front());
+  for (auto iter = count.table.iter(); !iter.done(); iter.next()) {
+    entries.infallibleAppend(&iter.get());
   }
   if (entries.length()) {
     qsort(entries.begin(), entries.length(), sizeof(*entries.begin()),
@@ -975,8 +975,8 @@ CountBasePtr ByFilename::makeCount() {
 
 void ByFilename::traceCount(CountBase& countBase, JSTracer* trc) {
   Count& count = static_cast<Count&>(countBase);
-  for (Table::Range r = count.table.all(); !r.empty(); r.popFront()) {
-    r.front().value()->trace(trc);
+  for (auto iter = count.table.iter(); !iter.done(); iter.next()) {
+    iter.get().value()->trace(trc);
   }
   count.noFilename->trace(trc);
 }

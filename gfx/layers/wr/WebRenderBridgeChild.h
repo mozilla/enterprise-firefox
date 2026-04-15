@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -98,7 +96,7 @@ class WebRenderBridgeChild final : public PWebRenderBridgeChild,
   wr::PipelineId GetPipeline() { return mPipelineId; }
 
   // KnowsCompositor
-  TextureForwarder* GetTextureForwarder() override;
+  RefPtr<TextureForwarder> GetTextureForwarder() override;
   LayersIPCActor* GetLayersIPCActor() override;
   void SyncWithCompositor(
       const Maybe<uint64_t>& aWindowID = Nothing()) override;
@@ -185,7 +183,7 @@ class WebRenderBridgeChild final : public PWebRenderBridgeChild,
   void DeallocResourceShmem(RefCountedShmem& aShm);
 
   void Capture();
-  void StartCaptureSequence(const nsCString& path, uint32_t aFlags);
+  void StartCaptureSequence(uint32_t aFlags);
   void StopCaptureSequence();
 
   bool SendEnsureConnected(TextureFactoryIdentifier* textureFactoryIdentifier,

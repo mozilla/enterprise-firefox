@@ -629,6 +629,7 @@ pub struct Shaders {
 
     ps_split_composite: ShaderHandle,
     ps_quad_textured: ShaderHandle,
+    ps_quad_repeat: ShaderHandle,
     ps_quad_gradient: ShaderHandle,
     ps_mask: ShaderHandle,
     ps_mask_fast: ShaderHandle,
@@ -832,6 +833,13 @@ impl Shaders {
         let ps_quad_textured = loader.create_shader(
             ShaderKind::Primitive,
             "ps_quad_textured",
+            &[],
+            &shader_list,
+        )?;
+
+        let ps_quad_repeat = loader.create_shader(
+            ShaderKind::Primitive,
+            "ps_quad_repeat",
             &[],
             &shader_list,
         )?;
@@ -1058,6 +1066,7 @@ impl Shaders {
             ps_text_run,
             ps_text_run_dual_source,
             ps_quad_textured,
+            ps_quad_repeat,
             ps_quad_gradient,
             ps_mask,
             ps_mask_fast,
@@ -1124,6 +1133,7 @@ impl Shaders {
         let shader_handle = match pattern {
             PatternKind::ColorOrTexture => self.ps_quad_textured,
             PatternKind::Gradient => self.ps_quad_gradient,
+            PatternKind::Repeat => self.ps_quad_repeat,
             PatternKind::Mask => unreachable!(),
         };
         self.loader.get(shader_handle)
@@ -1153,6 +1163,9 @@ impl Shaders {
             }
             BatchKind::Quad(PatternKind::Gradient) => {
                 self.ps_quad_gradient
+            }
+            BatchKind::Quad(PatternKind::Repeat) => {
+                self.ps_quad_repeat
             }
             BatchKind::Quad(PatternKind::Mask) => {
                 unreachable!();

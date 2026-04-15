@@ -582,17 +582,11 @@ static bool InitializeDurationFormat(
   // Step 3. (Inlined ResolveOptions)
 
   // ResolveOptions, step 1.
-  Rooted<LocalesList> requestedLocales(cx, cx);
-  if (!CanonicalizeLocaleList(cx, args.get(0), &requestedLocales)) {
+  auto* requestedLocales = CanonicalizeLocaleList(cx, args.get(0));
+  if (!requestedLocales) {
     return false;
   }
-
-  Rooted<ArrayObject*> requestedLocalesArray(
-      cx, LocalesListToArray(cx, requestedLocales));
-  if (!requestedLocalesArray) {
-    return false;
-  }
-  durationFormat->setRequestedLocales(requestedLocalesArray);
+  durationFormat->setRequestedLocales(requestedLocales);
 
   DurationFormatOptions dfOptions{};
 
@@ -1305,7 +1299,9 @@ static mozilla::intl::NumberFormat* NewNumberFormat(
     JSContext* cx, Handle<DurationFormatObject*> durationFormat,
     TemporalUnit unit, DurationStyle style) {
   // Step 4.h.i.
-  mozilla::intl::NumberFormatOptions options{};
+  mozilla::intl::NumberFormatOptions options = {
+      .mStyle = mozilla::intl::NumberFormatOptions::Style::Unit,
+  };
 
   // Step 4.h.ii.
   if (NextUnitFractional(durationFormat, unit)) {

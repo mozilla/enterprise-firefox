@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -67,8 +65,8 @@ void ImageHalfScaler::ScaleForSize(const IntSize& aSize) {
   internalSurfSize.height = std::max(scaleSize.height, mOrigSize.height / 2);
 
   size_t bufLen = 0;
-  mStride = GetAlignedStride<16>(internalSurfSize.width, 4);
-  if (mStride > 0) {
+  if (auto stride = GetAlignedStride<16>(internalSurfSize.width, 4)) {
+    mStride = stride.value();
     // Allocate 15 bytes extra to make sure we can get 16 byte alignment. We
     // should add tools for this, see bug 751696.
     bufLen =
@@ -76,6 +74,7 @@ void ImageHalfScaler::ScaleForSize(const IntSize& aSize) {
   }
 
   if (bufLen == 0) {
+    mStride = 0;
     mSize.SizeTo(0, 0);
     mDataStorage = nullptr;
     return;

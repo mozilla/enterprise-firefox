@@ -225,7 +225,7 @@ class TbplFormatter(BaseFormatter):
 
         status = data["status"]
 
-        subtest = data["subtest"]
+        subtest = data.get("subtest")
 
         if "expected" in data:
             if status in data.get("known_intermittent", []):

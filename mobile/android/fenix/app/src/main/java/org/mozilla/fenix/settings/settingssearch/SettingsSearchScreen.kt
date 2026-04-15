@@ -38,7 +38,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import mozilla.components.lib.state.ext.observeAsComposableState
-import org.mozilla.fenix.GleanMetrics.SettingsSearch
 import org.mozilla.fenix.R
 import org.mozilla.fenix.settings.settingssearch.ui.SettingsSearchSectionHeader
 import org.mozilla.fenix.theme.FirefoxTheme
@@ -50,6 +49,7 @@ import org.mozilla.fenix.theme.FirefoxTheme
  * @param onBackClick Callback for when the back button is clicked.
  * @param isSearchFocused Whether the search bar is currently focused.
  * @param onSearchFocusChange Callback for when the search bar's focus state changes.
+ * @param onResultItemClick Callback for when a search result item is clicked.
  */
 @Composable
 fun SettingsSearchScreen(
@@ -57,6 +57,7 @@ fun SettingsSearchScreen(
     onBackClick: () -> Unit,
     isSearchFocused: Boolean,
     onSearchFocusChange: (Boolean) -> Unit,
+    onResultItemClick: (SettingsSearchItem, Boolean) -> Unit,
 ) {
     val state by store.observeAsComposableState { it }
     Scaffold(
@@ -81,6 +82,7 @@ fun SettingsSearchScreen(
                 if (state.recentSearches.isNotEmpty()) {
                     RecentSearchesContent(
                         store = store,
+                        onResultItemClick = onResultItemClick,
                         modifier = Modifier
                             .padding(top = topPadding)
                             .fillMaxSize(),
@@ -103,6 +105,7 @@ fun SettingsSearchScreen(
             is SettingsSearchState.SearchInProgress -> {
                 SearchResults(
                     store = store,
+                    onResultItemClick = onResultItemClick,
                     modifier = Modifier
                         .padding(top = topPadding)
                         .fillMaxSize(),
@@ -133,6 +136,7 @@ private fun SettingsSearchMessageContent(
 @Composable
 private fun SearchResults(
     store: SettingsSearchStore,
+    onResultItemClick: (SettingsSearchItem, Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by store.observeAsComposableState { it }
@@ -163,17 +167,7 @@ private fun SearchResults(
                     item = settingsSearchItem,
                     query = state.searchQuery,
                     onClick = {
-                        SettingsSearch.searchResultClicked.record(
-                            SettingsSearch.SearchResultClickedExtra(
-                                itemPreferenceKey = settingsSearchItem.preferenceKey,
-                                isRecentSearch = false,
-                            ),
-                        )
-                        store.dispatch(
-                            SettingsSearchAction.ResultItemClicked(
-                                settingsSearchItem,
-                            ),
-                        )
+                        onResultItemClick(settingsSearchItem, false)
                     },
                 )
             }
@@ -188,6 +182,7 @@ private fun SearchResults(
 @Composable
 private fun RecentSearchesContent(
     store: SettingsSearchStore,
+    onResultItemClick: (SettingsSearchItem, Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by store.observeAsComposableState { it }
@@ -245,17 +240,7 @@ private fun RecentSearchesContent(
                     item = searchItem,
                     query = state.searchQuery,
                     onClick = {
-                        SettingsSearch.searchResultClicked.record(
-                            SettingsSearch.SearchResultClickedExtra(
-                                itemPreferenceKey = searchItem.preferenceKey,
-                                isRecentSearch = true,
-                            ),
-                        )
-                        store.dispatch(
-                            SettingsSearchAction.ResultItemClicked(
-                                searchItem,
-                            ),
-                        )
+                        onResultItemClick(searchItem, true)
                     },
                 )
             }
@@ -307,6 +292,7 @@ private fun SettingsSearchScreenInitialStatePreview() {
             onBackClick = {},
             isSearchFocused = false,
             onSearchFocusChange = {},
+            onResultItemClick = { _, _ -> },
         )
     }
 }
@@ -343,6 +329,7 @@ private fun SettingsSearchScreenWithRecentsPreview() {
             onBackClick = {},
             isSearchFocused = false,
             onSearchFocusChange = {},
+            onResultItemClick = { _, _ -> },
         )
     }
 }
@@ -402,6 +389,7 @@ private fun SettingsSearchScreenWithResultsPreview() {
             onBackClick = {},
             isSearchFocused = false,
             onSearchFocusChange = {},
+            onResultItemClick = { _, _ -> },
         )
     }
 }
@@ -424,6 +412,7 @@ private fun SettingsSearchScreenNoResultsPreview() {
             onBackClick = {},
             isSearchFocused = false,
             onSearchFocusChange = {},
+            onResultItemClick = { _, _ -> },
         )
     }
 }

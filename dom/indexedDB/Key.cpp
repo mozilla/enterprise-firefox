@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -202,18 +200,21 @@ Result<Ok, nsresult> Key::SetFromString(const nsAString& aString) {
 uint32_t Key::LengthOfEncodedBinary(const EncodedDataType* aPos,
                                     const EncodedDataType* aEnd) {
   MOZ_ASSERT(*aPos % Key::eMaxType == Key::eBinary, "Don't call me!");
+  MOZ_DIAGNOSTIC_ASSERT(aPos < aEnd);
 
-  const auto* iter = aPos + 1;
-  for (; iter < aEnd && *iter != eTerminator; ++iter) {
-    if (*iter & 0x80) {
-      ++iter;
-      // XXX if iter == aEnd now, we got a bad enconding, should we report that
-      // also in non-debug builds?
-      MOZ_ASSERT(iter < aEnd);
-    }
-  }
+  const EncodedDataType* const begin = aPos + 1;
+  const EncodedDataType* encodedSectionEnd = nullptr;
 
-  return iter - aPos - 1;
+  // Stops at aEnd if the terminator is trimmed and correctly reports end
+  (void)CalcDecodedStringySize<uint8_t>(begin, aEnd, &encodedSectionEnd);
+
+  MOZ_DIAGNOSTIC_ASSERT(encodedSectionEnd && encodedSectionEnd >= begin &&
+                        encodedSectionEnd <= aEnd);
+  MOZ_DIAGNOSTIC_ASSERT(
+      encodedSectionEnd == aEnd ||
+      (encodedSectionEnd < aEnd && *encodedSectionEnd == eTerminator));
+
+  return AssertedCast<uint32_t>(encodedSectionEnd - begin);
 }
 
 Result<Key, nsresult> Key::ToLocaleAwareKey(const nsCString& aLocale) const {
@@ -721,29 +722,7 @@ Result<Ok, nsresult> Key::EncodeAsString(const Span<const T> aInput,
 Result<Ok, nsresult> Key::EncodeLocaleString(const nsAString& aString,
                                              uint8_t aTypeOffset,
                                              const nsCString& aLocale) {
-  const int length = aString.Length();
-  if (length == 0) {
-    return Ok();
-  }
-
-  auto collResult = intl::Collator::TryCreate(aLocale.get());
-  if (collResult.isErr()) {
-    return Err(NS_ERROR_FAILURE);
-  }
-  auto collator = collResult.unwrap();
-  MOZ_ASSERT(collator);
-
-  AutoTArray<uint8_t, 128> keyBuffer;
-  MOZ_TRY(collator->GetSortKey(Span{aString}, keyBuffer)
-              .mapErr([](intl::ICUError icuError) {
-                return icuError == intl::ICUError::OutOfMemory
-                           ? NS_ERROR_OUT_OF_MEMORY
-                           : NS_ERROR_FAILURE;
-              }));
-
-  size_t sortKeyLength = keyBuffer.Length();
-  return EncodeString(Span{keyBuffer}.AsConst().First(sortKeyLength),
-                      aTypeOffset);
+  return Err(NS_ERROR_FAILURE);
 }
 
 // static
@@ -937,6 +916,12 @@ Result<Ok, nsresult> Key::EncodeBinary(
   // https://github.com/w3c/IndexedDB/issues/417 - we are better off by
   // throwing a DataCloneError. The spec language is about to be revised.
   if (aArrayBufferOrView.isDetached()) {
+    return Err(NS_ERROR_DOM_INDEXEDDB_DATA_ERR);
+  }
+
+  JSObject* obj = aArrayBufferOrView.asObjectUnbarriered();
+  if (JS::IsSharedArrayBufferObject(obj) ||
+      (JS_IsArrayBufferViewObject(obj) && JS::IsArrayBufferViewShared(obj))) {
     return Err(NS_ERROR_DOM_INDEXEDDB_DATA_ERR);
   }
 

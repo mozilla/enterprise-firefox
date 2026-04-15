@@ -99,6 +99,12 @@ WINDOWS_WORKER_TYPES = {
     "windows11-aarch64-24h2": {
         "virtual": "win11-a64-24h2",
     },
+    "windows11-aarch64-24h2-devedition": {
+        "virtual": "win11-a64-24h2",
+    },
+    "windows11-aarch64-24h2-shippable": {
+        "virtual": "win11-a64-24h2",
+    },
 }
 
 # os x worker types keyed by test-platform
@@ -199,7 +205,12 @@ def set_worker_type(config, tasks):
             elif task.get("suite", "") in ["talos", "raptor"] and not task[
                 "build-platform"
             ].startswith("linux64-ccov"):
-                if "browsertime-network-bench" in task.get("test-name"):
+                if test_platform.startswith("linux2404"):
+                    if "browsertime-network-bench" in task.get("test-name"):
+                        task["worker-type"] = "t-linux-netperf-2404"
+                    else:
+                        task["worker-type"] = "t-linux-talos-2404"
+                elif "browsertime-network-bench" in task.get("test-name"):
                     task["worker-type"] = "t-linux-netperf-1804"
                 else:
                     task["worker-type"] = "t-linux-talos-1804"

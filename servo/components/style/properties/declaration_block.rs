@@ -23,6 +23,7 @@ use crate::properties::{
     StyleBuilder,
 };
 use crate::rule_cache::RuleCacheConditions;
+use crate::rule_tree::RuleCascadeFlags;
 use crate::selector_map::PrecomputedHashSet;
 use crate::selector_parser::SelectorImpl;
 use crate::shared_lock::Locked;
@@ -115,24 +116,6 @@ impl Importance {
             Self::Important => true,
         }
     }
-}
-
-/// A property-aware wrapper around reification results.
-///
-/// While `TypedValue` is property-agnostic, this enum represents the outcome
-/// of reifying a specific property inside a `PropertyDeclarationBlock`.
-#[derive(Clone, Debug)]
-pub enum PropertyTypedValue {
-    /// The property is not present in the declaration block.
-    None,
-
-    /// The property exists but cannot be expressed as a `TypedValue`.
-    /// Used for shorthands and other unrepresentable cases, which must be
-    /// exposed as `CSSUnsupportedValue` objects tied to the property.
-    Unsupported,
-
-    /// The property was successfully reified into a `TypedValue`.
-    Typed(TypedValue),
 }
 
 /// A set of properties.
@@ -610,28 +593,27 @@ impl PropertyDeclarationBlock {
         }
     }
 
-    /// Find the value of the given property in this block and reify it
-    pub fn property_value_to_typed(&self, property: &PropertyId) -> PropertyTypedValue {
+    /// Find the value of the given property in this block and reify it.
+    /// Returns `Err(())` if the property is not present in this declaration
+    /// block.
+    pub fn property_value_to_typed_value(
+        &self,
+        property: &PropertyId,
+    ) -> Result<Option<TypedValue>, ()> {
         match property.as_shorthand() {
             Ok(shorthand) => {
                 if shorthand
                     .longhands()
                     .all(|longhand| self.contains(PropertyDeclarationId::Longhand(longhand)))
                 {
-                    PropertyTypedValue::Unsupported
+                    Ok(None)
                 } else {
-                    PropertyTypedValue::None
+                    Err(())
                 }
             },
             Err(longhand_or_custom) => match self.get(longhand_or_custom) {
-                Some((value, _importance)) => {
-                    if let Some(typed_value) = value.to_typed() {
-                        PropertyTypedValue::Typed(typed_value)
-                    } else {
-                        PropertyTypedValue::Unsupported
-                    }
-                },
-                None => PropertyTypedValue::None,
+                Some((value, _importance)) => Ok(value.to_typed_value()),
+                None => Err(()),
             },
         }
     }
@@ -1002,6 +984,7 @@ impl PropertyDeclarationBlock {
             stylist.quirks_mode(),
             &mut rule_cache_conditions,
             ContainerSizeQuery::none(),
+            RuleCascadeFlags::empty(),
         );
 
         if let Some(cv) = computed_values {

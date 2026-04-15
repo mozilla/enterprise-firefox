@@ -1,5 +1,4 @@
-/* -*- Mode: C++; tab-width: 20; indent-tabs-mode: nil; c-basic-offset: 2 -*-
- * This Source Code Form is subject to the terms of the Mozilla Public
+/* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
@@ -385,7 +384,10 @@ gfxFontEntry* gfxDWriteFontEntry::Clone() const {
   return fe;
 }
 
-gfxDWriteFontEntry::~gfxDWriteFontEntry() {}
+gfxDWriteFontEntry::~gfxDWriteFontEntry() {
+  auto* cache = mFontTableCache.exchange(nullptr);
+  delete cache;
+}
 
 static bool UsingArabicOrHebrewScriptSystemLocale() {
   LANGID langid = PRIMARYLANGID(::GetSystemDefaultLangID());
@@ -511,6 +513,18 @@ hb_blob_t* gfxDWriteFontEntry::GetFontTable(uint32_t aTag) {
   }
 
   return nullptr;
+}
+
+gfxFontEntry::FontTableCache* gfxDWriteFontEntry::GetFontTableCache(
+    bool aCreate) {
+  // Create the cache if it does not yet exist.
+  if (!mFontTableCache && aCreate) {
+    auto* cache = new FontTableCache();
+    if (!mFontTableCache.compareExchange(nullptr, cache)) {
+      delete cache;
+    }
+  }
+  return mFontTableCache;
 }
 
 nsresult gfxDWriteFontEntry::ReadCMAP(FontInfoData* aFontInfoData) {
@@ -1092,9 +1106,7 @@ gfxFontEntry* gfxDWriteFontList::CreateFontEntry(
       UINT32 index;
       BOOL exists;
       NS_ConvertUTF8toUTF16 name16(familyName);
-      HRESULT hr = collection->FindFamilyName(
-          reinterpret_cast<const WCHAR*>(name16.BeginReading()), &index,
-          &exists);
+      HRESULT hr = collection->FindFamilyName(name16.getW(), &index, &exists);
       if (FAILED(hr) || !exists || index == UINT_MAX ||
           FAILED(collection->GetFontFamily(index, getter_AddRefs(family))) ||
           !family) {
@@ -1599,7 +1611,7 @@ void gfxDWriteFontList::InitSharedFontListForPlatform() {
   if (FAILED(hr)) {
     glean::fontlist::dwritefont_init_problem.AccumulateSingleSample(
         uint32_t(errGDIInterop));
-    mSharedFontList.reset(nullptr);
+    delete mSharedFontList.exchange(nullptr);
     return;
   }
 
@@ -1608,7 +1620,7 @@ void gfxDWriteFontList::InitSharedFontListForPlatform() {
   if (!mSystemFonts) {
     glean::fontlist::dwritefont_init_problem.AccumulateSingleSample(
         uint32_t(errSystemFontCollection));
-    mSharedFontList.reset(nullptr);
+    delete mSharedFontList.exchange(nullptr);
     return;
   }
 #ifdef MOZ_BUNDLED_FONTS

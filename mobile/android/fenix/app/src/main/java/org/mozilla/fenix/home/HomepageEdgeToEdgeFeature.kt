@@ -77,13 +77,6 @@ class HomepageEdgeToEdgeFeature(
         wallpaperScope = null
     }
 
-    private fun setBackground(background: Background) {
-        val isPrivateMode = browsingModeManager.mode == BrowsingMode.Private
-        activity.window?.setBackgroundDrawableResource(
-            if (isPrivateMode) R.color.fx_mobile_private_surface else background.resourceId,
-        )
-    }
-
     private fun setWallpaper(wallpaper: Wallpaper) {
         if (wallpaper == Wallpaper.EdgeToEdge) {
             setBackground(Background.HomeEdgeToEdge)
@@ -105,6 +98,13 @@ class HomepageEdgeToEdgeFeature(
         toolbarScope?.cancel()
         toolbarScope = null
         backgroundView = null
+    }
+
+    private fun setBackground(background: Background) {
+        val isPrivateMode = browsingModeManager.mode == BrowsingMode.Private
+        activity.window?.setBackgroundDrawableResource(
+            if (isPrivateMode) R.color.fx_mobile_private_surface else background.resourceId,
+        )
     }
 
     /**

@@ -7,7 +7,7 @@ const { IPProtectionPanel } = ChromeUtils.importESModule(
   "moz-src:///browser/components/ipprotection/IPProtectionPanel.sys.mjs"
 );
 const { IPPEnrollAndEntitleManager } = ChromeUtils.importESModule(
-  "moz-src:///browser/components/ipprotection/IPPEnrollAndEntitleManager.sys.mjs"
+  "moz-src:///toolkit/components/ipprotection/IPPEnrollAndEntitleManager.sys.mjs"
 );
 
 /**
@@ -300,68 +300,6 @@ add_task(async function test_IPProtectionPanel_started_stopped() {
     false,
     "isProtectionEnabled should be false in the fake elements state"
   );
-  sandbox.restore();
-});
-
-/**
- * Tests that IPProtectionPanel state isAlpha property is correct
- * when IPPEnrollAndEntitleManager.isAlpha is true.
- */
-add_task(async function test_IPProtectionPanel_isAlpha_true() {
-  let sandbox = sinon.createSandbox();
-
-  sandbox
-    .stub(IPPEnrollAndEntitleManager, "isEnrolledAndEntitled")
-    .get(() => true);
-  sandbox.stub(IPPEnrollAndEntitleManager, "isAlpha").get(() => true);
-  sandbox
-    .stub(IPProtectionService.guardian, "isLinkedToGuardian")
-    .resolves(true);
-
-  let ipProtectionPanel = new IPProtectionPanel();
-  let fakeElement = new FakeIPProtectionPanelElement();
-  ipProtectionPanel.panel = fakeElement;
-  fakeElement.isConnected = true;
-
-  IPProtectionService.updateState();
-
-  Assert.equal(
-    ipProtectionPanel.state.isAlpha,
-    true,
-    "isAlpha should be true in the IPProtectionPanel state"
-  );
-
-  sandbox.restore();
-});
-
-/**
- * Tests that IPProtectionPanel state isAlpha property is correct
- * when IPPEnrollAndEntitleManager.isAlpha is false.
- */
-add_task(async function test_IPProtectionPanel_isAlpha_false() {
-  let sandbox = sinon.createSandbox();
-
-  sandbox
-    .stub(IPPEnrollAndEntitleManager, "isEnrolledAndEntitled")
-    .get(() => true);
-  sandbox.stub(IPPEnrollAndEntitleManager, "isAlpha").get(() => false);
-  sandbox
-    .stub(IPProtectionService.guardian, "isLinkedToGuardian")
-    .resolves(true);
-
-  let ipProtectionPanel = new IPProtectionPanel();
-  let fakeElement = new FakeIPProtectionPanelElement();
-  ipProtectionPanel.panel = fakeElement;
-  fakeElement.isConnected = true;
-
-  IPProtectionService.updateState();
-
-  Assert.equal(
-    ipProtectionPanel.state.isAlpha,
-    false,
-    "isAlpha should be false in the IPProtectionPanel state"
-  );
-
   sandbox.restore();
 });
 

@@ -213,25 +213,25 @@ add_task(async function test_disabling_by_default() {
     await ContentTaskUtils.waitForCondition(
       () =>
         content.document.querySelector(
-          "#interventions tr[data-id=test3] [data-l10n-id=label-enable]"
+          "#interventions [data-id=test3] [data-l10n-id=label-enable]"
         ),
       "test3 is correctly shown"
     );
     ok(
-      !content.document.querySelector("#interventions tr[data-id=test4]"),
+      !content.document.querySelector("#interventions [data-id=test4]"),
       "test4 is correctly hidden"
     );
 
     // click enable, confirm it is enabled
     content.document
       .querySelector(
-        "#interventions tr[data-id=test3] [data-l10n-id=label-enable]"
+        "#interventions [data-id=test3] [data-l10n-id=label-enable]"
       )
       .click();
     await ContentTaskUtils.waitForCondition(
       () =>
         content.document.querySelector(
-          "#interventions tr[data-id=test3] [data-l10n-id=label-disable]"
+          "#interventions [data-id=test3] [data-l10n-id=label-disable]"
         ),
       "test3 is correctly enabled on click"
     );
@@ -239,13 +239,13 @@ add_task(async function test_disabling_by_default() {
     // now click disable, confirm it is disabled
     content.document
       .querySelector(
-        "#interventions tr[data-id=test3] [data-l10n-id=label-disable]"
+        "#interventions [data-id=test3] [data-l10n-id=label-disable]"
       )
       .click();
     await ContentTaskUtils.waitForCondition(
       () =>
         content.document.querySelector(
-          "#interventions tr[data-id=test3] [data-l10n-id=label-enable]"
+          "#interventions [data-id=test3] [data-l10n-id=label-enable]"
         ),
       "test3 is correctly disabled again on second click"
     );
@@ -380,14 +380,14 @@ add_task(async function test_individual_interventions_prefs() {
     await ContentTaskUtils.waitForCondition(
       () =>
         content.document.querySelector(
-          "#interventions tr[data-id=test5] [data-l10n-id=label-disable]"
+          "#interventions [data-id=test5] [data-l10n-id=label-disable]"
         ),
       "test5 is correctly shown as disabled"
     );
     await ContentTaskUtils.waitForCondition(
       () =>
         content.document.querySelector(
-          "#interventions tr[data-id=test6] [data-l10n-id=label-enable]"
+          "#interventions [data-id=test6] [data-l10n-id=label-enable]"
         ),
       "test6 is correctly shown as enabled"
     );
@@ -395,13 +395,13 @@ add_task(async function test_individual_interventions_prefs() {
     // click to disable test5 and confirm
     content.document
       .querySelector(
-        "#interventions tr[data-id=test5] [data-l10n-id=label-disable]"
+        "#interventions [data-id=test5] [data-l10n-id=label-disable]"
       )
       .click();
     await ContentTaskUtils.waitForCondition(
       () =>
         content.document.querySelector(
-          "#interventions tr[data-id=test5] [data-l10n-id=label-enable]"
+          "#interventions [data-id=test5] [data-l10n-id=label-enable]"
         ),
       "test5 is correctly disabled"
     );
@@ -409,13 +409,13 @@ add_task(async function test_individual_interventions_prefs() {
     // click to enable test6 and confirm
     content.document
       .querySelector(
-        "#interventions tr[data-id=test6] [data-l10n-id=label-enable]"
+        "#interventions [data-id=test6] [data-l10n-id=label-enable]"
       )
       .click();
     await ContentTaskUtils.waitForCondition(
       () =>
         content.document.querySelector(
-          "#interventions tr[data-id=test6] [data-l10n-id=label-disable]"
+          "#interventions [data-id=test6] [data-l10n-id=label-disable]"
         ),
       "test6 is correctly enabled"
     );
@@ -423,13 +423,13 @@ add_task(async function test_individual_interventions_prefs() {
     // click to disable test7 and confirm
     content.document
       .querySelector(
-        "#interventions tr[data-id=test7] [data-l10n-id=label-disable]"
+        "#interventions [data-id=test7] [data-l10n-id=label-disable]"
       )
       .click();
     await ContentTaskUtils.waitForCondition(
       () =>
         content.document.querySelector(
-          "#interventions tr[data-id=test5] [data-l10n-id=label-enable]"
+          "#interventions [data-id=test5] [data-l10n-id=label-enable]"
         ),
       "test7 is correctly disabled"
     );
@@ -461,13 +461,13 @@ add_task(async function test_individual_interventions_prefs() {
     // click to re-enable test5 and confirm
     content.document
       .querySelector(
-        "#interventions tr[data-id=test5] [data-l10n-id=label-enable]"
+        "#interventions [data-id=test5] [data-l10n-id=label-enable]"
       )
       .click();
     await ContentTaskUtils.waitForCondition(
       () =>
         content.document.querySelector(
-          "#interventions tr[data-id=test5] [data-l10n-id=label-disable]"
+          "#interventions [data-id=test5] [data-l10n-id=label-disable]"
         ),
       "test5 is correctly disabled"
     );
@@ -475,13 +475,13 @@ add_task(async function test_individual_interventions_prefs() {
     // click to re-disable test6 and confirm
     content.document
       .querySelector(
-        "#interventions tr[data-id=test6] [data-l10n-id=label-disable]"
+        "#interventions [data-id=test6] [data-l10n-id=label-disable]"
       )
       .click();
     await ContentTaskUtils.waitForCondition(
       () =>
         content.document.querySelector(
-          "#interventions tr[data-id=test6] [data-l10n-id=label-enable]"
+          "#interventions [data-id=test6] [data-l10n-id=label-enable]"
         ),
       "test6 is correctly disabled"
     );
@@ -489,13 +489,13 @@ add_task(async function test_individual_interventions_prefs() {
     // click to re-enable test7 and confirm
     content.document
       .querySelector(
-        "#interventions tr[data-id=test7] [data-l10n-id=label-enable]"
+        "#interventions [data-id=test7] [data-l10n-id=label-enable]"
       )
       .click();
     await ContentTaskUtils.waitForCondition(
       () =>
         content.document.querySelector(
-          "#interventions tr[data-id=test7] [data-l10n-id=label-disable]"
+          "#interventions [data-id=test7] [data-l10n-id=label-disable]"
         ),
       "test7 is correctly disabled"
     );

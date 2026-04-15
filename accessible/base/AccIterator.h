@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -46,7 +44,7 @@ class AccIterable {
  */
 class AccIterator : public AccIterable {
  public:
-  AccIterator(const LocalAccessible* aRoot, filters::FilterFuncPtr aFilterFunc);
+  AccIterator(LocalAccessible* aRoot, filters::FilterFuncPtr aFilterFunc);
   virtual ~AccIterator();
 
   /**
@@ -61,10 +59,10 @@ class AccIterator : public AccIterable {
   AccIterator& operator=(const AccIterator&);
 
   struct IteratorState {
-    explicit IteratorState(const LocalAccessible* aParent,
+    explicit IteratorState(LocalAccessible* aParent,
                            IteratorState* mParentState = nullptr);
 
-    const LocalAccessible* mParent;
+    RefPtr<LocalAccessible> mParent;
     int32_t mIndex;
     IteratorState* mParentState;
   };

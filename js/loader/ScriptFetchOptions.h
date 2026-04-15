@@ -64,7 +64,12 @@ class ScriptFetchOptions {
 
   // Returns true if given fetch option is compatible with this fetch option
   // in term of sharing the server response.
-  inline bool IsCompatible(ScriptFetchOptions* other) {
+  //
+  // Nonce is excluded here because the cached response can have different
+  // nonce, and in that case ScriptLoadRequest is responsible for using the
+  // appropriate one.
+  // See ScriptLoadRequest::SetCacheEntry.
+  inline bool IsCompatibleExcludingNonce(ScriptFetchOptions* other) {
     if (this == other) {
       return true;
     }
@@ -80,7 +85,7 @@ class ScriptFetchOptions {
     }
 
     // NOTE: mParserMetadata can be ignored.
-    return mCORSMode == other->mCORSMode && mNonce == other->mNonce &&
+    return mCORSMode == other->mCORSMode &&
            mFetchPriority == other->mFetchPriority;
   }
 

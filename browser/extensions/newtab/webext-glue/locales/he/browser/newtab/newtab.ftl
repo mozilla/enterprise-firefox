@@ -52,7 +52,7 @@ newtab-search-box-input =
     .placeholder = חיפוש ברשת
     .aria-label = חיפוש ברשת
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = הוספת מנוע חיפוש
 newtab-topsites-add-shortcut-header = קיצור דרך חדש
@@ -72,6 +72,11 @@ newtab-topsites-url-validation = נדרשת כתובת תקינה
 newtab-topsites-image-url-label = כתובת תמונה מותאמת אישית
 newtab-topsites-use-image-link = שימוש בתמונה מותאמת אישית…
 newtab-topsites-image-validation = טעינת התמונה נכשלה. נא לנסות כתובת שונה.
+
+## Clear text button for the URL and image URL input fields in the Top Sites form.
+
+newtab-topsites-clear-input =
+    .aria-label = ניקוי טקסט
 
 ## Top Sites - General form dialog buttons. These are verbs/actions.
 
@@ -626,6 +631,8 @@ newtab-report-cancel = ביטול
 newtab-report-submit = שליחה
 newtab-toast-thanks-for-reporting =
     .message = תודה שדיווחת על זה.
+newtab-toast-widgets-hidden =
+    .message = ניתן ללחוץ על סמל העיפרון כדי להוסיף ווידג’טים בחזרה בכל עת.
 
 ## Strings for task / to-do list productivity widget
 
@@ -666,6 +673,7 @@ newtab-widget-lists-name-placeholder-default =
 newtab-widget-lists-name-placeholder-new =
     .placeholder = רשימה חדשה
 newtab-widget-section-title = ווידג’טים
+newtab-widget-menu-hide = הסתרת הווידג׳ט
 # Tooltip for hide all widgets button
 newtab-widget-section-hide-all-button =
     .title = הסתרת ווידג׳טים
@@ -676,6 +684,7 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = מזעור ווידג׳טים
     .aria-label = צמצום כל הווידג׳טים לגודל קומפקטי
+newtab-widget-section-feedback = ספרו לנו מה דעתכם
 
 ## Strings for timer productivity widget
 ## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown

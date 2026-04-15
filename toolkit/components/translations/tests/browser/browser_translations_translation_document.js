@@ -1977,3 +1977,23 @@ add_task(async function test_node_specific_attribute_mutation() {
 
   cleanup();
 });
+
+add_task(async function test_translate_selected_input() {
+  const { translate, htmlMatches, cleanup } =
+    await createTranslationsDoc(/* html */ `
+      <input type="text" autofocus="" onfocus="this.select()" value="Do not translate">
+      Translate me
+    `);
+
+  translate();
+
+  await htmlMatches(
+    "The initial setup is translated",
+    /* html */ `
+      <input type="text" autofocus="" onfocus="this.select()" value="Do not translate">
+      TRANSLATE ME
+    `
+  );
+
+  cleanup();
+});

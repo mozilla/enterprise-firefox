@@ -71,9 +71,8 @@ add_task(async function test_selectChoose() {
   await promisePopup;
 
   // Click the choose item.
-  EventUtils.synthesizeMouseAtCenter(
-    document.getElementById("editBMPanel_chooseFolderMenuItem"),
-    {}
+  menuList.menupopup.activateItem(
+    document.getElementById("editBMPanel_chooseFolderMenuItem")
   );
 
   await TestUtils.waitForCondition(
@@ -151,9 +150,8 @@ add_task(async function test_selectBookmarksMenu() {
   await promisePopup;
 
   // Click the bookmarks menu item.
-  EventUtils.synthesizeMouseAtCenter(
-    document.getElementById("editBMPanel_bmRootItem"),
-    {}
+  menuList.menupopup.activateItem(
+    document.getElementById("editBMPanel_bmRootItem")
   );
 
   await TestUtils.waitForCondition(
@@ -203,9 +201,8 @@ add_task(async function test_selectBookmarksMenu() {
   );
   EventUtils.synthesizeMouseAtCenter(menuList, {});
   await promisePopup;
-  EventUtils.synthesizeMouseAtCenter(
-    document.getElementById("editBMPanel_toolbarFolderItem"),
-    {}
+  menuList.menupopup.activateItem(
+    document.getElementById("editBMPanel_toolbarFolderItem")
   );
   await TestUtils.waitForCondition(
     () => menuList.getAttribute("selectedGuid") == toolbarGuid,

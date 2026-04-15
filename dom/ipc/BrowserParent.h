@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -589,6 +587,9 @@ class BrowserParent final : public PBrowserParent,
 
   bool SendSelectionEvent(mozilla::WidgetSelectionEvent& aEvent);
 
+  // TODO(bug 2028623): Mark this function and callers as MOZ_CAN_RUN_SCRIPT.
+  // Current callers hold a strong reference to `this` but MOZ_CAN_RUN_SCRIPT
+  // would enforce that via static analysis.
   MOZ_CAN_RUN_SCRIPT_BOUNDARY bool SendHandleTap(
       TapType aType, const LayoutDevicePoint& aPoint, Modifiers aModifiers,
       const ScrollableLayerGuid& aGuid, uint64_t aInputBlockId,
@@ -863,6 +864,9 @@ class BrowserParent final : public PBrowserParent,
   // Recomputes focus when the BrowsingContext tree changes in a
   // way that potentially invalidates the sFocus.
   static void UpdateFocusFromBrowsingContext();
+
+  mozilla::ipc::IPCResult RecvPerformHapticFeedback(
+      mozilla::HapticFeedbackType aType);
 
  private:
   TabId mTabId;

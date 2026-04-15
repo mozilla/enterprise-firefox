@@ -44,7 +44,7 @@ newtab-search-box-input =
     .placeholder = සොයන්න
     .aria-label = සොයන්න
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = සෙවුම් යන්ත්‍රයක් යොදන්න
 newtab-topsites-add-shortcut-header = නව කෙටිමඟ

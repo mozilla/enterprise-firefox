@@ -3733,17 +3733,10 @@ export class TranslationsParent extends JSWindowActorParent {
 
     this.languageState.requestedLanguagePair = languagePair;
 
-    const preferredLanguages = TranslationsParent.getPreferredLanguages();
-    const topPreferredLanguage =
-      preferredLanguages && preferredLanguages.length
-        ? preferredLanguages[0]
-        : null;
-
     TranslationsParent.telemetry().onTranslate({
       docLangTag,
       sourceLanguage,
       targetLanguage,
-      topPreferredLanguage,
       autoTranslate: reportAsAutoTranslate,
       requestTarget: "full_page",
     });
@@ -3912,9 +3905,6 @@ export class TranslationsParent extends JSWindowActorParent {
     if (pageText.length < TranslationsParent.#DOC_CONFIDENCE_THRESHOLD) {
       result.confident = false;
     }
-
-    // Some language tags are not supported by CLD2
-    result.language = this.maybeRefineMacroLanguageTag(result.language);
 
     const htmlLangAttribute =
       this.languageState?.detectedLanguages?.htmlLangAttribute ?? null;
@@ -4105,29 +4095,6 @@ export class TranslationsParent extends JSWindowActorParent {
   }
 
   /**
-   * Attempts to make the language tag more specific if it is a supported macro language tag.
-   * If no special cases apply, the provided language tag is returned as-is.
-   *
-   * @param {string} langTag - A BCP-47 language tag to evaluate and possibly refine.
-   * @returns {string} - The refined language tag, or null if processing was interrupted.
-   */
-  maybeRefineMacroLanguageTag(langTag) {
-    if (langTag === "no") {
-      // Choose "Norwegian Bokmål" over "Norwegian Nynorsk" as it is more widely used.
-      //
-      // https://en.wikipedia.org/wiki/Norwegian_language#Bokm%C3%A5l_and_Nynorsk
-      //
-      //   > A 2005 poll indicates that 86.3% use primarily Bokmål as their daily
-      //   > written language, 5.5% use both Bokmål and Nynorsk, and 7.5% use
-      //   > primarily Nynorsk.
-      return "nb";
-    }
-
-    // No special cases were handled above, so pass the langTag through.
-    return langTag;
-  }
-
-  /**
    * Returns the lang tags that should be offered for translation. This is in the parent
    * rather than the child to remove the per-content process memory allocation amount.
    *
@@ -4145,7 +4112,8 @@ export class TranslationsParent extends JSWindowActorParent {
     }
 
     if (htmlLangAttribute) {
-      htmlLangAttribute = this.maybeRefineMacroLanguageTag(htmlLangAttribute);
+      htmlLangAttribute =
+        lazy.LanguageDetector.maybeRefineMacroLanguageTag(htmlLangAttribute);
     }
 
     let languagePairs = await TranslationsParent.getNonPivotLanguagePairs();

@@ -208,6 +208,22 @@ fog.ipc:
       - glean-team@mozilla.com
     expires: never
 
+  flush_rejections:
+    type: counter
+    description: |
+      The number of times we failed to flush individual instances of
+      non-parent-process data.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1986739
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1986739
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - chumphreys@mozilla.com
+      - glean-team@mozilla.com
+    expires: never
+
   shutdown_registration_failures:
     type: counter
     description: |

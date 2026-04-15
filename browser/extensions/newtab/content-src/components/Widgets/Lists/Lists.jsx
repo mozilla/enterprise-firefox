@@ -33,6 +33,7 @@ const PREF_WIDGETS_LISTS_MAX_LISTS = "widgets.lists.maxLists";
 const PREF_WIDGETS_LISTS_MAX_LISTITEMS = "widgets.lists.maxListItems";
 const PREF_WIDGETS_LISTS_BADGE_ENABLED = "widgets.lists.badge.enabled";
 const PREF_WIDGETS_LISTS_BADGE_LABEL = "widgets.lists.badge.label";
+const PREF_NOVA_ENABLED = "nova.enabled";
 
 // eslint-disable-next-line max-statements
 function Lists({
@@ -729,9 +730,12 @@ function Lists({
     prefs[PREF_WIDGETS_LISTS_BADGE_LABEL] ??
     "";
 
+  // @nova-cleanup(remove-pref): Remove pref check, always apply col-4 class after Nova ships
+  const novaEnabled = prefs[PREF_NOVA_ENABLED];
+
   return (
     <article
-      className={`lists ${isMaximized ? "is-maximized" : ""}`}
+      className={`lists widget ${novaEnabled ? "col-4" : ""} ${isMaximized ? "is-maximized" : ""}`}
       ref={el => {
         listsRef.current = [el];
       }}
@@ -803,7 +807,7 @@ function Lists({
             onClick={() => handleCopyListToClipboard()}
           ></panel-item>
           <panel-item
-            data-l10n-id="newtab-widget-lists-menu-hide"
+            data-l10n-id="newtab-widget-menu-hide"
             onClick={() => handleHideLists()}
           ></panel-item>
           <panel-item

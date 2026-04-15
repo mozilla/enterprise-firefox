@@ -11,6 +11,10 @@ namespace mozilla {
 
 extern LazyLogModule gBounceTrackingProtectionLog;
 
+NS_IMPL_ISUPPORTS(BounceTrackingRecord, nsIBounceTrackingRecord);
+
+BounceTrackingRecord::~BounceTrackingRecord() = default;
+
 void BounceTrackingRecord::SetInitialHost(const nsACString& aHost) {
   mInitialHost = aHost;
 }
@@ -60,6 +64,36 @@ BounceTrackingRecord::GetStorageAccessHosts() const {
 const nsTHashSet<nsCStringHashKey>&
 BounceTrackingRecord::GetUserActivationHosts() const {
   return mUserActivationHosts;
+}
+
+// nsIBounceTrackingRecord
+
+NS_IMETHODIMP BounceTrackingRecord::GetInitialHost(nsACString& aResult) {
+  aResult = mInitialHost;
+  return NS_OK;
+}
+
+NS_IMETHODIMP BounceTrackingRecord::GetFinalHost(nsACString& aResult) {
+  aResult = mFinalHost;
+  return NS_OK;
+}
+
+NS_IMETHODIMP BounceTrackingRecord::GetBounceHosts(
+    nsTArray<nsCString>& aResult) {
+  for (const auto& host : mBounceHosts) {
+    if (!host.EqualsLiteral("null")) {
+      aResult.AppendElement(host);
+    }
+  }
+  return NS_OK;
+}
+
+NS_IMETHODIMP BounceTrackingRecord::GetStorageAccessHosts(
+    nsTArray<nsCString>& aResult) {
+  for (const auto& host : mStorageAccessHosts) {
+    aResult.AppendElement(host);
+  }
+  return NS_OK;
 }
 
 }  // namespace mozilla

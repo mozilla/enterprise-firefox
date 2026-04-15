@@ -433,8 +433,8 @@ bool TestSet() {
   CHECK(!cache.has(static_cast<JSObject*>(old4)));
 
   size_t count = 0;
-  for (auto r = cache.all(); !r.empty(); r.popFront()) {
-    CHECK(r.front() == obj1 || r.front() == obj2);
+  for (auto iter = cache.iter(); !iter.done(); iter.next()) {
+    CHECK(iter.get() == obj1 || iter.get() == obj2);
     count++;
   }
   CHECK(count == 2);
@@ -564,8 +564,8 @@ bool TestMap() {
   CHECK(!cache.has(static_cast<JSObject*>(old4)));
 
   size_t count = 0;
-  for (auto r = cache.all(); !r.empty(); r.popFront()) {
-    CHECK(r.front().key() == obj1 || r.front().key() == obj2);
+  for (auto iter = cache.iter(); !iter.done(); iter.next()) {
+    CHECK(iter.get().key() == obj1 || iter.get().key() == obj2);
     count++;
   }
   CHECK(count == 2);

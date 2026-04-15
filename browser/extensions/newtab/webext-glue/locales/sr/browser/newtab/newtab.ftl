@@ -46,7 +46,7 @@ newtab-search-box-input =
     .placeholder = Претражите интернет
     .aria-label = Претражите интернет
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Додај претраживач
 newtab-topsites-add-shortcut-header = Нова пречица

@@ -34,8 +34,6 @@ class BackupTestBase(MarionetteTestCase):
             "browser.backup.log": True,
             "browser.backup.archive.enabled": True,
             "browser.backup.restore.enabled": True,
-            "browser.backup.archive.overridePlatformCheck": True,
-            "browser.backup.restore.overridePlatformCheck": True,
             "browser.backup.profiles.force-enable": True,
         })
         self.marionette.set_context("chrome")
@@ -182,7 +180,7 @@ class BackupTestBase(MarionetteTestCase):
                 "resource:///modules/backup/BackupService.sys.mjs"
             );
             let bs = BackupService.init();
-            bs.setParentDirPath(arguments[0]);
+            await bs.setParentDirPath(arguments[0]);
             let { archivePath } = await bs.createBackup();
             return archivePath;
             """,
@@ -314,5 +312,42 @@ class BackupTestBase(MarionetteTestCase):
                 "resource:///modules/profiles/SelectableProfileService.sys.mjs"
             );
             await SelectableProfileService.init();
+            """
+        )
+
+    def set_selectable_profile_metadata(self, name, avatar):
+        """Set name and avatar on the current selectable profile."""
+        self.run_async(
+            """
+            let [name, avatar] = arguments;
+            const { SelectableProfileService } = ChromeUtils.importESModule(
+                "resource:///modules/profiles/SelectableProfileService.sys.mjs"
+            );
+            let profile = SelectableProfileService.currentProfile;
+            if (!profile) {
+                throw new Error("No current selectable profile");
+            }
+            profile.name = name;
+            profile.avatar = avatar;
+            """,
+            script_args=[name, avatar],
+        )
+
+    def get_selectable_profile_metadata(self):
+        """Return {name, avatar, theme} from the current selectable profile."""
+        return self.run_async(
+            """
+            const { SelectableProfileService } = ChromeUtils.importESModule(
+                "resource:///modules/profiles/SelectableProfileService.sys.mjs"
+            );
+            let profile = SelectableProfileService.currentProfile;
+            if (!profile) {
+                throw new Error("No current selectable profile");
+            }
+            return {
+                name: profile.name,
+                avatar: profile.avatar,
+                theme: profile.theme,
+            };
             """
         )

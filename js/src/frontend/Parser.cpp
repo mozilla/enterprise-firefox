@@ -4157,11 +4157,8 @@ GeneralParser<ParseHandler, Unit>::PossibleError::error(ErrorKind kind) {
   if (kind == ErrorKind::Expression) {
     return exprError_;
   }
-  if (kind == ErrorKind::Destructuring) {
-    return destructuringError_;
-  }
-  MOZ_ASSERT(kind == ErrorKind::DestructuringWarning);
-  return destructuringWarning_;
+  MOZ_ASSERT(kind == ErrorKind::Destructuring);
+  return destructuringError_;
 }
 
 template <class ParseHandler, typename Unit>
@@ -4206,13 +4203,6 @@ void GeneralParser<ParseHandler, Unit>::PossibleError::
 
 template <class ParseHandler, typename Unit>
 void GeneralParser<ParseHandler, Unit>::PossibleError::
-    setPendingDestructuringWarningAt(const TokenPos& pos,
-                                     unsigned errorNumber) {
-  setPending(ErrorKind::DestructuringWarning, pos, errorNumber);
-}
-
-template <class ParseHandler, typename Unit>
-void GeneralParser<ParseHandler, Unit>::PossibleError::
     setPendingExpressionErrorAt(const TokenPos& pos, unsigned errorNumber) {
   setPending(ErrorKind::Expression, pos, errorNumber);
 }
@@ -4246,7 +4236,6 @@ bool GeneralParser<ParseHandler,
   // Clear pending destructuring error, because we're definitely not
   // in a destructuring context.
   setResolved(ErrorKind::Destructuring);
-  setResolved(ErrorKind::DestructuringWarning);
 
   // Report any pending expression error.
   return checkForError(ErrorKind::Expression);
@@ -9019,7 +9008,7 @@ GeneralParser<ParseHandler, Unit>::synthesizeAddInitializerFunction(
   if (!notePositionalFormalParameter(
           funNode, TaggedParserAtomIndex::WellKnown::initializer(), pos().begin,
           disallowDuplicateParams, &duplicatedParam)) {
-    return null();
+    return errorResult();
   }
   MOZ_ASSERT(!duplicatedParam);
   MOZ_ASSERT(pc_->positionalFormalParameterNames().length() == 1);
@@ -9035,15 +9024,15 @@ GeneralParser<ParseHandler, Unit>::synthesizeAddInitializerFunction(
   ListNodeType stmtList = MOZ_TRY(handler_.newStatementList(propNamePos));
 
   if (!noteUsedName(initializers)) {
-    return null();
+    return errorResult();
   }
 
   bool canSkipLazyClosedOverBindings = handler_.reuseClosedOverBindings();
   if (!pc_->declareFunctionThis(usedNames_, canSkipLazyClosedOverBindings)) {
-    return null();
+    return errorResult();
   }
   if (!pc_->declareNewTarget(usedNames_, canSkipLazyClosedOverBindings)) {
-    return null();
+    return errorResult();
   }
 
   LexicalScopeNodeType addInitializerBody = MOZ_TRY(finishLexicalScope(
@@ -9216,10 +9205,12 @@ GeneralParser<ParseHandler, Unit>::synthesizeAccessorBody(
     // that captures privateStateName and performs the following steps when
     // called:
     //   1.a. Let o be the this value.
-    notePositionalFormalParameter(funNode,
-                                  TaggedParserAtomIndex::WellKnown::value(),
-                                  /* pos = */ 0, false,
-                                  /* duplicatedParam = */ nullptr);
+    if (!notePositionalFormalParameter(
+            funNode, TaggedParserAtomIndex::WellKnown::value(),
+            /* pos = */ 0, false,
+            /* duplicatedParam = */ nullptr)) {
+      return errorResult();
+    }
 
     Node initializerExpr = MOZ_TRY(handler_.newName(
         TaggedParserAtomIndex::WellKnown::value(), propNamePos));
@@ -10701,6 +10692,10 @@ typename ParseHandler::NodeResult GeneralParser<ParseHandler, Unit>::unaryExpr(
         return errorResult();
       }
 
+      if (handler_.isArgumentsLength(expr)) {
+        pc_->sc()->setIneligibleForArgumentsLength();
+      }
+
       return handler_.newDelete(begin, expr);
     }
     case TokenKind::Await: {
@@ -10981,7 +10976,7 @@ typename ParseHandler::NodeResult GeneralParser<ParseHandler, Unit>::memberExpr(
 #ifdef ENABLE_DECORATORS
         if (!noteUsedName(TaggedParserAtomIndex::WellKnown::
                               dot_instanceExtraInitializers_())) {
-          return null();
+          return errorResult();
         }
 #endif
       } else {
@@ -11687,24 +11682,13 @@ void GeneralParser<ParseHandler, Unit>::checkDestructuringAssignmentName(
 
   if (pc_->sc()->strict()) {
     if (handler_.isArgumentsName(name)) {
-      if (pc_->sc()->strict()) {
-        possibleError->setPendingDestructuringErrorAt(
-            namePos, JSMSG_BAD_STRICT_ASSIGN_ARGUMENTS);
-      } else {
-        possibleError->setPendingDestructuringWarningAt(
-            namePos, JSMSG_BAD_STRICT_ASSIGN_ARGUMENTS);
-      }
+      possibleError->setPendingDestructuringErrorAt(
+          namePos, JSMSG_BAD_STRICT_ASSIGN_ARGUMENTS);
       return;
     }
-
     if (handler_.isEvalName(name)) {
-      if (pc_->sc()->strict()) {
-        possibleError->setPendingDestructuringErrorAt(
-            namePos, JSMSG_BAD_STRICT_ASSIGN_EVAL);
-      } else {
-        possibleError->setPendingDestructuringWarningAt(
-            namePos, JSMSG_BAD_STRICT_ASSIGN_EVAL);
-      }
+      possibleError->setPendingDestructuringErrorAt(
+          namePos, JSMSG_BAD_STRICT_ASSIGN_EVAL);
       return;
     }
   }

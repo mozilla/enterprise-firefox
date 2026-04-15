@@ -65,7 +65,7 @@ class DownloadTelemetryMiddlewareTest {
 
         assertNull(Downloads.shareFile.testGetValue())
 
-        store.dispatch(DownloadUIAction.ShareFileClicked(filePath = "path", contentType = ""))
+        store.dispatch(DownloadUIAction.ShareFileClicked(directoryPath = "path", fileName = "", contentType = ""))
 
         assertNotNull(Downloads.shareFile.testGetValue())
         val snapshot = Downloads.shareFile.testGetValue()!!

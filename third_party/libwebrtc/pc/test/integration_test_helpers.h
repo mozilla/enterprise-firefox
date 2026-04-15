@@ -196,13 +196,21 @@ class MockRtpReceiverObserver : public RtpReceiverObserverInterface {
     ASSERT_EQ(expected_media_type_, media_type);
     first_packet_received_ = true;
   }
+  void OnFirstPacketReceivedAfterReceptiveChange(webrtc::MediaType media_type) {
+    ASSERT_EQ(expected_media_type_, media_type);
+    first_packet_received_after_receptive_change_ = true;
+  }
 
   bool first_packet_received() const { return first_packet_received_; }
+  bool first_packet_received_after_receptive_change() const {
+    return first_packet_received_after_receptive_change_;
+  }
 
   virtual ~MockRtpReceiverObserver() {}
 
  private:
   bool first_packet_received_ = false;
+  bool first_packet_received_after_receptive_change_ = false;
   webrtc::MediaType expected_media_type_;
 };
 
@@ -1344,15 +1352,14 @@ class MediaExpectations {
 class MockIceTransport : public IceTransportInterface {
  public:
   MockIceTransport(const std::string& name, int component)
-      : internal_(
-            std::make_unique<FakeIceTransport>(name,
-                                               component,
-                                               nullptr /* network_thread */)) {}
+      : internal_(std::make_unique<FakeIceTransportInternal>(name,
+                                                             component,
+                                                             nullptr)) {}
   ~MockIceTransport() = default;
-  IceTransportInternal* internal() { return internal_.get(); }
+  IceTransportInternal* internal() override { return internal_.get(); }
 
  private:
-  std::unique_ptr<FakeIceTransport> internal_;
+  std::unique_ptr<FakeIceTransportInternal> internal_;
 };
 
 class MockIceTransportFactory : public IceTransportFactory {

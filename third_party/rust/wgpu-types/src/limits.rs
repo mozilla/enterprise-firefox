@@ -44,6 +44,7 @@ macro_rules! with_limits {
         $macro_name!(max_buffer_size, Ordering::Less);
         $macro_name!(max_vertex_attributes, Ordering::Less);
         $macro_name!(max_vertex_buffer_array_stride, Ordering::Less);
+        $macro_name!(max_inter_stage_shader_variables, Ordering::Less);
         $macro_name!(min_uniform_buffer_offset_alignment, Ordering::Greater);
         $macro_name!(min_storage_buffer_offset_alignment, Ordering::Greater);
         $macro_name!(max_color_attachments, Ordering::Less);
@@ -160,9 +161,9 @@ pub struct Limits {
     /// This "defaults" to 0. However if binding arrays are supported, all devices can support 1,000. Higher is "better".
     pub max_binding_array_sampler_elements_per_shader_stage: u32,
     /// Maximum size in bytes of a binding to a uniform buffer. Defaults to 64 KiB. Higher is "better".
-    pub max_uniform_buffer_binding_size: u32,
+    pub max_uniform_buffer_binding_size: u64,
     /// Maximum size in bytes of a binding to a storage buffer. Defaults to 128 MiB. Higher is "better".
-    pub max_storage_buffer_binding_size: u32,
+    pub max_storage_buffer_binding_size: u64,
     /// Maximum length of `VertexState::buffers` when creating a `RenderPipeline`.
     /// Defaults to 8. Higher is "better".
     pub max_vertex_buffers: u32,

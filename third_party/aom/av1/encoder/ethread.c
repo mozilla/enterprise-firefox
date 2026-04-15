@@ -249,6 +249,7 @@ static void row_mt_mem_alloc(AV1_COMP *cpi, int max_rows, int max_cols,
   av1_row_mt_mem_dealloc(cpi);
 
   // Allocate memory for row based multi-threading
+  assert(cpi->allocated_tiles == tile_cols * tile_rows);
   for (tile_row = 0; tile_row < tile_rows; tile_row++) {
     for (tile_col = 0; tile_col < tile_cols; tile_col++) {
       int tile_index = tile_row * tile_cols + tile_col;
@@ -265,6 +266,8 @@ static void row_mt_mem_alloc(AV1_COMP *cpi, int max_rows, int max_cols,
       }
     }
   }
+  enc_row_mt->allocated_tile_cols = tile_cols;
+  enc_row_mt->allocated_tile_rows = tile_rows;
   const int sb_rows = get_sb_rows_in_frame(cm);
   CHECK_MEM_ERROR(
       cm, enc_row_mt->num_tile_cols_done,
@@ -295,6 +298,8 @@ void av1_row_mt_mem_dealloc(AV1_COMP *cpi) {
       }
     }
   }
+  enc_row_mt->allocated_tile_cols = 0;
+  enc_row_mt->allocated_tile_rows = 0;
   aom_free(enc_row_mt->num_tile_cols_done);
   enc_row_mt->num_tile_cols_done = NULL;
   enc_row_mt->allocated_rows = 0;
@@ -960,6 +965,7 @@ void av1_init_tile_thread_data(AV1_PRIMARY *ppi, int is_first_pass) {
   assert(p_mt_info->workers != NULL);
   assert(p_mt_info->tile_thr_data != NULL);
 
+  const int is_highbitdepth = ppi->seq_params.use_highbitdepth;
   int num_workers = p_mt_info->num_workers;
   int num_enc_workers = av1_get_num_mod_workers_for_alloc(p_mt_info, MOD_ENC);
   assert(num_enc_workers <= num_workers);
@@ -988,6 +994,11 @@ void av1_init_tile_thread_data(AV1_PRIMARY *ppi, int is_first_pass) {
           aom_internal_error(&ppi->error, AOM_CODEC_MEM_ERROR,
                              "Failed to allocate PICK_MODE_CONTEXT");
       }
+
+      AOM_CHECK_MEM_ERROR(
+          &ppi->error, td->upsample_pred,
+          aom_memalign(16, (1 + is_highbitdepth) * ((MAX_SB_SIZE + 16) + 16) *
+                               MAX_SB_SIZE * sizeof(*td->upsample_pred)));
 
       if (!is_first_pass && i < num_enc_workers) {
         // Set up sms_tree.
@@ -1630,6 +1641,7 @@ static inline void prepare_enc_workers(AV1_COMP *cpi, AVxWorkerHook hook,
       thread_data->td->mb.palette_buffer = thread_data->td->palette_buffer;
       thread_data->td->mb.comp_rd_buffer = thread_data->td->comp_rd_buffer;
       thread_data->td->mb.tmp_conv_dst = thread_data->td->tmp_conv_dst;
+      thread_data->td->mb.upsample_pred = thread_data->td->upsample_pred;
       for (int j = 0; j < 2; ++j) {
         thread_data->td->mb.tmp_pred_bufs[j] =
             thread_data->td->tmp_pred_bufs[j];
@@ -1641,6 +1653,8 @@ static inline void prepare_enc_workers(AV1_COMP *cpi, AVxWorkerHook hook,
           thread_data->td->src_var_info_of_4x4_sub_blocks;
 
       thread_data->td->mb.e_mbd.tmp_conv_dst = thread_data->td->mb.tmp_conv_dst;
+      thread_data->td->mb.e_mbd.tmp_upsample_pred =
+          thread_data->td->mb.upsample_pred;
       for (int j = 0; j < 2; ++j) {
         thread_data->td->mb.e_mbd.tmp_obmc_bufs[j] =
             thread_data->td->mb.tmp_pred_bufs[j];
@@ -1732,9 +1746,8 @@ void av1_encode_tiles_mt(AV1_COMP *cpi) {
   const int tile_rows = cm->tiles.rows;
   int num_workers = mt_info->num_mod_workers[MOD_ENC];
 
-  assert(IMPLIES(cpi->tile_data == NULL,
-                 cpi->allocated_tiles < tile_cols * tile_rows));
-  if (cpi->allocated_tiles < tile_cols * tile_rows) av1_alloc_tile_data(cpi);
+  assert(IMPLIES(cpi->tile_data == NULL, cpi->allocated_tiles == 0));
+  if (cpi->allocated_tiles != tile_cols * tile_rows) av1_alloc_tile_data(cpi);
 
   av1_init_tile_data(cpi);
   num_workers = AOMMIN(num_workers, mt_info->num_workers);
@@ -1922,9 +1935,10 @@ void av1_encode_tiles_row_mt(AV1_COMP *cpi) {
        enc_row_mt->allocated_rows != max_sb_rows_in_tile ||
        enc_row_mt->allocated_cols != (max_sb_cols_in_tile - 1) ||
        enc_row_mt->allocated_sb_rows != sb_rows_in_frame);
-  const bool alloc_tile_data = cpi->allocated_tiles < tile_cols * tile_rows;
+  const bool alloc_tile_data = cpi->allocated_tiles != tile_cols * tile_rows;
 
   assert(IMPLIES(cpi->tile_data == NULL, alloc_tile_data));
+  assert(IMPLIES(cpi->tile_data == NULL, cpi->allocated_tiles == 0));
   if (alloc_tile_data) {
     av1_alloc_tile_data(cpi);
   }
@@ -2000,9 +2014,10 @@ void av1_fp_encode_tiles_row_mt(AV1_COMP *cpi) {
   const bool alloc_row_mt_mem = enc_row_mt->allocated_tile_cols != tile_cols ||
                                 enc_row_mt->allocated_tile_rows != tile_rows ||
                                 enc_row_mt->allocated_rows != max_mb_rows;
-  const bool alloc_tile_data = cpi->allocated_tiles < tile_cols * tile_rows;
+  const bool alloc_tile_data = cpi->allocated_tiles != tile_cols * tile_rows;
 
   assert(IMPLIES(cpi->tile_data == NULL, alloc_tile_data));
+  assert(IMPLIES(cpi->tile_data == NULL, cpi->allocated_tiles == 0));
   if (alloc_tile_data) {
     av1_alloc_tile_data(cpi);
   }
@@ -2290,6 +2305,9 @@ static inline void prepare_tpl_workers(AV1_COMP *cpi, AVxWorkerHook hook,
       }
       thread_data->td->mb.tmp_conv_dst = thread_data->td->tmp_conv_dst;
       thread_data->td->mb.e_mbd.tmp_conv_dst = thread_data->td->mb.tmp_conv_dst;
+      thread_data->td->mb.upsample_pred = thread_data->td->upsample_pred;
+      thread_data->td->mb.e_mbd.tmp_upsample_pred =
+          thread_data->td->mb.upsample_pred;
     }
   }
 }
@@ -2466,6 +2484,9 @@ static void prepare_tf_workers(AV1_COMP *cpi, AVxWorkerHook hook,
         aom_internal_error(cpi->common.error, AOM_CODEC_MEM_ERROR,
                            "Error allocating temporal filter data");
       }
+      thread_data->td->mb.upsample_pred = thread_data->td->upsample_pred;
+      thread_data->td->mb.e_mbd.tmp_upsample_pred =
+          thread_data->td->mb.upsample_pred;
     }
   }
 }

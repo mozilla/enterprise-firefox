@@ -231,11 +231,9 @@ private fun MozillaAccountMenuItemPreviewContent() {
         MozillaAccountMenuItem(
             account = Account(
                 uid = "testUID",
-                avatar = null,
                 email = "test@example.com",
+                avatar = null,
                 displayName = "test profile",
-                currentDeviceId = null,
-                sessionToken = null,
             ),
             accountState = Authenticated,
             isPrivate = false,
@@ -245,11 +243,9 @@ private fun MozillaAccountMenuItemPreviewContent() {
         MozillaAccountMenuItem(
             account = Account(
                 uid = "testUID",
-                avatar = null,
                 email = "test@example.com",
+                avatar = null,
                 displayName = null,
-                currentDeviceId = null,
-                sessionToken = null,
             ),
             accountState = Authenticated,
             isPrivate = false,
@@ -259,11 +255,9 @@ private fun MozillaAccountMenuItemPreviewContent() {
         MozillaAccountMenuItem(
             account = Account(
                 uid = "testUID",
-                avatar = null,
                 email = null,
+                avatar = null,
                 displayName = null,
-                currentDeviceId = null,
-                sessionToken = null,
             ),
             accountState = Authenticated,
             isPrivate = false,

@@ -52,7 +52,7 @@ newtab-search-box-input =
     .placeholder = Интернетте іздеу
     .aria-label = Интернетте іздеу
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Іздеу жүйесін қосу
 newtab-topsites-add-shortcut-header = Жаңа жарлық
@@ -72,6 +72,11 @@ newtab-topsites-url-validation = Жарамды сілтеме керек
 newtab-topsites-image-url-label = Өз суреттің URL адресі
 newtab-topsites-use-image-link = Таңдауыңызша суретті қолдану…
 newtab-topsites-image-validation = Суретті жүктеу қатемен аяқталды. Басқа URL адресін қолданып көріңіз.
+
+## Clear text button for the URL and image URL input fields in the Top Sites form.
+
+newtab-topsites-clear-input =
+    .aria-label = Мәтінді тазарту
 
 ## Top Sites - General form dialog buttons. These are verbs/actions.
 
@@ -631,6 +636,8 @@ newtab-report-cancel = Бас тарту
 newtab-report-submit = Жіберу
 newtab-toast-thanks-for-reporting =
     .message = Бұл туралы хабарлағаныңыз үшін рахмет.
+newtab-toast-widgets-hidden =
+    .message = Виджеттерді кез келген уақытта қайта қосу үшін қарындаш таңбашасын таңдаңыз.
 
 ## Strings for task / to-do list productivity widget
 
@@ -671,6 +678,7 @@ newtab-widget-lists-name-placeholder-default =
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Жаңа тізім
 newtab-widget-section-title = Виджеттер
+newtab-widget-menu-hide = Виджетті жасыру
 # Tooltip for hide all widgets button
 newtab-widget-section-hide-all-button =
     .title = Виджеттерді жасыру
@@ -681,6 +689,7 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Виджеттерді ықшамдау
     .aria-label = Барлық виджеттерді ықшам өлшеміне дейін жинау
+newtab-widget-section-feedback = Өз ойыңызбен бөлісіңіз
 
 ## Strings for timer productivity widget
 ## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown

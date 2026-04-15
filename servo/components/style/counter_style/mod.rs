@@ -14,13 +14,9 @@ use crate::values::specified::Integer;
 use crate::values::{AtomString, CustomIdent};
 use crate::Atom;
 use cssparser::{
-    ascii_case_insensitive_phf_map, match_ignore_ascii_case, CowRcStr, Parser, ParserState,
+    ascii_case_insensitive_phf_map, match_ignore_ascii_case, CowRcStr, Parser, RuleBodyParser,
     SourceLocation, Token,
 };
-use cssparser::{
-    AtRuleParser, DeclarationParser, QualifiedRuleParser, RuleBodyItemParser, RuleBodyParser,
-};
-use selectors::parser::SelectorParseErrorKind;
 use std::fmt::{self, Write};
 use std::mem;
 use std::num::Wrapping;
@@ -28,6 +24,8 @@ use style_traits::{
     Comma, CssStringWriter, CssWriter, KeywordsCollectFn, OneOrMoreSeparated, ParseError,
     SpecifiedValueInfo, StyleParseErrorKind, ToCss,
 };
+
+pub use crate::properties::counter_style::{DescriptorId, DescriptorParser, Descriptors};
 
 /// https://drafts.csswg.org/css-counter-styles/#typedef-symbols-type
 #[allow(missing_docs)]
@@ -242,19 +240,29 @@ pub fn parse_counter_style_name_definition<'i, 't>(
     })
 }
 
+/// A @counter-style rule
+#[derive(Clone, Debug, ToShmem)]
+pub struct CounterStyleRule {
+    name: CustomIdent,
+    generation: Wrapping<u32>,
+    descriptors: Descriptors,
+    /// The parser location of the @counter-style rule.
+    pub source_location: SourceLocation,
+}
+
 /// Parse the body (inside `{}`) of an @counter-style rule
 pub fn parse_counter_style_body<'i, 't>(
     name: CustomIdent,
     context: &ParserContext,
     input: &mut Parser<'i, 't>,
     location: SourceLocation,
-) -> Result<CounterStyleRuleData, ParseError<'i>> {
+) -> Result<CounterStyleRule, ParseError<'i>> {
     let start = input.current_source_location();
-    let mut rule = CounterStyleRuleData::empty(name, location);
+    let mut rule = CounterStyleRule::empty(name, location);
     {
-        let mut parser = CounterStyleRuleParser {
+        let mut parser = DescriptorParser {
             context,
-            rule: &mut rule,
+            descriptors: &mut rule.descriptors,
         };
         let mut iter = RuleBodyParser::new(input, &mut parser);
         while let Some(declaration) = iter.next() {
@@ -273,7 +281,7 @@ pub fn parse_counter_style_body<'i, 't>(
         | ref system @ System::Symbolic
         | ref system @ System::Alphabetic
         | ref system @ System::Numeric
-            if rule.symbols.is_none() =>
+            if rule.descriptors.symbols.is_none() =>
         {
             let system = system.to_css_string();
             Some(ContextualParseError::InvalidCounterStyleWithoutSymbols(
@@ -281,20 +289,20 @@ pub fn parse_counter_style_body<'i, 't>(
             ))
         },
         ref system @ System::Alphabetic | ref system @ System::Numeric
-            if rule.symbols().unwrap().0.len() < 2 =>
+            if rule.descriptors.symbols.as_ref().unwrap().0.len() < 2 =>
         {
             let system = system.to_css_string();
             Some(ContextualParseError::InvalidCounterStyleNotEnoughSymbols(
                 system,
             ))
         },
-        System::Additive if rule.additive_symbols.is_none() => {
+        System::Additive if rule.descriptors.additive_symbols.is_none() => {
             Some(ContextualParseError::InvalidCounterStyleWithoutAdditiveSymbols)
         },
-        System::Extends(_) if rule.symbols.is_some() => {
+        System::Extends(_) if rule.descriptors.symbols.is_some() => {
             Some(ContextualParseError::InvalidCounterStyleExtendsWithSymbols)
         },
-        System::Extends(_) if rule.additive_symbols.is_some() => {
+        System::Extends(_) if rule.descriptors.additive_symbols.is_some() => {
             Some(ContextualParseError::InvalidCounterStyleExtendsWithAdditiveSymbols)
         },
         _ => None,
@@ -307,173 +315,84 @@ pub fn parse_counter_style_body<'i, 't>(
     }
 }
 
-struct CounterStyleRuleParser<'a, 'b: 'a> {
-    context: &'a ParserContext<'b>,
-    rule: &'a mut CounterStyleRuleData,
-}
-
-/// Default methods reject all at rules.
-impl<'a, 'b, 'i> AtRuleParser<'i> for CounterStyleRuleParser<'a, 'b> {
-    type Prelude = ();
-    type AtRule = ();
-    type Error = StyleParseErrorKind<'i>;
-}
-
-impl<'a, 'b, 'i> QualifiedRuleParser<'i> for CounterStyleRuleParser<'a, 'b> {
-    type Prelude = ();
-    type QualifiedRule = ();
-    type Error = StyleParseErrorKind<'i>;
-}
-
-impl<'a, 'b, 'i> RuleBodyItemParser<'i, (), StyleParseErrorKind<'i>>
-    for CounterStyleRuleParser<'a, 'b>
-{
-    fn parse_qualified(&self) -> bool {
-        false
+impl ToCssWithGuard for CounterStyleRule {
+    fn to_css(&self, _guard: &SharedRwLockReadGuard, dest: &mut CssStringWriter) -> fmt::Result {
+        dest.write_str("@counter-style ")?;
+        self.name.to_css(&mut CssWriter::new(dest))?;
+        dest.write_str(" { ")?;
+        self.descriptors.to_css(&mut CssWriter::new(dest))?;
+        dest.write_char('}')
     }
-    fn parse_declarations(&self) -> bool {
-        true
-    }
-}
-
-macro_rules! checker {
-    ($self:ident._($value:ident)) => {};
-    ($self:ident. $checker:ident($value:ident)) => {
-        if !$self.$checker(&$value) {
-            return false;
-        }
-    };
-}
-
-macro_rules! counter_style_descriptors {
-    (
-        $( #[$doc: meta] $name: tt $ident: ident / $setter: ident [$checker: tt]: $ty: ty, )+
-    ) => {
-        /// An @counter-style rule
-        #[derive(Clone, Debug, ToShmem)]
-        pub struct CounterStyleRuleData {
-            name: CustomIdent,
-            generation: Wrapping<u32>,
-            $(
-                #[$doc]
-                $ident: Option<$ty>,
-            )+
-            /// Line and column of the @counter-style rule source code.
-            pub source_location: SourceLocation,
-        }
-
-        impl CounterStyleRuleData {
-            fn empty(name: CustomIdent, source_location: SourceLocation) -> Self {
-                CounterStyleRuleData {
-                    name: name,
-                    generation: Wrapping(0),
-                    $(
-                        $ident: None,
-                    )+
-                    source_location,
-                }
-            }
-
-            $(
-                #[$doc]
-                pub fn $ident(&self) -> Option<&$ty> {
-                    self.$ident.as_ref()
-                }
-            )+
-
-            $(
-                #[$doc]
-                pub fn $setter(&mut self, value: $ty) -> bool {
-                    checker!(self.$checker(value));
-                    self.$ident = Some(value);
-                    self.generation += Wrapping(1);
-                    true
-                }
-            )+
-        }
-
-        impl<'a, 'b, 'i> DeclarationParser<'i> for CounterStyleRuleParser<'a, 'b> {
-            type Declaration = ();
-            type Error = StyleParseErrorKind<'i>;
-
-            fn parse_value<'t>(
-                &mut self,
-                name: CowRcStr<'i>,
-                input: &mut Parser<'i, 't>,
-                _declaration_start: &ParserState,
-            ) -> Result<(), ParseError<'i>> {
-                match_ignore_ascii_case! { &*name,
-                    $(
-                        $name => {
-                            // DeclarationParser also calls parse_entirely so we’d normally not
-                            // need to, but in this case we do because we set the value as a side
-                            // effect rather than returning it.
-                            let value = input.parse_entirely(|i| Parse::parse(self.context, i))?;
-                            self.rule.$ident = Some(value)
-                        },
-                    )*
-                    _ => return Err(input.new_custom_error(SelectorParseErrorKind::UnexpectedIdent(name.clone()))),
-                }
-                Ok(())
-            }
-        }
-
-        impl ToCssWithGuard for CounterStyleRuleData {
-            fn to_css(&self, _guard: &SharedRwLockReadGuard, dest: &mut CssStringWriter) -> fmt::Result {
-                dest.write_str("@counter-style ")?;
-                self.name.to_css(&mut CssWriter::new(dest))?;
-                dest.write_str(" { ")?;
-                $(
-                    if let Some(ref value) = self.$ident {
-                        dest.write_str(concat!($name, ": "))?;
-                        ToCss::to_css(value, &mut CssWriter::new(dest))?;
-                        dest.write_str("; ")?;
-                    }
-                )+
-                dest.write_char('}')
-            }
-        }
-    }
-}
-
-counter_style_descriptors! {
-    /// <https://drafts.csswg.org/css-counter-styles/#counter-style-system>
-    "system" system / set_system [check_system]: System,
-
-    /// <https://drafts.csswg.org/css-counter-styles/#counter-style-negative>
-    "negative" negative / set_negative [_]: Negative,
-
-    /// <https://drafts.csswg.org/css-counter-styles/#counter-style-prefix>
-    "prefix" prefix / set_prefix [_]: Symbol,
-
-    /// <https://drafts.csswg.org/css-counter-styles/#counter-style-suffix>
-    "suffix" suffix / set_suffix [_]: Symbol,
-
-    /// <https://drafts.csswg.org/css-counter-styles/#counter-style-range>
-    "range" range / set_range [_]: CounterRanges,
-
-    /// <https://drafts.csswg.org/css-counter-styles/#counter-style-pad>
-    "pad" pad / set_pad [_]: Pad,
-
-    /// <https://drafts.csswg.org/css-counter-styles/#counter-style-fallback>
-    "fallback" fallback / set_fallback [_]: Fallback,
-
-    /// <https://drafts.csswg.org/css-counter-styles/#descdef-counter-style-symbols>
-    "symbols" symbols / set_symbols [check_symbols]: Symbols,
-
-    /// <https://drafts.csswg.org/css-counter-styles/#descdef-counter-style-additive-symbols>
-    "additive-symbols" additive_symbols /
-        set_additive_symbols [check_additive_symbols]: AdditiveSymbols,
-
-    /// <https://drafts.csswg.org/css-counter-styles/#counter-style-speak-as>
-    "speak-as" speak_as / set_speak_as [_]: SpeakAs,
 }
 
 // Implements the special checkers for some setters.
 // See <https://drafts.csswg.org/css-counter-styles/#the-csscounterstylerule-interface>
-impl CounterStyleRuleData {
-    /// Check that the system is effectively not changed. Only params
-    /// of system descriptor is changeable.
+impl CounterStyleRule {
+    fn empty(name: CustomIdent, source_location: SourceLocation) -> Self {
+        Self {
+            name: name,
+            generation: Wrapping(0),
+            descriptors: Descriptors::default(),
+            source_location,
+        }
+    }
+
+    /// Expose the descriptors as read-only, since we rely on updating our generation when they
+    /// change, and some setters need extra validation.
+    pub fn descriptors(&self) -> &Descriptors {
+        &self.descriptors
+    }
+
+    /// Set a descriptor, with the relevant validation. returns whether the descriptor changed.
+    pub fn set_descriptor<'i>(
+        &mut self,
+        id: DescriptorId,
+        context: &ParserContext,
+        input: &mut Parser<'i, '_>,
+    ) -> Result<bool, ParseError<'i>> {
+        // Some descriptors need a couple extra checks, deal with them specially.
+        // TODO(emilio): Remove these, see https://github.com/w3c/csswg-drafts/issues/5717
+        if id == DescriptorId::AdditiveSymbols
+            && matches!(*self.resolved_system(), System::Extends(..))
+        {
+            // No additive symbols should be set for extends system.
+            return Err(input.new_custom_error(StyleParseErrorKind::UnspecifiedError));
+        }
+        let changed = match id {
+            DescriptorId::System => {
+                let system = input.parse_entirely(|i| System::parse(context, i))?;
+                if !self.check_system(&system) {
+                    return Err(input.new_custom_error(StyleParseErrorKind::UnspecifiedError));
+                }
+                let new = Some(system);
+                if self.descriptors.system == new {
+                    return Ok(false);
+                }
+                self.descriptors.system = new;
+                true
+            },
+            DescriptorId::Symbols => {
+                let symbols = input.parse_entirely(|i| Symbols::parse(context, i))?;
+                if !self.check_symbols(&symbols) {
+                    return Err(input.new_custom_error(StyleParseErrorKind::UnspecifiedError));
+                }
+                let new = Some(symbols);
+                if self.descriptors.symbols == new {
+                    return Ok(false);
+                }
+                self.descriptors.symbols = new;
+                true
+            },
+            _ => self.descriptors.set(id, context, input)?,
+        };
+        if changed {
+            self.generation += Wrapping(1);
+        }
+        Ok(changed)
+    }
+
+    /// Check that the system is effectively not changed. Only params of system descriptor is
+    /// changeable.
     fn check_system(&self, value: &System) -> bool {
         mem::discriminant(self.resolved_system()) == mem::discriminant(value)
     }
@@ -488,16 +407,6 @@ impl CounterStyleRuleData {
         }
     }
 
-    fn check_additive_symbols(&self, _value: &AdditiveSymbols) -> bool {
-        match *self.resolved_system() {
-            // No additive symbols should be set for extends system.
-            System::Extends(_) => false,
-            _ => true,
-        }
-    }
-}
-
-impl CounterStyleRuleData {
     /// Get the name of the counter style rule.
     pub fn name(&self) -> &CustomIdent {
         &self.name
@@ -518,7 +427,7 @@ impl CounterStyleRuleData {
     /// Get the system of this counter style rule, default to
     /// `symbolic` if not specified.
     pub fn resolved_system(&self) -> &System {
-        match self.system {
+        match self.descriptors.system {
             Some(ref system) => system,
             None => &System::Symbolic,
         }
@@ -526,7 +435,7 @@ impl CounterStyleRuleData {
 }
 
 /// <https://drafts.csswg.org/css-counter-styles/#counter-style-system>
-#[derive(Clone, Debug, ToShmem)]
+#[derive(Clone, Debug, MallocSizeOf, ToShmem, PartialEq)]
 pub enum System {
     /// 'cyclic'
     Cyclic,
@@ -638,7 +547,7 @@ impl Symbol {
 }
 
 /// <https://drafts.csswg.org/css-counter-styles/#counter-style-negative>
-#[derive(Clone, Debug, ToCss, ToShmem)]
+#[derive(Clone, Debug, MallocSizeOf, ToCss, ToShmem, PartialEq)]
 pub struct Negative(pub Symbol, pub Option<Symbol>);
 
 impl Parse for Negative {
@@ -654,7 +563,7 @@ impl Parse for Negative {
 }
 
 /// <https://drafts.csswg.org/css-counter-styles/#counter-style-range>
-#[derive(Clone, Debug, ToCss, ToShmem)]
+#[derive(Clone, Debug, MallocSizeOf, ToCss, ToShmem, PartialEq)]
 pub struct CounterRange {
     /// The start of the range.
     pub start: CounterBound,
@@ -665,12 +574,12 @@ pub struct CounterRange {
 /// <https://drafts.csswg.org/css-counter-styles/#counter-style-range>
 ///
 /// Empty represents 'auto'
-#[derive(Clone, Debug, ToCss, ToShmem)]
+#[derive(Clone, Debug, MallocSizeOf, ToCss, ToShmem, PartialEq)]
 #[css(comma)]
 pub struct CounterRanges(#[css(iterable, if_empty = "auto")] pub crate::OwnedSlice<CounterRange>);
 
 /// A bound found in `CounterRanges`.
-#[derive(Clone, Copy, Debug, ToCss, ToShmem)]
+#[derive(Clone, Copy, Debug, MallocSizeOf, ToCss, ToShmem, PartialEq)]
 pub enum CounterBound {
     /// An integer bound.
     Integer(Integer),
@@ -717,7 +626,7 @@ fn parse_bound<'i, 't>(
 }
 
 /// <https://drafts.csswg.org/css-counter-styles/#counter-style-pad>
-#[derive(Clone, Debug, ToCss, ToShmem)]
+#[derive(Clone, Debug, MallocSizeOf, ToCss, ToShmem, PartialEq)]
 pub struct Pad(pub Integer, pub Symbol);
 
 impl Parse for Pad {
@@ -733,7 +642,7 @@ impl Parse for Pad {
 }
 
 /// <https://drafts.csswg.org/css-counter-styles/#counter-style-fallback>
-#[derive(Clone, Debug, ToCss, ToShmem)]
+#[derive(Clone, Debug, MallocSizeOf, ToCss, ToShmem, PartialEq)]
 pub struct Fallback(pub CustomIdent);
 
 impl Parse for Fallback {
@@ -773,7 +682,7 @@ impl Parse for Symbols {
 }
 
 /// <https://drafts.csswg.org/css-counter-styles/#descdef-counter-style-additive-symbols>
-#[derive(Clone, Debug, ToCss, ToShmem)]
+#[derive(Clone, Debug, MallocSizeOf, ToCss, ToShmem, PartialEq)]
 #[css(comma)]
 pub struct AdditiveSymbols(#[css(iterable)] pub crate::OwnedSlice<AdditiveTuple>);
 
@@ -795,7 +704,7 @@ impl Parse for AdditiveSymbols {
 }
 
 /// <integer> && <symbol>
-#[derive(Clone, Debug, ToCss, ToShmem)]
+#[derive(Clone, Debug, MallocSizeOf, ToCss, ToShmem, PartialEq)]
 pub struct AdditiveTuple {
     /// <integer>
     pub weight: Integer,
@@ -820,7 +729,7 @@ impl Parse for AdditiveTuple {
 }
 
 /// <https://drafts.csswg.org/css-counter-styles/#counter-style-speak-as>
-#[derive(Clone, Debug, ToCss, ToShmem)]
+#[derive(Clone, Debug, MallocSizeOf, ToCss, PartialEq, ToShmem)]
 pub enum SpeakAs {
     /// auto
     Auto,

@@ -6,21 +6,6 @@ ChromeUtils.defineLazyGetter(this, "gFluentStrings", function () {
   return new Localization(["branding/brand.ftl", "browser/browser.ftl"], true);
 });
 
-function openLibrary(callback, aLeftPaneRoot, win = window) {
-  let library = win.openDialog(
-    "chrome://browser/content/places/places.xhtml",
-    "",
-    "chrome,toolbar=yes,dialog=no,resizable",
-    aLeftPaneRoot
-  );
-  waitForFocus(function () {
-    checkLibraryPaneVisibility(library, aLeftPaneRoot);
-    callback(library);
-  }, library);
-
-  return library;
-}
-
 /**
  * Returns a handle to a Library window.
  * If one is opens returns itm otherwise it opens a new one.
@@ -32,41 +17,31 @@ function openLibrary(callback, aLeftPaneRoot, win = window) {
  * @returns {Promise}
  *          Resolves to the handle to the library window.
  */
-function promiseLibrary(aLeftPaneRoot, win = window) {
-  return new Promise(resolve => {
-    let library = Services.wm.getMostRecentWindow("Places:Organizer");
-    if (library && !library.closed) {
-      if (aLeftPaneRoot) {
-        library.PlacesOrganizer.selectLeftPaneContainerByHierarchy(
-          aLeftPaneRoot
-        );
-      }
-      checkLibraryPaneVisibility(library, aLeftPaneRoot);
-      resolve(library);
-    } else {
-      openLibrary(resolve, aLeftPaneRoot, win);
-    }
-  });
+async function promiseLibrary(aLeftPaneRoot, win = window) {
+  let library = Services.wm.getMostRecentWindow("Places:Organizer");
+  if (!library || library.closed) {
+    library = win.openDialog(
+      "chrome://browser/content/places/places.xhtml",
+      "",
+      "chrome,toolbar=yes,dialog=no,resizable",
+      aLeftPaneRoot
+    );
+  } else if (aLeftPaneRoot) {
+    library.PlacesOrganizer.selectLeftPaneContainerByHierarchy(aLeftPaneRoot);
+  }
+  await SimpleTest.promiseFocus(library);
+  checkLibraryPaneVisibility(library, aLeftPaneRoot);
+  return library;
 }
 
-function promiseLibraryClosed(organizer) {
-  return new Promise(resolve => {
-    if (organizer.closed) {
-      resolve();
-      return;
-    }
-    // Wait for the Organizer window to actually be closed
-    organizer.addEventListener(
-      "unload",
-      function () {
-        executeSoon(resolve);
-      },
-      { once: true }
-    );
-
-    // Close Library window.
-    organizer.close();
-  });
+async function promiseLibraryClosed(organizer) {
+  if (organizer.closed) {
+    return;
+  }
+  // Wait for the Organizer window to actually be closed.
+  let promiseClosed = BrowserTestUtils.domWindowClosed(organizer);
+  organizer.close();
+  await promiseClosed;
 }
 
 function checkLibraryPaneVisibility(library, selectedPane) {

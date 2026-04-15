@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1690,7 +1689,8 @@ void GeckoMediaPluginServiceParent::ClearNodeIdAndPlugin(
 void GeckoMediaPluginServiceParent::ForgetThisSiteOnGMPThread(
     const nsACString& aSite, const mozilla::OriginAttributesPattern& aPattern) {
   AssertOnGMPThread();
-  GMP_LOG_DEBUG("%s::%s: origin=%s", __CLASS__, __FUNCTION__, aSite.Data());
+  GMP_LOG_DEBUG("%s::%s: origin=%s", __CLASS__, __FUNCTION__,
+                PromiseFlatCString(aSite).get());
 
   struct OriginFilter : public DirectoryFilter {
     explicit OriginFilter(const nsACString& aSite,
@@ -1712,7 +1712,7 @@ void GeckoMediaPluginServiceParent::ForgetThisBaseDomainOnGMPThread(
     const nsACString& aBaseDomain) {
   AssertOnGMPThread();
   GMP_LOG_DEBUG("%s::%s: baseDomain=%s", __CLASS__, __FUNCTION__,
-                aBaseDomain.Data());
+                PromiseFlatCString(aBaseDomain).get());
 
   struct BaseDomainFilter : public DirectoryFilter {
     explicit BaseDomainFilter(const nsACString& aBaseDomain)

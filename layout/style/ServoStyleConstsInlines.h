@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -60,6 +58,7 @@ template struct StyleStrong<StyleLockedCounterStyleRule>;
 template struct StyleStrong<StyleContainerRule>;
 template struct StyleStrong<StyleScopeRule>;
 template struct StyleStrong<StyleStartingStyleRule>;
+template struct StyleStrong<StyleAppearanceBaseRule>;
 template struct StyleStrong<StyleLockedPositionTryRule>;
 template struct StyleStrong<StyleLockedNestedDeclarationsRule>;
 
@@ -1160,6 +1159,22 @@ template <>
 inline StyleViewTimelineInset::StyleGenericViewTimelineInset()
     : start(LengthPercentageOrAuto::Auto()),
       end(LengthPercentageOrAuto::Auto()) {}
+
+/* static */
+template <>
+inline StyleAnimationRangeStart
+StyleGenericAnimationRangeValue<LengthPercentage>::DefaultStart() {
+  return {StyleTimelineRangeName::Normal,
+          LengthPercentage::FromPercentage(0.0f)};
+}
+
+/* static */
+template <>
+inline StyleAnimationRangeEnd
+StyleGenericAnimationRangeValue<LengthPercentage>::DefaultEnd() {
+  return {StyleTimelineRangeName::Normal,
+          LengthPercentage::FromPercentage(1.0f)};
+}
 
 inline StyleDisplayOutside StyleDisplay::Outside() const {
   return StyleDisplayOutside((_0 & OUTSIDE_MASK) >> OUTSIDE_SHIFT);

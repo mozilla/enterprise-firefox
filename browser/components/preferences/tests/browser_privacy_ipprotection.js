@@ -15,7 +15,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SpecialMessageActions:
     "resource://messaging-system/lib/SpecialMessageActions.sys.mjs",
   IPPEnrollAndEntitleManager:
-    "moz-src:///browser/components/ipprotection/IPPEnrollAndEntitleManager.sys.mjs",
+    "moz-src:///toolkit/components/ipprotection/IPPEnrollAndEntitleManager.sys.mjs",
 });
 
 const { BANDWIDTH } = ChromeUtils.importESModule(
@@ -525,7 +525,7 @@ add_task(async function test_autostart_checkboxes() {
 add_task(async function test_additional_links() {
   await setupVpnPrefs({
     feature: true,
-    entitlementCache: '{"some":"data"}',
+    entitlementCache: '{"subscribed": false}',
   });
 
   await BrowserTestUtils.withNewTab(
@@ -763,7 +763,7 @@ add_task(async function test_vpn_sections_shown_when_opted_in() {
     feature: true,
     siteExceptions: true,
     autostartFeatureEnabled: true,
-    entitlementCache: '{"some":"data"}',
+    entitlementCache: '{"subscribed": false}',
   });
 
   await BrowserTestUtils.withNewTab(
@@ -906,3 +906,50 @@ add_task(async function test_bandwidth_usage_sub_gb_precision_in_preferences() {
   );
   await SpecialPowers.popPrefEnv();
 });
+
+// Test that the upsell link is not visible if a user is considered subscribed
+add_task(async function test_vpn_ipProtectionLinks_hidden_if_subscribed() {
+  await setupVpnPrefs({
+    feature: true,
+    siteExceptions: true,
+    entitlementCache: '{"subscribed": true}',
+  });
+
+  await BrowserTestUtils.withNewTab(
+    { gBrowser, url: "about:preferences#privacy" },
+    async function (browser) {
+      let settingGroup = testSettingsGroupVisible(browser);
+
+      let ipProtectionLinks = settingGroup?.querySelector("#ipProtectionLinks");
+      is_element_hidden(
+        ipProtectionLinks,
+        "VPN links section is hidden when entitlementCache.subscribed is true"
+      );
+    }
+  );
+});
+
+// Test that we default to showing the upsell link if entitlement cache pref fails to be parsed.
+add_task(
+  async function test_vpn_ipProtectionLinks_malformed_entitlement_cache() {
+    await setupVpnPrefs({
+      feature: true,
+      siteExceptions: true,
+      entitlementCache: "invalid-json",
+    });
+
+    await BrowserTestUtils.withNewTab(
+      { gBrowser, url: "about:preferences#privacy" },
+      async function (browser) {
+        let settingGroup = testSettingsGroupVisible(browser);
+
+        let ipProtectionLinks =
+          settingGroup?.querySelector("#ipProtectionLinks");
+        is_element_visible(
+          ipProtectionLinks,
+          "VPN links section is shown as a fallback when entitlementCache cannot be parsed"
+        );
+      }
+    );
+  }
+);

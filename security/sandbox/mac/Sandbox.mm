@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -490,6 +489,9 @@ bool StartMacSandbox(MacSandboxInfo const& aInfo, std::string& aErrorMessage) {
     bundleIDCacheDir.append("/" MOZ_GPU_PROCESS_BUNDLEID);
     params.push_back("BUNDLE_ID_CACHE_DIR");
     params.push_back(bundleIDCacheDir.c_str());
+    params.push_back("ALLOW_REMOTE_APPLE_IMAGEIO");
+    params.push_back(getenv("MOZ_BLOCK_REMOTE_APPLE_IMAGEIO") ? "FALSE"
+                                                              : "TRUE");
   } else {
     char* msg = NULL;
     asprintf(&msg, "Unexpected sandbox type %u", aInfo.type);

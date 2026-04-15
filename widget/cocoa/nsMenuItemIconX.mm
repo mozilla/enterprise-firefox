@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -94,7 +93,7 @@ bool nsMenuItemIconX::StartIconLoad(nsIContent* aContent) {
 //
 
 nsresult nsMenuItemIconX::OnComplete(imgIContainer* aImage) {
-  NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
+  NS_OBJC_BEGIN_TRY_BLOCK_RETURN;
 
   if (mIconImage) {
     [mIconImage release];
@@ -116,14 +115,15 @@ nsresult nsMenuItemIconX::OnComplete(imgIContainer* aImage) {
   mComputedStyle = nullptr;
   mPresContext = nullptr;
 
+  RefPtr<IconLoader> loader = std::move(mIconLoader);
+
   if (mListener) {
     mListener->IconUpdated();
   }
 
-  mIconLoader->Destroy();
-  mIconLoader = nullptr;
+  loader->Destroy();
 
   return NS_OK;
 
-  NS_OBJC_END_TRY_ABORT_BLOCK;
+  NS_OBJC_END_TRY_BLOCK_RETURN(NS_ERROR_FAILURE);
 }

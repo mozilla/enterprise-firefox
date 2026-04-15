@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode:nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sts=2 sw=2 et cin: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -86,7 +84,7 @@ nsDocumentOpenInfo::nsDocumentOpenInfo(uint32_t aFlags,
           mozilla::StaticPrefs::general_document_open_conversion_depth_limit()),
       mAllowListenerConversions(aAllowListenerConversions) {}
 
-nsDocumentOpenInfo::~nsDocumentOpenInfo() {}
+nsDocumentOpenInfo::~nsDocumentOpenInfo() = default;
 
 nsresult nsDocumentOpenInfo::Prepare() {
   LOG(("[0x%p] nsDocumentOpenInfo::Prepare", this));
@@ -819,9 +817,9 @@ bool nsDocumentOpenInfo::TryDefaultContentListener(nsIChannel* aChannel) {
 // Implementation of nsURILoader
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-nsURILoader::nsURILoader() {}
+nsURILoader::nsURILoader() = default;
 
-nsURILoader::~nsURILoader() {}
+nsURILoader::~nsURILoader() = default;
 
 NS_IMPL_ADDREF(nsURILoader)
 NS_IMPL_RELEASE(nsURILoader)

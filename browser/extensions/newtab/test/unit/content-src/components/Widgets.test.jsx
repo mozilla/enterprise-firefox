@@ -15,6 +15,8 @@ const PREF_WIDGETS_LISTS_ENABLED = "widgets.lists.enabled";
 const PREF_WIDGETS_SYSTEM_LISTS_ENABLED = "widgets.system.lists.enabled";
 const PREF_WIDGETS_TIMER_ENABLED = "widgets.focusTimer.enabled";
 const PREF_WIDGETS_SYSTEM_TIMER_ENABLED = "widgets.system.focusTimer.enabled";
+const PREF_WIDGETS_FEEDBACK_ENABLED = "widgets.feedback.enabled";
+const PREF_WIDGETS_HIDE_ALL_TOAST_ENABLED = "widgets.hideAllToast.enabled";
 
 function WrapWithProvider({ children, state = INITIAL_STATE }) {
   const store = createStore(combineReducers(reducers), state);
@@ -549,6 +551,312 @@ describe("<Widgets>", () => {
       assert.equal(timerEnabledAction.data.widget_source, "widget");
       assert.equal(timerEnabledAction.data.enabled, false);
       assert.equal(timerEnabledAction.data.widget_size, "medium");
+    });
+  });
+
+  describe("feedback link", () => {
+    let baseState;
+
+    beforeEach(() => {
+      baseState = {
+        ...INITIAL_STATE,
+        Prefs: {
+          ...INITIAL_STATE.Prefs,
+          values: {
+            ...INITIAL_STATE.Prefs.values,
+            [PREF_WIDGETS_LISTS_ENABLED]: true,
+            [PREF_WIDGETS_SYSTEM_LISTS_ENABLED]: true,
+          },
+        },
+      };
+    });
+
+    it("should not render the feedback link when feedbackEnabled is not set", () => {
+      const wrapper = mount(
+        <WrapWithProvider state={baseState}>
+          <Widgets />
+        </WrapWithProvider>
+      );
+      assert.ok(!wrapper.find(".widgets-feedback-link").exists());
+    });
+
+    it("should not render the feedback link when feedbackEnabled is false", () => {
+      const state = {
+        ...baseState,
+        Prefs: {
+          ...baseState.Prefs,
+          values: {
+            ...baseState.Prefs.values,
+            trainhopConfig: { widgets: { feedbackEnabled: false } },
+          },
+        },
+      };
+      const wrapper = mount(
+        <WrapWithProvider state={state}>
+          <Widgets />
+        </WrapWithProvider>
+      );
+      assert.ok(!wrapper.find(".widgets-feedback-link").exists());
+    });
+
+    it("should render the feedback link when trainhopConfig feedbackEnabled is true", () => {
+      const state = {
+        ...baseState,
+        Prefs: {
+          ...baseState.Prefs,
+          values: {
+            ...baseState.Prefs.values,
+            trainhopConfig: { widgets: { feedbackEnabled: true } },
+          },
+        },
+      };
+      const wrapper = mount(
+        <WrapWithProvider state={state}>
+          <Widgets />
+        </WrapWithProvider>
+      );
+      assert.ok(wrapper.find(".widgets-feedback-link").exists());
+    });
+
+    it("should render the feedback link when the pref is true", () => {
+      const state = {
+        ...baseState,
+        Prefs: {
+          ...baseState.Prefs,
+          values: {
+            ...baseState.Prefs.values,
+            [PREF_WIDGETS_FEEDBACK_ENABLED]: true,
+          },
+        },
+      };
+      const wrapper = mount(
+        <WrapWithProvider state={state}>
+          <Widgets />
+        </WrapWithProvider>
+      );
+      assert.ok(wrapper.find(".widgets-feedback-link").exists());
+    });
+
+    it("should dispatch OPEN_LINK and WIDGETS_CONTAINER_ACTION when feedback link is clicked", () => {
+      const state = {
+        ...baseState,
+        Prefs: {
+          ...baseState.Prefs,
+          values: {
+            ...baseState.Prefs.values,
+            trainhopConfig: { widgets: { feedbackEnabled: true } },
+          },
+        },
+      };
+      const store = createStore(combineReducers(reducers), state);
+      sinon.spy(store, "dispatch");
+      const wrapper = mount(
+        <Provider store={store}>
+          <Widgets />
+        </Provider>
+      );
+
+      wrapper.find(".widgets-feedback-link").prop("onClick")({
+        preventDefault: () => {},
+      });
+
+      const dispatched = store.dispatch.getCalls().map(c => c.args[0]);
+      const openLink = dispatched.find(a => a.type === at.OPEN_LINK);
+      const containerAction = dispatched.find(
+        a => a.type === at.WIDGETS_CONTAINER_ACTION
+      );
+
+      assert.ok(openLink, "should dispatch OPEN_LINK");
+      assert.ok(containerAction, "should dispatch WIDGETS_CONTAINER_ACTION");
+      assert.equal(containerAction.data.action_type, "feedback");
+      assert.equal(containerAction.data.widget_size, "medium");
+
+      store.dispatch.restore();
+    });
+
+    it("should use a custom URL from trainhopConfig when provided", () => {
+      const customUrl = "https://example.com/custom-feedback";
+      const state = {
+        ...baseState,
+        Prefs: {
+          ...baseState.Prefs,
+          values: {
+            ...baseState.Prefs.values,
+            trainhopConfig: {
+              widgets: {
+                feedbackEnabled: true,
+                feedbackUrl: customUrl,
+              },
+            },
+          },
+        },
+      };
+      const store = createStore(combineReducers(reducers), state);
+      sinon.spy(store, "dispatch");
+      const wrapper = mount(
+        <Provider store={store}>
+          <Widgets />
+        </Provider>
+      );
+
+      wrapper.find(".widgets-feedback-link").prop("onClick")({
+        preventDefault: () => {},
+      });
+
+      const dispatched = store.dispatch.getCalls().map(c => c.args[0]);
+      const openLink = dispatched.find(a => a.type === at.OPEN_LINK);
+
+      assert.ok(openLink, "should dispatch OPEN_LINK");
+      assert.equal(openLink.data.url, customUrl);
+
+      store.dispatch.restore();
+    });
+  });
+
+  describe("hide all widgets toast", () => {
+    let baseState;
+
+    beforeEach(() => {
+      baseState = {
+        ...INITIAL_STATE,
+        Prefs: {
+          ...INITIAL_STATE.Prefs,
+          values: {
+            ...INITIAL_STATE.Prefs.values,
+            [PREF_WIDGETS_LISTS_ENABLED]: true,
+            [PREF_WIDGETS_SYSTEM_LISTS_ENABLED]: true,
+          },
+        },
+      };
+    });
+
+    function clickHideButton(store, wrapper) {
+      wrapper.find("#hide-all-widgets-button").prop("onClick")({
+        preventDefault: () => {},
+      });
+      return store.dispatch
+        .getCalls()
+        .map(c => c.args[0])
+        .filter(a => a.type === at.SHOW_TOAST_MESSAGE);
+    }
+
+    it("should not dispatch toast when hideAllToastEnabled is not set", () => {
+      const store = createStore(combineReducers(reducers), baseState);
+      sinon.spy(store, "dispatch");
+      const wrapper = mount(
+        <Provider store={store}>
+          <Widgets />
+        </Provider>
+      );
+      const toastActions = clickHideButton(store, wrapper);
+      assert.equal(toastActions.length, 0);
+      store.dispatch.restore();
+    });
+
+    it("should not dispatch toast when pref is false", () => {
+      const state = {
+        ...baseState,
+        Prefs: {
+          ...baseState.Prefs,
+          values: {
+            ...baseState.Prefs.values,
+            [PREF_WIDGETS_HIDE_ALL_TOAST_ENABLED]: false,
+          },
+        },
+      };
+      const store = createStore(combineReducers(reducers), state);
+      sinon.spy(store, "dispatch");
+      const wrapper = mount(
+        <Provider store={store}>
+          <Widgets />
+        </Provider>
+      );
+      const toastActions = clickHideButton(store, wrapper);
+      assert.equal(toastActions.length, 0);
+      store.dispatch.restore();
+    });
+
+    it("should not dispatch toast when trainhopConfig hideAllToastEnabled is false", () => {
+      const state = {
+        ...baseState,
+        Prefs: {
+          ...baseState.Prefs,
+          values: {
+            ...baseState.Prefs.values,
+            trainhopConfig: { widgets: { hideAllToastEnabled: false } },
+          },
+        },
+      };
+      const store = createStore(combineReducers(reducers), state);
+      sinon.spy(store, "dispatch");
+      const wrapper = mount(
+        <Provider store={store}>
+          <Widgets />
+        </Provider>
+      );
+      const toastActions = clickHideButton(store, wrapper);
+      assert.equal(toastActions.length, 0);
+      store.dispatch.restore();
+    });
+
+    it("should dispatch toast when pref is true", () => {
+      const state = {
+        ...baseState,
+        Prefs: {
+          ...baseState.Prefs,
+          values: {
+            ...baseState.Prefs.values,
+            [PREF_WIDGETS_HIDE_ALL_TOAST_ENABLED]: true,
+          },
+        },
+      };
+      const store = createStore(combineReducers(reducers), state);
+      sinon.spy(store, "dispatch");
+      const wrapper = mount(
+        <Provider store={store}>
+          <Widgets />
+        </Provider>
+      );
+      wrapper.find("#hide-all-widgets-button").prop("onClick")({
+        preventDefault: () => {},
+      });
+      const dispatched = store.dispatch.getCalls().map(c => c.args[0]);
+      const toastAction = dispatched.find(
+        a => a.data && a.data.toastId === "hideWidgetsToast"
+      );
+      assert.ok(toastAction, "should dispatch toast action");
+      assert.equal(toastAction.data.showNotifications, true);
+      store.dispatch.restore();
+    });
+
+    it("should dispatch toast when trainhopConfig hideAllToastEnabled is true", () => {
+      const state = {
+        ...baseState,
+        Prefs: {
+          ...baseState.Prefs,
+          values: {
+            ...baseState.Prefs.values,
+            trainhopConfig: { widgets: { hideAllToastEnabled: true } },
+          },
+        },
+      };
+      const store = createStore(combineReducers(reducers), state);
+      sinon.spy(store, "dispatch");
+      const wrapper = mount(
+        <Provider store={store}>
+          <Widgets />
+        </Provider>
+      );
+      wrapper.find("#hide-all-widgets-button").prop("onClick")({
+        preventDefault: () => {},
+      });
+      const dispatched = store.dispatch.getCalls().map(c => c.args[0]);
+      const toastAction = dispatched.find(
+        a => a.data && a.data.toastId === "hideWidgetsToast"
+      );
+      assert.ok(toastAction, "should dispatch toast action");
+      assert.equal(toastAction.data.showNotifications, true);
+      store.dispatch.restore();
     });
   });
 

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -45,11 +43,14 @@ class RTCRtpScriptTransformer;
 class RTCEncodedFrameBase : public nsISupports, public nsWrapperCache {
  public:
   explicit RTCEncodedFrameBase(nsIGlobalObject* aGlobal,
-                               RTCEncodedFrameState& aState);
+                               RTCEncodedFrameState& aState,
+                               RTCRtpScriptTransformer* aOwner);
 
   // nsISupports
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(RTCEncodedFrameBase)
+
+  nsIGlobalObject* GetParentObject() const;
 
   // Common webidl for RTCEncodedVideoFrame/RTCEncodedAudioFrame
   unsigned long Timestamp() const;
@@ -77,6 +78,7 @@ class RTCEncodedFrameBase : public nsISupports, public nsWrapperCache {
   RTCEncodedFrameBase& operator=(RTCEncodedFrameBase&&) = delete;
 
   RefPtr<nsIGlobalObject> mGlobal;
+  RefPtr<RTCRtpScriptTransformer> mOwner;
 
   // Keep serializable state separate in this base and its subclasses
   // in a manner that avoids diamond inheritance. Subclasses must pass

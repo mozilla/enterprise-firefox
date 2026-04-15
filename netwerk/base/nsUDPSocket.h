@@ -1,4 +1,3 @@
-/* vim:set ts=2 sw=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -38,6 +37,11 @@ class nsUDPSocket final : public nsASocketHandler, public nsIUDPSocket {
 
   nsUDPSocket();
 
+  PRFileDesc* GetFD() {
+    MOZ_ASSERT(OnSocketThread(), "not on socket thread");
+    return mFD;
+  }
+
  private:
   virtual ~nsUDPSocket();
 
@@ -74,6 +78,15 @@ class nsUDPSocket final : public nsASocketHandler, public nsIUDPSocket {
   bool mIsTRRServiceChannel{false};
 };
 
+inline bool nsUDPSocket::IsSocketClosed() {
+#ifdef DEBUG
+  bool onSTSThread = false;
+  mSts->IsOnCurrentThread(&onSTSThread);
+  MOZ_ASSERT(onSTSThread);
+#endif
+  return !mFD;
+}
+
 //-----------------------------------------------------------------------------
 
 class nsUDPMessage : public nsIUDPMessage {
@@ -101,14 +114,12 @@ class nsUDPOutputStream : public nsIOutputStream {
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIOUTPUTSTREAM
 
-  nsUDPOutputStream(nsUDPSocket* aSocket, PRFileDesc* aFD,
-                    PRNetAddr& aPrClientAddr);
+  nsUDPOutputStream(nsUDPSocket* aSocket, PRNetAddr& aPrClientAddr);
 
  private:
   virtual ~nsUDPOutputStream() = default;
 
   RefPtr<nsUDPSocket> mSocket;
-  PRFileDesc* mFD;
   PRNetAddr mPrClientAddr;
   bool mIsClosed;
 };

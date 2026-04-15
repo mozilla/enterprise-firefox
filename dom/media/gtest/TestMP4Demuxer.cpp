@@ -1,9 +1,8 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "BufferMediaResource.h"
 #include "MP4Demuxer.h"
 #include "MediaDataDemuxer.h"
 #include "MockMediaResource.h"
@@ -45,6 +44,13 @@ class MP4DemuxerBinding {
         mIndex(0) {
     EXPECT_EQ(NS_OK, resource->Open());
   }
+
+  explicit MP4DemuxerBinding(MediaResource* aResource)
+      : resource(nullptr),
+        mDemuxer(new MP4Demuxer(aResource)),
+        mTaskQueue(TaskQueue::Create(
+            GetMediaThreadPool(MediaThreadType::SUPERVISOR), "TestMP4Demuxer")),
+        mIndex(0) {}
 
   template <typename Function>
   void RunTestAndWait(const Function& aFunction) {
@@ -606,6 +612,120 @@ TEST(MP4Demuxer, IgnoreMinus1Duration)
   binding->RunTestAndWait([binding]() {
     // It demuxes without error. That is sufficient.
     binding->mTaskQueue->BeginShutdown();
+  });
+}
+
+static nsTArray<uint8_t> ReadFileToBuffer(const char* aFilename) {
+  FILE* f = fopen(aFilename, "rb");
+  if (!f) {
+    return {};
+  }
+  fseek(f, 0, SEEK_END);
+  long size = ftell(f);
+  if (size <= 0) {
+    fclose(f);
+    return {};
+  }
+  fseek(f, 0, SEEK_SET);
+  nsTArray<uint8_t> buffer;
+  buffer.SetLength(size);
+  size_t bytesRead = fread(buffer.Elements(), 1, size, f);
+  fclose(f);
+  if (bytesRead != static_cast<size_t>(size)) {
+    return {};
+  }
+  return buffer;
+}
+
+// Scan for "mdhd" box types and overwrite timescale fields with aNewTimescale.
+static bool PatchMdhdTimescales(nsTArray<uint8_t>& aBuffer,
+                                uint32_t aNewTimescale) {
+  const uint8_t kMdhd[] = {'m', 'd', 'h', 'd'};
+  bool patched = false;
+  // mdhd fullbox layout after the 4-byte type field:
+  //   v0: ver/flags(4) + creation(4) + modification(4) + timescale(4) = 16
+  //   v1: ver/flags(4) + creation(8) + modification(8) + timescale(4) = 24
+  // The loop guard ensures aBuffer[i + 4] (version byte) is valid;
+  // offset + 4 is checked below to cover the full timescale field.
+  for (size_t i = 0; i + 4 < aBuffer.Length(); i++) {
+    if (memcmp(aBuffer.Elements() + i, kMdhd, 4) != 0) {
+      continue;
+    }
+    uint8_t version = aBuffer[i + 4];
+    size_t offset = (version == 0) ? i + 16 : i + 24;
+    if (offset + 4 > aBuffer.Length()) {
+      continue;
+    }
+    aBuffer[offset + 0] = (aNewTimescale >> 24) & 0xFF;
+    aBuffer[offset + 1] = (aNewTimescale >> 16) & 0xFF;
+    aBuffer[offset + 2] = (aNewTimescale >> 8) & 0xFF;
+    aBuffer[offset + 3] = aNewTimescale & 0xFF;
+    patched = true;
+  }
+  return patched;
+}
+
+// 1833896.mp4 has mdhd timescale 0xF800001E which exceeds INT32_MAX.
+// ISO 14496-12 defines mdhd timescale as unsigned int(32), so the value is
+// preserved as-is. With such a large timescale, all 73 samples (ticks 0-72)
+// map to 0 microseconds, producing duplicate timestamps at the demuxer level.
+TEST(MP4Demuxer, DuplicateTimestampsWithLargeTimescale)
+{
+  RefPtr<MP4DemuxerBinding> binding = new MP4DemuxerBinding("1833896.mp4");
+
+  binding->RunTestAndWait([binding]() {
+    binding->mVideoTrack =
+        binding->mDemuxer->GetTrackDemuxer(TrackInfo::kVideoTrack, 0);
+    binding->CheckTrackSamples(binding->mVideoTrack)
+        ->Then(
+            binding->mTaskQueue, __func__,
+            [binding]() {
+              EXPECT_GT(binding->mSamples.Length(), 1u);
+              for (uint32_t i = 0; i < binding->mSamples.Length(); i++) {
+                EXPECT_EQ(binding->mSamples[i]->mTime.ToMicroseconds(), 0)
+                    << "Sample " << i
+                    << " should map to 0 us with large timescale";
+              }
+              binding->mTaskQueue->BeginShutdown();
+            },
+            DO_FAIL);
+  });
+}
+
+// Patch gizmo-frag.mp4's mdhd timescale to 0xF800001E. Per ISO 14496-12 the
+// full uint32 range is valid, so the timescale is preserved, producing
+// duplicate timestamps. Original ticks are 0-177000 (step 3000, 60 samples).
+// With timescale ~4.16 billion, every ~3rd consecutive pair shares a
+// microsecond value, yielding 43 unique timestamps from 60 samples.
+TEST(MP4Demuxer, DuplicateTimestampsWithLargeTimescaleFragmented)
+{
+  nsTArray<uint8_t> buffer = ReadFileToBuffer("gizmo-frag.mp4");
+  ASSERT_FALSE(buffer.IsEmpty());
+  ASSERT_TRUE(PatchMdhdTimescales(buffer, 0xF800001E));
+
+  RefPtr<BufferMediaResource> bufferResource =
+      new BufferMediaResource(buffer.Elements(), buffer.Length());
+  RefPtr<MP4DemuxerBinding> binding = new MP4DemuxerBinding(bufferResource);
+
+  binding->RunTestAndWait([binding]() {
+    binding->mVideoTrack =
+        binding->mDemuxer->GetTrackDemuxer(TrackInfo::kVideoTrack, 0);
+    binding->CheckTrackSamples(binding->mVideoTrack)
+        ->Then(
+            binding->mTaskQueue, __func__,
+            [binding]() {
+              EXPECT_EQ(binding->mSamples.Length(), 60u);
+              size_t duplicates = 0;
+              for (uint32_t i = 1; i < binding->mSamples.Length(); i++) {
+                if (binding->mSamples[i]->mTime.ToMicroseconds() ==
+                    binding->mSamples[i - 1]->mTime.ToMicroseconds()) {
+                  duplicates++;
+                }
+              }
+              EXPECT_EQ(duplicates, 17u);
+              binding->mTaskQueue->BeginShutdown();
+            },
+            DO_FAIL);
   });
 }
 

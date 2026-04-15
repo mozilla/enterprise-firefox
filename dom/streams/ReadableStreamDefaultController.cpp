@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -621,7 +619,10 @@ void ReadableStreamDefaultController::PullSteps(JSContext* aCx,
   if (!mQueue.isEmpty()) {
     // Step 2.1
     JS::Rooted<JS::Value> chunk(aCx);
-    DequeueValue(this, &chunk);
+    DequeueValue(aCx, this, &chunk, aRv);
+    if (aRv.Failed()) {
+      return;
+    }
 
     // Step 2.2
     if (CloseRequested() && mQueue.isEmpty()) {

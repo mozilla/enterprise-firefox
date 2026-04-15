@@ -1,6 +1,4 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
- * vim: sw=2 ts=2 et lcs=trail\:.,tab\:>~ :
- * This Source Code Form is subject to the terms of the Mozilla Public
+/* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
@@ -201,10 +199,7 @@ Service::AutoVFSRegistration::~AutoVFSRegistration() {
   }
 }
 
-Service::Service()
-    : mMutex("Service::mMutex"),
-      mRegistrationMutex("Service::mRegistrationMutex"),
-      mLastSensitivity(mozilla::intl::Collator::Sensitivity::Base) {}
+Service::Service() : mRegistrationMutex("Service::mRegistrationMutex") {}
 
 Service::~Service() {
   mozilla::UnregisterWeakMemoryReporter(this);
@@ -382,64 +377,6 @@ nsresult Service::initialize() {
       StorageSQLiteDistinguishedAmount);
 
   return NS_OK;
-}
-
-int Service::localeCompareStrings(const nsAString& aStr1,
-                                  const nsAString& aStr2,
-                                  Collator::Sensitivity aSensitivity) {
-  // The mozilla::intl::Collator is not thread safe, since the Collator::Options
-  // can be changed.
-  MutexAutoLock mutex(mMutex);
-
-  Collator* collator = getCollator();
-  if (!collator) {
-    NS_ERROR("Storage service has no collation");
-    return 0;
-  }
-
-  if (aSensitivity != mLastSensitivity) {
-    Collator::Options options{};
-    options.sensitivity = aSensitivity;
-    auto result = mCollator->SetOptions(options);
-
-    if (result.isErr()) {
-      NS_WARNING("Could not configure the mozilla::intl::Collation.");
-      return 0;
-    }
-    mLastSensitivity = aSensitivity;
-  }
-
-  return collator->CompareStrings(aStr1, aStr2);
-}
-
-Collator* Service::getCollator() {
-  mMutex.AssertCurrentThreadOwns();
-
-  if (mCollator) {
-    return mCollator.get();
-  }
-
-  auto result = mozilla::intl::LocaleService::TryCreateComponent<Collator>();
-  if (result.isErr()) {
-    NS_WARNING("Could not create mozilla::intl::Collation.");
-    return nullptr;
-  }
-
-  mCollator = result.unwrap();
-
-  // Sort in a case-insensitive way, where "base" letters are considered
-  // equal, e.g: a = á, a = A, a ≠ b.
-  Collator::Options options{};
-  options.sensitivity = Collator::Sensitivity::Base;
-  auto optResult = mCollator->SetOptions(options);
-
-  if (optResult.isErr()) {
-    NS_WARNING("Could not configure the mozilla::intl::Collation.");
-    mCollator = nullptr;
-    return nullptr;
-  }
-
-  return mCollator.get();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

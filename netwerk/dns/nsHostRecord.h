@@ -1,4 +1,3 @@
-/* vim:set ts=4 sw=2 sts=2 et cin: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -342,10 +341,6 @@ class AddrHostRecord final : public nsHostRecord {
   }
 
   void ResolveComplete() override;
-
-  // The number of times ReportUnusable() has been called in the record's
-  // lifetime.
-  uint32_t mUnusableCount = 0;
 
   // a list of addresses associated with this record that have been reported
   // as unusable. the list is kept as a set of strings to make it independent

@@ -55,17 +55,17 @@ mod tracking;
 pub mod version;
 
 pub use self::{
-    cc::{CongestionControlAlgorithm, CongestionEvent},
+    cc::{CongestionControl, CongestionEvent, SlowStart},
     cid::{
         ConnectionId, ConnectionIdDecoder, ConnectionIdGenerator, ConnectionIdRef,
         EmptyConnectionIdGenerator, RandomConnectionIdGenerator,
     },
     connection::{
+        Connection, Output, OutputBatch, State, ZeroRttState,
         params::{
             ConnectionParameters, INITIAL_LOCAL_MAX_DATA, INITIAL_LOCAL_MAX_STREAM_DATA,
             MAX_LOCAL_MAX_STREAM_DATA,
         },
-        Connection, Output, OutputBatch, State, ZeroRttState,
     },
     events::{ConnectionEvent, ConnectionEvents},
     frame::CloseError,
@@ -75,7 +75,7 @@ pub use self::{
     rtt::DEFAULT_INITIAL_RTT,
     sni::find_sni,
     stateless_reset::Token,
-    stats::Stats,
+    stats::{SlowStartExitReason, Stats},
     stream_id::{StreamId, StreamType},
     version::Version,
 };

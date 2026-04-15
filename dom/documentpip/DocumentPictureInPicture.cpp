@@ -92,9 +92,17 @@ void DocumentPictureInPicture::OnPiPClosed() {
   MOZ_LOG(gDPIPLog, LogLevel::Debug, ("PiP was closed"));
 
   mLastOpenedWindow = nullptr;
+
+  if (RefPtr<nsPIDOMWindowInner> ownerWin = GetOwnerWindow()) {
+    if (BrowsingContext* bc = ownerWin->GetBrowsingContext()) {
+      MOZ_ASSERT(bc->GetControlsDocumentPiP());
+      DebugOnly<nsresult> rv = bc->SetControlsDocumentPiP(false);
+      MOZ_ASSERT(NS_SUCCEEDED(rv));
+    }
+  }
 }
 
-nsGlobalWindowInner* DocumentPictureInPicture::GetWindow() {
+nsGlobalWindowInner* DocumentPictureInPicture::GetWindow() const {
   if (mLastOpenedWindow && mLastOpenedWindow->GetOuterWindow() &&
       !mLastOpenedWindow->GetOuterWindow()->Closed()) {
     return nsGlobalWindowInner::Cast(mLastOpenedWindow);
@@ -317,6 +325,10 @@ already_AddRefed<Promise> DocumentPictureInPicture::RequestWindow(
 
   // 12. Set PIP's IsDocumentPIP flag
   rv = pipTraversable->SetIsDocumentPiP(true);
+  MOZ_ASSERT(NS_SUCCEEDED(rv));
+
+  MOZ_ASSERT(!bc->GetControlsDocumentPiP());
+  rv = bc->SetControlsDocumentPiP(true);
   MOZ_ASSERT(NS_SUCCEEDED(rv));
 
   // 16. Set mLastOpenedWindow

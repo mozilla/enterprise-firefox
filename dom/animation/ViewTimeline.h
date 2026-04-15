@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -53,6 +51,16 @@ class ViewTimeline final : public ScrollTimeline {
                              const PseudoStyleRequest& aPseudoRequest,
                              const StyleViewTimeline& aNew);
 
+  void UpdateCachedCurrentTime() override;
+
+  std::pair<double, double> IntervalForAttachmentRange(
+      const AnimationRange& aStyleRange) const override;
+
+  NonOwningAnimationTarget TimelineTarget() const override {
+    return NonOwningAnimationTarget{mSubject,
+                                    PseudoStyleRequest{mSubjectPseudoType}};
+  }
+
  private:
   ~ViewTimeline() = default;
   ViewTimeline(Document* aDocument, const Scroller& aScroller,
@@ -64,12 +72,11 @@ class ViewTimeline final : public ScrollTimeline {
         mSubjectPseudoType(aSubjectPseudoType),
         mInset(aInset) {}
 
-  Maybe<ScrollOffsets> ComputeOffsets(
-      const ScrollContainerFrame* aScrollContainerFrame,
-      layers::ScrollDirection aOrientation) const override;
+  Maybe<ComputedTimelineData> ComputeTimelineData() const override;
 
-  ScrollOffsets ComputeInsets(const ScrollContainerFrame* aScrollContainerFrame,
-                              layers::ScrollDirection aOrientation) const;
+  static std::pair<nscoord, nscoord> IntervalForTimelineRangeName(
+      const StyleTimelineRangeName aName,
+      const ScrollTimeline::ComputedTimelineData& aData);
 
   // The subject element.
   // 1. For view(), the subject element is the animation target.
@@ -86,6 +93,31 @@ class ViewTimeline final : public ScrollTimeline {
   // value when using it. For now, in order to simplify the implementation, we
   // make |mInset| be fixed.
   StyleViewTimelineInset mInset;
+
+  struct CurrentTimeData {
+    // The basic scroll info.
+    ScrollTimeline::CurrentTimeData mScrollData;
+    // The size of the scrollport.
+    nscoord mScrollPortSize = 0;
+    // The position and size of the subject.
+    nscoord mSubjectPosition = 0;
+    nscoord mSubjectSize = 0;
+    // The used view-timeline-inset.
+    nscoord mInsetStart = 0;
+    nscoord mInsetEnd = 0;
+    // TODO: Bug 2018678. We may have to add more for sticky positioned element.
+
+    // Returns true if any of the metrics are changed, except for |mPosition|.
+    bool IsChanged(const CurrentTimeData& aOther) const {
+      return mScrollData.mMaxScrollOffset !=
+                 aOther.mScrollData.mMaxScrollOffset ||
+             mScrollPortSize != aOther.mScrollPortSize ||
+             mSubjectPosition != aOther.mSubjectPosition ||
+             mSubjectSize != aOther.mSubjectSize ||
+             mInsetStart != aOther.mInsetStart || mInsetEnd != aOther.mInsetEnd;
+    }
+  };
+  Maybe<CurrentTimeData> mCachedCurrentTime;
 };
 
 }  // namespace mozilla::dom

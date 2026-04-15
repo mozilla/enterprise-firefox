@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -93,24 +91,6 @@ dom::ShadowRoot* GetTreeForCascadeLevel(const nsIContent& aContent,
   return containingShadow;
 }
 
-// Helper to extract shadow_cascade_order from a TreeScope
-int8_t GetShadowCascadeOrder(const StyleCascadeLevel& aScope) {
-  if (aScope.IsAuthorNormal()) {
-    return aScope.AsAuthorNormal().shadow_cascade_order;
-  }
-  if (aScope.IsAuthorImportant()) {
-    return aScope.AsAuthorImportant().shadow_cascade_order;
-  }
-  return 0;
-}
-
-// Helper to get shadow root for a property's tree scope
-dom::ShadowRoot* GetShadowRootForTreeScope(
-    const nsIContent& aContent, const StyleCascadeLevel& aTreeScope) {
-  const int8_t cascadeOrder = GetShadowCascadeOrder(aTreeScope);
-  return GetTreeForCascadeLevel(aContent, cascadeOrder);
-}
-
 bool DoTreeScopedPropertiesOfElementApplyToContent(
     const ScopedNameRef& aAnchorName, const nsIFrame* aReferencingFrame,
     const nsIFrame* aMaybeReferencedFrame) {
@@ -120,13 +100,15 @@ bool DoTreeScopedPropertiesOfElementApplyToContent(
       aReferencingFrame->StyleDisplay()->mAnchorName.scope;
 
   const auto* referencingShadowRoot =
-      GetShadowRootForTreeScope(*referencingContent, referencingTreeScope);
+      AnchorPositioningUtils::GetShadowRootForTreeScope(*referencingContent,
+                                                        referencingTreeScope);
 
   const auto* maybeReferencedContent = aMaybeReferencedFrame->GetContent();
   const auto& maybeReferencedScope = aAnchorName.mTreeScope;
 
   const auto* maybeReferencedShadowRoot =
-      GetShadowRootForTreeScope(*maybeReferencedContent, maybeReferencedScope);
+      AnchorPositioningUtils::GetShadowRootForTreeScope(*maybeReferencedContent,
+                                                        maybeReferencedScope);
   const auto* currentShadowRoot = maybeReferencedShadowRoot;
   while (currentShadowRoot) {
     if (referencingShadowRoot == currentShadowRoot) {
@@ -163,7 +145,8 @@ bool IsAnchorInScopeForPositionedElement(const ScopedNameRef& aName,
   const auto& positionAnchorScope = aName.mTreeScope;
 
   const dom::ShadowRoot* positionAnchorShadowRoot =
-      GetShadowRootForTreeScope(*positionedContent, positionAnchorScope);
+      AnchorPositioningUtils::GetShadowRootForTreeScope(*positionedContent,
+                                                        positionAnchorScope);
 
   auto getAnchorPosNearestScope =
       [&](const nsAtom* aName, const nsIFrame* aFrame,
@@ -175,7 +158,7 @@ bool IsAnchorInScopeForPositionedElement(const ScopedNameRef& aName,
     for (nsIContent* cp = aFrame->GetContent();
          cp && cp != positionedContainingBlockContent;
          cp = cp->GetFlattenedTreeParentElementForStyle()) {
-      const auto* anchorScope = [&]() -> const StyleAnchorScope* {
+      const auto* anchorScope = [&]() -> const StyleScopedName* {
         const nsIFrame* f = nsLayoutUtils::GetStyleFrame(cp);
         if (MOZ_LIKELY(f)) {
           return &f->StyleDisplay()->mAnchorScope;
@@ -195,7 +178,7 @@ bool IsAnchorInScopeForPositionedElement(const ScopedNameRef& aName,
 
       if (anchorScope->value.IsAll()) {
         const dom::ShadowRoot* shadowRoot = GetTreeForCascadeLevel(
-            *cp, GetShadowCascadeOrder(anchorScope->scope));
+            *cp, anchorScope->scope.ShadowCascadeOrder());
         if (shadowRoot == aShadowRoot) {
           return cp;
         }
@@ -206,7 +189,7 @@ bool IsAnchorInScopeForPositionedElement(const ScopedNameRef& aName,
       for (const StyleAtom& ident : anchorScope->value.AsIdents().AsSpan()) {
         if (aName == ident.AsAtom()) {
           const dom::ShadowRoot* shadowRoot = GetTreeForCascadeLevel(
-              *cp, GetShadowCascadeOrder(anchorScope->scope));
+              *cp, anchorScope->scope.ShadowCascadeOrder());
           if (shadowRoot == aShadowRoot) {
             return cp;
           }
@@ -218,8 +201,9 @@ bool IsAnchorInScopeForPositionedElement(const ScopedNameRef& aName,
 
   const auto& possibleAnchorName =
       aPossibleAnchorFrame->StyleDisplay()->mAnchorName;
-  const dom::ShadowRoot* possibleAnchorShadowRoot = GetShadowRootForTreeScope(
-      *aPossibleAnchorFrame->GetContent(), possibleAnchorName.scope);
+  const dom::ShadowRoot* possibleAnchorShadowRoot =
+      AnchorPositioningUtils::GetShadowRootForTreeScope(
+          *aPossibleAnchorFrame->GetContent(), possibleAnchorName.scope);
   const auto* nearestScopeForAnchor = getAnchorPosNearestScope(
       aName.mName, aPossibleAnchorFrame, possibleAnchorShadowRoot);
 
@@ -1525,6 +1509,11 @@ nsRect AnchorPositioningUtils::ReassembleAnchorRect(
 
   return unfragmentedAnchorRect.GetPhysicalRect(
       cbwm, relevantCbSize.GetPhysicalSize(cbwm));
+}
+
+dom::ShadowRoot* AnchorPositioningUtils::GetShadowRootForTreeScope(
+    const nsIContent& aContent, const StyleCascadeLevel& aTreeScope) {
+  return GetTreeForCascadeLevel(aContent, aTreeScope.ShadowCascadeOrder());
 }
 
 }  // namespace mozilla

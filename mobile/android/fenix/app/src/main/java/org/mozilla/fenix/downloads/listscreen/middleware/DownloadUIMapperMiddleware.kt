@@ -72,8 +72,8 @@ class DownloadUIMapperMiddleware(
     private fun Map<String, DownloadState>.toFileItemsList(): List<FileItem> =
         values
             .filter { isDisplayableItem(it.status) }
-            .distinctBy { Pair(it.fileName, it.status) }
-            .sortedByDescending { it.createdTime } // sort from newest to oldest
+            .sortedByDescending { it.createdTime }
+            .distinctBy { Triple(it.fileName, it.status, it.directoryPath) }
             .map { it.toFileItem() }
 
     private fun isDisplayableItem(status: DownloadState.Status) =
@@ -85,6 +85,7 @@ class DownloadUIMapperMiddleware(
             url = url,
             fileName = fileName,
             filePath = filePath,
+            directoryPath = directoryPath,
             displayedShortUrl = url.getBaseDomainUrl(),
             contentType = contentType,
             status = status.toFileItemStatus(progress = progress),

@@ -338,8 +338,8 @@ async function test_contextmenu(selector, menuItems, options = {}) {
   if (!options.skipFocusChange) {
     await SpecialPowers.spawn(
       gBrowser.selectedBrowser,
-      [[lastElementSelector, selector]],
-      async function ([contentLastElementSelector, contentSelector]) {
+      [lastElementSelector, selector],
+      async function (contentLastElementSelector, contentSelector) {
         if (contentLastElementSelector) {
           let contentLastElement = content.document.querySelector(
             contentLastElementSelector

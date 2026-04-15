@@ -174,8 +174,6 @@ class DebugAPI {
   // change due to debugger activity.
   class ExecutionObservableSet {
    public:
-    using ZoneRange = HashSet<Zone*>::Range;
-
     virtual Zone* singleZone() const { return nullptr; }
     virtual JSScript* singleScriptForZoneInvalidation() const {
       return nullptr;

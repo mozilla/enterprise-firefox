@@ -28,7 +28,12 @@ fn grid_enabled() -> bool {
 
 #[cfg(feature = "servo")]
 fn grid_enabled() -> bool {
-    style_config::get_bool("layout.grid.enabled")
+    static_prefs::pref!("layout.grid.enabled")
+}
+
+#[inline]
+fn appearance_base_enabled(_context: &ParserContext) -> bool {
+    static_prefs::pref!("layout.css.appearance-base.enabled")
 }
 
 #[inline]
@@ -1478,6 +1483,7 @@ impl ContainerType {
     ToShmem,
     ToTyped,
 )]
+#[typed_value(derive_fields)]
 pub struct ContainerName(#[css(iterable, if_empty = "none")] pub crate::OwnedSlice<CustomIdent>);
 
 impl ContainerName {
@@ -1686,8 +1692,11 @@ pub enum Appearance {
     Textfield,
     /// The dropdown button(s) that open up a dropdown list.
     MenulistButton,
-    /// Only relevant to the <select> element and ::picker(select) pseudo-element,
-    /// allowing them to be styled.
+    /// https://drafts.csswg.org/css-forms/#appearance
+    #[parse(condition = "appearance_base_enabled")]
+    Base,
+    /// Only relevant to the <select> element and ::picker(select) pseudo-element, allowing them to
+    /// be styled.
     #[parse(condition = "appearance_base_select_enabled")]
     BaseSelect,
     /// Menu Popup background.

@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1902,6 +1901,16 @@ class EditorBase : public nsIEditor,
     PaddingForEmptyEditor,
     PaddingForEmptyLastLine
   };
+  friend inline auto format_as(const BRElementType& aType) {
+    constexpr const char* sNames[] = {"Normal", "PaddingForEmptyEditor",
+                                      "PaddingForEmptyLastLine"};
+    return std::string(sNames[static_cast<size_t>(aType)]);
+  }
+  friend inline std::ostream& operator<<(std::ostream& aStream,
+                                         const BRElementType& aType) {
+    return aStream << format_as(aType);
+  }
+
   /**
    * Updates the type of aBRElement.  If it will be hidden or shown from
    * IMEContentObserver and ContentEventHandler points of view, this temporarily

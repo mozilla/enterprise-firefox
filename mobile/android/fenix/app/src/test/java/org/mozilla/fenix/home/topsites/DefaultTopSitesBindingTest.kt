@@ -5,7 +5,6 @@
 package org.mozilla.fenix.home.topsites
 
 import android.content.res.Resources
-import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -21,12 +20,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import org.junit.runner.RunWith
 import org.mozilla.fenix.R
 import org.mozilla.fenix.utils.Settings
 import java.io.ByteArrayInputStream
 
-@RunWith(AndroidJUnit4::class)
 class DefaultTopSitesBindingTest {
 
     private lateinit var browserStore: BrowserStore

@@ -34,6 +34,9 @@ export let gIsCertError = gErrorCode == "nssBadCert";
 export let gHasSts = gIsCertError && getCSSClass() === "badStsCert";
 export let gNoConnectivity =
   gErrorCode == "dnsNotFound" && !RPMHasConnectivity();
+// netOffline is the error code used when "Work Offline" mode is enabled via
+// the File menu. gOffline is true for both that case and when there's no
+// network connectivity.
 export let gOffline = gErrorCode === "netOffline" || gNoConnectivity;
 export const VPN_ACTIVE = RPMGetBoolPref(
   "browser.ipProtection.userEnabled",
@@ -50,6 +53,21 @@ export function getCSSClass() {
 
 export function getHostName() {
   return RPMGetHostForDisplay(document);
+}
+
+export function getFilePath() {
+  try {
+    const url = new URL(document.location.href);
+    if (url.protocol === "file:") {
+      let path = decodeURIComponent(url.pathname);
+      if (/^\/[A-Za-z]:/.test(path)) {
+        path = path.substring(1);
+      }
+      return path;
+    }
+    return document.location.href;
+  } catch (e) {}
+  return null;
 }
 
 export function retryThis(buttonEl) {

@@ -40,7 +40,7 @@ function findMinimumVersion(message, errorCorrectionLevelChar) {
   const msgLength = message.length;
   const errorCorrectionLevel =
     lazy.QRErrorCorrectionLevel[errorCorrectionLevelChar];
-  for (let version = 1; version <= 10; version++) {
+  for (let version = 1; version <= 40; version++) {
     const rsBlocks = lazy.QRRSBlock.getRSBlocks(version, errorCorrectionLevel);
     let maxLength = rsBlocks.reduce((prev, block) => {
       return prev + block.dataCount;

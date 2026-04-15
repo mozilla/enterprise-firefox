@@ -52,7 +52,7 @@ newtab-search-box-input =
     .placeholder = Søk på nettet
     .aria-label = Søk på nettet
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Legg til søkemotor
 newtab-topsites-add-shortcut-header = Ny snarvei
@@ -72,6 +72,11 @@ newtab-topsites-url-validation = Gyldig URL er nødvendig
 newtab-topsites-image-url-label = Egendefinert bilde-URL
 newtab-topsites-use-image-link = Bruk et egendefinert bilde…
 newtab-topsites-image-validation = Kunne ikke lese inn bildet. Prøv en annen URL.
+
+## Clear text button for the URL and image URL input fields in the Top Sites form.
+
+newtab-topsites-clear-input =
+    .aria-label = Fjern tekst
 
 ## Top Sites - General form dialog buttons. These are verbs/actions.
 
@@ -631,6 +636,8 @@ newtab-report-cancel = Avbryt
 newtab-report-submit = Send
 newtab-toast-thanks-for-reporting =
     .message = Takk for at du rapporterte dette.
+newtab-toast-widgets-hidden =
+    .message = Velg blyantikonet for å legge til widgeter igjen når som helst.
 
 ## Strings for task / to-do list productivity widget
 
@@ -671,6 +678,7 @@ newtab-widget-lists-name-placeholder-default =
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Ny liste
 newtab-widget-section-title = Widgeter
+newtab-widget-menu-hide = Skjul widget
 # Tooltip for hide all widgets button
 newtab-widget-section-hide-all-button =
     .title = Skjul widgeter
@@ -681,6 +689,7 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Minimer widgeter
     .aria-label = Slå sammen alle widgeter til kompakt størrelse
+newtab-widget-section-feedback = Fortell oss hva du synes
 
 ## Strings for timer productivity widget
 ## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown

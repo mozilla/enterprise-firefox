@@ -69,9 +69,8 @@ js::jit::JitActivation::~JitActivation() {
 
 void js::jit::JitActivation::trace(JSTracer* trc) {
   if (rematerializedFrames_) {
-    for (RematerializedFrameTable::Enum e(*rematerializedFrames_); !e.empty();
-         e.popFront()) {
-      e.front().value().trace(trc);
+    for (auto iter = rematerializedFrames_->iter(); !iter.done(); iter.next()) {
+      iter.get().value().trace(trc);
     }
   }
 

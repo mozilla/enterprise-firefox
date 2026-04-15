@@ -84,7 +84,7 @@ class ContentAnalysisTelemetryTest : public testing::Test {
   static MozAgentInfo sAgentInfo;
 };
 
-MOZ_RUNINIT nsString ContentAnalysisTelemetryTest::sPipeName;
+MOZ_GLIBCXX_CONSTINIT nsString ContentAnalysisTelemetryTest::sPipeName;
 MOZ_RUNINIT MozAgentInfo ContentAnalysisTelemetryTest::sAgentInfo;
 
 void ContentAnalysisTelemetryTest::AttemptToConnectAndMeasureTelemetry(

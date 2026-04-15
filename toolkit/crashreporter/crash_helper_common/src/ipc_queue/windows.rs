@@ -213,7 +213,7 @@ impl IPCQueue {
                     .operation
                     .take()
                     .expect("No pending receive operation");
-                let buffer = &operation.collect_recv();
+                let buffer = operation.collect_recv();
                 let header = Header::decode(buffer)?;
                 let payload = element.connector.recv(header.size);
                 match payload {

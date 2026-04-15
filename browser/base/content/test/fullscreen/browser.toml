@@ -57,6 +57,9 @@ skip-if = [
 ["browser_fullscreen_newtab.js"]
 
 ["browser_fullscreen_newwindow.js"]
+skip-if = [
+  "os == 'win' && os_version == '11.26200' && asan", # Bug 2019745
+]
 
 ["browser_fullscreen_notification.js"]
 
@@ -67,6 +70,9 @@ skip-if = [
   "os == 'linux' && os_version == '22.04' && arch == 'x86_64' && display == 'wayland' && opt", # Bug 1949995
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && opt", # Bug 1949995
 ]
+
+["browser_fullscreen_toplevel_warning.js"]
+support-files = ["fullscreen.html"]
 
 ["browser_fullscreen_ui_state.js"]
 skip-if = [

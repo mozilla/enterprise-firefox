@@ -20,7 +20,10 @@ import java.util.concurrent.atomic.AtomicReference
  *
  * All the preference files that are parsed and indexed are listed in the companion object.
  */
-class DefaultFenixSettingsIndexer(private val context: Context) : SettingsIndexer {
+class DefaultFenixSettingsIndexer(
+    private val context: Context,
+    private val preferenceFileInformationList: List<PreferenceFileInformation> = defaultPreferenceFileInformationList,
+) : SettingsIndexer {
     private val settings = AtomicReference<List<SettingsSearchItem>>(emptyList())
 
     /**
@@ -308,8 +311,8 @@ class DefaultFenixSettingsIndexer(private val context: Context) : SettingsIndexe
         private const val PREFERENCE_CATEGORY_TAG = "androidx.preference.PreferenceCategory"
         private const val CHECKBOX_PREFERENCE_TAG = "androidx.preference.CheckBoxPreference"
         private const val PREFERENCE_TAG = "androidx.preference.Preference"
-        private const val SWITCH_PREFERENCE_TAG = "androidx.preference.SwitchPreference"
-        private const val SWITCH_PREFERENCE_PLAIN_TAG = "SwitchPreference"
+        private const val SWITCH_PREFERENCE_TAG = "androidx.preference.SwitchPreferenceCompat"
+        private const val SWITCH_PREFERENCE_PLAIN_TAG = "SwitchPreferenceCompat"
         private const val CUSTOM_CBH_SWITCH_PREFERENCE_TAG =
             "org.mozilla.fenix.settings.cookiebannerhandling.CustomCBHSwitchPreference"
         private const val DEFAULT_BROWSER_PREFERENCE_TAG = "org.mozilla.fenix.settings.DefaultBrowserPreference"
@@ -325,7 +328,7 @@ class DefaultFenixSettingsIndexer(private val context: Context) : SettingsIndexe
          * All the preference xml files to load with information for the indexer.
          * In a [List] of [PreferenceFileInformation]s.
          */
-        val preferenceFileInformationList = listOf(
+        val defaultPreferenceFileInformationList = listOf(
             PreferenceFileInformation.GeneralPreferences,
             PreferenceFileInformation.AccessibilityPreferences,
             PreferenceFileInformation.AutofillPreferences,

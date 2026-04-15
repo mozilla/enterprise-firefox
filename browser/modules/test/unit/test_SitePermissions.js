@@ -54,7 +54,7 @@ add_task(async function testPermissionsListing() {
     expectedPermissions.push("speaker");
   }
   if (LOCAL_NETWORK_ACCESS_ENABLED) {
-    expectedPermissions.push("localhost");
+    expectedPermissions.push("loopback-network");
     expectedPermissions.push("local-network");
   }
   Assert.deepEqual(
@@ -99,7 +99,7 @@ add_task(async function testGetAllByPrincipal() {
 
   SitePermissions.setForPrincipal(
     principal,
-    "localhost",
+    "loopback-network",
     SitePermissions.ALLOW,
     SitePermissions.SCOPE_SESSION
   );
@@ -129,7 +129,7 @@ add_task(async function testGetAllByPrincipal() {
       scope: SitePermissions.SCOPE_SESSION,
     },
     {
-      id: "localhost",
+      id: "loopback-network",
       state: SitePermissions.ALLOW,
       scope: SitePermissions.SCOPE_SESSION,
     },
@@ -153,7 +153,7 @@ add_task(async function testGetAllByPrincipal() {
       scope: SitePermissions.SCOPE_PERSISTENT,
     },
     {
-      id: "localhost",
+      id: "loopback-network",
       state: SitePermissions.ALLOW,
       scope: SitePermissions.SCOPE_SESSION,
     },
@@ -171,7 +171,7 @@ add_task(async function testGetAllByPrincipal() {
 
   SitePermissions.removeFromPrincipal(principal, "camera");
   SitePermissions.removeFromPrincipal(principal, "desktop-notification");
-  SitePermissions.removeFromPrincipal(principal, "localhost");
+  SitePermissions.removeFromPrincipal(principal, "loopback-network");
   SitePermissions.removeFromPrincipal(principal, "local-network");
 
   Assert.deepEqual(SitePermissions.getAllByPrincipal(principal), []);
@@ -244,7 +244,7 @@ add_task(async function testExactHostMatch() {
     "desktop-notification",
     "focus-tab-by-prompt",
     "camera",
-    "localhost",
+    "loopback-network",
     "local-network",
     "microphone",
     "screen",
@@ -355,10 +355,13 @@ add_task(async function testDefaultPrefs() {
     scope: SitePermissions.SCOPE_PERSISTENT,
   });
 
-  Assert.deepEqual(SitePermissions.getForPrincipal(principal, "localhost"), {
-    state: SitePermissions.UNKNOWN,
-    scope: SitePermissions.SCOPE_PERSISTENT,
-  });
+  Assert.deepEqual(
+    SitePermissions.getForPrincipal(principal, "loopback-network"),
+    {
+      state: SitePermissions.UNKNOWN,
+      scope: SitePermissions.SCOPE_PERSISTENT,
+    }
+  );
 
   Assert.deepEqual(
     SitePermissions.getForPrincipal(principal, "local-network"),
@@ -448,35 +451,35 @@ add_task(async function testLocalHostPermission() {
 
   SitePermissions.setForPrincipal(
     principal,
-    "localhost",
+    "loopback-network",
     SitePermissions.ALLOW
   );
 
   Services.prefs.setBoolPref("network.lna.blocking", false);
   Assert.ok(
-    !SitePermissions.listPermissions().includes("localhost"),
-    "No 'localhost' permission should be present"
+    !SitePermissions.listPermissions().includes("loopback-network"),
+    "No 'loopback-network' permission should be present"
   );
   Assert.ok(
     !SitePermissions.getAllByPrincipal(principal).some(
-      permission => permission.id === "localhost"
+      permission => permission.id === "loopback-network"
     ),
-    "No 'localhost' permission should be present"
+    "No 'loopback-network' permission should be present"
   );
 
   Services.prefs.setBoolPref("network.lna.blocking", true);
   Assert.ok(
-    SitePermissions.listPermissions().includes("localhost"),
-    "'localhost' should be in listPermissions when blocking is enabled"
+    SitePermissions.listPermissions().includes("loopback-network"),
+    "'loopback-network' should be in listPermissions when blocking is enabled"
   );
   Assert.ok(
     SitePermissions.getAllByPrincipal(principal).some(
-      permission => permission.id === "localhost"
+      permission => permission.id === "loopback-network"
     ),
-    "'localhost' permission should be present for principal when blocking is enabled"
+    "'loopback-network' permission should be present for principal when blocking is enabled"
   );
 
-  SitePermissions.removeFromPrincipal(principal, "localhost");
+  SitePermissions.removeFromPrincipal(principal, "loopback-network");
   Services.prefs.setBoolPref("network.lna.blocking", lnaEnabled);
 });
 

@@ -705,7 +705,7 @@ export class WelcomeScreen extends React.PureComponent {
 
   resolveActionFromContent(value, event, props) {
     if (
-      (value === "submenu_button" || value === "tile_button") &&
+      ["submenu_button", "more_button", "tile_button"].includes(value) &&
       event.action
     ) {
       return event.action;

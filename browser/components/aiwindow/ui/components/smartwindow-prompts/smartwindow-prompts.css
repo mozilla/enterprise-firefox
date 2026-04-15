@@ -39,8 +39,7 @@ moz-button.sw-prompt-button {
   --button-background-color-hover: light-dark(color-mix(in srgb, var(--color-violet-50) 15%, transparent), color-mix(in srgb, white 10%, transparent));
   --button-background-color-selected: light-dark(color-mix(in srgb, var(--color-violet-50) 25%, transparent), color-mix(in srgb, white 15%, transparent));
   --button-border-radius: var(--border-radius-circle);
-  /* Font-sizing keeps computing to 16px regardless of size attribute on the button */
-  --button-font-size: var(--space-medium);
+  --button-font-size: var(--font-size-small);
   --button-font-weight: var(--font-weight);
   --button-padding: var(--space-small);
   --button-text-color: var(--smartwindow-brand-accent);

@@ -19,16 +19,18 @@ netwerk_helper = { path = "../../../../netwerk/base/rust-helper" }
 xpcom = { path = "../../../../xpcom/rust/xpcom" }
 prefs_parser = { path = "../../../../modules/libpref/parser" }
 static_prefs = { path = "../../../../modules/libpref/init/static_prefs" }
-profiler_helper = { path = "../../../../tools/profiler/rust-helper", optional = true }
+profiler_helper = { path = "../../../../tools/profiler/rust-helper" }
 mozurl = { path = "../../../../netwerk/base/mozurl" }
+harfbuzz_glue = { path = "../../../../gfx/harfbuzz_glue" }
 webrender_bindings = { path = "../../../../gfx/webrender_bindings" }
-cubeb-coreaudio = { git = "https://github.com/mozilla/cubeb-coreaudio-rs", rev = "5b689a7f90086e07c271ad1cf79325ee06112ab6", optional = true, features=["vpio-forcelist"] }
+cubeb-coreaudio = { git = "https://github.com/mozilla/cubeb-coreaudio-rs", rev = "0bb8a45a040e85d313eb18deb36570e87df3a6af", optional = true, features=["vpio-forcelist"] }
 cubeb-pulse = { git = "https://github.com/mozilla/cubeb-pulse-rs", rev="9cebfcceb073e9dd10cfb275a7590bca58d4c251", optional = true, features=["pulse-dlopen"] }
 cubeb-sys = { version = "0.32.0", optional = true, features=["gecko-in-tree"] }
-audioipc2-client = { git = "https://github.com/mozilla/audioipc", rev = "c8d3f03cb5f889e4cab18cc1360ad0daa074f17a", optional = true }
-audioipc2-server = { git = "https://github.com/mozilla/audioipc", rev = "c8d3f03cb5f889e4cab18cc1360ad0daa074f17a", optional = true }
+audioipc2-client = { git = "https://github.com/mozilla/audioipc", rev = "0339c4732ceadbc5f54898b77498c33fff0f3f90", optional = true }
+audioipc2-server = { git = "https://github.com/mozilla/audioipc", rev = "0339c4732ceadbc5f54898b77498c33fff0f3f90", optional = true }
 encoding_glue = { path = "../../../../intl/encoding_glue" }
 locale_service_glue = { path = "../../../../intl/locale/rust/locale_service_glue" }
+app_collator_glue = { path = "../../../../intl/app_collator_glue" }
 authrs_bridge = { path = "../../../../dom/webauthn/authrs_bridge" }
 gkrust_utils = { path = "../../../../xpcom/rust/gkrust_utils" }
 gecko_logger = { path = "../../../../xpcom/rust/gecko_logger" }
@@ -78,6 +80,7 @@ dap_ffi = { path = "../../../components/dap/ffi" }
 data-encoding-ffi = { path = "../../../../dom/fs/parent/rust/data-encoding-ffi" }
 binary_http = { path = "../../../../netwerk/protocol/http/binary_http" }
 oblivious_http = { path = "../../../../netwerk/protocol/http/oblivious_http" }
+happy_eyeballs_glue = { path = "../../../../netwerk/protocol/http/happy_eyeballs_glue" }
 
 abridged_certs = { path = "../../../../security/manager/ssl/abridged_certs" }
 cert_storage = { path = "../../../../security/manager/ssl/cert_storage" }
@@ -120,7 +123,8 @@ uritemplate_glue = { path = "../../../../netwerk/base/uritemplate_glue" }
 adblock = { version = "0.12.1", features = ["full-regex-handling", "single-thread"], default-features = false }
 content_classifier_engine = { path = "../../../components/content-classifier/content_classifier_engine" }
 
-libz-rs-sys = { version = "0.4.1", features = ["custom-prefix"], optional = true }
+libz-rs-sys = { version = "0.6", features = ["custom-prefix"], optional = true }
+zlib-rs = { version = "0.6", features = ["avx512"], optional = true }
 
 gecko-trace = { path = "../../../components/gecko-trace" }
 
@@ -137,6 +141,7 @@ webext-storage = "0.1"
 [target.'cfg(target_os = "windows")'.dependencies]
 detect_win32k_conflicts = { path = "../../../xre/detect_win32k_conflicts" }
 widget_windows = { path = "../../../../widget/windows/rust" }
+shell_windows = { path = "../../../../browser/components/shell/rust/shell_windows", optional = true }
 
 [features]
 default = []
@@ -149,7 +154,6 @@ gecko_refcount_logging = ["geckoservo/gecko_refcount_logging", "xpcom/gecko_refc
 simd-accel = ["encoding_glue/simd-accel", "jsrust_shared/simd-accel"]
 moz_places = ["bookmark_sync"]
 spidermonkey_rust = []
-gecko_profiler = ["gecko-profiler/enabled", "profiler_helper"]
 gecko_profiler_parse_elf = ["profiler_helper/parse_elf"]
 libfuzzer = ["authrs_bridge/fuzzing"]
 webrtc = ["mdns_service"]
@@ -163,6 +167,7 @@ uniffi_fixtures = ["uniffi-bindgen-gecko-js-test-fixtures"]
 webmidi_midir_impl = ["midir_impl"]
 icu4x = ["jsrust_shared/icu4x"]
 jxl_decoder = ["dep:jxl_decoder"]
+libz-rs-sys = ["dep:libz-rs-sys", "dep:zlib-rs"]
 # Set when we're building libxul (as opposed to building the unittests, for example)
 for_xul = [
     # This makes it so `rusqlite` doesn't handle linking itself.  Instead, we'll link it to the
@@ -171,6 +176,7 @@ for_xul = [
 ]
 felt = ["dep:felt", "fog_control/felt"]
 webrender_debugger = ["webrender_bindings/debugger"]
+shell_windows = ["dep:shell_windows"]
 
 [lib]
 path = "lib.rs"

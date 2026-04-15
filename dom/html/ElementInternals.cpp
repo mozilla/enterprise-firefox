@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -14,6 +12,7 @@
 #include "mozilla/dom/FormData.h"
 #include "mozilla/dom/HTMLElement.h"
 #include "mozilla/dom/HTMLFieldSetElement.h"
+#include "mozilla/dom/LifecycleCallbackArgs.h"
 #include "mozilla/dom/MutationObservers.h"
 #include "mozilla/dom/ShadowRoot.h"
 #include "mozilla/dom/ValidityState.h"
@@ -56,6 +55,7 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(ElementInternals)
   NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
   NS_INTERFACE_MAP_ENTRY(nsIFormControl)
   NS_INTERFACE_MAP_ENTRY(nsIConstraintValidation)
+  NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIFormControl)
 NS_INTERFACE_MAP_END
 
 ElementInternals::ElementInternals(HTMLElement* aTarget)

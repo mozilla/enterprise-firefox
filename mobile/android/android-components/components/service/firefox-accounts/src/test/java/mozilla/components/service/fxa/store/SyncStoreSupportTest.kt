@@ -129,8 +129,6 @@ class SyncStoreSupportTest {
             profile.email,
             profile.avatar,
             profile.displayName,
-            "id",
-            "token",
         )
         assertEquals(expected, store.state.account)
         assertEquals(AccountState.Authenticated, store.state.accountState)
@@ -188,7 +186,7 @@ class SyncStoreSupportTest {
     @Test
     fun `GIVEN account observer WHEN onProfileUpdated then update the account state`() {
         // Prerequisite is having a non-null account already.
-        store.dispatch(SyncAction.UpdateAccount(Account(null, null, null, null, null, null)))
+        store.dispatch(SyncAction.UpdateAccount(Account(null, null, null, null)))
 
         val profile = generateProfile()
         accountObserver.onProfileUpdated(profile)

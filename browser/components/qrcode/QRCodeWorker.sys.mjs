@@ -27,7 +27,7 @@ ChromeUtils.defineLazyGetter(lazy, "logConsole", function () {
  */
 export class QRCodeWorker extends BasePromiseWorker {
   constructor() {
-    super("moz-src:///browser/components/qrcode/QRCodeWorker.worker.mjs", {
+    super("chrome://browser/content/qrcode/QRCodeWorker.worker.mjs", {
       type: "module",
     });
 

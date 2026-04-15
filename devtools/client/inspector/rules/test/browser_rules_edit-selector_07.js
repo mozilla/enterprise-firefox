@@ -33,7 +33,7 @@ add_task(async function () {
 async function testEditSelector(view, name) {
   info("Test editing existing selector fields");
 
-  let ruleEditor = getRuleViewRuleEditor(view, 1);
+  let ruleEditor = getRuleViewRuleEditorAt(view, 1);
 
   info("Focusing an existing selector name in the rule-view");
   const editor = await focusEditableField(view, ruleEditor.selectorText);
@@ -53,11 +53,11 @@ async function testEditSelector(view, name) {
   await onRuleViewChanged;
 
   // Get the new rule editor that replaced the original
-  ruleEditor = getRuleViewRuleEditor(view, 1);
+  ruleEditor = getRuleViewRuleEditorAt(view, 1);
   const rule = ruleEditor.rule;
   const textPropEditor = rule.textProps[0].editor;
 
-  is(view.elementStyle.rules.length, 3, "Should have 3 rules.");
+  assertDisplayedRulesCount(view, 3);
   ok(getRuleViewRule(view, name), "Rule with " + name + " selector exists.");
   ok(
     ruleEditor.element.getAttribute("unmatched"),

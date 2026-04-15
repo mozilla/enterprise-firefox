@@ -35,7 +35,7 @@
 
   /* copy over newtab background color from activity-stream-[os].css files */
   --newtab-background-color: light-dark(#f9f9fb, #2b2a33);
-  --fxview-card-header-font-weight: var(--heading-font-weight);
+  --fxview-card-header-font-weight: var(--font-weight-heading);
 
   &[lwt-newtab] {
     color-scheme: light;

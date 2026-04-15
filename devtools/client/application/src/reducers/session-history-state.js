@@ -13,7 +13,7 @@ function SessionHistory() {
   return {
     count: 0,
     current: 0,
-    rows: [],
+    diagrams: [],
     entriesByKey: {},
   };
 }
@@ -26,7 +26,7 @@ function sessionHistoryReducer(state = SessionHistory(), action) {
       return Object.assign({}, state, {
         count: sessionHistory.count,
         current: sessionHistory.index,
-        rows: createRows(sessionHistory, entriesByKey),
+        diagrams: createDiagrams(sessionHistory, entriesByKey),
         entriesByKey,
       });
     }
@@ -143,19 +143,19 @@ class Diagram {
   }
 }
 
-function createRows(sessionHistory, entriesByKey) {
+function createRows(sessionHistory, entriesByKey, start, end) {
   const lookup = new Map();
 
-  const size = sessionHistory.count;
+  const size = end - start;
   // We add a rootDiagram for convenience to be able to add top-level entries
   // to it. This diagram will never be rendered to the full diagram, and the
   // id will never be used in lookup.
   const rootDiagram = new Diagram(null, { docshellID: "fakeDocShellID" });
   const getChildCount = entry => entry.childCount;
   const getChildAt = (entry, index) => entry.GetChildAt(index);
-  for (let index = 0; index < size; index++) {
+  for (let index = start; index < end; index++) {
     const root = sessionHistory.getEntryAtIndex(index);
-    rootDiagram.addChild(root, index);
+    rootDiagram.addChild(root, index - start);
     lookup.getOrInsertComputed(key(root.docshellID), () => {
       return new Diagram(rootDiagram, root);
     });
@@ -164,7 +164,7 @@ function createRows(sessionHistory, entriesByKey) {
       const parent = entry.parent;
       if (parent) {
         const diagram = lookup.get(key(parent.docshellID));
-        diagram.addChild(entry, index);
+        diagram.addChild(entry, index - start);
         lookup.getOrInsertComputed(key(entry.docshellID), () => {
           return new Diagram(diagram, entry);
         });
@@ -186,6 +186,9 @@ function createRows(sessionHistory, entriesByKey) {
       const row = [];
       const entries = diagram.parent.lookup(diagram.key);
       for (let count = entries.length; count > size; count--) {
+        entries.push(Diagram.EMPTY);
+      }
+      while (entries.length < size) {
         entries.push(Diagram.EMPTY);
       }
       let previous = Diagram.EMPTY;
@@ -225,7 +228,10 @@ function createRows(sessionHistory, entriesByKey) {
             ...extra,
           };
           row.push(newEntry);
-        } else if (entry !== Diagram.EMPTY || previous.empty == Diagram.EMPTY) {
+        } else if (!newEntry) {
+          newEntry = { age: 1 };
+          row.push(newEntry);
+        } else if (entry !== Diagram.EMPTY || previous === Diagram.EMPTY) {
           newEntry.age++;
         } else {
           newEntry = { age: 1 };
@@ -237,6 +243,38 @@ function createRows(sessionHistory, entriesByKey) {
       return row;
     }
   ).filter(row => row.length);
+}
+
+function* sameDocuments(sessionHistory) {
+  let previous = {
+    sharesDocumentWith() {
+      return true;
+    },
+  };
+  let start = 0;
+  const size = sessionHistory.count;
+  for (let index = 0; index < size; index++) {
+    const entry = sessionHistory.getEntryAtIndex(index);
+    const sameDocument = previous.sharesDocumentWith(entry);
+    previous = entry;
+    if (sameDocument) {
+      continue;
+    }
+
+    yield { start, end: index };
+    start = index;
+  }
+
+  yield { start, end: size };
+}
+
+function createDiagrams(sessionHistory, entriesByKey) {
+  const diagrams = [];
+  for (const { start, end } of sameDocuments(sessionHistory)) {
+    const rows = createRows(sessionHistory, entriesByKey, start, end);
+    diagrams.push({ rows, start, end });
+  }
+  return diagrams;
 }
 
 module.exports = {

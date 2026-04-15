@@ -1,6 +1,7 @@
 use alloc::{
     boxed::Box,
     string::{String, ToString as _},
+    sync::Arc,
     vec::Vec,
 };
 use core::fmt;
@@ -85,7 +86,7 @@ struct Resource {
     class: naga::AddressSpace,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum NumericDimension {
     Scalar,
     Vector(naga::VectorSize),
@@ -102,7 +103,7 @@ impl fmt::Display for NumericDimension {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NumericType {
     dim: NumericDimension,
     scalar: naga::Scalar,
@@ -120,7 +121,7 @@ impl fmt::Display for NumericType {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct InterfaceVar {
     pub ty: NumericType,
     interpolation: Option<naga::Interpolation>,
@@ -149,7 +150,7 @@ impl fmt::Display for InterfaceVar {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 enum Varying {
     Local { location: u32, iv: InterfaceVar },
     BuiltIn(naga::BuiltIn),
@@ -396,23 +397,27 @@ pub enum StageError {
     MissingPrimitiveIndex,
     #[error("DrawId cannot be used in the same pipeline as a task shader")]
     DrawIdError,
+    #[error("Pipeline uses dual-source blending, but the shader does not support it")]
+    InvalidDualSourceBlending,
+    #[error("Fragment shader writes depth, but pipeline does not have a depth attachment")]
+    MissingFragDepthAttachment,
 }
 
 impl WebGpuError for StageError {
     fn webgpu_error_type(&self) -> ErrorType {
-        let e: &dyn WebGpuError = match self {
-            Self::Binding(_, e) => e,
-            Self::InvalidResource(e) => e,
+        match self {
+            Self::Binding(_, e) => e.webgpu_error_type(),
+            Self::InvalidResource(e) => e.webgpu_error_type(),
             Self::Filtering {
                 texture: _,
                 sampler: _,
                 error,
-            } => error,
+            } => error.webgpu_error_type(),
             Self::Input {
                 location: _,
                 var: _,
                 error,
-            } => error,
+            } => error.webgpu_error_type(),
             Self::InvalidWorkgroupSize { .. }
             | Self::MissingEntryPoint(..)
             | Self::NoEntryPointFound
@@ -428,9 +433,10 @@ impl WebGpuError for StageError {
             | Self::TaskPayloadMustMatch { .. }
             | Self::InvalidPrimitiveIndex
             | Self::MissingPrimitiveIndex
-            | Self::DrawIdError => return ErrorType::Validation,
-        };
-        e.webgpu_error_type()
+            | Self::DrawIdError
+            | Self::InvalidDualSourceBlending
+            | Self::MissingFragDepthAttachment => ErrorType::Validation,
+        }
     }
 }
 
@@ -607,7 +613,7 @@ impl Resource {
             ResourceType::Texture {
                 dim,
                 arrayed,
-                class,
+                class: shader_class,
             } => {
                 let view_dimension = match entry.ty {
                     BindingType::Texture { view_dimension, .. }
@@ -648,64 +654,88 @@ impl Resource {
                         }
                     }
                 }
-                let expected_class = match entry.ty {
+                match entry.ty {
                     BindingType::Texture {
                         sample_type,
                         view_dimension: _,
                         multisampled: multi,
-                    } => match sample_type {
-                        wgt::TextureSampleType::Float { .. } => naga::ImageClass::Sampled {
-                            kind: naga::ScalarKind::Float,
-                            multi,
-                        },
-                        wgt::TextureSampleType::Sint => naga::ImageClass::Sampled {
-                            kind: naga::ScalarKind::Sint,
-                            multi,
-                        },
-                        wgt::TextureSampleType::Uint => naga::ImageClass::Sampled {
-                            kind: naga::ScalarKind::Uint,
-                            multi,
-                        },
-                        wgt::TextureSampleType::Depth => naga::ImageClass::Depth { multi },
-                    },
-                    BindingType::StorageTexture {
-                        access,
-                        format,
-                        view_dimension: _,
                     } => {
-                        let naga_format = map_storage_format_to_naga(format)
-                            .ok_or(BindingError::BadStorageFormat(format))?;
-                        let naga_access = match access {
-                            wgt::StorageTextureAccess::ReadOnly => naga::StorageAccess::LOAD,
-                            wgt::StorageTextureAccess::WriteOnly => naga::StorageAccess::STORE,
-                            wgt::StorageTextureAccess::ReadWrite => {
-                                naga::StorageAccess::LOAD | naga::StorageAccess::STORE
-                            }
-                            wgt::StorageTextureAccess::Atomic => {
-                                naga::StorageAccess::ATOMIC
-                                    | naga::StorageAccess::LOAD
-                                    | naga::StorageAccess::STORE
-                            }
+                        let binding_class = match sample_type {
+                            wgt::TextureSampleType::Float { .. } => naga::ImageClass::Sampled {
+                                kind: naga::ScalarKind::Float,
+                                multi,
+                            },
+                            wgt::TextureSampleType::Sint => naga::ImageClass::Sampled {
+                                kind: naga::ScalarKind::Sint,
+                                multi,
+                            },
+                            wgt::TextureSampleType::Uint => naga::ImageClass::Sampled {
+                                kind: naga::ScalarKind::Uint,
+                                multi,
+                            },
+                            wgt::TextureSampleType::Depth => naga::ImageClass::Depth { multi },
                         };
-                        naga::ImageClass::Storage {
-                            format: naga_format,
-                            access: naga_access,
+                        if shader_class == binding_class {
+                            Ok(())
+                        } else {
+                            Err(binding_class)
                         }
                     }
-                    BindingType::ExternalTexture => naga::ImageClass::External,
+                    BindingType::StorageTexture {
+                        access: wgt_binding_access,
+                        format: wgt_binding_format,
+                        view_dimension: _,
+                    } => {
+                        const LOAD_STORE: naga::StorageAccess =
+                            naga::StorageAccess::LOAD.union(naga::StorageAccess::STORE);
+                        let binding_format = map_storage_format_to_naga(wgt_binding_format)
+                            .ok_or(BindingError::BadStorageFormat(wgt_binding_format))?;
+                        let binding_access = match wgt_binding_access {
+                            wgt::StorageTextureAccess::ReadOnly => naga::StorageAccess::LOAD,
+                            wgt::StorageTextureAccess::WriteOnly => naga::StorageAccess::STORE,
+                            wgt::StorageTextureAccess::ReadWrite => LOAD_STORE,
+                            wgt::StorageTextureAccess::Atomic => {
+                                naga::StorageAccess::ATOMIC | LOAD_STORE
+                            }
+                        };
+                        match shader_class {
+                            // Formats must match exactly. A write-only shader (but not a
+                            // read-only shader) is compatible with a read-write binding.
+                            naga::ImageClass::Storage {
+                                format: shader_format,
+                                access: shader_access,
+                            } if shader_format == binding_format
+                                && (shader_access == binding_access
+                                    || shader_access == naga::StorageAccess::STORE
+                                        && binding_access == LOAD_STORE) =>
+                            {
+                                Ok(())
+                            }
+                            _ => Err(naga::ImageClass::Storage {
+                                format: binding_format,
+                                access: binding_access,
+                            }),
+                        }
+                    }
+                    BindingType::ExternalTexture => {
+                        let binding_class = naga::ImageClass::External;
+                        if shader_class == binding_class {
+                            Ok(())
+                        } else {
+                            Err(binding_class)
+                        }
+                    }
                     _ => {
                         return Err(BindingError::WrongType {
                             binding: (&entry.ty).into(),
                             shader: (&self.ty).into(),
                         })
                     }
-                };
-                if class != expected_class {
-                    return Err(BindingError::WrongTextureClass {
-                        binding: expected_class,
-                        shader: class,
-                    });
                 }
+                .map_err(|binding_class| BindingError::WrongTextureClass {
+                    binding: binding_class,
+                    shader: shader_class,
+                })?;
             }
             ResourceType::AccelerationStructure { vertex_return } => match entry.ty {
                 BindingType::AccelerationStructure {
@@ -980,7 +1010,7 @@ pub fn check_texture_format(
     }
 }
 
-pub enum BindingLayoutSource<'a> {
+pub enum BindingLayoutSource {
     /// The binding layout is derived from the pipeline layout.
     ///
     /// This will be filled in by the shader binding validation, as it iterates the shader's interfaces.
@@ -988,10 +1018,10 @@ pub enum BindingLayoutSource<'a> {
     /// The binding layout is provided by the user in BGLs.
     ///
     /// This will be validated against the shader's interfaces.
-    Provided(ArrayVec<&'a bgl::EntryMap, { hal::MAX_BIND_GROUPS }>),
+    Provided(Arc<crate::binding_model::PipelineLayout>),
 }
 
-impl<'a> BindingLayoutSource<'a> {
+impl BindingLayoutSource {
     pub fn new_derived(limits: &wgt::Limits) -> Self {
         let mut array = ArrayVec::new();
         for _ in 0..limits.max_bind_groups {
@@ -1217,7 +1247,7 @@ impl Interface {
     /// <https://www.w3.org/TR/webgpu/#abstract-opdef-validating-inter-stage-interfaces>.
     pub fn check_stage(
         &self,
-        layouts: &mut BindingLayoutSource<'_>,
+        layouts: &mut BindingLayoutSource,
         shader_binding_sizes: &mut FastHashMap<naga::ResourceBinding, wgt::BufferSize>,
         entry_point_name: &str,
         shader_stage: ShaderStageForValidation,
@@ -1239,7 +1269,7 @@ impl Interface {
             let res = &self.resources[handle];
             let result = 'err: {
                 match layouts {
-                    BindingLayoutSource::Provided(layouts) => {
+                    BindingLayoutSource::Provided(pipeline_layout) => {
                         // update the required binding size for this buffer
                         if let ResourceType::Buffer { size } = res.ty {
                             match shader_binding_sizes.entry(res.bind) {
@@ -1252,11 +1282,9 @@ impl Interface {
                             }
                         }
 
-                        let Some(map) = layouts.get(res.bind.group as usize) else {
-                            break 'err Err(BindingError::Missing);
-                        };
-
-                        let Some(entry) = map.get(res.bind.binding) else {
+                        let Some(entry) =
+                            pipeline_layout.get_bgl_entry(res.bind.group, res.bind.binding)
+                        else {
                             break 'err Err(BindingError::Missing);
                         };
 
@@ -1310,15 +1338,15 @@ impl Interface {
         //
         // We only need to do this if the binding layout is provided by the user, as derived
         // layouts will inherently be correctly tagged.
-        if let BindingLayoutSource::Provided(layouts) = layouts {
+        if let BindingLayoutSource::Provided(pipeline_layout) = layouts {
             for &(texture_handle, sampler_handle) in entry_point.sampling_pairs.iter() {
                 let texture_bind = &self.resources[texture_handle].bind;
                 let sampler_bind = &self.resources[sampler_handle].bind;
-                let texture_layout = layouts[texture_bind.group as usize]
-                    .get(texture_bind.binding)
+                let texture_layout = pipeline_layout
+                    .get_bgl_entry(texture_bind.group, texture_bind.binding)
                     .unwrap();
-                let sampler_layout = layouts[sampler_bind.group as usize]
-                    .get(sampler_bind.binding)
+                let sampler_layout = pipeline_layout
+                    .get_bgl_entry(sampler_bind.group, sampler_bind.binding)
                     .unwrap();
                 assert!(texture_layout.visibility.contains(stage_bit));
                 assert!(sampler_layout.visibility.contains(stage_bit));
@@ -1394,14 +1422,17 @@ impl Interface {
                 ),
                 _ => unreachable!(),
             };
-            let total_invocations = entry_point.workgroup_size.iter().product::<u32>();
+            let total_invocations = entry_point
+                .workgroup_size
+                .iter()
+                .fold(1u32, |total, &dim| total.saturating_mul(dim));
+            let invalid_total_invocations =
+                total_invocations > max_workgroup_size_total || total_invocations == 0;
 
-            let workgroup_size_is_zero = entry_point.workgroup_size.contains(&0);
-            let too_many_invocations = total_invocations > max_workgroup_size_total;
             let dimension_too_large = entry_point.workgroup_size[0] > max_workgroup_size_limits[0]
                 || entry_point.workgroup_size[1] > max_workgroup_size_limits[1]
                 || entry_point.workgroup_size[2] > max_workgroup_size_limits[2];
-            if workgroup_size_is_zero || too_many_invocations || dimension_too_large {
+            if invalid_total_invocations || dimension_too_large {
                 return Err(StageError::InvalidWorkgroupSize {
                     current: entry_point.workgroup_size,
                     current_total: total_invocations,
@@ -1454,6 +1485,12 @@ impl Interface {
                                 naga::ShaderStage::Compute
                                 | naga::ShaderStage::Task
                                 | naga::ShaderStage::Mesh => (false, false),
+                                naga::ShaderStage::RayGeneration
+                                | naga::ShaderStage::AnyHit
+                                | naga::ShaderStage::ClosestHit
+                                | naga::ShaderStage::Miss => {
+                                    unreachable!()
+                                }
                             };
                             if !compatible {
                                 return Err(InputError::WrongType(provided.ty));
@@ -1477,7 +1514,7 @@ impl Interface {
                 Varying::BuiltIn(naga::BuiltIn::PrimitiveIndex) => {
                     this_stage_primitive_index = true;
                 }
-                Varying::BuiltIn(naga::BuiltIn::DrawID) => {
+                Varying::BuiltIn(naga::BuiltIn::DrawIndex) => {
                     has_draw_id = true;
                 }
                 Varying::BuiltIn(_) => {}
@@ -1563,7 +1600,10 @@ impl Interface {
                     });
                 }
             }
-            ShaderStageForValidation::Fragment => {
+            ShaderStageForValidation::Fragment {
+                dual_source_blending,
+                has_depth_attachment,
+            } => {
                 let mut max_fragment_shader_input_variables =
                     self.limits.max_inter_stage_shader_variables;
 
@@ -1629,6 +1669,29 @@ impl Interface {
                             var: iv.clone(),
                             limit: self.limits.max_color_attachments,
                         });
+                    }
+                }
+
+                // If the pipeline uses dual-source blending, then the shader
+                // must configure appropriate I/O, but it is not an error to
+                // use a shader that defines the I/O in a pipeline that only
+                // uses one blend source.
+                if dual_source_blending && !entry_point.dual_source_blending {
+                    return Err(StageError::InvalidDualSourceBlending);
+                }
+
+                if entry_point
+                    .outputs
+                    .contains(&Varying::BuiltIn(naga::BuiltIn::FragDepth))
+                    && !has_depth_attachment
+                {
+                    return Err(StageError::MissingFragDepthAttachment);
+                }
+            }
+            ShaderStageForValidation::Mesh => {
+                for output in &entry_point.outputs {
+                    if matches!(output, Varying::BuiltIn(naga::BuiltIn::PrimitiveIndex)) {
+                        this_stage_primitive_index = true;
                     }
                 }
             }
@@ -1753,7 +1816,10 @@ pub enum ShaderStageForValidation {
         compare_function: Option<wgt::CompareFunction>,
     },
     Mesh,
-    Fragment,
+    Fragment {
+        dual_source_blending: bool,
+        has_depth_attachment: bool,
+    },
     Compute,
     Task,
 }
@@ -1763,7 +1829,7 @@ impl ShaderStageForValidation {
         match self {
             Self::Vertex { .. } => naga::ShaderStage::Vertex,
             Self::Mesh => naga::ShaderStage::Mesh,
-            Self::Fragment => naga::ShaderStage::Fragment,
+            Self::Fragment { .. } => naga::ShaderStage::Fragment,
             Self::Compute => naga::ShaderStage::Compute,
             Self::Task => naga::ShaderStage::Task,
         }
@@ -1772,7 +1838,7 @@ impl ShaderStageForValidation {
     pub fn to_wgt_bit(&self) -> wgt::ShaderStages {
         match self {
             Self::Vertex { .. } => wgt::ShaderStages::VERTEX,
-            Self::Mesh { .. } => wgt::ShaderStages::MESH,
+            Self::Mesh => wgt::ShaderStages::MESH,
             Self::Fragment { .. } => wgt::ShaderStages::FRAGMENT,
             Self::Compute => wgt::ShaderStages::COMPUTE,
             Self::Task => wgt::ShaderStages::TASK,

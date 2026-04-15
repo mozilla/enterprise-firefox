@@ -471,7 +471,7 @@ bool Code::createManyLazyEntryStubs(const WriteGuard& guard,
   CodeSource codeSource(masm, nullptr, nullptr);
   stubCodeBlock->segment = CodeSegment::allocate(
       codeSource, &guard->lazyStubSegments,
-      /* allowLastDitchGC = */ true, &codeStart, &allocationLength);
+      /* allowLastDitchGC = */ false, &codeStart, &allocationLength);
   if (!stubCodeBlock->segment) {
     return false;
   }
@@ -590,13 +590,33 @@ bool Code::getOrCreateInterpEntry(uint32_t funcIndex,
 
   MOZ_ASSERT(!codeMetaForAsmJS_, "only wasm can lazily export functions");
 
-  auto guard = data_.writeLock();
-  *interpEntry = lookupLazyInterpEntry(guard, funcIndex);
-  if (*interpEntry) {
+  auto tryGetOrCreate = [&]() -> bool {
+    auto guard = data_.writeLock();
+    *interpEntry = lookupLazyInterpEntry(guard, funcIndex);
+    if (*interpEntry) {
+      return true;
+    }
+
+    return createOneLazyEntryStub(guard, funcExportIndex, codeBlock,
+                                  interpEntry);
+  };
+
+  // Try to get or create the interpreter entry.
+  if (tryGetOrCreate()) {
     return true;
   }
 
-  return createOneLazyEntryStub(guard, funcExportIndex, codeBlock, interpEntry);
+  // The allocation failed. Release the lock and try a last-ditch GC before
+  // retrying, to avoid a mutex ordering violation between WasmCodeProtected
+  // and GlobalHelperThreadState.
+  if (!OnLargeAllocationFailure) {
+    return false;
+  }
+  OnLargeAllocationFailure();
+
+  // Try again. We need to redo the lookup too in the case that someone is
+  // racing with us.
+  return tryGetOrCreate();
 }
 
 bool Code::createTier2LazyEntryStubs(const WriteGuard& guard,
@@ -825,28 +845,41 @@ SharedCodeSegment Code::createFuncCodeSegmentFromPool(
     uint8_t** codeStartOut, uint32_t* codeLengthOut) const {
   uint32_t codeLength = masm.bytesNeeded();
 
-  // Allocate the code segment
-  uint8_t* codeStart;
-  uint32_t allocationLength;
-  SharedCodeSegment segment;
-  {
+  auto tryAllocate = [&]() -> SharedCodeSegment {
     auto guard = data_.writeLock();
+
+    uint8_t* codeStart;
+    uint32_t allocationLength;
     CodeSource codeSource(masm, &linkData, this);
-    segment =
-        CodeSegment::allocate(codeSource, &guard->lazyFuncSegments,
-                              allowLastDitchGC, &codeStart, &allocationLength);
-    if (!segment) {
+    SharedCodeSegment result = CodeSegment::allocate(
+        codeSource, &guard->lazyFuncSegments,
+        /* allowLastDitchGC = */ false, &codeStart, &allocationLength);
+
+    if (!result) {
       return nullptr;
     }
 
-    // This function is always used with tier-2
+    *codeStartOut = codeStart;
+    *codeLengthOut = codeLength;
     guard->tier2Stats.codeBytesMapped += allocationLength;
     guard->tier2Stats.codeBytesUsed += codeLength;
+    return result;
+  };
+
+  // Try to allocate the code segment.
+  if (SharedCodeSegment segment = tryAllocate()) {
+    return segment;
   }
 
-  *codeStartOut = codeStart;
-  *codeLengthOut = codeLength;
-  return segment;
+  // The allocation failed. Release the lock and try a last-ditch GC before
+  // retrying, to avoid a mutex ordering violation between WasmCodeProtected
+  // and GlobalHelperThreadState.
+  if (!allowLastDitchGC || !OnLargeAllocationFailure) {
+    return nullptr;
+  }
+
+  OnLargeAllocationFailure();
+  return tryAllocate();
 }
 
 const LazyFuncExport* Code::lookupLazyFuncExport(const WriteGuard& guard,

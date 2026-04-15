@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -24,7 +22,6 @@
 #include "nsTArrayForwardDeclare.h"
 
 class nsIInputStream;
-class nsISHEntry;
 class nsIURI;
 class nsIDocShell;
 class nsIChannel;
@@ -36,6 +33,7 @@ namespace dom {
 class FormData;
 class DocShellLoadStateInit;
 struct NavigationAPIMethodTracker;
+class SessionHistoryEntry;
 }  // namespace dom
 }  // namespace mozilla
 
@@ -47,6 +45,7 @@ class nsDocShellLoadState final {
   using BrowsingContext = mozilla::dom::BrowsingContext;
   template <typename T>
   using MaybeDiscarded = mozilla::dom::MaybeDiscarded<T>;
+  using SessionHistoryEntry = mozilla::dom::SessionHistoryEntry;
 
  public:
   NS_INLINE_DECL_REFCOUNTING(nsDocShellLoadState);
@@ -196,9 +195,11 @@ class nsDocShellLoadState final {
   void SetUserNavigationInvolvement(
       mozilla::dom::UserNavigationInvolvement aUserNavigationInvolvement);
 
-  nsISHEntry* SHEntry() const;
+  SessionHistoryEntry* SHEntry() const;
 
-  void SetSHEntry(nsISHEntry* aSHEntry);
+  void SetSHEntry(SessionHistoryEntry* aSHEntry);
+
+  void SetPreviousEntryForActivation(nsISHEntry* aSHEntry);
 
   const mozilla::dom::LoadingSessionHistoryInfo* GetLoadingSessionHistoryInfo()
       const;
@@ -625,7 +626,7 @@ class nsDocShellLoadState final {
       mozilla::dom::UserNavigationInvolvement::None;
 
   // Active Session History entry (if loading from SH)
-  nsCOMPtr<nsISHEntry> mSHEntry;
+  RefPtr<SessionHistoryEntry> mSHEntry;
 
   // Loading session history info for the load
   mozilla::UniquePtr<mozilla::dom::LoadingSessionHistoryInfo>

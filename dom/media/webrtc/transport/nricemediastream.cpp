@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -48,7 +46,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nsThreadUtils.h"
 
 // nICEr includes
-extern "C" {
 // clang-format off
 #include "nr_api.h"
 #include "transport_addr.h"
@@ -57,7 +54,6 @@ extern "C" {
 #include "ice_candidate.h"
 #include "ice_handler.h"
 // clang-format on
-}
 
 // Local includes
 #include "nricectx.h"
@@ -195,10 +191,9 @@ NrIceMediaStream::NrIceMediaStream(NrIceCtx* ctx, const std::string& id,
       old_stream_(nullptr),
       id_(id) {}
 
-NrIceMediaStream::~NrIceMediaStream() {
-  // We do not need to destroy anything. All major resources
-  // are attached to the ice ctx.
-}
+// We do not need to destroy anything. All major resources
+// are attached to the ice ctx.
+NrIceMediaStream::~NrIceMediaStream() = default;
 
 nsresult NrIceMediaStream::ConnectToPeer(
     const std::string& ufrag, const std::string& pwd,
@@ -521,10 +516,10 @@ std::vector<std::string> NrIceMediaStream::GetAttributes() const {
 
   for (int i = 0; i < attrct; i++) {
     ret.push_back(attrs[i]);
-    RFREE(attrs[i]);
+    free(attrs[i]);
   }
 
-  RFREE(attrs);
+  free(attrs);
 
   return ret;
 }

@@ -135,6 +135,13 @@ function test() {
   is(input.value, "1", "Test that preventDefault() works for click on spin-down button");
   input.removeEventListener("mousedown", preventDefault);
 
+  // Test for bug 2026562
+  input.addEventListener("input", () => input.value++, {once: true});
+  let changeFired = false;
+  input.addEventListener("change", () => changeFired = true, {once: true});
+  synthesizeMouse(input, SPIN_UP_X, SPIN_UP_Y, {});
+  ok(changeFired, "Change event is fired when spinner is clicked and input event listener sets value");
+
   // Test for bug 1707070.
   input.style.paddingRight = "30px";
   input.getBoundingClientRect(); // flush layout

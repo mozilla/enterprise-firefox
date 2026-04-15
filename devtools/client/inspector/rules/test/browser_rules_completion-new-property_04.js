@@ -20,7 +20,7 @@ add_task(async function () {
   await selectNode("h1", inspector);
 
   info("Focusing the new property editable field");
-  const ruleEditor = getRuleViewRuleEditor(view, 1);
+  const ruleEditor = getRuleViewRuleEditorAt(view, 1);
   let editor = await focusNewRuleViewProperty(ruleEditor);
 
   info('Sending "background" to the editable field.');

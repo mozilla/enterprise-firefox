@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set sw=2 ts=2 et tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -9,6 +7,7 @@
 #include "ErrorList.h"
 #include "encoding_rs_statics.h"
 #include "mozilla/AutoRestore.h"
+#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/UniquePtr.h"
 #include "nsCRT.h"
 #include "nsContentUtils.h"  // for kLoadAsData
@@ -17,6 +16,8 @@
 #include "nsHtml5Tokenizer.h"
 #include "nsHtml5TreeBuilder.h"
 #include "nsNetUtil.h"
+
+using namespace mozilla;
 
 NS_INTERFACE_TABLE_HEAD(nsHtml5Parser)
   NS_INTERFACE_TABLE(nsHtml5Parser, nsIParser, nsISupportsWeakReference,
@@ -438,6 +439,8 @@ nsresult nsHtml5Parser::Parse(const nsAString& aSourceBuffer, void* aKey,
             mTreeBuilder->isScriptingEnabled());
         mDocWriteSpeculativeTreeBuilder->setAllowDeclarativeShadowRoots(
             mTreeBuilder->isAllowDeclarativeShadowRoots());
+        mDocWriteSpeculativeTreeBuilder->setNoInSelectMode(
+            mTreeBuilder->isNoInSelectMode());
         mDocWriteSpeculativeTokenizer = mozilla::MakeUnique<nsHtml5Tokenizer>(
             mDocWriteSpeculativeTreeBuilder.get(), false);
         mDocWriteSpeculativeTokenizer->setInterner(&mAtomTable);
@@ -684,6 +687,8 @@ nsresult nsHtml5Parser::StartExecutor() {
   mTreeBuilder->setScriptingEnabled(executor->IsScriptEnabled());
   mTreeBuilder->setAllowDeclarativeShadowRoots(
       executor->GetDocument()->AllowsDeclarativeShadowRoots());
+  mTreeBuilder->setNoInSelectMode(
+      StaticPrefs::dom_lift_select_parser_restrictions_enabled());
 
   mTreeBuilder->setIsSrcdocDocument(false);
 
@@ -702,6 +707,8 @@ nsresult nsHtml5Parser::Initialize(mozilla::dom::Document* aDoc, nsIURI* aURI,
                                    nsIChannel* aChannel) {
   mTreeBuilder->setAllowDeclarativeShadowRoots(
       aDoc->AllowsDeclarativeShadowRoots());
+  mTreeBuilder->setNoInSelectMode(
+      StaticPrefs::dom_lift_select_parser_restrictions_enabled());
   return mExecutor->Init(aDoc, aURI, aContainer, aChannel);
 }
 
@@ -718,6 +725,8 @@ void nsHtml5Parser::StartTokenizer(bool aScriptingEnabled) {
   mTreeBuilder->setScriptingEnabled(aScriptingEnabled);
   mTreeBuilder->setAllowDeclarativeShadowRoots(
       mExecutor->GetDocument()->AllowsDeclarativeShadowRoots());
+  mTreeBuilder->setNoInSelectMode(
+      StaticPrefs::dom_lift_select_parser_restrictions_enabled());
   mTokenizer->start();
 }
 

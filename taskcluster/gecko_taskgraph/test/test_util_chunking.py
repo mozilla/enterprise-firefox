@@ -5,6 +5,7 @@
 
 import re
 from itertools import combinations
+from unittest.mock import patch
 
 import pytest
 from mozunit import main
@@ -80,11 +81,10 @@ def mock_manifest_runtimes_file():
         },
     }
 
-    # Inject mock data directly into the memoize cache
-    chunking._load_manifest_runtimes_data[()] = mock_data
-    yield
-    # Clean up
-    chunking._load_manifest_runtimes_data.clear()
+    with patch.object(chunking, "_load_manifest_runtimes_data", return_value=mock_data):
+        chunking.get_runtimes.cache_clear()
+        yield
+    chunking.get_runtimes.cache_clear()
 
 
 @pytest.fixture(scope="module")
@@ -299,7 +299,7 @@ def test_guess_mozinfo_from_task(params, exception, mock_task_definition):
 def test_get_runtimes(platform, suite, mock_manifest_runtimes_file):
     """Tests that runtime information is returned for known good configurations."""
     # Clear get_runtimes cache so each parametrized test gets fresh results
-    chunking.get_runtimes.clear()
+    chunking.get_runtimes.cache_clear()
 
     result = chunking.get_runtimes(platform, suite)
     assert isinstance(result, dict)

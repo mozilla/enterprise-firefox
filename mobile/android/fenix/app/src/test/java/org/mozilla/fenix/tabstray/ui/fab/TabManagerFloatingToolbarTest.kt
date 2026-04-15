@@ -25,10 +25,11 @@ import mozilla.components.compose.base.theme.acornPrivateColorScheme
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.mozilla.fenix.tabstray.TabsTrayState
-import org.mozilla.fenix.tabstray.TabsTrayStore
 import org.mozilla.fenix.tabstray.TabsTrayTestTag
 import org.mozilla.fenix.tabstray.TabsTrayTestTag.CLOSE_ALL_TABS
+import org.mozilla.fenix.tabstray.data.TabsTrayItem
+import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
+import org.mozilla.fenix.tabstray.redux.store.TabsTrayStore
 import org.mozilla.fenix.theme.FirefoxTheme
 import org.mozilla.fenix.theme.Theme
 
@@ -37,14 +38,14 @@ class TabManagerFloatingToolbarTest {
     @get:Rule
     val composeTestRule = createComposeRule()
 
+    private val testTabs = listOf(
+        TabsTrayItem.Tab(tab = createTab(url = "https://www.google.com", id = "a")),
+        TabsTrayItem.Tab(tab = createTab(url = "https://www.duckduckgo.com", id = "b")),
+    )
+
     @Test
     fun `Close all tabs menu item in light theme uses Error color`() {
-        val initialState = TabsTrayState(
-            normalTabs = listOf(
-                createTab(url = "https://www.google.com", id = "a"),
-                createTab(url = "https://www.duckduckgo.com", id = "b"),
-            ),
-        )
+        val initialState = TabsTrayState(normalTabs = testTabs)
         composeTestRule.setContent {
             FirefoxTheme(theme = Theme.Light) {
                 TabManagerFloatingToolbar(
@@ -73,12 +74,7 @@ class TabManagerFloatingToolbarTest {
 
     @Test
     fun `Close all tabs menu item in private theme uses Error color`() {
-        val initialState = TabsTrayState(
-            normalTabs = listOf(
-                createTab(url = "https://www.google.com", id = "a"),
-                createTab(url = "https://www.duckduckgo.com", id = "b"),
-            ),
-            )
+        val initialState = TabsTrayState(normalTabs = testTabs)
         composeTestRule.setContent {
             FirefoxTheme(theme = Theme.Private) {
                 TabManagerFloatingToolbar(
@@ -107,12 +103,7 @@ class TabManagerFloatingToolbarTest {
 
     @Test
     fun `Close all tabs menu item in dark theme uses Error color`() {
-        val initialState = TabsTrayState(
-            normalTabs = listOf(
-                createTab(url = "https://www.google.com", id = "a"),
-                createTab(url = "https://www.duckduckgo.com", id = "b"),
-            ),
-            )
+        val initialState = TabsTrayState(normalTabs = testTabs)
         composeTestRule.setContent {
             FirefoxTheme(theme = Theme.Dark) {
                 TabManagerFloatingToolbar(

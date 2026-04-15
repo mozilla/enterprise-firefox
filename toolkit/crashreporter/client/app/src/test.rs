@@ -137,9 +137,7 @@ macro_rules! current_date {
         "2004-11-09"
     };
 }
-const MOCK_CURRENT_DATE: &str = current_date!();
 const MOCK_CURRENT_TIME: &str = concat!(current_date!(), "T12:34:56.000Z");
-const MOCK_PING_UUID: uuid::Uuid = uuid::Uuid::nil();
 const MOCK_REMOTE_CRASH_ID: &str = "8cbb847c-def2-4f68-be9e-000000000000";
 
 fn current_datetime() -> time::OffsetDateTime {
@@ -163,7 +161,6 @@ fn test_config() -> Config {
     let mut cfg = Config::default();
     cfg.data_dir = Some("data_dir".into());
     cfg.events_dir = Some("events_dir".into());
-    cfg.ping_dir = Some("ping_dir".into());
     cfg.dump_file = Some("minidump.dmp".into());
     cfg.strings = Some(Default::default());
     // Set delete_dump to true: this matches the default case in practice.
@@ -237,8 +234,7 @@ impl GuiTest {
         )
         .set(crate::std::env::MockTempDir, "tmp".into())
         .set(crate::std::time::MockCurrentTime, current_system_time())
-        .set(mock::MockHook::new("enable_glean_pings"), false)
-        .set(mock::MockHook::new("ping_uuid"), MOCK_PING_UUID);
+        .set(mock::MockHook::new("enable_glean_pings"), false);
 
         GuiTest {
             config: test_config(),
@@ -275,25 +271,29 @@ impl GuiTest {
             ..
         } = self;
         let before_run = self.before_run.take();
-        let mut config = Arc::new(std::mem::take(config));
+        let mut test_config = Arc::new(std::mem::take(config));
 
         // Run the mock environment.
-        mock.run(move || {
+        let result = mock.run(|| {
             let _glean = if *enable_glean {
-                Some(glean::test_init(&config))
+                Some(glean::test_init(&test_config))
             } else {
                 None
             };
             gui_interact(
-                move || {
+                || {
                     if let Some(f) = before_run {
                         f();
                     }
-                    try_run(&mut config)
+                    try_run(&mut test_config)
                 },
                 interact,
             )
-        })
+        });
+
+        *config = Arc::into_inner(test_config).unwrap();
+
+        result
     }
 
     /// Run the test as configured, using the given function to interact with the GUI.
@@ -396,54 +396,6 @@ impl AssertFiles {
         self.inner
             .check(self.data("pending/minidump.extra"), new_extra)
             .check_bytes(dmp, new_dmp);
-        self
-    }
-
-    /// Assert that a crash ping was created for sending according to the filesystem.
-    pub fn ping(&mut self) -> &mut Self {
-        self.inner.check(
-            format!("ping_dir/{MOCK_PING_UUID}.json"),
-            serde_json::json! {{
-                "type": "crash",
-                "id": MOCK_PING_UUID,
-                "version": 4,
-                "creationDate": MOCK_CURRENT_TIME,
-                "clientId": "telemetry_client",
-                "profileGroupId": "telemetry_profile_group",
-                "payload": {
-                    "sessionId": "telemetry_session",
-                    "version": 1,
-                    "crashDate": MOCK_CURRENT_DATE,
-                    "crashTime": MOCK_CURRENT_TIME,
-                    "hasCrashEnvironment": true,
-                    "crashId": "minidump",
-                    "minidumpSha256Hash": MOCK_MINIDUMP_SHA256,
-                    "processType": "main",
-                    "stackTraces": {
-                        "status": "OK"
-                    },
-                    "metadata": {
-                        "AsyncShutdownTimeout": "{}",
-                        "BuildID": "1234",
-                        "CrashTime": current_unix_time().to_string(),
-                        "ProcessType": "main",
-                        "ProductName": "Bar",
-                        "ReleaseChannel": "release",
-                        "Version": "100.0",
-                    }
-                },
-                "application": {
-                    "vendor": "FooCorp",
-                    "name": "Bar",
-                    "buildId": "1234",
-                    "displayVersion": "",
-                    "platformVersion": "",
-                    "version": "100.0",
-                    "channel": "release"
-                }
-            }}
-            .to_string(),
-        );
         self
     }
 
@@ -757,16 +709,13 @@ fn no_submit() {
 #[test]
 fn ping_and_event_files() {
     let mut test = GuiTest::new();
-    test.files
-        .add_dir("ping_dir")
-        .add_dir("events_dir")
-        .add_file(
-            "events_dir/minidump",
-            "1\n\
+    test.files.add_dir("events_dir").add_file(
+        "events_dir/minidump",
+        "1\n\
          12:34:56\n\
          e0423878-8d59-4452-b82e-cad9c846836e\n\
          {\"foo\":\"bar\"}",
-        );
+    );
     test.run(|interact| {
         interact.element("quit", |_style, b: &model::Button| b.click.fire(&()));
     });
@@ -774,7 +723,6 @@ fn ping_and_event_files() {
         .saved_settings(Settings::default())
         .submitted()
         .submission_event(true)
-        .ping()
         .check(
             "events_dir/minidump",
             format!(
@@ -785,7 +733,6 @@ fn ping_and_event_files() {
                 serde_json::json! {{
                     "foo": "bar",
                     "MinidumpSha256Hash": MOCK_MINIDUMP_SHA256,
-                    "CrashPingUUID": MOCK_PING_UUID,
                     "StackTraces": { "status": "OK" }
                 }}
             ),
@@ -796,16 +743,13 @@ fn ping_and_event_files() {
 fn network_failure() {
     let invoked = Counter::new();
     let mut test = GuiTest::new();
-    test.files
-        .add_dir("ping_dir")
-        .add_dir("events_dir")
-        .add_file(
-            "events_dir/minidump",
-            "1\n\
+    test.files.add_dir("events_dir").add_file(
+        "events_dir/minidump",
+        "1\n\
          12:34:56\n\
          e0423878-8d59-4452-b82e-cad9c846836e\n\
          {\"foo\":\"bar\"}",
-        );
+    );
     test.mock.set(
         net::http::MockHttp,
         Box::new(cc! { (invoked) move |_request, _url| {
@@ -821,7 +765,6 @@ fn network_failure() {
         .saved_settings(Settings::default())
         .pending()
         .submission_event(false)
-        .ping()
         .check(
             "events_dir/minidump",
             format!(
@@ -832,7 +775,6 @@ fn network_failure() {
                 serde_json::json! {{
                     "foo": "bar",
                     "MinidumpSha256Hash": MOCK_MINIDUMP_SHA256,
-                    "CrashPingUUID": MOCK_PING_UUID,
                     "StackTraces": { "status": "OK" }
                 }}
             ),
@@ -846,16 +788,13 @@ fn pingsender_failure() {
         Command::mock("work_dir/pingsender"),
         Box::new(|_| Err(ErrorKind::NotFound.into())),
     );
-    test.files
-        .add_dir("ping_dir")
-        .add_dir("events_dir")
-        .add_file(
-            "events_dir/minidump",
-            "1\n\
+    test.files.add_dir("events_dir").add_file(
+        "events_dir/minidump",
+        "1\n\
          12:34:56\n\
          e0423878-8d59-4452-b82e-cad9c846836e\n\
          {\"foo\":\"bar\"}",
-        );
+    );
     test.run(|interact| {
         interact.element("quit", |_style, b: &model::Button| b.click.fire(&()));
     });
@@ -863,7 +802,6 @@ fn pingsender_failure() {
         .saved_settings(Settings::default())
         .submitted()
         .submission_event(true)
-        .ping()
         .check(
             "events_dir/minidump",
             format!(
@@ -897,6 +835,87 @@ fn glean_ping() {
         interact.element("quit", |_style, b: &model::Button| b.click.fire(&()));
     });
     submitted_glean_ping.assert_one();
+}
+
+#[test]
+fn reads_profile_directory() {
+    let mut test = GuiTest::new();
+    let minidump_extra_contents = r#"{
+        "Vendor": "FooCorp",
+        "ProductName": "Bar",
+        "ProfileDirectory": "profile_dir",
+        "ReleaseChannel": "release",
+        "BuildID": "1234",
+        "AsyncShutdownTimeout": "{}",
+        "StackTraces": {
+            "status": "OK"
+        },
+        "Version": "100.0",
+        "ServerURL": "https://reports.example.com",
+        "TelemetryServerURL": "https://telemetry.example.com",
+        "TelemetryClientId": "telemetry_client",
+        "TelemetryProfileGroupId": "telemetry_profile_group",
+        "TelemetrySessionId": "telemetry_session",
+        "SomeNestedJson": { "foo": "bar" },
+        "URL": "https://url.example.com"
+    }"#;
+    test.files = {
+        let mock_files = MockFiles::new();
+        mock_files
+            .add_file_result(
+                "minidump.dmp",
+                Ok(MOCK_MINIDUMP_FILE.into()),
+                current_system_time(),
+            )
+            .add_file_result(
+                "minidump.extra",
+                Ok(minidump_extra_contents.into()),
+                current_system_time(),
+            )
+            .add_dir("profile_dir");
+        test.mock.set(MockFS, mock_files.clone());
+        mock_files
+    };
+    test.run(|interact| {
+        interact.element("quit", |_style, b: &model::Button| b.click.fire(&()));
+    });
+
+    assert_eq!(test.config.profile_dir, Some("profile_dir".into()));
+}
+
+#[test]
+#[ignore = "This test often passes, however it relies on Glean network scheduling, which has been
+    found to be unreliable for testing purposes. A more reliable unit test is in the glean module."]
+fn glean_ping_uses_pref() {
+    for pref_value in [false, true] {
+        let mut test = GuiTest::new();
+        test.enable_glean_pings();
+        // Set profile dir manually because glean is initialized earlier than the extra file is read
+        // in tests. We check that the profile dir is correctly read in another test.
+        test.config.profile_dir = Some("profile_dir".into());
+        test.files.add_dir("profile_dir").add_file(
+            "profile_dir/prefs.js",
+            format!(r#"user_pref("datareporting.healthreport.uploadEnabled", {pref_value});"#),
+        );
+
+        // Set a mock hook at the HTTP layer to check whether the ping is sent.
+        // test_before_next_send is called whether upload is enabled or not.
+        let submitted_glean_ping = Counter::new();
+        test.mock.set(
+            net::http::MockHttp,
+            Box::new(cc! { (submitted_glean_ping) move |_request, url| {
+                if url.starts_with("https://incoming.glean.example.com/submit/firefox-crashreporter-mock/crash") {
+                    submitted_glean_ping.inc();
+                }
+                Ok(Ok(vec!()))
+            }}),
+        );
+
+        test.run(|interact| {
+            interact.element("quit", |_style, b: &model::Button| b.click.fire(&()));
+        });
+        assert_eq!(submitted_glean_ping.count(), if pref_value { 1 } else { 0 });
+    }
 }
 
 #[test]

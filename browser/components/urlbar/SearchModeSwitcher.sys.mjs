@@ -138,11 +138,11 @@ export class SearchModeSwitcher {
     if (this.#isEnabled()) {
       this.updateSearchIcon();
 
-      if (
-        this.#input.searchMode?.engineName == "Perplexity" &&
-        !lazy.UrlbarPrefs.get("perplexity.hasBeenInSearchMode")
-      ) {
-        lazy.UrlbarPrefs.set("perplexity.hasBeenInSearchMode", true);
+      let engine = lazy.UrlbarSearchUtils.getEngineByName(
+        this.#input.searchMode?.engineName
+      );
+      if (engine && engine.isConfigEngine && !engine.hasBeenUsed) {
+        engine.markAsUsed();
       }
     }
   }
@@ -416,24 +416,7 @@ export class SearchModeSwitcher {
       ".searchmode-switcher-popup-footer-separator"
     );
 
-    let openSearchEngines = lazy.OpenSearchManager.getEngines(
-      browser.selectedBrowser
-    );
-    openSearchEngines = openSearchEngines.slice(
-      0,
-      SearchModeSwitcher.MAX_OPENSEARCH_ENGINES
-    );
-
-    for (let engine of openSearchEngines) {
-      let menuitem = this.#createButton(engine.title, engine.icon);
-      menuitem.classList.add("searchmode-switcher-addEngine");
-      menuitem.addEventListener("command", e => {
-        this.#installOpenSearchEngine(e, engine);
-      });
-      this.#popup.insertBefore(menuitem, separator);
-    }
-
-    // Add engines installed.
+    // Add installed engines.
     let engines = [];
     try {
       engines = await lazy.SearchService.getVisibleEngines();
@@ -466,10 +449,35 @@ export class SearchModeSwitcher {
         }
       );
 
-      this.#popup.insertBefore(menuitem, separator);
+      separator.before(menuitem);
     }
 
     await this.#buildLocalSearchModeList(separator);
+
+    // Add engines that can be installed.
+    let openSearchEngines = lazy.OpenSearchManager.getEngines(
+      browser.selectedBrowser
+    );
+    openSearchEngines = openSearchEngines.slice(
+      0,
+      SearchModeSwitcher.MAX_OPENSEARCH_ENGINES
+    );
+
+    for (let engine of openSearchEngines) {
+      let menuitem = this.#createButton(engine.title, engine.icon);
+      menuitem.classList.add("searchmode-switcher-addEngine");
+      this.#input.document.l10n.setAttributes(
+        menuitem,
+        "search-one-offs-add-engine",
+        {
+          engineName: engine.title,
+        }
+      );
+      menuitem.addEventListener("command", e => {
+        this.#installOpenSearchEngine(e, engine);
+      });
+      separator.after(menuitem);
+    }
 
     this.#popup.dispatchEvent(new Event("rebuild"));
   }
@@ -526,7 +534,7 @@ export class SearchModeSwitcher {
         }
       );
 
-      this.#popup.insertBefore(menuitem, separator);
+      separator.before(menuitem);
     }
   }
 
@@ -622,7 +630,7 @@ export class SearchModeSwitcher {
   }
 
   #createButton(label, icon) {
-    let menuitem = this.#input.window.document.createXULElement("menuitem");
+    let menuitem = this.#input.document.createXULElement("menuitem");
     menuitem.setAttribute("label", label);
     menuitem.setAttribute("class", "menuitem-iconic");
     menuitem.setAttribute("image", icon ?? DEFAULT_ENGINE_ICON);

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -42,8 +40,7 @@
 #  include "va/va.h"
 #endif
 
-#if defined(MOZ_AV1) && \
-    (defined(FFVPX_VERSION) || LIBAVCODEC_VERSION_MAJOR >= 59)
+#if defined(FFVPX_VERSION) || LIBAVCODEC_VERSION_MAJOR >= 59
 #  define FFMPEG_AV1_DECODE 1
 #  include "AOMDecoder.h"
 #endif
@@ -1076,10 +1073,10 @@ void FFmpegVideoDecoder<LIBAV_VER>::InitHWCodecContext(ContextType aType) {
 
   if (mCodecID == AV_CODEC_ID_H264) {
     mCodecContext->extra_hw_frames =
-        H264::ComputeMaxRefFrames(mInfo.mExtraData);
+        AssertedCast<int>(H264::ComputeMaxRefFrames(mInfo.mExtraData));
   } else if (mCodecID == AV_CODEC_ID_HEVC) {
     mCodecContext->extra_hw_frames =
-        H265::ComputeMaxRefFrames(mInfo.mExtraData);
+        AssertedCast<int>(H265::ComputeMaxRefFrames(mInfo.mExtraData));
   } else {
     mCodecContext->extra_hw_frames = EXTRA_HW_FRAMES;
   }
@@ -1117,22 +1114,24 @@ bool FFmpegVideoDecoder<LIBAV_VER>::DecodeStats::IsDecodingSlow() const {
 void FFmpegVideoDecoder<LIBAV_VER>::DecodeStats::UpdateDecodeTimes(
     int64_t aDuration) {
   TimeStamp now = TimeStamp::Now();
-  float decodeTime = (now - mDecodeStart).ToMilliseconds();
+  double decodeTime = (now - mDecodeStart).ToMilliseconds();
   mDecodeStart = now;
 
-  const float frameDuration = aDuration / 1000.0f;
-  if (frameDuration <= 0.0f) {
+  const double frameDuration = AssertedCast<double>(aDuration) / 1000.0;
+  if (frameDuration <= 0.0) {
     FFMPEGV_LOG("Incorrect frame duration, skipping decode stats.");
     return;
   }
 
   mDecodedFrames++;
   mAverageFrameDuration =
-      (mAverageFrameDuration * (mDecodedFrames - 1) + frameDuration) /
-      mDecodedFrames;
+      (mAverageFrameDuration * AssertedCast<double>(mDecodedFrames - 1) +
+       frameDuration) /
+      AssertedCast<double>(mDecodedFrames);
   mAverageFrameDecodeTime =
-      (mAverageFrameDecodeTime * (mDecodedFrames - 1) + decodeTime) /
-      mDecodedFrames;
+      (mAverageFrameDecodeTime * AssertedCast<double>(mDecodedFrames - 1) +
+       decodeTime) /
+      AssertedCast<double>(mDecodedFrames);
 
   FFMPEGV_LOG(
       "Frame decode takes %.2f ms average decode time %.2f ms frame duration "
@@ -1157,8 +1156,9 @@ void FFmpegVideoDecoder<LIBAV_VER>::DecodeStats::UpdateDecodeTimes(
   } else if (mLastDelayedFrameNum) {
     // Reset mDecodedFramesLate in case of correct decode during
     // mDelayedFrameReset period.
-    float correctPlaybackTime =
-        (mDecodedFrames - mLastDelayedFrameNum) * mAverageFrameDuration;
+    double correctPlaybackTime =
+        AssertedCast<double>(mDecodedFrames - mLastDelayedFrameNum) *
+        mAverageFrameDuration;
     if (correctPlaybackTime > mDelayedFrameReset) {
       FFMPEGV_LOG("  mLastFramePts reset due to seamless decode period");
       mDecodedFramesLate = 0;
@@ -2462,59 +2462,68 @@ bool FFmpegVideoDecoder<LIBAV_VER>::CanUseZeroCopyVideoFrame() const {
 #ifdef MOZ_WIDGET_ANDROID
 #  ifdef USING_MOZFFVPX
 MediaResult FFmpegVideoDecoder<LIBAV_VER>::AllocateExtraData() {
-  // Only H264 requires use to split the extradata between csd-0 and csd-1.
-  // Otherwise the NALU entries in the order that Android expects.
-  if (mCodecID != AV_CODEC_ID_H264) {
-    return FFmpegDataDecoder<LIBAV_VER>::AllocateExtraData();
-  }
-
   if (!mExtraData) {
-    FFMPEG_LOG("  H264 decoder has no extradata");
+    FFMPEG_LOG("  decoder has no extradata");
     mCodecContext->extradata_size = 0;
     return NS_OK;
   }
 
-  Span<const uint8_t> extradata(*mExtraData);
-  nsTArray<AnnexB::NALEntry> paramSets;
-  AnnexB::ParseNALEntries(extradata, paramSets);
-
-  size_t spsIndex = AnnexB::FindNalType(extradata, paramSets, H264_NAL_SPS,
-                                        /* aStartIndex */ 0);
-  if (spsIndex == SIZE_MAX) {
-    FFMPEG_LOG("  H264 extradata is missing SPS");
-    return NS_OK;
+  switch (mCodecID) {
+    case AV_CODEC_ID_H264:
+      return AllocateH264ExtraData();
+    case AV_CODEC_ID_HEVC:
+      return AllocateHEVCExtraData();
+    default:
+      break;
   }
 
-  size_t ppsIndex = AnnexB::FindNalType(extradata, paramSets, H264_NAL_PPS,
-                                        /* aStartIndex */ 0);
-  if (ppsIndex == SIZE_MAX) {
-    FFMPEG_LOG("  H264 extradata is missing PPS");
+  return FFmpegDataDecoder<LIBAV_VER>::AllocateExtraData();
+}
+
+MediaResult FFmpegVideoDecoder<LIBAV_VER>::AllocateH264ExtraData() {
+  // This will do any necessary reordering to place SPS first, then PPS.
+  size_t spsLength = 0;
+  RefPtr<MediaByteBuffer> extradata =
+      AnnexB::ConvertAVCCExtraDataToAnnexB(mExtraData, &spsLength);
+  if (!extradata || extradata->IsEmpty() || spsLength == 0) {
+    FFMPEG_LOG("  H264 extradata is missing SPS/PPS");
     return NS_OK;
-  }
-
-  const auto& spsEntry = paramSets.ElementAt(spsIndex);
-  const auto& ppsEntry = paramSets.ElementAt(ppsIndex);
-  const auto sps = extradata.Subspan(spsEntry.mOffset, spsEntry.mSize);
-  const auto pps = extradata.Subspan(ppsEntry.mOffset, ppsEntry.mSize);
-
-  CheckedInt<int> extradataSize(sps.Length());
-  extradataSize += pps.Length();
-  if (!extradataSize.isValid()) {
-    return MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
-                       RESULT_DETAIL("SPS/PPS extradata too large"));
   }
 
   mCodecContext->extradata =
-      static_cast<uint8_t*>(mLib->av_malloc(extradataSize.value()));
+      static_cast<uint8_t*>(mLib->av_malloc(extradata->Length()));
   if (!mCodecContext->extradata) {
     return MediaResult(NS_ERROR_OUT_OF_MEMORY,
                        RESULT_DETAIL("Couldn't init ffmpeg extradata"));
   }
 
-  mCodecContext->extradata_size = extradataSize.value();
-  mCodecContext->moz_extradata_offset = sps.Length();
-  memcpy(mCodecContext->extradata, sps.Elements(), sps.Length());
-  memcpy(mCodecContext->extradata + sps.Length(), pps.Elements(), pps.Length());
+  FFMPEG_LOG("  extracted %zu bytes of H264 extradata", extradata->Length());
+  mCodecContext->extradata_size = extradata->Length();
+  mCodecContext->moz_extradata_offset = spsLength;
+  memcpy(mCodecContext->extradata, extradata->Elements(), extradata->Length());
+  return NS_OK;
+}
+
+MediaResult FFmpegVideoDecoder<LIBAV_VER>::AllocateHEVCExtraData() {
+  // This will not reorder, but we are supposed to receive this in the correct
+  // order: SPS, PPS, then VPS.
+  RefPtr<MediaByteBuffer> extradata =
+      AnnexB::ConvertHVCCExtraDataToAnnexB(mExtraData);
+  if (!extradata || extradata->IsEmpty()) {
+    FFMPEG_LOG("  HEVC extradata is missing SPS/PPS/VPS");
+    return NS_OK;
+  }
+
+  mCodecContext->extradata =
+      static_cast<uint8_t*>(mLib->av_malloc(extradata->Length()));
+  if (!mCodecContext->extradata) {
+    return MediaResult(NS_ERROR_OUT_OF_MEMORY,
+                       RESULT_DETAIL("Couldn't init ffmpeg extradata"));
+  }
+
+  FFMPEG_LOG("  extracted %zu bytes of HEVC extradata", extradata->Length());
+  mCodecContext->extradata_size = extradata->Length();
+  memcpy(mCodecContext->extradata, extradata->Elements(), extradata->Length());
   return NS_OK;
 }
 #  endif
@@ -2671,6 +2680,7 @@ MediaResult FFmpegVideoDecoder<LIBAV_VER>::CreateImageMediaCodec(
   }
 
   auto listener = MakeUnique<CompositeListener>(this);
+  MOZ_ASSERT(!mFrameMap.Contains(listener.get()));
   mFrameMap.Insert(listener.get(), frame);
   img->RegisterSetCurrentCallback(std::move(listener));
 

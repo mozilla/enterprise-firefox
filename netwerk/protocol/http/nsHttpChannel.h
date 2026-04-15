@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set et cin ts=4 sw=2 sts=2: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -320,6 +318,7 @@ class nsHttpChannel final : public HttpBaseChannel,
 
   // Add Sec-Fetch-Storage-Access headers based on cookie partitioning
   void AddStorageAccessHeadersToRequest();
+  bool DispatchRelease();
 
  public:
   // returns whether this channel is a retry after receiving the
@@ -496,6 +495,8 @@ class nsHttpChannel final : public HttpBaseChannel,
    */
   [[nodiscard]] nsresult ProcessHSTSHeader(nsITransportSecurityInfo* aSecInfo);
 
+  [[nodiscard]] nsresult ProcessWAICTHeader();
+
   void InvalidateCacheEntryForLocation(const char* location);
   void AssembleCacheKey(const char* spec, uint32_t postID, nsACString& key);
   [[nodiscard]] nsresult CreateNewURI(const char* loc, nsIURI** newURI);
@@ -557,8 +558,9 @@ class nsHttpChannel final : public HttpBaseChannel,
   void SetCachedContentType();
 
  private:
-  // this section is for main-thread-only object
-  // all the references need to be proxy released on main thread.
+  // --- MAIN THREAD ONLY OBJECTS ---
+  // this section is for main-thread-only objects
+  // all the references need to be released on main thread.
   // auth specific data
   nsCOMPtr<nsIHttpChannelAuthProvider> mAuthProvider;
   nsCOMPtr<nsIURI> mRedirectURI;
@@ -583,8 +585,7 @@ class nsHttpChannel final : public HttpBaseChannel,
   // versions of itself, these may have the same URI (but likely different
   // hashes).
 
-  // Proxy release all members above on main thread.
-  void ReleaseMainThreadOnlyReferences();
+  // --- END OF MAIN THREAD ONLY OBJECTS SECTION ---
 
   // Called after the channel is made aware of its tracking status in order
   // to readjust the referrer if needed according to the referrer default
@@ -940,7 +941,7 @@ class nsHttpChannel final : public HttpBaseChannel,
  private:  // cache telemetry
   bool mDidReval{false};
 
-  RefPtr<nsIEarlyHintObserver> mEarlyHintObserver;
+  nsCOMPtr<nsIEarlyHintObserver> mEarlyHintObserver;
   Maybe<nsCString> mOpenerCallingScriptLocation;
   RefPtr<WebTransportSessionEventListener> mWebTransportSessionEventListener;
   nsMainThreadPtrHandle<nsIReplacedHttpResponse> mOverrideResponse;

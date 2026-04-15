@@ -20,10 +20,12 @@
 
 /* Splitter styling to match the left sidebar */
 #ai-window-splitter {
-  width: var(--splitter-width);
+  /* Matching sidebar "revamp" splitter width */
+  --splitter-width: var(--space-medium);
+  border-inline: calc((var(--space-medium) - var(--splitter-width)) / 2) solid transparent;
+  background-clip: padding-box;
   border: 0;
   background-color: transparent;
-  position: relative;
   z-index: var(--browser-area-z-index-sidebar-splitter);
 }
 

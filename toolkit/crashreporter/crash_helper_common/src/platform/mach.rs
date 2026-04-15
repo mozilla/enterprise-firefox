@@ -28,6 +28,8 @@ use thiserror::Error;
 
 use crate::IO_TIMEOUT;
 
+pub(crate) const CHILD_RENDEZVOUS_ANCILLARY_DATA_LEN: usize = 1;
+
 pub type Result<T> = result::Result<T, PlatformError>;
 
 pub type ProcessHandle = ();
@@ -68,6 +70,7 @@ pub trait AsRawPort {
     fn as_raw_port(&self) -> mach_port_t;
 }
 
+#[derive(Debug)]
 #[repr(transparent)]
 pub struct ReceiveRight(mach_port_name_t);
 
@@ -134,6 +137,7 @@ impl AsRawPort for ReceiveRight {
     }
 }
 
+#[derive(Debug)]
 #[repr(transparent)]
 pub struct SendRight(mach_port_name_t);
 
@@ -172,9 +176,36 @@ impl Drop for SendRight {
     }
 }
 
-pub enum OwnedRight {
+#[derive(Debug)]
+#[repr(transparent)]
+pub struct SendRightRef(mach_port_name_t);
+
+impl SendRightRef {
+    /// Create a shared send right from a raw port right name.
+    ///
+    /// # Safety
+    ///
+    /// `port` must be a valid send right to a Mach port.
+    pub unsafe fn from_raw_port(port: mach_port_name_t) -> SendRightRef {
+        SendRightRef(port)
+    }
+
+    pub fn into_raw_port(self) -> mach_port_name_t {
+        ManuallyDrop::new(self).0
+    }
+}
+
+impl AsRawPort for SendRightRef {
+    fn as_raw_port(&self) -> mach_port_name_t {
+        self.0
+    }
+}
+
+#[derive(Debug)]
+pub enum MachPortRight {
     Send(SendRight),
     Receive(ReceiveRight),
+    SendRef(SendRightRef),
 }
 
 /****************************************************************************

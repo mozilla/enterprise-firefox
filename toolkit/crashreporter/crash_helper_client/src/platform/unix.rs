@@ -90,10 +90,4 @@ impl CrashHelperClient {
             bail!("The crash helper process failed to start and exited with status: {status:?}");
         }
     }
-
-    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-    pub(crate) fn prepare_for_minidump(_pid: crash_helper_common::Pid) -> bool {
-        // This is a no-op on platforms that don't need it
-        true
-    }
 }

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -254,7 +252,7 @@ class RequestingAccessKeyEventData {
   static int32_t sBrowserParentCount;
 };
 int32_t RequestingAccessKeyEventData::sBrowserParentCount = 0;
-MOZ_RUNINIT Maybe<RequestingAccessKeyEventData::Data>
+constinit Maybe<RequestingAccessKeyEventData::Data>
     RequestingAccessKeyEventData::sData;
 
 namespace dom {
@@ -1272,11 +1270,7 @@ mozilla::ipc::IPCResult BrowserParent::RecvPDocAccessibleConstructor(
 
     mozilla::ipc::IPCResult added = parentDoc->AddChildDoc(doc, aParentID);
     if (!added) {
-#  ifdef DEBUG
       return added;
-#  else
-      return IPC_OK();
-#  endif
     }
 
 #  ifdef XP_WIN
@@ -1313,11 +1307,7 @@ mozilla::ipc::IPCResult BrowserParent::RecvPDocAccessibleConstructor(
             bridge->GetEmbedderAccessibleDoc()) {
       mozilla::ipc::IPCResult added = embedderDoc->AddChildDoc(bridge);
       if (!added) {
-#  ifdef DEBUG
         return added;
-#  else
-        return IPC_OK();
-#  endif
       }
     }
     return IPC_OK();
@@ -2307,6 +2297,12 @@ bool BrowserParent::SendHandleTap(
         }
       }
     }
+    // SetFocus may have run script (blur handlers) that destroyed this
+    // actor. Callers hold a strong reference to us to reading
+    // mIsDestroyed is safe, but do not send an IPC message in that case.
+    if (mIsDestroyed) {
+      return false;
+    }
   }
   return Manager()->IsInputPriorityEventEnabled()
              ? PBrowserParent::SendHandleTap(
@@ -3004,11 +3000,6 @@ mozilla::ipc::IPCResult BrowserParent::RecvOnLocationChange(
   browsingContext->SetCurrentRemoteURI(aLocation);
 
   nsCOMPtr<nsIBrowser> browser = GetBrowser();
-  if (!mozilla::SessionHistoryInParent() && browser) {
-    (void)browser->UpdateWebNavigationForLocationChange(
-        aCanGoBack, aCanGoBackIgnoringUserInteraction, aCanGoForward);
-  }
-
   if (aLocationChangeData.isSome()) {
     if (!browsingContext->IsTopContent()) {
       return IPC_FAIL(this,
@@ -3380,6 +3371,15 @@ void BrowserParent::UpdateFocusFromBrowsingContext() {
   }
 }
 
+mozilla::ipc::IPCResult BrowserParent::RecvPerformHapticFeedback(
+    mozilla::HapticFeedbackType aType) {
+  nsCOMPtr<nsIWidget> widget = GetTopLevelWidget();
+  if (widget) {
+    widget->PerformHapticFeedback(aType);
+  }
+  return IPC_OK();
+}
+
 /* static */
 BrowserParent* BrowserParent::UpdateFocus() {
   if (!sTopLevelWebFocus) {
@@ -3726,12 +3726,6 @@ bool BrowserParent::CanCancelContentJS(
     nsIURI* aNavigationURI) const {
   // Pre-checking if we can cancel content js in the parent is only
   // supported when session history in the parent is enabled.
-  if (!mozilla::SessionHistoryInParent()) {
-    // If session history in the parent isn't enabled, this check will
-    // be fully done in BrowserChild::CanCancelContentJS
-    return true;
-  }
-
   nsCOMPtr<nsISHistory> history = mBrowsingContext->GetSessionHistory();
 
   if (!history) {

@@ -10,14 +10,13 @@ import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.mozilla.fenix.customannotations.SmokeTest
+import org.mozilla.fenix.helpers.FenixTestRule
 import org.mozilla.fenix.helpers.HomeActivityTestRule
 import org.mozilla.fenix.helpers.MatcherHelper.itemContainingText
-import org.mozilla.fenix.helpers.MatcherHelper.itemWithResIdAndText
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithText
 import org.mozilla.fenix.helpers.RetryTestRule
 import org.mozilla.fenix.helpers.TestAssetHelper.getGenericAsset
 import org.mozilla.fenix.helpers.TestHelper.mDevice
-import org.mozilla.fenix.helpers.TestSetup
 import org.mozilla.fenix.helpers.perf.DetectMemoryLeaksRule
 import org.mozilla.fenix.ui.robots.browserScreen
 import org.mozilla.fenix.ui.robots.clickContextMenuItem
@@ -29,8 +28,13 @@ import org.mozilla.fenix.ui.robots.openEditURLView
 import org.mozilla.fenix.ui.robots.searchScreen
 import org.mozilla.fenix.ui.robots.shareOverlay
 
-class TextSelectionTest : TestSetup() {
+class TextSelectionTest {
     @get:Rule(order = 0)
+    val fenixTestRule: FenixTestRule = FenixTestRule()
+
+    private val mockWebServer get() = fenixTestRule.mockWebServer
+
+    @get:Rule
     val composeTestRule =
         AndroidComposeTestRule(
             HomeActivityTestRule(
@@ -42,10 +46,10 @@ class TextSelectionTest : TestSetup() {
             ),
         ) { it.activity }
 
-    @get:Rule(order = 1)
+    @get:Rule
     val memoryLeaksRule = DetectMemoryLeaksRule()
 
-    @Rule(order = 2)
+    @Rule
     @JvmField
     val retryTestRule = RetryTestRule(3)
 
@@ -124,7 +128,6 @@ class TextSelectionTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/2326831
-    @Ignore("Disabled after enabling the composable toolbar and main menu: https://bugzilla.mozilla.org/show_bug.cgi?id=2006295")
     @SmokeTest
     @Test
     fun verifyPrivateSearchTextTest() {
@@ -138,8 +141,7 @@ class TextSelectionTest : TestSetup() {
             verifyPageContent(genericURL.content)
             longClickPageObject(composeTestRule, itemContainingText("content"))
             clickContextMenuItem("Private Search")
-            mDevice.waitForIdle()
-            verifyTabCounter("2")
+            verifyTabCounter("2", isPrivateBrowsingEnabled = true)
             verifyUrl("content")
         }
     }
@@ -154,7 +156,7 @@ class TextSelectionTest : TestSetup() {
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(genericURL.url) {
             clickPageObject(composeTestRule, itemWithText("PDF form file"))
-            clickPageObject(composeTestRule, itemWithResIdAndText("android:id/button2", "Cancel"))
+            clickPageObject(composeTestRule, itemContainingText("Cancel"))
             waitForPageToLoad()
             longClickPageObject(composeTestRule, itemContainingText("Crossing"))
             clickContextMenuItem("Select all")
@@ -184,7 +186,7 @@ class TextSelectionTest : TestSetup() {
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(genericURL.url) {
             clickPageObject(composeTestRule, itemWithText("PDF form file"))
-            clickPageObject(composeTestRule, itemWithResIdAndText("android:id/button2", "Cancel"))
+            clickPageObject(composeTestRule, itemContainingText("Cancel"))
             longClickPageObject(composeTestRule, itemContainingText("Crossing"))
             clickContextMenuItem("Copy")
         }.openNavigationToolbar {
@@ -207,7 +209,7 @@ class TextSelectionTest : TestSetup() {
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(genericURL.url) {
             clickPageObject(composeTestRule, itemWithText("PDF form file"))
-            clickPageObject(composeTestRule, itemWithResIdAndText("android:id/button2", "Cancel"))
+            clickPageObject(composeTestRule, itemContainingText("Cancel"))
             longClickPageObject(composeTestRule, itemContainingText("Crossing"))
         }.clickShareSelectedText {
             verifyAndroidShareLayout()
@@ -224,7 +226,7 @@ class TextSelectionTest : TestSetup() {
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(genericURL.url) {
             clickPageObject(composeTestRule, itemWithText("PDF form file"))
-            clickPageObject(composeTestRule, itemWithResIdAndText("android:id/button2", "Cancel"))
+            clickPageObject(composeTestRule, itemContainingText("Cancel"))
             longClickPageObject(composeTestRule, itemContainingText("Crossing"))
             clickContextMenuItem("Search")
             verifyUrl("Crossing")
@@ -233,7 +235,6 @@ class TextSelectionTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/2326837
-    @Ignore("Disabled after enabling the composable toolbar and main menu: https://bugzilla.mozilla.org/show_bug.cgi?id=2006295")
     @Test
     fun verifyPrivateSearchPDFTextOptionTest() {
         val genericURL =
@@ -245,11 +246,11 @@ class TextSelectionTest : TestSetup() {
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(genericURL.url) {
             clickPageObject(composeTestRule, itemWithText("PDF form file"))
-            clickPageObject(composeTestRule, itemWithResIdAndText("android:id/button2", "Cancel"))
+            clickPageObject(composeTestRule, itemContainingText("Cancel"))
             longClickPageObject(composeTestRule, itemContainingText("Crossing"))
             clickContextMenuItem("Private Search")
             verifyUrl("Crossing")
-            verifyTabCounter("2")
+            verifyTabCounter("2", isPrivateBrowsingEnabled = true)
         }
     }
 

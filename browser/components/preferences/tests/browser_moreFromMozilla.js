@@ -131,7 +131,7 @@ add_task(async function testwhenPrefDisabled() {
 });
 
 add_task(async function test_aboutpreferences_event_telemetry() {
-  Services.telemetry.clearEvents();
+  Services.fog.testResetFOG();
 
   await SpecialPowers.pushPrefEnv({
     set: [["browser.preferences.moreFromMozilla", true]],
@@ -152,17 +152,20 @@ add_task(async function test_aboutpreferences_event_telemetry() {
   moreFromMozillaCategory.click();
   await clickedPromise;
 
-  TelemetryTestUtils.assertEvents(
-    [["aboutpreferences", "show", "initial", "paneGeneral"]],
-    { category: "aboutpreferences", method: "show", object: "initial" },
-    { clear: false }
+  let showInitialEvents = Glean.aboutpreferences.showInitial.testGetValue();
+  let showClickEvents = Glean.aboutpreferences.showClick.testGetValue();
+  Assert.equal(showInitialEvents.length, 1, "One show initial");
+  Assert.equal(showClickEvents.length, 1, "One show click");
+  Assert.equal(
+    showInitialEvents[0].extra.value,
+    "paneGeneral",
+    "Show initial on general"
   );
-  TelemetryTestUtils.assertEvents(
-    [["aboutpreferences", "show", "click", "paneMoreFromMozilla"]],
-    { category: "aboutpreferences", method: "show", object: "click" },
-    { clear: false }
+  Assert.equal(
+    showClickEvents[0].extra.value,
+    "paneMoreFromMozilla",
+    "Show click on More from Mozilla"
   );
-  TelemetryTestUtils.assertNumberOfEvents(2, { category: "aboutpreferences" });
   BrowserTestUtils.removeTab(gBrowser.selectedTab);
 });
 

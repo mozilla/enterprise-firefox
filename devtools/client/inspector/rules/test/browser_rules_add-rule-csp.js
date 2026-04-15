@@ -27,7 +27,7 @@ add_task(async function () {
   await addNewRuleAndDismissEditor(inspector, view, "#testid", 1);
 
   info("Adding a new property for this rule");
-  const ruleEditor = getRuleViewRuleEditor(view, 1);
+  const ruleEditor = getRuleViewRuleEditorAt(view, 1);
 
   const onRuleViewChanged = view.once("ruleview-changed");
   ruleEditor.addProperty("color", "red", "", true);

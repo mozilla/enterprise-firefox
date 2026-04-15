@@ -5,12 +5,14 @@
 package org.mozilla.fenix.reviewprompt
 
 import androidx.annotation.VisibleForTesting
+import kotlinx.coroutines.CancellationException
 import mozilla.components.lib.state.Middleware
 import mozilla.components.lib.state.Store
 import mozilla.components.service.nimbus.evalJexlSafe
 import mozilla.components.service.nimbus.messaging.use
 import org.mozilla.experiments.nimbus.NimbusEventStore
 import org.mozilla.experiments.nimbus.NimbusMessagingHelperInterface
+import org.mozilla.fenix.GleanMetrics.CustomReviewPrompt
 import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.components.appstate.AppAction.ReviewPromptAction.CheckIfEligibleForReviewPrompt
 import org.mozilla.fenix.components.appstate.AppAction.ReviewPromptAction.DoNotShowReviewPrompt
@@ -27,6 +29,7 @@ private const val REVIEW_PROMPT_SHOWN_NIMBUS_EVENT_ID = "review_prompt_shown"
  *
  * @param shouldUseNewTriggerCriteria If true uses new main and sub-criteria, if false falls back to legacy criteria.
  * @param shouldShowCustomPrompt If true enables showing custom prompt UI, if false falls back to Play Store prompt.
+ * @param disableCustomPrompt Update settings to disable the custom prompt UI.
  * @param createJexlHelper Returns a helper for evaluating JEXL expressions.
  * @param buildTriggerMainCriteria Builds a sequence of trigger's main criteria that all need to be true.
  * @param buildTriggerSubCriteria Builds a sequence of trigger's sub-criteria.
@@ -37,6 +40,7 @@ private const val REVIEW_PROMPT_SHOWN_NIMBUS_EVENT_ID = "review_prompt_shown"
 class ReviewPromptMiddleware(
     private val shouldUseNewTriggerCriteria: () -> Boolean,
     private val shouldShowCustomPrompt: () -> Boolean,
+    private val disableCustomPrompt: () -> Unit,
     private val createJexlHelper: () -> NimbusMessagingHelperInterface,
     private val buildTriggerMainCriteria: (NimbusMessagingHelperInterface) -> Sequence<Boolean> =
         TriggerBuilder::mainCriteria,
@@ -62,18 +66,6 @@ class ReviewPromptMiddleware(
             }
         }
 
-        /**
-         * WARNING!
-         *
-         * It's important that at least one criterion other than the 4 month limit evaluates to false
-         * if Nimbus SDK database fails and loses all events from the event store.
-         * In such case [hasNotBeenPromptedLastFourMonths] will return true and allow showing the prompt.
-         * Another check MUST return false to block the prompt from showing repeatedly.
-         *
-         * See also:
-         *  * [hasBeenOpenedSeveralTimes]
-         *  * https://bugzilla.mozilla.org/show_bug.cgi?id=2001801
-         */
         fun legacyCriteria(
             jexlHelper: NimbusMessagingHelperInterface,
         ): Sequence<Boolean> {
@@ -97,7 +89,7 @@ class ReviewPromptMiddleware(
 
         when (action) {
             CheckIfEligibleForReviewPrompt -> handleReviewPromptCheck(store)
-            ReviewPromptShown -> nimbusEventStore.recordEvent(REVIEW_PROMPT_SHOWN_NIMBUS_EVENT_ID)
+            ReviewPromptShown -> handleReviewPromptShown()
             DoNotShowReviewPrompt -> Unit
             ShowCustomReviewPrompt -> Unit
             ShowPlayStorePrompt -> Unit
@@ -140,6 +132,31 @@ class ReviewPromptMiddleware(
         } else {
             store.dispatch(DoNotShowReviewPrompt)
         }
+    }
+
+    private fun handleReviewPromptShown() {
+        nimbusEventStore.recordEventOrThrow(eventId = REVIEW_PROMPT_SHOWN_NIMBUS_EVENT_ID)
+            .invokeOnCompletion { cause ->
+                when (cause) {
+                    null -> recordResult("success")
+                    is CancellationException -> recordResult("cancelled")
+                    else -> {
+                        // Failed.
+                        disableCustomPrompt()
+                        recordResult("error")
+                    }
+                }
+            }
+    }
+
+    /**
+     * Send telemetry for a result of [NimbusEventStore.recordEventOrThrow].
+     */
+    private fun recordResult(result: String) {
+        CustomReviewPrompt.nimbusEventRecorded.record(
+            CustomReviewPrompt.NimbusEventRecordedExtra(result),
+        )
+        CustomReviewPrompt.recordNimbusEventAttempts[result].add(1)
     }
 }
 
@@ -196,16 +213,6 @@ internal fun usedAppOnAtLeastFourOfLastSevenDays(
  * Kept so we can fall back to it in case the custom review prompt is disabled with a kill-switch.
  *
  * Note: Because Nimbus limits data to 4 calendar years, this will ignore app opens before then.
- *
- * WARNING!
- * This is intentionally using an expression based on the `app_opened` event,
- * not the `number_of_app_launches` custom attribute.
- * This means this condition will return false if the event store loses all events,
- * which helps protect from repeatedly showing the prompt in case Nimbus SDK database fails.
- *
- * See also:
- *  * [ReviewPromptMiddleware.TriggerBuilder.legacyCriteria]
- *  * https://bugzilla.mozilla.org/show_bug.cgi?id=2001801
  */
 @VisibleForTesting
 internal fun hasBeenOpenedSeveralTimes(

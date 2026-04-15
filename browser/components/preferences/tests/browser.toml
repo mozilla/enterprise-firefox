@@ -4,11 +4,10 @@ prefs = [
   "signon.management.page.os-auth.enabled=true",
   "browser.backup.archive.enabled=false",
   "browser.backup.restore.enabled=false",
-  "browser.backup.archive.overridePlatformCheck=true",
-  "browser.backup.restore.overridePlatformCheck=true",
 ]
 support-files = [
   "head.js",
+  "head_smart_window.js",
   "privacypane_tests_perwindow.js",
   "addons/pl-dictionary.xpi",
   "addons/set_homepage.xpi",
@@ -29,9 +28,13 @@ run-if = [
 
 ["browser_aiFeatures_chatbot.js"]
 
-["browser_aiFeatures_memories.js"]
+["browser_aiFeatures_smart_window.js"]
 
-["browser_aiFeatures_model_settings.js"]
+["browser_aiFeatures_smart_window_memories.js"]
+
+["browser_aiFeatures_smart_window_model_settings.js"]
+
+["browser_aiFeatures_smart_window_telemetry.js"]
 
 ["browser_aiFeatures_telemetry.js"]
 
@@ -39,16 +42,20 @@ run-if = [
 
 ["browser_application_xml_handle_internally.js"]
 
+["browser_application_xml_handle_internally_xul.js"]
+
 ["browser_applications_selection.js"]
 
+["browser_applications_selection_xul.js"]
+
 ["browser_backup_visibility.js"]
+
+["browser_backup_warning_banner.js"]
 
 ["browser_browser_languages_subdialog.js"]
 skip-if = [
   "tsan",
 ]
-
-["browser_bug410900.js"]
 
 ["browser_bug731866.js"]
 
@@ -72,6 +79,11 @@ support-files = ["browser_bug1184989_prevent_scrolling_when_preferences_flipped.
 ["browser_cert_export.js"]
 
 ["browser_change_app_handler.js"]
+run-if = [
+  "os == 'win'", # Windows-specific handler application selection dialog
+]
+
+["browser_change_app_handler_xul.js"]
 run-if = [
   "os == 'win'", # Windows-specific handler application selection dialog
 ]
@@ -112,9 +124,6 @@ skip-if = [
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && opt",
 ]
 
-
-["browser_defaultbrowser_alwayscheck.js"]
-
 ["browser_dns_over_https_exceptions_subdialog.js"]
 
 ["browser_downloads.js"]
@@ -139,7 +148,9 @@ skip-if = [
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11'", # Bug 1969933
   "os == 'mac' && os_version == '10.15' && arch == 'x86_64' && opt", # Bug 1969933
   "os == 'win' && os_version == '11.26100' && arch == 'x86'", # Bug 1969933
+  "os == 'win' && os_version == '11.26200' && arch == 'x86'", # Bug 1969933
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64'", # Bug 1969933
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64'", # Bug 1969933
 ]
 
 ["browser_experimental_features_hidden_when_not_public.js"]
@@ -157,7 +168,23 @@ skip-if = [
 
 ["browser_filetype_dialog.js"]
 
+["browser_filetype_dialog_xul.js"]
+
 ["browser_fluent.js"]
+
+["browser_homepage_custom_homepage_add_multiple_urls.js"]
+
+["browser_homepage_custom_homepage_add_urls.js"]
+
+["browser_homepage_custom_homepage_bookmark.js"]
+
+["browser_homepage_custom_homepage_current_pages.js"]
+
+["browser_homepage_custom_homepage_empty_state.js"]
+
+["browser_homepage_custom_homepage_manage_urls.js"]
+
+["browser_homepage_custom_homepage_policy.js"]
 
 ["browser_homepage_default.js"]
 
@@ -235,11 +262,16 @@ fail-if = [
 ["browser_open_download_preferences.js"]
 support-files = ["empty_pdf_file.pdf"]
 
+["browser_open_download_preferences_xul.js"]
+support-files = ["empty_pdf_file.pdf"]
+
 ["browser_open_migration_wizard.js"]
 
 ["browser_password_management.js"]
 
 ["browser_pdf_disabled.js"]
+
+["browser_pdf_disabled_xul.js"]
 
 ["browser_performance.js"]
 
@@ -280,6 +312,7 @@ skip-if = [
 ["browser_privacy_dnsoverhttps.js"]
 skip-if = [
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && debug", # Bug 2009120
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && debug", # Bug 2009120
 ]
 
 ["browser_privacy_gpc.js"]
@@ -331,6 +364,9 @@ skip-if = [
 ["browser_searchRestoreDefaults.js"]
 
 ["browser_searchScroll.js"]
+skip-if = [
+  "os == 'win' && os_version == '11.26200' && asan", # Bug 2019745
+]
 support-files = ["!/gfx/layers/apz/test/mochitest/apz_test_native_event_utils.js"]
 
 ["browser_searchShowSuggestionsFirst.js"]

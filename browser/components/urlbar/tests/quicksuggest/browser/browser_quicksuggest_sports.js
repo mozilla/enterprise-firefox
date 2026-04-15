@@ -150,6 +150,18 @@ const SUGGESTION_VALUE_NHL_SCHEDULED = {
   sport: "NHL",
 };
 
+// MLB game (baseball), live
+const SUGGESTION_VALUE_MLB_LIVE = {
+  ...SUGGESTION_VALUE_LIVE,
+  sport: "MLB",
+};
+
+// MLB game (baseball), scheduled
+const SUGGESTION_VALUE_MLB_SCHEDULED = {
+  ...SUGGESTION_VALUE_SCHEDULED,
+  sport: "MLB",
+};
+
 add_setup(async function () {
   await SearchTestUtils.installSearchExtension({}, { setAsDefault: true });
   registerCleanupFunction(async () => {
@@ -182,10 +194,12 @@ add_task(async function manyItems() {
       SUGGESTION_VALUE_NBA_LIVE,
       SUGGESTION_VALUE_NFL_LIVE,
       SUGGESTION_VALUE_NHL_LIVE,
+      SUGGESTION_VALUE_MLB_LIVE,
       // scheduled games with known sports -- should use date chiclet
       SUGGESTION_VALUE_NBA_SCHEDULED,
       SUGGESTION_VALUE_NFL_SCHEDULED,
       SUGGESTION_VALUE_NHL_SCHEDULED,
+      SUGGESTION_VALUE_MLB_SCHEDULED,
     ]),
     expectedItems: [
       // games with unknown sports -- should use date chiclet
@@ -376,6 +390,39 @@ add_task(async function manyItems() {
           },
         },
       },
+      {
+        item: {
+          attributes: {
+            sport: "MLB",
+            status: "live",
+          },
+        },
+        image: null,
+        image_container: {
+          attributes: {
+            "is-fallback": "",
+          },
+          backgroundImage:
+            'url("chrome://browser/skin/urlbar/sports-baseball.svg")',
+        },
+        "scheduled-date-chiclet-day": {
+          isHidden: true,
+        },
+        "scheduled-date-chiclet-month": {
+          isHidden: true,
+        },
+        "sport-name": "MLB",
+        "home-team-name": "Team 2 Home",
+        "home-team-score": "1",
+        "away-team-name": "Team 2 Away",
+        "away-team-score": "0",
+        date: "Today",
+        status: {
+          l10n: {
+            id: "urlbar-result-sports-status-live",
+          },
+        },
+      },
 
       // scheduled games with known sports -- should use date chiclet
       {
@@ -466,6 +513,42 @@ add_task(async function manyItems() {
         "scheduled-date-chiclet-day": "1",
         "scheduled-date-chiclet-month": "Nov",
         "sport-name": "NHL",
+        "team-names": {
+          l10n: {
+            id: "urlbar-result-sports-team-names",
+            args: {
+              homeTeam: "Team 3 Home",
+              awayTeam: "Team 3 Away",
+            },
+          },
+        },
+        date: {
+          l10n: {
+            id: "urlbar-result-sports-game-date-with-time",
+            args: {
+              date: "Tomorrow",
+              time: "1:00 PM GMT-4",
+            },
+          },
+        },
+        status: "",
+      },
+      {
+        item: {
+          attributes: {
+            sport: "MLB",
+            status: "scheduled",
+          },
+        },
+        image: null,
+        image_container: {
+          attributes: {
+            "is-fallback": "",
+          },
+        },
+        "scheduled-date-chiclet-day": "1",
+        "scheduled-date-chiclet-month": "Nov",
+        "sport-name": "MLB",
         "team-names": {
           l10n: {
             id: "urlbar-result-sports-team-names",

@@ -46,14 +46,18 @@ export class UrlbarProviderRecentSearches extends UrlbarProvider {
   }
 
   async isActive(queryContext) {
+    if (queryContext.sapName == "searchbar") {
+      // On the searchbar, we show recent searches of all engines,
+      // regardless of searchmode or prefs.
+      return !queryContext.searchString;
+    }
+
     return (
       lazy.UrlbarPrefs.get(ENABLED_PREF) &&
       lazy.UrlbarPrefs.get(SUGGEST_PREF) &&
       !queryContext.searchString &&
-      // On the searchbar, we show recent searches of all engines,
-      // regardless of the searchmode.
-      ((!queryContext.searchMode && !queryContext.restrictSource) ||
-        queryContext.sapName == "searchbar")
+      !queryContext.searchMode &&
+      !queryContext.restrictSource
     );
   }
 
@@ -134,7 +138,10 @@ export class UrlbarProviderRecentSearches extends UrlbarProvider {
     );
     results.sort((a, b) => b.lastUsed - a.lastUsed);
 
-    if (results.length > lazy.UrlbarPrefs.get("recentsearches.maxResults")) {
+    if (
+      queryContext.sapName != "searchbar" &&
+      results.length > lazy.UrlbarPrefs.get("recentsearches.maxResults")
+    ) {
       results.length = lazy.UrlbarPrefs.get("recentsearches.maxResults");
     }
 

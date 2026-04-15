@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -65,8 +63,6 @@ using namespace mozilla::gfx;
 using namespace mozilla::image;
 using mozilla::CSSSizeOrRatio;
 using mozilla::dom::Document;
-
-static int gFrameTreeLockCount = 0;
 
 // To avoid storing this data on nsInlineFrame (bloat) and to avoid
 // recalculating this for each frame in a continuation (perf), hold
@@ -265,8 +261,6 @@ struct InlineBackgroundData {
 
   void SetFrame(nsIFrame* aFrame) {
     MOZ_ASSERT(aFrame, "Need a frame");
-    NS_ASSERTION(gFrameTreeLockCount > 0,
-                 "Can't call this when frame tree is not locked");
 
     if (aFrame == mFrame) {
       return;
@@ -1335,12 +1329,8 @@ ComputedStyle* nsCSSRendering::FindBackground(const nsIFrame* aForFrame) {
   return nullptr;
 }
 
-void nsCSSRendering::BeginFrameTreesLocked() { ++gFrameTreeLockCount; }
-
-void nsCSSRendering::EndFrameTreesLocked() {
-  NS_ASSERTION(gFrameTreeLockCount > 0, "Unbalanced EndFrameTreeLocked");
-  --gFrameTreeLockCount;
-  if (gFrameTreeLockCount == 0) {
+void nsCSSRendering::PresShellChanged() {
+  if (gInlineBGData) {
     gInlineBGData->Reset();
   }
 }
@@ -1833,7 +1823,7 @@ ImgDrawResult nsCSSRendering::PaintStyleImageLayer(const PaintBGParams& aParams,
     // a root, otherwise keep going in order to let the theme stuff
     // draw the background. The canvas really should be drawing the
     // bg, but there's no way to hook that up via css.
-    if (!aParams.frame->StyleDisplay()->HasAppearance()) {
+    if (!aParams.frame->StyleDisplay()->HasNativeAppearance()) {
       return ImgDrawResult::SUCCESS;
     }
 
@@ -1917,7 +1907,7 @@ ImgDrawResult nsCSSRendering::BuildWebRenderDisplayItemsForStyleImageLayer(
     // a root, otherwise keep going in order to let the theme stuff
     // draw the background. The canvas really should be drawing the
     // bg, but there's no way to hook that up via css.
-    if (!aParams.frame->StyleDisplay()->HasAppearance()) {
+    if (!aParams.frame->StyleDisplay()->HasNativeAppearance()) {
       return ImgDrawResult::SUCCESS;
     }
 

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -37,6 +35,7 @@
 #include "mozilla/AccessibleCaretEventHub.h"
 #include "mozilla/Baseline.h"
 #include "mozilla/BasicEvents.h"
+#include "mozilla/CheckedInt.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/DisplayPortUtils.h"
 #include "mozilla/EffectCompositor.h"
@@ -815,12 +814,7 @@ FrameChildListID nsLayoutUtils::GetChildListNameFor(nsIFrame* aChildFrame) {
       id = FrameChildListID::OverflowContainers;
     }
   } else {
-    LayoutFrameType childType = aChildFrame->Type();
-    if (LayoutFrameType::TableColGroup == childType) {
-      id = FrameChildListID::ColGroup;
-    } else {
-      id = FrameChildListID::Principal;
-    }
+    id = FrameChildListID::Principal;
   }
 
 #ifdef DEBUG
@@ -2760,7 +2754,7 @@ static void DumpBeforePaintDisplayList(UniquePtr<std::stringstream>& aStream,
       string.AppendInt(paintCount);
     }
     string.AppendLiteral(".html");
-    gfxUtils::sDumpPaintFile = fopen(string.BeginReading(), "w");
+    gfxUtils::sDumpPaintFile = fopen(string.get(), "w");
   } else {
     gfxUtils::sDumpPaintFile = stderr;
   }
@@ -4660,7 +4654,7 @@ nscoord nsLayoutUtils::IntrinsicForAxis(
   // so we work in the parent's writing mode; but if aFrame is orthogonal to
   // its parent, we'll need to look at its BSize instead of min/pref-ISize.
   const nsStylePosition* stylePos = aFrame->StylePosition();
-  StyleBoxSizing boxSizing = stylePos->mBoxSizing;
+  const StyleBoxSizing boxSizing = stylePos->mBoxSizing;
   PhysicalAxis ourInlineAxis =
       aFrame->GetWritingMode().PhysicalAxis(LogicalAxis::Inline);
   const bool isInlineAxis = aAxis == ourInlineAxis;
@@ -4810,18 +4804,11 @@ nscoord nsLayoutUtils::IntrinsicForAxis(
   // don't even bother getting the frame's intrinsic width, because in
   // this case GetAbsoluteSize(styleISize) will always succeed, so
   // we'll never need the intrinsic dimensions.
-  if (styleISize->IsMaxContent() || styleISize->IsMinContent()) {
-    MOZ_ASSERT(isInlineAxis);
-    // -moz-fit-content and -moz-available enumerated widths compute intrinsic
-    // widths just like auto.
-    // For max-content and min-content, we handle them like
-    // specified widths, but ignore box-sizing.
-    boxSizing = StyleBoxSizing::ContentBox;
-  } else if (!styleISize->ConvertsToLength() &&
-             !(styleISize->IsFitContentFunction() &&
-               styleISize->AsFitContentFunction().ConvertsToLength()) &&
-             !(fixedMaxISize && fixedMinISize &&
-               *fixedMaxISize <= *fixedMinISize)) {
+  if (!styleISize->ConvertsToLength() && !styleISize->IsMinContent() &&
+      !styleISize->IsMaxContent() &&
+      !(styleISize->IsFitContentFunction() &&
+        styleISize->AsFitContentFunction().ConvertsToLength()) &&
+      !(fixedMaxISize && fixedMinISize && *fixedMaxISize <= *fixedMinISize)) {
     if (MOZ_UNLIKELY(!isInlineAxis)) {
       IntrinsicSize intrinsicSize = aFrame->GetIntrinsicSize();
       const auto& intrinsicBSize =
@@ -4953,16 +4940,11 @@ nscoord nsLayoutUtils::IntrinsicForAxis(
        nsIFrame::IsIntrinsicKeyword(*styleMinISize) ||
        nsIFrame::IsIntrinsicKeyword(*styleMaxISize))) {
     if (Maybe<nscoord> bSize = GetBSize(styleBSize)) {
-      // We cannot reuse |boxSizing| because it may be updated to content-box
-      // in the above if-branch.
-      const StyleBoxSizing boxSizingForAR = stylePos->mBoxSizing;
       if (!contentEdgeToBoxSizing) {
-        contentEdgeToBoxSizing.emplace(
-            GetContentEdgeToBoxSizing(boxSizingForAR));
+        contentEdgeToBoxSizing.emplace(GetContentEdgeToBoxSizing(boxSizing));
       }
-      nscoord bSizeTakenByBoxSizing =
-          GetDefiniteSizeTakenByBoxSizing(boxSizingForAR, aFrame, !isInlineAxis,
-                                          ignorePadding, aPercentageBasis);
+      nscoord bSizeTakenByBoxSizing = GetDefiniteSizeTakenByBoxSizing(
+          boxSizing, aFrame, !isInlineAxis, ignorePadding, aPercentageBasis);
 
       *bSize -= bSizeTakenByBoxSizing;
       iSizeFromAspectRatio.emplace(ar.ComputeRatioDependentSize(
@@ -7120,6 +7102,33 @@ SurfaceFromElementResult nsLayoutUtils::SurfaceFromImageBitmap(
   return aImageBitmap->SurfaceFrom(aSurfaceFlags);
 }
 
+/* static */
+Maybe<IntSize> nsLayoutUtils::ComputeResizedSize(
+    const IntSize& aSrcSize, const Maybe<int32_t>& aResizeWidth,
+    const Maybe<int32_t>& aResizeHeight) {
+  int32_t dstWidth = aResizeWidth.valueOr(0);
+  int32_t dstHeight = aResizeHeight.valueOr(0);
+  if (!dstWidth && !dstHeight) {
+    return Some(aSrcSize);
+  }
+  if (!dstWidth) {
+    CheckedInt<int32_t> checked =
+        CheckedInt<int32_t>(aSrcSize.width) * dstHeight;
+    if (!checked.isValid()) {
+      return Nothing();
+    }
+    dstWidth = NSToIntCeil(checked.value() / double(aSrcSize.height));
+  } else if (!dstHeight) {
+    CheckedInt<int32_t> checked =
+        CheckedInt<int32_t>(aSrcSize.height) * dstWidth;
+    if (!checked.isValid()) {
+      return Nothing();
+    }
+    dstHeight = NSToIntCeil(checked.value() / double(aSrcSize.width));
+  }
+  return Some(IntSize(dstWidth, dstHeight));
+}
+
 SurfaceFromElementResult nsLayoutUtils::SurfaceFromElement(
     nsIImageLoadingContent* aElement, const Maybe<int32_t>& aResizeWidth,
     const Maybe<int32_t>& aResizeHeight, uint32_t aSurfaceFlags,
@@ -7232,7 +7241,19 @@ SurfaceFromElementResult nsLayoutUtils::SurfaceFromElement(
       imgHeight = kFallbackIntrinsicHeightInPixels;
     }
   }
-  result.mSize = result.mIntrinsicSize = IntSize(imgWidth, imgHeight);
+  result.mIntrinsicSize = IntSize(imgWidth, imgHeight);
+
+  // For vector images, rasterize at the resize dimensions so that
+  // createImageBitmap with resizeWidth/resizeHeight produces a sharp result
+  // instead of upscaling a small raster.
+  if (imgContainer->GetType() == imgIContainer::TYPE_VECTOR &&
+      (aResizeWidth.isSome() || aResizeHeight.isSome())) {
+    result.mSize =
+        ComputeResizedSize(result.mIntrinsicSize, aResizeWidth, aResizeHeight)
+            .valueOr(result.mIntrinsicSize);
+  } else {
+    result.mSize = result.mIntrinsicSize;
+  }
 
   if (!noRasterize || imgContainer->GetType() == imgIContainer::TYPE_RASTER) {
     result.mSourceSurface =
@@ -7271,7 +7292,7 @@ SurfaceFromElementResult nsLayoutUtils::SurfaceFromElement(
       result.mAlphaType = gfxAlphaType::Premult;
     }
   } else {
-    result.mDrawInfo.mImgContainer = imgContainer;
+    result.mDrawInfo.mImgContainer = std::move(imgContainer);
     result.mDrawInfo.mWhichFrame = whichFrame;
     result.mDrawInfo.mDrawingFlags = frameFlags;
   }

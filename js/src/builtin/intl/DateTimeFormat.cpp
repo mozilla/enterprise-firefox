@@ -537,17 +537,11 @@ static bool CreateDateTimeFormat(
   // Steps 2-4. (Inlined ResolveOptions)
 
   // ResolveOptions, step 1.
-  Rooted<LocalesList> requestedLocales(cx, cx);
-  if (!CanonicalizeLocaleList(cx, locales, &requestedLocales)) {
+  auto* requestedLocales = CanonicalizeLocaleList(cx, locales);
+  if (!requestedLocales) {
     return false;
   }
-
-  Rooted<ArrayObject*> requestedLocalesArray(
-      cx, LocalesListToArray(cx, requestedLocales));
-  if (!requestedLocalesArray) {
-    return false;
-  }
-  dateTimeFormat->setRequestedLocales(requestedLocalesArray);
+  dateTimeFormat->setRequestedLocales(requestedLocales);
 
   auto dtfOptions = DateTimeFormatOptions{
       .required = required,
@@ -1627,7 +1621,7 @@ GetDateTimeFormat(const mozilla::intl::DateTimeFormat::ComponentsBag& options,
       formatOptions.minute = numericOption;
     }
     if (defaultOptions.contains(DateTimeField::Second)) {
-      formatOptions.second = numericOption;
+      formatOptions.second = std::move(numericOption);
     }
 
     // Step 17.c.
@@ -1647,56 +1641,102 @@ GetDateTimeFormat(const mozilla::intl::DateTimeFormat::ComponentsBag& options,
  *
  * https://tc39.es/proposal-temporal/#sec-adjustdatetimestyleformat
  */
-static mozilla::Result<mozilla::intl::DateTimeFormat::ComponentsBag,
-                       mozilla::intl::ICUError>
-AdjustDateTimeStyleFormat(mozilla::intl::DateTimeFormat* baseFormat,
-                          mozilla::EnumSet<DateTimeField> allowedOptions) {
+static mozilla::Maybe<mozilla::intl::DateTimeFormat::ComponentsBag>
+AdjustDateTimeStyleFormat(
+    const mozilla::intl::DateTimeFormat::ComponentsBag& baseFormat,
+    mozilla::EnumSet<DateTimeField> allowedOptions) {
   // Step 1.
+  bool anyConflictingFields = false;
+
+  // Step 5. (Reordered)
   mozilla::intl::DateTimeFormat::ComponentsBag formatOptions;
 
-  // Step 2. (Loop unrolled)
-  auto result = baseFormat->ResolveComponents();
-  if (result.isErr()) {
-    return result.propagateErr();
+  // Steps 2 and 6. (Loops unrolled)
+  if (baseFormat.era) {
+    if (allowedOptions.contains(DateTimeField::Era)) {
+      formatOptions.era = baseFormat.era;
+    } else {
+      anyConflictingFields = true;
+    }
   }
-  auto options = result.unwrap();
+  if (baseFormat.weekday) {
+    if (allowedOptions.contains(DateTimeField::Weekday)) {
+      formatOptions.weekday = baseFormat.weekday;
+    } else {
+      anyConflictingFields = true;
+    }
+  }
+  if (baseFormat.year) {
+    if (allowedOptions.contains(DateTimeField::Year)) {
+      formatOptions.year = baseFormat.year;
+    } else {
+      anyConflictingFields = true;
+    }
+  }
+  if (baseFormat.month) {
+    if (allowedOptions.contains(DateTimeField::Month)) {
+      formatOptions.month = baseFormat.month;
+    } else {
+      anyConflictingFields = true;
+    }
+  }
+  if (baseFormat.day) {
+    if (allowedOptions.contains(DateTimeField::Day)) {
+      formatOptions.day = baseFormat.day;
+    } else {
+      anyConflictingFields = true;
+    }
+  }
+  if (baseFormat.dayPeriod) {
+    if (allowedOptions.contains(DateTimeField::DayPeriod)) {
+      formatOptions.dayPeriod = baseFormat.dayPeriod;
+    } else {
+      anyConflictingFields = true;
+    }
+  }
+  if (baseFormat.hour) {
+    if (allowedOptions.contains(DateTimeField::Hour)) {
+      formatOptions.hour = baseFormat.hour;
+      formatOptions.hourCycle = baseFormat.hourCycle;
+    } else {
+      anyConflictingFields = true;
+    }
+  }
+  if (baseFormat.minute) {
+    if (allowedOptions.contains(DateTimeField::Minute)) {
+      formatOptions.minute = baseFormat.minute;
+    } else {
+      anyConflictingFields = true;
+    }
+  }
+  if (baseFormat.second) {
+    if (allowedOptions.contains(DateTimeField::Second)) {
+      formatOptions.second = baseFormat.second;
+    } else {
+      anyConflictingFields = true;
+    }
+  }
+  if (baseFormat.fractionalSecondDigits) {
+    if (allowedOptions.contains(DateTimeField::FractionalSecondDigits)) {
+      formatOptions.fractionalSecondDigits = baseFormat.fractionalSecondDigits;
+    } else {
+      anyConflictingFields = true;
+    }
+  }
+  if (baseFormat.timeZoneName) {
+    anyConflictingFields = true;
+  }
 
-  if (allowedOptions.contains(DateTimeField::Era) && options.era) {
-    formatOptions.era = options.era;
-  }
-  if (allowedOptions.contains(DateTimeField::Weekday) && options.weekday) {
-    formatOptions.weekday = options.weekday;
-  }
-  if (allowedOptions.contains(DateTimeField::Year) && options.year) {
-    formatOptions.year = options.year;
-  }
-  if (allowedOptions.contains(DateTimeField::Month) && options.month) {
-    formatOptions.month = options.month;
-  }
-  if (allowedOptions.contains(DateTimeField::Day) && options.day) {
-    formatOptions.day = options.day;
-  }
-  if (allowedOptions.contains(DateTimeField::DayPeriod) && options.dayPeriod) {
-    formatOptions.dayPeriod = options.dayPeriod;
-  }
-  if (allowedOptions.contains(DateTimeField::Hour) && options.hour) {
-    formatOptions.hour = options.hour;
-    formatOptions.hourCycle = options.hourCycle;
-  }
-  if (allowedOptions.contains(DateTimeField::Minute) && options.minute) {
-    formatOptions.minute = options.minute;
-  }
-  if (allowedOptions.contains(DateTimeField::Second) && options.second) {
-    formatOptions.second = options.second;
-  }
-  if (allowedOptions.contains(DateTimeField::FractionalSecondDigits) &&
-      options.fractionalSecondDigits) {
-    formatOptions.fractionalSecondDigits = options.fractionalSecondDigits;
+  // Steps 3-4.
+  if (!anyConflictingFields) {
+    return mozilla::Nothing();
   }
 
-  // Steps 3-5. (Performed in caller)
+  // Steps 5-6. (Moved above)
 
-  return formatOptions;
+  // Steps 7-9. (Performed in caller)
+
+  return mozilla::Some(formatOptions);
 }
 
 static const char* DateTimeValueKindToString(DateTimeValueKind kind) {
@@ -1837,7 +1877,7 @@ class TimeZoneChars final {
   bool init(JSContext* cx, JSLinearString* timeZone) {
     auto timeZoneOffset = TimeZoneOffsetString::from(timeZone);
     if (timeZoneOffset) {
-      timeZoneOffset_ = timeZoneOffset;
+      timeZoneOffset_ = std::move(timeZoneOffset);
       return true;
     }
     return timeZone_.initTwoByte(cx, timeZone);
@@ -2011,16 +2051,21 @@ static mozilla::intl::DateTimeFormat* NewDateTimeFormat(
       return df.release();
     }
 
-    auto adjusted = AdjustDateTimeStyleFormat(df.get(), allowedOptions);
-    if (adjusted.isErr()) {
-      ReportInternalError(cx, adjusted.unwrapErr());
+    auto baseFormatResult = df->ResolveComponents();
+    if (baseFormatResult.isErr()) {
+      ReportInternalError(cx, baseFormatResult.unwrapErr());
       return nullptr;
     }
-    auto bag = adjusted.unwrap();
+    auto baseFormat = baseFormatResult.unwrap();
+
+    auto adjusted = AdjustDateTimeStyleFormat(baseFormat, allowedOptions);
+    if (adjusted.isNothing()) {
+      return df.release();
+    }
 
     auto dfAdjustedResult =
         mozilla::intl::DateTimeFormat::TryCreateFromComponents(
-            mozilla::MakeStringSpan(locale.get()), bag, dtpg, timeZone);
+            mozilla::MakeStringSpan(locale.get()), *adjusted, dtpg, timeZone);
     if (dfAdjustedResult.isErr()) {
       ReportInternalError(cx, dfAdjustedResult.unwrapErr());
       return nullptr;
@@ -2308,6 +2353,22 @@ static bool ResolveCalendarValue(JSContext* cx,
   return true;
 }
 
+struct EpochMilliseconds {
+  double milliseconds = 0;
+
+  EpochMilliseconds() = default;
+
+  explicit EpochMilliseconds(EpochNanoseconds epochNs)
+      : milliseconds(epochNs.floorToMilliseconds()) {}
+
+  explicit EpochMilliseconds(JS::ClippedTime time)
+      : milliseconds(time.toDouble()) {
+    MOZ_ASSERT(time.isValid());
+  }
+
+  double toDouble() const { return milliseconds; }
+};
+
 /**
  * HandleDateTimeTemporalDate ( dateTimeFormat, temporalDate )
  *
@@ -2315,7 +2376,7 @@ static bool ResolveCalendarValue(JSContext* cx,
  */
 static bool HandleDateTimeTemporalDate(
     JSContext* cx, Handle<DateTimeFormatObject*> dateTimeFormat,
-    Handle<PlainDateObject*> unwrappedTemporalDate, ClippedTime* result) {
+    Handle<PlainDateObject*> unwrappedTemporalDate, EpochMilliseconds* result) {
   auto isoDate = unwrappedTemporalDate->date();
   auto calendarId = unwrappedTemporalDate->calendar().identifier();
 
@@ -2343,8 +2404,7 @@ static bool HandleDateTimeTemporalDate(
   // Steps 4-5. (Performed in NewDateTimeFormat)
 
   // Step 6.
-  int64_t milliseconds = epochNs.floorToMilliseconds();
-  *result = JS::TimeClip(double(milliseconds));
+  *result = EpochMilliseconds{epochNs};
   return true;
 }
 
@@ -2356,7 +2416,7 @@ static bool HandleDateTimeTemporalDate(
 static bool HandleDateTimeTemporalYearMonth(
     JSContext* cx, Handle<DateTimeFormatObject*> dateTimeFormat,
     Handle<PlainYearMonthObject*> unwrappedTemporalYearMonth,
-    ClippedTime* result) {
+    EpochMilliseconds* result) {
   auto isoDate = unwrappedTemporalYearMonth->date();
   auto calendarId = unwrappedTemporalYearMonth->calendar().identifier();
 
@@ -2383,8 +2443,7 @@ static bool HandleDateTimeTemporalYearMonth(
   // Steps 4-5. (Performed in NewDateTimeFormat)
 
   // Step 6.
-  int64_t milliseconds = epochNs.floorToMilliseconds();
-  *result = JS::TimeClip(double(milliseconds));
+  *result = EpochMilliseconds{epochNs};
   return true;
 }
 
@@ -2396,7 +2455,7 @@ static bool HandleDateTimeTemporalYearMonth(
 static bool HandleDateTimeTemporalMonthDay(
     JSContext* cx, Handle<DateTimeFormatObject*> dateTimeFormat,
     Handle<PlainMonthDayObject*> unwrappedTemporalMonthDay,
-    ClippedTime* result) {
+    EpochMilliseconds* result) {
   auto isoDate = unwrappedTemporalMonthDay->date();
   auto calendarId = unwrappedTemporalMonthDay->calendar().identifier();
 
@@ -2423,8 +2482,7 @@ static bool HandleDateTimeTemporalMonthDay(
   // Steps 4-5. (Performed in NewDateTimeFormat)
 
   // Step 6.
-  int64_t milliseconds = epochNs.floorToMilliseconds();
-  *result = JS::TimeClip(double(milliseconds));
+  *result = EpochMilliseconds{epochNs};
   return true;
 }
 
@@ -2434,7 +2492,7 @@ static bool HandleDateTimeTemporalMonthDay(
  * https://tc39.es/proposal-temporal/#sec-temporal-handledatetimetemporaltime
  */
 static bool HandleDateTimeTemporalTime(PlainTimeObject* unwrappedTemporalTime,
-                                       ClippedTime* result) {
+                                       EpochMilliseconds* result) {
   auto time = unwrappedTemporalTime->time();
 
   // Steps 1-2.
@@ -2446,8 +2504,7 @@ static bool HandleDateTimeTemporalTime(PlainTimeObject* unwrappedTemporalTime,
   // Steps 4-5. (Performed in NewDateTimeFormat)
 
   // Step 6.
-  int64_t milliseconds = epochNs.floorToMilliseconds();
-  *result = JS::TimeClip(double(milliseconds));
+  *result = EpochMilliseconds{epochNs};
   return true;
 }
 
@@ -2458,7 +2515,7 @@ static bool HandleDateTimeTemporalTime(PlainTimeObject* unwrappedTemporalTime,
  */
 static bool HandleDateTimeTemporalDateTime(
     JSContext* cx, Handle<DateTimeFormatObject*> dateTimeFormat,
-    Handle<PlainDateTimeObject*> unwrappedDateTime, ClippedTime* result) {
+    Handle<PlainDateTimeObject*> unwrappedDateTime, EpochMilliseconds* result) {
   auto isoDateTime = unwrappedDateTime->dateTime();
   auto calendarId = unwrappedDateTime->calendar().identifier();
 
@@ -2483,8 +2540,7 @@ static bool HandleDateTimeTemporalDateTime(
   // Step 3. (Performed in NewDateTimeFormat)
 
   // Step 4.
-  int64_t milliseconds = epochNs.floorToMilliseconds();
-  *result = JS::TimeClip(double(milliseconds));
+  *result = EpochMilliseconds{epochNs};
   return true;
 }
 
@@ -2494,13 +2550,12 @@ static bool HandleDateTimeTemporalDateTime(
  * https://tc39.es/proposal-temporal/#sec-temporal-handledatetimetemporalinstant
  */
 static bool HandleDateTimeTemporalInstant(InstantObject* unwrappedInstant,
-                                          ClippedTime* result) {
+                                          EpochMilliseconds* result) {
   // Step 1. (Performed in NewDateTimeFormat)
 
   // Step 2.
   auto epochNs = unwrappedInstant->epochNanoseconds();
-  int64_t milliseconds = epochNs.floorToMilliseconds();
-  *result = JS::TimeClip(double(milliseconds));
+  *result = EpochMilliseconds{epochNs};
   return true;
 }
 
@@ -2509,7 +2564,8 @@ static bool HandleDateTimeTemporalInstant(InstantObject* unwrappedInstant,
  */
 static bool HandleDateTimeTemporalZonedDateTime(
     JSContext* cx, Handle<DateTimeFormatObject*> dateTimeFormat,
-    Handle<ZonedDateTimeObject*> unwrappedZonedDateTime, ClippedTime* result) {
+    Handle<ZonedDateTimeObject*> unwrappedZonedDateTime,
+    EpochMilliseconds* result) {
   auto epochNs = unwrappedZonedDateTime->epochNanoseconds();
   auto calendarId = unwrappedZonedDateTime->calendar().identifier();
 
@@ -2529,8 +2585,7 @@ static bool HandleDateTimeTemporalZonedDateTime(
   }
 
   // Step 5.
-  int64_t milliseconds = epochNs.floorToMilliseconds();
-  *result = JS::TimeClip(double(milliseconds));
+  *result = EpochMilliseconds{epochNs};
   return true;
 }
 
@@ -2540,7 +2595,7 @@ static bool HandleDateTimeTemporalZonedDateTime(
  * https://tc39.es/proposal-temporal/#sec-temporal-handledatetimeothers
  */
 static bool HandleDateTimeOthers(JSContext* cx, const char* method, double x,
-                                 ClippedTime* result) {
+                                 EpochMilliseconds* result) {
   // Step 1.
   auto clipped = JS::TimeClip(x);
 
@@ -2554,7 +2609,7 @@ static bool HandleDateTimeOthers(JSContext* cx, const char* method, double x,
   // Step 4. (Performed in NewDateTimeFormat)
 
   // Steps 3 and 5.
-  *result = clipped;
+  *result = EpochMilliseconds{clipped};
   return true;
 }
 
@@ -2565,7 +2620,7 @@ static bool HandleDateTimeOthers(JSContext* cx, const char* method, double x,
  */
 static bool HandleDateTimeValue(JSContext* cx, const char* method,
                                 Handle<DateTimeFormatObject*> dateTimeFormat,
-                                JSObject* x, ClippedTime* result) {
+                                JSObject* x, EpochMilliseconds* result) {
   // Step 1.
   Rooted<JSObject*> unwrapped(cx, CheckedUnwrapStatic(x));
   if (!unwrapped) {
@@ -2619,7 +2674,7 @@ static bool HandleDateTimeValue(JSContext* cx, const char* method,
 }
 
 struct DateTimeValue {
-  ClippedTime time;
+  EpochMilliseconds time;
   DateTimeValueKind kind{};
 };
 
@@ -2633,7 +2688,7 @@ static bool ToDateTimeValue(JSContext* cx, const char* method,
   // DateTime Format Functions, step 3.
   // Intl.DateTimeFormat.prototype.formatToParts, step 3.
   if (date.isUndefined()) {
-    result->time = DateNow(cx);
+    result->time = EpochMilliseconds{DateNow(cx)};
     result->kind = DateTimeValueKind::Number;
     return true;
   }
@@ -2685,13 +2740,13 @@ static bool ToDateTimeValue(JSContext* cx, const char* method,
  */
 static bool FormatDateTime(JSContext* cx,
                            const mozilla::intl::DateTimeFormat* df,
-                           ClippedTime x, MutableHandle<JS::Value> result) {
+                           EpochMilliseconds x,
+                           MutableHandle<JS::Value> result) {
   // FormatDateTime, step 1. (Inlined call to PartitionDateTimePattern)
 
-  // PartitionDateTimePattern, steps 1-2.
-  MOZ_ASSERT(x.isValid());
+  // PartitionDateTimePattern, step 1. (Performed in caller)
 
-  // PartitionDateTimePattern, steps 3-8.
+  // PartitionDateTimePattern, steps 2-7.
   FormatBuffer<char16_t, INITIAL_CHAR_BUFFER_SIZE> buffer(cx);
   auto dfResult = df->TryFormat(x.toDouble(), buffer);
   if (dfResult.isErr()) {
@@ -2865,12 +2920,14 @@ static bool CreateDateTimePartArray(
   return true;
 }
 
-static bool FormatToPartsDateTime(JSContext* cx,
+/**
+ * FormatDateTimeToParts ( dateTimeFormat, x )
+ */
+static bool FormatDateTimeToParts(JSContext* cx,
                                   const mozilla::intl::DateTimeFormat* df,
-                                  ClippedTime x, DateTimeSource dateTimeSource,
+                                  EpochMilliseconds x,
+                                  DateTimeSource dateTimeSource,
                                   MutableHandle<JS::Value> result) {
-  MOZ_ASSERT(x.isValid());
-
   FormatBuffer<char16_t, INITIAL_CHAR_BUFFER_SIZE> buffer(cx);
   mozilla::intl::DateTimePartVector parts;
   auto r = df->TryFormatToParts(x.toDouble(), buffer, parts);
@@ -2882,7 +2939,10 @@ static bool FormatToPartsDateTime(JSContext* cx,
   return CreateDateTimePartArray(cx, buffer, dateTimeSource, parts, result);
 }
 
-static bool FormatToPartsDateTime(JSContext* cx,
+/**
+ * FormatDateTimeToParts ( dateTimeFormat, x )
+ */
+static bool FormatDateTimeToParts(JSContext* cx,
                                   Handle<DateTimeFormatObject*> dateTimeFormat,
                                   const DateTimeValue& date,
                                   MutableHandle<JS::Value> result) {
@@ -2890,12 +2950,12 @@ static bool FormatToPartsDateTime(JSContext* cx,
   if (!df) {
     return false;
   }
-  return FormatToPartsDateTime(cx, df, date.time, DateTimeSource::No, result);
+  return FormatDateTimeToParts(cx, df, date.time, DateTimeSource::No, result);
 }
 
 struct DateTimeRangeValue {
-  ClippedTime start;
-  ClippedTime end;
+  EpochMilliseconds start;
+  EpochMilliseconds end;
   DateTimeValueKind kind{};
 };
 
@@ -2983,8 +3043,9 @@ bool js::intl::FormatDateTime(JSContext* cx,
   auto x = JS::TimeClip(millis);
   MOZ_ASSERT(x.isValid());
 
-  return FormatDateTime(cx, dateTimeFormat, {x, DateTimeValueKind::Number},
-                        result);
+  auto epochMillis = EpochMilliseconds{x};
+  auto dateTime = DateTimeValue{epochMillis, DateTimeValueKind::Number};
+  return FormatDateTime(cx, dateTimeFormat, dateTime, result);
 }
 
 /**
@@ -3065,11 +3126,8 @@ static mozilla::intl::DateIntervalFormat* GetOrCreateDateIntervalFormat(
 static bool PartitionDateTimeRangePattern(
     JSContext* cx, const mozilla::intl::DateTimeFormat* df,
     const mozilla::intl::DateIntervalFormat* dif,
-    mozilla::intl::AutoFormattedDateInterval& formatted, ClippedTime x,
-    ClippedTime y, bool* equal) {
-  MOZ_ASSERT(x.isValid());
-  MOZ_ASSERT(y.isValid());
-
+    mozilla::intl::AutoFormattedDateInterval& formatted, EpochMilliseconds x,
+    EpochMilliseconds y, bool* equal) {
   auto result =
       dif->TryFormatDateTime(x.toDouble(), y.toDouble(), df, formatted, equal);
   if (result.isErr()) {
@@ -3160,7 +3218,7 @@ static bool FormatDateTimeRangeToParts(
 
   // PartitionDateTimeRangePattern, step 12.
   if (equal) {
-    return FormatToPartsDateTime(cx, df, values.start, DateTimeSource::Yes,
+    return FormatDateTimeToParts(cx, df, values.start, DateTimeSource::Yes,
                                  result);
   }
 
@@ -3283,7 +3341,7 @@ static bool dateTimeFormat_formatToParts(JSContext* cx, const CallArgs& args) {
   }
 
   // Step 5.
-  return FormatToPartsDateTime(cx, dateTimeFormat, x, args.rval());
+  return FormatDateTimeToParts(cx, dateTimeFormat, x, args.rval());
 }
 
 /**
@@ -3513,7 +3571,7 @@ bool js::intl::TemporalObjectToLocaleString(
     return false;
   }
 
-  JS::ClippedTime x;
+  EpochMilliseconds x;
   if (kind == DateTimeValueKind::TemporalZonedDateTime) {
     auto zonedDateTime = thisValue.as<ZonedDateTimeObject>();
     if (!HandleDateTimeTemporalZonedDateTime(cx, dateTimeFormat, zonedDateTime,

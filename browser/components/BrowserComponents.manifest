@@ -10,6 +10,9 @@
 category app-startup nsBrowserGlue @mozilla.org/browser/browserglue;1 application={ec8030f7-c20a-464f-9b0e-13a3a9e97384} application={aa3c5121-dab2-40e2-81ca-7ea25febc110}
 
 category first-startup-new-profile resource:///modules/AboutNewTabResourceMapping.sys.mjs AboutNewTabResourceMapping.firstStartupNewProfile
+#ifdef XP_WIN
+category first-startup-new-profile resource:///modules/DefaultWindowsLaunchOnLogin.sys.mjs DefaultWindowsLaunchOnLogin.firstStartupNewProfile
+#endif
 
 # Browser global components initializing before UI startup
 category browser-before-ui-startup resource:///modules/sessionstore/SessionStore.sys.mjs SessionStore.init
@@ -43,6 +46,7 @@ category browser-window-delayed-startup resource:///modules/taskbartabs/TaskbarT
 
 category browser-window-unload resource:///modules/BrowserDOMWindow.sys.mjs BrowserDOMWindow.teardownInWindow
 category browser-window-unload moz-src:///browser/components/tabbrowser/NewTabPagePreloading.sys.mjs NewTabPagePreloading.removePreloadedBrowser
+category browser-window-unload moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs AIWindow.unloadWindow
 
 # App startup consumers
 
@@ -57,7 +61,7 @@ category browser-first-window-ready moz-src:///toolkit/profile/ProfilesDatastore
 category browser-first-window-ready resource:///modules/profiles/SelectableProfileService.sys.mjs SelectableProfileService.init
 category browser-first-window-ready moz-src:///browser/components/protections/ContentBlockingPrefs.sys.mjs ContentBlockingPrefs.init
 category browser-first-window-ready resource://gre/modules/CaptchaDetectionPingUtils.sys.mjs CaptchaDetectionPingUtils.init
-category browser-first-window-ready moz-src:///browser/components/ipprotection/IPProtectionService.sys.mjs IPProtectionService.init
+category browser-first-window-ready moz-src:///browser/components/ipprotection/IPProtectionHelpers.sys.mjs IPProtectionActivator.init
 #ifdef MOZ_SANDBOX
 #ifdef XP_LINUX
 category browser-first-window-ready resource://gre/modules/SandboxUtils.sys.mjs SandboxUtils.maybeWarnAboutMissingUserNamespaces
@@ -110,7 +114,7 @@ category browser-quit-application-granted moz-src:///browser/components/search/S
 category browser-quit-application-granted resource://gre/modules/UpdateListener.sys.mjs UpdateListener.reset
 #endif
 category browser-quit-application-granted moz-src:///browser/components/urlbar/UrlbarSearchTermsPersistence.sys.mjs UrlbarSearchTermsPersistence.uninit
-category browser-quit-application-granted moz-src:///browser/components/ipprotection/IPProtectionService.sys.mjs IPProtectionService.uninit
+category browser-quit-application-granted moz-src:///browser/components/ipprotection/IPProtectionHelpers.sys.mjs IPProtectionActivator.uninit
 category browser-quit-application-granted moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs AIWindow.uninit
 
 #ifdef MOZ_ENTERPRISE

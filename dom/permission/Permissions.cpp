@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -7,6 +5,7 @@
 #include "mozilla/dom/Permissions.h"
 
 #include "PermissionUtils.h"
+#include "mozilla/StaticPrefs_network.h"
 #include "mozilla/StaticPrefs_permissions.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/MidiPermissionStatus.h"
@@ -100,6 +99,23 @@ RefPtr<PermissionStatus> CreatePermissionStatus(
         aRv.ThrowTypeError(
             "'microphone' (value of 'name' member of PermissionDescriptor) is "
             "not a valid value for enumeration PermissionName.");
+        return nullptr;
+      }
+      return new PermissionStatus(aGlobal, rootDesc.mName);
+    case PermissionName::Loopback_network:
+      if (!StaticPrefs::network_lna_blocking()) {
+        aRv.ThrowTypeError(
+            "'loopback-network' (value of 'name' member of "
+            "PermissionDescriptor) is not a valid value for enumeration "
+            "PermissionName.");
+        return nullptr;
+      }
+      return new PermissionStatus(aGlobal, rootDesc.mName);
+    case PermissionName::Local_network:
+      if (!StaticPrefs::network_lna_blocking()) {
+        aRv.ThrowTypeError(
+            "'local-network' (value of 'name' member of PermissionDescriptor) "
+            "is not a valid value for enumeration PermissionName.");
         return nullptr;
       }
       return new PermissionStatus(aGlobal, rootDesc.mName);

@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -549,13 +548,19 @@ struct ParamTraits<mozilla::WidgetKeyboardEvent> {
 };
 
 template <>
+struct ParamTraits<mozilla::TextRangeStyle::LineStyle>
+    : ContiguousEnumSerializerInclusive<
+          mozilla::TextRangeStyle::LineStyle,
+          mozilla::TextRangeStyle::LineStyle::None,
+          mozilla::TextRangeStyle::LineStyle::Wavy> {};
+
+template <>
 struct ParamTraits<mozilla::TextRangeStyle> {
   using paramType = mozilla::TextRangeStyle;
 
   static void Write(MessageWriter* aWriter, const paramType& aParam) {
     WriteParam(aWriter, aParam.mDefinedStyles);
-    WriteParam(aWriter, static_cast<mozilla::TextRangeStyle::LineStyleType>(
-                            aParam.mLineStyle));
+    WriteParam(aWriter, aParam.mLineStyle);
     WriteParam(aWriter, aParam.mIsBoldLine);
     WriteParam(aWriter, aParam.mForegroundColor);
     WriteParam(aWriter, aParam.mBackgroundColor);
@@ -563,19 +568,20 @@ struct ParamTraits<mozilla::TextRangeStyle> {
   }
 
   static bool Read(MessageReader* aReader, paramType* aResult) {
-    mozilla::TextRangeStyle::LineStyleType lineStyle;
-    if (!ReadParam(aReader, &aResult->mDefinedStyles) ||
-        !ReadParam(aReader, &lineStyle) ||
-        !ReadParam(aReader, &aResult->mIsBoldLine) ||
-        !ReadParam(aReader, &aResult->mForegroundColor) ||
-        !ReadParam(aReader, &aResult->mBackgroundColor) ||
-        !ReadParam(aReader, &aResult->mUnderlineColor)) {
-      return false;
-    }
-    aResult->mLineStyle = mozilla::TextRangeStyle::ToLineStyle(lineStyle);
-    return true;
+    return ReadParam(aReader, &aResult->mDefinedStyles) &&
+           ReadParam(aReader, &aResult->mLineStyle) &&
+           ReadParam(aReader, &aResult->mIsBoldLine) &&
+           ReadParam(aReader, &aResult->mForegroundColor) &&
+           ReadParam(aReader, &aResult->mBackgroundColor) &&
+           ReadParam(aReader, &aResult->mUnderlineColor);
   }
 };
+
+template <>
+struct ParamTraits<mozilla::TextRangeType>
+    : ContiguousEnumSerializerInclusive<
+          mozilla::TextRangeType, mozilla::TextRangeType::eUninitialized,
+          mozilla::TextRangeType::eSelectedClause> {};
 
 template <>
 struct ParamTraits<mozilla::TextRange> {
@@ -584,20 +590,15 @@ struct ParamTraits<mozilla::TextRange> {
   static void Write(MessageWriter* aWriter, const paramType& aParam) {
     WriteParam(aWriter, aParam.mStartOffset);
     WriteParam(aWriter, aParam.mEndOffset);
-    WriteParam(aWriter, mozilla::ToRawTextRangeType(aParam.mRangeType));
+    WriteParam(aWriter, aParam.mRangeType);
     WriteParam(aWriter, aParam.mRangeStyle);
   }
 
   static bool Read(MessageReader* aReader, paramType* aResult) {
-    mozilla::RawTextRangeType rawTextRangeType;
-    if (ReadParam(aReader, &aResult->mStartOffset) &&
-        ReadParam(aReader, &aResult->mEndOffset) &&
-        ReadParam(aReader, &rawTextRangeType) &&
-        ReadParam(aReader, &aResult->mRangeStyle)) {
-      aResult->mRangeType = mozilla::ToTextRangeType(rawTextRangeType);
-      return true;
-    }
-    return false;
+    return ReadParam(aReader, &aResult->mStartOffset) &&
+           ReadParam(aReader, &aResult->mEndOffset) &&
+           ReadParam(aReader, &aResult->mRangeType) &&
+           ReadParam(aReader, &aResult->mRangeStyle);
   }
 };
 
@@ -710,19 +711,6 @@ struct ParamTraits<mozilla::WidgetSelectionEvent> {
 };
 
 template <>
-struct ParamTraits<mozilla::widget::IMENotificationRequests> {
-  using paramType = mozilla::widget::IMENotificationRequests;
-
-  static void Write(MessageWriter* aWriter, const paramType& aParam) {
-    WriteParam(aWriter, aParam.mWantUpdates);
-  }
-
-  static bool Read(MessageReader* aReader, paramType* aResult) {
-    return ReadParam(aReader, &aResult->mWantUpdates);
-  }
-};
-
-template <>
 struct ParamTraits<mozilla::widget::NativeIMEContext> {
   using paramType = mozilla::widget::NativeIMEContext;
 
@@ -817,12 +805,21 @@ struct ParamTraits<mozilla::widget::IMENotification::MouseButtonEventData> {
 };
 
 template <>
+struct ParamTraits<mozilla::widget::IMEMessage>
+    : ContiguousEnumSerializerInclusive<
+          mozilla::widget::IMEMessage,
+          // FYI: mozilla::widget::NOTIFY_IME_OF_NOTHING is the actual lowest
+          // value, but it shouldn't be set at crossing the process boundary
+          // since it's odd to notify the process of "nothing happened".
+          mozilla::widget::NOTIFY_IME_OF_FOCUS,
+          mozilla::widget::REQUEST_TO_CANCEL_COMPOSITION> {};
+
+template <>
 struct ParamTraits<mozilla::widget::IMENotification> {
   using paramType = mozilla::widget::IMENotification;
 
   static void Write(MessageWriter* aWriter, const paramType& aParam) {
-    WriteParam(aWriter,
-               static_cast<mozilla::widget::IMEMessageType>(aParam.mMessage));
+    WriteParam(aWriter, aParam.mMessage);
     switch (aParam.mMessage) {
       case mozilla::widget::NOTIFY_IME_OF_SELECTION_CHANGE:
         WriteParam(aWriter, aParam.mSelectionChangeData);
@@ -839,21 +836,29 @@ struct ParamTraits<mozilla::widget::IMENotification> {
   }
 
   static bool Read(MessageReader* aReader, paramType* aResult) {
-    mozilla::widget::IMEMessageType IMEMessage = 0;
-    if (!ReadParam(aReader, &IMEMessage)) {
+    if (!ReadParam(aReader, &aResult->mMessage)) {
       return false;
     }
-    aResult->mMessage = static_cast<mozilla::widget::IMEMessage>(IMEMessage);
     switch (aResult->mMessage) {
+      case mozilla::widget::NOTIFY_IME_OF_NOTHING:
+        MOZ_MAKE_COMPILER_ASSUME_IS_UNREACHABLE(
+            "NOTIFY_IME_OF_NOTHING shouldn't cross the process boundary");
+        return false;
       case mozilla::widget::NOTIFY_IME_OF_SELECTION_CHANGE:
         return ReadParam(aReader, &aResult->mSelectionChangeData);
       case mozilla::widget::NOTIFY_IME_OF_TEXT_CHANGE:
         return ReadParam(aReader, &aResult->mTextChangeData);
       case mozilla::widget::NOTIFY_IME_OF_MOUSE_BUTTON_EVENT:
         return ReadParam(aReader, &aResult->mMouseButtonEventData);
-      default:
+      case mozilla::widget::NOTIFY_IME_OF_FOCUS:
+      case mozilla::widget::NOTIFY_IME_OF_BLUR:
+      case mozilla::widget::NOTIFY_IME_OF_COMPOSITION_EVENT_HANDLED:
+      case mozilla::widget::NOTIFY_IME_OF_POSITION_CHANGE:
+      case mozilla::widget::REQUEST_TO_COMMIT_COMPOSITION:
+      case mozilla::widget::REQUEST_TO_CANCEL_COMPOSITION:
         return true;
     }
+    return false;
   }
 };
 
@@ -1073,6 +1078,17 @@ struct ParamTraits<mozilla::InputData> {
     WriteParam(aWriter, aParam.mCallbackId);
   }
 
+  template <typename T>
+  static bool Read(MessageReader* aReader, mozilla::InputType aInputType,
+                   T* aResult) {
+    static_assert(std::derived_from<T, mozilla::InputData> == true);
+    if (!Read(aReader, static_cast<mozilla::InputData*>(aResult))) {
+      return false;
+    }
+    return aResult->mInputType == aInputType;
+  }
+
+ private:
   static bool Read(MessageReader* aReader, paramType* aResult) {
     return ReadParam(aReader, &aResult->mInputType) &&
            ReadParam(aReader, &aResult->mTimeStamp) &&
@@ -1160,7 +1176,8 @@ struct ParamTraits<mozilla::MultiTouchInput> {
   }
 
   static bool Read(MessageReader* aReader, paramType* aResult) {
-    return ReadParam(aReader, static_cast<mozilla::InputData*>(aResult)) &&
+    return ParamTraits<mozilla::InputData>::Read(
+               aReader, mozilla::MULTITOUCH_INPUT, aResult) &&
            ReadParam(aReader, &aResult->mType) &&
            ReadParam(aReader, &aResult->mTouches) &&
            ReadParam(aReader, &aResult->mHandledByAPZ) &&
@@ -1193,6 +1210,7 @@ struct ParamTraits<mozilla::MouseInput> {
     WriteParam(aWriter, static_cast<const mozilla::InputData&>(aParam));
     WriteParam(aWriter, aParam.mButtonType);
     WriteParam(aWriter, aParam.mType);
+    WriteParam(aWriter, aParam.mClickCount);
     WriteParam(aWriter, aParam.mInputSource);
     WriteParam(aWriter, aParam.mButtons);
     WriteParam(aWriter, aParam.mOrigin);
@@ -1202,9 +1220,11 @@ struct ParamTraits<mozilla::MouseInput> {
   }
 
   static bool Read(MessageReader* aReader, paramType* aResult) {
-    return ReadParam(aReader, static_cast<mozilla::InputData*>(aResult)) &&
+    return ParamTraits<mozilla::InputData>::Read(aReader, mozilla::MOUSE_INPUT,
+                                                 aResult) &&
            ReadParam(aReader, &aResult->mButtonType) &&
            ReadParam(aReader, &aResult->mType) &&
+           ReadParam(aReader, &aResult->mClickCount) &&
            ReadParam(aReader, &aResult->mInputSource) &&
            ReadParam(aReader, &aResult->mButtons) &&
            ReadParam(aReader, &aResult->mOrigin) &&
@@ -1253,7 +1273,8 @@ struct ParamTraits<mozilla::PanGestureInput>
   }
 
   static bool Read(MessageReader* aReader, paramType* aResult) {
-    return ReadParam(aReader, static_cast<mozilla::InputData*>(aResult)) &&
+    return ParamTraits<mozilla::InputData>::Read(
+               aReader, mozilla::PANGESTURE_INPUT, aResult) &&
            ReadParam(aReader, &aResult->mType) &&
            ReadParam(aReader, &aResult->mPanStartPoint) &&
            ReadParam(aReader, &aResult->mPanDisplacement) &&
@@ -1309,7 +1330,8 @@ struct ParamTraits<mozilla::PinchGestureInput> {
   }
 
   static bool Read(MessageReader* aReader, paramType* aResult) {
-    return ReadParam(aReader, static_cast<mozilla::InputData*>(aResult)) &&
+    return ParamTraits<mozilla::InputData>::Read(
+               aReader, mozilla::PINCHGESTURE_INPUT, aResult) &&
            ReadParam(aReader, &aResult->mType) &&
            ReadParam(aReader, &aResult->mSource) &&
            ReadParam(aReader, &aResult->mScreenOffset) &&
@@ -1341,7 +1363,8 @@ struct ParamTraits<mozilla::TapGestureInput> {
   }
 
   static bool Read(MessageReader* aReader, paramType* aResult) {
-    return ReadParam(aReader, static_cast<mozilla::InputData*>(aResult)) &&
+    return ParamTraits<mozilla::InputData>::Read(
+               aReader, mozilla::TAPGESTURE_INPUT, aResult) &&
            ReadParam(aReader, &aResult->mType) &&
            ReadParam(aReader, &aResult->mPoint) &&
            ReadParam(aReader, &aResult->mLocalPoint);
@@ -1404,7 +1427,8 @@ struct ParamTraits<mozilla::ScrollWheelInput> {
   }
 
   static bool Read(MessageReader* aReader, paramType* aResult) {
-    return ReadParam(aReader, static_cast<mozilla::InputData*>(aResult)) &&
+    return ParamTraits<mozilla::InputData>::Read(
+               aReader, mozilla::SCROLLWHEEL_INPUT, aResult) &&
            ReadParam(aReader, &aResult->mDeltaType) &&
            ReadParam(aReader, &aResult->mScrollMode) &&
            ReadParam(aReader, &aResult->mOrigin) &&
@@ -1448,7 +1472,8 @@ struct ParamTraits<mozilla::KeyboardInput> {
   }
 
   static bool Read(MessageReader* aReader, paramType* aResult) {
-    return ReadParam(aReader, static_cast<mozilla::InputData*>(aResult)) &&
+    return ParamTraits<mozilla::InputData>::Read(
+               aReader, mozilla::KEYBOARD_INPUT, aResult) &&
            ReadParam(aReader, &aResult->mType) &&
            ReadParam(aReader, &aResult->mKeyCode) &&
            ReadParam(aReader, &aResult->mCharCode) &&

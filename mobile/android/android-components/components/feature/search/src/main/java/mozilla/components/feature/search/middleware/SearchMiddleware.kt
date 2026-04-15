@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import mozilla.appservices.remotesettings.RemoteSettingsClient
 import mozilla.components.browser.state.action.BrowserAction
 import mozilla.components.browser.state.action.SearchAction
+import mozilla.components.browser.state.action.SearchAction.SearchConfigurationAvailabilityChanged
 import mozilla.components.browser.state.search.RegionState
 import mozilla.components.browser.state.search.SearchEngine
 import mozilla.components.browser.state.state.BrowserState
@@ -131,6 +132,18 @@ class SearchMiddleware(
         val allAdditionalSearchEngines: Deferred<List<SearchEngine>>
 
         if (searchEngineSelectorRepository != null) {
+            val shouldRebuildSearchConfiguration = shouldRebuildSearchConfiguration(
+                currentSearchEnginesConfigurationId = store.state.search.searchEnvironmentId,
+                isNewSearchConfigurationAvailable = store.state.search.isNewSearchConfigurationAvailable,
+                searchEngineSelectorRepository = searchEngineSelectorRepository,
+                region = region,
+                distribution = distribution,
+            )
+            if (!shouldRebuildSearchConfiguration) {
+                store.dispatch(SearchConfigurationAvailabilityChanged(false))
+                return@launch
+            }
+
             val result = async(ioDispatcher) {
                 searchEngineSelectorRepository.load(
                     region = region,
@@ -142,6 +155,7 @@ class SearchMiddleware(
             regionBundle = async {
                 result.await().copy(
                     list = result.await().list.filter { !it.isOptional },
+                    searchEnvironmentId = result.await().searchEnvironmentId,
                 )
             }
             allAdditionalSearchEngines = async { result.await().list.filter { it.isOptional } }
@@ -207,9 +221,27 @@ class SearchMiddleware(
             additionalSearchEngines = additionalSearchEngines,
             additionalAvailableSearchEngines = additionalAvailableSearchEngines,
             regionSearchEnginesOrder = regionSearchEngineIds,
+            searchEnginesConfigurationId = regionBundle.await().searchEnvironmentId,
         )
         store.dispatch(action)
     }
+
+    /**
+     * Check whether to avoid rebuilding the search configuration.
+     *
+     * @return `true` if search engines aren't yet configured or new ones are available, `false` otherwise.
+     */
+    private fun shouldRebuildSearchConfiguration(
+        currentSearchEnginesConfigurationId: Int?,
+        isNewSearchConfigurationAvailable: Boolean,
+        searchEngineSelectorRepository: SearchEngineRepository,
+        region: RegionState,
+        distribution: String?,
+    ): Boolean = isNewSearchConfigurationAvailable ||
+        currentSearchEnginesConfigurationId != searchEngineSelectorRepository.computeNewSearchEnvironmentId(
+        region = region,
+        distribution = distribution,
+    )
 
     private fun updateSearchEngineSelection(
         action: SearchAction.SelectSearchEngineAction,
@@ -351,10 +383,15 @@ class SearchMiddleware(
         /**
          * A loaded bundle containing the list of search engines and the ID of the default for
          * the region.
+         *
+         * @property list List of search engines to use.
+         * @property defaultSearchEngineId ID of one of the search engines from [list] to use as the default.
+         * @property searchEnvironmentId Unique identifier of the current search environment.
          */
         data class Bundle(
             val list: List<SearchEngine>,
             val defaultSearchEngineId: String,
+            val searchEnvironmentId: Int?,
         )
     }
 
@@ -362,6 +399,21 @@ class SearchMiddleware(
      * A repository for search engines from Application Services.
      */
     interface SearchEngineRepository {
+        /**
+         * Check whether new search engines are available.
+         * This can help know if [load] would return the same search engines configuration as before
+         * and as such it allows avoiding the complex code and longer execution time from running [load] again.
+         *
+         * @param region Current [RegionState].
+         * @param locale Current [Locale]. Defaults to [Locale.getDefault].
+         * @param distribution Current distribution. Defaults to `null`.
+         */
+        fun computeNewSearchEnvironmentId(
+            region: RegionState,
+            locale: Locale = Locale.getDefault(),
+            distribution: String? = null,
+        ): Int
+
         /**
          * Loads the search engines for the given [locale] and [region] from Application Services.
          *

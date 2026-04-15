@@ -11,8 +11,6 @@ mod linear;
 mod radial;
 mod conic;
 
-pub use linear::MAX_CACHED_SIZE as LINEAR_MAX_CACHED_SIZE;
-
 pub use linear::*;
 pub use radial::*;
 pub use conic::*;
@@ -380,13 +378,13 @@ fn test_struct_sizes() {
     //     be done with care, and after checking if talos performance regresses badly.
     assert_eq!(mem::size_of::<LinearGradient>(), 72, "LinearGradient size changed");
     assert_eq!(mem::size_of::<LinearGradientTemplate>(), 144, "LinearGradientTemplate size changed");
-    assert_eq!(mem::size_of::<LinearGradientKey>(), 88, "LinearGradientKey size changed");
+    assert_eq!(mem::size_of::<LinearGradientKey>(), 80, "LinearGradientKey size changed");
 
     assert_eq!(mem::size_of::<RadialGradient>(), 72, "RadialGradient size changed");
     assert_eq!(mem::size_of::<RadialGradientTemplate>(), 144, "RadialGradientTemplate size changed");
-    assert_eq!(mem::size_of::<RadialGradientKey>(), 96, "RadialGradientKey size changed");
+    assert_eq!(mem::size_of::<RadialGradientKey>(), 88, "RadialGradientKey size changed");
 
     assert_eq!(mem::size_of::<ConicGradient>(), 72, "ConicGradient size changed");
     assert_eq!(mem::size_of::<ConicGradientTemplate>(), 144, "ConicGradientTemplate size changed");
-    assert_eq!(mem::size_of::<ConicGradientKey>(), 96, "ConicGradientKey size changed");
+    assert_eq!(mem::size_of::<ConicGradientKey>(), 88, "ConicGradientKey size changed");
 }

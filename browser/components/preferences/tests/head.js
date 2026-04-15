@@ -943,8 +943,8 @@ let { Region } = ChromeUtils.importESModule(
   "resource://gre/modules/Region.sys.mjs"
 );
 
-const initialHomeRegion = Region._home;
-const initialCurrentRegion = Region._current;
+const initialHomeRegion = Region.home;
+const initialCurrentRegion = Region.current;
 
 function setupRegions(home, current) {
   Region._setHomeRegion(home || "");
@@ -1007,6 +1007,25 @@ async function openHomePreferences() {
 }
 
 /**
+ * Opens the custom homepage subpage directly and waits for it to fully render.
+ *
+ * @returns {Promise<object>} Object containing win, doc, and tab references.
+ */
+async function openCustomHomepageSubpage() {
+  await openPreferencesViaOpenPreferencesAPI("customHomepage", {
+    leaveOpen: true,
+  });
+  let doc = gBrowser.contentDocument;
+
+  await BrowserTestUtils.waitForCondition(
+    () => doc.querySelector("#setting-control-customHomepageAddUrlInput"),
+    "Wait for custom homepage subpage to fully render"
+  );
+
+  return { win: gBrowser.contentWindow, doc, tab: gBrowser.selectedTab };
+}
+
+/**
  * Waits for a setting control to render and complete any async updates.
  *
  * @param {string} settingId - The setting identifier.
@@ -1065,4 +1084,21 @@ async function waitForCheckboxState(checkbox, expectedValue) {
     () => checkbox.checked === expectedValue,
     `Waiting for checkbox checked to be ${expectedValue}`
   );
+}
+
+/**
+ * Opens a preferences pane, passes the document to the test function,
+ * and ensures the tab is cleaned up afterwards
+ *
+ * @param {string} pane - The preferences pane to open
+ * @param {Function} testFn - Async function receiving the pane's document
+ */
+async function withPrefsPane(pane, testFn) {
+  await openPreferencesViaOpenPreferencesAPI(pane, { leaveOpen: true });
+  let doc = gBrowser.selectedBrowser.contentDocument;
+  try {
+    await testFn(doc);
+  } finally {
+    BrowserTestUtils.removeTab(gBrowser.selectedTab);
+  }
 }

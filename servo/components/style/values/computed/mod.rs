@@ -18,13 +18,13 @@ use crate::computed_value_flags::ComputedValueFlags;
 use crate::context::QuirksMode;
 use crate::custom_properties::ComputedCustomProperties;
 use crate::derives::*;
+use crate::device::Device;
 use crate::font_metrics::{FontMetrics, FontMetricsOrientation};
-use crate::media_queries::Device;
 #[cfg(feature = "gecko")]
 use crate::properties;
 use crate::properties::{ComputedValues, StyleBuilder};
 use crate::rule_cache::RuleCacheConditions;
-use crate::rule_tree::CascadeLevel;
+use crate::rule_tree::{CascadeLevel, RuleCascadeFlags};
 use crate::stylesheets::container_rule::{
     ContainerInfo, ContainerSizeQuery, ContainerSizeQueryResult,
 };
@@ -44,9 +44,9 @@ pub use self::align::{ContentDistribution, ItemPlacement, JustifyItems, SelfAlig
 pub use self::angle::Angle;
 pub use self::animation::{
     AnimationComposition, AnimationDirection, AnimationDuration, AnimationFillMode,
-    AnimationIterationCount, AnimationName, AnimationPlayState, AnimationTimeline, ScrollAxis,
-    TimelineName, TransitionBehavior, TransitionProperty, ViewTimelineInset, ViewTransitionClass,
-    ViewTransitionName,
+    AnimationIterationCount, AnimationName, AnimationPlayState, AnimationRangeEnd,
+    AnimationRangeStart, AnimationTimeline, ScrollAxis, TimelineName, TransitionBehavior,
+    TransitionProperty, ViewTimelineInset, ViewTransitionClass, ViewTransitionName,
 };
 pub use self::background::{BackgroundRepeat, BackgroundSize};
 pub use self::basic_shape::FillRule;
@@ -91,7 +91,6 @@ pub use self::page::{PageName, PageOrientation, PageSize, PageSizeOrientation, P
 pub use self::percentage::{NonNegativePercentage, Percentage};
 pub use self::position::AnchorFunction;
 pub use self::position::AnchorName;
-pub use self::position::AnchorScope;
 pub use self::position::AspectRatio;
 pub use self::position::DashedIdentAndOrTryTactic;
 pub use self::position::Inset;
@@ -99,6 +98,7 @@ pub use self::position::PositionAnchor;
 pub use self::position::PositionTryFallbacks;
 pub use self::position::PositionTryOrder;
 pub use self::position::PositionVisibility;
+pub use self::position::ScopedName;
 pub use self::position::{
     GridAutoFlow, GridTemplateAreas, MasonryAutoFlow, Position, PositionOrAuto, ZIndex,
 };
@@ -218,6 +218,12 @@ pub struct Context<'a> {
     /// The cascade level in the shadow tree hierarchy.
     pub scope: CascadeLevel,
 
+    /// The set of RuleCascadeFlags whose rules should be included during the
+    /// cascade. STARTING_STYLE is set from the caller for re-cascade.
+    /// APPEARANCE_BASE is added dynamically after the appearance property is
+    /// resolved to a non-None value.
+    pub included_cascade_flags: RuleCascadeFlags,
+
     /// Container size query for this context.
     container_size_query: RefCell<ContainerSizeQuery<'a>>,
 }
@@ -248,6 +254,7 @@ impl<'a> Context<'a> {
             for_non_inherited_property: false,
             rule_cache_conditions: RefCell::new(&mut conditions),
             scope: CascadeLevel::same_tree_author_normal(),
+            included_cascade_flags: RuleCascadeFlags::empty(),
             container_size_query: RefCell::new(ContainerSizeQuery::none()),
         };
         f(&context)
@@ -285,6 +292,7 @@ impl<'a> Context<'a> {
             for_non_inherited_property: false,
             rule_cache_conditions: RefCell::new(&mut conditions),
             scope: CascadeLevel::same_tree_author_normal(),
+            included_cascade_flags: RuleCascadeFlags::empty(),
             container_size_query: RefCell::new(container_size_query),
         };
 
@@ -297,7 +305,14 @@ impl<'a> Context<'a> {
         quirks_mode: QuirksMode,
         rule_cache_conditions: &'a mut RuleCacheConditions,
         container_size_query: ContainerSizeQuery<'a>,
+        mut included_cascade_flags: RuleCascadeFlags,
     ) -> Self {
+        if builder
+            .flags()
+            .intersects(ComputedValueFlags::IS_IN_APPEARANCE_BASE_SUBTREE)
+        {
+            included_cascade_flags.insert(RuleCascadeFlags::APPEARANCE_BASE);
+        }
         Self {
             builder,
             cached_system_font: None,
@@ -309,6 +324,7 @@ impl<'a> Context<'a> {
             for_non_inherited_property: false,
             rule_cache_conditions: RefCell::new(rule_cache_conditions),
             scope: CascadeLevel::same_tree_author_normal(),
+            included_cascade_flags,
             container_size_query: RefCell::new(container_size_query),
         }
     }
@@ -332,6 +348,7 @@ impl<'a> Context<'a> {
             for_non_inherited_property: false,
             rule_cache_conditions: RefCell::new(rule_cache_conditions),
             scope: CascadeLevel::same_tree_author_normal(),
+            included_cascade_flags: RuleCascadeFlags::empty(),
             container_size_query: RefCell::new(container_size_query),
         }
     }
@@ -355,6 +372,7 @@ impl<'a> Context<'a> {
             for_non_inherited_property: false,
             rule_cache_conditions: RefCell::new(rule_cache_conditions),
             scope: CascadeLevel::same_tree_author_normal(),
+            included_cascade_flags: RuleCascadeFlags::empty(),
             container_size_query: RefCell::new(ContainerSizeQuery::none()),
         }
     }

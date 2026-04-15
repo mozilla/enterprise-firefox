@@ -195,17 +195,11 @@ static bool PluralRules(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   // ResolveOptions, step 1.
-  Rooted<LocalesList> requestedLocales(cx, cx);
-  if (!CanonicalizeLocaleList(cx, args.get(0), &requestedLocales)) {
+  auto* requestedLocales = CanonicalizeLocaleList(cx, args.get(0));
+  if (!requestedLocales) {
     return false;
   }
-
-  Rooted<ArrayObject*> requestedLocalesArray(
-      cx, LocalesListToArray(cx, requestedLocales));
-  if (!requestedLocalesArray) {
-    return false;
-  }
-  pluralRules->setRequestedLocales(requestedLocalesArray);
+  pluralRules->setRequestedLocales(requestedLocales);
 
   PluralRulesOptions plOptions{};
 

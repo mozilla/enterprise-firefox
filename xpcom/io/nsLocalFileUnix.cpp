@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -270,7 +268,7 @@ nsDirEnumeratorUnix::Close() {
   return NS_OK;
 }
 
-nsLocalFile::nsLocalFile() {}
+nsLocalFile::nsLocalFile() = default;
 
 nsLocalFile::nsLocalFile(const nsLocalFile& aOther) : mPath(aOther.mPath) {}
 
@@ -1946,21 +1944,22 @@ nsLocalFile::IsExecutable(bool* aResult) {
     // Search for any of the set of executable extensions.
     static const char* const executableExts[] = {
 #ifdef MOZ_WIDGET_COCOA
-        "afploc",  // Can point to other files.
+        ".afploc",  // Can point to other files.
 #endif
-        "air",  // Adobe AIR installer
+        ".air",  // Adobe AIR installer
 #ifdef MOZ_WIDGET_COCOA
-        "atloc",     // Can point to other files.
-        "fileloc",   // File location files can be used to point to other
-                     // files.
-        "ftploc",    // Can point to other files.
-        "inetloc",   // Shouldn't be able to do the same, but can, due to
-                     // macOS vulnerabilities.
-        "terminal",  // macOS Terminal app configuration files
+        ".atloc",     // Can point to other files.
+        ".command",   // Mac script
+        ".fileloc",   // File location files can be used to point to other
+                      // files.
+        ".ftploc",    // Can point to other files.
+        ".inetloc",   // Shouldn't be able to do the same, but can, due to
+                      // macOS vulnerabilities.
+        ".terminal",  // macOS Terminal app configuration files
 #endif
-        "jar"  // java application bundle
+        ".jar"  // java application bundle
     };
-    nsDependentSubstring ext = Substring(path, dotIdx + 1);
+    nsDependentSubstring ext = Substring(path, dotIdx);
     for (auto executableExt : executableExts) {
       if (ext.EqualsASCII(executableExt)) {
         // Found a match.  Set result and quit.

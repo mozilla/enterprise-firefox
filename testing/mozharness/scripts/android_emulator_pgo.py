@@ -24,12 +24,15 @@ from mozharness.mozilla.testing.testbase import TestingMixin, testing_config_opt
 PAGES = [
     "js-input/webkit/PerformanceTests/Speedometer/index.html",
     "js-input/webkit/PerformanceTests/Speedometer3/index.html?startAutomatically=true",
+    # TODO: Add support for the pgo-extended-corpus to get JetStream3 running here.
     "blueprint/sample.html",
     "blueprint/forms.html",
     "blueprint/grid.html",
     "blueprint/elements.html",
     "js-input/3d-thingy.html",
     "js-input/crypto-otp.html",
+    "js-input/collator_bench.html",
+    "js-input/normalizer_bench.html",
     "js-input/sunspider/3d-cube.html",
     "js-input/sunspider/3d-morph.html",
     "js-input/sunspider/3d-raytrace.html",

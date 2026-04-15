@@ -557,7 +557,7 @@ class HomeScreenRobot(private val composeTestRule: ComposeTestRule) {
 
         fun openThreeDotMenu(interact: ThreeDotMenuMainRobot.() -> Unit): ThreeDotMenuMainRobot.Transition {
             Log.i(TAG, "openThreeDotMenu: Trying to click main menu button")
-            composeTestRule.onNodeWithContentDescription(getStringResource(R.string.content_description_menu)).performClick()
+            itemWithDescription(getStringResource(R.string.content_description_menu)).click()
             Log.i(TAG, "openThreeDotMenu: Clicked main menu button")
 
             ThreeDotMenuMainRobot(composeTestRule).interact()

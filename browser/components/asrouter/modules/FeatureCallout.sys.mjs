@@ -485,7 +485,7 @@ export class FeatureCallout {
           event.target !== this._container &&
           event.target.localName === "panel" &&
           event.target.id !== "ctrlTab-panel" &&
-          event.target.getAttribute("noautohide") !== "true"
+          !event.target.hasAttribute("noautohide")
         ) {
           this.endTour();
         }
@@ -793,6 +793,7 @@ export class FeatureCallout {
    * - %triggerTab%: The <tab> element associated with the current browser.
    * - %triggeredTabBookmark%: Bookmark item in the toolbar matching the current tab's URL or label.
    * - ::%shadow%: Traverses nested shadow DOM boundaries.
+   * - ::%document%: Traverses into a content document.
    *
    * @param {string} selector
    * @returns {{scope: Element, selector: string} | null}
@@ -873,20 +874,27 @@ export class FeatureCallout {
       normalizedSelector = `:scope${postTokenSelector}`;
     }
 
-    // ::%shadow%
-    if (normalizedSelector.includes("::%shadow%")) {
-      let parts = normalizedSelector.split("::%shadow%");
-      for (let i = 0; i < parts.length; i++) {
+    // ::%shadow% and ::%document%
+    if (
+      normalizedSelector.includes("::%shadow%") ||
+      normalizedSelector.includes("::%document%")
+    ) {
+      let parts = normalizedSelector.split(/(::%shadow%|::%document%)/);
+      for (let i = 0; i < parts.length; i += 2) {
         normalizedSelector = parts[i].trim();
-        if (i === parts.length - 1) {
+        if (i + 1 >= parts.length) {
           break;
         }
         let el = scope.querySelector(normalizedSelector);
         if (!el) {
           break;
         }
-        if (el.shadowRoot) {
+        if (parts[i + 1] === "::%shadow%" && el.shadowRoot) {
           scope = el.shadowRoot;
+        } else if (parts[i + 1] === "::%document%" && el.contentDocument) {
+          scope = el.contentDocument;
+        } else {
+          break;
         }
       }
     }
@@ -2564,7 +2572,7 @@ export class FeatureCallout {
         "link-color-hover": "LinkText",
         "link-color-active": "ActiveText",
         "link-color-visited": "VisitedText",
-        "icon-success-color": "var(--attention-dot-color)",
+        "icon-success-color": "var(--color-accent-attention)",
         // Dismiss Button
         "dismiss-button-background":
           "Menu linear-gradient(var(--arrowpanel-background), var(--arrowpanel-background))",

@@ -25,12 +25,18 @@ struct StringTable {
 };
 
 struct MARChannelStringTable {
-  MARChannelStringTable() {
-    MARChannelID = mozilla::MakeUnique<char[]>(1);
-    MARChannelID[0] = '\0';
-  }
-
   mozilla::UniquePtr<char[]> MARChannelID;
+
+ public:
+  MARChannelStringTable() = default;
+  const mozilla::UniquePtr<char[]>& get() const { return MARChannelID; }
+  mozilla::UniquePtr<char[]>& get() {
+    if (!MARChannelID) {
+      MARChannelID = mozilla::MakeUnique<char[]>(1);
+      MARChannelID[0] = '\0';
+    }
+    return MARChannelID;
+  }
 };
 
 /**

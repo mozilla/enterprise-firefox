@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -62,6 +60,7 @@ namespace gfx {
   _(GL_NORM16_TEXTURES, Feature, "OpenGL normalized 16-bit texture formats") \
   _(WEBGPU_EXTERNAL_TEXTURE, Feature, "WebGPU external textures")            \
   _(MESA_THREADING, Feature, "Mesa glthread enabled")                        \
+  _(WEBGL, Feature, "WebGL")                                                 \
   /* Add new entries above this comment */
 
 enum class Feature : uint32_t {

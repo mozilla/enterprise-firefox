@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -50,6 +48,7 @@ class Shmem;
 namespace wr {
 class DisplayListBuilder;
 class TransactionBuilder;
+class RenderTextureHost;
 }  // namespace wr
 
 namespace layers {
@@ -898,9 +897,25 @@ class ShmemTextureHost : public BufferTextureHost {
 
   ShmemTextureHost* AsShmemTextureHost() override { return this; }
 
+  void OnRenderTextureCreated(wr::RenderTextureHost* aRenderTexture);
+
  protected:
-  UniquePtr<mozilla::ipc::Shmem> mShmem;
+  class ShmemDeallocRunnable final : public Runnable {
+   public:
+    ShmemDeallocRunnable(ISurfaceAllocator* aDeallocator,
+                         UniquePtr<mozilla::ipc::Shmem>&& aShmem);
+    NS_IMETHOD Run() override;
+    mozilla::ipc::Shmem* GetShmem() { return mShmem.get(); }
+
+   protected:
+    virtual ~ShmemDeallocRunnable();
+
+    RefPtr<ISurfaceAllocator> mDeallocator;
+    UniquePtr<mozilla::ipc::Shmem> mShmem;
+  };
+
   RefPtr<ISurfaceAllocator> mDeallocator;
+  RefPtr<ShmemDeallocRunnable> mShmemDeallocRunnable;
 };
 
 /**

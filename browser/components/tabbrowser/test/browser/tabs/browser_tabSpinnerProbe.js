@@ -32,6 +32,8 @@ function sum(aArray) {
  *        Resolves once the hang is done.
  */
 function hangContentProcess(browser, aMs) {
+  // TODO: Switch to SpecialPowers.spawn
+  // eslint-disable-next-line mozilla/reject-contenttask-spawn
   return ContentTask.spawn(browser, aMs, function (ms) {
     let then = Date.now();
     while (Date.now() - then < ms) {

@@ -380,6 +380,9 @@ aboutpreferences:
         description: >
           identifier of pane shown.
         type: string
+      session:
+        description: Identifier for this tab.
+        type: string
     telemetry_mirror: Aboutpreferences_Show_Initial
     no_lint:
       - COMMON_PREFIX
@@ -414,6 +417,47 @@ aboutpreferences:
     telemetry_mirror: Aboutpreferences_Show_Hash
     no_lint:
       - COMMON_PREFIX
+
+  change:
+    type: event
+    description: >
+      This is recorded when a setting is changed.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024011
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024011
+    notification_emails:
+      - mstriemer@mozilla.com
+      - gharp@mozilla.com
+    expires: never
+    extra_keys:
+      setting:
+        description: Identifier for the setting.
+        type: string
+      session:
+        description: Identifier for this tab.
+        type: string
+      pane:
+        description: >
+          Identifier for the page (paneGeneral, paneSearchResults, etc).
+        type: string
+
+  close:
+    type: event
+    description: >
+      This is recorded when the preferences tab is unloaded.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024011
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024011
+    notification_emails:
+      - mstriemer@mozilla.com
+      - gharp@mozilla.com
+    expires: never
+    extra_keys:
+      session:
+        description: Identifier for this tab.
+        type: string
 
 security.preferences.warnings:
   warnings_shown:

@@ -431,11 +431,11 @@ bool js::intl::SharedIntlData::getAvailableLocales(
 
   js::Vector<char, 16> lang(cx);
 
-  for (const char* locale : availableLocales) {
-    size_t length = strlen(locale);
+  for (mozilla::Span<const char> locale : availableLocales) {
+    size_t length = locale.Length();
 
     lang.clear();
-    if (!lang.append(locale, length)) {
+    if (!lang.append(locale.Elements(), length)) {
       return false;
     }
     MOZ_ASSERT(lang.length() == length);
@@ -551,12 +551,13 @@ bool js::intl::SharedIntlData::getAvailableLocales(
 template <class AvailableLocales1, class AvailableLocales2>
 static bool IsSameAvailableLocales(const AvailableLocales1& availableLocales1,
                                    const AvailableLocales2& availableLocales2) {
-  return std::equal(std::begin(availableLocales1), std::end(availableLocales1),
-                    std::begin(availableLocales2), std::end(availableLocales2),
-                    [](const char* a, const char* b) {
-                      // Intentionally comparing pointer equivalence.
-                      return a == b;
-                    });
+  return std::equal(
+      std::begin(availableLocales1), std::end(availableLocales1),
+      std::begin(availableLocales2), std::end(availableLocales2),
+      [](mozilla::Span<const char> a, mozilla::Span<const char> b) {
+        // Intentionally comparing pointer equivalence.
+        return a.Elements() == b.Elements();
+      });
 }
 #endif
 
@@ -666,7 +667,7 @@ js::ArrayObject* js::intl::SharedIntlData::availableLocalesOf(
   return result;
 }
 
-#if DEBUG || MOZ_SYSTEM_ICU
+#if DEBUG
 bool js::intl::SharedIntlData::ensureUpperCaseFirstLocales(JSContext* cx) {
   if (upperCaseFirstInitialized) {
     return true;
@@ -676,24 +677,13 @@ bool js::intl::SharedIntlData::ensureUpperCaseFirstLocales(JSContext* cx) {
   // complete due to OOM, clear all data and start from scratch.
   upperCaseFirstLocales.clearAndCompact();
 
-  for (const char* rawLocale : mozilla::intl::Collator::GetAvailableLocales()) {
-    auto collator = mozilla::intl::Collator::TryCreate(rawLocale);
-    if (collator.isErr()) {
-      ReportInternalError(cx, collator.unwrapErr());
-      return false;
-    }
-
-    auto caseFirst = collator.unwrap()->GetCaseFirst();
-    if (caseFirst.isErr()) {
-      ReportInternalError(cx, caseFirst.unwrapErr());
-      return false;
-    }
-
-    if (caseFirst.unwrap() != mozilla::intl::Collator::CaseFirst::Upper) {
+  for (mozilla::Span<const char> rawLocale :
+       mozilla::intl::Collator::GetAvailableLocales()) {
+    if (!mozilla::intl::Collator::LocaleIsUpperFirst(rawLocale)) {
       continue;
     }
 
-    JSAtom* locale = Atomize(cx, rawLocale, strlen(rawLocale));
+    JSAtom* locale = Atomize(cx, rawLocale.Elements(), rawLocale.Length());
     if (!locale) {
       return false;
     }
@@ -716,42 +706,38 @@ bool js::intl::SharedIntlData::ensureUpperCaseFirstLocales(JSContext* cx) {
 
   return true;
 }
-#endif  // DEBUG || MOZ_SYSTEM_ICU
+#endif  // DEBUG
 
 bool js::intl::SharedIntlData::isUpperCaseFirst(JSContext* cx,
                                                 Handle<JSLinearString*> locale,
                                                 bool* isUpperFirst) {
-#if DEBUG || MOZ_SYSTEM_ICU
+#if DEBUG
   if (!ensureUpperCaseFirstLocales(cx)) {
     return false;
   }
 #endif
 
-#if !MOZ_SYSTEM_ICU
   // "da" (Danish) and "mt" (Maltese) are the only two supported locales using
   // upper-case first. CLDR also lists "cu" (Church Slavic) as an upper-case
   // first locale, but since it's not supported in ICU, we don't care about it
   // here.
   bool isDefaultUpperCaseFirstLocale = js::StringEqualsLiteral(locale, "da") ||
                                        js::StringEqualsLiteral(locale, "mt");
-#endif
 
-#if DEBUG || MOZ_SYSTEM_ICU
+#if DEBUG
   LocaleHasher::Lookup lookup(locale);
   *isUpperFirst = upperCaseFirstLocales.has(lookup);
 #else
   *isUpperFirst = isDefaultUpperCaseFirstLocale;
 #endif
 
-#if !MOZ_SYSTEM_ICU
   MOZ_ASSERT(*isUpperFirst == isDefaultUpperCaseFirstLocale,
              "upper-case first locales don't match hard-coded list");
-#endif
 
   return true;
 }
 
-#if DEBUG || MOZ_SYSTEM_ICU
+#if DEBUG
 bool js::intl::SharedIntlData::ensureIgnorePunctuationLocales(JSContext* cx) {
   if (ignorePunctuationInitialized) {
     return true;
@@ -761,24 +747,13 @@ bool js::intl::SharedIntlData::ensureIgnorePunctuationLocales(JSContext* cx) {
   // complete due to OOM, clear all data and start from scratch.
   ignorePunctuationLocales.clearAndCompact();
 
-  for (const char* rawLocale : mozilla::intl::Collator::GetAvailableLocales()) {
-    auto collator = mozilla::intl::Collator::TryCreate(rawLocale);
-    if (collator.isErr()) {
-      ReportInternalError(cx, collator.unwrapErr());
-      return false;
-    }
-
-    auto ignorePunctuation = collator.unwrap()->GetIgnorePunctuation();
-    if (ignorePunctuation.isErr()) {
-      ReportInternalError(cx, ignorePunctuation.unwrapErr());
-      return false;
-    }
-
-    if (!ignorePunctuation.unwrap()) {
+  for (mozilla::Span<const char> rawLocale :
+       mozilla::intl::Collator::GetAvailableLocales()) {
+    if (!mozilla::intl::Collator::LocaleIgnoresPunctuation(rawLocale)) {
       continue;
     }
 
-    JSAtom* locale = Atomize(cx, rawLocale, strlen(rawLocale));
+    JSAtom* locale = Atomize(cx, rawLocale.Elements(), rawLocale.Length());
     if (!locale) {
       return false;
     }
@@ -801,33 +776,29 @@ bool js::intl::SharedIntlData::ensureIgnorePunctuationLocales(JSContext* cx) {
 
   return true;
 }
-#endif  // DEBUG || MOZ_SYSTEM_ICU
+#endif  // DEBUG
 
 bool js::intl::SharedIntlData::isIgnorePunctuation(
     JSContext* cx, Handle<JSLinearString*> locale, bool* ignorePunctuation) {
-#if DEBUG || MOZ_SYSTEM_ICU
+#if DEBUG
   if (!ensureIgnorePunctuationLocales(cx)) {
     return false;
   }
 #endif
 
-#if !MOZ_SYSTEM_ICU
   // "th" (Thai) is the only supported locale which ignores punctuation by
   // default.
   bool isDefaultIgnorePunctuationLocale = js::StringEqualsLiteral(locale, "th");
-#endif
 
-#if DEBUG || MOZ_SYSTEM_ICU
+#if DEBUG
   LocaleHasher::Lookup lookup(locale);
   *ignorePunctuation = ignorePunctuationLocales.has(lookup);
 #else
   *ignorePunctuation = isDefaultIgnorePunctuationLocale;
 #endif
 
-#if !MOZ_SYSTEM_ICU
   MOZ_ASSERT(*ignorePunctuation == isDefaultIgnorePunctuationLocale,
              "ignore punctuation locales don't match hard-coded list");
-#endif
 
   return true;
 }
@@ -878,7 +849,7 @@ void js::intl::SharedIntlData::destroyInstance() {
   ianaLinksCanonicalizedDifferentlyByICU.clearAndCompact();
   availableLocales.clearAndCompact();
   collatorAvailableLocales.clearAndCompact();
-#if DEBUG || MOZ_SYSTEM_ICU
+#if DEBUG
   upperCaseFirstLocales.clearAndCompact();
   ignorePunctuationLocales.clearAndCompact();
 #endif
@@ -892,7 +863,7 @@ void js::intl::SharedIntlData::trace(JSTracer* trc) {
     ianaLinksCanonicalizedDifferentlyByICU.trace(trc);
     availableLocales.trace(trc);
     collatorAvailableLocales.trace(trc);
-#if DEBUG || MOZ_SYSTEM_ICU
+#if DEBUG
     upperCaseFirstLocales.trace(trc);
     ignorePunctuationLocales.trace(trc);
 #endif
@@ -907,7 +878,7 @@ size_t js::intl::SharedIntlData::sizeOfExcludingThis(
              mallocSizeOf) +
          availableLocales.shallowSizeOfExcludingThis(mallocSizeOf) +
          collatorAvailableLocales.shallowSizeOfExcludingThis(mallocSizeOf) +
-#if DEBUG || MOZ_SYSTEM_ICU
+#if DEBUG
          upperCaseFirstLocales.shallowSizeOfExcludingThis(mallocSizeOf) +
          ignorePunctuationLocales.shallowSizeOfExcludingThis(mallocSizeOf) +
 #endif

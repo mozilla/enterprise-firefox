@@ -521,7 +521,7 @@ async function getToggleClientRect(
   toggleStyles = DEFAULT_TOGGLE_STYLES
 ) {
   let args = { videoID, toggleID: toggleStyles.rootID };
-  return ContentTask.spawn(browser, args, async args => {
+  return SpecialPowers.spawn(browser, [args], async args => {
     const { Rect } = ChromeUtils.importESModule(
       "resource://gre/modules/Geometry.sys.mjs"
     );

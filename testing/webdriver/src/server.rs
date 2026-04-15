@@ -2,18 +2,18 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::Parameters;
 use crate::command::{WebDriverCommand, WebDriverMessage};
 use crate::error::{ErrorStatus, WebDriverError, WebDriverResult};
 use crate::httpapi::{
-    standard_routes, Route, VoidWebDriverExtensionRoute, WebDriverExtensionRoute,
+    Route, VoidWebDriverExtensionRoute, WebDriverExtensionRoute, standard_routes,
 };
 use crate::response::{CloseWindowResponse, WebDriverResponse};
-use crate::Parameters;
 use bytes::Bytes;
 use http::{Method, StatusCode};
 use std::marker::PhantomData;
 use std::net::{SocketAddr, TcpListener as StdTcpListener};
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use tokio::net::TcpListener;
@@ -259,7 +259,7 @@ fn build_warp_routes<U: 'static + WebDriverExtensionRoute + Send + Sync>(
     allow_origins: Vec<Url>,
     ext_routes: &[(Method, &'static str, U)],
     chan: Sender<DispatchMessage<U>>,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = Rejection> + Clone + 'static {
     let chan = Arc::new(Mutex::new(chan));
     let mut std_routes = standard_routes::<U>();
 

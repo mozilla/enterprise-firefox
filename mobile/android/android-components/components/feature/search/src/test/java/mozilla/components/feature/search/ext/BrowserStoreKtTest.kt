@@ -80,6 +80,7 @@ class BrowserStoreKtTest {
                 additionalAvailableSearchEngines = emptyList(),
                 additionalSearchEngines = emptyList(),
                 regionSearchEnginesOrder = listOf("google"),
+                searchEnginesConfigurationId = 1,
             ),
         )
 
@@ -109,6 +110,7 @@ class BrowserStoreKtTest {
                 additionalAvailableSearchEngines = emptyList(),
                 additionalSearchEngines = emptyList(),
                 regionSearchEnginesOrder = listOf("google"),
+                searchEnginesConfigurationId = 12,
             ),
         )
 

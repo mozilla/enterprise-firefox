@@ -8,12 +8,28 @@ plugins {
 
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
+apply plugin: 'com.google.devtools.ksp'
 
 android {
+    defaultConfig {
+        ksp {
+            arg("room.schemaLocation", "$projectDir/schemas".toString())
+            arg("room.generateKotlin", "true")
+        }
+    }
+
     namespace = 'mozilla.components.feature.protection.dashboard'
 }
 
 dependencies {
+    implementation project(':components:concept-engine')
+    implementation project(':components:browser-state')
+    implementation project(':components:lib-state')
+    implementation libs.androidx.core.ktx
+
+    implementation libs.androidx.room.runtime
+    ksp libs.androidx.room.compiler
+    implementation libs.kotlinx.coroutines
 }
 
 apply from: '../../../common-config.gradle'

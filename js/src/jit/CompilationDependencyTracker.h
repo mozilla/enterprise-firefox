@@ -85,8 +85,8 @@ struct CompilationDependencyTracker {
 
   // Check all dependencies. May only be checked on main thread.
   bool checkDependencies(JSContext* cx) {
-    for (auto r(dependencies.all()); !r.empty(); r.popFront()) {
-      const CompilationDependency* dep = r.front();
+    for (auto iter = dependencies.iter(); !iter.done(); iter.next()) {
+      const CompilationDependency* dep = iter.get();
       if (!dep->checkDependency(cx)) {
         return false;
       }

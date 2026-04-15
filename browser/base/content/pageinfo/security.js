@@ -394,8 +394,8 @@ function setText(id, value) {
  * Return true iff realm (proto://host:port) (extracted from uri) has
  * saved passwords
  */
-function realmHasPasswords(uri) {
-  return Services.logins.countLogins(uri.prePath, "", "") > 0;
+async function realmHasPasswords(uri) {
+  return (await Services.logins.countLoginsAsync(uri.prePath, "", "")) > 0;
 }
 
 /**

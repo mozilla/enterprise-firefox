@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -33,7 +31,7 @@
 #include <algorithm>
 #include <utility>
 
-#include "PlatformMacros.h"
+#include "mozilla/ProfilerPlatformMacros.h"
 #include "Sandbox.h"  // for ContentProcessSandboxParams
 #include "SandboxBrokerClient.h"
 #include "SandboxFilterUtil.h"
@@ -1040,10 +1038,10 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
         // filter those; pids do need to be restricted to the current
         // process in order to not leak information.
         Arg<clockid_t> clk_id(0);
-#ifdef MOZ_GECKO_PROFILER
+
         clockid_t this_process =
             MAKE_PROCESS_CPUCLOCK(getpid(), CPUCLOCK_SCHED);
-#endif
+
         return If(clk_id == CLOCK_MONOTONIC, Allow())
 #ifdef CLOCK_MONOTONIC_COARSE
             // Used by SandboxReporter, among other things.
@@ -1058,13 +1056,11 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
             .ElseIf(clk_id == CLOCK_REALTIME_COARSE, Allow())
 #endif
             .ElseIf(clk_id == CLOCK_THREAD_CPUTIME_ID, Allow())
-#ifdef MOZ_GECKO_PROFILER
             // Allow clock_gettime on the same process.
             .ElseIf(clk_id == this_process, Allow())
             // Allow clock_gettime on a thread.
             .ElseIf((clk_id & 7u) == (CPUCLOCK_PERTHREAD_MASK | CPUCLOCK_SCHED),
                     Allow())
-#endif
 #ifdef CLOCK_BOOTTIME
             .ElseIf(clk_id == CLOCK_BOOTTIME, Allow())
 #endif

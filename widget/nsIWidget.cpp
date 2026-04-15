@@ -1,6 +1,3 @@
-
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -133,11 +130,10 @@ WidgetShutdownObserver::WidgetShutdownObserver(nsIWidget* aWidget)
   Register();
 }
 
-WidgetShutdownObserver::~WidgetShutdownObserver() {
-  // No need to call Unregister(), we can't be destroyed until nsIWidget
-  // gets torn down. The observer service and nsIWidget.have a ref on us
-  // so nsIWidget.has to call Unregister and then clear its ref.
-}
+// No need to call Unregister(), we can't be destroyed until nsIWidget
+// gets torn down. The observer service and nsIWidget.have a ref on us
+// so nsIWidget.has to call Unregister and then clear its ref.
+WidgetShutdownObserver::~WidgetShutdownObserver() = default;
 
 NS_IMETHODIMP
 WidgetShutdownObserver::Observe(nsISupports* aSubject, const char* aTopic,
@@ -219,11 +215,10 @@ LocalesChangedObserver::LocalesChangedObserver(nsIWidget* aWidget)
   Register();
 }
 
-LocalesChangedObserver::~LocalesChangedObserver() {
-  // No need to call Unregister(), we can't be destroyed until nsIWidget
-  // gets torn down. The observer service and nsIWidget.have a ref on us
-  // so nsIWidget.has to call Unregister and then clear its ref.
-}
+// No need to call Unregister(), we can't be destroyed until nsIWidget
+// gets torn down. The observer service and nsIWidget.have a ref on us
+// so nsIWidget.has to call Unregister and then clear its ref.
+LocalesChangedObserver::~LocalesChangedObserver() = default;
 
 NS_IMETHODIMP
 LocalesChangedObserver::Observe(nsISupports* aSubject, const char* aTopic,
@@ -1922,7 +1917,8 @@ void nsIWidget::NotifyWindowMoved(const LayoutDeviceIntPoint& aPoint,
     mWidgetListener->WindowMoved(this, aPoint, aByMoveToRect);
   }
 
-  if (mIMEHasFocus && IMENotificationRequestsRef().WantPositionChanged()) {
+  if (mIMEHasFocus && IMENotificationRequestsRef().contains(
+                          IMENotificationRequest::PositionChange)) {
     NotifyIME(IMENotification(IMEMessage::NOTIFY_IME_OF_POSITION_CHANGE));
   }
 }
@@ -2295,6 +2291,7 @@ void nsIWidget::TrackScrollEventAsSwipe(
 
   mSwipeTracker =
       new SwipeTracker(*this, aSwipeStartEvent, aAllowedDirections, direction);
+  mSwipeTracker->StartTracking(aSwipeStartEvent);
 
   if (!mAPZC) {
     mCurrentPanGestureBelongsToSwipe = true;

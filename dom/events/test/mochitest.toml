@@ -312,8 +312,6 @@ support-files = ["bug1017086_inner.html"]
 
 ["test_bug1150308.html"]
 
-["test_bug1248459.html"]
-
 ["test_bug1264380.html"]
 skip-if = [
   "os == 'android'", # some clipboard types and drag aren't supported
@@ -417,6 +415,7 @@ tags = "os_integration"
 skip-if = [
   "os == 'mac' && os_version == '10.15' && arch == 'x86_64'",
   "os == 'mac' && os_version == '14.70' && arch == 'x86_64'", # Bug 1929440
+  "os == 'mac' && os_version == '15.30' && arch == 'aarch64'", # Bug 2019405
 ]
 
 ["test_click_on_reframed_generated_text.html"]
@@ -495,9 +494,11 @@ skip-if = [
   "os == 'linux' && os_version == '24.04'", # Bug 1802904
   "os == 'linux' && os_version == '22.04' && arch == 'x86_64' && display == 'wayland'", # Bug 1802904
   "os == 'win' && os_version == '11.26100' && (opt || debug)", # Bug 1802904
+  "os == 'win' && os_version == '11.26200' && (opt || debug)", # Bug 1802904
   "os == 'win' && os_version == '10.2009' && arch == 'x86_64' && opt", # Bug 1802904
   "os == 'android' && os_version == '14' && arch == 'x86_64' && opt", # Bug 1802904
   "os == 'mac' && os_version == '14.70' && arch == 'x86_64' && opt", # Bug 1802904
+  "os == 'mac' && os_version == '15.30' && arch == 'aarch64'", # Bug 2019466
 ]
 
 ["test_draggableprop.html"]
@@ -506,7 +507,10 @@ skip-if = [
 skip-if = [
   "os == 'android' && verify",
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && opt && xorigin && verify-standalone",
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && opt && xorigin && verify-standalone",
 ]
+
+["test_dragstart_form_associated_custom_element.html"]
 
 ["test_error_events.html"]
 skip-if = [

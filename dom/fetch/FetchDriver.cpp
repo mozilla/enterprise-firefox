@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -661,6 +659,14 @@ nsresult FetchDriver::HttpFetch(
   }
   NS_ENSURE_SUCCESS(rv, rv);
 
+  // https://fetch.spec.whatwg.org/#concept-fetch
+  // MIME sniffing does not apply to fetch requests, only to browsing contexts.
+  // no-cors requests may need sniffing for Opaque Response Blocking (ORB).
+  if (mRequest->Mode() != RequestMode::No_cors) {
+    nsCOMPtr<nsILoadInfo> loadInfo = chan->LoadInfo();
+    loadInfo->SetSkipContentSniffing(true);
+  }
+
   if (mCSPEventListener) {
     nsCOMPtr<nsILoadInfo> loadInfo = chan->LoadInfo();
     rv = loadInfo->SetCspEventListener(mCSPEventListener);
@@ -675,8 +681,7 @@ nsresult FetchDriver::HttpFetch(
 
   if (mAssociatedBrowsingContextID) {
     nsCOMPtr<nsILoadInfo> loadInfo = chan->LoadInfo();
-    rv = loadInfo->SetWorkerAssociatedBrowsingContextID(
-        mAssociatedBrowsingContextID);
+    rv = loadInfo->SetAssociatedBrowsingContextID(mAssociatedBrowsingContextID);
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
@@ -994,7 +999,7 @@ nsresult FetchDriver::HttpFetch(
 
   // Step 4 onwards of "HTTP Fetch" is handled internally by Necko.
 
-  mChannel = chan;
+  mChannel = std::move(chan);
   return NS_OK;
 }
 
@@ -1434,7 +1439,6 @@ struct SRIVerifierAndOutputHolder {
   SRICheckDataVerifier* mVerifier;
   nsIOutputStream* mOutputStream;
 
- private:
   SRIVerifierAndOutputHolder() = delete;
 };
 

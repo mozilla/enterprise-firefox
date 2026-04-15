@@ -148,7 +148,7 @@ class AwesomeBarComposable(
                 onClick = {
                     url?.let {
                         toolbarStore.dispatch(
-                            SearchQueryUpdated(query = BrowserToolbarQuery(url), isQueryPrefilled = false),
+                            SearchQueryUpdated(query = BrowserToolbarQuery(url), isQueryPrefilled = true),
                         )
                     }
                 },
@@ -247,7 +247,7 @@ class AwesomeBarComposable(
                 onClick = {
                     url?.let {
                         toolbarStore.dispatch(
-                            SearchQueryUpdated(query = BrowserToolbarQuery(url), isQueryPrefilled = false),
+                            SearchQueryUpdated(query = BrowserToolbarQuery(url), isQueryPrefilled = true),
                         )
                     }
                 },

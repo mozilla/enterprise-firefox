@@ -32,7 +32,9 @@ CREATE TABLE conversation (
   created_date INTEGER NOT NULL,
   updated_date INTEGER NOT NULL,
   status INTEGER NOT NULL DEFAULT 0,
-  active_branch_tip_message_id TEXT -- no foreign here, as we insert messages later.
+  active_branch_tip_message_id TEXT, -- no foreign here, as we insert messages later.
+  security_properties_jsonb BLOB,
+  seen_urls_jsonb BLOB
 ) WITHOUT ROWID;
 `;
 
@@ -59,7 +61,8 @@ CREATE TABLE message (
   memories_enabled BOOLEAN,
   memories_flag_source INTEGER,
   memories_applied_jsonb BLOB,
-  web_search_queries_jsonb BLOB
+  web_search_queries_jsonb BLOB,
+  page_history_deleted BOOLEAN NOT NULL DEFAULT false
 ) WITHOUT ROWID;
 `;
 
@@ -84,16 +87,20 @@ CREATE INDEX IF NOT EXISTS message_conv_id_idx ON message(conv_id);
 export const CONVERSATION_INSERT = `
 INSERT INTO conversation (
   conv_id, title, description, page_url, page_meta_jsonb,
-  created_date, updated_date, status, active_branch_tip_message_id
+  created_date, updated_date, status, active_branch_tip_message_id,
+  security_properties_jsonb, seen_urls_jsonb
 ) VALUES (
   :conv_id, :title, :description, :page_url, jsonb(:page_meta),
-  :created_date, :updated_date, :status, :active_branch_tip_message_id
+  :created_date, :updated_date, :status, :active_branch_tip_message_id,
+  jsonb(:security_properties), jsonb(:seen_urls)
 )
 ON CONFLICT(conv_id) DO UPDATE
   SET title = :title,
       updated_date = :updated_date,
       status = :status,
-      active_branch_tip_message_id = :active_branch_tip_message_id;
+      active_branch_tip_message_id = :active_branch_tip_message_id,
+      security_properties_jsonb = jsonb(:security_properties),
+      seen_urls_jsonb = jsonb(:seen_urls);
 `;
 
 export const MESSAGE_INSERT = `
@@ -134,23 +141,29 @@ LIMIT :limit;
 export const CONVERSATION_BY_ID = `
 SELECT conv_id, title, description, page_url,
   json(page_meta_jsonb) AS page_meta, created_date, updated_date,
-  status, active_branch_tip_message_id
+  status, active_branch_tip_message_id,
+  json(security_properties_jsonb) AS security_properties,
+  json(seen_urls_jsonb) AS seen_urls
 FROM conversation WHERE conv_id = :conv_id;
 `;
 
 export const CONVERSATIONS_BY_DATE = `
 SELECT conv_id, title, description, page_url,
   json(page_meta_jsonb) AS page_meta, created_date, updated_date,
-  status, active_branch_tip_message_id
+  status, active_branch_tip_message_id,
+  json(security_properties_jsonb) AS security_properties,
+  json(seen_urls_jsonb) AS seen_urls
 FROM conversation
-WHERE updated_date >= :start_date AND updated_date <= :end_date 
+WHERE updated_date >= :start_date AND updated_date <= :end_date
 ORDER BY updated_date DESC;
 `;
 
 export const CONVERSATIONS_BY_URL = `
 SELECT c.conv_id, c.title, c.description, c.page_url,
   json(c.page_meta_jsonb) AS page_meta, c.created_date, c.updated_date,
-  c.status, c.active_branch_tip_message_id
+  c.status, c.active_branch_tip_message_id,
+  json(c.security_properties_jsonb) AS security_properties,
+  json(c.seen_urls_jsonb) AS seen_urls
 FROM conversation c
 WHERE EXISTS (
   SELECT 1
@@ -159,6 +172,67 @@ WHERE EXISTS (
   AND m.page_url = :page_url
 )
 ORDER BY c.updated_date DESC;
+`;
+
+export const REMOVE_ALL_SITE_URLS_FROM_MESSAGES = `
+UPDATE message
+SET page_url = NULL,
+    page_history_deleted = 1,
+    content_jsonb = CASE
+      WHEN json_type(content_jsonb, '$.contextMentions') = 'array'
+      THEN jsonb_set(
+        content_jsonb,
+        '$.contextMentions',
+        (
+          SELECT jsonb_group_array(
+            jsonb_set(value, '$.historyDeleted', jsonb('true'))
+            ORDER BY key
+          )
+          FROM jsonb_each(content_jsonb, '$.contextMentions')
+        )
+      )
+      ELSE content_jsonb
+    END
+`;
+
+export const REMOVE_SITE_URL_FROM_MESSAGES = `
+UPDATE message
+SET
+  page_url = CASE
+    WHEN page_url = :page_url THEN NULL
+    ELSE page_url
+  END,
+
+  page_history_deleted = CASE
+    WHEN page_url = :page_url THEN 1
+    ELSE page_history_deleted
+  END,
+
+  content_jsonb = CASE
+    WHEN json_type(content_jsonb, '$.contextMentions') = 'array'
+    THEN jsonb_set(
+      content_jsonb,
+      '$.contextMentions',
+      (
+        SELECT jsonb_group_array(
+          CASE
+            WHEN json_extract(value, '$.url') = :page_url
+            THEN jsonb_set(value, '$.historyDeleted', jsonb('true'))
+            ELSE value
+          END
+          ORDER BY key
+        )
+        FROM jsonb_each(content_jsonb, '$.contextMentions')
+      )
+    )
+    ELSE content_jsonb
+  END
+WHERE page_url = :page_url
+   OR EXISTS (
+     SELECT 1
+     FROM jsonb_each(content_jsonb, '$.contextMentions')
+     WHERE json_extract(value, '$.url') = :page_url
+   );
 `;
 
 /**
@@ -175,7 +249,7 @@ export function getConversationMessagesSql(amount) {
       page_url, turn_index, memories_enabled, memories_flag_source, 
       json(memories_applied_jsonb) AS memories_applied,
       json(web_search_queries_jsonb) AS web_search_queries,
-      json(content_jsonb) AS content
+      json(content_jsonb) AS content, page_history_deleted
       FROM message
       WHERE conv_id IN(${new Array(amount).fill("?").join(",")})
       ORDER BY ordinal ASC;
@@ -203,7 +277,9 @@ export function getDeleteEmptyConversationsSql(amount) {
 export const CONVERSATIONS_CONTENT_SEARCH = `
 SELECT c.conv_id, c.title, c.description, c.page_url,
   json(c.page_meta_jsonb) AS page_meta, c.created_date, c.updated_date,
-  c.status, c.active_branch_tip_message_id
+  c.status, c.active_branch_tip_message_id,
+  json(c.security_properties_jsonb) AS security_properties,
+  json(c.seen_urls_jsonb) AS seen_urls
 FROM conversation c
 JOIN message m ON m.conv_id = c.conv_id
 WHERE json_type(m.content_jsonb, :path) IS NOT NULL;
@@ -212,7 +288,9 @@ WHERE json_type(m.content_jsonb, :path) IS NOT NULL;
 export const CONVERSATIONS_CONTENT_SEARCH_BY_ROLE = `
 SELECT c.conv_id, c.title, c.description, c.page_url,
   json(c.page_meta_jsonb) AS page_meta, c.created_date, c.updated_date,
-  c.status, c.active_branch_tip_message_id
+  c.status, c.active_branch_tip_message_id,
+  json(c.security_properties_jsonb) AS security_properties,
+  json(c.seen_urls_jsonb) AS seen_urls
 FROM conversation c
 JOIN message m ON m.conv_id = c.conv_id
 WHERE m.role = :role
@@ -220,17 +298,32 @@ WHERE m.role = :role
 `;
 
 export const CONVERSATIONS_HISTORY_SEARCH = `
-SELECT c.conv_id, c.title, c.description, c.page_url,
-  json(c.page_meta_jsonb) AS page_meta, c.created_date, c.updated_date,
-  c.status, c.active_branch_tip_message_id
-FROM conversation c
-JOIN message m ON m.conv_id = c.conv_id
-WHERE m.role = 0
-  AND (
-    CAST(json_extract(m.content_jsonb, :path) AS TEXT) LIKE :pattern ESCAPE '/'
-    OR
-    c.title LIKE :pattern ESCAPE '/'
-  );
+SELECT
+  c.conv_id,
+  c.title,
+  c.description,
+  c.page_url,
+  json(c.page_meta_jsonb) AS page_meta,
+  c.created_date,
+  c.updated_date,
+  c.status,
+  c.active_branch_tip_message_id,
+  json(c.security_properties_jsonb) AS security_properties,
+  json(c.seen_urls_jsonb) AS seen_urls,
+  json_extract(m.content_jsonb, :path) AS matching_snippet
+FROM conversation AS c
+LEFT JOIN message AS m
+  ON m.message_id = (
+    SELECT mm.message_id
+    FROM message AS mm
+    WHERE mm.conv_id = c.conv_id
+      AND mm.role IN (0,1) /* USER, ASSISTANT */
+      AND json_extract(mm.content_jsonb, :path) LIKE :pattern ESCAPE '/'
+    ORDER BY mm.created_date DESC
+    LIMIT 1
+  )
+WHERE c.title LIKE :pattern ESCAPE '/'
+   OR m.message_id IS NOT NULL;
 `;
 
 export const MESSAGES_BY_DATE = `
@@ -241,7 +334,7 @@ SELECT
   page_url, turn_index, memories_enabled, memories_flag_source,
   json(memories_applied_jsonb) AS memories_applied,
   json(web_search_queries_jsonb) AS web_search_queries,
-  json(content_jsonb) AS content
+  json(content_jsonb) AS content, page_history_deleted
 FROM message
 WHERE created_date >= :start_date AND created_date <= :end_date
 ORDER BY created_date DESC
@@ -256,12 +349,21 @@ SELECT
   page_url, turn_index, memories_enabled, memories_flag_source,
   json(memories_applied_jsonb) AS memories_applied,
   json(web_search_queries_jsonb) AS web_search_queries,
-  json(content_jsonb) AS content
+  json(content_jsonb) AS content, page_history_deleted
 FROM message
 WHERE role = :role
   AND created_date >= :start_date AND created_date <= :end_date
 ORDER BY created_date DESC
 LIMIT :limit OFFSET :offset;
+`;
+
+export const DELETE_CONVERSATIONS_BY_DATE = `
+DELETE FROM conversation
+WHERE created_date >= :start_date AND created_date <= :end_date;
+`;
+
+export const DELETE_ALL_CONVERSATIONS = `
+DELETE FROM conversation;
 `;
 
 export const DELETE_CONVERSATION_BY_ID = `

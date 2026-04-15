@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
-/* vim:set ts=4 sw=4 sts=4 et cin: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -254,8 +252,7 @@ HttpTransactionChild::OnDataAvailable(nsIRequest* aRequest,
     nsHttp::SendFunc<nsCString> sendFunc =
         [self = UnsafePtr<HttpTransactionChild>(this)](
             const nsCString& aData, uint64_t aOffset, uint32_t aCount) {
-          return self->SendOnDataAvailable(aData, aOffset, aCount,
-                                           TimeStamp::Now());
+          return self->SendOnDataAvailable(aData, aOffset, TimeStamp::Now());
         };
 
     LOG(("  ODA to parent process"));
@@ -276,7 +273,7 @@ HttpTransactionChild::OnDataAvailable(nsIRequest* aRequest,
           const nsDependentCSubstring& aData, uint64_t aOffset,
           uint32_t aCount) {
         return self->mDataBridgeParent->SendOnTransportAndData(
-            aOffset, aCount, aData, TimeStamp::Now());
+            aOffset, aData, TimeStamp::Now());
       };
 
   LOG(("  ODA to content process"));
@@ -296,7 +293,7 @@ HttpTransactionChild::OnDataAvailable(nsIRequest* aRequest,
             nsHttp::SendFunc<nsCString> sendFunc =
                 [self](const nsCString& aData, uint64_t aOffset,
                        uint32_t aCount) {
-                  return self->SendOnDataAvailable(aData, aOffset, aCount,
+                  return self->SendOnDataAvailable(aData, aOffset,
                                                    TimeStamp::Now());
                 };
 

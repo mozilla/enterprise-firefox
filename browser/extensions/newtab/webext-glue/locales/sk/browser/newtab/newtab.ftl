@@ -52,7 +52,7 @@ newtab-search-box-input =
     .placeholder = Vyhľadávanie na webe
     .aria-label = Vyhľadávanie na webe
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Pridať vyhľadávací modul
 newtab-topsites-add-shortcut-header = Nová skratka
@@ -72,6 +72,11 @@ newtab-topsites-url-validation = Vyžaduje sa platná adresa URL
 newtab-topsites-image-url-label = Adresa URL vlastného obrázka
 newtab-topsites-use-image-link = Použiť vlastný obrázok…
 newtab-topsites-image-validation = Obrázok sa nepodarilo načítať. Skúste inú adresu URL.
+
+## Clear text button for the URL and image URL input fields in the Top Sites form.
+
+newtab-topsites-clear-input =
+    .aria-label = Vymazať text
 
 ## Top Sites - General form dialog buttons. These are verbs/actions.
 
@@ -629,6 +634,8 @@ newtab-report-cancel = Zrušiť
 newtab-report-submit = Odoslať
 newtab-toast-thanks-for-reporting =
     .message = Ďakujeme za nahlásenie.
+newtab-toast-widgets-hidden =
+    .message = Vyberte ikonu ceruzky a kedykoľvek znova pridajte miniaplikácie.
 
 ## Strings for task / to-do list productivity widget
 
@@ -669,6 +676,7 @@ newtab-widget-lists-name-placeholder-default =
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Nový zoznam
 newtab-widget-section-title = Miniaplikácie
+newtab-widget-menu-hide = Skryť miniaplikáciu
 # Tooltip for hide all widgets button
 newtab-widget-section-hide-all-button =
     .title = Skryť miniaplikácie
@@ -679,6 +687,7 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Minimalizovať miniaplikácie
     .aria-label = Zbaliť všetky miniaplikácie do kompaktnej veľkosti
+newtab-widget-section-feedback = Povedzte nám váš názor
 
 ## Strings for timer productivity widget
 ## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown

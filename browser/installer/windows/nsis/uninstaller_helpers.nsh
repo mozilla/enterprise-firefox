@@ -340,6 +340,18 @@
     ${EndIf}
   ${EndIf}
 
+  ${RemoveDeprecatedKeys}
+  ${Set32to64DidMigrateReg}
+
+  ${SetAppKeys}
+  ${FixClassKeys}
+  ${SetUninstallKeys}
+  ${If} $RegHive == "HKLM"
+    ${SetStartMenuInternet} HKLM
+  ${ElseIf} $RegHive == "HKCU"
+    ${SetStartMenuInternet} HKCU
+  ${EndIf}
+
   !ifdef DESKTOP_LAUNCHER_ENABLED
     Call OnUpdateDesktopLauncherHandler
   !endif
@@ -360,18 +372,6 @@
     SetShellVarContext all
   ${ElseIf} $RegHive == "HKCU"
     SetShellVarContext current
-  ${EndIf}
-
-  ${RemoveDeprecatedKeys}
-  ${Set32to64DidMigrateReg}
-
-  ${SetAppKeys}
-  ${FixClassKeys}
-  ${SetUninstallKeys}
-  ${If} $RegHive == "HKLM"
-    ${SetStartMenuInternet} HKLM
-  ${ElseIf} $RegHive == "HKCU"
-    ${SetStartMenuInternet} HKCU
   ${EndIf}
 
   ; Remove files that may be left behind by the application in the

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -388,7 +386,7 @@ bool CompositorBridgeChild::SendStopFrameTimeRecording(
 
 PTextureChild* CompositorBridgeChild::AllocPTextureChild(
     const SurfaceDescriptor&, ReadLockDescriptor&, const LayersBackend&,
-    const TextureFlags&, const LayersId&, const uint64_t& aSerial,
+    const TextureFlags&, const uint64_t& aSerial,
     const wr::MaybeExternalImageId& aExternalImageId) {
   return TextureClient::CreateIPDLActor();
 }
@@ -510,11 +508,11 @@ PTextureChild* CompositorBridgeChild::CreateTexture(
     wr::MaybeExternalImageId& aExternalImageId) {
   PTextureChild* textureChild =
       AllocPTextureChild(aSharedData, aReadLock, aLayersBackend, aFlags,
-                         LayersId{0} /* FIXME */, aSerial, aExternalImageId);
+                         aSerial, aExternalImageId);
 
-  return SendPTextureConstructor(
-      textureChild, aSharedData, std::move(aReadLock), aLayersBackend, aFlags,
-      LayersId{0} /* FIXME? */, aSerial, aExternalImageId);
+  return SendPTextureConstructor(textureChild, aSharedData,
+                                 std::move(aReadLock), aLayersBackend, aFlags,
+                                 aSerial, aExternalImageId);
 }
 
 already_AddRefed<CanvasChild> CompositorBridgeChild::GetCanvasChild() {

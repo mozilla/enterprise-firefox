@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set sw=2 ts=2 et tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -21,6 +19,7 @@
 #include "mozilla/SchedulerGroup.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/Services.h"
+#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StaticPrefs_html5.h"
 #include "mozilla/StaticPrefs_network.h"
 #include "mozilla/TextUtils.h"
@@ -1127,6 +1126,8 @@ nsresult nsHtml5StreamParser::OnStartRequest(nsIRequest* aRequest) {
       !((mMode == NORMAL) && scriptingEnabled));
   mTreeBuilder->setAllowDeclarativeShadowRoots(
       mExecutor->GetDocument()->AllowsDeclarativeShadowRoots());
+  mTreeBuilder->setNoInSelectMode(
+      StaticPrefs::dom_lift_select_parser_restrictions_enabled());
   mTokenizer->start();
   mExecutor->Start();
   mExecutor->StartReadingFromStage();
@@ -2670,7 +2671,7 @@ void nsHtml5StreamParser::ContinueAfterScriptsOrEncodingCommitment(
 
       nsContentUtils::ReportToConsole(
           nsIScriptError::warningFlag, "DOM Events"_ns,
-          mExecutor->GetDocument(), nsContentUtils::eDOM_PROPERTIES,
+          mExecutor->GetDocument(), PropertiesFile::DOM_PROPERTIES,
           "SpeculationFailed2", nsTArray<nsString>(),
           SourceLocation(mExecutor->GetDocument()->GetDocumentURI(),
                          speculation->GetStartLineNumber(),

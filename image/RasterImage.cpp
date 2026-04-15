@@ -1,5 +1,4 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
- * This Source Code Form is subject to the terms of the Mozilla Public
+/* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
@@ -78,6 +77,8 @@ RasterImage::RasterImage(nsIURI* aURI /* = nullptr */)
 
 //******************************************************************************
 RasterImage::~RasterImage() {
+  mIsBeingDestroyed = true;
+
   // Make sure our SourceBuffer is marked as complete. This will ensure that any
   // outstanding decoders terminate.
   if (!mSourceBuffer->IsComplete()) {
@@ -481,8 +482,12 @@ RasterImage::WillDrawOpaqueNow() {
 void RasterImage::OnSurfaceDiscarded(const SurfaceKey& aSurfaceKey) {
   MOZ_ASSERT(mProgressTracker);
 
+  if (mIsBeingDestroyed) {
+    return;
+  }
+
   bool animatedFramesDiscarded =
-      mAnimationState && aSurfaceKey.Playback() == PlaybackType::eAnimated;
+      aSurfaceKey.Playback() == PlaybackType::eAnimated;
 
   nsCOMPtr<nsIEventTarget> eventTarget = do_GetMainThread();
 

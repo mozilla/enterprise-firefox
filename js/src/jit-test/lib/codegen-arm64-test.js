@@ -12,8 +12,7 @@ str     x23, \\[x29, #16\\])?
 
 // Start of epilogue
 var arm64_suffix = `
-ldr     x30, \\[sp, #8\\]
-ldr     x29, \\[sp\\]
+ldp     x29, x30, \\[sp\\], #16
 `;
 
 // For when nothing else applies: `module_text` is the complete source text of

@@ -47,7 +47,6 @@ xpcshell:
         - conditioned_profile
         - no-fission
         - msix
-        - geckoview-no-fission-no-ship
         - inc-origin-init
     instance-size:
         by-variant:
@@ -76,11 +75,6 @@ xpcshell:
                     windows11-64-24h2(-shippable)?/opt: built-projects
                     windows11-64-24h2/debug: built-projects
                     default: []
-            geckoview-no-fission-no-ship:
-                by-test-platform:
-                    android-em.*/debug-isolated-process: []
-                    android-em.*: built-projects
-                    default: []
             inc-origin-init: []
             default:
                 by-test-platform:
@@ -88,21 +82,19 @@ xpcshell:
                     .*-wayland.*: []
                     windows.*-asan/opt: []  # No XPCShell on ASAN yet
                     default: built-projects
-    chunks:
-        by-variant:
-            inc-origin-init: dynamic
-            default:
-                by-test-platform:
-                    .*-asan.*/opt: 4
-                    .*-ccov.*: 8
-                    .*-tsan(-qr)?/opt: 10
-                    android-em-14.*/debug: 16
-                    android-em-14.*/opt: 8
-                    android.*/debug: 10
-                    android.*/opt: 5
-                    macosx.*: 2
-                    linux2404-64.*/opt: 2
-                    default: 4
+    chunks: dynamic
+    default-chunks:
+        by-test-platform:
+            .*-asan.*/opt: 4
+            .*-ccov.*: 8
+            .*-tsan(-qr)?/opt: 10
+            android-em-14.*/debug: 16
+            android-em-14.*/opt: 8
+            android.*/debug: 10
+            android.*/opt: 5
+            macosx.*: 2
+            linux2404-64.*/opt: 2
+            default: 4
     timeoutfactor:
         by-test-platform:
             android-em-14.*: 2

@@ -33,25 +33,19 @@ import "chrome://browser/content/aiwindow/components/applied-memories-button.mjs
  *       detail: { messageId }
  *   - "retry-message"
  *       detail: { messageId }
- *   - "retry-without-memories"
- *       detail: { messageId }
- *   - "remove-applied-memory"
- *       (re-dispatched from the applied memories button)
- *       detail: { messageId, index, memory }
- *   - "toggle-applied-memories"
- *       (re-dispatched from the applied memories button)
- *       detail: { messageId, open }
  */
 export class AssistantMessageFooter extends MozLitElement {
   static properties = {
     messageId: { type: String, attribute: "message-id" },
     appliedMemories: { attribute: false },
+    showCallout: { type: Boolean },
   };
 
   constructor() {
     super();
     this.messageId = null;
     this.appliedMemories = [];
+    this.showCallout = false;
   }
 
   static eventBehaviors = {
@@ -63,9 +57,6 @@ export class AssistantMessageFooter extends MozLitElement {
     return {
       copy: "copy-message",
       retry: "retry-message",
-      toggleMemories: "toggle-applied-memories",
-      removeMemory: "remove-applied-memory",
-      retryWithoutMemories: "retry-without-memories",
     };
   }
 
@@ -84,21 +75,6 @@ export class AssistantMessageFooter extends MozLitElement {
 
   #emitRetry() {
     this.#emit(this.constructor.events.retry, { messageId: this.messageId });
-  }
-
-  #onAppliedMemoriesToggle(event) {
-    this.#emit(this.constructor.events.toggleMemories, event.detail);
-  }
-
-  #onRemoveAppliedMemory(event) {
-    this.#emit(this.constructor.events.removeMemory, event.detail);
-  }
-
-  #onRetryWithoutMemories(event) {
-    this.#emit(
-      this.constructor.events.retryWithoutMemories,
-      event.detail ?? { messageId: this.messageId }
-    );
   }
 
   render() {
@@ -135,15 +111,7 @@ export class AssistantMessageFooter extends MozLitElement {
         <applied-memories-button
           .messageId=${this.messageId}
           .appliedMemories=${this.appliedMemories ?? []}
-          @toggle-applied-memories=${event => {
-            this.#onAppliedMemoriesToggle(event);
-          }}
-          @remove-applied-memory=${event => {
-            this.#onRemoveAppliedMemory(event);
-          }}
-          @retry-without-memories=${event => {
-            this.#onRetryWithoutMemories(event);
-          }}
+          .showCallout=${this.showCallout}
         >
         </applied-memories-button>
       </div>

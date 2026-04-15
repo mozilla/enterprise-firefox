@@ -33,12 +33,23 @@ async function checkSplitViewPanelVisible(tab, isVisible) {
   );
 }
 
-function dragSplitter(deltaX, splitter) {
+async function waitForSplitterMoved(splitter) {
+  const valueBefore = splitter.getAttribute("aria-valuenow");
+  await BrowserTestUtils.waitForMutationCondition(
+    splitter,
+    { attributes: true, attributeFilter: ["aria-valuenow"] },
+    () => splitter.getAttribute("aria-valuenow") != valueBefore
+  );
+}
+
+async function dragSplitter(deltaX, splitter) {
+  const movedPromise = waitForSplitterMoved(splitter);
   AccessibilityUtils.setEnv({ mustHaveAccessibleRule: false });
   EventUtils.synthesizeMouseAtCenter(splitter, { type: "mousedown" });
   EventUtils.synthesizeMouse(splitter, deltaX, 0, { type: "mousemove" });
   EventUtils.synthesizeMouse(splitter, 0, 0, { type: "mouseup" });
   AccessibilityUtils.resetEnv();
+  await movedPromise;
 }
 
 add_task(async function test_splitViewCreateAndAddTabs() {
@@ -46,7 +57,7 @@ add_task(async function test_splitViewCreateAndAddTabs() {
   let tab2 = BrowserTestUtils.addTab(gBrowser, "about:blank");
   let tab3 = BrowserTestUtils.addTab(gBrowser, "about:blank");
   let tab4 = BrowserTestUtils.addTab(gBrowser, "about:blank");
-
+  const tabpanels = document.getElementById("tabbrowser-tabpanels");
   // Add tabs to split view
   let splitview = gBrowser.addTabSplitView([tab1, tab2]);
   let splitview2 = gBrowser.addTabSplitView([tab3, tab4]);
@@ -110,8 +121,8 @@ add_task(async function test_splitViewCreateAndAddTabs() {
     "The split view wrapper has the expected attribute when it contains the selected tab"
   );
 
-  // Unsplit tabs
-  splitview.unsplitTabs();
+  // TODO Bug 2022919- fix discrepancy between splitview.unsplitTabs and gBrowser.unsplitTabs()
+  gBrowser.unsplitTabs(splitview);
   await BrowserTestUtils.waitForMutationCondition(
     tabbrowserTabs,
     { childList: true },
@@ -138,6 +149,16 @@ add_task(async function test_splitViewCreateAndAddTabs() {
     !tab3Panel.classList.contains("split-view-panel-active") &&
       !tab4Panel.classList.contains("split-view-panel-active"),
     "Split view active classes have been removed from the tab panels"
+  );
+
+  await BrowserTestUtils.waitForMutationCondition(
+    tabpanels,
+    { attributes: true },
+    () => !tabpanels.hasAttribute("splitview")
+  );
+  Assert.ok(
+    !tabpanels.hasAttribute("splitview"),
+    "Tab panel does not have blue outline"
   );
 
   // Add tabs back to split view
@@ -284,7 +305,7 @@ add_task(async function test_resize_split_view_panels() {
   const rightPanel = document.getElementById(tab2.linkedPanel);
   const originalLeftWidth = leftPanel.getBoundingClientRect().width;
   const originalRightWidth = rightPanel.getBoundingClientRect().width;
-  dragSplitter(-100, tabpanels.splitViewSplitter);
+  await dragSplitter(-100, tabpanels.splitViewSplitter);
   Assert.less(
     leftPanel.getBoundingClientRect().width,
     originalLeftWidth,
@@ -312,7 +333,7 @@ add_task(async function test_resize_split_view_panels() {
 
   info("Reverse split view panels and resize.");
   splitView.reverseTabs();
-  dragSplitter(-100, tabpanels.splitViewSplitter);
+  await dragSplitter(-100, tabpanels.splitViewSplitter);
   await BrowserTestUtils.waitForMutationCondition(
     leftPanel,
     { attributeFilter: ["width"] },
@@ -329,6 +350,28 @@ add_task(async function test_resize_split_view_panels() {
     );
   }
 
+  BrowserTestUtils.removeTab(tab1);
+  BrowserTestUtils.removeTab(tab2);
+});
+
+add_task(async function test_resize_split_view_panels_exceeds_max_width() {
+  const tab1 = await addTabAndLoadBrowser();
+  const tab2 = await addTabAndLoadBrowser();
+  await BrowserTestUtils.switchTab(gBrowser, tab1);
+
+  info("Activate split view.");
+  const splitView = gBrowser.addTabSplitView([tab1, tab2]);
+  const splitter = gBrowser.tabpanels.splitViewSplitter;
+
+  const leftPanel = document.getElementById(tab1.linkedPanel);
+  await dragSplitter(9000, splitter);
+  Assert.lessOrEqual(
+    Number(leftPanel.getAttribute("width")),
+    Number(splitter.getAttribute("aria-valuemax")),
+    "Stored width should not exceed max width after resizing."
+  );
+
+  splitView.close();
   BrowserTestUtils.removeTab(tab1);
   BrowserTestUtils.removeTab(tab2);
 });
@@ -710,4 +753,41 @@ add_task(async function test_move_splitview_to_end_and_start() {
   for (let tab of [tab1, tab2, tab3, tab4]) {
     BrowserTestUtils.removeTab(tab);
   }
+});
+
+add_task(async function test_width_preserved_between_splitviews() {
+  info("Create four tabs for two split view pairings.");
+  const tab1 = await addTabAndLoadBrowser();
+  const tab2 = await addTabAndLoadBrowser();
+  const tab3 = await addTabAndLoadBrowser();
+  const tab4 = await addTabAndLoadBrowser();
+
+  info("Create two split views [1, 2] and [3, 4].");
+  const splitView1 = gBrowser.addTabSplitView([tab1, tab2]);
+  const splitView2 = gBrowser.addTabSplitView([tab3, tab4]);
+
+  info("Switch to tab 1 to activate the first split view.");
+  await BrowserTestUtils.switchTab(gBrowser, tab1);
+  await checkSplitViewPanelVisible(tab1, true);
+
+  const panel1 = document.getElementById(tab1.linkedPanel);
+  const originalWidth = panel1.getBoundingClientRect().width;
+
+  info("Switch to tab 3 to activate the second split view.");
+  await BrowserTestUtils.switchTab(gBrowser, tab3);
+  await checkSplitViewPanelVisible(tab1, false);
+  await checkSplitViewPanelVisible(tab3, true);
+
+  info("Switch back to tab 1.");
+  await BrowserTestUtils.switchTab(gBrowser, tab1);
+  await checkSplitViewPanelVisible(tab1, true);
+
+  Assert.equal(
+    panel1.getBoundingClientRect().width,
+    originalWidth,
+    "Panel 1 width is unchanged after switching between split views."
+  );
+
+  splitView1.close();
+  splitView2.close();
 });

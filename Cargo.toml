@@ -9,15 +9,8 @@ members = [
   "js/src/rust",
   "netwerk/base/idna_glue",
   "netwerk/test/http3server",
-  "security/manager/ssl/abridged_certs",
-  "security/manager/ssl/ipcclientcerts",
-  "security/manager/ssl/osclientcerts",
   "security/manager/ssl/tests/unit/pkcs11testmodule",
   "security/manager/ssl/tests/unit/test_trust_anchors",
-  "security/manager/ssl/qwac_trust_anchors",
-  "security/manager/ssl/pdf_trust_anchors",
-  "security/manager/ssl/trust_anchors",
-  "security/mls/mls_gk",
   "services/app-services-tools/embedded-uniffi-bindgen",
   "services/app-services-tools/nimbus-fml",
   "testing/geckodriver",
@@ -31,6 +24,7 @@ members = [
   "toolkit/library/gtest/rust",
   "toolkit/library/rust/",
   "services/application-services/components/viaduct-necko",
+  "js/src/builtin/normalizer_glue",
 ]
 
 # Excluded crates may be built as dependencies, but won't be considered members
@@ -57,6 +51,7 @@ exclude = [
   "dom/base/rust",
   "dom/origin-trials/ffi",
   "ipc/rust/ipdl_utils",
+  "tools/update-verify/marannon",
 
   # Excluded because we don't want to vendor their dependencies.
   "intl/l10n/rust/l10nregistry-tests",
@@ -77,7 +72,7 @@ uniffi_pipeline = "0.31"
 # Shared across multiple application-services consumers.
 rusqlite = "0.37"
 # Shared across multiple glean consumers.
-glean = "=67.0.0"
+glean = "=67.1.0"
 
 # Explicitly specify what our profiles use.  The opt-level setting here is
 # a total fiction; see the setup of MOZ_RUST_DEFAULT_FLAGS for what the
@@ -176,6 +171,17 @@ bindgen_0_72 = { package = "bindgen", git = "https://github.com/rust-lang/rust-b
 # Patch bindgen 0.69 to 0.72
 bindgen = { path = "build/rust/bindgen" }
 
+# Locally patch icu_normalizer to take fixes from the 2.3 track
+icu_collator = { path = "third_party/rust/icu_collator" }
+icu_collator_data = { path = "third_party/rust/icu_collator_data" }
+icu_normalizer = { path = "third_party/rust/icu_normalizer" }
+icu_normalizer_data = { path = "third_party/rust/icu_normalizer_data" }
+icu_collections = { path = "third_party/rust/icu_collections" }
+utf8_iter = { path = "third_party/rust/utf8_iter" }
+utf16_iter = { path = "third_party/rust/utf16_iter" }
+icu_properties = { path = "third_party/rust/icu_properties" }
+icu_properties_data = { path = "third_party/rust/icu_properties_data" }
+
 # Patch nix 0.29 to 0.30+
 nix = { path = "build/rust/nix" }
 
@@ -187,6 +193,9 @@ goblin = { path = "build/rust/goblin" }
 
 # Implement getrandom 0.2 in terms of 0.3
 getrandom = { path = "build/rust/getrandom" }
+
+# Patch mio to 1.1.1 with windows-sys 0.52 backport
+mio = { git = "https://github.com/kinetiknz/mio", rev = "5e8b202db39facecc343170f50a07916640a607c" }
 
 # Patch rustc-hash 1.1.0 to 2.1.1
 rustc-hash = { path = "build/rust/rustc-hash" }
@@ -265,6 +274,12 @@ midir = { git = "https://github.com/mozilla/midir.git", rev = "54759f681f3b523e1
 malloc_size_of_derive = { path = "xpcom/rust/malloc_size_of_derive" }
 # Use the in-tree code instead of pulling it in. It matches the crates.io version
 wr_malloc_size_of = { path = "gfx/wr/wr_malloc_size_of" }
+# Remove HarfBuzz itself from harfbuzz-sys, since we already maintain HarfBuzz itself in the tree.
+harfbuzz-sys = { git = "https://github.com/hsivonen/rust-harfbuzz", rev = "9d58a23a98772a197291d04af93f7041b7093d95" }
+# Make `harfbuzz` compile for targets with unsigned C char, such as aarch64 Android.
+harfbuzz = { git = "https://github.com/hsivonen/rust-harfbuzz", rev = "9d58a23a98772a197291d04af93f7041b7093d95" }
+# Also vendor `harfbuzz-traits` to keep cargo-vendor happy.
+harfbuzz-traits = { git = "https://github.com/hsivonen/rust-harfbuzz", rev = "9d58a23a98772a197291d04af93f7041b7093d95" }
 
 # objc 0.2.7 + fa7ca43b862861dd1cd000d7ad01e6e0266cda13
 objc = { git = "https://github.com/glandium/rust-objc", rev = "4de89f5aa9851ceca4d40e7ac1e2759410c04324" }

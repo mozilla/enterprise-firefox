@@ -8,6 +8,8 @@
 
 #include "mozilla/MathAlgorithms.h"
 
+#include <bit>
+
 #include "builtin/Number.h"
 #include "jit/CodeGenerator.h"
 #include "jit/InlineScriptTree.h"
@@ -795,7 +797,7 @@ void CodeGenerator::visitMulI(LMulI* ins) {
     }
 
     if (constant > 0) {
-      uint32_t shift = mozilla::FloorLog2(constant);
+      uint32_t shift = mozilla::FloorLog2(uint32_t(constant));
 
       if (!mul->canOverflow()) {
         // If it cannot overflow, we can do lots of optimizations.
@@ -896,8 +898,8 @@ void CodeGeneratorLOONG64::emitMulI64(Register lhs, int64_t rhs,
   }
 
   if (rhs > 0) {
-    if (mozilla::IsPowerOfTwo(static_cast<uint64_t>(rhs + 1))) {
-      int32_t shift = mozilla::FloorLog2(rhs + 1);
+    if (std::has_single_bit(static_cast<uint64_t>(rhs + 1))) {
+      int32_t shift = mozilla::FloorLog2(uint64_t(rhs + 1));
 
       UseScratchRegisterScope temps(masm);
       Register savedLhs = lhs;
@@ -910,8 +912,8 @@ void CodeGeneratorLOONG64::emitMulI64(Register lhs, int64_t rhs,
       return;
     }
 
-    if (mozilla::IsPowerOfTwo(static_cast<uint64_t>(rhs - 1))) {
-      int32_t shift = mozilla::FloorLog2(rhs - 1);
+    if (std::has_single_bit(static_cast<uint64_t>(rhs - 1))) {
+      int32_t shift = mozilla::FloorLog2(uint64_t(rhs - 1));
       if (shift < 5) {
         masm.as_alsl_d(dest, lhs, lhs, shift - 1);
       } else {
@@ -928,7 +930,7 @@ void CodeGeneratorLOONG64::emitMulI64(Register lhs, int64_t rhs,
     }
 
     // Use shift if constant is power of 2.
-    int32_t shift = mozilla::FloorLog2(rhs);
+    int32_t shift = mozilla::FloorLog2(uint64_t(rhs));
     if (int64_t(1) << shift == rhs) {
       masm.as_slli_d(dest, lhs, shift);
       return;
@@ -2372,4 +2374,13 @@ void CodeGenerator::visitWasmLoadLaneSimd128(LWasmLoadLaneSimd128* ins) {
 
 void CodeGenerator::visitWasmStoreLaneSimd128(LWasmStoreLaneSimd128* ins) {
   MOZ_CRASH("No SIMD");
+}
+
+void CodeGenerator::visitWasmMulI64WideHI64(LWasmMulI64WideHI64* ins) {
+  Register lhs = ToRegister(ins->lhs());
+  Register rhs = ToRegister(ins->rhs());
+  Register output = ToRegister(ins->output());
+  // This holds because both operands are non-AtStart variants.
+  MOZ_ASSERT(output != lhs && output != rhs);
+  masm.wasmMulI64WideHI64(lhs, rhs, output, ins->isSigned());
 }

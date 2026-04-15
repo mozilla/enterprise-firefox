@@ -301,7 +301,16 @@ float linear_gradient_fragment() {
     float start_offset = v_flat_data.z;
 
     // Project position onto a direction vector to compute offset.
-    return dot(pos, scale_dir) - start_offset;
+    float offset = dot(pos, scale_dir) - start_offset;
+
+    // Due to precision issues with interpolated varyings if a row/column or diagonal
+    // of pixels are exactly on the hard stop boundary, pixels along the hard stop may
+    // fall on either side of the boundary inconsistently which creates a very noticeable
+    // jagged look. The issue is hardware-dependent but has been observed with multiple
+    // GPU vendors.
+    // We work around it by adding a tiny amount to the offset as it makes it much less
+    // likely for typical gradient stop offset values to land exactly on pixel centers.
+    return offset + 0.000001;
 }
 
 float radial_gradient_fragment() {

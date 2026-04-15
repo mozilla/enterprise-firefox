@@ -6,7 +6,6 @@ package org.mozilla.fenix.components
 
 import android.content.Context
 import android.content.res.Configuration
-import android.os.Environment
 import androidx.core.content.ContextCompat
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.CoroutineScope
@@ -54,6 +53,8 @@ import mozilla.components.feature.media.middleware.RecordingDevicesMiddleware
 import mozilla.components.feature.prompts.PromptMiddleware
 import mozilla.components.feature.prompts.file.FileUploadsDirCleaner
 import mozilla.components.feature.prompts.file.FileUploadsDirCleanerMiddleware
+import mozilla.components.feature.protection.dashboard.ProtectionsDashboardMiddleware
+import mozilla.components.feature.protection.dashboard.ProtectionsStorage
 import mozilla.components.feature.pwa.ManifestStorage
 import mozilla.components.feature.pwa.WebAppShortcutManager
 import mozilla.components.feature.readerview.ReaderViewMiddleware
@@ -74,6 +75,7 @@ import mozilla.components.feature.session.HistoryDelegate
 import mozilla.components.feature.session.middleware.LastAccessMiddleware
 import mozilla.components.feature.session.middleware.undo.UndoMiddleware
 import mozilla.components.feature.sitepermissions.OnDiskSitePermissionsStorage
+import mozilla.components.feature.summarize.settings.SummarizationSettings
 import mozilla.components.feature.top.sites.DefaultTopSitesStorage
 import mozilla.components.feature.top.sites.PinnedSiteStorage
 import mozilla.components.feature.webcompat.WebCompatFeature
@@ -105,6 +107,7 @@ import mozilla.components.support.ktx.android.content.res.readJSONObject
 import mozilla.components.support.locale.LocaleManager
 import mozilla.components.support.utils.DateTimeProvider
 import mozilla.components.support.utils.DefaultDateTimeProvider
+import mozilla.components.support.utils.DefaultDownloadFileUtils
 import mozilla.components.support.utils.RunWhenReadyQueue
 import org.mozilla.fenix.AppRequestInterceptor
 import org.mozilla.fenix.BuildConfig
@@ -129,9 +132,17 @@ import org.mozilla.fenix.nimbus.FxNimbus
 import org.mozilla.fenix.perf.StrictModeManager
 import org.mozilla.fenix.perf.lazyMonitored
 import org.mozilla.fenix.settings.advanced.getSelectedLocale
+import org.mozilla.fenix.settings.downloads.DownloadLocationManager
 import org.mozilla.fenix.share.DefaultSentFromFirefoxManager
 import org.mozilla.fenix.share.DefaultSentFromStorage
 import org.mozilla.fenix.share.SaveToPDFMiddleware
+import org.mozilla.fenix.summarization.FenixSummarizationSettingsBinding
+import org.mozilla.fenix.summarization.eligibility.DefaultSummarizationEligibilityChecker
+import org.mozilla.fenix.summarization.eligibility.SummarizationEligibilityChecker
+import org.mozilla.fenix.summarization.onboarding.FenixSummarizationFeatureConfiguration
+import org.mozilla.fenix.summarization.onboarding.SummarizationFeatureDiscoveryConfiguration
+import org.mozilla.fenix.tabgroups.storage.redux.middleware.TabGroupMiddleware
+import org.mozilla.fenix.tabgroups.storage.repository.DefaultTabGroupRepository
 import org.mozilla.fenix.telemetry.TelemetryMiddleware
 import org.mozilla.fenix.utils.getUndoDelay
 import org.mozilla.geckoview.GeckoRuntime
@@ -201,10 +212,8 @@ class Core(
             crliteChannel = FxNimbus.features.pki.value().crliteChannel,
             downloadDelegate = EngineDownloadDelegate(
                 context = context,
-                downloadLocationGetter = {
-                    Environment.getExternalStoragePublicDirectory(
-                        Environment.DIRECTORY_DOWNLOADS,
-                    ).absolutePath
+                downloadLocation = {
+                    DownloadLocationManager(context).defaultLocation
                 },
             ),
             )
@@ -336,6 +345,12 @@ class Core(
                     deleteFileFromStorage = {
                        context.settings().shouldCleanUpDownloadsAutomatically()
                     },
+                    downloadFileUtils = DefaultDownloadFileUtils(
+                        context = context.applicationContext,
+                        downloadLocation = {
+                            DownloadLocationManager(context.applicationContext).defaultLocation
+                        },
+                    ),
                 ),
                 ReaderViewMiddleware(),
                 TelemetryMiddleware(context, context.settings(), metrics, crashReporter),
@@ -354,6 +369,7 @@ class Core(
                 AdsTelemetryMiddleware(adsTelemetry),
                 LastMediaAccessMiddleware(),
                 HistoryMetadataMiddleware(historyMetadataService),
+                ProtectionsDashboardMiddleware(protectionsStorage),
                 SessionPrioritizationMiddleware(),
                 SaveToPDFMiddleware(context),
                 FxSuggestFactsMiddleware(),
@@ -376,6 +392,7 @@ class Core(
                     homepageTitle = context.getString(R.string.tab_tray_homepage_tab),
                 ),
                 BrowserVisualCompletenessMiddleware(visualCompletenessQueue),
+                TabGroupMiddleware(tabGroupRepository = tabGroupRepository),
             )
 
         BrowserStore(
@@ -401,10 +418,11 @@ class Core(
                         rootStorageDirectory = context.filesDir,
                         readJson = readJson,
                         collectionName = COLLECTION_NAME,
-                        serverUrl = if (context.settings().useProductionRemoteSettingsServer) {
-                            REMOTE_PROD_ENDPOINT_URL
-                        } else {
-                            REMOTE_STAGE_ENDPOINT_URL
+                        serverUrl = when (context.settings().remoteSettingsServer) {
+                            context.getString(R.string.remote_settings_server_prod) -> REMOTE_PROD_ENDPOINT_URL
+                            context.getString(R.string.remote_settings_server_dev) -> REMOTE_DEV_ENDPOINT_URL
+                            context.getString(R.string.remote_settings_server_stage) -> REMOTE_STAGE_ENDPOINT_URL
+                            else -> REMOTE_PROD_ENDPOINT_URL
                         },
                     ).updateProviderList()
                 }
@@ -460,6 +478,13 @@ class Core(
      */
     val historyMetadataService: HistoryMetadataService by lazyMonitored {
         DefaultHistoryMetadataService(storage = historyStorage)
+    }
+
+    /**
+     * The [ProtectionsStorage] is used to store tracker blocking statistics.
+     */
+    val protectionsStorage: ProtectionsStorage by lazyMonitored {
+        ProtectionsStorage(context)
     }
 
     /**
@@ -651,6 +676,30 @@ class Core(
 
     val loginExceptionStorage by lazyMonitored { LoginExceptionStorage(context) }
 
+    val summarizationSettings: FenixSummarizationSettingsBinding by lazyMonitored {
+        FenixSummarizationSettingsBinding(SummarizationSettings.dataStore(context))
+    }
+
+    /**
+     * Fenix implementation of [SummarizationFeatureDiscoveryConfiguration]
+     * backed by [org.mozilla.fenix.utils.Settings]
+     */
+    val summarizeFeatureSettings: FenixSummarizationFeatureConfiguration by lazyMonitored {
+        FenixSummarizationFeatureConfiguration(
+            settings = context.components.settings,
+            summarizationSettingsBinding = summarizationSettings,
+        )
+    }
+
+    val tabGroupRepository by lazyMonitored { DefaultTabGroupRepository(context) }
+
+    /**
+     * Summarization eligibility checker
+     */
+    val summarizationEligibilityChecker: SummarizationEligibilityChecker by lazyMonitored {
+        DefaultSummarizationEligibilityChecker()
+    }
+
     /**
      * Shared Preferences that encrypt/decrypt using Android KeyStore and lib-dataprotect for 23+
      * only on Nightly/Debug for now, otherwise simply stored.
@@ -731,5 +780,6 @@ class Core(
         const val COLLECTION_NAME = "search-telemetry-v2"
         internal const val REMOTE_PROD_ENDPOINT_URL = "https://firefox.settings.services.mozilla.com"
         internal const val REMOTE_STAGE_ENDPOINT_URL = "https://firefox.settings.services.allizom.org"
+        internal const val REMOTE_DEV_ENDPOINT_URL = "https://remote-settings-dev.allizom.org"
     }
 }

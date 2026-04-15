@@ -158,11 +158,31 @@ export var RecentlyClosedTabsAndWindowsMenuUtils = {
         const { selected, tabs, title } = closedWindowData[i];
         const selectedTab = tabs[selected - 1];
         if (selectedTab) {
+          const closedAt = closedWindowData[i].closedAt;
+          const tabCount = tabs.length;
+          const labelArgs = {
+            tabCount,
+            winTitle: title,
+            closedAt,
+          };
           const menuLabel = lazy.l10n.formatValueSync(
-            "recently-closed-undo-close-window-label",
-            { tabCount: tabs.length - 1, winTitle: title }
+            "recently-closed-window-panel-tooltip",
+            labelArgs
           );
-          createEntry(aTagName, true, i, selectedTab, doc, menuLabel, fragment);
+          let tooltipText = null;
+          if (aTagName == "toolbarbutton") {
+            tooltipText = menuLabel;
+          }
+          createEntry(
+            aTagName,
+            true,
+            i,
+            selectedTab,
+            doc,
+            menuLabel,
+            fragment,
+            tooltipText
+          );
         }
       }
 
@@ -485,6 +505,8 @@ function createTabGroupSubpanel(
  *        the label the created entry will have
  * @param {DocumentFragment} aFragment
  *        the fragment the created entry will be in
+ * @param {string} [aTooltipText]
+ *        optional tooltip text for the created entry
  */
 function createEntry(
   aTagName,
@@ -493,11 +515,16 @@ function createEntry(
   aClosedTab,
   aDocument,
   aMenuLabel,
-  aFragment
+  aFragment,
+  aTooltipText
 ) {
   let element = aDocument.createXULElement(aTagName);
 
   element.setAttribute("label", aMenuLabel);
+  if (aTooltipText) {
+    element.setAttribute("tooltiptext", aTooltipText);
+    element.setAttribute("aria-description", aTooltipText);
+  }
   if (aClosedTab.image) {
     const iconURL = lazy.PlacesUIUtils.getImageURL(aClosedTab.image);
     element.setAttribute("image", ChromeUtils.encodeURIForSrcset(iconURL));

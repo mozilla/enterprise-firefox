@@ -1,6 +1,7 @@
 projects:
   app:
     upstream_dependencies:
+    - app:longfox
     - components:browser-domains
     - components:browser-engine-gecko
     - components:browser-errorpages
@@ -46,6 +47,7 @@ projects:
     - components:feature-media
     - components:feature-privatemode
     - components:feature-prompts
+    - components:feature-protection-dashboard
     - components:feature-push
     - components:feature-pwa
     - components:feature-qr
@@ -85,6 +87,7 @@ projects:
     - components:service-pocket
     - components:service-sync-autofill
     - components:service-sync-logins
+    - components:support-android-test
     - components:support-appservices
     - components:support-base
     - components:support-images
@@ -100,6 +103,7 @@ projects:
     - components:ui-autocomplete
     - components:ui-colors
     - components:ui-icons
+    - components:ui-richtext
     - components:ui-tabcounter
     - components:ui-widgets
 variants:

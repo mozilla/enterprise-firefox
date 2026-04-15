@@ -202,14 +202,14 @@ reftest.Runner = class {
     let browser;
     if (lazy.AppInfo.isAndroid) {
       browser = reftestWin.document.getElementsByTagName("browser")[0];
-      browser.setAttribute("remote", "false");
+      browser.removeAttribute("remote");
     } else {
       browser = reftestWin.document.createElementNS(XUL_NS, "xul:browser");
       browser.permanentKey = {};
       browser.setAttribute("id", "browser");
       browser.setAttribute("type", "content");
       browser.setAttribute("primary", "true");
-      browser.setAttribute("remote", this.useRemoteTabs ? "true" : "false");
+      browser.toggleAttribute("remote", this.useRemoteTabs);
     }
     // Make sure the browser element is exactly the right size, no matter
     // what size our window is

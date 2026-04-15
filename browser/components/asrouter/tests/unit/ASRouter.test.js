@@ -1800,7 +1800,21 @@ describe("ASRouter", () => {
       assert.strictEqual(trigger.id, "firstRun");
       assert.strictEqual(trigger.param, undefined);
       assert.isObject(trigger.context);
+      assert.strictEqual(trigger.context.isAIWindow, false);
       assert.strictEqual(trigger.context.browserIsSelected, true);
+      assert.strictEqual(trigger.context.onThirdPartyPage, true);
+      assert.deepEqual(
+        ASRouterTargeting.findMatchingMessage.firstCall.args[0].trigger,
+        {
+          id: "firstRun",
+          param: undefined,
+          context: {
+            isAIWindow: false,
+            browserIsSelected: true,
+            onThirdPartyPage: true,
+          },
+        }
+      );
     });
     it("should record telemetry information", async () => {
       const fakeTimerId = 42;

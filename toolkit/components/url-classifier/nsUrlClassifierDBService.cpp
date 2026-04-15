@@ -923,6 +923,11 @@ nsUrlClassifierDBServiceWorker::CleanRealTimeSimulatorCache() {
 }
 
 NS_IMETHODIMP
+nsUrlClassifierDBServiceWorker::ExpireRealTimeSimulatorCache() {
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+NS_IMETHODIMP
 nsUrlClassifierDBServiceWorker::CancelUpdate() {
   LOG(("nsUrlClassifierDBServiceWorker::CancelUpdate"));
 
@@ -1590,8 +1595,7 @@ class nsUrlClassifierRealTimeLookupHandler final
                                        nsIUrlClassifierCallback* aCallback,
                                        bool aIsPrivate)
       : nsUrlClassifierHashCompleterBase(aDBService, aCallback),
-        mDebugEnabled(
-            Preferences::GetBool("browser.safebrowsing.realTime.debug", false)),
+        mDebugEnabled(RealTimeRequestSimulator::RealTimeDebugEnabled()),
         mSimulator(
             StaticPrefs::browser_safebrowsing_realTime_simulation_enabled()
                 ? RealTimeRequestSimulator::GetInstance()
@@ -1726,10 +1730,9 @@ nsresult nsUrlClassifierRealTimeLookupHandler::HandleRealTimeLookupComplete(
   NS_DispatchToMainThread(NS_NewRunnableFunction(
       "nsUrlClassifierRealTimeLookupHandler::RecordGlobalCacheTelemetry",
       [hasGlobalCacheHit, isPrivate = mIsPrivate]() {
-        nsAutoCString etpCategory;
-        nsresult rv = Preferences::GetCString(
-            "browser.contentblocking.category", etpCategory);
-        if (NS_SUCCEEDED(rv)) {
+        const nsCString& etpCategory =
+            RealTimeRequestSimulator::ContentBlockingCategory();
+        if (!etpCategory.IsEmpty()) {
           nsAutoCString label;
           if (etpCategory.EqualsLiteral("standard") ||
               etpCategory.EqualsLiteral("strict") ||
@@ -2648,6 +2651,23 @@ nsUrlClassifierDBService::CleanRealTimeSimulatorCache() {
       "nsUrlClassifierDBService::CleanRealTimeSimulatorCache", [simulator]() {
         if (simulator) {
           simulator->CleanCache();
+        }
+      }));
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsUrlClassifierDBService::ExpireRealTimeSimulatorCache() {
+  NS_ENSURE_TRUE(gDbBackgroundThread, NS_ERROR_NOT_INITIALIZED);
+
+  RefPtr<RealTimeRequestSimulator> simulator =
+      RealTimeRequestSimulator::GetInstance();
+
+  BackgroundThread()->Dispatch(NS_NewRunnableFunction(
+      "nsUrlClassifierDBService::ExpireRealTimeSimulatorCache", [simulator]() {
+        if (simulator) {
+          simulator->ExpireCache();
         }
       }));
 

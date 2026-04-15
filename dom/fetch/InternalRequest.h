@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -196,6 +194,14 @@ class InternalRequest final : public AtomicSafeRefCounted<InternalRequest> {
 
   void SetReferrerPolicy(ReferrerPolicy aReferrerPolicy) {
     mReferrerPolicy = aReferrerPolicy;
+  }
+
+  void SetAssociatedBrowsingContextID(uint64_t aAssociatedBrowsingContextID) {
+    mAssociatedBrowsingContextID = aAssociatedBrowsingContextID;
+  }
+
+  uint64_t AssociatedBrowsingContextID() const {
+    return mAssociatedBrowsingContextID;
   }
 
   ReferrerPolicy GetEnvironmentReferrerPolicy() const {
@@ -478,6 +484,11 @@ class InternalRequest final : public AtomicSafeRefCounted<InternalRequest> {
   // URL: an URL
   nsCString mReferrer;
   ReferrerPolicy mReferrerPolicy;
+
+  // Used to track this fetch request in scenarions where determining load
+  // context is tricky like for Reporting API. There we provide this explicitly
+  // so devtools can track us accordingly.
+  uint64_t mAssociatedBrowsingContextID{0};
 
   // This will be used for request created from Window or Worker contexts
   // In case there's no Referrer Policy in Request, this will be passed to

@@ -5,6 +5,7 @@
 package mozilla.components.compose.browser.toolbar.store
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import mozilla.components.compose.browser.toolbar.BrowserToolbarCFR
 import mozilla.components.compose.browser.toolbar.R
 import mozilla.components.compose.browser.toolbar.concept.Action.ActionButtonRes
 import mozilla.components.compose.browser.toolbar.concept.PageOrigin
@@ -20,6 +21,7 @@ import mozilla.components.compose.browser.toolbar.store.ToolbarGravity.Top
 import mozilla.components.compose.browser.toolbar.ui.BrowserToolbarQuery
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.random.Random
@@ -60,7 +62,7 @@ class BrowserToolbarStoreTest {
             initialState = BrowserToolbarState(
                 mode = Mode.EDIT,
                 editState = EditState(
-                query = BrowserToolbarQuery("Mozilla"),
+                    query = BrowserToolbarQuery("Mozilla"),
                 ),
             ),
         )
@@ -222,6 +224,43 @@ class BrowserToolbarStoreTest {
         store.dispatch(ToolbarGravityUpdated(Bottom))
 
         assertEquals(Bottom, store.state.gravity)
+    }
+
+    @Test
+    fun `WHEN a toolbar CFR is added THEN update the display state with the CFR`() {
+        val store = BrowserToolbarStore()
+        assertNull(store.state.displayState.cfr)
+
+        val cfr = BrowserToolbarCFR(
+            tag = "test-cfr",
+            enabled = true,
+            title = 1,
+            description = 2,
+        )
+
+        store.dispatch(BrowserDisplayToolbarAction.ToolbarCFRShown(cfr))
+
+        assertEquals(cfr, store.state.displayState.cfr)
+    }
+
+    @Test
+    fun `WHEN a toolbar CFR is removed THEN the display state CFR is set to null`() {
+        val cfr = BrowserToolbarCFR(
+            tag = "test-cfr",
+            enabled = true,
+            title = 1,
+            description = 2,
+        )
+        val store = BrowserToolbarStore(
+            initialState = BrowserToolbarState(
+                displayState = DisplayState(cfr = cfr),
+            ),
+        )
+        assertEquals(cfr, store.state.displayState.cfr)
+
+        store.dispatch(BrowserDisplayToolbarAction.ToolbarCFRDismissed("test-cfr"))
+
+        assertNull(store.state.displayState.cfr)
     }
 
     private fun fakeActionButton() = ActionButtonRes(

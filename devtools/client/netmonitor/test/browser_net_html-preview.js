@@ -68,6 +68,7 @@ httpServer.registerPathHandler(
   "/doc-html-preview.html",
   (request, response) => {
     response.setStatusLine(request.httpVersion, 200, "OK");
+    response.setHeader("Content-Type", "text/html", false);
     response.write(TEST_HTML);
   }
 );
@@ -75,6 +76,7 @@ httpServer.registerPathHandler(
 for (const [name, content] of Object.entries(TEST_PAGES)) {
   httpServer.registerPathHandler(`/fetch-${name}.html`, (request, response) => {
     response.setStatusLine(request.httpVersion, 200, "OK");
+    response.setHeader("Content-Type", "text/html", false);
 
     if (name === "csp") {
       // Duplicate un-merged headers
@@ -88,6 +90,7 @@ for (const [name, content] of Object.entries(TEST_PAGES)) {
 
 httpServer.registerPathHandler("/redirect.html", (request, response) => {
   response.setStatusLine(request.httpVersion, 200, "OK");
+  response.setHeader("Content-Type", "text/html", false);
   response.write("Redirected!");
 });
 
@@ -177,8 +180,8 @@ add_task(async function () {
     if (name == "csp") {
       await SpecialPowers.spawn(browser.browsingContext, [], async function () {
         is(
-          content.document.querySelector("img").complete,
-          false,
+          content.document.querySelector("img").naturalWidth,
+          0,
           "img was blocked"
         );
         is(

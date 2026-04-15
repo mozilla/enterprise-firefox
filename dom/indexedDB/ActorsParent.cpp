@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1629,12 +1627,11 @@ struct ConnectionPool::DatabaseInfo final {
   }
 
   nsresult Dispatch(already_AddRefed<nsIRunnable> aRunnable);
+  DatabaseInfo(const DatabaseInfo&) = delete;
+  DatabaseInfo& operator=(const DatabaseInfo&) = delete;
 
  private:
   ~DatabaseInfo();
-
-  DatabaseInfo(const DatabaseInfo&) = delete;
-  DatabaseInfo& operator=(const DatabaseInfo&) = delete;
 };
 
 struct ConnectionPool::DatabaseCompleteCallback final {
@@ -4451,9 +4448,6 @@ class Cursor final
   void SendResponseInternal(CursorResponse& aResponse,
                             const FilesArrayT<CursorType>& aFiles);
 
-  // Must call SendResponseInternal!
-  bool SendResponse(const CursorResponse& aResponse) = delete;
-
   // IPDL methods.
   void ActorDestroy(ActorDestroyReason aWhy) override;
 
@@ -4480,6 +4474,9 @@ class Cursor final
       : Base{std::move(aTransaction), std::move(aObjectStoreMetadata),
              aDirection, aConstructionTag},
         KeyValueBase{this->mTransaction.unsafeGetRawPtr()} {}
+
+  // Must call SendResponseInternal!
+  bool SendResponse(const CursorResponse& aResponse) = delete;
 
  private:
   void SetOptionalKeyRange(const Maybe<SerializedKeyRange>& aOptionalKeyRange,
@@ -5447,18 +5444,16 @@ class EncryptedFileBlobImpl final : public FileBlobImpl {
     SetFileId(aId);
   }
 
+  // The size of the blob is stored in the metadata where EncryptedFileBlobImpl
+  // is used, allowing a child process to set the size lazily. Therefore, the
+  // parent process is allowed to return a dummy value to avoid sync I/O. In a
+  // child process, the size should already be set beforehand and GetSize should
+  // only accesses it. And the reason why 0 is returned, even when the size is
+  // not set in a child process, is is because the spec doesn't allow Blob.size
+  // to throw.
   uint64_t GetSize(ErrorResult& aRv) override {
-    nsCOMPtr<nsIInputStream> inputStream;
-    CreateInputStream(getter_AddRefs(inputStream), aRv);
-
-    if (aRv.Failed()) {
-      return 0;
-    }
-
-    MOZ_ASSERT(inputStream);
-
-    QM_TRY_RETURN(MOZ_TO_RESULT_INVOKE_MEMBER(inputStream, Available), 0,
-                  [&aRv](const nsresult rv) { aRv = rv; });
+    MOZ_DIAGNOSTIC_ASSERT(XRE_IsParentProcess() || mLength.isSome());
+    return mLength.valueOr(0);
   }
 
   void CreateInputStream(nsIInputStream** aInputStream,
@@ -15991,22 +15986,11 @@ nsresult OpenDatabaseOp::BeginVersionChange() {
   MOZ_ASSERT(!info->mWaitingFactoryOp);
   MOZ_ASSERT(info->mMetadata == mMetadata);
 
-  auto transaction = MakeSafeRefPtr<VersionChangeTransaction>(this);
-
-  if (NS_WARN_IF(!transaction->CopyDatabaseMetadata())) {
-    return NS_ERROR_OUT_OF_MEMORY;
-  }
-
-  MOZ_ASSERT(info->mMetadata != mMetadata);
-  mMetadata = info->mMetadata.clonePtr();
-
   const Maybe<uint64_t> newVersion = Some(mRequestedVersion);
 
   QM_TRY(MOZ_TO_RESULT(SendVersionChangeMessages(
       info, mDatabase.maybeDeref(), mMetadata->mCommonMetadata.version(),
       newVersion)));
-
-  mVersionChangeTransaction = std::move(transaction);
 
   if (mMaybeBlockedDatabases.IsEmpty()) {
     // We don't need to wait on any databases, just jump to the transaction
@@ -16042,16 +16026,37 @@ void OpenDatabaseOp::SendBlockedNotification() {
 nsresult OpenDatabaseOp::DispatchToWorkThread() {
   AssertIsOnOwningThread();
   MOZ_ASSERT(mState == State::WaitingForTransactionsToComplete);
-  MOZ_ASSERT(mVersionChangeTransaction);
-  MOZ_ASSERT(mVersionChangeTransaction->GetMode() ==
-             IDBTransaction::Mode::VersionChange);
   MOZ_ASSERT(mMaybeBlockedDatabases.IsEmpty());
+  // There's no other place which creates a version change transaction
+  // and sets mVersionChangeTransaction.
+  MOZ_ASSERT(!mVersionChangeTransaction);
 
   if (NS_WARN_IF(QuotaClient::IsShuttingDownOnBackgroundThread()) ||
       IsActorDestroyed() || mDatabase->IsInvalidated()) {
     IDB_REPORT_INTERNAL_ERR();
     return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
   }
+
+  DatabaseActorInfo* info;
+  MOZ_ALWAYS_TRUE(gLiveDatabaseHashtable->Get(mDatabaseId.ref(), &info));
+
+  MOZ_ASSERT(info->mLiveDatabases.contains(mDatabase.unsafeGetRawPtr()));
+  MOZ_ASSERT(!info->mWaitingFactoryOp);
+  MOZ_ASSERT(info->mMetadata == mMetadata);
+
+  auto transaction = MakeSafeRefPtr<VersionChangeTransaction>(this);
+
+  if (NS_WARN_IF(!transaction->CopyDatabaseMetadata())) {
+    return NS_ERROR_OUT_OF_MEMORY;
+  }
+
+  MOZ_ASSERT(info->mMetadata != mMetadata);
+  mMetadata = info->mMetadata.clonePtr();
+
+  mVersionChangeTransaction = std::move(transaction);
+
+  MOZ_ASSERT(mVersionChangeTransaction->GetMode() ==
+             IDBTransaction::Mode::VersionChange);
 
   mState = State::DatabaseWorkVersionChange;
 
@@ -17194,6 +17199,8 @@ void GetDatabasesOp::SendResults() {
   if (HasFailed()) {
     mResolver(ClampResultCode(ResultCode()));
   } else {
+    std::sort(mDatabaseMetadataArray.begin(), mDatabaseMetadataArray.end(),
+              [](const auto& a, const auto& b) { return a.name() < b.name(); });
     mResolver(mDatabaseMetadataArray);
   }
 

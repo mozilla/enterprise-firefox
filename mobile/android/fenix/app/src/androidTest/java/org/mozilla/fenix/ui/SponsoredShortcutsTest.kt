@@ -7,6 +7,7 @@ package org.mozilla.fenix.ui
 import android.util.Log
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import org.junit.Before
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.mozilla.fenix.customannotations.SmokeTest
@@ -14,12 +15,12 @@ import org.mozilla.fenix.helpers.Constants.RETRY_COUNT
 import org.mozilla.fenix.helpers.Constants.TAG
 import org.mozilla.fenix.helpers.Constants.defaultTopSitesList
 import org.mozilla.fenix.helpers.DataGenerationHelper.getSponsoredShortcutTitle
+import org.mozilla.fenix.helpers.FenixTestRule
 import org.mozilla.fenix.helpers.HomeActivityIntentTestRule
 import org.mozilla.fenix.helpers.MockBrowserDataHelper
 import org.mozilla.fenix.helpers.TestAssetHelper.getGenericAsset
 import org.mozilla.fenix.helpers.TestAssetHelper.loremIpsumAsset
 import org.mozilla.fenix.helpers.TestHelper.waitForAppWindowToBeUpdated
-import org.mozilla.fenix.helpers.TestSetup
 import org.mozilla.fenix.helpers.perf.DetectMemoryLeaksRule
 import org.mozilla.fenix.ui.robots.homeScreen
 import org.mozilla.fenix.ui.robots.navigationToolbar
@@ -28,9 +29,14 @@ import org.mozilla.fenix.ui.robots.navigationToolbar
  * Tests Sponsored shortcuts functionality
  */
 
-class SponsoredShortcutsTest : TestSetup() {
+class SponsoredShortcutsTest {
     private lateinit var sponsoredShortcutTitle: String
     private lateinit var sponsoredShortcutTitle2: String
+
+    @get:Rule(order = 0)
+    val fenixTestRule: FenixTestRule = FenixTestRule()
+
+    private val mockWebServer get() = fenixTestRule.mockWebServer
 
     @get:Rule
     val composeTestRule = AndroidComposeTestRule(
@@ -41,8 +47,7 @@ class SponsoredShortcutsTest : TestSetup() {
     val memoryLeaksRule = DetectMemoryLeaksRule()
 
     @Before
-    override fun setUp() {
-        super.setUp()
+    fun setUp() {
         // Workaround to make sure the Top sites list displayed before starting the tests.
         for (i in 1..RETRY_COUNT) {
             Log.i(TAG, "setUp: Started try #$i")
@@ -123,6 +128,7 @@ class SponsoredShortcutsTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/1729336
+    @Ignore("Failing, see https://bugzilla.mozilla.org/show_bug.cgi?id=2028550")
     @Test
     fun openSponsoredShortcutsSettingsOptionTest() {
         homeScreen(composeTestRule) {

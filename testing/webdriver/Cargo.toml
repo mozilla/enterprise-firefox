@@ -1,5 +1,5 @@
 [package]
-edition = "2021"
+edition = "2024"
 name = "webdriver"
 version = "0.53.0"
 authors = ["Mozilla"]

@@ -26,6 +26,7 @@
 #include "mozilla/UniquePtr.h"
 #include "mozilla/dom/ReferrerPolicyBinding.h"
 #include "mozilla/StaticPrefs_layout.h"
+#include "ResolvedModuleSet.h"
 #include "ResolveResult.h"
 
 class nsIConsoleReportCollector;
@@ -116,6 +117,10 @@ class ScriptLoaderInterface : public nsISupports {
   }
 
   virtual void MaybeUpdateDiskCache() {}
+
+  // Import map is supported if the global implements 'Windows'.
+  // See https://html.spec.whatwg.org/#concept-global-import-map
+  virtual bool IsImportMapSupported() const { return false; }
 };
 
 class ModuleMapKey : public PLDHashEntryHdr {
@@ -280,6 +285,8 @@ class ModuleLoaderBase : public nsISupports {
 
   mozilla::UniquePtr<ImportMap> mImportMap;
 
+  mozilla::UniquePtr<ResolvedModuleSet> mResolvedModuleSet;
+
   virtual ~ModuleLoaderBase();
 
 #ifdef DEBUG
@@ -412,7 +419,8 @@ class ModuleLoaderBase : public nsISupports {
 
   // Implements
   // https://html.spec.whatwg.org/multipage/webappapis.html#register-an-import-map
-  void RegisterImportMap(mozilla::UniquePtr<ImportMap> aImportMap);
+  void RegisterImportMap(mozilla::UniquePtr<ImportMap> aImportMap,
+                         ScriptLoadRequest* aRequest);
 
   bool HasImportMapRegistered() const { return bool(mImportMap); }
 
@@ -434,11 +442,19 @@ class ModuleLoaderBase : public nsISupports {
     return true;
   }
 
+  ImportMap* GetImportMap() { return mImportMap.get(); }
+
   // Returns whether there has been an entry in the import map
   // for the given aURI.
   bool GetImportMapSRI(nsIURI* aURI, nsIURI* aSourceURI,
                        nsIConsoleReportCollector* aReporter,
                        mozilla::dom::SRIMetadata* aMetadataOut);
+
+  ResolvedModuleSet* GetResolvedModuleSet();
+
+  void MovePreloadedSetToResolvedSet(ModuleLoadRequest* aRootRequest);
+
+  void ClearPreloadedModuleGraph(ModuleLoadRequest* aRootRequest);
 
   // Returns true if the module for given module key is already fetched.
   bool IsModuleFetched(const ModuleMapKey& key) const;
@@ -480,6 +496,7 @@ class ModuleLoaderBase : public nsISupports {
 
  private:
   friend class JS::loader::ModuleLoadRequest;
+  friend class JS::loader::ImportMap;
 
   static ModuleLoaderBase* GetCurrentModuleLoader(JSContext* aCx);
   static LoadedScript* GetLoadedScriptOrNull(Handle<JSScript*> aReferrer);
@@ -521,6 +538,24 @@ class ModuleLoaderBase : public nsISupports {
   bool IsModuleFetching(const ModuleMapKey& key) const;
   void WaitForModuleFetch(ModuleLoadRequest* aRequest);
 
+  void AddToPreloadedResolvedSet(
+      ModuleLoadRequest* aRootRequest,
+      mozilla::UniquePtr<SpecifierResolutionRecord> aRecord);
+
+  void AddToGlobalResolvedSet(
+      mozilla::UniquePtr<SpecifierResolutionRecord> aRecord);
+
+  // https://html.spec.whatwg.org/#add-module-to-resolved-module-set
+  // The aScript and aHostDefined arguments are for determining if this is
+  // resolved during preloading.
+  void AddToResolvedModuleSet(
+      mozilla::UniquePtr<SpecifierResolutionRecord> aRecord,
+      LoadedScript* aScript = nullptr,
+      Handle<Value> aHostDefined = UndefinedHandleValue);
+
+  void ResetPreloadFlag(nsIURI* aURI);
+  void ResetPreloadedModule(nsIURI* aURI);
+
  protected:
   void SetModuleFetchStarted(ModuleLoadRequest* aRequest);
 
@@ -560,7 +595,7 @@ class ModuleLoaderBase : public nsISupports {
   void Cancel(ModuleLoadRequest* aRequest);
 
   // The slot stored in ImportMetaResolve function.
-  enum class ImportMetaSlots : uint32_t { ModulePrivateSlot = 0, SlotCount };
+  enum class ImportMetaSlots : uint32_t { ModuleRecordSlot = 0, SlotCount };
 
   // The number of args in ImportMetaResolve.
   static const uint32_t ImportMetaResolveNumArgs = 1;

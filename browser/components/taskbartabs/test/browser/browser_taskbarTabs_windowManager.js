@@ -4,6 +4,7 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 "use strict";
 
 ChromeUtils.defineESModuleGetters(this, {
+  AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
   sinon: "resource://testing-common/Sinon.sys.mjs",
   TaskbarTabs: "resource:///modules/taskbartabs/TaskbarTabs.sys.mjs",
   TaskbarTabsUtils: "resource:///modules/taskbartabs/TaskbarTabsUtils.sys.mjs",
@@ -164,13 +165,14 @@ add_task(async function test_window_aumid() {
   is(
     TaskbarTabsUtils.getTaskbarTabIdFromWindow(winOpen),
     taskbarTab1.id,
-    "The window's `tasbkartab` attribute should match the Taskbar Tab ID when opened."
+    "The window's `taskbartab` attribute should match the Taskbar Tab ID when opened."
   );
   is(
-    WinTaskbar.getGroupIdForWindow(winOpen),
-    taskbarTab1.id,
-    "The window AUMID should match the Taskbar Tab ID when opened."
+    winOpen.document.documentElement.getAttribute("windowclass"),
+    "org.mozilla.firefox.webapp-" + taskbarTab1.id,
+    "The window's `windowclass` attribute should match the Taskbar Tab ID when opened."
   );
+  checkWindowAumid(taskbarTab1, winOpen);
 
   let tab1_adopted = await BrowserTestUtils.addTab(window.gBrowser, url1.spec);
   windowPromise = BrowserTestUtils.waitForNewWindow();
@@ -180,19 +182,43 @@ add_task(async function test_window_aumid() {
   is(
     TaskbarTabsUtils.getTaskbarTabIdFromWindow(winReplace),
     taskbarTab1.id,
-    "The window's `tasbkartab` attribute should match the Taskbar Tab ID when a tab was replaced with a Tasbkar Tab window."
+    "The window's `taskbartab` attribute should match the Taskbar Tab ID when a tab was replaced with a Taskbar Tab window."
   );
   is(
-    WinTaskbar.getGroupIdForWindow(winReplace),
-    taskbarTab1.id,
-    "The window AUMID should match the Taskbar Tab ID when a tab was replaced with a Tasbkar Tab window."
+    winOpen.document.documentElement.getAttribute("windowclass"),
+    "org.mozilla.firefox.webapp-" + taskbarTab1.id,
+    "The window's `windowclass` attribute should match the Taskbar Tab ID when opened."
   );
+  checkWindowAumid(taskbarTab1, winReplace);
 
   await Promise.all([
     BrowserTestUtils.closeWindow(winOpen),
     BrowserTestUtils.closeWindow(winReplace),
   ]);
 });
+
+function checkWindowAumid(aTaskbarTab, aWindow) {
+  if (AppConstants.platform === "win") {
+    if (TaskbarTabsUtils.isMSIX()) {
+      // The format of this doesn't seem to be documented anywhere; I got it
+      // through a small custom utility using the undocumented IPinnedList3 API
+      // (the one we use for pinning on Windows 10). It's possible that Windows
+      // could change it, in which case the Taskbar Tab window wouldn't line up
+      // with its taskbar entry.
+      is(
+        WinTaskbar.getGroupIdForWindow(aWindow),
+        `${Services.sysinfo.getProperty("winPackageFamilyName")}!App:taskbartab-${aTaskbarTab.id}`,
+        "The window AUMID should match the ID likely assigned by Windows."
+      );
+    } else {
+      is(
+        WinTaskbar.getGroupIdForWindow(aWindow),
+        taskbarTab1.id,
+        "The window AUMID should match the Taskbar Tab ID when opened."
+      );
+    }
+  }
+}
 
 add_task(async function testTaskbarTabCount() {
   const count = () => TaskbarTabs.getCountForId(taskbarTab1.id);
@@ -279,7 +305,7 @@ add_task(async function testWindowIconSet() {
   await check(win, "replaceTabWithWindow (explicit)");
 
   wm.testOnlyMockUIUtils(null);
-});
+}).skip(AppConstants.platform !== "win"); // The window icon is only set on Windows.
 
 add_task(async function test_taskbarTab_persistence() {
   const wm = new TaskbarTabsWindowManager();
@@ -379,4 +405,4 @@ add_task(async function test_taskbarTab_persistence() {
     BrowserTestUtils.closeWindow(win1),
     BrowserTestUtils.closeWindow(win2),
   ]);
-});
+}).skip(AppConstants.platform === "linux"); // We can't control the window position on Linux.

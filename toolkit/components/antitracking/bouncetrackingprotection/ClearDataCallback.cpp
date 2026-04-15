@@ -42,12 +42,16 @@ NS_IMPL_ISUPPORTS(ClearDataCallback, nsIClearDataCallback,
 ClearDataCallback::ClearDataCallback(ClearDataMozPromise::Private* aPromise,
                                      const OriginAttributes& aOriginAttributes,
                                      const nsACString& aHost,
-                                     PRTime aBounceTime)
+                                     PRTime aBounceTime,
+                                     BounceTrackingRecord* aChainRecord)
     : mPromise(aPromise), mClearDurationTimer(0) {
   MOZ_ASSERT(!aHost.IsEmpty(), "Host must not be empty");
 
   mEntry =
       new BounceTrackingPurgeEntry(aOriginAttributes, aHost, aBounceTime, 0);
+  if (aChainRecord) {
+    mEntry->SetBounceChainRecord(aChainRecord);
+  }
 
   if (StaticPrefs::privacy_bounceTrackingProtection_mode() ==
       nsIBounceTrackingProtection::MODE_ENABLED) {

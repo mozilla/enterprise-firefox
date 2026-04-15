@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=4 sw=2 sts=2 et cin: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -241,8 +239,8 @@ nsresult nsHttpTransaction::Init(
 
   if (NS_FAILED(rv)) return rv;
 
-  mConnInfo = cinfo;
-  mFinalizedConnInfo = cinfo;
+  mConnInfo = cinfo->Clone();
+  mFinalizedConnInfo = mConnInfo;
   mCallbacks = callbacks;
   mConsumerTarget = target;
   mCaps = caps;
@@ -354,7 +352,8 @@ nsresult nsHttpTransaction::Init(
 
   bool forceUseHTTPSRR = StaticPrefs::network_dns_force_use_https_rr();
   if ((StaticPrefs::network_dns_use_https_rr_as_altsvc() &&
-       !(mCaps & NS_HTTP_DISALLOW_HTTPS_RR)) ||
+       !(mCaps & NS_HTTP_DISALLOW_HTTPS_RR) &&
+       !(mCaps & NS_HTTP_USE_HAPPY_EYEBALLS)) ||
       forceUseHTTPSRR) {
     nsCOMPtr<nsIEventTarget> target;
     (void)gHttpHandler->GetSocketThreadTarget(getter_AddRefs(target));
@@ -418,9 +417,11 @@ void nsHttpTransaction::OnPendingQueueInserted(
     mHashKeyOfConnectionEntry.Assign(aConnectionHashKey);
   }
 
-  // Don't create mHttp3BackupTimer if HTTPS RR is in play.
+  // Don't create mHttp3BackupTimer if HTTPS RR is used or Happy Eyeballs is
+  // enabled. The Happy Eyeballs state machine will handle fallback to h2.
   if ((mConnInfo->IsHttp3() || mConnInfo->IsHttp3ProxyConnection()) &&
-      !mOrigConnInfo && !mConnInfo->GetWebTransport()) {
+      !mOrigConnInfo && !mConnInfo->GetWebTransport() &&
+      !(mCaps & NS_HTTP_USE_HAPPY_EYEBALLS)) {
     // Backup timer should only be created once.
     if (!mHttp3BackupTimerCreated) {
       CreateAndStartTimer(mHttp3BackupTimer, this,
@@ -566,6 +567,20 @@ void nsHttpTransaction::OnActivated() {
     }
   }
 
+  // Populate connection metadata here rather than in OnTransportStatus. With
+  // happy eyeballs, transport status events may arrive before the winning
+  // connection is assigned to the transaction, making OnTransportStatus
+  // unreliable for this purpose.
+  if (mConnection) {
+    MutexAutoLock lock(mLock);
+    mConnection->GetSelfAddr(&mSelfAddr);
+    mConnection->GetPeerAddr(&mPeerAddr);
+    mResolvedByTRR = mConnection->ResolvedByTRR();
+    mEffectiveTRRMode = mConnection->EffectiveTRRMode();
+    mTRRSkipReason = mConnection->TRRSkipReason();
+    mEchConfigUsed = mConnection->GetEchConfigUsed();
+  }
+
   mActivated = true;
   gHttpHandler->ConnMgr()->AddActiveTransaction(this);
   FinalizeConnInfo();
@@ -599,26 +614,18 @@ void nsHttpTransaction::OnTransportStatus(nsITransport* transport,
         " progress=%" PRId64 "]\n",
         this, static_cast<uint32_t>(status), progress));
 
-  if (status == NS_NET_STATUS_CONNECTED_TO ||
-      status == NS_NET_STATUS_WAITING_FOR) {
-    if (mConnection) {
-      MutexAutoLock lock(mLock);
-      mConnection->GetSelfAddr(&mSelfAddr);
-      mConnection->GetPeerAddr(&mPeerAddr);
-      mResolvedByTRR = mConnection->ResolvedByTRR();
-      mEffectiveTRRMode = mConnection->EffectiveTRRMode();
-      mTRRSkipReason = mConnection->TRRSkipReason();
-      mEchConfigUsed = mConnection->GetEchConfigUsed();
-    }
-  }
-
   // If the timing is enabled, and we are not using a persistent connection
   // then the requestStart timestamp will be null, so we mark the timestamps
   // for domainLookupStart/End and connectStart/End
   // If we are using a persistent connection they will remain null,
   // and the correct value will be returned in Performance.
   if (GetRequestStart().IsNull()) {
-    if (status == NS_NET_STATUS_RESOLVING_HOST) {
+    if (mConnInfo && mConnInfo->GetHappyEyeballsEnabled()) {
+      // Happy eyeballs sets connection timing data directly.
+      if (status == NS_NET_STATUS_SENDING_TO) {
+        SetRequestStart(TimeStamp::Now(), true);
+      }
+    } else if (status == NS_NET_STATUS_RESOLVING_HOST) {
       SetDomainLookupStart(TimeStamp::Now(), true);
     } else if (status == NS_NET_STATUS_RESOLVED_HOST) {
       SetDomainLookupEnd(TimeStamp::Now());
@@ -1299,9 +1306,6 @@ void nsHttpTransaction::MaybeReportFailedSVCDomain(
     return;
   }
 
-  glean::http::dns_httpssvc_connection_failed_reason.AccumulateSingleSample(
-      ErrorCodeToFailedReason(aReason));
-
   nsCOMPtr<nsIDNSService> dns = do_GetService(NS_DNSSERVICE_CONTRACTID);
   if (dns) {
     const nsCString& failedHost = aFailedConnInfo->GetRoutedHost().IsEmpty()
@@ -1567,9 +1571,6 @@ void nsHttpTransaction::Close(nsresult reason) {
     }
   }
 
-  glean::http::transaction_restart_reason.AccumulateSingleSample(
-      mRestartReason);
-
   if (!mResponseIsComplete && NS_SUCCEEDED(reason) && isHttp2or3) {
     // Responses without content-length header field are still complete if
     // they are transfered over http2 or http3 and the stream is properly
@@ -1667,11 +1668,6 @@ void nsHttpTransaction::Close(nsresult reason) {
 
     // Use mOrigConnInfo as an indicator that this transaction is completed
     // successfully with an HTTPSSVC record.
-    if (mOrigConnInfo) {
-      glean::http::dns_httpssvc_connection_failed_reason.AccumulateSingleSample(
-          HTTPSSVC_CONNECTION_OK);
-    }
-
     if (mConnection) {
       RefPtr<HttpConnectionBase> conn = mConnection->HttpConnection();
       if (conn) {
@@ -2448,12 +2444,6 @@ nsresult nsHttpTransaction::HandleContentStart() {
 
     CollectTelemetryForUploads();
 
-    // Report telemetry
-    if (mSupportsHTTP3) {
-      glean::http::transaction_wait_time_http2_sup_http3.AccumulateRawDuration(
-          mPendingDurationTime);
-    }
-
     // If we're only connecting then we're going to be upgrading this
     // connection since we were successful. Any data from now on belongs to
     // the upgrade handler. If we're not successful the content body doesn't
@@ -3181,7 +3171,7 @@ void nsHttpTransaction::Refused0RTT() {
 
 void nsHttpTransaction::SetHttpTrailers(nsCString& aTrailers) {
   LOG(("nsHttpTransaction::SetHttpTrailers %p", this));
-  LOG(("[\n    %s\n]", aTrailers.BeginReading()));
+  LOG(("[\n    %s\n]", aTrailers.get()));
 
   // Introduce a local variable to minimize the critical section.
   UniquePtr<nsHttpHeaderArray> httpTrailers(new nsHttpHeaderArray());
@@ -3377,9 +3367,6 @@ nsresult nsHttpTransaction::OnHTTPSRRAvailable(
     nsCOMPtr<nsIDNSService> dns = do_GetService(NS_DNSSERVICE_CONTRACTID);
     bool allRecordsExcluded = false;
     (void)record->GetAllRecordsExcluded(&allRecordsExcluded);
-    glean::http::dns_httpssvc_connection_failed_reason.AccumulateSingleSample(
-        allRecordsExcluded ? HTTPSSVC_CONNECTION_ALL_RECORDS_EXCLUDED
-                           : HTTPSSVC_CONNECTION_NO_USABLE_RECORD);
     if (allRecordsExcluded &&
         StaticPrefs::network_dns_httpssvc_reset_exclustion_list() && dns) {
       (void)dns->ResetExcludedSVCDomainName(mConnInfo->GetOrigin());
@@ -3534,7 +3521,7 @@ void nsHttpTransaction::OnBackupConnectionReady(bool aTriggeredByHTTPSRR) {
 
 static void CreateBackupConnection(
     nsHttpConnectionInfo* aBackupConnInfo, nsIInterfaceRequestor* aCallbacks,
-    uint32_t aCaps, std::function<void(bool)>&& aResultCallback) {
+    uint32_t aCaps, std::function<void(nsresult)>&& aResultCallback) {
   aBackupConnInfo->SetFallbackConnection(true);
   RefPtr<SpeculativeTransaction> trans = new FallbackTransaction(
       aBackupConnInfo, aCallbacks, aCaps | NS_HTTP_DISALLOW_HTTP3,
@@ -3563,8 +3550,8 @@ void nsHttpTransaction::OnHttp3BackupTimer() {
   }
 
   RefPtr<nsHttpTransaction> self = this;
-  auto callback = [self](bool aSucceded) {
-    if (aSucceded) {
+  auto callback = [self](nsresult aResult) {
+    if (NS_SUCCEEDED(aResult)) {
       self->OnBackupConnectionReady(false);
     }
   };
@@ -3619,8 +3606,8 @@ void nsHttpTransaction::OnFastFallbackTimer() {
   MOZ_ASSERT(!mBackupConnInfo->IsHttp3());
 
   RefPtr<nsHttpTransaction> self = this;
-  auto callback = [self](bool aSucceded) {
-    if (!aSucceded) {
+  auto callback = [self](nsresult aResult) {
+    if (NS_FAILED(aResult)) {
       return;
     }
 

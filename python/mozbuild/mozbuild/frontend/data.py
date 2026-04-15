@@ -49,6 +49,7 @@ class ContextDerived(TreeMetadata):
         "topsrcdir",
         "topobjdir",
         "relsrcdir",
+        "relobjdir",
         "srcdir",
         "objdir",
         "config",
@@ -69,6 +70,7 @@ class ContextDerived(TreeMetadata):
         self.relsrcdir = context.relsrcdir
         self.srcdir = context.srcdir
         self.objdir = context.objdir
+        self.relobjdir = mozpath.relpath(self.objdir, self.topobjdir)
 
         self.config = context.config
 
@@ -86,10 +88,6 @@ class ContextDerived(TreeMetadata):
     def defines(self):
         defines = self._context["DEFINES"]
         return Defines(self._context, defines) if defines else None
-
-    @property
-    def relobjdir(self):
-        return mozpath.relpath(self.objdir, self.topobjdir)
 
 
 class HostMixin:

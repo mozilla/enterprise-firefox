@@ -1,5 +1,3 @@
-/* -*- js-indent-level: 2; tab-width: 2; indent-tabs-mode: nil -*- */
-
 /* import-globals-from chrome-harness.js */
 /* import-globals-from mochitest-e10s-utils.js */
 
@@ -88,6 +86,68 @@ var TabDestroyObserver = {
     return new Promise(resolve => {
       this.promiseResolver = resolve;
     });
+  },
+};
+
+var DOMWindowTracker = {
+  // Map<serial, {serial, address, type, test, time}>
+  liveWindows: new Map(),
+  initialWindows: new Set(),
+  currentTest: null,
+
+  init() {
+    Services.obs.addObserver(this, "debug-domwindow-created");
+    Services.obs.addObserver(this, "debug-domwindow-destroyed");
+  },
+  destroy() {
+    Services.obs.removeObserver(this, "debug-domwindow-created");
+    Services.obs.removeObserver(this, "debug-domwindow-destroyed");
+  },
+  snapshotInitialWindows() {
+    for (let key of this.liveWindows.keys()) {
+      this.initialWindows.add(key);
+    }
+  },
+  observe(subject, topic, data) {
+    let info = this._parseData(data);
+    if (topic === "debug-domwindow-created") {
+      info.test = this.currentTest;
+      info.time = Date.now();
+      this.liveWindows.set(info.serial, info);
+    } else {
+      this.liveWindows.delete(info.serial);
+    }
+  },
+  _parseData(data) {
+    let info = {};
+    for (let part of data.split(" ")) {
+      let idx = part.indexOf("=");
+      if (idx !== -1) {
+        info[part.substring(0, idx)] = part.substring(idx + 1);
+      }
+    }
+    return info;
+  },
+  getLeakedWindows(excludeCurrentTest = false) {
+    let leaked = [];
+    let innerOuterAddrs = new Set();
+    for (let [key, info] of this.liveWindows) {
+      if (
+        !this.initialWindows.has(key) &&
+        info.test &&
+        (!excludeCurrentTest || info.test !== this.currentTest)
+      ) {
+        leaked.push(info);
+        if (info.type === "inner" && info.outer) {
+          innerOuterAddrs.add(info.outer);
+        }
+      }
+    }
+    // Filter out outer windows whose inner is also leaked, to avoid
+    // reporting the same leak twice.
+    return leaked.filter(
+      info => info.type !== "outer" || !innerOuterAddrs.has(info.address)
+    );
   },
 };
 
@@ -254,8 +314,6 @@ function Tester(aTests, structuredLogger, aCallback) {
     this.SimpleTestOriginal[m] = this.SimpleTest[m];
   });
 
-  this._coverageCollector = null;
-
   const { XPCOMUtils } = ChromeUtils.importESModule(
     "resource://gre/modules/XPCOMUtils.sys.mjs"
   );
@@ -321,6 +379,7 @@ Tester.prototype = {
 
   start: function Tester_start() {
     TabDestroyObserver.init();
+    DOMWindowTracker.init();
 
     // if testOnLoad was not called, then gConfig is not defined
     if (!gConfig) {
@@ -337,14 +396,6 @@ Tester.prototype = {
 
     if (gConfig.repeat) {
       this.repeat = gConfig.repeat;
-    }
-
-    if (gConfig.jscovDirPrefix) {
-      let coveragePath = gConfig.jscovDirPrefix;
-      let { CoverageCollector } = ChromeUtils.importESModule(
-        "resource://testing-common/CoverageUtils.sys.mjs"
-      );
-      this._coverageCollector = new CoverageCollector(coveragePath);
     }
 
     if (gConfig.debugger || gConfig.debuggerInteractive || gConfig.jsdebugger) {
@@ -377,6 +428,7 @@ Tester.prototype = {
 
     if (this.tests.length) {
       this.waitForWindowsReady().then(() => {
+        DOMWindowTracker.snapshotInitialWindows();
         this.nextTest();
       });
     } else {
@@ -549,6 +601,44 @@ Tester.prototype = {
     }
   },
 
+  _shutdownCleanup(aCallback) {
+    let start = ChromeUtils.now();
+    Cu.schedulePreciseShrinkingGC(() => {
+      let numCycles = 3;
+      for (let i = 0; i < numCycles; i++) {
+        Cu.forceGC();
+        Cu.forceCC();
+      }
+      ChromeUtils.addProfilerMarker("ShutdownLeaks:cleanup", {
+        category: "Test",
+        startTime: start,
+      });
+      aCallback();
+    });
+  },
+
+  async _checkForLeakedWindows(excludeCurrentTest = false) {
+    // C++ window destructors fire debug-domwindow-destroyed
+    // via runnables dispatched to the main thread. Let those
+    // runnables run before checking for leaks.
+    await new Promise(resolve => Services.tm.dispatchToMainThread(resolve));
+
+    let leaked = DOMWindowTracker.getLeakedWindows(excludeCurrentTest);
+    if (leaked.length) {
+      try {
+        let { ShutdownLeakPathFinder } = ChromeUtils.importESModule(
+          "chrome://mochikit/content/ShutdownLeakPathFinder.sys.mjs"
+        );
+        await new ShutdownLeakPathFinder().findAndPrintPaths(
+          leaked,
+          this.structuredLogger
+        );
+      } catch (ex) {
+        dump("ShutdownLeakPathFinder failed: " + ex + "\n");
+      }
+    }
+  },
+
   finish: function Tester_finish() {
     var passCount = this.tests.reduce((a, f) => a + f.passCount, 0);
     var failCount = this.tests.reduce((a, f) => a + f.failCount, 0);
@@ -558,6 +648,7 @@ Tester.prototype = {
     failCount += this.failuresFromInitialWindowState;
 
     TabDestroyObserver.destroy();
+    DOMWindowTracker.destroy();
     Services.console.unregisterListener(this);
 
     this.AccessibilityUtils.uninit();
@@ -867,10 +958,6 @@ Tester.prototype = {
     if (!this.currentTest) {
       this.checkWindowsState();
     } else {
-      if (this._coverageCollector) {
-        this._coverageCollector.recordTestCoverage(this.currentTest.path);
-      }
-
       this.PerTestCoverageUtils.afterTestSync();
 
       // Run cleanup functions for the current test before moving on to the
@@ -1136,6 +1223,7 @@ Tester.prototype = {
         "finished in " + time + "ms"
       );
       this.currentTest.setDuration(time);
+      DOMWindowTracker.currentTest = null;
 
       if (this.runUntilFailure && this.currentTest.failCount > 0) {
         this.haltTests();
@@ -1168,9 +1256,7 @@ Tester.prototype = {
     // Make sure the window is raised before starting the next test.
     this.SimpleTest.waitForFocus(() => {
       if (this.done) {
-        if (this._coverageCollector) {
-          this._coverageCollector.finalize();
-        } else if (
+        if (
           !AppConstants.RELEASE_OR_BETA &&
           !AppConstants.DEBUG &&
           !AppConstants.MOZ_CODE_COVERAGE &&
@@ -1215,19 +1301,6 @@ Tester.prototype = {
         // use a shrinking GC so that the JS engine will discard JIT code and
         // JIT caches more aggressively.
 
-        let shutdownCleanup = aCallback => {
-          Cu.schedulePreciseShrinkingGC(() => {
-            // Run the GC and CC a few times to make sure that as much
-            // as possible is freed.
-            let numCycles = 3;
-            for (let i = 0; i < numCycles; i++) {
-              Cu.forceGC();
-              Cu.forceCC();
-            }
-            aCallback();
-          });
-        };
-
         let { AsyncShutdown } = ChromeUtils.importESModule(
           "resource://gre/modules/AsyncShutdown.sys.mjs"
         );
@@ -1256,9 +1329,10 @@ Tester.prototype = {
 
           Services.ppmm.broadcastAsyncMessage("browser-test:collect-request");
 
-          shutdownCleanup(() => {
+          this._shutdownCleanup(() => {
             setTimeout(() => {
-              shutdownCleanup(() => {
+              this._shutdownCleanup(async () => {
+                await this._checkForLeakedWindows();
                 this.finish();
               });
             }, 1000);
@@ -1395,6 +1469,10 @@ Tester.prototype = {
   },
 
   execTest: function Tester_execTest() {
+    DOMWindowTracker.currentTest = this.currentTest.path.replace(
+      "chrome://mochitests/content/browser/",
+      ""
+    );
     this.structuredLogger.testStart(this.currentTest.path);
 
     this.SimpleTest.reset();
@@ -1638,7 +1716,10 @@ Tester.prototype = {
                 "PASS",
                 "Test timed out"
               );
-              self.finish();
+              self._shutdownCleanup(async () => {
+                await self._checkForLeakedWindows(true);
+                self.finish();
+              });
             }
           },
           gTimeoutSeconds * 1000,

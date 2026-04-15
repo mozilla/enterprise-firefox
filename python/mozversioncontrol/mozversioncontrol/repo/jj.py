@@ -18,12 +18,6 @@ from mozpack.files import FileListFinder
 from packaging.version import Version
 
 MINIMUM_SUPPORTED_JJ_VERSION = Version("0.28")
-USING_JJ_DETECTED = 'Using JujutsuRepository because a ".jj/" directory was detected!'
-USING_JJ_WARNING = """\
-
-Warning: jj support is currently experimental, and may be disabled by setting the
-environment variable MOZ_AVOID_JJ_VCS=1. (This warning may be suppressed by
-setting MOZ_AVOID_JJ_VCS=0.)"""
 
 from mozversioncontrol.errors import (
     CannotDeleteFromRootOfRepositoryException,
@@ -62,7 +56,8 @@ class JujutsuRepository(Repository):
             jj_ws_root = Path(out.rstrip())
             jj_repo = jj_ws_root / ".jj" / "repo"
             if not jj_repo.is_dir():
-                jj_repo = Path(jj_repo.read_text())
+                # Path / absolute discards the left operand, so this handles both relative and absolute paths.
+                jj_repo = jj_repo.parent / Path(jj_repo.read_text())
         except Exception:
             raise MissingVCSInfo("cannot find jj repo")
 
@@ -84,7 +79,7 @@ class JujutsuRepository(Repository):
         """
         return super()._run("--ignore-working-copy", *args, **kwargs)
 
-    def _snapshot(self):
+    def _snapshot(self, reason):
         """_snapshot() can be used to update the repository after changing files in the working
         directory. Normally jj commands will do this automatically, but we often run jj commands
         using `_run_read_only` which passes `--ignore-working-copy` to jj.
@@ -93,7 +88,8 @@ class JujutsuRepository(Repository):
         An alternative option would be to add an extra argument to methods such as
         `get_commits`.
         """
-        self._run("log", "-n0")
+        # Do-nothing command with an explanatory message visible in `jj op log`.
+        self._run("log", "-n0", "-T", f'"snapshot: {reason}"')
 
     def _resolve_to_change(self, revset: str) -> Optional[str]:
         change_id = self._run_read_only(
@@ -161,6 +157,27 @@ class JujutsuRepository(Repository):
         if not email:
             return None
         return email.strip()
+
+    def get_remote_url(self, remote=None, push=False):
+        if not remote:
+            if push:
+                if remote := self._run(
+                    "config", "get", "git.push", return_codes=[0, 1]
+                ):
+                    remote = remote.strip().strip('"')
+            else:
+                fetch_config = self._run(
+                    "config", "get", "git.fetch", return_codes=[0, 1]
+                )
+                if fetch_config:
+                    # Windows may add extra quotes around JSON values
+                    fetch_config = fetch_config.strip().strip('"')
+                    remote = json.loads(fetch_config)[0]
+
+            if not remote:
+                return None
+
+        return self._git.get_remote_url(remote, push)
 
     def get_changed_files(self, diff_filter="ADM", mode="(ignored)", rev="@"):
         assert all(f.lower() in self._valid_diff_filter for f in diff_filter)
@@ -319,6 +336,37 @@ class JujutsuRepository(Repository):
             cmd.extend(paths)
         self._run(*cmd, **run_kwargs)
 
+    def push(
+        self,
+        remote: Optional[str] = None,
+        ref: Optional[str] = None,
+        force: bool = False,
+    ):
+        if ref and not remote:
+            raise ValueError("Cannot specify ref without specifying remote")
+
+        args = ["git", "push"]
+        if remote:
+            if remote.startswith("git@"):
+                if remote.endswith(".git"):
+                    remote = remote[:-4]
+
+                for line in self._run("git", "remote", "list").strip().splitlines():
+                    name, url = line.split(" ", 1)
+                    if url.endswith(".git"):
+                        url = url[:-4]
+
+                    if url == remote:
+                        remote = name
+                        break
+                else:
+                    raise ValueError(f"No remote configured for '{remote}'")
+
+            args.extend(["--remote", remote])
+        if ref:
+            args.extend(["-r", ref])
+        self._run(*args)
+
     def push_to_try(
         self,
         message: str,
@@ -447,7 +495,7 @@ class JujutsuRepository(Repository):
         function that can be called to restore the repository to its original
         state prior to this function having been run.
         """
-        self._run("debug", "snapshot")  # Force a snapshot.
+        self._snapshot("prepare_try_push")
         # Redundant with the snapshot from the next command, but the semantics
         # of this operation depend on a snapshot happening (and it will eat
         # working-copy changes if not!), so be extra explicit here in case it
@@ -465,7 +513,12 @@ class JujutsuRepository(Repository):
                 # e.g. because `snapshot.auto-track` has been configured.
                 self.add_remove_files(p)
             # Update the jj commit with the changes we just made.
-            self._snapshot()
+            self._snapshot("prepare_try_push")
+
+            # Tug any bookmarks from parent commit for pushing.
+            self._run(
+                "bookmark", "move", "--from", "heads(@- & bookmarks())", "--to", "@"
+            )
 
             def cleanup():
                 self._run("operation", "restore", opid)
@@ -482,13 +535,14 @@ class JujutsuRepository(Repository):
 
     def get_last_modified_time_for_file(self, path: Path) -> datetime:
         """Return last modified in VCS time for the specified file."""
-        date = self._run_read_only(
+        escaped_path = str(path).replace("\\", "\\\\")
+        date = self._run(
             "log",
             "--no-graph",
             "-n1",
             "-T",
             "committer.timestamp()",
-            '"%s"' % str(path).replace("\\", "\\\\"),
+            f'"{escaped_path}"',
         ).rstrip()
         return datetime.strptime(date, "%Y-%m-%d %H:%M:%S.%f %z")
 
@@ -553,7 +607,6 @@ class JujutsuRepository(Repository):
 
     def configure(self, state_dir: Path, update_only: bool = False):
         """Run the Jujutsu configuration steps."""
-        print(USING_JJ_WARNING, file=sys.stderr)
         print(
             "\nOur jj support currently relies on Git; checks will run for both jj and Git.\n"
         )
@@ -605,6 +658,8 @@ class JujutsuRepository(Repository):
             self._set_default_if_missing(
                 immutable_heads_key, immutable_heads_default_value
             )
+
+            self._set_default_if_missing("snapshot.auto-update-stale", True)
 
             # This enables `jj fix` which does `./mach lint --fix` on every commit in parallel
             fix_cmd = [f"{topsrcdir.as_posix()}/tools/lint/pipelint", "$path"]

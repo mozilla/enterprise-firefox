@@ -151,6 +151,24 @@ In order to disable the `moz-input-folder`, add `disabled=""` or `disabled` to t
 </div>
 ```
 
+### Adding additional actions
+
+The `actions` slot can be used in cases where we need to support additional buttons beyond the built-in folder picker button, or other interactive content.
+
+```html
+<moz-input-folder label="Label">
+  <moz-button slot="actions">More actions</moz-button>
+</moz-input-folder>
+```
+
+```html story
+<div style={{width: '500px'}} onClickCapture={e => e.stopPropagation()}>
+  <moz-input-folder label="Label">
+    <moz-button slot="actions">More actions</moz-button>
+  </moz-input-folder>
+</div>
+```
+
 ### Fluent usage
 
 The `label`, `description`, `placeholder` and `accesskey` attributes of `moz-input-folder` will generally be provided via [Fluent attributes](https://mozilla-l10n.github.io/localizer-documentation/tools/fluent/basic_syntax.html#attributes).

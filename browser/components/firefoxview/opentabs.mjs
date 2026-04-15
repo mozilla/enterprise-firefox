@@ -33,6 +33,10 @@ ChromeUtils.defineLazyGetter(lazy, "fxAccounts", () => {
   ).getFxAccountsSingleton();
 });
 
+var { DEVICE_TYPE_MOBILE, DEVICE_TYPE_TABLET } = ChromeUtils.importESModule(
+  "resource://services-sync/constants.sys.mjs"
+);
+
 const TOPIC_DEVICESTATE_CHANGED = "firefox-view.devicestate.changed";
 const TOPIC_DEVICELIST_UPDATED = "fxaccounts:devicelist_updated";
 
@@ -857,6 +861,16 @@ class OpenTabsContextMenu extends MozLitElement {
       return null;
     }
 
+    let hasOnlyMobileDevices =
+      this.devices.length >= 1 &&
+      this.devices.every(
+        target =>
+          target.type == DEVICE_TYPE_MOBILE || target.type == DEVICE_TYPE_TABLET
+      );
+    let panelItemId = hasOnlyMobileDevices
+      ? "fxviewtabrow-send-to-mobile"
+      : "fxviewtabrow-send-to-device";
+
     return html`
       <link
         rel="stylesheet"
@@ -891,7 +905,7 @@ class OpenTabsContextMenu extends MozLitElement {
         ></panel-item>
         ${this.devices.length >= 1
           ? html`<panel-item
-              data-l10n-id="fxviewtabrow-send-to-device"
+              data-l10n-id=${panelItemId}
               data-l10n-attrs="accesskey"
               submenu="send-tab-menu"
               @click=${this.onSendTabSubmenuClick}

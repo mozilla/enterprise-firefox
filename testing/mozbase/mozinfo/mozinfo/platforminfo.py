@@ -131,6 +131,8 @@ class PlatformInfo:
         if build is not None and self.os == "win":
             if build == "24h2":
                 version += ".26100"
+            elif build == "25h2":
+                version += ".26200"
             else:
                 version += "." + build
         return version

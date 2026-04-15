@@ -153,6 +153,32 @@ function _EU_roundDevicePixels(aMaybeFractionalPixels) {
 }
 
 /**
+ * Return the additional version details of Windows, e.g., "7309" of build
+ * number "6100.7309".
+ */
+function _EU_getWindowsUBR() {
+  try {
+    const { WindowsRegistry } = _EU_ChromeUtils.importESModule(
+      "resource://gre/modules/WindowsRegistry.sys.mjs"
+    );
+    const ubr = WindowsRegistry.readRegKey(
+      _EU_Ci.nsIWindowsRegKey.ROOT_KEY_LOCAL_MACHINE,
+      "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+      "UBR",
+      _EU_Ci.nsIWindowsRegKey.WOW64_64
+    );
+    if (Number.isInteger(ubr)) {
+      return ubr;
+    }
+  } catch (ex) {
+    if (typeof info == "function") {
+      info(`Error: ${ex}`);
+    }
+  }
+  return NaN;
+}
+
+/**
  * promiseElementReadyForUserInput() dispatches mousemove events to aElement
  * and waits one of them for a while.  Then, returns "resolved" state when it's
  * successfully received.  Otherwise, if it couldn't receive mousemove event on
@@ -723,7 +749,6 @@ function synthesizeMouseAtPoint(
     var button = computeButton(aEvent);
     var clickCount = aEvent.clickCount || 1;
     var modifiers = _parseModifiers(aEvent, aWindow);
-    var pressure = "pressure" in aEvent ? aEvent.pressure : 0;
 
     // aWindow might be cross-origin from us.
     var MouseEvent = _EU_maybeWrap(aWindow).MouseEvent;
@@ -766,7 +791,7 @@ function synthesizeMouseAtPoint(
           buttons: aEvent.buttons,
           clickCount,
           modifiers,
-          pressure,
+          pressure: aEvent.pressure,
           inputSource,
         },
         {
@@ -787,7 +812,7 @@ function synthesizeMouseAtPoint(
           buttons: aEvent.buttons,
           clickCount,
           modifiers,
-          pressure,
+          pressure: aEvent.pressure,
           inputSource,
         },
         {
@@ -807,7 +832,7 @@ function synthesizeMouseAtPoint(
           buttons: aEvent.buttons,
           clickCount,
           modifiers,
-          pressure,
+          pressure: aEvent.pressure,
           inputSource,
         },
         {
@@ -1034,10 +1059,7 @@ function synthesizeTouchAtPoint(
   const rxArray = getSameLengthArrayOfEventProperty("rx", 1);
   const ryArray = getSameLengthArrayOfEventProperty("ry", 1);
   const angleArray = getSameLengthArrayOfEventProperty("angle", 0);
-  const forceArray = getSameLengthArrayOfEventProperty(
-    "force",
-    aEvent.type === "touchend" ? 0 : 1
-  );
+  const forceArray = getSameLengthArrayOfEventProperty("force");
   const tiltXArray = getSameLengthArrayOfEventProperty("tiltX", 0);
   const tiltYArray = getSameLengthArrayOfEventProperty("tiltY", 0);
   const twistArray = getSameLengthArrayOfEventProperty("twist", 0);
@@ -1712,6 +1734,8 @@ function synthesizeAndWaitNativeMouseMove(
       resolve();
     });
   });
+  // TODO: Switch to SpecialPowers.spawn
+  // eslint-disable-next-line mozilla/reject-contenttask-spawn
   let eventReceivedPromise = ContentTask.spawn(
     browser,
     [aOffsetX, aOffsetY],
@@ -1883,6 +1907,8 @@ function synthesizeAndWaitKey(
     });
   });
   // eslint-disable-next-line no-shadow
+  // TODO: Switch to SpecialPowers.spawn
+  // eslint-disable-next-line mozilla/reject-contenttask-spawn
   let keyReceivedPromise = ContentTask.spawn(browser, keyCode, keyCode => {
     return new Promise(resolve => {
       addEventListener("keyup", function onKeyEvent(e) {
@@ -1981,7 +2007,14 @@ const KEYBOARD_LAYOUT_ARABIC = {
   name: "Arabic",
   Mac: 6,
   Win: 0x00000401,
-  hasAltGrOnWin: false,
+  get hasAltGrOnWin() {
+    // KB5070311 added AltGr to Arabic keyboard layouts on
+    // Windows 11 24H2 and 25H2 (build 26100 and build 26200) 7309.
+    return (
+      parseInt(Services.sysinfo.getProperty("build"), 10) >= 26100 &&
+      _EU_getWindowsUBR() >= 7309
+    );
+  },
 };
 _defineConstant("KEYBOARD_LAYOUT_ARABIC", KEYBOARD_LAYOUT_ARABIC);
 const KEYBOARD_LAYOUT_ARABIC_PC = {

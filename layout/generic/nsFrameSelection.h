@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -287,6 +285,13 @@ class nsFrameSelection final {
                                           CaretAssociationHint aHint);
 
  public:
+  [[nodiscard]] bool IsAvailable() const {
+    // mDomSelections is initialized at construction and cleared if the cycle
+    // collector unlink them so that if the first selection is available, the
+    // others should be fine.
+    return !!mDomSelections[0];
+  }
+
   /**
    * Sets the type of the selection based on whether a selection is created
    * by doubleclick, long tapping a word or tripleclick.
@@ -441,16 +446,17 @@ class nsFrameSelection final {
 
   /**
    * Sets the drag state to aState for resons of drag state.
+   * Note that only can run script when called with false as an argument.
    *
    * @param aState is the new state of drag
    */
   MOZ_CAN_RUN_SCRIPT void SetDragState(bool aState);
 
   /**
-   * Gets the drag state to aState for resons of drag state.
-   *
-   * @param aState will hold the state of drag
+   * Marks us as dragging. Equivalent to SetDragState(true), but without the
+   * CAN_RUN_SCRIPT implications.
    */
+  void RestoreDragState() { mDragState = true; }
   [[nodiscard]] bool GetDragState() const { return mDragState; }
 
   /**
@@ -960,6 +966,13 @@ class nsFrameSelection final {
 
  private:
   ~nsFrameSelection();
+
+  /**
+   * Populates an existing highlight Selection with ranges from a Highlight.
+   * Must be called after the Selection is registered in mHighlightSelections.
+   */
+  MOZ_CAN_RUN_SCRIPT void PopulateHighlightSelection(
+      mozilla::dom::Selection& aSelection, mozilla::dom::Highlight& aHighlight);
 
   // TODO: in case an error is returned, it sometimes refers to a programming
   // error, in other cases to runtime errors. This deserves to be cleaned up.

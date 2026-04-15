@@ -13,7 +13,7 @@
 
 using namespace std::filesystem;
 
-MOZ_RUNINIT static path processDllPath = {};
+MOZ_GLIBCXX_CONSTINIT static path processDllPath = {};
 
 // Populate the path to this DLL.
 bool PopulateDllPath(HINSTANCE dllInstance) {

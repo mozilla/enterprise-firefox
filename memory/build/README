@@ -43,6 +43,11 @@ Main components
 
    The majority of the allocator.
 
+ * Arena.h
+
+   The arena structure and many of its sub-structures such as runs and
+   arena chunks.
+
  * BaseAlloc.h and BaseAlloc.cpp
 
    The base allocator and some template classes to spacialise it.  Some of

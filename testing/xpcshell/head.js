@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -596,14 +594,6 @@ function _execute_test() {
 
   _PromiseTestUtils.init();
 
-  let coverageCollector = null;
-  if (typeof _JSCOV_DIR === "string") {
-    let _CoverageCollector = ChromeUtils.importESModule(
-      "resource://testing-common/CoverageUtils.sys.mjs"
-    ).CoverageCollector;
-    coverageCollector = new _CoverageCollector(_JSCOV_DIR);
-  }
-
   let startTime = ChromeUtils.now();
 
   // _HEAD_FILES is dynamically defined by <runxpcshelltests.py>.
@@ -627,9 +617,7 @@ function _execute_test() {
 
   let timer;
   if (
-    // Services.profiler is missing on some tier3 platforms where
-    // MOZ_GECKO_PROFILER is not set.
-    Services.profiler?.IsActive() &&
+    Services.profiler.IsActive() &&
     !Services.env.exists("MOZ_PROFILER_SHUTDOWN") &&
     Services.env.exists("MOZ_UPLOAD_DIR") &&
     Services.env.exists("MOZ_TEST_TIMEOUT_INTERVAL")
@@ -664,10 +652,6 @@ function _execute_test() {
     _do_main();
     _PromiseTestUtils.assertNoUncaughtRejections();
 
-    if (coverageCollector != null) {
-      coverageCollector.recordTestCoverage(_TEST_FILE[0]);
-    }
-
     if (runningInParent) {
       PerTestCoverageUtils.afterTestSync();
     }
@@ -694,10 +678,6 @@ function _execute_test() {
         extra.stack = _format_stack(e.stack);
       }
       _testLogger.error(message, extra);
-    }
-  } finally {
-    if (coverageCollector != null) {
-      coverageCollector.finalize();
     }
   }
 

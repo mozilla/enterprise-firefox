@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set sw=2 ts=2 sts=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -524,7 +522,7 @@ class mozInlineSpellResume : public Runnable {
 
 // Used as the nsIEditorSpellCheck::InitSpellChecker callback.
 class InitEditorSpellCheckCallback final : public nsIEditorSpellCheckCallback {
-  ~InitEditorSpellCheckCallback() {}
+  ~InitEditorSpellCheckCallback() = default;
 
  public:
   NS_DECL_ISUPPORTS
@@ -572,7 +570,7 @@ mozInlineSpellChecker::mozInlineSpellChecker()
       mFullSpellCheckScheduled(false),
       mIsListeningToEditSubActions(false) {}
 
-mozInlineSpellChecker::~mozInlineSpellChecker() {}
+mozInlineSpellChecker::~mozInlineSpellChecker() = default;
 
 EditorSpellCheck* mozInlineSpellChecker::GetEditorSpellCheck() {
   return mSpellCheck ? mSpellCheck : mPendingSpellCheck;
@@ -1147,10 +1145,8 @@ bool mozInlineSpellChecker::ShouldSpellCheckNode(EditorBase* aEditorBase,
     // Note that because of the previous check, at this point we know that the
     // node is editable.
     if (content->IsInNativeAnonymousSubtree()) {
-      nsIContent* node = content->GetParent();
-      while (node && node->IsInNativeAnonymousSubtree()) {
-        node = node->GetParent();
-      }
+      nsIContent* node =
+          content->GetClosestNativeAnonymousSubtreeRootParentOrHost();
       if (node && node->IsTextControlElement()) {
         return true;
       }
@@ -2058,7 +2054,7 @@ class UpdateCurrentDictionaryCallback final
   }
 
  private:
-  ~UpdateCurrentDictionaryCallback() {}
+  ~UpdateCurrentDictionaryCallback() = default;
 
   RefPtr<mozInlineSpellChecker> mSpellChecker;
   uint32_t mDisabledAsyncToken;

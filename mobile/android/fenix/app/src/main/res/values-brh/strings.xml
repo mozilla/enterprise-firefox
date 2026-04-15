@@ -120,6 +120,10 @@
   <string name="browser_menu_desktop_site">ڈیسک ٹاپ سائٹ</string>
   <!-- Browser menu button that reopens a private tab as a regular tab -->
   <string name="browser_menu_open_in_regular_tab" tools:ignore="UnusedResources" moz:removedIn="149">عام ٹیب ٹی ملتہ</string>
+  <!-- Browser menu toggle that adds a shortcut to the site on the device home screen. -->
+  <string name="browser_menu_add_to_homescreen">ہوم اسکرین اے ات</string>
+  <!-- Browser menu toggle that adds a PWA of the site on the device home screen. -->
+  <string name="browser_menu_add_app_to_homescreen">ایپ اے ہوم اسکرین اے ات</string>
   <!-- Browser menu button that opens the find in page menu -->
   <string name="browser_menu_find_in_page">صفحہ اٹ پٹ</string>
   <!-- Browser menu button that opens the translations dialog, which has options to translate the current browser page. -->
@@ -128,6 +132,8 @@
   <string name="browser_menu_save_to_collection_2">مچی ٹی گچین کر</string>
   <!-- Browser menu button that open a share menu to share the current site -->
   <string name="browser_menu_share">بشخبو</string>
+  <!-- Browser menu button that goes to the homepage screen -->
+  <string name="browser_menu_homepage">مون پنہ</string>
   <!--
     Browser menu button shown in custom tabs that opens the current tab in Fenix
     %1$s is the name of the app (for example "Firefox").
@@ -367,6 +373,8 @@
   <string name="preference_simple_toolbar">سادہ</string>
   <!-- Add bookmark shortcut in toolbar customization -->
   <string name="toolbar_customize_shortcut_add_bookmark">نشانی اس شاغبو</string>
+  <!-- Homepage shortcut in toolbar customization -->
+  <string name="toolbar_customize_shortcut_homepage">مون پنہ</string>
   <!--
     Theme Preferences
 
@@ -443,8 +451,10 @@
   <string name="tab_manager_multiselect_menu_item_bookmark_content_description">گچین ٹیب تے نشانی کبو</string>
   <!-- Content description (not visible, for screen readers etc.): Closes selected tabs. -->
   <string name="tab_manager_multiselect_menu_item_close_content_description">گچین ٹیب تے بند کبو</string>
+  <!-- Title text displayed for a homepage tab in the tabs tray. -->
+  <string name="tab_tray_homepage_tab">مون پنہ</string>
   <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
-  <string name="tab_group_name_label">پن</string>
+  <string name="tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">پن</string>
   <!-- Text for the button to clear all history -->
   <string name="history_delete_all">تاریخچہ مٹائفبو</string>
   <!-- Text for the snackbar to confirm that multiple browsing history items has been deleted -->
@@ -501,10 +511,16 @@
   <string name="bookmark_saved_in_folder_snackbar">“%s” ٹی خوندی اے</string>
   <!-- Accessibility label for sorting options -->
   <string name="bookmark_sort_menu_content_desc">ترتیب نا اپشناک</string>
+  <!-- Label for button to sort bookmarks by user-defined sort order in the bookmark sorting overflow menu. -->
+  <string name="bookmark_sort_menu_custom">پین وڑ اٹ ترتیب ایت</string>
   <!-- Label for button to sort bookmarks by newest in the bookmark sorting overflow menu. -->
   <string name="bookmark_sort_menu_newest">پوسکناڈن ترتیب ایت</string>
   <!-- Label for button to sort bookmarks by oldest in the bookmark sorting overflow menu. -->
   <string name="bookmark_sort_menu_oldest">متکناڈن ترتیب ایت</string>
+  <!-- Label for button to sort bookmarks in alphabetical order in the bookmark sorting overflow menu. -->
+  <string name="bookmark_sort_menu_a_to_z">A ان Z ترتیب ایت</string>
+  <!-- Label for button to sort bookmarks in reverse alphabetical order in the bookmark sorting overflow menu. -->
+  <string name="bookmark_sort_menu_z_to_a">Z ان A ترتیب ایت</string>
   <!-- Bookmark editing screen title -->
   <string name="edit_bookmark_fragment_title">نشانی بدل کبو</string>
   <!-- Text indicating which folder a bookmark or folder will be saved in -->
@@ -525,6 +541,8 @@
   <string name="preference_phone_feature_location">ڈس</string>
   <!-- Preference for altering the notification access for all websites -->
   <string name="preference_phone_feature_notification">اعلان</string>
+  <!-- Label that indicates a permission is by the Android OS -->
+  <string name="phone_feature_blocked_by_android">انڈرویڈ ان توروک اے</string>
   <!-- Summary of tracking protection preference if tracking protection is set to off -->
   <string name="tracking_protection_off">بند</string>
   <!-- Toggle if desktop site is turned off -->
@@ -547,6 +565,8 @@
   <string name="snackbar_message_bookmarks_saved_in_2">نشانیک “%s” ٹی خوندی او</string>
   <!-- Radio button in the delete browsing data dialog to delete history items for today and yesterday. -->
   <string name="delete_history_prompt_button_today_and_yesterday">درو و اینو</string>
+  <!-- Title text for the Add To Homescreen dialog -->
+  <string name="add_to_homescreen_title">ہوم اسکرین اے ات</string>
   <!-- Preference for managing the settings for logins and passwords in Fenix -->
   <string name="preferences_passwords_logins_and_passwords_2">کلیت لوزاک</string>
   <!-- Hint for search box in passwords list -->
@@ -565,8 +585,26 @@
   <string name="recent_searches_header">زاتیاٹ پٹنگاک</string>
   <!-- Translations feature -->
 
+  <!-- Default dropdown option when initially selecting a language from the translations dialog language selection dropdown. -->
+  <string name="translations_bottom_sheet_default_dropdown_selection">دووی اس گچین کر</string>
+  <!-- Button text for the button that will take the user to a website to learn more about how translations works in the given app. %1$s is the name of the app (for example "Firefox"). -->
+  <string name="translation_option_bottom_sheet_about_translations">%1$s ٹی مٹ و بدل نا باروٹ</string>
+  <!-- Button text for the button that will take the user to the download languages dialog. On the download languages dialog, the user can manage which languages they would like to download for translations. -->
+  <string name="translation_settings_download_language">دووی تے ڈاونلوڈ کبو</string>
+  <!-- The subhead of the download language preference screen will appear above the pivot language. -->
+  <string name="download_languages_available_languages_preference">موجود آ دوویک</string>
+  <!-- The subhead of the download language preference screen will appear above the items that were not downloaded. -->
+  <string name="download_language_header_preference">دووی تے ڈاونلوڈ کبو</string>
+  <!-- All languages list item. When the user presses this item, they can download all languages. -->
+  <string name="download_language_all_languages_item_preference">کل دوویک</string>
   <!-- TextField Design System Component -->
 
+  <!--
+    Review prompt
+
+    Title for a prompt asking the user about their experience using the app. %1$s is the name of the app (for example "Firefox").
+  -->
+  <string name="review_prompt_pre_prompt_header">%1$s نا باروٹ انت پارے؟</string>
   <!-- ==== Terms of use pop up prompt ==== -->
 
   <!-- ==== Experiment strings. ==== -->

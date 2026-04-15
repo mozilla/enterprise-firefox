@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=4 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1895,7 +1893,7 @@ class DeferredClearResolvedFonts final : public nsIRunnable {
       : mFontList(std::move(aFontList)) {}
 
  protected:
-  virtual ~DeferredClearResolvedFonts() {}
+  virtual ~DeferredClearResolvedFonts() = default;
 
   NS_IMETHOD Run(void) override {
     mFontList.Clear();
@@ -2037,17 +2035,8 @@ void gfxFontGroup::AddFamilyToFontList(gfxFontFamily* aFamily,
 void gfxFontGroup::AddFamilyToFontList(fontlist::Family* aFamily,
                                        StyleGenericFontFamily aGeneric) {
   gfxPlatformFontList* pfl = gfxPlatformFontList::PlatformFontList();
-  if (!aFamily->IsInitialized()) {
-    if (ServoStyleSet* set = gfxFontUtils::CurrentServoStyleSet()) {
-      // If we need to initialize a Family record, but we're on a style
-      // worker thread, we have to defer it.
-      set->AppendTask(PostTraversalTask::InitializeFamily(aFamily));
-      set->AppendTask(PostTraversalTask::FontInfoUpdate(set));
-      return;
-    }
-    if (!pfl->InitializeFamily(aFamily)) {
-      return;
-    }
+  if (!aFamily->IsInitialized() && !pfl->InitializeFamily(aFamily)) {
+    return;
   }
   AutoTArray<fontlist::Face*, 4> faceList;
   aFamily->FindAllFacesForStyle(pfl->SharedFontList(), mStyle, faceList);
@@ -3999,7 +3988,7 @@ class DeferredNotifyMissingFonts final : public nsIRunnable {
       : mScriptList(std::move(aScriptList)) {}
 
  protected:
-  virtual ~DeferredNotifyMissingFonts() {}
+  virtual ~DeferredNotifyMissingFonts() = default;
 
   NS_IMETHOD Run(void) override {
     nsCOMPtr<nsIObserverService> service = GetObserverService();

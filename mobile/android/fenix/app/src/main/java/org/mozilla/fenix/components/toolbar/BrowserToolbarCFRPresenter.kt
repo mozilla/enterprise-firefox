@@ -92,7 +92,10 @@ class BrowserToolbarCFRPresenter(
                 flow
                     .distinctUntilChangedBy { it.selectedNormalTab?.id }
                     .collect {
-                        if (settings.shouldShowTabSwipeCFR && !settings.hasShownTabSwipeCFR) {
+                        if (settings.shouldShowTabSwipeCFR &&
+                            !settings.hasShownTabSwipeCFR &&
+                            settings.cfrPopupsEnabled
+                        ) {
                             scope?.cancel()
                             settings.shouldShowTabSwipeCFR = false
                             settings.hasShownTabSwipeCFR = true
@@ -129,7 +132,10 @@ class BrowserToolbarCFRPresenter(
     }
 
     private fun getCFRToShow(): ToolbarCFR = when {
-        isPrivate && settings.shouldShowCookieBannersCFR && settings.shouldUseCookieBannerPrivateMode -> {
+        isPrivate &&
+            settings.shouldShowCookieBannersCFR &&
+            settings.cfrPopupsEnabled &&
+            settings.shouldUseCookieBannerPrivateMode -> {
             ToolbarCFR.COOKIE_BANNERS
         }
 

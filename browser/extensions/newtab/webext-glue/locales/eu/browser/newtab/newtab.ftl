@@ -23,6 +23,9 @@ newtab-personalize-dialog-label =
     .aria-label = Pertsonalizatu
 newtab-logo-and-wordmark =
     .aria-label = { -brand-full-name }
+newtab-card-dismiss-button =
+    .title = Baztertu
+    .aria-label = Baztertu
 
 ## Search box component.
 
@@ -49,7 +52,7 @@ newtab-search-box-input =
     .placeholder = Bilatu webean
     .aria-label = Bilatu webean
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Gehitu bilaketa-motorra
 newtab-topsites-add-shortcut-header = Lasterbide berria
@@ -69,6 +72,11 @@ newtab-topsites-url-validation = Baliozko URLa behar da
 newtab-topsites-image-url-label = Irudi pertsonalizatuaren URLa
 newtab-topsites-use-image-link = Erabili irudi pertsonalizatua…
 newtab-topsites-image-validation = Ezin da irudia kargatu. Saiatu beste URL batekin.
+
+## Clear text button for the URL and image URL input fields in the Top Sites form.
+
+newtab-topsites-clear-input =
+    .aria-label = Garbitu testua
 
 ## Top Sites - General form dialog buttons. These are verbs/actions.
 
@@ -628,6 +636,8 @@ newtab-report-cancel = Utzi
 newtab-report-submit = Bidali
 newtab-toast-thanks-for-reporting =
     .message = Eskerrik asko hau jakinarazteagatik.
+newtab-toast-widgets-hidden =
+    .message = Hautatu arkatzaren ikonoa edonoiz widgetak berriz gehitzeko.
 
 ## Strings for task / to-do list productivity widget
 
@@ -668,6 +678,7 @@ newtab-widget-lists-name-placeholder-default =
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Zerrenda berria
 newtab-widget-section-title = Widgetak
+newtab-widget-menu-hide = Ezkutatu widgeta
 # Tooltip for hide all widgets button
 newtab-widget-section-hide-all-button =
     .title = Ezkutatu widgetak
@@ -678,6 +689,7 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Minimizatu widgetak
     .aria-label = Tolestu widget guztiak tamaina trinkora
+newtab-widget-section-feedback = Emaguzu zure iritzia
 
 ## Strings for timer productivity widget
 ## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown

@@ -96,6 +96,7 @@ export default [
       "mozilla/prefer-boolean-length-check": "error",
       "mozilla/prefer-formatValues": "error",
       "mozilla/reject-addtask-only": "error",
+      "mozilla/reject-contenttask-spawn": "error",
       "mozilla/reject-importGlobalProperties": ["error", "allownonwebidl"],
       "mozilla/reject-multiple-await": "error",
       "mozilla/reject-multiple-getters-calls": "error",

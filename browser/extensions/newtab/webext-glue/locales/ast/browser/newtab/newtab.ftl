@@ -18,7 +18,7 @@ newtab-personalize-icon-label =
 #   $engine (string) - The name of the user's default search engine
 newtab-search-box-handoff-text = Busca con { $engine } o introduz una direición
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Amiestu d'un motor de busca
 newtab-topsites-add-shortcut-header = Atayu nuevu

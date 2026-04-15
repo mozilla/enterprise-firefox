@@ -208,6 +208,15 @@ add_task(async function test_ui_state_signedin() {
     ),
     "expected toolbar to be visible after opening"
   );
+  let sendTabButtonId = PanelMultiView.getViewNode(
+    document,
+    "PanelUI-fxa-menu-sendtab-button"
+  ).getAttribute("data-l10n-id");
+  Assert.equal(
+    sendTabButtonId,
+    "fxa-menu-send-to-device",
+    "'Send to Device' displayed on send tab button"
+  );
   checkFxaToolbarButtonPanel({
     headerTitle: "Manage account",
     headerDescription: state.displayName,
@@ -458,6 +467,53 @@ add_task(async function test_ui_state_signed_in() {
   });
 
   await closeTabAndMainPanel();
+});
+
+add_task(async function test_ui_state_signedin_mobile_only_send_tab() {
+  const sandbox = sinon.createSandbox();
+  sandbox.stub(gSync, "getSendTabTargets").returns([
+    {
+      id: 1,
+      name: "My Phone",
+      type: "mobile",
+      availableCommands: {
+        "https://identity.mozilla.com/cmd/open-uri": "baz",
+      },
+    },
+    {
+      id: 2,
+      name: "My Tablet",
+      type: "tablet",
+      availableCommands: {
+        "https://identity.mozilla.com/cmd/open-uri": "baz",
+      },
+    },
+  ]);
+
+  let state = {
+    status: UIState.STATUS_SIGNED_IN,
+    syncEnabled: true,
+    email: "foo@bar.com",
+    displayName: "Foo Bar",
+    avatarURL: "https://foo.bar",
+    lastSync: new Date(),
+    syncing: false,
+  };
+
+  gSync.updateAllUI(state);
+  await openFxaPanel();
+
+  Assert.equal(
+    PanelMultiView.getViewNode(
+      document,
+      "PanelUI-fxa-menu-sendtab-button"
+    ).getAttribute("data-l10n-id"),
+    "fxa-menu-send-to-mobile",
+    "'Send to Mobile' displayed on send tab button when all targets are mobile"
+  );
+
+  await closeFxaPanel();
+  sandbox.restore();
 });
 
 add_task(async function test_ui_state_signed_in_no_display_name() {

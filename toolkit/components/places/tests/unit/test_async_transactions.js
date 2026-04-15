@@ -10,10 +10,6 @@ const tagssvc = PlacesUtils.tagging;
 const PT = PlacesTransactions;
 const menuGuid = PlacesUtils.bookmarks.menuGuid;
 
-ChromeUtils.defineESModuleGetters(this, {
-  Preferences: "resource://gre/modules/Preferences.sys.mjs",
-});
-
 // Create and add bookmarks observer.
 var observer = {
   tagRelatedGuids: new Set(),
@@ -1800,11 +1796,10 @@ add_task(async function test_copy() {
     await PT.clearTransactionsHistory();
   }
 
-  let timerPrecision = Preferences.get("privacy.reduceTimerPrecision");
-  Preferences.set("privacy.reduceTimerPrecision", false);
+  Services.prefs.setBoolPref("privacy.reduceTimerPrecision", false);
 
   registerCleanupFunction(function () {
-    Preferences.set("privacy.reduceTimerPrecision", timerPrecision);
+    Services.prefs.clearUserPref("privacy.reduceTimerPrecision");
   });
 
   // Test duplicating leafs (bookmark, separator, empty folder)

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -89,7 +87,8 @@ bool ReadableStreamReaderGenericInitialize(ReadableStreamGenericReader* aReader,
       // Step 5.1 Implicit
       // Step 5.2
       JS::RootingContext* rcx = RootingCx();
-      JS::Rooted<JS::Value> rootedError(rcx, aStream->StoredError());
+      // MaybeReject will wrap the value for us.
+      JS::Rooted<JS::Value> rootedError(rcx, aStream->UnsafeStoredError());
       aReader->ClosedPromise()->MaybeReject(rootedError);
 
       // Step 5.3
@@ -224,7 +223,11 @@ void ReadableStreamDefaultReaderRead(JSContext* aCx,
     }
 
     case ReadableStream::ReaderState::Errored: {
-      JS::Rooted<JS::Value> storedError(aCx, stream->StoredError());
+      JS::Rooted<JS::Value> storedError(aCx);
+      stream->GetStoredError(aCx, &storedError, aRv);
+      if (aRv.Failed()) {
+        return;
+      }
       aRequest->ErrorSteps(aCx, storedError, aRv);
       return;
     }

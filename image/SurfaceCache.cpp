@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -118,7 +117,7 @@ class CostEntry {
  * surface.
  */
 class CachedSurface {
-  ~CachedSurface() {}
+  ~CachedSurface() = default;
 
  public:
   MOZ_DECLARE_REFCOUNTED_TYPENAME(CachedSurface)
@@ -252,7 +251,7 @@ static int64_t AreaOfIntSize(const IntSize& aSize) {
  * decoding when a website requires many variants of the same surface.
  */
 class ImageSurfaceCache {
-  ~ImageSurfaceCache() {}
+  ~ImageSurfaceCache() = default;
 
  public:
   explicit ImageSurfaceCache(const ImageKey aImageKey)
@@ -1556,7 +1555,7 @@ class SurfaceCacheImpl final : public nsIMemoryReporter {
     }
 
    private:
-    virtual ~MemoryPressureObserver() {}
+    virtual ~MemoryPressureObserver() = default;
   };
 
   nsTArray<CostEntry> mCosts;

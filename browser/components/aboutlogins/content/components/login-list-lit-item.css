@@ -32,7 +32,7 @@
 }
 
 .list-item.selected .title {
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
 }
 
 .labels {

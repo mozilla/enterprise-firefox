@@ -4,11 +4,6 @@
 
 import { html } from "chrome://global/content/vendor/lit.all.mjs";
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
-import {
-  createParserState,
-  consumeStreamChunk,
-  flushTokenRemainder,
-} from "chrome://browser/content/aiwindow/modules/TokenStreamParser.mjs";
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/smartwindow-prompts.mjs";
 
@@ -21,6 +16,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
   Chat: "moz-src:///browser/components/aiwindow/models/Chat.sys.mjs",
   MODEL_FEATURES: "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   openAIEngine: "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
+  DEFAULT_ENGINE_ID:
+    "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
+  SERVICE_TYPES: "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
+  PURPOSES: "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   generateChatTitle:
     "moz-src:///browser/components/aiwindow/models/TitleGeneration.sys.mjs",
   AIWindow:
@@ -37,12 +36,16 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/ui/modules/ChatMessage.sys.mjs",
   getRoleLabel:
     "moz-src:///browser/components/aiwindow/ui/modules/ChatUtils.sys.mjs",
+  getCurrentTabUrl:
+    "moz-src:///browser/components/aiwindow/ui/modules/ChatUtils.sys.mjs",
   NewTabStarterGenerator:
     "moz-src:///browser/components/aiwindow/models/ConversationSuggestions.sys.mjs",
   generateConversationStartersSidebar:
     "moz-src:///browser/components/aiwindow/models/ConversationSuggestions.sys.mjs",
   MemoriesManager:
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesManager.sys.mjs",
+  MODELS:
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindowConstants.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", function () {
@@ -75,11 +78,32 @@ ChromeUtils.defineLazyGetter(lazy, "log", function () {
  * }} TabStateEvent
  */
 
-const FULLPAGE = "fullpage";
-const SIDEBAR = "sidebar";
-const PREF_MEMORIES = "browser.smartwindow.memories";
+/**
+ * @typedef {"button" | "enter" | "follow-up" | "starter" | "suggestion"} ChatSubmitType
+ */
+
+const MODE = {
+  FULLPAGE: "fullpage",
+  SIDEBAR: "sidebar",
+  URLBAR: "urlbar",
+};
+
+const ACTION = {
+  CHAT: "chat",
+  SEARCH: "search",
+  NAVIGATE: "navigate",
+};
+
+const PREF_MEMORIES_CONVERSATION =
+  "browser.smartwindow.memories.generateFromConversation";
+const PREF_MEMORIES_HISTORY =
+  "browser.smartwindow.memories.generateFromHistory";
+const PREF_MEMORIES_HAS_SEEN_MEMORIES =
+  "browser.smartwindow.memories.hasSeenMemories";
 const TAB_FAVICON_CHAT =
   "chrome://browser/content/aiwindow/assets/ask-icon.svg";
+const PREF_CHAT_INTERACTION_COUNT = "browser.smartwindow.chat.interactionCount";
+const MAX_INTERACTION_COUNT = 1000;
 
 /**
  * A custom element for managing AI Window
@@ -92,19 +116,33 @@ export class AIWindow extends MozLitElement {
     mode: { type: String, reflect: true }, // sidebar | fullpage
     showStarters: { type: Boolean, state: true },
     showFooter: { type: Boolean, state: true },
+    showDisclaimer: { type: Boolean, state: true },
   };
 
   #browser;
   #smartbar;
   #smartbarToggleButton;
-  #conversation;
+  #conversation = null;
   #memoriesButton = null;
   #memoriesToggled = null;
+  #reportLink =
+    "https://connect.mozilla.org/t5/discussions/smart-window-beta-feedback/td-p/122365";
   #visibilityChangeHandler;
+
   #starters = [];
   #smartbarResizeObserver = null;
   #windowModeObserver = null;
+  #swapDocShellsChromeWindow = null;
   #addedContextWebsites = []; // TODO: replace once Bug 2016760 lands
+  #hasMemories = false;
+
+  get #memoriesIconShown() {
+    return (
+      this.memoriesConversationPref ||
+      this.memoriesHistoryPref ||
+      this.#hasMemories
+    );
+  }
 
   /**
    * Flags whether the #conversation reference has been updated but the messages
@@ -114,10 +152,40 @@ export class AIWindow extends MozLitElement {
    */
   #pendingMessageDelivery;
 
+  /**
+   * Gets the host browser element that embeds this AI window.
+   *
+   * @returns {Element|null} The host browser element, or null if not found
+   * @private
+   */
+  get #hostBrowser() {
+    return window.browsingContext?.embedderElement || null;
+  }
+
   #detectModeFromContext() {
-    return window.browsingContext?.embedderElement?.id === "ai-window-browser"
-      ? SIDEBAR
-      : FULLPAGE;
+    return this.#hostBrowser?.id === "ai-window-browser"
+      ? MODE.SIDEBAR
+      : MODE.FULLPAGE;
+  }
+
+  /**
+   * Stamps the current conversation ID into the fullpage history entry via
+   * replaceState, enabling conversation recovery after back navigation and
+   * serving as a fallback for session restore / undo-close when the
+   * data-conversation-id attribute on the host <browser> is unavailable.
+   *
+   */
+  #syncHistoryState() {
+    if (!this.isConnected || this.mode !== MODE.FULLPAGE) {
+      return;
+    }
+    window.history.replaceState(
+      {
+        ...window.history.state,
+        conversationId: this.#conversation?.id ?? null,
+      },
+      ""
+    );
   }
 
   /**
@@ -127,8 +195,12 @@ export class AIWindow extends MozLitElement {
    * @private
    */
   #getPendingConversationId() {
-    const hostBrowser = window.browsingContext?.embedderElement;
-    return hostBrowser?.getAttribute("data-conversation-id") || null;
+    const findId =
+      this.#hostBrowser?.getAttribute("data-conversation-id") ??
+      window.history.state?.conversationId ??
+      null;
+
+    return findId;
   }
 
   /**
@@ -141,30 +213,67 @@ export class AIWindow extends MozLitElement {
     return this.renderRoot.querySelector("#browser-container");
   }
 
-  #syncSmartbarMemoriesStateFromConversation() {
+  async syncSmartbarMemoriesStateFromConversation() {
     if (!this.#smartbar) {
       return;
     }
 
     const lastUserMessage =
-      this.#conversation?.messages?.findLast?.(m => m.role === "user") ?? null;
+      this.#conversation?.messages?.findLast?.(
+        m => m.role === lazy.MESSAGE_ROLE.USER
+      ) ?? null;
     if (
       lastUserMessage?.memoriesFlagSource ===
       lazy.MEMORIES_FLAG_SOURCE.CONVERSATION
     ) {
       this.#memoriesToggled = lastUserMessage.memoriesEnabled;
     }
-    this.#syncMemoriesButtonUI();
+    await this.#syncMemoriesButtonUI();
   }
 
-  #syncMemoriesButtonUI() {
+  async #refreshHasMemories() {
+    try {
+      const memories = await lazy.MemoriesManager.getAllMemories();
+      this.#hasMemories = memories?.length > 0;
+    } catch (e) {
+      lazy.log.error("Failed to check for existing memories", e);
+      this.#hasMemories = false;
+    }
+  }
+
+  async #syncMemoriesButtonUI() {
     if (!this.#memoriesButton) {
       return;
     }
 
-    this.#memoriesButton.disabled = !this.memoriesPref;
+    if (!this.memoriesConversationPref && !this.memoriesHistoryPref) {
+      await this.#refreshHasMemories();
+    }
+
+    this.#memoriesButton.show = this.#memoriesIconShown;
     this.#memoriesButton.pressed =
-      this.memoriesPref && (this.#memoriesToggled ?? this.memoriesPref);
+      this.#memoriesIconShown &&
+      (this.#memoriesToggled ?? this.#memoriesIconShown);
+  }
+
+  /**
+   * Records a user chat interaction by incrementing the interaction
+   * counter when users submit messages or click starter prompts.
+   *
+   * @private
+   */
+  #recordChatInteraction() {
+    let interactionCount = Services.prefs.getIntPref(
+      PREF_CHAT_INTERACTION_COUNT,
+      0
+    );
+
+    if (interactionCount < MAX_INTERACTION_COUNT) {
+      Services.prefs.setIntPref(
+        PREF_CHAT_INTERACTION_COUNT,
+        interactionCount + 1
+      );
+    }
   }
 
   constructor() {
@@ -172,24 +281,94 @@ export class AIWindow extends MozLitElement {
 
     XPCOMUtils.defineLazyPreferenceGetter(
       this,
-      "memoriesPref",
-      PREF_MEMORIES,
-      null,
+      "memoriesConversationPref",
+      PREF_MEMORIES_CONVERSATION,
+      true,
+      () => this.#syncMemoriesButtonUI()
+    );
+    XPCOMUtils.defineLazyPreferenceGetter(
+      this,
+      "memoriesHistoryPref",
+      PREF_MEMORIES_HISTORY,
+      true,
       () => this.#syncMemoriesButtonUI()
     );
 
     this.userPrompt = "";
     this.#browser = null;
     this.#smartbar = null;
-    this.#conversation = new lazy.ChatConversation({});
+    this.#swapConversation(new lazy.ChatConversation({}));
+
     this.mode = this.#detectModeFromContext();
     this.showStarters = false;
-    this.showFooter = this.mode === FULLPAGE;
+    this.showFooter = this.mode === MODE.FULLPAGE;
+    this.showDisclaimer = this.mode !== MODE.FULLPAGE;
 
-    // Apply chat-active immediately if loading a conversation to prevent layout flash
-    if (this.#getPendingConversationId()) {
+    // Apply chat-active immediately if restoring a conversation
+    if (this.#hostBrowser?.getAttribute("data-conversation-id")) {
       this.classList.add("chat-active");
     }
+  }
+
+  get #topChromeWindow() {
+    return window.browsingContext?.topChromeWindow;
+  }
+
+  #attachConversationListeners() {
+    if (!this.#conversation) {
+      return;
+    }
+
+    this.#conversation.on(
+      "chat-conversation:message-update",
+      this.#onMessageUpdate
+    );
+    this.#conversation.on(
+      "chat-conversation:message-complete",
+      this.#onMessageComplete
+    );
+    this.#conversation.on(
+      "chat-conversation:seen-urls-updated",
+      this.#onSeenUrlsUpdated
+    );
+  }
+
+  #removeConversationListeners() {
+    if (!this.#conversation) {
+      return;
+    }
+
+    this.#conversation.off(
+      "chat-conversation:message-update",
+      this.#onMessageUpdate
+    );
+    this.#conversation.off(
+      "chat-conversation:message-complete",
+      this.#onMessageComplete
+    );
+    this.#conversation.off(
+      "chat-conversation:seen-urls-updated",
+      this.#onSeenUrlsUpdated
+    );
+  }
+
+  #onSeenUrlsUpdated = () => {
+    const actor = this.#getAIChatContentActor();
+    if (actor) {
+      this.#dispatchSeenUrls(actor);
+    }
+  };
+
+  #onMessageUpdate = (_event, message) => {
+    this.#dispatchMessageToChatContent(message);
+  };
+
+  onMemoriesApplied() {
+    Glean.smartWindow.memoryApplied.record({
+      location: this.mode,
+      chat_id: this.conversationId,
+      message_seq: this.#conversation?.messageCount ?? 0,
+    });
   }
 
   /**
@@ -202,8 +381,7 @@ export class AIWindow extends MozLitElement {
       return this.#conversation.id;
     }
 
-    const hostBrowser = window.browsingContext?.embedderElement;
-    return hostBrowser?.getAttribute("data-conversation-id");
+    return this.#hostBrowser?.getAttribute("data-conversation-id");
   }
 
   connectedCallback() {
@@ -220,6 +398,11 @@ export class AIWindow extends MozLitElement {
     this.#loadPendingConversation();
     this.#setupWindowModeObserver();
 
+    // Saving the chrome window ref to avoid leaks when we drag a tab out
+    this.#registerSwapDocShellsListener(
+      window.browsingContext?.topChromeWindow
+    );
+
     this.#dispatchChromeEvent(
       "ai-window:connected",
       this.#getAIWindowEventOptions()
@@ -235,14 +418,69 @@ export class AIWindow extends MozLitElement {
     return this.#conversation?.id;
   }
 
+  get conversationMessageCount() {
+    return this.#conversation.messageCount;
+  }
+
+  #registerSwapDocShellsListener(win) {
+    if (!win) {
+      return;
+    }
+
+    this.#swapDocShellsChromeWindow?.removeEventListener(
+      "EndSwapDocShells",
+      this.#handleEndSwapDocShells,
+      true
+    );
+
+    this.#swapDocShellsChromeWindow = win;
+    this.#swapDocShellsChromeWindow?.addEventListener(
+      "EndSwapDocShells",
+      this.#handleEndSwapDocShells,
+      true
+    );
+  }
+
   handleEvent(event) {
     if (event.detail) {
       this.openConversation(event.detail);
-    } else {
-      // Handle a null conversation reference by starting a new empty conversation
-      this.#onCreateNewChatClick();
+    } else if (!this.#conversation?.messages?.length) {
+      this.onCreateNewChatClick();
     }
   }
+
+  /* Handles tab adoption (dragging out of a window) when
+   * Smart tab -> Classic window
+   * Smart tab -> Classic window -> Dragged back to a smart window
+   */
+  #handleEndSwapDocShells = () => {
+    const win = window.browsingContext?.topChromeWindow;
+
+    if (!win) {
+      return;
+    }
+
+    // Re-register on the new chrome window so future swaps are caught
+    this.#registerSwapDocShellsListener(win);
+
+    // needed if a smart tab became classic and then becomes smart again via dragging
+    this.#updateSmartbarVisibility();
+
+    const browser = window.browsingContext.embedderElement;
+
+    // if chat has messages, don't redirect to classic new tab
+    if (
+      !lazy.AIWindow.isAIWindowActive(win) &&
+      !lazy.AIWindow.hasActiveChatInBrowser(browser)
+    ) {
+      const classicNewTabURI = Services.io.newURI(win.BROWSER_NEW_TAB_URL);
+      const triggeringPrincipal =
+        Services.scriptSecurityManager.getSystemPrincipal();
+      browser.loadURI(classicNewTabURI, {
+        triggeringPrincipal,
+      });
+    }
+  };
 
   #setupWindowModeObserver() {
     this.#windowModeObserver = (subject, topic) => {
@@ -281,6 +519,13 @@ export class AIWindow extends MozLitElement {
       );
       this.#visibilityChangeHandler = null;
     }
+
+    this.#swapDocShellsChromeWindow?.removeEventListener(
+      "EndSwapDocShells",
+      this.#handleEndSwapDocShells,
+      true
+    );
+    this.#swapDocShellsChromeWindow = null;
 
     // Clean up window mode observer
     if (this.#windowModeObserver) {
@@ -326,6 +571,7 @@ export class AIWindow extends MozLitElement {
     }
 
     // Clean up conversation
+    this.#removeConversationListeners();
     this.#conversation = null;
 
     this.ownerDocument.removeEventListener("OpenConversation", this);
@@ -334,24 +580,40 @@ export class AIWindow extends MozLitElement {
   }
 
   /**
-   * Loads a conversation if one is set on the data-conversation-id attribute
-   * on firstUpdated()
+   * Loads a conversation if one is set on the data-conversation-id attribute.
    */
   async #loadPendingConversation() {
     const conversationId = this.#getPendingConversationId();
     if (!conversationId) {
+      // No externally-provided ID — stamp the fresh constructor conversation
+      // onto the host browser so navigating away and back can recover it,
+      // and record it in history.state for session/undo-close restore.
+      this.#hostBrowser?.setAttribute(
+        "data-conversation-id",
+        this.#conversation.id
+      );
+      this.#syncHistoryState();
       return;
     }
 
     const conversation =
       await lazy.AIWindow.chatStore.findConversationById(conversationId);
+
+    conversation
+      ? this.openConversation(conversation)
+      : this.#resetConversationState();
+
     if (conversation) {
-      this.openConversation(conversation);
+      Glean.smartWindow.chatRetrieved.record({
+        location: this.mode,
+        chat_id: conversation.id,
+        message_seq: this.#conversation?.messageCount ?? 0,
+        time_delta: Date.now() - conversation.updatedDate,
+      });
     }
 
-    const hostBrowser = window.browsingContext?.embedderElement;
-    if (hostBrowser?.hasAttribute("data-continue-streaming")) {
-      hostBrowser.removeAttribute("data-continue-streaming");
+    if (this.#hostBrowser?.hasAttribute("data-continue-streaming")) {
+      this.#hostBrowser.removeAttribute("data-continue-streaming");
       this.#continueAfterToolResult();
     }
   }
@@ -364,27 +626,26 @@ export class AIWindow extends MozLitElement {
     browser.setAttribute("id", "aichat-browser");
     browser.setAttribute("type", "content");
     browser.setAttribute("maychangeremoteness", "true");
+    browser.setAttribute("remote", "true");
+    browser.setAttribute("remoteType", "privilegedabout");
     browser.setAttribute("disableglobalhistory", "true");
     browser.setAttribute("transparent", "true");
     browser.setAttribute("src", "about:aichatcontent");
+
+    const selectedTab = this.#getCurrentTab();
 
     const container = this.#getBrowserContainer();
     container.appendChild(browser);
 
     this.#browser = browser;
 
-    await this.#loadPendingConversation().catch(error => {
-      console.error(
-        `loadPendingConversation() error: ${error.toString()}, \nstack: ${error.stack}`
-      );
-    });
-
-    // Defer Smartbar and conversation starters for preloaded documents
+    // Create the Smartbar before any async work so it is available
+    // synchronously after the first render.
     if (doc.hidden) {
       this.#visibilityChangeHandler = () => {
         if (!doc.hidden && !this.#smartbar) {
           this.#getOrCreateSmartbar(doc, container);
-          this.#loadStarterPrompts();
+          this.loadStarterPrompts(false, selectedTab);
         }
       };
       doc.addEventListener("visibilitychange", this.#visibilityChangeHandler, {
@@ -392,8 +653,30 @@ export class AIWindow extends MozLitElement {
       });
     } else {
       this.#getOrCreateSmartbar(doc, container);
-      this.#loadStarterPrompts();
     }
+
+    await this.#loadPendingConversation().catch(error => {
+      console.error(
+        `loadPendingConversation() error: ${error.toString()}, \nstack: ${error.stack}`
+      );
+    });
+
+    if (!doc.hidden) {
+      this.loadStarterPrompts(false, selectedTab);
+    }
+  }
+
+  /**
+   * Update the smartbar input
+   *
+   * @param {string} value The value to update the input with
+   */
+  updateInput(value) {
+    if (!this.#smartbar) {
+      return;
+    }
+
+    this.#smartbar.value = value;
   }
 
   /**
@@ -401,28 +684,38 @@ export class AIWindow extends MozLitElement {
    * In sidebar mode, uses LLM-generated prompts based on tab context and memories.
    * In fullpage mode, uses static prompts based on tab count.
    *
-   * @private
+   * @param {boolean} clear Clear current starter prompts?
+   * @param {MozTabbrowserTab} selectedTab The selected tab when loading
+   * starter prompts was triggered
    */
-  async #loadStarterPrompts() {
-    if (!this.isConnected) {
+  async loadStarterPrompts(clear, selectedTab) {
+    // If the tab switched by the time this function was invoked, or the node is
+    // not connected yet, or the conversation has already started then don't
+    // trigger loading more conversation starter prompts
+    if (
+      selectedTab !== this.#getCurrentTab() ||
+      !this.isConnected ||
+      this.#conversation?.messageCount
+    ) {
       return;
     }
 
-    if (this.#conversation?.messages?.length) {
-      return;
+    if (clear) {
+      this.#renderStarterPrompts([]);
     }
 
+    let starters = [];
     try {
       const gBrowser = window.browsingContext?.topChromeWindow.gBrowser;
       const tabCount = gBrowser?.tabs.length || 0;
-      let starters = await lazy.NewTabStarterGenerator.getPrompts(
-        tabCount
-      ).catch(e => {
-        lazy.log.error("[Prompts] Failed to load initial starters:", e);
-        return [];
-      });
+      starters = await lazy.NewTabStarterGenerator.getPrompts(tabCount).catch(
+        e => {
+          lazy.log.error("[Prompts] Failed to load initial starters:", e);
+          return [];
+        }
+      );
 
-      if (this.mode === SIDEBAR && gBrowser) {
+      if (this.mode === MODE.SIDEBAR && gBrowser) {
         // Get tab context for LLM-generated prompts
         // @todo bug 2015919 to use same context as visualized in smartbar
         const contextTabs = [gBrowser.selectedTab].map(tab => ({
@@ -431,28 +724,36 @@ export class AIWindow extends MozLitElement {
         }));
 
         // Get memories setting from user preferences
-        const memoriesEnabled = this.#memoriesToggled ?? this.memoriesPref;
+        const memoriesEnabled =
+          this.#memoriesToggled ?? this.#memoriesIconShown;
 
         const sidebarStarters = await lazy
-          .generateConversationStartersSidebar(contextTabs, 2, memoriesEnabled)
+          .generateConversationStartersSidebar(
+            contextTabs,
+            2,
+            memoriesEnabled,
+            this.conversationId
+          )
           .catch(e => {
             lazy.log.error("[Prompts] Failed to generate sidebar starters:", e);
             return null;
           });
 
+        // If tab switched while waiting for conversation starters
+        // return, do not render the starters meant for selectedTab
+        if (selectedTab !== this.#getCurrentTab()) {
+          return;
+        }
+
         if (sidebarStarters?.length) {
           starters = sidebarStarters;
         }
       }
-
-      if (!starters || starters.length === 0) {
-        return;
-      }
-
-      this.#renderStarterPrompts(starters);
     } catch (e) {
-      console.error("[Prompts] Failed to load initial starters:", e);
+      lazy.log.error("[Prompts] Failed to load initial starters:", e);
     }
+
+    this.#renderStarterPrompts(starters);
   }
 
   /**
@@ -467,12 +768,13 @@ export class AIWindow extends MozLitElement {
       return;
     }
 
-    if (this.#conversation?.messages?.length) {
-      return;
-    }
+    this.#starters = this.#conversation?.messages?.length ? [] : starters;
+    this.showStarters = !!this.#starters.length;
 
-    this.#starters = starters;
-    this.showStarters = !!starters.length;
+    if (this.showStarters) {
+      this.onQuickPromptDisplayed(this.#starters.length);
+    }
+    this.requestUpdate();
   }
 
   /**
@@ -512,10 +814,10 @@ export class AIWindow extends MozLitElement {
       // below when in fullpage mode.
       smartbar.setAttribute(
         "suggestions-position",
-        this.mode === SIDEBAR ? "top" : "bottom"
+        this.mode === MODE.SIDEBAR ? "top" : "bottom"
       );
       smartbar.setAndUpdateContextWebsites(this.#addedContextWebsites);
-      smartbar.isSidebarMode = this.mode == "sidebar";
+      smartbar.isSidebarMode = this.mode == MODE.SIDEBAR;
 
       smartbar.addEventListener("input", this.#handleSmartbarInput);
       smartbar.addEventListener(
@@ -525,7 +827,7 @@ export class AIWindow extends MozLitElement {
     }
     this.#smartbar = smartbar;
     this.#memoriesButton = smartbar.querySelector("memories-icon-button");
-    this.#syncSmartbarMemoriesStateFromConversation();
+    this.syncSmartbarMemoriesStateFromConversation();
     this.#observeSmartbarHeight();
 
     // Create toggle button, like with Smartbar above
@@ -535,7 +837,8 @@ export class AIWindow extends MozLitElement {
       toggleButton = doc.createElement("moz-button");
       toggleButton.id = "smartbar-toggle-button";
       toggleButton.type = "primary";
-      toggleButton.iconSrc = "chrome://browser/skin/ai-window.svg";
+      toggleButton.iconSrc =
+        "chrome://browser/skin/smart-window-simplified.svg";
       toggleButton.setAttribute(
         "data-l10n-id",
         "smartwindow-switch-to-smart-window"
@@ -631,28 +934,156 @@ export class AIWindow extends MozLitElement {
    * @private
    */
   #handleSmartbarCommit = event => {
-    const { value, action, contextMentions } = event.detail;
-    if (action === "chat") {
-      // Disable suggestions after the first chat message.
-      // We only want to show suggestions for the initial query,
-      // but not for follow-up messages in a conversation.
-      if (this.#conversation.messages.length === 0) {
-        this.#smartbar.suppressStartQuery({ permanent: true });
-      }
+    lazy.log.debug(
+      "chatId[%s]: %s",
+      this.#handleSmartbarCommit.name,
+      this.conversationId
+    );
 
-      this.submitFollowUp(value, contextMentions);
+    const {
+      value,
+      action,
+      contextMentions = [],
+      contextPageUrl,
+      event: triggeringEvent,
+    } = event.detail;
+    if (action === ACTION.CHAT) {
+      const { mergedMentions, allUrls, inlineMentions } =
+        this.#calculateCurrentMentions(contextMentions);
+
+      if (allUrls.size) {
+        this.#conversation.addSeenUrls(allUrls);
+      }
+      this.submitChatMessage({
+        text: value,
+        contextMentions: mergedMentions,
+        contextPageUrl,
+        submitType: triggeringEvent?.type === "click" ? "button" : "enter",
+        inlineMentionsCount: inlineMentions.length,
+      });
+    } else if (
+      this.mode === MODE.SIDEBAR &&
+      (action === ACTION.NAVIGATE || action === ACTION.SEARCH)
+    ) {
+      this.#dispatchChromeEvent(
+        "ai-window:sidebar-navigating",
+        this.#getAIWindowEventOptions()
+      );
     }
   };
 
-  submitFollowUp(text, contextMentions) {
+  /**
+   * Merges "+" button chip mentions with inline "@" mentions, deduplicating
+   * by URL, and returns the combined list plus the full set of URLs.
+   *
+   * @param {ContextWebsite[]} contextMentions - Chip mentions from the smartbar
+   * @returns {{mergedMentions: ContextWebsite[], allUrls: Set<string>, inlineMentions: Array}}
+   */
+  #calculateCurrentMentions(contextMentions) {
+    const contextUrls = new Set();
+    for (const mention of contextMentions) {
+      if (mention.url) {
+        contextUrls.add(mention.url);
+      }
+    }
+
+    const inlineMentions = this.#getInlineMentions();
+    const atMentions = [];
+    for (const mention of inlineMentions) {
+      if (mention.id && !contextUrls.has(mention.id)) {
+        atMentions.push({
+          type: mention.type,
+          url: mention.id,
+          label: mention.label,
+        });
+        contextUrls.add(mention.id);
+      }
+    }
+
+    const mergedMentions = [...contextMentions, ...atMentions];
+
+    return { mergedMentions, allUrls: contextUrls, inlineMentions };
+  }
+
+  /**
+   * Returns inline @mention data from the editor's mentions plugin.
+   *
+   * @returns {Array<object>} Mention nodes from the editor
+   */
+  #getInlineMentions() {
+    const editor = this.#smartbar?.inputField;
+    if (!editor?.getAllMentions) {
+      return [];
+    }
+    return editor.getAllMentions();
+  }
+
+  /**
+   * @param {object} options
+   * @param {string} options.text
+   * @param {ChatSubmitType} options.submitType - How the request was submitted
+   * @param {ContextWebsite[]} [options.contextMentions]
+   * @param {?URL} [options.contextPageUrl] - Page URL string from the smartbar's current
+   *   state. null means the user removed page context
+   * @param {number} [options.inlineMentionsCount] - Number of inline mentions
+   */
+  submitChatMessage({
+    text,
+    submitType,
+    contextMentions = [],
+    contextPageUrl,
+    inlineMentionsCount = 0,
+  }) {
     const trimmed = String(text ?? "").trim();
     if (!trimmed) {
       return;
     }
-    this.#fetchAIResponse(trimmed, this.#createUserRoleOpts(contextMentions));
+
+    Glean.smartWindow.chatSubmit.record({
+      chat_id: this.conversationId,
+      detected_intent: this.#smartbar.smartbarAction,
+      location: this.mode,
+      mentions: inlineMentionsCount,
+      message_seq: this.conversationMessageCount,
+      model: this.modelName,
+      submit_type: submitType,
+      tabs: contextMentions.length,
+    });
+
+    this.#recordChatInteraction();
+    this.#fetchAIResponse(trimmed, {
+      ...this.#createUserRoleOpts(contextMentions),
+      contextPageUrl,
+    });
+    this.#dispatchChromeEvent(
+      "ai-window:smartbar-input",
+      this.#getAIWindowEventOptions("", true)
+    );
   }
 
-  #handleMemoriesToggle = event => {
+  #handleMemoriesToggle = async event => {
+    let memoriesCount = 0;
+    try {
+      const memories = await lazy.MemoriesManager.getAllMemories();
+      memoriesCount = memories.length;
+    } catch (e) {
+      console.error("Failed to count memories", e);
+    }
+
+    Glean.smartWindow.memoriesToggle.record({
+      location: this.mode,
+      chat_id: this.conversationId,
+      message_seq: this.#conversation?.messageCount ?? 0,
+      memories: memoriesCount,
+      toggle: event.detail.pressed,
+    });
+
+    lazy.log.debug(
+      "chatId[%s]: %s",
+      this.#handleMemoriesToggle.name,
+      this.conversationId
+    );
+
     this.#memoriesToggled = event.detail.pressed;
     this.#syncMemoriesButtonUI();
   };
@@ -664,9 +1095,56 @@ export class AIWindow extends MozLitElement {
    * @private
    */
   #handlePromptSelected = event => {
-    const { text } = event.detail;
-    this.#fetchAIResponse(text, this.#createUserRoleOpts());
+    this.onQuickPromptClicked(event.detail.text, true);
   };
+
+  /**
+   * Records a quick_prompt_displayed Glean event.
+   * Called for both conversation starters and follow-up suggestions.
+   *
+   * @param {number} prompts - Number of prompts shown
+   */
+  onQuickPromptDisplayed = prompts => {
+    Glean.smartWindow.quickPromptDisplayed.record({
+      location: this.mode,
+      chat_id: this.conversationId,
+      message_seq: this.#conversation?.messageCount ?? 0,
+      prompts,
+    });
+  };
+
+  /**
+   * Records a quick_prompt_clicked Glean event and submits the prompt.
+   * Called for both conversation starters and follow-up suggestions.
+   *
+   * @param {string} text - The prompt text to submit
+   * @param {boolean} starter - Whether this is a conversation starter
+   */
+  onQuickPromptClicked(text, starter) {
+    Glean.smartWindow.quickPromptClicked.record({
+      location: this.mode,
+      chat_id: this.conversationId,
+      message_seq: this.#conversation?.messageCount ?? 0,
+      starter,
+    });
+
+    const { pageUrl, contextWebsites } = this.#smartbar.getCurrentContextData();
+
+    this.submitChatMessage({
+      text,
+      submitType: starter ? "starter" : "suggestion",
+      contextMentions: contextWebsites,
+      contextPageUrl: pageUrl,
+    });
+  }
+
+  onOpenLink() {
+    Glean.smartWindow.linkClick.record({
+      location: this.mode,
+      chat_id: this.conversationId,
+      message_seq: this.#conversation?.messageCount ?? 0,
+    });
+  }
 
   /**
    * Creates a UserRoleOpts object with current memories settings.
@@ -677,7 +1155,7 @@ export class AIWindow extends MozLitElement {
    */
   #createUserRoleOpts(contextMentions) {
     return new lazy.UserRoleOpts({
-      memoriesEnabled: this.#memoriesToggled ?? this.memoriesPref,
+      memoriesEnabled: this.#memoriesToggled ?? this.#memoriesIconShown,
       memoriesFlagSource:
         this.#memoriesToggled == null
           ? lazy.MEMORIES_FLAG_SOURCE.GLOBAL
@@ -705,7 +1183,7 @@ export class AIWindow extends MozLitElement {
    * @private
    */
   async #addConversationTitle() {
-    if (this.#conversation.title) {
+    if (this.#conversation.title || this.#conversation.titlePromise) {
       return;
     }
 
@@ -713,14 +1191,18 @@ export class AIWindow extends MozLitElement {
       m => m.role === lazy.MESSAGE_ROLE.USER
     );
 
-    const title = await lazy.generateChatTitle(
+    this.#conversation.titlePromise = lazy.generateChatTitle(
       firstUserMessage?.content?.body,
       {
         url: firstUserMessage?.pageUrl?.href || "",
         title: this.#conversation.pageMeta?.title || "",
         description: this.#conversation.pageMeta?.description || "",
-      }
+      },
+      undefined,
+      this.conversationId
     );
+    const title = await this.#conversation.titlePromise;
+    delete this.#conversation.titlePromise;
 
     this.#conversation.title = title;
     document.title = title;
@@ -728,63 +1210,32 @@ export class AIWindow extends MozLitElement {
   }
 
   #updateTabFavicon() {
-    if (this.classList.contains("chat-active") || this.mode !== FULLPAGE) {
+    if (this.classList.contains("chat-active") || this.mode !== MODE.FULLPAGE) {
       return;
     }
     const link = document.getElementById("tabIcon");
     link.href = TAB_FAVICON_CHAT;
   }
 
-  /**
-   * Processes tokens from the AI response stream and updates the message.
-   * Adds all tokens to their respective arrays in the tokens object and
-   * builds the memoriesApplied array for existing_memory tokens.
-   *
-   * @param {Array<{key: string, value: string}>} tokens - Array of parsed tokens from the stream
-   * @param {ChatMessage} currentMessage - The message object being updated
-   */
-  handleTokens = (tokens, currentMessage) => {
-    tokens.forEach(({ key, value }) => {
-      currentMessage.tokens[key].push(value);
-
-      // Build Applied Memories Array
-      if (key === "existing_memory") {
-        currentMessage.memoriesApplied.push(value);
-      }
-
-      // Build web search queries
-      if (key === "search") {
-        currentMessage.webSearchQueries ??= [];
-        currentMessage.webSearchQueries.push(value);
-      }
-    });
-  };
+  #resetConversationState() {
+    this.classList.remove("chat-active");
+    this.#hostBrowser?.setAttribute(
+      "data-conversation-id",
+      this.#conversation.id
+    );
+    this.#syncHistoryState();
+  }
 
   #setBrowserContainerActiveState(isActive) {
-    const container = this.renderRoot.querySelector("#browser-container");
-    if (!container) {
-      return;
-    }
-
     if (isActive) {
       this.classList.add("chat-active");
+      this.#smartbar?.suppressStartQuery({ permanent: true });
+      this.#smartbar?.view.close();
       return;
     }
 
     this.classList.remove("chat-active");
-  }
-
-  /**
-   * Gets the current url of the loaded page.
-   *
-   * @returns {URL} The page URL
-   *
-   * @private
-   */
-  #getCurrentPageUrl() {
-    return URL.fromURI(
-      window.browsingContext.topChromeWindow.gBrowser.currentURI
-    );
+    this.#smartbar?.unsuppressStartQuery();
   }
 
   /**
@@ -794,152 +1245,213 @@ export class AIWindow extends MozLitElement {
    *
    * @private
    *
-   * @param {string} inputText
+   * @param {string} [inputText] - The already trimmed and non-empty input text from the
+   *   user. If this argument is not provided then the conversation will resume either
+   *   from tool calls or from an error.
    * @param {object} [options]
    * @param {boolean} [options.skipUserDispatch=false] - If true, do not dispatch
    * a user message into chat content (used for retries to avoid duplicate
    * user messages).
    * @param {boolean} [options.memoriesEnabled] - Optional per-call override for
    * memory injection; undefined falls back to use global/default behavior.
+   * @param {URL|null} [options.pageUrl] - Page URL to associate with the
+   * message, or null if the user removed page context.
    */
-  #fetchAIResponse = async (
-    inputText = false,
-    { skipUserDispatch = false, ...userOpts } = {}
-  ) => {
-    const formattedPrompt = (inputText || "").trim();
-    if (!formattedPrompt && inputText !== false) {
-      return;
-    }
+  async #fetchAIResponse(
+    inputText,
+    { skipUserDispatch = false, pageUrl, ...userOpts } = {}
+  ) {
     this.showStarters = false;
     this.showFooter = false;
+    this.showDisclaimer = true;
     this.#updateTabFavicon();
     this.#setBrowserContainerActiveState(true);
 
+    const requestStart = Date.now();
+    let firstTokenTime = null;
+    const onUpdate = (_e, message) => {
+      if (message.role !== lazy.MESSAGE_ROLE.ASSISTANT) {
+        return;
+      }
+      firstTokenTime = Date.now();
+      this.#conversation?.off("chat-conversation:message-update", onUpdate);
+    };
+    this.#conversation.on("chat-conversation:message-update", onUpdate);
+
     try {
       const engineInstance = await lazy.openAIEngine.build(
-        lazy.MODEL_FEATURES.CHAT
+        lazy.MODEL_FEATURES.CHAT,
+        lazy.DEFAULT_ENGINE_ID,
+        lazy.SERVICE_TYPES.AI,
+        lazy.PURPOSES.CHAT,
+        this.conversationId
       );
 
-      if (formattedPrompt) {
-        const pageUrl = this.#getCurrentPageUrl();
-
+      if (inputText) {
         await this.#conversation.generatePrompt(
-          formattedPrompt,
+          inputText,
           pageUrl,
           engineInstance,
-          userOpts
+          userOpts,
+          skipUserDispatch
         );
-
-        if (!skipUserDispatch) {
-          this.#dispatchMessageToChatContent(
-            this.#conversation.messages.at(-1)
-          );
-        }
 
         // @todo
         // fill out these assistant message flags
         const assistantRoleOpts = new lazy.AssistantRoleOpts();
         this.#conversation.addAssistantMessage("text", "", assistantRoleOpts);
+        this.#sendModelRequestTelemetryEvent();
       }
 
-      const stream = lazy.Chat.fetchWithHistory(
-        this.#conversation,
-        engineInstance,
-        {
-          // Use the adjacent tab's browsing context for sidebar or current for
-          // fullpage for tools that need context.
-          browsingContext:
-            this.mode === SIDEBAR
-              ? window.browsingContext.topChromeWindow.gBrowser.selectedBrowser
-                  .browsingContext
-              : window.browsingContext,
-        }
-      );
-
-      this.#updateConversation();
       this.#addConversationTitle();
 
-      const parserState = createParserState();
-      const currentMessage = this.#conversation.messages
-        .filter(
-          message =>
-            message.role === lazy.MESSAGE_ROLE.ASSISTANT &&
-            (inputText !== false || message?.content?.type === "text")
-        )
-        .at(-1);
+      await lazy.Chat.fetchWithHistory({
+        conversation: this.#conversation,
+        engineInstance,
+        browsingContext: this.#getBrowsingContext(),
+        mode: this.mode,
+      });
 
-      if (inputText === false) {
-        const separator = currentMessage?.content?.body ? "\n\n" : "";
-        if (currentMessage && separator) {
-          currentMessage.content.body += separator;
-        }
-      }
-
-      for await (const chunk of stream) {
-        if (chunk && typeof chunk === "object" && "searching" in chunk) {
-          this.showSearchingIndicator(chunk.searching, chunk.query);
-          continue;
-        }
-        const { plainText, tokens } = consumeStreamChunk(chunk, parserState);
-
-        if (!currentMessage.tokens) {
-          currentMessage.tokens = {
-            search: [],
-            existing_memory: [],
-            followup: [],
-          };
-        }
-
-        if (!currentMessage.memoriesApplied) {
-          currentMessage.memoriesApplied = [];
-        }
-
-        if (plainText) {
-          currentMessage.content.body += plainText;
-        }
-
-        if (tokens?.length) {
-          this.handleTokens(tokens, currentMessage);
-        }
-        this.#updateConversation();
-        this.#dispatchMessageToChatContent(currentMessage);
-        this.requestUpdate?.();
-      }
-
-      // End of stream: if there was an unclosed §... treat as literal text
-      const remainder = flushTokenRemainder(parserState);
-
-      if (remainder) {
-        currentMessage.content.body += remainder;
-        this.#updateConversation();
-        this.#dispatchMessageToChatContent(currentMessage);
-        this.requestUpdate?.();
-      }
-
-      if (currentMessage.memoriesApplied?.length) {
-        currentMessage.memoriesApplied =
-          await lazy.MemoriesManager.getMemoriesByID(
-            currentMessage.memoriesApplied
-          );
-        this.#updateConversation();
-        this.#dispatchMessageToChatContent(currentMessage);
-      }
+      this.#sendModelResponseTelemetryEvent(
+        "",
+        this.#getModelRequestLatencyAndDuration(requestStart, firstTokenTime)
+      );
     } catch (e) {
       this.showSearchingIndicator(false, null);
-      this.#handleError(e);
+      this.#handleError(
+        e,
+        this.#getModelRequestLatencyAndDuration(requestStart, firstTokenTime)
+      );
       this.requestUpdate?.();
+    }
+  }
+
+  #onMessageComplete = (_event, msg) => {
+    const followupCount = msg?.tokens?.followup?.length;
+    if (followupCount) {
+      this.onQuickPromptDisplayed(followupCount);
+    }
+    if (msg?.memoriesApplied?.length) {
+      this.onMemoriesApplied();
     }
   };
 
-  #handleError(error) {
+  #getModelRequestLatencyAndDuration(requestStart, firstTokenTime) {
+    const duration = Date.now() - requestStart;
+    const latency = firstTokenTime ? firstTokenTime - requestStart : 0;
+    return { duration, latency };
+  }
+
+  get modelName() {
+    const modelChoice = Services.prefs.getStringPref(
+      "browser.smartwindow.firstrun.modelChoice",
+      ""
+    );
+    return lazy.MODELS[modelChoice]?.modelName;
+  }
+
+  #getConversationLastMessageAndCount(role) {
+    let lastMessage = null;
+    let messageCount = 0;
+    let countAtLastMatch = 0;
+    for (const message of this.#conversation.messages.slice(1)) {
+      if (message.content?.type === "text") {
+        messageCount++;
+      }
+      if (message.role === role) {
+        lastMessage = message;
+        countAtLastMatch = messageCount;
+      }
+    }
+    return { lastMessage, messageCount: countAtLastMatch };
+  }
+
+  #sendModelResponseTelemetryEvent(error, { duration, latency }) {
+    const { lastMessage: lastAssistantMessage, messageCount } =
+      this.#getConversationLastMessageAndCount(lazy.MESSAGE_ROLE.ASSISTANT);
+    const ERROR_CODE_TEXT = {
+      1: "Budget exceeded",
+      2: "Rate limit exceeded",
+      3: "Chat maximum length hit",
+      4: "Account error",
+    };
+    let errorText = "";
+
+    if (error) {
+      errorText = ERROR_CODE_TEXT[error] ?? "Generic error";
+    }
+
+    Glean.smartWindow.modelResponse.record({
+      location: this.mode === MODE.FULLPAGE ? "home" : MODE.SIDEBAR,
+      chat_id: this.conversationId,
+      message_seq: messageCount,
+      request_id: lastAssistantMessage?.id,
+      intent: "chat",
+      tokens: lazy.Chat.lastUsage?.completion_tokens ?? 0,
+      memories: lastAssistantMessage?.memoriesApplied?.length ?? 0,
+      latency,
+      duration,
+      error: errorText,
+      model: this.modelName,
+    });
+  }
+
+  #sendModelRequestTelemetryEvent() {
+    const { lastMessage: lastUserMessage, messageCount } =
+      this.#getConversationLastMessageAndCount(lazy.MESSAGE_ROLE.USER);
+
+    Glean.smartWindow.modelRequest.record({
+      location: this.mode === MODE.FULLPAGE ? "home" : MODE.SIDEBAR,
+      chat_id: this.conversationId,
+      message_seq: messageCount,
+      request_id: lastUserMessage?.id,
+      detected_intent: "chat",
+      intent: "chat",
+      tokens: lazy.Chat.lastUsage?.completion_tokens ?? 0,
+      memories: lastUserMessage?.memoriesApplied?.length ?? 0,
+    });
+  }
+
+  #getBrowsingContext() {
+    // Use the adjacent tab's browsing context for sidebar or current for
+    // fullpage for tools that need context.
+    return this.mode === MODE.SIDEBAR
+      ? window.browsingContext.topChromeWindow.gBrowser.selectedBrowser
+          .browsingContext
+      : window.browsingContext;
+  }
+
+  #handleError(error, { latency, duration }) {
+    console.error(error);
+    let errorCode = error.error ?? error.metadata?.errorMessage;
     const newErrorMessage = {
       role: "",
       content: {
         isError: true,
-        status: error?.status,
+        error: errorCode,
       },
     };
+    this.#sendModelResponseTelemetryEvent(errorCode ?? true, {
+      latency,
+      duration,
+    });
     this.#dispatchMessageToChatContent(newErrorMessage);
+  }
+
+  /**
+   * A helper function to dispatches the current conversation's seen urls to the
+   * chat content.
+   *
+   * @param {AIChatContentParent} actor
+   */
+  #dispatchSeenUrls(actor) {
+    if (!this.#conversation?.id) {
+      return;
+    }
+    actor.dispatchSeenUrlsToChatContent({
+      conversationId: this.#conversation.id,
+      seenUrls: this.#conversation.seenUrls,
+    });
   }
 
   /**
@@ -948,7 +1460,6 @@ export class AIWindow extends MozLitElement {
    * @returns {Promise<object|null>} The AIChatContent actor, or null if unavailable.
    * @private
    */
-
   #getAIChatContentActor() {
     if (!this.#browser) {
       lazy.log.warn("AI browser not set, cannot get AIChatContent actor");
@@ -978,12 +1489,27 @@ export class AIWindow extends MozLitElement {
 
   #dispatchMessageToActor(actor, message) {
     const newMessage = { ...message };
+    this.#maybeSetMemoriesCalloutData(newMessage);
+
     if (typeof message.role !== "string") {
       const roleLabel = lazy.getRoleLabel(newMessage.role).toLowerCase();
       newMessage.role = roleLabel;
     }
 
     return actor.dispatchMessageToChatContent(newMessage);
+  }
+
+  #maybeSetMemoriesCalloutData(newMessage) {
+    if (
+      newMessage.role !== lazy.MESSAGE_ROLE.ASSISTANT ||
+      !newMessage.memoriesApplied?.length ||
+      Services.prefs.getBoolPref(PREF_MEMORIES_HAS_SEEN_MEMORIES, false)
+    ) {
+      return;
+    }
+
+    newMessage.showMemoriesCallout = true;
+    Services.prefs.setBoolPref(PREF_MEMORIES_HAS_SEEN_MEMORIES, true);
   }
 
   #dispatchMessageToChatContent(message) {
@@ -996,11 +1522,8 @@ export class AIWindow extends MozLitElement {
    * parent actor receives AIChatContent:Ready event from the child process.
    */
   onContentReady() {
-    if (!this.#pendingMessageDelivery) {
-      return;
-    }
-
     const actor = this.#getAIChatContentActor();
+
     if (actor) {
       this.#deliverConversationMessages(actor);
     }
@@ -1012,6 +1535,12 @@ export class AIWindow extends MozLitElement {
    * @param {JSActor} actor
    */
   #deliverConversationMessages(actor) {
+    this.#dispatchSeenUrls(actor);
+
+    if (!this.#pendingMessageDelivery) {
+      return;
+    }
+
     this.#pendingMessageDelivery = false;
 
     if (!this.#conversation || !this.#conversation.messages.length) {
@@ -1023,7 +1552,10 @@ export class AIWindow extends MozLitElement {
     // @todo Bug2013096
     // Add way to batch these messages to the actor in one message
     this.#conversation.renderState().forEach(message => {
-      this.#dispatchMessageToActor(actor, message);
+      this.#dispatchMessageToActor(actor, {
+        ...message,
+        isPreviousMessage: true,
+      });
     });
   }
 
@@ -1031,24 +1563,41 @@ export class AIWindow extends MozLitElement {
    * Gets event options for a TabStateEvent
    *
    * @param {false|string} [input=false] The latest input contents
+   * @param {boolean} [isAsk=false] Whether the input is an ask chat message
    *
    * @returns {TabStateEventOptions}
    *
    * @private
    */
-  #getAIWindowEventOptions(input = false) {
+  #getAIWindowEventOptions(input = false, isAsk = false) {
     const topChromeWindow = window?.browsingContext?.topChromeWindow;
 
     return {
       bubbles: true,
       detail: {
         input,
+        isAsk,
         mode: this.mode,
-        pageUrl: this.#getCurrentPageUrl(),
+        pageUrl: lazy.getCurrentTabUrl(window),
         conversationId: this.#getDataConvId(),
         tab: topChromeWindow?.gBrowser?.selectedTab,
+        conversation: this.#conversation,
       },
     };
+  }
+
+  /**
+   * Remove the event listeners from the current conversation, update the
+   * conversation reference, and attach chat-conversation event listeners.
+   *
+   * @param {ChatConversation} conversation
+   *
+   * @private
+   */
+  #swapConversation(conversation) {
+    this.#removeConversationListeners();
+    this.#conversation = conversation;
+    this.#attachConversationListeners();
   }
 
   /**
@@ -1057,35 +1606,42 @@ export class AIWindow extends MozLitElement {
    * @param {ChatConversation} conversation
    */
   openConversation(conversation) {
-    if (conversation.messages?.length) {
-      this.#conversation = conversation;
+    if (conversation?.messageCount) {
+      this.#swapConversation(conversation);
+
+      this.#syncHistoryState();
 
       if (this.#conversation.title) {
         document.title = this.#conversation.title;
       }
       this.#updateTabFavicon();
-
-      const hostBrowser = window.browsingContext?.embedderElement;
-      hostBrowser?.setAttribute("data-conversation-id", this.#conversation.id);
+      this.#hostBrowser?.setAttribute(
+        "data-conversation-id",
+        this.#conversation.id
+      );
 
       // Update smartbar chips to reflect the current tab when sidebar reopens
-      if (this.#smartbar && this.mode === "sidebar") {
+      if (this.#smartbar && this.mode === MODE.SIDEBAR) {
         this.#smartbar.updateContextChips();
       }
+
+      this.syncSmartbarMemoriesStateFromConversation();
 
       // This assumes "openConversation" opens an active conversation, possible todo to see
       // if convo has messages before hiding the footer element.
       this.showFooter = false;
 
+      this.showDisclaimer = true;
       this.showStarters = false;
       const actor = this.#getAIChatContentActor();
+
+      this.#pendingMessageDelivery = true;
+
       if (this.#browser && actor) {
         this.#deliverConversationMessages(actor);
-      } else {
-        this.#pendingMessageDelivery = true;
       }
     } else {
-      this.#onCreateNewChatClick();
+      this.onCreateNewChatClick();
     }
 
     this.#dispatchChromeEvent(
@@ -1094,9 +1650,18 @@ export class AIWindow extends MozLitElement {
     );
   }
 
-  #onCreateNewChatClick() {
-    // Clear the conversation state locally
-    this.#conversation = new lazy.ChatConversation({});
+  #getCurrentTab() {
+    return window.browsingContext.topChromeWindow.gBrowser.selectedTab;
+  }
+
+  onCreateNewChatClick() {
+    const selectedTab = this.#getCurrentTab();
+
+    // Clear conversation state. The new conversation's ID is persisted to the
+    // host browser attribute and history.state so back navigation can restore it.
+    this.#swapConversation(new lazy.ChatConversation({}));
+
+    this.#syncHistoryState();
 
     const hostBrowser = window.browsingContext?.embedderElement;
     hostBrowser?.setAttribute("data-conversation-id", this.#conversation.id);
@@ -1107,6 +1672,12 @@ export class AIWindow extends MozLitElement {
 
     // Show Smartbar suggestions for cleared chats
     this.#smartbar?.unsuppressStartQuery();
+
+    // Clear the conversation ID from the tab state manager
+    this.#dispatchChromeEvent(
+      "ai-window:clear-conversation",
+      this.#getAIWindowEventOptions()
+    );
 
     // Submitting a message with a new convoId here.
     // This will clear the chat content area in the child process via side effect.
@@ -1120,7 +1691,7 @@ export class AIWindow extends MozLitElement {
 
     this.showStarters = false;
 
-    this.#loadStarterPrompts();
+    this.loadStarterPrompts(false, selectedTab);
   }
 
   showSearchingIndicator(isSearching, searchQuery) {
@@ -1162,6 +1733,11 @@ export class AIWindow extends MozLitElement {
       } catch {}
     }
 
+    this.#dispatchChromeEvent(
+      "ai-window:opened-conversation",
+      this.#getAIWindowEventOptions()
+    );
+
     this.#fetchAIResponse();
   }
 
@@ -1174,6 +1750,11 @@ export class AIWindow extends MozLitElement {
         break;
 
       case "retry-without-memories":
+        Glean.smartWindow.retryNoMemories.record({
+          location: this.mode,
+          chat_id: this.conversationId,
+          message_seq: this.#conversation?.messageCount ?? 0,
+        });
         this.#retryFromAssistantMessageId(messageId, false);
         break;
 
@@ -1184,7 +1765,33 @@ export class AIWindow extends MozLitElement {
       case "remove-applied-memory":
         this.#removeAppliedMemory(messageId, memory);
         break;
+
+      case "toggle-applied-memories":
+        if (data.open) {
+          Glean.smartWindow.memoryAppliedClick.record({
+            location: this.mode,
+            chat_id: this.conversationId,
+            message_seq: this.#conversation?.messageCount ?? 0,
+          });
+        }
+        break;
+
+      case "manage-memories":
+        this.#openMemoriesSettings();
+        break;
+
+      case "open-memories-learn-more":
+        this.#openMemoriesLearnMore();
+        break;
     }
+  }
+
+  #openMemoriesSettings() {
+    this.#topChromeWindow?.openPreferences("manageMemories");
+  }
+
+  #openMemoriesLearnMore() {
+    this.#topChromeWindow?.openHelpLink("smart-window-memories");
   }
 
   #getMessageById(id) {
@@ -1207,7 +1814,7 @@ export class AIWindow extends MozLitElement {
     }
 
     this._isRetrying = true;
-    this.#fetchAIResponse(false)
+    this.#fetchAIResponse()
       .catch(error => {
         console.error("Error retrying after error:", error);
       })
@@ -1241,7 +1848,7 @@ export class AIWindow extends MozLitElement {
       await this.#fetchAIResponse(userMsg.content.body, {
         skipUserDispatch: true,
         memoriesEnabled:
-          withMemories ?? this.#memoriesToggled ?? this.memoriesPref,
+          withMemories ?? this.#memoriesToggled ?? this.#memoriesIconShown,
       });
     } catch (e) {
       console.error("ai-window: retry failed", e);
@@ -1253,7 +1860,10 @@ export class AIWindow extends MozLitElement {
   async #removeAppliedMemory(messageId, memory) {
     try {
       const memoryId = memory.id;
-      const deleted = await lazy.MemoriesManager.hardDeleteMemoryById(memoryId);
+      const deleted = await lazy.MemoriesManager.hardDeleteMemoryById(
+        memoryId,
+        "assistant"
+      );
       if (!deleted) {
         console.warn("hardDeleteMemory returned false", memoryId);
       }
@@ -1277,7 +1887,7 @@ export class AIWindow extends MozLitElement {
       />
       <!-- TODO (Bug 2008938): Make in-page Smartbar styling not dependent on chrome styles -->
       <link rel="stylesheet" href="chrome://browser/skin/smartbar.css" />
-      ${this.mode === SIDEBAR
+      ${this.mode === MODE.SIDEBAR
         ? html`<div class="sidebar-header">
             <moz-button
               data-l10n-id="aiwindow-new-chat"
@@ -1285,9 +1895,12 @@ export class AIWindow extends MozLitElement {
               class="new-chat-icon-button"
               size="default"
               iconsrc="chrome://browser/content/aiwindow/assets/new-chat.svg"
-              @click=${this.#onCreateNewChatClick}
+              @click=${this.onCreateNewChatClick}
             ></moz-button>
           </div>`
+        : ""}
+      ${this.mode === MODE.FULLPAGE
+        ? html`<smartwindow-heading></smartwindow-heading>`
         : ""}
       <div id="browser-container"></div>
       ${this.showStarters
@@ -1298,6 +1911,15 @@ export class AIWindow extends MozLitElement {
               @SmartWindowPrompt:prompt-selected=${this.#handlePromptSelected}
             ></smartwindow-prompts>
           `
+        : ""}
+      ${this.showDisclaimer
+        ? html`<div data-l10n-id="smartwindow-disclaimer" class="disclaimer">
+            <a
+              data-l10n-name="report-link"
+              href=${this.#reportLink}
+              target="_blank"
+            ></a>
+          </div>`
         : ""}
       ${this.showFooter ? html`<smartwindow-footer></smartwindow-footer>` : ""}
     `;

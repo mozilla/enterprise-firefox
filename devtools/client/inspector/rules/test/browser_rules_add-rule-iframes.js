@@ -39,7 +39,7 @@ add_task(async function () {
  *        The value of the new property.
  */
 async function addNewProperty(view, index, name, value) {
-  const idRuleEditor = getRuleViewRuleEditor(view, index);
+  const idRuleEditor = getRuleViewRuleEditorAt(view, index);
   info(`Adding new property "${name}: ${value};"`);
 
   const onRuleViewChanged = view.once("ruleview-changed");

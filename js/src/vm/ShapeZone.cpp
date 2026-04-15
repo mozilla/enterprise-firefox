@@ -15,15 +15,15 @@ using namespace js;
 using namespace js::gc;
 
 void ShapeZone::fixupPropMapShapeTableAfterMovingGC() {
-  for (PropMapShapeSet::Enum e(propMapShapes); !e.empty(); e.popFront()) {
-    SharedShape* shape = MaybeForwarded(e.front().unbarrieredGet());
+  for (auto iter = propMapShapes.modIter(); !iter.done(); iter.next()) {
+    SharedShape* shape = MaybeForwarded(iter.get().unbarrieredGet());
     SharedPropMap* map = shape->propMapMaybeForwarded();
     BaseShape* base = MaybeForwarded(shape->base());
 
     PropMapShapeSet::Lookup lookup(base, shape->numFixedSlots(), map,
                                    shape->propMapLength(),
                                    shape->objectFlags());
-    e.rekeyFront(lookup, shape);
+    iter.rekey(lookup, shape);
   }
 }
 

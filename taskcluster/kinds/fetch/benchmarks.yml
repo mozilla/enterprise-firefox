@@ -17,3 +17,20 @@ web-tooling-benchmark:
         url: https://github.com/mozilla/perf-automation/releases/download/V1/web-tooling-benchmark-b2ac25c897c9.zip
         sha256: 93b0b51df0cec3ca9bfa0bdf81d782306dcf18532e39b3ff3180409125daaff1
         size: 5444135
+
+# A collection of benchmarks for use in PGO profiling runs. Currently it is
+# just JetStream3.
+#
+# Keep this in sync with the version used in performance testing by updating:
+#   1. `testing/raptor/raptor/tests/benchmarks/jetstream3-desktop.toml`
+#   2. `testing/raptor/raptor/tests/benchmarks/jetstream3-mobile.toml`
+pgo-extended-corpus:
+    description: JetStream3 benchmark suite
+    fetch:
+        type: static-url
+        url: https://github.com/WebKit/JetStream/archive/a3f5c45465f5271bed385321a0587bd4202682d6.tar.gz
+        sha256: 0af66b94bfbc2eb67cbe6c30bbafd13d7789f8f8623d308783194934601b5fdd
+        size: 194426956
+        artifact-name: pgo-extended-corpus.tar.zst
+        strip-components: 1
+        add-prefix: pgo-extended-corpus/JetStream/

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -22,6 +20,7 @@
 #include "nsLayoutUtils.h"
 #include "nsWindow.h"
 #include "wayland-proxy.h"
+#include "ScreenHelperGTK.h"
 
 #undef LOG
 #undef LOG_VERBOSE
@@ -76,6 +75,7 @@ nsWaylandDisplay* WaylandDisplayGet() {
     // value.
     wl_display_set_max_buffer_size(waylandDisplay, 1024 * 1024);
     gWaylandDisplay = new nsWaylandDisplay(waylandDisplay);
+    gWaylandDisplay->Init();
   }
   return gWaylandDisplay;
 }
@@ -663,24 +663,36 @@ static void output_handle_geometry(void* data, struct wl_output* wl_output,
       monitor->id, x, y, physical_width, physical_height, subpixel, transform);
   monitor->x = x;
   monitor->y = y;
+  monitor->pendingChanges = true;
 }
-
-static void output_handle_done(void* data, struct wl_output* wl_output) {}
-
-static void output_handle_scale(void* data, struct wl_output* wl_output,
-                                int32_t scale) {}
 
 static void output_handle_mode(void* data, struct wl_output* wl_output,
                                uint32_t flags, int width, int height,
                                int refresh) {
   auto* monitor = static_cast<nsWaylandDisplay::MonitorConfig*>(data);
-  LOG("nsWaylandDisplay ID %d mode output size %d x %d", monitor->id, width,
-      height);
   if ((flags & WL_OUTPUT_MODE_CURRENT) == 0) {
     return;
   }
+  LOG("nsWaylandDisplay ID %d mode output size %d x %d", monitor->id, width,
+      height);
   monitor->pixelWidth = width;
   monitor->pixelHeight = height;
+  monitor->pendingChanges = true;
+}
+
+static void output_handle_scale(void* data, struct wl_output* wl_output,
+                                int32_t scale) {
+  auto* monitor = static_cast<nsWaylandDisplay::MonitorConfig*>(data);
+  LOG("nsWaylandDisplay ID %d Scale change [%d]", monitor->id, scale);
+  monitor->pendingChanges = true;
+}
+
+static void output_handle_done(void* data, struct wl_output* wl_output) {
+  auto* monitor = static_cast<nsWaylandDisplay::MonitorConfig*>(data);
+  LOG("nsWaylandDisplay ID %d Done", monitor->id);
+  monitor->pendingChanges = false;
+
+  WaylandDisplayGet()->RefreshScreens();
 }
 
 static const struct wl_output_listener output_listener = {
@@ -689,6 +701,17 @@ static const struct wl_output_listener output_listener = {
     output_handle_done,
     output_handle_scale,
 };
+
+void nsWaylandDisplay::RefreshScreens() {
+  LOG("nsWaylandDisplay::RefreshScreens()");
+  for (unsigned int i = 0; i < mMonitors.Length(); i++) {
+    if (mMonitors[i]->pendingChanges) {
+      LOG("  monitor ID %d is not complete", mMonitors[i]->id);
+      return;
+    }
+  }
+  ScreenHelperGTK::RequestRefreshScreens();
+}
 
 void nsWaylandDisplay::AddWlOutput(wl_output* aWlOutput, int aId) {
   wl_output_add_listener(aWlOutput, &output_listener, AddMonitorConfig(aId));
@@ -1059,12 +1082,20 @@ void WlCompositorCrashHandler() {
 nsWaylandDisplay::nsWaylandDisplay(wl_display* aDisplay)
     : mThreadId(PR_GetCurrentThread()), mDisplay(aDisplay) {
   MOZ_DIAGNOSTIC_ASSERT(XRE_IsParentProcess());
+  for (auto& e : mSupportedTransfer) {
+    e = -1;
+  };
+  for (auto& e : mSupportedPrimaries) {
+    e = -1;
+  };
+}
 
+void nsWaylandDisplay::Init() {
   // GTK sets the log handler on display creation, thus we overwrite it here
   // in a similar fashion
   wl_log_set_handler_client(WlLogHandler);
 
-  LOG("nsWaylandDisplay::nsWaylandDisplay()");
+  LOG("nsWaylandDisplay::Init()");
 
   mFormats = new DMABufFormats();
   mRegistry = wl_display_get_registry(mDisplay);
@@ -1074,14 +1105,7 @@ nsWaylandDisplay::nsWaylandDisplay(wl_display* aDisplay)
   WaitForAsyncRoundtrips();
   EnsureDMABufFormats();
 
-  LOG("nsWaylandDisplay::nsWaylandDisplay() init finished");
-
-  for (auto& e : mSupportedTransfer) {
-    e = -1;
-  };
-  for (auto& e : mSupportedPrimaries) {
-    e = -1;
-  };
+  LOG("  init finished");
 
   // Check we have critical Wayland interfaces.
   // Missing ones indicates a compositor bug and we can't continue.

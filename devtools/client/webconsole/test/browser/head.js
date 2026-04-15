@@ -103,9 +103,9 @@ async function openNewTabWithIframesAndConsole(tabUrl, iframes) {
   // to handle remote frames (we don't support creating frames target when the toolbox
   // is already open).
   await addTab(tabUrl);
-  await ContentTask.spawn(
+  await SpecialPowers.spawn(
     gBrowser.selectedBrowser,
-    iframes,
+    [iframes],
     async function (urls) {
       const iframesLoadPromises = urls.map((url, i) => {
         const iframe = content.document.createElement("iframe");

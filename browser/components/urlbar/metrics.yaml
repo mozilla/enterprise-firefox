@@ -26,6 +26,10 @@ urlbar:
           user started the search action from. The possible values are: `urlbar`
           , `handoff`, `urlbar_newtab`, `urlbar_addonpage`, and `searchbar`.
         type: string
+      location:
+        description: >
+          Which input was used: fullpage, sidebar, or urlbar.
+        type: string
       interaction:
         description: >
           How the user started the search action. The possible values are:
@@ -178,18 +182,34 @@ urlbar:
           queried.
           The possible values are: `history`, `none`.
         type: string
+      chat_id: &chat_id
+        description: >
+          UUID for this smart window session. Unique identifier for each chat
+          conversation. Only set when sap is `smartbar`.
+        type: string
+      intent: &intent
+        description: >
+          What was the detected intent for the request: navigate, search,
+          chat, or empty string. Only set when sap is `smartbar`.
+        type: string
+      model: &model
+        description: >
+          Model selected by the user. Only set when sap is `smartbar`.
+        type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1800414
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1805717
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1842247
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1917992
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2003067
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2009615
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1800414#c2
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1805717#c4
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1842247#c3
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1917992
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2003067
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2009615
     data_sensitivity:
       - interaction
     notification_emails:
@@ -205,6 +225,10 @@ urlbar:
           `sap` is the meaning of `search access point`. It records where the
           user started the search action from. The possible values are: `urlbar`
           , `handoff`, `urlbar_newtab`, `urlbar_addonpage`, and `searchbar`.
+        type: string
+      location:
+        description: >
+          Which input was used: fullpage, sidebar, or urlbar.
         type: string
       interaction:
         description: >
@@ -302,10 +326,15 @@ urlbar:
         description: >
           The view time threshold for bounce detection, in seconds.
         type: quantity
+      chat_id: *chat_id
+      intent: *intent
+      model: *model
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1959741
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2009615
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1959741
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2009615
     data_sensitivity:
       - interaction
     notification_emails:
@@ -326,6 +355,10 @@ urlbar:
           `sap` is the meaning of `search access point`. It records where the
           user started the search action from. The possible values are: `urlbar`
           , `handoff`, `urlbar_newtab`, `urlbar_addonpage`, and `searchbar`.
+        type: string
+      location:
+        description: >
+          Which input was used: fullpage, sidebar, or urlbar.
         type: string
       interaction:
         description: >
@@ -395,10 +428,15 @@ urlbar:
           `suggest`
           More values may be added in the future.
         type: string
+      chat_id: *chat_id
+      intent: *intent
+      model: *model
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1960836
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2009615
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1960836
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2009615
     data_sensitivity:
       - interaction
     notification_emails:
@@ -414,6 +452,10 @@ urlbar:
           `sap` is the meaning of `search access point`. It records where the
           user started the search action from. The possible values are: `urlbar`
           , `handoff`, `urlbar_newtab`, `urlbar_addonpage`, and `searchbar`.
+        type: string
+      location:
+        description: >
+          Which input was used: fullpage, sidebar, or urlbar.
         type: string
       interaction:
         description: >
@@ -583,7 +625,6 @@ urlbar:
           `navigate_button`,
           `not_interested`,
           `not_now`,
-          `not_relevant`,
           `opt_in`,
           `paste_go`,
           `search_button`,
@@ -693,18 +734,23 @@ urlbar:
           queried.
           The possible values are: `history`, `none`.
         type: string
+      chat_id: *chat_id
+      intent: *intent
+      model: *model
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1797265
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1805717
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1842247
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2003067
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2008925
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2009615
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1797265#c3
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1805717#c4
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1842247#c3
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2003067
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2008925
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2009615
     data_sensitivity:
       - interaction
     notification_emails:
@@ -746,6 +792,12 @@ urlbar:
           and the search suggestion was not present, then `terminal` will be
           "false,true,false".
         type: string
+      sap:
+        type: string
+        description: >
+          The search access point. It records where the exposure happened.
+          The possible values are: `urlbar`, `handoff`, `urlbar_newtab`,
+          `urlbar_addonpage`, and `searchbar`.
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1819766
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1918299
@@ -782,6 +834,12 @@ urlbar:
           urlbar session. If true, the session ended with them. If false, the
           result and keyword were matched at some point during the session but
           the session did not end with them.
+      sap:
+        type: string
+        description: >
+          The search access point. It records where the exposure happened.
+          The possible values are: `urlbar`, `handoff`, `urlbar_newtab`,
+          `urlbar_addonpage`, and `searchbar`.
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1881875
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1915507

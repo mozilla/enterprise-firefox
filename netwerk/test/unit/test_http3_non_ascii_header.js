@@ -70,6 +70,16 @@ add_task(async function test_non_ascii_header() {
   let protocol1 = req1.protocolVersion;
   Assert.strictEqual(protocol1, "h3", `Using ${protocol1}`);
   Assert.equal(req1.responseStatus, 200);
+
+  let headerValue1;
+  chan1.visitRequestHeaders({
+    visitHeader(name, value) {
+      if (name === "x-panel-title") {
+        headerValue1 = value;
+      }
+    },
+  });
+  Assert.equal(headerValue1, "ä");
   info(buf1);
 
   // Second request with different non-ASCII header

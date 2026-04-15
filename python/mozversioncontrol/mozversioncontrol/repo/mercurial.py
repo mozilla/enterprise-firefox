@@ -147,6 +147,14 @@ class HgRepository(Repository):
             return None
         return match.group(1)
 
+    def get_remote_url(self, remote=None, push=False):
+        remote = remote or "default"
+        if push:
+            remote = f"{remote}-push"
+
+        url = self._run("paths", remote, return_codes=[0, 1], stderr=subprocess.DEVNULL)
+        return url.strip() if url else None
+
     def _format_diff_filter(self, diff_filter, for_status=False):
         df = diff_filter.lower()
         assert all(f in self._valid_diff_filter for f in df)
@@ -275,6 +283,24 @@ class HgRepository(Repository):
             self._run("showconfig", f"extensions.{extension}")
         except subprocess.CalledProcessError:
             raise MissingVCSExtension(extension)
+
+    def push(
+        self,
+        remote: Optional[str] = None,
+        ref: Optional[str] = None,
+        force: bool = False,
+    ):
+        if ref and not remote:
+            raise ValueError("Cannot specify ref without specifying remote")
+
+        args = ["push"]
+        if force:
+            args.append("--force")
+        if remote:
+            args.append(remote)
+        if ref:
+            args.extend(["-r", ref])
+        self._run(*args)
 
     def push_to_try(
         self,

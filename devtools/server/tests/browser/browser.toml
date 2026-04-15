@@ -76,6 +76,7 @@ support-files = [
 ["browser_accessibility_walker.js"]
 skip-if = [
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && opt", # Bug 1959257
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && opt", # Bug 1959257
 ]
 
 ["browser_accessibility_walker_audit.js"]
@@ -132,6 +133,7 @@ skip-if = [
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11'", # Bug 1183605
   "os == 'mac' && os_version == '14.70' && arch == 'x86_64'", # Bug 1183605
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64'", # Bug 1183605
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64'", # Bug 1183605
 ]
 
 ["browser_canvasframe_helper_05.js"]
@@ -175,6 +177,8 @@ tags = "devtools-compat-data"
 
 ["browser_inspector-utils.js"]
 
+["browser_layout_getFlexbox.js"]
+
 ["browser_layout_getGrids.js"]
 
 ["browser_layout_simple.js"]
@@ -201,6 +205,7 @@ skip-if = [
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && debug && http3", # Bug 1715916 - test is having race conditions on slow hardware
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && tsan", # high frequency intermittent
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && asan", # Bug 1767758
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && asan", # Bug 1767758
 ]
 
 ["browser_storage_listings.js"]

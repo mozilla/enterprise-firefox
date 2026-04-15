@@ -263,7 +263,7 @@ class AppLinksUseCasesTest {
         val context = createContext(Triple(browserSchemeUrl, browserPackage, ""))
         val browsers: Browsers = mock()
         whenever(browsers.isInstalled(browserPackage)).thenReturn(true)
-        val subject = AppLinksUseCases(context = context, launchInApp = { true }, installedBrowsers = browsers)
+        val subject = AppLinksUseCases(context = context, launchInApp = { true }, installedBrowsers = { browsers })
 
         val redirect = subject.interceptedAppLinkRedirect(browserSchemeUrl)
         assertTrue(redirect.isRedirect())
@@ -277,7 +277,7 @@ class AppLinksUseCasesTest {
         val context = createContext(Triple(appUrl, browserPackage, ""))
         val browsers: Browsers = mock()
         whenever(browsers.isInstalled(browserPackage)).thenReturn(true)
-        val subject = AppLinksUseCases(context = context, launchInApp = { true }, installedBrowsers = browsers)
+        val subject = AppLinksUseCases(context = context, launchInApp = { true }, installedBrowsers = { browsers })
 
         val redirect = subject.interceptedAppLinkRedirect(appUrl)
         assertFalse(redirect.isRedirect())

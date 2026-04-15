@@ -52,7 +52,7 @@ newtab-search-box-input =
     .placeholder = Sykje op it web
     .aria-label = Sykje op it web
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Sykmasine tafoegje
 newtab-topsites-add-shortcut-header = Nije fluchkeppeling
@@ -72,6 +72,11 @@ newtab-topsites-url-validation = Jildige URL fereaske
 newtab-topsites-image-url-label = URL fan oanpaste ôfbylding
 newtab-topsites-use-image-link = In oanpaste ôfbylding brûke…
 newtab-topsites-image-validation = Ofbylding koe net laden wurde. Probearje in oare URL.
+
+## Clear text button for the URL and image URL input fields in the Top Sites form.
+
+newtab-topsites-clear-input =
+    .aria-label = Tekst wiskje
 
 ## Top Sites - General form dialog buttons. These are verbs/actions.
 
@@ -632,6 +637,8 @@ newtab-report-cancel = Annulearje
 newtab-report-submit = Yntsjinje
 newtab-toast-thanks-for-reporting =
     .message = Tank foar it melden.
+newtab-toast-widgets-hidden =
+    .message = Selektearje it potleadpiktogram om op elk momint widgets wer ta te foegjen.
 
 ## Strings for task / to-do list productivity widget
 
@@ -672,6 +679,7 @@ newtab-widget-lists-name-placeholder-default =
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Nije list
 newtab-widget-section-title = Widgets
+newtab-widget-menu-hide = Widget ferstopje
 # Tooltip for hide all widgets button
 newtab-widget-section-hide-all-button =
     .title = Widgets ferstopje
@@ -682,6 +690,7 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Widgets minimalisearje
     .aria-label = Alle widgets ynklappe oant kompakte ôfmjitting
+newtab-widget-section-feedback = Fertel ús wat jo tinke
 
 ## Strings for timer productivity widget
 ## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown
@@ -728,5 +737,16 @@ newtab-promo-card-dismiss-button =
 newtab-activation-window-message-dismiss-button =
     .title = Slute
     .aria-label = Slute
+# "This space" refers to about:newtab. The call to action here ("make it your own")
+# is to customize newtab with a background image or colour, or by tweaking the
+# existing widgetry that appears on it.
+newtab-activation-window-message-customization-focus-header = Dizze romte oan jo winsken oanpasse
+newtab-activation-window-message-customization-focus-message = Kies in nije eftergrûn, foegje fluchkeppelingen nei jo favorite websites ta en bliuw op de hichte fan ferhalen dy’t jo ynteressearje.
 newtab-activation-window-message-customization-focus-primary-button =
     .label = Begjinne mei oanpassen
+# "This space" refers to about:newtab. The sentiment of "plays by your rules" is
+# meant to evoke the idea that newtab is malleable and customizable. The call to
+# action is to customize newtab with a background image or colour, or by tweaking
+# the existing widgetry that appears on it.
+newtab-activation-window-message-values-focus-header = Dizze romte spilet neffens jo regels
+newtab-activation-window-message-values-focus-message = Mei { -brand-product-name } kinne jo sneupe lykas jo dat wolle, mei in mear persoanlike manier om jo dei online te begjinnen. Meitsje { -brand-product-name } jo eigen.

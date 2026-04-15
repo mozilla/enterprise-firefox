@@ -198,6 +198,7 @@ Zone::~Zone() {
 
   MOZ_ASSERT(gcSystemWeakMaps().isEmpty());
   MOZ_ASSERT(gcUserWeakMaps().isEmpty());
+  MOZ_ASSERT(gcMarkedUserWeakMaps().isEmpty());
   MOZ_ASSERT(objectsWithWeakPointers.ref().empty());
 
   JSRuntime* rt = runtimeFromAnyThread();
@@ -590,9 +591,9 @@ void Zone::addSizeOfIncludingThis(
   if (scriptCountsMap) {
     *scriptCountsMapArg +=
         scriptCountsMap->shallowSizeOfIncludingThis(mallocSizeOf);
-    for (auto r = scriptCountsMap->all(); !r.empty(); r.popFront()) {
+    for (auto iter = scriptCountsMap->iter(); !iter.done(); iter.next()) {
       *scriptCountsMapArg +=
-          r.front().value()->sizeOfIncludingThis(mallocSizeOf);
+          iter.get().value()->sizeOfIncludingThis(mallocSizeOf);
     }
   }
 }
@@ -748,9 +749,8 @@ void Zone::traceScriptTableRoots(JSTracer* trc) {
   // cleared in JSRuntime::destroyRuntime() during shutdown to ensure that
   // scripts are collected before the runtime goes away completely.
   if (scriptCountsMap && trc->runtime()->profilingScripts) {
-    for (ScriptCountsMap::Range r = scriptCountsMap->all(); !r.empty();
-         r.popFront()) {
-      BaseScript* script = r.front().key();
+    for (auto iter = scriptCountsMap->iter(); !iter.done(); iter.next()) {
+      BaseScript* script = iter.get().key();
       MOZ_ASSERT(script->hasScriptCounts());
       TraceRoot(trc, &script, "profilingScripts");
     }

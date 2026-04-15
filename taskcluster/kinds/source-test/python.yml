@@ -417,6 +417,22 @@ mozbuild:
             - 'testing/mozbase/**'
             - 'testing/xpcshell/xpcshellcommandline.py'
 
+coverage:
+    description: code coverage unit tests
+    treeherder:
+        symbol: cov
+        tier: 2
+    run:
+        using: python-test
+        subsuite: coverage
+    fetches:
+        toolchain:
+            - linux64-grcov
+    when:
+        files-changed:
+            - 'python/mach/mach/command_util.py'
+            - 'tools/code-coverage/**'
+
 mozperftest:
     description: mozperftest unit tests
     platform:

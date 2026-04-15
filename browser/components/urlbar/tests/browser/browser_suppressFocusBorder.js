@@ -317,7 +317,7 @@ async function testInteractionFeature(interaction, win) {
   );
 
   info("Click on search-handoff-button in newtab page");
-  await ContentTask.spawn(win.gBrowser.selectedBrowser, null, async () => {
+  await SpecialPowers.spawn(win.gBrowser.selectedBrowser, [], async () => {
     await ContentTaskUtils.waitForCondition(() => {
       return content.document.querySelector("content-search-handoff-ui");
     }, "Handoff UI has loaded");

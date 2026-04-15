@@ -35,6 +35,7 @@ use style_traits::{
     CssString, CssWriter, NumericValue, ParseError, ParsingMode, SpecifiedValueInfo,
     StyleParseErrorKind, ToCss, ToTyped, TypedValue, UnitValue,
 };
+use thin_vec::ThinVec;
 
 pub use super::image::Image;
 pub use super::image::{EndingShape as GradientEndingShape, Gradient};
@@ -1411,13 +1412,14 @@ impl ToCss for NoCalcLength {
 }
 
 impl ToTyped for NoCalcLength {
-    fn to_typed(&self) -> Option<TypedValue> {
+    fn to_typed(&self, dest: &mut ThinVec<TypedValue>) -> Result<(), ()> {
         let value = self.unitless_value();
         let unit = CssString::from(self.unit());
-        Some(TypedValue::Numeric(NumericValue::Unit(UnitValue {
+        dest.push(TypedValue::Numeric(NumericValue::Unit(UnitValue {
             value,
             unit,
-        })))
+        })));
+        Ok(())
     }
 }
 
@@ -2036,6 +2038,22 @@ impl ZeroNoPercent for LengthPercentage {
         match *self {
             LengthPercentage::Percentage(_) => false,
             _ => self.is_zero(),
+        }
+    }
+}
+
+/// Check if this equal to a specific percentage.
+pub trait EqualsPercentage {
+    /// Returns true if this is a specific percentage value. This should exclude calc() even if it
+    /// only contains percentage component.
+    fn equals_percentage(&self, v: CSSFloat) -> bool;
+}
+
+impl EqualsPercentage for LengthPercentage {
+    fn equals_percentage(&self, v: CSSFloat) -> bool {
+        match *self {
+            LengthPercentage::Percentage(p) => p.0 == v,
+            _ => false,
         }
     }
 }

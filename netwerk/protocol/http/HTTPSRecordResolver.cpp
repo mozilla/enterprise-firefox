@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -99,7 +98,7 @@ NS_IMETHODIMP HTTPSRecordResolver::OnLookupComplete(nsICancelable* aRequest,
       return InvokeCallback();
     }
 
-    mHTTPSRecord = record;
+    mHTTPSRecord = std::move(record);
 
     // Waiting for the address record.
     if (mCnameRequest) {
@@ -125,7 +124,7 @@ NS_IMETHODIMP HTTPSRecordResolver::OnLookupComplete(nsICancelable* aRequest,
       return InvokeCallback();
     }
 
-    mAddrRecord = addrRecord;
+    mAddrRecord = std::move(addrRecord);
     // Waiting for the HTTPS record.
     if (mHTTPSRecordRequest) {
       return NS_OK;

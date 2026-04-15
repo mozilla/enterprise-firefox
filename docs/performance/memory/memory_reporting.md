@@ -235,4 +235,4 @@ DMD is a tool that detects two deficiencies with memory reporters.
 
 DMD is absolutely crucial; these things cannot be done without it. That's why the integration of DMD and memory reporters is so important and thus mentioned multiple times above.
 
-See [the instructions](/en-US/docs/Mozilla/Performance/DMD) on how to run DMD.
+See [the instructions](dmd.md) on how to run DMD.

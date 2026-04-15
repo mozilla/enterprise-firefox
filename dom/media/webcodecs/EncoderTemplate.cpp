@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -556,13 +554,11 @@ void EncoderTemplate<EncoderType>::CancelPendingControlMessagesAndFlushPromises(
   }
 
   // If there are pending flush promises, reject them.
-  mPendingFlushPromises.ForEach(
-      [&](const int64_t& id, const RefPtr<Promise>& p) {
-        LOG("%s %p, reject the promise for flush %" PRId64,
-            EncoderType::Name.get(), this, id);
-        p->MaybeReject(aResult);
-      });
-  mPendingFlushPromises.Clear();
+  mPendingFlushPromises.Clear([&](const int64_t& id, const RefPtr<Promise>& p) {
+    LOG("%s %p, reject the promise for flush %" PRId64, EncoderType::Name.get(),
+        this, id);
+    p->MaybeReject(aResult);
+  });
 }
 
 template <typename EncoderType>

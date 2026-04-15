@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -2017,9 +2015,13 @@ const TypedEventHandler* EventListenerManager::GetTypedEventHandler(
   }
 
   JSEventHandler* jsEventHandler = listener->GetJSEventHandler();
-
+  Maybe<RefPtr<JSEventHandler>> pin;
   if (listener->mHandlerIsString) {
-    CompileEventHandlerInternal(listener, aEventName, nullptr, nullptr);
+    pin.emplace(jsEventHandler);
+    if (NS_FAILED(CompileEventHandlerInternal(listener, aEventName, nullptr,
+                                              nullptr))) {
+      listener = nullptr;
+    }
   }
 
   const TypedEventHandler& typedHandler =

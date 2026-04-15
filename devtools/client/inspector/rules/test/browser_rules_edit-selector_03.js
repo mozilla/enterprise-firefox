@@ -25,7 +25,7 @@ add_task(async function () {
 async function testEditSelector(view, name) {
   info("Test editing existing selector fields");
 
-  const ruleEditor = getRuleViewRuleEditor(view, 1);
+  const ruleEditor = getRuleViewRuleEditorAt(view, 1);
 
   info("Focusing an existing selector name in the rule-view");
   const editor = await focusEditableField(view, ruleEditor.selectorText);
@@ -42,7 +42,7 @@ async function testEditSelector(view, name) {
   EventUtils.synthesizeKey("KEY_Enter");
   await onRuleViewChanged;
 
-  is(view.elementStyle.rules.length, 2, "Should have 2 rules.");
+  assertDisplayedRulesCount(view, 2);
   is(
     getRuleViewRule(view, name),
     undefined,

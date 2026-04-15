@@ -40,7 +40,7 @@ async function testExpectFullScreenExit(
 }
 
 function jsWindowFocus(browser, iframeId) {
-  return ContentTask.spawn(browser, { iframeId }, async args => {
+  return SpecialPowers.spawn(browser, [{ iframeId }], async args => {
     let destWin = content;
     if (args.iframeId) {
       let iframe = content.document.getElementById(args.iframeId);
@@ -54,7 +54,7 @@ function jsWindowFocus(browser, iframeId) {
 }
 
 function jsElementFocus(browser, iframeId) {
-  return ContentTask.spawn(browser, { iframeId }, async args => {
+  return SpecialPowers.spawn(browser, [{ iframeId }], async args => {
     let destWin = content;
     if (args.iframeId) {
       let iframe = content.document.getElementById(args.iframeId);
@@ -72,20 +72,25 @@ async function jsWindowOpen(browser, isPopup, iframeId) {
   let windowOpened = isPopup
     ? BrowserTestUtils.waitForNewWindow({ url: TEST_URL })
     : BrowserTestUtils.waitForNewTab(gBrowser, TEST_URL, true);
-  ContentTask.spawn(browser, { isPopup, iframeId }, async args => {
-    let destWin = content;
-    if (args.iframeId) {
-      // Create a cross origin iframe
-      destWin = (
-        await content.wrappedJSObject.createIframe(args.iframeId, true)
-      ).contentWindow;
+  SpecialPowers.spawn(
+    browser,
+
+    [{ isPopup, iframeId }],
+    async args => {
+      let destWin = content;
+      if (args.iframeId) {
+        // Create a cross origin iframe
+        destWin = (
+          await content.wrappedJSObject.createIframe(args.iframeId, true)
+        ).contentWindow;
+      }
+      // Send message to either the iframe or the current page to open a popup
+      await content.wrappedJSObject.sendMessage(
+        destWin,
+        args.isPopup ? "openpopup" : "open"
+      );
     }
-    // Send message to either the iframe or the current page to open a popup
-    await content.wrappedJSObject.sendMessage(
-      destWin,
-      args.isPopup ? "openpopup" : "open"
-    );
-  });
+  );
   return windowOpened;
 }
 
@@ -94,17 +99,22 @@ async function jsClickLink(browser, isPopup, iframeId) {
   let windowOpened = isPopup
     ? BrowserTestUtils.waitForNewWindow({ url: TEST_URL })
     : BrowserTestUtils.waitForNewTab(gBrowser, TEST_URL, true);
-  ContentTask.spawn(browser, { isPopup, iframeId }, async args => {
-    let destWin = content;
-    if (args.iframeId) {
-      // Create a cross origin iframe
-      destWin = (
-        await content.wrappedJSObject.createIframe(args.iframeId, true)
-      ).contentWindow;
+  SpecialPowers.spawn(
+    browser,
+
+    [{ isPopup, iframeId }],
+    async args => {
+      let destWin = content;
+      if (args.iframeId) {
+        // Create a cross origin iframe
+        destWin = (
+          await content.wrappedJSObject.createIframe(args.iframeId, true)
+        ).contentWindow;
+      }
+      // Send message to either the iframe or the current page to click a link
+      await content.wrappedJSObject.sendMessage(destWin, "clicklink");
     }
-    // Send message to either the iframe or the current page to click a link
-    await content.wrappedJSObject.sendMessage(destWin, "clicklink");
-  });
+  );
   return windowOpened;
 }
 

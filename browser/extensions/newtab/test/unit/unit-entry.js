@@ -28,7 +28,6 @@ console.error = function (msg, ...args) {
 };
 
 const req = require.context(".", true, /\.test\.jsx?$/);
-const files = req.keys();
 
 // This exposes sinon assertions to chai.assert
 sinon.assert.expose(assert, { prefix: "" });
@@ -550,6 +549,7 @@ const TEST_GLOBAL = {
   FX_MONITOR_OAUTH_CLIENT_ID: "fake_client_id",
   ExperimentAPI: {},
   NimbusFeatures: FakeNimbusFeatures([
+    "adsBackend",
     "glean",
     "newtab",
     "newtabTrainhop",
@@ -749,5 +749,5 @@ overrider.set(TEST_GLOBAL);
 
 describe("activity-stream", () => {
   after(() => overrider.restore());
-  files.forEach(file => req(file));
+  req.keys().forEach(file => req(file));
 });

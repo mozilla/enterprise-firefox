@@ -1,6 +1,4 @@
-/* vim: se cin sw=2 ts=2 et : */
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
- *
+/*
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1251,7 +1249,7 @@ GfxInfoBase::LogFailure(const nsACString& failure) {
 
   // By default, gfxCriticalError asserts; make it not assert in this case.
   gfxCriticalError(CriticalLog::DefaultOptions(false))
-      << "(LF) " << failure.BeginReading();
+      << "(LF) " << PromiseFlatCString(failure).get();
 }
 
 NS_IMETHODIMP GfxInfoBase::GetFailures(nsTArray<int32_t>& indices,
@@ -1332,6 +1330,8 @@ const nsCString& GfxInfoBase::GetApplicationVersion() {
     case nsIGfxInfo::FEATURE_GPU_PROCESS:
     // We can mostly assume that ANGLE will work
     case nsIGfxInfo::FEATURE_DIRECT3D_11_ANGLE:
+    // WebGL was historically allowed on unknown configurations.
+    case nsIGfxInfo::FEATURE_WEBGL:
     // Remote WebGL is needed for Win32k Lockdown, so it should be enabled
     // regardless of HW support or not
     case nsIGfxInfo::FEATURE_ALLOW_WEBGL_OUT_OF_PROCESS:

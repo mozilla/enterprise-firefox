@@ -570,6 +570,8 @@
             gBrowser.addToMultiSelectedTabs(this);
             gBrowser.lastMultiSelectedTab = this;
           }
+        } else if (event.altKey) {
+          eventMaySelectTab = false;
         } else if (!this.selected && this.multiselected) {
           gBrowser.lockClearMultiSelectionOnce();
         }
@@ -594,6 +596,27 @@
 
     on_click(event) {
       if (event.button != 0) {
+        return;
+      }
+
+      if (event.altKey) {
+        if (
+          !event.target.classList.contains("tab-close-button") &&
+          !event.target.classList.contains("tab-icon-overlay") &&
+          !event.target.classList.contains("tab-audio-button") &&
+          !this.selected &&
+          !gBrowser.selectedTab.hidden &&
+          Services.prefs.getBoolPref("browser.tabs.splitView.enabled", false) &&
+          !this.splitview &&
+          !gBrowser.selectedTab.splitview &&
+          !this.pinned &&
+          !gBrowser.selectedTab.pinned
+        ) {
+          gBrowser.addTabSplitView([gBrowser.selectedTab, this], {
+            insertBefore: gBrowser.selectedTab,
+            trigger: "alt_click",
+          });
+        }
         return;
       }
 

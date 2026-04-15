@@ -678,13 +678,13 @@ var FullPageTranslationsPanel = new (class {
       if (language) {
         document.l10n.setAttributes(
           unsupportedHint,
-          "translations-panel-error-unsupported-hint-known",
+          "translations-panel-error-unsupported-hint-known-2",
           { language }
         );
       } else {
         document.l10n.setAttributes(
           unsupportedHint,
-          "translations-panel-error-unsupported-hint-unknown"
+          "translations-panel-error-unsupported-hint-unknown-2"
         );
       }
     }
@@ -1424,8 +1424,7 @@ var FullPageTranslationsPanel = new (class {
       return;
     }
 
-    if (browser.currentURI.spec.startsWith("about:reader")) {
-      // Hide the translations button when entering reader mode.
+    if (TranslationsParent.isFullPageTranslationsRestrictedForPage(gBrowser)) {
       this.buttonElements.button.hidden = true;
     } else if (!TranslationsParent.AIFeature.isEnabled) {
       // When the Translations feature is disabled, no actor instance is created, therefore no

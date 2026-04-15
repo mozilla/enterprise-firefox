@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -4091,7 +4089,8 @@ void MarkBitfieldByStrings(Span<const nsCString> strList, bool dumpStrings,
     const nsACString& str = *itr;
     const bool wasMarked = MarkBitfieldByString(str, markStrList, out_markList);
     if (dumpStrings)
-      printf_stderr("  %s%s\n", str.BeginReading(), wasMarked ? "(*)" : "");
+      printf_stderr("  %s%s\n", PromiseFlatCString(str).get(),
+                    wasMarked ? "(*)" : "");
   }
 }
 

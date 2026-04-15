@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=4 sw=2 sts=2 et cin: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -390,7 +388,7 @@ void nsHttpConnection::StartSpdy(nsITLSSocketControl* sslControl,
         ResetTransaction(std::move(mTransaction), true);
         mTransaction = nullptr;
       } else {
-        for (auto trans : list) {
+        for (const auto& trans : list) {
           if (!mSpdySession->Connection()) {
             mSpdySession->SetConnection(trans->Connection());
           }
@@ -635,7 +633,8 @@ nsresult nsHttpConnection::Activate(nsAHttpTransaction* trans, uint32_t caps,
   rv = OnOutputStreamReady(mSocketOut);
 
   if (NS_SUCCEEDED(rv) && mContinueHandshakeDone) {
-    mContinueHandshakeDone();
+    auto continuation = std::move(mContinueHandshakeDone);
+    continuation();
   }
   mContinueHandshakeDone = nullptr;
 
@@ -855,6 +854,33 @@ bool nsHttpConnection::JoinConnection(const nsACString& hostname,
 }
 
 bool nsHttpConnection::CanReuse() {
+  if (!CanReuseLikely()) {
+    return false;
+  }
+
+  if (!IsAlive()) {
+    return false;
+  }
+
+  // An idle persistent connection should not have data waiting to be read
+  // before a request is sent. Data here is likely a 408 timeout response
+  // which we would deal with later on through the restart logic, but that
+  // path is more expensive than just closing the socket now.
+
+  uint64_t dataSize;
+  if (mSocketIn && (mUsingSpdyVersion == SpdyVersion::NONE) &&
+      mHttp1xTransactionCount &&
+      NS_SUCCEEDED(mSocketIn->Available(&dataSize)) && dataSize) {
+    LOG(
+        ("nsHttpConnection::CanReuse %p %s"
+         "Socket not reusable because read data pending (%" PRIu64 ") on it.\n",
+         this, mConnInfo->Origin(), dataSize));
+    return false;
+  }
+  return true;
+}
+
+bool nsHttpConnection::CanReuseLikely() {
   if (mDontReuse || !mRemainingConnectionUses) {
     return false;
   }
@@ -871,24 +897,7 @@ bool nsHttpConnection::CanReuse() {
     canReuse = IsKeepAlive();
   }
 
-  canReuse = canReuse && (IdleTime() < mIdleTimeout) && IsAlive();
-
-  // An idle persistent connection should not have data waiting to be read
-  // before a request is sent. Data here is likely a 408 timeout response
-  // which we would deal with later on through the restart logic, but that
-  // path is more expensive than just closing the socket now.
-
-  uint64_t dataSize;
-  if (canReuse && mSocketIn && (mUsingSpdyVersion == SpdyVersion::NONE) &&
-      mHttp1xTransactionCount &&
-      NS_SUCCEEDED(mSocketIn->Available(&dataSize)) && dataSize) {
-    LOG(
-        ("nsHttpConnection::CanReuse %p %s"
-         "Socket not reusable because read data pending (%" PRIu64 ") on it.\n",
-         this, mConnInfo->Origin(), dataSize));
-    canReuse = false;
-  }
-  return canReuse;
+  return canReuse && (IdleTime() < mIdleTimeout);
 }
 
 bool nsHttpConnection::CanDirectlyActivate() {
@@ -2050,7 +2059,7 @@ nsresult nsHttpConnection::MakeConnectString(nsAHttpTransaction* trans,
   if (LOG1_ENABLED()) {
     LOG(("nsHttpConnection::MakeConnectString for transaction=%p h2ws=%d[",
          trans->QueryHttpTransaction(), h2ws));
-    LogHeaders(result.BeginReading());
+    LogHeaders(PromiseFlatCString(result).get());
     LOG(("]"));
   }
 

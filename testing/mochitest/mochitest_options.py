@@ -1104,14 +1104,6 @@ class MochitestArguments(ArgumentContainer):
                     "chrome manifest." % options.store_chrome_manifest
                 )
 
-        if options.jscov_dir_prefix:
-            options.jscov_dir_prefix = os.path.abspath(options.jscov_dir_prefix)
-            if not os.path.isdir(options.jscov_dir_prefix):
-                parser.error(
-                    "directory %s does not exist as a destination for coverage "
-                    "data." % options.jscov_dir_prefix
-                )
-
         if options.testingModulesDir is None:
             # Try to guess the testing modules directory.
             possible = [os.path.join(here, os.path.pardir, "modules")]

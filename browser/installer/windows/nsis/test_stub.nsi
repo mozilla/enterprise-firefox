@@ -107,8 +107,27 @@ Var TestFailureCount
 ; Redefine ElevateUAC as a no-op in this test exectuable
 !define /redef ElevateUAC ``
 
+Var MockParameters
+!macro MockGetParameters parameters
+  StrCpy ${parameters} $MockParameters
+!macroend
+!define /redef GetParameters "!insertmacro MockGetParameters"
+
+Var MockLocalAppDataFolder
+!macro MockGetLocalAppDataFolder dir
+  StrCpy ${dir} $MockLocalAppDataFolder
+!macroend
+!define GetLocalAppDataFolder "!insertmacro MockGetLocalAppDataFolder"
+
 !include stub.nsh
 !include get_installation_type.nsh
+!include install_dir_helpers.nsh
+
+Var MockCommandLine
+!macro MockGetRawCommandLine Result
+  StrCpy $${Result} $MockCommandLine
+!macroend
+!define /redef GetRawCommandLine "!insertmacro MockGetRawCommandLine"
 
 ; .onInit is responsible for running the tests
 Function .onInit
@@ -143,6 +162,24 @@ Function .onInit
     ${UnitTest} TestGetInstallationTypeStub_UTF16
     ${UnitTest} TestGetInstallationTypeFull_UTF16
     ${UnitTest} TestGetInstallationTypeOther_UTF16
+
+    ${UnitTest} TestGetHadOldInstallFailure
+    ${UnitTest} TestGetHadOldInstallSuccess
+
+    ${UnitTest} TestGetHadExistingProfileFailure
+    ${UnitTest} TestGetHadExistingProfileSuccess
+
+    ${UnitTest} TestIsInstallerLaunchedByDesktopLauncherNoParameter
+    ${UnitTest} TestIsInstallerLaunchedByDesktopLauncherUnknownParameter
+    ${UnitTest} TestIsInstallerLaunchedByDesktopLauncherSuccess
+    ${UnitTest} TestSetDlsourceFieldInPostSigningData
+    ${UnitTest} TestUpdateInstalledPostSigningDataFileFailure
+    ${UnitTest} TestUpdateInstalledPostSigningDataFileSuccess
+
+    ${UnitTest} TestUseExistingInstallPathIfNoInstallDirArg
+    ${UnitTest} TestUseExistingInstallPathIfNoInstallDirArgWithPathArg
+    ${UnitTest} TestUseExistingInstallPathIfNoInstallDirArgWithNameArg
+    ${UnitTest} TestUseExistingInstallPathIfNoInstallDirArgWithDArg
 
     ${If} $TestFailureCount = 0
         ; On success, write the success metric and jump to the end
@@ -555,6 +592,143 @@ FunctionEnd
 !macroend
 !insertmacro GetInstallationTypeTests FileWrite ACP
 !insertmacro GetInstallationTypeTests FileWriteUTF16LE UTF16
+
+Function TestGetHadOldInstallFailure
+  StrCpy $PreviousInstallDir ""
+  Call GetHadOldInstall
+  Pop $0
+  ${AssertEqual} 0 "0"
+FunctionEnd
+
+Function TestGetHadOldInstallSuccess
+  StrCpy $PreviousInstallDir "foo"
+  Call GetHadOldInstall
+  Pop $0
+  ${AssertEqual} 0 "1"
+FunctionEnd
+
+Function TestGetHadExistingProfileFailure
+  GetTempFileName $0
+  Delete $0
+  CreateDirectory $0
+  StrCpy $MockLocalAppDataFolder $0
+
+  Call GetHadExistingProfile
+  Pop $0
+  ${AssertEqual} 0 "0"
+
+  RMDir $MockLocalAppDataFolder
+FunctionEnd
+
+Function TestGetHadExistingProfileSuccess
+  GetTempFileName $0
+  Delete $0
+  CreateDirectory "$0\Mozilla\Firefox"
+  StrCpy $MockLocalAppDataFolder $0
+
+  Call GetHadExistingProfile
+  Pop $0
+  ${AssertEqual} 0 "1"
+
+  RMDir /r $MockLocalAppDataFolder
+FunctionEnd
+
+Function TestIsInstallerLaunchedByDesktopLauncherNoParameter
+  StrCpy $MockParameters ""
+  Call IsInstallerLaunchedByDesktopLauncher
+  Pop $0
+  ${AssertEqual} 0 "0"
+FunctionEnd
+
+Function TestIsInstallerLaunchedByDesktopLauncherUnknownParameter
+  StrCpy $MockParameters "/LaunchedBy:unknown"
+  Call IsInstallerLaunchedByDesktopLauncher
+  Pop $0
+  ${AssertEqual} 0 "0"
+FunctionEnd
+
+Function TestIsInstallerLaunchedByDesktopLauncherSuccess
+  StrCpy $MockParameters "/LaunchedBy:desktoplauncher"
+  Call IsInstallerLaunchedByDesktopLauncher
+  Pop $0
+  ${AssertEqual} 0 "1"
+FunctionEnd
+
+Function TestSetDlsourceFieldInPostSigningData
+  StrCpy $PostSigningData "source%3Dfoo%26dlsource%3Dmozillaci%26campaign%3Dbar"
+  Push "desktoplauncher"
+  Call SetDlsourceFieldInPostSigningData
+  ${AssertEqual} PostSigningData "dlsource%3Ddesktoplauncher"
+FunctionEnd
+
+Function TestUpdateInstalledPostSigningDataFileFailure
+  ; Save the original $INSTDIR to restore it later, so the real dir is untouched
+  Push $INSTDIR
+  GetTempFileName $INSTDIR
+
+  ; $INSTDIR is a file, so opening "$INSTDIR\postSigningData" will fail
+  StrCpy $PostSigningData "dlsource%3Ddesktoplauncher"
+  Call UpdateInstalledPostSigningDataFile
+
+  ${AssertEqual} PostSigningData "error:filewrite"
+
+  ; Clean up the temporary file and restore $INSTDIR
+  Delete $INSTDIR
+  Pop $INSTDIR
+FunctionEnd
+
+Function TestUpdateInstalledPostSigningDataFileSuccess
+  ; Save the original $INSTDIR to restore it later
+  Push $INSTDIR
+  GetTempFileName $INSTDIR
+  Delete $INSTDIR
+  CreateDirectory $INSTDIR
+
+  StrCpy $0 "dlsource%3Ddesktoplauncher"
+  StrCpy $PostSigningData $0
+  Call UpdateInstalledPostSigningDataFile
+
+  ${AssertEqual} PostSigningData "$0"
+
+  ClearErrors
+  FileOpen $1 "$INSTDIR\postSigningData" r
+  FileRead $1 $2
+  FileClose $1
+  ${AssertEqual} 2 "$0"
+
+  ; Clean up the temporary directory and restore $INSTDIR
+  Delete "$INSTDIR\postSigningData"
+  RMDir $INSTDIR
+  Pop $INSTDIR
+FunctionEnd
+
+Function TestUseExistingInstallPathIfNoInstallDirArg
+  StrCpy $MockParameters ""
+  StrCpy $INSTDIR "C:\Default"
+  ${UseExistingInstallPathIfNoInstallDirArg} "C:\Existing"
+  ${AssertEqual} INSTDIR "C:\Existing"
+FunctionEnd
+
+Function TestUseExistingInstallPathIfNoInstallDirArgWithPathArg
+  StrCpy $MockParameters "/InstallDirectoryPath=C:\Test"
+  StrCpy $INSTDIR "C:\Default"
+  ${UseExistingInstallPathIfNoInstallDirArg} "C:\Existing"
+  ${AssertEqual} INSTDIR "C:\Default"
+FunctionEnd
+
+Function TestUseExistingInstallPathIfNoInstallDirArgWithNameArg
+  StrCpy $MockParameters "/InstallDirectoryName=Test"
+  StrCpy $INSTDIR "C:\Default"
+  ${UseExistingInstallPathIfNoInstallDirArg} "C:\Existing"
+  ${AssertEqual} INSTDIR "C:\Default"
+FunctionEnd
+
+Function TestUseExistingInstallPathIfNoInstallDirArgWithDArg
+  StrCpy $MockCommandLine "setup.exe /D=C:\Test"
+  StrCpy $INSTDIR "C:\Default"
+  ${UseExistingInstallPathIfNoInstallDirArg} "C:\Existing"
+  ${AssertEqual} INSTDIR "C:\Default"
+FunctionEnd
 
 Section
 SectionEnd

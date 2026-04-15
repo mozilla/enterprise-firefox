@@ -12,7 +12,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -22,6 +21,7 @@
 #include <vector>
 
 #include "absl/algorithm/container.h"
+#include "absl/functional/any_invocable.h"
 #include "absl/strings/string_view.h"
 #include "api/array_view.h"
 #include "api/audio_codecs/audio_codec_pair_id.h"
@@ -137,7 +137,7 @@ RtpTransceiver::RtpTransceiver(
     ConnectionContext* context,
     CodecLookupHelper* codec_lookup_helper,
     std::vector<RtpHeaderExtensionCapability> header_extensions_to_negotiate,
-    std::function<void()> on_negotiation_needed)
+    absl::AnyInvocable<void()> on_negotiation_needed)
     : env_(env),
       thread_(GetCurrentTaskQueueOrThread()),
       unified_plan_(true),
@@ -210,7 +210,8 @@ RTCError RtpTransceiver::CreateChannel(
     const AudioOptions& audio_options,
     const VideoOptions& video_options,
     VideoBitrateAllocatorFactory* video_bitrate_allocator_factory,
-    std::function<RtpTransportInternal*(absl::string_view)> transport_lookup) {
+    absl::AnyInvocable<RtpTransportInternal*(absl::string_view) &&>
+        transport_lookup) {
   RTC_DCHECK_RUN_ON(thread_);
   RTC_DCHECK(!channel());
 
@@ -281,13 +282,14 @@ RTCError RtpTransceiver::CreateChannel(
           context()->ssrc_generator());
     });
   }
-  SetChannel(std::move(new_channel), transport_lookup);
+  SetChannel(std::move(new_channel), std::move(transport_lookup));
   return RTCError::OK();
 }
 
 void RtpTransceiver::SetChannel(
     std::unique_ptr<ChannelInterface> channel,
-    std::function<RtpTransportInternal*(const std::string&)> transport_lookup) {
+    absl::AnyInvocable<RtpTransportInternal*(const std::string&) &&>
+        transport_lookup) {
   RTC_DCHECK_RUN_ON(thread_);
   RTC_DCHECK(channel);
   RTC_DCHECK(transport_lookup);
@@ -312,19 +314,24 @@ void RtpTransceiver::SetChannel(
   // Similarly, if the channel() accessor is limited to the network thread, that
   // helps with keeping the channel implementation requirements being met and
   // avoids synchronization for accessing the pointer or network related state.
-  context()->network_thread()->BlockingCall([&]() {
-    channel_->SetRtpTransport(transport_lookup(channel_->mid()));
-    channel_->SetFirstPacketReceivedCallback(
-        [thread = thread_, flag = signaling_thread_safety_, this]() mutable {
+  context()->network_thread()->BlockingCall(
+      [&, flag = signaling_thread_safety_]() {
+        channel_->SetRtpTransport(std::move(transport_lookup)(channel_->mid()));
+        channel_->SetFirstPacketReceivedCallback([thread = thread_, flag = flag,
+                                                  this]() mutable {
           thread->PostTask(
               SafeTask(std::move(flag), [this]() { OnFirstPacketReceived(); }));
         });
-    channel_->SetFirstPacketSentCallback(
-        [thread = thread_, flag = signaling_thread_safety_, this]() mutable {
+        channel_->SetFirstPacketSentCallback([thread = thread_, flag = flag,
+                                              this]() mutable {
           thread->PostTask(
               SafeTask(std::move(flag), [this]() { OnFirstPacketSent(); }));
         });
-  });
+        channel_->SetPacketReceivedCallback_n([this, flag = flag]() {
+          RTC_DCHECK_RUN_ON(context()->network_thread());
+          OnPacketReceived(flag);
+        });
+      });
   PushNewMediaChannel();
 
   RTC_DCHECK_BLOCK_COUNT_NO_MORE_THAN(2);
@@ -345,6 +352,7 @@ void RtpTransceiver::ClearChannel() {
   context()->network_thread()->BlockingCall([&]() {
     channel_->SetFirstPacketReceivedCallback(nullptr);
     channel_->SetFirstPacketSentCallback(nullptr);
+    channel_->SetPacketReceivedCallback_n(nullptr);
     channel_->SetRtpTransport(nullptr);
   });
 
@@ -494,6 +502,26 @@ void RtpTransceiver::OnFirstPacketReceived() {
   }
 }
 
+// RTC_RUN_ON(context()->network_thread())
+void RtpTransceiver::OnPacketReceived(
+    scoped_refptr<PendingTaskSafetyFlag> safety) {
+  if (!receptive_) {
+    return;
+  }
+  if (packet_notified_after_receptive_) {
+    return;
+  }
+  packet_notified_after_receptive_ = true;
+  thread_->PostTask(SafeTask(safety, [this]() {
+    if (stopping() || stopped()) {
+      return;
+    }
+    for (const auto& receiver : receivers_) {
+      receiver->internal()->NotifyFirstPacketReceivedAfterReceptiveChange();
+    }
+  }));
+}
+
 void RtpTransceiver::OnFirstPacketSent() {
   for (const auto& sender : senders_) {
     sender->internal()->NotifyFirstPacketSent();
@@ -581,6 +609,21 @@ std::optional<RtpTransceiverDirection> RtpTransceiver::fired_direction() const {
   return fired_direction_;
 }
 
+bool RtpTransceiver::receptive() const {
+  return receptive_;
+}
+
+void RtpTransceiver::set_receptive(bool receptive) {
+  RTC_DCHECK_RUN_ON(thread_);
+  bool old_receptive = receptive_.exchange(receptive);
+  if (receptive && !old_receptive) {
+    context()->network_thread()->PostTask([&]() {
+      RTC_DCHECK_RUN_ON(context()->network_thread());
+      packet_notified_after_receptive_ = false;
+    });
+  }
+}
+
 void RtpTransceiver::StopSendingAndReceiving() {
   // 1. Let sender be transceiver.[[Sender]].
   // 2. Let receiver be transceiver.[[Receiver]].
@@ -660,6 +703,7 @@ void RtpTransceiver::StopTransceiverProcedure() {
     sender->internal()->SetTransceiverAsStopped();
 
   // 3. Set transceiver.[[Receptive]] to false.
+  receptive_ = false;
   // 4. Set transceiver.[[CurrentDirection]] to null.
   current_direction_ = std::nullopt;
 }

@@ -196,7 +196,11 @@ CONFIG=$(echo $CONFIG pgo_data_path='"'$PGO_FILE'"')
 
 # Set up then build chrome
 gn gen out/Default --args="$CONFIG"
-autoninja -C out/Default $FINAL_BIN
+if [ "$IS_ANDROID" = false ]; then
+  autoninja -C out/Default code_cache_generator
+fi
+# Ninja is incremental, so add a second retry attempt to pick up where we left off.
+autoninja -C out/Default $FINAL_BIN || autoninja -C out/Default $FINAL_BIN
 
 # Make artifact smaller for win/linux
 if [[ $(uname -s) == "Linux" ]] || [[ $(uname -o) == "Msys" ]]; then

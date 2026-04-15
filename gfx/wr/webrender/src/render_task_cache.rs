@@ -60,6 +60,7 @@ pub enum RenderTaskCacheKeyKind {
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
 pub struct RenderTaskCacheKey {
+    pub origin: DeviceIntPoint,
     pub size: DeviceIntSize,
     pub kind: RenderTaskCacheKeyKind,
 }

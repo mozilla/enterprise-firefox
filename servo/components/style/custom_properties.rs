@@ -6,18 +6,17 @@
 //!
 //! [custom]: https://drafts.csswg.org/css-variables/
 
-use crate::applicable_declarations::CascadePriority;
+use crate::applicable_declarations::{CascadePriority, RevertKind};
 use crate::custom_properties_map::CustomPropertiesMap;
-use crate::derives::*;
+use crate::device::Device;
 use crate::dom::AttributeTracker;
-use crate::media_queries::Device;
 use crate::properties::{
     CSSWideKeyword, CustomDeclaration, CustomDeclarationValue, LonghandId, LonghandIdSet,
     PropertyDeclaration,
 };
 use crate::properties_and_values::{
-    registry::PropertyRegistrationData,
-    syntax::{data_type::DependentDataTypes, Descriptor},
+    rule::Descriptors as PropertyDescriptors,
+    syntax::{data_type::DependentDataTypes, Descriptor as SyntaxDescriptor},
     value::{
         AllowComputationallyDependent, ComputedValue as ComputedRegisteredValue,
         SpecifiedValue as SpecifiedRegisteredValue,
@@ -29,10 +28,13 @@ use crate::stylist::Stylist;
 use crate::values::computed::{self, ToComputedValue};
 use crate::values::generics::calc::SortKey as AttrUnit;
 use crate::values::specified::FontRelativeLength;
+use crate::values::specified::ParsedNamespace;
+use crate::{derives::*, Namespace, Prefix};
 use crate::{Atom, LocalName};
 use cssparser::{
     CowRcStr, Delimiter, Parser, ParserInput, SourcePosition, Token, TokenSerializationType,
 };
+use rustc_hash::FxHashMap;
 use selectors::parser::SelectorParseErrorKind;
 use servo_arc::Arc;
 use smallvec::SmallVec;
@@ -253,10 +255,10 @@ trivial_to_computed_value!(VariableValue);
 /// Given a potentially registered variable value turn it into a computed custom property value.
 pub fn compute_variable_value(
     value: &Arc<VariableValue>,
-    registration: &PropertyRegistrationData,
+    registration: &PropertyDescriptors,
     computed_context: &computed::Context,
 ) -> Option<ComputedRegisteredValue> {
-    if registration.syntax.is_universal() {
+    if registration.is_universal() {
         return Some(ComputedRegisteredValue::universal(Arc::clone(value)));
     }
     compute_value(&value.css, &value.url_data, registration, computed_context).ok()
@@ -309,9 +311,9 @@ impl ComputedCustomProperties {
 
     /// Insert a custom property in the corresponding inherited/non_inherited
     /// map, depending on whether the inherit flag is set or unset.
-    fn insert(
+    pub(crate) fn insert(
         &mut self,
-        registration: &PropertyRegistrationData,
+        registration: &PropertyDescriptors,
         name: &Name,
         value: ComputedRegisteredValue,
     ) {
@@ -320,7 +322,7 @@ impl ComputedCustomProperties {
 
     /// Remove a custom property from the corresponding inherited/non_inherited
     /// map, depending on whether the inherit flag is set or unset.
-    fn remove(&mut self, registration: &PropertyRegistrationData, name: &Name) {
+    pub(crate) fn remove(&mut self, registration: &PropertyDescriptors, name: &Name) {
         self.map_mut(registration).remove(name);
     }
 
@@ -330,7 +332,7 @@ impl ComputedCustomProperties {
         self.non_inherited.shrink_to_fit();
     }
 
-    fn map_mut(&mut self, registration: &PropertyRegistrationData) -> &mut CustomPropertiesMap {
+    fn map_mut(&mut self, registration: &PropertyDescriptors) -> &mut CustomPropertiesMap {
         if registration.inherits() {
             &mut self.inherited
         } else {
@@ -341,7 +343,7 @@ impl ComputedCustomProperties {
     /// Returns the relevant custom property value given a registration.
     pub fn get(
         &self,
-        registration: &PropertyRegistrationData,
+        registration: &PropertyDescriptors,
         name: &Name,
     ) -> Option<&ComputedRegisteredValue> {
         if registration.inherits() {
@@ -477,8 +479,14 @@ enum SubstitutionFunctionKind {
 enum AttributeType {
     None,
     RawString,
-    Type(Descriptor),
+    Type(SyntaxDescriptor),
     Unit(AttrUnit),
+}
+
+#[derive(Clone, Debug, MallocSizeOf, PartialEq, ToShmem)]
+struct AttributeData {
+    kind: AttributeType,
+    namespace: ParsedNamespace,
 }
 
 #[derive(Clone, Debug, MallocSizeOf, PartialEq, ToShmem)]
@@ -497,7 +505,7 @@ struct SubstitutionFunctionReference {
     start: usize,
     end: usize,
     fallback: Option<VariableFallback>,
-    attribute_syntax: AttributeType,
+    attribute_data: AttributeData,
     prev_token_type: TokenSerializationType,
     next_token_type: TokenSerializationType,
     substitution_kind: SubstitutionFunctionKind,
@@ -600,6 +608,7 @@ impl VariableValue {
     /// Parse a custom property value.
     pub fn parse<'i, 't>(
         input: &mut Parser<'i, 't>,
+        namespaces: Option<&FxHashMap<Prefix, Namespace>>,
         url_data: &UrlExtraData,
     ) -> Result<Self, ParseError<'i>> {
         let mut references = References::default();
@@ -608,6 +617,7 @@ impl VariableValue {
         let (first_token_type, last_token_type) = parse_declaration_value(
             input,
             start_position,
+            namespaces,
             &mut references,
             &mut missing_closing_characters,
         )?;
@@ -727,11 +737,18 @@ impl VariableValue {
 fn parse_declaration_value<'i, 't>(
     input: &mut Parser<'i, 't>,
     input_start: SourcePosition,
+    namespaces: Option<&FxHashMap<Prefix, Namespace>>,
     references: &mut References,
     missing_closing_characters: &mut String,
 ) -> Result<(TokenSerializationType, TokenSerializationType), ParseError<'i>> {
     input.parse_until_before(Delimiter::Bang | Delimiter::Semicolon, |input| {
-        parse_declaration_value_block(input, input_start, references, missing_closing_characters)
+        parse_declaration_value_block(
+            input,
+            input_start,
+            namespaces,
+            references,
+            missing_closing_characters,
+        )
     })
 }
 
@@ -739,6 +756,7 @@ fn parse_declaration_value<'i, 't>(
 fn parse_declaration_value_block<'i, 't>(
     input: &mut Parser<'i, 't>,
     input_start: SourcePosition,
+    namespaces: Option<&FxHashMap<Prefix, Namespace>>,
     references: &mut References,
     missing_closing_characters: &mut String,
 ) -> Result<(TokenSerializationType, TokenSerializationType), ParseError<'i>> {
@@ -767,6 +785,7 @@ fn parse_declaration_value_block<'i, 't>(
                     let result = parse_declaration_value_block(
                         input,
                         input_start,
+                        namespaces,
                         references,
                         missing_closing_characters,
                     )?;
@@ -828,6 +847,16 @@ fn parse_declaration_value_block<'i, 't>(
                     let our_ref_index = references.refs.len();
                     let mut input_end_position = None;
                     let fallback = input.parse_nested_block(|input| {
+                        let mut namespace = ParsedNamespace::Known(Namespace::default());
+                        if substitution_kind == SubstitutionFunctionKind::Attr {
+                            if let Some(namespaces) = namespaces {
+                                if let Ok(ns) = input
+                                    .try_parse(|input| ParsedNamespace::parse(namespaces, input))
+                                {
+                                    namespace = ns;
+                                }
+                            }
+                        }
                         // TODO(emilio): For env() this should be <custom-ident> per spec, but no other browser does
                         // that, see https://github.com/w3c/csswg-drafts/issues/3262.
                         let name = input.expect_ident()?;
@@ -846,12 +875,12 @@ fn parse_declaration_value_block<'i, 't>(
                                 name.as_ref()
                             });
 
-                        let attribute_syntax =
-                            if substitution_kind == SubstitutionFunctionKind::Attr {
-                                parse_attr_type(input)
-                            } else {
-                                AttributeType::None
-                            };
+                        let attribute_kind = if substitution_kind == SubstitutionFunctionKind::Attr
+                        {
+                            parse_attr_type(input)
+                        } else {
+                            AttributeType::None
+                        };
 
                         // We want the order of the references to match source order. So we need to reserve our slot
                         // now, _before_ parsing our fallback. Note that we don't care if parsing fails after all, since
@@ -867,7 +896,10 @@ fn parse_declaration_value_block<'i, 't>(
                             next_token_type: TokenSerializationType::Nothing,
                             // To be fixed up after parsing fallback.
                             fallback: None,
-                            attribute_syntax,
+                            attribute_data: AttributeData {
+                                kind: attribute_kind,
+                                namespace,
+                            },
                             substitution_kind: substitution_kind.clone(),
                         });
 
@@ -883,6 +915,7 @@ fn parse_declaration_value_block<'i, 't>(
                             let (first, last) = parse_declaration_value(
                                 input,
                                 input_start,
+                                namespaces,
                                 references,
                                 missing_closing_characters,
                             )?;
@@ -900,6 +933,7 @@ fn parse_declaration_value_block<'i, 't>(
                             parse_declaration_value_block(
                                 input,
                                 input_start,
+                                namespaces,
                                 references,
                                 missing_closing_characters,
                             )?;
@@ -978,7 +1012,9 @@ fn parse_attr_type<'i, 't>(input: &mut Parser<'i, 't>) -> AttributeType {
         .try_parse(|input| {
             Ok(match input.next()? {
                 Token::Function(ref name) if name.eq_ignore_ascii_case("type") => {
-                    AttributeType::Type(input.parse_nested_block(Descriptor::from_css_parser)?)
+                    AttributeType::Type(
+                        input.parse_nested_block(SyntaxDescriptor::from_css_parser)?,
+                    )
                 },
                 Token::Ident(ref ident) => {
                     if ident.eq_ignore_ascii_case("raw-string") {
@@ -1003,22 +1039,23 @@ pub struct CustomPropertiesBuilder<'a, 'b: 'a> {
     may_have_cycles: bool,
     has_color_scheme: bool,
     custom_properties: ComputedCustomProperties,
-    reverted: PrecomputedHashMap<&'a Name, (CascadePriority, bool)>,
+    reverted: PrecomputedHashMap<&'a Name, (CascadePriority, RevertKind)>,
     stylist: &'a Stylist,
     computed_context: &'a mut computed::Context<'b>,
     references_from_non_custom_properties: NonCustomReferenceMap<Vec<Name>>,
 }
 
 fn find_non_custom_references(
-    registration: &PropertyRegistrationData,
+    registration: &PropertyDescriptors,
     value: &VariableValue,
     may_have_color_scheme: bool,
     is_root_element: bool,
     include_universal: bool,
 ) -> Option<NonCustomReferences> {
-    let dependent_types = registration.syntax.dependent_types();
+    let syntax = registration.syntax.as_ref()?;
+    let dependent_types = syntax.dependent_types();
     let may_reference_length = dependent_types.intersects(DependentDataTypes::LENGTH)
-        || (include_universal && registration.syntax.is_universal());
+        || (include_universal && syntax.is_universal());
     if may_reference_length {
         let value_dependencies = value.references.non_custom_references(is_root_element);
         if !value_dependencies.is_empty() {
@@ -1091,10 +1128,14 @@ impl<'a, 'b: 'a> CustomPropertiesBuilder<'a, 'b> {
             ref value,
         } = *declaration;
 
-        if let Some(&(reverted_priority, is_origin_revert)) = self.reverted.get(&name) {
-            if !reverted_priority.allows_when_reverted(&priority, is_origin_revert) {
+        if let Some(&(reverted_priority, revert_kind)) = self.reverted.get(&name) {
+            if !reverted_priority.allows_when_reverted(&priority, revert_kind) {
                 return;
             }
+        }
+
+        if !(priority.flags() - self.computed_context.included_cascade_flags).is_empty() {
+            return;
         }
 
         let was_already_present = !self.seen.insert(name);
@@ -1148,31 +1189,35 @@ impl<'a, 'b: 'a> CustomPropertiesBuilder<'a, 'b> {
                 let value = parsed_value.to_computed_value(&self.computed_context);
                 map.insert(registration, name, value);
             },
-            CustomDeclarationValue::CSSWideKeyword(keyword) => match keyword {
-                CSSWideKeyword::RevertLayer | CSSWideKeyword::Revert => {
-                    let origin_revert = matches!(keyword, CSSWideKeyword::Revert);
+            CustomDeclarationValue::CSSWideKeyword(keyword) => match keyword.revert_kind() {
+                Some(revert_kind) => {
                     self.seen.remove(name);
-                    self.reverted.insert(name, (priority, origin_revert));
+                    self.reverted.insert(name, (priority, revert_kind));
                 },
-                CSSWideKeyword::Initial => {
-                    // For non-inherited custom properties, 'initial' was handled in value_may_affect_style.
-                    debug_assert!(registration.inherits(), "Should've been handled earlier");
-                    remove_and_insert_initial_value(name, registration, map);
+                None => match keyword {
+                    CSSWideKeyword::Initial => {
+                        // For non-inherited custom properties, 'initial' was handled in value_may_affect_style.
+                        debug_assert!(registration.inherits(), "Should've been handled earlier");
+                        remove_and_insert_initial_value(name, registration, map);
+                    },
+                    CSSWideKeyword::Inherit => {
+                        // For inherited custom properties, 'inherit' was handled in value_may_affect_style.
+                        debug_assert!(!registration.inherits(), "Should've been handled earlier");
+                        if let Some(inherited_value) = self
+                            .computed_context
+                            .inherited_custom_properties()
+                            .non_inherited
+                            .get(name)
+                        {
+                            map.insert(registration, name, inherited_value.clone());
+                        }
+                    },
+                    // handled in value_may_affect_style or in the revert_kind branch above.
+                    CSSWideKeyword::Revert
+                    | CSSWideKeyword::RevertLayer
+                    | CSSWideKeyword::RevertRule
+                    | CSSWideKeyword::Unset => unreachable!(),
                 },
-                CSSWideKeyword::Inherit => {
-                    // For inherited custom properties, 'inherit' was handled in value_may_affect_style.
-                    debug_assert!(!registration.inherits(), "Should've been handled earlier");
-                    if let Some(inherited_value) = self
-                        .computed_context
-                        .inherited_custom_properties()
-                        .non_inherited
-                        .get(name)
-                    {
-                        map.insert(registration, name, inherited_value.clone());
-                    }
-                },
-                // handled in value_may_affect_style
-                CSSWideKeyword::Unset => unreachable!(),
             },
         }
     }
@@ -1241,6 +1286,7 @@ impl<'a, 'b: 'a> CustomPropertiesBuilder<'a, 'b> {
                     .get_custom_property_registration(&reference.name);
                 if !registration
                     .syntax
+                    .as_ref()?
                     .dependent_types()
                     .intersects(DependentDataTypes::LENGTH)
                 {
@@ -1313,7 +1359,7 @@ impl<'a, 'b: 'a> CustomPropertiesBuilder<'a, 'b> {
                 if let Some(existing_value) = existing_value.as_universal() {
                     return existing_value != value;
                 }
-                if !registration.syntax.is_universal() {
+                if !registration.is_universal() {
                     compute_value(
                         &value.css,
                         &value.url_data,
@@ -1360,7 +1406,9 @@ impl<'a, 'b: 'a> CustomPropertiesBuilder<'a, 'b> {
                     CSSWideKeyword::Unset => {
                         debug_assert!(false, "Should've been handled earlier");
                     },
-                    CSSWideKeyword::Revert | CSSWideKeyword::RevertLayer => {},
+                    CSSWideKeyword::Revert
+                    | CSSWideKeyword::RevertLayer
+                    | CSSWideKeyword::RevertRule => {},
                 }
                 None
             },
@@ -1601,7 +1649,7 @@ fn substitute_all(
                 // Nothing to resolve.
                 if !has_dependency {
                     debug_assert!(!value.references.any_env, "Should've been handled earlier");
-                    if !registration.syntax.is_universal() {
+                    if !registration.is_universal() {
                         // We might still need to compute the value if this is not an universal
                         // registration if we thought this had a dependency before but turned out
                         // not to be (due to has_color_scheme, for example). Note that if this was
@@ -1609,6 +1657,8 @@ fn substitute_all(
                         debug_assert!(
                             registration
                                 .syntax
+                                .as_ref()
+                                .unwrap()
                                 .dependent_types()
                                 .intersects(DependentDataTypes::COLOR),
                             "How did an unresolved value get here otherwise?",
@@ -1635,7 +1685,7 @@ fn substitute_all(
                         entry.insert(context.count);
                     },
                 }
-                context.contains_computed_custom_property |= !registration.syntax.is_universal();
+                context.contains_computed_custom_property |= !registration.is_universal();
 
                 // Hold a strong reference to the value so that we don't
                 // need to keep reference to context.map.
@@ -1889,7 +1939,7 @@ fn handle_invalid_at_computed_value_time(
 ) {
     let stylist = computed_context.style().stylist.unwrap();
     let registration = stylist.get_custom_property_registration(&name);
-    if !registration.syntax.is_universal() {
+    if !registration.is_universal() {
         // For the root element, inherited maps are empty. We should just
         // use the initial value if any, rather than removing the name.
         if registration.inherits() && !computed_context.is_root_element() {
@@ -1923,7 +1973,7 @@ fn substitute_references_if_needed_and_apply(
     attribute_tracker: &mut AttributeTracker,
 ) {
     let registration = stylist.get_custom_property_registration(&name);
-    if !value.has_references() && registration.syntax.is_universal() {
+    if !value.has_references() && registration.is_universal() {
         // Trivial path: no references and no need to compute the value, just apply it directly.
         let computed_value = ComputedRegisteredValue::universal(Arc::clone(value));
         custom_properties.insert(registration, name, computed_value);
@@ -1967,15 +2017,18 @@ fn substitute_references_if_needed_and_apply(
                 (CSSWideKeyword::Initial, _, _)
                 | (CSSWideKeyword::Revert, false, _)
                 | (CSSWideKeyword::RevertLayer, false, _)
+                | (CSSWideKeyword::RevertRule, false, _)
                 | (CSSWideKeyword::Unset, false, _)
                 | (CSSWideKeyword::Revert, true, true)
                 | (CSSWideKeyword::RevertLayer, true, true)
+                | (CSSWideKeyword::RevertRule, true, true)
                 | (CSSWideKeyword::Unset, true, true)
                 | (CSSWideKeyword::Inherit, _, true) => {
                     remove_and_insert_initial_value(name, registration, custom_properties);
                 },
                 (CSSWideKeyword::Revert, true, false)
                 | (CSSWideKeyword::RevertLayer, true, false)
+                | (CSSWideKeyword::RevertRule, true, false)
                 | (CSSWideKeyword::Inherit, _, false)
                 | (CSSWideKeyword::Unset, true, false) => {
                     match inherited.get(registration, name) {
@@ -2022,10 +2075,10 @@ impl<'a> Substitution<'a> {
     fn into_value(
         self,
         url_data: &UrlExtraData,
-        registration: &PropertyRegistrationData,
+        registration: &PropertyDescriptors,
         computed_context: &computed::Context,
     ) -> Result<ComputedRegisteredValue, ()> {
-        if registration.syntax.is_universal() {
+        if registration.is_universal() {
             return Ok(ComputedRegisteredValue::universal(Arc::new(
                 VariableValue {
                     css: self.css.into_owned(),
@@ -2055,10 +2108,10 @@ impl<'a> Substitution<'a> {
 fn compute_value(
     css: &str,
     url_data: &UrlExtraData,
-    registration: &PropertyRegistrationData,
+    registration: &PropertyDescriptors,
     computed_context: &computed::Context,
 ) -> Result<ComputedRegisteredValue, ()> {
-    debug_assert!(!registration.syntax.is_universal());
+    debug_assert!(!registration.is_universal());
 
     let mut input = ParserInput::new(&css);
     let mut input = Parser::new(&mut input);
@@ -2066,6 +2119,7 @@ fn compute_value(
     SpecifiedRegisteredValue::compute(
         &mut input,
         registration,
+        None,
         url_data,
         computed_context,
         AllowComputationallyDependent::Yes,
@@ -2075,7 +2129,7 @@ fn compute_value(
 /// Removes the named registered custom property and inserts its uncomputed initial value.
 fn remove_and_insert_initial_value(
     name: &Name,
-    registration: &PropertyRegistrationData,
+    registration: &PropertyDescriptors,
     custom_properties: &mut ComputedCustomProperties,
 ) {
     custom_properties.remove(registration, name);
@@ -2201,53 +2255,60 @@ fn substitute_one_reference<'a>(
             let local_name = LocalName::cast(&reference.name);
             #[cfg(feature = "servo")]
             let local_name = LocalName::from(reference.name.as_ref());
-            attribute_tracker.query(&local_name).map_or_else(
-                || {
-                    // Special case when fallback and <attr-type> are omitted.
-                    // See FAILURE: https://drafts.csswg.org/css-values-5/#attr-substitution
-                    if reference.fallback.is_none()
-                        && reference.attribute_syntax == AttributeType::None
-                    {
-                        simple_subst("")
-                    } else {
-                        None
-                    }
-                },
-                |attr| {
-                    let mut input = ParserInput::new(&attr);
-                    let mut parser = Parser::new(&mut input);
-                    match &reference.attribute_syntax {
-                        AttributeType::Unit(unit) => {
-                            let css = {
-                                // Verify that attribute data is a <number-token>.
-                                parser.expect_number().ok()?;
-                                let mut s = attr.clone();
-                                s.push_str(unit.as_ref());
-                                s
-                            };
-                            let serialization = match unit {
-                                AttrUnit::Number => TokenSerializationType::Number,
-                                AttrUnit::Percentage => TokenSerializationType::Percentage,
-                                _ => TokenSerializationType::Dimension,
-                            };
-                            let value =
-                                ComputedValue::new(css, url_data, serialization, serialization);
-                            Some(Substitution::from_value(value))
-                        },
-                        AttributeType::Type(syntax) => {
-                            let value = SpecifiedRegisteredValue::parse(
-                                &mut parser,
-                                syntax,
-                                url_data,
-                                AllowComputationallyDependent::Yes,
-                            )
-                            .ok()?;
-                            Some(Substitution::from_value(value.to_variable_value()))
-                        },
-                        AttributeType::RawString | AttributeType::None => simple_subst(&attr),
-                    }
-                },
-            )
+            let namespace = match reference.attribute_data.namespace {
+                ParsedNamespace::Known(ref ns) => Some(ns),
+                ParsedNamespace::Unknown => None,
+            };
+            namespace
+                .and_then(|namespace| attribute_tracker.query(&local_name, namespace))
+                .map_or_else(
+                    || {
+                        // Special case when fallback and <attr-type> are omitted.
+                        // See FAILURE: https://drafts.csswg.org/css-values-5/#attr-substitution
+                        if reference.fallback.is_none()
+                            && reference.attribute_data.kind == AttributeType::None
+                        {
+                            simple_subst("")
+                        } else {
+                            None
+                        }
+                    },
+                    |attr| {
+                        let mut input = ParserInput::new(&attr);
+                        let mut parser = Parser::new(&mut input);
+                        match &reference.attribute_data.kind {
+                            AttributeType::Unit(unit) => {
+                                let css = {
+                                    // Verify that attribute data is a <number-token>.
+                                    parser.expect_number().ok()?;
+                                    let mut s = attr.clone();
+                                    s.push_str(unit.as_ref());
+                                    s
+                                };
+                                let serialization = match unit {
+                                    AttrUnit::Number => TokenSerializationType::Number,
+                                    AttrUnit::Percentage => TokenSerializationType::Percentage,
+                                    _ => TokenSerializationType::Dimension,
+                                };
+                                let value =
+                                    ComputedValue::new(css, url_data, serialization, serialization);
+                                Some(Substitution::from_value(value))
+                            },
+                            AttributeType::Type(syntax) => {
+                                let value = SpecifiedRegisteredValue::parse(
+                                    &mut parser,
+                                    &syntax,
+                                    url_data,
+                                    None,
+                                    AllowComputationallyDependent::Yes,
+                                )
+                                .ok()?;
+                                Some(Substitution::from_value(value.to_variable_value()))
+                            },
+                            AttributeType::RawString | AttributeType::None => simple_subst(&attr),
+                        }
+                    },
+                )
         },
     };
 

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -7,15 +5,16 @@
 #ifndef mozilla_widget_AndroidVsync_h
 #define mozilla_widget_AndroidVsync_h
 
+#include <android/choreographer.h>
+#include <memory>
+
 #include "mozilla/DataMutex.h"
-#include "mozilla/java/AndroidVsyncNatives.h"
 #include "mozilla/ThreadSafeWeakPtr.h"
 #include "mozilla/TimeStamp.h"
+#include "nsTArray.h"
 
 namespace mozilla {
 namespace widget {
-
-class AndroidVsyncSupport;
 
 /**
  * A thread-safe way to listen to vsync notifications on Android. All methods
@@ -28,8 +27,6 @@ class AndroidVsync final : public SupportsThreadSafeWeakPtr<AndroidVsync> {
   MOZ_DECLARE_REFCOUNTED_TYPENAME(AndroidVsync)
 
   static RefPtr<AndroidVsync> GetInstance();
-
-  ~AndroidVsync();
 
   class Observer {
    public:
@@ -51,24 +48,45 @@ class AndroidVsync final : public SupportsThreadSafeWeakPtr<AndroidVsync> {
   void OnMaybeUpdateRefreshRate();
 
  private:
-  friend class AndroidVsyncSupport;
+  AndroidVsync() = default;
 
-  AndroidVsync();
+  // A heap allocated weak pointer to an AndroidVsync object, intended to be
+  // passed as the `data` argument to AChoreographer_postFrameCallback(64),
+  // allowing the callback functions to check whether the AndroidVsync is still
+  // alive. Unique ownership ensures we will only post a single callback at a
+  // time.
+  using CallbackToken = std::unique_ptr<ThreadSafeWeakPtr<AndroidVsync>>;
 
-  // Called by Java, via AndroidVsyncSupport
-  void NotifyVsync(int64_t aFrameTimeNanos);
+  // Posts a frame callback if we have registered observers and one is not
+  // already pending.
+  void MaybePostFrameCallback();
+  static void PostFrameCallback(AChoreographer* aChoreographer,
+                                CallbackToken aToken);
+  // Frame callback used on SDK levels prior to 28.
+  static void FrameCallback(long aFrameTimeNanos, void* aData);
+  // Frame callback used on SDK levels 29 onward.
+  static void FrameCallback64(int64_t aFrameTimeNanos, void* aData);
 
   struct Impl {
-    void UpdateObservingVsync();
+    // If we should and are able to post a frame callback then returns the data
+    // required to do so, transferring ownership of mToken to the caller.
+    Maybe<std::pair<AChoreographer*, CallbackToken>> ShouldPostFrameCallback();
 
     nsTArray<Observer*> mInputObservers;
     nsTArray<Observer*> mRenderObservers;
-    RefPtr<AndroidVsyncSupport> mSupport;
-    java::AndroidVsync::GlobalRef mSupportJava;
-    bool mObservingVsync = false;
+    // Must be initialized on the Android UI thread. Never modified or destroyed
+    // after initialization.
+    AChoreographer* mChoreographer = nullptr;
+    // If null, indicates that a frame callback is pending and another should
+    // not be scheduled. If non-null, we are allowed to post a new callback.
+    // This is set to point to the owning AndroidVsync on initialization, and
+    // ownership is transferred by ShouldPostFrameCallback(). It is the
+    // callback's responsibility to restore this field when finished with the
+    // token.
+    CallbackToken mToken;
   };
 
-  DataMutex<Impl> mImpl;
+  DataMutex<Impl> mImpl{"AndroidVsync.mImpl"};
 
   static StaticDataMutex<ThreadSafeWeakPtr<AndroidVsync>> sInstance;
 };

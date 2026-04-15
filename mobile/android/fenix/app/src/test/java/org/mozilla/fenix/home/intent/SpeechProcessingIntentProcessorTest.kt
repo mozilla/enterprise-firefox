@@ -99,6 +99,7 @@ class SpeechProcessingIntentProcessorTest {
         processor.process(intent, mockk(), mockk(relaxed = true), settings)
 
         verify {
+            @Suppress("DEPRECATION")
             activity.openToBrowserAndLoad(
                 searchTermOrURL = "hello world",
                 newTab = true,

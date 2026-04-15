@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -8,6 +6,12 @@
 
 #ifndef mozilla_Assertions_h
 #define mozilla_Assertions_h
+
+#ifndef __cplusplus
+#  ifndef bool
+#    include <stdbool.h>
+#  endif
+#endif
 
 #if (defined(MOZ_HAS_MOZGLUE) || defined(MOZILLA_INTERNAL_API)) && \
     !defined(__wasi__)
@@ -82,12 +86,6 @@ __declspec(dllimport) int __stdcall TerminateProcess(void* hProcess,
                                                      unsigned int uExitCode);
 __declspec(dllimport) void* __stdcall GetCurrentProcess(void);
 MOZ_END_EXTERN_C
-#elif defined(__wasi__)
-/*
- * On Wasm/WASI platforms, we just call __builtin_trap().
- */
-#else
-#  include <signal.h>
 #endif
 #ifdef ANDROID
 #  include <android/log.h>

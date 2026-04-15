@@ -182,6 +182,12 @@ urlbar-split-view-button =
     .tooltiptext = Split view
     .aria-label = Split view
 
+## Searchbar context menu
+
+clear-search-history =
+    .label = Clear Search History
+    .accesskey = H
+
 ## Page Action Context Menu
 
 page-action-manage-extension2 =
@@ -1032,6 +1038,32 @@ toolbar-button-logins =
   .label = Passwords
   .tooltiptext = View and manage your saved passwords
 
+qrcode-panel-error =
+    .message = Failed to generate QR code. Please try again.
+
+qrcode-copy-button =
+    .label = Copy
+qrcode-copy-success =
+    .message = QR code copied to clipboard.
+qrcode-copy-error =
+    .message = Failed to copy QR code.
+
+qrcode-save-button =
+    .label = Save
+qrcode-save-success =
+    .message = QR code saved.
+qrcode-save-error =
+    .message = Failed to save QR code.
+qrcode-save-title = Save QR Code
+qrcode-save-filter-png = PNG Image
+qrcode-save-filename = qrcode.png
+qrcode-window-title = QR Code
+qrcode-dialog-title = QR Code
+qrcode-image =
+    .aria-label = QR code
+qrcode-close-button =
+    .aria-label = Close
+
 # Variables:
 #  $shortcut (String): keyboard shortcut to save a copy of the page
 toolbar-button-save-page =
@@ -1076,8 +1108,14 @@ panel-save-update-password = Password
 # "More" item in macOS share menu
 menu-share-more =
     .label = More…
-menu-share-copy-link =
-    .label = Copy Link
+# Variables:
+#   $count (Number) - The number of links that will be copied.
+menu-share-copy-links =
+    .label =
+        { $count ->
+            [one] Copy Link
+           *[other] Copy { $count } Links
+        }
     .accesskey = L
 ui-tour-info-panel-close =
     .tooltiptext = Close

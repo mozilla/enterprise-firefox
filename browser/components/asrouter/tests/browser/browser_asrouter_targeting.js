@@ -506,10 +506,16 @@ add_task(async function check_needsUpdate() {
 
 add_task(async function checksearchEngines() {
   const result = await ASRouterTargeting.Environment.searchEngines;
-  const expectedInstalled = (await SearchService.getAppProvidedEngines())
+  const appProvidedEngines = await SearchService.getAppProvidedEngines();
+  const expectedInstalled = appProvidedEngines
     .map(engine => engine.id)
     .sort()
     .join(",");
+  const expectedHasEnteredSearchMode = {};
+  for (let engine of appProvidedEngines) {
+    expectedHasEnteredSearchMode[engine.id] = engine.hasBeenUsed;
+  }
+
   ok(
     result.installed.length,
     "searchEngines.installed should be a non-empty array"
@@ -528,6 +534,11 @@ add_task(async function checksearchEngines() {
     (await SearchService.getDefault()).id,
     "searchEngines.current should be the current engine name"
   );
+  Assert.deepEqual(
+    result.hasEnteredSearchMode,
+    expectedHasEnteredSearchMode,
+    "searchEngines.hasEnteredSearchmode should map engine ids to hasBeenUsed values"
+  );
 
   const message = {
     id: "foo",
@@ -540,17 +551,26 @@ add_task(async function checksearchEngines() {
     message,
     "should select correct item by searchEngines.current"
   );
+  const [firstEngine] = appProvidedEngines;
 
   const message2 = {
     id: "foo",
-    targeting: `searchEngines[${
-      (await SearchService.getAppProvidedEngines())[0].id
-    } in .installed]`,
+    targeting: `searchEngines[${firstEngine.id} in .installed]`,
   };
   is(
     await ASRouterTargeting.findMatchingMessage({ messages: [message2] }),
     message2,
     "should select correct item by searchEngines.installed"
+  );
+
+  const message3 = {
+    id: "foo",
+    targeting: `searchEngines[.hasEnteredSearchMode.${firstEngine.id} == ${firstEngine.hasBeenUsed}]`,
+  };
+  is(
+    await ASRouterTargeting.findMatchingMessage({ messages: [message3] }),
+    message3,
+    "should select correct item by searchEngines.hasEnteredSearchMode"
   );
 });
 
@@ -1677,15 +1697,10 @@ add_task(async function test_creditCardsSaved() {
         gBrowser.selectedBrowser.browsingContext.currentWindowGlobal.getActor(
           "FormAutofill"
         ),
-        "receiveMessage"
+        "getRecords"
       )
-      .withArgs(
-        sandbox.match({
-          name: "FormAutofill:GetRecords",
-          data: { collectionName: "creditCards" },
-        })
-      )
-      .resolves({ records: [creditcard] })
+      .withArgs(sandbox.match({ collectionName: "creditCards" }))
+      .resolves([creditcard])
       .callThrough();
 
     is(
@@ -1694,8 +1709,8 @@ add_task(async function test_creditCardsSaved() {
       "Should return 1 when 1 credit card is saved"
     );
     ok(
-      stub.calledWithMatch({ name: "FormAutofill:GetRecords" }),
-      "Targeting called FormAutofill:GetRecords"
+      stub.calledWithMatch({ collectionName: "creditCards" }),
+      "Targeting called getRecords"
     );
 
     sandbox.restore();
@@ -2652,10 +2667,7 @@ add_task(async function check_backupArchiveEnabled() {
   const sandbox = sinon.createSandbox();
   registerCleanupFunction(() => sandbox.restore());
 
-  await pushPrefs(
-    ["browser.backup.archive.enabled", true],
-    ["browser.backup.archive.overridePlatformCheck", true]
-  );
+  await pushPrefs(["browser.backup.archive.enabled", true]);
 
   is(
     await ASRouterTargeting.Environment.backupArchiveEnabled,
@@ -2667,10 +2679,7 @@ add_task(async function check_backupArchiveEnabled() {
     featureId: "backupService",
     value: { archiveKillswitch: true },
   });
-  await pushPrefs(
-    ["browser.backup.archive.enabled", true],
-    ["browser.backup.archive.overridePlatformCheck", false]
-  );
+  await pushPrefs(["browser.backup.archive.enabled", true]);
 
   is(
     await ASRouterTargeting.Environment.backupArchiveEnabled,
@@ -2687,10 +2696,7 @@ add_task(async function check_backupRestoreEnabled() {
   const sandbox = sinon.createSandbox();
   registerCleanupFunction(() => sandbox.restore());
 
-  await pushPrefs(
-    ["browser.backup.restore.enabled", true],
-    ["browser.backup.restore.overridePlatformCheck", true]
-  );
+  await pushPrefs(["browser.backup.restore.enabled", true]);
 
   is(
     await ASRouterTargeting.Environment.backupRestoreEnabled,
@@ -2698,10 +2704,7 @@ add_task(async function check_backupRestoreEnabled() {
     "should return true if the killswitch is not on"
   );
   await SpecialPowers.popPrefEnv();
-  await pushPrefs(
-    ["browser.backup.restore.enabled", true],
-    ["browser.backup.restore.overridePlatformCheck", false]
-  );
+  await pushPrefs(["browser.backup.restore.enabled", true]);
 
   const restoreExperiment = await NimbusTestUtils.enrollWithFeatureConfig({
     featureId: "backupService",
@@ -2718,3 +2721,127 @@ add_task(async function check_backupRestoreEnabled() {
   await restoreExperiment();
   await SpecialPowers.popPrefEnv();
 });
+
+add_task(
+  async function check_userWeekdaysActiveInLastMonth_counts_only_weekdays() {
+    const sandbox = sinon.createSandbox();
+    try {
+      QueryCache.queries.UserMonthlyActivity.expire();
+      sandbox
+        .stub(NewTabUtils.activityStreamProvider, "getUserMonthlyActivity")
+        .resolves([
+          [50, "2024-01-08"], // Monday, 50 visits
+          [30, "2024-01-09"], // Tue
+          [10, "2024-01-13"], // Sat
+          [5, "2024-01-14"], // Sun
+        ]);
+      is(
+        await ASRouterTargeting.Environment.userWeekdaysActiveInLastMonth,
+        2,
+        "should count only weekday entries(2)"
+      );
+    } finally {
+      sandbox.restore();
+    }
+  }
+);
+
+add_task(async function check_userWeekdaysActiveInLastMonth_all_weekends() {
+  const sandbox = sinon.createSandbox();
+  try {
+    QueryCache.queries.UserMonthlyActivity.expire();
+    sandbox
+      .stub(NewTabUtils.activityStreamProvider, "getUserMonthlyActivity")
+      .resolves([
+        [20, "2024-01-13"], // Sat
+        [20, "2024-01-14"], // Sun
+      ]);
+    is(
+      await ASRouterTargeting.Environment.userWeekdaysActiveInLastMonth,
+      0,
+      "should return 0 when all activity is on weekends"
+    );
+  } finally {
+    sandbox.restore();
+  }
+});
+
+add_task(async function check_userWeekdaysActiveInLastMonth_emptyActivity() {
+  const sandbox = sinon.createSandbox();
+  try {
+    QueryCache.queries.UserMonthlyActivity.expire();
+    sandbox
+      .stub(NewTabUtils.activityStreamProvider, "getUserMonthlyActivity")
+      .resolves([]);
+    is(
+      await ASRouterTargeting.Environment.userWeekdaysActiveInLastMonth,
+      0,
+      "should return 0 for empty activity"
+    );
+  } finally {
+    sandbox.restore();
+  }
+});
+
+add_task(
+  async function check_userActiveDaysWithHundredPlusSites_countsDaysAtOrAbove100() {
+    const sandbox = sinon.createSandbox();
+    try {
+      QueryCache.queries.UserMonthlyActivity.expire();
+      sandbox
+        .stub(NewTabUtils.activityStreamProvider, "getUserMonthlyActivity")
+        .resolves([
+          [150, "2024-01-08"],
+          [99, "2024-01-09"],
+          [100, "2024-01-10"],
+          [50, "2024-01-11"],
+        ]);
+      is(
+        await ASRouterTargeting.Environment.userActiveDaysWithHundredPlusSites,
+        2,
+        "should count days with >= 100 URL visits"
+      );
+    } finally {
+      sandbox.restore();
+    }
+  }
+);
+
+add_task(async function check_userActiveDaysWithHundredPlusSites_none() {
+  const sandbox = sinon.createSandbox();
+  try {
+    QueryCache.queries.UserMonthlyActivity.expire();
+    sandbox
+      .stub(NewTabUtils.activityStreamProvider, "getUserMonthlyActivity")
+      .resolves([
+        [10, "2024-01-08"],
+        [99, "2024-01-09"],
+      ]);
+    is(
+      await ASRouterTargeting.Environment.userActiveDaysWithHundredPlusSites,
+      0,
+      "should return 0 when no days reach 100 visits"
+    );
+  } finally {
+    sandbox.restore();
+  }
+});
+
+add_task(
+  async function check_userActiveDaysWithHundredPlusSites_emptyActivityReturnsZero() {
+    const sandbox = sinon.createSandbox();
+    try {
+      QueryCache.queries.UserMonthlyActivity.expire();
+      sandbox
+        .stub(NewTabUtils.activityStreamProvider, "getUserMonthlyActivity")
+        .resolves([]);
+      is(
+        await ASRouterTargeting.Environment.userActiveDaysWithHundredPlusSites,
+        0,
+        "should return 0 for empty activity"
+      );
+    } finally {
+      sandbox.restore();
+    }
+  }
+);

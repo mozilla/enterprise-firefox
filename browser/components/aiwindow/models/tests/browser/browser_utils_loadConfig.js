@@ -3,7 +3,7 @@
 
 "use strict";
 
-const { openAIEngine, MODEL_FEATURES } = ChromeUtils.importESModule(
+const { MODEL_FEATURES } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs"
 );
 
@@ -109,8 +109,8 @@ add_task(async function test_loadConfig_with_additional_components() {
   );
   Assert.equal(
     mainConfig.additional_components.length,
-    2,
-    "Should have 2 additional components"
+    3,
+    "Should have 3 additional components"
   );
 
   const limitationsConfig = engine.getConfig(
@@ -128,4 +128,10 @@ add_task(async function test_loadConfig_with_additional_components() {
   const memoriesConfig = engine.getConfig("conversation-suggestions-memories");
   Assert.ok(memoriesConfig, "Memories component should be loaded");
   Assert.ok(memoriesConfig.prompts, "Memories should have prompts");
+
+  const systemPromptConfig = engine.getConfig(
+    "conversation-starters-sidebar-system"
+  );
+  Assert.ok(systemPromptConfig, "System prompt component should be loaded");
+  Assert.ok(systemPromptConfig.prompts, "System prompt should have prompts");
 });

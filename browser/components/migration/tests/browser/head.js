@@ -347,7 +347,7 @@ async function selectResourceTypesAndStartMigration(
     panelItem.openOrClosedShadowRoot.querySelector("button"),
     "The panel-list button exists."
   );
-  panelItem.click();
+  EventUtils.synthesizeMouseAtCenter(panelItem, {}, wizard.ownerGlobal);
 
   await new Promise(resolve => {
     panelList.addEventListener("hidden", resolve, { once: true });

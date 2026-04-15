@@ -1792,7 +1792,7 @@ void CacheEntry::DoomAlreadyRemoved() {
   if (mEnhanceID.EqualsLiteral("dict:")) {
     DictionaryCache::RemoveOriginFor(mURI);
   } else {
-    DictionaryCache::RemoveDictionaryFor(mURI);
+    DictionaryCache::RemoveDictionaryOMT(mURI);
   }
 
   // Pretend pinning is know.  This entry is now doomed for good, so don't

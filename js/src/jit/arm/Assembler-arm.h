@@ -1089,7 +1089,7 @@ class InstructionIterator {
 
 class Assembler;
 using ARMBuffer =
-    js::jit::AssemblerBufferWithConstantPools<1024, 4, Instruction, Assembler>;
+    js::jit::AssemblerBufferWithConstantPools<4, Instruction, Assembler>;
 
 class Assembler : public AssemblerShared {
  public:

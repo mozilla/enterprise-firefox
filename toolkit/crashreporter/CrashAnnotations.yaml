@@ -1367,6 +1367,14 @@ TestInteger:
   type: u32
   scope: report
 
+ThreadLastCreateError:
+  description: >
+    Diagnostic info recorded when PR_CreateThread fails. Contains the thread
+    name, NSPR error code, and OS error code. Never cleared, so it reflects
+    the last failure if there were multiple.
+  type: string
+  scope: report
+
 TextureUsage:
   description: >
     Amount of memory in bytes consumed by textures.

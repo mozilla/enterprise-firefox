@@ -673,9 +673,13 @@
 
 .urlbarView-title-separator {
   &::before {
-    content: "\2014";
+    content: "·";
     margin: 0 0.4em;
     opacity: 0.6;
+    /* stylelint-disable-next-line media-query-no-invalid */
+    @media not -moz-pref("browser.urlbar.nova.featureGate") {
+      content: "\2014";
+    }
   }
 
   .urlbarView-title:empty + .urlbarView-tags:empty + &,
@@ -832,9 +836,15 @@
        tree. We want screen readers to pause between the result title and the
        switch-to-tab action text. */
     opacity: 0;
-    /* -1em for the width of the \2014 character. -.4em to offset the
+    /* -0.25em for the width of the "·" character. -.4em to offset the
        margin-inline-start already set on this element. */
-    margin-inline-end: -1.4em;
+    margin-inline-end: -0.65em;
+    /* stylelint-disable-next-line media-query-no-invalid */
+    @media not -moz-pref("browser.urlbar.nova.featureGate") {
+      /* -1em for the width of the \2014 character. -.4em to offset the
+         margin-inline-start already set on this element. */
+      margin-inline-end: -1.4em;
+    }
   }
 }
 
@@ -1298,7 +1308,7 @@
       padding: var(--space-xlarge);
 
       > .urlbarView-row-body-top > .urlbarView-row-body-top-no-wrap > .urlbarView-title {
-        font-weight: var(--heading-font-weight);
+        font-weight: var(--font-weight-heading);
       }
     }
   }
@@ -1519,7 +1529,7 @@
 
   > .urlbarView-realtime-description {
     > .urlbarView-realtime-description-top > .urlbarView-yelpRealtime-title {
-      font-weight: var(--heading-font-weight);
+      font-weight: var(--font-weight-heading);
     }
 
     > .urlbarView-realtime-description-bottom {
@@ -1664,23 +1674,27 @@
 
     /* Fallback icons per sport but only for games not in the future */
     .urlbarView-realtime-item:not([status="scheduled"]) > & {
+      .urlbarView-realtime-item[sport="MLB"] > &,
       .urlbarView-realtime-item[sport="NBA"] > &,
-      .urlbarView-realtime-item[sport="NHL"] > &,
-      .urlbarView-realtime-item[sport="NFL"] > & {
+      .urlbarView-realtime-item[sport="NFL"] > &,
+      .urlbarView-realtime-item[sport="NHL"] > & {
         /* stylelint-disable-next-line max-nesting-depth */
         > .urlbarView-sports-scheduled-date-chiclet-day,
         > .urlbarView-sports-scheduled-date-chiclet-month {
           display: none;
         }
       }
+      .urlbarView-realtime-item[sport="MLB"] > & {
+        background-image: url("chrome://browser/skin/urlbar/sports-baseball.svg");
+      }
       .urlbarView-realtime-item[sport="NBA"] > & {
         background-image: url("chrome://browser/skin/urlbar/sports-basketball.svg");
       }
-      .urlbarView-realtime-item[sport="NHL"] > & {
-        background-image: url("chrome://browser/skin/urlbar/sports-hockey.svg");
-      }
       .urlbarView-realtime-item[sport="NFL"] > & {
         background-image: url("chrome://browser/skin/urlbar/sports-american-football.svg");
+      }
+      .urlbarView-realtime-item[sport="NHL"] > & {
+        background-image: url("chrome://browser/skin/urlbar/sports-hockey.svg");
       }
     }
   }

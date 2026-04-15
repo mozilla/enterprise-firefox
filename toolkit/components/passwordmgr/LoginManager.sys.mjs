@@ -509,6 +509,20 @@ LoginManager.prototype = {
     return loginsCount;
   },
 
+  async countLoginsAsync(origin, formActionOrigin, httpRealm) {
+    const loginsCount = await this._storage.countLoginsAsync(
+      origin,
+      formActionOrigin,
+      httpRealm
+    );
+
+    lazy.log.debug(
+      `Found ${loginsCount} matching origin: ${origin}, formActionOrigin: ${formActionOrigin} and realm: ${httpRealm}`
+    );
+
+    return loginsCount;
+  },
+
   /* Sync metadata functions */
   async getSyncID() {
     return this._storage.getSyncID();
@@ -538,6 +552,30 @@ LoginManager.prototype = {
     await this.setSyncID(newSyncID);
     await this.setLastSync(0);
     return newSyncID;
+  },
+
+  async addPotentiallyVulnerablePassword(login) {
+    return this._storage.addPotentiallyVulnerablePassword(login);
+  },
+
+  async isPotentiallyVulnerablePassword(login) {
+    return this._storage.isPotentiallyVulnerablePassword(login);
+  },
+
+  async recordBreachAlertDismissal(loginGUID) {
+    return this._storage.recordBreachAlertDismissal(loginGUID);
+  },
+
+  async getBreachAlertDismissalsByLoginGUID() {
+    return this._storage.getBreachAlertDismissalsByLoginGUID();
+  },
+
+  async arePotentiallyVulnerablePasswords(logins) {
+    return this._storage.arePotentiallyVulnerablePasswords(logins);
+  },
+
+  async clearAllPotentiallyVulnerablePasswords() {
+    return this._storage.clearAllPotentiallyVulnerablePasswords();
   },
 
   get uiBusy() {

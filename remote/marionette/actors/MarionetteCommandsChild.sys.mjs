@@ -218,6 +218,13 @@ export class MarionetteCommandsChild extends JSWindowActorChild {
         case "MarionetteCommandsParent:generateTestReport":
           result = await this.generateTestReport(data);
           break;
+        case "MarionetteCommandsParent:getAccessibilityPropertiesForAccessibilityNode":
+          result =
+            await this.getAccessibilityPropertiesForAccessibilityNode(data);
+          break;
+        case "MarionetteCommandsParent:getAccessibilityPropertiesForElement":
+          result = await this.getAccessibilityPropertiesForElement(data);
+          break;
         case "MarionetteCommandsParent:getActiveElement":
           result = await this.getActiveElement();
           break;
@@ -393,6 +400,26 @@ export class MarionetteCommandsChild extends JSWindowActorChild {
       message,
       group,
     });
+  }
+
+  /**
+   * Return the properties for the accessibility node with the given id.
+   */
+  async getAccessibilityPropertiesForAccessibilityNode(options = {}) {
+    const { id } = options;
+
+    return lazy.accessibility.getAccessibilityPropertiesForAccessibilityNode(
+      id
+    );
+  }
+
+  /**
+   * Return the accessibility properties for a given element.
+   */
+  async getAccessibilityPropertiesForElement(options = {}) {
+    const { elem } = options;
+
+    return lazy.accessibility.getAccessibilityPropertiesForElement(elem);
   }
 
   /**

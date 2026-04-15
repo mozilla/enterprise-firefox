@@ -52,7 +52,7 @@ newtab-search-box-input =
     .placeholder = Caută pe web
     .aria-label = Caută pe web
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Adaugă motor de căutare
 newtab-topsites-add-shortcut-header = Comandă rapidă nouă

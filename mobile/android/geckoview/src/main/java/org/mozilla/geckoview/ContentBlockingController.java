@@ -1,6 +1,4 @@
-/* -*- Mode: Java; c-basic-offset: 4; tab-width: 20; indent-tabs-mode: nil; -*-
- * vim: ts=4 sw=4 expandtab:
- * This Source Code Form is subject to the terms of the Mozilla Public
+/* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
@@ -89,6 +87,12 @@ public class ContentBlockingController {
     public static final int COOKIES_BLOCKED_ALL = 0x40000000;
 
     /**
+     * Rejected because the resource is a third-party tracker and cookie policy forces third-party
+     * resources to be partitioned.
+     */
+    public static final int COOKIES_PARTITIONED_TRACKER = 0x00000002;
+
+    /**
      * Rejected because the resource is a third-party and cookie policy forces third-party resources
      * to be partitioned.
      */
@@ -138,18 +142,31 @@ public class ContentBlockingController {
       /** Log event type definitions for content blocking. */
       @Retention(RetentionPolicy.SOURCE)
       @IntDef({
-        Event.BLOCKED_TRACKING_CONTENT, Event.LOADED_LEVEL_1_TRACKING_CONTENT,
-        Event.LOADED_LEVEL_2_TRACKING_CONTENT, Event.BLOCKED_FINGERPRINTING_CONTENT,
-        Event.LOADED_FINGERPRINTING_CONTENT, Event.BLOCKED_CRYPTOMINING_CONTENT,
-        Event.LOADED_CRYPTOMINING_CONTENT, Event.BLOCKED_UNSAFE_CONTENT,
-        Event.COOKIES_LOADED, Event.COOKIES_LOADED_TRACKER,
-        Event.COOKIES_LOADED_SOCIALTRACKER, Event.COOKIES_BLOCKED_BY_PERMISSION,
-        Event.COOKIES_BLOCKED_TRACKER, Event.COOKIES_BLOCKED_SOCIALTRACKER,
-        Event.COOKIES_BLOCKED_ALL, Event.COOKIES_PARTITIONED_FOREIGN,
-        Event.COOKIES_BLOCKED_FOREIGN, Event.BLOCKED_SOCIALTRACKING_CONTENT,
-        Event.LOADED_SOCIALTRACKING_CONTENT, Event.REPLACED_TRACKING_CONTENT,
-        Event.LOADED_EMAILTRACKING_LEVEL_1_CONTENT, Event.LOADED_EMAILTRACKING_LEVEL_2_CONTENT,
-        Event.BLOCKED_EMAILTRACKING_CONTENT, Event.PURGED_BOUNCETRACKER,
+        Event.BLOCKED_TRACKING_CONTENT,
+        Event.LOADED_LEVEL_1_TRACKING_CONTENT,
+        Event.LOADED_LEVEL_2_TRACKING_CONTENT,
+        Event.BLOCKED_FINGERPRINTING_CONTENT,
+        Event.LOADED_FINGERPRINTING_CONTENT,
+        Event.BLOCKED_CRYPTOMINING_CONTENT,
+        Event.LOADED_CRYPTOMINING_CONTENT,
+        Event.BLOCKED_UNSAFE_CONTENT,
+        Event.COOKIES_LOADED,
+        Event.COOKIES_LOADED_TRACKER,
+        Event.COOKIES_LOADED_SOCIALTRACKER,
+        Event.COOKIES_BLOCKED_BY_PERMISSION,
+        Event.COOKIES_BLOCKED_TRACKER,
+        Event.COOKIES_BLOCKED_SOCIALTRACKER,
+        Event.COOKIES_BLOCKED_ALL,
+        Event.COOKIES_PARTITIONED_FOREIGN,
+        Event.COOKIES_PARTITIONED_TRACKER,
+        Event.COOKIES_BLOCKED_FOREIGN,
+        Event.BLOCKED_SOCIALTRACKING_CONTENT,
+        Event.LOADED_SOCIALTRACKING_CONTENT,
+        Event.REPLACED_TRACKING_CONTENT,
+        Event.LOADED_EMAILTRACKING_LEVEL_1_CONTENT,
+        Event.LOADED_EMAILTRACKING_LEVEL_2_CONTENT,
+        Event.BLOCKED_EMAILTRACKING_CONTENT,
+        Event.PURGED_BOUNCETRACKER,
         Event.BLOCKED_SUSPICIOUS_FINGERPRINTING
       })
       public @interface LogEvent {}

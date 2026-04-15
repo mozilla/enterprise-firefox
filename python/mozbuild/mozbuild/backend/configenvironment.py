@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import functools
 import json
 import os
 import sys
@@ -16,7 +17,6 @@ from mozshellutil import quote as shell_quote
 from mozbuild.util import (
     FileAvoidWrite,
     ReadOnlyDict,
-    memoized_property,
     system_encoding,
 )
 
@@ -182,7 +182,7 @@ class ConfigEnvironment:
     def is_artifact_build(self):
         return self.substs.get("MOZ_ARTIFACT_BUILDS", False)
 
-    @memoized_property
+    @functools.cached_property
     def acdefines(self):
         acdefines = dict((name, self.defines[name]) for name in self.defines)
         return ReadOnlyDict(acdefines)

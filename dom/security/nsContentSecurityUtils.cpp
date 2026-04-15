@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1325,10 +1323,12 @@ static nsLiteralCString sStyleSrcUnsafeInlineAllowList[] = {
 };
 // img-src moz-remote-image:
 static nsLiteralCString sImgSrcMozRemoteImageAllowList[] = {
+    "about:firefoxview"_ns,
     "about:preferences"_ns,
     "about:processes"_ns,
     "about:settings"_ns,
     "chrome://browser/content/aiwindow/aiWindow.html"_ns,
+    "chrome://browser/content/firefoxview/firefoxview.html"_ns,
     "chrome://browser/content/preferences/dialogs/applicationManager.xhtml"_ns,
     "chrome://browser/content/sidebar/sidebar-syncedtabs.html"_ns,
     "chrome://global/content/aboutProcesses.html"_ns,
@@ -1362,6 +1362,7 @@ static nsLiteralCString sImgSrcDataBlobAllowList[] = {
     "chrome://browser/content/aboutlogins/aboutLogins.html"_ns,
     "chrome://browser/content/aiwindow/aiWindow.html"_ns,
     "chrome://browser/content/genai/chat.html"_ns,
+    "chrome://browser/content/qrcode/qrcode-dialog.html"_ns,
     "chrome://browser/content/places/bookmarksSidebar.xhtml"_ns,
     "chrome://browser/content/places/places.xhtml"_ns,
     "chrome://browser/content/preferences/dialogs/permissions.xhtml"_ns,
@@ -2236,7 +2237,7 @@ void nsContentSecurityUtils::LogMessageToConsole(nsIHttpChannel* aChannel,
   uri->GetSpec(spec);
   AutoTArray<nsString, 1> params = {NS_ConvertUTF8toUTF16(spec)};
   rv = nsContentUtils::FormatLocalizedString(
-      nsContentUtils::eSECURITY_PROPERTIES, aMsg, params, localizedMsg);
+      PropertiesFile::SECURITY_PROPERTIES, aMsg, params, localizedMsg);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return;
   }

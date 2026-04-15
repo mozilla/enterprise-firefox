@@ -206,6 +206,10 @@ const GPU_TAG_CONIC_GRADIENT: GpuProfileTag = GpuProfileTag {
     label: "C_ConicGradient",
     color: debug_colors::BROWN,
 };
+const GPU_TAG_REPEAT: GpuProfileTag = GpuProfileTag {
+    label: "Repeat",
+    color: debug_colors::CHARTREUSE,
+};
 const GPU_TAG_SETUP_TARGET: GpuProfileTag = GpuProfileTag {
     label: "target init",
     color: debug_colors::SLATEGREY,
@@ -291,6 +295,7 @@ impl BatchKind {
             BatchKind::TextRun(_) => GPU_TAG_PRIM_TEXT_RUN,
             BatchKind::Quad(PatternKind::ColorOrTexture) => GPU_TAG_PRIMITIVE,
             BatchKind::Quad(PatternKind::Gradient) => GPU_TAG_GRADIENT,
+            BatchKind::Quad(PatternKind::Repeat) => GPU_TAG_REPEAT,
             BatchKind::Quad(PatternKind::Mask) => GPU_TAG_INDIRECT_MASK,
         }
     }

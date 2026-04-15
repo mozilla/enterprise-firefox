@@ -841,7 +841,6 @@ export class ContextMenuChild extends JSWindowActorChild {
     context.onSpellcheckable = false;
     context.onTextInput = false;
     context.onVideo = false;
-    context.inPDFEditor = false;
 
     const textDirectiveRanges =
       this.document.fragmentDirective?.getTextDirectiveRanges?.() || [];
@@ -862,8 +861,7 @@ export class ContextMenuChild extends JSWindowActorChild {
       context.target.ownerDocument.nodePrincipal.originNoSuffix ==
       "resource://pdf.js";
     if (context.inPDFViewer) {
-      context.pdfEditorStates = context.target.ownerDocument.editorStates;
-      context.inPDFEditor = !!context.pdfEditorStates?.isEditing;
+      context.pdfStates = context.target.ownerDocument.pdfStates;
     }
 
     // Check if we are in a synthetic document (stand alone image, video, etc.).

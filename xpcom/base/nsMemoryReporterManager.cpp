@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -20,9 +18,7 @@
 #include "nsIOService.h"
 #include "nsIGlobalObject.h"
 #include "nsIXPConnect.h"
-#ifdef MOZ_GECKO_PROFILER
-#  include "GeckoProfilerReporter.h"
-#endif
+#include "GeckoProfilerReporter.h"
 #if defined(XP_UNIX) || defined(MOZ_DMD)
 #  include "nsMemoryInfoDumper.h"
 #endif
@@ -1758,11 +1754,9 @@ nsMemoryReporterManager::Init() {
     mStrongEternalReporters->AppendElement(new DeadlockDetectorReporter());
 #endif
 
-#ifdef MOZ_GECKO_PROFILER
     // We have to register this here rather than in profiler_init() because
     // profiler_init() runs prior to nsMemoryReporterManager's creation.
     mStrongEternalReporters->AppendElement(new GeckoProfilerReporter());
-#endif
 
 #ifdef MOZ_DMD
     mStrongEternalReporters->AppendElement(new mozilla::dmd::DMDReporter());

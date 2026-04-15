@@ -11,9 +11,9 @@
    * "Settings" will become our h1 and everything will drop down a level so our
    * h1s become h2s, h2s become h3s, etc.
    */
-  --heading-font-size-xlarge: var(--font-size-xlarge);
-  --heading-font-size-large: var(--font-size-large);
-  --heading-font-size-medium: var(--font-size-medium);
+  --font-size-heading-xlarge: var(--font-size-xlarge);
+  --font-size-heading-large: var(--font-size-large);
+  --font-size-heading-medium: var(--font-size-medium);
   --select-max-width: 20rem;
   user-select: text;
 }
@@ -366,6 +366,25 @@ setting-group:has(> moz-card).spotlight {
   margin: 4px 0 8px;
 }
 
+/** SRD applications section START **/
+#applicationsHandlersView {
+  --box-group-max-height: 500px;
+
+  moz-box-item.first label {
+    font-weight: var(--font-weight-semibold);
+  }
+
+  moz-box-item label[slot="actions"],
+  .actionsMenu {
+    width: 270px;
+  }
+
+  moz-box-item[hidden] {
+    display: none;
+  }
+}
+/** SRD applications section END **/
+
 #handlersView {
   height: 25em;
   margin-inline-end: 0;
@@ -414,7 +433,7 @@ setting-group:has(> moz-card).spotlight {
   margin-inline-end: 8px !important;
 }
 
-/* Increase the specifity to override common.inc.css */
+/* Increase the specificity to override common.inc.css */
 richlistitem[selected] .actionsMenu:focus-visible {
   outline-offset: -3px;
 }
@@ -598,7 +617,7 @@ html|dialog,
 .dialogBox {
   border: 1px solid transparent;
   border-radius: var(--border-radius-medium);
-  box-shadow: var(--box-shadow-popup);
+  box-shadow: var(--popup-box-shadow);
 }
 
 .dialogBox {
@@ -635,7 +654,7 @@ html|dialog,
 }
 
 .dialogTitle {
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-heading);
   text-align: center;
   user-select: none;
 }
@@ -1408,7 +1427,7 @@ richlistitem .text-link:hover {
 
   &::part(image) {
     width: 54px;
-    box-shadow: var(--box-shadow-card);
+    box-shadow: var(--card-box-shadow);
     margin-block-start: var(--space-medium);
     border: var(--border-width) solid var(--border-color);
     border-radius: var(--border-radius-small);
@@ -1637,11 +1656,11 @@ setting-group[groupid="aiStatesDescription"] {
 
 #addresses-list-header,
 #payments-list-header {
-  --box-label-font-weight: var(--heading-font-weight);
+  --box-label-font-weight: var(--font-weight-heading);
 }
 
 .box-header-bold {
-  --box-label-font-weight: var(--heading-font-weight);
+  --box-label-font-weight: var(--font-weight-heading);
 }
 
 #fxaUnlinkButton[restricted-enterprise-view],

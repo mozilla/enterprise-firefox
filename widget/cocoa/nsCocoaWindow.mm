@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -3087,9 +3085,24 @@ static gfx::IntPoint GetIntegerDeltaForEvent(NSEvent* aEvent) {
   // does something similar.  Our window should normally always be key --
   // otherwise why is the OS sending us a key down event?  But it's just
   // possible we're in Gecko's hidden window, so we check first.
+  //
+  // Skip this if the window is in the middle of an async transition (e.g.
+  // miniaturize). Calling orderWindow: on a miniaturizing window can cancel
+  // the animation, preventing windowDidMiniaturize: from firing and leaving
+  // the transition state machine permanently stuck.
   NSWindow* viewWindow = [self window];
   if (viewWindow && [viewWindow isKeyWindow]) {
-    [viewWindow orderWindow:NSWindowAbove relativeTo:0];
+    bool isInTransition = false;
+    id delegate = [viewWindow delegate];
+    if ([delegate isKindOfClass:[WindowDelegate class]]) {
+      if (nsCocoaWindow* geckoWindow =
+              [(WindowDelegate*)delegate geckoWidget]) {
+        isInTransition = geckoWindow->IsInTransition();
+      }
+    }
+    if (!isInTransition) {
+      [viewWindow orderWindow:NSWindowAbove relativeTo:0];
+    }
   }
 
 #if !defined(RELEASE_OR_BETA) || defined(DEBUG)

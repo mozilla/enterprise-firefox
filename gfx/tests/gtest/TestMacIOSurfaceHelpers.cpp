@@ -79,9 +79,9 @@ static void TestBiPlanarMidGrayReadback(const IntSize& aYSize,
 // produces the correct BGRA output via CreateSourceSurfaceFromMacIOSurface.
 TEST(MacIOSurfaceHelpers, P010Readback)
 {
-  ASSERT_NO_FATAL_FAILURE(TestBiPlanarMidGrayReadback(
-      IntSize(16, 16), IntSize(8, 8),
-      ChromaSubsampling::HALF_WIDTH_AND_HEIGHT));
+  ASSERT_NO_FATAL_FAILURE(
+      TestBiPlanarMidGrayReadback(IntSize(16, 16), IntSize(8, 8),
+                                  ChromaSubsampling::HALF_WIDTH_AND_HEIGHT));
 }
 
 // Tests that an NV16 (10-bit 4:2:2 biplanar) IOSurface filled with mid-gray

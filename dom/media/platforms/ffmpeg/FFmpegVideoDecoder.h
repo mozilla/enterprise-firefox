@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -206,6 +204,8 @@ class FFmpegVideoDecoder<LIBAV_VER>
 #ifdef MOZ_WIDGET_ANDROID
 #  ifdef USING_MOZFFVPX
   MediaResult AllocateExtraData();
+  MediaResult AllocateH264ExtraData();
+  MediaResult AllocateHEVCExtraData();
 #  endif
   MediaResult InitMediaCodecDecoder();
   MediaResult CreateImageMediaCodec(int64_t aOffset, int64_t aPts,
@@ -258,8 +258,8 @@ class FFmpegVideoDecoder<LIBAV_VER>
    private:
     uint32_t mDecodedFrames = 0;
 
-    float mAverageFrameDecodeTime = 0;
-    float mAverageFrameDuration = 0;
+    double mAverageFrameDecodeTime = 0;
+    double mAverageFrameDuration = 0;
 
     // Number of delayed frames until we consider decoding as slow.
     const uint32_t mMaxLateDecodedFrames = 15;
@@ -348,7 +348,9 @@ class FFmpegVideoDecoder<LIBAV_VER>
     // Retrieve duration from the given ts.
     // We use the first entry found matching this ts (this is done to
     // handle damaged file with multiple frames with the same ts)
-    if (!mInputInfo.Find(GetFrameInputKey(aFrame), aEntry)) {
+    if (Maybe<InputInfo> v = mInputInfo.Take(GetFrameInputKey(aFrame))) {
+      aEntry = v.extract();
+    } else {
       NS_WARNING("Unable to retrieve input info from map");
       // dts are probably incorrectly reported ; so clear the map as we're
       // unlikely to find them in the future anyway. This also guards

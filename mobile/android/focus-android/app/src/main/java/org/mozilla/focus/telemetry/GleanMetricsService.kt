@@ -25,6 +25,7 @@ import mozilla.components.feature.search.telemetry.SerpTelemetryRepository
 import mozilla.components.service.glean.net.ConceptFetchHttpUploader
 import mozilla.components.support.base.log.logger.Logger
 import mozilla.components.support.ktx.android.content.res.readJSONObject
+import mozilla.components.support.utils.Browsers
 import mozilla.telemetry.glean.Glean
 import mozilla.telemetry.glean.config.Configuration
 import org.mozilla.focus.BuildConfig
@@ -170,10 +171,10 @@ class GleanMetricsService(
         settings: Settings,
         context: Context,
     ) = withContext(ioDispatcher) {
-        val installedBrowsers = BrowsersCache.all(context)
+        val installedBrowsers = Browsers.all(context)
         val hasFenixInstalled = FenixProductDetector.getInstalledFenixVersions(context).isNotEmpty()
         val isFenixDefaultBrowser = FenixProductDetector.isFenixDefaultBrowser(installedBrowsers.defaultBrowser)
-        val isFocusDefaultBrowser = installedBrowsers.isDefaultBrowser
+        val isFocusDefaultBrowser = Browsers.isDefaultBrowser(context)
 
         Metrics.searchWidgetInstalled.set(settings.searchWidgetInstalled)
 

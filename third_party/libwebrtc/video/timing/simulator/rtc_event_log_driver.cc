@@ -35,10 +35,12 @@
 namespace webrtc::video_timing_simulator {
 
 RtcEventLogDriver::RtcEventLogDriver(
+    const Config& config,
     const ParsedRtcEventLog* absl_nonnull parsed_log,
     absl::string_view field_trials_string,
     RtcEventLogDriver::StreamInterfaceFactory stream_factory)
-    : time_controller_(
+    : config_(config),
+      time_controller_(
           std::make_unique<GlobalSimulatedTimeController>(Timestamp::Zero())),
       env_(CreateEnvironment(
           std::make_unique<webrtc::FieldTrials>(field_trials_string),
@@ -108,7 +110,9 @@ void RtcEventLogDriver::AdvanceTime(Timestamp log_timestamp) {
   TimeDelta duration = log_timestamp - *prev_log_timestamp_;
   prev_log_timestamp_ = log_timestamp;
   if (duration < TimeDelta::Zero()) {
-    RTC_LOG(LS_WARNING) << "Non-monotonic sequence of timestamps";
+    RTC_LOG(LS_ERROR)
+        << "Non-monotonic sequence of timestamps. Will not advance time."
+        << " (simulated_ts=" << env_.clock().CurrentTime() << ")";
     return;
   }
   time_controller_->AdvanceTime(duration);
@@ -136,11 +140,21 @@ void RtcEventLogDriver::OnLoggedVideoRecvConfig(
   HandleEvent(config.log_time(), [this, ssrc]() {
     RTC_DCHECK_RUN_ON(simulator_queue_.get());
     RTC_LOG(LS_INFO) << "OnLoggedVideoRecvConfig for ssrc=" << ssrc
-                     << "at clock=" << env_.clock().CurrentTime();
+                     << " (simulated_ts=" << env_.clock().CurrentTime() << ")";
     if (auto it = streams_.find(ssrc); it != streams_.end()) {
-      RTC_LOG(LS_WARNING) << "SSRC=" << ssrc
-                          << "already existed. Overwriting it.";
-      it->second->Close();
+      if (config_.reuse_streams) {
+        RTC_LOG(LS_WARNING)
+            << "Video receive stream for ssrc=" << ssrc
+            << " already existed. Reusing it."
+            << " (simulated_ts=" << env_.clock().CurrentTime() << ")";
+        return;
+      } else {
+        RTC_LOG(LS_WARNING)
+            << "Video receive stream for ssrc=" << ssrc
+            << " already existed. Overwriting it."
+            << " (simulated_ts=" << env_.clock().CurrentTime() << ")";
+        it->second->Close();
+      }
     }
     std::unique_ptr<StreamInterface> stream = stream_factory_(env_, ssrc);
     RTC_DCHECK(stream);
@@ -160,7 +174,9 @@ void RtcEventLogDriver::OnLoggedRtpPacketIncoming(
       it->second->InsertPacket(rtp_packet);
     } else {
       RTC_LOG(LS_WARNING) << "Received packet for unknown ssrc="
-                          << packet.rtp.header.ssrc;
+                          << packet.rtp.header.ssrc
+                          << " (simulated_ts=" << env_.clock().CurrentTime()
+                          << ")";
     }
   });
 }

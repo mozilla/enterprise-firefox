@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -12,13 +10,14 @@
 #include "RegionBuilder.h"
 #include "chrome/common/ipc_message_utils.h"
 #include "gfxFeature.h"
-#include "gfxFontUtils.h"
 #include "gfxFallback.h"
 #include "gfxPoint.h"
 #include "gfxRect.h"
+#include "gfxSparseBitSet.h"
 #include "gfxTelemetry.h"
 #include "gfxTypes.h"
 #include "ipc/EnumSerializer.h"
+#include "mozilla/EnumTypeTraits.h"
 #include "ipc/IPCMessageUtilsSpecializations.h"
 #include "mozilla/gfx/CrossProcessPaint.h"
 #include "mozilla/gfx/FileHandleWrapper.h"
@@ -257,6 +256,36 @@ struct ParamTraits<mozilla::gfx::ColorSpace>
     : public ContiguousEnumSerializer<mozilla::gfx::ColorSpace,
                                       mozilla::gfx::ColorSpace::SRGB,
                                       mozilla::gfx::ColorSpace::Max> {};
+
+template <typename E>
+using GfxEnumSerializer =
+    ContiguousEnumSerializerInclusive<E, mozilla::ContiguousEnumValues<E>::min,
+                                      mozilla::ContiguousEnumValues<E>::max>;
+
+template <>
+struct ParamTraits<mozilla::gfx::SVGMorphologyOperator>
+    : public GfxEnumSerializer<mozilla::gfx::SVGMorphologyOperator> {};
+template <>
+struct ParamTraits<mozilla::gfx::SVGFEColorMatrixType>
+    : public GfxEnumSerializer<mozilla::gfx::SVGFEColorMatrixType> {};
+template <>
+struct ParamTraits<mozilla::gfx::SVGFEComponentTransferType>
+    : public GfxEnumSerializer<mozilla::gfx::SVGFEComponentTransferType> {};
+template <>
+struct ParamTraits<mozilla::gfx::SVGFEBlendMode>
+    : public GfxEnumSerializer<mozilla::gfx::SVGFEBlendMode> {};
+template <>
+struct ParamTraits<mozilla::gfx::SVGEdgeMode>
+    : public GfxEnumSerializer<mozilla::gfx::SVGEdgeMode> {};
+template <>
+struct ParamTraits<mozilla::gfx::SVGChannel>
+    : public GfxEnumSerializer<mozilla::gfx::SVGChannel> {};
+template <>
+struct ParamTraits<mozilla::gfx::SVGTurbulenceType>
+    : public GfxEnumSerializer<mozilla::gfx::SVGTurbulenceType> {};
+template <>
+struct ParamTraits<mozilla::gfx::SVGFECompositeOperator>
+    : public GfxEnumSerializer<mozilla::gfx::SVGFECompositeOperator> {};
 
 template <>
 struct ParamTraits<mozilla::gfx::CompositionOp>
@@ -1230,23 +1259,6 @@ template <>
 struct ParamTraits<FontVisibility>
     : public ContiguousEnumSerializer<FontVisibility, FontVisibility::Unknown,
                                       FontVisibility::Count> {};
-
-template <>
-struct ParamTraits<mozilla::fontlist::Pointer> {
-  typedef mozilla::fontlist::Pointer paramType;
-  static void Write(MessageWriter* aWriter, const paramType& aParam) {
-    uint32_t v = aParam.mBlockAndOffset;
-    WriteParam(aWriter, v);
-  }
-  static bool Read(MessageReader* aReader, paramType* aResult) {
-    uint32_t v;
-    if (ReadParam(aReader, &v)) {
-      aResult->mBlockAndOffset.store(v);
-      return true;
-    }
-    return false;
-  }
-};
 
 template <>
 struct ParamTraits<mozilla::gfx::PaintFragment> {

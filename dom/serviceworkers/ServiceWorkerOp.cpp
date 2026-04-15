@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1687,10 +1685,10 @@ void FetchEventOp::ResolvedCallback(JSContext* aCx,
   // https://w3c.github.io/ServiceWorker/#on-fetch-request-algorithm Step 26: If
   // eventHandled is not null, then resolve eventHandled.
   //
-  // mRespondWithPromiseHolder will resolve a MozPromise that will resolve on
-  // the worker owner's thread, so it's fine to resolve the mHandled promise now
-  // because content will not interfere with respondWith getting the Response to
-  // where it's going.
+  // Take an immutable snapshot of the headers now, while still on the worker
+  // thread.
+  ir->SnapshotUnfilteredHeaders();
+
   mHandled->MaybeResolveWithUndefined();
   mRespondWithPromiseHolder.Resolve(
       FetchEventRespondWithResult(std::make_tuple(

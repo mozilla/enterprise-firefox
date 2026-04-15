@@ -16,6 +16,7 @@ import mozilla.components.lib.state.helpers.StoreProvider.Companion.fragmentStor
 import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.R
 import org.mozilla.fenix.databinding.FragmentDohSettingsBinding
+import org.mozilla.fenix.e2e.SystemInsetsPaddedFragment
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.settings
 import org.mozilla.fenix.ext.showToolbar
@@ -24,7 +25,7 @@ import org.mozilla.fenix.theme.FirefoxTheme
 /**
  * Settings for DNS over HTTPS (DoH)
  */
-internal class DohSettingsFragment : Fragment() {
+internal class DohSettingsFragment : Fragment(), SystemInsetsPaddedFragment {
 
     private var _binding: FragmentDohSettingsBinding? = null
     private val binding get() = _binding!!

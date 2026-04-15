@@ -274,6 +274,16 @@ class SettingsSubMenuCustomizeRobot {
         Log.i(TAG, "verifyToolbarLayoutPreference: Verified that the $selectedToolbarLayout toolbar layout option is checked")
     }
 
+    fun clickShowTabBarToggle() {
+        Log.i(TAG, "clickShowTabBarToggle: Trying to click the \"Show tab bar\" toggle")
+        showTabBarToggle().click()
+        Log.i(TAG, "clickShowTabBarToggle: Clicked the \"Show tab bar\" toggle")
+    }
+
+    fun scrollToTheScrollToHideToolbarOption() {
+        scrollToElementByText("Scroll to hide toolbar")
+    }
+
     class Transition {
         fun goBack(interact: SettingsRobot.() -> Unit): SettingsRobot.Transition {
             Log.i(TAG, "goBack: Waiting for device to be idle")
@@ -318,3 +328,6 @@ private fun expandedToolbarLayoutToggle() = onView(withText("Expanded"))
 
 private fun customizeSettingsList() =
     UiScrollable(UiSelector().resourceId("$packageName:id/recycler_view"))
+
+private fun showTabBarToggle() =
+    onView(withText(getStringResource(R.string.preference_tab_strip_show)))

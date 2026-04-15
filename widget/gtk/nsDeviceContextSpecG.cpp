@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -345,6 +344,7 @@ void nsDeviceContextSpecGTK::EnumeratePrinters() {
 NS_IMETHODIMP
 nsDeviceContextSpecGTK::BeginDocument(const nsAString& aTitle,
                                       const nsAString& aPrintToFileName,
+                                      uint64_t aBrowsingContextId,
                                       int32_t aStartPage, int32_t aEndPage) {
   // Print job names exceeding 255 bytes are safe with GTK version 3.18.2 or
   // newer. This is a workaround for old GTK.

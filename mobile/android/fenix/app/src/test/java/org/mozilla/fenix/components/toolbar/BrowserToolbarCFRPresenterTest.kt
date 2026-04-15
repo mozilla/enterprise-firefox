@@ -49,6 +49,7 @@ class BrowserToolbarCFRPresenterTest {
         val settings: Settings = mockk(relaxed = true) {
             every { shouldShowCookieBannersCFR } returns true
             every { shouldUseCookieBannerPrivateMode } returns true
+            every { cfrPopupsEnabled } returns true
         }
         val presenter = createPresenter(
             isPrivate = true,
@@ -97,6 +98,7 @@ class BrowserToolbarCFRPresenterTest {
             every { isSwipeToolbarToSwitchTabsEnabled } returns true
             every { hasShownTabSwipeCFR } returns false
             every { isTabStripEnabled } returns false
+            every { cfrPopupsEnabled } returns true
         }
 
         val presenter = createPresenter(

@@ -43,7 +43,7 @@ newtab-search-box-input =
     .placeholder = ویب تے ڳولو
     .aria-label = ویب تے ڳولو
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = ڳولݨ انجݨ دا اضافہ کرو
 newtab-topsites-add-shortcut-header = نواں شارٹ کٹ

@@ -49,7 +49,7 @@ newtab-search-box-input =
     .placeholder = Leita á vefnum
     .aria-label = Leita á vefnum
 
-## Top Sites - General form dialog.
+## Clear text button for the URL and image URL input fields in the Top Sites form.
 
 newtab-topsites-add-search-engine-header = Bæta við leitarvél
 newtab-topsites-add-shortcut-header = Nýr flýtilykill

@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -196,6 +195,15 @@ nsIContent* nsCoreUtils::GetDOMElementFor(nsIContent* aContent) {
 
 nsINode* nsCoreUtils::GetDOMNodeFromDOMPoint(nsINode* aNode, uint32_t aOffset) {
   if (aNode && aNode->IsElement()) {
+    if (aNode->IsTextControlElement()) {
+      // Offsets in text controls refer to the control itself.
+      // TODO(bug 2017248): Return the anonymous text node itself. This is
+      // currently not a problem because the caret code is managed by
+      // HyperTextAccessible, but would be a problem if this was rewritten to
+      // use TextLeafPoint.
+      return aNode;
+    }
+
     uint32_t childCount = aNode->GetChildCount();
     NS_ASSERTION(aOffset <= childCount, "Wrong offset of the DOM point!");
 

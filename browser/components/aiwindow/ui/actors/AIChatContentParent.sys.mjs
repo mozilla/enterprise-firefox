@@ -6,14 +6,28 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AIWindow:
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
+  SmartWindowTelemetry:
+    "moz-src:///browser/components/aiwindow/ui/modules/SmartWindowTelemetry.sys.mjs",
+  AIWindowUI:
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindowUI.sys.mjs",
+  BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
+  URILoadingHelper: "resource:///modules/URILoadingHelper.sys.mjs",
 });
 
 /**
  * JSWindowActor to pass data between AIChatContent singleton and content pages.
  */
 export class AIChatContentParent extends JSWindowActorParent {
-  dispatchMessageToChatContent(response) {
-    this.sendAsyncMessage("AIChatContent:DispatchMessage", response);
+  dispatchMessageToChatContent(message) {
+    // Ideally we should allowlist or use a schema to validate what we send to
+    // the child process, that is bug 2022057.
+    // We can't send URL objects through IPC, so we need to remove the pageUrl
+    // property before sending the message to the child process. We don't want
+    // to change the original message object which is used elsewhere, so we
+    // do a shallow clone first:
+    message = Object.assign({}, message);
+    delete message.pageUrl;
+    this.sendAsyncMessage("AIChatContent:DispatchMessage", message);
   }
 
   dispatchTruncateToChatContent(payload) {
@@ -22,6 +36,18 @@ export class AIChatContentParent extends JSWindowActorParent {
 
   dispatchRemoveAppliedMemoryToChatContent(payload) {
     this.sendAsyncMessage("AIChatContent:RemoveAppliedMemory", payload);
+  }
+
+  /**
+   * Dispatch seen links for a conversation. This can be a partial set of seen links
+   * for incremental updates, or the full list of links.
+   *
+   * @param {object} payload
+   * @param {string} payload.conversationId
+   * @param {Set<string>} payload.seenUrls
+   */
+  dispatchSeenUrlsToChatContent(payload) {
+    this.sendAsyncMessage("AIChatContent:SeenUrls", payload);
   }
 
   receiveMessage({ data, name }) {
@@ -38,12 +64,20 @@ export class AIChatContentParent extends JSWindowActorParent {
         this.#notifyContentReady();
         break;
 
+      case "AIChatContent:DispatchNewChat":
+        this.#handleNewChat();
+        break;
+
       case "aiChatContentActor:footer-action":
         this.#handleFooterActionFromChild(data);
         break;
 
       case "AIChatContent:OpenLink":
         this.#handleOpenLink(data);
+        break;
+
+      case "AIChatContent:AccountSignIn":
+        this.#handleAccountSignIn();
         break;
 
       default:
@@ -55,7 +89,7 @@ export class AIChatContentParent extends JSWindowActorParent {
 
   #notifyContentReady() {
     const aiWindow = this.#getAIWindowElement();
-    aiWindow.onContentReady();
+    aiWindow?.onContentReady();
   }
 
   #handleSearchFromChild(data) {
@@ -77,6 +111,9 @@ export class AIChatContentParent extends JSWindowActorParent {
   }
 
   #handleOpenLink(data) {
+    const aiWindow = this.#getAIWindowElement();
+    aiWindow?.onOpenLink();
+
     try {
       const { url } = data;
       if (!url) {
@@ -89,17 +126,72 @@ export class AIChatContentParent extends JSWindowActorParent {
       }
 
       const window = this.browsingContext.topChromeWindow;
-      if (window) {
-        const tabFound = window.switchToTabHavingURI(url, false, {});
-        if (!tabFound) {
-          window.gBrowser.selectedTab = window.gBrowser.addTab(url, {
-            triggeringPrincipal:
-              Services.scriptSecurityManager.createNullPrincipal({}),
-          });
+
+      if (!window) {
+        return;
+      }
+
+      lazy.SmartWindowTelemetry.recordUriLoad();
+      const currentPageURL = window.gBrowser.selectedBrowser.currentURI.spec;
+
+      // Only treat it as "same link" if the URL is identical.
+      // If anything differs (hash/query/path), let normal navigation proceed.
+      if (url === currentPageURL) {
+        lazy.AIWindowUI.handleSameLinkClick(window);
+        return;
+      }
+
+      const { userContextId } =
+        window.gBrowser.selectedBrowser.browsingContext.originAttributes;
+      const triggeringPrincipal =
+        Services.scriptSecurityManager.createNullPrincipal({ userContextId });
+      const where = lazy.BrowserUtils.whereToOpenLink(data);
+
+      if (where === "current") {
+        const tabFound = lazy.URILoadingHelper.switchToTabHavingURI(
+          window,
+          url,
+          false,
+          {}
+        );
+        if (tabFound) {
+          return;
         }
       }
+
+      lazy.URILoadingHelper.openWebLinkIn(window, url, where, {
+        triggeringPrincipal,
+        userContextId,
+        forceForeground: false,
+      });
     } catch (e) {
       console.warn("Could not open link from AI Window chat", e);
+    }
+  }
+
+  async #handleAccountSignIn() {
+    const browser = this.browsingContext.topChromeWindow.gBrowser;
+    const success = await lazy.AIWindow.launchSignInFlow(browser);
+    if (success) {
+      this.#handleRetryAfterError();
+    }
+  }
+
+  #handleRetryAfterError() {
+    try {
+      const aiWindow = this.#getAIWindowElement();
+      aiWindow.handleFooterAction({ action: "retry-after-error" });
+    } catch (e) {
+      console.warn("Could not handle Retry from AI Window chat", e);
+    }
+  }
+
+  #handleNewChat() {
+    try {
+      const aiWindow = this.#getAIWindowElement();
+      aiWindow.onCreateNewChatClick();
+    } catch (e) {
+      console.warn("Could not open new Smart Window chat", e);
     }
   }
 
@@ -115,7 +207,7 @@ export class AIChatContentParent extends JSWindowActorParent {
   #handleFollowUpFromChild(data) {
     try {
       const aiWindow = this.#getAIWindowElement();
-      aiWindow.submitFollowUp(data.text);
+      aiWindow.onQuickPromptClicked(data.text, false);
     } catch (e) {
       console.warn("Could not submit follow-up from AI Window chat", e);
     }

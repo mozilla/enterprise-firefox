@@ -87,6 +87,7 @@ class NetworkModule extends WindowGlobalBiDiModule {
       fromCache: true,
       fromServiceWorker: false,
       isCachedResource: true,
+      memoryCacheKey: data.memoryCacheKey,
     });
 
     this.#emitWindowGlobalNetworkResource(data.channel, request, response);

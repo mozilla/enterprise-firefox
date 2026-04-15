@@ -1253,7 +1253,7 @@ Function WriteInstallationTelemetryData
   ${EndIf}
 
   ; Check for top-level profile directory
-  ; Note: This is the same check used to set $ExistingProfile in stub.nsi
+  ; Note: This is the same check used to set $HadExistingProfile in stub.nsi
   ${GetLocalAppDataFolder} $0
   ${If} ${FileExists} "$0\Mozilla\Firefox"
     StrCpy $1 "true"
@@ -1397,7 +1397,8 @@ FunctionEnd
 
 Function leaveOptions
   ${MUI_INSTALLOPTIONS_READ} $0 "options.ini" "Settings" "State"
-  ${If} $0 != 0
+  ${IfNot} ${Errors}
+  ${AndIf} $0 != 0
     Abort
   ${EndIf}
   ${MUI_INSTALLOPTIONS_READ} $R0 "options.ini" "Field 2" "State"
@@ -1791,21 +1792,14 @@ Function .onInit
     ExecShell "open" "${URLSystemRequirements}"
     Quit
   ${EndIf}
-  SetRegView 64
 !endif
 
-  SetShellVarContext all
-  ${GetFirstInstallPath} "Software\Mozilla\${BrandFullNameInternal}" $0
-  ${If} "$0" == "false"
-    SetShellVarContext current
-    ${GetFirstInstallPath} "Software\Mozilla\${BrandFullNameInternal}" $0
-    ${If} "$0" == "false"
-      StrCpy $HadOldInstall false
-    ${Else}
-      StrCpy $HadOldInstall true
-    ${EndIf}
+  ${GetExistingInstallPath} $0
+  ${If} "$0" == ""
+    StrCpy $HadOldInstall false
   ${Else}
     StrCpy $HadOldInstall true
+    ${UseExistingInstallPathIfNoInstallDirArg} $0
   ${EndIf}
 
   ${InstallOnInitCommon} "$(WARN_MIN_SUPPORTED_OSVER_CPU_MSG2)"

@@ -1,6 +1,6 @@
 .personalized-card-wrapper {
   background-color: var(--background-color-canvas);
-  border: 2px solid var(--border-color-card);
+  border: 2px solid var(--card-border-color);
   color: var(--text-color);
   padding: var(--space-xxlarge);
   border-radius: var(--border-radius-large);
@@ -38,7 +38,7 @@
 
     h2 {
       font-size: var(--font-size-xxlarge);
-      font-weight: var(--heading-font-weight);
+      font-weight: var(--font-weight-heading);
     }
 
     .personalized-card-link {

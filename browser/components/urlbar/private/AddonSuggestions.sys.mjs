@@ -20,9 +20,9 @@ const UTM_PARAMS = {
 };
 
 const RESULT_MENU_COMMAND = {
+  DISMISS: "dismiss",
   MANAGE: "manage",
   NOT_INTERESTED: "not_interested",
-  NOT_RELEVANT: "not_relevant",
   SHOW_LESS_FREQUENTLY: "show_less_frequently",
 };
 
@@ -123,7 +123,7 @@ export class AddonSuggestions extends SuggestProvider {
 
     commands.push(
       {
-        name: RESULT_MENU_COMMAND.NOT_RELEVANT,
+        name: RESULT_MENU_COMMAND.DISMISS,
         l10n: {
           id: "urlbar-result-menu-dismiss-suggestion",
         },
@@ -153,8 +153,7 @@ export class AddonSuggestions extends SuggestProvider {
         // "manage" is handled by UrlbarInput, no need to do anything here.
         break;
       // selType == "dismiss" when the user presses the dismiss key shortcut.
-      case "dismiss":
-      case RESULT_MENU_COMMAND.NOT_RELEVANT:
+      case RESULT_MENU_COMMAND.DISMISS:
         lazy.QuickSuggest.dismissResult(result);
         result.acknowledgeDismissalL10n = {
           id: "firefox-suggest-dismissal-acknowledgment-one",

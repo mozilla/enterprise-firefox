@@ -100,9 +100,23 @@ class FirefoxWebDriver(WebDriver):
         if "use_strict_etp" in test_config:
             prefs[STRICT_ETP_PREF] = test_config["use_strict_etp"]
 
+        if test_config.get("use_big_minimum_font_size"):
+            prefs["font.size.variable.x-western"] = 14
+            prefs["font.minimum-size.x-western"] = 20
+
         if test_config.get("no_overlay_scrollbars"):
             prefs["widget.gtk.overlay-scrollbars.enabled"] = False
             prefs["widget.windows.overlay-scrollbars.enabled"] = False
+
+        if test_config.get("enable_speechrecognition"):
+            prefs["media.webspeech.recognition.enable"] = True
+        elif test_config.get("disable_speechrecognition"):
+            prefs["media.webspeech.recognition.enable"] = False
+
+        if test_config.get("enable_standard_captureStream"):
+            prefs["media.captureStream.enabled"] = True
+        elif test_config.get("disable_standard_captureStream"):
+            prefs["media.captureStream.enabled"] = False
 
         if test_config.get("enable_webkit_fill_available"):
             prefs["layout.css.webkit-fill-available.enabled"] = True

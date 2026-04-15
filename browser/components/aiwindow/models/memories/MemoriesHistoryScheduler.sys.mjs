@@ -16,6 +16,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs",
   DRIFT_TRIGGER_QUANTILE:
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs",
+  HISTORY:
+    "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "console", function () {
@@ -69,7 +71,9 @@ export class MemoriesHistoryScheduler {
    *          The scheduler instance if initialized, otherwise null.
    */
   static maybeInit() {
-    if (!lazy.MemoriesManager.shouldEnableMemoriesSchedulers()) {
+    if (
+      !lazy.MemoriesManager.shouldEnableMemoriesFromSchedulers(lazy.HISTORY)
+    ) {
       return null;
     }
     if (!this.#instance) {
@@ -93,7 +97,7 @@ export class MemoriesHistoryScheduler {
     );
     // run immediately (first run) or just start the interval.
     void this.#init();
-    lazy.console.debug("[MemoriesHistoryScheduler] Initialized");
+    lazy.console.debug("Initialized");
   }
 
   /**
@@ -107,7 +111,9 @@ export class MemoriesHistoryScheduler {
    * @returns {Promise<void>}
    */
   async #init() {
-    if (!lazy.MemoriesManager.shouldEnableMemoriesSchedulers()) {
+    if (
+      !lazy.MemoriesManager.shouldEnableMemoriesFromSchedulers(lazy.HISTORY)
+    ) {
       return;
     }
 
@@ -116,9 +122,7 @@ export class MemoriesHistoryScheduler {
     const isFirstRun = lastMemoryTs === 0;
 
     if (isFirstRun) {
-      lazy.console.debug(
-        "[MemoriesHistoryScheduler] First run detected; running immediately."
-      );
+      lazy.console.debug("First run detected; running immediately.");
       // #onInterval's finally will start the interval
       await this.#onInterval();
     } else {
@@ -178,16 +182,16 @@ export class MemoriesHistoryScheduler {
    */
   #onInterval = async () => {
     if (this.#destroyed) {
-      lazy.console.warn(
-        "[MemoriesHistoryScheduler] Interval fired after destroy; ignoring."
-      );
+      lazy.console.warn("Interval fired after destroy; ignoring.");
       return;
     }
 
     // Re-check gating conditions on every tick (AIWindow may have closed, prefs may have changed).
-    if (!lazy.MemoriesManager.shouldEnableMemoriesSchedulers()) {
+    if (
+      !lazy.MemoriesManager.shouldEnableMemoriesFromSchedulers(lazy.HISTORY)
+    ) {
       lazy.console.debug(
-        "[MemoriesHistoryScheduler] Memories schedulers no longer enabled; stopping history scheduler."
+        "Memories from HistoryScheduler no longer enabled; stopping history scheduler."
       );
       this.destroy();
       return;
@@ -195,7 +199,7 @@ export class MemoriesHistoryScheduler {
 
     if (this.#running) {
       lazy.console.debug(
-        "[MemoriesHistoryScheduler] Skipping run because a previous run is still in progress."
+        "Skipping run because a previous run is still in progress."
       );
       return;
     }
@@ -215,7 +219,7 @@ export class MemoriesHistoryScheduler {
       // keep accumulating pagesVisited until eligible.
       if (!isFirstRun && now - lastMemoryTs < MEMORIES_SCHEDULER_COOLDOWN_MS) {
         lazy.console.debug(
-          `[MemoriesHistoryScheduler] Cooldown not met; last run was ${Math.floor(
+          `Cooldown not met; last run was ${Math.floor(
             (now - lastMemoryTs) / (60 * 1000)
           )}m ago (<${Math.floor(
             MEMORIES_SCHEDULER_COOLDOWN_MS / (60 * 60 * 1000)
@@ -230,7 +234,7 @@ export class MemoriesHistoryScheduler {
 
       if (this.#pagesVisited < minPagesThreshold) {
         lazy.console.debug(
-          `[MemoriesHistoryScheduler] Not enough pages visited (${this.#pagesVisited}/${minPagesThreshold}); ` +
+          `Not enough pages visited (${this.#pagesVisited}/${minPagesThreshold}); ` +
             `skipping analysis. isFirstRun=${isFirstRun}`
         );
         return;
@@ -241,14 +245,14 @@ export class MemoriesHistoryScheduler {
       });
       if (recentVisitCount < MIN_RECENT_VISITS) {
         lazy.console.debug(
-          `[MemoriesHistoryScheduler] Not enough recent visits (${recentVisitCount} < ${MIN_RECENT_VISITS}); skipping.`
+          `Not enough recent visits (${recentVisitCount} < ${MIN_RECENT_VISITS}); skipping.`
         );
         return;
       }
 
       if (!isFirstRun) {
         lazy.console.debug(
-          "[MemoriesHistoryScheduler] Computing history drift metrics before running memories..."
+          "Computing history drift metrics before running memories..."
         );
 
         const { baselineMetrics, deltaMetrics, trigger } =
@@ -259,18 +263,18 @@ export class MemoriesHistoryScheduler {
 
         if (!baselineMetrics.length || !deltaMetrics.length) {
           lazy.console.debug(
-            "[MemoriesHistoryScheduler] Drift metrics incomplete (no baseline or delta); falling back to non-drift scheduling."
+            "Drift metrics incomplete (no baseline or delta); falling back to non-drift scheduling."
           );
         } else if (!trigger.triggered) {
           lazy.console.debug(
-            "[MemoriesHistoryScheduler] History drift below threshold; skipping memories run for this interval."
+            "History drift below threshold; skipping memories run for this interval."
           );
           // Reset pages so we don’t repeatedly attempt with the same data.
           this.#pagesVisited = 0;
           return;
         } else {
           lazy.console.debug(
-            `[MemoriesHistoryScheduler] Drift triggered (jsThreshold=${trigger.jsThreshold.toFixed(4)}, ` +
+            `Drift triggered (jsThreshold=${trigger.jsThreshold.toFixed(4)}, ` +
               `surpriseThreshold=${trigger.surpriseThreshold.toFixed(4)}); sessions=${trigger.triggeredSessionIds.join(
                 ","
               )}`
@@ -279,23 +283,18 @@ export class MemoriesHistoryScheduler {
       }
 
       lazy.console.debug(
-        `[MemoriesHistoryScheduler] Generating memories from history with ${this.#pagesVisited} new pages`
+        `Generating memories from history with ${this.#pagesVisited} new pages`
       );
       await lazy.MemoriesManager.generateMemoriesFromBrowsingHistory();
       this.#pagesVisited = 0;
 
-      lazy.console.debug(
-        "[MemoriesHistoryScheduler] History memories generation complete."
-      );
+      lazy.console.debug("History memories generation complete.");
     } catch (error) {
-      lazy.console.error(
-        "[MemoriesHistoryScheduler] Failed to generate history memories",
-        error
-      );
+      lazy.console.error("Failed to generate history memories", error);
     } finally {
       if (
         !this.#destroyed &&
-        lazy.MemoriesManager.shouldEnableMemoriesSchedulers()
+        lazy.MemoriesManager.shouldEnableMemoriesFromSchedulers(lazy.HISTORY)
       ) {
         this.#startInterval();
       }
@@ -318,7 +317,7 @@ export class MemoriesHistoryScheduler {
     );
     this.#destroyed = true;
     MemoriesHistoryScheduler.#instance = null;
-    lazy.console.debug("[MemoriesHistoryScheduler] Destroyed");
+    lazy.console.debug("Destroyed");
   }
 
   /**

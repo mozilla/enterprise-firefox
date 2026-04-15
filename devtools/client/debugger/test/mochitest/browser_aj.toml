@@ -29,6 +29,7 @@ skip-if = [
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && asan", # Bug 1767707
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && debug", # Bug 1767707
   "os == 'mac' && os_version == '14.70' && arch == 'x86_64'", # Bug 1937229
+  "os == 'mac' && os_version == '15.30' && arch == 'aarch64'", # Bug 1937229, Bug 2028047
 ]
 
 ["browser_dbg-bfcache.js"]
@@ -111,11 +112,13 @@ fail-if = [
 ["browser_dbg-browser-toolbox-unselected-pause.js"]
 skip-if = [
   "os == 'mac' && os_version == '14.70' && arch == 'x86_64'", # Bug 1937315
+  "os == 'mac' && os_version == '15.30' && arch == 'aarch64'", # Bug 1937315, Bug 2028047
 ]
 
 ["browser_dbg-browser-toolbox-workers.js"]
 skip-if = [
   "os == 'mac' && os_version == '14.70' && arch == 'x86_64'", # Bug 1767721
+  "os == 'mac' && os_version == '15.30' && arch == 'aarch64'", # Bug 1767721, Bug 2028047
 ]
 
 ["browser_dbg-call-stack.js"]
@@ -212,6 +215,7 @@ fail-if = [
 ]
 skip-if = [
   "os == 'mac' && os_version == '14.70' && arch == 'x86_64'", # Bug 1959062
+  "os == 'mac' && os_version == '15.30' && arch == 'aarch64'", # Bug 1959062, Bug 2028047
 ]
 
 ["browser_dbg-event-handler.js"]

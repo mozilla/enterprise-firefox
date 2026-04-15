@@ -54,8 +54,8 @@ function waitForCondition(condition, nextTest, errorMsg) {
 let typeInSearchField = async function (browser, text, fieldName) {
   await SpecialPowers.spawn(
     browser,
-    [[fieldName, text]],
-    async function ([contentFieldName, contentText]) {
+    [fieldName, text],
+    async function (contentFieldName, contentText) {
       // Put the focus on the search box.
       let searchInput = content.document.getElementById(contentFieldName);
       searchInput.focus();

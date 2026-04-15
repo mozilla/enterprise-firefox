@@ -55,9 +55,24 @@ class DeleteHistoryEntryDelegate(
             message = container.context.getString(
                 R.string.search_suggestions_delete_history_item_snackbar,
                 when (item.isSearchTerm) {
-                    true -> item.suggestion.title
-                    false -> item.suggestion.description?.toShortUrl(components.publicSuffixList)
-                 },
+                    true -> {
+                        if (item.suggestion is AwesomeBar.Suggestion) {
+                            (item.suggestion as AwesomeBar.Suggestion).title
+                        } else {
+                            return
+                        }
+                    }
+
+                    false -> {
+                        if (item.suggestion is AwesomeBar.Suggestion) {
+                            (item.suggestion as AwesomeBar.Suggestion).description?.toShortUrl(
+                                components.publicSuffixList,
+                            )
+                        } else {
+                            return
+                        }
+                    }
+                },
             ),
             undoActionTitle = container.context.getString(R.string.snackbar_deleted_undo),
             onCancel = {
@@ -77,11 +92,20 @@ class DeleteHistoryEntryDelegate(
         item: GroupedSuggestion,
     ) = withContext(ioDispatcher) {
         when (item.isSearchTerm) {
-            true -> item.suggestion.title?.let {
-                historyStorage.deleteHistoryMetadata(it)
+            true -> {
+                if (item.suggestion is AwesomeBar.Suggestion) {
+                    (item.suggestion as AwesomeBar.Suggestion).title?.let {
+                        historyStorage.deleteHistoryMetadata(it)
+                    }
+                }
             }
-            else -> item.suggestion.description?.let {
-                historyStorage.deleteVisitsFor(it)
+
+            false -> {
+                if (item.suggestion is AwesomeBar.Suggestion) {
+                    (item.suggestion as AwesomeBar.Suggestion).description?.let {
+                        historyStorage.deleteVisitsFor(it)
+                    }
+                }
             }
         }
     }

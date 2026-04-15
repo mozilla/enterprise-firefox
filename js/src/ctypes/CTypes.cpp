@@ -1098,9 +1098,9 @@ static void BuildConversionPosition(JSContext* cx, ConversionType convType,
 static JSLinearString* GetFieldName(HandleObject structObj,
                                     unsigned fieldIndex) {
   const FieldInfoHash* fields = StructType::GetFieldInfo(structObj);
-  for (FieldInfoHash::Range r = fields->all(); !r.empty(); r.popFront()) {
-    if (r.front().value().mIndex == fieldIndex) {
-      return (&r.front())->key();
+  for (auto iter = fields->iter(); !iter.done(); iter.next()) {
+    if (iter.get().value().mIndex == fieldIndex) {
+      return iter.get().key();
     }
   }
   return nullptr;
@@ -4146,8 +4146,8 @@ static void BuildTypeSource(JSContext* cx, JSObject* typeObj_, bool makeShort,
         break;
       }
 
-      for (FieldInfoHash::Range r = fields->all(); !r.empty(); r.popFront()) {
-        fieldsArray[r.front().value().mIndex] = &r.front();
+      for (auto iter = fields->iter(); !iter.done(); iter.next()) {
+        fieldsArray[iter.get().value().mIndex] = &iter.get();
       }
 
       for (size_t i = 0; i < length; ++i) {
@@ -4309,8 +4309,8 @@ static void BuildTypeSource(JSContext* cx, JSObject* typeObj_, bool makeShort,
         return false;
       }
 
-      for (FieldInfoHash::Range r = fields->all(); !r.empty(); r.popFront()) {
-        fieldsArray[r.front().value().mIndex] = &r.front();
+      for (auto iter = fields->iter(); !iter.done(); iter.next()) {
+        fieldsArray[iter.get().value().mIndex] = &iter.get();
       }
 
       for (size_t i = 0; i < length; ++i) {
@@ -6135,8 +6135,8 @@ UniquePtrFFIType StructType::BuildFFIType(JSContext* cx, JSObject* obj) {
   if (len != 0) {
     elements[len] = nullptr;
 
-    for (FieldInfoHash::Range r = fields->all(); !r.empty(); r.popFront()) {
-      const FieldInfoHash::Entry& entry = r.front();
+    for (auto iter = fields->iter(); !iter.done(); iter.next()) {
+      const FieldInfoHash::Entry& entry = iter.get();
       ffi_type* fieldType = CType::GetFFIType(cx, entry.value().mType);
       if (!fieldType) {
         return nullptr;
@@ -6286,8 +6286,8 @@ bool StructType::ConstructData(JSContext* cx, HandleObject obj,
   // We have a type constructor of the form 'ctypes.StructType(a, b, c, ...)'.
   // ImplicitConvert each field.
   if (args.length() == fields->count()) {
-    for (FieldInfoHash::Range r = fields->all(); !r.empty(); r.popFront()) {
-      const FieldInfo& field = r.front().value();
+    for (auto iter = fields->iter(); !iter.done(); iter.next()) {
+      const FieldInfo& field = iter.get().value();
       MOZ_ASSERT(field.mIndex < fields->count()); /* Quantified invariant */
       if (!ImplicitConvert(cx, args[field.mIndex], field.mType,
                            buffer + field.mOffset, ConversionType::Construct,
@@ -6346,8 +6346,8 @@ JSObject* StructType::BuildFieldsArray(JSContext* cx, JSObject* obj) {
     return nullptr;
   }
 
-  for (FieldInfoHash::Range r = fields->all(); !r.empty(); r.popFront()) {
-    const FieldInfoHash::Entry& entry = r.front();
+  for (auto iter = fields->iter(); !iter.done(); iter.next()) {
+    const FieldInfoHash::Entry& entry = iter.get();
     // Add the field descriptor to the array.
     if (!AddFieldToArray(cx, fieldsVec[entry.value().mIndex], entry.key(),
                          entry.value().mType))

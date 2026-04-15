@@ -10,6 +10,7 @@ with Files("**"):
     BUG_COMPONENT = ("Firefox", "about:logins")
 
 EXTRA_JS_MODULES += [
+    "ChangePasswordURLs.sys.mjs",
     "LoginBreaches.sys.mjs",
 ]
 

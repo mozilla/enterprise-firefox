@@ -51,12 +51,14 @@ data class TrustPanelState(
  * @property websiteUrl The URL of the current web page.
  * @property websiteTitle The title of the current web page.
  * @property certificate The certificate presented by the current web page.
+ * @property qwac The Qualified Website Authentication Certificate presented by the current web page.
  */
 data class WebsiteInfoState(
     val isSecured: Boolean = true,
     val websiteUrl: String = "",
     val websiteTitle: String = "",
     val certificate: X509Certificate? = null,
+    val qwac: X509Certificate? = null,
 )
 
 /**

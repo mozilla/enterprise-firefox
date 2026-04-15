@@ -141,9 +141,9 @@ class FrozenAtomSet {
     return mSet->shallowSizeOfIncludingThis(mallocSizeOf);
   }
 
-  using Range = AtomSet::Range;
+  using Iterator = AtomSet::Iterator;
 
-  AtomSet::Range all() const { return mSet->all(); }
+  AtomSet::Iterator iter() const { return mSet->iter(); }
 };
 
 class AtomsTable {
@@ -162,7 +162,7 @@ class AtomsTable {
 
  public:
   // An iterator used for sweeping atoms incrementally.
-  using SweepIterator = AtomSet::Enum;
+  using SweepIterator = AtomSet::ModIterator;
 
   AtomsTable();
   ~AtomsTable();

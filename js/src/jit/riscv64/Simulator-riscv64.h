@@ -241,7 +241,7 @@ using sfreg_t = int64_t;
 #    define zext_xlen(x) (((reg_t)(x) << (32 - xlen)) >> (32 - xlen))
 #  endif
 
-#  define BIT(n) (0x1LL << n)
+#  define BIT(n) (0x1LL << (n))
 #  define QUIET_BIT_S(nan) (bit_cast<int32_t>(nan) & BIT(22))
 #  define QUIET_BIT_D(nan) (bit_cast<int64_t>(nan) & BIT(51))
 static inline bool isSnan(float fp) { return !QUIET_BIT_S(fp); }
@@ -1062,8 +1062,9 @@ class Simulator {
     if (std::isnan(alu_out) || std::isnan(src1) || std::isnan(src2) ||
         std::isnan(dst)) {
       // signaling_nan sets kInvalidOperation bit
-      if (isSnan(alu_out) || isSnan(src1) || isSnan(src2) || isSnan(dst))
+      if (isSnan(alu_out) || isSnan(src1) || isSnan(src2) || isSnan(dst)) {
         set_fflags(kInvalidOperation);
+      }
       alu_out = std::numeric_limits<T>::quiet_NaN();
     }
     return alu_out;
@@ -1080,8 +1081,9 @@ class Simulator {
     if (std::isnan(alu_out) || std::isnan(src1) || std::isnan(src2) ||
         std::isnan(src3)) {
       // signaling_nan sets kInvalidOperation bit
-      if (isSnan(alu_out) || isSnan(src1) || isSnan(src2) || isSnan(src3))
+      if (isSnan(alu_out) || isSnan(src1) || isSnan(src2) || isSnan(src3)) {
         set_fflags(kInvalidOperation);
+      }
       alu_out = std::numeric_limits<T>::quiet_NaN();
     }
     return alu_out;
@@ -1096,8 +1098,9 @@ class Simulator {
     // if any input or result is NaN, the result is quiet_NaN
     if (std::isnan(alu_out) || std::isnan(src1) || std::isnan(src2)) {
       // signaling_nan sets kInvalidOperation bit
-      if (isSnan(alu_out) || isSnan(src1) || isSnan(src2))
+      if (isSnan(alu_out) || isSnan(src1) || isSnan(src2)) {
         set_fflags(kInvalidOperation);
+      }
       alu_out = std::numeric_limits<T>::quiet_NaN();
     }
     return alu_out;
@@ -1120,32 +1123,36 @@ class Simulator {
   template <typename Func>
   inline float CanonicalizeDoubleToFloatOperation(Func fn) {
     float alu_out = fn(drs1());
-    if (std::isnan(alu_out) || std::isnan(drs1()))
+    if (std::isnan(alu_out) || std::isnan(drs1())) {
       alu_out = std::numeric_limits<float>::quiet_NaN();
+    }
     return alu_out;
   }
 
   template <typename Func>
   inline float CanonicalizeDoubleToFloatOperation(Func fn, double frs) {
     float alu_out = fn(frs);
-    if (std::isnan(alu_out) || std::isnan(drs1()))
+    if (std::isnan(alu_out) || std::isnan(drs1())) {
       alu_out = std::numeric_limits<float>::quiet_NaN();
+    }
     return alu_out;
   }
 
   template <typename Func>
   inline float CanonicalizeFloatToDoubleOperation(Func fn, float frs) {
     double alu_out = fn(frs);
-    if (std::isnan(alu_out) || std::isnan(frs1()))
+    if (std::isnan(alu_out) || std::isnan(frs1())) {
       alu_out = std::numeric_limits<double>::quiet_NaN();
+    }
     return alu_out;
   }
 
   template <typename Func>
   inline float CanonicalizeFloatToDoubleOperation(Func fn) {
     double alu_out = fn(frs1());
-    if (std::isnan(alu_out) || std::isnan(frs1()))
+    if (std::isnan(alu_out) || std::isnan(frs1())) {
       alu_out = std::numeric_limits<double>::quiet_NaN();
+    }
     return alu_out;
   }
 

@@ -21,9 +21,11 @@ import mozilla.components.concept.sync.SyncStatus
 import mozilla.components.concept.sync.SyncableStore
 import mozilla.components.support.base.log.logger.Logger
 import mozilla.components.support.base.utils.NamedThreadFactory
+import mozilla.components.support.rusterrors.reportRustError
 import mozilla.components.support.utils.logElapsedTime
 import java.nio.charset.MalformedInputException
 import java.util.concurrent.Executors
+import mozilla.appservices.places.uniffi.InternalException as UniffiInternalException
 
 /**
  * A base class for concrete implementations of PlacesStorages
@@ -58,9 +60,11 @@ abstract class PlacesStorage(
     internal open val reader: PlacesReaderConnection by lazy { places.reader() }
 
     override suspend fun warmUp() {
-        logElapsedTime(logger, "Warming up places storage") {
-            writer
-            reader
+        handlePlacesExceptions("warmUp") {
+            logElapsedTime(logger, "Warming up places storage") {
+                writer
+                reader
+            }
         }
     }
 
@@ -154,6 +158,9 @@ abstract class PlacesStorage(
         } catch (e: PlacesApiException) {
             crashReporter?.submitCaughtException(e)
             logger.warn("Ignoring PlacesApiException while running $operation", e)
+        } catch (e: UniffiInternalException) {
+            logger.error("Ignoring internal uniffi places exception when running $operation", e)
+            reportRustError("places-internal-error", e)
         }
     }
 
@@ -183,6 +190,10 @@ abstract class PlacesStorage(
         } catch (e: PlacesApiException) {
             crashReporter?.submitCaughtException(e)
             logger.warn("Ignoring PlacesApiException while running $operation", e)
+            default
+        } catch (e: UniffiInternalException) {
+            logger.error("Ignoring internal uniffi places exception when running $operation", e)
+            reportRustError("places-internal-error", e)
             default
         }
     }

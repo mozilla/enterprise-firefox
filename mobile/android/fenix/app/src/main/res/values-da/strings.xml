@@ -1493,12 +1493,8 @@
   <string name="studies_remove">Fjern</string>
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">Aktive</string>
-  <!-- Description for studies -->
-  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">Prøv nye funktioner og idéer før de bliver tilgængelige for alle.</string>
   <!-- Description for studies. Note: The word "Firefox" should NOT be translated -->
   <string name="studies_description_4" tools:ignore="BrandUsage">Firefox vælger tilfældige brugere for at teste funktioner, hvilket forbedrer kvaliteten for alle.</string>
-  <!-- Title of the Studies data preference -->
-  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">Installer og kør undersøgelser</string>
   <!-- Title of the Studies data preference -->
   <string name="studies_title_2">Tillad funktions-undersøgelser</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
@@ -2029,7 +2025,11 @@
   <string name="bookmark_delete_single_item" tools:ignore="UnusedResources" moz:removedIn="150">%s blev slettet</string>
   <!-- Bookmark snackbar message for deleting multiple items. %s is the number of items being deleted -->
   <string name="bookmark_delete_multiple_items" tools:ignore="UnusedResources" moz:removedIn="150">Slettede elementer: %s</string>
-  <!-- Content description for the bookmark navigation bar back button -->
+  <!--
+    Bookmark undo button for deletion snackbar action
+
+    Content description for the bookmark navigation bar back button
+  -->
   <string name="bookmark_navigate_back_button_content_description">Gå tilbage</string>
   <!-- Content description for the bookmark list new folder navigation bar button -->
   <string name="bookmark_add_new_folder_button_content_description">Tilføj en ny mappe</string>
@@ -2367,8 +2367,6 @@
   <string name="preference_accessibility_text_size_summary">Gør tekst på websteder større eller mindre</string>
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">Skriftstørrelse</string>
-  <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">Automatisk skriftstørrelse</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -3392,7 +3390,7 @@
   <!-- The title of the warning card informs the user that the list of languages cannot be loaded. -->
   <string name="translation_error_could_not_load_languages_warning_text">Kunne ikke indlæse sprog. Kontroller din internetforbindelse, og prøv igen.</string>
   <!-- The title of the warning card informs the user that a language is not supported. %1$s is the name of the language that is not supported. -->
-  <string name="translation_error_language_not_supported_warning_text">Beklager, men vi understøtter ikke %1$s endnu.</string>
+  <string name="translation_error_language_not_supported_warning_text" tools:ignore="UnusedResources" moz:removedIn="150">Beklager, men vi understøtter ikke %1$s endnu.</string>
   <!-- Snackbar title shown if the user closes the Translation Request dialogue and a translation is in progress. -->
   <string name="translation_in_progress_snackbar">Oversætter…</string>
   <!--

@@ -14,6 +14,7 @@ import org.junit.rules.TestRule
 import org.junit.runner.Description
 import org.junit.runners.model.Statement
 import org.mozilla.fenix.ext.components
+import org.mozilla.fenix.helpers.Constants.TAG
 import org.mozilla.fenix.helpers.IdlingResourceHelper.unregisterAllIdlingResources
 import org.mozilla.fenix.helpers.TestHelper.appContext
 import org.mozilla.fenix.helpers.TestHelper.exitMenu
@@ -71,10 +72,6 @@ class RetryTestRule(private val retryCount: Int = 5) : TestRule {
         is NullPointerException,
         -> true
         else -> false
-    }
-
-    companion object {
-        private const val TAG = "RetryTestRule"
     }
 }
 

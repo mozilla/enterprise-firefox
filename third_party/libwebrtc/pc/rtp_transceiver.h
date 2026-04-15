@@ -13,12 +13,13 @@
 
 #include <stddef.h>
 
-#include <functional>
+#include <atomic>
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
+#include "absl/functional/any_invocable.h"
 #include "absl/strings/string_view.h"
 #include "api/array_view.h"
 #include "api/audio_options.h"
@@ -106,7 +107,7 @@ class RtpTransceiver : public RtpTransceiverInterface {
       ConnectionContext* context,
       CodecLookupHelper* codec_lookup_helper,
       std::vector<RtpHeaderExtensionCapability> HeaderExtensionsToNegotiate,
-      std::function<void()> on_negotiation_needed);
+      absl::AnyInvocable<void()> on_negotiation_needed);
   ~RtpTransceiver() override;
 
   // Not copyable or movable.
@@ -129,7 +130,8 @@ class RtpTransceiver : public RtpTransceiverInterface {
       const AudioOptions& audio_options,
       const VideoOptions& video_options,
       VideoBitrateAllocatorFactory* video_bitrate_allocator_factory,
-      std::function<RtpTransportInternal*(absl::string_view)> transport_lookup);
+      absl::AnyInvocable<RtpTransportInternal*(absl::string_view) &&>
+          transport_lookup);
 
   // Sets the Voice/VideoChannel. The caller must pass in the correct channel
   // implementation based on the type of the transceiver.  The call must
@@ -156,9 +158,10 @@ class RtpTransceiver : public RtpTransceiverInterface {
   //     The callback allows us to combine the transport lookup with network
   //     state initialization of the channel object.
   // ClearChannel() must be used before calling SetChannel() again.
-  void SetChannel(std::unique_ptr<ChannelInterface> channel,
-                  std::function<RtpTransportInternal*(const std::string&)>
-                      transport_lookup);
+  void SetChannel(
+      std::unique_ptr<ChannelInterface> channel,
+      absl::AnyInvocable<RtpTransportInternal*(const std::string&) &&>
+          transport_lookup);
 
   // Clear the association between the transceiver and the channel.
   void ClearChannel();
@@ -232,6 +235,8 @@ class RtpTransceiver : public RtpTransceiverInterface {
   // remote) after which the only valid reason to go back to null is rollback.
   void set_fired_direction(std::optional<RtpTransceiverDirection> direction);
 
+  void set_receptive(bool receptive);
+
   // According to JSEP rules for SetRemoteDescription, RtpTransceivers can be
   // reused only if they were added by AddTrack.
   void set_created_by_addtrack(bool created_by_addtrack) {
@@ -273,6 +278,7 @@ class RtpTransceiver : public RtpTransceiverInterface {
       RtpTransceiverDirection new_direction) override;
   std::optional<RtpTransceiverDirection> current_direction() const override;
   std::optional<RtpTransceiverDirection> fired_direction() const override;
+  bool receptive() const override;
   RTCError StopStandard() override;
   void StopInternal() override;
   RTCError SetCodecPreferences(ArrayView<RtpCodecCapability> codecs) override;
@@ -308,6 +314,8 @@ class RtpTransceiver : public RtpTransceiverInterface {
     return *codec_lookup_helper_->GetCodecVendor();
   }
   void OnFirstPacketReceived();
+  void OnPacketReceived(scoped_refptr<PendingTaskSafetyFlag> safety)
+      RTC_RUN_ON(context()->network_thread());
   void OnFirstPacketSent();
   void StopSendingAndReceiving();
   // Tell the senders and receivers about possibly-new media channels
@@ -326,10 +334,12 @@ class RtpTransceiver : public RtpTransceiverInterface {
 
   const Environment env_;
   // Enforce that this object is created, used and destroyed on one thread.
+  // This TQ typically represents the signaling thread.
   TaskQueueBase* const thread_;
   const bool unified_plan_;
   const MediaType media_type_;
-  scoped_refptr<PendingTaskSafetyFlag> signaling_thread_safety_;
+  scoped_refptr<PendingTaskSafetyFlag> signaling_thread_safety_
+      RTC_GUARDED_BY(thread_);
   std::vector<scoped_refptr<RtpSenderProxyWithInternal<RtpSenderInternal>>>
       senders_;
   std::vector<scoped_refptr<RtpReceiverProxyWithInternal<RtpReceiverInternal>>>
@@ -346,6 +356,9 @@ class RtpTransceiver : public RtpTransceiverInterface {
   bool created_by_addtrack_ = false;
   bool reused_for_addtrack_ = false;
   bool has_ever_been_used_to_send_ = false;
+  std::atomic<bool> receptive_ = false;
+  bool packet_notified_after_receptive_
+      RTC_GUARDED_BY(context()->network_thread()) = false;
 
   // Accessed on both thread_ and the network thread. Considered safe
   // because all access on the network thread is within an invoke()
@@ -369,7 +382,7 @@ class RtpTransceiver : public RtpTransceiverInterface {
   // PushdownMediaDescription().
   RtpHeaderExtensions negotiated_header_extensions_ RTC_GUARDED_BY(thread_);
 
-  const std::function<void()> on_negotiation_needed_;
+  absl::AnyInvocable<void()> on_negotiation_needed_;
 };
 
 BEGIN_PRIMARY_PROXY_MAP(RtpTransceiver)
@@ -385,6 +398,7 @@ PROXY_CONSTMETHOD0(RtpTransceiverDirection, direction)
 PROXY_METHOD1(RTCError, SetDirectionWithError, RtpTransceiverDirection)
 PROXY_CONSTMETHOD0(std::optional<RtpTransceiverDirection>, current_direction)
 PROXY_CONSTMETHOD0(std::optional<RtpTransceiverDirection>, fired_direction)
+PROXY_CONSTMETHOD0(bool, receptive)
 PROXY_METHOD0(RTCError, StopStandard)
 PROXY_METHOD0(void, StopInternal)
 PROXY_METHOD1(RTCError, SetCodecPreferences, ArrayView<RtpCodecCapability>)

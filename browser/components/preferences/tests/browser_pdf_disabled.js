@@ -8,33 +8,36 @@ add_task(async function pdfIsAlwaysPresent() {
   // Try again with the pdf viewer enabled and disabled.
   for (let test of ["enabled", "disabled"]) {
     await SpecialPowers.pushPrefEnv({
-      set: [["pdfjs.disabled", test == "disabled"]],
+      set: [
+        ["pdfjs.disabled", test == "disabled"],
+        ["browser.settings-redesign.enabled", true],
+      ],
     });
+
+    let appHandlerInitialized = TestUtils.topicObserved("app-handler-loaded");
 
     await openPreferencesViaOpenPreferencesAPI("general", { leaveOpen: true });
 
+    await appHandlerInitialized;
+
     let win = gBrowser.selectedBrowser.contentWindow;
 
-    let container = win.document.getElementById("handlersView");
+    let container = win.document.getElementById("applicationsHandlersView");
 
     // First, find the PDF item.
     let pdfItem = container.querySelector(
-      "richlistitem[type='application/pdf']"
+      "moz-box-item[type='application/pdf']"
     );
     Assert.ok(pdfItem, "pdfItem is present in handlersView when " + test);
     if (pdfItem) {
       pdfItem.scrollIntoView({ block: "center" });
-      pdfItem.closest("richlistbox").selectItem(pdfItem);
 
       // Open its menu
       let list = pdfItem.querySelector(".actionsMenu");
-      let popup = list.menupopup;
-      let popupShown = BrowserTestUtils.waitForEvent(popup, "popupshown");
       EventUtils.synthesizeMouseAtCenter(list, {}, win);
-      await popupShown;
 
       let handleInternallyItem = list.querySelector(
-        `menuitem[action='${Ci.nsIHandlerInfo.handleInternally}']`
+        `moz-option[action='${Ci.nsIHandlerInfo.handleInternally}']`
       );
 
       is(

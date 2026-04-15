@@ -1,4 +1,3 @@
-/* -*- Mode: IDL; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -2032,7 +2031,7 @@ interface nsIDOMWindowUtils : nsISupports {
   /**
    * Start capturing each WebRender frame to disk.
    *
-   * |aPath| is the name of a new directory to be created to hold the captures.
+   * a new directory with name "wr-capture" is created to hold the captures.
    * it is relative to:
    * - the |PUBLIC_STORAGE| environment variable, if set, else
    * - the |MOZ_UPLOAD_DIR| environment variable, if set, else
@@ -2040,15 +2039,14 @@ interface nsIDOMWindowUtils : nsISupports {
    * the current directory.
    *
    * If there is already a directory with the given name, a numeric suffix is
-   * added to ensure a fresh directory is created. This means that you can't
-   * be sure your capture directory is actually named |aPath|.
+   * added to ensure a fresh directory is created.
    *
    * |aFlags| is a set of flags from |webrender::render_api::CaptureBits|.
    *
    * If there is already a sequence capture in progress, stop it and start a new
    * one, with the new path and flags.
    */
-  void wrStartCaptureSequence(in ACString aPath, in uint32_t aFlags);
+  void wrStartCaptureSequence(in uint32_t aFlags);
 
   /**
    * Stop a capture begun with |wrStartCaptureSequence|.

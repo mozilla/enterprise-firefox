@@ -16,6 +16,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeTestRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -43,6 +44,7 @@ import org.mozilla.fenix.helpers.Constants.TAG
 import org.mozilla.fenix.helpers.DataGenerationHelper.getStringResource
 import org.mozilla.fenix.helpers.MatcherHelper.assertUIObjectExists
 import org.mozilla.fenix.helpers.MatcherHelper.itemContainingText
+import org.mozilla.fenix.helpers.MatcherHelper.itemWithDescription
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithResId
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithResIdAndDescription
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTime
@@ -375,9 +377,12 @@ class ThreeDotMenuMainRobot(private val composeTestRule: ComposeTestRule) {
 
     @OptIn(ExperimentalTestApi::class)
     fun verifyExtensionsButtonWithInstalledExtension(extensionTitle: String) {
-        Log.i(TAG, "verifyExtensionsButtonWithInstalledExtension: Waiting for the compose test rule to be idle.")
-        composeTestRule.waitForIdle()
-        Log.i(TAG, "verifyExtensionsButtonWithInstalledExtension: Waited for the compose test rule to be idle.")
+        Log.i(TAG, "Waiting for $waitingTime until node with tag: $EXTENSIONS exists")
+        composeTestRule.waitUntil(waitingTime) {
+            composeTestRule.onAllNodesWithTag(EXTENSIONS)
+                .fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+        }
+        Log.i(TAG, "Waited for $waitingTime until node with tag: $EXTENSIONS exists")
         assertUIObjectExists(itemWithResIdAndDescription("mainMenu.extensions", extensionTitle))
     }
 
@@ -429,7 +434,7 @@ class ThreeDotMenuMainRobot(private val composeTestRule: ComposeTestRule) {
     class Transition(private val composeTestRule: ComposeTestRule) {
         fun clickSettingsButton(localizedText: String = getStringResource(R.string.browser_menu_settings), interact: SettingsRobot.() -> Unit): SettingsRobot.Transition {
             Log.i(TAG, "clickSettingsButton: Trying to click the Settings button from the new main menu design.")
-            composeTestRule.settingsButton(localizedText).performClick()
+            itemWithDescription(localizedText).click()
             Log.i(TAG, "clickSettingsButton: Clicked the Settings button from the new main menu design.")
 
             SettingsRobot().interact()

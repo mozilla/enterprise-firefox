@@ -395,8 +395,8 @@ uint32_t Table::grow(uint32_t delta) {
     AddCellMemory(object, gcMallocBytes(), MemoryUse::WasmTableTable);
   }
 
-  for (InstanceSet::Range r = observers_.all(); !r.empty(); r.popFront()) {
-    r.front()->instance().onMovingGrowTable(this);
+  for (auto iter = observers_.iter(); !iter.done(); iter.next()) {
+    iter.get()->instance().onMovingGrowTable(this);
   }
 
   return oldLength;

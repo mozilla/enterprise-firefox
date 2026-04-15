@@ -5,11 +5,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import functools
 import json
 from collections import OrderedDict
 
 import buildconfig
-from mozbuild.util import memoize
 from perfecthash import PerfectHash
 
 # Pick a nice power-of-two size for our intermediate PHF tables.
@@ -136,7 +136,7 @@ def split_iid(iid):  # Get the individual components out of an IID string.
     return tuple(split_at_idxs(iid, (8, 4, 4, 2, 2, 2, 2, 2, 2, 2, 2)))
 
 
-@memoize
+@functools.cache
 def iid_bytes(iid):  # Get the byte representation of the IID for hashing.
     bs = bytearray()
     for num in split_iid(iid):

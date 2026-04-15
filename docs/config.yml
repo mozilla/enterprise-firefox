@@ -201,6 +201,10 @@ allowed_warnings:
     - "WARNING: the mozbuild.sphinx extension does not declare"
     - "WARNING: doing serial read"
 
+# Paths to exclude from documentation staging to avoid duplicate builds
+exclude_patterns:
+    - js/src/doc/Debugger
+
 # JSDoc must run successfully for dirs specified, so running
 # tree-wide (the default) will not work currently.
 # When adding more paths to this list, please ensure that they are not

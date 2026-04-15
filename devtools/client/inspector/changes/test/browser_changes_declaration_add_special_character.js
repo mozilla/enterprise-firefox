@@ -27,7 +27,7 @@ add_task(async function addWithSpecialCharacter() {
 
   await selectNode("div", inspector);
 
-  const ruleEditor = getRuleViewRuleEditor(ruleView, 1);
+  const ruleEditor = getRuleViewRuleEditorAt(ruleView, 1);
   const editor = await focusEditableField(ruleView, ruleEditor.closeBrace);
 
   const input = editor.input;

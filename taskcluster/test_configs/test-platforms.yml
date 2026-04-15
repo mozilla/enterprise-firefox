@@ -39,6 +39,11 @@ linux1804-64-nightlyasrelease-qr/opt:
     test-sets:
         - browsertime
 
+linux2404-64-nightlyasrelease/opt:
+    build-platform: linux64-nightlyasrelease/opt
+    test-sets:
+        - browsertime
+
 linux2404-64-tsan/opt:
     build-platform: linux64-tsan/opt
     test-sets:
@@ -54,10 +59,13 @@ linux2404-64/opt:
     build-platform: linux64/opt
     test-sets:
         - awsy
+        - talos
+        - browsertime
         - desktop-screenshot-capture
         - linux-tests
         - web-platform-tests
         - web-platform-tests-backlog
+        - webgpu
 
 linux2404-64-enterprise/opt:
     build-platform: linux64-enterprise/opt
@@ -73,10 +81,15 @@ linux2404-64-shippable/opt:
     build-platform: linux64-shippable/opt
     test-sets:
         - awsy
+        - talos
+        - talos-profiling
+        - browsertime
+        - browsertime-profiling
         - desktop-screenshot-capture
         - linux-tests
         - web-platform-tests
         - web-platform-tests-backlog
+        - webgpu
 
 linux2404-64/debug:
     build-platform: linux64/debug
@@ -84,6 +97,7 @@ linux2404-64/debug:
         - linux-tests
         - web-platform-tests
         - web-platform-tests-backlog
+        - webgpu
 
 linux2404-64-asan/opt:
     build-platform: linux64-asan/opt
@@ -111,26 +125,24 @@ linux2204-64-wayland/debug:
     test-sets:
         - linux2204-wayland-tests
         - web-platform-tests
-        - webgpu
 
 linux2204-64-wayland/opt:
     build-platform: linux64/opt
     test-sets:
         - linux2204-wayland-tests
         - web-platform-tests
-        - webgpu
 
 linux2204-64-wayland-shippable/opt:
     build-platform: linux64-shippable/opt
     test-sets:
         - linux2204-wayland-tests
         - web-platform-tests
-        - webgpu
 
 linux2404-64-clang-trunk/opt:
     build-platform: linux64-plain-clang-trunk/opt
     test-sets:
         - awsy
+        - browsertime-clang
 
 ##
 # Windows platforms (matching /windows.*/) 24h2 (no -qr)
@@ -319,6 +331,16 @@ windows11-64-24h2-nightlyasrelease/opt:
         - browsertime
 
 # windows11-64-aarch64
+windows11-aarch64-24h2-shippable/opt:
+    build-platform: win64-aarch64-shippable/opt
+    test-sets:
+        - windows-aarch64-tests
+
+windows11-aarch64-24h2-devedition/opt:
+    build-platform: win64-aarch64-devedition/opt
+    test-sets:
+        - windows-aarch64-tests
+
 windows11-aarch64-24h2/opt:
     build-platform: win64-aarch64/opt
     test-sets:

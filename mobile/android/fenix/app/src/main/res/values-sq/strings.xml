@@ -19,6 +19,8 @@
   <string name="content_description_menu">Më tepër mundësi</string>
   <!-- Content description (not visible, for screen readers etc.): "Private Browsing" menu button. -->
   <string name="content_description_private_browsing">Shfletim privat</string>
+  <!-- Content description (not visible, for screen readers etc.): "Normal Browsing" menu button. -->
+  <string name="content_description_normal_browsing">Shfletim normal</string>
   <!-- Placeholder text shown in the search bar before a user enters text for the default engine -->
   <string name="search_hint">Bëni kërkim, ose jepni adresë</string>
   <!-- Placeholder text shown in the search bar before a user enters text for a general engine -->
@@ -616,8 +618,12 @@
 
   <!-- "Continue" onboarding button. -->
   <string name="nova_onboarding_continue_button">Vazhdo</string>
+  <!-- "Continue browsing" onboarding button. -->
+  <string name="nova_onboarding_continue_browsing_button" tools:ignore="UnusedResources">Vazhdoni shfletimin</string>
   <!-- "Not now" onboarding button. -->
   <string name="nova_onboarding_negative_button">Jo tani</string>
+  <!-- "Skip" onboarding button. -->
+  <string name="nova_onboarding_skip_button" tools:ignore="UnusedResources">Anashkaloje</string>
   <!-- Terms of use (ToU) onboarding title. -->
   <string name="nova_onboarding_tou_title" tools:ignore="UnusedResources">Bëhuni gati të rendi të lirë</string>
   <!-- Terms of use (ToU) onboarding subtitle. -->
@@ -692,6 +698,25 @@
   <string name="nova_onboarding_add_search_widget_subtitle" tools:ignore="BrandUsage">Niseni çdo kërkim nga skena e kreut e telefonit tua dhe dijeni se mbrojtjet e automatizuara të Firefox-it ju mbrojnë krahët.</string>
   <!-- "Add search widget" onboarding button. 'Firefox' is intentionally hardcoded. -->
   <string name="nova_onboarding_add_search_widget_button" tools:ignore="BrandUsage">Shtoni “widget” Firefox-i</string>
+  <!-- Customize prompt onboarding title. -->
+  <string name="nova_onboarding_customize_prompt_title" tools:ignore="UnusedResources">I kollajtë të përshtatesh dhe më privat, me çdo prekje</string>
+  <plurals name="nova_onboarding_customize_prompt_body" tools:ignore="UnusedResources">
+    <!--
+      Customize prompt onboarding body.
+      %1$s is replaced by the product name (for example "Firefox"),
+      %2$,d is replaced by the number of trackers blocked. The comma represents the thousand
+      separator (e.g. 1,000 in English), and it will automatically use the correct character
+      for your locale (don't change or remove it).
+    -->
+    <item quantity="one">%1$s bllokoi %2$,d gjurmues teksa endeshit në internet.</item>
+    <item quantity="other">%1$s bllokoi %2$,d gjurmues teksa endeshit në internet.</item>
+  </plurals>
+  <!-- Customize prompt onboarding positive button. -->
+  <string name="nova_onboarding_customize_prompt_positive_button" tools:ignore="UnusedResources">Filloni ta përshtatni</string>
+  <!-- App icon onboarding title. -->
+  <string name="nova_onboarding_app_icon_prompt_title" tools:ignore="UnusedResources">Zgjidhni një ikonë vetjake për aplikacionin</string>
+  <!-- App icon onboarding body. -->
+  <string name="nova_onboarding_app_icon_prompt_body" tools:ignore="UnusedResources">Jepini skenës tuaj të kreut një ton personal.</string>
   <!-- ==== End of Project "Nova" onboarding strings ==== -->
 
   <!-- Onboarding header for the toolbar selection card, used by Nimbus experiments. -->
@@ -1503,12 +1528,8 @@
   <string name="studies_remove">Hiqe</string>
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">Aktive</string>
-  <!-- Description for studies -->
-  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">Provoni veçori dhe ide para se të hidhen në qarkullim për këdo.</string>
   <!-- Description for studies. Note: The word "Firefox" should NOT be translated -->
   <string name="studies_description_4" tools:ignore="BrandUsage">Firefox-i përzgjedh kuturu përdorues për të testuar veçori, çka përmirëson cilësinë për gjithkënd.</string>
-  <!-- Title of the Studies data preference -->
-  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">Instaloni dhe kryeni studime</string>
   <!-- Title of the Studies data preference -->
   <string name="studies_title_2">Lejoni studim veçorish</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
@@ -1655,10 +1676,24 @@
     %d is the number of existing tab groups + 1.
   -->
   <string name="create_tab_group_form_default_name">Grupi %d</string>
-  <!-- Label for the tab group name field in the bottom sheet to create a new tab group. -->
-  <string name="create_tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">Emër</string>
   <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
-  <string name="tab_group_name_label">Emër</string>
+  <string name="create_tab_group_name_label">Emër</string>
+  <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
+  <string name="tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">Emër</string>
+  <!-- Title for adding more tabs to a tab group. -->
+  <string name="add_to_tab_group_title">Shtoje te</string>
+  <!-- Content Description for closing the "Add to Tab Group" panel. -->
+  <string name="add_to_tab_group_bottom_sheet_close_content_description">Mbyll shtim te grup skedash</string>
+  <!-- Label for adding to a new tab group. -->
+  <string name="add_to_new_tab_group_title">Grup i ri skedash</string>
+  <plurals name="tab_group_tabs_count_subtitle">
+    <!--
+      Subtitle for the number of tabs in a tab group.
+      %1$d is the number of tabs in a tab group.
+    -->
+    <item quantity="one">%1$d skedë</item>
+    <item quantity="other">%1$d skeda</item>
+  </plurals>
   <!--
     History
 
@@ -2054,7 +2089,11 @@
   <string name="bookmark_delete_single_item" tools:ignore="UnusedResources" moz:removedIn="150">U fshi %s</string>
   <!-- Bookmark snackbar message for deleting multiple items. %s is the number of items being deleted -->
   <string name="bookmark_delete_multiple_items" tools:ignore="UnusedResources" moz:removedIn="150">Objekte të fshirë: %s</string>
-  <!-- Content description for the bookmark navigation bar back button -->
+  <!--
+    Bookmark undo button for deletion snackbar action
+
+    Content description for the bookmark navigation bar back button
+  -->
   <string name="bookmark_navigate_back_button_content_description">Shko mbrapsht</string>
   <!-- Content description for the bookmark list new folder navigation bar button -->
   <string name="bookmark_add_new_folder_button_content_description">Shtoni një dosje të re</string>
@@ -2392,8 +2431,6 @@
   <string name="preference_accessibility_text_size_summary">Bëjeni tekstin në sajte më të madh ose më të vogël</string>
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">Madhësi Shkronjash</string>
-  <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">Përmasim automatik i shkronjave</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -3334,6 +3371,8 @@
     Header text for a section on the home screen.
   -->
   <string name="pocket_stories_header_2">Shembuj</string>
+  <!-- Header text for the Stories screen. -->
+  <string name="stories_screen_text_news">Lajme</string>
   <!--
     Context description text for the "Discover more" button in the stories home screen section
     which navigates the user to a screen displaying more stories.
@@ -3426,7 +3465,7 @@
   <!-- The title of the warning card informs the user that the list of languages cannot be loaded. -->
   <string name="translation_error_could_not_load_languages_warning_text">S’u ngarkuan dot gjuhë. Kontrolloni lidhjen tuaj internet dhe riprovoni.</string>
   <!-- The title of the warning card informs the user that a language is not supported. %1$s is the name of the language that is not supported. -->
-  <string name="translation_error_language_not_supported_warning_text">Na ndjeni, s’e mbulojmë ende %1$s.</string>
+  <string name="translation_error_language_not_supported_warning_text" tools:ignore="UnusedResources" moz:removedIn="150">Na ndjeni, s’e mbulojmë ende %1$s.</string>
   <!-- Snackbar title shown if the user closes the Translation Request dialogue and a translation is in progress. -->
   <string name="translation_in_progress_snackbar">Po përkthehet…</string>
   <!--

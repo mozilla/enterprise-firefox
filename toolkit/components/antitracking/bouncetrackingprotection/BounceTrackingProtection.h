@@ -5,6 +5,7 @@
 #define mozilla_BounceTrackingProtection_h_
 
 #include "BounceTrackingMapEntry.h"
+#include "BounceTrackingRecord.h"
 #include "BounceTrackingStorageObserver.h"
 #include "mozilla/Logging.h"
 #include "mozilla/MozPromise.h"
@@ -170,7 +171,7 @@ class BounceTrackingProtection final : public nsIBounceTrackingProtection,
   [[nodiscard]] nsresult PurgeStateForHostAndOriginAttributes(
       const nsACString& aHost, PRTime bounceTime,
       const OriginAttributes& aOriginAttributes,
-      ClearDataMozPromise** aClearPromise);
+      BounceTrackingRecord* aChainRecord, ClearDataMozPromise** aClearPromise);
 
   // Whether a purge operation is currently in progress. This avoids running
   // multiple purge operations at the same time.

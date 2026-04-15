@@ -1,11 +1,10 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/ServoStyleSet.h"
 
+#include "COLRFonts.h"
 #include "PseudoStyleType.h"
 #include "gfxUserFontSet.h"
 #include "mozilla/AttributeStyles.h"
@@ -27,6 +26,7 @@
 #include "mozilla/StyleAnimationValue.h"
 #include "mozilla/css/Loader.h"
 #include "mozilla/dom/AnonymousContent.h"
+#include "mozilla/dom/CSSAppearanceBaseRule.h"
 #include "mozilla/dom/CSSBinding.h"
 #include "mozilla/dom/CSSContainerRule.h"
 #include "mozilla/dom/CSSCounterStyleRule.h"
@@ -474,6 +474,10 @@ already_AddRefed<ComputedStyle> ServoStyleSet::ResolvePseudoElementStyle(
                 .Consume();
     if (!style) {
       MOZ_ASSERT(isProbe);
+      if (cacheable) {
+        aParentStyle->SetCachedLazyPseudoStyle(nullptr, aType,
+                                               aFunctionalPseudoParameter);
+      }
       return nullptr;
     }
     if (cacheable) {
@@ -496,7 +500,7 @@ already_AddRefed<ComputedStyle> ServoStyleSet::ResolvePseudoElementStyle(
         return true;
       }();
       if (shouldCache) {
-        aParentStyle->SetCachedLazyPseudoStyle(style,
+        aParentStyle->SetCachedLazyPseudoStyle(style, aType,
                                                aFunctionalPseudoParameter);
       }
     }
@@ -610,18 +614,6 @@ already_AddRefed<ComputedStyle> ServoStyleSet::ResolveXULTreePseudoStyle(
 
   return Servo_ComputedValues_ResolveXULTreePseudoStyle(
              aParentElement, aType, aParentStyle, &aInputWord, mRawData.get())
-      .Consume();
-}
-
-already_AddRefed<ComputedStyle> ServoStyleSet::ResolveStartingStyle(
-    dom::Element& aElement) {
-  nsPresContext* pc = GetPresContext();
-  if (!pc) {
-    return nullptr;
-  }
-
-  return Servo_ResolveStartingStyle(
-             &aElement, &pc->RestyleManager()->Snapshots(), mRawData.get())
       .Consume();
 }
 
@@ -1032,6 +1024,7 @@ static Maybe<StyleCssRuleRef> ToRuleRef(css::Rule& aRule) {
     CASE_FOR(Container, Container)
     CASE_FOR(Scope, Scope)
     CASE_FOR(StartingStyle, StartingStyle)
+    CASE_FOR(AppearanceBase, AppearanceBase)
     CASE_FOR(PositionTry, PositionTry)
     CASE_FOR(NestedDeclarations, NestedDeclarations)
     CASE_FOR(Namespace, Namespace)
@@ -1082,6 +1075,7 @@ void ServoStyleSet::RuleChangedInternal(StyleSheet& aSheet, css::Rule& aRule,
     CASE_FOR(Container, Container)
     CASE_FOR(Scope, Scope)
     CASE_FOR(StartingStyle, StartingStyle)
+    CASE_FOR(AppearanceBase, AppearanceBase)
     CASE_FOR(PositionTry, PositionTry)
     CASE_FOR(NestedDeclarations, NestedDeclarations)
     // @namespace can only be inserted / removed when there are only other

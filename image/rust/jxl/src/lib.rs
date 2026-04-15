@@ -5,5 +5,6 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![deny(clippy::undocumented_unsafe_blocks)]
 
+pub mod cms;
 pub mod decoder;
 pub mod ffi;

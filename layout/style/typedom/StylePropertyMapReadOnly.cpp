@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -13,8 +11,6 @@
 #include "mozilla/ErrorResult.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/ServoStyleConsts.h"
-#include "mozilla/dom/CSSKeywordValue.h"
-#include "mozilla/dom/CSSNumericValue.h"
 #include "mozilla/dom/CSSStyleRule.h"
 #include "mozilla/dom/CSSStyleValue.h"
 #include "mozilla/dom/Element.h"
@@ -36,23 +32,23 @@ struct InlineStyleDeclarations {};
 
 template <>
 struct DeclarationTraits<InlineStyleDeclarations> {
-  static StylePropertyTypedValueResult Get(Element* aElement,
-                                           const nsACString& aProperty,
-                                           ErrorResult& aRv) {
+  static StylePropertyTypedValue Get(Element* aElement,
+                                     const nsACString& aProperty,
+                                     ErrorResult& aRv) {
     MOZ_ASSERT(aElement);
 
-    auto result = StylePropertyTypedValueResult::None();
+    auto value = StylePropertyTypedValue::None();
 
     RefPtr<DeclarationBlock> block = aElement->GetInlineStyleDeclaration();
     if (!block) {
-      return result;
+      return value;
     }
 
-    if (!block->GetPropertyTypedValue(aProperty, result)) {
-      return result;
+    if (!block->GetPropertyTypedValue(aProperty, value)) {
+      return value;
     }
 
-    return result;
+    return value;
   }
 };
 
@@ -61,24 +57,24 @@ struct ComputedStyleDeclarations {};
 
 template <>
 struct DeclarationTraits<ComputedStyleDeclarations> {
-  static StylePropertyTypedValueResult Get(Element* aElement,
-                                           const nsACString& aProperty,
-                                           ErrorResult& aRv) {
+  static StylePropertyTypedValue Get(Element* aElement,
+                                     const nsACString& aProperty,
+                                     ErrorResult& aRv) {
     MOZ_ASSERT(aElement);
 
-    auto result = StylePropertyTypedValueResult::None();
+    auto value = StylePropertyTypedValue::None();
 
     RefPtr<const ComputedStyle> style =
         nsComputedDOMStyle::GetComputedStyle(aElement);
     if (!style) {
-      return result;
+      return value;
     }
 
-    if (!style->GetPropertyTypedValue(aProperty, result)) {
-      return result;
+    if (!style->GetPropertyTypedValue(aProperty, value)) {
+      return value;
     }
 
-    return result;
+    return value;
   }
 };
 
@@ -86,19 +82,18 @@ struct DeclarationTraits<ComputedStyleDeclarations> {
 struct StyleRuleDeclarations {};
 template <>
 struct DeclarationTraits<StyleRuleDeclarations> {
-  static StylePropertyTypedValueResult Get(const CSSStyleRule* aRule,
-                                           const nsACString& aProperty,
-                                           ErrorResult& aRv) {
+  static StylePropertyTypedValue Get(const CSSStyleRule* aRule,
+                                     const nsACString& aProperty,
+                                     ErrorResult& aRv) {
     MOZ_ASSERT(aRule);
 
-    auto result = StylePropertyTypedValueResult::None();
+    auto value = StylePropertyTypedValue::None();
 
-    if (!aRule->GetDeclarationBlock().GetPropertyTypedValue(aProperty,
-                                                            result)) {
-      return result;
+    if (!aRule->GetDeclarationBlock().GetPropertyTypedValue(aProperty, value)) {
+      return value;
     }
 
-    return result;
+    return value;
   }
 };
 
@@ -169,51 +164,14 @@ void StylePropertyMapReadOnly::Get(const nsACString& aProperty,
 
   // Step 4.
 
-  auto result = declarations.Get(aProperty, aRv);
+  auto value = declarations.Get(aProperty, aRv);
   if (aRv.Failed()) {
     return;
   }
 
-  // XXX Move the creation of CSSStyleValue to a dedicated class for example
-  // CSSStyleValueFactory and eventually split the handling of tags into
-  // separate methods to make the code more readable and accessible for
-  // CSSStyleValue::Parse. See bug 2004057
-
-  RefPtr<CSSStyleValue> styleValue;
-
-  switch (result.tag) {
-    case StylePropertyTypedValueResult::Tag::Typed: {
-      const auto& typedValue = result.AsTyped();
-
-      switch (typedValue.tag) {
-        case StyleTypedValue::Tag::Keyword:
-          styleValue =
-              MakeRefPtr<CSSKeywordValue>(mParent, typedValue.AsKeyword());
-          break;
-
-        case StyleTypedValue::Tag::Numeric: {
-          auto numericValue = typedValue.AsNumeric();
-
-          styleValue = CSSNumericValue::Create(mParent, numericValue);
-
-          break;
-        }
-      }
-      break;
-    }
-
-    case StylePropertyTypedValueResult::Tag::Unsupported: {
-      auto propertyId = CSSPropertyId::FromIdOrCustomProperty(id, aProperty);
-      auto rawBlock = result.AsUnsupported();
-      auto block = MakeRefPtr<DeclarationBlock>(rawBlock.Consume());
-      styleValue = MakeRefPtr<CSSUnsupportedValue>(mParent, propertyId,
-                                                   std::move(block));
-      break;
-    }
-
-    case StylePropertyTypedValueResult::Tag::None:
-      break;
-  }
+  RefPtr<CSSStyleValue> styleValue = CSSStyleValue::Create(
+      mParent, CSSPropertyId::FromIdOrCustomProperty(id, aProperty),
+      std::move(value));
 
   if (styleValue) {
     aRetVal.SetAsCSSStyleValue() = std::move(styleValue);
@@ -273,7 +231,7 @@ size_t StylePropertyMapReadOnly::SizeOfIncludingThis(
   return SizeOfExcludingThis(aMallocSizeOf) + aMallocSizeOf(this);
 }
 
-StylePropertyTypedValueResult StylePropertyMapReadOnly::Declarations::Get(
+StylePropertyTypedValue StylePropertyMapReadOnly::Declarations::Get(
     const nsACString& aProperty, ErrorResult& aRv) const {
   switch (mKind) {
     case Kind::Inline:

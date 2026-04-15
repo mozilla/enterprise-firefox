@@ -363,8 +363,8 @@ void XPCNativeInterface::Trace(JSTracer* trc) {
 }
 
 void IID2NativeInterfaceMap::Trace(JSTracer* trc) {
-  for (Map::Enum e(mMap); !e.empty(); e.popFront()) {
-    XPCNativeInterface* iface = e.front().value();
+  for (auto iter = mMap.iter(); !iter.done(); iter.next()) {
+    XPCNativeInterface* iface = iter.get().value();
     iface->Trace(trc);
   }
 }

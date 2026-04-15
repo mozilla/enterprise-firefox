@@ -10,6 +10,7 @@ import android.content.pm.PackageInfo
 import android.content.pm.ResolveInfo
 import androidx.core.net.toUri
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import mozilla.components.support.test.robolectric.DefaultBrowserUtils
 import mozilla.components.support.test.robolectric.testContext
 import mozilla.components.support.utils.Browsers.Companion.SAMPLE_BROWSER_HTTP_URL
 import org.junit.Assert.assertEquals
@@ -20,6 +21,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.Config
 
 @Suppress("DEPRECATION") // Deprecation will be handled in https://github.com/mozilla-mobile/android-components/issues/11832
 @RunWith(AndroidJUnit4::class)
@@ -35,7 +37,6 @@ class BrowsersTest {
         assertTrue(browsers.installedBrowsers.isEmpty())
         assertFalse(browsers.hasThirdPartyDefaultBrowser)
         assertFalse(browsers.hasMultipleThirdPartyBrowsers)
-        assertFalse(browsers.isDefaultBrowser)
         assertFalse(browsers.isFirefoxDefaultBrowser)
     }
 
@@ -59,7 +60,7 @@ class BrowsersTest {
 
         assertFalse(browsers.hasThirdPartyDefaultBrowser)
         assertFalse(browsers.hasMultipleThirdPartyBrowsers)
-        assertFalse(browsers.isDefaultBrowser)
+        assertFalse(Browsers.isDefaultBrowser(testContext))
         assertTrue(browsers.isFirefoxDefaultBrowser)
     }
 
@@ -91,7 +92,6 @@ class BrowsersTest {
 
         assertTrue(browsers.hasThirdPartyDefaultBrowser)
         assertTrue(browsers.hasMultipleThirdPartyBrowsers)
-        assertFalse(browsers.isDefaultBrowser)
         assertFalse(browsers.isFirefoxDefaultBrowser)
 
         assertTrue(browsers.isInstalled(Browsers.KnownBrowser.REFERENCE_BROWSER))
@@ -188,7 +188,6 @@ class BrowsersTest {
 
         val browsers = Browsers.all(testContext)
 
-        assertTrue(browsers.isDefaultBrowser)
         assertFalse(browsers.isFirefoxDefaultBrowser)
         assertFalse(browsers.hasThirdPartyDefaultBrowser)
     }
@@ -212,7 +211,6 @@ class BrowsersTest {
         assertEquals(2, browsers.installedBrowsers.size)
         assertTrue(browsers.hasThirdPartyDefaultBrowser)
         assertTrue(browsers.hasMultipleThirdPartyBrowsers)
-        assertFalse(browsers.isDefaultBrowser)
         assertFalse(browsers.isFirefoxDefaultBrowser)
 
         val installedBrowsers = browsers.installedBrowsers.map { it.packageName }
@@ -283,7 +281,6 @@ class BrowsersTest {
         assertTrue(browsers.installedBrowsers.isEmpty())
         assertFalse(browsers.hasThirdPartyDefaultBrowser)
         assertFalse(browsers.hasMultipleThirdPartyBrowsers)
-        assertFalse(browsers.isDefaultBrowser)
         assertFalse(browsers.isFirefoxDefaultBrowser)
     }
 
@@ -307,7 +304,6 @@ class BrowsersTest {
 
         assertFalse(browsers.hasThirdPartyDefaultBrowser)
         assertFalse(browsers.hasMultipleThirdPartyBrowsers)
-        assertFalse(browsers.isDefaultBrowser)
         assertTrue(browsers.isFirefoxDefaultBrowser)
     }
 
@@ -325,8 +321,39 @@ class BrowsersTest {
         assertTrue(browsers.installedBrowsers.isEmpty())
         assertFalse(browsers.hasThirdPartyDefaultBrowser)
         assertFalse(browsers.hasMultipleThirdPartyBrowsers)
-        assertFalse(browsers.isDefaultBrowser)
         assertFalse(browsers.isFirefoxDefaultBrowser)
+    }
+
+    @Test
+    @Config(sdk = [29])
+    fun `GIVEN set as default browser on Android 10 WHEN checking whether we are the default browser THEN return true`() {
+        DefaultBrowserUtils.setAsDefaultBrowser(testContext.packageName)
+
+        assertTrue(Browsers.isDefaultBrowser(testContext))
+    }
+
+    @Test
+    @Config(sdk = [29])
+    fun `GIVEN other default browser on Android 10 WHEN checking whether we are the default browser THEN return false`() {
+        DefaultBrowserUtils.setAsDefaultBrowser("com.test.other")
+
+        assertFalse(Browsers.isDefaultBrowser(testContext))
+    }
+
+    @Test
+    @Config(sdk = [28])
+    fun `GIVEN set as default browser on Android 9 WHEN checking whether we are the default browser THEN return true`() {
+        DefaultBrowserUtils.setAsDefaultBrowser(testContext.packageName)
+
+        assertTrue(Browsers.isDefaultBrowser(testContext))
+    }
+
+    @Test
+    @Config(sdk = [28])
+    fun `GIVEN other default browser on Android 9 WHEN checking whether we are the default browser THEN return false`() {
+        DefaultBrowserUtils.setAsDefaultBrowser("com.test.other")
+
+        assertFalse(Browsers.isDefaultBrowser(testContext))
     }
 
     private fun pretendBrowsersAreInstalled(

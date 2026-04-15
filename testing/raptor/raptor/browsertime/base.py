@@ -431,6 +431,12 @@ class Browsertime(Perftest, metaclass=ABCMeta):
             ),
         ]
 
+        moz_log_settings = os.environ.get("MOZ_LOG")
+        if moz_log_settings:
+            LOG.info(f"Passing MOZ_LOG settings to browsertime: {moz_log_settings}")
+            browsertime_options.extend(["--firefox.collectMozLog", "true"])
+            browsertime_options.extend(["--firefox.setMozLog", moz_log_settings])
+
         if test.get("perfstats") == "true":
             # Take a non-standard approach for perfstats as we
             # want to enable them everywhere shortly (bug 1770152)

@@ -20,13 +20,14 @@ import org.mozilla.fenix.BrowserDirection
 import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.R
 import org.mozilla.fenix.databinding.SettingsHttpsOnlyBinding
+import org.mozilla.fenix.e2e.SystemInsetsPaddedFragment
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.settings
 
 /**
  * Lets the user customize HTTPS-only mode.
  */
-class HttpsOnlyFragment : Fragment() {
+class HttpsOnlyFragment : Fragment(), SystemInsetsPaddedFragment {
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -101,6 +102,7 @@ class HttpsOnlyFragment : Fragment() {
         val linkClickListener: ClickableSpan = object : ClickableSpan() {
             override fun onClick(view: View) {
                 view.setOnClickListener {
+                    @Suppress("DEPRECATION")
                     (activity as HomeActivity).openToBrowserAndLoad(
                         searchTermOrURL = SupportUtils.getGenericSumoURLForTopic(
                             SupportUtils.SumoTopic.HTTPS_ONLY_MODE,

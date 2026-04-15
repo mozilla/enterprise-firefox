@@ -39,7 +39,6 @@ impl Example for App {
     ) {
         let root_space_and_clip = SpaceAndClipInfo::root_scroll(pipeline_id);
         builder.push_simple_stacking_context(
-            LayoutPoint::zero(),
             root_space_and_clip.spatial_id,
             PrimitiveFlags::IS_BACKFACE_VISIBLE,
         );
@@ -49,7 +48,6 @@ impl Example for App {
             // let's make a scrollbox
             let scrollbox = (0, 0).to(300, 400);
             builder.push_simple_stacking_context(
-                LayoutPoint::new(10., 10.),
                 root_space_and_clip.spatial_id,
                 PrimitiveFlags::IS_BACKFACE_VISIBLE,
             );

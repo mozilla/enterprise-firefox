@@ -61,6 +61,8 @@ const loginInfoToLoginEntryWithMeta = loginInfo =>
       timeCreated: loginInfo.timeCreated,
       timeLastUsed: loginInfo.timeLastUsed,
       timePasswordChanged: loginInfo.timePasswordChanged,
+      timeLastBreachAlertDismissed:
+        loginInfo.timeLastBreachAlertDismissed || null,
     }),
   });
 
@@ -84,6 +86,8 @@ const loginToLoginInfo = login => {
   loginInfo.timeLastUsed = login.timeLastUsed;
   loginInfo.timePasswordChanged = login.timePasswordChanged;
   loginInfo.timesUsed = login.timesUsed;
+  loginInfo.timeLastBreachAlertDismissed =
+    login.timeLastBreachAlertDismissed || null;
 
   /* These fields are not attributes on the Rust Login class
   loginInfo.syncCounter = login.syncCounter;
@@ -196,6 +200,41 @@ class RustLoginsStoreAdapter {
     const loginEntry = loginInfoToLoginEntry(loginInfo);
     const login = this.#store.findLoginToUpdate(loginEntry);
     return login && loginToLoginInfo(login);
+  }
+
+  async recordPotentiallyVulnerablePasswords(passwords) {
+    await this.#store.recordPotentiallyVulnerablePasswords(passwords);
+  }
+
+  async isPotentiallyVulnerablePassword(id) {
+    return this.#store.isPotentiallyVulnerablePassword(id);
+  }
+
+  async recordBreachAlertDismissal(id) {
+    await this.#store.recordBreachAlertDismissal(id);
+  }
+
+  async clearAllPotentiallyVulnerablePasswords() {
+    await this.#store.resetAllBreaches();
+  }
+
+  async arePotentiallyVulnerablePasswords(ids) {
+    return this.#store.arePotentiallyVulnerablePasswords(ids);
+  }
+
+  async getBreachAlertDismissalsByLoginGUID() {
+    const result = {};
+    for (const {
+      id,
+      timeLastBreachAlertDismissed: timeBreachAlertDismissed,
+    } of this.#store.list()) {
+      if (timeBreachAlertDismissed) {
+        result[id] = {
+          timeBreachAlertDismissed,
+        };
+      }
+    }
+    return result;
   }
 
   shutdown() {
@@ -422,18 +461,12 @@ export class LoginManagerRustStorage {
     return Promise.resolve(result);
   }
 
-  async recordBreachAlertDismissal(_loginGUID) {
-    throw Components.Exception(
-      "recordBreachAlertDismissal",
-      Cr.NS_ERROR_NOT_IMPLEMENTED
-    );
+  async recordBreachAlertDismissal(loginGUID) {
+    await this.#storageAdapter.recordBreachAlertDismissal(loginGUID);
   }
 
-  getBreachAlertDismissalsByLoginGUID() {
-    throw Components.Exception(
-      "getBreachAlertDismissalsByLoginGUID",
-      Cr.NS_ERROR_NOT_IMPLEMENTED
-    );
+  async getBreachAlertDismissalsByLoginGUID() {
+    return this.#storageAdapter.getBreachAlertDismissalsByLoginGUID();
   }
 
   /**
@@ -746,25 +779,30 @@ export class LoginManagerRustStorage {
     return logins.length;
   }
 
-  addPotentiallyVulnerablePassword(_login) {
-    throw Components.Exception(
-      "addPotentiallyVulnerablePassword",
-      Cr.NS_ERROR_NOT_IMPLEMENTED
+  async addPotentiallyVulnerablePassword(login) {
+    await this.#storageAdapter.recordPotentiallyVulnerablePasswords([
+      login.password,
+    ]);
+  }
+
+  // adding multiple potentially vulnerable passwords during migration
+  async addPotentiallyVulnerablePasswords(passwords) {
+    await this.#storageAdapter.recordPotentiallyVulnerablePasswords(passwords);
+  }
+
+  async isPotentiallyVulnerablePassword(login) {
+    return this.#storageAdapter.isPotentiallyVulnerablePassword(
+      login.QueryInterface(Ci.nsILoginMetaInfo).guid
     );
   }
 
-  isPotentiallyVulnerablePassword(_login) {
-    throw Components.Exception(
-      "isPotentiallyVulnerablePassword",
-      Cr.NS_ERROR_NOT_IMPLEMENTED
-    );
+  async arePotentiallyVulnerablePasswords(logins) {
+    const ids = logins.map(l => l.QueryInterface(Ci.nsILoginMetaInfo).guid);
+    return this.#storageAdapter.arePotentiallyVulnerablePasswords(ids);
   }
 
-  clearAllPotentiallyVulnerablePasswords() {
-    throw Components.Exception(
-      "clearAllPotentiallyVulnerablePasswords",
-      Cr.NS_ERROR_NOT_IMPLEMENTED
-    );
+  async clearAllPotentiallyVulnerablePasswords() {
+    await this.#storageAdapter.clearAllPotentiallyVulnerablePasswords();
   }
 
   get uiBusy() {

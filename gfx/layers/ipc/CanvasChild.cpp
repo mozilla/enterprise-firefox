@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -170,7 +168,8 @@ class SourceSurfaceCanvasRecording final : public gfx::SourceSurface {
 
   static size_t GetExportSurfaceSize(gfx::SourceSurface* aSurface) {
     return ImageDataSerializer::ComputeRGBBufferSize(aSurface->GetSize(),
-                                                     aSurface->GetFormat());
+                                                     aSurface->GetFormat())
+        .valueOr(0);
   }
 
   bool GetSurfaceDescriptor(SurfaceDescriptor& aDesc) final {
@@ -522,10 +521,11 @@ size_t CanvasChild::SizeOfDataSurfaceShmem(gfx::IntSize aSize,
   if (!mRecorder) {
     return 0;
   }
-  size_t sizeRequired =
+  Maybe<uint32_t> sizeRequired =
       ImageDataSerializer::ComputeRGBBufferSize(aSize, aFormat);
-  return sizeRequired > 0 ? ipc::shared_memory::PageAlignedSize(sizeRequired)
-                          : 0;
+  return sizeRequired.isSome()
+             ? ipc::shared_memory::PageAlignedSize(size_t(sizeRequired.value()))
+             : 0;
 }
 
 bool CanvasChild::ShouldGrowDataSurfaceShmem(size_t aSizeRequired) {
@@ -617,6 +617,9 @@ already_AddRefed<gfx::DataSourceSurface> CanvasChild::GetDataSurface(
   gfx::IntSize ssSize = aSurface->GetSize();
   gfx::SurfaceFormat ssFormat = aSurface->GetFormat();
   auto stride = ImageDataSerializer::ComputeRGBStride(ssFormat, ssSize.width);
+  if (stride.isNothing()) {
+    return nullptr;
+  }
 
   // Shmem is only valid if the surface is the latest snapshot (not detached).
   if (!aDetached) {
@@ -641,7 +644,7 @@ already_AddRefed<gfx::DataSourceSurface> CanvasChild::GetDataSurface(
       // DataSourceSurface will not be written to.
       RefPtr<gfx::DataSourceSurface> dataSurface =
           gfx::Factory::CreateWrappingDataSourceSurface(
-              const_cast<uint8_t*>(shmemPtr), stride, ssSize, ssFormat,
+              const_cast<uint8_t*>(shmemPtr), stride.value(), ssSize, ssFormat,
               ReleaseDataShmemHolder, closure);
       aMayInvalidate = true;
       return dataSurface.forget();
@@ -679,7 +682,7 @@ already_AddRefed<gfx::DataSourceSurface> CanvasChild::GetDataSurface(
   // DataSourceSurface will not be written to.
   RefPtr<gfx::DataSourceSurface> dataSurface =
       gfx::Factory::CreateWrappingDataSourceSurface(
-          const_cast<uint8_t*>(data), stride, ssSize, ssFormat,
+          const_cast<uint8_t*>(data), stride.value(), ssSize, ssFormat,
           ReleaseDataShmemHolder, closure);
   aMayInvalidate = false;
   return dataSurface.forget();

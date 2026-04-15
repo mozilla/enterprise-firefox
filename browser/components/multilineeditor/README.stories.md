@@ -45,6 +45,14 @@ The editor can be set to be read-only using the `readonly` attribute, which prev
 ></moz-multiline-editor>
 ```
 
+### Setting the `maxlength`
+
+The editor can limit the number of characters using the `maxlength` attribute.
+
+```html
+<moz-multiline-editor maxlength="100"></moz-multiline-editor>
+```
+
 ### Programmatic access
 
 The editor exposes properties and methods for programmatic control:

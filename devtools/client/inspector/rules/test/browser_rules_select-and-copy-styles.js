@@ -167,7 +167,7 @@ async function checkSelectAll(view) {
 async function checkCopyEditorValue(view) {
   info("Testing CSS property editor value copy");
 
-  const ruleEditor = getRuleViewRuleEditor(view, 0);
+  const ruleEditor = getRuleViewRuleEditorAt(view, 0);
   const propEditor = ruleEditor.rule.textProps[0].editor;
 
   const editor = await focusEditableField(view, propEditor.valueSpan);

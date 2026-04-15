@@ -245,8 +245,8 @@ void ExecutableAllocator::purge() {
 }
 
 void ExecutableAllocator::addSizeOfCode(JS::CodeSizes* sizes) const {
-  for (ExecPoolHashSet::Range r = m_pools.all(); !r.empty(); r.popFront()) {
-    ExecutablePool* pool = r.front();
+  for (auto iter = m_pools.iter(); !iter.done(); iter.next()) {
+    ExecutablePool* pool = iter.get();
     sizes->ion += pool->m_codeBytes[CodeKind::Ion];
     sizes->baseline += pool->m_codeBytes[CodeKind::Baseline];
     sizes->regexp += pool->m_codeBytes[CodeKind::RegExp];

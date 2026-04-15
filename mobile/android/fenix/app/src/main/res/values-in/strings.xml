@@ -1495,12 +1495,8 @@
   <string name="studies_remove">Hapus</string>
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">Aktif</string>
-  <!-- Description for studies -->
-  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">Cobalah fitur dan ide sebelum dirilis ke semua orang.</string>
   <!-- Description for studies. Note: The word "Firefox" should NOT be translated -->
   <string name="studies_description_4" tools:ignore="BrandUsage">Firefox secara acak memilih pengguna untuk menguji fitur, yang meningkatkan kualitas untuk semua orang.</string>
-  <!-- Title of the Studies data preference -->
-  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">Pasang dan jalankan studi</string>
   <!-- Title of the Studies data preference -->
   <string name="studies_title_2">Izinkan studi fitur</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
@@ -1647,10 +1643,10 @@
     %d is the number of existing tab groups + 1.
   -->
   <string name="create_tab_group_form_default_name">Grup %d</string>
-  <!-- Label for the tab group name field in the bottom sheet to create a new tab group. -->
-  <string name="create_tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">Nama grup tab</string>
   <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
-  <string name="tab_group_name_label">Nama</string>
+  <string name="create_tab_group_name_label">Nama grup tab</string>
+  <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
+  <string name="tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">Nama</string>
   <!--
     History
 
@@ -2046,7 +2042,11 @@
   <string name="bookmark_delete_single_item" tools:ignore="UnusedResources" moz:removedIn="150">%s dihapus</string>
   <!-- Bookmark snackbar message for deleting multiple items. %s is the number of items being deleted -->
   <string name="bookmark_delete_multiple_items" tools:ignore="UnusedResources" moz:removedIn="150">Item yang dihapus: %s</string>
-  <!-- Content description for the bookmark navigation bar back button -->
+  <!--
+    Bookmark undo button for deletion snackbar action
+
+    Content description for the bookmark navigation bar back button
+  -->
   <string name="bookmark_navigate_back_button_content_description">Navigasi mundur</string>
   <!-- Content description for the bookmark list new folder navigation bar button -->
   <string name="bookmark_add_new_folder_button_content_description">Tambahkan folder baru</string>
@@ -2384,8 +2384,6 @@
   <string name="preference_accessibility_text_size_summary">Besarkan atau kecilkan teks pada situs web</string>
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">Ukuran Fon</string>
-  <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">Ukuran fon otomatis</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -3409,7 +3407,7 @@
   <!-- The title of the warning card informs the user that the list of languages cannot be loaded. -->
   <string name="translation_error_could_not_load_languages_warning_text">Tidak bisa memuat bahasa. Periksa sambungan internet Anda dan coba lagi.</string>
   <!-- The title of the warning card informs the user that a language is not supported. %1$s is the name of the language that is not supported. -->
-  <string name="translation_error_language_not_supported_warning_text">Maaf, kami belum mendukung %1$s.</string>
+  <string name="translation_error_language_not_supported_warning_text" tools:ignore="UnusedResources" moz:removedIn="150">Maaf, kami belum mendukung %1$s.</string>
   <!-- Snackbar title shown if the user closes the Translation Request dialogue and a translation is in progress. -->
   <string name="translation_in_progress_snackbar">Menerjemahkan…</string>
   <!--

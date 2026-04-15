@@ -21,7 +21,7 @@ from .util import norm_needed, normsep
 # built-in filters
 
 
-@functools.lru_cache(maxsize=None)  # noqa: UP033
+@functools.cache
 def _match(exprs, strict, **values):
     """Return the first matching expression, or None if no match."""
     for e in exprs.splitlines():

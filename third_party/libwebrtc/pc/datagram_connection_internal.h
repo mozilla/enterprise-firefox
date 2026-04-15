@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <string>
 
 #include "absl/functional/any_invocable.h"
 #include "absl/strings/string_view.h"
@@ -59,8 +60,7 @@ class RTC_EXPORT DatagramConnectionInternal : public DatagramConnection,
                                const uint8_t* digest,
                                size_t digest_len,
                                SSLRole ssl_role) override;
-  void SendPacket(ArrayView<const uint8_t> data,
-                  PacketSendParameters params) override;
+  void SendPackets(ArrayView<PacketSendParameters> packets) override;
 
   void Terminate(
       absl::AnyInvocable<void()> terminate_complete_callback) override;
@@ -79,6 +79,12 @@ class RTC_EXPORT DatagramConnectionInternal : public DatagramConnection,
 
   void OnSentPacket(const SentPacketInfo& packet);
 
+  absl::string_view IceUsernameFragment() override {
+    return ice_username_fragment_;
+  }
+
+  absl::string_view IcePassword() override { return ice_password_; }
+
 #if RTC_DCHECK_IS_ON
   DtlsSrtpTransport* GetDtlsSrtpTransportForTesting() {
     return dtls_srtp_transport_.get();
@@ -87,6 +93,8 @@ class RTC_EXPORT DatagramConnectionInternal : public DatagramConnection,
 
  private:
   void DispatchSendOutcome(PacketId id, Observer::SendOutcome::Status status);
+  void SendSinglePacket(const PacketSendParameters& packet,
+                        bool last_packet_in_batch);
 
   enum class State { kActive, kTerminated };
   State current_state_ = State::kActive;
@@ -102,10 +110,11 @@ class RTC_EXPORT DatagramConnectionInternal : public DatagramConnection,
   const scoped_refptr<DtlsTransport> dtls_transport_;
   const std::unique_ptr<DtlsSrtpTransport> dtls_srtp_transport_;
 
-  bool last_writable_state_ = false;
   const SequenceChecker sequence_checker_;
-  uint16_t next_seq_num_ RTC_GUARDED_BY(sequence_checker_) = 0;
-  uint32_t next_ts_ RTC_GUARDED_BY(sequence_checker_) = 10000;
+  bool last_writable_state_ RTC_GUARDED_BY(sequence_checker_) = false;
+
+  const std::string ice_username_fragment_;
+  const std::string ice_password_;
 };
 
 }  // namespace webrtc

@@ -1906,6 +1906,8 @@ RTCError SdpOfferAnswerHandler::ApplyLocalDescription(
           transceiver->set_current_direction(media_desc->direction());
           transceiver->set_fired_direction(media_desc->direction());
         }
+        transceiver->set_receptive(
+            RtpTransceiverDirectionHasRecv(media_desc->direction()));
       }
       pc_->RunWithObserver([&](auto observer) {
         for (const auto& transceiver : remove_list) {
@@ -2302,6 +2304,8 @@ void SdpOfferAnswerHandler::ApplyRemoteDescriptionUpdateTransceiverState(
         // OnTrack event, we must use the proxied transceiver.
         now_receiving_transceivers.push_back(transceiver_ext);
       }
+    } else {
+      transceiver->set_receptive(false);
     }
     // 2.2.8.1.9: If direction is "sendonly" or "inactive", and transceiver's
     // [[FiredDirection]] slot is either "sendrecv" or "recvonly", process the
@@ -3343,7 +3347,7 @@ RTCError SdpOfferAnswerHandler::Rollback(SdpType desc_type) {
     auto stable_state = transceivers_stable_state_pair.second;
 
     if (stable_state.did_set_fired_direction()) {
-      // If this rollback triggers going from not receiving to receving again,
+      // If this rollback triggers going from not receiving to receiving again,
       // we need to fire "ontrack".
       bool previously_fired_direction_is_recv =
           transceiver->fired_direction().has_value() &&
@@ -3356,9 +3360,16 @@ RTCError SdpOfferAnswerHandler::Rollback(SdpType desc_type) {
           currently_fired_direction_is_recv) {
         now_receiving_transceivers.push_back(transceiver);
       }
+
       transceiver->internal()->set_fired_direction(
           stable_state.fired_direction());
     }
+
+    // https://github.com/w3c/webrtc-pc/issues/3081
+    transceiver->internal()->set_receptive(
+        transceiver->internal()->current_direction() &&
+        RtpTransceiverDirectionHasRecv(
+            *transceiver->internal()->current_direction()));
 
     if (stable_state.remote_stream_ids()) {
       std::vector<scoped_refptr<MediaStreamInterface>> added_streams;
@@ -3567,11 +3578,15 @@ void SdpOfferAnswerHandler::AllocateSctpSids() {
     return;
   }
 
+  std::optional<std::string> sctp_mid = pc_->sctp_mid();
+  std::optional<SSLRole> role =
+      sctp_mid ? transport_controller_s()->GetDtlsRole(*sctp_mid)
+               : std::nullopt;
+
   std::optional<SSLRole> guessed_role = GuessSslRole();
   network_thread()->BlockingCall(
       [&, data_channel_controller = data_channel_controller()] {
         RTC_DCHECK_RUN_ON(network_thread());
-        std::optional<SSLRole> role = pc_->GetSctpSslRole_n();
         if (!role)
           role = guessed_role;
         if (role)
@@ -5098,6 +5113,10 @@ RTCError SdpOfferAnswerHandler::PushdownMediaDescription(
     std::vector<std::pair<ChannelInterface*, const MediaContentDescription*>>
         channels;
     std::optional<RtcpFeedbackType> preferred_rtcp_cc_ack_type;
+    bool all_rtp_have_same_cc_ack_type = true;
+    bool any_rtp_has_cc_ack_type = false;
+    std::optional<RtcpFeedbackType> first_rtp_cc_ack_type;
+
     for (const auto& transceiver : rtp_transceivers) {
       const ContentInfo* content_info =
           FindMediaSectionForTransceiver(transceiver, sdesc);
@@ -5110,24 +5129,28 @@ RTCError SdpOfferAnswerHandler::PushdownMediaDescription(
       if (!content_desc) {
         continue;
       }
-      if (preferred_rtcp_cc_ack_type.has_value()) {
-        // RFC 8888 says that the ccfb must be consistent across the
-        // description.
-        if (preferred_rtcp_cc_ack_type == RtcpFeedbackType::CCFB &&
-            preferred_rtcp_cc_ack_type !=
-                content_desc->preferred_rtcp_cc_ack_type()) {
-          RTC_LOG(LS_ERROR)
-              << "Warning: Inconsistent CCFB flag - ack type changed to "
-              << content_desc->preferred_rtcp_cc_ack_type();
-          preferred_rtcp_cc_ack_type =
-              content_desc->preferred_rtcp_cc_ack_type();
-        }
-      } else {
-        preferred_rtcp_cc_ack_type = content_desc->preferred_rtcp_cc_ack_type();
+
+      if (!first_rtp_cc_ack_type.has_value()) {
+        first_rtp_cc_ack_type = content_desc->preferred_rtcp_cc_ack_type();
+      }
+
+      if (content_desc->preferred_rtcp_cc_ack_type().has_value()) {
+        any_rtp_has_cc_ack_type = true;
+      }
+
+      if (first_rtp_cc_ack_type != content_desc->preferred_rtcp_cc_ack_type()) {
+        all_rtp_have_same_cc_ack_type = false;
       }
 
       transceiver->OnNegotiationUpdate(type, content_desc);
       channels.push_back(std::make_pair(channel, content_desc));
+    }
+
+    if (any_rtp_has_cc_ack_type && all_rtp_have_same_cc_ack_type) {
+      preferred_rtcp_cc_ack_type = first_rtp_cc_ack_type;
+    } else if (any_rtp_has_cc_ack_type && !all_rtp_have_same_cc_ack_type) {
+      RTC_LOG(LS_ERROR) << "Warning: Inconsistent congestion control feedback "
+                           "types, ignoring all.";
     }
 
     // This for-loop of invokes helps audio impairment during re-negotiations.
@@ -5157,6 +5180,9 @@ RTCError SdpOfferAnswerHandler::PushdownMediaDescription(
       if ((type == SdpType::kAnswer || type == SdpType::kPrAnswer) &&
           local_description() && remote_description()) {
         std::optional<RtcpFeedbackType> remote_preferred_rtcp_cc_ack_type;
+        bool remote_all_rtp_have_same_cc_ack_type = true;
+        bool remote_any_rtp_has_cc_ack_type = false;
+        std::optional<RtcpFeedbackType> remote_first_rtp_cc_ack_type;
         // Verify that the remote agrees on congestion control feedback format.
         for (const auto& content :
              remote_description()->description()->contents()) {
@@ -5164,21 +5190,33 @@ RTCError SdpOfferAnswerHandler::PushdownMediaDescription(
               content.media_description() == nullptr) {
             continue;
           }
-          if (!remote_preferred_rtcp_cc_ack_type.has_value()) {
-            remote_preferred_rtcp_cc_ack_type =
+
+          if (!remote_first_rtp_cc_ack_type.has_value()) {
+            remote_first_rtp_cc_ack_type =
                 content.media_description()->preferred_rtcp_cc_ack_type();
           }
+
           if (content.media_description()
                   ->preferred_rtcp_cc_ack_type()
-                  .has_value() &&
-              remote_preferred_rtcp_cc_ack_type !=
-                  content.media_description()->preferred_rtcp_cc_ack_type()) {
-            RTC_LOG(LS_ERROR) << "Warning: Inconsistent remote congestion "
-                                 "control feedback types. ";
-            remote_preferred_rtcp_cc_ack_type = std::nullopt;
-            break;
+                  .has_value()) {
+            remote_any_rtp_has_cc_ack_type = true;
+          }
+
+          if (remote_first_rtp_cc_ack_type !=
+              content.media_description()->preferred_rtcp_cc_ack_type()) {
+            remote_all_rtp_have_same_cc_ack_type = false;
           }
         }
+
+        if (remote_any_rtp_has_cc_ack_type &&
+            remote_all_rtp_have_same_cc_ack_type) {
+          remote_preferred_rtcp_cc_ack_type = remote_first_rtp_cc_ack_type;
+        } else if (remote_any_rtp_has_cc_ack_type &&
+                   !remote_all_rtp_have_same_cc_ack_type) {
+          RTC_LOG(LS_ERROR) << "Warning: Inconsistent remote congestion "
+                               "control feedback types, ignoring all.";
+        }
+
         if (preferred_rtcp_cc_ack_type.has_value() &&
             preferred_rtcp_cc_ack_type == remote_preferred_rtcp_cc_ack_type) {
           // The call and the congestion controller live on the worker thread.

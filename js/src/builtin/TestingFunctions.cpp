@@ -7210,7 +7210,6 @@ class BackEdge {
   EdgeName forgetName() { return std::move(name_); }
   JS::ubi::Node predecessor() const { return predecessor_; }
 
- private:
   // No copy constructor or copying assignment.
   BackEdge(const BackEdge&) = delete;
   BackEdge& operator=(const BackEdge&) = delete;
@@ -9814,6 +9813,16 @@ static bool GetICUOptions(JSContext* cx, unsigned argc, Value* vp) {
       !JS_DefineProperty(cx, info, "host-timezone", str, JSPROP_ENUMERATE)) {
     return false;
   }
+
+#  if MOZ_SYSTEM_ICU
+  bool isSystem = true;
+#  else
+  bool isSystem = false;
+#  endif
+  Rooted<JS::Value> value(cx, BooleanValue(isSystem));
+  if (!JS_DefineProperty(cx, info, "system", value, JSPROP_ENUMERATE)) {
+    return false;
+  }
 #endif
 
   args.rval().setObject(*info);
@@ -11168,7 +11177,8 @@ JS_FN_HELP("getICUOptions", GetICUOptions, 0, 0,
 "    locale: the ICU default locale, e.g. 'en_US'\n"
 "    tzdata: a string containing the tzdata version number, e.g. '2020a'\n"
 "    timezone: the ICU default time zone, e.g. 'America/Los_Angeles'\n"
-"    host-timezone: the host time zone, e.g. 'America/Los_Angeles'"),
+"    host-timezone: the host time zone, e.g. 'America/Los_Angeles'\n"
+"    system: true if a system ICU is used"),
 
 JS_FN_HELP("getAvailableLocalesOf", GetAvailableLocalesOf, 0, 0,
 "getAvailableLocalesOf(name)",

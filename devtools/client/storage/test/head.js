@@ -65,11 +65,19 @@ const DEBUGGERLOG_PREF = "devtools.debugger.log";
 // Allows Cache API to be working on usage `http` test page
 const CACHES_ON_HTTP_PREF = "dom.caches.testing.enabled";
 const PATH = "browser/devtools/client/storage/test/";
-const MAIN_DOMAIN = "http://test1.example.org/" + PATH;
-const MAIN_DOMAIN_SECURED = "https://test1.example.org/" + PATH;
-const MAIN_DOMAIN_WITH_PORT = "http://test1.example.org:8000/" + PATH;
-const ALT_DOMAIN = "http://sectest1.example.org/" + PATH;
-const ALT_DOMAIN_SECURED = "https://sectest1.example.org:443/" + PATH;
+const MAIN_DOMAIN = "example.org";
+const MAIN_HOST = "test1.example.org";
+
+const MAIN_ORIGIN = "http://test1.example.org";
+const MAIN_ORIGIN_SECURED = "https://test1.example.org";
+const MAIN_URL = MAIN_ORIGIN + "/" + PATH;
+const MAIN_URL_SECURED = MAIN_ORIGIN_SECURED + "/" + PATH;
+const MAIN_URL_WITH_PORT = MAIN_ORIGIN + ":8000/" + PATH;
+
+const ALT_ORIGIN = "http://sectest1.example.org";
+const ALT_ORIGIN_SECURED = "https://sectest1.example.org";
+const ALT_URL = ALT_ORIGIN + "/" + PATH;
+const ALT_URL_SECURED = ALT_ORIGIN_SECURED + ":443/" + PATH;
 
 // GUID to be used as a separator in compound keys. This must match the same
 // constant in devtools/server/actors/resources/storage/index.js,

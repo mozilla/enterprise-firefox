@@ -71,9 +71,6 @@ class BackgroundHangManager : public nsIObserver {
   // Stop hang monitoring
   bool mShutdown;
 
-  BackgroundHangManager(const BackgroundHangManager&);
-  BackgroundHangManager& operator=(const BackgroundHangManager&);
-
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIOBSERVER
@@ -95,7 +92,7 @@ class BackgroundHangManager : public nsIObserver {
 
   void InitMonitorThread() {
     mHangMonitorProfilerThreadId = profiler_current_thread_id();
-#if defined(MOZ_GECKO_PROFILER) && defined(XP_WIN) && defined(_M_X64)
+#if defined(XP_WIN) && defined(_M_X64)
     // Pre-commit 5 more pages of stack to guarantee enough commited stack
     // space on this thread upon hang detection, when we will need to run
     // profiler_suspend_and_sample_thread (bug 1840164).
@@ -128,6 +125,9 @@ class BackgroundHangManager : public nsIObserver {
   }
 
   BackgroundHangManager();
+
+  BackgroundHangManager(const BackgroundHangManager&) = delete;
+  BackgroundHangManager& operator=(const BackgroundHangManager&) = delete;
 
  private:
   virtual ~BackgroundHangManager();
@@ -184,8 +184,6 @@ class BackgroundHangThread final
   static MOZ_THREAD_LOCAL(BackgroundHangThread*) sTlsKey;
   static bool sTlsKeyInitialized;
 
-  BackgroundHangThread(const BackgroundHangThread&);
-  BackgroundHangThread& operator=(const BackgroundHangThread&);
   ~BackgroundHangThread();
 
   /* Keep a reference to the manager, so we can keep going even
@@ -230,10 +228,8 @@ class BackgroundHangThread final
   bool mWaiting;
   // Is the thread dedicated to a single BackgroundHangMonitor
   BackgroundHangMonitor::ThreadType mThreadType;
-#ifdef MOZ_GECKO_PROFILER
   // Platform-specific helper to get hang stacks
   ThreadStackHelper mStackHelper;
-#endif
   // Stack of current hang
   HangStack mHangStack;
   // Annotations for the current hang
@@ -249,6 +245,9 @@ class BackgroundHangThread final
                        uint32_t aMaxTimeoutMs,
                        BackgroundHangMonitor::ThreadType aThreadType =
                            BackgroundHangMonitor::THREAD_SHARED);
+
+  BackgroundHangThread(const BackgroundHangThread&) = delete;
+  BackgroundHangThread& operator=(const BackgroundHangThread&) = delete;
 
   // Report a hang; aManager->mLock IS locked. The hang will be processed
   // off-main-thread, and will then be submitted back.
@@ -445,8 +444,6 @@ void BackgroundHangThread::ReportHang(TimeDuration aHangTime,
     hd->Submit();
   }
 
-  // If the profiler is enabled, add a marker.
-#ifdef MOZ_GECKO_PROFILER
   if (profiler_thread_is_being_profiled_for_markers(
           mStackHelper.GetThreadId())) {
     struct HangMarker {
@@ -469,7 +466,6 @@ void BackgroundHangThread::ReportHang(TimeDuration aHangTime,
                          MarkerTiming::Interval(startTime, endTime)},
                         HangMarker{});
   }
-#endif
 }
 
 void BackgroundHangThread::ReportPermaHang() {
@@ -512,10 +508,8 @@ NS_IMETHODIMP BackgroundHangThread::Notify(nsITimer* aTimer) {
   }
 
   if (MOZ_LIKELY(!mHanging && hangTime >= mTimeout)) {
-#ifdef MOZ_GECKO_PROFILER
     // A hang started, collect a stack
     mStackHelper.GetStack(mHangStack, mRunnableName, true);
-#endif
 
     // If we hang immediately on waking, then the most recently collected
     // CPU usage is going to be an average across the whole time we were
@@ -600,11 +594,11 @@ void BackgroundHangMonitor::Startup() {
     return;
   }
 
-#  if defined(MOZ_GECKO_PROFILER) && defined(XP_WIN)
+#  if defined(XP_WIN)
 #    if defined(_M_AMD64) || defined(_M_ARM64)
   mozilla::WindowsStackWalkInitialization();
 #    endif  // _M_AMD64 || _M_ARM64
-#  endif    // MOZ_GECKO_PROFILER && XP_WIN
+#  endif    // XP_WIN
 
   nsCOMPtr<nsIObserverService> observerService =
       mozilla::services::GetObserverService();

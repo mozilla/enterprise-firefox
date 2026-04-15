@@ -29,6 +29,7 @@ struct pw_context * (*pw_context_new_fn)(struct pw_loop *main_loop,
                                       size_t user_data_size);
 static int (*pw_core_disconnect_fn)(struct pw_core *core);
 static void (*pw_init_fn)(int *argc, char **argv[]);
+static void (*pw_deinit_fn)();
 static void (*pw_proxy_destroy_fn)(struct pw_proxy *proxy);
 static void (*pw_stream_add_listener_fn)(struct pw_stream *stream,
                                       struct spa_hook *listener,
@@ -74,6 +75,7 @@ bool IsPwLibraryLoaded() {
           IS_FUNC_LOADED(pw_context_new_fn) &&
           IS_FUNC_LOADED(pw_core_disconnect_fn) &&
           IS_FUNC_LOADED(pw_init_fn) &&
+          IS_FUNC_LOADED(pw_deinit_fn) &&
           IS_FUNC_LOADED(pw_proxy_destroy_fn) &&
           IS_FUNC_LOADED(pw_stream_add_listener_fn) &&
           IS_FUNC_LOADED(pw_stream_connect_fn) &&
@@ -117,6 +119,7 @@ bool LoadPWLibrary() {
     GET_FUNC(pw_context_new, pwLib);
     GET_FUNC(pw_core_disconnect, pwLib);
     GET_FUNC(pw_init, pwLib);
+    GET_FUNC(pw_deinit, pwLib);
     GET_FUNC(pw_stream_add_listener, pwLib);
     GET_FUNC(pw_stream_connect, pwLib);
     GET_FUNC(pw_stream_disconnect, pwLib);
@@ -202,6 +205,15 @@ pw_init(int *argc, char **argv[])
     return;
   }
   return pw_init_fn(argc, argv);
+}
+
+void
+pw_deinit()
+{
+  if (!LoadPWLibrary()) {
+    return;
+  }
+  return pw_deinit_fn();
 }
 
 void

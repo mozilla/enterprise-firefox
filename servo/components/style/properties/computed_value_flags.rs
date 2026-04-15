@@ -141,6 +141,15 @@ bitflags! {
 
         /// Whether there are author-specific rules for `text-shadow`.
         const HAS_AUTHOR_SPECIFIED_TEXT_SHADOW = 1 << 28;
+
+        /// Whether this style depends on container style query.
+        const DEPENDS_ON_CONTAINER_STYLE_QUERY = 1 << 29;
+
+        /// Whether this style is in an appearance: base subtree
+        const IS_IN_APPEARANCE_BASE_SUBTREE = 1 << 30;
+
+        /// Whether grid-auto-flow is author-specified.
+        const HAS_AUTHOR_SPECIFIED_GRID_AUTO_FLOW = 1 << 31;
     }
 }
 
@@ -162,6 +171,7 @@ impl ComputedValueFlags {
             | Self::IS_IN_OPACITY_ZERO_SUBTREE
             | Self::SELF_OR_ANCESTOR_HAS_CONTAIN_STYLE
             | Self::SELF_OR_ANCESTOR_HAS_SIZE_CONTAINER_TYPE
+            | Self::IS_IN_APPEARANCE_BASE_SUBTREE
     }
 
     /// Flags that may be propagated to descendants.
@@ -175,7 +185,9 @@ impl ComputedValueFlags {
     /// Flags that are an input to the cascade.
     #[inline]
     fn cascade_input_flags() -> Self {
-        Self::USES_VIEWPORT_UNITS_ON_CONTAINER_QUERIES | Self::CONSIDERED_NONTRIVIAL_SCOPED_STYLE
+        Self::USES_VIEWPORT_UNITS_ON_CONTAINER_QUERIES
+            | Self::CONSIDERED_NONTRIVIAL_SCOPED_STYLE
+            | Self::DEPENDS_ON_CONTAINER_STYLE_QUERY
     }
 
     /// Returns the flags that are always propagated to descendants.

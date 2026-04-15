@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=4 sw=2 sts=2 et cin: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -290,8 +288,10 @@ void nsHttpResponseHead::Flatten(nsACString& buf, bool pruneTransients) {
     buf.AppendLiteral("1.0 ");
   }
 
-  buf.Append(nsPrintfCString("%u", unsigned(mStatus)) + " "_ns + mStatusText +
-             "\r\n"_ns);
+  buf.AppendInt(mStatus);
+  buf.Append(' ');
+  buf.Append(mStatusText);
+  buf.AppendLiteral("\r\n");
 
   mHeaders.Flatten(buf, false, pruneTransients);
 }

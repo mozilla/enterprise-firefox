@@ -243,8 +243,8 @@ bool WeakCollectionObject::nondeterministicGetKeys(
   if (Map* map = obj->getMap()) {
     // Prevent GC from mutating the weakmap while iterating.
     gc::AutoSuppressGC suppress(cx);
-    for (Map::Range r = map->all(); !r.empty(); r.popFront()) {
-      const auto& key = r.front().key();
+    for (auto iter = map->iter(); !iter.done(); iter.next()) {
+      const auto& key = iter.get().key();
       MOZ_ASSERT(key.isObject() || key.isSymbol());
       JS::ExposeValueToActiveJS(key);
       RootedValue keyVal(cx, key);

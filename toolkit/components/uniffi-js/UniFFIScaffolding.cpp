@@ -137,4 +137,9 @@ uint32_t UniFFIScaffolding::CallbackHandleRelease(GlobalObject& aGlobal,
   return uniffi::CallbackHandleRelease(aHandle);
 }
 
+void UniFFIScaffolding::CallbackHandleFree(GlobalObject& aGlobal,
+                                           uint64_t aHandle) {
+  uniffi::CallbackHandleFree(aHandle);
+}
+
 }  // namespace mozilla::dom

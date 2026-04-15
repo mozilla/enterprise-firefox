@@ -108,98 +108,12 @@ var BrowserCommands = {
       this.reloadSkipCache();
       return;
     }
-    this.reloadWithFlags(Ci.nsIWebNavigation.LOAD_FLAGS_NONE);
+    gBrowser.reloadWithFlags(Ci.nsIWebNavigation.LOAD_FLAGS_NONE);
   },
 
   reloadSkipCache() {
     // Bypass proxy and cache.
-    this.reloadWithFlags(kSkipCacheFlags);
-  },
-
-  reloadWithFlags(reloadFlags) {
-    const unchangedRemoteness = [];
-
-    for (const tab of gBrowser.selectedTabs) {
-      const browser = tab.linkedBrowser;
-      const url = browser.currentURI;
-      const urlSpec = url.spec;
-      // We need to cache the content principal here because the browser will be
-      // reconstructed when the remoteness changes and the content prinicpal will
-      // be cleared after reconstruction.
-      const principal = tab.linkedBrowser.contentPrincipal;
-      if (gBrowser.updateBrowserRemotenessByURL(browser, urlSpec)) {
-        // If the remoteness has changed, the new browser doesn't have any
-        // information of what was loaded before, so we need to load the previous
-        // URL again.
-        if (tab.linkedPanel) {
-          loadBrowserURI(browser, url, principal);
-        } else {
-          // Shift to fully loaded browser and make
-          // sure load handler is instantiated.
-          tab.addEventListener(
-            "SSTabRestoring",
-            () => loadBrowserURI(browser, url, principal),
-            { once: true }
-          );
-          gBrowser._insertBrowser(tab);
-        }
-      } else {
-        unchangedRemoteness.push(tab);
-      }
-    }
-
-    if (!unchangedRemoteness.length) {
-      return;
-    }
-
-    // Reset temporary permissions on the remaining tabs to reload.
-    // This is done here because we only want to reset
-    // permissions on user reload.
-    for (const tab of unchangedRemoteness) {
-      SitePermissions.clearTemporaryBlockPermissions(tab.linkedBrowser);
-      // Also reset DOS mitigations for the basic auth prompt on reload.
-      delete tab.linkedBrowser.authPromptAbuseCounter;
-    }
-    gIdentityHandler.hidePopup();
-    gPermissionPanel.hidePopup();
-
-    if (document.hasValidTransientUserGestureActivation) {
-      reloadFlags |= Ci.nsIWebNavigation.LOAD_FLAGS_USER_ACTIVATION;
-    }
-
-    for (const tab of unchangedRemoteness) {
-      reloadBrowser(tab, reloadFlags);
-    }
-
-    function reloadBrowser(tab) {
-      if (tab.linkedPanel) {
-        const { browsingContext } = tab.linkedBrowser;
-        const { sessionHistory } = browsingContext;
-        if (sessionHistory) {
-          sessionHistory.reload(reloadFlags);
-        } else {
-          browsingContext.reload(reloadFlags);
-        }
-      } else {
-        // Shift to fully loaded browser and make
-        // sure load handler is instantiated.
-        tab.addEventListener(
-          "SSTabRestoring",
-          () => tab.linkedBrowser.browsingContext.reload(reloadFlags),
-          {
-            once: true,
-          }
-        );
-        gBrowser._insertBrowser(tab);
-      }
-    }
-
-    function loadBrowserURI(browser, url, principal) {
-      browser.loadURI(url, {
-        loadFlags: reloadFlags,
-        triggeringPrincipal: principal,
-      });
-    }
+    gBrowser.reloadWithFlags(kSkipCacheFlags);
   },
 
   stop() {
@@ -615,9 +529,7 @@ var BrowserCommands = {
 
   forceEncodingDetection() {
     gBrowser.selectedBrowser.forceEncodingDetection();
-    BrowserCommands.reloadWithFlags(
-      Ci.nsIWebNavigation.LOAD_FLAGS_CHARSET_CHANGE
-    );
+    gBrowser.reloadWithFlags(Ci.nsIWebNavigation.LOAD_FLAGS_CHARSET_CHANGE);
   },
 
   processCloseRequest() {

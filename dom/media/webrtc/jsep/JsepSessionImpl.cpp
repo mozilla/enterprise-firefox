@@ -452,7 +452,7 @@ void JsepSessionImpl::AddExtmap(SdpMediaSection* msection) {
 
   if (!extensions.empty()) {
     SdpExtmapAttributeList* extmap = new SdpExtmapAttributeList;
-    extmap->mExtmaps = extensions;
+    extmap->mExtmaps = std::move(extensions);
     msection->GetAttributeList().SetAttribute(extmap);
   }
 }
@@ -808,8 +808,13 @@ JsepSession::Result JsepSessionImpl::SetLocalDescription(
 
   UniquePtr<Sdp> parsed;
   nsresult rv = ParseSdp(sdp, &parsed);
-  // Needs to be RTCError with sdp-syntax-error
-  NS_ENSURE_SUCCESS(rv, dom::PCError::OperationError);
+  if (NS_FAILED(rv)) {
+    Maybe<size_t> lineNumber;
+    if (!mLastSdpParsingErrors.empty()) {
+      lineNumber = Some(mLastSdpParsingErrors[0].first);
+    }
+    return Result(dom::PCError::OperationError, "sdp-syntax-error", lineNumber);
+  }
 
   // Check that content hasn't done anything unsupported with the SDP
   rv = ValidateLocalDescription(*parsed, type);
@@ -860,6 +865,13 @@ JsepSession::Result JsepSessionImpl::SetLocalDescription(
       transceiver->mTransport.Close();
       SetTransceiver(*transceiver);
       continue;
+    }
+
+    // If the transceiver has been stopped, but we receive an enabled msection
+    // for that transceiver, don't try to resurrect the dead transceiver.
+    if (transceiver->IsStopped()) {
+      JSEP_SET_ERROR("Transceiver for level " << i << " has been stopped.");
+      return dom::PCError::OperationError;
     }
 
     bool hasOwnTransport = mSdpHelper.OwnsTransport(
@@ -1004,8 +1016,13 @@ JsepSession::Result JsepSessionImpl::SetRemoteDescription(
   // Parse.
   UniquePtr<Sdp> parsed;
   nsresult rv = ParseSdp(sdp, &parsed);
-  // Needs to be RTCError with sdp-syntax-error
-  NS_ENSURE_SUCCESS(rv, dom::PCError::OperationError);
+  if (NS_FAILED(rv)) {
+    Maybe<size_t> lineNumber;
+    if (!mLastSdpParsingErrors.empty()) {
+      lineNumber = Some(mLastSdpParsingErrors[0].first);
+    }
+    return Result(dom::PCError::OperationError, "sdp-syntax-error", lineNumber);
+  }
 
   rv = ValidateRemoteDescription(*parsed);
   NS_ENSURE_SUCCESS(rv, dom::PCError::InvalidAccessError);
@@ -1102,7 +1119,12 @@ nsresult JsepSessionImpl::HandleNegotiatedSession(
   bool remoteIceLite =
       remote->GetAttributeList().HasAttribute(SdpAttribute::kIceLiteAttribute);
 
-  mIceControlling = remoteIceLite || *mIsPendingOfferer;
+  // RFC 8445 Section 9: roles persist for the session lifetime. Only set on
+  // first negotiation, or force controlling if remote switched to ICE-lite.
+  mIceControlling |= remoteIceLite;
+  if (!mNegotiations) {
+    mIceControlling |= *mIsPendingOfferer;
+  }
 
   const Sdp& answer = *mIsPendingOfferer ? *remote : *local;
 

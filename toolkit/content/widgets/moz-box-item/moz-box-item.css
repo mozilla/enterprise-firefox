@@ -24,21 +24,20 @@
 }
 
 .text-content.has-support-page {
-  display: flex;
-
-  &.has-description {
+  .label-wrapper {
+    grid-area: label;
+    display: flex;
+    gap: var(--space-xsmall);
+    align-items: center;
     flex-wrap: wrap;
   }
 
-  .label-wrapper {
-    width: 100%;
-    display: flex;
-    gap: var(--space-small);
-    align-items: center;
+  .description-wrapper {
+    grid-area: description;
+  }
 
-    .support-page {
-      margin-inline-start: var(--space-xsmall);
-    }
+  &:not(.has-description) .description-wrapper {
+    display: none;
   }
 
   .description,
@@ -51,8 +50,12 @@
   font-size: var(--font-size-small);
 }
 
+.text-content:not(.has-description) slot[name="description"] {
+  display: none;
+}
+
 .box-container {
-  padding: var(--box-padding);
+  padding: var(--box-padding, var(--space-large));
   font-size: inherit;
   text-align: start;
 }
@@ -70,6 +73,8 @@ slot[name="actions-start"] {
 }
 
 .handle {
+  --box-item-handle-icon-color: var(--text-color);
+
   width: var(--button-size-icon);
   height: var(--button-size-icon);
   cursor: grab;
@@ -80,7 +85,7 @@ slot[name="actions-start"] {
   -moz-context-properties: fill;
   /** Override the text color set by description-deemphasized for the handle.
       This cannot be disabled, hence the color should remain the default. */
-  fill: var(--text-color);
+  fill: var(--box-item-handle-icon-color);
   flex-shrink: 0;
 }
 

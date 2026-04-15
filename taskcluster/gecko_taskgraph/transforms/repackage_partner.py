@@ -282,6 +282,10 @@ def make_job_description(config, jobs):
                 "linux64-node",
             ])
 
+        if build_platform.startswith("win"):
+            task.setdefault("fetches", {}).setdefault("toolchain", []).append(
+                "linux64-7zz"
+            )
         yield task
 
 

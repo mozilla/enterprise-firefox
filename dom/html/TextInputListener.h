@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -30,16 +28,11 @@ class TextInputListener final : public nsIDOMEventListener,
  public:
   explicit TextInputListener(TextControlElement* aTextControlElement);
 
-  void SetFrame(nsIFrame* aTextControlFrame) { mFrame = aTextControlFrame; }
   void SettingValue(bool aValue) { mSettingValue = aValue; }
   void SetValueChanged(bool aSetValueChanged) {
     mSetValueChanged = aSetValueChanged;
   }
 
-  /**
-   * aFrame is an optional pointer to our frame, if not passed the method will
-   * use mFrame to compute it lazily.
-   */
   void HandleValueChanged(TextEditor&);
 
   /**
@@ -70,7 +63,6 @@ class TextInputListener final : public nsIDOMEventListener,
   nsresult UpdateTextInputCommands(const nsAString& aCommandsToUpdate);
 
  protected:
-  nsIFrame* mFrame;
   TextControlElement* const mTxtCtrlElement;
   WeakPtr<TextControlState> const mTextControlState;
 

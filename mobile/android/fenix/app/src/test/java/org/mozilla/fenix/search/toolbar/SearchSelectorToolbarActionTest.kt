@@ -14,15 +14,16 @@ import androidx.core.graphics.createBitmap
 import com.google.android.material.card.MaterialCardView
 import io.mockk.MockKAnnotations
 import io.mockk.every
-import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
 import io.mockk.spyk
 import io.mockk.verify
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runTest
 import mozilla.components.browser.state.search.SearchEngine
 import mozilla.components.browser.state.search.SearchEngine.Type.BUNDLED
 import mozilla.components.concept.menu.Orientation
 import mozilla.components.support.test.robolectric.testContext
-import mozilla.components.support.test.rule.MainCoroutineRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -52,17 +53,16 @@ class SearchSelectorToolbarActionTest {
 
     private lateinit var store: SearchDialogFragmentStore
 
-    @MockK(relaxed = true)
+    @RelaxedMockK
     private lateinit var menu: SearchSelectorMenu
 
-    @MockK(relaxed = true)
+    @RelaxedMockK
     private lateinit var settings: Settings
 
     @get:Rule
-    val coroutinesTestRule = MainCoroutineRule()
-
-    @get:Rule
     val gleanTestRule = FenixGleanTestRule(testContext)
+
+    private val testDispatcher = StandardTestDispatcher()
 
     @Before
     fun setup() {
@@ -73,12 +73,13 @@ class SearchSelectorToolbarActionTest {
     }
 
     @Test
-    fun `WHEN search selector toolbar action is clicked THEN the search selector menu is shown`() {
+    fun `WHEN search selector toolbar action is clicked THEN the search selector menu is shown`() = runTest(testDispatcher) {
         val action = spyk(
             SearchSelectorToolbarAction(
                 store = store,
                 defaultSearchEngine = null,
                 menu = menu,
+                mainDispatcher = testDispatcher,
             ),
         )
         val view = action.createView(LinearLayout(testContext) as ViewGroup) as SearchSelector
@@ -103,11 +104,13 @@ class SearchSelectorToolbarActionTest {
     }
 
     @Test
-    fun `GIVEN a binded search selector View WHEN a search engine is selected THEN update the icon`() {
-        val selector = SearchSelectorToolbarAction(store, mockk(), mockk())
+    fun `GIVEN a binded search selector View WHEN a search engine is selected THEN update the icon`() = runTest(testDispatcher) {
+        val selector = SearchSelectorToolbarAction(store, mockk(), mockk(), testDispatcher)
         val view = spyk(SearchSelector(testContext))
 
         selector.bind(view)
+        testDispatcher.scheduler.advanceUntilIdle()
+
         store.dispatch(
             SearchDefaultEngineSelected(
                 engine = testSearchEngine,
@@ -115,6 +118,7 @@ class SearchSelectorToolbarActionTest {
                 settings = mockk(relaxed = true),
             ),
         )
+        testDispatcher.scheduler.advanceUntilIdle()
 
         verify {
             view.setIcon(
@@ -128,14 +132,20 @@ class SearchSelectorToolbarActionTest {
     }
 
     @Test
-    fun `GIVEN the same view is binded multiple times WHEN the search engine changes THEN update the icon only once`() {
+    fun `GIVEN the same view is binded multiple times WHEN the search engine changes THEN update the icon only once`() = runTest(testDispatcher) {
         // This scenario with the same View binded multiple times can happen after a "invalidateActions" call.
-        val selector = SearchSelectorToolbarAction(store, mockk(), mockk())
+        val selector = SearchSelectorToolbarAction(store, mockk(), mockk(), testDispatcher)
         val view = spyk(SearchSelector(testContext))
 
         selector.bind(view)
+        testDispatcher.scheduler.advanceUntilIdle()
+
         selector.bind(view)
+        testDispatcher.scheduler.advanceUntilIdle()
+
         selector.bind(view)
+        testDispatcher.scheduler.advanceUntilIdle()
+
         store.dispatch(
             SearchDefaultEngineSelected(
                 engine = testSearchEngine,
@@ -143,6 +153,8 @@ class SearchSelectorToolbarActionTest {
                 settings = mockk(relaxed = true),
             ),
         )
+        testDispatcher.scheduler.advanceUntilIdle()
+
         verify(exactly = 1) {
             view.setIcon(
                 icon = any(),
@@ -155,12 +167,14 @@ class SearchSelectorToolbarActionTest {
     }
 
     @Test
-    fun `GIVEN a binded search selector View WHEN a search engine is selected THEN update the icon only if a different search engine is selected`() {
-        val selector = SearchSelectorToolbarAction(store, mockk(), mockk())
+    fun `GIVEN a binded search selector View WHEN a search engine is selected THEN update the icon only if a different search engine is selected`() = runTest(testDispatcher) {
+        val selector = SearchSelectorToolbarAction(store, mockk(), mockk(), testDispatcher)
         val view = spyk(SearchSelector(testContext))
 
         // Test an initial change
         selector.bind(view)
+        testDispatcher.scheduler.advanceUntilIdle()
+
         store.dispatch(
             SearchDefaultEngineSelected(
                 engine = testSearchEngine,
@@ -168,6 +182,8 @@ class SearchSelectorToolbarActionTest {
                 settings = mockk(relaxed = true),
             ),
         )
+        testDispatcher.scheduler.advanceUntilIdle()
+
         verify(exactly = 1) {
             view.setIcon(
                 icon = any(),
@@ -205,6 +221,8 @@ class SearchSelectorToolbarActionTest {
                 engine = newSearchEngine,
             ),
         )
+        testDispatcher.scheduler.advanceUntilIdle()
+
         verify(exactly = 1) {
             view.setIcon(
                 icon = any(),
@@ -226,7 +244,7 @@ class SearchSelectorToolbarActionTest {
     }
 
     @Test
-    fun `GIVEN a search engine WHEN asking for a scaled icon THEN return a drawable with a fixed size`() {
+    fun `GIVEN a search engine WHEN asking for a scaled icon THEN return a drawable with a fixed size`() = runTest(testDispatcher) {
         val originalIcon = createBitmap(100, 100, ARGB_8888).applyCanvas {
             drawColor(Color.RED)
         }

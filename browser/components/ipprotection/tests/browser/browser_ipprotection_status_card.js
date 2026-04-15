@@ -8,7 +8,7 @@ const { LINKS, BANDWIDTH } = ChromeUtils.importESModule(
   "chrome://browser/content/ipprotection/ipprotection-constants.mjs"
 );
 const { IPPExceptionsManager } = ChromeUtils.importESModule(
-  "moz-src:///browser/components/ipprotection/IPPExceptionsManager.sys.mjs"
+  "moz-src:///toolkit/components/ipprotection/IPPExceptionsManager.sys.mjs"
 );
 
 const mockLocation = {
@@ -46,7 +46,8 @@ async function setupStatusCardTest(
     },
     usageInfo: null,
   });
-  await IPPEnrollAndEntitleManager.refetchEntitlement();
+  IPProtectionService.updateState();
+  await waitForProxyState(IPPProxyStates.READY);
 
   await SpecialPowers.pushPrefEnv({
     set: [
@@ -322,6 +323,12 @@ add_task(async function test_status_card_connecting() {
   );
 
   checkLocationAndBandwidth(statusBoxEl, mockLocation, mockBandwidthUsage);
+
+  const button = statusCard.actionButtonEl;
+  Assert.ok(
+    button?.disabled,
+    "Button in connecting state should be present and disabled"
+  );
 
   await closePanel();
   await cleanupStatusCardTest();

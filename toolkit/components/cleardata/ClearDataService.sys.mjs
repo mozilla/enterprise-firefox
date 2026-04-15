@@ -1526,7 +1526,7 @@ const ShutdownExceptionsCleaner = {
 };
 
 const PermissionsCleaner = {
-  _deleteInternal(filter) {
+  async _deleteInternal(filter) {
     Services.perms.all
       // Skip shutdown exception permission because it is handled by ShutDownExceptionsCleaner
       .filter(({ type }) => type != SHUTDOWN_EXCEPTION_PERMISSION)
@@ -1538,6 +1538,8 @@ const PermissionsCleaner = {
           console.error(ex);
         }
       });
+    // Clean up interaction tracking data for removed permissions.
+    await Services.perms.removeOrphanedInteractionRecords();
   },
 
   _thirdPartyStoragePermissionMatchesHost(permissionType, aHost) {
@@ -1566,7 +1568,7 @@ const PermissionsCleaner = {
   },
 
   async deleteByHost(aHost) {
-    this._deleteInternal(({ principal, type }) => {
+    await this._deleteInternal(({ principal, type }) => {
       let principalHost = this._getPrincipalHost(principal);
       if (!principalHost?.length) {
         return false;
@@ -1580,7 +1582,7 @@ const PermissionsCleaner = {
   },
 
   async deleteByPrincipal(aPrincipal) {
-    this._deleteInternal(({ principal, type }) => {
+    await this._deleteInternal(({ principal, type }) => {
       if (principal.equals(aPrincipal)) {
         return true;
       }
@@ -1604,7 +1606,7 @@ const PermissionsCleaner = {
       delete aOriginAttributesPattern.userContextId;
     }
 
-    this._deleteInternal(
+    await this._deleteInternal(
       ({ principal, type }) =>
         hasSite({ principal }, aSchemelessSite, aOriginAttributesPattern) ||
         this._thirdPartyStoragePermissionMatchesHost(type, aSchemelessSite)
@@ -2187,6 +2189,8 @@ const StoragePermissionsCleaner = {
       }
       Services.perms.removePermission(perm);
     });
+    // Clean up interaction tracking data for removed permissions.
+    await Services.perms.removeOrphanedInteractionRecords();
   },
 
   async deleteByPrincipal(aPrincipal) {
@@ -2205,6 +2209,8 @@ const StoragePermissionsCleaner = {
         Services.perms.removePermission(perm);
       }
     }
+    // Clean up interaction tracking data for removed permissions.
+    await Services.perms.removeOrphanedInteractionRecords();
   },
 
   async deleteBySite(aSchemelessSite, aOriginAttributesPattern) {
@@ -2226,6 +2232,8 @@ const StoragePermissionsCleaner = {
         Services.perms.removePermission(perm);
       }
     }
+    // Clean up interaction tracking data for removed permissions.
+    await Services.perms.removeOrphanedInteractionRecords();
   },
 
   async deleteByLocalFiles() {
@@ -2235,6 +2243,8 @@ const StoragePermissionsCleaner = {
         Services.perms.removePermission(perm);
       }
     }
+    // Clean up interaction tracking data for removed permissions.
+    await Services.perms.removeOrphanedInteractionRecords();
   },
 
   async deleteAll() {
@@ -2251,6 +2261,8 @@ const StoragePermissionsCleaner = {
 
       Services.perms.removePermission(perm);
     });
+    // Clean up interaction tracking data for removed permissions.
+    await Services.perms.removeOrphanedInteractionRecords();
   },
 
   _getStoragePermissions() {
@@ -2670,6 +2682,7 @@ ClearDataService.prototype = Object.freeze({
 
     gPBMCleanupInProgress = true;
 
+    let timerId = Glean.privateBrowsingCleanup.duration.start();
     let collector = new PBMCleanupCollector();
 
     // Fire the notification with collector as subject. Sync observers
@@ -2682,13 +2695,19 @@ ClearDataService.prototype = Object.freeze({
     collector.promise
       .then(hadFailures => {
         gPBMCleanupInProgress = false;
+        Glean.privateBrowsingCleanup.duration.stopAndAccumulate(timerId);
+        Glean.privateBrowsingCleanup.errorRate.addToDenominator(1);
         if (hadFailures) {
+          Glean.privateBrowsingCleanup.errorRate.addToNumerator(1);
           console.error("PBM cleanup: one or more observers reported failure");
         }
         aCallback.onDataDeleted(hadFailures ? 1 : 0);
       })
       .catch(e => {
         gPBMCleanupInProgress = false;
+        Glean.privateBrowsingCleanup.duration.cancel(timerId);
+        Glean.privateBrowsingCleanup.errorRate.addToDenominator(1);
+        Glean.privateBrowsingCleanup.errorRate.addToNumerator(1);
         console.error("PBM cleanup error:", e);
         aCallback.onDataDeleted(1);
       });

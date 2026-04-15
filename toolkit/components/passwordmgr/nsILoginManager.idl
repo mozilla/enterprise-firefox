@@ -310,6 +310,7 @@ interface nsILoginManager : nsISupports {
    * logins (and not the logins themselves), which allows a caller to
    * check for logins without causing the user to be prompted for a primary
    * password to decrypt the logins.
+   * Deprecated: use countLoginsAsync instead.
    *
    * @param aOrigin
    *        The origin to restrict searches to. Specify an empty string
@@ -325,6 +326,28 @@ interface nsILoginManager : nsISupports {
    *        realm, specify null.
    */
   unsigned long countLogins(in AString aOrigin, in AString aActionOrigin,
+                            in AString aHttpRealm);
+  /**
+   * Search for logins matching the specified criteria, as with
+   * findLogins(). This interface only returns the number of matching
+   * logins (and not the logins themselves), which allows a caller to
+   * check for logins without causing the user to be prompted for a primary
+   * password to decrypt the logins.
+   *
+   * @param aOrigin
+   *        The origin to restrict searches to. Specify an empty string
+   *        to match all origins. A null value will not match any logins, and
+   *        will thus always return a count of 0.
+   * @param aActionOrigin
+   *        The origin to which a form login will be submitted. To match any
+   *        form login, specify an empty string. To not match any form
+   *        login, specify null.
+   * @param aHttpRealm
+   *        The HTTP Realm for which the login applies. To match logins for
+   *        any realm, specify an empty string. To not match logins for any
+   *        realm, specify null.
+   */
+  Promise countLoginsAsync(in AString aOrigin, in AString aActionOrigin,
                             in AString aHttpRealm);
 
   /**
@@ -392,6 +415,37 @@ interface nsILoginManager : nsISupports {
     * the local sync ID to newSyncID and reset the last sync timestamp.
    */
   Promise ensureCurrentSyncID(in AString newSyncID);
+
+  /**
+   * Mark a login's password as potentially vulnerable (breached).
+   */
+  Promise addPotentiallyVulnerablePassword(in nsILoginInfo aLogin);
+
+  /**
+   * Check if a login's password is potentially vulnerable.
+   */
+  Promise isPotentiallyVulnerablePassword(in nsILoginInfo aLogin);
+
+  /**
+   * Record that a breach alert for a login was dismissed by the user.
+   */
+  Promise recordBreachAlertDismissal(in AString aLoginGUID);
+
+  /**
+   * Get all breach alert dismissals keyed by login GUID.
+   */
+  Promise getBreachAlertDismissalsByLoginGUID();
+
+  /**
+   * Check which of the given logins have potentially vulnerable passwords.
+   * Returns a promise resolving to an array of GUIDs of vulnerable logins.
+   */
+  Promise arePotentiallyVulnerablePasswords(in jsval aLogins);
+
+  /**
+   * Clear all potentially vulnerable password records.
+   */
+  Promise clearAllPotentiallyVulnerablePasswords();
 
  /**
   * True when a primary password prompt is being displayed.

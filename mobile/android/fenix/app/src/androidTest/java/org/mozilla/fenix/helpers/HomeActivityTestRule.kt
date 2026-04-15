@@ -51,7 +51,6 @@ class HomeActivityTestRule(
         initialTouchMode: Boolean = false,
         launchActivity: Boolean = true,
         skipOnboarding: Boolean = false,
-        isHomepageHeaderEnabled: Boolean = true,
         isPocketEnabled: Boolean = settings.showPocketRecommendationsFeature,
         isRecentTabsFeatureEnabled: Boolean = settings.showRecentTabsFeature,
         isRecentlyVisitedFeatureEnabled: Boolean = settings.historyMetadataUIFeature,
@@ -72,8 +71,8 @@ class HomeActivityTestRule(
         isTermsOfServiceAccepted: Boolean = true,
         openLinksInExternalApp: OpenLinksInApp = getOpenLinksInApp(settings),
         hasSeenBrowserToolbarCFR: Boolean = true,
+        isPrivateModeAndStoriesEntryPointEnabled: Boolean = false,
     ) : this(initialTouchMode, launchActivity, skipOnboarding) {
-        this.isHomepageHeaderEnabled = isHomepageHeaderEnabled
         this.isPocketEnabled = isPocketEnabled
         this.isRecentTabsFeatureEnabled = isRecentTabsFeatureEnabled
         this.isRecentlyVisitedFeatureEnabled = isRecentlyVisitedFeatureEnabled
@@ -94,6 +93,7 @@ class HomeActivityTestRule(
         this.isTermsOfServiceAccepted = isTermsOfServiceAccepted
         this.openLinksInExternalApp = openLinksInExternalApp
         this.hasSeenBrowserToolbarCFR = hasSeenBrowserToolbarCFR
+        this.isPrivateModeAndStoriesEntryPointEnabled = isPrivateModeAndStoriesEntryPointEnabled
     }
 
     /**
@@ -145,7 +145,6 @@ class HomeActivityTestRule(
             initialTouchMode = initialTouchMode,
             launchActivity = launchActivity,
             skipOnboarding = skipOnboarding,
-            isHomepageHeaderEnabled = true,
             isPWAsPromptEnabled = false,
             isWallpaperOnboardingEnabled = false,
             isOpenInAppBannerEnabled = false,
@@ -157,6 +156,7 @@ class HomeActivityTestRule(
             isUseNewCrashReporterFlow = useNewCrashReporterFlow,
             isTabSwipeCFREnabled = true,
             isTermsOfServiceAccepted = true,
+            isPrivateModeAndStoriesEntryPointEnabled = false,
         )
     }
 }
@@ -204,8 +204,8 @@ class HomeActivityIntentTestRule internal constructor(
         openLinksInExternalApp: OpenLinksInApp = getOpenLinksInApp(settings),
         tabManagerOpeningAnimationEnabled: Boolean = false,
         hasSeenBrowserToolbarCFR: Boolean = true,
+        isPrivateModeAndStoriesEntryPointEnabled: Boolean = false,
     ) : this(initialTouchMode, launchActivity, skipOnboarding) {
-        this.isHomepageHeaderEnabled = isHomepageHeaderEnabled
         this.isPocketEnabled = isPocketEnabled
         this.isRecentTabsFeatureEnabled = isRecentTabsFeatureEnabled
         this.isRecentlyVisitedFeatureEnabled = isRecentlyVisitedFeatureEnabled
@@ -227,6 +227,7 @@ class HomeActivityIntentTestRule internal constructor(
         this.openLinksInExternalApp = openLinksInExternalApp
         this.tabManagerOpeningAnimationEnabled = tabManagerOpeningAnimationEnabled
         this.hasSeenBrowserToolbarCFR = hasSeenBrowserToolbarCFR
+        this.isPrivateModeAndStoriesEntryPointEnabled = isPrivateModeAndStoriesEntryPointEnabled
     }
 
     private val longTapUserPreference = getLongPressTimeout()
@@ -282,7 +283,6 @@ class HomeActivityIntentTestRule internal constructor(
      * settings and override any changes made in the meantime.
      */
     fun updateCachedSettings() {
-        isHomepageHeaderEnabled = settings.showHomepageHeader
         isPocketEnabled = settings.showPocketRecommendationsFeature
         isRecentTabsFeatureEnabled = settings.showRecentTabsFeature
         isRecentlyVisitedFeatureEnabled = settings.historyMetadataUIFeature
@@ -302,6 +302,7 @@ class HomeActivityIntentTestRule internal constructor(
         openLinksInExternalApp = getOpenLinksInApp(settings)
         tabManagerOpeningAnimationEnabled = settings.tabManagerOpeningAnimationEnabled
         hasSeenBrowserToolbarCFR = settings.hasSeenBrowserToolbarCFR
+        isPrivateModeAndStoriesEntryPointEnabled = settings.privateModeAndStoriesEntryPointEnabled
     }
 
     companion object {
@@ -332,6 +333,7 @@ class HomeActivityIntentTestRule internal constructor(
             isTabSwipeCFREnabled = true,
             isTermsOfServiceAccepted = true,
             tabManagerOpeningAnimationEnabled = false,
+            isPrivateModeAndStoriesEntryPointEnabled = false,
         )
     }
 }

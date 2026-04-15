@@ -9,7 +9,7 @@ const { ASRouter } = ChromeUtils.importESModule(
 );
 
 const { ERRORS } = ChromeUtils.importESModule(
-  "chrome://browser/content/ipprotection/ipprotection-constants.mjs"
+  "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs"
 );
 
 const { AddonTestUtils } = ChromeUtils.importESModule(
@@ -218,6 +218,8 @@ add_task(async function test_IPProtectionService_updateEntitlement() {
 add_task(async function test_IPProtectionService_update_usage_on_sign_in() {
   Services.prefs.clearUserPref("browser.ipProtection.enabled");
   IPPEnrollAndEntitleManager.resetEntitlement();
+  // Remove the no-op stub so that we can call the real updateEntitlement
+  STUBS.updateEntitlement.restore();
 
   let usageChangedPromise = BrowserTestUtils.waitForEvent(
     IPPProxyManager,
@@ -274,6 +276,10 @@ add_task(async function test_IPProtectionService_update_usage_on_sign_in() {
   await closePanel();
   cleanupService();
   await SpecialPowers.popPrefEnv();
+  // Restore the stubbed updateEntitlement for other tests
+  STUBS.updateEntitlement = setupSandbox
+    .stub(IPPEnrollAndEntitleManager, "updateEntitlement")
+    .resolves();
 });
 
 add_task(async function test_ipprotection_ready() {

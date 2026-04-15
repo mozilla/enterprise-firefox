@@ -8,6 +8,7 @@ FINAL_LIBRARY = "xul"
 
 MOZ_SRC_FILES += [
     "generated/RustUniffiBindingsTests.sys.mjs",
+    "generated/RustUniffiBindingsTestsCollision.sys.mjs",
     "generated/RustUniffiBindingsTestsExternalTypes.sys.mjs",
 ]
 

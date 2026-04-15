@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -44,6 +42,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef nricemediastream_h_
 #define nricemediastream_h_
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -210,6 +209,11 @@ class NrIceMediaStream {
       SignalCandidate;  // A new ICE candidate:
   sigslot::signal2<const std::string&, NrIceMediaStream::GatheringState>
       SignalGatheringStateChange;
+
+  // address, port, url, errorCode, errorText
+  sigslot::signal6<NrIceMediaStream*, const std::string&, uint16_t,
+                   const std::string&, uint16_t, const std::string&>
+      SignalCandidateError;
 
   sigslot::signal1<NrIceMediaStream*> SignalReady;   // Candidate pair ready.
   sigslot::signal1<NrIceMediaStream*> SignalFailed;  // Candidate pair failed.

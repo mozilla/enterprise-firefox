@@ -40,7 +40,7 @@ add_task(async function () {
 
   info("Testing the rule-view selector");
   const ruleView = inspector.getPanel("ruleview").view;
-  const cssRuleEditor = getRuleViewRuleEditor(ruleView, 1);
+  const cssRuleEditor = getRuleViewRuleEditorAt(ruleView, 1);
   EventUtils.synthesizeMouseAtCenter(
     cssRuleEditor.selectorText,
     {},

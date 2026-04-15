@@ -25,6 +25,8 @@ import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
@@ -140,8 +142,8 @@ class TrackingProtectionPanelDialogFragment : AppCompatDialogFragment(), UserInt
         super.onViewCreated(view, savedInstanceState)
         val store = requireComponents.core.store
 
-        observeUrlChange(store)
-        observeTrackersChange(store)
+        observeUrlChange(store, mainDispatcher = Dispatchers.Main)
+        observeTrackersChange(store, mainDispatcher = Dispatchers.Main)
         protectionsStore.observe(view) {
             viewLifecycleOwner.lifecycleScope.launch {
                 withStarted {
@@ -219,8 +221,8 @@ class TrackingProtectionPanelDialogFragment : AppCompatDialogFragment(), UserInt
     }
 
     @VisibleForTesting
-    internal fun observeUrlChange(store: BrowserStore) {
-        consumeFlow(store) { flow ->
+    internal fun observeUrlChange(store: BrowserStore, mainDispatcher: CoroutineDispatcher) {
+        consumeFlow(store, mainDispatcher = mainDispatcher) { flow ->
             flow.mapNotNull { state ->
                 state.findTabOrCustomTab(provideCurrentTabId())
             }.distinctUntilChangedBy { tab -> tab.content.url }
@@ -234,8 +236,8 @@ class TrackingProtectionPanelDialogFragment : AppCompatDialogFragment(), UserInt
     internal fun provideCurrentTabId(): String = args.sessionId
 
     @VisibleForTesting
-    internal fun observeTrackersChange(store: BrowserStore) {
-        consumeFlow(store) { flow ->
+    internal fun observeTrackersChange(store: BrowserStore, mainDispatcher: CoroutineDispatcher) {
+        consumeFlow(store, mainDispatcher = mainDispatcher) { flow ->
             flow.mapNotNull { state ->
                 state.findTabOrCustomTab(provideCurrentTabId())
             }.ifAnyChanged { tab ->

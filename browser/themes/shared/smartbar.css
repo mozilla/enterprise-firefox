@@ -45,7 +45,13 @@
 }
 
 .smartbar > .urlbar-input-container {
+  /**
+   * Setting overflow `auto` or `hidden` causes layout shifts when suggestions
+   * show. Text wrapping is handled by the multiline editor’s overflow,
+   * explicitly setting to the default oveflow value.
+   */
   overflow: visible;
+  scrollbar-width: none;
   /**
    * The search mode switcher won’t be used for the Smartbar. Instead, it is
    * part of the CTA action panel.
@@ -92,6 +98,7 @@
 
 /* FOCUSED_KEYBOARD_EMPTY: Show outline only for keyboard focus on empty input */
 .smartbar:focus-within:not([usertyping]):not([suppress-focus-border]) > .urlbar-background {
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   outline: var(--smartbar-outline);
   outline-offset: var(--focus-outline-offset);
 }
@@ -110,6 +117,8 @@
 .smartbar moz-multiline-editor {
   --multiline-editor-border: none;
   --multiline-editor-focus-outline: none;
+  --multiline-editor-max-height: 8lh;
+  --multiline-editor-scrollbar-width: thin;
   padding: var(--space-xsmall);
 }
 

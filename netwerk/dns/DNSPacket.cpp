@@ -51,8 +51,7 @@ nsresult DNSPacket::FillBuffer(
   }
 
   if (static_cast<uint32_t>(response_length) > MAX_SIZE) {
-    LOG(("FillBuffer response len %d > MAX_SIZE %u", response_length,
-         MAX_SIZE));
+    LOG(("FillBuffer response len %d > MAX_SIZE %u", response_length, MAX_SIZE));
     mBodySize = 0;
     mStatus = NS_ERROR_UNEXPECTED;
     return mStatus;
@@ -305,9 +304,7 @@ nsresult DOHresp::Add(uint32_t TTL, unsigned char const* dns,
   }
 
   if (LOG_ENABLED()) {
-    char buf[128];
-    addr.ToStringBuffer(buf, sizeof(buf));
-    LOG(("DOHresp:Add %s\n", buf));
+    LOG(("DOHresp:Add %s\n", addr.ToString().get()));
   }
   mAddresses.AppendElement(addr);
   return NS_OK;

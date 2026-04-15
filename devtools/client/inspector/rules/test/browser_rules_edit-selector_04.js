@@ -38,7 +38,7 @@ async function testSelectorHighlight(view, selector) {
 async function testEditSelector(inspector, view, name) {
   info("Test editing existing selector fields");
 
-  const ruleEditor = getRuleViewRuleEditor(view, 1);
+  const ruleEditor = getRuleViewRuleEditorAt(view, 1);
 
   info("Focusing an existing selector name in the rule-view");
   const editor = await focusEditableField(view, ruleEditor.selectorText);

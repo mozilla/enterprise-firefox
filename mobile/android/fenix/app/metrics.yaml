@@ -188,34 +188,6 @@ events:
     metadata:
       tags:
         - Toolbar
-  re_engagement_notif_tapped:
-    type: event
-    description: |
-      User tapped on the re-engagement notification
-    bugs:
-      - https://github.com/mozilla-mobile/fenix/issues/27949
-    data_reviews:
-      - https://github.com/mozilla-mobile/fenix/pull/27978
-      - https://github.com/mozilla-mobile/firefox-android/pull/4039
-    data_sensitivity:
-      - interaction
-    notification_emails:
-      - android-probes@mozilla.com
-    expires: never
-  re_engagement_notif_shown:
-    type: event
-    description: |
-      Re-engagement notification was shown to the user
-    bugs:
-      - https://github.com/mozilla-mobile/fenix/issues/27949
-    data_reviews:
-      - https://github.com/mozilla-mobile/fenix/pull/27978
-      - https://github.com/mozilla-mobile/firefox-android/pull/4039
-    data_sensitivity:
-      - technical
-    notification_emails:
-      - android-probes@mozilla.com
-    expires: never
   marketing_notification_allowed:
     type: boolean
     lifetime: application
@@ -2275,7 +2247,7 @@ onboarding:
       method:
         type: string
         description: |
-          The method in which the user exits onboarding. The value should be either "skipped" or "completed". (The skip option is not implemented yet)
+          The method in which the user exits onboarding. The value should be either "skipped" or "completed".
       onboarding_reason:
         type: string
         description: The reason the user is being onboarded.
@@ -2284,8 +2256,10 @@ onboarding:
         description: The source of installation.
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2010810
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2028189
     data_reviews:
       - https://phabricator.services.mozilla.com/D281286
+      - https://phabricator.services.mozilla.com/D291731
     data_sensitivity:
       - interaction
     notification_emails:
@@ -2926,6 +2900,40 @@ custom_review_prompt:
       - https://phabricator.services.mozilla.com/D253398
     data_sensitivity:
       - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+
+  nimbus_event_recorded:
+    type: event
+    description: Logged when a Nimbus event recording is attempted after the custom review prompt is shown, capturing the result.
+    extra_keys:
+      result:
+        type: string
+        description: The outcome of the Nimbus event recording attempt. One of "success", "cancelled", or "error".
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2022154
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D286857
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+
+  record_nimbus_event_attempts:
+    type: labeled_counter
+    description: Counts Nimbus event recording attempts after the custom review prompt is shown, labeled by result.
+    labels:
+      - success
+      - cancelled
+      - error
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2022154
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D286857
+    data_sensitivity:
+      - technical
     notification_emails:
       - android-probes@mozilla.com
     expires: never
@@ -7922,6 +7930,19 @@ trust_panel:
     notification_emails:
       - android-probes@mozilla.com
     expires: never
+  qwac:
+    type: event
+    description: |
+      A user pressed the qwac button in the panel to view the certificate.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2011941
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D280094
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
 
 tab:
   media_play:
@@ -8496,28 +8517,6 @@ email_mask:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2014956
     data_reviews:
       - https://phabricator.services.mozilla.com/D282626
-    data_sensitivity:
-      - interaction
-    notification_emails:
-      - android-probes@mozilla.com
-    expires: never
-    metadata:
-      tags:
-        - Autofill
-        - EmailMask
-  autofill_failed:
-    type: event
-    description:
-      Triggered when email mask autofill fails for any reason.
-    extra_keys:
-      error:
-        description:
-          The error causing email mask autofill to fail.
-        type: string
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1977933
-    data_reviews:
-      - https://phabricator.services.mozilla.com/D276942
     data_sensitivity:
       - interaction
     notification_emails:
@@ -13668,6 +13667,8 @@ nimbus_system:
     expires: never
     send_in_pings:
       - nimbus
+      - nimbus-targeting-context
+    lifetime: application
 
 partnerships:
   vivo_file_check_error:

@@ -26,6 +26,7 @@ class DefaultStudiesInteractor(
     private val experiments: NimbusApi,
 ) : StudiesInteractor {
     override fun openWebsite(url: String) {
+        @Suppress("DEPRECATION")
         homeActivity.openToBrowserAndLoad(
             searchTermOrURL = url,
             newTab = true,

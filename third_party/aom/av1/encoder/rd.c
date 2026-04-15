@@ -439,7 +439,7 @@ int av1_compute_rd_mult(const int qindex, const aom_bit_depth_t bit_depth,
                         const aom_tune_metric tuning) {
   int64_t rdmult = av1_compute_rd_mult_based_on_qindex(bit_depth, update_type,
                                                        qindex, tuning);
-  if (is_stat_consumption_stage && !use_fixed_qp_offsets &&
+  if (is_stat_consumption_stage && (use_fixed_qp_offsets == 0) &&
       (frame_type != KEY_FRAME)) {
     // Layer depth adjustment
     rdmult = (rdmult * rd_layer_depth_factor[layer_depth]) >> 7;

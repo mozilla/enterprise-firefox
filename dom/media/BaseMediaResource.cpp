@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -141,27 +139,30 @@ void BaseMediaResource::SetLoadInBackground(bool aLoadInBackground) {
 }
 
 nsresult BaseMediaResource::ModifyLoadFlags(nsLoadFlags aFlags) {
+  RefPtr<BaseMediaResource> kungFuDeathGrip(this);
+  nsCOMPtr<nsIChannel> channel = mChannel;
+
   nsCOMPtr<nsILoadGroup> loadGroup;
-  nsresult rv = mChannel->GetLoadGroup(getter_AddRefs(loadGroup));
+  nsresult rv = channel->GetLoadGroup(getter_AddRefs(loadGroup));
   MOZ_ASSERT(NS_SUCCEEDED(rv), "GetLoadGroup() failed!");
 
   bool inLoadGroup = false;
   if (loadGroup) {
     nsresult status;
-    mChannel->GetStatus(&status);
+    channel->GetStatus(&status);
 
-    rv = loadGroup->RemoveRequest(mChannel, nullptr, status);
+    rv = loadGroup->RemoveRequest(channel, nullptr, status);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
     inLoadGroup = true;
   }
 
-  rv = mChannel->SetLoadFlags(aFlags);
+  rv = channel->SetLoadFlags(aFlags);
   MOZ_ASSERT(NS_SUCCEEDED(rv), "SetLoadFlags() failed!");
 
   if (inLoadGroup) {
-    rv = loadGroup->AddRequest(mChannel, nullptr);
+    rv = loadGroup->AddRequest(channel, nullptr);
     MOZ_ASSERT(NS_SUCCEEDED(rv), "AddRequest() failed!");
   }
 

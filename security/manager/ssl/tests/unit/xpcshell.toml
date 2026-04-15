@@ -157,6 +157,7 @@ run-if = [
 run-sequentially = ["true"] # hardcoded ports
 skip-if = [
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && msix",
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && msix",
 ]
 
 ["test_ct_stapled.js"]
@@ -166,6 +167,7 @@ run-if = [
 run-sequentially = ["true"] # hardcoded ports
 skip-if = [
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && msix",
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && msix",
 ]
 
 ["test_data_storage.js"]
@@ -177,6 +179,7 @@ run-if = [
 skip-if = [
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && opt && condprof",
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && opt && condprof",
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && opt && condprof",
 ]
 
 ["test_delegated_credentials.js"]
@@ -319,6 +322,9 @@ run-sequentially = ["true"] # hardcoded ports
 prefs = [
   "security.pdf_signature_verification.enable_test_trust_anchors=true"
 ]
+
+["test_ssl_session_cache_pbm_exit.js"]
+run-sequentially = ["true"] # hardcoded ports
 
 ["test_ssl_status.js"]
 run-sequentially = ["true"] # hardcoded ports

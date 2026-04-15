@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -10,6 +8,7 @@
 #include "mozilla/Assertions.h"
 #include "mozilla/CSSPropertyId.h"
 #include "mozilla/ErrorResult.h"
+#include "mozilla/ServoStyleConsts.h"
 #include "mozilla/dom/CSSKeywordValue.h"
 #include "mozilla/dom/CSSNumericValue.h"
 #include "mozilla/dom/CSSStyleValueBinding.h"
@@ -29,6 +28,54 @@ CSSStyleValue::CSSStyleValue(nsCOMPtr<nsISupports> aParent,
                              StyleValueType aStyleValueType)
     : mParent(std::move(aParent)), mStyleValueType(aStyleValueType) {
   MOZ_ASSERT(mParent);
+}
+
+// static
+RefPtr<CSSStyleValue> CSSStyleValue::Create(
+    nsCOMPtr<nsISupports> aParent, const CSSPropertyId& aPropertyId,
+    StylePropertyTypedValue&& aTypedValue) {
+  RefPtr<CSSStyleValue> styleValue;
+
+  switch (aTypedValue.tag) {
+    case StylePropertyTypedValue::Tag::Typed: {
+      const auto& typedValue = aTypedValue.AsTyped();
+
+      switch (typedValue.tag) {
+        case StyleTypedValue::Tag::Keyword: {
+          const auto& keywordValue = typedValue.AsKeyword();
+
+          styleValue =
+              CSSKeywordValue::Create(std::move(aParent), keywordValue);
+
+          break;
+        }
+
+        case StyleTypedValue::Tag::Numeric: {
+          const auto& numericValue = typedValue.AsNumeric();
+
+          styleValue =
+              CSSNumericValue::Create(std::move(aParent), numericValue);
+
+          break;
+        }
+      }
+      break;
+    }
+
+    case StylePropertyTypedValue::Tag::Unsupported: {
+      auto unsupportedValue = std::move(aTypedValue).ExtractUnsupported();
+
+      styleValue = CSSUnsupportedValue::Create(std::move(aParent), aPropertyId,
+                                               std::move(unsupportedValue));
+
+      break;
+    }
+
+    case StylePropertyTypedValue::Tag::None:
+      break;
+  }
+
+  return styleValue;
 }
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(CSSStyleValue)

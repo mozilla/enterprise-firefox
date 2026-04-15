@@ -21,8 +21,10 @@ import mozilla.components.feature.downloads.AbstractFetchDownloadService
 import mozilla.components.feature.downloads.AbstractFetchDownloadService.Companion.EXTRA_DOWNLOAD_STATUS
 import mozilla.components.feature.downloads.DownloadEstimator
 import mozilla.components.feature.downloads.FileSizeFormatter
+import mozilla.components.feature.downloads.fake.FakeDownloadFileWriter
 import mozilla.components.feature.downloads.fake.FakeFileSizeFormatter
 import mozilla.components.feature.downloads.fake.FakePackageNameProvider
+import mozilla.components.feature.downloads.filewriter.DownloadFileWriter
 import mozilla.components.support.base.android.NotificationsDelegate
 import mozilla.components.support.test.any
 import mozilla.components.support.test.mock
@@ -320,5 +322,6 @@ class FetchDownloadManagerTest {
         )
         override val downloadFileUtils: DownloadFileUtils = FakeDownloadFileUtils()
         override val packageNameProvider = FakePackageNameProvider("org.mozilla.fenix.test")
+        override val downloadFileWriter: DownloadFileWriter = FakeDownloadFileWriter()
     }
 }

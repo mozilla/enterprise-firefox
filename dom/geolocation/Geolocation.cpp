@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -325,7 +323,7 @@ void Geolocation::ReallowWithSystemPermissionOrCancel(
   NS_ENSURE_SUCCESS_VOID(rv);
 
   nsAutoString brandName;
-  rv = nsContentUtils::GetLocalizedString(nsContentUtils::eBRAND_PROPERTIES,
+  rv = nsContentUtils::GetLocalizedString(PropertiesFile::BRAND_PROPERTIES,
                                           "brandShortName", brandName);
   NS_ENSURE_SUCCESS_VOID(rv);
   AutoTArray<nsString, 1> formatParams;
@@ -789,7 +787,7 @@ nsresult nsGeolocationService::Init() {
         do_GetService(NS_GEOLOCATION_PROVIDER_CONTRACTID);
 
     if (geoTestProvider) {
-      mProvider = geoTestProvider;
+      mProvider = std::move(geoTestProvider);
     }
   }
 
@@ -1021,9 +1019,12 @@ void nsGeolocationService::RemoveLocator(Geolocation* aLocator) {
 }
 
 void nsGeolocationService::MoveLocators(nsGeolocationService* aService) {
-  for (uint32_t i = 0; i < mGeolocators.Length(); i++) {
-    aService->AddLocator(mGeolocators[i]);
+  for (Geolocation* loc : mGeolocators) {
+    aService->AddLocator(loc);
+    loc->SetService(aService);
   }
+
+  mGeolocators.Clear();
 }
 
 ////////////////////////////////////////////////////
@@ -1256,7 +1257,7 @@ bool Geolocation::ShouldBlockInsecureRequests() const {
 
   if (!nsGlobalWindowInner::Cast(win)->IsSecureContext()) {
     nsContentUtils::ReportToConsole(nsIScriptError::errorFlag, "DOM"_ns, doc,
-                                    nsContentUtils::eDOM_PROPERTIES,
+                                    PropertiesFile::DOM_PROPERTIES,
                                     "GeolocationInsecureRequestIsForbidden");
     return true;
   }

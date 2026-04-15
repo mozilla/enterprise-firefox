@@ -34,4 +34,12 @@
 
   pref("pdfjs.enableHWA", true);
 
+  pref("pdfjs.enableSplitMerge", true);
+
+#endif
+
+#if defined(EARLY_BETA_OR_EARLIER)
+
+  pref("pdfjs.enableOptimizedPartialRendering", true);
+
 #endif

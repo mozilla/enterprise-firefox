@@ -13,19 +13,21 @@ import androidx.navigation.fragment.navArgs
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
-import androidx.preference.SwitchPreference
+import androidx.preference.SwitchPreferenceCompat
 import mozilla.components.support.base.log.logger.Logger
 import mozilla.components.support.ktx.kotlin.ifNullOrEmpty
-import org.mozilla.fenix.FeatureFlags
 import org.mozilla.fenix.R
+import org.mozilla.fenix.e2e.SystemInsetsPaddedFragment
 import org.mozilla.fenix.ext.settings
 import org.mozilla.fenix.ext.showToolbar
+import org.mozilla.fenix.nimbus.FxNimbus
 import org.mozilla.fenix.settings.requirePreference
+import org.mozilla.fenix.settings.scrollToPreferenceWithHighlight
 
 /**
  * A [androidx.preference.PreferenceFragmentCompat] that displays settings related to downloads.
  */
-class DownloadsSettingsFragment : PreferenceFragmentCompat() {
+class DownloadsSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFragment {
     private val logger = Logger("DownloadsSettingsFragment")
     private val args by navArgs<DownloadsSettingsFragmentArgs>()
     private lateinit var downloadLocationFormatter: DownloadLocationFormatter
@@ -64,7 +66,7 @@ class DownloadsSettingsFragment : PreferenceFragmentCompat() {
             DefaultAndroidFileUtils(requireContext()),
         )
         setPreferencesFromResource(R.xml.downloads_settings_preferences, rootKey)
-        requirePreference<SwitchPreference>(R.string.pref_key_downloads_clean_up_files_automatically).apply {
+        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_downloads_clean_up_files_automatically).apply {
             title = getString(
                 R.string.preferences_downloads_settings_clean_up_files_title,
                 getString(R.string.app_name),
@@ -78,7 +80,7 @@ class DownloadsSettingsFragment : PreferenceFragmentCompat() {
         }
         val fileStorageCategory =
             findPreference<PreferenceCategory>(getString(R.string.pref_key_downloads_storage_category))
-        fileStorageCategory?.isVisible = FeatureFlags.downloadsDefaultLocation
+        fileStorageCategory?.isVisible = FxNimbus.features.downloadsCustomLocation.value().enabled
     }
 
     override fun onResume() {
@@ -86,7 +88,7 @@ class DownloadsSettingsFragment : PreferenceFragmentCompat() {
         showToolbar(getString(R.string.preferences_downloads))
         updateDownloadsLocationSummary()
         args.preferenceToScrollTo?.let {
-            scrollToPreference(it)
+            scrollToPreferenceWithHighlight(it)
         }
     }
 
@@ -103,8 +105,9 @@ class DownloadsSettingsFragment : PreferenceFragmentCompat() {
         preference?.summary = try {
             downloadLocationFormatter.getFriendlyPath(locationToFormat)
         } catch (e: MissingUriPermission) {
-            logger.warn("Could not format download location path due to lost permissions.", e)
-            getString(R.string.preference_downloads_folder_permission_lost)
+            logger.warn("Resetting download location to default due to lost permissions.", e)
+            context?.settings()?.downloadsDefaultLocation = defaultLocation
+            downloadLocationFormatter.getFriendlyPath(defaultLocation)
         }
     }
 }

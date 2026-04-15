@@ -357,12 +357,12 @@ class DebuggerWeakMap : private WeakMap<Referent*, Wrapper*, ZoneAllocPolicy> {
   using Entry = typename Base::Entry;
   using Ptr = typename Base::Ptr;
   using AddPtr = typename Base::AddPtr;
-  using Range = typename Base::Range;
+  using Iterator = typename Base::Iterator;
+  using ModIterator = typename Base::ModIterator;
   using Lookup = typename Base::Lookup;
 
   // Expose WeakMap public interface.
 
-  using Base::all;
   using Base::has;
   using Base::lookup;
   using Base::lookupForAdd;
@@ -374,10 +374,8 @@ class DebuggerWeakMap : private WeakMap<Referent*, Wrapper*, ZoneAllocPolicy> {
   using Base::hasEntry;
 #endif
 
-  class Enum : public Base::Enum {
-   public:
-    explicit Enum(DebuggerWeakMap& map) : Base::Enum(map) {}
-  };
+  Iterator iter() const { return Base::iter(); }
+  ModIterator modIter() { return Base::modIter(); }
 
   template <typename KeyInput, typename ValueInput>
   bool relookupOrAdd(AddPtr& p, const KeyInput& k, const ValueInput& v) {
@@ -392,14 +390,14 @@ class DebuggerWeakMap : private WeakMap<Referent*, Wrapper*, ZoneAllocPolicy> {
 
  public:
   void traceCrossCompartmentEdges(JSTracer* tracer) {
-    for (Enum e(*this); !e.empty(); e.popFront()) {
+    for (auto iter = modIter(); !iter.done(); iter.next()) {
       // The values are debugger objects which contain a cross-compartment
       // debuggee pointer, so trace their contents.
-      e.front().value()->trace(tracer);
+      iter.get().value()->trace(tracer);
 
       // Trace the keys, which are cross compartment debuggee pointers.
       // This can rekey the entry and invalidate |e.front()|.
-      Base::traceKey(tracer, e);
+      Base::traceKey(tracer, iter);
     }
   }
 
@@ -712,12 +710,20 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
   static bool cannotTrackAllocations(const GlobalObject& global);
 
   /*
-   * Add allocations tracking for objects allocated within the given
-   * debuggee's compartment. The given debuggee global must be observed by at
-   * least one Debugger that is tracking allocations.
+   * Check whether there is an existing object metadata callback for the given
+   * global's compartment and throw an exception if so.
    */
-  [[nodiscard]] static bool addAllocationsTracking(
+  [[nodiscard]] static bool checkCanAddAllocationsTracking(
       JSContext* cx, Handle<GlobalObject*> debuggee);
+
+  /*
+   * Add allocations tracking for objects allocated within the given debuggee's
+   * compartment. The given debuggee global must be observed by at least one
+   * Debugger that is tracking allocations and there must be no existing object
+   * metadata callback installed.
+   */
+  static void addAllocationsTracking(JSContext* cx,
+                                     Handle<GlobalObject*> debuggee);
 
   /*
    * Remove allocations tracking for objects allocated within the given
@@ -837,7 +843,7 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
   [[nodiscard]] bool addDebuggeeGlobal(JSContext* cx,
                                        Handle<GlobalObject*> obj);
   void removeDebuggeeGlobal(JS::GCContext* gcx, GlobalObject* global,
-                            WeakGlobalObjectSet::Enum* debugEnum,
+                            WeakGlobalObjectSet::ModIterator* debugIter,
                             FromSweep fromSweep);
 
   /*
@@ -955,8 +961,8 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
    * Terminate a given DebuggerFrame, removing all internal state and all
    * references to the frame from the Debugger itself. If the frame is being
    * terminated while 'frames' or 'generatorFrames' are being iterated, pass a
-   * pointer to the iteration Enum to remove the entry and ensure that iteration
-   * behaves properly.
+   * pointer to the current iterator so the entry can be removed without
+   * invalidating iteration.
    *
    * The AbstractFramePtr may be omited in a call so long as it is either
    * called again later with the correct 'frame', or the frame itself has never
@@ -964,8 +970,8 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
    */
   static void terminateDebuggerFrame(
       JS::GCContext* gcx, Debugger* dbg, DebuggerFrame* dbgFrame,
-      AbstractFramePtr frame, FrameMap::Enum* maybeFramesEnum = nullptr,
-      GeneratorWeakMap::Enum* maybeGeneratorFramesEnum = nullptr);
+      AbstractFramePtr frame, FrameMap::ModIterator* maybeFramesIter = nullptr,
+      GeneratorWeakMap::ModIterator* maybeGeneratorFramesIter = nullptr);
 
   static bool updateExecutionObservabilityOfFrames(
       JSContext* cx, const DebugAPI::ExecutionObservableSet& obs,
@@ -1170,7 +1176,9 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
   bool hasMemory() const;
   DebuggerMemory& memory() const;
 
-  WeakGlobalObjectSet::Range allDebuggees() const { return debuggees.all(); }
+  WeakGlobalObjectSet::Iterator allDebuggees() const {
+    return debuggees.iter();
+  }
 
 #ifdef DEBUG
   static bool isDebuggerCrossCompartmentEdge(JSObject* obj,

@@ -11,11 +11,11 @@ import org.junit.Test
 import org.mozilla.fenix.Config
 import org.mozilla.fenix.customannotations.SkipLeaks
 import org.mozilla.fenix.helpers.AppAndSystemHelper.runWithCondition
+import org.mozilla.fenix.helpers.FenixTestRule
 import org.mozilla.fenix.helpers.HomeActivityIntentTestRule
 import org.mozilla.fenix.helpers.HomeActivityTestRule
 import org.mozilla.fenix.helpers.TestHelper.mDevice
 import org.mozilla.fenix.helpers.TestHelper.waitForAppWindowToBeUpdated
-import org.mozilla.fenix.helpers.TestSetup
 import org.mozilla.fenix.helpers.perf.DetectMemoryLeaksRule
 import org.mozilla.fenix.ui.robots.clickRateButtonGooglePlay
 import org.mozilla.fenix.ui.robots.homeScreen
@@ -25,7 +25,10 @@ import org.mozilla.fenix.ui.robots.homeScreen
  *
  */
 
-class SettingsAboutTest : TestSetup() {
+class SettingsAboutTest {
+    @get:Rule(order = 0)
+    val fenixTestRule: FenixTestRule = FenixTestRule()
+
     @get:Rule
     val composeTestRule =
         AndroidComposeTestRule(
@@ -37,6 +40,7 @@ class SettingsAboutTest : TestSetup() {
 
     // Walks through the About settings menu to ensure all items are present
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/2092700
+    @SkipLeaks(reasons = ["https://bugzilla.mozilla.org/show_bug.cgi?id=2011974"])
     @Test
     fun verifyAboutSettingsItemsTest() {
         homeScreen(composeTestRule) {
@@ -49,6 +53,7 @@ class SettingsAboutTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/246966
+    @SkipLeaks(reasons = ["https://bugzilla.mozilla.org/show_bug.cgi?id=2011974"])
     @Test
     fun verifyRateOnGooglePlayButtonTest() {
         homeScreen(composeTestRule) {
@@ -62,6 +67,7 @@ class SettingsAboutTest : TestSetup() {
         }
     }
 
+    @SkipLeaks(reasons = ["https://bugzilla.mozilla.org/show_bug.cgi?id=2011974"])
     @Test
     fun verifyLibrariesListInReleaseBuildsTest() {
         runWithCondition(Config.channel.isReleased) {
@@ -76,6 +82,7 @@ class SettingsAboutTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3132639
+    @SkipLeaks(reasons = ["https://bugzilla.mozilla.org/show_bug.cgi?id=2011974"])
     @Test
     fun verifyAboutFirefoxMenuAppDetailsItemTest() {
         homeScreen(composeTestRule) {
@@ -88,6 +95,7 @@ class SettingsAboutTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3132640
+    @SkipLeaks(reasons = ["https://bugzilla.mozilla.org/show_bug.cgi?id=2011974"])
     @Test
     fun verifyAboutFirefoxMenuWhatsNewInFirefoxItemTest() {
         homeScreen(composeTestRule) {
@@ -113,6 +121,7 @@ class SettingsAboutTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3132642
+    @SkipLeaks(reasons = ["https://bugzilla.mozilla.org/show_bug.cgi?id=2011974"])
     @Test
     fun verifyAboutFirefoxMenuCrashesItemTest() {
         homeScreen(composeTestRule) {
@@ -125,6 +134,7 @@ class SettingsAboutTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3132643
+    @SkipLeaks(reasons = ["https://bugzilla.mozilla.org/show_bug.cgi?id=2011974"])
     @Test
     fun verifyAboutFirefoxMenuPrivacyNoticeItemTest() {
         homeScreen(composeTestRule) {
@@ -137,6 +147,7 @@ class SettingsAboutTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3132644
+    @SkipLeaks(reasons = ["https://bugzilla.mozilla.org/show_bug.cgi?id=2011974"])
     @Test
     fun verifyAboutFirefoxMenuKnowYourRightsItemTest() {
         homeScreen(composeTestRule) {
@@ -149,6 +160,7 @@ class SettingsAboutTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3132645
+    @SkipLeaks(reasons = ["https://bugzilla.mozilla.org/show_bug.cgi?id=2011974"])
     @Test
     fun verifyAboutFirefoxMenuLicensingInformationItemTest() {
         homeScreen(composeTestRule) {
@@ -161,6 +173,7 @@ class SettingsAboutTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3132646
+    @SkipLeaks(reasons = ["https://bugzilla.mozilla.org/show_bug.cgi?id=2011974"])
     @Test
     fun verifyAboutFirefoxMenuLibrariesThatWeUseItemTest() {
         homeScreen(composeTestRule) {

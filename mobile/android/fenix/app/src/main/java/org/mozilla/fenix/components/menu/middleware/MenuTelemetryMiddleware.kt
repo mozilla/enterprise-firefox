@@ -291,6 +291,9 @@ class MenuTelemetryMiddleware(
             is MenuAction.InstallAddonSuccess,
             is MenuAction.UpdateInstallAddonInProgress,
             is MenuAction.UpdateAvailableAddons,
+            is MenuAction.OnSummarizationMenuExposed,
+            is MenuAction.InitializeSummarizationMenuState,
+            is MenuAction.OnMoreMenuClicked,
             -> Unit
         }
     }

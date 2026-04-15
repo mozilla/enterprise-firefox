@@ -1,5 +1,4 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
- * This Source Code Form is subject to the terms of the Mozilla Public
+/* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
@@ -377,6 +376,11 @@ nsresult nsPNGEncoder::MaybeAddCustomMetadata(
   nsresult rv = nsRFPService::GenerateRandomizationKeyFromHash(
       aRandomizationKey, mImageBufferHash, hex);
   NS_ENSURE_SUCCESS(rv, rv);
+
+  if (setjmp(png_jmpbuf(mPNG))) {
+    png_destroy_write_struct(&mPNG, &mPNGinfo);
+    return NS_ERROR_FAILURE;
+  }
 
   png_size_t chunkLength = 16;
   png_unknown_chunk chunk;

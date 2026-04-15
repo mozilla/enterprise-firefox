@@ -2,12 +2,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import functools
 import logging
 
 import mozpack.path as mozpath
 import yaml
-
-from mozbuild.util import memoized_property
 
 
 class ClangTidyConfig:
@@ -31,7 +30,7 @@ class ClangTidyConfig:
             return None
         return config
 
-    @memoized_property
+    @functools.cached_property
     def checks(self):
         """
         Returns a list with all activated checks
@@ -55,7 +54,7 @@ class ClangTidyConfig:
         finally:
             return checks
 
-    @memoized_property
+    @functools.cached_property
     def checks_with_data(self):
         """
         Returns a list with all activated checks plus metadata for each check
@@ -79,7 +78,7 @@ class ClangTidyConfig:
         finally:
             return checks_with_data
 
-    @memoized_property
+    @functools.cached_property
     def checks_config(self):
         """
         Returns the configuation for all checks
@@ -114,7 +113,7 @@ class ClangTidyConfig:
         finally:
             return checks_config
 
-    @memoized_property
+    @functools.cached_property
     def version(self):
         """
         Returns version of clang-tidy suitable for this configuration file
@@ -130,7 +129,7 @@ class ClangTidyConfig:
         )
         return None
 
-    @memoized_property
+    @functools.cached_property
     def platforms(self):
         """
         Returns a list of platforms suitable to work with `clang-tidy`

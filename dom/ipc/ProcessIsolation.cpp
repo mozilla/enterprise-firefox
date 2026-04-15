@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set sw=2 ts=8 et tw=80 : */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -695,13 +693,8 @@ Result<NavigationIsolationOptions, nsresult> IsolationOptionsForNavigation(
     // If loading an about:reader page in a BrowsingContext which shares a
     // BrowsingContextGroup with other toplevel documents, replace the
     // BrowsingContext to destroy any references.
-    //
-    // With SHIP we can apply this to all about:reader loads, but otherwise
-    // do it at least where there are opener/group relationships.
-    if (mozilla::SessionHistoryInParent() ||
-        aTopBC->Group()->Toplevels().Length() > 1) {
-      options.mReplaceBrowsingContext = true;
-    }
+    // With SHIP we can apply this to all about:reader loads.
+    options.mReplaceBrowsingContext = true;
   }
 
   // If we're running in a test which is requesting that system-triggered
@@ -1161,8 +1154,8 @@ void AddHighValuePermission(nsIPrincipal* aResultPrincipal,
   }
 
   MOZ_LOG(dom::gProcessIsolationLog, LogLevel::Verbose,
-          ("Adding %s Permission for site '%s'", aPermissionType.BeginReading(),
-           siteOrigin.get()));
+          ("Adding %s Permission for site '%s'",
+           PromiseFlatCString(aPermissionType).get(), siteOrigin.get()));
 
   uint32_t expiration = 0;
   if (aPermissionType.Equals(mozilla::dom::kHighValueCOOPPermission)) {

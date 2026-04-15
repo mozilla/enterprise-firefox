@@ -12,6 +12,7 @@ document.addEventListener(
       switch (event.target.id) {
         // == edit-menu ==
         case "menu_preferences":
+        case "menu_settings":
           openPreferences(undefined);
           break;
 

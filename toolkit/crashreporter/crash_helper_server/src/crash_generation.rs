@@ -14,16 +14,23 @@ use super::{
 #[cfg(any(target_os = "android", target_os = "linux"))]
 mod linux;
 #[cfg(any(target_os = "android", target_os = "linux"))]
-pub(crate) use linux::get_auxv_info;
+pub(crate) use linux::{get_auxv_info, PlatformData};
 
 #[cfg(target_os = "windows")]
 mod windows;
+#[cfg(target_os = "windows")]
+pub(crate) use windows::PlatformData;
+
+#[cfg(any(target_os = "ios", target_os = "macos"))]
+mod mach;
+#[cfg(any(target_os = "ios", target_os = "macos"))]
+pub(crate) use mach::PlatformData;
 
 use anyhow::Result;
 use crash_annotations::{
     should_include_annotation, type_of_annotation, CrashAnnotation, CrashAnnotationType,
 };
-use crash_helper_common::{messages, BreakpadChar, BreakpadData, BreakpadString, Pid};
+use crash_helper_common::{BreakpadChar, BreakpadData, BreakpadString, GeckoChildId, Pid};
 use mozannotation_server::{AnnotationData, CAnnotation};
 use num_traits::FromPrimitive;
 use once_cell::sync::Lazy;
@@ -38,9 +45,9 @@ use std::{
     sync::Mutex,
 };
 
-struct CrashReport {
-    path: OsString,
-    error: Option<CString>,
+pub(crate) struct CrashReport {
+    pub(crate) path: OsString,
+    pub(crate) error: Option<CString>,
 }
 
 impl CrashReport {
@@ -57,6 +64,8 @@ impl CrashReport {
 // arrival. When crashes are retrieved they're similarly pulled out in the
 // order they've arrived.
 static CRASH_REPORTS: Lazy<Mutex<HashMap<Pid, Vec<CrashReport>>>> = Lazy::new(Default::default);
+static CRASH_REPORTS_BY_ID: Lazy<Mutex<HashMap<GeckoChildId, CrashReport>>> =
+    Lazy::new(Default::default);
 
 /******************************************************************************
  * Crash generator                                                            *
@@ -95,8 +104,10 @@ impl CrashGenerator {
         self.breakpad_server.set_path(path);
     }
 
-    pub(crate) fn retrieve_minidump(&self, pid: Pid) -> messages::TransferMinidumpReply {
+    pub(crate) fn move_report_to_id(&self, pid: Pid, id: GeckoChildId) {
         let mut map = CRASH_REPORTS.lock().unwrap();
+        let mut id_map = CRASH_REPORTS_BY_ID.lock().unwrap();
+
         if let Some(mut entry) = map.remove(&pid) {
             let crash_report = entry.remove(0);
 
@@ -104,11 +115,29 @@ impl CrashGenerator {
                 map.insert(pid, entry);
             }
 
-            messages::TransferMinidumpReply::new(crash_report.path, crash_report.error)
-        } else {
-            // Report not found, reply with a zero length path
-            messages::TransferMinidumpReply::new(OsString::new(), None)
+            id_map.insert(id, crash_report);
         }
+    }
+
+    pub(crate) fn retrieve_minidump_by_pid(&self, pid: Pid) -> Option<CrashReport> {
+        let mut map = CRASH_REPORTS.lock().unwrap();
+
+        if let Some(mut entry) = map.remove(&pid) {
+            let crash_report = entry.remove(0);
+
+            if !entry.is_empty() {
+                map.insert(pid, entry);
+            }
+
+            return Some(crash_report);
+        }
+
+        None
+    }
+
+    pub(crate) fn retrieve_minidump_by_id(&self, id: GeckoChildId) -> Option<CrashReport> {
+        let mut map = CRASH_REPORTS_BY_ID.lock().unwrap();
+        map.remove(&id)
     }
 }
 

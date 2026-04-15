@@ -54,7 +54,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -94,7 +93,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -126,9 +124,7 @@ import mozilla.components.compose.browser.toolbar.ui.BrowserToolbarQuery
 import mozilla.components.concept.base.profiler.Profiler
 import mozilla.components.lib.state.ext.observeAsComposableState
 import mozilla.components.support.ktx.android.view.hideKeyboard
-import mozilla.telemetry.glean.private.NoExtras
 import org.mozilla.fenix.Config
-import org.mozilla.fenix.GleanMetrics.BookmarksManagement
 import org.mozilla.fenix.R
 import org.mozilla.fenix.bookmarks.BookmarksTestTag.BOOKMARK_TOOLBAR
 import org.mozilla.fenix.bookmarks.BookmarksTestTag.EDIT_BOOKMARK_ITEM_TITLE_TEXT_FIELD
@@ -191,11 +187,6 @@ internal fun BookmarksScreen(
         }
     }
 
-    DisposableEffect(LocalLifecycleOwner.current) {
-        onDispose {
-            store.dispatch(ViewDisposed)
-        }
-    }
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -277,10 +268,6 @@ private fun BookmarksList(
 
     val snackbarMessage = when (state.bookmarksSnackbarState) {
         BookmarksSnackbarState.CantEditDesktopFolders -> stringResource(R.string.bookmark_cannot_edit_root)
-        is BookmarksSnackbarState.UndoDeletion -> {
-            val (id, titleOrCount) = state.undoSnackbarText()
-            stringResource(id, titleOrCount)
-        }
         BookmarksSnackbarState.SelectFolderFailed -> {
             stringResource(R.string.bookmark_error_select_folder)
         }
@@ -296,28 +283,11 @@ private fun BookmarksList(
         else -> ""
     }
 
-    val snackbarActionLabel = when (state.bookmarksSnackbarState) {
-        is BookmarksSnackbarState.UndoDeletion -> stringResource(R.string.bookmark_undo_deletion)
-        else -> null
-    }
-
     val fabHeight = remember { mutableIntStateOf(0) }
 
     LaunchedEffect(state.bookmarksSnackbarState) {
         when (state.bookmarksSnackbarState) {
             BookmarksSnackbarState.None -> return@LaunchedEffect
-            is BookmarksSnackbarState.UndoDeletion -> scope.launch {
-                BookmarksManagement.deleteSnackbarShown.record(NoExtras())
-                snackbarHostState.displaySnackbar(
-                    message = snackbarMessage,
-                    actionLabel = snackbarActionLabel,
-                    onActionPerformed = {
-                        store.dispatch(SnackbarAction.Undo)
-                        BookmarksManagement.deleteSnackbarUndoClicked.record(NoExtras())
-                    },
-                    onDismissPerformed = { store.dispatch(SnackbarAction.Dismissed) },
-                )
-            }
             BookmarksSnackbarState.CantEditDesktopFolders -> scope.launch {
                 snackbarHostState.displaySnackbar(
                     message = snackbarMessage,
@@ -434,9 +404,6 @@ private fun BookmarksList(
                 val folders = state.bookmarkItems.folders()
                 itemsIndexed(folders) { index, item ->
                     var showMenu by remember { mutableStateOf(false) }
-                    if (state.isGuidMarkedForDeletion(item.guid)) {
-                        return@itemsIndexed
-                    }
                     val isSelected = item in state.selectedItems
 
                     if (item.isDesktopFolder) {
@@ -520,9 +487,6 @@ private fun BookmarksList(
 
                 itemsIndexed(state.bookmarkItems.bookmarks()) { index, item ->
                     var showMenu by remember { mutableStateOf(false) }
-                    if (state.isGuidMarkedForDeletion(item.guid)) {
-                        return@itemsIndexed
-                    }
                     val isSelected = item in state.selectedItems
 
                     SelectableFaviconListItem(
@@ -1510,8 +1474,10 @@ private fun BookmarkListItemMenu(
             onClick = { store.dispatch(BookmarksListMenuAction.Bookmark.EditClicked(bookmark)) },
         ),
         MenuItem.TextItem(
-            text = Text.Resource(R.string.bookmark_menu_copy_button),
-            onClick = { store.dispatch(BookmarksListMenuAction.Bookmark.CopyClicked(bookmark)) },
+            text = Text.Resource(R.string.bookmark_menu_move_button),
+            onClick = {
+                store.dispatch(BookmarksListMenuAction.Bookmark.MoveClicked(bookmark))
+            },
         ),
         MenuItem.TextItem(
             text = Text.Resource(R.string.bookmark_menu_share_button),
@@ -1553,6 +1519,12 @@ private fun BookmarkListFolderMenu(
         MenuItem.TextItem(
             text = Text.Resource(R.string.bookmark_menu_edit_button),
             onClick = { store.dispatch(BookmarksListMenuAction.Folder.EditClicked(folder)) },
+        ),
+        MenuItem.TextItem(
+            text = Text.Resource(R.string.bookmark_menu_move_button),
+            onClick = {
+                store.dispatch(BookmarksListMenuAction.Folder.MoveClicked(folder))
+            },
         ),
         MenuItem.TextItem(
             text = Text.Resource(R.string.bookmark_menu_open_all_in_tabs_button),
@@ -1633,7 +1605,7 @@ private fun EditFolderScreen(
 
                 IconListItem(
                     label = editState.parent.title,
-                    beforeIconPainter = painterResource(R.drawable.ic_folder_icon),
+                    beforeIconPainter = painterResource(iconsR.drawable.mozac_ic_folder_24),
                     onClick = { store.dispatch(EditFolderAction.ParentFolderClicked) },
                 )
             }
@@ -1724,7 +1696,7 @@ private fun AddFolderScreen(
 
                 IconListItem(
                     label = state?.parent?.title ?: "",
-                    beforeIconPainter = painterResource(R.drawable.ic_folder_icon),
+                    beforeIconPainter = painterResource(iconsR.drawable.mozac_ic_folder_24),
                     onClick = { store.dispatch(AddFolderAction.ParentFolderClicked) },
                 )
             }
@@ -1975,7 +1947,6 @@ private fun EditBookmarkScreenPreview() {
             bookmarksSelectFolderState = null,
             bookmarksEditFolderState = null,
             bookmarksMultiselectMoveState = null,
-            bookmarksDeletionSnackbarQueueCount = 0,
             isLoading = false,
             isSearching = false,
         ),
@@ -2030,7 +2001,6 @@ private fun EditFolderScreenPreview() {
                 ),
             ),
             bookmarksMultiselectMoveState = null,
-            bookmarksDeletionSnackbarQueueCount = 0,
             isLoading = false,
             isSearching = false,
         ),
@@ -2080,7 +2050,6 @@ private fun BookmarksScreenPreview() {
                 bookmarksSelectFolderState = null,
                 bookmarksEditFolderState = null,
                 bookmarksMultiselectMoveState = null,
-                bookmarksDeletionSnackbarQueueCount = 0,
                 isLoading = false,
                 isSearching = false,
             ),
@@ -2125,7 +2094,6 @@ private fun EmptyBookmarksScreenPreview() {
                 bookmarksSelectFolderState = null,
                 bookmarksEditFolderState = null,
                 bookmarksMultiselectMoveState = null,
-                bookmarksDeletionSnackbarQueueCount = 0,
                 isLoading = false,
                 isSearching = false,
             ),
@@ -2178,7 +2146,6 @@ private fun AddFolderPreview() {
             bookmarksSelectFolderState = null,
             bookmarksEditFolderState = null,
             bookmarksMultiselectMoveState = null,
-            bookmarksDeletionSnackbarQueueCount = 0,
             isLoading = false,
             isSearching = false,
         ),
@@ -2301,7 +2268,6 @@ private fun SelectFolderPreview() {
                 ),
             ),
             bookmarksMultiselectMoveState = null,
-            bookmarksDeletionSnackbarQueueCount = 0,
             isLoading = false,
             isSearching = false,
         ),

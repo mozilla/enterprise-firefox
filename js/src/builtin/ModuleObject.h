@@ -214,8 +214,8 @@ class IndirectBindingMap {
       return;
     }
 
-    for (auto r = map_->all(); !r.empty(); r.popFront()) {
-      func(r.front().key());
+    for (auto iter = map_->iter(); !iter.done(); iter.next()) {
+      func(iter.get().key());
     }
   }
 
@@ -395,6 +395,9 @@ class ModuleObject : public NativeObject {
     CyclicModuleFieldsSlot,
     // `SyntheticModuleFields` if a synthetic module. Otherwise `undefined`.
     SyntheticModuleFieldsSlot,
+#ifdef DEBUG
+    PreloadSlot,
+#endif
     SlotCount
   };
 
@@ -467,6 +470,7 @@ class ModuleObject : public NativeObject {
   AsyncEvaluationOrder const& asyncEvaluationOrder() const;
   void setCycleRoot(ModuleObject* cycleRoot);
   ModuleObject* getCycleRoot() const;
+  bool hasCycleRoot() const;
   bool hasCyclicModuleFields() const;
   bool hasSyntheticModuleFields() const;
   LoadedModuleMap& loadedModules();
@@ -500,6 +504,11 @@ class ModuleObject : public NativeObject {
 
   void initAsyncSlots(JSContext* cx, bool hasTopLevelAwait,
                       Handle<ListObject*> asyncParentModules);
+
+#ifdef DEBUG
+  void setPreload(bool isPreload);
+  bool isPreload() const;
+#endif
 
  private:
   static const JSClassOps classOps_;

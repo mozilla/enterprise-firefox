@@ -1,6 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:expandtab:shiftwidth=2:tabstop=2:
- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -64,7 +61,7 @@ NS_IMPL_ISUPPORTS(WakeLockListener, nsIDOMMozWakeLockListener)
 static nsCString GetLocalizedWakeLockString(const char* aStringName) {
   nsAutoString localizedString;
   nsresult rv = nsContentUtils::GetLocalizedString(
-      nsContentUtils::eDOM_PROPERTIES, aStringName, localizedString);
+      PropertiesFile::DOM_PROPERTIES, aStringName, localizedString);
   if (NS_FAILED(rv)) {
     return nsCString();
   }

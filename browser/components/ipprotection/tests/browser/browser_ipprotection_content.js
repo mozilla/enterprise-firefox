@@ -19,13 +19,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
   IPProtectionPanel:
     "moz-src:///browser/components/ipprotection/IPProtectionPanel.sys.mjs",
   IPProtectionService:
-    "moz-src:///browser/components/ipprotection/IPProtectionService.sys.mjs",
+    "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
   IPPSignInWatcher:
-    "moz-src:///browser/components/ipprotection/IPPSignInWatcher.sys.mjs",
+    "moz-src:///toolkit/components/ipprotection/IPPSignInWatcher.sys.mjs",
   IPPNimbusHelper:
-    "moz-src:///browser/components/ipprotection/IPPNimbusHelper.sys.mjs",
+    "moz-src:///toolkit/components/ipprotection/IPPNimbusHelper.sys.mjs",
   IPPEnrollAndEntitleManager:
-    "moz-src:///browser/components/ipprotection/IPPEnrollAndEntitleManager.sys.mjs",
+    "moz-src:///toolkit/components/ipprotection/IPPEnrollAndEntitleManager.sys.mjs",
 });
 
 const PANELSTATES = {
@@ -228,4 +228,116 @@ add_task(async function test_settings_button_closes_panel() {
     "openPreferences called with correct argument when settings button clicked"
   );
   openPreferencesStub.restore();
+});
+
+/**
+ * Tests the enrolling skeleton state renders in ipprotection-content.
+ */
+add_task(async function test_enrolling_skeleton() {
+  let content = await openPanel({
+    isSignedOut: false,
+    unauthenticated: false,
+    isCheckingEntitlement: true,
+  });
+
+  let container = content.shadowRoot.querySelector("#enrolling-container");
+  Assert.ok(container, "Enrolling container should be present");
+  Assert.ok(
+    container.querySelector(".skeleton-title"),
+    "Skeleton title element should be present"
+  );
+  Assert.ok(
+    container.querySelector(".skeleton-line"),
+    "Skeleton line element should be present"
+  );
+  Assert.ok(
+    container.querySelector(".skeleton-line-thick"),
+    "Skeleton line thick element should be present"
+  );
+
+  Assert.ok(
+    !content.statusCardEl,
+    "Status card should be hidden while enrolling"
+  );
+  Assert.ok(
+    !content.statusBoxEl,
+    "Status box should be hidden while enrolling"
+  );
+  Assert.ok(
+    content.settingsButtonEl,
+    "Settings button should be present while enrolling"
+  );
+
+  await closePanel();
+});
+
+/**
+ * Tests that the enrolling state takes priority over the unauthenticated state.
+ */
+add_task(async function test_enrolling_overrides_unauthenticated() {
+  let content = await openPanel({
+    isSignedOut: true,
+    unauthenticated: true,
+    isCheckingEntitlement: true,
+  });
+
+  Assert.ok(
+    !content.unauthenticatedEl,
+    "Unauthenticated view should be hidden while enrolling"
+  );
+  Assert.ok(
+    content.shadowRoot.querySelector("#enrolling-container"),
+    "Enrolling skeleton should be shown instead"
+  );
+
+  await closePanel();
+});
+
+/**
+ * Tests that the panel transitions from the enrolling skeleton to the normal
+ * state once enrollment completes.
+ */
+add_task(async function test_enrolling_transitions_to_ready() {
+  setupService({
+    isSignedIn: true,
+    isEnrolledAndEntitled: true,
+    canEnroll: true,
+    proxyPass: {
+      status: 200,
+      error: undefined,
+      pass: makePass(),
+    },
+  });
+  await IPPEnrollAndEntitleManager.refetchEntitlement();
+
+  let content = await openPanel({
+    isSignedOut: false,
+    unauthenticated: false,
+    isProtectionEnabled: false,
+    isCheckingEntitlement: true,
+  });
+
+  Assert.ok(
+    content.shadowRoot.querySelector("#enrolling-container"),
+    "Skeleton shown initially"
+  );
+
+  await setPanelState({
+    isSignedOut: false,
+    unauthenticated: false,
+    isProtectionEnabled: false,
+    isCheckingEntitlement: false,
+  });
+
+  Assert.ok(
+    !content.shadowRoot.querySelector("#enrolling-container"),
+    "Skeleton hidden after enrollment completes"
+  );
+  Assert.ok(
+    content.statusCardEl,
+    "Status card shown after enrollment completes"
+  );
+
+  await closePanel();
+  cleanupService();
 });

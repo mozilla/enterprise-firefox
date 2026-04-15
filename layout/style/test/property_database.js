@@ -1,6 +1,4 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
 /* eslint-disable dot-notation */
-/* vim: set ts=2 sw=2 sts=2 et: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -14104,9 +14102,21 @@ if (IsCSSPropertyPrefEnabled("layout.css.prefixes.animations")) {
 if (IsCSSPropertyPrefEnabled("layout.css.scroll-driven-animations.enabled")) {
   // Basically, web-platform-tests should cover most cases, so here we only
   // put some basic test cases.
-  gCSSProperties["animation"].subproperties.push("animation-timeline");
-  gCSSProperties["-moz-animation"].subproperties.push("animation-timeline");
-  gCSSProperties["-webkit-animation"].subproperties.push("animation-timeline");
+  gCSSProperties["animation"].subproperties.push(
+    "animation-timeline",
+    "animation-range-start",
+    "animation-range-end"
+  );
+  gCSSProperties["-moz-animation"].subproperties.push(
+    "animation-timeline",
+    "animation-range-start",
+    "animation-range-end"
+  );
+  gCSSProperties["-webkit-animation"].subproperties.push(
+    "animation-timeline",
+    "animation-range-start",
+    "animation-range-end"
+  );
 
   gCSSProperties["animation-duration"].initial_values.push("auto");
 
@@ -14265,6 +14275,92 @@ if (IsCSSPropertyPrefEnabled("layout.css.scroll-driven-animations.enabled")) {
       "--a block, --b inline, --c y",
     ],
     invalid_values: ["", ",", "--abc --abc", "x --a", "block --abc"],
+  };
+
+  gCSSProperties["timeline-scope"] = {
+    domProp: "timelineScope",
+    inherited: false,
+    type: CSS_TYPE_LONGHAND,
+    initial_values: ["none"],
+    other_values: [
+      "all",
+      "--foo",
+      "--foo, --baz",
+      "--foo,--baz",
+      "--foo ,--baz",
+    ],
+    invalid_values: [
+      "all, --foo",
+      "--foo, all",
+      "--foo --bar",
+      "foo",
+      "none bar",
+      "none --baz",
+      "--foo bar",
+      ",--foo",
+      "--foo,",
+    ],
+  };
+
+  gCSSProperties["animation-range-start"] = {
+    domProp: "animationRangeStart",
+    inherited: false,
+    type: CSS_TYPE_LONGHAND,
+    applies_to_marker: true,
+    initial_values: ["normal"],
+    other_values: [
+      "0%",
+      "10px",
+      "-20%",
+      "calc(1em + 10%)",
+      "cover",
+      "contain -123%",
+      "entry calc(1em), entry-crossing 5px",
+      "exit 1%, exit-crossing",
+      "scroll 110%",
+    ],
+    invalid_values: ["abc", "cover contain", "scroll a", "10px cover"],
+  };
+
+  gCSSProperties["animation-range-end"] = {
+    domProp: "animationRangeEnd",
+    inherited: false,
+    type: CSS_TYPE_LONGHAND,
+    applies_to_marker: true,
+    initial_values: ["normal"],
+    other_values: [
+      "100%",
+      "10px",
+      "-20%",
+      "calc(1em + 10%)",
+      "cover",
+      "contain -123%",
+      "entry calc(1em), entry-crossing 5px",
+      "exit 1%, exit-crossing",
+      "scroll 110%",
+    ],
+    invalid_values: ["abc", "cover contain", "scroll a", "10px cover"],
+  };
+
+  gCSSProperties["animation-range"] = {
+    domProp: "animationRange",
+    inherited: false,
+    type: CSS_TYPE_TRUE_SHORTHAND,
+    applies_to_marker: true,
+    subproperties: ["animation-range-start", "animation-range-end"],
+    initial_values: ["normal normal", "normal"],
+    other_values: [
+      "cover",
+      "10%",
+      "cover exit",
+      "0px 100%",
+      "0% cover",
+      "contain 10%",
+      "contain 10px exit 10%",
+      "scroll -10% exit-crossing 123%",
+      "entry 10px exit",
+    ],
+    invalid_values: ["", "10% 10% cover", "normal 10% 13%", "abc", "1s 2s"],
   };
 }
 

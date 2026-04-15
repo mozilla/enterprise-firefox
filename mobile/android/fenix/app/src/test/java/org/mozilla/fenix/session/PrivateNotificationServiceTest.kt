@@ -13,12 +13,10 @@ import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.feature.privatemode.notification.AbstractPrivateNotificationService.Companion.ACTION_ERASE
 import mozilla.components.feature.tabs.TabsUseCases
 import mozilla.components.support.test.robolectric.testContext
-import mozilla.components.support.test.rule.MainCoroutineRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mozilla.fenix.HomeActivity
@@ -33,9 +31,6 @@ import org.robolectric.android.controller.ServiceController
 class PrivateNotificationServiceTest {
 
     private lateinit var controller: ServiceController<PrivateNotificationService>
-
-    @get:Rule
-    val coroutinesTestRule = MainCoroutineRule()
 
     @Before
     fun setup() {

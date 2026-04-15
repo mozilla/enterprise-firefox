@@ -108,24 +108,20 @@ tasks:
                     by-test-platform:
                         android-em.*/debug-isolated-process: 2
                         default: default
-        chunks:
-            by-variant:
-                privatebrowsing: dynamic
-                inc-origin-init: dynamic
-                privatebrowsing-inc-origin-init: dynamic
-                default:
-                    by-test-platform:
-                        android.*/debug: 32
-                        android.*: 24
-                        linux.*64-tsan(-qr)?/opt: 32
-                        linux.*64-asan(-qr)?/opt: 22
-                        linux.*64-ccov.*/opt: 20
-                        linux.*/debug: 16
-                        macosx.*/debug: 18
-                        windows.*32.*/opt: 12
-                        windows.*/debug: 16
-                        windows.*-ccov.*/opt: 14
-                        default: 10
+        chunks: dynamic
+        default-chunks:
+            by-test-platform:
+                android.*/debug: 32
+                android.*: 24
+                linux.*64-tsan(-qr)?/opt: 32
+                linux.*64-asan(-qr)?/opt: 22
+                linux.*64-ccov.*/opt: 20
+                linux.*/debug: 16
+                macosx.*/debug: 18
+                windows.*32.*/opt: 12
+                windows.*/debug: 16
+                windows.*-ccov.*/opt: 14
+                default: 10
         max-run-time:
             by-test-platform:
                 .*-ccov.*: 10800
@@ -136,18 +132,12 @@ tasks:
                 default: 7200
         variants:
             - no-fission
-            - geckoview-no-fission-no-ship
             - async-event-dispatching
             - privatebrowsing
             - inc-origin-init
             - privatebrowsing-inc-origin-init
         run-on-projects:
             by-variant:
-                geckoview-no-fission-no-ship:
-                    by-test-platform:
-                        android-em.*/debug-isolated-process: []
-                        android-em.*: built-projects
-                        default: []
                 no-fission:
                     by-test-platform:
                         android-em.*/debug-isolated-process: []
@@ -234,7 +224,8 @@ tasks:
         treeherder-symbol: W(codecs)
         virtualization: virtual
         tier: default
-        chunks: 1
+        chunks: dynamic
+        default-chunks: 1
         max-run-time: 1800
         variants: []  # We don't need sw or nofis testing.
         run-on-projects: built-projects
@@ -252,7 +243,8 @@ tasks:
         suite: web-platform-tests
         treeherder-symbol: W(eme)
         tier: default
-        chunks: 1
+        chunks: dynamic
+        default-chunks: 1
         max-run-time: 1800
         variants:
             - eme-wmf
@@ -284,7 +276,8 @@ tasks:
             by-test-platform:
                 windows.*64.*/.*: virtual-with-gpu
                 default: virtual
-        chunks:
+        chunks: dynamic
+        default-chunks:
             by-test-platform:
                 .*-ccov.*: 8
                 android.*/debug: 16
@@ -375,6 +368,7 @@ tasks:
             by-test-platform:
                 linux2204.*/debug.*: 25
                 linux2204.*: 20
+                macosx.*-64.*/debug.*: 15
                 windows.*-64.*/opt.*: 14
                 default: 14
         max-run-time: 2700  # 45m
@@ -398,7 +392,7 @@ tasks:
                 - --timeout-multiplier=5.0
         worker-type:
             by-test-platform:
-                .*windows.*: win11-64-24h2-webgpu
+                .*windows.*: win11-64-25h2-webgpu
                 default: default
 
     web-platform-tests-webgpu-long:
@@ -423,6 +417,10 @@ tasks:
                 - --skip-implementation-status=backlog
                 - --skip-implementation-status=not-implementing
                 - --timeout-multiplier=5.0
+        worker-type:
+            by-test-platform:
+                .*windows.*: win11-64-25h2-webgpu
+                default: default
 
     web-platform-tests-webgpu-backlog:
         description: "Web platform WebGPU test run (backlog)"
@@ -463,7 +461,7 @@ tasks:
                 - --timeout-multiplier=5.0
         worker-type:
             by-test-platform:
-                .*windows.*: win11-64-24h2-webgpu
+                .*windows.*: win11-64-25h2-webgpu
                 default: default
 
     web-platform-tests-webgpu-backlog-long:
@@ -490,6 +488,10 @@ tasks:
                 - --skip-implementation-status=not-implementing
                 - --backlog
                 - --timeout-multiplier=5.0
+        worker-type:
+            by-test-platform:
+                .*windows.*: win11-64-25h2-webgpu
+                default: default
 
     web-platform-tests-canvas:
         description: "Web platform Canvas test run"
@@ -506,7 +508,8 @@ tasks:
                     by-test-platform:
                         android-em.*/debug-isolated-process: 3
                         default: default
-        chunks:
+        chunks: dynamic
+        default-chunks:
             by-test-platform:
                 windows.*: 2
                 .*-tsan.*: 3
@@ -605,7 +608,6 @@ tasks:
                         - --test-type=wdspec
         variants:
             - no-fission
-            - geckoview-no-fission-no-ship
             - headless
             - async-event-dispatching
         run-on-projects:
@@ -620,11 +622,6 @@ tasks:
                         linux2404-64-shippable/opt: ['mozilla-central']
                         linux2404-64-asan/opt: ['mozilla-central']
                         android.*: built-projects
-                        default: []
-                geckoview-no-fission-no-ship:
-                    by-test-platform:
-                        android-em.*/debug-isolated-process: []
-                        android-em.*: built-projects
                         default: []
                 async-event-dispatching:
                     by-test-platform:
@@ -678,7 +675,8 @@ tasks:
         description: "Web platform crashtests run"
         schedules-component: web-platform-tests-crashtest
         treeherder-symbol: W(Wc)
-        chunks:
+        chunks: dynamic
+        default-chunks:
             by-test-platform:
                 .*-tsan.*: 4
                 default: 1

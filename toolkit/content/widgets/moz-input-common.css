@@ -44,7 +44,7 @@
 
   @media (forced-colors) {
     :host(:state(disabled)) {
-      color: GrayText;
+      color: var(--text-color-disabled);
     }
   }
 
@@ -128,6 +128,8 @@
     vertical-align: top;
     width: var(--icon-size);
     height: var(--icon-size);
+    /* Margin is calculated from line height and icon size. */
+    /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
     margin-block: var(--icon-margin-block-adjust);
     -moz-context-properties: fill, fill-opacity, stroke;
     fill: currentColor;

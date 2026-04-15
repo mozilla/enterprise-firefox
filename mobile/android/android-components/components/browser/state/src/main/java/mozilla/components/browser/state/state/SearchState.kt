@@ -29,6 +29,8 @@ import mozilla.components.browser.state.search.SearchEngine
  * of the user.
  * @property regionSearchEnginesOrder Ordered list of [SearchEngine] IDs in the preferred order for
  * this region. Can be used when [regionSearchEngines] needs to be reordered.
+ * @property searchEnvironmentId Unique identifier of the current search environment.
+ * @property isNewSearchConfigurationAvailable Whether a new search engines configuration is available.
  * @property complete Flag that indicates whether loading the list of search engines has completed.
  * This can be used for waiting for specific values (e.g. the default search engine) to be available.
  */
@@ -45,6 +47,8 @@ data class SearchState(
     val userSelectedSearchEngineName: String? = null,
     val regionDefaultSearchEngineId: String? = null,
     val regionSearchEnginesOrder: List<String> = emptyList(),
+    val searchEnvironmentId: Int? = null,
+    val isNewSearchConfigurationAvailable: Boolean = true,
     val complete: Boolean = false,
 )
 

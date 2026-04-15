@@ -44,20 +44,27 @@ add_setup(async () => {
  *   Relevant widgets on the backup settings page.
  */
 async function initializedBackupWidgets(browser) {
+  // We have to end up using waitForCondition because of the racy nature
+  // of the state updates sent from the backupService. At some point, we should
+  // add a way to verifiably know when the backup settings items are available.
+  await TestUtils.waitForCondition(
+    () => browser.contentDocument.querySelector("backup-settings"),
+    "Waiting for backup-settings element to be in the DOM"
+  );
   let settings = browser.contentDocument.querySelector("backup-settings");
 
-  await settings.updateComplete;
-
-  Assert.ok(
-    settings.restoreFromBackupButtonEl,
-    "Button to restore backups should be found"
+  await TestUtils.waitForCondition(
+    () => settings.restoreFromBackupButtonEl,
+    "Waiting for restore from backup button to show up"
   );
 
   settings.restoreFromBackupButtonEl.click();
-  await settings.updateComplete;
 
+  await TestUtils.waitForCondition(
+    () => settings.restoreFromBackupEl,
+    "Waiting for restore-from-backup element to show up"
+  );
   let restoreFromBackup = settings.restoreFromBackupEl;
-  Assert.ok(restoreFromBackup, "restore-from-backup should be found");
 
   await restoreFromBackup.initializedPromise;
   return {
@@ -229,14 +236,20 @@ add_task(async function test_restore_from_backup() {
     restoreFromBackup.confirmButtonEl.click();
 
     await restorePromise.then(e => {
-      let mockEvent = {
-        backupFile: mockBackupFile.path,
-        backupPassword: "h-*@Vfge3_hGxdpwqr@w",
-      };
-      Assert.deepEqual(
-        e.detail,
-        mockEvent,
-        "Event should contain the file and password"
+      Assert.equal(
+        e.detail.backupFile,
+        mockBackupFile.path,
+        "Event should contain the file path"
+      );
+      Assert.equal(
+        e.detail.backupPassword,
+        "h-*@Vfge3_hGxdpwqr@w",
+        "Event should contain the password"
+      );
+      Assert.equal(
+        e.detail.restoreType,
+        "add",
+        "restoreType should default to 'add'"
       );
     });
 
@@ -284,6 +297,11 @@ add_task(async function test_restore_uses_matching_initial_folder() {
     let selectedFilePromise = BrowserTestUtils.waitForEvent(
       settings,
       "BackupUI:SelectNewFilepickerPath"
+    ).then(() =>
+      BrowserTestUtils.waitForEvent(
+        restoreFromBackup,
+        "BackupUI:StateWasUpdated"
+      )
     );
 
     restoreFromBackup.backupServiceState.backupFileToRestore =
@@ -293,6 +311,8 @@ add_task(async function test_restore_uses_matching_initial_folder() {
     await filePickerShownPromise;
     await selectedFilePromise;
   });
+
+  BackupService.get().resetLastBackupInternalState();
 });
 
 /**
@@ -320,11 +340,6 @@ add_task(async function test_restore_in_progress() {
 
     let { restoreFromBackup, settings } =
       await initializedBackupWidgets(browser);
-    Assert.equal(
-      restoreFromBackup.filePicker.value,
-      "",
-      "File picker has no value assigned automatically"
-    );
 
     // There is a backup file, but it is not a valid one
     // we don't automatically pick it
@@ -341,6 +356,9 @@ add_task(async function test_restore_in_progress() {
     restoreFromBackup.backupServiceState = {
       ...restoreFromBackup.backupServiceState,
       backupFileToRestore: mockBackupFilePath,
+      backupFileInfo: {
+        date: new Date(0),
+      },
     };
     await restoreFromBackup.updateComplete;
 
@@ -410,6 +428,100 @@ add_task(async function test_restore_in_progress() {
     await quitObservedPromise;
 
     sandbox.restore();
+  });
+});
+
+add_task(async function test_restore_from_backup_prefills_prior_valid_backup() {
+  let dir = await IOUtils.createUniqueDirectory(
+    TEST_PROFILE_PATH,
+    "backup-dir"
+  );
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.backup.location", dir]],
+  });
+  await BackupService.get().createBackup({ profilePath: TEST_PROFILE_PATH });
+  let path = (await IOUtils.getChildren(dir))[0];
+  await SpecialPowers.popPrefEnv();
+
+  await BrowserTestUtils.withNewTab("about:preferences#sync", async browser => {
+    let { restoreFromBackup } = await initializedBackupWidgets(browser);
+
+    let mockBackupFile = await IOUtils.getFile(path);
+    MockFilePicker.showCallback = () => {
+      Assert.ok(true, "Filepicker shown");
+      MockFilePicker.setFiles([mockBackupFile]);
+    };
+    MockFilePicker.returnValue = MockFilePicker.returnOK;
+
+    let selectedFilePromise = BrowserTestUtils.waitForEvent(
+      restoreFromBackup,
+      "BackupUI:SelectNewFilepickerPath"
+    );
+    restoreFromBackup.chooseButtonEl.click();
+    await selectedFilePromise;
+
+    // Wait for the state to reflect the newly selected file. We can't
+    // simply wait for the next BackupUI:StateWasUpdated because a stale
+    // getBackupFileInfo request (from maybeGetBackupFileInfo during
+    // connectedCallback) may resolve first with an outdated state.
+    await TestUtils.waitForCondition(async () => {
+      await restoreFromBackup.updateComplete;
+      return restoreFromBackup.filePicker.value === path;
+    }, "The file picker should contain the expected path.");
+  });
+
+  await BrowserTestUtils.withNewTab("about:preferences#sync", async browser => {
+    let { restoreFromBackup } = await initializedBackupWidgets(browser);
+
+    await TestUtils.waitForCondition(async () => {
+      await restoreFromBackup.updateComplete;
+      return restoreFromBackup.filePicker.value === path;
+    }, "The path selected before should be used.");
+  });
+});
+
+add_task(async function test_restore_from_backup_displays_invalid_backup() {
+  const path = await IOUtils.createUniqueFile(TEST_PROFILE_PATH, "backup.html");
+  await IOUtils.writeUTF8(path, "");
+
+  await BrowserTestUtils.withNewTab("about:preferences#sync", async browser => {
+    let { restoreFromBackup } = await initializedBackupWidgets(browser);
+
+    const mockBackupFile = await IOUtils.getFile(path);
+    MockFilePicker.showCallback = () => {
+      Assert.ok(true, "Filepicker shown");
+      MockFilePicker.setFiles([mockBackupFile]);
+    };
+    MockFilePicker.returnValue = MockFilePicker.returnOK;
+
+    let selectedFilePromise = BrowserTestUtils.waitForEvent(
+      restoreFromBackup,
+      "BackupUI:SelectNewFilepickerPath"
+    ).then(() =>
+      BrowserTestUtils.waitForEvent(
+        restoreFromBackup,
+        "BackupUI:StateWasUpdated"
+      )
+    );
+    restoreFromBackup.chooseButtonEl.click();
+    await selectedFilePromise;
+    await restoreFromBackup.updateComplete;
+
+    Assert.equal(
+      restoreFromBackup.filePicker.value,
+      path,
+      "The file picker should contain the expected path."
+    );
+  });
+
+  await BrowserTestUtils.withNewTab("about:preferences#sync", async browser => {
+    let { restoreFromBackup } = await initializedBackupWidgets(browser);
+
+    Assert.equal(
+      restoreFromBackup.filePicker.value,
+      path,
+      "The path selected before should be used."
+    );
   });
 });
 
@@ -519,6 +631,7 @@ add_task(async function test_restore_backup_file_info_display() {
         deviceName: mockDeviceName,
         isEncrypted: false,
       },
+      recoveryErrorCode: 0,
     };
     await restoreFromBackup.updateComplete;
 
@@ -532,7 +645,7 @@ add_task(async function test_restore_backup_file_info_display() {
 
     Assert.equal(
       fileInfoSpan.getAttribute("data-l10n-id"),
-      "backup-file-creation-date-and-device",
+      "backup-file-creation-metadata2",
       "Should have the correct l10n id"
     );
 
@@ -587,27 +700,11 @@ add_task(async function test_support_links_non_embedded() {
       "aboutWelcomeEmbedded should be falsy"
     );
 
-    // Test the 'no backup file' link
-    let noBackupFileLink = restoreFromBackup.shadowRoot.querySelector(
-      "#restore-from-backup-no-backup-file-link"
+    // Test the main support link
+    let supportLink = restoreFromBackup.shadowRoot.querySelector(
+      "#restore-from-backup-support-link"
     );
-    assertNonEmbeddedSupportLink(noBackupFileLink, "'No backup file' link");
-
-    // Test the description link
-    restoreFromBackup.backupServiceState = {
-      ...restoreFromBackup.backupServiceState,
-      backupFileInfo: {
-        date: new Date(),
-        deviceName: "test-device",
-        isEncrypted: false,
-      },
-    };
-    await restoreFromBackup.updateComplete;
-
-    let descriptionLink = restoreFromBackup.shadowRoot.querySelector(
-      "#restore-from-backup-learn-more-link"
-    );
-    assertNonEmbeddedSupportLink(descriptionLink, "Description link");
+    assertNonEmbeddedSupportLink(supportLink, "Main support link");
 
     // Test the incorrect password link
     restoreFromBackup.backupServiceState = {
@@ -625,6 +722,53 @@ add_task(async function test_support_links_non_embedded() {
       "#backup-incorrect-password-support-link"
     );
     assertNonEmbeddedSupportLink(passwordErrorLink, "Password error link");
+  });
+});
+
+add_task(async function test_selectableProfilesAllowed_toggles_restore_ui() {
+  await BrowserTestUtils.withNewTab("about:preferences#sync", async browser => {
+    let { restoreFromBackup } = await initializedBackupWidgets(browser);
+    let bs = BackupService.get();
+    let sandbox = sinon.createSandbox();
+
+    sandbox.stub(SelectableProfileService, "isEnabled").get(() => false);
+    bs.onUpdateProfilesEnabledState();
+
+    await TestUtils.waitForCondition(
+      () =>
+        restoreFromBackup.shadowRoot.querySelector(
+          "moz-message-bar[type='info']"
+        ),
+      "Waiting for info message bar to appear when profiles are disabled"
+    );
+
+    Assert.ok(
+      !restoreFromBackup.shadowRoot.querySelector(
+        "#restore-from-backup-type-group"
+      ),
+      "Radio group should not be shown when profiles are disabled"
+    );
+
+    sandbox.restore();
+    sandbox.stub(SelectableProfileService, "isEnabled").get(() => true);
+    bs.onUpdateProfilesEnabledState();
+
+    await TestUtils.waitForCondition(
+      () =>
+        restoreFromBackup.shadowRoot.querySelector(
+          "#restore-from-backup-type-group"
+        ),
+      "Waiting for radio group to appear when profiles are enabled"
+    );
+
+    Assert.ok(
+      !restoreFromBackup.shadowRoot.querySelector(
+        "moz-message-bar[type='info']"
+      ),
+      "Info message bar should not be shown when profiles are enabled"
+    );
+
+    sandbox.restore();
   });
 });
 

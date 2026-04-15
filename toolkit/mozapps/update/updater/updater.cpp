@@ -333,7 +333,7 @@ class Thread {
 static NS_tchar gPatchDirPath[MAXPATHLEN];
 static NS_tchar gInstallDirPath[MAXPATHLEN];
 static NS_tchar gWorkingDirPath[MAXPATHLEN];
-MOZ_RUNINIT static ArchiveReader gArchiveReader;
+constinit static ArchiveReader gArchiveReader;
 static bool gSucceeded = false;
 static bool sStagedUpdate = false;
 static bool sReplaceRequest = false;
@@ -365,7 +365,7 @@ static const int kCallbackIndex = 8;
 
 // This string contains the MAR channel IDs that are later extracted by one of
 // the `ReadMARChannelIDsFrom` variants.
-MOZ_RUNINIT static MARChannelStringTable gMARStrings;
+constinit static MARChannelStringTable gMARStrings;
 
 // Normally, we run updates as a result of user action (the user started Firefox
 // or clicked a "Restart to Update" button). But there are some cases when
@@ -1594,7 +1594,7 @@ class PatchFileDecoder {
     return ptr;
   }
 
-  virtual ~PatchFileDecoder() {}
+  virtual ~PatchFileDecoder() = default;
 
   virtual unsigned int ComputeCrc32(const uint8_t* aBuf, size_t aBufSize) = 0;
 
@@ -1616,7 +1616,7 @@ class PatchFileDecoder {
 #if defined(MOZ_BSPATCH)
 class BSPatchFileDecoder : public PatchFileDecoder {
  public:
-  ~BSPatchFileDecoder() override {}
+  ~BSPatchFileDecoder() override = default;
 
   unsigned int ComputeCrc32(const uint8_t* aBuf, size_t aBufSize) override;
 
@@ -3011,7 +3011,8 @@ static int PopulategMARStrings() {
   int rv = UPDATE_SETTINGS_FILE_CHANNEL;
 #  ifdef XP_MACOSX
   if (gInvocation != UpdaterInvocation::Second) {
-    if (auto marChannels = UpdateSettingsUtil::GetAcceptedMARChannelsValue()) {
+    if (std::optional<std::string> marChannels =
+            UpdateSettingsUtil::GetAcceptedMARChannelsValue()) {
       rv = ReadMARChannelIDsFromBuffer(marChannels->data(), &gMARStrings);
     }
   }
@@ -3699,18 +3700,22 @@ int NS_main(int argc, NS_tchar** argv) {
       threadArgs.argc = suiArgc;
       threadArgs.argv = suiArgv.get();
       threadArgs.marChannelID = "";
+      bool shouldServeElevatedUpdate = true;
 
-#ifdef MOZ_VERIFY_MAR_SIGNATURE
+#  ifdef MOZ_VERIFY_MAR_SIGNATURE
       int rv = PopulategMARStrings();
       if (rv != OK) {
+        shouldServeElevatedUpdate = false;
         WriteStatusFile(UPDATE_SETTINGS_FILE_CHANNEL);
         fprintf(stderr,
                 "Unable to start unelevated update process to serve elevated "
                 "updater due to inability to retrieve MAR channels.");
       } else {
         threadArgs.marChannelID = gMARStrings.MARChannelID.get();
-#endif // MOZ_VERIFY_MAR_SIGNATURE
+      }
+#  endif  // MOZ_VERIFY_MAR_SIGNATURE
 
+      if (shouldServeElevatedUpdate) {
         Thread t1;
         if (t1.Run(ServeElevatedUpdateThreadFunc, &threadArgs) == 0) {
           // Show an indeterminate progress bar while an elevated update is in
@@ -3720,9 +3725,7 @@ int NS_main(int argc, NS_tchar** argv) {
           }
         }
         t1.Join();
-#ifdef MOZ_VERIFY_MAR_SIGNATURE
       }
-#endif // MOZ_VERIFY_MAR_SIGNATURE
     }
 
     LaunchCallbackAndPostProcessApps(argc, argv, std::move(umaskContext));

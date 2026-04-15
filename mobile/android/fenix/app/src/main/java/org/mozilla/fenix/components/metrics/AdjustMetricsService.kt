@@ -22,6 +22,7 @@ import org.mozilla.fenix.BuildConfig
 import org.mozilla.fenix.Config
 import org.mozilla.fenix.GleanMetrics.AdjustAttribution
 import org.mozilla.fenix.GleanMetrics.Pings
+import org.mozilla.fenix.distributions.DistributionAdjustStartupStrategy
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.utils.Settings
 
@@ -65,8 +66,14 @@ class AdjustMetricsService(
 
             // If we skipped the marketing consent screen, enable COPPA compliance to prevent
             // personal identifiers from being shared with Adjust.
-            if (distributionIdManager.shouldSkipMarketingConsentScreen()) {
-                config.enableCoppaCompliance()
+            when (distributionIdManager.getDistributionAdjustStartupStrategy()) {
+                DistributionAdjustStartupStrategy.IMMEDIATE_WITH_COPPA ->
+                    config.enableCoppaCompliance()
+
+                DistributionAdjustStartupStrategy.IMMEDIATE_WITH_PLAY_STORE_KIDS ->
+                    config.enablePlayStoreKidsCompliance()
+
+                else -> {}
             }
 
             if (!alreadyKnown(settings)) {

@@ -825,8 +825,12 @@ export class LoginDataSource extends DataSourceBase {
     const breachesMap = lazy.BREACH_ALERTS_ENABLED
       ? await lazy.LoginBreaches.getPotentialBreachesByLoginGUID(logins)
       : new Map();
+    const vulnerableMap =
+      await lazy.LoginBreaches.getPotentiallyVulnerablePasswordsByLoginGUID(
+        logins
+      );
 
-    this.#syncReloadDataSource(logins, breachesMap);
+    this.#syncReloadDataSource(logins, breachesMap, vulnerableMap);
 
     this.doneReloadDataSource = true;
   }
@@ -836,13 +840,13 @@ export class LoginDataSource extends DataSourceBase {
    * should be synchronous because the two functions operates on member variable
    * #linesToForget and they don't expect it to be changed in the middle of reloading.
    */
-  #syncReloadDataSource(logins, breachesMap) {
+  #syncReloadDataSource(logins, breachesMap, vulnerableMap) {
     this.beforeReloadingDataSource();
 
     const loginsWithAlerts = logins.filter(
       login =>
         breachesMap.has(login.guid) ||
-        lazy.LoginBreaches.isVulnerablePassword(login) ||
+        vulnerableMap.has(login.guid) ||
         !login.username.length
     );
 
@@ -860,7 +864,7 @@ export class LoginDataSource extends DataSourceBase {
         parts.length -= 1;
       }
       const isLoginBreached = breachesMap.has(login.guid);
-      const isLoginVulnerable = lazy.LoginBreaches.isVulnerablePassword(login);
+      const isLoginVulnerable = vulnerableMap.has(login.guid);
       const loginNoUsername = !login.username.length;
 
       let alertValue;

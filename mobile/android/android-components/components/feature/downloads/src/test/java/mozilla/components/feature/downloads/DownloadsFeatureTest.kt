@@ -91,6 +91,7 @@ class DownloadsFeatureTest {
             onNeedToRequestPermissions = { requestedPermissions = true },
             fragmentManager = mockFragmentManager(),
             mainDispatcher = testDispatcher,
+            downloadFileUtils = FakeDownloadFileUtils(),
         )
 
         feature.start()
@@ -117,6 +118,7 @@ class DownloadsFeatureTest {
             useCases = mock(),
             fragmentManager = fragmentManager,
             mainDispatcher = testDispatcher,
+            downloadFileUtils = FakeDownloadFileUtils(),
         )
 
         feature.start()
@@ -145,6 +147,7 @@ class DownloadsFeatureTest {
             store,
             useCases = mock(),
             fragmentManager = fragmentManager,
+            downloadFileUtils = FakeDownloadFileUtils(),
             downloadManager = downloadManager,
             mainDispatcher = testDispatcher,
         )
@@ -171,6 +174,7 @@ class DownloadsFeatureTest {
                 testContext,
                 store,
                 useCases = DownloadsUseCases(store, mock()),
+                downloadFileUtils = FakeDownloadFileUtils(),
                 downloadManager = downloadManager,
                 mainDispatcher = testDispatcher,
             ),
@@ -181,7 +185,11 @@ class DownloadsFeatureTest {
 
         verify(downloadManager, never()).download(any(), anyString())
 
-        val download = DownloadState(url = "https://www.mozilla.org", sessionId = "test-tab")
+        val download = DownloadState(
+            url = "https://www.mozilla.org",
+            sessionId = "test-tab",
+            directoryPath = "/storage/emulated/0/Download",
+            )
         doReturn("id").`when`(downloadManager).download(download)
         doReturn(false).`when`(feature).isDownloadBiggerThanAvailableSpace(download)
 
@@ -207,6 +215,7 @@ class DownloadsFeatureTest {
                 testContext,
                 store,
                 useCases = DownloadsUseCases(store, mock()),
+                downloadFileUtils = FakeDownloadFileUtils(),
                 downloadManager = downloadManager,
                 fragmentManager = fragmentManager,
                 mainDispatcher = testDispatcher,
@@ -222,6 +231,7 @@ class DownloadsFeatureTest {
             url = "https://www.mozilla.org",
             skipConfirmation = true,
             sessionId = "test-tab",
+            directoryPath = "/storage/emulated/0/Download",
         )
 
         doReturn("id").`when`(downloadManager).download(eq(download), anyString())
@@ -257,6 +267,7 @@ class DownloadsFeatureTest {
             store,
             useCases = mock(),
             downloadManager = downloadManager,
+            downloadFileUtils = FakeDownloadFileUtils(),
             fragmentManager = fragmentManager,
             mainDispatcher = testDispatcher,
         )
@@ -285,13 +296,16 @@ class DownloadsFeatureTest {
         store.dispatch(ContentAction.UpdateDownloadAction("test-tab", download))
         doReturn(closeDownloadResponseUseCase).`when`(downloadsUseCases).cancelDownloadRequest
 
-        val feature = DownloadsFeature(
-            testContext,
-            store,
-            useCases = downloadsUseCases,
-            downloadManager = mock(),
-            fragmentManager = fragmentManager,
-            mainDispatcher = testDispatcher,
+        val feature = spy(
+            DownloadsFeature(
+                testContext,
+                store,
+                useCases = downloadsUseCases,
+                downloadManager = mock(),
+                fragmentManager = fragmentManager,
+                mainDispatcher = testDispatcher,
+                downloadFileUtils = FakeDownloadFileUtils(),
+            ),
         )
 
         val tab = store.state.findTab("test-tab")
@@ -327,6 +341,7 @@ class DownloadsFeatureTest {
                 downloadManager = downloadManager,
                 shouldForwardToThirdParties = { true },
                 mainDispatcher = testDispatcher,
+                downloadFileUtils = FakeDownloadFileUtils(),
             ),
         )
 
@@ -345,7 +360,11 @@ class DownloadsFeatureTest {
     fun `onPermissionsResult will process download if permissions were granted and thirdParty disabled`() = runTest(testDispatcher) {
         val downloadsUseCases = spy(DownloadsUseCases(store, mock()))
         val consumeDownloadUseCase = mock<ConsumeDownloadUseCase>()
-        val download = DownloadState(url = "https://www.mozilla.org", sessionId = "test-tab")
+        val download = DownloadState(
+            url = "https://www.mozilla.org",
+            sessionId = "test-tab",
+            directoryPath = "/storage/emulated/0/Download",
+            )
         val downloadManager: DownloadManager = mock()
         val permissionsArray = arrayOf(INTERNET, WRITE_EXTERNAL_STORAGE)
         val grantedPermissionsArray = arrayOf(PackageManager.PERMISSION_GRANTED, PackageManager.PERMISSION_GRANTED).toIntArray()
@@ -360,6 +379,7 @@ class DownloadsFeatureTest {
                 downloadManager = downloadManager,
                 shouldForwardToThirdParties = { false },
                 mainDispatcher = testDispatcher,
+                downloadFileUtils = FakeDownloadFileUtils(),
             ),
         )
 
@@ -409,6 +429,7 @@ class DownloadsFeatureTest {
                 useCases = downloadsUseCases,
                 downloadManager = downloadManager,
                 mainDispatcher = testDispatcher,
+                downloadFileUtils = FakeDownloadFileUtils(),
             ),
         )
 
@@ -434,6 +455,7 @@ class DownloadsFeatureTest {
             store,
             useCases = mock(),
             downloadManager = downloadManager,
+            downloadFileUtils = FakeDownloadFileUtils(),
             mainDispatcher = testDispatcher,
         )
 
@@ -465,6 +487,7 @@ class DownloadsFeatureTest {
                 useCases = DownloadsUseCases(store, mock()),
                 downloadManager = downloadManager,
                 mainDispatcher = testDispatcher,
+                downloadFileUtils = FakeDownloadFileUtils(),
             ),
         )
 
@@ -476,7 +499,11 @@ class DownloadsFeatureTest {
         verify(downloadManager, never()).download(any(), anyString())
         verify(feature, never()).showDownloadNotSupportedError()
 
-        val download = DownloadState(url = "https://www.mozilla.org", sessionId = "test-tab")
+        val download = DownloadState(
+            url = "https://www.mozilla.org",
+            sessionId = "test-tab",
+            directoryPath = "/storage/emulated/0/Download",
+            )
 
         doReturn(false).`when`(feature).isDownloadBiggerThanAvailableSpace(download)
 
@@ -505,6 +532,7 @@ class DownloadsFeatureTest {
                 store,
                 useCases = mock(),
                 downloadManager = downloadManager,
+                downloadFileUtils = FakeDownloadFileUtils(),
             ),
         )
 
@@ -526,6 +554,7 @@ class DownloadsFeatureTest {
                 useCases = mock(),
                 downloadManager = mock(),
                 fragmentManager = fragmentManager,
+                downloadFileUtils = FakeDownloadFileUtils(),
             ),
         )
 
@@ -549,6 +578,7 @@ class DownloadsFeatureTest {
                 useCases = mock(),
                 downloadManager = mock(),
                 fragmentManager = fragmentManager,
+                downloadFileUtils = FakeDownloadFileUtils(),
             ),
         )
 
@@ -574,6 +604,7 @@ class DownloadsFeatureTest {
                 store,
                 useCases = mock(),
                 downloadManager = mock(),
+                downloadFileUtils = FakeDownloadFileUtils(),
                 fragmentManager = fragmentManager,
             ),
         )
@@ -600,6 +631,7 @@ class DownloadsFeatureTest {
                 store,
                 DownloadsUseCases(store, mock()),
                 downloadManager = downloadManager,
+                downloadFileUtils = FakeDownloadFileUtils(),
                 shouldForwardToThirdParties = { false },
                 mainDispatcher = testDispatcher,
             ),
@@ -629,6 +661,7 @@ class DownloadsFeatureTest {
                 testContext,
                 store,
                 DownloadsUseCases(store, mock()),
+                downloadFileUtils = FakeDownloadFileUtils(),
                 downloadManager = downloadManager,
                 shouldForwardToThirdParties = { true },
                 mainDispatcher = testDispatcher,
@@ -660,6 +693,7 @@ class DownloadsFeatureTest {
                 testContext,
                 store,
                 DownloadsUseCases(store, mock()),
+                downloadFileUtils = FakeDownloadFileUtils(),
                 downloadManager = downloadManager,
                 shouldForwardToThirdParties = { true },
                 mainDispatcher = testDispatcher,
@@ -691,6 +725,7 @@ class DownloadsFeatureTest {
         var delegateNegativeActionCallback: (() -> Unit)? = null
         grantPermissions()
         doReturn(arrayOf(INTERNET, WRITE_EXTERNAL_STORAGE)).`when`(downloadManager).permissions
+        val fakeDownloadFileUtils = FakeDownloadFileUtils(guessFileName = { _, _, _ -> "file.txt" })
         val feature = spy(
             DownloadsFeature(
                 applicationContext = testContext,
@@ -698,6 +733,7 @@ class DownloadsFeatureTest {
                 useCases = usecases,
                 downloadManager = downloadManager,
                 shouldForwardToThirdParties = { true },
+                downloadFileUtils = fakeDownloadFileUtils,
                 customFirstPartyDownloadDialog = { filename, contentSize, _, positiveActionCallback, negativeActionCallback, _ ->
                     delegateFilename = filename.value
                     delegateContentSize = contentSize.value
@@ -725,7 +761,13 @@ class DownloadsFeatureTest {
     @Test
     fun `GIVEN file with same etag was already downloaded WHEN processing download request THEN the existing file name should be provided to the download dialog`() = runTest(testDispatcher) {
         val tab = createTab("https://www.mozilla.org", id = "test-tab")
-        val download = DownloadState(url = "https://www.mozilla.org/file.txt", sessionId = "test-tab", id = "test", etag = "12345")
+        val download = DownloadState(
+            url = "https://www.mozilla.org/file.txt",
+            sessionId = "test-tab",
+            directoryPath = "/downloads",
+            id = "test",
+            etag = "12345",
+        )
         val usecases: DownloadsUseCases = mock()
         val consumeDownloadUseCase: ConsumeDownloadUseCase = mock()
         val cancelDownloadUseCase: CancelDownloadRequestUseCase = mock()
@@ -766,6 +808,10 @@ class DownloadsFeatureTest {
                 useCases = usecases,
                 downloadManager = downloadManager,
                 shouldForwardToThirdParties = { true },
+                downloadFileUtils = FakeDownloadFileUtils(
+                    guessFileName = { _, _, _ -> "file.txt" },
+                    fileExists = { _, _ -> true },
+                ),
                 customFirstPartyDownloadDialog = { filename, contentSize, fileNameIfAlreadyDownloaded, positiveActionCallback, negativeActionCallback, openFileAction ->
                     delegateFilename = filename.value
                     delegateContentSize = contentSize.value
@@ -775,7 +821,7 @@ class DownloadsFeatureTest {
                     delegateFileNameIsAlreadyDownloaded = fileNameIfAlreadyDownloaded.value
                 },
                 mainDispatcher = testDispatcher,
-                fileSystemHelper = FakeFileSystemHelper(existingFiles = listOf("/downloads/original.txt")),
+                fileSystemHelper = FakeFileSystemHelper(),
             ),
         )
 
@@ -822,7 +868,9 @@ class DownloadsFeatureTest {
                 downloads = emptyMap(),
             ),
         )
-
+        val fakeDownloadFileUtils = FakeDownloadFileUtils(
+            guessFileName = { _, _, _ -> "file.txt" },
+        )
         val feature = spy(
             DownloadsFeature(
                 applicationContext = testContext,
@@ -831,6 +879,7 @@ class DownloadsFeatureTest {
                 downloadManager = downloadManager,
                 mainDispatcher = testDispatcher,
                 shouldForwardToThirdParties = { true },
+                downloadFileUtils = fakeDownloadFileUtils,
                 customFirstPartyDownloadDialog = { filename, contentSize, fileNameIfAlreadyDownloaded, positiveActionCallback, negativeActionCallback, openFileAction ->
                     delegateFilename = filename.value
                     delegateContentSize = contentSize.value
@@ -871,6 +920,7 @@ class DownloadsFeatureTest {
                 downloadManager = downloadManager,
                 mainDispatcher = testDispatcher,
                 shouldForwardToThirdParties = { true },
+                downloadFileUtils = FakeDownloadFileUtils(),
                 customThirdPartyDownloadDialog = { apps, chosenAppCallback, dismissCallback ->
                     delegateDownloaderApps = apps.value
                     delegateChosenAppCallback = chosenAppCallback.value
@@ -935,6 +985,7 @@ class DownloadsFeatureTest {
             DownloadsUseCases(store, mock()),
             downloadManager = downloadManager,
             mainDispatcher = testDispatcher,
+            downloadFileUtils = FakeDownloadFileUtils(),
             shouldForwardToThirdParties = { true },
         )
 
@@ -993,6 +1044,7 @@ class DownloadsFeatureTest {
             downloadManager = downloadManager,
             mainDispatcher = testDispatcher,
             shouldForwardToThirdParties = { true },
+            downloadFileUtils = FakeDownloadFileUtils(),
         )
 
         val appList = feature.getDownloaderApps(context, download)
@@ -1019,6 +1071,7 @@ class DownloadsFeatureTest {
                 downloadManager = mock(),
                 mainDispatcher = testDispatcher,
                 shouldForwardToThirdParties = { true },
+                downloadFileUtils = FakeDownloadFileUtils(),
                 fragmentManager = fragmentManager,
             ),
         )
@@ -1050,6 +1103,7 @@ class DownloadsFeatureTest {
                 downloadManager = mock(),
                 mainDispatcher = testDispatcher,
                 shouldForwardToThirdParties = { true },
+                downloadFileUtils = FakeDownloadFileUtils(),
                 fragmentManager = fragmentManager,
             ),
         )
@@ -1079,6 +1133,7 @@ class DownloadsFeatureTest {
                 downloadManager = mock(),
                 mainDispatcher = testDispatcher,
                 shouldForwardToThirdParties = { true },
+                downloadFileUtils = FakeDownloadFileUtils(),
                 fragmentManager = fragmentManager,
             ),
         )
@@ -1114,6 +1169,7 @@ class DownloadsFeatureTest {
                 downloadsUseCases,
                 downloadManager = downloadManager,
                 mainDispatcher = testDispatcher,
+                downloadFileUtils = FakeDownloadFileUtils(),
                 shouldForwardToThirdParties = { true },
                 fragmentManager = fragmentManager,
             ),
@@ -1150,6 +1206,7 @@ class DownloadsFeatureTest {
                 store = BrowserStore(),
                 useCases = usecases,
                 mainDispatcher = testDispatcher,
+                downloadFileUtils = FakeDownloadFileUtils(),
                 onNeedToRequestPermissions = { wasPermissionsRequested = true },
             ),
         )
@@ -1180,6 +1237,7 @@ class DownloadsFeatureTest {
                 store = BrowserStore(),
                 useCases = usecases,
                 mainDispatcher = testDispatcher,
+                downloadFileUtils = FakeDownloadFileUtils(),
                 onNeedToRequestPermissions = { wasPermissionsRequested = true },
             ),
         )
@@ -1212,6 +1270,7 @@ class DownloadsFeatureTest {
             DownloadsFeature(
                 applicationContext = spyContext,
                 store = BrowserStore(),
+                downloadFileUtils = FakeDownloadFileUtils(),
                 useCases = usecases,
                 mainDispatcher = testDispatcher,
             ),
@@ -1250,6 +1309,7 @@ class DownloadsFeatureTest {
                 store = BrowserStore(),
                 useCases = usecases,
                 mainDispatcher = testDispatcher,
+                downloadFileUtils = FakeDownloadFileUtils(),
             ),
         )
         val expectedWarningText = testContext.getString(
@@ -1288,6 +1348,7 @@ class DownloadsFeatureTest {
                 downloadsUseCases,
                 downloadManager = mock(),
                 shouldForwardToThirdParties = { true },
+                downloadFileUtils = FakeDownloadFileUtils(),
                 fragmentManager = fragmentManager,
                 mainDispatcher = testDispatcher,
             ),
@@ -1324,6 +1385,7 @@ class DownloadsFeatureTest {
                 downloadsUseCases,
                 downloadManager = mock(),
                 shouldForwardToThirdParties = { true },
+                downloadFileUtils = FakeDownloadFileUtils(),
                 fragmentManager = fragmentManager,
                 mainDispatcher = testDispatcher,
             ),
@@ -1361,6 +1423,7 @@ class DownloadsFeatureTest {
                 downloadsUseCases,
                 downloadManager = mock(),
                 shouldForwardToThirdParties = { true },
+                downloadFileUtils = FakeDownloadFileUtils(),
                 fragmentManager = fragmentManager,
                 mainDispatcher = testDispatcher,
             ),
@@ -1411,6 +1474,7 @@ class DownloadsFeatureTest {
                 testContext,
                 store,
                 useCases = downloadsUseCases,
+                downloadFileUtils = FakeDownloadFileUtils(),
                 downloadManager = mock(),
                 mainDispatcher = testDispatcher,
             ),
@@ -1450,6 +1514,7 @@ class DownloadsFeatureTest {
                 testContext,
                 store,
                 useCases = downloadsUseCases,
+                downloadFileUtils = FakeDownloadFileUtils(),
                 downloadManager = mock(),
                 mainDispatcher = testDispatcher,
             ),
@@ -1497,6 +1562,7 @@ class DownloadsFeatureTest {
                 downloadManager = downloadManager,
                 shouldForwardToThirdParties = { true },
                 onNeedToRequestPermissions = { permissionsRequested = true },
+                downloadFileUtils = FakeDownloadFileUtils(),
                 fragmentManager = fragmentManager,
                 mainDispatcher = testDispatcher,
             ),
@@ -1537,6 +1603,7 @@ class DownloadsFeatureTest {
                 useCases = downloadsUseCases,
                 fileHasNotEnoughStorageDialog = fileHasNotEnoughStorageDialog,
                 mainDispatcher = testDispatcher,
+                downloadFileUtils = FakeDownloadFileUtils(),
             ),
         )
 
@@ -1590,7 +1657,8 @@ class DownloadsFeatureTest {
                     fileNameIfAlreadyDownloaded = fileName.value
                     delegateOpenFileCallback = openFileAction.value
                 },
-                fileSystemHelper = FakeFileSystemHelper(existingFiles = listOf("/downloads/file.txt")),
+                fileSystemHelper = FakeFileSystemHelper(),
+                downloadFileUtils = FakeDownloadFileUtils(fileExists = { _, _ -> true }),
             ),
         )
 
@@ -1637,6 +1705,7 @@ class DownloadsFeatureTest {
                 customFirstPartyDownloadDialog = { _, _, fileName, _, _, openFileAction ->
                     fileNameIfAlreadyDownloaded = fileName.value
                 },
+                downloadFileUtils = FakeDownloadFileUtils(),
             ),
         )
 
@@ -1660,6 +1729,7 @@ class DownloadsFeatureTest {
                     availableBitesInDirectory = 10L,
                     existingDirectories = listOf(directoryPath),
                 ),
+                downloadFileUtils = FakeDownloadFileUtils(),
             ),
         )
 
@@ -1687,6 +1757,7 @@ class DownloadsFeatureTest {
                     availableBitesInDirectory = 10L,
                     existingDirectories = listOf(directoryPath),
                 ),
+                downloadFileUtils = FakeDownloadFileUtils(),
             ),
         )
 
@@ -1715,6 +1786,7 @@ class DownloadsFeatureTest {
                     availableBitesInDirectory = 1000L,
                     existingDirectories = listOf(directoryPath),
                 ),
+                downloadFileUtils = FakeDownloadFileUtils(),
             ),
         )
         val downloadState = DownloadState(
@@ -1740,6 +1812,7 @@ class DownloadsFeatureTest {
                     availableBitesInDirectory = 10L,
                     existingDirectories = emptyList(),
                 ),
+                downloadFileUtils = FakeDownloadFileUtils(),
             ),
         )
         val downloadState = DownloadState(
@@ -1777,6 +1850,7 @@ class DownloadsFeatureTest {
                 downloadManager = downloadManager,
                 onDownloadStartedListener = onDownloadStartedListener,
                 mainDispatcher = testDispatcher,
+                downloadFileUtils = FakeDownloadFileUtils(),
             ),
         )
 
@@ -1821,8 +1895,9 @@ class DownloadsFeatureTest {
             store = store,
             useCases = DownloadsUseCases(store, mock()),
             mainDispatcher = testDispatcher,
-            fileSystemHelper = FakeFileSystemHelper(existingFiles = listOf("/downloads/previous.txt")),
-        )
+            fileSystemHelper = FakeFileSystemHelper(),
+            downloadFileUtils = FakeDownloadFileUtils(fileExists = { _, _ -> true }),
+            )
 
         val foundDownload = feature.findDownloadWithSameEtag(download)
 
@@ -1864,17 +1939,14 @@ class DownloadsFeatureTest {
                 downloads = mapOf("newest" to previousDownloadNewest, "oldest" to previousDownloadOldest),
             ),
         )
-        val feature = DownloadsFeature(
-            applicationContext = testContext,
-            store = store,
-            useCases = DownloadsUseCases(store, mock()),
-            mainDispatcher = testDispatcher,
-            fileSystemHelper = FakeFileSystemHelper(
-                existingFiles = listOf(
-                    "/downloads/file.txt",
-                    "/downloads/previous.txt",
-                    "/downloads/previous(1).txt",
-                ),
+        val feature = spy(
+            DownloadsFeature(
+                applicationContext = testContext,
+                store = store,
+                useCases = DownloadsUseCases(store, mock()),
+                fileSystemHelper = FakeFileSystemHelper(),
+                mainDispatcher = testDispatcher,
+                downloadFileUtils = FakeDownloadFileUtils(fileExists = { _, _ -> true }),
             ),
         )
 
@@ -1906,11 +1978,14 @@ class DownloadsFeatureTest {
                 downloads = mapOf("test" to previousDownload),
             ),
         )
-        val feature = DownloadsFeature(
-            applicationContext = testContext,
-            store = store,
-            useCases = DownloadsUseCases(store, mock()),
-            mainDispatcher = testDispatcher,
+        val feature = spy(
+            DownloadsFeature(
+                applicationContext = testContext,
+                store = store,
+                mainDispatcher = testDispatcher,
+                useCases = DownloadsUseCases(store, mock()),
+                downloadFileUtils = FakeDownloadFileUtils(),
+            ),
         )
 
         val foundDownload = feature.findDownloadWithSameEtag(download)
@@ -1941,11 +2016,14 @@ class DownloadsFeatureTest {
                 downloads = mapOf("test" to previousDownload),
             ),
         )
-        val feature = DownloadsFeature(
-            applicationContext = testContext,
-            store = store,
-            useCases = DownloadsUseCases(store, mock()),
-            mainDispatcher = testDispatcher,
+        val feature = spy(
+            DownloadsFeature(
+                applicationContext = testContext,
+                store = store,
+                mainDispatcher = testDispatcher,
+                useCases = DownloadsUseCases(store, mock()),
+                downloadFileUtils = FakeDownloadFileUtils(),
+            ),
         )
 
         val foundDownload = feature.findDownloadWithSameEtag(download)
@@ -1976,11 +2054,14 @@ class DownloadsFeatureTest {
                 downloads = mapOf("test" to previousDownload),
             ),
         )
-        val feature = DownloadsFeature(
-            applicationContext = testContext,
-            store = store,
-            useCases = DownloadsUseCases(store, mock()),
-            mainDispatcher = testDispatcher,
+        val feature = spy(
+            DownloadsFeature(
+                applicationContext = testContext,
+                store = store,
+                mainDispatcher = testDispatcher,
+                useCases = DownloadsUseCases(store, mock()),
+                downloadFileUtils = FakeDownloadFileUtils(),
+            ),
         )
 
         val foundDownload = feature.findDownloadWithSameEtag(download)
@@ -2011,13 +2092,15 @@ class DownloadsFeatureTest {
                 downloads = mapOf("test" to previousDownload),
             ),
         )
-
-        val feature = DownloadsFeature(
-            applicationContext = testContext,
-            store = store,
-            useCases = DownloadsUseCases(store, mock()),
-            fileSystemHelper = FakeFileSystemHelper(existingFiles = emptyList()),
-            mainDispatcher = testDispatcher,
+        val feature = spy(
+            DownloadsFeature(
+                applicationContext = testContext,
+                store = store,
+                useCases = DownloadsUseCases(store, mock()),
+                fileSystemHelper = FakeFileSystemHelper(),
+                downloadFileUtils = FakeDownloadFileUtils(),
+                mainDispatcher = testDispatcher,
+                ),
         )
 
         val foundDownload = feature.findDownloadWithSameEtag(download)

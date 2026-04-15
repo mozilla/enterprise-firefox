@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -84,6 +82,10 @@ static const char sPrintSettingsServiceContractID[] =
 #include "nsIWebBrowserChrome.h"
 #include "nsPageSequenceFrame.h"
 #include "nsRange.h"
+
+#if defined(ACCESSIBILITY) && defined(MOZ_ENABLE_SKIA_PDF)
+#  include "mozilla/a11y/PdfStructTreeBuilder.h"
+#endif
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -884,14 +886,31 @@ nsresult nsPrintJob::SetupToPrintContent() {
     endPage = std::min(mNumPrintablePages, std::max(endPage, ranges[i + 1]));
   }
 
+  uint64_t browsingContextId = 0;
+  if (auto* bc = mPrintObject->mDocument->GetBrowsingContext()) {
+    browsingContextId = bc->Id();
+  }
+
   nsresult rv = NS_OK;
   // BeginDocument may pass back a FAILURE code
   // i.e. On Windows, if you are printing to a file and hit "Cancel"
   //      to the "File Name" dialog, this comes back as an error
   // Don't start printing when regression test are executed
   if (mIsDoingPrinting) {
-    rv = printData->mPrintDC->BeginDocument(docTitleStr, fileNameStr, startPage,
-                                            endPage);
+#if defined(ACCESSIBILITY) && defined(MOZ_ENABLE_SKIA_PDF)
+    if (!mIsCreatingPrintPreview) {
+      if (nsAccessibilityService* serv = GetAccService()) {
+        serv->NotifyOfPrintDocument(mPrintObject->mDocument);
+        // XXX Out-of-process iframes inside a parent process document won't be
+        // accessible. We need to wait for the iframe accessibility trees to
+        // arrive asynchronously using
+        // a11y::PdfStructTreeBuilder::GetReadyPromise, but there's no clear
+        // place to do that right now when printing in-process.
+      }
+    }
+#endif
+    rv = printData->mPrintDC->BeginDocument(
+        docTitleStr, fileNameStr, browsingContextId, startPage, endPage);
   }
 
   if (mIsCreatingPrintPreview) {

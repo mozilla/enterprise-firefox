@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -7,6 +5,7 @@
 #include "UrlClassifierFeatureTrackingProtection.h"
 
 #include "mozilla/AntiTrackingUtils.h"
+#include "mozilla/ScopedPrefs.h"
 #include "mozilla/net/UrlClassifierCommon.h"
 #include "ChannelClassifierService.h"
 #include "nsIChannel.h"
@@ -84,19 +83,26 @@ UrlClassifierFeatureTrackingProtection::MaybeCreate(nsIChannel* aChannel) {
       ("UrlClassifierFeatureTrackingProtection::MaybeCreate - channel %p",
        aChannel));
 
+#ifdef ANDROID  // TODO(Bug 2005278): keep behavior between platforms consistent
   nsCOMPtr<nsILoadContext> loadContext;
   NS_QueryNotificationCallbacks(aChannel, loadContext);
   if (!loadContext) {
     // Some channels don't have a loadcontext, check the global tracking
-    // protection preference.
-    if (!StaticPrefs::privacy_trackingprotection_enabled() &&
-        !(NS_UsePrivateBrowsing(aChannel) &&
-          StaticPrefs::privacy_trackingprotection_pbmode_enabled())) {
+    // protection preference with potential scoped overrides
+    if (!ScopedPrefs::BoolPrefScoped(
+            ScopedPrefs::PRIVACY_TRACKINGPROTECTION_ENABLED, aChannel)) {
       return nullptr;
     }
   } else if (!loadContext->UseTrackingProtection()) {
     return nullptr;
   }
+#else   // !ANDROID
+  // Always check tracking protection pref on desktop
+  if (!ScopedPrefs::BoolPrefScoped(
+          ScopedPrefs::PRIVACY_TRACKINGPROTECTION_ENABLED, aChannel)) {
+    return nullptr;
+  }
+#endif  // ANDROID
 
   RefPtr<nsILoadInfo> loadInfo = aChannel->LoadInfo();
   bool isThirdParty = loadInfo->GetIsThirdPartyContextToTopWindow();

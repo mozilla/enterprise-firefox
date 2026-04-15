@@ -52,6 +52,13 @@ registerCleanupFunction(function () {
   MockRegistrar.unregister(mockMacSharingService);
 });
 
+const qrCodeEnabled = Services.prefs.getBoolPref(
+  "browser.shareqrcode.enabled",
+  false
+);
+// copy link + service + More, plus QR code if enabled.
+const expectedItemCount = qrCodeEnabled ? 4 : 3;
+
 /**
  * Test the "Share" item menus in the tab contextmenu on MacOSX.
  */
@@ -76,7 +83,11 @@ add_task(async function test_file_menu_share() {
       "Check we have copy link, a service and one extra menu item for the More... button"
     );
     let items = Array.from(popup.querySelectorAll("menuitem"));
-    is(items.length, 3, "There should be 2 sharing services.");
+    is(
+      items.length,
+      expectedItemCount,
+      `There should be ${expectedItemCount} menu items.`
+    );
 
     info("Click on the sharing service");
     let shareButton = items.find(
@@ -113,10 +124,14 @@ add_task(async function test_file_menu_share() {
     // providers again.
     ok(getSharingProvidersSpy.calledTwice, "getSharingProviders called again");
     items = Array.from(popup.querySelectorAll("menuitem"));
-    is(items.length, 3, "There should be 3 sharing services.");
+    is(
+      items.length,
+      expectedItemCount,
+      `There should be ${expectedItemCount} menu items.`
+    );
     info("Click on the Copy Link item");
-    let copyLinkItem = items.find(
-      item => item.dataset.l10nId == "menu-share-copy-link"
+    let copyLinkItem = items.find(item =>
+      item.classList.contains("share-copy-link")
     );
     await SimpleTest.promiseClipboardChange(TEST_URL, () =>
       copyLinkItem.doCommand()
@@ -133,10 +148,14 @@ add_task(async function test_file_menu_share() {
     // providers again.
     is(getSharingProvidersSpy.callCount, 3, "getSharingProviders called again");
     items = popup.querySelectorAll("menuitem");
-    is(items.length, 3, "There should be 3 sharing services.");
+    is(
+      items.length,
+      expectedItemCount,
+      `There should be ${expectedItemCount} menu items.`
+    );
 
     info("Click on the More Button");
-    let moreButton = items[2];
+    let moreButton = popup.querySelector(".share-more-button");
     moreButton.doCommand();
     ok(openSharingPreferencesSpy.calledOnce, "openSharingPreferences called");
     // Tidy up:

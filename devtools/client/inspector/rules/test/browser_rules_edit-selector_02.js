@@ -32,7 +32,9 @@ add_task(async function () {
 
   info("Selecting the test element");
   await selectNode(".testclass", inspector);
-  await testEditSelector(view, "div:nth-child(1)");
+  // Modify the first rule after the "element" one
+  let ruleEditor = getRuleViewRuleEditorAt(view, 1);
+  await testEditSelector(view, ruleEditor, "div:nth-child(1)");
 
   info("Selecting the modified element");
   await selectNode("#testid", inspector);
@@ -40,7 +42,9 @@ add_task(async function () {
 
   info("Selecting the test element");
   await selectNode("#testid3", inspector);
-  await testEditSelector(view, ".testclass2::first-letter");
+  // Modify the pseudo element selector
+  ruleEditor = getRuleViewRuleEditorAt(view, 0);
+  await testEditSelector(view, ruleEditor, ".testclass2::first-letter");
 
   info("Selecting the modified element");
   await selectNode(".testclass2", inspector);
@@ -50,17 +54,14 @@ add_task(async function () {
   Services.prefs.clearUserPref(PSEUDO_PREF);
 });
 
-async function testEditSelector(view, name) {
+async function testEditSelector(view, ruleEditor, name) {
   info("Test editing existing selector fields");
 
-  const idRuleEditor =
-    getRuleViewRuleEditor(view, 1) || getRuleViewRuleEditor(view, 1, 0);
-
   info("Focusing an existing selector name in the rule-view");
-  const editor = await focusEditableField(view, idRuleEditor.selectorText);
+  const editor = await focusEditableField(view, ruleEditor.selectorText);
 
   is(
-    inplaceEditor(idRuleEditor.selectorText),
+    inplaceEditor(ruleEditor.selectorText),
     editor,
     "The selector editor got focused"
   );
@@ -75,11 +76,11 @@ async function testEditSelector(view, name) {
   EventUtils.synthesizeKey("KEY_Enter");
   await onRuleViewChanged;
 
-  is(view.elementStyle.rules.length, 2, "Should have 2 rule.");
+  assertDisplayedRulesCount(view, 2);
   ok(getRuleViewRule(view, name), "Rule with " + name + " selector exists.");
 
   const newRuleEditor =
-    getRuleViewRuleEditor(view, 1) || getRuleViewRuleEditor(view, 1, 0);
+    getRuleViewRuleEditorAt(view, 1) || getRuleViewRuleEditorAt(view, 1, 0);
   ok(
     newRuleEditor.element.getAttribute("unmatched"),
     "Rule with " + name + " does not match the current element."
@@ -87,6 +88,6 @@ async function testEditSelector(view, name) {
 }
 
 function checkModifiedElement(view, name) {
-  is(view.elementStyle.rules.length, 2, "Should have 2 rules.");
+  assertDisplayedRulesCount(view, 2);
   ok(getRuleViewRule(view, name), "Rule with " + name + " selector exists.");
 }

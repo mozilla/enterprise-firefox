@@ -183,6 +183,19 @@ struct arena_chunk_t {
   bool IsEmpty();
 };
 
+namespace mozilla {
+struct DirtyChunkListTrait {
+  static DoublyLinkedListElement<arena_chunk_t>& Get(arena_chunk_t* aThis) {
+    return aThis->mChunksDirtyElim;
+  }
+
+  static const DoublyLinkedListElement<arena_chunk_t>& Get(
+      const arena_chunk_t* aThis) {
+    return aThis->mChunksDirtyElim;
+  }
+};
+}  // namespace mozilla
+
 [[nodiscard]] bool pages_commit(void* aAddr, size_t aSize);
 
 void pages_decommit(void* aAddr, size_t aSize);

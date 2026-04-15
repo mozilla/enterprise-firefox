@@ -1,6 +1,3 @@
-/* -*- Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil; tab-width: 8 -*- */
-/* vim: set sw=2 ts=8 et tw=80 ft=cpp : */
-
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -30,6 +27,7 @@ include PTabContext;
 include PBackgroundSharedTypes;
 
 include "mozilla/AntiTrackingIPCUtils.h";
+include "mozilla/EnumSet.h";
 include "mozilla/nsRFPIPCUtils.h";
 include "mozilla/dom/BindingIPCUtils.h";
 include "mozilla/dom/CSPMessageUtils.h";
@@ -64,7 +62,7 @@ using struct mozilla::void_t from "mozilla/ipc/IPCCore.h";
 using mozilla::WindowsHandle from "mozilla/ipc/IPCTypes.h";
 using class mozilla::WidgetCompositionEvent from "ipc/nsGUIEventIPC.h";
 using struct mozilla::widget::IMENotification from "mozilla/widget/IMEData.h";
-using struct mozilla::widget::IMENotificationRequests from "mozilla/widget/IMEData.h";
+using mozilla::widget::IMENotificationRequests from "mozilla/widget/IMEData.h";
 using struct mozilla::widget::IMEState from "mozilla/widget/IMEData.h";
 using struct mozilla::widget::InputContext from "mozilla/widget/IMEData.h";
 using struct mozilla::widget::InputContextAction from "mozilla/widget/IMEData.h";
@@ -84,6 +82,7 @@ using struct mozilla::layers::TextureFactoryIdentifier from "mozilla/layers/Comp
 using mozilla::layers::CompositorOptions from "mozilla/layers/CompositorOptions.h";
 using mozilla::CSSToScreenScale from "Units.h";
 using mozilla::CommandInt from "mozilla/EventForwards.h";
+using mozilla::HapticFeedbackType from "nsIWidget.h";
 using nsIWidget::TouchPointerState from "nsIWidget.h";
 using nsIWidget::TouchpadGesturePhase from "nsIWidget.h";
 using nsCursor from "nsIWidget.h";
@@ -1069,6 +1068,10 @@ child:
      */
     async DispatchToDropTargetAndResumeEndDragSession(bool aShouldDrop, StringHashSet aAllowedFilePaths);
 
+#if defined(ACCESSIBILITY) && defined(MOZ_ENABLE_SKIA_PDF)
+    async RequestDocAccessibleForPrint();
+#endif
+
 parent:
     /**
      * Fetches whether this window supports protected media, which is sent back in response.
@@ -1096,6 +1099,8 @@ parent:
                           WindowGlobalInit aInit);
 
     async UpdateDropEffect(uint32_t aDragAction, uint32_t aDropEffect);
+
+    async PerformHapticFeedback(HapticFeedbackType aType);
 
 /*
  * FIXME: write protocol!

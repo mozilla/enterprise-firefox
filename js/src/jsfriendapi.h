@@ -332,6 +332,10 @@ JS_PUBLIC_API bool ShouldIgnorePropertyDefinition(JSContext* cx, JSProtoKey key,
 
 JS_PUBLIC_API bool IsFunctionObject(JSObject* obj);
 
+// If |obj| is a ModuleObject or ModuleEnvironmentObject, return the
+// module's filename. Otherwise return nullptr.
+JS_PUBLIC_API const char* MaybeGetModuleFilename(JSObject* obj);
+
 JS_PUBLIC_API bool UninlinedIsCrossCompartmentWrapper(const JSObject* obj);
 
 // CrossCompartmentWrappers are shared by all realms within the compartment, so

@@ -52,6 +52,19 @@ add_task(async function test_copy_profile() {
   );
   Assert.ok(!encState, "No encryption state after copyProfile called");
 
+  // When the source profile had no encryption, the copied profile should not
+  // have encryption enabled either (temporary encryption used during copy
+  // should not persist).
+  let copiedEncStateFile = PathUtils.join(
+    copiedProfile.path,
+    BackupService.PROFILE_FOLDER_NAME,
+    BackupService.ARCHIVE_ENCRYPTION_STATE_FILE
+  );
+  Assert.ok(
+    !(await IOUtils.exists(copiedEncStateFile)),
+    "Copied profile should not have encryption state when source had no encryption"
+  );
+
   profiles = await SelectableProfileService.getAllProfiles();
   Assert.equal(profiles.length, 2, "Two selectable profiles exist");
 
@@ -92,7 +105,7 @@ add_task(async function test_copy_profile_with_encryption() {
   const backupServiceInstance = new BackupService();
   await backupServiceInstance.enableEncryption(
     "testCopyProfile",
-    SelectableProfileService.currentProfile.path.path
+    SelectableProfileService.currentProfile.path
   );
 
   let encState = await backupServiceInstance.loadEncryptionState(
@@ -107,6 +120,18 @@ add_task(async function test_copy_profile_with_encryption() {
     SelectableProfileService.currentProfile.path
   );
   Assert.ok(encState, "Encryption state exists after copyProfile called");
+
+  // Even when the source profile had encryption, the copied profile should
+  // not inherit it - the user must opt into encryption for the new profile.
+  let copiedEncStateFile = PathUtils.join(
+    copiedProfile.path,
+    BackupService.PROFILE_FOLDER_NAME,
+    BackupService.ARCHIVE_ENCRYPTION_STATE_FILE
+  );
+  Assert.ok(
+    !(await IOUtils.exists(copiedEncStateFile)),
+    "Copied profile should not have encryption state even when source had encryption"
+  );
 
   profiles = await SelectableProfileService.getAllProfiles();
   Assert.equal(profiles.length, 3, "Three selectable profiles exist");

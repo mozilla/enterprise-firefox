@@ -1,6 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:expandtab:shiftwidth=2:tabstop=2:
- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -191,6 +188,7 @@ class nsWindow final : public nsIWidget {
   void Destroy() override;
   float GetDPI() override;
   double GetDefaultScaleInternal() override;
+  uint32_t GetMaxTouchPoints() const override;
   mozilla::DesktopToLayoutDeviceScale GetDesktopToDeviceScale() override;
   void SetModal(bool aModal) override;
   bool IsVisible() const override;
@@ -554,6 +552,11 @@ class nsWindow final : public nsIWidget {
     return nullptr;
   }
   static nsWindow* FromWidget(nsWindow*) = delete;
+
+  void SetTextInputArea(LayoutDeviceIntRect aCursorArea);
+  DesktopIntRect GetTextInputArea() { return mIMContextInputArea; };
+  void UnlockCursor() { mWidgetCursorLocked = false; };
+  void InsertEmoji(RefPtr<nsWindow> aToplevelWindow = nullptr);
 
  protected:
   virtual ~nsWindow();
@@ -999,6 +1002,9 @@ class nsWindow final : public nsIWidget {
    * however, IME doesn't work at that time.
    */
   RefPtr<mozilla::widget::IMContextWrapper> mIMContext;
+  DesktopIntRect mIMContextInputArea;
+
+  int mEmojiHidenSignal = 0;
 
 #ifdef MOZ_X11
   mozilla::UniquePtr<mozilla::CurrentX11TimeGetter> mCurrentTimeGetter;

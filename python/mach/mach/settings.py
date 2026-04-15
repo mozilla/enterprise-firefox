@@ -7,6 +7,18 @@ from textwrap import dedent
 from mach.decorators import SettingsProvider
 
 
+def _get_log_formatters():
+    from mozlog.commandline import log_formatters
+
+    return list(log_formatters)
+
+
+def _get_log_levels():
+    from mozlog.structuredlog import log_levels
+
+    return [level.lower() for level in log_levels]
+
+
 @SettingsProvider
 class MachSettings:
     @classmethod
@@ -118,31 +130,26 @@ class MachSettings:
             ]
 
         def test_config_settings():
-            from mozlog.commandline import log_formatters
-            from mozlog.structuredlog import log_levels
-
             format_desc = (
                 "The default format to use when running tests with `mach test`."
             )
-            format_choices = list(log_formatters)
             level_desc = (
                 "The default log level to use when running tests with `mach test`."
             )
-            level_choices = [l.lower() for l in log_levels]
             return [
                 (
                     "test.format",
                     "string",
                     format_desc,
                     "mach",
-                    {"choices": format_choices},
+                    {"choices": _get_log_formatters},
                 ),
                 (
                     "test.level",
                     "string",
                     level_desc,
                     "info",
-                    {"choices": level_choices},
+                    {"choices": _get_log_levels},
                 ),
             ]
 

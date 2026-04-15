@@ -4,6 +4,9 @@
 "use strict";
 
 add_task(async function testSettingGroupTelemetry() {
+  Services.fog.testResetFOG();
+  let sessionId;
+
   await BrowserTestUtils.withNewTab(
     {
       gBrowser,
@@ -117,12 +120,13 @@ add_task(async function testSettingGroupTelemetry() {
       };
       group.getSetting = win.Preferences.getSetting.bind(win.Preferences);
       group.dataset.category = "paneGeneral";
-      doc.body.append(group);
+      doc.getElementById("mainPrefPane").append(group);
 
       // Ensure all elements have updated.
       await new Promise(r => win.requestAnimationFrame(r));
 
       let checkbox = doc.getElementById("test-checkbox");
+      checkbox.scrollIntoView();
       EventUtils.synthesizeMouseAtCenter(checkbox.inputEl, {}, win);
       EventUtils.synthesizeMouseAtCenter(checkbox.labelEl, {}, win);
       // Check that clicking the description is not counted as a click.
@@ -131,6 +135,7 @@ add_task(async function testSettingGroupTelemetry() {
       AccessibilityUtils.resetEnv();
 
       let button = doc.getElementById("test-button");
+      button.scrollIntoView();
       is(button.buttonEl.disabled, true, "button is disabled");
       let radio = doc.getElementById("test-radio-two");
       EventUtils.synthesizeMouseAtCenter(radio.inputEl, {}, win);
@@ -146,6 +151,7 @@ add_task(async function testSettingGroupTelemetry() {
       EventUtils.synthesizeMouseAtCenter(button, {}, win);
 
       let select = doc.getElementById("test-select");
+      select.scrollIntoView();
       let popupShown = BrowserTestUtils.waitForSelectPopupShown(window);
       EventUtils.synthesizeMouseAtCenter(select.inputEl, {}, win);
       let popup = await popupShown;
@@ -159,6 +165,7 @@ add_task(async function testSettingGroupTelemetry() {
 
       let picker = doc.getElementById("test-picker");
       let secondItem = doc.getElementById("test-picker-dark");
+      picker.scrollIntoView();
       AccessibilityUtils.setEnv({
         mustHaveAccessibleRule: false,
       });
@@ -176,42 +183,68 @@ add_task(async function testSettingGroupTelemetry() {
         "resource://testing-common/TelemetryTestUtils.sys.mjs"
       );
       let snapshot = TelemetryTestUtils.getProcessScalars("parent", true, true);
-      TelemetryTestUtils.assertKeyedScalar(
-        snapshot,
-        "browser.ui.interaction.preferences_paneGeneral",
-        "test-checkbox",
-        2 // input and label clicked
+      let changeCounts = {
+        "test-checkbox": 2, // input and label clicked
+        "test-radio-two": 1, // only input clicked
+        "test-button": 1,
+        "test-select": 1,
+        "test-picker-light": 1,
+        "test-picker-dark": 1,
+      };
+      let totalChanges = Object.values(changeCounts).reduce(
+        (total, count) => count + total,
+        0
       );
-      TelemetryTestUtils.assertKeyedScalar(
-        snapshot,
-        "browser.ui.interaction.preferences_paneGeneral",
-        "test-radio-two",
-        1 // only input clicked
+
+      for (let [id, count] of Object.entries(changeCounts)) {
+        info(id, count);
+        TelemetryTestUtils.assertKeyedScalar(
+          snapshot,
+          "browser.ui.interaction.preferences_paneGeneral",
+          id,
+          count
+        );
+      }
+
+      // Verify showInitial has a sessionId
+      let showEvents = Glean.aboutpreferences.showInitial.testGetValue();
+      Assert.equal(showEvents.length, 1, "One showInitial event recorded");
+      sessionId = showEvents[0].extra.session;
+      Assert.ok(sessionId, "showInitial has a session ID");
+
+      // Verify same number of change events as the count, includes session and pane.
+      let changeEvents = Glean.aboutpreferences.change.testGetValue();
+      Assert.equal(
+        changeEvents.length,
+        totalChanges,
+        "Change events were recorded, and count matches"
       );
-      TelemetryTestUtils.assertKeyedScalar(
-        snapshot,
-        "browser.ui.interaction.preferences_paneGeneral",
-        "test-button",
-        1
-      );
-      TelemetryTestUtils.assertKeyedScalar(
-        snapshot,
-        "browser.ui.interaction.preferences_paneGeneral",
-        "test-select",
-        1
-      );
-      TelemetryTestUtils.assertKeyedScalar(
-        snapshot,
-        "browser.ui.interaction.preferences_paneGeneral",
-        "test-picker-light",
-        1
-      );
-      TelemetryTestUtils.assertKeyedScalar(
-        snapshot,
-        "browser.ui.interaction.preferences_paneGeneral",
-        "test-picker-dark",
-        1
-      );
+      for (let event of changeEvents) {
+        Assert.equal(
+          event.extra.session,
+          sessionId,
+          "All change events share the same session ID"
+        );
+        Assert.equal(
+          event.extra.pane,
+          "paneGeneral",
+          "Pane is paneGeneral for change events"
+        );
+        Assert.ok(event.extra.setting, "Setting ID is present");
+      }
+
+      // Verify no close event has been recorded.
+      let closeEvents = Glean.aboutpreferences.close.testGetValue();
+      Assert.ok(!closeEvents, "No close event yet");
     }
+  );
+
+  // Verify close is recorded on tab close
+  let closeEvents = Glean.aboutpreferences.close.testGetValue();
+  Assert.equal(closeEvents.length, 1, "One close event recorded");
+  Assert.equal(
+    closeEvents[0].extra.session,
+    sessionId,
+    "Close event has the session ID"
   );
 });

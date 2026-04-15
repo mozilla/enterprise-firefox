@@ -54,15 +54,11 @@
   min-height: 0;
 }
 
-#browser:not(.browser-toolbox-background) {
-  background-color: var(--toolbar-bgcolor);
-  color: var(--toolbar-color);
-
-  :root[lwtheme] & {
-    /* Ensure toolbar color displays on top of the frame/toolbox color to
-    * guarantee full opacity */
-    background-color: var(--lwt-accent-color);
-    background-image: linear-gradient(var(--toolbar-bgcolor), var(--toolbar-bgcolor));
+/* stylelint-disable-next-line media-query-no-invalid */
+@media not -moz-pref("sidebar.verticalTabs") {
+  #browser {
+    background-color: var(--toolbar-bgcolor);
+    color: var(--toolbar-color);
   }
 }
 
@@ -473,7 +469,7 @@ split-view-footer {
   display: flex;
   padding: 0;
   overflow-x: auto;
-  outline: 0.5px solid var(--border-color-card);
+  outline: 0.5px solid var(--card-border-color);
 
   /* Ensure that dialog boxes are pixel-snapped, to keep their internal layout
    * consistent, regardless of whether the surrounding layout places them at a
@@ -483,7 +479,7 @@ split-view-footer {
   will-change: transform;
 
   &:not(.spotlightBox) {
-    box-shadow: var(--box-shadow-popup);
+    box-shadow: var(--popup-box-shadow);
     border-radius: var(--border-radius-medium);
   }
 

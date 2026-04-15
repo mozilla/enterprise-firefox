@@ -470,6 +470,11 @@ extensions.data:
         description: |
           The name of the error hit by the DB reset logic (if any).
         type: string
+      is_addon_active:
+        description: |
+          Whether the WebExtensionPolicy associated to the add-on was active
+          at the time we are collecting this event.
+        type: boolean
     expires: 152
 
   sync_usage_quotas:

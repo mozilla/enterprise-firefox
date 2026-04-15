@@ -875,9 +875,10 @@ export var PanelMultiView = class extends AssociatedToNode {
     // Panels could contain out-pf-process <browser> elements, that need to be
     // supported with a remote attribute on the panel in order to display properly.
     // See bug https://bugzilla.mozilla.org/show_bug.cgi?id=1365660
-    if (panelView.node.getAttribute("remote") == "true") {
-      this.#panel.setAttribute("remote", "true");
-    }
+    this.#panel.toggleAttribute(
+      "remote",
+      panelView.node.hasAttribute("remote")
+    );
 
     let canceled = await panelView.dispatchAsyncEvent("ViewShowing");
 
@@ -1576,6 +1577,13 @@ export var PanelView = class extends AssociatedToNode {
       if (node.disabled) {
         return NodeFilter.FILTER_REJECT;
       }
+      let visible = node.checkVisibility({
+        checkVisibilityCSS: true,
+        flush: false,
+      });
+      if (!visible) {
+        return NodeFilter.FILTER_REJECT;
+      }
       let bounds = this._getBoundsWithoutFlushing(node);
       if (bounds.width == 0 || bounds.height == 0) {
         return NodeFilter.FILTER_REJECT;
@@ -1602,11 +1610,12 @@ export var PanelView = class extends AssociatedToNode {
         node.dataset?.capturesFocus === "true"
       ) {
         // Set the tabindex attribute to make sure the node is focusable.
-        // Don't do this for browser and iframe elements because this breaks
-        // tabbing behavior. They're already focusable anyway.
+        // Don't do this for browser, iframe and input elements because this
+        // breaks tabbing behavior. They're already focusable anyway.
         if (
           localName != "browser" &&
           localName != "iframe" &&
+          localName != "input" &&
           !node.hasAttribute("tabindex") &&
           node.dataset?.capturesFocus !== "true"
         ) {

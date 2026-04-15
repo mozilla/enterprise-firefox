@@ -17,6 +17,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "chrome://remote/content/webdriver-bidi/RemoteValue.sys.mjs",
 });
 
+const METHODS_WITHOUT_PRINTER = ["clear", "groupEnd", "time"];
+
 class LogModule extends WindowGlobalBiDiModule {
   #consoleAPIListener;
   #consoleMessageListener;
@@ -112,6 +114,11 @@ class LogModule extends WindowGlobalBiDiModule {
       stacktrace,
       timeStamp,
     } = data;
+
+    // Skip the console methods which don't print anything in the console.
+    if (METHODS_WITHOUT_PRINTER.includes(method)) {
+      return;
+    }
 
     // Step numbers below refer to the specifications at
     //   https://w3c.github.io/webdriver-bidi/#event-log-entryAdded

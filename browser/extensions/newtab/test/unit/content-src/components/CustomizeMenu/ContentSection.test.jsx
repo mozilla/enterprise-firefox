@@ -295,4 +295,89 @@ describe("ContentSection", () => {
       "widget_size should always be mini for Weather widget"
     );
   });
+
+  describe("SectionsMgmtPanel", () => {
+    const STATE_WITH_SECTIONS = {
+      ...INITIAL_STATE,
+      DiscoveryStream: {
+        ...INITIAL_STATE.DiscoveryStream,
+        layout: [
+          {
+            components: [
+              {
+                type: "CardGrid",
+                feed: {
+                  url: "https://example.com/feed",
+                },
+              },
+            ],
+          },
+        ],
+        feeds: {
+          data: {
+            "https://example.com/feed": {
+              data: {
+                sections: [
+                  {
+                    sectionKey: "technology",
+                    title: "Technology",
+                    receivedRank: 0,
+                  },
+                ],
+              },
+            },
+          },
+        },
+        sectionPersonalization: {},
+      },
+    };
+
+    it("should not render SectionsMgmtPanel when mayHaveTopicSections is false", () => {
+      wrapper = mount(
+        <WrapWithProvider state={STATE_WITH_SECTIONS}>
+          <ContentSection
+            {...DEFAULT_PROPS}
+            mayHaveTopicSections={false}
+            enabledSections={{
+              ...DEFAULT_PROPS.enabledSections,
+              pocketEnabled: true,
+            }}
+          />
+        </WrapWithProvider>
+      );
+      assert.isFalse(wrapper.find("SectionsMgmtPanel").exists());
+    });
+
+    it("should render SectionsMgmtPanel when mayHaveTopicSections is true", () => {
+      wrapper = mount(
+        <WrapWithProvider state={STATE_WITH_SECTIONS}>
+          <ContentSection
+            {...DEFAULT_PROPS}
+            mayHaveTopicSections={true}
+            enabledSections={{
+              ...DEFAULT_PROPS.enabledSections,
+              pocketEnabled: true,
+            }}
+          />
+        </WrapWithProvider>
+      );
+      assert.isTrue(wrapper.find("SectionsMgmtPanel").exists());
+    });
+
+    it("should render SectionsMgmtPanel only when pocket is enabled and mayHaveTopicSections is true", () => {
+      wrapper = mount(
+        <WrapWithProvider state={STATE_WITH_SECTIONS}>
+          <ContentSection
+            {...DEFAULT_PROPS}
+            mayHaveTopicSections={true}
+            enabledSections={{
+              ...DEFAULT_PROPS.enabledSections,
+              pocketEnabled: false,
+            }}
+          />
+        </WrapWithProvider>
+      );
+      assert.isTrue(wrapper.find("SectionsMgmtPanel").exists());
+    });
+  });
 });

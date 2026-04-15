@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1450,10 +1448,9 @@ BackgroundSessionStorageManager* SessionStorageManagerParent::GetManager()
 
 mozilla::ipc::IPCResult SessionStorageManagerParent::RecvClearStorages(
     const OriginAttributesPattern& aPattern, const nsACString& aOriginScope,
-    const uint32_t& aMode) {
+    const DomainMatchingMode& aMode) {
   ::mozilla::ipc::AssertIsOnBackgroundThread();
-  mBackgroundManager->ClearStorages(aPattern, aOriginScope,
-                                    static_cast<DomainMatchingMode>(aMode));
+  mBackgroundManager->ClearStorages(aPattern, aOriginScope, aMode);
   return IPC_OK();
 }
 

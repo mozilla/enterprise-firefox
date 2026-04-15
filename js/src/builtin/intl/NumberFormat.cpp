@@ -1199,17 +1199,11 @@ static bool InitializeNumberFormat(JSContext* cx,
   // Step 3. (Inlined ResolveOptions)
 
   // ResolveOptions, step 1.
-  Rooted<LocalesList> requestedLocales(cx, cx);
-  if (!CanonicalizeLocaleList(cx, locales, &requestedLocales)) {
+  auto* requestedLocales = CanonicalizeLocaleList(cx, locales);
+  if (!requestedLocales) {
     return false;
   }
-
-  Rooted<ArrayObject*> requestedLocalesArray(
-      cx, LocalesListToArray(cx, requestedLocales));
-  if (!requestedLocalesArray) {
-    return false;
-  }
-  numberFormat->setRequestedLocales(requestedLocalesArray);
+  numberFormat->setRequestedLocales(requestedLocales);
 
   NumberFormatOptions nfOptions{};
 
@@ -1534,51 +1528,6 @@ static UniqueChars NumberFormatLocale(
   return FormatLocale(cx, locale, keywords);
 }
 
-static auto ToSignDisplay(NumberFormatOptions::SignDisplay signDisplay) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::NumberFormatOptions::SignDisplay;
-#else
-  USING_ENUM(mozilla::intl::NumberFormatOptions::SignDisplay, Auto, Never,
-             Always, ExceptZero, Negative);
-#endif
-  switch (signDisplay) {
-    case NumberFormatOptions::SignDisplay::Auto:
-      return Auto;
-    case NumberFormatOptions::SignDisplay::Never:
-      return Never;
-    case NumberFormatOptions::SignDisplay::Always:
-      return Always;
-    case NumberFormatOptions::SignDisplay::ExceptZero:
-      return ExceptZero;
-    case NumberFormatOptions::SignDisplay::Negative:
-      return Negative;
-  }
-  MOZ_CRASH("invalid sign display");
-}
-
-static auto ToAccountingSignDisplay(
-    NumberFormatOptions::SignDisplay signDisplay) {
-#ifndef USING_ENUM
-  using enum mozilla::intl::NumberFormatOptions::SignDisplay;
-#else
-  USING_ENUM(mozilla::intl::NumberFormatOptions::SignDisplay, Accounting, Never,
-             AccountingAlways, AccountingExceptZero, AccountingNegative);
-#endif
-  switch (signDisplay) {
-    case NumberFormatOptions::SignDisplay::Auto:
-      return Accounting;
-    case NumberFormatOptions::SignDisplay::Never:
-      return Never;
-    case NumberFormatOptions::SignDisplay::Always:
-      return AccountingAlways;
-    case NumberFormatOptions::SignDisplay::ExceptZero:
-      return AccountingExceptZero;
-    case NumberFormatOptions::SignDisplay::Negative:
-      return AccountingNegative;
-  }
-  MOZ_CRASH("invalid sign display");
-}
-
 static auto ToNotation(NumberFormatOptions::Notation notation,
                        NumberFormatOptions::CompactDisplay compactDisplay) {
 #ifndef USING_ENUM
@@ -1646,15 +1595,12 @@ static std::string_view UnitName(const NumberFormatUnitOptions::Unit& unit,
 static void SetNumberFormatUnitOptions(
     const NumberFormatUnitOptions& unitOptions,
     MozNumberFormatOptions& options) {
-  switch (unitOptions.style) {
-    case NumberFormatUnitOptions::Style::Decimal: {
-      return;
-    }
+  options.mStyle = unitOptions.style;
 
-    case NumberFormatUnitOptions::Style::Percent: {
-      options.mPercent = true;
+  switch (unitOptions.style) {
+    case NumberFormatUnitOptions::Style::Decimal:
+    case NumberFormatUnitOptions::Style::Percent:
       return;
-    }
 
     case NumberFormatUnitOptions::Style::Currency: {
       static constexpr size_t CurrencyLength = 3;
@@ -1668,9 +1614,11 @@ static void SetNumberFormatUnitOptions(
                                                  CurrencyLength);
 
       auto display = unitOptions.currencyDisplay;
+      auto sign = unitOptions.currencySign;
 
-      options.mCurrency = mozilla::Some(std::make_pair(
-          std::string_view(options.currencyChars, CurrencyLength), display));
+      options.mCurrency = mozilla::Some(std::make_tuple(
+          std::string_view(options.currencyChars, CurrencyLength), display,
+          sign));
       return;
     }
 
@@ -1726,14 +1674,7 @@ static void SetNumberFormatOptions(const NumberFormatOptions& nfOptions,
 
   options.mNotation = ToNotation(nfOptions.notation, nfOptions.compactDisplay);
   options.mGrouping = nfOptions.useGrouping;
-  if (nfOptions.unitOptions.style == NumberFormatUnitOptions::Style::Currency &&
-      nfOptions.unitOptions.currencySign ==
-          NumberFormatUnitOptions::CurrencySign::Accounting) {
-    options.mSignDisplay = ToAccountingSignDisplay(nfOptions.signDisplay);
-  } else {
-    options.mSignDisplay = ToSignDisplay(nfOptions.signDisplay);
-  }
-
+  options.mSignDisplay = nfOptions.signDisplay;
   options.mRangeCollapse =
       mozilla::intl::NumberRangeFormatOptions::RangeCollapse::Auto;
   options.mRangeIdentityFallback = mozilla::intl::NumberRangeFormatOptions::

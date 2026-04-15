@@ -8,6 +8,7 @@ use crate::derives::*;
 use crate::parser::{Parse, ParserContext};
 use crate::properties::{NonCustomPropertyId, PropertyId, ShorthandId};
 use crate::values::generics::animation as generics;
+use crate::values::generics::position::TreeScoped;
 use crate::values::specified::{LengthPercentage, NonNegativeNumber, Time};
 use crate::values::{CustomIdent, DashedIdent, KeyframesName};
 use crate::Atom;
@@ -15,6 +16,7 @@ use cssparser::{match_ignore_ascii_case, Parser};
 use std::fmt::{self, Write};
 use style_traits::{
     CssWriter, KeywordsCollectFn, ParseError, SpecifiedValueInfo, StyleParseErrorKind, ToCss,
+    ToTyped,
 };
 
 /// A given transition property, that is either `All`, a longhand or shorthand
@@ -48,6 +50,8 @@ impl ToCss for TransitionProperty {
         }
     }
 }
+
+impl ToTyped for TransitionProperty {}
 
 impl Parse for TransitionProperty {
     fn parse<'i, 't>(
@@ -128,6 +132,7 @@ impl TransitionProperty {
     ToCss,
     ToResolvedValue,
     ToShmem,
+    ToTyped,
 )]
 #[repr(u8)]
 pub enum TransitionBehavior {
@@ -173,6 +178,7 @@ impl Parse for AnimationDuration {
 #[derive(
     Copy, Clone, Debug, MallocSizeOf, PartialEq, Parse, SpecifiedValueInfo, ToCss, ToShmem, ToTyped,
 )]
+#[typed_value(derive_fields)]
 pub enum AnimationIterationCount {
     /// A `<number>` value.
     Number(NonNegativeNumber),
@@ -211,6 +217,7 @@ impl AnimationIterationCount {
 )]
 #[value_info(other_values = "none")]
 #[repr(C)]
+#[typed_value(derive_fields)]
 pub struct AnimationName(pub KeyframesName);
 
 impl AnimationName {
@@ -445,6 +452,7 @@ impl Default for Scroller {
     ToCss,
     ToResolvedValue,
     ToShmem,
+    ToTyped,
 )]
 #[repr(u8)]
 pub enum ScrollAxis {
@@ -562,6 +570,16 @@ impl generics::ViewFunction<LengthPercentage> {
 ///
 /// https://drafts.csswg.org/scroll-animations-1/#scroll-timeline-name
 /// https://drafts.csswg.org/scroll-animations-1/#view-timeline-name
+pub type TimelineName = TreeScoped<TimelineIdent>;
+
+impl TimelineName {
+    /// Return the `none` value.
+    pub fn none() -> Self {
+        Self::with_default_level(TimelineIdent::none())
+    }
+}
+
+/// The identifier for a timeline name.
 #[derive(
     Clone,
     Debug,
@@ -575,9 +593,9 @@ impl generics::ViewFunction<LengthPercentage> {
     ToShmem,
 )]
 #[repr(C)]
-pub struct TimelineName(DashedIdent);
+pub struct TimelineIdent(DashedIdent);
 
-impl TimelineName {
+impl TimelineIdent {
     /// Returns the `none` value.
     pub fn none() -> Self {
         Self(DashedIdent::empty())
@@ -589,7 +607,7 @@ impl TimelineName {
     }
 }
 
-impl Parse for TimelineName {
+impl Parse for TimelineIdent {
     fn parse<'i, 't>(
         context: &ParserContext,
         input: &mut Parser<'i, 't>,
@@ -598,11 +616,11 @@ impl Parse for TimelineName {
             return Ok(Self::none());
         }
 
-        DashedIdent::parse(context, input).map(TimelineName)
+        DashedIdent::parse(context, input).map(TimelineIdent)
     }
 }
 
-impl ToCss for TimelineName {
+impl ToCss for TimelineIdent {
     fn to_css<W>(&self, dest: &mut CssWriter<W>) -> fmt::Result
     where
         W: Write,
@@ -614,6 +632,8 @@ impl ToCss for TimelineName {
         self.0.to_css(dest)
     }
 }
+
+impl ToTyped for TimelineName {}
 
 /// A specified value for the `animation-timeline` property.
 pub type AnimationTimeline = generics::GenericAnimationTimeline<LengthPercentage>;
@@ -693,7 +713,7 @@ impl Parse for ViewTimelineInset {
     ToTyped,
 )]
 #[repr(C, u8)]
-pub enum ViewTransitionName {
+pub enum ViewTransitionNameKeyword {
     /// None keyword.
     None,
     /// match-element keyword.
@@ -703,14 +723,14 @@ pub enum ViewTransitionName {
     Ident(Atom),
 }
 
-impl ViewTransitionName {
+impl ViewTransitionNameKeyword {
     /// Returns the `none` value.
     pub fn none() -> Self {
         Self::None
     }
 }
 
-impl Parse for ViewTransitionName {
+impl Parse for ViewTransitionNameKeyword {
     fn parse<'i, 't>(
         _: &ParserContext,
         input: &mut Parser<'i, 't>,
@@ -731,7 +751,7 @@ impl Parse for ViewTransitionName {
     }
 }
 
-impl ToCss for ViewTransitionName {
+impl ToCss for ViewTransitionNameKeyword {
     fn to_css<W>(&self, dest: &mut CssWriter<W>) -> fmt::Result
     where
         W: Write,
@@ -742,6 +762,16 @@ impl ToCss for ViewTransitionName {
             Self::MatchElement => dest.write_str("match-element"),
             Self::Ident(ref ident) => serialize_atom_identifier(ident, dest),
         }
+    }
+}
+
+/// https://drafts.csswg.org/css-view-transitions-1/#view-transition-name-prop
+pub type ViewTransitionName = TreeScoped<ViewTransitionNameKeyword>;
+
+impl ViewTransitionName {
+    /// Return the `none` value.
+    pub fn none() -> Self {
+        Self::with_default_level(ViewTransitionNameKeyword::none())
     }
 }
 
@@ -766,13 +796,13 @@ impl ToCss for ViewTransitionName {
 )]
 #[repr(C)]
 #[value_info(other_values = "none")]
-pub struct ViewTransitionClass(
+pub struct ViewTransitionClassList(
     #[css(iterable, if_empty = "none")]
     #[ignore_malloc_size_of = "Arc"]
     crate::ArcSlice<CustomIdent>,
 );
 
-impl ViewTransitionClass {
+impl ViewTransitionClassList {
     /// Returns the default value, `none`. We use the default slice (i.e. empty) to represent it.
     pub fn none() -> Self {
         Self(Default::default())
@@ -784,7 +814,7 @@ impl ViewTransitionClass {
     }
 }
 
-impl Parse for ViewTransitionClass {
+impl Parse for ViewTransitionClassList {
     fn parse<'i, 't>(
         _: &ParserContext,
         input: &mut Parser<'i, 't>,
@@ -798,5 +828,127 @@ impl Parse for ViewTransitionClass {
         Ok(Self(crate::ArcSlice::from_iter(
             Space::parse(input, |i| CustomIdent::parse(i, &["none"]))?.into_iter(),
         )))
+    }
+}
+
+/// https://drafts.csswg.org/css-view-transitions-2/#view-transition-class-prop
+pub type ViewTransitionClass = TreeScoped<ViewTransitionClassList>;
+
+impl ViewTransitionClass {
+    /// Returns the default value, `none`.
+    pub fn none() -> Self {
+        Self::with_default_level(ViewTransitionClassList::none())
+    }
+}
+
+/// The <timeline-range-name> value type, which indicates a CSS identifier representing one of the
+/// predefined named timeline ranges.
+/// https://drafts.csswg.org/scroll-animations-1/#named-ranges
+///
+/// For now, only view timeline ranges use this type.
+/// https://drafts.csswg.org/scroll-animations-1/#view-timelines-ranges
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    MallocSizeOf,
+    Parse,
+    PartialEq,
+    SpecifiedValueInfo,
+    ToComputedValue,
+    ToCss,
+    ToResolvedValue,
+    ToShmem,
+    ToTyped,
+)]
+#[repr(u8)]
+pub enum TimelineRangeName {
+    /// The default normal value.
+    #[css(skip)]
+    Normal,
+    /// No timeline range name specified.
+    #[css(skip)]
+    None,
+    /// Represents the full range of the view progress timeline
+    Cover,
+    /// Represents the range during which the principal box is either fully contained by, or fully
+    /// covers, its view progress visibility range within the scrollport.
+    Contain,
+    /// Represents the range during which the principal box is entering the view progress
+    /// visibility range.
+    Entry,
+    /// Represents the range during which the principal box is exiting the view progress visibility
+    /// range.
+    Exit,
+    /// Represents the range during which the principal box crosses the end border edge.
+    EntryCrossing,
+    /// Represents the range during which the principal box crosses the start border edge.
+    ExitCrossing,
+    /// Represents the full range of the scroll container on which the view progress timeline is
+    /// defined.
+    Scroll,
+}
+
+impl TimelineRangeName {
+    /// Returns true if it is `normal`.
+    #[inline]
+    pub fn is_normal(&self) -> bool {
+        matches!(*self, Self::Normal)
+    }
+
+    /// Returns true if it is `none`.
+    #[inline]
+    pub fn is_none(&self) -> bool {
+        matches!(*self, Self::None)
+    }
+}
+
+/// The internal value for `animation-range-start` and `animation-range-end`.
+pub type AnimationRangeValue = generics::GenericAnimationRangeValue<LengthPercentage>;
+
+fn parse_animation_range<'i, 't>(
+    context: &ParserContext,
+    input: &mut Parser<'i, 't>,
+    default: LengthPercentage,
+) -> Result<AnimationRangeValue, ParseError<'i>> {
+    if input
+        .try_parse(|i| i.expect_ident_matching("normal"))
+        .is_ok()
+    {
+        return Ok(AnimationRangeValue::normal(default));
+    }
+
+    if let Ok(lp) = input.try_parse(|i| LengthPercentage::parse(context, i)) {
+        return Ok(AnimationRangeValue::length_percentage(lp));
+    }
+
+    let name = TimelineRangeName::parse(input)?;
+    let lp = input
+        .try_parse(|i| LengthPercentage::parse(context, i))
+        .unwrap_or(default);
+    Ok(AnimationRangeValue::new(name, lp))
+}
+
+/// A specified value for the `animation-range-start`.
+pub type AnimationRangeStart = generics::GenericAnimationRangeStart<LengthPercentage>;
+
+impl Parse for AnimationRangeStart {
+    fn parse<'i, 't>(
+        context: &ParserContext,
+        input: &mut Parser<'i, 't>,
+    ) -> Result<Self, ParseError<'i>> {
+        parse_animation_range(context, input, LengthPercentage::zero_percent()).map(Self)
+    }
+}
+
+/// A specified value for the `animation-range-end`.
+pub type AnimationRangeEnd = generics::GenericAnimationRangeEnd<LengthPercentage>;
+
+impl Parse for AnimationRangeEnd {
+    fn parse<'i, 't>(
+        context: &ParserContext,
+        input: &mut Parser<'i, 't>,
+    ) -> Result<Self, ParseError<'i>> {
+        parse_animation_range(context, input, LengthPercentage::hundred_percent()).map(Self)
     }
 }

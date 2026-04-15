@@ -18,6 +18,8 @@ class TestDispatcher(unittest.TestCase):
     """Tests dispatch related code"""
 
     def get_parser(self, config=None):
+        import mach.settings  # noqa need @SettingsProvider hook to execute
+
         mach = self.get_mach(Path("basic.py"))
 
         for provider in Registrar.settings_providers:

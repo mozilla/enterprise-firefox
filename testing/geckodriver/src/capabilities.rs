@@ -285,7 +285,7 @@ impl BrowserCapabilities for FirefoxCapabilities<'_> {
                                         return Err(WebDriverError::new(
                                             ErrorStatus::InvalidArgument,
                                             format!("Invalid log field {}", x),
-                                        ))
+                                        ));
                                     }
                                 }
                             }
@@ -310,7 +310,7 @@ impl BrowserCapabilities for FirefoxCapabilities<'_> {
                             return Err(WebDriverError::new(
                                 ErrorStatus::InvalidArgument,
                                 format!("Invalid moz:firefoxOptions field {}", x),
-                            ))
+                            ));
                         }
                     }
                 }
@@ -336,7 +336,7 @@ impl BrowserCapabilities for FirefoxCapabilities<'_> {
                 return Err(WebDriverError::new(
                     ErrorStatus::InvalidArgument,
                     format!("Unrecognised option {}", name),
-                ))
+                ));
             }
         }
         Ok(())
@@ -458,9 +458,11 @@ impl FirefoxOptions {
                     ));
                 }
                 // See bug 1757720
-                warn!("Firefox was configured to use a named profile (`-P <name>`). \
+                warn!(
+                    "Firefox was configured to use a named profile (`-P <name>`). \
                        Support for named profiles will be removed in a future geckodriver release. \
-                       Please instead use the `--profile <path>` Firefox argument to start with an existing profile");
+                       Please instead use the `--profile <path>` Firefox argument to start with an existing profile"
+                );
                 rv.profile = ProfileType::Named;
             }
 
@@ -819,11 +821,11 @@ fn unzip_buffer(buf: &[u8], dest_dir: &Path) -> WebDriverResult<()> {
                 } else {
                     dest_path.parent()
                 };
-                if let Some(dir) = create_dir {
-                    if !dir.exists() {
-                        debug!("Creating profile directory tree {}", dir.to_string_lossy());
-                        fs::create_dir_all(dir)?;
-                    }
+                if let Some(dir) = create_dir
+                    && !dir.exists()
+                {
+                    debug!("Creating profile directory tree {}", dir.to_string_lossy());
+                    fs::create_dir_all(dir)?;
                 }
             }
 

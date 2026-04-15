@@ -548,6 +548,14 @@ let JSWINDOWACTORS = {
     allFrames: true,
   },
 
+  TLSCertificateBinding: {
+    child: {
+      esModuleURI: "resource://gre/actors/TLSCertificateBindingChild.sys.mjs",
+    },
+
+    messageManagerGroups: ["browsers"],
+  },
+
   // This actor is available for all pages that one can
   // view the source of, however it won't be created until a
   // request to view the source is made via the message
@@ -766,9 +774,6 @@ if (AppConstants.platform != "android") {
         // Run the actor before any content of the page appears to inject functions.
         DOMDocElementInserted: {},
         DOMContentLoaded: {},
-        // Used to show and hide the translations button.
-        pageshow: { mozSystemGroup: true },
-        pagehide: { mozSystemGroup: true },
       },
     },
     matches: ["about:translations"],

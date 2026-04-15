@@ -575,10 +575,11 @@ void js::gc::MarkingValidator::nonIncrementalMark(AutoGCSession& session) {
     }
 
     AutoEnterOOMUnsafeRegion oomUnsafe;
-    for (auto r = zone->gcEphemeronEdges().all(); !r.empty(); r.popFront()) {
-      MOZ_ASSERT(r.front().key()->zone() == zone);
-      if (!savedEphemeronEdges.putNew(r.front().key(),
-                                      std::move(r.front().value()))) {
+    for (auto iter = zone->gcEphemeronEdges().iter(); !iter.done();
+         iter.next()) {
+      MOZ_ASSERT(iter.get().key()->zone() == zone);
+      if (!savedEphemeronEdges.putNew(iter.get().key(),
+                                      std::move(iter.get().value()))) {
         // Notice the std::move -- this could consume the moved-from value even
         // on failure, so it's unsafe to continue if putNew fails.
         oomUnsafe.crash("saving weak keys table for validator");
@@ -671,16 +672,16 @@ void js::gc::MarkingValidator::nonIncrementalMark(AutoGCSession& session) {
 
   for (GCZonesIter zone(gc); !zone.done(); zone.next()) {
     WeakMapBase::unmarkZone(zone);
-    MOZ_ASSERT(zone->gcEphemeronEdges().empty(), "unmarkZone clears the map");
+    WeakMapBase::checkZoneUnmarked(zone);
   }
 
   WeakMapBase::restoreMarkedWeakMaps(markedWeakMaps);
 
-  for (auto r = savedEphemeronEdges.all(); !r.empty(); r.popFront()) {
+  for (auto iter = savedEphemeronEdges.iter(); !iter.done(); iter.next()) {
     AutoEnterOOMUnsafeRegion oomUnsafe;
-    Zone* zone = r.front().key()->asTenured().zone();
-    if (!zone->gcEphemeronEdges().putNew(r.front().key(),
-                                         std::move(r.front().value()))) {
+    Zone* zone = iter.get().key()->asTenured().zone();
+    if (!zone->gcEphemeronEdges().putNew(iter.get().key(),
+                                         std::move(iter.get().value()))) {
       oomUnsafe.crash("restoring weak keys table for validator");
     }
   }

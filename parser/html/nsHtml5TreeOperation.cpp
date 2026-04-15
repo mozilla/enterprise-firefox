@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 sw=2 et tw=78: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1017,19 +1015,29 @@ nsresult nsHtml5TreeOperation::Perform(nsHtml5TreeOpExecutor* aBuilder,
           aOperation.mShadowRootIsClonable,
           aOperation.mShadowRootIsSerializable,
           aOperation.mShadowRootDelegatesFocus,
+          aOperation.mShadowRootCustomElementRegistry,
           aOperation.mShadowRootReferenceTarget);
       if (root) {
         *aOperation.mFragHandle = root;
         return NS_OK;
       }
 
+      nsIContent* node = *aOperation.mTemplateNode;
+      nsIContent* host = *aOperation.mHost;
+
+      if (MOZ_UNLIKELY(node->GetParentNode())) {
+        Detach(node, mBuilder);
+        if (MOZ_UNLIKELY(node->GetParentNode())) {
+          // Can this happen? If it can, give up.
+          return NS_OK;
+        }
+      }
+
       // We failed to attach a new shadow root, so instead attach a template
       // element and return its content.
-      nsHtml5TreeOperation::Append(*aOperation.mTemplateNode, *aOperation.mHost,
-                                   mBuilder);
+      nsHtml5TreeOperation::Append(node, host, mBuilder);
       *aOperation.mFragHandle =
-          static_cast<HTMLTemplateElement*>(*aOperation.mTemplateNode)
-              ->Content();
+          static_cast<HTMLTemplateElement*>(node)->Content();
       nsContentUtils::LogSimpleConsoleError(
           u"Failed to attach Declarative Shadow DOM."_ns, "DOM"_ns,
           mBuilder->GetDocument()->IsInPrivateBrowsing(),
@@ -1041,6 +1049,9 @@ nsresult nsHtml5TreeOperation::Perform(nsHtml5TreeOpExecutor* aBuilder,
       nsIContent* table = *(aOperation.mTable);
       nsIContent* stackParent = *(aOperation.mStackParent);
       nsIContent* fosterParent = GetFosterParent(table, stackParent);
+      if (fosterParent) {
+        mBuilder->HoldElement(do_AddRef(fosterParent));
+      }
       *aOperation.mParentHandle = fosterParent;
       return NS_OK;
     }
@@ -1252,17 +1263,17 @@ nsresult nsHtml5TreeOperation::Perform(nsHtml5TreeOpExecutor* aBuilder,
       nsAutoString message;
       if (otherAtom) {
         rv = nsContentUtils::FormatLocalizedString(
-            message, nsContentUtils::eHTMLPARSER_PROPERTIES, msgId,
+            message, PropertiesFile::HTMLPARSER_PROPERTIES, msgId,
             nsDependentAtomString(atom), nsDependentAtomString(otherAtom));
         NS_ENSURE_SUCCESS(rv, NS_OK);
       } else if (atom) {
         rv = nsContentUtils::FormatLocalizedString(
-            message, nsContentUtils::eHTMLPARSER_PROPERTIES, msgId,
+            message, PropertiesFile::HTMLPARSER_PROPERTIES, msgId,
             nsDependentAtomString(atom));
         NS_ENSURE_SUCCESS(rv, NS_OK);
       } else {
         rv = nsContentUtils::GetLocalizedString(
-            nsContentUtils::eHTMLPARSER_PROPERTIES, msgId, message);
+            PropertiesFile::HTMLPARSER_PROPERTIES, msgId, message);
         NS_ENSURE_SUCCESS(rv, NS_OK);
       }
 

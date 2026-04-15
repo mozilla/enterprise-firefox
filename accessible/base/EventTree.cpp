@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -27,6 +26,11 @@ TreeMutation::TreeMutation(LocalAccessible* aParent, bool aNoEvents)
 #endif
 
   mParent->mStateFlags |= LocalAccessible::eKidsMutating;
+  if (mQueueEvents &&
+      !mParent->Document()->HasLoadState(DocAccessible::eTreeConstructed)) {
+    // Don't queue events while we're still building the initial tree.
+    mQueueEvents = false;
+  }
 }
 
 TreeMutation::~TreeMutation() {

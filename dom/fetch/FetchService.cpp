@@ -234,7 +234,7 @@ RefPtr<FetchServicePromises> FetchService::FetchInstance::Fetch() {
   nsAutoCString requestURL;
   mRequest->GetURL(requestURL);
   FETCH_LOG(("FetchInstance::Fetch [%p], mRequest URL: %s mPrincipal: %s", this,
-             requestURL.BeginReading(), principalSpec.BeginReading()));
+             requestURL.get(), principalSpec.get()));
 
   nsresult rv;
 

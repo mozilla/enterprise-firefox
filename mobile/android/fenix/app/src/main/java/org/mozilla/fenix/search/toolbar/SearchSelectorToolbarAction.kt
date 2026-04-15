@@ -11,6 +11,8 @@ import android.view.ViewGroup
 import androidx.annotation.VisibleForTesting
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.scale
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
@@ -38,11 +40,13 @@ import org.mozilla.fenix.GleanMetrics.Toolbar as GleanMetricsToolbar
  * @param defaultSearchEngine The user selected or default [SearchEngine].
  * @param menu An instance of [SearchSelectorMenu] to display a popup menu for the search
  * selections.
+ * @param mainDispatcher [CoroutineDispatcher] to be used for the view scope.
  */
 class SearchSelectorToolbarAction(
     private val store: SearchDialogFragmentStore,
     private val defaultSearchEngine: SearchEngine?,
     private val menu: SearchSelectorMenu,
+    private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
 ) : Toolbar.Action {
     private var updateIconJob: Job? = null
 
@@ -96,7 +100,7 @@ class SearchSelectorToolbarAction(
         // It may happen that this View is binded multiple times.
         // Prevent launching new coroutines for every time this is binded and only update the icon once.
         if (updateIconJob?.isActive != true) {
-            updateIconJob = (view as? SearchSelector)?.toScope()?.launch {
+            updateIconJob = (view as? SearchSelector)?.toScope(mainDispatcher = mainDispatcher)?.launch {
                 store.flow()
                     .map { state -> state.searchEngineSource.searchEngine }
                     .filterNotNull()

@@ -157,7 +157,7 @@ class App extends Component {
       (isMacOS && event.key === "r" && event.ctrlKey === true)
     ) {
       const initialValue =
-        webConsoleUI.jsterm && webConsoleUI.jsterm.getSelectedText();
+        webConsoleUI.jsterm && webConsoleUI.jsterm.editor.getSelectedText();
 
       dispatch(
         actions.reverseSearchInputToggle({ initialValue, access: "keyboard" })

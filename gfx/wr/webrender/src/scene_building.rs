@@ -43,14 +43,14 @@ use api::{IframeDisplayItem, ImageKey, ImageRendering, ItemRange, ColorDepth, Qu
 use api::{LineOrientation, LineStyle, NinePatchBorderSource, PipelineId, MixBlendMode, StackingContextFlags};
 use api::{PropertyBinding, ReferenceFrameKind, ScrollFrameDescriptor};
 use api::{APZScrollGeneration, HasScrollLinkedEffect, Shadow, SpatialId, StickyFrameDescriptor, ImageMask, ItemTag};
-use api::{ClipMode, PrimitiveKeyKind, TransformStyle, YuvColorSpace, ColorRange, YuvData, TempFilterData};
+use api::{ClipMode, TransformStyle, YuvColorSpace, ColorRange, YuvData, TempFilterData};
 use api::{ReferenceTransformBinding, Rotation, FillRule, SpatialTreeItem, ReferenceFrameDescriptor};
 use api::{FilterOpGraphPictureBufferId, SVGFE_GRAPH_MAX};
 use api::channel::{unbounded_channel, Receiver, Sender};
 use api::units::*;
 use crate::image_tiling::simplify_repeated_primitive;
 use crate::box_shadow::BLUR_SAMPLE_SCALE;
-use crate::clip::{ClipIntern, ClipItemKey, ClipItemKeyKind, ClipStore};
+use crate::clip::{ClipIntern, ClipItemKey, ClipItemKeyKind, ClipItemEntry, ClipStore};
 use crate::clip::{ClipInternData, ClipNodeId, ClipLeafId};
 use crate::clip::{PolygonDataHandle, ClipTreeBuilder};
 use crate::gpu_types::BlurEdgeMode;
@@ -69,12 +69,13 @@ use crate::prim_store::{PrimitiveInstance, PrimitiveStoreStats};
 use crate::prim_store::{PrimitiveInstanceKind, NinePatchDescriptor, PrimitiveStore};
 use crate::prim_store::{InternablePrimitive, PictureIndex};
 use crate::prim_store::PolygonKey;
+use crate::prim_store::rectangle::RectanglePrim;
 use crate::prim_store::backdrop::{BackdropCapture, BackdropRender};
 use crate::prim_store::borders::{ImageBorder, NormalBorderPrim};
 use crate::prim_store::gradient::{
     GradientStopKey, LinearGradient, RadialGradient, RadialGradientParams, ConicGradient,
     ConicGradientParams, optimize_radial_gradient, apply_gradient_local_clip,
-    optimize_linear_gradient, self,
+    optimize_linear_gradient,
 };
 use crate::prim_store::image::{Image, YuvImage};
 use crate::prim_store::line_dec::{LineDecoration, LineDecorationCacheKey, get_line_decoration_size};
@@ -986,15 +987,7 @@ impl<'a> SceneBuilder<'a> {
                             continue;
                         }
 
-                        let snapshot = info.snapshot.map(|snapshot| {
-                            // Offset the snapshot area by the stacking context origin
-                            // so that the area is expressed in the same coordinate space
-                            // as the items in the stacking context.
-                            SnapshotInfo {
-                                area: snapshot.area.translate(info.origin.to_vector()),
-                                .. snapshot
-                            }
-                        });
+                        let snapshot = info.snapshot;
 
                         let composition_operations = CompositeOps::new(
                             filter_ops_for_compositing(item.filters()),
@@ -1011,7 +1004,6 @@ impl<'a> SceneBuilder<'a> {
                             info.stacking_context.clip_chain_id,
                             info.stacking_context.raster_space,
                             info.stacking_context.flags,
-                            info.ref_frame_offset + info.origin.to_vector(),
                         );
 
                         let new_context = BuildContext {
@@ -1553,7 +1545,6 @@ impl<'a> SceneBuilder<'a> {
                     &info.color,
                     item.glyphs(),
                     info.glyph_options,
-                    info.ref_frame_offset,
                 );
             }
             DisplayItem::Rectangle(ref info) => {
@@ -1569,7 +1560,7 @@ impl<'a> SceneBuilder<'a> {
                     clip_node_id,
                     &layout,
                     Vec::new(),
-                    PrimitiveKeyKind::Rectangle {
+                    RectanglePrim {
                         color: info.color.into(),
                     },
                 );
@@ -1768,7 +1759,7 @@ impl<'a> SceneBuilder<'a> {
                                 .. layout
                             },
                             Vec::new(),
-                            PrimitiveKeyKind::Rectangle { color: PropertyBinding::Value(color) },
+                            RectanglePrim { color: PropertyBinding::Value(color) },
                         );
                     }
                 );
@@ -1874,7 +1865,6 @@ impl<'a> SceneBuilder<'a> {
                     info.border_radius,
                     info.shadow_radius,
                     info.clip_mode,
-                    self.spatial_tree.is_root_coord_system(spatial_node_index),
                 );
             }
             DisplayItem::Border(ref info) => {
@@ -2023,6 +2013,7 @@ impl<'a> SceneBuilder<'a> {
         PrimitiveInstance::new(
             instance_kind,
             clip_leaf_id,
+            info.rect.min,
         )
     }
 
@@ -2076,7 +2067,6 @@ impl<'a> SceneBuilder<'a> {
                     spatial_node_index,
                     flags,
                     self.spatial_tree,
-                    self.interners,
                     &self.quality_settings,
                     &mut self.prim_instances,
                     &self.clip_tree_builder,
@@ -2092,7 +2082,7 @@ impl<'a> SceneBuilder<'a> {
         spatial_node_index: SpatialNodeIndex,
         clip_node_id: ClipNodeId,
         info: &LayoutPrimitiveInfo,
-        clip_items: Vec<ClipItemKey>,
+        clip_items: Vec<ClipItemEntry>,
         prim: P,
     )
     where
@@ -2121,7 +2111,7 @@ impl<'a> SceneBuilder<'a> {
         spatial_node_index: SpatialNodeIndex,
         clip_node_id: ClipNodeId,
         info: &LayoutPrimitiveInfo,
-        clip_items: Vec<ClipItemKey>,
+        clip_items: Vec<ClipItemEntry>,
         prim: P,
     )
     where
@@ -2221,7 +2211,6 @@ impl<'a> SceneBuilder<'a> {
         clip_chain_id: Option<api::ClipChainId>,
         requested_raster_space: RasterSpace,
         flags: StackingContextFlags,
-        subregion_offset: LayoutVector2D,
     ) -> StackingContextInfo {
         profile_scope!("push_stacking_context");
 
@@ -2251,7 +2240,6 @@ impl<'a> SceneBuilder<'a> {
                 clip_chain_id,
                 requested_raster_space,
                 flags,
-                LayoutVector2D::zero(),
             );
             info.pop_stacking_context = true;
             self.extra_stacking_context_stack.push(info);
@@ -2384,7 +2372,22 @@ impl<'a> SceneBuilder<'a> {
         // to an off-screen surface.
         if let Some(clip_chain_id) = clip_chain_id {
             if self.clip_tree_builder.clip_chain_has_complex_clips(clip_chain_id, &self.interners) {
-                blit_reason |= BlitReason::CLIP;
+                // At the root level, if all complex clips are fixed-position
+                // rounded rectangles, we can skip the intermediate surface.
+                // The clips will be promoted to compositor clips on the tile
+                // cache slices, which applies them once to the composited
+                // surface — equivalent to the intermediate surface approach.
+                // This allows tile cache barriers to fire normally, enabling
+                // proper picture caching with multiple slices.
+                if !self.sc_stack.is_empty() ||
+                   !self.clip_tree_builder.clip_chain_complex_clips_are_promotable(
+                       clip_chain_id,
+                       &self.interners,
+                       &self.spatial_tree,
+                   )
+                {
+                    blit_reason |= BlitReason::CLIP;
+                }
             }
         }
 
@@ -2468,7 +2471,6 @@ impl<'a> SceneBuilder<'a> {
                 context_3d,
                 flags,
                 raster_space: new_space,
-                subregion_offset,
             });
         }
 
@@ -2704,7 +2706,6 @@ impl<'a> SceneBuilder<'a> {
         let has_filters = stacking_context.composite_ops.has_valid_filters();
 
         let spatial_node_context_offset =
-            stacking_context.subregion_offset +
             self.current_external_scroll_offset(stacking_context.spatial_node_index);
         source = self.wrap_prim_with_filters(
             source,
@@ -2904,7 +2905,6 @@ impl<'a> SceneBuilder<'a> {
 
         let item = ClipItemKey {
             kind: ClipItemKeyKind::image_mask(image_mask, snapped_mask_rect, polygon_handle),
-            spatial_node_index,
         };
 
         let handle = self
@@ -2919,6 +2919,7 @@ impl<'a> SceneBuilder<'a> {
         self.clip_tree_builder.define_image_mask_clip(
             new_node_id,
             handle,
+            spatial_node_index,
         );
     }
 
@@ -2938,7 +2939,6 @@ impl<'a> SceneBuilder<'a> {
 
         let item = ClipItemKey {
             kind: ClipItemKeyKind::rectangle(snapped_clip_rect, ClipMode::Clip),
-            spatial_node_index,
         };
         let handle = self
             .interners
@@ -2952,6 +2952,7 @@ impl<'a> SceneBuilder<'a> {
         self.clip_tree_builder.define_rect_clip(
             new_node_id,
             handle,
+            spatial_node_index,
         );
     }
 
@@ -2974,7 +2975,6 @@ impl<'a> SceneBuilder<'a> {
                 clip.radii,
                 clip.mode,
             ),
-            spatial_node_index,
         };
 
         let handle = self
@@ -2989,6 +2989,7 @@ impl<'a> SceneBuilder<'a> {
         self.clip_tree_builder.define_rounded_rect_clip(
             new_node_id,
             handle,
+            spatial_node_index,
         );
     }
 
@@ -3183,6 +3184,7 @@ impl<'a> SceneBuilder<'a> {
                                 pic_index: shadow_pic_index,
                             },
                             self.clip_tree_builder.build_for_picture(clip_node_id),
+                            LayoutPoint::zero(),
                         );
 
                         // Add the shadow primitive. This must be done before pushing this
@@ -3472,14 +3474,8 @@ impl<'a> SceneBuilder<'a> {
         let mut prim_rect = info.rect;
         simplify_repeated_primitive(&stretch_size, &mut tile_spacing, &mut prim_rect);
 
-        let mut has_hard_stops = false;
         let mut is_entirely_transparent = true;
-        let mut prev_stop = None;
         for stop in &stops {
-            if Some(stop.offset) == prev_stop {
-                has_hard_stops = true;
-            }
-            prev_stop = Some(stop.offset);
             if stop.color.a > 0 {
                 is_entirely_transparent = false;
             }
@@ -3509,19 +3505,6 @@ impl<'a> SceneBuilder<'a> {
             (start_point, end_point)
         };
 
-        // We set a limit to the resolution at which cached gradients are rendered.
-        // For most gradients this is fine but when there are hard stops this causes
-        // noticeable artifacts. If so, fall back to non-cached gradients.
-        let max = gradient::LINEAR_MAX_CACHED_SIZE;
-        let caching_causes_artifacts = has_hard_stops && (stretch_size.width > max || stretch_size.height > max);
-
-        let is_tiled = prim_rect.width() > stretch_size.width
-         || prim_rect.height() > stretch_size.height;
-        // SWGL has a fast-path that can render gradients faster than it can sample from the
-        // texture cache so we disable caching in this configuration. Cached gradients are
-        // faster on hardware.
-        let cached = (!self.config.is_software || is_tiled) && !caching_causes_artifacts;
-
         Some(LinearGradient {
             extend_mode,
             start_point: sp.into(),
@@ -3531,7 +3514,7 @@ impl<'a> SceneBuilder<'a> {
             stops,
             reverse_stops,
             nine_patch,
-            cached,
+            cached: false,
             edge_aa_mask,
             enable_dithering: self.config.enable_dithering,
         })
@@ -3613,9 +3596,8 @@ impl<'a> SceneBuilder<'a> {
         text_color: &ColorF,
         glyph_range: ItemRange<GlyphInstance>,
         glyph_options: Option<GlyphOptions>,
-        ref_frame_offset: LayoutVector2D,
     ) {
-        let offset = self.current_external_scroll_offset(spatial_node_index) + ref_frame_offset;
+        let offset = self.current_external_scroll_offset(spatial_node_index);
 
         let text_run = {
             let shared_key = self.fonts.instance_keys.map_key(font_instance_key);
@@ -3679,7 +3661,6 @@ impl<'a> SceneBuilder<'a> {
                 font,
                 shadow: false,
                 requested_raster_space,
-                reference_frame_offset: ref_frame_offset,
             }
         };
 
@@ -3898,7 +3879,6 @@ impl<'a> SceneBuilder<'a> {
                         filter_spatial_node_index,
                         info.flags,
                         self.spatial_tree,
-                        self.interners,
                         &self.quality_settings,
                         &mut self.prim_instances,
                         &self.clip_tree_builder,
@@ -4578,9 +4558,6 @@ struct FlattenedStackingContext {
 
     /// Requested raster space for this stacking context
     raster_space: RasterSpace,
-
-    /// Offset to be applied to any filter sub-regions
-    subregion_offset: LayoutVector2D,
 }
 
 impl FlattenedStackingContext {
@@ -4703,7 +4680,7 @@ pub enum ShadowItem {
     Image(PendingPrimitive<Image>),
     LineDecoration(PendingPrimitive<LineDecoration>),
     NormalBorder(PendingPrimitive<NormalBorderPrim>),
-    Primitive(PendingPrimitive<PrimitiveKeyKind>),
+    Primitive(PendingPrimitive<RectanglePrim>),
     TextRun(PendingPrimitive<TextRun>),
 }
 
@@ -4725,8 +4702,8 @@ impl From<PendingPrimitive<NormalBorderPrim>> for ShadowItem {
     }
 }
 
-impl From<PendingPrimitive<PrimitiveKeyKind>> for ShadowItem {
-    fn from(container: PendingPrimitive<PrimitiveKeyKind>) -> Self {
+impl From<PendingPrimitive<RectanglePrim>> for ShadowItem {
+    fn from(container: PendingPrimitive<RectanglePrim>) -> Self {
         ShadowItem::Primitive(container)
     }
 }
@@ -4764,6 +4741,7 @@ fn create_prim_instance(
         clip_tree_builder.build_for_picture(
             clip_node_id,
         ),
+        LayoutPoint::zero(),
     )
 }
 

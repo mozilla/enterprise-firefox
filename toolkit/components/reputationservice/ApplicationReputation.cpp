@@ -210,7 +210,7 @@ const char* const ApplicationReputationService::kBinaryFileExtensions[] = {
     ".class",  // Java
     //".cmd", exec // Windows executable
     //".com", exec // Windows executable
-    ".command",        // Mac script
+    //".command", exec  // Mac script
     ".configprofile",  // Configuration file for Apple systems
     ".cpgz",           // Mac archive
     ".cpi",            // Control Panel Item. Executable used for adding icons
@@ -433,9 +433,9 @@ const char* const ApplicationReputationService::kBinaryFileExtensions[] = {
     ".scptd",  // AppleScript
     //".scr", exec         // Windows
     //".sct", exec         // Windows shell
-    ".search-ms",  // Windows
-    ".seplugin",   // AppleScript
-    ".service",    // Systemd service unit file
+    //".search-ms", exec         // Windows Saved Search
+    ".seplugin",  // AppleScript
+    ".service",   // Systemd service unit file
     //".settingcontent-ms", exec // Windows settings
     ".sh",    // Linux shell
     ".shar",  // Linux shell
@@ -798,7 +798,8 @@ PendingDBLookup::~PendingDBLookup() {
 
 nsresult PendingDBLookup::LookupSpec(const nsACString& aSpec,
                                      const LookupType& aLookupType) {
-  LOG(("Checking principal %s [this=%p]", aSpec.Data(), this));
+  LOG(("Checking principal %s [this=%p]", PromiseFlatCString(aSpec).get(),
+       this));
   mSpec = aSpec;
   mLookupType = aLookupType;
   nsresult rv = LookupSpecInternal(aSpec);

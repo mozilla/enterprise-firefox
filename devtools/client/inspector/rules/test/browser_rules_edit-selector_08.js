@@ -24,7 +24,7 @@ add_task(async function () {
   info("Selecting the test element");
   await selectNode("#testid", inspector);
 
-  let idRuleEditor = getRuleViewRuleEditor(view, 2);
+  let idRuleEditor = getRuleViewRuleEditorAt(view, 1);
 
   info("Focusing an existing selector name in the rule-view");
   let editor = await focusEditableField(view, idRuleEditor.selectorText);
@@ -46,13 +46,13 @@ add_task(async function () {
   await onRuleViewChanged;
 
   info("Re-focusing the selector name in the rule-view");
-  idRuleEditor = getRuleViewRuleEditor(view, 2);
+  idRuleEditor = getRuleViewRuleEditorAt(view, 1);
   editor = await focusEditableField(view, idRuleEditor.selectorText);
 
-  is(view.elementStyle.rules.length, 2, "Should have 2 rules.");
+  assertDisplayedRulesCount(view, 2);
   ok(getRuleViewRule(view, "pre"), "Rule with pre selector exists.");
   is(
-    getRuleViewRuleEditor(view, 2).element.getAttribute("unmatched"),
+    getRuleViewRuleEditorAt(view, 1).element.getAttribute("unmatched"),
     "true",
     "Rule with pre does not match the current element."
   );
@@ -68,10 +68,10 @@ add_task(async function () {
   EventUtils.synthesizeKey("KEY_Enter");
   await onRuleViewChanged;
 
-  is(view.elementStyle.rules.length, 2, "Should have 2 rules.");
+  assertDisplayedRulesCount(view, 2);
   ok(getRuleViewRule(view, "span"), "Rule with span selector exists.");
   is(
-    getRuleViewRuleEditor(view, 2).element.getAttribute("unmatched"),
+    getRuleViewRuleEditorAt(view, 1).element.getAttribute("unmatched"),
     "false",
     "Rule with span matches the current element."
   );

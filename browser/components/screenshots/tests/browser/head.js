@@ -264,7 +264,7 @@ class ScreenshotsHelper {
   }
 
   getHoverElementRect() {
-    return ContentTask.spawn(this.browser, null, async () => {
+    return SpecialPowers.spawn(this.browser, [], async () => {
       let screenshotsChild = content.windowGlobalChild.getActor(
         "ScreenshotsComponent"
       );
@@ -273,7 +273,7 @@ class ScreenshotsHelper {
   }
 
   isHoverElementRegionValid() {
-    return ContentTask.spawn(this.browser, null, async () => {
+    return SpecialPowers.spawn(this.browser, [], async () => {
       let screenshotsChild = content.windowGlobalChild.getActor(
         "ScreenshotsComponent"
       );
@@ -304,21 +304,17 @@ class ScreenshotsHelper {
   }
 
   async waitForSelectionRegionSizeChange(currentWidth) {
-    await ContentTask.spawn(
-      this.browser,
-      [currentWidth],
-      async ([currWidth]) => {
-        let screenshotsChild = content.windowGlobalChild.getActor(
-          "ScreenshotsComponent"
-        );
+    await SpecialPowers.spawn(this.browser, [currentWidth], async currWidth => {
+      let screenshotsChild = content.windowGlobalChild.getActor(
+        "ScreenshotsComponent"
+      );
 
-        let dimensions = screenshotsChild.overlay.selectionRegion.dimensions;
-        await ContentTaskUtils.waitForCondition(() => {
-          dimensions = screenshotsChild.overlay.selectionRegion.dimensions;
-          return dimensions.width !== currWidth;
-        }, "Wait for selection box width change");
-      }
-    );
+      let dimensions = screenshotsChild.overlay.selectionRegion.dimensions;
+      await ContentTaskUtils.waitForCondition(() => {
+        dimensions = screenshotsChild.overlay.selectionRegion.dimensions;
+        return dimensions.width !== currWidth;
+      }, "Wait for selection box width change");
+    });
   }
 
   /**
@@ -433,10 +429,10 @@ class ScreenshotsHelper {
 
   async scrollContentWindow(x, y) {
     let contentDims = await this.getContentDimensions();
-    await ContentTask.spawn(
+    await SpecialPowers.spawn(
       this.browser,
       [x, y, contentDims],
-      async ([xPos, yPos, cDims]) => {
+      async (xPos, yPos, cDims) => {
         content.window.scroll(xPos, yPos);
 
         info(JSON.stringify(cDims, null, 2));
@@ -484,7 +480,7 @@ class ScreenshotsHelper {
   }
 
   async waitForScrollTo(x, y) {
-    await ContentTask.spawn(this.browser, [x, y], async ([xPos, yPos]) => {
+    await SpecialPowers.spawn(this.browser, [x, y], async (xPos, yPos) => {
       await ContentTaskUtils.waitForCondition(() => {
         info(
           `Got scrollX: ${content.window.scrollX}. scrollY: ${content.window.scrollY}`
@@ -512,7 +508,7 @@ class ScreenshotsHelper {
   }
 
   waitForContentMousePosition(left, top) {
-    return ContentTask.spawn(this.browser, [left, top], async ([x, y]) => {
+    return SpecialPowers.spawn(this.browser, [left, top], async (x, y) => {
       function isCloseEnough(a, b, diff) {
         return Math.abs(a - b) <= diff;
       }
@@ -538,9 +534,9 @@ class ScreenshotsHelper {
   }
 
   async clickDownloadButton() {
-    let { centerX: x, centerY: y } = await ContentTask.spawn(
+    let { centerX: x, centerY: y } = await SpecialPowers.spawn(
       this.browser,
-      null,
+      [],
       async () => {
         let screenshotsChild = content.windowGlobalChild.getActor(
           "ScreenshotsComponent"
@@ -558,9 +554,9 @@ class ScreenshotsHelper {
   }
 
   async clickCopyButton() {
-    let { centerX: x, centerY: y } = await ContentTask.spawn(
+    let { centerX: x, centerY: y } = await SpecialPowers.spawn(
       this.browser,
-      null,
+      [],
       async () => {
         let screenshotsChild = content.windowGlobalChild.getActor(
           "ScreenshotsComponent"
@@ -578,9 +574,9 @@ class ScreenshotsHelper {
   }
 
   async clickCancelButton() {
-    let { centerX: x, centerY: y } = await ContentTask.spawn(
+    let { centerX: x, centerY: y } = await SpecialPowers.spawn(
       this.browser,
-      null,
+      [],
       async () => {
         let screenshotsChild = content.windowGlobalChild.getActor(
           "ScreenshotsComponent"
@@ -598,9 +594,9 @@ class ScreenshotsHelper {
   }
 
   async clickPreviewCancelButton() {
-    let { centerX: x, centerY: y } = await ContentTask.spawn(
+    let { centerX: x, centerY: y } = await SpecialPowers.spawn(
       this.browser,
-      null,
+      [],
       async () => {
         let screenshotsChild = content.windowGlobalChild.getActor(
           "ScreenshotsComponent"
@@ -624,14 +620,14 @@ class ScreenshotsHelper {
   }
 
   getTestPageElementRect(elementId = "testPageElement") {
-    return ContentTask.spawn(this.browser, [elementId], async id => {
+    return SpecialPowers.spawn(this.browser, [elementId], async id => {
       let ele = content.document.getElementById(id);
       return ele.getBoundingClientRect();
     });
   }
 
   getOverlaySelectionSizeText(elementId = "testPageElement") {
-    return ContentTask.spawn(this.browser, [elementId], async () => {
+    return SpecialPowers.spawn(this.browser, [elementId], async () => {
       let screenshotsChild = content.windowGlobalChild.getActor(
         "ScreenshotsComponent"
       );
@@ -795,7 +791,7 @@ class ScreenshotsHelper {
   }
 
   async getScreenshotsOverlayDimensions() {
-    return ContentTask.spawn(this.browser, null, async () => {
+    return SpecialPowers.spawn(this.browser, [], async () => {
       let screenshotsChild = content.windowGlobalChild.getActor(
         "ScreenshotsComponent"
       );
@@ -821,10 +817,10 @@ class ScreenshotsHelper {
   }
 
   async waitForSelectionLayerDimensionChange(oldWidth, oldHeight) {
-    await ContentTask.spawn(
+    await SpecialPowers.spawn(
       this.browser,
       [oldWidth, oldHeight],
-      async ([prevWidth, prevHeight]) => {
+      async (prevWidth, prevHeight) => {
         let screenshotsChild = content.windowGlobalChild.getActor(
           "ScreenshotsComponent"
         );
@@ -845,10 +841,10 @@ class ScreenshotsHelper {
   }
 
   waitForOverlaySizeChangeTo(width, height) {
-    return ContentTask.spawn(
+    return SpecialPowers.spawn(
       this.browser,
       [width, height],
-      async ([newWidth, newHeight]) => {
+      async (newWidth, newHeight) => {
         await ContentTaskUtils.waitForCondition(() => {
           let {
             innerHeight,
@@ -880,7 +876,7 @@ class ScreenshotsHelper {
   }
 
   getSelectionRegionDimensions() {
-    return ContentTask.spawn(this.browser, null, async () => {
+    return SpecialPowers.spawn(this.browser, [], async () => {
       let screenshotsChild = content.windowGlobalChild.getActor(
         "ScreenshotsComponent"
       );
@@ -891,11 +887,7 @@ class ScreenshotsHelper {
   }
 
   waitForContentEventOnce(event) {
-    return ContentTask.spawn(this.browser, event, eventType => {
-      return new Promise(resolve => {
-        content.addEventListener(eventType, resolve, { once: true });
-      });
-    });
+    return BrowserTestUtils.waitForContentEvent(this.browser, event, true);
   }
 
   /**

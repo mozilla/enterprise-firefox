@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -12,6 +10,7 @@
 
 namespace mozilla {
 
+StaticMutex FFmpegRuntimeLinker::sMutex;
 FFmpegRuntimeLinker::LinkStatus FFmpegRuntimeLinker::sLinkStatus =
     LinkStatus_INIT;
 const char* FFmpegRuntimeLinker::sLinkStatusLibraryName = "";
@@ -75,6 +74,7 @@ void FFmpegRuntimeLinker::PrefCallbackLogLevel(const char* aPref, void* aData) {
 
 /* static */
 bool FFmpegRuntimeLinker::Init() {
+  StaticMutexAutoLock lock(sMutex);
   if (sLinkStatus != LinkStatus_INIT) {
     return sLinkStatus == LinkStatus_SUCCEEDED;
   }
@@ -277,6 +277,7 @@ already_AddRefed<PlatformEncoderModule> FFmpegRuntimeLinker::CreateEncoder() {
 }
 
 /* static */ const char* FFmpegRuntimeLinker::LinkStatusString() {
+  StaticMutexAutoLock lock(sMutex);
   switch (sLinkStatus) {
     case LinkStatus_INIT:
       return "Libavcodec not initialized yet";

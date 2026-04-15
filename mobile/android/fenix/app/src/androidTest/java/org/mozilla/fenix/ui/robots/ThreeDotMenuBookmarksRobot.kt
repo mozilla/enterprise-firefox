@@ -57,10 +57,10 @@ class ThreeDotMenuBookmarksRobot {
             return BookmarksRobot.Transition(composeTestRule)
         }
 
-        fun clickCopy(interact: BookmarksRobot.() -> Unit): BookmarksRobot.Transition {
-            Log.i(TAG, "clickCopy: Trying to click the \"Copy\" button")
-            composeTestRule.copyButton().performClick()
-            Log.i(TAG, "clickCopy: Clicked the \"Copy\" button")
+        fun clickMove(interact: BookmarksRobot.() -> Unit): BookmarksRobot.Transition {
+            Log.i(TAG, "clickMove: Trying to click the \"Move\" button")
+            composeTestRule.moveButton().performClick()
+            Log.i(TAG, "clickMove: Clicked the \"Move\" button")
 
             BookmarksRobot(composeTestRule).interact()
             return BookmarksRobot.Transition(composeTestRule)
@@ -95,7 +95,7 @@ private fun ComposeTestRule.shareButton() = onNodeWithText(getStringResource(R.s
 
 private fun ComposeTestRule.deleteButton() = onNodeWithText(getStringResource(R.string.bookmark_menu_delete_button))
 
-private fun ComposeTestRule.copyButton() = onNodeWithText(getStringResource(R.string.bookmark_menu_copy_button))
+private fun ComposeTestRule.moveButton() = onNodeWithText(getStringResource(R.string.bookmark_menu_move_button))
 
 private fun ComposeTestRule.openAllInTabsButton() = onNodeWithText("Open all in new tabs")
 

@@ -216,6 +216,7 @@ class HomeDeepLinkIntentProcessorTest {
         assertTrue(processorHome.process(testIntent("open?url=https%3A%2F%2Fwww.example.org%2F"), navController, out, settings))
 
         verify {
+            @Suppress("DEPRECATION")
             activity.openToBrowserAndLoad(
                 "https://www.example.org/",
                 newTab = true,

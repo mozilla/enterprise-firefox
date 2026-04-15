@@ -107,9 +107,10 @@ async function openContextMenuForItem(tabItem, card) {
   return event._panelList || (await getContextMenuPanelListForCard(card));
 }
 
-async function moreMenuSetup() {
-  await add_new_tab(TEST_URL2);
-  await add_new_tab(TEST_URL3);
+async function moreMenuSetup(urls) {
+  for (let url of urls) {
+    await add_new_tab(url);
+  }
 
   // once we've opened a few tabs, navigate to the open tabs section in firefox view
   await clickFirefoxViewButton(window);
@@ -143,7 +144,7 @@ async function moreMenuSetup() {
 
 add_task(async function test_close_open_tab() {
   await withFirefoxView({}, async () => {
-    const [cards, rows] = await moreMenuSetup();
+    const [cards, rows] = await moreMenuSetup([TEST_URL2, TEST_URL3]);
     const firstTab = rows[0];
     const tertiaryButtonEl = firstTab.tertiaryButtonEl;
 
@@ -200,7 +201,7 @@ add_task(async function test_more_menus() {
     await tabLoaded;
 
     info("Waiting for moreMenuSetup to resolve");
-    let [cards, rows] = await moreMenuSetup();
+    let [cards, rows] = await moreMenuSetup([TEST_URL2, TEST_URL3]);
     Assert.deepEqual(
       getVisibleTabURLs(),
       [TEST_URL1, TEST_URL2, TEST_URL3],
@@ -342,7 +343,7 @@ add_task(async function test_send_device_submenu() {
     let shown;
 
     Services.obs.notifyObservers(null, UIState.ON_UPDATE);
-    let [cards, rows] = await moreMenuSetup(document);
+    let [cards, rows] = await moreMenuSetup([TEST_URL2, TEST_URL3]);
 
     let firstTab = rows[0];
     let panelList = await openContextMenuForItem(firstTab, cards[0]);
@@ -352,6 +353,10 @@ add_task(async function test_send_device_submenu() {
     );
 
     ok(sendTabPanelItem, "Send tabs to device submenu panel item exists");
+    Assert.equal(
+      sendTabPanelItem.getAttribute("data-l10n-id"),
+      "fxviewtabrow-send-to-device"
+    );
 
     let sendTabSubmenuList = sendTabPanelItem.shadowRoot.querySelector(
       "panel-list[id=send-tab-menu]"
@@ -394,6 +399,71 @@ add_task(async function test_send_device_submenu() {
     expectation.verify();
     await telemetryEvent(contextMenuEvent);
     await menuHidden;
+
+    sandbox.restore();
+    TabsSetupFlowManager.resetInternalState();
+    while (gBrowser.tabs.length > 1) {
+      BrowserTestUtils.removeTab(gBrowser.tabs[0]);
+    }
+  });
+});
+
+add_task(async function test_send_mobile_submenu_text() {
+  const sandbox = setupMocks({
+    state: UIState.STATUS_SIGNED_IN,
+    fxaDevices: [
+      {
+        id: 1,
+        name: "This Device",
+        isCurrentDevice: true,
+        type: "desktop",
+        tabs: [],
+      },
+    ],
+  });
+  const fxaMobileDeviceWithCommands = [
+    {
+      id: 2,
+      name: "My mobile device",
+      type: "mobile",
+      availableCommands: { "https://identity.mozilla.com/cmd/open-uri": "boo" },
+      lastAccessTime: Date.now() + 60000, // add 30min
+    },
+    {
+      id: 3,
+      name: "My tablet device",
+      type: "tablet",
+      availableCommands: { "https://identity.mozilla.com/cmd/open-uri": "boo" },
+      lastAccessTime: Date.now() + 60000, // add 30min
+    },
+  ];
+  sandbox
+    .stub(gSync, "getSendTabTargets")
+    .callsFake(() => fxaMobileDeviceWithCommands);
+
+  await withFirefoxView({}, async () => {
+    // TEST_URL3 is our only tab, left over from previous test
+    Assert.deepEqual(
+      getVisibleTabURLs(),
+      [TEST_URL3],
+      `We initially have a single ${TEST_URL3} tab`
+    );
+
+    Services.obs.notifyObservers(null, UIState.ON_UPDATE);
+    let [cards, rows] = await moreMenuSetup([TEST_URL2]);
+
+    let firstTab = rows[0];
+    let panelList = await openContextMenuForItem(firstTab, cards[0]);
+
+    let sendTabPanelItem = panelList.querySelector(
+      "panel-item[data-l10n-id=fxviewtabrow-send-to-mobile]"
+    );
+
+    ok(sendTabPanelItem, "Send tabs to mobile submenu panel item exists");
+    Assert.equal(
+      sendTabPanelItem.getAttribute("data-l10n-id"),
+      "fxviewtabrow-send-to-mobile"
+    );
 
     sandbox.restore();
     TabsSetupFlowManager.resetInternalState();

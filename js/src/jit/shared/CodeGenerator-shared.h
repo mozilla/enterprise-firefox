@@ -451,6 +451,12 @@ class OutOfLineCode : public TempObject,
 // should have the signature (OutOfLineCode& ool) -> void.
 template <typename Func>
 class LambdaOutOfLineCode : public OutOfLineCode {
+  // Enforce a void return so a fallible lambda's bool result cannot be
+  // silently discarded here; signal failure via masm.setOOM() instead.
+  static_assert(std::is_void_v<std::invoke_result_t<Func, OutOfLineCode&>>,
+                "LambdaOutOfLineCode lambda must return void; use "
+                "masm.setOOM() to report failure");
+
   Func generateFunc_;
 
  public:

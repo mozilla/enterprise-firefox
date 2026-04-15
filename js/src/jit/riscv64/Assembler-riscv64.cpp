@@ -44,10 +44,7 @@
 
 #include "gc/Marking.h"
 #include "jit/AutoWritableJitCode.h"
-#include "jit/ExecutableAllocator.h"
 #include "jit/riscv64/disasm/Disasm-riscv64.h"
-#include "vm/Realm.h"
-#include "wasm/WasmFrame.h"
 
 #if defined(__linux__) && !defined(JS_SIMULATOR_RISCV64)
 #  include <sys/syscall.h>
@@ -158,14 +155,16 @@ void Assembler::processCodeLabels(uint8_t* rawCode) {
   }
 }
 
-void Assembler::WritePoolGuard(BufferOffset branch, Instruction* dest,
-                               BufferOffset afterPool) {
+void Assembler::WritePoolGuard(BufferOffset branch, Instruction* inst,
+                               BufferOffset dest) {
   DEBUG_PRINTF("\tWritePoolGuard\n");
   Instr jal = JAL | (0 & kImm20Mask);
-  jal = SetJalOffset(branch.getOffset(), afterPool.getOffset(), jal);
-  dest->SetInstructionBits(jal);
-  DEBUG_PRINTF("%p(%x): ", dest, branch.getOffset());
-  disassembleInstr(dest->InstructionBits(), JitSpew_Codegen);
+  jal = SetJalOffset(branch.getOffset(), dest.getOffset(), jal);
+  inst->SetInstructionBits(jal);
+  DEBUG_PRINTF("%p(%x): ", inst, branch.getOffset());
+#ifdef JS_DISASM_RISCV64
+  disassembleInstr(inst->InstructionBits(), JitSpew_Codegen);
+#endif /* JS_DISASM_RISCV64 */
 }
 
 void Assembler::WritePoolHeader(uint8_t* start, Pool* p, bool isNatural) {
@@ -206,9 +205,8 @@ void Assembler::RV_li(Register rd, int64_t imm) {
 int Assembler::RV_li_count(int64_t imm, bool is_get_temp_reg) {
   if (RecursiveLiCount(imm) > GeneralLiCount(imm, is_get_temp_reg)) {
     return GeneralLiCount(imm, is_get_temp_reg);
-  } else {
-    return RecursiveLiCount(imm);
   }
+  return RecursiveLiCount(imm);
 }
 
 void Assembler::GeneralLi(Register rd, int64_t imm) {
@@ -238,127 +236,126 @@ void Assembler::GeneralLi(Register rd, int64_t imm) {
       addi(rd, zero_reg, low_12);
     }
     return;
+  }
+  UseScratchRegisterScope temps(this);
+  BlockTrampolinePoolScope block_trampoline_pool(this, 8);
+  // 64-bit case: divide imm into two 32-bit parts, upper and lower
+  int64_t up_32 = imm >> 32;
+  int64_t low_32 = imm & 0xffffffffull;
+  Register temp_reg = rd;
+  // Check if a temporary register is available
+  if (up_32 == 0 || low_32 == 0) {
+    // No temp register is needed
   } else {
-    UseScratchRegisterScope temps(this);
-    BlockTrampolinePoolScope block_trampoline_pool(this, 8);
-    // 64-bit case: divide imm into two 32-bit parts, upper and lower
-    int64_t up_32 = imm >> 32;
-    int64_t low_32 = imm & 0xffffffffull;
-    Register temp_reg = rd;
-    // Check if a temporary register is available
-    if (up_32 == 0 || low_32 == 0) {
-      // No temp register is needed
-    } else {
-      temp_reg = temps.hasAvailable() ? temps.Acquire() : InvalidReg;
-    }
-    if (temp_reg != InvalidReg) {
-      // keep track of hardware behavior for lower part in sim_low
-      int64_t sim_low = 0;
-      // Build lower part
-      if (low_32 != 0) {
-        int64_t high_20 = ((low_32 + 0x800) >> 12);
-        int64_t low_12 = low_32 & 0xfff;
-        if (high_20) {
-          // Adjust to 20 bits for the case of overflow
-          high_20 &= 0xfffff;
-          sim_low = ((high_20 << 12) << 32) >> 32;
-          lui(rd, (int32_t)high_20);
-          if (low_12) {
-            sim_low += (low_12 << 52 >> 52) | low_12;
-            addi(rd, rd, low_12);
-          }
-        } else {
-          sim_low = low_12;
-          ori(rd, zero_reg, low_12);
-        }
-      }
-      if (sim_low & 0x100000000) {
-        // Bit 31 is 1. Either an overflow or a negative 64 bit
-        if (up_32 == 0) {
-          // Positive number, but overflow because of the add 0x800
-          ZeroExtendWord(rd, rd);
-          return;
-        }
-        // low_32 is a negative 64 bit after the build
-        up_32 = (up_32 - 0xffffffff) & 0xffffffff;
-      }
-      if (up_32 == 0) {
-        return;
-      }
-      // Build upper part in a temporary register
-      if (low_32 == 0) {
-        // Build upper part in rd
-        temp_reg = rd;
-      }
-      int64_t high_20 = (up_32 + 0x800) >> 12;
-      int64_t low_12 = up_32 & 0xfff;
+    temp_reg = temps.hasAvailable() ? temps.Acquire() : InvalidReg;
+  }
+  if (temp_reg != InvalidReg) {
+    // keep track of hardware behavior for lower part in sim_low
+    int64_t sim_low = 0;
+    // Build lower part
+    if (low_32 != 0) {
+      int64_t high_20 = ((low_32 + 0x800) >> 12);
+      int64_t low_12 = low_32 & 0xfff;
       if (high_20) {
         // Adjust to 20 bits for the case of overflow
         high_20 &= 0xfffff;
-        lui(temp_reg, (int32_t)high_20);
+        sim_low = ((high_20 << 12) << 32) >> 32;
+        lui(rd, (int32_t)high_20);
         if (low_12) {
-          addi(temp_reg, temp_reg, low_12);
+          sim_low += (low_12 << 52 >> 52) | low_12;
+          addi(rd, rd, low_12);
         }
       } else {
-        ori(temp_reg, zero_reg, low_12);
+        sim_low = low_12;
+        ori(rd, zero_reg, low_12);
       }
-      // Put it at the bgining of register
-      slli(temp_reg, temp_reg, 32);
-      if (low_32 != 0) {
-        add(rd, rd, temp_reg);
+    }
+    if (sim_low & 0x100000000) {
+      // Bit 31 is 1. Either an overflow or a negative 64 bit
+      if (up_32 == 0) {
+        // Positive number, but overflow because of the add 0x800
+        ZeroExtendWord(rd, rd);
+        return;
       }
+      // low_32 is a negative 64 bit after the build
+      up_32 = (up_32 - 0xffffffff) & 0xffffffff;
+    }
+    if (up_32 == 0) {
       return;
     }
-    // No temp register. Build imm in rd.
-    // Build upper 32 bits first in rd. Divide lower 32 bits parts and add
-    // parts to the upper part by doing shift and add.
-    // First build upper part in rd.
+    // Build upper part in a temporary register
+    if (low_32 == 0) {
+      // Build upper part in rd
+      temp_reg = rd;
+    }
     int64_t high_20 = (up_32 + 0x800) >> 12;
     int64_t low_12 = up_32 & 0xfff;
     if (high_20) {
       // Adjust to 20 bits for the case of overflow
       high_20 &= 0xfffff;
-      lui(rd, (int32_t)high_20);
+      lui(temp_reg, (int32_t)high_20);
       if (low_12) {
-        addi(rd, rd, low_12);
+        addi(temp_reg, temp_reg, low_12);
       }
     } else {
-      ori(rd, zero_reg, low_12);
+      ori(temp_reg, zero_reg, low_12);
     }
-    // upper part already in rd. Each part to be added to rd, has maximum of 11
-    // bits, and always starts with a 1. rd is shifted by the size of the part
-    // plus the number of zeros between the parts. Each part is added after the
-    // left shift.
-    uint32_t mask = 0x80000000;
-    int32_t shift_val = 0;
-    int32_t i;
-    for (i = 0; i < 32; i++) {
-      if ((low_32 & mask) == 0) {
-        mask >>= 1;
-        shift_val++;
-        if (i == 31) {
-          // rest is zero
-          slli(rd, rd, shift_val);
-        }
-        continue;
-      }
-      // The first 1 seen
-      int32_t part;
-      if ((i + 11) < 32) {
-        // Pick 11 bits
-        part = ((uint32_t)(low_32 << i) >> i) >> (32 - (i + 11));
-        slli(rd, rd, shift_val + 11);
-        ori(rd, rd, part);
-        i += 10;
-        mask >>= 11;
-      } else {
-        part = (uint32_t)(low_32 << i) >> i;
-        slli(rd, rd, shift_val + (32 - i));
-        ori(rd, rd, part);
-        break;
-      }
-      shift_val = 0;
+    // Put it at the bgining of register
+    slli(temp_reg, temp_reg, 32);
+    if (low_32 != 0) {
+      add(rd, rd, temp_reg);
     }
+    return;
+  }
+  // No temp register. Build imm in rd.
+  // Build upper 32 bits first in rd. Divide lower 32 bits parts and add
+  // parts to the upper part by doing shift and add.
+  // First build upper part in rd.
+  int64_t high_20 = (up_32 + 0x800) >> 12;
+  int64_t low_12 = up_32 & 0xfff;
+  if (high_20) {
+    // Adjust to 20 bits for the case of overflow
+    high_20 &= 0xfffff;
+    lui(rd, (int32_t)high_20);
+    if (low_12) {
+      addi(rd, rd, low_12);
+    }
+  } else {
+    ori(rd, zero_reg, low_12);
+  }
+  // upper part already in rd. Each part to be added to rd, has maximum of 11
+  // bits, and always starts with a 1. rd is shifted by the size of the part
+  // plus the number of zeros between the parts. Each part is added after the
+  // left shift.
+  uint32_t mask = 0x80000000;
+  int32_t shift_val = 0;
+  int32_t i;
+  for (i = 0; i < 32; i++) {
+    if ((low_32 & mask) == 0) {
+      mask >>= 1;
+      shift_val++;
+      if (i == 31) {
+        // rest is zero
+        slli(rd, rd, shift_val);
+      }
+      continue;
+    }
+    // The first 1 seen
+    int32_t part;
+    if ((i + 11) < 32) {
+      // Pick 11 bits
+      part = ((uint32_t)(low_32 << i) >> i) >> (32 - (i + 11));
+      slli(rd, rd, shift_val + 11);
+      ori(rd, rd, part);
+      i += 10;
+      mask >>= 11;
+    } else {
+      part = (uint32_t)(low_32 << i) >> i;
+      slli(rd, rd, shift_val + (32 - i));
+      ori(rd, rd, part);
+      break;
+    }
+    shift_val = 0;
   }
 }
 
@@ -378,68 +375,45 @@ int Assembler::GeneralLiCount(int64_t imm, bool is_get_temp_reg) {
       count++;
     }
     return count;
-  } else {
-    // 64-bit case: divide imm into two 32-bit parts, upper and lower
-    int64_t up_32 = imm >> 32;
-    int64_t low_32 = imm & 0xffffffffull;
-    // Check if a temporary register is available
-    if (is_get_temp_reg) {
-      // keep track of hardware behavior for lower part in sim_low
-      int64_t sim_low = 0;
-      // Build lower part
-      if (low_32 != 0) {
-        int64_t high_20 = ((low_32 + 0x800) >> 12);
-        int64_t low_12 = low_32 & 0xfff;
-        if (high_20) {
-          // Adjust to 20 bits for the case of overflow
-          high_20 &= 0xfffff;
-          sim_low = ((high_20 << 12) << 32) >> 32;
-          count++;
-          if (low_12) {
-            sim_low += (low_12 << 52 >> 52) | low_12;
-            count++;
-          }
-        } else {
-          sim_low = low_12;
-          count++;
-        }
-      }
-      if (sim_low & 0x100000000) {
-        // Bit 31 is 1. Either an overflow or a negative 64 bit
-        if (up_32 == 0) {
-          // Positive number, but overflow because of the add 0x800
-          count += HasZbaExtension() ? /* zext.w */ 1 : /* slli; srli */ 2;
-          return count;
-        }
-        // low_32 is a negative 64 bit after the build
-        up_32 = (up_32 - 0xffffffff) & 0xffffffff;
-      }
-      if (up_32 == 0) {
-        return count;
-      }
-      int64_t high_20 = (up_32 + 0x800) >> 12;
-      int64_t low_12 = up_32 & 0xfff;
+  }
+  // 64-bit case: divide imm into two 32-bit parts, upper and lower
+  int64_t up_32 = imm >> 32;
+  int64_t low_32 = imm & 0xffffffffull;
+  // Check if a temporary register is available
+  if (is_get_temp_reg) {
+    // keep track of hardware behavior for lower part in sim_low
+    int64_t sim_low = 0;
+    // Build lower part
+    if (low_32 != 0) {
+      int64_t high_20 = ((low_32 + 0x800) >> 12);
+      int64_t low_12 = low_32 & 0xfff;
       if (high_20) {
         // Adjust to 20 bits for the case of overflow
         high_20 &= 0xfffff;
+        sim_low = ((high_20 << 12) << 32) >> 32;
         count++;
         if (low_12) {
+          sim_low += (low_12 << 52 >> 52) | low_12;
           count++;
         }
       } else {
+        sim_low = low_12;
         count++;
       }
-      // Put it at the bgining of register
-      count++;
-      if (low_32 != 0) {
-        count++;
+    }
+    if (sim_low & 0x100000000) {
+      // Bit 31 is 1. Either an overflow or a negative 64 bit
+      if (up_32 == 0) {
+        // Positive number, but overflow because of the add 0x800
+        count += HasZbaExtension() ? /* zext.w */ 1 : /* slli; srli */ 2;
+        return count;
       }
+      // low_32 is a negative 64 bit after the build
+      up_32 = (up_32 - 0xffffffff) & 0xffffffff;
+    }
+    if (up_32 == 0) {
       return count;
     }
-    // No temp register. Build imm in rd.
-    // Build upper 32 bits first in rd. Divide lower 32 bits parts and add
-    // parts to the upper part by doing shift and add.
-    // First build upper part in rd.
     int64_t high_20 = (up_32 + 0x800) >> 12;
     int64_t low_12 = up_32 & 0xfff;
     if (high_20) {
@@ -452,33 +426,55 @@ int Assembler::GeneralLiCount(int64_t imm, bool is_get_temp_reg) {
     } else {
       count++;
     }
-    // upper part already in rd. Each part to be added to rd, has maximum of 11
-    // bits, and always starts with a 1. rd is shifted by the size of the part
-    // plus the number of zeros between the parts. Each part is added after the
-    // left shift.
-    uint32_t mask = 0x80000000;
-    int32_t i;
-    for (i = 0; i < 32; i++) {
-      if ((low_32 & mask) == 0) {
-        mask >>= 1;
-        if (i == 31) {
-          // rest is zero
-          count++;
-        }
-        continue;
+    // Put it at the bgining of register
+    count++;
+    if (low_32 != 0) {
+      count++;
+    }
+    return count;
+  }
+  // No temp register. Build imm in rd.
+  // Build upper 32 bits first in rd. Divide lower 32 bits parts and add
+  // parts to the upper part by doing shift and add.
+  // First build upper part in rd.
+  int64_t high_20 = (up_32 + 0x800) >> 12;
+  int64_t low_12 = up_32 & 0xfff;
+  if (high_20) {
+    // Adjust to 20 bits for the case of overflow
+    high_20 &= 0xfffff;
+    count++;
+    if (low_12) {
+      count++;
+    }
+  } else {
+    count++;
+  }
+  // upper part already in rd. Each part to be added to rd, has maximum of 11
+  // bits, and always starts with a 1. rd is shifted by the size of the part
+  // plus the number of zeros between the parts. Each part is added after the
+  // left shift.
+  uint32_t mask = 0x80000000;
+  int32_t i;
+  for (i = 0; i < 32; i++) {
+    if ((low_32 & mask) == 0) {
+      mask >>= 1;
+      if (i == 31) {
+        // rest is zero
+        count++;
       }
-      // The first 1 seen
-      if ((i + 11) < 32) {
-        // Pick 11 bits
-        count++;
-        count++;
-        i += 10;
-        mask >>= 11;
-      } else {
-        count++;
-        count++;
-        break;
-      }
+      continue;
+    }
+    // The first 1 seen
+    if ((i + 11) < 32) {
+      // Pick 11 bits
+      count++;
+      count++;
+      i += 10;
+      mask >>= 11;
+    } else {
+      count++;
+      count++;
+      break;
     }
   }
   return count;
@@ -572,6 +568,7 @@ bool Assembler::oom() const {
          dataRelocations_.oom() || !enoughLabelCache_;
 }
 
+#ifdef JS_DISASM_RISCV64
 int Assembler::disassembleInstr(Instr instr, bool enable_spew) {
   if (!FLAG_riscv_debug && !enable_spew) return -1;
   disasm::NameConverter converter;
@@ -586,15 +583,16 @@ int Assembler::disassembleInstr(Instr instr, bool enable_spew) {
   }
   return size;
 }
+#endif /* JS_DISASM_RISCV64 */
 
-uint64_t Assembler::jumpChainTargetAddressAt(Instruction* pc) {
-  Instruction* instr0 = pc;
+uint64_t Assembler::jumpChainTargetAddressAt(Instruction* pos) {
+  Instruction* instr0 = pos;
   DEBUG_PRINTF("jumpChainTargetAddressAt: pc: 0x%p\t", instr0);
-  Instruction* instr1 = pc + 1 * kInstrSize;
-  Instruction* instr2 = pc + 2 * kInstrSize;
-  Instruction* instr3 = pc + 3 * kInstrSize;
-  Instruction* instr4 = pc + 4 * kInstrSize;
-  Instruction* instr5 = pc + 5 * kInstrSize;
+  Instruction* instr1 = pos + 1 * kInstrSize;
+  Instruction* instr2 = pos + 2 * kInstrSize;
+  Instruction* instr3 = pos + 3 * kInstrSize;
+  Instruction* instr4 = pos + 4 * kInstrSize;
+  Instruction* instr5 = pos + 5 * kInstrSize;
 
   // Interpret instructions for address generated by li: See listing in
   // Assembler::jumpChainSetTargetValueAt() just below.
@@ -676,20 +674,22 @@ uint64_t Assembler::ExtractLoad64Value(Instruction* inst0) {
       imm += (int64_t)instr7->Imm12Value();
       DEBUG_PRINTF("imm:%" PRIx64 "\n", imm);
       return imm;
-    } else {
-      FLAG_riscv_debug = true;
-      disassembleInstr(inst0->InstructionBits());
-      disassembleInstr(instr1->InstructionBits());
-      disassembleInstr(instr2->InstructionBits());
-      disassembleInstr(instr3->InstructionBits());
-      disassembleInstr(instr4->InstructionBits());
-      disassembleInstr(instr5->InstructionBits());
-      disassembleInstr(instr6->InstructionBits());
-      disassembleInstr(instr7->InstructionBits());
-      MOZ_CRASH();
     }
+#ifdef JS_DISASM_RISCV64
+    FLAG_riscv_debug = true;
+    disassembleInstr(inst0->InstructionBits());
+    disassembleInstr(instr1->InstructionBits());
+    disassembleInstr(instr2->InstructionBits());
+    disassembleInstr(instr3->InstructionBits());
+    disassembleInstr(instr4->InstructionBits());
+    disassembleInstr(instr5->InstructionBits());
+    disassembleInstr(instr6->InstructionBits());
+    disassembleInstr(instr7->InstructionBits());
+#endif /* JS_DISASM_RISCV64 */
+    MOZ_CRASH();
   } else {
     DEBUG_PRINTF("\n");
+#ifdef JS_DISASM_RISCV64
     Instruction* instrf1 = (inst0 - 1 * kInstrSize);
     Instruction* instr2 = inst0 + 2 * kInstrSize;
     Instruction* instr3 = inst0 + 3 * kInstrSize;
@@ -706,28 +706,30 @@ uint64_t Assembler::ExtractLoad64Value(Instruction* inst0) {
     disassembleInstr(instr5->InstructionBits());
     disassembleInstr(instr6->InstructionBits());
     disassembleInstr(instr7->InstructionBits());
+#endif /* JS_DISASM_RISCV64 */
     MOZ_ASSERT(IsAddi(*reinterpret_cast<Instr*>(instr1)));
     // Li48
     return jumpChainTargetAddressAt(inst0);
   }
 }
 
-void Assembler::UpdateLoad64Value(Instruction* pc, uint64_t value) {
-  DEBUG_PRINTF("\tUpdateLoad64Value: pc: %p\tvalue: %" PRIx64 "\n", pc, value);
-  Instruction* instr1 = pc + 1 * kInstrSize;
-  if (IsJal(*reinterpret_cast<Instr*>(pc))) {
-    pc = pc + pc->Imm20JValue();
-    instr1 = pc + 1 * kInstrSize;
+void Assembler::UpdateLoad64Value(Instruction* inst0, uint64_t value) {
+  DEBUG_PRINTF("\tUpdateLoad64Value: pc: %p\tvalue: %" PRIx64 "\n", inst0,
+               value);
+  Instruction* instr1 = inst0 + 1 * kInstrSize;
+  if (IsJal(*reinterpret_cast<Instr*>(inst0))) {
+    inst0 = inst0 + inst0->Imm20JValue();
+    instr1 = inst0 + 1 * kInstrSize;
   }
   if (IsAddiw(*reinterpret_cast<Instr*>(instr1))) {
-    Instruction* instr0 = pc;
-    Instruction* instr2 = pc + 2 * kInstrSize;
-    Instruction* instr3 = pc + 3 * kInstrSize;
-    Instruction* instr4 = pc + 4 * kInstrSize;
-    Instruction* instr5 = pc + 5 * kInstrSize;
-    Instruction* instr6 = pc + 6 * kInstrSize;
-    Instruction* instr7 = pc + 7 * kInstrSize;
-    MOZ_ASSERT(IsLui(*reinterpret_cast<Instr*>(pc)) &&
+    Instruction* instr0 = inst0;
+    Instruction* instr2 = inst0 + 2 * kInstrSize;
+    Instruction* instr3 = inst0 + 3 * kInstrSize;
+    Instruction* instr4 = inst0 + 4 * kInstrSize;
+    Instruction* instr5 = inst0 + 5 * kInstrSize;
+    Instruction* instr6 = inst0 + 6 * kInstrSize;
+    Instruction* instr7 = inst0 + 7 * kInstrSize;
+    MOZ_ASSERT(IsLui(*reinterpret_cast<Instr*>(inst0)) &&
                IsAddiw(*reinterpret_cast<Instr*>(instr1)) &&
                IsSlli(*reinterpret_cast<Instr*>(instr2)) &&
                IsAddi(*reinterpret_cast<Instr*>(instr3)) &&
@@ -759,6 +761,7 @@ void Assembler::UpdateLoad64Value(Instruction* pc, uint64_t value) {
         (((value + (1LL << 11)) << 40 >> 52) << 20);
     *reinterpret_cast<Instr*>(instr7) &= 0xfffff;
     *reinterpret_cast<Instr*>(instr7) |= ((value << 52 >> 52) << 20);
+#ifdef JS_DISASM_RISCV64
     disassembleInstr(instr0->InstructionBits());
     disassembleInstr(instr1->InstructionBits());
     disassembleInstr(instr2->InstructionBits());
@@ -767,15 +770,17 @@ void Assembler::UpdateLoad64Value(Instruction* pc, uint64_t value) {
     disassembleInstr(instr5->InstructionBits());
     disassembleInstr(instr6->InstructionBits());
     disassembleInstr(instr7->InstructionBits());
-    MOZ_ASSERT(ExtractLoad64Value(pc) == value);
+#endif /* JS_DISASM_RISCV64 */
+    MOZ_ASSERT(ExtractLoad64Value(inst0) == value);
   } else {
-    Instruction* instr0 = pc;
-    Instruction* instr2 = pc + 2 * kInstrSize;
-    Instruction* instr3 = pc + 3 * kInstrSize;
-    Instruction* instr4 = pc + 4 * kInstrSize;
-    Instruction* instr5 = pc + 5 * kInstrSize;
-    Instruction* instr6 = pc + 6 * kInstrSize;
-    Instruction* instr7 = pc + 7 * kInstrSize;
+#ifdef JS_DISASM_RISCV64
+    Instruction* instr0 = inst0;
+    Instruction* instr2 = inst0 + 2 * kInstrSize;
+    Instruction* instr3 = inst0 + 3 * kInstrSize;
+    Instruction* instr4 = inst0 + 4 * kInstrSize;
+    Instruction* instr5 = inst0 + 5 * kInstrSize;
+    Instruction* instr6 = inst0 + 6 * kInstrSize;
+    Instruction* instr7 = inst0 + 7 * kInstrSize;
     disassembleInstr(instr0->InstructionBits());
     disassembleInstr(instr1->InstructionBits());
     disassembleInstr(instr2->InstructionBits());
@@ -784,8 +789,9 @@ void Assembler::UpdateLoad64Value(Instruction* pc, uint64_t value) {
     disassembleInstr(instr5->InstructionBits());
     disassembleInstr(instr6->InstructionBits());
     disassembleInstr(instr7->InstructionBits());
+#endif /* JS_DISASM_RISCV64 */
     MOZ_ASSERT(IsAddi(*reinterpret_cast<Instr*>(instr1)));
-    jumpChainSetTargetValueAt(pc, value);
+    jumpChainSetTargetValueAt(inst0, value);
   }
 }
 
@@ -870,6 +876,7 @@ void Assembler::WriteLoad64Instructions(Instruction* inst0, Register reg,
                  (a6 << kImm12Shift);  // ori(rd, rd, a6);       // 6 bits are
                                        // put in. 48 bis in rd
   *reinterpret_cast<Instr*>(inst0 + 5 * kInstrSize) = ori_a6;
+#ifdef JS_DISASM_RISCV64
   disassembleInstr((inst0 + 0 * kInstrSize)->InstructionBits());
   disassembleInstr((inst0 + 1 * kInstrSize)->InstructionBits());
   disassembleInstr((inst0 + 2 * kInstrSize)->InstructionBits());
@@ -877,6 +884,7 @@ void Assembler::WriteLoad64Instructions(Instruction* inst0, Register reg,
   disassembleInstr((inst0 + 4 * kInstrSize)->InstructionBits());
   disassembleInstr((inst0 + 5 * kInstrSize)->InstructionBits());
   disassembleInstr((inst0 + 6 * kInstrSize)->InstructionBits());
+#endif /* JS_DISASM_RISCV64 */
   MOZ_ASSERT(ExtractLoad64Value(inst0) == value);
 }
 
@@ -912,7 +920,7 @@ bool Assembler::jumpChainPutTargetAt(BufferOffset pos, BufferOffset target_pos,
         return false;
       }
       instr = SetBranchOffset(pos.getOffset(), target_pos.getOffset(), instr);
-      instr_at_put(pos, instr);
+      putInstrAt(pos, instr);
     } break;
     case JAL: {
       MOZ_ASSERT(IsJal(instr));
@@ -920,7 +928,7 @@ bool Assembler::jumpChainPutTargetAt(BufferOffset pos, BufferOffset target_pos,
         return false;
       }
       instr = SetJalOffset(pos.getOffset(), target_pos.getOffset(), instr);
-      instr_at_put(pos, instr);
+      putInstrAt(pos, instr);
     } break;
     case LUI: {
       jumpChainSetTargetValueAt(
@@ -939,8 +947,8 @@ bool Assembler::jumpChainPutTargetAt(BufferOffset pos, BufferOffset target_pos,
         instr = SetJalOffset(pos.getOffset(), target_pos.getOffset(), instr);
         MOZ_ASSERT(IsJal(instr));
         MOZ_ASSERT(JumpOffset(instr) == offset);
-        instr_at_put(pos, instr);
-        instr_at_put(BufferOffset(pos.getOffset() + 4), kNopByte);
+        putInstrAt(pos, instr);
+        putInstrAt(BufferOffset(pos.getOffset() + 4), kNopByte);
       } else {
         MOZ_RELEASE_ASSERT(is_int32(offset + 0x800));
         MOZ_ASSERT(instruction->RdValue() ==
@@ -949,12 +957,12 @@ bool Assembler::jumpChainPutTargetAt(BufferOffset pos, BufferOffset target_pos,
         int32_t Lo12 = (int32_t)offset << 20 >> 20;
 
         instr_auipc = SetAuipcOffset(Hi20, instr_auipc);
-        instr_at_put(pos, instr_auipc);
+        putInstrAt(pos, instr_auipc);
 
         const int kImm31_20Mask = ((1 << 12) - 1) << 20;
         const int kImm11_0Mask = ((1 << 12) - 1);
         instr_I = (instr_I & ~kImm31_20Mask) | ((Lo12 & kImm11_0Mask) << 20);
-        instr_at_put(BufferOffset(pos.getOffset() + 4), instr_I);
+        putInstrAt(BufferOffset(pos.getOffset() + 4), instr_I);
       }
     } break;
     default:
@@ -983,7 +991,9 @@ int Assembler::jumpChainTargetAt(Instruction* instruction, BufferOffset pos,
                                  bool is_internal, Instruction* instruction2) {
   DEBUG_PRINTF("\t jumpChainTargetAt: %p(%x)\n\t",
                reinterpret_cast<Instr*>(instruction), pos.getOffset());
+#ifdef JS_DISASM_RISCV64
   disassembleInstr(instruction->InstructionBits());
+#endif /* JS_DISASM_RISCV64 */
   Instr instr = instruction->InstructionBits();
   switch (instruction->InstructionOpcodeType()) {
     case BRANCH: {
@@ -1146,12 +1156,12 @@ void Assembler::Bind(uint8_t* rawCode, const CodeLabel& label) {
   }
 }
 
-bool Assembler::is_near(Label* L) {
+bool Assembler::isNear(Label* L) {
   MOZ_ASSERT(L->bound());
   return is_intn((currentOffset() - L->offset()), kJumpOffsetBits);
 }
 
-bool Assembler::is_near(Label* L, OffsetSize bits) {
+bool Assembler::isNear(Label* L, OffsetSize bits) {
   if (L == nullptr || !L->bound()) return true;
   return is_intn((currentOffset() - L->offset()), bits);
 }
@@ -1564,11 +1574,6 @@ bool Assembler::appendRawCode(const uint8_t* code, size_t numBytes) {
   if (m_buffer.oom()) {
     return false;
   }
-  while (numBytes > SliceSize) {
-    m_buffer.putBytes(SliceSize, code);
-    numBytes -= SliceSize;
-    code += SliceSize;
-  }
   m_buffer.putBytes(numBytes, code);
   return !m_buffer.oom();
 }
@@ -1617,7 +1622,9 @@ void Assembler::PatchShortRangeBranchToVeneer(Buffer* buffer, unsigned rangeIdx,
       buffer->getInst(BufferOffset(veneer.getOffset() + 4));
   // Verify that the branch range matches what's encoded.
   DEBUG_PRINTF("\t%p(%x): ", branchInst, branch.getOffset());
+#ifdef JS_DISASM_RISCV64
   disassembleInstr(branchInst->InstructionBits(), JitSpew_Codegen);
+#endif /* JS_DISASM_RISCV64 */
   DEBUG_PRINTF("\t insert veneer %x, branch: %x deadline: %x\n",
                veneer.getOffset(), branch.getOffset(), deadline.getOffset());
   MOZ_ASSERT(branchRange <= UncondBranchRangeType);
@@ -1657,8 +1664,10 @@ void Assembler::PatchShortRangeBranchToVeneer(Buffer* buffer, unsigned rangeIdx,
     branchInst->SetInstructionBits(SetJalOffset(
         branch.getOffset(), veneer.getOffset(), branchInst->InstructionBits()));
   }
+#ifdef JS_DISASM_RISCV64
   DEBUG_PRINTF("\tfix to veneer:");
   disassembleInstr(branchInst->InstructionBits());
+#endif /* JS_DISASM_RISCV64 */
 }
 }  // namespace jit
 }  // namespace js

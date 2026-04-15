@@ -16,12 +16,10 @@ import mozilla.components.feature.tab.collections.Tab
 import mozilla.components.feature.tab.collections.TabCollection
 import mozilla.components.feature.tabs.TabsUseCases
 import mozilla.components.support.test.mock
-import mozilla.components.support.test.rule.MainCoroutineRule
 import mozilla.components.support.test.whenever
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
 import org.mockito.ArgumentMatchers.any
 import org.mockito.ArgumentMatchers.anyBoolean
@@ -37,9 +35,6 @@ class TabsUseCasesKtTest {
     private lateinit var collection: TabCollection
     private lateinit var tab: Tab
     private lateinit var filesDir: File
-
-    @get:Rule
-    val coroutinesTestRule = MainCoroutineRule()
 
     @Before
     fun setup() {

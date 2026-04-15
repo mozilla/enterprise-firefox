@@ -33,6 +33,10 @@ from mach.decorators import (
 )
 from mozdebug import prepend_debugger_args
 from mozfile import load_source
+from mozlog.formatters import MachFormatter
+from mozlog.handlers import ResourceHandler, StreamHandler
+from mozlog.structuredlog import StructuredLogger
+from mozlog.structuredlog import log_actions as get_log_actions
 
 from mozbuild.base import (
     BinaryNotFoundException,
@@ -473,7 +477,7 @@ def doctor(command_context, fix=False, verbose=False):
     )
 
 
-CLOBBER_CHOICES = {"objdir", "python", "gradle", "artifacts"}
+CLOBBER_CHOICES = {"objdir", "python", "gradle", "artifacts", "mach_func_cache"}
 
 
 @Command(
@@ -508,10 +512,13 @@ def clobber(command_context, what, full=False):
     ".pyc", "__pycache__", etc).
 
     The `gradle` target will remove the "gradle" subdirectory of the object
-    directory.
+    directory and all ".gradle" cache directories in the source tree.
 
     The `artifacts` target will remove cached artifact files from
     ~/.mozbuild/package-frontend or $MOZBUILD_STATE_PATH/package-frontend.
+
+    The `mach_func_cache` target will remove cached results from mach's
+    function cache (used to speed up configure and other operations).
 
     By default, the command clobbers the `objdir` and `python` targets.
     """
@@ -550,6 +557,15 @@ def clobber(command_context, what, full=False):
                     )
                     return 1
             raise
+
+        if full:
+            what.add("mach_func_cache")
+
+    if "mach_func_cache" in what:
+        from mach.func_cache import _cache_dir
+
+        if _cache_dir.exists():
+            shutil.rmtree(_cache_dir, ignore_errors=True)
 
     if "python" in what:
         topsrcdir = Path(command_context.topsrcdir)
@@ -609,6 +625,10 @@ def clobber(command_context, what, full=False):
         shutil.rmtree(
             mozpath.join(command_context.topobjdir, "gradle"), ignore_errors=True
         )
+        topsrcdir = Path(command_context.topsrcdir)
+        for gradle_cache in topsrcdir.rglob(".gradle"):
+            if gradle_cache.is_dir():
+                shutil.rmtree(gradle_cache, ignore_errors=True)
 
     if "artifacts" in what:
         from mach.util import get_state_dir
@@ -912,12 +932,6 @@ def join_ensure_dir(dir1, dir2):
     "to the default behavior of running one process per test suite).",
 )
 @CommandArgument(
-    "--tbpl-parser",
-    "-t",
-    action="store_true",
-    help="Output test results in a format that can be parsed by TBPL.",
-)
-@CommandArgument(
     "--shuffle",
     "-s",
     action="store_true",
@@ -1018,7 +1032,6 @@ def gtest(
     combine_suites,
     gtest_filter,
     list_tests,
-    tbpl_parser,
     enable_webrender,
     enable_inc_origin_init,
     filter_set,
@@ -1142,9 +1155,6 @@ def gtest(
     if shuffle:
         gtest_env["GTEST_SHUFFLE"] = "True"
 
-    if tbpl_parser:
-        gtest_env["MOZ_TBPL_PARSER"] = "True"
-
     if enable_webrender:
         gtest_env["MOZ_WEBRENDER"] = "1"
         gtest_env["MOZ_ACCELERATED"] = "1"
@@ -1173,18 +1183,55 @@ def gtest(
             gtest_filter_sets.list()
             return 1
 
+    log_actions = get_log_actions()
+    formatter = MachFormatter(
+        start_time=command_context.log_manager.start_time,
+    )
+    gtest_log = StructuredLogger("gtest")
+    gtest_log.add_handler(StreamHandler(sys.stdout, formatter))
+    gtest_log.add_handler(ResourceHandler(command_context))
+
+    def format_gtest_line(line, prefix=None):
+        line = line.rstrip()
+        try:
+            data = json.loads(line)
+            if (
+                isinstance(data, dict)
+                and "action" in data
+                and data["action"] in log_actions
+            ):
+                if "time" not in data:
+                    data["time"] = int(time.time() * 1000)
+                gtest_log.log_raw(data)
+                return
+        except (ValueError, KeyError):
+            pass
+        gtest_log.process_output(prefix or "gtest", line)
+
     # Don't bother with multiple processes if:
     # - listing tests
     # - running the debugger
     # - combining suites with one job
     if list_tests or is_debugging or (combine_suites and jobs == 1):
-        return command_context.run_process(
+        if is_debugging:
+            result = command_context.run_process(
+                args=args,
+                append_env=gtest_env,
+                cwd=cwd,
+                ensure_exit_code=False,
+                pass_thru=True,
+            )
+            gtest_log.shutdown()
+            return result
+        result = command_context.run_process(
             args=args,
             append_env=gtest_env,
             cwd=cwd,
             ensure_exit_code=False,
-            pass_thru=True,
+            line_handler=lambda line: format_gtest_line(line),
         )
+        gtest_log.shutdown()
+        return result
 
     report = AggregatedGTestReport()
 
@@ -1195,13 +1242,7 @@ def gtest(
 
         def add_process(job_id, append_env, **kwargs):
             def log_line(line):
-                # Prepend the job identifier to output
-                command_context.log(
-                    logging.INFO,
-                    "GTest",
-                    {"job_id": job_id, "line": line.strip()},
-                    "[{job_id}] {line}",
-                )
+                format_gtest_line(line, prefix=job_id)
 
             env = os.environ.copy()
             # Allow the new environment to overwrite system environment variables.
@@ -1334,6 +1375,7 @@ def gtest(
                 "{test} failed {failure_count} check(s):\n{failures}",
             )
 
+    gtest_log.shutdown()
     return exit_code
 
 

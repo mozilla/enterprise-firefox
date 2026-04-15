@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -134,8 +132,29 @@ static MsaaAccessible* GetTextPatternProviderFor(Accessible* aOrigin) {
   return MsaaAccessible::GetFrom(GetTextContainer(aOrigin));
 }
 
+static bool IsSingleSelectOption(Accessible* aAcc) {
+  const role accRole = aAcc->Role();
+  if (accRole != roles::OPTION && accRole != roles::COMBOBOX_OPTION) {
+    return false;
+  }
+  Accessible* container =
+      nsAccUtils::GetSelectableContainer(aAcc, aAcc->State());
+  return !container || !(container->State() & states::MULTISELECTABLE);
+}
+
 static bool MustSelectUsingDoAction(Accessible* aAcc) {
-  return IsRadio(aAcc) || aAcc->Role() == roles::PAGETAB;
+  // 1. Gecko doesn't treat radio buttons/radio menu items as selectable, but
+  // UIA does.
+  // 2. Gecko exposes the selectable state for tabs, but it doesn't support
+  // TakeSelection for them.
+  // 3. Gecko exposes the selectable state for all options, but it doesn't
+  // support TakeSelection for some of them; e.g. XULMenuitemAccessible when
+  // used for a combo box. TakeSelection also doesn't work for ARIA listboxes
+  // which use aria-activedescendant. However, we can't support multi select
+  // list boxes using DoAction, so we only use DoAction for options in a single
+  // select list box.
+  return IsRadio(aAcc) || aAcc->Role() == roles::PAGETAB ||
+         IsSingleSelectOption(aAcc);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -456,6 +475,7 @@ uiaRawElmProvider::GetPatternProvider(
       // Per the UIA documentation, we should only expose the Invoke pattern "if
       // the same behavior is not exposed through another control pattern
       // provider".
+      // https://learn.microsoft.com/en-us/windows/win32/winauto/uiauto-implementinginvoke#implementation-guidelines-and-conventions
       if (acc->ActionCount() > 0 && !HasTogglePattern() &&
           !HasExpandCollapsePattern() && !HasSelectionItemPattern()) {
         RefPtr<IInvokeProvider> invoke = this;

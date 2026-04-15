@@ -17,7 +17,6 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
-import mozilla.appservices.errorsupport.RustComponentsErrorTelemetry
 import mozilla.appservices.remotesettings.Attachment
 import mozilla.appservices.remotesettings.RemoteSettings
 import mozilla.appservices.remotesettings.RemoteSettingsConfig
@@ -73,15 +72,14 @@ class RemoteSettingsClient(
             }
             RemoteSettingsResult.Success(serverRecords)
         } catch (e: RemoteSettingsException) {
-            Logger.error(e.message.toString())
+            Logger.error("Ignoring RemoteSettingsException exception from `fetch`", e)
             RemoteSettingsResult.NetworkFailure(e)
         } catch (e: NullPointerException) {
-            Logger.error(e.message.toString())
+            Logger.error("Ignoring NullPointer exception from `fetch`", e)
             RemoteSettingsResult.NetworkFailure(e)
         } catch (e: UniffiInternalException) {
-            Logger.error(e.toString())
-            RustComponentsErrorTelemetry.submitErrorPing("remote-settings-internal-error", e.toString())
-            reportRustError("remote-settings-internal-error", e.toString())
+            Logger.error("Ignoring UniffiInternalException from `fetch`", e)
+            reportRustError("remote-settings-internal-error", e)
             RemoteSettingsResult.NetworkFailure(e)
         }
     }

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -25,7 +23,8 @@ CSSUnitValue::CSSUnitValue(nsCOMPtr<nsISupports> aParent, double aValue,
 // static
 RefPtr<CSSUnitValue> CSSUnitValue::Create(nsCOMPtr<nsISupports> aParent,
                                           const StyleUnitValue& aUnitValue) {
-  return MakeRefPtr<CSSUnitValue>(aParent, aUnitValue.value, aUnitValue.unit);
+  return MakeRefPtr<CSSUnitValue>(std::move(aParent), aUnitValue.value,
+                                  aUnitValue.unit);
 }
 
 JSObject* CSSUnitValue::WrapObject(JSContext* aCx,
@@ -80,11 +79,19 @@ void CSSUnitValue::ToCssTextWithProperty(const CSSPropertyId& aPropertyId,
   // and fully spec-compliant manner. See bug 2005142
   const bool isValueOutOfRange = [](NonCustomCSSPropertyId aId, double aValue) {
     switch (aId) {
+      case eCSSProperty_font_size_adjust:
       case eCSSProperty_font_stretch:
+      case eCSSProperty_flex_grow:
+      case eCSSProperty_flex_shrink:
+      case eCSSProperty_stroke_miterlimit:
+      case eCSSProperty_animation_iteration_count:
+      case eCSSProperty_background_size:
       case eCSSProperty_column_width:
       case eCSSProperty_flex_basis:
       case eCSSProperty_font_size:
       case eCSSProperty_perspective:
+      case eCSSProperty_column_gap:
+      case eCSSProperty_row_gap:
       case eCSSProperty_max_block_size:
       case eCSSProperty_max_height:
       case eCSSProperty_max_inline_size:
@@ -127,6 +134,9 @@ void CSSUnitValue::ToCssTextWithProperty(const CSSPropertyId& aPropertyId,
       case eCSSProperty_scroll_padding_right:
       case eCSSProperty_scroll_padding_top:
         return aValue < 0;
+
+      case eCSSProperty_font_weight:
+        return aValue < 1 || aValue > 1000;
 
       default:
         return false;

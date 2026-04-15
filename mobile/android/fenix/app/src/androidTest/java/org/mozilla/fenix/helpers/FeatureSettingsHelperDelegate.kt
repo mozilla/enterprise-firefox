@@ -28,7 +28,6 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
      * These will be restored when the tests end.
      */
     private val initialFeatureFlags = FeatureFlags(
-        isHomepageHeaderEnabled = settings.showHomepageHeader,
         isPocketEnabled = settings.showPocketRecommendationsFeature,
         isRecentTabsFeatureEnabled = settings.showRecentTabsFeature,
         isRecentlyVisitedFeatureEnabled = settings.historyMetadataUIFeature,
@@ -50,6 +49,7 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
         openLinksInApp = getOpenLinksInApp(settings),
         tabManagerOpeningAnimationEnabled = settings.tabManagerOpeningAnimationEnabled,
         hasSeenBrowserToolbarCFR = settings.hasSeenBrowserToolbarCFR,
+        isPrivateModeAndStoriesEntryPointEnabled = settings.privateModeAndStoriesEntryPointEnabled,
     )
 
     /**
@@ -57,7 +57,6 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
      */
     private var updatedFeatureFlags = initialFeatureFlags.copy()
 
-    override var isHomepageHeaderEnabled: Boolean by updatedFeatureFlags::isHomepageHeaderEnabled
     override var isPocketEnabled: Boolean by updatedFeatureFlags::isPocketEnabled
     override var isWallpaperOnboardingEnabled: Boolean by updatedFeatureFlags::isWallpaperOnboardingEnabled
     override var isRecentTabsFeatureEnabled: Boolean by updatedFeatureFlags::isRecentTabsFeatureEnabled
@@ -78,6 +77,7 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
     override var openLinksInExternalApp: OpenLinksInApp by updatedFeatureFlags::openLinksInApp
     override var tabManagerOpeningAnimationEnabled: Boolean by updatedFeatureFlags::tabManagerOpeningAnimationEnabled
     override var hasSeenBrowserToolbarCFR: Boolean by updatedFeatureFlags::hasSeenBrowserToolbarCFR
+    override var isPrivateModeAndStoriesEntryPointEnabled: Boolean by updatedFeatureFlags::isPrivateModeAndStoriesEntryPointEnabled
 
     override fun applyFlagUpdates() {
         Log.i(TAG, "applyFlagUpdates: Trying to apply the updated feature flags: $updatedFeatureFlags")
@@ -94,7 +94,6 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
     override var isDeleteSitePermissionsEnabled: Boolean by updatedFeatureFlags::isDeleteSitePermissionsEnabled
 
     private fun applyFeatureFlags(featureFlags: FeatureFlags) {
-        settings.showHomepageHeader = featureFlags.isHomepageHeaderEnabled
         settings.showPocketRecommendationsFeature = featureFlags.isPocketEnabled
         settings.showRecentTabsFeature = featureFlags.isRecentTabsFeatureEnabled
         settings.historyMetadataUIFeature = featureFlags.isRecentlyVisitedFeatureEnabled
@@ -116,11 +115,11 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
         setOpenLinksInApp(featureFlags.openLinksInApp)
         settings.tabManagerOpeningAnimationEnabled = featureFlags.tabManagerOpeningAnimationEnabled
         settings.hasSeenBrowserToolbarCFR = featureFlags.hasSeenBrowserToolbarCFR
+        settings.privateModeAndStoriesEntryPointEnabled = featureFlags.isPrivateModeAndStoriesEntryPointEnabled
     }
 }
 
 private data class FeatureFlags(
-    var isHomepageHeaderEnabled: Boolean,
     var isPocketEnabled: Boolean,
     var isRecentTabsFeatureEnabled: Boolean,
     var isRecentlyVisitedFeatureEnabled: Boolean,
@@ -142,6 +141,7 @@ private data class FeatureFlags(
     var openLinksInApp: OpenLinksInApp,
     var tabManagerOpeningAnimationEnabled: Boolean,
     var hasSeenBrowserToolbarCFR: Boolean,
+    var isPrivateModeAndStoriesEntryPointEnabled: Boolean,
 )
 
 internal fun getETPPolicy(settings: Settings): ETPPolicy {

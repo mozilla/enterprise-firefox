@@ -12,23 +12,28 @@ ChromeUtils.defineESModuleGetters(lazy, {
   CustomizableUI:
     "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
   IPPEnrollAndEntitleManager:
-    "moz-src:///browser/components/ipprotection/IPPEnrollAndEntitleManager.sys.mjs",
+    "moz-src:///toolkit/components/ipprotection/IPPEnrollAndEntitleManager.sys.mjs",
   IPPExceptionsManager:
-    "moz-src:///browser/components/ipprotection/IPPExceptionsManager.sys.mjs",
+    "moz-src:///toolkit/components/ipprotection/IPPExceptionsManager.sys.mjs",
   IPPOnboardingMessage:
     "moz-src:///browser/components/ipprotection/IPPOnboardingMessageHelper.sys.mjs",
+  ERRORS: "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
   IPPProxyManager:
-    "moz-src:///browser/components/ipprotection/IPPProxyManager.sys.mjs",
+    "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
   IPPProxyStates:
-    "moz-src:///browser/components/ipprotection/IPPProxyManager.sys.mjs",
+    "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
+  IPPUsageHelper:
+    "moz-src:///browser/components/ipprotection/IPPUsageHelper.sys.mjs",
+  UsageStates:
+    "moz-src:///browser/components/ipprotection/IPPUsageHelper.sys.mjs",
   IPProtectionService:
-    "moz-src:///browser/components/ipprotection/IPProtectionService.sys.mjs",
+    "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
   IPProtection:
     "moz-src:///browser/components/ipprotection/IPProtection.sys.mjs",
   IPPSignInWatcher:
-    "moz-src:///browser/components/ipprotection/IPPSignInWatcher.sys.mjs",
+    "moz-src:///toolkit/components/ipprotection/IPPSignInWatcher.sys.mjs",
   IPProtectionStates:
-    "moz-src:///browser/components/ipprotection/IPProtectionService.sys.mjs",
+    "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
   SpecialMessageActions:
     "resource://messaging-system/lib/SpecialMessageActions.sys.mjs",
 });
@@ -36,7 +41,6 @@ import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 import {
   BANDWIDTH,
-  ERRORS,
   ONBOARDING_PREF_FLAGS,
   LINKS,
   SIGNIN_DATA,
@@ -114,8 +118,6 @@ export class IPProtectionPanel {
    *  The location country code
    * @property {"generic-error" | "network-error" | ""} error
    *  The error type as a string if an error occurred, or empty string if there are no errors.
-   * @property {boolean} isAlpha
-   *  True if we're running the Alpha variant, else false.
    * @property {boolean} hasUpgraded
    *  True if a Mozilla VPN subscription is linked to the user's Mozilla account.
    * @property {string} onboardingMessage
@@ -139,7 +141,29 @@ export class IPProtectionPanel {
   panel = null;
   initiatedUpgrade = false;
   #window = null;
-  #lastBandwidthWarningMessageDismissed = 0;
+  #lastDismissedUsageState = "none";
+  #panelView = null;
+  // Bug 2020733: Adds a key listener at the panel level
+  //  since moz-button (header button) traps key events in its shadow DOM.
+  //  This also avoids duplicate listeners across panel components.
+  #panelKeyListener = e => {
+    let { code } = e;
+    if (code !== "ArrowDown" && code !== "ArrowUp") {
+      return;
+    }
+    e.stopPropagation();
+    e.preventDefault();
+    let direction =
+      code === "ArrowDown"
+        ? Services.focus.MOVEFOCUS_FORWARD
+        : Services.focus.MOVEFOCUS_BACKWARD;
+    Services.focus.moveFocus(
+      e.target.ownerGlobal,
+      null,
+      direction,
+      Services.focus.FLAG_BYKEY
+    );
+  };
 
   /**
    * Gets the gBrowser from the weak reference to the window.
@@ -209,7 +233,6 @@ export class IPProtectionPanel {
         lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVE,
       location: lazy.EGRESS_LOCATION_ENABLED ? DEFAULT_EGRESS_LOCATION : null,
       error: "",
-      isAlpha: lazy.IPPEnrollAndEntitleManager.isAlpha,
       hasUpgraded: lazy.IPPEnrollAndEntitleManager.hasUpgraded,
       onboardingMessage: "",
       bandwidthWarning: false,
@@ -219,6 +242,9 @@ export class IPProtectionPanel {
       bandwidthUsage: this.#getBandwidthUsage(),
       isActivating:
         lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVATING,
+      isCheckingEntitlement:
+        lazy.IPPEnrollAndEntitleManager.isEnrolling ||
+        lazy.IPPEnrollAndEntitleManager.isCheckingEntitlement,
     };
 
     // The progress listener to listen for page navigations.
@@ -299,13 +325,12 @@ export class IPProtectionPanel {
     const win = this.#window.get();
     const inPrivateBrowsing =
       !!win && lazy.PrivateBrowsingUtils.isWindowPrivate(win);
-    const { started, error } = await lazy.IPPProxyManager.start(
-      true,
-      inPrivateBrowsing
-    );
-    if (!started) {
+    const { error } = await lazy.IPPProxyManager.start(true, inPrivateBrowsing);
+    if (error && error !== lazy.ERRORS.CANCELED) {
       const errorMessage =
-        error == ERRORS.NETWORK ? ERRORS.NETWORK : ERRORS.GENERIC;
+        error == lazy.ERRORS.NETWORK
+          ? lazy.ERRORS.NETWORK
+          : lazy.ERRORS.GENERIC;
       this.setState({
         error: errorMessage,
       });
@@ -358,6 +383,7 @@ export class IPProtectionPanel {
 
     this.setState({
       isSiteExceptionsEnabled: this.isExceptionsFeatureEnabled,
+      bandwidthWarning: this.#shouldShowBandwidthWarning(),
     });
 
     if (this.panel) {
@@ -432,6 +458,11 @@ export class IPProtectionPanel {
 
     contentEl.dataset.capturesFocus = "true";
 
+    this.#panelView = panelView;
+    panelView.addEventListener("keydown", this.#panelKeyListener, {
+      capture: true,
+    });
+
     this.#addPanelListeners(ownerDocument);
 
     let contentArea = panelView.querySelector(
@@ -456,11 +487,14 @@ export class IPProtectionPanel {
   }
 
   #createHeaderButton(ownerDocument) {
-    const headerButton = ownerDocument.createXULElement("toolbarbutton");
+    const headerButton = ownerDocument.createElement("moz-button");
 
     headerButton.id = IPProtectionPanel.HEADER_BUTTON_ID;
     headerButton.className = "panel-info-button";
     headerButton.dataset.capturesFocus = "true";
+    headerButton.type = "ghost";
+    headerButton.iconSrc = "chrome://global/skin/icons/info.svg";
+    headerButton.size = "small";
 
     ownerDocument.l10n.setAttributes(headerButton, "ipprotection-help-button");
     headerButton.addEventListener("click", IPProtectionPanel.showHelpPage);
@@ -564,6 +598,10 @@ export class IPProtectionPanel {
   destroy() {
     if (this.panel) {
       const doc = this.panel.ownerDocument;
+      this.#panelView?.removeEventListener("keydown", this.#panelKeyListener, {
+        capture: true,
+      });
+      this.#panelView = null;
       this.panel.remove();
       this.#removePanelListeners(doc);
       this.panel = null;
@@ -635,6 +673,10 @@ export class IPProtectionPanel {
       "IPPProxyManager:UsageChanged",
       this.handleEvent
     );
+    lazy.IPPUsageHelper.addEventListener(
+      "IPPUsageHelper:StateChanged",
+      this.handleEvent
+    );
     lazy.IPPEnrollAndEntitleManager.addEventListener(
       "IPPEnrollAndEntitleManager:StateChanged",
       this.handleEvent
@@ -658,6 +700,10 @@ export class IPProtectionPanel {
       "IPPProxyManager:UsageChanged",
       this.handleEvent
     );
+    lazy.IPPUsageHelper.removeEventListener(
+      "IPPUsageHelper:StateChanged",
+      this.handleEvent
+    );
     lazy.IPProtectionService.removeEventListener(
       "IPProtectionService:StateChanged",
       this.handleEvent
@@ -666,6 +712,18 @@ export class IPProtectionPanel {
       "IPPExceptionsManager:ExclusionChanged",
       this.handleEvent
     );
+  }
+
+  #shouldShowBandwidthWarning() {
+    const state = lazy.IPPUsageHelper.state;
+    if (
+      (state == "warning-75-percent" || state == "warning-90-percent") &&
+      state !== this.#lastDismissedUsageState
+    ) {
+      return true;
+    }
+
+    return false;
   }
 
   #addProgressListener() {
@@ -819,7 +877,7 @@ export class IPProtectionPanel {
     ) {
       let errorType = "";
       if (lazy.IPPProxyManager.state === lazy.IPPProxyStates.ERROR) {
-        errorType = ERRORS.GENERIC;
+        errorType = lazy.ERRORS.GENERIC;
       }
 
       this.setState({
@@ -833,10 +891,13 @@ export class IPProtectionPanel {
         error: errorType,
         isActivating:
           lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVATING,
+        isCheckingEntitlement:
+          lazy.IPPEnrollAndEntitleManager.isEnrolling ||
+          lazy.IPPEnrollAndEntitleManager.isCheckingEntitlement,
         bandwidthUsage: this.#getBandwidthUsage(),
         bandwidthWarning:
           lazy.IPProtectionService.state === lazy.IPProtectionStates.READY
-            ? this.state.bandwidthWarning
+            ? this.#shouldShowBandwidthWarning()
             : false,
         paused: lazy.IPPProxyManager.state === lazy.IPPProxyStates.PAUSED,
       });
@@ -855,8 +916,7 @@ export class IPProtectionPanel {
       lazy.IPPExceptionsManager.setExclusion(principal, true);
       Glean.ipprotection.exclusionToggled.record({ excluded: true });
     } else if (event.type == "IPProtection:DismissBandwidthWarning") {
-      // Store the dismissed threshold level
-      this.#lastBandwidthWarningMessageDismissed = event.detail.threshold;
+      this.#lastDismissedUsageState = lazy.IPPUsageHelper.state;
       this.setState({ bandwidthWarning: false });
     } else if (event.type == "IPPProxyManager:UsageChanged") {
       const usage = event.detail.usage;
@@ -904,12 +964,6 @@ export class IPProtectionPanel {
         this.#measureBandwidthThreshold(threshold, lastRecordedThreshold);
       }
 
-      // Reset dismissed warnings when usage is reset
-      if (threshold === 0) {
-        this.#lastBandwidthWarningMessageDismissed = 0;
-      }
-
-      // Update bandwidthUsage state with byte values
       if (lazy.BANDWIDTH_USAGE_ENABLED) {
         this.setState({
           bandwidthUsage: {
@@ -919,19 +973,11 @@ export class IPProtectionPanel {
           },
         });
       }
-
-      // Check threshold and clear or set warning
-      if (threshold === 100) {
-        this.setState({ bandwidthWarning: false });
-      } else if (
-        (threshold === firstWarning || threshold === secondWarning) &&
-        threshold > this.#lastBandwidthWarningMessageDismissed
-      ) {
-        this.setState({ bandwidthWarning: true });
-      } else if (threshold <= this.#lastBandwidthWarningMessageDismissed) {
-        // Keep warning dismissed if threshold hasn't increased
-        this.setState({ bandwidthWarning: false });
+    } else if (event.type == "IPPUsageHelper:StateChanged") {
+      if (lazy.IPPUsageHelper.state === lazy.UsageStates.NONE) {
+        this.#lastDismissedUsageState = lazy.UsageStates.NONE;
       }
+      this.setState({ bandwidthWarning: this.#shouldShowBandwidthWarning() });
     }
   }
 

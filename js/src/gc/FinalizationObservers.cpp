@@ -338,10 +338,10 @@ void FinalizationObservers::clearRecords() {
   //
   // WeakRefs are still updated during shutdown to avoid the possibility of
   // stale or dangling pointers.
-  for (RecordMap::Enum e(recordMap); !e.empty(); e.popFront()) {
-    ObserverList& records = e.front().value();
-    for (auto iter = records.iter(); !iter.done(); iter.next()) {
-      iter->unlink();
+  for (auto iter = recordMap.iter(); !iter.done(); iter.next()) {
+    ObserverList& records = iter.get().value();
+    for (auto listIter = records.iter(); !listIter.done(); listIter.next()) {
+      listIter->unlink();
     }
   }
   recordMap.clear();
@@ -370,8 +370,9 @@ void FinalizationObservers::traceWeakFinalizationRegistryEdges(JSTracer* trc) {
 
   GCRuntime* gc = &trc->runtime()->gc;
 
-  for (RegistrySet::Enum e(registries); !e.empty(); e.popFront()) {
-    auto result = TraceWeakEdge(trc, &e.mutableFront(), "FinalizationRegistry");
+  for (auto iter = registries.modIter(); !iter.done(); iter.next()) {
+    auto result =
+        TraceWeakEdge(trc, &iter.getMutable(), "FinalizationRegistry");
     if (result.isDead()) {
       auto* registry = result.initialTarget();
       registry->queue()->setHasRegistry(false);
@@ -380,7 +381,7 @@ void FinalizationObservers::traceWeakFinalizationRegistryEdges(JSTracer* trc) {
       // not marked.
       registry->queue()->clear();
 
-      e.removeFront();
+      iter.remove();
     } else {
       FinalizationRegistryObject* registry = result.finalTarget();
       registry->traceWeak(trc);
@@ -396,8 +397,8 @@ void FinalizationObservers::traceWeakFinalizationRegistryEdges(JSTracer* trc) {
     }
   }
 
-  for (RecordMap::Enum e(recordMap); !e.empty(); e.popFront()) {
-    ObserverList& records = e.front().value();
+  for (auto iter = recordMap.modIter(); !iter.done(); iter.next()) {
+    ObserverList& records = iter.get().value();
 
     // Sweep finalization records, removing any dead ones.
     for (auto iter = records.iter(); !iter.done(); iter.next()) {
@@ -413,7 +414,7 @@ void FinalizationObservers::traceWeakFinalizationRegistryEdges(JSTracer* trc) {
     }
 
     // Queue remaining finalization records if the target is dying.
-    if (!TraceWeakEdge(trc, &e.front().mutableKey(),
+    if (!TraceWeakEdge(trc, &iter.get().mutableKey(),
                        "FinalizationRecord target")) {
       for (auto iter = records.iter(); !iter.done(); iter.next()) {
         auto* record = &iter->as<FinalizationRecordObject>();
@@ -433,7 +434,7 @@ void FinalizationObservers::traceWeakFinalizationRegistryEdges(JSTracer* trc) {
           gc->queueFinalizationRegistryForCleanup(queue);
         }
       }
-      e.removeFront();
+      iter.remove();
     }
   }
 }
@@ -531,16 +532,17 @@ void FinalizationObservers::removeWeakRefTarget(
 }
 
 void FinalizationObservers::traceWeakWeakRefEdges(JSTracer* trc) {
-  for (WeakRefMap::Enum e(weakRefMap); !e.empty(); e.popFront()) {
-    ObserverList& weakRefs = e.front().value();
-    auto result = TraceWeakEdge(trc, &e.front().mutableKey(), "WeakRef target");
+  for (auto iter = weakRefMap.modIter(); !iter.done(); iter.next()) {
+    ObserverList& weakRefs = iter.get().value();
+    auto result =
+        TraceWeakEdge(trc, &iter.get().mutableKey(), "WeakRef target");
     if (result.isDead()) {
       // Clear the observer list if the target is dying.
       while (!weakRefs.isEmpty()) {
         auto* weakRef = &weakRefs.getFirst()->as<WeakRefObject>();
         weakRef->clearTargetAndUnlink();
       }
-      e.removeFront();
+      iter.remove();
     } else if (result.finalTarget() != result.initialTarget()) {
       // Update WeakRef targets if the target has been moved.
       traceWeakWeakRefList(trc, weakRefs, result.finalTarget());

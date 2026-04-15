@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -606,7 +604,7 @@ nsresult CSP_AppendCSPFromHeader(nsIContentSecurityPolicy* aCsp,
 
 /* ===== nsCSPSrc ============================ */
 
-nsCSPBaseSrc::nsCSPBaseSrc() {}
+nsCSPBaseSrc::nsCSPBaseSrc() = default;
 
 nsCSPBaseSrc::~nsCSPBaseSrc() = default;
 
@@ -1340,10 +1338,14 @@ bool nsCSPDirective::permits(CSPDirective aDirective, nsILoadInfo* aLoadInfo,
 
       // Step 1.4. If directive’s value contains a source expression that is an
       // ASCII case-insensitive match for the "'strict-dynamic'" keyword-source:
+      if (hasStrictDynamicKeyword) {
+        // GetParserCreatedScript() isn't set for XSLT.
+        if (aLoadInfo->InternalContentPolicyType() ==
+            nsIContentPolicy::TYPE_XSLT) {
+          CSPUTILSLOG(("  Blocked XSLT by default with 'strict-dynamic'"));
+          return false;
+        }
 
-      // XXX I don't think we should apply strict-dynamic to XSLT.
-      if (hasStrictDynamicKeyword && aLoadInfo->InternalContentPolicyType() !=
-                                         nsIContentPolicy::TYPE_XSLT) {
         // Step 1.4.1  If the request’s parser metadata is "parser-inserted",
         // return "Blocked". Otherwise, return "Allowed".
         if (aLoadInfo->GetParserCreatedScript()) {

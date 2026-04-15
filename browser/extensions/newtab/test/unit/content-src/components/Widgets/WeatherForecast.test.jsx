@@ -24,8 +24,31 @@ const weatherSuggestion = {
       c: 15,
       f: 59,
     },
+    url: "https://example.com",
   },
 };
+
+const hourlyForecasts = [
+  {
+    epoch_date_time: 1000000000,
+    temperature: { c: 18, f: 64 },
+    icon_id: 5,
+    date_time: "2024-01-15T14:00:00",
+    url: "https://example.com/forecast",
+  },
+  {
+    epoch_date_time: 1000003600,
+    temperature: { c: 17, f: 62 },
+    icon_id: 6,
+    date_time: "2024-01-15T15:00:00",
+  },
+  {
+    epoch_date_time: 1000007200,
+    temperature: { c: 16, f: 61 },
+    icon_id: 7,
+    date_time: "2024-01-15T16:00:00",
+  },
+];
 
 const mockState = {
   ...INITIAL_STATE,
@@ -49,6 +72,7 @@ const mockState = {
       city: "Testville",
     },
     suggestions: [weatherSuggestion],
+    hourlyForecasts,
   },
 };
 
@@ -153,6 +177,12 @@ describe("<WeatherForecast>", () => {
   describe("context menu", () => {
     it("should render context menu with correct panel items", () => {
       assert.ok(wrapper.find(".weather-forecast-context-menu-button").exists());
+      assert.equal(
+        wrapper
+          .find(".weather-forecast-context-menu-button")
+          .prop("data-l10n-id"),
+        "newtab-menu-section-tooltip"
+      );
       assert.ok(wrapper.find("#weather-forecast-context-menu").exists());
 
       assert.ok(
@@ -189,9 +219,7 @@ describe("<WeatherForecast>", () => {
 
       assert.ok(
         wrapper
-          .find(
-            "panel-item[data-l10n-id='newtab-weather-menu-hide-weather-v2']"
-          )
+          .find("panel-item[data-l10n-id='newtab-widget-menu-hide']")
           .exists()
       );
 
@@ -391,7 +419,7 @@ describe("<WeatherForecast>", () => {
       );
 
       const hideWeatherItem = wrapper.find(
-        "panel-item[data-l10n-id='newtab-weather-menu-hide-weather-v2']"
+        "panel-item[data-l10n-id='newtab-widget-menu-hide']"
       );
       hideWeatherItem.props().onClick();
 
@@ -458,6 +486,200 @@ describe("<WeatherForecast>", () => {
       const [telemetryAction] = dispatch.getCall(1).args;
       assert.equal(telemetryAction.type, at.WIDGETS_USER_EVENT);
       assert.equal(telemetryAction.data.widget_size, "medium");
+    });
+  });
+
+  describe("hourly forecast", () => {
+    it("should display one row item per hourly forecast", () => {
+      const items = wrapper.find(".forecast-row-items li");
+      assert.equal(items.length, hourlyForecasts.length);
+    });
+
+    it("should render the correct weather icon class for each forecast item", () => {
+      const items = wrapper.find(".forecast-row-items li");
+      items.forEach((item, index) => {
+        assert.ok(
+          item
+            .find(`.weather-icon.iconId${hourlyForecasts[index].icon_id}`)
+            .exists()
+        );
+      });
+    });
+
+    it("should render an empty list when hourlyForecasts is empty", () => {
+      const noHourlyState = {
+        ...mockState,
+        Weather: {
+          ...mockState.Weather,
+          hourlyForecasts: [],
+        },
+      };
+
+      const noHourlyWrapper = mount(
+        <WrapWithProvider state={noHourlyState}>
+          <WeatherForecast dispatch={dispatch} />
+        </WrapWithProvider>
+      );
+
+      assert.equal(noHourlyWrapper.find(".forecast-row-items li").length, 0);
+      noHourlyWrapper.unmount();
+    });
+  });
+
+  describe("error state", () => {
+    it("should render error state when weather data is missing current_conditions", () => {
+      const errorState = {
+        ...mockState,
+        Weather: {
+          ...mockState.Weather,
+          suggestions: [
+            {
+              forecast: {
+                high: { c: 25, f: 77 },
+                low: { c: 15, f: 59 },
+                url: "https://example.com",
+              },
+            },
+          ],
+        },
+      };
+
+      wrapper = mount(
+        <WrapWithProvider state={errorState}>
+          <WeatherForecast dispatch={dispatch} />
+        </WrapWithProvider>
+      );
+
+      assert.ok(wrapper.find(".forecast-error").exists());
+      assert.ok(
+        wrapper
+          .find(".forecast-error")
+          .find("p[data-l10n-id='newtab-weather-error-not-available']")
+          .exists()
+      );
+    });
+
+    it("should render error state when weather data is missing forecast", () => {
+      const errorState = {
+        ...mockState,
+        Weather: {
+          ...mockState.Weather,
+          suggestions: [
+            {
+              current_conditions: {
+                icon_id: 3,
+                summary: "Partly Cloudy",
+                temperature: { c: 20, f: 68 },
+              },
+            },
+          ],
+        },
+      };
+
+      wrapper = mount(
+        <WrapWithProvider state={errorState}>
+          <WeatherForecast dispatch={dispatch} />
+        </WrapWithProvider>
+      );
+
+      assert.ok(wrapper.find(".forecast-error").exists());
+    });
+
+    it("should add forecast-error-state class when there is an error", () => {
+      const errorState = {
+        ...mockState,
+        Weather: {
+          ...mockState.Weather,
+          suggestions: [{}],
+        },
+      };
+
+      wrapper = mount(
+        <WrapWithProvider state={errorState}>
+          <WeatherForecast dispatch={dispatch} />
+        </WrapWithProvider>
+      );
+
+      assert.ok(
+        wrapper.find(".weather-forecast-widget.forecast-error-state").exists()
+      );
+    });
+
+    it("should hide current weather info when error state is shown", () => {
+      const errorState = {
+        ...mockState,
+        Weather: {
+          ...mockState.Weather,
+          suggestions: [{}],
+        },
+      };
+
+      wrapper = mount(
+        <WrapWithProvider state={errorState}>
+          <WeatherForecast dispatch={dispatch} />
+        </WrapWithProvider>
+      );
+
+      assert.ok(!wrapper.find(".current-weather-wrapper").exists());
+      assert.ok(wrapper.find(".forecast-error").exists());
+    });
+
+    it("should not render .forecast-anchor when there is an error", () => {
+      const errorState = {
+        ...mockState,
+        Weather: {
+          ...mockState.Weather,
+          suggestions: [{}],
+        },
+      };
+
+      wrapper = mount(
+        <WrapWithProvider state={errorState}>
+          <WeatherForecast dispatch={dispatch} />
+        </WrapWithProvider>
+      );
+
+      assert.ok(!wrapper.find(".forecast-anchor").exists());
+    });
+
+    it("should render .forecast-anchor as an anchor tag when there is no error", () => {
+      const anchor = wrapper.find(".forecast-anchor");
+      assert.ok(anchor.exists());
+      assert.equal(anchor.type(), "a");
+      assert.equal(anchor.prop("aria-label"), "Testville");
+    });
+  });
+
+  describe("provider link anchor", () => {
+    it("should dispatch WIDGETS_USER_EVENT with provider_link_click when the anchor is clicked", () => {
+      const anchor = wrapper.find(".forecast-anchor");
+      anchor.props().onClick();
+
+      assert.ok(dispatch.calledOnce);
+      const [action] = dispatch.getCall(0).args;
+      assert.equal(action.type, at.WIDGETS_USER_EVENT);
+      assert.equal(action.data.widget_name, "weather");
+      assert.equal(action.data.widget_source, "widget");
+      assert.equal(action.data.user_action, "provider_link_click");
+      assert.equal(action.data.widget_size, "medium");
+    });
+
+    it("should render .full-forecast as an anchor with the forecast URL", () => {
+      const link = wrapper.find("a.full-forecast");
+      assert.ok(link.exists());
+      assert.equal(link.prop("href"), hourlyForecasts[0].url);
+    });
+
+    it("should dispatch WIDGETS_USER_EVENT with provider_link_click when .full-forecast is clicked", () => {
+      const link = wrapper.find("a.full-forecast");
+      link.props().onClick();
+
+      assert.ok(dispatch.calledOnce);
+      const [action] = dispatch.getCall(0).args;
+      assert.equal(action.type, at.WIDGETS_USER_EVENT);
+      assert.equal(action.data.widget_name, "weather");
+      assert.equal(action.data.widget_source, "widget");
+      assert.equal(action.data.user_action, "provider_link_click");
     });
   });
 });

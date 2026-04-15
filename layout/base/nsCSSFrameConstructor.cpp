@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1664,7 +1662,7 @@ void nsCSSFrameConstructor::CreateGeneratedContent(
 
         nsAutoString temp;
         nsContentUtils::GetMaybeLocalizedString(
-            nsContentUtils::eFORMS_PROPERTIES, "Submit", mDocument, temp);
+            PropertiesFile::FORMS_PROPERTIES, "Submit", mDocument, temp);
         RefPtr c = CreateGenConTextNode(aState, temp, nullptr);
         aAddChild(c);
         return;
@@ -2410,7 +2408,7 @@ nsIFrame* nsCSSFrameConstructor::ConstructDocElementFrame(
     if (bodyWM != rootWM) {
       nsContentUtils::ReportToConsole(nsIScriptError::warningFlag, "Layout"_ns,
                                       mDocument,
-                                      nsContentUtils::eLAYOUT_PROPERTIES,
+                                      PropertiesFile::LAYOUT_PROPERTIES,
                                       "PrincipalWritingModePropagationWarning");
     }
     return bodyWM;
@@ -3446,6 +3444,17 @@ nsCSSFrameConstructor::FindHTMLData(const Element& aElement,
       }
       break;
     }
+    case PseudoStyleType::MozReveal:
+    case PseudoStyleType::MozNumberSpinBox: {
+      if (aParentFrame && aParentFrame->StyleDisplay()->EffectiveAppearance() ==
+                              StyleAppearance::Textfield) {
+        // Suppress button-box pseudo-elements with appearance: textfield.
+        static constexpr FrameConstructionData sSuppressData =
+            SUPPRESS_FCDATA();
+        return &sSuppressData;
+      }
+      break;
+    }
     default:
       break;
   }
@@ -3560,25 +3569,6 @@ nsCSSFrameConstructor::FindImgControlData(const Element& aElement,
 
 /* static */
 const nsCSSFrameConstructor::FrameConstructionData*
-nsCSSFrameConstructor::FindSearchControlData(const Element& aElement,
-                                             ComputedStyle& aStyle) {
-  // Bug 1936648: Until we're absolutely sure we've solved the
-  // accessibility issues around the clear search button, we're only
-  // enabling the clear button in chrome contexts. See also Bug 1655503
-  if (StaticPrefs::layout_forms_input_type_search_enabled() ||
-      aElement.OwnerDoc()->ChromeRulesEnabled()) {
-    static constexpr FrameConstructionData sSearchControlData(
-        NS_NewSearchControlFrame);
-    return &sSearchControlData;
-  }
-
-  static constexpr FrameConstructionData sTextControlData(
-      NS_NewTextControlFrame);
-  return &sTextControlData;
-}
-
-/* static */
-const nsCSSFrameConstructor::FrameConstructionData*
 nsCSSFrameConstructor::FindInputData(const Element& aElement,
                                      ComputedStyle& aStyle) {
   static constexpr FrameConstructionDataByInt sInputData[] = {
@@ -3596,9 +3586,8 @@ nsCSSFrameConstructor::FindInputData(const Element& aElement,
       SIMPLE_INT_CREATE(FormControlType::InputRange, NS_NewRangeFrame),
       SIMPLE_INT_CREATE(FormControlType::InputPassword, NS_NewTextControlFrame),
       SIMPLE_INT_CREATE(FormControlType::InputColor, NS_NewColorControlFrame),
-      SIMPLE_INT_CHAIN(FormControlType::InputSearch,
-                       nsCSSFrameConstructor::FindSearchControlData),
-      SIMPLE_INT_CREATE(FormControlType::InputNumber, NS_NewNumberControlFrame),
+      SIMPLE_INT_CREATE(FormControlType::InputSearch, NS_NewTextControlFrame),
+      SIMPLE_INT_CREATE(FormControlType::InputNumber, NS_NewTextControlFrame),
       SIMPLE_INT_CREATE(FormControlType::InputTime, NS_NewDateTimeControlFrame),
       SIMPLE_INT_CREATE(FormControlType::InputDate, NS_NewDateTimeControlFrame),
       SIMPLE_INT_CREATE(FormControlType::InputDatetimeLocal,
@@ -3624,7 +3613,7 @@ nsCSSFrameConstructor::FindInputData(const Element& aElement,
   // not (respectively) StyleAppearance::Radio and StyleAppearance::Checkbox.)
   if ((controlType == FormControlType::InputCheckbox ||
        controlType == FormControlType::InputRadio) &&
-      !aStyle.StyleDisplay()->HasAppearance()) {
+      !aStyle.StyleDisplay()->HasNativeAppearance()) {
     return nullptr;
   }
 
@@ -4684,6 +4673,18 @@ nsCSSFrameConstructor::FindSVGData(const Element& aElement,
 
   nsAtom* tag = aElement.NodeInfo()->NameAtom();
 
+  if (aElement.OwnerDoc()->IsSVGGlyphsDocument()) {
+    // SVG elements that are explicitly not supported in svg-glyphs documents.
+    // (Partially applies the restrictions mentioned at
+    // https://learn.microsoft.com/en-us/typography/opentype/spec/svg#svg-capability-requirements-and-restrictions
+    if (tag == nsGkAtoms::text || tag == nsGkAtoms::tspan ||
+        tag == nsGkAtoms::textPath || tag == nsGkAtoms::a ||
+        tag == nsGkAtoms::foreignObject || tag == nsGkAtoms::svgSwitch ||
+        tag == nsGkAtoms::view) {
+      return &sSuppressData;
+    }
+  }
+
   // XXXbz should this really be based on the tag of the parent frame's content?
   // Should it not be based on the type of the parent frame (e.g. whether it's
   // an SVG frame)?
@@ -5180,6 +5181,15 @@ void nsCSSFrameConstructor::AddFrameConstructionItemsInternal(
       (!(bits & FCDATA_IS_TABLE_PART) ||
        display.mDisplay != StyleDisplay::TableColumn)) {
     return;
+  }
+
+  // Create our shadow tree lazily if needed.
+  // NOTE(emilio): This is rather hacky, we should ideally remove this and make
+  // shadow tree creation faster, see bug 2017005.
+  if (auto* input = HTMLInputElement::FromNode(aContent)) {
+    if (auto* sr = input->CreateShadowTreeFromLayoutIfNeeded()) {
+      StyleNewChildRange(sr->GetFirstChild(), nullptr);
+    }
   }
 
   const bool canHavePageBreak =
@@ -6676,7 +6686,7 @@ static bool AllChildListsAreEffectivelyEmpty(nsIFrame* aFrame) {
     // We have some existing frame, usually that would be considered as making
     // this list nonempty. But let's make an exception for the synthetic
     // colgroup that tables have, since that gets created unconditionally.
-    if (listID == FrameChildListID::ColGroup) {
+    if (listID == FrameChildListID::Principal && aFrame->IsTableFrame()) {
       if (nsIFrame* f = list.OnlyChild(); f && IsSyntheticColGroup(f)) {
         continue;
       }
@@ -6709,21 +6719,6 @@ static bool IsOnlyMeaningfulChildOfWrapperPseudo(nsIFrame* aFrame,
     if (!wrapper->PrincipalChildList().OnlyChild()) {
       return false;
     }
-    // Similarly we can't remove the table if there's still a non-anonymous col
-    // group (unless aFrame _is_ the non-anonymous colgroup).
-    if (aFrame->IsTableColGroupFrame()) {
-      return aParent->PrincipalChildList().IsEmpty() &&
-             IsOnlyNonWhitespaceFrameInList(
-                 aParent->GetChildList(FrameChildListID::ColGroup), aFrame);
-    }
-    const auto& colGroupList =
-        aParent->GetChildList(FrameChildListID::ColGroup);
-    if (!colGroupList.IsEmpty()) {
-      nsIFrame* f = colGroupList.OnlyChild();
-      if (!f || !IsSyntheticColGroup(f)) {
-        return false;
-      }
-    }
   }
   if (aFrame->IsTableCaption()) {
     MOZ_ASSERT(aParent->IsTableWrapperFrame());
@@ -6735,7 +6730,6 @@ static bool IsOnlyMeaningfulChildOfWrapperPseudo(nsIFrame* aFrame,
            // frame.
            AllChildListsAreEffectivelyEmpty(table);
   }
-  MOZ_ASSERT(!aFrame->IsTableColGroupFrame());
   return IsOnlyNonWhitespaceFrameInList(aParent->PrincipalChildList(), aFrame);
 }
 
@@ -7314,7 +7308,7 @@ void nsCSSFrameConstructor::GetAlternateTextFor(const Element& aElement,
 
     // If there's no "value" attribute either, then use the localized string for
     // "Submit" as the alternate text.
-    nsContentUtils::GetMaybeLocalizedString(nsContentUtils::eFORMS_PROPERTIES,
+    nsContentUtils::GetMaybeLocalizedString(PropertiesFile::FORMS_PROPERTIES,
                                             "Submit", aElement.OwnerDoc(),
                                             aAltText);
   }
@@ -9180,8 +9174,7 @@ void nsCSSFrameConstructor::ProcessChildren(
       nsIFrame::CorrectStyleParentFrame(aFrame, PseudoStyleType::NotPseudo);
   ComputedStyle* parentStyle = styleParentFrame->Style();
   if (parentStyle->StyleDisplay()->mTopLayer == StyleTopLayer::Auto &&
-      !aContent->IsInNativeAnonymousSubtree() &&
-      !aContent->IsHTMLElement(nsGkAtoms::frameset)) {
+      !aContent->IsInNativeAnonymousSubtree()) {
     CreateGeneratedContentItem(aState, aFrame, *aContent->AsElement(),
                                *parentStyle, PseudoStyleType::Backdrop,
                                itemsToConstruct);

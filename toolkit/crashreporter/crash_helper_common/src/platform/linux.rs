@@ -17,6 +17,8 @@ use std::{
 };
 use thiserror::Error;
 
+pub(crate) const CHILD_RENDEZVOUS_ANCILLARY_DATA_LEN: usize = 0;
+
 pub type ProcessHandle = ();
 
 #[derive(Error, Debug)]

@@ -29,6 +29,7 @@
 #include "mozilla/Variant.h"
 
 #include <algorithm>
+#include <bit>
 #include <new>
 
 #include "builtin/Math.h"
@@ -95,7 +96,6 @@ using mozilla::CeilingLog2;
 using mozilla::HashGeneric;
 using mozilla::IsNegativeZero;
 using mozilla::IsPositiveZero;
-using mozilla::IsPowerOfTwo;
 using mozilla::Maybe;
 using mozilla::Nothing;
 using mozilla::PodZero;
@@ -131,7 +131,7 @@ static const uint64_t HighestValidARMImmediate = 0xff000000;
 //  or
 //    2^24 * n for n >= 1.
 static bool IsValidARMImmediate(uint32_t i) {
-  bool valid = (IsPowerOfTwo(i) || (i & 0x00ffffff) == 0);
+  bool valid = (std::has_single_bit(i) || (i & 0x00ffffff) == 0);
 
   MOZ_ASSERT_IF(valid, i % StandardPageSizeBytes == 0);
 
@@ -2169,10 +2169,9 @@ class MOZ_STACK_CLASS ModuleValidator : public ModuleValidatorShared {
     if (!codeMeta_->funcs.resize(funcImportMap_.count() + funcDefs_.length())) {
       return nullptr;
     }
-    for (FuncImportMap::Range r = funcImportMap_.all(); !r.empty();
-         r.popFront()) {
-      uint32_t funcIndex = r.front().value();
-      uint32_t funcTypeIndex = r.front().key().sigIndex();
+    for (auto iter = funcImportMap_.iter(); !iter.done(); iter.next()) {
+      uint32_t funcIndex = iter.get().value();
+      uint32_t funcTypeIndex = iter.get().key().sigIndex();
       codeMeta_->funcs[funcIndex] = FuncDesc(funcTypeIndex);
     }
     for (const Func& func : funcDefs_) {
@@ -3597,7 +3596,7 @@ static bool WriteArrayAccessFlags(FunctionValidatorShared& f,
                                   Scalar::Type viewType) {
   // asm.js only has naturally-aligned accesses.
   size_t align = TypedArrayElemSize(viewType);
-  MOZ_ASSERT(IsPowerOfTwo(align));
+  MOZ_ASSERT(std::has_single_bit(align));
   if (!f.encoder().writeFixedU8(CeilingLog2(align))) {
     return false;
   }
@@ -4178,7 +4177,7 @@ static bool CheckFuncPtrCall(FunctionValidator<Unit>& f, ParseNode* callNode,
 
   uint32_t mask;
   if (!IsLiteralInt(f.m(), maskNode, &mask) || mask == UINT32_MAX ||
-      !IsPowerOfTwo(mask + 1)) {
+      !std::has_single_bit(mask + 1)) {
     return f.fail(maskNode,
                   "function-pointer table index mask value must be a power of "
                   "two minus 1");
@@ -6270,7 +6269,7 @@ static bool CheckFuncPtrTable(ModuleValidator<Unit>& m, ParseNode* decl) {
 
   unsigned length = ListLength(arrayLiteral);
 
-  if (!IsPowerOfTwo(length)) {
+  if (!std::has_single_bit(length)) {
     return m.failf(arrayLiteral,
                    "function-pointer table length must be a power of 2 (is %u)",
                    length);

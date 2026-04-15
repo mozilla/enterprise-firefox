@@ -6,10 +6,13 @@
 
 use crate::derives::*;
 use crate::values::generics::length::GenericLengthPercentageOrAuto;
-use crate::values::specified::animation::{ScrollAxis, ScrollFunction, TimelineName};
+use crate::values::specified::animation::{
+    ScrollAxis, ScrollFunction, TimelineName, TimelineRangeName,
+};
+use crate::values::specified::length::EqualsPercentage;
 use crate::Zero;
 use std::fmt::{self, Write};
-use style_traits::{CssWriter, ToCss};
+use style_traits::{CssWriter, ToCss, ToTyped};
 
 /// The `animation-duration` property.
 ///
@@ -70,6 +73,8 @@ impl<T: ToCss + Zero> ToCss for AnimationDuration<T> {
     }
 }
 
+impl<T: ToTyped + Zero> ToTyped for AnimationDuration<T> {}
+
 /// The view() notation.
 /// https://drafts.csswg.org/scroll-animations-1/#view-notation
 #[derive(
@@ -110,6 +115,7 @@ pub use self::GenericViewFunction as ViewFunction;
     ToCss,
     ToResolvedValue,
     ToShmem,
+    ToTyped,
 )]
 #[repr(C, u8)]
 pub enum GenericAnimationTimeline<LengthPercent> {
@@ -191,11 +197,147 @@ where
     }
 }
 
+impl<LengthPercent> ToTyped for ViewTimelineInset<LengthPercent> where
+    LengthPercent: PartialEq + ToTyped
+{
+}
+
 impl<LengthPercent> Default for ViewTimelineInset<LengthPercent> {
     fn default() -> Self {
         Self {
             start: GenericLengthPercentageOrAuto::auto(),
             end: GenericLengthPercentageOrAuto::auto(),
         }
+    }
+}
+
+/// A value for animation-range-start or animation-range-end.
+///
+/// https://drafts.csswg.org/scroll-animations-1/#animation-range-start
+/// https://drafts.csswg.org/scroll-animations-1/#animation-range-end
+#[derive(
+    Clone,
+    Debug,
+    MallocSizeOf,
+    PartialEq,
+    SpecifiedValueInfo,
+    ToComputedValue,
+    ToResolvedValue,
+    ToShmem,
+)]
+#[repr(C)]
+pub struct GenericAnimationRangeValue<LengthPercent> {
+    /// The specific timeline range. If it is None, the animation range only has length-percentage
+    /// component.
+    pub name: TimelineRangeName,
+    /// Used to measure the specific point from the start of the named timeline.
+    pub lp: LengthPercent,
+}
+
+pub use self::GenericAnimationRangeValue as AnimationRangeValue;
+
+impl<LengthPercent> AnimationRangeValue<LengthPercent> {
+    /// Returns the "normal" value
+    #[inline]
+    pub fn normal(lp: LengthPercent) -> Self {
+        Self::new(TimelineRangeName::Normal, lp)
+    }
+
+    /// Returns Self as a LengthPercentage.
+    #[inline]
+    pub fn length_percentage(lp: LengthPercent) -> Self {
+        Self::new(TimelineRangeName::None, lp)
+    }
+
+    /// Returns Self as a tuple of TimelineRangeName range name and LengthPercentage.
+    #[inline]
+    pub fn new(name: TimelineRangeName, lp: LengthPercent) -> Self {
+        Self { name, lp }
+    }
+
+    /// Returns true if it is "normal".
+    #[inline]
+    pub fn is_normal(&self) -> bool {
+        self.name.is_normal()
+    }
+}
+
+/// A value for animation-range-start.
+///
+/// https://drafts.csswg.org/scroll-animations-1/#animation-range-start
+#[derive(
+    Clone,
+    Debug,
+    MallocSizeOf,
+    PartialEq,
+    SpecifiedValueInfo,
+    ToComputedValue,
+    ToResolvedValue,
+    ToShmem,
+    ToTyped,
+)]
+#[repr(transparent)]
+pub struct GenericAnimationRangeStart<LengthPercent>(pub GenericAnimationRangeValue<LengthPercent>);
+
+pub use self::GenericAnimationRangeStart as AnimationRangeStart;
+
+fn to_css_with_default<LengthPercent, W>(
+    value: &AnimationRangeValue<LengthPercent>,
+    dest: &mut CssWriter<W>,
+    default: f32,
+) -> fmt::Result
+where
+    LengthPercent: ToCss + EqualsPercentage,
+    W: Write,
+{
+    if matches!(value.name, TimelineRangeName::Normal) {
+        return dest.write_str("normal");
+    }
+    if matches!(value.name, TimelineRangeName::None) {
+        return value.lp.to_css(dest);
+    }
+    // <timeline-range-name> <length-percentage>?
+    value.name.to_css(dest)?;
+    if !value.lp.equals_percentage(default) {
+        dest.write_char(' ')?;
+        value.lp.to_css(dest)?;
+    }
+    Ok(())
+}
+
+impl<LengthPercent: ToCss + EqualsPercentage> ToCss for AnimationRangeStart<LengthPercent> {
+    fn to_css<W>(&self, dest: &mut CssWriter<W>) -> fmt::Result
+    where
+        W: Write,
+    {
+        to_css_with_default(&self.0, dest, 0.0)
+    }
+}
+
+/// A value for animation-range-end.
+///
+/// https://drafts.csswg.org/scroll-animations-1/#animation-range-end
+#[derive(
+    Clone,
+    Debug,
+    MallocSizeOf,
+    PartialEq,
+    SpecifiedValueInfo,
+    ToComputedValue,
+    ToResolvedValue,
+    ToShmem,
+    ToTyped,
+)]
+#[repr(transparent)]
+pub struct GenericAnimationRangeEnd<LengthPercent>(pub GenericAnimationRangeValue<LengthPercent>);
+
+pub use self::GenericAnimationRangeEnd as AnimationRangeEnd;
+
+impl<LengthPercent: ToCss + EqualsPercentage> ToCss for AnimationRangeEnd<LengthPercent> {
+    fn to_css<W>(&self, dest: &mut CssWriter<W>) -> fmt::Result
+    where
+        W: Write,
+    {
+        to_css_with_default(&self.0, dest, 1.0)
     }
 }

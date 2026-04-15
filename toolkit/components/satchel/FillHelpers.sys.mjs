@@ -36,6 +36,9 @@ export function showConfirmation(
   messageId,
   anchorId = "identity-icon-box"
 ) {
-  const anchor = browser.ownerDocument.getElementById(anchorId);
+  let anchor = browser.ownerDocument.getElementById(anchorId);
+  if (!anchor.checkVisibility()) {
+    anchor = browser.ownerDocument.getElementById("trust-icon-container");
+  }
   anchor.ownerGlobal.ConfirmationHint.show(anchor, messageId, {});
 }

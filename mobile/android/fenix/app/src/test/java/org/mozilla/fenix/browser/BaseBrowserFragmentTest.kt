@@ -187,7 +187,6 @@ class BaseBrowserFragmentTest {
         val download = DownloadState(
             url = "",
             sessionId = "1",
-            destinationDirectory = "/",
             directoryPath = "/",
         )
 
@@ -209,7 +208,6 @@ class BaseBrowserFragmentTest {
         val download = DownloadState(
             url = "",
             sessionId = "1",
-            destinationDirectory = "/",
             directoryPath = "/",
         )
 
@@ -231,7 +229,6 @@ class BaseBrowserFragmentTest {
         val download = DownloadState(
             url = "",
             sessionId = "2",
-            destinationDirectory = "/",
             directoryPath = "/",
         )
 

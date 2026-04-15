@@ -173,6 +173,7 @@ load invalidfmt.html
 load 1848660.html
 load 1835118.adts
 load trimming_needed_and_last_sample_invalid_duration.ogg
+load ogg-skeleton-index-negative-time-denominator-release-assert.html
 load 1839193.html
 load 1850453.html
 test-pref(media.hevc.enabled,true) load 1859384.mp4
@@ -206,3 +207,11 @@ load 2014861.html
 skip-if(Android) load 2016504.html
 skip-if(Android) load 2016883.html
 skip-if(Android) load 2016497.html
+load 2017511.html
+HTTP load 2014878.html
+load 2014896.html
+load 2022746.html
+pref(media.decoder-doctor.testing,true) load 2024424.html
+skip-if(!winWidget) pref(media.hevc.enabled,true) load 1859400.html
+load 1603271.html
+load 1536243.html

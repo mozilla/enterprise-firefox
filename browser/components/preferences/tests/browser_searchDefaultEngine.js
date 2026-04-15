@@ -204,25 +204,22 @@ async function setDefaultEngine(
     testPrivate ? "defaultPrivateEngine" : "defaultEngineNormal"
   );
   const defaultEngineSelector = input.inputEl;
-  const defaultEngineTrigger = input.shadowRoot.querySelector(".panel-trigger");
+  const defaultEnginePopup = input.panelList;
 
   Assert.ok(
-    defaultEngineSelector.value.startsWith(currentEngineName),
+    input.value.startsWith(currentEngineName),
     "Should have the correct engine as default on first open"
   );
 
-  const popupShown = BrowserTestUtils.waitForEvent(
-    defaultEngineSelector,
-    "shown"
-  );
+  const popupShown = BrowserTestUtils.waitForEvent(defaultEnginePopup, "shown");
   EventUtils.synthesizeMouseAtCenter(
-    defaultEngineTrigger,
+    defaultEngineSelector,
     {},
-    defaultEngineTrigger.ownerGlobal
+    defaultEngineSelector.ownerGlobal
   );
   await popupShown;
 
-  const items = Array.from(defaultEngineSelector.children);
+  const items = Array.from(defaultEnginePopup.children);
   const engine2Item = items.find(item =>
     item.textContent.includes(expectedEngineName)
   );
