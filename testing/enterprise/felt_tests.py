@@ -626,7 +626,7 @@ class FeltTestsBase(EnterpriseTestsBase):
         self._extra_prefs = {
             "enterprise.console.address": f"http://localhost:{self.console_port}",
             "enterprise.is_testing": True,
-            "enterprise.logLevel": "Debug",
+            "enterprise.log_level": "Debug",
         }  # + test_prefs
 
         if hasattr(self, "EXTRA_PREFS"):

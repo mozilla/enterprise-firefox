@@ -23,7 +23,7 @@ export const shouldNotCloseWindow = () => {
   return Services.prefs.getBoolPref(SHOULD_NOT_CLOSE_WINDOW, false);
 };
 
-const ENTERPRISE_LOGLEVEL_PREF = "enterprise.logLevel";
+const ENTERPRISE_LOG_LEVEL_PREF = "enterprise.log_level";
 
 export const EnterpriseCommon = {
   ENTERPRISE_DEVICE_ID_PREF: "enterprise.sync.device_id",
@@ -32,6 +32,6 @@ export const EnterpriseCommon = {
 export function createEnterpriseLogger(logPrefix) {
   return console.createInstance({
     prefix: logPrefix,
-    maxLogLevelPref: ENTERPRISE_LOGLEVEL_PREF,
+    maxLogLevelPref: ENTERPRISE_LOG_LEVEL_PREF,
   });
 }

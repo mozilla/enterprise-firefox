@@ -2,7 +2,7 @@
 environment = ["MOZ_BYPASS_FELT=1"]
 prefs = [
   "enterprise.console.address=https://console.example.com/",
-  "enterprise.logLevel=Debug",
+  "enterprise.log_level=Debug",
 ]
 
 ["browser_enterprise_endpoints.js"]
