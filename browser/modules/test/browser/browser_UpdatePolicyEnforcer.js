@@ -90,3 +90,62 @@ add_task(async function test_compulsoryRestartNotificationFromFelt() {
     await popPrefs();
   }
 });
+
+/**
+ * TODO:
+ */
+add_task(async function test_compulsoryRestartNotificationWake() {
+  await pushPrefs([prefName, JSON.stringify(prefValue)]);
+  try {
+    testingOnly_resetTasks();
+
+    let win = Services.wm.getMostRecentBrowserWindow();
+    for (let n of [...win.gNotificationBox.allNotifications]) {
+      n.dismiss();
+    }
+    Assert.equal(0, win.gNotificationBox.allNotifications.length);
+    const notificationPromise = BrowserTestUtils.waitForGlobalNotificationBar(
+      win,
+      "COMPULSORY_RESTART_SCHEDULED"
+    );
+    Services.obs.notifyObservers(null, "update-downloaded");
+    await notificationPromise;
+    Assert.equal(1, win.gNotificationBox.allNotifications.length);
+    Assert.equal(
+      "COMPULSORY_RESTART_SCHEDULED",
+      win.gNotificationBox.allNotifications[0].getAttribute("value")
+    );
+
+    const oldValue = JSON.parse(Services.prefs.getStringPref(prefName));
+
+    const shadow = win.gNotificationBox.allNotifications[0].openOrClosedShadowRoot;
+    const fluentDatetime = shadow.querySelector("remote-text").getAttribute("fluent-variable-datetime");
+
+    // Simulate sleep
+    const updatedNotificationPromise = BrowserTestUtils.waitForGlobalNotificationBar(
+      win,
+      "COMPULSORY_RESTART_SCHEDULED"
+    );
+    Services.obs.notifyObservers(null, "wake_notification");
+    await updatedNotificationPromise;
+
+    const newValue = JSON.parse(Services.prefs.getStringPref(prefName));
+
+    Assert.equal(oldValue.RestartTimeOfDay.Hour, 0);
+    Assert.notEqual(newValue.RestartTimeOfDay.Hour, 0);
+    Assert.notEqual(oldValue.RestartTimeOfDay.Minute, newValue.RestartTimeOfDay.Minute);
+
+    Assert.equal(1, win.gNotificationBox.allNotifications.length);
+    Assert.equal(
+      "COMPULSORY_RESTART_SCHEDULED",
+      win.gNotificationBox.allNotifications[0].getAttribute("value")
+    );
+
+    const updatedShadow = win.gNotificationBox.allNotifications[0].openOrClosedShadowRoot;
+    const updatedFluentDatetime = updatedShadow.querySelector("remote-text").getAttribute("fluent-variable-datetime");
+    Assert.notEqual(fluentDatetime, updatedFluentDatetime);
+  } finally {
+    testingOnly_resetTasks();
+    await popPrefs();
+  }
+});

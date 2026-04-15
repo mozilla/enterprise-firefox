@@ -5,6 +5,7 @@
 const lazy = {};
 const PREF_APP_UPDATE_COMPULSORY_RESTART = "app.update.compulsory_restart";
 let deferredRestartTasks = null;
+let notification = null;
 
 ChromeUtils.defineESModuleGetters(lazy, {
   DeferredTask: "resource://gre/modules/DeferredTask.sys.mjs",
@@ -19,6 +20,7 @@ function forceRestart() {
 }
 
 function infobarDispatchCallback(action, _selectedBrowser) {
+  notification = null;
   if (action?.type === "USER_ACTION" && action.data?.type === "RESTART_APP") {
     forceRestart();
   }
@@ -62,7 +64,12 @@ function showNotificationToolbar(restartZonedDateTime) {
   if (!win) {
     return;
   }
-  lazy.InfoBar.showInfoBarMessage(win, message, infobarDispatchCallback);
+
+  lazy.InfoBar.showInfoBarMessage(win, message, infobarDispatchCallback).then(
+    notif => {
+      notification = notif;
+    }
+  );
 }
 
 /**
@@ -102,6 +109,7 @@ export function testingOnly_getTaskStatus() {
  * now: A Temporal.ZonedDateTime object representing the current time.
  * notificationPeriodHours: The minimum amount of time in hours between when an update has been staged and when a warning will be displayed
  * restartTimeOfDay: The time of day, in local time, that the restart will take place
+ * restartWasMissed: Bypass the next day enforcement if restart was missed (device sleeping for example)
  *
  * Returns:
  * {
@@ -110,7 +118,12 @@ export function testingOnly_getTaskStatus() {
  *  restartTimeOfDay: the wall-clock time of day when restart will happen.
  * }
  */
-export function calculateDelay(now, notificationPeriodHours, restartTimeOfDay) {
+export function calculateDelay(
+  now,
+  notificationPeriodHours,
+  restartTimeOfDay,
+  restartWasMissed = false
+) {
   const delayBeforeNotification = Temporal.Duration.from({
     hours: notificationPeriodHours,
   });
@@ -127,11 +140,13 @@ export function calculateDelay(now, notificationPeriodHours, restartTimeOfDay) {
       restartTime
     );
   // if (restartTimeOnNotificationDay - notificationDateTime < 1 hour) then restartTimeOnNotificationDay += 1 day
+  // and it was not a missed restart due to e.g. device sleep
   if (
     Temporal.Duration.compare(
       notificationDateTime.until(scheduledRestartZonedDateTime),
       Temporal.Duration.from({ hours: 1 })
-    ) < 0
+    ) < 0 &&
+    !restartWasMissed
   ) {
     // it's less than 1 hour until the restart time.
     scheduledRestartZonedDateTime = scheduledRestartZonedDateTime.add(
@@ -184,7 +199,7 @@ export function getCompulsoryRestartPolicy() {
 // This is the main entry point into this module.
 // This function is called when an update is staged, to set timers for
 // when to show the notification and when to force a restart.
-export function handleCompulsoryUpdatePolicy() {
+export function handleCompulsoryUpdatePolicy(restartWasMissed) {
   if (!deferredRestartTasks) {
     const compulsoryRestartSetting = getCompulsoryRestartPolicy();
     if (compulsoryRestartSetting) {
@@ -193,7 +208,8 @@ export function handleCompulsoryUpdatePolicy() {
         calculateDelay(
           now,
           compulsoryRestartSetting.NotificationPeriodHours,
-          compulsoryRestartSetting.RestartTimeOfDay
+          compulsoryRestartSetting.RestartTimeOfDay,
+          restartWasMissed
         );
       deferredRestartTasks = createDeferredRestartTasks(
         restartDelay,
@@ -204,6 +220,33 @@ export function handleCompulsoryUpdatePolicy() {
   }
 }
 
+export function maybeUpdateCompulsoryUpdatePolicy() {
+  if (!deferredRestartTasks) {
+    return;
+  }
+
+  const now = Temporal.Now.zonedDateTimeISO();
+  // Set a new pref value, disable existing deferred task and re-do
+  const nextRestart = now.add(Temporal.Duration.from({ minutes: 5 }));
+  const nextPref = JSON.stringify({
+    NotificationPeriodHours: 0,
+    RestartTimeOfDay: {
+      Hour: nextRestart.hour,
+      Minute: nextRestart.minute,
+    },
+  });
+  Services.prefs.setStringPref(PREF_APP_UPDATE_COMPULSORY_RESTART, nextPref);
+
+  deferredRestartTasks.deferredNotificationTask?.disarm();
+  deferredRestartTasks.deferredRestartTask?.disarm();
+  deferredRestartTasks = null;
+
+  notification.removeUniversalInfobars();
+  notification = null;
+
+  handleCompulsoryUpdatePolicy(true /* restartWasMissed */);
+}
+
 const observer = {
   observe: (_subject, topic, _data) => {
     switch (topic) {
@@ -211,6 +254,10 @@ const observer = {
       case "update-staged":
       case "felt-update-ready":
         handleCompulsoryUpdatePolicy();
+        break;
+      case "wake_notification":
+        maybeUpdateCompulsoryUpdatePolicy();
+        break;
     }
   },
 };
@@ -220,5 +267,6 @@ export const UpdatePolicyEnforcer = {
     Services.obs.addObserver(observer, "update-downloaded");
     Services.obs.addObserver(observer, "update-staged");
     Services.obs.addObserver(observer, "felt-update-ready");
+    Services.obs.addObserver(observer, "wake_notification");
   },
 };
