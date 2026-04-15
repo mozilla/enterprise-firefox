@@ -37,6 +37,10 @@ class BrowserRestartWorks(FeltTests):
             self._logger.info("Received expected UnknownException")
         except NoSuchWindowException:
             self._logger.info("Received expected NoSuchWindowException")
+        except OSError:
+            self._logger.info(
+                "Firefox quit before execute_script returned, no data received over Marionette socket"
+            )
         finally:
             self._logger.info(
                 f"Issued restartecting quit underway, checking PID {self._browser_pid}"

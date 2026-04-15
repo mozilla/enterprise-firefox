@@ -70,6 +70,8 @@ run-if = [
 
 ["test_felt_email_input_focus.py"]
 
+["test_felt_harness_prefs.py"]
+
 ["test_felt_version.py"]
 
 ["test_firefox_start.py"]

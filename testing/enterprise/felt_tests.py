@@ -23,6 +23,8 @@ from base_test import EnterpriseTestsBase
 from felt_consts import firefox_config
 from marionette_driver import expected
 from marionette_driver.by import By
+from marionette_driver.geckoinstance import DesktopInstance, GeckoInstance
+from mozprofile.prefs import Preferences
 
 
 class SharedString:
@@ -696,6 +698,7 @@ class FeltTestsBase(EnterpriseTestsBase):
             name="enterprise-tests-browser"
         )
         self._logger.info(f"Using browser profile at {self._child_profile_path}")
+        self._apply_marionette_and_local_prefs_to_child_profile()
 
         # Pref does not like passing '\' ?
         if sys.platform == "win32":
@@ -736,6 +739,22 @@ class FeltTestsBase(EnterpriseTestsBase):
         if hasattr(self, "_child_profile_path"):
             self._logger.info(f"Removing browser profile at {self._child_profile_path}")
             shutil.rmtree(self._child_profile_path, ignore_errors=True)
+
+    def _apply_marionette_and_local_prefs_to_child_profile(self):
+        prefs = {
+            k: v
+            for k, v in {
+                **GeckoInstance.required_prefs,
+                **DesktopInstance.desktop_prefs,
+            }.items()
+            # Drop prefs with %-style format placeholders (e.g. "%(server)s")
+            # as they require interpolation that isn't performed here.
+            if not isinstance(v, str) or "%" not in v
+        }
+        prefs.update({"enterprise.is_testing": True, "enterprise.log_level": "Debug"})
+        if hasattr(self, "EXTRA_CHILD_PREFS"):
+            prefs.update(self.EXTRA_CHILD_PREFS)
+        Preferences.write(os.path.join(self._child_profile_path, "user.js"), prefs)
 
     def set_string_pref(self, pref_name, pref_value):
         self._logger.info(f"Setting {pref_name} to {pref_value}")

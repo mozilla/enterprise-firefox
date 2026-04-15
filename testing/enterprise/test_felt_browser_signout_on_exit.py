@@ -50,5 +50,10 @@ class BrowserSignoutOnExit(FeltTests):
             Services.startup.quit(Ci.nsIAppStartup.eForceQuit);
             """,
         )
-        driver.set_context("content")
+        try:
+            driver.set_context("content")
+        except OSError:
+            self._logger.info(
+                "Firefox quit before set_context returned, no data received over Marionette socket"
+            )
         self._manually_closed_child = True
