@@ -17,6 +17,14 @@ ChromeUtils.defineESModuleGetters(lazy, {
   FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
   PopupNotifications: "resource://gre/modules/PopupNotifications.sys.mjs",
   Updates: "resource:///modules/enterprise/Updates.sys.mjs",
+  EnterpriseCommon: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
+});
+
+ChromeUtils.defineLazyGetter(lazy, "log", () => {
+  return console.createInstance({
+    prefix: "Felt",
+    maxLogLevelPref: lazy.EnterpriseCommon.ENTERPRISE_LOGLEVEL_PREF,
+  });
 });
 
 // Will at least make move forward marionette
@@ -89,7 +97,7 @@ const ErrorReport = {
     try {
       return this._stringBundles.app.formatStringFromName(msgId, [cause?.host]);
     } catch (ex) {
-      console.error(
+      lazy.log.error(
         `FELT error localization failed for '${msgId}'. Expected for NSS errors.`
       );
       return null;
@@ -102,7 +110,7 @@ async function connectToConsole(email) {
   try {
     posture = await lazy.ConsoleClient.sendDevicePosture();
   } catch (err) {
-    console.error(`FeltExtension: Failed to connect to console: ${err}`);
+    lazy.log.error(`FeltExtension: Failed to connect to console: ${err}`);
 
     // Show simpler "No Network Connection" only for truly offline scenarios
     // netOffline for offline mode, dnsNotFound2 for actual network disconnect
@@ -148,17 +156,17 @@ async function connectToConsole(email) {
       oa
     )
   );
-  console.debug(
+  lazy.log.debug(
     `FeltExtension: creating contentPrincipal with privateBrowsingId=${lazy.FeltCommon.PRIVATE_BROWSING_ID}`
   );
   const contentPrincipal =
     Services.scriptSecurityManager.createContentPrincipal(ssoLoginURI, {
       privateBrowsingId: lazy.FeltCommon.PRIVATE_BROWSING_ID,
     });
-  console.debug(
+  lazy.log.debug(
     `FeltExtension: created contentPrincipal with privateBrowsingId=${contentPrincipal.privateBrowsingId}`
   );
-  console.debug("Load SSO URI: ", ssoLoginURI);
+  lazy.log.debug("Load SSO URI: ", ssoLoginURI);
   browser.fixupAndLoadURIString(ssoLoginURI.spec, {
     triggeringPrincipal: contentPrincipal,
   });
@@ -194,7 +202,7 @@ async function connectToConsole(email) {
   }
 
   let ssoTimeout = setTimeout(() => {
-    console.error("FeltExtension: SSO login timed out");
+    lazy.log.error("FeltExtension: SSO login timed out");
     resetToLoginPage("felt-browser-error-sso-timeout");
   }, SSO_TIMEOUT_MS);
 
@@ -222,7 +230,7 @@ async function connectToConsole(email) {
       ssoCompleted = true;
 
       if (!Components.isSuccessCode(status)) {
-        console.error(
+        lazy.log.error(
           `FeltExtension: SSO callback page failed to load: 0x${status.toString(16)}`
         );
         resetToLoginPage(
@@ -235,7 +243,7 @@ async function connectToConsole(email) {
 
       const windowGlobal = browser.browsingContext?.currentWindowGlobal;
       if (!windowGlobal) {
-        console.error("FeltExtension: No WindowGlobal for SSO callback page");
+        lazy.log.error("FeltExtension: No WindowGlobal for SSO callback page");
         resetToLoginPage("felt-browser-error-connection");
         return;
       }
@@ -249,20 +257,20 @@ async function connectToConsole(email) {
           .sendQuery("ExtractTokens")
           .then(sent => {
             if (!sent) {
-              console.error(
+              lazy.log.error(
                 "FeltExtension: Fallback token extraction found no token data"
               );
               resetToLoginPage("felt-browser-error-connection");
             }
           })
           .catch(err => {
-            console.error(
+            lazy.log.error(
               `FeltExtension: Fallback token extraction failed: ${err}`
             );
             resetToLoginPage("felt-browser-error-connection");
           });
       } catch (err) {
-        console.error(
+        lazy.log.error(
           `FeltExtension: Could not reach FeltWindow actor: ${err}`
         );
         resetToLoginPage("felt-browser-error-connection");
@@ -280,7 +288,7 @@ async function connectToConsole(email) {
       // MFA prompts, etc.).
       clearTimeout(ssoTimeout);
       ssoTimeout = setTimeout(() => {
-        console.error("FeltExtension: SSO login timed out");
+        lazy.log.error("FeltExtension: SSO login timed out");
         resetToLoginPage("felt-browser-error-sso-timeout");
       }, SSO_TIMEOUT_MS);
     },
@@ -466,7 +474,7 @@ function setupPopupNotifications() {
     try {
       return new lazy.PopupNotifications(window.gBrowser, panel, anchor, {});
     } catch (ex) {
-      console.error(ex);
+      lazy.log.error(ex);
       return null;
     }
   });

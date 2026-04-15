@@ -6,8 +6,15 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   SpellCheckHelper: "resource://gre/modules/InlineSpellChecker.sys.mjs",
+  EnterpriseCommon: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
 });
 
+ChromeUtils.defineLazyGetter(lazy, "log", () => {
+  return console.createInstance({
+    prefix: "FeltContextMenuChild",
+    maxLogLevelPref: lazy.EnterpriseCommon.ENTERPRISE_LOGLEVEL_PREF,
+  });
+});
 /**
  * Gathers the data required to display the context menu from the content process.
  */
@@ -18,7 +25,7 @@ export class ContextMenuChild extends JSWindowActorChild {
         this.#onContextMenu(event);
         break;
       default:
-        console.error(`ContextMenuChild: Unexpected event.type=${event.type}`);
+        lazy.log.error(`ContextMenuChild: Unexpected event.type=${event.type}`);
         break;
     }
   }
