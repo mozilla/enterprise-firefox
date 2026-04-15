@@ -4,11 +4,6 @@
 
 export default [
   {
-    rules: {
-      "no-console": "off",
-    },
-  },
-  {
     files: ["content/window.js"],
     languageOptions: {
       globals: {
