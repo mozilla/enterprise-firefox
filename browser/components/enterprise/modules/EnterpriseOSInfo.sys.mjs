@@ -7,7 +7,15 @@ import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  EnterpriseCommon: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   WindowsRegistry: "resource://gre/modules/WindowsRegistry.sys.mjs",
+});
+
+ChromeUtils.defineLazyGetter(lazy, "log", () => {
+  return console.createInstance({
+    prefix: "EnterpriseOSInfo",
+    maxLogLevelPref: lazy.EnterpriseCommon.ENTERPRISE_LOGLEVEL_PREF,
+  });
 });
 
 const WINDOWS_CURRENT_VERSION_KEY =
@@ -38,7 +46,7 @@ async function getMacOSVersion() {
         }
       }
     } catch (e) {
-      console.error("getMacOSVersion: failed to read SystemVersion.plist", e);
+      lazy.log.error("getMacOSVersion: failed to read SystemVersion.plist", e);
     }
     return null;
   })();
@@ -174,7 +182,7 @@ async function composeShortOSName(os) {
   if (os.distro && os.distroVersion) {
     return `${os.distro} ${os.distroVersion}`;
   }
-  console.error("composeShortOSName: unable to identify OS from", os);
+  lazy.log.error("composeShortOSName: unable to identify OS from", os);
   return null;
 }
 
@@ -220,6 +228,6 @@ async function composeOSName(os) {
   if (os.distro && os.distroVersion && os.version) {
     return `${os.distro} ${os.distroVersion} (${os.version})`;
   }
-  console.error("composeOSName: unable to identify OS from", os);
+  lazy.log.error("composeOSName: unable to identify OS from", os);
   return null;
 }

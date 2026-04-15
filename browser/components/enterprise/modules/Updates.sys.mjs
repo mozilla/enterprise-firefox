@@ -9,6 +9,14 @@ ChromeUtils.defineESModuleGetters(lazy, {
   isUpdatesTesting: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
+  EnterpriseCommon: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
+});
+
+ChromeUtils.defineLazyGetter(lazy, "log", () => {
+  return console.createInstance({
+    prefix: "Updates",
+    maxLogLevelPref: lazy.EnterpriseCommon.ENTERPRISE_LOGLEVEL_PREF,
+  });
 });
 
 const FELT_UPDATE_APPLY_PERCENT_INIT = 10;
@@ -91,7 +99,7 @@ export const Updates = {
     );
     // History is limited to 10 items, each install attempt should report a failure
     const history = await UM.getHistory().catch(ex => {
-      console.error(`FeltUpdates: updateCheckingAllowed failed`, ex);
+      lazy.log.error(`FeltUpdates: updateCheckingAllowed failed`, ex);
       return null;
     });
     if (history) {
@@ -108,11 +116,11 @@ export const Updates = {
       );
       const consecutiveUpdateFailures =
         firstNonFailed === -1 ? history.length : firstNonFailed;
-      console.warn(
+      lazy.log.warn(
         `FeltUpdates: updateCheckingAllowed: ${consecutiveUpdateFailures}, max ${maxConsecutiveUpdateFailures}`
       );
       if (consecutiveUpdateFailures > maxConsecutiveUpdateFailures) {
-        console.warn(
+        lazy.log.warn(
           `FeltUpdates: updateCheckingAllowed: skip startup update check because consecutive update failures: ${consecutiveUpdateFailures}, max ${maxConsecutiveUpdateFailures}`
         );
         this._canDoUpdateChecking = false;
@@ -134,7 +142,7 @@ export const Updates = {
 
   forceUpdateCheck() {
     if (this._canDoUpdateChecking !== true) {
-      console.warn(
+      lazy.log.warn(
         `FeltUpdates: forceUpdateCheck(): skip because previous updates failures`
       );
       this.displayLoginStateWithUpdateError("contact-admin");
@@ -144,7 +152,7 @@ export const Updates = {
     this._appUpdater
       .check()
       .catch(err => {
-        console.error(
+        lazy.log.error(
           `Felt: forceUpdateCheck(): AppUpdater failure: ${err}`,
           err
         );
@@ -157,7 +165,7 @@ export const Updates = {
 
   // Similar to browser/base/content/aboutDialog-appUpdater.js:_onAppUpdateStatus
   appUpdaterCallback(status, downloadedBytes, totalBytes) {
-    console.warn(`FeltUpdates: appUpdaterCallback: status:${status}`);
+    lazy.log.warn(`FeltUpdates: appUpdaterCallback: status:${status}`);
     switch (status) {
       case lazy.AppUpdater.STATUS.CHECKING:
         this.scheduleDelayedUpdateCheckUI();
@@ -234,7 +242,7 @@ export const Updates = {
         // DOWNLOAD_FAILED after STAGING => MAR signature error.
         // During tests, this is expected
         if (this._receivedStaging && lazy.isUpdatesTesting()) {
-          console.warn(
+          lazy.log.warn(
             `DOWNLOAD_FAILED after STAGING during tests, likely unsigned MAR`
           );
           this.hideUpdateState();
@@ -371,11 +379,11 @@ export const Updates = {
       Services.felt?.sendUpdateReady();
     } catch (ex) {
       if (ex.result === Cr.NS_ERROR_NOT_CONNECTED) {
-        console.warn(
+        lazy.log.warn(
           `FeltUpdates: sendUpdateReady() failed because not connected: no browser ?`
         );
       } else if (ex.result === Cr.NS_ERROR_CONNECTION_REFUSED) {
-        console.warn(`FeltUpdates: sendUpdateReady() failed to send`);
+        lazy.log.warn(`FeltUpdates: sendUpdateReady() failed to send`);
       } else {
         throw ex;
       }
@@ -387,7 +395,7 @@ export const Updates = {
     //   update = subject && subject.QueryInterface(Ci.nsIUpdate);
     // but it looks like any notifyObserver() that triggers this anyway
     // passes us a "state" directly?
-    console.warn(`FeltUpdates: observer: topic:${topic} state:${state}`);
+    lazy.log.warn(`FeltUpdates: observer: topic:${topic} state:${state}`);
     switch (topic) {
       case "xpcom-shutdown":
         this.unobserve();
@@ -405,7 +413,7 @@ export const Updates = {
                   this.sendUpdateReady();
                 },
                 err => {
-                  console.error(
+                  lazy.log.error(
                     `FeltUpdates: elevationOptedIn failed for pending-elevate`,
                     err
                   );
@@ -418,7 +426,7 @@ export const Updates = {
             this.sendUpdateReady();
             break;
           default:
-            console.warn(`FeltUpdates: unhandled nsIUpdate state: ${state}`);
+            lazy.log.warn(`FeltUpdates: unhandled nsIUpdate state: ${state}`);
             break;
         }
         break;
@@ -444,7 +452,7 @@ export const Updates = {
           case "download-attempts-exceeded":
           case "elevation-attempts-exceeded":
           default:
-            console.warn(
+            lazy.log.warn(
               `FeltUpdates: unhandled nsIUpdateService error: ${state}`
             );
             break;
@@ -452,7 +460,7 @@ export const Updates = {
         break;
 
       default:
-        console.warn(`FeltUpdates: unhandled update topic: ${topic}`);
+        lazy.log.warn(`FeltUpdates: unhandled update topic: ${topic}`);
         break;
     }
   },

@@ -102,7 +102,7 @@ export const ConsoleClient = {
     try {
       consoleURI = Services.prefs.getStringPref(CONSOLE_ADDRESS_PREF);
     } catch (e) {
-      console.error("Critial misconfiguration: Missing console URI.");
+      lazy.log.error("Critial misconfiguration: Missing console URI.");
       throw e;
     }
     return new URL(consoleURI);
@@ -712,7 +712,7 @@ export const ConsoleClient = {
           try {
             Services.felt.sendTokens();
           } catch (ex) {
-            console.error(
+            lazy.log.error(
               `ConsoleClient: Failed to send back tokens to felt on shutdown: ${ex}`
             );
           }
