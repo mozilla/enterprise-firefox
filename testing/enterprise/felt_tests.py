@@ -143,16 +143,18 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
         auth = self.headers.get("Authorization")
         if not auth:
             self.reply("", 401, "Authorization required")
-            return
+            return False
 
         bearer = auth.split(" ")
         if len(bearer) != 2 or bearer[0].lower() != "bearer":
             self.reply("", 401, "Authorization required")
-            return
+            return False
 
         if bearer[1] != self.server.policy_access_token.value:
             self.reply("", 401, "Authorization required")
-            return
+            return False
+
+        return True
 
     def do_GET(self):
         print("GET", self.path)
@@ -200,7 +202,8 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             })
 
         elif path == "/api/browser/policies":
-            self.check_auth()
+            if not self.check_auth():
+                return
             if self.server.policies_fail_request.value:
                 self.reply("", 500, "Internal Server Error", "application/json")
                 return
@@ -230,7 +233,8 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             contentType = "application/json"
 
         elif path == "/api/browser/whoami":
-            self.check_auth()
+            if not self.check_auth():
+                return
 
             m = json.dumps({
                 "id": str(uuid.uuid4()),
@@ -428,7 +432,8 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             m = json.dumps({"posture": self.server.device_posture_token})
 
         elif path == "/sso/logout":
-            self.check_auth()
+            if not self.check_auth():
+                return
             with self.server.signout_count.get_lock():
                 self.server.signout_count.value += 1
             self.server.policy_access_token.value = ""
