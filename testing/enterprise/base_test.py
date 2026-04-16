@@ -5,6 +5,8 @@
 
 
 import os
+import shutil
+import sys
 import tempfile
 import time
 from copy import deepcopy
@@ -33,16 +35,25 @@ class EnterpriseTestsBase(MarionetteTestCase):
 
         super().setUp()
 
+        # All this needs to happen before process is started to avoid race
+        # conditions, but requires self.marionette that is setup by
+        # super().setUp() right above.
+        self.overwrite_distribution_ini()
+
         if hasattr(self, "_extra_cli_args"):
             self._saved_cli_args = deepcopy(self.marionette.instance.app_args)
             self.marionette.instance.app_args += self._extra_cli_args
 
+        self._logger.info("Marionette force quit with cleanup.")
         self.marionette.quit(in_app=False, clean=True)
+        self._logger.info("Marionette start new session, new instance expected.")
         self.marionette.start_session(timeout=60)
 
         if hasattr(self, "_extra_prefs"):
+            self._logger.info("Marionette enforcing gecko prefs")
             self.marionette.enforce_gecko_prefs(self._extra_prefs)
 
+        self._logger.info("Marionette ready")
         self._driver = self.marionette
 
         if hasattr(self, "setup"):
@@ -62,9 +73,73 @@ class EnterpriseTestsBase(MarionetteTestCase):
             self.marionette.instance.app_args = deepcopy(self._saved_cli_args)
             del self._saved_cli_args
 
+        # If there were prefs forced during setUp(), marionette's geckoinstance
+        # does cache them and on the next execution of enforce_gecko_pref(), if
+        # those prefs are not there anymore in self._extra_prefs, marionette code
+        # will fail to detect that prefs have changed, and not properly update
+        # the profile, resulting in prefs leaking between tests
+        if hasattr(self, "_extra_prefs"):
+            self.marionette.instance.prefs = None
+
         del os.environ["MOZ_DISABLE_NONLOCAL_CONNECTIONS"]
 
         self.marionette.quit(in_app=False, clean=True)
+
+        self.restore_distribution_ini()
+
+    def overwrite_distribution_ini(self):
+        # Some test may need a non modified distribution.ini, so respect it and
+        # and do not overwrite it when requested.
+        # Also some tests may not define a console port, so skip this for them.
+        if hasattr(self, "console_port") and not hasattr(self, "KEEP_DISTRIBUTION_INI"):
+            self.distribution_ini_path = self.get_distribution_ini(self.marionette)
+            self.distribution_ini_orig_path = os.path.join(
+                os.path.dirname(self.distribution_ini_path), "distribution.ini.orig"
+            )
+            assert os.path.isfile(self.distribution_ini_path)
+            self._logger.info(
+                f"Backup {self.distribution_ini_path} as {self.distribution_ini_orig_path}"
+            )
+            shutil.copy(self.distribution_ini_path, self.distribution_ini_orig_path)
+
+            self._logger.info(f"Writing console pref in {self.distribution_ini_path}")
+            with open(self.distribution_ini_path, "w") as dist_ini:
+                dist_ini.write(f"""# Test specific distribution.ini file
+[Global]
+id=enterprise-test
+version=1.0
+about=Mozilla Firefox Enterprise Test Build
+
+[Preferences]
+enterprise.console.address=http://localhost:{self.console_port}
+""")
+
+    def restore_distribution_ini(self):
+        if hasattr(self, "console_port") and not hasattr(self, "KEEP_DISTRIBUTION_INI"):
+            if os.path.isfile(self.distribution_ini_path):
+                os.unlink(self.distribution_ini_path)
+
+            if os.path.isfile(self.distribution_ini_orig_path):
+                shutil.copy(self.distribution_ini_orig_path, self.distribution_ini_path)
+                os.unlink(self.distribution_ini_orig_path)
+
+    def get_distribution_ini(self, driver):
+        dist_root = os.path.dirname(driver.instance.binary)
+        if sys.platform == "darwin":
+            dist_root = os.path.join(
+                os.path.dirname(os.path.dirname(driver.instance.binary)),
+                "Resources",
+            )
+
+        dist_ini = os.path.join(
+            dist_root,
+            "distribution",
+            "distribution.ini",
+        )
+        if not os.path.isfile(dist_ini):
+            raise ValueError(f"Missing {dist_ini}")
+
+        return dist_ini
 
     def get_profile_path(self, name):
         return tempfile.mkdtemp(

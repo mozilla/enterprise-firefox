@@ -4,6 +4,8 @@
 
 const DISTRIBUTION_CUSTOMIZATION_COMPLETE_TOPIC =
   "distribution-customization-complete";
+const DISTRIBUTION_PREFERENCES_COMPLETE_TOPIC =
+  "distribution-preferences-complete";
 
 const PREF_CACHED_FILE_EXISTENCE = "distribution.iniFile.exists.value";
 const PREF_CACHED_FILE_APPVERSION = "distribution.iniFile.exists.appversion";
@@ -618,15 +620,18 @@ DistributionCustomizer.prototype = {
     }
 
     let prefDefaultsApplied = this._prefDefaultsApplied || !this._ini;
-    if (
-      this._customizationsApplied &&
-      this._bookmarksApplied &&
-      prefDefaultsApplied
-    ) {
+    if (this._customizationsApplied && prefDefaultsApplied) {
       Services.obs.notifyObservers(
         null,
-        DISTRIBUTION_CUSTOMIZATION_COMPLETE_TOPIC
+        DISTRIBUTION_PREFERENCES_COMPLETE_TOPIC
       );
+
+      if (this._bookmarksApplied) {
+        Services.obs.notifyObservers(
+          null,
+          DISTRIBUTION_CUSTOMIZATION_COMPLETE_TOPIC
+        );
+      }
     }
   },
 };

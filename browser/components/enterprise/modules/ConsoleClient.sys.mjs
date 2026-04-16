@@ -81,6 +81,7 @@ class InvalidAuthError extends Error {
  */
 export const ConsoleClient = {
   _refreshPromise: null,
+  _consoleUriReadyPromise: null,
 
   /**
    * This is Felt-specific: While the browser is running, it has ownership of the
@@ -94,17 +95,57 @@ export const ConsoleClient = {
   /**
    * Base URL of the remote enterprise console
    *
-   * @returns {URL}
+   * @throws {Error}
+   * @returns {Promise<URL>}
    */
   get consoleBaseURI() {
-    let consoleURI;
-    try {
-      consoleURI = Services.prefs.getStringPref(CONSOLE_ADDRESS_PREF);
-    } catch (e) {
-      lazy.log.error("Critial misconfiguration: Missing console URI.");
-      throw e;
+    if (!this._consoleUriReadyPromise) {
+      this._consoleUriReadyPromise = new Promise((resolve, reject) => {
+        try {
+          const consoleURI = Services.prefs.getStringPref(CONSOLE_ADDRESS_PREF);
+          resolve(consoleURI);
+        } catch (e) {
+          lazy.log.warn(
+            `Missing console URI. Waiting on distribution customization to complete.`
+          );
+          const kDistributionPreferencesCompleteTopic =
+            "distribution-preferences-complete";
+          const distributionCompleteObserver = {
+            observe(_aSubject, aTopic, _aData) {
+              Services.obs.removeObserver(
+                distributionCompleteObserver,
+                "xpcom-shutdown"
+              );
+              Services.obs.removeObserver(
+                distributionCompleteObserver,
+                kDistributionPreferencesCompleteTopic
+              );
+              if (aTopic === kDistributionPreferencesCompleteTopic) {
+                try {
+                  const consoleURI =
+                    Services.prefs.getStringPref(CONSOLE_ADDRESS_PREF);
+                  resolve(consoleURI);
+                } catch (ex) {
+                  lazy.log.error(
+                    `Critical misconfiguration: Missing console URI`
+                  );
+                  reject(ex);
+                }
+              }
+            },
+          };
+          Services.obs.addObserver(
+            distributionCompleteObserver,
+            kDistributionPreferencesCompleteTopic
+          );
+          Services.obs.addObserver(
+            distributionCompleteObserver,
+            "xpcom-shutdown"
+          );
+        }
+      });
     }
-    return new URL(consoleURI);
+    return this._consoleUriReadyPromise.then(url => new URL(url));
   },
 
   /**
@@ -131,8 +172,8 @@ export const ConsoleClient = {
    * @param {string} path
    * @returns {string} Absolute URL string.
    */
-  constructURI(path) {
-    const url = this.consoleBaseURI;
+  async constructURI(path) {
+    const url = await this.consoleBaseURI;
     url.pathname = path;
     return url.href;
   },
@@ -144,9 +185,9 @@ export const ConsoleClient = {
    * @param {string} devicePostureToken - Token received for device posture
    * @returns {nsIURI}
    */
-  constructSsoLoginURI(email, devicePostureToken) {
+  async constructSsoLoginURI(email, devicePostureToken) {
     const deviceId = lazy.FeltStorage.getDeviceId();
-    const url = this.consoleBaseURI;
+    const url = await this.consoleBaseURI;
     url.pathname = this._paths.SSO;
     url.searchParams.set("target", "browser");
     url.searchParams.set("email", email);
@@ -163,15 +204,19 @@ export const ConsoleClient = {
    * @returns {string}
    */
   get ssoCallbackUriMatchPattern() {
-    // Dropping the port is required here because the matcher being used by
-    // JSActors code relies on WebExtensions MatchPattern
-    // https://searchfox.org/firefox-main/source/toolkit/components/extensions/MatchPattern.cpp#370-384
-    // The match pattern should then NOT use any port otherwise matching would
-    // not happen.
-    const url = this.consoleBaseURI;
-    url.pathname = this._paths.SSO_CALLBACK;
-    url.port = "";
-    return url.href + "?*";
+    // This should be: await this.consoleBaseURI but the method being a getter
+    // it cannot be marked "async", and thus cannot have "await" in its body.
+    return this.consoleBaseURI.then(url => {
+      url.pathname = this._paths.SSO_CALLBACK;
+
+      // Dropping the port is required here because the matcher being used by
+      // JSActors code relies on WebExtensions MatchPattern
+      // https://searchfox.org/firefox-main/source/toolkit/components/extensions/MatchPattern.cpp#370-384
+      // The match pattern should then NOT use any port otherwise matching would
+      // not happen.
+      url.port = "";
+      return url.href + "?*";
+    });
   },
 
   /**
@@ -312,7 +357,7 @@ export const ConsoleClient = {
    */
   async sendDevicePosture() {
     const devicePosture = await this._collectDevicePosture();
-    const url = this.constructURI(this._paths.DEVICE_POSTURE);
+    const url = await this.constructURI(this._paths.DEVICE_POSTURE);
 
     const res = await this._xhrFetch(url, {
       method: "POST",
@@ -374,7 +419,7 @@ export const ConsoleClient = {
       headers.set("Content-Type", "application/json");
     }
 
-    const url = this.constructURI(path);
+    const url = await this.constructURI(path);
     const res = await this._xhrFetch(url, {
       method,
       headers,
@@ -510,7 +555,7 @@ export const ConsoleClient = {
       }
       let res;
       try {
-        const url = this.constructURI(this._paths.TOKEN);
+        const url = await this.constructURI(this._paths.TOKEN);
         res = await this._xhrFetch(url, {
           method: "POST",
           headers: {
@@ -698,6 +743,7 @@ export const ConsoleClient = {
    */
   init() {
     Services.obs.addObserver(this, "xpcom-shutdown");
+    Services.prefs.addObserver("enterprise.console.address", this);
 
     if (Services.felt.isFeltBrowser()) {
       lazy.AsyncShutdown.appShutdownConfirmed.addBlocker(
@@ -726,8 +772,14 @@ export const ConsoleClient = {
     switch (topic) {
       case "xpcom-shutdown": {
         Services.obs.removeObserver(this, "xpcom-shutdown");
+        Services.prefs.removebserver("enterprise.console.address", this);
         this.clearTokenData(false);
         this._refreshPromise = null;
+        break;
+      }
+      case "nsPref:changed": {
+        // Console pref was changed, make sure new callers gets a new promise
+        this._consoleUriReadyPromise = null;
         break;
       }
     }

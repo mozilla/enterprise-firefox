@@ -59,11 +59,11 @@ this.felt = class extends ExtensionAPI {
       ["content", "felt", "content/"],
     ]);
   }
-  registerActors() {
+  async registerActors() {
     const { ConsoleClient } = ChromeUtils.importESModule(
       "resource:///modules/enterprise/ConsoleClient.sys.mjs"
     );
-    const matches = [ConsoleClient.ssoCallbackUriMatchPattern];
+    const matches = [await ConsoleClient.ssoCallbackUriMatchPattern];
     ChromeUtils.registerWindowActor(this.FELT_WINDOW_ACTOR, {
       parent: {
         esModuleURI: "chrome://felt/content/FeltWindowParent.sys.mjs",
@@ -220,7 +220,7 @@ this.felt = class extends ExtensionAPI {
       // SSO callback's DOMContentLoaded event and prevent token extraction.
       Services.prefs.setBoolPref("threads.use_low_power.enabled", false);
       this.registerChrome();
-      this.registerActors();
+      await this.registerActors();
       await lazy.FeltStorage.init();
       this.showWindow();
       Services.ppmm.addMessageListener("FeltParent:FirefoxNormalExit", this);

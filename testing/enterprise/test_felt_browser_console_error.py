@@ -25,28 +25,32 @@ class FeltConsoleError(FeltTestsBase):
         error_msg=None,
         error_msg_contains=None,
     ):
-        self.set_string_pref("enterprise.console.address", console_addr)
 
-        self.submit_email()
+        with self._driver.using_prefs(
+            {"enterprise.console.address": console_addr}, default_branch=True
+        ):
+            self.submit_email()
 
-        self._driver.set_context("chrome")
-        error = self.get_elem(selector)
-        message = error.get_attribute("heading").strip()
-        assert expected_heading in message, f"Unexpected error message: {message}"
+            self._driver.set_context("chrome")
+            error = self.get_elem(selector)
+            message = error.get_attribute("heading").strip()
+            assert expected_heading in message, f"Unexpected error message: {message}"
 
-        if error_msg is not None:
-            details = self.get_elem(f"{selector} .felt-browser-error-details")
-            details_text = details.get_property("textContent").strip()
-            assert details_text == error_msg, f"Correct error message: '{details_text}'"
+            if error_msg is not None:
+                details = self.get_elem(f"{selector} .felt-browser-error-details")
+                details_text = details.get_property("textContent").strip()
+                assert details_text == error_msg, (
+                    f"Correct error message: '{details_text}'"
+                )
 
-        if error_msg_contains is not None:
-            details = self.get_elem(f"{selector} .felt-browser-error-details")
-            details_text = details.get_property("textContent").strip()
-            assert error_msg_contains in details_text, (
-                f"Expected '{error_msg_contains}' in error details: '{details_text}'"
-            )
+            if error_msg_contains is not None:
+                details = self.get_elem(f"{selector} .felt-browser-error-details")
+                details_text = details.get_property("textContent").strip()
+                assert error_msg_contains in details_text, (
+                    f"Expected '{error_msg_contains}' in error details: '{details_text}'"
+                )
 
-        self._driver.set_context("content")
+            self._driver.set_context("content")
 
     def test_felt_unreachable_ip_shows_connection_error(self):
         # Port 1 is on Firefox's blocked-port list, producing a generic "network"

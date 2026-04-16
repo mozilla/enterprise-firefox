@@ -138,7 +138,7 @@ async function connectToConsole(email) {
   let oa = E10SUtils.predictOriginAttributes({ browser });
   browser.setAttribute("maychangeremoteness", "true");
 
-  const ssoLoginURI = lazy.ConsoleClient.constructSsoLoginURI(
+  const ssoLoginURI = await lazy.ConsoleClient.constructSsoLoginURI(
     email,
     posture.posture
   );
@@ -179,7 +179,7 @@ async function connectToConsole(email) {
     60000
   );
   const callbackPattern = new MatchPattern(
-    lazy.ConsoleClient.ssoCallbackUriMatchPattern
+    await lazy.ConsoleClient.ssoCallbackUriMatchPattern
   );
 
   let ssoCompleted = false;

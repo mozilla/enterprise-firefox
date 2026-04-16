@@ -267,10 +267,10 @@ export class FeltProcessParent extends JSProcessActorParent {
     };
   }
 
-  sendPrefsToFirefox() {
+  async sendPrefsToFirefox() {
     Services.felt.sendStringPreference(
       lazy.CONSOLE_ADDRESS_PREF,
-      lazy.ConsoleClient.consoleBaseURI
+      await lazy.ConsoleClient.consoleBaseURI
     );
 
     // Enables remote policy polling
@@ -410,7 +410,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     this.firefox = this.startFirefoxProcess();
     this.firefox
       .then(async () => {
-        this.sendPrefsToFirefox();
+        await this.sendPrefsToFirefox();
         Services.felt.sendTokens();
         lazy.ConsoleClient.isSessionRefreshBlocked = true;
 

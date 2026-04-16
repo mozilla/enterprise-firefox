@@ -53,10 +53,10 @@ export const BASE_CONSOLE_URI_PREFS = new Set([
 ]);
 
 export const EnterpriseEndpoints = {
-  init() {
+  async init() {
     lazy.log.info("Setting and locking enterprise endpoints");
 
-    const consoleBaseURI = lazy.ConsoleClient.consoleBaseURI;
+    const consoleBaseURI = await lazy.ConsoleClient.consoleBaseURI;
 
     const defaultBranch = Services.prefs.getDefaultBranch("");
 
