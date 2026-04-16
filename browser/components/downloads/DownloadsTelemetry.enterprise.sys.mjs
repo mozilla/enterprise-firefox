@@ -187,17 +187,10 @@ export const DownloadsTelemetryEnterprise = {
       let filename = null;
       let file_path = download.target?.path;
       if (file_path) {
-        try {
-          // PathUtils is available as a global WebIDL binding in this context.
-          filename = PathUtils.filename(file_path);
-        } catch (pathErr) {
-          console.warn(
-            `[DownloadsTelemetryEnterprise] PathUtils failed, falling back to split:`,
-            pathErr
-          );
-          const parts = file_path.split(/[/\\]/);
-          filename = parts[parts.length - 1] || "";
-        }
+        // PathUtils.filename() uses MOZ_RELEASE_ASSERT on Windows for forward
+        // slashes, causing a hard process crash not catchable from JS. Use
+        // cross-platform splitting to handle both separators safely.
+        filename = file_path.split(/[/\\]/).pop() || "";
       }
 
       // Extract file extension

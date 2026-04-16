@@ -202,6 +202,38 @@ add_task(async function test_enterprise_data_parsing() {
       "Should record private browsing status"
     );
 
+    // Verify filename extraction works with Windows-style backslash paths
+    Services.fog.testResetFOG();
+
+    DownloadsTelemetryEnterprise.recordFileDownloaded({
+      target: {
+        path: "C:\\Users\\user\\Downloads\\document.pdf",
+        size: 12345,
+      },
+      source: { url: "https://example.com/document.pdf", isPrivate: false },
+      contentType: "application/pdf",
+      saver: mockDownload.saver,
+    });
+
+    const windowsEvents =
+      Glean.downloads.downloadCompleted.testGetValue("enterprise");
+    Assert.ok(windowsEvents, "Should have recorded events for Windows path");
+    Assert.equal(
+      windowsEvents[0].extra.filename,
+      "document.pdf",
+      "Should extract filename from Windows path"
+    );
+    Assert.equal(
+      windowsEvents[0].extra.extension,
+      "pdf",
+      "Should extract extension from Windows path"
+    );
+    Assert.equal(
+      windowsEvents[0].extra.file_path,
+      "C:\\Users\\user\\Downloads\\document.pdf",
+      "Should record Windows path as-is"
+    );
+
     // Test with edge cases - they should be handled gracefully
     Services.fog.testResetFOG();
 
