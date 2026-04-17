@@ -144,12 +144,15 @@ def make_task_description(config, jobs):
 
             th_symbol = None
 
-            if "enterprise-repack-mac" in config.kind:
+            if "enterprise-repack" in config.kind:
                 # assumes repacks-per-chunk is 1
                 repack_ids = job.get("extra").get("repack_ids")
 
                 assert len(repack_ids) == 1
-                th_group = "BMS-Ent" if "signing" in config.kind else "BMN-Ent"
+                if "mac" in config.kind:
+                    th_group = "BMS-Ent" if "signing" in config.kind else "BMN-Ent"
+                else:
+                    th_group = "BS-Ent"
                 th_symbol = f"{th_group}({repack_ids[0]})"
 
                 repack_label = "enterprise-repack-" + repack_ids[0].replace("/", "_")

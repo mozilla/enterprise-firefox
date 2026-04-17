@@ -680,6 +680,9 @@ def get_enterprise_partner_configs(parameters):
             "macosx64-enterprise-shippable",
             "win64-enterprise-shippable",
         ]),
+        "enterprise-repack-signing": make_enterprise_repack([
+            "linux64-enterprise-shippable",
+        ]),
         "enterprise-repack-mac-signing": make_enterprise_repack([
             "macosx64-enterprise-shippable",
         ]),

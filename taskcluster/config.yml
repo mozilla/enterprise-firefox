@@ -212,6 +212,7 @@ treeherder:
         'MSI-Ent': "MSI Enterprise repacks"
         'MSIs-Ent': "MSI signed Enterprise repacks"
         'DEB-Ent': "Debian Enterprise repacks"
+        'BS-Ent': "Signing for Enterprise repacks"
         'BMS-Ent': "Mac signing for Enterprise repacks"
         'BMN-Ent': "Mac notarization for Enterprise repacks"
         'MnEnt': 'Marionette tests Enterprise'

@@ -977,3 +977,7 @@ Mac notarization of customized versions of releases for enterprises.
 enterprise-repack-mac-signing
 ----------------------------------
 Mac signature of customized versions of releases for enterprises.
+
+enterprise-repack-signing
+-------------------------
+Signature of customized versions of releases for enterprises.
