@@ -14,6 +14,9 @@ from marionette_driver.by import By
 
 
 class BrowserTokenRefresh(FeltTests):
+    # make explicit as it is used to trigger 401 to close the browser
+    EXTRA_CHILD_PREFS = {"browser.policies.live_polling.frequency": 500}
+
     def setup(self):
         super().setup()
         self.felt_logout_checker = FeltLogoutChecker(self)
@@ -34,24 +37,17 @@ class BrowserTokenRefresh(FeltTests):
     def assert_browser_closes_on_401(self):
         old_access_token = self.policy_access_token.value
         old_refresh_token = self.policy_refresh_token.value
-        self.policy_access_token.value = ""
-        self.policy_refresh_token.value = ""
-
-        # Trigger an auth request with invalid tokens, expecting a forced logout.
+        self._manually_closed_child = True
+        # waits until firefox exits and gives the proper logout type
         with self.felt_logout_checker.assert_browser_logouts_with(
             "console-forced-logout"
         ):
-            self._child_driver.set_context("chrome")
-            # Run synchronously without awaiting the promise — the only purpose is
-            # to trigger a 401/403 response which causes the browser to shut down.
-            self._child_driver.execute_script("""
-                const { ConsoleClient } = ChromeUtils.importESModule(
-                    "resource:///modules/enterprise/ConsoleClient.sys.mjs"
-                );
-                ConsoleClient.getLoggedInUserInfo();
-            """)
+            # The context manager is listening for logout events. Once we invalidate
+            # the tokens, the next remote policies fetch
+            # will fail and trigger a "console-forced-logout".
+            self.policy_refresh_token.value = ""
+            self.policy_access_token.value = ""
 
-        self._manually_closed_child = True
         self.assert_child_browser_closed()
 
         self.await_felt_auth_window()
