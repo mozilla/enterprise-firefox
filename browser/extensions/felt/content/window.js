@@ -522,6 +522,17 @@ function setBuildVersion() {
   }
 }
 
+// bug 2006564
+// make sure that when application starts from dock it enforces windows' focus via activateApplication
+// https://searchfox.org/enterprise-main/rev/4b4e7c59db50500302fa0e437ee07a84d92aa076/widget/nsIMacDockSupport.idl#36-45
+function macosActivateApplication() {
+  if (lazy.AppConstants.platform === "macosx") {
+    Cc["@mozilla.org/widget/macdocksupport;1"]
+      .getService(Ci.nsIMacDockSupport)
+      .activateApplication(true);
+  }
+}
+
 window.addEventListener(
   "load",
   () => {
@@ -534,6 +545,7 @@ window.addEventListener(
     listenFormEmailSubmission();
     focusEmailOnLoginVisible();
     informAboutPotentialStartupFailure();
+    macosActivateApplication();
   },
   true
 );
