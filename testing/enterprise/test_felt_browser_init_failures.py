@@ -14,11 +14,12 @@ from felt_tests import FeltTests
 
 class BrowserInitFailures(FeltTests):
     def test_browser_init_policy_fetch_fail(self):
-        self.policies_fail_request.value = 1
-        super().run_felt_base()
         self._manually_closed_child = True
-
-        self.await_felt_auth_window()
-        self.policies_fail_request.value = 0
-        self.force_window()
-        self.assert_user_signed_out(env=Environment.FELT)
+        for _ in range(5):
+            self.policies_fail_request.value = 1
+            super().run_felt_base()
+            self.await_felt_auth_window()
+            self.policies_fail_request.value = 0
+            self.force_window()
+            self.assert_user_signed_out(env=Environment.FELT)
+            self.await_felt_auth_window()

@@ -174,7 +174,7 @@ EnterprisePoliciesManager.prototype = {
     if (Services.felt?.isFeltBrowser() && remoteProvider.failed) {
       // bug 2027006 will move the fetching of policies to felt
       // and not shutdown will be needed then
-      await lazy.EnterpriseHandler.initiateShutdown();
+      this._shutdownOnFailureNeeded = true;
     }
     remoteProvider.onPoliciesChanges(handler);
 
@@ -452,6 +452,9 @@ EnterprisePoliciesManager.prototype = {
       }
       case "profile-after-change":
         this._runPoliciesCallbacks("onProfileAfterChange");
+        if (this._shutdownOnFailureNeeded) {
+          lazy.EnterpriseHandler.initiateShutdown().catch(console.error);
+        }
         break;
 
       case "final-ui-startup":
