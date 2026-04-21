@@ -12,6 +12,7 @@ treeherder:
                 default: enterprise-firefox-try
             default:
                 enterprise-main: enterprise-main
+                enterprise-beta: enterprise-beta
                 enterprise-release: enterprise-release
     group-names:
         'js-bench-sm': 'JavaScript shell benchmarks with Spidermonkey'
