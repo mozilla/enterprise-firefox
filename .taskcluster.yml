@@ -413,13 +413,13 @@ tasks:
                   in:
                       $if: >
                         eventType in ["action", "cron"]
-                        || (eventType == "push" && shortRef == "enterprise-main")
+                        || (eventType == "push" && shortRef in ["enterprise-main", "enterprise-beta", "enterprise-release"])
                         || (eventType == "push" && project == "enterprise-firefox-try")
                         || (isPullRequest && eventAction in ["opened", "reopened", "synchronize"])
                       then:
                           $let:
                               level:
-                                  $if: '(tasks_for == "action" || eventType in ["cron", "push"]) && repoUrl == "https://github.com/mozilla/enterprise-firefox" && shortRef == "enterprise-main"'
+                                  $if: '(tasks_for == "action" || eventType in ["cron", "push"]) && repoUrl == "https://github.com/mozilla/enterprise-firefox" && project == "enterprise-firefox"'
                                   then: 3
                                   else: 1
                           in:
