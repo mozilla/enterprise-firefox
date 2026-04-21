@@ -489,6 +489,20 @@ const SNAPSHOT_SCHEMA = {
           required: false,
           type: "boolean",
         },
+        ...(AppConstants.MOZ_ENTERPRISE && {
+          "network.connectivity-service.IPv4.url": {
+            required: false,
+            type: "string",
+          },
+          "network.connectivity-service.IPv6.url": {
+            required: false,
+            type: "string",
+          },
+          "security.certerrors.mitm.priming.endpoint": {
+            required: false,
+            type: "string",
+          },
+        }),
       },
     },
     places: {
