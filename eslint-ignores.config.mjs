@@ -286,7 +286,6 @@ export default [
   "toolkit/modules/AppConstants.sys.mjs",
 
   // Files with MOZ_ENTERPRISE preprocessor directives
-  "browser/components/enterprisepolicies/helpers/WebsiteFilter.sys.mjs",
   "services/fxaccounts/FxAccounts.sys.mjs",
   "services/fxaccounts/FxAccountsClient.sys.mjs",
   "toolkit/components/downloads/DownloadCore.sys.mjs",
