@@ -977,3 +977,10 @@ Mac notarization of customized versions of releases for enterprises.
 enterprise-repack-mac-signing
 ----------------------------------
 Mac signature of customized versions of releases for enterprises.
+
+glean
+-----
+Tasks that run ``./mach glean`` utilities. The ``semconv`` task produces the
+resolved OTel semantic convention registry schema from Firefox Glean metric
+definitions, consumed by the ``moa generate release``
+tool.

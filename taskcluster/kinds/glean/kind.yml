@@ -1,0 +1,48 @@
+---
+loader: taskgraph.loader.transform:loader
+
+transforms:
+    - gecko_taskgraph.transforms.job:transforms
+    - gecko_taskgraph.transforms.task:transforms
+
+kind-dependencies:
+    - toolchain
+    - fetch
+
+tasks:
+    semconv:
+        description: >-
+            Generate the resolved OTel semantic convention registry schema from
+            Firefox Glean metric definitions. The resulting resolved.yaml is
+            consumed by the `moa generate release` tool, which embeds it as a
+            semconv referrer artifact on Harbor.
+        run-on-projects: ["enterprise-firefox"]
+        run-on-repo-type: ["git"]
+        worker-type: b-linux
+        worker:
+            docker-image: {in-tree: "lint"}
+            max-run-time: 1800
+            artifacts:
+                - type: file
+                  name: public/build/resolved.yaml
+                  path: /builds/worker/artifacts/resolved.yaml
+                - type: file
+                  name: public/build/manifest.yaml
+                  path: /builds/worker/artifacts/manifest.yaml
+        run:
+            using: mach
+            mach: "glean semconv --output-dir /builds/worker/artifacts"
+            use-caches: [checkout, pip, uv]
+        attributes:
+            shippable: true
+        shipping-phase: build
+        shipping-product: firefox-enterprise
+        index:
+            product: firefox
+            job-name: glean-semconv
+            type: shippable
+        treeherder:
+            symbol: Glean(semconv)
+            kind: build
+            platform: linux64/opt
+            tier: 1

@@ -209,6 +209,7 @@ treeherder:
         'updt-tst': 'Test updates to release from older firefox versions'
         'Rpk-Ent': 'Enterprise repacks'
         'Rpk-Ent-Rpk': 'Enterprise repacks repackage'
+        'Glean': 'Glean tooling'
         'Rpk': 'Classic repacks'
         'MSI-Ent': "MSI Enterprise repacks"
         'MSIs-Ent': "MSI signed Enterprise repacks"
