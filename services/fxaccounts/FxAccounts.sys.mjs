@@ -4,11 +4,7 @@
 
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-#ifdef MOZ_ENTERPRISE
-import { EnterpriseStorageManager } from "resource:///modules/enterprise/EnterpriseAccountsStorage.sys.mjs";
-#else
 import { FxAccountsStorageManager } from "resource://gre/modules/FxAccountsStorage.sys.mjs";
-#endif
 
 import {
   ATTACHED_CLIENTS_CACHE_DURATION,
@@ -38,11 +34,14 @@ import {
   logPII,
   logManager,
 } from "resource://gre/modules/FxAccountsCommon.sys.mjs";
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   CryptoUtils: "moz-src:///services/crypto/modules/utils.sys.mjs",
+  EnterpriseStorageManager:
+    "resource:///modules/enterprise/EnterpriseAccountsStorage.sys.mjs",
   FxAccountsClient: "resource://gre/modules/FxAccountsClient.sys.mjs",
   FxAccountsCommands: "resource://gre/modules/FxAccountsCommands.sys.mjs",
   FxAccountsConfig: "resource://gre/modules/FxAccountsConfig.sys.mjs",
@@ -952,14 +951,9 @@ FxAccountsInternal.prototype = {
 
   // A hook-point for tests who may want a mocked AccountState or mocked storage.
   newAccountState(credentials) {
-    let storage =
-#ifdef MOZ_ENTERPRISE
-      new EnterpriseStorageManager()
-#else
-      new FxAccountsStorageManager()
-#endif
-    ;
-
+    let storage = AppConstants.MOZ_ENTERPRISE
+      ? new lazy.EnterpriseStorageManager()
+      : new FxAccountsStorageManager();
     storage.initialize(credentials);
     return new AccountState(storage);
   },
