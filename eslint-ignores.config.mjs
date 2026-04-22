@@ -286,7 +286,6 @@ export default [
   "toolkit/modules/AppConstants.sys.mjs",
 
   // Files with MOZ_ENTERPRISE preprocessor directives
-  "toolkit/mozapps/extensions/AddonManager.sys.mjs",
   "toolkit/mozapps/extensions/internal/XPIDatabase.sys.mjs",
 
   // ESLint tests.

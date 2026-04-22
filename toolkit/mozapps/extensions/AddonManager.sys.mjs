@@ -5932,8 +5932,11 @@ AMTelemetry = {
         step: extra.step,
       })
     );
-#ifdef MOZ_ENTERPRISE
-    if (eventMethod == "install" && extra.step == "completed") {
+    if (
+      AppConstants.MOZ_ENTERPRISE &&
+      eventMethod == "install" &&
+      extra.step == "completed"
+    ) {
       Glean.addonsManager.installComplete.record(
         this.formatExtraVars({
           addon_id: extra.addon_id,
@@ -5952,7 +5955,6 @@ AMTelemetry = {
       );
       GleanPings.enterprise.submit();
     }
-#endif
   },
 
   /**
