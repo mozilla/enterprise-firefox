@@ -14,6 +14,8 @@ import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 import { XPIExports } from "resource://gre/modules/addons/XPIExports.sys.mjs";
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -1221,11 +1223,9 @@ export class AddonWrapper {
       return true;
     }
 
-#ifdef MOZ_ENTERPRISE
-    if (this.isInstalledByEnterprisePolicy) {
+    if (AppConstants.MOZ_ENTERPRISE && this.isInstalledByEnterprisePolicy) {
       return true;
     }
-#endif
 
     return XPIExports.XPIInternal.canRunInSafeMode(addon);
   }
@@ -1684,7 +1684,13 @@ const updatedAddonFluentIds = new Map([
       let fluentId =
         updatedAddonFluentIds.get(defaultFluentId) || defaultFluentId;
       try {
-        const l10n = new Localization(["browser/appExtensionFields.ftl", "browser/enterprise/enterprise.ftl"], true);
+        const l10n = new Localization(
+          [
+            "browser/appExtensionFields.ftl",
+            "browser/enterprise/enterprise.ftl",
+          ],
+          true
+        );
         [formattedMessage] = l10n.formatMessagesSync([{ id: fluentId }]);
       } catch (e) {
         // Log a warning when no fluent string was found, but fallback to the value set
