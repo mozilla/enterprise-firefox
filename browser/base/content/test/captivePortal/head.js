@@ -1,3 +1,14 @@
+// Enterprise builds lock captivedetect.canonicalURL. Unlock it so tests can set it to a local server.
+if (
+  AppConstants.MOZ_ENTERPRISE &&
+  Services.prefs.prefIsLocked("captivedetect.canonicalURL")
+) {
+  Services.prefs.unlockPref("captivedetect.canonicalURL");
+  registerCleanupFunction(() => {
+    Services.prefs.lockPref("captivedetect.canonicalURL");
+  });
+}
+
 XPCOMUtils.defineLazyServiceGetter(
   this,
   "cps",
