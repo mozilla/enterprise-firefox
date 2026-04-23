@@ -194,7 +194,6 @@ export let WebsiteFilter = {
     }
     return true;
   },
-
   _recordBlocklistDomainBrowsed(originalUrl, resolvedUrl, referrer) {
     if (!AppConstants.MOZ_ENTERPRISE) {
       return;
