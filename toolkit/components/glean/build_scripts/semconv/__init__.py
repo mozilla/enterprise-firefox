@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
-from buildconfig import config, topsrcdir
+from buildconfig import topsrcdir
 from glean_parser import parser
 from jsonschema import Draft202012Validator
 
@@ -120,7 +120,17 @@ class OtelEvent:
 def run(output_dir: Path | None = None):
     input_files = load_metrics_index()
 
-    moz_app_version = config.substs.get("MOZ_APP_VERSION", "1")
+    # Read MOZ_APP_VERSION directly from browser/config/version.txt rather than
+    # via buildconfig.config.substs, so this command can be run in CI without
+    # requiring a prior `./mach configure` step (which would need the full
+    # build toolchain). `browser/config/version.txt` is Firefox's authoritative
+    # source for the application version and is always present in the tree.
+    try:
+        moz_app_version = (
+            TOP_SRC_DIR / "browser" / "config" / "version.txt"
+        ).read_text().strip()
+    except OSError:
+        moz_app_version = "1"
     app_version_major = moz_app_version.split(".", 1)[0]
 
     res = parser.parse_objects(
