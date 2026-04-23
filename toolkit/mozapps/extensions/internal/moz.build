@@ -9,8 +9,8 @@ EXTRA_JS_MODULES.addons += [
     "crypto-utils.sys.mjs",
     "ProductAddonChecker.sys.mjs",
     "siteperms-addon-utils.sys.mjs",
-    "XPIExports.sys.mjs",
     "XPIDatabase.sys.mjs",
+    "XPIExports.sys.mjs",
     "XPIInstall.sys.mjs",
     "XPIProvider.sys.mjs",
 ]
