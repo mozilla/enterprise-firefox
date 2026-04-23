@@ -44,7 +44,7 @@ GLEAN_TYPE_TO_OTEL_TYPE = {
 }
 
 
-@dataclass
+@dataclass(frozen=True)
 class CatalogAttribute:
     key: str
     type: str
@@ -67,14 +67,14 @@ class CatalogAttribute:
 class AttributeCatalog:
     def __init__(self):
         self._attrs: list[CatalogAttribute] = []
-        self._index: dict[str, int] = {}
+        self._index: dict[CatalogAttribute, int] = {}
 
     def get_or_add(self, attr: CatalogAttribute) -> int:
-        if attr.key in self._index:
-            return self._index[attr.key]
+        if attr in self._index:
+            return self._index[attr]
         idx = len(self._attrs)
         self._attrs.append(attr)
-        self._index[attr.key] = idx
+        self._index[attr] = idx
         return idx
 
     def to_list(self) -> list[dict]:
@@ -120,15 +120,14 @@ class OtelEvent:
 def run(output_dir: Path | None = None):
     input_files = load_metrics_index()
 
-    # Read MOZ_APP_VERSION directly from browser/config/version.txt rather than
-    # via buildconfig.config.substs, so this command can be run in CI without
-    # requiring a prior `./mach configure` step (which would need the full
-    # build toolchain). `browser/config/version.txt` is Firefox's authoritative
-    # source for the application version and is always present in the tree.
+    # We read the MOZ_APP_VERSION directly from browser/config/version.txt rather
+    # rather than via buildconfig.config.substs, so this command can be run in CI
+    # without requiring a prior `./mach configure` step (which would need the full
+    # build toolchain).
     try:
         moz_app_version = (
-            TOP_SRC_DIR / "browser" / "config" / "version.txt"
-        ).read_text().strip()
+            (TOP_SRC_DIR / "browser" / "config" / "version.txt").read_text().strip()
+        )
     except OSError:
         moz_app_version = "1"
     app_version_major = moz_app_version.split(".", 1)[0]
@@ -179,13 +178,15 @@ def run(output_dir: Path | None = None):
 
     with open(resolved_path, "w") as f:
         yaml.dump(
-            resolved, f, default_flow_style=False, sort_keys=False, allow_unicode=True
+            resolved,
+            f,
+            Dumper=_LiteralBlockDumper,
+            sort_keys=False,
+            allow_unicode=True,
         )
 
     with open(manifest_path, "w") as f:
-        yaml.dump(
-            manifest, f, default_flow_style=False, sort_keys=False, allow_unicode=True
-        )
+        yaml.dump(manifest, f, sort_keys=False, allow_unicode=True)
 
     manifest_errors = validate_against_schema(manifest, MANIFEST_SCHEMA_PATH)
     if manifest_errors:
@@ -222,29 +223,23 @@ def convert_glean_events(objs) -> tuple[AttributeCatalog, list[OtelEvent]]:
             if metric.type != "event":
                 continue
 
-            event_name = metric.identifier()
-            brief = metric.description.strip() if metric.description else event_name
+            event_name = f"{category_name}.{metric.name}"
 
             attr_refs: list[EventAttributeRef] = []
             if hasattr(metric, "extra_keys") and metric.extra_keys:
                 for key_name, key_info in sorted(metric.extra_keys.items()):
-                    glean_type = (
-                        key_info.get("type", "string")
-                        if isinstance(key_info, dict)
-                        else "string"
-                    )
-                    otel_type = glean_extra_key_type_to_otel(glean_type)
-                    key_desc = ""
-                    if isinstance(key_info, dict):
-                        key_desc = key_info.get("description", "").strip()
-
-                    attr_key = f"{event_name}.{key_name}"
+                    glean_type = key_info.get("type", "string")
+                    otel_type = GLEAN_TYPE_TO_OTEL_TYPE.get(glean_type, "string")
+                    key_desc = key_info.get("description", "").strip()
+                    if "Why the SERP is deemed abandoned" in key_desc:
+                        print(key_info.get("description", ""))
                     cat_attr = CatalogAttribute(
-                        key=attr_key,
+                        key=key_name,
                         type=otel_type,
-                        brief=key_desc or attr_key,
+                        brief=key_desc,
                         stability="development",
                     )
+
                     idx = catalog.get_or_add(cat_attr)
                     attr_refs.append(
                         EventAttributeRef(base=idx, requirement_level="recommended")
@@ -252,17 +247,13 @@ def convert_glean_events(objs) -> tuple[AttributeCatalog, list[OtelEvent]]:
 
             otel_event = OtelEvent(
                 name=event_name,
-                brief=brief,
+                brief=metric.description.strip(),
                 stability="development",
                 attributes=attr_refs,
             )
             events.append(otel_event)
 
     return catalog, events
-
-
-def glean_extra_key_type_to_otel(glean_type: str) -> str:
-    return GLEAN_TYPE_TO_OTEL_TYPE.get(glean_type, "string")
 
 
 def build_resolved_registry(catalog: AttributeCatalog, events: list[OtelEvent]):
@@ -304,6 +295,19 @@ def validate_against_schema(instance, schema_path: Path) -> list[str]:
             f"{'.'.join(str(p) for p in error.absolute_path)}: {error.message}"
         )
     return errors
+
+
+class _LiteralBlockDumper(yaml.Dumper):
+    pass
+
+
+def _str_representer(dumper, data):
+    if "\n" in data:
+        return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data)
+
+
+_LiteralBlockDumper.add_representer(str, _str_representer)
 
 
 def build_manifest(resolved_schema_uri: str) -> dict:
