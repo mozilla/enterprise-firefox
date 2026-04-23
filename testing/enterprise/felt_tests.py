@@ -630,14 +630,6 @@ class FeltTestsBase(EnterpriseTestsBase):
         self.device_posture_reply_forbidden = Value("B", 0)
         """
 
-        self._extra_prefs = {
-            "enterprise.is_testing": True,
-            "enterprise.log_level": "Debug",
-        }  # + test_prefs
-
-        if hasattr(self, "EXTRA_PREFS"):
-            self._extra_prefs.update(self.EXTRA_PREFS)
-
         self.policy_access_token = SharedString("")
         self.policy_refresh_token = SharedString("")
         self.signout_count = Value("i", 0)
@@ -684,6 +676,18 @@ class FeltTestsBase(EnterpriseTestsBase):
         self._logger.info(f"Starting console server: {self.console_port}")
         self._logger.info(f"Starting SSO server: {self.sso_port}")
 
+    def _apply_prefs_for_instance(self):
+        self._extra_prefs = {
+            "enterprise.is_testing": True,
+            "enterprise.log_level": "Debug",
+        }  # + test_prefs
+
+        if hasattr(self, "EXTRA_PREFS"):
+            self._extra_prefs.update(self.EXTRA_PREFS)
+
+        marionette = self._marionette_weakref()
+        marionette.instance.profile.set_preferences(self._extra_prefs)
+
     def setup(self):
         console_addr = f"http://localhost:{self.console_port}"
 
@@ -722,9 +726,11 @@ class FeltTestsBase(EnterpriseTestsBase):
         if not self._manually_closed_child:
             self._logger.info("Closing browser")
             self._child_driver.set_context("chrome")
+            pid = self._child_driver.session_capabilities["moz:processID"]
             self._child_driver.execute_script(
                 "Services.startup.quit(Ci.nsIAppStartup.eForceQuit);"
             )
+            self.wait_process_exit(pid)
             self._logger.info("Closed browser")
         else:
             self._logger.info("Browser was already manually closed.")
