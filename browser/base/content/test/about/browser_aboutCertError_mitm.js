@@ -13,6 +13,18 @@ const PREF_FELT_PRIV_V1 = "security.certerrors.felt-privacy-v1";
 
 const UNKNOWN_ISSUER = "https://untrusted.example.com";
 
+// Enterprise builds lock the MITM priming endpoint. Unlock it so tests can
+// set it to a local server.
+if (
+  AppConstants.MOZ_ENTERPRISE &&
+  Services.prefs.prefIsLocked(PREF_MITM_PRIMING_ENDPOINT)
+) {
+  Services.prefs.unlockPref(PREF_MITM_PRIMING_ENDPOINT);
+  registerCleanupFunction(() => {
+    Services.prefs.lockPref(PREF_MITM_PRIMING_ENDPOINT);
+  });
+}
+
 async function checkMitmPriming(useFelt) {
   await SpecialPowers.pushPrefEnv({
     set: [
