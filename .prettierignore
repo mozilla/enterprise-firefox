@@ -1348,6 +1348,10 @@ build/pgo/blueprint/**/*.css
 # Ignore web-platform tests as they are not necessarily under our control.
 testing/web-platform/tests/
 
+# These are vendored from https://github.com/open-telemetry/weaver/blob/173fed70c05bf9c7833f59f80aae09642ac05114/schemas/
+toolkit/components/glean/build_scripts/semconv/schemas/publication-manifest.v2.json
+toolkit/components/glean/build_scripts/semconv/schemas/semconv.resolved.v2.json
+
 ##############################################################################
 # The list below is copied from ThirdPartyPaths.txt. Prettier doesn't currently
 # support multiple ignore files or dynamic ignore configurations.
