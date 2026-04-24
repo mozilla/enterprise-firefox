@@ -797,6 +797,15 @@ class IPPProxyManagerSingleton extends EventTarget {
 
     this.#state = state;
 
+    // Order of execution makes handleEvent unable to see that transition
+    // When the browser starts without the Access Connectors policy set but it is
+    // later enabled server-side and pulled, it can get into a state where
+    // IPPProxyManager.start() is called but state is NOT_READY. It gets updated
+    // a bit later, but IPPAutoStart has already issued the start command
+    if (this.#state === IPPProxyStates.READY) {
+      this.start(false);
+    }
+
     this.dispatchEvent(
       new CustomEvent("IPPProxyManager:StateChanged", {
         bubbles: true,

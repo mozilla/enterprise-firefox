@@ -30,6 +30,7 @@ const AUTOSTART_PREF = "browser.ipProtection.autoStartEnabled";
  */
 class IPPAutoStartSingleton {
   #shouldStartWhenReady = false;
+  #handleListChanged = null;
 
   constructor() {
     XPCOMUtils.defineLazyPreferenceGetter(
@@ -52,6 +53,22 @@ class IPPAutoStartSingleton {
       AUTOSTART_FEATURE_ENABLE_PREF,
       false
     );
+
+    this.#handleListChanged = () => this.init();
+    lazy.IPProtectionServerlist.addEventListener(
+      "IPProtectionServerlist:ListChanged",
+      this.#handleListChanged
+    );
+  }
+
+  destroy() {
+    if (this.#handleListChanged) {
+      lazy.IPProtectionServerlist.removeEventListener(
+        "IPProtectionServerlist:ListChanged",
+        this.#handleListChanged
+      );
+      this.#handleListChanged = null;
+    }
   }
 
   init() {

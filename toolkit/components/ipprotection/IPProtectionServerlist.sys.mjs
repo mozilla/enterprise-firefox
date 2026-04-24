@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 /**
  * This file contains functions that work on top of the RemoteSettings
  * Bucket for the IP Protection server list.
@@ -27,6 +29,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
   RemoteSettings: "resource://services-settings/remote-settings.sys.mjs",
 });
+
+/**
+ * Event dispatched by `IPProtectionServerlistBase` instances whenever the
+ * underlying list has been replaced (RS sync, pref change, initial fetch).
+ */
+const LIST_CHANGED_EVENT = "IPProtectionServerlist:ListChanged";
 
 /**
  *
@@ -193,7 +201,7 @@ class Country {
 /**
  * Base Class for the Serverlist
  */
-export class IPProtectionServerlistBase {
+export class IPProtectionServerlistBase extends EventTarget {
   __list = null;
 
   init() {}
@@ -374,6 +382,7 @@ export class PrefServerList extends IPProtectionServerlistBase {
     this.__list = IPProtectionServerlistBase.dataToList(
       PrefServerList.prefValue
     );
+    this.dispatchEvent(new Event(LIST_CHANGED_EVENT));
     return Promise.resolve();
   }
 
@@ -407,6 +416,9 @@ export class PrefServerList extends IPProtectionServerlistBase {
  * @returns {IPProtectionServerlistBase} - The appropriate serverlist implementation.
  */
 export function IPProtectionServerlistFactory() {
+  if (AppConstants.MOZ_ENTERPRISE) {
+    return new PrefServerList();
+  }
   return PrefServerList.hasPrefValue
     ? new PrefServerList()
     : new RemoteSettingsServerlist();
