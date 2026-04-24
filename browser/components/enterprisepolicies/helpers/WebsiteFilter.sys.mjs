@@ -195,9 +195,6 @@ export let WebsiteFilter = {
     return true;
   },
   _recordBlocklistDomainBrowsed(originalUrl, resolvedUrl, referrer) {
-    if (!AppConstants.MOZ_ENTERPRISE) {
-      return;
-    }
     const isEnabled = Services.prefs.getBoolPref(
       "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled",
       true
