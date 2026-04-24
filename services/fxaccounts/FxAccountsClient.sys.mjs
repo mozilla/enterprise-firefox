@@ -7,6 +7,7 @@ import { CommonUtils } from "resource://services-common/utils.sys.mjs";
 import { HawkClient } from "resource://services-common/hawkclient.sys.mjs";
 import { deriveHawkCredentials } from "resource://services-common/hawkrequest.sys.mjs";
 import { CryptoUtils } from "moz-src:///services/crypto/modules/utils.sys.mjs";
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 const lazy = {};
 if (AppConstants.MOZ_ENTERPRISE) {
@@ -26,7 +27,6 @@ import {
 } from "resource://gre/modules/FxAccountsCommon.sys.mjs";
 
 import { Credentials } from "resource://gre/modules/Credentials.sys.mjs";
-import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 const HOST_PREF = "identity.fxaccounts.auth.uri";
 
