@@ -58,6 +58,31 @@ class SharedString:
             self._array._obj.value = encoded
 
 
+class ConsoleSSOPortMixin:
+    """Provides console_port/sso_port properties that block until the
+    server processes have bound to their OS-assigned ports (port 0).
+    Expects _console_port and _sso_port to be multiprocessing.Value("i", 0)."""
+
+    def _wait_for_port(self, val):
+        for _ in range(40):
+            if val.value != 0:
+                return val.value
+            time.sleep(0.5)
+        raise RuntimeError("Server failed to start")
+
+    @property
+    def console_port(self):
+        return self._wait_for_port(self._console_port)
+
+    @property
+    def sso_port(self):
+        return self._wait_for_port(self._sso_port)
+
+
+class ConsoleSSOHTTPServer(ConsoleSSOPortMixin, HTTPServer):
+    pass
+
+
 class LocalHttpRequestHandler(BaseHTTPRequestHandler):
     def reply(self, payload, code=200, status="Success", contentType=None):
         self.send_response(code, status)
@@ -486,10 +511,10 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 
 
 def serve(
-    port,
     classname,
     sso_port,
     console_port,
+    is_console,
     cookie_name=None,
     cookie_value=None,
     policy_block_about_config=None,
@@ -501,9 +526,14 @@ def serve(
     # TODO: Behavior is not yet clearly defined
     # device_posture_reply_forbidden=None,
 ):
-    httpd = HTTPServer(("", port), classname)
-    httpd.sso_port = sso_port
-    httpd.console_port = console_port
+    httpd = ConsoleSSOHTTPServer(("", 0), classname)
+    if is_console:
+        console_port.value = httpd.server_address[1]
+    else:
+        sso_port.value = httpd.server_address[1]
+    # There's a getter on the Mixin for these
+    httpd._sso_port = sso_port
+    httpd._console_port = console_port
     if cookie_name is not None:
         httpd.cookie_name = cookie_name
     if cookie_value is not None:
@@ -529,11 +559,11 @@ def serve(
         httpd.device_posture_reply_forbidden = device_posture_reply_forbidden
     """
     print(
-        f"Serving localhost:{port} SSO={sso_port} CONSOLE={console_port} with {classname}"
+        f"Serving localhost:{httpd.server_address[1]} SSO={httpd.sso_port} CONSOLE={httpd.console_port} with {classname}"
     )
     httpd.serve_forever()
     print(
-        f"Stopped serving localhost:{port} SSO={sso_port} CONSOLE={console_port} with {classname}"
+        f"Stopped serving localhost:{httpd.server_address[1]} SSO={httpd.sso_port} CONSOLE={httpd.console_port} with {classname}"
     )
 
 
@@ -613,15 +643,16 @@ def find_free_port():
         return s.getsockname()[1]
 
 
-class FeltTestsBase(EnterpriseTestsBase):
+class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
     EXTRA_ENV = {}
 
     def setUp(self):
         # test_prefs = kwargs.get("test_prefs", [])
 
         self._manually_closed_child = False
-        self.console_port = find_free_port()
-        self.sso_port = find_free_port()
+        # Private; use console_port and sso_port properties from ConsoleSSOPortMixin instead
+        self._console_port = Value("i", 0)
+        self._sso_port = Value("i", 0)
         self.policy_block_about_config = Value("b", 1)
         self.policy_extensions = Value("B", 0)
         self.policies_fail_request = Value("B", 0)
@@ -636,10 +667,11 @@ class FeltTestsBase(EnterpriseTestsBase):
 
         self.console_httpd = Process(
             target=serve,
-            args=(self.console_port, ConsoleHttpHandler),
+            args=(ConsoleHttpHandler,),
             kwargs=dict(
-                sso_port=self.sso_port,
-                console_port=self.console_port,
+                sso_port=self._sso_port,
+                console_port=self._console_port,
+                is_console=True,
                 policy_block_about_config=self.policy_block_about_config,
                 policy_extensions=self.policy_extensions,
                 policy_access_token=self.policy_access_token,
@@ -656,10 +688,11 @@ class FeltTestsBase(EnterpriseTestsBase):
         self.cookie_value = SharedString(str(uuid.uuid4()).split("-")[4])
         self.sso_httpd = Process(
             target=serve,
-            args=(self.sso_port, SsoHttpHandler),
+            args=(SsoHttpHandler,),
             kwargs=dict(
-                sso_port=self.sso_port,
-                console_port=self.console_port,
+                sso_port=self._sso_port,
+                console_port=self._console_port,
+                is_console=False,
                 cookie_name=self.cookie_name,
                 cookie_value=self.cookie_value,
             ),
