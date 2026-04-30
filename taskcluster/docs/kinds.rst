@@ -58,6 +58,11 @@ endpoint for notarizing apps.
 Downstream tasks switch to build-mac-signing in non-shippable builds or level 1
 environments.
 
+complete
+--------
+
+Barrier tasks that resolve once all their dependencies have completed
+
 artifact-build
 --------------
 

@@ -211,6 +211,10 @@ def verify_task_graph_symbol_enterprise(
 
     if task is None:
         return
+
+    if task.kind in ("complete",):
+        return
+
     task_dict = task.task
     if "extra" in task_dict:
         extra = task_dict["extra"]

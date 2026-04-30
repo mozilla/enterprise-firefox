@@ -68,6 +68,7 @@ treeherder:
         'Btime-100M_40ms': 'Browsertime network benchmark tests with 100M_40ms condition'
         'Btime-ChR-100M_40ms': 'Browsertime network benchmark tests with 100M_40ms condition'
         'Btime-CaR-100M_40ms': 'Browsertime network benchmark tests with 100M_40ms condition'
+        'Complete': 'Barrier tasks that resolve once all their dependencies have completed'
         'Fetch': 'Fetch and store content'
         'Fxfn': 'Firefox functional tests'
         'l10n-bump': 'L10n Bumper'
