@@ -966,6 +966,10 @@ enterprise-repack
 -----------------
 Generates customized versions of releases for enterprises.
 
+enterprise-repack-completion
+----------------------------
+No-op task that depends on all repacks, used to get a state of completion when all repacks are done.
+
 enterprise-repack-repackage
 ---------------------------
 Repackage customized versions of releases for enterprises.
