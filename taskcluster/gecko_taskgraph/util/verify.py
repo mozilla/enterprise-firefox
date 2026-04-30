@@ -221,7 +221,7 @@ def verify_task_graph_symbol_enterprise(
             symbol = treeherder.get("symbol")
 
             if "enterprise" in task.label:
-                if not "enterprise" in platform:
+                if not "enterprise" in platform and "gecko-decision" not in platform:
                     raise Exception(
                         f"Enterprise job `{task.label}` should have enterprise platform: {platform}"
                     )

@@ -1,0 +1,55 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+transforms:
+    - gecko_taskgraph.transforms.enterprise_repack_completion:transforms
+    - gecko_taskgraph.transforms.job:transforms
+    - gecko_taskgraph.transforms.task:transforms
+
+kind-dependencies:
+    - repackage-deb
+    - repackage-msi
+    - repackage-signing-msi
+    - enterprise-repack-mac-signing
+    - enterprise-repack-mac-notarization
+
+only-for-build-platforms:
+    - linux64-enterprise-shippable/opt
+    - linux64-aarch64-enterprise-shippable/opt
+    - macosx64-enterprise-shippable/opt
+    - win64-enterprise-shippable/opt
+
+
+task-defaults:
+    run-on-projects: ["enterprise-firefox"]
+    worker-type: b-linux
+    shipping-product: firefox-enterprise
+    shipping-phase: build
+    treeherder:
+        kind: other
+        tier: 1
+        platform: gecko-decision/opt
+    worker:
+        docker-image:
+            in-tree: debian12-base
+        max-run-time: 600
+    run:
+        using: run-task
+        checkout: false
+        command: /bin/true
+
+tasks:
+    complete:
+        label: enterprise-repack-completion
+        description: Enterprise repacks completion
+
+        treeherder:
+            symbol: Rpk-Ent-Comp
+
+        index:
+            product: firefox
+            job-name: repack-completion
+            type: shippable
