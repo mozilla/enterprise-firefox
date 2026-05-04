@@ -368,6 +368,7 @@ var CustomizableUIInternal = {
       AppConstants.MOZ_DEV_EDITION ? "developer-button" : null,
       lazy.ippEnabled ? "ipprotection-button" : null,
       "fxa-toolbar-menu-button",
+      AppConstants.MOZ_ENTERPRISE ? "enterprise-badge-toolbar-button" : null,
       lazy.resetPBMToolbarButtonEnabled ? "reset-pbm-toolbar-button" : null,
     ].filter(name => name);
 
