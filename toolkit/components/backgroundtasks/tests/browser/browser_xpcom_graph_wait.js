@@ -22,6 +22,7 @@ const Cm = Components.manager.QueryInterface(Ci.nsIComponentRegistrar);
 const LINUX = AppConstants.platform == "linux";
 const WIN = AppConstants.platform == "win";
 const MAC = AppConstants.platform == "macosx";
+const ENTERPRISE = AppConstants.MOZ_ENTERPRISE;
 
 const backgroundtaskPhases = {
   AfterRunBackgroundTaskNamed: {
@@ -95,6 +96,17 @@ const backgroundtaskPhases = {
         "@mozilla.org/xpcom/debug;1",
         "@mozilla.org/xre/app-info;1",
         "@mozilla.org/mime;1",
+        // FELT is the enterprise singleton (browser/extensions/felt/rust/components.conf).
+        {
+          name: "@mozilla.org/toolkit/library/felt;1",
+          condition: ENTERPRISE,
+        },
+        // FELT's client uses moz_task::create_thread (felt/rust/src/client.rs),
+        // which pulls in the thread manager.
+        {
+          name: "@mozilla.org/thread-manager;1",
+          condition: ENTERPRISE,
+        },
       ],
     },
   },
