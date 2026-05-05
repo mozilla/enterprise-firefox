@@ -7,6 +7,10 @@ const { SelectableProfileBackupResource } = ChromeUtils.importESModule(
   "resource:///modules/backup/SelectableProfileBackupResource.sys.mjs"
 );
 
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
+);
+
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   SelectableProfileService:
@@ -15,6 +19,27 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 add_setup(() => {
   setupProfile();
+
+  if (AppConstants.MOZ_ENTERPRISE) {
+    // Enterprise branding defaults browser.profiles.enabled to false.
+    // Override the default branch (not the user branch) so that
+    // clearUserPref() falls back to true, matching mozilla-central's
+    // default. This cannot be done via toml prefs because those set
+    // user prefs, which clearUserPref() removes.
+    const defaultBranch = Services.prefs.getDefaultBranch("");
+    const originalDefault = defaultBranch.getBoolPref(
+      "browser.profiles.enabled"
+    );
+    Assert.equal(
+      originalDefault,
+      false,
+      "Enterprise branding should default browser.profiles.enabled to false"
+    );
+    defaultBranch.setBoolPref("browser.profiles.enabled", true);
+    registerCleanupFunction(() => {
+      defaultBranch.setBoolPref("browser.profiles.enabled", originalDefault);
+    });
+  }
 });
 
 /**
