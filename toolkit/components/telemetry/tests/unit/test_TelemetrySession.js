@@ -213,8 +213,10 @@ function checkPayloadInfo(data, reason) {
 
   // Check for a valid revision.
   if (data.revision != "") {
-    const revisionUrlRegEx =
-      /^http[s]?:\/\/hg.mozilla.org(\/[a-z\S]+)+(\/rev\/[0-9a-z]+)$/g;
+    // Enterprise builds may use a GitHub repo, producing /commit/ URLs (see build/variables.py).
+    const revisionUrlRegEx = AppConstants.MOZ_ENTERPRISE
+      ? /^http[s]?:\/\/(hg.mozilla.org(\/[a-z\S]+)+(\/rev\/[0-9a-z]+)|github.com(\/[a-z\S]+)+(\/commit\/[0-9a-z]+))$/g
+      : /^http[s]?:\/\/hg.mozilla.org(\/[a-z\S]+)+(\/rev\/[0-9a-z]+)$/g;
     Assert.ok(revisionUrlRegEx.test(data.revision));
   }
 

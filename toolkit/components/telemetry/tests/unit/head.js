@@ -544,6 +544,20 @@ function getDateInSeconds(date) {
   return Math.floor(date / MS_IN_SEC);
 }
 
+// Enterprise builds lock toolkit.telemetry.server. Unlock it so tests can
+// point to a local server.
+add_setup(function () {
+  if (
+    AppConstants.MOZ_ENTERPRISE &&
+    Services.prefs.prefIsLocked("toolkit.telemetry.server")
+  ) {
+    Services.prefs.unlockPref("toolkit.telemetry.server");
+    registerCleanupFunction(() => {
+      Services.prefs.lockPref("toolkit.telemetry.server");
+    });
+  }
+});
+
 if (runningInParent) {
   // Set logging preferences for all the tests.
   Services.prefs.setCharPref("toolkit.telemetry.log.level", "Trace");

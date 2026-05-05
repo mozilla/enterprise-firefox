@@ -885,8 +885,17 @@ add_task(async function test_sendCheckOverride() {
   await TelemetryController.testReset();
 
   // Submit a test ping and make sure it doesn't get sent. We only do
-  // that if we're on unofficial builds: pings will always get sent otherwise.
-  if (!Services.telemetry.isOfficialTelemetry) {
+  // that if setTestModeEnabled(false) can actually block sends. In enterprise
+  // builds, sendingEnabled() uses MOZ_TELEMETRY_REPORTING instead of
+  // isOfficialTelemetry, so the test mode flag has no effect when
+  // MOZ_TELEMETRY_REPORTING is true.
+  // Mimicking the checkPassed logic in TelemetrySend.sys.mjs:
+  // https://searchfox.org/enterprise-main/rev/1341260d60d8c0f3f20e8baf7c6e51de31dba2a0/toolkit/components/telemetry/app/TelemetrySend.sys.mjs#1607
+  const canBlockSending = AppConstants.MOZ_ENTERPRISE
+    ? !AppConstants.MOZ_TELEMETRY_REPORTING
+    : !Services.telemetry.isOfficialTelemetry;
+
+  if (canBlockSending) {
     TelemetrySend.setTestModeEnabled(false);
     PingServer.registerPingHandler(() =>
       Assert.ok(false, "Should not have received any pings now")
