@@ -3,6 +3,20 @@
 
 "use strict";
 
+// Enterprise builds lock identity.fxaccounts.remote.root, but this test needs
+// to override it to point to a mock server.
+add_setup(function () {
+  if (
+    AppConstants.MOZ_ENTERPRISE &&
+    Services.prefs.prefIsLocked("identity.fxaccounts.remote.root")
+  ) {
+    Services.prefs.unlockPref("identity.fxaccounts.remote.root");
+    registerCleanupFunction(() => {
+      Services.prefs.lockPref("identity.fxaccounts.remote.root");
+    });
+  }
+});
+
 ChromeUtils.defineESModuleGetters(this, {
   FxAccounts: "resource://gre/modules/FxAccounts.sys.mjs",
   QueryCache: "resource:///modules/asrouter/ASRouterTargeting.sys.mjs",
