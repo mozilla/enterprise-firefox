@@ -2874,7 +2874,11 @@ pref("browser.migrate.preferences-entrypoint.enabled", true);
 // "offered"        - we have offered feature to user and they have not yet made a decision.
 // "enabled"        - user opted in to the feature.
 // "disabled"       - user opted out of the feature.
+#ifdef MOZ_ENTERPRISE
+pref("signon.firefoxRelay.feature", "disabled");
+#else
 pref("signon.firefoxRelay.feature", "available");
+#endif
 pref("signon.management.page.breach-alerts.enabled", true);
 pref("signon.management.page.vulnerable-passwords.enabled", true);
 pref("signon.management.page.sort", "name");
