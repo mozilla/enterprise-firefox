@@ -14,6 +14,7 @@ from test_felt_browser_signout import BaseBrowserSignout
 class BrowserSignoutVerify(BaseBrowserSignout):
     def test_browser_signout(self):
         super().run_felt_base()
+
         for i in range(10):
             self.run_perform_signout()
             self.run_prefilled_email_submit()

@@ -4,14 +4,17 @@
 
 const lazy = {};
 
+const FELT_REFRESH_TIMEOUT = 60000;
+
 ChromeUtils.defineESModuleGetters(lazy, {
   TelemetryEnvironment: "resource://gre/modules/TelemetryEnvironment.sys.mjs",
   EnterpriseCommon: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   createEnterpriseLogger:
     "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
-  AsyncShutdown: "resource://gre/modules/AsyncShutdown.sys.mjs",
   FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
   composeOSNames: "resource:///modules/enterprise/EnterpriseOSInfo.sys.mjs",
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
+  clearTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
@@ -52,45 +55,31 @@ class ReauthRequiredError extends Error {
 }
 
 /**
- * Error thrown when authentication is present but invalid for the requested operation.
- */
-class InvalidAuthError extends Error {
-  /**
-   * @param {string} [message="Invalid authentication"]
-   * @param {"TOKEN_REFRESH_FAILED"|"UNKNOWN"} [reason="UNKNOWN"]
-   * @param {{cause?: any}} [options]
-   */
-  constructor(
-    message = "Invalid authentication",
-    reason = "UNKNOWN",
-    options = { cause: null }
-  ) {
-    if (options.cause) {
-      super(message, options.cause);
-    } else {
-      super(message);
-    }
-    this.name = "InvalidAuthError";
-    this.code = "INVALID_AUTHENTICATION";
-    this.reason = reason;
-  }
-}
-
-/**
  * Client taking care of the communication with the enterprise console.
  */
 export const ConsoleClient = {
+  /**
+   * This is our guard against concurrent access token refresh operations on the browser side.
+   * When a refresh is in progress, this promise encapsulates the ongoing operation.
+   * If the promise present on subsequent calls, (i.e. a refresh operation is already underway),
+   * it is simply returned to the caller, eventually resolving.
+   * Otherwise, the promise is created and assigned to _refreshPromise.
+   *
+   * Since the refresh operation involves IPC communication with the console process,
+   * the resolve/reject functions of the promise are also pulled out to be called when the console/FELT
+   * signals that a token refresh has successfully completed or failed.
+   */
   _refreshPromise: null,
   _consoleUriReadyPromise: null,
 
   /**
-   * This is Felt-specific: While the browser is running, it has ownership of the
-   * refresh token. We block Felt from performing a session refresh since
-   * it would invalidate the tokens that the browser is holding. Instead whenever the
-   * browser performs a session refresh, it mirrors back the updated tokens to Felt.
-   * When Firefox is quit, this block is lifted and Felt regains ownership of the tokens.
+   * This promise guards agains multiple refresh operations on the console/FELT side, similar
+   * to what happens on the browser side (`_refreshPromise`).
+   *
+   * Concurrent refresh operations are all answered by returning the ongoing promise rather
+   * than starting a new refresh process.
    */
-  _isSessionRefreshBlocked: false,
+  _feltRefreshPromise: null,
 
   /**
    * Base URL of the remote enterprise console
@@ -401,7 +390,7 @@ export const ConsoleClient = {
    * @param {string} path - Console API to request
    * @param {"GET"|"POST"} method - Console API method to use
    * @param {{ _didRefresh?: boolean, jsonBody?: object }} [options]
-   * @throws {InvalidAuthError|Error}
+   * @throws {Error}
    * @returns {Promise<any>} Parsed JSON response body.
    */
   async _fetch(path, method, { _didRefresh = false, jsonBody = null } = {}) {
@@ -431,7 +420,7 @@ export const ConsoleClient = {
     }
 
     if ((res.status === 403 || res.status === 401) && !_didRefresh) {
-      await this.handleSessionRefresh();
+      await this._refreshSession();
       return this._fetch(path, method, { _didRefresh: true, jsonBody });
     }
 
@@ -444,7 +433,7 @@ export const ConsoleClient = {
    *
    * @param {string} path - Console API to request
    *
-   * @throws {InvalidAuthError|Error}
+   * @throws {Error}
    *
    * @returns {Promise<any>} Promise which resolves to a parsed JSON response body.
    */
@@ -458,7 +447,7 @@ export const ConsoleClient = {
    * @param {string} path - Console API to request
    * @param {object} jsonBody - JSON body
    *
-   * @throws {InvalidAuthError|Error}
+   * @throws {Error}
    *
    * @returns {Promise<any>} Promise which resolves to a parsed JSON response body.
    */
@@ -470,111 +459,84 @@ export const ConsoleClient = {
    * Ensures a non-expired access token is available, refreshing if it's expiring soon.
    *
    * @returns {Promise<string>}
+   * @throws {Error}
    */
   async getAccessToken() {
     let accessToken = Services.felt.getAccessTokenIfValid();
-    if (!accessToken) {
-      await this.handleSessionRefresh();
+    if (Services.felt.isFeltBrowser() && !accessToken) {
+      await this._refreshSession();
       accessToken = Services.felt.getAccessTokenIfValid();
+    }
+    if (!accessToken) {
+      // If we are in Firefox at this point, Felt failed to shut us down
+      // correctly after an unsuccessful token refresh.
+      // If we are in Felt at this point, the authentication flow has
+      // completed, but we do not have a valid token.
+      // Either case should not happen normally, so throw an error.
+      if (Services.felt.isFeltBrowser()) {
+        throw new Error(
+          "Firefox does not have a valid token, waiting for Felt to shut us down."
+        );
+      } else {
+        throw new Error(
+          "Felt authentication flow has completed, but no valid token is available."
+        );
+      }
     }
     return accessToken;
   },
 
   /**
-   * Returns whether refresh is currently blocked in Felt. Always return false
-   * on browser instances.
-   *
-   * @returns {boolean} whether performing a session refresh is blocked
-   */
-  get isSessionRefreshBlocked() {
-    if (Services.felt.isFeltUI()) {
-      return this._isSessionRefreshBlocked === true;
-    }
-    return false;
-  },
-
-  /**
-   * Sets whether refresh should be blocked or not in Felt. Always force false
-   * on browser instances.
-   *
-   * @param {boolean} value - whether performing a session refresh is blocked
-   */
-  set isSessionRefreshBlocked(value) {
-    if (Services.felt.isFeltUI()) {
-      this._isSessionRefreshBlocked = !!value;
-    }
-  },
-
-  /**
-   * Wraps _refreshSession(), handling ReauthRequiredError by notifying Felt and re-throwing.
-   *
-   * @throws {ReauthRequiredError|InvalidAuthError}
-   * @returns {Promise<void>}
-   */
-  async handleSessionRefresh() {
-    try {
-      await this._refreshSession();
-    } catch (e) {
-      lazy.log.error("handleSessionRefresh: session refresh failed", e);
-      if (e instanceof ReauthRequiredError) {
-        this.consoleForcedLogout();
-      }
-      throw e;
-    }
-  },
-
-  /**
    * Refreshes the session using a refresh token.
    * Serializes concurrent refreshes via an internal promise.
+   * This should only be called from the Felt context.
    *
-   * @throws {ReauthRequiredError|InvalidAuthError} If unable to refresh session
-   * @returns {Promise<void>}
+   * @throws {ReauthRequiredError | Error} If unable to refresh session
+   * @returns {Promise<{ access_token, refresh_token, expires_at }>}
    */
-  async _refreshSession() {
-    if (this.isSessionRefreshBlocked) {
-      lazy.log.error(
-        `Felt: ConsoleClient: _refreshSession() skipped because isSessionRefreshBlocked`
-      );
-      throw new InvalidAuthError(
-        "Token refresh request blocked in Felt.",
-        "TOKEN_REFRESH_BLOCKED"
+  async refreshTokens() {
+    // Assert we are in Felt context
+    if (Services.felt.isFeltBrowser()) {
+      throw new Error(
+        "refreshTokens(): Called from Browser context, which is not allowed."
       );
     }
 
-    if (this._refreshPromise) {
-      return this._refreshPromise;
+    // If a felt refresh is already underway, just return the promise.
+    if (this._feltRefreshPromise) {
+      return this._feltRefreshPromise;
     }
 
-    this._refreshPromise = (async () => {
-      let refreshToken = Services.felt.getRefreshToken();
+    // At this point, we are in the Felt UI context and no
+    // felt refresh promise exists, so do the actual refresh.
+    this._feltRefreshPromise = (async () => {
+      const refreshToken = Services.felt.getRefreshToken();
       if (!refreshToken) {
-        throw new ReauthRequiredError(
+        const e = new ReauthRequiredError(
           "No refresh token available",
           "MISSING_REFRESH_TOKEN"
         );
-      }
-      let res;
-      try {
-        const url = await this.constructURI(this._paths.TOKEN);
-        res = await this._xhrFetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({
-            grant_type: "refresh_token",
-            refresh_token: refreshToken,
-          }),
-        });
-      } catch (cause) {
-        throw new InvalidAuthError(
-          `Token refresh request failed: ${cause.message}`,
-          "TOKEN_REFRESH_FAILED",
-          { cause }
-        );
+        lazy.log.error(e);
+        throw e;
       }
 
+      const url = await this.constructURI(this._paths.TOKEN);
+      // We let any errors that are thrown here bubble up, these should
+      // be lower level network errors, i.e. nothing on the HTTP level.
+      const res = await this._xhrFetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          grant_type: "refresh_token",
+          refresh_token: refreshToken,
+        }),
+      });
+
+      // These are concrete HTTP errors that should trigger
+      // a full-blown re-authentication.
       if (res.status === 401 || res.status === 403) {
         throw new ReauthRequiredError(
           "Invalid refresh token",
@@ -583,22 +545,89 @@ export const ConsoleClient = {
         );
       }
 
-      // TODO: Handle network issues, offline support, etc.
-
+      // Throw an error if the response is not ok (i.e. not a 20x status code),
+      // and also neither a 401 or a 403 error (handled above).
       if (!res.ok) {
         const text = await res.text().catch(() => "");
-        throw new InvalidAuthError(
-          `Token refresh failed (${res.status}): ${text}`,
-          "TOKEN_REFRESH_FAILED"
-        );
+        throw new Error(`Token refresh failed: ${text}, Status: ${res.status}`);
       }
 
       const { access_token, refresh_token, expires_in } = await res.json();
       const expires_at = Math.floor(Date.now() / 1000) + Number(expires_in);
-      Services.felt.setTokens(access_token, refresh_token, expires_at);
+      return { access_token, refresh_token, expires_at };
     })().finally(() => {
-      this._refreshPromise = null;
+      // In any case, clear the felt refresh promise so that a new one can be started.
+      this._feltRefreshPromise = null;
     });
+    return this._feltRefreshPromise;
+  },
+
+  /**
+   * Quit Firefox, ignoring any callbacks installed by the page
+   * preventing the tab/window from closing.
+   *
+   * returns {void}
+   */
+  quitIgnoringCanClose() {
+    for (let win of Services.wm.getEnumerator("navigator:browser")) {
+      win.skipNextCanClose = true;
+    }
+    Services.startup.quit(Ci.nsIAppStartup.eForceQuit);
+  },
+
+  /**
+   * Refreshes the session by asking FELT to fetch an updated token.
+   * Serializes concurrent refresh calls via an internal promise.
+   * This should only be called from the browser context.
+   *
+   * @returns {Promise<void>}
+   */
+  async _refreshSession() {
+    // Assert we are in the browser. Currently, there is no use case for
+    // Felt to trigger a session refresh by itself.
+    if (!Services.felt.isFeltBrowser()) {
+      throw new Error(
+        "_refreshSession: called from non-Browser context, which is not allowed."
+      );
+    }
+
+    // If a refresh is already in progress, return the existing promise.
+    if (this._refreshPromise) {
+      return this._refreshPromise;
+    }
+
+    // Ask FELT to refresh the token. The refresh will be done asynchronously by Felt,
+    // eventually either coming back successfully and resolving the promise
+    // or we get logged out / killed by a failure to refresh the token.
+    //
+    // If the timeout fires (Felt did not come back in time and did not log us out),
+    // we reject the promise and log us out ourselves.
+    const { promise, resolve, reject } = Promise.withResolvers();
+    this._refreshResolve = resolve;
+
+    // If we don't get a response within 10 seconds, sign out and quit.
+    const timeoutId = lazy.setTimeout(() => {
+      this._refreshPromise = null;
+      this._refreshResolve = null;
+      Services.felt.performSignout();
+      this.quitIgnoringCanClose();
+      reject(
+        new Error("_refreshSession: Felt failed to respond to re-auth in time.")
+      );
+    }, FELT_REFRESH_TIMEOUT);
+
+    this._refreshPromise = promise
+      .then(() => lazy.clearTimeout(timeoutId))
+      .finally(() => {
+        // nullify (reset) the promise here
+        // and not from outside the async flow
+        this._refreshPromise = null;
+        this._refreshResolve = null;
+      });
+
+    // Kick off the actual refresh
+    Services.felt.refreshTokens();
+
     return this._refreshPromise;
   },
 
@@ -661,110 +690,26 @@ export const ConsoleClient = {
   },
 
   /**
-   * Shared logout implementation. Guards against double calls, signals FELT to
-   * take over as a background process, then invokes the provided logout
-   * function to notify FELT of the logout type. Does not quit the browser;
-   * callers are responsible for that via quit().
+   * Performs a server-side signout POST request.
+   * This is to be called only from the Felt side.
    *
-   * @param {Function} performXPCOMLogout - Invokes the appropriate XPCOM logout call.
+   * @returns {Promise<any>}
    */
-  _logout(performXPCOMLogout) {
-    // Only the FELT-managed browser should trigger a quit and logout.
-    // _isLogoutInProgress guards against double calls from concurrent requests.
-    if (!Services.felt.isFeltBrowser() || this._isLogoutInProgress) {
-      return;
-    }
-    this._isLogoutInProgress = true;
-    // Make sure we signal early enough to the system that FELT should take
-    // over. Relevant at least for macOS dock icon. Not having this would
-    // at least intermittently result in missing dock icon for FELT after
-    // signout.
-    Services.felt.makeBackgroundProcess(true);
-    // Notify FELT of the logout type so it can handle shutdown appropriately.
-    performXPCOMLogout();
-  },
-
-  quit() {
-    if (!this._isLogoutInProgress) {
-      return;
-    }
-    Services.startup.quit(Ci.nsIAppStartup.eForceQuit);
-  },
-
-  normalLogout({ withQuit = true } = {}) {
-    this._logout(() => Services.felt.performNormalLogout());
-    if (withQuit) {
-      this.quit();
-    }
-  },
-
-  consoleForcedLogout() {
-    this._logout(() => Services.felt.performConsoleForcedLogout());
-    this.quit();
-  },
-
-  /**
-   * Clears persisted and in-memory token data.
-   *
-   * @param {boolean} allowMirror - Should the clear be mirrored back to Felt?
-   */
-  clearTokenData(allowMirror = true) {
-    Services.felt.clearTokens(allowMirror);
-  },
-
-  /**
-   * Perform signout against the console and share the information down to
-   * XPCOM to make FELT aware.
-   *
-   * This is expected to be executed from the browser side.
-   */
-  async signoutUser() {
-    if (!Services.felt.isFeltBrowser()) {
-      throw new Error(
-        "Performing signout from something else than browser is wrong"
-      );
-    }
-
-    // TODO: Assert or force-enable session restore?
-
-    const res = await this._post(this._paths.SIGNOUT);
-    // Server should maybe return better JSON?
-    if (res == null) {
-      // Quit is called from outside (e.g. by the caller after signout).
-      this.normalLogout({ withQuit: false });
-      return;
-    }
-
-    throw new Error(`Post failed: (${res})`);
+  async performServerSignout() {
+    return this._post(this._paths.SIGNOUT);
   },
 
   /**
    * Register shutdown observer to clean up the client.
    */
   init() {
-    Services.obs.addObserver(this, "xpcom-shutdown");
     Services.prefs.addObserver("enterprise.console.address", this);
 
     if (Services.felt.isFeltBrowser()) {
-      lazy.AsyncShutdown.appShutdownConfirmed.addBlocker(
-        `ConsoleClient: Sending back tokens to felt on shutdown`,
-        () => {
-          // Do not send tokens back to Felt on logout — the session is
-          // being intentionally terminated and should not be restored.
-          if (this._isLogoutInProgress) {
-            return;
-          }
-          try {
-            Services.felt.sendTokens();
-          } catch (ex) {
-            lazy.log.error(
-              `ConsoleClient: Failed to send back tokens to felt on shutdown: ${ex}`
-            );
-          }
-        }
-      );
+      Services.obs.addObserver(this, "xpcom-shutdown");
+      Services.obs.addObserver(this, "felt-firefox-access-token-refreshed");
+      Services.obs.addObserver(this, "felt-firefox-shutdown");
     }
-
     return this;
   },
 
@@ -772,9 +717,21 @@ export const ConsoleClient = {
     switch (topic) {
       case "xpcom-shutdown": {
         Services.obs.removeObserver(this, "xpcom-shutdown");
-        Services.prefs.removeObserver("enterprise.console.address", this);
-        this.clearTokenData(false);
+        Services.prefs.removeObserver(this, "enterprise.console.address");
         this._refreshPromise = null;
+        this._refreshResolve = null;
+        break;
+      }
+      case "felt-firefox-shutdown": {
+        Services.obs.removeObserver(this, "felt-firefox-shutdown");
+        this.quitIgnoringCanClose();
+        break;
+      }
+      case "felt-firefox-access-token-refreshed": {
+        // Resolve the promise, if any
+        this._refreshResolve?.();
+        // The `finally()` block of our promise chain will
+        // reset/nullify the promise.
         break;
       }
       case "nsPref:changed": {

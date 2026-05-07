@@ -529,19 +529,19 @@ export const EnterpriseHandler = {
     if (!(await this.showSignoutPrompt(window))) {
       return;
     }
-    await this.initiateShutdown();
+
+    this.initiateShutdown();
   },
 
-  async initiateShutdown() {
+  initiateShutdown() {
     // TODO: Bug 2001029 - Assert or force-enable session restore?
-
     try {
-      await lazy.ConsoleClient.signoutUser();
+      Services.felt.performSignout();
     } catch (e) {
       lazy.log.error(`Unable to signout the user: ${e}`);
-    } finally {
-      Services.startup.quit(Ci.nsIAppStartup.eForceQuit);
+      Services.obs.notifyObservers(null, "felt-firefox-shutdown");
     }
+    // FELT will call shutdownFirefox() to quit us after handling the logout.
   },
 
   uninit() {

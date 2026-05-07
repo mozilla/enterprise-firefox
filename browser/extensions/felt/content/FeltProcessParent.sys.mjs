@@ -94,6 +94,7 @@ const kBrowserObserverTopics = [
   "felt-extension-ready",
   "felt-firefox-logout",
   "felt-firefox-tokens",
+  "felt-firefox-refresh-tokens",
 ];
 
 let gObserversRegistered = false;
@@ -244,19 +245,75 @@ export class FeltProcessParent extends JSProcessActorParent {
           }
 
           case "felt-firefox-logout":
-            gFeltProcessParentInstance.logoutFirefox(aData);
+            gFeltProcessParentInstance.logoutFirefox();
             break;
 
           case "felt-firefox-tokens": {
-            lazy.log.debug(
-              `FeltExtension: ParentProcess: Update tokens from browser to FELT`
-            );
             const data = JSON.parse(aData);
             Services.felt.setTokens(
               data.access_token,
               data.refresh_token,
               data.expires_at
             );
+            break;
+          }
+
+          case "felt-firefox-refresh-tokens": {
+            lazy.log.debug(
+              `FeltExtension: ParentProcess: Trigger a token refresh in FELT.`
+            );
+            if (gFeltProcessParentInstance.logoutReported) {
+              lazy.log.debug(
+                "FeltExtension: ParentProcess: logout in progress, skipping token refresh."
+              );
+              break;
+            }
+            const client = lazy.ConsoleClient;
+            client
+              .refreshTokens()
+              .then(({ access_token, refresh_token, expires_at }) => {
+                lazy.log.debug("FeltExtension: refreshTokens successful");
+                Services.felt.setTokens(
+                  access_token,
+                  refresh_token,
+                  expires_at
+                );
+                Services.felt.sendAccessToken();
+              })
+              .catch(error => {
+                // Any non-ReauthRequired error is triggering a Firefox shutdown.
+                // These are non-20x-non-401/403 errors, networking issues
+                // and the like.
+                // TODO: define a more refined behaviour for these conditions and implement.
+                // For example, an intermittent network or 5xx error can be handled more
+                // gracefully if the refresh request is still before the actual token expiration
+                // because the known old token still has some validity time left.
+                if (error.name !== "ReauthRequiredError") {
+                  lazy.log.error(
+                    "FeltExtension: token refresh failed with non-reauth error, shutting down Firefox",
+                    error
+                  );
+                  gFeltProcessParentInstance.logoutReported = true;
+                  Services.felt.shutdownFirefox();
+                  return;
+                }
+                // At this point, we need to reauthenticate.
+                lazy.log.error(
+                  "FeltExtension: token refresh failed, reauthenticate",
+                  error
+                );
+                Services.felt.clearTokens();
+                gFeltProcessParentInstance.logoutReported = true;
+                gFeltProcessParentInstance.proc.exitPromise.then(_ => {
+                  Services.cpmm.sendAsyncMessage(
+                    "FeltParent:FirefoxLogoutExit",
+                    {
+                      reason: "token_refresh_failed",
+                    }
+                  );
+                });
+                Services.felt.shutdownFirefox();
+              });
             break;
           }
 
@@ -412,8 +469,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     this.firefox
       .then(async () => {
         await this.sendPrefsToFirefox();
-        Services.felt.sendTokens();
-        lazy.ConsoleClient.isSessionRefreshBlocked = true;
+        Services.felt.sendAccessToken();
 
         await this._applyFirefoxConfigs();
 
@@ -431,33 +487,25 @@ export class FeltProcessParent extends JSProcessActorParent {
           this.proc
         );
 
-        this.proc.exitPromise
-          .then(ev => {
-            lazy.ConsoleClient.isSessionRefreshBlocked = false;
-            lazy.log.debug(`firefox exit: ev`, JSON.stringify(ev));
-            lazy.log.debug(
-              `firefox exit: PID:${this.proc.pid} exitCode:${JSON.stringify(this.proc.exitCode)}`
-            );
+        this.proc.exitPromise.then(ev => {
+          lazy.log.debug(`firefox exit: ev`, JSON.stringify(ev));
+          lazy.log.debug(
+            `firefox exit: PID:${this.proc.pid} exitCode:${JSON.stringify(this.proc.exitCode)}`
+          );
 
-            if (!this.restartReported && !this.logoutReported) {
-              if (this.proc.exitCode === 0) {
-                this.abnormalExitCounter = 0;
-                this.abnormalExitFirstTime = 0;
-                Services.cpmm.sendAsyncMessage("FeltParent:FirefoxNormalExit", {
-                  performLogout: true,
-                });
-              } else {
-                this.handleRestartAfterAbnormalExit();
-              }
+          if (!this.restartReported && !this.logoutReported) {
+            if (this.proc.exitCode === 0) {
+              this.abnormalExitCounter = 0;
+              this.abnormalExitFirstTime = 0;
+              Services.cpmm.sendAsyncMessage(
+                "FeltParent:FirefoxNormalExit",
+                {}
+              );
+            } else {
+              this.handleRestartAfterAbnormalExit();
             }
-          })
-          .finally(() => {
-            lazy.ConsoleClient.isSessionRefreshBlocked = false;
-          });
-      })
-      .catch(err => {
-        lazy.ConsoleClient.isSessionRefreshBlocked = false;
-        throw err;
+          }
+        });
       });
   }
 
@@ -676,31 +724,41 @@ export class FeltProcessParent extends JSProcessActorParent {
 
   /**
    * Perform all the logout operations on FELT side.
-   *
-   * @param {string} logoutType - One of the logout type payload strings from the IPC message.
    */
-  logoutFirefox(logoutType) {
+  logoutFirefox() {
     if (!Services.felt.isFeltUI()) {
       throw new Error("Logout handling should only happen on FELT side.");
     }
 
-    lazy.log.debug(
-      `FeltExtension: Logout (${logoutType}), waiting on ${gFeltProcessParentInstance.proc.pid}`
-    );
-    gFeltProcessParentInstance.logoutReported = true;
-    lazy.ConsoleClient.clearTokenData();
-
-    // Ensure that things are cleared
-    const ssoCollectedCookies = gFeltProcessParentInstance.getAllCookies();
-    if (ssoCollectedCookies.length) {
-      throw new Error("Too many cookies!!");
+    if (gFeltProcessParentInstance.logoutReported) {
+      lazy.log.debug(
+        "FeltExtension: logoutFirefox: logout already in progress, skipping."
+      );
+      return;
     }
 
-    gFeltProcessParentInstance.proc.exitPromise.then(_ => {
-      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLogoutExit", {
-        logoutType,
+    lazy.log.debug(
+      `FeltExtension: Logout, waiting on process ${gFeltProcessParentInstance.proc.pid}`
+    );
+    gFeltProcessParentInstance.logoutReported = true;
+
+    // Send the logout request to the server.
+    // Handle any errors that occur during signout gracefully,
+    // i.e. report, but ignore them and proceed with the signout.
+    lazy.ConsoleClient.performServerSignout()
+      .catch(err => {
+        lazy.log.error(`FeltExtension: Server signout failed: ${err}`);
+      })
+      .finally(() => {
+        // clear token data on the FELT side, then shut Firefox down
+        Services.felt.clearTokens();
+        Services.felt.shutdownFirefox();
+        gFeltProcessParentInstance.proc.exitPromise.then(_ => {
+          Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLogoutExit", {
+            reason: "logout",
+          });
+        });
       });
-    });
   }
 
   async receiveMessage(message) {

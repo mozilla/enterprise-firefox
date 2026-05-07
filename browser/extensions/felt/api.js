@@ -8,20 +8,6 @@
 
 const lazy = {};
 
-// Maps logout types (from nsIFelt) to the CSS class applied to the FELT window
-// to display the appropriate message to the user after logout.
-ChromeUtils.defineLazyGetter(
-  lazy,
-  "logoutTypeMessageClass",
-  () =>
-    new Map([
-      [
-        Services.felt.logoutTypeConsoleForcedLogout,
-        "felt-browser-info-console-forced-logout",
-      ],
-    ])
-);
-
 ChromeUtils.defineESModuleGetters(lazy, {
   UpdateListener: "resource://gre/modules/UpdateListener.sys.mjs",
   FELT_OPEN_WINDOW_DISPOSITION: "resource:///modules/FeltURLHandler.sys.mjs",
@@ -257,28 +243,25 @@ this.felt = class extends ExtensionAPI {
           this
         );
 
-        const doShutdown = () => {
-          // This is only useful for testing purpose when we need to exit the
-          // browser cleanly but need to keep felt alive for some processing after
-          if (!lazy.isBlockingShutdown()) {
-            Services.startup.quit(
-              Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eConsiderQuit
+        lazy.ConsoleClient.performServerSignout()
+          .catch(err => {
+            console.error(
+              `FeltExtension: Failed to post signout on exit: ${err}`
             );
-          } else if (!this._win) {
-            Services.felt.makeBackgroundProcess(false);
-            this.showWindow();
-          }
-        };
-
-        if (message.data?.performLogout === true) {
-          lazy.ConsoleClient._post(lazy.ConsoleClient._paths.SIGNOUT)
-            .catch(e => {
-              lazy.log.error(`FeltExtension: Failed to post signout: ${e}`);
-            })
-            .then(doShutdown);
-        } else {
-          doShutdown();
-        }
+          })
+          .finally(() => {
+            Services.felt.clearTokens();
+            // This is only useful for testing purpose when we need to exit the
+            // browser cleanly but need to keep felt alive for some processing after
+            if (!lazy.isBlockingShutdown()) {
+              Services.startup.quit(
+                Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eConsiderQuit
+              );
+            } else if (!this._win) {
+              Services.felt.makeBackgroundProcess(false);
+              this.showWindow();
+            }
+          });
         break;
       }
 
@@ -301,11 +284,21 @@ this.felt = class extends ExtensionAPI {
       }
 
       case "FeltParent:FirefoxLogoutExit": {
-        const success = Services.felt.makeBackgroundProcess(false);
-        lazy.log.debug(`FeltExtension: makeBackgroundProcess? ${success}`);
-        this.showWindow(
-          lazy.logoutTypeMessageClass.get(message.data.logoutType) ?? ""
-        );
+        Services.felt.makeBackgroundProcess(false);
+        switch (message.data?.reason) {
+          case "token_refresh_failed":
+            // TODO: this is not 100% in line with the figma document around
+            // informal messages on this screen.
+            // We do not currently distinguish between normal session termination
+            // because of a timeout or a forced signout triggered from the admin
+            // console.
+            this.showWindow("felt-browser-error-token-refresh-failed");
+            break;
+          case "logout":
+          default:
+            this.showWindow();
+            break;
+        }
         break;
       }
 
@@ -361,8 +354,6 @@ this.felt = class extends ExtensionAPI {
   }
 
   showWindow(errorMessage = "") {
-    lazy.log.debug(`FeltExtension: showWindow: this._win=${this._win}`);
-
     // Height and width are for now set to fit the sso.mozilla.com without the need to resize the window
     let flags =
       "chrome,private,centerscreen,titlebar,resizable,width=727,height=744";

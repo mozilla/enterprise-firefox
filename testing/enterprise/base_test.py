@@ -299,10 +299,9 @@ enterprise.console.address=http://localhost:{self.console_port}
         self._logger.info(f"Verifying user is signed out in {env.name}.")
 
         result = self.get_logged_in_user_info(env)
-        assert result["_error"] in (
-            "ReauthRequiredError: No refresh token available",
-            "ReauthRequiredError: Invalid refresh token",
-            "InvalidAuthError: Token refresh request blocked in Felt.",
+        assert (
+            result["_error"]
+            == "Error: Felt authentication flow has completed, but no valid token is available."
         ), "Unexpected state after signout"
 
     def assert_child_browser_closed(self):

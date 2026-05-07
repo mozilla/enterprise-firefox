@@ -174,7 +174,7 @@ EnterprisePoliciesManager.prototype = {
     if (Services.felt?.isFeltBrowser() && remoteProvider.failed) {
       // bug 2027006 will move the fetching of policies to felt
       // and not shutdown will be needed then
-      await lazy.EnterpriseHandler.initiateShutdown();
+      lazy.EnterpriseHandler.initiateShutdown();
     }
     remoteProvider.onPoliciesChanges(handler);
 
