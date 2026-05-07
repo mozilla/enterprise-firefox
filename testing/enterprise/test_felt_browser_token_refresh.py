@@ -58,6 +58,7 @@ class BrowserTokenRefresh(FeltTests):
         )
 
     def assert_browser_closes_on_401(self):
+        browser_pid = self._child_driver.session_capabilities["moz:processID"]
         self.policy_access_token.value = ""
         self.policy_refresh_token.value = ""
 
@@ -65,6 +66,7 @@ class BrowserTokenRefresh(FeltTests):
         # Since Felt cannot get a new token without a refresh token, we expect the browser to close.
         # and Felt to display the auth dialog.
         self._manually_closed_child = True
+        self.wait_process_exit(browser_pid)
         self.await_felt_auth_window()
         self.force_window()
         self.assert_user_signed_out(env=Environment.FELT)
@@ -81,7 +83,7 @@ class BrowserTokenRefresh(FeltTests):
 
         # Wait for the policy polling cycle to detect the missing token and trigger
         # a refresh via Felt. Resolves once Felt sends back a new access token.
-        self._child_wait.until(
+        self._child_longwait.until(
             lambda d: d.execute_script(
                 "return !!Services.felt.getAccessTokenIfValid();"
             )
@@ -107,6 +109,7 @@ class BrowserTokenRefresh(FeltTests):
             "setTimeout(() => Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit), 0);"
         )
         self._child_driver.set_context("content")
+        browser_pid = self._child_driver.session_capabilities["moz:processID"]
 
         # Wait for the dialog to confirm it is shown before Firefox is forced closed.
         self._child_wait.until(lambda d: d.switch_to_alert())
@@ -120,6 +123,7 @@ class BrowserTokenRefresh(FeltTests):
         self.policy_refresh_token.value = ""
 
         self._manually_closed_child = True
+        self.wait_process_exit(browser_pid)
         self.await_felt_auth_window()
         self.force_window()
 

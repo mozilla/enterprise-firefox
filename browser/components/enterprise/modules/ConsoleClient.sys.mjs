@@ -468,8 +468,8 @@ export const ConsoleClient = {
       accessToken = Services.felt.getAccessTokenIfValid();
     }
     if (!accessToken) {
-      // If we are in Firefox at this point, Felt failed to shut us down
-      // correctly after an unsuccessful token refresh.
+      // If we are in a Felt-managed Firefox at this point, Felt failed to
+      // shut us downcorrectly after an unsuccessful token refresh.
       // If we are in Felt at this point, the authentication flow has
       // completed, but we do not have a valid token.
       // Either case should not happen normally, so throw an error.
@@ -496,7 +496,7 @@ export const ConsoleClient = {
    */
   async refreshTokens() {
     // Assert we are in Felt context
-    if (Services.felt.isFeltBrowser()) {
+    if (!Services.felt.isFeltUI()) {
       throw new Error(
         "refreshTokens(): Called from Browser context, which is not allowed."
       );
@@ -569,6 +569,11 @@ export const ConsoleClient = {
    * returns {void}
    */
   quitIgnoringCanClose() {
+    if (Services.felt.isFeltUI()) {
+      throw new Error(
+        "quitIgnoringCanClose(): Called from Felt context, which is not allowed."
+      );
+    }
     for (let win of Services.wm.getEnumerator("navigator:browser")) {
       win.skipNextCanClose = true;
     }
@@ -605,7 +610,8 @@ export const ConsoleClient = {
     const { promise, resolve, reject } = Promise.withResolvers();
     this._refreshResolve = resolve;
 
-    // If we don't get a response within 10 seconds, sign out and quit.
+    // If we don't get a response within `FELT_REFRESH_TIMEOUT` (should be 60s),
+    // sign out and quit.
     const timeoutId = lazy.setTimeout(() => {
       this._refreshPromise = null;
       this._refreshResolve = null;
@@ -718,12 +724,16 @@ export const ConsoleClient = {
       case "xpcom-shutdown": {
         Services.obs.removeObserver(this, "xpcom-shutdown");
         Services.prefs.removeObserver(this, "enterprise.console.address");
+        Services.obs.removeObserver(
+          this,
+          "felt-firefox-access-token-refreshed"
+        );
+        Services.obs.removeObserver(this, "felt-firefox-shutdown");
         this._refreshPromise = null;
         this._refreshResolve = null;
         break;
       }
       case "felt-firefox-shutdown": {
-        Services.obs.removeObserver(this, "felt-firefox-shutdown");
         this.quitIgnoringCanClose();
         break;
       }

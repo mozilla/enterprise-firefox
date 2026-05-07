@@ -9,6 +9,8 @@ import uuid
 
 sys.path.append(os.path.dirname(__file__))
 
+from marionette_driver import errors
+
 from base_test import Environment
 from felt_tests import FeltTests
 
@@ -83,7 +85,12 @@ class BaseBrowserSignout(FeltTests):
 
         try:
             self._child_driver.set_context("content")
-        except Exception:
+        except (
+            errors.InvalidSessionIdException,
+            errors.NoSuchWindowException,
+            errors.TimeoutException,
+            OSError,
+        ):
             # The child browser quits immediately after the signout dialog is
             # accepted, so the connection may already be closed by the time we
             # reset its context. _child_driver is not used after this point.
