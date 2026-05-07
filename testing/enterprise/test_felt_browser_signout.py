@@ -9,10 +9,9 @@ import uuid
 
 sys.path.append(os.path.dirname(__file__))
 
-from marionette_driver import errors
-
 from base_test import Environment
 from felt_tests import FeltTests
+from marionette_driver import errors
 
 
 class BaseBrowserSignout(FeltTests):
