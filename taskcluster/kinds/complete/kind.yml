@@ -7,6 +7,7 @@ loader: taskgraph.loader.transform:loader
 transforms:
     - taskgraph.transforms.task_context
     - taskgraph.transforms.from_deps
+    - gecko_taskgraph.transforms.convert_if_deps
     - gecko_taskgraph.transforms.task
 
 kind-dependencies:
