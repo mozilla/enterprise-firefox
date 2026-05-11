@@ -5071,11 +5071,18 @@ nsresult nsCocoaWindow::CreateNativeWindow(const NSRect& aRect,
     // particular space, override the "Assign To" space and display popups on
     // the active space. Does not work with multiple displays. See
     // NeedsRecreateToReshow() for multi-display with multi-space workaround.
-    mWindow.collectionBehavior = mWindow.collectionBehavior |
-                                 NSWindowCollectionBehaviorMoveToActiveSpace;
+    mWindow.collectionBehavior =
+        mWindow.collectionBehavior |
+        NSWindowCollectionBehaviorMoveToActiveSpace |
+        NSWindowCollectionBehaviorFullScreenAuxiliary |
+        NSWindowCollectionBehaviorFullScreenDisallowsTiling;
   } else {
     // Non-popup windows are always opaque.
     mWindow.opaque = YES;
+    mWindow.collectionBehavior =
+        mWindow.collectionBehavior |
+        NSWindowCollectionBehaviorFullScreenPrimary |
+        NSWindowCollectionBehaviorFullScreenAllowsTiling;
   }
 
   if (mAlwaysOnTop || mIsAlert) {
@@ -7023,9 +7030,15 @@ void nsCocoaWindow::SetSupportsNativeFullscreen(
     // being called with aSupportsNativeFullscreen set to `true` here.
     NSWindowCollectionBehavior newBehavior = [mWindow collectionBehavior];
     if (aSupportsNativeFullscreen) {
-      newBehavior |= NSWindowCollectionBehaviorFullScreenPrimary;
+      newBehavior |= NSWindowCollectionBehaviorFullScreenPrimary |
+                     NSWindowCollectionBehaviorFullScreenAllowsTiling;
+      newBehavior &= ~(NSWindowCollectionBehaviorFullScreenAuxiliary |
+                       NSWindowCollectionBehaviorFullScreenDisallowsTiling);
     } else {
-      newBehavior &= ~NSWindowCollectionBehaviorFullScreenPrimary;
+      newBehavior |= NSWindowCollectionBehaviorFullScreenAuxiliary |
+                     NSWindowCollectionBehaviorFullScreenDisallowsTiling;
+      newBehavior &= ~(NSWindowCollectionBehaviorFullScreenPrimary |
+                       NSWindowCollectionBehaviorFullScreenAllowsTiling);
     }
     [mWindow setCollectionBehavior:newBehavior];
   }
