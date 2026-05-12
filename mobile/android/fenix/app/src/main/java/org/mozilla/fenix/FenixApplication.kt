@@ -107,6 +107,8 @@ import org.mozilla.fenix.components.Components
 import org.mozilla.fenix.components.Core
 import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.components.initializeGlean
+import org.mozilla.fenix.components.ipprotection.ErrorMessages
+import org.mozilla.fenix.components.ipprotection.FenixIPProtectionEligibilityStorage
 import org.mozilla.fenix.components.ipprotection.IPProtectionFeatureIntegration
 import org.mozilla.fenix.components.metrics.MozillaProductDetector
 import org.mozilla.fenix.components.startMetricsIfEnabled
@@ -662,17 +664,32 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
 
     private fun maybeSetupIPProtection() {
         IPProtectionFeatureIntegration(
-            feature = DefaultIPProtectionFeature(
+            DefaultIPProtectionFeature(
                 engine = components.core.engine,
                 lazyAccountManager = lazy { components.backgroundServices.accountManager },
+                storage = FenixIPProtectionEligibilityStorage(
+                    browserStore = components.core.store,
+                    sharedPref = components.settings.preferences,
+                    prefKey = this.getString(R.string.pref_key_enable_ip_protection),
+                    lifecycleOwner = ProcessLifecycleOwner.get(),
+                ),
                 store = components.ipProtectionStore,
                 browserStore = components.core.store,
                 tabsUseCases = components.useCases.tabsUseCases,
             ),
-            pref = settings().preferences,
-            prefKey = getString(R.string.pref_key_enable_ip_protection),
-            lifecycleOwner = ProcessLifecycleOwner.get(),
-        ).start()
+            store = components.ipProtectionStore,
+            appStore = components.appStore,
+            errorMessages = ErrorMessages(
+                connectionError = this.getString(R.string.ip_protection_connection_error_snackbar),
+                dataLimitReached = this.getString(
+                    R.string.ip_protection_data_limit_reached_snackbar,
+                    FxNimbus.features.ipProtection.value().dataLimitGigabyte,
+                ),
+            ),
+        ).also {
+            it.initialize()
+            it.start()
+        }
     }
 
     private fun setupCrashReporting(): CrashReporter {

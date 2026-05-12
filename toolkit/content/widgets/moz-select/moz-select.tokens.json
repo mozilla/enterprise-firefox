@@ -43,7 +43,7 @@
   },
   "min": {
     "height": {
-      "value": "{button.min.height.@base}"
+      "value": "{button.min-height.@base}"
     }
   },
   "opacity": {

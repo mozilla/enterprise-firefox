@@ -147,10 +147,12 @@ class TabManagementFragment : Fragment() {
                 targetKey: String?,
                 placeAfter: Boolean,
             ) {
-                requireComponents.useCases.tabsUseCases.moveTabs.invoke(
-                    sourceKey,
-                    targetKey,
-                    placeAfter,
+                tabsTrayStore.dispatch(
+                    TabsTrayAction.ReorderTabsTrayItem(
+                        sourceId = sourceKey,
+                        destinationId = targetKey,
+                        placeAfter = placeAfter,
+                    ),
                 )
             }
 
@@ -495,60 +497,17 @@ class TabManagementFragment : Fragment() {
 
     private fun setupStore(): TabsTrayStore {
         val args by navArgs<TabManagementFragmentArgs>()
+        val settings = requireContext().settings()
+
         args.accessPoint.takeIf { it != AccessPoint.None }?.let {
             TabsTray.accessPoint[it.name.lowercase()].add()
         }
-        val initialMode = if (args.enterMultiselect) {
-            TabsTrayState.Mode.Select(emptySet())
-        } else {
-            TabsTrayState.Mode.Normal
-        }
-        val initialPage = args.page
-        val initialInactiveExpanded = requireComponents.appStore.state.inactiveTabsExpanded
 
         return storeProvider.get { restoredState ->
             TabsTrayStore(
-                initialState = restoredState ?: TabsTrayState(
-                    selectedPage = initialPage,
-                    mode = initialMode,
-                    inactiveTabs = TabsTrayState.InactiveTabsState(
-                        isExpanded = initialInactiveExpanded,
-                        showCFR = requireContext().settings().shouldShowInactiveTabsOnboardingPopup &&
-                            requireContext().settings().canShowCfr &&
-                            requireContext().settings().cfrPopupsEnabled,
-                        showAutoCloseDialog = requireContext().settings()
-                            .shouldShowInactiveTabsAutoCloseDialog(
-                                requireComponents.core.store.state.actualInactiveTabs(
-                                    requireContext().settings(),
-                                ).size,
-                            ),
-                    ),
-                    privateBrowsing = TabsTrayState.PrivateBrowsingState(
-                        isLocked = requireComponents.appStore.state.isPrivateScreenLocked,
-                        showLockBanner = shouldShowLockPbmBanner(
-                            isPrivateMode = requireComponents.appStore.state.mode.isPrivate,
-                            hasPrivateTabs = requireComponents.core.store.state.privateTabs.isNotEmpty(),
-                            biometricAvailable = BiometricManager.from(requireContext())
-                                .isHardwareAvailable(),
-                            privateLockEnabled = requireContext().settings().privateBrowsingModeLocked,
-                            shouldShowBanner = shouldShowBanner(requireContext().settings()),
-                        ),
-                    ),
-                    sync = TabsTrayState.SyncState(
-                        isSignedIn = requireContext().settings().signedInFxaAccount,
-                    ),
-                    config = TabsTrayState.TabsTrayConfig(
-                        tabGroupsEnabled = requireContext().settings().tabGroupsEnabled,
-                        tabGroupsDragAndDropEnabled = requireContext().settings().tabGroupsDragAndDropEnabled,
-                        displayTabsInGrid = requireContext().settings().gridTabView,
-                        isInDebugMode = Config.channel.isDebug ||
-                            requireComponents.settings.showSecretDebugMenuThisSession,
-                        showTabAutoCloseBanner = requireContext().settings().shouldShowAutoCloseTabsBanner &&
-                            requireContext().settings().canShowCfr &&
-                            requireContext().settings().cfrPopupsEnabled,
-                        tabSearchEnabled = requireComponents.settings.tabSearchEnabled,
-                    ),
-                ),
+                initialState = restoredState?.copy(
+                    config = restoredState.config.copy(displayTabsInGrid = settings.gridTabView),
+                ) ?: createInitialState(args, settings),
                 middlewares = listOf(
                     TabsTrayTelemetryMiddleware(requireComponents.nimbus.events),
                     TabSearchMiddleware(),
@@ -556,7 +515,7 @@ class TabManagementFragment : Fragment() {
                     TabStorageMiddleware(
                         inactiveTabsEnabled = requireComponents.settings.inactiveTabsAreEnabled,
                         tabGroupsEnabled = requireComponents.settings.tabGroupsEnabled,
-                        tabDataFlow = requireComponents.core.store.stateFlow.map { TabData(browserState = it) },
+                        tabDataFlow = requireComponents.core.store.stateFlow.map { TabData(it) },
                         tabGroupRepository = requireComponents.core.tabGroupRepository,
                         removeTabsUseCase = requireComponents.useCases.tabsUseCases.removeTabs,
                         moveTabsUseCase = requireComponents.useCases.tabsUseCases.moveTabs,
@@ -565,6 +524,47 @@ class TabManagementFragment : Fragment() {
                 ),
             )
         }
+    }
+
+    private fun createInitialState(
+        args: TabManagementFragmentArgs,
+        settings: Settings,
+    ): TabsTrayState {
+        val appState = requireComponents.appStore.state
+        val coreState = requireComponents.core.store.state
+
+        return TabsTrayState(
+            selectedPage = args.page,
+            mode = if (args.enterMultiselect) TabsTrayState.Mode.Select(emptySet()) else TabsTrayState.Mode.Normal,
+            inactiveTabs = TabsTrayState.InactiveTabsState(
+                isExpanded = appState.inactiveTabsExpanded,
+                showCFR = settings.shouldShowInactiveTabsOnboardingPopup &&
+                    settings.canShowCfr && settings.cfrPopupsEnabled,
+                showAutoCloseDialog = settings.shouldShowInactiveTabsAutoCloseDialog(
+                    coreState.actualInactiveTabs(settings).size,
+                ),
+            ),
+            privateBrowsing = TabsTrayState.PrivateBrowsingState(
+                isLocked = appState.isPrivateScreenLocked,
+                showLockBanner = shouldShowLockPbmBanner(
+                    isPrivateMode = appState.mode.isPrivate,
+                    hasPrivateTabs = coreState.privateTabs.isNotEmpty(),
+                    biometricAvailable = BiometricManager.from(requireContext()).isHardwareAvailable(),
+                    privateLockEnabled = settings.privateBrowsingModeLocked,
+                    shouldShowBanner = shouldShowBanner(settings),
+                ),
+            ),
+            sync = TabsTrayState.SyncState(isSignedIn = settings.signedInFxaAccount),
+            config = TabsTrayState.TabsTrayConfig(
+                tabGroupsEnabled = settings.tabGroupsEnabled,
+                tabGroupsDragAndDropEnabled = settings.tabGroupsDragAndDropEnabled,
+                displayTabsInGrid = settings.gridTabView,
+                isInDebugMode = Config.channel.isDebug || requireComponents.settings.showSecretDebugMenuThisSession,
+                showTabAutoCloseBanner = settings.shouldShowAutoCloseTabsBanner &&
+                    settings.canShowCfr && settings.cfrPopupsEnabled,
+                tabSearchEnabled = requireComponents.settings.tabSearchEnabled,
+            ),
+        )
     }
 
     /**

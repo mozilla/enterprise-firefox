@@ -57,8 +57,8 @@
 
   @media (-moz-platform: macos) {
     /* -moz-window-shadow does the trick on macOS */
-    --panel-shadow: none;
-    --panel-shadow-margin: 0px;
+    --panel-box-shadow: none;
+    --panel-box-shadow-margin: 0px;
     appearance: auto;
     -moz-default-appearance: menupopup;
     /* We set the default background here, rather than on ::part(content),

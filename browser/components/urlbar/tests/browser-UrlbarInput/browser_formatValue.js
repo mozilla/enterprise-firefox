@@ -171,6 +171,16 @@ add_task(async function test_url_formatting_after_visiting_bookmarks() {
       ["browser.urlbar.formatting.enabled", true],
     ],
   });
+
+  // Add visits so that it can be autofilled.
+  await PlacesTestUtils.addVisits([
+    {
+      uri: "https://something.example.com/test",
+      transition: PlacesUtils.history.TRANSITION_TYPED,
+    },
+  ]);
+  await PlacesFrecencyRecalculator.recalculateAnyOutdatedFrecencies();
+
   await PlacesTestUtils.addBookmarkWithDetails({
     uri: "https://something.example.com/test",
   });

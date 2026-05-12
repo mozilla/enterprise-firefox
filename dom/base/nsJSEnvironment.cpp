@@ -395,7 +395,7 @@ void DispatchScriptErrorEvent(nsPIDOMWindowInner* win,
                               xpc::ErrorReport* xpcReport,
                               JS::Handle<JS::Value> exception,
                               JS::Handle<JSObject*> exceptionStack) {
-  nsContentUtils::AddScriptRunner(new ScriptErrorEvent(
+  nsContentUtils::AddScriptRunner(MakeAndAddRef<ScriptErrorEvent>(
       win, rootingCx, xpcReport, exception, exceptionStack));
 }
 

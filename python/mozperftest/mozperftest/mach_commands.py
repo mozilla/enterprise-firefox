@@ -214,6 +214,12 @@ def _run_tests(command_context, **kwargs):
     help="Regenerate the documentation",
 )
 @CommandArgument(
+    "--regen-variants",
+    action="store_true",
+    default=False,
+    help="Regenerate the variants in the documentation.",
+)
+@CommandArgument(
     "--output-file",
     default=None,
     help="Path to write lint errors as JSON (same format as mach lint --format json)",
@@ -224,7 +230,14 @@ def _run_tests(command_context, **kwargs):
     default=None,
     help="Paths to include (default: all perfdocs locations)",
 )
-def perfdocs(command_context, generate=False, output_file=None, paths=None, **kwargs):
+def perfdocs(
+    command_context,
+    generate=False,
+    regen_variants=False,
+    output_file=None,
+    paths=None,
+    **kwargs,
+):
     import json
     import logging
     import pathlib
@@ -303,7 +316,13 @@ def perfdocs(command_context, generate=False, output_file=None, paths=None, **kw
                 str(topsrcdir / "dom" / "indexedDB" / "test"),
             ]
 
-    failed = run_perfdocs(config=None, logger=logger, paths=paths, generate=generate)
+    failed = run_perfdocs(
+        config=None,
+        logger=logger,
+        paths=paths,
+        generate=generate,
+        regen_variants=regen_variants,
+    )
 
     if output_file:
         with open(output_file, "w", encoding="utf-8") as fh:

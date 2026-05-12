@@ -47,7 +47,6 @@ class AwesomeBarFeatureTest {
 
         `when`(toolbar.setOnEditListener(any())).thenAnswer { invocation ->
             listener = invocation.getArgument<Toolbar.OnEditListener>(0)
-            Unit
         }
 
         AwesomeBarFeature(awesomeBar, toolbar)
@@ -76,7 +75,6 @@ class AwesomeBarFeatureTest {
 
         `when`(awesomeBar.setOnStopListener(any())).thenAnswer { invocation ->
             stopListener = invocation.getArgument<() -> Unit>(0)
-            Unit
         }
 
         AwesomeBarFeature(awesomeBar, toolbar)
@@ -278,7 +276,6 @@ class AwesomeBarFeatureTest {
 
         `when`(toolbar.setOnEditListener(any())).thenAnswer { invocation ->
             listener = invocation.getArgument<Toolbar.OnEditListener>(0)
-            Unit
         }
 
         AwesomeBarFeature(
@@ -313,7 +310,6 @@ class AwesomeBarFeatureTest {
 
         `when`(toolbar.setOnEditListener(any())).thenAnswer { invocation ->
             listener = invocation.getArgument<Toolbar.OnEditListener>(0)
-            Unit
         }
 
         AwesomeBarFeature(

@@ -71,6 +71,7 @@ namespace dom {
  * "style"           | TYPE_INTERNAL_STYLESHEET,
  *                   | TYPE_INTERNAL_STYLESHEET_PRELOAD,
  *                   | TYPE_STYLESHEET
+ * "text"            | TYPE_TEXT, TYPE_INTERNAL_TEXT_PRELOAD
  * "track"           | TYPE_INTERNAL_TRACK
  * "video"           | TYPE_INTERNAL_VIDEO
  * "worker"          | TYPE_INTERNAL_WORKER, TYPE_INTERNAL_WORKER_STATIC_MODULE

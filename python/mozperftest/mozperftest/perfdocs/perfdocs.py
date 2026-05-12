@@ -5,7 +5,7 @@ import os
 import pathlib
 
 
-def run_perfdocs(config, logger=None, paths=None, generate=True):
+def run_perfdocs(config, logger=None, paths=None, generate=True, regen_variants=False):
     """
     Build up performance testing documentation dynamically by combining
     text data from YAML files that reside in `perfdoc` folders
@@ -68,15 +68,30 @@ def run_perfdocs(config, logger=None, paths=None, generate=True):
         if not path.exists():
             raise Exception(f"Cannot locate directory at {str(path)}")
 
-    decision_task_id = os.environ.get("DECISION_TASK_ID", None)
-    if decision_task_id:
-        from taskgraph.util.taskcluster import get_artifact
+    import datetime as _real_datetime
+    import types
 
-        task_graph = get_artifact(decision_task_id, "public/full-task-graph.json")
-    else:
-        from tryselect.tasks import generate_tasks
+    # Import the variant transform module so we can patch its datetime
+    # reference before generating tasks. Without this, variants whose
+    # expiration date has passed would be dropped from the task
+    # graph, causing infra-like failures.
+    import gecko_taskgraph.transforms.test.variant as _variant_module
+    from tryselect.tasks import generate_tasks
+
+    _orig_datetime = _variant_module.datetime
+    try:
+        if not regen_variants:
+
+            class _OldDateTime(_real_datetime.datetime):
+                @classmethod
+                def today(cls):
+                    return _real_datetime.datetime(2000, 1, 1)
+
+            _variant_module.datetime = types.SimpleNamespace(datetime=_OldDateTime)
 
         task_graph = generate_tasks(full=True, disable_target_task_filter=True).tasks
+    finally:
+        _variant_module.datetime = _orig_datetime
 
     # Late import because logger isn't defined until later
     from mozperftest.perfdocs.generator import Generator

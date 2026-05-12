@@ -209,6 +209,10 @@ class SearchRobot(private val composeTestRule: ComposeTestRule) {
             closeSoftKeyboard()
             Log.i(TAG, "verifySearchSuggestionsAreDisplayed: Performed \"Close soft keyboard\" action.")
             Log.i(TAG, "verifySearchSuggestionsAreDisplayed: Waiting for $waitingTime ms until $searchSuggestion search suggestion exists.")
+            composeTestRule.waitUntilAtLeastOneExists(
+                hasTestTag("mozac.awesomebar.suggestion") and hasText(searchSuggestion, substring = true),
+                waitingTime,
+            )
             composeTestRule.onAllNodesWithTag("mozac.awesomebar.suggestion")
                 .assertAny(hasText(searchSuggestion, substring = true))
             Log.i(TAG, "verifySearchSuggestionsAreDisplayed: Verified $searchSuggestion search suggestion exists.")
@@ -478,7 +482,8 @@ class SearchRobot(private val composeTestRule: ComposeTestRule) {
         composeTestRule.waitUntilAtLeastOneExists(hasTestTag(ADDRESSBAR_SEARCH_BOX), waitingTime)
         Log.i(TAG, "verifyTypedToolbarText: Waited for $waitingTime until the edit mode toolbar search box exists")
         Log.i(TAG, "verifyTypedToolbarText: Verifying that text '$expectedText' exists?: $exists")
-        assertUIObjectExists(itemWithResIdContainingText(ADDRESSBAR_SEARCH_BOX, expectedText), exists = exists)
+        val matcher = hasText(expectedText, substring = true)
+        composeTestRule.onNodeWithTag(ADDRESSBAR_SEARCH_BOX).assert(if (exists) matcher else matcher.not())
         Log.i(TAG, "verifyTypedToolbarText: Verification successful.")
     }
 

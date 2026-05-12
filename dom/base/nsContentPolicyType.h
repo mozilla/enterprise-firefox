@@ -69,6 +69,8 @@
   NAME(TYPE_INTERNAL_XMLHTTPREQUEST_SYNC)         \
   NAME(TYPE_INTERNAL_EXTERNAL_RESOURCE)           \
   NAME(TYPE_JSON)                                 \
-  NAME(TYPE_INTERNAL_JSON_PRELOAD)
+  NAME(TYPE_INTERNAL_JSON_PRELOAD)                \
+  NAME(TYPE_TEXT)                                 \
+  NAME(TYPE_INTERNAL_TEXT_PRELOAD)
 
 #endif  // nsContentPolicyType_h

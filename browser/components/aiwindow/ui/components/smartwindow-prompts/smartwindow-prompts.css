@@ -154,7 +154,7 @@
 
   .sw-prompt-button {
     /* Note: Listing the Nova value of these tokens as a backup for consistency because some tokens do not currently exist, ex: "color-neutral" */
-    --prompt-button-background-dark-color: var(--color-neutral-70, #26272f);
+    --prompt-button-background-dark-color: var(--color-gray-70, #26272f);
     --prompt-button-background-color: light-dark(white, var(--prompt-button-background-dark-color));
 
     --sw-prompt-gradient-violet: var(--color-violet-40);

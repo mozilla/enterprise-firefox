@@ -8,12 +8,16 @@ add_setup(async function () {
     set: [["browser.urlbar.contextMenu.featureGate", true]],
   });
 
-  await PlacesTestUtils.addBookmarkWithDetails({
-    uri: "https://example.com/",
-    title: "example",
-  });
+  // Add visits so that it can be autofilled.
+  await PlacesTestUtils.addVisits([
+    {
+      uri: "https://example.com/",
+      transition: PlacesUtils.history.TRANSITION_TYPED,
+    },
+  ]);
+  await PlacesFrecencyRecalculator.recalculateAnyOutdatedFrecencies();
+
   registerCleanupFunction(async () => {
-    await PlacesUtils.bookmarks.eraseEverything();
     await PlacesUtils.history.clear();
   });
 });

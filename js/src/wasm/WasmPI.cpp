@@ -78,6 +78,7 @@ class SuspendingFunctionModuleFactory {
   enum TypeIdx {
     ResultsTypeIndex,
     TagFuncTypeIndex,
+    Count,
   };
 
   enum TagIdx {
@@ -191,7 +192,7 @@ class SuspendingFunctionModuleFactory {
     // ref.cast $results
     // local.set $results
     if (!encoder.writeOp(GcOp::RefCast) ||
-        !encoder.writeVarU32(baseTypeIndex_ + ResultsTypeIndex) ||
+        !encoder.writeVarS32(baseTypeIndex_ + ResultsTypeIndex) ||
         !encoder.writeOp(Op::LocalSet) || !encoder.writeVarU32(resultsIndex)) {
       return false;
     }
@@ -248,6 +249,14 @@ class SuspendingFunctionModuleFactory {
       return nullptr;
     }
     baseTypeIndex_ = codeMeta->types->length();
+
+    // If we don't have room to add our types with the wrapped function's
+    // module's types, then fail and treat this as an OOM. This is extremely
+    // unlikely.
+    if (codeMeta->types->length() > MaxTypes - TypeIdx::Count) {
+      ReportOutOfMemory(cx);
+      return nullptr;
+    }
 
     const size_t resultsSize = results.length();
     const size_t paramsSize = params.length();
@@ -445,6 +454,7 @@ class PromisingFunctionModuleFactory {
     TagFuncTypeIndex = 7,
     SuspendBlockTypeIndex = 8,
     // Type 9: reaction fn func type (added by addDefinedFunc for Reaction)
+    Count = 10,
   };
 
   enum TagIdx {
@@ -878,6 +888,14 @@ class PromisingFunctionModuleFactory {
       return nullptr;
     }
     baseTypeIndex_ = codeMeta->types->length();
+
+    // If we don't have room to add our types with the wrapped function's
+    // module's types, then fail and treat this as an OOM. This is extremely
+    // unlikely.
+    if (codeMeta->types->length() > MaxTypes - TypeIdx::Count) {
+      ReportOutOfMemory(cx);
+      return nullptr;
+    }
 
     // Type baseTypeIndex_ + 0: $params struct
     StructType boxedParamsStruct;

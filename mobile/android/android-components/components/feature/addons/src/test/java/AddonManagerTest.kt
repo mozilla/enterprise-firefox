@@ -396,7 +396,6 @@ class AddonManagerTest {
 
         addonsManager.getAddons(allowCache = false)
         verify(addonsProvider).getFeaturedAddons(eq(false), eq(null), language = anyString())
-        Unit
     }
 
     @Test
@@ -435,7 +434,6 @@ class AddonManagerTest {
         addonsManager.getAddons()
         verify(addonsProvider).getFeaturedAddons(eq(true), readTimeoutInSeconds = eq(3L), language = anyString())
         // ^ readTimeoutInSeconds is now minimal to ensure quick loading (bug 1949963).
-        Unit
     }
 
     @Test

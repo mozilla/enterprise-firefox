@@ -4,7 +4,6 @@
 
 package org.mozilla.fenix.tabstray.redux.reducer
 
-import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.mozilla.fenix.tabstray.data.TabGroupTheme
 import org.mozilla.fenix.tabstray.data.TabsTrayItem
@@ -109,67 +108,6 @@ class TabGroupReducerTest {
         val expectedState = initialState.copy(
             mode = Mode.Normal,
             backStack = TabsTrayState().backStack,
-        )
-
-        assertEquals(expectedState, resultState)
-    }
-
-    @Test
-    fun `WHEN FormDismissed THEN form state is set to null and the tab group flow is closed`() {
-        val initialState = TabsTrayState(
-            tabGroupState = TabsTrayState.TabGroupState(
-                formState = TabGroupFormState(
-                    tabGroupId = "1",
-                    name = "Tab Group 1",
-                    edited = true,
-                ),
-            ),
-            mode = Mode.Select(selectedTabs = setOf()),
-            backStack = listOf(
-                TabsTrayState().backStack.first(),
-                AddToTabGroup,
-                EditTabGroup,
-            ),
-        )
-
-        val resultState = TabGroupActionReducer.reduce(initialState, TabGroupAction.FormDismissed)
-
-        val expectedState = initialState.copy(
-            tabGroupState = initialState.tabGroupState.copy(formState = null),
-            backStack = TabsTrayState().backStack,
-        )
-
-        assertEquals(expectedState, resultState)
-    }
-
-    @Test
-    fun `WHEN FormDismissed from editing an expanded tab group THEN return to the expanded tab group`() {
-        val group = createTabGroup()
-        val initialState = TabsTrayState(
-            tabGroupState = TabsTrayState.TabGroupState(
-                formState = TabGroupFormState(
-                    tabGroupId = group.id,
-                    name = group.title,
-                    edited = true,
-                ),
-            ),
-            backStack = listOf(
-                TabsTrayState().backStack.first(),
-                ExpandedTabGroup(group = group),
-                EditTabGroup,
-            ),
-        )
-
-        val resultState = TabGroupActionReducer.reduce(initialState, TabGroupAction.FormDismissed)
-
-        val expectedState = initialState.copy(
-            tabGroupState = initialState.tabGroupState.copy(
-                formState = null,
-            ),
-            backStack = listOf(
-                TabsTrayState().backStack.first(),
-                ExpandedTabGroup(group = group),
-            ),
         )
 
         assertEquals(expectedState, resultState)

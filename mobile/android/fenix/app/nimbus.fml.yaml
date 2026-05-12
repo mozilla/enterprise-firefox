@@ -830,6 +830,28 @@ features:
         type: String
         default: ""
 
+  networking-happy-eyeballs:
+    description: "Networking (Necko) Happy Eyeballs V3 configuration"
+    variables:
+      enabled:
+        description: Whether to enable the Happy Eyeballs v3 algorithm for connection establishment
+        type: Option<Boolean>
+        gecko-pref:
+          pref: "network.http.happy_eyeballs_enabled"
+          branch: "default"
+      resolution-delay:
+        description: Time in ms to wait after the first DNS response before starting connections
+        type: Option<Int>
+        gecko-pref:
+          pref: "network.http.happy_eyeballs_resolution_delay"
+          branch: "default"
+      connection-attempt-delay:
+        description: Time in ms between successive connection attempts
+        type: Option<Int>
+        gecko-pref:
+          pref: "network.http.happy_eyeballs_connection_attempt_delay"
+          branch: "default"
+
   pki:
     description: Certificate verification configuration
     variables:
@@ -1143,6 +1165,10 @@ features:
         description: Specifies the VPN data limit for unpaid users in GB (e.g. 50 GB).
         type: Int
         default: 50
+      allowed-regions:
+        description: Country codes whose users are eligible for IP Protection.
+        type: List<String>
+        default: ["US", "CA", "DE", "FR", "GB"]
 
   native-share-sheet:
     description: Feature to enable the Native Share Sheet for users on Firefox on Android.

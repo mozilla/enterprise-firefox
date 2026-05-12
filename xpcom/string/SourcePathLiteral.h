@@ -15,7 +15,7 @@ struct SourcePathLiteralBuffer {
   MOZ_IMPLICIT constexpr SourcePathLiteralBuffer(const char (&aSrc)[N]) {
     for (std::size_t i = 0; i < N; ++i) {
       value[i] = aSrc[i];
-#if defined(__clang__) && defined(_MSC_VER)
+#if defined(__clang__) && defined(_WIN32)
       if (value[i] == '/') {
         value[i] = '\\';
       }

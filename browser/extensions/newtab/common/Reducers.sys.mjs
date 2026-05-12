@@ -214,6 +214,8 @@ export const INITIAL_STATE = {
   SportsWidget: {
     data: null,
     initialized: false,
+    widgetState: "sports-intro",
+    selectedTeams: [],
   },
 };
 
@@ -1206,6 +1208,10 @@ function SportsWidget(prevState = INITIAL_STATE.SportsWidget, action) {
   switch (action.type) {
     case at.WIDGETS_SPORTS_WIDGET_SET:
       return { ...prevState, data: action.data, initialized: true };
+    case at.WIDGETS_SPORTS_SET_WIDGET_STATE:
+      return { ...prevState, widgetState: action.data };
+    case at.WIDGETS_SPORTS_SET_SELECTED_TEAMS:
+      return { ...prevState, selectedTeams: action.data };
     default:
       return prevState;
   }

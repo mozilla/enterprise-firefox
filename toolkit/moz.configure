@@ -876,9 +876,9 @@ set_config("MOZ_SYSTEM_AV1", True, when="--with-system-av1")
 option("--disable-jxl", help="Disable jxl image support")
 
 
-@depends("--disable-jxl", milestone.is_nightly)
-def jxl(value, is_nightly):
-    if is_nightly and value:
+@depends("--disable-jxl")
+def jxl(value):
+    if value:
         return True
 
 
@@ -1149,7 +1149,7 @@ include("../build/moz.configure/keyfiles.configure")
 
 simple_keyfile("Mozilla API")
 
-with only_when(depends(target.os)(lambda os: os != "Android")):
+with only_when(depends(target.os)(lambda os: os not in ("Android", "WINNT"))):
     simple_keyfile("Google Location Service API")
 
 simple_keyfile("Google Safebrowsing API")
@@ -4332,3 +4332,18 @@ with only_when(target_is_windows):
 
     set_config("DESKTOP_LAUNCHER_ENABLED", True, when=desktop_launcher_enabled)
     set_define("DESKTOP_LAUNCHER_ENABLED", True, when=desktop_launcher_enabled)
+
+
+option(
+    "--enable-appservices-in-tree",
+    help="Enables building from an in-tree app-services",
+)
+
+
+@depends("--enable-appservices-in-tree")
+def enable_appservices_in_tree(value):
+    if value:
+        return True
+
+
+set_config("MOZ_APPSERVICES_IN_TREE", enable_appservices_in_tree)

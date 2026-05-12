@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-<toolbox id="navigator-toolbox">
+<toolbox id="navigator-toolbox" class="chrome-block">
   <script src="chrome://browser/content/navigator-toolbox.js" />
 
   <!-- Menu -->
@@ -203,7 +203,6 @@
         <html:moz-urlbar id="urlbar"
               class="urlbar"
               popover="manual"
-              focused="true"
               pageproxystate="invalid"
               unifiedsearchbutton-available=""
               sap-name="urlbar">
@@ -524,7 +523,6 @@
                  removable="false">
       <toolbarbutton id="smartwindow-ask-button-inner"
                       class="toolbarbutton-1"
-                      type="checkbox"
                       aria-expanded="false"
                       data-l10n-id="smartwindow-ask-button">
       </toolbarbutton>

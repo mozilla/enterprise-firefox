@@ -1,10 +1,13 @@
 // |jit-test| skip-if: !wasmJSPromiseIntegrationEnabled()
 
-// Tests that JSPI works with GC struct types in function signatures.
+// Tests that JSPI works with GC struct types in function signatures. We pad
+// with a bunch of trivial types to also test larger index spaces.
 
 // Promising: struct param
 {
   const ins = wasmEvalText(`(module
+    ${`(type (func))\n`.repeat(300)}
+
     (type $pair (struct (field i32) (field i32)))
     (func (export "sum") (param (ref $pair)) (result i32)
       (i32.add
@@ -27,6 +30,8 @@
 // Promising: struct result
 {
   const ins = wasmEvalText(`(module
+    ${`(type (func))\n`.repeat(300)}
+
     (type $pair (struct (field i32) (field i32)))
     (func (export "makePair") (param i32 i32) (result (ref $pair))
       (struct.new $pair (local.get 0) (local.get 1))
@@ -50,6 +55,8 @@
   });
 
   ins = wasmEvalText(`(module
+    ${`(type (func))\n`.repeat(300)}
+
     (type $pair (struct (field i32) (field i32)))
     (import "" "sf" (func $sf (param (ref $pair)) (result i32)))
     (func (export "run") (param (ref $pair)) (result i32)
@@ -75,6 +82,8 @@
   });
 
   ins = wasmEvalText(`(module
+    ${`(type (func))\n`.repeat(300)}
+
     (type $pair (struct (field i32) (field i32)))
     (import "" "sf" (func $sf (result (ref $pair))))
     (func (export "run") (result i32)

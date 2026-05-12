@@ -1,10 +1,8 @@
 package org.mozilla.fenix.ui
 
-import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
-import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.helpers.AppAndSystemHelper.isNetworkConnected
 import org.mozilla.fenix.helpers.AppAndSystemHelper.runWithCondition
 import org.mozilla.fenix.helpers.Constants
@@ -16,6 +14,7 @@ import org.mozilla.fenix.helpers.RetryableComposeTestRule
 import org.mozilla.fenix.helpers.TestHelper.waitForAppWindowToBeUpdated
 import org.mozilla.fenix.helpers.perf.DetectMemoryLeaksRule
 import org.mozilla.fenix.ui.robots.homeScreen
+import androidx.compose.ui.test.junit4.v2.AndroidComposeTestRule as AndroidComposeTestRuleV2
 
 /**
  *  Tests for verifying the presence of the Pocket section and its elements
@@ -23,14 +22,14 @@ import org.mozilla.fenix.ui.robots.homeScreen
 
 class PocketTest {
     @get:Rule(order = 0)
-    val retryTestRule = RetryTestRule(3)
-
-    @get:Rule(order = 1)
     val fenixTestRule: FenixTestRule = FenixTestRule()
 
+    @get:Rule(order = 1)
+    val retryTestRule = RetryTestRule(3)
+
     @get:Rule(order = 2)
-    val retryableComposeTestRule = RetryableComposeTestRule<HomeActivity, HomeActivityTestRule> {
-        AndroidComposeTestRule(
+    val retryableComposeTestRule = RetryableComposeTestRule {
+        AndroidComposeTestRuleV2(
             HomeActivityTestRule(
                 isRecentTabsFeatureEnabled = false,
                 isRecentlyVisitedFeatureEnabled = false,
@@ -38,18 +37,20 @@ class PocketTest {
         ) { it.activity }
     }
 
+    private val composeTestRule get() = retryableComposeTestRule.current
+
     @get:Rule(order = 3)
-    val memoryLeaksRule = DetectMemoryLeaksRule()
+    val memoryLeaksRule = DetectMemoryLeaksRule(composeTestRule = { composeTestRule })
 
     @Before
     fun setUp() {
         // Workaround to make sure the Pocket articles are populated before starting the tests.
         for (i in 1..RETRY_COUNT) {
             try {
-                homeScreen(retryableComposeTestRule.current) {
+                homeScreen(composeTestRule) {
                 }.openThreeDotMenu {
                 }.clickSettingsButton {
-                }.goBack(retryableComposeTestRule.current) {
+                }.goBack(composeTestRule) {
                     verifyThoughtProvokingStories(true)
                 }
 
@@ -68,7 +69,7 @@ class PocketTest {
     @Test
     fun verifyPocketSectionTest() {
         runWithCondition(isNetworkConnected()) {
-            homeScreen(retryableComposeTestRule.current) {
+            homeScreen(composeTestRule) {
                 verifyThoughtProvokingStories(true)
                 verifyPocketRecommendedStoriesItems()
                 // Sponsored Pocket stories are only advertised for a limited time.
@@ -78,7 +79,7 @@ class PocketTest {
             }.clickSettingsButton {
             }.openHomepageSubMenu {
                 clickPocketButton()
-            }.goBackToHomeScreen(retryableComposeTestRule.current) {
+            }.goBackToHomeScreen(composeTestRule) {
                 verifyThoughtProvokingStories(false)
             }
         }
@@ -88,7 +89,7 @@ class PocketTest {
     @Test
     fun openPocketStoryItemTest() {
         runWithCondition(isNetworkConnected()) {
-            homeScreen(retryableComposeTestRule.current) {
+            homeScreen(composeTestRule) {
                 verifyThoughtProvokingStories(true)
             }.clickPocketStoryItem(1) {
                 verifyUrl(Constants.STORIES_UTM_PARAM)

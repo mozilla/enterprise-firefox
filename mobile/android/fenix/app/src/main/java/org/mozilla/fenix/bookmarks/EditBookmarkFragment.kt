@@ -36,7 +36,7 @@ import org.mozilla.fenix.utils.lastSavedFolderCache
 /**
  * Menu to edit the name, URL, and location of a bookmark item.
  */
-class EditBookmarkFragment : Fragment(R.layout.fragment_edit_bookmark), SystemInsetsPaddedFragment {
+class EditBookmarkFragment : Fragment(), SystemInsetsPaddedFragment {
 
     private val args by navArgs<EditBookmarkFragmentArgs>()
 

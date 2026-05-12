@@ -1348,7 +1348,7 @@ class TypeContext : public AtomicRefCounted<TypeContext> {
     if (!recGroup) {
       return nullptr;
     }
-    recGroup->type(0) = std::move(type);
+    recGroup->type(0) = std::forward<T>(type);
     if (!endRecGroup()) {
       return nullptr;
     }

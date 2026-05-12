@@ -16,6 +16,7 @@ import mozilla.components.concept.engine.activity.OrientationDelegate
 import mozilla.components.concept.engine.ai.AIFeaturesRuntime
 import mozilla.components.concept.engine.autofill.AddressStructureRuntime
 import mozilla.components.concept.engine.content.blocking.TrackerLog
+import mozilla.components.concept.engine.content.blocking.TrackingProtectionEvent
 import mozilla.components.concept.engine.content.blocking.TrackingProtectionExceptionStorage
 import mozilla.components.concept.engine.ipprotection.IPProtectionDelegate
 import mozilla.components.concept.engine.ipprotection.IPProtectionHandler
@@ -341,6 +342,56 @@ interface Engine :
     ): Unit = onError(
         UnsupportedOperationException(
             "getTrackersLog is not supported by this engine.",
+        ),
+    )
+
+    /**
+     * Fetch aggregate content blocking events by date range from the tracking protection database.
+     *
+     * @param dateFrom start of the date range, in milliseconds since epoch.
+     * @param dateTo end of the date range, in milliseconds since epoch.
+     * @param onSuccess callback invoked with the list of events.
+     * @param onError callback invoked if fetching failed.
+     */
+    fun getTrackingProtectionEventsByDateRange(
+        dateFrom: Long,
+        dateTo: Long,
+        onSuccess: (List<TrackingProtectionEvent>) -> Unit,
+        onError: (Throwable) -> Unit = { },
+    ): Unit = onError(
+        UnsupportedOperationException(
+            "getTrackingProtectionEventsByDateRange is not supported by this engine.",
+        ),
+    )
+
+    /**
+     * Get the total count of all content blocking events ever recorded.
+     *
+     * @param onSuccess callback invoked with the total count.
+     * @param onError callback invoked if fetching failed.
+     */
+    fun sumAllTrackingProtectionEvents(
+        onSuccess: (Int) -> Unit,
+        onError: (Throwable) -> Unit = { },
+    ): Unit = onError(
+        UnsupportedOperationException(
+            "sumAllTrackingProtectionEvents is not supported by this engine.",
+        ),
+    )
+
+    /**
+     * Get the earliest recorded date in the content blocking database.
+     *
+     * @param onSuccess callback invoked with the earliest date as milliseconds since epoch,
+     *  or null if no data exists.
+     * @param onError callback invoked if fetching failed.
+     */
+    fun getEarliestTrackingProtectionDate(
+        onSuccess: (Long?) -> Unit,
+        onError: (Throwable) -> Unit = { },
+    ): Unit = onError(
+        UnsupportedOperationException(
+            "getEarliestTrackingProtectionDate is not supported by this engine.",
         ),
     )
 

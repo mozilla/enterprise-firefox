@@ -53,3 +53,5 @@ aiwindow-jump-to-bottom =
 ## Natural Language Action
 
 smartwindow-nl-thinking = Looking for matching tabs…
+smartwindow-nl-undo-button =
+    .label = Undo

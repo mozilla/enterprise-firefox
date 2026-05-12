@@ -370,17 +370,13 @@
   <!--
     AI Controls settings
 
-    Label for the secret settings preference to enable AI controls
-  -->
-  <string name="preferences_debug_settings_ai_controls">Povoliť nastavenia AI</string>
-  <!--
-    AI Controls settings
-
     Title for the AI controls settings screen
   -->
   <string name="preferences_ai_controls">Nastavenia AI</string>
   <!-- Headline text for the AI controls banner. %s is the name of the app (for example "Firefox"). -->
   <string name="ai_controls_banner_headline">Vo %se máte vždy na výber</string>
+  <!-- Supporting text for the AI controls banner. %s is a learn more link using ai_controls_learn_more as text. -->
+  <string name="ai_controls_banner_supporting_text_2">To zahŕňa aj to, či používať funkcie vylepšené umelou inteligenciou. %s</string>
   <!-- Supporting text for the AI controls banner -->
   <string name="ai_controls_banner_supporting_text">To zahŕňa aj to, či používať funkcie vylepšené umelou inteligenciou.</string>
   <!-- Link text for learning more about AI controls -->
@@ -2229,6 +2225,8 @@
   <string name="bookmark_import_menu_button">Importovať zo súboru</string>
   <!-- Snackbar message shown when a bookmark import attempt fails. -->
   <string name="bookmark_import_failure_snackbar">Záložky sa nepodarilo importovať. Skúste to znova.</string>
+  <!-- Default name for the folder created when importing bookmarks from a file. -->
+  <string name="bookmark_import_destination_default_name">Importované záložky</string>
   <!--
     Bookmark multi select title in app bar
     %1$d is the number of bookmarks selected
@@ -3232,6 +3230,13 @@
   <string name="ip_protection_onboarding_body_link">Prehliadajte s extra ochranou</string>
   <!-- Label for the dismiss button on the onboarding bottom sheet. -->
   <string name="ip_protection_onboarding_not_now_button">Teraz nie</string>
+  <!-- Snackbar (in-app pop-up notification) text to signal the browser VPN connection error -->
+  <string name="ip_protection_connection_error_snackbar">Nepodarilo sa pripojiť k VPN. Skúste to znova o niekoľko minút.</string>
+  <!--
+    Snackbar (in-app pop-up notification) text to signal the browser VPN has reached the monthly data limit.
+    %1$d is the total monthly allowance in GB (for example "50").
+  -->
+  <string name="ip_protection_data_limit_reached_snackbar">Využili ste %1$d GB dát VPN. Prístup sa obnoví budúci mesiac.</string>
   <!--
     Autofill
 
@@ -4645,6 +4650,18 @@
   <string name="sports_widget_final_results_page_content_description" tools:ignore="UnusedResources">Konečné výsledky Majstrovstiev sveta, strana %1$d z %2$d</string>
   <!-- Content description (for accessibility, not displayed) for the remove button that removes the sports widget from the homepage. -->
   <string name="sports_widget_remove_content_description" tools:ignore="UnusedResources">Odstrániť Majstrovstvá sveta z domovskej stránky</string>
+  <!-- Title shown on the sports widget immediately after the user has followed a team. %s is the selected team (e.g., "USA"). -->
+  <string name="sports_widget_team_followed_title" tools:ignore="UnusedResources">Sledujete: \n%s</string>
+  <!-- Description shown on the sports widget immediately after the user has followed a team -->
+  <string name="sports_widget_team_followed_description" tools:ignore="UnusedResources">Informácie o zápase tu nájdete pred začiatkom turnaja.</string>
+  <!-- Sports widget match status label shown during first half of a match. -->
+  <string name="sports_widget_first_half" tools:ignore="UnusedResources">Prvý polčas</string>
+  <!-- Sports widget match status label shown during second half of a match. -->
+  <string name="sports_widget_second_half" tools:ignore="UnusedResources">Druhý polčas</string>
+  <!-- Sports widget error card title shown when the user is offline. -->
+  <string name="sports_widget_error_connection_offline_title" tools:ignore="UnusedResources">Vyzerá to, že momentálne nie ste pripojení k internetu.</string>
+  <!-- Sports widget error card description shown when the user is offline. -->
+  <string name="sports_widget_error_connection_offline_description" tools:ignore="UnusedResources">Skontrolujte svoje internetové pripojenie a skúste to znova.</string>
   <!-- ==== End of Terms of use popup prompt. ==== -->
 
   <!--

@@ -4,53 +4,42 @@
 
 package org.mozilla.fenix.components.ipprotection
 
-import android.content.SharedPreferences
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.launch
+import mozilla.components.feature.ipprotection.DefaultIPProtectionFeature
+import mozilla.components.feature.ipprotection.IPProtectionStore
 import mozilla.components.support.base.feature.LifecycleAwareFeature
-import org.mozilla.fenix.nimbus.FxNimbus
-import org.mozilla.fenix.onboarding.flowScopedBooleanPreference
-import kotlin.coroutines.CoroutineContext
+import org.mozilla.fenix.components.AppStore
 
 /**
  * A wrapper class to integrate IP protection feature into fenix.
  *
- * @param feature The [LifecycleAwareFeature] to wrap.
- * @param pref The [SharedPreferences] instance to observe for changes.
- * @param prefKey The key in [SharedPreferences] representing the secret settings feature flag.
- * @param lifecycleOwner The lifecycle owner driving the preference observer.
- * @param mainContext The coroutine context used to register the preference listener.
+ * @param feature The [DefaultIPProtectionFeature] to wrap.
+ * @param store The IP protection store to observe for state changes.
+ * @param appStore The app store used to dispatch snackbar actions.
+ * @param errorMessages Localized error messages to display in snackbars.
  */
 class IPProtectionFeatureIntegration(
-    private val feature: LifecycleAwareFeature,
-    private val pref: SharedPreferences,
-    private val prefKey: String,
-    private val lifecycleOwner: LifecycleOwner,
-    private val mainContext: CoroutineContext = Dispatchers.Main,
-) {
+    private val feature: DefaultIPProtectionFeature,
+    private val store: IPProtectionStore,
+    private val appStore: AppStore,
+    private val errorMessages: ErrorMessages,
+) : LifecycleAwareFeature {
+
+    private val ipProtectionInfoPrompter by lazy {
+        IPProtectionInfoPrompter(store, appStore, errorMessages)
+    }
 
     /**
-     * Starts the [feature] if conditions are met.
+     * Initializes the IP protection feature.
      */
-    fun start() {
-        lifecycleOwner.lifecycleScope.launch(mainContext) {
-            pref.flowScopedBooleanPreference(
-                lifecycleOwner,
-                mainContext,
-                prefKey,
-                false,
-            )
-                .distinctUntilChanged()
-                .collect { isEnabled ->
-                    if (isEnabled || FxNimbus.features.ipProtection.value().enabled) {
-                        feature.start()
-                    } else {
-                        feature.stop()
-                    }
-                }
-        }
+    fun initialize() {
+        feature.start()
+    }
+
+    override fun start() {
+        ipProtectionInfoPrompter.start()
+    }
+
+    override fun stop() {
+        ipProtectionInfoPrompter.stop()
     }
 }

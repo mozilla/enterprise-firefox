@@ -89,13 +89,12 @@ add_task(async function test_picked_settings() {
   info("Open a new tab");
   let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser);
 
-  let popup = await UrlbarTestUtils.openSearchModeSwitcher(window);
-  let popupHidden = UrlbarTestUtils.searchModeSwitcherPopupClosed(window);
   let pageLoaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser);
-  popup
-    .querySelector(".searchmode-switcher-panel-search-settings-button")
-    .button.click();
-  await Promise.all([pageLoaded, popupHidden]);
+  await UrlbarTestUtils.activateSearchModeSwitcherItem(
+    window,
+    ".searchmode-switcher-panel-search-settings-button"
+  );
+  await pageLoaded;
   Assert.equal(
     Glean.urlbarUnifiedsearchbutton.picked.settings.testGetValue(),
     1
@@ -108,22 +107,15 @@ async function testSearchEngine(engineOrRestrict, telemetry, expected) {
   info(
     `Test search engine for ${JSON.stringify({ label: engineOrRestrict, telemetry, expected })}`
   );
-  let popup = await UrlbarTestUtils.openSearchModeSwitcher(window);
 
-  let popupHidden = UrlbarTestUtils.searchModeSwitcherPopupClosed(window);
-
+  let selector;
   if (Object.keys(UrlbarTokenizer.RESTRICT).includes(engineOrRestrict)) {
     let restrict = UrlbarTokenizer.RESTRICT[engineOrRestrict];
-    popup
-      .querySelector(`panel-item[data-restrict="${restrict}"]`)
-      .button.click();
+    selector = `panel-item[data-restrict="${restrict}"]`;
   } else {
-    popup
-      .querySelector(`panel-item[data-engine-name="${engineOrRestrict}"]`)
-      .button.click();
+    selector = `panel-item[data-engine-name="${engineOrRestrict}"]`;
   }
-
-  await popupHidden;
+  await UrlbarTestUtils.activateSearchModeSwitcherItem(window, selector);
 
   Assert.equal(
     Glean.urlbarUnifiedsearchbutton.picked[telemetry].testGetValue(),

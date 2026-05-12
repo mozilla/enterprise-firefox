@@ -34,7 +34,7 @@
 <html:setting-group id="profilesGroup" groupid="profiles" data-category="paneGeneral" hidden="true" data-srd-migrated="" />
 
 <!-- Tab preferences -->
-<html:setting-group data-category="paneGeneral" hidden="true" groupid="tabs" />
+<html:setting-group data-category="paneGeneral" hidden="true" groupid="tabs" data-srd-migrated="" />
 
 <!-- Browser layout -->
 <html:setting-group groupid="browserLayout" data-category="paneGeneral" data-subcategory="layout" data-srd-migrated="" hidden="true"></html:setting-group>
@@ -152,15 +152,17 @@
 <hbox id="filesAndApplicationsCategory"
       class="subcategory"
       hidden="true"
+      data-srd-groupid="applications"
       data-category="paneGeneral">
   <html:h1 data-l10n-id="files-and-applications-title"/>
 </hbox>
 
 <!-- Downloads -->
-<html:setting-group groupid="downloads" data-category="paneGeneral" hidden="true"/>
+<html:setting-group groupid="downloads" data-category="paneGeneral" data-srd-migrated="" hidden="true"/>
 
 <!-- Applications -->
-<groupbox id="applicationsGroup" data-category="paneGeneral" hidden="true" data-srd-groupid="applications">
+<groupbox id="applicationsGroup" data-category="paneGeneral" hidden="true" data-srd-migrated=""
+  data-srd-groupid="applications">
   <label><html:h2 data-l10n-id="applications-header"/></label>
   <description class="description-deemphasized" data-l10n-id="applications-description"/>
   <html:moz-input-search
@@ -192,16 +194,14 @@
   </radiogroup>
 </groupbox>
 
-<html:setting-group data-category="paneGeneral" groupid="applications" hidden="true" />
-
 <!-- DRM Content -->
-<html:setting-group groupid="drm" data-category="paneGeneral" data-subcategory="drm" hidden="true" />
+<html:setting-group groupid="drm" data-category="paneGeneral" data-subcategory="drm" hidden="true" data-srd-migrated="" />
 
 <!-- Update -->
 <html:setting-group groupid="updates" data-category="paneGeneral" hidden="true" data-srd-migrated="" />
 
 <!-- Performance -->
-<html:setting-group groupid="performance" data-category="paneGeneral" hidden="true" />
+<html:setting-group groupid="performance" data-category="paneGeneral" hidden="true" data-srd-migrated="" />
 
 <!-- Browsing -->
 <html:setting-group groupid="browsing" data-category="paneGeneral" hidden="true"/>

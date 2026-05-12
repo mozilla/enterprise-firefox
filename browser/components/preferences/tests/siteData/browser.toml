@@ -1,4 +1,7 @@
 [DEFAULT]
+prefs = [
+  "browser.settings-redesign.enabled=false",
+]
 support-files = [
   "head.js",
   "site_data_test.html",

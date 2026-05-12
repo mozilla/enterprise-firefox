@@ -181,6 +181,7 @@ import org.mozilla.fenix.utils.getUndoDelay
 import org.mozilla.fenix.utils.showAddSearchWidgetPromptIfSupported
 import org.mozilla.fenix.wallpapers.Wallpaper
 import java.lang.ref.WeakReference
+import org.mozilla.fenix.ipprotection.store.Surface as IPProtectionSurface
 
 /**
  * The home screen.
@@ -362,6 +363,9 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
         if (savedInstanceState != null) {
             bundleArgs.putBoolean(FOCUS_ON_ADDRESS_BAR, false)
         }
+        bundleArgs.getString(SESSION_TO_DELETE)?.let {
+            homeViewModel.sessionToDelete = it
+        }
 
         // DO NOT MOVE ANYTHING BELOW THIS addMarker CALL!
         requireComponents.core.engine.profiler?.addMarker(
@@ -371,7 +375,6 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
         )
     }
 
-    @Suppress("LongMethod", "CyclomaticComplexMethod")
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -380,301 +383,11 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
         // DO NOT ADD ANYTHING ABOVE THIS getProfilerTime CALL!
         val profilerStartTime = requireComponents.core.engine.profiler?.getProfilerTime()
         _binding = FragmentHomeBinding.inflate(inflater, container, false)
+
         val activity = activity as HomeActivity
-        val components = requireComponents
-
-        lifecycleScope.launch(IO) {
-            val settings = requireContext().settings()
-
-            val showStories =
-                settings.showPocketRecommendationsFeature ||
-                    settings.privateModeAndStoriesEntryPointEnabled
-
-            val showSponsoredStories = showStories && settings.showPocketSponsoredStories
-
-            if (showStories) {
-                components.appStore.dispatch(
-                    ContentRecommendationsAction.ContentRecommendationsFetched(
-                        recommendations = components.core.pocketStoriesService.getContentRecommendations(),
-                    ),
-                )
-            } else {
-                components.appStore.dispatch(ContentRecommendationsAction.PocketStoriesClean)
-            }
-
-            if (showSponsoredStories) {
-                components.appStore.dispatch(
-                    ContentRecommendationsAction.SponsoredContentsChange(
-                        sponsoredContents = components.core.pocketStoriesService.getSponsoredContents(),
-                    ),
-                )
-            }
-        }
-
-        if (requireContext().settings().isExperimentationEnabled) {
-            messagingFeatureHomescreen.set(
-                feature = MessagingFeature(
-                    appStore = requireComponents.appStore,
-                    surface = FenixMessageSurfaceId.HOMESCREEN,
-                    runWhenReadyQueue = requireComponents.performance.visualCompletenessQueue,
-                ),
-                owner = viewLifecycleOwner,
-                view = binding.root,
-            )
-
-            initializeMicrosurveyFeature(requireContext().settings().microsurveyFeatureEnabled)
-        }
-
-        if (requireContext().settings().showTopSitesFeature) {
-            topSitesBinding.set(
-                feature = TopSitesBinding(
-                    browserStore = components.core.store,
-                    presenter = DefaultTopSitesPresenter(
-                        view = DefaultTopSitesView(
-                            appStore = components.appStore,
-                            settings = components.settings,
-                        ),
-                        storage = components.core.topSitesStorage,
-                        config = getTopSitesConfig(
-                            settings = components.settings,
-                            store = components.core.store,
-                        ),
-                    ),
-                ),
-                owner = viewLifecycleOwner,
-                view = binding.root,
-            )
-        }
-
-        if (requireContext().settings().showRecentTabsFeature) {
-            recentTabsListFeature.set(
-                feature = RecentTabsListFeature(
-                    browserStore = components.core.store,
-                    appStore = components.appStore,
-                ),
-                owner = viewLifecycleOwner,
-                view = binding.root,
-            )
-
-            recentSyncedTabFeature.set(
-                feature = RecentSyncedTabFeature(
-                    context = requireContext(),
-                    appStore = requireComponents.appStore,
-                    syncStore = requireComponents.backgroundServices.syncStore,
-                    storage = requireComponents.backgroundServices.syncedTabsStorage,
-                    accountManager = requireComponents.backgroundServices.accountManager,
-                    historyStorage = requireComponents.core.historyStorage,
-                    coroutineScope = viewLifecycleOwner.lifecycleScope,
-                ),
-                owner = viewLifecycleOwner,
-                view = binding.root,
-            )
-        }
-
-        if (requireContext().settings().showPrivacyReportFeature) {
-            trackersBlockedFeature.set(
-                feature = TrackersBlockedFeature(
-                    appStore = components.appStore,
-                    protectionsStorage = components.core.protectionsStorage,
-                ),
-                owner = viewLifecycleOwner,
-                view = binding.root,
-            )
-        }
-
-        if (requireContext().settings().showBookmarksHomeFeature) {
-            bookmarksFeature.set(
-                feature = BookmarksFeature(
-                    appStore = components.appStore,
-                    bookmarksUseCase = run {
-                        requireContext().components.useCases.bookmarksUseCases
-                    },
-                    scope = viewLifecycleOwner.lifecycleScope,
-                ),
-                owner = viewLifecycleOwner,
-                view = binding.root,
-            )
-        }
-
-        if (requireContext().settings().historyMetadataUIFeature) {
-            historyMetadataFeature.set(
-                feature = RecentVisitsFeature(
-                    appStore = components.appStore,
-                    historyMetadataStorage = components.core.historyStorage,
-                    historyHighlightsStorage = components.core.lazyHistoryStorage,
-                    scope = viewLifecycleOwner.lifecycleScope,
-                ),
-                owner = viewLifecycleOwner,
-                view = binding.root,
-            )
-        }
-
-        bundleArgs.getString(SESSION_TO_DELETE)?.let {
-            homeViewModel.sessionToDelete = it
-        }
-        thumbnailsFeature.set(
-            feature = HomepageThumbnailIntegration(
-                context = requireContext(),
-                view = binding.homepageView,
-                store = requireComponents.core.store,
-                appStore = components.appStore,
-            ),
-            owner = this,
-            view = binding.homepageView,
-        )
-
-        privacyNoticeBannerStore = PrivacyNoticeBannerStore(
-            initialState = PrivacyNoticeBannerState(
-                visible = privacyNoticeBannerRepository.shouldShowPrivacyNoticeBanner(),
-            ),
-            middleware = listOf(
-                PrivacyNoticeBannerMiddleware(
-                    repository = privacyNoticeBannerRepository,
-                ),
-                PrivacyNoticeBannerTelemetryMiddleware(),
-            ),
-        )
-
-        _sessionControlController = DefaultSessionControlController(
-            activityRef = WeakReference(activity),
-            settings = components.settings,
-            engine = components.core.engine,
-            messageController = DefaultMessageController(
-                appStore = components.appStore,
-                messagingController = components.nimbus.messaging,
-                processIntent = { intent ->
-                    intent?.let { startActivity(it) }
-                },
-            ),
-            store = store,
-            tabCollectionStorage = components.core.tabCollectionStorage,
-            addTabUseCase = components.useCases.tabsUseCases.addTab,
-            restoreUseCase = components.useCases.tabsUseCases.restore,
-            selectTabUseCase = components.useCases.tabsUseCases.selectTab,
-            reloadUrlUseCase = components.useCases.sessionUseCases.reload,
-            fenixBrowserUseCases = components.useCases.fenixBrowserUseCases,
-            appStore = components.appStore,
-            navControllerRef = WeakReference(findNavController()),
-            viewLifecycleScope = viewLifecycleOwner.lifecycleScope,
-            showAddSearchWidgetPrompt = ::showAddSearchWidgetPrompt,
-            requestSetDefaultBrowserPrompt = {
-                maybeRequestDefaultBrowserPrompt(
-                    WeakReference(activity),
-                    setToDefaultPromptRequestLauncher,
-                )
-            },
-        ).apply {
-            registerCallback(
-                object : SessionControlControllerCallback {
-                    override fun registerCollectionStorageObserver() {
-                        this@HomeFragment.registerCollectionStorageObserver()
-                    }
-
-                    override fun removeCollection(tabCollection: TabCollection) {
-                        this@HomeFragment.removeCollection(tabCollection)
-                    }
-
-                    override fun showTabTray() {
-                        this@HomeFragment.openTabsTray()
-                    }
-                },
-            )
-        }
-
-        _sessionControlInteractor = SessionControlInteractor(
-            controller = sessionControlController,
-            recentTabController = DefaultRecentTabsController(
-                selectTabUseCase = components.useCases.tabsUseCases.selectTab,
-                navController = findNavController(),
-                appStore = components.appStore,
-            ),
-            recentSyncedTabController = DefaultRecentSyncedTabController(
-                fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
-                tabsUseCase = requireComponents.useCases.tabsUseCases,
-                navController = findNavController(),
-                accessPoint = AccessPoint.HomeRecentSyncedTab,
-                appStore = components.appStore,
-                settings = components.settings,
-            ),
-            bookmarksController = DefaultBookmarksController(
-                navController = findNavController(),
-                appStore = components.appStore,
-                browserStore = components.core.store,
-                settings = components.settings,
-                fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
-                selectTabUseCase = components.useCases.tabsUseCases.selectTab,
-            ),
-            recentVisitsController = DefaultRecentVisitsController(
-                navController = findNavController(),
-                appStore = components.appStore,
-                settings = components.settings,
-                fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
-                selectOrAddTabUseCase = components.useCases.tabsUseCases.selectOrAddTab,
-                storage = components.core.historyStorage,
-                scope = viewLifecycleOwner.lifecycleScope,
-                store = components.core.store,
-            ),
-            pocketStoriesController = DefaultPocketStoriesController(
-                navControllerRef = WeakReference(findNavController()),
-                appStore = components.appStore,
-                settings = components.settings,
-                fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
-                marsUseCases = components.useCases.marsUseCases,
-                viewLifecycleScope = viewLifecycleOwner.lifecycleScope,
-            ),
-            privateBrowsingController = DefaultPrivateBrowsingController(
-                navController = findNavController(),
-                browsingModeManager = browsingModeManager,
-                fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
-                settings = components.settings,
-            ),
-            searchSelectorController = DefaultSearchSelectorController(
-                navController = findNavController(),
-            ),
-            toolbarController = DefaultToolbarController(
-                appStore = components.appStore,
-            ),
-            homeSearchController = DefaultHomeSearchController(
-                appStore = components.appStore,
-            ),
-            topSiteController = DefaultTopSiteController(
-                activityRef = WeakReference(requireActivity()),
-                store = store,
-                navControllerRef = WeakReference(findNavController()),
-                settings = components.settings,
-                addTabUseCase = components.useCases.tabsUseCases.addTab,
-                selectTabUseCase = components.useCases.tabsUseCases.selectTab,
-                fenixBrowserUseCases = components.useCases.fenixBrowserUseCases,
-                topSitesUseCases = components.useCases.topSitesUseCase,
-                marsUseCases = components.useCases.marsUseCases,
-                mozAdsUseCases = components.useCases.mozAdsUseCases,
-                viewLifecycleScope = viewLifecycleOwner.lifecycleScope,
-            ),
-            privacyNoticeBannerController = DefaultPrivacyNoticeBannerController(
-                privacyNoticeBannerStore = privacyNoticeBannerStore,
-            ),
-            logoController = LogoController(
-                longFoxFeature = components.core.longFoxFeature,
-                container = activity.getRootView() as? ViewGroup,
-            ),
-            sportsController = DefaultSportsController(
-                appStore = components.appStore,
-                browserStore = components.core.store,
-                settings = components.settings,
-                navController = findNavController(),
-                fenixBrowserUseCases = components.useCases.fenixBrowserUseCases,
-            ),
-        )
-
         nullableToolbarView = buildToolbar(activity)
 
-        if (requireContext().settings().microsurveyFeatureEnabled) {
-            listenForMicrosurveyMessage(requireContext())
-        }
-
         initComposeHomepage()
-
-        FxNimbus.features.homescreen.recordExposure()
 
         // DO NOT MOVE ANYTHING BELOW THIS addMarker CALL!
         requireComponents.core.engine.profiler?.addMarker(
@@ -754,6 +467,22 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
                 bottomToolbarContainerView = _bottomToolbarContainerView?.toolbarContainerView,
                 reinitializeMicrosurveyPrompt = { initializeMicrosurveyPrompt() },
             )
+        }
+    }
+
+    private fun initMessagingFeature() {
+        if (requireContext().settings().isExperimentationEnabled) {
+            messagingFeatureHomescreen.set(
+                feature = MessagingFeature(
+                    appStore = requireComponents.appStore,
+                    surface = FenixMessageSurfaceId.HOMESCREEN,
+                    runWhenReadyQueue = requireComponents.performance.visualCompletenessQueue,
+                ),
+                owner = viewLifecycleOwner,
+                view = binding.root,
+            )
+
+            initializeMicrosurveyFeature(requireContext().settings().microsurveyFeatureEnabled)
         }
     }
 
@@ -878,24 +607,13 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
     private fun shouldShowMicrosurveyPrompt(context: Context) =
         context.components.settings.shouldShowMicrosurveyPrompt
 
-    @Suppress("LongMethod")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         // DO NOT ADD ANYTHING ABOVE THIS getProfilerTime CALL!
         val profilerStartTime = requireComponents.core.engine.profiler?.getProfilerTime()
 
         super.onViewCreated(view, savedInstanceState)
-        HomeScreen.homeScreenDisplayed.record(NoExtras())
 
-        with(requireContext()) {
-            if (settings().isExperimentationEnabled) {
-                recordEventInNimbus("home_screen_displayed")
-            }
-        }
-
-        HomeScreen.homeScreenViewCount.add()
-        if (!browsingModeManager.mode.isPrivate) {
-            HomeScreen.standardHomepageViewCount.add()
-        }
+        recordHomepageTelemetry()
 
         observePrivateModeLock {
             findNavController().navigate(
@@ -923,57 +641,40 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
         voiceSearchFeature = VoiceSearchFeature.register(this, voiceSearchLauncher)
         lensFeature = LensFeature.register(this, lensLauncher, lensCameraPermissionLauncher)
 
-        showReviewPromptBinding.set(
-            feature = ShowReviewPromptBinding(
-                appStore = requireComponents.appStore,
-                promptController = requireComponents.playStoreReviewPromptController,
-                activityRef = WeakReference(activity),
-                uiScope = viewLifecycleOwner.lifecycleScope,
-                navigationDirection = { findNavController().navigate(it) },
+        initStoriesState()
+        initMessagingFeature()
+        initTopSitesBinding()
+        initRecentTabsListFeature()
+        initPrivacyReportFeature()
+        initBookmarksFeature()
+        initHistoryMetadataFeature()
+        initThumbnailsFeature()
+        initReviewPromptBinding(view = view)
+        initTabsCleanupFeature(view = view)
+        initSnackbarBinding(view = view)
+
+        privacyNoticeBannerStore = PrivacyNoticeBannerStore(
+            initialState = PrivacyNoticeBannerState(
+                visible = privacyNoticeBannerRepository.shouldShowPrivacyNoticeBanner(),
             ),
-            owner = viewLifecycleOwner,
-            view = view,
+            middleware = listOf(
+                PrivacyNoticeBannerMiddleware(
+                    repository = privacyNoticeBannerRepository,
+                ),
+                PrivacyNoticeBannerTelemetryMiddleware(),
+            ),
         )
+
+        initController()
+        initInteractor()
+
+        if (requireContext().settings().microsurveyFeatureEnabled) {
+            listenForMicrosurveyMessage(requireContext())
+        }
 
         continuousOnboardingFeature.maybeRunContinuousOnboarding(
             activity = requireActivity(),
             launcher = continuousOnboardingDefaultBrowserLauncher,
-        )
-
-        tabsCleanupFeature.set(
-            feature = TabsCleanupFeature(
-                context = requireContext(),
-                viewModel = homeViewModel,
-                browserStore = requireComponents.core.store,
-                browsingModeManager = browsingModeManager,
-                navController = findNavController(),
-                tabsUseCases = requireComponents.useCases.tabsUseCases,
-                fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
-                settings = requireComponents.settings,
-                snackbarHostState = snackbarHostState,
-                viewLifecycleScope = viewLifecycleOwner.lifecycleScope,
-            ),
-            owner = viewLifecycleOwner,
-            view = view,
-        )
-
-        snackbarBinding.set(
-            feature = SnackbarBinding(
-                context = requireContext(),
-                browserStore = requireContext().components.core.store,
-                appStore = requireContext().components.appStore,
-                snackbarDelegate = FenixSnackbarDelegate(
-                    snackbarHostState = snackbarHostState,
-                    scope = viewLifecycleOwner.lifecycleScope,
-                    context = requireContext(),
-                ),
-                navController = findNavController(),
-                tabsUseCases = requireContext().components.useCases.tabsUseCases,
-                sendTabUseCases = SendTabUseCases(requireComponents.backgroundServices.accountManager),
-                customTabSessionId = null,
-            ),
-            owner = this,
-            view = view,
         )
 
         // DO NOT MOVE ANYTHING BELOW THIS addMarker CALL!
@@ -1224,6 +925,10 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
             findNavController().navigate(
                 BrowserFragmentDirections.actionGlobalTermsOfUseDialog(Surface.HOMEPAGE_NEW_TAB),
             )
+        } else if (requireComponents.ipProtectionManager.shouldShowIPProtectionPrompt()) {
+            findNavController().navigate(
+                BrowserFragmentDirections.actionGlobalIpProtectionDialog(IPProtectionSurface.HOMEPAGE),
+            )
         }
     }
 
@@ -1231,6 +936,36 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
     internal fun removeCollection(tabCollection: TabCollection) {
         lifecycleScope.launch(IO) {
             requireComponents.core.tabCollectionStorage.removeCollection(tabCollection)
+        }
+    }
+
+    private fun initStoriesState() {
+        lifecycleScope.launch(IO) {
+            val settings = requireContext().settings()
+
+            val showStories =
+                settings.showPocketRecommendationsFeature ||
+                    settings.privateModeAndStoriesEntryPointEnabled
+
+            val showSponsoredStories = showStories && settings.showPocketSponsoredStories
+
+            if (showStories) {
+                requireComponents.appStore.dispatch(
+                    ContentRecommendationsAction.ContentRecommendationsFetched(
+                        recommendations = requireComponents.core.pocketStoriesService.getContentRecommendations(),
+                    ),
+                )
+            } else {
+                requireComponents.appStore.dispatch(ContentRecommendationsAction.PocketStoriesClean)
+            }
+
+            if (showSponsoredStories) {
+                requireComponents.appStore.dispatch(
+                    ContentRecommendationsAction.SponsoredContentsChange(
+                        sponsoredContents = requireComponents.core.pocketStoriesService.getSponsoredContents(),
+                    ),
+                )
+            }
         }
     }
 
@@ -1339,6 +1074,322 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
         ).also {
             awesomeBarComposable = it
         }
+    }
+
+    private fun initTopSitesBinding() {
+        if (requireContext().settings().showTopSitesFeature) {
+            topSitesBinding.set(
+                feature = TopSitesBinding(
+                    browserStore = requireComponents.core.store,
+                    presenter = DefaultTopSitesPresenter(
+                        view = DefaultTopSitesView(
+                            appStore = requireComponents.appStore,
+                            settings = requireComponents.settings,
+                        ),
+                        storage = requireComponents.core.topSitesStorage,
+                        config = getTopSitesConfig(
+                            settings = requireComponents.settings,
+                            store = requireComponents.core.store,
+                        ),
+                    ),
+                ),
+                owner = viewLifecycleOwner,
+                view = binding.root,
+            )
+        }
+    }
+
+    private fun initRecentTabsListFeature() {
+        if (requireContext().settings().showRecentTabsFeature) {
+            recentTabsListFeature.set(
+                feature = RecentTabsListFeature(
+                    browserStore = requireComponents.core.store,
+                    appStore = requireComponents.appStore,
+                ),
+                owner = viewLifecycleOwner,
+                view = binding.root,
+            )
+
+            recentSyncedTabFeature.set(
+                feature = RecentSyncedTabFeature(
+                    context = requireContext(),
+                    appStore = requireComponents.appStore,
+                    syncStore = requireComponents.backgroundServices.syncStore,
+                    storage = requireComponents.backgroundServices.syncedTabsStorage,
+                    accountManager = requireComponents.backgroundServices.accountManager,
+                    historyStorage = requireComponents.core.historyStorage,
+                    coroutineScope = viewLifecycleOwner.lifecycleScope,
+                ),
+                owner = viewLifecycleOwner,
+                view = binding.root,
+            )
+        }
+    }
+
+    private fun initPrivacyReportFeature() {
+        if (requireContext().settings().showPrivacyReportFeature) {
+            trackersBlockedFeature.set(
+                feature = TrackersBlockedFeature(
+                    appStore = requireComponents.appStore,
+                    protectionsStorage = requireComponents.core.protectionsStorage,
+                ),
+                owner = viewLifecycleOwner,
+                view = binding.root,
+            )
+        }
+    }
+
+    private fun initBookmarksFeature() {
+        if (requireContext().settings().showBookmarksHomeFeature) {
+            bookmarksFeature.set(
+                feature = BookmarksFeature(
+                    appStore = requireComponents.appStore,
+                    bookmarksUseCase = run {
+                        requireComponents.useCases.bookmarksUseCases
+                    },
+                    scope = viewLifecycleOwner.lifecycleScope,
+                ),
+                owner = viewLifecycleOwner,
+                view = binding.root,
+            )
+        }
+    }
+
+    private fun initHistoryMetadataFeature() {
+        if (requireContext().settings().historyMetadataUIFeature) {
+            historyMetadataFeature.set(
+                feature = RecentVisitsFeature(
+                    appStore = requireComponents.appStore,
+                    historyMetadataStorage = requireComponents.core.historyStorage,
+                    historyHighlightsStorage = requireComponents.core.lazyHistoryStorage,
+                    scope = viewLifecycleOwner.lifecycleScope,
+                ),
+                owner = viewLifecycleOwner,
+                view = binding.root,
+            )
+        }
+    }
+
+    private fun initThumbnailsFeature() {
+        thumbnailsFeature.set(
+            feature = HomepageThumbnailIntegration(
+                context = requireContext(),
+                view = binding.homepageView,
+                store = requireComponents.core.store,
+                appStore = requireComponents.appStore,
+            ),
+            owner = this,
+            view = binding.homepageView,
+        )
+    }
+
+    private fun initReviewPromptBinding(view: View) {
+        showReviewPromptBinding.set(
+            feature = ShowReviewPromptBinding(
+                appStore = requireComponents.appStore,
+                promptController = requireComponents.playStoreReviewPromptController,
+                activityRef = WeakReference(activity),
+                uiScope = viewLifecycleOwner.lifecycleScope,
+                navigationDirection = { findNavController().navigate(it) },
+            ),
+            owner = viewLifecycleOwner,
+            view = view,
+        )
+    }
+
+    private fun initTabsCleanupFeature(view: View) {
+        tabsCleanupFeature.set(
+            feature = TabsCleanupFeature(
+                context = requireContext(),
+                viewModel = homeViewModel,
+                browserStore = requireComponents.core.store,
+                browsingModeManager = browsingModeManager,
+                navController = findNavController(),
+                tabsUseCases = requireComponents.useCases.tabsUseCases,
+                fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
+                settings = requireComponents.settings,
+                snackbarHostState = snackbarHostState,
+                viewLifecycleScope = viewLifecycleOwner.lifecycleScope,
+            ),
+            owner = viewLifecycleOwner,
+            view = view,
+        )
+    }
+
+    private fun initSnackbarBinding(view: View) {
+        snackbarBinding.set(
+            feature = SnackbarBinding(
+                context = requireContext(),
+                browserStore = requireComponents.core.store,
+                appStore = requireComponents.appStore,
+                snackbarDelegate = FenixSnackbarDelegate(
+                    snackbarHostState = snackbarHostState,
+                    scope = viewLifecycleOwner.lifecycleScope,
+                    context = requireContext(),
+                ),
+                navController = findNavController(),
+                tabsUseCases = requireComponents.useCases.tabsUseCases,
+                sendTabUseCases = SendTabUseCases(requireComponents.backgroundServices.accountManager),
+                customTabSessionId = null,
+            ),
+            owner = this,
+            view = view,
+        )
+    }
+
+    private fun initInteractor() {
+        _sessionControlInteractor = SessionControlInteractor(
+            controller = sessionControlController,
+            recentTabController = DefaultRecentTabsController(
+                selectTabUseCase = requireComponents.useCases.tabsUseCases.selectTab,
+                navController = findNavController(),
+                appStore = requireComponents.appStore,
+            ),
+            recentSyncedTabController = DefaultRecentSyncedTabController(
+                fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
+                tabsUseCase = requireComponents.useCases.tabsUseCases,
+                navController = findNavController(),
+                accessPoint = AccessPoint.HomeRecentSyncedTab,
+                appStore = requireComponents.appStore,
+                settings = requireComponents.settings,
+            ),
+            bookmarksController = DefaultBookmarksController(
+                navController = findNavController(),
+                appStore = requireComponents.appStore,
+                browserStore = requireComponents.core.store,
+                settings = requireComponents.settings,
+                fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
+                selectTabUseCase = requireComponents.useCases.tabsUseCases.selectTab,
+            ),
+            recentVisitsController = DefaultRecentVisitsController(
+                navController = findNavController(),
+                appStore = requireComponents.appStore,
+                settings = requireComponents.settings,
+                fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
+                selectOrAddTabUseCase = requireComponents.useCases.tabsUseCases.selectOrAddTab,
+                storage = requireComponents.core.historyStorage,
+                scope = viewLifecycleOwner.lifecycleScope,
+                store = requireComponents.core.store,
+            ),
+            pocketStoriesController = DefaultPocketStoriesController(
+                navControllerRef = WeakReference(findNavController()),
+                appStore = requireComponents.appStore,
+                settings = requireComponents.settings,
+                fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
+                marsUseCases = requireComponents.useCases.marsUseCases,
+                viewLifecycleScope = viewLifecycleOwner.lifecycleScope,
+            ),
+            privateBrowsingController = DefaultPrivateBrowsingController(
+                navController = findNavController(),
+                browsingModeManager = browsingModeManager,
+                fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
+                settings = requireComponents.settings,
+            ),
+            searchSelectorController = DefaultSearchSelectorController(
+                navController = findNavController(),
+            ),
+            toolbarController = DefaultToolbarController(
+                appStore = requireComponents.appStore,
+            ),
+            homeSearchController = DefaultHomeSearchController(
+                appStore = requireComponents.appStore,
+            ),
+            topSiteController = buildTopSitesController(),
+            privacyNoticeBannerController = DefaultPrivacyNoticeBannerController(
+                privacyNoticeBannerStore = privacyNoticeBannerStore,
+            ),
+            logoController = LogoController(
+                longFoxFeature = requireComponents.core.longFoxFeature,
+                container = requireActivity().getRootView() as? ViewGroup,
+            ),
+            sportsController = DefaultSportsController(
+                appStore = requireComponents.appStore,
+                settings = requireComponents.settings,
+                navController = findNavController(),
+                fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
+            ),
+        )
+    }
+
+    private fun buildTopSitesController() = DefaultTopSiteController(
+        activityRef = WeakReference(requireActivity()),
+        store = store,
+        navControllerRef = WeakReference(findNavController()),
+        settings = requireComponents.settings,
+        addTabUseCase = requireComponents.useCases.tabsUseCases.addTab,
+        selectTabUseCase = requireComponents.useCases.tabsUseCases.selectTab,
+        fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
+        topSitesUseCases = requireComponents.useCases.topSitesUseCase,
+        marsUseCases = requireComponents.useCases.marsUseCases,
+        mozAdsUseCases = requireComponents.useCases.mozAdsUseCases,
+        viewLifecycleScope = viewLifecycleOwner.lifecycleScope,
+    )
+
+    private fun initController() {
+        val activity = activity as HomeActivity
+        _sessionControlController = DefaultSessionControlController(
+            activityRef = WeakReference(activity),
+            settings = requireComponents.settings,
+            engine = requireComponents.core.engine,
+            messageController = DefaultMessageController(
+                appStore = requireComponents.appStore,
+                messagingController = requireComponents.nimbus.messaging,
+                processIntent = { intent ->
+                    intent?.let { startActivity(it) }
+                },
+            ),
+            store = store,
+            tabCollectionStorage = requireComponents.core.tabCollectionStorage,
+            addTabUseCase = requireComponents.useCases.tabsUseCases.addTab,
+            restoreUseCase = requireComponents.useCases.tabsUseCases.restore,
+            selectTabUseCase = requireComponents.useCases.tabsUseCases.selectTab,
+            reloadUrlUseCase = requireComponents.useCases.sessionUseCases.reload,
+            fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
+            appStore = requireComponents.appStore,
+            navControllerRef = WeakReference(findNavController()),
+            viewLifecycleScope = viewLifecycleOwner.lifecycleScope,
+            showAddSearchWidgetPrompt = ::showAddSearchWidgetPrompt,
+            requestSetDefaultBrowserPrompt = {
+                maybeRequestDefaultBrowserPrompt(
+                    WeakReference(activity),
+                    setToDefaultPromptRequestLauncher,
+                )
+            },
+        ).apply {
+            registerCallback(
+                object : SessionControlControllerCallback {
+                    override fun registerCollectionStorageObserver() {
+                        this@HomeFragment.registerCollectionStorageObserver()
+                    }
+
+                    override fun removeCollection(tabCollection: TabCollection) {
+                        this@HomeFragment.removeCollection(tabCollection)
+                    }
+
+                    override fun showTabTray() {
+                        this@HomeFragment.openTabsTray()
+                    }
+                },
+            )
+        }
+    }
+
+    private fun recordHomepageTelemetry() {
+        HomeScreen.homeScreenDisplayed.record(NoExtras())
+
+        with(requireContext()) {
+            if (settings().isExperimentationEnabled) {
+                recordEventInNimbus("home_screen_displayed")
+            }
+        }
+
+        HomeScreen.homeScreenViewCount.add()
+
+        if (!browsingModeManager.mode.isPrivate) {
+            HomeScreen.standardHomepageViewCount.add()
+        }
+
+        FxNimbus.features.homescreen.recordExposure()
     }
 
     companion object {

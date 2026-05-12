@@ -11,6 +11,8 @@ prefs = [
 
 ["test_cookies.js"]
 
+["test_detectLogin.js"]
+
 ["test_makeValid.js"]
 
 ["test_schema.js"]

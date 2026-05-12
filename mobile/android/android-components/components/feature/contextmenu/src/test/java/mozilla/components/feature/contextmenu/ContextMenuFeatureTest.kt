@@ -256,7 +256,7 @@ class ContextMenuFeatureTest {
             id = "test-id",
             label = "Test Item",
             showFor = { _, _ -> false },
-            action = { _, _ -> Unit },
+            action = { _, _ -> },
         )
 
         val (engineView, view) = mockEngineView()

@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 6.0.16
- * pdfjsBuild = a55cec4a0
+ * pdfjsVersion = 6.0.40
+ * pdfjsBuild = a5e9940d1
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -3804,428 +3804,6 @@ class ImageResizer {
   }
 }
 
-;// ./external/jbig2/jbig2.js
-async function JBig2(moduleArg = {}) {
-  var moduleRtn;
-  var Module = moduleArg;
-  var ENVIRONMENT_IS_WEB = true;
-  var ENVIRONMENT_IS_WORKER = false;
-  var arguments_ = [];
-  var thisProgram = "./this.program";
-  var quit_ = (status, toThrow) => {
-    throw toThrow;
-  };
-  var _scriptName = import.meta.url;
-  var scriptDirectory = "";
-  var readAsync, readBinary;
-  if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
-    try {
-      scriptDirectory = new URL(".", _scriptName).href;
-    } catch {}
-    readAsync = async url => {
-      var response = await fetch(url, {
-        credentials: "same-origin"
-      });
-      if (response.ok) {
-        return response.arrayBuffer();
-      }
-      throw new Error(response.status + " : " + response.url);
-    };
-  } else {}
-  var out = console.log.bind(console);
-  var err = console.error.bind(console);
-  var wasmBinary;
-  var ABORT = false;
-  var EXITSTATUS;
-  var readyPromiseResolve, readyPromiseReject;
-  var HEAP8, HEAPU8, HEAP16, HEAPU16, HEAP32, HEAPU32, HEAPF32, HEAPF64;
-  var HEAP64, HEAPU64;
-  var runtimeInitialized = false;
-  function updateMemoryViews() {
-    var b = wasmMemory.buffer;
-    HEAP8 = new Int8Array(b);
-    HEAP16 = new Int16Array(b);
-    HEAPU8 = new Uint8Array(b);
-    HEAPU16 = new Uint16Array(b);
-    HEAP32 = new Int32Array(b);
-    HEAPU32 = new Uint32Array(b);
-    HEAPF32 = new Float32Array(b);
-    HEAPF64 = new Float64Array(b);
-    HEAP64 = new BigInt64Array(b);
-    HEAPU64 = new BigUint64Array(b);
-  }
-  function preRun() {
-    if (Module["preRun"]) {
-      if (typeof Module["preRun"] == "function") Module["preRun"] = [Module["preRun"]];
-      while (Module["preRun"].length) {
-        addOnPreRun(Module["preRun"].shift());
-      }
-    }
-    callRuntimeCallbacks(onPreRuns);
-  }
-  function initRuntime() {
-    runtimeInitialized = true;
-    wasmExports["j"]();
-  }
-  function postRun() {
-    if (Module["postRun"]) {
-      if (typeof Module["postRun"] == "function") Module["postRun"] = [Module["postRun"]];
-      while (Module["postRun"].length) {
-        addOnPostRun(Module["postRun"].shift());
-      }
-    }
-    callRuntimeCallbacks(onPostRuns);
-  }
-  function abort(what) {
-    Module["onAbort"]?.(what);
-    what = "Aborted(" + what + ")";
-    err(what);
-    ABORT = true;
-    what += ". Build with -sASSERTIONS for more info.";
-    var e = new WebAssembly.RuntimeError(what);
-    readyPromiseReject?.(e);
-    throw e;
-  }
-  var wasmBinaryFile;
-  function getWasmImports() {
-    var imports = {
-      a: wasmImports
-    };
-    return imports;
-  }
-  async function createWasm() {
-    function receiveInstance(instance, module) {
-      wasmExports = instance.exports;
-      assignWasmExports(wasmExports);
-      updateMemoryViews();
-      return wasmExports;
-    }
-    var info = getWasmImports();
-    return new Promise((resolve, reject) => {
-      Module["instantiateWasm"](info, (inst, mod) => {
-        resolve(receiveInstance(inst, mod));
-      });
-    });
-  }
-  class ExitStatus {
-    name = "ExitStatus";
-    constructor(status) {
-      this.message = `Program terminated with exit(${status})`;
-      this.status = status;
-    }
-  }
-  var callRuntimeCallbacks = callbacks => {
-    while (callbacks.length > 0) {
-      callbacks.shift()(Module);
-    }
-  };
-  var onPostRuns = [];
-  var addOnPostRun = cb => onPostRuns.push(cb);
-  var onPreRuns = [];
-  var addOnPreRun = cb => onPreRuns.push(cb);
-  var noExitRuntime = true;
-  var __abort_js = () => abort("");
-  var runtimeKeepaliveCounter = 0;
-  var __emscripten_runtime_keepalive_clear = () => {
-    noExitRuntime = false;
-    runtimeKeepaliveCounter = 0;
-  };
-  var timers = {};
-  var handleException = e => {
-    if (e instanceof ExitStatus || e == "unwind") {
-      return EXITSTATUS;
-    }
-    quit_(1, e);
-  };
-  var keepRuntimeAlive = () => noExitRuntime || runtimeKeepaliveCounter > 0;
-  var _proc_exit = code => {
-    EXITSTATUS = code;
-    if (!keepRuntimeAlive()) {
-      Module["onExit"]?.(code);
-      ABORT = true;
-    }
-    quit_(code, new ExitStatus(code));
-  };
-  var exitJS = (status, implicit) => {
-    EXITSTATUS = status;
-    _proc_exit(status);
-  };
-  var _exit = exitJS;
-  var maybeExit = () => {
-    if (!keepRuntimeAlive()) {
-      try {
-        _exit(EXITSTATUS);
-      } catch (e) {
-        handleException(e);
-      }
-    }
-  };
-  var callUserCallback = func => {
-    if (ABORT) {
-      return;
-    }
-    try {
-      return func();
-    } catch (e) {
-      handleException(e);
-    } finally {
-      maybeExit();
-    }
-  };
-  var _emscripten_get_now = () => performance.now();
-  var __setitimer_js = (which, timeout_ms) => {
-    if (timers[which]) {
-      clearTimeout(timers[which].id);
-      delete timers[which];
-    }
-    if (!timeout_ms) return 0;
-    var id = setTimeout(() => {
-      delete timers[which];
-      callUserCallback(() => __emscripten_timeout(which, _emscripten_get_now()));
-    }, timeout_ms);
-    timers[which] = {
-      id,
-      timeout_ms
-    };
-    return 0;
-  };
-  function _createImageData(size) {
-    Module.imageData = new Uint8Array(size);
-  }
-  var getHeapMax = () => 2147483648;
-  var alignMemory = (size, alignment) => Math.ceil(size / alignment) * alignment;
-  var growMemory = size => {
-    var oldHeapSize = wasmMemory.buffer.byteLength;
-    var pages = (size - oldHeapSize + 65535) / 65536 | 0;
-    try {
-      wasmMemory.grow(pages);
-      updateMemoryViews();
-      return 1;
-    } catch (e) {}
-  };
-  var _emscripten_resize_heap = requestedSize => {
-    var oldSize = HEAPU8.length;
-    requestedSize >>>= 0;
-    var maxHeapSize = getHeapMax();
-    if (requestedSize > maxHeapSize) {
-      return false;
-    }
-    for (var cutDown = 1; cutDown <= 4; cutDown *= 2) {
-      var overGrownHeapSize = oldSize * (1 + .2 / cutDown);
-      overGrownHeapSize = Math.min(overGrownHeapSize, requestedSize + 100663296);
-      var newSize = Math.min(maxHeapSize, alignMemory(Math.max(requestedSize, overGrownHeapSize), 65536));
-      var replacement = growMemory(newSize);
-      if (replacement) {
-        return true;
-      }
-    }
-    return false;
-  };
-  function _setImageData(array_ptr, pitch8, pitch32, height) {
-    if (pitch32 === pitch8) {
-      Module.imageData = new Uint8ClampedArray(HEAPU8.subarray(array_ptr, array_ptr + pitch32 * height));
-      return;
-    }
-    const destSize = pitch8 * height;
-    const imageData = Module.imageData = new Uint8ClampedArray(destSize);
-    for (let srcStart = array_ptr, destStart = 0; destStart < destSize; srcStart += pitch32, destStart += pitch8) {
-      imageData.set(HEAPU8.subarray(srcStart, srcStart + pitch8), destStart);
-    }
-  }
-  function _setLineData(line_ptr, pitch8, offset) {
-    Module.imageData.set(HEAPU8.subarray(line_ptr, line_ptr + pitch8), offset);
-  }
-  var writeArrayToMemory = (array, buffer) => {
-    HEAP8.set(array, buffer);
-  };
-  if (Module["noExitRuntime"]) noExitRuntime = Module["noExitRuntime"];
-  if (Module["print"]) out = Module["print"];
-  if (Module["printErr"]) err = Module["printErr"];
-  if (Module["wasmBinary"]) wasmBinary = Module["wasmBinary"];
-  if (Module["arguments"]) arguments_ = Module["arguments"];
-  if (Module["thisProgram"]) thisProgram = Module["thisProgram"];
-  if (Module["preInit"]) {
-    if (typeof Module["preInit"] == "function") Module["preInit"] = [Module["preInit"]];
-    while (Module["preInit"].length > 0) {
-      Module["preInit"].shift()();
-    }
-  }
-  Module["writeArrayToMemory"] = writeArrayToMemory;
-  var _malloc, _free, _jbig2_decode, _ccitt_decode, __emscripten_timeout, memory, __indirect_function_table, wasmMemory;
-  function assignWasmExports(wasmExports) {
-    _malloc = Module["_malloc"] = wasmExports["k"];
-    _free = Module["_free"] = wasmExports["l"];
-    _jbig2_decode = Module["_jbig2_decode"] = wasmExports["m"];
-    _ccitt_decode = Module["_ccitt_decode"] = wasmExports["n"];
-    __emscripten_timeout = wasmExports["o"];
-    memory = wasmMemory = wasmExports["i"];
-    __indirect_function_table = wasmExports["__indirect_function_table"];
-  }
-  var wasmImports = {
-    e: __abort_js,
-    b: __emscripten_runtime_keepalive_clear,
-    c: __setitimer_js,
-    g: _createImageData,
-    d: _emscripten_resize_heap,
-    a: _proc_exit,
-    h: _setImageData,
-    f: _setLineData
-  };
-  function run() {
-    preRun();
-    function doRun() {
-      Module["calledRun"] = true;
-      if (ABORT) return;
-      initRuntime();
-      readyPromiseResolve?.(Module);
-      Module["onRuntimeInitialized"]?.();
-      postRun();
-    }
-    if (Module["setStatus"]) {
-      Module["setStatus"]("Running...");
-      setTimeout(() => {
-        setTimeout(() => Module["setStatus"](""), 1);
-        doRun();
-      }, 1);
-    } else {
-      doRun();
-    }
-  }
-  var wasmExports;
-  wasmExports = await createWasm();
-  run();
-  if (runtimeInitialized) {
-    moduleRtn = Module;
-  } else {
-    moduleRtn = new Promise((resolve, reject) => {
-      readyPromiseResolve = resolve;
-      readyPromiseReject = reject;
-    });
-  }
-  return moduleRtn;
-}
-/* harmony default export */ const jbig2 = (JBig2);
-;// ./src/core/jbig2_ccittFax.js
-
-
-
-class Jbig2Error extends BaseException {
-  constructor(msg) {
-    super(msg, "Jbig2Error");
-  }
-}
-class JBig2CCITTFaxImage {
-  static #buffer = null;
-  static #handler = null;
-  static #modulePromise = null;
-  static #useWasm = true;
-  static #useWorkerFetch = true;
-  static #wasmUrl = null;
-  static setOptions({
-    handler,
-    useWasm,
-    useWorkerFetch,
-    wasmUrl
-  }) {
-    this.#useWasm = useWasm;
-    this.#useWorkerFetch = useWorkerFetch;
-    this.#wasmUrl = wasmUrl;
-    if (!useWorkerFetch) {
-      this.#handler = handler;
-    }
-  }
-  static async #getJsModule(fallbackCallback) {
-    const path = `${this.#wasmUrl}jbig2_nowasm_fallback.js`;
-    let instance = null;
-    try {
-      const mod = await import(
-      /*webpackIgnore: true*/
-      /*@vite-ignore*/
-      path);
-      instance = mod.default();
-    } catch (e) {
-      warn(`JBig2CCITTFaxImage#getJsModule: ${e}`);
-    }
-    fallbackCallback(instance);
-  }
-  static async #instantiateWasm(fallbackCallback, imports, successCallback) {
-    const filename = "jbig2.wasm";
-    try {
-      if (!this.#buffer) {
-        if (this.#useWorkerFetch) {
-          this.#buffer = await fetchBinaryData(`${this.#wasmUrl}${filename}`);
-        } else {
-          throw new Error("Only worker-thread fetching supported.");
-        }
-      }
-      const results = await WebAssembly.instantiate(this.#buffer, imports);
-      return successCallback(results.instance);
-    } catch (reason) {
-      warn(`JBig2CCITTFaxImage#instantiateWasm: ${reason}`);
-      this.#getJsModule(fallbackCallback);
-      return null;
-    } finally {
-      this.#handler = null;
-    }
-  }
-  static async decode(bytes, width, height, globals, CCITTOptions) {
-    if (!this.#modulePromise) {
-      const {
-        promise,
-        resolve
-      } = Promise.withResolvers();
-      const promises = [promise];
-      if (!this.#useWasm) {
-        this.#getJsModule(resolve);
-      } else {
-        promises.push(jbig2({
-          warn: warn,
-          instantiateWasm: this.#instantiateWasm.bind(this, resolve)
-        }));
-      }
-      this.#modulePromise = Promise.race(promises);
-    }
-    const module = await this.#modulePromise;
-    if (!module) {
-      throw new Jbig2Error("JBig2 failed to initialize");
-    }
-    let ptr, globalsPtr;
-    try {
-      const size = bytes.length;
-      ptr = module._malloc(size);
-      module.writeArrayToMemory(bytes, ptr);
-      if (CCITTOptions) {
-        module._ccitt_decode(ptr, size, width, height, CCITTOptions.K, CCITTOptions.EndOfLine ? 1 : 0, CCITTOptions.EncodedByteAlign ? 1 : 0, CCITTOptions.BlackIs1 ? 1 : 0, CCITTOptions.Columns, CCITTOptions.Rows);
-      } else {
-        const globalsSize = globals ? globals.length : 0;
-        if (globalsSize > 0) {
-          globalsPtr = module._malloc(globalsSize);
-          module.writeArrayToMemory(globals, globalsPtr);
-        }
-        module._jbig2_decode(ptr, size, width, height, globalsPtr, globalsSize);
-      }
-      if (!module.imageData) {
-        throw new Jbig2Error("Unknown error");
-      }
-      const {
-        imageData
-      } = module;
-      module.imageData = null;
-      return imageData;
-    } finally {
-      if (ptr) {
-        module._free(ptr);
-      }
-      if (globalsPtr) {
-        module._free(globalsPtr);
-      }
-    }
-  }
-  static cleanup() {
-    this.#modulePromise = null;
-  }
-}
-
 ;// ./src/core/decode_stream.js
 
 
@@ -5906,703 +5484,6 @@ class JpegStream extends DecodeStream {
   }
   get isImageStream() {
     return true;
-  }
-}
-
-;// ./external/openjpeg/openjpeg.js
-async function OpenJPEG(moduleArg = {}) {
-  var moduleRtn;
-  var Module = moduleArg;
-  var ENVIRONMENT_IS_WEB = true;
-  var ENVIRONMENT_IS_WORKER = false;
-  var arguments_ = [];
-  var thisProgram = "./this.program";
-  var quit_ = (status, toThrow) => {
-    throw toThrow;
-  };
-  var _scriptName = import.meta.url;
-  var scriptDirectory = "";
-  var readAsync, readBinary;
-  if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
-    try {
-      scriptDirectory = new URL(".", _scriptName).href;
-    } catch {}
-    readAsync = async url => {
-      var response = await fetch(url, {
-        credentials: "same-origin"
-      });
-      if (response.ok) {
-        return response.arrayBuffer();
-      }
-      throw new Error(response.status + " : " + response.url);
-    };
-  } else {}
-  var out = console.log.bind(console);
-  var err = console.error.bind(console);
-  var wasmBinary;
-  var ABORT = false;
-  var EXITSTATUS;
-  class EmscriptenEH {}
-  class EmscriptenSjLj extends EmscriptenEH {}
-  var readyPromiseResolve, readyPromiseReject;
-  var runtimeInitialized = false;
-  function updateMemoryViews() {
-    var b = wasmMemory.buffer;
-    HEAP8 = new Int8Array(b);
-    HEAP16 = new Int16Array(b);
-    HEAPU8 = new Uint8Array(b);
-    HEAPU16 = new Uint16Array(b);
-    HEAP32 = new Int32Array(b);
-    HEAPU32 = new Uint32Array(b);
-    HEAPF32 = new Float32Array(b);
-    HEAPF64 = new Float64Array(b);
-    HEAP64 = new BigInt64Array(b);
-    HEAPU64 = new BigUint64Array(b);
-  }
-  function preRun() {
-    if (Module["preRun"]) {
-      if (typeof Module["preRun"] == "function") Module["preRun"] = [Module["preRun"]];
-      while (Module["preRun"].length) {
-        addOnPreRun(Module["preRun"].shift());
-      }
-    }
-    callRuntimeCallbacks(onPreRuns);
-  }
-  function initRuntime() {
-    runtimeInitialized = true;
-    wasmExports["s"]();
-  }
-  function postRun() {
-    if (Module["postRun"]) {
-      if (typeof Module["postRun"] == "function") Module["postRun"] = [Module["postRun"]];
-      while (Module["postRun"].length) {
-        addOnPostRun(Module["postRun"].shift());
-      }
-    }
-    callRuntimeCallbacks(onPostRuns);
-  }
-  function abort(what) {
-    Module["onAbort"]?.(what);
-    what = `Aborted(${what})`;
-    err(what);
-    ABORT = true;
-    what += ". Build with -sASSERTIONS for more info.";
-    var e = new WebAssembly.RuntimeError(what);
-    readyPromiseReject?.(e);
-    throw e;
-  }
-  var wasmBinaryFile;
-  function getWasmImports() {
-    var imports = {
-      a: wasmImports
-    };
-    return imports;
-  }
-  async function createWasm() {
-    function receiveInstance(instance, module) {
-      wasmExports = instance.exports;
-      assignWasmExports(wasmExports);
-      updateMemoryViews();
-      return wasmExports;
-    }
-    var info = getWasmImports();
-    return new Promise((resolve, reject) => {
-      Module["instantiateWasm"](info, (inst, mod) => {
-        resolve(receiveInstance(inst, mod));
-      });
-    });
-  }
-  class ExitStatus {
-    name = "ExitStatus";
-    constructor(status) {
-      this.message = `Program terminated with exit(${status})`;
-      this.status = status;
-    }
-  }
-  var HEAP16;
-  var HEAP32;
-  var HEAP64;
-  var HEAP8;
-  var HEAPF32;
-  var HEAPF64;
-  var HEAPU16;
-  var HEAPU32;
-  var HEAPU64;
-  var HEAPU8;
-  var callRuntimeCallbacks = callbacks => {
-    while (callbacks.length > 0) {
-      callbacks.shift()(Module);
-    }
-  };
-  var onPostRuns = [];
-  var addOnPostRun = cb => onPostRuns.push(cb);
-  var onPreRuns = [];
-  var addOnPreRun = cb => onPreRuns.push(cb);
-  var noExitRuntime = true;
-  var __abort_js = () => abort("");
-  var runtimeKeepaliveCounter = 0;
-  var __emscripten_runtime_keepalive_clear = () => {
-    noExitRuntime = false;
-    runtimeKeepaliveCounter = 0;
-  };
-  var timers = {};
-  var handleException = e => {
-    if (e instanceof ExitStatus || e == "unwind") {
-      return EXITSTATUS;
-    }
-    quit_(1, e);
-  };
-  var keepRuntimeAlive = () => noExitRuntime || runtimeKeepaliveCounter > 0;
-  var _proc_exit = code => {
-    EXITSTATUS = code;
-    if (!keepRuntimeAlive()) {
-      Module["onExit"]?.(code);
-      ABORT = true;
-    }
-    quit_(code, new ExitStatus(code));
-  };
-  var exitJS = (status, implicit) => {
-    EXITSTATUS = status;
-    _proc_exit(status);
-  };
-  var _exit = exitJS;
-  var maybeExit = () => {
-    if (!keepRuntimeAlive()) {
-      try {
-        _exit(EXITSTATUS);
-      } catch (e) {
-        handleException(e);
-      }
-    }
-  };
-  var callUserCallback = func => {
-    if (ABORT) {
-      return;
-    }
-    try {
-      return func();
-    } catch (e) {
-      handleException(e);
-    } finally {
-      maybeExit();
-    }
-  };
-  var _emscripten_get_now = () => performance.now();
-  var __setitimer_js = (which, timeout_ms) => {
-    if (timers[which]) {
-      clearTimeout(timers[which].id);
-      delete timers[which];
-    }
-    if (!timeout_ms) return 0;
-    var id = setTimeout(() => {
-      delete timers[which];
-      callUserCallback(() => __emscripten_timeout(which, _emscripten_get_now()));
-    }, timeout_ms);
-    timers[which] = {
-      id,
-      timeout_ms
-    };
-    return 0;
-  };
-  function _copy_pixels_1(compG_ptr, nb_pixels) {
-    compG_ptr >>= 2;
-    const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels);
-    const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
-    imageData.set(compG);
-  }
-  function _copy_pixels_3(compR_ptr, compG_ptr, compB_ptr, nb_pixels) {
-    compR_ptr >>= 2;
-    compG_ptr >>= 2;
-    compB_ptr >>= 2;
-    const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels * 3);
-    const compR = HEAP32.subarray(compR_ptr, compR_ptr + nb_pixels);
-    const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
-    const compB = HEAP32.subarray(compB_ptr, compB_ptr + nb_pixels);
-    for (let i = 0; i < nb_pixels; i++) {
-      imageData[3 * i] = compR[i];
-      imageData[3 * i + 1] = compG[i];
-      imageData[3 * i + 2] = compB[i];
-    }
-  }
-  function _copy_pixels_4(compR_ptr, compG_ptr, compB_ptr, compA_ptr, nb_pixels) {
-    compR_ptr >>= 2;
-    compG_ptr >>= 2;
-    compB_ptr >>= 2;
-    compA_ptr >>= 2;
-    const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels * 4);
-    const compR = HEAP32.subarray(compR_ptr, compR_ptr + nb_pixels);
-    const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
-    const compB = HEAP32.subarray(compB_ptr, compB_ptr + nb_pixels);
-    const compA = HEAP32.subarray(compA_ptr, compA_ptr + nb_pixels);
-    for (let i = 0; i < nb_pixels; i++) {
-      imageData[4 * i] = compR[i];
-      imageData[4 * i + 1] = compG[i];
-      imageData[4 * i + 2] = compB[i];
-      imageData[4 * i + 3] = compA[i];
-    }
-  }
-  var getHeapMax = () => 2147483648;
-  var alignMemory = (size, alignment) => Math.ceil(size / alignment) * alignment;
-  var growMemory = size => {
-    var oldHeapSize = wasmMemory.buffer.byteLength;
-    var pages = (size - oldHeapSize + 65535) / 65536 | 0;
-    try {
-      wasmMemory.grow(pages);
-      updateMemoryViews();
-      return 1;
-    } catch (e) {}
-  };
-  var _emscripten_resize_heap = requestedSize => {
-    var oldSize = HEAPU8.length;
-    requestedSize >>>= 0;
-    var maxHeapSize = getHeapMax();
-    if (requestedSize > maxHeapSize) {
-      return false;
-    }
-    for (var cutDown = 1; cutDown <= 4; cutDown *= 2) {
-      var overGrownHeapSize = oldSize * (1 + .2 / cutDown);
-      overGrownHeapSize = Math.min(overGrownHeapSize, requestedSize + 100663296);
-      var newSize = Math.min(maxHeapSize, alignMemory(Math.max(requestedSize, overGrownHeapSize), 65536));
-      var replacement = growMemory(newSize);
-      if (replacement) {
-        return true;
-      }
-    }
-    return false;
-  };
-  var ENV = {};
-  var getExecutableName = () => thisProgram || "./this.program";
-  var getEnvStrings = () => {
-    if (!getEnvStrings.strings) {
-      var lang = (globalThis.navigator?.language ?? "C").replace("-", "_") + ".UTF-8";
-      var env = {
-        USER: "web_user",
-        LOGNAME: "web_user",
-        PATH: "/",
-        PWD: "/",
-        HOME: "/home/web_user",
-        LANG: lang,
-        _: getExecutableName()
-      };
-      for (var x in ENV) {
-        if (ENV[x] === undefined) delete env[x];else env[x] = ENV[x];
-      }
-      var strings = [];
-      for (var x in env) {
-        strings.push(`${x}=${env[x]}`);
-      }
-      getEnvStrings.strings = strings;
-    }
-    return getEnvStrings.strings;
-  };
-  var stringToUTF8Array = (str, heap, outIdx, maxBytesToWrite) => {
-    if (!(maxBytesToWrite > 0)) return 0;
-    var startIdx = outIdx;
-    var endIdx = outIdx + maxBytesToWrite - 1;
-    for (var i = 0; i < str.length; ++i) {
-      var u = str.codePointAt(i);
-      if (u <= 127) {
-        if (outIdx >= endIdx) break;
-        heap[outIdx++] = u;
-      } else if (u <= 2047) {
-        if (outIdx + 1 >= endIdx) break;
-        heap[outIdx++] = 192 | u >> 6;
-        heap[outIdx++] = 128 | u & 63;
-      } else if (u <= 65535) {
-        if (outIdx + 2 >= endIdx) break;
-        heap[outIdx++] = 224 | u >> 12;
-        heap[outIdx++] = 128 | u >> 6 & 63;
-        heap[outIdx++] = 128 | u & 63;
-      } else {
-        if (outIdx + 3 >= endIdx) break;
-        heap[outIdx++] = 240 | u >> 18;
-        heap[outIdx++] = 128 | u >> 12 & 63;
-        heap[outIdx++] = 128 | u >> 6 & 63;
-        heap[outIdx++] = 128 | u & 63;
-        i++;
-      }
-    }
-    heap[outIdx] = 0;
-    return outIdx - startIdx;
-  };
-  var stringToUTF8 = (str, outPtr, maxBytesToWrite) => stringToUTF8Array(str, HEAPU8, outPtr, maxBytesToWrite);
-  var _environ_get = (__environ, environ_buf) => {
-    var bufSize = 0;
-    var envp = 0;
-    for (var string of getEnvStrings()) {
-      var ptr = environ_buf + bufSize;
-      HEAPU32[__environ + envp >> 2] = ptr;
-      bufSize += stringToUTF8(string, ptr, Infinity) + 1;
-      envp += 4;
-    }
-    return 0;
-  };
-  var lengthBytesUTF8 = str => {
-    var len = 0;
-    for (var i = 0; i < str.length; ++i) {
-      var c = str.charCodeAt(i);
-      if (c <= 127) {
-        len++;
-      } else if (c <= 2047) {
-        len += 2;
-      } else if (c >= 55296 && c <= 57343) {
-        len += 4;
-        ++i;
-      } else {
-        len += 3;
-      }
-    }
-    return len;
-  };
-  var _environ_sizes_get = (penviron_count, penviron_buf_size) => {
-    var strings = getEnvStrings();
-    HEAPU32[penviron_count >> 2] = strings.length;
-    var bufSize = 0;
-    for (var string of strings) {
-      bufSize += lengthBytesUTF8(string) + 1;
-    }
-    HEAPU32[penviron_buf_size >> 2] = bufSize;
-    return 0;
-  };
-  var INT53_MAX = 9007199254740992;
-  var INT53_MIN = -9007199254740992;
-  var bigintToI53Checked = num => num < INT53_MIN || num > INT53_MAX ? NaN : Number(num);
-  function _fd_seek(fd, offset, whence, newOffset) {
-    offset = bigintToI53Checked(offset);
-    return 70;
-  }
-  var printCharBuffers = [null, [], []];
-  var UTF8Decoder = globalThis.TextDecoder && new TextDecoder();
-  var findStringEnd = (heapOrArray, idx, maxBytesToRead, ignoreNul) => {
-    var maxIdx = idx + maxBytesToRead;
-    if (ignoreNul) return maxIdx;
-    while (heapOrArray[idx] && !(idx >= maxIdx)) ++idx;
-    return idx;
-  };
-  var UTF8ArrayToString = (heapOrArray, idx = 0, maxBytesToRead, ignoreNul) => {
-    var endPtr = findStringEnd(heapOrArray, idx, maxBytesToRead, ignoreNul);
-    if (endPtr - idx > 16 && heapOrArray.buffer && UTF8Decoder) {
-      return UTF8Decoder.decode(heapOrArray.subarray(idx, endPtr));
-    }
-    var str = "";
-    while (idx < endPtr) {
-      var u0 = heapOrArray[idx++];
-      if (!(u0 & 128)) {
-        str += String.fromCharCode(u0);
-        continue;
-      }
-      var u1 = heapOrArray[idx++] & 63;
-      if ((u0 & 224) == 192) {
-        str += String.fromCharCode((u0 & 31) << 6 | u1);
-        continue;
-      }
-      var u2 = heapOrArray[idx++] & 63;
-      if ((u0 & 240) == 224) {
-        u0 = (u0 & 15) << 12 | u1 << 6 | u2;
-      } else {
-        u0 = (u0 & 7) << 18 | u1 << 12 | u2 << 6 | heapOrArray[idx++] & 63;
-      }
-      if (u0 < 65536) {
-        str += String.fromCharCode(u0);
-      } else {
-        var ch = u0 - 65536;
-        str += String.fromCharCode(55296 | ch >> 10, 56320 | ch & 1023);
-      }
-    }
-    return str;
-  };
-  var printChar = (stream, curr) => {
-    var buffer = printCharBuffers[stream];
-    if (curr === 0 || curr === 10) {
-      (stream === 1 ? out : err)(UTF8ArrayToString(buffer));
-      buffer.length = 0;
-    } else {
-      buffer.push(curr);
-    }
-  };
-  var UTF8ToString = (ptr, maxBytesToRead, ignoreNul) => ptr ? UTF8ArrayToString(HEAPU8, ptr, maxBytesToRead, ignoreNul) : "";
-  var _fd_write = (fd, iov, iovcnt, pnum) => {
-    var num = 0;
-    for (var i = 0; i < iovcnt; i++) {
-      var ptr = HEAPU32[iov >> 2];
-      var len = HEAPU32[iov + 4 >> 2];
-      iov += 8;
-      for (var j = 0; j < len; j++) {
-        printChar(fd, HEAPU8[ptr + j]);
-      }
-      num += len;
-    }
-    HEAPU32[pnum >> 2] = num;
-    return 0;
-  };
-  function _gray_to_rgba(compG_ptr, nb_pixels) {
-    compG_ptr >>= 2;
-    const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels * 4);
-    const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
-    for (let i = 0; i < nb_pixels; i++) {
-      imageData[4 * i] = imageData[4 * i + 1] = imageData[4 * i + 2] = compG[i];
-      imageData[4 * i + 3] = 255;
-    }
-  }
-  function _graya_to_rgba(compG_ptr, compA_ptr, nb_pixels) {
-    compG_ptr >>= 2;
-    compA_ptr >>= 2;
-    const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels * 4);
-    const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
-    const compA = HEAP32.subarray(compA_ptr, compA_ptr + nb_pixels);
-    for (let i = 0; i < nb_pixels; i++) {
-      imageData[4 * i] = imageData[4 * i + 1] = imageData[4 * i + 2] = compG[i];
-      imageData[4 * i + 3] = compA[i];
-    }
-  }
-  function _jsPrintWarning(message_ptr) {
-    const message = UTF8ToString(message_ptr);
-    (Module.warn || console.warn)(`OpenJPEG: ${message}`);
-  }
-  function _rgb_to_rgba(compR_ptr, compG_ptr, compB_ptr, nb_pixels) {
-    compR_ptr >>= 2;
-    compG_ptr >>= 2;
-    compB_ptr >>= 2;
-    const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels * 4);
-    const compR = HEAP32.subarray(compR_ptr, compR_ptr + nb_pixels);
-    const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
-    const compB = HEAP32.subarray(compB_ptr, compB_ptr + nb_pixels);
-    for (let i = 0; i < nb_pixels; i++) {
-      imageData[4 * i] = compR[i];
-      imageData[4 * i + 1] = compG[i];
-      imageData[4 * i + 2] = compB[i];
-      imageData[4 * i + 3] = 255;
-    }
-  }
-  function _storeErrorMessage(message_ptr) {
-    const message = UTF8ToString(message_ptr);
-    if (!Module.errorMessages) {
-      Module.errorMessages = message;
-    } else {
-      Module.errorMessages += "\n" + message;
-    }
-  }
-  var writeArrayToMemory = (array, buffer) => {
-    HEAP8.set(array, buffer);
-  };
-  if (Module["noExitRuntime"]) noExitRuntime = Module["noExitRuntime"];
-  if (Module["print"]) out = Module["print"];
-  if (Module["printErr"]) err = Module["printErr"];
-  if (Module["wasmBinary"]) wasmBinary = Module["wasmBinary"];
-  if (Module["arguments"]) arguments_ = Module["arguments"];
-  if (Module["thisProgram"]) thisProgram = Module["thisProgram"];
-  if (Module["preInit"]) {
-    if (typeof Module["preInit"] == "function") Module["preInit"] = [Module["preInit"]];
-    while (Module["preInit"].length > 0) {
-      Module["preInit"].shift()();
-    }
-  }
-  Module["writeArrayToMemory"] = writeArrayToMemory;
-  var _malloc, _free, _jp2_decode, __emscripten_timeout, memory, __indirect_function_table, wasmMemory;
-  function assignWasmExports(wasmExports) {
-    _malloc = Module["_malloc"] = wasmExports["t"];
-    _free = Module["_free"] = wasmExports["u"];
-    _jp2_decode = Module["_jp2_decode"] = wasmExports["v"];
-    __emscripten_timeout = wasmExports["w"];
-    memory = wasmMemory = wasmExports["r"];
-    __indirect_function_table = wasmExports["__indirect_function_table"];
-  }
-  var wasmImports = {
-    m: __abort_js,
-    l: __emscripten_runtime_keepalive_clear,
-    i: __setitimer_js,
-    f: _copy_pixels_1,
-    e: _copy_pixels_3,
-    d: _copy_pixels_4,
-    j: _emscripten_resize_heap,
-    o: _environ_get,
-    p: _environ_sizes_get,
-    n: _fd_seek,
-    b: _fd_write,
-    q: _gray_to_rgba,
-    h: _graya_to_rgba,
-    c: _jsPrintWarning,
-    k: _proc_exit,
-    g: _rgb_to_rgba,
-    a: _storeErrorMessage
-  };
-  function run() {
-    preRun();
-    function doRun() {
-      Module["calledRun"] = true;
-      if (ABORT) return;
-      initRuntime();
-      readyPromiseResolve?.(Module);
-      Module["onRuntimeInitialized"]?.();
-      postRun();
-    }
-    if (Module["setStatus"]) {
-      Module["setStatus"]("Running...");
-      setTimeout(() => {
-        setTimeout(() => Module["setStatus"](""), 1);
-        doRun();
-      }, 1);
-    } else {
-      doRun();
-    }
-  }
-  var wasmExports;
-  wasmExports = await createWasm();
-  run();
-  if (runtimeInitialized) {
-    moduleRtn = Module;
-  } else {
-    moduleRtn = new Promise((resolve, reject) => {
-      readyPromiseResolve = resolve;
-      readyPromiseReject = reject;
-    });
-  }
-  return moduleRtn;
-}
-/* harmony default export */ const openjpeg = (OpenJPEG);
-;// ./src/core/jpx.js
-
-
-
-
-class JpxError extends BaseException {
-  constructor(msg) {
-    super(msg, "JpxError");
-  }
-}
-class JpxImage {
-  static #buffer = null;
-  static #handler = null;
-  static #modulePromise = null;
-  static #useWasm = true;
-  static #useWorkerFetch = true;
-  static #wasmUrl = null;
-  static setOptions({
-    handler,
-    useWasm,
-    useWorkerFetch,
-    wasmUrl
-  }) {
-    this.#useWasm = useWasm;
-    this.#useWorkerFetch = useWorkerFetch;
-    this.#wasmUrl = wasmUrl;
-    if (!useWorkerFetch) {
-      this.#handler = handler;
-    }
-  }
-  static async #getJsModule(fallbackCallback) {
-    const path = `${this.#wasmUrl}openjpeg_nowasm_fallback.js`;
-    let instance = null;
-    try {
-      const mod = await import(
-      /*webpackIgnore: true*/
-      /*@vite-ignore*/
-      path);
-      instance = mod.default();
-    } catch (e) {
-      warn(`JpxImage#getJsModule: ${e}`);
-    }
-    fallbackCallback(instance);
-  }
-  static async #instantiateWasm(fallbackCallback, imports, successCallback) {
-    const filename = "openjpeg.wasm";
-    try {
-      if (!this.#buffer) {
-        if (this.#useWorkerFetch) {
-          this.#buffer = await fetchBinaryData(`${this.#wasmUrl}${filename}`);
-        } else {
-          throw new Error("Only worker-thread fetching supported.");
-        }
-      }
-      const results = await WebAssembly.instantiate(this.#buffer, imports);
-      return successCallback(results.instance);
-    } catch (reason) {
-      warn(`JpxImage#instantiateWasm: ${reason}`);
-      this.#getJsModule(fallbackCallback);
-      return null;
-    } finally {
-      this.#handler = null;
-    }
-  }
-  static async decode(bytes, {
-    numComponents = 4,
-    isIndexedColormap = false,
-    smaskInData = false,
-    reducePower = 0
-  } = {}) {
-    if (!this.#modulePromise) {
-      const {
-        promise,
-        resolve
-      } = Promise.withResolvers();
-      const promises = [promise];
-      if (!this.#useWasm) {
-        this.#getJsModule(resolve);
-      } else {
-        promises.push(openjpeg({
-          warn: warn,
-          instantiateWasm: this.#instantiateWasm.bind(this, resolve)
-        }));
-      }
-      this.#modulePromise = Promise.race(promises);
-    }
-    const module = await this.#modulePromise;
-    if (!module) {
-      throw new JpxError("OpenJPEG failed to initialize");
-    }
-    let ptr;
-    try {
-      const size = bytes.length;
-      ptr = module._malloc(size);
-      module.writeArrayToMemory(bytes, ptr);
-      const ret = module._jp2_decode(ptr, size, numComponents > 0 ? numComponents : 0, !!isIndexedColormap, !!smaskInData, reducePower);
-      if (ret) {
-        const {
-          errorMessages
-        } = module;
-        if (errorMessages) {
-          delete module.errorMessages;
-          throw new JpxError(errorMessages);
-        }
-        throw new JpxError("Unknown error");
-      }
-      const {
-        imageData
-      } = module;
-      module.imageData = null;
-      return imageData;
-    } finally {
-      if (ptr) {
-        module._free(ptr);
-      }
-    }
-  }
-  static cleanup() {
-    this.#modulePromise = null;
-  }
-  static parseImageProperties(stream) {
-    let newByte = stream.getByte();
-    while (newByte >= 0) {
-      const oldByte = newByte;
-      newByte = stream.getByte();
-      const code = oldByte << 8 | newByte;
-      if (code === 0xff51) {
-        stream.skip(4);
-        const Xsiz = stream.getInt32() >>> 0;
-        const Ysiz = stream.getInt32() >>> 0;
-        const XOsiz = stream.getInt32() >>> 0;
-        const YOsiz = stream.getInt32() >>> 0;
-        stream.skip(16);
-        const Csiz = stream.getUint16();
-        return {
-          width: Xsiz - XOsiz,
-          height: Ysiz - YOsiz,
-          bitsPerComponent: 8,
-          componentsCount: Csiz
-        };
-      }
-    }
-    throw new JpxError("No size marker found in JPX stream");
   }
 }
 
@@ -10523,6 +9404,454 @@ class BrotliStream extends DecodeStream {
   }
 }
 
+;// ./external/jbig2/jbig2.js
+async function JBig2(moduleArg = {}) {
+  var moduleRtn;
+  var Module = moduleArg;
+  var ENVIRONMENT_IS_WEB = true;
+  var ENVIRONMENT_IS_WORKER = false;
+  var arguments_ = [];
+  var thisProgram = "./this.program";
+  var quit_ = (status, toThrow) => {
+    throw toThrow;
+  };
+  var _scriptName = import.meta.url;
+  var scriptDirectory = "";
+  var readAsync, readBinary;
+  if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
+    try {
+      scriptDirectory = new URL(".", _scriptName).href;
+    } catch {}
+    readAsync = async url => {
+      var response = await fetch(url, {
+        credentials: "same-origin"
+      });
+      if (response.ok) {
+        return response.arrayBuffer();
+      }
+      throw new Error(response.status + " : " + response.url);
+    };
+  } else {}
+  var out = console.log.bind(console);
+  var err = console.error.bind(console);
+  var wasmBinary;
+  var ABORT = false;
+  var EXITSTATUS;
+  var readyPromiseResolve, readyPromiseReject;
+  var HEAP8, HEAPU8, HEAP16, HEAPU16, HEAP32, HEAPU32, HEAPF32, HEAPF64;
+  var HEAP64, HEAPU64;
+  var runtimeInitialized = false;
+  function updateMemoryViews() {
+    var b = wasmMemory.buffer;
+    HEAP8 = new Int8Array(b);
+    HEAP16 = new Int16Array(b);
+    HEAPU8 = new Uint8Array(b);
+    HEAPU16 = new Uint16Array(b);
+    HEAP32 = new Int32Array(b);
+    HEAPU32 = new Uint32Array(b);
+    HEAPF32 = new Float32Array(b);
+    HEAPF64 = new Float64Array(b);
+    HEAP64 = new BigInt64Array(b);
+    HEAPU64 = new BigUint64Array(b);
+  }
+  function preRun() {
+    if (Module["preRun"]) {
+      if (typeof Module["preRun"] == "function") Module["preRun"] = [Module["preRun"]];
+      while (Module["preRun"].length) {
+        addOnPreRun(Module["preRun"].shift());
+      }
+    }
+    callRuntimeCallbacks(onPreRuns);
+  }
+  function initRuntime() {
+    runtimeInitialized = true;
+    wasmExports["j"]();
+  }
+  function postRun() {
+    if (Module["postRun"]) {
+      if (typeof Module["postRun"] == "function") Module["postRun"] = [Module["postRun"]];
+      while (Module["postRun"].length) {
+        addOnPostRun(Module["postRun"].shift());
+      }
+    }
+    callRuntimeCallbacks(onPostRuns);
+  }
+  function abort(what) {
+    Module["onAbort"]?.(what);
+    what = "Aborted(" + what + ")";
+    err(what);
+    ABORT = true;
+    what += ". Build with -sASSERTIONS for more info.";
+    var e = new WebAssembly.RuntimeError(what);
+    readyPromiseReject?.(e);
+    throw e;
+  }
+  var wasmBinaryFile;
+  function getWasmImports() {
+    var imports = {
+      a: wasmImports
+    };
+    return imports;
+  }
+  async function createWasm() {
+    function receiveInstance(instance, module) {
+      wasmExports = instance.exports;
+      assignWasmExports(wasmExports);
+      updateMemoryViews();
+      return wasmExports;
+    }
+    var info = getWasmImports();
+    return new Promise((resolve, reject) => {
+      Module["instantiateWasm"](info, (inst, mod) => {
+        resolve(receiveInstance(inst, mod));
+      });
+    });
+  }
+  class ExitStatus {
+    name = "ExitStatus";
+    constructor(status) {
+      this.message = `Program terminated with exit(${status})`;
+      this.status = status;
+    }
+  }
+  var callRuntimeCallbacks = callbacks => {
+    while (callbacks.length > 0) {
+      callbacks.shift()(Module);
+    }
+  };
+  var onPostRuns = [];
+  var addOnPostRun = cb => onPostRuns.push(cb);
+  var onPreRuns = [];
+  var addOnPreRun = cb => onPreRuns.push(cb);
+  var noExitRuntime = true;
+  var __abort_js = () => abort("");
+  var runtimeKeepaliveCounter = 0;
+  var __emscripten_runtime_keepalive_clear = () => {
+    noExitRuntime = false;
+    runtimeKeepaliveCounter = 0;
+  };
+  var timers = {};
+  var handleException = e => {
+    if (e instanceof ExitStatus || e == "unwind") {
+      return EXITSTATUS;
+    }
+    quit_(1, e);
+  };
+  var keepRuntimeAlive = () => noExitRuntime || runtimeKeepaliveCounter > 0;
+  var _proc_exit = code => {
+    EXITSTATUS = code;
+    if (!keepRuntimeAlive()) {
+      Module["onExit"]?.(code);
+      ABORT = true;
+    }
+    quit_(code, new ExitStatus(code));
+  };
+  var exitJS = (status, implicit) => {
+    EXITSTATUS = status;
+    _proc_exit(status);
+  };
+  var _exit = exitJS;
+  var maybeExit = () => {
+    if (!keepRuntimeAlive()) {
+      try {
+        _exit(EXITSTATUS);
+      } catch (e) {
+        handleException(e);
+      }
+    }
+  };
+  var callUserCallback = func => {
+    if (ABORT) {
+      return;
+    }
+    try {
+      return func();
+    } catch (e) {
+      handleException(e);
+    } finally {
+      maybeExit();
+    }
+  };
+  var _emscripten_get_now = () => performance.now();
+  var __setitimer_js = (which, timeout_ms) => {
+    if (timers[which]) {
+      clearTimeout(timers[which].id);
+      delete timers[which];
+    }
+    if (!timeout_ms) return 0;
+    var id = setTimeout(() => {
+      delete timers[which];
+      callUserCallback(() => __emscripten_timeout(which, _emscripten_get_now()));
+    }, timeout_ms);
+    timers[which] = {
+      id,
+      timeout_ms
+    };
+    return 0;
+  };
+  function _createImageData(size) {
+    Module.imageData = new Uint8Array(size);
+  }
+  var getHeapMax = () => 2147483648;
+  var alignMemory = (size, alignment) => Math.ceil(size / alignment) * alignment;
+  var growMemory = size => {
+    var oldHeapSize = wasmMemory.buffer.byteLength;
+    var pages = (size - oldHeapSize + 65535) / 65536 | 0;
+    try {
+      wasmMemory.grow(pages);
+      updateMemoryViews();
+      return 1;
+    } catch (e) {}
+  };
+  var _emscripten_resize_heap = requestedSize => {
+    var oldSize = HEAPU8.length;
+    requestedSize >>>= 0;
+    var maxHeapSize = getHeapMax();
+    if (requestedSize > maxHeapSize) {
+      return false;
+    }
+    for (var cutDown = 1; cutDown <= 4; cutDown *= 2) {
+      var overGrownHeapSize = oldSize * (1 + .2 / cutDown);
+      overGrownHeapSize = Math.min(overGrownHeapSize, requestedSize + 100663296);
+      var newSize = Math.min(maxHeapSize, alignMemory(Math.max(requestedSize, overGrownHeapSize), 65536));
+      var replacement = growMemory(newSize);
+      if (replacement) {
+        return true;
+      }
+    }
+    return false;
+  };
+  function _setImageData(array_ptr, pitch8, pitch32, height) {
+    if (pitch32 === pitch8) {
+      Module.imageData = new Uint8ClampedArray(HEAPU8.subarray(array_ptr, array_ptr + pitch32 * height));
+      return;
+    }
+    const destSize = pitch8 * height;
+    const imageData = Module.imageData = new Uint8ClampedArray(destSize);
+    for (let srcStart = array_ptr, destStart = 0; destStart < destSize; srcStart += pitch32, destStart += pitch8) {
+      imageData.set(HEAPU8.subarray(srcStart, srcStart + pitch8), destStart);
+    }
+  }
+  function _setLineData(line_ptr, pitch8, offset) {
+    Module.imageData.set(HEAPU8.subarray(line_ptr, line_ptr + pitch8), offset);
+  }
+  var writeArrayToMemory = (array, buffer) => {
+    HEAP8.set(array, buffer);
+  };
+  if (Module["noExitRuntime"]) noExitRuntime = Module["noExitRuntime"];
+  if (Module["print"]) out = Module["print"];
+  if (Module["printErr"]) err = Module["printErr"];
+  if (Module["wasmBinary"]) wasmBinary = Module["wasmBinary"];
+  if (Module["arguments"]) arguments_ = Module["arguments"];
+  if (Module["thisProgram"]) thisProgram = Module["thisProgram"];
+  if (Module["preInit"]) {
+    if (typeof Module["preInit"] == "function") Module["preInit"] = [Module["preInit"]];
+    while (Module["preInit"].length > 0) {
+      Module["preInit"].shift()();
+    }
+  }
+  Module["writeArrayToMemory"] = writeArrayToMemory;
+  var _malloc, _free, _jbig2_decode, _ccitt_decode, __emscripten_timeout, memory, __indirect_function_table, wasmMemory;
+  function assignWasmExports(wasmExports) {
+    _malloc = Module["_malloc"] = wasmExports["k"];
+    _free = Module["_free"] = wasmExports["l"];
+    _jbig2_decode = Module["_jbig2_decode"] = wasmExports["m"];
+    _ccitt_decode = Module["_ccitt_decode"] = wasmExports["n"];
+    __emscripten_timeout = wasmExports["o"];
+    memory = wasmMemory = wasmExports["i"];
+    __indirect_function_table = wasmExports["__indirect_function_table"];
+  }
+  var wasmImports = {
+    e: __abort_js,
+    b: __emscripten_runtime_keepalive_clear,
+    c: __setitimer_js,
+    g: _createImageData,
+    d: _emscripten_resize_heap,
+    a: _proc_exit,
+    h: _setImageData,
+    f: _setLineData
+  };
+  function run() {
+    preRun();
+    function doRun() {
+      Module["calledRun"] = true;
+      if (ABORT) return;
+      initRuntime();
+      readyPromiseResolve?.(Module);
+      Module["onRuntimeInitialized"]?.();
+      postRun();
+    }
+    if (Module["setStatus"]) {
+      Module["setStatus"]("Running...");
+      setTimeout(() => {
+        setTimeout(() => Module["setStatus"](""), 1);
+        doRun();
+      }, 1);
+    } else {
+      doRun();
+    }
+  }
+  var wasmExports;
+  wasmExports = await createWasm();
+  run();
+  if (runtimeInitialized) {
+    moduleRtn = Module;
+  } else {
+    moduleRtn = new Promise((resolve, reject) => {
+      readyPromiseResolve = resolve;
+      readyPromiseReject = reject;
+    });
+  }
+  return moduleRtn;
+}
+/* harmony default export */ const jbig2 = (JBig2);
+;// ./src/core/wasm_image.js
+
+
+class WasmImage {
+  static #handler = null;
+  static #instances = new Set();
+  static #useWasm = true;
+  static #useWorkerFetch = true;
+  static #wasmUrl = null;
+  #buffer = null;
+  #modulePromise = null;
+  _filename = null;
+  _noWasmFilename = null;
+  static setOptions({
+    handler,
+    useWasm,
+    useWorkerFetch,
+    wasmUrl
+  }) {
+    WasmImage.#useWasm = useWasm;
+    WasmImage.#useWorkerFetch = useWorkerFetch;
+    WasmImage.#wasmUrl = wasmUrl;
+    if (!useWorkerFetch) {
+      WasmImage.#handler = handler;
+    }
+  }
+  static get instance() {
+    unreachable("Abstract getter `instance` accessed");
+  }
+  static cleanup() {
+    for (const instance of WasmImage.#instances) {
+      instance.#modulePromise = null;
+    }
+  }
+  constructor(trackInstance = false) {
+    if (trackInstance) {
+      WasmImage.#instances.add(this);
+    }
+  }
+  async #getJsModule(fallbackCallback) {
+    let instance = null;
+    try {
+      const mod = await import(
+      /*webpackIgnore: true*/
+      /*@vite-ignore*/
+      `${WasmImage.#wasmUrl}${this._noWasmFilename}`);
+      instance = mod.default();
+    } catch (ex) {
+      warn(`#getJsModule: ${ex}`);
+    }
+    fallbackCallback(instance);
+  }
+  async #instantiateWasm(fallbackCallback, imports, successCallback) {
+    try {
+      if (!this.#buffer) {
+        if (WasmImage.#useWorkerFetch) {
+          this.#buffer = await fetchBinaryData(`${WasmImage.#wasmUrl}${this._filename}`);
+        } else {
+          throw new Error("Only worker-thread fetching supported.");
+        }
+      }
+      const results = await WebAssembly.instantiate(this.#buffer, imports);
+      return successCallback(results.instance);
+    } catch (ex) {
+      warn(`#instantiateWasm: ${ex}`);
+      this.#getJsModule(fallbackCallback);
+      return null;
+    }
+  }
+  _getModule(ImageDecoder) {
+    if (!this.#modulePromise) {
+      const {
+        promise,
+        resolve
+      } = Promise.withResolvers();
+      const promises = [promise];
+      if (!WasmImage.#useWasm) {
+        this.#getJsModule(resolve);
+      } else {
+        promises.push(ImageDecoder({
+          warn: warn,
+          instantiateWasm: this.#instantiateWasm.bind(this, resolve)
+        }));
+      }
+      this.#modulePromise = Promise.race(promises);
+    }
+    return this.#modulePromise;
+  }
+  async decode(bytes, _params) {
+    unreachable("Abstract method `decode` called");
+  }
+}
+
+;// ./src/core/jbig2_ccittFax.js
+
+
+
+class Jbig2Error extends BaseException {
+  constructor(msg) {
+    super(msg, "Jbig2Error");
+  }
+}
+class JBig2CCITTFaxImage extends WasmImage {
+  _filename = "jbig2.wasm";
+  _noWasmFilename = "jbig2_nowasm_fallback.js";
+  static get instance() {
+    return shadow(this, "instance", new JBig2CCITTFaxImage(true));
+  }
+  async decode(bytes, width, height, globals, CCITTOptions) {
+    const module = await this._getModule(jbig2);
+    if (!module) {
+      throw new Jbig2Error("JBig2 failed to initialize");
+    }
+    let ptr, globalsPtr;
+    try {
+      const size = bytes.length;
+      ptr = module._malloc(size);
+      module.writeArrayToMemory(bytes, ptr);
+      if (CCITTOptions) {
+        module._ccitt_decode(ptr, size, width, height, CCITTOptions.K, CCITTOptions.EndOfLine ? 1 : 0, CCITTOptions.EncodedByteAlign ? 1 : 0, CCITTOptions.BlackIs1 ? 1 : 0, CCITTOptions.Columns, CCITTOptions.Rows);
+      } else {
+        const globalsSize = globals ? globals.length : 0;
+        if (globalsSize > 0) {
+          globalsPtr = module._malloc(globalsSize);
+          module.writeArrayToMemory(globals, globalsPtr);
+        }
+        module._jbig2_decode(ptr, size, width, height, globalsPtr, globalsSize);
+      }
+      if (!module.imageData) {
+        throw new Jbig2Error("Unknown error");
+      }
+      const {
+        imageData
+      } = module;
+      module.imageData = null;
+      return imageData;
+    } finally {
+      if (ptr) {
+        module._free(ptr);
+      }
+      if (globalsPtr) {
+        module._free(globalsPtr);
+      }
+    }
+  }
+}
+
 ;// ./src/core/ccitt_stream.js
 
 
@@ -10563,7 +9892,7 @@ class CCITTFaxStream extends DecodeStream {
     if (!bytes) {
       bytes = this.stream.isAsync ? (await this.stream.asyncGetBytes()) || this.bytes : this.bytes;
     }
-    this.buffer = await JBig2CCITTFaxImage.decode(bytes, this.dict.get("W", "Width"), this.dict.get("H", "Height"), null, this.params);
+    this.buffer = await JBig2CCITTFaxImage.instance.decode(bytes, this.dict.get("W", "Width"), this.dict.get("H", "Height"), null, this.params);
     this.bufferLength = this.buffer.length;
     this.eof = true;
     return this.buffer;
@@ -10885,13 +10214,643 @@ class Jbig2Stream extends DecodeStream {
         globals = globalsStream.getBytes();
       }
     }
-    this.buffer = await JBig2CCITTFaxImage.decode(bytes, this.dict.get("Width"), this.dict.get("Height"), globals);
+    this.buffer = await JBig2CCITTFaxImage.instance.decode(bytes, this.dict.get("Width"), this.dict.get("Height"), globals);
     this.bufferLength = this.buffer.length;
     this.eof = true;
     return this.buffer;
   }
   get canAsyncDecodeImageFromBuffer() {
     return this.stream.isAsync;
+  }
+}
+
+;// ./external/openjpeg/openjpeg.js
+async function OpenJPEG(moduleArg = {}) {
+  var moduleRtn;
+  var Module = moduleArg;
+  var ENVIRONMENT_IS_WEB = true;
+  var ENVIRONMENT_IS_WORKER = false;
+  var arguments_ = [];
+  var thisProgram = "./this.program";
+  var quit_ = (status, toThrow) => {
+    throw toThrow;
+  };
+  var _scriptName = import.meta.url;
+  var scriptDirectory = "";
+  var readAsync, readBinary;
+  if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
+    try {
+      scriptDirectory = new URL(".", _scriptName).href;
+    } catch {}
+    readAsync = async url => {
+      var response = await fetch(url, {
+        credentials: "same-origin"
+      });
+      if (response.ok) {
+        return response.arrayBuffer();
+      }
+      throw new Error(response.status + " : " + response.url);
+    };
+  } else {}
+  var out = console.log.bind(console);
+  var err = console.error.bind(console);
+  var wasmBinary;
+  var ABORT = false;
+  var EXITSTATUS;
+  class EmscriptenEH {}
+  class EmscriptenSjLj extends EmscriptenEH {}
+  var readyPromiseResolve, readyPromiseReject;
+  var runtimeInitialized = false;
+  function updateMemoryViews() {
+    var b = wasmMemory.buffer;
+    HEAP8 = new Int8Array(b);
+    HEAP16 = new Int16Array(b);
+    HEAPU8 = new Uint8Array(b);
+    HEAPU16 = new Uint16Array(b);
+    HEAP32 = new Int32Array(b);
+    HEAPU32 = new Uint32Array(b);
+    HEAPF32 = new Float32Array(b);
+    HEAPF64 = new Float64Array(b);
+    HEAP64 = new BigInt64Array(b);
+    HEAPU64 = new BigUint64Array(b);
+  }
+  function preRun() {
+    if (Module["preRun"]) {
+      if (typeof Module["preRun"] == "function") Module["preRun"] = [Module["preRun"]];
+      while (Module["preRun"].length) {
+        addOnPreRun(Module["preRun"].shift());
+      }
+    }
+    callRuntimeCallbacks(onPreRuns);
+  }
+  function initRuntime() {
+    runtimeInitialized = true;
+    wasmExports["s"]();
+  }
+  function postRun() {
+    if (Module["postRun"]) {
+      if (typeof Module["postRun"] == "function") Module["postRun"] = [Module["postRun"]];
+      while (Module["postRun"].length) {
+        addOnPostRun(Module["postRun"].shift());
+      }
+    }
+    callRuntimeCallbacks(onPostRuns);
+  }
+  function abort(what) {
+    Module["onAbort"]?.(what);
+    what = `Aborted(${what})`;
+    err(what);
+    ABORT = true;
+    what += ". Build with -sASSERTIONS for more info.";
+    var e = new WebAssembly.RuntimeError(what);
+    readyPromiseReject?.(e);
+    throw e;
+  }
+  var wasmBinaryFile;
+  function getWasmImports() {
+    var imports = {
+      a: wasmImports
+    };
+    return imports;
+  }
+  async function createWasm() {
+    function receiveInstance(instance, module) {
+      wasmExports = instance.exports;
+      assignWasmExports(wasmExports);
+      updateMemoryViews();
+      return wasmExports;
+    }
+    var info = getWasmImports();
+    return new Promise((resolve, reject) => {
+      Module["instantiateWasm"](info, (inst, mod) => {
+        resolve(receiveInstance(inst, mod));
+      });
+    });
+  }
+  class ExitStatus {
+    name = "ExitStatus";
+    constructor(status) {
+      this.message = `Program terminated with exit(${status})`;
+      this.status = status;
+    }
+  }
+  var HEAP16;
+  var HEAP32;
+  var HEAP64;
+  var HEAP8;
+  var HEAPF32;
+  var HEAPF64;
+  var HEAPU16;
+  var HEAPU32;
+  var HEAPU64;
+  var HEAPU8;
+  var callRuntimeCallbacks = callbacks => {
+    while (callbacks.length > 0) {
+      callbacks.shift()(Module);
+    }
+  };
+  var onPostRuns = [];
+  var addOnPostRun = cb => onPostRuns.push(cb);
+  var onPreRuns = [];
+  var addOnPreRun = cb => onPreRuns.push(cb);
+  var noExitRuntime = true;
+  var __abort_js = () => abort("");
+  var runtimeKeepaliveCounter = 0;
+  var __emscripten_runtime_keepalive_clear = () => {
+    noExitRuntime = false;
+    runtimeKeepaliveCounter = 0;
+  };
+  var timers = {};
+  var handleException = e => {
+    if (e instanceof ExitStatus || e == "unwind") {
+      return EXITSTATUS;
+    }
+    quit_(1, e);
+  };
+  var keepRuntimeAlive = () => noExitRuntime || runtimeKeepaliveCounter > 0;
+  var _proc_exit = code => {
+    EXITSTATUS = code;
+    if (!keepRuntimeAlive()) {
+      Module["onExit"]?.(code);
+      ABORT = true;
+    }
+    quit_(code, new ExitStatus(code));
+  };
+  var exitJS = (status, implicit) => {
+    EXITSTATUS = status;
+    _proc_exit(status);
+  };
+  var _exit = exitJS;
+  var maybeExit = () => {
+    if (!keepRuntimeAlive()) {
+      try {
+        _exit(EXITSTATUS);
+      } catch (e) {
+        handleException(e);
+      }
+    }
+  };
+  var callUserCallback = func => {
+    if (ABORT) {
+      return;
+    }
+    try {
+      return func();
+    } catch (e) {
+      handleException(e);
+    } finally {
+      maybeExit();
+    }
+  };
+  var _emscripten_get_now = () => performance.now();
+  var __setitimer_js = (which, timeout_ms) => {
+    if (timers[which]) {
+      clearTimeout(timers[which].id);
+      delete timers[which];
+    }
+    if (!timeout_ms) return 0;
+    var id = setTimeout(() => {
+      delete timers[which];
+      callUserCallback(() => __emscripten_timeout(which, _emscripten_get_now()));
+    }, timeout_ms);
+    timers[which] = {
+      id,
+      timeout_ms
+    };
+    return 0;
+  };
+  function _copy_pixels_1(compG_ptr, nb_pixels) {
+    compG_ptr >>= 2;
+    const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels);
+    const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
+    imageData.set(compG);
+  }
+  function _copy_pixels_3(compR_ptr, compG_ptr, compB_ptr, nb_pixels) {
+    compR_ptr >>= 2;
+    compG_ptr >>= 2;
+    compB_ptr >>= 2;
+    const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels * 3);
+    const compR = HEAP32.subarray(compR_ptr, compR_ptr + nb_pixels);
+    const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
+    const compB = HEAP32.subarray(compB_ptr, compB_ptr + nb_pixels);
+    for (let i = 0; i < nb_pixels; i++) {
+      imageData[3 * i] = compR[i];
+      imageData[3 * i + 1] = compG[i];
+      imageData[3 * i + 2] = compB[i];
+    }
+  }
+  function _copy_pixels_4(compR_ptr, compG_ptr, compB_ptr, compA_ptr, nb_pixels) {
+    compR_ptr >>= 2;
+    compG_ptr >>= 2;
+    compB_ptr >>= 2;
+    compA_ptr >>= 2;
+    const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels * 4);
+    const compR = HEAP32.subarray(compR_ptr, compR_ptr + nb_pixels);
+    const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
+    const compB = HEAP32.subarray(compB_ptr, compB_ptr + nb_pixels);
+    const compA = HEAP32.subarray(compA_ptr, compA_ptr + nb_pixels);
+    for (let i = 0; i < nb_pixels; i++) {
+      imageData[4 * i] = compR[i];
+      imageData[4 * i + 1] = compG[i];
+      imageData[4 * i + 2] = compB[i];
+      imageData[4 * i + 3] = compA[i];
+    }
+  }
+  var getHeapMax = () => 2147483648;
+  var alignMemory = (size, alignment) => Math.ceil(size / alignment) * alignment;
+  var growMemory = size => {
+    var oldHeapSize = wasmMemory.buffer.byteLength;
+    var pages = (size - oldHeapSize + 65535) / 65536 | 0;
+    try {
+      wasmMemory.grow(pages);
+      updateMemoryViews();
+      return 1;
+    } catch (e) {}
+  };
+  var _emscripten_resize_heap = requestedSize => {
+    var oldSize = HEAPU8.length;
+    requestedSize >>>= 0;
+    var maxHeapSize = getHeapMax();
+    if (requestedSize > maxHeapSize) {
+      return false;
+    }
+    for (var cutDown = 1; cutDown <= 4; cutDown *= 2) {
+      var overGrownHeapSize = oldSize * (1 + .2 / cutDown);
+      overGrownHeapSize = Math.min(overGrownHeapSize, requestedSize + 100663296);
+      var newSize = Math.min(maxHeapSize, alignMemory(Math.max(requestedSize, overGrownHeapSize), 65536));
+      var replacement = growMemory(newSize);
+      if (replacement) {
+        return true;
+      }
+    }
+    return false;
+  };
+  var ENV = {};
+  var getExecutableName = () => thisProgram || "./this.program";
+  var getEnvStrings = () => {
+    if (!getEnvStrings.strings) {
+      var lang = (globalThis.navigator?.language ?? "C").replace("-", "_") + ".UTF-8";
+      var env = {
+        USER: "web_user",
+        LOGNAME: "web_user",
+        PATH: "/",
+        PWD: "/",
+        HOME: "/home/web_user",
+        LANG: lang,
+        _: getExecutableName()
+      };
+      for (var x in ENV) {
+        if (ENV[x] === undefined) delete env[x];else env[x] = ENV[x];
+      }
+      var strings = [];
+      for (var x in env) {
+        strings.push(`${x}=${env[x]}`);
+      }
+      getEnvStrings.strings = strings;
+    }
+    return getEnvStrings.strings;
+  };
+  var stringToUTF8Array = (str, heap, outIdx, maxBytesToWrite) => {
+    if (!(maxBytesToWrite > 0)) return 0;
+    var startIdx = outIdx;
+    var endIdx = outIdx + maxBytesToWrite - 1;
+    for (var i = 0; i < str.length; ++i) {
+      var u = str.codePointAt(i);
+      if (u <= 127) {
+        if (outIdx >= endIdx) break;
+        heap[outIdx++] = u;
+      } else if (u <= 2047) {
+        if (outIdx + 1 >= endIdx) break;
+        heap[outIdx++] = 192 | u >> 6;
+        heap[outIdx++] = 128 | u & 63;
+      } else if (u <= 65535) {
+        if (outIdx + 2 >= endIdx) break;
+        heap[outIdx++] = 224 | u >> 12;
+        heap[outIdx++] = 128 | u >> 6 & 63;
+        heap[outIdx++] = 128 | u & 63;
+      } else {
+        if (outIdx + 3 >= endIdx) break;
+        heap[outIdx++] = 240 | u >> 18;
+        heap[outIdx++] = 128 | u >> 12 & 63;
+        heap[outIdx++] = 128 | u >> 6 & 63;
+        heap[outIdx++] = 128 | u & 63;
+        i++;
+      }
+    }
+    heap[outIdx] = 0;
+    return outIdx - startIdx;
+  };
+  var stringToUTF8 = (str, outPtr, maxBytesToWrite) => stringToUTF8Array(str, HEAPU8, outPtr, maxBytesToWrite);
+  var _environ_get = (__environ, environ_buf) => {
+    var bufSize = 0;
+    var envp = 0;
+    for (var string of getEnvStrings()) {
+      var ptr = environ_buf + bufSize;
+      HEAPU32[__environ + envp >> 2] = ptr;
+      bufSize += stringToUTF8(string, ptr, Infinity) + 1;
+      envp += 4;
+    }
+    return 0;
+  };
+  var lengthBytesUTF8 = str => {
+    var len = 0;
+    for (var i = 0; i < str.length; ++i) {
+      var c = str.charCodeAt(i);
+      if (c <= 127) {
+        len++;
+      } else if (c <= 2047) {
+        len += 2;
+      } else if (c >= 55296 && c <= 57343) {
+        len += 4;
+        ++i;
+      } else {
+        len += 3;
+      }
+    }
+    return len;
+  };
+  var _environ_sizes_get = (penviron_count, penviron_buf_size) => {
+    var strings = getEnvStrings();
+    HEAPU32[penviron_count >> 2] = strings.length;
+    var bufSize = 0;
+    for (var string of strings) {
+      bufSize += lengthBytesUTF8(string) + 1;
+    }
+    HEAPU32[penviron_buf_size >> 2] = bufSize;
+    return 0;
+  };
+  var INT53_MAX = 9007199254740992;
+  var INT53_MIN = -9007199254740992;
+  var bigintToI53Checked = num => num < INT53_MIN || num > INT53_MAX ? NaN : Number(num);
+  function _fd_seek(fd, offset, whence, newOffset) {
+    offset = bigintToI53Checked(offset);
+    return 70;
+  }
+  var printCharBuffers = [null, [], []];
+  var UTF8Decoder = globalThis.TextDecoder && new TextDecoder();
+  var findStringEnd = (heapOrArray, idx, maxBytesToRead, ignoreNul) => {
+    var maxIdx = idx + maxBytesToRead;
+    if (ignoreNul) return maxIdx;
+    while (heapOrArray[idx] && !(idx >= maxIdx)) ++idx;
+    return idx;
+  };
+  var UTF8ArrayToString = (heapOrArray, idx = 0, maxBytesToRead, ignoreNul) => {
+    var endPtr = findStringEnd(heapOrArray, idx, maxBytesToRead, ignoreNul);
+    if (endPtr - idx > 16 && heapOrArray.buffer && UTF8Decoder) {
+      return UTF8Decoder.decode(heapOrArray.subarray(idx, endPtr));
+    }
+    var str = "";
+    while (idx < endPtr) {
+      var u0 = heapOrArray[idx++];
+      if (!(u0 & 128)) {
+        str += String.fromCharCode(u0);
+        continue;
+      }
+      var u1 = heapOrArray[idx++] & 63;
+      if ((u0 & 224) == 192) {
+        str += String.fromCharCode((u0 & 31) << 6 | u1);
+        continue;
+      }
+      var u2 = heapOrArray[idx++] & 63;
+      if ((u0 & 240) == 224) {
+        u0 = (u0 & 15) << 12 | u1 << 6 | u2;
+      } else {
+        u0 = (u0 & 7) << 18 | u1 << 12 | u2 << 6 | heapOrArray[idx++] & 63;
+      }
+      if (u0 < 65536) {
+        str += String.fromCharCode(u0);
+      } else {
+        var ch = u0 - 65536;
+        str += String.fromCharCode(55296 | ch >> 10, 56320 | ch & 1023);
+      }
+    }
+    return str;
+  };
+  var printChar = (stream, curr) => {
+    var buffer = printCharBuffers[stream];
+    if (curr === 0 || curr === 10) {
+      (stream === 1 ? out : err)(UTF8ArrayToString(buffer));
+      buffer.length = 0;
+    } else {
+      buffer.push(curr);
+    }
+  };
+  var UTF8ToString = (ptr, maxBytesToRead, ignoreNul) => ptr ? UTF8ArrayToString(HEAPU8, ptr, maxBytesToRead, ignoreNul) : "";
+  var _fd_write = (fd, iov, iovcnt, pnum) => {
+    var num = 0;
+    for (var i = 0; i < iovcnt; i++) {
+      var ptr = HEAPU32[iov >> 2];
+      var len = HEAPU32[iov + 4 >> 2];
+      iov += 8;
+      for (var j = 0; j < len; j++) {
+        printChar(fd, HEAPU8[ptr + j]);
+      }
+      num += len;
+    }
+    HEAPU32[pnum >> 2] = num;
+    return 0;
+  };
+  function _gray_to_rgba(compG_ptr, nb_pixels) {
+    compG_ptr >>= 2;
+    const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels * 4);
+    const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
+    for (let i = 0; i < nb_pixels; i++) {
+      imageData[4 * i] = imageData[4 * i + 1] = imageData[4 * i + 2] = compG[i];
+      imageData[4 * i + 3] = 255;
+    }
+  }
+  function _graya_to_rgba(compG_ptr, compA_ptr, nb_pixels) {
+    compG_ptr >>= 2;
+    compA_ptr >>= 2;
+    const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels * 4);
+    const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
+    const compA = HEAP32.subarray(compA_ptr, compA_ptr + nb_pixels);
+    for (let i = 0; i < nb_pixels; i++) {
+      imageData[4 * i] = imageData[4 * i + 1] = imageData[4 * i + 2] = compG[i];
+      imageData[4 * i + 3] = compA[i];
+    }
+  }
+  function _jsPrintWarning(message_ptr) {
+    const message = UTF8ToString(message_ptr);
+    (Module.warn || console.warn)(`OpenJPEG: ${message}`);
+  }
+  function _rgb_to_rgba(compR_ptr, compG_ptr, compB_ptr, nb_pixels) {
+    compR_ptr >>= 2;
+    compG_ptr >>= 2;
+    compB_ptr >>= 2;
+    const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels * 4);
+    const compR = HEAP32.subarray(compR_ptr, compR_ptr + nb_pixels);
+    const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
+    const compB = HEAP32.subarray(compB_ptr, compB_ptr + nb_pixels);
+    for (let i = 0; i < nb_pixels; i++) {
+      imageData[4 * i] = compR[i];
+      imageData[4 * i + 1] = compG[i];
+      imageData[4 * i + 2] = compB[i];
+      imageData[4 * i + 3] = 255;
+    }
+  }
+  function _storeErrorMessage(message_ptr) {
+    const message = UTF8ToString(message_ptr);
+    if (!Module.errorMessages) {
+      Module.errorMessages = message;
+    } else {
+      Module.errorMessages += "\n" + message;
+    }
+  }
+  var writeArrayToMemory = (array, buffer) => {
+    HEAP8.set(array, buffer);
+  };
+  if (Module["noExitRuntime"]) noExitRuntime = Module["noExitRuntime"];
+  if (Module["print"]) out = Module["print"];
+  if (Module["printErr"]) err = Module["printErr"];
+  if (Module["wasmBinary"]) wasmBinary = Module["wasmBinary"];
+  if (Module["arguments"]) arguments_ = Module["arguments"];
+  if (Module["thisProgram"]) thisProgram = Module["thisProgram"];
+  if (Module["preInit"]) {
+    if (typeof Module["preInit"] == "function") Module["preInit"] = [Module["preInit"]];
+    while (Module["preInit"].length > 0) {
+      Module["preInit"].shift()();
+    }
+  }
+  Module["writeArrayToMemory"] = writeArrayToMemory;
+  var _malloc, _free, _jp2_decode, __emscripten_timeout, memory, __indirect_function_table, wasmMemory;
+  function assignWasmExports(wasmExports) {
+    _malloc = Module["_malloc"] = wasmExports["t"];
+    _free = Module["_free"] = wasmExports["u"];
+    _jp2_decode = Module["_jp2_decode"] = wasmExports["v"];
+    __emscripten_timeout = wasmExports["w"];
+    memory = wasmMemory = wasmExports["r"];
+    __indirect_function_table = wasmExports["__indirect_function_table"];
+  }
+  var wasmImports = {
+    m: __abort_js,
+    l: __emscripten_runtime_keepalive_clear,
+    i: __setitimer_js,
+    f: _copy_pixels_1,
+    e: _copy_pixels_3,
+    d: _copy_pixels_4,
+    j: _emscripten_resize_heap,
+    o: _environ_get,
+    p: _environ_sizes_get,
+    n: _fd_seek,
+    b: _fd_write,
+    q: _gray_to_rgba,
+    h: _graya_to_rgba,
+    c: _jsPrintWarning,
+    k: _proc_exit,
+    g: _rgb_to_rgba,
+    a: _storeErrorMessage
+  };
+  function run() {
+    preRun();
+    function doRun() {
+      Module["calledRun"] = true;
+      if (ABORT) return;
+      initRuntime();
+      readyPromiseResolve?.(Module);
+      Module["onRuntimeInitialized"]?.();
+      postRun();
+    }
+    if (Module["setStatus"]) {
+      Module["setStatus"]("Running...");
+      setTimeout(() => {
+        setTimeout(() => Module["setStatus"](""), 1);
+        doRun();
+      }, 1);
+    } else {
+      doRun();
+    }
+  }
+  var wasmExports;
+  wasmExports = await createWasm();
+  run();
+  if (runtimeInitialized) {
+    moduleRtn = Module;
+  } else {
+    moduleRtn = new Promise((resolve, reject) => {
+      readyPromiseResolve = resolve;
+      readyPromiseReject = reject;
+    });
+  }
+  return moduleRtn;
+}
+/* harmony default export */ const openjpeg = (OpenJPEG);
+;// ./src/core/jpx.js
+
+
+
+
+class JpxError extends BaseException {
+  constructor(msg) {
+    super(msg, "JpxError");
+  }
+}
+class JpxImage extends WasmImage {
+  _filename = "openjpeg.wasm";
+  _noWasmFilename = "openjpeg_nowasm_fallback.js";
+  static get instance() {
+    return shadow(this, "instance", new JpxImage(true));
+  }
+  async decode(bytes, {
+    numComponents = 4,
+    isIndexedColormap = false,
+    smaskInData = false,
+    reducePower = 0
+  } = {}) {
+    const module = await this._getModule(openjpeg);
+    if (!module) {
+      throw new JpxError("OpenJPEG failed to initialize");
+    }
+    let ptr;
+    try {
+      const size = bytes.length;
+      ptr = module._malloc(size);
+      module.writeArrayToMemory(bytes, ptr);
+      const ret = module._jp2_decode(ptr, size, numComponents > 0 ? numComponents : 0, !!isIndexedColormap, !!smaskInData, reducePower);
+      if (ret) {
+        const {
+          errorMessages
+        } = module;
+        if (errorMessages) {
+          delete module.errorMessages;
+          throw new JpxError(errorMessages);
+        }
+        throw new JpxError("Unknown error");
+      }
+      const {
+        imageData
+      } = module;
+      module.imageData = null;
+      return imageData;
+    } finally {
+      if (ptr) {
+        module._free(ptr);
+      }
+    }
+  }
+  static parseImageProperties(stream) {
+    let newByte = stream.getByte();
+    while (newByte >= 0) {
+      const oldByte = newByte;
+      newByte = stream.getByte();
+      const code = oldByte << 8 | newByte;
+      if (code === 0xff51) {
+        stream.skip(4);
+        const Xsiz = stream.getInt32() >>> 0;
+        const Ysiz = stream.getInt32() >>> 0;
+        const XOsiz = stream.getInt32() >>> 0;
+        const YOsiz = stream.getInt32() >>> 0;
+        stream.skip(16);
+        const Csiz = stream.getUint16();
+        return {
+          width: Xsiz - XOsiz,
+          height: Ysiz - YOsiz,
+          bitsPerComponent: 8,
+          componentsCount: Csiz
+        };
+      }
+    }
+    throw new JpxError("No size marker found in JPX stream");
   }
 }
 
@@ -10918,7 +10877,7 @@ class JpxStream extends DecodeStream {
       return this.buffer;
     }
     bytes ||= this.bytes;
-    this.buffer = await JpxImage.decode(bytes, decoderOptions);
+    this.buffer = await JpxImage.instance.decode(bytes, decoderOptions);
     this.bufferLength = this.buffer.length;
     this.eof = true;
     return this.buffer;
@@ -17983,7 +17942,82 @@ const ISOAdobeCharset = [".notdef", "space", "exclam", "quotedbl", "numbersign",
 const ExpertCharset = [".notdef", "space", "exclamsmall", "Hungarumlautsmall", "dollaroldstyle", "dollarsuperior", "ampersandsmall", "Acutesmall", "parenleftsuperior", "parenrightsuperior", "twodotenleader", "onedotenleader", "comma", "hyphen", "period", "fraction", "zerooldstyle", "oneoldstyle", "twooldstyle", "threeoldstyle", "fouroldstyle", "fiveoldstyle", "sixoldstyle", "sevenoldstyle", "eightoldstyle", "nineoldstyle", "colon", "semicolon", "commasuperior", "threequartersemdash", "periodsuperior", "questionsmall", "asuperior", "bsuperior", "centsuperior", "dsuperior", "esuperior", "isuperior", "lsuperior", "msuperior", "nsuperior", "osuperior", "rsuperior", "ssuperior", "tsuperior", "ff", "fi", "fl", "ffi", "ffl", "parenleftinferior", "parenrightinferior", "Circumflexsmall", "hyphensuperior", "Gravesmall", "Asmall", "Bsmall", "Csmall", "Dsmall", "Esmall", "Fsmall", "Gsmall", "Hsmall", "Ismall", "Jsmall", "Ksmall", "Lsmall", "Msmall", "Nsmall", "Osmall", "Psmall", "Qsmall", "Rsmall", "Ssmall", "Tsmall", "Usmall", "Vsmall", "Wsmall", "Xsmall", "Ysmall", "Zsmall", "colonmonetary", "onefitted", "rupiah", "Tildesmall", "exclamdownsmall", "centoldstyle", "Lslashsmall", "Scaronsmall", "Zcaronsmall", "Dieresissmall", "Brevesmall", "Caronsmall", "Dotaccentsmall", "Macronsmall", "figuredash", "hypheninferior", "Ogoneksmall", "Ringsmall", "Cedillasmall", "onequarter", "onehalf", "threequarters", "questiondownsmall", "oneeighth", "threeeighths", "fiveeighths", "seveneighths", "onethird", "twothirds", "zerosuperior", "onesuperior", "twosuperior", "threesuperior", "foursuperior", "fivesuperior", "sixsuperior", "sevensuperior", "eightsuperior", "ninesuperior", "zeroinferior", "oneinferior", "twoinferior", "threeinferior", "fourinferior", "fiveinferior", "sixinferior", "seveninferior", "eightinferior", "nineinferior", "centinferior", "dollarinferior", "periodinferior", "commainferior", "Agravesmall", "Aacutesmall", "Acircumflexsmall", "Atildesmall", "Adieresissmall", "Aringsmall", "AEsmall", "Ccedillasmall", "Egravesmall", "Eacutesmall", "Ecircumflexsmall", "Edieresissmall", "Igravesmall", "Iacutesmall", "Icircumflexsmall", "Idieresissmall", "Ethsmall", "Ntildesmall", "Ogravesmall", "Oacutesmall", "Ocircumflexsmall", "Otildesmall", "Odieresissmall", "OEsmall", "Oslashsmall", "Ugravesmall", "Uacutesmall", "Ucircumflexsmall", "Udieresissmall", "Yacutesmall", "Thornsmall", "Ydieresissmall"];
 const ExpertSubsetCharset = [".notdef", "space", "dollaroldstyle", "dollarsuperior", "parenleftsuperior", "parenrightsuperior", "twodotenleader", "onedotenleader", "comma", "hyphen", "period", "fraction", "zerooldstyle", "oneoldstyle", "twooldstyle", "threeoldstyle", "fouroldstyle", "fiveoldstyle", "sixoldstyle", "sevenoldstyle", "eightoldstyle", "nineoldstyle", "colon", "semicolon", "commasuperior", "threequartersemdash", "periodsuperior", "asuperior", "bsuperior", "centsuperior", "dsuperior", "esuperior", "isuperior", "lsuperior", "msuperior", "nsuperior", "osuperior", "rsuperior", "ssuperior", "tsuperior", "ff", "fi", "fl", "ffi", "ffl", "parenleftinferior", "parenrightinferior", "hyphensuperior", "colonmonetary", "onefitted", "rupiah", "centoldstyle", "figuredash", "hypheninferior", "onequarter", "onehalf", "threequarters", "oneeighth", "threeeighths", "fiveeighths", "seveneighths", "onethird", "twothirds", "zerosuperior", "onesuperior", "twosuperior", "threesuperior", "foursuperior", "fivesuperior", "sixsuperior", "sevensuperior", "eightsuperior", "ninesuperior", "zeroinferior", "oneinferior", "twoinferior", "threeinferior", "fourinferior", "fiveinferior", "sixinferior", "seveninferior", "eightinferior", "nineinferior", "centinferior", "dollarinferior", "periodinferior", "commainferior"];
 
+;// ./src/core/data_builder.js
+
+
+class DataBuilder {
+  #buf;
+  #bufLength = 1024;
+  #hasExactLength = false;
+  #pos = 0;
+  #view;
+  constructor({
+    exactLength = 0,
+    minLength = 0
+  }) {
+    this.#hasExactLength = !!exactLength;
+    this.#initBuf(exactLength || minLength);
+  }
+  #initBuf(minLength) {
+    if (this.#hasExactLength) {
+      this.#bufLength = minLength;
+    } else {
+      while (this.#bufLength < minLength) {
+        this.#bufLength *= 2;
+      }
+    }
+    const newBuf = new Uint8Array(this.#bufLength);
+    if (this.#buf) {
+      newBuf.set(this.#buf, 0);
+    }
+    this.#buf = newBuf;
+    this.#view = new DataView(newBuf.buffer);
+  }
+  get data() {
+    return this.#buf.subarray(0, this.#pos);
+  }
+  get length() {
+    return this.#pos;
+  }
+  skip(n) {
+    this.#pos += n;
+  }
+  setArray(arr) {
+    const newPos = this.#pos + arr.length;
+    if (!this.#hasExactLength && newPos > this.#bufLength) {
+      this.#initBuf(newPos);
+    }
+    this.#buf.set(arr, this.#pos);
+    this.#pos = newPos;
+  }
+  setInt16(val) {
+    const newPos = this.#pos + 2;
+    if (!this.#hasExactLength && newPos > this.#bufLength) {
+      this.#initBuf(newPos);
+    }
+    this.#view.setInt16(this.#pos, val);
+    this.#pos = newPos;
+  }
+  setSafeInt16(val) {
+    const newPos = this.#pos + 2;
+    if (!this.#hasExactLength && newPos > this.#bufLength) {
+      this.#initBuf(newPos);
+    }
+    this.#view.setInt16(this.#pos, MathClamp(val, -0x8000, 0x7fff));
+    this.#pos = newPos;
+  }
+  setInt32(val) {
+    const newPos = this.#pos + 4;
+    if (!this.#hasExactLength && newPos > this.#bufLength) {
+      this.#initBuf(newPos);
+    }
+    this.#view.setInt32(this.#pos, val);
+    this.#pos = newPos;
+  }
+}
+
 ;// ./src/core/cff_parser.js
+
 
 
 
@@ -19053,49 +19087,19 @@ class CFFOffsetTracker {
     }
   }
 }
-class CompilerOutput {
-  #buf;
-  #bufLength = 1024;
-  #pos = 0;
-  constructor(minLength) {
-    this.#initBuf(minLength);
-  }
-  #initBuf(minLength) {
-    while (this.#bufLength < minLength) {
-      this.#bufLength *= 2;
-    }
-    const newBuf = new Uint8Array(this.#bufLength);
-    if (this.#buf) {
-      newBuf.set(this.#buf, 0);
-    }
-    this.#buf = newBuf;
-  }
-  get data() {
-    return this.#buf.subarray(0, this.#pos);
-  }
-  get length() {
-    return this.#pos;
-  }
-  add(data) {
-    const newPos = this.#pos + data.length;
-    if (newPos > this.#bufLength) {
-      this.#initBuf(newPos);
-    }
-    this.#buf.set(data, this.#pos);
-    this.#pos = newPos;
-  }
-}
 class CFFCompiler {
   constructor(cff) {
     this.cff = cff;
   }
   compile() {
     const cff = this.cff;
-    const output = new CompilerOutput(cff.rawFileLength);
+    const output = new DataBuilder({
+      minLength: cff.rawFileLength
+    });
     const header = this.compileHeader(cff.header);
-    output.add(header);
+    output.setArray(header);
     const nameIndex = this.compileNameIndex(cff.names);
-    output.add(nameIndex);
+    output.setArray(nameIndex);
     if (cff.isCIDFont) {
       if (cff.topDict.hasName("FontMatrix")) {
         const base = cff.topDict.getByName("FontMatrix");
@@ -19115,39 +19119,39 @@ class CFFCompiler {
     }
     cff.topDict.setByName("charset", 0);
     let compiled = this.compileTopDicts([cff.topDict], output.length, cff.isCIDFont);
-    output.add(compiled.output);
+    output.setArray(compiled.output);
     const topDictTracker = compiled.trackers[0];
     const stringIndex = this.compileStringIndex(cff.strings.strings);
-    output.add(stringIndex);
+    output.setArray(stringIndex);
     const globalSubrIndex = this.compileIndex(cff.globalSubrIndex);
-    output.add(globalSubrIndex);
+    output.setArray(globalSubrIndex);
     if (cff.encoding && cff.topDict.hasName("Encoding")) {
       if (cff.encoding.predefined) {
         topDictTracker.setEntryLocation("Encoding", [cff.encoding.format], output);
       } else {
         const encoding = this.compileEncoding(cff.encoding);
         topDictTracker.setEntryLocation("Encoding", [output.length], output);
-        output.add(encoding);
+        output.setArray(encoding);
       }
     }
     const charset = this.compileCharset(cff.charset, cff.charStrings.count, cff.strings, cff.isCIDFont);
     topDictTracker.setEntryLocation("charset", [output.length], output);
-    output.add(charset);
+    output.setArray(charset);
     const charStrings = this.compileCharStrings(cff.charStrings);
     topDictTracker.setEntryLocation("CharStrings", [output.length], output);
-    output.add(charStrings);
+    output.setArray(charStrings);
     if (cff.isCIDFont) {
       topDictTracker.setEntryLocation("FDSelect", [output.length], output);
       const fdSelect = this.compileFDSelect(cff.fdSelect);
-      output.add(fdSelect);
+      output.setArray(fdSelect);
       compiled = this.compileTopDicts(cff.fdArray, output.length, true);
       topDictTracker.setEntryLocation("FDArray", [output.length], output);
-      output.add(compiled.output);
+      output.setArray(compiled.output);
       const fontDictTrackers = compiled.trackers;
       this.compilePrivateDicts(cff.fdArray, fontDictTrackers, output);
     }
     this.compilePrivateDicts([cff.topDict], [topDictTracker], output);
-    output.add([0]);
+    output.setArray([0]);
     return output.data;
   }
   encodeNumber(value) {
@@ -19265,11 +19269,11 @@ class CFFCompiler {
         outputLength = 0;
       }
       trackers[i].setEntryLocation("Private", [privateDictData.length, outputLength], output);
-      output.add(privateDictData);
+      output.setArray(privateDictData);
       if (privateDict.subrsIndex && privateDict.hasName("Subrs")) {
         const subrs = this.compileIndex(privateDict.subrsIndex);
         privateDictTracker.setEntryLocation("Subrs", [privateDictData.length], output);
-        output.add(subrs);
+        output.setArray(subrs);
       }
     }
   }
@@ -25991,76 +25995,6 @@ function writeUint32(bytes, index, value) {
   bytes[index + 1] = value >>> 16;
   bytes[index] = value >>> 24;
 }
-class TrueTypeTableBuilder {
-  #buf;
-  #bufLength = 1024;
-  #hasExactLength = false;
-  #pos = 0;
-  #view;
-  constructor({
-    exactLength,
-    minLength
-  }) {
-    this.#hasExactLength = !!exactLength;
-    this.#initBuf(exactLength || minLength);
-  }
-  #initBuf(minLength) {
-    if (this.#hasExactLength) {
-      this.#bufLength = minLength;
-    } else {
-      while (this.#bufLength < minLength) {
-        this.#bufLength *= 2;
-      }
-    }
-    const newBuf = new Uint8Array(this.#bufLength);
-    if (this.#buf) {
-      newBuf.set(this.#buf, 0);
-    }
-    this.#buf = newBuf;
-    this.#view = new DataView(newBuf.buffer);
-  }
-  get data() {
-    return this.#buf.subarray(0, this.#pos);
-  }
-  get length() {
-    return this.#pos;
-  }
-  skip(n) {
-    this.#pos += n;
-  }
-  setArray(arr) {
-    const newPos = this.#pos + arr.length;
-    if (!this.#hasExactLength && newPos > this.#bufLength) {
-      this.#initBuf(newPos);
-    }
-    this.#buf.set(arr, this.#pos);
-    this.#pos = newPos;
-  }
-  setInt16(val) {
-    const newPos = this.#pos + 2;
-    if (!this.#hasExactLength && newPos > this.#bufLength) {
-      this.#initBuf(newPos);
-    }
-    this.#view.setInt16(this.#pos, val);
-    this.#pos = newPos;
-  }
-  setSafeInt16(val) {
-    const newPos = this.#pos + 2;
-    if (!this.#hasExactLength && newPos > this.#bufLength) {
-      this.#initBuf(newPos);
-    }
-    this.#view.setInt16(this.#pos, MathClamp(val, -0x8000, 0x7fff));
-    this.#pos = newPos;
-  }
-  setInt32(val) {
-    const newPos = this.#pos + 4;
-    if (!this.#hasExactLength && newPos > this.#bufLength) {
-      this.#initBuf(newPos);
-    }
-    this.#view.setInt32(this.#pos, val);
-    this.#pos = newPos;
-  }
-}
 function isTrueTypeFile(file) {
   const header = file.peekBytes(4),
     str = bytesToString(header);
@@ -26275,7 +26209,7 @@ function getRanges(glyphs, toUnicodeExtraMap, numGlyphs) {
 function createCmapTable(glyphs, toUnicodeExtraMap, numGlyphs) {
   const ranges = getRanges(glyphs, toUnicodeExtraMap, numGlyphs);
   const numTables = ranges.at(-1)[1] > 0xffff ? 2 : 1;
-  const cmap = new TrueTypeTableBuilder({
+  const cmap = new DataBuilder({
     exactLength: 12
   });
   cmap.skip(2);
@@ -26297,19 +26231,19 @@ function createCmapTable(glyphs, toUnicodeExtraMap, numGlyphs) {
   const segCount = bmpLength + trailingRangesCount;
   const searchParams = OpenTypeFileBuilder.getSearchParams(segCount, 2);
   const segmentsLength = bmpLength * 2 + trailingRangesCount * 2;
-  const startCount = new TrueTypeTableBuilder({
+  const startCount = new DataBuilder({
       exactLength: segmentsLength
     }),
-    endCount = new TrueTypeTableBuilder({
+    endCount = new DataBuilder({
       exactLength: segmentsLength
     }),
-    idDeltas = new TrueTypeTableBuilder({
+    idDeltas = new DataBuilder({
       exactLength: segmentsLength
     }),
-    idRangeOffsets = new TrueTypeTableBuilder({
+    idRangeOffsets = new DataBuilder({
       exactLength: segmentsLength
     }),
-    glyphsIds = new TrueTypeTableBuilder({});
+    glyphsIds = new DataBuilder({});
   let bias = 0;
   for (i = 0, ii = bmpLength; i < ii; i++) {
     const [start, end, codes] = ranges[i];
@@ -26342,7 +26276,7 @@ function createCmapTable(glyphs, toUnicodeExtraMap, numGlyphs) {
     idDeltas.setArray([0x00, 0x01]);
     idRangeOffsets.skip(2);
   }
-  const format314 = new TrueTypeTableBuilder({
+  const format314 = new DataBuilder({
     exactLength: 12 + startCount.length + endCount.length + idDeltas.length + idRangeOffsets.length + glyphsIds.length
   });
   format314.skip(2);
@@ -26360,13 +26294,13 @@ function createCmapTable(glyphs, toUnicodeExtraMap, numGlyphs) {
     format31012 = null,
     header31012 = null;
   if (numTables > 1) {
-    cmap31012 = new TrueTypeTableBuilder({
+    cmap31012 = new DataBuilder({
       exactLength: 8
     });
     cmap31012.setArray([0x00, 0x03]);
     cmap31012.setArray([0x00, 0x0a]);
     cmap31012.setInt32(4 + numTables * 8 + 4 + format314.length);
-    format31012 = new TrueTypeTableBuilder({});
+    format31012 = new DataBuilder({});
     for (const range of ranges) {
       let start = range[0];
       const codes = range[2];
@@ -26385,7 +26319,7 @@ function createCmapTable(glyphs, toUnicodeExtraMap, numGlyphs) {
       format31012.setInt32(range[1]);
       format31012.setInt32(code);
     }
-    header31012 = new TrueTypeTableBuilder({
+    header31012 = new DataBuilder({
       exactLength: 16
     });
     header31012.setArray([0x00, 0x0c]);
@@ -26394,7 +26328,7 @@ function createCmapTable(glyphs, toUnicodeExtraMap, numGlyphs) {
     header31012.skip(4);
     header31012.setInt32(format31012.length / 12);
   }
-  const table = new TrueTypeTableBuilder({
+  const table = new DataBuilder({
     exactLength: 4 + cmap.length + (cmap31012?.length ?? 0) + format314.length + (header31012?.length ?? 0) + (format31012?.length ?? 0)
   });
   table.setArray(cmap.data);
@@ -26481,7 +26415,7 @@ function createOS2Table(properties, charstrings, override) {
   }
   const winAscent = override.yMax || typoAscent;
   const winDescent = -override.yMin || -typoDescent;
-  const os2 = new TrueTypeTableBuilder({
+  const os2 = new DataBuilder({
     exactLength: 96
   });
   os2.setArray([0x00, 0x03]);
@@ -26523,7 +26457,7 @@ function createOS2Table(properties, charstrings, override) {
   return os2.data;
 }
 function createPostTable(properties) {
-  const post = new TrueTypeTableBuilder({
+  const post = new DataBuilder({
     exactLength: 32
   });
   post.setArray([0x00, 0x03, 0x00, 0x00]);
@@ -26544,7 +26478,7 @@ function createNameTable(name, proto) {
   let i, ii, j, jj, str;
   for (i = 0, ii = strings.length; i < ii; i++) {
     str = proto[1][i] || strings[i];
-    const strUnicode = new TrueTypeTableBuilder({
+    const strUnicode = new DataBuilder({
       exactLength: str.length * 2
     });
     for (j = 0, jj = str.length; j < jj; j++) {
@@ -26562,7 +26496,7 @@ function createNameTable(name, proto) {
     const strs = namesBytes[i];
     for (j = 0, jj = strs.length; j < jj; j++) {
       str = strs[j];
-      const nameRecord = new TrueTypeTableBuilder({
+      const nameRecord = new DataBuilder({
         exactLength: 6 + platformsBytes[i].length + encodingsBytes[i].length + languagesBytes[i].length
       });
       nameRecord.setArray(platformsBytes[i]);
@@ -26576,7 +26510,7 @@ function createNameTable(name, proto) {
     }
   }
   const namesRecordCount = stringsBytes.length * platformsBytes.length;
-  const nameTable = new TrueTypeTableBuilder({
+  const nameTable = new DataBuilder({
     exactLength: 6 + Math.sumPrecise(nameRecords.map(arr => arr.length)) + Math.sumPrecise(stringsBytes.map(arr => arr.length)) + Math.sumPrecise(stringsUnicodeBytes.map(arr => arr.length))
   });
   nameTable.skip(2);
@@ -28271,7 +28205,7 @@ class Font {
     builder.addTable("cmap", createCmapTable(newCharCodeToGlyphId, toUnicodeExtraMap, numGlyphs));
     builder.addTable("head", function fontTableHead() {
       const dateArr = [0x00, 0x00, 0x00, 0x00, 0x9e, 0x0b, 0x7e, 0x27];
-      const head = new TrueTypeTableBuilder({
+      const head = new DataBuilder({
         exactLength: 54
       });
       head.setArray([0x00, 0x01, 0x00, 0x00]);
@@ -28292,7 +28226,7 @@ class Font {
       return head.data;
     }());
     builder.addTable("hhea", function fontTableHhea() {
-      const hhea = new TrueTypeTableBuilder({
+      const hhea = new DataBuilder({
         exactLength: 36
       });
       hhea.setArray([0x00, 0x01, 0x00, 0x00]);
@@ -28310,7 +28244,7 @@ class Font {
     builder.addTable("hmtx", function fontTableHmtx() {
       const charstrings = font.charstrings;
       const cffWidths = font.cff?.widths ?? null;
-      const hmtx = new TrueTypeTableBuilder({
+      const hmtx = new DataBuilder({
         exactLength: numGlyphs * 4
       });
       hmtx.skip(4);
@@ -28327,7 +28261,7 @@ class Font {
       return hmtx.data;
     }());
     builder.addTable("maxp", function fontTableMaxp() {
-      const maxp = new TrueTypeTableBuilder({
+      const maxp = new DataBuilder({
         exactLength: 6
       });
       maxp.setArray([0x00, 0x00, 0x50, 0x00]);
@@ -38158,13 +38092,11 @@ class NumberTree extends NameOrNumberTree {
 
 
 
-
 function clearGlobalCaches() {
   clearPatternCaches();
   clearPrimitiveCaches();
   clearUnicodeCaches();
-  JBig2CCITTFaxImage.cleanup();
-  JpxImage.cleanup();
+  WasmImage.cleanup();
 }
 
 ;// ./src/core/file_spec.js
@@ -59098,7 +59030,6 @@ class PDFDocument {
 
 
 
-
 function parseDocBaseUrl(url) {
   if (url) {
     const absoluteUrl = createValidAbsoluteUrl(url);
@@ -59132,12 +59063,11 @@ class BasePdfManager {
       ...evaluatorOptions,
       handler
     };
-    JpxImage.setOptions(options);
     IccColorSpace.setOptions(options);
     CmykICCBasedCS.setOptions(options);
-    JBig2CCITTFaxImage.setOptions(options);
     PDFFunctionFactory.setOptions(options);
     Pattern.setOptions(options);
+    WasmImage.setOptions(options);
   }
   get docId() {
     return this._docId;
@@ -60137,6 +60067,7 @@ class PDFEditor {
   hasSingleFile = false;
   isSingleFile = false;
   #newAnnotationsParams = null;
+  #primaryDocument = null;
   currentDocument = null;
   oldPages = [];
   newPages = [];
@@ -60454,68 +60385,55 @@ class PDFEditor {
     if (!document) {
       return [];
     }
-    let keptIndices, keptRanges, deletedIndices, deletedRanges;
-    for (const page of includePages || []) {
-      if (Array.isArray(page)) {
-        (keptRanges ||= []).push(page);
-      } else {
-        (keptIndices ||= new Set()).add(page);
+    const compile = list => {
+      if (!list?.length) {
+        return null;
       }
-    }
-    for (const page of excludePages || []) {
-      if (Array.isArray(page)) {
-        (deletedRanges ||= []).push(page);
-      } else {
-        (deletedIndices ||= new Set()).add(page);
+      const indices = new Set();
+      const ranges = [];
+      for (const item of list) {
+        if (Array.isArray(item)) {
+          ranges.push(item);
+        } else {
+          indices.add(item);
+        }
       }
-    }
-    const indices = [];
+      return {
+        indices,
+        ranges
+      };
+    };
+    const matches = (index, {
+      indices,
+      ranges
+    }) => indices.has(index) || ranges.some(([start, end]) => index >= start && index <= end);
+    const inc = compile(includePages);
+    const exc = compile(excludePages);
+    const result = [];
     for (let i = 0, ii = document.numPages; i < ii; i++) {
-      if (deletedIndices?.has(i)) {
+      if (exc && matches(i, exc)) {
         continue;
       }
-      if (deletedRanges) {
-        let isDeleted = false;
-        for (const [start, end] of deletedRanges) {
-          if (i >= start && i <= end) {
-            isDeleted = true;
-            break;
-          }
-        }
-        if (isDeleted) {
-          continue;
-        }
-      }
-      let takePage = false;
-      if (keptIndices) {
-        takePage = keptIndices.has(i);
-      }
-      if (!takePage && keptRanges) {
-        for (const [start, end] of keptRanges) {
-          if (i >= start && i <= end) {
-            takePage = true;
-            break;
-          }
-        }
-      }
-      if (!takePage && !keptIndices && !keptRanges) {
-        takePage = true;
-      }
-      if (takePage) {
-        indices.push(i);
+      if (!inc || matches(i, inc)) {
+        result.push(i);
       }
     }
-    return indices;
+    return result;
   }
   #resolveInsertAfterIndices(pageInfos) {
+    const counts = new Array(pageInfos.length);
     const sequence = [];
     const insertAfterList = [];
     for (let i = 0; i < pageInfos.length; i++) {
       const info = pageInfos[i];
-      if (!info.document || info.pageIndices) {
+      if (!info.document) {
+        counts[i] = 0;
         continue;
       }
-      const count = this.#getFilteredPageIndices(info).length;
+      const count = counts[i] = this.#getFilteredPageIndices(info).length;
+      if (info.pageIndices) {
+        continue;
+      }
       if (info.insertAfter === undefined) {
         for (let j = 0; j < count; j++) {
           sequence.push(i);
@@ -60528,28 +60446,26 @@ class PDFEditor {
         });
       }
     }
-    insertAfterList.sort((a, b) => a.insertAfter - b.insertAfter);
-    if (insertAfterList.length > 0) {
+    if (insertAfterList.length === 0) {
+      return pageInfos;
+    }
+    for (let i = 0; i < pageInfos.length; i++) {
+      const info = pageInfos[i];
+      if (info.document && info.pageIndices && info.pageIndices.length < counts[i]) {
+        throw new Error("extractPages: partial pageIndices cannot be combined with insertAfter entries.");
+      }
+    }
+    insertAfterList.sort((a, b) => a.insertAfter - b.insertAfter || a.i - b.i);
+    if (sequence.length === 0 && pageInfos.some(info => info.document && info.pageIndices)) {
+      const updatedPageInfos = pageInfos.slice();
+      let maxExistingPos = -1;
       for (const info of pageInfos) {
         if (!info.document || !info.pageIndices) {
           continue;
         }
-        const filteredCount = this.#getFilteredPageIndices(info).length;
-        if (info.pageIndices.length < filteredCount) {
-          throw new Error("extractPages: partial pageIndices cannot be combined with insertAfter entries.");
-        }
-      }
-    }
-    const hasExplicitLayout = insertAfterList.length > 0 && pageInfos.some(info => info.document && info.pageIndices);
-    if (sequence.length === 0 && hasExplicitLayout) {
-      const updatedPageInfos = pageInfos.slice();
-      let maxExistingPos = -1;
-      for (const info of pageInfos) {
-        if (info.document && info.pageIndices) {
-          for (const idx of info.pageIndices) {
-            if (idx > maxExistingPos) {
-              maxExistingPos = idx;
-            }
+        for (const idx of info.pageIndices) {
+          if (idx > maxExistingPos) {
+            maxExistingPos = idx;
           }
         }
       }
@@ -60570,16 +60486,16 @@ class PDFEditor {
             pageIndices: existingInfo.pageIndices.map(idx => idx > threshold ? idx + count : idx)
           };
         }
-        const insertedIndices = [];
+        const pageIndices = [];
         for (let k = 0; k < count; k++) {
-          insertedIndices.push(threshold + 1 + k);
+          pageIndices.push(threshold + 1 + k);
         }
-        const newInfo = {
+        const result = {
           ...updatedPageInfos[i],
-          pageIndices: insertedIndices
+          pageIndices
         };
-        delete newInfo.insertAfter;
-        updatedPageInfos[i] = newInfo;
+        delete result.insertAfter;
+        updatedPageInfos[i] = result;
         offset += count;
         maxExistingPos += count;
       }
@@ -60591,7 +60507,7 @@ class PDFEditor {
       insertAfter,
       count
     } of insertAfterList) {
-      const insertPos = insertAfter + 1 + offset;
+      const insertPos = Math.max(insertAfter, -1) + 1 + offset;
       sequence.splice(insertPos, 0, ...new Array(count).fill(i));
       offset += count;
     }
@@ -60604,18 +60520,17 @@ class PDFEditor {
       if (!info.document || info.pageIndices) {
         return info;
       }
-      const newInfo = {
+      const result = {
         ...info,
         pageIndices: pageIndicesArr[i] || []
       };
-      delete newInfo.insertAfter;
-      return newInfo;
+      delete result.insertAfter;
+      return result;
     });
   }
-  async extractPages(pageInfos, annotationStorage, handler, task) {
-    if (pageInfos.some(info => info.insertAfter !== undefined)) {
-      pageInfos = this.#resolveInsertAfterIndices(pageInfos);
-    }
+  async extractPages(pageInfos, annotationStorage, primaryDocument, handler, task) {
+    this.#primaryDocument = primaryDocument;
+    pageInfos = this.#resolveInsertAfterIndices(pageInfos);
     const promises = [];
     let newIndex = 0;
     this.isSingleFile = pageInfos.length === 1 || pageInfos.every(info => info.document === pageInfos[0].document);
@@ -61711,7 +61626,7 @@ class PDFEditor {
         newAnnots = newAnnotations;
       }
     }
-    const newAnnotations = this.#newAnnotationsParams?.newAnnotationsByPage?.get(pageIndex);
+    const newAnnotations = documentData.document === this.#primaryDocument ? this.#newAnnotationsParams?.newAnnotationsByPage?.get(page.pageIndex) : null;
     if (newAnnotations) {
       const {
         handler,
@@ -62374,7 +62289,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = "6.0.16";
+    const workerVersion = "6.0.40";
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match ` + `the Worker version "${workerVersion}".`);
     }
@@ -62773,7 +62688,7 @@ class WorkerMessageHandler {
         const pdfEditor = new PDFEditor();
         task = new WorkerTask(`ExtractPages: ${pageInfos.length} page(s)`);
         startWorkerTask(task);
-        const buffer = await pdfEditor.extractPages(pageInfos, annotationStorage, handler, task);
+        const buffer = await pdfEditor.extractPages(pageInfos, annotationStorage, pdfManager.pdfDocument, handler, task);
         return buffer;
       } catch (reason) {
         warn(`extractPages: "${reason}".`);

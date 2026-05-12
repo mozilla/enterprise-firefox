@@ -24,6 +24,15 @@ interface IPProtectionHandler {
     fun deactivate()
 
     /**
+     * Triggers enrollment via the active auth provider. The [onResult] callback is invoked once
+     * the enrollment attempt has completed, with the final outcome.
+     *
+     * @param onResult Called with the [EnrollResult] describing whether the user is now enrolled
+     *  and entitled, and the error string if not.
+     */
+    fun enroll(onResult: (EnrollResult) -> Unit)
+
+    /**
      * Initializes the proxy state machine.
      */
     fun init()
@@ -38,6 +47,18 @@ interface IPProtectionHandler {
     fun setTokenProvider(
         provider: TokenProvider?,
         onInitialState: ((StateInfo) -> Unit)? = null,
+    )
+
+    /**
+     * Result of an enrollment attempt.
+     *
+     * @property isEnrolledAndEntitled Whether the user is now enrolled and entitled to use the
+     *  proxy.
+     * @property error Error string describing why enrollment failed, or null on success.
+     */
+    data class EnrollResult(
+        val isEnrolledAndEntitled: Boolean,
+        val error: String? = null,
     )
 
     /**
@@ -79,6 +100,28 @@ interface IPProtectionHandler {
             const val PROXY_STATE_ACTIVE = 3
             const val PROXY_STATE_ERROR = 4
             const val PROXY_STATE_PAUSED = 5
+        }
+
+        override fun toString(): String {
+            val service = when (serviceState) {
+                SERVICE_STATE_UNINITIALIZED -> "UNINITIALIZED"
+                SERVICE_STATE_UNAVAILABLE -> "UNAVAILABLE"
+                SERVICE_STATE_UNAUTHENTICATED -> "UNAUTHENTICATED"
+                SERVICE_STATE_READY -> "READY"
+                else -> "UNKNOWN($serviceState)"
+            }
+            val proxy = when (proxyState) {
+                PROXY_STATE_NOT_READY -> "NOT_READY"
+                PROXY_STATE_READY -> "READY"
+                PROXY_STATE_ACTIVATING -> "ACTIVATING"
+                PROXY_STATE_ACTIVE -> "ACTIVE"
+                PROXY_STATE_ERROR -> "ERROR"
+                PROXY_STATE_PAUSED -> "PAUSED"
+                else -> "UNKNOWN($proxyState)"
+            }
+            return "StateInfo(serviceState=$service, proxyState=$proxy," +
+                " remaining=$remaining, max=$max, resetTime=$resetTime," +
+                " lastError=$lastError)"
         }
     }
 }

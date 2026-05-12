@@ -774,7 +774,8 @@ static void DescribeEventTargetForProfilerMarker(const EventTarget* aTarget,
   if (node) {
     if (node->IsElement()) {
       nsAutoString nodeDescription;
-      node->AsElement()->Describe(nodeDescription, true);
+      node->AsElement()->Describe(nodeDescription,
+                                  Element::DescriptionKind::IdAndClass);
       aDescription = NS_ConvertUTF16toUTF8(nodeDescription);
     } else if (node->IsDocument()) {
       aDescription.AssignLiteral("document");

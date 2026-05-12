@@ -5,7 +5,9 @@ import { HttpServer } from "resource://testing-common/httpd.sys.mjs";
 import { NetUtil } from "resource://gre/modules/NetUtil.sys.mjs";
 
 const SERVER_PATH = "/api/v1/create";
-const MOCK_SHARE_URL = "https://share.firefox.com/mockShare001";
+const SHARE_PATH = "/share/mockShare001";
+
+const COOKIE_CONTENTS = "auth=1; Path=/; Max-Age=6000; HttpOnly; SameSite=Lax";
 
 /**
  * Mock content sharing server. Handles POST /api/v1/create and returns a
@@ -14,12 +16,17 @@ const MOCK_SHARE_URL = "https://share.firefox.com/mockShare001";
 class ContentSharingMockServerClass {
   #httpServer = null;
   #url = null;
+  #mockShareURL = null;
   #requests = [];
   #originalServerUrl = null;
-  #mockResponse = { url: MOCK_SHARE_URL };
+  #mockResponse = null;
   #mockResponseStatus = 201;
   get url() {
     return this.#url;
+  }
+
+  get mockShareURL() {
+    return this.#mockShareURL;
   }
 
   get requests() {
@@ -52,11 +59,12 @@ class ContentSharingMockServerClass {
       return;
     }
 
-    this.reset();
-
     this.#httpServer.start(-1);
     const port = this.#httpServer.identity.primaryPort;
-    this.#url = `http://localhost:${port}${SERVER_PATH}`;
+    this.#url = `http://localhost:${port}`;
+    this.#mockShareURL = `http://localhost:${port}${SHARE_PATH}`;
+
+    this.reset();
 
     this.#originalServerUrl = Services.prefs.getStringPref(
       "browser.contentsharing.server.url",
@@ -89,7 +97,7 @@ class ContentSharingMockServerClass {
 
   reset() {
     this.#requests = [];
-    this.#mockResponse = { url: MOCK_SHARE_URL };
+    this.#mockResponse = { url: this.#mockShareURL };
     this.#mockResponseStatus = 201;
   }
 
@@ -112,6 +120,10 @@ class ContentSharingMockServerClass {
 
     httpResponse.processAsync();
     httpResponse.setStatusLine("", this.#mockResponseStatus, "");
+
+    if (this.#mockResponseStatus !== 401) {
+      httpResponse.setHeader("Set-Cookie", COOKIE_CONTENTS);
+    }
     httpResponse.setHeader("Content-Type", "application/json", false);
     httpResponse.write(JSON.stringify(this.#mockResponse));
     httpResponse.finish();

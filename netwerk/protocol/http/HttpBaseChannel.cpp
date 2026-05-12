@@ -6840,6 +6840,11 @@ static void CollectORBBlockTelemetry(
           .EnumGet(glean::orb::BlockInitiatorLabel::eOther)
           .Add();
       break;
+    case ExtContentPolicy::TYPE_TEXT:
+      glean::orb::block_initiator
+          .EnumGet(glean::orb::BlockInitiatorLabel::eText)
+          .Add();
+      break;
     case ExtContentPolicy::TYPE_DOCUMENT:
     case ExtContentPolicy::TYPE_SUBDOCUMENT:
     case ExtContentPolicy::TYPE_OBJECT:

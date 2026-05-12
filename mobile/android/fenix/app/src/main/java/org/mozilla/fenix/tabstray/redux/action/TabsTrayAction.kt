@@ -156,4 +156,17 @@ sealed interface TabsTrayAction : Action {
      * [TabsTrayAction] fired when the user dismisses the inactive tabs auto-close dialog.
      */
     object DismissInactiveTabsAutoCloseDialog : TabsTrayAction
+
+    /**
+     * [TabsTrayAction] Fired when a reorder is requested from a TabsTray gesture.
+     *
+     * @property sourceId: The id of the item being reordered
+     * @property destinationId: The id of the reorder target
+     * @property placeAfter: Whether to place the item before or after the target
+     */
+    data class ReorderTabsTrayItem(
+        val sourceId: String,
+        val destinationId: String?,
+        val placeAfter: Boolean,
+    ) : TabsTrayAction, TabsStorageAction
 }

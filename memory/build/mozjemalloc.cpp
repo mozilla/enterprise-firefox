@@ -1156,9 +1156,7 @@ arena_run_t* arena_t::AllocRun(size_t aSize, bool aLarge, bool aZero) {
   MOZ_ASSERT(aSize <= gMaxLargeClass);
   MOZ_ASSERT((aSize & gPageSizeMask) == 0);
 
-  // Search the arena's chunks for the lowest best fit. Lookup the leftmost
-  // tree entry that is aSize or greater. This will bias lower addresses and
-  // improve fragmentation and perhaps locality.
+  // Search the arena's chunks for the best fit.
   mapelm = mRunsAvail.SearchOrNext(aSize);
   if (mapelm) {
     arena_chunk_t* chunk = GetChunkForPtr(mapelm);

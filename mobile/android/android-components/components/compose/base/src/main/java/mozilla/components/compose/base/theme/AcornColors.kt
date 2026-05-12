@@ -27,9 +27,6 @@ class AcornColors(
     layerAccent: Color,
     layerGradientStart: Color,
     layerGradientEnd: Color,
-    layerWarning: Color,
-    layerCritical: Color,
-    layerInformation: Color,
     actionInformation: Color,
     formDefault: Color,
     textOnColorPrimary: Color,
@@ -67,18 +64,6 @@ class AcornColors(
 
     // Tooltip
     var layerGradientEnd by mutableStateOf(layerGradientEnd)
-        private set
-
-    // Warning background
-    var layerWarning by mutableStateOf(layerWarning)
-        private set
-
-    // Error Background
-    var layerCritical by mutableStateOf(layerCritical)
-        private set
-
-    // Info background
-    var layerInformation by mutableStateOf(layerInformation)
         private set
 
     // Actions
@@ -183,9 +168,6 @@ class AcornColors(
         layerAccent = other.layerAccent
         layerGradientStart = other.layerGradientStart
         layerGradientEnd = other.layerGradientEnd
-        layerWarning = other.layerWarning
-        layerCritical = other.layerCritical
-        layerInformation = other.layerInformation
         actionInformation = other.actionInformation
         formDefault = other.formDefault
         textOnColorPrimary = other.textOnColorPrimary
@@ -214,9 +196,6 @@ class AcornColors(
         layerAccent: Color = this.layerAccent,
         layerGradientStart: Color = this.layerGradientStart,
         layerGradientEnd: Color = this.layerGradientEnd,
-        layerWarning: Color = this.layerWarning,
-        layerCritical: Color = this.layerCritical,
-        layerInformation: Color = this.layerInformation,
         actionInformation: Color = this.actionInformation,
         formDefault: Color = this.formDefault,
         textOnColorPrimary: Color = this.textOnColorPrimary,
@@ -239,9 +218,6 @@ class AcornColors(
         layerAccent = layerAccent,
         layerGradientStart = layerGradientStart,
         layerGradientEnd = layerGradientEnd,
-        layerWarning = layerWarning,
-        layerCritical = layerCritical,
-        layerInformation = layerInformation,
         actionInformation = actionInformation,
         formDefault = formDefault,
         textOnColorPrimary = textOnColorPrimary,
@@ -267,9 +243,6 @@ val darkColorPalette = AcornColors(
     layerAccent = PhotonColors.Violet40,
     layerGradientStart = PhotonColors.Violet70,
     layerGradientEnd = PhotonColors.Violet60,
-    layerWarning = PhotonColors.Yellow70A77,
-    layerCritical = PhotonColors.Pink80,
-    layerInformation = PhotonColors.Blue50,
     actionInformation = PhotonColors.Blue60,
     formDefault = PhotonColors.LightGrey05,
     textOnColorPrimary = PhotonColors.LightGrey05,
@@ -294,9 +267,6 @@ val lightColorPalette = AcornColors(
     layerAccent = PhotonColors.Ink20,
     layerGradientStart = PhotonColors.Violet70,
     layerGradientEnd = PhotonColors.Violet60,
-    layerWarning = PhotonColors.Yellow20,
-    layerCritical = PhotonColors.Red10,
-    layerInformation = PhotonColors.Blue50A44,
     actionInformation = PhotonColors.Blue50,
     formDefault = PhotonColors.DarkGrey90,
     textOnColorPrimary = PhotonColors.LightGrey05,

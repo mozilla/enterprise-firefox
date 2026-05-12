@@ -1125,3 +1125,47 @@ MWasmStructState* MWasmStructState::Copy(TempAllocator& alloc,
   }
   return res;
 }
+
+MDefinition* MWasmAddSubI128HI64::foldsTo(TempAllocator& alloc) {
+  MDefinition* mLhsLo = lhsLo();
+  MDefinition* mLhsHi = lhsHi();
+  MDefinition* mRhsLo = rhsLo();
+  MDefinition* mRhsHi = rhsHi();
+  MOZ_ASSERT(mLhsLo->type() == MIRType::Int64);
+  MOZ_ASSERT(mLhsHi->type() == MIRType::Int64);
+  MOZ_ASSERT(mRhsLo->type() == MIRType::Int64);
+  MOZ_ASSERT(mRhsHi->type() == MIRType::Int64);
+
+  bool lhsLoIsConst = mLhsLo->isConstant();
+  int64_t lhsLoImm = lhsLoIsConst ? mLhsLo->toConstant()->toInt64() : 0;
+
+  bool lhsHiIsConst = mLhsHi->isConstant();
+  int64_t lhsHiImm = lhsHiIsConst ? mLhsHi->toConstant()->toInt64() : 0;
+
+  bool rhsLoIsConst = mRhsLo->isConstant();
+  int64_t rhsLoImm = rhsLoIsConst ? mRhsLo->toConstant()->toInt64() : 0;
+
+  bool rhsHiIsConst = mRhsHi->isConstant();
+  int64_t rhsHiImm = rhsHiIsConst ? mRhsHi->toConstant()->toInt64() : 0;
+
+  if (isAdd()) {
+    // addHI 0:0 x:y --> x
+    if (lhsHiIsConst && lhsHiImm == 0 && lhsLoIsConst && lhsLoImm == 0) {
+      return mRhsHi;
+    }
+    // addHI x:y 0:0 --> x
+    if (rhsHiIsConst && rhsHiImm == 0 && rhsLoIsConst && rhsLoImm == 0) {
+      return mLhsHi;
+    }
+  }
+
+  // There are other folding opportunities, but none of them look particularly
+  // interesting.  In particular:
+  //
+  //   addHI 0:x 0:y = carry bit out of x +64 y
+  //
+  // This isn't helpful because we don't have a way to compute the carry bit
+  // that is cheaper than doing the full 128-bit add.
+
+  return this;
+}

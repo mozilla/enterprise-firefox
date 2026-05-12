@@ -19,7 +19,6 @@ async function openPrefsWithSettings({ allEnabled, sectionEnabled }) {
   });
   win.SettingGroupManager.registerGroup("mysection", {
     inProgress: true,
-    l10nId: "downloads-header-2",
     headingLevel: 2,
     items: [
       {

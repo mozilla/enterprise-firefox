@@ -530,9 +530,9 @@ private fun TabGroupCardPreview(
                 selectionState = tabGroupCardState.selectionState,
                 clickHandler = TabsTrayItemClickHandler(
                     enabled = true,
-                    onClick = { item: TabsTrayItem -> {} },
-                    onCloseClick = { item: TabsTrayItem -> {} },
-                    onLongClick = { item: TabsTrayItem -> {} },
+                    onClick = { _: TabsTrayItem -> },
+                    onCloseClick = { _: TabsTrayItem -> },
+                    onLongClick = { _: TabsTrayItem -> },
                 ),
                 modifier = Modifier.weight(1f),
                 interactionState = tabGroupCardState.interactionState,

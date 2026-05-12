@@ -10,7 +10,7 @@
 // Bit-identical-output regression tests for AudioBufferAddWithScale.
 //
 // AudioBufferAddWithScale runtime-dispatches to one of:
-//   Engine<xsimd::fma3<xsimd::sse4_2>>  (modern x86-64 with FMA3)
+//   Engine<xsimd::sse4_2>               (decently modern x86-64)
 //   Engine<xsimd::sse2>                 (older x86 / 32-bit x86)
 //   Engine<xsimd::neon>                 (aarch64 / 32-bit ARM with NEON)
 //   generic scalar fallback
@@ -19,7 +19,10 @@
 // xsimd::fma() — an explicit fused multiply-add that bypassed Mozilla's
 // project-wide -ffp-contract=off and produced bit-different output across
 // the four tiers (telemetry showed 3 distinct audio_fingerprint buckets
-// that tracked CPU SIMD class). The fix replaced xsimd::fma with separate
+// that tracked CPU SIMD class) when targeting architecture that have built-in
+// support for FMA instructions.
+//
+// The fix replaced xsimd::fma with separate
 // vmul + vadd so all tiers compute the same IEEE-754 mul + add.
 //
 // These tests assert that, on whichever SIMD tier the host CPU and build

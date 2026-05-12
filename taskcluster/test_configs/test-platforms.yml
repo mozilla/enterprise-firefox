@@ -284,28 +284,27 @@ windows11-64-24h2/opt:
             default: build-signing-win64/opt
     test-sets:
         - windows11-24h2-tests
-        - talos-xperf
         - windows-talos
         - browsertime
         - windows-talos-webgl
 
-windows11-64-24h2-enterprise/opt:
+windows11-64-25h2-enterprise/opt:
     build-platform: win64-enterprise/opt
     build-signing-label:
         by-variant:
             msi: repackage-signing-msi-win64-enterprise/opt
             default: build-signing-win64-enterprise/opt
     test-sets:
-        - windows11-24h2-tests-enterprise
+        - windows11-25h2-tests-enterprise
 
-windows11-64-24h2-enterprise/debug:
+windows11-64-25h2-enterprise/debug:
     build-platform: win64-enterprise/debug
     build-signing-label:
         by-variant:
             msi: repackage-signing-msi-win64-enterprise/debug
             default: build-signing-win64-enterprise/debug
     test-sets:
-        - windows11-24h2-tests-enterprise
+        - windows11-25h2-tests-enterprise
 
 windows11-64-24h2-shippable/opt:
     build-platform: win64-shippable/opt
@@ -315,7 +314,6 @@ windows11-64-24h2-shippable/opt:
             default: build-signing-win64-shippable/opt
     test-sets:
         - windows11-24h2-tests
-        - talos-xperf
         - talos-profiling
         - windows-talos
         - browsertime

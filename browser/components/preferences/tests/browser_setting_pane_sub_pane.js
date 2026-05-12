@@ -40,7 +40,6 @@ describe("setting-pane", () => {
       get: () => true,
     });
     win.SettingGroupManager.registerGroup("testSubGroup", {
-      l10nId: "downloads-header-2",
       headingLevel: 2,
       items: [
         {

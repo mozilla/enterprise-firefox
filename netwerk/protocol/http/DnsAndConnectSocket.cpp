@@ -342,7 +342,7 @@ void DnsAndConnectSocket::CancelBackupTimer() {
   // performed the backup connection.
 }
 
-void DnsAndConnectSocket::Abandon(bool aReenqueueTransaction) {
+void DnsAndConnectSocket::Abandon() {
   LOG(("DnsAndConnectSocket::Abandon [this=%p ent=%s] %p %p %p %p", this,
        mConnInfo->Origin(), mPrimaryTransport.mSocketTransport.get(),
        mBackupTransport.mSocketTransport.get(),

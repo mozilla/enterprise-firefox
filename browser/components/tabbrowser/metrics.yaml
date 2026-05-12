@@ -699,7 +699,14 @@ browser.tabswitch:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1489524
     notification_emails:
       - mconley@mozilla.com
+      - perf-telemetry-alerts@mozilla.com
     expires: never
+    metadata:
+      monitor:
+        alert: False
+        lower_is_better: True
+        platforms:
+          - All
 
   spinner_visible:
     type: timing_distribution
@@ -995,3 +1002,9 @@ performance.interaction:
       - mconley@mozilla.com
       - perf-telemetry-alerts@mozilla.com
     expires: never
+    metadata:
+      monitor:
+        alert: False
+        lower_is_better: True
+        platforms:
+          - All

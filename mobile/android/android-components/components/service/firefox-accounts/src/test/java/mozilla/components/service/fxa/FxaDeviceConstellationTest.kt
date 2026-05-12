@@ -246,7 +246,6 @@ class FxaDeviceConstellationTest {
 
         assertFalse(success)
         verify(constellation.crashReporter!!, never()).submitCaughtException(any())
-        Unit
     }
 
     @Test

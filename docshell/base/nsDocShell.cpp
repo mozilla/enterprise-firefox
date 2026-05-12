@@ -10183,7 +10183,7 @@ nsresult nsDocShell::CompleteInitialAboutBlankLoad(
   doc->BeginLoad();
 
   nsContentUtils::AddScriptRunner(
-      new nsDocElementCreatedNotificationRunner(doc));
+      MakeAndAddRef<nsDocElementCreatedNotificationRunner>(doc));
   // When scripts are not blocked (are they ever blocked here?), the runnable
   // runs immediately, so let's check if this docshell got destroyed or the
   // document got swapped. Unclear if this ever happens; this is a defensive

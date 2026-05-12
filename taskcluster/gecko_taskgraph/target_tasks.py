@@ -497,9 +497,13 @@ def target_tasks_enterprise_firefox_with_tests(
     )
 
     def filter(task):
-        # Enabling tests suites triggers many jobs not required, limit execution
-        # to enterprise builds for now
-        if task.kind in ["test", "mochitest"] and "enterprise" not in task.label:
+        test_platform = task.attributes.get("test_platform")
+        # Skip android-hw tests, windows11-aarch64: they require special hardware and credentials
+        if (
+            "test" in task.kind
+            and test_platform
+            and ("android-hw" in test_platform or "windows11-aarch64" in test_platform)
+        ):
             return False
 
         # Only keep builds that have been explicitely flagged
@@ -517,6 +521,9 @@ def target_tasks_enterprise_firefox_with_tests(
 
         level = int(parameters["level"])
         if ("shippable" in task.label or shippable) and level < 3:
+            return False
+
+        if task.kind == "complete" and level < 3:
             return False
 
         if not build_platform or not build_type:

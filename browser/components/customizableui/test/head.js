@@ -566,6 +566,7 @@ function ensureToolbarOverflow(aWindow, shouldCleanup = true) {
     0
   );
   CustomizableUI.addWidgetToArea("panic-button", CustomizableUI.AREA_NAVBAR, 0);
+  CustomizableUI.addWidgetToArea("print-button", CustomizableUI.AREA_NAVBAR, 0);
 
   if (shouldCleanup) {
     registerCleanupFunction(() => {
@@ -586,4 +587,5 @@ function unensureToolbarOverflow(aWindow, originalWindowWidth) {
   CustomizableUI.removeWidgetFromArea("history-panelmenu");
   CustomizableUI.removeWidgetFromArea("email-link-button");
   CustomizableUI.removeWidgetFromArea("panic-button");
+  CustomizableUI.removeWidgetFromArea("print-button");
 }

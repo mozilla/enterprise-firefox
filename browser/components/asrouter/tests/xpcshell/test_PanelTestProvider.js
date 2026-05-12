@@ -28,7 +28,7 @@ add_task(async function test_PanelTestProvider() {
     toast_notification: 6,
     bookmarks_bar_button: 1,
     menu_message: 1,
-    newtab_message: 5,
+    newtab_message: 6,
     infobar: 1,
   };
 

@@ -162,7 +162,7 @@ uniffi_pipeline = "0.31"
 # Shared across multiple application-services consumers.
 rusqlite = "0.37"
 # Shared across multiple glean consumers.
-glean = "=67.2.0"
+glean = "=67.3.1"
 
 # Explicitly specify what our profiles use.  The opt-level setting here is
 # a total fiction; see the setup of MOZ_RUST_DEFAULT_FLAGS for what the
@@ -418,3 +418,10 @@ libcrux-traits = { path = "build/rust/libcrux-traits" }
 
 # Patching to build with windows 0.62.2 dep
 ipc-channel = { git = "https://github.com/mozilla/ipc-channel", rev = "f2b5aed36a60f07589579d31aaace2f90d2e5e9e" }
+
+# Redirect any `nss-rs` git dependency (notably the one pinned inside upstream
+# `mls-rs-crypto-nss` in mozilla/mls-platform-api) to the in-tree vendored copy.
+# This way bumping nss-rs in tree does not require a matching update to the
+# pin in mls-platform-api on GitHub.
+[patch."https://github.com/mozilla/nss-rs"]
+nss-rs = { path = "third_party/rust/nss-rs" }

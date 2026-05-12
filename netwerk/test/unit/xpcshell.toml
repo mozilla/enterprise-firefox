@@ -480,6 +480,8 @@ skip-if = [
 
 ["test_cache2-33-clear-base-domain.js"]
 
+["test_cache2-34-overlimit-eviction-preserves-active.js"]
+
 ["test_cache2_clear_with_principal.js"]
 run-sequentially = ["true"] # httpd server
 
@@ -763,6 +765,23 @@ run-sequentially = ["true"] # node server exceptions dont replay well
 skip-if = [
   "os == 'android'",
   "os == 'win'",
+]
+
+["test_happy_eyeballs_h1_0rtt.js"]
+run-sequentially = ["true"] # TlsServer listens to the same port
+
+["test_happy_eyeballs_h2_0rtt.js"]
+run-sequentially = ["true"] # TlsServer listens to the same port
+
+["test_happy_eyeballs_h3_0rtt.js"]
+run-sequentially = ["true"] # http3server
+skip-if = [
+  "os == 'android' && os_version == '14' && arch == 'x86_64'", # Bug 1982955
+  "os == 'win' && os_version == '10.2009' && arch == 'x86_64'",
+  "os == 'win' && os_version == '11.26100' && arch == 'x86'",
+  "os == 'win' && os_version == '11.26100' && arch == 'x86_64'",
+  "os == 'win' && os_version == '11.26200' && arch == 'x86'",
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64'",
 ]
 
 ["test_head.js"]
@@ -1507,6 +1526,13 @@ skip-if = [
 ]
 
 ["test_retry_psk_no_early_data.js"]
+run-sequentially = ["true"] # tlsserver uses fixed port
+skip-if = [
+  "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && msix", # Bug 2034343
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && msix", # Bug 2034343
+]
+
+["test_retry_resumption_https_rr.js"]
 run-sequentially = ["true"] # tlsserver uses fixed port
 skip-if = [
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && msix", # Bug 2034343

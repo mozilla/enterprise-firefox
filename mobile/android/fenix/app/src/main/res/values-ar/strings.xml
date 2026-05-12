@@ -370,17 +370,13 @@
   <!--
     AI Controls settings
 
-    Label for the secret settings preference to enable AI controls
-  -->
-  <string name="preferences_debug_settings_ai_controls">فعِّل عناصر التحكم بالذكاء الاصطناعي</string>
-  <!--
-    AI Controls settings
-
     Title for the AI controls settings screen
   -->
   <string name="preferences_ai_controls">التحكم بالذكاء الاصطناعي</string>
   <!-- Headline text for the AI controls banner. %s is the name of the app (for example "Firefox"). -->
   <string name="ai_controls_banner_headline">لديك دائمًا خيار في %s</string>
+  <!-- Supporting text for the AI controls banner. %s is a learn more link using ai_controls_learn_more as text. -->
+  <string name="ai_controls_banner_supporting_text_2">ويشمل ذلك ما إذا كان ينبغي استخدام الميزات المحسّنة بالذكاء الاصطناعي. %s</string>
   <!-- Supporting text for the AI controls banner -->
   <string name="ai_controls_banner_supporting_text">ويشمل ذلك ما إذا كان ينبغي استخدام الميزات المحسّنة بالذكاء الاصطناعي.</string>
   <!-- Link text for learning more about AI controls -->
@@ -2241,6 +2237,8 @@
   <string name="bookmark_import_menu_button">استورِد من ملف</string>
   <!-- Snackbar message shown when a bookmark import attempt fails. -->
   <string name="bookmark_import_failure_snackbar">تعذّر استيراد العلامات. حاول مجددًا.</string>
+  <!-- Default name for the folder created when importing bookmarks from a file. -->
+  <string name="bookmark_import_destination_default_name">العلامات المستوردة</string>
   <!--
     Bookmark multi select title in app bar
     %1$d is the number of bookmarks selected
@@ -3246,6 +3244,13 @@
   <string name="ip_protection_onboarding_body_link">تصفح الإنترنت بحماية إضافية</string>
   <!-- Label for the dismiss button on the onboarding bottom sheet. -->
   <string name="ip_protection_onboarding_not_now_button">ليس الآن</string>
+  <!-- Snackbar (in-app pop-up notification) text to signal the browser VPN connection error -->
+  <string name="ip_protection_connection_error_snackbar">تعذّر الاتصال بشبكة VPN. حاول مجددًا بعد بضع دقائق.</string>
+  <!--
+    Snackbar (in-app pop-up notification) text to signal the browser VPN has reached the monthly data limit.
+    %1$d is the total monthly allowance in GB (for example "50").
+  -->
+  <string name="ip_protection_data_limit_reached_snackbar">استُخدم %1$d ج.بايت من بيانات VPN. سيُصفّر الوصول الشهر المقبل.</string>
   <!--
     Autofill
 

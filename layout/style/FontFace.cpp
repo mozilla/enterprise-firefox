@@ -97,7 +97,7 @@ already_AddRefed<FontFace> FontFace::CreateForRule(
   FontFaceSetImpl* setImpl = aFontFaceSet->GetImpl();
   MOZ_ASSERT(setImpl);
 
-  RefPtr<FontFace> obj = new FontFace(aGlobal);
+  RefPtr<FontFace> obj = do_AddRef(new FontFace(aGlobal));
   obj->mImpl = FontFaceImpl::CreateForRule(obj, setImpl, aRule);
   return obj.forget();
 }
@@ -120,8 +120,8 @@ already_AddRefed<FontFace> FontFace::Constructor(
     return nullptr;
   }
 
-  RefPtr<FontFace> obj = new FontFace(global);
-  obj->mImpl = new FontFaceImpl(obj, setImpl);
+  RefPtr<FontFace> obj = do_AddRef(new FontFace((global)));
+  obj->mImpl = MakeRefPtr<FontFaceImpl>(obj, setImpl);
   if (!obj->mImpl->SetDescriptors(aFamily, aDescriptors)) {
     return obj.forget();
   }

@@ -284,14 +284,12 @@
       "value": "{button.icon.fill}"
     }
   },
-  "min": {
-    "height": {
-      "@base": {
-        "value": "{size.item.large}"
-      },
-      "small": {
-        "value": "{size.item.medium}"
-      }
+  "min-height": {
+    "@base": {
+      "value": "{size.item.large}"
+    },
+    "small": {
+      "value": "{size.item.medium}"
     }
   },
   "opacity": {
@@ -313,10 +311,10 @@
   "size": {
     "icon": {
       "@base": {
-        "value": "{button.min.height.@base}"
+        "value": "{button.min-height.@base}"
       },
       "small": {
-        "value": "{button.min.height.small}"
+        "value": "{button.min-height.small}"
       }
     }
   },

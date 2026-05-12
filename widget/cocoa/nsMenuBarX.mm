@@ -780,7 +780,7 @@ void nsMenuBarX::CreateApplicationMenu(nsMenuX* aMenu) {
     = Quit                 = <- menu_FileQuitItem
     ========================
 
-    If any of them are ommitted from the application's DOM, we just don't add
+    If any of them are omitted from the application's DOM, we just don't add
     them. We always add a "Quit" item, but if an app developer does not provide
     a DOM node with the right ID for the Quit item, we add it in English. App
     developers need only add each node with a label and a key equivalent (if

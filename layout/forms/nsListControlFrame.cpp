@@ -764,7 +764,7 @@ bool nsListControlFrame::ReflowFinished() {
     // scrolling to the selected element, when the ResetList was probably only
     // caused by content loading normally.
     const bool scroll = !DidHistoryRestore() || mPostChildrenLoadedReset;
-    nsContentUtils::AddScriptRunner(new AsyncReset(this, scroll));
+    nsContentUtils::AddScriptRunner(MakeAndAddRef<AsyncReset>(this, scroll));
   }
   mReflowWasInterrupted = false;
   return ScrollContainerFrame::ReflowFinished();

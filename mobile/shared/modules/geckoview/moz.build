@@ -33,6 +33,7 @@ EXTRA_JS_MODULES += [
     "GeckoViewTab.sys.mjs",
     "GeckoViewTelemetry.sys.mjs",
     "GeckoViewTestUtils.sys.mjs",
+    "GeckoViewTrackingDB.sys.mjs",
     "GeckoViewTranslations.sys.mjs",
     "GeckoViewUtils.sys.mjs",
     "GeckoViewWebExtension.sys.mjs",

@@ -371,9 +371,6 @@ class nsXULPopupManager final : public nsIDOMEventListener,
                                 public nsIRollupListener,
                                 public nsIObserver,
                                 public mozilla::widget::NativeMenu::Observer {
-  template <typename T, typename... Args>
-  friend RefPtr<T> mozilla::MakeRefPtr(Args&&... aArgs);
-
  public:
   friend class nsXULPopupHidingEvent;
   friend class nsXULPopupPositionedEvent;

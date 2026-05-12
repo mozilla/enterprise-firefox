@@ -1443,6 +1443,28 @@ bool Http3Session::AddStream(nsAHttpTransaction* aHttpTransaction,
   return true;
 }
 
+void Http3Session::SwapTransaction(nsAHttpTransaction* aOld,
+                                   nsAHttpTransaction* aNew) {
+  MOZ_ASSERT(OnSocketThread(), "not on socket thread");
+  MOZ_ASSERT(aOld && aNew);
+  RefPtr<Http3StreamBase> stream = mStreamTransactionHash.Get(aOld);
+  if (!stream) {
+    LOG3(("Http3Session::SwapTransaction %p aOld=%p not in hash", this, aOld));
+    return;
+  }
+  LOG3(("Http3Session::SwapTransaction %p aOld=%p -> aNew=%p stream=%p", this,
+        aOld, aNew, stream.get()));
+  stream->SetTransaction(aNew);
+  mStreamTransactionHash.Remove(aOld);
+  mStreamTransactionHash.InsertOrUpdate(aNew, std::move(stream));
+  // mFirstHttpTransaction is tracked by nsHttpTransaction pointer; if it
+  // was the shim, replace it with the real txn too.
+  if (mFirstHttpTransaction &&
+      mFirstHttpTransaction.get() == aOld->QueryHttpTransaction()) {
+    mFirstHttpTransaction = aNew->QueryHttpTransaction();
+  }
+}
+
 bool Http3Session::DeferIfNegotiating(ExtendedConnectKind aKind,
                                       Http3StreamBase* aStream) {
   auto& st = ExtState(aKind);

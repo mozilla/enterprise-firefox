@@ -42,18 +42,18 @@ import org.mozilla.fenix.helpers.Constants
 import org.mozilla.fenix.helpers.Constants.RETRY_COUNT
 import org.mozilla.fenix.helpers.Constants.TAG
 import org.mozilla.fenix.helpers.DataGenerationHelper.getStringResource
-import org.mozilla.fenix.helpers.HomeActivityComposeTestRule
 import org.mozilla.fenix.helpers.MatcherHelper.assertUIObjectExists
 import org.mozilla.fenix.helpers.MatcherHelper.itemContainingText
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithText
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTime
+import org.mozilla.fenix.helpers.TestAssetHelper.waitingTimeLong
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTimeShort
 import org.mozilla.fenix.helpers.TestHelper.mDevice
 import org.mozilla.fenix.tabstray.DefaultTabManagementFeatureHelper
 import org.mozilla.fenix.tabstray.TabsTrayTestTag
 
 fun tabDrawer(
-    composeTestRule: HomeActivityComposeTestRule,
+    composeTestRule: ComposeTestRule,
     interact: TabDrawerRobot.() -> Unit,
 ): TabDrawerRobot.Transition {
     TabDrawerRobot(composeTestRule).interact()
@@ -316,6 +316,7 @@ class TabDrawerRobot(private val composeTestRule: ComposeTestRule) {
      * Swipes a tab with [title] left.
      */
     fun swipeTabLeft(title: String, isListViewEnabled: Boolean = false) {
+        composeTestRule.waitForIdle()
         Log.i(TAG, "swipeTabLeft: Trying to perform swipe left action on tab: $title")
         when (isListViewEnabled) {
             false -> composeTestRule.tabItem(title).performTouchInput { swipeLeft() }
@@ -325,12 +326,15 @@ class TabDrawerRobot(private val composeTestRule: ComposeTestRule) {
         Log.i(TAG, "swipeTabLeft: Waiting for compose test rule to be idle")
         composeTestRule.waitForIdle()
         Log.i(TAG, "swipeTabLeft: Waited for compose test rule to be idle")
+        mDevice.waitForIdle()
+        Log.i(TAG, "swipeTabLeft: mDevice.waitForIdle() returned")
     }
 
     /**
      * Swipes a tab with [title] right.
      */
     fun swipeTabRight(title: String, isListViewEnabled: Boolean = false) {
+        composeTestRule.waitForIdle()
         Log.i(TAG, "swipeTabRight: Trying to perform swipe right action on tab: $title")
         when (isListViewEnabled) {
             false -> composeTestRule.tabItem(title).performTouchInput { swipeRight() }
@@ -340,6 +344,8 @@ class TabDrawerRobot(private val composeTestRule: ComposeTestRule) {
         Log.i(TAG, "swipeTabRight: Waiting for compose test rule to be idle")
         composeTestRule.waitForIdle()
         Log.i(TAG, "swipeTabRight: Waited for compose test rule to be idle")
+        mDevice.waitForIdle()
+        Log.i(TAG, "swipeTabRight: mDevice.waitForIdle() returned")
     }
 
     /**
@@ -533,6 +539,8 @@ class TabDrawerRobot(private val composeTestRule: ComposeTestRule) {
             Log.i(TAG, "closeAllTabs: Trying to click the \"Close all tabs\" menu button")
             composeTestRule.dropdownMenuItemCloseAllTabs().performClick()
             Log.i(TAG, "closeAllTabs: Clicked the \"Close all tabs\" menu button")
+            composeTestRule.waitForIdle()
+            mDevice.waitForIdle()
 
             val confirmButtonText = getStringResource(R.string.tab_manager_close_all_tabs_dialog_confirm)
 
@@ -595,6 +603,8 @@ class TabDrawerRobot(private val composeTestRule: ComposeTestRule) {
             Log.i(TAG, "closeTabDrawer: Trying to close the tabs tray by pressing the back button")
             mDevice.pressBack()
             Log.i(TAG, "closeTabDrawer: Closed the tabs tray by pressing the back button")
+            composeTestRule.waitForIdle()
+            mDevice.waitForIdle()
 
             BrowserRobot(composeTestRule).interact()
             return BrowserRobot.Transition(composeTestRule)
@@ -641,7 +651,7 @@ class TabDrawerRobot(private val composeTestRule: ComposeTestRule) {
 /**
  * Opens a transition in the [TabDrawerRobot].
  */
-fun composeTabDrawer(composeTestRule: HomeActivityComposeTestRule, interact: TabDrawerRobot.() -> Unit): TabDrawerRobot.Transition {
+fun composeTabDrawer(composeTestRule: ComposeTestRule, interact: TabDrawerRobot.() -> Unit): TabDrawerRobot.Transition {
     TabDrawerRobot(composeTestRule).interact()
     return TabDrawerRobot.Transition(composeTestRule)
 }

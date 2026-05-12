@@ -1484,7 +1484,7 @@ nsresult TextControlState::InitializeSelection(PresShell* aPresShell) {
 
   // If an editor exists from before, prepare it for usage
   if (mTextEditor) {
-    nsContentUtils::AddScriptRunner(new PrepareEditorEvent(*this));
+    nsContentUtils::AddScriptRunner(MakeAndAddRef<PrepareEditorEvent>(*this));
   }
 
   return NS_OK;

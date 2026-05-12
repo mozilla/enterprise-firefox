@@ -11,7 +11,7 @@ use nserror::{nsresult, NS_ERROR_INVALID_ARG, NS_ERROR_UNEXPECTED, NS_OK};
 use nsstring::{nsACString, nsCString};
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::ptr;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use thin_vec::ThinVec;
 use xpcom::{AtomicRefcnt, RefCounted};
 
@@ -46,6 +46,8 @@ pub unsafe extern "C" fn happy_eyeballs_create(
     port: u16,
     alt_svc: *const ThinVec<AltSvc>,
     ip_preference: IpPreference,
+    resolution_delay_ms: u32,
+    connection_attempt_delay_ms: u32,
 ) -> nsresult {
     *result = ptr::null_mut();
 
@@ -73,6 +75,10 @@ pub unsafe extern "C" fn happy_eyeballs_create(
     let network_config = happy_eyeballs::NetworkConfig {
         alt_svc: alt_svc_vec,
         ip: ip_preference.into(),
+        resolution_delay: Duration::from_millis(resolution_delay_ms as u64),
+        connection_attempt_delay: Duration::from_millis(
+            connection_attempt_delay_ms as u64,
+        ),
         ..Default::default()
     };
 

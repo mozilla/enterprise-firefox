@@ -139,7 +139,7 @@ add_task(async function basic() {
 
   info("Press on the bing menu button and enter search mode");
   let popupHidden = UrlbarTestUtils.searchModeSwitcherPopupClosed(window);
-  popup.querySelector("panel-item[data-engine-id=bing]").button.click();
+  popup.querySelector("panel-item[data-engine-id=bing]").click();
   await popupHidden;
 
   await UrlbarTestUtils.assertSearchMode(window, {
@@ -228,7 +228,7 @@ add_task(async function new_window() {
     !popup.querySelector(`panel-item[data-engine-id=${oldEngine.id}]`),
     "List has been redrawn"
   );
-  popup.querySelector("panel-item[data-engine-id=google]").button.click();
+  popup.querySelector("panel-item[data-engine-id=google]").click();
   await popupHidden;
   newWin.gURLBar.querySelector(".searchmode-switcher-close").click();
 
@@ -242,13 +242,10 @@ add_task(async function detect_searchmode_changes() {
     window,
     value: "",
   });
-  let popup = await UrlbarTestUtils.openSearchModeSwitcher(window);
-
-  info("Press on the bing menu button and enter search mode");
-  let popupHidden = UrlbarTestUtils.searchModeSwitcherPopupClosed(window);
-  popup.querySelector("panel-item[data-engine-id=bing]").button.click();
-  await popupHidden;
-
+  await UrlbarTestUtils.activateSearchModeSwitcherItem(
+    window,
+    "panel-item[data-engine-id=bing]"
+  );
   await UrlbarTestUtils.assertSearchMode(window, {
     engineName: "Bing",
     entry: "searchbutton",
@@ -309,7 +306,7 @@ add_task(async function test_search_icon_change() {
   await UrlbarTestUtils.openSearchModeSwitcher(newWin);
   info("Press on the bing menu button and enter search mode");
   let popupHidden = UrlbarTestUtils.searchModeSwitcherPopupClosed(newWin);
-  popup.querySelector(`panel-item[data-engine-id=${bing.id}]`).button.click();
+  popup.querySelector(`panel-item[data-engine-id=${bing.id}]`).click();
   await popupHidden;
 
   const bingSearchEngineIconUrl = await bing.getIconURL();
@@ -451,13 +448,13 @@ add_task(async function test_searchWithPostEngine() {
 
   let spy = sinon.spy(window, "openTrustedLinkIn");
 
-  let popup = await UrlbarTestUtils.openSearchModeSwitcher(window);
-  let promise = Promise.all([
-    UrlbarTestUtils.searchModeSwitcherPopupClosed(window),
-    BrowserTestUtils.browserLoaded(gBrowser.selectedBrowser),
-  ]);
-  popup.querySelector("panel-item[data-engine-name=MozSearch]").button.click();
-  await promise;
+  let browserLoaded = BrowserTestUtils.browserLoaded(gBrowser.selectedBrowser);
+  await UrlbarTestUtils.activateSearchModeSwitcherItem(
+    window,
+    "panel-item[data-engine-name=MozSearch]"
+  );
+  EventUtils.synthesizeKey("KEY_Enter");
+  await browserLoaded;
 
   Assert.equal(spy.firstCall.args[0], "https://example.com/", "Correct URL");
   let postData = spy.firstCall.args[2].postData;
@@ -618,10 +615,10 @@ add_task(async function test_enter_searchmode_by_key_if_single_result() {
     Assert.equal(bookmark.result.payload.title, "BOOKMARK");
 
     info("Choose any search engine from the switcher");
-    let popup = await UrlbarTestUtils.openSearchModeSwitcher(window);
-    let popupHidden = UrlbarTestUtils.searchModeSwitcherPopupClosed(window);
-    popup.querySelector("panel-item[data-engine-id=bing]").button.click();
-    await popupHidden;
+    await UrlbarTestUtils.activateSearchModeSwitcherItem(
+      window,
+      "panel-item[data-engine-id=bing]"
+    );
     Assert.equal(gURLBar.value, "", "The value of urlbar should be empty");
 
     // Clean up.
@@ -817,7 +814,7 @@ add_task(async function test_search_service_fail() {
   }
 
   let popupHidden = UrlbarTestUtils.searchModeSwitcherPopupClosed(newWin);
-  popup.querySelector(`.search-button-${localSearchModes[0]}`).button.click();
+  popup.querySelector(`.search-button-${localSearchModes[0]}`).click();
   await popupHidden;
 
   stub.restore();
@@ -841,13 +838,10 @@ add_task(async function test_search_mode_switcher_engine_no_icon() {
     { skipUnload: true }
   );
 
-  let popup = await UrlbarTestUtils.openSearchModeSwitcher(window);
-
-  let popupHidden = UrlbarTestUtils.searchModeSwitcherPopupClosed(window);
-  popup
-    .querySelector(`panel-item[data-engine-name=${testEngineName}]`)
-    .button.click();
-  await popupHidden;
+  await UrlbarTestUtils.activateSearchModeSwitcherItem(
+    window,
+    `panel-item[data-engine-name="${testEngineName}"]`
+  );
 
   Assert.equal(
     UrlbarTestUtils.getSearchModeSwitcherIcon(window),

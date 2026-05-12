@@ -475,6 +475,30 @@ void nsHttpConnection::PostProcessNPNSetup(bool handshakeSucceeded,
                                         eNoechconfigfailed);
     glean::http::echconfig_success_rate.EnumGet(label).Add();
   }
+
+  // Capture the NSS handshake error from the security info so that
+  // Speculative-driven HE racers (HappyEyeballsTransaction::ReadSegments)
+  // can return the real cert/protocol error from their otherwise-empty
+  // ReadSegments.
+  if (!handshakeSucceeded && hasSecurityInfo && mSocketTransport) {
+    nsCOMPtr<nsITLSSocketControl> tlsCtrl;
+    if (NS_SUCCEEDED(
+            mSocketTransport->GetTlsSocketControl(getter_AddRefs(tlsCtrl))) &&
+        tlsCtrl) {
+      nsCOMPtr<nsITransportSecurityInfo> secInfo;
+      if (NS_SUCCEEDED(tlsCtrl->GetSecurityInfo(getter_AddRefs(secInfo))) &&
+          secInfo) {
+        int32_t prErrorCode = 0;
+        if (NS_SUCCEEDED(secInfo->GetErrorCode(&prErrorCode)) && prErrorCode) {
+          mHandshakeError = mozilla::psm::GetXPCOMFromNSSError(prErrorCode);
+          LOG(
+              ("nsHttpConnection::PostProcessNPNSetup [this=%p] captured "
+               "TLS handshake error rv=%" PRIx32 " (PRErrorCode=%d)",
+               this, static_cast<uint32_t>(mHandshakeError), prErrorCode));
+        }
+      }
+    }
+  }
 }
 
 void nsHttpConnection::Reset0RttForSpdy() {
@@ -707,6 +731,20 @@ nsresult nsHttpConnection::AddTransaction(nsAHttpTransaction* httpTransaction,
 
   (void)ResumeSend();
   return NS_OK;
+}
+
+void nsHttpConnection::SwapTransaction(nsAHttpTransaction* aOld,
+                                       nsAHttpTransaction* aNew) {
+  MOZ_ASSERT(OnSocketThread(), "not on socket thread");
+  MOZ_ASSERT(aOld && aNew);
+  LOG(
+      ("nsHttpConnection::SwapTransaction [this=%p] aOld=%p -> aNew=%p "
+       "mTransaction=%p",
+       this, aOld, aNew, mTransaction.get()));
+  if (mTransaction != aOld) {
+    return;
+  }
+  mTransaction = aNew;
 }
 
 nsresult nsHttpConnection::CreateTunnelStream(
@@ -2533,25 +2571,29 @@ void nsHttpConnection::HandshakeDoneInternal() {
   // before StartSpdy keeps us from spinning up an Http2Session (and its
   // static HPACK tables) just to tear it down. Local targets are handled
   // pre-TLS; plaintext HTTP is handled in Activate.
+  //
+  // For the HE path mTransaction is a HappyEyeballsTransaction; its
+  // override of AllowedToConnectToIpAddressSpace forwards to the real
+  // nsHttpTransaction this race is running for. Closing mTransaction on
+  // failure tears down the HE attempt and propagates
+  // NS_ERROR_LOCAL_NETWORK_ACCESS_DENIED to the real txn so the channel
+  // can run its prompt-and-replay path.
   if (mTransaction && mConnInfo->FirstHopSSL() && !mConnInfo->UsingProxy() &&
       StaticPrefs::network_lna_blocking() &&
       StaticPrefs::network_lna_defer_https_check()) {
-    nsHttpTransaction* httpTrans = mTransaction->QueryHttpTransaction();
-    if (httpTrans) {
-      NetAddr peerAddr;
-      if (NS_SUCCEEDED(GetPeerAddr(&peerAddr))) {
-        auto addrSpace = peerAddr.GetIpAddressSpace();
-        if (addrSpace == nsILoadInfo::IPAddressSpace::Private &&
-            !httpTrans->AllowedToConnectToIpAddressSpace(addrSpace)) {
-          DontReuse();
-          mTransaction->Close(NS_ERROR_LOCAL_NETWORK_ACCESS_DENIED);
-          // Drop the transaction reference before FinishNPNSetup so the
-          // PostProcessNPNSetup path doesn't touch it (e.g. Finish0RTT)
-          // after Close.
-          mTransaction = nullptr;
-          mTlsHandshaker->FinishNPNSetup(true, true);
-          return;
-        }
+    NetAddr peerAddr;
+    if (NS_SUCCEEDED(GetPeerAddr(&peerAddr))) {
+      auto addrSpace = peerAddr.GetIpAddressSpace();
+      if (addrSpace == nsILoadInfo::IPAddressSpace::Private &&
+          !mTransaction->AllowedToConnectToIpAddressSpace(addrSpace)) {
+        DontReuse();
+        mTransaction->Close(NS_ERROR_LOCAL_NETWORK_ACCESS_DENIED);
+        // Drop the transaction reference before FinishNPNSetup so the
+        // PostProcessNPNSetup path doesn't touch it (e.g. Finish0RTT)
+        // after Close.
+        mTransaction = nullptr;
+        mTlsHandshaker->FinishNPNSetup(true, true);
+        return;
       }
     }
   }

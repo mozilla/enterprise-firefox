@@ -7,6 +7,8 @@ prefs = [
 ]
 support-files = [
   "head.js",
+  "test_ai_action_result_page.html",
+  "test_ai_action_result.mjs",
   "test_assistant_message_footer_page.html",
   "test_applied_memories_page.html",
   "test_chat_assistant_error.html",
@@ -29,6 +31,8 @@ support-files = [
 
 ["browser_aichat_content_actors.js"]
 
+["browser_aichat_content_background_token.js"]
+
 ["browser_aichat_content_message_event.js"]
 
 ["browser_aichat_content_overflow.js"]
@@ -42,6 +46,10 @@ support-files = [
 ["browser_aichat_same_link_click.js"]
 
 ["browser_aiwindow_account_auth.js"]
+
+["browser_aiwindow_ai_action_result.js"]
+
+["browser_aiwindow_aifeature_contract.js"]
 
 ["browser_aiwindow_applied_memories_button.js"]
 

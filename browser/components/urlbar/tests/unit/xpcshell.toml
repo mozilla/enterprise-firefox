@@ -55,6 +55,10 @@ support-files = ["data/engine.xml"]
 ["test_autofill_adaptiveHistory.js"]
 requesttimeoutfactor = 3  # Slow on Mac debug
 
+["test_autofill_adaptiveHistory_bookmarks.js"]
+
+["test_autofill_adaptiveHistory_history_disabled.js"]
+
 ["test_autofill_adaptive_origin_fallback.js"]
 
 ["test_autofill_blocking.js"]

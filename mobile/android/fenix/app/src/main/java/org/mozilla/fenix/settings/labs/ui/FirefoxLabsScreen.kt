@@ -35,6 +35,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.map
+import mozilla.components.compose.base.PromoCard
 import mozilla.components.compose.base.annotation.FlexibleWindowLightDarkPreview
 import mozilla.components.compose.base.button.FilledButton
 import mozilla.components.compose.base.button.IconButton
@@ -108,14 +109,7 @@ private fun FirefoxLabsScreenContent(
             .fillMaxSize(),
     ) {
         item {
-            Text(
-                text = String.format(
-                    stringResource(R.string.firefox_labs_experimental_description),
-                    stringResource(R.string.app_name),
-                ),
-                modifier = Modifier.padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp),
-                style = FirefoxTheme.typography.body1,
-            )
+            FirefoxLabsBanner()
         }
 
         items(labsFeatures) { feature ->
@@ -139,6 +133,33 @@ private fun FirefoxLabsScreenContent(
             )
         }
     }
+}
+
+@Composable
+private fun FirefoxLabsBanner() {
+    PromoCard(
+        modifier = Modifier.padding(
+            start = 16.dp,
+            end = 16.dp,
+            top = 8.dp,
+            bottom = 16.dp,
+        ),
+        title = { Text(text = stringResource(R.string.firefox_labs_banner_title)) },
+        message = {
+            Text(
+                text = String.format(
+                    stringResource(R.string.firefox_labs_experimental_description),
+                    stringResource(R.string.app_name),
+                ),
+            )
+        },
+        illustration = {
+            Image(
+                painter = painterResource(iconsR.drawable.mozac_ic_fox_ai_on_state),
+                contentDescription = null,
+            )
+        },
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

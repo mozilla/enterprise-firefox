@@ -3110,89 +3110,14 @@ bool WriteExtraFile(const nsAString& id, const AnnotationTable& annotations) {
   return WriteExtraFile(pw, annotations);
 }
 
-template <typename T>
-static bool IsFixedSizeAnnotation(AnnotationContents& contents) {
-  return ((contents.tag == AnnotationContents::Tag::ByteBuffer) &&
-          (contents.byte_buffer._0 == sizeof(T))) ||
-         ((contents.tag == AnnotationContents::Tag::OwnedByteBuffer) &&
-          (contents.owned_byte_buffer._0 == sizeof(T)));
-}
-
-// This adds annotations that were populated in the main process but are not
-// present among the ones that were passed in. Additionally common annotations
-// which are present in every crash report are added, including crash time,
-// uptime, etc...
+// This filters out annotations that have specific values we don't want to
+// include and adds common annotations which are present in every crash report
+// including crash time, uptime, etc...
 static void AddSharedAnnotations(AnnotationTable& aAnnotations) {
   for (auto key : MakeEnumeratedRange(Annotation::Count)) {
-    AnnotationContents contents = {};
-    nsAutoCString value;
-    size_t address =
-        mozannotation_get_contents(static_cast<uint32_t>(key), &contents);
-
-    if (address) {
-      switch (TypeOfAnnotation(key)) {
-        case AnnotationType::String:
-          switch (contents.tag) {
-            case AnnotationContents::Tag::Empty:
-              break;
-            case AnnotationContents::Tag::CStringPointer:
-              address = *reinterpret_cast<size_t*>(address);
-              if (address == 0) {
-                break;
-              }
-              // FALLTHROUGH
-            case AnnotationContents::Tag::CString:
-              value.Assign(reinterpret_cast<const char*>(address));
-              break;
-            case AnnotationContents::Tag::NSCStringPointer:
-              value.Assign(*reinterpret_cast<nsCString*>(address));
-              break;
-            case AnnotationContents::Tag::ByteBuffer:
-              value.Assign(reinterpret_cast<const char*>(address),
-                           contents.byte_buffer._0);
-              break;
-            case AnnotationContents::Tag::OwnedByteBuffer:
-              value.Assign(reinterpret_cast<const char*>(address),
-                           contents.owned_byte_buffer._0);
-              break;
-          }
-
-          break;
-        case AnnotationType::Boolean:
-          if (IsFixedSizeAnnotation<bool>(contents)) {
-            value.Assign(*reinterpret_cast<const bool*>(address) ? "1" : "0");
-          }
-          break;
-        case AnnotationType::U32:
-          if (IsFixedSizeAnnotation<uint32_t>(contents)) {
-            value.AppendInt(*reinterpret_cast<const uint32_t*>(address));
-          }
-          break;
-        case AnnotationType::U64:
-          if (IsFixedSizeAnnotation<uint64_t>(contents)) {
-            value.AppendInt(*reinterpret_cast<const uint64_t*>(address));
-          }
-          break;
-        case AnnotationType::USize:
-          if (IsFixedSizeAnnotation<size_t>(contents)) {
-#ifdef XP_MACOSX
-            // macOS defines size_t as unsigned long, which causes ambiguity
-            // when it comes to function overload, use a 64-bit integer instead
-            value.AppendInt(*reinterpret_cast<const uint64_t*>(address));
-#else
-            value.AppendInt(*reinterpret_cast<const size_t*>(address));
-#endif
-          }
-          break;
-        case AnnotationType::Object:
-          // Object annotations are only produced later by minidump-analyzer.
-          break;
-      }
-
-      if (!value.IsEmpty() && aAnnotations[key].IsEmpty() &&
-          ShouldIncludeAnnotation(key, value.get())) {
-        aAnnotations[key] = std::move(value);
-      }
+    if (!aAnnotations[key].IsEmpty() &&
+        !ShouldIncludeAnnotation(key, aAnnotations[key].get())) {
+      aAnnotations[key] = EmptyCString();
     }
   }
 
@@ -3325,11 +3250,13 @@ void SetCrashHelperPipes(FileHandle breakpadFd, FileHandle crashHelperFd) {
 }
 #endif  // defined(MOZ_WIDGET_ANDROID)
 
-CrashPipeType GetChildNotificationPipe() {
-  if (!GetEnabled()) {
-    return nullptr;
-  }
+#if defined(XP_WIN) || defined(XP_MACOSX) || defined(XP_IOS)
+using CrashPipeType = const char*;
+#else
+using CrashPipeType = mozilla::UniqueFileHandle;
+#endif
 
+static CrashPipeType GetChildNotificationPipe() {
 #if defined(XP_WIN) || defined(XP_MACOSX)
   return childCrashNotifyPipe.get();
 #elif defined(XP_LINUX)
@@ -3337,13 +3264,27 @@ CrashPipeType GetChildNotificationPipe() {
 #endif
 }
 
-bool RegisterChildIPCChannel(mozilla::geckoargs::ChildProcessArgs& aArgs) {
+bool RegisterChildIPCChannel(mozilla::geckoargs::ChildProcessArgs& aArgs,
+                             GeckoChildID aID) {
   StaticMutexAutoLock lock(gCrashHelperClientMutex);
   if (gCrashHelperClient) {
-    RawIPCConnector connector = {};
-    if (!register_child_ipc_channel(gCrashHelperClient, &connector)) {
+    auto childNotificationPipe = CrashReporter::GetChildNotificationPipe();
+#if defined(XP_WIN) || defined(XP_MACOSX) || defined(XP_IOS)
+    geckoargs::sCrashReporter.Put(childNotificationPipe, aArgs);
+#else
+    if (!childNotificationPipe) {
+      NS_WARNING("Could not create the child crash notification pipe");
       return false;
     }
+    geckoargs::sCrashReporter.Put(std::move(childNotificationPipe), aArgs);
+#endif  // defined(XP_MACOSX) || defined(XP_IOS) || defined(XP_WIN)
+
+    RawIPCConnector connector = {};
+    if (!register_child_ipc_channel(gCrashHelperClient, aID, &connector)) {
+      return false;
+    }
+
+    geckoargs::sCrashHelperPid.Put(crash_helper_pid(gCrashHelperClient), aArgs);
 
 #if defined(XP_DARWIN)
     UniqueMachSendRight send_right{connector.send};
@@ -3373,6 +3314,18 @@ bool RegisterChildIPCChannel(mozilla::geckoargs::ChildProcessArgs& aArgs) {
 
   return false;
 }
+
+#if defined(XP_WIN)
+bool ChildProcessProxyRendezvous(GeckoChildID aID, DWORD aPid, HANDLE aHandle) {
+  StaticMutexAutoLock lock(gCrashHelperClientMutex);
+  if (gCrashHelperClient) {
+    return child_process_proxy_rendezvous(gCrashHelperClient, aID, aPid,
+                                          aHandle);
+  }
+
+  return false;
+}
+#endif  // defined(XP_WIN)
 
 bool SetRemoteExceptionHandler(int& aArgc, char** aArgv) {
   MOZ_ASSERT(!gExceptionHandler, "crash client already init'd");
@@ -3408,7 +3361,11 @@ bool SetRemoteExceptionHandler(int& aArgc, char** aArgv) {
 #  endif  // defined(XP_WIN)
 #endif    // defined(XP_DARWIN)
 
-  crash_helper_rendezvous(raw_connector, GetGeckoChildID());
+  auto pid_arg = geckoargs::sCrashHelperPid.Get(aArgc, aArgv);
+  Pid pid = static_cast<Pid>(pid_arg.valueOr(0));
+
+  crash_helper_rendezvous(raw_connector, GetGeckoChildID(),
+                          pid_arg.isSome() ? &pid : nullptr);
   RegisterRuntimeExceptionModule();
   InitializeAppNotes();
   RegisterAnnotations();

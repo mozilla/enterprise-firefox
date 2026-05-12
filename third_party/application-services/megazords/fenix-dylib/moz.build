@@ -8,7 +8,6 @@
 
 UNIFIED_SOURCES += [
     "megazord_stub.c",
-    "megazord_stub.c",
 ]
 
 # This name confusion is a reflection of the 2 megazord parts. It should be

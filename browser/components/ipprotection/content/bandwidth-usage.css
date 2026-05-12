@@ -71,7 +71,7 @@
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens, stylelint-plugin-mozilla/use-size-tokens */
   top: var(--progress-border-width);
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens, stylelint-plugin-mozilla/use-size-tokens */
-  left: var(--progress-border-width);
+  inset-inline-start: var(--progress-border-width);
 }
 
 @media (forced-colors) {

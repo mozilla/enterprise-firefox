@@ -166,7 +166,8 @@ void AnimationEventInfo::MaybeAddMarker() const {
     nsAutoString target;
     if (dom::AnimationEffect* effect = mAnimation->GetEffect()) {
       if (dom::KeyframeEffect* keyFrameEffect = effect->AsKeyframeEffect()) {
-        keyFrameEffect->GetTarget()->Describe(target, true);
+        keyFrameEffect->GetTarget()->Describe(
+            target, dom::Element::DescriptionKind::IdAndClass);
         for (const AnimationProperty& property : keyFrameEffect->Properties()) {
           propertySet.AddProperty(property.mProperty);
         }
@@ -217,7 +218,8 @@ void AnimationEventInfo::MaybeAddMarker() const {
   nsAutoString target;
   if (dom::AnimationEffect* effect = mAnimation->GetEffect()) {
     if (dom::KeyframeEffect* keyFrameEffect = effect->AsKeyframeEffect()) {
-      keyFrameEffect->GetTarget()->Describe(target, true);
+      keyFrameEffect->GetTarget()->Describe(
+          target, dom::Element::DescriptionKind::IdAndClass);
     }
   }
   nsAutoCString property;

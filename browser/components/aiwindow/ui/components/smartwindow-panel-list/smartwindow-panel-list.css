@@ -48,7 +48,7 @@ panel-list {
 
     @media not (prefers-contrast) {
       --panel-list-border-color: light-dark(var(--color-violet-desaturated-20), var(--color-violet-desaturated-50));
-      --panel-list-color: light-dark(var(--color-violet-90), var(--color-neutral-0));
+      --panel-list-color: light-dark(var(--color-violet-90), var(--color-gray-0));
       --panel-section-header-color: light-dark(
         color-mix(in srgb, var(--color-violet-desaturated-90) 70%, transparent),
         color-mix(in srgb, var(--color-violet-desaturated-0) 70%, transparent)

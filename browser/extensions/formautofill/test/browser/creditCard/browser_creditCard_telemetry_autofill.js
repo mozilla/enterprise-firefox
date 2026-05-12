@@ -40,7 +40,6 @@ add_task(async function test_submit_creditCard_autofill() {
       buildccFormv2Extra({ cc_exp: "unavailable" }, "autofilled")
     ),
   ];
-  await assertTelemetry(undefined, expectedFormEvents);
 
   assertFormInteractionEventsInGlean(expectedFormEvents);
   assertDetectedCcNumberFieldsCountInGlean([
@@ -83,25 +82,17 @@ add_task(async function test_clear_creditCard_autofill() {
       buildccFormv2Extra({ cc_exp: "unavailable" }, "filled")
     ),
   ];
-  await assertTelemetry(undefined, expectedFormEvents);
 
   assertFormInteractionEventsInGlean(expectedFormEvents);
   assertDetectedCcNumberFieldsCountInGlean([
     { label: "cc_number_fields_1", count: 1 },
   ]);
 
-  await clearTelemetry();
+  await clearGleanTelemetry();
 
   let browser = tab.linkedBrowser;
 
-  let popupShown = BrowserTestUtils.waitForPopupEvent(
-    browser.autoCompletePopup,
-    "shown"
-  );
-  // Already focus in "cc-number" field, press 'down' to bring to popup.
-  await BrowserTestUtils.synthesizeKey("KEY_ArrowDown", {}, browser);
-
-  await popupShown;
+  await openPopupOn(browser, "#cc-number");
 
   // flushing Glean data before tab removal (see Bug 1843178)
   await Services.fog.testFlushAllChildren();
@@ -109,10 +100,8 @@ add_task(async function test_clear_creditCard_autofill() {
   expectedFormEvents = [
     ccFormArgsv2("popup_shown", { field_name: "cc-number" }),
   ];
-  await assertTelemetry(undefined, expectedFormEvents);
   assertFormInteractionEventsInGlean(expectedFormEvents);
 
-  Services.telemetry.clearEvents();
   await clearGleanTelemetry();
 
   let popupHidden = BrowserTestUtils.waitForPopupEvent(
@@ -126,7 +115,7 @@ add_task(async function test_clear_creditCard_autofill() {
 
   await popupHidden;
 
-  popupShown = BrowserTestUtils.waitForPopupEvent(
+  let popupShown = BrowserTestUtils.waitForPopupEvent(
     browser.autoCompletePopup,
     "shown"
   );
@@ -142,8 +131,6 @@ add_task(async function test_clear_creditCard_autofill() {
     // we automatically triggers the popup.
     ccFormArgsv2("popup_shown", { field_name: "cc-number" }),
   ];
-
-  await assertTelemetry(undefined, expectedFormEvents);
 
   assertFormInteractionEventsInGlean(expectedFormEvents);
 

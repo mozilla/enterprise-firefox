@@ -24,8 +24,7 @@
 #include "mozilla/Maybe.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/StateMirroring.h"
-#include "nsIGfxInfo.h"
-#include "nsServiceManagerUtils.h"
+#include "mozilla/gfx/gfxVars.h"
 #include "nsThreadUtils.h"
 #include "transport/SrtpFlow.h"  // For SRTP_MAX_EXPANSION
 
@@ -2112,16 +2111,7 @@ bool WebrtcVideoConduit::HasCodecPluginID(uint64_t aPluginID) const {
 }
 
 bool WebrtcVideoConduit::HasH264Hardware() {
-  nsCOMPtr<nsIGfxInfo> gfxInfo = do_GetService("@mozilla.org/gfx/info;1");
-  if (!gfxInfo) {
-    return false;
-  }
-  int32_t status;
-  nsCString discardFailureId;
-  return NS_SUCCEEDED(gfxInfo->GetFeatureStatus(
-             nsIGfxInfo::FEATURE_WEBRTC_HW_ACCELERATION_H264, discardFailureId,
-             &status)) &&
-         status == nsIGfxInfo::FEATURE_STATUS_OK;
+  return gfx::gfxVars::IsInitialized() && gfx::gfxVars::HasWebrtcH264Hw();
 }
 
 bool WebrtcVideoConduit::HasAv1() { return true; }

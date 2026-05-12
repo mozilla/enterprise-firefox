@@ -338,6 +338,18 @@ class Bootstrapper:
         # Like 'ensure_browser_packages' or 'ensure_mobile_android_packages'
         getattr(self.instance, "ensure_%s_packages" % application)()
 
+    def check_agentic_tools(self):
+        if self.instance.no_interactive:
+            return
+
+        if not self.instance.cargo_tools_installed():
+            if not self.instance.prompt_yesno(
+                "Will you be using agentic coding tools to work on Firefox?"
+            ):
+                return
+
+        self.instance.ensure_cargo_tools()
+
     def check_code_submission(self, checkout_root: Path):
         if self.instance.no_interactive or which("moz-phab"):
             return
@@ -443,6 +455,8 @@ class Bootstrapper:
 
         if not self.instance.artifact_mode:
             self.instance.ensure_rust_modern()
+
+        self.check_agentic_tools()
 
         git = to_optional_path(which("git"))
 

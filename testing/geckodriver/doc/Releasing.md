@@ -280,6 +280,12 @@ geckodriver needs to be manually released on github.com. Therefore start to
 4. Find the signed geckodriver archives in the [taskcluster index] by
    replacing %changeset% with the full release changeset id. Rename the
    individual files so the basename looks like 'geckodriver-v%version%-%platform%'.
+
+   The macOS build is a universal binary (x86_64 + aarch64). For
+   backward compatibility, create a copy of the macOS archive with
+   the `-aarch64` platform suffix so that existing consumers that
+   reference the architecture-specific filename continue to work.
+
    Upload them all, including the checksum files for the Linux platforms.
 
 5. Before announcing the release on GitHub publish the geckodriver crate as well

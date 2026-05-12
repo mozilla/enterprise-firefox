@@ -928,6 +928,21 @@ export class BaseContent extends React.PureComponent {
         "DownloadMobilePromoHighlight"
       );
 
+    const multistageMessageFeed = shouldShowOMCHighlight(
+      this.props.Messages,
+      "ASRouterMultistageMessage"
+    ) ? (
+      <ErrorBoundary>
+        <MessageWrapper dispatch={this.props.dispatch}>
+          <ExternalComponentWrapper
+            type="ASROUTER_MULTISTAGE_MESSAGE"
+            messageData={this.props.Messages.messageData}
+            className="asrouter-multistage-message-wrapper"
+          />
+        </MessageWrapper>
+      </ErrorBoundary>
+    ) : null;
+
     // @nova-cleanup(remove-conditional): Remove this conditional and
     // always render the Nova layout below. The classic render() return
     // and all its supporting variables (featureClassName, outerClassName,
@@ -1072,6 +1087,7 @@ export class BaseContent extends React.PureComponent {
                   />
                 </ErrorBoundary>
               )}
+              {!pocketEnabled && multistageMessageFeed}
             </main>
           </div>
           <ConfirmDialog />

@@ -1,27 +1,29 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
 
 <!-- This Source Code Form is subject to the terms of the Mozilla Public
    - License, v. 2.0. If a copy of the MPL was not distributed with this
    - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
 
-<?csp default-src chrome: ?>
-
-<window
-  id="contentSharingModalWindow"
-  xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
-  xmlns:html="http://www.w3.org/1999/xhtml"
+<html
+  xmlns="http://www.w3.org/1999/xhtml"
+  xmlns:xul="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
 >
-  <dialog id="contentSharingModal" buttons="accept">
-    <linkset>
-      <html:link rel="stylesheet" href="chrome://global/skin/global.css" />
-      <html:link
-        rel="stylesheet"
-        href="chrome://global/skin/commonDialog.css"
-      />
-    </linkset>
-
-    <div xmlns="http://www.w3.org/1999/xhtml">
-      <h4>Hello World</h4>
-    </div>
-  </dialog>
-</window>
+  <head>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src chrome:; img-src page-icon:; object-src 'none'"
+    />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="stylesheet" href="chrome://global/skin/global.css" />
+    <link rel="stylesheet" href="chrome://global/skin/in-content/common.css" />
+    <link rel="localization" href="browser/contentSharing.ftl" />
+    <script src="chrome://global/content/customElements.js"></script>
+    <script
+      src="chrome://browser/content/contentsharing/content-sharing-modal.mjs"
+      type="module"
+    ></script>
+  </head>
+  <body>
+    <content-sharing-modal></content-sharing-modal>
+  </body>
+</html>

@@ -2929,7 +2929,7 @@ BigInt* BigInt::asUintN(JSContext* cx, HandleBigInt x, uint64_t bits) {
   }
 
   size_t length;
-  Digit highDigitMask;
+  Digit highDigitMask, mask;
   {
     auto xDigits = x->digits();
     Digit msd = xDigits[xDigits.size() - 1];
@@ -2947,7 +2947,7 @@ BigInt* BigInt::asUintN(JSContext* cx, HandleBigInt x, uint64_t bits) {
     // Eagerly trim high zero digits.
     const size_t highDigitBits = ((bits - 1) % DigitBits) + 1;
     highDigitMask = Digit(-1) >> (DigitBits - highDigitBits);
-    Digit mask = highDigitMask;
+    mask = highDigitMask;
     while (length > 0) {
       if (xDigits[length - 1] & mask) {
         break;
@@ -2968,7 +2968,6 @@ BigInt* BigInt::asUintN(JSContext* cx, HandleBigInt x, uint64_t bits) {
 
   auto xDigits = x->digits();
   auto resDigits = res->digits();
-  Digit mask = highDigitMask;
   while (length-- > 0) {
     resDigits[length] = xDigits[length] & mask;
     mask = Digit(-1);

@@ -461,7 +461,14 @@ browser.timings:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1950710
     notification_emails:
       - mconley@mozilla.com
+      - perf-telemetry-alerts@mozilla.com
     expires: never
+    metadata:
+      monitor:
+        alert: False
+        lower_is_better: True
+        platforms:
+          - All
 
   new_window:
     type: timing_distribution
@@ -477,8 +484,15 @@ browser.timings:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1489524
     notification_emails:
       - mconley@mozilla.com
+      - perf-telemetry-alerts@mozilla.com
     expires: never
     telemetry_mirror: FX_NEW_WINDOW_MS
+    metadata:
+      monitor:
+        alert: False
+        lower_is_better: True
+        platforms:
+          - All
 
   page_load:
     type: timing_distribution
@@ -501,6 +515,12 @@ browser.timings:
       - product-metrics-telemetry-alerts@mozilla.com
     expires: never
     telemetry_mirror: FX_PAGE_LOAD_MS_2
+    metadata:
+      monitor:
+        alert: False
+        lower_is_better: True
+        platforms:
+          - All
 
   page_reload_normal:
     type: timing_distribution

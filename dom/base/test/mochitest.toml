@@ -133,6 +133,7 @@ support-files = [
   "file_domwindowutils_animation.html",
   "file_domwindowutils_dynamic_toolbar.html",
   "file_focus_shadow_dom.html",
+  "file_focus_shadow_dom_oop_iframe_inner.html",
   "file_general_document.html",
   "file_history_document_open.html",
   "file_lock_orientation_with_pending_fullscreen.html",
@@ -419,6 +420,8 @@ skip-if = [
   "http3",
 ]
 
+["test_focus_hidden_overflow.html"]
+
 ["test_focus_keyboard_event.html"]
 skip-if = [
   "http2",
@@ -429,13 +432,13 @@ skip-if = [
 
 ["test_focus_scroll_padding_tab.html"]
 
-["test_focus_hidden_overflow.html"]
-
 ["test_focus_scrollable_fieldset.html"]
 
 ["test_focus_scrollable_input.html"]
 
 ["test_focus_shadow_dom.html"]
+
+["test_focus_shadow_dom_oop_iframe.html"]
 
 ["test_focus_shadow_dom_root.html"]
 

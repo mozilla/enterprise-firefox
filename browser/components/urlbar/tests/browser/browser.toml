@@ -307,6 +307,8 @@ support-files = [
 
 ["browser_raceWithTabs.js"]
 
+["browser_readOnly.js"]
+
 ["browser_recentsearches.js"]
 
 ["browser_redirect_error.js"]
@@ -495,6 +497,10 @@ https_first_disabled = true
 ["browser_top_sites_switchtab.js"]
 
 ["browser_trust_panel.js"]
+https_first_disabled = true
+support-files = ["!/browser/base/content/test/protectionsUI/trackingPage.html"]
+
+["browser_trust_panel_icon.js"]
 https_first_disabled = true
 support-files = ["!/browser/base/content/test/protectionsUI/trackingPage.html"]
 

@@ -3161,6 +3161,14 @@ void DocAccessible::ShutdownChildrenInSubtree(LocalAccessible* aAccessible) {
 }
 
 bool DocAccessible::IsLoadEventTarget() const {
+  if (XRE_IsParentProcess() && !ParentDocument()) {
+    // This document is definitely detached from the tree. We should not fire
+    // events from detached documents, as this might confuse clients. Note that
+    // in the content process, the parent document might be in a different
+    // process, so we can't be sure it's detached in that case. Thus, we
+    // restrict this check to the parent process where we can be certain.
+    return false;
+  }
   return mDocumentNode->GetBrowsingContext()->IsContent();
 }
 

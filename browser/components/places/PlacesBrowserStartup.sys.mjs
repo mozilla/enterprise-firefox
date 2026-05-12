@@ -333,6 +333,10 @@ export let PlacesBrowserStartup = {
     if (
       Services.prefs.getBoolPref("browser.bookmarks.addedImportButton", false)
     ) {
+      if (!Services.policies.isAllowed("profileImport")) {
+        lazy.PlacesUIUtils.removeImportButton();
+        return;
+      }
       lazy.PlacesUIUtils.removeImportButtonWhenImportSucceeds();
       return;
     }

@@ -10,6 +10,8 @@ LOCAL_INCLUDES += [
     '/media/libjpeg/src',
 ]
 
+include('/media/libjpeg/libjpeg-config.mozbuild')
+
 # From JPEG_SOURCES in the upstream CMakeLists.txt: files with 8/12/16-bit variants.
 # Each wrapper file sets BITS_IN_JSAMPLE internally and includes the parent source.
 SOURCES += [

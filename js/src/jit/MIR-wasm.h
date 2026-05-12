@@ -3524,6 +3524,7 @@ class MWasmAddSubI128HI64 : public MQuaternaryInstruction,
     return ins->isWasmAddSubI128HI64() && congruentIfOperandsEqual(ins) &&
            ins->toWasmAddSubI128HI64()->isAdd() == isAdd();
   }
+  MDefinition* foldsTo(TempAllocator& alloc) override;
 
 #ifdef JS_JITSPEW
   void getExtras(ExtrasCollector* extras) const override {

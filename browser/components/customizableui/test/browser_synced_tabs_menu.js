@@ -56,6 +56,18 @@ let mockedInternal = {
 };
 
 add_setup(async function () {
+  // In enterprise builds, EnterpriseEndpoints.sys.mjs locks this pref at startup.
+  // Unlock it so the test can override it, and re-lock in cleanup.
+  if (
+    AppConstants.MOZ_ENTERPRISE &&
+    Services.prefs.prefIsLocked("identity.fxaccounts.remote.root")
+  ) {
+    Services.prefs.unlockPref("identity.fxaccounts.remote.root");
+    registerCleanupFunction(() => {
+      Services.prefs.lockPref("identity.fxaccounts.remote.root");
+    });
+  }
+
   const getSignedInUser = FxAccounts.config.getSignedInUser;
 
   FxAccounts.config.getSignedInUser = async () =>

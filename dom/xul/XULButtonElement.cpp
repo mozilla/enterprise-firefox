@@ -75,7 +75,7 @@ void XULButtonElement::PopupClosed(bool aDeselectMenu) {
     return;
   }
   nsContentUtils::AddScriptRunner(
-      new nsUnsetAttrRunnable(this, nsGkAtoms::open));
+      MakeAndAddRef<nsUnsetAttrRunnable>(this, nsGkAtoms::open));
 
   if (aDeselectMenu) {
     if (RefPtr<XULMenuParentElement> parent = GetMenuParent()) {

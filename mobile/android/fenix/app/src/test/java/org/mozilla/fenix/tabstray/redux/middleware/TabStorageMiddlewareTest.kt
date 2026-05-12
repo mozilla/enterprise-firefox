@@ -18,6 +18,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import mozilla.components.browser.state.action.TabListAction
 import mozilla.components.browser.state.state.BrowserState
+import mozilla.components.browser.state.state.TabSessionState
 import mozilla.components.browser.state.state.createTab
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.feature.tabs.TabsUseCases
@@ -38,6 +39,7 @@ import org.mozilla.fenix.tabstray.data.createTabGroup
 import org.mozilla.fenix.tabstray.navigation.TabManagerNavDestination
 import org.mozilla.fenix.tabstray.navigation.TabManagerNavDestination.ExpandedTabGroup
 import org.mozilla.fenix.tabstray.redux.action.TabGroupAction
+import org.mozilla.fenix.tabstray.redux.action.TabsTrayAction
 import org.mozilla.fenix.tabstray.redux.state.Page
 import org.mozilla.fenix.tabstray.redux.state.TabGroupFormState
 import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
@@ -1049,69 +1051,70 @@ class TabStorageMiddlewareTest {
         }
 
     @Test
-    fun `GIVEN the user has selected a mix of tabs and groups WHEN adding to one of the selected groups THEN the tabs are added and the groups are merged into the destination group`() = runTest {
-        val tabs = MutableList(size = 40) { createTab(url = "") }
-        val selectedTabs = MutableList(size = 40) { TabsTrayItem.Tab(tabs[it]) }
-        val tabData = TabData(tabs = tabs)
-        val tabGroups = List(size = 3) {
-            StoredTabGroup(
-                title = "Group $it",
-                theme = TabGroupTheme.Red.name,
-                lastModified = 0L,
-            )
-        }
-        val selectedTabGroups = tabGroups.map {
-            createTabGroup(
-                id = it.id,
-                title = it.title,
-                theme = TabGroupTheme.valueOf(it.theme),
-            )
-        }
-        val destinationTabGroup = selectedTabGroups.first()
-        // Assign tabs to the 3 multi-selected groups
-        selectedTabGroups[0].tabs.addAll(selectedTabs.subList(10, 20))
-        selectedTabGroups[1].tabs.addAll(selectedTabs.subList(20, 30))
-        selectedTabGroups[2].tabs.addAll(selectedTabs.subList(30, 40))
-        val initialTabAssignments = hashMapOf<String, String>()
-        selectedTabGroups.forEach { group ->
-            group.tabs.forEach { tab ->
-                initialTabAssignments[tab.id] = group.id
+    fun `GIVEN the user has selected a mix of tabs and groups WHEN adding to one of the selected groups THEN the tabs are added and the groups are merged into the destination group`() =
+        runTest {
+            val tabs = MutableList(size = 40) { createTab(url = "") }
+            val selectedTabs = MutableList(size = 40) { TabsTrayItem.Tab(tabs[it]) }
+            val tabData = TabData(tabs = tabs)
+            val tabGroups = List(size = 3) {
+                StoredTabGroup(
+                    title = "Group $it",
+                    theme = TabGroupTheme.Red.name,
+                    lastModified = 0L,
+                )
             }
-        }
-        val store = createStore(
-            initialState = TabsTrayState(
-                mode = Mode.Select(
-                    selectedTabs = selectedTabs.toSet(),
-                    selectedTabGroups = selectedTabGroups.toSet(),
+            val selectedTabGroups = tabGroups.map {
+                createTabGroup(
+                    id = it.id,
+                    title = it.title,
+                    theme = TabGroupTheme.valueOf(it.theme),
+                )
+            }
+            val destinationTabGroup = selectedTabGroups.first()
+            // Assign tabs to the 3 multi-selected groups
+            selectedTabGroups[0].tabs.addAll(selectedTabs.subList(10, 20))
+            selectedTabGroups[1].tabs.addAll(selectedTabs.subList(20, 30))
+            selectedTabGroups[2].tabs.addAll(selectedTabs.subList(30, 40))
+            val initialTabAssignments = hashMapOf<String, String>()
+            selectedTabGroups.forEach { group ->
+                group.tabs.forEach { tab ->
+                    initialTabAssignments[tab.id] = group.id
+                }
+            }
+            val store = createStore(
+                initialState = TabsTrayState(
+                    mode = Mode.Select(
+                        selectedTabs = selectedTabs.toSet(),
+                        selectedTabGroups = selectedTabGroups.toSet(),
+                    ),
                 ),
-            ),
-            tabGroupsEnabled = true,
-            tabDataFlow = flowOf(tabData),
-            tabGroupRepository = createRepository(
-                tabGroupFlow = MutableStateFlow(tabGroups),
-                tabGroupAssignmentFlow = MutableStateFlow(initialTabAssignments),
-            ),
-            scope = backgroundScope,
-        )
-        val expectedTabGroupList = listOf(destinationTabGroup.copy(tabs = selectedTabs))
-        val expectedState = TabsTrayState(
-            mode = Mode.Normal,
-            normalTabsState = TabsTrayState.NormalTabsState(
-                items = expectedTabGroupList,
-                tabCount = tabs.size,
-            ),
-            tabGroupState = TabsTrayState.TabGroupState(
-                groups = expectedTabGroupList,
-            ),
-        )
+                tabGroupsEnabled = true,
+                tabDataFlow = flowOf(tabData),
+                tabGroupRepository = createRepository(
+                    tabGroupFlow = MutableStateFlow(tabGroups),
+                    tabGroupAssignmentFlow = MutableStateFlow(initialTabAssignments),
+                ),
+                scope = backgroundScope,
+            )
+            val expectedTabGroupList = listOf(destinationTabGroup.copy(tabs = selectedTabs))
+            val expectedState = TabsTrayState(
+                mode = Mode.Normal,
+                normalTabsState = TabsTrayState.NormalTabsState(
+                    items = expectedTabGroupList,
+                    tabCount = tabs.size,
+                ),
+                tabGroupState = TabsTrayState.TabGroupState(
+                    groups = expectedTabGroupList,
+                ),
+            )
 
-        store.dispatch(TabGroupAction.SelectedTabsAddedToGroup(groupId = destinationTabGroup.id))
+            store.dispatch(TabGroupAction.SelectedTabsAddedToGroup(groupId = destinationTabGroup.id))
 
-        runCurrent()
-        advanceUntilIdle()
+            runCurrent()
+            advanceUntilIdle()
 
-        assertEquals(expectedState, store.state)
-    }
+            assertEquals(expectedState, store.state)
+        }
 
     @Test
     fun `GIVEN the user has at least one tab and one tab group WHEN the user adds a tab to an existing tab group THEN the tab is added to the specified group`() =
@@ -1257,36 +1260,568 @@ class TabStorageMiddlewareTest {
     }
 
     @Test
+    fun `WHEN a tab is reordered before a group THEN the tab id is sequenced before the first group tab`() =
+        runTest {
+            val tabs = fakeTabList()
+            val groupTabs = tabs.slice(5..7)
+            val tab = tabs[2]
+            val group = fakeGroup()
+
+            val browserStore = BrowserStore(initialState = BrowserState(tabs = tabs))
+
+            val store = setupTabsTrayStoreStateWithGroups(
+                backgroundScope = backgroundScope,
+                tabs = tabs,
+                groups = listOf(group to groupTabs),
+                browserStore = browserStore,
+            )
+            val expectedTabs = tabs.slice(0..1) + tabs.slice(3..4) + tab + groupTabs + tabs.slice(8..9)
+            val expectedBrowserState = BrowserState(
+                tabs = expectedTabs,
+            )
+
+            runCurrent()
+            advanceUntilIdle()
+
+            store.dispatch(
+                TabsTrayAction.ReorderTabsTrayItem(
+                    sourceId = tab.id,
+                    destinationId = group.id,
+                    placeAfter = false,
+                ),
+            )
+
+            runCurrent()
+            advanceUntilIdle()
+
+            assertEquals(expectedBrowserState, browserStore.state)
+        }
+
+    @Test
+    fun `WHEN a tab is reordered after a group THEN the tab id is sequenced after the last group tab`() =
+        runTest {
+            val tabs = fakeTabList()
+            val groupTabs = tabs.slice(5..7)
+            val tab = tabs[2]
+            val group = fakeGroup()
+
+            val browserStore = BrowserStore(initialState = BrowserState(tabs = tabs))
+            val store = setupTabsTrayStoreStateWithGroups(
+                backgroundScope = backgroundScope,
+                tabs = tabs,
+                groups = listOf(group to groupTabs),
+                browserStore = browserStore,
+            )
+            val expectedTabs = tabs.slice(0..1) + tabs.slice(3..4) + groupTabs + tab + tabs.slice(8..9)
+            val expectedBrowserState = BrowserState(
+                tabs = expectedTabs,
+            )
+
+            runCurrent()
+            advanceUntilIdle()
+
+            store.dispatch(
+                TabsTrayAction.ReorderTabsTrayItem(
+                    sourceId = tab.id,
+                    destinationId = group.id,
+                    placeAfter = true,
+                ),
+            )
+
+            runCurrent()
+            advanceUntilIdle()
+
+            assertEquals(expectedBrowserState, browserStore.state)
+        }
+
+    @Test
+    fun `WHEN a tab is reordered with null destination state does not change`() = runTest {
+        val tabs = fakeTabList()
+        val groupTabs = tabs.slice(5..7)
+        val tab = tabs[2]
+        val group = fakeGroup()
+
+        val browserStore = BrowserStore(initialState = BrowserState(tabs = tabs))
+        val store = setupTabsTrayStoreStateWithGroups(
+            backgroundScope = backgroundScope,
+            tabs = tabs,
+            groups = listOf(group to groupTabs),
+            browserStore = browserStore,
+        )
+        val expectedBrowserState = browserStore.state.copy()
+
+        runCurrent()
+        advanceUntilIdle()
+
+        store.dispatch(
+            TabsTrayAction.ReorderTabsTrayItem(
+                sourceId = tab.id,
+                destinationId = null,
+                placeAfter = true,
+            ),
+        )
+
+        runCurrent()
+        advanceUntilIdle()
+
+        assertEquals(expectedBrowserState, browserStore.state)
+    }
+
+    @Test
+    fun `WHEN a tab is reordered after an empty group the state does not change`() = runTest {
+        val tabs = fakeTabList()
+        val groupTabs = emptyList<TabSessionState>()
+        val tab = tabs[2]
+        val group = fakeGroup()
+
+        val browserStore = BrowserStore(initialState = BrowserState(tabs = tabs))
+        val store = setupTabsTrayStoreStateWithGroups(
+            backgroundScope = backgroundScope,
+            tabs = tabs,
+            groups = listOf(group to groupTabs),
+            browserStore = browserStore,
+        )
+        val expectedBrowserState = browserStore.state.copy()
+
+        runCurrent()
+        advanceUntilIdle()
+
+        store.dispatch(
+            TabsTrayAction.ReorderTabsTrayItem(
+                sourceId = tab.id,
+                destinationId = group.id,
+                placeAfter = true,
+            ),
+        )
+
+        runCurrent()
+        advanceUntilIdle()
+
+        assertEquals(expectedBrowserState, browserStore.state)
+    }
+
+    @Test
+    fun `WHEN a tab is reordered before an empty group the state does not change`() = runTest {
+        val tabs = fakeTabList()
+        val groupTabs = emptyList<TabSessionState>()
+        val tab = tabs[2]
+        val group = fakeGroup()
+
+        val browserStore = BrowserStore(initialState = BrowserState(tabs = tabs))
+        val store = setupTabsTrayStoreStateWithGroups(
+            backgroundScope = backgroundScope,
+            tabs = tabs,
+            groups = listOf(group to groupTabs),
+            browserStore = browserStore,
+        )
+        val expectedBrowserState = browserStore.state.copy()
+
+        runCurrent()
+        advanceUntilIdle()
+
+        store.dispatch(
+            TabsTrayAction.ReorderTabsTrayItem(
+                sourceId = tab.id,
+                destinationId = group.id,
+                placeAfter = false,
+            ),
+        )
+
+        runCurrent()
+        advanceUntilIdle()
+
+        assertEquals(expectedBrowserState, browserStore.state)
+    }
+
+    @Test
+    fun `WHEN a group is reordered before a tab THEN the grouped tab IDs are sequenced together before the tab`() =
+        runTest {
+            val tabs = fakeTabList()
+            val groupTabs = tabs.slice(5..7)
+            val destinationTab = tabs[2]
+            val group = fakeGroup()
+            val browserStore = BrowserStore(initialState = BrowserState(tabs = tabs))
+            val store = setupTabsTrayStoreStateWithGroups(
+                backgroundScope = backgroundScope,
+                tabs = tabs,
+                groups = listOf(group to groupTabs),
+                browserStore = browserStore,
+            )
+            val expectedTabs = tabs.slice(0..1) + groupTabs + destinationTab + tabs.slice(3..4) + tabs.slice(8..9)
+            val expectedBrowserState = BrowserState(
+                tabs = expectedTabs,
+            )
+
+            runCurrent()
+            advanceUntilIdle()
+
+            store.dispatch(
+                TabsTrayAction.ReorderTabsTrayItem(
+                    sourceId = group.id,
+                    destinationId = destinationTab.id,
+                    placeAfter = false,
+                ),
+            )
+
+            runCurrent()
+            advanceUntilIdle()
+
+            assertEquals(expectedBrowserState, browserStore.state)
+        }
+
+    @Test
+    fun `WHEN a group is reordered after a tab THEN the grouped tab IDs are sequenced together after the tab`() =
+        runTest {
+            val tabs = fakeTabList()
+            val groupTabs = tabs.slice(5..7)
+            val destinationTab = tabs[2]
+            val group = fakeGroup()
+            val browserStore = BrowserStore(initialState = BrowserState(tabs = tabs))
+            val store = setupTabsTrayStoreStateWithGroups(
+                backgroundScope = backgroundScope,
+                tabs = tabs,
+                groups = listOf(group to groupTabs),
+                browserStore = browserStore,
+            )
+            val expectedTabs = tabs.slice(0..1) + destinationTab + groupTabs + tabs.slice(3..4) + tabs.slice(8..9)
+            val expectedBrowserState = BrowserState(
+                tabs = expectedTabs,
+            )
+
+            runCurrent()
+            advanceUntilIdle()
+
+            store.dispatch(
+                TabsTrayAction.ReorderTabsTrayItem(
+                    sourceId = group.id,
+                    destinationId = destinationTab.id,
+                    placeAfter = true,
+                ),
+            )
+
+            runCurrent()
+            advanceUntilIdle()
+
+            assertEquals(expectedBrowserState, browserStore.state)
+        }
+
+    @Test
+    fun `WHEN a tab is reordered before another tab THEN the source tab is placed before the destination tab`() =
+        runTest {
+            val tabs = fakeTabList()
+            val groupTabs = tabs.slice(5..7)
+            val sourceTab = tabs[9]
+            val destinationTab = tabs[2]
+            val group = fakeGroup()
+
+            val browserStore = BrowserStore(initialState = BrowserState(tabs = tabs))
+            val store = setupTabsTrayStoreStateWithGroups(
+                backgroundScope = backgroundScope,
+                tabs = tabs,
+                groups = listOf(group to groupTabs),
+                browserStore = browserStore,
+            )
+            val expectedTabs = tabs.slice(0..1) + sourceTab + destinationTab + tabs.slice(3..8)
+            val expectedBrowserState = BrowserState(
+                tabs = expectedTabs,
+            )
+
+            runCurrent()
+            advanceUntilIdle()
+
+            store.dispatch(
+                TabsTrayAction.ReorderTabsTrayItem(
+                    sourceId = sourceTab.id,
+                    destinationId = destinationTab.id,
+                    placeAfter = false,
+                ),
+            )
+
+            runCurrent()
+            advanceUntilIdle()
+
+            assertEquals(expectedBrowserState, browserStore.state)
+        }
+
+    @Test
+    fun `WHEN a tab is reordered after another tab THEN the source tab is placed after the destination tab`() =
+        runTest {
+            val tabs = fakeTabList()
+            val groupTabs = tabs.slice(5..7)
+            val sourceTab = tabs[9]
+            val destinationTab = tabs[2]
+            val group = fakeGroup()
+
+            val browserStore = BrowserStore(initialState = BrowserState(tabs = tabs))
+            val store = setupTabsTrayStoreStateWithGroups(
+                backgroundScope = backgroundScope,
+                tabs = tabs,
+                groups = listOf(group to groupTabs),
+                browserStore = browserStore,
+            )
+            val expectedTabs = tabs.slice(0..1) + destinationTab + sourceTab + tabs.slice(3..8)
+            val expectedBrowserState = BrowserState(
+                tabs = expectedTabs,
+            )
+
+            runCurrent()
+            advanceUntilIdle()
+
+            store.dispatch(
+                TabsTrayAction.ReorderTabsTrayItem(
+                    sourceId = sourceTab.id,
+                    destinationId = destinationTab.id,
+                    placeAfter = true,
+                ),
+            )
+
+            runCurrent()
+            advanceUntilIdle()
+
+            assertEquals(expectedBrowserState, browserStore.state)
+        }
+
+    @Test
+    fun `WHEN a private tab is reordered after another private tab THEN the source tab is placed after the destination tab`() =
+        runTest {
+            val tabs = List(size = 10) { createTab(url = "$it", private = true) }
+            val sourceTab = tabs[9]
+            val destinationTab = tabs[2]
+
+            val browserStore = BrowserStore(initialState = BrowserState(tabs = tabs))
+            val store = setupTabsTrayStoreStateWithGroups(
+                backgroundScope = backgroundScope,
+                tabs = tabs,
+                groups = emptyList(),
+                browserStore = browserStore,
+            )
+            val expectedTabs = tabs.slice(0..1) + destinationTab + sourceTab + tabs.slice(3..8)
+            val expectedBrowserState = BrowserState(
+                tabs = expectedTabs,
+            )
+
+            runCurrent()
+            advanceUntilIdle()
+
+            store.dispatch(
+                TabsTrayAction.ReorderTabsTrayItem(
+                    sourceId = sourceTab.id,
+                    destinationId = destinationTab.id,
+                    placeAfter = true,
+                ),
+            )
+
+            runCurrent()
+            advanceUntilIdle()
+
+            assertEquals(expectedBrowserState, browserStore.state)
+        }
+
+    @Test
+    fun `WHEN a private tab is reordered before another private tab THEN the source tab is placed before the destination tab`() =
+        runTest {
+            val tabs = List(size = 10) { createTab(url = "$it", private = true) }
+            val sourceTab = tabs[9]
+            val destinationTab = tabs[2]
+
+            val browserStore = BrowserStore(initialState = BrowserState(tabs = tabs))
+            val store = setupTabsTrayStoreStateWithGroups(
+                backgroundScope = backgroundScope,
+                tabs = tabs,
+                groups = emptyList(),
+                browserStore = browserStore,
+            )
+            val expectedTabs = tabs.slice(0..1) + sourceTab + destinationTab + tabs.slice(3..8)
+            val expectedBrowserState = BrowserState(
+                tabs = expectedTabs,
+            )
+
+            runCurrent()
+            advanceUntilIdle()
+
+            store.dispatch(
+                TabsTrayAction.ReorderTabsTrayItem(
+                    sourceId = sourceTab.id,
+                    destinationId = destinationTab.id,
+                    placeAfter = false,
+                ),
+            )
+
+            runCurrent()
+            advanceUntilIdle()
+
+            assertEquals(expectedBrowserState, browserStore.state)
+        }
+
+    @Test
+    fun `WHEN a group is reordered before an empty group THEN the state does not change`() =
+        runTest {
+            val tabs = fakeTabList()
+            val sourceGroup = fakeGroup(title = "Group 1")
+            val targetGroup = fakeGroup(title = "Group 2")
+            val browserStore = BrowserStore(initialState = BrowserState(tabs = tabs))
+            val store = setupTabsTrayStoreStateWithGroups(
+                backgroundScope = backgroundScope,
+                tabs = tabs,
+                groups = listOf(
+                    sourceGroup to tabs.slice(0..2),
+                    targetGroup to emptyList(),
+                ),
+                browserStore = browserStore,
+            )
+            val expectedBrowserState = browserStore.state.copy()
+
+            runCurrent()
+            advanceUntilIdle()
+
+            store.dispatch(
+                TabsTrayAction.ReorderTabsTrayItem(
+                    sourceId = sourceGroup.id,
+                    destinationId = targetGroup.id,
+                    placeAfter = false,
+                ),
+            )
+
+            runCurrent()
+            advanceUntilIdle()
+
+            assertEquals(expectedBrowserState, browserStore.state)
+        }
+
+    @Test
+    fun `WHEN a group is reordered after an empty group THEN the state does not change`() =
+        runTest {
+            val tabs = fakeTabList()
+            val sourceGroup = fakeGroup(title = "Group 1")
+            val targetGroup = fakeGroup(title = "Group 2")
+            val browserStore = BrowserStore(initialState = BrowserState(tabs = tabs))
+            val store = setupTabsTrayStoreStateWithGroups(
+                backgroundScope = backgroundScope,
+                tabs = tabs,
+                groups = listOf(
+                    sourceGroup to tabs.slice(0..2),
+                    targetGroup to emptyList(),
+                ),
+                browserStore = browserStore,
+            )
+            val expectedBrowserState = browserStore.state.copy()
+
+            runCurrent()
+            advanceUntilIdle()
+
+            store.dispatch(
+                TabsTrayAction.ReorderTabsTrayItem(
+                    sourceId = sourceGroup.id,
+                    destinationId = targetGroup.id,
+                    placeAfter = true,
+                ),
+            )
+
+            runCurrent()
+            advanceUntilIdle()
+
+            assertEquals(expectedBrowserState, browserStore.state)
+        }
+
+    @Test
+    fun `WHEN a group is reordered before another group THEN the source group's tab IDs are sequenced together before the target group's tabs`() =
+        runTest {
+            val tabs = fakeTabList()
+            val sourceGroupTabs = tabs.slice(0..2)
+            val targetGroupTabs = tabs.slice(7..9)
+            val sourceGroup = fakeGroup(title = "Group 1")
+            val targetGroup = fakeGroup(title = "Group 2")
+            val browserStore = BrowserStore(initialState = BrowserState(tabs = tabs))
+            val store = setupTabsTrayStoreStateWithGroups(
+                backgroundScope = backgroundScope,
+                tabs = tabs,
+                groups = listOf(
+                    sourceGroup to sourceGroupTabs,
+                    targetGroup to targetGroupTabs,
+                ),
+                browserStore = browserStore,
+            )
+            val expectedTabs = tabs.slice(3..6) + sourceGroupTabs + targetGroupTabs
+            val expectedBrowserState = BrowserState(
+                tabs = expectedTabs,
+            )
+
+            runCurrent()
+            advanceUntilIdle()
+
+            store.dispatch(
+                TabsTrayAction.ReorderTabsTrayItem(
+                    sourceId = sourceGroup.id,
+                    destinationId = targetGroup.id,
+                    placeAfter = false,
+                ),
+            )
+
+            runCurrent()
+            advanceUntilIdle()
+
+            assertEquals(expectedBrowserState, browserStore.state)
+        }
+
+    @Test
+    fun `WHEN a group is reordered after another group THEN the source group's tab IDs are sequenced together after the target group's tabs`() =
+        runTest {
+            val tabs = fakeTabList()
+            val sourceGroupTabs = tabs.slice(0..2)
+            val targetGroupTabs = tabs.slice(7..9)
+            val sourceGroup = fakeGroup(title = "Group 1")
+            val targetGroup = fakeGroup(title = "Group 2")
+            val browserStore = BrowserStore(initialState = BrowserState(tabs = tabs))
+            val store = setupTabsTrayStoreStateWithGroups(
+                backgroundScope = backgroundScope,
+                tabs = tabs,
+                groups = listOf(
+                    sourceGroup to sourceGroupTabs,
+                    targetGroup to targetGroupTabs,
+                ),
+                browserStore = browserStore,
+            )
+            val expectedTabs = tabs.slice(3..6) + targetGroupTabs + sourceGroupTabs
+            val expectedBrowserState = BrowserState(
+                tabs = expectedTabs,
+            )
+
+            runCurrent()
+            advanceUntilIdle()
+
+            store.dispatch(
+                TabsTrayAction.ReorderTabsTrayItem(
+                    sourceId = sourceGroup.id,
+                    destinationId = targetGroup.id,
+                    placeAfter = true,
+                ),
+            )
+
+            runCurrent()
+            advanceUntilIdle()
+
+            assertEquals(expectedBrowserState, browserStore.state)
+        }
+
+    @Test
     fun `WHEN a group is merged into another group the tabs are sequenced together by destination`() = runTest {
         val tabs = List(size = 10) { createTab(url = "$it") }
         val sourceGroupTabs = tabs.slice(0..3)
         val ungroupedTabs = tabs.slice(4..6)
-        val destinationGroupTabs = tabs.slice(7..9)
+        val targetGroupTabs = tabs.slice(7..9)
         val browserStore = BrowserStore(initialState = BrowserState(tabs = tabs))
-        val sourceStoredGroup = StoredTabGroup(
-            title = "Group 1",
-            theme = TabGroupTheme.Red.name,
-            lastModified = 0L,
-        )
-        val destinationStoredGroup = StoredTabGroup(
-            title = "Group 2",
-            theme = TabGroupTheme.Blue.name,
-            lastModified = 0L,
-        )
-        val store = createStore(
-            tabGroupsEnabled = true,
-            tabGroupRepository = createRepository(
-                tabGroupFlow = MutableStateFlow(listOf(sourceStoredGroup, destinationStoredGroup)),
-                tabGroupAssignmentFlow = MutableStateFlow(
-                    sourceGroupTabs.associate { it.id to sourceStoredGroup.id } +
-                        destinationGroupTabs.associate { it.id to destinationStoredGroup.id },
-                ),
+        val sourceGroup = fakeGroup(title = "Group 1")
+        val targetGroup = fakeGroup(title = "Group 2")
+        val store = setupTabsTrayStoreStateWithGroups(
+            backgroundScope = backgroundScope,
+            tabs = tabs,
+            groups = listOf(
+                sourceGroup to sourceGroupTabs,
+                targetGroup to targetGroupTabs,
             ),
-            scope = backgroundScope,
-            moveTabsUseCase = MoveTabsUseCase(store = browserStore),
-            tabDataFlow = flowOf(TabData(tabs = tabs)),
+            browserStore = browserStore,
         )
-        val expectedTabs = ungroupedTabs + destinationGroupTabs + sourceGroupTabs
+        val expectedTabs = ungroupedTabs + targetGroupTabs + sourceGroupTabs
         val expectedBrowserState = BrowserState(
             tabs = expectedTabs,
         )
@@ -1296,8 +1831,8 @@ class TabStorageMiddlewareTest {
 
         store.dispatch(
             TabGroupAction.DragAndDropCompleted(
-                sourceId = sourceStoredGroup.id,
-                destinationId = destinationStoredGroup.id,
+                sourceId = sourceGroup.id,
+                destinationId = targetGroup.id,
             ),
         )
 
@@ -1876,4 +2411,45 @@ class TabStorageMiddlewareTest {
         tabGroupFlow = tabGroupFlow,
         tabGroupAssignmentFlow = tabGroupAssignmentFlow,
     )
+
+    private fun fakeTabList(): List<TabSessionState> {
+        return List(size = 10) { createTab(url = "$it") }
+    }
+
+    private fun fakeGroup(title: String = "Group 1"): StoredTabGroup {
+        return StoredTabGroup(
+            title = title,
+            theme = TabGroupTheme.Red.name,
+            lastModified = 0L,
+        )
+    }
+
+    /**
+     * Store setup logic for tests that includes group creation, the move tabs use case, and setup of the various
+     * flows for tabs and group assignments.
+     */
+    private fun setupTabsTrayStoreStateWithGroups(
+        backgroundScope: CoroutineScope,
+        tabs: List<TabSessionState>,
+        groups: List<Pair<StoredTabGroup, List<TabSessionState>>>,
+        browserStore: BrowserStore,
+    ): TabsTrayStore {
+        val tabGroupAssignment = groups.map { groupPair ->
+            groupPair.second.associate { tab ->
+                tab.id to groupPair.first.id
+            }
+        }.takeIf { it.isNotEmpty() }?.reduce { acc, map -> acc + map } ?: emptyMap()
+        return createStore(
+            tabGroupsEnabled = true,
+            tabGroupRepository = createRepository(
+                tabGroupFlow = MutableStateFlow(groups.map { it.first }),
+                tabGroupAssignmentFlow = MutableStateFlow(
+                    tabGroupAssignment,
+                ),
+            ),
+            scope = backgroundScope,
+            moveTabsUseCase = MoveTabsUseCase(store = browserStore),
+            tabDataFlow = flowOf(TabData(tabs = tabs)),
+        )
+    }
 }

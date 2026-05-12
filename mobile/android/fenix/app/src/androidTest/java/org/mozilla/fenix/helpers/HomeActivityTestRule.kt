@@ -12,7 +12,6 @@ import android.os.Looper
 import android.os.StrictMode
 import android.util.Log
 import android.view.ViewConfiguration.getLongPressTimeout
-import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.test.espresso.intent.rule.IntentsTestRule
 import androidx.test.rule.ActivityTestRule
 import mozilla.components.feature.sitepermissions.SitePermissionsRules
@@ -27,8 +26,6 @@ import org.mozilla.fenix.helpers.TestHelper.appContext
 import org.mozilla.fenix.helpers.TestHelper.mDevice
 import org.mozilla.fenix.onboarding.FenixOnboarding
 import org.mozilla.fenix.settings.PhoneFeature
-
-typealias HomeActivityComposeTestRule = AndroidComposeTestRule<out TestRule, HomeActivity>
 
 /**
  * A [org.junit.Rule] to handle shared test set up for tests on [HomeActivity].

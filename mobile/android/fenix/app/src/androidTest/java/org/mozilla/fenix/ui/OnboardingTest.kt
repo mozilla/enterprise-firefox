@@ -1,9 +1,7 @@
 package org.mozilla.fenix.ui
 
 import android.os.Build
-import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.test.filters.SdkSuppress
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.mozilla.fenix.customannotations.SmokeTest
@@ -18,6 +16,8 @@ import org.mozilla.fenix.helpers.TestHelper.restartApp
 import org.mozilla.fenix.helpers.perf.DetectMemoryLeaksRule
 import org.mozilla.fenix.ui.robots.homeScreen
 import org.mozilla.fenix.ui.robots.navigationToolbar
+import kotlin.test.Ignore
+import androidx.compose.ui.test.junit4.v2.AndroidComposeTestRule as AndroidComposeTestRuleV2
 
 class OnboardingTest {
     @get:Rule(order = 0)
@@ -25,20 +25,20 @@ class OnboardingTest {
 
     private val mockWebServer get() = fenixTestRule.mockWebServer
 
-    @get:Rule
+    @get:Rule(order = 1)
     val composeTestRule =
-        AndroidComposeTestRule(
+        AndroidComposeTestRuleV2(
             HomeActivityIntentTestRule.withDefaultSettingsOverrides(launchActivity = false),
         ) { it.activity }
 
-    @get:Rule
-    val memoryLeaksRule = DetectMemoryLeaksRule()
+    @get:Rule(order = 2)
+    val memoryLeaksRule = DetectMemoryLeaksRule(composeTestRule = { composeTestRule })
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3349493
     @SmokeTest
     @Test
     fun verifyTheTermsOfUseOnboardingCardTest() {
-        runWithLauncherIntent(composeTestRule) {
+        runWithLauncherIntent(composeTestRule.activityRule) {
             homeScreen(composeTestRule) {
                 verifyTheTermsOfUseOnboardingCard()
                 clickTheOnboardingCardContinueButton()
@@ -59,7 +59,7 @@ class OnboardingTest {
     @SmokeTest
     @Test
     fun verifyTheSetAsDefaultBrowserOnboardingCardFunctionalityTest() {
-        runWithLauncherIntent(composeTestRule) {
+        runWithLauncherIntent(composeTestRule.activityRule) {
             homeScreen(composeTestRule) {
                 verifyTheTermsOfUseOnboardingCard()
                 clickTheOnboardingCardContinueButton()
@@ -75,7 +75,7 @@ class OnboardingTest {
     @SmokeTest
     @Test
     fun verifyTheFirefoxSearchWidgetOnboardingCardTest() {
-        runWithLauncherIntent(composeTestRule) {
+        runWithLauncherIntent(composeTestRule.activityRule) {
             homeScreen(composeTestRule) {
                 clickTheOnboardingCardContinueButton()
                 clickTheSetAsDefaultBrowserDialogCancelButton()
@@ -90,11 +90,12 @@ class OnboardingTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3349496
+    @Ignore("Disabled, see: https://bugzilla.mozilla.org/show_bug.cgi?id=2037831")
     @SdkSuppress(minSdkVersion = 29)
     @SmokeTest
     @Test
     fun verifyTheStartSyncingOnboardingCardTest() {
-        runWithLauncherIntent(composeTestRule) {
+        runWithLauncherIntent(composeTestRule.activityRule) {
             homeScreen(composeTestRule) {
                 clickTheOnboardingCardContinueButton()
                 clickTheSetAsDefaultBrowserDialogCancelButton()
@@ -120,11 +121,12 @@ class OnboardingTest {
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3349498
     // If the device is running on Android version higher or equal to 13 the "Turn on notifications" onboarding card is displayed
+    @Ignore("Disabled, see: https://bugzilla.mozilla.org/show_bug.cgi?id=2037831")
     @SdkSuppress(minSdkVersion = 33)
     @SmokeTest
     @Test
     fun verifyTheNotificationsOnboardingCardTest() {
-        runWithLauncherIntent(composeTestRule) {
+        runWithLauncherIntent(composeTestRule.activityRule) {
             homeScreen(composeTestRule) {
                 clickTheOnboardingCardContinueButton()
                 clickTheSetAsDefaultBrowserDialogCancelButton()
@@ -143,13 +145,14 @@ class OnboardingTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3349499
+    @Ignore("Disabled, see: https://bugzilla.mozilla.org/show_bug.cgi?id=2037831")
     @SdkSuppress(minSdkVersion = 29)
     @SmokeTest
     @Test
     fun verifyTheChooseYourAddressBarOnboardingCardTest() {
         val genericPage = mockWebServer.getGenericAsset(1)
 
-        runWithLauncherIntent(composeTestRule) {
+        runWithLauncherIntent(composeTestRule.activityRule) {
             homeScreen(composeTestRule) {
                 clickTheOnboardingCardContinueButton()
                 clickTheSetAsDefaultBrowserDialogCancelButton()
@@ -178,10 +181,11 @@ class OnboardingTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3349492
+    @Ignore("Disabled, see: https://bugzilla.mozilla.org/show_bug.cgi?id=2037831")
     @SdkSuppress(minSdkVersion = 29)
     @Test
     fun verifyTheOnboardingCardOrderTest() {
-        runWithLauncherIntent(composeTestRule) {
+        runWithLauncherIntent(composeTestRule.activityRule) {
             homeScreen(composeTestRule) {
                 verifyTheTermsOfUseOnboardingCard()
                 clickTheOnboardingCardContinueButton()
@@ -214,7 +218,7 @@ class OnboardingTest {
     @SdkSuppress(minSdkVersion = 29)
     @Test
     fun verifyTheTermsOfUseOnboardingCardCannotBeDismissedWithoutAcceptingTest() {
-        runWithLauncherIntent(composeTestRule) {
+        runWithLauncherIntent(composeTestRule.activityRule) {
             homeScreen(composeTestRule) {
                 verifyTheTermsOfUseOnboardingCard()
                 swipeRightTheTermsOfUseOnboardingCard()
@@ -234,7 +238,7 @@ class OnboardingTest {
     @SdkSuppress(minSdkVersion = 29)
     @Test
     fun verifyTheSetAsDefaultBrowserOnboardingCardTest() {
-        runWithLauncherIntent(composeTestRule) {
+        runWithLauncherIntent(composeTestRule.activityRule) {
             homeScreen(composeTestRule) {
                 verifyTheTermsOfUseOnboardingCard()
                 clickTheOnboardingCardContinueButton()

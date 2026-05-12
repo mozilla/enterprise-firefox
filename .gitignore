@@ -409,6 +409,9 @@ toolkit/crashreporter/minidump-analyzer/target/
 CLAUDE.local.md
 .claude/settings.local.json
 
+# Ignore claude scheduled task lock file
+.claude/scheduled_tasks.lock
+
 # Ignore Claude Code worktrees
 .claude/worktrees/
 .worktreeinclude

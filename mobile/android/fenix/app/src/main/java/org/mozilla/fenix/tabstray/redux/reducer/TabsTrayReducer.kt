@@ -72,6 +72,7 @@ internal object TabsTrayReducer {
             is TabsTrayAction.CloseAllPrivateTabs,
             is TabsTrayAction.BookmarkSelectedTabs,
             is TabsTrayAction.ThreeDotMenuShown,
+            is TabsTrayAction.ReorderTabsTrayItem,
                 -> state
         }
 

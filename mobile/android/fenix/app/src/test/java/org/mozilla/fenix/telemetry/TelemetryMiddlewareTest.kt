@@ -13,6 +13,7 @@ import kotlinx.coroutines.test.runTest
 import mozilla.components.browser.state.action.ContentAction
 import mozilla.components.browser.state.action.EngineAction
 import mozilla.components.browser.state.action.ExtensionsProcessAction
+import mozilla.components.browser.state.action.RestoreCompleteAction
 import mozilla.components.browser.state.action.TabListAction
 import mozilla.components.browser.state.action.TranslationsAction
 import mozilla.components.browser.state.engine.EngineMiddleware
@@ -324,7 +325,7 @@ class TelemetryMiddlewareTest {
         }
 
     @Test
-    fun `GIVEN an existing tab WHEN it reloads THEN telemetry is sent`() = runTest {
+    fun `GIVEN an existing tab WHEN its process is killed and it reloads THEN telemetry is sent with content_process_kill reason`() = runTest {
         val tabId = "test-tab-id"
 
         store.dispatch(
@@ -350,8 +351,128 @@ class TelemetryMiddlewareTest {
         val recordedEvents = EngineMetrics.reloaded.testGetValue()
         assertNotNull(recordedEvents)
         assertEquals(1, recordedEvents!!.size)
+        assertEquals("-1", recordedEvents[0].extra?.get("duration_since_last_visible_seconds"))
+        assertEquals("content_process_kill", recordedEvents[0].extra?.get("reason"))
 
         assertFalse(store.state.recentlyKilledTabs.contains(tabId))
+    }
+
+    @Test
+    fun `GIVEN a tab with a known lastVisibleAt WHEN it reloads THEN duration_since_last_visible_seconds is correct`() =
+        runTest {
+            val tabId = "test-tab-id"
+            val lastVisibleAt = System.currentTimeMillis() - 300_000L
+
+            store.dispatch(
+                TabListAction.AddTabAction(
+                    createTab(id = tabId, url = "https://firefox.com", lastVisibleAt = lastVisibleAt),
+                ),
+            )
+
+            store.dispatch(EngineAction.KillEngineSessionAction(tabId))
+            store.dispatch(EngineAction.CreateEngineSessionAction(tabId))
+
+            ShadowLooper.idleMainLooper()
+
+            val recordedEvents = EngineMetrics.reloaded.testGetValue()
+            assertNotNull(recordedEvents)
+            val duration = recordedEvents!![0].extra?.get("duration_since_last_visible_seconds")?.toInt()
+            assertNotNull(duration)
+            assertTrue("Expected ~300s, got $duration", duration!! in 298..305)
+        }
+
+    @Test
+    fun `GIVEN a tab with lastVisibleAt of 0 WHEN it reloads THEN duration_since_last_visible_seconds is -1`() =
+        runTest {
+            val tabId = "test-tab-id"
+
+            store.dispatch(
+                TabListAction.AddTabAction(
+                    createTab(id = tabId, url = "https://firefox.com", lastVisibleAt = 0L),
+                ),
+            )
+
+            store.dispatch(EngineAction.KillEngineSessionAction(tabId))
+            store.dispatch(EngineAction.CreateEngineSessionAction(tabId))
+
+            ShadowLooper.idleMainLooper()
+
+            val recordedEvents = EngineMetrics.reloaded.testGetValue()
+            assertNotNull(recordedEvents)
+            assertEquals("-1", recordedEvents!![0].extra?.get("duration_since_last_visible_seconds"))
+        }
+
+    @Test
+    fun `GIVEN a background tab switched away 20min ago and a foreground tab backgrounded 10min ago WHEN both are killed and reloaded THEN each records its own duration`() =
+        runTest {
+            val switchedTabId = "switched-tab"
+            val foregroundTabId = "foreground-tab"
+            val now = System.currentTimeMillis()
+            // Switched-away tab was last visible 20 minutes ago.
+            val switchedTabLastVisibleAt = now - 20 * 60 * 1000L
+            // Foreground tab was last visible 10 minutes ago (when app was backgrounded).
+            val foregroundTabLastVisibleAt = now - 10 * 60 * 1000L
+
+            store.dispatch(
+                TabListAction.AddTabAction(
+                    createTab(id = switchedTabId, url = "https://mozilla.org", lastVisibleAt = switchedTabLastVisibleAt),
+                ),
+            )
+            store.dispatch(
+                TabListAction.AddTabAction(
+                    createTab(id = foregroundTabId, url = "https://firefox.com", lastVisibleAt = foregroundTabLastVisibleAt),
+                ),
+            )
+
+            store.dispatch(EngineAction.KillEngineSessionAction(switchedTabId))
+            store.dispatch(EngineAction.KillEngineSessionAction(foregroundTabId))
+
+            // Reload switched tab first, then foreground tab.
+            store.dispatch(EngineAction.CreateEngineSessionAction(switchedTabId))
+            store.dispatch(EngineAction.CreateEngineSessionAction(foregroundTabId))
+
+            ShadowLooper.idleMainLooper()
+
+            val recordedEvents = EngineMetrics.reloaded.testGetValue()
+            assertNotNull(recordedEvents)
+            assertEquals(2, recordedEvents!!.size)
+
+            // Events are recorded in dispatch order: switched tab first, foreground tab second.
+            val switchedDuration = recordedEvents[0].extra?.get("duration_since_last_visible_seconds")?.toInt()
+            val foregroundDuration = recordedEvents[1].extra?.get("duration_since_last_visible_seconds")?.toInt()
+
+            assertNotNull(switchedDuration)
+            assertNotNull(foregroundDuration)
+            // Switched tab: ~1200s (20 min)
+            assertTrue("Expected ~1200s, got $switchedDuration", switchedDuration!! in 1198..1205)
+            // Foreground tab: ~600s (10 min)
+            assertTrue("Expected ~600s, got $foregroundDuration", foregroundDuration!! in 598..605)
+            // The switched-away tab always has a longer duration than the foregrounded one.
+            assertTrue(switchedDuration > foregroundDuration)
+        }
+
+    @Test
+    fun `GIVEN a tab restored from a previous session WHEN its engine session is created THEN telemetry is sent with app_session_restore reason`() = runTest {
+        val tabId = "test-tab-id"
+
+        store.dispatch(
+            TabListAction.RestoreAction(
+                tabs = listOf(RecoverableTab(null, TabState(url = "https://firefox.com", id = tabId))),
+                restoreLocation = TabListAction.RestoreAction.RestoreLocation.BEGINNING,
+            ),
+        )
+        store.dispatch(RestoreCompleteAction)
+
+        store.dispatch(
+            EngineAction.CreateEngineSessionAction(tabId),
+        )
+
+        ShadowLooper.idleMainLooper()
+
+        val recordedEvents = EngineMetrics.reloaded.testGetValue()
+        assertNotNull(recordedEvents)
+        assertEquals(1, recordedEvents!!.size)
+        assertEquals("app_session_restore", recordedEvents[0].extra?.get("reason"))
     }
 
     @Test
@@ -432,13 +553,14 @@ class TelemetryMiddlewareTest {
             assertTrue(store.state.recentlyKilledTabs.contains(newTabId))
             assertEquals(50, store.state.recentlyKilledTabs.size)
 
-            // Verify the reload of the newest tab was recorded
+            // Verify the reload of the newest tab was recorded with process_kill reason
             val recordedEventsBefore = EngineMetrics.reloaded.testGetValue()?.size ?: 0
             store.dispatch(EngineAction.CreateEngineSessionAction(newTabId))
             ShadowLooper.idleMainLooper()
             val recordedEventsAfter = EngineMetrics.reloaded.testGetValue()
             assertNotNull(recordedEventsAfter)
             assertEquals(recordedEventsBefore + 1, recordedEventsAfter!!.size)
+            assertEquals("content_process_kill", recordedEventsAfter.last().extra?.get("reason"))
         }
 
     @Test

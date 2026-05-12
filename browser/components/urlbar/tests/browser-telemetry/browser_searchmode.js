@@ -717,13 +717,7 @@ add_task(async function test_unified_search_button() {
 
   let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser);
 
-  info("Show search mode switcher");
-  let popup = await UrlbarTestUtils.openSearchModeSwitcher(window);
-
-  info("Press on the search engine we added for test and enter search mode");
-  let popupHidden = UrlbarTestUtils.searchModeSwitcherPopupClosed(window);
-  popup.querySelector("panel-item").button.click();
-  await popupHidden;
+  await UrlbarTestUtils.activateSearchModeSwitcherItem(window, "panel-item");
   await UrlbarTestUtils.assertSearchMode(window, {
     engineName,
     entry: "searchbutton",

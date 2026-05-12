@@ -358,7 +358,6 @@ class SystemEngineViewTest {
         engineSession.webView.webViewClient.doUpdateVisitedHistory(webView, "https://www.mozilla.com/not-allowed", false)
         verify(historyDelegate, never()).onVisited(eq("https://www.mozilla.com/not-allowed"), any())
         verify(historyDelegate).shouldStoreUri("https://www.mozilla.com/not-allowed")
-        Unit
     }
 
     @Test

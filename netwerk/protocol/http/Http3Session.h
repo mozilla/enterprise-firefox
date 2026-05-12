@@ -202,6 +202,15 @@ class Http3Session final : public Http3SessionBase,
   bool AddStream(nsAHttpTransaction* aHttpTransaction, int32_t aPriority,
                  nsIInterfaceRequestor* aCallbacks);
 
+  // Swap the transaction backing an existing stream. Used by the HE /
+  // 0-RTT adopt path: the HappyEyeballsTransaction shim was the key
+  // under which AddStream registered the stream; after the real
+  // nsHttpTransaction adopts it, we need both mStreamTransactionHash
+  // and the stream's own mTransaction to point at the real txn so
+  // CloseTransaction(real_txn) can find the stream. No-op if aOld
+  // isn't in the hash.
+  void SwapTransaction(nsAHttpTransaction* aOld, nsAHttpTransaction* aNew);
+
   bool CanReuse();
 
   // The following functions are used by Http3Stream and

@@ -48,6 +48,10 @@ function ExternalComponentWrapper({
 }) {
   const containerRef = React.useRef(null);
   const customElementRef = React.useRef(null);
+  const cleanupRef = React.useRef(null);
+  const scriptRef = React.useRef(null);
+  const styleRef = React.useRef(null);
+  const shadowRootRef = React.useRef(null);
   const l10nLinksRef = React.useRef([]);
   const [error, setError] = React.useState(null);
   const { components } = useSelector(state => state.ExternalComponents);
@@ -66,16 +70,55 @@ function ExternalComponentWrapper({
           return;
         }
 
-        await importModule(config.componentURL);
-
         l10nLinksRef.current = [];
-        for (let l10nURL of config.l10nURLs) {
+        for (const l10nURL of config.l10nURLs ?? []) {
           const l10nEl = document.createElement("link");
           l10nEl.rel = "localization";
           l10nEl.href = l10nURL;
           document.head.appendChild(l10nEl);
           l10nLinksRef.current.push(l10nEl);
         }
+
+        if (config.mountStrategy === "react-bundle") {
+          if (!shadowRootRef.current) {
+            shadowRootRef.current =
+              container.shadowRoot ?? container.attachShadow({ mode: "open" });
+            document.l10n.connectRoot(shadowRootRef.current);
+          }
+          const shadowRoot = shadowRootRef.current;
+
+          for (const stylesURL of config.stylesURLs) {
+            const link = document.createElement("link");
+            link.rel = "stylesheet";
+            link.href = stylesURL;
+            shadowRoot.appendChild(link);
+          }
+
+          if (config.moduleURLs?.length) {
+            await Promise.all(config.moduleURLs.map(url => importModule(url)));
+          }
+
+          const mountPoint = document.createElement("div");
+          shadowRoot.appendChild(mountPoint);
+
+          await new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = config.bundleURL;
+            script.onload = () => {
+              cleanupRef.current = window[config.mountFunction](
+                mountPoint,
+                props
+              );
+              resolve();
+            };
+            script.onerror = reject;
+            document.head.appendChild(script);
+            scriptRef.current = script;
+          });
+          return;
+        }
+
+        await importModule(config.componentURL);
 
         if (containerRef.current && !customElementRef.current) {
           const element = document.createElement(config.tagName);
@@ -115,6 +158,22 @@ function ExternalComponentWrapper({
     loadComponent();
 
     return () => {
+      cleanupRef.current?.();
+      cleanupRef.current = null;
+      scriptRef.current?.remove();
+      scriptRef.current = null;
+
+      if (shadowRootRef.current) {
+        document.l10n.disconnectRoot(shadowRootRef.current);
+        while (shadowRootRef.current.firstChild) {
+          shadowRootRef.current.firstChild.remove();
+        }
+        shadowRootRef.current = null;
+      } else {
+        styleRef.current?.remove();
+        styleRef.current = null;
+      }
+
       if (customElementRef.current && container) {
         container.removeChild(customElementRef.current);
         customElementRef.current = null;

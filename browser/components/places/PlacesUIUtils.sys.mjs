@@ -859,7 +859,7 @@ export var PlacesUIUtils = {
     }
     if (lazy.OpenInTabsUtils.confirmOpenInTabs(urlsToOpen.length, window)) {
       if (window.updateTelemetry) {
-        window.updateTelemetry(urlsToOpen);
+        window.updateTelemetry(urlsToOpen, true);
       }
       this.openTabset(urlsToOpen, event, window);
     }
@@ -1610,6 +1610,11 @@ export var PlacesUIUtils = {
     }
   },
 
+  removeImportButton() {
+    lazy.CustomizableUI.removeWidgetFromArea("import-button");
+    Services.prefs.clearUserPref("browser.bookmarks.addedImportButton");
+  },
+
   removeImportButtonWhenImportSucceeds() {
     // If the user (re)moved the button, clear the pref and stop worrying about
     // moving the item.
@@ -1624,8 +1629,7 @@ export var PlacesUIUtils = {
         data == lazy.MigrationUtils.resourceTypes.BOOKMARKS &&
         lazy.MigrationUtils.getImportedCount("bookmarks") > 0
       ) {
-        lazy.CustomizableUI.removeWidgetFromArea("import-button");
-        Services.prefs.clearUserPref("browser.bookmarks.addedImportButton");
+        this.removeImportButton();
         Services.obs.removeObserver(obs, "Migration:ItemAfterMigrate");
         Services.obs.removeObserver(obs, "Migration:ItemError");
       }

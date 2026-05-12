@@ -246,6 +246,7 @@ class Permissions:
                     "network.dns.https_rr.check_record_with_cname",
                     False,
                 ))
+                user_prefs.append(("network.dns.port_prefixed_qname_https_rr", False))
             else:
                 user_prefs = self.pac_prefs(proxy)
         else:

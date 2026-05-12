@@ -148,7 +148,6 @@ nsresult WorkerModuleLoader::CompileFetchedModule(
   switch (aRequest->mModuleType) {
     case JS::ModuleType::Unknown:
     case JS::ModuleType::Bytes:
-    case JS::ModuleType::Text:
       MOZ_CRASH("Unexpected module type");
     case JS::ModuleType::JavaScriptOrWasm:
       return CompileJavaScriptOrWasmModule(aCx, aOptions, aRequest,
@@ -157,6 +156,8 @@ nsresult WorkerModuleLoader::CompileFetchedModule(
       return CompileJsonModule(aCx, aOptions, aRequest, aModuleScript);
     case JS::ModuleType::CSS:
       MOZ_CRASH("CSS modules are not supported in workers");
+    case JS::ModuleType::Text:
+      return CreateTextModule(aCx, aOptions, aRequest, aModuleScript);
   }
 
   MOZ_CRASH("Unhandled module type");
@@ -224,6 +225,42 @@ nsresult WorkerModuleLoader::CompileJsonModule(
   }
 
   aModuleScript.set(jsonModule);
+  return NS_OK;
+}
+
+nsresult WorkerModuleLoader::CreateTextModule(
+    JSContext* aCx, JS::CompileOptions& aOptions, ModuleLoadRequest* aRequest,
+    JS::MutableHandle<JSObject*> aModuleScript) {
+  MOZ_ASSERT(aRequest->IsTextSource());
+
+  MaybeSourceText maybeSource;
+  nsresult rv = aRequest->GetScriptSource(aCx, &maybeSource,
+                                          aRequest->mLoadContext.get());
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  auto compile = [&](auto& source) {
+    using T = decltype(source);
+    static_assert(std::is_same_v<T, JS::SourceText<char16_t>&> ||
+                  std::is_same_v<T, JS::SourceText<Utf8Unit>&>);
+
+    JSString* str;
+    if constexpr (std::is_same_v<T, JS::SourceText<Utf8Unit>&>) {
+      str = JS_NewStringCopyUTF8N(aCx,
+                                  JS::UTF8Chars(source.get(), source.length()));
+    } else {
+      str = JS_NewUCStringCopyN(aCx, source.get(), source.length());
+    }
+
+    JS::Rooted<JS::Value> defaultExport(aCx, JS::StringValue(str));
+    return JS::CreateDefaultExportSyntheticModule(aCx, defaultExport);
+  };
+
+  auto* textModule = maybeSource.mapNonEmpty(compile);
+  if (!textModule) {
+    return NS_ERROR_FAILURE;
+  }
+
+  aModuleScript.set(textModule);
   return NS_OK;
 }
 

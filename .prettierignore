@@ -1565,6 +1565,7 @@ browser/components/aboutwelcome/node_modules/
 browser/components/aiwindow/models/PreferencesNavMap.sys.mjs
 browser/components/asrouter/node_modules/
 browser/components/asrouter/content/asrouter-admin.bundle.js
+browser/components/asrouter/content/components/asrouter-newtab-multistage/asrouter-newtab-multistage.bundle.js
 browser/components/asrouter/logs/
 browser/components/asrouter/content-src/schemas/BackgroundTaskMessagingExperiment.schema.json
 browser/components/asrouter/content-src/schemas/MessagingExperiment.schema.json

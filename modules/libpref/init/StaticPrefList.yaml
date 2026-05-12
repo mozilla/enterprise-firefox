@@ -3255,6 +3255,17 @@
   value: false
   mirror: always
 
+# Whether to require system permission for geolocation access.
+# See also `geo.prompt.open_system_prefs` for opening the system preferences dialog.
+- name: dom.geolocation.require_system_permission.enabled
+  type: bool
+#ifdef XP_WIN
+  value: true
+#else
+  value: false
+#endif
+  mirror: always
+
 # <img loading=lazy sizes=auto>
 # https://html.spec.whatwg.org/multipage/embedded-content.html#allows-auto-sizes
 - name: dom.image.sizes_auto.enabled
@@ -4038,9 +4049,18 @@
 # Whether to use the platform API to "lock" the native pointer for pointer lock.
 - name: dom.pointer-lock.native-lock.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 #endif
+
+# Whether the |unadjustedMovement| dictionary member of PointerLockOptions
+# is honored. When true, requestPointerLock({unadjustedMovement: true})
+# asks the widget to deliver raw, unaccelerated mouse delta in mouse events
+# while the lock is active.
+- name: dom.pointer-lock.unadjusted-movement.enabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
 
 # re-SAB: Whether to allow postMessage of a SharedArrayBuffer if various
 # preconditions related to COOP and COEP are met
@@ -8842,13 +8862,6 @@
   value: false
   mirror: always
 
-# Force the ICC color management path for JXL decoding even when the output
-# profile is sRGB. Intended for testing purposes only.
-- name: image.jxl.force_icc_slow_path
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-  rust: true
 #endif
 
 #---------------------------------------------------------------------------
@@ -9350,7 +9363,7 @@
   type: bool
   value: false
   mirror: always
-  set_spidermonkey_pref: startup
+  set_spidermonkey_pref: always
 
   # Experimental support for Promise.allKeyed in JavaScript.
 - name: javascript.options.experimental.promise_allkeyed
@@ -10819,6 +10832,13 @@
   mirror: always
   rust: true
 
+# Whether the ViewTimeline WebIDL interface is enabled.
+- name: layout.css.scroll-driven-animations.viewtimeline.enabled
+  type: bool
+  value: false
+  mirror: always
+  rust: true
+
 # When selecting the snap point for CSS scroll snapping, the velocity of the
 # scroll frame is clamped to this speed, in CSS pixels / s.
 - name: layout.css.scroll-snap.prediction-max-velocity
@@ -11786,6 +11806,42 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: always
 
+# Enable WebRTC type support in Media Capabilities API.
+- name: media.mediacapabilities.webrtc.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Comma-separated hostnames (with optional `*.` wildcard prefix). Hosts in
+# this list get WebRTC Media Capabilities support even when the global pref
+# above is false.
+- name: media.mediacapabilities.webrtc.enabled.allowlist
+  type: DataMutexString
+  value: ""
+  mirror: always
+
+# When true (or when the page host is in legacy.allowlist), Media Capabilities
+# skips the colorGamut, transferFunction, and scalabilityMode validation paths
+# that would otherwise reject "inapplicable member" or "color space mismatch".
+- name: media.mediacapabilities.legacy.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Comma-separated hostnames (with optional `*.` wildcard prefix). Hosts in
+# this list are treated as legacy mode regardless of the global pref above.
+- name: media.mediacapabilities.legacy.allowlist
+  type: DataMutexString
+  value: ""
+  mirror: always
+
+# Controls smooth attribute for WebRTC EncodeInfo
+# 0 = heuristic-based, 1 = always true, 2 = always false
+- name: media.mediacapabilities.webrtc-encode-smooth-override
+  type: RelaxedAtomicUint32
+  value: 0
+  mirror: always
+
 # AudioSink
 - name: media.resampling.enabled
   type: RelaxedAtomicBool
@@ -11899,7 +11955,7 @@
 # fails to be created.
 - name: media.eme.video.prefer-platform-decoder
   type: RelaxedAtomicBool
-  value: true
+  value: false
   mirror: always
 
 - name: media.eme.chromium-api.video-shmems
@@ -13138,6 +13194,27 @@
   value: true
   mirror: always
 
+- name: media.peerconnection.video.use_rtx
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: media.peerconnection.video.use_rtx.blocklist
+  type: String
+  value: "doxy.me,*.doxy.me"
+  mirror: never
+
+- name: media.peerconnection.video.vp9_enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: media.peerconnection.video.vp9_preferred
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+
 - name: media.peerconnection.scripttransform.enabled
   type: RelaxedAtomicBool
   value: true
@@ -13354,8 +13431,64 @@
 #endif
   mirror: always
 
+- name: media.navigator.audio.use_fec
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: media.navigator.video.max_fs
+  type: RelaxedAtomicUint32
+  value: 12288 # Enough for 2048x1536
+  mirror: always
+
+- name: media.navigator.video.max_fr
+  type: RelaxedAtomicUint32
+  value: 60
+  mirror: always
+
+- name: media.navigator.video.disable_h264_baseline
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: media.navigator.video.h264.level
+  type: RelaxedAtomicUint32
+  value: 31 # minimum suggested for WebRTC spec: 0x42E0[1f] - level 3.1
+  mirror: always
+
+- name: media.navigator.video.h264.max_br
+  type: RelaxedAtomicUint32
+  value: 0
+  mirror: always
+
+- name: media.navigator.video.h264.max_mbps
+  type: RelaxedAtomicUint32
+  value: 0
+  mirror: always
+
+- name: media.navigator.video.red_ulpfec_enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: media.navigator.video.use_tmmbr
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: media.navigator.video.use_remb
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: media.navigator.video.use_transport_cc
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+
 - name: media.webrtc.hw.h264.enabled
-  type: bool
+  type: RelaxedAtomicBool
 #if defined(MOZ_WIDGET_ANDROID)
   value: true
 #else
@@ -13371,7 +13504,7 @@
 # If true, then AV1 will be used as the preferred codec for WebRTC video.
 # After the AV1 codec is enabled by default, this pref will be renamed.
 - name: media.webrtc.codec.video.av1.experimental_preferred
-  type: bool
+  type: RelaxedAtomicBool
   value: false
   mirror: always
 
@@ -16288,6 +16421,19 @@
   value: false
   mirror: always
 
+# The time to wait after receiving the first DNS response before moving on
+# to the connection phase (ms).
+- name: network.http.happy_eyeballs_resolution_delay
+  type: RelaxedAtomicUint32
+  value: 50
+  mirror: always
+
+# The time to wait between successive connection attempts (ms).
+- name: network.http.happy_eyeballs_connection_attempt_delay
+  type: RelaxedAtomicUint32
+  value: 250
+  mirror: always
+
 # If true, it will include extra tags to be sniffed by nsUnknownDecoder
 # These tags were previously sniffed by Firefox for legacy/webcompat but
 # are not part of the MIME sniffing spec.
@@ -17871,6 +18017,13 @@
 - name: security.webauthn.enable_conditional_mediation
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# WebAuthn Related Origin Requests
+# 0: disabled, 1: enabled without prompt, 2: enabled with prompt
+- name: security.webauthn.related_origin_requests_mode
+  type: RelaxedAtomicUint32
+  value: 2
   mirror: always
 
 # Dispatch WebAuthn requests to virtual authenticators (mutually exclusive
@@ -19694,6 +19847,15 @@
   mirror: always
 
 #ifdef XP_MACOSX
+
+# If true, use native NSPopover for arrow panel popups (type="arrow") on macOS
+# Someone like Zen browser will use this pref by default, so
+# please take this into account when you change the behavior of
+# native popover. Note: Only panels with type="arrow" will use NSPopover.
+- name: widget.macos.native-popovers
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
 
 # Whether to shift by the menubar height on fullscreen mode.
 # 0: never

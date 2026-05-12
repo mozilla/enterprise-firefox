@@ -1894,7 +1894,7 @@ bool TextInputHandler::HandleKeyDownEvent(NSEvent* aNativeEvent,
     //       For example, Japanese IME of Apple shows candidate window for
     //       typing window.  They, you can switch the sort order with Tab key.
     //       However, when you choose "Symbol" of the sort order, there may
-    //       be no candiate words.  In this case, IME handles the Tab key
+    //       be no candidate words.  In this case, IME handles the Tab key
     //       actually, but we cannot know it because composition string is
     //       not updated.  So, let's mark eKeyDown event as "processed by IME"
     //       when there is composition string.  This is same as Chrome.
@@ -5503,7 +5503,7 @@ NSInteger TextInputHandlerBase::GetWindowLevel() {
   NS_OBJC_BEGIN_TRY_BLOCK_RETURN;
 
   MOZ_LOG_KEY_OR_IME(LogLevel::Info,
-                     ("%p TextInputHandlerBase::GetWindowLevel, Destryoed()=%s",
+                     ("%p TextInputHandlerBase::GetWindowLevel, Destroyed()=%s",
                       this, TrueOrFalse(Destroyed())));
 
   if (Destroyed()) {

@@ -46,6 +46,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   RemoteRenderer: "resource://newtab/lib/RemoteRenderer.sys.mjs",
   SectionsFeed: "resource://newtab/lib/SectionsManager.sys.mjs",
   SectionsLayoutFeed: "resource://newtab/lib/SectionsLayoutFeed.sys.mjs",
+  SportsFeed: "resource://newtab/lib/Widgets/SportsFeed.sys.mjs",
   StartupCacheInit: "resource://newtab/lib/StartupCacheInit.sys.mjs",
   Store: "resource://newtab/lib/Store.sys.mjs",
   SystemTickFeed: "resource://newtab/lib/SystemTickFeed.sys.mjs",
@@ -1361,6 +1362,13 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "widgets.clocks.zones",
+    {
+      title: "Saved clock widget time zones",
+      value: "",
+    },
+  ],
+  [
     "widgets.feedback.enabled",
     {
       title: "Enables the feedback link in the widgets container",
@@ -1893,6 +1901,12 @@ const FEEDS_DATA = [
     name: "listsfeed",
     factory: () => new lazy.ListsFeed(),
     title: "Handles the data for the Todo list widget",
+    value: true,
+  },
+  {
+    name: "sportsfeed",
+    factory: () => new lazy.SportsFeed(),
+    title: "Handles persistent state for the Sports widget",
     value: true,
   },
   {

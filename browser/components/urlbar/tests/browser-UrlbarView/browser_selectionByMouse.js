@@ -297,14 +297,10 @@ add_task(async function withDnsFirstForSingleWordsPref() {
     set: [["browser.fixup.dns_first_for_single_words", true]],
   });
 
-  await PlacesUtils.bookmarks.insert({
-    parentGuid: PlacesUtils.bookmarks.unfiledGuid,
-    url: "https://example.org/",
-    title: "example",
+  await PlacesTestUtils.addVisits({
+    uri: "https://example.org/",
+    transition: PlacesUtils.history.TRANSITION_TYPED,
   });
-  // An unvisited bookmark may have a lower ranking than a page visited many
-  // times, so let's clear history to ensure our bookmark is autofilled.
-  await PlacesUtils.history.clear();
   await PlacesFrecencyRecalculator.recalculateAnyOutdatedFrecencies();
 
   await UrlbarTestUtils.promiseAutocompleteResultPopup({
@@ -324,7 +320,7 @@ add_task(async function withDnsFirstForSingleWordsPref() {
   await onLoaded;
   Assert.ok(true, "Expected page is opened");
 
-  await PlacesUtils.bookmarks.eraseEverything();
+  await PlacesUtils.history.clear();
   await SpecialPowers.popPrefEnv();
 });
 

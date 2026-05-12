@@ -851,9 +851,7 @@ private fun BookmarksListTopBarActionsNoSelection(
         )
     }
 
-    if (isCurrentFolderDesktopRoot) {
-        Unit
-    } else {
+    if (!isCurrentFolderDesktopRoot) {
         IconButton(
             onClick = { store.dispatch(AddFolderClicked) },
             contentDescription = stringResource(

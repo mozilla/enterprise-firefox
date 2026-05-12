@@ -331,8 +331,11 @@ class CurrentX11TimeGetter {
 }  // namespace mozilla
 
 // The window from which the focus manager asks us to dispatch key events.
-// TODO: Move to nsWindow class?
 static nsWindow* gFocusWindow = nullptr;
+// If we're requested to focus window during session restore, delay
+// the request until the session is restored.
+static RefPtr<nsWindow> gFocusRequestWindow;
+static nsIWidget::Raise gFocusRequestWindowRaise = nsIWidget::Raise::No;
 static bool gBlockActivateEvent = false;
 static bool gGlobalsInitialized = false;
 static bool gUseAspectRatio = true;
@@ -421,7 +424,8 @@ nsWindow::nsWindow()
       mGotNonBlankPaint(false),
       mNeedsToRetryCapturingMouse(false),
       mX11HiddenPopupPositioned(false),
-      mPopupTemporaryHidden(false) {
+      mPopupTemporaryHidden(false),
+      mWaitingToSessionRestore(false) {
   SetSafeWindowSize(mSizeConstraints.mMaxSize);
 
   if (!gGlobalsInitialized) {
@@ -1279,6 +1283,13 @@ guint32 nsWindow::GetLastUserInputTime() {
 // nsWindow::SetFocus(Raise::No) - Give focus to this window.
 void nsWindow::SetFocus(Raise aRaise, mozilla::dom::CallerType aCallerType) {
   LOG("nsWindow::SetFocus Raise %d\n", aRaise == Raise::Yes);
+
+  if (mWaitingToSessionRestore) {
+    gFocusRequestWindow = this;
+    gFocusRequestWindowRaise = aRaise;
+    LOG("  waiting to session restore, quit.");
+    return;
+  }
 
   // Raise the window if someone passed in true and the prefs are
   // set properly.
@@ -4194,6 +4205,15 @@ void nsWindow::SetGdkWindow(GdkWindow* aGdkWindow) {
   }
 }
 
+void nsWindow::ConfigureToplevelWindow() {
+  // Label mShell toplevel window so property_notify_event_cb callback
+  // can find its way home.
+  g_object_set_data(G_OBJECT(GetToplevelGdkWindow()), "nsWindow", this);
+  g_object_set_data(G_OBJECT(mShell), "nsWindow", this);
+
+  ConfigureToplevelWindowNative();
+}
+
 nsresult nsWindow::Create(nsIWidget* aParent, const LayoutDeviceIntRect& aRect,
                           const widget::InitData& aInitData) {
   MOZ_DIAGNOSTIC_ASSERT(aInitData.mWindowType != WindowType::Invisible);
@@ -4453,6 +4473,7 @@ nsresult nsWindow::Create(nsIWidget* aParent, const LayoutDeviceIntRect& aRect,
   }
 
   CreateNative();
+  ConfigureToplevelWindow();
 
   // make sure this is the focus widget in the container
   gtk_widget_show(container);
@@ -4481,11 +4502,6 @@ nsresult nsWindow::Create(nsIWidget* aParent, const LayoutDeviceIntRect& aRect,
     mUpdateCursor = true;
     SetCursor(Cursor{eCursor_standard});
   }
-
-  // Also label mShell toplevel window,
-  // property_notify_event_cb callback also needs to find its way home
-  g_object_set_data(G_OBJECT(GetToplevelGdkWindow()), "nsWindow", this);
-  g_object_set_data(G_OBJECT(mShell), "nsWindow", this);
 
   // attach listeners for events
   g_signal_connect(mShell, "configure_event",
@@ -6886,7 +6902,6 @@ void nsWindow::SetCustomTitlebar(bool aState) {
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-
     gtk_widget_reparent(GTK_WIDGET(mContainer), tmpWindow);
     gtk_widget_unrealize(GTK_WIDGET(mShell));
 
@@ -6911,17 +6926,14 @@ void nsWindow::SetCustomTitlebar(bool aState) {
 
     gtk_widget_realize(GTK_WIDGET(mShell));
     gtk_widget_reparent(GTK_WIDGET(mContainer), GTK_WIDGET(mShell));
-
 #pragma GCC diagnostic pop
-
-    // Label mShell toplevel window so property_notify_event_cb callback
-    // can find its way home.
-    g_object_set_data(G_OBJECT(GetToplevelGdkWindow()), "nsWindow", this);
 
     if (AreBoundsSane()) {
       gtk_window_resize(GTK_WINDOW(mShell), mClientArea.width,
                         mClientArea.height);
     }
+
+    ConfigureToplevelWindow();
 
     if (visible) {
       mNeedsShow = true;
@@ -7827,4 +7839,20 @@ uint32_t nsWindow::GetMaxTouchPoints() const {
   }
 #endif
   return 0;
+}
+
+void nsWindow::SessionRestoreFinished() {
+  LOGW("nsWindow::SessionRestoreFinished() set focus to [%p]",
+       gFocusRequestWindow.get());
+  if (!gFocusRequestWindow) {
+    return;
+  }
+  if (gFocusRequestWindow->mWaitingToSessionRestore) {
+    NS_WARNING(
+        "Session restore finished before nsWindow::MoveToWorkspace() calls!");
+    gFocusRequestWindow->mWaitingToSessionRestore = false;
+  }
+  gFocusRequestWindow->SetFocus(gFocusRequestWindowRaise,
+                                mozilla::dom::CallerType::System);
+  gFocusRequestWindow = nullptr;
 }

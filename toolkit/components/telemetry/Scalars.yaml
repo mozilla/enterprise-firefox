@@ -3681,58 +3681,6 @@ gfx:
       - 'main'
     release_channel_collection: opt-out
 
-# The following section contains the form autofill related scalars.
-formautofill:
-  availability:
-    bug_numbers:
-      - 1386959
-    description: A boolean sent once per session to represent whether the formautofill is available in the build
-    expires: never
-    kind: boolean
-    notification_emails:
-      - autofill@lists.mozilla.org
-      - passwords-dev@mozilla.org
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-    record_in_processes:
-      - 'main'
-
-formautofill.addresses:
-  autofill_profiles_count:
-    bug_numbers:
-      - 1801039
-    description: >
-      Count at store time how many address autofill profiles user has.
-    expires: never
-    kind: uint
-    notification_emails:
-      - autofill@lists.mozilla.org
-      - passwords-dev@mozilla.org
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-    record_in_processes:
-      - 'main'
-
-formautofill.creditCards:
-  autofill_profiles_count:
-    bug_numbers:
-      - 990203
-    description: >
-      Count at store time how many credit card autofill profiles user has.
-    expires: never
-    kind: uint
-    notification_emails:
-      - autofill@lists.mozilla.org
-      - passwords-dev@mozilla.org
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-    record_in_processes:
-      - 'main'
-
 # The following section contains scalars for printing.
 printing:
   dialog_opened_via_preview_tm:

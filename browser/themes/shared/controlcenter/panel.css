@@ -218,8 +218,8 @@
   list-style-image: url(chrome://global/skin/icons/security-broken.svg);
   margin: var(--panel-menuitem-margin);
   padding: var(--panel-menuitem-padding);
+  padding-block: var(--space-large);
   -moz-context-properties: fill;
-  min-height: 24px;
 }
 
 .site-information-popup[connection="chrome"] .identity-popup-security-connection {
@@ -297,25 +297,37 @@
   margin-block-end: 0.5em;
 }
 
-#identity-popup-securityView-extended-info > .identity-popup-warning-box {
-  font-weight: var(--font-weight-semibold);
-}
+#identity-popup-securityView-extended-info {
+  margin-inline: var(--panel-menuitem-margin-inline);
 
-#identity-popup-securityView-extended-info > .identity-popup-warning-box > label {
-  display: inline-block;
-}
-
-#identity-popup-securityView-extended-info > button {
-  margin-inline: 0;
-}
-
-@media (-moz-platform: macos) {
-  #identity-popup-securityView-extended-info > button {
-    min-height: 30px;
+  @media not (prefers-contrast) {
+    --card-background-color: color-mix(in srgb, currentColor 2%, transparent);
   }
 
-  #identity-popup-securityView-extended-info > button:focus-visible {
-    outline: var(--focus-outline);
+  #trustpanel-popup:is([connection="chrome"], [connection="file"], [connection="associated"], [connection="extension"]) & {
+    display: none;
+  }
+
+  > .identity-popup-warning-box {
+    font-weight: var(--font-weight-semibold);
+  }
+
+  > .identity-popup-warning-box > label {
+    display: inline-block;
+  }
+
+  > button {
+    margin-inline: 0;
+  }
+
+  @media (-moz-platform: macos) {
+    > button {
+      min-height: 30px;
+    }
+
+    > button:focus-visible {
+      outline: var(--focus-outline);
+    }
   }
 }
 
@@ -998,6 +1010,10 @@
 
 #trustpanel-smartblock-toggle-container {
   margin-block-start: var(--space-large);
+}
+
+#trustpanel-securityInformationView > .panel-header + toolbarseparator {
+  padding-bottom: 0;
 }
 
 .moz-button-subviewbutton-nav {

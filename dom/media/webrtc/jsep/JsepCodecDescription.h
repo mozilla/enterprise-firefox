@@ -32,13 +32,13 @@ class JsepCodecPreferences {
   virtual bool SoftwareH264Enabled() const = 0;
   virtual bool SendingH264PacketizationModeZeroSupported() const = 0;
   virtual bool H264BaselineDisabled() const = 0;
-  virtual int32_t H264Level() const = 0;
-  virtual int32_t H264MaxBr() const = 0;
-  virtual int32_t H264MaxMbps() const = 0;
+  virtual uint8_t H264Level() const = 0;
+  virtual uint32_t H264MaxBr() const = 0;
+  virtual uint32_t H264MaxMbps() const = 0;
   virtual bool VP9Enabled() const = 0;
   virtual bool VP9Preferred() const = 0;
-  virtual int32_t VP8MaxFs() const = 0;
-  virtual int32_t VP8MaxFr() const = 0;
+  virtual uint32_t VP8MaxFs() const = 0;
+  virtual uint32_t VP8MaxFr() const = 0;
   virtual bool UseTmmbr() const = 0;
   virtual bool UseRemb() const = 0;
   virtual bool UseRtx() const = 0;
@@ -275,6 +275,13 @@ class JsepCodecDescription {
   sdp::Direction mDirection;
   // Will hold constraints from both fmtp and rid
   VideoEncodingConstraints mConstraints;
+};
+
+struct CompareCodecPriority {
+  bool operator()(const UniquePtr<JsepCodecDescription>& aLHS,
+                  const UniquePtr<JsepCodecDescription>& aRHS) const {
+    return aLHS->mStronglyPreferred && !aRHS->mStronglyPreferred;
+  }
 };
 
 class JsepAudioCodecDescription final : public JsepCodecDescription {

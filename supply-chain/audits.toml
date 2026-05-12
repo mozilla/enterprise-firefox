@@ -1035,6 +1035,11 @@ who = "Matthew Gregan <kinetik@flim.org>"
 criteria = "safe-to-deploy"
 delta = "0.2.0 -> 0.2.1"
 
+[[audits.audio_thread_priority]]
+who = "Matthew Gregan <kinetik@flim.org>"
+criteria = "safe-to-deploy"
+delta = "0.34.0 -> 0.35.0"
+
 [[audits.authenticator]]
 who = "John M. Schanck <jschanck@mozilla.com>"
 criteria = "safe-to-deploy"
@@ -3916,6 +3921,58 @@ who = "Emilio Cobos Álvarez <emilio@crisal.io>"
 criteria = "safe-to-deploy"
 delta = "0.1.32 -> 0.1.33"
 notes = "No unsafe added, only non-trivial change is switching to the getrandom crate on Windows."
+
+[[audits.jxl]]
+who = "Timothy Nikkel <tnikkel@gmail.com>"
+criteria = "safe-to-deploy"
+delta = "0.4.1 -> 0.4.3"
+notes = "A small number of smaller misc changes. No unsafe changed, added, or removed."
+
+[[audits.jxl]]
+who = "Timothy Nikkel <tnikkel@gmail.com>"
+criteria = "safe-to-deploy"
+delta = "0.4.3 -> 0.4.3@git:c41cbfaf34c2c8ebc3fb6655c885fe427ab9542a"
+importable = false
+notes = "A small number of smaller misc changes. No unsafe changed, added, or removed."
+
+[[audits.jxl_macros]]
+who = "Timothy Nikkel <tnikkel@gmail.com>"
+criteria = "safe-to-deploy"
+delta = "0.4.1 -> 0.4.3"
+notes = "A small number of smaller misc changes. No unsafe changed, added, or removed."
+
+[[audits.jxl_macros]]
+who = "Timothy Nikkel <tnikkel@gmail.com>"
+criteria = "safe-to-deploy"
+delta = "0.4.3 -> 0.4.3@git:c41cbfaf34c2c8ebc3fb6655c885fe427ab9542a"
+importable = false
+notes = "A small number of smaller misc changes. No unsafe changed, added, or removed."
+
+[[audits.jxl_simd]]
+who = "Timothy Nikkel <tnikkel@gmail.com>"
+criteria = "safe-to-deploy"
+delta = "0.4.1 -> 0.4.3"
+notes = "A small number of smaller misc changes. No unsafe changed, added, or removed."
+
+[[audits.jxl_simd]]
+who = "Timothy Nikkel <tnikkel@gmail.com>"
+criteria = "safe-to-deploy"
+delta = "0.4.3 -> 0.4.3@git:c41cbfaf34c2c8ebc3fb6655c885fe427ab9542a"
+importable = false
+notes = "A small number of smaller misc changes. No unsafe changed, added, or removed."
+
+[[audits.jxl_transforms]]
+who = "Timothy Nikkel <tnikkel@gmail.com>"
+criteria = "safe-to-deploy"
+delta = "0.4.1 -> 0.4.3"
+notes = "A small number of smaller misc changes. No unsafe changed, added, or removed."
+
+[[audits.jxl_transforms]]
+who = "Timothy Nikkel <tnikkel@gmail.com>"
+criteria = "safe-to-deploy"
+delta = "0.4.3 -> 0.4.3@git:c41cbfaf34c2c8ebc3fb6655c885fe427ab9542a"
+importable = false
+notes = "A small number of smaller misc changes. No unsafe changed, added, or removed."
 
 [[audits.keccak]]
 who = "Simon Friedberger <simon@mozilla.com>"

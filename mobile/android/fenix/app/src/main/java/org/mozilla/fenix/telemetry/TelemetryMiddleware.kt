@@ -19,6 +19,7 @@ import mozilla.components.browser.state.selector.normalTabs
 import mozilla.components.browser.state.selector.privateTabs
 import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.state.SessionState
+import mozilla.components.browser.state.state.TabSessionState
 import mozilla.components.concept.base.crash.CrashReporting
 import mozilla.components.concept.engine.translate.TranslationOperation
 import mozilla.components.lib.state.Middleware
@@ -54,6 +55,15 @@ class TelemetryMiddleware(
 
     private val logger = Logger("TelemetryMiddleware")
 
+    // Tab IDs populated from TabListAction.RestoreAction (full app session restore).
+    // Used to distinguish session-restored creates from content-process-kill creates.
+    private val sessionRestoredTabIds = mutableSetOf<String>()
+
+    private enum class ReloadReason(val value: String) {
+        ContentProcessKill("content_process_kill"),
+        AppSessionRestore("app_session_restore"),
+    }
+
     @Suppress("TooGenericExceptionCaught", "CognitiveComplexMethod", "NestedBlockDepth", "LongMethod", "CyclomaticComplexMethod")
     override fun invoke(
         store: Store<BrowserState, BrowserAction>,
@@ -63,6 +73,10 @@ class TelemetryMiddleware(
         // Pre process actions
 
         when (action) {
+            is TabListAction.RestoreAction -> {
+                val restoredIds = action.tabs.map { it.state.id }
+                sessionRestoredTabIds.addAll(restoredIds)
+            }
             is ContentAction.UpdateLoadingStateAction -> {
                 store.state.findTab(action.sessionId)?.let { tab ->
                     val hasFinishedLoading = tab.content.loading && !action.loading
@@ -183,6 +197,12 @@ class TelemetryMiddleware(
         )
     }
 
+    private fun computeDurationSinceLastVisible(tab: SessionState): Int {
+        val lastVisibleAt = (tab as? TabSessionState)?.lastVisibleAt?.takeIf { it != 0L } ?: return -1
+        val elapsed = System.currentTimeMillis() - lastVisibleAt
+        return (elapsed / 1000L).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+    }
+
     /**
      * Collecting some engine-specific (GeckoView) telemetry.
      */
@@ -192,9 +212,22 @@ class TelemetryMiddleware(
             return
         }
 
-        // Record telemetry if the created tab was recently killed
-        if (state.recentlyKilledTabs.contains(tab.id)) {
-            EngineMetrics.reloaded.record()
+        val isFromSessionRestore = sessionRestoredTabIds.remove(tab.id)
+        val isFromProcessKill = state.recentlyKilledTabs.contains(tab.id)
+
+        val reason = when {
+            isFromProcessKill -> ReloadReason.ContentProcessKill
+            isFromSessionRestore -> ReloadReason.AppSessionRestore
+            else -> null
+        }
+
+        if (reason != null) {
+            EngineMetrics.reloaded.record(
+                EngineMetrics.ReloadedExtra(
+                    durationSinceLastVisibleSeconds = computeDurationSinceLastVisible(tab),
+                    reason = reason.value,
+                ),
+            )
         }
     }
 }

@@ -46,6 +46,7 @@ import org.mozilla.fenix.ui.efficiency.pageObjects.ShareOverlayPage
 import org.mozilla.fenix.ui.efficiency.pageObjects.ShortcutsPage
 import org.mozilla.fenix.ui.efficiency.pageObjects.TabDrawerPage
 import org.mozilla.fenix.ui.efficiency.pageObjects.ToolbarComponent
+import androidx.compose.ui.test.junit4.v2.AndroidComposeTestRule as AndroidComposeTestRuleV2
 
 class PageContext(val composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule, *>) {
     // Let's make sure we have them in a lexicographic order
@@ -95,7 +96,7 @@ class PageContext(val composeRule: AndroidComposeTestRule<HomeActivityIntentTest
         isMenuRedesignCFREnabled: Boolean = false,
         isPageLoadTranslationsPromptEnabled: Boolean = false,
     ): AndroidComposeTestRule<HomeActivityIntentTestRule, *> {
-        return AndroidComposeTestRule(
+        return AndroidComposeTestRuleV2(
             HomeActivityIntentTestRule(
                 skipOnboarding = skipOnboarding,
                 isMenuRedesignCFREnabled = isMenuRedesignCFREnabled,

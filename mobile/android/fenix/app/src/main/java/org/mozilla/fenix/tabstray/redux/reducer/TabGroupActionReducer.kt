@@ -54,14 +54,6 @@ object TabGroupActionReducer {
                 handleThemeChange(state = state, action = action)
             }
 
-            TabGroupAction.FormDismissed -> state.copy(
-                // mode = if (state.mode is TabsTrayState.Mode.DragAndDrop) TabsTrayState.Mode.Normal else state.mode,
-                tabGroupState = state.tabGroupState.copy(
-                    formState = null,
-                ),
-                backStack = state.backStack.popTabGroupFlow(),
-            )
-
             is TabGroupAction.SaveClicked -> state.copy(
                 mode = TabsTrayState.Mode.Normal,
                 backStack = state.backStack.popTabGroupFlow(),

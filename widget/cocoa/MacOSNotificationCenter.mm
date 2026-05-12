@@ -85,19 +85,21 @@ class MacOSNotificationInfo final : public nsISupports {
   NS_DECL_ISUPPORTS
   MacOSNotificationInfo(NSString* name,
                         nsIAlertNotification* aAlertNotification,
-                        nsIObserver* observer, const nsAString& alertCookie);
+                        nsIObserver* observer, const nsAString& alertCookie,
+                        bool privateBrowsing);
 
   NSString* mName;
   nsCOMPtr<nsIAlertNotification> mAlertNotification;
   nsCOMPtr<nsIObserver> mObserver;
   nsString mCookie;
+  bool mPrivateBrowsing;
 };
 
 NS_IMPL_ISUPPORTS0(MacOSNotificationInfo)
 
 MacOSNotificationInfo::MacOSNotificationInfo(
     NSString* name, nsIAlertNotification* aAlertNotification,
-    nsIObserver* observer, const nsAString& alertCookie) {
+    nsIObserver* observer, const nsAString& alertCookie, bool privateBrowsing) {
   NS_OBJC_BEGIN_TRY_IGNORE_BLOCK;
 
   NS_ASSERTION(name, "Cannot create MacOSNotificationInfo without a name!");
@@ -105,6 +107,7 @@ MacOSNotificationInfo::MacOSNotificationInfo(
   mAlertNotification = aAlertNotification;
   mObserver = observer;
   mCookie = alertCookie;
+  mPrivateBrowsing = privateBrowsing;
 
   NS_OBJC_END_TRY_IGNORE_BLOCK;
 }
@@ -294,12 +297,12 @@ MacOSNotificationCenter::ShowAlert(nsIAlertNotification* aAlert,
     [cocoaImage release];
   }
 
-  MacOSNotificationInfo* macosni =
-      new MacOSNotificationInfo(alertName, aAlert, aAlertListener, cookie);
-
   bool inPrivateBrowsing;
   rv = aAlert->GetInPrivateBrowsing(&inPrivateBrowsing);
   NS_ENSURE_SUCCESS(rv, rv);
+
+  MacOSNotificationInfo* macosni = new MacOSNotificationInfo(
+      alertName, aAlert, aAlertListener, cookie, inPrivateBrowsing);
 
   CloseAlertCocoaString(alertName);
   mActiveAlerts.AppendElement(macosni);
@@ -331,7 +334,31 @@ NS_IMETHODIMP MacOSNotificationCenter::Teardown() {
 }
 
 NS_IMETHODIMP MacOSNotificationCenter::PbmTeardown() {
-  return NS_ERROR_NOT_IMPLEMENTED;
+  NS_OBJC_BEGIN_TRY_BLOCK_RETURN;
+
+  NSArray* notifications = [GetNotificationCenter() deliveredNotifications];
+  for (int32_t i = mActiveAlerts.Length() - 1; i >= 0; i--) {
+    MacOSNotificationInfo* macosni = mActiveAlerts[i];
+    if (!macosni->mPrivateBrowsing) {
+      continue;
+    }
+    NSString* name = macosni->mName;
+    for (NSUserNotification* notification in notifications) {
+      NSString* notifName = [[notification userInfo] valueForKey:@"name"];
+      if ([notifName isEqualToString:name]) {
+        [GetNotificationCenter() removeDeliveredNotification:notification];
+        break;
+      }
+    }
+    if (macosni->mObserver) {
+      macosni->mObserver->Observe(nullptr, "alertfinished",
+                                  macosni->mCookie.get());
+    }
+    mActiveAlerts.RemoveElementAt(i);
+  }
+  return NS_OK;
+
+  NS_OBJC_END_TRY_BLOCK_RETURN(NS_ERROR_FAILURE);
 }
 
 void MacOSNotificationCenter::CloseAlertCocoaString(NSString* aAlertName) {

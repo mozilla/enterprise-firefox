@@ -467,6 +467,20 @@ interface nsIContentPolicy : nsISupports
      */
     TYPE_INTERNAL_IMAGE_NOTIFICATION = 64,
 
+    /**
+     * Indicates a text module loaded through an import statement.
+     */
+    TYPE_TEXT = 65,
+
+    /**
+     * Same as TYPE_TEXT but indicates an internal constant for a preloaded
+     * text module loaded through an import statement.
+     *
+     * This will be mapped to TYPE_TEXT before being passed to content policy
+     * implementations.
+     */
+    TYPE_INTERNAL_TEXT_PRELOAD = 66,
+
     /* When adding new content types, please update
      * nsCSPContext, CSP_ContentTypeToDirective,
      * DoContentSecurityChecks, all nsIContentPolicy implementations, the
@@ -619,6 +633,7 @@ enum class ExtContentPolicyType : uint8_t {
   TYPE_WEB_IDENTITY = nsIContentPolicy::TYPE_WEB_IDENTITY,
   TYPE_WEB_TRANSPORT = nsIContentPolicy::TYPE_WEB_TRANSPORT,
   TYPE_JSON = nsIContentPolicy::TYPE_JSON,
+  TYPE_TEXT = nsIContentPolicy::TYPE_TEXT,
 };
 
 typedef ExtContentPolicyType ExtContentPolicy;

@@ -42,6 +42,10 @@ private enum class FenixReferenceMatchers(
                 className = "androidx.compose.ui.node.LayoutNode",
                 fieldName = "intrinsicsPolicy",
             )
+            references += instanceFieldLeak(
+                className = "androidx.compose.runtime.snapshots.SnapshotStateObserver",
+                fieldName = "observedScopeMaps",
+            )
         },
     ),
 }

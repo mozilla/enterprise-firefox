@@ -6409,7 +6409,7 @@ void nsGlobalWindowOuter::UpdateCommands(const nsAString& anAction) {
       nsCOMPtr<nsPIWindowRoot> root = GetTopWindowRoot();
       if (root) {
         nsContentUtils::AddScriptRunner(
-            new ChildCommandDispatcher(root, child, this, anAction));
+            MakeAndAddRef<ChildCommandDispatcher>(root, child, this, anAction));
       }
       return;
     }
@@ -6431,7 +6431,7 @@ void nsGlobalWindowOuter::UpdateCommands(const nsAString& anAction) {
       doc->GetCommandDispatcher();
   if (xulCommandDispatcher) {
     nsContentUtils::AddScriptRunner(
-        new CommandDispatcher(xulCommandDispatcher, anAction));
+        MakeAndAddRef<CommandDispatcher>(xulCommandDispatcher, anAction));
   }
 }
 

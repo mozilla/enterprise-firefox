@@ -2508,6 +2508,14 @@ class Settings(
     )
 
     /**
+     * Indicates if the top sites pager layout is enabled.
+     */
+    var topSitesPager by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_top_sites_pager),
+        default = false,
+    )
+
+    /**
      * Indicates if Add Shortcuts improvement is enabled.
      */
     var enableAddShortcutsImprovement by booleanPreference(
@@ -2745,9 +2753,12 @@ class Settings(
         default = true,
     )
 
+    /**
+     * Feature flag that indicates if the Import Bookmarks feature is enabled.
+     */
     var importBookmarksFeatureFlagEnabled by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_enable_import_bookmarks),
-        default = Config.channel.isDebug,
+        default = Config.channel.isNightlyOrDebug,
     )
 
     /**
@@ -2757,6 +2768,26 @@ class Settings(
      */
     var isIPProtectionEnabled by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_enable_ip_protection),
+        default = false,
+    )
+
+    /**
+     * Indicates if the user has already toggled the VPN on.
+     */
+    var hasAlreadyUsedVpn by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_has_used_ip_protection),
+        default = false,
+    )
+
+    /**
+     * Indicates if the IPProtection onboarding bottom sheet has been already shown to the user.
+     *
+     * `true` makes the IPProtection bottom sheet appear, while `false` ensures the user does not see
+     * the bottom sheet again. This is only shown to the user once and
+     * if they dismiss it in anyway (e.g. tap on "Not now" or "Get started") then they will never see it again.
+     */
+    var hasShownIPProtectionPrompt by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_has_shown_ip_protection_prompt),
         default = false,
     )
 

@@ -9,11 +9,13 @@ package org.mozilla.fenix.ui.robots
 import android.util.Log
 import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -46,6 +48,7 @@ import org.mozilla.fenix.helpers.MatcherHelper.assertUIObjectExists
 import org.mozilla.fenix.helpers.MatcherHelper.itemContainingText
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithDescription
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithResId
+import org.mozilla.fenix.helpers.MatcherHelper.itemWithResIdAndDescription
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTime
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTimeLong
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTimeShort
@@ -362,6 +365,8 @@ class ThreeDotMenuMainRobot(private val composeTestRule: ComposeTestRule) {
         Log.i(TAG, "clickTheMoreButton: Trying to click the \"More\" button from the new main menu design.")
         composeTestRule.moreButton().performClick()
         Log.i(TAG, "clickTheMoreButton: Clicked the \"More\" button from the new main menu design.")
+        composeTestRule.waitForIdle()
+        mDevice.waitForIdle()
         waitForAppWindowToBeUpdated()
     }
 
@@ -369,6 +374,8 @@ class ThreeDotMenuMainRobot(private val composeTestRule: ComposeTestRule) {
         Log.i(TAG, "clickMoreOptionChevron: Trying to click the \"More option chevron\" button from the new main menu design.")
         composeTestRule.moreChevronButton().performClick()
         Log.i(TAG, "clickMoreOptionChevron: Clicked the \"More option chevron\" button from the new main menu design.")
+        composeTestRule.waitForIdle()
+        mDevice.waitForIdle()
         waitForAppWindowToBeUpdated()
     }
 
@@ -425,12 +432,21 @@ class ThreeDotMenuMainRobot(private val composeTestRule: ComposeTestRule) {
     }
 
     @OptIn(ExperimentalTestApi::class)
+    fun verifyExtensionsButtonWithInstalledExtension(extensionTitle: String) {
+        Log.i(TAG, "verifyExtensionsButtonWithInstalledExtension: Trying to verify the extensions button shows: $extensionTitle")
+        composeTestRule.waitUntil(waitingTimeLong) {
+            itemWithResIdAndDescription(EXTENSIONS, extensionTitle).exists()
+        }
+        Log.i(TAG, "verifyExtensionsButtonWithInstalledExtension: Verified the extensions button shows: $extensionTitle")
+    }
+
+    @OptIn(ExperimentalTestApi::class)
     fun verifyTryRecommendedExtensionButton() {
-        Log.i(TAG, "verifyTryRecommendedExtensionButton: Waiting for $waitingTime for the \"Extensions - Try a recommended extension\" button to exists.")
-        composeTestRule.waitUntilAtLeastOneExists(hasContentDescription("Extensions Try a recommended extension", substring = true), waitingTime)
-        Log.i(TAG, "verifyTryRecommendedExtensionButton: Waited for $waitingTime for the \"Extensions - Try a recommended extension\" button to exists.")
         Log.i(TAG, "verifyTryRecommendedExtensionButton: Trying to verify that the \"Extensions - Try a recommended extension\" button exists.")
-        composeTestRule.tryRecommendedExtensionButton().assertExists()
+        composeTestRule.waitUntilAtLeastOneExists(
+            hasContentDescription("Extensions Try a recommended extension", substring = true),
+            waitingTimeLong,
+        )
         Log.i(TAG, "verifyTryRecommendedExtensionButton: Verified that the \"Extensions - Try a recommended extension\" button exists.")
     }
 
@@ -474,6 +490,9 @@ class ThreeDotMenuMainRobot(private val composeTestRule: ComposeTestRule) {
             Log.i(TAG, "clickSettingsButton: Trying to click the Settings button from the new main menu design.")
             itemWithDescription(localizedText).click()
             Log.i(TAG, "clickSettingsButton: Clicked the Settings button from the new main menu design.")
+            composeTestRule.waitForIdle()
+            mDevice.waitForIdle()
+            waitForAppWindowToBeUpdated()
 
             SettingsRobot().interact()
             return SettingsRobot.Transition()
@@ -510,6 +529,7 @@ class ThreeDotMenuMainRobot(private val composeTestRule: ComposeTestRule) {
             Log.i(TAG, "clickBookmarksButton: Trying to click the Bookmarks button from the new main menu design.")
             itemWithDescription(getStringResource(R.string.library_bookmarks)).click()
             Log.i(TAG, "clickBookmarksButton: Clicked the Bookmarks button from the new main menu design.")
+            composeTestRule.waitForIdle()
 
             BookmarksRobot(composeTestRule).interact()
             return BookmarksRobot.Transition(composeTestRule)
@@ -681,10 +701,14 @@ class ThreeDotMenuMainRobot(private val composeTestRule: ComposeTestRule) {
             return AddToHomeScreenRobot.Transition(composeTestRule)
         }
 
+        @OptIn(ExperimentalTestApi::class)
         fun clickAddAppToHomeScreenButton(interact: AddToHomeScreenRobot.() -> Unit): AddToHomeScreenRobot.Transition {
             Log.i(TAG, "clickAddToHomeScreenButton: Trying to click the \"Add app to Home screen…\" button from the new main menu design.")
             composeTestRule.addAppToHomeScreenButton().performClick()
             Log.i(TAG, "clickAddToHomeScreenButton: Clicked the \"Add app to Home screen…\" button from the new main menu design.")
+            Log.i(TAG, "clickAddToHomeScreenButton: Waiting for $waitingTime until the \"Add app to Home screen…\" button does not exist.")
+            composeTestRule.waitUntilDoesNotExist(hasContentDescription(getStringResource(R.string.browser_menu_add_app_to_homescreen)), waitingTime)
+            Log.i(TAG, "clickAddToHomeScreenButton: Waited for $waitingTime until the \"Add app to Home screen…\" button does not exist.")
 
             AddToHomeScreenRobot(composeTestRule).interact()
             return AddToHomeScreenRobot.Transition(composeTestRule)
@@ -732,8 +756,10 @@ class ThreeDotMenuMainRobot(private val composeTestRule: ComposeTestRule) {
             return TranslationsRobot.Transition(composeTestRule)
         }
 
+        @OptIn(ExperimentalTestApi::class)
         fun clickTranslatedButton(interact: TranslationsRobot.() -> Unit): TranslationsRobot.Transition {
             Log.i(TAG, "clickTranslateButton: Trying to click the Translate button from the new main menu design.")
+            composeTestRule.waitUntilAtLeastOneExists(hasContentDescription(getStringResource(R.string.browser_menu_translated)), waitingTime)
             composeTestRule.translatedButton().assertIsDisplayed()
             composeTestRule.translatedButton().performClick()
             Log.i(TAG, "clickTranslateButton: Clicked the Translate button from the new main menu design.")
@@ -762,6 +788,10 @@ class ThreeDotMenuMainRobot(private val composeTestRule: ComposeTestRule) {
         @OptIn(ExperimentalTestApi::class)
         fun clickExtensionsChevronFromMainMenu(interact: SettingsSubMenuAddonsManagerRobot.() -> Unit): SettingsSubMenuAddonsManagerRobot.Transition {
             Log.i(TAG, "clickExtensionsChevronFromMainMenu: Trying to click the \"Extensions chevron\" button from the new main menu design.")
+            composeTestRule.waitUntil(waitingTimeLong) {
+                composeTestRule.onAllNodes(hasTestTag(EXTENSIONS_OPTION_CHEVRON), useUnmergedTree = true)
+                    .fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+            }
             composeTestRule.extensionsChevronButton().performClick()
             Log.i(TAG, "clickExtensionsChevronFromMainMenu: Clicked the \"Extensions chevron\" button from the new main menu design.")
 

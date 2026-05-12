@@ -136,6 +136,10 @@ The most typical form of necko xpcsehll-test is creating an HTTP server and test
   } = ChromeUtils.importESModule("resource://testing-common/NodeServer.sys.mjs");
   let server = new NodeHTTP2Server();
   await server.start();
+  // To serve a custom hostname, pass it as the second argument; a fresh
+  // leaf cert covering that hostname (signed by the existing test CA) is
+  // generated automatically. Pair this with `network.dns.localDomains`.
+  // await server.start(0, ["custom_domain.example"]);
   ```
 
 - Code at client side

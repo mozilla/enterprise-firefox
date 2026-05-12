@@ -97,7 +97,7 @@ class ConnectionEntry : public SupportsWeakPtr {
   }
 
   void RemoveConnectionAttempt(ConnectionAttempt* sock, bool abandon);
-  void CloseAllConnectionAttempts(bool aReenqueueTransaction = false);
+  void CloseAllConnectionAttempts();
   void OnConnectionAttemptConnected() {
     mConnectionAttemptPool->OnConnectionAttemptConnected();
   }

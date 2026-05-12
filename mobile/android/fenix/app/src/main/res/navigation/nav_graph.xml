@@ -54,6 +54,11 @@
         app:launchSingleTop="true" />
 
     <action
+      android:id="@+id/action_global_ip_protection_dialog"
+      app:destination="@+id/ipProtectionOnboardingDialogFragment"
+      app:launchSingleTop="true" />
+
+    <action
         android:id="@+id/action_global_recently_closed"
         app:destination="@id/recentlyClosedFragment" />
 
@@ -199,6 +204,10 @@
         android:id="@+id/action_global_to_installedAddonDetailsFragment"
         app:destination="@id/installedAddonDetailsFragment" />
 
+    <action
+        android:id="@+id/action_global_aiControlsFragment"
+        app:destination="@+id/aiControlsFragment"/>
+
     <fragment
         android:id="@+id/tabManagementFragment"
         android:name="org.mozilla.fenix.tabstray.ui.TabManagementFragment">
@@ -330,6 +339,15 @@
             app:nullable="false" />
     </dialog>
 
+    <dialog
+        android:id="@+id/ipProtectionOnboardingDialogFragment"
+        android:name="org.mozilla.fenix.ipprotection.ui.IPProtectionBottomSheetFragment">
+        <argument
+            android:name="surface"
+            app:argType="org.mozilla.fenix.ipprotection.store.Surface"
+            app:nullable="false" />
+    </dialog>
+
     <fragment
         android:id="@+id/recentlyClosedFragment"
         android:name="org.mozilla.fenix.library.recentlyclosed.RecentlyClosedFragment" />
@@ -447,8 +465,7 @@
 
     <fragment
         android:id="@+id/bookmarkFragment"
-        android:name="org.mozilla.fenix.bookmarks.BookmarkFragment"
-        tools:layout="@layout/fragment_bookmark">
+        android:name="org.mozilla.fenix.bookmarks.BookmarkFragment">
         <argument
             android:name="currentRoot"
             app:argType="string" />
@@ -462,8 +479,7 @@
 
     <fragment
         android:id="@+id/bookmarkEditFragment"
-        android:name="org.mozilla.fenix.bookmarks.EditBookmarkFragment"
-        tools:layout="@layout/fragment_edit_bookmark">
+        android:name="org.mozilla.fenix.bookmarks.EditBookmarkFragment">
         <argument
             android:name="guidToEdit"
             app:argType="string"
@@ -1682,8 +1698,7 @@
         app:startDestination="@id/savedLoginsFragment">
         <fragment
             android:id="@+id/savedLoginsFragment"
-            android:name="org.mozilla.fenix.settings.logins.fragment.SavedLoginsFragment"
-            tools:layout="@layout/fragment_saved_logins">
+            android:name="org.mozilla.fenix.settings.logins.fragment.SavedLoginsFragment">
             <action
                 android:id="@+id/action_savedLoginsFragment_to_browserFragment"
                 app:destination="@id/browserFragment"

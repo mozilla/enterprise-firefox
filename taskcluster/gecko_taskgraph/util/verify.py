@@ -177,6 +177,23 @@ def verify_task_graph_symbol(task, taskgraph, scratch_pad, graph_config, paramet
                 scratch_pad[key] = task.label
 
 
+@verifications.add("optimized_task_graph")
+def verify_task_graph_no_shippable_enterprise_level_not_1(
+    task, taskgraph, scratch_pad, graph_config, parameters
+):
+    """
+    Verify that only level 3 (merge, not PR) tasks schedules enterprise shippable builds
+    """
+    if task is None:
+        return
+
+    level = int(parameters["level"])
+    if level < 3 and "enterprise" in task.label and "shippable" in task.label:
+        raise Exception(
+            f"Enterprise shippable job {task.label} should not be scheduled on level {int(parameters['level'])}"
+        )
+
+
 @verifications.add("full_task_graph")
 def verify_task_graph_symbol_enterprise(
     task, taskgraph, scratch_pad, graph_config, parameters

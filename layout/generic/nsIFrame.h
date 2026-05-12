@@ -2666,6 +2666,8 @@ class nsIFrame : public nsQueryFrame {
    */
   void MarkSubtreeDirty();
 
+  void MarkPrincipalChildrenDirty();
+
   /**
    * Get the min-content intrinsic inline size of the frame.  This must be
    * less than or equal to the max-content intrinsic inline size.
@@ -4494,6 +4496,29 @@ class nsIFrame : public nsQueryFrame {
   template <typename T>
   bool RemoveProperty(FrameProperties::Descriptor<T> aProperty) {
     return mProperties.Remove(aProperty, this);
+  }
+
+  /**
+   * Set the releasable property with a given value if it doesn't already exist;
+   * otherwise, return the existing value.
+   *
+   * Note: As the name suggests, this will behave properly only for properties
+   * declared with NS_DECLARE_FRAME_PROPERTY_RELEASABLE!
+   */
+  template <typename T, typename... Params>
+  T* GetOrCreateReleasableProperty(FrameProperties::Descriptor<T> aProperty,
+                                   Params&&... aParams) {
+    bool found;
+    using DataType = std::remove_pointer_t<FrameProperties::PropertyType<T>>;
+    DataType* prop = GetProperty(aProperty, &found);
+    if (found) {
+      MOZ_ASSERT(prop, "this property should only store non-null values");
+      return prop;
+    }
+    prop = new DataType{aParams...};
+    NS_ADDREF(prop);
+    AddProperty(aProperty, prop);
+    return prop;
   }
 
   /**

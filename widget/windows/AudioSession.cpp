@@ -381,3 +381,5 @@ void AudioSession::Stop(bool aShouldRestart) {
 
 }  // namespace widget
 }  // namespace mozilla
+
+#undef LOGD

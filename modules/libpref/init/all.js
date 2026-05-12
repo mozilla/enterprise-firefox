@@ -239,25 +239,17 @@ pref("media.videocontrols.keyboard-tab-to-all-controls", true);
   // to allow for gradually gaining support and test coverage.
   pref("media.navigator.video.resize_mode.enabled", true);
   pref("media.navigator.video.default_resize_mode", 1); // 0=none, 1=crop-and-scale
-  pref("media.navigator.video.use_remb", true);
-  pref("media.navigator.video.use_transport_cc", true);
-  pref("media.peerconnection.video.use_rtx", true);
-  pref("media.peerconnection.video.use_rtx.blocklist", "doxy.me,*.doxy.me");
   pref("media.peerconnection.sdp.quirk.duplicate_fingerprint.allowlist", "");
-  pref("media.navigator.video.use_tmmbr", false);
-  pref("media.navigator.audio.use_fec", true);
   pref("media.navigator.video.offer_rtcp_rsize", true);
 
   #ifdef NIGHTLY_BUILD
     pref("media.peerconnection.sdp.parser", "sipcc");
     pref("media.peerconnection.sdp.alternate_parse_mode", "parallel");
     pref("media.peerconnection.sdp.strict_success", false);
-    pref("media.navigator.video.red_ulpfec_enabled", true);
   #else
     pref("media.peerconnection.sdp.parser", "sipcc");
     pref("media.peerconnection.sdp.alternate_parse_mode", "never");
     pref("media.peerconnection.sdp.strict_success", false);
-    pref("media.navigator.video.red_ulpfec_enabled", true);
   #endif
 
   pref("media.peerconnection.sctp.use_dcsctp", true);
@@ -266,14 +258,6 @@ pref("media.videocontrols.keyboard-tab-to-all-controls", true);
 
   pref("media.navigator.video.default_width",0);  // adaptive default
   pref("media.navigator.video.default_height",0); // adaptive default
-  pref("media.navigator.video.max_fs", 12288); // Enough for 2048x1536
-  pref("media.navigator.video.max_fr", 60);
-  pref("media.navigator.video.disable_h264_baseline", false);
-  pref("media.navigator.video.h264.level", 31); // 0x42E01f - level 3.1
-  pref("media.navigator.video.h264.max_br", 0);
-  pref("media.navigator.video.h264.max_mbps", 0);
-  pref("media.peerconnection.video.vp9_enabled", true);
-  pref("media.peerconnection.video.vp9_preferred", false);
   pref("media.getusermedia.audio.max_channels", 0);
   #if defined(ANDROID)
     pref("media.getusermedia.camera.off_while_disabled.enabled", false);
@@ -3096,7 +3080,7 @@ pref("network.tcp.keepalive.idle_time", 600); // seconds; 10 mins
 
 // All the Geolocation preferences are here.
 //
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(XP_WIN)
 #ifdef MOZ_ENTERPRISE
   pref("geo.provider.network.url", "");
 #else
@@ -4028,7 +4012,12 @@ pref("dom.postMessage.sharedArrayBuffer.bypassCOOP_COEP.insecure.enabled", false
 // Note: "extensions.formautofill.available"
 // is not being used in form autofill, but need to exist for migration purposes.
 pref("extensions.formautofill.available", "detect");
+
+#if defined(NIGHTLY_BUILD) && !defined(ANDROID)
+pref("extensions.formautofill.addresses.supported", "on");
+#else
 pref("extensions.formautofill.addresses.supported", "detect");
+#endif
 pref("extensions.formautofill.addresses.enabled", true);
 pref("extensions.formautofill.addresses.capture.enabled", true);
 #if defined(ANDROID)

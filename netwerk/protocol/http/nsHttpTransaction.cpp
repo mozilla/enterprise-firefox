@@ -358,7 +358,9 @@ nsresult nsHttpTransaction::Init(
               nsIOService::gDefaultSegmentSize,
               nsIOService::gDefaultSegmentCount);
 
-  bool forceUseHTTPSRR = StaticPrefs::network_dns_force_use_https_rr();
+  // HTTPS RR is handled by HappyEyeballsConnectionAttempt.
+  bool forceUseHTTPSRR = StaticPrefs::network_dns_force_use_https_rr() &&
+                         !(mCaps & NS_HTTP_USE_HAPPY_EYEBALLS);
   if ((StaticPrefs::network_dns_use_https_rr_as_altsvc() &&
        !(mCaps & NS_HTTP_DISALLOW_HTTPS_RR) &&
        !(mCaps & NS_HTTP_USE_HAPPY_EYEBALLS)) ||
@@ -1339,9 +1341,13 @@ bool nsHttpTransaction::ShouldRestartOnResumptionError(nsresult reason) {
       ("nsHttpTransaction::ShouldRestartOnResumptionError [this=%p, "
        "mResumptionAttempted=%d error=%" PRIx32 "]\n",
        this, mResumptionAttempted, static_cast<uint32_t>(reason)));
+  // Also accept NS_ERROR_NET_RESET: the socket-transport teardown can win
+  // the race against NSS alert propagation and surface a PSK rejection as a
+  // generic connection reset.
   return StaticPrefs::network_http_early_data_disable_on_error() &&
          mResumptionAttempted &&
-         NS_ERROR_GET_MODULE(reason) == NS_ERROR_MODULE_SECURITY;
+         (NS_ERROR_GET_MODULE(reason) == NS_ERROR_MODULE_SECURITY ||
+          reason == NS_ERROR_NET_RESET);
 }
 
 static void MaybeRemoveSSLToken(nsITransportSecurityInfo* aSecurityInfo) {
@@ -1443,6 +1449,26 @@ void nsHttpTransaction::Close(nsresult reason) {
   bool shouldRestartTransactionForHTTPSRR =
       mOrigConnInfo && AllowedErrorForTransactionRetry(reason) &&
       !mDoNotRemoveAltSvc;
+
+  // When a PSK resumption attempt fails over a non-ECH HTTPS-RR-routed
+  // connection, only the cached resumption material is bad — the route is
+  // fine. Stay on the alt-route: MaybeRemoveSSLToken has already evicted the
+  // PSK, so a fresh handshake on the same route should succeed. Setting
+  // mDontRetryWithDirectRoute keeps Restart() from stripping the route. If
+  // that retry also fails, mResumptionAttempted will have been reset and
+  // the standard HTTPS-RR retry path takes over.
+  //
+  // Skip this for ECH connections: ECH manages its own retry chain (record
+  // rotation, fallback to origin) through PrepareConnInfoForRetry, and must
+  // not be blocked.
+  const bool echConfigUsed =
+      nsHttpHandler::EchConfigEnabled(mConnInfo->IsHttp3()) &&
+      !mConnInfo->GetEchConfig().IsEmpty();
+  if (shouldRestartTransactionForHTTPSRR && !echConfigUsed &&
+      ShouldRestartOnResumptionError(reason)) {
+    shouldRestartTransactionForHTTPSRR = false;
+    mDontRetryWithDirectRoute = true;
+  }
 
   //
   // if the connection was reset or closed before we wrote any part of the
@@ -3217,8 +3243,8 @@ bool nsHttpTransaction::Do0RTT(bool aCanSendEarlyData) {
 
 nsresult nsHttpTransaction::Finish0RTT(bool aRestart,
                                        bool aAlpnChanged /* ignored */) {
-  LOG(("nsHttpTransaction::Finish0RTT %p %d %d\n", this, aRestart,
-       aAlpnChanged));
+  LOG(("nsHttpTransaction::Finish0RTT %p aRestart=%d aAlpnChanged=%d\n", this,
+       aRestart, aAlpnChanged));
   MOZ_ASSERT(m0RTTInProgress);
   m0RTTInProgress = false;
 
@@ -3246,6 +3272,30 @@ nsresult nsHttpTransaction::Finish0RTT(bool aRestart,
     MaybeRefreshSecurityInfo();
   }
   return NS_OK;
+}
+
+void nsHttpTransaction::FinishAdopted0RTT(bool aRestart) {
+  LOG(("nsHttpTransaction::FinishAdopted0RTT %p restart=%d\n", this, aRestart));
+  mResumptionAttempted = true;
+  if (!aRestart) {
+    // Mirror nsHttpTransaction::Finish0RTT: only promote when the
+    // pre-state is EARLY_SENT (i.e. ZeroRttHandle::ReadSegments
+    // already flipped us via MarkEarlyDataSent). If EARLY_SENT was
+    // never set, no bytes were sent as early data for this txn and
+    // claiming EARLY_ACCEPTED would be a lie.
+    if (mEarlyDataDisposition == EARLY_SENT) {
+      mEarlyDataDisposition = EARLY_ACCEPTED;
+    }
+  } else {
+    mDoNotTryEarlyData = true;
+    // Rewind the request stream so the real txn re-sends from the
+    // start on the winning full-handshake conn. Matches
+    // nsHttpTransaction::Finish0RTT's restart path.
+    nsCOMPtr<nsISeekableStream> seekable = do_QueryInterface(mRequestStream);
+    if (seekable) {
+      (void)seekable->Seek(nsISeekableStream::NS_SEEK_SET, 0);
+    }
+  }
 }
 
 void nsHttpTransaction::Refused0RTT() {

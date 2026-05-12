@@ -74,7 +74,7 @@
   <!-- Private Browsing -->
   <string name="private_browsing_common_myths">ความเข้าใจผิดที่พบบ่อยเกี่ยวกับการท่องเว็บแบบส่วนตัว</string>
   <!-- Text to be announced by the accessibility service to inform the user that the private browsing mode is currently active. -->
-  <string name="private_browsing_a11y_session_announcement">วาระการท่องเว็บแบบส่วนตัว</string>
+  <string name="private_browsing_a11y_session_announcement">เซสชันการท่องเว็บแบบส่วนตัว</string>
   <!--
     True Private Browsing Mode
 
@@ -370,17 +370,13 @@
   <!--
     AI Controls settings
 
-    Label for the secret settings preference to enable AI controls
-  -->
-  <string name="preferences_debug_settings_ai_controls">เปิดใช้งานส่วนควบคุม AI</string>
-  <!--
-    AI Controls settings
-
     Title for the AI controls settings screen
   -->
   <string name="preferences_ai_controls">ส่วนควบคุม AI</string>
   <!-- Headline text for the AI controls banner. %s is the name of the app (for example "Firefox"). -->
   <string name="ai_controls_banner_headline">คุณมีทางเลือกเสมอใน %s</string>
+  <!-- Supporting text for the AI controls banner. %s is a learn more link using ai_controls_learn_more as text. -->
+  <string name="ai_controls_banner_supporting_text_2">นั่นรวมถึงว่าจะใช้คุณลักษณะที่ถูกเพิ่มประสิทธิภาพด้วย AI หรือไม่ %s</string>
   <!-- Supporting text for the AI controls banner -->
   <string name="ai_controls_banner_supporting_text">นั่นรวมถึงว่าจะใช้คุณลักษณะที่ถูกเพิ่มประสิทธิภาพด้วย AI หรือไม่</string>
   <!-- Link text for learning more about AI controls -->
@@ -446,7 +442,7 @@
   <!-- Button in the search suggestions onboarding that does not allow search suggestions in private sessions -->
   <string name="search_suggestions_onboarding_do_not_allow_button">ไม่อนุญาต</string>
   <!-- Search suggestion onboarding hint title text -->
-  <string name="search_suggestions_onboarding_title">อนุญาตคำแนะนำการค้นหาในวาระส่วนตัวหรือไม่?</string>
+  <string name="search_suggestions_onboarding_title">อนุญาตคำแนะนำการค้นหาในเซสชันส่วนตัวหรือไม่?</string>
   <!-- Search suggestion onboarding hint description text, %s is the name of the app (for example "Firefox"). -->
   <string name="search_suggestions_onboarding_text">%s จะแบ่งปันทุกอย่างที่คุณพิมพ์ในแถบที่อยู่ไปยังเครื่องมือค้นหาเริ่มต้นของคุณ</string>
   <!-- Search engine suggestion title text. %s is the name of the suggested engine. -->
@@ -976,7 +972,7 @@
   <!-- Preference title for switch preference to show voice search button -->
   <string name="preferences_show_voice_search">แสดงการค้นหาด้วยเสียง</string>
   <!-- Preference title for switch preference to show search suggestions also in private mode -->
-  <string name="preferences_show_search_suggestions_in_private">แสดงในวาระส่วนตัว</string>
+  <string name="preferences_show_search_suggestions_in_private">แสดงในเซสชันส่วนตัว</string>
   <!-- Preference title for switch preference to show trending search suggestions -->
   <string name="preferences_show_trending_search_suggestions">แสดงข้อเสนอแนะที่กำลังนิยม</string>
   <!-- Preference title for switch preference to show recent search suggestions -->
@@ -1249,7 +1245,7 @@
     The user can decide if they would like to continue trying to start extensions or if they'd rather continue without them.
     %1$s is the name of the app (for example "Firefox").
   -->
-  <string name="extension_process_crash_dialog_message">มีส่วนขยายอย่างน้อยหนึ่งตัวหยุดทำงาน ทำให้ระบบของคุณไม่เสถียร %1$s ลองเริ่มการทำงานของส่วนขยายใหม่ไม่สำเร็จ\n\nส่วนขยายจะไม่เริ่มทำงานใหม่ในระหว่างวาระปัจจุบันของคุณ\n\nการลบหรือปิดใช้งานส่วนขยายอาจแก้ปัญหานี้ได้</string>
+  <string name="extension_process_crash_dialog_message">มีส่วนขยายอย่างน้อยหนึ่งตัวหยุดทำงาน ทำให้ระบบของคุณไม่เสถียร %1$s ลองเริ่มการทำงานของส่วนขยายใหม่ไม่สำเร็จ\n\nส่วนขยายจะไม่เริ่มทำงานใหม่ในระหว่างเซสชันปัจจุบันของคุณ\n\nการลบหรือปิดใช้งานส่วนขยายอาจแก้ปัญหานี้ได้</string>
   <!-- Button text on the extension crash dialog to prompt the user to try restarting the extensions but the dialog will reappear if it is unsuccessful again -->
   <string name="extension_process_crash_dialog_retry_button_text" tools:ignore="UnusedResources">ลองเริ่มส่วนขยายใหม่</string>
   <!-- Button text on the extension crash dialog to prompt the user to continue with all extensions disabled. -->
@@ -2208,6 +2204,8 @@
   <string name="bookmark_import_menu_button">นำเข้าจากไฟล์</string>
   <!-- Snackbar message shown when a bookmark import attempt fails. -->
   <string name="bookmark_import_failure_snackbar">ไม่สามารถนำเข้าที่คั่นหน้าได้ โปรดลองอีกครั้ง</string>
+  <!-- Default name for the folder created when importing bookmarks from a file. -->
+  <string name="bookmark_import_destination_default_name">ที่คั่นหน้าที่นำเข้า</string>
   <!--
     Bookmark multi select title in app bar
     %1$d is the number of bookmarks selected
@@ -2462,21 +2460,21 @@
   <!-- Content description for the drag handle that dismisses the Send to Device bottom sheet -->
   <string name="send_to_devices_bottom_sheet_close_content_description">ปิด ส่งไปยังอุปกรณ์</string>
   <!-- Text for the QR code action in the native share sheet -->
-  <string name="share_qr_code">รหัส QR</string>
+  <string name="share_qr_code">คิวอาร์โค้ด</string>
   <!-- Title shown in the QR code display screen -->
-  <string name="qr_code_display_title">รหัส QR</string>
+  <string name="qr_code_display_title">คิวอาร์โค้ด</string>
   <!-- Content description for the close button in the QR code display screen -->
   <string name="qr_code_display_close">ปิด</string>
   <!-- Heading on the QR code display screen -->
   <string name="qr_code_display_share_nearby">แบ่งปันลิงก์ในบริเวณใกล้เคียง</string>
   <!-- Body text on the QR code display screen instructing the user to have others scan the code -->
-  <string name="qr_code_display_instructions">เพื่อแบ่งปันลิงก์นี้แก่คนที่อยู่ใกล้เคียง ให้พวกเขาสแกนรหัส QR ด้านล่าง</string>
+  <string name="qr_code_display_instructions">เพื่อแบ่งปันลิงก์นี้แก่คนที่อยู่ใกล้เคียง ให้พวกเขาสแกนคิวอาร์โค้ดด้านล่าง</string>
   <!-- Label for the download button on the QR code display screen -->
   <string name="qr_code_display_download">ดาวน์โหลด</string>
   <!-- Toast shown when the QR code is successfully saved to Downloads -->
-  <string name="qr_code_download_success">รหัส QR ถูกบันทึกในการดาวน์โหลดแล้ว</string>
+  <string name="qr_code_download_success">คิวอาร์โค้ดถูกบันทึกในการดาวน์โหลดแล้ว</string>
   <!-- Toast shown when saving the QR code to Downloads fails -->
-  <string name="qr_code_download_failure">บันทึกรหัส QR ไม่สำเร็จ</string>
+  <string name="qr_code_download_failure">บันทึกคิวอาร์โค้ดไม่สำเร็จ</string>
   <!-- Sub-header in the dialog to share a link to an app from the full list -->
   <string name="share_link_all_apps_subheader">การกระทำทั้งหมด</string>
   <!-- Sub-header in the dialog to share a link to an app from the most-recent sorted list -->
@@ -3208,6 +3206,13 @@
   <string name="ip_protection_onboarding_body_link">ท่องเว็บด้วยการปกป้องเพิ่มเติม</string>
   <!-- Label for the dismiss button on the onboarding bottom sheet. -->
   <string name="ip_protection_onboarding_not_now_button">ไม่ใช่ตอนนี้</string>
+  <!-- Snackbar (in-app pop-up notification) text to signal the browser VPN connection error -->
+  <string name="ip_protection_connection_error_snackbar">ไม่สามารถเชื่อมต่อ VPN ได้ โปรดลองอี่กครั้งในอีกสักครู่</string>
+  <!--
+    Snackbar (in-app pop-up notification) text to signal the browser VPN has reached the monthly data limit.
+    %1$d is the total monthly allowance in GB (for example "50").
+  -->
+  <string name="ip_protection_data_limit_reached_snackbar">ใช้ข้อมูล VPN ครบ %1$d GB แล้ว การเข้าถึงจะถูกรีเซ็ตในเดือนหน้า</string>
   <!--
     Autofill
 
@@ -4621,6 +4626,18 @@
   <string name="sports_widget_final_results_page_content_description" tools:ignore="UnusedResources">ผลการแข่งขันฟุตบอลโลกรอบชิงชนะเลิศ หน้า %1$d จาก %2$d</string>
   <!-- Content description (for accessibility, not displayed) for the remove button that removes the sports widget from the homepage. -->
   <string name="sports_widget_remove_content_description" tools:ignore="UnusedResources">นำวิดเจ็ตฟุตบอลโลกออกจากหน้าแรก</string>
+  <!-- Title shown on the sports widget immediately after the user has followed a team. %s is the selected team (e.g., "USA"). -->
+  <string name="sports_widget_team_followed_title" tools:ignore="UnusedResources">กำลังติดตาม: \n%s</string>
+  <!-- Description shown on the sports widget immediately after the user has followed a team -->
+  <string name="sports_widget_team_followed_description" tools:ignore="UnusedResources">กลับมาตรวจสอบข้อมูลการแข่งอีกครั้งเมื่อทัวร์นาเมนต์ใกล้เข้ามา</string>
+  <!-- Sports widget match status label shown during first half of a match. -->
+  <string name="sports_widget_first_half" tools:ignore="UnusedResources">ครึ่งแรก</string>
+  <!-- Sports widget match status label shown during second half of a match. -->
+  <string name="sports_widget_second_half" tools:ignore="UnusedResources">ครึ่งหลัง</string>
+  <!-- Sports widget error card title shown when the user is offline. -->
+  <string name="sports_widget_error_connection_offline_title" tools:ignore="UnusedResources">ดูเหมือนว่าคุณจะออฟไลน์อยู่</string>
+  <!-- Sports widget error card description shown when the user is offline. -->
+  <string name="sports_widget_error_connection_offline_description" tools:ignore="UnusedResources">ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตของคุณแล้วลองอีกครั้ง</string>
   <!-- ==== End of Terms of use popup prompt. ==== -->
 
   <!--

@@ -99,6 +99,8 @@
     <string name="preferences_debug_settings_homepage_as_new_tab" translatable="false">Enable Homepage as a New Tab</string>
     <!-- Label for enabling Firefox Labs -->
     <string name="preferences_debug_settings_firefox_labs" translatable="false">Enable Firefox Labs</string>
+    <!-- Label for enabling top sites pager layout -->
+    <string name="preferences_debug_settings_top_sites_pager" translatable="false">Enable Top Sites Pager</string>
     <!-- Label for enabling Add Shortcuts improvement -->
     <string name="preferences_debug_settings_add_shortcuts_improvement" translatable="false">Enable Add Shortcuts Improvement</string>
     <!-- Label for enabling Merino Client -->
@@ -348,8 +350,10 @@
         The "Labs" portion can be localized, "Firefox" must be treated as a brand and kept
         in English. -->
     <string name="firefox_labs_title" tools:ignore="BrandUsage">Firefox Labs</string>
-    <!-- Description text displayed in the Firefox Labs screen. %s is the name of the app (for example "Firefox"). -->
-    <string name="firefox_labs_experimental_description">Give our experimental features a try! They’re in development and evolving, which could impact how %s works.</string>
+    <!-- Title text displayed in the banner at the top of the Firefox Labs screen. -->
+    <string name="firefox_labs_banner_title">Give our experimental features a try!</string>
+    <!-- Description text displayed in the banner at the top of the Firefox Labs screen. %s is the name of the app (for example "Firefox"). -->
+    <string name="firefox_labs_experimental_description">They’re in development and evolving, which could impact how %s works.</string>
     <!-- Button text for restoring the default settings by turning off any experimental features in the Firefox Labs screen. -->
     <string name="firefox_labs_restore_default_button_text">Restore Defaults</string>
     <!-- Text displayed when no experimental features are available in the Firefox Labs screen. -->

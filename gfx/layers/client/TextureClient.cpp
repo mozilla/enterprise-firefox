@@ -1423,7 +1423,8 @@ already_AddRefed<TextureClient> TextureClient::CreateForYCbCr(
     const gfx::IntSize& aCbCrSize, uint32_t aCbCrStride, StereoMode aStereoMode,
     gfx::ColorDepth aColorDepth, gfx::YUVColorSpace aYUVColorSpace,
     gfx::ColorRange aColorRange, gfx::TransferFunction aTransferFunction,
-    gfx::ChromaSubsampling aSubsampling, TextureFlags aTextureFlags) {
+    gfx::ChromaSubsampling aSubsampling, TextureFlags aTextureFlags,
+    const Maybe<gfx::HDRMetadata>& aHDRMetadata) {
   if (!aAllocator || !aAllocator->GetLayersIPCActor()->IPCOpen()) {
     return nullptr;
   }
@@ -1435,7 +1436,7 @@ already_AddRefed<TextureClient> TextureClient::CreateForYCbCr(
   TextureData* data = BufferTextureData::CreateForYCbCr(
       aAllocator, aDisplay, aYSize, aYStride, aCbCrSize, aCbCrStride,
       aStereoMode, aColorDepth, aYUVColorSpace, aColorRange, aTransferFunction,
-      aSubsampling, aTextureFlags);
+      aSubsampling, aTextureFlags, aHDRMetadata);
   if (!data) {
     return nullptr;
   }

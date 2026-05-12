@@ -5,8 +5,6 @@
 #ifndef mozilla_layout_ScrollSnap_h_
 #define mozilla_layout_ScrollSnap_h_
 
-#include <type_traits>
-
 #include "mozilla/Maybe.h"
 #include "mozilla/ScrollSnapInfo.h"
 #include "mozilla/ScrollSnapTargetId.h"
@@ -86,32 +84,6 @@ struct ScrollSnapUtils {
   static nsRect GetSnapAreaFor(const nsIFrame* aFrame,
                                const nsIFrame* aScrolledFrame,
                                const nsRect& aScrolledRect);
-
-  // Returns an |nsAutoString| representation of a |ScrollSnapInfo::SnapTarget|
-  static nsAutoString StringifySnapTarget(
-      const ScrollSnapInfo::SnapTarget& aSnapTarget);
-
-  // Returns an |nsAutoString| representation of an |nsTArray| that
-  // contains |ScrollInfo::SnapTarget|s.
-  template <typename T>
-  static nsAutoString StringifySnapTargetList(const nsTArray<T>& aSnapTargets) {
-    nsAutoString string;
-    string.AppendPrintf("[ ");
-    bool first{true};
-    for (const auto& target : aSnapTargets) {
-      if (!first) {
-        string.AppendASCII(", ");
-      }
-      first = false;
-      if constexpr (std::is_pointer_v<std::remove_cvref_t<decltype(target)>>) {
-        string.Append(StringifySnapTarget(*target));
-      } else {
-        string.Append(StringifySnapTarget(target));
-      }
-    }
-    string.AppendPrintf(" ]");
-    return string;
-  }
 };
 
 }  // namespace mozilla

@@ -40,11 +40,6 @@ sealed interface TabGroupAction : TabsTrayAction {
     data object SaveClicked : TabGroupAction, TabsStorageAction
 
     /**
-     * Invoked when the user dismisses the tab group form.
-     */
-    data object FormDismissed : TabGroupAction
-
-    /**
      * Fired when the user clicks on a Tab Group.
      *
      * @property group The clicked [TabsTrayItem.TabGroup].

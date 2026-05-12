@@ -216,6 +216,7 @@ this.felt = class extends ExtensionAPI {
       );
       Services.ppmm.addMessageListener("FeltParent:FirefoxLogoutExit", this);
       Services.ppmm.addMessageListener("FeltParent:FirefoxAbnormalExit", this);
+      Services.ppmm.addMessageListener("FeltParent:FirefoxLaunchFailure", this);
       Services.ppmm.addMessageListener(
         "FeltParent:TransitionFeltToBackground",
         this
@@ -280,6 +281,12 @@ this.felt = class extends ExtensionAPI {
         const success = Services.felt.makeBackgroundProcess(false);
         lazy.log.debug(`FeltExtension: makeBackgroundProcess? ${success}`);
         this.showWindow("felt-browser-error-multiple-crashes");
+        break;
+      }
+
+      case "FeltParent:FirefoxLaunchFailure": {
+        Services.felt.makeBackgroundProcess(false);
+        this.showWindow("felt-browser-error-launch-failure");
         break;
       }
 
@@ -390,6 +397,10 @@ this.felt = class extends ExtensionAPI {
     }
 
     Services.ppmm.removeMessageListener("FeltChild:Loaded", this);
+    Services.ppmm.removeMessageListener(
+      "FeltParent:FirefoxLaunchFailure",
+      this
+    );
 
     if (this.chromeHandle) {
       this.chromeHandle.destruct();

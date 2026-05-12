@@ -2321,6 +2321,30 @@ onboarding:
     send_in_pings:
       - onboarding
       - events
+  marketing_data_skip_clicked:
+    type: event
+    description:
+      The user clicked skip on the marketing data opt out screen
+    extra_keys:
+      onboarding_reason:
+        type: string
+        description: The reason the user is being onboarded.
+      install_source:
+        type: string
+        description: The source of installation.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2037795
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D299320
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - Onboarding
+    send_in_pings:
+      - onboarding
+      - events
   marketing_data_card_viewed:
     type: event
     description:
@@ -11266,8 +11290,25 @@ engine_tab:
     type: event
     description: |
       A tab was reloaded by the engine.
+    extra_keys:
+      duration_since_last_visible_seconds:
+        description: |
+          Seconds since the tab was last visible to the user at the time the engine
+          session was recreated. Stamped when the tab's engine view is released
+          (tab switched away or app backgrounded). -1 if unavailable (tab was never
+          rendered, or is not a regular tab).
+        type: quantity
+      reason:
+        description: |
+          Why the tab was reloaded. Either "content_process_kill" (the content
+          process was killed mid-session) or "app_session_restore" (the
+          entire app was killed and the tab was restored from a persisted
+          session on the next launch).
+        type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1938133
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1966918
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2008773
     data_reviews:
       - https://phabricator.services.mozilla.com/D240795
     notification_emails:
@@ -15618,10 +15659,18 @@ vpn:
     type: event
     description:
       Triggered when the VPN feature onboarding card is shown to the user.
+    extra_keys:
+      entrypoint:
+        description: >
+          The surface from which the user started the flow.
+          Possible values: Homepage, Browser.
+        type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2031198
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2036176
     data_reviews:
       - https://phabricator.services.mozilla.com/D293774
+      - https://phabricator.services.mozilla.com/D297821
     data_sensitivity:
       - interaction
     notification_emails:
@@ -15631,10 +15680,18 @@ vpn:
     type: event
     description:
       Triggered when the user taps "Not Now" on the VPN onboarding card.
+    extra_keys:
+      entrypoint:
+        description: >
+          The surface from which the user started the flow.
+          Possible values: Homepage, Browser.
+        type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2031198
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2036176
     data_reviews:
       - https://phabricator.services.mozilla.com/D293774
+      - https://phabricator.services.mozilla.com/D297821
     data_sensitivity:
       - interaction
     notification_emails:
@@ -15644,10 +15701,18 @@ vpn:
     type: event
     description:
       Triggered when the user dismisses the VPN onboarding card.
+    extra_keys:
+      entrypoint:
+        description: >
+          The surface from which the user started the flow.
+          Possible values: Homepage, Browser.
+        type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2031198
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2036176
     data_reviews:
       - https://phabricator.services.mozilla.com/D293774
+      - https://phabricator.services.mozilla.com/D297821
     data_sensitivity:
       - interaction
     notification_emails:
@@ -15657,10 +15722,18 @@ vpn:
     type: event
     description:
       Triggered when the user taps "Browse with extra protection" on the VPN onboarding page.
+    extra_keys:
+      entrypoint:
+        description: >
+          The surface from which the user started the flow.
+          Possible values: Homepage, Browser.
+        type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2031198
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2036176
     data_reviews:
       - https://phabricator.services.mozilla.com/D293774
+      - https://phabricator.services.mozilla.com/D297821
     data_sensitivity:
       - interaction
     notification_emails:
@@ -15708,12 +15781,14 @@ vpn:
       entrypoint:
         description: >
           The surface from which the user started the flow.
-          Possible values: "onboarding", "settings".
+          Possible values: Homepage, Browser.
         type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2031198
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2036176
     data_reviews:
       - https://phabricator.services.mozilla.com/D293774
+      - https://phabricator.services.mozilla.com/D297821
     data_sensitivity:
       - interaction
     notification_emails:

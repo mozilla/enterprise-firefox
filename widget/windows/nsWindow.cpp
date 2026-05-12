@@ -1315,6 +1315,10 @@ void nsWindow::Destroy() {
 
   DestroyDirectManipulation();
 
+  // Before destroying the native window, we need to clean up the resource
+  // allocated/stored for handling IME on this window.
+  IMEHandler::OnDestroyWindow(this);
+
   /**
    * On windows the LayerManagerOGL destructor wants the widget to be around for
    * cleanup. It also would like to have the HWND intact, so we nullptr it here.
@@ -6850,6 +6854,10 @@ void nsWindow::OnDestroy() {
 
   DestroyDirectManipulation();
 
+  // Before destroying the native window, we need to clean up the resource
+  // allocated/stored for handling IME on this window.
+  IMEHandler::OnDestroyWindow(this);
+
   if (mWnd == mLastKillFocusWindow) {
     mLastKillFocusWindow = nullptr;
   }
@@ -6886,8 +6894,6 @@ void nsWindow::OnDestroy() {
     rollupListener->Rollup({});
     CaptureRollupEvents(false);
   }
-
-  IMEHandler::OnDestroyWindow(this);
 
   // Destroy any custom cursor resources.
   if (mCursor.IsCustom()) {

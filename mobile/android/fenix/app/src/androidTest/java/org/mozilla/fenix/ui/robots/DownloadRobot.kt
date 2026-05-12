@@ -68,26 +68,25 @@ class DownloadRobot(private val composeTestRule: ComposeTestRule) {
         Log.i(TAG, "verifyDownloadPrompt: Verified that the download button is displayed")
     }
 
-    fun verifyDownloadCompleteSnackbar(fileName: String) =
-        assertUIObjectExists(
-            itemContainingText(getStringResource(R.string.download_completed_snackbar_action_open)),
-            itemContainingText(getStringResource(R.string.download_completed_snackbar)),
-            itemContainingText(fileName),
-        )
+    @OptIn(ExperimentalTestApi::class)
+    fun verifyDownloadCompleteSnackbar(fileName: String? = null) {
+        Log.i(TAG, "verifyDownloadCompleteSnackbar: Waiting for the download completed snackbar to exist")
+        composeTestRule.waitUntilAtLeastOneExists(hasText(getStringResource(R.string.download_completed_snackbar)), waitingTime)
+        Log.i(TAG, "verifyDownloadCompleteSnackbar: Waited for the download completed snackbar to exist")
+        composeTestRule.onNodeWithText(getStringResource(R.string.download_completed_snackbar_action_open), useUnmergedTree = true).assertExists()
+        fileName?.let { assertUIObjectExists(itemContainingText(it)) }
+    }
 
     @OptIn(ExperimentalTestApi::class)
     fun verifyDownloadFailedSnackbar(fileName: String) {
-        Log.i(TAG, "verifyDownloadFailedSnackbar: Waiting for the snackbar to exist")
-        this@DownloadRobot.composeTestRule.waitUntilExactlyOneExists(hasTestTag(SNACKBAR_TEST_TAG))
-        Log.i(TAG, "verifyDownloadFailedSnackbar: Waited for the snackbar to exist")
-        Log.i(TAG, "verifyDownloadFailedSnackbar: Trying to verify that the \"Download failed\" snackbar message exists")
-        this@DownloadRobot.composeTestRule.onNodeWithText(getStringResource(R.string.download_item_status_failed), useUnmergedTree = true).assertIsDisplayed()
-        Log.i(TAG, "verifyDownloadFailedSnackbar: Verified that the \"Download failed\" snackbar message exists")
+        Log.i(TAG, "verifyDownloadFailedSnackbar: Waiting for the download failed snackbar to exist")
+        this@DownloadRobot.composeTestRule.waitUntilAtLeastOneExists(hasText(getStringResource(R.string.download_item_status_failed)), waitingTime)
+        Log.i(TAG, "verifyDownloadFailedSnackbar: Waited for the download failed snackbar to exist")
         Log.i(TAG, "verifyDownloadFailedSnackbar: Trying to verify that the \"Details\" snackbar button exists")
-        this@DownloadRobot.composeTestRule.onNodeWithText(getStringResource(R.string.download_failed_snackbar_action_details), useUnmergedTree = true).assertIsDisplayed()
+        this@DownloadRobot.composeTestRule.onNodeWithText(getStringResource(R.string.download_failed_snackbar_action_details), useUnmergedTree = true).assertExists()
         Log.i(TAG, "verifyDownloadFailedSnackbar: Verified that the \"Details\" snackbar button exists")
         Log.i(TAG, "verifyDownloadFailedSnackbar: Trying to verify that the file name: $fileName exists")
-        this@DownloadRobot.composeTestRule.onNodeWithText(fileName, useUnmergedTree = true).assertIsDisplayed()
+        this@DownloadRobot.composeTestRule.onNodeWithText(fileName, useUnmergedTree = true).assertExists()
         Log.i(TAG, "verifyDownloadFailedSnackbar: Verified that the file name: $fileName exists")
     }
 
@@ -197,6 +196,7 @@ class DownloadRobot(private val composeTestRule: ComposeTestRule) {
         Log.i(TAG, "clickDownloadedItem: Trying to click downloaded file: $fileName")
         this@DownloadRobot.composeTestRule.onNodeWithTag("${DownloadsListTestTag.DOWNLOADS_LIST_ITEM}.$fileName")
             .performClick()
+        mDevice.waitForIdle()
         Log.i(TAG, "clickDownloadedItem: Clicked downloaded file: $fileName")
     }
 

@@ -1534,6 +1534,7 @@ orb:
       - BEACON
       - WEB_TRANSPORT
       - EXCLUDED
+      - TEXT
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1833216
     data_reviews:

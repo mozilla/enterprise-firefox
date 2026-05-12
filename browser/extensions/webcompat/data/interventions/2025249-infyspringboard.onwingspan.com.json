@@ -1,0 +1,19 @@
+{
+  "label": "infyspringboard.onwingspan.com",
+  "bugs": {
+    "2025249": {
+      "issue": "firefox-blocked-completely",
+      "matches": ["*://infyspringboard.onwingspan.com/*"]
+    }
+  },
+  "interventions": [
+    {
+      "platforms": ["all"],
+      "content_scripts": {
+        "css": [
+          "bug2025249-infyspringboard.onwingspan.com-hide-unsupported-message.css"
+        ]
+      }
+    }
+  ]
+}

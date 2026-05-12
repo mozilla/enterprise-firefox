@@ -31,7 +31,6 @@ import mozilla.components.concept.sync.DeviceConfig
 import mozilla.components.concept.sync.FxAEntryPoint
 import mozilla.components.concept.sync.OAuthAccount
 import mozilla.components.concept.sync.Profile
-import mozilla.components.concept.sync.UserData
 import mozilla.components.service.fxa.AccessTokenUnexpectedlyWithoutKey
 import mozilla.components.service.fxa.AccountManagerException
 import mozilla.components.service.fxa.AccountStorage
@@ -355,13 +354,11 @@ open class FxaAccountManager(
     }
 
     /**
-     * Sets the user's data received from the web content.
-     * **NOTE**: This is only useful for applications that are user agents, that
-     *           require the user's session token, and thus isn't a part of the state machine
-     * @param userData: The user's data as given by the web channel, including the session token
+     * Stores the session token from a WebChannel login JSON payload without exposing it to the
+     * browser layer.
      */
-    suspend fun setUserData(userData: UserData) = withContext(coroutineContext) {
-        account.setUserData(userData)
+    suspend fun handleWebChannelLogin(jsonPayload: String) = withContext(coroutineContext) {
+        account.handleWebChannelLogin(jsonPayload)
     }
 
     /**

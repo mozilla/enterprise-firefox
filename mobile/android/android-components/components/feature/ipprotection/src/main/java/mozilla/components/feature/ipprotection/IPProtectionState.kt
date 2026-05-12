@@ -7,19 +7,24 @@ package mozilla.components.feature.ipprotection
 import mozilla.components.lib.state.State
 
 /**
- * Holds all IPProtection-related state surfaced by the GeckoView VPN proxy.
+ * State stored by the feature to drive UI and decisions.
  *
- * @property status Current connection state of the IP protection proxy.
+ * @property proxyStatus The proxy state.
+ * @property dataRemainingBytes Remaining monthly data allowance in bytes.
+ * @property dataMaxBytes Maximum monthly data allowance in bytes.
  * @property dataRemainingBytes Remaining monthly data allowance in bytes, or -1 if unavailable.
  * @property dataMaxBytes Maximum monthly data allowance in bytes, or -1 if unavailable.
  * @property resetDate ISO 8601 string for when the monthly allowance resets, or null if unavailable.
- * @property isEnrollmentNeeded True when the user is authenticated with Firefox Account but Guardian
- * has not yet enrolled.
+ * @property isSignedIn Whether the user is signed in.
  */
 data class IPProtectionState(
-    val status: IPProtectionStatus = IPProtectionStatus.NotAvailable,
+    val eligibilityStatus: EligibilityStatus = EligibilityStatus.Unknown,
+    val proxyStatus: ProxyStatus = Uninitialized,
     val dataRemainingBytes: Long = -1L,
     val dataMaxBytes: Long = -1L,
     val resetDate: String? = null,
-    val isEnrollmentNeeded: Boolean = false,
-) : State
+    val isSignedIn: Boolean = false,
+) : State {
+    val isEligible: Boolean
+        get() = eligibilityStatus == EligibilityStatus.Eligible
+}

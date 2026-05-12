@@ -551,4 +551,18 @@ class TabsTrayStoreReducerTest {
 
         assertEquals(expectedState, resultState)
     }
+
+    @Test
+    fun `WHEN ReorderTabsTrayItem is invoked THEN the state is not updated`() {
+        val initialState = TabsTrayState()
+        val resultState = TabsTrayReducer.reduce(
+            state = initialState,
+            action = TabsTrayAction.ReorderTabsTrayItem(
+                sourceId = "123",
+                destinationId = "321",
+                placeAfter = true,
+            ),
+        )
+        assertEquals(TabsTrayState(), resultState)
+    }
 }

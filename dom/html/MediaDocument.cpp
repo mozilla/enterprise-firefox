@@ -182,7 +182,7 @@ void MediaDocument::InitialSetupDone() {
              "Bad readyState: we should still be doing our initial load");
   mDidInitialDocumentSetup = true;
   nsContentUtils::AddScriptRunner(
-      new nsDocElementCreatedNotificationRunner(this));
+      MakeAndAddRef<nsDocElementCreatedNotificationRunner>(this));
   SetReadyStateInternal(Document::READYSTATE_INTERACTIVE);
 }
 

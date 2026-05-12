@@ -506,6 +506,12 @@ export class FeltProcessParent extends JSProcessActorParent {
             }
           }
         });
+      })
+      .catch(err => {
+        lazy.log.error(
+          `Firefox launch failure (${err.result} / ${err.name}): ${err.message}`
+        );
+        Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLaunchFailure");
       });
   }
 

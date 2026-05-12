@@ -57,23 +57,9 @@ SOURCES += [
     'src/jctrans.c',
 ]
 
-if CONFIG['LIBJPEG_TURBO_HAVE_VLD1_S16_X3']:
-    DEFINES['HAVE_VLD1_S16_X3'] = True
-
-if CONFIG['LIBJPEG_TURBO_HAVE_VLD1_U16_X2']:
-    DEFINES['HAVE_VLD1_U16_X2'] = True
-
-if CONFIG['LIBJPEG_TURBO_HAVE_VLD1Q_U8_X4']:
-    DEFINES['HAVE_VLD1Q_U8_X4'] = True
-
-if CONFIG['LIBJPEG_TURBO_NEON_INTRINSICS']:
-    DEFINES['NEON_INTRINSICS'] = True
-
-if CONFIG['LIBJPEG_TURBO_USE_NASM']:
-    USE_NASM = True
+include('/media/libjpeg/libjpeg-config.mozbuild')
 
 if CONFIG['LIBJPEG_TURBO_SIMD_FLAGS']:
-    DEFINES['MOZ_WITH_SIMD'] = 1
     if CONFIG['TARGET_CPU'] == 'arm':
         LOCAL_INCLUDES += [
             '/media/libjpeg/simd/arm',
@@ -262,7 +248,6 @@ if CONFIG['LIBJPEG_TURBO_SIMD_FLAGS']:
             'simd/i386/jsimdcpu.asm',
         ]
 elif CONFIG['TARGET_CPU'].startswith('ppc'):
-    DEFINES['MOZ_WITH_SIMD'] = 1
     # PowerPC has no assembly files, but still needs its own headers.
     LOCAL_INCLUDES += ['/media/libjpeg/simd/powerpc']
 
@@ -289,16 +274,6 @@ elif CONFIG['TARGET_CPU'].startswith('ppc'):
     ]
     for srcfile in ppc_vmx_sources:
         SOURCES[srcfile].flags += CONFIG['PPC_VMX_FLAGS']
-
-ASFLAGS += CONFIG['LIBJPEG_TURBO_SIMD_FLAGS']
-
-# Make sure the x86 & x86-64 ASM files can see the necessary includes.
-if CONFIG['TARGET_CPU'] == 'x86':
-    ASFLAGS += ['-I%s/media/libjpeg/simd/nasm/' % TOPSRCDIR]
-    ASFLAGS += ['-I%s/media/libjpeg/simd/i386/' % TOPSRCDIR]
-if CONFIG['TARGET_CPU'] == 'x86_64':
-    ASFLAGS += ['-I%s/media/libjpeg/simd/nasm/' % TOPSRCDIR]
-    ASFLAGS += ['-I%s/media/libjpeg/simd/x86_64/' % TOPSRCDIR]
 
 # We allow warnings for third-party code that can be updated from upstream.
 AllowCompilerWarnings()

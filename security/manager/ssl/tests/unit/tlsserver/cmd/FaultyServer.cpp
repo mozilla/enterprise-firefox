@@ -69,26 +69,6 @@ MOZ_RUNINIT const FaultyServerHost sFaultyServerHosts[]{
     {nullptr, nullptr},
 };
 
-nsresult SendAll(PRFileDesc* aSocket, const char* aData, size_t aDataLen) {
-  if (gDebugLevel >= DEBUG_VERBOSE) {
-    fprintf(stderr, "sending '%s'\n", aData);
-  }
-
-  int32_t len = static_cast<int32_t>(aDataLen);
-  while (len > 0) {
-    int32_t bytesSent = PR_Send(aSocket, aData, len, 0, PR_INTERVAL_NO_TIMEOUT);
-    if (bytesSent == -1) {
-      PrintPRError("PR_Send failed");
-      return NS_ERROR_FAILURE;
-    }
-
-    len -= bytesSent;
-    aData += bytesSent;
-  }
-
-  return NS_OK;
-}
-
 // returns 0 on success, non-zero on error
 int DoCallback(const char* path) {
   UniquePRFileDesc socket(PR_NewTCPSocket());

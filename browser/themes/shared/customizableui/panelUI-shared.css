@@ -2446,6 +2446,10 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
   }
 }
 
+#PanelUI-ipprotection-locations {
+  max-height: 400px;
+}
+
 /* ----- Enterprise panel ----- */
 .panelUI-enterprise__main-frame {
   gap: 8px;

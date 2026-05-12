@@ -794,7 +794,12 @@ class StyleSheetsManager extends EventEmitter {
    * @returns {string}
    */
   getNodeHref(styleSheet) {
-    const { ownerNode } = styleSheet;
+    const { associatedDocument, constructed, ownerNode } = styleSheet;
+
+    if (constructed && associatedDocument) {
+      return styleSheet.associatedDocument.location.href;
+    }
+
     if (!ownerNode) {
       return null;
     }

@@ -38,6 +38,9 @@ felt-browser-error-token-refresh-failed =
     .message = Please sign in again, or contact your administrator if you have any questions.
 felt-browser-error-multiple-crashes2 =
     .heading = { -brand-short-name } crashed multiple times
+felt-browser-error-launch-failure =
+    .heading = { -brand-short-name } cannot start
+    .message = Please contact your administrator if the problem persists.
 
 ## Logout messages
 

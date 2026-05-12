@@ -338,7 +338,7 @@ nsresult nsHtml5TreeOperation::AppendToDocument(
                "Someone forgot to block scripts");
   if (aNode->IsElement()) {
     nsContentUtils::AddScriptRunner(
-        new nsDocElementCreatedNotificationRunner(doc));
+        MakeAndAddRef<nsDocElementCreatedNotificationRunner>(doc));
   }
   return NS_OK;
 }

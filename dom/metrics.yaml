@@ -25,8 +25,12 @@ perf:
     expires: never
     telemetry_mirror: PERF_LARGEST_CONTENTFUL_PAINT_MS
     metadata:
-      # Settings used for prototyping telemetry alerting
-      monitor: True
+      monitor:
+        alert: False
+        lower_is_better: True
+        platforms:
+          - All
+
   largest_contentful_paint_from_response_start:
     type: timing_distribution
     time_unit: millisecond
@@ -351,6 +355,12 @@ performance.pageload:
       - dpalmeiro@mozilla.com
       - perf-telemetry-alerts@mozilla.com
     expires: never
+    metadata:
+      monitor:
+        alert: False
+        lower_is_better: True
+        platforms:
+          - All
 
   load_time_responsestart:
     type: timing_distribution
@@ -390,6 +400,12 @@ performance.pageload:
       - dpalmeiro@mozilla.com
       - perf-telemetry-alerts@mozilla.com
     expires: never
+    metadata:
+      monitor:
+        alert: False
+        lower_is_better: True
+        platforms:
+          - All
 
   fcp_responsestart:
     type: timing_distribution

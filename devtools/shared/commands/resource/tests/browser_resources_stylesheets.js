@@ -35,7 +35,8 @@ const EXISTING_RESOURCES = [
   {
     styleText: "",
     href: null,
-    nodeHref: null,
+    nodeHref:
+      "https://example.com/browser/devtools/shared/commands/resource/tests/style_document.html",
     isNew: false,
     disabled: false,
     constructed: true,
@@ -97,7 +98,8 @@ const ADDITIONAL_INLINE_RESOURCE = {
 const ADDITIONAL_CONSTRUCTED_RESOURCE = {
   styleText: "",
   href: null,
-  nodeHref: null,
+  nodeHref:
+    "https://example.com/browser/devtools/shared/commands/resource/tests/style_document.html",
   isNew: false,
   disabled: false,
   constructed: true,

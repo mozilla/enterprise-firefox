@@ -497,10 +497,8 @@ const createNovaNewtabFormat = () => args => {
  */
 function postProcessNovaNewtab(css) {
   return css
-    .replace(
-      /#([0-9A-Fa-f])\1([0-9A-Fa-f])\2([0-9A-Fa-f])\3\b/g,
-      (_, r, g, b) => `#${(r + g + b).toUpperCase()}`
-    )
+    .replace(/#[0-9A-Fa-f]{3,6}\b/g, hex => hex.toUpperCase())
+    .replace(/#FFFFFF/g, "#FFF")
     .replace(/,\s*0\.(\d+)\)/g, (_, dec) => {
       let pct = dec.length === 1 ? dec + "0" : String(parseInt(dec, 10));
       return `, ${pct}%)`;

@@ -133,6 +133,26 @@ public class IPProtectionController {
     }
   }
 
+  /** Holds the result of an enrollment attempt. */
+  public static class EnrollResult {
+    /** Whether the user is now enrolled and entitled to use the proxy. */
+    public final boolean isEnrolledAndEntitled;
+
+    /** Error string describing why enrollment failed, or {@code null} on success. */
+    public final @Nullable String error;
+
+    /** Default constructor. */
+    protected EnrollResult() {
+      isEnrolledAndEntitled = false;
+      error = null;
+    }
+
+    /* package */ EnrollResult(final @NonNull GeckoBundle bundle) {
+      isEnrolledAndEntitled = bundle.getBoolean("isEnrolledAndEntitled", false);
+      error = bundle.getString("error");
+    }
+  }
+
   /** Holds information about the current IP proxy usage. */
   public static class UsageInfo {
     /** Remaining usage allowance in bytes. */
@@ -368,6 +388,20 @@ public class IPProtectionController {
                     e instanceof EventDispatcher.QueryException
                         ? ((EventDispatcher.QueryException) e).data.toString()
                         : null));
+  }
+
+  /**
+   * Triggers enrollment via the active auth provider.
+   *
+   * @return A {@link GeckoResult} that resolves to an {@link EnrollResult} describing whether the
+   *     user is now enrolled and entitled, and the error string if not.
+   */
+  @HandlerThread
+  public @NonNull GeckoResult<EnrollResult> enroll() {
+    ThreadUtils.assertOnHandlerThread();
+    return EventDispatcher.getInstance()
+        .queryBundle("GeckoView:IPProtection:Enroll")
+        .map(bundle -> bundle != null ? new EnrollResult(bundle) : new EnrollResult());
   }
 
   /**

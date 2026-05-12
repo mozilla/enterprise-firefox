@@ -1,0 +1,13 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/**
+ * infyspringboard.onwingspan.com - hide browser unsupported message
+ * Bug #2025249 - https://bugzilla.mozilla.org/show_bug.cgi?id=2025249
+ * WebCompat issue #212988 - https://github.com/webcompat/web-bugs/issues/212988
+ */
+
+#browser-modal {
+  display: none !important;
+}

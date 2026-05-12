@@ -1388,11 +1388,10 @@ already_AddRefed<StyleSheet> StyleSheet::CloneAdoptedSheet(
              "Cannot create a constructed sheet from a non-constructed sheet");
   MOZ_ASSERT(aConstructorDocument.IsStaticDocument(),
              "Should never clone adopted sheets for a non-static document");
-  RefPtr<StyleSheet> clone = new StyleSheet(*this,
-                                            /* aParentSheetToUse */ nullptr,
-                                            /* aDocOrShadowRootToUse */ nullptr,
-                                            &aConstructorDocument);
-  return clone.forget();
+  return do_AddRef(new StyleSheet(*this,
+                                  /* aParentSheetToUse */ nullptr,
+                                  /* aDocOrShadowRootToUse */ nullptr,
+                                  &aConstructorDocument));
 }
 
 ServoCSSRuleList* StyleSheet::GetCssRulesInternal() {

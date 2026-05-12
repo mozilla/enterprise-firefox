@@ -29,15 +29,14 @@ void mozilla::IntersectEngine<Arch>::Intersect(const int32_t lhs[4],
       rect2 - resultRect + xsimd::slide_right<8>(rect2));  // w, h, zz, zz
   widthheight = xsimd::slide_left<8>(widthheight);         // 00, 00, wr, hr
 
-  constexpr xsimd::batch_bool_constant<int32_t, xsimd::default_arch, true, true,
-                                       false, false>
+  constexpr xsimd::batch_bool_constant<int32_t, Arch, true, true, false, false>
       mask;
   resultRect = xsimd::select(mask, resultRect, widthheight);  // xr, yr, wr, hr
 
   if (((resultRect < 0).mask() & 0xC) != 0) {
     // It's potentially more efficient to store all 0s. But the non vectorized
     // code leaves x/y intact so let's do the same here.
-    resultRect = resultRect & xsimd::batch<int32_t>{-1, -1, 0, 0};
+    resultRect = resultRect & xsimd::batch<int32_t, Arch>{-1, -1, 0, 0};
   }
 
   resultRect.store_unaligned(result);
@@ -63,8 +62,7 @@ bool mozilla::IntersectEngine<Arch>::IntersectRect(const int32_t lhs[4],
       rect2 - resultRect + xsimd::slide_right<8>(rect2));  // w, h, zz, zz
   widthheight = xsimd::slide_left<8>(widthheight);         // 00, 00, wr, hr
 
-  constexpr xsimd::batch_bool_constant<int32_t, xsimd::default_arch, true, true,
-                                       false, false>
+  constexpr xsimd::batch_bool_constant<int32_t, Arch, true, true, false, false>
       mask;
   resultRect = xsimd::select(mask, resultRect, widthheight);  // xr, yr, wr, hr
 
@@ -72,7 +70,7 @@ bool mozilla::IntersectEngine<Arch>::IntersectRect(const int32_t lhs[4],
   if (isDisjoint) {
     // It's potentially more efficient to store all 0s. But the non vectorized
     // code leaves x/y intact so let's do the same here.
-    resultRect = resultRect & xsimd::batch<int32_t>{-1, -1, 0, 0};
+    resultRect = resultRect & xsimd::batch<int32_t, Arch>{-1, -1, 0, 0};
   }
   resultRect.store_unaligned(result);
   return !isDisjoint;

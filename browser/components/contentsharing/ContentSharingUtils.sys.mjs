@@ -3,12 +3,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
+const SERVER_PATH = "/api/v1/create";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   JsonSchema: "resource://gre/modules/JsonSchema.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
+  clearTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
@@ -22,11 +26,25 @@ XPCOMUtils.defineLazyPreferenceGetter(
   "browser.contentsharing.server.url",
   ""
 );
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "CONTENT_SHARING_LOGIN_TIMEOUT_MS",
+  "browser.contentsharing.automation.detectLoginTimeoutMS",
+  100
+);
+
+ChromeUtils.defineLazyGetter(lazy, "contentSharingL10n", () => {
+  return new Localization(["browser/contentSharing.ftl"]);
+});
 
 const MAX_ITEM_COUNT = 30;
 // Delay for server retries. Lower in testing so the test doesn't time out.
 const BASE_DELAY = Cu.isInAutomation ? 100 : 1000;
 const MAX_REQUEST_ATTEMPTS = 5;
+
+const CONTENT_SHARING_MODAL_URL =
+  "chrome://browser/content/contentsharing/contentSharingModal.xhtml";
+
 const SCHEMA_MAP = new Map();
 async function loadContentSharingSchema() {
   if (SCHEMA_MAP.has("CONTENT_SHARING_SCHEMA")) {
@@ -45,7 +63,7 @@ async function loadContentSharingSchema() {
   return schema;
 }
 
-const ERRORS = Object.freeze({
+export const ERRORS = Object.freeze({
   GENERIC: "generic-error",
   MAX_RETRY_ATTEMPTS: "max-retry-attempts-error",
   UNAUTHORIZED: "unauthorized-error",
@@ -82,9 +100,8 @@ class ContentSharingUtilsClass {
    * folder and the rest will be nested inside it.
    *
    * @param {Array<string>} bookmarkFolderGuids An array of bookmark folder guids
-   * @param {Window} window The browser window to open the modal in
    */
-  async createShareableLinkFromBookmarkFolders(bookmarkFolderGuids, window) {
+  async createShareableLinkFromBookmarkFolders(bookmarkFolderGuids) {
     let share;
     try {
       share = await this.buildShareFromBookmarkFolders(bookmarkFolderGuids);
@@ -92,7 +109,7 @@ class ContentSharingUtilsClass {
       console.error("ContentSharingUtils: failed to share bookmarks", e);
     }
     if (share) {
-      await this.#createLinkAndOpenModal(share, window, "bookmarks");
+      await this.#createLinkAndOpenModal(share, "bookmarks");
     }
   }
 
@@ -105,16 +122,24 @@ class ContentSharingUtilsClass {
     if (!tabs.length) {
       return;
     }
+
+    const title = await lazy.contentSharingL10n.formatValue(
+      "content-sharing-tabs-title",
+      {
+        count: tabs.length,
+      }
+    );
+
     const shareObject = {
       type: "tabs",
-      title: `${tabs.length} tabs`,
+      title,
       children: tabs.map(t => ({
         uri: t.linkedBrowser.currentURI.spec,
         title: t.label,
       })),
     };
     const share = this.buildShare(shareObject);
-    await this.#createLinkAndOpenModal(share, tabs[0].documentGlobal, "tabs");
+    await this.#createLinkAndOpenModal(share, "tabs");
   }
 
   /**
@@ -141,11 +166,7 @@ class ContentSharingUtilsClass {
       }),
     };
     const share = this.buildShare(shareObject);
-    await this.#createLinkAndOpenModal(
-      share,
-      tabGroup.documentGlobal,
-      "tab group"
-    );
+    await this.#createLinkAndOpenModal(share, "tab group");
   }
 
   /**
@@ -281,32 +302,62 @@ class ContentSharingUtilsClass {
   }
 
   /**
-   * @param {object} share
-   * @param {Window} window
+   * Validate the share object, attempt to create a shareable link by sending
+   * the share to the server. If login is needed, wait up to 2 minutes for the
+   * user to log in or sign up, and then attempt to create the share and
+   * open a new tab at the share URL.
+   *
+   * @param {object} share The share object
    * @param {string} context Used in error logging (e.g. "tabs", "tab group")
    */
-  async #createLinkAndOpenModal(share, window, context) {
-    let url;
-    try {
-      url = await this.createShareableLink(share);
-    } catch (e) {
-      console.error(`ContentSharingUtils: failed to share ${context}`, e);
-    }
-    await this.openShareModal(window, { share, url });
-  }
+  async #createLinkAndOpenModal(share, context) {
+    // Note: the result object contains either the URL or an error. It's safe
+    // to pass into the modal, which handles error UI as needed.
+    let result = await this.createShareableLink(share);
 
-  /**
-   * Opens the content sharing modal in the given window.
-   *
-   * @param {Window} window The browser window to open the modal in
-   * @param {object} args
-   * @param {object} args.share The share object to preview in the modal
-   * @param {string} [args.url] The shareable URL, if successfully created
-   */
-  async openShareModal(window, args) {
-    const url =
-      "chrome://browser/content/contentsharing/contentSharingModal.xhtml";
-    await window.gDialogBox?.open(url, args);
+    result.isSignedIn =
+      this.isSignedIn() && result.error !== ERRORS.UNAUTHORIZED;
+
+    let window = Services.wm.getMostRecentBrowserWindow();
+
+    // Note: we deliberately do not await the open.
+    window.gDialogBox.open(CONTENT_SHARING_MODAL_URL, {
+      share,
+      ...result,
+    });
+    if (result.error && !result.isSignedIn) {
+      console.error(
+        `ContentSharingUtils: failed to share ${context}`,
+        result.error
+      );
+    }
+
+    // After the dialog box closes, attempt login if needed.
+    if (result.isSignedIn) {
+      return;
+    }
+
+    try {
+      await this.detectLogin();
+
+      // Now that we are logged in, try to create again.
+      const { url, error } = await this.createShareableLink(share);
+      if (error) {
+        console.error(
+          "ContentSharingUtils: something went wrong after login: ",
+          error
+        );
+        return;
+      }
+
+      // The most recent window may have changed during the login flow.
+      window = Services.wm.getMostRecentBrowserWindow();
+      window.openWebLinkIn(url, "tab");
+    } catch (ex) {
+      // Either we timed out waiting for the cookie to be set, or something
+      // else went wrong. The user will have to try again.
+      console.error("ContentSharingUtils: login failed ", ex);
+    }
   }
 
   /**
@@ -321,18 +372,40 @@ class ContentSharingUtilsClass {
    * or errors on failure
    */
   async #doRequest(share) {
-    if (!this.serverURL) {
-      throw new Error("Content Sharing Server URL is not set");
-    }
-
+    const serverEndpoint = this.serverURL + SERVER_PATH;
     const maxDelay = 30 * BASE_DELAY;
     let canRetry = true;
     let attempts = 0;
     let response;
     let result = {};
+
+    if (!this.serverURL) {
+      console.error("ContentSharingUtils: server URL is not set");
+      result.error = ERRORS.GENERIC;
+      return result;
+    }
+
+    // Only allow insecure http connections in automation and in local builds.
+    if (
+      !Cu.isInAutomation &&
+      AppConstants.MOZILLA_OFFICIAL &&
+      !this.serverURL.startsWith("https://")
+    ) {
+      console.error("ContentSharingUtils: server URL must be HTTPS");
+      result.error = ERRORS.GENERIC;
+      return result;
+    }
+
+    if (!this.isSignedIn()) {
+      result.error = ERRORS.UNAUTHORIZED;
+      return result;
+    }
+
     while (canRetry) {
       if (attempts >= MAX_REQUEST_ATTEMPTS) {
-        console.error("Tried to request the server the maximum number times");
+        console.error(
+          "ContentSharingUtils: tried to request the server the maximum number times"
+        );
         result.error = ERRORS.MAX_REQUEST_ATTEMPTS;
         break;
       }
@@ -345,8 +418,9 @@ class ContentSharingUtilsClass {
       }
 
       try {
-        response = await fetch(this.serverURL, {
+        response = await fetch(serverEndpoint, {
           method: "POST",
+          credentials: "same-origin",
           headers: {
             "Content-Type": "application/json",
           },
@@ -376,8 +450,23 @@ class ContentSharingUtilsClass {
       attempts += 1;
     }
 
+    if (result.error) {
+      return result;
+    }
+
     try {
       let { url } = await response.json();
+
+      // Validate the URL returned from the server before using it.
+      const shareURL = URL.parse(url);
+      const serverOrigin = URL.parse(this.serverURL)?.origin;
+      if (!shareURL || !serverOrigin || shareURL.origin !== serverOrigin) {
+        console.error(
+          `ContentSharingUtils: share URL ${url} does not match configured server origin`
+        );
+        return { error: ERRORS.GENERIC };
+      }
+
       return { url };
     } catch (error) {
       console.error(error);
@@ -389,9 +478,7 @@ class ContentSharingUtilsClass {
   async createShareableLink(share) {
     await this.validateSchema(share);
 
-    const result = await this.#doRequest(share);
-
-    return result.url;
+    return this.#doRequest(share);
   }
 
   countItems(share) {
@@ -436,14 +523,17 @@ class ContentSharingUtilsClass {
       hostname = serverURL.hostname;
     } catch (ex) {
       console.error(
-        `Failed to get cookie because server URL in "browser.contentsharing.server.url" pref is unset or malformed: ` +
-          ex.message
+        "ContentSharingUtils: failed to get cookie because server URL is unset or malformed",
+        ex
       );
-      return null;
+      return false;
     }
     const cookies = Services.cookies.getCookiesFromHost(hostname, {});
+
     // Filter on host because parent domain cookies are returned when getting
     // cookies from a subdomain.
+    // Check for the special "auth" cookie which is only set by the server
+    // when oauth login is complete.
     let authCookie = cookies.find(
       cookie =>
         cookie.host == hostname &&
@@ -455,6 +545,48 @@ class ContentSharingUtilsClass {
 
   isSignedIn() {
     return !!this.getCookie();
+  }
+
+  /**
+   * Waits 2 minutes (100 milliseconds in automation) for the user to complete
+   * sign up / log in.
+   *
+   * @returns {Promise} a promise that resolves if the cookie is detected
+   * before the timeout, or rejects if the timeout is reached.
+   */
+  async detectLogin() {
+    if (this.observingCookieChange) {
+      return this.cookieChangePromise;
+    }
+
+    const COOKIE_DETECTION_TIMEOUT = Cu.isInAutomation
+      ? lazy.CONTENT_SHARING_LOGIN_TIMEOUT_MS
+      : 120 * 1000;
+
+    let { promise, resolve, reject } = Promise.withResolvers();
+    this.observingCookieChange = true;
+
+    this.cookieChangeObserver = {
+      // eslint-disable-next-line no-unused-vars
+      observe: (subject, topic, data) => {
+        if (this.isSignedIn()) {
+          resolve();
+        }
+      },
+    };
+    Services.obs.addObserver(this.cookieChangeObserver, "cookie-changed");
+
+    this.cookieChangeTimer = lazy.setTimeout(() => {
+      reject(new Error("ContentSharingUtils: timed out waiting for login"));
+    }, COOKIE_DETECTION_TIMEOUT);
+
+    const wrapped = promise.finally(() => {
+      this.observingCookieChange = false;
+      Services.obs.removeObserver(this.cookieChangeObserver, "cookie-changed");
+      lazy.clearTimeout(this.cookieChangeTimer);
+    });
+    this.cookieChangePromise = wrapped;
+    return wrapped;
   }
 }
 

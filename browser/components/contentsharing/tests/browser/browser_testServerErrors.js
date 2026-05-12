@@ -3,8 +3,6 @@
 
 "use strict";
 
-const MOCK_SHARE_URL = "https://share.firefox.com/mockShare001";
-
 add_task(async function test_ServerErrors() {
   await withContentSharingMockServer(async server => {
     const share = {
@@ -13,18 +11,18 @@ add_task(async function test_ServerErrors() {
       links: [{ url: "https://example.com", title: "Example" }],
     };
 
-    let shareUrl = await ContentSharingUtils.createShareableLink(share);
+    let result = await ContentSharingUtils.createShareableLink(share);
 
-    Assert.equal(shareUrl, MOCK_SHARE_URL, "Got share url");
+    Assert.equal(result.url, server.mockShareURL, "Got share url");
 
     // Set the response status to something that can be retried
     server.reset();
     server.mockResponseStatus = 503;
     server.mockResponse = {};
 
-    shareUrl = await ContentSharingUtils.createShareableLink(share);
+    result = await ContentSharingUtils.createShareableLink(share);
     Assert.strictEqual(
-      shareUrl,
+      result.url,
       undefined,
       "The server never returned a valid response"
     );
@@ -49,10 +47,10 @@ add_task(async function test_ServerErrors() {
     await new Promise(r => setTimeout(r, 100));
 
     server.mockResponseStatus = 201;
-    server.mockResponse = { url: MOCK_SHARE_URL };
+    server.mockResponse = { url: server.mockShareURL };
 
-    shareUrl = await promise;
-    Assert.equal(shareUrl, MOCK_SHARE_URL, "Got share url");
+    result = await promise;
+    Assert.equal(result.url, server.mockShareURL, "Got share url");
     Assert.greater(
       server.requests.length,
       1,

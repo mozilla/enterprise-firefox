@@ -561,7 +561,7 @@ void EmitWasmPreBarrierGuard(jit::MacroAssembler& masm, jit::Register instance,
 
 // Before storing a GC pointer value in memory, call out-of-line prebarrier
 // code. This assumes `PreBarrierReg` contains the address that will be
-// updated. On ARM64 it also assums that x28 (the PseudoStackPointer) has the
+// updated. On ARM64 it also assums that x20 (the PseudoStackPointer) has the
 // same value as SP.  `PreBarrierReg` is preserved by the barrier function.
 // Will clobber `scratch`.
 //

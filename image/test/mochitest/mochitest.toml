@@ -133,12 +133,8 @@ skip-if = [
 
 ["test_animation_loop_count.html"]
 scheme = "https"
-skip-if = ["release_or_beta"]
 
 ["test_animation_operators.html"]
-skip-if = [
-  "os == 'mac' && os_version == '15.30' && arch == 'aarch64'", # Bug 2034604
-]
 
 ["test_background_image_anim.html"]
 
@@ -244,7 +240,6 @@ skip-if = [
 
 ["test_jxl_progressive.html"]
 skip-if = [
-  "release_or_beta",
   "http2",
   "http3",
 ]

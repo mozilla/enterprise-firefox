@@ -53,7 +53,7 @@
     /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
     --timer-celebration-trailing: #FF9565;
     // Diverges from --border-color for dark-mode contrast on translucent surfaces.
-    --timer-ring-idle-color: light-dark(var(--color-neutral-20), var(--color-neutral-30));
+    --timer-ring-idle-color: light-dark(var(--color-gray-20), var(--color-gray-30));
     --widget-celebration-accent-color: var(--timer-celebration-leading);
     --widget-celebration-copy-color: var(--text-color-deemphasized);
     --widget-celebration-surface-color: var(--newtab-background-card);

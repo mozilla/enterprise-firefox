@@ -51,6 +51,11 @@ class SandboxTarget {
    * more secure delayed / lockdown policy.
    */
   void StartSandbox();
+  /**
+   * Called by content processes to lower the sandbox. This includes other
+   * processing like DLL pre-loading to prevent failures after lowering.
+   */
+  void LowerContentSandbox();
 
  protected:
   SandboxTarget() : mTargetServices(nullptr) {}

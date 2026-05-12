@@ -61,6 +61,7 @@ class TextureClient;
 class ITextureClientRecycleAllocator;
 class SharedSurfaceTextureData;
 class TextureForwarder;
+class ImageBridgeChild;
 class RecordedTextureData;
 struct RemoteTextureOwnerId;
 
@@ -385,7 +386,8 @@ class TextureClient : public AtomicRefCountedWithFinalize<TextureClient> {
       StereoMode aStereoMode, gfx::ColorDepth aColorDepth,
       gfx::YUVColorSpace aYUVColorSpace, gfx::ColorRange aColorRange,
       gfx::TransferFunction aTransferFunction,
-      gfx::ChromaSubsampling aSubsampling, TextureFlags aTextureFlags);
+      gfx::ChromaSubsampling aSubsampling, TextureFlags aTextureFlags,
+      const Maybe<gfx::HDRMetadata>& aHDRMetadata = Nothing());
 
   // Creates and allocates a TextureClient (can be accessed through raw
   // pointers).
@@ -776,6 +778,9 @@ class TextureClient : public AtomicRefCountedWithFinalize<TextureClient> {
   friend class TextureChild;
   friend void TestTextureClientSurface(TextureClient*, gfxImageSurface*);
   friend void TestTextureClientYCbCr(TextureClient*, PlanarYCbCrData&);
+  friend void TestYCbCrDescriptorTransferFunction(gfx::TransferFunction,
+                                                  Maybe<gfx::HDRMetadata>,
+                                                  RefPtr<ImageBridgeChild>);
   friend already_AddRefed<TextureHost> CreateTextureHostWithBackend(
       TextureClient*, ISurfaceAllocator*, LayersBackend&);
 };

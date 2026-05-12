@@ -10569,15 +10569,19 @@ var TabContextMenu = {
     );
 
     // Only one of pin/unpin/multiselect-pin/multiselect-unpin should be visible
+    let hasAboutOpenTabsTab = this.contextTabs.some(
+      t => t.linkedBrowser.currentURI.spec === "about:opentabs"
+    );
     let contextPinTab = document.getElementById("context_pinTab");
-    contextPinTab.hidden = this.contextTab.pinned || this.multiselected;
+    contextPinTab.hidden =
+      this.contextTab.pinned || this.multiselected || hasAboutOpenTabsTab;
     let contextUnpinTab = document.getElementById("context_unpinTab");
     contextUnpinTab.hidden = !this.contextTab.pinned || this.multiselected;
     let contextPinSelectedTabs = document.getElementById(
       "context_pinSelectedTabs"
     );
     contextPinSelectedTabs.hidden =
-      this.contextTab.pinned || !this.multiselected;
+      this.contextTab.pinned || !this.multiselected || hasAboutOpenTabsTab;
     let contextUnpinSelectedTabs = document.getElementById(
       "context_unpinSelectedTabs"
     );

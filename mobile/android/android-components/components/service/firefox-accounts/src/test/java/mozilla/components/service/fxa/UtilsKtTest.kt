@@ -148,7 +148,6 @@ class UtilsKtTest {
 
         assertTrue(
             handleFxaExceptions(mock(), "test op") {
-                Unit
             },
         )
 

@@ -31,6 +31,7 @@ import mozilla.components.concept.engine.EngineSession.TrackingProtectionPolicy.
 import mozilla.components.concept.engine.EngineSession.TrackingProtectionPolicy.TrackingCategory
 import mozilla.components.concept.engine.UnsupportedSettingException
 import mozilla.components.concept.engine.content.blocking.TrackerLog
+import mozilla.components.concept.engine.content.blocking.TrackingProtectionEvent
 import mozilla.components.concept.engine.mediaquery.PreferredColorScheme
 import mozilla.components.concept.engine.preferences.Branch
 import mozilla.components.concept.engine.preferences.BrowserPrefObserverDelegate
@@ -74,6 +75,7 @@ import org.mockito.ArgumentMatchers.anyBoolean
 import org.mockito.ArgumentMatchers.anyFloat
 import org.mockito.ArgumentMatchers.anyInt
 import org.mockito.ArgumentMatchers.anyList
+import org.mockito.ArgumentMatchers.anyLong
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito.doReturn
 import org.mockito.Mockito.never
@@ -2910,6 +2912,264 @@ class GeckoEngineTest {
         assertTrue(trackerLog3.cookiesHasBeenBlocked)
         assertEquals("www.data-collector.com", trackerLog3.url)
         assertTrue(trackerLog3.loadedCategories.isEmpty())
+    }
+
+    @Test
+    fun `GIVEN a request to fetch tracking events WHEN successful THEN invoke the success callback`() {
+        val runtime: GeckoRuntime = mock()
+        val controller: ContentBlockingController = mock()
+        whenever(runtime.contentBlockingController).thenReturn(controller)
+        val engine = GeckoEngine(context, runtime = runtime)
+
+        val dateFrom = 1000L
+        val dateTo = 2000L
+        val result = GeckoResult<List<ContentBlockingController.TrackingDbEvent>>()
+        whenever(controller.getTrackingDbEventsByDateRange(dateFrom, dateTo)).thenReturn(result)
+
+        val event = object : ContentBlockingController.TrackingDbEvent() {}
+        ReflectionUtils.setField(event, "type", 1)
+        ReflectionUtils.setField(event, "count", 5)
+        ReflectionUtils.setField(event, "date", "2023-01-01")
+
+        var onSuccessCalled = false
+        var onErrorCalled = false
+        var events: List<TrackingProtectionEvent>? = null
+
+        engine.getTrackingProtectionEventsByDateRange(
+            dateFrom,
+            dateTo,
+            onSuccess = {
+                onSuccessCalled = true
+                events = it
+            },
+            onError = { onErrorCalled = true },
+        )
+        result.complete(listOf(event))
+        shadowOf(getMainLooper()).idle()
+
+        assertTrue(onSuccessCalled)
+        assertFalse(onErrorCalled)
+        assertEquals(1, events?.size)
+        assertEquals(1, events?.first()?.type)
+        assertEquals(5, events?.first()?.count)
+        assertEquals("2023-01-01", events?.first()?.date)
+    }
+
+    @Test
+    fun `GIVEN a request to fetch tracking events WHEN an error is encountered THEN call the error callback`() {
+        val runtime: GeckoRuntime = mock()
+        val controller: ContentBlockingController = mock()
+        whenever(runtime.contentBlockingController).thenReturn(controller)
+        val engine = GeckoEngine(context, runtime = runtime)
+
+        val result = GeckoResult<List<ContentBlockingController.TrackingDbEvent>>()
+        whenever(controller.getTrackingDbEventsByDateRange(anyLong(), anyLong())).thenReturn(result)
+
+        var onErrorCalled = false
+        var onSuccessCalled = false
+
+        engine.getTrackingProtectionEventsByDateRange(
+            dateFrom = 0,
+            dateTo = 0,
+            onSuccess = { onSuccessCalled = true },
+            onError = { onErrorCalled = true },
+        )
+        result.completeExceptionally(Exception())
+        shadowOf(getMainLooper()).idle()
+
+        assertFalse(onSuccessCalled)
+        assertTrue(onErrorCalled)
+    }
+
+    @Test
+    fun `GIVEN a request to fetch tracking events WHEN no data is available THEN return an empty list`() {
+        val runtime: GeckoRuntime = mock()
+        val controller: ContentBlockingController = mock()
+        whenever(runtime.contentBlockingController).thenReturn(controller)
+        val engine = GeckoEngine(context, runtime = runtime)
+
+        val result = GeckoResult<List<ContentBlockingController.TrackingDbEvent>>()
+        whenever(controller.getTrackingDbEventsByDateRange(anyLong(), anyLong())).thenReturn(result)
+
+        var events: List<TrackingProtectionEvent>? = null
+        var onErrorCalled = false
+
+        engine.getTrackingProtectionEventsByDateRange(
+            dateFrom = 0,
+            dateTo = 0,
+            onSuccess = { events = it },
+            onError = { onErrorCalled = true },
+        )
+        result.complete(null)
+        shadowOf(getMainLooper()).idle()
+
+        assertFalse(onErrorCalled)
+        assertNotNull(events)
+        assertTrue(events!!.isEmpty())
+    }
+
+    @Test
+    fun `GIVEN a request to fetch total trackers blocked WHEN successful THEN return their sum`() {
+        val runtime: GeckoRuntime = mock()
+        val controller: ContentBlockingController = mock()
+        whenever(runtime.contentBlockingController).thenReturn(controller)
+        val engine = GeckoEngine(context, runtime = runtime)
+
+        val result = GeckoResult<Int>()
+        whenever(controller.sumAllTrackingDbEvents()).thenReturn(result)
+
+        var onSuccessCalled = false
+        var onErrorCalled = false
+        var total = -1
+
+        engine.sumAllTrackingProtectionEvents(
+            onSuccess = {
+                onSuccessCalled = true
+                total = it
+            },
+            onError = { onErrorCalled = true },
+        )
+        result.complete(42)
+        shadowOf(getMainLooper()).idle()
+
+        assertTrue(onSuccessCalled)
+        assertFalse(onErrorCalled)
+        assertEquals(42, total)
+    }
+
+    @Test
+    fun `GIVEN a request to fetch total trackers blocked WHEN no data is available THEN return 0`() {
+        val runtime: GeckoRuntime = mock()
+        val controller: ContentBlockingController = mock()
+        whenever(runtime.contentBlockingController).thenReturn(controller)
+        val engine = GeckoEngine(context, runtime = runtime)
+
+        val result = GeckoResult<Int>()
+        whenever(controller.sumAllTrackingDbEvents()).thenReturn(result)
+
+        var onSuccessCalled = false
+        var onErrorCalled = false
+        var total = -1
+
+        engine.sumAllTrackingProtectionEvents(
+            onSuccess = {
+                onSuccessCalled = true
+                total = it
+            },
+            onError = { onErrorCalled = true },
+        )
+        result.complete(null)
+        shadowOf(getMainLooper()).idle()
+
+        assertTrue(onSuccessCalled)
+        assertFalse(onErrorCalled)
+        assertEquals(0, total)
+    }
+
+    @Test
+    fun `GIVEN a request to fetch total trackers blocked WHEN an error is encountered THEN call the error callback`() {
+        val runtime: GeckoRuntime = mock()
+        val controller: ContentBlockingController = mock()
+        whenever(runtime.contentBlockingController).thenReturn(controller)
+        val engine = GeckoEngine(context, runtime = runtime)
+
+        val result = GeckoResult<Int>()
+        whenever(controller.sumAllTrackingDbEvents()).thenReturn(result)
+
+        var onSuccessCalled = false
+        var onErrorCalled = false
+
+        engine.sumAllTrackingProtectionEvents(
+            onSuccess = { onSuccessCalled = true },
+            onError = { onErrorCalled = true },
+        )
+        result.completeExceptionally(Exception())
+        shadowOf(getMainLooper()).idle()
+
+        assertFalse(onSuccessCalled)
+        assertTrue(onErrorCalled)
+    }
+
+    @Test
+    fun `GIVEN a request to fetch earliest tracking date WHEN successful THEN return that date`() {
+        val runtime: GeckoRuntime = mock()
+        val controller: ContentBlockingController = mock()
+        whenever(runtime.contentBlockingController).thenReturn(controller)
+        val engine = GeckoEngine(context, runtime = runtime)
+
+        val result = GeckoResult<Long>()
+        whenever(controller.getTrackingDbEarliestRecordedDate()).thenReturn(result)
+
+        var onSuccessCalled = false
+        var onErrorCalled = false
+        var date: Long? = -1L
+
+        engine.getEarliestTrackingProtectionDate(
+            onSuccess = {
+                onSuccessCalled = true
+                date = it
+            },
+            onError = { onErrorCalled = true },
+        )
+        result.complete(123456789L)
+        shadowOf(getMainLooper()).idle()
+
+        assertTrue(onSuccessCalled)
+        assertFalse(onErrorCalled)
+        assertEquals(123456789L, date)
+    }
+
+    @Test
+    fun `GIVEN a request to fetch earliest tracking date WHEN no data is available THEN return null`() {
+        val runtime: GeckoRuntime = mock()
+        val controller: ContentBlockingController = mock()
+        whenever(runtime.contentBlockingController).thenReturn(controller)
+        val engine = GeckoEngine(context, runtime = runtime)
+
+        val result = GeckoResult<Long>()
+        whenever(controller.getTrackingDbEarliestRecordedDate()).thenReturn(result)
+
+        var onSuccessCalled = false
+        var onErrorCalled = false
+        var date: Long? = -1L
+
+        engine.getEarliestTrackingProtectionDate(
+            onSuccess = {
+                onSuccessCalled = true
+                date = it
+            },
+            onError = { onErrorCalled = true },
+        )
+        result.complete(0L)
+        shadowOf(getMainLooper()).idle()
+
+        assertTrue(onSuccessCalled)
+        assertFalse(onErrorCalled)
+        assertNull(date)
+    }
+
+    @Test
+    fun `GIVEN a request to fetch earliest tracking date WHEN an error is encountered THEN call the error callback`() {
+        val runtime: GeckoRuntime = mock()
+        val controller: ContentBlockingController = mock()
+        whenever(runtime.contentBlockingController).thenReturn(controller)
+        val engine = GeckoEngine(context, runtime = runtime)
+
+        val result = GeckoResult<Long>()
+        whenever(controller.getTrackingDbEarliestRecordedDate()).thenReturn(result)
+
+        var onSuccessCalled = false
+        var onErrorCalled = false
+
+        engine.getEarliestTrackingProtectionDate(
+            onSuccess = { onSuccessCalled = true },
+            onError = { onErrorCalled = true },
+        )
+        result.completeExceptionally(Exception())
+        shadowOf(getMainLooper()).idle()
+
+        assertFalse(onSuccessCalled)
+        assertTrue(onErrorCalled)
     }
 
     @Test

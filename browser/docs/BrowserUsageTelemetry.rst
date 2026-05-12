@@ -52,6 +52,7 @@ For the purposes of this telemetry a set of areas are defined:
 
 * In ``about:preferences`` the different categories are used:
 
+  * ``preferences-paneDownloads``
   * ``preferences-paneGeneral``
   * ``preferences-paneHome``
   * ``preferences-panePrivacy``
@@ -64,6 +65,7 @@ For the purposes of this telemetry a set of areas are defined:
   * ``preferences-paneLanguages``
   * ``preferences-paneAbout``
   * ``preferences-panePermissionsData``
+  * ``preferences-paneTabsBrowsing``
 
 Widget Identifiers
 ------------------

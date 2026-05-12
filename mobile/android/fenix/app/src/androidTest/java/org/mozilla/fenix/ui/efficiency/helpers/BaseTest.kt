@@ -25,6 +25,7 @@ import org.mozilla.fenix.ui.efficiency.logging.LoggingBridge
 import org.mozilla.fenix.ui.efficiency.logging.TestLogging
 import org.mozilla.fenix.ui.efficiency.navigation.NavigationRegistry
 import org.mozilla.fenix.ui.efficiency.navigation.planning.PageCatalog
+import androidx.compose.ui.test.junit4.v2.AndroidComposeTestRule as AndroidComposeTestRuleV2
 
 /**
  * BaseTest
@@ -71,7 +72,7 @@ abstract class BaseTest(
         object : Statement() {
             override fun evaluate() {
                 repeat(1 + MAX_RETRIES) { attempt ->
-                    _composeRule = AndroidComposeTestRule(
+                    _composeRule = AndroidComposeTestRuleV2(
                         HomeActivityIntentTestRule(
                             skipOnboarding = skipOnboarding,
                             isMenuRedesignCFREnabled = isMenuRedesignCFREnabled,

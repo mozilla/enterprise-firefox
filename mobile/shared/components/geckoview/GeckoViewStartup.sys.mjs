@@ -132,6 +132,15 @@ export class GeckoViewStartup {
           ],
         });
 
+        GeckoViewUtils.addLazyGetter(this, "GeckoViewTrackingDB", {
+          module: "resource://gre/modules/GeckoViewTrackingDB.sys.mjs",
+          ged: [
+            "GeckoView:TrackingDB:GetEventsByDateRange",
+            "GeckoView:TrackingDB:SumAllEvents",
+            "GeckoView:TrackingDB:GetEarliestRecordedDate",
+          ],
+        });
+
         GeckoViewUtils.addLazyGetter(this, "GeckoViewPushController", {
           module: "resource://gre/modules/GeckoViewPushController.sys.mjs",
           ged: ["GeckoView:PushEvent", "GeckoView:PushSubscriptionChanged"],
@@ -204,6 +213,7 @@ export class GeckoViewStartup {
               "GeckoView:IPProtection:IPPProxyManager:GetState",
               "GeckoView:IPProtection:Activate",
               "GeckoView:IPProtection:Deactivate",
+              "GeckoView:IPProtection:Enroll",
             ],
           });
 

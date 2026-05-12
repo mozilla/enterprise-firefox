@@ -8,6 +8,7 @@ import androidx.annotation.OptIn
 import mozilla.components.ExperimentalAndroidComponentsApi
 import mozilla.components.concept.engine.ipprotection.IPProtectionHandler
 import org.mozilla.geckoview.ExperimentalGeckoViewApi
+import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
 
 @OptIn(ExperimentalGeckoViewApi::class)
@@ -22,6 +23,29 @@ internal class GeckoIPProtectionHandler(
 
     override fun deactivate() {
         runtime.ipProtectionController.deactivate()
+    }
+
+    override fun enroll(onResult: (IPProtectionHandler.EnrollResult) -> Unit) {
+        runtime.ipProtectionController.enroll().then(
+            { result ->
+                onResult(
+                    IPProtectionHandler.EnrollResult(
+                        isEnrolledAndEntitled = result?.isEnrolledAndEntitled == true,
+                        error = result?.error,
+                    ),
+                )
+                GeckoResult.fromValue(null)
+            },
+            { ex ->
+                onResult(
+                    IPProtectionHandler.EnrollResult(
+                        isEnrolledAndEntitled = false,
+                        error = ex.message,
+                    ),
+                )
+                GeckoResult.fromValue(null)
+            },
+        )
     }
 
     override fun init() {

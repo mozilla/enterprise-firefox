@@ -295,6 +295,8 @@ let JSWINDOWACTORS = {
       "about:settings*",
       "about:welcome*",
       "chrome://browser/content/spotlight.html",
+      "about:newtab*",
+      "about:home*",
     ],
   },
 
@@ -565,6 +567,7 @@ let JSWINDOWACTORS = {
       "about:deleteprofile",
       "about:newprofile",
       "about:opentabs",
+      "about:aichatcontent",
     ],
   },
 
@@ -807,7 +810,13 @@ let JSWINDOWACTORS = {
         DOMDocElementInserted: {},
       },
     },
-    matches: ["about:asrouter*", "about:welcome*", "about:privatebrowsing*"],
+    matches: [
+      "about:asrouter*",
+      "about:welcome*",
+      "about:privatebrowsing*",
+      "about:newtab*",
+      "about:home*",
+    ],
     remoteTypes: ["privilegedabout"],
   },
 

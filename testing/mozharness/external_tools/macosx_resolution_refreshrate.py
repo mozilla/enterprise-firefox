@@ -39,6 +39,9 @@ def get_target_resolution():
 
 def get_refresh_rate():
     if platform.system() == "Darwin":
+        if is_virtual_machine():
+            print("Skipping refresh-rate check on headless VM.")
+            return 0
         # 11.20/aarch64 (mac mini m1) - always has 53.00
         # 14.70 - mix between 60.00 and 24.00
         cmd = "system_profiler SPDisplaysDataType | grep 'UI' | cut -d '@' -f 2 | cut -d ' ' -f 2 | sed 's/Hz//'"
@@ -65,6 +68,9 @@ def get_refresh_rate():
 
 def get_resolution():
     if platform.system() == "Darwin":
+        if is_virtual_machine():
+            print("Skipping resolution check on headless VM.")
+            return 0
         """
         system_profiler SPDisplaysDataType | grep Resolution
           Resolution: 1920 x 1080 (1080p FHD - Full High Definition)

@@ -5,24 +5,18 @@
 
 add_task(async function test_handleShareTabs() {
   await withContentSharingMockServer(async server => {
-    const tab1 = await BrowserTestUtils.openNewForegroundTab(
-      gBrowser,
-      "https://example.com"
-    );
-    const tab2 = await BrowserTestUtils.openNewForegroundTab(
-      gBrowser,
-      "https://example.com/1"
+    let tabs = [
+      BrowserTestUtils.addTab(gBrowser, "https://example.com"),
+      BrowserTestUtils.addTab(gBrowser, "https://example.com?1"),
+    ];
+
+    await Promise.all(
+      tabs.map(async t => {
+        await BrowserTestUtils.browserLoaded(t.linkedBrowser);
+      })
     );
 
-    let modalArgs;
-    const origOpen = window.gDialogBox.open;
-    window.gDialogBox.open = (_url, args) => {
-      modalArgs = args;
-    };
-
-    await ContentSharingUtils.handleShareTabs([tab1, tab2]);
-    // restore function after stubbing
-    window.gDialogBox.open = origOpen;
+    await ContentSharingUtils.handleShareTabs(tabs);
 
     Assert.equal(
       server.requests.length,
@@ -31,6 +25,13 @@ add_task(async function test_handleShareTabs() {
     );
 
     const body = server.requests[0].body;
+
+    await assertContentSharingModal(window, {
+      share: body,
+      url: server.mockResponse.url,
+      isSignedIn: true,
+    });
+
     Assert.equal(body.type, "tabs", "Share type is 'tabs'");
     Assert.equal(
       body.title,
@@ -40,21 +41,15 @@ add_task(async function test_handleShareTabs() {
     Assert.equal(body.links.length, 2, "Share contains 2 links");
     Assert.equal(
       body.links[0].url,
-      tab1.linkedBrowser.currentURI.displaySpec,
+      tabs[0].linkedBrowser.currentURI.displaySpec,
       "First link URL matches tab 1"
     );
     Assert.equal(
       body.links[1].url,
-      tab2.linkedBrowser.currentURI.displaySpec,
+      tabs[1].linkedBrowser.currentURI.displaySpec,
       "Second link URL matches tab 2"
     );
-    Assert.equal(
-      modalArgs?.url,
-      server.mockResponse.url,
-      "Modal was opened with the share URL"
-    );
 
-    BrowserTestUtils.removeTab(tab1);
-    BrowserTestUtils.removeTab(tab2);
+    gBrowser.removeTabs(tabs);
   });
 });

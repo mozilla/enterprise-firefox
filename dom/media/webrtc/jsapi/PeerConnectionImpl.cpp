@@ -432,14 +432,6 @@ PeerConnectionImpl::~PeerConnectionImpl() {
              __FUNCTION__, mHandle.c_str());
 }
 
-struct CompareCodecPriority {
-  bool operator()(const UniquePtr<JsepCodecDescription>& lhs,
-                  const UniquePtr<JsepCodecDescription>& rhs) const {
-    // If only the left side is strongly preferred, prefer it
-    return lhs->mStronglyPreferred && !rhs->mStronglyPreferred;
-  }
-};
-
 nsresult PeerConnectionImpl::Initialize(PeerConnectionObserver& aObserver,
                                         nsGlobalWindowInner* aWindow) {
   nsresult res;
@@ -2079,46 +2071,22 @@ void PeerConnectionImpl::SendWarningToConsole(const nsCString& aWarning) {
 void PeerConnectionImpl::GetDefaultVideoCodecs(
     std::vector<UniquePtr<JsepCodecDescription>>& aSupportedCodecs,
     const OverrideRtxPreference aOverrideRtxPreference) {
-  const auto prefs = GetDefaultCodecPreferences(aOverrideRtxPreference);
-  // Supported video codecs.
-  // Note: order here implies priority for building offers!
-  aSupportedCodecs.emplace_back(
-      JsepVideoCodecDescription::CreateDefaultVP8(prefs));
-  aSupportedCodecs.emplace_back(
-      JsepVideoCodecDescription::CreateDefaultVP9(prefs));
-  aSupportedCodecs.emplace_back(
-      JsepVideoCodecDescription::CreateDefaultH264_1(prefs));
-  aSupportedCodecs.emplace_back(
-      JsepVideoCodecDescription::CreateDefaultH264_0(prefs));
-  aSupportedCodecs.emplace_back(
-      JsepVideoCodecDescription::CreateDefaultH264Baseline_1(prefs));
-  aSupportedCodecs.emplace_back(
-      JsepVideoCodecDescription::CreateDefaultH264Baseline_0(prefs));
-  aSupportedCodecs.emplace_back(
-      JsepVideoCodecDescription::CreateDefaultAV1(prefs));
-
-  aSupportedCodecs.emplace_back(
-      JsepVideoCodecDescription::CreateDefaultUlpFec(prefs));
-  aSupportedCodecs.emplace_back(
-      JsepApplicationCodecDescription::CreateDefault());
-  aSupportedCodecs.emplace_back(
-      JsepVideoCodecDescription::CreateDefaultRed(prefs));
-
-  CompareCodecPriority comparator;
-  std::stable_sort(aSupportedCodecs.begin(), aSupportedCodecs.end(),
-                   comparator);
+  nsTArray<UniquePtr<JsepCodecDescription>> codecs;
+  EnumerateDefaultVideoCodecs(codecs, aOverrideRtxPreference);
+  aSupportedCodecs.reserve(codecs.Length());
+  for (auto& codec : codecs) {
+    aSupportedCodecs.emplace_back(std::move(codec));
+  }
 }
 
 void PeerConnectionImpl::GetDefaultAudioCodecs(
     std::vector<UniquePtr<JsepCodecDescription>>& aSupportedCodecs) {
-  const auto prefs = GetDefaultCodecPreferences();
-  aSupportedCodecs.emplace_back(
-      JsepAudioCodecDescription::CreateDefaultOpus(prefs));
-  aSupportedCodecs.emplace_back(JsepAudioCodecDescription::CreateDefaultG722());
-  aSupportedCodecs.emplace_back(JsepAudioCodecDescription::CreateDefaultPCMU());
-  aSupportedCodecs.emplace_back(JsepAudioCodecDescription::CreateDefaultPCMA());
-  aSupportedCodecs.emplace_back(
-      JsepAudioCodecDescription::CreateDefaultTelephoneEvent());
+  nsTArray<UniquePtr<JsepCodecDescription>> codecs;
+  EnumerateDefaultAudioCodecs(codecs);
+  aSupportedCodecs.reserve(codecs.Length());
+  for (auto& codec : codecs) {
+    aSupportedCodecs.emplace_back(std::move(codec));
+  }
 }
 
 void PeerConnectionImpl::GetDefaultRtpExtensions(

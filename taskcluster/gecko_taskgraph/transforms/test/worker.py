@@ -69,11 +69,6 @@ WINDOWS_WORKER_TYPES = {
         "virtual-with-gpu": "win11-64-24h2-gpu",
         "hardware": "win11-64-24h2-hw",
     },
-    "windows11-64-24h2-enterprise": {
-        "virtual": "win11-64-24h2",
-        "virtual-with-gpu": "win11-64-24h2-gpu",
-        "hardware": "win11-64-24h2-hw",
-    },
     "windows11-64-24h2-artifact": {
         "virtual": "win11-64-24h2",
         "virtual-with-gpu": "win11-64-24h2-gpu",
@@ -122,6 +117,11 @@ WINDOWS_WORKER_TYPES = {
         "virtual-with-gpu": "win11-64-25h2-gpu",
     },
     "windows11-64-25h2": {
+        "virtual": "win11-64-25h2",
+        "virtual-with-gpu": "win11-64-25h2-gpu",
+        "hardware": "win11-64-24h2-hw",
+    },
+    "windows11-64-25h2-enterprise": {
         "virtual": "win11-64-25h2",
         "virtual-with-gpu": "win11-64-25h2-gpu",
         "hardware": "win11-64-24h2-hw",

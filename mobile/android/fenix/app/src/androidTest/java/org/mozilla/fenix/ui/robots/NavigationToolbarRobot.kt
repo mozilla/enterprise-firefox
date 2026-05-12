@@ -450,6 +450,7 @@ class NavigationToolbarRobot(private val composeTestRule: ComposeTestRule) {
             url: Uri,
             interact: BrowserRobot.() -> Unit,
         ): BrowserRobot.Transition {
+            composeTestRule.waitForIdle()
             Log.i(TAG, "enterURLAndEnterToBrowser: Waiting for $waitingTime until the URL bar exists")
             composeTestRule.waitUntilAtLeastOneExists(hasTestTag(ADDRESSBAR_URL_BOX), waitingTime)
             Log.i(TAG, "enterURLAndEnterToBrowser: Waited for $waitingTime until the URL bar exists")

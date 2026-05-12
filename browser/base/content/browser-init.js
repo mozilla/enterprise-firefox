@@ -703,6 +703,9 @@ var gBrowserInit = {
           .getElementById("toolbar-menubar")
           .removeAttribute("toolbarname");
       }
+      if (!Services.policies.isAllowed("profileImport")) {
+        document.documentElement.setAttribute("disableprofileimport", "true");
+      }
       if (!Services.policies.isAllowed("filepickers")) {
         let savePageCommand = document.getElementById("Browser:SavePage");
         let openFileCommand = document.getElementById("Browser:OpenFile");

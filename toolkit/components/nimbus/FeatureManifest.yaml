@@ -1745,6 +1745,10 @@ newtabWidgets:
       type: boolean
       description: >-
         Enable Clocks widget
+    sportsWidgetEnabled:
+      type: boolean
+      description: >-
+        Enable Sports widget
     listsBadgeEnabled:
       type: boolean
       description: >-
@@ -3073,6 +3077,18 @@ networkingConnections:
       setPref:
         branch: default
         pref: "network.http.happy_eyeballs_enabled"
+    happyEyeballsResolutionDelay:
+      description: Time in ms to wait after the first DNS response before starting connections
+      type: int
+      setPref:
+        branch: default
+        pref: "network.http.happy_eyeballs_resolution_delay"
+    happyEyeballsConnectionAttemptDelay:
+      description: Time in ms between successive connection attempts
+      type: int
+      setPref:
+        branch: default
+        pref: "network.http.happy_eyeballs_connection_attempt_delay"
 
 
 networkingSendOnDataFinished:
@@ -3959,6 +3975,45 @@ userCharacteristics:
         branch: user
         pref: toolkit.telemetry.user_characteristics_ping.current_version
       description: The current collection version of the user characteristics.
+
+mediaCapabilities:
+  description: Media Capabilities API features.
+  owner: media-alerts@mozilla.com, apehrson@mozilla.com, azebrowski@mozilla.com
+  hasExposure: false
+  variables:
+    webrtcEnabled:
+      description: >-
+        Whether or not to enable the WebRTC parts of the MediaCapabilities API.
+      type: boolean
+      setPref:
+        branch: default
+        pref: media.mediacapabilities.webrtc.enabled
+    webrtcAllowlist:
+      description: >-
+        Whether or not to enable the WebRTC parts of the MediaCapabilities API
+        only on specific domains.
+      type: string
+      setPref:
+        branch: default
+        pref: media.mediacapabilities.webrtc.enabled.allowlist
+    legacyEnabled:
+      description: >-
+        Enables legacy mode, which bypasses colorGamut, transferFunction,
+        and scalabilityMode validation, in the MediaCapabilities API,
+        for improved web compatibility.
+      type: boolean
+      setPref:
+        branch: default
+        pref: media.mediacapabilities.legacy.enabled
+    legacyAllowlist:
+      description: >-
+        Enables legacy mode, which bypasses colorGamut, transferFunction,
+        and scalabilityMode validation, in the MediaCapabilities API,
+        for improved web compatibility only on specific domains.
+      type: string
+      setPref:
+        branch: default
+        pref: media.mediacapabilities.legacy.allowlist
 
 migrationWizard:
   description: Prefs to control the Migration Wizard UI.
@@ -5508,6 +5563,13 @@ ipProtection:
         pref: browser.ipProtection.enabled
       description: >-
         Enables the IP Protection feature.
+    bandwidthMax:
+      type: int
+      setPref:
+        branch: default
+        pref: browser.ipProtection.bandwidth.maxInGb
+      description: >-
+        Maximum bandwidth allowance in GB for messaging.
 
 webApps:
   description: Enables or disables web apps.

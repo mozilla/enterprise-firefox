@@ -122,6 +122,7 @@ struct FocusOptions;
 struct ShadowRootInit;
 struct ScrollOptions;
 struct FullscreenOptions;
+struct PointerLockOptions;
 class Attr;
 class BooleanOrScrollIntoViewOptions;
 class ContentList;
@@ -1185,9 +1186,10 @@ class Element : public FragmentOrElement {
   /**
    * Append to aOutDescription a string describing the element and its
    * attributes.
-   * If aShort is true, only the id and class attributes will be listed.
    */
-  void Describe(nsAString& aOutDescription, bool aShort = false) const;
+  enum class DescriptionKind { IdOnly, IdAndClass, AllAttributes };
+  void Describe(nsAString& aOutDescription,
+                DescriptionKind aKind = DescriptionKind::AllAttributes) const;
 
   /*
    * Attribute Mapping Helpers
@@ -1584,7 +1586,9 @@ class Element : public FragmentOrElement {
 
   already_AddRefed<Promise> RequestFullscreen(const FullscreenOptions&,
                                               CallerType, ErrorResult&);
-  void RequestPointerLock(CallerType aCallerType);
+  already_AddRefed<Promise> RequestPointerLock(
+      const PointerLockOptions& aOptions, CallerType aCallerType,
+      ErrorResult& aRv);
   Attr* GetAttributeNode(const nsAString& aName);
   MOZ_CAN_RUN_SCRIPT already_AddRefed<Attr> SetAttributeNode(
       Attr& aNewAttr, nsIPrincipal* aSubjectPrincipal, ErrorResult& aError);

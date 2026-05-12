@@ -11,7 +11,6 @@ USE_LIBS += ["nss"]
 
 UNIFIED_SOURCES += [
     "stub.cpp",
-    "stub.cpp",
 ]
 
 # This is the name of the .a file created.

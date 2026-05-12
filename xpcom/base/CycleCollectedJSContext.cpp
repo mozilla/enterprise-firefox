@@ -1194,7 +1194,7 @@ bool CycleCollectedJSContext::PerformMicroTaskCheckPoint(bool aForce) {
   if (NS_IsMainThread() && !nsContentUtils::IsSafeToRunScript()) {
     // Special case for main thread where DOM mutations may happen when
     // it is not safe to run scripts.
-    nsContentUtils::AddScriptRunner(new AsyncMutationHandler());
+    nsContentUtils::AddScriptRunner(MakeAndAddRef<AsyncMutationHandler>());
     return false;
   }
 

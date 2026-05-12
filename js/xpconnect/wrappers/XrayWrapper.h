@@ -103,11 +103,8 @@ class XrayTraits {
   virtual JSObject* createHolder(JSContext* cx, JSObject* wrapper) = 0;
 
   JSObject* getExpandoChain(JS::HandleObject obj);
-  JSObject* detachExpandoChain(JS::HandleObject obj);
   bool setExpandoChain(JSContext* cx, JS::HandleObject obj,
                        JS::HandleObject chain);
-  bool cloneExpandoChain(JSContext* cx, JS::HandleObject dst,
-                         JS::HandleObject srcChain);
 
  protected:
   static const JSClass HolderClass;

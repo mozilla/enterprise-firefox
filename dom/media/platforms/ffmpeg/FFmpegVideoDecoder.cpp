@@ -858,6 +858,10 @@ FFmpegVideoDecoder<LIBAV_VER>::AllocateTextureClientForImage(
   }
   data.mColorDepth = GetColorDepth(aCodecContext->pix_fmt);
   data.mColorRange = GetColorRange(aCodecContext->color_range);
+  if (mInfo.mTransferFunction) {
+    data.mTransferFunction = *mInfo.mTransferFunction;
+  }
+  data.mHDRMetadata = mInfo.mHDRMetadata;
 
   FFMPEG_LOGV(
       "Created plane data, YSize=(%d, %d), CbCrSize=(%d, %d), "

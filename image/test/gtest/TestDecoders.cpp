@@ -11,6 +11,9 @@
 #include "Decoder.h"
 #include "DecoderFactory.h"
 #include "decoders/nsBMPDecoder.h"
+#ifdef MOZ_JXL
+#  include "decoders/nsJXLDecoder.h"
+#endif
 #include "IDecodingTask.h"
 #include "ImageOps.h"
 #include "imgIContainer.h"
@@ -1013,7 +1016,23 @@ TEST_F(ImageDecoders, AVIFLargeMultiChunk) {
 TEST_F(ImageDecoders, JXLLargeMultiChunk) {
   CheckDecoderMultiChunk(LargeJXLTestCase(), /* aChunkSize */ 64);
 }
-#endif
+
+#  ifdef DEBUG
+// Feeding a large JXL in tiny chunks must not cause WritePixelRowsToPipe to run
+// once per chunk or too much. The decoder should only do that work when
+// flush_pixels reports new pixels.
+TEST_F(ImageDecoders, JXLLargeMultiChunkPipeWriteCount) {
+  ImageTestCase testCase = LargeJXLTestCase();
+  WithMultiChunkDecode(testCase, /* aChunkSize */ 64,
+                       [&](image::Decoder* aDecoder) {
+                         ASSERT_FALSE(aDecoder->HasError());
+                         ASSERT_EQ(aDecoder->GetType(), DecoderType::JXL);
+                         auto* jxl = static_cast<nsJXLDecoder*>(aDecoder);
+                         EXPECT_LE(jxl->GetWritePixelRowsCount(), 16u);
+                       });
+}
+#  endif /* DEBUG */
+#endif   /* MOZ_JXL */
 
 TEST_F(ImageDecoders, AnimatedGIFSingleChunk) {
   CheckDecoderSingleChunk(GreenFirstFrameAnimatedGIFTestCase());

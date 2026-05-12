@@ -28,8 +28,8 @@ import org.mozilla.fenix.theme.FirefoxTheme
  */
 class FirefoxLabsFragment : Fragment(), SystemInsetsPaddedFragment {
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+    override fun onResume() {
+        super.onResume()
         hideToolbar()
     }
 
@@ -56,7 +56,7 @@ class FirefoxLabsFragment : Fragment(), SystemInsetsPaddedFragment {
             FirefoxLabsScreen(
                 store = labsStore,
                 onNavigationIconClick = {
-                    this@FirefoxLabsFragment.findNavController().popBackStack()
+                    findNavController().popBackStack()
                 },
             )
         }

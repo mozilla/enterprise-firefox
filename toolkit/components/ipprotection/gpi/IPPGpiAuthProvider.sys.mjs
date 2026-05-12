@@ -124,7 +124,10 @@ class IPPGpiAuthProviderSingleton extends IPPAuthProvider {
 
   async enroll() {
     const jwt = await this.#enroll();
-    return { isEnrolledAndEntitled: !!jwt };
+    return {
+      isEnrolledAndEntitled: !!jwt,
+      error: jwt ? null : "enrollment_failed",
+    };
   }
 
   get isReady() {

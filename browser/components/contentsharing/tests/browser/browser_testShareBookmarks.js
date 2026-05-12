@@ -68,27 +68,33 @@ add_task(async function test_shareBookmarks() {
 add_task(async function test_createShareableLink() {
   await withContentSharingMockServer(async server => {
     const folder = await createFolderWithBookmarks("test folder");
-    const shareObject = await ContentSharingUtils.buildShareFromBookmarkFolders(
-      [folder.guid]
-    );
+    await ContentSharingUtils.createShareableLinkFromBookmarkFolders([
+      folder.guid,
+    ]);
 
-    const url = await ContentSharingUtils.createShareableLink(shareObject);
-
-    Assert.equal(
-      url,
-      server.mockResponse.url,
-      "createShareableLink should return the URL from the server response"
-    );
     Assert.equal(
       server.requests.length,
       1,
-      "Server should have received exactly one request"
+      "Server received exactly one request"
     );
-    Assert.deepEqual(
-      server.requests[0].body,
-      shareObject,
-      "Request body should match the share object"
-    );
+    const body = server.requests[0].body;
+
+    await assertContentSharingModal(window, {
+      share: body,
+      url: server.mockResponse.url,
+      isSignedIn: true,
+    });
+
+    Assert.equal(body.type, "bookmarks", "Share type is 'bookmarks'");
+    Assert.equal(body.links.length, 5, "Share contains 5 links");
+
+    for (let i of [1, 2, 3, 4, 5]) {
+      Assert.equal(
+        body.links[i - 1].url,
+        `https://example.com/${i}`,
+        `Link ${i} URL matches the expected value`
+      );
+    }
 
     await PlacesUtils.bookmarks.eraseEverything();
   });

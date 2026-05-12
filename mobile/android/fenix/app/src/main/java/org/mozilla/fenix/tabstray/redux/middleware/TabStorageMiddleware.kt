@@ -186,6 +186,121 @@ class TabStorageMiddleware(
                     tabGroupRepository.closeTabGroup(tabGroupId = action.group.id)
                 }
             }
+
+            is TabsTrayAction.ReorderTabsTrayItem -> {
+                handleReorderTabsTrayItems(
+                    action = action,
+                    store = store,
+                )
+            }
+        }
+    }
+
+    /**
+     * This method returns the appropriate target tab id for a group destination.
+     * When a [TabsTrayItem.TabGroup] is the destination of a reorder, the object being placed will either be placed
+     * (1) before the first tab in the group
+     * OR
+     * (2) after the last tab in the group
+     *
+     * @param groupId The group's id
+     * @param placeAfter Whether the reordered item should be placed before or after the target
+     * @param store The store holding [TabsTrayState] and the relevant Action
+     *
+     */
+    private fun targetTabIdForDestinationGroup(
+        groupId: String,
+        placeAfter: Boolean,
+        store: Store<TabsTrayState, TabsTrayAction>,
+    ): String? {
+        return if (placeAfter) {
+            store.state.lastTabInGroupId(groupId = groupId)
+        } else {
+            store.state.firstTabInGroupId(groupId = groupId)
+        }
+    }
+
+    /**
+     * Handles reordering tabs tray items triggered by a gesture.
+     *
+     * If the source is a tab group, the set of tab ids is invoked to the [MoveTabsUseCase].
+     * If the destination is a tab group, the correct destination id is derived from place after and the first or last
+     * tab id in a group.
+     * If both source and destination are tabs, the [MoveTabsUseCase] is invoked directly.
+     *
+     * @param action The reorder action containing source, destination, and placement info.
+     * @param store The store holding [TabsTrayState].
+     */
+    private fun handleReorderTabsTrayItems(
+        action: TabsTrayAction.ReorderTabsTrayItem,
+        store: Store<TabsTrayState, TabsTrayAction>,
+    ) {
+        // Return early if the destination is null, or the destination and source match
+        if (action.destinationId == null || action.destinationId == action.sourceId) return
+        val reorderItems =
+            lookupGestureItems(sourceId = action.sourceId, destinationId = action.destinationId, store = store)
+        when {
+            reorderItems.source is TabsTrayItem.TabGroup && reorderItems.target is TabsTrayItem.TabGroup -> {
+                // Find the appropriate anchor tab for a group destination, or return if the group is empty
+                val targetTabId = targetTabIdForDestinationGroup(
+                    groupId = action.destinationId,
+                    placeAfter = action.placeAfter,
+                    store = store,
+                )
+                if (targetTabId != null) {
+                    moveTabsUseCase.invoke(
+                        tabIds = store.state.tabIdsForGroup(action.sourceId),
+                        targetTabId = targetTabId,
+                        placeAfter = action.placeAfter,
+                    )
+                } else {
+                    logger.warn(
+                        "ReorderTabTrayItem:  Empty target group.  No action taken.",
+                    )
+                }
+            }
+
+            reorderItems.source is TabsTrayItem.TabGroup && reorderItems.target is TabsTrayItem.Tab -> {
+                moveTabsUseCase.invoke(
+                    tabIds = store.state.tabIdsForGroup(action.sourceId),
+                    targetTabId = action.destinationId,
+                    placeAfter = action.placeAfter,
+                )
+            }
+
+            reorderItems.source is TabsTrayItem.Tab && reorderItems.target is TabsTrayItem.TabGroup -> {
+                // Find the appropriate anchor tab for a group destination, or return if the group is empty
+                val targetTabId = targetTabIdForDestinationGroup(
+                    groupId = action.destinationId,
+                    placeAfter = action.placeAfter,
+                    store = store,
+                )
+                if (targetTabId != null) {
+                    moveTabsUseCase.invoke(
+                        targetTabId = targetTabId,
+                        sourceTabId = action.sourceId,
+                        placeAfter = action.placeAfter,
+                    )
+                } else {
+                    logger.warn(
+                        "ReorderTabTrayItem:  Empty target group.  No action taken.",
+                    )
+                }
+            }
+
+            /*
+             * We should invoke reorder directly if either (1) both items are tabs or (2) the lookup returned null.
+             * For reordering two private tabs, for example, the lookup will always fail, because tab groups
+             * exist only inside the normal tabs state.
+             * In this case, the original destination id should be used from the action, not the lookup.
+             */
+            else -> {
+                moveTabsUseCase.invoke(
+                    sourceTabId = action.sourceId,
+                    targetTabId = action.destinationId,
+                    placeAfter = action.placeAfter,
+                )
+            }
         }
     }
 
@@ -198,7 +313,8 @@ class TabStorageMiddleware(
         action: TabGroupAction.DragAndDropCompleted,
         store: Store<TabsTrayState, TabsTrayAction>,
     ) {
-        val dragAndDropItems = lookupDragAndDropItems(action = action, store = store)
+        val dragAndDropItems =
+            lookupGestureItems(sourceId = action.sourceId, destinationId = action.destinationId, store = store)
         when {
             // Source and target are tabs
             dragAndDropItems.source is TabsTrayItem.Tab && dragAndDropItems.target is TabsTrayItem.Tab -> {
@@ -237,7 +353,7 @@ class TabStorageMiddleware(
     }
 
     @JvmInline
-    private value class DragAndDropItems(private val items: Pair<TabsTrayItem?, TabsTrayItem?>) {
+    private value class TabsTrayGestureItems(private val items: Pair<TabsTrayItem?, TabsTrayItem?>) {
         constructor(source: TabsTrayItem?, target: TabsTrayItem?) : this(
             source to target,
         )
@@ -251,18 +367,19 @@ class TabStorageMiddleware(
     /**
      * Performs the lookup from id -> TabsTrayItem for source and target in a single linear scan
      */
-    private fun lookupDragAndDropItems(
-        action: TabGroupAction.DragAndDropCompleted,
+    private fun lookupGestureItems(
+        sourceId: String,
+        destinationId: String,
         store: Store<TabsTrayState, TabsTrayAction>,
-    ): DragAndDropItems {
+    ): TabsTrayGestureItems {
         var source: TabsTrayItem? = null
         var target: TabsTrayItem? = null
         for (item in store.state.normalTabsState.items) {
-            if (item.id == action.sourceId) source = item
-            if (item.id == action.destinationId) target = item
+            if (item.id == sourceId) source = item
+            if (item.id == destinationId) target = item
             if (source != null && target != null) break
         }
-        return DragAndDropItems(
+        return TabsTrayGestureItems(
             source = source,
             target = target,
         )
@@ -630,4 +747,14 @@ private fun TabsTrayState.lastTabInGroupId(groupId: String): String? =
         .find { it.id == groupId }
         ?.tabs
         ?.lastOrNull()
+        ?.id
+
+/**
+ * Fetches the ID of the first tab in the group with [groupId], or null if the group is empty.
+ */
+private fun TabsTrayState.firstTabInGroupId(groupId: String): String? =
+    tabGroupState.groups
+        .find { it.id == groupId }
+        ?.tabs
+        ?.firstOrNull()
         ?.id

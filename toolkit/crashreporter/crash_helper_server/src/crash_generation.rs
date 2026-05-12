@@ -5,7 +5,6 @@
 pub mod crash_annotations {
     include!(concat!(env!("OUT_DIR"), "/crash_annotations.rs"));
 }
-
 use super::{
     breakpad_crash_generator::BreakpadProcessId,
     phc::{self, StackTrace},
@@ -23,8 +22,10 @@ use anyhow::{Context, Result};
 use crash_annotations::{
     should_include_annotation, type_of_annotation, CrashAnnotation, CrashAnnotationType,
 };
-use crash_helper_common::{BreakpadChar, BreakpadString, GeckoChildId, Pid};
-use mozannotation_server::{AnnotationData, CAnnotation};
+use crash_helper_common::{
+    AsProcessReaderHandle, BreakpadChar, BreakpadString, GeckoChildId, Pid, ProcessHandle,
+};
+use mozannotation_server::{errors::AnnotationsRetrievalError, AnnotationData, CAnnotation};
 use num_traits::FromPrimitive;
 use std::{
     collections::HashMap,
@@ -34,6 +35,7 @@ use std::{
     io::{Seek, SeekFrom, Write},
     mem::size_of,
     path::{Path, PathBuf},
+    str::FromStr,
     sync::Mutex,
 };
 
@@ -70,14 +72,19 @@ where
 {
     #[allow(unused)]
     minidump_path: OsString,
+    main_process_handle: ProcessHandle,
     reports_by_pid: HashMap<Pid, Vec<CrashReport>>,
     reports_by_id: HashMap<GeckoChildId, CrashReport>,
 }
 
 impl CrashGenerator {
-    pub(crate) fn new(minidump_path: OsString) -> CrashGenerator {
+    pub(crate) fn new(
+        main_process_handle: ProcessHandle,
+        minidump_path: OsString,
+    ) -> CrashGenerator {
         CrashGenerator {
             minidump_path,
+            main_process_handle,
             reports_by_pid: HashMap::<Pid, Vec<CrashReport>>::new(),
             reports_by_id: HashMap::<GeckoChildId, CrashReport>::new(),
         }
@@ -122,9 +129,9 @@ impl CrashGenerator {
         extra_path.set_extension("extra");
 
         let annotations = retrieve_annotations(&process_id, origin);
-        let extra_file_written = annotations
-            .map(|annotations| write_extra_file(&annotations, &extra_path))
-            .is_ok();
+        let global_annotations = self.retrieve_main_process_annotations();
+        let annotations = merge_annotations(annotations.ok(), global_annotations.ok());
+        let extra_file_written = write_extra_file(annotations, &extra_path).is_ok();
 
         let path = minidump_path.as_os_str();
         let error = if !extra_file_written {
@@ -137,6 +144,15 @@ impl CrashGenerator {
         entry
             .and_modify(|entry| entry.push(CrashReport::new(path, &error)))
             .or_insert_with(|| vec![CrashReport::new(path, &error)]);
+    }
+
+    fn retrieve_main_process_annotations(
+        &self,
+    ) -> Result<Vec<CAnnotation>, AnnotationsRetrievalError> {
+        mozannotation_server::retrieve_annotations(
+            self.main_process_handle.as_handle(),
+            CrashAnnotation::Count as usize,
+        )
     }
 }
 
@@ -265,15 +281,54 @@ fn retrieve_annotations(
     Ok(annotations)
 }
 
-fn write_extra_file(annotations: &Vec<CAnnotation>, path: &Path) -> Result<()> {
+fn merge_annotations(
+    child_process_annotations: Option<Vec<CAnnotation>>,
+    main_process_annotations: Option<Vec<CAnnotation>>,
+) -> HashMap<u32, AnnotationData> {
+    let mut merged_annotations = HashMap::new();
+    if let Some(annotations) = main_process_annotations {
+        annotations
+            .into_iter()
+            .filter(|annotation| !matches!(annotation.data, AnnotationData::Empty))
+            .for_each(|annotation| {
+                let _ = merged_annotations.insert(annotation.id, annotation.data);
+            });
+    } else {
+        merged_annotations.insert(
+            CrashAnnotation::DumperError as u32,
+            AnnotationData::String(CString::from_str("MissingMainProcessAnnotations").unwrap()),
+        );
+    }
+
+    if let Some(annotations) = child_process_annotations {
+        annotations
+            .into_iter()
+            .filter(|annotation| !matches!(annotation.data, AnnotationData::Empty))
+            .for_each(|annotation| {
+                let _ = merged_annotations
+                    .entry(annotation.id)
+                    .insert_entry(annotation.data);
+            });
+    } else {
+        merged_annotations
+            .entry(CrashAnnotation::DumperError as u32)
+            .or_insert(AnnotationData::String(
+                CString::from_str("MissingChildProcessAnnotations").unwrap(),
+            ));
+    }
+
+    merged_annotations
+}
+
+fn write_extra_file(annotations: HashMap<u32, AnnotationData>, path: &Path) -> Result<()> {
     let mut annotations_written: usize = 0;
     let mut file = File::create(path)?;
     write!(&mut file, "{{")?;
 
-    for annotation in annotations {
-        if let Some(annotation_id) = CrashAnnotation::from_u32(annotation.id) {
+    for (id, val) in annotations {
+        if let Some(annotation_id) = CrashAnnotation::from_u32(id) {
             if annotation_id == CrashAnnotation::PHCBaseAddress {
-                if let AnnotationData::ByteBuffer(buff) = &annotation.data {
+                if let AnnotationData::ByteBuffer(buff) = &val {
                     write_phc_annotations(&mut file, buff)?;
                 }
 
@@ -281,13 +336,13 @@ fn write_extra_file(annotations: &Vec<CAnnotation>, path: &Path) -> Result<()> {
             }
 
             let value = match type_of_annotation(annotation_id) {
-                CrashAnnotationType::String => match &annotation.data {
+                CrashAnnotationType::String => match &val {
                     AnnotationData::String(string) => Some(escape_value(string.as_bytes())),
                     AnnotationData::ByteBuffer(buffer) => Some(escape_value(buffer)),
                     _ => None,
                 },
                 CrashAnnotationType::Boolean => {
-                    if let AnnotationData::ByteBuffer(buff) = &annotation.data {
+                    if let AnnotationData::ByteBuffer(buff) = &val {
                         if buff.len() == 1 {
                             Some(vec![if buff[0] != 0 { b'1' } else { b'0' }])
                         } else {
@@ -298,13 +353,13 @@ fn write_extra_file(annotations: &Vec<CAnnotation>, path: &Path) -> Result<()> {
                     }
                 }
                 CrashAnnotationType::U32 => {
-                    read_numeric_annotation!(u32, &annotation.data)
+                    read_numeric_annotation!(u32, &val)
                 }
                 CrashAnnotationType::U64 => {
-                    read_numeric_annotation!(u64, &annotation.data)
+                    read_numeric_annotation!(u64, &val)
                 }
                 CrashAnnotationType::USize => {
-                    read_numeric_annotation!(usize, &annotation.data)
+                    read_numeric_annotation!(usize, &val)
                 }
                 CrashAnnotationType::Object => None, // This cannot be found in memory
             };

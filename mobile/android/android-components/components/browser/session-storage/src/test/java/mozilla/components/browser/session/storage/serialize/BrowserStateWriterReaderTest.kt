@@ -312,6 +312,33 @@ class BrowserStateWriterReaderTest {
     }
 
     @Test
+    fun `Read and write tab with lastVisibleAt`() {
+        val engineState = createFakeEngineState()
+        val engine = createFakeEngine(engineState)
+        val currentTime = System.currentTimeMillis()
+
+        val tab = createTab(
+            url = "https://www.mozilla.org",
+            title = "Mozilla",
+            lastVisibleAt = currentTime,
+        )
+
+        val writer = BrowserStateWriter()
+        val reader = BrowserStateReader()
+
+        val file = AtomicFile(
+            File.createTempFile(UUID.randomUUID().toString(), UUID.randomUUID().toString()),
+        )
+
+        assertTrue(writer.writeTab(tab, file))
+
+        val restoredTab = reader.readTab(engine, file)
+        assertNotNull(restoredTab!!)
+
+        assertEquals(currentTime, restoredTab.state.lastVisibleAt)
+    }
+
+    @Test
     fun `Read and write tab without createdAt`() {
         val engineState = createFakeEngineState()
         val engine = createFakeEngine(engineState)

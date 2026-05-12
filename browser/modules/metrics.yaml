@@ -1340,6 +1340,21 @@ browser.ui.interaction:
       - akulyk@mozilla.com
     expires: never
 
+  preferences_pane_downloads:
+    type: labeled_counter
+    description: >
+      Records the items interacted with in the Downloads section
+      of preferences. See
+      https://firefox-source-docs.mozilla.org/browser/BrowserUsageTelemetry.html
+    bugs:
+      - https://bugzil.la/2001154
+    data_reviews:
+      - https://bugzil.la/2001154
+    notification_emails:
+      - mstriemer@mozilla.com
+      - mkennedy@mozilla.com
+    expires: never
+
   preferences_pane_accessibility:
     type: labeled_counter
     description: >
@@ -1382,6 +1397,20 @@ browser.ui.interaction:
       - https://bugzil.la/1972081
     notification_emails:
       - mstriemer@mozilla.com
+    expires: never
+
+  preferences_pane_tabs_browsing:
+    type: labeled_counter
+    description: >
+      Records the items interacted with in the Tabs and browsing section
+      of preferences. See
+      https://firefox-source-docs.mozilla.org/browser/BrowserUsageTelemetry.html
+    bugs:
+      - https://bugzil.la/1968114
+    data_reviews:
+      - https://bugzil.la/1968114
+    notification_emails:
+      - hjones@mozilla.com
     expires: never
 
   preferences_pane_permissions_data:

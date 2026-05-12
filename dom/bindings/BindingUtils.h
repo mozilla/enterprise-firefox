@@ -25,7 +25,6 @@
 #include "mozilla/EnumTypeTraits.h"
 #include "mozilla/EnumeratedRange.h"
 #include "mozilla/ErrorResult.h"
-#include "mozilla/Likely.h"
 #include "mozilla/MemoryReporting.h"
 #include "mozilla/ProfilerLabels.h"
 #include "mozilla/SegmentedVector.h"
@@ -1911,24 +1910,6 @@ inline JSObject* FindAssociatedGlobal(JSContext* cx,
   return global;
 }
 
-template <typename T,
-          bool hasAssociatedGlobal = NativeHasMember<T>::GetParentObject>
-struct FindAssociatedGlobalForNative {
-  static JSObject* Get(JSContext* cx, JS::Handle<JSObject*> obj) {
-    MOZ_ASSERT(js::IsObjectInContextCompartment(obj, cx));
-    T* native = UnwrapDOMObject<T>(obj);
-    return FindAssociatedGlobal(cx, native->GetParentObject());
-  }
-};
-
-template <typename T>
-struct FindAssociatedGlobalForNative<T, false> {
-  static JSObject* Get(JSContext* cx, JS::Handle<JSObject*> obj) {
-    MOZ_CRASH();
-    return nullptr;
-  }
-};
-
 // Helper for calling GetOrCreateDOMReflector with smart pointers
 // (UniquePtr/RefPtr/nsCOMPtr) or references.
 template <class T, bool isSmartPtr = IsSmartPtr<T>::value>
@@ -2058,7 +2039,7 @@ enum StringificationBehavior { eStringify, eEmpty, eNull };
 
 static inline JSString* ConvertJSValueToJSString(JSContext* cx,
                                                  JS::Handle<JS::Value> v) {
-  if (MOZ_LIKELY(v.isString())) {
+  if (v.isString()) [[likely]] {
     return v.toString();
   }
   return JS::ToString(cx, v);
@@ -2128,7 +2109,7 @@ static inline bool ConvertJSValueToUSVString(
 template <typename T>
 inline bool ConvertIdToString(JSContext* cx, JS::Handle<JS::PropertyKey> id,
                               T& result, bool& isSymbol) {
-  if (MOZ_LIKELY(id.isString())) {
+  if (id.isString()) [[likely]] {
     if (!AssignJSString(cx, result, id.toString())) {
       return false;
     }
@@ -2693,17 +2674,6 @@ MOZ_ALWAYS_INLINE const nsTSubstring<CharT>& NonNullHelper(
     const nsTAutoString<CharT>& aArg) {
   return aArg;
 }
-
-// Given a DOM reflector aObj, give its underlying DOM object a reflector in
-// whatever global that underlying DOM object now thinks it should be in.  If
-// this is in a different compartment from aObj, aObj will become a
-// cross-compatment wrapper for the new object.  Otherwise, aObj will become the
-// new object (via a brain transplant).  If the new global is the same as the
-// old global, we just keep using the same object.
-//
-// On entry to this method, aCx and aObj must be same-compartment.
-void UpdateReflectorGlobal(JSContext* aCx, JS::Handle<JSObject*> aObj,
-                           ErrorResult& aError);
 
 // Helper for lenient getters/setters to report to console.  If this
 // returns false, we couldn't even get a global.
