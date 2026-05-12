@@ -308,7 +308,7 @@ export class FeltProcessParent extends JSProcessActorParent {
                   Services.cpmm.sendAsyncMessage(
                     "FeltParent:FirefoxLogoutExit",
                     {
-                      reason: "token_refresh_failed",
+                      reason: "tokenRefreshFailed",
                     }
                   );
                 });

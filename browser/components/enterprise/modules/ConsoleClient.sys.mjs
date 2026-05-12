@@ -469,7 +469,7 @@ export const ConsoleClient = {
     }
     if (!accessToken) {
       // If we are in a Felt-managed Firefox at this point, Felt failed to
-      // shut us downcorrectly after an unsuccessful token refresh.
+      // shut us down correctly after an unsuccessful token refresh.
       // If we are in Felt at this point, the authentication flow has
       // completed, but we do not have a valid token.
       // Either case should not happen normally, so throw an error.
@@ -574,9 +574,9 @@ export const ConsoleClient = {
         "quitIgnoringCanClose(): Called from Felt context, which is not allowed."
       );
     }
-    for (let win of Services.wm.getEnumerator("navigator:browser")) {
-      win.skipNextCanClose = true;
-    }
+    // for (let win of Services.wm.getEnumerator("navigator:browser")) {
+    //   win.skipNextCanClose = true;
+    // }
     Services.startup.quit(Ci.nsIAppStartup.eForceQuit);
   },
 

@@ -286,7 +286,7 @@ this.felt = class extends ExtensionAPI {
       case "FeltParent:FirefoxLogoutExit": {
         Services.felt.makeBackgroundProcess(false);
         switch (message.data?.reason) {
-          case "token_refresh_failed":
+          case "tokenRefreshFailed":
             // TODO: this is not 100% in line with the figma document around
             // informal messages on this screen.
             // We do not currently distinguish between normal session termination
