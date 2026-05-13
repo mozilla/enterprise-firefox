@@ -574,9 +574,9 @@ export const ConsoleClient = {
         "quitIgnoringCanClose(): Called from Felt context, which is not allowed."
       );
     }
-    // for (let win of Services.wm.getEnumerator("navigator:browser")) {
-    //   win.skipNextCanClose = true;
-    // }
+    for (let win of Services.wm.getEnumerator("navigator:browser")) {
+      win.skipNextCanClose = true;
+    }
     Services.startup.quit(Ci.nsIAppStartup.eForceQuit);
   },
 
