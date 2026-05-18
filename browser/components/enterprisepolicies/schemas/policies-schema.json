@@ -867,7 +867,7 @@
     "DefaultSerialGuardSetting": {
       "type": "number",
       "x-category": "Content settings",
-      "description": "Set the default permission for sites requesting serial port access.",
+      "description": "Control use of the Serial API.",
       "examples": [2, 3],
       "enum": [2, 3]
     },
@@ -1722,7 +1722,7 @@
     },
     "IPProtectionAvailable": {
       "type": "boolean",
-      "description": "Control whether the IP Protection feature is available to users.",
+      "description": "Prevent the built-in VPN from being available to users.",
       "x-category": "Network security",
       "examples": [true, false]
     },
