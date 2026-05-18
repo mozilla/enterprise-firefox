@@ -1,0 +1,11 @@
+---
+policies-json:
+    description: Validate enterprise policy JSON artifact against its schema.
+    include:
+        - browser/components/enterprisepolicies/schemas/policies-schema.json
+    extensions: ['json']
+    type: external
+    payload: policies_json:lint
+    support-files:
+        - 'tools/lint/policies_json/**'
+        - 'browser/components/enterprisepolicies/schemas/policies-schema.meta.json'

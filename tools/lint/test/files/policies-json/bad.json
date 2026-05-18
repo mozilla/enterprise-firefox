@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "MissingCategory": {
+      "type": "boolean",
+      "description": "Has description but no x-category.",
+      "examples": [true]
+    },
+    "EmptyDescription": {
+      "type": "string",
+      "x-category": "Security",
+      "description": "",
+      "examples": ["example"]
+    }
+  }
+}

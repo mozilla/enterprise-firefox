@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "AlphaPolicy": {
+      "type": "boolean",
+      "x-category": "Security",
+      "description": "An example policy.",
+      "examples": [true]
+    },
+    "BetaPolicy": {
+      "type": "string",
+      "x-category": "Network",
+      "description": "Another example policy.",
+      "examples": ["example"]
+    }
+  }
+}

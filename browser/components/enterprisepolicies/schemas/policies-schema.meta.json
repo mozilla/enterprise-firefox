@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Firefox enterprise policies schema.",
+  "description": "Validates the structure of policies-schema.json. Each entry under `properties` must adhere to this schema so downstream tooling has data it relies on.",
+  "type": "object",
+  "required": ["$schema", "type", "properties"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "type": {
+      "const": "object"
+    },
+    "properties": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/definitions/policyEntry"
+      }
+    }
+  },
+  "definitions": {
+    "typeName": {
+      "type": "string",
+      "enum": [
+        "string",
+        "number",
+        "integer",
+        "boolean",
+        "array",
+        "object",
+        "URL",
+        "URLorEmpty",
+        "origin",
+        "JSON"
+      ]
+    },
+    "policyEntry": {
+      "type": "object",
+      "required": ["x-category", "description", "type", "examples"],
+      "properties": {
+        "x-category": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "oneOf": [
+            { "$ref": "#/definitions/typeName" },
+            {
+              "type": "array",
+              "items": { "$ref": "#/definitions/typeName" },
+              "minItems": 1
+            }
+          ]
+        },
+        "examples": {
+          "type": "array"
+        }
+      }
+    }
+  }
+}

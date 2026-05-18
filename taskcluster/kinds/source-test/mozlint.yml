@@ -322,6 +322,19 @@ lintpref:
             - 'browser/app/profile/channel-prefs.js'
             - 'tools/lint/lintpref.yml'
 
+policies-json:
+    description: Validate enterprise policy JSON artifact against a schema.
+    treeherder:
+        symbol: misc(policy-json)
+    run:
+        mach: lint -v -l policies-json -f treeherder -f json:/builds/worker/mozlint.json .
+    when:
+        files-changed:
+            - 'browser/components/enterprisepolicies/schemas/policies-schema.json'
+            - 'browser/components/enterprisepolicies/schemas/policies-schema.meta.json'
+            - 'tools/lint/policies-json.yml'
+            - 'tools/lint/policies_json/**'
+
 node-licenses:
     description: Lint for node licenses issues
     treeherder:

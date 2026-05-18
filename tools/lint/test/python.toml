@@ -54,6 +54,8 @@ skip-if = ["os == 'win'"]
 
 ["test_node_package_names.py"]
 
+["test_policies_json.py"]
+
 ["test_python_sites.py"]
 
 ["test_rst.py"]
