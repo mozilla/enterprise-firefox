@@ -4801,8 +4801,16 @@ Maybe<ShouldNotProcessUpdatesReason> ShouldNotProcessUpdates(
   }
 
 #  if defined(MOZ_ENTERPRISE)
+
+  // The "test-process-updates" argument (bug 2036826) allows
+  // tests like marAppApplyUpdateSuccess.js and
+  // marAppApplyUpdateStageSuccess.js to bypass this check and force update
+  // processing.
+  if(CheckArgExists("test-process-updates")){
+    return Nothing();
+  }
   // Don't process updates when launching a Browser from FELT, only Felt should
-  // perform that step
+  // perform that step.
   if (!is_felt_ui()) {
     return Some(ShouldNotProcessUpdatesReason::FeltOnlyUpdates);
   }
