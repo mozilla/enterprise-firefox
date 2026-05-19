@@ -59,6 +59,19 @@ async function mockDefaultFxAInstance() {
    *                             the illusion of a custom FxA instance.
    */
 
+  // On enterprise builds these prefs are locked, temporarily unlock them
+  // so the test can swap default/user values for FxA mocking.
+  let lockedPrefs = [];
+  if (AppConstants.MOZ_ENTERPRISE) {
+    lockedPrefs = [
+      "identity.fxaccounts.auth.uri",
+      "identity.fxaccounts.remote.root",
+    ].filter(pref => Services.prefs.prefIsLocked(pref));
+    for (const pref of lockedPrefs) {
+      Services.prefs.unlockPref(pref);
+    }
+  }
+
   const defaultPrefs = Services.prefs.getDefaultBranch("");
   const userPrefs = Services.prefs.getBranch("");
   const realAuth = defaultPrefs.getCharPref("identity.fxaccounts.auth.uri");
@@ -76,6 +89,11 @@ async function mockDefaultFxAInstance() {
     defaultPrefs.setCharPref("identity.fxaccounts.remote.root", realRoot);
     userPrefs.setCharPref("identity.fxaccounts.auth.uri", mockAuth);
     userPrefs.setCharPref("identity.fxaccounts.remote.root", mockRoot);
+    if (AppConstants.MOZ_ENTERPRISE) {
+      for (const pref of lockedPrefs) {
+        Services.prefs.lockPref(pref);
+      }
+    }
   };
 
   mock();
