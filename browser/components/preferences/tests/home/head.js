@@ -6,6 +6,21 @@ Services.scriptloader.loadSubScript(
   this
 );
 
+// On enterprise builds, topstories is disabled so we clear endpointSpocsClear
+// as it is used as "Endpoint for when a user opts-out of sponsored content to
+// delete the corresponding data from the ad server."
+if (AppConstants.MOZ_ENTERPRISE) {
+  Assert.ok(
+    !Services.prefs.getBoolPref(
+      "browser.newtabpage.activity-stream.feeds.section.topstories"
+    ),
+    "topstories should be disabled on enterprise builds"
+  );
+  Services.prefs
+    .getDefaultBranch("browser.newtabpage.activity-stream.")
+    .setStringPref("discoverystream.endpointSpocsClear", "");
+}
+
 async function openHomePreferences() {
   await openPreferencesViaOpenPreferencesAPI("home", { leaveOpen: true });
   let doc = gBrowser.contentDocument;
