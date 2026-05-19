@@ -23,9 +23,13 @@ const PREF_MEMORIES_CONVERSATION =
   "browser.smartwindow.memories.generateFromConversation";
 const PREF_MEMORIES_HISTORY =
   "browser.smartwindow.memories.generateFromHistory";
+const PREF_SEMANTIC_HISTORY_SMARTWINDOW_FEATURE_GATE =
+  "places.semanticHistory.smartwindow.featureGate";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  getAllModelsData:
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindowConstants.sys.mjs",
   AIWindowTabStatesManager:
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindowTabStatesManager.sys.mjs",
   AIWindowAccountAuth:
@@ -49,6 +53,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SearchUIUtils: "moz-src:///browser/components/search/SearchUIUtils.sys.mjs",
+  SessionStartup: "resource:///modules/sessionstore/SessionStartup.sys.mjs",
   MemoriesSchedulers:
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesSchedulers.sys.mjs",
   SmartWindowTelemetry:
@@ -122,6 +127,7 @@ export const AIWindow = {
     Services.obs.addObserver(this, lazy.ONLOGOUT_NOTIFICATION);
     Services.obs.addObserver(this, "tabstrip-orientation-change");
     lazy.SmartWindowTelemetry.init();
+    lazy.getAllModelsData(); // loads model data into cache for about:preferences
     this._initialized = true;
 
     // On startup/restart, if the first window initialized is an
@@ -259,6 +265,10 @@ export const AIWindow = {
 
   _onAIWindowEnabledPrefChange() {
     this._forEachWindow(win => this._updateButtonVisibility(win));
+    Services.prefs.setBoolPref(
+      PREF_SEMANTIC_HISTORY_SMARTWINDOW_FEATURE_GATE,
+      this.isAvailable
+    );
     if (!this.isAvailable) {
       this._onAccountLogout();
     }
@@ -309,6 +319,35 @@ export const AIWindow = {
       return;
     }
     askButton.hidden = !this.isAIWindowActive(win);
+  },
+
+  get isDefaultWindow() {
+    return (
+      this.AIWindowEnabledPref &&
+      this.isAIWindowEnabled() &&
+      Services.prefs.getBoolPref("browser.smartwindow.isDefaultWindow", false)
+    );
+  },
+
+  /**
+   * Registered under the `browser-first-window-ready` category, so it runs
+   * exactly once per session after the first browser window finishes loading.
+   * When the user has chosen Smart Window as their default, promote that
+   * first window to Smart (prompting for sign-in if needed).
+   *
+   * @param {Window} win The first browser window for the session.
+   */
+  async onFirstWindowReady(win) {
+    if (
+      !this.isDefaultWindow ||
+      lazy.PrivateBrowsingUtils.isWindowPrivate(win) ||
+      this.isAIWindowActive(win) ||
+      lazy.SessionStartup.willRestore()
+    ) {
+      return;
+    }
+
+    await this._authorizeAndToggleWindow(win, "startup");
   },
 
   /**
@@ -769,13 +808,13 @@ export const AIWindow = {
       }
 
       if (!openNewWindow) {
-        return this._authorizeAndToggleWindow(browser.ownerGlobal, trigger);
+        return this._authorizeAndToggleWindow(browser.documentGlobal, trigger);
       }
 
       const isAuthorized = await lazy.AIWindowAccountAuth.canAccessAIWindow();
       const windowPromise = lazy.BrowserWindowTracker.promiseOpenWindow({
         aiWindow: isAuthorized,
-        openerWindow: browser?.ownerGlobal,
+        openerWindow: browser?.documentGlobal,
       });
 
       const newWin = await windowPromise;
@@ -915,6 +954,16 @@ export const AIWindow = {
   },
 
   /**
+   * Returns whether Smart Window exposes a distinct "Enabled" AI Controls state.
+   *
+   * @returns {boolean}
+   */
+  get hasDistinctEnabledState() {
+    // Smart Window requires the user to log in, in order to enable the experience.
+    return true;
+  },
+
+  /**
    * Check if the feature is blocked by AI controls
    *
    * @returns {boolean}
@@ -949,6 +998,16 @@ export const AIWindow = {
    */
   get isAllowed() {
     return this.AIWindowEnabledPref;
+  },
+
+  /**
+   * Returns whether the current device can run Smart Window.
+   *
+   * @returns {boolean}
+   */
+  get canRunOnDevice() {
+    // There are no known hardware restrictions for smart window.
+    return true;
   },
 
   /**

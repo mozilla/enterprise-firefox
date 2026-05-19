@@ -43,22 +43,16 @@ VRManagerParent::~VRManagerParent() {
   MOZ_COUNT_DTOR(VRManagerParent);
 }
 
-PVRLayerParent* VRManagerParent::AllocPVRLayerParent(const uint32_t& aDisplayID,
-                                                     const uint32_t& aGroup) {
+already_AddRefed<PVRLayerParent> VRManagerParent::AllocPVRLayerParent(
+    const uint32_t& aDisplayID, const uint32_t& aGroup) {
   if (!StaticPrefs::dom_vr_enabled() && !StaticPrefs::dom_vr_webxr_enabled()) {
     return nullptr;
   }
 
-  RefPtr<VRLayerParent> layer;
-  layer = new VRLayerParent(aDisplayID, aGroup);
+  auto layer = MakeRefPtr<VRLayerParent>(aDisplayID, aGroup);
   VRManager* vm = VRManager::Get();
   vm->AddLayer(layer);
-  return layer.forget().take();
-}
-
-bool VRManagerParent::DeallocPVRLayerParent(PVRLayerParent* actor) {
-  delete actor;
-  return true;
+  return layer.forget();
 }
 
 bool VRManagerParent::IsSameProcess() const {

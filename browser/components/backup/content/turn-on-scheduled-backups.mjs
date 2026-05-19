@@ -87,6 +87,14 @@ export default class TurnOnScheduledBackups extends MozLitElement {
       reflect: true,
       attribute: "turn-on-backup-cancel-btn-l10n-id",
     },
+    // Identifier of the message, surface, or code path that hosted this
+    // widget. Forwarded to BackupService.setScheduledBackups so that
+    // browser.backup.scheduler_toggle_source can attribute the enable.
+    source: {
+      type: String,
+      reflect: true,
+      attribute: "source",
+    },
 
     // internal state
     _newIconURL: { type: String, state: true },
@@ -207,6 +215,7 @@ export default class TurnOnScheduledBackups extends MozLitElement {
   handleConfirm() {
     let detail = {
       parentDirPath: this._newPath || this.defaultPath,
+      source: this.source,
     };
 
     if (this._showPasswordOptions && this._passwordsMatch) {

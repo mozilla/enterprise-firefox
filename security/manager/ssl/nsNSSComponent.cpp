@@ -56,7 +56,6 @@
 #include "nsNSSHelper.h"
 #include "nsNSSIOLayer.h"
 #include "nsNetCID.h"
-#include "nsPK11TokenDB.h"
 #include "nsPrintfCString.h"
 #include "nsServiceManagerUtils.h"
 #include "nsThreadUtils.h"

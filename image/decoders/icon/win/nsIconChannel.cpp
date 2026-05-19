@@ -476,7 +476,7 @@ static nsresult GetIconHandleFromURLBlocking(nsIMozIconURI* aUrl,
 }
 
 static RefPtr<HIconPromise> GetIconHandleFromURLAsync(nsIMozIconURI* aUrl) {
-  RefPtr<HIconPromise::Private> promise = new HIconPromise::Private(__func__);
+  auto promise = MakeRefPtr<HIconPromise::Private>(__func__);
 
   nsAutoCString stockIcon;
   aUrl->GetStockIcon(stockIcon);
@@ -521,8 +521,7 @@ static RefPtr<HIconPromise> GetIconHandleFromURLAsync(nsIMozIconURI* aUrl) {
 
 static RefPtr<nsIconChannel::ByteBufPromise> GetIconBufferFromURLAsync(
     nsIMozIconURI* aUrl) {
-  RefPtr<nsIconChannel::ByteBufPromise::Private> promise =
-      new nsIconChannel::ByteBufPromise::Private(__func__);
+  auto promise = MakeRefPtr<nsIconChannel::ByteBufPromise::Private>(__func__);
 
   GetIconHandleFromURLAsync(aUrl)->Then(
       GetCurrentSerialEventTarget(), __func__,

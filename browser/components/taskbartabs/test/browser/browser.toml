@@ -15,6 +15,10 @@ prefs = [
 ["browser_taskbarTabs_content.js"]
 
 ["browser_taskbarTabs_icons.js"]
+support-files = [
+  "../../../../../toolkit/components/places/tests/favicons/favicon-normal32.png",
+  "../../../../../toolkit/components/places/tests/favicons/favicon-big64.png",
+]
 
 ["browser_taskbarTabs_manifest.js"]
 

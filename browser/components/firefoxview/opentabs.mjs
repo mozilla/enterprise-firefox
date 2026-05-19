@@ -512,7 +512,7 @@ class OpenTabsInViewCard extends ViewPageContent {
       return;
     }
     const tab = event.originalTarget.tabElement;
-    const browserWindow = tab.ownerGlobal;
+    const browserWindow = tab.documentGlobal;
     browserWindow.focus();
     browserWindow.gBrowser.selectedTab = tab;
 
@@ -530,7 +530,7 @@ class OpenTabsInViewCard extends ViewPageContent {
 
   closeTab(event) {
     const tab = event.originalTarget.tabElement;
-    tab?.ownerGlobal.gBrowser.removeTab(
+    tab?.documentGlobal.gBrowser.removeTab(
       tab,
       lazy.TabMetrics.userTriggeredContext()
     );
@@ -749,19 +749,19 @@ class OpenTabsContextMenu extends MozLitElement {
 
   closeTab(e) {
     const tab = this.triggerNode.tabElement;
-    tab?.ownerGlobal.gBrowser.removeTab(tab);
+    tab?.documentGlobal.gBrowser.removeTab(tab);
     this.ownerViewPage.recordContextMenuTelemetry("close-tab", e);
   }
 
   pinTab(e) {
     const tab = this.triggerNode.tabElement;
-    tab?.ownerGlobal.gBrowser.pinTab(tab);
+    tab?.documentGlobal.gBrowser.pinTab(tab);
     this.ownerViewPage.recordContextMenuTelemetry("pin-tab", e);
   }
 
   unpinTab(e) {
     const tab = this.triggerNode.tabElement;
-    tab?.ownerGlobal.gBrowser.unpinTab(tab);
+    tab?.documentGlobal.gBrowser.unpinTab(tab);
     this.ownerViewPage.recordContextMenuTelemetry("unpin-tab", e);
   }
 
@@ -778,19 +778,19 @@ class OpenTabsContextMenu extends MozLitElement {
 
   moveTabsToStart(e) {
     const tab = this.triggerNode.tabElement;
-    tab?.ownerGlobal.gBrowser.moveTabsToStart(tab);
+    tab?.documentGlobal.gBrowser.moveTabsToStart(tab);
     this.ownerViewPage.recordContextMenuTelemetry("move-tab-start", e);
   }
 
   moveTabsToEnd(e) {
     const tab = this.triggerNode.tabElement;
-    tab?.ownerGlobal.gBrowser.moveTabsToEnd(tab);
+    tab?.documentGlobal.gBrowser.moveTabsToEnd(tab);
     this.ownerViewPage.recordContextMenuTelemetry("move-tab-end", e);
   }
 
   moveTabsToWindow(e) {
     const tab = this.triggerNode.tabElement;
-    tab?.ownerGlobal.gBrowser.replaceTabsWithWindow(tab);
+    tab?.documentGlobal.gBrowser.replaceTabsWithWindow(tab);
     this.ownerViewPage.recordContextMenuTelemetry("move-tab-window", e);
   }
 
@@ -799,7 +799,7 @@ class OpenTabsContextMenu extends MozLitElement {
     if (!tab) {
       return null;
     }
-    const browserWindow = tab.ownerGlobal;
+    const browserWindow = tab.documentGlobal;
     const tabs = browserWindow?.gBrowser.visibleTabs || [];
     const position = tabs.indexOf(tab);
 
@@ -879,8 +879,7 @@ class OpenTabsContextMenu extends MozLitElement {
         entrypoint: "send-tab-firefox-view-three-dots",
       });
 
-      const ownerGlobal = window.docShell?.chromeEventHandler?.ownerGlobal;
-      ownerGlobal?.switchToTabHavingURI(url, true, {});
+      this.ownerViewPage.getWindow().switchToTabHavingURI(url, true, {});
     })();
   }
 
@@ -889,8 +888,9 @@ class OpenTabsContextMenu extends MozLitElement {
       "identity.sendtab.deviceissues.url"
     );
 
-    const ownerGlobal = window.docShell?.chromeEventHandler?.ownerGlobal;
-    ownerGlobal?.switchToTabHavingURI(url, true, { replaceQueryString: true });
+    this.ownerViewPage.getWindow().switchToTabHavingURI(url, true, {
+      replaceQueryString: true,
+    });
   }
 
   sendTabDevicesTemplate() {

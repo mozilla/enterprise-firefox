@@ -239,6 +239,7 @@ moz-input-text::part(label) {
 }
 
 body:has(#notification-popup-box[open]) .felt:not(#notification-popup-box .felt) {
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   opacity: 0.5;
   pointer-events: none;
 }

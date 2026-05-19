@@ -6619,8 +6619,6 @@ void WorkerPrivate::EnsureOwnerEmbedderPolicy() {
 }
 
 nsIPrincipal* WorkerPrivate::GetEffectiveStoragePrincipal() const {
-  AssertIsOnWorkerThread();
-
   if (mLoadInfo.mUseRegularPrincipal) {
     return mLoadInfo.mPrincipal;
   }

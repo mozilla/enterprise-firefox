@@ -462,7 +462,33 @@ export const QueryCache = {
           } catch {
             bs = lazy.BackupService.init();
           }
-          return bs.findBackupsInWellKnownLocations();
+          return bs.findBackupsInWellKnownLocations({
+            validateFile: true,
+            source: "onboarding",
+          });
+        },
+      }
+    ),
+    relayProfileInfo: new CachedTargetingGetter(
+      "getRelayProfileInfo",
+      null,
+      FRECENT_SITES_UPDATE_INTERVAL,
+      {
+        async getRelayProfileInfo() {
+          return lazy.FirefoxRelay.getRelayProfileInfo();
+        },
+      }
+    ),
+    crashData: new CachedTargetingGetter(
+      "getCrashData",
+      null,
+      FRECENT_SITES_UPDATE_INTERVAL,
+      {
+        async getCrashData() {
+          if (!Services.crashmanager) {
+            return [];
+          }
+          return Services.crashmanager.submittedDumps();
         },
       }
     ),
@@ -866,6 +892,9 @@ const TargetingGetters = {
     let totalTabGroups = win.gBrowser.getAllTabGroups().length;
     return totalTabGroups;
   },
+  get installedWebAppsCount() {
+    return lazy.TaskbarTabs.countTaskbarTabs();
+  },
   get currentTabInstalledAsWebApp() {
     let win = lazy.BrowserWindowTracker.getTopWindow({
       allowFromInactiveWorkspace: true,
@@ -889,10 +918,10 @@ const TargetingGetters = {
   },
   get hasPinnedTabs() {
     for (let win of Services.wm.getEnumerator("navigator:browser")) {
-      if (win.closed || !win.ownerGlobal.gBrowser) {
+      if (win.closed || !win.gBrowser) {
         continue;
       }
-      if (win.ownerGlobal.gBrowser.visibleTabs.filter(t => t.pinned).length) {
+      if (win.gBrowser.visibleTabs.filter(t => t.pinned).length) {
         return true;
       }
     }
@@ -1512,6 +1541,33 @@ const TargetingGetters = {
       );
       return false;
     }
+  },
+
+  /**
+   * The total number of crashes the user has experienced, as recorded in the
+   * dump files corresponding to submitted crashes.
+   *
+   * @returns {Promise<number>}
+   */
+  get crashCount() {
+    return QueryCache.getters.crashData.get().then(crashes => crashes.length);
+  },
+
+  /**
+   * The number of days since the most recent crash, as recorded in the dump
+   * files corresponding to submitted crashes. If there are no recorded
+   * crashes, returns `null`.
+   *
+   * @returns {Promise<number|null>}
+   */
+  get daysSinceLastCrash() {
+    return QueryCache.getters.crashData.get().then(crashes => {
+      if (!crashes.length) {
+        return null;
+      }
+      const mostRecent = Math.max(...crashes.map(c => c.date));
+      return Math.floor((Date.now() - mostRecent) / (24 * 60 * 60 * 1000));
+    });
   },
 };
 

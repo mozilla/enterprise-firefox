@@ -70,7 +70,7 @@ async function checkShieldIcon(shieldIcon) {
   let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, TRACKING_URL);
   let icon = document.getElementById("tracking-protection-icon");
   is(
-    gBrowser.ownerGlobal
+    gBrowser.documentGlobal
       .getComputedStyle(icon)
       .getPropertyValue("list-style-image"),
     shieldIcon,

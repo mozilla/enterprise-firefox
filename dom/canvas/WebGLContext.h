@@ -244,11 +244,6 @@ class WebGLContext : public VRefCounted, public SupportsWeakPtr {
   class LruPosition final {
     std::list<WebGLContext*>::iterator mItr;
 
-    LruPosition(const LruPosition&) = delete;
-    LruPosition(LruPosition&&) = delete;
-    LruPosition& operator=(const LruPosition&) = delete;
-    LruPosition& operator=(LruPosition&&) = delete;
-
    public:
     void AssignLocked(WebGLContext& aContext) MOZ_REQUIRES(sLruMutex);
     void Reset();
@@ -259,6 +254,11 @@ class WebGLContext : public VRefCounted, public SupportsWeakPtr {
     explicit LruPosition(WebGLContext&);
 
     ~LruPosition() { Reset(); }
+
+    LruPosition(const LruPosition&) = delete;
+    LruPosition(LruPosition&&) = delete;
+    LruPosition& operator=(const LruPosition&) = delete;
+    LruPosition& operator=(LruPosition&&) = delete;
   };
 
   mutable LruPosition mLruPosition MOZ_GUARDED_BY(sLruMutex);
@@ -1119,7 +1119,7 @@ class WebGLContext : public VRefCounted, public SupportsWeakPtr {
 
  public:
   bool ValidateNonNegative(const char* argName, int64_t val) const {
-    if (MOZ_UNLIKELY(val < 0)) {
+    if (val < 0) [[unlikely]] {
       ErrorInvalidValue("`%s` must be non-negative.", argName);
       return false;
     }

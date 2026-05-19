@@ -92,8 +92,7 @@ add_task(async function test_unauthenticated_content() {
  */
 add_task(async function test_signin_button() {
   setupService({
-    isSignedIn: false,
-    isEnrolledAndEntitled: false,
+    isReady: false,
   });
   Assert.equal(
     lazy.IPProtectionService.state,
@@ -156,8 +155,7 @@ add_task(async function test_signin_button() {
  */
 add_task(async function test_panel_get_started_entrypoint() {
   setupService({
-    isSignedIn: false,
-    isEnrolledAndEntitled: false,
+    isReady: false,
   });
   const { fxaSignInFlow } = STUBS;
   fxaSignInFlow.resetHistory();
@@ -195,8 +193,7 @@ add_task(async function test_panel_get_started_entrypoint() {
  */
 add_task(async function test_learn_more_vpn_link() {
   setupService({
-    isSignedIn: false,
-    isEnrolledAndEntitled: false,
+    isReady: false,
   });
 
   let content = await openPanel({ unauthenticated: true });
@@ -379,8 +376,7 @@ add_task(async function test_max_in_gb_pref() {
  */
 add_task(async function test_panel_get_started_signed_in() {
   setupService({
-    isSignedIn: true,
-    isEnrolledAndEntitled: false,
+    isReady: false,
   });
   STUBS.fxaSignInFlow.resetHistory();
   let content = await openPanel({ unauthenticated: true });
@@ -401,5 +397,29 @@ add_task(async function test_panel_get_started_signed_in() {
   );
 
   await closePanel();
+  cleanupService();
+});
+
+/**
+ * Tests edge case when no IPProtectionPanel instance exists for a window during
+ * enrollment. A new panel must be created.
+ */
+add_task(async function test_getPanel_creates_panel_when_widget_not_visible() {
+  // Mimic post-restart state by removing the widget, then init and uniniting
+  // IPProtection so that the panel weak maps are cleared.
+  CustomizableUI.removeWidgetFromArea(lazy.IPProtectionWidget.WIDGET_ID);
+  lazy.IPProtection.uninit();
+  lazy.IPProtection.init();
+
+  let panel = lazy.IPProtection.getPanel(window);
+  Assert.ok(
+    panel,
+    "getPanel constructs a panel when the widget is not visible"
+  );
+
+  CustomizableUI.addWidgetToArea(
+    lazy.IPProtectionWidget.WIDGET_ID,
+    CustomizableUI.AREA_NAVBAR
+  );
   cleanupService();
 });

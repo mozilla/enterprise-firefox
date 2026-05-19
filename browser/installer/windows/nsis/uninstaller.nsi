@@ -6,11 +6,11 @@
 # AppAssocReg
 #   http://nsis.sourceforge.net/Application_Association_Registration_plug-in
 # BitsUtils
-#   http://searchfox.org/mozilla-central/source/other-licenses/nsis/Contrib/BitsUtils
+#   http://searchfox.org/firefox-main/source/other-licenses/nsis/Contrib/BitsUtils
 # CityHash
-#   http://searchfox.org/mozilla-central/source/other-licenses/nsis/Contrib/CityHash
+#   http://searchfox.org/firefox-main/source/other-licenses/nsis/Contrib/CityHash
 # HttpPostFile
-#   http://searchfox.org/mozilla-central/source/other-licenses/nsis/Contrib/HttpPostFile
+#   http://searchfox.org/firefox-main/source/other-licenses/nsis/Contrib/HttpPostFile
 # ShellLink
 #   http://nsis.sourceforge.net/ShellLink_plug-in
 # UAC
@@ -709,6 +709,10 @@ Section "Uninstall"
 
   ; Remove the installation directory if it is empty
   RmDir "$INSTDIR"
+
+!ifdef MOZ_ENTERPRISE
+  RmDir /r "$TEMP\felt\"
+!endif
 
   ; If firefox.exe was successfully deleted yet we still need to restart to
   ; remove other files create a dummy firefox.exe.moz-delete to prevent the

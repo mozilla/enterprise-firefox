@@ -969,20 +969,6 @@ void nsBaseChannel::SetupNeckoTarget() {
   mNeckoTarget = GetMainThreadSerialEventTarget();
 }
 
-NS_IMETHODIMP nsBaseChannel::GetContentRange(
-    RefPtr<mozilla::net::ContentRange>* aRange) {
-  if (aRange) {
-    *aRange = mContentRange;
-  }
-  return NS_OK;
-}
-
-NS_IMETHODIMP nsBaseChannel::SetContentRange(
-    RefPtr<mozilla::net::ContentRange> aRange) {
-  mContentRange = aRange;
-  return NS_OK;
-}
-
 NS_IMETHODIMP nsBaseChannel::GetFullMimeType(RefPtr<TMimeType<char>>* aOut) {
   if (aOut) {
     *aOut = mFullMimeType;

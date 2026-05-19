@@ -1,7 +1,9 @@
 [DEFAULT]
+prefs = [
+  "browser.settings-redesign.enabled=false",
+]
 support-files = [
   "head.js",
-  "../head.js",
   "privacypane_tests_perwindow.js",
 ]
 tags = "os_integration"
@@ -36,6 +38,8 @@ skip-if = [
 ["browser_privacy_segmentation_pref.js"]
 
 ["browser_privacy_status_card.js"]
+
+["browser_privacy_status_card_scroll.js"]
 
 ["browser_privacy_syncDataClearing_v2.js"]
 

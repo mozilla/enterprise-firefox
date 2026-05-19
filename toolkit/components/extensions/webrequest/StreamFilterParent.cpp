@@ -179,7 +179,7 @@ void StreamFilterParent::Disconnect(const nsACString& aReason) {
   nsAutoCString reason(aReason);
 
   RefPtr<StreamFilterParent> self(this);
-  RunOnActorThread(FUNC, [self, reason] {
+  RunOnActorThread(FUNC, [self, reason = std::move(reason)] {
     if (self->IPCActive()) {
       self->mState = State::Disconnected;
       self->CheckResult(self->SendError(reason));

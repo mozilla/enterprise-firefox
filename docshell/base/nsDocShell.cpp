@@ -1724,7 +1724,7 @@ nsDocShell::GetHasTrackingContentBlocked(Promise** aPromise) {
 
   ErrorResult rv;
   RefPtr<Document> doc(GetDocument());
-  RefPtr<Promise> retPromise = Promise::Create(doc->GetOwnerGlobal(), rv);
+  RefPtr<Promise> retPromise = Promise::Create(doc->GetRelevantGlobal(), rv);
   if (NS_WARN_IF(rv.Failed())) {
     return rv.StealNSResult();
   }
@@ -4216,6 +4216,14 @@ nsresult nsDocShell::StopInternal(
     // XXXbz We could also pass |this| to nsIURILoader::Stop.  That will
     // just call Stop() on us as an nsIDocumentLoader... We need fewer
     // redundant apis!
+    if (aUnsetOngoingNavigation == UnsetOngoingNavigation::No && mLoadGroup) {
+      // Tag load group cancellation as navigation-caused so that XHR can
+      // suppress abort events (bug 1505389). SetCanceledReason is
+      // first-write-wins, so nsDocLoader::Stop's reason won't overwrite.
+
+      // XXX Consider using a flag on LoadGroup instead of CanceledReason
+      mLoadGroup->SetCanceledReason("navigation"_ns);
+    }
     Stop();
 
     // Clear out mChannelToDisconnectOnPageHide. This page won't go in the
@@ -6699,14 +6707,6 @@ nsresult nsDocShell::CreateAboutBlankDocumentViewer(
         rv = Embed(viewer, aActor, true, nullptr, mCurrentURI);
         NS_ENSURE_SUCCESS(rv, rv);
 
-        if (nsIContentSecurityPolicy* csp =
-                PolicyContainer::GetCSP(blankDoc->GetPolicyContainer())) {
-          // We do this here rather than earlier where we inherit
-          // aPolicyContainer so that the client source uses the parent's URI as
-          // self (bug 2021482).
-          MOZ_TRY(csp->SetRequestContextWithDocument(blankDoc));
-        }
-
         SetCurrentURI(blankDoc->GetDocumentURI(), nullptr,
                       /* aFireLocationChange */ true,
                       /* aIsInitialAboutBlank */ aIsInitialDocument,
@@ -7821,7 +7821,7 @@ bool nsDocShell::IsSameDocumentNavigation(nsDocShellLoadState* aLoadState,
               // At this point the requested URI is for sure a fragment
               // navigation via HTTP and HTTPS-Only mode or HTTPS-First is
               // enabled. Also it is not interfering the upgrade order of
-              // https://searchfox.org/mozilla-central/source/netwerk/base/nsNetUtil.cpp#2948-2953.
+              // https://searchfox.org/firefox-main/source/netwerk/base/nsNetUtil.cpp#2948-2953.
               // Since we are on an HTTPS site the fragment
               // navigation should also be an HTTPS.
               // For that reason we should upgrade the URI to HTTPS.
@@ -10121,6 +10121,13 @@ nsresult nsDocShell::CompleteInitialAboutBlankLoad(
   MOZ_ASSERT(doc->GetReadyStateEnum() == Document::READYSTATE_COMPLETE);
   MOZ_ASSERT(!mIsLoadingDocument);
 
+  if (nsIContentSecurityPolicy* csp =
+          PolicyContainer::GetCSP(doc->GetPolicyContainer())) {
+    // We do this here rather than when inheriting the CSP in
+    // CreateAboutBlankDocumentViewer so that client source and parsed policies
+    // use the parent's URI as self (bug 2021482, 2035423).
+    MOZ_TRY(csp->SetRequestContextWithDocument(doc));
+  }
   doc->ApplyCspFromLoadInfo(aLoadInfo);
   doc->ApplySettingsFromCSP(false);
   doc->RecomputeResistFingerprinting();
@@ -10176,7 +10183,7 @@ nsresult nsDocShell::CompleteInitialAboutBlankLoad(
   doc->BeginLoad();
 
   nsContentUtils::AddScriptRunner(
-      new nsDocElementCreatedNotificationRunner(doc));
+      MakeAndAddRef<nsDocElementCreatedNotificationRunner>(doc));
   // When scripts are not blocked (are they ever blocked here?), the runnable
   // runs immediately, so let's check if this docshell got destroyed or the
   // document got swapped. Unclear if this ever happens; this is a defensive
@@ -13140,7 +13147,7 @@ void nsDocShell::InformNavigationAPIAboutAbortingNavigation() {
   }
 
   AutoJSAPI jsapi;
-  if (!jsapi.Init(navigation->GetOwnerGlobal())) {
+  if (!jsapi.Init(navigation->GetRelevantGlobal())) {
     return;
   }
 
@@ -13167,7 +13174,7 @@ void nsDocShell::InformNavigationAPIAboutChildNavigableDestruction() {
   }
 
   AutoJSAPI jsapi;
-  if (!jsapi.Init(navigation->GetOwnerGlobal())) {
+  if (!jsapi.Init(navigation->GetRelevantGlobal())) {
     return;
   }
 

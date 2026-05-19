@@ -235,8 +235,15 @@ void GPUProcessManager::MaybeCrashIfGpuProcessOnceStable() {
     return;
   }
   MOZ_RELEASE_ASSERT(!gfxConfig::IsEnabled(Feature::GPU_PROCESS));
-  MOZ_RELEASE_ASSERT(!mProcessStableOnce,
-                     "Fallback to parent process not allowed!");
+  if (!mProcessStableOnce) {
+    return;
+  }
+  // If the last launch error was suspected to be an OOM failure, let's annotate
+  // this as an OOM crash.
+  if (mProcess && mProcess->IsLaunchOomError()) {
+    CrashReporter::AnnotateOOMAllocationSize(1);
+  }
+  MOZ_CRASH("Fallback to parent process not allowed!");
 }
 
 void GPUProcessManager::ResetProcessStable() {
@@ -1338,12 +1345,10 @@ RefPtr<CompositorSession> GPUProcessManager::CreateRemoteSession(
 
   RefPtr<APZCTreeManagerChild> apz = nullptr;
   if (aOptions.UseAPZ()) {
-    PAPZCTreeManagerChild* papz =
-        child->SendPAPZCTreeManagerConstructor(LayersId{0});
-    if (!papz) {
+    apz = MakeRefPtr<APZCTreeManagerChild>();
+    if (!child->SendPAPZCTreeManagerConstructor(apz, LayersId{0})) {
       return nullptr;
     }
-    apz = static_cast<APZCTreeManagerChild*>(papz);
 
     ipc::Endpoint<PAPZInputBridgeParent> parentPipe;
     ipc::Endpoint<PAPZInputBridgeChild> childPipe;
@@ -1361,11 +1366,11 @@ RefPtr<CompositorSession> GPUProcessManager::CreateRemoteSession(
       return nullptr;
     }
 
-    apz->SetInputBridge(inputBridge);
+    apz->SetInputBridge(std::move(inputBridge));
   }
 
-  return new RemoteCompositorSession(aWidget, child, widget, apz,
-                                     aRootLayerTreeId);
+  return MakeRefPtr<RemoteCompositorSession>(aWidget, child, widget,
+                                             std::move(apz), aRootLayerTreeId);
 #else
   gfxCriticalNote << "Platform does not support out-of-process compositing";
   return nullptr;

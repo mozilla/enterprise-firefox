@@ -261,6 +261,10 @@ public final class GeckoRuntime implements Parcelable {
   private StorageController mStorageController;
   private final WebExtensionController mWebExtensionController;
   private WebPushController mPushController;
+
+  @OptIn(markerClass = ExperimentalGeckoViewApi.class)
+  private IPProtectionController mIPProtectionController;
+
   private final ContentBlockingController mContentBlockingController;
   private final Autocomplete.StorageProxy mAutocompleteStorageProxy;
   private final CrashPullController.CrashPullProxy mCrashPullProxy;
@@ -1152,6 +1156,24 @@ public final class GeckoRuntime implements Parcelable {
     }
 
     return mPushController;
+  }
+
+  /**
+   * Get the IP protection controller for this runtime. The IP protection controller can be used to
+   * manage IP protection state.
+   *
+   * @return The {@link IPProtectionController} for this instance.
+   */
+  @ExperimentalGeckoViewApi
+  @UiThread
+  public @NonNull IPProtectionController getIPProtectionController() {
+    ThreadUtils.assertOnUiThread();
+
+    if (mIPProtectionController == null) {
+      mIPProtectionController = new IPProtectionController();
+    }
+
+    return mIPProtectionController;
   }
 
   /**

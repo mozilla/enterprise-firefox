@@ -8,10 +8,10 @@
  */
 
 /**
- * @import {Query} from "UrlbarProvidersManager.sys.mjs"
+ * @import {Query} from "./UrlbarProvidersManager.sys.mjs"
  * @import {SearchEngine} from "moz-src:///toolkit/components/search/SearchEngine.sys.mjs"
  * @import {SmartbarInput} from "chrome://browser/content/urlbar/SmartbarInput.mjs"
- * @import {UrlbarSearchStringTokenData} from "UrlbarTokenizer.sys.mjs"
+ * @import {UrlbarSearchStringTokenData} from "./UrlbarTokenizer.sys.mjs"
  */
 
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
@@ -2042,9 +2042,12 @@ export var UrlbarUtils = {
     return "unknown";
   },
 
-  searchEngagementTelemetryAction(result) {
+  searchEngagementTelemetryAction(result, pickedActionKey = null) {
     if (result.providerName != "UrlbarProviderGlobalActions") {
       return result.payload.action?.key ?? "none";
+    }
+    if (pickedActionKey) {
+      return pickedActionKey;
     }
     return result.payload.actionsResults.map(({ key }) => key).join(",");
   },
@@ -2357,9 +2360,9 @@ export var UrlbarUtils = {
    *   The result.
    *
    * @typedef {object} ParseDateResult
-   * @property {typeof Temporal.ZonedDateTime} zonedNow
+   * @property {Temporal.ZonedDateTime} zonedNow
    *   The "now" date as a `ZonedDateTime`.
-   * @property {typeof Temporal.ZonedDateTime} zonedDate
+   * @property {Temporal.ZonedDateTime} zonedDate
    *   The passed-in date as a `ZonedDateTime`.
    * @property {boolean} isFuture
    *   Whether the date is in the future.

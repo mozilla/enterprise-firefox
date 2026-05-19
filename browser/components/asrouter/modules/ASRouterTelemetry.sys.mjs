@@ -115,6 +115,9 @@ export class ASRouterTelemetry {
       case "menu_message_user_event":
         event = await this.applyMenuMessagePolicy(event);
         break;
+      case "smart_window_promo_user_event":
+        event = await this.applySmartWindowPromoPolicy(event);
+        break;
       case "asrouter_undesired_event":
         event = this.applyUndesiredEventPolicy(event);
         break;
@@ -189,6 +192,13 @@ export class ASRouterTelemetry {
     ping.browser_session_id = lazy.browserSessionId;
     delete ping.action;
     return { ping, pingType: "menu" };
+  }
+
+  async applySmartWindowPromoPolicy(ping) {
+    ping.client_id = await this.telemetryClientId;
+    ping.browser_session_id = lazy.browserSessionId;
+    delete ping.action;
+    return { ping, pingType: "smart_window_promo" };
   }
 
   /**
@@ -270,6 +280,8 @@ export class ASRouterTelemetry {
       case msg.MENU_MESSAGE_TELEMETRY:
       // Intentional fall-through
       case msg.NEWTAB_MESSAGE_TELEMETRY:
+      // Intentional fall-through
+      case msg.SMART_WINDOW_PROMO_TELEMETRY:
       // Intentional fall-through
       case msg.AS_ROUTER_TELEMETRY_USER_EVENT:
         this.handleASRouterUserEvent(action);

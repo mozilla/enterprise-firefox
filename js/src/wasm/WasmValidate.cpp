@@ -3219,27 +3219,27 @@ struct ExternType {
   DefinitionKind kind() const { return kind_; }
 
   uint32_t asFunc() const {
-    MOZ_ASSERT(kind_ == DefinitionKind::Function);
+    MOZ_RELEASE_ASSERT(kind_ == DefinitionKind::Function);
     return funcTypeIndex;
   }
 
   const TableType& asTable() const {
-    MOZ_ASSERT(kind_ == DefinitionKind::Table);
+    MOZ_RELEASE_ASSERT(kind_ == DefinitionKind::Table);
     return tableType;
   }
 
   const Limits& asMemory() const {
-    MOZ_ASSERT(kind_ == DefinitionKind::Memory);
+    MOZ_RELEASE_ASSERT(kind_ == DefinitionKind::Memory);
     return memType;
   }
 
   const GlobalType& asGlobal() const {
-    MOZ_ASSERT(kind_ == DefinitionKind::Global);
+    MOZ_RELEASE_ASSERT(kind_ == DefinitionKind::Global);
     return globalType;
   }
 
   uint32_t asTag() const {
-    MOZ_ASSERT(kind_ == DefinitionKind::Tag);
+    MOZ_RELEASE_ASSERT(kind_ == DefinitionKind::Tag);
     return tagFuncTypeIndex;
   }
 };

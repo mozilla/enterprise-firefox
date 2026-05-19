@@ -27,12 +27,9 @@ export var DefaultWindowsLaunchOnLogin = {
     const nimbusFeature =
       lazy.NimbusFeatures[DEFAULT_WINDOWS_LAUNCH_ON_LOGIN_NIMBUS_FEATURE_ID];
     await nimbusFeature.ready();
-    const { enabled } = nimbusFeature.getAllVariables({
-      defaultValues: { enabled: false },
-    });
-
-    if (!enabled) {
-      this.logger.debug("   - Nimbus said no");
+    let metadata = await nimbusFeature.getEnrollmentMetadata();
+    if (!metadata) {
+      this.logger.debug("   - user not enrolled");
       return;
     }
 
@@ -43,6 +40,15 @@ export var DefaultWindowsLaunchOnLogin = {
     }
 
     nimbusFeature.recordExposureEvent({ once: true });
+
+    const { enabled } = nimbusFeature.getAllVariables({
+      defaultValues: { enabled: false },
+    });
+
+    if (!enabled) {
+      this.logger.debug("   - Nimbus said no");
+      return;
+    }
 
     await lazy.WindowsLaunchOnLogin.createLaunchOnLogin();
     this.logger.debug("   - enabled");

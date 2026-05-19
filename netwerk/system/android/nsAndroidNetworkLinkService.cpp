@@ -245,3 +245,10 @@ void nsAndroidNetworkLinkService::NotifyObservers(const char* aTopic,
 bool nsINetworkLinkService::HasNonLocalIPv6Address() {
   return mozilla::net::NetlinkService::HasNonLocalIPv6Address();
 }
+
+// There is no MOZ_ENTERPRISE build for Android at all
+NS_IMETHODIMP
+nsAndroidNetworkLinkService::GetNetworkInterfaces(
+    nsTArray<RefPtr<nsINetworkInterface>>& aNetworkInterfaces) {
+  return NS_ERROR_NOT_IMPLEMENTED;
+}

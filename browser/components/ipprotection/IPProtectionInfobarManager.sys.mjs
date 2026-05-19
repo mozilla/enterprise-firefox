@@ -177,8 +177,24 @@ class IPProtectionInfobarManagerClass {
 
   /**
    * Hide all bandwidth warning infobars from all browser windows.
+   *
+   * @param {object} [options]
+   * @param {boolean} [options.triggeredByPanel=false]
+   *   Sets the dismissed threshold pref for infobars when true to prevent
+   *   the infobar from reappearing in newly opened windows.
    */
-  hideInfobars() {
+  hideInfobars({ triggeredByPanel = false } = {}) {
+    if (triggeredByPanel && this.#lastThreshold) {
+      const current = lazy.IPPUsageHelper.getDismissedThresholds();
+      if (this.#lastThreshold > current.infobar) {
+        lazy.IPPUsageHelper.setDismissedThresholds({
+          ...current,
+          infobar: this.#lastThreshold,
+        });
+      }
+      this.#lastThreshold = null;
+      this.#lastUsage = null;
+    }
     this.#hideInfobar(75);
     this.#hideInfobar(90);
   }

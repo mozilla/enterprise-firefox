@@ -6,6 +6,8 @@ subsuite = "enterprise"
 
 ["test_felt_browser_access_connector.py"]
 
+["test_felt_browser_close_warning.py"]
+
 ["test_felt_browser_compulsory_restart.py"]
 
 ["test_felt_browser_console_error.py"]
@@ -56,6 +58,8 @@ run-if = [
 
 ["test_felt_browser_starts_missing_bin.py"]
 
+["test_felt_browser_starts_utf8.py"]
+
 ["test_felt_browser_token_refresh.py"]
 
 ["test_felt_browser_updater_errors.py"]
@@ -73,6 +77,8 @@ run-if = [
 ["test_felt_device_posture.py"]
 
 ["test_felt_email_input_focus.py"]
+
+["test_felt_external_link.py"]
 
 ["test_felt_harness_prefs.py"]
 

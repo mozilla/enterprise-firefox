@@ -387,6 +387,44 @@ export class UrlbarController {
           break;
         }
 
+        // In smartbar mode, mirror the urlbar's circular Tab pattern: cycle
+        // through results, then continue into the action buttons (Add Tab,
+        // memories, Submit), then wrap back to the first result. Shift+Tab
+        // mirrors the cycle in reverse. The view stays open the whole time;
+        // Tab from the action buttons back into the result list is handled
+        // by SmartbarInput.#onActionButtonsKeyDown.
+        if (
+          this.input.sapName == "smartbar" &&
+          this.view.isOpen &&
+          !event.ctrlKey &&
+          !event.altKey
+        ) {
+          const atEnd =
+            !event.shiftKey &&
+            this.view.selectedElement == this.view.getLastSelectableElement();
+          const atStart =
+            event.shiftKey &&
+            this.view.selectedElement == this.view.getFirstSelectableElement();
+
+          if (atEnd || atStart) {
+            if (executeAction) {
+              this.view.selectedRowIndex = -1;
+              // SAP is `smartbar`, so we can safely cast to SmartbarInput.
+              const smartbar = /** @type {SmartbarInput} */ (
+                /** @type {unknown} */ (this.input)
+              );
+              if (atEnd) {
+                smartbar.focusFirstActionButton();
+              } else {
+                smartbar.focusLastActionButton();
+              }
+            }
+            event.preventDefault();
+            break;
+          }
+          // Otherwise, fall through to the default cycling behaviour.
+        }
+
         // Change the tab behavior when urlbar view is open.
         if (
           lazy.UrlbarPrefs.get("scotchBonnet.enableOverride") &&
@@ -1025,6 +1063,7 @@ class TelemetryEvent {
       event,
       provider: details.result?.providerName,
       selIndex: details.result?.rowIndex ?? -1,
+      pickedActionKey: details.element?.dataset.action ?? null,
     };
 
     let { queryContext } = this._controller._lastQueryContextWrapper || {};
@@ -1039,6 +1078,7 @@ class TelemetryEvent {
       searchMode: internalDetails.searchMode,
       selIndex: internalDetails.selIndex,
       selType: internalDetails.selType,
+      pickedActionKey: internalDetails.pickedActionKey,
       location: internalDetails.location,
       windowMode: internalDetails.windowMode,
       ...this.#getOptionalSmartbarTelemetry(internalDetails.searchSource),
@@ -1144,6 +1184,10 @@ class TelemetryEvent {
    *   One of "unknown", "autofill", "visiturl", "bookmark", "help", "history",
    *   "keyword", "searchengine", "searchsuggestion", "switchtab", "remotetab",
    *   "extension", "oneoff", "dismiss".
+   * @param {string|null} [details.pickedActionKey]
+   *   The `data-action` of the action button the user picked, when selType is
+   *   "action". Used to disambiguate which action was picked in the global
+   *   actions row, which can contain multiple action buttons.
    * @param {number} [details.viewTime]
    *   The length of the view time in milliseconds.
    * @param {SapLocation} [details.location]
@@ -1172,6 +1216,7 @@ class TelemetryEvent {
       searchMode,
       selIndex,
       selType,
+      pickedActionKey = null,
       viewTime = 0,
       location = null,
       chatId = "",
@@ -1211,7 +1256,7 @@ class TelemetryEvent {
       .map(r => lazy.UrlbarUtils.searchEngagementTelemetryType(r))
       .join(",");
     let actions = currentResults
-      .map((r, i) => lazy.UrlbarUtils.searchEngagementTelemetryAction(r, i))
+      .map(r => lazy.UrlbarUtils.searchEngagementTelemetryAction(r))
       .filter(v => v)
       .join(",");
     let available_semantic_sources = this.#getAvailableSemanticSources().join();
@@ -1228,7 +1273,7 @@ class TelemetryEvent {
         if (selType == "action") {
           let actionKey = lazy.UrlbarUtils.searchEngagementTelemetryAction(
             currentResults[selIndex],
-            selIndex
+            pickedActionKey
           );
           selected_result = `action_${actionKey}`;
         }
@@ -1402,9 +1447,13 @@ class TelemetryEvent {
   #getAvailableSemanticSources() {
     let sources = [];
     try {
+      const semanticManager =
+        lazy.UrlbarProviderSemanticHistorySearch.semanticManager;
+      const isSmartbar = this._controller.input.sapName === "smartbar";
       if (
-        lazy.UrlbarProviderSemanticHistorySearch.semanticManager
-          .canUseSemanticSearch
+        isSmartbar
+          ? semanticManager.isEnabledForSmartWindow
+          : semanticManager.canUseSemanticSearch
       ) {
         sources.push("history");
       }
@@ -1755,6 +1804,9 @@ class TelemetryEvent {
     }
     if (element.dataset.command == "dismiss") {
       return "block";
+    }
+    if (element.classList?.contains("urlbarView-action-btn")) {
+      return "action";
     }
     // Now handle the result.
     return lazy.UrlbarUtils.telemetryTypeFromResult(result);

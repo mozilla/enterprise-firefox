@@ -405,6 +405,7 @@ add_task(async function keep_search_query_searchbar() {
   });
 
   let gCUITestUtils = new CustomizableUITestUtils(window);
+  registerCleanupFunction(() => gCUITestUtils.removeSearchBar());
   let searchbar = await gCUITestUtils.addSearchBar();
 
   // Visit page where de-engine will be suggested.

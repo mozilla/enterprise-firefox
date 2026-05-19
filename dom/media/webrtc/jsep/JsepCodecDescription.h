@@ -32,13 +32,13 @@ class JsepCodecPreferences {
   virtual bool SoftwareH264Enabled() const = 0;
   virtual bool SendingH264PacketizationModeZeroSupported() const = 0;
   virtual bool H264BaselineDisabled() const = 0;
-  virtual int32_t H264Level() const = 0;
-  virtual int32_t H264MaxBr() const = 0;
-  virtual int32_t H264MaxMbps() const = 0;
+  virtual uint8_t H264Level() const = 0;
+  virtual uint32_t H264MaxBr() const = 0;
+  virtual uint32_t H264MaxMbps() const = 0;
   virtual bool VP9Enabled() const = 0;
   virtual bool VP9Preferred() const = 0;
-  virtual int32_t VP8MaxFs() const = 0;
-  virtual int32_t VP8MaxFr() const = 0;
+  virtual uint32_t VP8MaxFs() const = 0;
+  virtual uint32_t VP8MaxFr() const = 0;
   virtual bool UseTmmbr() const = 0;
   virtual bool UseRemb() const = 0;
   virtual bool UseRtx() const = 0;
@@ -242,7 +242,7 @@ class JsepCodecDescription {
 
       if (!aUsedPts.count(freePtAsString)) {
         aUsedPts.insert(freePtAsString);
-        aPtToCheck = freePtAsString;
+        aPtToCheck = std::move(freePtAsString);
         return true;
       }
     }
@@ -275,6 +275,13 @@ class JsepCodecDescription {
   sdp::Direction mDirection;
   // Will hold constraints from both fmtp and rid
   VideoEncodingConstraints mConstraints;
+};
+
+struct CompareCodecPriority {
+  bool operator()(const UniquePtr<JsepCodecDescription>& aLHS,
+                  const UniquePtr<JsepCodecDescription>& aRHS) const {
+    return aLHS->mStronglyPreferred && !aRHS->mStronglyPreferred;
+  }
 };
 
 class JsepAudioCodecDescription final : public JsepCodecDescription {
@@ -760,9 +767,9 @@ class JsepVideoCodecDescription final : public JsepCodecDescription {
     }
 
     mFECEnabled = true;
-    mREDPayloadType = redPayloadType;
-    mULPFECPayloadType = ulpfecPayloadType;
-    mREDRTXPayloadType = redRtxPayloadType;
+    mREDPayloadType = std::move(redPayloadType);
+    mULPFECPayloadType = std::move(ulpfecPayloadType);
+    mREDRTXPayloadType = std::move(redRtxPayloadType);
   }
 
   void EnableTransportCC() {
@@ -996,7 +1003,7 @@ class JsepVideoCodecDescription final : public JsepCodecDescription {
   // Some parameters are hierarchical, meaning that a lower value reflects a
   // lower capability.  In these cases, we want the sender to use the lower of
   // the two values. There is also an implied default value which may be higher
-  // than the signalled value.
+  // than the signaled value.
   template <typename T>
   static auto NegotiateHierarchicalParam(const sdp::Direction direction,
                                          const Maybe<T>& localParam,
@@ -1460,11 +1467,11 @@ class JsepApplicationCodecDescription final : public JsepCodecDescription {
   void ApplyConfigToFmtp(
       UniquePtr<SdpFmtpAttributeList::Parameters>& aFmtp) const override {};
 
-  uint16_t mLocalPort;
-  uint32_t mLocalMaxMessageSize;
-  uint16_t mRemotePort;
-  uint32_t mRemoteMaxMessageSize;
-  bool mRemoteMMSSet;
+  uint16_t mLocalPort = 0;
+  uint32_t mLocalMaxMessageSize = 0;
+  uint16_t mRemotePort = 0;
+  uint32_t mRemoteMaxMessageSize = 0;
+  bool mRemoteMMSSet = false;
 };
 
 }  // namespace mozilla

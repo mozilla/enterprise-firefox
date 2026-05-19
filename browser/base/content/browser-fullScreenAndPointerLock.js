@@ -639,7 +639,10 @@ var FullScreen = {
       let notifications = PopupNotifications.getNotification(
         this._permissionNotificationIDs
       ).filter(n => !n.dismissed);
-      PopupNotifications.remove(notifications, true);
+      PopupNotifications.remove(
+        notifications,
+        /* withoutUserResponse = */ true
+      );
       if (notifications.length) {
         this._logWarningPermissionPromptFS("promptCanceled");
       }

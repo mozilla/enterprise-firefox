@@ -261,7 +261,7 @@ class nsFrameLoader final : public nsStubMutationObserver,
 
   bool IsNetworkCreated() const { return mNetworkCreated; }
 
-  nsIContent* GetParentObject() const;
+  nsISupports* GetParentObject() const;
 
   /**
    * MessageManagerCallback methods that we override.

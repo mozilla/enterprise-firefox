@@ -7,7 +7,7 @@ const { HttpServer, HTTP_404 } = ChromeUtils.importESModule(
   "resource://testing-common/httpd.sys.mjs"
 );
 const { GuardianClient } = ChromeUtils.importESModule(
-  "moz-src:///toolkit/components/ipprotection/GuardianClient.sys.mjs"
+  "moz-src:///toolkit/components/ipprotection/fxa/GuardianClient.sys.mjs"
 );
 const { JsonSchemaValidator } = ChromeUtils.importESModule(
   "resource://gre/modules/components-utils/JsonSchemaValidator.sys.mjs"
@@ -61,6 +61,11 @@ function makeStallHandler() {
   };
 }
 
+const TEST_TOKEN_HANDLE = {
+  token: "test-token",
+  [Symbol.dispose]: () => {},
+};
+
 function setupGuardianClient(serverWrapper) {
   const serverOrigin = `http://localhost:${serverWrapper.server.identity.primaryPort}`;
   Services.prefs.setCharPref(
@@ -69,15 +74,8 @@ function setupGuardianClient(serverWrapper) {
   );
   Services.prefs.setCharPref("identity.fxaccounts.remote.root", serverOrigin);
 
-  const sandbox = sinon.createSandbox();
-  sandbox.stub(IPPFxaAuthProvider, "getToken").resolves({
-    token: "test-token",
-    [Symbol.dispose]: () => {},
-  });
-
   return {
     [Symbol.dispose]() {
-      sandbox.restore();
       Services.prefs.clearUserPref("browser.ipProtection.guardian.endpoint");
       Services.prefs.clearUserPref("identity.fxaccounts.remote.root");
     },
@@ -169,7 +167,8 @@ add_task(async function test_fetchUserInfo() {
         using _setup = setupGuardianClient(serverWrapper);
         const client = new GuardianClient();
 
-        const { status, entitlement, error } = await client.fetchUserInfo();
+        const { status, entitlement, error } =
+          await client.fetchUserInfo(TEST_TOKEN_HANDLE);
 
         if (expects.status !== undefined) {
           Assert.equal(status, expects.status, `${name}: status should match`);
@@ -312,7 +311,8 @@ add_task(async function test_fetchProxyPass() {
         using _setup = setupGuardianClient(serverWrapper);
         const client = new GuardianClient();
 
-        const { status, pass, error, usage } = await client.fetchProxyPass();
+        const { status, pass, error, usage } =
+          await client.fetchProxyPass(TEST_TOKEN_HANDLE);
 
         if (expects.status !== undefined) {
           Assert.equal(status, expects.status, `${name}: status should match`);
@@ -557,7 +557,7 @@ add_task(async function test_fetchProxyPass_quotaExceeded() {
         const client = new GuardianClient();
 
         const { status, pass, error, usage, retryAfter } =
-          await client.fetchProxyPass();
+          await client.fetchProxyPass(TEST_TOKEN_HANDLE);
 
         Assert.equal(status, expects.status, `${name}: status should match`);
         Assert.equal(error, expects.error, `${name}: error should match`);
@@ -662,7 +662,7 @@ add_task(async function test_fetchProxyUsage() {
         using _setup = setupGuardianClient(serverWrapper);
         const client = new GuardianClient();
 
-        const usage = await client.fetchProxyUsage();
+        const usage = await client.fetchProxyUsage(TEST_TOKEN_HANDLE);
 
         if (expects.usage === null) {
           Assert.equal(usage, null, `${name}: usage should be null`);
@@ -855,7 +855,7 @@ add_task(async function test_fetchProxyPass_abort() {
   using _setup = setupGuardianClient(serverWrapper);
   const client = new GuardianClient();
   const controller = new AbortController();
-  const promise = client.fetchProxyPass(controller.signal);
+  const promise = client.fetchProxyPass(TEST_TOKEN_HANDLE, controller.signal);
 
   do_timeout(10, () => controller.abort());
 
@@ -874,7 +874,7 @@ add_task(async function test_fetchUserInfo_abort() {
   using _setup = setupGuardianClient(serverWrapper);
   const client = new GuardianClient();
   const controller = new AbortController();
-  const promise = client.fetchUserInfo(controller.signal);
+  const promise = client.fetchUserInfo(TEST_TOKEN_HANDLE, controller.signal);
 
   do_timeout(10, () => controller.abort());
 
@@ -893,7 +893,7 @@ add_task(async function test_fetchProxyUsage_abort() {
   using _setup = setupGuardianClient(serverWrapper);
   const client = new GuardianClient();
   const controller = new AbortController();
-  const promise = client.fetchProxyUsage(controller.signal);
+  const promise = client.fetchProxyUsage(TEST_TOKEN_HANDLE, controller.signal);
 
   do_timeout(10, () => controller.abort());
 
@@ -921,7 +921,7 @@ add_task(async function test_abort_before_fetch() {
   controller.abort();
 
   await Assert.rejects(
-    client.fetchProxyPass(controller.signal),
+    client.fetchProxyPass(TEST_TOKEN_HANDLE, controller.signal),
     err => err.name === "AbortError",
     "Should reject immediately with pre-aborted signal"
   );

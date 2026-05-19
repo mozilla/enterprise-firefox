@@ -172,7 +172,8 @@ dictionary FocusOptions {
   boolean focusVisible;
 };
 
-interface mixin HTMLOrForeignElement {
+// https://html.spec.whatwg.org/multipage/dom.html#htmlorsvgelement
+interface mixin HTMLOrSVGOrMathMLElement {
   [SameObject] readonly attribute DOMStringMap dataset;
   // See bug 1389421
   // attribute DOMString nonce; // intentionally no [CEReactions]
@@ -190,10 +191,10 @@ interface mixin ElementCSSInlineStyle {
 };
 
 // https://drafts.csswg.org/cssom-view/
-enum ScrollLogicalPosition { "start", "center", "end", "nearest" };
+enum ScrollLogicalPosition { "start", "center", "end", "nearest", "auto" };
 dictionary ScrollIntoViewOptions : ScrollOptions {
-  ScrollLogicalPosition block = "start";
-  ScrollLogicalPosition inline = "nearest";
+  ScrollLogicalPosition block = "auto";
+  ScrollLogicalPosition inline = "auto";
 };
 
 dictionary CheckVisibilityOptions {
@@ -343,10 +344,16 @@ partial interface Element {
   attribute EventHandler onfullscreenerror;
 };
 
+// https://w3c.github.io/pointerlock/#pointerlockoptions-dictionary
+dictionary PointerLockOptions {
+  [Pref="dom.pointer-lock.unadjusted-movement.enabled"]
+  boolean unadjustedMovement = false;
+};
+
 // https://w3c.github.io/pointerlock/#extensions-to-the-element-interface
 partial interface Element {
-  [NeedsCallerType, Pref="dom.pointer-lock.enabled"]
-  undefined requestPointerLock();
+  [NewObject, NeedsCallerType, UseCounter, Pref="dom.pointer-lock.enabled"]
+  Promise<undefined> requestPointerLock(optional PointerLockOptions options = {});
 };
 
 // Mozilla-specific additions to support devtools

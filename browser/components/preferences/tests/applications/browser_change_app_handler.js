@@ -27,19 +27,15 @@ function setupFakeHandler() {
 }
 
 add_task(async function () {
-  await SpecialPowers.pushPrefEnv({
-    set: [["browser.settings-redesign.enabled", true]],
-  });
-
   setupFakeHandler();
 
   let appHandlerInitialized = TestUtils.topicObserved("app-handler-loaded");
 
-  let prefs = await openPreferencesViaOpenPreferencesAPI("paneGeneral", {
+  let prefs = await openPreferencesViaOpenPreferencesAPI("downloads", {
     leaveOpen: true,
   });
 
-  is(prefs.selectedPane, "paneGeneral", "General pane was selected");
+  is(prefs.selectedPane, "paneDownloads", "Downloads pane was selected");
   let win = gBrowser.selectedBrowser.contentWindow;
 
   await appHandlerInitialized;

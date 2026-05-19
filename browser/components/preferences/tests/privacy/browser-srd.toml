@@ -1,0 +1,10 @@
+[DEFAULT]
+prefs = [
+  "browser.settings-redesign.enabled=true",
+]
+support-files = [
+  "head.js",
+  "privacypane_tests_perwindow.js",
+]
+
+["browser_privacy_history_search_l10n_ids.js"]

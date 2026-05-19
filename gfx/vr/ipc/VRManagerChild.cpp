@@ -152,15 +152,6 @@ void VRManagerChild::ActorDestroy(ActorDestroyReason aReason) {
   }
 }
 
-PVRLayerChild* VRManagerChild::AllocPVRLayerChild(const uint32_t& aDisplayID,
-                                                  const uint32_t& aGroup) {
-  return VRLayerChild::CreateIPDLActor();
-}
-
-bool VRManagerChild::DeallocPVRLayerChild(PVRLayerChild* actor) {
-  return VRLayerChild::DestroyIPDLActor(actor);
-}
-
 void VRManagerChild::UpdateDisplayInfo(const VRDisplayInfo& aDisplayInfo) {
   nsTArray<uint32_t> disconnectedDisplays;
   nsTArray<uint32_t> connectedDisplays;
@@ -363,10 +354,13 @@ bool VRManagerChild::EnumerateVRDisplays() {
 
 void VRManagerChild::DetectRuntimes() { (void)SendDetectRuntimes(); }
 
-PVRLayerChild* VRManagerChild::CreateVRLayer(uint32_t aDisplayID,
-                                             uint32_t aGroup) {
-  PVRLayerChild* vrLayerChild = AllocPVRLayerChild(aDisplayID, aGroup);
-  return SendPVRLayerConstructor(vrLayerChild, aDisplayID, aGroup);
+already_AddRefed<VRLayerChild> VRManagerChild::CreateVRLayer(
+    uint32_t aDisplayID, uint32_t aGroup) {
+  RefPtr<VRLayerChild> vrLayerChild = VRLayerChild::CreateIPDLActor();
+  if (!SendPVRLayerConstructor(vrLayerChild, aDisplayID, aGroup)) {
+    return nullptr;
+  }
+  return vrLayerChild.forget();
 }
 
 void VRManagerChild::XRFrameRequest::Call(

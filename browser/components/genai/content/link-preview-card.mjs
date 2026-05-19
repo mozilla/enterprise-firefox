@@ -81,7 +81,7 @@ class LinkPreviewCard extends MozLitElement {
    * @param {MouseEvent} _event - The click event from the settings button.
    */
   handleSettingsClick(_event) {
-    const win = this.ownerGlobal;
+    const win = this.documentGlobal;
     win.openPreferences("general-link-preview");
     this.dispatchEvent(
       new CustomEvent("LinkPreviewCard:dismiss", {
@@ -106,7 +106,7 @@ class LinkPreviewCard extends MozLitElement {
     const anchor = event.target.closest("a");
     const url = anchor.href;
 
-    const win = this.ownerGlobal;
+    const win = this.documentGlobal;
     const params = {
       triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal(
         {}

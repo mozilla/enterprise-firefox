@@ -4,10 +4,6 @@
 
 "use strict";
 
-const { E10SUtils } = ChromeUtils.importESModule(
-  "resource://gre/modules/E10SUtils.sys.mjs"
-);
-
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -133,27 +129,38 @@ async function connectToConsole(email) {
     return;
   }
 
-  let browser = document.getElementById("browser");
-
-  let oa = E10SUtils.predictOriginAttributes({ browser });
-  browser.setAttribute("maychangeremoteness", "true");
-
   const ssoLoginURI = await lazy.ConsoleClient.constructSsoLoginURI(
     email,
     posture.posture
   );
 
-  browser.setAttribute(
-    "remoteType",
-    E10SUtils.getRemoteTypeForURI(
-      ssoLoginURI.spec,
-      /* remote */ true,
-      /* fission */ true,
-      E10SUtils.WEB_REMOTE_TYPE,
-      null,
-      oa
-    )
-  );
+  const browser = document.getElementById("browser");
+  browser.setAttribute("maychangeremoteness", "true");
+  if (typeof ChromeUtils.predictRemoteTypeForURI === "function") {
+    browser.setAttribute(
+      "remoteType",
+      ChromeUtils.predictRemoteTypeForURI(ssoLoginURI.spec, { browser })
+    );
+  } else {
+    // Bug 2038608
+    // Supporting this two path process selection for now until the changes from Bug 2011326 are
+    // stable enough and get merged to upstream/beta. To be removed after the merge.
+    const { E10SUtils } = ChromeUtils.importESModule(
+      "resource://gre/modules/E10SUtils.sys.mjs"
+    );
+    const oa = E10SUtils.predictOriginAttributes({ browser });
+    browser.setAttribute(
+      "remoteType",
+      E10SUtils.getRemoteTypeForURI(
+        ssoLoginURI.spec,
+        /* remote */ true,
+        /* fission */ true,
+        E10SUtils.WEB_REMOTE_TYPE,
+        null,
+        oa
+      )
+    );
+  }
   lazy.log.debug(
     `FeltExtension: creating contentPrincipal with privateBrowsingId=${lazy.FeltCommon.PRIVATE_BROWSING_ID}`
   );
@@ -385,7 +392,7 @@ function setupMarionetteEnvironment() {
       return window;
     },
 
-    get ownerGlobal() {
+    get documentGlobal() {
       return window;
     },
 
@@ -522,6 +529,17 @@ function setBuildVersion() {
   }
 }
 
+// bug 2006564
+// make sure that when application starts from dock it enforces windows' focus via activateApplication
+// https://searchfox.org/enterprise-main/rev/4b4e7c59db50500302fa0e437ee07a84d92aa076/widget/nsIMacDockSupport.idl#36-45
+function macosActivateApplication() {
+  if (lazy.AppConstants.platform === "macosx") {
+    Cc["@mozilla.org/widget/macdocksupport;1"]
+      .getService(Ci.nsIMacDockSupport)
+      .activateApplication(true);
+  }
+}
+
 window.addEventListener(
   "load",
   () => {
@@ -534,6 +552,7 @@ window.addEventListener(
     listenFormEmailSubmission();
     focusEmailOnLoginVisible();
     informAboutPotentialStartupFailure();
+    macosActivateApplication();
   },
   true
 );

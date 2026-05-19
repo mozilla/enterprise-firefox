@@ -47,7 +47,7 @@ export class ContextMenuChild extends JSWindowActorChild {
     this.docShell.docViewer
       .QueryInterface(Ci.nsIDocumentViewerEdit)
       .setCommandNode(event.composedTarget);
-    event.composedTarget.ownerGlobal.updateCommands("contentcontextmenu");
+    event.composedTarget.documentGlobal.updateCommands("contentcontextmenu");
 
     this.sendAsyncMessage("FeltChild:ContextMenu", {
       onPasswordInput: (editFlags & lazy.SpellCheckHelper.PASSWORD) !== 0,

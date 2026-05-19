@@ -26,7 +26,7 @@ async function setup_mockFilePicker(mockParentDir) {
 }
 
 add_setup(async () => {
-  MockFilePicker.init(window.browsingContext);
+  MockFilePicker.init();
   registerCleanupFunction(() => {
     MockFilePicker.cleanup();
   });
@@ -90,6 +90,12 @@ add_task(async function test_turn_on_scheduled_backups_confirm() {
     Assert.equal(legacyEvents.length, 1, "Found the toggle_on legacy event.");
     let events = Glean.browserBackup.toggleOn.testGetValue();
     Assert.equal(events.length, 1, "Found the toggleOn Glean event.");
+
+    Assert.equal(
+      Glean.browserBackup.schedulerToggleSource.testGetValue(),
+      "preferences",
+      "scheduler_toggle_source is credited to 'preferences' when enabled from the settings page."
+    );
 
     // Reset scheduled backups again for subsequent tests.
     Services.prefs.clearUserPref(SCHEDULED_BACKUPS_ENABLED_PREF);

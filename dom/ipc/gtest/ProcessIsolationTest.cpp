@@ -93,6 +93,9 @@ class MockEnterprisePoliciesService final : public nsIEnterprisePolicies {
     *aRetVal = !gJitDisabled;
     return NS_OK;
   }
+  NS_IMETHOD HasSitePoliciesForURI(nsIURI*, bool* aRetVal) override {
+    return NS_ERROR_NOT_IMPLEMENTED;
+  }
   NS_IMETHOD GetActivePolicies(JS::MutableHandle<JS::Value>) override {
     return NS_ERROR_NOT_IMPLEMENTED;
   }
@@ -108,6 +111,9 @@ class MockEnterprisePoliciesService final : public nsIEnterprisePolicies {
     return NS_ERROR_NOT_IMPLEMENTED;
   }
   NS_IMETHOD MayInstallAddon(JS::Handle<JS::Value>, bool*) override {
+    return NS_ERROR_NOT_IMPLEMENTED;
+  }
+  NS_IMETHOD IsAddonRequiredByPolicy(const nsACString&, bool*) override {
     return NS_ERROR_NOT_IMPLEMENTED;
   }
   NS_IMETHOD AllowedInstallSource(nsIURI*, bool*) override {

@@ -31,7 +31,6 @@
 #include "mozilla/SpinEventLoopUntil.h"
 #include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/StaticPrefs_fission.h"
-#include "mozilla/StaticPrefs_webgl.h"
 #include "mozilla/StaticPrefs_widget.h"
 #include "mozilla/glean/SecuritySandboxMetrics.h"
 #include "mozilla/Telemetry.h"
@@ -184,7 +183,6 @@
 #include "mozilla/LateWriteChecks.h"
 
 #include <stdlib.h>
-#include <locale.h>
 
 #ifdef XP_UNIX
 #  include <errno.h>
@@ -706,8 +704,6 @@ static bool Win32kRequirementsUnsatisfied(
          aStatus ==
              nsIXULRuntime::ContentWin32kLockdownState::MissingWebRender ||
          aStatus ==
-             nsIXULRuntime::ContentWin32kLockdownState::MissingRemoteWebGL ||
-         aStatus ==
              nsIXULRuntime::ContentWin32kLockdownState::DecodersArentRemote;
 }
 
@@ -795,12 +791,6 @@ nsIXULRuntime::ContentWin32kLockdownState GetLiveWin32kLockdownState() {
   if (!IsWin10FallCreatorsUpdateOrLater()) {
     return nsIXULRuntime::ContentWin32kLockdownState::
         OperatingSystemNotSupported;
-  }
-
-  // Win32k Lockdown requires Remote WebGL, but it may be disabled on
-  // certain hardware or virtual machines.
-  if (!gfx::gfxVars::AllowWebglOop() || !StaticPrefs::webgl_out_of_process()) {
-    return nsIXULRuntime::ContentWin32kLockdownState::MissingRemoteWebGL;
   }
 
   // Some (not sure exactly which) decoders are not compatible
@@ -1192,6 +1182,19 @@ nsXULAppInfo::GetUpdateURL(nsACString& aResult) {
     return NS_OK;
   }
   aResult.Assign(gAppData->updateURL);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsXULAppInfo::GetRemotingName(nsACString& aResult) {
+  if (XRE_IsContentProcess()) {
+    MOZ_ASSERT(false,
+               "nsXULAppInfo::remotingName should not be accessed from the "
+               "content process");
+    return NS_ERROR_UNEXPECTED;
+  }
+  aResult.Assign(gAppData->remotingName);
 
   return NS_OK;
 }
@@ -3147,11 +3150,11 @@ static nsresult SelectProfile(nsToolkitProfileService* aProfileSvc,
     const char* xreProfileLocalPath = PR_GetEnv("XRE_PROFILE_LOCAL_PATH");
     auto savedLocalProfile = xreProfileLocalPath && *xreProfileLocalPath;
 
-    // When running as FELT UI use a hardcoded profile named "felt" and living
-    // in the OS' temporary directory. There are a few special cases where it is
-    // required to use a profile that is being given from different means:
-    //  - CLI argument "-profile ..."
-    //  - environment variables "XRE_PROFILE_PATH" / "XRE_PROFILE_LOCAL_PATH"
+    // When running as FELT UI use a hardcoded profile named "felt-XXX" with
+    // XXX being the update channel and living in the OS' temporary directory.
+    // There are a few special cases where it is required to use a profile that
+    // is being given from different means: - CLI argument "-profile ..." -
+    // environment variables "XRE_PROFILE_PATH" / "XRE_PROFILE_LOCAL_PATH"
     //
     // If either of those are present, the following code is skipped and profile
     // selection continues. This accounts for manually setting the profile,
@@ -3161,7 +3164,7 @@ static nsresult SelectProfile(nsToolkitProfileService* aProfileSvc,
       nsCOMPtr<nsIFile> file;
       MOZ_TRY(GetSpecialSystemDirectory(OS_TemporaryDirectory,
                                         getter_AddRefs(file)));
-      MOZ_TRY(file->AppendNative("felt"_ns));
+      MOZ_TRY(file->AppendNative("felt-"_ns MOZ_STRINGIFY(MOZ_UPDATE_CHANNEL)));
 
       bool exists = false;
       MOZ_TRY(file->Exists(&exists));
@@ -3538,7 +3541,7 @@ static ReturnAbortOnError HandleDetectedDowngrade(
     profileName.Append("-" MOZ_STRINGIFY(MOZ_UPDATE_CHANNEL));
 #  endif
     nsCOMPtr<nsIToolkitProfile> newProfile;
-    rv = aProfileSvc->CreateUniqueProfile(nullptr, profileName,
+    rv = aProfileSvc->CreateUniqueProfile(nullptr, profileName, "downgrade"_ns,
                                           getter_AddRefs(newProfile));
     NS_ENSURE_SUCCESS(rv, rv);
     rv = aProfileSvc->SetDefaultProfile(newProfile);
@@ -4414,6 +4417,13 @@ int XREMain::XRE_mainInit(bool* aExitFlag,
   nsCOMPtr<nsIFile> xreBinDirectory;
   xreBinDirectory = mDirProvider.GetGREBinDir();
 
+  // Unconditionally set the ServerURL exception before we launch the crash
+  // helper or set the exception handler. This guarantees that the annotation
+  // will be populated when we need it.
+  if (mAppData->crashReporterURL) {
+    CrashReporter::SetServerURL(nsDependentCString(mAppData->crashReporterURL));
+  }
+
   if ((mAppData->flags & NS_XRE_ENABLE_CRASH_REPORTER) &&
       NS_FAILED(CrashReporter::OOPInit(xreBinDirectory))) {
     NS_WARNING("Could not launch the crash helper");
@@ -4425,10 +4435,6 @@ int XREMain::XRE_mainInit(bool* aExitFlag,
     rv = nsXREDirProvider::GetUserAppDataDirectory(getter_AddRefs(file));
     if (NS_SUCCEEDED(rv)) {
       CrashReporter::SetUserAppDataDirectory(file);
-    }
-    if (mAppData->crashReporterURL) {
-      CrashReporter::SetServerURL(
-          nsDependentCString(mAppData->crashReporterURL));
     }
 
     // We overwrite this once we finish starting up.
@@ -5073,7 +5079,10 @@ int XREMain::XRE_mainStartup(bool* aExitFlag,
       if (!disableWaylandProxy && XRE_IsParentProcess() && waylandEnabled) {
         auto* proxyLog = getenv("WAYLAND_PROXY_LOG");
         WaylandProxy::SetVerbose(proxyLog && *proxyLog);
-        WaylandProxy::SetCompositorCrashHandler(WlCompositorCrashHandler);
+        WaylandProxy::SetCompositorUnavailableHandler(
+            WlCompositorUnavailableHandler);
+        WaylandProxy::SetCompositorSilentDisconnectHandler(
+            WlCompositorSilentDisconnectHandler);
         WaylandProxy::AddState(WAYLAND_PROXY_ENABLED);
         gWaylandProxy = WaylandProxy::Create();
         if (gWaylandProxy) {
@@ -6313,7 +6322,7 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
   // We call this early because it will kick off a background-thread task
   // to register the fonts, and we'd like it to have a chance to complete
   // before gfxPlatform initialization actually requires it.
-  gfxPlatformMac::RegisterSupplementalFonts();
+  auto _supplementalFontThread = gfxPlatformMac::RegisterSupplementalFonts();
 #endif
 
 #ifdef MOZ_WIDGET_ANDROID

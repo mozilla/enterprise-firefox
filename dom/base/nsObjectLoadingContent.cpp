@@ -586,7 +586,8 @@ void nsObjectLoadingContent::MaybeRewriteYoutubeEmbed(nsIURI* aURI,
   if (NS_FAILED(rv)) {
     return;
   }
-  AutoTArray<nsString, 2> params = {utf16OldURI, utf16URI};
+  AutoTArray<nsString, 2> params = {std::move(utf16OldURI),
+                                    std::move(utf16URI)};
   const char* msgName;
   // If there's no query to rewrite, just notify in the developer console
   // that we're changing the embed.

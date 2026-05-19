@@ -29,10 +29,9 @@ class XdgConfigHomeTestCase(MarionetteTestCase):
             marionette = self._marionette_weakref()
             marionette.start_session()
             browser_flavor = marionette.session_capabilities.get("moz:browserFlavor")
+            self._product_name = "firefox"
             if browser_flavor == "enterprise":
                 self._product_name = "firefoxenterprise"
-            else:
-                raise ValueError(f"No handling for {browser_flavor}")
             marionette.delete_session()
 
     def setUp(self):

@@ -109,37 +109,49 @@ class FeltNewWindowFromCli(FeltTests):
     def test_new_window_from_cli(self):
         super().run_felt_base()
         self.connect_child_browser()
+        self.run_felt_open_new_window_from_cli(
+            f"http://localhost:{self.console_port}/ping"
+        )
         self.run_felt_open_new_window_from_cli()
+        self.run_felt_open_private_window_from_cli(
+            f"http://localhost:{self.sso_port}/sso_url"
+        )
         self.run_felt_open_private_window_from_cli()
 
-    def run_felt_open_new_window_from_cli(self):
-        url = f"http://localhost:{self.console_port}/ping"
+    def run_felt_open_new_window_from_cli(self, url=None):
+        """
+        If launching with no URL and no --new-window, this is mostly similar as
+        testing DBus's Freedesktop Activate but during tests there are no
+        .desktop file registered.  So just launch the binary as it would have
+        been from .desktop definition.
+        """
+
         windows = self._get_child_windows()
         initial_count = len(windows)
         args = [
             f"{self._driver.instance.binary}",
             "-profile",
-            self._child_profile_path,
-            "--new-window",
-            url,
+            self._driver.profile,
         ]
+        if url:
+            args += ["--new-window", url]
         subprocess.check_call(args, shell=False)
 
         self._wait_for_window_count(initial_count + 1)
-        self._wait_for_window_with_url(url, is_private=False)
+        self._wait_for_window_with_url(url or "about:blank", is_private=False)
 
-    def run_felt_open_private_window_from_cli(self):
-        url = f"http://localhost:{self.sso_port}/sso_url"
+    def run_felt_open_private_window_from_cli(self, url=None):
         windows = self._get_child_windows()
         initial_count = len(windows)
         args = [
             f"{self._driver.instance.binary}",
             "-profile",
-            self._child_profile_path,
+            self._driver.profile,
             "--private-window",
-            url,
         ]
+        if url:
+            args += [url]
         subprocess.check_call(args, shell=False)
 
         self._wait_for_window_count(initial_count + 1)
-        self._wait_for_window_with_url(url, is_private=True)
+        self._wait_for_window_with_url(url or "about:privatebrowsing", is_private=True)

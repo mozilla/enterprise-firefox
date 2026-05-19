@@ -39,6 +39,14 @@ interface nsIEnterprisePolicies : nsISupports
   boolean isAllowedForURI(in ACString feature, in nsIURI uri);
 
   /**
+   * Checks if any site policy applies to the given URI.
+   *
+   * @param uri The URI to check against.
+   * @returns A boolean - true if any site policy matches the URI.
+   */
+  boolean hasSitePoliciesForURI(in nsIURI uri);
+
+  /**
    * Get the active policies that have been successfully parsed.
    *
    * @returns A JS object that contains the policies names and
@@ -78,6 +86,16 @@ interface nsIEnterprisePolicies : nsISupports
    * @returns A boolean - true of the addon may be installed.
    */
   boolean mayInstallAddon(in jsval addon);
+
+  /**
+   * Checks whether an enterprise policy requires the given addon to be
+   * present (force_installed, normal_installed, or the legacy Extensions.Locked
+   * list). This reflects policy intent and does not consult the addon
+   * database.
+   *
+   * @returns A boolean - true if the addon is required by policy.
+   */
+  boolean isAddonRequiredByPolicy(in ACString addonID);
 
   /**
    * Uses install_sources to determine if an addon can be installed

@@ -41,12 +41,7 @@ class ImageBridgeParent final : public PImageBridgeParent,
                     dom::ContentParentId aContentId);
 
  public:
-  NS_IMETHOD_(MozExternalRefCountType) AddRef() override {
-    return ISurfaceAllocator::AddRef();
-  }
-  NS_IMETHOD_(MozExternalRefCountType) Release() override {
-    return ISurfaceAllocator::Release();
-  }
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(ImageBridgeParent, final);
 
   /**
    * Creates the globals of ImageBridgeParent.
@@ -77,12 +72,11 @@ class ImageBridgeParent final : public PImageBridgeParent,
                                      OpDestroyArray&& aToDestroy,
                                      const uint64_t& aFwdTransactionId);
 
-  PTextureParent* AllocPTextureParent(
+  already_AddRefed<PTextureParent> AllocPTextureParent(
       const SurfaceDescriptor& aSharedData, ReadLockDescriptor& aReadLock,
       const LayersBackend& aLayersBackend, const TextureFlags& aFlags,
       const uint64_t& aSerial,
       const wr::MaybeExternalImageId& aExternalImageId);
-  bool DeallocPTextureParent(PTextureParent* actor);
 
   mozilla::ipc::IPCResult RecvNewCompositable(const CompositableHandle& aHandle,
                                               const TextureInfo& aInfo);

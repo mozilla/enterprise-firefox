@@ -453,7 +453,7 @@ add_task(async function testTrackingProtectionIcon() {
   let TPIcon = document.getElementById("tracking-protection-icon");
   // Check the icon url. It will show a shield icon if TP is enabled.
   is(
-    gBrowser.ownerGlobal
+    gBrowser.documentGlobal
       .getComputedStyle(TPIcon)
       .getPropertyValue("list-style-image"),
     `url("chrome://browser/skin/tracking-protection.svg")`,
@@ -472,7 +472,7 @@ add_task(async function testTrackingProtectionIcon() {
   // Check that the tracking protection icon should show a strike-through shield
   // icon after page is reloaded.
   is(
-    gBrowser.ownerGlobal
+    gBrowser.documentGlobal
       .getComputedStyle(TPIcon)
       .getPropertyValue("list-style-image"),
     `url("chrome://browser/skin/tracking-protection-disabled.svg")`,

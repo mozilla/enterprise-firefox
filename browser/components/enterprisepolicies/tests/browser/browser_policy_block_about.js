@@ -36,7 +36,6 @@ add_task(async function testAboutTask() {
     let policyJSON = { policies: {} };
     policyJSON.policies = policyToTest.policies;
     for (let url of policyToTest.urls) {
-      info(`url=${url}`);
       if (url.startsWith("about")) {
         let feature = url.split(":")[1].toLowerCase();
         let aboutModule = Cc[ABOUT_CONTRACT + feature].getService(

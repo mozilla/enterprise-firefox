@@ -34,7 +34,7 @@ export default class IPProtectionUnauthenticatedContentElement extends MozLitEle
       event.target.id === "vpn-terms-of-service" ||
       event.target.id === "vpn-privacy-notice"
     ) {
-      const win = event.target.ownerGlobal;
+      const win = event.target.documentGlobal;
       win.openWebLinkIn(event.target.href, "tab");
       this.dispatchEvent(
         new CustomEvent("IPProtection:Close", { bubbles: true, composed: true })
@@ -45,7 +45,7 @@ export default class IPProtectionUnauthenticatedContentElement extends MozLitEle
   handleLearnMoreClick(event) {
     event.preventDefault();
     if (event.target.classList.contains("learn-more-vpn")) {
-      const win = event.target.ownerGlobal;
+      const win = event.target.documentGlobal;
       win.openWebLinkIn(event.target.href, "tab");
       this.dispatchEvent(
         new CustomEvent("IPProtection:Close", { bubbles: true, composed: true })

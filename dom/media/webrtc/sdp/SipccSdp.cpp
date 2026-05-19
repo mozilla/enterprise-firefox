@@ -4,7 +4,7 @@
 
 #include "sdp/SipccSdp.h"
 
-#include <cstdlib>
+#include <charconv>
 
 #include "mozilla/Assertions.h"
 #include "mozilla/UniquePtr.h"
@@ -39,26 +39,25 @@ uint32_t SipccSdp::GetBandwidth(const std::string& type) const {
   return found->second;
 }
 
-const SdpMediaSection& SipccSdp::GetMediaSection(size_t level) const {
+const SdpMediaSection& SipccSdp::GetMediaSection(const size_t level) const {
   if (level > mMediaSections.size()) {
     MOZ_CRASH();
   }
   return *mMediaSections[level];
 }
 
-SdpMediaSection& SipccSdp::GetMediaSection(size_t level) {
+SdpMediaSection& SipccSdp::GetMediaSection(const size_t level) {
   if (level > mMediaSections.size()) {
     MOZ_CRASH();
   }
   return *mMediaSections[level];
 }
 
-SdpMediaSection& SipccSdp::AddMediaSection(SdpMediaSection::MediaType mediaType,
-                                           SdpDirectionAttribute::Direction dir,
-                                           uint16_t port,
-                                           SdpMediaSection::Protocol protocol,
-                                           sdp::AddrType addrType,
-                                           const std::string& addr) {
+SdpMediaSection& SipccSdp::AddMediaSection(
+    const SdpMediaSection::MediaType mediaType,
+    const SdpDirectionAttribute::Direction dir, const uint16_t port,
+    const SdpMediaSection::Protocol protocol, const sdp::AddrType addrType,
+    const std::string& addr) {
   size_t level = mMediaSections.size();
   SipccSdpMediaSection* media =
       new SipccSdpMediaSection(level, &mAttributeList);
@@ -74,8 +73,17 @@ SdpMediaSection& SipccSdp::AddMediaSection(SdpMediaSection::MediaType mediaType,
 
 bool SipccSdp::LoadOrigin(sdp_t* sdp, InternalResults& results) {
   std::string username = sdp_get_owner_username(sdp);
-  uint64_t sessId = strtoull(sdp_get_owner_sessionid(sdp), nullptr, 10);
-  uint64_t sessVer = strtoull(sdp_get_owner_version(sdp), nullptr, 10);
+
+  // Parse session fields using std::from_chars and strlen
+  uint64_t sessId = 0;
+  const char* sessionIdStr = sdp_get_owner_sessionid(sdp);
+  std::from_chars(sessionIdStr, sessionIdStr + strlen(sessionIdStr), sessId,
+                  10);
+
+  uint64_t sessVer = 0;
+  const char* sessionVersionStr = sdp_get_owner_version(sdp);
+  std::from_chars(sessionVersionStr,
+                  sessionVersionStr + strlen(sessionVersionStr), sessVer, 10);
 
   sdp_nettype_e type = sdp_get_owner_network_type(sdp);
   if (type != SDP_NT_INTERNET) {
@@ -148,7 +156,7 @@ void SipccSdp::Serialize(std::ostream& os) const {
   }
 }
 
-bool SipccSdpBandwidths::Load(sdp_t* sdp, uint16_t level,
+bool SipccSdpBandwidths::Load(sdp_t* sdp, const uint16_t level,
                               InternalResults& results) {
   size_t count = sdp_get_num_bw_lines(sdp, level);
   for (size_t i = 1; i <= count; ++i) {

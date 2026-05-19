@@ -30,7 +30,7 @@ class FeltRapidNewWindowsFromCli(FeltNewWindowFromCli):
             args = [
                 f"{self._driver.instance.binary}",
                 "-profile",
-                self._child_profile_path,
+                self._driver.profile,
                 "--new-window",
                 url,
             ]

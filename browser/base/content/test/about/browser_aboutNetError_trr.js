@@ -51,3 +51,29 @@ add_task(async function exceptionButtonTRROnly() {
   BrowserTestUtils.removeTab(gBrowser.selectedTab);
   resetTRRPrefs();
 });
+
+add_task(async function trrSettingsButtonShownInFeltPrivacyPath() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["security.certerrors.felt-privacy-v1", true]],
+  });
+
+  let browser = await loadTRRErrorPage();
+
+  await SpecialPowers.spawn(browser, [], async function () {
+    const doc = content.document;
+    const netErrorCard = doc.querySelector("net-error-card");
+    ok(netErrorCard, "net-error-card element should be present");
+
+    const card = netErrorCard.wrappedJSObject;
+    await card.getUpdateComplete();
+
+    ok(
+      card.shadowRoot.getElementById("trrSettingsButton"),
+      "TRR settings button should be visible for TRR-only failure"
+    );
+  });
+
+  BrowserTestUtils.removeTab(gBrowser.selectedTab);
+  resetTRRPrefs();
+  await SpecialPowers.popPrefEnv();
+});

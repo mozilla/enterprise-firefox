@@ -30,6 +30,7 @@
 #include "mozilla/Maybe.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/PresShellInlines.h"
+#include "mozilla/ReflowInput.h"
 #include "mozilla/RestyleManager.h"
 #include "mozilla/ResultExtensions.h"
 #include "mozilla/SVGIntegrationUtils.h"
@@ -1166,13 +1167,7 @@ void nsIFrame::RemoveDisplayItemDataForDeletion() {
   DL_LOGV("Removing display item data for frame %p (%s)", this,
           NS_ConvertUTF16toUTF8(name).get());
 
-  auto* data = builder->Data();
-  if (MayHaveWillChangeBudget()) {
-    // Keep the frame in list, so it can be removed from the will-change budget.
-    data->Flags(this) = RetainedDisplayListData::FrameFlag::HadWillChange;
-  } else {
-    data->Remove(this);
-  }
+  builder->Data()->Remove(this);
 }
 
 void nsIFrame::MarkNeedsDisplayItemRebuild() {
@@ -1979,24 +1974,8 @@ RubyMetrics nsIFrame::RubyMetrics(float aRubyMetricsFactor) const {
 
 nscoord nsIFrame::SynthesizeFallbackBaseline(
     WritingMode aWM, BaselineSharingGroup aBaselineGroup) const {
-  const auto margin = GetLogicalUsedMargin(aWM);
   NS_ASSERTION(!IsSubtreeDirty(), "frame must not be dirty");
-  if (aWM.IsCentralBaseline()) {
-    return (BSize(aWM) + GetLogicalUsedMargin(aWM).BEnd(aWM)) / 2;
-  }
-  // Baseline for inverted line content is the top (block-start) margin edge,
-  // as the frame is in effect "flipped" for alignment purposes.
-  if (aWM.IsLineInverted()) {
-    const auto marginStart = margin.BStart(aWM);
-    return aBaselineGroup == BaselineSharingGroup::First
-               ? -marginStart
-               : BSize(aWM) + marginStart;
-  }
-  // Otherwise, the bottom margin edge, per CSS2.1's definition of the
-  // 'baseline' value of 'vertical-align'.
-  const auto marginEnd = margin.BEnd(aWM);
-  return aBaselineGroup == BaselineSharingGroup::First ? BSize(aWM) + marginEnd
-                                                       : -marginEnd;
+  return Baseline::SynthesizeBOffsetFromMarginBox(this, aWM, aBaselineGroup);
 }
 
 nscoord nsIFrame::GetLogicalBaseline(WritingMode aWM) const {
@@ -3192,10 +3171,6 @@ void nsIFrame::BuildDisplayListForStackingContext(
     return;
   }
 
-  if (aBuilder->IsForPainting() && disp->mWillChange.bits) {
-    aBuilder->AddToWillChangeBudget(this, GetSize());
-  }
-
   // For preserves3d, use the dirty rect already installed on the
   // builder, since aDirtyRect maybe distorted for transforms along
   // the chain.
@@ -3740,7 +3715,7 @@ void nsIFrame::BuildDisplayListForStackingContext(
   // effects, wrap it up in an opacity item.
   if (useOpacity) {
     const bool needsActiveOpacityLayer =
-        nsDisplayOpacity::NeedsActiveLayer(aBuilder, this);
+        nsDisplayOpacity::NeedsActiveLayer(this);
     resultList.AppendNewToTop<nsDisplayOpacity>(
         aBuilder, this, &resultList, containerItemASR,
         nsDisplayItem::ContainerASRType::AncestorOfContained,
@@ -4316,10 +4291,6 @@ void nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder* aBuilder,
       !(!overflowClipAxes.isEmpty() || child->MayHaveTransformAnimation() ||
         child->MayHaveOpacityAnimation());
 
-  if (aBuilder->IsForPainting()) {
-    aBuilder->ClearWillChangeBudgetStatus(child);
-  }
-
   if (StaticPrefs::layout_css_scroll_anchoring_highlight()) {
     if (child->FirstContinuation()->IsScrollAnchor()) {
       nsRect bounds = child->GetContentRectRelativeToSelf() +
@@ -4356,9 +4327,6 @@ void nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder* aBuilder,
     }
 
     child = childOrOutOfFlow;
-    if (aBuilder->IsForPainting()) {
-      aBuilder->ClearWillChangeBudgetStatus(child);
-    }
 
     // If 'child' is a pushed out-of-flow then it's owned by a block that's not
     // an ancestor of the placeholder, and it will be painted by that block and
@@ -4714,7 +4682,7 @@ void nsIFrame::FireDOMEvent(const nsAString& aDOMEventName,
   nsIContent* target = aContent ? aContent : GetContent();
 
   if (target) {
-    RefPtr<AsyncEventDispatcher> asyncDispatcher = new AsyncEventDispatcher(
+    auto asyncDispatcher = MakeRefPtr<AsyncEventDispatcher>(
         target, aDOMEventName, CanBubble::eYes, ChromeOnlyDispatch::eNo);
     DebugOnly<nsresult> rv = asyncDispatcher->PostDOMEvent();
     NS_ASSERTION(NS_SUCCEEDED(rv), "AsyncEventDispatcher failed to dispatch");
@@ -5023,11 +4991,19 @@ nsresult nsIFrame::MoveCaretToEventPoint(nsPresContext* aPresContext,
   }
 
   if (nsIContent* dragGestureContent = esm->GetTrackingDragGestureContent()) {
-    if (dragGestureContent != this->GetContent()) {
-      // When the current tracked dragging gesture is different
-      // than this frame, it means this frame was being dragged, however
-      // it got moved/destroyed. So we should consider the drag is
-      // still happening, so return early here.
+    // When the current tracked dragging gesture is different than this frame,
+    // it means this frame was being dragged, however it got moved/destroyed. So
+    // we should consider the drag is still happening, so return early here.
+    // Additionally, when dragGestureContent is a `Text` and the text frame is
+    // reframed by a preceding event listener, we're the parent element frame.
+    // In that case, we need to treat this as a normal mouse button down.
+    // Therefore, we should compare the inclusive flattened tree ancestor
+    // element of dragGestureContent and our content.
+    const bool isDragGestureContent =
+        mContent == dragGestureContent ||
+        mContent ==
+            dragGestureContent->GetInclusiveFlattenedTreeAncestorElement();
+    if (!isDragGestureContent) {
       return NS_OK;
     }
   }
@@ -5938,7 +5914,6 @@ static FrameTarget GetSelectionClosestFrameForLine(
   if (aLine == aParent->LinesEnd()) {
     return DrillDownToSelectionFrame(aParent, true, aFlags);
   }
-  nsIFrame* frame = aLine->mFirstChild;
   nsIFrame* closestFromIStart = nullptr;
   nsIFrame* closestFromIEnd = nullptr;
   nscoord closestIStart = aLine->IStart(), closestIEnd = aLine->IEnd();
@@ -5946,8 +5921,7 @@ static FrameTarget GetSelectionClosestFrameForLine(
   LogicalPoint pt(wm, aPoint, aLine->mContainerSize);
   bool canSkipBr = false;
   bool lastFrameWasEditable = false;
-  for (int32_t n = aLine->GetChildCount(); n;
-       --n, frame = frame->GetNextSibling()) {
+  for (nsIFrame* frame : aLine->ChildFrames()) {
     // Skip brFrames. Can only skip if the line contains at least
     // one selectable and non-empty frame before. Also, avoid skipping brs if
     // the previous thing had a different editableness than us, since then we
@@ -6408,6 +6382,12 @@ void nsIFrame::MarkSubtreeDirty() {
         stack.AppendElement(kid);
       }
     }
+  }
+}
+
+void nsIFrame::MarkPrincipalChildrenDirty() {
+  for (nsIFrame* childFrame : PrincipalChildList()) {
+    childFrame->MarkSubtreeDirty();
   }
 }
 
@@ -7877,8 +7857,8 @@ bool nsIFrame::UpdateIsRelevantContent(
   // https://drafts.csswg.org/css-contain/#content-visibility-auto-state-changed
   // "This event is dispatched by posting a task at the time when the state
   // change occurs."
-  RefPtr<AsyncEventDispatcher> asyncDispatcher =
-      new AsyncEventDispatcher(element, event.forget());
+  auto asyncDispatcher =
+      MakeRefPtr<AsyncEventDispatcher>(element, event.forget());
   DebugOnly<nsresult> rv = asyncDispatcher->PostDOMEvent();
   NS_ASSERTION(NS_SUCCEEDED(rv), "AsyncEventDispatcher failed to dispatch");
   return true;
@@ -12469,20 +12449,19 @@ bool nsIFrame::HasUnreflowedContainerQueryAncestor() const {
   return false;
 }
 
-bool nsIFrame::ShouldBreakBefore(
-    const ReflowInput::BreakType aBreakType) const {
+bool nsIFrame::ShouldBreakBefore(const BreakType aBreakType) const {
   const auto* display = StyleDisplay();
   return ShouldBreakBetween(display, display->mBreakBefore, aBreakType);
 }
 
-bool nsIFrame::ShouldBreakAfter(const ReflowInput::BreakType aBreakType) const {
+bool nsIFrame::ShouldBreakAfter(const BreakType aBreakType) const {
   const auto* display = StyleDisplay();
   return ShouldBreakBetween(display, display->mBreakAfter, aBreakType);
 }
 
-bool nsIFrame::ShouldBreakBetween(
-    const nsStyleDisplay* aDisplay, const StyleBreakBetween aBreakBetween,
-    const ReflowInput::BreakType aBreakType) const {
+bool nsIFrame::ShouldBreakBetween(const nsStyleDisplay* aDisplay,
+                                  const StyleBreakBetween aBreakBetween,
+                                  const BreakType aBreakType) const {
   const bool shouldBreakBetween = [&] {
     switch (aBreakBetween) {
       case StyleBreakBetween::Always:
@@ -12493,7 +12472,7 @@ bool nsIFrame::ShouldBreakBetween(
       case StyleBreakBetween::Page:
       case StyleBreakBetween::Left:
       case StyleBreakBetween::Right:
-        return aBreakType == ReflowInput::BreakType::Page;
+        return aBreakType == BreakType::Page;
     }
     MOZ_ASSERT_UNREACHABLE("Unknown break-between value!");
     return false;

@@ -337,6 +337,8 @@ export async function getOpenTabs(conversation) {
   // No security check needed. The security checks prevent data exfiltration,
   // which requires external communication. This tool makes no external requests.
 
+  const startTime = ChromeUtils.now();
+
   /** @type {Array<TabInfo>} */
   const tabs = [];
 
@@ -372,6 +374,12 @@ export async function getOpenTabs(conversation) {
   lazy.console.log("[Tool] getOpenTabs", recentTabs);
 
   conversation.addSeenUrls(recentTabs.map(({ url }) => url));
+
+  ChromeUtils.addProfilerMarker(
+    "SmartWindow",
+    { startTime },
+    `Tool:get_open_tabs(${recentTabs.length})`
+  );
 
   return recentTabs;
 }
@@ -467,7 +475,7 @@ export class RunSearch {
 
   static #ensureTabSelected(tab) {
     if (!tab.selected) {
-      tab.ownerGlobal.gBrowser.selectedTab = tab;
+      tab.documentGlobal.gBrowser.selectedTab = tab;
     }
   }
 
@@ -689,7 +697,8 @@ export class RunSearch {
       const result = await pageExtractor.getText({
         sufficientLength: RunSearch.MAX_CHARACTERS,
         cleanWhitespace: true,
-        removeBoilerplate: true,
+        removeBoilerplate: false,
+        sourceUrl: browser.currentURI?.spec,
       });
       if (!result) {
         return "No content could be extracted from the search results page.";
@@ -748,11 +757,17 @@ export class GetPageContent {
         if (!isAllowedURL(url)) {
           return "This URL is not allowed: " + url;
         }
+        const startTime = ChromeUtils.now();
         try {
           const text = await GetPageContent.#getPageContentsForSingleURL(
             url,
             mentionedUrls,
             conversation
+          );
+          ChromeUtils.addProfilerMarker(
+            "SmartWindow",
+            { startTime },
+            `Tool:get_page_content(${url})`
           );
           return text;
         } catch (error) {
@@ -762,6 +777,7 @@ export class GetPageContent {
       })
     );
     lazy.console.log("[Tool] getPageContent", results);
+
     return results;
   }
 
@@ -815,7 +831,8 @@ export class GetPageContent {
       return GetPageContent.#runExtraction(
         pageExtractor,
         conversation,
-        `${sanitizeUntrustedContent(tab.label)} (${url})`
+        `${sanitizeUntrustedContent(tab.label)} (${url})`,
+        url
       );
     }
 
@@ -835,7 +852,7 @@ export class GetPageContent {
     }
 
     return PageExtractorParent.getHeadlessExtractor(url, pageExtractor =>
-      GetPageContent.#runExtraction(pageExtractor, conversation, url)
+      GetPageContent.#runExtraction(pageExtractor, conversation, url, url)
     );
   }
 
@@ -846,15 +863,17 @@ export class GetPageContent {
    * @param {PageExtractorParent} pageExtractor
    * @param {ChatConversation} conversation
    * @param {string} label
+   * @param {string} sourceUrl
    * @returns {Promise<string>}
    *  A promise resolving to a formatted string containing the page content
    *  with mode and label information, or an error message if no content is available.
    */
-  static async #runExtraction(pageExtractor, conversation, label) {
+  static async #runExtraction(pageExtractor, conversation, label, sourceUrl) {
     const extraction = await pageExtractor.getText({
       sufficientLength: GetPageContent.MAX_CHARACTERS,
       cleanWhitespace: true,
       removeBoilerplate: true,
+      sourceUrl,
     });
 
     if (!extraction) {

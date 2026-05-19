@@ -794,7 +794,7 @@ bool CanvasTranslator::TranslateRecording() {
     }
 
     if (!success && !HandleExtensionEvent(eventType)) {
-      gfxCriticalNote << "Failed to play canvas event type: " << eventType;
+      gfxCriticalNoteOnce << "Failed to play canvas event type: " << eventType;
 
       if (!mCurrentMemReader.good()) {
         mHeader->readerState = State::Failed;

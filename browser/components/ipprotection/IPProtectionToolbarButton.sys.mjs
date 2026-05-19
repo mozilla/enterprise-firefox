@@ -371,6 +371,7 @@ export class IPProtectionToolbarButton {
       IPProtectionToolbarButton.CONFIRMATION_HINT_MESSAGE_ID,
       {
         position: "bottomright topright", // panel anchor, message anchor
+        hideCheckmark: true,
       }
     );
   }

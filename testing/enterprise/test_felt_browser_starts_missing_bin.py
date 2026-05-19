@@ -45,12 +45,15 @@ class FeltStartsBrowserMissingBin(FeltTests):
         # Browser is not being executed at all
         self._manually_closed_child = True
         self.mock_services_felt_binPath()
-        self.run_felt_base()
+        # After SSO completion, FELT closes its auth window and tries to
+        # spawn the child Firefox. The spawn fails because binPath is mocked
+        # to a non-existent path, so FELT re-opens a new auth window with the
+        # error element visible.
+        with self.expect_new_felt_auth_window():
+            self.run_felt_base()
         self.run_felt_check_error_message()
 
     def run_felt_check_error_message(self):
-        self.await_felt_auth_window()
-        self.force_window()
         self._driver.set_context("chrome")
         error_msg = self.get_elem(".felt-browser-error-launch-failure")
         assert "cannot start" in error_msg.text, (

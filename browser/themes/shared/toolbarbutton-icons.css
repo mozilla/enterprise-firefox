@@ -75,6 +75,14 @@
   list-style-image: url("chrome://browser/skin/synced-tabs.svg");
 }
 
+#send-tab-button {
+  list-style-image: url("chrome://browser/skin/send-tab-20.svg");
+
+  &:-moz-locale-dir(rtl) {
+    transform: scaleX(-1);
+  }
+}
+
 #characterencoding-button {
   list-style-image: url("chrome://browser/skin/characterEncoding.svg");
 }
@@ -323,11 +331,6 @@
 
   &:is([overflowedItem="true"], [cui-areatype="panel"]) {
     list-style-image: url("chrome://browser/content/ipprotection/assets/states/ipprotection-off.svg");
-
-    > .toolbarbutton-icon {
-      width: var(--icon-size-small);
-      height: var(--icon-size-small);
-    }
   }
 
   &.ipprotection-on {
@@ -381,7 +384,7 @@
   }
   > .toolbarbutton-icon {
     list-style-image: url("chrome://browser/content/ipprotection/assets/ac-icon.svg");
-    width: calc(2 * var(--toolbarbutton-inner-padding) + 16px);
+    width: calc(2 * var(--toolbarbutton-padding-inner) + 16px);
   }
   &.ipprotection-on {
     > .toolbarbutton-icon {
@@ -393,6 +396,10 @@
       fill: var(--toolbarbutton-icon-fill);
     }
   }
+}
+
+#tab-groups-button {
+  list-style-image: url("chrome://browser/skin/tabbrowser/tab-groups.svg");
 }
 
 #taskbar-tabs-favicon {
@@ -422,7 +429,7 @@
 #smartwindow-ask-button-inner {
   list-style-image: url("chrome://browser/content/aiwindow/assets/ask-icon.svg");
 
-  &[checked] {
+  &[aria-expanded="true"] {
     list-style-image: url("chrome://global/skin/icons/close.svg");
   }
 }

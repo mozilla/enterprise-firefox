@@ -14,6 +14,7 @@
 #include <limits>
 #include <utility>
 
+#include "builtin/Math.h"
 #include "jit/AtomicOp.h"
 #include "jit/AtomicOperations.h"
 #include "jit/Bailouts.h"
@@ -3752,6 +3753,95 @@ void MacroAssembler::dateSecondsFromSecondsIntoYear(
                               secondsFromSecondsIntoYear);
 }
 
+void MacroAssembler::timeClip(FloatRegister time, FloatRegister output) {
+  // Inline implementation of JS::TimeClip.
+
+  MOZ_ASSERT(Assembler::HasRoundInstruction(RoundingMode::TowardsZero),
+             "requires runtime call");
+
+  constexpr double MaxTimeMagnitude = js::EndOfTime;
+  static_assert(js::StartOfTime < 0 && -js::StartOfTime == js::EndOfTime);
+
+  absDouble(time, output);
+
+  ScratchDoubleScope fpscratch(*this);
+  loadConstantDouble(MaxTimeMagnitude, fpscratch);
+
+  Label trunc, done;
+  branchDouble(Assembler::DoubleLessThanOrEqual, output, fpscratch, &trunc);
+  {
+    loadConstantDouble(JS::GenericNaN(), output);
+    jump(&done);
+  }
+  bind(&trunc);
+  {
+    // JS::TimeClip has an extra branch when the input is 0.0, which is likely
+    // not needed when there's no call to std::trunc.
+
+    nearbyIntDouble(RoundingMode::TowardsZero, time, output);
+
+    // Add 0.0 to normalize -0.0 to 0.0.
+    loadConstantDouble(0.0, fpscratch);
+    addDouble(fpscratch, output);
+  }
+  bind(&done);
+}
+
+void MacroAssembler::timeClip(FloatRegister time, FloatRegister output,
+                              Register scratch,
+                              const LiveRegisterSet& liveRegs) {
+  // Inline implementation of JS::TimeClip.
+
+  MOZ_ASSERT(!Assembler::HasRoundInstruction(RoundingMode::TowardsZero),
+             "use rounding instructions instead of runtime call");
+
+  constexpr double MaxTimeMagnitude = js::EndOfTime;
+  static_assert(js::StartOfTime < 0 && -js::StartOfTime == js::EndOfTime);
+
+  absDouble(time, output);
+
+  ScratchDoubleScope fpscratch(*this);
+  loadConstantDouble(MaxTimeMagnitude, fpscratch);
+
+  Label trunc, done;
+  branchDouble(Assembler::DoubleLessThanOrEqual, output, fpscratch, &trunc);
+  {
+    loadConstantDouble(JS::GenericNaN(), output);
+    jump(&done);
+  }
+  bind(&trunc);
+  {
+    loadConstantDouble(0.0, fpscratch);
+
+    Label zero;
+    branchDouble(Assembler::DoubleEqualOrUnordered, output, fpscratch, &zero);
+    {
+      UnaryMathFunctionType funPtr =
+          GetUnaryMathFunctionPtr(UnaryMathFunction::Trunc);
+
+      PushRegsInMask(liveRegs);
+
+      setupUnalignedABICall(scratch);
+      passABIArg(time, ABIType::Float64);
+      callWithABI(DynamicFunction<UnaryMathFunctionType>(funPtr),
+                  ABIType::Float64);
+      storeCallFloatResult(output);
+
+      LiveRegisterSet ignore;
+      ignore.add(output);
+      PopRegsInMaskIgnore(liveRegs, ignore);
+
+      // Reload if clobbered by ABI call.
+      loadConstantDouble(0.0, fpscratch);
+    }
+
+    // Add 0.0 to normalize -0.0 to 0.0.
+    bind(&zero);
+    addDouble(fpscratch, output);
+  }
+  bind(&done);
+}
+
 void MacroAssembler::computeImplicitThis(Register env, ValueOperand output,
                                          Label* slowPath) {
   // Inline implementation of ComputeImplicitThis.
@@ -3790,11 +3880,7 @@ void MacroAssembler::loadDOMExpandoValueGuardGeneration(
     Register obj, ValueOperand output,
     JS::ExpandoAndGeneration* expandoAndGeneration, uint64_t generation,
     Label* fail) {
-  loadPtr(Address(obj, ProxyObject::offsetOfReservedSlots()),
-          output.scratchReg());
-  loadValue(Address(output.scratchReg(),
-                    js::detail::ProxyReservedSlots::offsetOfPrivateSlot()),
-            output);
+  loadValue(Address(obj, ProxyObject::offsetOfPrivateSlot()), output);
 
   // Guard the ExpandoAndGeneration* matches the proxy's ExpandoAndGeneration
   // privateSlot.

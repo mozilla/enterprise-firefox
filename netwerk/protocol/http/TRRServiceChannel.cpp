@@ -458,6 +458,17 @@ nsresult TRRServiceChannel::BeginConnect() {
         .Add();
   }
 
+  // TRRServiceChannel does not use nsHttpChannelAuthProvider, so seed
+  // Proxy-Authorization onto mRequestHead here for https/masque proxies.
+  if (proxyInfo && mConnectionInfo->UsingConnect()) {
+    const nsCString& pa = proxyInfo->ProxyAuthorizationHeader();
+    if (!pa.IsEmpty()) {
+      DebugOnly<nsresult> rvSet =
+          mRequestHead.SetHeader(nsHttp::Proxy_Authorization, pa);
+      MOZ_ASSERT(NS_SUCCEEDED(rvSet));
+    }
+  }
+
   // Need to re-ask the handler, since mConnectionInfo may not be the connInfo
   // we used earlier
   if (gHttpHandler->IsHttp2Excluded(mConnectionInfo)) {

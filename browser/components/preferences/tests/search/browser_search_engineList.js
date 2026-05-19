@@ -91,7 +91,7 @@ async function selectEngine(tree, index) {
     x,
     y,
     { clickCount: 1 },
-    tree.ownerGlobal
+    tree.documentGlobal
   );
   return promise;
 }
@@ -254,7 +254,7 @@ async function test_change_keyword_legacy(tree) {
   // has user-defined and extension-provided keywords.
   let x = rect.x + rect.width / 2;
   let y = rect.y + rect.height / 2;
-  let win = tree.ownerGlobal;
+  let win = tree.documentGlobal;
 
   let promise = BrowserTestUtils.waitForEvent(tree, "dblclick");
   EventUtils.synthesizeMouse(tree.body, x, y, { clickCount: 1 }, win);
@@ -322,7 +322,7 @@ engine_list_test(async function test_rename_engines(tree) {
   );
   let x = rect.x + rect.width / 2;
   let y = rect.y + rect.height / 2;
-  let win = tree.ownerGlobal;
+  let win = tree.documentGlobal;
 
   let promise = BrowserTestUtils.waitForEvent(tree, "dblclick");
   EventUtils.synthesizeMouse(tree.body, x, y, { clickCount: 1 }, win);
@@ -388,7 +388,7 @@ engine_list_test(async function test_remove_button(tree, doc) {
     return;
   }
 
-  let win = tree.ownerGlobal;
+  let win = tree.documentGlobal;
   let alertSpy = sinon.stub(win, "alert");
 
   info("Removing user engine.");

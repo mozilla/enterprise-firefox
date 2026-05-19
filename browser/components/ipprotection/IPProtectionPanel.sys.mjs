@@ -11,8 +11,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   CustomizableUI:
     "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
-  IPPEnrollAndEntitleManager:
-    "moz-src:///toolkit/components/ipprotection/fxa/IPPEnrollAndEntitleManager.sys.mjs",
   IPPExceptionsManager:
     "moz-src:///toolkit/components/ipprotection/IPPExceptionsManager.sys.mjs",
   IPPOnboardingMessage:
@@ -32,8 +30,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/ipprotection/IPProtection.sys.mjs",
   IPProtectionInfobarManager:
     "moz-src:///browser/components/ipprotection/IPProtectionInfobarManager.sys.mjs",
-  IPPSignInWatcher:
-    "moz-src:///toolkit/components/ipprotection/fxa/IPPSignInWatcher.sys.mjs",
   IPProtectionStates:
     "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
   PanelMultiView:
@@ -128,8 +124,6 @@ export class IPProtectionPanel {
    * @typedef {object} State
    * @property {boolean} isProtectionEnabled
    *  The timestamp in milliseconds since IP Protection was enabled
-   * @property {boolean} isSignedOut
-   *  True if not signed in to account
    * @property {string} location
    *  The location country code
    * @property {Array<{code: string, available: boolean}>} locationsList
@@ -294,7 +288,7 @@ export class IPProtectionPanel {
         ? Services.focus.MOVEFOCUS_FORWARD
         : Services.focus.MOVEFOCUS_BACKWARD;
     Services.focus.moveFocus(
-      e.target.ownerGlobal,
+      e.target.documentGlobal,
       null,
       direction,
       Services.focus.FLAG_BYKEY
@@ -374,7 +368,6 @@ export class IPProtectionPanel {
     this.handlePrefChange = this.#handlePrefChange.bind(this);
 
     this.state = {
-      isSignedOut: !lazy.IPPSignInWatcher.isSignedIn,
       unauthenticated:
         lazy.IPProtectionService.state ===
         lazy.IPProtectionStates.UNAUTHENTICATED,
@@ -383,7 +376,7 @@ export class IPProtectionPanel {
       location: lazy.EGRESS_LOCATION || null,
       locationsList: lazy.IPProtectionServerlist.countries,
       error: "",
-      hasUpgraded: lazy.IPPEnrollAndEntitleManager.hasUpgraded,
+      hasUpgraded: lazy.IPProtectionService.authProvider.hasUpgraded,
       upgradeNotAvailable: lazy.UPGRADE_NOT_AVAILABLE,
       onboardingMessage: "",
       bandwidthWarning: false,
@@ -393,9 +386,7 @@ export class IPProtectionPanel {
       bandwidthUsage: this.#getBandwidthUsage(),
       isActivating:
         lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVATING,
-      isCheckingEntitlement:
-        lazy.IPPEnrollAndEntitleManager.isEnrolling ||
-        lazy.IPPEnrollAndEntitleManager.isCheckingEntitlement,
+      isEnrolling: lazy.IPProtectionService.authProvider.isEnrolling,
       showLocationButtonBadge: !Services.prefs.getBoolPref(
         LOCATION_BADGE_DISMISSED_PREF,
         false
@@ -525,7 +516,7 @@ export class IPProtectionPanel {
    * @param {Event} e
    */
   static showHelpPage(e) {
-    let win = e.target?.ownerGlobal;
+    let win = e.target?.documentGlobal;
     if (win) {
       win.openWebLinkIn(
         Services.urlFormatter.formatURLPref("app.support.baseURL") +
@@ -558,7 +549,7 @@ export class IPProtectionPanel {
    */
   showing(panelView) {
     if (this.initiatedUpgrade) {
-      lazy.IPPEnrollAndEntitleManager.refetchEntitlement();
+      lazy.IPProtectionService.authProvider.checkForUpgrade();
       this.initiatedUpgrade = false;
     }
 
@@ -570,7 +561,7 @@ export class IPProtectionPanel {
     });
 
     if (this.state.bandwidthWarning) {
-      lazy.IPProtectionInfobarManager.hideInfobars();
+      lazy.IPProtectionInfobarManager.hideInfobars({ triggeredByPanel: true });
     }
 
     if (this.panel) {
@@ -757,8 +748,13 @@ export class IPProtectionPanel {
 
     // Asynchronously enroll and entitle the user.
     // It will only need to finish before the proxy can start.
-    const enrolling = lazy.IPPEnrollAndEntitleManager.maybeEnrollAndEntitle();
-    if (!this.active) {
+    const enrolling = lazy.IPProtectionService.authProvider.enroll();
+    // Only auto-open the panel if the toolbar widget is placed in a visible
+    // area.
+    let placement = lazy.CustomizableUI.getPlacementOfWidget(
+      IPProtectionPanel.WIDGET_ID
+    );
+    if (placement && !this.active) {
       await this.open();
     }
     const result = await enrolling;
@@ -930,8 +926,8 @@ export class IPProtectionPanel {
       "IPPUsageHelper:StateChanged",
       this.handleEvent
     );
-    lazy.IPPEnrollAndEntitleManager.addEventListener(
-      "IPPEnrollAndEntitleManager:StateChanged",
+    lazy.IPProtectionService.authProvider.addEventListener(
+      "IPPAuthProvider:StateChanged",
       this.handleEvent
     );
     lazy.IPPExceptionsManager.addEventListener(
@@ -945,8 +941,8 @@ export class IPProtectionPanel {
   }
 
   #removeProxyListeners() {
-    lazy.IPPEnrollAndEntitleManager.removeEventListener(
-      "IPPEnrollAndEntitleManager:StateChanged",
+    lazy.IPProtectionService.authProvider.removeEventListener(
+      "IPPAuthProvider:StateChanged",
       this.handleEvent
     );
     lazy.IPPProxyManager.removeEventListener(
@@ -1077,14 +1073,12 @@ export class IPProtectionPanel {
       };
     } else if (
       lazy.BANDWIDTH_USAGE_ENABLED &&
-      lazy.IPPEnrollAndEntitleManager.entitlement?.maxBytes != null
+      lazy.IPProtectionService.authProvider.maxBytes != null
     ) {
       // Usage info doesn't exist yet. Check the entitlement
       return {
-        max: Number(lazy.IPPEnrollAndEntitleManager.entitlement?.maxBytes),
-        remaining: Number(
-          lazy.IPPEnrollAndEntitleManager.entitlement?.maxBytes
-        ),
+        max: Number(lazy.IPProtectionService.authProvider.maxBytes),
+        remaining: Number(lazy.IPProtectionService.authProvider.maxBytes),
         reset: null,
       };
     }
@@ -1147,7 +1141,7 @@ export class IPProtectionPanel {
     } else if (
       event.type == "IPPProxyManager:StateChanged" ||
       event.type == "IPProtectionService:StateChanged" ||
-      event.type === "IPPEnrollAndEntitleManager:StateChanged"
+      event.type === "IPPAuthProvider:StateChanged"
     ) {
       let errorType = "";
       if (lazy.IPPProxyManager.state === lazy.IPPProxyStates.ERROR) {
@@ -1155,19 +1149,16 @@ export class IPProtectionPanel {
       }
 
       this.setState({
-        isSignedOut: !lazy.IPPSignInWatcher.isSignedIn,
         unauthenticated:
           lazy.IPProtectionService.state ===
           lazy.IPProtectionStates.UNAUTHENTICATED,
         isProtectionEnabled:
           lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVE,
-        hasUpgraded: lazy.IPPEnrollAndEntitleManager.hasUpgraded,
+        hasUpgraded: lazy.IPProtectionService.authProvider.hasUpgraded,
         error: errorType,
         isActivating:
           lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVATING,
-        isCheckingEntitlement:
-          lazy.IPPEnrollAndEntitleManager.isEnrolling ||
-          lazy.IPPEnrollAndEntitleManager.isCheckingEntitlement,
+        isEnrolling: lazy.IPProtectionService.authProvider.isEnrolling,
         bandwidthUsage: this.#getBandwidthUsage(),
         bandwidthWarning:
           lazy.IPProtectionService.state === lazy.IPProtectionStates.READY
@@ -1182,13 +1173,13 @@ export class IPProtectionPanel {
         locationsList: lazy.IPProtectionServerlist.countries,
       });
     } else if (event.type == "IPProtection:UserEnableVPNForSite") {
-      const win = event.target.ownerGlobal;
+      const win = event.target.documentGlobal;
       const principal = win?.gBrowser.contentPrincipal;
 
       lazy.IPPExceptionsManager.setExclusion(principal, false);
       Glean.ipprotection.exclusionToggled.record({ excluded: false });
     } else if (event.type == "IPProtection:UserDisableVPNForSite") {
-      const win = event.target.ownerGlobal;
+      const win = event.target.documentGlobal;
       const principal = win?.gBrowser.contentPrincipal;
 
       lazy.IPPExceptionsManager.setExclusion(principal, true);

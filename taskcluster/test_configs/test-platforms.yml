@@ -284,28 +284,27 @@ windows11-64-24h2/opt:
             default: build-signing-win64/opt
     test-sets:
         - windows11-24h2-tests
-        - talos-xperf
         - windows-talos
         - browsertime
         - windows-talos-webgl
 
-windows11-64-24h2-enterprise/opt:
+windows11-64-25h2-enterprise/opt:
     build-platform: win64-enterprise/opt
     build-signing-label:
         by-variant:
             msi: repackage-signing-msi-win64-enterprise/opt
             default: build-signing-win64-enterprise/opt
     test-sets:
-        - windows11-24h2-tests-enterprise
+        - windows11-25h2-tests-enterprise
 
-windows11-64-24h2-enterprise/debug:
+windows11-64-25h2-enterprise/debug:
     build-platform: win64-enterprise/debug
     build-signing-label:
         by-variant:
             msi: repackage-signing-msi-win64-enterprise/debug
             default: build-signing-win64-enterprise/debug
     test-sets:
-        - windows11-24h2-tests-enterprise
+        - windows11-25h2-tests-enterprise
 
 windows11-64-24h2-shippable/opt:
     build-platform: win64-shippable/opt
@@ -315,7 +314,6 @@ windows11-64-24h2-shippable/opt:
             default: build-signing-win64-shippable/opt
     test-sets:
         - windows11-24h2-tests
-        - talos-xperf
         - talos-profiling
         - windows-talos
         - browsertime
@@ -447,6 +445,30 @@ macosx1500-aarch64/opt:
     test-sets:
         - macosx1500-aarch64-tests
 
+macosx1500-aarch64-vms/debug:
+    build-platform: macosx64-aarch64/debug
+    build-signing-label: repackage-macosx64-aarch64/debug
+    test-sets:
+        - macosx1500-aarch64-vms-tests
+
+macosx1500-aarch64-vms/opt:
+    build-platform: macosx64-aarch64/opt
+    build-signing-label: repackage-macosx64-aarch64/opt
+    test-sets:
+        - macosx1500-aarch64-vms-tests
+
+macosx1500-aarch64-vms-shippable/opt:
+    build-platform: macosx64-shippable/opt
+    build-signing-label: repackage-macosx64-shippable/opt
+    test-sets:
+        - macosx1500-aarch64-vms-tests
+
+macosx1500-aarch64-vms-devedition/opt:
+    build-platform: macosx64-aarch64-devedition/opt
+    build-signing-label: repackage-macosx64-devedition/opt
+    test-sets:
+        - macosx1500-aarch64-vms-tests
+
 
 macosx1500-aarch64-shippable/opt:
     build-platform: macosx64-shippable/opt
@@ -457,6 +479,12 @@ macosx1500-aarch64-shippable/opt:
         - macosx1500-64-perftests
         - macosx1500-aarch64-tests
         - web-platform-tests-backlog
+
+macosx1500-aarch64-devedition/opt:
+    build-platform: macosx64-aarch64-devedition/opt
+    build-signing-label: repackage-macosx64-devedition/opt
+    test-sets:
+        - macosx1500-aarch64-tests
 
 macosx1470-64-nightlyasrelease/opt:
     build-platform: macosx64-nightlyasrelease/opt
@@ -565,19 +593,17 @@ android-em-14-x86_64/debug-isolated-process:
 
 # android-hw test platforms execute on real devices attached to Autophone hosts.
 
-# android-hw-p5-13-0 Google Pixel 5 Android 13.0
-
-android-hw-p5-13-0-arm7-qr/opt:
+android-hw-p6-13-0-arm7/opt:
     build-platform: android-arm/opt
     test-sets:
         - android-hw-arm7-pgo-unittests
 
-android-hw-p5-13-0-arm7-shippable-qr/opt:
+android-hw-p6-13-0-arm7-shippable/opt:
     build-platform: android-arm-shippable/opt
     test-sets:
         - android-hw-arm7-pgo-unittests
 
-android-hw-p5-13-0-arm7-qr/debug:
+android-hw-p6-13-0-arm7/debug:
     build-platform: android-arm/debug
     test-sets:
         - android-hw-arm7-debug-unittests

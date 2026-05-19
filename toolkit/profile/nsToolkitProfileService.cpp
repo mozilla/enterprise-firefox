@@ -2,9 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "mozilla/glean/GleanPings.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/HelperMacros.h"
+#include "mozilla/JSONWriter.h"
+#include "mozilla/JSONStringWriteFuncs.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/Services.h"
 #include "mozilla/UniquePtr.h"
@@ -97,6 +100,7 @@ using namespace mozilla;
 #define INSTALL_PREFIX "Install"
 #define INSTALL_PREFIX_LENGTH 7
 #define STORE_ID_PREF "toolkit.profiles.storeID"
+#define NEW_PROFILE_PREF "toolkit.profiles.newProfileSubmitted"
 
 struct KeyValue {
   KeyValue(const char* aKey, const char* aValue) : key(aKey), value(aValue) {}
@@ -674,7 +678,8 @@ nsToolkitProfileLock::~nsToolkitProfileLock() {
 
 nsToolkitProfileService* nsToolkitProfileService::gService = nullptr;
 
-NS_IMPL_ISUPPORTS(nsToolkitProfileService, nsIToolkitProfileService)
+NS_IMPL_ISUPPORTS(nsToolkitProfileService, nsIToolkitProfileService,
+                  nsIObserver)
 
 nsToolkitProfileService::nsToolkitProfileService()
     : mStartupProfileSelected(false),
@@ -729,6 +734,28 @@ void nsToolkitProfileService::CompleteStartup() {
   glean::startup::profile_selection_reason.Set(mStartupReason);
   glean::startup::profile_database_version.Set(mStartupFileVersion);
   glean::startup::profile_count.Set(static_cast<uint32_t>(mProfiles.length()));
+  if (mIniStatus.IsEmpty()) {
+    glean::startup::profiles_ini_status.Set("ok"_ns);
+  } else {
+    glean::startup::profiles_ini_status.Set(mIniStatus);
+  }
+
+  nsCOMPtr<nsIPrefBranch> prefs = do_GetService(NS_PREFSERVICE_CONTRACTID);
+  nsCOMPtr<nsIObserverService> observerService =
+      mozilla::services::GetObserverService();
+
+  if (observerService && prefs) {
+    bool submitted = false;
+    if (NS_FAILED(prefs->GetBoolPref(NEW_PROFILE_PREF, &submitted))) {
+      submitted = false;
+    }
+
+    if (!submitted) {
+      observerService->AddObserver(this, "quit-application", false);
+      // To allow testing from xpcshell
+      observerService->AddObserver(this, "test-quit-application", false);
+    }
+  }
 
   if (mMaybeLockProfile) {
     nsCOMPtr<nsIToolkitShellService> shell =
@@ -748,6 +775,26 @@ void nsToolkitProfileService::CompleteStartup() {
       }
     }
   }
+}
+
+NS_IMETHODIMP
+nsToolkitProfileService::Observe(nsISupports* aSubject, const char* aTopic,
+                                 const char16_t* aData) {
+  // Currently only called for "quit-application"
+  nsCOMPtr<nsIPrefBranch> prefs = do_GetService(NS_PREFSERVICE_CONTRACTID);
+  if (prefs) {
+    bool submitted = false;
+    if (NS_FAILED(prefs->GetBoolPref(NEW_PROFILE_PREF, &submitted))) {
+      submitted = false;
+    }
+
+    if (!submitted) {
+      glean_pings::NewProfile.Submit();
+      prefs->SetBoolPref(NEW_PROFILE_PREF, true);
+    }
+  }
+
+  return NS_OK;
 }
 
 // Tests whether the passed profile was last used by this install.
@@ -1017,11 +1064,17 @@ nsresult nsToolkitProfileService::Init() {
   rv = UpdateFileStats(mProfileDBFile, &mProfileDBExists,
                        &mProfileDBModifiedTime, &mProfileDBFileSize);
   if (NS_SUCCEEDED(rv) && mProfileDBExists) {
-    rv = mProfileDB.Init(mProfileDBFile);
+    bool iniContainedErrors = false;
+    rv = mProfileDB.Init(mProfileDBFile, &iniContainedErrors);
     // Init does not fail on parsing errors, only on OOM/really unexpected
     // conditions.
     if (NS_FAILED(rv)) {
+      mIniStatus = "ini-failed"_ns;
       return rv;
+    }
+
+    if (iniContainedErrors) {
+      mIniStatus = "ini-error"_ns;
     }
 
     rv = mProfileDB.GetString("General", "StartWithLastProfile", buffer);
@@ -1139,6 +1192,7 @@ nsresult nsToolkitProfileService::Init() {
     rv = mProfileDB.GetString(profileID.get(), "Path", filePath);
     if (NS_FAILED(rv)) {
       NS_ERROR("Malformed profiles.ini: Path= not found");
+      mIniStatus = "missing-path";
       continue;
     }
 
@@ -1147,6 +1201,7 @@ nsresult nsToolkitProfileService::Init() {
     rv = mProfileDB.GetString(profileID.get(), "Name", name);
     if (NS_FAILED(rv)) {
       NS_ERROR("Malformed profiles.ini: Name= not found");
+      mIniStatus = "missing-name";
       continue;
     }
 
@@ -1158,7 +1213,10 @@ nsresult nsToolkitProfileService::Init() {
       rv = NS_NewLocalFileWithPersistentDescriptor(filePath,
                                                    getter_AddRefs(rootDir));
     }
-    if (NS_FAILED(rv)) continue;
+    if (NS_FAILED(rv)) {
+      mIniStatus = "invalid-path";
+      continue;
+    }
 
     nsCOMPtr<nsIFile> localDir;
     rv = nsToolkitProfileService::gService->GetLocalDirFromRootDir(
@@ -1413,7 +1471,7 @@ nsToolkitProfileService::GetProfileDescriptor(nsIFile* aRootDir,
 }
 
 nsresult nsToolkitProfileService::CreateDefaultProfile(
-    nsToolkitProfile** aResult) {
+    const nsACString& aSource, nsToolkitProfile** aResult) {
   // Create a new default profile
   nsAutoCString name;
   if (mUseDevEditionProfile) {
@@ -1424,7 +1482,7 @@ nsresult nsToolkitProfileService::CreateDefaultProfile(
     name.AssignLiteral(DEFAULT_NAME);
   }
 
-  nsresult rv = CreateUniqueProfile(nullptr, name, aResult);
+  nsresult rv = CreateUniqueProfile(nullptr, name, aSource, aResult);
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (mUseDedicatedProfile) {
@@ -1601,7 +1659,8 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
 
           mCurrent = profile;
         } else {
-          rv = CreateDefaultProfile(getter_AddRefs(mCurrent));
+          rv = CreateDefaultProfile("restart-skipped-default"_ns,
+                                    getter_AddRefs(mCurrent));
           if (NS_FAILED(rv)) {
             *aProfile = nullptr;
             return rv;
@@ -1699,10 +1758,10 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
 
       // As with --profile, assume that the given path will be used for the
       // main profile directory.
-      rv = CreateProfile(lf, nsDependentCSubstring(arg, delim),
+      rv = CreateProfile(lf, nsDependentCSubstring(arg, delim), "cmdline"_ns,
                          getter_AddRefs(profile));
     } else {
-      rv = CreateProfile(nullptr, nsDependentCString(arg),
+      rv = CreateProfile(nullptr, nsDependentCString(arg), "cmdline"_ns,
                          getter_AddRefs(profile));
     }
     // Some pathological arguments can make it this far
@@ -1947,7 +2006,10 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
       }
     }
 
-    rv = CreateDefaultProfile(getter_AddRefs(mCurrent));
+    rv = CreateDefaultProfile(skippedDefaultProfile
+                                  ? "firstrun-skipped-default"_ns
+                                  : "firstrun-created-default"_ns,
+                              getter_AddRefs(mCurrent));
     if (NS_SUCCEEDED(rv)) {
 #ifdef MOZ_CREATE_LEGACY_PROFILE
       // If there is only one profile and it isn't meant to be the profile that
@@ -1957,7 +2019,7 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
       if ((mUseDedicatedProfile || mUseDevEditionProfile) &&
           mProfiles.getFirst() == mProfiles.getLast()) {
         RefPtr<nsToolkitProfile> newProfile;
-        CreateProfile(nullptr, nsLiteralCString(DEFAULT_NAME),
+        CreateProfile(nullptr, nsLiteralCString(DEFAULT_NAME), "legacy"_ns,
                       getter_AddRefs(newProfile));
         SetNormalDefault(newProfile);
       }
@@ -2022,7 +2084,10 @@ nsresult nsToolkitProfileService::CreateResetProfile(
   }
   newProfileName.AppendPrintf("%" PRId64, PR_Now() / 1000);
   nsresult rv = CreateProfile(nullptr,  // choose a default dir for us
-                              newProfileName, getter_AddRefs(newProfile));
+                              newProfileName,
+                              // This is temporary and will be overwritten when
+                              // the reset overwrites times.json
+                              "reset"_ns, getter_AddRefs(newProfile));
   if (NS_FAILED(rv)) return rv;
 
   mCurrent = newProfile;
@@ -2190,21 +2255,24 @@ static void SaltProfileName(nsACString& aName) {
 NS_IMETHODIMP
 nsToolkitProfileService::CreateUniqueProfile(nsIFile* aRootDir,
                                              const nsACString& aNamePrefix,
+                                             const nsACString& aSource,
                                              nsIToolkitProfile** aResult) {
+  MOZ_ASSERT(!aSource.IsEmpty());
   RefPtr<nsToolkitProfile> profile;
-  nsresult rv =
-      CreateUniqueProfile(aRootDir, aNamePrefix, getter_AddRefs(profile));
+  nsresult rv = CreateUniqueProfile(aRootDir, aNamePrefix, aSource,
+                                    getter_AddRefs(profile));
   profile.forget(aResult);
   return rv;
 }
 
 nsresult nsToolkitProfileService::CreateUniqueProfile(
-    nsIFile* aRootDir, const nsACString& aNamePrefix,
+    nsIFile* aRootDir, const nsACString& aNamePrefix, const nsACString& aSource,
     nsToolkitProfile** aResult) {
+  MOZ_ASSERT(!aSource.IsEmpty());
   nsCOMPtr<nsIToolkitProfile> profile;
   nsresult rv = GetProfileByName(aNamePrefix, getter_AddRefs(profile));
   if (NS_FAILED(rv)) {
-    return CreateProfile(aRootDir, aNamePrefix, aResult);
+    return CreateProfile(aRootDir, aNamePrefix, aSource, aResult);
   }
 
   uint32_t suffix = 1;
@@ -2213,7 +2281,7 @@ nsresult nsToolkitProfileService::CreateUniqueProfile(
                          suffix);
     rv = GetProfileByName(name, getter_AddRefs(profile));
     if (NS_FAILED(rv)) {
-      return CreateProfile(aRootDir, name, aResult);
+      return CreateProfile(aRootDir, name, aSource, aResult);
     }
     suffix++;
   }
@@ -2222,16 +2290,21 @@ nsresult nsToolkitProfileService::CreateUniqueProfile(
 NS_IMETHODIMP
 nsToolkitProfileService::CreateProfile(nsIFile* aRootDir,
                                        const nsACString& aName,
+                                       const nsACString& aSource,
                                        nsIToolkitProfile** aResult) {
+  MOZ_ASSERT(!aSource.IsEmpty());
   RefPtr<nsToolkitProfile> profile;
-  nsresult rv = CreateProfile(aRootDir, aName, getter_AddRefs(profile));
+  nsresult rv =
+      CreateProfile(aRootDir, aName, aSource, getter_AddRefs(profile));
   profile.forget(aResult);
   return rv;
 }
 
 nsresult nsToolkitProfileService::CreateProfile(nsIFile* aRootDir,
                                                 const nsACString& aName,
+                                                const nsACString& aSource,
                                                 nsToolkitProfile** aResult) {
+  MOZ_ASSERT(!aSource.IsEmpty());
   RefPtr<nsToolkitProfile> profile = GetProfileByName(aName);
   if (profile) {
     profile.forget(aResult);
@@ -2277,7 +2350,7 @@ nsresult nsToolkitProfileService::CreateProfile(nsIFile* aRootDir,
   // We created a new profile dir. Let's store a creation timestamp.
   // Note that this code path does not apply if the profile dir was
   // created prior to launching.
-  rv = CreateTimesInternal(rootDir);
+  rv = CreateTimesInternal(rootDir, aSource);
   NS_ENSURE_SUCCESS(rv, rv);
 
   profile = new nsToolkitProfile(aName, rootDir, localDir, false);
@@ -2348,7 +2421,8 @@ nsTArray<nsCString> nsToolkitProfileService::GetKnownInstalls() {
   return installs;
 }
 
-nsresult nsToolkitProfileService::CreateTimesInternal(nsIFile* aProfileDir) {
+nsresult nsToolkitProfileService::CreateTimesInternal(
+    nsIFile* aProfileDir, const nsACString& aSource) {
   nsresult rv = NS_ERROR_FAILURE;
   nsCOMPtr<nsIFile> creationLog;
   rv = aProfileDir->Clone(getter_AddRefs(creationLog));
@@ -2369,9 +2443,17 @@ nsresult nsToolkitProfileService::CreateTimesInternal(nsIFile* aProfileDir) {
   // We don't care about microsecond resolution.
   int64_t msec = PR_Now() / PR_USEC_PER_MSEC;
 
-  // Write it out.
-  nsFmtCString times("{{\n\"created\": {},\n\"firstUse\": null\n}}\n", msec);
+  nsCString times;
+  JSONWriter writer(MakeUnique<JSONStringRefWriteFunc>(times));
+  writer.Start();
+  {
+    writer.IntProperty("created", msec);
+    writer.NullProperty("firstUse");
+    writer.StringProperty("source", aSource.IsEmpty() ? "unknown"_ns : aSource);
+  }
+  writer.End();
   WriteFile(creationLog, times);
+
   return NS_OK;
 }
 

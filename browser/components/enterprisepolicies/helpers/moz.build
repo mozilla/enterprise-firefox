@@ -9,13 +9,10 @@ EXTRA_JS_MODULES.policies += [
     "AIChatbotPolicies.sys.mjs",
     "BookmarksPolicies.sys.mjs",
     "ProxyPolicies.sys.mjs",
+    "WebsiteFilter.sys.mjs",
 ]
 
 if CONFIG["MOZ_ENTERPRISE"]:
     EXTRA_JS_MODULES.policies += [
         "SyncPolicy.sys.mjs",
     ]
-
-EXTRA_PP_JS_MODULES.policies += [
-    "WebsiteFilter.sys.mjs",
-]

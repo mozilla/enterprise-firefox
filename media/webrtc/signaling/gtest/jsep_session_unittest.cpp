@@ -5952,6 +5952,70 @@ TEST_F(JsepSessionTest, AudioOnlyCalleeNoRtcpMux) {
   ASSERT_EQ(pos, std::string::npos);
 }
 
+TEST_P(JsepSessionTest, RtcpMuxRequireSuccessfulNegotiation) {
+  mSessionOff->SetRtcpMuxPolicy(kRtcpMuxRequire);
+  mSessionAns->SetRtcpMuxPolicy(kRtcpMuxRequire);
+  AddTracks(*mSessionOff);
+  AddTracks(*mSessionAns);
+  OfferAnswer();
+}
+
+TEST_F(JsepSessionTest, RtcpMuxRequireAllowsDisabledMsectionWithoutMux) {
+  mSessionOff->SetRtcpMuxPolicy(kRtcpMuxRequire);
+  mSessionAns->SetRtcpMuxPolicy(kRtcpMuxRequire);
+  types.push_back(SdpMediaSection::kAudio);
+  types.push_back(SdpMediaSection::kVideo);
+  AddTracks(*mSessionOff, "audio,video");
+  AddTracks(*mSessionAns, "audio,video");
+  OfferAnswer();
+
+  // Avoid bundle transport side effects; don't stop the BUNDLE-tag!
+  GetTransceivers(*mSessionOff).back().Stop();
+  GetTransceivers(*mSessionAns).back().Stop();
+
+  OfferAnswer(CHECK_SUCCESS);
+
+  auto offer = GetParsedLocalDescription(*mSessionOff);
+  const SdpMediaSection* disabled =
+      &offer->GetMediaSection(offer->GetMediaSectionCount() - 1);
+  ValidateDisabledMSection(disabled);
+}
+
+TEST_F(JsepSessionTest, RtcpMuxRequireRejectsOfferWithoutMux) {
+  mSessionAns->SetRtcpMuxPolicy(kRtcpMuxRequire);
+  types.push_back(SdpMediaSection::kAudio);
+  AddTracks(*mSessionOff, "audio");
+  AddTracks(*mSessionAns, "audio");
+  std::string offer = CreateOffer();
+  std::string rtcp_mux = "a=rtcp-mux\r\n";
+  std::size_t pos = offer.find(rtcp_mux);
+  ASSERT_NE(pos, std::string::npos);
+  offer.replace(pos, rtcp_mux.length(), "");
+  JsepSession::Result result =
+      mSessionAns->SetRemoteDescription(kJsepSdpOffer, offer);
+  ASSERT_TRUE(result.mError.isSome());
+  ASSERT_EQ(dom::PCError::InvalidAccessError, *result.mError);
+}
+
+TEST_F(JsepSessionTest, RtcpMuxRequireRejectsAnswerWithoutMux) {
+  mSessionOff->SetRtcpMuxPolicy(kRtcpMuxRequire);
+  types.push_back(SdpMediaSection::kAudio);
+  AddTracks(*mSessionOff, "audio");
+  AddTracks(*mSessionAns, "audio");
+  std::string offer = CreateOffer();
+  SetLocalOffer(offer);
+  SetRemoteOffer(offer);
+  std::string answer = CreateAnswer();
+  std::string rtcp_mux = "a=rtcp-mux\r\n";
+  std::size_t pos = answer.find(rtcp_mux);
+  ASSERT_NE(pos, std::string::npos);
+  answer.replace(pos, rtcp_mux.length(), "");
+  JsepSession::Result result =
+      mSessionOff->SetRemoteDescription(kJsepSdpAnswer, answer);
+  ASSERT_TRUE(result.mError.isSome());
+  ASSERT_EQ(dom::PCError::InvalidAccessError, *result.mError);
+}
+
 // This test comes from Bug 810220
 TEST_F(JsepSessionTest, AudioOnlyG711Call) {
   std::string offer =

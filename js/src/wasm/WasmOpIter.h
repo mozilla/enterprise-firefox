@@ -438,7 +438,7 @@ class MOZ_STACK_CLASS OpIter : private Policy {
   ControlStack controlStack_;
   UnsetLocalsState unsetLocals_;
   FeatureUsage featureUsage_;
-  uint32_t lastBranchHintIndex_;
+  uint32_t lastBranchHintIndex_ = 0;
   BranchHintVector* branchHintVector_;
 
 #ifdef DEBUG

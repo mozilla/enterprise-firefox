@@ -3158,6 +3158,58 @@ const BASE_MESSAGES = () => [
       ],
     },
   },
+  {
+    id: "SMARTWINDOW_DEFAULT_PROMO",
+    template: "smart_window_newtab_promo",
+    content: {
+      type: "vibrant",
+      heading: {
+        string_id: "smart-window-default-promo-heading",
+      },
+      message: {
+        string_id: "smart-window-default-promo-message",
+      },
+      imageSrc:
+        "chrome://browser/content/aiwindow/assets/smart-window-promo-default.svg",
+      imageAlignment: "start",
+      imageWidth: "small",
+      imageDisplay: "padded",
+      primary_button: {
+        label: {
+          string_id: "smart-window-default-promo-primary-button",
+        },
+        action: {
+          type: "SET_PREF",
+          data: {
+            pref: {
+              name: "browser.smartwindow.isDefaultWindow",
+              value: true,
+            },
+          },
+        },
+      },
+      additional_button: {
+        label: {
+          string_id: "smart-window-default-promo-additional-button",
+        },
+        action: {
+          type: "BLOCK_MESSAGE",
+          data: {
+            id: "SMARTWINDOW_DEFAULT_PROMO",
+          },
+        },
+      },
+    },
+    trigger: {
+      id: "smartWindowNewTab",
+    },
+    targeting:
+      "isAIWindow && previousSessionEnd && !activeNotifications && userPrefs.cfrFeatures && ('browser.smartwindow.chat.interactionCount'|preferenceValue) > 2 && !('browser.smartwindow.isDefaultWindow' | preferenceValue)",
+    frequency: {
+      lifetime: 3,
+    },
+    groups: [],
+  },
 ];
 
 const PREONBOARDING_MESSAGES = () => [

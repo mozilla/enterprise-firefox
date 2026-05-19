@@ -5,6 +5,8 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  AIWindow:
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
   BrowserSearchTelemetry:
     "moz-src:///browser/components/search/BrowserSearchTelemetry.sys.mjs",
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
@@ -28,6 +30,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SearchUtils: "moz-src:///toolkit/components/search/SearchUtils.sys.mjs",
   ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
   TranslationsParent: "resource://gre/actors/TranslationsParent.sys.mjs",
+  TranslationsUtils:
+    "chrome://global/content/translations/TranslationsUtils.mjs",
   WebsiteFilter: "resource:///modules/policies/WebsiteFilter.sys.mjs",
 });
 
@@ -112,7 +116,7 @@ export class nsContextMenu {
   #newFeatureBadgeL10nString;
 
   constructor(aXulMenu, aIsShift) {
-    this.window = aXulMenu.ownerGlobal;
+    this.window = aXulMenu.documentGlobal;
     this.document = aXulMenu.ownerDocument;
 
     // Get contextual info.
@@ -277,7 +281,7 @@ export class nsContextMenu {
 
       this.browser = this.ownerDoc.defaultView.docShell.chromeEventHandler;
       this.selectionInfo = SelectionUtils.getSelectionDetails(
-        this.browser.ownerGlobal
+        this.browser.documentGlobal
       );
       this.actor =
         this.browser.browsingContext.currentWindowGlobal.getActor(
@@ -498,10 +502,15 @@ export class nsContextMenu {
       "browser.tabs.splitView.enabled"
     );
     let currentTabInSplitView = !!window.gBrowser?.selectedTab?.splitview;
+    let showSmartWindow = lazy.AIWindow.isAIWindowEnabled();
     this.showItem("context-openlink", shouldShow && !isWindowPrivate);
     this.showItem(
       "context-openlinkprivate",
       shouldShow && lazy.PrivateBrowsingUtils.enabled
+    );
+    this.showItem(
+      "context-openlinksmartwindow",
+      shouldShow && showSmartWindow && !isWindowPrivate
     );
     this.showItem("context-openlinkintab", shouldShow && !inContainer);
     this.showItem("context-openlinkincontainertab", shouldShow && inContainer);
@@ -1268,7 +1277,10 @@ export class nsContextMenu {
       }
     };
 
-    const onViewSource = this.browser.currentURI.schemeIs("view-source");
+    const onViewSource =
+      !!this.browser.browsingContext.currentWindowGlobal?.documentURI?.schemeIs(
+        "view-source"
+      );
 
     showViewSourceItem("goToLine", () => false, true);
     showViewSourceItem("wrapLongLines", () =>
@@ -1480,6 +1492,16 @@ export class nsContextMenu {
       this.linkURL,
       "window",
       this._openLinkInParameters({ private: true })
+    );
+  }
+
+  // Open linked-to URL in a new smart window.
+  openLinkInSmartWindow() {
+    const params = this._getGlobalHistoryOptions();
+    this.window.openLinkIn(
+      this.linkURL,
+      "window",
+      this._openLinkInParameters({ ...params, aiWindow: true })
     );
   }
 
@@ -2584,10 +2606,23 @@ export class nsContextMenu {
    * @returns {Promise<void>}
    */
   async localizeTranslateSelectionItem(translateSelectionItem) {
-    const { targetLanguage } = await this.#translationsLangPairPromise;
+    const { sourceLanguage, targetLanguage } =
+      await this.#translationsLangPairPromise;
 
     if (targetLanguage) {
-      // A valid to-language exists, so localize the menuitem for that language.
+      if (
+        lazy.TranslationsUtils.langTagsMatch(sourceLanguage, targetLanguage)
+      ) {
+        translateSelectionItem.removeAttribute("target-language");
+        this.document.l10n.setAttributes(
+          translateSelectionItem,
+          this.isTextSelected
+            ? "main-context-menu-translate-selection"
+            : "main-context-menu-translate-link-text"
+        );
+        return;
+      }
+
       let displayName;
 
       try {

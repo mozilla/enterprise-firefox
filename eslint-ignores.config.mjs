@@ -285,15 +285,6 @@ export default [
   "toolkit/mozapps/update/tests/data/xpcshellConstantsPP.js",
   "toolkit/modules/AppConstants.sys.mjs",
 
-  // Files with MOZ_ENTERPRISE preprocessor directives
-  "browser/components/enterprisepolicies/helpers/WebsiteFilter.sys.mjs",
-  "services/fxaccounts/FxAccounts.sys.mjs",
-  "services/fxaccounts/FxAccountsClient.sys.mjs",
-  "toolkit/components/downloads/DownloadCore.sys.mjs",
-  "toolkit/components/printing/content/print.js",
-  "toolkit/mozapps/extensions/AddonManager.sys.mjs",
-  "toolkit/mozapps/extensions/internal/XPIDatabase.sys.mjs",
-
   // ESLint tests.
   "tools/lint/test/files",
   "tools/lint/eslint/eslint-plugin-mozilla/tests/globals-data/import-globals-from-invalid.js",

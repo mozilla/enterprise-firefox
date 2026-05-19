@@ -1432,7 +1432,7 @@ suggest_relevance:
     notification_emails:
       - disco-team@mozilla.com
       - najiang@mozilla.com
-    expires: 153
+    expires: 160
     data_sensitivity:
       - technical
   outcome:
@@ -1452,7 +1452,7 @@ suggest_relevance:
     notification_emails:
       - disco-team@mozilla.com
       - najiang@mozilla.com
-    expires: 153
+    expires: 160
     data_sensitivity:
       - technical
 

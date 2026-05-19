@@ -121,6 +121,7 @@ firefox_desktop_metrics = [
     "browser/components/attribution/metrics.yaml",
     "browser/components/backup/metrics.yaml",
     "browser/components/contextualidentity/metrics.yaml",
+    "browser/components/controlcenter/metrics.yaml",
     "browser/components/customkeys/metrics.yaml",
     "browser/components/downloads/metrics.yaml",
     "browser/components/enterprisepolicies/metrics.yaml",
@@ -235,11 +236,11 @@ firefox_desktop_pings = [
     "services/fxaccounts/pings.yaml",
     "services/sync/pings.yaml",
     "toolkit/components/nimbus/pings.yaml",
-    "toolkit/components/passwordmgr/pings.yaml",
     "toolkit/components/reportbrokensite/pings.yaml",
     "toolkit/components/telemetry/pings.yaml",
     "toolkit/modules/pings.yaml",
     "toolkit/mozapps/update/shared_pings.yaml",
+    "toolkit/profile/pings.yaml",
 ]
 
 # Pings that are sent by the Firefox Desktop Background Update Task

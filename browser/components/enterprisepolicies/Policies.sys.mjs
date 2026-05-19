@@ -1201,14 +1201,25 @@ export var Policies = {
         // don't do anything.
         return;
       }
+      if (!param) {
+        // Ensure PDF.js is not blocked by the pref (no UI exists for this pref).
+        Services.prefs.clearUserPref("pdfjs.disabled");
+        // Only set handleInternally once per policy value; don't override the
+        // user's handler choice on every subsequent startup.
+        runOncePerModification("disableBuiltinPDFViewer", "false", () => {
+          let pdfMIMEInfo = lazy.gMIMEService.getFromTypeAndExtension(
+            "application/pdf",
+            "pdf"
+          );
+          processMIMEInfo({ action: "handleInternally" }, pdfMIMEInfo);
+        });
+        return;
+      }
       let pdfMIMEInfo = lazy.gMIMEService.getFromTypeAndExtension(
         "application/pdf",
         "pdf"
       );
-      let mimeInfo = {
-        action: param ? "useSystemDefault" : "handleInternally",
-      };
-      processMIMEInfo(mimeInfo, pdfMIMEInfo);
+      processMIMEInfo({ action: "useSystemDefault" }, pdfMIMEInfo);
     },
   },
 
@@ -2071,6 +2082,13 @@ export var Policies = {
         PoliciesUtils.setDefaultPref(
           "browser.newtabpage.activity-stream.showSearch",
           param.Search,
+          param.Locked
+        );
+      }
+      if ("Weather" in param) {
+        PoliciesUtils.setDefaultPref(
+          "browser.newtabpage.activity-stream.showWeather",
+          param.Weather,
           param.Locked
         );
       }
@@ -3842,72 +3860,97 @@ function setPrefIfPresentAndLock(param, paramKey, prefName) {
 
 export var PoliciesUtils = {
   /**
-   * Object storing pref when we change them
-   *  {
-   *    "prefName": {
-   *      "defaultValue": ...,
-   *      "userValue": ...,
-   *    }
-   *  }
+   * Cache for preference state before any policy changes the preference values
    *
+   * @typedef PreferenceState
+   * @type {object}
+   * @property {Ci.nsIPrefBranch.PreferenceType} type - preference type
+   * @property {number|boolean|string|null} defaultValue - default preference value
+   * @property {number|boolean|string|null} userValue - user modified preference value
    */
-  _savedPrefs: {},
 
-  saveDefaultPref(prefName) {
-    let values = {
-      defaultValue: undefined,
-      userValue: undefined,
-    };
+  /** @type {PreferenceState} */
+  _initialPrefState: {},
 
-    // This was already changed, do not overwrite.
-    if (prefName in this._savedPrefs) {
+  /**
+   * Saves the current default and user values of a pref before a policy changes it.
+   * No-op if the pref was already saved.
+   *
+   * @param {string} prefName
+   */
+  savePreferenceState(prefName) {
+    if (prefName in this._initialPrefState) {
       return;
     }
 
-    let defaults = Services.prefs.getDefaultBranch("");
-    switch (Services.prefs.getPrefType(prefName)) {
+    const type = Services.prefs.getPrefType(prefName);
+    const prefState = { type, defaultValue: null, userValue: null };
+
+    const defaults = Services.prefs.getDefaultBranch("");
+    switch (type) {
       case Ci.nsIPrefBranch.PREF_INT:
-        values.defaultValue = defaults.getIntPref(prefName);
-        values.userValue = Services.prefs.getIntPref(prefName);
+        prefState.defaultValue = defaults.getIntPref(prefName, null);
+        prefState.userValue = Services.prefs.getIntPref(prefName, null);
         break;
       case Ci.nsIPrefBranch.PREF_BOOL:
-        values.defaultValue = defaults.getBoolPref(prefName);
-        values.userValue = Services.prefs.getBoolPref(prefName);
+        prefState.defaultValue = defaults.getBoolPref(prefName, null);
+        prefState.userValue = Services.prefs.getBoolPref(prefName, null);
         break;
       case Ci.nsIPrefBranch.PREF_STRING:
-        values.defaultValue = defaults.getStringPref(prefName);
-        values.userValue = Services.prefs.getStringPref(prefName);
+        prefState.defaultValue = defaults.getStringPref(prefName, null);
+        prefState.userValue = Services.prefs.getStringPref(prefName, null);
+        break;
+      case Ci.nsIPrefBranch.PREF_INVALID:
+      default:
         break;
     }
 
-    this._savedPrefs[prefName] = values;
+    this._initialPrefState[prefName] = prefState;
   },
 
-  restoreDefaultPref(prefName) {
-    const values = this._savedPrefs[prefName];
+  /**
+   * Restores the default and user values of a pref to the state before any policy was applied.
+   * No-op if no state was saved for the pref.
+   *
+   * @param {string} prefName
+   */
+  restorePreferenceState(prefName) {
+    const prefState = this._initialPrefState[prefName];
 
-    if (!values) {
-      // No default values available.
+    if (!prefState) {
+      // Nothing to restore
       return;
     }
 
-    let defaults = Services.prefs.getDefaultBranch("");
-    switch (typeof values.defaultValue) {
-      case "number":
-        defaults.setIntPref(prefName, values.defaultValue);
-        Services.prefs.setIntPref(prefName, values.userValue);
+    const defaults = Services.prefs.getDefaultBranch("");
+    switch (prefState.type) {
+      case Ci.nsIPrefBranch.PREF_INT:
+        if (prefState.defaultValue !== null) {
+          defaults.setIntPref(prefName, prefState.defaultValue);
+        }
+        if (prefState.userValue !== null) {
+          Services.prefs.setIntPref(prefName, prefState.userValue);
+        }
         break;
-      case "boolean":
-        defaults.setBoolPref(prefName, values.defaultValue);
-        Services.prefs.setBoolPref(prefName, values.userValue);
+      case Ci.nsIPrefBranch.PREF_BOOL:
+        if (prefState.defaultValue !== null) {
+          defaults.setBoolPref(prefName, prefState.defaultValue);
+        }
+        if (prefState.userValue !== null) {
+          Services.prefs.setBoolPref(prefName, prefState.userValue);
+        }
         break;
-      case "string":
-        defaults.setStringPref(prefName, values.defaultValue);
-        Services.prefs.setStringPref(prefName, values.userValue);
+      case Ci.nsIPrefBranch.PREF_STRING:
+        if (prefState.defaultValue !== null) {
+          defaults.setStringPref(prefName, prefState.defaultValue);
+        }
+        if (prefState.userValue !== null) {
+          Services.prefs.setStringPref(prefName, prefState.userValue);
+        }
         break;
     }
 
-    delete this._savedPrefs[prefName];
+    delete this._initialPrefState[prefName];
   },
 
   /**
@@ -3929,7 +3972,7 @@ export var PoliciesUtils = {
       Services.prefs.unlockPref(prefName);
     }
 
-    this.saveDefaultPref(prefName);
+    this.savePreferenceState(prefName);
 
     let defaults = Services.prefs.getDefaultBranch("");
 
@@ -3985,7 +4028,7 @@ export var PoliciesUtils = {
       Services.prefs.unlockPref(prefName);
     }
 
-    this.restoreDefaultPref(prefName);
+    this.restorePreferenceState(prefName);
   },
 };
 

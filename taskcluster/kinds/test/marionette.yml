@@ -3,6 +3,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 ---
 task-defaults:
+    attributes:
+        code-review: true
     worker-type:
         by-test-platform:
             windows11-64-24h2-asan/.*: win11-64-25h2-large
@@ -119,10 +121,8 @@ marionette-enterprise:
     treeherder-symbol: MnEnt()
     suite:
         name: marionette-enterprise
-    attributes:
-        code-review: true
     run-on-projects: built-projects
-    tier: 1
+    tier: default
     max-run-time:
         by-test-platform:
             .*-debug.*: 3600

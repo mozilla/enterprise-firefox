@@ -1462,6 +1462,9 @@
         "Search": {
           "type": "boolean"
         },
+        "Weather": {
+          "type": "boolean"
+        },
         "TopSites": {
           "type": "boolean"
         },
@@ -1790,6 +1793,9 @@
           "children": {
             "items": {
               "properties": {
+                "favicon": {
+                  "type": "URL"
+                },
                 "name": {
                   "type": "string"
                 },
@@ -1809,6 +1815,9 @@
               "type": "object"
             },
             "type": "array"
+          },
+          "favicon": {
+            "type": "URL"
           },
           "name": {
             "type": "string"

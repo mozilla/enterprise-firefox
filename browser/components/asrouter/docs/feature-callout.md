@@ -76,7 +76,7 @@ A Feature Callout displaying a user feedback survey
 
 ### Via local provider:
 
-You can also test Feature Callouts by adding them to the [local provider](https://searchfox.org/mozilla-central/source/browser/components/asrouter/modules/FeatureCalloutMessages.sys.mjs). While slower than using the devtools, this is useful when you want to test the trigger or targeting, or when your callout's anchor is an element that is not visible while on `about:asrouter` (such as a urlbar button).
+You can also test Feature Callouts by adding them to the [local provider](https://searchfox.org/firefox-main/source/browser/components/asrouter/modules/FeatureCalloutMessages.sys.mjs). While slower than using the devtools, this is useful when you want to test the trigger or targeting, or when your callout's anchor is an element that is not visible while on `about:asrouter` (such as a urlbar button).
 
 ### Via Experiments:
 

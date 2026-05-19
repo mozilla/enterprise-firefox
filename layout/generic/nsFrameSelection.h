@@ -663,6 +663,15 @@ class nsFrameSelection final {
   MOZ_CAN_RUN_SCRIPT nsresult IntraLineMove(bool aForward, bool aExtend);
 
   /**
+   * ParagraphMove will generally be called from the nsiselectioncontroller
+   * implementations. the effect being the selection will move to beginning or
+   * end of paragraph
+   * @param aForward move forward in document.
+   * @param aExtend continue selection
+   */
+  MOZ_CAN_RUN_SCRIPT nsresult ParagraphMove(bool aForward, bool aExtend);
+
+  /**
    * CreateRangeExtendedToNextGraphemeClusterBoundary() returns range which is
    * extended from normal selection range to start of next grapheme cluster
    * boundary.

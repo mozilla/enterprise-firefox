@@ -193,9 +193,12 @@ static bool TryFoldingGuardShapes(JSContext* cx, ICFallbackStub* fallback,
     return true;
   }
 
+  uint32_t totalEnteredCount = 0;
+
   // Make sure the shape and offset is the only value that differ.
   // Collect the shape and offset values at the same time.
   for (ICCacheIRStub* stub = firstStub; stub; stub = stub->nextCacheIR()) {
+    totalEnteredCount += stub->enteredCount();
     const uint8_t* stubData = stub->stubDataStart();
     uint32_t fieldIndex = 0;
     size_t offset = 0;
@@ -428,6 +431,10 @@ static bool TryFoldingGuardShapes(JSContext* cx, ICFallbackStub* fallback,
     return false;
   }
   MOZ_ASSERT(result == ICAttachResult::Attached);
+
+  // We preserve the total entry count while folding stubs to help guide
+  // inlining heuristics.
+  icEntry->firstStub()->setEnteredCount(totalEnteredCount);
 
   JitSpew(JitSpew_StubFolding,
           "Folded stub at offset %u (icScript: %p) with %zu shapes (%s:%u:%u)",

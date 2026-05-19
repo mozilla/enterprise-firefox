@@ -185,6 +185,7 @@ class BrowserAccessConnector(FeltTests):
 
     def run_load_page_ok(self, url, expected_title):
         self.open_tab_child(url)
+        self._child_longwait.until(lambda d: len(d.title) > 0)
         found_title = self._child_driver.title
         assert found_title == expected_title, (
             f"No access connector used, expected '{expected_title}', found '{found_title}'"

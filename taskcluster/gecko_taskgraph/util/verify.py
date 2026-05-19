@@ -177,6 +177,26 @@ def verify_task_graph_symbol(task, taskgraph, scratch_pad, graph_config, paramet
                 scratch_pad[key] = task.label
 
 
+@verifications.add("optimized_task_graph")
+def verify_task_graph_no_shippable_enterprise_level_not_1(
+    task, taskgraph, scratch_pad, graph_config, parameters
+):
+    """
+    Verify that only level 3 (merge, not PR) tasks schedules enterprise shippable builds
+    """
+    if task is None:
+        return
+
+    if parameters["project"] == "enterprise-firefox-try":
+        return
+
+    level = int(parameters["level"])
+    if level < 3 and "enterprise" in task.label and "shippable" in task.label:
+        raise Exception(
+            f"Enterprise shippable job {task.label} should not be scheduled on level {int(parameters['level'])}"
+        )
+
+
 @verifications.add("full_task_graph")
 def verify_task_graph_symbol_enterprise(
     task, taskgraph, scratch_pad, graph_config, parameters
@@ -211,6 +231,10 @@ def verify_task_graph_symbol_enterprise(
 
     if task is None:
         return
+
+    if task.kind in ("complete",):
+        return
+
     task_dict = task.task
     if "extra" in task_dict:
         extra = task_dict["extra"]
@@ -460,35 +484,6 @@ def verify_dependency_tiers(task, taskgraph, scratch_pad, graph_config, paramete
                 if tier < tiers[d]:
                     raise Exception(
                         f"{current_task.label} (tier {printable_tier(tier)}) cannot depend on {d} (tier {printable_tier(tiers[d])})"
-                    )
-
-
-@verifications.add("full_task_graph")
-def verify_required_signoffs(task, taskgraph, scratch_pad, graph_config, parameters):
-    """
-    Task with required signoffs can't be dependencies of tasks with less
-    required signoffs.
-    """
-    all_required_signoffs = scratch_pad
-    if task is not None:
-        all_required_signoffs[task.label] = set(
-            task.attributes.get("required_signoffs", [])
-        )
-    else:
-
-        def printable_signoff(signoffs):
-            if len(signoffs) == 1:
-                return "required signoff {}".format(*signoffs)
-            if signoffs:
-                return "required signoffs {}".format(", ".join(signoffs))
-            return "no required signoffs"
-
-        for current_task in taskgraph.tasks.values():
-            required_signoffs = all_required_signoffs[current_task.label]
-            for d in current_task.dependencies.values():
-                if required_signoffs < all_required_signoffs[d]:
-                    raise Exception(
-                        f"{current_task.label} ({printable_signoff(required_signoffs)}) cannot depend on {d} ({printable_signoff(all_required_signoffs[d])})"
                     )
 
 

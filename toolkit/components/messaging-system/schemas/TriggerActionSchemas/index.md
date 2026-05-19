@@ -150,7 +150,7 @@ Provides a context of the number of pages loaded in the current browsing session
 Does not filter by host or patterns.
 
 The event it reports back is one of two things:
- * A combination of OR-ed [nsIWebProgressListener](https://searchfox.org/mozilla-central/source/uriloader/base/nsIWebProgressListener.idl) `STATE_BLOCKED_*` flags
+ * A combination of OR-ed [nsIWebProgressListener](https://searchfox.org/firefox-main/source/uriloader/base/nsIWebProgressListener.idl) `STATE_BLOCKED_*` flags
  * A string constant, such as [`"ContentBlockingMilestone"`](https://searchfox.org/mozilla-central/rev/8a2d8d26e25ef70c98c6036612aad534b76b9815/toolkit/components/antitracking/TrackingDBService.jsm#327-334)
 
 

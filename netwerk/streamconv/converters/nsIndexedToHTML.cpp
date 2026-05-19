@@ -177,20 +177,32 @@ nsresult nsIndexedToHTML::DoOnStartRequest(nsIRequest* request,
     nsCOMPtr<nsIFileURL> fileUrl = do_QueryInterface(uri);
     nsCOMPtr<nsIFile> file;
     rv = fileUrl->GetFile(getter_AddRefs(file));
-    if (NS_FAILED(rv)) return rv;
-
-    nsAutoCString url;
-    rv = net_GetURLSpecFromFile(file, url);
-    if (NS_FAILED(rv)) return rv;
-    baseUri.Assign(url);
-
-    nsCOMPtr<nsIFile> parent;
-    rv = file->GetParent(getter_AddRefs(parent));
-
-    if (parent && NS_SUCCEEDED(rv)) {
-      net_GetURLSpecFromDir(parent, url);
+    if (NS_SUCCEEDED(rv)) {
+      nsAutoCString url;
+      rv = net_GetURLSpecFromFile(file, url);
       if (NS_FAILED(rv)) return rv;
-      parentStr.Assign(url);
+      baseUri.Assign(url);
+
+      nsCOMPtr<nsIFile> parent;
+      rv = file->GetParent(getter_AddRefs(parent));
+
+      if (parent && NS_SUCCEEDED(rv)) {
+        net_GetURLSpecFromDir(parent, url);
+        if (NS_FAILED(rv)) return rv;
+        parentStr.Assign(url);
+      }
+    } else {
+#ifndef XP_WIN
+      return rv;
+#else
+      // On Windows, file:/// has no backing nsIFile (virtual drives root).
+      // baseUri was already set from uri->GetAsciiSpec() above; keep it.
+      // parentStr stays empty so no "Go up" link is rendered.
+      nsAutoCString path;
+      if (NS_FAILED(uri->GetFilePath(path)) || !path.EqualsLiteral("/")) {
+        return rv;
+      }
+#endif
     }
 
     // Directory index will be always encoded in UTF-8 if this is file url

@@ -15,10 +15,11 @@ from felt_tests import FeltTests
 class BrowserInitFailures(FeltTests):
     def test_browser_init_policy_fetch_fail(self):
         self.policies_fail_request.value = 1
-        super().run_felt_base()
-        self._manually_closed_child = True
-
-        self.await_felt_auth_window()
+        # After SSO completion, FELT closes its auth window and spawns the
+        # child Firefox. The child fails its policy fetch and exits, which
+        # causes FELT to re-open a new auth window.
+        with self.expect_new_felt_auth_window():
+            self.run_felt_base()
+            self._manually_closed_child = True
         self.policies_fail_request.value = 0
-        self.force_window()
         self.assert_user_signed_out(env=Environment.FELT)

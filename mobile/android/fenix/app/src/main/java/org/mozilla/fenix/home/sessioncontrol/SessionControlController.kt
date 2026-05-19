@@ -31,7 +31,9 @@ import org.mozilla.fenix.components.accounts.FenixFxAEntryPoint
 import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.components.appstate.AppState
 import org.mozilla.fenix.components.appstate.setup.checklist.ChecklistItem
+import org.mozilla.fenix.components.share.ShareSource
 import org.mozilla.fenix.components.usecases.FenixBrowserUseCases
+import org.mozilla.fenix.components.usecases.ShareUseCases
 import org.mozilla.fenix.ext.nav
 import org.mozilla.fenix.home.HomeFragment
 import org.mozilla.fenix.home.HomeFragmentDirections
@@ -177,6 +179,7 @@ class DefaultSessionControlController(
     private val appStore: AppStore,
     private val navControllerRef: WeakReference<NavController>,
     private val viewLifecycleScope: CoroutineScope,
+    private val shareUseCases: ShareUseCases,
     private val showAddSearchWidgetPrompt: () -> Unit,
     private val requestSetDefaultBrowserPrompt: () -> Unit,
 ) : SessionControlController {
@@ -348,12 +351,19 @@ class DefaultSessionControlController(
     }
 
     private fun showShareFragment(shareSubject: String, data: List<ShareData>) {
-        val directions = HomeFragmentDirections.actionGlobalShareFragment(
-            sessionId = store.state.selectedTabId,
-            shareSubject = shareSubject,
-            data = data.toTypedArray(),
+        shareUseCases.shareItems(
+            items = data,
+            source = ShareSource.HOME,
+            subject = shareSubject,
+            navigateToShareFragment = {
+                val directions = HomeFragmentDirections.actionGlobalShareFragment(
+                    sessionId = store.state.selectedTabId,
+                    shareSubject = shareSubject,
+                    data = data.toTypedArray(),
+                )
+                navController.nav(R.id.homeFragment, directions)
+            },
         )
-        navController.nav(R.id.homeFragment, directions)
     }
 
     override fun handleMessageClicked(message: Message) {

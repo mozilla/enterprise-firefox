@@ -331,8 +331,11 @@ nsUnknownDecoder::GetMIMETypeFromContent(nsIRequest* aRequest,
   DetermineContentType(aRequest);
   mBuffer = nullptr;
   mBufferLen = 0;
-  type.Assign(mContentType);
-  mContentType.Truncate();
+  {
+    MutexAutoLock lock(mMutex);
+    type.Assign(mContentType);
+    mContentType.Truncate();
+  }
   return type.IsEmpty() ? NS_ERROR_NOT_AVAILABLE : NS_OK;
 }
 

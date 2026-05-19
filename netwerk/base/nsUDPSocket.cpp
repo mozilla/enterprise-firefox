@@ -474,7 +474,10 @@ void nsUDPSocket::OnSocketReady(PRFileDesc* fd, int16_t outFlags) {
   NetAddr netAddr(&prClientAddr);
   nsCOMPtr<nsIUDPMessage> message =
       new UDPMessageProxy(&netAddr, pipeOut, std::move(data));
-  mListener->OnPacketReceived(this, message);
+  nsCOMPtr<nsIUDPSocketListener> listener = GetListener();
+  if (listener) {
+    listener->OnPacketReceived(this, message);
+  }
 }
 
 void nsUDPSocket::OnSocketDetached(PRFileDesc* fd) {
@@ -490,17 +493,18 @@ void nsUDPSocket::OnSocketDetached(PRFileDesc* fd) {
   if (mSyncListener) {
     mSyncListener->OnStopListening(this, mCondition);
     mSyncListener = nullptr;
-  } else if (mListener) {
-    // need to atomically clear mListener.  see our Close() method.
-    RefPtr<nsIUDPSocketListener> listener = nullptr;
+  } else {
+    RefPtr<nsIUDPSocketListener> listener;
+    nsCOMPtr<nsIEventTarget> listenerTarget;
     {
       MutexAutoLock lock(mLock);
       listener = ToRefPtr(std::move(mListener));
+      listenerTarget = mListenerTarget;
     }
 
     if (listener) {
       listener->OnStopListening(this, mCondition);
-      NS_ProxyRelease("nsUDPSocket::mListener", mListenerTarget,
+      NS_ProxyRelease("nsUDPSocket::mListener", listenerTarget,
                       listener.forget());
     }
   }
@@ -1140,10 +1144,10 @@ NS_IMETHODIMP
 nsUDPSocket::AsyncListen(nsIUDPSocketListener* aListener) {
   // ensuring mFD implies ensuring mLock
   NS_ENSURE_TRUE(mFD, NS_ERROR_NOT_INITIALIZED);
-  NS_ENSURE_TRUE(mListener == nullptr, NS_ERROR_IN_PROGRESS);
   NS_ENSURE_TRUE(mSyncListener == nullptr, NS_ERROR_IN_PROGRESS);
   {
     MutexAutoLock lock(mLock);
+    NS_ENSURE_TRUE(mListener == nullptr, NS_ERROR_IN_PROGRESS);
     mListenerTarget = GetCurrentSerialEventTarget();
     if (NS_IsMainThread()) {
       // PNecko usage
@@ -1160,8 +1164,11 @@ NS_IMETHODIMP
 nsUDPSocket::SyncListen(nsIUDPSocketSyncListener* aListener) {
   // ensuring mFD implies ensuring mLock
   NS_ENSURE_TRUE(mFD, NS_ERROR_NOT_INITIALIZED);
-  NS_ENSURE_TRUE(mListener == nullptr, NS_ERROR_IN_PROGRESS);
   NS_ENSURE_TRUE(mSyncListener == nullptr, NS_ERROR_IN_PROGRESS);
+  {
+    MutexAutoLock lock(mLock);
+    NS_ENSURE_TRUE(mListener == nullptr, NS_ERROR_IN_PROGRESS);
+  }
 
   mSyncListener = aListener;
 

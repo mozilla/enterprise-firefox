@@ -892,6 +892,7 @@ MozContentPolicyType GetContentPolicyType(ExtContentPolicyType aType) {
       return MozContentPolicyType::Speculative;
     case ExtContentPolicy::TYPE_JSON:
       return MozContentPolicyType::Json;
+    case ExtContentPolicy::TYPE_TEXT:
     case ExtContentPolicy::TYPE_PROXIED_WEBRTC_MEDIA:
     case ExtContentPolicy::TYPE_INVALID:
     case ExtContentPolicy::TYPE_OTHER:

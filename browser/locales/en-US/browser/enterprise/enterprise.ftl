@@ -15,15 +15,44 @@ enterprise-panel-learn-more = Learn more
 enterprise-panel-sign-out-btn =
     .label = Sign out…
 
-# $tabCount (Number) - the number of open tabs
-enterprise-signout-prompt-title2 =
+enterprise-close-prompt-title = Close { -brand-short-name }?
+
+# Variables:
+#   $tabCount (Number): The number of tabs to be closed.
+enterprise-close-prompt-title-with-tabcount-and-signout-warning =
     { $tabCount ->
-        [one] Sign out of { -brand-short-name }?
-       *[other] Sign out and close { $tabCount } tabs?
+        [one] Close { -brand-short-name } and { $tabCount } tab?
+       *[other] Close { -brand-short-name } and { $tabCount } tabs?
     }
-enterprise-signout-prompt-message = You’re signing out of your { -brand-short-name } browser. To use it again, you’ll need to re-authenticate through your company’s SSO provider.
-enterprise-signout-prompt-checkbox-label = Show this message when signing out.
-enterprise-signout-prompt-primary-btn-label = Sign out
+
+# Variables:
+#   $tabCount (Number): The number of tabs to be closed.
+enterprise-close-prompt-title-with-tabcount =
+    { $tabCount ->
+        [one] Close { $tabCount } tab?
+       *[other] Close { $tabCount } tabs?
+    }
+
+enterprise-close-prompt-message = You’re about to sign out of { -brand-short-name } and end your session.
+
+# Variables:
+#   $tabCount (Number): The number of tabs to be closed.
+enterprise-close-prompt-message-with-tabcount-and-signout-warning =
+    { $tabCount ->
+        [one] You’re about to sign out of { -brand-short-name } and close { $tabCount } tab.
+       *[other] You’re about to sign out of { -brand-short-name } and close { $tabCount } tabs.
+    }
+
+enterprise-close-prompt-message-with-tabcount = Closing { -brand-short-name } will also sign you out.
+enterprise-close-prompt-message-reauth = To use { -brand-short-name } again, you’ll need to reauthenticate through your organization’s SSO provider.
+enterprise-close-prompt-checkbox-label = Warn me when closing { -brand-short-name } signs me out
+enterprise-close-prompt-tabs-checkbox-label = Warn me when closing multiple tabs
+enterprise-close-prompt-primary-btn-label = Close and sign out
+
+enterprise-quit-shortcut-prompt-title-with-tabs = Quit { -brand-short-name } or close current tab?
+enterprise-quit-shortcut-prompt-title = Close window and quit { -brand-short-name }?
+enterprise-quit-shortcut-prompt-message = Quitting will sign you out of your session. You’ll need to reauthenticate through your organization’s SSO provider.
+enterprise-quit-shortcut-prompt-primary-btn-label = Quit and sign out
 
 restart-forced-title = Restart { -brand-short-name }
 restart-forced-heading = Restart to continue using { -brand-short-name }.

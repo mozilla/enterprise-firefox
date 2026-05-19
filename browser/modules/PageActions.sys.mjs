@@ -438,7 +438,7 @@ export var PageActions = {
   sendPlacedInUrlbarTrigger(buttonNode) {
     lazy.setTimeout(async () => {
       await lazy.ASRouter.waitForInitialized;
-      let win = buttonNode?.ownerGlobal;
+      let win = buttonNode?.documentGlobal;
       if (!win || buttonNode.hidden) {
         return;
       }
@@ -1202,7 +1202,7 @@ function browserPageActions(obj) {
   if (obj.BrowserPageActions) {
     return obj.BrowserPageActions;
   }
-  return obj.ownerGlobal.BrowserPageActions;
+  return obj.documentGlobal.BrowserPageActions;
 }
 
 /**

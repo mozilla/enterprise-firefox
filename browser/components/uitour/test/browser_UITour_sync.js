@@ -10,9 +10,18 @@ const MOCK_DEVICE_ID = "7e450f3337d3479b8582ea1c9bb5ba6c";
 
 const gFxaParams = `context=${Services.prefs.getStringPref("identity.fxaccounts.contextParam")}`;
 
+// In enterprise builds, EnterpriseEndpoints.sys.mjs locks this pref at startup.
+// Unlock it so the test can override it, and re-lock in cleanup.
+if (AppConstants.MOZ_ENTERPRISE) {
+  Services.prefs.unlockPref("identity.fxaccounts.remote.root");
+}
+
 registerCleanupFunction(function () {
   Services.prefs.clearUserPref("identity.fxaccounts.remote.root");
   Services.prefs.clearUserPref("services.sync.username");
+  if (AppConstants.MOZ_ENTERPRISE) {
+    Services.prefs.lockPref("identity.fxaccounts.remote.root");
+  }
 });
 
 add_task(setup_UITourTest);

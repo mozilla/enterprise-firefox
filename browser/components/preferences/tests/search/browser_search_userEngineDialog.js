@@ -1001,7 +1001,7 @@ async function openDialogWith(doc, fn) {
   await TestUtils.waitForTick();
   await fn();
   let [dialogWin] = await dialogLoaded;
-  await doc.ownerGlobal.gSubDialog.dialogs[0]._dialogReady;
+  await doc.documentGlobal.gSubDialog.dialogs[0]._dialogReady;
   Assert.ok(true, "Engine dialog opened");
   return dialogWin;
 }

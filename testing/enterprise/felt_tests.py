@@ -15,7 +15,7 @@ import tempfile
 import time
 import urllib.parse
 import uuid
-from contextlib import closing
+from contextlib import closing, contextmanager
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from multiprocessing import Array, Process, Value
 
@@ -57,6 +57,31 @@ class SharedString:
         )
         with self._array.get_lock():
             self._array._obj.value = encoded
+
+
+class ConsoleSSOPortMixin:
+    """Provides console_port/sso_port properties that block until the
+    server processes have bound to their OS-assigned ports (port 0).
+    Expects _console_port and _sso_port to be multiprocessing.Value("i", 0)."""
+
+    def _wait_for_port(self, val):
+        for _ in range(40):
+            if val.value != 0:
+                return val.value
+            time.sleep(0.5)
+        raise RuntimeError("Server failed to start")
+
+    @property
+    def console_port(self):
+        return self._wait_for_port(self._console_port)
+
+    @property
+    def sso_port(self):
+        return self._wait_for_port(self._sso_port)
+
+
+class ConsoleSSOHTTPServer(ConsoleSSOPortMixin, HTTPServer):
+    pass
 
 
 class LocalHttpRequestHandler(BaseHTTPRequestHandler):
@@ -515,10 +540,10 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 
 
 def serve(
-    port,
     classname,
     sso_port,
     console_port,
+    is_console,
     cookie_name=None,
     cookie_value=None,
     policy_block_about_config=None,
@@ -531,9 +556,14 @@ def serve(
     # TODO: Behavior is not yet clearly defined
     # device_posture_reply_forbidden=None,
 ):
-    httpd = HTTPServer(("", port), classname)
-    httpd.sso_port = sso_port
-    httpd.console_port = console_port
+    httpd = ConsoleSSOHTTPServer(("", 0), classname)
+    if is_console:
+        console_port.value = httpd.server_address[1]
+    else:
+        sso_port.value = httpd.server_address[1]
+    # There's a getter on the Mixin for these
+    httpd._sso_port = sso_port
+    httpd._console_port = console_port
     if cookie_name is not None:
         httpd.cookie_name = cookie_name
     if cookie_value is not None:
@@ -561,11 +591,11 @@ def serve(
         httpd.device_posture_reply_forbidden = device_posture_reply_forbidden
     """
     print(
-        f"Serving localhost:{port} SSO={sso_port} CONSOLE={console_port} with {classname}"
+        f"Serving localhost:{httpd.server_address[1]} SSO={httpd.sso_port} CONSOLE={httpd.console_port} with {classname}"
     )
     httpd.serve_forever()
     print(
-        f"Stopped serving localhost:{port} SSO={sso_port} CONSOLE={console_port} with {classname}"
+        f"Stopped serving localhost:{httpd.server_address[1]} SSO={httpd.sso_port} CONSOLE={httpd.console_port} with {classname}"
     )
 
 
@@ -645,15 +675,16 @@ def find_free_port():
         return s.getsockname()[1]
 
 
-class FeltTestsBase(EnterpriseTestsBase):
+class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
     EXTRA_ENV = {}
 
     def setUp(self):
         # test_prefs = kwargs.get("test_prefs", [])
 
         self._manually_closed_child = False
-        self.console_port = find_free_port()
-        self.sso_port = find_free_port()
+        # Private; use console_port and sso_port properties from ConsoleSSOPortMixin instead
+        self._console_port = Value("i", 0)
+        self._sso_port = Value("i", 0)
         self.policy_block_about_config = Value("b", 1)
         self.policy_access_connector = Value("b", 0)
         self.policy_extensions = Value("B", 0)
@@ -663,24 +694,17 @@ class FeltTestsBase(EnterpriseTestsBase):
         self.device_posture_reply_forbidden = Value("B", 0)
         """
 
-        self._extra_prefs = {
-            "enterprise.is_testing": True,
-            "enterprise.log_level": "Debug",
-        }  # + test_prefs
-
-        if hasattr(self, "EXTRA_PREFS"):
-            self._extra_prefs.update(self.EXTRA_PREFS)
-
         self.policy_access_token = SharedString("")
         self.policy_refresh_token = SharedString("")
         self.signout_count = Value("i", 0)
 
         self.console_httpd = Process(
             target=serve,
-            args=(self.console_port, ConsoleHttpHandler),
+            args=(ConsoleHttpHandler,),
             kwargs=dict(
-                sso_port=self.sso_port,
-                console_port=self.console_port,
+                sso_port=self._sso_port,
+                console_port=self._console_port,
+                is_console=True,
                 policy_block_about_config=self.policy_block_about_config,
                 policy_extensions=self.policy_extensions,
                 policy_access_token=self.policy_access_token,
@@ -698,10 +722,11 @@ class FeltTestsBase(EnterpriseTestsBase):
         self.cookie_value = SharedString(str(uuid.uuid4()).split("-")[4])
         self.sso_httpd = Process(
             target=serve,
-            args=(self.sso_port, SsoHttpHandler),
+            args=(SsoHttpHandler,),
             kwargs=dict(
-                sso_port=self.sso_port,
-                console_port=self.console_port,
+                sso_port=self._sso_port,
+                console_port=self._console_port,
+                is_console=False,
                 cookie_name=self.cookie_name,
                 cookie_value=self.cookie_value,
             ),
@@ -717,6 +742,18 @@ class FeltTestsBase(EnterpriseTestsBase):
 
         self._logger.info(f"Starting console server: {self.console_port}")
         self._logger.info(f"Starting SSO server: {self.sso_port}")
+
+    def _apply_prefs_for_instance(self):
+        self._extra_prefs = {
+            "enterprise.is_testing": True,
+            "enterprise.log_level": "Debug",
+        }  # + test_prefs
+
+        if hasattr(self, "EXTRA_PREFS"):
+            self._extra_prefs.update(self.EXTRA_PREFS)
+
+        marionette = self._marionette_weakref()
+        marionette.instance.profile.set_preferences(self._extra_prefs)
 
     def setup(self):
         console_addr = f"http://localhost:{self.console_port}"
@@ -756,9 +793,11 @@ class FeltTestsBase(EnterpriseTestsBase):
         if not self._manually_closed_child:
             self._logger.info("Closing browser")
             self._child_driver.set_context("chrome")
+            pid = self._child_driver.session_capabilities["moz:processID"]
             self._child_driver.execute_script(
                 "Services.startup.quit(Ci.nsIAppStartup.eForceQuit);"
             )
+            self.wait_process_exit(pid)
             self._logger.info("Closed browser")
         else:
             self._logger.info("Browser was already manually closed.")
@@ -1035,3 +1074,27 @@ class FeltTests(FeltTestsBase):
 
     def await_felt_auth_window(self):
         self._wait.until(lambda mn: len(self._driver.chrome_window_handles) == 1)
+
+    @contextmanager
+    def expect_new_felt_auth_window(self):
+        """Context manager: assert FELT's auth window is replaced by a new one.
+
+        Captures the current FELT chrome window handle on entry. On normal
+        exit, waits for that window to be replaced by a new single chrome
+        window and switches to it via force_window(). Use to wrap actions
+        whose effect is that FELT closes its auth window and then re-opens
+        a new one (e.g. login completion that spawns a child Firefox which
+        then fails, causing FELT to re-open its auth window). Ensures the
+        test awaits the new FELT window and not the original one prior to
+        closing.
+        """
+        handles = self._driver.chrome_window_handles
+        previous_handle = handles[0] if len(handles) == 1 else None
+        yield
+
+        def replaced(_):
+            handles = self._driver.chrome_window_handles
+            return previous_handle not in handles and len(handles) == 1
+
+        self._wait.until(replaced)
+        self.force_window()

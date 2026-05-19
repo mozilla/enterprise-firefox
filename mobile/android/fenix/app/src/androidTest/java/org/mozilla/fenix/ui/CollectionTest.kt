@@ -4,7 +4,6 @@
 
 package org.mozilla.fenix.ui
 
-import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import org.junit.Rule
 import org.junit.Test
 import org.mozilla.fenix.customannotations.SmokeTest
@@ -21,6 +20,7 @@ import org.mozilla.fenix.ui.robots.collectionRobot
 import org.mozilla.fenix.ui.robots.composeTabDrawer
 import org.mozilla.fenix.ui.robots.homeScreen
 import org.mozilla.fenix.ui.robots.navigationToolbar
+import androidx.compose.ui.test.junit4.v2.AndroidComposeTestRule as AndroidComposeTestRuleV2
 
 /**
  *  Tests for verifying basic functionality of tab collections
@@ -36,9 +36,9 @@ class CollectionTest {
 
     private val mockWebServer get() = fenixTestRule.mockWebServer
 
-    @get:Rule
+    @get:Rule(order = 1)
     val composeTestRule =
-        AndroidComposeTestRule(
+        AndroidComposeTestRuleV2(
             HomeActivityIntentTestRule(
                 isRecentTabsFeatureEnabled = false,
                 isRecentlyVisitedFeatureEnabled = false,
@@ -50,8 +50,8 @@ class CollectionTest {
             ),
         ) { it.activity }
 
-    @get:Rule
-    val memoryLeaksRule = DetectMemoryLeaksRule()
+    @get:Rule(order = 2)
+    val memoryLeaksRule = DetectMemoryLeaksRule(composeTestRule = { composeTestRule })
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/353823
     @SmokeTest
@@ -280,7 +280,8 @@ class CollectionTest {
             selectAddTabToCollection()
             verifyTabsSelectedCounterText(1)
             saveTabsSelectedForCollection()
-            verifySnackBarText("Tab saved")
+            // See: https://bugzilla.mozilla.org/show_bug.cgi?id=2034448
+            // verifySnackBarText(composeTestRule, "Tab saved")
             verifyTabSavedInCollection(secondWebPage.title)
         }
     }

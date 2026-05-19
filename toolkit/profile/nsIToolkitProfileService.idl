@@ -119,9 +119,12 @@ interface nsIToolkitProfileService : nsISupports
      *        default will be chosen based on the profile name.
      * @param aName
      *        The profile name.
+     * @param aSource
+     *        The source for the new profile, used in telemetry reporting.
      */
     nsIToolkitProfile createProfile(in nsIFile aRootDir,
-                                    in AUTF8String aName);
+                                    in AUTF8String aName,
+                                    in AUTF8String aSource);
 
     /**
      * Create a new profile with a unique name.
@@ -136,9 +139,12 @@ interface nsIToolkitProfileService : nsISupports
      *        The prefix to use for the profile name. If unused this will be
      *        used as the profile name otherwise additional characters will be
      *        added to make the name unique.
+     * @param aSource
+     *        The source for the new profile, used in telemetry reporting.
      */
     nsIToolkitProfile createUniqueProfile(in nsIFile aRootDir,
-                                          in AUTF8String aNamePrefix);
+                                          in AUTF8String aNamePrefix,
+                                          in AUTF8String aSource);
 
     /**
      * Gets the profile root directory descriptor for storing in profiles.ini or

@@ -457,7 +457,7 @@ class WindowManager {
           await this.focusWindow(openerWindow);
         }
 
-        const chromeWindow = browser.ownerGlobal;
+        const chromeWindow = browser.documentGlobal;
         await this.waitForChromeWindowLoaded(chromeWindow);
 
         return chromeWindow;
@@ -620,7 +620,7 @@ class WindowManager {
   }
 
   #setChromeWindowForBrowsingContext(context) {
-    const chromeWindow = context.top.embedderElement?.ownerGlobal;
+    const chromeWindow = context.top.embedderElement?.documentGlobal;
     if (chromeWindow) {
       return this.#contextToWindowMap.getOrInsert(context.top, chromeWindow);
     }

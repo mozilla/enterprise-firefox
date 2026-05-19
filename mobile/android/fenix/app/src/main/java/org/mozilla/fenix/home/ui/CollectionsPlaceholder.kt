@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import mozilla.components.compose.base.button.FilledButton
+import mozilla.components.compose.base.button.IconButton
 import org.mozilla.fenix.R
 import org.mozilla.fenix.compose.PlaceholderCard
 import org.mozilla.fenix.home.collections.CollectionColors
@@ -76,13 +76,14 @@ internal fun CollectionsPlaceholder(
 
                 IconButton(
                     onClick = interactor::onRemoveCollectionsPlaceholder,
+                    contentDescription = stringResource(
+                        R.string.remove_home_collection_placeholder_content_description,
+                    ),
                     modifier = Modifier.size(20.dp),
                 ) {
                     Icon(
                         painter = painterResource(iconsR.drawable.mozac_ic_cross_20),
-                        contentDescription = stringResource(
-                            R.string.remove_home_collection_placeholder_content_description,
-                        ),
+                        contentDescription = null,
                         tint = titleTextColor,
                     )
                 }

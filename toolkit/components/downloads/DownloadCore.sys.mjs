@@ -427,19 +427,17 @@ Download.prototype = {
     this.currentBytes = 0;
     this.startTime = new Date();
 
-/* eslint-disable */
-#ifdef MOZ_ENTERPRISE
-    // Record telemetry when download attempt starts
-    if (
-      Services.prefs.getBoolPref(
-        "browser.download.enterprise.telemetry.enabled",
-        true
-      )
-    ) {
-      this._recordDownloadAttempt();
+    if (AppConstants.MOZ_ENTERPRISE) {
+      // Record telemetry when download attempt starts
+      if (
+        Services.prefs.getBoolPref(
+          "browser.download.enterprise.telemetry.enabled",
+          true
+        )
+      ) {
+        this._recordDownloadAttempt();
+      }
     }
-#endif
-/* eslint-enable */
 
     // Create a new deferred object and an associated promise before starting
     // the actual download.  We store it on the download as the current attempt.
@@ -699,9 +697,7 @@ Download.prototype = {
     }
   },
 
-/* eslint-disable */
-#ifdef MOZ_ENTERPRISE
-    /**
+  /**
    * Gets the configured URL logging level from enterprise policy preferences.
    *
    * @returns {string} One of: "full", "domain", "none"
@@ -857,8 +853,6 @@ Download.prototype = {
       console.warn("Failed to record download attempt telemetry:", ex);
     }
   },
-#endif
-/* eslint-enable */
 
   /**
    * When a request to unblock the download is received, contains a promise
@@ -1028,10 +1022,6 @@ Download.prototype = {
     }
 
     if (this.error?.becauseBlockedByReputationCheck) {
-      // We have to record the telemetry in both DownloadsCommon.deleteDownload
-      // and confirmBlock here. The former is for cases where users click
-      // "Remove file" in the download panel and the latter is when
-      // users click "X" button in about:downloads.
       Glean.downloads.userActionOnBlockedDownload[
         this.error.reputationCheckVerdict
       ].accumulateSingleSample(1); // confirm block
@@ -1053,6 +1043,7 @@ Download.prototype = {
       // data remains stored on disk in the ".part" file.
       await this.saver.removeData();
 
+      this.deleted = true;
       this.hasBlockedData = false;
       this._notifyChange();
     })();
@@ -1620,6 +1611,7 @@ Download.prototype = {
 const kPlainSerializableDownloadProperties = [
   "succeeded",
   "canceled",
+  "deleted",
   "totalBytes",
   "hasPartialData",
   "hasBlockedData",

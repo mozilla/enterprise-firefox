@@ -17,6 +17,9 @@ const kBaseUri = Services.io.newURI("https://example.com");
 const kInnerUri = Services.io.newURI("https://example.com/somewhere/else");
 
 let gFaviconUri;
+let gBigFaviconUri;
+let gFaviconHttpUri;
+let gBigFaviconHttpUri;
 let gFaviconImg;
 
 add_setup(async function setup() {
@@ -35,7 +38,16 @@ add_setup(async function setup() {
   registerCleanupFunction(() => sandbox.restore());
 
   gFaviconUri = Services.io.newURI(
-    "chrome://mochitests/content/browser/browser/components/taskbartabs/test/browser/favicon-normal16.png"
+    "chrome://mochitests/content/browser/browser/components/taskbartabs/test/browser/favicon-normal32.png"
+  );
+  gBigFaviconUri = Services.io.newURI(
+    "chrome://mochitests/content/browser/browser/components/taskbartabs/test/browser/favicon-big64.png"
+  );
+  gFaviconHttpUri = Services.io.newURI(
+    "https://example.com/browser/browser/components/taskbartabs/test/browser/favicon-normal32.png"
+  );
+  gBigFaviconHttpUri = Services.io.newURI(
+    "https://example.com/browser/browser/components/taskbartabs/test/browser/favicon-big64.png"
   );
   gFaviconImg = await TaskbarTabsUtils._imageFromLocalURI(gFaviconUri);
 });
@@ -88,9 +100,100 @@ add_task(async function test_faviconOnOtherPage() {
 
   await checkTaskbarTabIcon(gFaviconImg, {
     uri: kInnerUri,
-    startPath: "/",
+    manifest: {
+      start_url: "/",
+    },
   });
   ok(checkedInnerLast, "The inner URL should be checked last");
+
+  sandbox.restore();
+});
+
+add_task(async function test_manifestIcon_lone() {
+  let sandbox = sinon.createSandbox();
+  sandbox.stub(TaskbarTabsUtils, "getFaviconUri").resolves(null);
+
+  await checkTaskbarTabIcon(gFaviconImg, {
+    uri: kBaseUri,
+    manifest: {
+      icons: [
+        {
+          // This needs to be HTTP since it's from the manifest, so in theory
+          // it could be given from random Web content and thus it can't access
+          // chrome: URIs.
+          src: gFaviconHttpUri.spec,
+        },
+      ],
+    },
+  });
+
+  sandbox.restore();
+});
+
+add_task(async function test_manifestIcon_sized() {
+  let sandbox = sinon.createSandbox();
+  sandbox.stub(TaskbarTabsUtils, "getFaviconUri").resolves(null);
+
+  await checkTaskbarTabIcon(gFaviconImg, {
+    uri: kBaseUri,
+    manifest: {
+      icons: [
+        {
+          // This needs to be HTTP since it's from the manifest, so in theory
+          // it could be given from random Web content and thus it can't access
+          // chrome: URIs.
+          src: gFaviconHttpUri.spec,
+          sizes: "1x1 2x2 3x3 250x250",
+        },
+      ],
+    },
+  });
+
+  sandbox.restore();
+});
+
+add_task(async function test_manifestIcon_selectsBestSize() {
+  let sandbox = sinon.createSandbox();
+  sandbox.stub(TaskbarTabsUtils, "getFaviconUri").resolves(null);
+
+  await checkTaskbarTabIcon(gFaviconImg, {
+    uri: kBaseUri,
+    manifest: {
+      icons: [
+        {
+          src: gBigFaviconHttpUri.spec,
+          sizes: "255x255 257x257",
+        },
+        {
+          src: gFaviconHttpUri.spec,
+          sizes: "256x256",
+        },
+      ],
+    },
+  });
+
+  sandbox.restore();
+});
+
+add_task(async function test_manifestIcon_overridesFavicon() {
+  let sandbox = sinon.createSandbox();
+  sandbox.stub(TaskbarTabsUtils, "getFaviconUri").resolves(gBigFaviconUri);
+
+  await checkTaskbarTabIcon(gFaviconImg, {
+    uri: kBaseUri,
+    manifest: {
+      icons: [
+        {
+          src: gBigFaviconHttpUri.spec,
+          sizes: "255x255 257x257",
+        },
+        {
+          src: gFaviconHttpUri.spec,
+          sizes: "256x256",
+        },
+      ],
+    },
+  });
 
   sandbox.restore();
 });
@@ -148,12 +251,12 @@ add_task(async function test_replaceTabWithWindowLoadsSavedIcon() {
  * @param {imgIContainer} aImage - The expected image for this Taskbar Tab.
  * @param {object} [aDetails] - Additional options for the test.
  * @param {nsIURI} [aDetails.uri] - The URI to load.
- * @param {string} [aDetails.startPath] - The "start_url" to set in the fake
- * Web App Manifest.
+ * @param {string} [aDetails.manifest] - The Web App Manifest to associate with
+ * the Taskbar Tab.
  */
 async function checkTaskbarTabIcon(
   aImage,
-  { uri = kBaseUri, startPath = null } = {}
+  { uri = kBaseUri, manifest = null } = {}
 ) {
   const sandbox = sinon.createSandbox();
 
@@ -174,7 +277,7 @@ async function checkTaskbarTabIcon(
   Assert.strictEqual(tt, null, "No Taskbar Tab exists under url");
 
   // The first run should create a Taskbar Tab.
-  await openAndMoveIntoTaskbarTab(uri, startPath);
+  await openAndMoveIntoTaskbarTab(uri, manifest);
   await pendingPin;
   tt = await TaskbarTabs.findTaskbarTab(uri, 0);
   Assert.notEqual(tt, null, "A new Taskbar Tab was created");
@@ -210,7 +313,7 @@ async function checkTaskbarTabIcon(
 
   // This time, we expect to reuse the same one, read from the disk (and thus
   // scaled to 256x256).
-  await openAndMoveIntoTaskbarTab(uri, startPath);
+  await openAndMoveIntoTaskbarTab(uri, manifest);
   await pendingPin;
   tt = await TaskbarTabs.findTaskbarTab(uri, 0);
   Assert.equal(tt?.id, priorId, "The Taskbar Tab was reused");
@@ -238,17 +341,18 @@ async function checkTaskbarTabIcon(
 }
 
 /**
- * Opens aUri in a new tab and moves it into a Taskbar Tab. Additionally, uses
- * aStartPath as the "start_url" of the page's manifest.
+ * Opens aUri in a new tab and moves it into a Taskbar Tab, possibly with a
+ * Web App Manifest.
  *
  * @param {nsIURI} aUri - The URI to load.
- * @param {string} aStartPath - The value to use as "start_url".
+ * @param {string} aManifest - The Web App Manifest to put on the page.
  */
-async function openAndMoveIntoTaskbarTab(aUri, aStartPath) {
+async function openAndMoveIntoTaskbarTab(aUri, aManifest) {
   await BrowserTestUtils.withNewTab(aUri.spec, async browser => {
-    await SpecialPowers.spawn(browser, [aStartPath], async path => {
-      if (path !== null) {
-        content.document.body.innerHTML = `<link rel="manifest" href='data:application/json,{"start_url": "${path}"}'>`;
+    let json = aManifest ? JSON.stringify(aManifest) : null;
+    await SpecialPowers.spawn(browser, [json], async manifest => {
+      if (manifest !== null) {
+        content.document.body.innerHTML = `<link rel="manifest" href='data:application/json,${manifest}'>`;
       }
     });
 

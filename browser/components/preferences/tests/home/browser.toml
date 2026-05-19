@@ -1,8 +1,8 @@
 [DEFAULT]
-support-files = [
-  "head.js",
-  "../head.js",
+prefs = [
+  "browser.settings-redesign.enabled=false",
 ]
+support-files = ["head.js"]
 tags = "os_integration"
 
 ["browser_homepage_custom_homepage_add_multiple_urls.js"]
@@ -21,7 +21,37 @@ tags = "os_integration"
 
 ["browser_homepage_default.js"]
 
+["browser_homepage_extension_combined.js"]
+
+["browser_homepage_extension_custom_url_fallback.js"]
+
+["browser_homepage_extension_custom_url_label.js"]
+
+["browser_homepage_extension_custom_url_lifecycle.js"]
+
+["browser_homepage_extension_disable.js"]
+
+["browser_homepage_extension_multiple.js"]
+
+["browser_homepage_extension_multiple_homepage.js"]
+
+["browser_homepage_extension_newtab.js"]
+
+["browser_homepage_extension_restore_defaults.js"]
+
+["browser_homepage_extension_switch_back.js"]
+
+["browser_homepage_extension_uninstall.js"]
+
+["browser_homepage_extension_windows.js"]
+
 ["browser_homepage_firefox_home.js"]
+
+["browser_homepage_firefox_home_disabled_both_off.js"]
+
+["browser_homepage_firefox_home_disabled_tabs_on.js"]
+
+["browser_homepage_firefox_home_disabled_windows_on.js"]
 
 ["browser_homepage_firefox_home_recent_activity.js"]
 

@@ -510,14 +510,16 @@ var tests = [
         "Check distribution isn't undefined."
       );
       // distribution id defaults to "default" for most builds,
-      // "mozilla-MSIX" for MSIX builds, and "mozilla-official" for
-      // official Mozilla builds.
+      // "mozilla-MSIX" for MSIX builds, "mozilla-official" for
+      // official Mozilla builds, and "enterprise-local" for enterprise builds.
       let expectedDistribution = "default";
       if (
         AppConstants.platform === "win" &&
         Services.sysinfo.getProperty("hasWinPackageId")
       ) {
         expectedDistribution = "mozilla-MSIX";
+      } else if (AppConstants.MOZ_ENTERPRISE) {
+        expectedDistribution = "enterprise-local";
       } else if (AppConstants.BUILT_BY_MOZILLA) {
         expectedDistribution = "mozilla-official";
       }

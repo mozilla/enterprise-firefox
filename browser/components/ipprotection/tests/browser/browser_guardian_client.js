@@ -4,8 +4,26 @@
 
 "use strict";
 
+// Enterprise builds lock these prefs. Unlock them so tests can set them
+// to local servers, and re-lock on cleanup.
+if (AppConstants.MOZ_ENTERPRISE) {
+  const lockedPrefs = [
+    "browser.ipProtection.guardian.endpoint",
+    "identity.fxaccounts.remote.root",
+  ].filter(p => Services.prefs.prefIsLocked(p));
+
+  for (const pref of lockedPrefs) {
+    Services.prefs.unlockPref(pref);
+  }
+  registerCleanupFunction(() => {
+    for (const pref of lockedPrefs) {
+      Services.prefs.lockPref(pref);
+    }
+  });
+}
+
 const { GuardianClient } = ChromeUtils.importESModule(
-  "moz-src:///toolkit/components/ipprotection/GuardianClient.sys.mjs"
+  "moz-src:///toolkit/components/ipprotection/fxa/GuardianClient.sys.mjs"
 );
 function makeGuardianServer(
   arg = {

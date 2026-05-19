@@ -138,7 +138,7 @@ add_task(async function syncToPrefs_spaceKey() {
       "Row is checked initially"
     );
     gTree.view.selection.select(row);
-    EventUtils.synthesizeKey(" ", {}, gTree.ownerGlobal);
+    EventUtils.synthesizeKey(" ", {}, gTree.documentGlobal);
     Assert.ok(
       !UrlbarPrefs.get(shortcut.pref),
       "Pref is disabled after pressing space key"
@@ -176,7 +176,7 @@ add_task(async function syncToPrefs_click() {
     let rect = gTree.getCoordsForCellItem(row, col, "cell");
     let x = rect.x + rect.width / 2;
     let y = rect.y + rect.height / 2;
-    EventUtils.synthesizeMouse(gTree.body, x, y, {}, gTree.ownerGlobal);
+    EventUtils.synthesizeMouse(gTree.body, x, y, {}, gTree.documentGlobal);
 
     Assert.ok(
       !UrlbarPrefs.get(shortcut.pref),
@@ -243,9 +243,9 @@ add_task(async function keywordNotEditable_enterKey() {
     );
 
     gTree.view.selection.select(row);
-    EventUtils.synthesizeKey("KEY_Enter", {}, gTree.ownerGlobal);
+    EventUtils.synthesizeKey("KEY_Enter", {}, gTree.documentGlobal);
     EventUtils.sendString("newkeyword");
-    EventUtils.synthesizeKey("KEY_Enter", {}, gTree.ownerGlobal);
+    EventUtils.synthesizeKey("KEY_Enter", {}, gTree.documentGlobal);
 
     // Wait a moment to allow for any possible asynchronicity.
     // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
@@ -305,7 +305,7 @@ add_task(async function keywordNotEditable_click() {
       x,
       y,
       { clickCount: 1 },
-      gTree.ownerGlobal
+      gTree.documentGlobal
     );
 
     // Now double-click the keyword column.
@@ -314,13 +314,13 @@ add_task(async function keywordNotEditable_click() {
       x,
       y,
       { clickCount: 2 },
-      gTree.ownerGlobal
+      gTree.documentGlobal
     );
 
     await promise;
 
     EventUtils.sendString("newkeyword");
-    EventUtils.synthesizeKey("KEY_Enter", {}, gTree.ownerGlobal);
+    EventUtils.synthesizeKey("KEY_Enter", {}, gTree.documentGlobal);
 
     // Wait a moment to allow for any possible asynchronicity.
     // eslint-disable-next-line mozilla/no-arbitrary-setTimeout

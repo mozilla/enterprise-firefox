@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { SearchModeSwitcher } from "chrome://browser/content/urlbar/SearchModeSwitcher.mjs";
 import { createEditor } from "chrome://browser/content/urlbar/SmartbarInputUtils.mjs";
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/ai-website-chip.mjs";
@@ -51,8 +52,6 @@ const lazy = XPCOMUtils.declareLazy({
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ReaderMode: "moz-src:///toolkit/components/reader/ReaderMode.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
-  SearchModeSwitcher:
-    "moz-src:///browser/components/urlbar/SearchModeSwitcher.sys.mjs",
   SearchUIUtils: "moz-src:///browser/components/search/SearchUIUtils.sys.mjs",
   SearchUtils: "moz-src:///toolkit/components/search/SearchUtils.sys.mjs",
   SmartbarInputController:
@@ -100,7 +99,7 @@ const UNLIMITED_MAX_RESULTS = 99;
 const MAX_INPUT_LENGTH = 32000;
 
 let getBoundsWithoutFlushing = element =>
-  element.ownerGlobal.windowUtils.getBoundsWithoutFlushing(element);
+  element.documentGlobal.windowUtils.getBoundsWithoutFlushing(element);
 let px = number => number.toFixed(2) + "px";
 
 /**
@@ -200,9 +199,7 @@ ${
         </html:div>
         <menupopup class="urlbarView-result-menu"
                    consumeoutsideclicks="false"/>
-        <hbox class="search-one-offs"
-              includecurrentengine="true"
-              disabletab="true"/>
+        <html:moz-urlbar-slot name="search-one-offs" />
       </html:div>
       <html:div class="smartbar-button-container">
         <html:context-icon-button></html:context-icon-button>
@@ -210,6 +207,10 @@ ${
         <html:input-cta action=""></html:input-cta>
       </html:div>
     `;
+  }
+
+  static get observedAttributes() {
+    return ["open"];
   }
 
   /**
@@ -269,6 +270,7 @@ ${
    * @type {"searchbar"|"smartbar"|"urlbar"}
    */
   #sapName;
+  #scrollAnimationId = null;
   #smartbarAction = "";
   #smartbarActionPending = false;
   // Stores the smartbar action in effect before generation started, so it can
@@ -289,6 +291,7 @@ ${
   // Tracks IME composition.
   #compositionState = lazy.UrlbarUtils.COMPOSITION.NONE;
   #compositionClosedPopup = false;
+  #compositionHadText = false;
 
   #isSidebarMode = false;
 
@@ -319,7 +322,7 @@ ${
 
     // If the current window context does not have gBrowser,
     // get the main browser window.
-    this.window = this.ownerGlobal;
+    this.window = this.documentGlobal;
     if (!this.window.gBrowser) {
       lazy.logger.debug(`gBrowser not available, get the browser window.`);
       this.window = window.browsingContext.topChromeWindow;
@@ -430,7 +433,7 @@ ${
     this.controller = new lazy.UrlbarController({ input: this });
     this.controller.addListener(this);
     this.view = new lazy.UrlbarView(this);
-    this.searchModeSwitcher = new lazy.SearchModeSwitcher(this);
+    this.searchModeSwitcher = new SearchModeSwitcher(this);
 
     // The event bufferer can be used to defer events that may affect users
     // muscle memory; for example quickly pressing DOWN+ENTER should end up
@@ -465,11 +468,23 @@ ${
     this._setPlaceholder(null);
 
     // Defer until after layout so listeners can safely interact with the element.
-    this.ownerGlobal.requestAnimationFrame(() => {
+    this.documentGlobal.requestAnimationFrame(() => {
       this.dispatchEvent(
         new CustomEvent("smartbar-initialized", { bubbles: true })
       );
     });
+  }
+
+  attributeChangedCallback(attribute, _oldValue, _newValue) {
+    if (attribute != "open") {
+      return;
+    }
+
+    if (this.view.isOpen) {
+      this.startLayoutExtend();
+    } else {
+      this.endLayoutExtend();
+    }
   }
 
   connectedCallback() {
@@ -526,6 +541,9 @@ ${
     // This is used to detect commands launched from the panel, to avoid
     // recording abandonment events when the command causes a blur event.
     this.view.panel.addEventListener("command", this, true);
+
+    // This listener handles the overflow scroll fade animation.
+    this.view.panel.addEventListener("scroll", this);
 
     this.window.addEventListener("customizationstarting", this);
     this.window.addEventListener("aftercustomization", this);
@@ -617,6 +635,13 @@ ${
     // This is used to detect commands launched from the panel, to avoid
     // recording abandonment events when the command causes a blur event.
     this.view.panel.removeEventListener("command", this, true);
+
+    // This listener handles the overflow scroll fade animation.
+    this.view.panel.removeEventListener("scroll", this);
+    if (this.#scrollAnimationId) {
+      this.window.cancelAnimationFrame(this.#scrollAnimationId);
+      this.#scrollAnimationId = null;
+    }
 
     this.window.removeEventListener("customizationstarting", this);
     this.window.removeEventListener("aftercustomization", this);
@@ -2312,15 +2337,20 @@ ${
       }
     }
 
-    this.controller.engagementEvent.startTrackingBounceEvent(browser, event, {
-      result,
-      element,
-      location: this.sapLocation,
-      searchString: this._lastSearchString,
-      selType: this.controller.engagementEvent.typeFromElement(result, element),
-      searchSource: this.getSearchSource(event),
-      windowMode: this.windowMode,
-    });
+    this.controller.engagementEvent
+      .startTrackingBounceEvent(browser, event, {
+        result,
+        element,
+        location: this.sapLocation,
+        searchString: this._lastSearchString,
+        selType: this.controller.engagementEvent.typeFromElement(
+          result,
+          element
+        ),
+        searchSource: this.getSearchSource(event),
+        windowMode: this.windowMode,
+      })
+      .catch(lazy.logger.error);
 
     this.controller.engagementEvent.record(event, {
       result,
@@ -2650,6 +2680,11 @@ ${
     }
     this.#smartbarActionPending = false;
     this.#updateSmartbarCTAButton(queryContext.results[0]);
+  }
+
+  onQueryFinished() {
+    // Calling #updatePanelScrollFade to ensure `has-overflow` is not stale.
+    this.#updatePanelScrollFade();
   }
 
   /**
@@ -3228,6 +3263,143 @@ ${
 
   get smartbarButtonContainer() {
     return this.querySelector(".smartbar-button-container");
+  }
+
+  /**
+   * Move focus to the first focusable button in the smartbar action button
+   * container, skipping any that are hidden or disabled. Only meaningful
+   * in smartbar mode, where at least one action button is always visible
+   * and enabled.
+   */
+  focusFirstActionButton() {
+    /** @type {HTMLElement} */ (
+      this.smartbarButtonContainer.querySelector(
+        ":scope > :not([hidden]):not([disabled])"
+      )
+    ).focus();
+  }
+
+  /**
+   * Move focus to the last focusable element in the smartbar action button
+   * container. Recurses through visible shadow trees so split-button
+   * hosts (e.g. input-cta's chevron) land on their deepest last
+   * tabbable, making the reverse Tab cycle symmetric with the forward
+   * one. Layout-agnostic: doesn't assume a particular last button or
+   * wrapping element. Only meaningful in smartbar mode.
+   */
+  focusLastActionButton() {
+    const buttons = this.smartbarButtonContainer.querySelectorAll(
+      ":scope > :not([hidden]):not([disabled])"
+    );
+    const lastHost = /** @type {HTMLElement} */ (buttons[buttons.length - 1]);
+    let last = lastHost;
+    const walk = node => {
+      if (node.checkVisibility && !node.checkVisibility()) {
+        return;
+      }
+      if (this.#isTabbable(node)) {
+        last = node;
+      }
+      if (node.shadowRoot) {
+        for (const child of node.shadowRoot.children) {
+          walk(child);
+        }
+      }
+      for (const child of node.children) {
+        walk(child);
+      }
+    };
+    walk(lastHost);
+    /** @type {HTMLElement} */ (last).focus();
+  }
+
+  /**
+   * Whether `el` participates in Tab navigation. Matches the browser's
+   * tab-order rule (`tabIndex >= 0`, excluding disabled and `<link>`)
+   * so callers can predict where default Tab would land.
+   *
+   * @param {Element | null | undefined} el
+   * @returns {boolean}
+   */
+  #isTabbable(el) {
+    return el && !el.disabled && el.tabIndex >= 0 && el.localName != "link";
+  }
+
+  /**
+   * Walks up from `target` through normal DOM and shadow root boundaries
+   * (via `parentNode || host`) to determine whether `container` is an
+   * ancestor. Works regardless of shadow root mode (open or closed).
+   *
+   * @param {Node | null | undefined} target
+   * @param {Node | null | undefined} container
+   * @returns {boolean}
+   */
+  #isInsideContainer(target, container) {
+    while (target && target != container) {
+      target = target.parentNode || target.host;
+    }
+    return !!target;
+  }
+
+  /**
+   * Tab handler for keydown events originating inside the smartbar action
+   * button container. Mirrors the urlbar's circular Tab pattern: Tab from
+   * the last action button wraps back to the first result; Shift+Tab from
+   * the first wraps to the last.
+   *
+   * @param {KeyboardEvent} event
+   */
+  #onActionButtonsKeyDown(event) {
+    // Escape from any action button closes the suggestions and returns
+    // focus to the input, mirroring the behaviour when Escape is pressed
+    // from the input itself.
+    if (event.keyCode == KeyEvent.DOM_VK_ESCAPE && this.view.isOpen) {
+      this.view.close();
+      this.focus();
+      event.preventDefault();
+      return;
+    }
+    if (event.keyCode != KeyEvent.DOM_VK_TAB || !this.view.isOpen) {
+      return;
+    }
+    const container = this.smartbarButtonContainer;
+    const buttons = [
+      ...container.querySelectorAll(":scope > :not([hidden]):not([disabled])"),
+    ];
+    if (!buttons.length) {
+      return;
+    }
+    // Walk up from the composed target through normal DOM and shadow
+    // root boundaries (via `parentNode || host`) to find the action
+    // button host containing the focused element. composedPath() would
+    // skip closed shadow root boundaries, so we walk manually.
+    let focused = event.composedTarget;
+    while (focused && !buttons.includes(focused)) {
+      focused = focused.parentNode || focused.host;
+    }
+    if (!focused) {
+      return;
+    }
+    // The inner focused element (e.g. the main button or chevron of a
+    // split moz-button). If a tabbable sibling exists in the same shadow
+    // tree, let default Tab cycle into it before wrapping.
+    const innerTarget = /** @type {HTMLElement} */ (event.composedTarget);
+    const adjacent = event.shiftKey
+      ? innerTarget?.previousElementSibling
+      : innerTarget?.nextElementSibling;
+    if (this.#isTabbable(adjacent)) {
+      return;
+    }
+
+    if (event.shiftKey && focused == buttons[0]) {
+      this.focus();
+      this.view.selectBy(1, { reverse: true, userPressedTab: true });
+      event.preventDefault();
+    } else if (!event.shiftKey && focused == buttons[buttons.length - 1]) {
+      this.focus();
+      this.view.selectBy(1, { reverse: false, userPressedTab: true });
+      event.preventDefault();
+    }
   }
 
   get value() {
@@ -4084,7 +4256,7 @@ ${
     if (this.getAttribute("pageproxystate") == "valid") {
       uri = this.#isOpenedPageInBlankTargetLoading
         ? this.window.gBrowser.selectedBrowser.browsingContext
-            .nonWebControlledBlankURI
+            .nonWebControlledLoadingURI
         : this.window.gBrowser.currentURI;
     } else {
       // The value could be:
@@ -5527,10 +5699,11 @@ ${
     }
 
     // Respect the autohide preference for easier inspecting/debugging via
-    // the browser toolbox.
+    // the browser toolbox. Keep the view open when focus moves to any
+    // action button so the user can Tab back to the result list.
     if (
       !lazy.UrlbarPrefs.get("ui.popup.disable_autohide") &&
-      !this._inputCta?.contains(event.relatedTarget)
+      !this.smartbarButtonContainer?.contains(event.relatedTarget)
     ) {
       this.view.close();
     }
@@ -5786,6 +5959,13 @@ ${
       this.#compositionClosedPopup = false;
     }
 
+    if (
+      compositionState == lazy.UrlbarUtils.COMPOSITION.COMPOSING &&
+      event.data
+    ) {
+      this.#compositionHadText = true;
+    }
+
     this.toggleAttribute("usertyping", value);
     this.removeAttribute("actiontype");
 
@@ -5853,7 +6033,7 @@ ${
     // 1. a compositionstart event
     // 2. some input events
     // 3. a compositionend event
-    // 4. an input event
+    // 4. an input event (some IMEs may skip this when step 3 has empty data)
 
     // We should do nothing during composition or if composition was canceled
     // and we didn't close the popup on composition start.
@@ -5866,12 +6046,13 @@ ${
       return;
     }
 
-    // Autofill only when text is inserted (i.e., event.data is not empty) and
-    // it's not due to pasting.
+    // Don't autofill when the user is explicitly deleting content, pasting, or
+    // undoing/redoing.
     const allowAutofill =
       (!lazy.UrlbarPrefs.get("keepPanelOpenDuringImeComposition") ||
         compositionState !== lazy.UrlbarUtils.COMPOSITION.COMPOSING) &&
-      !!event.data &&
+      !event.inputType?.startsWith("delete") &&
+      !event.inputType?.startsWith("history") &&
       !lazy.UrlbarUtils.isPasteEvent(event) &&
       this._maybeAutofillPlaceholder(value);
 
@@ -6058,6 +6239,46 @@ ${
     return new lazy.UrlbarQueryContext(options);
   }
 
+  /**
+   * Handles scroll events from the urlbarView panel.
+   *
+   * Returns early if:
+   * - the event does not come from the urlbarView panel
+   * - CSS `animation-timeline: scroll()` is supported
+   *
+   * @param {Event} event
+   */
+  _on_scroll(event) {
+    if (
+      event.target !== this.view.panel ||
+      CSS.supports("animation-timeline", "scroll()")
+    ) {
+      return;
+    }
+    this.#updatePanelScrollFade();
+  }
+
+  #updatePanelScrollFade() {
+    // Only run animation if there is not already an animation request for
+    // the current frame.
+    if (this.#scrollAnimationId) {
+      return;
+    }
+    this.#scrollAnimationId = this.window.requestAnimationFrame(() => {
+      this.#scrollAnimationId = null;
+
+      const { scrollTop, scrollHeight, clientHeight } = this.view.panel;
+      const maxScroll = scrollHeight - clientHeight;
+      const hasScrollOverflow = maxScroll > 0;
+      const progress = hasScrollOverflow ? scrollTop / maxScroll : 0;
+      this.view.panel.toggleAttribute("has-overflow", hasScrollOverflow);
+      this.view.panel.style.setProperty(
+        "--smartbar-view-scroll-progress",
+        progress.toFixed(3)
+      );
+    });
+  }
+
   _on_scrollend() {
     this.updateTextOverflow();
   }
@@ -6104,10 +6325,34 @@ ${
       // Ignore char key input while processing enter key.
       event.preventDefault();
     }
+    // Don't insert a space character into the contenteditable when SPACE
+    // is meant to activate a selected result-menu (or other button-like
+    // selectable element). The controller's keydown handler will open the
+    // menu; we just need to suppress the character insertion before the
+    // multiline editor's input pipeline picks it up.
+    if (
+      this.#isSmartbarMode &&
+      event.data == " " &&
+      this.view?.shouldSpaceActivateSelectedElement?.()
+    ) {
+      event.preventDefault();
+    }
   }
 
   _on_keydown(event) {
     if (event.currentTarget == this.window) {
+      // Tab/Shift+Tab/Escape on the smartbar action buttons goes through
+      // a dedicated handler. We detect membership via a manual ancestor
+      // walk so we work across shadow root boundaries regardless of mode.
+      if (
+        this.#isInsideContainer(
+          event.composedTarget,
+          this.smartbarButtonContainer
+        )
+      ) {
+        this.#onActionButtonsKeyDown(event);
+        return;
+      }
       // It would be great if we could more easily detect the user focusing the
       // address bar through a keyboard shortcut, but F6 and TAB bypass are
       // not going through commands handling.
@@ -6241,6 +6486,7 @@ ${
       throw new Error("Trying to start a nested composition?");
     }
     this.#compositionState = lazy.UrlbarUtils.COMPOSITION.COMPOSING;
+    this.#compositionHadText = false;
 
     if (lazy.UrlbarPrefs.get("keepPanelOpenDuringImeComposition")) {
       return;
@@ -6285,6 +6531,21 @@ ${
     this.#compositionState = event.data
       ? lazy.UrlbarUtils.COMPOSITION.COMMIT
       : lazy.UrlbarUtils.COMPOSITION.CANCELED;
+
+    // Certain IMEs fire a spurious empty composition after each commit without
+    // a subsequent input event. If this composition was empty throughout and it
+    // closed the popup, reopen it directly since we can't rely on a following
+    // input event.
+    if (
+      !event.data &&
+      !this.#compositionHadText &&
+      this.#compositionClosedPopup &&
+      !lazy.UrlbarPrefs.get("keepPanelOpenDuringImeComposition")
+    ) {
+      this.#compositionState = lazy.UrlbarUtils.COMPOSITION.NONE;
+      this.#compositionClosedPopup = false;
+      this.startQuery({ resetSearchState: false, event });
+    }
   }
 
   _on_dragstart(event) {
@@ -6421,7 +6682,7 @@ ${
       this.window.gBrowser.selectedBrowser.browsingContext.sessionHistory
         ?.count === 0 &&
       this.window.gBrowser.selectedBrowser.browsingContext
-        .nonWebControlledBlankURI
+        .nonWebControlledLoadingURI
     );
   }
 

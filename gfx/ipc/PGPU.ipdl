@@ -44,6 +44,7 @@ using mozilla::layers::VideoBridgeSource from "mozilla/layers/VideoBridgeUtils.h
 using mozilla::hal::BatteryInformation from "mozilla/hal_sandbox/PHal.h";
 using mozilla::gfx::DeviceResetReason from "mozilla/gfx/Types.h";
 using mozilla::gfx::DeviceResetDetectPlace from "mozilla/gfx/Types.h";
+using std::string from "string";
 
 namespace mozilla {
 namespace gfx {
@@ -115,7 +116,7 @@ parent:
 
   // Functions supporting PerfStats data collection.
   async UpdatePerfStatsCollectionMask(uint64_t aMask);
-  async CollectPerfStatsJSON() returns (nsCString aStats);
+  async CollectPerfStatsJSON() returns (string aStats);
 
 #if defined(MOZ_SANDBOX) && defined(MOZ_DEBUG) && defined(ENABLE_TESTS)
   async InitSandboxTesting(Endpoint<PSandboxTestingChild> aEndpoint);

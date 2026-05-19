@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 const { PrintUtils, Services, AppConstants } =
-  window.docShell.chromeEventHandler.ownerGlobal;
+  window.docShell.chromeEventHandler.documentGlobal;
 
 ChromeUtils.defineESModuleGetters(this, {
   DeferredTask: "resource://gre/modules/DeferredTask.sys.mjs",
@@ -420,9 +420,9 @@ var PrintEventHandler = {
       this.printProgressIndicator.hidden = false;
       let bc = this.printPreviewEl.currentBrowsingContext;
       await this._doPrint(bc, settings);
-#ifdef MOZ_ENTERPRISE
-      this._recordPagePrinted(settings);
-#endif
+      if (AppConstants.MOZ_ENTERPRISE) {
+        this._recordPagePrinted(settings);
+      }
     } catch (e) {
       console.error(e);
     }
@@ -449,7 +449,6 @@ var PrintEventHandler = {
     return aBrowsingContext.print(aSettings);
   },
 
-#ifdef MOZ_ENTERPRISE
   _recordPagePrinted(aSettings) {
     const isEnabled = Services.prefs.getBoolPref(
       "print.enterprise.telemetry.printPage.enabled",
@@ -509,7 +508,6 @@ var PrintEventHandler = {
         return sourceUrl;
     }
   },
-#endif
 
   cancelPrint() {
     Glean.printing.previewCancelledTm.add(1);
@@ -2861,7 +2859,7 @@ async function pickFileName(contentTitle, currentURI) {
   filename = DownloadPaths.sanitize(filename);
 
   picker.init(
-    window.docShell.chromeEventHandler.ownerGlobal.browsingContext,
+    window.docShell.chromeEventHandler.documentGlobal.browsingContext,
     title,
     Ci.nsIFilePicker.modeSave
   );

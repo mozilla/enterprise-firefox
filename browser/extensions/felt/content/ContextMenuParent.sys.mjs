@@ -13,7 +13,7 @@ export class ContextMenuParent extends JSWindowActorParent {
       return;
     }
 
-    let win = browser.ownerGlobal;
+    let win = browser.documentGlobal;
     this.#openContextMenu(message.data, win);
   }
 

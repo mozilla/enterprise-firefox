@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 /*
  * This module implements the policy to block websites from being visited,
  * or to only allow certain websites to be visited.
@@ -149,19 +151,23 @@ export let WebsiteFilter = {
         url = URL.parse(location, channel.URI.spec);
       }
       if (url && !this.isAllowed(url.href)) {
-#ifdef MOZ_ENTERPRISE
-        let referrerSpec = "";
-        try {
-          let referrerInfo = channel.referrerInfo;
-          if (referrerInfo) {
-            let originalReferrer = referrerInfo.originalReferrer;
-            if (originalReferrer) {
-              referrerSpec = originalReferrer.spec;
+        if (AppConstants.MOZ_ENTERPRISE) {
+          let referrerSpec = "";
+          try {
+            let referrerInfo = channel.referrerInfo;
+            if (referrerInfo) {
+              let originalReferrer = referrerInfo.originalReferrer;
+              if (originalReferrer) {
+                referrerSpec = originalReferrer.spec;
+              }
             }
-          }
-        } catch (e) {}
-        this._recordBlocklistDomainBrowsed(channel.originalURI.spec, url.href, referrerSpec);
-#endif
+          } catch (e) {}
+          this._recordBlocklistDomainBrowsed(
+            channel.originalURI.spec,
+            url.href,
+            referrerSpec
+          );
+        }
         channel.cancel(Cr.NS_ERROR_BLOCKED_BY_POLICY);
       }
     } catch (e) {}
@@ -188,8 +194,6 @@ export let WebsiteFilter = {
     }
     return true;
   },
-  /* eslint-disable */
-#ifdef MOZ_ENTERPRISE
   _recordBlocklistDomainBrowsed(originalUrl, resolvedUrl, referrer) {
     const isEnabled = Services.prefs.getBoolPref(
       "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled",
@@ -263,6 +267,4 @@ export let WebsiteFilter = {
         return sourceUrl;
     }
   },
-#endif
-  /* eslint-enable */
 };

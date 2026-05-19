@@ -7,13 +7,14 @@ import { CommonUtils } from "resource://services-common/utils.sys.mjs";
 import { HawkClient } from "resource://services-common/hawkclient.sys.mjs";
 import { deriveHawkCredentials } from "resource://services-common/hawkrequest.sys.mjs";
 import { CryptoUtils } from "moz-src:///services/crypto/modules/utils.sys.mjs";
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
-#ifdef MOZ_ENTERPRISE
 const lazy = {};
-ChromeUtils.defineESModuleGetters(lazy, {
-  ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
-});
-#endif
+if (AppConstants.MOZ_ENTERPRISE) {
+  ChromeUtils.defineESModuleGetters(lazy, {
+    ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
+  });
+}
 
 import {
   ERRNO_ACCOUNT_DOES_NOT_EXIST,
@@ -789,20 +790,16 @@ FxAccountsClient.prototype = {
       log.debug("Received new request during backoff, re-rejecting.");
       throw this.backoffError;
     }
-#ifdef MOZ_ENTERPRISE
-    let accessToken = await lazy.ConsoleClient.getAccessToken();
-#endif
-
     let response;
     try {
       response = await this.hawk.request(
         path,
         method,
         credentials,
-        jsonPayload
-#ifdef MOZ_ENTERPRISE
-        , { "Authorization": `Bearer ${accessToken}`}
-#endif
+        jsonPayload,
+        ...(AppConstants.MOZ_ENTERPRISE && {
+          Authorization: `Bearer ${await lazy.ConsoleClient.getAccessToken()}`,
+        })
       );
     } catch (error) {
       log.error(`error ${method}ing ${path}`, error);

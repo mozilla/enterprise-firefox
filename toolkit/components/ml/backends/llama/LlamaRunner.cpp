@@ -118,7 +118,7 @@ nsresult LlamaGenerateTask::Run() {
                          __PRETTY_FUNCTION__);
         LOGE_RUNNER("{}", msg);
         // graceful termination
-        return mozilla::Err(Error{msg});
+        return mozilla::Err(Error{std::move(msg)});
       }
     }
 
@@ -129,7 +129,7 @@ nsresult LlamaGenerateTask::Run() {
       auto msg = nsFmtCString("{}: Unable to append message to the response",
                               __PRETTY_FUNCTION__);
       LOGE_RUNNER("{}", msg);
-      return mozilla::Err(Error{msg});
+      return mozilla::Err(Error{std::move(msg)});
     }
 
     response.mPhase = chunk.mPhase;
@@ -179,7 +179,7 @@ nsresult LlamaGenerateTask::Run() {
         __PRETTY_FUNCTION__);
     LOGE_RUNNER("{}", msg);
 
-    mErrorMessage = msg;
+    mErrorMessage = std::move(msg);
     mState = TaskState::CompletedFailure;
   }
 
@@ -303,6 +303,10 @@ RefPtr<LlamaGenerateTaskPromise> LlamaGenerateTask::GetMessage() {
   return promise.forget();
 }
 
+bool LlamaGenerateTask::IsActive() const {
+  return mState != TaskState::Idle && mState != TaskState::Running;
+}
+
 }  // namespace mozilla::llama
 
 namespace mozilla::dom {
@@ -320,6 +324,10 @@ void LlamaStreamSource::DisconnectFromOwner() {
   LOGD_RUNNER("DisconnectFromOwner called - worker is shutting down");
   ShutdownWorkerThread();
   GlobalTeardownObserver::DisconnectFromOwner();
+}
+
+bool LlamaStreamSource::IsActive() const {
+  return mTask != nullptr && mTask->IsActive();
 }
 
 void LlamaStreamSource::ShutdownWorkerThread() {
@@ -572,6 +580,18 @@ LlamaRunner::LlamaRunner(const GlobalObject& aGlobal)
 already_AddRefed<ReadableStream> LlamaRunner::CreateGenerationStream(
     const LlamaChatOptions& aOptions, ErrorResult& aRv) {
   LOGD_RUNNER("Entered {}", __PRETTY_FUNCTION__);
+
+  // Guard against concurrent use: LLamaBackend is not thread-safe.
+  if (mStreamSource && mStreamSource->IsActive()) {
+    auto msg = nsFmtCString(
+        "{} Unable to create a new generation stream: "
+        "A generation is already in progress on this LlamaRunner.",
+        __PRETTY_FUNCTION__);
+    LOGE_RUNNER("{}", msg);
+    aRv.ThrowInvalidStateError(msg);
+    return nullptr;
+  }
+
   RefPtr<LlamaStreamSource> source =
       new LlamaStreamSource(mGlobal, mBackend, aOptions);
 

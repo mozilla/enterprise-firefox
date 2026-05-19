@@ -5,6 +5,7 @@
 #include "jsapi/RTCEncodedFrameBase.h"
 
 #include <cstddef>
+#include <span>
 
 #include "api/frame_transformer_interface.h"
 #include "js/ArrayBuffer.h"
@@ -98,7 +99,7 @@ void RTCEncodedFrameBase::SetData(const ArrayBuffer& aData) {
   if (mState.mFrame) {
     aData.ProcessData([&](const Span<uint8_t>& aData, JS::AutoCheckCannotGC&&) {
       mState.mFrame->SetData(
-          webrtc::ArrayView<const uint8_t>(aData.Elements(), aData.Length()));
+          std::span<const uint8_t>(aData.Elements(), aData.Length()));
     });
   }
 }

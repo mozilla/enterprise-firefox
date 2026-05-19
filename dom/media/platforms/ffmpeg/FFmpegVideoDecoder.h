@@ -13,6 +13,7 @@
 #include "ImageContainer.h"
 #include "PerformanceRecorder.h"
 #include "SimpleMap.h"
+#include "nsTHashMap.h"
 #include "nsTHashSet.h"
 #if LIBAVCODEC_VERSION_MAJOR >= 57 && LIBAVUTIL_VERSION_MAJOR >= 56
 #  include "mozilla/DataMutex.h"
@@ -36,6 +37,12 @@
 
 struct _VADRMPRIMESurfaceDescriptor;
 typedef struct _VADRMPRIMESurfaceDescriptor VADRMPRIMESurfaceDescriptor;
+
+struct AVHWFramesContext;
+struct AVFrame;
+#if LIBAVCODEC_VERSION_MAJOR >= 60 && !defined(FFVPX_VERSION)
+#  include <vulkan/vulkan.h>
+#endif
 
 namespace mozilla {
 namespace layers {
@@ -180,6 +187,7 @@ class FFmpegVideoDecoder<LIBAV_VER>
     MediaCodec,  // Android
     VAAPI,       // Linux Desktop
     V4L2,        // Linux embedded
+    Vulkan,      // Linux Vulkan Video
   };
   void InitHWCodecContext(ContextType aType);
 
@@ -227,7 +235,17 @@ class FFmpegVideoDecoder<LIBAV_VER>
   bool IsLinuxHDR() const;
   MediaResult InitVAAPIDecoder();
   MediaResult InitV4L2Decoder();
+#  if LIBAVCODEC_VERSION_MAJOR >= 60 && !defined(FFVPX_VERSION)
+  MediaResult InitVulkanDecoder();
+
+#    include "FFmpegVulkanVideoDecoder.h"
+#  endif
   bool CreateVAAPIDeviceContext();
+#  if LIBAVCODEC_VERSION_MAJOR >= 60 && !defined(FFVPX_VERSION)
+  bool CreateVulkanDeviceContext(const StaticMutexAutoLock& aProofOfLock);
+  void PrepareVulkanDrmModifiersForSwFormat(int aSwFormat,
+                                            VkImageUsageFlags aImageUsages);
+#  endif
   bool GetVAAPISurfaceDescriptor(VADRMPRIMESurfaceDescriptor* aVaDesc);
   void AddAcceleratedFormats(nsTArray<AVCodecID>& aCodecList,
                              AVCodecID aCodecID, AVVAAPIHWConfig* hwconfig);
@@ -238,9 +256,28 @@ class FFmpegVideoDecoder<LIBAV_VER>
                                MediaDataDecoder::DecodedData& aResults);
   MediaResult CreateImageV4L2(int64_t aOffset, int64_t aPts, int64_t aDuration,
                               MediaDataDecoder::DecodedData& aResults);
+#  if LIBAVCODEC_VERSION_MAJOR >= 60 && !defined(FFVPX_VERSION)
+ public:
+  int ChooseVulkanPixelFormatFromContext(struct AVCodecContext* aCodecContext,
+                                         const int* aFormats);
+
+ private:
+  MediaResult CreateImageVulkan(int64_t aOffset, int64_t aPts,
+                                int64_t aDuration,
+                                MediaDataDecoder::DecodedData& aResults);
+#  endif
   void AdjustHWDecodeLogging();
 
   AVBufferRef* mVAAPIDeviceContext = nullptr;
+  AVBufferRef* mVulkanDeviceContext = nullptr;
+#  if LIBAVCODEC_VERSION_MAJOR >= 60 && !defined(FFVPX_VERSION)
+  FFmpegVulkanVideoDecoder mVulkanDecoder;
+  VkImageDrmFormatModifierListCreateInfoEXT mVulkanDrmModifierList = {};
+  VkImageFormatListCreateInfo mVulkanImageFormatList = {};
+  VkMemoryDedicatedAllocateInfo mVulkanAllocPnextDedicated[2] = {};
+  bool mVulkanDecodeUsesDrmModifier = false;
+  bool mVulkanTilingSettled = false;
+#  endif
   bool mUsingV4L2 = false;
   // If video overlay is used we want to upload SW decoded frames to
   // DMABuf and present it as a external texture to rendering pipeline.

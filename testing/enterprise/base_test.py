@@ -18,6 +18,27 @@ from marionette_driver.wait import Wait
 from marionette_harness import MarionetteTestCase
 
 
+def patch_process_runner_args(instance):
+    # It looks like on windows we are hitting bug 1906191, even after
+    # all processes exit, the pipe write end may not close, causing mozprocess's
+    # reader thread to block indefinitely on readline(). ignore_children makes
+    # mozprocess skip joining the reader thread, allowing shutdown to proceed.
+    original = instance._get_runner_args
+
+    def _patched():
+        args = original()
+        # ignore_children is only supported by mozprocess (not the macOS psutil-based handler)
+        if not sys.platform.startswith("darwin"):
+            args["process_args"]["ignore_children"] = True
+        return args
+
+    def unpatch():
+        instance._get_runner_args = original
+
+    instance._get_runner_args = _patched
+    return unpatch
+
+
 class Environment(Enum):
     FELT = "felt"
     FIREFOX = "Firefox"
@@ -27,13 +48,13 @@ class EnterpriseTestsBase(MarionetteTestCase):
     def setUp(self):
         os.environ.update({"MOZ_DISABLE_NONLOCAL_CONNECTIONS": "0"})
 
-        if hasattr(self, "EXTRA_ENV"):
+        if getattr(self, "EXTRA_ENV", None):
             self._saved_env = deepcopy(os.environ)
             os.environ.update(self.EXTRA_ENV)
 
         self._logger = self.logger
 
-        super().setUp()
+        marionette = self._marionette_weakref()
 
         # All this needs to happen before process is started to avoid race
         # conditions, but requires self.marionette that is setup by
@@ -41,15 +62,29 @@ class EnterpriseTestsBase(MarionetteTestCase):
         self.overwrite_distribution_ini()
 
         if hasattr(self, "_extra_cli_args"):
-            self._saved_cli_args = deepcopy(self.marionette.instance.app_args)
-            self.marionette.instance.app_args += self._extra_cli_args
+            self._saved_cli_args = deepcopy(marionette.instance.app_args)
+            marionette.instance.app_args += self._extra_cli_args
 
-        self._logger.info("Marionette force quit with cleanup.")
-        self.marionette.quit(in_app=False, clean=True)
-        self._logger.info("Marionette start new session, new instance expected.")
-        self.marionette.start_session(timeout=60)
+        self._unpatch_process_runner_args = patch_process_runner_args(
+            marionette.instance
+        )
 
-        if hasattr(self, "_extra_prefs"):
+        # On the first test the harness has Firefox already running, so we stop
+        # it here. On subsequent tests tearDown already quit it, so this
+        # will only discard and recreate the profile.
+        marionette.instance.close(clean=True)
+
+        if hasattr(self, "_apply_prefs_for_instance"):
+            self._apply_prefs_for_instance()
+
+        # All this needs to happen before process is started to avoid race
+        # conditions, but requires self.marionette that is setup by
+        # super().setUp() right above.
+        self.overwrite_distribution_ini(marionette)
+
+        super().setUp()
+
+        if getattr(self, "_extra_prefs", None):
             self._logger.info("Marionette enforcing gecko prefs")
             self.marionette.enforce_gecko_prefs(self._extra_prefs)
 
@@ -73,6 +108,8 @@ class EnterpriseTestsBase(MarionetteTestCase):
             self.marionette.instance.app_args = deepcopy(self._saved_cli_args)
             del self._saved_cli_args
 
+        self._unpatch_process_runner_args()
+
         # If there were prefs forced during setUp(), marionette's geckoinstance
         # does cache them and on the next execution of enforce_gecko_pref(), if
         # those prefs are not there anymore in self._extra_prefs, marionette code
@@ -87,12 +124,12 @@ class EnterpriseTestsBase(MarionetteTestCase):
 
         self.restore_distribution_ini()
 
-    def overwrite_distribution_ini(self):
+    def overwrite_distribution_ini(self, marionette):
         # Some test may need a non modified distribution.ini, so respect it and
         # and do not overwrite it when requested.
         # Also some tests may not define a console port, so skip this for them.
         if hasattr(self, "console_port") and not hasattr(self, "KEEP_DISTRIBUTION_INI"):
-            self.distribution_ini_path = self.get_distribution_ini(self.marionette)
+            self.distribution_ini_path = self.get_distribution_ini(marionette)
             self.distribution_ini_orig_path = os.path.join(
                 os.path.dirname(self.distribution_ini_path), "distribution.ini.orig"
             )
@@ -267,10 +304,9 @@ enterprise.console.address=http://localhost:{self.console_port}
         self._logger.info(f"Verifying user is signed out in {env.name}.")
 
         result = self.get_logged_in_user_info(env)
-        assert result["_error"] in (
-            "ReauthRequiredError: No refresh token available",
-            "ReauthRequiredError: Invalid refresh token",
-            "InvalidAuthError: Token refresh request blocked in Felt.",
+        assert (
+            result["_error"]
+            == "Error: Felt authentication flow has completed, but no valid token is available."
         ), "Unexpected state after signout"
 
     def assert_child_browser_closed(self):

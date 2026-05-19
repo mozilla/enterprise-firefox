@@ -352,7 +352,7 @@ export class AboutProtectionsParent extends JSWindowActorParent {
   }
 
   async receiveMessage(aMessage) {
-    let win = this.browsingContext.top.embedderElement.ownerGlobal;
+    let win = this.browsingContext.top.embedderElement.documentGlobal;
     switch (aMessage.name) {
       case "OpenAboutLogins":
         lazy.LoginHelper.openPasswordManager(win, {

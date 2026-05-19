@@ -4,7 +4,7 @@
 use nserror::{
     nsresult, NS_ERROR_CONNECTION_REFUSED, NS_ERROR_FAILURE, NS_ERROR_NOT_CONNECTED, NS_OK,
 };
-use nsstring::{nsACString, nsCString};
+use nsstring::{nsACString, nsAString, nsCString, nsString};
 use std::cell::RefCell;
 use std::env;
 use std::ffi::{c_char, CStr, CString};
@@ -19,7 +19,7 @@ use xpcom::RefPtr;
 
 use log::{error, trace};
 
-use crate::message::{FeltMessage, LogoutType, FELT_IPC_VERSION};
+use crate::message::{FeltMessage, FELT_IPC_VERSION};
 #[cfg(target_os = "linux")]
 use crate::utils;
 use crate::utils::{Tokens, CONSOLE_URL, TOKENS, TOKEN_EXPIRY_SKEW};
@@ -125,32 +125,26 @@ impl FeltXPCOM {
         self.send(FeltMessage::UpdateReady)
     }
 
-    fn SendTokens(&self) -> nserror::nsresult {
-        trace!("FeltXPCOM::SendTokens(): sending tokens");
+    /**
+     * Sends the current access token to the browser.
+     * Sending from the Browser to FELT is not supported.
+     */
+    fn SendAccessToken(&self) -> nserror::nsresult {
+        trace!("FeltXPCOM::SendAccessToken(): sending tokens");
         if self.is_felt_browser {
-            let guard = crate::FELT_CLIENT.lock().expect("Could not get lock");
-            match &*guard {
-                Some(client) => {
-                    trace!("FeltXPCOM::SendTokens(): sending back to client");
-                    client.send_back_tokens()
-                }
-                None => {
-                    trace!("FeltXPCOM::SendTokens(): missing client");
-                    NS_ERROR_FAILURE
-                }
-            }
+            trace!("FeltXPCOM::SendAccessToken(): Called from the browser, which is not supported");
+            NS_OK
         } else {
             match TOKENS.read() {
                 Ok(tokens) => {
-                    trace!("FeltXPCOM::SendTokens(): performing send");
-                    self.send(FeltMessage::Tokens((
+                    trace!("FeltXPCOM::SendAccessToken(): performing send");
+                    self.send(FeltMessage::AccessToken((
                         tokens.access_token.clone(),
-                        tokens.refresh_token.clone(),
                         tokens.expires_at,
                     )))
                 }
                 Err(_) => {
-                    trace!("FeltXPCOM::SendTokens failed: couldn't acquire lock",);
+                    trace!("FeltXPCOM::SendAccessToken failed: couldn't acquire lock",);
                     NS_ERROR_FAILURE
                 }
             }
@@ -162,39 +156,19 @@ impl FeltXPCOM {
         access_token: String,
         refresh_token: String,
         expires_at: i64,
-        can_mirror: bool,
     ) -> nserror::nsresult {
-        let set = match TOKENS.write() {
+        match TOKENS.write() {
             Ok(mut t) => {
                 *t = Tokens {
                     access_token,
                     refresh_token,
                     expires_at,
                 };
-                Ok(())
-            }
-            Err(_) => Err(()),
-        };
-
-        match set {
-            Ok(_) => {
                 trace!(
                     "FeltXPCOM::set_tokens(): successfull set of token, expires_at={}",
                     expires_at
                 );
-                if self.is_felt_browser && can_mirror {
-                    trace!(
-                        "FeltXPCOM::set_tokens(): maybe mirroring tokens, expires_at={}",
-                        expires_at
-                    );
-                    self.SendTokens()
-                } else {
-                    trace!(
-                        "FeltXPCOM::set_tokens(): not mirroring tokens, expires_at={}",
-                        expires_at
-                    );
-                    NS_OK
-                }
+                NS_OK
             }
             Err(_) => {
                 trace!(
@@ -220,16 +194,30 @@ impl FeltXPCOM {
             unsafe { (*access_token).to_string() },
             unsafe { (*refresh_token).to_string() },
             expires_at,
-            true,
         )
     }
 
-    fn ClearTokens(&self, allow_mirror: bool) -> nserror::nsresult {
-        trace!(
-            "FeltXPCOM::ClearTokens(): clearing, allow_mirror={}",
-            allow_mirror
-        );
-        self.set_tokens("".to_string(), "".to_string(), 0, allow_mirror)
+    // This clears access and refresh tokens only in the current process, i.e. there is
+    // no propagation of the cleared tokens to other processes.
+    fn ClearTokens(&self) -> nserror::nsresult {
+        trace!("FeltXPCOM::ClearTokens(): clearing");
+        self.set_tokens("".to_string(), "".to_string(), 0)
+    }
+
+    fn RefreshTokens(&self) -> nserror::nsresult {
+        trace!("FeltXPCOM::RefreshTokens");
+        let guard = crate::FELT_CLIENT.lock().expect("Could not get lock");
+        match &*guard {
+            Some(client) => {
+                trace!("RefreshTokens(): calling client.notify_refresh_tokens()");
+                client.notify_refresh_tokens();
+                NS_OK
+            }
+            None => {
+                trace!("firefox_felt_refresh_tokens(): missing client");
+                NS_ERROR_FAILURE
+            }
+        }
     }
 
     fn GetRefreshToken(&self, refresh_token: *mut nsACString) -> nserror::nsresult {
@@ -295,45 +283,29 @@ impl FeltXPCOM {
         }
     }
 
-    fn GetLogoutTypeNormal(&self, value: *mut nsACString) -> nserror::nsresult {
-        unsafe { (*value).assign(LogoutType::Normal.as_str()) };
-        NS_OK
-    }
-
-    fn GetLogoutTypeConsoleForcedLogout(&self, value: *mut nsACString) -> nserror::nsresult {
-        unsafe { (*value).assign(LogoutType::ConsoleForcedLogout.as_str()) };
-        NS_OK
-    }
-
-    fn GetLogoutTypeUnknown(&self, value: *mut nsACString) -> nserror::nsresult {
-        unsafe { (*value).assign(LogoutType::Unknown.as_str()) };
-        NS_OK
-    }
-
-    fn perform_logout(&self, logout_type: LogoutType) -> nserror::nsresult {
-        trace!("FeltXPCOM::perform_logout");
-        let guard = crate::FELT_CLIENT.lock().expect("Could not get lock");
-        match &*guard {
-            Some(client) => {
-                trace!("FeltXPCOM::perform_logout(): sending message");
-                client.notify_signout(logout_type);
-                NS_OK
-            }
-            None => {
-                trace!("FeltXPCOM::perform_logout(): missing client");
-                NS_ERROR_FAILURE
-            }
+    fn ShutdownFirefox(&self) -> nserror::nsresult {
+        if self.is_felt_ui {
+            trace!("FeltXPCOM::ShutdownFirefox");
+            self.send(FeltMessage::Shutdown)
+        } else {
+            error!("ShutdownFirefox called from browser, which is not allowed");
+            NS_ERROR_FAILURE
         }
     }
 
-    fn PerformNormalLogout(&self) -> nserror::nsresult {
-        trace!("FeltXPCOM::PerformNormalLogout");
-        self.perform_logout(LogoutType::Normal)
-    }
-
-    fn PerformConsoleForcedLogout(&self) -> nserror::nsresult {
-        trace!("FeltXPCOM::PerformConsoleForcedLogout");
-        self.perform_logout(LogoutType::ConsoleForcedLogout)
+    fn PerformSignout(&self) -> nserror::nsresult {
+        trace!("FeltXPCOM::PerformSignout");
+        let guard = crate::FELT_CLIENT.lock().expect("Could not get lock");
+        match &*guard {
+            Some(client) => {
+                client.notify_signout();
+                NS_OK
+            }
+            None => {
+                trace!("performSignout(): missing client");
+                NS_ERROR_FAILURE
+            }
+        }
     }
 
     fn IpcChannel(&self) -> nserror::nsresult {
@@ -419,18 +391,21 @@ impl FeltXPCOM {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): ExtensionReady");
                                 crate::utils::notify_observers("felt-extension-ready".to_string());
                             },
-                            Ok(FeltMessage::Logout(logout_type)) => {
-                                trace!("FeltServerThread::felt_server::ipc_loop(): Logout {:?}", logout_type);
-                                crate::utils::notify_observers_with_payload("felt-firefox-logout".to_string(), Some(logout_type.as_str().to_string()));
-                            },
-                            Ok(FeltMessage::Tokens((access_token, refresh_token, expires_at))) => {
+                            Ok(FeltMessage::LogoutShutdown) => {
+                                trace!("FeltServerThread::felt_server::ipc_loop(): Shutdown for logout");
+                                crate::utils::notify_observers("felt-firefox-logout".to_string());
+                            }
+                            Ok(FeltMessage::AccessToken((access_token, expires_at))) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): Update tokens from browser");
                                 let payload = serde_json::json!({
                                     "access_token": access_token,
-                                    "refresh_token": refresh_token,
                                     "expires_at": expires_at,
                                 }).to_string();
                                 crate::utils::notify_observers_with_payload("felt-firefox-tokens".to_string(), Some(payload));
+                            },
+                            Ok(FeltMessage::RefreshTokens) => {
+                                trace!("FeltServerThread::felt_server::ipc_loop(): Browser is requesting token refresh");
+                                crate::utils::notify_observers("felt-firefox-refresh-tokens".to_string());
                             },
                             Err(ipc_channel::ipc::IpcError::Disconnected) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): DISCONNECTED");
@@ -460,20 +435,31 @@ impl FeltXPCOM {
         }
     }
 
-    fn BinPath(&self, bin: *mut nsACString) -> nserror::nsresult {
+    fn BinPath(&self, bin: *mut nsAString) -> nserror::nsresult {
         match env::current_exe() {
-            Ok(exe_path) => match exe_path.to_str() {
-                Some(path) => {
-                    unsafe {
-                        (*bin).assign(path);
+            Ok(exe_path) => {
+                // Use separate code path between Windows and others platforms
+                // here because on Windows it is already encoded as wide strings
+                #[cfg(windows)]
+                let wide: Vec<u16> = {
+                    use std::os::windows::ffi::OsStrExt;
+                    exe_path.as_os_str().encode_wide().collect()
+                };
+
+                #[cfg(not(windows))]
+                let wide: Vec<u16> = match exe_path.to_str() {
+                    Some(path) => path.encode_utf16().collect(),
+                    None => {
+                        trace!("FeltXPCOM: BinPath: to_str() failure");
+                        return NS_ERROR_FAILURE;
                     }
-                    NS_OK
+                };
+
+                unsafe {
+                    (*bin).assign(&nsString::from(&wide[..]));
                 }
-                None => {
-                    trace!("FeltXPCOM: BinPath: to_str() failure");
-                    NS_ERROR_FAILURE
-                }
-            },
+                NS_OK
+            }
             Err(err) => {
                 trace!("FeltXPCOM: BinPath: err={}", err);
                 NS_ERROR_FAILURE
@@ -481,6 +467,9 @@ impl FeltXPCOM {
         }
     }
 
+    // Transforms the browser application to a "background application",
+    // i.e. no menu bar, and no dock icon. Or the other way round,
+    // depending on the `background` parameter.
     #[allow(unused_variables)]
     fn MakeBackgroundProcess(&self, background: bool, success: *mut bool) -> nserror::nsresult {
         trace!("FeltXPCOM: MakeBackgroundProcess");
@@ -506,11 +495,11 @@ impl FeltXPCOM {
                     transform_state: ProcessApplicationTransformState,
                 ) -> u32;
             }
-
             let psn = ProcessSerialNumber {
                 highLongOfPSN: 0,
                 lowLongOfPSN: kCurrentProcess,
             };
+
             let rv = unsafe {
                 TransformProcessType(
                     &psn,

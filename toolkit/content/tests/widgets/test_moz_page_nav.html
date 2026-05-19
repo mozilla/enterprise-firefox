@@ -128,13 +128,13 @@
        */
       add_task(async function test_first_item_selected_by_default() {
         is(
-          mozPageNav.pageNavButtons.length,
+          mozPageNav.visiblePageNavButtons.length,
           5,
           "Five page nav buttons are in the navigation"
         );
 
         ok(
-          mozPageNav.pageNavButtons[0].view === mozPageNav.currentView,
+          mozPageNav.visiblePageNavButtons[0].view === mozPageNav.currentView,
           "The first page nav button is selected by default"
         );
       });

@@ -8,6 +8,7 @@ const { EnterprisePolicyTesting, PoliciesPrefTracker } =
   ChromeUtils.importESModule(
     "resource://testing-common/EnterprisePolicyTesting.sys.mjs"
   );
+EnterprisePolicyTesting.pathResolver = getTestFilePath;
 
 PoliciesPrefTracker.start();
 registerCleanupFunction(() => {
@@ -18,20 +19,12 @@ async function setupPolicyEngineWithJson(json, customSchema) {
   PoliciesPrefTracker.restoreDefaultValues();
   const useHttp = Services.prefs.getBoolPref("browser.policies.testUseHttp");
   if (!useHttp) {
-    return setupPolicyWithJsonFile(json, customSchema);
-  }
-  return servePolicyWithJson(json, customSchema, registerCleanupFunction);
-}
-
-async function setupPolicyWithJsonFile(json, customSchema) {
-  if (typeof json != "object") {
-    let filePath = getTestFilePath(json ? json : "non-existing-file.json");
     return EnterprisePolicyTesting.setupPolicyEngineWithJson(
-      filePath,
+      json,
       customSchema
     );
   }
-  return EnterprisePolicyTesting.setupPolicyEngineWithJson(json, customSchema);
+  return servePolicyWithJson(json, customSchema, registerCleanupFunction);
 }
 
 function assertOverHttp() {

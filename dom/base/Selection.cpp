@@ -3949,6 +3949,12 @@ void Selection::NotifySelectionListeners() {
     presShell->ScheduleContentRelevancyUpdate(ContentRelevancyReason::Selected);
   }
 
+  if (mSelectionType == SelectionType::eNormal && RangeCount()) {
+    // Focus navigation should start from the new selection, instead
+    // of the last focused element.
+    doc->SetFocusNavigationStartingPoint(nullptr);
+  }
+
   RefPtr<nsFrameSelection> frameSelection = mFrameSelection;
 
   // We've notified all selection listeners even when some of them are removed

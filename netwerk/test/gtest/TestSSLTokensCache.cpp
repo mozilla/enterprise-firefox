@@ -249,3 +249,340 @@ TEST(TestTokensCache, QuicTokenPartitioning)
                                          unused);
   ASSERT_EQ(rv, NS_ERROR_NOT_AVAILABLE);
 }
+
+TEST(TestTokensCache, PersistenceRoundTrip)
+{
+  ClearAll();
+  mozilla::Preferences::SetInt("network.ssl_tokens_cache_records_per_entry", 3);
+  nsCString path = GetTempCachePath("test_tls_tc_rt.bin");
+
+  putToken("anon:a.example.com:443"_ns, 100);
+  putToken("anon:a.example.com:443"_ns, 200);
+  putToken("anon:b.example.com:443"_ns, 150);
+
+  mozilla::net::SSLTokensCache::TriggerWriteForTest(path);
+
+  ClearAll();
+  mozilla::net::SSLTokensCache::LoadForTest(path);
+
+  getAndCheckResult("anon:a.example.com:443"_ns, 100);
+  getAndCheckResult("anon:a.example.com:443"_ns, 200);
+  getAndCheckResult("anon:b.example.com:443"_ns, 150);
+}
+
+TEST(TestTokensCache, PersistenceExpiryFiltering)
+{
+  ClearAll();
+  nsCString path = GetTempCachePath("test_tls_tc_expiry.bin");
+
+  PRTime now = PR_Now();
+  RefPtr<CommonSocketControl> sc = createDummySocketControl();
+  nsTArray<uint8_t> expiredToken = MakeTestData(100);
+  nsTArray<uint8_t> validToken = MakeTestData(200);
+
+  ASSERT_EQ(mozilla::net::SSLTokensCache::Put(
+                "anon:example.com:443"_ns, expiredToken.Elements(), 100, sc,
+                now - PRTime(1) * PR_USEC_PER_SEC),
+            NS_OK);
+  ASSERT_EQ(mozilla::net::SSLTokensCache::Put(
+                "anon:example.com:443"_ns, validToken.Elements(), 200, sc,
+                now + PRTime(3600) * PR_USEC_PER_SEC),
+            NS_OK);
+
+  mozilla::net::SSLTokensCache::TriggerWriteForTest(path);
+  ClearAll();
+  mozilla::net::SSLTokensCache::LoadForTest(path);
+
+  nsTArray<uint8_t> result;
+  mozilla::net::SessionCacheInfo unused;
+  ASSERT_EQ(mozilla::net::SSLTokensCache::Get("anon:example.com:443"_ns, result,
+                                              unused),
+            NS_OK);
+  ASSERT_EQ(result.Length(), (size_t)200);
+  ASSERT_EQ(mozilla::net::SSLTokensCache::Get("anon:example.com:443"_ns, result,
+                                              unused),
+            NS_ERROR_NOT_AVAILABLE);
+}
+
+TEST(TestTokensCache, PersistenceCorruption)
+{
+  ClearAll();
+  nsCString path = GetTempCachePath("test_tls_tc_corrupt.bin");
+
+  putToken("anon:example.com:443"_ns, 100);
+  mozilla::net::SSLTokensCache::TriggerWriteForTest(path);
+  CorruptFileAt(path, 20, 0xFF);
+
+  ClearAll();
+  mozilla::net::SSLTokensCache::LoadForTest(path);  // must not crash
+
+  nsTArray<uint8_t> result;
+  mozilla::net::SessionCacheInfo unused;
+  ASSERT_EQ(mozilla::net::SSLTokensCache::Get("anon:example.com:443"_ns, result,
+                                              unused),
+            NS_ERROR_NOT_AVAILABLE);
+}
+
+TEST(TestTokensCache, PersistenceBadMagic)
+{
+  ClearAll();
+  nsCString path = GetTempCachePath("test_tls_tc_magic.bin");
+
+  putToken("anon:example.com:443"_ns, 100);
+  mozilla::net::SSLTokensCache::TriggerWriteForTest(path);
+  CorruptFileAt(path, 0, 'X');
+
+  ClearAll();
+  mozilla::net::SSLTokensCache::LoadForTest(path);
+
+  nsTArray<uint8_t> result;
+  mozilla::net::SessionCacheInfo unused;
+  ASSERT_EQ(mozilla::net::SSLTokensCache::Get("anon:example.com:443"_ns, result,
+                                              unused),
+            NS_ERROR_NOT_AVAILABLE);
+}
+
+TEST(TestTokensCache, PersistenceTruncated)
+{
+  ClearAll();
+  nsCString path = GetTempCachePath("test_tls_tc_trunc.bin");
+
+  putToken("anon:example.com:443"_ns, 100);
+  mozilla::net::SSLTokensCache::TriggerWriteForTest(path);
+
+  // Overwrite with correct magic+version but no body, so zlib decompression
+  // fails with a Truncated error (not BadVersion).
+  FILE* f = fopen(path.get(), "wb");
+  if (f) {
+    fwrite("STCF\x02", 1, 5, f);
+    fclose(f);
+  }
+
+  ClearAll();
+  mozilla::net::SSLTokensCache::LoadForTest(path);  // must not crash
+
+  nsTArray<uint8_t> result;
+  mozilla::net::SessionCacheInfo unused;
+  ASSERT_EQ(mozilla::net::SSLTokensCache::Get("anon:example.com:443"_ns, result,
+                                              unused),
+            NS_ERROR_NOT_AVAILABLE);
+}
+
+TEST(TestTokensCache, PersistenceEmpty)
+{
+  ClearAll();
+  nsCString path = GetTempCachePath("test_tls_tc_empty.bin");
+
+  mozilla::net::SSLTokensCache::TriggerWriteForTest(path);
+  mozilla::net::SSLTokensCache::LoadForTest(path);
+
+  nsTArray<uint8_t> result;
+  mozilla::net::SessionCacheInfo unused;
+  ASSERT_EQ(mozilla::net::SSLTokensCache::Get("anon:example.com:443"_ns, result,
+                                              unused),
+            NS_ERROR_NOT_AVAILABLE);
+}
+
+TEST(TestTokensCache, PersistenceConsumedRecordsAbsent)
+{
+  ClearAll();
+  mozilla::Preferences::SetInt("network.ssl_tokens_cache_records_per_entry", 3);
+  nsCString path = GetTempCachePath("test_tls_tc_consumed.bin");
+
+  putToken("anon:example.com:443"_ns, 100);
+  putToken("anon:example.com:443"_ns, 200);
+
+  // Consume the first token (Get is destructive)
+  nsTArray<uint8_t> result;
+  mozilla::net::SessionCacheInfo unused;
+  ASSERT_EQ(mozilla::net::SSLTokensCache::Get("anon:example.com:443"_ns, result,
+                                              unused),
+            NS_OK);
+
+  mozilla::net::SSLTokensCache::TriggerWriteForTest(path);
+
+  ClearAll();
+  mozilla::net::SSLTokensCache::LoadForTest(path);
+
+  // Only the unconsumed record (size 200) should be present
+  ASSERT_EQ(mozilla::net::SSLTokensCache::Get("anon:example.com:443"_ns, result,
+                                              unused),
+            NS_OK);
+  ASSERT_EQ(result.Length(), (size_t)200);
+  ASSERT_EQ(mozilla::net::SSLTokensCache::Get("anon:example.com:443"_ns, result,
+                                              unused),
+            NS_ERROR_NOT_AVAILABLE);
+}
+
+TEST(TestTokensCache, PersistenceClear)
+{
+  ClearAll();
+  nsCString path = GetTempCachePath("test_tls_tc_clear.bin");
+
+  putToken("anon:example.com:443"_ns, 100);
+  mozilla::net::SSLTokensCache::TriggerWriteForTest(path);
+
+  nsCOMPtr<nsIFile> file;
+  ASSERT_NS_SUCCEEDED(NS_NewNativeLocalFile(path, getter_AddRefs(file)));
+  bool exists = false;
+  file->Exists(&exists);
+  ASSERT_TRUE(exists);
+
+  // Clear Rust state and C++ cache, then reload from file
+  ClearAll();
+  mozilla::net::SSLTokensCache::LoadForTest(path);
+
+  nsTArray<uint8_t> result;
+  mozilla::net::SessionCacheInfo unused;
+  ASSERT_EQ(mozilla::net::SSLTokensCache::Get("anon:example.com:443"_ns, result,
+                                              unused),
+            NS_OK);
+  ASSERT_EQ(result.Length(), (size_t)100);
+}
+
+TEST(TestTokensCache, PersistenceServerCertRoundTrip)
+{
+  // Server cert bytes and succeeded cert
+  // chain must survive a persist/reload cycle so that PSK-resumed TLS 1.3
+  // connections — which receive no Certificate message — can reconstruct
+  // full security info via RebuildCertificateInfoFromSSLTokenCache().
+  ClearAll();
+  nsCString path = GetTempCachePath("test_tls_tc_cert.bin");
+
+  putToken("anon:example.com:443"_ns, 100);
+  mozilla::net::SSLTokensCache::TriggerWriteForTest(path);
+
+  ClearAll();
+  mozilla::net::SSLTokensCache::LoadForTest(path);
+
+  nsTArray<uint8_t> result;
+  mozilla::net::SessionCacheInfo info;
+  ASSERT_EQ(mozilla::net::SSLTokensCache::Get("anon:example.com:443"_ns, result,
+                                              info),
+            NS_OK);
+  ASSERT_FALSE(info.mServerCertBytes.IsEmpty())
+  << "Server cert bytes must survive persistence (bug 2033907)";
+  ASSERT_TRUE(info.mSucceededCertChainBytes.isSome())
+  << "Succeeded cert chain must survive persistence (needed for "
+     "connection coalescing)";
+  ASSERT_FALSE(info.mSucceededCertChainBytes->IsEmpty())
+  << "Succeeded cert chain must not be empty after persistence";
+}
+
+// Simulates a PSK-resumed TLS 1.3 connection using a token from the cache:
+// retrieves the token, creates a fresh CommonSocketControl, calls
+// SetSessionCacheInfo() + RebuildCertificateInfoFromSSLTokenCache() —
+// replicating the SetResumptionTokenFromExternalCache + HandshakeCallback path.
+static RefPtr<CommonSocketControl> SimulateResumedConnection(
+    const nsACString& aKey) {
+  nsTArray<uint8_t> token;
+  mozilla::net::SessionCacheInfo info;
+  if (mozilla::net::SSLTokensCache::Get(aKey, token, info) != NS_OK) {
+    return nullptr;
+  }
+  RefPtr<CommonSocketControl> sc(
+      new CommonSocketControl(nsLiteralCString("example.com"), 443, 0));
+  sc->SetSessionCacheInfo(std::move(info));
+  sc->RebuildCertificateInfoFromSSLTokenCache();
+  return sc;
+}
+
+TEST(TestTokensCache, ResumedConnectionHasValidCertAfterReload)
+{
+  // Verifies the bug 2033907 hypothesis: when a token loaded from disk is
+  // used for a PSK-resumed TLS 1.3 connection (no Certificate message from
+  // the server), RebuildCertificateInfoFromSSLTokenCache() must produce a
+  // server cert with valid DER bytes on the socket.
+  ClearAll();
+  nsCString path = GetTempCachePath("test_tls_tc_resumed_cert.bin");
+  putToken("anon:example.com:443"_ns, 100);
+  mozilla::net::SSLTokensCache::TriggerWriteForTest(path);
+  ClearAll();
+  mozilla::net::SSLTokensCache::LoadForTest(path);
+
+  RefPtr<CommonSocketControl> sc =
+      SimulateResumedConnection("anon:example.com:443"_ns);
+  ASSERT_TRUE(sc);
+
+  // The reconstructed cert must have non-empty DER bytes — HasServerCert()
+  // alone is not sufficient since nsNSSCertificate(empty_DER) is non-null.
+  nsCOMPtr<nsIX509Cert> serverCert = sc->GetServerCert();
+  ASSERT_TRUE(serverCert)
+  << "Resumed connection must have a server cert object after "
+     "RebuildCertificateInfoFromSSLTokenCache()";
+  nsTArray<uint8_t> certDER;
+  ASSERT_NS_SUCCEEDED(serverCert->GetRawDER(certDER));
+  ASSERT_FALSE(certDER.IsEmpty())
+  << "Cert DER must be non-empty after reconstruction from persisted "
+     "token (bug 2033907)";
+}
+
+TEST(TestTokensCache, ResumedConnectionEnablesCoalescing)
+{
+  // Verifies that HTTP/2 connection coalescing is enabled after a PSK
+  // resumption using a token loaded from disk. IsAcceptableForHost() returns
+  // false when mSucceededCertChain is empty.
+  ClearAll();
+  nsCString path = GetTempCachePath("test_tls_tc_coalesce.bin");
+  putToken("anon:example.com:443"_ns, 100);
+  mozilla::net::SSLTokensCache::TriggerWriteForTest(path);
+  ClearAll();
+  mozilla::net::SSLTokensCache::LoadForTest(path);
+
+  RefPtr<CommonSocketControl> sc =
+      SimulateResumedConnection("anon:example.com:443"_ns);
+  ASSERT_TRUE(sc);
+
+  // The succeeded cert chain must be populated so IsAcceptableForHost() passes.
+  nsTArray<RefPtr<nsIX509Cert>> chain;
+  nsCOMPtr<nsITransportSecurityInfo> secInfo;
+  ASSERT_NS_SUCCEEDED(sc->GetSecurityInfo(getter_AddRefs(secInfo)));
+  ASSERT_NS_SUCCEEDED(secInfo->GetSucceededCertChain(chain));
+  ASSERT_FALSE(chain.IsEmpty())
+  << "Succeeded cert chain must be non-empty after reload so that "
+     "HTTP/2 connection coalescing is not disabled";
+}
+
+TEST(TestTokensCache, PersistenceWriteAfterLoad)
+{
+  // Verify that tokens loaded from disk survive a subsequent flush —
+  // i.e. their IDs are correctly re-registered in the Rust shadow when loaded.
+  ClearAll();
+  mozilla::Preferences::SetInt("network.ssl_tokens_cache_records_per_entry", 3);
+  nsCString path = GetTempCachePath("test_tls_tc_wal.bin");
+
+  putToken("anon:a.example.com:443"_ns, 100);
+  putToken("anon:b.example.com:443"_ns, 200);
+
+  // Initial write to disk.
+  mozilla::net::SSLTokensCache::TriggerWriteForTest(path);
+
+  // Simulate restart: clear all state, reload from disk.
+  ClearAll();
+  mozilla::net::SSLTokensCache::LoadForTest(path);
+
+  // Add one more token in the new session and flush again.
+  putToken("anon:c.example.com:443"_ns, 300);
+  mozilla::net::SSLTokensCache::TriggerWriteForTest(path);
+
+  // Simulate a second restart: clear and reload.
+  ClearAll();
+  mozilla::net::SSLTokensCache::LoadForTest(path);
+
+  // All three tokens must survive — the two from the first session and the one
+  // added in the second session.
+  nsTArray<uint8_t> result;
+  mozilla::net::SessionCacheInfo unused;
+  ASSERT_EQ(mozilla::net::SSLTokensCache::Get("anon:a.example.com:443"_ns,
+                                              result, unused),
+            NS_OK);
+  ASSERT_EQ(result.Length(), (size_t)100);
+  ASSERT_EQ(mozilla::net::SSLTokensCache::Get("anon:b.example.com:443"_ns,
+                                              result, unused),
+            NS_OK);
+  ASSERT_EQ(result.Length(), (size_t)200);
+  ASSERT_EQ(mozilla::net::SSLTokensCache::Get("anon:c.example.com:443"_ns,
+                                              result, unused),
+            NS_OK);
+  ASSERT_EQ(result.Length(), (size_t)300);
+}

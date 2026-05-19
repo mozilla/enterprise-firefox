@@ -38,7 +38,8 @@ internal object SportsWidgetReducer {
 
         is SportsWidgetAction.MatchCardStateUpdated -> state.copy(
             sportsWidgetState = state.sportsWidgetState.copy(
-                matchCardState = action.matchCardState,
+                matchCardStates = action.matchCardStates,
+                errorState = null,
             ),
         )
 
@@ -57,6 +58,20 @@ internal object SportsWidgetReducer {
         is SportsWidgetAction.SkipFollowTeamUpdated -> state.copy(
             sportsWidgetState = state.sportsWidgetState.copy(
                 hasSkippedFollowTeam = action.hasSkippedFollowTeam,
+            ),
+        )
+
+        SportsWidgetAction.FetchMatches -> state
+
+        is SportsWidgetAction.FetchFailed -> state.copy(
+            sportsWidgetState = state.sportsWidgetState.copy(
+                errorState = action.error,
+            ),
+        )
+
+        is SportsWidgetAction.OneWeekToWorldCupOverrideUpdated -> state.copy(
+            sportsWidgetState = state.sportsWidgetState.copy(
+                isOneWeekToWorldCupOverride = action.isOneWeekToWorldCupOverride,
             ),
         )
     }

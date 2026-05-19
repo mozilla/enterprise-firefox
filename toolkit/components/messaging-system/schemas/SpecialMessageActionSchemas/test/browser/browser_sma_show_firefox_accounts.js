@@ -3,6 +3,19 @@
 
 "use strict";
 
+// Enterprise builds lock identity.fxaccounts.remote.root. Unlock it so tests can set it to a local server.
+add_setup(function () {
+  if (
+    AppConstants.MOZ_ENTERPRISE &&
+    Services.prefs.prefIsLocked("identity.fxaccounts.remote.root")
+  ) {
+    Services.prefs.unlockPref("identity.fxaccounts.remote.root");
+    registerCleanupFunction(() => {
+      Services.prefs.lockPref("identity.fxaccounts.remote.root");
+    });
+  }
+});
+
 // Note: "identity.fxaccounts.remote.root" is set to https://example.com in browser.toml
 add_task(async function test_SHOW_FIREFOX_ACCOUNTS() {
   await BrowserTestUtils.withNewTab("about:blank", async browser => {

@@ -1,5 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -64,13 +62,44 @@ constexpr size_t kDeviceNameBufferSize = 256;
 static bool IsRealSerialPort(const char* aDevpath) {
   int fd = open(aDevpath, O_RDWR | O_NONBLOCK | O_NOCTTY);
   if (fd < 0) {
+    MOZ_LOG(gWebSerialLog, LogLevel::Debug,
+            ("IsRealSerialPort: open(%s, O_RDWR|O_NONBLOCK|O_NOCTTY) failed: "
+             "errno=%d (%s)",
+             aDevpath, errno, strerror(errno)));
     return false;
   }
   int status;
   bool isReal = ioctl(fd, TIOCMGET, &status) == 0;
+  if (isReal) {
+    MOZ_LOG(gWebSerialLog, LogLevel::Debug,
+            ("IsRealSerialPort: %s accepted (TIOCMGET status=0x%x)", aDevpath,
+             status));
+  } else {
+    MOZ_LOG(gWebSerialLog, LogLevel::Debug,
+            ("IsRealSerialPort: TIOCMGET on %s failed: errno=%d (%s)", aDevpath,
+             errno, strerror(errno)));
+  }
   close(fd);
   return isReal;
 }
+
+#ifdef XP_MACOSX
+// macOS exposes built-in serial ports used for WiFi debugging and kernel
+// debugging via IOKit. They are not useful targets for WebSerial, so
+// hide them from enumeration. Bluetooth ports are intentionally not filtered.
+static bool IsMacOSSystemSerialPort(const char* aDevicePath) {
+  static constexpr const char* kSystemPortPaths[] = {
+      "/dev/tty.wlan-debug",
+      "/dev/tty.debug-console",
+  };
+  for (const char* p : kSystemPortPaths) {
+    if (strcmp(aDevicePath, p) == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+#endif
 
 PosixSerialPlatformService::PosixSerialPlatformService()
 #ifdef XP_LINUX
@@ -453,7 +482,7 @@ nsresult PosixSerialPlatformService::ConfigurePort(
   tty.c_oflag &= ~OPOST;
   tty.c_iflag &= ~(IGNBRK | BRKINT | ISTRIP | INLCR | IGNCR | ICRNL | IXON |
                    IXOFF | IXANY);
-  tty.c_iflag |= PARMRK;
+  tty.c_iflag &= ~PARMRK;
 
   // VMIN=1: the terminal driver requires at least 1 byte before completing
   // a read.  VMIN=0 also works on Linux, because O_NONBLOCK takes precedence
@@ -1355,6 +1384,14 @@ bool PosixSerialPlatformService::ExtractDeviceInfo(
   char devicePath[PATH_MAX];
   if (!CFStringGetCString((CFStringRef)pathRef, devicePath, sizeof(devicePath),
                           kCFStringEncodingUTF8)) {
+    return false;
+  }
+
+  if (IsMacOSSystemSerialPort(devicePath)) {
+    MOZ_LOG(gWebSerialLog, LogLevel::Debug,
+            ("PosixSerialPlatformService[%p]::ExtractDeviceInfo filtering "
+             "macOS system port: %s",
+             this, devicePath));
     return false;
   }
 

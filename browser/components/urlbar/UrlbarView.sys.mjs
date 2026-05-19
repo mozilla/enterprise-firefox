@@ -51,7 +51,7 @@ const RESULT_MENU_COMMANDS = {
 };
 
 const getBoundsWithoutFlushing = element =>
-  element.ownerGlobal.windowUtils.getBoundsWithoutFlushing(element);
+  element.documentGlobal.windowUtils.getBoundsWithoutFlushing(element);
 
 // Used to get a unique id to use for row elements, it wraps at 9999, that
 // should be plenty for our needs.
@@ -110,6 +110,13 @@ export class UrlbarView {
         addDynamicStylesheet(this.window, viewTemplate.stylesheet);
       }
     }
+
+    let contextMenu = this.document.querySelector("#urlbarView-context-menu");
+    if (contextMenu) {
+      contextMenu.addEventListener("command", this);
+      contextMenu.addEventListener("popupshowing", this);
+      contextMenu.addEventListener("popuphiding", this);
+    }
   }
 
   get oneOffSearchButtons() {
@@ -124,6 +131,15 @@ export class UrlbarView {
       );
     }
     return this.#oneOffSearchButtons;
+  }
+
+  /**
+   * The top chrome window. this.window is the owner of the view's panel which
+   * can be a content window for smartbar, so use the window exposed by the
+   * input to consistently get the chrome window for gBrowser and other APIs.
+   */
+  get chromeWindow() {
+    return this.input.window;
   }
 
   /**
@@ -545,13 +561,15 @@ export class UrlbarView {
 
     this.#stopTail150();
 
-    this.#inputWidthOnLastClose = getBoundsWithoutFlushing(this.input).width;
+    this.#containerWidthOnLastClose = getBoundsWithoutFlushing(
+      this.input.parentElement
+    ).width;
 
     // We exit search mode preview on close since the result previewing it is
     // implicitly unselected.
     if (this.input.searchMode?.isPreview) {
       this.input.searchMode = null;
-      this.window.gBrowser.userTypedValue = null;
+      this.chromeWindow.gBrowser.userTypedValue = null;
     }
 
     this.resultMenu.hidePopup();
@@ -561,7 +579,6 @@ export class UrlbarView {
     this.#previousTabToSearchEngine = null;
 
     this.input.removeAttribute("open");
-    this.input.endLayoutExtend();
 
     // Search Tips can open the view without the Urlbar being focused. If the
     // tip is ignored (e.g. the page content is clicked or the window loses
@@ -663,15 +680,17 @@ export class UrlbarView {
    * @returns {boolean} Whether the view was opened.
    */
   autoOpen({ event, suppressFocusBorder = true }) {
+    if (!event) {
+      return false;
+    }
+    if (this.input.readOnly) {
+      return false;
+    }
     if (this.#pickSearchTipIfPresent(event)) {
       return false;
     }
     if (this.input.inOverflowPanel) {
       // The results panel is currently disabled in the overflow panel.
-      return false;
-    }
-
-    if (!event) {
       return false;
     }
 
@@ -716,7 +735,8 @@ export class UrlbarView {
     if (
       this.#rows.firstElementChild &&
       this.#queryContext.searchString == this.input.value &&
-      this.#inputWidthOnLastClose == getBoundsWithoutFlushing(this.input).width
+      this.#containerWidthOnLastClose ==
+        getBoundsWithoutFlushing(this.input.parentElement).width
     ) {
       // We can reuse the current rows.
       queryOptions.allowAutofill = this.#queryContext.allowAutofill;
@@ -736,7 +756,7 @@ export class UrlbarView {
     // term. If they do want to navigate directly, users can modify their
     // search, which resets persistence and re-enables autofill.
     let state = this.input.getBrowserState(
-      this.window.gBrowser.selectedBrowser
+      this.chromeWindow.gBrowser.selectedBrowser
     );
     if (state.persist?.shouldPersist) {
       queryOptions.allowAutofill = false;
@@ -952,6 +972,11 @@ export class UrlbarView {
         queryContext.deferUserSelectionProviders.delete(r.providerName);
       });
     }
+
+    if (lazy.UrlbarPrefs.get("unifiedSearchButton.always")) {
+      // Update the search mode switcher icon to reflect what pressing Enter will do after new results show.
+      this.input.searchModeSwitcher?.updateSearchIcon();
+    }
   }
 
   /**
@@ -1139,7 +1164,7 @@ export class UrlbarView {
   #announceTabToSearchOnSelection;
   #blobUrlsByResultUrl = null;
   #tail150 = null;
-  #inputWidthOnLastClose = 0;
+  #containerWidthOnLastClose = 0;
   #l10nCache;
   #mousedownSelectedElement;
   #openPanelInstance;
@@ -1185,7 +1210,6 @@ export class UrlbarView {
 
     this.input.toggleAttribute("suppress-focus-border", true);
     this.input.toggleAttribute("open", true);
-    this.input.startLayoutExtend();
 
     this.window.addEventListener("resize", this);
     this.window.addEventListener("blur", this);
@@ -2198,6 +2222,8 @@ export class UrlbarView {
 
     item._content.id = item.id + "-inner";
 
+    item.toggleAttribute("is-top-pick", !!result.isBestMatch);
+
     if (result.isBottomUrlSuggestion) {
       this.#updateRowContentForBottomUrl(item, result);
       return;
@@ -2226,7 +2252,8 @@ export class UrlbarView {
     if (
       result.type == lazy.UrlbarUtils.RESULT_TYPE.SEARCH &&
       !result.payload.providesSearchMode &&
-      !result.payload.inPrivateWindow
+      !result.payload.inPrivateWindow &&
+      result.providerName != lazy.UrlbarProviderQuickSuggest.name
     ) {
       item.setAttribute(
         "type",
@@ -3136,6 +3163,13 @@ export class UrlbarView {
       if (element != row) {
         row?.toggleAttribute("descendant-selected", true);
       }
+      // Keep the selected row in view in the smartbar, where the results
+      // list is scrollable. `block: "nearest"` is a no-op when the row is
+      // already visible. Scoped to smartbar to avoid changing classic
+      // urlbar behavior.
+      if (this.input.sapName == "smartbar") {
+        (row ?? element).scrollIntoView({ block: "nearest" });
+      }
     }
 
     let result = row?.result;
@@ -3500,7 +3534,7 @@ export class UrlbarView {
     } else {
       tabGroupAction?.remove();
     }
-    let splitview = this.window.gBrowser.selectedTab.splitview;
+    let splitview = this.chromeWindow.gBrowser.selectedTab.splitview;
     let shouldMoveTabToSplitView =
       splitview &&
       !splitview.tabs.some(
@@ -3564,7 +3598,9 @@ export class UrlbarView {
   }
 
   #addGroupToSwitchTabChiclet(result, actionNode) {
-    const group = this.window.gBrowser.getTabGroupById(result.payload.tabGroup);
+    const group = this.chromeWindow.gBrowser.getTabGroupById(
+      result.payload.tabGroup
+    );
     if (!group) {
       actionNode.remove();
       return;
@@ -3603,6 +3639,14 @@ export class UrlbarView {
     actionNode.style.setProperty(
       "--tab-group-color-pale",
       group.style.getPropertyValue("--tab-group-color-pale")
+    );
+    actionNode.style.setProperty(
+      "--tab-group-background-color",
+      group.style.getPropertyValue("--tab-group-background-color")
+    );
+    actionNode.style.setProperty(
+      "--tab-group-text-color",
+      group.style.getPropertyValue("--tab-group-text-color")
     );
   }
 
@@ -4086,7 +4130,7 @@ export class UrlbarView {
 
     // Attaching the event listener to the window so we can capture `mouseup`
     // outside of the panel when the mouse is dragged.
-    this.panel.ownerGlobal.addEventListener("mouseup", this);
+    this.panel.documentGlobal.addEventListener("mouseup", this);
 
     // Select the element and open a speculative connection unless it's a
     // button. Buttons are special in the two ways listed below. Some buttons
@@ -4127,7 +4171,7 @@ export class UrlbarView {
       return;
     }
 
-    this.panel.ownerGlobal.removeEventListener("mouseup", this);
+    this.panel.documentGlobal.removeEventListener("mouseup", this);
 
     // Since the listener must be on the window use `event.composedPath()`
     // instead of `event.target` to handle shadow DOM encapsulation while
@@ -4191,6 +4235,7 @@ export class UrlbarView {
   }
 
   on_command(event) {
+    let contextMenu;
     if (event.currentTarget == this.resultMenu) {
       let result = this.#resultMenuResult;
       this.#resultMenuResult = null;
@@ -4204,6 +4249,11 @@ export class UrlbarView {
           break;
       }
       this.input.pickResult(result, event, menuitem);
+    } else if (
+      (contextMenu = event.target.closest("#urlbarView-context-menu"))
+    ) {
+      let row = contextMenu.triggerNode.closest(".urlbarView-row");
+      this.input.pickResult(row.result, event, event.target);
     }
   }
 
@@ -4226,6 +4276,42 @@ export class UrlbarView {
       }
 
       this.#populateResultMenu({ commands });
+    } else if (event.target.id == "urlbarView-context-menu") {
+      if (!lazy.UrlbarPrefs.get("contextMenu.featureGate")) {
+        event.preventDefault();
+        return;
+      }
+
+      //  Don't show the context menu if the trigger is not on a result row.
+      let row = event.triggerEvent?.target.closest(".urlbarView-row");
+      if (!row) {
+        event.preventDefault();
+        return;
+      }
+
+      // Set the context-menu-trigger attribute on the row so it can be styled
+      // as if it were hovered while the context menu is open.
+      row.toggleAttribute("context-menu-trigger", true);
+
+      // Disable the context menu if the result does not return url.
+      let url = lazy.UrlbarUtils.getUrlFromResult(row.result, {
+        element: row,
+      })?.url;
+      event.target.toggleAttribute("disabled", !url);
+    } else if (
+      event.target.id == "urlbarView-context-menu-open-in-container-tab-popup"
+    ) {
+      event.target.documentGlobal.createUserContextMenu(event, {
+        isContextMenu: true,
+      });
+    }
+  }
+
+  on_popuphiding(event) {
+    if (event.target.id == "urlbarView-context-menu") {
+      event.target.triggerNode
+        .closest(".urlbarView-row")
+        ?.toggleAttribute("context-menu-trigger", false);
     }
   }
 }

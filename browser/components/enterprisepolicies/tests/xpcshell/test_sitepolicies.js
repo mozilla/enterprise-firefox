@@ -35,6 +35,15 @@ function assertJitState(url, isAllowed) {
   );
 }
 
+function assertHasSitePolicy(url, expected) {
+  let uri = Services.io.newURI(url);
+  Assert.equal(
+    Services.policies.hasSitePoliciesForURI(uri),
+    expected,
+    `hasSitePoliciesForURI should return ${expected} for ${url}`
+  );
+}
+
 add_task(async function test_isAllowedForSite() {
   // Empty policies don't block anything
   await setupPolicyEngineWithJson({
@@ -264,4 +273,75 @@ add_task(async function test_isAllowedForSite() {
     "moz-nullprincipal:{56cac540-864d-47e7-8e25-1614eab5155e}",
     true
   );
+});
+
+add_task(async function test_hasSitePoliciesForURI() {
+  // No site policies → no URI matches
+  await setupPolicyEngineWithJson({
+    policies: {
+      SitePolicies: [],
+    },
+  });
+
+  assertHasSitePolicy("http://example.com/", false);
+  assertHasSitePolicy("http://example.net/", false);
+  assertHasSitePolicy(
+    "moz-nullprincipal:{56cac540-864d-47e7-8e25-1614eab5155e}",
+    false
+  );
+
+  // Simple match
+  await setupPolicyEngineWithJson({
+    policies: {
+      SitePolicies: [
+        {
+          Match: ["*.example.com"],
+          Policies: { DisableJit: true },
+        },
+      ],
+    },
+  });
+
+  assertHasSitePolicy("http://example.com/", true);
+  assertHasSitePolicy("http://www.example.com/", true);
+  assertHasSitePolicy("http://example.net/", false);
+  assertHasSitePolicy(
+    "moz-nullprincipal:{56cac540-864d-47e7-8e25-1614eab5155e}",
+    false
+  );
+
+  // URI in exceptions is not considered matched
+  await setupPolicyEngineWithJson({
+    policies: {
+      SitePolicies: [
+        {
+          Exceptions: ["*.example.com"],
+          Policies: { DisableJit: true },
+        },
+      ],
+    },
+  });
+
+  assertHasSitePolicy("http://example.com/", false);
+  assertHasSitePolicy("http://example.net/", true);
+  assertHasSitePolicy(
+    "moz-nullprincipal:{56cac540-864d-47e7-8e25-1614eab5155e}",
+    true
+  );
+
+  // A policy entry with no configured features still matches the URI.
+  // This differs from isAllowedForURI which falls through on empty features.
+  await setupPolicyEngineWithJson({
+    policies: {
+      SitePolicies: [
+        {
+          Match: ["*.example.com"],
+          Policies: {},
+        },
+      ],
+    },
+  });
+
+  assertHasSitePolicy("http://example.com/", false);
+  assertHasSitePolicy("http://example.net/", false);
 });

@@ -63,9 +63,13 @@ impl PseudoElement {
     fn flags_for_index(i: usize) -> PseudoStyleTypeFlags {
         static FLAGS: [PseudoStyleTypeFlags; PSEUDO_COUNT + 1] = [
         % for pseudo in PSEUDOS:
-        PseudoStyleTypeFlags::from_bits_truncate(${' | '.join(f"PseudoStyleTypeFlags::{flag}.bits()" for flag in pseudo.flags())}),
+        PseudoStyleTypeFlags::from_bits_truncate(${' | '.join(f"PseudoStyleTypeFlags::{flag}.bits()" for flag in pseudo.flags())}), // ${pseudo.name}
         % endfor
-        PseudoStyleTypeFlags::NONE, // :-webkit-*
+        // Unknown ::-webkit-* pseudos allow user-action state pseudo-classes.
+        PseudoStyleTypeFlags::from_bits_truncate(
+            PseudoStyleTypeFlags::IS_PSEUDO_ELEMENT.bits() |
+            PseudoStyleTypeFlags::SUPPORTS_USER_ACTION_STATE.bits()
+        ),
         ];
         FLAGS[i]
     }
@@ -94,6 +98,21 @@ impl PseudoElement {
         % endif
         % endfor
             _ => false,
+        }
+    }
+
+    /// Returns the current value of the `disabled_domains_pref` pref for
+    /// this pseudo, if it has one. The value is a list of domains for which
+    /// this pseudo should be treated as disabled (see
+    /// `nsContentUtils::IsURIInList` for the format).
+    pub fn disabled_domains(&self) -> Option<nsstring::nsCString> {
+        match *self {
+        % for pseudo in PSEUDOS:
+        % if pseudo.is_pseudo_element() and pseudo.disabled_domains_pref:
+            ${pseudo_element_variant(pseudo)} => Some(pref!("${pseudo.disabled_domains_pref}")),
+        % endif
+        % endfor
+            _ => None,
         }
     }
 

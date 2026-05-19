@@ -7,57 +7,6 @@ const FEATURE_PREF = "browser.settings-redesign.enabled";
 const CARD_NAME = "security-privacy-card";
 const ISSUE_CONTROL_ID = "securityWarningsGroup";
 
-// Some things are set dangerously in the test environment.
-// We can suppress these errors!
-const RESET_PROBLEMATIC_TEST_DEFAULTS = [
-  [
-    "browser.preferences.config_warning.warningAllowFingerprinters.dismissed",
-    true,
-  ],
-  [
-    "browser.preferences.config_warning.warningThirdPartyCookies.dismissed",
-    true,
-  ],
-  ["browser.preferences.config_warning.warningPasswordManager.dismissed", true],
-  ["browser.preferences.config_warning.warningPopupBlocker.dismissed", true],
-  [
-    "browser.preferences.config_warning.warningExtensionInstall.dismissed",
-    true,
-  ],
-  ["browser.preferences.config_warning.warningSafeBrowsing.dismissed", true],
-  ["browser.preferences.config_warning.warningDoH.dismissed", true],
-  ["browser.preferences.config_warning.warningECH.dismissed", true],
-  ["browser.preferences.config_warning.warningCT.dismissed", true],
-  ["browser.preferences.config_warning.warningCRLite.dismissed", true],
-  [
-    "browser.preferences.config_warning.warningCertificatePinning.dismissed",
-    true,
-  ],
-  ["browser.preferences.config_warning.warningTLSMin.dismissed", true],
-  ["browser.preferences.config_warning.warningTLSMax.dismissed", true],
-  [
-    "browser.preferences.config_warning.warningProxyAutodetection.dismissed",
-    true,
-  ],
-  [
-    "browser.preferences.config_warning.warningContentResourceURI.dismissed",
-    true,
-  ],
-  ["browser.preferences.config_warning.warningWorkerMIME.dismissed", true],
-  ["browser.preferences.config_warning.warningTopLevelDataURI.dismissed", true],
-  [
-    "browser.preferences.config_warning.warningActiveMixedContent.dismissed",
-    true,
-  ],
-  ["browser.preferences.config_warning.warningInnerHTMLltgt.dismissed", true],
-  ["browser.preferences.config_warning.warningFileURIOrigin.dismissed", true],
-  [
-    "browser.preferences.config_warning.warningPrivelegedConstraint.dismissed",
-    true,
-  ],
-  ["browser.preferences.config_warning.warningProcessSandbox.dismissed", true],
-];
-
 function getCardAndCheckHeader(document, expectedHeaderL10n) {
   let elements = document.getElementsByTagName(CARD_NAME);
   Assert.equal(elements.length, 1, "Card present in preferences");
@@ -84,7 +33,7 @@ function assertHappyBullets(card) {
 
 add_task(async function test_section_hidden_when_feature_flag_disabled() {
   await SpecialPowers.pushPrefEnv({
-    set: [[FEATURE_PREF, false]].concat(RESET_PROBLEMATIC_TEST_DEFAULTS),
+    set: [[FEATURE_PREF, false]].concat(RESET_PROBLEMATIC_TEST_STATUSES),
   });
 
   await BrowserTestUtils.withNewTab(
@@ -98,85 +47,54 @@ add_task(async function test_section_hidden_when_feature_flag_disabled() {
   await SpecialPowers.popPrefEnv();
 });
 
-add_task(async function test_section_default_state() {
+add_task(async function test_section_default_strict_and_issue_states() {
   await SpecialPowers.pushPrefEnv({
-    set: [[FEATURE_PREF, true]].concat(RESET_PROBLEMATIC_TEST_DEFAULTS),
+    set: [[FEATURE_PREF, true]].concat(RESET_PROBLEMATIC_TEST_STATUSES),
   });
 
   await BrowserTestUtils.withNewTab(
     { gBrowser, url: "about:preferences#privacy" },
     async function (browser) {
+      // 1. Default state: no strict, no issues.
       let card = getCardAndCheckHeader(
         browser.contentDocument,
         "security-privacy-status-ok-header"
       );
       assertHappyBullets(card);
-      let strictLabel = card.shadowRoot.getElementById("strictEnabled");
-      Assert.equal(strictLabel, null, "Strict mustn't be enabled");
-    }
-  );
+      Assert.equal(
+        card.shadowRoot.getElementById("strictEnabled"),
+        null,
+        "Strict mustn't be enabled"
+      );
 
-  await SpecialPowers.popPrefEnv();
-});
+      // 2. Strict indicator present once the ETP category is "strict".
+      await SpecialPowers.pushPrefEnv({
+        set: [["browser.contentblocking.category", "strict"]],
+      });
+      let reloaded = BrowserTestUtils.browserLoaded(browser);
+      browser.reload();
+      await reloaded;
 
-add_task(async function test_section_default_state() {
-  await SpecialPowers.pushPrefEnv({
-    set: [[FEATURE_PREF, true]].concat(RESET_PROBLEMATIC_TEST_DEFAULTS),
-  });
-
-  await BrowserTestUtils.withNewTab(
-    { gBrowser, url: "about:preferences#privacy" },
-    async function (browser) {
-      let card = getCardAndCheckHeader(
+      card = getCardAndCheckHeader(
         browser.contentDocument,
         "security-privacy-status-ok-header"
       );
       assertHappyBullets(card);
-      let strictLabel = card.shadowRoot.getElementById("strictEnabled");
-      Assert.equal(strictLabel, null, "Strict mustn't be enabled");
-    }
-  );
-
-  await SpecialPowers.popPrefEnv();
-});
-
-add_task(async function test_section_strict_indicator() {
-  await SpecialPowers.pushPrefEnv({
-    set: [
-      [FEATURE_PREF, true],
-      ["browser.contentblocking.category", "strict"],
-    ].concat(RESET_PROBLEMATIC_TEST_DEFAULTS),
-  });
-
-  await BrowserTestUtils.withNewTab(
-    { gBrowser, url: "about:preferences#privacy" },
-    async function (browser) {
-      let card = getCardAndCheckHeader(
-        browser.contentDocument,
-        "security-privacy-status-ok-header"
+      Assert.notEqual(
+        card.shadowRoot.getElementById("strictEnabled"),
+        null,
+        "Strict must be indicated"
       );
-      assertHappyBullets(card);
-      let strictLabel = card.shadowRoot.getElementById("strictEnabled");
-      Assert.notEqual(strictLabel, null, "Strict must be indicated");
-    }
-  );
 
-  await SpecialPowers.popPrefEnv();
-});
+      // 3. Issue present once the testing pref is set.
+      await SpecialPowers.pushPrefEnv({
+        set: [["privacy.ui.status_card.testing.show_issue", true]],
+      });
+      reloaded = BrowserTestUtils.browserLoaded(browser);
+      browser.reload();
+      await reloaded;
 
-add_task(async function test_issue_present() {
-  await SpecialPowers.pushPrefEnv({
-    set: [
-      [FEATURE_PREF, true],
-      ["browser.contentblocking.category", "strict"],
-      ["privacy.ui.status_card.testing.show_issue", true],
-    ].concat(RESET_PROBLEMATIC_TEST_DEFAULTS),
-  });
-
-  await BrowserTestUtils.withNewTab(
-    { gBrowser, url: "about:preferences#privacy" },
-    async function (browser) {
-      let card = getCardAndCheckHeader(
+      card = getCardAndCheckHeader(
         browser.contentDocument,
         "security-privacy-status-problem-header"
       );
@@ -190,11 +108,12 @@ add_task(async function test_issue_present() {
         "Link to issues is present"
       );
 
-      // config card
       let configCard = browser.contentDocument.getElementById(ISSUE_CONTROL_ID);
       Assert.notEqual(configCard, null, "Issue card is present");
-      let issues = configCard.listItems;
-      Assert.equal(issues.length, 1, "One issue present");
+      Assert.equal(configCard.listItems.length, 1, "One issue present");
+
+      await SpecialPowers.popPrefEnv();
+      await SpecialPowers.popPrefEnv();
     }
   );
 
@@ -206,7 +125,7 @@ add_task(async function test_issue_fix() {
     set: [
       [FEATURE_PREF, true],
       ["privacy.ui.status_card.testing.show_issue", true],
-    ].concat(RESET_PROBLEMATIC_TEST_DEFAULTS),
+    ].concat(RESET_PROBLEMATIC_TEST_STATUSES),
   });
   Services.fog.testResetFOG();
 
@@ -273,7 +192,7 @@ add_task(async function test_issue_dismiss() {
     set: [
       [FEATURE_PREF, true],
       ["privacy.ui.status_card.testing.show_issue", true],
-    ].concat(RESET_PROBLEMATIC_TEST_DEFAULTS),
+    ].concat(RESET_PROBLEMATIC_TEST_STATUSES),
   });
   Services.fog.testResetFOG();
 
@@ -347,7 +266,7 @@ add_task(async function test_dismiss_all_hides_issues() {
       [FEATURE_PREF, true],
       ["privacy.ui.status_card.testing.show_issue", true],
       ["browser.preferences.config_warning.dismissAll", true],
-    ].concat(RESET_PROBLEMATIC_TEST_DEFAULTS),
+    ].concat(RESET_PROBLEMATIC_TEST_STATUSES),
   });
 
   await BrowserTestUtils.withNewTab(
@@ -372,7 +291,7 @@ add_task(async function test_dismiss_all_hides_issues() {
 
 add_task(async function test_update_status_indicator() {
   await SpecialPowers.pushPrefEnv({
-    set: [[FEATURE_PREF, true]].concat(RESET_PROBLEMATIC_TEST_DEFAULTS),
+    set: [[FEATURE_PREF, true]].concat(RESET_PROBLEMATIC_TEST_STATUSES),
   });
 
   // Define testers for each UI state.

@@ -8,6 +8,7 @@ pref("browser.profiles.enabled", false);
 pref("extensions.activeThemeID", "firefox-enterprise-light@mozilla.org");
 
 pref("enterprise.log_level", "Error");
+pref("enterprise.prompt_on_signout", true);
 
 pref("browser.newtabpage.activity-stream.feeds.section.topstories", false);
 

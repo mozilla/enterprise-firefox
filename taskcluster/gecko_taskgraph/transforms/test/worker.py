@@ -69,11 +69,6 @@ WINDOWS_WORKER_TYPES = {
         "virtual-with-gpu": "win11-64-24h2-gpu",
         "hardware": "win11-64-24h2-hw",
     },
-    "windows11-64-24h2-enterprise": {
-        "virtual": "win11-64-24h2",
-        "virtual-with-gpu": "win11-64-24h2-gpu",
-        "hardware": "win11-64-24h2-hw",
-    },
     "windows11-64-24h2-artifact": {
         "virtual": "win11-64-24h2",
         "virtual-with-gpu": "win11-64-24h2-gpu",
@@ -126,6 +121,11 @@ WINDOWS_WORKER_TYPES = {
         "virtual-with-gpu": "win11-64-25h2-gpu",
         "hardware": "win11-64-24h2-hw",
     },
+    "windows11-64-25h2-enterprise": {
+        "virtual": "win11-64-25h2",
+        "virtual-with-gpu": "win11-64-25h2-gpu",
+        "hardware": "win11-64-24h2-hw",
+    },
     "windows11-64-25h2-ccov": {
         "virtual": "win11-64-25h2",
         "virtual-with-gpu": "win11-64-25h2-gpu",
@@ -166,6 +166,7 @@ MACOSX_WORKER_TYPES = {
     "macosx1400-64": "t-osx-1400-m2",
     "macosx1500-64": "t-osx-1500-m4",
     "macosx1500-aarch64": "t-osx-1500-m4",
+    "macosx1500-aarch64-vms": "t-osx-1500-m-vms",
 }
 
 transforms = TransformSequence()
@@ -190,6 +191,8 @@ def set_worker_type(config, tasks):
             task["worker-type"] = MACOSX_WORKER_TYPES["macosx1400-64"]
         elif test_platform.startswith("macosx1400-aarch64"):
             task["worker-type"] = MACOSX_WORKER_TYPES["macosx1400-aarch64"]
+        elif test_platform.startswith("macosx1500-aarch64-vms"):
+            task["worker-type"] = MACOSX_WORKER_TYPES["macosx1500-aarch64-vms"]
         elif test_platform.startswith("macosx1500-aarch64"):
             task["worker-type"] = MACOSX_WORKER_TYPES["macosx1500-aarch64"]
         elif test_platform.startswith("macosx1500-64"):
@@ -231,11 +234,6 @@ def set_worker_type(config, tasks):
                     task["worker-type"] = "win11-64-24h2-large"
             else:
                 task["worker-type"] = win_worker_type_platform[task["virtualization"]]
-        elif test_platform.startswith("android-hw-p5"):
-            if task["suite"] != "raptor":
-                task["worker-type"] = "t-bitbar-gw-unit-p5"
-            else:
-                task["worker-type"] = "t-bitbar-gw-perf-p5"
         elif test_platform.startswith("android-hw-p6"):
             if task["suite"] != "raptor":
                 task["worker-type"] = "t-bitbar-gw-unit-p6"

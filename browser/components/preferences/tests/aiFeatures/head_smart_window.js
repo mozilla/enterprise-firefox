@@ -22,7 +22,7 @@
 async function openSmartWindowPreferencesPage() {
   await openPreferencesViaOpenPreferencesAPI("general", { leaveOpen: true });
   const doc = gBrowser.selectedBrowser.contentDocument;
-  const win = doc.ownerGlobal;
+  const win = doc.documentGlobal;
   return { doc, win };
 }
 

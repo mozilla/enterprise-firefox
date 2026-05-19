@@ -862,7 +862,7 @@ class HttpBaseChannel : public nsHashPropertyBag,
 
   UniquePtr<ProfileChunkedBuffer> mSource;
 
-  uint32_t mLoadFlags{LOAD_NORMAL};
+  Atomic<uint32_t, Relaxed> mLoadFlags{LOAD_NORMAL};
   uint32_t mCaps{0};
 
   ClassOfService mClassOfService;

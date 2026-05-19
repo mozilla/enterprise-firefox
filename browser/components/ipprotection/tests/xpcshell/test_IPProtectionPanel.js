@@ -16,7 +16,6 @@ const { IPProtectionServerlist } = ChromeUtils.importESModule(
 class FakeIPProtectionPanelElement {
   constructor() {
     this.state = {
-      isSignedOut: true,
       isProtectionEnabled: false,
     };
     this.isConnected = false;
@@ -217,16 +216,10 @@ add_task(async function test_updateComponentState() {
  */
 add_task(async function test_IPProtectionPanel_signedIn() {
   let sandbox = sinon.createSandbox();
-  sandbox.stub(IPPSignInWatcher, "isSignedIn").get(() => true);
+  sandbox.stub(IPPFxaAuthProvider, "isReady").get(() => true);
   sandbox
-    .stub(IPPEnrollAndEntitleManager, "isEnrolledAndEntitled")
-    .get(() => true);
-  sandbox.stub(IPPEnrollAndEntitleManager, "isLinkedToGuardian").resolves(true);
-  sandbox.stub(IPProtectionService.guardian, "fetchUserInfo").resolves({
-    status: 200,
-    error: null,
-    entitlement: createTestEntitlement({ subscribed: true }),
-  });
+    .stub(IPPFxaAuthProvider, "getEntitlement")
+    .resolves({ entitlement: createTestEntitlement() });
 
   let ipProtectionPanel = new IPProtectionPanel();
   let fakeElement = new FakeIPProtectionPanelElement();
@@ -244,15 +237,15 @@ add_task(async function test_IPProtectionPanel_signedIn() {
   await signedInEventPromise;
 
   Assert.equal(
-    ipProtectionPanel.state.isSignedOut,
+    ipProtectionPanel.state.unauthenticated,
     false,
-    "isSignedOut should be false in the IPProtectionPanel state"
+    "unauthenticated should be false in the IPProtectionPanel state"
   );
 
   Assert.equal(
-    fakeElement.state.isSignedOut,
+    fakeElement.state.unauthenticated,
     false,
-    "isSignedOut should be false in the fake elements state"
+    "unauthenticated should be false in the fake elements state"
   );
 
   sandbox.restore();
@@ -263,7 +256,7 @@ add_task(async function test_IPProtectionPanel_signedIn() {
  */
 add_task(async function test_IPProtectionPanel_signedOut() {
   let sandbox = sinon.createSandbox();
-  sandbox.stub(IPPSignInWatcher, "isSignedIn").get(() => false);
+  sandbox.stub(IPPFxaAuthProvider, "isReady").get(() => false);
 
   let ipProtectionPanel = new IPProtectionPanel();
   let fakeElement = new FakeIPProtectionPanelElement();
@@ -282,15 +275,15 @@ add_task(async function test_IPProtectionPanel_signedOut() {
   await signedOutEventPromise;
 
   Assert.equal(
-    ipProtectionPanel.state.isSignedOut,
+    ipProtectionPanel.state.unauthenticated,
     true,
-    "isSignedOut should be true in the IPProtectionPanel state"
+    "unauthenticated should be true in the IPProtectionPanel state"
   );
 
   Assert.equal(
-    fakeElement.state.isSignedOut,
+    fakeElement.state.unauthenticated,
     true,
-    "isSignedOut should be true in the fake elements state"
+    "unauthenticated should be true in the fake elements state"
   );
 
   sandbox.restore();
@@ -307,17 +300,12 @@ add_task(async function test_IPProtectionPanel_started_stopped() {
   fakeElement.isConnected = true;
 
   let sandbox = sinon.createSandbox();
-  sandbox.stub(IPPSignInWatcher, "isSignedIn").get(() => true);
+  sandbox.stub(IPPFxaAuthProvider, "isReady").get(() => true);
+  sandbox.stub(IPPFxaAuthProvider, "aboutToStart").resolves(null);
   sandbox
-    .stub(IPPEnrollAndEntitleManager, "isEnrolledAndEntitled")
-    .get(() => true);
-  sandbox.stub(IPPEnrollAndEntitleManager, "isLinkedToGuardian").resolves(true);
-  sandbox.stub(IPProtectionService.guardian, "fetchUserInfo").resolves({
-    status: 200,
-    error: null,
-    entitlement: createTestEntitlement({ subscribed: true }),
-  });
-  sandbox.stub(IPProtectionService.guardian, "fetchProxyPass").resolves({
+    .stub(IPPFxaAuthProvider, "getEntitlement")
+    .resolves({ entitlement: createTestEntitlement() });
+  sandbox.stub(IPPFxaAuthProvider, "fetchProxyPass").resolves({
     status: 200,
     error: undefined,
     pass: new ProxyPass(createProxyPassToken()),
@@ -327,9 +315,6 @@ add_task(async function test_IPProtectionPanel_started_stopped() {
       "2026-02-01T00:00:00.000Z"
     ),
   });
-  sandbox
-    .stub(IPProtectionService.guardian, "enrollWithFxa")
-    .resolves({ ok: true });
 
   IPProtectionService.updateState();
 

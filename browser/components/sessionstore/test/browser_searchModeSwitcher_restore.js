@@ -24,7 +24,7 @@ add_setup(async function () {
 add_task(async function () {
   let win = await BrowserTestUtils.openNewBrowserWindow();
 
-  await BrowserTestUtils.openNewForegroundTab(win.gBrowser, "about:logo");
+  await BrowserTestUtils.openNewForegroundTab(win.gBrowser, "about:mozilla");
   await BrowserTestUtils.openNewForegroundTab(win.gBrowser, "about:home");
 
   info("Set bookmarks search mode");

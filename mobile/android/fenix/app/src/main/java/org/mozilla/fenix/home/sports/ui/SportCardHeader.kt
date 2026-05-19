@@ -4,11 +4,11 @@
 
 package org.mozilla.fenix.home.sports.ui
 
-import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -22,10 +22,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
+import androidx.compose.ui.unit.dp
 import mozilla.components.compose.base.button.IconButton
-import mozilla.components.compose.base.theme.success
 import org.mozilla.fenix.R
 import org.mozilla.fenix.compose.StatusBadge
+import org.mozilla.fenix.home.sports.Group
+import org.mozilla.fenix.home.sports.LiveMatchRefreshSource
 import org.mozilla.fenix.home.sports.Match
 import org.mozilla.fenix.home.sports.MatchStatus
 import org.mozilla.fenix.home.sports.Team
@@ -37,10 +39,15 @@ import mozilla.components.ui.icons.R as iconsR
 internal fun SportCardHeader(
     match: Match,
     round: TournamentRound,
-    onMenuClick: () -> Unit,
+    isTeamSelected: Boolean,
+    onRefresh: (LiveMatchRefreshSource) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val groupOrRound = match.home.group ?: roundDisplayName(round)
+    val title = if (isTeamSelected) {
+        groupDisplayName(group = match.home.group) ?: roundDisplayName(round)
+    } else {
+        roundDisplayName(round)
+    }
 
     Row(
         modifier = modifier
@@ -49,45 +56,48 @@ internal fun SportCardHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = groupOrRound,
+            text = title,
             style = FirefoxTheme.typography.headline8,
             color = MaterialTheme.colorScheme.onSurface,
         )
 
-        if (match.matchStatus.isLive()) {
-            Spacer(modifier = Modifier.width(FirefoxTheme.layout.space.static100))
+        Row(modifier = Modifier.weight(1f)) {
+            if (match.matchStatus.isLive()) {
+                Spacer(modifier = Modifier.width(FirefoxTheme.layout.space.static100))
 
-            LiveBadge()
-        } else {
-            Spacer(modifier = Modifier.width(FirefoxTheme.layout.space.static100))
+                LiveBadge()
+            } else if (!isTeamSelected) {
+                Spacer(modifier = Modifier.width(FirefoxTheme.layout.space.static100))
 
-            Text(
-                text = "·",
-                style = FirefoxTheme.typography.body2,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+                Text(
+                    text = "·",
+                    style = FirefoxTheme.typography.body2,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
 
-            Spacer(modifier = Modifier.width(FirefoxTheme.layout.space.static100))
+                Spacer(modifier = Modifier.width(FirefoxTheme.layout.space.static100))
 
-            Text(
-                text = match.date,
-                style = FirefoxTheme.typography.body2,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+                Text(
+                    text = match.date,
+                    style = FirefoxTheme.typography.body2,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.width(FirefoxTheme.layout.space.static100))
-
-        Spacer(Modifier.weight(1f))
-
-        IconButton(
-            onClick = onMenuClick,
-            contentDescription = null,
-        ) {
-            Icon(
-                painter = painterResource(iconsR.drawable.mozac_ic_ellipsis_vertical_24),
-                contentDescription = null,
-            )
+        if (match.matchStatus.isLive()) {
+            IconButton(
+                onClick = { onRefresh(LiveMatchRefreshSource.LIVE_MATCH_HEADER) },
+                contentDescription = stringResource(R.string.sports_widget_error_refresh),
+                modifier = Modifier.size(24.dp),
+            ) {
+                Icon(
+                    painter = painterResource(iconsR.drawable.mozac_ic_arrow_clockwise_24),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+            Spacer(modifier = Modifier.width(FirefoxTheme.layout.space.static500))
         }
     }
 }
@@ -96,7 +106,7 @@ internal fun SportCardHeader(
 private fun LiveBadge() {
     StatusBadge(
         status = stringResource(R.string.sports_widget_match_live),
-        containerColor = MaterialTheme.colorScheme.success,
+        containerColor = MaterialTheme.colorScheme.tertiary,
     )
 }
 
@@ -104,23 +114,41 @@ private fun MatchStatus.isLive(): Boolean = when (this) {
     is MatchStatus.Live,
     is MatchStatus.Penalties,
         -> true
+
     else -> false
 }
 
 @Composable
-private fun roundDisplayName(round: TournamentRound): String = when (round) {
+internal fun groupDisplayName(group: Group?): String? = when (group) {
+    Group.A -> stringResource(R.string.sports_widget_group_a)
+    Group.B -> stringResource(R.string.sports_widget_group_b)
+    Group.C -> stringResource(R.string.sports_widget_group_c)
+    Group.D -> stringResource(R.string.sports_widget_group_d)
+    Group.E -> stringResource(R.string.sports_widget_group_e)
+    Group.F -> stringResource(R.string.sports_widget_group_f)
+    Group.G -> stringResource(R.string.sports_widget_group_g)
+    Group.H -> stringResource(R.string.sports_widget_group_h)
+    Group.I -> stringResource(R.string.sports_widget_group_i)
+    Group.J -> stringResource(R.string.sports_widget_group_j)
+    Group.K -> stringResource(R.string.sports_widget_group_k)
+    Group.L -> stringResource(R.string.sports_widget_group_l)
+    null -> null
+}
+
+@Composable
+internal fun roundDisplayName(round: TournamentRound): String = when (round) {
     TournamentRound.ROUND_OF_32 -> stringResource(R.string.sports_widget_round_of_32)
     TournamentRound.ROUND_OF_16 -> stringResource(R.string.sports_widget_round_of_16)
     TournamentRound.QUARTER_FINAL -> stringResource(R.string.sports_widget_quarter_final)
     TournamentRound.SEMI_FINAL -> stringResource(R.string.sports_widget_semi_final)
     TournamentRound.FINAL -> stringResource(R.string.sports_widget_final)
     TournamentRound.THIRD_PLACE_PLAYOFF -> stringResource(R.string.sports_widget_bronze_final)
-    TournamentRound.GROUP_STAGE -> ""
+    TournamentRound.GROUP_STAGE -> stringResource(R.string.sports_widget_group_stage)
 }
 
 private data class SportCardHeaderPreviewState(
     val round: TournamentRound,
-    @param:StringRes val groupLabelResId: Int?,
+    val groupLabel: Group?,
     val status: MatchStatus,
 )
 
@@ -128,32 +156,32 @@ private class SportCardHeaderPreviewProvider : PreviewParameterProvider<SportCar
     override val values = sequenceOf(
         SportCardHeaderPreviewState(
             round = TournamentRound.GROUP_STAGE,
-            groupLabelResId = R.string.sports_widget_group_d,
+            groupLabel = Group.D,
             status = MatchStatus.Live(period = "1", clock = "29"),
         ),
         SportCardHeaderPreviewState(
             round = TournamentRound.GROUP_STAGE,
-            groupLabelResId = R.string.sports_widget_group_a,
+            groupLabel = Group.A,
             status = MatchStatus.Scheduled,
         ),
         SportCardHeaderPreviewState(
             round = TournamentRound.ROUND_OF_16,
-            groupLabelResId = null,
+            groupLabel = null,
             status = MatchStatus.Scheduled,
         ),
         SportCardHeaderPreviewState(
             round = TournamentRound.SEMI_FINAL,
-            groupLabelResId = null,
+            groupLabel = null,
             status = MatchStatus.Penalties(),
         ),
         SportCardHeaderPreviewState(
             round = TournamentRound.FINAL,
-            groupLabelResId = null,
+            groupLabel = null,
             status = MatchStatus.Final,
         ),
         SportCardHeaderPreviewState(
             round = TournamentRound.THIRD_PLACE_PLAYOFF,
-            groupLabelResId = null,
+            groupLabel = null,
             status = MatchStatus.Scheduled,
         ),
     )
@@ -164,26 +192,27 @@ private class SportCardHeaderPreviewProvider : PreviewParameterProvider<SportCar
 private fun SportCardHeaderPreview(
     @PreviewParameter(SportCardHeaderPreviewProvider::class) state: SportCardHeaderPreviewState,
 ) {
-    val groupLabel = state.groupLabelResId?.let { stringResource(it) }
     FirefoxTheme {
         Surface {
             SportCardHeader(
                 match = Match(
-                    date = "2026-06-19T18:00:00Z",
+                    date = "Jun 19",
+                    time = "6:00 PM",
                     home = Team(
                         key = "USA",
                         flagResId = R.drawable.flag_us,
-                        group = groupLabel,
+                        group = state.groupLabel,
                     ),
                     away = Team(
                         key = "PAR",
                         flagResId = R.drawable.flag_py,
-                        group = groupLabel,
+                        group = state.groupLabel,
                     ),
                     matchStatus = state.status,
                 ),
                 round = state.round,
-                onMenuClick = {},
+                isTeamSelected = true,
+                onRefresh = {},
             )
         }
     }

@@ -125,6 +125,15 @@ if (AppConstants.MOZ_CRASHREPORTER) {
   });
 }
 
+if (AppConstants.MOZ_ENTERPRISE) {
+  ChromeUtils.defineLazyGetter(lazy, "localization", () => {
+    return new Localization(
+      ["browser/enterprise/enterprise.ftl", "branding/brand.ftl"],
+      true
+    );
+  });
+}
+
 ChromeUtils.defineLazyGetter(lazy, "gBrandBundle", function () {
   return Services.strings.createBundle(
     "chrome://branding/locale/brand.properties"
@@ -1552,19 +1561,25 @@ BrowserGlue.prototype = {
 
     // When Firefox was launched by FELT, show a signout confirmation prompt
     // instead of the standard quit dialog.
-    if (
-      AppConstants.MOZ_ENTERPRISE &&
-      Services.felt?.isFeltBrowser() &&
-      lazy.EnterpriseHandler.isSignoutPromptEnabled()
-    ) {
-      const promptWindow = lazy.BrowserWindowTracker.getTopWindow({
-        allowFromInactiveWorkspace: true,
-      });
-      if (!lazy.EnterpriseHandler.showSignoutPrompt(promptWindow)) {
+    if (AppConstants.MOZ_ENTERPRISE && Services.felt?.isFeltBrowser()) {
+      if (lazy.EnterpriseHandler.shouldShowClosePrompt()) {
         aCancelQuit.QueryInterface(Ci.nsISupportsPRBool).data = true;
         this._quitSource = "unknown";
+        const promptWindow = lazy.BrowserWindowTracker.getTopWindow({
+          allowFromInactiveWorkspace: true,
+        });
+        lazy.EnterpriseHandler.showSignoutPrompt(promptWindow)
+          .then(proceed => {
+            if (proceed) {
+              Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit);
+            }
+          })
+          .catch(e => {
+            console.error("Enterprise signout prompt failed, quitting:", e);
+            Services.startup.quit(Ci.nsIAppStartup.eForceQuit);
+          });
+        return;
       }
-      return;
     }
 
     // browser.warnOnQuit is a hidden global boolean to override all quit prompts.
@@ -1662,7 +1677,7 @@ BrowserGlue.prototype = {
       checkboxLabelId = "tabbrowser-ask-close-tabs-checkbox";
     }
 
-    const [title, quitButtonLabel, checkboxLabel] =
+    let [title, quitButtonLabel, checkboxLabel] =
       win.gBrowser.tabLocalization.formatMessagesSync([
         titleId,
         quitButtonLabelId,
@@ -1675,6 +1690,23 @@ BrowserGlue.prototype = {
       [closeTabButtonLabel] = win.gBrowser.tabLocalization.formatMessagesSync([
         closeTabButtonLabelId,
       ]);
+    }
+
+    let message = null;
+
+    if (AppConstants.MOZ_ENTERPRISE && shouldWarnForShortcut) {
+      const entTitleId = showCloseCurrentTabOption
+        ? "enterprise-quit-shortcut-prompt-title-with-tabs"
+        : "enterprise-quit-shortcut-prompt-title";
+      const [entTitle, entMessage, entQuitButtonLabel] =
+        lazy.localization.formatValuesSync([
+          entTitleId,
+          "enterprise-quit-shortcut-prompt-message",
+          "enterprise-quit-shortcut-prompt-primary-btn-label",
+        ]);
+      title = { value: entTitle };
+      message = entMessage;
+      quitButtonLabel = { value: entQuitButtonLabel };
     }
 
     let warnOnClose = { value: true };
@@ -1701,7 +1733,7 @@ BrowserGlue.prototype = {
     let buttonPressed = Services.prompt.confirmEx(
       win,
       title.value,
-      null,
+      message,
       flags,
       quitButtonLabel.value,
       null,
@@ -1734,7 +1766,7 @@ BrowserGlue.prototype = {
     // Use an increasing number to keep track of the current state of the user's
     // profile, so we can move data around as needed as the browser evolves.
     // Completely unrelated to the current Firefox release number.
-    const APP_DATA_VERSION = 168;
+    const APP_DATA_VERSION = 172;
     const PREF = "browser.migration.version";
 
     let profileDataVersion = Services.prefs.getIntPref(PREF, -1);
@@ -1806,7 +1838,7 @@ BrowserGlue.prototype = {
     );
 
     try {
-      const win = browser.ownerGlobal;
+      const win = browser.documentGlobal;
       const shellService = win.getShellService();
       const isNowDefault = shellService.isDefaultBrowser(false, false);
       const resultEnum =

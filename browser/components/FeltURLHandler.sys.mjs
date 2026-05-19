@@ -83,6 +83,7 @@ export function queueFeltURL(payload) {
       e
     );
     gFeltPendingURLs.push(payload);
+    Services.cpmm.sendAsyncMessage("FeltParent:ForceFeltFocus", {});
   }
 
   // On Linux (and as fallback for other platforms), show a notification

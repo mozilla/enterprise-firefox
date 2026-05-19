@@ -2207,7 +2207,16 @@ def add_github_checks_route(config, tasks):
         if task.get("attributes", {}).get("code-review"):
             routes = task.setdefault("routes", [])
             tier = task.get("treeherder", {}).get("tier", 3)
-            if "checks" not in routes and tier == 1:
+            should_surface_checks = tier == 1 and "checks" not in routes
+
+            # Only surface test/mochitest for enterprise tasks
+            if (
+                config.kind in ["test", "mochitest"]
+                and not "enterprise" in task["label"]
+            ):
+                should_surface_checks = False
+
+            if should_surface_checks:
                 routes.append("checks")
 
         yield task

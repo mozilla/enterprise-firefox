@@ -56,16 +56,15 @@ const lazy = XPCOMUtils.declareLazy({
 });
 
 /**
- * @import {AppProvidedConfigEngine} from "ConfigSearchEngine.sys.mjs"
- * @import {AddonSearchEngine} from "AddonSearchEngine.sys.mjs"
- * @import {OpenSearchEngine} from "OpenSearchEngine.sys.mjs"
- * @import {SearchEngine} from "SearchEngine.sys.mjs"
- * @import {SearchEngineSelector} from "SearchEngineSelector.sys.mjs"
+ * @import {AddonSearchEngine} from "./AddonSearchEngine.sys.mjs"
+ * @import {OpenSearchEngine} from "./OpenSearchEngine.sys.mjs"
+ * @import {SearchEngine} from "./SearchEngine.sys.mjs"
+ * @import {SearchEngineSelector} from "./SearchEngineSelector.sys.mjs"
  * @import {
  *   RefinedSearchConfig,
  *   SearchEngineDefinition,
  * } from "../uniffi-bindgen-gecko-js/components/generated/RustSearch.sys.mjs";
- * @import {UserSearchEngine, FormInfo} from "UserSearchEngine.sys.mjs"
+ * @import {UserSearchEngine, FormInfo} from "./UserSearchEngine.sys.mjs"
  */
 
 const TOPIC_LOCALES_CHANGE = "intl:app-locales-changed";
@@ -545,7 +544,6 @@ export const SearchService = new (class SearchService {
     await this.#migrateLegacyEngines();
     await this.#checkWebExtensionEngines();
     await this.#addOpenSearchTelemetry();
-    await this.#removeAppProvidedExtensions();
   }
 
   /**
@@ -759,7 +757,7 @@ export const SearchService = new (class SearchService {
    * @param {object} extension
    *   An Extension object containing data about the extension.
    */
-  async addEnginesFromExtension(extension) {
+  async addEngineFromExtension(extension) {
     // Treat add-on upgrade and downgrades the same - either way, the search
     // engine gets updated, not added. Generally, we don't expect a downgrade,
     // but just in case...
@@ -777,14 +775,13 @@ export const SearchService = new (class SearchService {
     }
 
     if (extension.isAppProvided) {
-      this.#extensionsToRemove.add(extension.id);
-      lazy.logConsole.debug(
-        "addEnginesFromExtension: Queuing old app provided WebExtension for uninstall",
+      lazy.logConsole.error(
+        "Installing search engines from application provided webExtensions is no longer supported",
         extension.id
       );
       return;
     }
-    lazy.logConsole.debug("addEnginesFromExtension:", extension.id);
+    lazy.logConsole.debug("addEngineFromExtension:", extension.id);
 
     // If we haven't started the SearchService yet, store this extension
     // to install in SearchService.init().
@@ -1288,15 +1285,6 @@ export const SearchService = new (class SearchService {
    * @type {Set<object>}
    */
   #startupExtensions = new Set();
-
-  /**
-   * A Set of installed app provided search Web Extensions to be uninstalled by
-   * the AddonManager on idle. We no longer have app provided engines as
-   * web extensions after search-config-v2 enabled in Firefox version 128.
-   *
-   * @type {Set<object>}
-   */
-  #extensionsToRemove = new Set();
 
   /**
    * A Set of removed search extensions reported by AddonManager
@@ -1985,7 +1973,6 @@ export const SearchService = new (class SearchService {
 
     // Don't show the notification if the previous engine was an enterprise engine -
     // the text doesn't quite make sense.
-    // let checkPolicyEngineId = prevCurrentEngineId ? prevCurrentEngineId : prevAppDefaultEngineId;
     let checkPolicyEngineId = prevCurrentEngineId || prevAppDefaultEngineId;
     if (checkPolicyEngineId) {
       let engineSettings = settings.engines.find(
@@ -2239,7 +2226,14 @@ export const SearchService = new (class SearchService {
         if (engine instanceof lazy.AddonSearchEngine) {
           // If this is an add-on search engine, check to see if it needs
           // an update.
-          await engine.update();
+          await engine
+            .update()
+            .catch(ex =>
+              lazy.logConsole.error(
+                `Failed to update add-on search engine ${engine.id}`,
+                ex
+              )
+            );
         }
         continue;
       }
@@ -2380,7 +2374,7 @@ export const SearchService = new (class SearchService {
     // If the defaultEngine has changed between the previous load and this one,
     // dispatch the appropriate notifications.
     if (prevCurrentEngine && this.defaultEngine !== prevCurrentEngine) {
-      this.#recordDefaultChangedEvent(
+      this.#updateTelemetryDueToDefaultEngineChange(
         false,
         prevCurrentEngine,
         this.defaultEngine,
@@ -2419,7 +2413,7 @@ export const SearchService = new (class SearchService {
       prevPrivateEngine &&
       this.defaultPrivateEngine !== prevPrivateEngine
     ) {
-      this.#recordDefaultChangedEvent(
+      this.#updateTelemetryDueToDefaultEngineChange(
         true,
         prevPrivateEngine,
         this.defaultPrivateEngine,
@@ -3007,28 +3001,6 @@ export const SearchService = new (class SearchService {
   }
 
   /**
-   * Removes application-provided extensions with a specific identifier.
-   *
-   * After search-config-v2 (enabled in Firefox version 128), app-provided
-   * engines are no longer web extensions. This method iterates over the IDs
-   * in `#extensionsToRemove` and uninstalls extensions ending with
-   * `@search.mozilla.org`. Although the list should contain only app-provided
-   * engines (as per addEnginesFromExtension), the `@search.mozilla.org` is an
-   * additional safety check to ensure only the expected add-ons are removed.
-   */
-  async #removeAppProvidedExtensions() {
-    for (let id of this.#extensionsToRemove.values()) {
-      if (id.endsWith("@search.mozilla.org")) {
-        let addOn = await lazy.AddonManager.getAddonByID(id);
-        if (addOn) {
-          await addOn.uninstall();
-        }
-      }
-    }
-    this.#extensionsToRemove.clear();
-  }
-
-  /**
    * Creates and adds a WebExtension based engine. It is expected that this
    * function is only called after initialisation has completed, or at a stage
    * where we are ready to load the engines we've been told about during startup.
@@ -3363,13 +3335,12 @@ export const SearchService = new (class SearchService {
     // Only do this if we're initialized though - this function can get called
     // during initalization.
     if (this.isInitialized) {
-      this.#recordDefaultChangedEvent(
+      this.#updateTelemetryDueToDefaultEngineChange(
         privateMode,
         currentEngine,
         newCurrentEngine,
         changeReason
       );
-      this.#recordDefaultEngineTelemetryData();
     }
 
     lazy.SearchUtils.notifyAction(
@@ -3406,22 +3377,20 @@ export const SearchService = new (class SearchService {
       ? this.CHANGE_REASON.USER_PRIVATE_PREF_ENABLED
       : this.CHANGE_REASON.USER_PRIVATE_SPLIT;
     if (!previousValue && currentValue) {
-      this.#recordDefaultChangedEvent(
+      this.#updateTelemetryDueToDefaultEngineChange(
         true,
         null,
         this._getEngineDefault(true),
         eventReason
       );
     } else {
-      this.#recordDefaultChangedEvent(
+      this.#updateTelemetryDueToDefaultEngineChange(
         true,
         this._getEngineDefault(true),
         null,
         eventReason
       );
     }
-    // Update the telemetry data.
-    this.#recordDefaultEngineTelemetryData();
   }
 
   /**
@@ -3504,11 +3473,8 @@ export const SearchService = new (class SearchService {
   }
 
   /**
-   * Records an event for where the default engine is changed. This is
-   * recorded to both Glean and Telemetry.
-   *
-   * The Glean GIFFT functionality is not used here because we use longer
-   * names in the extra arguments to the event.
+   * Records the telemetry event when the default engine has changed, and
+   * also updates the related non-event probes.
    *
    * @param {boolean} isPrivate
    *   True if this is a event about a private engine.
@@ -3519,7 +3485,7 @@ export const SearchService = new (class SearchService {
    * @param {Values<typeof this.CHANGE_REASON>} changeReason
    *   The reason for the default search engine change
    */
-  #recordDefaultChangedEvent(
+  #updateTelemetryDueToDefaultEngineChange(
     isPrivate,
     previousEngine,
     newEngine,
@@ -3533,6 +3499,7 @@ export const SearchService = new (class SearchService {
     }
 
     let submissionURL = engineInfo?.submissionURL ?? "";
+    /** @type {Parameters<typeof Glean.searchEngineDefault.changed.record>[0]} */
     let extraArgs = {
       // In docshell tests, the previous engine does not exist, so we allow
       // for the previousEngine to be undefined.
@@ -3549,6 +3516,7 @@ export const SearchService = new (class SearchService {
     } else {
       Glean.searchEngineDefault.changed.record(extraArgs);
     }
+    this.#recordDefaultEngineTelemetryData();
   }
 
   /**
@@ -3756,7 +3724,7 @@ export const SearchService = new (class SearchService {
               engine == this.defaultEngine ||
               engine == this.defaultPrivateEngine
             ) {
-              this.#recordDefaultChangedEvent(
+              this.#updateTelemetryDueToDefaultEngineChange(
                 engine != this.defaultEngine,
                 engine,
                 engine,

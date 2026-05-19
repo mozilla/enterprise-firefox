@@ -35,6 +35,31 @@ interface SportsInteractor {
      * Called when the user clicks the "View Schedule" button.
      */
     fun onViewScheduleClicked()
+
+    /**
+     * Called when the user taps the reload button to manually refresh match data.
+     */
+    fun onRefreshClicked(source: LiveMatchRefreshSource)
+
+    /**
+     * Called when the user clicks the "Get custom wallpaper" menu item.
+     */
+    fun onGetCustomWallpaperClicked()
+
+    /**
+     * Called when the user clicks a Match.
+     */
+    fun onMatchClicked(homeTeam: String, awayTeam: String)
+
+    /**
+     * Called when the sports widget is displayed.
+     */
+    fun onSportsWidgetShown()
+
+    /**
+     * Called when the country selector bottom sheet is displayed.
+     */
+    fun onCountrySelectorShown(source: CountrySelectorSource)
 }
 
 /**
@@ -64,5 +89,25 @@ class DefaultSportsInteractor(
 
     override fun onViewScheduleClicked() {
         controller.handleViewScheduleClicked()
+    }
+
+    override fun onRefreshClicked(source: LiveMatchRefreshSource) {
+        controller.handleRefreshClicked(source)
+    }
+
+    override fun onGetCustomWallpaperClicked() {
+        controller.handleOnGetCustomWallpaperClicked()
+    }
+
+    override fun onMatchClicked(homeTeam: String, awayTeam: String) {
+        controller.handleMatchClicked(homeTeam = homeTeam, awayTeam = awayTeam)
+    }
+
+    override fun onSportsWidgetShown() {
+        controller.handleSportsWidgetShown()
+    }
+
+    override fun onCountrySelectorShown(source: CountrySelectorSource) {
+        controller.handleCountrySelectorShown(source)
     }
 }

@@ -9,12 +9,17 @@ smartwindow-messages-document-title = Smart window chat messages
 smartwindow-assistant-error-generic-header = Something went wrong. Please try again.
 smartwindow-assistant-error-budget-header = You’ve reached today’s chat limit.
 smartwindow-assistant-error-account-header = To use Smart Window, you’ll need to sign in.
+smartwindow-assistant-error-capacity-header = Smart Window is at capacity right now. Please try again later.
 
 ## TODO: ET timezone should be replaced before rolling to other locales: https://bugzilla.mozilla.org/show_bug.cgi?id=2017944
 
 smartwindow-assistant-error-budget-body = You can still browse in this window. Chat will be available again after midnight ET.
 smartwindow-assistant-error-many-requests-header = Please wait a moment and try again. Too many messages were sent in a short time.
 smartwindow-assistant-error-max-length-header = It’s time to start a new chat. This one’s reached its length limit.
+smartwindow-assistant-error-page-content-header = This request didn’t go through because something in the page or your message was flagged as potentially unsafe. Try a different request.
+# Variables:
+#   $status (Number) - HTTP status code returned by the inference back-end
+smartwindow-assistant-error-http-header = Server error (HTTP { $status }). Please try again.
 smartwindow-retry-btn = Try Again
 smartwindow-clear-btn = New chat
 smartwindow-signin-btn = Sign in
@@ -25,7 +30,7 @@ aiwindow-memories-used = Memories used
 aiwindow-memories-callout-description = Memories helped personalize this response.
 aiwindow-memories-learn-more = Learn more
 aiwindow-manage-memories =
-    .label = Memories settings
+    .label = Memory settings
 aiwindow-retry-without-memories =
     .label = Retry without memories
 aiwindow-retry =
@@ -34,11 +39,25 @@ aiwindow-retry =
 aiwindow-copy-message =
     .tooltiptext = Copy
     .aria-label = Copy message
+aiwindow-thumbs-up =
+    .tooltiptext = Good response
+    .aria-label = Good response
+aiwindow-thumbs-down =
+    .tooltiptext = Bad response
+    .aria-label = Bad response
 aiwindow-applied-memories-popover =
-    .aria-label = Applied memories
+    .aria-label = Memories panel
+aiwindow-applied-memories-list =
+    .aria-label = Memories
 
 ## Jump to Bottom Button
 
 aiwindow-jump-to-bottom =
     .tooltiptext = Jump to bottom
     .aria-label = Jump to bottom of chat
+
+## Natural Language Action
+
+smartwindow-nl-thinking = Looking for matching tabs…
+smartwindow-nl-undo-button =
+    .label = Undo

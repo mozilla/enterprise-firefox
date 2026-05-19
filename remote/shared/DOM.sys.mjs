@@ -16,6 +16,7 @@ const FIRST_ORDERED_NODE_TYPE = 9;
 const DOCUMENT_FRAGMENT_NODE = 11;
 const ELEMENT_NODE = 1;
 
+const MATHML_NS = "http://www.w3.org/1998/Math/MathML";
 const XUL_NS = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
 
 /** XUL elements that support checked property. */
@@ -249,7 +250,7 @@ dom.findByLinkText = function (startNode, linkText) {
   return filterLinks(startNode, async link => {
     const visibleText = await lazy.atom.getVisibleText(
       link,
-      link.ownerDocGlobal
+      link.documentGlobal
     );
     return visibleText.trim() === linkText;
   });
@@ -272,7 +273,7 @@ dom.findByPartialLinkText = function (startNode, linkText) {
   return filterLinks(startNode, async link => {
     const visibleText = await lazy.atom.getVisibleText(
       link,
-      link.ownerDocGlobal
+      link.documentGlobal
     );
 
     return visibleText.includes(linkText);
@@ -361,7 +362,7 @@ async function findElement(
       for (const link of links) {
         const visibleText = await lazy.atom.getVisibleText(
           link,
-          link.ownerDocGlobal
+          link.documentGlobal
         );
         if (visibleText.trim() === selector) {
           return link;
@@ -375,7 +376,7 @@ async function findElement(
       for (const link of links) {
         const visibleText = await lazy.atom.getVisibleText(
           link,
-          link.ownerDocGlobal
+          link.documentGlobal
         );
         if (visibleText.includes(selector)) {
           return link;
@@ -797,7 +798,7 @@ dom.coordinates = function (node, xOffset = undefined, yOffset = undefined) {
  *     True if if <var>el</var> is in viewport, false otherwise.
  */
 dom.inViewport = function (el, x = undefined, y = undefined) {
-  let win = el.ownerDocGlobal;
+  let win = el.documentGlobal;
   let c = dom.coordinates(el, x, y);
   let vp = {
     top: win.pageYOffset,
@@ -876,6 +877,15 @@ dom.isInView = function (el) {
     if (el.localName === "tr" && el.cells && el.cells.length) {
       return tree.includes(el.cells[0]);
     }
+    // Same for MathML <mtr>, but we can't use HTMLTableRowElement.cells.
+    if (
+      el.namespaceURI === MATHML_NS &&
+      el.localName === "mtr" &&
+      el.children &&
+      el.children.length
+    ) {
+      return tree.includes(el.children[0]);
+    }
 
     return tree.includes(el);
   } finally {
@@ -905,7 +915,7 @@ dom.isInView = function (el) {
  *     True if visible, false otherwise.
  */
 dom.isVisible = async function (el, x = undefined, y = undefined) {
-  let win = el.ownerDocGlobal;
+  let win = el.documentGlobal;
   if (!(await lazy.atom.isElementDisplayed(el, win))) {
     return false;
   }
@@ -1009,7 +1019,7 @@ dom.getInViewCentrePoint = function (rect, win) {
  *     Sequence of elements in paint order.
  */
 dom.getPointerInteractablePaintTree = function (el) {
-  const win = el.ownerDocGlobal;
+  const win = el.documentGlobal;
   const rootNode = el.getRootNode();
 
   // pointer-interactable elements tree, step 1

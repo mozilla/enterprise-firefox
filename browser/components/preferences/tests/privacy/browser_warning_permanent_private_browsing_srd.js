@@ -48,7 +48,7 @@ function checkForPrompt(prefVal) {
     await EventUtils.synthesizeMouseAtCenter(
       checkbox,
       {},
-      checkbox.ownerGlobal
+      checkbox.documentGlobal
     );
 
     // Now the prompt should have shown.

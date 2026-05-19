@@ -501,6 +501,7 @@ var gSync = {
         "branding/brand.ftl",
         "browser/accounts.ftl",
         "browser/appmenu.ftl",
+        "browser/browserContext.ftl",
         "browser/sync.ftl",
         "browser/syncedTabs.ftl",
         "browser/newtab/asrouter.ftl",
@@ -535,17 +536,11 @@ var gSync = {
   },
 
   shouldHideSendContextMenuItems(enabled) {
-    const state = UIState.get();
-    // Only show the "Send..." context menu items when sending would be possible
-    if (
-      enabled &&
-      state.status == UIState.STATUS_SIGNED_IN &&
-      state.syncEnabled &&
-      this.getSendTabTargets().length
-    ) {
-      return false;
-    }
-    return true;
+    return (
+      !enabled ||
+      !this.FXA_ENABLED ||
+      UIState.get().status == UIState.STATUS_NOT_VERIFIED
+    );
   },
 
   getSendTabTargets() {
@@ -572,7 +567,7 @@ var gSync = {
 
   hasOnlyMobileSendTabTargets(targets = this.getSendTabTargets()) {
     return (
-      targets.length &&
+      !targets.length ||
       targets.every(
         target =>
           target.type == DEVICE_TYPE_MOBILE || target.type == DEVICE_TYPE_TABLET
@@ -1870,7 +1865,13 @@ var gSync = {
     const fragment = document.createDocumentFragment();
 
     const state = UIState.get();
-    if (state.status == UIState.STATUS_SIGNED_IN) {
+    if (this.isSignedInWithSyncDisabled) {
+      this._appendSignedInSyncDisabled(
+        fragment,
+        createDeviceNodeFn,
+        contextMenuType
+      );
+    } else if (state.status == UIState.STATUS_SIGNED_IN) {
       const targets = this.getSendTabTargets();
       if (targets.length) {
         this._appendSendTabDeviceList(
@@ -1892,7 +1893,11 @@ var gSync = {
           );
         }
       } else {
-        this._appendSendTabSingleDevice(fragment, createDeviceNodeFn);
+        this._appendSendTabSingleDevice(
+          fragment,
+          createDeviceNodeFn,
+          contextMenuType
+        );
       }
     } else if (
       state.status == UIState.STATUS_NOT_VERIFIED ||
@@ -1900,13 +1905,10 @@ var gSync = {
     ) {
       this._appendSendTabVerify(fragment, createDeviceNodeFn);
     } else {
-      // The only status not handled yet is STATUS_NOT_CONFIGURED, and
-      // when we're in that state, none of the menus that call
-      // populateSendTabToDevicesMenu are available, so entering this
-      // state is unexpected.
-      throw new Error(
-        "Called populateSendTabToDevicesMenu when in STATUS_NOT_CONFIGURED " +
-          "state."
+      this._appendSendTabSignedOut(
+        fragment,
+        createDeviceNodeFn,
+        contextMenuType
       );
     }
 
@@ -2113,6 +2115,7 @@ var gSync = {
       tab: "tabContextMenu",
       page: "pageContextMenu",
       link: "pageContextMenu",
+      toolbar: "sendTabToolbar",
     };
 
     // Map event types to method names
@@ -2125,7 +2128,11 @@ var gSync = {
     const category = categoryMap[contextType];
     const method = methodMap[eventType];
 
-    if (!category || !method) {
+    if (
+      !category ||
+      !method ||
+      (category == "sendTabToolbar" && method == "sendTabExposed")
+    ) {
       this.log.error(
         `Invalid telemetry parameters: eventType=${eventType}, contextType=${contextType}`
       );
@@ -2140,26 +2147,98 @@ var gSync = {
     Glean[category][method].record(extraParams);
   },
 
-  _appendSendTabSingleDevice(fragment, createDeviceNodeFn) {
-    const [noDevices, learnMore, connectDevice] =
-      this.fluentStrings.formatValuesSync([
-        "account-send-tab-to-device-singledevice-status",
-        "account-send-tab-to-device-singledevice-learnmore",
-        "account-send-tab-to-device-connectdevice",
-      ]);
-    const actions = [
-      {
-        label: connectDevice,
-        command: () => this.openConnectAnotherDevice("sendtab"),
-      },
-      { label: learnMore, command: () => this.openSendToDevicePromo() },
-    ];
-    this._appendSendTabInfoItems(
-      fragment,
-      createDeviceNodeFn,
-      noDevices,
-      actions
+  _appendSignedInSyncDisabled(fragment, createDeviceNodeFn, contextMenuType) {
+    let enableSyncLabel;
+    if (contextMenuType == "link") {
+      enableSyncLabel = this.fluentStrings.formatValueSync(
+        "main-context-menu-send-to-mobile-enable-sync-from-link"
+      );
+    } else if (contextMenuType == "page") {
+      enableSyncLabel = this.fluentStrings.formatValueSync(
+        "main-context-menu-send-to-mobile-enable-sync-from-page"
+      );
+    } else {
+      enableSyncLabel = this.fluentStrings.formatValueSync(
+        "main-context-menu-send-to-mobile-enable-sync3"
+      );
+    }
+
+    const enableSyncMenuItem = createDeviceNodeFn(null, enableSyncLabel, null);
+    enableSyncMenuItem.setAttribute("label", enableSyncLabel);
+    enableSyncMenuItem.classList.add("sync-menuitem");
+    enableSyncMenuItem.addEventListener(
+      "command",
+      () => this.enableSync(),
+      true
     );
+    fragment.appendChild(enableSyncMenuItem);
+  },
+
+  _appendSendTabSingleDevice(fragment, createDeviceNodeFn, contextMenuType) {
+    let entryPoint = {
+      toolbar: "send-tab-toolbar-icon",
+      link: "send-tab-link-context-menu",
+      page: "send-tab-page-context-menu",
+      tab: "send-tab-tab-context-menu",
+    }[contextMenuType];
+
+    let connectPhoneLabel, deviceMissingLabel;
+    if (contextMenuType == "link") {
+      [connectPhoneLabel, deviceMissingLabel] =
+        this.fluentStrings.formatValuesSync([
+          "main-context-menu-send-to-mobile-connect-phone-from-link",
+          "main-context-menu-send-to-mobile-device-missing2",
+        ]);
+    } else if (contextMenuType == "page") {
+      [connectPhoneLabel, deviceMissingLabel] =
+        this.fluentStrings.formatValuesSync([
+          "main-context-menu-send-to-mobile-connect-phone-from-page",
+          "main-context-menu-send-to-mobile-device-missing2",
+        ]);
+    } else {
+      [connectPhoneLabel, deviceMissingLabel] =
+        this.fluentStrings.formatValuesSync([
+          "main-context-menu-send-to-mobile-connect-phone3",
+          "main-context-menu-send-to-mobile-device-missing2",
+        ]);
+    }
+
+    const connectPhoneMenuItem = createDeviceNodeFn(
+      null,
+      connectPhoneLabel,
+      null
+    );
+    connectPhoneMenuItem.setAttribute("label", connectPhoneLabel);
+    connectPhoneMenuItem.classList.add("sync-menuitem");
+    connectPhoneMenuItem.addEventListener(
+      "command",
+      async () => {
+        const uri = await FxAccounts.config.promisePairingURI({
+          entrypoint: entryPoint,
+        });
+        switchToTabHavingURI(uri, true, {});
+      },
+      true
+    );
+    fragment.appendChild(connectPhoneMenuItem);
+
+    const separator = createDeviceNodeFn(null, null, null);
+    separator.classList.add("sync-menuitem");
+    fragment.appendChild(separator);
+
+    const deviceMissingMenuItem = createDeviceNodeFn(
+      null,
+      deviceMissingLabel,
+      null
+    );
+    deviceMissingMenuItem.setAttribute("label", deviceMissingLabel);
+    deviceMissingMenuItem.classList.add("sync-menuitem");
+    deviceMissingMenuItem.addEventListener(
+      "command",
+      () => this.openSendTabHelp(),
+      true
+    );
+    fragment.appendChild(deviceMissingMenuItem);
   },
 
   _appendSendTabVerify(fragment, createDeviceNodeFn) {
@@ -2196,6 +2275,40 @@ var gSync = {
       actionItem.setAttribute("label", label);
       fragment.appendChild(actionItem);
     }
+  },
+
+  _appendSendTabSignedOut(fragment, createDeviceNodeFn, contextMenuType) {
+    let entryPoint = {
+      toolbar: "send-tab-toolbar-icon",
+      link: "send-tab-link-context-menu",
+      page: "send-tab-page-context-menu",
+      tab: "send-tab-tab-context-menu",
+    }[contextMenuType];
+
+    let signInLabel;
+    if (contextMenuType == "link") {
+      signInLabel = this.fluentStrings.formatValueSync(
+        "main-context-menu-send-to-mobile-sign-in-from-link"
+      );
+    } else if (contextMenuType == "page") {
+      signInLabel = this.fluentStrings.formatValueSync(
+        "main-context-menu-send-to-mobile-sign-in-from-page"
+      );
+    } else {
+      signInLabel = this.fluentStrings.formatValueSync(
+        "main-context-menu-send-to-mobile-sign-in"
+      );
+    }
+
+    const signInMenuItem = createDeviceNodeFn(null, signInLabel, null);
+    signInMenuItem.setAttribute("label", signInLabel);
+    signInMenuItem.classList.add("sync-menuitem");
+    signInMenuItem.addEventListener(
+      "command",
+      async () => await this.openSignInAgainPage(entryPoint),
+      true
+    );
+    fragment.appendChild(signInMenuItem);
   },
 
   // "Send Tab to Device" menu item
@@ -3020,6 +3133,32 @@ var gSync = {
 
   openLink(url) {
     switchToTabHavingURI(url, true, { replaceQueryString: true });
+  },
+
+  sendTabToolbarButtonShouldBeEnabled(uri) {
+    this.init();
+
+    if (!this.FXA_ENABLED) {
+      // Sync is fully disabled and the toolbar button shouldn't even be in the
+      // toolbar.
+      return false;
+    }
+
+    if (this.sendTabConfiguredAndLoading) {
+      // Don't enable the button until we are ready to actually send a tab.
+      return false;
+    }
+
+    return !!BrowserUtils.getShareableURL(uri);
+  },
+
+  async populateSendTabToolbarButton(menuPopup) {
+    this.populateSendTabToDevicesMenu(
+      menuPopup,
+      menuPopup.documentGlobal.gBrowser.currentURI,
+      menuPopup.documentGlobal.gBrowser.contentTitle,
+      { contextMenuType: "toolbar" }
+    );
   },
 
   QueryInterface: ChromeUtils.generateQI([

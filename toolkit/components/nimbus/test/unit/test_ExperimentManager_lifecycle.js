@@ -23,7 +23,7 @@ const { ProfilesDatastoreService } = ChromeUtils.importESModule(
  * onStartup()
  * - should set call setExperimentActive for each active experiment
  */
-async function test_onStartup_setExperimentActive_called() {
+add_task(async function test_onStartup_setExperimentActive_called() {
   const { sandbox, manager, cleanup } = await NimbusTestUtils.setupTest({
     init: false,
     storePath: await NimbusTestUtils.createStoreWith(store => {
@@ -72,18 +72,9 @@ async function test_onStartup_setExperimentActive_called() {
   manager.unenroll("bar");
 
   await cleanup();
-}
-
-add_task(test_onStartup_setExperimentActive_called);
-add_task(async function test_onStartup_setExperimentActive_called_db() {
-  const resetNimbusEnrollmentPrefs = NimbusTestUtils.enableNimbusEnrollments({
-    read: true,
-  });
-  await test_onStartup_setExperimentActive_called();
-  resetNimbusEnrollmentPrefs();
 });
 
-async function test_startup_unenroll() {
+add_task(async function test_startup_unenroll() {
   Services.prefs.setBoolPref("app.shield.optoutstudies.enabled", false);
 
   const { sandbox, manager, cleanup } = await NimbusTestUtils.setupTest({
@@ -114,15 +105,6 @@ async function test_startup_unenroll() {
   Services.prefs.clearUserPref("app.shield.optoutstudies.enabled");
 
   await cleanup();
-}
-
-add_task(test_startup_unenroll);
-add_task(async function test_startup_unenroll_db() {
-  const resetNimbusEnrollmentPrefs = NimbusTestUtils.enableNimbusEnrollments({
-    read: true,
-  });
-  await test_startup_unenroll();
-  resetNimbusEnrollmentPrefs();
 });
 
 add_task(async function test_onRecipe_enroll() {
@@ -272,11 +254,7 @@ add_task(async function test_onRecipe_isFirefoxLabsOptin_recipe() {
 
   const optInRecipe = NimbusTestUtils.factories.recipe("opt-in", {
     isFirefoxLabsOptIn: true,
-    firefoxLabsTitle: "title",
-    firefoxLabsDescription: "description",
-    firefoxLabsDescriptionLinks: null,
-    firefoxLabsGroup: "group",
-    requiresRestart: false,
+    isRollout: true,
   });
   const recipe = NimbusTestUtils.factories.recipe("recipe");
 

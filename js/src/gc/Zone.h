@@ -23,6 +23,7 @@
 #include "gc/ArenaList.h"
 #include "gc/Barrier.h"
 #include "gc/BufferAllocator.h"
+#include "gc/ChunkPool.h"
 #include "gc/FinalizationObservers.h"
 #include "gc/FindSCCs.h"
 #include "gc/GCMarker.h"
@@ -43,6 +44,7 @@
 
 namespace js {
 
+class AutoLockGC;
 class DebugScriptMap;
 class RegExpZone;
 class WeakRefObject;
@@ -401,6 +403,41 @@ class Zone : public js::ZoneAllocator, public js::gc::GraphNodeBase<JS::Zone> {
  public:
   js::gc::ArenaLists arenas;
 
+  // Chunks which have had some, but not all, of their arenas allocated live
+  // in the available chunk lists. When all available arenas in a chunk have
+  // been allocated, the chunk is removed from the available list and moved
+  // to the fullChunks pool.
+  js::GCLockData<js::gc::ChunkPool> availableChunks_;
+
+  // When all arenas in a chunk are used, it is moved to the fullChunks pool
+  // so as to reduce the cost of operations on the available lists.
+  js::GCLockData<js::gc::ChunkPool> fullChunks_;
+
+  // The chunk currently being allocated from. If non-null this has
+  // isCurrentChunk set to true. Can be accessed without taking the GC lock.
+  js::MainThreadOrGCTaskData<js::gc::ArenaChunk*> currentChunk_;
+
+  // Bitmap for arenas in the current chunk that have been freed by background
+  // sweeping but not yet merged into the chunk's freeCommittedArenas.
+  js::GCLockData<js::gc::ChunkArenaBitmap> pendingFreeCommittedArenas;
+
+  js::gc::ChunkPool& fullChunks(const js::AutoLockGC& lock) {
+    return fullChunks_.ref();
+  }
+  js::gc::ChunkPool& availableChunks(const js::AutoLockGC& lock) {
+    return availableChunks_.ref();
+  }
+  const js::gc::ChunkPool& fullChunks(const js::AutoLockGC& lock) const {
+    return fullChunks_.ref();
+  }
+  const js::gc::ChunkPool& availableChunks(const js::AutoLockGC& lock) const {
+    return availableChunks_.ref();
+  }
+
+  template <typename F>
+  inline void forEachNonEmptyChunk(js::gc::GCRuntime* gc,
+                                   const js::AutoLockGC& lock, F&& func);
+
   js::gc::BufferAllocator bufferAllocator;
 
   // Per-zone data for use by an embedder.
@@ -592,18 +629,21 @@ class Zone : public js::ZoneAllocator, public js::gc::GraphNodeBase<JS::Zone> {
   [[nodiscard]] bool findSweepGroupEdges(Zone* atomsZone);
 
   struct JitDiscardOptions {
-    JitDiscardOptions() {}
+    JitDiscardOptions() = default;
     bool discardJitScripts = false;
     bool resetNurseryAllocSites = false;
     bool resetPretenuredAllocSites = false;
   };
+
+  // Circumvent https://github.com/llvm/llvm-project/issues/36032
+  static constexpr JitDiscardOptions DefaultJitDiscardOptions() { return {}; }
 
   void maybeDiscardJitCode(JS::GCContext* gcx);
 
   // Discard JIT code regardless of isPreservingCode().
   void forceDiscardJitCode(
       JS::GCContext* gcx,
-      const JitDiscardOptions& options = JitDiscardOptions());
+      const JitDiscardOptions& options = DefaultJitDiscardOptions());
 
   void resetAllocSitesAndInvalidate(bool resetNurserySites,
                                     bool resetPretenuredSites);

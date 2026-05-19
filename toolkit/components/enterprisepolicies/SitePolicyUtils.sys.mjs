@@ -31,4 +31,27 @@ export const SitePolicyUtils = {
     // No site specific setting, fall back to the global setting.
     return manager.isAllowed(feature);
   },
+
+  hasSitePoliciesForURI(sitePolicies, uri) {
+    for (let policies of sitePolicies) {
+      if (
+        policies.exceptions.matches(uri) ||
+        // This is necessary to correctly match moz-nullprincipal URIs.
+        policies.exceptions.matchesAllWebUrls
+      ) {
+        continue;
+      }
+
+      if (
+        (policies.match.matches(uri) ||
+          // This is necessary to correctly match moz-nullprincipal URIs.
+          policies.match.matchesAllWebUrls) &&
+        Object.keys(policies.features).length
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  },
 };

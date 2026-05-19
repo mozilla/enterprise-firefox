@@ -26,6 +26,7 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 const PROMPT_ON_SIGNOUT_PREF = "enterprise.prompt_on_signout";
 const COMPANY_LOGO_URL_PREF = "enterprise.configs.company_logo_url";
 const LEARN_MORE_URL_PREF = "enterprise.configs.learn_more_url";
+const WARN_ON_CLOSE_PREF = "browser.tabs.warnOnClose";
 
 /**
  * Parses a given url string
@@ -110,6 +111,18 @@ export const EnterpriseHandler = {
   _isInitialized: false,
 
   /**
+   * Set to true after the user confirms the enterprise close dialog, so that the
+   * resulting re-quit skips showing it again.
+   */
+  _skipSignoutPrompt: false,
+
+  /**
+   * Cached count of open tabs used when showing the close prompt to avoid recounting
+   * tabs multiple times during the prompt flow. Resets to null after use.
+   */
+  _tabCount: null,
+
+  /**
    * Handles the enterprise state for each new browser window.
    * On first call:
    *    - Make a request to the console to retrieve the user information of the signed in user.
@@ -161,7 +174,7 @@ export const EnterpriseHandler = {
         }
         let isLockedDown = false;
         try {
-          isLockedDown = !Services.policies.isAllowedForURI("jit", location);
+          isLockedDown = Services.policies.hasSitePoliciesForURI(location);
         } catch (e) {
           lazy.log.warn("Failed to check lockdown state for URI: ", e);
         }
@@ -274,7 +287,7 @@ export const EnterpriseHandler = {
   },
 
   openPanel(element, event) {
-    const win = element.ownerGlobal;
+    const win = element.documentGlobal;
     win.PanelUI.showSubView("panelUI-enterprise", element, event);
     const document = element.ownerDocument;
 
@@ -312,138 +325,223 @@ export const EnterpriseHandler = {
     window.PanelUI.mainView.setAttribute("restricted-enterprise-view", true);
   },
 
-  _getSignoutPromptParams() {
+  /**
+   * Generates the parameters for the signout/close prompt based on the current state and preferences.
+   *
+   * @param {object} options
+   * @param {number} options.tabCount - The number of open tabs across all windows.
+   * @param {boolean} options.warnOnSignout - Whether to warn on signout.
+   * @param {boolean} options.warnOnCloseWithTabs - Whether to warn on close when multiple tabs are open.
+   * @returns {Promise<object>} The parameters for the signout/close prompt, including title, message, checkbox states, and more.
+   */
+  async _getSignoutPromptParams({
+    tabCount,
+    warnOnSignout,
+    warnOnCloseWithTabs,
+  } = {}) {
+    const hasMultipleTabs = tabCount > 1;
+    const hasTabsWarning = hasMultipleTabs && warnOnCloseWithTabs;
+
+    let titleId, messageId;
+    if (hasTabsWarning) {
+      const warnSuffix = warnOnSignout ? "-and-signout-warning" : "";
+      titleId = {
+        id: `enterprise-close-prompt-title-with-tabcount${warnSuffix}`,
+        args: { tabCount },
+      };
+      messageId = {
+        id: `enterprise-close-prompt-message-with-tabcount${warnSuffix}`,
+        args: warnOnSignout ? { tabCount } : {},
+      };
+    } else {
+      titleId = { id: "enterprise-close-prompt-title" };
+      messageId = { id: "enterprise-close-prompt-message" };
+    }
+
+    const [
+      title,
+      message,
+      acceptLabel,
+      reauthNotice,
+      checkLabel,
+      tabsCheckLabel,
+    ] = await lazy.localization.formatValues([
+      titleId,
+      messageId,
+      { id: "enterprise-close-prompt-primary-btn-label" },
+      { id: "enterprise-close-prompt-message-reauth" },
+      { id: "enterprise-close-prompt-checkbox-label" },
+      { id: "enterprise-close-prompt-tabs-checkbox-label" },
+    ]);
+
+    const checkboxes = [
+      { id: "warnOnSignout", label: checkLabel, checked: warnOnSignout },
+      ...(hasMultipleTabs
+        ? [
+            {
+              id: "warnOnCloseWithTabs",
+              label: tabsCheckLabel,
+              checked: warnOnCloseWithTabs,
+            },
+          ]
+        : []),
+    ];
+
+    return {
+      title,
+      message,
+      reauthNotice: warnOnSignout ? reauthNotice : null,
+      acceptLabel,
+      checkboxes,
+      accepted: false,
+    };
+  },
+
+  /**
+   * Handles the result of the signout/close prompt, updating preferences based on checkbox states if accepted.
+   *
+   * @param {boolean} accepted - Whether the user accepted the prompt.
+   * @param {Array<{id: string, checked: boolean}>} checkboxes - The state of the checkboxes in the prompt.
+   * @returns {boolean} True if the action should proceed (accepted), false if cancelled.
+   */
+  _handleSignoutPromptResult(accepted, checkboxes) {
+    if (!accepted) {
+      return false;
+    }
+
+    for (const { id, checked } of checkboxes) {
+      if (id === "warnOnSignout") {
+        Services.prefs.setBoolPref(PROMPT_ON_SIGNOUT_PREF, checked);
+      } else if (id === "warnOnCloseWithTabs") {
+        Services.prefs.setBoolPref(WARN_ON_CLOSE_PREF, checked);
+      }
+    }
+
+    return true;
+  },
+
+  /**
+   * Counts the total number of open tabs across all browser windows.
+   *
+   * @returns {number} The total count of open tabs.
+   */
+  _countOpenTabs() {
     let tabCount = 0;
     for (let win of Services.wm.getEnumerator("navigator:browser")) {
       if (!win.closed && win.gBrowser) {
         tabCount += win.gBrowser.openTabs.length;
       }
     }
-
-    const titleId = {
-      id: "enterprise-signout-prompt-title2",
-      args: { tabCount },
-    };
-
-    return {
-      titleId,
-      messageId: { id: "enterprise-signout-prompt-message" },
-      checkLabelId: { id: "enterprise-signout-prompt-checkbox-label" },
-      signoutBtnLabelId: { id: "enterprise-signout-prompt-primary-btn-label" },
-      flags:
-        Services.prompt.BUTTON_TITLE_IS_STRING * Services.prompt.BUTTON_POS_0 +
-        Services.prompt.BUTTON_TITLE_CANCEL * Services.prompt.BUTTON_POS_1 +
-        Services.prompt.BUTTON_POS_0_DEFAULT,
-    };
-  },
-
-  _handleSignoutPromptResult(buttonPressed, checked) {
-    if (buttonPressed === 1) {
-      return false;
-    }
-    if (!checked) {
-      Services.prefs.setBoolPref(PROMPT_ON_SIGNOUT_PREF, false);
-    }
-    return true;
-  },
-
-  isSignoutPromptEnabled() {
-    return Services.prefs.getBoolPref(PROMPT_ON_SIGNOUT_PREF, true);
+    return tabCount;
   },
 
   /**
-   * Synchronous signout prompt for the quit-application-requested observer,
-   * which must return a result before the quit proceeds.
+   * Determines whether the signout/close prompt should be shown based on preferences and current state.
+   *
+   * @returns {boolean} True if the prompt should be shown, false otherwise.
+   */
+  shouldShowClosePrompt() {
+    if (this._skipSignoutPrompt) {
+      this._skipSignoutPrompt = false;
+      return false;
+    }
+    const warnOnSignout = Services.prefs.getBoolPref(
+      PROMPT_ON_SIGNOUT_PREF,
+      true
+    );
+    const warnOnCloseWithTabs = Services.prefs.getBoolPref(
+      WARN_ON_CLOSE_PREF,
+      false
+    );
+    if (!warnOnSignout && !warnOnCloseWithTabs) {
+      return false;
+    }
+    this._tabCount = this._countOpenTabs();
+    return warnOnSignout || this._tabCount > 1;
+  },
+
+  /**
+   * Shows the signout/close confirmation dialog if needed.
    *
    * @param {Window} window
-   * @returns {boolean} true if quit should proceed, false if cancelled.
+   * @returns {Promise<boolean>} true if the action should proceed, false if cancelled.
    */
-  showSignoutPrompt(window) {
-    if (!this.isSignoutPromptEnabled()) {
+  async showSignoutPrompt(window) {
+    const warnOnSignout = Services.prefs.getBoolPref(
+      PROMPT_ON_SIGNOUT_PREF,
+      true
+    );
+    const warnOnCloseWithTabs = Services.prefs.getBoolPref(
+      WARN_ON_CLOSE_PREF,
+      false
+    );
+
+    this._tabCount ??= this._countOpenTabs();
+
+    if (!warnOnSignout && (this._tabCount <= 1 || !warnOnCloseWithTabs)) {
+      this._tabCount = null;
       return true;
     }
 
-    const params = this._getSignoutPromptParams();
-    const [title, message, checkLabel, signoutBtnLabel] =
-      lazy.localization.formatValuesSync([
-        params.titleId,
-        params.messageId,
-        params.checkLabelId,
-        params.signoutBtnLabelId,
-      ]);
+    const params = await this._getSignoutPromptParams({
+      tabCount: this._tabCount,
+      warnOnSignout,
+      warnOnCloseWithTabs,
+    });
+    this._tabCount = null;
 
-    const checkState = { value: true };
-    const buttonPressed = Services.prompt.confirmEx(
-      window,
-      title,
-      message,
-      params.flags,
-      signoutBtnLabel,
-      null,
-      null,
-      checkLabel,
-      checkState
+    if (!window) {
+      params.wrappedJSObject = params;
+      Services.ww.openWindow(
+        null,
+        "chrome://browser/content/enterprise/enterprise-close-dialog.xhtml",
+        "_blank",
+        "chrome,centerscreen,modal,dialog",
+        params
+      );
+    } else {
+      if (window.gDialogBox.isOpen) {
+        window.gDialogBox.replaceDialogIfOpen();
+      }
+      await window.gDialogBox.open(
+        "chrome://browser/content/enterprise/enterprise-close-dialog.xhtml",
+        params
+      );
+    }
+
+    const accepted = this._handleSignoutPromptResult(
+      params.accepted,
+      params.checkboxes
     );
-
-    return this._handleSignoutPromptResult(buttonPressed, checkState.value);
+    if (accepted) {
+      this._skipSignoutPrompt = true;
+    }
+    return accepted;
   },
 
   /**
-   * Handles the signout button in the enterprise panel. Shows an async
-   * in-content dialog that does not block the parent process, then quits.
+   * Handles the signout button in the enterprise panel. Shows the signout
+   * confirmation dialog then performs a full signout and quits.
    *
    * @param {Window} window
    */
   async onSignOut(window) {
-    if (!Services.prefs.getBoolPref(PROMPT_ON_SIGNOUT_PREF, true)) {
-      await this.initiateShutdown();
+    if (!(await this.showSignoutPrompt(window))) {
       return;
     }
 
-    const params = this._getSignoutPromptParams();
-    const [title, message, checkLabel, signoutBtnLabel] =
-      await lazy.localization.formatValues([
-        params.titleId,
-        params.messageId,
-        params.checkLabelId,
-        params.signoutBtnLabelId,
-      ]);
-
-    const result = await Services.prompt.asyncConfirmEx(
-      window.browsingContext,
-      Services.prompt.MODAL_TYPE_INTERNAL_WINDOW,
-      title,
-      message,
-      params.flags,
-      signoutBtnLabel,
-      null,
-      null,
-      checkLabel,
-      true
-    );
-
-    if (
-      !this._handleSignoutPromptResult(
-        result.get("buttonNumClicked"),
-        result.get("checked")
-      )
-    ) {
-      return;
-    }
-
-    await this.initiateShutdown();
+    this.initiateShutdown();
   },
 
-  async initiateShutdown() {
+  initiateShutdown() {
     // TODO: Bug 2001029 - Assert or force-enable session restore?
-
     try {
-      await lazy.ConsoleClient.signoutUser();
+      Services.felt.performSignout();
     } catch (e) {
       lazy.log.error(`Unable to signout the user: ${e}`);
-    } finally {
-      Services.startup.quit(Ci.nsIAppStartup.eForceQuit);
+      Services.obs.notifyObservers(null, "felt-firefox-shutdown");
     }
+    // FELT will call shutdownFirefox() to quit us after handling the logout.
   },
 
   uninit() {

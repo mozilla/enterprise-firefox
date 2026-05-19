@@ -16,7 +16,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Surface
@@ -44,6 +43,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import mozilla.components.compose.base.button.IconButton
 import mozilla.components.compose.base.menu.DropdownMenu
 import mozilla.components.compose.base.menu.MenuItem
 import mozilla.components.compose.base.text.Text
@@ -439,40 +439,46 @@ private fun MultiSelectBanner(
             )
         },
         navigationIcon = {
-            IconButton(onClick = onExitSelectModeClick) {
+            IconButton(
+                onClick = onExitSelectModeClick,
+                contentDescription = stringResource(id = R.string.tab_tray_close_multiselect_content_description),
+            ) {
                 Icon(
                     painter = painterResource(id = iconsR.drawable.mozac_ic_back_24),
-                    contentDescription = stringResource(id = R.string.tab_tray_close_multiselect_content_description),
+                    contentDescription = null,
                 )
             }
         },
         actions = {
             IconButton(
                 onClick = onBookmarkSelectedTabsClick,
+                contentDescription = stringResource(
+                    id = R.string.tab_manager_multiselect_menu_item_bookmark_content_description,
+                ),
                 enabled = buttonsEnabled,
             ) {
                 Icon(
                     painter = painterResource(id = iconsR.drawable.mozac_ic_bookmark_24),
-                    contentDescription = stringResource(
-                        id = R.string.tab_manager_multiselect_menu_item_bookmark_content_description,
-                    ),
+                    contentDescription = null,
                 )
             }
 
             IconButton(
                 onClick = onCloseSelectedTabsClick,
+                contentDescription = stringResource(
+                    id = R.string.tab_manager_multiselect_menu_item_close_content_description,
+                ),
                 enabled = buttonsEnabled,
             ) {
                 Icon(
                     painter = painterResource(id = iconsR.drawable.mozac_ic_delete_24),
-                    contentDescription = stringResource(
-                        id = R.string.tab_manager_multiselect_menu_item_close_content_description,
-                    ),
+                    contentDescription = null,
                 )
             }
 
             IconButton(
                 onClick = { showMenu = true },
+                contentDescription = stringResource(id = R.string.tab_tray_multiselect_menu_content_description),
                 modifier = Modifier.testTag(TabsTrayTestTag.THREE_DOT_BUTTON),
                 enabled = buttonsEnabled,
             ) {
@@ -484,7 +490,7 @@ private fun MultiSelectBanner(
 
                 Icon(
                     painter = painterResource(iconsR.drawable.mozac_ic_ellipsis_vertical_24),
-                    contentDescription = stringResource(id = R.string.tab_tray_multiselect_menu_content_description),
+                    contentDescription = null,
                 )
             }
         },

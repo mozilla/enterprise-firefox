@@ -382,7 +382,6 @@ add_task(
 
 add_task(async function test_drag_tab_group_label_with_splitview() {
   // [(startingTab, tab1), tab2, [Group: (tab3 | tab4)], tab5]
-  const tabpanels = document.getElementById("tabbrowser-tabpanels");
   const startingTab = gBrowser.tabs[0];
   let [tab1, tab2, tab3, tab4] = await Promise.all(
     Array.from({ length: 4 }).map((_, index) =>
@@ -401,12 +400,19 @@ add_task(async function test_drag_tab_group_label_with_splitview() {
     tab1,
     "Tab 1 in a splitview is the selected tab"
   );
+  const tab1Panel = document.getElementById(tab1.linkedPanel);
+  const tab1BrowserContainer = tab1Panel.querySelector(".browserContainer");
+  const splitViewOutlineSelector =
+    "#tabbrowser-tabpanels[splitview] .split-view-panel.deck-selected > .browserContainer";
   await BrowserTestUtils.waitForMutationCondition(
-    tabpanels,
-    { attributes: true },
-    () => tabpanels.hasAttribute("splitview")
+    tab1Panel,
+    { attributes: true, attributeFilter: ["class"] },
+    () => tab1BrowserContainer.matches(splitViewOutlineSelector)
   );
-  Assert.ok(tabpanels.hasAttribute("splitview"), "Tab panel has blue outline");
+  Assert.ok(
+    tab1BrowserContainer.matches(splitViewOutlineSelector),
+    "Tab panel has blue outline"
+  );
 
   let tab5 = await addTab("data:text/plain,tab5");
   gBrowser.selectedTab = tab5;
@@ -438,12 +444,12 @@ add_task(async function test_drag_tab_group_label_with_splitview() {
   Assert.equal(gBrowser.selectedTab, tab5, "Tab 5 is the selected tab");
 
   await BrowserTestUtils.waitForMutationCondition(
-    tabpanels,
-    { attributes: true },
-    () => !tabpanels.hasAttribute("splitview")
+    tab1Panel,
+    { attributes: true, attributeFilter: ["class"] },
+    () => !tab1BrowserContainer.matches(splitViewOutlineSelector)
   );
   Assert.ok(
-    !tabpanels.hasAttribute("splitview"),
+    !tab1BrowserContainer.matches(splitViewOutlineSelector),
     "Tab panel does not have blue outline"
   );
 

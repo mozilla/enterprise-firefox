@@ -10,6 +10,8 @@ const { AppConstants } = ChromeUtils.importESModule(
   "resource://gre/modules/AppConstants.sys.mjs"
 );
 
+import { SearchModeSwitcher } from "chrome://browser/content/urlbar/SearchModeSwitcher.mjs";
+
 /**
  * @import { UrlbarSearchOneOffs } from "moz-src:///browser/components/urlbar/UrlbarSearchOneOffs.sys.mjs"
  * @import { SearchEngine } from "moz-src:///toolkit/components/search/SearchEngine.sys.mjs"
@@ -56,8 +58,6 @@ const lazy = XPCOMUtils.declareLazy({
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ReaderMode: "moz-src:///toolkit/components/reader/ReaderMode.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
-  SearchModeSwitcher:
-    "moz-src:///browser/components/urlbar/SearchModeSwitcher.sys.mjs",
   SharingUtils: "resource:///modules/SharingUtils.sys.mjs",
   SearchUIUtils: "moz-src:///browser/components/search/SearchUIUtils.sys.mjs",
   SearchUtils: "moz-src:///toolkit/components/search/SearchUtils.sys.mjs",
@@ -101,7 +101,7 @@ const lazy = XPCOMUtils.declareLazy({
 const UNLIMITED_MAX_RESULTS = 99;
 
 let getBoundsWithoutFlushing = element =>
-  element.ownerGlobal.windowUtils.getBoundsWithoutFlushing(element);
+  element.documentGlobal.windowUtils.getBoundsWithoutFlushing(element);
 let px = number => number.toFixed(2) + "px";
 
 /**
@@ -165,7 +165,6 @@ ${
         <html:moz-urlbar-slot name="page-actions" />
       </html:div>
       <html:div class="urlbarView"
-            context=""
             role="group"
             tooltip="aHTMLTooltip">
         <html:div class="urlbarView-body-outer">
@@ -176,10 +175,8 @@ ${
         </html:div>
         <menupopup class="urlbarView-result-menu"
                    consumeoutsideclicks="false"/>
-        <html:div class="search-one-offs"
-              includecurrentengine="true"
-              disabletab="true"/>
-      </html:div>`;
+        <html:moz-urlbar-slot name="search-one-offs" />
+   </html:div>`;
   }
 
   /** @type {DocumentFragment} */
@@ -191,6 +188,10 @@ ${
     }
     // @ts-ignore
     return document.importNode(UrlbarInput.#fragment, true);
+  }
+
+  static get observedAttributes() {
+    return ["focused", "open"];
   }
 
   /**
@@ -222,6 +223,10 @@ ${
     "selectionchange",
   ];
 
+  /**
+   * Whether expanding is allowed. Requires a parent
+   * toolbar, and us not being read-only.
+   */
   #allowBreakout = false;
   #gBrowserListenersAdded = false;
   #breakoutBlockerCount = 0;
@@ -243,6 +248,7 @@ ${
   // Tracks IME composition.
   #compositionState = lazy.UrlbarUtils.COMPOSITION.NONE;
   #compositionClosedPopup = false;
+  #compositionHadText = false;
 
   valueIsTyped = false;
 
@@ -260,7 +266,7 @@ ${
   constructor() {
     super();
 
-    this.window = this.ownerGlobal;
+    this.window = this.documentGlobal;
     this.document = this.window.document;
     this.isPrivate = lazy.PrivateBrowsingUtils.isWindowPrivate(this.window);
 
@@ -361,7 +367,7 @@ ${
 
     this.controller = new lazy.UrlbarController({ input: this });
     this.view = new lazy.UrlbarView(this);
-    this.searchModeSwitcher = new lazy.SearchModeSwitcher(this);
+    this.searchModeSwitcher = new SearchModeSwitcher(this);
 
     let searchModeSwitcherDescription = this.querySelector(
       ".searchmode-switcher-panel-description"
@@ -386,7 +392,6 @@ ${
     // type definitions.
     const READ_WRITE_PROPERTIES = [
       "placeholder",
-      "readOnly",
       "selectionStart",
       "selectionEnd",
     ];
@@ -408,6 +413,29 @@ ${
     this._setPlaceholder(null);
   }
 
+  attributeChangedCallback(attribute, _oldValue, _newValue) {
+    if (attribute != "focused" && attribute != "open") {
+      return;
+    }
+
+    if (!Services.prefs.getBoolPref("browser.nova.enabled", false)) {
+      if (attribute == "open") {
+        if (this.view.isOpen && this.view.visibleRowCount) {
+          this.startLayoutExtend();
+        } else {
+          this.endLayoutExtend();
+        }
+      }
+      return;
+    }
+
+    if (this.focused || (this.view.isOpen && this.view.visibleRowCount)) {
+      this.startLayoutExtend();
+    } else {
+      this.endLayoutExtend();
+    }
+  }
+
   connectedCallback() {
     if (
       this.getAttribute("sap-name") == "searchbar" &&
@@ -427,18 +455,16 @@ ${
     if (this.inOverflowPanel && this.view.isOpen) {
       this.view.close();
     }
-    this.toggleAttribute("focused", this.focused);
 
-    // Don't attach event listeners if the toolbar is not visible
-    // in this window or the urlbar is readonly.
-    if (
-      !this.window.toolbar.visible ||
-      this.window.document.documentElement.hasAttribute("taskbartab") ||
-      this.readOnly
-    ) {
+    // Don't attach event listeners if the urlbar is readonly.
+    if (this.readOnly) {
       this.#stopBreakout();
+      this.#allowBreakout = false;
+      // Focused won't be updated so remove it to avoid it becoming stale.
+      this.removeAttribute("focused");
       return;
     }
+    this.toggleAttribute("focused", this.focused);
 
     if (
       this.sapName == "searchbar" &&
@@ -508,7 +534,6 @@ ${
       this._updatePlaceholderFromDefaultEngine();
     }
 
-    // Expanding requires a parent toolbar, and us not being read-only.
     this.#allowBreakout =
       !!this.closest("toolbar") &&
       !document.documentElement.hasAttribute("customizing");
@@ -659,15 +684,27 @@ ${
     this.inputField.blur();
   }
 
+  set readOnly(val) {
+    if (val != this.inputField.readOnly) {
+      this.inputField.readOnly = val;
+      if (this.isConnected) {
+        this.#disconnectedCallback();
+        this.#connectedCallback();
+      }
+    }
+  }
+
+  /**
+   * @type {boolean}
+   */
+  get readOnly() {
+    return this.inputField.readOnly;
+  }
+
   /**
    * @type {typeof HTMLInputElement.prototype.placeholder}
    */
   placeholder;
-
-  /**
-   * @type {typeof HTMLInputElement.prototype.readOnly}
-   */
-  readOnly;
 
   /**
    * @type {typeof HTMLInputElement.prototype.selectionStart}
@@ -1107,6 +1144,10 @@ ${
       }
     }
 
+    if (lazy.UrlbarPrefs.get("unifiedSearchButton.always")) {
+      this.searchModeSwitcher?.updateSearchIcon();
+    }
+
     this.handleNavigation({ event });
   }
 
@@ -1532,7 +1573,8 @@ ${
       element,
       urlOverride: resultUrl,
     });
-    let where = this._whereToOpen(event);
+
+    let where;
     let openParams = {
       allowInheritPrincipal: false,
       globalHistoryOptions: {
@@ -1545,9 +1587,44 @@ ${
       private: this.isPrivate,
     };
 
-    if (resultUrl && where == "current") {
-      // Open help links in a new tab.
-      where = "tab";
+    if (element?.closest("#urlbarView-context-menu")) {
+      switch (element.id) {
+        case "urlbar-view-context-menu-open-in-tab": {
+          where = "tab";
+          break;
+        }
+        case "urlbarView-context-menu-open-in-window": {
+          where = "window";
+          break;
+        }
+        case "urlbarView-context-menu-open-in-private-window": {
+          where = "window";
+          openParams.private = true;
+          break;
+        }
+        default: {
+          // Open in a container tab.
+          where = "tab";
+          openParams.userContextId = parseInt(
+            element.getAttribute("data-usercontextid")
+          );
+        }
+      }
+
+      if (
+        where == "tab" &&
+        Services.prefs.getBoolPref("browser.tabs.loadInBackground")
+      ) {
+        openParams.avoidBrowserFocus = true;
+        openParams.keepView = true;
+        openParams.inBackground = true;
+      }
+    } else {
+      where = this._whereToOpen(event);
+      if (resultUrl && where == "current") {
+        // Open help links in a new tab.
+        where = "tab";
+      }
     }
 
     if (!this.#providesSearchMode(result)) {
@@ -1952,14 +2029,19 @@ ${
       }
     }
 
-    this.controller.engagementEvent.startTrackingBounceEvent(browser, event, {
-      result,
-      element,
-      searchString: this._lastSearchString,
-      selType: this.controller.engagementEvent.typeFromElement(result, element),
-      searchSource: this.getSearchSource(event),
-      windowMode: this.windowMode,
-    });
+    this.controller.engagementEvent
+      .startTrackingBounceEvent(browser, event, {
+        result,
+        element,
+        searchString: this._lastSearchString,
+        selType: this.controller.engagementEvent.typeFromElement(
+          result,
+          element
+        ),
+        searchSource: this.getSearchSource(event),
+        windowMode: this.windowMode,
+      })
+      .catch(lazy.logger.error);
 
     this.controller.engagementEvent.record(event, {
       result,
@@ -2864,20 +2946,24 @@ ${
       // already expanded.
       return;
     }
-    if (!this.view.isOpen) {
+
+    if (
+      !this.view.isOpen &&
+      !Services.prefs.getBoolPref("browser.nova.enabled", false)
+    ) {
       return;
     }
 
     this.#updateTextboxPosition();
 
-    this.setAttribute("breakout-extend", "true");
+    this.toggleAttribute("breakout-extend", true);
 
     // Enable the animation only after the first extend call to ensure it
     // doesn't run when opening a new window.
     if (!this.hasAttribute("breakout-extend-animate")) {
       this.window.promiseDocumentFlushed(() => {
         this.window.requestAnimationFrame(() => {
-          this.setAttribute("breakout-extend-animate", "true");
+          this.toggleAttribute("breakout-extend-animate", true);
         });
       });
     }
@@ -2887,11 +2973,18 @@ ${
     // If reduce motion is enabled, we want to collapse the Urlbar here so the
     // user sees only sees two states: not expanded, and expanded with the view
     // open.
-    if (!this.hasAttribute("breakout-extend") || this.view.isOpen) {
+    if (!this.hasAttribute("breakout-extend")) {
       return;
     }
 
-    this.removeAttribute("breakout-extend");
+    if (
+      this.view.isOpen &&
+      !Services.prefs.getBoolPref("browser.nova.enabled", false)
+    ) {
+      return;
+    }
+
+    this.toggleAttribute("breakout-extend", false);
     this.#updateTextboxPosition();
   }
 
@@ -3193,10 +3286,14 @@ ${
   }
 
   #updateTextboxPosition() {
-    if (!this.view.isOpen) {
+    if (
+      !this.view.isOpen &&
+      !Services.prefs.getBoolPref("browser.nova.enabled", false)
+    ) {
       this.style.top = "";
       return;
     }
+
     this.style.top = px(
       this.parentNode.getBoxQuads({
         ignoreTransforms: true,
@@ -3699,7 +3796,7 @@ ${
     if (this.getAttribute("pageproxystate") == "valid") {
       uri = this.#isOpenedPageInBlankTargetLoading
         ? this.window.gBrowser.selectedBrowser.browsingContext
-            .nonWebControlledBlankURI
+            .nonWebControlledLoadingURI
         : this.window.gBrowser.currentURI;
     } else {
       // The value could be:
@@ -4588,7 +4685,7 @@ ${
     contextMenu.addEventListener("popupshowing", () => {
       let browser = this.window.gBrowser?.selectedBrowser;
       if (browser) {
-        lazy.SharingUtils.updateShareURLMenuItem(browser, null, separator);
+        lazy.SharingUtils.ensureShareMenu(browser, null, separator);
       }
     });
   }
@@ -5429,6 +5526,13 @@ ${
       this.#compositionClosedPopup = false;
     }
 
+    if (
+      compositionState == lazy.UrlbarUtils.COMPOSITION.COMPOSING &&
+      event.data
+    ) {
+      this.#compositionHadText = true;
+    }
+
     this.toggleAttribute("usertyping", value);
     this.removeAttribute("actiontype");
 
@@ -5471,7 +5575,7 @@ ${
     // 1. a compositionstart event
     // 2. some input events
     // 3. a compositionend event
-    // 4. an input event
+    // 4. an input event (some IMEs may skip this when step 3 has empty data)
 
     // We should do nothing during composition or if composition was canceled
     // and we didn't close the popup on composition start.
@@ -5484,12 +5588,13 @@ ${
       return;
     }
 
-    // Autofill only when text is inserted (i.e., event.data is not empty) and
-    // it's not due to pasting.
+    // Don't autofill when the user is explicitly deleting content, pasting, or
+    // undoing/redoing.
     const allowAutofill =
       (!lazy.UrlbarPrefs.get("keepPanelOpenDuringImeComposition") ||
         compositionState !== lazy.UrlbarUtils.COMPOSITION.COMPOSING) &&
-      !!event.data &&
+      !event.inputType?.startsWith("delete") &&
+      !event.inputType?.startsWith("history") &&
       !lazy.UrlbarUtils.isPasteEvent(event) &&
       this._maybeAutofillPlaceholder(value);
 
@@ -5825,6 +5930,7 @@ ${
       throw new Error("Trying to start a nested composition?");
     }
     this.#compositionState = lazy.UrlbarUtils.COMPOSITION.COMPOSING;
+    this.#compositionHadText = false;
 
     if (lazy.UrlbarPrefs.get("keepPanelOpenDuringImeComposition")) {
       return;
@@ -5869,6 +5975,21 @@ ${
     this.#compositionState = event.data
       ? lazy.UrlbarUtils.COMPOSITION.COMMIT
       : lazy.UrlbarUtils.COMPOSITION.CANCELED;
+
+    // Certain IMEs fire a spurious empty composition after each commit without
+    // a subsequent input event. If this composition was empty throughout and it
+    // closed the popup, reopen it directly since we can't rely on a following
+    // input event.
+    if (
+      !event.data &&
+      !this.#compositionHadText &&
+      this.#compositionClosedPopup &&
+      !lazy.UrlbarPrefs.get("keepPanelOpenDuringImeComposition")
+    ) {
+      this.#compositionState = lazy.UrlbarUtils.COMPOSITION.NONE;
+      this.#compositionClosedPopup = false;
+      this.startQuery({ resetSearchState: false, event });
+    }
   }
 
   _on_dragstart(event) {
@@ -6021,7 +6142,7 @@ ${
       this.window.gBrowser.selectedBrowser.browsingContext.sessionHistory
         ?.count === 0 &&
       this.window.gBrowser.selectedBrowser.browsingContext
-        .nonWebControlledBlankURI
+        .nonWebControlledLoadingURI
     );
   }
 
@@ -6348,7 +6469,7 @@ class AddSearchEngineHelper {
    * @returns {number}
    */
   get maxInlineEngines() {
-    return lazy.SearchModeSwitcher.MAX_OPENSEARCH_ENGINES;
+    return SearchModeSwitcher.MAX_OPENSEARCH_ENGINES;
   }
 
   /**

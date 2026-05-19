@@ -5,15 +5,21 @@ run-if = [
   "os != 'android'",
 ]
 
-["test_ChatModelChoice.js"]
+["test_chat-utils.js"]
 
 ["test_ChatConversation.js"]
 
 ["test_ChatMessage.js"]
 
+["test_ChatModelChoice.js"]
+
 ["test_ChatStore.js"]
 
-["test_chat-utils.js"]
+["test_TabManagementService.js"]
+
+["test_ToolUI.js"]
+
+["test_ToolUIUpdate.js"]
 
 ["test_ui_modules_AIWindow_placesEvents.js"]
 

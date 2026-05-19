@@ -344,15 +344,13 @@ nsPIDOMWindowOuter* nsPIDOMWindowOuter::GetFromCurrentInner(
 // nsOuterWindowProxy: Outer Window Proxy
 //*****************************************************************************
 
-// Give OuterWindowProxyClass 2 reserved slots, like the other wrappers, so
-// JSObject::swap can swap it with CrossCompartmentWrappers without requiring
-// malloc.
+// OuterWindowProxyClass has 2 (SwappableProxyReservedSlots) reserved slots.
 //
 // We store the nsGlobalWindowOuter* in our first slot.
 //
 // We store our holder weakmap in the second slot.
 const JSClass OuterWindowProxyClass = PROXY_CLASS_DEF(
-    "Proxy", JSCLASS_HAS_RESERVED_SLOTS(2)); /* additional class flags */
+    "Proxy", JSCLASS_HAS_RESERVED_SLOTS(js::SwappableProxyReservedSlots));
 
 static const size_t OUTER_WINDOW_SLOT = 0;
 static const size_t HOLDER_WEAKMAP_SLOT = 1;
@@ -3293,12 +3291,6 @@ already_AddRefed<BrowsingContext> nsGlobalWindowOuter::GetContentInternal(
     }
 
     return do_AddRef(primaryContent->GetBrowsingContext());
-  }
-
-  // For legacy untrusted callers we always return the same value as
-  // `window.top`
-  if (mDoc && aCallerType != CallerType::System) {
-    mDoc->WarnOnceAbout(DeprecatedOperations::eWindowContentUntrusted);
   }
 
   MOZ_ASSERT(mBrowsingContext->IsContent());
@@ -6409,7 +6401,7 @@ void nsGlobalWindowOuter::UpdateCommands(const nsAString& anAction) {
       nsCOMPtr<nsPIWindowRoot> root = GetTopWindowRoot();
       if (root) {
         nsContentUtils::AddScriptRunner(
-            new ChildCommandDispatcher(root, child, this, anAction));
+            MakeAndAddRef<ChildCommandDispatcher>(root, child, this, anAction));
       }
       return;
     }
@@ -6431,7 +6423,7 @@ void nsGlobalWindowOuter::UpdateCommands(const nsAString& anAction) {
       doc->GetCommandDispatcher();
   if (xulCommandDispatcher) {
     nsContentUtils::AddScriptRunner(
-        new CommandDispatcher(xulCommandDispatcher, anAction));
+        MakeAndAddRef<CommandDispatcher>(xulCommandDispatcher, anAction));
   }
 }
 
@@ -6510,11 +6502,7 @@ bool nsGlobalWindowOuter::FindOuter(const nsAString& aString,
 // EventTarget
 //*****************************************************************************
 
-nsPIDOMWindowOuter* nsGlobalWindowOuter::GetOwnerGlobalForBindingsInternal() {
-  return this;
-}
-
-nsIGlobalObject* nsGlobalWindowOuter::GetOwnerGlobal() const {
+nsIGlobalObject* nsGlobalWindowOuter::GetRelevantGlobal() const {
   return GetCurrentInnerWindowInternal(this);
 }
 

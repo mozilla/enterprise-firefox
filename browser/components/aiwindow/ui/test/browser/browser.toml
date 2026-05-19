@@ -7,8 +7,8 @@ prefs = [
 ]
 support-files = [
   "head.js",
-  "test_chat_search_button.html",
-  "test_chat_search_button.mjs",
+  "test_ai_action_result_page.html",
+  "test_ai_action_result.mjs",
   "test_assistant_message_footer_page.html",
   "test_applied_memories_page.html",
   "test_chat_assistant_error.html",
@@ -19,6 +19,10 @@ support-files = [
   "test_smartwindow_panel_list.mjs",
   "test_website_chip_page.html",
   "test_website_chip.mjs",
+  "test_website_select_page.html",
+  "test_website_select.mjs",
+  "test_website_confirmation_page.html",
+  "test_website_confirmation.mjs",
   "test_context_url_page.html",
   "test_context_url_page2.html"
 ]
@@ -27,17 +31,27 @@ support-files = [
 
 ["browser_aichat_content_actors.js"]
 
+["browser_aichat_content_background_token.js"]
+
 ["browser_aichat_content_message_event.js"]
 
 ["browser_aichat_content_overflow.js"]
 
+["browser_aichat_content_scrolling_position.js"]
+
 ["browser_aichat_message.js"]
+
+["browser_aichat_message_table.js"]
 
 ["browser_aichat_open_link.js"]
 
 ["browser_aichat_same_link_click.js"]
 
 ["browser_aiwindow_account_auth.js"]
+
+["browser_aiwindow_ai_action_result.js"]
+
+["browser_aiwindow_aifeature_contract.js"]
 
 ["browser_aiwindow_applied_memories_button.js"]
 
@@ -64,8 +78,6 @@ skip-if = [
 
 ["browser_aiwindow_newtab_preload.js"]
 
-["browser_aiwindow_search_button.js"]
-
 ["browser_aiwindow_session_restore.js"]
 
 ["browser_aiwindow_smartbar.js"]
@@ -83,6 +95,10 @@ skip-if = [
 ["browser_aiwindow_smartbar_interactions.js"]
 
 ["browser_aiwindow_smartbar_keyboard_navigation.js"]
+
+["browser_aiwindow_smartbar_suggestions.js"]
+
+["browser_aiwindow_smartbar_tab_switch.js"]
 
 ["browser_aiwindow_smartbar_telemetry.js"]
 
@@ -105,6 +121,10 @@ skip-if = [
 
 ["browser_aiwindow_website_chip.js"]
 
+["browser_aiwindow_website_confirmation.js"]
+
+["browser_aiwindow_website_select.js"]
+
 ["browser_aiwindowui.js"]
 
 ["browser_memories_icon_button.js"]
@@ -117,6 +137,10 @@ skip-if = [
 
 ["browser_smartwindow_beta_badge.js"]
 
+["browser_smartwindow_chat_browser_tabbable.js"]
+
+["browser_smartwindow_chat_markdown_parser.js"]
+
 ["browser_smartwindow_classic_mode_switch.js"]
 
 ["browser_smartwindow_content.js"]
@@ -124,6 +148,8 @@ skip-if = [
 ["browser_smartwindow_context_url.js"]
 
 ["browser_smartwindow_conversation_state.js"]
+
+["browser_smartwindow_default_startup.js"]
 
 ["browser_smartwindow_disclaimer.js"]
 

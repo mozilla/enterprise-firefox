@@ -39,8 +39,6 @@ tasks:
         run-on-git-branches: [enterprise-main, enterprise-beta, enterprise-release]
         treeherder-group: ms
         description-suffix: 'mar signing'
-        required_signoffs:
-            - mar-signing
         index:
             # type and job-name filled in by transforms
             product: firefox

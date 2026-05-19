@@ -4,7 +4,6 @@
 
 package org.mozilla.fenix.tabstray.ui.tabitems
 
-import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.core.DecayAnimationSpec
 import androidx.compose.animation.rememberSplineBasedDecay
 import androidx.compose.foundation.BorderStroke
@@ -16,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,6 +35,7 @@ import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import mozilla.components.compose.base.RadioCheckmark
+import mozilla.components.compose.base.button.IconButton
 import mozilla.components.support.base.utils.MAX_URI_LENGTH
 import org.mozilla.fenix.R
 import org.mozilla.fenix.compose.DismissibleItemBackground
@@ -127,7 +126,7 @@ private fun TabContent(
     onLongClick: ((TabsTrayItem) -> Unit)? = null,
 ) {
     val contentBackgroundColor = if (selectionState.isSelected) {
-        MaterialTheme.colorScheme.surfaceContainerHigh
+        MaterialTheme.colorScheme.primaryContainer
     } else {
         MaterialTheme.colorScheme.surfaceContainerLowest
     }
@@ -191,28 +190,28 @@ private fun TabListIcon(
     if (!selectionState.multiSelectEnabled) {
         IconButton(
             onClick = { onCloseClick(tab) },
+            contentDescription = stringResource(
+                id = R.string.close_tab_title,
+                tab.title,
+            ),
             modifier = Modifier
                 .size(size = 48.dp)
                 .testTag(TabsTrayTestTag.TAB_ITEM_CLOSE),
         ) {
             Icon(
                 painter = painterResource(id = iconsR.drawable.mozac_ic_cross_24),
-                contentDescription = stringResource(
-                    id = R.string.close_tab_title,
-                    tab.title,
-                ),
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.secondary,
             )
         }
     } else {
         RadioCheckmark(
             isSelected = selectionState.isSelected,
-            modifier = Modifier.padding(end = 16.dp),
+            modifier = Modifier.padding(end = FirefoxTheme.layout.space.dynamic200),
         )
     }
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun Thumbnail(
     tab: TabsTrayItem.Tab,

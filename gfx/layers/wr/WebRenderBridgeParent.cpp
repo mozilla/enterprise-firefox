@@ -205,7 +205,7 @@ static void ResetDirtyPageModifier() {
   moz_set_max_dirty_page_modifier(0);
 
   wr::RenderThread* renderThread = wr::RenderThread::Get();
-  if (renderThread) {
+  if (renderThread && !renderThread->HasShutdown()) {
     renderThread->NotifyIdle();
   }
 
@@ -400,9 +400,9 @@ WebRenderBridgeParent::~WebRenderBridgeParent() {
 }
 
 /* static */
-WebRenderBridgeParent* WebRenderBridgeParent::CreateDestroyed(
+already_AddRefed<WebRenderBridgeParent> WebRenderBridgeParent::CreateDestroyed(
     const wr::PipelineId& aPipelineId, nsCString&& aError) {
-  return new WebRenderBridgeParent(aPipelineId, std::move(aError));
+  return MakeAndAddRef<WebRenderBridgeParent>(aPipelineId, std::move(aError));
 }
 
 bool WebRenderBridgeParent::EnsureInitialized() {
@@ -1417,15 +1417,32 @@ mozilla::ipc::IPCResult WebRenderBridgeParent::RecvSetDisplayList(
         CompositionPayload{CompositionPayloadType::eContentPaint, aFwdTime});
   }
 
+  // When the root WRBP for this window never receives a display list (e.g.
+  // an invisible windowless browser hosting a WebExtension in headless
+  // mode), no composite that references this child pipeline will ever run,
+  // so DidComposite would never be sent back and the content process's
+  // RefreshDriver would get stuck "waiting for paint" (bug 1782541). In
+  // that case, synthesize a DidComposite below. Suppress telemetry and
+  // composition payloads for the synthetic ack, since nothing was drawn.
+  const bool ackSynthetically =
+      validTransaction && !IsRootWebRenderBridgeParent() && !aRenderOffscreen &&
+      [this] {
+        RefPtr<WebRenderBridgeParent> root = GetRootWebRenderBridgeParent();
+        return root && !root->HasReceivedDisplayList();
+      }();
+
+  nsTArray<CompositionPayload> heldPayloads =
+      ackSynthetically ? nsTArray<CompositionPayload>{} : std::move(aPayloads);
   HoldPendingTransactionId(wrEpoch, aTransactionId, aContainsSVGGroup, aVsyncId,
                            aVsyncStartTime, aRefreshStartTime, aTxnStartTime,
                            aTxnURL, aFwdTime, mIsFirstPaint,
-                           std::move(aPayloads));
+                           std::move(heldPayloads),
+                           /* aUseForTelemetry */ !ackSynthetically);
   mIsFirstPaint = false;
 
-  if (!validTransaction) {
-    // Pretend we composited since someone is wating for this event,
-    // though DisplayList was not pushed to webrender.
+  if (!validTransaction || ackSynthetically) {
+    // Pretend we composited since someone is waiting for this event, though
+    // no composite will actually happen that includes this transaction.
     if (CompositorBridgeParent* cbp = GetRootCompositorBridgeParent()) {
       TimeStamp now = TimeStamp::Now();
       cbp->NotifyPipelineRendered(mPipelineId, wrEpoch, VsyncId(), now, now,
@@ -1550,6 +1567,15 @@ mozilla::ipc::IPCResult WebRenderBridgeParent::RecvEmptyTransaction(
     renderReasons |= wr::RenderReasons::RESOURCE_UPDATE;
   }
 
+  // If the root WRBP for this window never receives a display list, any
+  // composite we schedule won't acknowledge this pipeline's transactions.
+  // Treat that case like sendDidComposite so the content process's
+  // RefreshDriver doesn't get stuck (bug 1782541).
+  const bool ackSynthetically = !IsRootWebRenderBridgeParent() && [this] {
+    RefPtr<WebRenderBridgeParent> root = GetRootWebRenderBridgeParent();
+    return root && !root->HasReceivedDisplayList();
+  }();
+
   // If we are going to kick off a new composite as a result of this
   // transaction, or if there are already composite-triggering pending
   // transactions inflight, then set sendDidComposite to false because we will
@@ -1557,23 +1583,27 @@ mozilla::ipc::IPCResult WebRenderBridgeParent::RecvEmptyTransaction(
   // If there are no pending transactions and we're not going to do a
   // composite, then we leave sendDidComposite as true so we just send
   // the DidComposite notification now.
-  bool sendDidComposite =
-      !scheduleAnyComposite && mPendingTransactionIds.empty();
+  bool sendDidComposite = ackSynthetically || (!scheduleAnyComposite &&
+                                               mPendingTransactionIds.empty());
 
   // Only register a value for CONTENT_FRAME_TIME telemetry if we actually drew
   // something. It is for consistency with disabling WebRender.
+  nsTArray<CompositionPayload> heldPayloads =
+      ackSynthetically ? nsTArray<CompositionPayload>{} : std::move(aPayloads);
   HoldPendingTransactionId(mWrEpoch, aTransactionId, false, aVsyncId,
                            aVsyncStartTime, aRefreshStartTime, aTxnStartTime,
                            aTxnURL, aFwdTime,
-                           /* aIsFirstPaint */ false, std::move(aPayloads),
-                           /* aUseForTelemetry */ scheduleAnyComposite);
+                           /* aIsFirstPaint */ false, std::move(heldPayloads),
+                           /* aUseForTelemetry */
+                           scheduleAnyComposite && !ackSynthetically);
 
-  if (scheduleAnyComposite) {
+  if (scheduleAnyComposite && !ackSynthetically) {
     ScheduleGenerateFrame(renderReasons);
   } else if (sendDidComposite) {
-    // The only thing in the pending transaction id queue should be the entry
-    // we just added, and now we're going to pretend we rendered it
-    MOZ_ASSERT(mPendingTransactionIds.size() == 1);
+    // In the non-synthetic case the only thing in the pending transaction
+    // id queue should be the entry we just added; the synthetic case may
+    // also flush older stuck transactions.
+    MOZ_ASSERT(ackSynthetically || mPendingTransactionIds.size() == 1);
     if (CompositorBridgeParent* cbp = GetRootCompositorBridgeParent()) {
       TimeStamp now = TimeStamp::Now();
       cbp->NotifyPipelineRendered(mPipelineId, mWrEpoch, VsyncId(), now, now,
@@ -2454,7 +2484,10 @@ mozilla::ipc::IPCResult WebRenderBridgeParent::RecvEndWheelTransaction(
   return IPC_OK();
 }
 
-void WebRenderBridgeParent::ActorDestroy(ActorDestroyReason aWhy) { Destroy(); }
+void WebRenderBridgeParent::ActorDestroy(ActorDestroyReason aWhy) {
+  Destroy();
+  CompositorBridgeParent::DisconnectWrBridge(this);
+}
 
 void WebRenderBridgeParent::ResetPreviousSampleTime() {
   if (RefPtr<OMTASampler> sampler = GetOMTASampler()) {

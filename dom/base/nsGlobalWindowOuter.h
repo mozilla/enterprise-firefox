@@ -251,16 +251,11 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
                   const nsAString& aOptions,
                   mozilla::dom::BrowsingContext** _retval);
 
-  virtual mozilla::EventListenerManager* GetExistingListenerManager()
-      const override;
-
-  virtual mozilla::EventListenerManager* GetOrCreateListenerManager() override;
-
+  mozilla::EventListenerManager* GetExistingListenerManager() const override;
+  mozilla::EventListenerManager* GetOrCreateListenerManager() override;
   bool ComputeDefaultWantsUntrusted(mozilla::ErrorResult& aRv) final;
 
-  virtual nsPIDOMWindowOuter* GetOwnerGlobalForBindingsInternal() override;
-
-  virtual nsIGlobalObject* GetOwnerGlobal() const override;
+  nsIGlobalObject* GetRelevantGlobal() const override;
 
   EventTarget* GetTargetForEventTargetChain() override;
 

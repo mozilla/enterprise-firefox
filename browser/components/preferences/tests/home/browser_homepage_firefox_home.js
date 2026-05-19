@@ -36,7 +36,7 @@ add_task(async function test_firefox_home_section_visible() {
 
   await fieldset.updateComplete;
 
-  let heading = fieldset.shadowRoot.querySelector("h2");
+  let heading = fieldset.shadowRoot.querySelector("h3");
   ok(heading, "Firefox Home heading exists in shadow DOM");
   Assert.greater(
     heading.textContent.length,

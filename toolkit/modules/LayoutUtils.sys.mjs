@@ -9,7 +9,7 @@ export var LayoutUtils = {
    */
   getElementBoundingScreenRect(aElement) {
     let rect = aElement.getBoundingClientRect();
-    let win = aElement.ownerGlobal;
+    let win = aElement.documentGlobal;
 
     return win.windowUtils.toScreenRectInCSSUnits(
       rect.left,
@@ -24,7 +24,7 @@ export var LayoutUtils = {
    * returns screen coordinates in screen units.
    */
   rectToScreenRect(win, rect) {
-    return win.ownerGlobal.windowUtils.toScreenRect(
+    return win.windowUtils.toScreenRect(
       rect.left,
       rect.top,
       rect.width,
@@ -37,7 +37,7 @@ export var LayoutUtils = {
    * units.
    */
   rectToTopLevelWidgetRect(win, rect) {
-    return win.ownerGlobal.windowUtils.toTopLevelWidgetRect(
+    return win.windowUtils.toTopLevelWidgetRect(
       rect.left,
       rect.top,
       rect.width,

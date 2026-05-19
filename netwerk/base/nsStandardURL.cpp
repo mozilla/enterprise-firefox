@@ -197,8 +197,9 @@ const nsACString& nsStandardURL::nsSegmentEncoder::EncodeSegment(
 //----------------------------------------------------------------------------
 
 #ifdef DEBUG_DUMP_URLS_AT_SHUTDOWN
-static StaticMutex gAllURLsMutex MOZ_UNANNOTATED;
-constinit static LinkedList<nsStandardURL> gAllURLs;
+static StaticMutex gAllURLsMutex;
+constinit static LinkedList<nsStandardURL> gAllURLs
+    MOZ_GUARDED_BY(gAllURLsMutex);
 #endif
 
 nsStandardURL::nsStandardURL(bool aSupportsFileURL, bool aTrackURL)
@@ -1144,6 +1145,8 @@ NS_INTERFACE_MAP_BEGIN(nsStandardURL)
   NS_INTERFACE_MAP_ENTRY(nsISerializable)
   NS_IMPL_QUERY_CLASSINFO(nsStandardURL)
   NS_INTERFACE_MAP_ENTRY(nsISensitiveInfoHiddenURI)
+  NS_INTERFACE_MAP_ENTRY(nsIIPCSerializableURI)
+  NS_INTERFACE_MAP_ENTRY(nsIURIWithSizeOf)
   // see nsStandardURL::Equals
   if (aIID.Equals(kThisImplCID)) {
     foundInterface = static_cast<nsIURI*>(this);

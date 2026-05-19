@@ -12,9 +12,11 @@ package org.mozilla.fenix.tabstray.ui.tabitems
  * @property isFocused: This is the most recently accessed tab - there can only be one!
  * A tab can be both selected and focused.
  * @property multiSelectEnabled: Whether the multi-select mode is enabled for the parent.
+ * @property focusEnabled Whether the focus indicator state is enabled.
  */
 data class TabsTrayItemSelectionState(
     val isSelected: Boolean = false,
     val isFocused: Boolean = false,
     val multiSelectEnabled: Boolean = false,
+    val focusEnabled: Boolean = true,
 )

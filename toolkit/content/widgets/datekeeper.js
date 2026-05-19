@@ -154,6 +154,25 @@ function DateKeeper(props) {
      * @param {number} day
      */
     setSelection({ year, month, day }) {
+      // Select the date only if it is within bounds
+      const minYear = this.state.min.getFullYear();
+      const minMonth = this.state.min.getMonth();
+      const minDate = this.state.min.getDate();
+      const maxYear = this.state.max.getFullYear();
+      const maxMonth = this.state.max.getMonth();
+      const maxDate = this.state.max.getDate();
+
+      if (
+        year > maxYear ||
+        year < minYear ||
+        (year == maxYear && month > maxMonth) ||
+        (year == minYear && month < minMonth) ||
+        (year == maxYear && month == maxMonth && day > maxDate) ||
+        (year == minYear && month == minMonth && day < minDate)
+      ) {
+        return;
+      }
+
       this.state.selection.year = year;
       this.state.selection.month = month;
       this.state.selection.day = day;

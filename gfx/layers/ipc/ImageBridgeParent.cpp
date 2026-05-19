@@ -297,7 +297,7 @@ mozilla::ipc::IPCResult ImageBridgeParent::RecvReleaseCompositable(
   return IPC_OK();
 }
 
-PTextureParent* ImageBridgeParent::AllocPTextureParent(
+already_AddRefed<PTextureParent> ImageBridgeParent::AllocPTextureParent(
     const SurfaceDescriptor& aSharedData, ReadLockDescriptor& aReadLock,
     const LayersBackend& aLayersBackend, const TextureFlags& aFlags,
     const uint64_t& aSerial, const wr::MaybeExternalImageId& aExternalImageId) {
@@ -310,10 +310,6 @@ PTextureParent* ImageBridgeParent::AllocPTextureParent(
   return TextureHost::CreateIPDLActor(this, aSharedData, std::move(aReadLock),
                                       aLayersBackend, aFlags, mContentId,
                                       aSerial, aExternalImageId);
-}
-
-bool ImageBridgeParent::DeallocPTextureParent(PTextureParent* actor) {
-  return TextureHost::DestroyIPDLActor(actor);
 }
 
 PMediaSystemResourceManagerParent*

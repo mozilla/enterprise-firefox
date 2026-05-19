@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/* global gSubDialog, gotoPref, confirmRestartPrompt, CONFIRM_RESTART_PROMPT_RESTART_NOW, srdSectionEnabled, gMainPane, LoginHelper */
+/* global gSubDialog, gotoPref, confirmRestartPrompt, CONFIRM_RESTART_PROMPT_RESTART_NOW, srdSectionEnabled */
 
 import { SettingGroupManager } from "chrome://browser/content/preferences/config/SettingGroupManager.mjs";
 import { Preferences } from "chrome://global/content/preferences/Preferences.mjs";
@@ -16,16 +16,17 @@ const PrivateBrowsingUtils = ChromeUtils.importESModule(
 ).PrivateBrowsingUtils;
 
 const lazy = XPCOMUtils.declareLazy({
+  AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
   AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
   AppUpdater: "resource://gre/modules/AppUpdater.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   DoHConfigController: "moz-src:///toolkit/components/doh/DoHConfig.sys.mjs",
   DownloadUtils: "resource://gre/modules/DownloadUtils.sys.mjs",
+  ExtensionSettingsStore:
+    "resource://gre/modules/ExtensionSettingsStore.sys.mjs",
   FirefoxRelay: "resource://gre/modules/FirefoxRelay.sys.mjs",
-  OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
+  Management: "resource://gre/modules/Extension.sys.mjs",
   Sanitizer: "resource:///modules/Sanitizer.sys.mjs",
-  SelectableProfileService:
-    "resource:///modules/profiles/SelectableProfileService.sys.mjs",
   SiteDataManager: "resource:///modules/SiteDataManager.sys.mjs",
   IPProtection:
     "moz-src:///browser/components/ipprotection/IPProtection.sys.mjs",
@@ -44,21 +45,7 @@ const lazy = XPCOMUtils.declareLazy({
           Ci.nsIParentalControlsService
         )
       : null,
-  AlertsServiceDND: () => {
-    try {
-      let alertsService = Cc["@mozilla.org/alerts-service;1"]
-        .getService(Ci.nsIAlertsService)
-        .QueryInterface(Ci.nsIAlertsDoNotDisturb);
-      // This will throw if manualDoNotDisturb isn't implemented.
-      alertsService.manualDoNotDisturb;
-      return alertsService;
-    } catch (ex) {
-      return undefined;
-    }
-  },
   isPackagedApp: () => Services.sysinfo.getProperty("isPackagedApp"),
-  AboutLoginsL10n: () =>
-    new Localization(["branding/brand.ftl", "browser/aboutLogins.ftl"]),
 });
 
 const SANITIZE_ON_SHUTDOWN_PREFS_ONLY_V2 = [
@@ -67,105 +54,6 @@ const SANITIZE_ON_SHUTDOWN_PREFS_ONLY_V2 = [
 ];
 
 export class PrivacySettingHelpers {
-  /**
-   * Displays a dialog in which the user can view and modify the list of sites
-   * where passwords are never saved.
-   */
-  static showPasswordExceptions() {
-    let params = {
-      blockVisible: true,
-      sessionVisible: false,
-      allowVisible: false,
-      hideStatusColumn: true,
-      prefilledHost: "",
-      permissionType: "login-saving",
-    };
-    gSubDialog.open(
-      "chrome://browser/content/preferences/dialogs/permissions.xhtml",
-      undefined,
-      params
-    );
-  }
-
-  /**
-   * Shows the sites where the user has saved passwords and the associated login
-   * information.
-   */
-  static showPasswords() {
-    let loginManager = window.windowGlobalChild.getActor("LoginManager");
-    loginManager.sendAsyncMessage("PasswordManager:OpenPreferences", {
-      entryPoint: "Preferences",
-    });
-  }
-
-  /**
-   * Displays a dialog in which the primary password may be changed.
-   */
-  static async changeMasterPassword() {
-    // Require OS authentication before the user can set a Primary Password.
-    // OS reauthenticate functionality is not available on Linux yet (bug 1527745)
-    if (!LoginHelper.isPrimaryPasswordSet() && LoginHelper.getOSAuthEnabled()) {
-      // Uses primary-password-os-auth-dialog-message-win and
-      // primary-password-os-auth-dialog-message-macosx via concatenation:
-      let messageId =
-        "primary-password-os-auth-dialog-message-" + lazy.AppConstants.platform;
-      let [messageText, captionText] = await document.l10n.formatMessages([
-        { id: messageId },
-        { id: "master-password-os-auth-dialog-caption" },
-      ]);
-      let win = Services.wm.getMostRecentBrowserWindow();
-
-      // Note on Glean collection: because OSKeyStore.ensureLoggedIn() is not wrapped in
-      // verifyOSAuth(), it will be documenting "success" for unsupported platforms
-      // and won't record "fail_error", only "fail_user_canceled"
-      let loggedIn = await lazy.OSKeyStore.ensureLoggedIn(
-        messageText.value,
-        captionText.value,
-        win,
-        false
-      );
-      const result = loggedIn.authenticated ? "success" : "fail_user_canceled";
-      Glean.pwmgr.promptShownOsReauth.record({
-        trigger: "toggle_pref_primary_password",
-        result,
-      });
-      if (!loggedIn.authenticated) {
-        return;
-      }
-    }
-    gSubDialog.open("chrome://mozapps/content/preferences/changemp.xhtml", {
-      features: "resizable=no",
-      closingCallback: () => {
-        Services.obs.notifyObservers(null, "passwordmgr-primary-pw-changed");
-        PrivacySettingHelpers._initMasterPasswordUI();
-      },
-    });
-  }
-
-  /**
-   * Displays the "remove master password" dialog to allow the user to remove
-   * the current master password.  When the dialog is dismissed, master password
-   * UI is automatically updated.
-   */
-  static async _removeMasterPassword() {
-    const fipsUtils = Cc["@mozilla.org/security/fipsutils;1"].getService(
-      Ci.nsIFIPSUtils
-    );
-    if (fipsUtils.isFIPSEnabled) {
-      let title = document.getElementById("fips-title").textContent;
-      let desc = document.getElementById("fips-desc").textContent;
-      Services.prompt.alert(window, title, desc);
-      PrivacySettingHelpers._initMasterPasswordUI();
-    } else {
-      gSubDialog.open("chrome://mozapps/content/preferences/removemp.xhtml", {
-        closingCallback: () => {
-          Services.obs.notifyObservers(null, "passwordmgr-primary-pw-changed");
-          PrivacySettingHelpers._initMasterPasswordUI();
-        },
-      });
-    }
-  }
-
   /**
    * Displays per-site preferences for HTTPS-Only Mode exceptions.
    */
@@ -238,156 +126,6 @@ export class PrivacySettingHelpers {
    */
   static showSecurityDevices() {
     gSubDialog.open("chrome://pippki/content/device_manager.xhtml");
-  }
-
-  /**
-   * Displays the popup exceptions dialog where specific site popup preferences
-   * can be set.
-   */
-  static showPopupExceptions() {
-    let params = {
-      blockVisible: false,
-      sessionVisible: false,
-      allowVisible: true,
-      prefilledHost: "",
-      permissionType: "popup",
-    };
-    gSubDialog.open(
-      "chrome://browser/content/preferences/dialogs/permissions.xhtml",
-      { features: "resizable=yes" },
-      params
-    );
-  }
-
-  /**
-   * Displays the exceptions lists for add-on installation warnings.
-   */
-  static showAddonExceptions() {
-    let params = {
-      blockVisible: false,
-      sessionVisible: false,
-      allowVisible: true,
-      prefilledHost: "",
-      permissionType: "install",
-    };
-    gSubDialog.open(
-      "chrome://browser/content/preferences/dialogs/permissions.xhtml",
-      undefined,
-      params
-    );
-  }
-
-  /**
-   * Displays the location exceptions dialog where specific site location
-   * preferences can be set.
-   */
-  static showLocationExceptions() {
-    let params = { permissionType: "geo" };
-    gSubDialog.open(
-      "chrome://browser/content/preferences/dialogs/sitePermissions.xhtml",
-      { features: "resizable=yes" },
-      params
-    );
-  }
-
-  /**
-   * Displays the loopback network exceptions dialog where specific site loopback network
-   * preferences can be set.
-   */
-  static showLoopbackNetworkExceptions() {
-    let params = { permissionType: "loopback-network" };
-    gSubDialog.open(
-      "chrome://browser/content/preferences/dialogs/sitePermissions.xhtml",
-      { features: "resizable=yes" },
-      params
-    );
-  }
-
-  /**
-   * Displays the local network exceptions dialog where specific site local network
-   * preferences can be set.
-   */
-  static showLocalNetworkExceptions() {
-    let params = { permissionType: "local-network" };
-    gSubDialog.open(
-      "chrome://browser/content/preferences/dialogs/sitePermissions.xhtml",
-      { features: "resizable=yes" },
-      params
-    );
-  }
-
-  /**
-   * Displays the XR exceptions dialog where specific site XR
-   * preferences can be set.
-   */
-  static showXRExceptions() {
-    let params = { permissionType: "xr" };
-    gSubDialog.open(
-      "chrome://browser/content/preferences/dialogs/sitePermissions.xhtml",
-      { features: "resizable=yes" },
-      params
-    );
-  }
-
-  /**
-   * Displays the camera exceptions dialog where specific site camera
-   * preferences can be set.
-   */
-  static showCameraExceptions() {
-    let params = { permissionType: "camera" };
-    gSubDialog.open(
-      "chrome://browser/content/preferences/dialogs/sitePermissions.xhtml",
-      { features: "resizable=yes" },
-      params
-    );
-  }
-
-  /**
-   * Displays the microphone exceptions dialog where specific site microphone
-   * preferences can be set.
-   */
-  static showMicrophoneExceptions() {
-    let params = { permissionType: "microphone" };
-    gSubDialog.open(
-      "chrome://browser/content/preferences/dialogs/sitePermissions.xhtml",
-      { features: "resizable=yes" },
-      params
-    );
-  }
-
-  /**
-   * Displays the speaker exceptions dialog where specific site speaker
-   * preferences can be set.
-   */
-  static showSpeakerExceptions() {
-    let params = { permissionType: "speaker" };
-    gSubDialog.open(
-      "chrome://browser/content/preferences/dialogs/sitePermissions.xhtml",
-      { features: "resizable=yes" },
-      params
-    );
-  }
-
-  /**
-   * Displays the notifications exceptions dialog where specific site notification
-   * preferences can be set.
-   */
-  static showNotificationExceptions() {
-    let params = { permissionType: "desktop-notification" };
-    gSubDialog.open(
-      "chrome://browser/content/preferences/dialogs/sitePermissions.xhtml",
-      { features: "resizable=yes" },
-      params
-    );
-  }
-
-  static showAutoplayMediaExceptions() {
-    let params = { permissionType: "autoplay-media" };
-    gSubDialog.open(
-      "chrome://browser/content/preferences/dialogs/sitePermissions.xhtml",
-      { features: "resizable=yes" },
-      params
-    );
   }
 
   static showDoHExceptions() {
@@ -530,30 +268,6 @@ export class PrivacySettingHelpers {
     let policy = Services.policies.getActivePolicies();
     return policy?.EnableTrackingProtection?.Locked || policy?.Cookies?.Locked;
   }
-
-  /**
-   * Initializes master password UI: the "use master password" checkbox, selects
-   * the master password button to show, and enables/disables it as necessary.
-   * The master password is controlled by various bits of NSS functionality, so
-   * the UI for it can't be controlled by the normal preference bindings.
-   */
-  static _initMasterPasswordUI() {
-    var noMP = !LoginHelper.isPrimaryPasswordSet();
-
-    // Check if enterprise storage encryption is managing the primary password
-    const isEnterpriseManagedPrimaryPassword =
-      LoginHelper.isEnterpriseManagedPrimaryPassword();
-
-    var button = document.getElementById("changeMasterPassword");
-    button.disabled = noMP || isEnterpriseManagedPrimaryPassword;
-
-    var checkbox = document.getElementById("useMasterPassword");
-    checkbox.checked = !noMP || isEnterpriseManagedPrimaryPassword;
-    checkbox.disabled =
-      isEnterpriseManagedPrimaryPassword ||
-      (noMP && !Services.policies.isAllowed("createMasterPassword")) ||
-      (!noMP && !Services.policies.isAllowed("removeMasterPassword"));
-  }
 }
 
 const SECURITY_PRIVACY_STATUS_CARD_ENABLED =
@@ -564,7 +278,6 @@ const SECURITY_PRIVACY_STATUS_CARD_ENABLED =
   );
 
 Preferences.addAll([
-  { id: "browser.backup.enabled_on.profiles", type: "string" },
   // Content blocking / Tracking Protection
   { id: "privacy.trackingprotection.enabled", type: "bool" },
   { id: "privacy.trackingprotection.pbmode.enabled", type: "bool" },
@@ -598,6 +311,11 @@ Preferences.addAll([
 
   // Tracker list
   { id: "urlclassifier.trackingTable", type: "string" },
+
+  // Trust Panel
+  { id: "browser.urlbar.trustPanel.breachAlerts", type: "bool" },
+  { id: "browser.urlbar.trustPanel.featureGate", type: "bool" },
+  { id: "browser.urlbar.trustPanel.breachAlerts.featureGate", type: "bool" },
 
   // Button prefs
   { id: "pref.privacy.disable_button.cookie_exceptions", type: "bool" },
@@ -660,17 +378,6 @@ Preferences.addAll([
   // Media
   { id: "media.autoplay.default", type: "int" },
 
-  // Popups
-  { id: "dom.disable_open_during_load", type: "bool" },
-  { id: "dom.security.framebusting_intervention.enabled", type: "bool" },
-
-  // Passwords
-  { id: "signon.rememberSignons", type: "bool" },
-  { id: "signon.generation.enabled", type: "bool" },
-  { id: "signon.autofillForms", type: "bool" },
-  { id: "signon.management.page.breach-alerts.enabled", type: "bool" },
-  { id: "signon.firefoxRelay.feature", type: "string" },
-
   // Buttons
   { id: "pref.privacy.disable_button.view_passwords", type: "bool" },
   { id: "pref.privacy.disable_button.view_passwords_exceptions", type: "bool" },
@@ -693,8 +400,6 @@ Preferences.addAll([
   { id: "security.enterprise_roots.enabled", type: "bool" },
 
   // Add-ons, malware, phishing
-  { id: "xpinstall.whitelist.required", type: "bool" },
-
   { id: "browser.safebrowsing.malware.enabled", type: "bool" },
   { id: "browser.safebrowsing.phishing.enabled", type: "bool" },
 
@@ -717,9 +422,6 @@ Preferences.addAll([
   { id: "dom.security.https_first", type: "bool" },
   { id: "dom.security.https_first_pbm", type: "bool" },
 
-  // Windows SSO
-  { id: "network.http.windows-sso.enabled", type: "bool" },
-
   // Cookie Banner Handling
   { id: "cookiebanners.ui.desktop.enabled", type: "bool" },
   { id: "cookiebanners.service.mode.privateBrowsing", type: "int" },
@@ -732,20 +434,15 @@ Preferences.addAll([
   { id: "network.trr_ui.fallback_was_checked", type: "bool" },
   { id: "doh-rollout.disable-heuristics", type: "bool" },
 
-  // Local Network Access
-  { id: "network.lna.blocking", type: "bool" },
-
-  // Permissions
-  { id: "media.setsinkid.enabled", type: "bool" },
-
   // Security and Privacy Warnings
   { id: "browser.preferences.config_warning.dismissAll", type: "bool" },
   {
     id: "browser.preferences.config_warning.warningSafeBrowsing.dismissed",
     type: "bool",
   },
-  { id: "app.normandy.enabled", type: "bool" },
-  { id: "browser.privacySegmentation.preferences.show", type: "bool" },
+
+  // Privacy segmentation section
+  { id: "browser.dataFeatureRecommendations.enabled", type: "bool" },
 ]);
 
 if (SECURITY_PRIVACY_STATUS_CARD_ENABLED) {
@@ -786,10 +483,6 @@ if (SECURITY_PRIVACY_STATUS_CARD_ENABLED) {
     },
     {
       id: "browser.preferences.config_warning.warningProxyAutodetection.dismissed",
-      type: "bool",
-    },
-    {
-      id: "services.passwordSavingEnabled",
       type: "bool",
     },
     {
@@ -980,6 +673,7 @@ SettingGroupManager.registerGroups({
     items: [
       {
         id: "warningCard",
+        subcategory: "security-warning-card",
         l10nId: "security-privacy-issue-card",
         control: "moz-card",
         controlAttrs: {
@@ -1072,6 +766,7 @@ SettingGroupManager.registerGroups({
   },
   cookiesAndSiteData2: {
     inProgress: true,
+    subcategory: "sitedata",
     l10nId: "sitedata-heading",
     iconSrc: "chrome://browser/skin/controlcenter/3rdpartycookies.svg",
     headingLevel: 2,
@@ -1245,7 +940,6 @@ SettingGroupManager.registerGroups({
             value: "remember",
             l10nId: "history-remember-option-all2",
           },
-          { value: "dontremember", l10nId: "history-remember-option-never2" },
           {
             value: "custom",
             l10nId: "history-remember-option-custom2",
@@ -1257,11 +951,13 @@ SettingGroupManager.registerGroups({
               },
             ],
           },
+          { value: "dontremember", l10nId: "history-remember-option-never2" },
         ],
         controlAttrs: {
           "search-l10n-ids": `
-            history-remember-description3,
-            history-dontremember-description3,
+            history-remember-description4,
+            history-dontremember-description4,
+            history-custom-description4,
             history-private-browsing-permanent.label,
             history-remember-browser-option.label,
             history-remember-search-option.label,
@@ -1316,7 +1012,9 @@ SettingGroupManager.registerGroups({
     ],
   },
   dnsOverHttps: {
+    subcategory: "dnsOverHttps",
     l10nId: "dns-over-https-group2",
+    supportPage: "dns-over-https",
     headingLevel: 1,
     inProgress: true,
     items: [
@@ -1398,6 +1096,7 @@ SettingGroupManager.registerGroups({
   },
   etpStatus: {
     inProgress: true,
+    subcategory: "etpStatus",
     headingLevel: 2,
     l10nId: "preferences-etp-status-header",
     supportPage: "enhanced-tracking-protection",
@@ -1456,6 +1155,7 @@ SettingGroupManager.registerGroups({
           },
           {
             id: "etpLevelStrict",
+            subcategory: "etp-strict-control",
             value: "strict",
             l10nId: "preferences-etp-level-strict",
             items: [
@@ -1476,6 +1176,7 @@ SettingGroupManager.registerGroups({
           },
           {
             id: "etpLevelCustom",
+            subcategory: "etp-custom-control",
             value: "custom",
             l10nId: "preferences-etp-level-custom",
             items: [
@@ -1541,6 +1242,18 @@ SettingGroupManager.registerGroups({
             id: "etpResetStrictButton",
             control: "moz-button",
             l10nId: "preferences-etp-reset-strict-button",
+          },
+        ],
+      },
+      {
+        id: "reloadTabsHint",
+        control: "moz-message-bar",
+        l10nId: "preferences-etp-reload-tabs-hint",
+        options: [
+          {
+            control: "moz-button",
+            l10nId: "preferences-etp-reload-tabs-hint-button",
+            slot: "actions",
           },
         ],
       },
@@ -1677,6 +1390,7 @@ SettingGroupManager.registerGroups({
     ],
   },
   ipprotection: {
+    subcategory: "vpn",
     l10nId: "ip-protection-description-1",
     headingLevel: 2,
     supportPage: "built-in-vpn",
@@ -1692,7 +1406,6 @@ SettingGroupManager.registerGroups({
           imagesrc:
             "chrome://browser/content/ipprotection/assets/vpn-settings-get-started.svg",
           imagealignment: "end",
-          imagewidth: "large",
         },
         items: [
           {
@@ -1751,545 +1464,36 @@ SettingGroupManager.registerGroups({
       },
     ],
   },
-});
-
-SettingGroupManager.registerGroups({
-  // Bug 1968111: move this elsewhere
-  passwords: {
-    inProgress: true,
-    id: "passwordsGroup",
-    l10nId: "forms-passwords-header",
+  privacyPanel: {
+    iconSrc: "chrome://devtools/skin/images/globe.svg",
+    l10nId: "privacy-panel-settings-header",
     headingLevel: 2,
+    supportPage: "breach-alerts-privacy-panel",
     items: [
       {
-        id: "savePasswords",
-        l10nId: "forms-ask-to-save-passwords",
-        items: [
-          {
-            id: "managePasswordExceptions",
-            l10nId: "forms-manage-password-exceptions",
-            control: "moz-box-button",
-            controlAttrs: {
-              "search-l10n-ids":
-                "permissions-address,permissions-exceptions-saved-passwords-window.title,permissions-exceptions-saved-passwords-desc,",
-            },
-          },
-          {
-            id: "fillUsernameAndPasswords",
-            l10nId: "forms-fill-usernames-and-passwords-2",
-            controlAttrs: {
-              "search-l10n-ids": "forms-saved-passwords-searchkeywords",
-            },
-          },
-          {
-            id: "suggestStrongPasswords",
-            l10nId: "forms-suggest-passwords",
-            supportPage: "how-generate-secure-password-firefox",
-          },
-        ],
-      },
-      {
-        id: "requireOSAuthForPasswords",
-        l10nId: "forms-os-reauth-2",
-      },
-      {
-        id: "allowWindowSSO",
-        l10nId: "forms-windows-sso",
-        supportPage: "windows-sso",
-      },
-      {
-        id: "manageSavedPasswords",
-        l10nId: "forms-saved-passwords-2",
-        control: "moz-box-link",
-      },
-      {
-        id: "additionalProtectionsGroup",
-        l10nId: "forms-additional-protections-header",
-        control: "moz-fieldset",
-        controlAttrs: {
-          headingLevel: 2,
-        },
-        items: [
-          {
-            id: "primaryPasswordNotSet",
-            control: "moz-box-group",
-            items: [
-              {
-                id: "usePrimaryPassword",
-                l10nId: "forms-primary-pw-use-2",
-                control: "moz-box-item",
-                supportPage: "primary-password-stored-logins",
-              },
-              {
-                id: "addPrimaryPassword",
-                l10nId: "forms-primary-pw-set",
-                control: "moz-box-button",
-              },
-            ],
-          },
-          {
-            id: "primaryPasswordSet",
-            control: "moz-box-group",
-            items: [
-              {
-                id: "statusPrimaryPassword",
-                l10nId: "forms-primary-pw-on",
-                control: "moz-box-item",
-                controlAttrs: {
-                  iconsrc: "chrome://global/skin/icons/check-filled.svg",
-                },
-                options: [
-                  {
-                    id: "turnOffPrimaryPassword",
-                    l10nId: "forms-primary-pw-turn-off",
-                    control: "moz-button",
-                    slot: "actions",
-                  },
-                ],
-              },
-              {
-                id: "changePrimaryPassword",
-                l10nId: "forms-primary-pw-change-2",
-                control: "moz-box-button",
-              },
-            ],
-          },
-          {
-            id: "breachAlerts",
-            l10nId: "forms-breach-alerts",
-            supportPage: "lockwise-alerts",
-          },
-        ],
-      },
-    ],
-  },
-  // Bug 1968118: move this elsewhere
-  permissions: {
-    id: "permissions",
-    l10nId: "permissions-header3",
-    headingLevel: 2,
-    items: [
-      {
-        id: "permissionBox",
-        control: "moz-box-group",
-        controlAttrs: {
-          type: "list",
-        },
-        items: [
-          {
-            id: "locationSettingsButton",
-            control: "moz-box-button",
-            l10nId: "permissions-location2",
-            controlAttrs: {
-              ".iconSrc": "chrome://browser/skin/notification-icons/geo.svg",
-              "search-l10n-ids":
-                "permissions-remove.label,permissions-remove-all.label,permissions-site-location-window2.title,permissions-site-location-desc,permissions-site-location-disable-label,permissions-site-location-disable-desc",
-            },
-          },
-          {
-            id: "cameraSettingsButton",
-            control: "moz-box-button",
-            l10nId: "permissions-camera2",
-            controlAttrs: {
-              ".iconSrc": "chrome://browser/skin/notification-icons/camera.svg",
-              "search-l10n-ids":
-                "permissions-remove.label,permissions-remove-all.label,permissions-site-camera-window2.title,permissions-site-camera-desc,permissions-site-camera-disable-label,permissions-site-camera-disable-desc,",
-            },
-          },
-          {
-            id: "loopbackNetworkSettingsButton",
-            control: "moz-box-button",
-            l10nId: "permissions-localhost2",
-            controlAttrs: {
-              ".iconSrc":
-                "chrome://browser/skin/notification-icons/local-host.svg",
-              "search-l10n-ids":
-                "permissions-remove.label,permissions-remove-all.label,permissions-site-localhost-window.title,permissions-site-localhost-desc,permissions-site-localhost-disable-label,permissions-site-localhost-disable-desc,",
-            },
-          },
-          {
-            id: "localNetworkSettingsButton",
-            control: "moz-box-button",
-            l10nId: "permissions-local-network2",
-            controlAttrs: {
-              ".iconSrc":
-                "chrome://browser/skin/notification-icons/local-network.svg",
-              "search-l10n-ids":
-                "permissions-remove.label,permissions-remove-all.label,permissions-site-local-network-window.title,permissions-site-local-network-desc,permissions-site-local-network-disable-label,permissions-site-local-network-disable-desc,",
-            },
-          },
-          {
-            id: "microphoneSettingsButton",
-            control: "moz-box-button",
-            l10nId: "permissions-microphone2",
-            controlAttrs: {
-              ".iconSrc":
-                "chrome://browser/skin/notification-icons/microphone.svg",
-              "search-l10n-ids":
-                "permissions-remove.label,permissions-remove-all.label,permissions-site-microphone-window2.title,permissions-site-microphone-desc,permissions-site-microphone-disable-label,permissions-site-microphone-disable-desc,",
-            },
-          },
-          {
-            id: "speakerSettingsButton",
-            control: "moz-box-button",
-            l10nId: "permissions-speaker2",
-            controlAttrs: {
-              ".iconSrc":
-                "chrome://browser/skin/notification-icons/speaker.svg",
-              "search-l10n-ids":
-                "permissions-remove.label,permissions-remove-all.label,permissions-site-speaker-window.title,permissions-site-speaker-desc,",
-            },
-          },
-          {
-            id: "notificationSettingsButton",
-            control: "moz-box-button",
-            l10nId: "permissions-notification2",
-            controlAttrs: {
-              ".iconSrc":
-                "chrome://browser/skin/notification-icons/desktop-notification.svg",
-              "search-l10n-ids":
-                "permissions-remove.label,permissions-remove-all.label,permissions-site-notification-window2.title,permissions-site-notification-desc,permissions-site-notification-disable-label,permissions-site-notification-disable-desc,",
-            },
-          },
-          {
-            id: "autoplaySettingsButton",
-            control: "moz-box-button",
-            l10nId: "permissions-autoplay2",
-            controlAttrs: {
-              ".iconSrc":
-                "chrome://browser/skin/notification-icons/autoplay-media.svg",
-              "search-l10n-ids":
-                "permissions-remove.label,permissions-remove-all.label,permissions-site-autoplay-window2.title,permissions-site-autoplay-desc,",
-            },
-          },
-          {
-            id: "xrSettingsButton",
-            control: "moz-box-button",
-            l10nId: "permissions-xr2",
-            controlAttrs: {
-              ".iconSrc": "chrome://browser/skin/notification-icons/xr.svg",
-              "search-l10n-ids":
-                "permissions-remove.label,permissions-remove-all.label,permissions-site-xr-window2.title,permissions-site-xr-desc,permissions-site-xr-disable-label,permissions-site-xr-disable-desc,",
-            },
-          },
-        ],
-      },
-      {
-        id: "popupAndRedirectPolicy",
-        l10nId: "permissions-block-popups2",
-        subcategory: "permissions-block-popups",
-        items: [
-          {
-            id: "popupAndRedirectPolicyButton",
-            l10nId: "permissions-block-popups-exceptions-button4",
-            control: "moz-box-button",
-            controlAttrs: {
-              "search-l10n-ids":
-                "permissions-address,permissions-exceptions-popup-window3.title,permissions-exceptions-popup-desc2,permissions-block-popups-exceptions-button4.searchkeywords",
-            },
-          },
-        ],
-      },
-      {
-        id: "warnAddonInstall",
-        l10nId: "permissions-addon-install-warning3",
-        items: [
-          {
-            id: "addonExceptions",
-            l10nId: "permissions-addon-exceptions2",
-            control: "moz-box-button",
-            controlAttrs: {
-              "search-l10n-ids":
-                "permissions-address,permissions-allow.label,permissions-remove.label,permissions-remove-all.label,permissions-exceptions-addons-window2.title,permissions-exceptions-addons-desc",
-            },
-          },
-        ],
-      },
-      {
-        id: "notificationsDoNotDisturb",
-        l10nId: "permissions-notification-pause",
-      },
-    ],
-  },
-  // Bug 1968118: move this elsewhere
-  dataCollection: {
-    items: [
-      {
-        id: "dataCollectionCategory",
-        l10nId: "data-collection",
-        control: "moz-fieldset",
-        controlAttrs: {
-          headinglevel: 1,
-          "data-l10n-attrs": "searchkeywords",
-        },
-        items: [
-          {
-            id: "dataCollectionLink",
-            control: "a",
-            l10nId: "data-collection-link",
-            slot: "support-link",
-            controlAttrs: {
-              id: "dataCollectionPrivacyNoticeLink",
-              target: "_blank",
-            },
-          },
-          {
-            id: "preferencesPrivacyProfiles",
-            control: "moz-message-bar",
-            l10nId: "data-collection-preferences-across-profiles",
-            items: [
-              {
-                id: "privacyProfilesLink",
-                control: "a",
-                l10nId: "data-collection-profiles-link",
-                slot: "support-link",
-                controlAttrs: {
-                  id: "dataCollectionViewProfiles",
-                  target: "_blank",
-                  href: "",
-                },
-              },
-            ],
-          },
-          {
-            id: "telemetryContainer",
-            control: "moz-message-bar",
-            l10nId: "data-collection-health-report-telemetry-disabled",
-            supportPage: "telemetry-clientid",
-          },
-          {
-            id: "backup-multi-profile-warning-message-bar",
-            control: "moz-message-bar",
-            l10nId: "backup-multi-profile-warning-message",
-            controlAttrs: {
-              dismissable: true,
-            },
-          },
-          {
-            id: "submitHealthReportBox",
-            supportPage: "technical-and-interaction-data",
-            subcategory: "reports",
-            items: [
-              {
-                id: "addonRecommendationEnabled",
-                l10nId: "addon-recommendations3",
-                supportPage: "personalized-addons",
-              },
-              {
-                id: "optOutStudiesEnabled",
-                l10nId: "data-collection-run-studies",
-                items: [
-                  {
-                    id: "viewShieldStudies",
-                    control: "moz-box-link",
-                    l10nId: "data-collection-studies-link",
-                    controlAttrs: {
-                      href: "about:studies",
-                    },
-                  },
-                ],
-              },
-            ],
-          },
-
-          {
-            id: "enableNimbusRollouts",
-            l10nId: "nimbus-rollouts",
-            supportPage: "remote-improvements",
-          },
-          {
-            id: "submitUsagePingBox",
-            l10nId: "data-collection-usage-ping",
-            subcategory: "reports",
-            supportPage: "usage-ping-settings",
-          },
-          {
-            id: "automaticallySubmitCrashesBox",
-            l10nId: "data-collection-backlogged-crash-reports",
-            subcategory: "reports",
-            supportPage: "crash-report",
-          },
-        ],
-      },
-    ],
-  },
-  // Bug 1968111: move this elsewhere
-  managePayments: {
-    items: [
-      {
-        id: "add-payment-button",
-        control: "moz-button",
-        l10nId: "autofill-payment-methods-add-button",
-      },
-      {
-        id: "payments-list",
-        control: "moz-box-group",
-        controlAttrs: {
-          type: "list",
-        },
-      },
-    ],
-  },
-  // Bug 1968111: move this elsewhere
-  manageAddresses: {
-    items: [
-      {
-        id: "add-address-button",
-        control: "moz-button",
-        l10nId: "autofill-addresses-add-button",
-      },
-      {
-        id: "addresses-list",
-        control: "moz-box-group",
-        controlAttrs: {
-          type: "list",
-        },
+        id: "trustPanelBreachAlertsMain",
+        l10nId: "privacy-panel-breach-alerts",
       },
     ],
   },
 });
 
 Preferences.addSetting({
-  id: "savePasswords",
-  pref: "signon.rememberSignons",
-  controllingExtensionInfo: {
-    storeId: "services.passwordSavingEnabled",
-    l10nId: "extension-controlling-password-saving",
-  },
+  id: "trustPanelFeatureGate",
+  pref: "browser.urlbar.trustPanel.featureGate",
 });
 
 Preferences.addSetting({
-  id: "managePasswordExceptions",
-  onUserClick: () => {
-    PrivacySettingHelpers.showPasswordExceptions();
-  },
+  id: "trustPanelBreachAlertsFeatureGate",
+  pref: "browser.urlbar.trustPanel.breachAlerts.featureGate",
 });
 
 Preferences.addSetting({
-  id: "fillUsernameAndPasswords",
-  pref: "signon.autofillForms",
-});
-
-Preferences.addSetting({
-  id: "suggestStrongPasswords",
-  pref: "signon.generation.enabled",
-  visible: () => Services.prefs.getBoolPref("signon.generation.available"),
-});
-
-Preferences.addSetting({
-  id: "requireOSAuthForPasswords",
-  visible: () => lazy.OSKeyStore.canReauth(),
-  get: () => LoginHelper.getOSAuthEnabled(),
-  async set(checked) {
-    const [messageText, captionText] = await Promise.all([
-      lazy.AboutLoginsL10n.formatValue("about-logins-os-auth-dialog-message"),
-      lazy.AboutLoginsL10n.formatValue("about-logins-os-auth-dialog-caption"),
-    ]);
-
-    await LoginHelper.trySetOSAuthEnabled(
-      window,
-      checked,
-      messageText,
-      captionText
-    );
-
-    // Trigger change event to keep checkbox UI in sync with pref value
-    Services.obs.notifyObservers(null, "PasswordsOSAuthEnabledChange");
-  },
-  setup: emitChange => {
-    Services.obs.addObserver(emitChange, "PasswordsOSAuthEnabledChange");
-    return () =>
-      Services.obs.removeObserver(emitChange, "PasswordsOSAuthEnabledChange");
-  },
-});
-
-Preferences.addSetting({
-  id: "allowWindowSSO",
-  pref: "network.http.windows-sso.enabled",
-  visible: () => lazy.AppConstants.platform === "win",
-});
-
-Preferences.addSetting({
-  id: "manageSavedPasswords",
-  onUserClick: ({ _target }) => {
-    PrivacySettingHelpers.showPasswords();
-  },
-});
-
-Preferences.addSetting({
-  id: "additionalProtectionsGroup",
-});
-
-Preferences.addSetting({
-  id: "primaryPasswordNotSet",
-  setup(emitChange) {
-    const topic = "passwordmgr-primary-pw-changed";
-    Services.obs.addObserver(emitChange, topic);
-    return () => Services.obs.removeObserver(emitChange, topic);
-  },
-  visible: () => {
-    return !LoginHelper.isPrimaryPasswordSet();
-  },
-});
-
-Preferences.addSetting({
-  id: "usePrimaryPassword",
-  deps: ["primaryPasswordNotSet"],
-});
-
-Preferences.addSetting({
-  id: "addPrimaryPassword",
-  deps: ["primaryPasswordNotSet"],
-  onUserClick: ({ _target }) => {
-    PrivacySettingHelpers.changeMasterPassword();
-  },
-  disabled: () => {
-    return !Services.policies.isAllowed("createMasterPassword");
-  },
-});
-
-Preferences.addSetting({
-  id: "primaryPasswordSet",
-  setup(emitChange) {
-    const topic = "passwordmgr-primary-pw-changed";
-    Services.obs.addObserver(emitChange, topic);
-    return () => Services.obs.removeObserver(emitChange, topic);
-  },
-  visible: () => {
-    return LoginHelper.isPrimaryPasswordSet();
-  },
-});
-
-Preferences.addSetting({
-  id: "statusPrimaryPassword",
-  deps: ["primaryPasswordSet"],
-  onUserClick: e => {
-    if (e.target.localName == "moz-button") {
-      PrivacySettingHelpers._removeMasterPassword();
-    }
-  },
-  getControlConfig(config) {
-    config.options[0].controlAttrs = {
-      ...config.options[0].controlAttrs,
-      ...(!Services.policies.isAllowed("removeMasterPassword")
-        ? { disabled: "" }
-        : {}),
-    };
-    return config;
-  },
-});
-
-Preferences.addSetting({
-  id: "changePrimaryPassword",
-  deps: ["primaryPasswordSet"],
-  onUserClick: ({ _target }) => {
-    PrivacySettingHelpers.changeMasterPassword();
-  },
-});
-
-Preferences.addSetting({
-  id: "breachAlerts",
-  pref: "signon.management.page.breach-alerts.enabled",
+  id: "trustPanelBreachAlertsMain",
+  pref: "browser.urlbar.trustPanel.breachAlerts",
+  deps: ["trustPanelFeatureGate", "trustPanelBreachAlertsFeatureGate"],
+  visible: ({ trustPanelFeatureGate, trustPanelBreachAlertsFeatureGate }) =>
+    trustPanelFeatureGate.value && trustPanelBreachAlertsFeatureGate.value,
 });
 
 /**
@@ -2322,8 +1526,10 @@ class WarningSettingConfig {
    * setting initially
    * @param {boolean} isDismissable - A boolean indicating whether or not we should support dismissing
    * this setting
+   * @param {string} [extensionStoreId] - The ExtensionSettingsStore "prefs" key to watch. When an
+   * installed extension is controlling this setting, the warning is suppressed.
    */
-  constructor(id, prefMapping, problematic, isDismissable) {
+  constructor(id, prefMapping, problematic, isDismissable, extensionStoreId) {
     this.id = id;
     this.prefMapping = prefMapping;
     if (isDismissable) {
@@ -2333,6 +1539,8 @@ class WarningSettingConfig {
       this.prefMapping.dismissAll = this.dismissAllPrefId;
     }
     this.problematic = problematic;
+    this.extensionStoreId = extensionStoreId;
+    this.extensionControlled = false;
   }
 
   /**
@@ -2345,6 +1553,7 @@ class WarningSettingConfig {
     return (
       !this.dismissAll?.value &&
       !this.dismissed?.value &&
+      !this.extensionControlled &&
       this.problematic(this)
     );
   }
@@ -2383,10 +1592,39 @@ class WarningSettingConfig {
       this[getter] = Preferences.get(prefId);
       this[getter].on("change", emitChange);
     }
+
+    let extensionListenerCleanup;
+    if (this.extensionStoreId) {
+      let updateExtensionControlled = async () => {
+        await lazy.Management.asyncLoadSettingsModules();
+        await lazy.ExtensionSettingsStore.initialize();
+        let info = lazy.ExtensionSettingsStore.getSetting(
+          "prefs",
+          this.extensionStoreId
+        );
+        let controlled = false;
+        if (info?.id) {
+          let addon = await lazy.AddonManager.getAddonByID(info.id);
+          controlled = !!addon;
+        }
+        if (this.extensionControlled !== controlled) {
+          this.extensionControlled = controlled;
+          emitChange();
+        }
+      };
+      let topic = `extension-setting-changed:${this.extensionStoreId}`;
+      lazy.Management.on(topic, updateExtensionControlled);
+      updateExtensionControlled();
+      extensionListenerCleanup = () => {
+        lazy.Management.off(topic, updateExtensionControlled);
+      };
+    }
+
     return () => {
       for (let getter of Object.keys(this.prefMapping)) {
         this[getter].off(emitChange);
       }
+      extensionListenerCleanup?.();
     };
   }
 
@@ -2458,11 +1696,10 @@ if (SECURITY_PRIVACY_STATUS_CARD_ENABLED) {
       "warningPasswordManager",
       {
         enabled: "signon.rememberSignons",
-        extentionAllows: "services.passwordSavingEnabled",
       },
-      ({ enabled, extentionAllows }) =>
-        !enabled.value && !enabled.locked && !extentionAllows.value,
-      true
+      ({ enabled }) => !enabled.value && !enabled.locked,
+      true,
+      "services.passwordSavingEnabled"
     )
   );
 
@@ -2960,29 +2197,6 @@ Preferences.addSetting({
     !ipProtectionUpgradeNotAvailable.value,
 });
 
-// Study opt out
-if (lazy.AppConstants.MOZ_DATA_REPORTING) {
-  Preferences.addAll([
-    // Preference instances for prefs that we need to monitor while the page is open.
-    { id: "app.shield.optoutstudies.enabled", type: "bool" },
-    { id: "browser.discovery.enabled", type: "bool" },
-    { id: "datareporting.healthreport.uploadEnabled", type: "bool" },
-    { id: "datareporting.usage.uploadEnabled", type: "bool" },
-    { id: "dom.private-attribution.submission.enabled", type: "bool" },
-  ]);
-}
-// Privacy segmentation section
-Preferences.add({
-  id: "browser.dataFeatureRecommendations.enabled",
-  type: "bool",
-});
-
-// Data Choices tab
-Preferences.add({
-  id: "browser.crashReports.unsubmittedCheck.autoSubmit2",
-  type: "bool",
-});
-
 Preferences.addSetting({
   id: "gpcFunctionalityEnabled",
   pref: "privacy.globalprivacycontrol.functionality.enabled",
@@ -3409,6 +2623,20 @@ Preferences.addSetting(
     },
   })
 );
+
+// Trigger site data calculation the first time the privacy pane is shown in
+// this prefs document. siteDataSize, clearSiteDataButton, and siteDataSettings
+// all consume the resulting "sitedatamanager:*" notifications.
+{
+  let onPaneShown = event => {
+    if (event.detail.category === "panePrivacy") {
+      lazy.SiteDataManager.updateSites();
+      window.removeEventListener("paneshown", onPaneShown);
+    }
+  };
+  window.addEventListener("paneshown", onPaneShown);
+}
+
 Preferences.addSetting({
   id: "cookieExceptions",
   onUserClick() {
@@ -3597,13 +2825,23 @@ Preferences.addSetting({
       historyEnabled,
       formFillEnabled,
       sanitizeOnShutdown,
-    }
+    },
+    setting
   ) {
     let lastHistoryModeCustom = historyModeCustom.value;
     let lastHistoryEnabled = historyEnabled.value;
     let lastFormFillEnabled = formFillEnabled.value;
     let lastSanitizeOnShutdown = sanitizeOnShutdown.value;
     let lastPrivateBrowsingAutoStart = privateBrowsingAutoStart.value;
+
+    let lastValue = setting.value;
+    let optionGroupElement = document.activeElement?.parentElement;
+    if (optionGroupElement.localName != "moz-radio-group") {
+      optionGroupElement = null;
+    }
+    let cancelFocusElement = optionGroupElement?.childElements.find(
+      option => option.value == lastValue
+    );
 
     historyModeCustom.value = value == "custom";
 
@@ -3628,6 +2866,9 @@ Preferences.addSetting({
         formFillEnabled.value = lastFormFillEnabled;
         sanitizeOnShutdown.value = lastSanitizeOnShutdown;
         privateBrowsingAutoStart.value = lastPrivateBrowsingAutoStart;
+        if (cancelFocusElement) {
+          cancelFocusElement.focus();
+        }
       });
     }
   },
@@ -3802,367 +3043,6 @@ Preferences.addSetting({
 });
 
 Preferences.addSetting({
-  id: "permissionBox",
-});
-Preferences.addSetting({
-  id: "submitUsagePingBox",
-  pref: "datareporting.usage.uploadEnabled",
-  visible: () => lazy.AppConstants.MOZ_DATA_REPORTING,
-});
-Preferences.addSetting({
-  id: "automaticallySubmitCrashesBox",
-  pref: "browser.crashReports.unsubmittedCheck.autoSubmit2",
-  visible: () =>
-    lazy.AppConstants.MOZ_DATA_REPORTING && lazy.AppConstants.MOZ_CRASHREPORTER,
-});
-
-Preferences.addSetting({
-  id: "privacySegmentation",
-  pref: "browser.privacySegmentation.preferences.show",
-});
-
-Preferences.addSetting({
-  id: "dataCollectionCategory",
-  deps: ["privacySegmentation"],
-  visible: ({ privacySegmentation }) =>
-    lazy.AppConstants.MOZ_DATA_REPORTING || privacySegmentation.value,
-});
-
-Preferences.addSetting({
-  id: "dataCollectionLink",
-  visible: () => {
-    const url = Services.urlFormatter.formatURLPref(
-      "toolkit.datacollection.infoURL"
-    );
-    if (url) {
-      return true;
-    }
-    return false;
-  },
-  getControlConfig(config) {
-    // Set up or hides the Privacy notice link with the correct URL for various data collection options
-    const url = Services.urlFormatter.formatURLPref(
-      "toolkit.datacollection.infoURL"
-    );
-    return {
-      ...config,
-      controlAttrs: {
-        ...config.controlAttrs,
-        href: url,
-      },
-    };
-  },
-});
-
-Preferences.addSetting({
-  id: "dataCollectionPrivacyNotice",
-});
-
-Preferences.addSetting({
-  id: "preferencesPrivacyProfiles",
-  visible: () => lazy.SelectableProfileService.isEnabled,
-});
-
-Preferences.addSetting({
-  id: "privacyProfilesLink",
-  onUserClick: () => gMainPane.manageProfiles(),
-});
-
-Preferences.addSetting({
-  id: "privacyDataFeatureRecommendationRadioGroup",
-  pref: "browser.dataFeatureRecommendations.enabled",
-});
-
-Preferences.addSetting({
-  id: "submitHealthReportBox",
-  pref: "datareporting.healthreport.uploadEnabled",
-  getControlConfig(config, _, setting) {
-    if (!setting.value) {
-      return {
-        ...config,
-        l10nId: "data-collection-health-report-disabled",
-      };
-    }
-    return {
-      ...config,
-      l10nId: "data-collection-health-report",
-    };
-  },
-});
-
-Preferences.addSetting({
-  id: "addonRecommendationEnabled",
-  pref: "browser.discovery.enabled",
-  deps: ["submitHealthReportBox"],
-  visible: () => lazy.AppConstants.MOZ_DATA_REPORTING,
-  get: (value, deps) => {
-    return value && deps.submitHealthReportBox.pref.value;
-  },
-});
-
-Preferences.addSetting({
-  id: "normandyEnabled",
-  pref: "app.normandy.enabled",
-});
-
-Preferences.addSetting({
-  id: "optOutStudiesEnabled",
-  visible: () => lazy.AppConstants.MOZ_NORMANDY,
-  pref: "app.shield.optoutstudies.enabled",
-  deps: ["submitHealthReportBox", "normandyEnabled"],
-  disabled: ({ submitHealthReportBox, normandyEnabled }) => {
-    /**
-    *  The checkbox should be disabled if any of the below are true. This
-    prevents the user from changing the value in the box.
-    * 2. telemetry upload is disabled
-    * 3. Normandy is disabled
-    */
-    const allowedByPolicy = Services.policies.isAllowed("Shield");
-    return (
-      !allowedByPolicy || !submitHealthReportBox.value || !normandyEnabled.value
-    );
-  },
-
-  get: (value, { submitHealthReportBox, normandyEnabled }) => {
-    /**
-     * The checkbox should match the value of the preference only if all the below are true:
-     *
-     * 1. the policy allows Shield
-     * 2. telemetry upload is enabled
-     * 3. Normandy is enabled
-     *
-     * Otherwise, the checkbox should remain unchecked. This
-     * is because in these situations, Shield studies are always disabled, and
-     * so showing a checkbox would be confusing.
-     */
-    const allowedByPolicy = Services.policies.isAllowed("Shield");
-
-    if (
-      !allowedByPolicy ||
-      !submitHealthReportBox.value ||
-      !normandyEnabled.value
-    ) {
-      return false;
-    }
-    return value;
-  },
-});
-
-Preferences.addSetting({
-  id: "viewShieldStudies",
-});
-
-Preferences.addSetting({
-  id: "profilesBackupEnabled",
-  pref: "browser.backup.enabled_on.profiles",
-});
-
-Preferences.addSetting({
-  id: "telemetryContainer",
-  deps: ["submitHealthReportBox"],
-  visible: deps => {
-    if (!lazy.AppConstants.MOZ_DATA_REPORTING) {
-      return false;
-    }
-    return !deps.submitHealthReportBox.value;
-  },
-});
-
-Preferences.addSetting(
-  /** @type {{ _originalStateOfDataCollectionPrefs: Map<string, any>} & SettingConfig} */ ({
-    id: "backup-multi-profile-warning-message-bar",
-    _originalStateOfDataCollectionPrefs: new Map(),
-    deps: [
-      "addonRecommendationEnabled",
-      "optOutStudiesEnabled",
-      "submitHealthReportBox",
-      "submitUsagePingBox",
-      "automaticallySubmitCrashesBox",
-      "profilesBackupEnabled",
-    ],
-    setup(emitChange, dataCollectionPrefDeps) {
-      emitChange();
-      for (let pref in dataCollectionPrefDeps) {
-        const value = dataCollectionPrefDeps[pref].value;
-        this._originalStateOfDataCollectionPrefs.set(pref, value);
-      }
-    },
-    visible(dataCollectionPrefDeps) {
-      const { currentProfile } = lazy.SelectableProfileService;
-      if (!currentProfile) {
-        return false;
-      }
-      let anyPrefChanged = false;
-      for (let pref in dataCollectionPrefDeps) {
-        if (pref === "profilesBackupEnabled") {
-          continue;
-        }
-        const originalValue =
-          this._originalStateOfDataCollectionPrefs.get(pref);
-        const updatedValue = dataCollectionPrefDeps[pref].value;
-        if (updatedValue !== originalValue) {
-          anyPrefChanged = true;
-          break;
-        }
-      }
-
-      const profilesBackupEnabledValue = /** @type {string} */ (
-        dataCollectionPrefDeps.profilesBackupEnabled.value
-      );
-      let profilesEnabledOn = JSON.parse(profilesBackupEnabledValue || "{}");
-      let currentId = currentProfile.id;
-      let otherProfilesEnabled = Object.keys(profilesEnabledOn).some(
-        id => id != currentId
-      );
-      return otherProfilesEnabled && anyPrefChanged;
-    },
-  })
-);
-
-Preferences.addSetting({
-  id: "enableNimbusRollouts",
-  pref: "nimbus.rollouts.enabled",
-  visible: () =>
-    lazy.AppConstants.MOZ_DATA_REPORTING && lazy.AppConstants.MOZ_NORMANDY,
-  disabled: () => !Services.policies.isAllowed("NimbusRollouts"),
-  get: value => {
-    if (!Services.policies.isAllowed("NimbusRollouts")) {
-      return false;
-    }
-    return value;
-  },
-});
-
-Preferences.addSetting({
-  id: "popupPolicy",
-  pref: "dom.disable_open_during_load",
-});
-Preferences.addSetting({
-  id: "redirectPolicy",
-  pref: "dom.security.framebusting_intervention.enabled",
-});
-// This button controls both the pop-up and framebusting prefs. They are split
-// up for testing reasons, but user-facing, they can only be modified together.
-// Thus, we need some special handling here. We only consider the checkbox to be
-// checked if both prefs are enabled, otherwise it is unchecked. In the special
-// case that one of the prefs is locked, the checkbox should only control the
-// other pref.
-Preferences.addSetting({
-  id: "popupAndRedirectPolicy",
-  deps: ["popupPolicy", "redirectPolicy"],
-  get: (_val, deps) => {
-    if (deps.popupPolicy.locked && !deps.redirectPolicy.locked) {
-      return deps.redirectPolicy.value;
-    }
-    if (!deps.popupPolicy.locked && deps.redirectPolicy.locked) {
-      return deps.popupPolicy.value;
-    }
-    return deps.popupPolicy.value && deps.redirectPolicy.value;
-  },
-  set: (val, deps) => {
-    if (!deps.popupPolicy.locked) {
-      deps.popupPolicy.value = val;
-    }
-    if (!deps.redirectPolicy.locked) {
-      deps.redirectPolicy.value = val;
-    }
-  },
-  disabled: ({ popupPolicy, redirectPolicy }) =>
-    popupPolicy.locked && redirectPolicy.locked,
-});
-Preferences.addSetting({
-  id: "popupAndRedirectPolicyButton",
-  deps: ["popupPolicy", "redirectPolicy"],
-  onUserClick: () => PrivacySettingHelpers.showPopupExceptions(),
-  disabled: ({ popupPolicy, redirectPolicy }) =>
-    !popupPolicy.value ||
-    !redirectPolicy.value ||
-    (popupPolicy.locked && redirectPolicy.locked),
-});
-Preferences.addSetting({
-  id: "warnAddonInstall",
-  pref: "xpinstall.whitelist.required",
-});
-Preferences.addSetting({
-  id: "addonExceptions",
-  deps: ["warnAddonInstall"],
-  onUserClick: () => PrivacySettingHelpers.showAddonExceptions(),
-  disabled: ({ warnAddonInstall }) => {
-    return !warnAddonInstall.value || warnAddonInstall.locked;
-  },
-});
-Preferences.addSetting({
-  id: "notificationsDoNotDisturb",
-  get: () => {
-    return lazy.AlertsServiceDND?.manualDoNotDisturb ?? false;
-  },
-  set: value => {
-    if (lazy.AlertsServiceDND) {
-      lazy.AlertsServiceDND.manualDoNotDisturb = value;
-    }
-  },
-  visible: () => {
-    return lazy.AlertsServiceDND != undefined;
-  },
-});
-Preferences.addSetting({
-  id: "locationSettingsButton",
-  onUserClick: () => PrivacySettingHelpers.showLocationExceptions(),
-});
-Preferences.addSetting({
-  id: "cameraSettingsButton",
-  onUserClick: () => PrivacySettingHelpers.showCameraExceptions(),
-});
-Preferences.addSetting({
-  id: "enabledLNA",
-  pref: "network.lna.blocking",
-});
-Preferences.addSetting({
-  id: "localNetworkSettingsButton",
-  onUserClick: () => PrivacySettingHelpers.showLocalNetworkExceptions(),
-  deps: ["enabledLNA"],
-  visible: deps => {
-    return deps.enabledLNA.value;
-  },
-});
-Preferences.addSetting({
-  id: "loopbackNetworkSettingsButton",
-  onUserClick: () => PrivacySettingHelpers.showLoopbackNetworkExceptions(),
-  deps: ["enabledLNA"],
-  visible: deps => {
-    return deps.enabledLNA.value;
-  },
-});
-Preferences.addSetting({
-  id: "microphoneSettingsButton",
-  onUserClick: () => PrivacySettingHelpers.showMicrophoneExceptions(),
-});
-Preferences.addSetting({
-  id: "enabledSpeakerControl",
-  pref: "media.setsinkid.enabled",
-});
-Preferences.addSetting({
-  id: "speakerSettingsButton",
-  onUserClick: () => PrivacySettingHelpers.showSpeakerExceptions(),
-  deps: ["enabledSpeakerControl"],
-  visible: ({ enabledSpeakerControl }) => {
-    return enabledSpeakerControl.value;
-  },
-});
-Preferences.addSetting({
-  id: "notificationSettingsButton",
-  onUserClick: () => PrivacySettingHelpers.showNotificationExceptions(),
-});
-Preferences.addSetting({
-  id: "autoplaySettingsButton",
-  onUserClick: () => PrivacySettingHelpers.showAutoplayMediaExceptions(),
-});
-Preferences.addSetting({
-  id: "xrSettingsButton",
-  onUserClick: () => PrivacySettingHelpers.showXRExceptions(),
-});
-
-Preferences.addSetting({
   id: "dohBox",
 });
 
@@ -4280,7 +3160,7 @@ Preferences.addSetting({
         reason: Services.dns.getTRRSkipReasonName(
           Ci.nsITRRSkipReason.TRR_PARENTAL_CONTROL
         ),
-        displayName,
+        name: displayName,
       };
     } else {
       let confirmationState = Services.dns.currentTrrConfirmationState;
@@ -4315,19 +3195,19 @@ Preferences.addSetting({
       if (confirmationStatus != Cr.NS_OK) {
         l10nArgs = {
           reason: ChromeUtils.getXPCOMErrorName(confirmationStatus),
-          name,
+          name: displayName,
         };
       } else {
         l10nArgs = {
           reason: Services.dns.getTRRSkipReasonName(
             Services.dns.lastConfirmationSkipReason
           ),
-          name,
+          name: displayName,
         };
         if (
           Services.dns.lastConfirmationSkipReason ==
             Ci.nsITRRSkipReason.TRR_BAD_URL ||
-          !name
+          !displayName
         ) {
           l10nId = "preferences-doh-status-item-not-active-bad-url";
           supportPage = "doh-status";
@@ -4475,21 +3355,13 @@ Preferences.addSetting({
 Preferences.addSetting({
   id: "dohCustomProvider",
   deps: ["dohProviderSelect", "dohURL"],
-  _value: null,
   visible: deps => {
     return deps.dohProviderSelect.value == "custom";
   },
   get(_val, deps) {
-    if (this._value === null) {
-      return deps.dohURL.value;
-    }
-    return this._value;
+    return deps.dohURL.value;
   },
   set(val, deps) {
-    this._value = val;
-    if (val == "") {
-      val = " ";
-    }
     deps.dohURL.value = val;
   },
 });
@@ -4604,6 +3476,9 @@ Preferences.addSetting({
     }
 
     return config;
+  },
+  onUserChange() {
+    PrivacySettingHelpers.maybeNotifyUserToReload();
   },
 });
 
@@ -4745,6 +3620,7 @@ Preferences.addSetting({
   deps: ["contentBlockingCategory"],
   onUserClick(_, { contentBlockingCategory }) {
     contentBlockingCategory.value = "standard";
+    PrivacySettingHelpers.maybeNotifyUserToReload();
   },
   disabled({ contentBlockingCategory }) {
     return (
@@ -4759,6 +3635,7 @@ Preferences.addSetting({
   deps: ["contentBlockingCategory"],
   onUserClick(_, { contentBlockingCategory }) {
     contentBlockingCategory.value = "strict";
+    PrivacySettingHelpers.maybeNotifyUserToReload();
   },
   disabled({ contentBlockingCategory }) {
     return (

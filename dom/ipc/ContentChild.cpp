@@ -145,9 +145,7 @@
 #include "nsSandboxFlags.h"
 
 #if defined(MOZ_SANDBOX)
-#  include "mozilla/SandboxSettings.h"
 #  if defined(XP_WIN)
-#    include "mozilla/ProcInfo.h"
 #    include "mozilla/sandboxTarget.h"
 #  elif defined(XP_LINUX)
 #    include "CubebUtils.h"
@@ -158,6 +156,7 @@
 #    include <CoreGraphics/CGError.h>
 
 #    include "mozilla/Sandbox.h"
+#    include "mozilla/SandboxSettings.h"
 #  elif defined(__OpenBSD__)
 #    include <err.h>
 #    include <sys/stat.h>
@@ -167,6 +166,7 @@
 
 #    include "BinaryPath.h"
 #    include "SpecialSystemDirectory.h"
+#    include "mozilla/SandboxSettings.h"
 #    include "mozilla/ipc/UtilityProcessSandboxing.h"
 #    include "nsILineInputStream.h"
 #  endif
@@ -1763,8 +1763,7 @@ static void DisconnectWindowServer(bool aIsSandboxEnabled) {
   // for some tests.
   if (aIsSandboxEnabled &&
       Preferences::GetBool(
-          "security.sandbox.content.mac.disconnect-windowserver") &&
-      Preferences::GetBool("webgl.out-of-process")) {
+          "security.sandbox.content.mac.disconnect-windowserver")) {
     CGError result = CGSSetDenyWindowServerConnections(true);
     MOZ_DIAGNOSTIC_ASSERT(result == kCGErrorSuccess);
 #  if !MOZ_DIAGNOSTIC_ASSERT_ENABLED
@@ -1796,14 +1795,7 @@ mozilla::ipc::IPCResult ContentChild::RecvSetProcessSandbox(
         ContentProcessSandboxParams::ForThisProcess(aBroker));
   }
 #  elif defined(XP_WIN)
-  if (GetEffectiveContentSandboxLevel() > 7) {
-    // Libraries required by Network Security Services (NSS).
-    ::LoadLibraryW(L"freebl3.dll");
-    ::LoadLibraryW(L"softokn3.dll");
-    // Cache value that is retrieved from a registry entry.
-    (void)GetCpuFrequencyMHz();
-  }
-  mozilla::SandboxTarget::Instance()->StartSandbox();
+  mozilla::SandboxTarget::Instance()->LowerContentSandbox();
 #  elif defined(XP_MACOSX)
   sandboxEnabled = (GetEffectiveContentSandboxLevel() >= 1);
   DisconnectWindowServer(sandboxEnabled);
@@ -2350,7 +2342,8 @@ mozilla::ipc::IPCResult ContentChild::RecvUpdatePerfStatsCollectionMask(
 
 mozilla::ipc::IPCResult ContentChild::RecvCollectPerfStatsJSON(
     CollectPerfStatsJSONResolver&& aResolver) {
-  aResolver(PerfStats::CollectLocalPerfStatsJSON());
+  auto s = PerfStats::CollectLocalPerfStatsJSON();
+  aResolver(nsCString(s.c_str(), s.length()));
   return IPC_OK();
 }
 
@@ -2840,12 +2833,9 @@ mozilla::ipc::IPCResult ContentChild::RecvInitBlobURLs(
     nsTArray<BlobURLRegistrationData>&& aRegistrations) {
   for (uint32_t i = 0; i < aRegistrations.Length(); ++i) {
     BlobURLRegistrationData& registration = aRegistrations[i];
-    RefPtr<BlobImpl> blobImpl = IPCBlobUtils::Deserialize(registration.blob());
-    MOZ_ASSERT(blobImpl);
-
-    BlobURLProtocolHandler::AddDataEntry(registration.url(),
-                                         registration.principal(),
-                                         registration.partitionKey(), blobImpl);
+    BlobURLProtocolHandler::AddDataEntryChild(registration.url(),
+                                              registration.principal(),
+                                              registration.partitionKey());
     // If we have received an already-revoked blobURL, we have to keep it alive
     // for a while (see BlobURLProtocolHandler) in order to support pending
     // operations such as navigation, download and so on.
@@ -3192,11 +3182,12 @@ void ContentChild::ShutdownInternal() {
           "*Profile from pid %u bigger (%zu) than IPC max (%zu)",
           unsigned(profiler_current_process_id().ToNumber()), len,
           size_t(IPC::Channel::kMaximumMessageSize));
+      shutdownProfileAndAdditionalInformation.mAdditionalInformation.reset();
     }
     // Send the shutdown profile to the parent process through our own
     // message channel, which we know will survive for long enough.
     bool sent =
-        SendShutdownProfile(shutdownProfileAndAdditionalInformation.mProfile);
+        SendShutdownProfile(std::move(shutdownProfileAndAdditionalInformation));
     CrashReporter::RecordAnnotationCString(
         CrashReporter::Annotation::ProfilerChildShutdownPhase,
         sent ? (isProfiling ? "Profiling - SendShutdownProfile (sent)"
@@ -3206,7 +3197,8 @@ void ContentChild::ShutdownInternal() {
   }
 
   if (PerfStats::GetCollectionMask() != 0) {
-    SendShutdownPerfStats(PerfStats::CollectLocalPerfStatsJSON());
+    auto s = PerfStats::CollectLocalPerfStatsJSON();
+    SendShutdownPerfStats(nsCString(s.c_str(), s.length()));
   }
 
   // Start a timer that will ensure we quickly exit after a reasonable period
@@ -3286,13 +3278,9 @@ mozilla::ipc::IPCResult ContentChild::RecvPWebBrowserPersistDocumentConstructor(
 }
 
 mozilla::ipc::IPCResult ContentChild::RecvBlobURLRegistration(
-    const nsCString& aURI, const IPCBlob& aBlob, nsIPrincipal* aPrincipal,
+    const nsCString& aURI, nsIPrincipal* aPrincipal,
     const nsCString& aPartitionKey) {
-  RefPtr<BlobImpl> blobImpl = IPCBlobUtils::Deserialize(aBlob);
-  MOZ_ASSERT(blobImpl);
-
-  BlobURLProtocolHandler::AddDataEntry(aURI, aPrincipal, aPartitionKey,
-                                       blobImpl);
+  BlobURLProtocolHandler::AddDataEntryChild(aURI, aPrincipal, aPartitionKey);
   return IPC_OK();
 }
 

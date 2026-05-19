@@ -681,8 +681,8 @@ class gfxFontShaper {
   // Shape a piece of text and store the resulting glyph data into
   // aShapedText. Parameters aOffset/aLength indicate the range of
   // aShapedText to be updated; aLength is also the length of aText.
-  virtual bool ShapeText(DrawTarget* aDrawTarget, const char16_t* aText,
-                         uint32_t aOffset, uint32_t aLength, Script aScript,
+  virtual bool ShapeText(const char16_t* aText, uint32_t aOffset,
+                         uint32_t aLength, Script aScript,
                          nsAtom* aLanguage,  // may be null, indicating no
                                              // lang-specific shaping to be
                                              // applied
@@ -1598,28 +1598,28 @@ class gfxFont {
 
   // Font metrics
   struct Metrics {
-    gfxFloat capHeight;
-    gfxFloat xHeight;
-    gfxFloat strikeoutSize;
-    gfxFloat strikeoutOffset;
-    gfxFloat underlineSize;
-    gfxFloat underlineOffset;
+    gfxFloat capHeight = 0.0;
+    gfxFloat xHeight = 0.0;
+    gfxFloat strikeoutSize = 0.0;
+    gfxFloat strikeoutOffset = 0.0;
+    gfxFloat underlineSize = 0.0;
+    gfxFloat underlineOffset = 0.0;
 
-    gfxFloat internalLeading;
-    gfxFloat externalLeading;
+    gfxFloat internalLeading = 0.0;
+    gfxFloat externalLeading = 0.0;
 
-    gfxFloat emHeight;
-    gfxFloat emAscent;
-    gfxFloat emDescent;
-    gfxFloat maxHeight;
-    gfxFloat maxAscent;
-    gfxFloat maxDescent;
-    gfxFloat maxAdvance;
+    gfxFloat emHeight = 0.0;
+    gfxFloat emAscent = 0.0;
+    gfxFloat emDescent = 0.0;
+    gfxFloat maxHeight = 0.0;
+    gfxFloat maxAscent = 0.0;
+    gfxFloat maxDescent = 0.0;
+    gfxFloat maxAdvance = 0.0;
 
-    gfxFloat aveCharWidth;
-    gfxFloat spaceWidth;
-    gfxFloat zeroWidth;         // -1 if there was no zero glyph
-    gfxFloat ideographicWidth;  // -1 if kWaterIdeograph is not supported
+    gfxFloat aveCharWidth = 0.0;
+    gfxFloat spaceWidth = 0.0;
+    gfxFloat zeroWidth = -1.0;         // -1 if there was no zero glyph
+    gfxFloat ideographicWidth = -1.0;  // -1 if kWaterIdeograph is not supported
 
     gfxFloat ZeroOrAveCharWidth() const {
       return zeroWidth >= 0 ? zeroWidth : aveCharWidth;
@@ -1876,7 +1876,7 @@ class gfxFont {
   // Get a ShapedWord representing a single space for use in setting up a
   // gfxTextRun.
   bool ProcessSingleSpaceShapedWord(
-      DrawTarget* aDrawTarget, bool aVertical, int32_t aAppUnitsPerDevUnit,
+      bool aVertical, int32_t aAppUnitsPerDevUnit,
       mozilla::gfx::ShapedTextFlags aFlags, RoundingFlags aRounding,
       const std::function<void(gfxShapedWord*)>& aCallback);
 
@@ -2089,7 +2089,7 @@ class gfxFont {
   tainted_boolean_hint SpaceMayParticipateInShaping(Script aRunScript) const;
 
   // For 8-bit text, expand to 16-bit and then call the following method.
-  bool ShapeText(DrawTarget* aContext, const uint8_t* aText,
+  bool ShapeText(const uint8_t* aText,
                  uint32_t aOffset,  // dest offset in gfxShapedText
                  uint32_t aLength, Script aScript, nsAtom* aLanguage,
                  bool aVertical, RoundingFlags aRounding,
@@ -2097,15 +2097,15 @@ class gfxFont {
 
   // Call the appropriate shaper to generate glyphs for aText and store
   // them into aShapedText.
-  virtual bool ShapeText(DrawTarget* aContext, const char16_t* aText,
-                         uint32_t aOffset, uint32_t aLength, Script aScript,
-                         nsAtom* aLanguage, bool aVertical,
-                         RoundingFlags aRounding, gfxShapedText* aShapedText);
+  virtual bool ShapeText(const char16_t* aText, uint32_t aOffset,
+                         uint32_t aLength, Script aScript, nsAtom* aLanguage,
+                         bool aVertical, RoundingFlags aRounding,
+                         gfxShapedText* aShapedText);
 
   // Helper to adjust for synthetic bold and set character-type flags
   // in the shaped text; implementations of ShapeText should call this
   // after glyph shaping has been completed.
-  void PostShapingFixup(DrawTarget* aContext, const char16_t* aText,
+  void PostShapingFixup(const char16_t* aText,
                         uint32_t aOffset,  // position within aShapedText
                         uint32_t aLength, bool aVertical,
                         gfxShapedText* aShapedText);
@@ -2118,11 +2118,10 @@ class gfxFont {
   // not handled via normal shaping, but does not otherwise divide up the
   // text.
   template <typename T>
-  bool ShapeTextWithoutWordCache(DrawTarget* aDrawTarget, const T* aText,
-                                 uint32_t aOffset, uint32_t aLength,
-                                 Script aScript, nsAtom* aLanguage,
-                                 bool aVertical, RoundingFlags aRounding,
-                                 gfxTextRun* aTextRun);
+  bool ShapeTextWithoutWordCache(const T* aText, uint32_t aOffset,
+                                 uint32_t aLength, Script aScript,
+                                 nsAtom* aLanguage, bool aVertical,
+                                 RoundingFlags aRounding, gfxTextRun* aTextRun);
 
   // Shape a fragment of text (a run that is known to contain only
   // "valid" characters, no newlines/tabs/other control chars).
@@ -2130,10 +2129,10 @@ class gfxFont {
   // that will ensure we don't pass excessively long runs to the various
   // platform shapers.
   template <typename T>
-  bool ShapeFragmentWithoutWordCache(DrawTarget* aDrawTarget, const T* aText,
-                                     uint32_t aOffset, uint32_t aLength,
-                                     Script aScript, nsAtom* aLanguage,
-                                     bool aVertical, RoundingFlags aRounding,
+  bool ShapeFragmentWithoutWordCache(const T* aText, uint32_t aOffset,
+                                     uint32_t aLength, Script aScript,
+                                     nsAtom* aLanguage, bool aVertical,
+                                     RoundingFlags aRounding,
                                      gfxTextRun* aTextRun);
 
   void CheckForFeaturesInvolvingSpace() const;
@@ -2141,10 +2140,10 @@ class gfxFont {
   // Get a ShapedWord representing the given text (either 8- or 16-bit)
   // for use in setting up a gfxTextRun.
   template <typename T, typename Func>
-  bool ProcessShapedWordInternal(DrawTarget* aDrawTarget, const T* aText,
-                                 uint32_t aLength, uint32_t aHash,
-                                 Script aRunScript, nsAtom* aLanguage,
-                                 bool aVertical, int32_t aAppUnitsPerDevUnit,
+  bool ProcessShapedWordInternal(const T* aText, uint32_t aLength,
+                                 uint32_t aHash, Script aRunScript,
+                                 nsAtom* aLanguage, bool aVertical,
+                                 int32_t aAppUnitsPerDevUnit,
                                  mozilla::gfx::ShapedTextFlags aFlags,
                                  RoundingFlags aRounding,
                                  gfxTextPerfMetrics* aTextPerf, Func aCallback);

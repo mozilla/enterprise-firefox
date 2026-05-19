@@ -893,24 +893,52 @@
       <toolbarbutton id="ai-window-switch-classic"
                     class="subviewbutton"
                     type="radio"
-                    data-l10n-id="ai-window-toggleview-switch-classic"
-                    hidden="true"/>
+                    hidden="true"
+                    data-l10n-attrs="label">
+        <image class="toolbarbutton-icon"/>
+        <vbox>
+          <label class="toolbarbutton-text"
+                data-l10n-id="ai-window-toggleview-switch-classic" crop="end"/>
+          <label class="ai-window-switch-description toolbarbutton-text"
+                data-l10n-id="ai-window-toggleview-switch-classic-description" crop="end"/>
+        </vbox>
+      </toolbarbutton>
       <toolbarbutton id="ai-window-switch-ai"
                     class="subviewbutton"
                     type="radio"
                     hidden="true"
+                    data-l10n-attrs="label"
                     aria-describedby="ai-window-switch-ai-badge">
         <image class="toolbarbutton-icon"/>
-        <label class="toolbarbutton-text" crop="end"
-               data-l10n-id="ai-window-toggleview-switch-ai"/>
-        <html:moz-badge id="ai-window-switch-ai-badge"
-                        type="beta"/>
+        <vbox>
+          <hbox>
+            <label class="toolbarbutton-text"
+                  data-l10n-id="ai-window-toggleview-switch-ai" crop="end"/>
+            <html:moz-badge id="ai-window-switch-ai-badge"
+                  type="beta"/>
+          </hbox>
+          <label class="ai-window-switch-description toolbarbutton-text"
+                data-l10n-id="ai-window-toggleview-switch-ai-description" crop="end"/>
+        </vbox>
       </toolbarbutton>
     </vbox>
   </panelview>
 
-  <panelview id="appMenu-tabGroupsListView"
-             class="PanelUI-subView">
+  <panelview id="appMenu-tabGroupsListView" class="PanelUI-subView">
+    <vbox class="panel-subview-body">
+      <html:tab-groups-list/>
+    </vbox>
+  </panelview>
+
+  <panelview id="toolbar-tabGroupsListView"
+             class="PanelUI-subView"
+             mainview-with-header="true">
+    <box class="panel-header">
+      <html:h1>
+        <html:span data-l10n-id="tab-groups-list-title"></html:span>
+      </html:h1>
+    </box>
+    <toolbarseparator />
     <vbox class="panel-subview-body">
       <html:tab-groups-list/>
     </vbox>

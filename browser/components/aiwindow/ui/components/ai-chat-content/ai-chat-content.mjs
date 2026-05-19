@@ -12,6 +12,8 @@ import "chrome://browser/content/aiwindow/components/chat-assistant-error.mjs";
 import "chrome://browser/content/aiwindow/components/chat-assistant-loader.mjs";
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/website-chip-container.mjs";
+// eslint-disable-next-line import/no-unassigned-import
+import "chrome://browser/content/aiwindow/components/ai-website-confirmation.mjs";
 
 const FOLLOW_UP_QTY = 2;
 
@@ -37,6 +39,7 @@ export class AIChatContent extends MozLitElement {
   #scrollClickHandler = null;
   #scrollRafId = null;
   #pendingAnnouncementMessageId = null;
+  #scrollPositions = new Map();
 
   constructor() {
     super();
@@ -73,6 +76,7 @@ export class AIChatContent extends MozLitElement {
     this.#initFooterActionListeners();
     this.#initOverflowObserver();
     this.#initScrollListener();
+    this.#scrollPositions.clear();
   }
 
   disconnectedCallback() {
@@ -118,6 +122,11 @@ export class AIChatContent extends MozLitElement {
     this.addEventListener(
       "aiChatContentActor:seen-urls",
       this.#handleSeenUrls.bind(this)
+    );
+
+    this.addEventListener(
+      "aiChatContentActor:set-generating",
+      this.#handleSetGenerating.bind(this)
     );
 
     this.addEventListener(
@@ -183,6 +192,14 @@ export class AIChatContent extends MozLitElement {
 
     this.addEventListener("open-memories-learn-more", event => {
       this.#dispatchAction("open-memories-learn-more", event.detail);
+    });
+
+    this.addEventListener("thumbs-up", event => {
+      this.#dispatchAction("thumbs-up", event.detail);
+    });
+
+    this.addEventListener("thumbs-down", event => {
+      this.#dispatchAction("thumbs-down", event.detail);
     });
   }
 
@@ -339,14 +356,75 @@ export class AIChatContent extends MozLitElement {
       case "assistant-message-complete":
         this.#setMessageComplete(message);
         break;
+      case "restored-all-messages-in-a-conversation":
+        this.#restoreChatScrollPosition(message.convId);
+        break;
       // Used to clear the conversation state via side effects ( new conv id )
       case "clear-conversation":
         this.#checkConversationState(message);
     }
   }
 
+  #handleSetGenerating(event) {
+    this.assistantIsLoading = !!event.detail?.isGenerating;
+    if (!this.assistantIsLoading) {
+      this.isSearching = false;
+    }
+    this.requestUpdate();
+  }
+
+  async #restoreChatScrollPosition(convId) {
+    await this.updateComplete;
+
+    // Making sure we check if convId hasn't changed while we awaited
+    const lastMessage = this.conversationState.findLast(
+      m => m.convId === convId
+    );
+    if (!lastMessage) {
+      return;
+    }
+
+    // Wait a frame to ensure the footer and its children are visible
+    await new Promise(r =>
+      requestAnimationFrame(() => requestAnimationFrame(r))
+    );
+
+    const wrapper = this.#wrapper;
+    if (!wrapper) {
+      return;
+    }
+
+    const savedPosition = this.#scrollPositions.get(convId);
+    if (savedPosition?.contentHeight) {
+      this.shadowRoot
+        ?.querySelector(".chat-inner-wrapper")
+        ?.style.setProperty("--content-height", savedPosition.contentHeight);
+    }
+
+    const goToBottom =
+      !savedPosition ||
+      savedPosition.wasAtBottom ||
+      savedPosition.wasWaitingForResponse;
+
+    if (!goToBottom) {
+      wrapper.scrollTo({
+        top: savedPosition.scrollTop,
+        behavior: "instant",
+      });
+      return;
+    }
+
+    const lastChild = this.shadowRoot.querySelector(
+      ".chat-inner-wrapper"
+    )?.lastElementChild;
+    if (lastChild) {
+      lastChild.scrollIntoView({ block: "end", behavior: "instant" });
+      return;
+    }
+    wrapper.scrollTo({ top: wrapper.scrollHeight, behavior: "instant" });
+  }
+
   #setMessageComplete(message) {
-    this.assistantIsLoading = false;
     const messageId = message.content?.id;
     if (!messageId) {
       return;
@@ -385,12 +463,15 @@ export class AIChatContent extends MozLitElement {
       firstMessage.ordinal === message.ordinal;
     const convIdChanged = message.convId !== lastMessage?.convId;
 
+    if (convIdChanged && lastMessage?.convId && this.#wrapper) {
+      this.saveScrollPosition(lastMessage, this.#wrapper);
+    }
+
     // If the conversation ID has changed, reset the conversation state
     if (convIdChanged || isReloadingSameConvo) {
       this.conversationState = [];
       this.followUpSuggestions = [];
       this.#clearAssistantResponseAnnouncement();
-      this.assistantIsLoading = false;
       this.isSearching = false;
       if (convIdChanged) {
         this.shadowRoot
@@ -401,16 +482,43 @@ export class AIChatContent extends MozLitElement {
     }
   }
 
+  /* Saves the scroll position when we switch tabs */
+  saveScrollPosition(lastMessage, wrapper) {
+    const innerWrapper = this.shadowRoot.querySelector(".chat-inner-wrapper");
+
+    // if element is near the bottom (50px or less)
+    // we scroll all the way to the end as default
+    let wasAtBottom = true;
+    const lastChild = innerWrapper?.lastElementChild;
+    if (lastChild) {
+      const lastChildRect = lastChild.getBoundingClientRect();
+      const wrapperRect = wrapper.getBoundingClientRect();
+      wasAtBottom = lastChildRect.bottom <= wrapperRect.bottom + 50;
+    }
+
+    const wasWaitingForResponse =
+      this.assistantIsLoading ||
+      this.isSearching ||
+      lastMessage.role !== "assistant" ||
+      !lastMessage.isLastChunk;
+
+    this.#scrollPositions.set(lastMessage.convId, {
+      scrollTop: wrapper.scrollTop,
+      wasAtBottom,
+      wasWaitingForResponse,
+      contentHeight:
+        innerWrapper?.style.getPropertyValue("--content-height") || null,
+    });
+  }
+
   handleLoadingEvent(event) {
     const { isSearching } = event.detail;
     this.#clearAssistantResponseAnnouncement();
     this.isSearching = !!isSearching;
-    this.assistantIsLoading = true;
     this.requestUpdate();
   }
 
   handleErrorEvent(error) {
-    this.assistantIsLoading = false;
     this.isSearching = false;
     this.errorObj = error;
     this.requestUpdate();
@@ -426,7 +534,6 @@ export class AIChatContent extends MozLitElement {
     this.followUpSuggestions = [];
     const { convId, content, ordinal, isPreviousMessage } = event.detail;
     if (!isPreviousMessage) {
-      this.assistantIsLoading = true;
       this.#clearAssistantResponseAnnouncement();
     }
     this.conversationState[ordinal] = {
@@ -460,6 +567,10 @@ export class AIChatContent extends MozLitElement {
     });
   }
 
+  #isAIResponseValid(content, toolUIData) {
+    return (typeof content?.body === "string" && content.body) || !!toolUIData;
+  }
+
   /**
    * Handle AI response events
    *
@@ -468,7 +579,6 @@ export class AIChatContent extends MozLitElement {
 
   handleAIResponseEvent(event) {
     this.isSearching = false;
-    this.assistantIsLoading = false;
 
     const {
       convId,
@@ -480,9 +590,10 @@ export class AIChatContent extends MozLitElement {
       webSearchQueries = [],
       followUpSuggestions = [],
       isPreviousMessage,
+      toolUIData,
     } = event.detail;
 
-    if (typeof content.body !== "string" || !content.body) {
+    if (!this.#isAIResponseValid(content, toolUIData)) {
       return;
     }
 
@@ -498,8 +609,8 @@ export class AIChatContent extends MozLitElement {
       body: content.body,
       appliedMemories: memoriesApplied ?? [],
       showCallout: showMemoriesCallout ?? false,
-      searchTokens: webSearchQueries ?? [],
       isLastChunk: !!isPreviousMessage,
+      toolUIData,
     };
 
     this.requestUpdate();
@@ -605,6 +716,68 @@ export class AIChatContent extends MozLitElement {
     this.dispatchEvent(event);
   }
 
+  #renderToolUI(toolUIData, messageId) {
+    if (!toolUIData) {
+      return nothing;
+    }
+
+    switch (toolUIData.uiType) {
+      case "website-confirmation":
+        return html`
+          <ai-website-confirmation
+            .tabs=${toolUIData.properties?.tabs || []}
+            @ai-website-confirmation:submit=${event =>
+              this.#handleConfirmationSubmit(
+                event,
+                messageId,
+                toolUIData.toolCallId
+              )}
+            @ai-website-confirmation:close=${event =>
+              this.#handleConfirmationClose(
+                event,
+                messageId,
+                toolUIData.toolCallId
+              )}
+          ></ai-website-confirmation>
+        `;
+      case "ai-action-result":
+        return html`<div>confirmation placeholder</div>`;
+      case "cancelled-component":
+        return html`<div>cancelled placeholder</div>`;
+      default:
+        return nothing;
+    }
+  }
+
+  #handleConfirmationSubmit = (event, messageId, toolCallId) => {
+    // TODO - add selected tabs, this will be part of the card integration pach
+    this.#dispatchToolUIUpdate({
+      messageId,
+      toolCallId,
+      updateType: "confirmation-tab-selection",
+      updateData: event.detail,
+    });
+  };
+
+  #handleConfirmationClose = (event, messageId, toolCallId) => {
+    this.#dispatchToolUIUpdate({
+      messageId,
+      toolCallId,
+      updateType: "cancel-tab-selection",
+      updateData: event.detail,
+    });
+  };
+
+  #dispatchToolUIUpdate(data) {
+    this.dispatchEvent(
+      new CustomEvent("AIChatContent:ToolUIUpdate", {
+        bubbles: true,
+        composed: true,
+        detail: data,
+      })
+    );
+  }
+
   #renderMessage(msg, chips) {
     if (!msg) {
       return nothing;
@@ -620,11 +793,13 @@ export class AIChatContent extends MozLitElement {
           .message=${msg.body}
           .role=${msg.role}
           .messageId=${msg.messageId}
-          .searchTokens=${msg.searchTokens || []}
           .complete=${msg.role === "assistant" && !!msg.isLastChunk}
           .conversationId=${this.conversationId}
           .seenUrls=${this.seenUrls}
         ></ai-chat-message>
+        ${msg.role === "assistant" && msg.toolUIData
+          ? this.#renderToolUI(msg.toolUIData, msg.messageId)
+          : nothing}
         ${msg.role === "assistant" && msg.isLastChunk
           ? html`
               <assistant-message-footer
@@ -656,7 +831,7 @@ export class AIChatContent extends MozLitElement {
       return nothing;
     }
     return html`<chat-assistant-loader
-      .isSearch=${this.isSearching}
+      .mode=${this.isSearching ? "search" : "default"}
     ></chat-assistant-loader>`;
   }
 
@@ -686,7 +861,7 @@ export class AIChatContent extends MozLitElement {
         rel="stylesheet"
         href="chrome://browser/content/aiwindow/components/ai-chat-content.css"
       />
-      <div class="chat-content-wrapper">
+      <div class="chat-content-wrapper" tabindex="-1">
         <div class="chat-inner-wrapper">
           ${this.#renderMessages()} ${this.#renderFollowUpSuggestions()}
           ${this.#renderLoader()} ${this.#renderError()}

@@ -9,7 +9,7 @@ Services.scriptloader.loadSubScript(
 );
 
 const lazy = XPCOMUtils.declareLazy({
-  MODELS:
+  FALLBACK_MODELS:
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindowConstants.sys.mjs",
 });
 
@@ -76,19 +76,20 @@ describe("Smart Window telemetry", () => {
 
     Assert.equal(
       settingsModelEvent[0].extra.new_model,
-      lazy.MODELS["1"].modelName,
+      lazy.FALLBACK_MODELS["1"].model,
       "New model was set properly"
     );
 
     await TestUtils.waitForCondition(
       () =>
-        Glean.smartWindow.model.testGetValue() === lazy.MODELS["1"].modelName,
+        Glean.smartWindow.model.testGetValue() ===
+        lazy.FALLBACK_MODELS["1"].model,
       "Model metric should be updated asynchronously"
     );
     const modelMetric = Glean.smartWindow.model.testGetValue();
     Assert.equal(
       modelMetric,
-      lazy.MODELS["1"].modelName,
+      lazy.FALLBACK_MODELS["1"].model,
       "Model metric was set properly"
     );
   });
@@ -122,25 +123,26 @@ describe("Smart Window telemetry", () => {
 
     Assert.equal(
       settingsModelEvent[0].extra.previous_model,
-      lazy.MODELS["2"].modelName,
+      lazy.FALLBACK_MODELS["2"].model,
       "Model 2 is previous model"
     );
 
     Assert.equal(
       settingsModelEvent[0].extra.new_model,
-      lazy.MODELS["1"].modelName,
+      lazy.FALLBACK_MODELS["1"].model,
       "Model 1 is new model"
     );
 
     await TestUtils.waitForCondition(
       () =>
-        Glean.smartWindow.model.testGetValue() === lazy.MODELS["1"].modelName,
+        Glean.smartWindow.model.testGetValue() ===
+        lazy.FALLBACK_MODELS["1"].model,
       "Model metric should be updated asynchronously"
     );
     const modelMetric = Glean.smartWindow.model.testGetValue();
     Assert.equal(
       modelMetric,
-      lazy.MODELS["1"].modelName,
+      lazy.FALLBACK_MODELS["1"].model,
       "Model metric was set properly"
     );
   });
@@ -192,25 +194,26 @@ describe("Smart Window telemetry", () => {
 
     Assert.equal(
       settingsModelEvent[0].extra.previous_model,
-      lazy.MODELS["2"].modelName,
+      lazy.FALLBACK_MODELS["2"].model,
       "Model 2 is previous model"
     );
 
     Assert.equal(
       settingsModelEvent[0].extra.new_model,
-      lazy.MODELS["0"].modelName,
+      lazy.FALLBACK_MODELS["0"].model,
       "Custom model is new model"
     );
 
     await TestUtils.waitForCondition(
       () =>
-        Glean.smartWindow.model.testGetValue() === lazy.MODELS["0"].modelName,
+        Glean.smartWindow.model.testGetValue() ===
+        lazy.FALLBACK_MODELS["0"].model,
       "Model metric should be updated asynchronously"
     );
     const modelMetric = Glean.smartWindow.model.testGetValue();
     Assert.equal(
       modelMetric,
-      lazy.MODELS["0"].modelName,
+      lazy.FALLBACK_MODELS["0"].model,
       "Model metric was set properly"
     );
   });
@@ -263,19 +266,20 @@ describe("Smart Window telemetry", () => {
 
     Assert.equal(
       settingsModelEvent[0].extra.new_model,
-      lazy.MODELS["0"].modelName,
+      lazy.FALLBACK_MODELS["0"].model,
       "Custom model is new model"
     );
 
     await TestUtils.waitForCondition(
       () =>
-        Glean.smartWindow.model.testGetValue() === lazy.MODELS["0"].modelName,
+        Glean.smartWindow.model.testGetValue() ===
+        lazy.FALLBACK_MODELS["0"].model,
       "Model metric should be updated asynchronously"
     );
     const modelMetric = Glean.smartWindow.model.testGetValue();
     Assert.equal(
       modelMetric,
-      lazy.MODELS["0"].modelName,
+      lazy.FALLBACK_MODELS["0"].model,
       "Model metric was set properly"
     );
   });

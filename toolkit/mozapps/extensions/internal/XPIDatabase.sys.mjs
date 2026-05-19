@@ -14,6 +14,8 @@ import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 import { XPIExports } from "resource://gre/modules/addons/XPIExports.sys.mjs";
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -850,7 +852,10 @@ export class AddonInternal {
       if (!Services.policies.isAllowed(`disable-extension:${this.id}`)) {
         permissions &= ~lazy.AddonManager.PERM_CAN_DISABLE;
       }
-      if (Services.policies.getExtensionSettings(this.id)?.updates_disabled) {
+      const updatesDisabled = Services.policies.getExtensionSettings(
+        this.id
+      )?.updates_disabled;
+      if (updatesDisabled === true) {
         permissions &= ~lazy.AddonManager.PERM_CAN_UPGRADE;
       }
     }
@@ -1094,10 +1099,27 @@ export class AddonWrapper {
     );
   }
 
+  get isApplyBackgroundUpdatesControlledByPolicies() {
+    const { updates_disabled } =
+      Services.policies?.getExtensionSettings(this.id) ?? {};
+    return typeof updates_disabled === "boolean";
+  }
+
   get applyBackgroundUpdates() {
+    if (this.isApplyBackgroundUpdatesControlledByPolicies) {
+      const { updates_disabled } = Services.policies.getExtensionSettings(
+        this.id
+      );
+      return updates_disabled
+        ? lazy.AddonManager.AUTOUPDATE_DISABLE
+        : lazy.AddonManager.AUTOUPDATE_ENABLE;
+    }
     return addonFor(this).applyBackgroundUpdates;
   }
   set applyBackgroundUpdates(val) {
+    if (this.isApplyBackgroundUpdatesControlledByPolicies) {
+      return;
+    }
     let addon = addonFor(this);
     if (
       val != lazy.AddonManager.AUTOUPDATE_DEFAULT &&
@@ -1221,11 +1243,12 @@ export class AddonWrapper {
       return true;
     }
 
-#ifdef MOZ_ENTERPRISE
-    if (this.isInstalledByEnterprisePolicy) {
+    if (
+      AppConstants.MOZ_ENTERPRISE &&
+      Services.policies?.isAddonRequiredByPolicy(addon.id)
+    ) {
       return true;
     }
-#endif
 
     return XPIExports.XPIInternal.canRunInSafeMode(addon);
   }
@@ -1372,23 +1395,6 @@ export class AddonWrapper {
   get isSyncable() {
     let addon = addonFor(this);
     return addon.location.name == KEY_APP_PROFILE;
-  }
-
-  /**
-   * Returns true if the addon is configured to be installed
-   * by enterprise policy.
-   *
-   * Should be kept in sync with Extension.sys.mjs
-   */
-  get isInstalledByEnterprisePolicy() {
-    const policySettings = Services.policies?.getExtensionSettings(this.id);
-    const legacyLockedSettings =
-      Services.policies?.getActivePolicies()?.Extensions?.Locked ?? [];
-    return (
-      ["force_installed", "normal_installed"].includes(
-        policySettings?.installation_mode
-      ) || legacyLockedSettings.includes(this.id)
-    );
   }
 
   /**
@@ -1684,7 +1690,13 @@ const updatedAddonFluentIds = new Map([
       let fluentId =
         updatedAddonFluentIds.get(defaultFluentId) || defaultFluentId;
       try {
-        const l10n = new Localization(["browser/appExtensionFields.ftl", "browser/enterprise/enterprise.ftl"], true);
+        const l10n = new Localization(
+          [
+            "browser/appExtensionFields.ftl",
+            "browser/enterprise/enterprise.ftl",
+          ],
+          true
+        );
         [formattedMessage] = l10n.formatMessagesSync([{ id: fluentId }]);
       } catch (e) {
         // Log a warning when no fluent string was found, but fallback to the value set
@@ -2698,7 +2710,7 @@ export const XPIDatabase = {
     if (
       this.mustSign(aAddon.type) &&
       aAddon.adminInstallOnly &&
-      !aAddon.wrapper.isInstalledByEnterprisePolicy
+      !Services.policies?.isAddonRequiredByPolicy(aAddon.id)
     ) {
       logger.warn(
         `Add-on ${aAddon.id} is installable only from policies, but no policy extension settings have been found.`

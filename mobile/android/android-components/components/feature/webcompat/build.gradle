@@ -35,10 +35,7 @@ tasks.register("syncWebcompatExtension", Sync) {
         exclude "run.js"
     }
     def topobjdir = gradle.mozconfig.topobjdir
-    from ("$topobjdir/mobile/android") {
-        include "webcompat_addon_run.js"
-        rename "webcompat_addon_run.js", "run.js"
-    }
+    from ("$topobjdir/mobile/android/webcompat_addon_generated_files")
     into layout.buildDirectory.dir("generated/assets/extensions/webcompat/")
     exclude "**/tests/**", "**/components.conf", "**/moz.build", "**/codegen.py", "**/data/interventions"
 }

@@ -155,7 +155,7 @@ bool CompileBuiltinModule(JSContext* cx,
 
   // Initialize the compiler environment, choosing the best tier possible
   SharedCompileArgs compileArgs = CompileArgs::buildAndReport(
-      cx, ScriptedCaller(), featureOptions, /* reportOOM */ true);
+      cx, ScriptedCaller::selfHosted(cx), featureOptions, /* reportOOM */ true);
   if (!compileArgs) {
     return false;
   }

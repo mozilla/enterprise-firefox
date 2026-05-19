@@ -51,7 +51,7 @@ features:
             "pocket-sponsored-stories": true,
             "synced-tabs": true,
             "collections": true,
-            "privacy-report": false,
+            "privacy-report": true,
           }
     defaults:
       - channel: nightly
@@ -64,7 +64,7 @@ features:
             "pocket": true,
             "synced-tabs": true,
             "collections": true,
-            "privacy-report": false,
+            "privacy-report": true,
           }
         }
   nimbus-validation:
@@ -830,6 +830,28 @@ features:
         type: String
         default: ""
 
+  networking-happy-eyeballs:
+    description: "Networking (Necko) Happy Eyeballs V3 configuration"
+    variables:
+      enabled:
+        description: Whether to enable the Happy Eyeballs v3 algorithm for connection establishment
+        type: Option<Boolean>
+        gecko-pref:
+          pref: "network.http.happy_eyeballs_enabled"
+          branch: "default"
+      resolution-delay:
+        description: Time in ms to wait after the first DNS response before starting connections
+        type: Option<Int>
+        gecko-pref:
+          pref: "network.http.happy_eyeballs_resolution_delay"
+          branch: "default"
+      connection-attempt-delay:
+        description: Time in ms between successive connection attempts
+        type: Option<Int>
+        gecko-pref:
+          pref: "network.http.happy_eyeballs_connection_attempt_delay"
+          branch: "default"
+
   pki:
     description: Certificate verification configuration
     variables:
@@ -861,18 +883,6 @@ features:
           Enables or disables javascript.options.mem.gc_parallel_marking preference.
         type: Boolean
         default: false
-
-  encourage-search-cfr:
-    description: A feature that shows a CFR on first launch to encourage users to make a search
-    variables:
-      enabled:
-        description: When true, the CFR will show
-        type: Boolean
-        default: false
-      cfrText:
-        description: The text to show in the CFR
-        type: Text
-        default: ""
 
   enable-popups:
     description: A feature that enables or disables in app popups
@@ -959,20 +969,6 @@ features:
           type: Boolean
           default: true
 
-  toolbar-redesign-option:
-    description: Control the visibility of toolbar redesign option in settings.
-    variables:
-      show-options:
-        description: >
-          Whether or not the toolbar redesign option is visible to the user.  This allows the user to switch between simple and expanded toolbar.
-        type: Boolean
-        default: true
-      show-customization:
-        description: >
-          Whether or not the simple/expanded toolbar customization option is visible to the user.
-        type: Boolean
-        default: true
-
   tab-management-enhancements:
     description: Control the visibility of the tab management enhancements.
     variables:
@@ -993,15 +989,6 @@ features:
         value:
           opening_animation_enabled: true
 
-  tab-search:
-    description: Control the visibility of the tab search feature.
-    variables:
-      enabled:
-        description: >
-          Whether or not to enable the tab search feature.
-        type: Boolean
-        default: true
-
   tab-groups:
     description: Control the visibility of the tab groups feature.
     variables:
@@ -1016,10 +1003,10 @@ features:
           enabled: false
       - channel: beta
         value:
-          enabled: false
+          enabled: true
       - channel: nightly
         value:
-          enabled: false
+          enabled: true
   tab-groups-drag-and-drop:
     description: Control the visibility of drag and drop for tab groups.
     variables:
@@ -1034,10 +1021,18 @@ features:
           enabled: false
       - channel: beta
         value:
-          enabled: false
+          enabled: true
       - channel: nightly
         value:
-          enabled: false
+          enabled: true
+
+  marketing-onboarding-card:
+    description: A temporary feature to control the marketing onboarding card shown during the onboarding flow.
+    variables:
+      enabled:
+        description: If false, the marketing onboarding card will never be shown.
+        type: Boolean
+        default: true
 
   marketing-onboarding-card:
     description: A temporary feature to control the marketing onboarding card shown during the onboarding flow.
@@ -1155,6 +1150,18 @@ features:
         description: If true, a BETA badge is shown next to the IP Protection entry in the settings list.
         type: Boolean
         default: true
+      show-onboarding-bottom-sheet:
+        description: If true, the IP Protection onboarding bottom sheet is shown to the user.
+        type: Boolean
+        default: false
+      data-limit-gigabyte:
+        description: Specifies the VPN data limit for unpaid users in GB (e.g. 50 GB).
+        type: Int
+        default: 50
+      allowed-regions:
+        description: Country codes whose users are eligible for IP Protection.
+        type: List<String>
+        default: ["US", "CA", "DE", "FR", "GB"]
 
   native-share-sheet:
     description: Feature to enable the Native Share Sheet for users on Firefox on Android.
@@ -1187,6 +1194,13 @@ features:
         description: If true, Merino Manifest is enabled.
         type: Boolean
         default: false
+    defaults:
+      - channel: developer
+        value:
+          enabled: true
+      - channel: nightly
+        value:
+          enabled: true
 
   mozilla-ads-client:
     description: Feature to enable the Mozilla Ads Client for users on Firefox on Android.
@@ -1280,6 +1294,14 @@ features:
     variables:
       enabled:
         description: If true, Homepage Sports Widget is enabled.
+        type: Boolean
+        default: false
+      force-one-week-to-world-cup:
+        description: >
+          If true, treat the user as being within one week of the World Cup kickoff regardless of the
+          device date. Used to roll out the pre-tournament pager (follow your team + view-schedule cards)
+          ahead of the calendar date for testing or staggered launches. The natural date-based check
+          still applies when this is false (the default).
         type: Boolean
         default: false
 

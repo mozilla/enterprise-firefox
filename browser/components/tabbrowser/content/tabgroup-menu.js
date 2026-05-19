@@ -525,7 +525,7 @@
         Services.locale.appLocaleAsBCP47.startsWith("en") &&
         this.smartTabGroupsUserEnabled &&
         this.smartTabGroupsFeatureConfigEnabled &&
-        !PrivateBrowsingUtils.isWindowPrivate(this.ownerGlobal) &&
+        !PrivateBrowsingUtils.isWindowPrivate(this.documentGlobal) &&
         this.mlEnabled
       );
     }
@@ -740,7 +740,9 @@
         label.htmlFor = input.id;
         label.style.setProperty(
           "--tabgroup-swatch-color",
-          `var(--tab-group-color-${colorCode})`
+          Services.prefs.getBoolPref("browser.nova.enabled")
+            ? `var(--tab-group-${colorCode})`
+            : `var(--tab-group-color-${colorCode})`
         );
         label.style.setProperty(
           "--tabgroup-swatch-color-invert",
@@ -937,7 +939,7 @@
       const saveAndCloseGroup = document.getElementById(
         "tabGroupEditor_saveAndCloseGroup"
       );
-      if (PrivateBrowsingUtils.isWindowPrivate(this.ownerGlobal)) {
+      if (PrivateBrowsingUtils.isWindowPrivate(this.documentGlobal)) {
         saveAndCloseGroup.hidden = true;
         return;
       }

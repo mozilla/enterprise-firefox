@@ -14,7 +14,7 @@ describe("settings ai features", () => {
     });
     await openPreferencesViaOpenPreferencesAPI("general", { leaveOpen: true });
     doc = gBrowser.selectedBrowser.contentDocument;
-    win = doc.ownerGlobal;
+    win = doc.documentGlobal;
   });
 
   afterEach(() => {
@@ -41,7 +41,7 @@ describe("settings ai features", () => {
       await new Promise(resolve => open_preferences(resolve));
       let generalTab = gBrowser.selectedTab;
       let generalDoc = gBrowser.selectedBrowser.contentDocument;
-      let generalWin = generalDoc.ownerGlobal;
+      let generalWin = generalDoc.documentGlobal;
 
       let linkPreviewSetting =
         generalWin.Preferences.getSetting("linkPreviewEnabled");
@@ -81,12 +81,12 @@ describe("settings ai features", () => {
       await waitForAnimationFrame();
       linkPreviewSelect.focus();
       let pickerOpened = BrowserTestUtils.waitForSelectPopupShown(
-        win.docShell.chromeEventHandler.ownerGlobal
+        win.docShell.chromeEventHandler.documentGlobal
       );
       EventUtils.sendKey("space");
       const selectPopup = await pickerOpened;
       await waitForSettingChange(linkPreviewSetting, () => {
-        if (nativeSelectEnabled()) {
+        if (selectPopup.isNativeMenu) {
           selectPopup.activateItem(selectPopup.childNodes[1]);
         } else {
           EventUtils.sendKey("up");
@@ -126,7 +126,7 @@ describe("settings ai features", () => {
       await new Promise(resolve => open_preferences(resolve));
       let generalTab = gBrowser.selectedTab;
       let generalDoc = gBrowser.selectedBrowser.contentDocument;
-      let generalWin = generalDoc.ownerGlobal;
+      let generalWin = generalDoc.documentGlobal;
 
       let tabGroupSetting = generalWin.Preferences.getSetting(
         "tabGroupSuggestions"
@@ -177,7 +177,7 @@ describe("settings ai features", () => {
       await new Promise(resolve => open_preferences(resolve));
       let generalTab = gBrowser.selectedTab;
       let generalDoc = gBrowser.selectedBrowser.contentDocument;
-      let generalWin = generalDoc.ownerGlobal;
+      let generalWin = generalDoc.documentGlobal;
 
       let translationsSetting = generalWin.Preferences.getSetting(
         "legacyTranslationsVisible"
@@ -218,12 +218,12 @@ describe("settings ai features", () => {
       await waitForAnimationFrame();
       translationsSelect.focus();
       let pickerOpened = BrowserTestUtils.waitForSelectPopupShown(
-        win.docShell.chromeEventHandler.ownerGlobal
+        win.docShell.chromeEventHandler.documentGlobal
       );
       EventUtils.sendKey("space");
       const selectPopup = await pickerOpened;
       await waitForSettingChange(translationsSetting, () => {
-        if (nativeSelectEnabled()) {
+        if (selectPopup.isNativeMenu) {
           selectPopup.activateItem(selectPopup.childNodes[0]);
         } else {
           EventUtils.sendKey("up");
@@ -256,7 +256,7 @@ describe("settings ai features", () => {
       await new Promise(resolve => open_preferences(resolve));
       let generalTab = gBrowser.selectedTab;
       let generalDoc = gBrowser.selectedBrowser.contentDocument;
-      let generalWin = generalDoc.ownerGlobal;
+      let generalWin = generalDoc.documentGlobal;
 
       let linkPreviewSetting =
         generalWin.Preferences.getSetting("linkPreviewEnabled");

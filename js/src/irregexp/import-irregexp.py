@@ -117,7 +117,7 @@ if __name__ == "__main__":
     current_path = Path(os.getcwd())
     expected_path = "js/src/irregexp"
     if not current_path.match(expected_path):
-        raise RuntimeError("%s must be run from %s" % (sys.argv[0], expected_path))
+        raise RuntimeError(f"{sys.argv[0]} must be run from {expected_path}")
 
     parser = argparse.ArgumentParser(description="Import irregexp from v8")
     parser.add_argument("-p", "--path", help="path to v8/src/regexp", required=False)
@@ -138,7 +138,7 @@ if __name__ == "__main__":
     else:
         tempdir = tempfile.TemporaryDirectory()
         v8_git = "https://github.com/v8/v8.git"
-        clone = "git clone --depth 1 %s %s" % (v8_git, tempdir.name)
+        clone = f"git clone --depth 1 {v8_git} {tempdir.name}"
         os.system(clone)
         src_path = Path(tempdir.name) / "src/regexp"
         provided_path = "the temporary git checkout"

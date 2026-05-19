@@ -69,6 +69,10 @@ export class EnterprisePoliciesManagerContent {
       uri
     );
   }
+
+  hasSitePoliciesForURI(uri) {
+    return lazy.SitePolicyUtils.hasSitePoliciesForURI(this.sitePolicies, uri);
+  }
 }
 
 EnterprisePoliciesManagerContent.prototype.QueryInterface =

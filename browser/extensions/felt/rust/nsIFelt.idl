@@ -12,7 +12,7 @@ interface nsIFelt : nsISupports {
   ACString oneShotIpcServer();
 
   [must_use]
-  ACString binPath();
+  AString binPath();
 
   [must_use]
   boolean makeBackgroundProcess(in boolean background);
@@ -51,7 +51,10 @@ interface nsIFelt : nsISupports {
   void sendUpdateReady();
 
   [must_use]
-  void sendTokens();
+  void sendAccessToken();
+
+  [must_use]
+  void refreshTokens();
 
   [must_use]
   ACString getRefreshToken();
@@ -64,7 +67,7 @@ interface nsIFelt : nsISupports {
   void setTokens(in ACString access_token, in ACString refresh_token, in long long expires_at);
 
   [must_use]
-  void clearTokens(in boolean allowMirror);
+  void clearTokens();
 
   [must_use]
   void sendExtensionReady();
@@ -76,12 +79,8 @@ interface nsIFelt : nsISupports {
   ACString getConsoleUrl();
 
   [must_use]
-  void performNormalLogout();
+  void performSignout();
 
   [must_use]
-  void performConsoleForcedLogout();
-
-  readonly attribute ACString logoutTypeNormal;
-  readonly attribute ACString logoutTypeConsoleForcedLogout;
-  readonly attribute ACString logoutTypeUnknown;
+  void shutdownFirefox();
 };

@@ -7,9 +7,9 @@ describe("setting-pane", () => {
   let doc, win;
 
   beforeEach(async function setup() {
-    await openPreferencesViaOpenPreferencesAPI("general", { leaveOpen: true });
+    await openPreferencesViaOpenPreferencesAPI("sync", { leaveOpen: true });
     doc = gBrowser.selectedBrowser.contentDocument;
-    win = doc.ownerGlobal;
+    win = doc.documentGlobal;
     win.Preferences.addSetting({
       id: "testLoadSubPane",
       onUserClick: () => win.gotoPref("paneTestSubPane"),
@@ -31,16 +31,15 @@ describe("setting-pane", () => {
       l10nId: "home-section",
       groupIds: ["testTopLevelGroup"],
     });
-    let generalCategory = doc.getElementById("category-general");
-    let testTopLevelCategory = generalCategory.cloneNode(true);
+    let syncCategory = doc.getElementById("category-sync");
+    let testTopLevelCategory = syncCategory.cloneNode(true);
     testTopLevelCategory.setAttribute("view", "paneTestTopLevel");
-    generalCategory.insertAdjacentElement("afterend", testTopLevelCategory);
+    syncCategory.insertAdjacentElement("afterend", testTopLevelCategory);
     win.Preferences.addSetting({
       id: "testSetting",
       get: () => true,
     });
     win.SettingGroupManager.registerGroup("testSubGroup", {
-      l10nId: "downloads-header-2",
       headingLevel: 2,
       items: [
         {

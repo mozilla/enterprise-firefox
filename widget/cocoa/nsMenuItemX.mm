@@ -91,17 +91,49 @@ nsMenuItemX::nsMenuItemX(nsMenuX* aParent, const nsString& aLabel,
 
   // Separators don't need actions, targets, or command registration.
   if (mType != eSeparatorMenuItemType) {
-    // All menu items other than the "Copy" menu item share the same target and
-    // action, and are differentiated be a unique (representedObject, tag) pair.
-    // The "Copy" menu item is a special case that requires a macOS-default
-    // action of `copy:` and a default target in order for the "Edit" menu to be
-    // populated with OS-provided menu items such as the Emoji picker,
-    // especially in multi-language environments (see bug 1478347). Our
-    // application delegate implements `copy:` by simply forwarding it to
-    // [nsMenuBarX::sNativeEventTarget menuItemHit:].
+    // Most menu items share a single (action, target) pair and are
+    // differentiated by a unique (representedObject, tag) pair, but the
+    // standard Edit menu items use macOS-default selectors with no fixed
+    // target so they propagate via the responder chain. This lets native
+    // text fields (e.g. an NSSavePanel sheet's filename field, bug
+    // 2036608) handle Cmd+C/V/X/Z/A natively, and ensures that the macOS
+    // "Copy" menu item gets the Emoji picker / writing-tools sub-items
+    // populated in multi-language environments (bug 1478347). When no
+    // responder in the chain handles them, our application delegate
+    // forwards each selector to [nsMenuBarX::sNativeEventTarget
+    // menuItemHit:].
+    SEL standardEditSelector = nil;
     if (mContent->AsElement()->AttrValueIs(kNameSpaceID_None, nsGkAtoms::id,
-                                           u"menu_copy"_ns, eCaseMatters)) {
-      mNativeMenuItem.action = @selector(copy:);
+                                           u"menu_undo"_ns, eCaseMatters)) {
+      standardEditSelector = @selector(undo:);
+    } else if (mContent->AsElement()->AttrValueIs(
+                   kNameSpaceID_None, nsGkAtoms::id, u"menu_redo"_ns,
+                   eCaseMatters)) {
+      standardEditSelector = @selector(redo:);
+    } else if (mContent->AsElement()->AttrValueIs(kNameSpaceID_None,
+                                                  nsGkAtoms::id, u"menu_cut"_ns,
+                                                  eCaseMatters)) {
+      standardEditSelector = @selector(cut:);
+    } else if (mContent->AsElement()->AttrValueIs(
+                   kNameSpaceID_None, nsGkAtoms::id, u"menu_copy"_ns,
+                   eCaseMatters)) {
+      standardEditSelector = @selector(copy:);
+    } else if (mContent->AsElement()->AttrValueIs(
+                   kNameSpaceID_None, nsGkAtoms::id, u"menu_paste"_ns,
+                   eCaseMatters)) {
+      standardEditSelector = @selector(paste:);
+    } else if (mContent->AsElement()->AttrValueIs(
+                   kNameSpaceID_None, nsGkAtoms::id, u"menu_delete"_ns,
+                   eCaseMatters)) {
+      standardEditSelector = @selector(delete:);
+    } else if (mContent->AsElement()->AttrValueIs(
+                   kNameSpaceID_None, nsGkAtoms::id, u"menu_selectAll"_ns,
+                   eCaseMatters)) {
+      standardEditSelector = @selector(selectAll:);
+    }
+
+    if (standardEditSelector) {
+      mNativeMenuItem.action = standardEditSelector;
     } else {
       mNativeMenuItem.action = @selector(menuItemHit:);
       mNativeMenuItem.target = nsMenuBarX::sNativeEventTarget;

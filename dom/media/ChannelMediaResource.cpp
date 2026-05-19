@@ -289,6 +289,17 @@ nsresult ChannelMediaResource::OnStartRequest(nsIRequest* aRequest,
   } else {
     // Not an HTTP channel. Assume data will be sent from position zero.
     startOffset = 0;
+
+    // Pick up the content length the channel reports up front (data:, jar:,
+    // resource:, ...). Without this, the resource is treated as a live
+    // stream of unknown size and demuxers that estimate duration from the
+    // stream length (e.g. CBR mp3 with no Xing/Info header) report
+    // Infinity.
+    int64_t channelLength = -1;
+    if (NS_SUCCEEDED(mChannel->GetContentLength(&channelLength)) &&
+        channelLength >= 0) {
+      length = channelLength;
+    }
   }
 
   // Update principals before OnDataAvailable() putting the data in the cache.

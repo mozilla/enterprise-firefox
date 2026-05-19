@@ -132,9 +132,13 @@ static MsaaAccessible* GetTextPatternProviderFor(Accessible* aOrigin) {
   return MsaaAccessible::GetFrom(GetTextContainer(aOrigin));
 }
 
-static bool IsSingleSelectOption(Accessible* aAcc) {
+static bool IsOption(Accessible* aAcc) {
   const role accRole = aAcc->Role();
-  if (accRole != roles::OPTION && accRole != roles::COMBOBOX_OPTION) {
+  return accRole == roles::OPTION || accRole == roles::COMBOBOX_OPTION;
+}
+
+static bool IsSingleSelectOption(Accessible* aAcc) {
+  if (!IsOption(aAcc)) {
     return false;
   }
   Accessible* container =
@@ -476,8 +480,13 @@ uiaRawElmProvider::GetPatternProvider(
       // the same behavior is not exposed through another control pattern
       // provider".
       // https://learn.microsoft.com/en-us/windows/win32/winauto/uiauto-implementinginvoke#implementation-guidelines-and-conventions
+      // However, it's not possible to support the SelectionItem pattern
+      // properly for ARIA multi select options, so we expose the Invoke pattern
+      // as well. Furthermore, Core AAM says we should do this for all options:
+      // https://w3c.github.io/core-aam/#role-map-option
       if (acc->ActionCount() > 0 && !HasTogglePattern() &&
-          !HasExpandCollapsePattern() && !HasSelectionItemPattern()) {
+          !HasExpandCollapsePattern() &&
+          (!HasSelectionItemPattern() || IsOption(acc))) {
         RefPtr<IInvokeProvider> invoke = this;
         invoke.forget(aPatternProvider);
       }
@@ -539,15 +548,13 @@ uiaRawElmProvider::GetPatternProvider(
       return S_OK;
     case UIA_TextPatternId:
       if (HasTextPattern(acc)) {
-        RefPtr<ITextProvider> text =
-            new UiaText(static_cast<MsaaAccessible*>(this));
+        auto text = MakeRefPtr<UiaText>(static_cast<MsaaAccessible*>(this));
         text.forget(aPatternProvider);
       }
       return S_OK;
     case UIA_TextPattern2Id:
       if (HasTextPattern(acc)) {
-        RefPtr<ITextProvider2> text =
-            new UiaText(static_cast<MsaaAccessible*>(this));
+        auto text = MakeRefPtr<UiaText>(static_cast<MsaaAccessible*>(this));
         text.forget(aPatternProvider);
       }
       return S_OK;
@@ -1390,7 +1397,7 @@ uiaRawElmProvider::get_TextRange(
     return CO_E_OBJNOTCONNECTED;
   }
   TextLeafRange range = TextLeafRange::FromAccessible(acc);
-  RefPtr uiaRange = new UiaTextRange(range);
+  auto uiaRange = MakeRefPtr<UiaTextRange>(range);
   uiaRange.forget(aRetVal);
   return S_OK;
 }

@@ -702,8 +702,11 @@ function getNetErrorDescParts(noConnectivity) {
     offline: gOffline,
   };
 
-  // Get MITM name if available (for mitm error)
+  // The legacy page looks up configs by gErrorCode (the URL e= parameter).
+  // MITM is registered under its C++ error string, not the URL code.
+  let configId = gErrorCode;
   if (gErrorCode === "mitm") {
+    configId = "MOZILLA_PKIX_ERROR_MITM_DETECTED";
     try {
       const failedCertInfo = document.getFailedCertSecurityInfo();
       context.mitmName = getMitmName(failedCertInfo);
@@ -712,7 +715,7 @@ function getNetErrorDescParts(noConnectivity) {
     }
   }
 
-  const config = getResolvedErrorConfig(gErrorCode, context);
+  const config = getResolvedErrorConfig(configId, context);
 
   // Convert config descriptionParts to legacy tuple format
   const parts = config.descriptionParts || [];
