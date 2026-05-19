@@ -56,23 +56,6 @@ function renderTimer({ state, props } = {}) {
   return { ...result, dispatch };
 }
 
-const defaultProps = {
-  dispatch: jest.fn(),
-  handleUserInteraction: jest.fn(),
-  isMaximized: false,
-  widgetsMayBeMaximized: false,
-};
-
-function makeState(prefOverrides = {}) {
-  return {
-    ...INITIAL_STATE,
-    Prefs: {
-      ...INITIAL_STATE.Prefs,
-      values: { ...INITIAL_STATE.Prefs.values, ...prefOverrides },
-    },
-  };
-}
-
 describe("<FocusTimer>", () => {
   it("should render", () => {
     const { container } = renderTimer();

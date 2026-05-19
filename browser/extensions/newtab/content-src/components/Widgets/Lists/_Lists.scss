@@ -63,16 +63,8 @@
 
   border-radius: var(--border-radius-large);
   padding-block-start: var(--space-medium);
-
-  .nova-enabled & {
-    box-shadow: var(--box-shadow-level-2);
-
-    &:hover,
-    &:focus-within {
-      outline: 1px solid var(--border-color-deemphasized);
-      box-shadow: var(--card-box-shadow-hover);
-    }
-  }
+  // @backward-compat { version 150 } D281466/D283723 renamed design tokens; remove once Firefox 150 is on Release.
+  box-shadow: var(--card-box-shadow, var(--box-shadow-card));
 
   .nova-enabled & {
     height: var(--newtab-card-height);
@@ -96,9 +88,6 @@
     height: var(--newtab-card-height);
     padding: var(--space-medium);
     box-shadow: var(--card-box-shadow);
-
-    // @backward-compat { version 150 } D281466/D283723 renamed design tokens; remove once Firefox 150 is on Release.
-    box-shadow: var(--card-box-shadow, var(--box-shadow-card));
 
     // Match the new card width if sections are enabled
     .has-sections-grid & {

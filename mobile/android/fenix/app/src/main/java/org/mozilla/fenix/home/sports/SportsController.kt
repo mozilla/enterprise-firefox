@@ -186,35 +186,4 @@ class DefaultSportsController(
         const val SPORT_SCHEDULE_URL =
             "https://www.fifa.com/tournaments/mens/worldcup/canadamexicousa2026/scores-fixtures"
     }
-
-    override fun handleSkippedFollowTeam() {
-        settings.hasSkippedSportsFollowTeam = true
-        appStore.dispatch(AppAction.SportsWidgetAction.FollowTeamSkipped)
-    }
-
-    override fun handleSportsWidgetDismissed() {
-        settings.showHomepageSportsWidget = false
-        appStore.dispatch(AppAction.SportsWidgetAction.VisibilityChanged(isVisible = false))
-    }
-
-    override fun handleCountdownWidgetDismissed() {
-        settings.showHomepageCountdownWidget = false
-        appStore.dispatch(AppAction.SportsWidgetAction.CountdownVisibilityChanged(isCountdownVisible = false))
-        WorldCup.countdownCrossActionClicked.record()
-    }
-
-    override fun handleViewScheduleClicked() {
-        navController.openToBrowser()
-
-        fenixBrowserUseCases.loadUrlOrSearch(
-            searchTermOrURL = SPORT_SCHEDULE_URL,
-            newTab = true,
-        )
-        WorldCup.viewScheduleOnCountdownClicked.record()
-    }
-
-    companion object {
-        const val SPORT_SCHEDULE_URL =
-            "https://www.fifa.com/tournaments/mens/worldcup/canadamexicousa2026/scores-fixtures"
-    }
 }

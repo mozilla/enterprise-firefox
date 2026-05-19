@@ -6,12 +6,6 @@ import { ASRouterPreferences } from "resource:///modules/asrouter/ASRouterPrefer
 import { ASRouterScreenUtils } from "resource:///modules/asrouter/ASRouterScreenUtils.sys.mjs";
 import { MESSAGE_TYPE_HASH as msg } from "resource:///modules/asrouter/ActorConstants.mjs";
 
-const lazy = {};
-
-ChromeUtils.defineESModuleGetters(lazy, {
-  AWScreenUtils: "resource:///modules/aboutwelcome/AWScreenUtils.sys.mjs",
-});
-
 export class ASRouterParentProcessMessageHandler {
   constructor({
     router,

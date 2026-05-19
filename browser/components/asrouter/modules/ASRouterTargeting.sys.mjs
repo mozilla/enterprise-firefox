@@ -492,16 +492,6 @@ export const QueryCache = {
         },
       }
     ),
-    relayProfileInfo: new CachedTargetingGetter(
-      "getRelayProfileInfo",
-      null,
-      FRECENT_SITES_UPDATE_INTERVAL,
-      {
-        async getRelayProfileInfo() {
-          return lazy.FirefoxRelay.getRelayProfileInfo();
-        },
-      }
-    ),
   },
 };
 

@@ -24,8 +24,6 @@ internal class AdjustMetricsServiceTest {
     val thirdPartySharingController = mockk<ThirdPartySharingController>(relaxed = true)
     val conversionEventRecorder = mockk<ConversionEventRecorder>(relaxed = true)
 
-    val conversionEventRecorder = mockk<ConversionEventRecorder>(relaxed = true)
-
     @Test
     fun `WHEN Adjust attribution data already exist THEN already known is true`() {
         val settings = Settings(context)

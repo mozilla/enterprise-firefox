@@ -11,8 +11,14 @@
 #include "mozilla/StaticMutex.h"
 #include "mozilla/StaticPrefs_network.h"
 #include "mozilla/StaticPtr.h"
+#include "mozilla/OriginAttributes.h"
+#include "mozilla/TimeStamp.h"
 #include "nsClassHashtable.h"
+#include "nsIFile.h"
 #include "nsIMemoryReporter.h"
+#include "nsIAsyncShutdown.h"
+#include "nsIObserver.h"
+#include "nsISerialEventTarget.h"
 #include "nsITransportSecurityInfo.h"
 #include "nsTArray.h"
 #include "nsTHashMap.h"
@@ -43,10 +49,14 @@ struct SessionCacheInfo {
   Maybe<nsTArray<nsTArray<uint8_t>>> mHandshakeCertificatesBytes;
 };
 
-class SSLTokensCache : public nsIMemoryReporter {
+class SSLTokensCache : public nsIMemoryReporter,
+                       public nsIObserver,
+                       public nsIAsyncShutdownBlocker {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIMEMORYREPORTER
+  NS_DECL_NSIOBSERVER
+  NS_DECL_NSIASYNCSHUTDOWNBLOCKER
 
   friend class ExpirationComparator;
 
@@ -195,7 +205,9 @@ class SSLTokensCache : public nsIMemoryReporter {
     const UniquePtr<TokenCacheRecord>& Get();
     UniquePtr<TokenCacheRecord> RemoveWithId(uint64_t aId);
     uint32_t RecordCount() const { return mRecords.Length(); }
-    const nsTArray<UniquePtr<TokenCacheRecord>>& Records() { return mRecords; }
+    const nsTArray<UniquePtr<TokenCacheRecord>>& Records() const {
+      return mRecords;
+    }
 
    private:
     // The records in this array are ordered by the expiration time.

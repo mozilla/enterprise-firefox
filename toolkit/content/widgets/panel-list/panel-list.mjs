@@ -878,19 +878,6 @@ export class PanelItem extends HTMLElement {
     }
   }
 
-  #updateBadge() {
-    if (this.hasAttribute("badge-type")) {
-      if (!this.#badge) {
-        this.#badge = document.createElement("moz-badge");
-        this.label.after(this.#badge);
-      }
-      this.#badge.setAttribute("type", this.getAttribute("badge-type"));
-    } else if (this.#badge) {
-      this.#badge.remove();
-      this.#badge = null;
-    }
-  }
-
   #setLabelContents() {
     this.label.textContent = this.#defaultSlot
       .assignedNodes()

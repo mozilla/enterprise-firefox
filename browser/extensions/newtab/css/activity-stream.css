@@ -5171,6 +5171,7 @@ dialog:dir(rtl)::after {
   --lists-size-transition-easing: ease;
   border-radius: var(--border-radius-large);
   padding-block-start: var(--space-medium);
+  box-shadow: var(--card-box-shadow, var(--box-shadow-card));
   position: relative;
   display: flex;
   flex-direction: column;

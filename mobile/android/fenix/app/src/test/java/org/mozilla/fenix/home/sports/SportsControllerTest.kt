@@ -357,34 +357,4 @@ class SportsControllerTest {
     fun tearDown() {
         Locale.setDefault(originalLocale)
     }
-
-    @Test
-    fun `WHEN the follow team flow is skipped THEN the preference is persisted and the action is dispatched`() {
-        controller.handleSkippedFollowTeam()
-
-        verify {
-            settings.hasSkippedSportsFollowTeam = true
-            appStore.dispatch(AppAction.SportsWidgetAction.FollowTeamSkipped)
-        }
-    }
-
-    @Test
-    fun `WHEN the sports widget is dismissed THEN the visibility preference is set to false and the action is dispatched`() {
-        controller.handleSportsWidgetDismissed()
-
-        verify {
-            settings.showHomepageSportsWidget = false
-            appStore.dispatch(AppAction.SportsWidgetAction.VisibilityChanged(isVisible = false))
-        }
-    }
-
-    @Test
-    fun `WHEN the countdown widget is dismissed THEN the visibility preference is set to false and the action is dispatched`() {
-        controller.handleCountdownWidgetDismissed()
-
-        verify {
-            settings.showHomepageCountdownWidget = false
-            appStore.dispatch(AppAction.SportsWidgetAction.CountdownVisibilityChanged(isCountdownVisible = false))
-        }
-    }
 }

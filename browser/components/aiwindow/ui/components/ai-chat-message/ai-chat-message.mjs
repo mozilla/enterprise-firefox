@@ -136,24 +136,6 @@ export class AIChatMessage extends MozLitElement {
     }
   }
 
-  updated(changed) {
-    if (changed.has("complete") && this.complete && this.role === "assistant") {
-      const messageEl = this.shadowRoot?.querySelector(`.message-${this.role}`);
-      const text = messageEl
-        ? (messageEl.innerText || messageEl.textContent || "")
-            .replace(/\s+/g, " ")
-            .trim()
-        : "";
-      this.dispatchEvent(
-        new CustomEvent("ai-chat-message:complete", {
-          bubbles: true,
-          composed: true,
-          detail: { messageId: this.messageId, text },
-        })
-      );
-    }
-  }
-
   #getIconSrc = linkHref => {
     // Since we use the "page-icon:" CSP rule we can just look at the page URL for the img src
     const finalIcon = linkHref

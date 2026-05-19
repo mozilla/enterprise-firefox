@@ -5,7 +5,11 @@
 #include "SSLTokensCache.h"
 #include "TransportSecurityInfo.h"
 #include "gtest/gtest.h"
+#include "mozilla/gtest/MozAssertions.h"
 #include "mozilla/Preferences.h"
+#include "nsDirectoryServiceUtils.h"
+#include "nsIFile.h"
+#include "nsXPCOM.h"
 #include "nsITransportSecurityInfo.h"
 #include "nsIWebProgressListener.h"
 #include "nsIX509Cert.h"
@@ -13,6 +17,7 @@
 #include "nsServiceManagerUtils.h"
 #include "prtime.h"
 #include "sslproto.h"
+#include "mozilla/net/ssl_tokens_cache.h"
 
 static already_AddRefed<CommonSocketControl> createDummySocketControl() {
   nsCOMPtr<nsIX509CertDB> certDB(do_GetService(NS_X509CERTDB_CONTRACTID));
@@ -59,6 +64,8 @@ static void putToken(const nsACString& aKey, uint32_t aSize) {
       now + (aSize * PR_USEC_PER_SEC));
   ASSERT_EQ(rv, NS_OK);
 }
+
+static void ClearAll() { mozilla::net::SSLTokensCache::Clear(); }
 
 static void getAndCheckResult(const nsACString& aKey, uint32_t aExpectedSize) {
   nsTArray<uint8_t> result;
@@ -154,6 +161,24 @@ TEST(TestTokensCache, Eviction)
   putToken("anon:www.example3.com:443"_ns, 500);
   // The one has expiration time "400" was evicted, so we get "500".
   getAndCheckResult("anon:www.example2.com:443"_ns, 500);
+}
+
+static nsCString GetTempCachePath(const char* aName) {
+  nsCOMPtr<nsIFile> tmpDir;
+  NS_GetSpecialDirectory("TmpD", getter_AddRefs(tmpDir));
+  tmpDir->AppendNative(nsDependentCString(aName));
+  nsAutoString widePath;
+  tmpDir->GetPath(widePath);
+  return NS_ConvertUTF16toUTF8(widePath);
+}
+
+static void CorruptFileAt(const nsCString& aPath, size_t aOffset,
+                          uint8_t aVal) {
+  FILE* f = fopen(aPath.get(), "r+b");
+  if (!f) return;
+  fseek(f, static_cast<long>(aOffset), SEEK_SET);
+  fputc(aVal, f);
+  fclose(f);
 }
 
 TEST(TestTokensCache, ExpiredTokens)

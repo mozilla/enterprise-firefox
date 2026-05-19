@@ -2995,6 +2995,7 @@ dependencies = [
  "rust_minidump_writer_linux",
  "shell_windows",
  "signature_cache",
+ "ssl_tokens_cache",
  "static_prefs",
  "storage",
  "trust-anchors",

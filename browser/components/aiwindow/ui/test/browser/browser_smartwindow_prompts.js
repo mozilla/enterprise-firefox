@@ -209,12 +209,6 @@ describe("sidebar conversation starter prompts", () => {
         return el && el.conversationMessageCount > 0;
       }, "Tab 2's conversation should have messages after submit");
 
-      // wait for conversation messages
-      await TestUtils.waitForCondition(() => {
-        const el = sidebarBrowser?.contentDocument?.querySelector("ai-window");
-        return el && el.conversationMessageCount > 0;
-      }, "Tab 2's conversation should have messages after submit");
-
       // Add an artificial delay on the starter prompts mocked response
       mock.server.delay = 200;
 

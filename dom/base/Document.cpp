@@ -16784,14 +16784,6 @@ static void SetKeyboardLockStatusAndMaybeDispatchEvent(
   }
 }
 
-static void SetKeyboardLockStatusAndMaybeDispatchEvent(
-    Document* aDoc, const FullscreenRequest& aRequest) {
-  aDoc->SetFullscreenKeyboardLockStatus(aRequest.mFullscreenKeyboardLock);
-  if (aRequest.ShouldDispatchKeyboardLockEvent()) {
-    DispatchFullscreenUpdateKeyboardLockEvent(aDoc);
-  }
-}
-
 void Document::RequestFullscreenInContentProcess(
     UniquePtr<FullscreenRequest> aRequest, bool aApplyFullscreenDirectly) {
   MOZ_ASSERT(XRE_IsContentProcess());

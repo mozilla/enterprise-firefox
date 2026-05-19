@@ -4,6 +4,8 @@
 
 #include "SSLTokensCache.h"
 
+#include "mozilla/Components.h"
+
 #include "CertVerifier.h"
 #include "CommonSocketControl.h"
 #include "TransportSecurityInfo.h"
@@ -11,7 +13,15 @@
 #include "mozilla/glean/NetwerkMetrics.h"
 #include "mozilla/Logging.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/OriginAttributes.h"
+#include "mozilla/Services.h"
+#include "mozilla/StaticPrefs_privacy.h"
+#include "nsAppDirectoryServiceDefs.h"
+#include "nsDirectoryServiceUtils.h"
 #include "nsIOService.h"
+#include "nsIEventTarget.h"
+#include "nsThreadUtils.h"
+#include "nsIObserverService.h"
 #include "prtime.h"
 #include "ssl.h"
 #include "sslexp.h"
@@ -289,7 +299,11 @@ nsCString SSLTokensCache::SetupPersistenceLocked(uint32_t& aLoadGen) {
 
 // static
 nsresult SSLTokensCache::Init() {
-  StaticMutexAutoLock lock(sLock);
+  MOZ_ASSERT(NS_IsMainThread());
+  nsCString backgroundLoadPath;
+  uint32_t loadGen = 0;
+  {
+    StaticMutexAutoLock lock(sLock);
 
     // SSLTokensCache is used in both the parent process and the socket process.
     // The socket process runs TLS handshakes and holds the live token cache;
@@ -300,9 +314,9 @@ nsresult SSLTokensCache::Init() {
       return NS_OK;
     }
 
-  MOZ_ASSERT(!gInstance);
+    MOZ_ASSERT(!gInstance);
 
-  gInstance = new SSLTokensCache();
+    gInstance = new SSLTokensCache();
 
     RegisterWeakMemoryReporter(gInstance);
 
@@ -476,19 +490,13 @@ nsresult SSLTokensCache::Put(const nsACString& aKey, const uint8_t* aToken,
                              uint32_t aTokenLen,
                              CommonSocketControl* aSocketControl,
                              PRTime aExpirationTime) {
-  StaticMutexAutoLock lock(sLock);
-
   LOG(("SSLTokensCache::Put [key=%s, tokenLen=%u]",
        PromiseFlatCString(aKey).get(), aTokenLen));
-
-  if (!gInstance) {
-    LOG(("  service not initialized"));
-    return NS_ERROR_NOT_INITIALIZED;
-  }
 
   if (!aSocketControl) {
     return NS_ERROR_FAILURE;
   }
+
   nsCOMPtr<nsITransportSecurityInfo> securityInfo;
   nsresult rv = aSocketControl->GetSecurityInfo(getter_AddRefs(securityInfo));
   if (NS_FAILED(rv)) {
@@ -514,17 +522,24 @@ nsresult SSLTokensCache::Put(const nsACString& aKey, const uint8_t* aToken,
     return rv;
   }
 
+  auto getRawDerAll = [](nsTArray<RefPtr<nsIX509Cert>>& aCerts)
+      -> Result<nsTArray<nsTArray<uint8_t>>, nsresult> {
+    return TransformIntoNewArrayAbortOnErr(
+        aCerts,
+        [](const RefPtr<nsIX509Cert>& aCert)
+            -> Result<nsTArray<uint8_t>, nsresult> {
+          nsTArray<uint8_t> raw;
+          MOZ_TRY(aCert->GetRawDER(raw));
+          return std::move(raw);
+        },
+        fallible);
+  };
+
   Maybe<bool> isBuiltCertChainRootBuiltInRoot;
   if (!succeededCertArray.IsEmpty()) {
-    succeededCertChainBytes.emplace();
-    for (const auto& cert : succeededCertArray) {
-      nsTArray<uint8_t> rawCert;
-      nsresult rv = cert->GetRawDER(rawCert);
-      if (NS_FAILED(rv)) {
-        return rv;
-      }
-      succeededCertChainBytes->AppendElement(std::move(rawCert));
-    }
+    auto result = getRawDerAll(succeededCertArray);
+    if (result.isErr()) return result.unwrapErr();
+    succeededCertChainBytes.emplace(result.unwrap());
 
     bool builtInRoot = false;
     rv = securityInfo->GetIsBuiltCertChainRootBuiltInRoot(&builtInRoot);
@@ -644,6 +659,11 @@ nsresult SSLTokensCache::GetLocked(const nsACString& aKey,
                                    uint64_t* aTokenId) {
   sLock.AssertCurrentThreadOwns();
 
+  if (!mLoadComplete && mBackingFile) {
+    LOG(("SSLTokensCache::GetLocked: connection before load complete"));
+    mozilla::glean::network::ssl_token_cache_early_connections.Add(1);
+  }
+
   TokenCacheEntry* cacheEntry = nullptr;
 
   if (mTokenCacheRecords.Get(aKey, &cacheEntry)) {
@@ -672,6 +692,8 @@ nsresult SSLTokensCache::GetLocked(const nsACString& aKey,
           mTokenCacheRecords.Remove(aKey);
         }
         mozilla::glean::network::ssl_token_cache_hits.Get("hit"_ns).Add(1);
+        LOG(("SSLTokensCache::GetLocked: hit [key=%s, load_complete=%s]",
+             PromiseFlatCString(aKey).get(), mLoadComplete ? "yes" : "no"));
         return NS_OK;
       }
 
@@ -679,6 +701,7 @@ nsresult SSLTokensCache::GetLocked(const nsACString& aKey,
            "]",
            rec->mExpirationTime, now));
       mozilla::glean::network::ssl_token_cache_expired.Add(1);
+      uint64_t expiredId = rec->mId;
       mCacheSize -= rec->Size();
       cacheEntry->RemoveWithId(expiredId);
     }
@@ -748,10 +771,10 @@ nsresult SSLTokensCache::RemoveAll(const nsACString& aKey) {
   return gInstance->RemoveAllLocked(aKey);
 }
 
-nsresult SSLTokensCache::RemovAllLocked(const nsACString& aKey) {
+nsresult SSLTokensCache::RemoveAllLocked(const nsACString& aKey) {
   sLock.AssertCurrentThreadOwns();
 
-  LOG(("SSLTokensCache::RemovAllLocked [key=%s]",
+  LOG(("SSLTokensCache::RemoveAllLocked [key=%s]",
        PromiseFlatCString(aKey).get()));
 
   UniquePtr<TokenCacheEntry> cacheEntry;
@@ -781,7 +804,7 @@ void SSLTokensCache::EvictIfNecessary() {
     return;
   }
 
-  LOG(("SSLTokensCache::EvictIfNecessary - evicting"));
+  LOG(("SSLTokensCache::EvictIfNecessary: evicting"));
 
   mExpirationArray.Sort(ExpirationComparator());
 
@@ -795,6 +818,7 @@ void SSLTokensCache::EvictIfNecessary() {
 }
 
 void SSLTokensCache::LogStats() {
+  sLock.AssertCurrentThreadOwns();
   if (!LOG5_ENABLED()) {
     return;
   }
@@ -802,7 +826,7 @@ void SSLTokensCache::LogStats() {
        mExpirationArray.Length(), mCacheSize));
   for (const auto& ent : mTokenCacheRecords.Values()) {
     const UniquePtr<TokenCacheRecord>& rec = ent->Get();
-    LOG(("key=%s count=%d", rec->mKey.get(), ent->RecordCount()));
+    LOG(("  [key=%s, count=%d]", rec->mKey.get(), ent->RecordCount()));
   }
 }
 
@@ -835,6 +859,21 @@ SSLTokensCache::CollectReports(nsIHandleReportCallback* aHandleReport,
                      "Memory used for the SSL tokens cache.");
 
   return NS_OK;
+}
+
+static void RemoveFilesSync(nsIFile* aBackingFile) {
+  aBackingFile->Remove(false);
+  nsCOMPtr<nsIFile> tmp;
+  aBackingFile->Clone(getter_AddRefs(tmp));
+  tmp->SetLeafName(u"ssl_tokens_cache.tmp"_ns);
+  tmp->Remove(false);
+}
+
+static void DispatchFileRemoval(nsCOMPtr<nsIFile> aBackingFile) {
+  NS_DispatchBackgroundTask(NS_NewRunnableFunction(
+      "SSLTokensCache::RemoveFiles", [backingFile = std::move(aBackingFile)]() {
+        RemoveFilesSync(backingFile);
+      }));
 }
 
 // static
@@ -1143,9 +1182,10 @@ void SSLTokensCache::LoadForTest(const nsACString& aPath) {
 uint32_t SSLTokensCache::CountForTest() {
   StaticMutexAutoLock lock(sLock);
   if (!gInstance) {
-    LOG(("  service not initialized"));
-    return;
+    return 0;
   }
+  return gInstance->mTokenCacheRecords.Count();
+}
 
 // static
 void SSLTokensCache::PutForTest(const nsACString& aKey) {

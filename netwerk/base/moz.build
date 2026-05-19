@@ -308,6 +308,7 @@ DIRS += [
     "rust-helper",
     "http-sfv",
     "idna_glue",
+    "ssl_tokens_cache",
     "uritemplate_glue",
     "urlpattern_glue",
 ]

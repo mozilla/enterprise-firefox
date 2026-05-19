@@ -5,7 +5,6 @@
 package org.mozilla.fenix.ui
 
 import androidx.core.net.toUri
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.mozilla.fenix.R
@@ -146,7 +145,6 @@ class SettingsAddonsTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/561594
-    @Ignore("Failing: https://bugzilla.mozilla.org/show_bug.cgi?id=2033498")
     @SmokeTest
     @Test
     fun verifyUBlockWorksInPrivateModeTest() {
@@ -166,15 +164,9 @@ class SettingsAddonsTest {
         }.clickExtensionsButton {
             verifyExtensionsButtonWithInstalledExtension(addonName)
         }
-        // Fix ComposeNotIdleException when verifying the extensions button when an extension is installed
-        // Bugzilla ticket: https://bugzilla.mozilla.org/show_bug.cgi?id=2033366
-        //     .openThreeDotMenu {
-        //     verifyExtensionsButtonWithInstalledExtension(addonName)
-        // }
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/875785
-    @Ignore("Failing: https://bugzilla.mozilla.org/show_bug.cgi?id=2033498")
     @Test
     fun verifyUBlockWorksInNormalModeTest() {
         val genericURL = mockWebServer.getGenericAsset(1)
@@ -198,10 +190,5 @@ class SettingsAddonsTest {
         }.clickExtensionsButton {
             verifyExtensionsButtonWithInstalledExtension(addonName)
         }
-        // Fix ComposeNotIdleException when verifying the extensions button when an extension is installed
-        // Bugzilla ticket: https://bugzilla.mozilla.org/show_bug.cgi?id=2033366
-        //     .openThreeDotMenu {
-        //     verifyExtensionsButtonWithInstalledExtension(addonName)
-        // }
     }
 }
