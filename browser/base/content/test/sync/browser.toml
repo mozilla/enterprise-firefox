@@ -1,5 +1,7 @@
 [DEFAULT]
 support-files = ["head.js"]
+# Enterprise builds do not include Firefox Accounts (FxA) functionality,
+skip-if = ["enterprise"]
 
 ["browser_appmenu_signin_cta_variants.js"]
 

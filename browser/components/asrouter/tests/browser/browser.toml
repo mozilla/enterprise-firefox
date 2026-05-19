@@ -38,6 +38,9 @@ skip-if = [
 https_first_disabled = true
 
 ["browser_asrouter_menu_messages.js"]
+# Tests messages in the PanelUI-fxa panel, which is not available in
+# enterprise builds since FxA functionality is disabled.
+skip-if = ["enterprise"]
 
 ["browser_asrouter_milestone_message_cfr.js"]
 

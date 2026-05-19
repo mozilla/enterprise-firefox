@@ -1,4 +1,6 @@
 [DEFAULT]
+# Enterprise builds do not support legacy telemetry.
+skip-if = ["enterprise"]
 support-files = [
   "file_iframe.html",
   "file_media.html",

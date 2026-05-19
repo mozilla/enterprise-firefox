@@ -76,7 +76,11 @@ skip-if = [
 
 ["browser_fxa.js"]
 tags = "os_integration"
+# Enterprise builds do not support FxA.
+skip-if = ["enterprise"]
 
 ["browser_fxa_config.js"]
+# Enterprise builds do not support FxA.
+skip-if = ["enterprise"]
 
 ["browser_openPreferences.js"]

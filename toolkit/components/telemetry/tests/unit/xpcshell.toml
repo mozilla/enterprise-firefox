@@ -1,4 +1,6 @@
 [DEFAULT]
+# Enterprise builds do not support legacy telemetry.
+skip-if = ["enterprise"]
 head = "head.js"
 firefox-appdir = "browser"
 # The *.xpi files are only needed for test_TelemetryEnvironment.js, but

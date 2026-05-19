@@ -1,4 +1,6 @@
 [DEFAULT]
+# Enterprise builds do not support legacy telemetry.
+skip-if = ["enterprise"]
 
 ["include:client/manifest.toml"]
 

@@ -286,6 +286,8 @@ run-sequentially = ["true"] # Frequent timeouts, bug 1395148
 ["test_status_checkSetup.js"]
 
 ["test_sync_auth_manager.js"]
+# Enterprise builds do not support FxA auth.
+skip-if = ["enterprise"]
 # Engine APIs.
 
 ["test_syncedtabs.js"]
