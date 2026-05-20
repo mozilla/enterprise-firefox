@@ -54,6 +54,11 @@ run-if = [
 
 ["test_felt_browser_signout_verify.py"]
 
+["test_felt_browser_skeleton_ui.py"]
+run-if = [
+  "os == 'win'",
+]
+
 ["test_felt_browser_starts.py"]
 
 ["test_felt_browser_starts_missing_bin.py"]
