@@ -1656,13 +1656,22 @@ static Result<Ok, PreXULSkeletonUIError> ValidateCmdlineArguments(
     }
   }
 
+#if defined(MOZ_ENTERPRISE)
+  // If there is MOZ_BYPASS_FELT environment variable, then likely tests are
+  // executing and thus no `-felt <socket>` argument can be found to verify if
+  // this is running a browser. By essence of that variable it is known the
+  // browser is running and not Felt UI so explicitely use the PreSkeletonUI
+  // in this case.
+  if (EnvHasValue("MOZ_BYPASS_FELT")) {
+    return Ok();
+  }
+
   // When starting FELT, disable the PreXULSkeletonUI. Checking with
   // is_felt_browser() is not doable here because this symbol is defined in
   // libxul however the present code runs in firefox.exe. Hence checking the
   // existence of "-felt" as is_felt_browser() would be doing, so
   // PreXULSkeletonUI is kept for normal browser, just disabled for FELT
   // window.
-#if defined(MOZ_ENTERPRISE)
   if (!hasFeltFlag) {
     return Err(PreXULSkeletonUIError::Cmdline);
   }

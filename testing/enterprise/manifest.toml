@@ -87,6 +87,11 @@ run-if = [
   "buildapp == 'browser'", # browser specific: enterprise panel
 ]
 
+["test_felt_browser_skeleton_ui.py"]
+run-if = [
+  "os == 'win'",
+]
+
 ["test_felt_browser_starts.py"]
 run-if = [
   "buildapp == 'browser'", # open new tab
