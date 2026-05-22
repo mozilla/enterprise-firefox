@@ -5,7 +5,7 @@
 use nserror::NS_OK;
 use nsstring::nsCString;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, LazyLock, OnceLock, RwLock};
+use std::sync::{Arc, LazyLock, Mutex, OnceLock, RwLock};
 use std::{ffi::CString, future::Future};
 use xpcom::interfaces::{nsICookie, nsICookieManager, nsIObserverService, nsIPrefBranch};
 use xpcom::RefPtr;
@@ -62,6 +62,16 @@ pub static TOKEN_EXPIRY_SKEW: i64 = 5 * 60;
 
 pub static TOKENS: LazyLock<Arc<RwLock<Tokens>>> =
     LazyLock::new(|| Arc::new(RwLock::new(Default::default())));
+#[derive(Default)]
+pub enum InitialPolicies {
+    #[default]
+    Uninitialized,
+    Policies(String),
+    Taken,
+}
+
+pub static INITIAL_POLICIES: LazyLock<Arc<Mutex<InitialPolicies>>> =
+    LazyLock::new(|| Arc::new(Mutex::new(Default::default())));
 pub static CONSOLE_URL: OnceLock<Arc<String>> = OnceLock::new();
 
 pub fn inject_one_cookie(cookie: nsICookieWrapper) {

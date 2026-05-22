@@ -76,6 +76,12 @@ interface nsIFelt : nsISupports {
   void openURL(in ACString url, in long disposition);
 
   [must_use]
+  void sendPolicies(in ACString jsonPayload);
+
+  [must_use]
+  ACString getStartupPolicies();
+
+  [must_use]
   ACString getConsoleUrl();
 
   [must_use]

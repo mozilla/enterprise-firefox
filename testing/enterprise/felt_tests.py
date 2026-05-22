@@ -117,6 +117,11 @@ class LocalHttpRequestHandler(BaseHTTPRequestHandler):
 
 
 class SsoHttpHandler(LocalHttpRequestHandler):
+    def has_session_cookie(self):
+        cookies = self.headers.get("Cookie", "")
+        expected = f"{self.server.cookie_name.value}={self.server.cookie_value.value}"
+        return expected in cookies
+
     def do_GET(self):
         print("GET", self.path)
         m = None
@@ -126,6 +131,19 @@ class SsoHttpHandler(LocalHttpRequestHandler):
         print("path: ", path)
 
         if path == "/sso_url":
+            # Simulate real SSO behavior: if the session cookie from a
+            # previous login is present, skip the login form and redirect
+            # straight to the callback.
+            if self.has_session_cookie():
+                location = (
+                    f"http://localhost:{self.server.console_port}/sso/callback?foo"
+                )
+                self.send_response(302, "Found")
+                self.send_header("Location", location)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+
             # Dummy sso login page
             m = """
 <html>
@@ -218,7 +236,9 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             m = json.dumps({
                 "learn_more_url": firefox_config["learn_more_url"]["pref_value"],
                 "company_logo_url": "",
-                "policies": {"polling_frequency": 500},
+                "policies": {
+                    "polling_frequency": self.server.config_polling_frequency.value
+                },
                 "services": {
                     "push_url": "",
                     "remote_settings_url": "",
@@ -553,6 +573,7 @@ def serve(
     policy_access_connector=None,
     policies_fail_request=None,
     signout_count=None,
+    config_polling_frequency=None,
     # TODO: Behavior is not yet clearly defined
     # device_posture_reply_forbidden=None,
 ):
@@ -582,6 +603,7 @@ def serve(
         policies_fail_request if policies_fail_request is not None else Value("B", 0)
     )
     httpd.signout_count = signout_count if signout_count is not None else Value("i", 0)
+    httpd.config_polling_frequency = config_polling_frequency
     httpd.serve_updates = False
     httpd.serve_updates_version = ""
     httpd.serve_forced_updates_count = 0
@@ -697,6 +719,7 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
         self.policy_access_token = SharedString("")
         self.policy_refresh_token = SharedString("")
         self.signout_count = Value("i", 0)
+        self.config_polling_frequency = Value("i", 500)
 
         self.console_httpd = Process(
             target=serve,
@@ -712,6 +735,7 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
                 policy_refresh_token=self.policy_refresh_token,
                 policies_fail_request=self.policies_fail_request,
                 signout_count=self.signout_count,
+                config_polling_frequency=self.config_polling_frequency,
                 # TODO: Behavior is not yet clearly defined
                 # device_posture_reply_forbidden=self.device_posture_reply_forbidden,
             ),

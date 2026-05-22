@@ -10,7 +10,7 @@ use std::sync::{atomic::AtomicBool, atomic::Ordering, Arc, Mutex};
 use xpcom::interfaces::{nsIObserver, nsIObserverService, nsISupports};
 use xpcom::RefPtr;
 
-use log::trace;
+use log::{trace, warn};
 
 use crate::message::{nsICookieWrapper, FeltMessage, FELT_IPC_VERSION};
 use crate::utils::{self, Tokens, TOKENS};
@@ -394,6 +394,17 @@ impl FeltClientThread {
                                 Ok(FeltMessage::Shutdown) => {
                                     trace!("FeltClientThread::felt_client::ipc_loop(): Shutdown");
                                     utils::notify_observers("felt-firefox-shutdown".to_string());
+                                },
+                                Ok(FeltMessage::Policies(json_payload)) => {
+                                    let mut guard = utils::INITIAL_POLICIES.lock().unwrap();
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): Policies({} bytes)", json_payload.len());
+                                    if matches!(*guard, utils::InitialPolicies::Policies(_)) {
+                                        warn!("FeltClientThread: Policies set more than once without being read");
+                                    } else if matches!(*guard, utils::InitialPolicies::Taken) {
+                                        warn!("FeltClientThread: Policies set after already being consumed");
+                                    }
+                                    *guard = utils::InitialPolicies::Policies(json_payload);
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): Policies stored");
                                 },
                                 Ok(FeltMessage::OpenURL((url, disposition, focus_hint))) => {
                                     trace!(

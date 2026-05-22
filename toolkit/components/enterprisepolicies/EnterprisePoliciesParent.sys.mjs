@@ -3,14 +3,20 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = {};
+
+XPCOMUtils.defineLazyServiceGetter(
+  lazy,
+  "BackgroundTasks",
+  "@mozilla.org/backgroundtasks;1",
+  Ci.nsIBackgroundTasks
+);
 
 ChromeUtils.defineESModuleGetters(lazy, {
   JsonSchemaValidator:
     "resource://gre/modules/components-utils/JsonSchemaValidator.sys.mjs",
-  // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
-  EnterpriseHandler: "resource:///modules/enterprise/EnterpriseHandler.sys.mjs",
   // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
   Policies: "resource:///modules/policies/Policies.sys.mjs",
   WindowsGPOParser: "resource://gre/modules/policies/WindowsGPOParser.sys.mjs",
@@ -113,7 +119,7 @@ EnterprisePoliciesManager.prototype = {
     }
   },
 
-  async _initialize() {
+  _initialize() {
     this._cleanupPolicies();
 
     const changesHandler = provider => {
@@ -155,7 +161,7 @@ EnterprisePoliciesManager.prototype = {
     this._status = Ci.nsIEnterprisePolicies.INACTIVE;
     Services.prefs.setBoolPref(PREF_POLICIES_APPLIED, false);
 
-    let provider = await this._chooseProvider(changesHandler);
+    let provider = this._chooseProvider(changesHandler);
     if (provider.failed) {
       this._status = Ci.nsIEnterprisePolicies.FAILED;
     }
@@ -166,7 +172,7 @@ EnterprisePoliciesManager.prototype = {
     Glean.policies.isEnterprise.set(this.isEnterprise);
   },
 
-  async _chooseProvider(handler) {
+  _chooseProvider(handler) {
     let platformProvider = null;
     if (AppConstants.platform == "win" && AppConstants.MOZ_SYSTEM_POLICIES) {
       platformProvider = new WindowsGPOPoliciesProvider();
@@ -185,12 +191,7 @@ EnterprisePoliciesManager.prototype = {
     let remoteProvider = RemotePoliciesProvider.createInstance();
     // Fetch first set of remote policies during the
     // initialization of the policy engine
-    await remoteProvider.fetchPoliciesOnStartup();
-    if (Services.felt?.isFeltBrowser() && remoteProvider.failed) {
-      // bug 2027006 will move the fetching of policies to felt
-      // and not shutdown will be needed then
-      lazy.EnterpriseHandler.initiateShutdown();
-    }
+    remoteProvider.loadRemotePolicies();
     remoteProvider.onPoliciesChanges(handler);
 
     if (platformProvider && platformProvider.hasPolicies) {
@@ -446,12 +447,7 @@ EnterprisePoliciesManager.prototype = {
 
     switch (topic) {
       case "policies-startup": {
-        const initializedPromise = this._initialize();
-        // _initialize() does async work (fetching remote policies).
-        // We spin a nested event loop until the promise resolves so
-        // this observer doesn't return before initialization completes.
-        // This keeps startup behavior effectively synchronous.
-        this.spinResolve(initializedPromise);
+        this._initialize();
         this._runPoliciesCallbacks("onBeforeAddons");
         break;
       }
@@ -501,44 +497,6 @@ EnterprisePoliciesManager.prototype = {
         );
 
         break;
-    }
-  },
-
-  /**
-   * Spin the event loop until the passed promise resolves.
-   *
-   * This is used to await the response when fetching remote
-   * policies during the initialization of the policy engine.
-   *
-   * @param {Promise} promise
-   * @returns {any} Result of the resolved promise
-   */
-  spinResolve(promise) {
-    if (!(promise instanceof Promise)) {
-      return promise;
-    }
-    let done = false;
-    let result = null;
-    let error = null;
-    promise
-      .catch(e => {
-        error = e;
-      })
-      .then(r => {
-        result = r;
-        done = true;
-      });
-
-    Services.tm.spinEventLoopUntil(
-      "EnterprisePoliciesManager.sys.mjs:_initialize",
-      () => done
-    );
-    if (!done) {
-      throw new Error("Forcefully exited event loop.");
-    } else if (error) {
-      throw error;
-    } else {
-      return result;
     }
   },
 
@@ -1054,7 +1012,6 @@ class RemotePoliciesProvider {
     if (!this._isPollingEnabled) {
       return;
     }
-    this._performPolling();
     this._poller = lazy.setInterval(
       this._performPolling.bind(this),
       this._pollingFrequency
@@ -1080,20 +1037,24 @@ class RemotePoliciesProvider {
     }
   }
 
-  async fetchPoliciesOnStartup() {
-    if (!this._isPollingEnabled) {
+  loadRemotePolicies() {
+    if (
+      !AppConstants.MOZ_ENTERPRISE ||
+      lazy.BackgroundTasks?.isBackgroundTaskMode ||
+      !Services.felt?.isFeltBrowser()
+    ) {
       return;
     }
 
     let res;
     try {
-      res = await lazy.ConsoleClient.getRemotePolicies();
+      res = JSON.parse(Services.felt.getStartupPolicies());
     } catch (e) {
       console.error(`Failed to fetch remote policies on startup: ${e}`);
       this._failed = true;
       return;
     }
-    if (!res.policies) {
+    if (!res?.policies) {
       console.error(
         `No policies were found in the response: ${JSON.stringify(res)}.`
       );

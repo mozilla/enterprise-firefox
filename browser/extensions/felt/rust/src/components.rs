@@ -17,12 +17,14 @@ use xpcom::interfaces::{
 };
 use xpcom::RefPtr;
 
-use log::{error, trace};
+use log::{error, trace, warn};
 
 use crate::message::{FeltMessage, FELT_IPC_VERSION};
 #[cfg(target_os = "linux")]
 use crate::utils;
-use crate::utils::{Tokens, CONSOLE_URL, TOKENS, TOKEN_EXPIRY_SKEW};
+use crate::utils::{
+    InitialPolicies, Tokens, CONSOLE_URL, INITIAL_POLICIES, TOKENS, TOKEN_EXPIRY_SKEW,
+};
 
 #[xpcom(implement(nsIFelt), atomic)]
 pub struct FeltXPCOM {
@@ -253,6 +255,34 @@ impl FeltXPCOM {
         } else {
             trace!("FeltXPCOM::SendExtensionReady: not in browser, ignoring");
             NS_OK
+        }
+    }
+
+    fn SendPolicies(&self, json_payload: *const nsACString) -> nserror::nsresult {
+        let payload = unsafe { (*json_payload).to_string() };
+        trace!("FeltXPCOM::SendPolicies");
+        self.send(FeltMessage::Policies(payload))
+    }
+
+    fn GetStartupPolicies(&self, retval: *mut nsACString) -> nserror::nsresult {
+        let mut guard = INITIAL_POLICIES.lock().unwrap();
+        match std::mem::take(&mut *guard) {
+            InitialPolicies::Policies(policies) => {
+                unsafe {
+                    (*retval).assign(policies.as_str());
+                }
+                *guard = InitialPolicies::Taken;
+                NS_OK
+            }
+            InitialPolicies::Uninitialized => {
+                error!("FeltXPCOM::GetStartupPolicies called before policies were received");
+                NS_ERROR_FAILURE
+            }
+            InitialPolicies::Taken => {
+                warn!("FeltXPCOM::GetStartupPolicies called more than once");
+                *guard = InitialPolicies::Taken;
+                NS_ERROR_FAILURE
+            }
         }
     }
 
