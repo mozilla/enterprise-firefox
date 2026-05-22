@@ -1,0 +1,137 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+/**
+ * Represents a single available package update as reported by the PackageKit
+ * D-Bus service via the org.freedesktop.PackageKit.Transaction "Package" /
+ * "Packages" signals.
+ */
+[scriptable, uuid(1a3b7c2d-4e5f-6789-abcd-ef0123456789)]
+interface nsIPackageKitSignalPackage : nsISupports {
+  /**
+   * The PkInfoEnum value describing the update type.
+   * Common values:
+   *   1 = unknown
+   *   6 = normal
+   *   7 = important
+   *   8 = security
+   *   9 = bugfix
+   *  10 = enhancement
+   *  11 = blocked
+   *
+   * See: https://www.freedesktop.org/software/PackageKit/gtk-doc/PackageKit-Enumerations.html
+   */
+  readonly attribute unsigned long info;
+
+  /**
+   * The PackageKit package ID string, e.g. "hal;0.1.2;i386;fedora".
+   * The four semicolon-separated fields are: name, version, arch, data.
+   */
+  readonly attribute ACString packageId;
+
+  /**
+   * A human-readable one-line summary of the package update.
+   */
+  readonly attribute ACString summary;
+};
+
+[scriptable, uuid(2a95d3f3-02dc-4ac4-9dc1-2b4eefcb434d)]
+interface nsIPackageKitSignalFiles : nsISupports {
+  /**
+   * The PackageKit package ID string, e.g. "hal;0.1.2;i386;fedora".
+   * The four semicolon-separated fields are: name, version, arch, data.
+   */
+  readonly attribute ACString packageId;
+
+  /**
+   * File list
+   */
+  readonly attribute Array<ACString> fileList;
+};
+
+[scriptable, uuid(1b1acfce-93b1-41e7-a468-12e86858fdf0)]
+interface nsIPackageKitSignalProgress : nsISupports {
+  readonly attribute ACString id;
+  readonly attribute unsigned long status;
+  readonly attribute unsigned long percentage;
+};
+
+[scriptable, function, uuid(c91140fe-a552-427a-a265-ab32d5541afd)]
+interface nsIPackageKitProgressCallback : nsISupports {
+  void onProgress(in nsIPackageKitSignalProgress aProgress);
+};
+
+[scriptable, uuid(bba2369e-54fc-4e9f-9135-d454d69e6164)]
+interface nsIPackageKitPercentage : nsISupports {
+  readonly attribute unsigned long percentage;
+};
+
+[scriptable, uuid(cca2369e-54fc-4e9f-9135-d454d69e6164)]
+interface nsIPackageKitPercentageCallback : nsISupports {
+  void onProgress(in nsIPackageKitPercentage percentage);
+};
+
+/**
+ * Provides access to the PackageKit D-Bus service
+ * (org.freedesktop.PackageKit on the system bus) for querying available
+ * system package updates.
+ *
+ * This interface is Linux/GTK-only. On other platforms the contract ID will
+ * not be registered and any attempt to instantiate it will fail.
+ *
+ * Typical JS usage:
+ *
+ *   const provider = Cc["@mozilla.org/updates/packagekit-dbus-provider;1"]
+ *                      .getService(Ci.nsIPackageKitDBusProvider);
+ *   const updates = await provider.getPackageKitUpdates();
+ *   for (const u of updates) {
+ *     console.log(u.packageId, u.summary);
+ *   }
+ */
+[scriptable, uuid(f6c4288e-e077-4cb2-aeb5-2a93a975b8b2)]
+interface nsIPackageKitDBusProvider : nsISupports {
+  [implicit_jscontext]
+  Promise refreshCache([optional] in boolean aForce, [optional] in nsIPackageKitProgressCallback aCallback);
+
+  /**
+   * Asynchronously queries PackageKit for all available system package
+   * updates.
+   *
+   * The method follows this D-Bus protocol sequence:
+   *   1. Creates a proxy for org.freedesktop.PackageKit on the system bus.
+   *   2. Calls CreateTransaction() to obtain a transaction object path.
+   *   3. Creates a proxy for org.freedesktop.PackageKit.Transaction on that
+   *      path.
+   *   4. Calls SetHints() to opt into batched "Packages" signals and
+   *      background priority.
+   *   5. Calls GetUpdates(filter=0) — PK_FILTER_ENUM_NONE — to retrieve all
+   *      update types.
+   *   6. Collects "Package" / "Packages" signals until "Finished" is emitted.
+   *
+   * @returns A Promise that resolves with an Array of nsIPackageKitSignalPackage
+   *          objects, one per available update. Resolves with an empty array
+   *          if the system is fully up-to-date.
+   *          Rejects with an Error if:
+   *            - PackageKit is not installed or its D-Bus service is not
+   *              running on the system bus;
+   *            - any D-Bus call fails (e.g. CreateTransaction, GetUpdates);
+   *            - the transaction emits an ErrorCode signal; or
+   *            - the transaction finishes with a non-success exit code.
+   */
+  [implicit_jscontext]
+  Promise getUpdates();
+
+  [implicit_jscontext]
+  Promise downloadPackages(in Array<ACString> packageIds, [optional] in nsIPackageKitProgressCallback aCallback);
+
+  [implicit_jscontext]
+  Promise updatePackages(in Array<ACString> packageIds, [optional] in nsIPackageKitProgressCallback aCallback);
+
+};
+
+%{C++
+#define NS_PACKAGEKIT_DBUS_PROVIDER_CONTRACTID "@mozilla.org/updates/packagekit-dbus-provider;1"
+%}

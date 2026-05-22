@@ -29,6 +29,9 @@ EXTRA_JS_MODULES += [
     "UpdateTelemetry.sys.mjs",
 ]
 
+if (CONFIG["MOZ_ENTERPRISE"] and CONFIG["OS_TARGET"] == "Linux"):
+    DIRS += ["packagekit"]
+
 # This is Firefox-only for now simply because the `backgroundupdate` uses
 # `AppUpdater.sys.mjs`, which is Firefox-only.  But there's nothing truly specific
 # to Firefox here: that module could be generalized to toolkit/, or the
