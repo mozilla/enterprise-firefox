@@ -22,6 +22,7 @@ from taskgraph.util import json
 here = os.path.abspath(os.path.dirname(__file__))
 build = MozbuildObject.from_environment(cwd=here)
 
+DEFAULT_PARAMS: str | None = None
 PARAMETER_MISMATCH = """
 ERROR - The parameters being used to generate tasks differ from those expected
 by your working copy:
@@ -113,6 +114,9 @@ def generate_tasks(
     if target_tasks_method:
         overrides["target_tasks_method"] = target_tasks_method
         overrides["filters"].insert(0, "target_tasks_method")
+
+    if not param_spec and DEFAULT_PARAMS:
+        param_spec = os.path.join(build.topsrcdir, DEFAULT_PARAMS)
 
     params = parameters_loader(param_spec, strict=False, overrides=overrides)
     root = os.path.join(build.topsrcdir, "taskcluster")

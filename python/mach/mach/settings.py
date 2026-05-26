@@ -121,6 +121,12 @@ class MachSettings:
                     "Remote name or url to push to.",
                     "git@github.com:mozilla/enterprise-firefox-try.git",
                 ),
+                (
+                    "try.params",
+                    "string",
+                    "Default set of parameters to generate tasks with.",
+                    "taskcluster/test/params/em-onpush.yml",
+                ),
             ]
 
         def taskgraph_config_settings():

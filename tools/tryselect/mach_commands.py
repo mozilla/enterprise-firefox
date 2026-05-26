@@ -42,13 +42,14 @@ def generic_parser():
 
 
 def init(command_context):
-    from tryselect import lando, push, task_config
+    from tryselect import lando, push, task_config, tasks
 
     mach_context = command_context._mach_context
     lando.LAUNCH_BROWSER = not mach_context.settings["try"]["nobrowser"]
     push.MAX_HISTORY = mach_context.settings["try"]["maxhistory"]
     push.MACH_TRY_REMOTE = mach_context.settings["try"]["pushremote"]
     task_config.SKIP_ARTIFACT_BUILD_CHECK = mach_context.settings["try"]["noartifact"]
+    tasks.DEFAULT_PARAMS = mach_context.settings["try"]["params"] or None
 
 
 @functools.cache
