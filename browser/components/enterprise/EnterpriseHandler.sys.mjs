@@ -267,7 +267,11 @@ export const EnterpriseHandler = {
       parseUrl("https://support.mozilla.org/kb/managed-browser-firefox");
 
     const document = win.document;
-    const learnMoreLink = document.getElementById("enterprise-learn-more-link");
+    const viewNode = win.PanelMultiView.getViewNode(
+      document,
+      "panelUI-enterprise"
+    );
+    const learnMoreLink = viewNode.querySelector("#enterprise-learn-more-link");
     lazy.log.debug(`Setting learn more uri to ${validLearnMoreUrl.href}`);
     learnMoreLink.setAttribute("href", validLearnMoreUrl.href);
 
@@ -279,9 +283,7 @@ export const EnterpriseHandler = {
       win.openTrustedLinkIn(validLearnMoreUrl.href, where);
       e.preventDefault();
 
-      const panel = document
-        .getElementById("panelUI-enterprise")
-        .closest("panel");
+      const panel = viewNode.closest("panel");
       win.PanelMultiView.hidePopup(panel);
     });
   },
@@ -290,16 +292,20 @@ export const EnterpriseHandler = {
     const win = element.documentGlobal;
     win.PanelUI.showSubView("panelUI-enterprise", element, event);
     const document = element.ownerDocument;
+    const viewNode = win.PanelMultiView.getViewNode(
+      document,
+      "panelUI-enterprise"
+    );
 
     if (!element._isEnterpriseLearnMoreLinkConfigured) {
       this._setupLearnMoreLink(win);
       element._isEnterpriseLearnMoreLinkConfigured = true;
     }
 
-    const email = document.querySelector(".panelUI-enterprise__email");
+    const email = viewNode.querySelector(".panelUI-enterprise__email");
     if (!this._signedInUser) {
       email.hidden = true;
-      document.querySelector("#PanelUI-enterprise-email-separator").hidden =
+      viewNode.querySelector("#PanelUI-enterprise-email-separator").hidden =
         true;
       lazy.log.warn(
         "Unable to update email in enterprise panel without user information"

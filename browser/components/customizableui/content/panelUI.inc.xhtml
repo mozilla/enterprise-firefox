@@ -338,6 +338,7 @@
 </html:template>
 
 #ifdef MOZ_ENTERPRISE
-#include ../../enterprise/content/enterprise-panel.inc.xhtml
+<!-- Urlbar panels must live at the navbar DOM level to position correctly
+     relative to their anchor. Do not move into appMenu-viewCache. -->
 #include ../../enterprise/content/enterprise-urlbar-panels.inc.xhtml
 #endif
