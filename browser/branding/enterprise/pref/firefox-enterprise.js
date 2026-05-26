@@ -9,8 +9,6 @@ pref("extensions.activeThemeID", "firefox-enterprise-light@mozilla.org");
 
 pref("enterprise.log_level", "Error");
 
-pref("browser.newtabpage.activity-stream.feeds.section.topstories", false);
-
 // On Enterprise we want to enforce updates so we force it
 // Bug 2020768: Should those value be set/locked at runtime by FELT only
 //              or is it fine to apply it to any enterprise build?
