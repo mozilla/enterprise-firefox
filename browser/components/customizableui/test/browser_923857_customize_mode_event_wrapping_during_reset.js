@@ -8,7 +8,10 @@
 add_task(async function () {
   await startCustomizing();
   let devButton = document.getElementById("developer-button");
-  let fxaButton = document.getElementById("fxa-toolbar-menu-button");
+  let fxaButtonId = AppConstants.MOZ_ENTERPRISE
+    ? "enterprise-badge-toolbar-button"
+    : "fxa-toolbar-menu-button";
+  let fxaButton = document.getElementById(fxaButtonId);
   let stopReloadButton = document.getElementById("stop-reload-button");
   let palette = document.getElementById("customization-palette");
   ok(

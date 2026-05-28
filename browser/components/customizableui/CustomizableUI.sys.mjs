@@ -1430,8 +1430,13 @@ var CustomizableUIInternal = {
           node.parentNode != container &&
           !this.isWidgetRemovable(node)
         ) {
-          placementsToRemove.add(id);
-          continue;
+          // TBD
+          let isInOwnOverflow =
+            aAreaNode.overflowable?.isInOverflowList(node);
+          if (!isInOwnOverflow) {
+            placementsToRemove.add(id);
+            continue;
+          }
         } // Special widgets are always removable, so no need to check them
 
         if (inPrivateWindow && widget && !widget.showInPrivateBrowsing) {

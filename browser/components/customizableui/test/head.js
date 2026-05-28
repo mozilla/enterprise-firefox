@@ -31,6 +31,27 @@ ChromeUtils.defineLazyGetter(this, "SidebarTestUtils", () => {
 
 var { synthesizeDrop, synthesizeMouseAtCenter } = EventUtils;
 
+// Set a dummy company logo on the enterprise badge so it has a real width,
+// ensuring overflow tests work properly.
+if (AppConstants.MOZ_ENTERPRISE) {
+  Services.prefs.setStringPref(
+    "enterprise.configs.company_logo_url",
+    "data:image/svg+xml;base64," +
+      btoa(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"></svg>'
+      )
+  );
+  const { EnterpriseHandler } = ChromeUtils.importESModule(
+    "resource:///modules/enterprise/EnterpriseHandler.sys.mjs"
+  );
+  // Re-trigger badge update since the logo pref was set after initial init.
+  EnterpriseHandler.updateBadge(window);
+
+  registerCleanupFunction(() =>
+    Services.prefs.clearUserPref("enterprise.configs.company_logo_url")
+  );
+}
+
 // As of bug 1960002, this width no longer technically forces overflow.
 // Instead, use `ensureToolbarOverflow()` below.
 const kForceOverflowWidthPx = 500;

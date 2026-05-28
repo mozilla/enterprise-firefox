@@ -49,6 +49,9 @@ skip-if = [
 
 ["browser_1880230_hideInNonPrivateBrowsing.js"]
 
+["browser_2041653_non_removable_overflow_reset.js"]
+tags = "overflowable-toolbar"
+
 ["browser_873501_handle_specials.js"]
 
 ["browser_876926_customize_mode_wrapping.js"]
