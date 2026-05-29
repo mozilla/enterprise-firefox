@@ -282,17 +282,25 @@ skip-if = [
   "os == 'win' && os_version == '11.26200' && verify-standalone",
 ]
 
+["browser_relay_disabled_enterprise.js"]
+support-files = ["browser_relay_utils.js"]
+run-if = ["enterprise"]
+
 ["browser_relay_signup_flow.js"]
 support-files = ["browser_relay_utils.js"]
+skip-if = ["enterprise"]
 
 ["browser_relay_signup_flow_showToAllBrowsers.js"]
 support-files = ["browser_relay_utils.js"]
+skip-if = ["enterprise"]
 
 ["browser_relay_telemetry.js"]
 support-files = ["browser_relay_utils.js"]
+skip-if = ["enterprise"]
 
 ["browser_relay_use.js"]
 support-files = ["browser_relay_utils.js"]
+skip-if = ["enterprise"]
 
 ["browser_telemetry_SignUpFormRuleset.js"]
 
