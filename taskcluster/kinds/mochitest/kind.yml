@@ -349,6 +349,8 @@ tasks:
                         linux.*64-artifact/opt: ['mozilla-central']
                         linux.*64-asan/opt: ['all']
                         linux.*64-tsan/opt: built-projects
+                        linux.*64-enterprise/debug: ['all']
+                        linux.*64-enterprise/opt: built-projects
                         linux.*64/opt: built-projects
                         linux.*64-devedition/opt: built-projects
                         linux.*64-shippable/opt: ['release']
