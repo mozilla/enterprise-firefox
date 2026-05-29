@@ -3,13 +3,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 browser.jar:
+# Override the toolkit enterprise.properties with the browser version (loaded by nsDocShell.cpp).
+% override chrome://global/locale/enterprise.properties chrome://browser/locale/enterprise.properties
   content/browser/enterprise/enterprise-badge.css           (content/enterprise-badge.css)
-  content/browser/enterprise/enterprise-badge.inc.xhtml     (content/enterprise-badge.inc.xhtml)
   content/browser/enterprise/alert.svg                      (content/icons/alert.svg)
-  content/browser/enterprise/enterprise-panel.inc.xhtml     (content/enterprise-panel.inc.xhtml)
-  content/browser/enterprise/enterprise-urlbar-actions.inc.xhtml (content/enterprise-urlbar-actions.inc.xhtml)
   content/browser/enterprise/enterprise-urlbar-actions.css  (content/enterprise-urlbar-actions.css)
-  content/browser/enterprise/enterprise-urlbar-panels.inc.xhtml (content/enterprise-urlbar-panels.inc.xhtml)
   content/browser/enterprise/lockdown-mode.svg              (content/icons/lockdown-mode.svg)
   content/browser/enterprise/user-avatar.svg                (content/icons/user-avatar.svg)
   content/browser/enterprise/enterprise-close-dialog.xhtml  (content/enterprise-close-dialog.xhtml)

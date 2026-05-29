@@ -379,6 +379,17 @@ if (AppConstants.platform == "android") {
   });
 }
 
+if (AppConstants.MOZ_ENTERPRISE) {
+  allowlist.push(
+    // toolkit/crashreporter/client/app/src/lang/langpack.rs (string is built programmatically)
+    {
+      file: "resource://gre/localization/en-US/crashreporter/crashreporter-enterprise.ftl",
+    },
+    // Opened programmatically by the felt extension API
+    { file: "chrome://felt/content/felt.xhtml" }
+  );
+}
+
 if (AppConstants.MOZ_UPDATE_AGENT && !AppConstants.MOZ_BACKGROUNDTASKS) {
   // Task scheduling is only used for background updates right now.
   allowlist.push({
