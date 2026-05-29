@@ -3,6 +3,10 @@
 
 "use strict";
 
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
+);
+
 /*
  * This test ensures that there is no unexpected flicker
  * on the first window opened during startup.
@@ -51,6 +55,20 @@ add_task(async function () {
               inRange(r.y1, tabRect.y - 2, tabRect.y + 2) &&
               inRange(r.w, tabRect.width - 4, tabRect.width + 4) &&
               inRange(r.h, tabRect.height - 4, tabRect.height + 4)
+            );
+          },
+        },
+        {
+          // The enterprise theme background image (positioned right
+          // top) may be painted after first paint, with some tolerance.
+          name: "Enterprise theme background image may be painted after first paint",
+          condition(r) {
+            return (
+              AppConstants.MOZ_ENTERPRISE &&
+              inRange(r.x1, 799, 803) &&
+              inRange(r.x2, 1232, 1236) &&
+              inRange(r.y1, 0, 2) &&
+              inRange(r.y2, 41, 45)
             );
           },
         },

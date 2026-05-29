@@ -112,3 +112,4 @@ browser.jar:
 
 # L10n resources and overrides.
 % override chrome://global/locale/appstrings.properties chrome://browser/locale/appstrings.properties
+% override chrome://global/locale/enterprise.properties chrome://browser/locale/enterprise.properties

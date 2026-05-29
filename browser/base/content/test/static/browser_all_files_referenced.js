@@ -201,6 +201,11 @@ var allowlist = [
   // toolkit/components/antitracking/bouncetrackingprotection/BounceTrackingProtection.cpp
   { file: "resource://gre/localization/en-US/toolkit/global/antiTracking.ftl" },
 
+  // toolkit/crashreporter/client/app/src/lang/langpack.rs
+  {
+    file: "resource://gre/localization/en-US/crashreporter/crashreporter-enterprise.ftl",
+  },
+
   // The l10n build system can't package string files only for some platforms.
   {
     file: "resource://gre/chrome/en-US/locale/en-US/global-platform/mac/accessible.properties",

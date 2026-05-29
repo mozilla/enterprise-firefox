@@ -388,7 +388,7 @@ this.felt = class extends ExtensionAPI {
 
     this._win = Services.ww.openWindow(
       null,
-      `chrome://felt/content/felt.xhtml${queryString}`,
+      "chrome://felt/content/felt.xhtml" + queryString,
       "_blank",
       flags,
       null
