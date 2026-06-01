@@ -4,6 +4,9 @@
 const { ClientEngine, ClientsRec } = ChromeUtils.importESModule(
   "resource://services-sync/engines/clients.sys.mjs"
 );
+const { MachineId } = ChromeUtils.importESModule(
+  "resource://gre/modules/MachineId.sys.mjs"
+);
 const { CryptoWrapper } = ChromeUtils.importESModule(
   "resource://services-sync/record.sys.mjs"
 );
@@ -2043,6 +2046,187 @@ add_task(async function update_known_stale_clients() {
 
   stubRemoteClients.restore();
   stubFetchFxADevices.restore();
+});
+
+add_task(
+  async function test_machine_id_change_resets_fxa_device_registration() {
+    const machineIdStub = sinon
+      .stub(MachineId, "getHashedId")
+      .resolves("new-id");
+    const resetClientStub = sinon.stub(engine, "resetClient").resolves();
+    const removeChangedIDStub = sinon
+      .stub(engine._tracker, "removeChangedID")
+      .resolves();
+    const updateUserAccountData = sinon.stub().resolves();
+    const getLocalId = sinon.stub().resolves("new-fxa-device-id");
+    const oldFxAccounts = engine.fxAccounts;
+    const oldLocalID = engine.localID;
+    let observed = false;
+
+    Services.prefs.setStringPref("services.sync.client.machineId", "old-id");
+
+    engine.fxAccounts = {
+      ...oldFxAccounts,
+      device: {
+        ...oldFxAccounts.device,
+        getLocalId,
+      },
+      _internal: {
+        ...oldFxAccounts._internal,
+        updateUserAccountData,
+      },
+    };
+
+    let observer = () => {
+      observed = true;
+    };
+    Services.obs.addObserver(observer, "sync:machine-id-changed");
+
+    try {
+      ok(
+        await engine._checkMachineIdChanged(),
+        "Should detect the machine change"
+      );
+      notEqual(engine.localID, oldLocalID, "Should rotate the Sync client ID");
+      ok(resetClientStub.calledOnce, "Should reset local Sync state");
+      ok(
+        removeChangedIDStub.calledOnceWith(oldLocalID),
+        "Should remove tracking for the old client ID"
+      );
+      ok(
+        updateUserAccountData.calledOnceWith({
+          device: null,
+          encryptedSendTabKeys: null,
+        }),
+        "Should clear the stored FxA device registration"
+      );
+      ok(getLocalId.calledOnce, "Should force FxA to register a new device ID");
+      equal(
+        Services.prefs.getStringPref("services.sync.client.machineId"),
+        "new-id",
+        "Should persist the new machine ID"
+      );
+      ok(observed, "Should notify machine ID observers");
+    } finally {
+      Services.obs.removeObserver(observer, "sync:machine-id-changed");
+      engine.fxAccounts = oldFxAccounts;
+      machineIdStub.restore();
+      resetClientStub.restore();
+      removeChangedIDStub.restore();
+      Services.prefs.clearUserPref("services.sync.client.machineId");
+      await cleanup();
+    }
+  }
+);
+
+add_task(async function test_machine_id_first_run_stores_without_reset() {
+  const machineIdStub = sinon
+    .stub(MachineId, "getHashedId")
+    .resolves("first-id");
+  const resetClientStub = sinon.stub(engine, "resetClient").resolves();
+
+  Services.prefs.clearUserPref("services.sync.client.machineId");
+
+  try {
+    equal(
+      await engine._checkMachineIdChanged(),
+      false,
+      "Should not report a change on the first run"
+    );
+    ok(resetClientStub.notCalled, "Should not reset Sync state on first run");
+    equal(
+      Services.prefs.getStringPref("services.sync.client.machineId"),
+      "first-id",
+      "Should persist the initial machine ID"
+    );
+  } finally {
+    machineIdStub.restore();
+    resetClientStub.restore();
+    Services.prefs.clearUserPref("services.sync.client.machineId");
+    await cleanup();
+  }
+});
+
+add_task(async function test_machine_id_unavailable_does_not_reset() {
+  const machineIdStub = sinon.stub(MachineId, "getHashedId").resolves(null);
+  const resetClientStub = sinon.stub(engine, "resetClient").resolves();
+
+  Services.prefs.setStringPref("services.sync.client.machineId", "old-id");
+
+  try {
+    equal(
+      await engine._checkMachineIdChanged(),
+      false,
+      "Should not report a change when the machine ID is unavailable"
+    );
+    ok(
+      resetClientStub.notCalled,
+      "Should not reset Sync state when the machine ID is unavailable"
+    );
+    equal(
+      Services.prefs.getStringPref("services.sync.client.machineId"),
+      "old-id",
+      "Should leave the stored machine ID untouched"
+    );
+  } finally {
+    machineIdStub.restore();
+    resetClientStub.restore();
+    Services.prefs.clearUserPref("services.sync.client.machineId");
+    await cleanup();
+  }
+});
+
+add_task(async function test_machine_id_change_fxa_reset_failure_is_retried() {
+  const machineIdStub = sinon.stub(MachineId, "getHashedId").resolves("new-id");
+  const resetClientStub = sinon.stub(engine, "resetClient").resolves();
+  const updateUserAccountData = sinon
+    .stub()
+    .rejects(new Error("transient network failure"));
+  const getLocalId = sinon.stub().resolves("new-fxa-device-id");
+  const oldFxAccounts = engine.fxAccounts;
+  const oldLocalID = engine.localID;
+
+  Services.prefs.setStringPref("services.sync.client.machineId", "old-id");
+
+  engine.fxAccounts = {
+    ...oldFxAccounts,
+    device: {
+      ...oldFxAccounts.device,
+      getLocalId,
+    },
+    _internal: {
+      ...oldFxAccounts._internal,
+      updateUserAccountData,
+    },
+  };
+
+  try {
+    equal(
+      await engine._checkMachineIdChanged(),
+      false,
+      "Should report no change when the FxA reset fails"
+    );
+    ok(
+      resetClientStub.notCalled,
+      "Should not rotate Sync state when the FxA reset fails"
+    );
+    equal(
+      engine.localID,
+      oldLocalID,
+      "Should not rotate the Sync client ID when the FxA reset fails"
+    );
+    equal(
+      Services.prefs.getStringPref("services.sync.client.machineId"),
+      "old-id",
+      "Should keep the stored machine ID so the change is retried next sync"
+    );
+  } finally {
+    engine.fxAccounts = oldFxAccounts;
+    machineIdStub.restore();
+    resetClientStub.restore();
+    Services.prefs.clearUserPref("services.sync.client.machineId");
+    await cleanup();
+  }
 });
 
 add_task(async function test_create_record_command_limit() {
