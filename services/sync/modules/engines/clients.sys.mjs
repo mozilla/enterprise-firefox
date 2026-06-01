@@ -21,6 +21,7 @@
  */
 
 import { Async } from "resource://services-common/async.sys.mjs";
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 import {
   DEVICE_TYPE_DESKTOP,
@@ -45,6 +46,10 @@ ChromeUtils.defineLazyGetter(lazy, "fxAccounts", () => {
   return ChromeUtils.importESModule(
     "resource://gre/modules/FxAccounts.sys.mjs"
   ).getFxAccountsSingleton();
+});
+
+ChromeUtils.defineESModuleGetters(lazy, {
+  MachineId: "resource://gre/modules/MachineId.sys.mjs",
 });
 
 import { PREF_ACCOUNT_ROOT } from "resource://gre/modules/FxAccountsCommon.sys.mjs";

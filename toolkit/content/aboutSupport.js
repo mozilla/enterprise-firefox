@@ -93,6 +93,17 @@ var snapshotFormatters = {
     } else {
       $("os-theme-row").hidden = true;
     }
+    if (data.machineIdHashed) {
+      let text = data.machineIdRaw
+        ? `${data.machineIdRaw} (hashed: ${data.machineIdHashed})`
+        : data.machineIdHashed;
+      if (data.machineIdSource) {
+        text += ` [source: ${data.machineIdSource}]`;
+      }
+      $("machine-id-box").textContent = text;
+    } else {
+      $("machine-id-row").hidden = true;
+    }
     if (AppConstants.platform == "macosx") {
       $("rosetta-box").textContent = data.rosetta;
     }
@@ -1780,6 +1791,15 @@ function sanitizeSnapshot(object) {
   }
 }
 
+function sanitizeSnapshotForCopy(snapshot) {
+  let sanitized = JSON.parse(JSON.stringify(snapshot));
+  if (sanitized.application) {
+    delete sanitized.application.machineIdRaw;
+    delete sanitized.application.machineIdHashed;
+  }
+  return sanitized;
+}
+
 function copyRawDataToClipboard(button) {
   if (button) {
     button.disabled = true;
@@ -1790,6 +1810,7 @@ function copyRawDataToClipboard(button) {
       if (button) {
         button.disabled = false;
       }
+      snapshot = sanitizeSnapshotForCopy(snapshot);
       let str = Cc["@mozilla.org/supports-string;1"].createInstance(
         Ci.nsISupportsString
       );

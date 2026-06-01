@@ -8,6 +8,7 @@ import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  MachineId: "resource://gre/modules/MachineId.sys.mjs",
   PlacesDBUtils: "resource://gre/modules/PlacesDBUtils.sys.mjs",
 });
 
@@ -254,6 +255,16 @@ var dataProviders = {
     } catch (e) {}
 
     data.osTheme = Services.sysinfo.getProperty("osThemeInfo");
+
+    if (AppConstants.MOZ_ENTERPRISE) {
+      try {
+        data.machineIdRaw = await lazy.MachineId.getRawId();
+        data.machineIdHashed = await lazy.MachineId.getHashedId();
+        data.machineIdSource = await lazy.MachineId.getSource();
+      } catch (e) {
+        console.error("Troubleshoot: Failed to get machine ID:", e);
+      }
+    }
 
     try {
       // MacOSX: Check for rosetta status, if it exists
