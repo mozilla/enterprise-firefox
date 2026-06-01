@@ -187,6 +187,8 @@ class FeltDevicePosture(FeltTests):
 
         assert "extensions" in device_posture, "Device posture reports extensions"
 
+        assert "machineId" in device_posture, "Device posture reports machineId"
+
     def run_posture_history(self):
         console_addr = f"http://localhost:{self.console_port}"
         # Wait until at least one posture has a non-null extensions field,

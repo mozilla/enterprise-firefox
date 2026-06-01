@@ -282,6 +282,10 @@ async function getMacMachineId() {
 
 // Cached { id, source } object (or null) returned by the platform collectors.
 let cachedResolved = undefined;
+// In-flight resolution, so concurrent first-callers share one collection
+// rather than each shelling out (e.g. to `ioreg`) or re-reading the firmware
+// table.
+let resolvePromise = null;
 let cachedHashedId = undefined;
 
 async function resolveMachineId() {
@@ -298,6 +302,12 @@ async function resolveMachineId() {
   }
 }
 
+// Two consumers read the machine ID with different persistence expectations:
+//   - Sync client records (services/sync) use getHashedId(): they persist on
+//     the server, so a hash is stored rather than the raw serial.
+//   - The enterprise console device posture (ConsoleClient) uses getRawId()
+//     plus getSource(): it keys devices by serial and retrieves it more
+//     ephemerally.
 export const MachineId = {
   // Resolves the machine ID to a { id, source } object (or null) and caches it.
   // The source tier the identifier came from is logged once so that a change of
@@ -308,15 +318,22 @@ export const MachineId = {
       return cachedResolved;
     }
 
-    let resolved = await resolveMachineId();
-    if (resolved) {
-      lazy.log.info(`Using "${resolved.source}" as machine ID source`);
-    } else {
-      lazy.log.warn("No machine ID source available");
-    }
+    resolvePromise ??= (async () => {
+      try {
+        let resolved = await resolveMachineId();
+        if (resolved) {
+          lazy.log.info(`Using "${resolved.source}" as machine ID source`);
+        } else {
+          lazy.log.warn("No machine ID source available");
+        }
+        cachedResolved = resolved;
+        return resolved;
+      } finally {
+        resolvePromise = null;
+      }
+    })();
 
-    cachedResolved = resolved;
-    return cachedResolved;
+    return resolvePromise;
   },
 
   async getRawId() {
@@ -345,6 +362,7 @@ export const MachineId = {
 
   clearCache() {
     cachedResolved = undefined;
+    resolvePromise = null;
     cachedHashedId = undefined;
   },
 
