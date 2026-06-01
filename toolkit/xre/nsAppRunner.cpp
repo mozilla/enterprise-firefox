@@ -4811,12 +4811,10 @@ Maybe<ShouldNotProcessUpdatesReason> ShouldNotProcessUpdates(
   // tests like marAppApplyUpdateSuccess.js and
   // marAppApplyUpdateStageSuccess.js to bypass this check and force update
   // processing.
-  if (CheckArgExists("test-process-updates")) {
-    return Nothing();
-  }
+  bool isTesting = CheckArgExists("test-process-updates") || CheckArgExists("test-should-not-process-updates");
   // Don't process updates when launching a Browser from FELT, only Felt should
   // perform that step.
-  if (!is_felt_ui()) {
+  if (!is_felt_ui() && !isTesting) {
     return Some(ShouldNotProcessUpdatesReason::FeltOnlyUpdates);
   }
 #  endif
