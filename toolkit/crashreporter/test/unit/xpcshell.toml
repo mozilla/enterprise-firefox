@@ -169,6 +169,7 @@ skip-if = [
 ]
 
 ["test_crashreporter_crash.js"]
+skip-if = ["enterprise"] # crash reporter does not use legacy telemetry in enterprise builds
 
 ["test_crashreporter_omnijar_loading.js"]
 

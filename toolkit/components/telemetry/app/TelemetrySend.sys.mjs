@@ -1602,6 +1602,11 @@ export var TelemetrySendImpl = {
    * @return {boolean} True if pings can be send to the servers, false otherwise.
    */
   sendingEnabled(ping = null) {
+    // Legacy telemetry is permanently disabled on enterprise builds. Bug 2042874
+    if (AppConstants.MOZ_ENTERPRISE) {
+      return false;
+    }
+
     // We only send pings when telemetry reporting is enabled, but allow overriding this for tests.
     // For enterprise builds, check MOZ_TELEMETRY_REPORTING; for non-enterprise builds, use isOfficialTelemetry.
     const checkPassed = AppConstants.MOZ_ENTERPRISE

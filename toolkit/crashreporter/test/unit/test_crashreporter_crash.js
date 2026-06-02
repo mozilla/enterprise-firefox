@@ -122,15 +122,6 @@ add_task(async function run_test() {
         "datareporting.healthreport.uploadEnabled",
         true
       );
-      const { AppConstants: AC } = ChromeUtils.importESModule(
-        "resource://gre/modules/AppConstants.sys.mjs"
-      );
-      if (
-        AC.MOZ_ENTERPRISE &&
-        Services.prefs.prefIsLocked("toolkit.telemetry.server")
-      ) {
-        Services.prefs.unlockPref("toolkit.telemetry.server");
-      }
       Services.prefs.setCharPref(
         "toolkit.telemetry.server",
         "http://a.telemetry.server"

@@ -27,6 +27,11 @@ TEST_DIRS += ["tests/gtest", "tests"]
 XPCSHELL_TESTS_MANIFESTS += [
     "tests/unit/xpcshell.toml",
 ]
+
+if CONFIG["MOZ_ENTERPRISE"]:
+    XPCSHELL_TESTS_MANIFESTS += [
+        "tests/unit/xpcshell_enterprise.toml",
+    ]
 BROWSER_CHROME_MANIFESTS += ["tests/browser/browser.toml"]
 
 XPIDL_SOURCES += [
