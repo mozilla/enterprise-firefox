@@ -797,7 +797,7 @@ FxAccountsClient.prototype = {
         method,
         credentials,
         jsonPayload,
-        AppConstants.MOZ_ENTERPRISE
+        AppConstants.MOZ_ENTERPRISE && Services.felt?.isFeltBrowser()
           ? {
               Authorization: `Bearer ${await lazy.ConsoleClient.getAccessToken()}`,
             }

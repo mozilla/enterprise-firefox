@@ -36,6 +36,28 @@ const { TokenServerClient, TokenServerClientServerError } =
 const { AccountState, ERROR_INVALID_ACCOUNT_STATE } =
   ChromeUtils.importESModule("resource://gre/modules/FxAccounts.sys.mjs");
 
+add_setup(function () {
+  const { AppConstants } = ChromeUtils.importESModule(
+    "resource://gre/modules/AppConstants.sys.mjs"
+  );
+  if (AppConstants.MOZ_ENTERPRISE) {
+    // Enterprise builds need a default tokenserver URI, otherwise
+    // TokenServerClient rejects the empty/missing URL.
+    const defaultBranch = Services.prefs.getDefaultBranch("");
+    const originalUri = defaultBranch.getStringPref(
+      "identity.sync.tokenserver.uri",
+      ""
+    );
+    defaultBranch.setStringPref(
+      "identity.sync.tokenserver.uri",
+      "https://token.services.mozilla.com/1.0/sync/1.5"
+    );
+    registerCleanupFunction(() => {
+      defaultBranch.setStringPref("identity.sync.tokenserver.uri", originalUri);
+    });
+  }
+});
+
 const SECOND_MS = 1000;
 const MINUTE_MS = SECOND_MS * 60;
 const HOUR_MS = MINUTE_MS * 60;
