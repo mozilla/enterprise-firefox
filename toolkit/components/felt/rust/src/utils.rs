@@ -3,7 +3,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use nserror::NS_OK;
-use nsstring::nsCString;
+use nsstring::{nsACString, nsCString};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, LazyLock, OnceLock, RwLock};
 use std::{ffi::CString, future::Future};
@@ -29,6 +29,19 @@ extern "C" {
 #[cfg(target_os = "macos")]
 extern "C" {
     fn felt_activate_app();
+}
+
+extern "C" {
+    // Defined in storage/SQLiteEncryption.cpp. Hands the console-supplied
+    // primarySecret to the storage encryption layer; Felt keeps no copy.
+    fn mozStorageSetSqlitePrimarySecret(hex: *const nsACString);
+}
+
+/// Hand the console-supplied primarySecret (64-char hex) to the storage
+/// encryption layer. The value is consumed here and never retained by Felt.
+pub fn moz_storage_set_sqlite_primary_secret(hex: String) {
+    let hex: nsCString = hex.as_str().into();
+    unsafe { mozStorageSetSqlitePrimarySecret(&*hex) };
 }
 
 #[cfg(target_os = "linux")]

@@ -462,9 +462,60 @@ export class FeltProcessParent extends JSProcessActorParent {
       gObserversRegistered = true;
     }
 
+    // Fetch primarySecret from the console BEFORE spawning Firefox. The child's
+    // storage encryption layer (mozStorage / obfsvfs) blocks at
+    // profile-do-change waiting for it to unlock the
+    // `lockstore::kek::password:sqlite` Password KEK, so the browser cannot
+    // function without it. ConsoleClient.getPrimarySecret() already refreshes
+    // the session and retries once on an auth failure. If the fetch fails,
+    // abort the launch rather than spawn a browser that hangs waiting for a
+    // secret that never arrives. The value is held only in this local until it
+    // is relayed to the spawned browser below; Felt never stores it.
+    let primarySecret;
+    try {
+      const payload = await lazy.ConsoleClient.getPrimarySecret();
+      primarySecret = payload?.data;
+    } catch (e) {
+      lazy.log.error(`startFirefox: getPrimarySecret() failed: ${e}`);
+    }
+    if (!primarySecret) {
+      // The spawned browser cannot open its encrypted profile databases
+      // without the primarySecret, so do not launch it. Surface a dedicated
+      // primarySecret error to the user rather than leaving Felt backgrounded
+      // with no browser (Bug 1996558).
+      lazy.log.error(
+        "startFirefox: primarySecret unavailable; aborting browser launch"
+      );
+      // TODO(Bug 1996558): errorType is currently only "primarySecret";
+      // wiring distinct UI/wording per errorType is tracked separately.
+      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLaunchFailure", {
+        errorType: "primarySecret",
+      });
+      return;
+    }
+
     this.firefox = this.startFirefoxProcess();
     this.firefox
       .then(async () => {
+        // Send primarySecret FIRST, before any other state, so the
+        // child's storage encryption KEK is unlocked before any
+        // mozStorage consumer opens a database. This bypasses the
+        // `firefoxReady=true` gate that sendAccessToken / sendReady
+        // wait for. The browser hands it straight to the storage layer
+        // on receipt; neither side stores it. A failure here means the
+        // child can never unlock its profile, so abort with the dedicated
+        // primarySecret error rather than spawn a browser that hangs.
+        try {
+          Services.felt.sendPrimarySecret(primarySecret);
+        } catch (e) {
+          lazy.log.error(
+            `startFirefox: sendPrimarySecret failed: ${e}; aborting browser launch`
+          );
+          Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLaunchFailure", {
+            errorType: "primarySecret",
+          });
+          return;
+        }
         await this.sendPrefsToFirefox();
         Services.felt.sendAccessToken();
 
@@ -510,7 +561,9 @@ export class FeltProcessParent extends JSProcessActorParent {
         lazy.log.error(
           `Firefox launch failure (${err.result} / ${err.name}): ${err.message}`
         );
-        Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLaunchFailure");
+        Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLaunchFailure", {
+          errorType: "launchFailure",
+        });
       });
   }
 

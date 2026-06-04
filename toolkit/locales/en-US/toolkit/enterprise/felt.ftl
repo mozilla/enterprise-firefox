@@ -48,6 +48,9 @@ felt-browser-error-multiple-crashes2 =
 felt-browser-error-launch-failure =
     .heading = { -brand-short-name } cannot start
     .message = Please contact your administrator if the problem persists.
+felt-error-primary-secret =
+    .heading = { -brand-short-name } cannot start securely
+    .message = Your secure profile key could not be retrieved. Please try again, or contact your administrator if the problem persists.
 
 ## Logout messages
 

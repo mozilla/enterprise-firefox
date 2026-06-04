@@ -69,6 +69,19 @@ interface nsIFelt : nsISupports {
   [must_use]
   void clearTokens();
 
+  /**
+   * Send the console-supplied primarySecret (64-char hex) to the spawned
+   * Firefox over the existing Felt IPC channel. The Felt UI process fetches it
+   * via ConsoleClient.getPrimarySecret() and calls this right after spawning
+   * Firefox. The secret is never stored on the Felt side: the browser hands it
+   * straight to storage/SQLiteEncryption.cpp on receipt. Must be sent BEFORE
+   * the spawned Firefox initializes mozStorage encryption (the storage layer
+   * blocks at `profile-do-change` waiting for it), so it is sent ahead of
+   * `sendAccessToken()` / `sendReady()`.
+   */
+  [must_use]
+  void sendPrimarySecret(in ACString hex);
+
   [must_use]
   void sendFeltReady();
 

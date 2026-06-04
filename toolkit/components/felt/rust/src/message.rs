@@ -55,6 +55,14 @@ pub enum FeltMessage {
     IntPreference((String, i32)),
     StartupReady,
     AccessToken((String, i64)),
+    /// The console-supplied primarySecret (64-char hex string), shipped
+    /// from the Felt UI process to the spawned browsing Firefox.
+    /// Storage encryption uses it as the password to unlock the
+    /// `lockstore::kek::password:sqlite` Password KEK that wraps every
+    /// per-DB DEK. Must arrive BEFORE the storage layer initializes
+    /// (i.e. before `profile-do-change`); sent unconditionally on the
+    /// first IPC handshake, ahead of `AccessToken` / `Ready`.
+    PrimarySecret(String),
     RefreshTokens,
     FeltReady,
     OpenURL((String, i32, Option<FocusHint>)),
@@ -72,4 +80,4 @@ pub enum FocusHint {
     Timestamp(u32),
 }
 
-pub const FELT_IPC_VERSION: u32 = 11;
+pub const FELT_IPC_VERSION: u32 = 12;

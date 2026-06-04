@@ -11,7 +11,9 @@
 #include "mozilla/StaticMutex.h"
 #include "mozilla/StaticPtr.h"
 #include "mozilla/StaticPrefs_security.h"
+#include "mozilla/SpinEventLoopUntil.h"
 #include "mozilla/SyncRunnable.h"
+#include "mozilla/TimeStamp.h"
 #include "mozilla/dom/quota/IPCStreamCipherStrategy.h"
 #include "mozilla/security/lockstore/lockstore_ffi_generated.h"
 #include "ScopedNSSTypes.h"
@@ -20,10 +22,12 @@
 #include "nsCOMPtr.h"
 #include "nsDirectoryServiceDefs.h"
 #include "nsDirectoryServiceUtils.h"
+#include "nsIFelt.h"
 #include "nsIFile.h"
 #include "nsIObserver.h"
 #include "nsIObserverService.h"
 #include "nsLocalFile.h"
+#include "nsServiceManagerUtils.h"
 #include "nsString.h"
 #include "nsTArray.h"
 #include "nsThreadUtils.h"
@@ -37,12 +41,33 @@ mozilla::LogModule* GetSQLiteEncryptionLog() {
 
 namespace {
 
+using mozilla::security::lockstore::keystore_add_kek;
 using mozilla::security::lockstore::keystore_close;
 using mozilla::security::lockstore::keystore_create_dek;
 using mozilla::security::lockstore::keystore_create_kek;
+using mozilla::security::lockstore::keystore_delete_kek;
 using mozilla::security::lockstore::keystore_get_dek;
+using mozilla::security::lockstore::keystore_list_deks;
+using mozilla::security::lockstore::keystore_list_keks;
 using mozilla::security::lockstore::keystore_open;
+using mozilla::security::lockstore::keystore_remove_kek;
+using mozilla::security::lockstore::keystore_switch_kek;
+using mozilla::security::lockstore::keystore_unlock_kek;
 using mozilla::security::lockstore::KeystoreHandle;
+
+// Deterministic kek_ref literals (the random-suffix in
+// `lockstore::kek::<type>:<id>`) for the two KEKs the storage layer
+// owns. Defined as string literals; consumers wrap them in a local
+// `nsCString` before passing &-of to the FFI (which expects
+// `const nsACString*`, not the more-derived `nsLiteralCString*`).
+#define KEK_REF_LOCAL_SQLITE "lockstore::kek::local:sqlite"
+#define KEK_REF_PASSWORD_SQLITE "lockstore::kek::password:sqlite"
+
+// Practical max for cache_timeout_ms; "session-unlimited". Lockstore's
+// 0 means "don't cache" (zero-and-discard), not "infinity".
+// u32::MAX ms == ~49.7 days; if a session ever runs that long, the
+// re-unlock path in GetEncryptionKey transparently re-derives.
+constexpr uint32_t kKekCacheTimeoutMs = UINT32_MAX;
 
 constexpr size_t kDekBytes = 32;
 
@@ -64,9 +89,22 @@ static_assert(kDekBytes ==
 mozilla::StaticMutex sStateMutex;
 KeystoreHandle* sHandle MOZ_GUARDED_BY(sStateMutex) = nullptr;
 nsString sCachedProfilePath MOZ_GUARDED_BY(sStateMutex);
-// Deterministic kek_ref (lockstore::kek::local:sqlite) under which every
-// SQLite DEK is wrapped; resolved lazily via create_kek's get-or-create.
+// Deterministic kek_ref under which every SQLite DEK is wrapped.
+// `lockstore::kek::password:sqlite` (a Password KEK with
+// primarySecret as the password); the legacy
+// `lockstore::kek::local:sqlite` value is migrated away at first
+// launch. Resolved lazily via the unlock-or-create flow in
+// GetEncryptionKey.
 nsCString sKekRef MOZ_GUARDED_BY(sStateMutex);
+// Console-supplied primarySecret (64-char hex), cached for the
+// lifetime of the session. Delivered by the Felt IPC bridge during early
+// profile startup; EnsurePrimarySecretCached waits for it (it can run from
+// either profile-do-change or profile-after-change, whichever opens the first
+// encrypted database). Consumed by the Password KEK unlock/create call and by
+// the transparent re-unlock path after cache expiry. Held in the same
+// StaticMutex lifecycle as sHandle so it survives across background-thread DB
+// opens. Cleared on xpcom-will-shutdown.
+nsCString sPrimarySecret MOZ_GUARDED_BY(sStateMutex);
 // Set once xpcom-will-shutdown has torn the keystore down, so later calls
 // don't re-open it or mint key material that would never be destroyed.
 bool sShuttingDown MOZ_GUARDED_BY(sStateMutex) = false;
@@ -87,6 +125,133 @@ class ProfileObserver final : public nsIObserver {
 mozilla::StaticRefPtr<ProfileObserver> sObserver;
 
 NS_IMPL_ISUPPORTS(ProfileObserver, nsIObserver)
+
+// The Password KEK is keyed by the Felt-delivered primarySecret, which only
+// exists in enterprise (Felt) builds, so compile this waiter out elsewhere -- it
+// would otherwise be an unused function (its sole caller is already gated on
+// MOZ_ENTERPRISE).
+#if defined(MOZ_ENTERPRISE)
+// Wait for the console-supplied primarySecret to be delivered by the Felt IPC
+// bridge. The Felt parent process fetches primarySecret before spawning the
+// browsing Firefox and sends it as its first IPC message; the spawned child's
+// FeltClientThread pushes it straight into sPrimarySecret via the
+// mozStorageSetSqlitePrimarySecret entry point (below) -- it is never stored on
+// the Felt side. This call blocks until that delivery happens.
+//
+// The browser cannot decrypt its profile without primarySecret, so wait
+// generously and then fail closed (no plaintext fallback). The Felt parent
+// already aborts the launch when its own getPrimarySecret() fetch fails, so a
+// non-arrival here is not expected in practice.
+//
+// Returns NS_OK once delivered, NS_ERROR_NOT_AVAILABLE on timeout or shutdown.
+nsresult EnsurePrimarySecretCached() {
+  MOZ_ASSERT(NS_IsMainThread());
+  constexpr uint32_t kTimeoutMs = 30000;
+  const TimeStamp deadline =
+      TimeStamp::Now() + TimeDuration::FromMilliseconds(kTimeoutMs);
+  // Spin the event loop rather than blocking the main thread with a sleep, the
+  // same way the Felt startup barrier waits in nsAppRunner: keep IPC and other
+  // main-thread work running while we wait for Felt to deliver the secret. Stop
+  // on delivery, shutdown, or the timeout.
+  SpinEventLoopUntil("storage::EnsurePrimarySecretCached"_ns, [&]() -> bool {
+    {
+      StaticMutexAutoLock lock(sStateMutex);
+      if (!sPrimarySecret.IsEmpty() || sShuttingDown) {
+        return true;
+      }
+    }
+    return TimeStamp::Now() >= deadline;
+  });
+  StaticMutexAutoLock lock(sStateMutex);
+  if (!sPrimarySecret.IsEmpty()) {
+    return NS_OK;
+  }
+  // Timed out or shutting down: fail closed, no plaintext fallback.
+  MOZ_LOG(GetSQLiteEncryptionLog(), LogLevel::Error,
+          ("primarySecret not delivered by Felt (timeout or shutdown); failing "
+           "closed"));
+  return NS_ERROR_NOT_AVAILABLE;
+}
+#endif  // MOZ_ENTERPRISE
+
+// One-shot migration. Called at most once per profile, from the
+// create branch of GetEncryptionKey. Rotates every DEK currently
+// wrapped under `lockstore::kek::local:sqlite` to instead be wrapped
+// under `lockstore::kek::password:sqlite`, then deletes the now-orphan
+// LocalKey record. Idempotent: on a true-fresh profile there's no
+// local:sqlite to rotate and this is a no-op.
+//
+// Caller must hold sStateMutex.
+nsresult MigrateLocalToPasswordKek() {
+  sStateMutex.AssertCurrentThreadOwns();
+  MOZ_LOG(GetSQLiteEncryptionLog(), LogLevel::Info,
+          ("Migrating local:sqlite -> password:sqlite"));
+  const nsCString localKek(KEK_REF_LOCAL_SQLITE ""_ns);
+  const nsCString passwordKek(KEK_REF_PASSWORD_SQLITE ""_ns);
+  nsTArray<nsCString> collections;
+  nsresult rv = keystore_list_deks(sHandle, &collections);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  uint32_t rotated = 0;
+  for (const auto& coll : collections) {
+    nsTArray<nsCString> keks;
+    if (NS_FAILED(keystore_list_keks(sHandle, &coll, &keks))) {
+      continue;
+    }
+    bool hasLocal = false;
+    for (const auto& k : keks) {
+      if (k.Equals(localKek)) {
+        hasLocal = true;
+        break;
+      }
+    }
+    if (!hasLocal) {
+      continue;
+    }
+    // Add the password wrapping, switch primary to it, drop the
+    // local wrapping. Each step independently fallible; log and
+    // move on so a single bad collection doesn't strand the rest.
+    nsresult ar = keystore_add_kek(sHandle, &coll, &localKek, &passwordKek);
+    if (NS_FAILED(ar)) {
+      MOZ_LOG(GetSQLiteEncryptionLog(), LogLevel::Warning,
+              ("migrate: add_kek failed for %s: 0x%" PRIx32, coll.get(),
+               static_cast<uint32_t>(ar)));
+      continue;
+    }
+    nsresult sr =
+        keystore_switch_kek(sHandle, &coll, &localKek, &passwordKek);
+    if (NS_FAILED(sr)) {
+      MOZ_LOG(GetSQLiteEncryptionLog(), LogLevel::Warning,
+              ("migrate: switch_kek failed for %s: 0x%" PRIx32, coll.get(),
+               static_cast<uint32_t>(sr)));
+      continue;
+    }
+    nsresult rr = keystore_remove_kek(sHandle, &coll, &localKek);
+    if (NS_FAILED(rr)) {
+      MOZ_LOG(GetSQLiteEncryptionLog(), LogLevel::Warning,
+              ("migrate: remove_kek failed for %s: 0x%" PRIx32, coll.get(),
+               static_cast<uint32_t>(rr)));
+      continue;
+    }
+    rotated++;
+  }
+  // After all collections are rotated, drop the LocalKey record
+  // entirely. Lockstore's in-use guard rejects this if any
+  // collection slipped through above; in that case the LocalKey
+  // record survives and we'll retry on the next launch.
+  nsresult dr = keystore_delete_kek(sHandle, &localKek);
+  if (NS_FAILED(dr)) {
+    MOZ_LOG(GetSQLiteEncryptionLog(), LogLevel::Warning,
+            ("migrate: delete_kek(local:sqlite) failed: 0x%" PRIx32
+             " (will retry on next launch)",
+             static_cast<uint32_t>(dr)));
+  } else {
+    MOZ_LOG(GetSQLiteEncryptionLog(), LogLevel::Info,
+            ("Migrated %u collections; local:sqlite deleted", rotated));
+  }
+  return NS_OK;
+}
 
 // Resolve the profile directory and cache it. MAIN-THREAD ONLY:
 // NS_GetSpecialDirectory -> nsDirectoryService::Get asserts NS_IsMainThread()
@@ -225,6 +390,23 @@ NS_IMETHODIMP ProfileObserver::Observe(nsISupports*, const char* aTopic,
     // blocked main thread.
     EnsureProfilePathCached();
     EnsureNSSInitializedForEncryptionIfReady();
+    // Also pull the Felt-supplied primarySecret into our cache here,
+    // but only in the spawned-Browser-Firefox case. The Felt UI
+    // process itself never receives primarySecret over IPC (it's the
+    // entity that fetches it), so polling there would burn the full
+    // 5s timeout for nothing -- and GetEncryptionKey routes the UI
+    // process to the LocalKey path regardless.
+    if (StaticPrefs::security_storage_encryption_sqlite_enabled()) {
+      nsCOMPtr<nsIFelt> felt =
+          do_GetService("@mozilla.org/toolkit/library/felt;1");
+      bool isFeltSpawnedBrowser = false;
+      if (felt) {
+        (void)felt->IsFeltBrowser(&isFeltSpawnedBrowser);
+      }
+      if (isFeltSpawnedBrowser) {
+        (void)EnsurePrimarySecretCached();
+      }
+    }
   } else if (!strcmp(aTopic, "profile-after-change")) {
     EnsureProfilePathCached();
     MarkProfileEncryptedIfNeeded();
@@ -433,26 +615,119 @@ nsresult GetEncryptionKey(const nsACString& aDatabasePath, OpenIntent aIntent,
       MOZ_LOG(GetSQLiteEncryptionLog(), LogLevel::Info, ("Lockstore opened"));
     }
 
-    // Every SQLite DEK is wrapped under one well-known, deterministic
-    // LocalKey. create_kek with a fixed identifier is get-or-create: it
-    // mints lockstore::kek::local:sqlite on first run and recovers it on
-    // every later run, so we needn't persist the ref ourselves.
+    // Branch on which Felt-tier process this is. The Felt UI process
+    // (parent of the spawned browsing Firefox) is the entity that
+    // fetches primarySecret from the console; it cannot itself depend
+    // on primarySecret to bootstrap its own profile encryption.
+    // Per the design doc, Felt's own profile stays on a LocalKey
+    // (`lockstore::kek::local:sqlite`); the residual exposure was
+    // audited and accepted there. Only the spawned browsing Firefox
+    // (where `Services.felt.isFeltBrowser()` is true) gets the
+    // Password KEK keyed by primarySecret.
+    bool isFeltSpawnedBrowser = false;
+    {
+      nsCOMPtr<nsIFelt> felt =
+          do_GetService("@mozilla.org/toolkit/library/felt;1");
+      if (felt) {
+        (void)felt->IsFeltBrowser(&isFeltSpawnedBrowser);
+      }
+    }
+
     if (sKekRef.IsEmpty()) {
-      const nsCString kekType("local"_ns);
-      const nsCString kekId("sqlite"_ns);
-      const nsCString empty;
-      rv = keystore_create_kek(sHandle, &kekType, &kekId, &empty,
-                               /* cache_timeout_ms */ 0, &sKekRef);
-      if (NS_FAILED(rv)) {
-        sKekRef.Truncate();
-        MOZ_LOG(GetSQLiteEncryptionLog(), LogLevel::Error,
-                ("keystore_create_kek failed: 0x%" PRIx32,
-                 static_cast<uint32_t>(rv)));
-        return rv;
+      if (isFeltSpawnedBrowser) {
+        // Spawned browsing Firefox -- Password KEK keyed by
+        // primarySecret. Unlock-or-create.
+        if (sPrimarySecret.IsEmpty()) {
+          MOZ_LOG(GetSQLiteEncryptionLog(), LogLevel::Error,
+                  ("primarySecret not cached; cannot bootstrap Password KEK"));
+          return NS_ERROR_NOT_AVAILABLE;
+        }
+        // Step 1: try unlock against the steady-state kek_ref.
+        const nsCString passwordKek(KEK_REF_PASSWORD_SQLITE ""_ns);
+        nsresult urv = keystore_unlock_kek(
+            sHandle, &passwordKek, &sPrimarySecret, kKekCacheTimeoutMs);
+        if (NS_SUCCEEDED(urv)) {
+          sKekRef = passwordKek;
+          MOZ_LOG(GetSQLiteEncryptionLog(), LogLevel::Info,
+                  ("Password KEK unlocked (steady state)"));
+        } else if (urv == NS_ERROR_NOT_AVAILABLE ||
+                   urv == NS_ERROR_INVALID_ARG) {
+          // Lockstore returns InvalidKekRef ("no Password record for
+          // kek_ref: ...") -> NS_ERROR_INVALID_ARG when the row is
+          // absent (first-ever launch), and NotFound ->
+          // NS_ERROR_NOT_AVAILABLE for other recoverable absences.
+          // Both mean "no KEK yet -- mint it".
+          // Not-yet-created path: mint it. create_kek with the same
+          // identifier is idempotent (keystore.rs:1182-1185) and caches
+          // the unwrapped bytes for kKekCacheTimeoutMs.
+          const nsCString kekType("password"_ns);
+          const nsCString kekId("sqlite"_ns);
+          nsCString minted;
+          nsresult crv =
+              keystore_create_kek(sHandle, &kekType, &kekId, &sPrimarySecret,
+                                  kKekCacheTimeoutMs, &minted);
+          if (NS_FAILED(crv)) {
+            MOZ_LOG(GetSQLiteEncryptionLog(), LogLevel::Error,
+                    ("keystore_create_kek(password:sqlite) failed: 0x%" PRIx32,
+                     static_cast<uint32_t>(crv)));
+            return crv;
+          }
+          sKekRef = minted;
+          MOZ_LOG(GetSQLiteEncryptionLog(), LogLevel::Info,
+                  ("Password KEK created: %s", sKekRef.get()));
+          // First-ever-create: rotate any pre-existing local:sqlite
+          // wrappings to the new Password KEK and drop the LocalKey
+          // record. Soft-fails per-collection; truly fresh profiles
+          // have no local:sqlite and this is a no-op.
+          (void)MigrateLocalToPasswordKek();
+        } else {
+          // Wrong-password / I/O / other - propagate. AEAD tag failure
+          // from a rotated primarySecret would surface here as
+          // NS_ERROR_ABORT (LockstoreError::WrongPassword).
+          MOZ_LOG(
+              GetSQLiteEncryptionLog(), LogLevel::Error,
+              ("keystore_unlock_kek(password:sqlite) failed: 0x%" PRIx32,
+               static_cast<uint32_t>(urv)));
+          return urv;
+        }
+      } else {
+        // Felt UI process (or non-Felt dev build): no primarySecret
+        // available. Use a LocalKey. create_kek with a fixed identifier
+        // is get-or-create: mints `lockstore::kek::local:sqlite` on
+        // first run and recovers it on every later run.
+        const nsCString kekType("local"_ns);
+        const nsCString kekId("sqlite"_ns);
+        const nsCString empty;
+        nsresult crv = keystore_create_kek(sHandle, &kekType, &kekId, &empty,
+                                           /* cache_timeout_ms */ 0, &sKekRef);
+        if (NS_FAILED(crv)) {
+          sKekRef.Truncate();
+          MOZ_LOG(GetSQLiteEncryptionLog(), LogLevel::Error,
+                  ("keystore_create_kek(local:sqlite) failed: 0x%" PRIx32,
+                   static_cast<uint32_t>(crv)));
+          return crv;
+        }
+        MOZ_LOG(GetSQLiteEncryptionLog(), LogLevel::Info,
+                ("LocalKey KEK in use (Felt UI / non-Felt build): %s",
+                 sKekRef.get()));
       }
     }
 
     rv = keystore_get_dek(sHandle, &collection, &sKekRef, &dek);
+    if (rv == NS_ERROR_NOT_AVAILABLE && !sPrimarySecret.IsEmpty()) {
+      // The Password KEK's in-memory cache may have expired (TTL ~49d).
+      // Re-unlock transparently and retry once. If the DEK still
+      // returns NS_ERROR_NOT_AVAILABLE after this, the issue is
+      // missing DEK (CreateIfNew path handles it below), not an
+      // expired KEK.
+      MOZ_LOG(GetSQLiteEncryptionLog(), LogLevel::Debug,
+              ("get_dek returned NS_ERROR_NOT_AVAILABLE; re-unlocking KEK"));
+      nsresult urv = keystore_unlock_kek(sHandle, &sKekRef, &sPrimarySecret,
+                                         kKekCacheTimeoutMs);
+      if (NS_SUCCEEDED(urv)) {
+        rv = keystore_get_dek(sHandle, &collection, &sKekRef, &dek);
+      }
+    }
     if (rv == NS_ERROR_NOT_AVAILABLE && aIntent == OpenIntent::CreateIfNew) {
       if (sMarkerWriteFailed) {
         // The EncryptedDatabases marker could not be written, so the launch
@@ -509,6 +784,26 @@ nsresult GetEncryptionKey(const nsACString& aDatabasePath, OpenIntent aIntent,
   return NS_OK;
 }
 
+// Delivery point for the console-supplied primarySecret, called from the Felt
+// IPC client (FeltClientThread) in the spawned browsing Firefox when the
+// PrimarySecret message arrives. Stores it for the Password KEK and wakes the
+// EnsurePrimarySecretCached waiter. C linkage so the Felt Rust crate can call
+// it directly; thread-safe (any thread) via sStateMutex. The secret is held
+// only here, never on the Felt side.
+extern "C" void mozStorageSetSqlitePrimarySecret(const nsACString* aHex) {
+  StaticMutexAutoLock lock(sStateMutex);
+  if (sShuttingDown) {
+    return;
+  }
+  if (!aHex || aHex->IsEmpty()) {
+    return;
+  }
+  sPrimarySecret = *aHex;
+  MOZ_LOG(GetSQLiteEncryptionLog(), LogLevel::Info,
+          ("primarySecret delivered by Felt (len=%zu)",
+           static_cast<size_t>(aHex->Length())));
+}
+
 void ShutdownEncryptionKeystore() {
   // Unregister observer outside the mutex; ObserverService is main-thread
   // only and we need to avoid lock-order surprises.
@@ -536,6 +831,7 @@ void ShutdownEncryptionKeystore() {
   }
   sKekRef.Truncate();
   sCachedProfilePath.Truncate();
+  sPrimarySecret.Truncate();
 }
 
 }  // namespace mozilla::storage

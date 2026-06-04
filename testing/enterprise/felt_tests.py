@@ -8,6 +8,7 @@ import ctypes
 import datetime
 import json
 import os
+import secrets
 import shutil
 import socket
 import sys
@@ -82,6 +83,13 @@ class ConsoleSSOPortMixin:
 
 class ConsoleSSOHTTPServer(ConsoleSSOPortMixin, HTTPServer):
     pass
+
+
+# A fresh random primarySecret per test-run process, served at /api/browser/key.
+# Stable across the in-run browser restarts that reuse a profile (so the Password
+# KEK keeps unlocking the per-DB DEKs), but random across runs to avoid any
+# stale-cache reuse.
+TEST_PRIMARY_SECRET = secrets.token_hex(32)
 
 
 class LocalHttpRequestHandler(BaseHTTPRequestHandler):
@@ -252,6 +260,20 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 },
                 "extra_prefs": [["marionette.port", 0]],
             })
+
+        elif path == "/api/browser/key":
+            if not self.check_auth():
+                return
+            if self.server.key_fail_request.value:
+                self.reply("", 500, "Internal Server Error", "application/json")
+                return
+            # The primarySecret for SQLite at-rest encryption. The Felt UI
+            # process fetches it (ConsoleClient.getPrimarySecret ->
+            # /api/browser/key) before spawning Firefox and forwards it as the
+            # Password KEK password; without it the spawned browser cannot open
+            # its encrypted profile databases.
+            m = json.dumps({"data": TEST_PRIMARY_SECRET})
+            contentType = "application/json"
 
         elif path == "/api/browser/whoami":
             if not self.check_auth():
@@ -561,6 +583,7 @@ def serve(
     policy_refresh_token=None,
     policy_access_connector=None,
     policies_fail_request=None,
+    key_fail_request=None,
     signout_count=None,
     # TODO: Behavior is not yet clearly defined
     # device_posture_reply_forbidden=None,
@@ -591,6 +614,9 @@ def serve(
         httpd.policy_refresh_token = policy_refresh_token
     httpd.policies_fail_request = (
         policies_fail_request if policies_fail_request is not None else Value("B", 0)
+    )
+    httpd.key_fail_request = (
+        key_fail_request if key_fail_request is not None else Value("B", 0)
     )
     httpd.signout_count = signout_count if signout_count is not None else Value("i", 0)
     httpd.serve_updates = False
@@ -701,6 +727,7 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
         self.policy_access_connector = Value("b", 0)
         self.policy_extensions = Value("B", 0)
         self.policies_fail_request = Value("B", 0)
+        self.key_fail_request = Value("B", 0)
         """
         TODO: Behavior is not yet clearly defined
         self.device_posture_reply_forbidden = Value("B", 0)
@@ -724,6 +751,7 @@ class FeltTestsBase(ConsoleSSOPortMixin, EnterpriseTestsBase):
                 policy_access_connector=self.policy_access_connector,
                 policy_refresh_token=self.policy_refresh_token,
                 policies_fail_request=self.policies_fail_request,
+                key_fail_request=self.key_fail_request,
                 signout_count=self.signout_count,
                 # TODO: Behavior is not yet clearly defined
                 # device_posture_reply_forbidden=self.device_posture_reply_forbidden,

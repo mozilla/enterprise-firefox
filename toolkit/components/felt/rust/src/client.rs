@@ -391,6 +391,13 @@ impl FeltClientThread {
                                         trace!("FeltClientThread::felt_client::ipc_loop(): ERROR setting access token");
                                     }
                                 }
+                                Ok(FeltMessage::PrimarySecret(hex)) => {
+                                    // Hand the console-supplied primarySecret straight to
+                                    // storage/SQLiteEncryption.cpp; Felt keeps no copy.
+                                    // Do NOT trace the value.
+                                    utils::moz_storage_set_sqlite_primary_secret(hex);
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): PrimarySecret delivered to storage");
+                                }
                                 Ok(FeltMessage::Shutdown) => {
                                     trace!("FeltClientThread::felt_client::ipc_loop(): Shutdown");
                                     utils::notify_observers("felt-firefox-shutdown".to_string());
