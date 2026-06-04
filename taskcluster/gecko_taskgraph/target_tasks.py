@@ -514,12 +514,15 @@ def target_tasks_enterprise_firefox_with_tests(
             return False
 
         # Only keep builds that have been explicitely flagged
-        if task.kind == "build" and not "enterprise-firefox" in task.attributes.get(
+        if task.kind == "build" and not parameters["project"] in task.attributes.get(
             "run_on_projects"
         ):
             return False
 
-        if task.attributes.get("shipping_product") not in (None, "firefox-enterprise"):
+        if task.attributes.get("shipping_product") not in (
+            None,
+            parameters["release_product"],
+        ):
             return False
 
         build_platform = task.attributes.get("build_platform")
