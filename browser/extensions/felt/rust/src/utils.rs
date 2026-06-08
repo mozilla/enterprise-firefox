@@ -5,12 +5,12 @@
 use nserror::NS_OK;
 use nsstring::nsCString;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, LazyLock, OnceLock, RwLock};
+use std::sync::{Arc, LazyLock, Mutex, OnceLock, RwLock};
 use std::{ffi::CString, future::Future};
 use xpcom::interfaces::{nsICookie, nsICookieManager, nsIObserverService, nsIPrefBranch};
 use xpcom::RefPtr;
 
-use log::trace;
+use log::{trace, warn};
 #[cfg(target_os = "linux")]
 use std::os::raw::c_char;
 
@@ -62,6 +62,29 @@ pub static TOKEN_EXPIRY_SKEW: i64 = 5 * 60;
 
 pub static TOKENS: LazyLock<Arc<RwLock<Tokens>>> =
     LazyLock::new(|| Arc::new(RwLock::new(Default::default())));
+pub static INITIAL_POLICIES: OnceLock<Mutex<Option<String>>> = OnceLock::new();
+
+pub fn get_startup_policies() -> Result<String, ()> {
+    let mutex = INITIAL_POLICIES
+        .get()
+        .ok_or(())
+        .inspect_err(|_| warn!("Startup policies not initialized"))?;
+    mutex
+        .lock()
+        .unwrap()
+        .take()
+        .ok_or(())
+        .inspect_err(|_| warn!("Startup policies already taken"))
+}
+
+pub fn set_startup_policies(policies: String) -> Result<(), ()> {
+    INITIAL_POLICIES
+        .set(Mutex::new(Some(policies)))
+        .map_err(|_| {
+            warn!("Startup policies already set");
+        })
+}
+
 pub static CONSOLE_URL: OnceLock<Arc<String>> = OnceLock::new();
 
 pub fn inject_one_cookie(cookie: nsICookieWrapper) {

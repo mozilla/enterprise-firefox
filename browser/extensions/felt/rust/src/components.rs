@@ -22,7 +22,7 @@ use log::{error, trace};
 use crate::message::{FeltMessage, FELT_IPC_VERSION};
 #[cfg(target_os = "linux")]
 use crate::utils;
-use crate::utils::{Tokens, CONSOLE_URL, TOKENS, TOKEN_EXPIRY_SKEW};
+use crate::utils::{get_startup_policies, Tokens, CONSOLE_URL, TOKENS, TOKEN_EXPIRY_SKEW};
 
 #[xpcom(implement(nsIFelt), atomic)]
 pub struct FeltXPCOM {
@@ -253,6 +253,24 @@ impl FeltXPCOM {
         } else {
             trace!("FeltXPCOM::SendExtensionReady: not in browser, ignoring");
             NS_OK
+        }
+    }
+
+    fn SendPolicies(&self, json_payload: *const nsACString) -> nserror::nsresult {
+        let payload = unsafe { (*json_payload).to_string() };
+        trace!("FeltXPCOM::SendPolicies");
+        self.send(FeltMessage::Policies(payload))
+    }
+
+    fn GetStartupPolicies(&self, retval: *mut nsACString) -> nserror::nsresult {
+        match get_startup_policies() {
+            Ok(policies) => {
+                unsafe {
+                    (*retval).assign(policies.as_str());
+                }
+                NS_OK
+            }
+            Err(()) => NS_ERROR_FAILURE,
         }
     }
 

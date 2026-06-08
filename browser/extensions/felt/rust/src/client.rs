@@ -395,6 +395,10 @@ impl FeltClientThread {
                                     trace!("FeltClientThread::felt_client::ipc_loop(): Shutdown");
                                     utils::notify_observers("felt-firefox-shutdown".to_string());
                                 },
+                                Ok(FeltMessage::Policies(json_payload)) => {
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): Policies({} bytes)", json_payload.len());
+                                    let _ = utils::set_startup_policies(json_payload);
+                                },
                                 Ok(FeltMessage::OpenURL((url, disposition, focus_hint))) => {
                                     trace!(
                                         "FeltClientThread::felt_client::ipc_loop(): OpenURL({}, {}, {:?})",

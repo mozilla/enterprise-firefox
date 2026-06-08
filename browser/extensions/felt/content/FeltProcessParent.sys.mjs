@@ -437,6 +437,16 @@ export class FeltProcessParent extends JSProcessActorParent {
     }
   }
 
+  _handleFirefoxLaunchFailure() {
+    Services.felt.clearTokens();
+    Services.cookies.removeCookiesWithOriginAttributes(
+      JSON.stringify({
+        privateBrowsingId: lazy.FeltCommon.PRIVATE_BROWSING_ID,
+      })
+    );
+    Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLaunchFailure");
+  }
+
   async startFirefox(startReason, ssoCollectedCookies = []) {
     this.restartReported = false;
     this.logoutReported = false;
@@ -445,6 +455,17 @@ export class FeltProcessParent extends JSProcessActorParent {
     this.extensionReady = false;
     resetFeltFirefoxWindowReady();
     gFeltFirefoxReadyNotified = false;
+
+    let initialPoliciesPayload;
+    try {
+      initialPoliciesPayload = JSON.stringify(
+        await lazy.ConsoleClient.getRemotePolicies()
+      );
+    } catch (err) {
+      lazy.log.error(`Failed to fetch remote policies: ${err}`);
+      this._handleFirefoxLaunchFailure();
+      return;
+    }
 
     // There is no message being sent to the message listener on restart phases
     // whether it is a requested restart from the browser or from a crash.
@@ -474,6 +495,9 @@ export class FeltProcessParent extends JSProcessActorParent {
         await this._applyFirefoxConfigs();
 
         Services.felt.sendCookies(ssoCollectedCookies);
+
+        Services.felt.sendPolicies(initialPoliciesPayload);
+
         Services.felt.sendReady();
         this.firefoxReady = true;
 
@@ -511,7 +535,7 @@ export class FeltProcessParent extends JSProcessActorParent {
         lazy.log.error(
           `Firefox launch failure (${err.result} / ${err.name}): ${err.message}`
         );
-        Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLaunchFailure");
+        this._handleFirefoxLaunchFailure();
       });
   }
 

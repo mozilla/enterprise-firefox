@@ -99,6 +99,22 @@ const ErrorReport = {
   },
 };
 
+/**
+ * Hides the SSO pane, reveals the email login form, and displays an error if provided.
+ *
+ * @param {string} errorType - CSS class name identifying the error type to display.
+ * @param {string|null} details - Additional error details.
+ * @param {string|null} cause - The underlying cause of the error.
+ */
+function resetToLogin(errorType, details = null, cause = null) {
+  document.querySelector(".felt-login__sso").classList.add("is-hidden");
+  document
+    .querySelector(".felt-login__email-pane")
+    .classList.remove("is-hidden");
+  ErrorReport.update(errorType, details, cause);
+  document.getElementById("browser").setAttribute("src", "about:blank");
+}
+
 async function connectToConsole(email) {
   let posture;
   try {
@@ -199,11 +215,7 @@ async function connectToConsole(email) {
         browser.removeProgressListener(progressListener);
       } catch (_) {}
     }
-    document.querySelector(".felt-login__sso").classList.add("is-hidden");
-    document
-      .querySelector(".felt-login__email-pane")
-      .classList.remove("is-hidden");
-    ErrorReport.update(errorType, details, cause);
+    resetToLogin(errorType, details, cause);
   }
 
   let ssoTimeout = setTimeout(() => {
@@ -545,6 +557,7 @@ window.addEventListener(
   () => {
     setBuildVersion();
     ErrorReport.init();
+    window.resetToLoginPage = resetToLogin;
     lazy.Updates.init(document, ErrorReport);
     setupMarionetteEnvironment();
     setupPopupNotifications();

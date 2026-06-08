@@ -64,6 +64,7 @@ pub enum FeltMessage {
     Exiting,
     UpdateReady,
     Shutdown,
+    Policies(String),
 }
 
 #[derive(Debug, Serialize, Deserialize)]

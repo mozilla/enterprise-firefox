@@ -296,7 +296,7 @@ this.felt = class extends ExtensionAPI {
 
       case "FeltParent:FirefoxLaunchFailure": {
         Services.felt.makeBackgroundProcess(false);
-        this.showWindow("felt-browser-error-launch-failure");
+        this.resetToLoginPage("felt-browser-error-launch-failure");
         break;
       }
 
@@ -368,6 +368,14 @@ this.felt = class extends ExtensionAPI {
     this._win.close();
     this._win = null;
     this._winObserver = null;
+  }
+
+  resetToLoginPage(errorMessage = "") {
+    if (!this._win) {
+      this.showWindow(errorMessage);
+      return;
+    }
+    this._win.resetToLoginPage(errorMessage);
   }
 
   showWindow(errorMessage = "") {
