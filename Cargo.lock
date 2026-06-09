@@ -2295,6 +2295,7 @@ dependencies = [
  "cstr",
  "env_logger",
  "ipc-channel",
+ "libc",
  "log",
  "moz_task",
  "nserror",
@@ -2303,6 +2304,7 @@ dependencies = [
  "serde_json",
  "thin-vec",
  "time",
+ "winapi",
  "xpcom",
 ]
 

@@ -19,6 +19,13 @@ extern crate thin_vec;
 mod client;
 mod components;
 mod message;
+mod edr_checker;
+#[cfg(target_os = "linux")]
+mod edr_checker_linux;
+#[cfg(target_os = "macos")]
+mod edr_checker_macos;
+#[cfg(target_os = "windows")]
+mod edr_checker_win;
 mod utils;
 
 pub use utils::{CONSOLE_URL, TOKENS};

@@ -1,0 +1,23 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+/**
+ * Checks whether a well-known application is currently running on
+ * the system.  Only application identifiers present in an internal
+ * allowlist are accepted; unknown identifiers return false.
+ */
+[scriptable, uuid(a3d4c6f1-8b2e-4d9a-b5f7-1e3c6a9d0f42)]
+interface nsIEdrChecker : nsISupports {
+  /**
+   * @param appId  A well-known application identifier (e.g. "vscode").
+   * @returns true if the application is detected as running.
+   */
+  boolean isAppRunning(in ACString appId);
+};
+
+%{C++
+#define NS_EDR_CHECKER_CONTRACTID "@mozilla.org/enterprise/edr-checker;1"
+%}
