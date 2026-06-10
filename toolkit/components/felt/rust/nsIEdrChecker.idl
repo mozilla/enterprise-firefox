@@ -5,17 +5,17 @@
 #include "nsISupports.idl"
 
 /**
- * Checks whether a well-known application is currently running on
- * the system.  Only application identifiers present in an internal
- * allowlist are accepted; unknown identifiers return false.
+ * Detects which well-known Endpoint Detection and Response (EDR) agents are
+ * running on the system. The catalog of known agents is defined internally;
+ * callers do not enumerate or hardcode it.
  */
-[scriptable, uuid(a3d4c6f1-8b2e-4d9a-b5f7-1e3c6a9d0f42)]
+[scriptable, uuid(b7e4d2a0-3f15-4c8e-9a6b-2d1e5f7c0a93)]
 interface nsIEdrChecker : nsISupports {
   /**
-   * @param appId  A well-known application identifier (e.g. "vscode").
-   * @returns true if the application is detected as running.
+   * @returns the identifiers of the EDR agents detected as running
+   *          (e.g. "crowdstrike", "sentinelone").
    */
-  boolean isAppRunning(in ACString appId);
+  Array<ACString> getPresentEdrs();
 };
 
 %{C++

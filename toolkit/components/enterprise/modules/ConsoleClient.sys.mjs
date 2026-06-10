@@ -720,20 +720,15 @@ export const ConsoleClient = {
       ...(os_short_name != null && { os_short_name }),
     };
 
-    // Gather Endpoint Detection and Response (EDR) agents present on the client.
+    // Gather Endpoint Detection and Response (EDR) agents present on the
+    // client. The catalog of known agents lives in the EDR-checker
+    // component, not here.
     const getPresentEDRs = () => {
       try {
         const checker = Cc["@mozilla.org/enterprise/edr-checker;1"]
           .getService()
           .QueryInterface(Ci.nsIEdrChecker);
-        const allIds = [
-          "crowdstrike", "cortex-xdr", "sentinelone", "ms-defender",
-          "carbon-black", "trellix", "sophos", "cisco-secure-endpoint",
-          "eset", "cylance",
-        ];
-        return allIds
-          .filter(id => checker.isAppRunning(id))
-          .map(name => ({ name }));
+        return Array.from(checker.getPresentEdrs(), name => ({ name }));
       } catch {
         return [];
       }

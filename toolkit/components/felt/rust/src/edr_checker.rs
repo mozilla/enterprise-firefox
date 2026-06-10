@@ -4,7 +4,8 @@
 
 use log::trace;
 use nserror::{nsresult, NS_OK};
-use nsstring::nsACString;
+use nsstring::nsCString;
+use thin_vec::ThinVec;
 use xpcom::RefPtr;
 
 // ---------------------------------------------------------------------------
@@ -27,6 +28,22 @@ pub enum EdrId {
 }
 
 impl EdrId {
+    // The complete catalog of known EDR agents. This is the single source of
+    // truth; callers (including the device posture payload) enumerate via the
+    // getPresentEdrs() XPCOM method rather than hardcoding identifiers.
+    pub const ALL: &'static [EdrId] = &[
+        EdrId::CrowdStrike,
+        EdrId::CortexXdr,
+        EdrId::SentinelOne,
+        EdrId::MsDefender,
+        EdrId::CarbonBlack,
+        EdrId::Trellix,
+        EdrId::Sophos,
+        EdrId::CiscoSecureEndpoint,
+        EdrId::Eset,
+        EdrId::Cylance,
+    ];
+
     pub fn as_str(self) -> &'static str {
         match self {
             EdrId::CrowdStrike => "crowdstrike",
@@ -39,22 +56,6 @@ impl EdrId {
             EdrId::CiscoSecureEndpoint => "cisco-secure-endpoint",
             EdrId::Eset => "eset",
             EdrId::Cylance => "cylance",
-        }
-    }
-
-    pub fn from_str(s: &str) -> Option<EdrId> {
-        match s {
-            "crowdstrike" => Some(EdrId::CrowdStrike),
-            "cortex-xdr" => Some(EdrId::CortexXdr),
-            "sentinelone" => Some(EdrId::SentinelOne),
-            "ms-defender" => Some(EdrId::MsDefender),
-            "carbon-black" => Some(EdrId::CarbonBlack),
-            "trellix" => Some(EdrId::Trellix),
-            "sophos" => Some(EdrId::Sophos),
-            "cisco-secure-endpoint" => Some(EdrId::CiscoSecureEndpoint),
-            "eset" => Some(EdrId::Eset),
-            "cylance" => Some(EdrId::Cylance),
-            _ => None,
         }
     }
 }
@@ -266,24 +267,13 @@ impl EdrCheckerXPCOM {
         EdrCheckerXPCOM::allocate(InitEdrCheckerXPCOM {})
     }
 
-    fn IsAppRunning(&self, app_id: *const nsACString, result: *mut bool) -> nsresult {
-        let app_id_str = unsafe { &*app_id }.to_string();
-
-        unsafe {
-            *result = false;
-        }
-
-        match EdrId::from_str(&app_id_str) {
-            Some(id) => {
-                unsafe {
-                    *result = is_edr_running(id);
-                }
-            }
-            None => {
-                trace!("EdrChecker: unknown app id: {}", app_id_str);
+    fn GetPresentEdrs(&self, result: *mut ThinVec<nsCString>) -> nsresult {
+        let out = unsafe { &mut *result };
+        for &id in EdrId::ALL {
+            if is_edr_running(id) {
+                out.push(nsCString::from(id.as_str()));
             }
         }
-
         NS_OK
     }
 }
@@ -302,20 +292,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn from_str_roundtrips_as_str() {
-        let ids = [
-            EdrId::CrowdStrike, EdrId::CortexXdr, EdrId::SentinelOne,
-            EdrId::MsDefender, EdrId::CarbonBlack, EdrId::Trellix,
-            EdrId::Sophos, EdrId::CiscoSecureEndpoint, EdrId::Eset,
-            EdrId::Cylance,
-        ];
-        for id in ids {
-            assert_eq!(EdrId::from_str(id.as_str()), Some(id));
+    fn as_str_values_are_unique() {
+        let mut seen = std::collections::HashSet::new();
+        for &id in EdrId::ALL {
+            assert!(seen.insert(id.as_str()), "duplicate id string: {}", id.as_str());
         }
-    }
-
-    #[test]
-    fn from_str_unknown_returns_none() {
-        assert_eq!(EdrId::from_str("unknown"), None);
+        assert_eq!(seen.len(), EdrId::ALL.len());
     }
 }
