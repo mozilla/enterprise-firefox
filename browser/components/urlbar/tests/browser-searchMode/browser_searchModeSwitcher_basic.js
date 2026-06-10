@@ -12,7 +12,7 @@ async function unloadSearchExtension(extension) {
 add_setup(async function setup() {
   requestLongerTimeout(5);
   await SpecialPowers.pushPrefEnv({
-    set: [["browser.urlbar.scotchBonnet.enableOverride", true]],
+    set: [["browser.search.suggest.enabled", false]],
   });
   registerCleanupFunction(() => {
     Services.prefs.clearUserPref(
@@ -1000,5 +1000,56 @@ add_task(async function change_engines_with_accel_updown() {
     return win.gURLBar.searchMode?.engineName == firstEngine;
   }, "We navigated back to first engine");
   await UrlbarTestUtils.exitSearchMode(win);
+  await BrowserTestUtils.closeWindow(win);
+});
+
+add_task(async function search_engines_with_accel_updown() {
+  info("Search engines with Accel+Up/Down");
+
+  await SearchTestUtils.installSearchExtension({
+    name: "MozSearch",
+    search_url: "https://example.com/",
+    favicon_url: "https://example.com/favicon.ico",
+  });
+
+  let win = await BrowserTestUtils.openNewBrowserWindow();
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window: win,
+    value: "",
+  });
+
+  EventUtils.sendString("test", win);
+
+  let searchModeEngineName = win.gURLBar.searchMode?.engineName;
+  while (searchModeEngineName != "MozSearch") {
+    let searchmodeChanged = TestUtils.topicObserved("urlbar-searchmodechanged");
+    EventUtils.synthesizeKey("KEY_ArrowDown", { accelKey: true }, win);
+    await searchmodeChanged;
+    await BrowserTestUtils.waitForCondition(async () => {
+      let complete = win.gURLBar.searchMode?.engineName != searchModeEngineName;
+      if (complete) {
+        searchModeEngineName = win.gURLBar.searchMode?.engineName;
+        return true;
+      }
+      return false;
+    });
+  }
+
+  Assert.equal(
+    win.gURLBar.searchMode?.engineName,
+    "MozSearch",
+    "Selected extension engine"
+  );
+
+  let loaded = BrowserTestUtils.browserLoaded(
+    win.gBrowser.selectedBrowser,
+    false,
+    "https://example.com/?q=test"
+  );
+  EventUtils.synthesizeKey("KEY_Enter", {}, win);
+  await loaded;
+
+  Assert.ok(true, "We navigated to the correct SERP");
+
   await BrowserTestUtils.closeWindow(win);
 });

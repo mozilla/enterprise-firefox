@@ -61,3 +61,57 @@ aiwindow-jump-to-bottom =
 smartwindow-nl-thinking = Looking for matching tabs…
 smartwindow-nl-undo-button =
     .label = Undo
+
+## Variables
+##   $count (number) - Number of tabs closed/restored
+
+smart-window-closed-tabs-label =
+    { $count ->
+        [one] Closed { $count } tab
+       *[other] Closed { $count } tabs
+    }
+smart-window-closed-tabs-summary =
+    { $count ->
+        [one] Done! Tab closed.
+       *[other] Done! Tabs closed.
+    }
+smart-window-closed-tabs-row-label = Closed tabs
+smart-window-closed-and-restored-label = Closed and restored tabs
+smart-window-restored-row-label =
+    { $count ->
+        [one] Restored { $count } tab
+       *[other] Restored { $count } tabs
+    }
+smart-window-restore-success-summary =
+    { $count ->
+        [one] Tab closed, then restored.
+       *[other] Tabs closed, then restored.
+    }
+smart-window-cancelled-label = Request cancelled.
+
+## Action log
+
+action-log-searching-tabs = Searching tabs
+action-log-searched-open-tabs = Searched open tabs
+action-log-searching-history = Searching history
+action-log-searched-history = Searched history
+action-log-reading-page = Reading page
+action-log-read-page = Read page content
+action-log-searching-web = Searching the web
+action-log-searched-web = Searched the web
+action-log-checking-memories = Checking memories
+action-log-checked-memories = Checked memories
+action-log-searching-settings = Searching settings
+action-log-searched-settings = Searched settings
+action-log-searching-world-cup-matches = Searching World Cup matches
+action-log-searched-world-cup-matches = Searched World Cup matches
+action-log-checking-world-cup-live = Checking live World Cup matches
+action-log-checked-world-cup-live = Checked live World Cup matches
+
+# Variables
+#   $count (Number) - how many tool steps completed in the turn
+action-log-completed-steps =
+    { $count ->
+        [one] Completed 1 step
+       *[other] Completed { $count } steps
+    }

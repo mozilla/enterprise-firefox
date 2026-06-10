@@ -29,6 +29,8 @@ support-files = [
 
 ["browser_actor_user_prompt.js"]
 
+["browser_aichat_content_action_log_order.js"]
+
 ["browser_aichat_content_actors.js"]
 
 ["browser_aichat_content_background_token.js"]
@@ -131,6 +133,8 @@ skip-if = [
 
 ["browser_open_aiwindow.js"]
 
+["browser_run_search_back_navigation.js"]
+
 ["browser_sidebar_aiwindow.js"]
 
 ["browser_smartwindow_assistant_ui_errors.js"]
@@ -151,8 +155,6 @@ skip-if = [
 
 ["browser_smartwindow_default_startup.js"]
 
-["browser_smartwindow_nimbus.js"]
-
 ["browser_smartwindow_disclaimer.js"]
 
 ["browser_smartwindow_footer.js"]
@@ -169,6 +171,8 @@ skip-if = [
 ]
 
 ["browser_smartwindow_metrics_telemetry.js"]
+
+["browser_smartwindow_nimbus.js"]
 
 ["browser_smartwindow_panel_list.js"]
 

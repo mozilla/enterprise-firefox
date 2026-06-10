@@ -2768,6 +2768,7 @@ ${
         }
       }
     }
+    Services.obs.notifyObservers(null, "urlbar-searchmodechanged");
   }
 
   /**
@@ -2905,8 +2906,6 @@ ${
 
   set searchMode(searchMode) {
     this.setSearchMode(searchMode, this.window.gBrowser.selectedBrowser);
-    this.searchModeSwitcher?.onSearchModeChanged();
-    lazy.UrlbarSearchTermsPersistence.onSearchModeChanged(this.window);
   }
 
   getBrowserState(browser) {
@@ -4881,7 +4880,7 @@ ${
       this.setPageProxyState("invalid", true);
     }
 
-    this.searchModeSwitcher?.onSearchModeChanged();
+    Services.obs.notifyObservers(null, "urlbar-searchmodechanged");
   }
 
   /**
