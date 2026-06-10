@@ -25,6 +25,8 @@ pub enum EdrId {
     CiscoSecureEndpoint,  // Cisco Secure Endpoint (formerly AMP)
     Eset,                 // ESET Endpoint Security
     Cylance,              // BlackBerry Cylance
+    Symantec,             // Symantec Endpoint Security / Protection
+    TrendMicro,           // Trend Micro Apex One
 }
 
 impl EdrId {
@@ -42,6 +44,8 @@ impl EdrId {
         EdrId::CiscoSecureEndpoint,
         EdrId::Eset,
         EdrId::Cylance,
+        EdrId::Symantec,
+        EdrId::TrendMicro,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -56,6 +60,8 @@ impl EdrId {
             EdrId::CiscoSecureEndpoint => "cisco-secure-endpoint",
             EdrId::Eset => "eset",
             EdrId::Cylance => "cylance",
+            EdrId::Symantec => "symantec",
+            EdrId::TrendMicro => "trend-micro",
         }
     }
 }
@@ -84,7 +90,7 @@ pub enum DetectMethod {
     WindowsService {
         service_name: &'static str,
     },
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     ProcessName {
         exe_name: &'static str,
     },
@@ -145,6 +151,13 @@ fn detection_methods(id: EdrId) -> &'static [DetectMethod] {
                 path_prefixes: &["/Library/Application Support/Cylance/Desktop/"],
             },
         ],
+        EdrId::Symantec => &[
+            DetectMethod::ProcessName { exe_name: "SymDaemon" },
+        ],
+        EdrId::TrendMicro => &[
+            DetectMethod::SystemExtension { identifier: "com.trendmicro.icore.es" },
+            DetectMethod::ProcessName { exe_name: "iCoreService" },
+        ],
     }
 }
 
@@ -187,6 +200,10 @@ fn detection_methods(id: EdrId) -> &'static [DetectMethod] {
         EdrId::Cylance => &[
             DetectMethod::Service { name: "cylancesvc" },
         ],
+        // Not supported on Linux.
+        EdrId::Symantec => &[],
+        // Not supported on Linux.
+        EdrId::TrendMicro => &[],
     }
 }
 
@@ -228,6 +245,15 @@ fn detection_methods(id: EdrId) -> &'static [DetectMethod] {
         ],
         EdrId::Cylance => &[
             DetectMethod::WindowsService { service_name: "CylanceSvc" },
+        ],
+        EdrId::Symantec => &[
+            DetectMethod::WindowsService { service_name: "SepMasterService" },
+            DetectMethod::WindowsService { service_name: "sepWscSvc" },
+        ],
+        EdrId::TrendMicro => &[
+            DetectMethod::WindowsService { service_name: "TMBMSRV" },
+            DetectMethod::WindowsService { service_name: "TmPfw" },
+            DetectMethod::WindowsService { service_name: "ntrtscan" },
         ],
     }
 }

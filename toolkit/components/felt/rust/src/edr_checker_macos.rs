@@ -10,11 +10,14 @@ use crate::edr_checker::DetectMethod;
 pub fn detect(app_id: &str, method: &DetectMethod) -> bool {
     match method {
         DetectMethod::ProcessPath { path_prefixes } => check_process_path(app_id, path_prefixes),
+        DetectMethod::ProcessName { exe_name } => check_process_name(app_id, exe_name),
         DetectMethod::SystemExtension { identifier } => check_system_extension(app_id, identifier),
     }
 }
 
-fn check_process_path(app_id: &str, path_prefixes: &[&str]) -> bool {
+// Iterates over the executable path of every running process, calling `f`
+// with each (pid, path). Returns true as soon as `f` returns true.
+fn for_each_process_path<F: FnMut(libc::c_int, &str) -> bool>(mut f: F) -> bool {
     extern "C" {
         fn proc_listallpids(buffer: *mut libc::pid_t, buffersize: libc::c_int) -> libc::c_int;
         fn proc_pidpath(
@@ -61,14 +64,34 @@ fn check_process_path(app_id: &str, path_prefixes: &[&str]) -> bool {
         }
 
         if let Ok(path_str) = std::str::from_utf8(&path_buf[..len as usize]) {
-            if path_prefixes.iter().any(|pfx| path_str.starts_with(pfx)) {
-                trace!("EdrChecker: found {} (pid {}, path {})", app_id, pid, path_str);
+            if f(pid, path_str) {
                 return true;
             }
         }
     }
 
     false
+}
+
+fn check_process_path(app_id: &str, path_prefixes: &[&str]) -> bool {
+    for_each_process_path(|pid, path_str| {
+        if path_prefixes.iter().any(|pfx| path_str.starts_with(pfx)) {
+            trace!("EdrChecker: found {} (pid {}, path {})", app_id, pid, path_str);
+            return true;
+        }
+        false
+    })
+}
+
+fn check_process_name(app_id: &str, exe_name: &str) -> bool {
+    for_each_process_path(|pid, path_str| {
+        let base = path_str.rsplit('/').next().unwrap_or(path_str);
+        if base.eq_ignore_ascii_case(exe_name) {
+            trace!("EdrChecker: found {} (pid {}, process {})", app_id, pid, base);
+            return true;
+        }
+        false
+    })
 }
 
 fn check_system_extension(app_id: &str, identifier: &str) -> bool {
