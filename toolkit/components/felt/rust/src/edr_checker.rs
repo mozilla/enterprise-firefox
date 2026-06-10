@@ -94,6 +94,12 @@ pub enum DetectMethod {
 // Per-platform detection methods — exhaustive match on EdrId ensures every
 // EDR is covered. Adding a new EdrId variant without handling it here is a
 // compile error.
+//
+// The identifiers below (service names, process names, paths, system
+// extension IDs) are taken from the EDAMAME threatmodels
+// (https://github.com/edamametechnologies/threatmodels), corroborated with
+// vendor documentation. An empty method list means the agent is not
+// detectable on that platform from those references.
 // ---------------------------------------------------------------------------
 
 #[cfg(target_os = "macos")]
@@ -120,21 +126,15 @@ fn detection_methods(id: EdrId) -> &'static [DetectMethod] {
                 path_prefixes: &["/Applications/VMware Carbon Black Cloud/"],
             },
         ],
-        EdrId::Trellix => &[
-            DetectMethod::ProcessPath {
-                path_prefixes: &["/Library/McAfee/"],
-            },
-        ],
+        // Not supported on macOS.
+        EdrId::Trellix => &[],
         EdrId::Sophos => &[
             DetectMethod::ProcessPath {
                 path_prefixes: &["/Library/Sophos Anti-Virus/"],
             },
         ],
-        EdrId::CiscoSecureEndpoint => &[
-            DetectMethod::ProcessPath {
-                path_prefixes: &["/opt/cisco/amp/"],
-            },
-        ],
+        // Not supported on macOS.
+        EdrId::CiscoSecureEndpoint => &[],
         EdrId::Eset => &[
             DetectMethod::ProcessPath {
                 path_prefixes: &["/Applications/ESET Endpoint Security.app/"],
@@ -172,9 +172,8 @@ fn detection_methods(id: EdrId) -> &'static [DetectMethod] {
         EdrId::CarbonBlack => &[
             DetectMethod::DirExists { path: "/opt/carbonblack/psc/bin" },
         ],
-        EdrId::Trellix => &[
-            DetectMethod::Service { name: "mfetpd" },
-        ],
+        // Not supported on Linux.
+        EdrId::Trellix => &[],
         EdrId::Sophos => &[
             DetectMethod::Service { name: "sophos-spl" },
             DetectMethod::DirExists { path: "/opt/sophos-spl" },
@@ -214,14 +213,16 @@ fn detection_methods(id: EdrId) -> &'static [DetectMethod] {
             DetectMethod::ProcessName { exe_name: "cb.exe" },
         ],
         EdrId::Trellix => &[
-            DetectMethod::WindowsService { service_name: "mfetpd" },
+            DetectMethod::WindowsService { service_name: "mfemms" },
+            DetectMethod::WindowsService { service_name: "mfevtps" },
+            DetectMethod::WindowsService { service_name: "mfefire" },
         ],
         EdrId::Sophos => &[
-            DetectMethod::WindowsService { service_name: "Sophos Endpoint Defense Service" },
+            DetectMethod::WindowsService { service_name: "SEDService" },
+            DetectMethod::WindowsService { service_name: "SSPService" },
         ],
-        EdrId::CiscoSecureEndpoint => &[
-            DetectMethod::WindowsService { service_name: "CiscoAMP" },
-        ],
+        // Not supported on Windows.
+        EdrId::CiscoSecureEndpoint => &[],
         EdrId::Eset => &[
             DetectMethod::WindowsService { service_name: "ekrn" },
         ],
