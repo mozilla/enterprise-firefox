@@ -2119,6 +2119,44 @@ add_task(
   }
 );
 
+add_task(async function test_syncStartup_gates_machine_id_check_on_pref() {
+  // _syncStartup only consults the machine-ID change check when the
+  // detectChange pref is enabled (and on enterprise builds). Verify the pref
+  // actually gates it, rather than testing _checkMachineIdChanged() directly.
+  const DETECT_PREF = "services.sync.client.machineId.detectChange";
+  // Stub the superclass startup so we don't perform a real sync startup.
+  const superStartup = sinon
+    .stub(SyncEngine.prototype, "_syncStartup")
+    .resolves();
+  const checkStub = sinon
+    .stub(engine, "_checkMachineIdChanged")
+    .resolves(false);
+  const addChangedID = sinon.stub(engine._tracker, "addChangedID").resolves();
+
+  try {
+    Services.prefs.setBoolPref(DETECT_PREF, false);
+    await engine._syncStartup();
+    ok(
+      checkStub.notCalled,
+      "Should not run the machine ID check while detectChange is disabled"
+    );
+
+    checkStub.resetHistory();
+    Services.prefs.setBoolPref(DETECT_PREF, true);
+    await engine._syncStartup();
+    ok(
+      checkStub.calledOnce,
+      "Should run the machine ID check when detectChange is enabled"
+    );
+  } finally {
+    Services.prefs.clearUserPref(DETECT_PREF);
+    addChangedID.restore();
+    checkStub.restore();
+    superStartup.restore();
+    await cleanup();
+  }
+});
+
 add_task(async function test_machine_id_first_run_stores_without_reset() {
   const machineIdStub = sinon
     .stub(MachineId, "getHashedId")
