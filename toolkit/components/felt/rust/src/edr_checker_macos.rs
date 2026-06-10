@@ -3,16 +3,85 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use log::trace;
+use std::cell::OnceCell;
 use std::process::Command;
 
-use crate::edr_checker::DetectMethod;
+use crate::edr_checker::{run_bounded, DetectMethod, PROBE_TIMEOUT};
 
-pub fn detect(app_id: &str, method: &DetectMethod) -> bool {
-    match method {
-        DetectMethod::ProcessPath { path_prefixes } => check_process_path(app_id, path_prefixes),
-        DetectMethod::ProcessName { exe_name } => check_process_name(app_id, exe_name),
-        DetectMethod::SystemExtension { identifier } => check_system_extension(app_id, identifier),
+/// A one-time capture of the system state used to evaluate every requested
+/// agent without re-enumerating processes (or re-running
+/// `systemextensionsctl`) per agent/method.
+pub struct Snapshot {
+    /// Executable paths of all running processes; enumerated lazily since some
+    /// agents are detected purely via system extensions.
+    process_paths: OnceCell<Vec<String>>,
+    /// Output of `systemextensionsctl list`, fetched at most once and only if
+    /// some requested agent is detected via a system extension.
+    system_extensions: OnceCell<Option<String>>,
+}
+
+impl Snapshot {
+    pub fn capture() -> Snapshot {
+        Snapshot {
+            process_paths: OnceCell::new(),
+            system_extensions: OnceCell::new(),
+        }
     }
+
+    pub fn matches(&self, app_id: &str, method: &DetectMethod) -> bool {
+        match method {
+            DetectMethod::ProcessPath { path_prefixes } => {
+                let found = self
+                    .process_paths()
+                    .iter()
+                    .any(|path| path_prefixes.iter().any(|pfx| path.starts_with(pfx)));
+                if found {
+                    trace!("EdrChecker: found {} via process path", app_id);
+                }
+                found
+            }
+            DetectMethod::ProcessName { exe_name } => {
+                let found = self.process_paths().iter().any(|path| {
+                    let base = path.rsplit('/').next().unwrap_or(path.as_str());
+                    base.eq_ignore_ascii_case(exe_name)
+                });
+                if found {
+                    trace!("EdrChecker: found {} via process name {}", app_id, exe_name);
+                }
+                found
+            }
+            DetectMethod::SystemExtension { identifier } => {
+                self.check_system_extension(app_id, identifier)
+            }
+        }
+    }
+
+    fn process_paths(&self) -> &Vec<String> {
+        self.process_paths.get_or_init(collect_process_paths)
+    }
+
+    fn check_system_extension(&self, app_id: &str, identifier: &str) -> bool {
+        let listing = self.system_extensions.get_or_init(fetch_system_extensions);
+        let Some(output) = listing else {
+            return false;
+        };
+        for line in output.lines() {
+            if line.contains(identifier) && line.to_lowercase().contains("activated enabled") {
+                trace!("EdrChecker: found {} via system extension", app_id);
+                return true;
+            }
+        }
+        false
+    }
+}
+
+fn collect_process_paths() -> Vec<String> {
+    let mut paths = Vec::new();
+    for_each_process_path(|_pid, path_str| {
+        paths.push(path_str.to_string());
+        false
+    });
+    paths
 }
 
 // Iterates over the executable path of every running process, calling `f`
@@ -73,48 +142,23 @@ fn for_each_process_path<F: FnMut(libc::c_int, &str) -> bool>(mut f: F) -> bool 
     false
 }
 
-fn check_process_path(app_id: &str, path_prefixes: &[&str]) -> bool {
-    for_each_process_path(|pid, path_str| {
-        if path_prefixes.iter().any(|pfx| path_str.starts_with(pfx)) {
-            trace!("EdrChecker: found {} (pid {}, path {})", app_id, pid, path_str);
-            return true;
-        }
-        false
-    })
-}
-
-fn check_process_name(app_id: &str, exe_name: &str) -> bool {
-    for_each_process_path(|pid, path_str| {
-        let base = path_str.rsplit('/').next().unwrap_or(path_str);
-        if base.eq_ignore_ascii_case(exe_name) {
-            trace!("EdrChecker: found {} (pid {}, process {})", app_id, pid, base);
-            return true;
-        }
-        false
-    })
-}
-
-fn check_system_extension(app_id: &str, identifier: &str) -> bool {
-    let output = match Command::new("systemextensionsctl")
-        .arg("list")
-        .stderr(std::process::Stdio::null())
-        .output()
-    {
-        Ok(o) => o,
-        Err(e) => {
-            trace!("EdrChecker: systemextensionsctl failed: {}", e);
-            return false;
-        }
-    };
-
-    if let Ok(stdout) = std::str::from_utf8(&output.stdout) {
-        for line in stdout.lines() {
-            if line.contains(identifier) && line.to_lowercase().contains("activated enabled") {
-                trace!("EdrChecker: found {} via system extension", app_id);
-                return true;
+/// Fetches the system-extension listing. There is no dependency-free native
+/// API for this, so it shells out once; the result is cached in the Snapshot.
+fn fetch_system_extensions() -> Option<String> {
+    run_bounded(PROBE_TIMEOUT, || {
+        let output = match Command::new("systemextensionsctl")
+            .arg("list")
+            .stderr(std::process::Stdio::null())
+            .output()
+        {
+            Ok(o) => o,
+            Err(e) => {
+                trace!("EdrChecker: systemextensionsctl failed: {}", e);
+                return None;
             }
-        }
-    }
+        };
 
-    false
+        String::from_utf8(output.stdout).ok()
+    })
+    .flatten()
 }

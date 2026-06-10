@@ -21,4 +21,4 @@ serde_json = "1"
 libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", features = ["tlhelp32", "handleapi", "processthreadsapi", "psapi", "winnt"] }
+winapi = { version = "0.3", features = ["tlhelp32", "handleapi", "processthreadsapi", "psapi", "winnt", "winsvc", "errhandlingapi", "winerror"] }

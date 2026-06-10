@@ -5,17 +5,38 @@
 #include "nsISupports.idl"
 
 /**
- * Detects which well-known Endpoint Detection and Response (EDR) agents are
- * running on the system. The catalog of known agents is defined internally;
- * callers do not enumerate or hardcode it.
+ * Receives the result of an asynchronous nsIEdrChecker query. Invoked
+ * exactly once, on the thread that called getPresentEdrs (the main thread).
  */
-[scriptable, uuid(b7e4d2a0-3f15-4c8e-9a6b-2d1e5f7c0a93)]
+[scriptable, uuid(f6fa7e61-911d-4001-bff5-8d63188b1692)]
+interface nsIEdrCheckerCallback : nsISupports {
+  /**
+   * @param presentEdrs the identifiers of the requested EDR agents that were
+   *                    detected as present (e.g. "crowdstrike", "sentinelone").
+   */
+  void onComplete(in Array<ACString> presentEdrs);
+};
+
+/**
+ * Detects which well-known Endpoint Detection and Response (EDR) agents are
+ * present on the system.
+ */
+[scriptable, uuid(4a18369f-8c5f-42e8-847f-7e9ad10e45a5)]
 interface nsIEdrChecker : nsISupports {
   /**
-   * @returns the identifiers of the EDR agents detected as running
-   *          (e.g. "crowdstrike", "sentinelone").
+   * Asynchronously determines which of the requested EDR agents are present.
+   *
+   * Detection can involve enumerating running processes and querying system
+   * services, so it is performed on a background thread to avoid blocking the
+   * caller. The result is delivered to the callback on the calling thread.
+   *
+   * @param requestedIds the EDR identifiers to probe (e.g. "crowdstrike"). An
+   *                     empty array means "every known agent". Unknown
+   *                     identifiers are ignored.
+   * @param callback     invoked once with the subset of requestedIds detected.
    */
-  Array<ACString> getPresentEdrs();
+  void getPresentEdrs(in Array<ACString> requestedIds,
+                      in nsIEdrCheckerCallback callback);
 };
 
 %{C++

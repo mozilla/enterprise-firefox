@@ -6,6 +6,10 @@ const lazy = {};
 
 const FELT_REFRESH_TIMEOUT = 60000;
 
+// Upper bound on how long to wait for EDR detection before treating the result
+// as "none present", so a hung platform probe cannot stall posture collection.
+const EDR_DETECTION_TIMEOUT_MS = 10000;
+
 ChromeUtils.defineESModuleGetters(lazy, {
   AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
   MachineId: "resource://gre/modules/MachineId.sys.mjs",
@@ -723,16 +727,45 @@ export const ConsoleClient = {
     // Gather Endpoint Detection and Response (EDR) agents present on the
     // client. The catalog of known agents lives in the EDR-checker
     // component, not here.
-    const getPresentEDRs = () => {
-      try {
-        const checker = Cc["@mozilla.org/enterprise/edr-checker;1"]
-          .getService()
-          .QueryInterface(Ci.nsIEdrChecker);
-        return Array.from(checker.getPresentEdrs(), name => ({ name }));
-      } catch {
-        return [];
-      }
-    };
+    const getPresentEDRs = () =>
+      new Promise(resolve => {
+        let settled = false;
+        let timer = null;
+        const finish = result => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          if (timer) {
+            lazy.clearTimeout(timer);
+          }
+          resolve(result);
+        };
+        // Detection runs on a background thread and shells out on some
+        // platforms; bound the wait so a hung probe or lost callback cannot
+        // stall posture collection (and the policy poll that awaits it).
+        timer = lazy.setTimeout(() => {
+          lazy.log.warn("EDR detection timed out; reporting none present.");
+          finish([]);
+        }, EDR_DETECTION_TIMEOUT_MS);
+        try {
+          const checker = Cc["@mozilla.org/enterprise/edr-checker;1"]
+            .getService()
+            .QueryInterface(Ci.nsIEdrChecker);
+          const callback = {
+            QueryInterface: ChromeUtils.generateQI([
+              Ci.nsIEdrCheckerCallback,
+            ]),
+            onComplete(presentEdrs) {
+              finish(Array.from(presentEdrs, name => ({ name })));
+            },
+          };
+          // An empty array requests every known agent.
+          checker.getPresentEdrs([], callback);
+        } catch {
+          finish([]);
+        }
+      });
 
     const devicePosturePayload = {
       os,
@@ -746,7 +779,7 @@ export const ConsoleClient = {
       machineId: await getMachineId(),
       secureBootEnabled:
         Services.sysinfo.getPropertyAsBool("secureBootEnabled"),
-      presentEdrs: getPresentEDRs(),
+      presentEdrs: await getPresentEDRs(),
     };
     return devicePosturePayload;
   },
