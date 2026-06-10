@@ -234,6 +234,12 @@ button:disabled {
     &.no-connection {
       width: 13em;
     }
+
+    &.access-connector-error {
+      width: var(--size-image-large);
+      -moz-context-properties: fill;
+      fill: var(--text-color);
+    }
   }
 
   #viewCertificate {

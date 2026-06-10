@@ -44,6 +44,15 @@ class BrowserAccessConnector(FeltTests):
         self.run_enable_access_connector()
         self.run_disable_access_connector()
 
+    def test_browser_access_connector_neterror_page(self):
+        self._logger.info("Enabling AccessConnector")
+        self.run_change_access_connector_policy(1)
+        self.run_felt_base()
+        self.connect_child_browser()
+
+        self.run_access_connector_enabled_in_browser()
+        self.run_access_connector_neterror_page()
+
     def run_enable_access_connector(self):
         self._logger.info("Enabling AccessConnector")
         self.run_change_access_connector_policy(1)
@@ -211,3 +220,56 @@ class BrowserAccessConnector(FeltTests):
             "Access Connector icon is reporting inactive"
         )
         self.run_load_page_ok(f"http://localhost:{self.console_port}/ping", "Pong!")
+
+    def run_access_connector_neterror_page(self):
+        self._logger.info("Navigating to URL routed through access connector proxy")
+        with self.assertRaisesRegex(
+            UnknownException,
+            r"Reached error page: about:neterror\?e=proxyResolveFailure",
+        ):
+            self.open_tab_child("https://support.mozilla.org/en-US/")
+
+        self._child_driver.set_context("content")
+
+        self._logger.info("Waiting for access connector error page to render")
+        self._child_longwait.until(
+            lambda d: d.execute_script(
+                "return !!document.querySelector('net-error-card')?.shadowRoot"
+            )
+        )
+
+        self.run_check_access_connector_neterror_card()
+
+    def run_check_access_connector_neterror_card(self):
+        self._logger.info("Checking custom error title l10n id")
+        title_l10n_id = self._child_driver.execute_script(
+            """
+            const card = document.querySelector("net-error-card");
+            return card?.shadowRoot?.querySelector("#error-title")
+                ?.getAttribute("data-l10n-id");
+            """
+        )
+        assert title_l10n_id == "fp-neterror-access-connector-error-title", (
+            f"Expected access connector error title, got: {title_l10n_id}"
+        )
+
+        self._logger.info("Checking error page illustration image")
+        image_src = self._child_driver.execute_script(
+            """
+            const card = document.querySelector("net-error-card");
+            return card?.shadowRoot?.querySelector(".img-container img")
+                ?.getAttribute("src");
+            """
+        )
+        assert image_src == (
+            "chrome://global/skin/enterprise/access-connector-neterror.svg"
+        ), f"Expected access connector neterror image, got: {image_src}"
+
+        self._logger.info("Checking Try Again button is present")
+        has_try_again = self._child_driver.execute_script(
+            """
+            const card = document.querySelector("net-error-card");
+            return !!card?.shadowRoot?.querySelector("#tryAgainButton");
+            """
+        )
+        assert has_try_again, "Expected Try Again button on access connector error page"

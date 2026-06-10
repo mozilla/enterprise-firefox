@@ -128,6 +128,7 @@ export let RemotePageAccessManager = {
         "security.certerror.hideAddException",
         "security.certerrors.felt-privacy-v1",
         "browser.ipProtection.userEnabled",
+        "browser.ipProtection.enabled",
       ],
       RPMGetHostForDisplay: ["*"],
       RPMGetInnermostAsciiHost: ["*"],
@@ -141,7 +142,11 @@ export let RemotePageAccessManager = {
       RPMSetTRRDisabledLoadFlags: ["*"],
       RPMShowOSXLocalNetworkPermissionWarning: ["*"],
       RPMSendQuery: ["Browser:AddTRRExcludedDomain"],
-      RPMGetIntPref: ["network.trr.mode", "security.dialog_enable_delay"],
+      RPMGetIntPref: [
+        "network.trr.mode",
+        "security.dialog_enable_delay",
+        "browser.ipProtection.mode",
+      ],
     },
     "about:newtab": {
       RPMSendAsyncMessage: ["ActivityStream:ContentToMain"],

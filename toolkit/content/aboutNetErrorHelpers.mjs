@@ -43,6 +43,19 @@ export const VPN_ACTIVE = RPMGetBoolPref(
   false
 );
 
+/**
+ * Returns true when the enterprise Access Connector policy has activated IP
+ * Protection. AC sets mode to 3 (MODE_INCLUSION); VPN uses modes 0–2.
+ *
+ * @returns {boolean}
+ */
+export function isAccessConnectorActive() {
+  return (
+    RPMGetBoolPref("browser.ipProtection.enabled", false) &&
+    RPMGetIntPref("browser.ipProtection.mode", 0) === 3
+  );
+}
+
 export function isCaptive() {
   return searchParams.get("captive") == "true";
 }
