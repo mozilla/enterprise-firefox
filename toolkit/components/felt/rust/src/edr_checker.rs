@@ -3,8 +3,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{mpsc, Mutex};
+use std::process::Command;
+use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -44,9 +44,7 @@ pub enum EdrId {
 }
 
 impl EdrId {
-    // The complete catalog of known EDR agents. This is the single source of
-    // truth; callers (including the device posture payload) enumerate via the
-    // getPresentEdrs() XPCOM method rather than hardcoding identifiers.
+    // The complete catalog of known EDR agents.
     pub const ALL: &'static [EdrId] = &[
         EdrId::CrowdStrike,
         EdrId::CortexXdr,
@@ -298,134 +296,118 @@ fn detection_methods(id: EdrId) -> &'static [DetectMethod] {
 // Detection orchestration
 // ---------------------------------------------------------------------------
 
-// Detection results are cached so that repeated device-posture collections do
-// not re-enumerate processes and re-query services every time. The window is
-// comfortably longer than the default console poll interval (~60s) so a single
-// detection serves several polls, while staying short enough that an agent
-// installed/removed is reflected reasonably quickly.
+// Detected agents are cached so repeated posture collections do not re-probe.
+// Long relative to the console poll interval so one detection serves many
+// polls, yet short enough to reflect an agent install/removal in time.
 const CACHE_TTL: Duration = Duration::from_secs(10 * 60);
 
-// Per-agent cache of (time detected, present?). Guarded by a Mutex because the
+// (captured_at, present? for every known agent). Guarded by a Mutex because
 // detection runs on a moz_task background thread.
-static CACHE: Mutex<Option<HashMap<EdrId, (Instant, bool)>>> = Mutex::new(None);
+static CACHE: Mutex<Option<(Instant, HashMap<EdrId, bool>)>> = Mutex::new(None);
 
 // Upper bound on a single external probe (a service-status command, the
 // system-extension listing, etc.). A probe that exceeds this is treated as
 // "could not determine" so one wedged command cannot stall the whole sweep.
-// This is independent of, and shorter than, the JS-side EDR_DETECTION_TIMEOUT_MS
-// that bounds the caller.
-pub(crate) const PROBE_TIMEOUT: Duration = Duration::from_secs(2);
+// Kept shorter than the JS-side detection timeout that bounds the caller.
+pub(crate) const PROBE_TIMEOUT: Duration = Duration::from_secs(5);
 
-/// Runs `f` on a helper thread and waits up to `timeout` for its result,
-/// returning `None` if it does not finish in time. The helper thread is not
-/// cancelled (there is no portable way to kill a thread blocked in a syscall),
-/// so a truly wedged command leaves one lingering thread; the in-flight guard
-/// below keeps that from compounding across overlapping sweeps.
-pub(crate) fn run_bounded<T, F>(timeout: Duration, f: F) -> Option<T>
-where
-    T: Send + 'static,
-    F: FnOnce() -> T + Send + 'static,
-{
-    let (tx, rx) = mpsc::channel();
-    if thread::Builder::new()
-        .spawn(move || {
-            let _ = tx.send(f());
-        })
-        .is_err()
-    {
-        return None;
-    }
-    rx.recv_timeout(timeout).ok()
-}
+// How often run_command_bounded re-checks a still-running child for exit.
+const PROBE_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
-// Ensures only one detection sweep runs at a time. The console controls the
-// poll interval, so we cannot assume it stays at its ~60s default; a shorter
-// interval than a sweep takes would otherwise let sweeps stack up, each
-// spawning its own probes. A sweep that is skipped returns whatever the cache
-// already holds.
-static DETECTION_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
+/// Runs an external command, waiting up to `PROBE_TIMEOUT` for it to exit.
+/// Unlike `Command::output()`, a command that overruns the timeout is killed
+/// and reaped rather than left to linger. Returns `None` if the command could
+/// not be spawned, was killed for overrunning, or could not be waited on.
+///
+/// stdout is read only after the child exits, which assumes the small output of
+/// our probes (`sc query`, `systemextensionsctl list`, ...); a child that
+/// flooded the pipe would be killed at the timeout instead.
+pub(crate) fn run_command_bounded(program: &str, args: &[&str]) -> Option<std::process::Output> {
+    use std::io::Read;
+    use std::process::Stdio;
 
-struct InFlightGuard;
+    let mut child = Command::new(program)
+        .args(args)
+        .stdin(Stdio::null())
+        .stderr(Stdio::null())
+        .stdout(Stdio::piped())
+        .spawn()
+        .ok()?;
 
-impl InFlightGuard {
-    fn try_acquire() -> Option<InFlightGuard> {
-        if DETECTION_IN_FLIGHT.swap(true, Ordering::AcqRel) {
-            None
-        } else {
-            Some(InFlightGuard)
+    let start = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                let mut stdout = Vec::new();
+                if let Some(mut out) = child.stdout.take() {
+                    let _ = out.read_to_end(&mut stdout);
+                }
+                return Some(std::process::Output {
+                    status,
+                    stdout,
+                    stderr: Vec::new(),
+                });
+            }
+            Ok(None) => {
+                if start.elapsed() >= PROBE_TIMEOUT {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return None;
+                }
+                thread::sleep(PROBE_POLL_INTERVAL);
+            }
+            Err(_) => return None,
         }
     }
 }
 
-impl Drop for InFlightGuard {
-    fn drop(&mut self) {
-        DETECTION_IN_FLIGHT.store(false, Ordering::Release);
-    }
-}
+// Serializes detection sweeps: the console controls the poll interval, so an
+// interval shorter than a sweep would otherwise let sweeps stack up, each
+// spawning its own probes. A concurrent caller blocks here until the running
+// sweep publishes its results, then finds the cache warm.
+static DETECTION_LOCK: Mutex<()> = Mutex::new(());
 
 /// Determines which of `requested` agents are present, returning their string
-/// identifiers. A single system snapshot is captured and reused across all
-/// agents that still need detection (i.e. are not already cached and fresh).
-///
-/// Runs on a background thread; must not touch main-thread-only state.
+/// identifiers. Runs on a background thread; must not touch main-thread-only
+/// state.
 fn detect_present_edrs(requested: &[EdrId]) -> Vec<&'static str> {
+    // Recover a poisoned lock (a panicking probe) so detection is not wedged
+    // for the rest of the session.
+    let _sweep = DETECTION_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+
     let now = Instant::now();
 
-    // Figure out which agents are missing from the cache or have gone stale.
-    let mut needs_detection: Vec<EdrId> = Vec::new();
-    {
-        let cache = CACHE.lock().unwrap();
-        for &id in requested {
-            let fresh = cache
-                .as_ref()
-                .and_then(|map| map.get(&id))
-                .is_some_and(|(at, _)| now.duration_since(*at) < CACHE_TTL);
-            if !fresh {
-                needs_detection.push(id);
-            }
-        }
+    let stale = match &*CACHE.lock().unwrap_or_else(|e| e.into_inner()) {
+        Some((at, _)) => now.duration_since(*at) >= CACHE_TTL,
+        None => true,
+    };
+
+    if stale {
+        // Capture the system state once and evaluate the whole known catalog
+        // against it. The snapshot is the cost, not the per-agent match, and
+        // the requested set is stable, so detecting every agent keeps the cache
+        // complete for any later request. Done without holding the cache lock,
+        // which is taken only briefly afterwards to publish.
+        let snapshot = Snapshot::capture();
+        let map: HashMap<EdrId, bool> = EdrId::ALL
+            .iter()
+            .map(|&id| {
+                let present = detection_methods(id)
+                    .iter()
+                    .any(|method| snapshot.matches(id.as_str(), method));
+                (id, present)
+            })
+            .collect();
+        *CACHE.lock().unwrap_or_else(|e| e.into_inner()) = Some((now, map));
     }
 
-    // Run at most one sweep at a time. If another thread is already probing,
-    // skip this sweep and fall through to return whatever the cache currently
-    // holds, rather than dispatching a duplicate sweep that would compete for
-    // (and re-spawn) the same probes.
-    if !needs_detection.is_empty() {
-        if let Some(_in_flight) = InFlightGuard::try_acquire() {
-            // Capture the system state once and evaluate every stale agent
-            // against it, instead of re-enumerating per agent/method.
-            //
-            // Detection is performed *without* holding the cache lock:
-            // matches() enumerates processes and may run blocking commands/APIs,
-            // so holding the lock here would let one slow or hung probe block
-            // every other EDR request. We take the lock only briefly afterwards
-            // to publish results.
-            let snapshot = Snapshot::capture();
-            let detected: Vec<(EdrId, bool)> = needs_detection
-                .iter()
-                .map(|&id| {
-                    let present = detection_methods(id)
-                        .iter()
-                        .any(|method| snapshot.matches(id.as_str(), method));
-                    (id, present)
-                })
-                .collect();
-
-            let mut cache = CACHE.lock().unwrap();
-            let map = cache.get_or_insert_with(HashMap::new);
-            for (id, present) in detected {
-                map.insert(id, (now, present));
-            }
-        }
-    }
-
-    let cache = CACHE.lock().unwrap();
+    let cache = CACHE.lock().unwrap_or_else(|e| e.into_inner());
+    let Some((_, map)) = cache.as_ref() else {
+        return Vec::new();
+    };
     requested
         .iter()
-        .filter_map(|&id| {
-            let present = cache.as_ref()?.get(&id)?.1;
-            present.then(|| id.as_str())
-        })
+        .filter_map(|&id| map.get(&id).copied().unwrap_or(false).then_some(id.as_str()))
         .collect()
 }
 

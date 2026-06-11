@@ -5,9 +5,8 @@
 use log::trace;
 use std::cell::OnceCell;
 use std::path::Path;
-use std::process::Command;
 
-use crate::edr_checker::{run_bounded, DetectMethod, PROBE_TIMEOUT};
+use crate::edr_checker::{run_command_bounded, DetectMethod};
 
 /// A one-time capture of the system state used to evaluate every requested
 /// agent without re-walking `/proc` per agent/method. The process table is
@@ -80,25 +79,13 @@ fn try_openrc(name: &str) -> Option<bool> {
     run_status_command("rc-service", &[name, "status"])
 }
 
-/// Runs `program args...` discarding output. Returns `None` if the program
-/// could not be launched (e.g. not installed) or did not answer within
-/// PROBE_TIMEOUT, otherwise `Some(exit success)`. A timed-out probe is treated
-/// as `None` so the caller moves on to the next init system.
+/// Runs `program args...`. Returns `None` if the program could not be launched
+/// (e.g. not installed) or did not answer within PROBE_TIMEOUT, otherwise
+/// `Some(exit success)`. A timed-out probe is treated as `None` so the caller
+/// moves on to the next init system; the probe's process is killed rather than
+/// left running (see run_command_bounded).
 fn run_status_command(program: &str, args: &[&str]) -> Option<bool> {
-    let program = program.to_owned();
-    let args: Vec<String> = args.iter().map(|s| (*s).to_owned()).collect();
-    run_bounded(PROBE_TIMEOUT, move || {
-        match Command::new(&program)
-            .args(&args)
-            .stderr(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .status()
-        {
-            Ok(status) => Some(status.success()),
-            Err(_) => None,
-        }
-    })
-    .flatten()
+    run_command_bounded(program, args).map(|output| output.status.success())
 }
 
 fn enumerate_proc_exe_paths() -> Vec<String> {

@@ -4,9 +4,8 @@
 
 use log::trace;
 use std::cell::OnceCell;
-use std::process::Command;
 
-use crate::edr_checker::{run_bounded, DetectMethod, PROBE_TIMEOUT};
+use crate::edr_checker::{run_command_bounded, DetectMethod};
 
 /// A one-time capture of the system state used to evaluate every requested
 /// agent without re-enumerating processes (or re-running
@@ -145,20 +144,9 @@ fn for_each_process_path<F: FnMut(libc::c_int, &str) -> bool>(mut f: F) -> bool 
 /// Fetches the system-extension listing. There is no dependency-free native
 /// API for this, so it shells out once; the result is cached in the Snapshot.
 fn fetch_system_extensions() -> Option<String> {
-    run_bounded(PROBE_TIMEOUT, || {
-        let output = match Command::new("systemextensionsctl")
-            .arg("list")
-            .stderr(std::process::Stdio::null())
-            .output()
-        {
-            Ok(o) => o,
-            Err(e) => {
-                trace!("EdrChecker: systemextensionsctl failed: {}", e);
-                return None;
-            }
-        };
-
-        String::from_utf8(output.stdout).ok()
-    })
-    .flatten()
+    let Some(output) = run_command_bounded("systemextensionsctl", &["list"]) else {
+        trace!("EdrChecker: systemextensionsctl did not complete");
+        return None;
+    };
+    String::from_utf8(output.stdout).ok()
 }

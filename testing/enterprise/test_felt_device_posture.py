@@ -16,11 +16,88 @@ from felt_tests import FeltTests
 
 
 class FeltDevicePosture(FeltTests):
+    # Identifiers of every EDR agent the EDR-checker knows about; must match
+    # EdrId::as_str() in toolkit/components/felt/rust/src/edr_checker.rs.
+    KNOWN_EDR_IDS = {
+        "crowdstrike",
+        "cortex-xdr",
+        "sentinelone",
+        "ms-defender",
+        "carbon-black",
+        "trellix",
+        "sophos",
+        "cisco-secure-endpoint",
+        "eset",
+        "cylance",
+        "symantec",
+        "trend-micro",
+    }
+
     def test_felt_device_posture(self):
         super().run_felt_base()
         self.run_device_posture_content()
+        # The FELT login flow discards the parent's auth window, so EDR probing
+        # (which runs chrome-context script) must target the live managed-browser
+        # window connected by run_access()'s connect_child_browser().
         self.run_access()
+        self.run_all_edr_detection()
         self.run_posture_history()
+
+    def run_all_edr_detection(self):
+        """Drive the EDR-checker directly against *every* known agent.
+
+        The device-posture payload only probes a couple of agents, so this
+        separately requests the full catalog (an empty id list means "all").
+        Probing every agent exercises all detection methods on the host,
+        including the service-status subprocess shell-outs (systemctl / service /
+        rc-service on Linux, `sc` on Windows, systemextensionsctl on macOS) --
+        the most brittle paths. We fire several probes concurrently so the
+        in-flight coalescing is exercised too: a late caller must never observe a
+        spurious empty result while a sweep is still running.
+        """
+        self._logger.info("Probing all EDR agents via the EDR-checker")
+        self._child_driver.set_context("chrome")
+        try:
+            rv = self._child_driver.execute_async_script(
+                """
+                const callback = arguments[arguments.length - 1];
+                const { EdrDetection } = ChromeUtils.importESModule(
+                    "resource://gre/modules/EdrDetection.sys.mjs"
+                );
+                // Empty list = probe every known agent. Three concurrent calls
+                // exercise the background-thread sweep, the subprocess service
+                // checks, and the in-flight coalescing.
+                Promise.all([
+                    EdrDetection.getPresentEdrs([]),
+                    EdrDetection.getPresentEdrs([]),
+                    EdrDetection.getPresentEdrs([]),
+                ])
+                    .then(results => callback({ results }))
+                    .catch(err => callback({ _error: String(err) }));
+                """,
+            )
+        finally:
+            self._child_driver.set_context("content")
+
+        assert "_error" not in rv, f"Probing all EDR agents threw: {rv.get('_error')}"
+        results = rv["results"]
+        assert len(results) == 3, "All three concurrent probe-all calls resolved"
+
+        for present in results:
+            assert isinstance(present, list), "getPresentEdrs([]) returns an array"
+            for name in present:
+                assert name in self.KNOWN_EDR_IDS, (
+                    f"Probe-all returned an unknown EDR id: {name}"
+                )
+
+        # Coalescing invariant: every concurrent caller sees the same result.
+        # Before the in-flight requests were coalesced, a second caller racing a
+        # cold sweep could fall through to a still-empty cache and report a false
+        # "none present"; identical results across concurrent calls guards that.
+        assert results[0] == results[1] == results[2], (
+            f"Concurrent probe-all calls disagreed: {results}"
+        )
+        self._logger.info(f"Probe-all EDR detection result: {sorted(results[0])}")
 
     def get_device_posture(self):
         console_addr = f"http://localhost:{self.console_port}"

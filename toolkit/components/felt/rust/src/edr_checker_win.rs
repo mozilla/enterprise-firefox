@@ -4,9 +4,8 @@
 
 use log::trace;
 use std::cell::OnceCell;
-use std::process::Command;
 
-use crate::edr_checker::{run_bounded, DetectMethod, PROBE_TIMEOUT};
+use crate::edr_checker::{run_command_bounded, DetectMethod};
 
 /// Lower-cased full paths and executable file names of all running processes.
 struct ProcessList {
@@ -151,28 +150,12 @@ fn query_service_running_scm(service_name: &str) -> Option<bool> {
 /// output ("STATE" / "RUNNING") and is only used when the SCM API is
 /// unavailable.
 fn check_windows_service_sc(app_id: &str, service_name: &str) -> bool {
-    let service_name_owned = service_name.to_owned();
-    let stdout = run_bounded(PROBE_TIMEOUT, move || {
-        match Command::new("sc")
-            .arg("query")
-            .arg(&service_name_owned)
-            .stderr(std::process::Stdio::null())
-            .output()
-        {
-            Ok(o) => Some(o.stdout),
-            Err(e) => {
-                trace!("EdrChecker: sc query failed: {}", e);
-                None
-            }
-        }
-    })
-    .flatten();
-
-    let Some(stdout) = stdout else {
+    let Some(output) = run_command_bounded("sc", &["query", service_name]) else {
+        trace!("EdrChecker: sc query did not complete for {}", service_name);
         return false;
     };
 
-    if let Ok(stdout) = std::str::from_utf8(&stdout) {
+    if let Ok(stdout) = std::str::from_utf8(&output.stdout) {
         for line in stdout.lines() {
             if line.contains("STATE") && line.contains("RUNNING") {
                 trace!(
