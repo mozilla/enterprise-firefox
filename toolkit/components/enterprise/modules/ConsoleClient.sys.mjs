@@ -649,6 +649,7 @@ export const ConsoleClient = {
    * @property {DeviceAddon[]|null} extensions Installed browser addons, or null if not yet available.
    * @property {DeviceMachineId|null} machineId Stable machine identifier, or null if unavailable.
    * @property {boolean} secureBootEnabled Whether Secure Boot is enabled.
+   * @property {boolean} isDomainJoined Whether the machine is joined to a domain (Windows on-prem AD or Azure AD/Entra).
    * @property {DeviceEdr[]} presentEdrs Detected EDR agents (empty if none).
    */
 
@@ -789,6 +790,7 @@ export const ConsoleClient = {
       machineId: await getMachineId(),
       secureBootEnabled:
         Services.sysinfo.getPropertyAsBool("secureBootEnabled"),
+      isDomainJoined: Services.sysinfo.getPropertyAsBool("isDomainJoined"),
       presentEdrs: await getPresentEDRs(),
     };
     return devicePosturePayload;

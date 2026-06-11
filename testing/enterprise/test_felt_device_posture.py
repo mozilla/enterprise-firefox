@@ -63,6 +63,11 @@ class FeltDevicePosture(FeltTests):
         )
         assert "secureBootEnabled" in device_posture
 
+        assert "isDomainJoined" in device_posture
+        assert isinstance(device_posture["isDomainJoined"], bool), (
+            "isDomainJoined is a boolean"
+        )
+
         os_long_name = device_posture["os"].get("os_long_name")
 
         assert os_long_name and len(os_long_name) > 0, (
