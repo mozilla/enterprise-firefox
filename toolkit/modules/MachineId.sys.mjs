@@ -8,7 +8,14 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
+  clearTimeout: "resource://gre/modules/Timer.sys.mjs",
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
+
+// Upper bound on the macOS `ioreg` shell-out. The machine ID is awaited on the
+// Sync-startup, policy-fetch, and about:support paths, so a wedged `ioreg`
+// must not be able to stall them indefinitely.
+const MAC_MACHINE_ID_TIMEOUT_MS = 5000;
 
 ChromeUtils.defineLazyGetter(lazy, "log", () =>
   console.createInstance({
@@ -256,12 +263,29 @@ async function getMacMachineId() {
       arguments: ["-rd1", "-c", "IOPlatformExpertDevice"],
     });
 
+    // Bound the read: if `ioreg` wedges, kill it so the awaiting callers (Sync
+    // startup, policy fetch, about:support) are not stalled indefinitely.
+    let timedOut = false;
+    let timer = lazy.setTimeout(() => {
+      timedOut = true;
+      proc.kill();
+    }, MAC_MACHINE_ID_TIMEOUT_MS);
+
     let output = "";
-    let chunk;
-    while ((chunk = await proc.stdout.readString())) {
-      output += chunk;
+    try {
+      let chunk;
+      while ((chunk = await proc.stdout.readString())) {
+        output += chunk;
+      }
+      await proc.wait();
+    } finally {
+      lazy.clearTimeout(timer);
     }
-    await proc.wait();
+
+    if (timedOut) {
+      lazy.log.error("Timed out reading macOS machine ID from ioreg");
+      return null;
+    }
 
     let match = output.match(/"IOPlatformSerialNumber"\s*=\s*"([^"]+)"/);
     if (match) {
