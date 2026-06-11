@@ -6,16 +6,13 @@ const lazy = {};
 
 const FELT_REFRESH_TIMEOUT = 60000;
 
-// Upper bound on how long to wait for EDR detection before treating the result
-// as "none present", so a hung platform probe cannot stall posture collection.
-const EDR_DETECTION_TIMEOUT_MS = 10000;
-
 // XXX: hardcoded for now. The console does not yet expose which EDR agents to
 // probe for, so we limit detection to the agents we currently care about.
 const EDR_AGENTS_TO_PROBE = ["crowdstrike", "cortex-xdr"];
 
 ChromeUtils.defineESModuleGetters(lazy, {
   AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
+  EdrDetection: "resource://gre/modules/EdrDetection.sys.mjs",
   MachineId: "resource://gre/modules/MachineId.sys.mjs",
   TelemetryEnvironment: "resource://gre/modules/TelemetryEnvironment.sys.mjs",
   EnterpriseCommon:
@@ -736,62 +733,36 @@ export const ConsoleClient = {
       ...(os_short_name != null && { os_short_name }),
     };
 
-    // Gather Endpoint Detection and Response (EDR) agents present on the
-    // client. The catalog of known agents lives in the EDR-checker
-    // component, not here.
-    const getPresentEDRs = () =>
-      new Promise(resolve => {
-        let settled = false;
-        let timer = null;
-        const finish = result => {
-          if (settled) {
-            return;
-          }
-          settled = true;
-          if (timer) {
-            lazy.clearTimeout(timer);
-          }
-          resolve(result);
-        };
-        // Detection runs on a background thread and shells out on some
-        // platforms; bound the wait so a hung probe or lost callback cannot
-        // stall posture collection (and the policy poll that awaits it).
-        timer = lazy.setTimeout(() => {
-          lazy.log.warn("EDR detection timed out; reporting none present.");
-          finish([]);
-        }, EDR_DETECTION_TIMEOUT_MS);
-        try {
-          const checker = Cc["@mozilla.org/enterprise/edr-checker;1"]
-            .getService()
-            .QueryInterface(Ci.nsIEdrChecker);
-          const callback = {
-            QueryInterface: ChromeUtils.generateQI([
-              Ci.nsIEdrCheckerCallback,
-            ]),
-            onComplete(presentEdrs) {
-              finish(Array.from(presentEdrs, name => ({ name })));
-            },
-          };
-          checker.getPresentEdrs(EDR_AGENTS_TO_PROBE, callback);
-        } catch {
-          finish([]);
-        }
-      });
+    const getPresentEDRs = async () =>
+      (await lazy.EdrDetection.getPresentEdrs(EDR_AGENTS_TO_PROBE)).map(
+        name => ({ name })
+      );
+
+    // These probes are independent, and some are slow (subprocess spawns, addon
+    // manager readiness, an `ioreg` shell-out), so run them concurrently rather
+    // than serializing the awaits.
+    const [mobileEquipmentId, extensions, machineId, presentEdrs] =
+      await Promise.all([
+        getImeiValue(),
+        getExtensions(),
+        getMachineId(),
+        getPresentEDRs(),
+      ]);
 
     const devicePosturePayload = {
       os,
       security: lazy.TelemetryEnvironment.currentEnvironment.system.sec,
       build: lazy.TelemetryEnvironment.currentEnvironment.build,
       network: {
-        mobileEquipmentId: await getImeiValue(),
+        mobileEquipmentId,
         interfaces: networkInterfaces,
       },
-      extensions: await getExtensions(),
-      machineId: await getMachineId(),
+      extensions,
+      machineId,
       secureBootEnabled:
         Services.sysinfo.getPropertyAsBool("secureBootEnabled"),
       isDomainJoined: Services.sysinfo.getPropertyAsBool("isDomainJoined"),
-      presentEdrs: await getPresentEDRs(),
+      presentEdrs,
     };
     return devicePosturePayload;
   },

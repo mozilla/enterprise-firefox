@@ -165,6 +165,7 @@ EXTRA_JS_MODULES += [
     "CreditCard.sys.mjs",
     "DeferredTask.sys.mjs",
     "E10SUtils.sys.mjs",
+    "EdrDetection.sys.mjs",
     "EventEmitter.sys.mjs",
     "FileUtils.sys.mjs",
     "FindBarContent.sys.mjs",
