@@ -195,11 +195,11 @@ fn enumerate_processes() -> (Vec<String>, Vec<String>) {
     use std::os::windows::ffi::OsStringExt;
     use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
     use winapi::um::processthreadsapi::OpenProcess;
-    use winapi::um::psapi::GetModuleFileNameExW;
     use winapi::um::tlhelp32::{
         CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
         TH32CS_SNAPPROCESS,
     };
+    use winapi::um::winbase::QueryFullProcessImageNameW;
     use winapi::um::winnt::PROCESS_QUERY_LIMITED_INFORMATION;
 
     let mut paths = Vec::new();
@@ -228,20 +228,25 @@ fn enumerate_processes() -> (Vec<String>, Vec<String>) {
             }
 
             // Full path (best-effort; requires opening the process).
+            // QueryFullProcessImageNameW is used rather than GetModuleFileNameExW
+            // because it only needs PROCESS_QUERY_LIMITED_INFORMATION (which is
+            // grantable for more processes) and is the API Microsoft recommends
+            // for retrieving a process's executable path.
             let proc_handle =
                 unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pe.th32ProcessID) };
             if !proc_handle.is_null() {
                 let mut full_path = [0u16; 1024];
-                let path_len = unsafe {
-                    GetModuleFileNameExW(
+                let mut path_len = full_path.len() as u32;
+                let ok = unsafe {
+                    QueryFullProcessImageNameW(
                         proc_handle,
-                        std::ptr::null_mut(),
+                        0,
                         full_path.as_mut_ptr(),
-                        full_path.len() as u32,
+                        &mut path_len,
                     )
                 };
                 unsafe { CloseHandle(proc_handle) };
-                if path_len > 0 {
+                if ok != 0 && path_len > 0 {
                     let path_os = OsString::from_wide(&full_path[..path_len as usize]);
                     if let Some(path_str) = path_os.to_str() {
                         paths.push(path_str.to_ascii_lowercase());

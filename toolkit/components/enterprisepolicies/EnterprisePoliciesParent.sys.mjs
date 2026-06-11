@@ -1334,7 +1334,8 @@ class RemotePoliciesProvider extends PoliciesProvider {
       Services.obs.notifyObservers(null, "EnterprisePolicies:Update");
     } catch (e) {
       lazy.log.error(
-        `RemotePoliciesProvider performPolling() with frequency ${this._pollingFrequency} caused error ${e}`
+        `RemotePoliciesProvider performPolling() with frequency ${this._pollingFrequency} caused error`,
+        e
       );
     } finally {
       this._updateInProgress = false;
@@ -1374,7 +1375,7 @@ class RemotePoliciesProvider extends PoliciesProvider {
         waitForAddons,
       });
     } catch (e) {
-      lazy.log.error(`Failed to collect device posture: ${e}`);
+      lazy.log.error("Failed to collect device posture:", e);
     }
 
     const res = await lazy.ConsoleClient.getRemotePolicies(posture);
