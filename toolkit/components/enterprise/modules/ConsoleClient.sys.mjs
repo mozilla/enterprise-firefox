@@ -10,6 +10,10 @@ const FELT_REFRESH_TIMEOUT = 60000;
 // as "none present", so a hung platform probe cannot stall posture collection.
 const EDR_DETECTION_TIMEOUT_MS = 10000;
 
+// XXX: hardcoded for now. The console does not yet expose which EDR agents to
+// probe for, so we limit detection to the agents we currently care about.
+const EDR_AGENTS_TO_PROBE = ["crowdstrike", "cortex-xdr"];
+
 ChromeUtils.defineESModuleGetters(lazy, {
   AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
   MachineId: "resource://gre/modules/MachineId.sys.mjs",
@@ -760,8 +764,7 @@ export const ConsoleClient = {
               finish(Array.from(presentEdrs, name => ({ name })));
             },
           };
-          // An empty array requests every known agent.
-          checker.getPresentEdrs([], callback);
+          checker.getPresentEdrs(EDR_AGENTS_TO_PROBE, callback);
         } catch {
           finish([]);
         }
