@@ -7,6 +7,9 @@ const { ClientEngine, ClientsRec } = ChromeUtils.importESModule(
 const { MachineId } = ChromeUtils.importESModule(
   "resource://gre/modules/MachineId.sys.mjs"
 );
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
+);
 const { CryptoWrapper } = ChromeUtils.importESModule(
   "resource://services-sync/record.sys.mjs"
 );
@@ -2144,10 +2147,19 @@ add_task(async function test_syncStartup_gates_machine_id_check_on_pref() {
     checkStub.resetHistory();
     Services.prefs.setBoolPref(DETECT_PREF, true);
     await engine._syncStartup();
-    ok(
-      checkStub.calledOnce,
-      "Should run the machine ID check when detectChange is enabled"
-    );
+    // The check is additionally gated on MOZ_ENTERPRISE, so on non-enterprise
+    // builds (e.g. stock Firefox CI) it stays off even with the pref enabled.
+    if (AppConstants.MOZ_ENTERPRISE) {
+      ok(
+        checkStub.calledOnce,
+        "Should run the machine ID check when detectChange is enabled"
+      );
+    } else {
+      ok(
+        checkStub.notCalled,
+        "Machine ID check stays gated off on non-enterprise builds"
+      );
+    }
   } finally {
     Services.prefs.clearUserPref(DETECT_PREF);
     addChangedID.restore();
