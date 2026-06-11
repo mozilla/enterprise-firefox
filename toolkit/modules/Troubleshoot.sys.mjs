@@ -10,7 +10,49 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   MachineId: "resource://gre/modules/MachineId.sys.mjs",
   PlacesDBUtils: "resource://gre/modules/PlacesDBUtils.sys.mjs",
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
+  clearTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
+
+// Upper bound on EDR detection so a hung platform probe cannot stall the
+// Troubleshoot snapshot (and thus about:support).
+const EDR_DETECTION_TIMEOUT_MS = 10000;
+
+// Resolves to the identifiers of the EDR agents detected on the client. The
+// catalog of known agents lives in the EDR-checker component, not here; an
+// empty request list asks for every known agent.
+function getPresentEdrs() {
+  return new Promise(resolve => {
+    let timer = null;
+    let settled = false;
+    const finish = result => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (timer) {
+        lazy.clearTimeout(timer);
+      }
+      resolve(result);
+    };
+    timer = lazy.setTimeout(() => finish([]), EDR_DETECTION_TIMEOUT_MS);
+    try {
+      Cc["@mozilla.org/enterprise/edr-checker;1"]
+        .getService()
+        .QueryInterface(Ci.nsIEdrChecker)
+        .getPresentEdrs([], {
+          QueryInterface: ChromeUtils.generateQI([
+            Ci.nsIEdrCheckerCallback,
+          ]),
+          onComplete(presentEdrs) {
+            finish(Array.from(presentEdrs));
+          },
+        });
+    } catch (e) {
+      finish([]);
+    }
+  });
+}
 
 // We use a list of prefs for display to make sure we only show prefs that
 // are useful for support and won't compromise the user's privacy.  Note that
@@ -382,7 +424,7 @@ var dataProviders = {
     );
   },
 
-  securitySoftware: function securitySoftware(done) {
+  securitySoftware: async function securitySoftware(done) {
     let data = {};
 
     const keys = [
@@ -397,6 +439,10 @@ var dataProviders = {
       } catch (e) {}
 
       data[key] = prop;
+    }
+
+    if (AppConstants.MOZ_ENTERPRISE) {
+      data.presentEdrs = await getPresentEdrs();
     }
 
     done(data);
