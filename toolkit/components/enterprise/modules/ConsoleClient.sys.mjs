@@ -6,6 +6,9 @@ const lazy = {};
 
 const FELT_REFRESH_TIMEOUT = 60000;
 
+// Bound a single console request so a stalled server can't wedge the poller.
+const XHR_TIMEOUT_MS = 60000;
+
 // XXX: hardcoded for now. The console does not yet expose which EDR agents to
 // probe for, so we limit detection to the agents we currently care about.
 const EDR_AGENTS_TO_PROBE = ["crowdstrike", "cortex-xdr"];
@@ -265,6 +268,7 @@ export const ConsoleClient = {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open(method, url, true);
+      xhr.timeout = XHR_TIMEOUT_MS;
 
       // Handle both plain objects and Headers instances
       const headerEntries = Headers.isInstance(headers)
