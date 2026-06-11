@@ -108,6 +108,12 @@ if CONFIG["OS_ARCH"] == "WINNT":
     EXPORTS += [
         "nsWindowsHelpers.h",
     ]
+    if CONFIG["MOZ_ENTERPRISE"]:
+        # netapi32 provides NetGetJoinInformation, used for the isDomainJoined
+        # enterprise device-posture signal in nsSystemInfo.cpp.
+        OS_LIBS += [
+            "netapi32",
+        ]
     if CONFIG["CC_TYPE"] not in ("gcc", "clang"):
         OS_LIBS += [
             "wscapi",

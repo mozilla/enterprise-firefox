@@ -28,6 +28,11 @@
 #  endif  // __MINGW32__
 #  include <windows.h>
 #  include <winioctl.h>
+#  ifdef MOZ_ENTERPRISE
+// Net{Get,Free}* domain/AAD join APIs (netapi32), used by the isDomainJoined
+// device-posture signal.
+#    include <lm.h>
+#  endif  // MOZ_ENTERPRISE
 #  ifndef __MINGW32__
 #    include <wrl.h>
 #    include <wscapi.h>
@@ -1467,6 +1472,41 @@ bool GetSecureBootStatus_Windows() {
 
   return false;
 }
+
+bool GetDomainJoinedStatus_Windows() {
+  // On-prem Active Directory: NetGetJoinInformation reports NetSetupDomainName
+  // when the machine is joined to an on-prem AD domain; this also covers hybrid
+  // (on-prem + Azure AD) joined devices.
+  LPWSTR name = nullptr;
+  NETSETUP_JOIN_STATUS status = NetSetupUnknownStatus;
+  if (NetGetJoinInformation(nullptr, &name, &status) == NERR_Success) {
+    bool joined = (status == NetSetupDomainName);
+    if (name) {
+      NetApiBufferFree(name);
+    }
+    if (joined) {
+      return true;
+    }
+  }
+
+  // Azure AD / Entra: a purely cloud-joined device reports NetSetupWorkgroupName
+  // above, so query NetGetAadJoinInformation (Windows 10+) separately. We count
+  // only DSREG_DEVICE_JOIN (the device is Azure AD / Entra joined);
+  // DSREG_WORKPLACE_JOIN is a registered personal ("workplace") device, not an
+  // enterprise domain join, so it does not qualify.
+  PDSREG_JOIN_INFO aadInfo = nullptr;
+  if (NetGetAadJoinInformation(nullptr, &aadInfo) == S_OK) {
+    bool aadJoined = aadInfo && aadInfo->joinType == DSREG_DEVICE_JOIN;
+    if (aadInfo) {
+      NetFreeAadJoinInformation(aadInfo);
+    }
+    if (aadJoined) {
+      return true;
+    }
+  }
+
+  return false;
+}
 #endif
 
 #if defined(XP_LINUX) && !defined(ANDROID)
@@ -1851,6 +1891,7 @@ nsresult nsSystemInfo::Init() {
 
 #if defined(MOZ_ENTERPRISE)
   SetPropertyAsBool(u"secureBootEnabled"_ns, GetSecureBootStatus());
+  SetPropertyAsBool(u"isDomainJoined"_ns, GetDomainJoinedStatus());
 #endif
 
   return NS_OK;
@@ -1863,6 +1904,37 @@ bool nsSystemInfo::GetSecureBootStatus() {
   return GetSecureBootStatus_Linux();
 #  elif defined(XP_WIN)
   return GetSecureBootStatus_Windows();
+#  else
+  return false;
+#  endif
+}
+
+/* static */
+bool nsSystemInfo::GetDomainJoinedStatus() {
+#  if defined(XP_WIN)
+  // On-prem Active Directory join via NetGetJoinInformation, plus Azure AD /
+  // Entra join via NetGetAadJoinInformation.
+  return GetDomainJoinedStatus_Windows();
+#  elif defined(XP_MACOSX)
+  // Not implemented yet. A Mac bound to Active Directory exposes an Open
+  // Directory node whose name lives under "/Active Directory/". The native,
+  // subprocess-free check is to create an ODSession and scan -nodeNames: for
+  // such a node (OpenDirectory.framework: ODSession / -nodeNames: / ODNode,
+  // developer.apple.com/documentation/opendirectory). Caveats that kept this
+  // out of the first cut: Apple documents the API but not the node-name
+  // convention, and locally-cached binding state can be stale (the machine
+  // account may have been deleted server-side), so it is a configuration-level
+  // signal rather than a liveness guarantee.
+  return false;
+#  elif defined(XP_LINUX)
+  // Not implemented yet. Linux has no native API equivalent to
+  // NetGetJoinInformation; domain membership only surfaces in third-party
+  // artifacts -- realmd ("realm list" reporting "configured: kerberos-member"),
+  // an /etc/sssd/sssd.conf domain section, or a host /etc/krb5.keytab. These
+  // are parse-or-shell heuristics and vendor-dependent, so we report false
+  // rather than guess (Chromium's device_signals likewise covers no platform
+  // but Windows here).
+  return false;
 #  else
   return false;
 #  endif
