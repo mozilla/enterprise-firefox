@@ -492,8 +492,10 @@ ClientEngine.prototype = {
         return false;
       }
 
-      Services.obs.notifyObservers(null, MACHINE_ID_CHANGED_TOPIC);
+      // Persist the new machine ID before notifying, so observers that read
+      // MACHINE_ID_PREF see the updated value rather than the old one.
       Services.prefs.setStringPref(MACHINE_ID_PREF, currentMachineId);
+      Services.obs.notifyObservers(null, MACHINE_ID_CHANGED_TOPIC);
       return true;
     }
 

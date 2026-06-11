@@ -217,16 +217,16 @@ export const ConsoleClient = {
   },
 
   /**
-   * Fetches remote enterprise policies, optionally including device posture.
+   * Fetches remote enterprise policies, including device posture in the body.
+   *
+   * The endpoint is POST-based; when posture is unavailable we POST an empty
+   * object rather than falling back to GET.
    *
    * @param {object} [devicePosture] - Device posture to include in request.
    * @returns {Promise<{policies: Record<string, any>}>}
    */
   async getRemotePolicies(devicePosture = null) {
-    if (devicePosture) {
-      return this._post(this._paths.REMOTE_POLICIES, devicePosture);
-    }
-    return this._get(this._paths.REMOTE_POLICIES);
+    return this._post(this._paths.REMOTE_POLICIES, devicePosture ?? {});
   },
 
   /**
@@ -636,6 +636,11 @@ export const ConsoleClient = {
    */
 
   /**
+   * @typedef {object} DeviceEdr
+   * @property {string} name EDR agent identifier (e.g. "crowdstrike").
+   */
+
+  /**
    * @typedef {object} DevicePosture
    * @property {object} os Telemetry-reported os information.
    * @property {object|undefined} security Telemetry-reported security software info (windows only)
@@ -643,6 +648,8 @@ export const ConsoleClient = {
    * @property {DeviceNetwork} network Network posture (placeholders for now).
    * @property {DeviceAddon[]|null} extensions Installed browser addons, or null if not yet available.
    * @property {DeviceMachineId|null} machineId Stable machine identifier, or null if unavailable.
+   * @property {boolean} secureBootEnabled Whether Secure Boot is enabled.
+   * @property {DeviceEdr[]} presentEdrs Detected EDR agents (empty if none).
    */
 
   /**
