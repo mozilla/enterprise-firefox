@@ -532,6 +532,9 @@ def target_tasks_enterprise_firefox_with_tests(
 
         level = int(parameters["level"])
         if level < 3:
+            if "thunderbird-enterprise" == task.attributes.get("shipping_product"):
+                return True
+
             if "shippable" in task.label or shippable:
                 return False
 
