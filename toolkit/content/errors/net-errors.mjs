@@ -872,7 +872,7 @@ export const NET_ERRORS = [
     },
     image: {
       src: "chrome://global/skin/enterprise/access-connector-neterror.svg",
-      className: "access-connector-error"
+      className: "access-connector-error",
     },
     hasNoUserFix: false,
   },

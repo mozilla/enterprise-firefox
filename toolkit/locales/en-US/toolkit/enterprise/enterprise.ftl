@@ -91,6 +91,6 @@ enterprise-access-connector-status-label-inactive = inactive
 crashed-policy-auto-submit-title = Crash reports help us improve
 crashed-policy-auto-submit-message = Your administrator has configured { -brand-short-name } to send crash reports automatically.
 
-fp-neterror-access-connector-error-title = This website can't be reached
+fp-neterror-access-connector-error-title = This website can’t be reached
 fp-neterror-access-connector-error-description = Your organization routes this website through a secure connection service, but that service is currently unavailable.
 fp-neterror-access-connector-error-contact-admin = Try again later, or contact your administrator if you need access.

@@ -45,7 +45,7 @@ export const VPN_ACTIVE = RPMGetBoolPref(
 
 /**
  * Returns true when the enterprise Access Connector policy has activated IP
- * Protection. AC sets mode to 3 (MODE_INCLUSION); VPN uses modes 0–2.
+ * Protection. AC sets mode to 3 (MODE_INCLUSION); VPN uses modes 0-2.
  *
  * @returns {boolean}
  */

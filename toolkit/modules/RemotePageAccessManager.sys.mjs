@@ -50,11 +50,13 @@ export let RemotePageAccessManager = {
         "security.certerror.hideAddException",
         "security.certerrors.felt-privacy-v1",
         "browser.ipProtection.userEnabled",
+        "browser.ipProtection.enabled",
       ],
       RPMGetIntPref: [
         "security.dialog_enable_delay",
         "services.settings.clock_skew_seconds",
         "services.settings.last_update_seconds",
+        "browser.ipProtection.mode",
       ],
       RPMGetAppBuildID: ["*"],
       RPMGetHostForDisplay: ["*"],
