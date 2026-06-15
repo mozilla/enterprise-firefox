@@ -48,31 +48,10 @@ async function connectToConsole(email) {
 
   const browser = document.getElementById("browser");
   browser.setAttribute("maychangeremoteness", "true");
-  if (typeof ChromeUtils.predictRemoteTypeForURI === "function") {
-    browser.setAttribute(
-      "remoteType",
-      ChromeUtils.predictRemoteTypeForURI(ssoLoginURI.spec, { browser })
-    );
-  } else {
-    // Bug 2038608
-    // Supporting this two path process selection for now until the changes from Bug 2011326 are
-    // stable enough and get merged to upstream/beta. To be removed after the merge.
-    const { E10SUtils } = ChromeUtils.importESModule(
-      "resource://gre/modules/E10SUtils.sys.mjs"
-    );
-    const oa = E10SUtils.predictOriginAttributes({ browser });
-    browser.setAttribute(
-      "remoteType",
-      E10SUtils.getRemoteTypeForURI(
-        ssoLoginURI.spec,
-        /* remote */ true,
-        /* fission */ true,
-        E10SUtils.WEB_REMOTE_TYPE,
-        null,
-        oa
-      )
-    );
-  }
+  browser.setAttribute(
+    "remoteType",
+    ChromeUtils.predictRemoteTypeForURI(ssoLoginURI.spec, { browser })
+  );
   lazy.log.debug(
     `FeltExtension: creating contentPrincipal with privateBrowsingId=${lazy.FeltCommon.PRIVATE_BROWSING_ID}`
   );
