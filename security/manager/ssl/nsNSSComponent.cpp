@@ -1731,6 +1731,11 @@ nsNSSComponent::Observe(nsISupports* aSubject, const char* aTopic,
       ClearSSLExternalAndInternalSessionCache();
     }
   } else if (!nsCRT::strcmp(aTopic, "last-pb-context-exited")) {
+    RefPtr<SharedCertVerifier> certVerifier(
+        mozilla::psm::GetDefaultCertVerifier());
+    if (certVerifier) {
+      certVerifier->ClearPrivateBrowsingOCSPCache();
+    }
     return ClearSSLExternalAndInternalSessionCache();
   }
 

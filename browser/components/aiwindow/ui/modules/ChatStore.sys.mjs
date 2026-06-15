@@ -7,6 +7,7 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   Sqlite: "resource://gre/modules/Sqlite.sys.mjs",
+  UI_TYPES: "moz-src:///browser/components/aiwindow/ui/modules/ToolUI.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", function () {
@@ -889,6 +890,9 @@ class ChatStore {
     parseMessageRows(rows).forEach(message => {
       const conversation = convs[message.convId];
       if (conversation) {
+        if (message.toolUIData?.uiType === lazy.UI_TYPES.WEBSITE_CONFIRMATION) {
+          message.isRestored = true;
+        }
         conversation.messages.push(message);
       }
     });

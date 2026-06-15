@@ -131,8 +131,11 @@ use style::traversal::resolve_style;
 use style::traversal::DomTraversal;
 use style::traversal_flags::{self, TraversalFlags};
 use style::typed_om::numeric_declaration::NumericDeclaration;
+use style::typed_om::numeric_type::NumericType;
 use style::typed_om::sum_value::SumValue;
-use style::typed_om::{ImageValue, NumericValue, ToTyped, TypedValue, TypedValueList, UnitValue};
+use style::typed_om::{
+    ImageValue, MathSum, NumericValue, ToTyped, TypedValue, TypedValueList, UnitValue,
+};
 use style::url;
 use style::use_counters::{CustomUseCounter, UseCounters};
 use style::values::animated::{Animate, Procedure, ToAnimatedZero};
@@ -150,6 +153,7 @@ use style::values::distance::{ComputeSquaredDistance, SquaredDistance};
 use style::values::generics::color::ColorMixFlags;
 use style::values::generics::easing::BeforeFlag;
 use style::values::generics::length::GenericAnchorSizeFunction;
+use style::values::generics::Optional;
 use style::values::resolved;
 use style::values::resolved::ToResolvedValue;
 use style::values::specified::align::AlignFlags;
@@ -5976,6 +5980,19 @@ pub extern "C" fn Servo_NumericDeclaration_GetValue(
 }
 
 #[no_mangle]
+pub extern "C" fn Servo_NumericType_Create(unit: &nsACString, result: &mut NumericType) -> bool {
+    let unit = unsafe { unit.as_str_unchecked() };
+
+    match NumericType::try_from_unit(unit) {
+        Ok(numeric_type) => {
+            *result = numeric_type;
+            true
+        },
+        Err(..) => false,
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn Servo_SumValue_Create(numeric_value: &NumericValue) -> *mut SumValue {
     let sum_value = match SumValue::try_from_numeric_value(numeric_value) {
         Ok(sum_value) => sum_value,
@@ -5990,42 +6007,56 @@ pub unsafe extern "C" fn Servo_SumValue_Drop(sum_value: *mut SumValue) {
     let _ = Box::from_raw(sum_value);
 }
 
-#[no_mangle]
-pub extern "C" fn Servo_ImageValue_ToCss(image_value: &ImageValue, value: &mut nsACString) {
-    image_value.to_css(&mut CssWriter::new(value)).unwrap();
-}
-
-/// A result of attempting to convert a sum value to a concrete unit.
+/// Attempts to convert a sum value to a concrete unit.
 ///
-/// Unlike `NumericValueResult`, the `Unsupported` case here is a valid and
-/// expected outcome. It indicates that the sum value cannot be converted to
-/// the requested unit, for example because the value contains multiple items,
-/// or incompatible units.
-#[repr(C)]
-pub enum UnitValueResult {
-    /// The sum value could not be converted to the requested unit.
-    ///
-    /// This represents a valid conversion failure, such as attempting to
-    /// convert a multi-item sum value or converting between incompatible
-    /// units. In this case, the caller is expected to throw an error.
-    Unsupported,
-
-    /// The sum value was successfully converted to a `UnitValue`.
-    Unit(UnitValue),
-}
-
+/// Returns `Optional::Some` if the sum value can be converted to the
+/// requested unit, or `Optional::None` if conversion is not possible.
+///
+/// Conversion may fail for valid reasons, such as:
+/// - the sum value containing multiple items
+/// - converting between incompatible units
 #[no_mangle]
 pub extern "C" fn Servo_SumValue_ToUnit(
     sum_value: &SumValue,
     unit: &nsACString,
-    result: &mut UnitValueResult,
+    result: &mut Optional<UnitValue>,
 ) {
     let unit = unsafe { unit.as_str_unchecked() };
 
-    *result = match sum_value.resolve_to_unit(unit) {
-        Ok(unit_value) => UnitValueResult::Unit(unit_value),
-        Err(..) => UnitValueResult::Unsupported,
+    *result = match sum_value.to_unit(unit) {
+        Ok(unit_value) => Optional::Some(unit_value),
+        Err(..) => Optional::None,
     };
+}
+
+/// Attempts to convert a sum value to concrete units.
+///
+/// Returns `Optional::Some` if the sum value can be converted to the
+/// requested units, or `Optional::None` if conversion is not possible.
+///
+/// Conversion may fail for valid reasons, such as:
+/// - converting between incompatible units
+/// - requested units not accounting for all items in the sum value
+#[no_mangle]
+pub extern "C" fn Servo_SumValue_ToUnits(
+    sum_value: &SumValue,
+    units: &nsTArray<nsCString>,
+    result: &mut Optional<MathSum>,
+) {
+    let units = units
+        .iter()
+        .map(|unit| unsafe { unit.as_str_unchecked() })
+        .collect::<Vec<_>>();
+
+    *result = match sum_value.to_units(&units) {
+        Ok(math_sum) => Optional::Some(math_sum),
+        Err(..) => Optional::None,
+    };
+}
+
+#[no_mangle]
+pub extern "C" fn Servo_ImageValue_ToCss(image_value: &ImageValue, value: &mut nsACString) {
+    image_value.to_css(&mut CssWriter::new(value)).unwrap();
 }
 
 #[no_mangle]
@@ -11351,4 +11382,179 @@ pub extern "C" fn Servo_GetShadowRootForScoped(
     scope
         .get_shadow_root_for_scoped(element)
         .map_or(ptr::null(), |sr| sr.0 as *const _)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn Servo_GetComputationStepsSupportedCSSFunctions(
+    out: &mut nsTArray<nsCString>,
+) {
+    use style::values::specified::calc::MathFunction;
+
+    out.push(nsCString::from("var"));
+    out.push(nsCString::from("attr"));
+    out.push(nsCString::from("env"));
+    for func in MathFunction::variants() {
+        out.push(nsCString::from(func.as_ref()));
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn Servo_GetComputationSteps(
+    str: &nsAString,
+    element: &RawGeckoElement,
+    pseudo_type: PseudoStyleType,
+    style: &ComputedValues,
+    raw_data: &PerDocumentStyleData,
+    out: &mut nsTArray<nsString>,
+) {
+    use style::values::generics::calc::{CalcUnits, SimplificationResult};
+    use style::values::specified::calc::{CalcNode, CalcParseFlags, Leaf};
+
+    let parser_context = ParserContext::new(
+        Origin::Author,
+        dummy_url_data(),
+        Some(CssRuleType::Style),
+        ParsingMode::DEFAULT,
+        QuirksMode::NoQuirks,
+        /* namespaces = */ Default::default(),
+        None,
+        None,
+        /* attr_taint */ Default::default(),
+    );
+
+    let string = str.to_string();
+    let mut input = ParserInput::new(&string);
+    let mut parser = Parser::new(&mut input);
+
+    // At the moment, we're only supporting top-level Math function
+    // TODO: we should handle others like env()/var()/attr() (See Bug 2041622)
+    let math_func = match parser.next() {
+        Ok(Token::Function(ref name)) => {
+            match CalcNode::math_function(
+                &parser_context,
+                name,
+                // we don't need to have a valid location here, it's only used to report errors
+                SourceLocation { line: 0, column: 0 },
+            ) {
+                Ok(f) => f,
+                Err(_) => {
+                    return;
+                },
+            }
+        },
+        _ => {
+            return;
+        },
+    };
+
+    let mut flags = CalcParseFlags::new(CalcUnits::ALL);
+    flags = flags.new_without_in_place_operations();
+    // Initial parsing
+    let mut node = match CalcNode::parse(&parser_context, &mut parser, math_func, flags) {
+        Ok(n) => n,
+        Err(_) => {
+            return;
+        },
+    };
+
+    let mut value = match node.as_leaf() {
+        Some(l) => l.to_css_string(),
+        None => node.to_css_string(),
+    };
+    // `value` is the serialized version of `string`, which can be different from the
+    // authored expression (for example `round(Infinity) will serialize as `round(infinity, 1)`).
+    // We only want to put `string` in the array if it's significantly different (as in, it
+    // should have more differences than juste whitespace/casing).
+    if value.replace(" ", "").to_lowercase() != string.replace(" ", "").to_lowercase() {
+        out.push(nsString::from(&string));
+    }
+    out.push(nsString::from(&value));
+
+    let data = raw_data.borrow();
+    let element = GeckoElement(element);
+    let pseudo = PseudoElement::from_pseudo_type(pseudo_type, None);
+    let parent_element = if pseudo.is_none() {
+        element.inheritance_parent()
+    } else {
+        Some(element)
+    };
+    let parent_data = parent_element.as_ref().and_then(|e| e.borrow_data());
+    let parent_style = parent_data
+        .as_ref()
+        .map(|d| d.styles.primary())
+        .map(|x| &**x);
+
+    let container_size_query =
+        ContainerSizeQuery::for_element(element, parent_style, pseudo.is_some());
+    let mut conditions = Default::default();
+    let mut tree_counting_caches = TreeCountingCaches::default();
+    let context = create_context_for_animation(
+        &data,
+        &style,
+        parent_style,
+        &mut conditions,
+        container_size_query,
+        &element,
+        &mut tree_counting_caches,
+    );
+
+    // Go through the leaves so we have consistent units to run the computation
+    node = node.map_leaves(|leaf| match *leaf {
+        // TODO: Percentages should be replaced by the appropriate value (See Bug 2041621)
+        // Leaf::Percentage(p) => { },
+        Leaf::Length(l) => {
+            let result = l.to_computed_value(&context);
+            Leaf::Length(NoCalcLength::from_computed_value(&result))
+        },
+        ref l => l.clone(),
+    });
+
+    let mut new_value = match node.as_leaf() {
+        Some(l) => l.to_css_string(),
+        None => node.to_css_string(),
+    };
+    if new_value != value {
+        value = new_value;
+        out.push(nsString::from(&value));
+    }
+
+    // We don't want to call node.simplify_and_sort() since it simplifies the whole tree
+    // in one swoop. We do want to have it done incrementally to have the different steps.
+    // So until we get a single leaf…
+    while node.as_leaf().is_none() {
+        // …use visit_depth_first to get to the first inner non-leaf node
+        let mut res = SimplificationResult::Unchanged;
+        node.visit_depth_first(|n| {
+            // we don't have a way to stop this function to be called, so just bail
+            // out when we already handled a node
+            match res {
+                SimplificationResult::Simplified => return,
+                _ => {},
+            }
+
+            match n.as_leaf() {
+                None => {
+                    res = n.simplify_and_sort_direct_children();
+                },
+                _ => {},
+            }
+        });
+
+        // If we didn't simplify any node during the last call to visit_depth_first,
+        // consider we can't do better and break out of the loop
+        match res {
+            SimplificationResult::Unchanged => return,
+            SimplificationResult::Simplified => {
+                // If we did simplify something, we have a new step to put in our output.
+                new_value = match node.as_leaf() {
+                    Some(l) => l.to_css_string(),
+                    None => node.to_css_string(),
+                };
+                if new_value != value {
+                    value = new_value;
+                    out.push(nsString::from(&value));
+                }
+            },
+        }
+    }
 }

@@ -933,8 +933,8 @@ tab-split-view-wrapper[dragtarget] {
     @media (not (prefers-contrast)) and (-moz-pref("browser.nova.enabled")) {
       :root[theme-in-app] & {
         background:
-          image(var(--tab-background-color-selected)) padding-box,
-          var(--tab-border-color-accent) border-box;
+          var(--tab-border-color-accent) border-box border-area,
+          var(--tab-background-color-selected) padding-box;
       }
     }
   }
@@ -2696,8 +2696,8 @@ tab-group {
     :root:not([lwtheme]) & {
       border: 1px solid transparent;
       background:
-        image(var(--tab-background-color-selected)) padding-box,
-        var(--tab-border-color-accent) border-box;
+        var(--tab-border-color-accent) border-box border-area,
+        var(--tab-background-color-selected) padding-box;
     }
   }
 }

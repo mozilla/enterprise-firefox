@@ -31,6 +31,128 @@ newtab-card-dismiss-button =
     .title = Одбаци
     .aria-label = Одбаци
 
+## Strings for "Homepage" and "Firefox Home" sections of about:settings#home.
+## Homepage panel
+
+home-homepage-title =
+    .label = Почетна страница
+home-homepage-new-windows =
+    .label = Нови прозори
+home-homepage-new-tabs =
+    .label = Нови језичци:
+# This option leads to the "Custom Homepage" subpage
+home-homepage-custom-homepage-button =
+    .label = Изаберите одређени сајт
+
+## Custom URLs subpage
+
+# Subheader on the Custom Homepage subpage. Followed by a form to enter URLs and a list of URLs already saved, if any.
+home-custom-homepage-card-header =
+    .label = Адреса(е) веб сајта
+home-custom-homepage-address =
+    .placeholder = Унесите адресу
+home-custom-homepage-address-button =
+    .label = Додај адресу
+# Shown when no custom websites/URLs to use as a homepage have been added yet
+home-custom-homepage-no-results =
+    .label = Још увек нема додатих веб сајтова.
+home-custom-homepage-delete-address-button =
+    .aria-label = Обриши адресу
+    .title = Обриши адресу
+# Further options to use when setting the home page. Two action buttons are placed in line with this prompt
+# to replace the current home page with a currently open page or bookmark.
+home-custom-homepage-replace-with-prompt =
+    .label = Замени са
+# Button that appears in-line after text "Replace with" (home-custom-homepage-replace-with-prompt)
+home-custom-homepage-current-pages-button =
+    .label = Тренутно отворене странице
+# Button that appears in-line after text "Replace with" (home-custom-homepage-replace-with-prompt)
+home-custom-homepage-bookmarks-button =
+    .label = Обележивачи…
+
+## Firefox Home content
+
+home-prefs-content-header =
+    .label = { -firefox-home-brand-name }
+home-prefs-search-header2 =
+    .label = Претрага
+home-prefs-stories-header2 =
+    .label = Приче
+    .description = Изузетан садржај који припрема { -brand-product-name } породица
+home-prefs-widgets-header =
+    .label = Елементи
+# Lists is a widget on New Tab, similar to a to-do widget
+home-prefs-lists-header =
+    .label = Спискови
+# Timer is a widget on New Tab, similar to the Pomodoro timer.
+home-prefs-timer-header =
+    .label = Одбројавач
+# Sports is a widget on New Tab showing sports scores and schedules.
+home-prefs-sports-widget-header =
+    .label = Спорт
+# Clock is a widget on New Tab that displays time zones around the world.
+home-prefs-clocks-header =
+    .label = Часовник
+home-prefs-mission-message2 =
+    .message = Наши спонзори подржавају нашу мисију изградње бољег веба.
+home-prefs-manage-topics-link2 =
+    .label = Управљај темама
+home-prefs-choose-wallpaper-link2 =
+    .label = Изаберите позадину
+home-prefs-firefox-logo-header =
+    .label = Логотип { -brand-short-name }-а
+# Informational message bar that appears in the Firefox Home section when the options are disabled.
+# The user must select Firefox Home as their homepage for either new tabs or new windows to enable
+# the features in settings.
+home-prefs-firefox-home-disabled-notice =
+    .message = Да бисте употребили ове могућности, подесите нове језичке картице или нове прозоре на { -firefox-home-brand-name }.
+# Variables:
+#   $num (number) - Number of rows displayed
+home-prefs-sections-rows-option-srd =
+    .label =
+        { $num ->
+            [one] { $num } ред
+            [few] { $num } реда
+           *[other] { $num } редова
+        }
+# Dropdown option shown when an extension replaces the contents of new windows or tabs.
+# Variables:
+#   $extension (string) - Name of the extension
+home-prefs-homepage-extension-option =
+    .label = Додатак ({ $extension })
+home-restore-defaults-srd =
+    .label = Врати на подразумевано
+    .accesskey = В
+home-mode-choice-default-fx-srd =
+    .label = { -firefox-home-brand-name } (Подразумевано)
+home-mode-choice-custom-srd =
+    .label = прилагођена адреса…
+home-mode-choice-blank-srd =
+    .label = празна страница
+home-prefs-shortcuts-header-srd =
+    .label = Пречице
+home-prefs-shortcuts-select =
+    .aria-label = Пречице
+home-prefs-shortcuts-by-option-sponsored-srd =
+    .label = Спонзорисане пречице
+home-prefs-recommended-by-option-sponsored-stories-srd =
+    .label = Спонзорисане приче
+home-prefs-highlights-option-visited-pages-srd =
+    .label = Посећене странице
+home-prefs-highlights-options-bookmarks-srd =
+    .label = Обележивачи
+home-prefs-highlights-option-most-recent-download-srd =
+    .label = Најновије преузимање
+home-prefs-recent-activity-header-srd =
+    .label = Недавна активност
+home-prefs-recent-activity-select =
+    .aria-label = Недавна активност
+home-prefs-weather-header-srd =
+    .label = Време
+home-prefs-support-firefox-header-srd =
+    .label = Подржите { -brand-product-name }
+home-prefs-mission-message-learn-more-link-srd = Сазнајте како
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -151,6 +273,8 @@ newtab-menu-section-block = Блокирај
 # "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 # e.g. Following the travel section of stories.
 newtab-menu-section-unfollow-topic = Прекини праћење
+# Context menu option to open a support page explaining the New Tab personalization features and privacy controls.
+newtab-menu-section-learn-more = Сазнајте више
 # "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 # e.g. Following the travel section of stories.
 newtab-menu-section-unfollow = Престани да пратиш тему
@@ -761,8 +885,6 @@ newtab-widget-lists-button-add-item = Додај ставку
 newtab-widget-lists-input-add-an-item2 =
     .placeholder = Додај ставку
     .aria-label = Додај ставку
-newtab-widget-lists-input-add-an-item =
-    .placeholder = Додај ставку
 newtab-widget-lists-input-error = Укључите текст да бисте додали ставку.
 newtab-widget-lists-input-menu-open-link = Отвори везу
 newtab-widget-lists-input-menu-move-up = Премести горе
@@ -790,11 +912,6 @@ newtab-widget-lists-name-placeholder-checklist2 =
 newtab-widget-lists-name-placeholder-new2 =
     .placeholder = Нови списак
     .aria-label = Уреди назив списка
-newtab-widget-lists-name-placeholder-checklist =
-    .placeholder = Списак задатака
-# The placeholder value of the name field for a newly created list
-newtab-widget-lists-name-placeholder-new =
-    .placeholder = Нови списак
 newtab-widget-section-title = Елементи
 newtab-widget-menu-hide = Сакриј елемент
 newtab-widget-menu-change-size = Промени величину

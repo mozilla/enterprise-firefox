@@ -15,7 +15,6 @@
 #include "mozilla/dom/WebCryptoCommon.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerRef.h"
-#include "mozilla/glean/DomCryptoMetrics.h"
 #include "nsNSSComponent.h"
 #include "nsProxyRelease.h"
 #include "pk11pub.h"
@@ -34,59 +33,6 @@ MOZ_GLOBINIT const SEC_ASN1Template SGN_DigestInfoTemplate[] = {
     }};
 
 namespace mozilla::dom {
-
-// Pre-defined identifiers for telemetry histograms
-
-enum TelemetryMethod {
-  TM_ENCRYPT = 0,
-  TM_DECRYPT = 1,
-  TM_SIGN = 2,
-  TM_VERIFY = 3,
-  TM_DIGEST = 4,
-  TM_GENERATEKEY = 5,
-  TM_DERIVEKEY = 6,
-  TM_DERIVEBITS = 7,
-  TM_IMPORTKEY = 8,
-  TM_EXPORTKEY = 9,
-  TM_WRAPKEY = 10,
-  TM_UNWRAPKEY = 11
-};
-
-enum TelemetryAlgorithm {
-  // Please make additions at the end of the list,
-  // to preserve comparability of histograms over time
-  TA_UNKNOWN = 0,
-  // encrypt / decrypt
-  TA_AES_CBC = 1,
-  TA_AES_CFB = 2,
-  TA_AES_CTR = 3,
-  TA_AES_GCM = 4,
-  TA_RSAES_PKCS1 = 5,  // NB: This algorithm has been removed
-  TA_RSA_OAEP = 6,
-  // sign/verify
-  TA_RSASSA_PKCS1 = 7,
-  TA_RSA_PSS = 8,
-  TA_HMAC_SHA_1 = 9,
-  TA_HMAC_SHA_224 = 10,
-  TA_HMAC_SHA_256 = 11,
-  TA_HMAC_SHA_384 = 12,
-  TA_HMAC_SHA_512 = 13,
-  // digest
-  TA_SHA_1 = 14,
-  TA_SHA_224 = 15,
-  TA_SHA_256 = 16,
-  TA_SHA_384 = 17,
-  TA_SHA_512 = 18,
-  // Later additions
-  TA_AES_KW = 19,
-  TA_ECDH = 20,
-  TA_PBKDF2 = 21,
-  TA_ECDSA = 22,
-  TA_HKDF = 23,
-  TA_DH = 24,
-  TA_ED25519 = 25,
-  TA_X25519 = 26,
-};
 
 // Convenience functions for extracting / converting information
 
@@ -396,8 +342,6 @@ nsresult WebCryptoTask::Cancel() {
 
 void WebCryptoTask::FailWithError(nsresult aRv) {
   MOZ_ASSERT(IsOnOriginalThread());
-  glean::webcrypto::resolved.EnumGet(glean::webcrypto::ResolvedLabel::eFalse)
-      .Add();
 
   if (aRv == NS_ERROR_DOM_TYPE_MISMATCH_ERR) {
     mResultPromise->MaybeRejectWithTypeError(
@@ -433,9 +377,6 @@ void WebCryptoTask::CallCallback(nsresult rv) {
   }
 
   Resolve();
-  glean::webcrypto::resolved.EnumGet(glean::webcrypto::ResolvedLabel::eTrue)
-      .Add();
-
   // Manually release mResultPromise while we're on the main thread
   mResultPromise = nullptr;
   Cleanup();
@@ -516,12 +457,10 @@ class AesTask : public ReturnArrayBufferViewTask, public DeferredData {
     }
 
     // Cache parameters depending on the specific algorithm
-    TelemetryAlgorithm telemetryAlg;
     if (algName.EqualsLiteral(WEBCRYPTO_ALG_AES_CBC)) {
       CHECK_KEY_ALGORITHM(aKey.Algorithm(), WEBCRYPTO_ALG_AES_CBC);
 
       mMechanism = CKM_AES_CBC_PAD;
-      telemetryAlg = TA_AES_CBC;
       RootedDictionary<AesCbcParams> params(aCx);
       nsresult rv = Coerce(aCx, params, aAlgorithm);
       if (NS_FAILED(rv)) {
@@ -538,7 +477,6 @@ class AesTask : public ReturnArrayBufferViewTask, public DeferredData {
       CHECK_KEY_ALGORITHM(aKey.Algorithm(), WEBCRYPTO_ALG_AES_CTR);
 
       mMechanism = CKM_AES_CTR;
-      telemetryAlg = TA_AES_CTR;
       RootedDictionary<AesCtrParams> params(aCx);
       nsresult rv = Coerce(aCx, params, aAlgorithm);
       if (NS_FAILED(rv)) {
@@ -557,7 +495,6 @@ class AesTask : public ReturnArrayBufferViewTask, public DeferredData {
       CHECK_KEY_ALGORITHM(aKey.Algorithm(), WEBCRYPTO_ALG_AES_GCM);
 
       mMechanism = CKM_AES_GCM;
-      telemetryAlg = TA_AES_GCM;
       RootedDictionary<AesGcmParams> params(aCx);
       nsresult rv = Coerce(aCx, params, aAlgorithm);
       if (NS_FAILED(rv)) {
@@ -586,7 +523,6 @@ class AesTask : public ReturnArrayBufferViewTask, public DeferredData {
       mEarlyRv = NS_ERROR_DOM_NOT_SUPPORTED_ERR;
       return;
     }
-    glean::webcrypto::alg.AccumulateSingleSample(telemetryAlg);
   }
 
  private:
@@ -721,8 +657,6 @@ class AesKwTask : public ReturnArrayBufferViewTask, public DeferredData {
       mEarlyRv = NS_ERROR_DOM_DATA_ERR;
       return;
     }
-
-    glean::webcrypto::alg.AccumulateSingleSample(TA_AES_KW);
   }
 
  private:
@@ -830,8 +764,6 @@ class RsaOaepTask : public ReturnArrayBufferViewTask, public DeferredData {
 
   void Init(JSContext* aCx, const ObjectOrString& aAlgorithm, CryptoKey& aKey,
             bool aEncrypt) {
-    glean::webcrypto::alg.AccumulateSingleSample(TA_RSA_OAEP);
-
     CHECK_KEY_ALGORITHM(aKey.Algorithm(), WEBCRYPTO_ALG_RSA_OAEP);
 
     if (mEncrypt) {
@@ -957,28 +889,6 @@ class HmacTask : public WebCryptoTask {
       mEarlyRv = NS_ERROR_DOM_DATA_ERR;
       return;
     }
-
-    TelemetryAlgorithm telemetryAlg;
-    switch (mMechanism) {
-      case CKM_SHA_1_HMAC:
-        telemetryAlg = TA_HMAC_SHA_1;
-        break;
-      case CKM_SHA224_HMAC:
-        telemetryAlg = TA_HMAC_SHA_224;
-        break;
-      case CKM_SHA256_HMAC:
-        telemetryAlg = TA_HMAC_SHA_256;
-        break;
-      case CKM_SHA384_HMAC:
-        telemetryAlg = TA_HMAC_SHA_384;
-        break;
-      case CKM_SHA512_HMAC:
-        telemetryAlg = TA_HMAC_SHA_512;
-        break;
-      default:
-        telemetryAlg = TA_UNKNOWN;
-    }
-    glean::webcrypto::alg.AccumulateSingleSample(telemetryAlg);
   }
 
  private:
@@ -1082,12 +992,10 @@ class AsymmetricSignVerifyTask : public WebCryptoTask {
 
     if (algName.EqualsLiteral(WEBCRYPTO_ALG_RSASSA_PKCS1)) {
       mAlgorithm = Algorithm::RSA_PKCS1;
-      glean::webcrypto::alg.AccumulateSingleSample(TA_RSASSA_PKCS1);
       CHECK_KEY_ALGORITHM(aKey.Algorithm(), WEBCRYPTO_ALG_RSASSA_PKCS1);
       hashAlgName = aKey.Algorithm().mRsa.mHash.mName;
     } else if (algName.EqualsLiteral(WEBCRYPTO_ALG_RSA_PSS)) {
       mAlgorithm = Algorithm::RSA_PSS;
-      glean::webcrypto::alg.AccumulateSingleSample(TA_RSA_PSS);
       CHECK_KEY_ALGORITHM(aKey.Algorithm(), WEBCRYPTO_ALG_RSA_PSS);
 
       KeyAlgorithm& hashAlg = aKey.Algorithm().mRsa.mHash;
@@ -1112,7 +1020,6 @@ class AsymmetricSignVerifyTask : public WebCryptoTask {
       mSaltLength = params.mSaltLength;
     } else if (algName.EqualsLiteral(WEBCRYPTO_ALG_ECDSA)) {
       mAlgorithm = Algorithm::ECDSA;
-      glean::webcrypto::alg.AccumulateSingleSample(TA_ECDSA);
       CHECK_KEY_ALGORITHM(aKey.Algorithm(), WEBCRYPTO_ALG_ECDSA);
 
       // For ECDSA, the hash name comes from the algorithm parameter
@@ -1130,7 +1037,6 @@ class AsymmetricSignVerifyTask : public WebCryptoTask {
       }
     } else if (algName.EqualsLiteral(WEBCRYPTO_ALG_ED25519)) {
       mAlgorithm = Algorithm::ED25519;
-      glean::webcrypto::alg.AccumulateSingleSample(TA_ED25519);
       CHECK_KEY_ALGORITHM(aKey.Algorithm(), WEBCRYPTO_ALG_ED25519);
     } else {
       // This shouldn't happen; CreateSignVerifyTask shouldn't create
@@ -1322,21 +1228,6 @@ class DigestTask : public ReturnArrayBufferViewTask {
       mEarlyRv = NS_ERROR_DOM_SYNTAX_ERR;
       return;
     }
-
-    TelemetryAlgorithm telemetryAlg;
-    if (algName.EqualsLiteral(WEBCRYPTO_ALG_SHA1)) {
-      telemetryAlg = TA_SHA_1;
-    } else if (algName.EqualsLiteral(WEBCRYPTO_ALG_SHA256)) {
-      telemetryAlg = TA_SHA_224;
-    } else if (algName.EqualsLiteral(WEBCRYPTO_ALG_SHA384)) {
-      telemetryAlg = TA_SHA_256;
-    } else if (algName.EqualsLiteral(WEBCRYPTO_ALG_SHA512)) {
-      telemetryAlg = TA_SHA_384;
-    } else {
-      mEarlyRv = NS_ERROR_DOM_SYNTAX_ERR;
-      return;
-    }
-    glean::webcrypto::alg.AccumulateSingleSample(telemetryAlg);
     mOidTag = MapHashAlgorithmNameToOID(algName);
   }
 
@@ -2511,7 +2402,6 @@ class DeriveX25519BitsTask : public ReturnArrayBufferViewTask {
   }
 
   void Init(JSContext* aCx, const ObjectOrString& aAlgorithm, CryptoKey& aKey) {
-    glean::webcrypto::alg.AccumulateSingleSample(TA_X25519);
     CHECK_KEY_ALGORITHM(aKey.Algorithm(), WEBCRYPTO_ALG_X25519);
 
     // Check that we have a private key.
@@ -2822,7 +2712,6 @@ class DeriveHkdfBitsTask : public ReturnArrayBufferViewTask {
 
   void Init(JSContext* aCx, const ObjectOrString& aAlgorithm, CryptoKey& aKey,
             const Nullable<uint32_t>& aLength) {
-    glean::webcrypto::alg.AccumulateSingleSample(TA_HKDF);
     CHECK_KEY_ALGORITHM(aKey.Algorithm(), WEBCRYPTO_ALG_HKDF);
 
     if (!mSymKey.Assign(aKey.GetSymKey())) {
@@ -2975,7 +2864,6 @@ class DerivePbkdfBitsTask : public ReturnArrayBufferViewTask {
 
   void Init(JSContext* aCx, const ObjectOrString& aAlgorithm, CryptoKey& aKey,
             const Nullable<uint32_t>& aLength) {
-    glean::webcrypto::alg.AccumulateSingleSample(TA_PBKDF2);
     CHECK_KEY_ALGORITHM(aKey.Algorithm(), WEBCRYPTO_ALG_PBKDF2);
 
     if (!mSymKey.Assign(aKey.GetSymKey())) {
@@ -3155,7 +3043,6 @@ class DeriveEcdhBitsTask : public ReturnArrayBufferViewTask {
   }
 
   void Init(JSContext* aCx, const ObjectOrString& aAlgorithm, CryptoKey& aKey) {
-    glean::webcrypto::alg.AccumulateSingleSample(TA_ECDH);
     CHECK_KEY_ALGORITHM(aKey.Algorithm(), WEBCRYPTO_ALG_ECDH);
 
     // Check that we have a private key.
@@ -3323,13 +3210,6 @@ class UnwrapKeyTask : public KeyEncryptTask {
 already_AddRefed<WebCryptoTask> WebCryptoTask::CreateEncryptDecryptTask(
     JSContext* aCx, const ObjectOrString& aAlgorithm, CryptoKey& aKey,
     const CryptoOperationData& aData, bool aEncrypt) {
-  TelemetryMethod method = (aEncrypt) ? TM_ENCRYPT : TM_DECRYPT;
-  glean::webcrypto::method.AccumulateSingleSample(method);
-  glean::webcrypto::extractable_enc
-      .EnumGet(static_cast<glean::webcrypto::ExtractableEncLabel>(
-          aKey.Extractable()))
-      .Add();
-
   // Ensure key is usable for this operation
   if ((aEncrypt && !aKey.HasUsage(CryptoKey::ENCRYPT)) ||
       (!aEncrypt && !aKey.HasUsage(CryptoKey::DECRYPT))) {
@@ -3357,13 +3237,6 @@ already_AddRefed<WebCryptoTask> WebCryptoTask::CreateSignVerifyTask(
     JSContext* aCx, const ObjectOrString& aAlgorithm, CryptoKey& aKey,
     const CryptoOperationData& aSignature, const CryptoOperationData& aData,
     bool aSign) {
-  TelemetryMethod method = (aSign) ? TM_SIGN : TM_VERIFY;
-  glean::webcrypto::method.AccumulateSingleSample(method);
-  glean::webcrypto::extractable_sig
-      .EnumGet(static_cast<glean::webcrypto::ExtractableSigLabel>(
-          aKey.Extractable()))
-      .Add();
-
   // Ensure key is usable for this operation
   if ((aSign && !aKey.HasUsage(CryptoKey::SIGN)) ||
       (!aSign && !aKey.HasUsage(CryptoKey::VERIFY))) {
@@ -3393,8 +3266,6 @@ already_AddRefed<WebCryptoTask> WebCryptoTask::CreateSignVerifyTask(
 already_AddRefed<WebCryptoTask> WebCryptoTask::CreateDigestTask(
     JSContext* aCx, const ObjectOrString& aAlgorithm,
     const CryptoOperationData& aData) {
-  glean::webcrypto::method.AccumulateSingleSample(TM_DIGEST);
-
   nsString algName;
   nsresult rv = GetAlgorithmName(aCx, aAlgorithm, algName);
   if (NS_FAILED(rv)) {
@@ -3415,12 +3286,6 @@ already_AddRefed<WebCryptoTask> WebCryptoTask::CreateImportKeyTask(
     nsIGlobalObject* aGlobal, JSContext* aCx, const nsAString& aFormat,
     JS::Handle<JSObject*> aKeyData, const ObjectOrString& aAlgorithm,
     bool aExtractable, const Sequence<nsString>& aKeyUsages) {
-  glean::webcrypto::method.AccumulateSingleSample(TM_IMPORTKEY);
-  glean::webcrypto::extractable_import
-      .EnumGet(
-          static_cast<glean::webcrypto::ExtractableImportLabel>(aExtractable))
-      .Add();
-
   // Verify that the format is recognized
   if (!aFormat.EqualsLiteral(WEBCRYPTO_KEY_FORMAT_RAW) &&
       !aFormat.EqualsLiteral(WEBCRYPTO_KEY_FORMAT_SPKI) &&
@@ -3471,8 +3336,6 @@ already_AddRefed<WebCryptoTask> WebCryptoTask::CreateImportKeyTask(
 
 already_AddRefed<WebCryptoTask> WebCryptoTask::CreateExportKeyTask(
     const nsAString& aFormat, CryptoKey& aKey) {
-  glean::webcrypto::method.AccumulateSingleSample(TM_EXPORTKEY);
-
   // Verify that the format is recognized
   if (!aFormat.EqualsLiteral(WEBCRYPTO_KEY_FORMAT_RAW) &&
       !aFormat.EqualsLiteral(WEBCRYPTO_KEY_FORMAT_SPKI) &&
@@ -3511,11 +3374,6 @@ already_AddRefed<WebCryptoTask> WebCryptoTask::CreateExportKeyTask(
 already_AddRefed<WebCryptoTask> WebCryptoTask::CreateGenerateKeyTask(
     nsIGlobalObject* aGlobal, JSContext* aCx, const ObjectOrString& aAlgorithm,
     bool aExtractable, const Sequence<nsString>& aKeyUsages) {
-  glean::webcrypto::method.AccumulateSingleSample(TM_GENERATEKEY);
-  glean::webcrypto::extractable_generate
-      .EnumGet(
-          static_cast<glean::webcrypto::ExtractableGenerateLabel>(aExtractable))
-      .Add();
   if (!CryptoKey::AllUsagesRecognized(aKeyUsages)) {
     return MakeAndAddRef<FailureTask>(NS_ERROR_DOM_SYNTAX_ERR);
   }
@@ -3551,8 +3409,6 @@ already_AddRefed<WebCryptoTask> WebCryptoTask::CreateDeriveKeyTask(
     nsIGlobalObject* aGlobal, JSContext* aCx, const ObjectOrString& aAlgorithm,
     CryptoKey& aBaseKey, const ObjectOrString& aDerivedKeyType,
     bool aExtractable, const Sequence<nsString>& aKeyUsages) {
-  glean::webcrypto::method.AccumulateSingleSample(TM_DERIVEKEY);
-
   // Ensure baseKey is usable for this operation
   if (!aBaseKey.HasUsage(CryptoKey::DERIVEKEY)) {
     return MakeAndAddRef<FailureTask>(NS_ERROR_DOM_INVALID_ACCESS_ERR);
@@ -3599,8 +3455,6 @@ already_AddRefed<WebCryptoTask> WebCryptoTask::CreateDeriveKeyTask(
 already_AddRefed<WebCryptoTask> WebCryptoTask::CreateDeriveBitsTask(
     JSContext* aCx, const ObjectOrString& aAlgorithm, CryptoKey& aKey,
     const Nullable<uint32_t>& aLength) {
-  glean::webcrypto::method.AccumulateSingleSample(TM_DERIVEBITS);
-
   // Ensure baseKey is usable for this operation
   if (!aKey.HasUsage(CryptoKey::DERIVEBITS)) {
     return MakeAndAddRef<FailureTask>(NS_ERROR_DOM_INVALID_ACCESS_ERR);
@@ -3634,8 +3488,6 @@ already_AddRefed<WebCryptoTask> WebCryptoTask::CreateDeriveBitsTask(
 already_AddRefed<WebCryptoTask> WebCryptoTask::CreateWrapKeyTask(
     JSContext* aCx, const nsAString& aFormat, CryptoKey& aKey,
     CryptoKey& aWrappingKey, const ObjectOrString& aWrapAlgorithm) {
-  glean::webcrypto::method.AccumulateSingleSample(TM_WRAPKEY);
-
   // Verify that the format is recognized
   if (!aFormat.EqualsLiteral(WEBCRYPTO_KEY_FORMAT_RAW) &&
       !aFormat.EqualsLiteral(WEBCRYPTO_KEY_FORMAT_SPKI) &&
@@ -3682,8 +3534,6 @@ already_AddRefed<WebCryptoTask> WebCryptoTask::CreateUnwrapKeyTask(
     const ObjectOrString& aUnwrapAlgorithm,
     const ObjectOrString& aUnwrappedKeyAlgorithm, bool aExtractable,
     const Sequence<nsString>& aKeyUsages) {
-  glean::webcrypto::method.AccumulateSingleSample(TM_UNWRAPKEY);
-
   // Ensure key is usable for this operation
   if (!aUnwrappingKey.HasUsage(CryptoKey::UNWRAPKEY)) {
     return MakeAndAddRef<FailureTask>(NS_ERROR_DOM_INVALID_ACCESS_ERR);

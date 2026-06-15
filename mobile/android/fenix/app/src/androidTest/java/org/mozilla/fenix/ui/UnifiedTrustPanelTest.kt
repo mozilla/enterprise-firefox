@@ -11,6 +11,7 @@ import androidx.test.rule.ActivityTestRule
 import org.junit.Rule
 import org.junit.Test
 import org.mozilla.fenix.IntentReceiverActivity
+import org.mozilla.fenix.customannotations.Converted
 import org.mozilla.fenix.customannotations.SmokeTest
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.helpers.DataGenerationHelper.createCustomTabIntent
@@ -133,6 +134,11 @@ class UnifiedTrustPanelTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3186723
+    @Converted(
+        replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.UnifiedTrustPanelTest#verifyClearCookiesAndSiteDataFromQuickSettingsTest"],
+        bug = 2040857,
+        since = "2026-06",
+    )
     @SmokeTest
     @Test
     fun verifyClearCookiesAndSiteDataFromQuickSettingsTest() {

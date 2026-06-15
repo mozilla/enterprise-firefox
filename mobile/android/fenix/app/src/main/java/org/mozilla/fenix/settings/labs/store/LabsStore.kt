@@ -27,6 +27,7 @@ private fun reducer(state: LabsState, action: LabsAction): LabsState {
     return when (action) {
         is LabsAction.InitAction,
         is LabsAction.RestartApplication,
+        is LabsAction.ShareFeedbackClicked,
             -> state
 
         is LabsAction.UpdateLabsItems -> state.copy(

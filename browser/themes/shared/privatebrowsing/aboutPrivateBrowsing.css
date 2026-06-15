@@ -468,7 +468,7 @@ content-search-handoff-ui {
     html.private {
       /* Re-assert the token default to override the legacy
          `--background-color-canvas: #25003e` set on `html.private` above. */
-      --background-color-canvas: light-dark(var(--color-gray-05), var(--color-gray-90));
+      --background-color-canvas: light-dark(var(--color-gray-0), var(--color-gray-90));
       background: var(--background-color-canvas);
       color: var(--color-white);
       /* Reset the legacy `--link-color: white` set on `html.private` above

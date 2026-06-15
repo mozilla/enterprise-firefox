@@ -13,6 +13,8 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import mozilla.components.support.test.robolectric.testContext
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -164,5 +166,147 @@ class FirefoxLabsScreenTest {
                 testContext.getString(R.string.firefox_labs_homepage_as_a_new_tab),
             ),
         ).assertExists()
+    }
+
+    @Test
+    fun `WHEN tapping a labs item with requiresRestart=true THEN the toggle confirmation dialog is shown`() {
+        val item = LabsItem(
+            slug = LabsItemSlugs.HOMEPAGE_AS_NEW_TAB,
+            title = R.string.firefox_labs_homepage_as_a_new_tab,
+            description = R.string.firefox_labs_homepage_as_a_new_tab_description,
+            enrolled = false,
+            requiresRestart = true,
+        )
+        val store = LabsStore(
+            initialState = LabsState(
+                labsItems = listOf(item),
+                dialogState = DialogState.Closed,
+            ),
+        )
+
+        composeTestRule.setContent {
+            FirefoxTheme(theme = Theme.Light) {
+                FirefoxLabsScreen(
+                    store = store,
+                    onNavigationIconClick = {},
+                    onShareFeedbackClick = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText(
+            testContext.getString(R.string.firefox_labs_homepage_as_a_new_tab),
+        ).performClick()
+
+        composeTestRule.waitForIdle()
+        assertEquals(DialogState.ToggleLabsItem(item), store.state.dialogState)
+        assertFalse(store.state.labsItems.first().enrolled)
+    }
+
+    @Test
+    fun `WHEN tapping a labs item with requiresRestart=false THEN the item is toggled directly with no dialog`() {
+        val item = LabsItem(
+            slug = LabsItemSlugs.HOMEPAGE_AS_NEW_TAB,
+            title = R.string.firefox_labs_homepage_as_a_new_tab,
+            description = R.string.firefox_labs_homepage_as_a_new_tab_description,
+            enrolled = false,
+            requiresRestart = false,
+        )
+        val store = LabsStore(
+            initialState = LabsState(
+                labsItems = listOf(item),
+                dialogState = DialogState.Closed,
+            ),
+        )
+
+        composeTestRule.setContent {
+            FirefoxTheme(theme = Theme.Light) {
+                FirefoxLabsScreen(
+                    store = store,
+                    onNavigationIconClick = {},
+                    onShareFeedbackClick = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText(
+            testContext.getString(R.string.firefox_labs_homepage_as_a_new_tab),
+        ).performClick()
+
+        composeTestRule.waitForIdle()
+        assertEquals(DialogState.Closed, store.state.dialogState)
+        assertTrue(store.state.labsItems.first().enrolled)
+    }
+
+    @Test
+    fun `WHEN tapping Restore defaults AND an enrolled item requires restart THEN the restore defaults dialog is shown`() {
+        val store = LabsStore(
+            initialState = LabsState(
+                labsItems = listOf(
+                    LabsItem(
+                        slug = LabsItemSlugs.HOMEPAGE_AS_NEW_TAB,
+                        title = R.string.firefox_labs_homepage_as_a_new_tab,
+                        description = R.string.firefox_labs_homepage_as_a_new_tab_description,
+                        enrolled = true,
+                        requiresRestart = true,
+                    ),
+                ),
+                dialogState = DialogState.Closed,
+            ),
+        )
+
+        composeTestRule.setContent {
+            FirefoxTheme(theme = Theme.Light) {
+                FirefoxLabsScreen(
+                    store = store,
+                    onNavigationIconClick = {},
+                    onShareFeedbackClick = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText(
+            testContext.getString(R.string.firefox_labs_restore_default_button_text),
+        ).performClick()
+
+        composeTestRule.waitForIdle()
+        assertEquals(DialogState.RestoreDefaults, store.state.dialogState)
+        assertTrue(store.state.labsItems.first().enrolled)
+    }
+
+    @Test
+    fun `WHEN tapping Restore defaults AND no enrolled item requires restart THEN items are unenrolled with no dialog`() {
+        val store = LabsStore(
+            initialState = LabsState(
+                labsItems = listOf(
+                    LabsItem(
+                        slug = LabsItemSlugs.HOMEPAGE_AS_NEW_TAB,
+                        title = R.string.firefox_labs_homepage_as_a_new_tab,
+                        description = R.string.firefox_labs_homepage_as_a_new_tab_description,
+                        enrolled = true,
+                        requiresRestart = false,
+                    ),
+                ),
+                dialogState = DialogState.Closed,
+            ),
+        )
+
+        composeTestRule.setContent {
+            FirefoxTheme(theme = Theme.Light) {
+                FirefoxLabsScreen(
+                    store = store,
+                    onNavigationIconClick = {},
+                    onShareFeedbackClick = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText(
+            testContext.getString(R.string.firefox_labs_restore_default_button_text),
+        ).performClick()
+
+        composeTestRule.waitForIdle()
+        assertEquals(DialogState.Closed, store.state.dialogState)
+        assertFalse(store.state.labsItems.first().enrolled)
     }
 }

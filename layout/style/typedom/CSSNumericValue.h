@@ -82,6 +82,7 @@ class CSSNumericValue : public CSSStyleValue {
   already_AddRefed<CSSUnitValue> To(const nsACString& aUnit,
                                     ErrorResult& aRv) const;
 
+  // https://drafts.css-houdini.org/css-typed-om-1/#dom-cssnumericvalue-tosum
   already_AddRefed<CSSMathSum> ToSum(const Sequence<nsCString>& aUnits,
                                      ErrorResult& aRv) const;
 

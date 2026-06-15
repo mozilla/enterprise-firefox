@@ -29,7 +29,7 @@ border-color: var(--button-border-color);      /* → ButtonText in forced-color
 
 ```css
 /* These do NOT adapt — explicit forced-colors overrides required */
---my-bg: light-dark(var(--color-gray-05), var(--color-gray-80));
+--my-bg: light-dark(var(--color-gray-0), var(--color-gray-80));
 --my-accent: var(--color-violet-90);
 --my-gradient: linear-gradient(83deg, #5119dc 0.73%, var(--color-violet-30) 98.05%);
 --my-hover-bg: rgba(191, 143, 204, 0.2);

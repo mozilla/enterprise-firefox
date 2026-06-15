@@ -200,6 +200,10 @@ windows-launch-on-login =
     .accesskey = O
 windows-launch-on-login-disabled = This preference has been disabled in Windows. To change, visit <a data-l10n-name="startup-link">Startup Apps</a> in System settings.
 
+windows-launch-on-login-open-new-tab =
+    .label = Also open a new tab
+    .accesskey = n
+
 disable-extension =
     .label = Disable Extension
 

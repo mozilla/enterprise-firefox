@@ -31,6 +31,124 @@ newtab-card-dismiss-button =
     .title = Zapri
     .aria-label = Zapri
 
+## Strings for "Homepage" and "Firefox Home" sections of about:settings#home.
+## Homepage panel
+
+home-homepage-title =
+    .label = Domača stran
+home-homepage-new-windows =
+    .label = Nova okna
+home-homepage-new-tabs =
+    .label = Novi zavihki
+# This option leads to the "Custom Homepage" subpage
+home-homepage-custom-homepage-button =
+    .label = Izberite določeno stran
+
+## Custom URLs subpage
+
+# Subheader on the Custom Homepage subpage. Followed by a form to enter URLs and a list of URLs already saved, if any.
+home-custom-homepage-card-header =
+    .label = Naslov spletnega mesta oz. spletnih mest
+home-custom-homepage-address =
+    .placeholder = Vnesite naslov
+home-custom-homepage-address-button =
+    .label = Dodaj naslov
+# Shown when no custom websites/URLs to use as a homepage have been added yet
+home-custom-homepage-no-results =
+    .label = Dodano ni še nobeno spletno mesto.
+home-custom-homepage-delete-address-button =
+    .aria-label = Izbriši naslov
+    .title = Izbriši naslov
+# Further options to use when setting the home page. Two action buttons are placed in line with this prompt
+# to replace the current home page with a currently open page or bookmark.
+home-custom-homepage-replace-with-prompt =
+    .label = Zamenjaj s/z
+# Button that appears in-line after text "Replace with" (home-custom-homepage-replace-with-prompt)
+home-custom-homepage-current-pages-button =
+    .label = trenutno odprtimi stranmi
+# Button that appears in-line after text "Replace with" (home-custom-homepage-replace-with-prompt)
+home-custom-homepage-bookmarks-button =
+    .label = zaznamki …
+
+## Firefox Home content
+
+home-prefs-content-header =
+    .label = { -firefox-home-brand-name(zacetnica: "velika") }
+home-prefs-search-header2 =
+    .label = Iskanje
+home-prefs-stories-header2 =
+    .label = Zgodbe
+    .description = Izjemna vsebina, ki jo pripravlja družina { -brand-product-name }
+home-prefs-widgets-header =
+    .label = Pripomočki
+# Lists is a widget on New Tab, similar to a to-do widget
+home-prefs-lists-header =
+    .label = Seznami
+# Timer is a widget on New Tab, similar to the Pomodoro timer.
+home-prefs-timer-header =
+    .label = Časovnik
+# Sports is a widget on New Tab showing sports scores and schedules.
+home-prefs-sports-widget-header =
+    .label = Šport
+# Clock is a widget on New Tab that displays time zones around the world.
+home-prefs-clocks-header =
+    .label = Ura
+home-prefs-mission-message2 =
+    .message = Naši sponzorji podpirajo naše poslanstvo ustvarjanja boljšega spleta.
+home-prefs-manage-topics-link2 =
+    .label = Upravljanje tem
+home-prefs-choose-wallpaper-link2 =
+    .label = Izberite si ozadje
+home-prefs-firefox-logo-header =
+    .label = Logotip { -brand-short-name(sklon: "rodilnik") }
+# Variables:
+#   $num (number) - Number of rows displayed
+home-prefs-sections-rows-option-srd =
+    .label =
+        { $num ->
+            [one] { $num } vrstica
+            [two] { $num } vrstici
+            [few] { $num } vrstice
+           *[other] { $num } vrstic
+        }
+# Dropdown option shown when an extension replaces the contents of new windows or tabs.
+# Variables:
+#   $extension (string) - Name of the extension
+home-prefs-homepage-extension-option =
+    .label = Razširitev ({ $extension })
+home-restore-defaults-srd =
+    .label = Obnovi privzeto
+    .accesskey = O
+home-mode-choice-default-fx-srd =
+    .label = { -firefox-home-brand-name(zacetnica: "velika") } (privzeta)
+home-mode-choice-custom-srd =
+    .label = Spletne strani po meri ...
+home-mode-choice-blank-srd =
+    .label = Prazna stran
+home-prefs-shortcuts-header-srd =
+    .label = Bližnjice
+home-prefs-shortcuts-select =
+    .aria-label = Bližnjice
+home-prefs-shortcuts-by-option-sponsored-srd =
+    .label = Bližnjice oglaševalcev
+home-prefs-recommended-by-option-sponsored-stories-srd =
+    .label = Zgodbe oglaševalcev
+home-prefs-highlights-option-visited-pages-srd =
+    .label = Obiskane strani
+home-prefs-highlights-options-bookmarks-srd =
+    .label = Zaznamki
+home-prefs-highlights-option-most-recent-download-srd =
+    .label = Najnovejši prenos
+home-prefs-recent-activity-header-srd =
+    .label = Nedavna dejavnost
+home-prefs-recent-activity-select =
+    .aria-label = Nedavna dejavnost
+home-prefs-weather-header-srd =
+    .label = Vreme
+home-prefs-support-firefox-header-srd =
+    .label = Podprite { -brand-product-name(sklon: "tozilnik") }
+home-prefs-mission-message-learn-more-link-srd = Spoznajte, kako
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -151,6 +269,8 @@ newtab-menu-section-block = Prepovej
 # "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 # e.g. Following the travel section of stories.
 newtab-menu-section-unfollow-topic = Nehaj slediti
+# Context menu option to open a support page explaining the New Tab personalization features and privacy controls.
+newtab-menu-section-learn-more = Več o tem
 # "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 # e.g. Following the travel section of stories.
 newtab-menu-section-unfollow = Nehaj slediti temi
@@ -734,8 +854,6 @@ newtab-widget-lists-button-add-item = Dodaj element
 newtab-widget-lists-input-add-an-item2 =
     .placeholder = Dodaj element
     .aria-label = Dodaj element
-newtab-widget-lists-input-add-an-item =
-    .placeholder = Dodaj element
 newtab-widget-lists-input-error = Za dodajanje predmeta vključite besedilo.
 newtab-widget-lists-input-menu-open-link = Odpri povezavo
 newtab-widget-lists-input-menu-move-up = Premakni gor
@@ -758,9 +876,6 @@ newtab-widget-lists-name-placeholder-default =
 newtab-widget-lists-name-placeholder-new2 =
     .placeholder = Nov seznam
     .aria-label = Uredi ime seznama
-# The placeholder value of the name field for a newly created list
-newtab-widget-lists-name-placeholder-new =
-    .placeholder = Nov seznam
 newtab-widget-section-title = Pripomočki
 newtab-widget-menu-hide = Skrij pripomoček
 newtab-widget-menu-change-size = Spremeni velikost

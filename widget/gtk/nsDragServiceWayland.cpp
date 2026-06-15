@@ -219,7 +219,7 @@ bool nsDragSessionWayland::DragDataReceived(ClipboardData& aData,
       LOGDRAGSERVICE("  failed to extract uri-list data!");
       return false;
     }
-    dragData = new DragData(aTarget, std::move(uriList));
+    dragData = MakeRefPtr<DragData>(aTarget, std::move(uriList));
     LOGDRAGSERVICE("  TargetDataReceived(): FILE PORTAL data, MIME %s",
                    GUniquePtr<gchar>(gdk_atom_name(aTarget)).get());
   } else if (aTarget == sTextUriListTypeAtom) {
@@ -231,10 +231,10 @@ bool nsDragSessionWayland::DragDataReceived(ClipboardData& aData,
       LOGDRAGSERVICE("  failed to extract uri-list data!");
       return false;
     }
-    dragData = new DragData(aTarget, std::move(uriList));
+    dragData = MakeRefPtr<DragData>(aTarget, std::move(uriList));
   } else {
     auto span = aData.AsSpan();
-    dragData = new DragData(aTarget, span.data(), span.Length());
+    dragData = MakeRefPtr<DragData>(aTarget, span.data(), span.Length());
     LOGDRAGSERVICE("  TargetDataReceived(): plain data, MIME %s len = %d",
                    GUniquePtr<gchar>(gdk_atom_name(aTarget)).get(),
                    (int)span.Length());

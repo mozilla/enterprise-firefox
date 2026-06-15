@@ -28,6 +28,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -74,6 +76,7 @@ private val PROMO_ILLUSTRATION_SIZE = 60.dp
  * The main VPN / IP Protection settings screen.
  *
  * @param state Current [IPProtectionHandler.StateInfo] to render.
+ * @param snackbarHostState The [SnackbarHostState] used to display snackbars.
  * @param readyToUse Whether the user is entitled to use the service.
  * @param syncingData Whether the data sync is in progress.
  * @param promoDate Locale-formatted end date used by the promo copy when the user is on a metered
@@ -90,6 +93,7 @@ private val PROMO_ILLUSTRATION_SIZE = 60.dp
 @Composable
 fun IPProtectionScreen(
     state: IPProtectionState,
+    snackbarHostState: SnackbarHostState,
     readyToUse: Boolean,
     syncingData: Boolean,
     promoDate: String?,
@@ -107,6 +111,9 @@ fun IPProtectionScreen(
                 onNavigateBack = onNavigateBack,
                 onDebugActionClick = onDebugActionClick,
             )
+        },
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
         },
     ) { paddingValues ->
         Surface(
@@ -414,6 +421,7 @@ private fun IPProtectionScreenActivePreview(
                 remainingDataBytes = 40 * BYTES_PER_GB.toLong(),
                 maxDataBytes = 50 * BYTES_PER_GB.toLong(),
             ),
+            snackbarHostState = SnackbarHostState(),
             readyToUse = true,
             syncingData = false,
             promoDate = null,
@@ -440,6 +448,7 @@ private fun IPProtectionScreenNotEnrolledPreview(
                 serviceStatus = ServiceState.Unauthenticated,
                 maxDataBytes = 0L,
             ),
+            snackbarHostState = SnackbarHostState(),
             readyToUse = false,
             syncingData = true,
             promoDate = "January 31",
@@ -467,6 +476,7 @@ private fun IPProtectionScreenPausedPreview(
                 maxDataBytes = 50 * BYTES_PER_GB.toLong(),
                 remainingDataBytes = 0L,
             ),
+            snackbarHostState = SnackbarHostState(),
             readyToUse = true,
             syncingData = false,
             promoDate = null,
@@ -494,6 +504,7 @@ private fun IPProtectionScreenConnectingPreview(
                 remainingDataBytes = 40 * BYTES_PER_GB.toLong(),
                 maxDataBytes = 50 * BYTES_PER_GB.toLong(),
             ),
+            snackbarHostState = SnackbarHostState(),
             readyToUse = false,
             syncingData = false,
             promoDate = null,

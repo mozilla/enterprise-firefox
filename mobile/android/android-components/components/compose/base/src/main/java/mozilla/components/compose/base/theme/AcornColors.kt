@@ -31,10 +31,13 @@ class AcornColors(
     textOnColorPrimary: Color,
     iconOnColor: Color,
     information: Color,
+    onInformation: Color,
     informationContainer: Color,
     onInformationContainer: Color,
     success: Color,
+    onSuccess: Color,
     warning: Color,
+    onWarning: Color,
     warningContainer: Color,
     onWarningContainer: Color,
     surfaceDimVariant: Color,
@@ -77,6 +80,12 @@ class AcornColors(
         private set
 
     /**
+     * Text and icons against information.
+     */
+    internal var onInformation by mutableStateOf(onInformation)
+        private set
+
+    /**
      * Less prominent fill color against surface, for neutral information.
      */
     internal var informationContainer by mutableStateOf(informationContainer)
@@ -96,10 +105,22 @@ class AcornColors(
         private set
 
     /**
+     * Text and icons against success.
+     */
+    internal var onSuccess by mutableStateOf(onSuccess)
+        private set
+
+    /**
      * Attention-grabbing color against surface for fills, icons, and text, indicating
      * warning information.
      */
     internal var warning by mutableStateOf(warning)
+        private set
+
+    /**
+     * Text and icons against warning.
+     */
+    internal var onWarning by mutableStateOf(onWarning)
         private set
 
     /**
@@ -142,10 +163,13 @@ class AcornColors(
         textOnColorPrimary = other.textOnColorPrimary
         iconOnColor = other.iconOnColor
         information = other.information
+        onInformation = other.onInformation
         informationContainer = other.informationContainer
         onInformationContainer = other.onInformationContainer
         success = other.success
+        onSuccess = other.onSuccess
         warning = other.warning
+        onWarning = other.onWarning
         warningContainer = other.warningContainer
         onWarningContainer = other.onWarningContainer
         surfaceDimVariant = other.surfaceDimVariant
@@ -163,10 +187,13 @@ class AcornColors(
         textOnColorPrimary: Color = this.textOnColorPrimary,
         iconOnColor: Color = this.iconOnColor,
         information: Color = this.information,
+        onInformation: Color = this.onInformation,
         informationContainer: Color = this.informationContainer,
         onInformationContainer: Color = this.onInformationContainer,
         success: Color = this.success,
+        onSuccess: Color = this.onSuccess,
         warning: Color = this.warning,
+        onWarning: Color = this.onWarning,
         warningContainer: Color = this.warningContainer,
         onWarningContainer: Color = this.onWarningContainer,
         surfaceDimVariant: Color = this.surfaceDimVariant,
@@ -179,10 +206,13 @@ class AcornColors(
         textOnColorPrimary = textOnColorPrimary,
         iconOnColor = iconOnColor,
         information = information,
+        onInformation = onInformation,
         informationContainer = informationContainer,
         onInformationContainer = onInformationContainer,
         success = success,
+        onSuccess = onSuccess,
         warning = warning,
+        onWarning = onWarning,
         warningContainer = warningContainer,
         onWarningContainer = onWarningContainer,
         surfaceDimVariant = surfaceDimVariant,
@@ -198,10 +228,13 @@ val darkColorPalette = AcornColors(
     textOnColorPrimary = PhotonColors.LightGrey05,
     iconOnColor = PhotonColors.LightGrey05,
     information = NovaColors.Blue30,
+    onInformation = NovaColors.Gray80,
     informationContainer = NovaColors.Blue70,
     onInformationContainer = NovaColors.VioletDesaturated0,
     success = NovaColors.Green30,
+    onSuccess = NovaColors.Gray80,
     warning = NovaColors.Yellow30,
+    onWarning = NovaColors.Gray80,
     warningContainer = NovaColors.Yellow70,
     onWarningContainer = NovaColors.VioletDesaturated0,
     surfaceDimVariant = NovaColors.Gray80,
@@ -216,10 +249,13 @@ val lightColorPalette = AcornColors(
     textOnColorPrimary = PhotonColors.LightGrey05,
     iconOnColor = PhotonColors.LightGrey05,
     information = NovaColors.Blue50,
+    onInformation = NovaColors.White,
     informationContainer = NovaColors.Blue10,
     onInformationContainer = NovaColors.VioletDesaturated90,
     success = NovaColors.Green50,
+    onSuccess = NovaColors.White,
     warning = NovaColors.Yellow50,
+    onWarning = NovaColors.White,
     warningContainer = NovaColors.Yellow10,
     onWarningContainer = NovaColors.VioletDesaturated90,
     surfaceDimVariant = NovaColors.Gray10,
@@ -369,6 +405,14 @@ val ColorScheme.information: Color
     get() = AcornTheme.colors.information
 
 /**
+ * @see AcornColors.onInformation
+ */
+val ColorScheme.onInformation: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = AcornTheme.colors.onInformation
+
+/**
  * @see AcornColors.informationContainer
  */
 val ColorScheme.informationContainer: Color
@@ -393,12 +437,28 @@ val ColorScheme.success: Color
     get() = AcornTheme.colors.success
 
 /**
+ * @see AcornColors.onSuccess
+ */
+val ColorScheme.onSuccess: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = AcornTheme.colors.onSuccess
+
+/**
  * @see AcornColors.warning
  */
 val ColorScheme.warning: Color
     @Composable
     @ReadOnlyComposable
     get() = AcornTheme.colors.warning
+
+/**
+ * @see AcornColors.onWarning
+ */
+val ColorScheme.onWarning: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = AcornTheme.colors.onWarning
 
 /**
  * @see AcornColors.warningContainer

@@ -314,6 +314,7 @@ for (const type of [
   "WIDGETS_SPORTS_CHANGE_SELECTED_TEAMS",
   "WIDGETS_SPORTS_CHANGE_WIDGET_STATE",
   "WIDGETS_SPORTS_LIVE_HIDDEN",
+  "WIDGETS_SPORTS_LIVE_REFRESH",
   "WIDGETS_SPORTS_LIVE_UPDATE",
   "WIDGETS_SPORTS_LIVE_VISIBLE",
   "WIDGETS_SPORTS_MARK_CELEBRATED",
@@ -12902,11 +12903,237 @@ function MoveSubmenu({
     disabled: true
   }))));
 }
+;// CONCATENATED MODULE: ./content-src/components/Widgets/useWidgetTelemetry.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
+
+
+
+const IMPRESSION_THRESHOLD = 0.3;
+
+/**
+ * Shared telemetry hook for function-component widgets. Returns recorders
+ * for the four widget telemetry actions (impression, user event, enabled,
+ * error) so call sites don't hand-build payloads. `widget` is a
+ * WIDGET_REGISTRY entry; `widget.telemetryName` becomes `widget_name`.
+ *
+ *   const {
+ *     impressionRef,
+ *     recordImpression,
+ *     recordUserAction,
+ *     recordEnabled,
+ *     recordError,
+ *   } = useWidgetTelemetry({ dispatch, widget, widgetSize });
+ *
+ *   <article ref={impressionRef}>...</article>
+ *   recordUserAction("learn_more", { source: "context_menu" });
+ *
+ * Per-call options on `recordUserAction`: `value` (action_value), `size`
+ * (overrides widgetSize), `alsoToMain: true` (routes via AlsoToMain), and
+ * `legacy: true` (co-dispatches `legacyUserEventType` with `{ userAction }`).
+ *
+ * `recordImpression()` is a manual one-shot fire that shares the observer's
+ * impressionFired guard; useful when a widget needs to record an impression
+ * outside the IntersectionObserver path.
+ *
+ * Constructor `legacyImpressionTypes` (array) and `legacyUserEventType`
+ * bridge the Bug 2012779 transition: while WIDGETS_TIMER_* / WIDGETS_LISTS_*
+ * legacy events still exist alongside the unified events, FocusTimer and
+ * Lists pass the matching legacy action types so the hook emits both. Both
+ * co-dispatches fire legacy first, unified second.
+ */
+const useWidgetTelemetry = ({
+  dispatch,
+  widget,
+  widgetSize,
+  legacyImpressionTypes,
+  legacyUserEventType
+}) => {
+  const {
+    telemetryName
+  } = widget;
+  const sizeRef = (0,external_React_namespaceObject.useRef)(widgetSize);
+  (0,external_React_namespaceObject.useEffect)(() => {
+    sizeRef.current = widgetSize;
+  }, [widgetSize]);
+
+  // Legacy bridge types are fixed per call site, so capture once at mount;
+  // refs keep them out of the recorder callbacks' dependency arrays.
+  const legacyImpressionTypesRef = (0,external_React_namespaceObject.useRef)(legacyImpressionTypes);
+  const legacyUserEventTypeRef = (0,external_React_namespaceObject.useRef)(legacyUserEventType);
+  const buildPayload = (0,external_React_namespaceObject.useCallback)(({
+    size,
+    rest
+  } = {}) => ({
+    widget_name: telemetryName,
+    widget_size: size ?? sizeRef.current,
+    ...rest
+  }), [telemetryName]);
+  const impressionFired = (0,external_React_namespaceObject.useRef)(false);
+  const fireImpression = (0,external_React_namespaceObject.useCallback)(size => {
+    if (impressionFired.current) {
+      return;
+    }
+    impressionFired.current = true;
+    const data = buildPayload({
+      size
+    });
+    const legacyTypes = legacyImpressionTypesRef.current;
+    if (legacyTypes && legacyTypes.length) {
+      (0,external_ReactRedux_namespaceObject.batch)(() => {
+        // Legacy first, then unified, matching the pre-hook dispatch order
+        // in FocusTimer / Lists so existing tests don't need to flip.
+        for (const type of legacyTypes) {
+          dispatch(actionCreators.AlsoToMain({
+            type
+          }));
+        }
+        dispatch(actionCreators.AlsoToMain({
+          type: actionTypes.WIDGETS_IMPRESSION,
+          data
+        }));
+      });
+    } else {
+      dispatch(actionCreators.AlsoToMain({
+        type: actionTypes.WIDGETS_IMPRESSION,
+        data
+      }));
+    }
+  }, [dispatch, buildPayload]);
+
+  // The observer owns observation directly so the callback ref can attach to
+  // elements that mount after the initial render (e.g. widgets that gate
+  // rendering on a Redux pref or async data).
+  const observerRef = (0,external_React_namespaceObject.useRef)(null);
+  const observedEl = (0,external_React_namespaceObject.useRef)(null);
+  (0,external_React_namespaceObject.useEffect)(() => {
+    if (typeof IntersectionObserver === "undefined") {
+      return undefined;
+    }
+    const observer = new IntersectionObserver(entries => {
+      // Filter to the currently-observed element so a queued callback for a
+      // previously-unobserved ref target doesn't fire a stale impression.
+      if (entries.some(e => e.isIntersecting && e.target === observedEl.current)) {
+        fireImpression();
+        observer.disconnect();
+      }
+    }, {
+      threshold: IMPRESSION_THRESHOLD
+    });
+    observerRef.current = observer;
+    if (observedEl.current && !impressionFired.current) {
+      observer.observe(observedEl.current);
+    }
+    return () => {
+      observer.disconnect();
+      observerRef.current = null;
+    };
+  }, [fireImpression]);
+  const impressionRef = (0,external_React_namespaceObject.useCallback)(el => {
+    if (observedEl.current === el) {
+      return;
+    }
+    const observer = observerRef.current;
+    if (observedEl.current && observer) {
+      observer.unobserve(observedEl.current);
+    }
+    observedEl.current = el;
+    if (el && observer && !impressionFired.current) {
+      observer.observe(el);
+    }
+  }, []);
+  const recordImpression = (0,external_React_namespaceObject.useCallback)(({
+    size
+  } = {}) => {
+    fireImpression(size);
+  }, [fireImpression]);
+  const recordUserAction = (0,external_React_namespaceObject.useCallback)((userAction, {
+    source,
+    value,
+    size,
+    alsoToMain,
+    legacy
+  } = {}) => {
+    const route = alsoToMain ? actionCreators.AlsoToMain : actionCreators.OnlyToMain;
+    const rest = {
+      widget_source: source,
+      user_action: userAction
+    };
+    if (value !== undefined) {
+      rest.action_value = value;
+    }
+    const data = buildPayload({
+      size,
+      rest
+    });
+    const main = route({
+      type: actionTypes.WIDGETS_USER_EVENT,
+      data
+    });
+    const legacyType = legacy ? legacyUserEventTypeRef.current : null;
+    if (legacyType) {
+      // Legacy first, then unified, matching the pre-hook dispatch order
+      // in FocusTimer / Lists so existing tests don't need to flip.
+      const legacyAction = route({
+        type: legacyType,
+        data: {
+          userAction
+        }
+      });
+      (0,external_ReactRedux_namespaceObject.batch)(() => {
+        dispatch(legacyAction);
+        dispatch(main);
+      });
+    } else {
+      dispatch(main);
+    }
+  }, [dispatch, buildPayload]);
+  const recordEnabled = (0,external_React_namespaceObject.useCallback)((enabled, {
+    source,
+    size
+  } = {}) => {
+    const data = buildPayload({
+      size,
+      rest: {
+        widget_source: source,
+        enabled
+      }
+    });
+    dispatch(actionCreators.OnlyToMain({
+      type: actionTypes.WIDGETS_ENABLED,
+      data
+    }));
+  }, [dispatch, buildPayload]);
+  const recordError = (0,external_React_namespaceObject.useCallback)((errorType, {
+    size
+  } = {}) => {
+    const data = buildPayload({
+      size,
+      rest: {
+        error_type: errorType
+      }
+    });
+    dispatch(actionCreators.AlsoToMain({
+      type: actionTypes.WIDGETS_ERROR,
+      data
+    }));
+  }, [dispatch, buildPayload]);
+  return {
+    impressionRef,
+    recordImpression,
+    recordUserAction,
+    recordEnabled,
+    recordError
+  };
+};
 ;// CONCATENATED MODULE: ./content-src/components/Widgets/Lists/Lists.jsx
 function Lists_extends() { return Lists_extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, Lists_extends.apply(null, arguments); }
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
 
 
 
@@ -13052,7 +13279,6 @@ function Lists({
   const inputRef = (0,external_React_namespaceObject.useRef)(null);
   const reorderListRef = (0,external_React_namespaceObject.useRef)(null);
   const widgetRef = (0,external_React_namespaceObject.useRef)(null);
-  const impressionFired = (0,external_React_namespaceObject.useRef)(false);
   const {
     celebrationFrame,
     celebrationId,
@@ -13060,6 +13286,21 @@ function Lists({
     isCelebrating,
     triggerCelebration
   } = useWidgetCelebration(widgetRef);
+
+  // Pre-hook code reported widget_size as "medium" when the widgets row is
+  // not maximizable, regardless of the resolved widgetSize. Preserve that.
+  const telemetrySize = widgetsMayBeMaximized ? widgetSize : "medium";
+  const {
+    impressionRef,
+    recordUserAction,
+    recordEnabled
+  } = useWidgetTelemetry({
+    dispatch,
+    widget: listsWidget,
+    widgetSize: telemetrySize,
+    legacyImpressionTypes: [actionTypes.WIDGETS_LISTS_USER_IMPRESSION],
+    legacyUserEventType: actionTypes.WIDGETS_LISTS_USER_EVENT
+  });
   const handleListInteraction = (0,external_React_namespaceObject.useCallback)(() => handleUserInteraction("lists"), [handleUserInteraction]);
   const handleSelectList = (0,external_React_namespaceObject.useCallback)(listId => {
     setIsEditing(false);
@@ -13071,28 +13312,8 @@ function Lists({
     handleListInteraction();
   }, [dispatch, handleListInteraction]);
 
-  // store selectedList with useMemo so it isnt re-calculated on every re-render
+  // store selectedList with useMemo so it isn't re-calculated on every re-render
   const isValidUrl = (0,external_React_namespaceObject.useCallback)(str => URL.canParse(str), []);
-  const handleIntersection = (0,external_React_namespaceObject.useCallback)(() => {
-    if (impressionFired.current) {
-      return;
-    }
-    impressionFired.current = true;
-    (0,external_ReactRedux_namespaceObject.batch)(() => {
-      dispatch(actionCreators.AlsoToMain({
-        type: actionTypes.WIDGETS_LISTS_USER_IMPRESSION
-      }));
-      const telemetryData = {
-        widget_name: "lists",
-        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
-      };
-      dispatch(actionCreators.AlsoToMain({
-        type: actionTypes.WIDGETS_IMPRESSION,
-        data: telemetryData
-      }));
-    });
-  }, [dispatch, widgetsMayBeMaximized, widgetSize]);
-  const listsRef = useIntersectionObserver(handleIntersection);
   const reorderLists = (0,external_React_namespaceObject.useCallback)((draggedElement, targetElement, before = false) => {
     const draggedIndex = selectedList.tasks.findIndex(({
       id
@@ -13193,22 +13414,10 @@ function Lists({
             lists: updatedLists
           }
         }));
-        dispatch(actionCreators.OnlyToMain({
-          type: actionTypes.WIDGETS_LISTS_USER_EVENT,
-          data: {
-            userAction: USER_ACTION_TYPES.TASK_CREATE
-          }
-        }));
-        const telemetryData = {
-          widget_name: "lists",
-          widget_source: "widget",
-          user_action: USER_ACTION_TYPES.TASK_CREATE,
-          widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
-        };
-        dispatch(actionCreators.OnlyToMain({
-          type: actionTypes.WIDGETS_USER_EVENT,
-          data: telemetryData
-        }));
+        recordUserAction(USER_ACTION_TYPES.TASK_CREATE, {
+          source: "widget",
+          legacy: true
+        });
       });
       setNewTask("");
     }
@@ -13267,22 +13476,11 @@ function Lists({
         }
       }));
       if (userAction) {
-        dispatch(actionCreators.AlsoToMain({
-          type: actionTypes.WIDGETS_LISTS_USER_EVENT,
-          data: {
-            userAction
-          }
-        }));
-        const telemetryData = {
-          widget_name: "lists",
-          widget_source: "widget",
-          user_action: userAction,
-          widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
-        };
-        dispatch(actionCreators.AlsoToMain({
-          type: actionTypes.WIDGETS_USER_EVENT,
-          data: telemetryData
-        }));
+        recordUserAction(userAction, {
+          source: "widget",
+          legacy: true,
+          alsoToMain: true
+        });
       }
     });
     handleListInteraction();
@@ -13306,22 +13504,10 @@ function Lists({
           lists: updatedLists
         }
       }));
-      dispatch(actionCreators.OnlyToMain({
-        type: actionTypes.WIDGETS_LISTS_USER_EVENT,
-        data: {
-          userAction: USER_ACTION_TYPES.TASK_DELETE
-        }
-      }));
-      const telemetryData = {
-        widget_name: "lists",
-        widget_source: "widget",
-        user_action: USER_ACTION_TYPES.TASK_DELETE,
-        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
-      };
-      dispatch(actionCreators.OnlyToMain({
-        type: actionTypes.WIDGETS_USER_EVENT,
-        data: telemetryData
-      }));
+      recordUserAction(USER_ACTION_TYPES.TASK_DELETE, {
+        source: "widget",
+        legacy: true
+      });
     });
     handleListInteraction();
   }
@@ -13366,22 +13552,10 @@ function Lists({
           type: actionTypes.WIDGETS_LISTS_CHANGE_SELECTED,
           data: id
         }));
-        dispatch(actionCreators.OnlyToMain({
-          type: actionTypes.WIDGETS_LISTS_USER_EVENT,
-          data: {
-            userAction: USER_ACTION_TYPES.LIST_CREATE
-          }
-        }));
-        const telemetryData = {
-          widget_name: "lists",
-          widget_source: "widget",
-          user_action: USER_ACTION_TYPES.LIST_CREATE,
-          widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
-        };
-        dispatch(actionCreators.OnlyToMain({
-          type: actionTypes.WIDGETS_USER_EVENT,
-          data: telemetryData
-        }));
+        recordUserAction(USER_ACTION_TYPES.LIST_CREATE, {
+          source: "widget",
+          legacy: true
+        });
       });
       handleListInteraction();
       return;
@@ -13401,22 +13575,10 @@ function Lists({
             lists: updatedLists
           }
         }));
-        dispatch(actionCreators.OnlyToMain({
-          type: actionTypes.WIDGETS_LISTS_USER_EVENT,
-          data: {
-            userAction: USER_ACTION_TYPES.LIST_EDIT
-          }
-        }));
-        const telemetryData = {
-          widget_name: "lists",
-          widget_source: "widget",
-          user_action: USER_ACTION_TYPES.LIST_EDIT,
-          widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
-        };
-        dispatch(actionCreators.OnlyToMain({
-          type: actionTypes.WIDGETS_USER_EVENT,
-          data: telemetryData
-        }));
+        recordUserAction(USER_ACTION_TYPES.LIST_EDIT, {
+          source: "widget",
+          legacy: true
+        });
       });
       setIsEditing(false);
       handleListInteraction();
@@ -13463,22 +13625,10 @@ function Lists({
           type: actionTypes.WIDGETS_LISTS_CHANGE_SELECTED,
           data: key
         }));
-        dispatch(actionCreators.OnlyToMain({
-          type: actionTypes.WIDGETS_LISTS_USER_EVENT,
-          data: {
-            userAction: USER_ACTION_TYPES.LIST_DELETE
-          }
-        }));
-        const telemetryData = {
-          widget_name: "lists",
-          widget_source: "widget",
-          user_action: USER_ACTION_TYPES.LIST_DELETE,
-          widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
-        };
-        dispatch(actionCreators.OnlyToMain({
-          type: actionTypes.WIDGETS_USER_EVENT,
-          data: telemetryData
-        }));
+        recordUserAction(USER_ACTION_TYPES.LIST_DELETE, {
+          source: "widget",
+          legacy: true
+        });
       });
     }
     handleListInteraction();
@@ -13492,16 +13642,9 @@ function Lists({
           value: false
         }
       }));
-      const telemetryData = {
-        widget_name: "lists",
-        widget_source: "context_menu",
-        enabled: false,
-        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
-      };
-      dispatch(actionCreators.OnlyToMain({
-        type: actionTypes.WIDGETS_ENABLED,
-        data: telemetryData
-      }));
+      recordEnabled(false, {
+        source: "context_menu"
+      });
     });
   }
   function handleCopyListToClipboard() {
@@ -13524,23 +13667,9 @@ function Lists({
     } catch (err) {
       console.error("Copy failed", err);
     }
-    (0,external_ReactRedux_namespaceObject.batch)(() => {
-      dispatch(actionCreators.OnlyToMain({
-        type: actionTypes.WIDGETS_LISTS_USER_EVENT,
-        data: {
-          userAction: USER_ACTION_TYPES.LIST_COPY
-        }
-      }));
-      const telemetryData = {
-        widget_name: "lists",
-        widget_source: "widget",
-        user_action: USER_ACTION_TYPES.LIST_COPY,
-        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
-      };
-      dispatch(actionCreators.OnlyToMain({
-        type: actionTypes.WIDGETS_USER_EVENT,
-        data: telemetryData
-      }));
+    recordUserAction(USER_ACTION_TYPES.LIST_COPY, {
+      source: "widget",
+      legacy: true
     });
     handleListInteraction();
   }
@@ -13563,18 +13692,13 @@ function Lists({
           value: size
         }
       }));
-      dispatch(actionCreators.OnlyToMain({
-        type: actionTypes.WIDGETS_USER_EVENT,
-        data: {
-          widget_name: "lists",
-          widget_source: "context_menu",
-          user_action: USER_ACTION_TYPES.CHANGE_SIZE,
-          action_value: size,
-          widget_size: size
-        }
-      }));
+      recordUserAction(USER_ACTION_TYPES.CHANGE_SIZE, {
+        source: "context_menu",
+        value: size,
+        size
+      });
     });
-  }, [dispatch]);
+  }, [dispatch, recordUserAction]);
   const sizeSubmenuRef = useSizeSubmenu(handleChangeSize);
   (0,external_React_namespaceObject.useEffect)(() => {
     setIsAddingTask(false);
@@ -13645,7 +13769,7 @@ function Lists({
     className: `lists widget ${novaEnabled ? "col-4" : ""} ${listsSizeClass} ${isMaximized ? "is-maximized" : ""}${showEmptyState ? " is-empty" : ""}${hasVisibleTasks ? " has-visible-tasks" : ""}${isAddingTask ? " is-adding-task" : ""}${isCelebrating ? " is-celebrating" : ""}`,
     ref: el => {
       widgetRef.current = el;
-      listsRef.current = [el];
+      impressionRef(el);
     }
   }, isCelebrating && celebrationFrame ? /*#__PURE__*/external_React_default().createElement(WidgetCelebration, {
     classNamePrefix: "lists-celebration",
@@ -16543,17 +16667,35 @@ const SportsMatchRow_USER_ACTION_TYPES = {
 // Visible placeholder shown in place of a team's country code when the
 // match-up isn't decided yet.
 const TBD_PLACEHOLDER = "--";
-const STATUS_L10N_MAP = {
+
+// The /matches API has been observed sending the American spelling
+// "canceled" alongside the British "cancelled" we localise to. Map both keys
+// to the same Fluent IDs (see UPCOMING_STATUS_ARIA_L10N_MAP below) so the
+// badge and aria-label render either way without a data-team-side fix.
+const UPCOMING_STATUS_L10N_MAP = {
   delayed: "newtab-sports-widget-delayed",
   postponed: "newtab-sports-widget-postponed",
   suspended: "newtab-sports-widget-suspended",
-  cancelled: "newtab-sports-widget-cancelled"
+  cancelled: "newtab-sports-widget-cancelled",
+  canceled: "newtab-sports-widget-cancelled"
+};
+
+// Keep the keys in sync with LIVE_STATUS_TYPES in SportsFeed.sys.mjs so any
+// new in-progress status either gets a localized footer here or is filtered
+// out at the feed before reaching the row.
+const LIVE_STATUS_L10N_MAP = {
+  halftime: "newtab-sports-widget-match-halftime",
+  "extra time": "newtab-sports-widget-match-extra-time"
+};
+const RESULTS_STATUS_L10N_MAP = {
+  final: "newtab-sports-widget-match-full-time"
 };
 const UPCOMING_STATUS_ARIA_L10N_MAP = {
   delayed: "newtab-sports-widget-match-aria-label-upcoming-delayed",
   postponed: "newtab-sports-widget-match-aria-label-upcoming-postponed",
   suspended: "newtab-sports-widget-match-aria-label-upcoming-suspended",
-  cancelled: "newtab-sports-widget-match-aria-label-upcoming-cancelled"
+  cancelled: "newtab-sports-widget-match-aria-label-upcoming-cancelled",
+  canceled: "newtab-sports-widget-match-aria-label-upcoming-cancelled"
 };
 function ScorePill({
   homeScore,
@@ -16720,7 +16862,7 @@ function SportsMatchRow({
     }
     // Upcoming. Non-scheduled statuses use a per-status Fluent ID; the
     // default ("scheduled") announces kickoff time/date.
-    const upcomingId = UPCOMING_STATUS_ARIA_L10N_MAP[status_type] || "newtab-sports-widget-match-aria-label-upcoming";
+    const upcomingId = UPCOMING_STATUS_ARIA_L10N_MAP[status_type?.toLowerCase()] || "newtab-sports-widget-match-aria-label-upcoming";
     return {
       id: upcomingId,
       args: {
@@ -16733,13 +16875,34 @@ function SportsMatchRow({
   function renderMiddle() {
     switch (variant) {
       case "now":
-        return /*#__PURE__*/external_React_default().createElement(ScorePill, {
-          homeScore: displayHomeScore,
-          awayScore: displayAwayScore,
-          variant: "now"
-        });
+        {
+          const liveStatusL10nId = LIVE_STATUS_L10N_MAP[status_type?.toLowerCase()];
+          if (!liveStatusL10nId) {
+            return /*#__PURE__*/external_React_default().createElement(ScorePill, {
+              homeScore: displayHomeScore,
+              awayScore: displayAwayScore,
+              variant: "now"
+            });
+          }
+          return /*#__PURE__*/external_React_default().createElement("div", {
+            className: "sports-match-live"
+          }, /*#__PURE__*/external_React_default().createElement(ScorePill, {
+            homeScore: displayHomeScore,
+            awayScore: displayAwayScore,
+            variant: "now"
+          }), /*#__PURE__*/external_React_default().createElement("div", {
+            className: "sports-match-live-footer"
+          }, /*#__PURE__*/external_React_default().createElement("span", {
+            "data-l10n-id": liveStatusL10nId
+          })));
+        }
       case "results":
         {
+          // Per Figma the Results footer is always "Full time" (optionally
+          // "• Penalties"); default to it for unmapped status_types so any
+          // stale live-state value that leaks into this bucket doesn't render
+          // raw API text in the UI.
+          const resultsStatusL10nId = RESULTS_STATUS_L10N_MAP[status_type?.toLowerCase()] || "newtab-sports-widget-match-full-time";
           return /*#__PURE__*/external_React_default().createElement("div", {
             className: "sports-match-result"
           }, /*#__PURE__*/external_React_default().createElement(ScorePill, {
@@ -16751,8 +16914,8 @@ function SportsMatchRow({
           }), /*#__PURE__*/external_React_default().createElement("div", {
             className: "sports-match-result-footer"
           }, /*#__PURE__*/external_React_default().createElement("span", {
-            "data-l10n-id": "newtab-sports-widget-match-full-time"
-          }), hasPenalties && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("span", {
+            "data-l10n-id": resultsStatusL10nId
+          }), hasPenalties && size !== "list" && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("span", {
             "aria-hidden": "true"
           }, "\u2022"), /*#__PURE__*/external_React_default().createElement("span", {
             "data-l10n-id": "newtab-sports-widget-match-penalties"
@@ -16761,7 +16924,7 @@ function SportsMatchRow({
       // Default is the upcoming variant
       default:
         {
-          const statusL10nId = STATUS_L10N_MAP[status_type];
+          const statusL10nId = UPCOMING_STATUS_L10N_MAP[status_type?.toLowerCase()];
           const dateArgs = JSON.stringify({
             date: dateTimestamp
           });
@@ -16933,6 +17096,15 @@ function LivePagination({
 
 
 
+// Stream URLs come from an untrusted backend, so only allow http(s) through to
+// the href; anything else (e.g. javascript:) renders as a non-navigating link.
+function safeStreamUrl(url) {
+  try {
+    return ["http:", "https:"].includes(new URL(url).protocol) ? url : "";
+  } catch (e) {
+    return "";
+  }
+}
 
 // Map known backend entitlement strings to localized tag IDs. Anything not in
 // this map falls back to the raw string from `stream.entitlement`.
@@ -16970,10 +17142,12 @@ function StreamRow({
   };
   return /*#__PURE__*/external_React_default().createElement("li", {
     className: "watch-live-modal-row"
-  }, /*#__PURE__*/external_React_default().createElement(SafeAnchor, {
+  }, /*#__PURE__*/external_React_default().createElement("a", {
     className: "watch-live-modal-row-link",
-    url: stream.url,
-    onLinkClick: handleClick
+    href: safeStreamUrl(stream.url),
+    target: "_blank",
+    rel: "noopener noreferrer",
+    onClick: handleClick
   }, /*#__PURE__*/external_React_default().createElement("span", {
     className: "watch-live-modal-row-text"
   }, /*#__PURE__*/external_React_default().createElement("span", {
@@ -17418,8 +17592,19 @@ const SportsWidget_USER_ACTION_TYPES = {
   CHANGE_SIZE: "change_size",
   CHANGE_TAB: "change_tab",
   LEARN_MORE: "learn_more",
-  TOGGLE_FOLLOWED_ONLY: "toggle_followed_only"
+  TOGGLE_FOLLOWED_ONLY: "toggle_followed_only",
+  REFRESH_LIVE: "refresh_live"
 };
+
+// UI-side cooldown between successive clicks of the live refresh button. Must
+// match (or exceed) the MIN_MANUAL_REFRESH_MS floor enforced by SportsFeed —
+// the feed silently drops faster requests, so a shorter button cooldown would
+// surface as a no-op click.
+const LIVE_REFRESH_COOLDOWN_MS = 15000;
+
+// Minimum time the refresh icon spins after a click, so even an instant /live
+// response still reads as "something happened" rather than a flicker.
+const LIVE_REFRESH_MIN_SPIN_MS = 2000;
 const SportsWidget_PREF_NOVA_ENABLED = "nova.enabled";
 const SportsWidget_PREF_SPORTS_WIDGET_SIZE = "widgets.sportsWidget.size";
 const PREF_SPORTS_WIDGET_LIVE_ENABLED = "widgets.sportsWidget.live.enabled";
@@ -18291,6 +18476,7 @@ function SportsWidget_SportsWidget({
     current: sortedCurrent,
     next: sortedNext,
     liveIndex: liveIndex,
+    lastLiveUpdated: sportsWidgetData.lastLiveUpdated,
     handleInteraction: handleInteraction,
     selectedTeamsSet: selectedTeamsSet,
     tbdTeamName: tbdTeamName,
@@ -18397,6 +18583,25 @@ function SportsWidgetFollowTeams({
     onClick: () => onSave(activeSelectedTeams)
   }));
 }
+
+// Controlled: `isCoolingDown`, `isSpinning` and `onClick` are owned by
+// SportsMatchesView so both the disabled state and the spin persist across the
+// medium and large widget size changes.
+function LiveRefreshButton({
+  isCoolingDown,
+  isSpinning,
+  onClick
+}) {
+  return /*#__PURE__*/external_React_default().createElement("moz-button", {
+    className: `sports-live-refresh-button${isSpinning ? " is-spinning" : ""}`,
+    type: "icon ghost",
+    size: "small",
+    iconSrc: "chrome://browser/skin/sync.svg",
+    "data-l10n-id": "newtab-custom-widget-live-refresh",
+    disabled: isCoolingDown || undefined,
+    onClick: onClick
+  });
+}
 function SportsSectionLabel({
   match,
   withLiveBadge = false
@@ -18437,6 +18642,7 @@ function SportsMatchesView({
   current,
   next,
   liveIndex,
+  lastLiveUpdated,
   handleInteraction,
   selectedTeamsSet,
   tbdTeamName,
@@ -18499,6 +18705,83 @@ function SportsMatchesView({
       upcomingPanelRef.current?.querySelector(".sports-match-row")?.focus();
     }
   }, [showUpcomingList]);
+
+  // Tracks whether the live-refresh button is in its post-click cooldown
+  // window.
+  // Flipped to true when clicked. While true, the button is disabled.
+  // Flips back to false when LIVE_REFRESH_COOLDOWN_MS finishes, and gets re-enabled again.
+  const [liveRefreshCoolingDown, setLiveRefreshCoolingDown] = (0,external_React_namespaceObject.useState)(false);
+  // Spins the refresh icon while a manual fetch is in flight. Set on click,
+  // cleared when fresh /live data lands (`lastLiveUpdated` changes) — but never
+  // before LIVE_REFRESH_MIN_SPIN_MS — or when the cooldown ends as a safety cap
+  // (e.g. the feed dropped the click as too-soon).
+  const [liveRefreshSpinning, setLiveRefreshSpinning] = (0,external_React_namespaceObject.useState)(false);
+  const liveRefreshTimerRef = (0,external_React_namespaceObject.useRef)(null);
+  // Click timestamp, non-null only while a manual refresh's spin is in flight.
+  // Doubles as the guard that makes the stop-on-update effect ignore its mount
+  // run and any automatic-poll updates that happen while no refresh is pending.
+  const liveRefreshSpinStartRef = (0,external_React_namespaceObject.useRef)(null);
+  const liveRefreshStopTimerRef = (0,external_React_namespaceObject.useRef)(null);
+  const stopLiveRefreshSpin = (0,external_React_namespaceObject.useCallback)(() => {
+    if (liveRefreshStopTimerRef.current) {
+      clearTimeout(liveRefreshStopTimerRef.current);
+      liveRefreshStopTimerRef.current = null;
+    }
+    liveRefreshSpinStartRef.current = null;
+    setLiveRefreshSpinning(false);
+  }, []);
+  (0,external_React_namespaceObject.useEffect)(() => () => {
+    if (liveRefreshTimerRef.current) {
+      clearTimeout(liveRefreshTimerRef.current);
+    }
+    if (liveRefreshStopTimerRef.current) {
+      clearTimeout(liveRefreshStopTimerRef.current);
+    }
+  }, []);
+  // Stop the spin once a new /live response arrives, but hold it for at least
+  // LIVE_REFRESH_MIN_SPIN_MS so a fast response still reads as an action. The
+  // start-ref guard skips the mount run and idle auto-poll updates.
+  (0,external_React_namespaceObject.useEffect)(() => {
+    // Ignore the mount run / idle auto-poll updates, and don't reschedule once
+    // a floor-stop is already pending (the floor is anchored to the click).
+    if (liveRefreshSpinStartRef.current === null || liveRefreshStopTimerRef.current) {
+      return;
+    }
+    const remaining = LIVE_REFRESH_MIN_SPIN_MS - (Date.now() - liveRefreshSpinStartRef.current);
+    if (remaining <= 0) {
+      stopLiveRefreshSpin();
+    } else {
+      liveRefreshStopTimerRef.current = setTimeout(stopLiveRefreshSpin, remaining);
+    }
+  }, [lastLiveUpdated, stopLiveRefreshSpin]);
+  const handleLiveRefreshClick = (0,external_React_namespaceObject.useCallback)(() => {
+    if (liveRefreshCoolingDown) {
+      return;
+    }
+    setLiveRefreshCoolingDown(true);
+    setLiveRefreshSpinning(true);
+    liveRefreshSpinStartRef.current = Date.now();
+    liveRefreshTimerRef.current = setTimeout(() => {
+      liveRefreshTimerRef.current = null;
+      setLiveRefreshCoolingDown(false);
+      stopLiveRefreshSpin();
+    }, LIVE_REFRESH_COOLDOWN_MS);
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "sports",
+          widget_source: "now",
+          user_action: SportsWidget_USER_ACTION_TYPES.REFRESH_LIVE,
+          widget_size: widgetSize
+        }
+      }));
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_SPORTS_LIVE_REFRESH
+      }));
+    });
+    handleInteraction?.();
+  }, [dispatch, handleInteraction, liveRefreshCoolingDown, stopLiveRefreshSpin, widgetSize]);
   return /*#__PURE__*/external_React_default().createElement("div", {
     className: "sports-matches-view"
   }, /*#__PURE__*/external_React_default().createElement("div", {
@@ -18546,10 +18829,16 @@ function SportsMatchesView({
   })), hasLiveGames && /*#__PURE__*/external_React_default().createElement("div", {
     className: "sports-matches-tab-panel",
     hidden: matchesTab !== MATCHES_TABS.NOW
-  }, current[liveIndex] && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, size === "large" && /*#__PURE__*/external_React_default().createElement(SportsSectionLabel, {
+  }, current[liveIndex] && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, size === "large" && /*#__PURE__*/external_React_default().createElement("div", {
+    className: "sports-now-header"
+  }, /*#__PURE__*/external_React_default().createElement(SportsSectionLabel, {
     match: current[liveIndex],
     withLiveBadge: true
-  }), /*#__PURE__*/external_React_default().createElement("div", SportsWidget_extends({
+  }), /*#__PURE__*/external_React_default().createElement(LiveRefreshButton, {
+    isCoolingDown: liveRefreshCoolingDown,
+    isSpinning: liveRefreshSpinning,
+    onClick: handleLiveRefreshClick
+  })), /*#__PURE__*/external_React_default().createElement("div", SportsWidget_extends({
     className: "match-highlight-view"
   }, hasLivePagination && {
     "aria-live": "polite",
@@ -18568,6 +18857,10 @@ function SportsMatchesView({
     iconSrc: "chrome://browser/skin/device-tv.svg",
     "data-l10n-id": size === "medium" ? "newtab-sports-widget-watch-icon" : "newtab-sports-widget-watch",
     onClick: onWatchClick
+  }), size === "medium" && /*#__PURE__*/external_React_default().createElement(LiveRefreshButton, {
+    isCoolingDown: liveRefreshCoolingDown,
+    isSpinning: liveRefreshSpinning,
+    onClick: handleLiveRefreshClick
   }), current.length >= 2 && /*#__PURE__*/external_React_default().createElement(LivePagination, {
     dispatch: dispatch,
     liveIndex: liveIndex,

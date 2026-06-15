@@ -429,17 +429,19 @@ add_task(async function test_fetchSportsData_dispatches_teams_and_matches() {
 });
 
 add_task(
-  async function test_fetchSportsData_filters_live_to_status_type_live() {
+  async function test_fetchSportsData_filters_live_to_in_progress_statuses() {
     // The /live endpoint is meant to be pre-filtered by the backend, but the
-    // feed re-filters on `status_type === "live"` as a defensive guard so the
-    // Now tab only ever surfaces actually-live matches.
+    // feed re-filters against the in-progress allowlist (live/halftime/extra
+    // time) as a defensive guard so the Now tab only ever surfaces actually-
+    // live matches.
     const feed = makeFeed();
     const mockLive = {
       matches: [
         { id: "live1", status_type: "live", query: "team1 vs team2" },
-        { id: "scheduled1", status_type: "scheduled", query: "team3 vs team4" },
-        { id: "ended1", status_type: "ended", query: "team5 vs team6" },
-        { id: "live2", status_type: "live", query: "team7 vs team8" },
+        { id: "halftime1", status_type: "Halftime", query: "team3 vs team4" },
+        { id: "extra1", status_type: "extra time", query: "team5 vs team6" },
+        { id: "scheduled1", status_type: "scheduled", query: "team7 vs team8" },
+        { id: "ended1", status_type: "ended", query: "team9 vs team10" },
       ],
     };
     sinon
@@ -464,8 +466,8 @@ add_task(
     const [dispatchedAction] = feed.store.dispatch.firstCall.args;
     Assert.deepEqual(
       dispatchedAction.data.live.map(m => m.id),
-      ["live1", "live2"],
-      "only matches with status_type === 'live' survive the filter"
+      ["live1", "halftime1", "extra1"],
+      "only in-progress matches (live/halftime/extra time, case-insensitive) survive the filter"
     );
   }
 );
@@ -2946,6 +2948,99 @@ add_task(async function test_MARK_CELEBRATED_ignores_duplicates() {
   });
 
   Assert.ok(setStub.notCalled, "cache.set not called for a duplicate");
+});
+
+// =============================================================================
+// Manual live refresh (refresh button on the Now tab)
+// =============================================================================
+
+add_task(async function test_LIVE_REFRESH_calls_fetchNow_when_due() {
+  const feed = makeLiveFeed();
+  feed.pollingState = "LIVE";
+  // lastLiveUpdated far enough in the past that the manual cap has elapsed.
+  feed.lastLiveUpdated = Date.now() - 60000;
+  const fetchNowStub = sinon.stub(feed, "fetchNow");
+
+  await feed.onAction({ type: actionTypes.WIDGETS_SPORTS_LIVE_REFRESH });
+
+  Assert.ok(
+    fetchNowStub.calledOnce,
+    "fetchNow called when the manual refresh cap has elapsed"
+  );
+});
+
+add_task(async function test_LIVE_REFRESH_calls_fetchNow_when_never_fetched() {
+  const feed = makeLiveFeed();
+  feed.pollingState = "LIVE";
+  // No live fetch has happened yet — the cap is keyed off lastLiveUpdated, so
+  // a null timestamp must NOT block the very first manual refresh.
+  feed.lastLiveUpdated = null;
+  const fetchNowStub = sinon.stub(feed, "fetchNow");
+
+  await feed.onAction({ type: actionTypes.WIDGETS_SPORTS_LIVE_REFRESH });
+
+  Assert.ok(
+    fetchNowStub.calledOnce,
+    "fetchNow called when no prior live fetch has happened"
+  );
+});
+
+add_task(async function test_LIVE_REFRESH_throttled_within_15s() {
+  const feed = makeLiveFeed();
+  feed.pollingState = "LIVE";
+  // A live fetch landed 5 seconds ago — well under the 15s hard floor.
+  feed.lastLiveUpdated = Date.now() - 5000;
+  const fetchNowStub = sinon.stub(feed, "fetchNow");
+
+  await feed.onAction({ type: actionTypes.WIDGETS_SPORTS_LIVE_REFRESH });
+
+  Assert.ok(
+    fetchNowStub.notCalled,
+    "fetchNow suppressed when last live fetch was inside the 15s cap"
+  );
+});
+
+add_task(async function test_LIVE_REFRESH_skipped_when_live_disabled() {
+  const feed = makeLiveFeed({ liveEnabled: false });
+  feed.pollingState = "LIVE";
+  feed.lastLiveUpdated = null;
+  const fetchNowStub = sinon.stub(feed, "fetchNow");
+
+  await feed.onAction({ type: actionTypes.WIDGETS_SPORTS_LIVE_REFRESH });
+
+  Assert.ok(
+    fetchNowStub.notCalled,
+    "fetchNow skipped when live polling is disabled"
+  );
+});
+
+add_task(async function test_LIVE_REFRESH_skipped_when_not_in_LIVE_state() {
+  const feed = makeLiveFeed();
+  feed.pollingState = "IDLE";
+  feed.lastLiveUpdated = null;
+  const fetchNowStub = sinon.stub(feed, "fetchNow");
+
+  await feed.onAction({ type: actionTypes.WIDGETS_SPORTS_LIVE_REFRESH });
+
+  Assert.ok(
+    fetchNowStub.notCalled,
+    "fetchNow skipped outside the LIVE polling state"
+  );
+});
+
+add_task(async function test_LIVE_REFRESH_skipped_when_tick_in_flight() {
+  const feed = makeLiveFeed();
+  feed.pollingState = "LIVE";
+  feed.lastLiveUpdated = null;
+  feed.ticking = true;
+  const fetchNowStub = sinon.stub(feed, "fetchNow");
+
+  await feed.onAction({ type: actionTypes.WIDGETS_SPORTS_LIVE_REFRESH });
+
+  Assert.ok(
+    fetchNowStub.notCalled,
+    "fetchNow skipped while a tick is already in flight"
+  );
 });
 
 add_task(async function test_MARK_CELEBRATED_caps_celebrated_list() {

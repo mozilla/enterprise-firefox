@@ -1611,7 +1611,7 @@ PeerConnectionImpl::SetLocalDescription(int32_t aAction, const char* aSDP) {
       return NS_ERROR_FAILURE;
   }
   MOZ_ASSERT(!mUncommittedJsepSession);
-  mUncommittedJsepSession.reset(mJsepSession->Clone());
+  mUncommittedJsepSession = mJsepSession->Clone();
   JsepSession::Result result =
       mUncommittedJsepSession->SetLocalDescription(sdpType, mLocalRequestedSDP);
   JSErrorResult rv;
@@ -1710,7 +1710,7 @@ PeerConnectionImpl::SetRemoteDescription(int32_t action, const char* aSDP) {
   }
 
   MOZ_ASSERT(!mUncommittedJsepSession);
-  mUncommittedJsepSession.reset(mJsepSession->Clone());
+  mUncommittedJsepSession = mJsepSession->Clone();
   JsepSession::Result result = mUncommittedJsepSession->SetRemoteDescription(
       sdpType, mRemoteRequestedSDP);
   JSErrorResult jrv;
@@ -2939,7 +2939,7 @@ void PeerConnectionImpl::DoSetDescriptionSuccessPostProcessing(
           // flight (that will race against the [[SendEncodings]]
           // modification caused by sRD(offer)), or when addTrack has been
           // called while sRD(offer) was in progress.
-          mUncommittedJsepSession.reset(mJsepSession->Clone());
+          mUncommittedJsepSession = mJsepSession->Clone();
           JsepSession::Result result;
           if (aRemote) {
             mUncommittedJsepSession->SetRemoteDescription(

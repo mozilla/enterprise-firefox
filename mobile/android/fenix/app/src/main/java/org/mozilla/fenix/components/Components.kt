@@ -566,6 +566,7 @@ class Components(private val context: Context) {
             browserStore = core.store,
             syncStore = backgroundServices.syncStore,
             lazyFxaAccountManager = lazy { backgroundServices.accountManager },
+            lazyAppStore = lazy { appStore },
             settings = settings,
             context = context,
         )

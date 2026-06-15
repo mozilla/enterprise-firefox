@@ -2063,7 +2063,7 @@ TEST(JsepTrackRecvPayloadTypesTest, SingleTrackPTsAreUnique)
     codec->mDirection = sdp::kSend;
     offer1Msection1.AddCodec(codec->mDefaultPt, codec->mName, codec->mClock,
                              codec->mChannels);
-    auto clone = WrapUnique(codec->Clone());
+    UniquePtr<JsepCodecDescription> clone = codec->Clone();
     clone->mDirection = sdp::kRecv;
     clone->AddToMediaSection(answer1Msection1);
   }
@@ -2113,7 +2113,7 @@ TEST(JsepTrackRecvPayloadTypesTest, DoubleTrackPTsAreUnique)
     codec->mDirection = sdp::kSend;
     offer1Msection1.AddCodec(codec->mDefaultPt, codec->mName, codec->mClock,
                              codec->mChannels);
-    auto clone = WrapUnique(codec->Clone());
+    UniquePtr<JsepCodecDescription> clone = codec->Clone();
     clone->mDirection = sdp::kRecv;
     clone->AddToMediaSection(answer1Msection1);
   }
@@ -2122,7 +2122,7 @@ TEST(JsepTrackRecvPayloadTypesTest, DoubleTrackPTsAreUnique)
     codec->mDirection = sdp::kSend;
     offer1Msection2.AddCodec(codec->mDefaultPt, codec->mName, codec->mClock,
                              codec->mChannels);
-    auto clone = WrapUnique(codec->Clone());
+    UniquePtr<JsepCodecDescription> clone = codec->Clone();
     clone->mDirection = sdp::kRecv;
     clone->AddToMediaSection(answer1Msection2);
   }
@@ -2181,7 +2181,7 @@ TEST(JsepTrackRecvPayloadTypesTest, DoubleTrackPTsAreDuplicates)
     codec->mDirection = sdp::kSend;
     offer1Msection1.AddCodec(codec->mDefaultPt, codec->mName, codec->mClock,
                              codec->mChannels);
-    auto clone = WrapUnique(codec->Clone());
+    UniquePtr<JsepCodecDescription> clone = codec->Clone();
     clone->mDirection = sdp::kRecv;
     clone->AddToMediaSection(answer1Msection1);
   }
@@ -2189,7 +2189,7 @@ TEST(JsepTrackRecvPayloadTypesTest, DoubleTrackPTsAreDuplicates)
     codec->mDirection = sdp::kSend;
     offer1Msection2.AddCodec(codec->mDefaultPt, codec->mName, codec->mClock,
                              codec->mChannels);
-    auto clone = WrapUnique(codec->Clone());
+    UniquePtr<JsepCodecDescription> clone = codec->Clone();
     clone->mDirection = sdp::kRecv;
     clone->AddToMediaSection(answer1Msection2);
   }
@@ -2252,7 +2252,7 @@ TEST(JsepTrackRecvPayloadTypesTest, DoubleTrackPTsOverlap)
     codec->mDirection = sdp::kSend;
     offer1Msection1.AddCodec(codec->mDefaultPt, codec->mName, codec->mClock,
                              codec->mChannels);
-    auto clone = WrapUnique(codec->Clone());
+    UniquePtr<JsepCodecDescription> clone = codec->Clone();
     clone->mDirection = sdp::kRecv;
     clone->AddToMediaSection(answer1Msection1);
   }
@@ -2261,7 +2261,7 @@ TEST(JsepTrackRecvPayloadTypesTest, DoubleTrackPTsOverlap)
     codec->mDirection = sdp::kSend;
     offer1Msection2.AddCodec(codec->mDefaultPt, codec->mName, codec->mClock,
                              codec->mChannels);
-    auto clone = WrapUnique(codec->Clone());
+    UniquePtr<JsepCodecDescription> clone = codec->Clone();
     clone->mDirection = sdp::kRecv;
     clone->AddToMediaSection(answer1Msection2);
   }
@@ -2325,7 +2325,7 @@ TEST(JsepTrackRecvPayloadTypesTest, DoubleTrackPTsDuplicateAfterRenegotiation)
     codec->mDirection = sdp::kSend;
     offer1Msection1.AddCodec(codec->mDefaultPt, codec->mName, codec->mClock,
                              codec->mChannels);
-    auto clone = WrapUnique(codec->Clone());
+    UniquePtr<JsepCodecDescription> clone = codec->Clone();
     clone->mDirection = sdp::kRecv;
     clone->AddToMediaSection(answer1Msection1);
   }
@@ -2334,7 +2334,7 @@ TEST(JsepTrackRecvPayloadTypesTest, DoubleTrackPTsDuplicateAfterRenegotiation)
     codec->mDirection = sdp::kSend;
     offer1Msection2.AddCodec(codec->mDefaultPt, codec->mName, codec->mClock,
                              codec->mChannels);
-    auto clone = WrapUnique(codec->Clone());
+    UniquePtr<JsepCodecDescription> clone = codec->Clone();
     clone->mDirection = sdp::kRecv;
     clone->AddToMediaSection(answer1Msection2);
   }
@@ -2382,7 +2382,7 @@ TEST(JsepTrackRecvPayloadTypesTest, DoubleTrackPTsDuplicateAfterRenegotiation)
     codec->mDirection = sdp::kSend;
     offer2Msection1.AddCodec(codec->mDefaultPt, codec->mName, codec->mClock,
                              codec->mChannels);
-    auto clone = WrapUnique(codec->Clone());
+    UniquePtr<JsepCodecDescription> clone = codec->Clone();
     clone->mDirection = sdp::kRecv;
     clone->AddToMediaSection(answer2Msection1);
   }
@@ -2391,7 +2391,7 @@ TEST(JsepTrackRecvPayloadTypesTest, DoubleTrackPTsDuplicateAfterRenegotiation)
     codec->mDirection = sdp::kSend;
     offer2Msection2.AddCodec(codec->mDefaultPt, codec->mName, codec->mClock,
                              codec->mChannels);
-    auto clone = WrapUnique(codec->Clone());
+    UniquePtr<JsepCodecDescription> clone = codec->Clone();
     clone->mDirection = sdp::kRecv;
     clone->AddToMediaSection(answer2Msection2);
   }

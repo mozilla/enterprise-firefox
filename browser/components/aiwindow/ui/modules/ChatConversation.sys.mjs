@@ -61,7 +61,6 @@ ChromeUtils.defineLazyGetter(lazy, "console", function () {
 
 const CHAT_ROLES = [MESSAGE_ROLE.USER, MESSAGE_ROLE.ASSISTANT];
 const RESTORABLE_ROLES = [...CHAT_ROLES, MESSAGE_ROLE.TOOL];
-const TABLES_PREF = "browser.smartwindow.allowTables";
 
 let _savedLoadPromptDescriptor = null;
 export function _setLoadPromptForTesting(fn) {
@@ -770,27 +769,11 @@ export class ChatConversation extends EventEmitter {
    * @returns {Promise<{body: string, version: string}>} The rendered system prompt and its version
    */
   async #loadSystemPrompt(opts = {}) {
-    const { prompt: _systemPrompt, version } = await lazy.loadPrompt(
+    const { prompt, version } = await lazy.loadPrompt(
       MODEL_FEATURES.CHAT,
       opts
     );
-
-    let tableInstructions;
-    if (Services.prefs.getBoolPref(TABLES_PREF, false)) {
-      ({ prompt: tableInstructions } = await lazy.loadPrompt(
-        MODEL_FEATURES.ENABLE_TABLE_INSTRUCTIONS,
-        opts
-      ));
-    } else {
-      ({ prompt: tableInstructions } = await lazy.loadPrompt(
-        MODEL_FEATURES.DISABLE_TABLE_INSTRUCTIONS,
-        opts
-      ));
-    }
-    return {
-      body: renderPrompt(_systemPrompt, { tableInstructions }),
-      version,
-    };
+    return { body: prompt, version };
   }
 
   /**

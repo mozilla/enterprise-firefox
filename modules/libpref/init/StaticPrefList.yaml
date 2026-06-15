@@ -1100,6 +1100,46 @@
   value: true
   mirror: always
 
+# Whether to encrypt HTTP disk cache data at rest with an in-memory key. The
+# decrypted cache content only ever lives in memory. Off by default; takes
+# effect on restart. Read via CacheCrypto::IsEnabled(), which caches the value
+# on first use so it is stable for the session.
+- name: browser.cache.disk.encryption.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Base64 of the 32-byte AES-256 key used for disk cache encryption. Empty means
+# "generate one on first use and store it here". This is a development scaffold;
+# the key will move to the OS keystore later.
+- name: browser.cache.disk.encryption.key
+  type: String
+  value: ""
+  mirror: never
+
+# Minimum number of unwritten changes before the disk cache index is written
+# back to disk. Lowering it (e.g. to 1) forces the index to be persisted
+# eagerly; intended for tests.
+- name: browser.cache.disk.index.min_unwritten_changes
+  type: RelaxedAtomicUint32
+  value: 300
+  mirror: always
+
+# Minimum delay in milliseconds between two disk cache index writes. Lowering it
+# (e.g. to 0) forces the index to be persisted eagerly; intended for tests.
+- name: browser.cache.disk.index.min_dump_interval_ms
+  type: RelaxedAtomicUint32
+  value: 20000
+  mirror: always
+
+# Delay in milliseconds after startup before the disk cache index build/update
+# process is started. Lowering it (e.g. to 0) makes the index reach the ready
+# state sooner; intended for tests.
+- name: browser.cache.disk.index.update_start_delay_ms
+  type: RelaxedAtomicUint32
+  value: 50000
+  mirror: always
+
 - name: browser.cache.memory.enable
   type: RelaxedAtomicBool
   value: true
@@ -15662,6 +15702,24 @@
   value: false
   mirror: always
 
+# When true, the confirmation context starts in the CONFIRM_FAILED state
+# instead of optimistically assuming TRR is usable. Lookups then fall back to
+# native DNS until the first confirmation succeeds, rather than blocking on the
+# TRR connection being established. Used on Android to avoid cold-startup delays
+# when DoH is enabled via autoselect.
+- name: network.trr.start-confirmation-in-failed-state
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Controls whether the DoH rollout on Android sets
+# network.trr.start-confirmation-in-failed-state when it enables DoH. Provides a
+# kill switch for the behavior without changing the underlying TRR pref.
+- name: network.android_doh.start_in_confirmation_failed_state
+  type: bool
+  value: true
+  mirror: never
+
 # Use GET (rather than POST)
 - name: network.trr.useGET
   type: RelaxedAtomicBool
@@ -16158,6 +16216,13 @@
 - name: network.http.http3.enable_0rtt
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# When true, ZeroRttHandle::Finish0RTT treats the real transaction as gone to
+# simulate a transaction is cancelled during 0RTT handshake.
+- name: network.http.0rtt_force_txn_gone_for_testing
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 # Maximum time (ms) a session can remain in ZERORTT state before being

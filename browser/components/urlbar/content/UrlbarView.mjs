@@ -631,7 +631,7 @@ export class UrlbarView {
 
   #runTail150(canvas) {
     let S = this.window.getComputedStyle(canvas);
-    let AC = S.getPropertyValue("--color-gray-05");
+    let AC = S.getPropertyValue("--color-gray-0");
     let FD = S.getPropertyValue("--color-yellow-30");
     let SP = new this.window.Image();
     SP.src = "chrome://branding/content/icon48.png";

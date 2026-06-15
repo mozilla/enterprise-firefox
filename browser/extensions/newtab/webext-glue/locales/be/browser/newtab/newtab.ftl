@@ -31,6 +31,128 @@ newtab-card-dismiss-button =
     .title = Адхіліць
     .aria-label = Адхіліць
 
+## Strings for "Homepage" and "Firefox Home" sections of about:settings#home.
+## Homepage panel
+
+home-homepage-title =
+    .label = Хатняя старонка
+home-homepage-new-windows =
+    .label = Новыя вокны
+home-homepage-new-tabs =
+    .label = Новыя карткі
+# This option leads to the "Custom Homepage" subpage
+home-homepage-custom-homepage-button =
+    .label = Выберыце канкрэтны сайт
+
+## Custom URLs subpage
+
+# Subheader on the Custom Homepage subpage. Followed by a form to enter URLs and a list of URLs already saved, if any.
+home-custom-homepage-card-header =
+    .label = Адрас(ы) сайта(ў)
+home-custom-homepage-address =
+    .placeholder = Увядзіце адрас
+home-custom-homepage-address-button =
+    .label = Дадаць адрас
+# Shown when no custom websites/URLs to use as a homepage have been added yet
+home-custom-homepage-no-results =
+    .label = Пакуль не дададзены ніводны сайт.
+home-custom-homepage-delete-address-button =
+    .aria-label = Выдаліць адрас
+    .title = Выдаліць адрас
+# Further options to use when setting the home page. Two action buttons are placed in line with this prompt
+# to replace the current home page with a currently open page or bookmark.
+home-custom-homepage-replace-with-prompt =
+    .label = Замяніць на
+# Button that appears in-line after text "Replace with" (home-custom-homepage-replace-with-prompt)
+home-custom-homepage-current-pages-button =
+    .label = Зараз адкрытыя старонкі
+# Button that appears in-line after text "Replace with" (home-custom-homepage-replace-with-prompt)
+home-custom-homepage-bookmarks-button =
+    .label = Закладкі…
+
+## Firefox Home content
+
+home-prefs-content-header =
+    .label = { -firefox-home-brand-name }
+home-prefs-search-header2 =
+    .label = Пошук
+home-prefs-stories-header2 =
+    .label = Гісторыі
+    .description = Выключнае змесціва, курыраванае сям'ёй { -brand-product-name }
+home-prefs-widgets-header =
+    .label = Віджэты
+# Lists is a widget on New Tab, similar to a to-do widget
+home-prefs-lists-header =
+    .label = Спісы
+# Timer is a widget on New Tab, similar to the Pomodoro timer.
+home-prefs-timer-header =
+    .label = Таймер
+# Sports is a widget on New Tab showing sports scores and schedules.
+home-prefs-sports-widget-header =
+    .label = Спорт
+# Clock is a widget on New Tab that displays time zones around the world.
+home-prefs-clocks-header =
+    .label = Гадзіннік
+home-prefs-mission-message2 =
+    .message = Нашы спонсары падтрымліваюць нашу місію па стварэнні лепшага Інтэрнэту.
+home-prefs-manage-topics-link2 =
+    .label = Кіраванне тэмамі
+home-prefs-choose-wallpaper-link2 =
+    .label = Выбраць шпалеры
+home-prefs-firefox-logo-header =
+    .label = Лагатып { -brand-short-name }
+# Informational message bar that appears in the Firefox Home section when the options are disabled.
+# The user must select Firefox Home as their homepage for either new tabs or new windows to enable
+# the features in settings.
+home-prefs-firefox-home-disabled-notice =
+    .message = Каб карыстацца гэтымі функцыямі, абярыце для новых картак або новых вокнаў { -firefox-home-brand-name }.
+# Variables:
+#   $num (number) - Number of rows displayed
+home-prefs-sections-rows-option-srd =
+    .label =
+        { $num ->
+            [one] { $num } радок
+            [few] { $num } радкі
+           *[many] { $num } радкоў
+        }
+# Dropdown option shown when an extension replaces the contents of new windows or tabs.
+# Variables:
+#   $extension (string) - Name of the extension
+home-prefs-homepage-extension-option =
+    .label = Пашырэнне ({ $extension })
+home-restore-defaults-srd =
+    .label = Аднавіць прадвызначэнні
+    .accesskey = А
+home-mode-choice-default-fx-srd =
+    .label = { -firefox-home-brand-name } (тыповая)
+home-mode-choice-custom-srd =
+    .label = Свае URL-адрасы…
+home-mode-choice-blank-srd =
+    .label = Пустая старонка
+home-prefs-shortcuts-header-srd =
+    .label = Цэтлікі
+home-prefs-shortcuts-select =
+    .aria-label = Цэтлікі
+home-prefs-shortcuts-by-option-sponsored-srd =
+    .label = Спонсарскія цэтлікі
+home-prefs-recommended-by-option-sponsored-stories-srd =
+    .label = Артыкулы ад спонсараў
+home-prefs-highlights-option-visited-pages-srd =
+    .label = Наведаныя старонкі
+home-prefs-highlights-options-bookmarks-srd =
+    .label = Закладкі
+home-prefs-highlights-option-most-recent-download-srd =
+    .label = Нядаўнія сцягванні
+home-prefs-recent-activity-header-srd =
+    .label = Апошняя актыўнасць
+home-prefs-recent-activity-select =
+    .aria-label = Апошняя актыўнасць
+home-prefs-weather-header-srd =
+    .label = Надвор'е
+home-prefs-support-firefox-header-srd =
+    .label = Падтрымаць { -brand-product-name }
+home-prefs-mission-message-learn-more-link-srd = Даведацца, як
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -151,6 +273,8 @@ newtab-menu-section-block = Блакаваць
 # "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 # e.g. Following the travel section of stories.
 newtab-menu-section-unfollow-topic = Адпісацца
+# Context menu option to open a support page explaining the New Tab personalization features and privacy controls.
+newtab-menu-section-learn-more = Даведацца больш
 # "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 # e.g. Following the travel section of stories.
 newtab-menu-section-unfollow = Адпісацца ад тэмы
@@ -760,8 +884,6 @@ newtab-widget-lists-button-add-item = Дадаць элемент
 newtab-widget-lists-input-add-an-item2 =
     .placeholder = Дадаць элемент
     .aria-label = Дадаць элемент
-newtab-widget-lists-input-add-an-item =
-    .placeholder = Дадаць элемент
 newtab-widget-lists-input-error = Калі ласка, улучыце тэкст, каб дадаць элемент.
 newtab-widget-lists-input-menu-open-link = Адкрыць спасылку
 newtab-widget-lists-input-menu-move-up = Рухаць угору
@@ -789,11 +911,6 @@ newtab-widget-lists-name-placeholder-checklist2 =
 newtab-widget-lists-name-placeholder-new2 =
     .placeholder = Новы спіс
     .aria-label = Змяніць назву спісу
-newtab-widget-lists-name-placeholder-checklist =
-    .placeholder = Кантрольны спіс
-# The placeholder value of the name field for a newly created list
-newtab-widget-lists-name-placeholder-new =
-    .placeholder = Новы спіс
 newtab-widget-section-title = Віджэты
 newtab-widget-menu-hide = Схаваць віджэт
 newtab-widget-menu-change-size = Змяніць памер

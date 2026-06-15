@@ -421,6 +421,8 @@ class UserScriptsManager {
       options.allFrames = allFrames;
     } else if (frameIds) {
       options.frameIds = frameIds;
+    } else if (documentIds) {
+      options.documentIds = documentIds;
     } else {
       options.frameIds = [0];
     }

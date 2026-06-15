@@ -545,6 +545,263 @@ checking - the memory cache pool is controlled by
 described above. The pool can be accessed and modified only on the cache
 background thread.
 
+(on-disk-entry-format)=
+
+## On-disk entry format
+
+Each disk cache entry is stored as a single file under
+`<profile>/cache2/entries/`, named by the uppercase hex of the SHA-1 hash of the
+entry's key.
+
+A file has two parts: the **data**, split into fixed-size chunks, followed by a
+**metadata block** at the very end. Data comes first so that it can be appended
+as the entry is written; the metadata — whose size depends on the number of
+chunks and the amount of stored metadata — is written last. A reader seeks to
+the end of the file, reads the trailing offset, and uses it both to locate the
+metadata block and to learn the total data size.
+
+```
+            +================================================+  offset 0
+            |  chunk 0                  (kChunkSize bytes)    |
+            +------------------------------------------------+  1 * kChunkSize
+            |  chunk 1                  (kChunkSize bytes)    |
+            +------------------------------------------------+  2 * kChunkSize
+            |  ...                                           |
+            +------------------------------------------------+  (N-1) * kChunkSize
+            |  chunk N-1                (<= kChunkSize bytes) |
+            +================================================+  dataSize  <--+
+            |  metadata block                                |              |
+            +================================================+              |
+                            the trailing metadata offset points here -------+
+```
+
+### Data chunks
+
+The data is divided into chunks of `kChunkSize` (256 KiB). Chunk *N* lives at
+file offset `N * kChunkSize`; only the last chunk may be shorter than
+`kChunkSize`. Chunks are read and written independently and are the unit of
+in-memory caching (see {ref}`intermediate-memory-caching <intermediate-memory-caching>`). A
+16-bit hash of each chunk is stored in the metadata and verified when the chunk
+is read back from disk.
+
+### Metadata block
+
+The metadata block holds everything about the entry other than its data:
+
+```
+            +---------------------------+
+            |  metadata hash     (4 B)  |   32-bit hash of the rest of the block
+            +---------------------------+
+            |  chunk hashes   (2 B * N) |   one 16-bit hash per data chunk
+            +---------------------------+
+            |  header                   |   fixed-size CacheFileMetadataHeader
+            +---------------------------+
+            |  key + '\0'               |   the entry's key, null-terminated
+            +---------------------------+
+            |  elements                 |   name\0value\0 pairs
+            +---------------------------+
+            |  metadata offset   (4 B)  |   file offset where this block begins
+            +---------------------------+
+```
+
+- **Metadata hash** — a 32-bit hash computed over everything from the chunk-hash
+  array through the elements, used to detect on-disk corruption.
+- **Chunk hashes** — one 16-bit hash per data chunk; the chunk count is
+  `ceil(dataSize / kChunkSize)`.
+- **Header** — a fixed-size, tightly packed `CacheFileMetadataHeader`:
+
+  | field | type | meaning |
+  | --- | --- | --- |
+  | version | uint32 | metadata format version |
+  | fetch count | uint32 | number of times the entry has been opened |
+  | last fetched | uint32 | last access time, in seconds |
+  | last modified | uint32 | last modification time, in seconds |
+  | frecency | uint32 | eviction score (see above) |
+  | expiration time | uint32 | when the entry expires |
+  | key size | uint32 | length in bytes of the key that follows |
+  | flags | uint32 | entry flags (e.g. pinned) |
+
+- **Key** — the entry's key (the `<enhance-id:><uri>` string, scoped by context),
+  null-terminated.
+- **Elements** — the entry's metadata stored as a sequence of null-terminated
+  `name\0value\0` pairs (HTTP response headers, security info, alternative-data
+  information, and so on).
+- **Metadata offset** — a trailing 32-bit value giving the file offset at which
+  the metadata block begins, which is also the total size of the data.
+
+All multi-byte integers in the metadata are stored big-endian (network byte
+order).
+
+(cache-index)=
+
+## Cache index
+
+Opening every entry file to learn what is in the cache would be far too slow, so
+the cache keeps a compact **index**: an in-memory map of every disk entry that is
+persisted to disk so it survives restarts. It is implemented by the
+{searchfox}`CacheIndex (searchfox) <netwerk/cache2/CacheIndex.h>` singleton and
+lives, like all cache I/O, on the single background thread.
+
+The index is what lets the cache answer questions without touching individual
+entry files:
+
+- **Eviction** — pick the lowest-{ref}`frecency <intermediate-memory-caching>`
+  entries to evict when the disk limit is exceeded.
+- **Disk-usage accounting** — sum the per-entry file sizes
+  (`nsICacheStorageService.asyncGetDiskConsumption`).
+- **Enumeration / visiting** — list entries for a context without reading them.
+- **Existence checks** — `asyncOpenURI` can tell whether an entry is on disk
+  before scheduling a read.
+- **Telemetry** — entry counts and sizes grouped by content type.
+
+### In-memory structure
+
+The index is a hashtable of fixed-size `CacheIndexRecord`s keyed by the entry's
+SHA-1 hash — the same hash used as the entry's file name (see
+{ref}`On-disk entry format <on-disk-entry-format>`). Each record summarizes one
+entry:
+
+| field | type | meaning |
+| --- | --- | --- |
+| hash | 20 B | SHA-1 of the entry key; the entry's file name |
+| frecency | uint32 | eviction score |
+| origin attrs hash | uint64 | hash of the entry's origin attributes |
+| on-start time | uint16 | time to first byte, for telemetry |
+| on-stop time | uint16 | time to last byte, for telemetry |
+| content type | uint8 | content-type bucket |
+| flags | uint32 | status bits plus the file size |
+
+The `flags` word packs several status bits and the entry's file size:
+
+```
+            3                   2                   1                   0
+            1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+            +-+-+-+-+-+-+-+-+-----------------------------------------------+
+            |I|A|R|D|F|P|H|N|              file size (in kB)                |
+            +-+-+-+-+-+-+-+-+-----------------------------------------------+
+             I initialized   F fresh          H has alt data
+             A anonymous     P pinned         N has No-Vary-Search header
+             R removed       D dirty
+```
+
+The low 23 bits hold the file size in kibibytes (up to ~8 GiB). The **dirty** and
+**fresh** bits are session-only state and are never written to disk: *dirty*
+means the in-memory record differs from what is on disk, and *fresh* means the
+entry has been seen during this session, so it must not be touched by a build or
+update pass.
+
+### On-disk files
+
+The index is persisted directly under `<profile>/cache2/` (alongside the
+`entries/` directory) using three files:
+
+- **`index`** — the index file proper.
+- **`index.log`** — the journal (see below).
+- **`index.tmp`** — scratch file the index is written into before atomically
+  replacing `index`.
+
+The index file is a header, followed by one record per entry, followed by a
+32-bit hash of everything before it:
+
+```
+            +-------------------------------+
+            |  header   (CacheIndexHeader)  |
+            +-------------------------------+
+            |  record 0   (CacheIndexRecord)|
+            +-------------------------------+
+            |  record 1                     |
+            +-------------------------------+
+            |  ...                          |
+            +-------------------------------+
+            |  record N-1                   |
+            +-------------------------------+
+            |  hash          (4 B)          |   32-bit hash of header + records
+            +-------------------------------+
+```
+
+The header is:
+
+| field | type | meaning |
+| --- | --- | --- |
+| version | uint32 | index format version; a newer version on disk is discarded |
+| timestamp | uint32 | when the last successful index write started |
+| dirty flag | uint32 | set while running, cleared only on a clean shutdown |
+| KB written | uint32 | bytes written to the cache, for telemetry |
+| encrypted | uint32 | whether the entries are encrypted at rest |
+
+The **encrypted** flag records whether the on-disk entries were written with
+at-rest encryption (see `browser.cache.disk.encryption.enabled`). At startup it
+is compared against the current pref; if they differ the whole cache is purged,
+since flipping encryption on or off would otherwise leave a mix of encrypted and
+plaintext entries. It reflects the session's actual encryption state (fixed at
+startup), so a mid-session pref change — which only takes effect on restart — is
+not masked.
+
+All multi-byte integers are big-endian. Records are tightly packed (`#pragma
+pack(1)`), so the entry count is simply
+`(fileSize - sizeof(header) - sizeof(hash)) / sizeof(record)`. The `timestamp`
+is used during an update to skip entry files whose last-modified time predates
+it — those are already reflected in the index.
+
+### Journal and the dirty flag
+
+Rewriting the whole index on every change would be wasteful, so changes are
+batched. The full index is rewritten periodically — at most once per
+`kMinDumpInterval` (20 s) and only once at least `kMinUnwrittenChanges` (300)
+records differ from disk — by writing `index.tmp` and replacing `index`.
+
+Between full writes, the on-disk index drifts out of date. To reconcile this
+cheaply on a clean shutdown, the cache writes a **journal** (`index.log`)
+containing only the *dirty* records — the changes not yet in `index` — and
+clears the header's dirty flag. On the next startup those journalled changes are
+merged back into the index read from disk.
+
+The dirty flag is the crash detector: it is set as soon as the index is read and
+cleared only when the shutdown journal has been written successfully. If Firefox
+crashes, the flag is still set on the next startup, signalling that `index` and
+`index.log` cannot be trusted as-is and the index must be rebuilt or updated from
+the entry files.
+
+### Index states
+
+At startup the index opens the three files and, from which exist and whether each
+parses and hash-checks, decides whether the on-disk index can be trusted:
+
+- **up to date** — clean `index`, a valid `index.log`, no leftover `index.tmp`:
+  read the index and merge the journal.
+- **dirty** (dirty flag set, or a journal with no clean index): **update** —
+  trust the existing records but walk the `entries/` directory to reconcile
+  anything that changed while the flag was set.
+- **missing or corrupt** `index`: **build** — discard everything and reconstruct
+  the index by reading every entry file's metadata
+  (`CacheIndex::InitEntryFromDiskData`).
+
+`CacheIndex` runs as a small state machine over these outcomes:
+
+```
+            INITIAL ---> READING ---> READY <---> UPDATING
+                            |           ^            ^
+                            |           |            |
+                            +-------> BUILDING ------+
+                            |
+                            +-------> UPDATING
+
+            (any state) ---> SHUTDOWN
+```
+
+- **INITIAL** — not yet usable.
+- **READING** — reading `index`/`index.log` from disk.
+- **BUILDING** — reconstructing the index from scratch by reading entry files.
+- **UPDATING** — reconciling a partially-stale index against the `entries/`
+  directory.
+- **READY** — usable; the cache transitions back to **UPDATING** if it later
+  detects the index is out of date.
+- **WRITING** — a full index write is in progress.
+- **SHUTDOWN** — shutting down.
+
+While **BUILDING** or **UPDATING** the index is already usable; the cache serves
+requests from whatever records exist and fills in the rest in the background.
+
 ## Compression Dictionaries
 
 Compression Dictionaries are specced by the IETF:

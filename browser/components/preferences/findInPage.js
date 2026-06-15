@@ -434,6 +434,14 @@ var gSearchResultsPane = {
         for (let anchorNode of this.listSearchTooltips) {
           this.createSearchTooltip(anchorNode, this.query);
         }
+        // Tooltips created during the search loop above may have been positioned
+        // against an intermediate layout (e.g. while the no-results message was
+        // still visible). Now that layout has settled, reposition them all.
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        if (query !== this.query) {
+          return;
+        }
+        this._recomputeTooltipPositions();
       }
     } else {
       noResultsEl.hidden = true;

@@ -172,6 +172,7 @@ private val ignoredItems = setOf(HEADER_ITEM_KEY, SPAN_ITEM_KEY, TAB_GROUP_ONBOA
  * @param focusEnabled Whether the focus indication state is enabled.
  * @param tabInteractionHandler Handles tab interactions such as moves and drag and drop.
  * @param modifier [Modifier] to be applied to the layout.
+ * @param reorderingEnabled Whether tabs can be reordered by dragging.
  * @param trackersBlockedCount The number of trackers blocked to display in the footer card.
  * @param onTabClose Invoked when the user clicks to close a tab.
  * @param onItemClick Invoked when the user clicks on a tab.
@@ -196,6 +197,7 @@ fun TabLayout(
     focusEnabled: Boolean,
     tabInteractionHandler: TabInteractionHandler,
     modifier: Modifier = Modifier,
+    reorderingEnabled: Boolean = true,
     trackersBlockedCount: Int? = null,
     onTabClose: (TabsTrayItem.Tab) -> Unit,
     onItemClick: (TabsTrayItem) -> Unit,
@@ -227,6 +229,7 @@ fun TabLayout(
             contentPadding = contentPadding,
             focusEnabled = focusEnabled,
             dragAndDropEnabled = dragAndDropEnabled,
+            reorderingEnabled = reorderingEnabled,
             onPrivacyReportTapped = onPrivacyReportTapped,
             displayTabGroupOnboarding = displayTabGroupOnboarding,
         )
@@ -248,6 +251,7 @@ fun TabLayout(
             trackersBlockedCount = trackersBlockedCount,
             focusEnabled = focusEnabled,
             dragAndDropEnabled = dragAndDropEnabled,
+            reorderingEnabled = reorderingEnabled,
             onPrivacyReportTapped = onPrivacyReportTapped,
             displayTabGroupOnboarding = displayTabGroupOnboarding,
         )
@@ -265,6 +269,7 @@ private fun TabList(
     focusEnabled: Boolean,
     tabInteractionHandler: TabInteractionHandler,
     modifier: Modifier = Modifier,
+    reorderingEnabled: Boolean = true,
     trackersBlockedCount: Int? = null,
     onTabClose: (TabsTrayItem.Tab) -> Unit,
     onItemClick: (TabsTrayItem) -> Unit,
@@ -314,6 +319,7 @@ private fun TabList(
             header = header,
             trackersBlockedCount = trackersBlockedCount,
             focusEnabled = true,
+            reorderingEnabled = reorderingEnabled,
             onPrivacyReportTapped = onPrivacyReportTapped,
             displayTabGroupOnboarding = displayTabGroupOnboarding,
         )
@@ -331,6 +337,7 @@ private fun TabGrid(
     focusEnabled: Boolean,
     tabInteractionHandler: TabInteractionHandler,
     modifier: Modifier = Modifier,
+    reorderingEnabled: Boolean = true,
     trackersBlockedCount: Int? = null,
     onTabClose: (TabsTrayItem.Tab) -> Unit,
     onItemClick: (TabsTrayItem) -> Unit,
@@ -383,6 +390,7 @@ private fun TabGrid(
             contentPadding = contentPadding,
             trackersBlockedCount = trackersBlockedCount,
             focusEnabled = focusEnabled,
+            reorderingEnabled = reorderingEnabled,
             onPrivacyReportTapped = onPrivacyReportTapped,
         )
     }
@@ -454,6 +462,7 @@ private fun ReorderableTabGrid(
     selectionMode: TabsTrayState.Mode,
     focusEnabled: Boolean,
     modifier: Modifier = Modifier,
+    reorderingEnabled: Boolean = true,
     contentPadding: PaddingValues,
     onTabClose: (TabsTrayItem.Tab) -> Unit,
     onItemClick: (TabsTrayItem) -> Unit,
@@ -512,11 +521,13 @@ private fun ReorderableTabGrid(
             columns = GridCells.Fixed(count = columns),
             modifier = modifier
                 .fillMaxSize()
-                .detectGridPressAndDragGestures(
-                    gridState = gridState,
-                    reorderState = reorderState,
-                    isInMultiSelectMode = isInMultiSelectMode,
-                ),
+                .thenConditional(
+                    Modifier.detectGridPressAndDragGestures(
+                        gridState = gridState,
+                        reorderState = reorderState,
+                        isInMultiSelectMode = isInMultiSelectMode,
+                    ),
+                ) { reorderingEnabled },
             state = gridState,
             contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(space = spacing),
@@ -1283,6 +1294,7 @@ private fun ReorderableTabList(
     header: (@Composable () -> Unit)? = null,
     trackersBlockedCount: Int? = null,
     focusEnabled: Boolean = true,
+    reorderingEnabled: Boolean = true,
     onPrivacyReportTapped: (() -> Unit)? = null,
 ) {
     val state = rememberLazyListState()
@@ -1342,7 +1354,7 @@ private fun ReorderableTabList(
                 .detectListPressAndDrag(
                     listState = state,
                     reorderState = reorderState,
-                    shouldLongPressToDrag = !isInMultiSelectMode,
+                    shouldLongPressToDrag = reorderingEnabled && !isInMultiSelectMode,
                 ),
             state = state,
             contentPadding = PaddingValues(

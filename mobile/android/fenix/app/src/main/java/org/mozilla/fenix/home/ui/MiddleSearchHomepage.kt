@@ -203,7 +203,8 @@ private fun MiddleSearchHomepagePreview() {
                 showPocketStoriesCarousel = true,
                 showCollections = true,
                 showPrivacyReport = true,
-                showLongfoxEntryPoint = true,
+                longfoxEnabled = true,
+                showLongfoxAnimation = true,
                 trackersBlockedCount = 754,
                 sportsWidgetState = SportsWidgetState(),
                 headerState = HeaderState.Normal(

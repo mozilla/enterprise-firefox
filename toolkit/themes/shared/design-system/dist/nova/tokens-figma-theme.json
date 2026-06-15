@@ -10,7 +10,7 @@
     "forcedColors": "{Theme$background/color/canvas}"
   },
   "background/color/canvas": {
-    "light": "{Colors$color/gray/05}",
+    "light": "{Colors$color/gray/0}",
     "dark": "{Colors$color/gray/90}",
     "forcedColors": "{HCM Theme$Canvas}"
   },
@@ -553,10 +553,5 @@
     "light": "color-mix(in lch, var(--color-violet-desaturated-50) 25%, transparent)",
     "dark": "color-mix(in lch, var(--color-violet-desaturated-30) 40%, transparent)",
     "forcedColors": "transparent"
-  },
-  "tab/background/color/selected": {
-    "light": "var(--background-color-box)",
-    "dark": "var(--background-color-box)",
-    "forcedColors": "var(--background-color-box)"
   }
 }

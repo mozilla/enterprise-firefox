@@ -159,7 +159,7 @@
   },
   "text/color": {
     "light": "{Colors$color/gray/100}",
-    "dark": "{Colors$color/gray/05}",
+    "dark": "{Colors$color/gray/0}",
     "forcedColors": "{HCM Theme$CanvasText}"
   },
   "text/color/deemphasized": {
@@ -491,7 +491,7 @@
   },
   "button/text/color": {
     "light": "{Colors$color/gray/100}",
-    "dark": "{Colors$color/gray/05}",
+    "dark": "{Colors$color/gray/0}",
     "forcedColors": "{HCM Theme$ButtonText}"
   },
   "button/text/color/active": {
@@ -736,7 +736,7 @@
   },
   "icon/color": {
     "light": "{Colors$color/gray/70}",
-    "dark": "{Colors$color/gray/05}",
+    "dark": "{Colors$color/gray/0}",
     "forcedColors": "{Theme$text/color}"
   },
   "icon/color/information": {
@@ -926,12 +926,12 @@
   },
   "toolbar/field/text/color": {
     "light": "{Colors$color/gray/100}",
-    "dark": "{Colors$color/gray/05}",
+    "dark": "{Colors$color/gray/0}",
     "forcedColors": "{HCM Theme$FieldText}"
   },
   "toolbar/field/text/color/focus": {
     "light": "{Colors$color/black}",
-    "dark": "{Colors$color/gray/05}",
+    "dark": "{Colors$color/gray/0}",
     "forcedColors": "transparent"
   },
   "toolbar/background/color": {
@@ -941,7 +941,7 @@
   },
   "toolbar/text/color": {
     "light": "{Colors$color/gray/100}",
-    "dark": "{Colors$color/gray/05}",
+    "dark": "{Colors$color/gray/0}",
     "forcedColors": "transparent"
   },
   "toolbarbutton/badge/background/color": {
@@ -951,7 +951,7 @@
   },
   "toolbarbutton/icon/fill": {
     "light": "{Colors$color/gray/70}",
-    "dark": "{Colors$color/gray/05}",
+    "dark": "{Colors$color/gray/0}",
     "forcedColors": "transparent"
   },
   "toolbarbutton/icon/fill/attention": {
@@ -1016,7 +1016,7 @@
   },
   "toolbox/text/color": {
     "light": "{Colors$color/gray/100}",
-    "dark": "{Colors$color/gray/05}",
+    "dark": "{Colors$color/gray/0}",
     "forcedColors": "transparent"
   },
   "toolbox/text/color/inactive": {
@@ -1687,7 +1687,7 @@
   },
   "tab/group/gray": {
     "light": "{Colors$color/gray/55}",
-    "dark": "{Colors$color/gray/05}",
+    "dark": "{Colors$color/gray/0}",
     "forcedColors": "transparent"
   },
   "tab/group/gray/text": {
@@ -1706,7 +1706,7 @@
     "forcedColors": "transparent"
   },
   "tab/group/gray/invert": {
-    "light": "{Colors$color/gray/05}",
+    "light": "{Colors$color/gray/0}",
     "dark": "{Colors$color/gray/55}",
     "forcedColors": "transparent"
   },

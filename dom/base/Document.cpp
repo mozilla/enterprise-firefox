@@ -4293,23 +4293,28 @@ void Document::StopDocumentLoad() {
 void Document::SetDocumentURI(nsIURI* aURI) {
   nsCOMPtr<nsIURI> oldBase = GetDocBaseURI();
   mDocumentURI = aURI;
-  // This loosely implements §3.4.1 of Text Fragments
-  // https://wicg.github.io/scroll-to-text-fragment/#invoking-text-directives
-  // Unlike specified in the spec, the fragment directive is not stripped from
-  // the URL in the session history entry. Instead it is removed when the URL is
-  // set in the `Document`. Also, instead of storing the `uninvokedDirective` in
-  // `Document` as mentioned in the spec, the extracted directives are moved to
-  // the `FragmentDirective` object which deals with finding the ranges to
-  // highlight in `ScrollToRef()`.
-  // XXX(:jjaschke): This is only a temporary solution.
-  // https://bugzil.la/1881429 is filed for revisiting this.
-  nsTArray<TextDirective> textDirectives;
-  FragmentDirective::ParseAndRemoveFragmentDirectiveFromFragment(
-      mDocumentURI, &textDirectives);
-  if (!textDirectives.IsEmpty()) {
-    SetUseCounter(eUseCounter_custom_TextDirectivePages);
+  // Documents loaded as data (e.g. via DOMParser or XHR) don't perform Text
+  // Fragments processing, so there's no need to parse and strip the fragment
+  // directive or create a FragmentDirective object for them.
+  if (!IsLoadedAsData()) {
+    // This loosely implements §3.4.1 of Text Fragments
+    // https://wicg.github.io/scroll-to-text-fragment/#invoking-text-directives
+    // Unlike specified in the spec, the fragment directive is not stripped from
+    // the URL in the session history entry. Instead it is removed when the URL
+    // is set in the `Document`. Also, instead of storing the
+    // `uninvokedDirective` in `Document` as mentioned in the spec, the
+    // extracted directives are moved to the `FragmentDirective` object which
+    // deals with finding the ranges to highlight in `ScrollToRef()`.
+    // XXX(:jjaschke): This is only a temporary solution.
+    // https://bugzil.la/1881429 is filed for revisiting this.
+    nsTArray<TextDirective> textDirectives;
+    FragmentDirective::ParseAndRemoveFragmentDirectiveFromFragment(
+        mDocumentURI, &textDirectives);
+    if (!textDirectives.IsEmpty()) {
+      SetUseCounter(eUseCounter_custom_TextDirectivePages);
+    }
+    FragmentDirective()->SetTextDirectives(std::move(textDirectives));
   }
-  FragmentDirective()->SetTextDirectives(std::move(textDirectives));
 
   nsIURI* newBase = GetDocBaseURI();
 

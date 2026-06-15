@@ -643,7 +643,7 @@ already_AddRefed<nsDragService> nsDragService::GetInstance() {
     return nullptr;
   }
   if (!sDragServiceInstance) {
-    sDragServiceInstance = new nsDragService();
+    sDragServiceInstance = MakeRefPtr<nsDragService>();
     ClearOnShutdown(&sDragServiceInstance);
   }
 
@@ -654,7 +654,7 @@ already_AddRefed<nsDragService> nsDragService::GetInstance() {
 nsDragService::nsDragService() {
 #ifdef MOZ_WAYLAND
   if (GdkIsWaylandDisplay()) {
-    mContext = new RetrievalContextWayland(/* aIsDragContext */ true);
+    mContext = MakeRefPtr<RetrievalContextWayland>(/* aIsDragContext */ true);
   }
 #endif
 }
@@ -662,14 +662,12 @@ nsDragService::nsDragService() {
 already_AddRefed<nsIDragSession> nsDragService::CreateDragSession() {
 #ifdef MOZ_WAYLAND
   if (widget::GdkIsWaylandDisplay()) {
-    RefPtr<nsIDragSession> session = new nsDragSessionWayland();
-    return session.forget();
+    return MakeAndAddRef<nsDragSessionWayland>();
   }
 #endif
 #ifdef MOZ_X11
   if (widget::GdkIsX11Display()) {
-    RefPtr<nsIDragSession> session = new nsDragSessionX11();
-    return session.forget();
+    return MakeAndAddRef<nsDragSessionX11>();
   }
 #endif
   return nullptr;

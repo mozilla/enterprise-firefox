@@ -17,8 +17,9 @@ use servo_arc::Arc;
 use style_traits::CssString;
 use thin_vec::ThinVec;
 
+pub mod numeric;
 pub mod numeric_declaration;
-pub mod numeric_values;
+pub mod numeric_type;
 pub mod sum_value;
 
 /// A single segment of an unparsed Typed OM value.
@@ -110,6 +111,22 @@ pub struct UnitValue {
 
     /// The textual unit string (e.g. `"px"`, `"em"`, `"%"`, `"deg"`).
     pub unit: CssString,
+}
+
+impl UnitValue {
+    /// Returns the unit as a string slice.
+    #[inline]
+    pub fn unit_str(&self) -> &str {
+        #[cfg(feature = "gecko")]
+        unsafe {
+            self.unit.as_str_unchecked()
+        }
+
+        #[cfg(feature = "servo")]
+        {
+            &self.unit
+        }
+    }
 }
 
 /// A sum of numeric values.

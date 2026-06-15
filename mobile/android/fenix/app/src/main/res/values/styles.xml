@@ -77,10 +77,13 @@
         <item name="colorErrorContainer">@color/fx_mobile_error_container</item>
         <item name="colorOnErrorContainer">@color/fx_mobile_on_error_container</item>
         <item name="colorInformation">@color/fx_mobile_information</item>
+        <item name="colorOnInformation">@color/fx_mobile_on_information</item>
         <item name="colorInformationContainer">@color/fx_mobile_information_container</item>
         <item name="colorOnInformationContainer">@color/fx_mobile_on_information_container</item>
         <item name="colorSuccess">@color/fx_mobile_success</item>
+        <item name="colorOnSuccess">@color/fx_mobile_on_success</item>
         <item name="colorWarning">@color/fx_mobile_warning</item>
+        <item name="colorOnWarning">@color/fx_mobile_on_warning</item>
         <item name="colorWarningContainer">@color/fx_mobile_warning_container</item>
         <item name="colorOnWarningContainer">@color/fx_mobile_on_warning_container</item>
         <item name="colorOutline">@color/fx_mobile_outline</item>
@@ -353,10 +356,13 @@
         <item name="colorErrorContainer">@color/fx_mobile_private_error_container</item>
         <item name="colorOnErrorContainer">@color/fx_mobile_private_on_error_container</item>
         <item name="colorInformation">@color/fx_mobile_private_information</item>
+        <item name="colorOnInformation">@color/fx_mobile_private_on_information</item>
         <item name="colorInformationContainer">@color/fx_mobile_private_information_container</item>
         <item name="colorOnInformationContainer">@color/fx_mobile_private_on_information_container</item>
         <item name="colorSuccess">@color/fx_mobile_private_success</item>
+        <item name="colorOnSuccess">@color/fx_mobile_private_on_success</item>
         <item name="colorWarning">@color/fx_mobile_private_warning</item>
+        <item name="colorOnWarning">@color/fx_mobile_private_on_warning</item>
         <item name="colorWarningContainer">@color/fx_mobile_private_warning_container</item>
         <item name="colorOnWarningContainer">@color/fx_mobile_private_on_warning_container</item>
         <item name="colorOutline">@color/fx_mobile_private_outline</item>

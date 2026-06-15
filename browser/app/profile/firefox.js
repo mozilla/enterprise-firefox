@@ -2330,9 +2330,6 @@ pref("browser.smartwindow.sidebar.openByDefault", true);
 pref("browser.smartwindow.isDefaultWindow", false);
 pref("browser.smartwindow.firstrun.explainerURL", "https://www.firefox.com/en-US/smart-window/?v=product");
 pref("places.semanticHistory.smartwindow.featureGate", false);
-// Allow markdown tables in Smart Window responses
-// TODO (Bug 2039835): Remove pref and cleanup deprecated code paths.
-pref("browser.smartwindow.allowTables", true);
 
 // Smart Window: Merino World Cup Soccer tool call (bug 2038266)
 pref("browser.smartwindow.worldcup.enabled", true);
@@ -2932,6 +2929,11 @@ pref("signon.suggestImportCount", 3);
 // some number of days.
 pref("browser.crashReports.unsubmittedCheck.chancesUntilSuppress", 4);
 pref("browser.crashReports.unsubmittedCheck.autoSubmit2", false);
+
+// Whether the browser should periodically prune stale crash-related files
+// (InstallTime markers, old submitted/pending reports, and the pending-report
+// cap).
+pref("browser.crashReports.cleanupCheck.enabled", true);
 
 // Preferences for the form autofill toolkit component.
 // Checkbox in sync options for credit card data sync service

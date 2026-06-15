@@ -74,6 +74,10 @@
   }
 }
 
+#location-label-recommended {
+  font-weight: var(--font-weight-bold);
+}
+
 .location-check {
   visibility: hidden;
   -moz-context-properties: fill;

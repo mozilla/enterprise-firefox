@@ -1412,52 +1412,14 @@ add_task(async function test_convertUrlToToken_tokenGeneration() {
   }
 });
 
-add_task(async function test_generatePrompt_tableInstructions_pref_enabled() {
-  Services.prefs.setBoolPref("browser.smartwindow.allowTables", false);
-  registerCleanupFunction(() =>
-    Services.prefs.clearUserPref("browser.smartwindow.allowTables")
-  );
-
+add_task(async function test_generatePrompt_persistsPromptVersion() {
   const sandbox = lazy.sinon.createSandbox();
-  const loadPromptStub = lazy.sinon
-    .stub()
-    .onFirstCall()
-    .resolves("system prompt {tableInstructions}")
-    .onSecondCall()
-    .resolves("table instructions content");
+  const loadPromptStub = lazy.sinon.stub().resolves({
+    prompt: "system prompt",
+    version: "chat-v1",
+  });
   _setLoadPromptForTesting(loadPromptStub);
-  const conversation = new ChatConversation({});
-  sandbox.stub(ChatConversation, "getRealTimeInfo").resolves(null);
-  sandbox.stub(conversation, "getMemoriesContext").resolves(null);
 
-  await conversation.generatePrompt("hello", null);
-
-  _setLoadPromptForTesting(null);
-  sandbox.restore();
-
-  const systemMessage = conversation.messages.find(
-    m => m.role === MESSAGE_ROLE.SYSTEM
-  );
-  Assert.ok(
-    systemMessage.content.body.includes("table instructions content"),
-    "system prompt should include table instructions when pref is true"
-  );
-});
-
-add_task(async function test_generatePrompt_tableInstructions_pref_disabled() {
-  Services.prefs.setBoolPref("browser.smartwindow.allowTables", true);
-  registerCleanupFunction(() =>
-    Services.prefs.clearUserPref("browser.smartwindow.allowTables")
-  );
-
-  const sandbox = lazy.sinon.createSandbox();
-  const loadPromptStub = lazy.sinon
-    .stub()
-    .onFirstCall()
-    .resolves("system prompt {tableInstructions}")
-    .onSecondCall()
-    .resolves("do tables");
-  _setLoadPromptForTesting(loadPromptStub);
   const conversation = new ChatConversation({});
   sandbox.stub(ChatConversation, "getRealTimeInfo").resolves(null);
   sandbox.stub(conversation, "getMemoriesContext").resolves(null);
@@ -1466,39 +1428,9 @@ add_task(async function test_generatePrompt_tableInstructions_pref_disabled() {
 
   Assert.equal(
     loadPromptStub.callCount,
-    2,
-    "loadPrompt should be called twice"
+    1,
+    "system prompt is loaded with a single loadPrompt call"
   );
-  const systemMessage = conversation.messages.find(
-    m => m.role === MESSAGE_ROLE.SYSTEM
-  );
-  Assert.ok(
-    !systemMessage.content.body.includes("table instructions"),
-    "system prompt should not include table instructions when pref is false"
-  );
-  _setLoadPromptForTesting(null);
-  sandbox.restore();
-});
-
-add_task(async function test_generatePrompt_persistsPromptVersion() {
-  const sandbox = lazy.sinon.createSandbox();
-  const loadPromptStub = lazy.sinon
-    .stub()
-    .onFirstCall()
-    .resolves({
-      prompt: "system prompt {tableInstructions}",
-      version: "chat-v1",
-    })
-    .onSecondCall()
-    .resolves("table instructions content");
-  _setLoadPromptForTesting(loadPromptStub);
-
-  const conversation = new ChatConversation({});
-  sandbox.stub(ChatConversation, "getRealTimeInfo").resolves(null);
-  sandbox.stub(conversation, "getMemoriesContext").resolves(null);
-
-  await conversation.generatePrompt("hello", null);
-
   const systemMessage = conversation.messages.find(
     m => m.role === MESSAGE_ROLE.SYSTEM
   );

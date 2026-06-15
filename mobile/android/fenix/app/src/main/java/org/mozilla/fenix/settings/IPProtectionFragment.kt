@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -15,6 +16,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.fragment.app.Fragment
 import androidx.fragment.compose.content
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import mozilla.components.ExperimentalAndroidComponentsApi
@@ -37,7 +39,9 @@ import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.home.HomeFragmentDirections
 import org.mozilla.fenix.ipprotection.helpers.IsoPromoDeadline
 import org.mozilla.fenix.ipprotection.helpers.formatPromoDateOrCatch
+import org.mozilla.fenix.ipprotection.ui.IPProtectionSnackbarBinding
 import org.mozilla.fenix.nimbus.FxNimbus
+import org.mozilla.fenix.snackbar.FenixSnackbarDelegate
 import org.mozilla.fenix.theme.FirefoxTheme
 
 /** Fragment hosting the IP Protection settings screen. */
@@ -49,6 +53,8 @@ class IPProtectionFragment : Fragment(), SystemInsetsPaddedFragment {
     private val fxaAccountAuthFlow = ViewBoundFeatureWrapper<IPProtectionFxaAuthFlow>()
 
     private val ipProtectionWarningBinding = ViewBoundFeatureWrapper<IPProtectionWarningBinding>()
+    private val ipProtectionSnackbarBinding = ViewBoundFeatureWrapper<IPProtectionSnackbarBinding>()
+    private val snackbarHostState = SnackbarHostState()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -76,6 +82,7 @@ class IPProtectionFragment : Fragment(), SystemInsetsPaddedFragment {
         FirefoxTheme {
             IPProtectionScreen(
                 state = state,
+                snackbarHostState = snackbarHostState,
                 readyToUse = state.readyToUse(),
                 syncingData = state.syncingData(),
                 promoDate = promoDate,
@@ -142,6 +149,19 @@ class IPProtectionFragment : Fragment(), SystemInsetsPaddedFragment {
                         HomeFragmentDirections.actionGlobalIpProtectionUnavailableDialog(),
                     )
                 },
+            ),
+            owner = this,
+            view = view,
+        )
+
+        ipProtectionSnackbarBinding.set(
+            feature = IPProtectionSnackbarBinding(
+                appStore = requireComponents.appStore,
+                snackbarDelegate = FenixSnackbarDelegate(
+                    snackbarHostState = snackbarHostState,
+                    scope = viewLifecycleOwner.lifecycleScope,
+                    context = requireContext(),
+                ),
             ),
             owner = this,
             view = view,

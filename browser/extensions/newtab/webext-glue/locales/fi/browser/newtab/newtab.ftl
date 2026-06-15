@@ -31,6 +31,127 @@ newtab-card-dismiss-button =
     .title = Hylkää
     .aria-label = Hylkää
 
+## Strings for "Homepage" and "Firefox Home" sections of about:settings#home.
+## Homepage panel
+
+home-homepage-title =
+    .label = Etusivu
+home-homepage-new-windows =
+    .label = Uudet ikkunat
+home-homepage-new-tabs =
+    .label = Uudet välilehdet
+# This option leads to the "Custom Homepage" subpage
+home-homepage-custom-homepage-button =
+    .label = Valitse tietty sivusto
+
+## Custom URLs subpage
+
+# Subheader on the Custom Homepage subpage. Followed by a form to enter URLs and a list of URLs already saved, if any.
+home-custom-homepage-card-header =
+    .label = Verkkosivuston tai -sivustojen osoitteet
+home-custom-homepage-address =
+    .placeholder = Kirjoita osoite
+home-custom-homepage-address-button =
+    .label = Lisää osoite
+# Shown when no custom websites/URLs to use as a homepage have been added yet
+home-custom-homepage-no-results =
+    .label = Ei vielä lisättyjä verkkosivustoja.
+home-custom-homepage-delete-address-button =
+    .aria-label = Poista osoite
+    .title = Poista osoite
+# Further options to use when setting the home page. Two action buttons are placed in line with this prompt
+# to replace the current home page with a currently open page or bookmark.
+home-custom-homepage-replace-with-prompt =
+    .label = Korvaa käyttäen
+# Button that appears in-line after text "Replace with" (home-custom-homepage-replace-with-prompt)
+home-custom-homepage-current-pages-button =
+    .label = nyt avoinna olevia sivuja
+# Button that appears in-line after text "Replace with" (home-custom-homepage-replace-with-prompt)
+home-custom-homepage-bookmarks-button =
+    .label = Kirjanmerkit…
+
+## Firefox Home content
+
+home-prefs-content-header =
+    .label = { -firefox-home-brand-name }
+home-prefs-search-header2 =
+    .label = Haku
+home-prefs-stories-header2 =
+    .label = Tarinat
+    .description = Poikkeuksellista { -brand-product-name }-perheen kuratoimaa sisältöä
+home-prefs-widgets-header =
+    .label = Widgetit
+# Lists is a widget on New Tab, similar to a to-do widget
+home-prefs-lists-header =
+    .label = Listat
+# Timer is a widget on New Tab, similar to the Pomodoro timer.
+home-prefs-timer-header =
+    .label = Ajastin
+# Sports is a widget on New Tab showing sports scores and schedules.
+home-prefs-sports-widget-header =
+    .label = Urheilu
+# Clock is a widget on New Tab that displays time zones around the world.
+home-prefs-clocks-header =
+    .label = Kello
+home-prefs-mission-message2 =
+    .message = Sponsorimme tukevat tehtäväämme rakentaa parempaa Internetiä.
+home-prefs-manage-topics-link2 =
+    .label = Hallinnoi aiheita
+home-prefs-choose-wallpaper-link2 =
+    .label = Valitse taustakuva
+home-prefs-firefox-logo-header =
+    .label = { -brand-short-name }in logo
+# Informational message bar that appears in the Firefox Home section when the options are disabled.
+# The user must select Firefox Home as their homepage for either new tabs or new windows to enable
+# the features in settings.
+home-prefs-firefox-home-disabled-notice =
+    .message = Käyttääksesi näitä ominaisuuksia, aseta uudet välilehdet tai uudet ikkunat { -firefox-home-brand-name }iin.
+# Variables:
+#   $num (number) - Number of rows displayed
+home-prefs-sections-rows-option-srd =
+    .label =
+        { $num ->
+            [one] { $num } rivi
+           *[other] { $num } riviä
+        }
+# Dropdown option shown when an extension replaces the contents of new windows or tabs.
+# Variables:
+#   $extension (string) - Name of the extension
+home-prefs-homepage-extension-option =
+    .label = Laajennus ({ $extension })
+home-restore-defaults-srd =
+    .label = Palauta oletukset
+    .accesskey = P
+home-mode-choice-default-fx-srd =
+    .label = { -firefox-home-brand-name } (Oletus)
+home-mode-choice-custom-srd =
+    .label = Omat osoitteet…
+home-mode-choice-blank-srd =
+    .label = Tyhjä sivu
+home-prefs-shortcuts-header-srd =
+    .label = Oikotiet
+home-prefs-shortcuts-select =
+    .aria-label = Oikotiet
+home-prefs-shortcuts-by-option-sponsored-srd =
+    .label = Sponsoroidut oikotiet
+home-prefs-recommended-by-option-sponsored-stories-srd =
+    .label = Sponsoroidut tarinat
+home-prefs-highlights-option-visited-pages-srd =
+    .label = Vieraillut sivustot
+home-prefs-highlights-options-bookmarks-srd =
+    .label = Kirjanmerkit
+home-prefs-highlights-option-most-recent-download-srd =
+    .label = Viimeisimmät lataukset
+home-prefs-recent-activity-header-srd =
+    .label = Viimeisin toiminta
+home-prefs-recent-activity-select =
+    .aria-label = Viimeisin toiminta
+home-prefs-weather-header-srd =
+    .label = Sää
+home-prefs-support-firefox-header-srd =
+    .label = Tue { -brand-product-name }ia
+home-prefs-mission-message-learn-more-link-srd = Lue lisää
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -155,6 +276,8 @@ newtab-menu-section-block = Estä
 # "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 # e.g. Following the travel section of stories.
 newtab-menu-section-unfollow-topic = Lopeta seuraaminen
+# Context menu option to open a support page explaining the New Tab personalization features and privacy controls.
+newtab-menu-section-learn-more = Lue lisää
 # "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 # e.g. Following the travel section of stories.
 newtab-menu-section-unfollow = Lopeta aiheen seuraaminen
@@ -762,8 +885,6 @@ newtab-widget-lists-button-add-item = Lisää kohde
 newtab-widget-lists-input-add-an-item2 =
     .placeholder = Lisää kohde
     .aria-label = Lisää kohde
-newtab-widget-lists-input-add-an-item =
-    .placeholder = Lisää kohde
 newtab-widget-lists-input-error = Sisällytä tekstiä lisätäksesi kohteen.
 newtab-widget-lists-input-menu-open-link = Avaa linkki
 newtab-widget-lists-input-menu-move-up = Siirrä ylös
@@ -791,11 +912,6 @@ newtab-widget-lists-name-placeholder-checklist2 =
 newtab-widget-lists-name-placeholder-new2 =
     .placeholder = Uusi lista
     .aria-label = Muokkaa listan nimeä
-newtab-widget-lists-name-placeholder-checklist =
-    .placeholder = Tarkistuslista
-# The placeholder value of the name field for a newly created list
-newtab-widget-lists-name-placeholder-new =
-    .placeholder = Uusi lista
 newtab-widget-section-title = Pienoisohjelmat
 newtab-widget-menu-hide = Piilota pienoisohjelma
 newtab-widget-menu-change-size = Muuta kokoa

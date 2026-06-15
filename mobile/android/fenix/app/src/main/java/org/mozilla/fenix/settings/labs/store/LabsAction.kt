@@ -61,4 +61,11 @@ sealed class LabsAction : Action {
      * [LabsAction] dispatched to close the current dialog.
      */
     data object CloseDialog : LabsAction()
+
+    /**
+     * [LabsAction] dispatched when the user taps a Labs item's "Share feedback" link.
+     *
+     * @property item The [LabsItem] whose feedback link was tapped.
+     */
+    data class ShareFeedbackClicked(val item: LabsItem) : LabsAction()
 }

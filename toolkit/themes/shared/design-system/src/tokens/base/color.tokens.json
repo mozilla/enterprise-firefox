@@ -1,10 +1,6 @@
 {
   "gray": {
     "0": {
-      "override": true,
-      "value": "unset"
-    },
-    "05": {
       "value": "#fbfbfe"
     },
     "10": {

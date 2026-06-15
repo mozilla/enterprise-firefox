@@ -70,7 +70,7 @@
   --urlbarView-action-button-hover-background-color: var(--urlbarview-background-color-hover);
 
   --urlbarView-tail150-overlay-background: var(--color-violet-90);
-  --urlbarView-tail150-overlay-color: var(--color-gray-05);
+  --urlbarView-tail150-overlay-color: var(--color-gray-0);
   --urlbarView-tail150-canvas-background: var(--color-violet-110);
 
   --urlbarView-separator-char: "•" / "—";

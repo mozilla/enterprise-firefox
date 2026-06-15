@@ -25,7 +25,6 @@ class IPProtectionInfoPrompterTest {
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var appStore: AppStore
     private val errorMessages = ErrorMessages(
-        connectionError = "Connection error",
         dataLimitReached = "Data limit reached",
     )
 
@@ -54,7 +53,7 @@ class IPProtectionInfoPrompterTest {
 
             val snackbarState = appStore.state.snackbarState
             assertIs<SnackbarState.IPProtectionDataLimitReached>(snackbarState)
-            assertEquals(errorMessages.dataLimitReached, snackbarState.message)
+            assertEquals(errorMessages.dataLimitReached, snackbarState.title)
         }
 
     @Test

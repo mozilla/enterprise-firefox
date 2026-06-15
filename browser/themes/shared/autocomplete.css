@@ -20,6 +20,16 @@
   min-width: 22em;
 }
 
+#PopupAutoComplete:is(
+    [resultstyles~="autofill"],
+    [resultstyles~="loginsFooter"],
+    [resultstyles~="insecureWarning"],
+    [resultstyles~="importableLogins"],
+    [resultstyles~="generatedPassword"]
+  )::part(content) {
+  min-width: 250px;
+}
+
 #PopupAutoComplete > richlistbox > richlistitem {
   min-height: var(--size-item-medium);
   border: 0;
@@ -243,6 +253,12 @@
     text-align: center;
   }
 
+  /* The "Manage addresses"/"Manage payment methods" footer is always the last
+     action row; align it to the start rather than centering it. */
+  &[originaltype="action"]:last-child {
+    text-align: start;
+  }
+
   /* status items */
   > .ac-status {
     padding: var(--space-xsmall) var(--space-small);
@@ -299,19 +315,12 @@
 .autocomplete-richlistitem {
   &:not([disabled]):is(:hover, [selected]) {
     background-color: var(--button-background-color-hover);
-    @media (forced-colors) {
-      background-color: ButtonText;
-      color: ButtonFace;
-    }
+    color: var(--button-text-color-hover);
   }
 
   &[selected]:active {
     background-color: var(--button-background-color-active);
-    color: inherit;
-    @media (forced-colors) {
-      background-color: SelectedItem;
-      color: SelectedItemText;
-    }
+    color: var(--button-text-color-active);
   }
 
   @media (forced-colors) {

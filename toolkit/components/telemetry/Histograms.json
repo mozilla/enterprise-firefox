@@ -4564,57 +4564,6 @@
     "n_buckets": 15,
     "description": "BACKGROUND THUMBNAILS: Time it took to draw the capture's window to canvas (ms)"
   },
-  "WEBCRYPTO_EXTRACTABLE_IMPORT": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "boolean",
-    "description": "Whether an imported key was marked as extractable"
-  },
-  "WEBCRYPTO_EXTRACTABLE_GENERATE": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "boolean",
-    "description": "Whether a generated key was marked as extractable"
-  },
-  "WEBCRYPTO_EXTRACTABLE_ENC": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "boolean",
-    "description": "Whether a key used in an encrypt/decrypt operation was marked as extractable"
-  },
-  "WEBCRYPTO_EXTRACTABLE_SIG": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "boolean",
-    "description": "Whether a key used in a sign/verify operation was marked as extractable"
-  },
-  "WEBCRYPTO_RESOLVED": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "boolean",
-    "description": "Whether a promise created by WebCrypto was resolved (vs rejected)"
-  },
-  "WEBCRYPTO_METHOD": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "enumerated",
-    "n_values": 20,
-    "description": "Methods invoked under window.crypto.subtle (0=encrypt, 1=decrypt, 2=sign, 3=verify, 4=digest, 5=generateKey, 6=deriveKey, 7=deriveBits, 8=importKey, 9=exportKey, 10=wrapKey, 11=unwrapKey)"
-  },
-  "WEBCRYPTO_ALG": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "enumerated",
-    "n_values": 30,
-    "description": "Algorithms used with WebCrypto (see table in WebCryptoTask.cpp)"
-  },
   "PAGE_LOAD_ERROR": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],

@@ -392,7 +392,7 @@ DELETE FROM conversation WHERE conv_id = :conv_id;
 
 export const CONVERSATION_HISTORY = `
 SELECT c.conv_id, c.title, c.created_date, c.updated_date, (
-  SELECT group_concat(t.page_url)
+  SELECT json_group_array(t.page_url)
   FROM (
     SELECT
       m.page_url
@@ -508,7 +508,7 @@ FROM llm_telemetry t
 JOIN (
   SELECT conv_id, MAX(created_date) AS last_message_time
   FROM message
-  WHERE role = 1 -- assistant 
+  WHERE role = 1 -- assistant
   GROUP BY conv_id
 ) lm
   ON t.conv_id = lm.conv_id

@@ -1700,3 +1700,98 @@ add_atomic_task(
     );
   }
 );
+
+/**
+ * Test that messages with website-confirmation toolUIData get isRestored flag
+ * when loaded from the database
+ */
+add_atomic_task(async function test_website_confirmation_isRestored_flag() {
+  const conversation = new ChatConversation({});
+  conversation.title = "Test isRestored flag";
+  conversation.addUserMessage("Close some tabs", "https://example.com/", 0);
+  conversation.addAssistantMessage("text", "I'll help close those tabs");
+
+  const assistant = conversation.messages.at(-1);
+
+  // Add website-confirmation toolUIData
+  const toolUIData = makeToolUIData({
+    uiType: "website-confirmation",
+    tabs: [
+      { id: "tab-1", url: "https://example.com", title: "Example" },
+      { id: "tab-2", url: "https://test.com", title: "Test" },
+    ],
+  });
+
+  // Add originalUserPrompt to properties
+  toolUIData.properties.originalUserPrompt = "Close some tabs";
+  assistant.toolUIData = toolUIData;
+
+  // Save the conversation
+  await gChatStore.updateConversation(conversation);
+
+  // Load it back from the database
+  const reloaded = await gChatStore.findConversationById(conversation.id);
+  const reloadedAssistant = reloaded.messages.find(m => m.id === assistant.id);
+
+  // Verify the isRestored flag was set
+  Assert.ok(
+    reloadedAssistant.isRestored,
+    "Messages with website-confirmation toolUIData should have isRestored flag set when loaded from DB"
+  );
+
+  // Verify the toolUIData is preserved
+  Assert.equal(
+    reloadedAssistant.toolUIData.uiType,
+    "website-confirmation",
+    "uiType should be preserved"
+  );
+
+  Assert.equal(
+    reloadedAssistant.toolUIData.properties.originalUserPrompt,
+    "Close some tabs",
+    "originalUserPrompt should be preserved"
+  );
+
+  Assert.equal(
+    reloadedAssistant.toolUIData.properties.tabs.length,
+    2,
+    "tabs array should be preserved"
+  );
+});
+
+/**
+ * Test that messages with other UI types don't get isRestored flag
+ */
+add_atomic_task(async function test_other_ui_types_no_isRestored_flag() {
+  const conversation = new ChatConversation({});
+  conversation.title = "Test no isRestored flag";
+  conversation.addUserMessage("Do something", "https://example.com/", 0);
+  conversation.addAssistantMessage("text", "Task completed");
+
+  const assistant = conversation.messages.at(-1);
+
+  // Add ai-action-result toolUIData (not website-confirmation)
+  assistant.toolUIData = makeToolUIData({
+    uiType: "ai-action-result",
+  });
+
+  // Save the conversation
+  await gChatStore.updateConversation(conversation);
+
+  // Load it back from the database
+  const reloaded = await gChatStore.findConversationById(conversation.id);
+  const reloadedAssistant = reloaded.messages.find(m => m.id === assistant.id);
+
+  // Verify the isRestored flag was NOT set
+  Assert.ok(
+    !reloadedAssistant.isRestored,
+    "Messages with non-website-confirmation toolUIData should NOT have isRestored flag"
+  );
+
+  // Verify the toolUIData is still preserved
+  Assert.equal(
+    reloadedAssistant.toolUIData.uiType,
+    "ai-action-result",
+    "uiType should be preserved"
+  );
+});

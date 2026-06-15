@@ -123,6 +123,15 @@ class IPProtectionReducerTest {
     }
 
     @Test
+    fun `WHEN ActivationFailed is dispatched THEN activate is cleared`() {
+        val state = defaultState.copy(activate = true)
+        assertEquals(
+            state.copy(activate = null),
+            iPProtectionReducer(state, IPProtectionAction.ToggleFailed),
+        )
+    }
+
+    @Test
     fun `WHEN ProxyActiveShown is dispatched THEN proxyActiveShown is true`() {
         assertEquals(
             defaultState.copy(proxyActiveShown = true),

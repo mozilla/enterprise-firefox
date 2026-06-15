@@ -249,7 +249,6 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
             store = components.ipProtection.store,
             appStore = components.appStore,
             errorMessages = ErrorMessages(
-                connectionError = this.getString(R.string.ip_protection_connection_error_snackbar),
                 dataLimitReached = this.getString(
                     R.string.ip_protection_data_limit_reached_snackbar,
                     FxNimbus.features.ipProtection.value().dataLimitGigabyte,
@@ -796,6 +795,14 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
         )
 
         ProfilerMarkers.homeActivityOnStart(binding.rootContainer, components.core.engine.profiler)
+
+        if (components.settings.longfoxPeekAnimationShownCount < Settings.LONGFOX_PEEK_ANIMATION_MAX_SHOWS) {
+            components.settings.appLaunchCount++
+            components.appStore.dispatch(
+                AppAction.UpdateShowFoxPeekAnimation(components.settings.shouldShowLongfoxPeekAnimationThisTime()),
+            )
+        }
+
         components.core.engine.profiler?.addMarker(
             MarkersActivityLifecycleCallbacks.MARKER_NAME,
             startProfilerTime,

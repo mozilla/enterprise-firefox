@@ -31,6 +31,127 @@ newtab-card-dismiss-button =
     .title = ਖ਼ਾਰਜ ਕਰੋ
     .aria-label = ਖ਼ਾਰਜ ਕਰੋ
 
+## Strings for "Homepage" and "Firefox Home" sections of about:settings#home.
+## Homepage panel
+
+home-homepage-title =
+    .label = ਮੁੱਖ ਸਫ਼ਾ
+home-homepage-new-windows =
+    .label = ਨਵੀਆਂ ਵਿੰਡੋਆਂ
+home-homepage-new-tabs =
+    .label = ਨਵੀਆਂ ਟੈਬਾਂ
+# This option leads to the "Custom Homepage" subpage
+home-homepage-custom-homepage-button =
+    .label = ਕਿਸੇ ਖਾਸ ਸਾਈਟ ਨੂੰ ਚੁਣੋ
+
+## Custom URLs subpage
+
+# Subheader on the Custom Homepage subpage. Followed by a form to enter URLs and a list of URLs already saved, if any.
+home-custom-homepage-card-header =
+    .label = ਵੈੱਬਸਾਈਟ ਸਿਰਨਾਵਾਂ(ਸਿਰਨਾਵੇਂ)
+home-custom-homepage-address =
+    .placeholder = ਸਿਰਨਾਵਾਂ ਦਿਓ
+home-custom-homepage-address-button =
+    .label = ਸਿਰਨਾਵੇਂ ਨੂੰ ਜੋੜੋ
+# Shown when no custom websites/URLs to use as a homepage have been added yet
+home-custom-homepage-no-results =
+    .label = ਹਾਲੇ ਕੋਈ ਵੈੱਬਸਾਈਟ ਨਹੀਂ ਜੋੜੀ ਗਈ।
+home-custom-homepage-delete-address-button =
+    .aria-label = ਸਿਰਨਾਵੇਂ ਨੂੰ ਹਟਾਓ
+    .title = ਸਿਰਨਾਵੇਂ ਨੂੰ ਹਟਾਓ
+# Further options to use when setting the home page. Two action buttons are placed in line with this prompt
+# to replace the current home page with a currently open page or bookmark.
+home-custom-homepage-replace-with-prompt =
+    .label = ਇਸ ਨਾਲ ਬਦਲੋ
+# Button that appears in-line after text "Replace with" (home-custom-homepage-replace-with-prompt)
+home-custom-homepage-current-pages-button =
+    .label = ਇਸ ਵੇਲੇ ਖੁੱਲ੍ਹੇ ਸਫ਼ੇ
+# Button that appears in-line after text "Replace with" (home-custom-homepage-replace-with-prompt)
+home-custom-homepage-bookmarks-button =
+    .label = …ਬੁੱਕਮਾਰਕ
+
+## Firefox Home content
+
+home-prefs-content-header =
+    .label = { -firefox-home-brand-name }
+home-prefs-search-header2 =
+    .label = ਖੋਜ
+home-prefs-stories-header2 =
+    .label = ਲੇਖ
+    .description = { -brand-product-name } ਸਮੂਹ ਵਲੋਂ ਤਿਆਰ ਕੀਤੀ ਖਾਸ ਸਮੱਗਰੀ
+home-prefs-widgets-header =
+    .label = ਵਿਜੈੱਟ
+# Lists is a widget on New Tab, similar to a to-do widget
+home-prefs-lists-header =
+    .label = ਸੂਚੀਆਂ
+# Timer is a widget on New Tab, similar to the Pomodoro timer.
+home-prefs-timer-header =
+    .label = ਟਾਈਮਰ
+# Sports is a widget on New Tab showing sports scores and schedules.
+home-prefs-sports-widget-header =
+    .label = ਖੇਡਾਂ
+# Clock is a widget on New Tab that displays time zones around the world.
+home-prefs-clocks-header =
+    .label = ਘੜੀ
+home-prefs-mission-message2 =
+    .message = ਸਾਡੇ ਸਪਾਂਸਰ ਵੈੱਬ ਨੂੰ ਹੋਰ ਬੇਹਤਰ ਬਣਾਉਣ ਲਈ ਸਾਡੇ ਮਕਸਦ ਲਈ ਸਹਿਯੋਗ ਦਿੰਦੇ ਹਨ।
+home-prefs-manage-topics-link2 =
+    .label = ਵਿਸ਼ਿਆਂ ਦਾ ਇੰਤਜ਼ਾਮ
+home-prefs-choose-wallpaper-link2 =
+    .label = ਕੋਈ ਵਾਲਪੇਪਰ ਚੁਣੋ
+home-prefs-firefox-logo-header =
+    .label = { -brand-short-name } ਲੋਗੋ
+# Informational message bar that appears in the Firefox Home section when the options are disabled.
+# The user must select Firefox Home as their homepage for either new tabs or new windows to enable
+# the features in settings.
+home-prefs-firefox-home-disabled-notice =
+    .message = ਇਹ ਫ਼ੀਚਰਾਂ ਨੂੰ ਵਰਤਣ ਲਈ { -firefox-home-brand-name } ਵਾਸਤੇ ਨਵੀਆਂ ਟੈਬਾਂ ਜਾਂ ਨਵੀ ਵਿੰਡੋ ਨੂੰ ਸੈੱਟ ਕਰੋ।
+# Variables:
+#   $num (number) - Number of rows displayed
+home-prefs-sections-rows-option-srd =
+    .label =
+        { $num ->
+            [one] { $num } ਕਤਾਰ
+           *[other] { $num } ਕਤਾਰਾਂ
+        }
+# Dropdown option shown when an extension replaces the contents of new windows or tabs.
+# Variables:
+#   $extension (string) - Name of the extension
+home-prefs-homepage-extension-option =
+    .label = ਇਕਸਟੈਨਸ਼ਨ ({ $extension })
+home-restore-defaults-srd =
+    .label = ਮੂਲ ਬਹਾਲ ਕਰੋ
+    .accesskey = R
+home-mode-choice-default-fx-srd =
+    .label = { -firefox-home-brand-name } (ਮੂਲ)
+home-mode-choice-custom-srd =
+    .label = …ਚੁਣਿੰਦਾ URL
+home-mode-choice-blank-srd =
+    .label = ਖ਼ਾਲੀ ਸਫ਼ਾ
+home-prefs-shortcuts-header-srd =
+    .label = ਸ਼ਾਰਟਕੱਟ
+home-prefs-shortcuts-select =
+    .aria-label = ਸ਼ਾਰਟਕੱਟ
+home-prefs-shortcuts-by-option-sponsored-srd =
+    .label = ਸਪਾਂਸਰ ਕੀਤੇ ਸ਼ਾਰਟਕੱਟ
+home-prefs-recommended-by-option-sponsored-stories-srd =
+    .label = ਸਪਾਂਸਰ ਕੀਤੀਆਂ ਕਹਾਣੀਆਂ
+home-prefs-highlights-option-visited-pages-srd =
+    .label = ਵੇਖੇ ਗਏ ਸਫੇ
+home-prefs-highlights-options-bookmarks-srd =
+    .label = ਬੁੱਕਮਾਰਕ
+home-prefs-highlights-option-most-recent-download-srd =
+    .label = ਸਭ ਤੋਂ ਤਾਜ਼ਾ ਕੀਤੇ ਡਾਊਨਲੋਡ
+home-prefs-recent-activity-header-srd =
+    .label = ਤਾਜ਼ਾ ਸਰਗਰਮੀ
+home-prefs-recent-activity-select =
+    .aria-label = ਤਾਜ਼ਾ ਸਰਗਰਮੀ
+home-prefs-weather-header-srd =
+    .label = ਮੌਸਮ
+home-prefs-support-firefox-header-srd =
+    .label = { -brand-product-name } ਲਈ ਸਹਿਯੋਗ
+home-prefs-mission-message-learn-more-link-srd = ਸਮਝੋ ਕਿ ਕਿਵੇਂ
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -151,6 +272,8 @@ newtab-menu-section-block = ਪਾਬੰਦੀ
 # "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 # e.g. Following the travel section of stories.
 newtab-menu-section-unfollow-topic = ਅਣ-ਫ਼ਾਲੋ ਕਰੋ
+# Context menu option to open a support page explaining the New Tab personalization features and privacy controls.
+newtab-menu-section-learn-more = ਹੋਰ ਜਾਣੋ
 # "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 # e.g. Following the travel section of stories.
 newtab-menu-section-unfollow = ਵਿਸ਼ੇ ਨੂੰ ਅਣ-ਫ਼ਾਲੋ ਕਰੋ
@@ -757,8 +880,6 @@ newtab-widget-lists-button-add-item = ਇੱਕ ਚੀਜ਼ ਨੂੰ ਜੋੜੋ
 newtab-widget-lists-input-add-an-item2 =
     .placeholder = ਇੱਕ ਚੀਜ਼ ਨੂੰ ਜੋੜੋ
     .aria-label = ਇੱਕ ਚੀਜ਼ ਨੂੰ ਜੋੜੋ
-newtab-widget-lists-input-add-an-item =
-    .placeholder = ਇੱਕ ਚੀਜ਼ ਨੂੰ ਜੋੜੋ
 newtab-widget-lists-input-error = ਇੱਕ ਚੀਜ਼ ਨੂੰ ਜੋੜਨ ਲਈ ਲਿਖਤ ਨੂੰ ਸ਼ਾਮਲ ਕਰੋ।
 newtab-widget-lists-input-menu-open-link = ਲਿੰਕ ਨੂੰ ਖੋਲ੍ਹੋ
 newtab-widget-lists-input-menu-move-up = ਉੱਤੇ ਭੇਜੋ
@@ -786,11 +907,6 @@ newtab-widget-lists-name-placeholder-checklist2 =
 newtab-widget-lists-name-placeholder-new2 =
     .placeholder = ਨਵੀਂ ਸੂਚੀ
     .aria-label = ਸੂਚੀ ਦੇ ਨਾਂ ਨੂੰ ਸੋਧੋ
-newtab-widget-lists-name-placeholder-checklist =
-    .placeholder = ਚੈਕ-ਲਿਸਟ
-# The placeholder value of the name field for a newly created list
-newtab-widget-lists-name-placeholder-new =
-    .placeholder = ਨਵੀਂ ਸੂਚੀ
 newtab-widget-section-title = ਵਿਜੈੱਟ
 newtab-widget-menu-hide = ਵਿਜੈੱਟ ਨੂੰ ਲੁਕਾਓ
 newtab-widget-menu-change-size = ਆਕਾਰ ਨੂੰ ਬਦਲੋ

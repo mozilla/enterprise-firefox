@@ -22,7 +22,7 @@
   --card-padding-block: var(--card-padding-inline);
 
   @media -moz-pref("browser.settings-redesign.enabled") {
-    --background-color-canvas: light-dark(var(--color-gray-05), var(--color-gray-90));
+    --background-color-canvas: light-dark(var(--color-gray-0), var(--color-gray-90));
   }
 
   user-select: text;

@@ -25,11 +25,13 @@ import org.mozilla.fenix.utils.Settings
  * @param settings An instance of [Settings] to read and write to the [SharedPreferences]
  * properties.
  * @param onRestart Callback invoked to restart the application.
+ * @param onOpenFeedback Callback invoked to open a Labs item's feedback URL.
  * @param scope [CoroutineScope] used to launch coroutines.
  */
 class LabsMiddleware(
     private val settings: Settings,
     private val onRestart: () -> Unit,
+    private val onOpenFeedback: (String) -> Unit,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO),
 ) : Middleware<LabsState, LabsAction> {
 
@@ -46,7 +48,9 @@ class LabsMiddleware(
                 store = store,
                 item = action.item,
             )
-
+            is LabsAction.ShareFeedbackClicked -> {
+                action.item.feedbackUrl?.let(onOpenFeedback)
+            }
             else -> Unit
         }
 
@@ -74,17 +78,24 @@ class LabsMiddleware(
         item: LabsItem,
     ) = scope.launch {
         setItemEnrolled(slug = item.slug, enrolled = !item.enrolled)
-        store.dispatch(LabsAction.RestartApplication)
+        if (item.requiresRestart) {
+            store.dispatch(LabsAction.RestartApplication)
+        }
     }
 
     private fun restoreDefaults(
         store: Store<LabsState, LabsAction>,
     ) = scope.launch {
-        for (item in store.state.labsItems) {
+        val items = store.state.labsItems
+        val anyRequiresRestart = items.any { it.enrolled && it.requiresRestart }
+
+        for (item in items) {
             setItemEnrolled(slug = item.slug, enrolled = false)
         }
 
-        store.dispatch(LabsAction.RestartApplication)
+        if (anyRequiresRestart) {
+            store.dispatch(LabsAction.RestartApplication)
+        }
     }
 
     private fun setItemEnrolled(slug: String, enrolled: Boolean) = scope.launch {

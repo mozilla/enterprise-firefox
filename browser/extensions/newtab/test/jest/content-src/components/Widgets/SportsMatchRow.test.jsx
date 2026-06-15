@@ -86,6 +86,18 @@ describe("<SportsMatchRow> upcoming variant", () => {
       container.querySelector("[data-l10n-id='newtab-sports-widget-key-date']")
     ).not.toBeInTheDocument();
   });
+
+  it("accepts the American spelling 'canceled' from the API and renders the Cancelled badge", () => {
+    const { container } = renderWithDispatch(
+      <SportsMatchRow
+        match={{ ...baseMatch, status_type: "Canceled" }}
+        variant="upcoming"
+      />
+    );
+    expect(
+      container.querySelector("[data-l10n-id='newtab-sports-widget-cancelled']")
+    ).toBeInTheDocument();
+  });
 });
 
 describe("<SportsMatchRow> now variant", () => {
@@ -105,6 +117,39 @@ describe("<SportsMatchRow> now variant", () => {
     expect(container.querySelector(".sports-score-home").textContent).toBe("2");
     expect(container.querySelector(".sports-score-away").textContent).toBe("0");
   });
+
+  it.each([
+    ["Halftime", "newtab-sports-widget-match-halftime"],
+    ["Extra time", "newtab-sports-widget-match-extra-time"],
+  ])(
+    "renders the localised live status label when status_type is %s",
+    (statusType, expectedL10nId) => {
+      const { container } = renderWithDispatch(
+        <SportsMatchRow
+          match={{ ...baseMatch, status_type: statusType }}
+          variant="now"
+        />
+      );
+      expect(
+        container.querySelector(`[data-l10n-id='${expectedL10nId}']`)
+      ).toBeInTheDocument();
+    }
+  );
+
+  it.each(["live", "In Progress", null])(
+    "renders no live status footer when status_type is %s (no mapped FTL id)",
+    statusType => {
+      const { container } = renderWithDispatch(
+        <SportsMatchRow
+          match={{ ...baseMatch, status_type: statusType }}
+          variant="now"
+        />
+      );
+      expect(
+        container.querySelector(".sports-match-live-footer")
+      ).not.toBeInTheDocument();
+    }
+  );
 });
 
 describe("<SportsMatchRow> results variant", () => {
@@ -125,9 +170,58 @@ describe("<SportsMatchRow> results variant", () => {
     expect(container.querySelector(".sports-score-away").textContent).toBe("0");
   });
 
-  it("renders the Full time footer", () => {
+  it("renders the Full time FTL footer when status_type is Final", () => {
     const { container } = renderWithDispatch(
-      <SportsMatchRow match={baseMatch} variant="results" />
+      <SportsMatchRow
+        match={{ ...baseMatch, status_type: "Final" }}
+        variant="results"
+      />
+    );
+    expect(
+      container.querySelector(
+        "[data-l10n-id='newtab-sports-widget-match-full-time']"
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("defaults to the Full time FTL footer when status_type is an unmapped finished-state value", () => {
+    const { container } = renderWithDispatch(
+      <SportsMatchRow
+        match={{ ...baseMatch, status_type: "Final - Shoot Out" }}
+        variant="results"
+      />
+    );
+    expect(
+      container.querySelector(
+        "[data-l10n-id='newtab-sports-widget-match-full-time']"
+      )
+    ).toBeInTheDocument();
+    const footer = container.querySelector(".sports-match-result-footer");
+    expect(footer.textContent).not.toContain("Final - Shoot Out");
+  });
+
+  it("defaults to the Full time FTL footer when a live-state match leaks into the Results bucket", () => {
+    const { container } = renderWithDispatch(
+      <SportsMatchRow
+        match={{ ...baseMatch, status_type: "live" }}
+        variant="results"
+      />
+    );
+    expect(
+      container.querySelector(
+        "[data-l10n-id='newtab-sports-widget-match-full-time']"
+      )
+    ).toBeInTheDocument();
+    const footer = container.querySelector(".sports-match-result-footer");
+    expect(footer.textContent).not.toContain("live");
+  });
+
+  it("defaults to the Full time FTL footer when status_type is null", () => {
+    const { container } = renderWithDispatch(
+      <SportsMatchRow
+        match={{ ...baseMatch, status_type: null }}
+        variant="results"
+      />
     );
     expect(
       container.querySelector(
@@ -146,11 +240,35 @@ describe("<SportsMatchRow> results variant", () => {
     const penalties = container.querySelectorAll(".sports-score-penalty");
     expect(penalties[0].textContent).toBe("(4)");
     expect(penalties[1].textContent).toBe("(3)");
+    // Full time default still renders alongside the penalties footer.
+    expect(
+      container.querySelector(
+        "[data-l10n-id='newtab-sports-widget-match-full-time']"
+      )
+    ).toBeInTheDocument();
     expect(
       container.querySelector(
         "[data-l10n-id='newtab-sports-widget-match-penalties']"
       )
     ).toBeInTheDocument();
+  });
+
+  it("does not render the penalties footer label for list-size rows", () => {
+    const { container } = renderWithDispatch(
+      <SportsMatchRow
+        match={{ ...baseMatch, home_penalty: 4, away_penalty: 3 }}
+        variant="results"
+        size="list"
+      />
+    );
+    // Penalty scores still render inside the score pill.
+    expect(container.querySelectorAll(".sports-score-penalty")).toHaveLength(2);
+    // The footer label is suppressed in list view.
+    expect(
+      container.querySelector(
+        "[data-l10n-id='newtab-sports-widget-match-penalties']"
+      )
+    ).not.toBeInTheDocument();
   });
 
   it("does not render penalty elements when no penalties", () => {
@@ -309,6 +427,7 @@ describe("<SportsMatchRow> aria-label l10n", () => {
       ["postponed", "newtab-sports-widget-match-aria-label-upcoming-postponed"],
       ["suspended", "newtab-sports-widget-match-aria-label-upcoming-suspended"],
       ["cancelled", "newtab-sports-widget-match-aria-label-upcoming-cancelled"],
+      ["canceled", "newtab-sports-widget-match-aria-label-upcoming-cancelled"],
     ])(
       "picks the matching per-status l10n id when status_type is %s",
       (statusType, expectedId) => {

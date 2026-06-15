@@ -91,6 +91,7 @@ fun ExpandedTabGroup(
             tabs = group.tabs,
             displayTabsInGrid = true,
             dragAndDropEnabled = false,
+            reorderingEnabled = false,
             displayTabGroupOnboarding = false,
             selectedItemIndex = group.initialScrollIndex,
             selectionMode = TabsTrayState.Mode.Normal,

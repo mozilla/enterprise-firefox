@@ -8281,20 +8281,23 @@ void LIRGenerator::visitLocalTimeToUTC(MLocalTimeToUTC* ins) {
 }
 
 void LIRGenerator::visitYearFromTime(MYearFromTime* ins) {
-  auto* lir = new (alloc()) LYearFromTime(useRegisterAtStart(ins->utcTime()),
-                                          tempFixed(CallTempReg0));
+  auto* lir = new (alloc())
+      LYearFromTime(useRegisterAtStart(ins->utcTime()), tempFixed(CallTempReg0),
+                    tempFixed(CallTempReg1));
   defineReturn(lir, ins);
 }
 
 void LIRGenerator::visitMonthFromTime(MMonthFromTime* ins) {
-  auto* lir = new (alloc()) LMonthFromTime(useRegisterAtStart(ins->utcTime()),
-                                           tempFixed(CallTempReg0));
+  auto* lir = new (alloc())
+      LMonthFromTime(useRegisterAtStart(ins->utcTime()),
+                     tempFixed(CallTempReg0), tempFixed(CallTempReg1));
   defineReturn(lir, ins);
 }
 
 void LIRGenerator::visitDateFromTime(MDateFromTime* ins) {
-  auto* lir = new (alloc()) LDateFromTime(useRegisterAtStart(ins->utcTime()),
-                                          tempFixed(CallTempReg0));
+  auto* lir = new (alloc())
+      LDateFromTime(useRegisterAtStart(ins->utcTime()), tempFixed(CallTempReg0),
+                    tempFixed(CallTempReg1));
   defineReturn(lir, ins);
 }
 

@@ -215,7 +215,7 @@
     --color-cyan-90: oklch(34% 0.14 205);
     --color-cyan-100: oklch(27% 0.1 205);
     --color-cyan-110: oklch(20% 0.05 205);
-    --color-gray-05: #fbfbfe;
+    --color-gray-0: #fbfbfe;
     --color-gray-20: #f0f0f4;
     --color-gray-30: #bac2ca;
     --color-gray-50: #bfbfc9;
@@ -373,7 +373,7 @@
     --font-weight-semibold: 600;
 
     /** icon **/
-    --icon-color: light-dark(var(--color-gray-70), var(--color-gray-05));
+    --icon-color: light-dark(var(--color-gray-70), var(--color-gray-0));
     --icon-color-critical: light-dark(var(--color-red-60), var(--color-red-20));
     --icon-color-information: light-dark(var(--color-blue-60), var(--color-blue-20));
     --icon-color-success: light-dark(var(--color-green-60), var(--color-green-20));
@@ -732,19 +732,19 @@
       /** toolbar **/
       --toolbar-background-color: light-dark(#f9f9fb, rgb(43, 42, 51));
       --toolbar-field-background-color-focus: light-dark(var(--color-white), rgb(66, 65, 77));
-      --toolbar-field-text-color: light-dark(var(--color-gray-100), var(--color-gray-05));
-      --toolbar-field-text-color-focus: light-dark(var(--color-black), var(--color-gray-05));
-      --toolbar-text-color: light-dark(var(--color-gray-100), var(--color-gray-05));
+      --toolbar-field-text-color: light-dark(var(--color-gray-100), var(--color-gray-0));
+      --toolbar-field-text-color-focus: light-dark(var(--color-black), var(--color-gray-0));
+      --toolbar-text-color: light-dark(var(--color-gray-100), var(--color-gray-0));
 
       /** toolbarbutton **/
-      --toolbarbutton-icon-fill: light-dark(var(--color-gray-70), var(--color-gray-05));
+      --toolbarbutton-icon-fill: light-dark(var(--color-gray-70), var(--color-gray-0));
       --toolbarbutton-icon-fill-attention: light-dark(var(--color-blue-60), var(--color-cyan-30));
       --toolbarbutton-icon-fill-attention-text: light-dark(var(--color-gray-20), var(--color-gray-90));
 
       /** toolbox **/
       --toolbox-background-color: light-dark(rgb(234, 234, 237), var(--color-gray-90));
       --toolbox-background-color-inactive: var(--toolbox-background-color);
-      --toolbox-text-color: light-dark(var(--color-gray-100), var(--color-gray-05));
+      --toolbox-text-color: light-dark(var(--color-gray-100), var(--color-gray-0));
       --toolbox-text-color-inactive: var(--toolbox-text-color);
     }
   }
@@ -757,7 +757,7 @@
       /** background-color **/
       --background-color-box: light-dark(var(--color-white), var(--color-gray-70));
       --background-color-box-info: light-dark(var(--color-gray-15), var(--color-gray-65));
-      --background-color-canvas: light-dark(var(--color-gray-05), var(--color-gray-90));
+      --background-color-canvas: light-dark(var(--color-gray-0), var(--color-gray-90));
       --background-color-critical: light-dark(var(--color-red-10), var(--color-red-70));
       --background-color-information: light-dark(var(--color-violet-10), var(--color-violet-70));
       --background-color-success: light-dark(var(--color-green-10), var(--color-green-70));
@@ -856,7 +856,6 @@
       --color-cyan-80: #002d38;
       --color-cyan-90: #011c23;
       --color-gray-0: #fcfbff;
-      --color-gray-05: #f7f6fb;
       --color-gray-10: #efedf2;
       --color-gray-15: #e3e2e7;
       --color-gray-20: #d6d5da;

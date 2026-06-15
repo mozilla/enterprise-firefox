@@ -22,4 +22,11 @@ class LogoController(
     fun handleLongfoxEntryPointClicked() {
         if (container != null && longFoxEnabled) longFoxFeature.start(container = container)
     }
+
+    /**
+     * When the longfox entry point is shown, record the telemetry event.
+     */
+    fun handleLongfoxEntryPointShown() {
+        longFoxFeature.onEntryPointShown()
+    }
 }

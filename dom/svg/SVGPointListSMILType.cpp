@@ -117,8 +117,7 @@ nsresult SVGPointListSMILType::ComputeDistance(const SMILValue& aFrom,
   double total = 0.0;
 
   for (uint32_t i = 0; i < to.Length(); ++i) {
-    gfxPoint d = gfx::ThebesPoint(to[i] - from[i]);
-    total += d.DotProduct(d);
+    total += gfx::ThebesPoint(to[i] - from[i]).LengthSquare();
   }
   double distance = std::sqrt(total);
   if (!std::isfinite(distance)) {

@@ -642,7 +642,11 @@ class TextPropertyEditor {
       },
       inStartingStyleRule: this.rule.isInStartingStyle(),
       isValid: this.isValid(),
-      cssExplainersEnabled: this.ruleView.cssExplainersEnabled,
+      cssExplainersEnabled:
+        this.ruleView.cssExplainersEnabled &&
+        // @backward-compat { version 153 } Server support for CSS explainers was added
+        // in 153, so the line below can be removed once it hits release.
+        this.rule.domRule.supportsCssExplainers,
     };
 
     if (this.rule.darkColorScheme !== undefined) {

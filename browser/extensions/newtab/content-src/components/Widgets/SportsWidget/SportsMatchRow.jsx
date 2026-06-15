@@ -16,11 +16,28 @@ const USER_ACTION_TYPES = {
 // match-up isn't decided yet.
 const TBD_PLACEHOLDER = "--";
 
-const STATUS_L10N_MAP = {
+// The /matches API has been observed sending the American spelling
+// "canceled" alongside the British "cancelled" we localise to. Map both keys
+// to the same Fluent IDs (see UPCOMING_STATUS_ARIA_L10N_MAP below) so the
+// badge and aria-label render either way without a data-team-side fix.
+const UPCOMING_STATUS_L10N_MAP = {
   delayed: "newtab-sports-widget-delayed",
   postponed: "newtab-sports-widget-postponed",
   suspended: "newtab-sports-widget-suspended",
   cancelled: "newtab-sports-widget-cancelled",
+  canceled: "newtab-sports-widget-cancelled",
+};
+
+// Keep the keys in sync with LIVE_STATUS_TYPES in SportsFeed.sys.mjs so any
+// new in-progress status either gets a localized footer here or is filtered
+// out at the feed before reaching the row.
+const LIVE_STATUS_L10N_MAP = {
+  halftime: "newtab-sports-widget-match-halftime",
+  "extra time": "newtab-sports-widget-match-extra-time",
+};
+
+const RESULTS_STATUS_L10N_MAP = {
+  final: "newtab-sports-widget-match-full-time",
 };
 
 const UPCOMING_STATUS_ARIA_L10N_MAP = {
@@ -28,6 +45,7 @@ const UPCOMING_STATUS_ARIA_L10N_MAP = {
   postponed: "newtab-sports-widget-match-aria-label-upcoming-postponed",
   suspended: "newtab-sports-widget-match-aria-label-upcoming-suspended",
   cancelled: "newtab-sports-widget-match-aria-label-upcoming-cancelled",
+  canceled: "newtab-sports-widget-match-aria-label-upcoming-cancelled",
 };
 
 function ScorePill({
@@ -207,7 +225,7 @@ function SportsMatchRow({
     // Upcoming. Non-scheduled statuses use a per-status Fluent ID; the
     // default ("scheduled") announces kickoff time/date.
     const upcomingId =
-      UPCOMING_STATUS_ARIA_L10N_MAP[status_type] ||
+      UPCOMING_STATUS_ARIA_L10N_MAP[status_type?.toLowerCase()] ||
       "newtab-sports-widget-match-aria-label-upcoming";
     return {
       id: upcomingId,
@@ -218,15 +236,39 @@ function SportsMatchRow({
 
   function renderMiddle() {
     switch (variant) {
-      case "now":
+      case "now": {
+        const liveStatusL10nId =
+          LIVE_STATUS_L10N_MAP[status_type?.toLowerCase()];
+        if (!liveStatusL10nId) {
+          return (
+            <ScorePill
+              homeScore={displayHomeScore}
+              awayScore={displayAwayScore}
+              variant="now"
+            />
+          );
+        }
         return (
-          <ScorePill
-            homeScore={displayHomeScore}
-            awayScore={displayAwayScore}
-            variant="now"
-          />
+          <div className="sports-match-live">
+            <ScorePill
+              homeScore={displayHomeScore}
+              awayScore={displayAwayScore}
+              variant="now"
+            />
+            <div className="sports-match-live-footer">
+              <span data-l10n-id={liveStatusL10nId} />
+            </div>
+          </div>
         );
+      }
       case "results": {
+        // Per Figma the Results footer is always "Full time" (optionally
+        // "• Penalties"); default to it for unmapped status_types so any
+        // stale live-state value that leaks into this bucket doesn't render
+        // raw API text in the UI.
+        const resultsStatusL10nId =
+          RESULTS_STATUS_L10N_MAP[status_type?.toLowerCase()] ||
+          "newtab-sports-widget-match-full-time";
         return (
           <div className="sports-match-result">
             <ScorePill
@@ -237,8 +279,8 @@ function SportsMatchRow({
               variant="results"
             />
             <div className="sports-match-result-footer">
-              <span data-l10n-id="newtab-sports-widget-match-full-time" />
-              {hasPenalties && (
+              <span data-l10n-id={resultsStatusL10nId} />
+              {hasPenalties && size !== "list" && (
                 <>
                   <span aria-hidden="true">•</span>
                   <span data-l10n-id="newtab-sports-widget-match-penalties" />
@@ -250,7 +292,8 @@ function SportsMatchRow({
       }
       // Default is the upcoming variant
       default: {
-        const statusL10nId = STATUS_L10N_MAP[status_type];
+        const statusL10nId =
+          UPCOMING_STATUS_L10N_MAP[status_type?.toLowerCase()];
         const dateArgs = JSON.stringify({ date: dateTimestamp });
         return (
           <div className="sports-match-upcoming">

@@ -31,6 +31,127 @@ newtab-card-dismiss-button =
     .title = Eltüntetés
     .aria-label = Eltüntetés
 
+## Strings for "Homepage" and "Firefox Home" sections of about:settings#home.
+## Homepage panel
+
+home-homepage-title =
+    .label = Kezdőlap
+home-homepage-new-windows =
+    .label = Új ablakok
+home-homepage-new-tabs =
+    .label = Új lapok
+# This option leads to the "Custom Homepage" subpage
+home-homepage-custom-homepage-button =
+    .label = Válasszon egy adott oldalt
+
+## Custom URLs subpage
+
+# Subheader on the Custom Homepage subpage. Followed by a form to enter URLs and a list of URLs already saved, if any.
+home-custom-homepage-card-header =
+    .label = Webhelyek címei
+home-custom-homepage-address =
+    .placeholder = Cím megadása
+home-custom-homepage-address-button =
+    .label = Cím hozzáadása
+# Shown when no custom websites/URLs to use as a homepage have been added yet
+home-custom-homepage-no-results =
+    .label = Még nincsenek webhelyek hozzáadva.
+home-custom-homepage-delete-address-button =
+    .aria-label = Cím törlése
+    .title = Cím törlése
+# Further options to use when setting the home page. Two action buttons are placed in line with this prompt
+# to replace the current home page with a currently open page or bookmark.
+home-custom-homepage-replace-with-prompt =
+    .label = Csere erre:
+# Button that appears in-line after text "Replace with" (home-custom-homepage-replace-with-prompt)
+home-custom-homepage-current-pages-button =
+    .label = Jelenleg megnyitott oldalak
+# Button that appears in-line after text "Replace with" (home-custom-homepage-replace-with-prompt)
+home-custom-homepage-bookmarks-button =
+    .label = Könyvjelzők…
+
+## Firefox Home content
+
+home-prefs-content-header =
+    .label = { -firefox-home-brand-name }
+home-prefs-search-header2 =
+    .label = Keresés
+home-prefs-stories-header2 =
+    .label = Történetek
+    .description = Kivételes tartalmak a { -brand-product-name } család válogatásában
+home-prefs-widgets-header =
+    .label = Kisalkalmazások
+# Lists is a widget on New Tab, similar to a to-do widget
+home-prefs-lists-header =
+    .label = Listák
+# Timer is a widget on New Tab, similar to the Pomodoro timer.
+home-prefs-timer-header =
+    .label = Időzítő
+# Sports is a widget on New Tab showing sports scores and schedules.
+home-prefs-sports-widget-header =
+    .label = Sport
+# Clock is a widget on New Tab that displays time zones around the world.
+home-prefs-clocks-header =
+    .label = Óra
+home-prefs-mission-message2 =
+    .message = Szponzoraink támogatják a küldetésünket, hogy jobb webet építsünk.
+home-prefs-manage-topics-link2 =
+    .label = Témák kezelése
+home-prefs-choose-wallpaper-link2 =
+    .label = Válasszon egy háttérképet
+home-prefs-firefox-logo-header =
+    .label = { -brand-short-name } logó
+# Informational message bar that appears in the Firefox Home section when the options are disabled.
+# The user must select Firefox Home as their homepage for either new tabs or new windows to enable
+# the features in settings.
+home-prefs-firefox-home-disabled-notice =
+    .message = Ezen funkciók használatához állítsa be az új lapokat vagy ablakokat, hogy a { -firefox-home-brand-name }ot jelenítsék meg.
+# Variables:
+#   $num (number) - Number of rows displayed
+home-prefs-sections-rows-option-srd =
+    .label =
+        { $num ->
+            [one] { $num } sor
+           *[other] { $num } sor
+        }
+# Dropdown option shown when an extension replaces the contents of new windows or tabs.
+# Variables:
+#   $extension (string) - Name of the extension
+home-prefs-homepage-extension-option =
+    .label = Kiegészítő ({ $extension })
+home-restore-defaults-srd =
+    .label = Alapértelmezések visszaállítása
+    .accesskey = A
+home-mode-choice-default-fx-srd =
+    .label = { -firefox-home-brand-name } (alapértelmezett)
+home-mode-choice-custom-srd =
+    .label = Egyéni webcímek…
+home-mode-choice-blank-srd =
+    .label = Üres lap
+home-prefs-shortcuts-header-srd =
+    .label = Indítóikonok
+home-prefs-shortcuts-select =
+    .aria-label = Indítóikonok
+home-prefs-shortcuts-by-option-sponsored-srd =
+    .label = Szponzorált indítóikonok
+home-prefs-recommended-by-option-sponsored-stories-srd =
+    .label = Szponzorált történetek
+home-prefs-highlights-option-visited-pages-srd =
+    .label = Látogatott oldalak
+home-prefs-highlights-options-bookmarks-srd =
+    .label = Könyvjelzők
+home-prefs-highlights-option-most-recent-download-srd =
+    .label = Legutóbbi letöltés
+home-prefs-recent-activity-header-srd =
+    .label = Legutóbbi tevékenység
+home-prefs-recent-activity-select =
+    .aria-label = Legutóbbi tevékenység
+home-prefs-weather-header-srd =
+    .label = Időjárás
+home-prefs-support-firefox-header-srd =
+    .label = A { -brand-product-name } támogatása
+home-prefs-mission-message-learn-more-link-srd = Tudja meg hogyan
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -151,6 +272,8 @@ newtab-menu-section-block = Tiltás
 # "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 # e.g. Following the travel section of stories.
 newtab-menu-section-unfollow-topic = Követés megszüntetése
+# Context menu option to open a support page explaining the New Tab personalization features and privacy controls.
+newtab-menu-section-learn-more = További tudnivalók
 # "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 # e.g. Following the travel section of stories.
 newtab-menu-section-unfollow = Téma követésének megszüntetése
@@ -316,14 +439,14 @@ newtab-error-fallback-refresh-link = Az újrapróbálkozáshoz frissítse az old
 
 ## Customization Menu
 
-newtab-custom-shortcuts-title = Gyorskeresők
+newtab-custom-shortcuts-title = Indítóikonok
 newtab-custom-shortcuts-subtitle = Mentett vagy felkeresett webhelyek
 #  (developer note): @nova-cleanup(remove-string): Remove old string once Nova lands. The newtab-custom-shortcuts-nova string will take over
 newtab-custom-shortcuts-toggle =
-    .label = Gyorskeresők
+    .label = Indítóikonok
     .description = Mentett vagy felkeresett webhelyek
 newtab-custom-shortcuts-nova =
-    .label = Gyorskeresők
+    .label = Indítóikonok
 newtab-custom-row-description =
     .description = Sorok száma
 # Variables
@@ -342,7 +465,7 @@ newtab-custom-row-selector =
         [one] { $num } sor
        *[other] { $num } sor
     }
-newtab-custom-sponsored-sites = Szponzorált gyorskeresők
+newtab-custom-sponsored-sites = Szponzorált indítóikonok
 newtab-custom-pocket-title = A { -pocket-brand-name } által ajánlott
 newtab-custom-pocket-subtitle = Kivételes tartalmak a { -pocket-brand-name } válogatásában, amely a { -brand-product-name } család része
 #  (developer note): @nova-cleanup(remove-string): Remove string once Nova lands. We won't be having a description under "Recommended stories" anymore
@@ -758,8 +881,6 @@ newtab-widget-lists-button-add-item = Elem hozzáadása
 newtab-widget-lists-input-add-an-item2 =
     .placeholder = Elem hozzáadása
     .aria-label = Elem hozzáadása
-newtab-widget-lists-input-add-an-item =
-    .placeholder = Elem hozzáadása
 newtab-widget-lists-input-error = Elem hozzáadásához adjon meg szöveget.
 newtab-widget-lists-input-menu-open-link = Hivatkozás megnyitása
 newtab-widget-lists-input-menu-move-up = Mozgatás felfelé
@@ -787,11 +908,6 @@ newtab-widget-lists-name-placeholder-checklist2 =
 newtab-widget-lists-name-placeholder-new2 =
     .placeholder = Új lista
     .aria-label = Listanév szerkesztése
-newtab-widget-lists-name-placeholder-checklist =
-    .placeholder = Ellenőrzőlista
-# The placeholder value of the name field for a newly created list
-newtab-widget-lists-name-placeholder-new =
-    .placeholder = Új lista
 newtab-widget-section-title = Kisalkalmazások
 newtab-widget-menu-hide = Kisalkalmazás elrejtése
 newtab-widget-menu-change-size = Méret módosítása
@@ -848,7 +964,7 @@ newtab-widget-timer-mode-focus =
 newtab-widget-timer-mode-break =
     .label = Szünet
 newtab-widget-timer-label-play =
-    .label = Lejátszás
+    .label = Indítás
 newtab-widget-timer-label-pause =
     .label = Szünet
 newtab-widget-timer-reset =
@@ -1056,6 +1172,11 @@ newtab-sports-widget-match-full-time = Teljes játékidő
 newtab-sports-widget-match-halftime = Félidő
 newtab-sports-widget-match-extra-time = Hosszabbítás
 newtab-sports-widget-match-penalties = Büntetők
+# Separator shown between two teams in a placeholder match row when no upcoming
+# match details are available yet.
+newtab-sports-widget-match-vs = kontra
+# Note shown in the Upcoming tab when no match details are available yet.
+newtab-sports-widget-no-upcoming-matches = Maradjon velünk a közelgő mérkőzés részleteiért
 
 ## Sports widget live-games pagination. Shown when 2+ matches are live at the same time
 
@@ -1133,6 +1254,8 @@ newtab-sports-widget-team-name-label-eng =
     .label = Anglia
 newtab-sports-widget-team-name-label-sco =
     .label = Skócia
+# Placeholder used in a match row's aria-label for an undecided team (shown visually as "--").
+newtab-sports-widget-team-tbd = Még nincs meghatározva
 
 ## Sports widget OMC messages
 ## Shown as on-screen messages promoting the Sports widget and World Cup wallpapers.

@@ -1532,6 +1532,9 @@ StyleTreeScoped<StyleAnchorNameIdent>::AsSpan() const {
   return value.AsSpan();
 }
 
+inline StyleNumericType::StyleNumericType()
+    : exponents{}, percent_hint(StyleOptional<StyleNumericBaseType>::None()) {}
+
 }  // namespace mozilla
 
 #endif

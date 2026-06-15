@@ -804,6 +804,16 @@ bool TRRService::ConfirmationContext::HandleEvent(ConfirmationEvent aEvent,
       return;
     }
 
+    if (StaticPrefs::network_trr_start_confirmation_in_failed_state()) {
+      // Don't optimistically assume TRR is usable. Starting in CONFIRM_FAILED
+      // makes lookups fall back to native DNS until the first confirmation
+      // succeeds, instead of blocking on the TRR connection being established.
+      // The next call to maybeConfirm will transition to CONFIRM_TRYING_FAILED.
+      LOG(("mConfirmation.mState -> CONFIRM_FAILED"));
+      SetState(CONFIRM_FAILED);
+      return;
+    }
+
     // The next call to maybeConfirm will transition to CONFIRM_TRYING_OK
     LOG(("mConfirmation.mState -> CONFIRM_OK"));
     SetState(CONFIRM_OK);

@@ -155,4 +155,6 @@ preprocessed_intervention_files = [
     "bug2034409-www.wanyiwan.top.js",
     "bug2041215-vitra.com.tr-fix_zero_width_product_images.css",
     "bug2044261-doubao.com-hide_browser_notice.css",
+    "bug2044288-www.kuaishou.com-fix_missing_video_thumbnails.css",
+    "bug2046875-Google_Search_World_Cup_widget-fix_mute_and_close_buttons_on_football_minigame.css",
 ]

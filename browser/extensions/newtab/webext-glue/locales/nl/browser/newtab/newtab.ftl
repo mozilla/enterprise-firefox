@@ -31,6 +31,127 @@ newtab-card-dismiss-button =
     .title = Sluiten
     .aria-label = Sluiten
 
+## Strings for "Homepage" and "Firefox Home" sections of about:settings#home.
+## Homepage panel
+
+home-homepage-title =
+    .label = Startpagina
+home-homepage-new-windows =
+    .label = Nieuwe vensters
+home-homepage-new-tabs =
+    .label = Nieuwe tabbladen
+# This option leads to the "Custom Homepage" subpage
+home-homepage-custom-homepage-button =
+    .label = Kies een specifieke website
+
+## Custom URLs subpage
+
+# Subheader on the Custom Homepage subpage. Followed by a form to enter URLs and a list of URLs already saved, if any.
+home-custom-homepage-card-header =
+    .label = Websiteadres(sen)
+home-custom-homepage-address =
+    .placeholder = Voer adres in
+home-custom-homepage-address-button =
+    .label = Adres toevoegen
+# Shown when no custom websites/URLs to use as a homepage have been added yet
+home-custom-homepage-no-results =
+    .label = Nog geen websites toegevoegd.
+home-custom-homepage-delete-address-button =
+    .aria-label = Adres verwijderen
+    .title = Adres verwijderen
+# Further options to use when setting the home page. Two action buttons are placed in line with this prompt
+# to replace the current home page with a currently open page or bookmark.
+home-custom-homepage-replace-with-prompt =
+    .label = Vervangen door
+# Button that appears in-line after text "Replace with" (home-custom-homepage-replace-with-prompt)
+home-custom-homepage-current-pages-button =
+    .label = Huidige geopende pagina’s
+# Button that appears in-line after text "Replace with" (home-custom-homepage-replace-with-prompt)
+home-custom-homepage-bookmarks-button =
+    .label = Bladwijzers…
+
+## Firefox Home content
+
+home-prefs-content-header =
+    .label = { -firefox-home-brand-name }
+home-prefs-search-header2 =
+    .label = Zoeken
+home-prefs-stories-header2 =
+    .label = Verhalen
+    .description = Uitzonderlijke inhoud, verzameld door de { -brand-product-name }-familie
+home-prefs-widgets-header =
+    .label = Widgets
+# Lists is a widget on New Tab, similar to a to-do widget
+home-prefs-lists-header =
+    .label = Lijsten
+# Timer is a widget on New Tab, similar to the Pomodoro timer.
+home-prefs-timer-header =
+    .label = Timer
+# Sports is a widget on New Tab showing sports scores and schedules.
+home-prefs-sports-widget-header =
+    .label = Sport
+# Clock is a widget on New Tab that displays time zones around the world.
+home-prefs-clocks-header =
+    .label = Klok
+home-prefs-mission-message2 =
+    .message = Onze sponsors steunen onze missie om een beter web te bouwen.
+home-prefs-manage-topics-link2 =
+    .label = Onderwerpen beheren
+home-prefs-choose-wallpaper-link2 =
+    .label = Kies een achtergrond
+home-prefs-firefox-logo-header =
+    .label = { -brand-short-name }-logo
+# Informational message bar that appears in the Firefox Home section when the options are disabled.
+# The user must select Firefox Home as their homepage for either new tabs or new windows to enable
+# the features in settings.
+home-prefs-firefox-home-disabled-notice =
+    .message = Stel nieuwe tabbladen of nieuwe vensters in op { -firefox-home-brand-name } om deze functies te gebruiken.
+# Variables:
+#   $num (number) - Number of rows displayed
+home-prefs-sections-rows-option-srd =
+    .label =
+        { $num ->
+            [one] { $num } rij
+           *[other] { $num } rijen
+        }
+# Dropdown option shown when an extension replaces the contents of new windows or tabs.
+# Variables:
+#   $extension (string) - Name of the extension
+home-prefs-homepage-extension-option =
+    .label = Extensie ({ $extension })
+home-restore-defaults-srd =
+    .label = Standaardwaarden herstellen
+    .accesskey = S
+home-mode-choice-default-fx-srd =
+    .label = { -firefox-home-brand-name } (standaard)
+home-mode-choice-custom-srd =
+    .label = Aangepaste URL’s…
+home-mode-choice-blank-srd =
+    .label = Lege pagina
+home-prefs-shortcuts-header-srd =
+    .label = Snelkoppelingen
+home-prefs-shortcuts-select =
+    .aria-label = Snelkoppelingen
+home-prefs-shortcuts-by-option-sponsored-srd =
+    .label = Gesponsorde snelkoppelingen
+home-prefs-recommended-by-option-sponsored-stories-srd =
+    .label = Gesponsorde verhalen
+home-prefs-highlights-option-visited-pages-srd =
+    .label = Bezochte pagina’s
+home-prefs-highlights-options-bookmarks-srd =
+    .label = Bladwijzers
+home-prefs-highlights-option-most-recent-download-srd =
+    .label = Meest recent gedownload
+home-prefs-recent-activity-header-srd =
+    .label = Recente activiteit
+home-prefs-recent-activity-select =
+    .aria-label = Recente activiteit
+home-prefs-weather-header-srd =
+    .label = Weer
+home-prefs-support-firefox-header-srd =
+    .label = { -brand-product-name } ondersteunen
+home-prefs-mission-message-learn-more-link-srd = Lees hier hoe
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -151,6 +272,8 @@ newtab-menu-section-block = Blokkeren
 # "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 # e.g. Following the travel section of stories.
 newtab-menu-section-unfollow-topic = Ontvolgen
+# Context menu option to open a support page explaining the New Tab personalization features and privacy controls.
+newtab-menu-section-learn-more = Meer info
 # "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 # e.g. Following the travel section of stories.
 newtab-menu-section-unfollow = Onderwerp niet meer volgen
@@ -758,8 +881,6 @@ newtab-widget-lists-button-add-item = Een item toevoegen
 newtab-widget-lists-input-add-an-item2 =
     .placeholder = Een item toevoegen
     .aria-label = Een item toevoegen
-newtab-widget-lists-input-add-an-item =
-    .placeholder = Een item toevoegen
 newtab-widget-lists-input-error = Voeg tekst toe om een item toe te voegen.
 newtab-widget-lists-input-menu-open-link = Koppeling openen
 newtab-widget-lists-input-menu-move-up = Omhoog verplaatsen
@@ -787,11 +908,6 @@ newtab-widget-lists-name-placeholder-checklist2 =
 newtab-widget-lists-name-placeholder-new2 =
     .placeholder = Nieuwe lijst
     .aria-label = Lijstnaam bewerken
-newtab-widget-lists-name-placeholder-checklist =
-    .placeholder = Checklist
-# The placeholder value of the name field for a newly created list
-newtab-widget-lists-name-placeholder-new =
-    .placeholder = Nieuwe lijst
 newtab-widget-section-title = Widgets
 newtab-widget-menu-hide = Widget verbergen
 newtab-widget-menu-change-size = Grootte wijzigen

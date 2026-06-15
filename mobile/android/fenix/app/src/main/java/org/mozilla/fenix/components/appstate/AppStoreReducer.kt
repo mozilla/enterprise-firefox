@@ -41,6 +41,9 @@ internal object AppStoreReducer {
         is AppAction.UpdateFirstFrameDrawn -> {
             state.copy(firstFrameDrawn = action.drawn)
         }
+        is AppAction.UpdateShowFoxPeekAnimation -> {
+            state.copy(longfoxEntryPointReady = action.ready)
+        }
         is AppAction.AddNonFatalCrash ->
             state.copy(nonFatalCrashes = state.nonFatalCrashes + action.crash)
         is AppAction.RemoveNonFatalCrash ->

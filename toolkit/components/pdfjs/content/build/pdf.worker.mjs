@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 6.0.329
- * pdfjsBuild = ac64bcfa2
+ * pdfjsVersion = 6.0.346
+ * pdfjsBuild = e75a7cfd6
  */
 
 ;// ./src/shared/util.js
@@ -921,11 +921,8 @@ class Dict {
         continue;
       }
       for (const [key, value] of dict.getRawEntries()) {
-        let property = properties.get(key);
-        if (property === undefined) {
-          property = [];
-          properties.set(key, property);
-        } else if (!mergeSubDicts || !(value instanceof Dict)) {
+        const property = properties.getOrInsertComputed(key, makeArr);
+        if (property.length && !(mergeSubDicts && value instanceof Dict)) {
           continue;
         }
         property.push(value);
@@ -3084,12 +3081,10 @@ class ChunkedStreamManager {
     this._promisesByRequest.set(requestId, capability);
     const chunksToRequest = [];
     for (const chunk of chunksNeeded) {
-      let requestIds = this._requestsByChunk.get(chunk);
-      if (!requestIds) {
-        requestIds = [];
-        this._requestsByChunk.set(chunk, requestIds);
+      const requestIds = this._requestsByChunk.getOrInsertComputed(chunk, () => {
         chunksToRequest.push(chunk);
-      }
+        return [];
+      });
       requestIds.push(requestId);
     }
     if (chunksToRequest.length > 0) {
@@ -5095,7 +5090,7 @@ class JpegImage {
     this.numComponents = this.components.length;
     return undefined;
   }
-  _getLinearizedBlockData(width, height, isSourcePDF = false) {
+  #getLinearizedBlockData(width, height, isSourcePDF) {
     const scaleX = this.width / width,
       scaleY = this.height / height;
     let component, componentScaleX, componentScaleY, blocksPerScanline;
@@ -5133,9 +5128,6 @@ class JpegImage {
       }
     }
     let transform = this._decodeTransform;
-    if (!isSourcePDF && numComponents === 4 && !transform) {
-      transform = new Int32Array([-256, 255, -256, 255, -256, 255, -256, 255]);
-    }
     if (transform) {
       for (i = 0; i < dataLength;) {
         for (j = 0, k = 0; j < numComponents; j++, i++, k += 2) {
@@ -5164,7 +5156,7 @@ class JpegImage {
   }
   _convertYccToRgb(data) {
     let Y, Cb, Cr;
-    for (let i = 0, length = data.length; i < length; i += 3) {
+    for (let i = 0, ii = data.length; i < ii; i += 3) {
       Y = data[i];
       Cb = data[i + 1];
       Cr = data[i + 2];
@@ -5175,7 +5167,7 @@ class JpegImage {
     return data;
   }
   _convertYccToRgba(data, out) {
-    for (let i = 0, j = 0, length = data.length; i < length; i += 3, j += 4) {
+    for (let i = 0, j = 0, ii = data.length; i < ii; i += 3, j += 4) {
       const Y = data[i];
       const Cb = data[i + 1];
       const Cr = data[i + 2];
@@ -5196,7 +5188,7 @@ class JpegImage {
   }
   _convertYcckToCmyk(data) {
     let Y, Cb, Cr;
-    for (let i = 0, length = data.length; i < length; i += 4) {
+    for (let i = 0, ii = data.length; i < ii; i += 4) {
       Y = data[i];
       Cb = data[i + 1];
       Cr = data[i + 2];
@@ -5225,12 +5217,12 @@ class JpegImage {
     height,
     forceRGBA = false,
     forceRGB = false,
-    isSourcePDF = false
+    isSourcePDF = true
   }) {
     if (this.numComponents > 4) {
       throw new JpegError("Unsupported color mode");
     }
-    const data = this._getLinearizedBlockData(width, height, isSourcePDF);
+    const data = this.#getLinearizedBlockData(width, height, isSourcePDF);
     if (this.numComponents === 1 && (forceRGBA || forceRGB)) {
       const len = data.length * (forceRGBA ? 4 : 3);
       const rgbaData = new Uint8ClampedArray(len);
@@ -5352,8 +5344,7 @@ class JpegStream extends DecodeStream {
       width: this.drawWidth,
       height: this.drawHeight,
       forceRGBA: this.forceRGBA,
-      forceRGB: this.forceRGB,
-      isSourcePDF: true
+      forceRGB: this.forceRGB
     });
     this.buffer = data;
     this.bufferLength = data.length;
@@ -39724,10 +39715,7 @@ class StructElementNode {
     }
     for (let af of AFs) {
       af = this.xref.fetchIfRef(af);
-      if (!(af instanceof Dict)) {
-        continue;
-      }
-      if (!isName(af.get("Type"), "Filespec")) {
+      if (!isDict(af, "Filespec")) {
         continue;
       }
       if (!isName(af.get("AFRelationship"), "Supplement")) {
@@ -41199,6 +41187,19 @@ class Catalog {
         }
       }
       if (!Array.isArray(kids)) {
+        let type = currentNode.getRaw("Type");
+        if (type instanceof Ref) {
+          try {
+            type = await xref.fetchAsync(type);
+          } catch (ex) {
+            addPageError(ex);
+            break;
+          }
+        }
+        if (isName(type, "Page") || !currentNode.has("Kids")) {
+          addPageDict(currentNode, null);
+          break;
+        }
         addPageError(new FormatError("Page dictionary kids object is not an array."));
         break;
       }
@@ -53018,6 +53019,13 @@ class Annotation {
     this._fallbackFontDict = null;
     this._needAppearances = false;
   }
+  _getOperatorListNoAppearance() {
+    return {
+      opList: new OperatorList(),
+      separateForm: false,
+      separateCanvas: false
+    };
+  }
   _hasFlag(flags, flag) {
     return !!(flags & flag);
   }
@@ -53228,6 +53236,9 @@ class Annotation {
     }
     return resources;
   }
+  get _ownCanvasRequiresForms() {
+    return false;
+  }
   async getOperatorList(evaluator, task, intent, annotationStorage) {
     const {
       hasOwnCanvas,
@@ -53235,28 +53246,20 @@ class Annotation {
       rect
     } = this.data;
     let appearance = this.appearance;
-    const isUsingOwnCanvas = !!(hasOwnCanvas && intent & RenderingIntentFlag.DISPLAY);
+    const isUsingOwnCanvas = !!(hasOwnCanvas && intent & RenderingIntentFlag.DISPLAY && (!this._ownCanvasRequiresForms || intent & RenderingIntentFlag.ANNOTATIONS_FORMS));
     if (isUsingOwnCanvas && (this.width === 0 || this.height === 0)) {
       this.data.hasOwnCanvas = false;
-      return {
-        opList: new OperatorList(),
-        separateForm: false,
-        separateCanvas: false
-      };
+      return this._getOperatorListNoAppearance();
     }
     if (!appearance) {
       if (!isUsingOwnCanvas) {
-        return {
-          opList: new OperatorList(),
-          separateForm: false,
-          separateCanvas: false
-        };
+        return this._getOperatorListNoAppearance();
       }
       appearance = new StringStream("", new Dict());
     }
     const appearanceDict = appearance.dict;
     const resources = await this.loadResources(RESOURCES_KEYS_OPERATOR_LIST, appearance);
-    const bbox = lookupRect(appearanceDict.getArray("BBox"), [0, 0, 1, 1]);
+    const bbox = lookupRect(appearanceDict.getArray("BBox"), [0, 0, this.width, this.height]);
     const matrix = lookupMatrix(appearanceDict.getArray("Matrix"), IDENTITY_MATRIX);
     const transform = getTransformMatrix(rect, bbox, matrix);
     const opList = new OperatorList();
@@ -53790,11 +53793,9 @@ class WidgetAnnotation extends Annotation {
   }
   async getOperatorList(evaluator, task, intent, annotationStorage) {
     if (intent & RenderingIntentFlag.ANNOTATIONS_FORMS && !(this instanceof SignatureWidgetAnnotation) && !this.data.noHTML && !this.data.hasOwnCanvas) {
-      return {
-        opList: new OperatorList(),
-        separateForm: true,
-        separateCanvas: false
-      };
+      const list = this._getOperatorListNoAppearance();
+      list.separateForm = true;
+      return list;
     }
     if (!this._hasText) {
       return super.getOperatorList(evaluator, task, intent, annotationStorage);
@@ -54462,21 +54463,55 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
     this.data.radioButton = isRadio && !isPushButton;
     this.data.pushButton = isPushButton;
     this.data.isTooltipOnly = false;
+    this.data.hasOwnCanvas = true;
+    this.data.noHTML = false;
     if (this.data.checkBox) {
       this._processCheckBox(params);
     } else if (this.data.radioButton) {
       this._processRadioButton(params);
     } else if (this.data.pushButton) {
-      this.data.hasOwnCanvas = true;
-      this.data.noHTML = false;
       this._processPushButton(params);
     } else {
       warn("Invalid field flags for button widget annotation");
     }
   }
+  get _ownCanvasRequiresForms() {
+    return this.data.checkBox || this.data.radioButton;
+  }
+  #getOperatorListForAppearance(evaluator, task, intent, annotationStorage, rotation, appearance) {
+    if (!appearance) {
+      return this._getOperatorListNoAppearance();
+    }
+    const savedAppearance = this.appearance;
+    const savedMatrix = lookupMatrix(appearance.dict.getArray("Matrix"), IDENTITY_MATRIX);
+    if (rotation) {
+      appearance.dict.set("Matrix", this.getRotationMatrix(annotationStorage));
+    }
+    this.appearance = appearance;
+    const operatorList = super.getOperatorList(evaluator, task, intent, annotationStorage);
+    this.appearance = savedAppearance;
+    appearance.dict.set("Matrix", savedMatrix);
+    return operatorList;
+  }
   async getOperatorList(evaluator, task, intent, annotationStorage) {
     if (this.data.pushButton) {
       return super.getOperatorList(evaluator, task, intent, false, annotationStorage);
+    }
+    if (intent & RenderingIntentFlag.DISPLAY && intent & RenderingIntentFlag.ANNOTATIONS_FORMS && (this.data.checkBox || this.data.radioButton)) {
+      const setCanvasName = (operatorList, name) => {
+        const index = operatorList.fnArray.indexOf(OPS.beginAnnotation);
+        if (index !== -1) {
+          operatorList.argsArray[index].push(name);
+        }
+      };
+      const checked = await this.#getOperatorListForAppearance(evaluator, task, intent, annotationStorage, null, this.checkedAppearance);
+      setCanvasName(checked.opList, "checked");
+      const unchecked = await this.#getOperatorListForAppearance(evaluator, task, intent, annotationStorage, null, this.uncheckedAppearance);
+      setCanvasName(unchecked.opList, "unchecked");
+      checked.opList.addOpList(unchecked.opList);
+      checked.separateForm ||= unchecked.separateForm;
+      checked.separateCanvas ||= unchecked.separateCanvas;
+      return checked;
     }
     let value = null;
     let rotation = null;
@@ -54491,24 +54526,7 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
     if (value === null || value === undefined) {
       value = this.data.checkBox ? this.data.fieldValue === this.data.exportValue : this.data.fieldValue === this.data.buttonValue;
     }
-    const appearance = value ? this.checkedAppearance : this.uncheckedAppearance;
-    if (appearance) {
-      const savedAppearance = this.appearance;
-      const savedMatrix = lookupMatrix(appearance.dict.getArray("Matrix"), IDENTITY_MATRIX);
-      if (rotation) {
-        appearance.dict.set("Matrix", this.getRotationMatrix(annotationStorage));
-      }
-      this.appearance = appearance;
-      const operatorList = super.getOperatorList(evaluator, task, intent, annotationStorage);
-      this.appearance = savedAppearance;
-      appearance.dict.set("Matrix", savedMatrix);
-      return operatorList;
-    }
-    return {
-      opList: new OperatorList(),
-      separateForm: false,
-      separateCanvas: false
-    };
+    return this.#getOperatorListForAppearance(evaluator, task, intent, annotationStorage, rotation, value ? this.checkedAppearance : this.uncheckedAppearance);
   }
   async save(evaluator, task, annotationStorage, changes) {
     if (this.data.checkBox) {
@@ -54663,19 +54681,16 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
   }
   _processCheckBox(params) {
     const customAppearance = params.dict.get("AP");
-    if (!(customAppearance instanceof Dict)) {
-      return;
-    }
-    const normalAppearance = customAppearance.get("N");
+    let normalAppearance = customAppearance instanceof Dict ? customAppearance.get("N") : null;
     if (!(normalAppearance instanceof Dict)) {
-      return;
+      normalAppearance = null;
     }
     const asValue = this._decodeFormValue(params.dict.get("AS"));
     if (typeof asValue === "string") {
       this.data.fieldValue = asValue;
     }
     const yes = this.data.fieldValue !== null && this.data.fieldValue !== "Off" ? this.data.fieldValue : "Yes";
-    const exportValues = [...normalAppearance.getKeys()];
+    const exportValues = normalAppearance ? [...normalAppearance.getKeys()] : [];
     if (exportValues.length === 0) {
       exportValues.push("Off", yes);
     } else if (exportValues.length === 1) {
@@ -54696,9 +54711,9 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
       this.data.fieldValue = "Off";
     }
     this.data.exportValue = exportValues[1];
-    const checkedAppearance = normalAppearance.get(this.data.exportValue);
+    const checkedAppearance = normalAppearance?.get(this.data.exportValue);
     this.checkedAppearance = checkedAppearance instanceof BaseStream ? checkedAppearance : null;
-    const uncheckedAppearance = normalAppearance.get("Off");
+    const uncheckedAppearance = normalAppearance?.get("Off");
     this.uncheckedAppearance = uncheckedAppearance instanceof BaseStream ? uncheckedAppearance : null;
     if (this.checkedAppearance) {
       this._streams.push(this.checkedAppearance);
@@ -61025,16 +61040,11 @@ class PDFEditor {
     const dictStr = await this.#serializeDict(stream.dict);
     const bytes = this.#rawStreamBytes(stream);
     const key = this.#resourceStreamKey(dictStr, bytes);
-    let bucket = this.#resourceStreamCache.get(key);
-    if (bucket) {
-      for (const entry of bucket) {
-        if (entry.dictStr === dictStr && isArrayEqual(this.#rawStreamBytes(entry.stream), bytes)) {
-          return entry.ref;
-        }
+    const bucket = this.#resourceStreamCache.getOrInsertComputed(key, makeArr);
+    for (const entry of bucket) {
+      if (entry.dictStr === dictStr && isArrayEqual(this.#rawStreamBytes(entry.stream), bytes)) {
+        return entry.ref;
       }
-    } else {
-      bucket = [];
-      this.#resourceStreamCache.set(key, bucket);
     }
     const ref = this.newRef;
     this.xref[ref.num] = stream;
@@ -63328,7 +63338,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = "6.0.329";
+    const workerVersion = "6.0.346";
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match ` + `the Worker version "${workerVersion}".`);
     }
@@ -63460,6 +63470,18 @@ class WorkerMessageHandler {
       });
       return promise;
     }
+    async function getPassword(ex) {
+      const task = new WorkerTask(`PasswordException: response ${ex.code}`);
+      startWorkerTask(task);
+      try {
+        const res = await handler.sendWithPromise("PasswordRequest", ex);
+        return res.password;
+      } finally {
+        Promise.resolve().then(() => {
+          finishWorkerTask(task);
+        });
+      }
+    }
     function setupDoc(data) {
       function onSuccess(doc) {
         ensureNotTerminated();
@@ -63472,16 +63494,10 @@ class WorkerMessageHandler {
           return;
         }
         if (ex instanceof PasswordException) {
-          const task = new WorkerTask(`PasswordException: response ${ex.code}`);
-          startWorkerTask(task);
-          handler.sendWithPromise("PasswordRequest", ex).then(function ({
-            password
-          }) {
-            finishWorkerTask(task);
+          getPassword(ex).then(password => {
             pdfManager.updatePassword(password);
             pdfManagerReady();
-          }).catch(function () {
-            finishWorkerTask(task);
+          }).catch(() => {
             handler.send("DocException", ex);
           });
         } else {
@@ -63558,30 +63574,20 @@ class WorkerMessageHandler {
       return pdfManager.ensureCatalog("attachments");
     });
     handler.on("GetAttachmentContent", async function (id) {
+      let passwordEx;
       while (true) {
+        const password = passwordEx ? await getPassword(passwordEx) : null;
         try {
+          if (password) {
+            pdfManager.updatePassword(password);
+          }
           return await pdfManager.ensureCatalog("attachmentContent", [id]);
-        } catch (error) {
-          if (!(error instanceof PasswordException)) {
-            throw error;
+        } catch (ex) {
+          if (ex instanceof PasswordException) {
+            passwordEx = ex;
+            continue;
           }
-          const task = new WorkerTask(`PasswordException: response ${error.code}`);
-          startWorkerTask(task);
-          try {
-            const {
-              password
-            } = await handler.sendWithPromise("PasswordRequest", error);
-            try {
-              pdfManager.updatePassword(password);
-            } catch (exception) {
-              if (exception instanceof PasswordException) {
-                continue;
-              }
-              throw exception;
-            }
-          } finally {
-            finishWorkerTask(task);
-          }
+          throw ex;
         }
       }
     });
@@ -63717,18 +63723,12 @@ class WorkerMessageHandler {
                   warn("extractPages: XRefParseException.");
                 }
               } else if (e instanceof PasswordException) {
-                const task = new WorkerTask(`PasswordException: response ${e.code}`);
-                startWorkerTask(task);
                 try {
-                  const {
-                    password
-                  } = await handler.sendWithPromise("PasswordRequest", e);
+                  const password = await getPassword(e);
                   manager.updatePassword(password);
                 } catch {
                   isValid = false;
                   warn("extractPages: invalid password.");
-                } finally {
-                  finishWorkerTask(task);
                 }
               } else {
                 isValid = false;

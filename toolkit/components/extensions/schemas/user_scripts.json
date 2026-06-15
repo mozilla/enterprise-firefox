@@ -287,8 +287,7 @@
             "type": "array",
             "optional": true,
             "description": "The IDs of specific documentIds to inject into. This must not be set if frameIds is set.",
-            "items": { "type": "string" },
-            "unsupported": true
+            "items": { "type": "string" }
           },
           "frameIds": {
             "type": "array",
@@ -310,8 +309,7 @@
         "properties": {
           "documentId": {
             "type": "string",
-            "description": "Document ID associated with the injection.",
-            "unsupported": true
+            "description": "Document ID associated with the injection."
           },
           "frameId": {
             "type": "integer",

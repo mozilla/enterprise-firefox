@@ -642,7 +642,11 @@ void ElementInternals::GetAttrElements(
   // elements.
   auto elements = getAttrAssociatedElements();
 
-  if (elements == cachedAttrElements) {
+  // aUseCachedValue is null when the binding has no cached attr-associated
+  // elements object to reuse yet (e.g. the first getter call). In that case we
+  // must return the freshly computed elements below rather than signalling a
+  // cache hit, otherwise we would dereference a null pointer.
+  if (aUseCachedValue && elements == cachedAttrElements) {
     // 2. If the contents of elements is equal to the contents of this's cached
     // attr-associated elements, then return this's cached attr-associated
     // elements object.

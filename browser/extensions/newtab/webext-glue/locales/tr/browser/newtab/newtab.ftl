@@ -31,6 +31,127 @@ newtab-card-dismiss-button =
     .title = Kapat
     .aria-label = Kapat
 
+## Strings for "Homepage" and "Firefox Home" sections of about:settings#home.
+## Homepage panel
+
+home-homepage-title =
+    .label = Giriş sayfası
+home-homepage-new-windows =
+    .label = Yeni pencereler
+home-homepage-new-tabs =
+    .label = Yeni sekmeler
+# This option leads to the "Custom Homepage" subpage
+home-homepage-custom-homepage-button =
+    .label = Belirli bir site seç
+
+## Custom URLs subpage
+
+# Subheader on the Custom Homepage subpage. Followed by a form to enter URLs and a list of URLs already saved, if any.
+home-custom-homepage-card-header =
+    .label = Web sitesi adres(ler)i
+home-custom-homepage-address =
+    .placeholder = Adres yazın
+home-custom-homepage-address-button =
+    .label = Adres ekle
+# Shown when no custom websites/URLs to use as a homepage have been added yet
+home-custom-homepage-no-results =
+    .label = Henüz hiç site eklenmedi.
+home-custom-homepage-delete-address-button =
+    .aria-label = Adresi sil
+    .title = Adresi sil
+# Further options to use when setting the home page. Two action buttons are placed in line with this prompt
+# to replace the current home page with a currently open page or bookmark.
+home-custom-homepage-replace-with-prompt =
+    .label = Bununla değiştir:
+# Button that appears in-line after text "Replace with" (home-custom-homepage-replace-with-prompt)
+home-custom-homepage-current-pages-button =
+    .label = Şu anda açık olan sayfalar
+# Button that appears in-line after text "Replace with" (home-custom-homepage-replace-with-prompt)
+home-custom-homepage-bookmarks-button =
+    .label = Yer imleri…
+
+## Firefox Home content
+
+home-prefs-content-header =
+    .label = { -firefox-home-brand-name }
+home-prefs-search-header2 =
+    .label = Arama
+home-prefs-stories-header2 =
+    .label = Haberler
+    .description = { -brand-product-name } ailesinin seçtiği harika içerikler
+home-prefs-widgets-header =
+    .label = Araçlar
+# Lists is a widget on New Tab, similar to a to-do widget
+home-prefs-lists-header =
+    .label = Listeler
+# Timer is a widget on New Tab, similar to the Pomodoro timer.
+home-prefs-timer-header =
+    .label = Sayaç
+# Sports is a widget on New Tab showing sports scores and schedules.
+home-prefs-sports-widget-header =
+    .label = Spor
+# Clock is a widget on New Tab that displays time zones around the world.
+home-prefs-clocks-header =
+    .label = Saat
+home-prefs-mission-message2 =
+    .message = Sponsorlarımız daha iyi bir web inşa etme misyonumuzu destekliyor.
+home-prefs-manage-topics-link2 =
+    .label = Konuları yönet
+home-prefs-choose-wallpaper-link2 =
+    .label = Duvar kâğıdı seç
+home-prefs-firefox-logo-header =
+    .label = { -brand-short-name } logosu
+# Informational message bar that appears in the Firefox Home section when the options are disabled.
+# The user must select Firefox Home as their homepage for either new tabs or new windows to enable
+# the features in settings.
+home-prefs-firefox-home-disabled-notice =
+    .message = Bu özellikleri kullanmak için yeni sekme veya yeni pencere ayarınızı { -firefox-home-brand-name } olarak değiştirmelisiniz.
+# Variables:
+#   $num (number) - Number of rows displayed
+home-prefs-sections-rows-option-srd =
+    .label =
+        { $num ->
+            [one] { $num } satır
+           *[other] { $num } satır
+        }
+# Dropdown option shown when an extension replaces the contents of new windows or tabs.
+# Variables:
+#   $extension (string) - Name of the extension
+home-prefs-homepage-extension-option =
+    .label = Uzantı ({ $extension })
+home-restore-defaults-srd =
+    .label = Varsayılanları geri yükle
+    .accesskey = R
+home-mode-choice-default-fx-srd =
+    .label = { -firefox-home-brand-name } (Varsayılan)
+home-mode-choice-custom-srd =
+    .label = Özel adresler…
+home-mode-choice-blank-srd =
+    .label = Boş sayfa
+home-prefs-shortcuts-header-srd =
+    .label = Kısayollar
+home-prefs-shortcuts-select =
+    .aria-label = Kısayollar
+home-prefs-shortcuts-by-option-sponsored-srd =
+    .label = Sponsorlu kısayollar
+home-prefs-recommended-by-option-sponsored-stories-srd =
+    .label = Sponsorlu haberler
+home-prefs-highlights-option-visited-pages-srd =
+    .label = Ziyaret ettiğim sayfalar
+home-prefs-highlights-options-bookmarks-srd =
+    .label = Yer imleri
+home-prefs-highlights-option-most-recent-download-srd =
+    .label = Son indirme
+home-prefs-recent-activity-header-srd =
+    .label = Son etkinlikler
+home-prefs-recent-activity-select =
+    .aria-label = Son etkinlikler
+home-prefs-weather-header-srd =
+    .label = Hava durumu
+home-prefs-support-firefox-header-srd =
+    .label = { -brand-product-name } tarayıcısını destekleyin
+home-prefs-mission-message-learn-more-link-srd = Nasıl mı?
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -151,6 +272,8 @@ newtab-menu-section-block = Engelle
 # "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 # e.g. Following the travel section of stories.
 newtab-menu-section-unfollow-topic = Takibi bırak
+# Context menu option to open a support page explaining the New Tab personalization features and privacy controls.
+newtab-menu-section-learn-more = Daha fazla bilgi al
 # "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 # e.g. Following the travel section of stories.
 newtab-menu-section-unfollow = Konuyu takip etmeyi bırak
@@ -754,8 +877,6 @@ newtab-widget-lists-button-add-item = Görev ekle
 newtab-widget-lists-input-add-an-item2 =
     .placeholder = Görev ekle
     .aria-label = Görev ekle
-newtab-widget-lists-input-add-an-item =
-    .placeholder = Görev ekle
 newtab-widget-lists-input-error = Görev eklemek için lütfen metin yazın.
 newtab-widget-lists-input-menu-open-link = Bağlantıyı aç
 newtab-widget-lists-input-menu-move-up = Yukarı taşı
@@ -783,11 +904,6 @@ newtab-widget-lists-name-placeholder-checklist2 =
 newtab-widget-lists-name-placeholder-new2 =
     .placeholder = Yeni liste
     .aria-label = Liste adını düzenle
-newtab-widget-lists-name-placeholder-checklist =
-    .placeholder = Görev listesi
-# The placeholder value of the name field for a newly created list
-newtab-widget-lists-name-placeholder-new =
-    .placeholder = Yeni liste
 newtab-widget-section-title = Araçlar
 newtab-widget-menu-hide = Aracı gizle
 newtab-widget-menu-change-size = Boyutu değiştir

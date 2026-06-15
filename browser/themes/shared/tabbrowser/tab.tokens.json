@@ -432,7 +432,7 @@
       "@base": {
         "value": {
           "light": "{color.gray.55}",
-          "dark": "{color.gray.05}"
+          "dark": "{color.gray.0}"
         }
       },
       "text": {
@@ -457,7 +457,7 @@
       },
       "invert": {
         "value": {
-          "light": "{color.gray.05}",
+          "light": "{color.gray.0}",
           "dark": "{color.gray.55}"
         }
       }

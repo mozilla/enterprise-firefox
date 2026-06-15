@@ -6129,6 +6129,124 @@ settings:
     metadata:
       tags:
         - Settings
+firefox_labs:
+  toggle_button_pressed:
+    type: event
+    description: |
+      The user toggled a Firefox Labs item switch.
+    extra_keys:
+      slug_id:
+        type: string
+        description: |
+          The Nimbus slug identifying the Labs item whose switch was tapped,
+          e.g., "homepage-as-new-tab". This is defined in the experimenter
+          setup and is not unique on a user basis.
+      enabled:
+        type: boolean
+        description: |
+          The new enabled state the user attempted to set.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2035830
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D305929
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+  toggled_dialog:
+    type: event
+    description: |
+      The user resolved the requires restart confirmation dialog for a Firefox Labs item (by confirming or cancelling).
+    extra_keys:
+      slug_id:
+        type: string
+        description: |
+          The Nimbus slug identifying the Labs item for the dialog,
+          e.g., "homepage-as-new-tab". This is defined in the experimenter
+          setup and is not unique on a user basis.
+      did_user_confirm:
+        type: boolean
+        description: |
+          True if the user confirmed the dialog to restart, false if the user dismissed it without restarting.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2035830
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D305929
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+  share_feedback_opened:
+    type: event
+    description: |
+      The user opened the share feedback link for a Firefox Labs item.
+    extra_keys:
+      slug_id:
+        type: string
+        description: |
+          The Nimbus slug identifying the Labs item whose feedback link
+          was tapped, e.g., "homepage-as-new-tab". This is defined in the experimenter
+          setup and is not unique on a user basis.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2035830
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D305730
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+  restore_defaults_button_pressed:
+    type: event
+    description: |
+      The user pressed the restore defaults button on the Firefox Labs screen.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2035830
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D305929
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+  restore_defaults_dialog:
+    type: event
+    description: |
+      The user resolved the restore defaults dialog on the Firefox Labs screen (by confirming or cancelling).
+    extra_keys:
+      items_changed_count:
+        type: quantity
+        description: |
+          Number of items flipped from on to off. Zero if the user cancelled the dialog.
+        unit: items
+      did_user_confirm:
+        type: boolean
+        description: |
+          True if the user confirmed the dialog to restore defaults, false if the user dismissed it without restoring.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2035830
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D305929
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+  empty_state_shown:
+    type: event
+    description: |
+      The Firefox Labs screen showed the empty state (no items available).
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2035830
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D305730
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
 settings_search:
   opened:
     type: event

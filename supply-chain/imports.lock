@@ -121,15 +121,15 @@ user-login = "epage"
 user-name = "Ed Page"
 
 [[publisher.clubcard]]
-version = "0.3.2"
-when = "2024-10-08"
+version = "0.3.3"
+when = "2026-03-21"
 user-id = 175410
 user-login = "jschanck"
 user-name = "John Schanck"
 
 [[publisher.clubcard-crlite]]
-version = "0.3.0"
-when = "2024-10-14"
+version = "0.4.0"
+when = "2026-06-12"
 user-id = 175410
 user-login = "jschanck"
 user-name = "John Schanck"

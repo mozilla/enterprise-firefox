@@ -30,10 +30,13 @@
     <color name="fx_mobile_error_container">@color/novaRed70</color>
     <color name="fx_mobile_on_error_container">@color/novaVioletDesaturated0</color>
     <color name="fx_mobile_information">@color/novaBlue30</color>
+    <color name="fx_mobile_on_information">@color/novaGray80</color>
     <color name="fx_mobile_information_container">@color/novaBlue70</color>
     <color name="fx_mobile_on_information_container">@color/novaVioletDesaturated0</color>
     <color name="fx_mobile_success">@color/novaGreen30</color>
+    <color name="fx_mobile_on_success">@color/novaGray80</color>
     <color name="fx_mobile_warning">@color/novaYellow30</color>
+    <color name="fx_mobile_on_warning">@color/novaGray80</color>
     <color name="fx_mobile_warning_container">@color/novaYellow70</color>
     <color name="fx_mobile_on_warning_container">@color/novaVioletDesaturated0</color>
     <color name="fx_mobile_outline">@color/novaGray45</color>

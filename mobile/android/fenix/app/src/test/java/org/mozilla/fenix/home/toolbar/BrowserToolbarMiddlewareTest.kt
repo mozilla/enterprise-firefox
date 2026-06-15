@@ -121,6 +121,7 @@ class BrowserToolbarMiddlewareTest {
         every { testContext.components.settings.isTabStripEnabled } returns false
         every { testContext.components.settings.toolbarExpandedShortcutKey } returns ShortcutType.BOOKMARK.value
         every { testContext.components.settings.showVoiceSearchInDisplayToolbar } returns false
+        every { testContext.components.settings.shouldShowVoiceSearch } returns true
     }
 
     @Test
@@ -295,6 +296,7 @@ class BrowserToolbarMiddlewareTest {
     @Test
     fun `GIVEN voice search is enabled AND speech recognition is available WHEN initializing the toolbar THEN a voice search button is shown and the short search hint is used`() {
         every { testContext.components.settings.showVoiceSearchInDisplayToolbar } returns true
+        every { testContext.components.settings.shouldShowVoiceSearch } returns true
         registerSpeechRecognizer()
 
         val (_, toolbarStore) = buildMiddlewareAndAddToStore()
@@ -311,11 +313,24 @@ class BrowserToolbarMiddlewareTest {
     @Test
     fun `GIVEN voice search is enabled AND speech recognition is unavailable WHEN initializing the toolbar THEN no voice search button is shown`() {
         every { testContext.components.settings.showVoiceSearchInDisplayToolbar } returns true
+        every { testContext.components.settings.shouldShowVoiceSearch } returns true
 
         val (_, toolbarStore) = buildMiddlewareAndAddToStore()
 
         assertTrue(toolbarStore.state.displayState.pageActionsEnd.isEmpty())
         assertEquals(R.string.search_hint_short, toolbarStore.state.displayState.pageOrigin.hint)
+    }
+
+    @Test
+    fun `GIVEN the show-voice-search setting is off AND the display-toolbar experiment is enabled AND speech recognition is available WHEN initializing the toolbar THEN no voice search button is shown and the long search hint is used`() {
+        every { testContext.components.settings.showVoiceSearchInDisplayToolbar } returns true
+        every { testContext.components.settings.shouldShowVoiceSearch } returns false
+        registerSpeechRecognizer()
+
+        val (_, toolbarStore) = buildMiddlewareAndAddToStore()
+
+        assertTrue(toolbarStore.state.displayState.pageActionsEnd.isEmpty())
+        assertEquals(R.string.search_hint, toolbarStore.state.displayState.pageOrigin.hint)
     }
 
     @Test

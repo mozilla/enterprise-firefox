@@ -1444,15 +1444,17 @@ ${
    *
    * @param {Event} event - The event that triggered the action.
    * @param {string} value - The value to commit.
+   * @param {SmartbarAction} [action] - The action to commit. Defaults to the
+   *   current smartbar action.
    */
-  #dispatchSmartbarCommitEvent(event, value) {
+  #dispatchSmartbarCommitEvent(event, value, action = this.smartbarAction) {
     this.dispatchEvent(
       new CustomEvent("smartbar-commit", {
         bubbles: true,
         composed: true,
         detail: {
           value,
-          action: this.smartbarAction,
+          action,
           contextMentions: this.getResolvedContextWebsites(),
           contextPageUrl: this.getContextPageUrl(),
           detectedIntent: this.detectedIntent,
@@ -2410,7 +2412,23 @@ ${
     }
 
     if (this.#isSmartbarMode) {
-      this.#dispatchSmartbarCommitEvent(event, this.untrimmedValue);
+      // Override the CTA action when a non-heuristic result is picked. The
+      // heuristic result (and the case with no heuristic) should respect the
+      // CTA mode, so leave `action` undefined to fall back to it.
+      let action;
+      if (!result.heuristic) {
+        switch (result.type) {
+          case lazy.UrlbarUtils.RESULT_TYPE.SEARCH:
+            action = "search";
+            break;
+          case lazy.UrlbarUtils.RESULT_TYPE.AI_CHAT:
+            action = "chat";
+            break;
+          default:
+            action = "navigate";
+        }
+      }
+      this.#dispatchSmartbarCommitEvent(event, this.untrimmedValue, action);
     }
     this._loadURL(
       url,

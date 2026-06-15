@@ -31,6 +31,123 @@ newtab-card-dismiss-button =
     .title = 知道了
     .aria-label = 知道了
 
+## Strings for "Homepage" and "Firefox Home" sections of about:settings#home.
+## Homepage panel
+
+home-homepage-title =
+    .label = 主页
+home-homepage-new-windows =
+    .label = 新窗口
+home-homepage-new-tabs =
+    .label = 新标签页
+# This option leads to the "Custom Homepage" subpage
+home-homepage-custom-homepage-button =
+    .label = 选择特定网站
+
+## Custom URLs subpage
+
+# Subheader on the Custom Homepage subpage. Followed by a form to enter URLs and a list of URLs already saved, if any.
+home-custom-homepage-card-header =
+    .label = 网址
+home-custom-homepage-address =
+    .placeholder = 输入地址
+home-custom-homepage-address-button =
+    .label = 添加地址
+# Shown when no custom websites/URLs to use as a homepage have been added yet
+home-custom-homepage-no-results =
+    .label = 未添加网站。
+home-custom-homepage-delete-address-button =
+    .aria-label = 删除地址
+    .title = 删除地址
+# Further options to use when setting the home page. Two action buttons are placed in line with this prompt
+# to replace the current home page with a currently open page or bookmark.
+home-custom-homepage-replace-with-prompt =
+    .label = 替换为
+# Button that appears in-line after text "Replace with" (home-custom-homepage-replace-with-prompt)
+home-custom-homepage-current-pages-button =
+    .label = 当前打开的页面
+# Button that appears in-line after text "Replace with" (home-custom-homepage-replace-with-prompt)
+home-custom-homepage-bookmarks-button =
+    .label = 书签…
+
+## Firefox Home content
+
+home-prefs-content-header =
+    .label = { -firefox-home-brand-name }
+home-prefs-search-header2 =
+    .label = 搜索
+home-prefs-stories-header2 =
+    .label = 文章
+    .description = 由 { -brand-product-name } 系列产品推荐的精选内容
+home-prefs-widgets-header =
+    .label = 小组件
+# Lists is a widget on New Tab, similar to a to-do widget
+home-prefs-lists-header =
+    .label = 清单
+# Timer is a widget on New Tab, similar to the Pomodoro timer.
+home-prefs-timer-header =
+    .label = 计时器
+# Sports is a widget on New Tab showing sports scores and schedules.
+home-prefs-sports-widget-header =
+    .label = 体育
+# Clock is a widget on New Tab that displays time zones around the world.
+home-prefs-clocks-header =
+    .label = 时钟
+home-prefs-mission-message2 =
+    .message = 建设一个更好的互联网的使命，离不开我们赞助商的支持。
+home-prefs-manage-topics-link2 =
+    .label = 管理主题
+home-prefs-choose-wallpaper-link2 =
+    .label = 选择壁纸
+home-prefs-firefox-logo-header =
+    .label = { -brand-short-name } 徽标
+# Informational message bar that appears in the Firefox Home section when the options are disabled.
+# The user must select Firefox Home as their homepage for either new tabs or new windows to enable
+# the features in settings.
+home-prefs-firefox-home-disabled-notice =
+    .message = 将新标签页或新窗口设置为 { -firefox-home-brand-name }以使用此功能。
+# Variables:
+#   $num (number) - Number of rows displayed
+home-prefs-sections-rows-option-srd =
+    .label = { $num } 行
+# Dropdown option shown when an extension replaces the contents of new windows or tabs.
+# Variables:
+#   $extension (string) - Name of the extension
+home-prefs-homepage-extension-option =
+    .label = 扩展（{ $extension }）
+home-restore-defaults-srd =
+    .label = 恢复默认设置
+    .accesskey = R
+home-mode-choice-default-fx-srd =
+    .label = { -firefox-home-brand-name }（默认）
+home-mode-choice-custom-srd =
+    .label = 自定义网址…
+home-mode-choice-blank-srd =
+    .label = 空白页
+home-prefs-shortcuts-header-srd =
+    .label = 快捷方式
+home-prefs-shortcuts-select =
+    .aria-label = 快捷方式
+home-prefs-shortcuts-by-option-sponsored-srd =
+    .label = 赞助商网站
+home-prefs-recommended-by-option-sponsored-stories-srd =
+    .label = 赞助内容
+home-prefs-highlights-option-visited-pages-srd =
+    .label = 访问过的页面
+home-prefs-highlights-options-bookmarks-srd =
+    .label = 书签
+home-prefs-highlights-option-most-recent-download-srd =
+    .label = 最近下载
+home-prefs-recent-activity-header-srd =
+    .label = 近期动态
+home-prefs-recent-activity-select =
+    .aria-label = 近期动态
+home-prefs-weather-header-srd =
+    .label = 天气
+home-prefs-support-firefox-header-srd =
+    .label = 支持 { -brand-product-name }
+home-prefs-mission-message-learn-more-link-srd = 了解其方式
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -151,6 +268,8 @@ newtab-menu-section-block = 屏蔽
 # "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 # e.g. Following the travel section of stories.
 newtab-menu-section-unfollow-topic = 取消关注
+# Context menu option to open a support page explaining the New Tab personalization features and privacy controls.
+newtab-menu-section-learn-more = 详细了解
 # "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 # e.g. Following the travel section of stories.
 newtab-menu-section-unfollow = 取消关注主题
@@ -752,8 +871,6 @@ newtab-widget-lists-button-add-item = 添加项目
 newtab-widget-lists-input-add-an-item2 =
     .placeholder = 添加项目
     .aria-label = 添加项目
-newtab-widget-lists-input-add-an-item =
-    .placeholder = 添加项目
 newtab-widget-lists-input-error = 请输入项目名称
 newtab-widget-lists-input-menu-open-link = 打开链接
 newtab-widget-lists-input-menu-move-up = 上移
@@ -781,11 +898,6 @@ newtab-widget-lists-name-placeholder-checklist2 =
 newtab-widget-lists-name-placeholder-new2 =
     .placeholder = 新清单
     .aria-label = 编辑清单名称
-newtab-widget-lists-name-placeholder-checklist =
-    .placeholder = 核对清单
-# The placeholder value of the name field for a newly created list
-newtab-widget-lists-name-placeholder-new =
-    .placeholder = 新清单
 newtab-widget-section-title = 小组件
 newtab-widget-menu-hide = 隐藏小组件
 newtab-widget-menu-change-size = 更改大小
@@ -1038,6 +1150,9 @@ newtab-sports-widget-match-full-time = 全场
 newtab-sports-widget-match-halftime = 中场
 newtab-sports-widget-match-extra-time = 加时赛
 newtab-sports-widget-match-penalties = 点球决胜
+# Separator shown between two teams in a placeholder match row when no upcoming
+# match details are available yet.
+newtab-sports-widget-match-vs = vs
 
 ## Sports widget live-games pagination. Shown when 2+ matches are live at the same time
 

@@ -286,15 +286,14 @@ def determine_generated_js_content_scripts_for_intervention(
 
         js = content_scripts.get("js", [])
         generate_from_sources = []
-        for script_filename in js:
-            if not script_filename.startswith("bug"):
-                generate_from_sources.append({
+        if js and any(not script_filename.startswith("bug") for script_filename in js):
+            generate_from_sources = [
+                {
                     "params": {},
                     "source": script_filename,
-                })
-                content_scripts["js"] = [
-                    f for f in content_scripts["js"] if f != script_filename
-                ]
+                }
+                for script_filename in js
+            ]
 
         for checker in special_checkers:
             metas, params = checker.check(intervention, src_json_filename)
@@ -328,7 +327,7 @@ def determine_generated_js_content_scripts_for_intervention(
 
             content_scripts = intervention.setdefault("content_scripts", {})
             js = content_scripts.setdefault("js", [])
-            js.append(f"injections/generated/{generated_filename}")
+            content_scripts["js"] = [f"injections/generated/{generated_filename}"]
             for name, value in final_metas.items():
                 if value:
                     content_scripts[name] = True

@@ -144,6 +144,7 @@ import org.mozilla.fenix.home.topsites.controller.DefaultTopSiteController
 import org.mozilla.fenix.home.topsites.getTopSitesConfig
 import org.mozilla.fenix.home.ui.Homepage
 import org.mozilla.fenix.home.ui.WallpaperBackground
+import org.mozilla.fenix.ipprotection.store.IPProtectionOnboardingPrompt
 import org.mozilla.fenix.messaging.DefaultMessageController
 import org.mozilla.fenix.messaging.FenixMessageSurfaceId
 import org.mozilla.fenix.messaging.MessagingFeature
@@ -260,6 +261,7 @@ class HomeFragment : Fragment() {
     private val topSitesBinding = ViewBoundFeatureWrapper<TopSitesBinding>()
     private val trackersBlockedFeature = ViewBoundFeatureWrapper<TrackersBlockedFeature>()
     private val ipProtectionWarningBinding = ViewBoundFeatureWrapper<IPProtectionWarningBinding>()
+    private val ipProtectionOnboardingPrompt = ViewBoundFeatureWrapper<IPProtectionOnboardingPrompt>()
 
     private val homepageEdgeToEdgeFeature = ViewBoundFeatureWrapper<HomepageEdgeToEdgeFeature>()
     private var qrScanFenixFeature: ViewBoundFeatureWrapper<QrScanFenixFeature>? =
@@ -521,7 +523,7 @@ class HomeFragment : Fragment() {
         initReviewPromptBinding(view = view)
         initTabsCleanupFeature(view = view)
         initSnackbarBinding(view = view)
-        initIpProtectionWarningBinding(view = view)
+        initIpProtectionBindings(view = view)
 
         privacyNoticeBannerStore = PrivacyNoticeBannerStore(
             initialState = PrivacyNoticeBannerState(
@@ -877,10 +879,6 @@ class HomeFragment : Fragment() {
             findNavController().navigate(
                 BrowserFragmentDirections.actionGlobalTermsOfUseDialog(Surface.HOMEPAGE_NEW_TAB),
             )
-        } else if (requireComponents.ipProtectionManager.shouldShowIPProtectionPrompt()) {
-            findNavController().navigate(
-                BrowserFragmentDirections.actionGlobalIpProtectionDialog(IPProtectionSurface.HOMEPAGE),
-            )
         }
     }
 
@@ -1208,19 +1206,35 @@ class HomeFragment : Fragment() {
                 tabsUseCases = requireComponents.useCases.tabsUseCases,
                 sendTabUseCases = SendTabUseCases(requireComponents.backgroundServices.accountManager),
                 customTabSessionId = null,
+                viewHasFocus = { view.hasWindowFocus() },
             ),
             owner = this,
             view = view,
         )
     }
 
-    private fun initIpProtectionWarningBinding(view: View) {
+    private fun initIpProtectionBindings(view: View) {
         ipProtectionWarningBinding.set(
             feature = IPProtectionWarningBinding(
                 store = requireComponents.ipProtection.store,
                 proxyUnavailable = {
                     findNavController().navigate(
                         HomeFragmentDirections.actionGlobalIpProtectionUnavailableDialog(),
+                    )
+                },
+            ),
+            owner = this,
+            view = view,
+        )
+
+        ipProtectionOnboardingPrompt.set(
+            feature = IPProtectionOnboardingPrompt(
+                repository = requireComponents.ipProtectionPromptRepository,
+                timeProvider = DefaultDateTimeProvider(),
+                store = requireComponents.ipProtection.store,
+                onShowOnboarding = {
+                    findNavController().navigate(
+                        HomeFragmentDirections.actionGlobalIpProtectionDialog(IPProtectionSurface.HOMEPAGE),
                     )
                 },
             ),

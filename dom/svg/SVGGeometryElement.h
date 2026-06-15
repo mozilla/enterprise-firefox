@@ -132,6 +132,13 @@ class SVGGeometryElement : public SVGGeometryElementBase {
       mHeightOrY2 = height;
       mType = Type::Rect;
     }
+    void SetRect(const gfx::Rect& rect) {
+      mX = rect.x;
+      mY = rect.y;
+      mWidthOrX2 = rect.width;
+      mHeightOrY2 = rect.height;
+      mType = Type::Rect;
+    }
     Rect AsRect() const {
       MOZ_ASSERT(mType == Type::Rect);
       return Rect(mX, mY, mWidthOrX2, mHeightOrY2);

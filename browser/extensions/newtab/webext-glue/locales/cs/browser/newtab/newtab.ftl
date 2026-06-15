@@ -31,6 +31,136 @@ newtab-card-dismiss-button =
     .title = Zavřít
     .aria-label = Zavřít
 
+## Strings for "Homepage" and "Firefox Home" sections of about:settings#home.
+## Homepage panel
+
+home-homepage-title =
+    .label = Domovská stránka
+home-homepage-new-windows =
+    .label = Nová okna
+home-homepage-new-tabs =
+    .label = V novém panelu
+# This option leads to the "Custom Homepage" subpage
+home-homepage-custom-homepage-button =
+    .label = Zvolte konkrétní stránku
+
+## Custom URLs subpage
+
+# Subheader on the Custom Homepage subpage. Followed by a form to enter URLs and a list of URLs already saved, if any.
+home-custom-homepage-card-header =
+    .label = Adresy webových stránek
+home-custom-homepage-address =
+    .placeholder = Zadejte webovou adresu
+home-custom-homepage-address-button =
+    .label = Přidat adresu
+# Shown when no custom websites/URLs to use as a homepage have been added yet
+home-custom-homepage-no-results =
+    .label = Dosud nebyly přidány žádné stránky.
+home-custom-homepage-delete-address-button =
+    .aria-label = Smazat adresu
+    .title = Smazat adresu
+# Further options to use when setting the home page. Two action buttons are placed in line with this prompt
+# to replace the current home page with a currently open page or bookmark.
+home-custom-homepage-replace-with-prompt =
+    .label = Nahradit s
+# Button that appears in-line after text "Replace with" (home-custom-homepage-replace-with-prompt)
+home-custom-homepage-current-pages-button =
+    .label = Právě otevřené stránky
+# Button that appears in-line after text "Replace with" (home-custom-homepage-replace-with-prompt)
+home-custom-homepage-bookmarks-button =
+    .label = Záložky…
+
+## Firefox Home content
+
+home-prefs-content-header =
+    .label = { -firefox-home-brand-name }
+home-prefs-search-header2 =
+    .label = Hledat
+home-prefs-stories-header2 =
+    .label = Příběhy
+    .description = Výjimečný obsah od rodiny { -brand-product-name(case: "gen") }
+home-prefs-widgets-header =
+    .label = Widgety
+# Lists is a widget on New Tab, similar to a to-do widget
+home-prefs-lists-header =
+    .label = Seznamy
+# Timer is a widget on New Tab, similar to the Pomodoro timer.
+home-prefs-timer-header =
+    .label = Časovač
+# Sports is a widget on New Tab showing sports scores and schedules.
+home-prefs-sports-widget-header =
+    .label = Sporty
+# Clock is a widget on New Tab that displays time zones around the world.
+home-prefs-clocks-header =
+    .label = Hodiny
+home-prefs-mission-message2 =
+    .message = Naši sponzoři podporují naši misi budovat lepší web.
+home-prefs-manage-topics-link2 =
+    .label = Správa témat
+home-prefs-choose-wallpaper-link2 =
+    .label = Zvolte si tapetu
+home-prefs-firefox-logo-header =
+    .label =
+        { -brand-short-name.case-status ->
+            [with-cases] Logo { -brand-short-name(case: "gen") }
+           *[no-cases] Logo aplikace { -brand-short-name }
+        }
+# Informational message bar that appears in the Firefox Home section when the options are disabled.
+# The user must select Firefox Home as their homepage for either new tabs or new windows to enable
+# the features in settings.
+home-prefs-firefox-home-disabled-notice =
+    .message = Chcete-li tyto funkce využívat, nastavte pro nové panely nebo okna načítání { -firefox-home-brand-name }.
+# Variables:
+#   $num (number) - Number of rows displayed
+home-prefs-sections-rows-option-srd =
+    .label =
+        { $num ->
+            [one] { $num } řádek
+            [few] { $num } řádky
+           *[other] { $num } řádků
+        }
+# Dropdown option shown when an extension replaces the contents of new windows or tabs.
+# Variables:
+#   $extension (string) - Name of the extension
+home-prefs-homepage-extension-option =
+    .label = Rozšíření ({ $extension })
+home-restore-defaults-srd =
+    .label = Obnovit výchozí
+    .accesskey = O
+home-mode-choice-default-fx-srd =
+    .label = { -firefox-home-brand-name } (výchozí)
+home-mode-choice-custom-srd =
+    .label = Vlastní adresy…
+home-mode-choice-blank-srd =
+    .label = Prázdná stránka
+home-prefs-shortcuts-header-srd =
+    .label = Zkratky
+home-prefs-shortcuts-select =
+    .aria-label = Zkratky
+home-prefs-shortcuts-by-option-sponsored-srd =
+    .label = Sponzorované zkratky
+home-prefs-recommended-by-option-sponsored-stories-srd =
+    .label = Sponzorované příběhy
+home-prefs-highlights-option-visited-pages-srd =
+    .label = Navštívené stránky
+home-prefs-highlights-options-bookmarks-srd =
+    .label = Záložky
+home-prefs-highlights-option-most-recent-download-srd =
+    .label = Nedávná stahování
+home-prefs-recent-activity-header-srd =
+    .label = Nedávná aktivita
+home-prefs-recent-activity-select =
+    .aria-label = Nedávná aktivita
+home-prefs-weather-header-srd =
+    .label = Počasí
+home-prefs-support-firefox-header-srd =
+    .label =
+        { -brand-product-name.case-status ->
+            [with-cases] Podpora { -brand-product-name(case: "gen") }
+           *[no-cases] Podpora aplikace { -brand-product-name }
+        }
+home-prefs-mission-message-learn-more-link-srd = Zjistěte jak
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -151,6 +281,8 @@ newtab-menu-section-block = Blokovat
 # "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 # e.g. Following the travel section of stories.
 newtab-menu-section-unfollow-topic = Přestat sledovat
+# Context menu option to open a support page explaining the New Tab personalization features and privacy controls.
+newtab-menu-section-learn-more = Zjistit více
 # "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 # e.g. Following the travel section of stories.
 newtab-menu-section-unfollow = Přestat sledovat téma
@@ -786,8 +918,6 @@ newtab-widget-lists-button-add-item = Přidat položku
 newtab-widget-lists-input-add-an-item2 =
     .placeholder = Přidat položku
     .aria-label = Přidat položku
-newtab-widget-lists-input-add-an-item =
-    .placeholder = Přidat položku
 newtab-widget-lists-input-error = Položku přidáte zadáním textu.
 newtab-widget-lists-input-menu-open-link = Otevřít odkaz
 newtab-widget-lists-input-menu-move-up = Posunout výše
@@ -815,11 +945,6 @@ newtab-widget-lists-name-placeholder-checklist2 =
 newtab-widget-lists-name-placeholder-new2 =
     .placeholder = Nový seznam
     .aria-label = Upravit název seznamu
-newtab-widget-lists-name-placeholder-checklist =
-    .placeholder = Kontrolní seznam
-# The placeholder value of the name field for a newly created list
-newtab-widget-lists-name-placeholder-new =
-    .placeholder = Nový seznam
 newtab-widget-section-title = Widgety
 newtab-widget-menu-hide = Skrýt widget
 newtab-widget-menu-change-size = Změnit velikost

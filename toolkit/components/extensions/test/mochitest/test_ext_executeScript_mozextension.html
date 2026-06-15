@@ -130,9 +130,11 @@ async function testExecuteScript({
                 break;
               case "scripting.executeScript":
                 res = await scriptingExecuteScript(opts);
+                delete res[0].documentId; // Test only cares about frameId.
                 break;
               case "userScripts.execute":
                 res = await userScriptsExecute(opts);
+                delete res[0].documentId; // Test only cares about frameId.
                 break;
               default:
                 browser.test.fail(`Got unexpected test message: ${msg}`);

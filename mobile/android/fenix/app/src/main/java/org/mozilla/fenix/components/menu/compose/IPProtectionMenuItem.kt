@@ -147,11 +147,12 @@ private fun badgeText(status: IPProtectionMenuStatus): String = when (status) {
 }
 
 private fun badgeState(status: IPProtectionMenuStatus): MenuItemState = when (status) {
-    IPProtectionMenuStatus.Enabled -> MenuItemState.ACTIVE
+    IPProtectionMenuStatus.Enabled,
+    IPProtectionMenuStatus.Activating,
+    -> MenuItemState.ACTIVE
     IPProtectionMenuStatus.ConnectionError -> MenuItemState.WARNING
     IPProtectionMenuStatus.DataLimitReached -> MenuItemState.DISABLED
     IPProtectionMenuStatus.Disabled,
-    IPProtectionMenuStatus.Activating,
     IPProtectionMenuStatus.AuthRequired,
     -> MenuItemState.ENABLED
 }

@@ -667,13 +667,6 @@
             app:popEnterAnim="@anim/slide_in_left"
             app:popExitAnim="@anim/slide_out_right" />
         <action
-            android:id="@+id/action_settingsFragment_to_secretInfoSettingsFragment"
-            app:destination="@id/secretInfoSettingsFragment"
-            app:enterAnim="@anim/slide_in_right"
-            app:exitAnim="@anim/slide_out_left"
-            app:popEnterAnim="@anim/slide_in_left"
-            app:popExitAnim="@anim/slide_out_right" />
-        <action
             android:id="@+id/action_settingsFragment_to_nimbusExperimentsFragment"
             app:destination="@id/nimbus_experiment_graph"
             app:enterAnim="@anim/slide_in_right"
@@ -1085,10 +1078,6 @@
         android:id="@+id/secretSettingsSearchFragment"
         android:name="org.mozilla.fenix.settings.settingssearch.secretsettings.SecretSettingsSearchFragment"
         android:label="@string/settings_search_title" />
-    <fragment
-        android:id="@+id/secretInfoSettingsFragment"
-        android:name="org.mozilla.fenix.settings.SecretDebugSettingsFragment"
-        android:label="@string/preferences_debug_info" />
     <fragment
         android:id="@+id/remoteSettingsServerFragment"
         android:name="org.mozilla.fenix.settings.RemoteSettingsServerFragment"

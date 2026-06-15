@@ -180,6 +180,11 @@ interface TrackingProtectionInteractor {
      * Invoked when the longfox entry point text is clicked.
      */
     fun onLongfoxEntryPointClicked()
+
+    /**
+     * Invoked when the longfox entry point is shown.
+     */
+    fun onLongfoxEntryPointShown()
 }
 
 /**
@@ -454,6 +459,10 @@ class SessionControlInteractor(
 
     override fun onLongfoxEntryPointClicked() {
         logoController.handleLongfoxEntryPointClicked()
+    }
+
+    override fun onLongfoxEntryPointShown() {
+        logoController.handleLongfoxEntryPointShown()
     }
 
     override fun onGetCustomWallpaperClicked() {

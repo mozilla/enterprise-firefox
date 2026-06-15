@@ -258,12 +258,12 @@ void nsDragSessionX11::DragDataReceived(GtkWidget* aWidget,
       return;
     }
     GUniquePtr<char*> uriList(gtk_selection_data_get_uris(aSelectionData));
-    dragData = new DragData(target, std::move(uriList));
+    dragData = MakeRefPtr<DragData>(target, std::move(uriList));
     LOGDRAGSERVICE("  DragDataReceived(): FILE PORTAL data, MIME %s",
                    GUniquePtr<gchar>(gdk_atom_name(target)).get());
   } else if (target == sTextUriListTypeAtom) {
     GUniquePtr<char*> uriList(gtk_selection_data_get_uris(aSelectionData));
-    dragData = new DragData(target, std::move(uriList));
+    dragData = MakeRefPtr<DragData>(target, std::move(uriList));
     LOGDRAGSERVICE("  DragDataReceived(): URI data, MIME %s",
                    GUniquePtr<gchar>(gdk_atom_name(target)).get());
   } else {
@@ -283,7 +283,7 @@ void nsDragSessionX11::DragDataReceived(GtkWidget* aWidget,
       return;
     }
 
-    dragData = new DragData(target, data, len);
+    dragData = MakeRefPtr<DragData>(target, data, len);
     LOGDRAGSERVICE("  DragDataReceived(): plain data, MIME %s len = %d",
                    GUniquePtr<gchar>(gdk_atom_name(target)).get(), len);
   }

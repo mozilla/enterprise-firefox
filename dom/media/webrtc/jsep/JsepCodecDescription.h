@@ -92,8 +92,10 @@ class JsepCodecPreferences {
   }
 };
 
-#define JSEP_CODEC_CLONE(T) \
-  JsepCodecDescription* Clone() const override { return new T(*this); }
+#define JSEP_CODEC_CLONE(T)                                \
+  UniquePtr<JsepCodecDescription> Clone() const override { \
+    return MakeUnique<T>(*this);                           \
+  }
 
 // A single entry in our list of known codecs.
 class JsepCodecDescription {
@@ -112,7 +114,7 @@ class JsepCodecDescription {
 
   virtual SdpMediaSection::MediaType Type() const = 0;
 
-  virtual JsepCodecDescription* Clone() const = 0;
+  virtual UniquePtr<JsepCodecDescription> Clone() const = 0;
 
   bool GetPtAsInt(uint16_t* ptOutparam) const {
     return SdpHelper::GetPtAsInt(mDefaultPt, ptOutparam);
@@ -527,11 +529,11 @@ class JsepAudioCodecDescription final : public JsepCodecDescription {
       opusParams.minFrameSizeMs = mMinFrameSizeMs;
       opusParams.maxFrameSizeMs = mMaxFrameSizeMs;
       opusParams.useCbr = mCbrEnabled;
-      aFmtp.reset(opusParams.Clone());
+      aFmtp = opusParams.Clone();
     } else if (mName == "telephone-event") {
       if (!aFmtp) {
         // We only use the default right now
-        aFmtp.reset(new SdpFmtpAttributeList::TelephoneEventParameters);
+        aFmtp = MakeUnique<SdpFmtpAttributeList::TelephoneEventParameters>();
       }
     }
   };
@@ -766,7 +768,7 @@ class JsepVideoCodecDescription final : public JsepCodecDescription {
       h264Params.packetization_mode = mPacketizationMode;
       // Hard-coded, may need to change someday?
       h264Params.level_asymmetry_allowed = true;
-      aFmtp.reset(h264Params.Clone());
+      aFmtp = h264Params.Clone();
     } else if (mName == "VP8" || mName == "VP9") {
       SdpRtpmapAttributeList::CodecType type =
           mName == "VP8" ? SdpRtpmapAttributeList::CodecType::kVP8
@@ -786,7 +788,7 @@ class JsepVideoCodecDescription final : public JsepCodecDescription {
       } else {
         vp8Params.max_fr = 60;
       }
-      aFmtp.reset(vp8Params.Clone());
+      aFmtp = vp8Params.Clone();
     } else if (mName == "AV1") {
       auto av1Params = SdpFmtpAttributeList::Av1Parameters();
       if (aFmtp) {
@@ -797,7 +799,7 @@ class JsepVideoCodecDescription final : public JsepCodecDescription {
         av1Params.levelIdx = mAv1Config.mLevelIdx;
         av1Params.tier = mAv1Config.mTier;
       }
-      aFmtp.reset(av1Params.Clone());
+      aFmtp = av1Params.Clone();
     }
   }
 

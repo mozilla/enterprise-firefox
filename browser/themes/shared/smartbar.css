@@ -22,7 +22,7 @@
   --smartbar-outline-color: light-dark(var(--color-violet-30), var(--color-violet-50));
   --smartbar-cta-icon-fill: var(--icon-color);
   --smartbar-scroll-mask-height: calc(var(--urlbarView-row-min-height) * 1.5);
-  --text-color-deemphasized: light-dark(color-mix(in srgb, var(--color-gray-100) 69%, transparent), color-mix(in srgb, var(--color-gray-05) 69%, transparent));
+  --text-color-deemphasized: light-dark(color-mix(in srgb, var(--color-gray-100) 69%, transparent), color-mix(in srgb, var(--color-gray-0) 69%, transparent));
 
   --toolbar-field-border-color: transparent;
 }

@@ -31,6 +31,127 @@ newtab-card-dismiss-button =
     .title = Ignorer
     .aria-label = Ignorer
 
+## Strings for "Homepage" and "Firefox Home" sections of about:settings#home.
+## Homepage panel
+
+home-homepage-title =
+    .label = Startside
+home-homepage-new-windows =
+    .label = Nye vinduer
+home-homepage-new-tabs =
+    .label = Nye faner
+# This option leads to the "Custom Homepage" subpage
+home-homepage-custom-homepage-button =
+    .label = Velg et bestemt nettsted
+
+## Custom URLs subpage
+
+# Subheader on the Custom Homepage subpage. Followed by a form to enter URLs and a list of URLs already saved, if any.
+home-custom-homepage-card-header =
+    .label = Nettadresse(r)
+home-custom-homepage-address =
+    .placeholder = Skriv inn adresse
+home-custom-homepage-address-button =
+    .label = Legg til adresse
+# Shown when no custom websites/URLs to use as a homepage have been added yet
+home-custom-homepage-no-results =
+    .label = Ingen nettsteder lagt til ennå.
+home-custom-homepage-delete-address-button =
+    .aria-label = Slett adresse
+    .title = Slett adresse
+# Further options to use when setting the home page. Two action buttons are placed in line with this prompt
+# to replace the current home page with a currently open page or bookmark.
+home-custom-homepage-replace-with-prompt =
+    .label = Erstatt med
+# Button that appears in-line after text "Replace with" (home-custom-homepage-replace-with-prompt)
+home-custom-homepage-current-pages-button =
+    .label = Gjeldende åpnede sider
+# Button that appears in-line after text "Replace with" (home-custom-homepage-replace-with-prompt)
+home-custom-homepage-bookmarks-button =
+    .label = Bokmerker…
+
+## Firefox Home content
+
+home-prefs-content-header =
+    .label = { -firefox-home-brand-name }
+home-prefs-search-header2 =
+    .label = Søk
+home-prefs-stories-header2 =
+    .label = Artikler
+    .description = Enestående innhold kuratert av { -brand-product-name }-familien
+home-prefs-widgets-header =
+    .label = Widgeter
+# Lists is a widget on New Tab, similar to a to-do widget
+home-prefs-lists-header =
+    .label = Lister
+# Timer is a widget on New Tab, similar to the Pomodoro timer.
+home-prefs-timer-header =
+    .label = Nedtelling
+# Sports is a widget on New Tab showing sports scores and schedules.
+home-prefs-sports-widget-header =
+    .label = Sport
+# Clock is a widget on New Tab that displays time zones around the world.
+home-prefs-clocks-header =
+    .label = Klokke
+home-prefs-mission-message2 =
+    .message = Våre sponsorer støtter vårt oppdrag om å bygge et bedre internett.
+home-prefs-manage-topics-link2 =
+    .label = Behandle emner
+home-prefs-choose-wallpaper-link2 =
+    .label = Velg et bakgrunnsbilde
+home-prefs-firefox-logo-header =
+    .label = { -brand-short-name }-logo
+# Informational message bar that appears in the Firefox Home section when the options are disabled.
+# The user must select Firefox Home as their homepage for either new tabs or new windows to enable
+# the features in settings.
+home-prefs-firefox-home-disabled-notice =
+    .message = For å bruke disse funksjonene må du sette nye faner eller nye vinduer til { -firefox-home-brand-name }.
+# Variables:
+#   $num (number) - Number of rows displayed
+home-prefs-sections-rows-option-srd =
+    .label =
+        { $num ->
+            [one] { $num } rekke
+           *[other] { $num } rekker
+        }
+# Dropdown option shown when an extension replaces the contents of new windows or tabs.
+# Variables:
+#   $extension (string) - Name of the extension
+home-prefs-homepage-extension-option =
+    .label = Utvidelse ({ $extension })
+home-restore-defaults-srd =
+    .label = Bruk standard
+    .accesskey = r
+home-mode-choice-default-fx-srd =
+    .label = { -firefox-home-brand-name } (standard)
+home-mode-choice-custom-srd =
+    .label = Tilpassede nettadresser…
+home-mode-choice-blank-srd =
+    .label = Blank side
+home-prefs-shortcuts-header-srd =
+    .label = Snarveier
+home-prefs-shortcuts-select =
+    .aria-label = Snarveier
+home-prefs-shortcuts-by-option-sponsored-srd =
+    .label = Sponsede snarveier
+home-prefs-recommended-by-option-sponsored-stories-srd =
+    .label = Sponsede historier
+home-prefs-highlights-option-visited-pages-srd =
+    .label = Besøkte nettsider
+home-prefs-highlights-options-bookmarks-srd =
+    .label = Bokmerker
+home-prefs-highlights-option-most-recent-download-srd =
+    .label = Siste nedlasting
+home-prefs-recent-activity-header-srd =
+    .label = Nylig aktivitet
+home-prefs-recent-activity-select =
+    .aria-label = Nylig aktivitet
+home-prefs-weather-header-srd =
+    .label = Vær
+home-prefs-support-firefox-header-srd =
+    .label = Støtt { -brand-product-name }
+home-prefs-mission-message-learn-more-link-srd = Finn ut hvordan
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -151,6 +272,8 @@ newtab-menu-section-block = Blokker
 # "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 # e.g. Following the travel section of stories.
 newtab-menu-section-unfollow-topic = Slutt å følge
+# Context menu option to open a support page explaining the New Tab personalization features and privacy controls.
+newtab-menu-section-learn-more = Les mer
 # "Follow", "unfollow", and "following" are social media terms that refer to subscribing to or unsubscribing from a section of stories.
 # e.g. Following the travel section of stories.
 newtab-menu-section-unfollow = Slutt å følge emnet
@@ -757,8 +880,6 @@ newtab-widget-lists-button-add-item = Legg til et element
 newtab-widget-lists-input-add-an-item2 =
     .placeholder = Legg til et element
     .aria-label = Legg til et element
-newtab-widget-lists-input-add-an-item =
-    .placeholder = Legg til et element
 newtab-widget-lists-input-error = Legg til tekst for å legge til et element.
 newtab-widget-lists-input-menu-open-link = Åpne lenke
 newtab-widget-lists-input-menu-move-up = Flytt opp
@@ -786,11 +907,6 @@ newtab-widget-lists-name-placeholder-checklist2 =
 newtab-widget-lists-name-placeholder-new2 =
     .placeholder = Ny liste
     .aria-label = Rediger listenavn
-newtab-widget-lists-name-placeholder-checklist =
-    .placeholder = Sjekkliste
-# The placeholder value of the name field for a newly created list
-newtab-widget-lists-name-placeholder-new =
-    .placeholder = Ny liste
 newtab-widget-section-title = Widgeter
 newtab-widget-menu-hide = Skjul widget
 newtab-widget-menu-change-size = Endre størrelse

@@ -73,13 +73,13 @@ import mozilla.components.ui.icons.R as iconsR
  * @param store The [LabsStore] used to observe the screen state and dispatch actions.
  * @param onNavigationIconClick Callback invoked when the navigation icon is clicked.
  * @param onShareFeedbackClick Callback invoked when an item's "Share feedback" link is clicked,
- * with the feedback URL as the argument.
+ * with the [LabsItem] whose link was tapped as the argument.
  */
 @Composable
 fun FirefoxLabsScreen(
     store: LabsStore,
     onNavigationIconClick: () -> Unit,
-    onShareFeedbackClick: (String) -> Unit,
+    onShareFeedbackClick: (LabsItem) -> Unit,
 ) {
     val labsItems by remember { store.stateFlow.map { state -> state.labsItems } }
         .collectAsState(initial = store.state.labsItems)
@@ -101,8 +101,20 @@ fun FirefoxLabsScreen(
             FirefoxLabsScreenContent(
                 labsItems = labsItems,
                 paddingValues = paddingValues,
-                onToggleLabsItem = { item -> store.dispatch(LabsAction.ShowToggleLabsItemDialog(item)) },
-                onRestoreDefaultsButtonClick = { store.dispatch(LabsAction.ShowRestoreDefaultsDialog) },
+                onToggleLabsItem = { item ->
+                    if (item.requiresRestart) {
+                        store.dispatch(LabsAction.ShowToggleLabsItemDialog(item))
+                    } else {
+                        store.dispatch(LabsAction.ToggleLabsItem(item))
+                    }
+                },
+                onRestoreDefaultsButtonClick = {
+                    if (labsItems.any { it.enrolled && it.requiresRestart }) {
+                        store.dispatch(LabsAction.ShowRestoreDefaultsDialog)
+                    } else {
+                        store.dispatch(LabsAction.RestoreDefaults)
+                    }
+                },
                 onShareFeedbackClick = onShareFeedbackClick,
             )
         }
@@ -117,7 +129,7 @@ private fun FirefoxLabsScreenContent(
     paddingValues: PaddingValues,
     onToggleLabsItem: (LabsItem) -> Unit,
     onRestoreDefaultsButtonClick: () -> Unit,
-    onShareFeedbackClick: (String) -> Unit,
+    onShareFeedbackClick: (LabsItem) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier
@@ -158,7 +170,7 @@ private fun FirefoxLabsScreenContent(
 private fun LabsItemRow(
     item: LabsItem,
     onToggle: (LabsItem) -> Unit,
-    onShareFeedbackClick: (String) -> Unit,
+    onShareFeedbackClick: (LabsItem) -> Unit,
 ) {
     val itemTitle = stringResource(id = item.title)
     SwitchListItem(
@@ -170,6 +182,7 @@ private fun LabsItemRow(
         belowListItemContent = {
             item.feedbackUrl?.let { url ->
                 LabsShareFeedbackLink(
+                    item = item,
                     itemTitle = itemTitle,
                     url = url,
                     onShareFeedbackClick = onShareFeedbackClick,
@@ -182,9 +195,10 @@ private fun LabsItemRow(
 
 @Composable
 private fun LabsShareFeedbackLink(
+    item: LabsItem,
     itemTitle: String,
     url: String,
-    onShareFeedbackClick: (String) -> Unit,
+    onShareFeedbackClick: (LabsItem) -> Unit,
 ) {
     val shareFeedbackText = stringResource(R.string.firefox_labs_share_feedback)
     val shareFeedbackContentDescription = stringResource(
@@ -197,7 +211,7 @@ private fun LabsShareFeedbackLink(
             LinkTextState(
                 text = shareFeedbackText,
                 url = url,
-                onClick = onShareFeedbackClick,
+                onClick = { _ -> onShareFeedbackClick(item) },
             ),
         ),
         linkTextDecoration = TextDecoration.Underline,

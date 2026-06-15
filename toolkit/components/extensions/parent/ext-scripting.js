@@ -47,7 +47,7 @@ const execute = (context, details, kind, method) => {
     extensionId: context.extension.id,
   };
 
-  const { tabId, frameIds, allFrames } = details.target;
+  const { tabId, frameIds, allFrames, documentIds } = details.target;
   const tab = tabManager.get(tabId);
 
   options.hasActiveTabPermission = tab.hasActiveTabPermission;
@@ -85,15 +85,26 @@ const execute = (context, details, kind, method) => {
       }
     }
   }
-
+  if (documentIds && frameIds) {
+    throw new ExtensionUtils.ExtensionError(
+      "Cannot specify both 'documentIds' and 'frameIds'."
+    );
+  }
   if (allFrames && frameIds) {
     throw new ExtensionError("Cannot specify both 'allFrames' and 'frameIds'.");
+  }
+  if (allFrames && documentIds) {
+    throw new ExtensionError(
+      "Cannot specify both 'allFrames' and 'documentIds'."
+    );
   }
 
   if (allFrames) {
     options.allFrames = allFrames;
   } else if (frameIds) {
     options.frameIds = frameIds;
+  } else if (documentIds) {
+    options.documentIds = documentIds;
   } else {
     options.frameIds = [0];
   }

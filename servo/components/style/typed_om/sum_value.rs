@@ -4,11 +4,12 @@
 
 //! Typed OM Sum Value.
 
-use crate::typed_om::numeric_values::NoCalcNumeric;
-use crate::typed_om::{MathValue, NumericValue, UnitValue};
+use crate::typed_om::numeric::NoCalcNumeric;
+use crate::typed_om::{MathSum, MathValue, NumericValue, UnitValue};
 use itertools::Itertools;
 use std::collections::HashMap;
 use style_traits::CssString;
+use thin_vec::ThinVec;
 
 type UnitMap = HashMap<String, i32>;
 
@@ -76,14 +77,14 @@ impl SumValue {
             NumericValue::Unit(unit_value) => {
                 // Step 1.
                 let mut value = unit_value.value;
-                let mut unit = unit_value.unit.to_string();
+                let mut unit = unit_value.unit_str();
 
                 // Step2.
-                let numeric = NoCalcNumeric::parse_unit_value(value, unit.as_str())?;
+                let numeric = NoCalcNumeric::parse_unit_value(value, unit)?;
                 if let Some(canonical_unit) = numeric.canonical_unit() {
                     let canonical = numeric.to(canonical_unit)?;
                     value = canonical.unitless_value();
-                    unit = canonical.unit().to_string();
+                    unit = canonical.unit();
                 }
 
                 // Step 3.
@@ -97,7 +98,7 @@ impl SumValue {
                 // Step 4.
                 Ok(Self(vec![SumValueItem {
                     value,
-                    unit_map: [(unit, 1)].into_iter().collect::<UnitMap>(),
+                    unit_map: [(unit.to_owned(), 1)].into_iter().collect::<UnitMap>(),
                 }]))
             },
 
@@ -298,6 +299,8 @@ impl SumValue {
             //
             // 4. Clamp value's sole item's value between lower's and upper's
             //    sole item's values, and return value.
+            //
+            // See https://github.com/w3c/csswg-drafts/issues/14038
             NumericValue::Math(MathValue::Clamp(math_clamp)) => {
                 // Step 1 & 2.
                 let lower = SumValue::try_from_numeric_value(&math_clamp[0])?;
@@ -326,7 +329,7 @@ impl SumValue {
 
     /// Step 3 of:
     /// https://drafts.css-houdini.org/css-typed-om-1/#dom-cssnumericvalue-to
-    pub fn resolve_to_unit(&self, unit: &str) -> Result<UnitValue, ()> {
+    pub fn to_unit(&self, unit: &str) -> Result<UnitValue, ()> {
         if self.0.len() != 1 {
             return Err(());
         }
@@ -336,8 +339,7 @@ impl SumValue {
         let item = sole_item.to_unit_value()?;
 
         let item = {
-            let numeric =
-                NoCalcNumeric::parse_unit_value(item.value, item.unit.to_string().as_str())?;
+            let numeric = NoCalcNumeric::parse_unit_value(item.value, item.unit_str())?;
             let converted = numeric.to(unit)?;
 
             UnitValue {
@@ -347,5 +349,64 @@ impl SumValue {
         };
 
         Ok(item)
+    }
+
+    /// Step 3-6 of:
+    /// https://drafts.css-houdini.org/css-typed-om-1/#dom-cssnumericvalue-tosum
+    pub fn to_units(&self, units: &[&str]) -> Result<MathSum, ()> {
+        // Step 3.
+        let mut values = self
+            .0
+            .iter()
+            .map(|item| item.to_unit_value())
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // Step 4.
+        if units.is_empty() {
+            values.sort_by(|a, b| a.unit.cmp(&b.unit));
+            return Ok(values.into_iter().map(NumericValue::Unit).collect());
+        }
+
+        // Step 5.
+        let mut result = ThinVec::new();
+
+        for unit in units {
+            // Step 5.1.
+            let mut temp = UnitValue {
+                value: 0.0,
+                unit: CssString::from(*unit),
+            };
+
+            // Step 5.2.
+            let mut i = 0;
+            while i < values.len() {
+                let value = &values[i];
+
+                // Step 5.2.1.
+                let value_unit = value.unit_str();
+
+                // Step 5.2.2 & 5.2.2.1.
+                let numeric = NoCalcNumeric::parse_unit_value(value.value, &value_unit)?;
+                if let Ok(converted) = numeric.to(unit) {
+                    // Step 5.2.2.2.
+                    temp.value += converted.unitless_value();
+
+                    // Step 5.2.2.3.
+                    values.remove(i);
+                } else {
+                    i += 1;
+                }
+            }
+
+            // Step 5.3.
+            result.push(NumericValue::Unit(temp));
+        }
+
+        // Step 6.
+        if !values.is_empty() {
+            return Err(());
+        }
+
+        Ok(result)
     }
 }

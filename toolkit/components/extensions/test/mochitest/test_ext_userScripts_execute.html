@@ -125,38 +125,30 @@ add_task(async function test_execute_params_validation() {
         `expected error when both allFrames and frameIds are passed`
       );
 
-      // TODO bug 1891478
-      // Expects a Promise rejection with the following error message:
-      // "Cannot specify both 'documentIds' and 'frameIds'.",
-      browser.test.assertThrows(
-        () =>
-          browser.userScripts.execute({
-            target: {
-              tabId,
-              documentIds: ["xxx", "yyy"],
-              frameIds: [1, 2, 3],
-            },
-            js: [{ file: "script.js" }],
-          }),
-        /Property "documentIds" is unsupported by Firefox/,
+      await browser.test.assertRejects(
+        browser.userScripts.execute({
+          target: {
+            tabId,
+            documentIds: ["xxx", "yyy"],
+            frameIds: [1, 2, 3],
+          },
+          js: [{ file: "script.js" }],
+        }),
+        "Cannot specify both 'documentIds' and 'frameIds'.",
         `expected error when both documentIds and frameIds are passed`
       );
 
-      // TODO bug 1891478
-      // Expects a Promise rejection with the following error message:
-      // "Cannot specify both 'allFrames' and 'documentIds'.",
-      browser.test.assertThrows(
-        () =>
-          browser.userScripts.execute({
-            target: {
-              tabId,
-              documentIds: ["xxx", "yyy"],
-              allFrames: true,
-            },
-            js: [{ file: "script.js" }],
-          }),
-        /Property "documentIds" is unsupported by Firefox/,
-        `expected error when both allFrames and documentIds are passed`
+      await browser.test.assertRejects(
+        browser.userScripts.execute({
+          target: {
+            tabId,
+            documentIds: ["xxx", "yyy"],
+            allFrames: true,
+          },
+          js: [{ file: "script.js" }],
+        }),
+        "Cannot specify both 'allFrames' and 'documentIds'.",
+        "expected error when both allFrames and documentIds are passed"
       );
 
       // This tab ID should not exist.
@@ -617,6 +609,7 @@ add_task(async function test_execute_in_frames_with_host_permission() {
       // 2. Frame that loads `file_contains_img.html`
       browser.test.assertEq(2, frames.length, "expected 2 frames");
       const frameIds = frames.map(frame => frame.frameId);
+      const documentIds = frames.map(frame => frame.documentId);
 
       await new Promise(resolve => {
         browser.test.withHandlingUserInput(() => {
@@ -636,10 +629,12 @@ add_task(async function test_execute_in_frames_with_host_permission() {
           expectedResults: [
             {
               frameId: frameIds[0],
+              documentId: documentIds[0],
               result: "file contains iframe",
             },
             {
               frameId: frameIds[1],
+              documentId: documentIds[1],
               result: "file contains img",
             },
           ],
@@ -653,6 +648,7 @@ add_task(async function test_execute_in_frames_with_host_permission() {
           expectedResults: [
             {
               frameId: frameIds[0],
+              documentId: documentIds[0],
               result: "file contains iframe",
             },
           ],
@@ -666,10 +662,12 @@ add_task(async function test_execute_in_frames_with_host_permission() {
           expectedResults: [
             {
               frameId: frameIds[0],
+              documentId: documentIds[0],
               result: "file contains iframe",
             },
             {
               frameId: frameIds[1],
+              documentId: documentIds[1],
               result: "file contains img",
             },
           ],
@@ -683,6 +681,7 @@ add_task(async function test_execute_in_frames_with_host_permission() {
           expectedResults: [
             {
               frameId: frameIds[0],
+              documentId: documentIds[0],
               result: "file contains iframe",
             },
           ],
@@ -696,6 +695,54 @@ add_task(async function test_execute_in_frames_with_host_permission() {
           expectedResults: [
             {
               frameId: frameIds[1],
+              documentId: documentIds[1],
+              result: "file contains img",
+            },
+          ],
+        },
+        {
+          title: "all documentIds set",
+          executeParams: {
+            target: { tabId, documentIds },
+            js: [{ code: "document.title" }],
+          },
+          expectedResults: [
+            {
+              frameId: frameIds[0],
+              documentId: documentIds[0],
+              result: "file contains iframe",
+            },
+            {
+              frameId: frameIds[1],
+              documentId: documentIds[1],
+              result: "file contains img",
+            },
+          ],
+        },
+        {
+          title: "main frame of documentIds set",
+          executeParams: {
+            target: { tabId, documentIds: [documentIds[0]] },
+            js: [{ code: "document.title" }],
+          },
+          expectedResults: [
+            {
+              frameId: frameIds[0],
+              documentId: documentIds[0],
+              result: "file contains iframe",
+            },
+          ],
+        },
+        {
+          title: "sub frame of documentIds set",
+          executeParams: {
+            target: { tabId, documentIds: [documentIds[1]] },
+            js: [{ code: "document.title" }],
+          },
+          expectedResults: [
+            {
+              frameId: frameIds[1],
+              documentId: documentIds[1],
               result: "file contains img",
             },
           ],
@@ -870,6 +917,7 @@ add_task(async function test_execute_with_iframe_srcdoc_and_aboutblank() {
       browser.test.assertEq(5, frames.length, "expected 5 frames");
 
       const frameIds = frames.map(frame => frame.frameId);
+      const documentIds = frames.map(frame => frame.documentId);
 
       await new Promise(resolve => {
         browser.test.withHandlingUserInput(() => {
@@ -890,10 +938,12 @@ add_task(async function test_execute_with_iframe_srcdoc_and_aboutblank() {
             entriesAtIndex: {
               3: {
                 frameId: frameIds[3],
+                documentId: documentIds[3],
                 result: "iframe with srcdoc",
               },
               4: {
                 frameId: frameIds[4],
+                documentId: documentIds[4],
                 result: "about:blank",
               },
             },
@@ -909,10 +959,12 @@ add_task(async function test_execute_with_iframe_srcdoc_and_aboutblank() {
             entriesAtIndex: {
               3: {
                 frameId: frameIds[3],
+                documentId: documentIds[3],
                 result: "iframe with srcdoc",
               },
               4: {
                 frameId: frameIds[4],
+                documentId: documentIds[4],
                 result: "about:blank",
               },
             },
@@ -928,6 +980,7 @@ add_task(async function test_execute_with_iframe_srcdoc_and_aboutblank() {
             entriesAtIndex: {
               0: {
                 frameId: frameIds[3],
+                documentId: documentIds[3],
                 result: "iframe with srcdoc",
               },
             },

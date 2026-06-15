@@ -476,9 +476,49 @@
   flex-direction: column;
 }
 
-.sports-matches-tab-panel:has(.match-highlight-view) > .sports-section-label {
+.sports-matches-tab-panel:has(.match-highlight-view) > .sports-section-label,
+.sports-matches-tab-panel:has(.match-highlight-view) > .sports-now-header {
   position: absolute;
   margin-block-start: var(--space-medium);
+}
+
+.sports-now-header {
+  inset-inline: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-small);
+}
+
+.sports-live-refresh-button {
+  margin-block-start: calc(-1 * var(--space-xsmall));
+}
+
+.medium-widget
+.sports-matches-tab-panel:has(.match-highlight-view)
+> .sports-live-refresh-button {
+  inset-inline: unset;
+  inset-inline-end: 0;
+  margin-block-start: 0;
+}
+
+.medium-widget
+.sports-matches-tab-panel:has(.sports-live-pagination)
+.sports-live-refresh-button {
+  inset-inline-end: var(--space-small);
+  inset-block-end: var(--space-xxsmall);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sports-live-refresh-button.is-spinning::part(button) {
+    animation: sports-live-refresh-spin 1s linear infinite;
+  }
+}
+
+@keyframes sports-live-refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .large-widget

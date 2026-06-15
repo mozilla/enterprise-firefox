@@ -354,8 +354,12 @@ void MediaSession::NotifyMetadataUpdated() {
     return;
   }
 
+  if (!mDoc) {
+    return;
+  }
+
   LOG("Starting load of the MediaMetadata artwork.");
-  mMediaMetadata->LoadMetadataArtwork()
+  mMediaMetadata->LoadMetadataArtwork(mDoc)
       ->Then(
           GetCurrentSerialEventTarget(), __func__,
           [self = RefPtr{this}, currentBC](MediaMetadataBase&& aMetadata) {

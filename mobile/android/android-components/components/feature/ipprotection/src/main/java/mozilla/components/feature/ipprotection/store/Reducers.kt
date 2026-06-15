@@ -151,6 +151,11 @@ internal fun iPProtectionReducer(
         state.copy(proxyActiveShown = true)
     }
 
+    is IPProtectionAction.ToggleFailed -> {
+        // Reset `activate` so the next Toggle reads as a fresh edge in observeToggle().
+        state.copy(activate = null)
+    }
+
     is InternalAction -> internalReducer(state, action)
 }
 

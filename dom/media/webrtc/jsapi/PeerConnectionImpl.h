@@ -120,8 +120,8 @@ class RemoteSourceStreamInfo;
 class PCUuidGenerator : public JsepUuidGenerator {
  public:
   virtual bool Generate(std::string* idp) override;
-  virtual JsepUuidGenerator* Clone() const override {
-    return new PCUuidGenerator(*this);
+  virtual UniquePtr<JsepUuidGenerator> Clone() const override {
+    return MakeUnique<PCUuidGenerator>(*this);
   }
 
  private:

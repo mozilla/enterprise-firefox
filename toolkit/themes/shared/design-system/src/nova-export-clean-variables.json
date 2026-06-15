@@ -606,7 +606,7 @@
           "Smart Light (WIP)": "rgba(0, 0, 0, 0.25)"
         },
         "canvas": {
-          "Light": "{color/gray/05}",
+          "Light": "{color/gray/0}",
           "Dark": "{color/gray/90}",
           "HCM": "{Canvas}",
           "Private": "{color/gray/90}",
@@ -1771,9 +1771,9 @@
         "grey": {
           "default": {
             "Light": "{color/gray/55}",
-            "Dark": "{color/gray/05}",
+            "Dark": "{color/gray/0}",
             "HCM": "#FFFFFF",
-            "Private": "{color/gray/05}",
+            "Private": "{color/gray/0}",
             "Smart Light (WIP)": "{color/gray/55}"
           },
           "hover": {
@@ -1785,9 +1785,9 @@
           },
           "focused": {
             "Light": "{color/gray/55}",
-            "Dark": "{color/gray/05}",
+            "Dark": "{color/gray/0}",
             "HCM": "#FFFFFF",
-            "Private": "{color/gray/05}",
+            "Private": "{color/gray/0}",
             "Smart Light (WIP)": "{color/gray/55}"
           },
           "text": {
