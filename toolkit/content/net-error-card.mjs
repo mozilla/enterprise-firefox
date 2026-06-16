@@ -19,7 +19,6 @@ import {
   gOffline,
   gNoConnectivity,
   retryThis,
-  VPN_ACTIVE,
   isAccessConnectorActive,
   detectClockSkew,
 } from "chrome://global/content/aboutNetErrorHelpers.mjs";
@@ -96,8 +95,7 @@ export class NetErrorCard extends MozLitElement {
       errorCodeString: errorInfo.errorCodeString,
       gErrorCode,
       noConnectivity: gNoConnectivity,
-      vpnActive: VPN_ACTIVE,
-      accessConnectorActive: isAccessConnectorActive(),
+      vpnActive: isAccessConnectorActive(),
     });
 
     // Bug 2038887: the felt privacy error page does not surface the DoH
@@ -187,8 +185,7 @@ export class NetErrorCard extends MozLitElement {
       errorCodeString: this.errorInfo.errorCodeString,
       gErrorCode,
       noConnectivity: gNoConnectivity,
-      vpnActive: VPN_ACTIVE,
-      accessConnectorActive: isAccessConnectorActive(),
+      vpnActive: isAccessConnectorActive(),
     });
     this.errorConfig = this.getErrorConfig();
     this.hideExceptionButton = this.shouldHideExceptionButton();

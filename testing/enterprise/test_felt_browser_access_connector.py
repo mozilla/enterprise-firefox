@@ -11,6 +11,7 @@ sys.path.append(os.path.dirname(__file__))
 
 from felt_consts import firefox_config
 from felt_tests import FeltTests
+from marionette_driver.by import By
 from marionette_driver.errors import NoSuchElementException, UnknownException
 
 
@@ -241,35 +242,28 @@ class BrowserAccessConnector(FeltTests):
         self.run_check_access_connector_neterror_card()
 
     def run_check_access_connector_neterror_card(self):
+        card_root = self.find_elem_child("net-error-card").shadow_root
+
         self._logger.info("Checking custom error title l10n id")
-        title_l10n_id = self._child_driver.execute_script(
-            """
-            const card = document.querySelector("net-error-card");
-            return card?.shadowRoot?.querySelector("#error-title")
-                ?.getAttribute("data-l10n-id");
-            """
+        title_l10n_id = card_root.find_element(By.ID, "error-title").get_attribute(
+            "data-l10n-id"
         )
         assert title_l10n_id == "fp-neterror-access-connector-error-title", (
             f"Expected access connector error title, got: {title_l10n_id}"
         )
 
         self._logger.info("Checking error page illustration image")
-        image_src = self._child_driver.execute_script(
-            """
-            const card = document.querySelector("net-error-card");
-            return card?.shadowRoot?.querySelector(".img-container img")
-                ?.getAttribute("src");
-            """
+        image_src = card_root.find_element(
+            By.CSS_SELECTOR, ".img-container img"
+        ).get_attribute("src")
+        assert image_src.endswith("enterprise/access-connector-neterror.svg"), (
+            f"Expected access connector neterror image, got: {image_src}"
         )
-        assert image_src == (
-            "chrome://global/skin/enterprise/access-connector-neterror.svg"
-        ), f"Expected access connector neterror image, got: {image_src}"
 
         self._logger.info("Checking Try Again button is present")
-        has_try_again = self._child_driver.execute_script(
-            """
-            const card = document.querySelector("net-error-card");
-            return !!card?.shadowRoot?.querySelector("#tryAgainButton");
-            """
-        )
-        assert has_try_again, "Expected Try Again button on access connector error page"
+        try:
+            card_root.find_element(By.ID, "tryAgainButton")
+        except NoSuchElementException:
+            raise AssertionError(
+                "Expected Try Again button on access connector error page"
+            )
