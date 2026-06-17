@@ -767,7 +767,17 @@ if buildconfig.substs.get("MOZ_ENTERPRISE"):
         "source": buildconfig.topsrcdir,
         "base": "testing/enterprise/",
         "patterns": ["**"],
+        "dest": "marionette/tests",
     })
+    if buildconfig.substs.get("commtopsrcdir"):
+        commtopsrcdir = buildconfig.substs.get("commtopsrcdir")
+        thunderbirdinstance = {
+            "source": commtopsrcdir,
+            "base": "mail/test/marionette/enterprise",
+            "pattern": "**",
+            "dest": "marionette/tests/comm",
+        }
+        ARCHIVE_FILES["enterprise"].append(thunderbirdinstance)
 
 # "common" is our catch all archive and it ignores things from other archives.
 # Verify nothing sneaks into ARCHIVE_FILES without a corresponding exclusion
