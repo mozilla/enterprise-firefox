@@ -296,9 +296,28 @@ def get_branch_repo(config):
 
 
 def get_project_alias(config):
+    # --project from mach taskgraph decision
+    project = config.params["project"]
+
+    # When running "comm" decision task on "enterprise-firefox" project,
+    # the code calls decision.py --project=enterprise-thunderbird which is
+    # reflected as config.params["project"]. But there are parts like to report
+    # Treeherder status and others where "enterprise-firefox" needs to be used
+    # instead of the real --project given
+    trigger_project = config.params["base_repository"].split("/")[-1]
+
+    # If they do not match, e.g.,
+    # --project=enterprise-thunderbird and triger_project=enterprise-firefox
+    # then force use trigger_project
+    # this allows to run thunderbird decision task from enterprise-firefox repo
+    # and report its status and treeherder on the same enterprise-firefox push
+    if trigger_project != project:
+        project = trigger_project
+
     if config.params["tasks_for"].startswith("github-pull-request"):
-        return f"{config.params['project']}-pr"
-    return config.params["project"]
+        return f"{project}-pr"
+
+    return project
 
 
 def get_head_ref(config) -> tuple[str, Optional[str]]:
