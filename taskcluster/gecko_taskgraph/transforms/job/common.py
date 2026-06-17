@@ -165,6 +165,17 @@ def support_vcs_checkout(config, job, taskdesc, repo_configs):
             "COMM_HEAD_REPOSITORY": config.params["comm_head_repository"],
             "COMM_HEAD_REV": config.params["comm_head_rev"],
         })
+
+        if "enterprise" in config.params["project"]:
+            taskdesc["worker"]["env"].update({
+                "COMM_REPOSITORY_TYPE": "git",
+            })
+
+            # This should live in comm/taskcluster/config.yml but it cannot
+            # because down the line it breaks how checkout is done in tasks
+            repos = json.loads(taskdesc["worker"]["env"].get("REPOSITORIES", {}))
+            repos.update({"comm": "Mozilla Thunderbird"})
+            taskdesc["worker"]["env"]["REPOSITORIES"] = json.dumps(repos)
     elif job["run"].get("comm-checkout", False):
         raise Exception(
             "Can't checkout from comm-* repository if not given a repository."
