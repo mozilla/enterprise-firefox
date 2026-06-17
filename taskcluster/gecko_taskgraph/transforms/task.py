@@ -2742,6 +2742,26 @@ def build_task(config, tasks):
 
 
 @transforms.add
+def update_treeherder_platform_comm(config, tasks):
+    for task in tasks:
+        if "comm_base_repository" in config.params:
+            task_th = task.get("task", {}).get("extra", {}).get("treeherder", {})
+            if task_th:
+                th_machine_platform = task_th.get("machine", {}).get("platform")
+                if th_machine_platform and "thunderbird" not in th_machine_platform:
+                    task["task"]["extra"]["treeherder"]["machine"]["platform"] = (
+                        f"{th_machine_platform}-thunderbird"
+                    )
+                th_platform = task_th.get("treeherder-platform")
+                if th_platform and "thunderbird" not in th_platform:
+                    th_platform_split = th_platform.split("/")
+                    task["task"]["extra"]["treeherder-platform"] = (
+                        f"{th_platform_split[0]}-thunderbird/{th_platform_split[1]}"
+                    )
+        yield task
+
+
+@transforms.add
 def chain_of_trust(config, tasks):
     for task in tasks:
         if task["task"].get("payload", {}).get("features", {}).get("chainOfTrust"):
