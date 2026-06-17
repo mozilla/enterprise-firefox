@@ -115,6 +115,12 @@ class DesktopPartnerRepacks(AutomationMixin, BaseScript, VirtualenvMixin, Secret
             )
         if "taskIds" not in self.config:
             self.fatal("Need upstream taskIds from command line or in UPSTREAM_TASKIDS")
+        if "windowsDestDir" not in self.config:
+            self.fatal("Need windowsDestDir in config")
+        if "macDestDir" not in self.config:
+            self.fatal("Need macDestDir in config")
+        if "linuxDestDir" not in self.config:
+            self.fatal("Need linuxDestDir in config")
 
     def query_abs_dirs(self):
         if self.abs_dirs:
@@ -191,6 +197,12 @@ class DesktopPartnerRepacks(AutomationMixin, BaseScript, VirtualenvMixin, Secret
             self.config["version"],
             "-n",
             str(self.config["build_number"]),
+            "--windows-dest-dir",
+            str(self.config["windowsDestDir"]),
+            "--mac-dest-dir",
+            str(self.config["macDestDir"]),
+            "--linux-dest-dir",
+            str(self.config["linuxDestDir"]),
         ]
         if self.config.get("platform"):
             repack_cmd.extend(["--platform", self.config["platform"]])

@@ -37,10 +37,6 @@ TASKCLUSTER_ARTIFACTS = (
 UPSTREAM_ENUS_PATH = "public/build/{filename}"
 UPSTREAM_L10N_PATH = "public/build/{locale}/{filename}"
 
-WINDOWS_DEST_DIR = Path("firefox")
-MAC_DEST_DIR = Path("Contents/Resources")
-LINUX_DEST_DIR = Path("firefox")
-
 BOUNCER_PRODUCT_TEMPLATE = (
     "partner-firefox-{release_type}-{partner}-{partner_distro}-latest"
 )
@@ -327,6 +323,7 @@ class RepackBase:
         final_dir: Path,
         ftp_platform: str,
         repack_info,
+        dest_dir,
         file_mode=0o644,
         quiet=False,
         source_locale=None,
@@ -348,6 +345,7 @@ class RepackBase:
         self.source_locale = source_locale
         self.locale = locale
         self.working_dir.mkdir(mode=0o755, exist_ok=True, parents=True)
+        self.dest_dir = dest_dir
 
     def announceStart(self):
         log.info(
@@ -476,14 +474,14 @@ class RepackLinux(RepackBase):
             sys.exit(1)
 
     def copyFiles(self):
-        super().copyFiles(LINUX_DEST_DIR)
+        super().copyFiles(self.dest_dir)
 
     def repackBuild(self):
         if options.quiet:
             tar_flags = "rf"
         else:
             tar_flags = "rvf"
-        tar_cmd = "tar %s %s %s" % (tar_flags, self.uncompressed_build, LINUX_DEST_DIR)
+        tar_cmd = "tar %s %s %s" % (tar_flags, self.uncompressed_build, self.dest_dir)
         shellCommand(tar_cmd)
         compress_cmd = "xz -f -z -e -9 %s" % self.uncompressed_build
         shellCommand(compress_cmd)
@@ -534,7 +532,7 @@ class RepackMac(RepackBase):
         sys.exit(1)
 
     def copyFiles(self):
-        super().copyFiles(Path(self.appName) / MAC_DEST_DIR)
+        super().copyFiles(Path(self.appName) / self.dest_dir)
 
     def repackBuild(self):
         if options.quiet:
@@ -545,7 +543,7 @@ class RepackMac(RepackBase):
         tar_cmd = "tar %s %s '%s'" % (
             tar_flags,
             self.uncompressed_build,
-            Path(self.appName) / MAC_DEST_DIR,
+            Path(self.appName) / self.dest_dir,
         )
         shellCommand(tar_cmd)
         gzip_command = "gzip %s" % self.uncompressed_build
@@ -574,14 +572,14 @@ class RepackWin(RepackBase):
         )
 
     def copyFiles(self):
-        super().copyFiles(WINDOWS_DEST_DIR)
+        super().copyFiles(self.dest_dir)
 
     def repackBuild(self):
         if options.quiet:
             zip_flags = "-rq"
         else:
             zip_flags = "-r"
-        zip_cmd = f"zip {zip_flags} {self.build} {WINDOWS_DEST_DIR}"
+        zip_cmd = f"zip {zip_flags} {self.build} {self.dest_dir}"
         shellCommand(zip_cmd)
 
         # we generate the stub installer during the win32 build, so repack it on win32 too
@@ -599,7 +597,7 @@ class RepackWin(RepackBase):
                 partner_ini += l
             z.writestr("partner.ini", partner_ini)
             # we need an empty firefox directory to use the repackage code
-            d = zipfile.ZipInfo("firefox/")
+            d = zipfile.ZipInfo(f"{self.dest_dir}/")
             # https://stackoverflow.com/a/6297838, zip's representation of drwxr-xr-x permissions
             # is 040755 << 16L, bitwise OR with 0x10 for the MS-DOS directory flag
             d.external_attr = 1106051088
@@ -700,6 +698,14 @@ if __name__ == "__main__":
         action="append",
         dest="limit_locales",
         default=[],
+    )
+
+    parser.add_option(
+        "--windows-dest-dir", dest="windows_dest_dir", help="Windows dest dir"
+    )
+    parser.add_option("--mac-dest-dir", dest="mac_dest_dir", help="Windows dest dir")
+    parser.add_option(
+        "--linux-dest-dir", dest="linux_dest_dir", help="Windows dest dir"
     )
 
     (options, args) = parser.parse_args()
@@ -891,6 +897,16 @@ if __name__ == "__main__":
                     log.info(f"Error: Unable to retrieve {file_name}\n")
                     sys.exit(1)
 
+                dest_dir = None
+                if "win" in ftp_platform:
+                    dest_dir = Path(options.windows_dest_dir)
+                elif "mac" in ftp_platform:
+                    dest_dir = Path(options.mac_dest_dir)
+                elif "linux" in ftp_platform:
+                    dest_dir = Path(options.linux_dest_dir)
+                else:
+                    raise ValueError(f"Unsupported platform: {ftp_platform}")
+
                 repackObj = repack_build[ftp_platform](
                     file_name,
                     full_partner_dir,
@@ -898,6 +914,7 @@ if __name__ == "__main__":
                     final_dir,
                     ftp_platform,
                     repack_info,
+                    dest_dir=dest_dir,
                     locale=locale,
                     source_locale=source_locale,
                 )
