@@ -281,6 +281,12 @@ def get_branch_rev(config):
     ]
 
 
+def get_root_branch_rev(config):
+    if "enterprise" in config.params["project"]:
+        return config.params["head_rev"]
+    return get_branch_rev(config)
+
+
 def get_branch_git_rev(config):
     return config.params[
         "{}head_git_rev".format(config.graph_config["project-repo-param-prefix"])
@@ -2571,10 +2577,10 @@ def build_task(config, tasks):
             treeherder["jobKind"] = task_th["kind"]
             treeherder["tier"] = task_th["tier"]
 
-            branch_rev = get_branch_rev(config)
+            root_branch_rev = get_root_branch_rev(config)
 
             routes.append(
-                f"{TREEHERDER_ROUTE_ROOT}.v2.{get_treeherder_project(config)}.{branch_rev}"
+                f"{TREEHERDER_ROUTE_ROOT}.v2.{get_treeherder_project(config)}.{root_branch_rev}"
             )
 
         if "deadline-after" not in task:
