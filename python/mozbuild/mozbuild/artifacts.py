@@ -150,6 +150,23 @@ class ThunderbirdJobConfiguration:
     try_tree = "try-comm-central"
 
 
+class EnterpriseThunderbirdJobConfiguration:
+    trust_domain = "enterprise"
+    product = "thunderbird"
+    default_candidate_trees = [
+        "enterprise-thunderbird.branch.enterprise-release",
+    ]
+    nightly_candidate_trees = [
+        "enterprise-thunderbird.branch.enterprise-main",
+    ]
+    beta_candidate_trees = [
+        "enterprise-thunderbird.branch.enterprise-beta",
+    ]
+    # The list below list should be updated when we have new ESRs.
+    esr_candidate_trees = []
+    try_tree = "try"
+
+
 class ArtifactJob:
     def _get_orig_basename(self, filename):
         """Extract the original basename from a filename, removing hash prefixes if present."""
@@ -1303,13 +1320,17 @@ class Artifacts:
         self._no_process = no_process
         self._unfiltered_project_package = unfiltered_project_package
 
-        job_configuration = (
-            ThunderbirdJobConfiguration
-            if substs.get("MOZ_BUILD_APP") == "comm/mail"
-            else EnterpriseJobConfiguration
-            if substs.get("MOZ_ENTERPRISE") == "1"
-            else None
-        )
+        if (
+            substs.get("MOZ_BUILD_APP") == "comm/mail"
+        ):  # and substs.get("MOZ_ENTERPRISE") != "1":
+            job_configuration = ThunderbirdJobConfiguration
+        # elif substs.get("MOZ_BUILD_APP") == "comm/mail" and substs.get("MOZ_ENTERPRISE") == "1":
+        #     job_configuration = EnterpriseThunderbirdJobConfiguration
+        elif substs.get("MOZ_ENTERPRISE") == "1":
+            job_configuration = EnterpriseJobConfiguration
+        else:
+            job_configuration = None
+
         if not self._unfiltered_project_package:
             try:
                 cls = JOB_DETAILS[self._job]
@@ -1429,8 +1450,11 @@ class Artifacts:
         else:
             target_suffix = "-opt"
 
-        if self._substs.get("MOZ_ENTERPRISE"):
-            target_suffix = "-enterprise" + target_suffix
+        if (
+            self._substs.get("MOZ_ENTERPRISE")
+            and not self._substs.get("MOZ_BUILD_APP", "") == "comm/mail"
+        ):
+            target_suffix = "-enteprise" + target_suffix
 
         if self._substs.get("MOZ_BUILD_APP", "") == "mobile/android":
             if self._substs["ANDROID_CPU_ARCH"] == "x86_64":
