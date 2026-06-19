@@ -3,6 +3,30 @@
 // It also verifies that the performance optimiation implemented by
 // updateEditUIVisibility in browser.js is applied.
 
+// The enterprise badge button sits in the navbar. Without a logo it can have
+// zero width, which throws off the kForceOverflowWidthPx resize threshold used
+// in test_panelui_customize_to_toolbar to force toolbar overflow.
+if (AppConstants.MOZ_ENTERPRISE) {
+  add_setup(async function () {
+    await SpecialPowers.pushPrefEnv({
+      set: [
+        [
+          "enterprise.configs.company_logo_url",
+          "data:image/svg+xml;base64," +
+            btoa(
+              '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#ccc"/></svg>'
+            ),
+        ],
+      ],
+    });
+    const { EnterpriseHandler } = ChromeUtils.importESModule(
+      "resource:///modules/enterprise/EnterpriseHandler.sys.mjs"
+    );
+    // Re-trigger badge update since the logo pref was set after initial init.
+    EnterpriseHandler.updateBadge(window);
+  });
+}
+
 let isMac = navigator.platform.indexOf("Mac") == 0;
 
 function checkState(allowCut, desc, testWindow = window) {

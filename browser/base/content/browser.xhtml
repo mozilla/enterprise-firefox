@@ -53,6 +53,10 @@
     rel="stylesheet"
     href="chrome://global/content/resistfingerprinting/letterboxing.css"
   />
+  #ifdef MOZ_ENTERPRISE
+  <html:link rel="stylesheet" href="chrome://browser/content/enterprise/enterprise-badge.css"/>
+  <html:link rel="localization" href="browser/enterprise/enterprise.ftl"/>
+  #endif
 
   <link rel="localization" href="branding/brand.ftl"/>
   <link rel="localization" href="browser/allTabsMenu.ftl"/>
