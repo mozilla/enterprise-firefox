@@ -235,7 +235,7 @@ add_task(async function test_buttons_persist_after_tab_added() {
   );
 
   const newTab = await addTab("https://example.com/persist");
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () =>
       [...tabsList.querySelectorAll(".all-tabs-item")].some(
         row => row._tab == newTab

@@ -100,7 +100,7 @@ add_task(async function basic_test() {
     waitForLoad: true,
   });
 
-  await BrowserTestUtils.waitForCondition(() => urlbarIcon(window) != "none");
+  await TestUtils.waitForCondition(() => urlbarIcon(window) != "none");
 
   Assert.equal(urlbarIcon(window), ETP_ACTIVE_ICON, "Showing trusted icon");
   Assert.equal(
@@ -137,7 +137,7 @@ add_task(async function test_notsecure_label() {
     waitForLoad: true,
   });
 
-  await BrowserTestUtils.waitForCondition(() => urlbarIcon(window) != "none");
+  await TestUtils.waitForCondition(() => urlbarIcon(window) != "none");
 
   Assert.ok(
     BrowserTestUtils.isVisible(urlbarLabel(window)),
@@ -175,7 +175,7 @@ add_task(async function test_notsecure_label_without_tracking() {
     waitForLoad: true,
   });
 
-  await BrowserTestUtils.waitForCondition(() => urlbarIcon(window) != "none");
+  await TestUtils.waitForCondition(() => urlbarIcon(window) != "none");
   await toggleETP(tab);
 
   Assert.ok(
@@ -197,9 +197,7 @@ add_task(async function test_drag_and_drop() {
   info("Start DnD");
   let trustIcon = document.getElementById("trust-icon");
   let newtabButton = document.getElementById("tabs-newtab-button");
-  await BrowserTestUtils.waitForCondition(() =>
-    BrowserTestUtils.isVisible(trustIcon)
-  );
+  await TestUtils.waitForCondition(() => BrowserTestUtils.isVisible(trustIcon));
 
   let newTabOpened = BrowserTestUtils.waitForNewTab(
     gBrowser,
@@ -262,7 +260,7 @@ add_task(async function test_update() {
     content.postMessage("cryptomining", "*");
   });
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => parseInt(blockerSection.textContent, 10) == 1,
     "Updated to show new cryptominer blocked"
   );
@@ -271,7 +269,7 @@ add_task(async function test_update() {
     content.postMessage("fingerprinting", "*");
   });
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => parseInt(blockerSection.textContent, 10) == 2,
     "Updated to show new fingerprinter blocked"
   );
@@ -411,7 +409,7 @@ add_task(async function test_breach_alert_check_button_glean() {
 
   // The breach-alert-panel renders its content in a shadow root via Lit.
   // Wait for the shadow root and the "Check Mozilla Monitor" button to appear.
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () =>
       breachAlertSection.shadowRoot?.querySelector("moz-button[type=primary]"),
     "The Check Monitor button should appear in the breach-alert-panel shadow root"
@@ -473,7 +471,7 @@ add_task(async function test_breach_alert_check_button_utm() {
 
   // The breach-alert-panel renders its content in a shadow root via Lit.
   // Wait for the shadow root and the "Check Mozilla Monitor" button to appear.
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () =>
       breachAlertSection.shadowRoot?.querySelector("moz-button[type=primary]"),
     "The Check Monitor button should appear in the breach-alert-panel shadow root"
@@ -555,7 +553,7 @@ add_task(async function test_breach_dismissal_via_dismiss_button() {
       "trustpanel-breach-alert-section"
     );
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => breachAlertSection.hidden === false,
       "The breach alert section should be visible before dismissal"
     );
@@ -566,7 +564,7 @@ add_task(async function test_breach_dismissal_via_dismiss_button() {
 
     dismissButton.click();
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => breachAlertSection.hidden === true,
       "The breach alert section should be hidden after dismissal"
     );
@@ -581,7 +579,7 @@ add_task(async function test_breach_dismissal_via_dismiss_button() {
       "trustpanel-graphic-section"
     );
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => graphicSection.hidden === false,
       "The graphic section should be visible after dismissal"
     );
@@ -627,7 +625,7 @@ add_task(async function test_breach_dismissal_via_check_button() {
       "trustpanel-breach-alert-section"
     );
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => breachAlertSection.hidden === false,
       "The breach alert section should be visible before dismissal"
     );
@@ -645,7 +643,7 @@ add_task(async function test_breach_dismissal_via_check_button() {
 
       checkButton.click();
 
-      await BrowserTestUtils.waitForCondition(
+      await TestUtils.waitForCondition(
         () => breachAlertSection.hidden === true,
         "The breach alert section should be hidden after dismissal"
       );
@@ -660,7 +658,7 @@ add_task(async function test_breach_dismissal_via_check_button() {
         "trustpanel-graphic-section"
       );
 
-      await BrowserTestUtils.waitForCondition(
+      await TestUtils.waitForCondition(
         () => graphicSection.hidden === false,
         "The graphic section should be visible after dismissal"
       );
@@ -708,7 +706,7 @@ add_task(async function test_dismiss_button_glean() {
 
   // The breach-alert-panel renders its content in a shadow root via Lit.
   // Wait for the shadow root and the "Check Mozilla Monitor" button to appear.
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () =>
       breachAlertSection.shadowRoot?.querySelector(
         "moz-button:not([type=primary])"

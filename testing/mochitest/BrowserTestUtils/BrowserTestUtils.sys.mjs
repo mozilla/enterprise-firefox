@@ -55,6 +55,7 @@ function registerActors() {
     },
     allFrames: true,
     includeChrome: true,
+    safeForUntrustedWebProcess: true,
   });
 
   ChromeUtils.registerWindowActor("ContentEventListener", {
@@ -72,6 +73,7 @@ function registerActors() {
       },
     },
     allFrames: true,
+    safeForUntrustedWebProcess: true,
   });
 }
 
@@ -2469,9 +2471,6 @@ export var BrowserTestUtils = {
       event,
     });
   },
-
-  // TODO: Fix consumers and remove me.
-  waitForCondition: TestUtils.waitForCondition,
 
   /**
    * Waits for a <xul:notification> with a particular value to appear

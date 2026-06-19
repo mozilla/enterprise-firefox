@@ -25,6 +25,8 @@
     <!-- Secret Settings Strings -->
     <!-- Label for the secret settings preference -->
     <string name="preferences_debug_settings">Secret Settings</string>
+    <!-- App preference label for showing the debug info -->
+    <string name="preferences_show_debug_info" translatable="false">Show debug info</string>
 
     <!-- Labels for secret settings preference categories -->
     <string name="secret_settings_category_homepage_title" translatable="false">Homepage</string>
@@ -377,6 +379,18 @@
     <string name="preferences_import_bookmarks">Import Bookmarks</string>
     <!-- Label for the secret settings preference to enable Import Bookmarks -->
     <string name="preferences_debug_settings_import_bookmarks">Enable Import Bookmarks</string>
+
+    <!-- Debug info -->
+    <!-- The title of the Debug info bottom sheet. -->
+    <string name="debug_info_title">Debug info</string>
+    <!-- The title of the Debug info JSON report bottom sheet. -->
+    <string name="debug_info_json_title">Debug info JSON</string>
+    <!-- Button label that opens the JSON report view in the debug info bottom sheet. -->
+    <string name="debug_info_view_json_report" translatable="false">View JSON report</string>
+    <!-- Status badge label shown when a debug info item is enabled. -->
+    <string name="debug_info_enabled" translatable="false">Enabled</string>
+    <!-- Status badge label shown when a debug info item is disabled. -->
+    <string name="debug_info_disabled" translatable="false">Disabled</string>
 
     <!-- Label for the secret settings preference to enable Import Passwords -->
     <string name="preferences_debug_settings_import_passwords">Enable Import Passwords</string>

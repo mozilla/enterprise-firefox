@@ -157,7 +157,7 @@ void PeriodicWave::waveDataForFundamentalFrequency(
   }
   if (numberOfPartials > m_maxPartialsInBandLimitedTable) {
     for (unsigned rangeIndex = 0; rangeIndex < m_numberOfRanges; ++rangeIndex) {
-      m_bandLimitedTables[rangeIndex] = 0;
+      m_bandLimitedTables[rangeIndex] = nullptr;
     }
 
     // We need to create the first table to determine the normalization

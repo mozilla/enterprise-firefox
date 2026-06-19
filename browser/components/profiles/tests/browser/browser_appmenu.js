@@ -35,9 +35,7 @@ async function promiseSubViewOpened() {
   let button = document.getElementById("appMenu-profiles-button");
   let visibleButton = button.hidden ? emptyButton : button;
   EventUtils.synthesizeMouseAtCenter(visibleButton, {});
-  return BrowserTestUtils.waitForCondition(() =>
-    BrowserTestUtils.isVisible(panel)
-  );
+  return TestUtils.waitForCondition(() => BrowserTestUtils.isVisible(panel));
 }
 
 function getElements() {

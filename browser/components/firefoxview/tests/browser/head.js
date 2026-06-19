@@ -389,14 +389,14 @@ async function navigateToViewAndWait(document, view) {
   });
   const namedDeck = document.querySelector("named-deck");
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => navButton.getBoundingClientRect().height,
     `Waiting for ${view} button to be clickable`
   );
 
   EventUtils.synthesizeMouseAtCenter(navButton, {}, win);
 
-  await BrowserTestUtils.waitForCondition(() => {
+  await TestUtils.waitForCondition(() => {
     let selectedView = Array.from(namedDeck.children).find(
       child => child.slot == "selected"
     );

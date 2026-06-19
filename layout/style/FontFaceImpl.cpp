@@ -648,8 +648,7 @@ bool FontFaceImpl::GetAttributesFromRule(
   StyleComputedFontWeightRange weightRange;
   if (Servo_FontFaceRule_GetFontWeight(aData, &weightRange)) {
     aAttr.mRangeFlags &= ~gfxFontEntry::RangeFlags::eAutoWeight;
-    aAttr.mWeight = WeightRange(FontWeight::FromFloat(weightRange._0),
-                                FontWeight::FromFloat(weightRange._1));
+    aAttr.mWeight = WeightRange(weightRange._0, weightRange._1);
   }
 
   StyleComputedFontStretchRange stretchRange;

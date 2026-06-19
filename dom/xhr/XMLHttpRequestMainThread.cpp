@@ -1537,7 +1537,7 @@ void XMLHttpRequestMainThread::Open(const nsACString& aMethod,
   // Gecko-specific
   if (!aAsync && !DontWarnAboutSyncXHR() && GetOwnerWindow() &&
       GetOwnerWindow()->GetExtantDoc()) {
-    GetOwnerWindow()->GetExtantDoc()->WarnOnceAbout(
+    GetOwnerWindow()->GetExtantDoc()->WarnOnceAndReportAbout(
         DeprecatedOperations::eSyncXMLHttpRequestDeprecated);
   }
 

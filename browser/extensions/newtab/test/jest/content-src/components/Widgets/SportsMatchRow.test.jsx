@@ -150,6 +150,22 @@ describe("<SportsMatchRow> now variant", () => {
       ).not.toBeInTheDocument();
     }
   );
+
+  it.each([["Halftime"], ["Extra time"]])(
+    "does not render the live status footer in the medium widget when status_type is %s",
+    statusType => {
+      const { container } = renderWithDispatch(
+        <SportsMatchRow
+          match={{ ...baseMatch, status_type: statusType }}
+          variant="now"
+          size="medium"
+        />
+      );
+      expect(
+        container.querySelector(".sports-match-live-footer")
+      ).not.toBeInTheDocument();
+    }
+  );
 });
 
 describe("<SportsMatchRow> results variant", () => {

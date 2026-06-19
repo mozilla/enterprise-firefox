@@ -89,20 +89,37 @@ void ProfilerChild::ProcessChunkManagerUpdate(
 }
 
 /* static */ void ProfilerChild::ProcessPendingUpdate() {
-  auto lockedUpdate = sPendingChunkManagerUpdate.Lock();
-  if (!lockedUpdate->mProfilerChild || lockedUpdate->mUpdate.IsNotUpdate()) {
-    return;
+  // sPendingChunkManagerUpdate must not be held while dispatching or while
+  // processing the update: Dispatch() takes the target thread's event queue
+  // mutex, and ProcessChunkManagerUpdate() can resolve an await-next-update
+  // request, which sends an IPC reply and takes the IPC channel lock. Both of
+  // those locks can be held while a profiler marker is recorded (which takes
+  // the profiler buffer lock), and that buffer lock is held when the chunk
+  // manager update callback takes sPendingChunkManagerUpdate. Holding it across
+  // either operation would close that cycle and deadlock.
+  nsCOMPtr<nsIThread> thread;
+  {
+    auto lockedUpdate = sPendingChunkManagerUpdate.Lock();
+    if (!lockedUpdate->mProfilerChild || lockedUpdate->mUpdate.IsNotUpdate()) {
+      return;
+    }
+    thread = lockedUpdate->mProfilerChild->mThread;
   }
-  lockedUpdate->mProfilerChild->mThread->Dispatch(NS_NewRunnableFunction(
+  thread->Dispatch(NS_NewRunnableFunction(
       "ProfilerChild::ProcessPendingUpdate", []() mutable {
-        auto lockedUpdate = sPendingChunkManagerUpdate.Lock();
-        if (!lockedUpdate->mProfilerChild ||
-            lockedUpdate->mUpdate.IsNotUpdate()) {
-          return;
+        RefPtr<ProfilerChild> profilerChild;
+        ProfileBufferControlledChunkManager::Update update;
+        {
+          auto lockedUpdate = sPendingChunkManagerUpdate.Lock();
+          if (!lockedUpdate->mProfilerChild ||
+              lockedUpdate->mUpdate.IsNotUpdate()) {
+            return;
+          }
+          profilerChild = lockedUpdate->mProfilerChild;
+          update = std::move(lockedUpdate->mUpdate);
+          lockedUpdate->mUpdate.Clear();
         }
-        lockedUpdate->mProfilerChild->ProcessChunkManagerUpdate(
-            std::move(lockedUpdate->mUpdate));
-        lockedUpdate->mUpdate.Clear();
+        profilerChild->ProcessChunkManagerUpdate(std::move(update));
       }));
 }
 

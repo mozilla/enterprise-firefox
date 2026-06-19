@@ -14,6 +14,8 @@ namespace mozilla::dom::indexedDB {
 
 static constexpr uint32_t kFileCopyBufferSize = 32768;
 
+nsresult ClampResultCode(nsresult aResultCode);
+
 nsresult SnappyUncompressStructuredCloneData(
     nsIInputStream& aInputStream, JSStructuredCloneData& aStructuredCloneData);
 

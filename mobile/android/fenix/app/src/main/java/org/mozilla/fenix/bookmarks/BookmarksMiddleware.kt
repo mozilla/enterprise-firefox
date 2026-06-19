@@ -17,7 +17,7 @@ import mozilla.components.concept.storage.BookmarkInfo
 import mozilla.components.concept.storage.BookmarkNode
 import mozilla.components.concept.storage.BookmarkNodeType
 import mozilla.components.concept.storage.BookmarksStorage
-import mozilla.components.feature.importer.ImporterResult
+import mozilla.components.feature.importer.ImporterEvent
 import mozilla.components.feature.tabs.TabsUseCases
 import mozilla.components.lib.state.Middleware
 import mozilla.components.lib.state.Store
@@ -49,9 +49,9 @@ private const val WARN_OPEN_ALL_SIZE = 15
  * atomically with respect to caller cancellation.
  * @param reportResultGlobally Invoked when an error occurs that needs to be reported even if the
  * feature goes out of scope.
- * @param importResults Provides the [Flow] of [ImporterResult]s produced by the bookmarks import
+ * @param importEvents Provides the [Flow] of [ImporterEvent]s produced by the bookmarks import
  * dialog. The middleware subscribes on [ViewAppeared] in the normal flow and dispatches [ImportAction.ImportFailed]
- * when a [ImporterResult.Failure] is emitted.
+ * when a [ImporterEvent.Failure] is emitted.
  * @param lifecycleScope lifecycle bound CoroutineScope scope used to cancel jobs when leaving bookmarks.
  */
 @Suppress("LongParameterList", "LargeClass")
@@ -72,7 +72,7 @@ internal class BookmarksMiddleware(
     private val saveBookmarkSortOrder: suspend (BookmarksListSortOrder) -> Unit,
     private val editBookmarkUseCase: BookmarksUseCase.EditBookmarkUseCase,
     private val reportResultGlobally: (BookmarksGlobalResultReport) -> Unit,
-    private val importResults: () -> Flow<ImporterResult>,
+    private val importEvents: () -> Flow<ImporterEvent>,
     private val lifecycleScope: CoroutineScope,
 ) : Middleware<BookmarksState, BookmarksAction> {
 
@@ -97,12 +97,13 @@ internal class BookmarksMiddleware(
             is ViewAppeared -> {
                 if (action.bookmarkToLoad == null) {
                     store.tryDispatchLoadFor(BookmarkRoot.Mobile.id)
-                    importResults()
+                    importEvents()
                         .onEach { result ->
                             when (result) {
-                                ImporterResult.Canceled -> Unit
-                                ImporterResult.Failure -> store.dispatch(ImportAction.ImportFailed)
-                                is ImporterResult.Success -> store.dispatch(
+                                ImporterEvent.Started -> store.dispatch(ImportAction.ImportStarted)
+                                ImporterEvent.Canceled -> Unit
+                                ImporterEvent.Failure -> store.dispatch(ImportAction.ImportFailed)
+                                is ImporterEvent.Success -> store.dispatch(
                                     action = ImportAction.ImportSucceeded(result.importCount),
                                 )
                             }
@@ -384,6 +385,7 @@ internal class BookmarksMiddleware(
             ImportAction.ImportFailed -> {
                 store.dispatch(SnackbarAction.ImportFailed)
             }
+            ImportAction.ImportStarted,
             SearchClicked,
             RootOverflowMenuClicked,
             RootOverflowMenuDismissed,

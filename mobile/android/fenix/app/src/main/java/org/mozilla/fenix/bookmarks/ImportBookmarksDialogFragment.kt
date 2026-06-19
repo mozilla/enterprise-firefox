@@ -14,7 +14,7 @@ import mozilla.appservices.places.BookmarkRoot
 import mozilla.components.concept.bookmark.parser.BookmarksFileParser
 import mozilla.components.concept.bookmarks.file.BookmarksFileImporter
 import mozilla.components.feature.importer.BookmarkImporter
-import mozilla.components.feature.importer.ImporterResult
+import mozilla.components.feature.importer.ImporterEvent
 import mozilla.components.lib.bookmark.parser.jsoup.jsoupParser
 import mozilla.components.lib.bookmarks.file.htmlImporter
 import org.mozilla.fenix.R
@@ -35,36 +35,45 @@ internal class ImportBookmarksDialogFragment : DialogFragment() {
                 ),
                 inserter = requireComponents.core.bookmarksStorage,
             ),
-            onFinished = { result ->
+            onEventReceived = { event ->
                 parentFragmentManager.setFragmentResult(
                     REQUEST_KEY,
-                    Bundle().apply { putString(KEY_RESULT, result.encode()) },
+                    Bundle().apply { putString(KEY_IMPORT_EVENT, event.encode()) },
                 )
-                dismiss()
+                dismissWhenFinished(event)
             },
         )
     }
 
+    private fun dismissWhenFinished(event: ImporterEvent) {
+        if (event !is ImporterEvent.Started) {
+            dismiss()
+        }
+    }
+
     companion object {
         const val REQUEST_KEY = "import_bookmarks_request"
-        const val KEY_RESULT = "result"
-        internal const val RESULT_SUCCESS = "success"
-        internal const val RESULT_FAILURE = "failure"
-        internal const val RESULT_CANCELLED = "cancelled"
+        const val KEY_IMPORT_EVENT = "event"
+        internal const val IMPORT_STARTED = "started"
+        internal const val IMPORT_SUCCESS = "success"
+        internal const val IMPORT_FAILURE = "failure"
+        internal const val IMPORT_CANCELLED = "cancelled"
         const val TAG = "import_dialog"
 
-        fun decodeResult(bundle: Bundle): ImporterResult? =
-            when (bundle.getString(KEY_RESULT)) {
-                RESULT_SUCCESS -> ImporterResult.Success(importCount = 0)
-                RESULT_FAILURE -> ImporterResult.Failure
-                RESULT_CANCELLED -> ImporterResult.Canceled
+        fun decodeResult(bundle: Bundle): ImporterEvent? =
+            when (bundle.getString(KEY_IMPORT_EVENT)) {
+                IMPORT_STARTED -> ImporterEvent.Started
+                IMPORT_SUCCESS -> ImporterEvent.Success(importCount = 0)
+                IMPORT_FAILURE -> ImporterEvent.Failure
+                IMPORT_CANCELLED -> ImporterEvent.Canceled
                 else -> null
             }
     }
 }
 
-private fun ImporterResult.encode(): String = when (this) {
-    is ImporterResult.Success -> ImportBookmarksDialogFragment.RESULT_SUCCESS
-    ImporterResult.Failure -> ImportBookmarksDialogFragment.RESULT_FAILURE
-    ImporterResult.Canceled -> ImportBookmarksDialogFragment.RESULT_CANCELLED
+private fun ImporterEvent.encode(): String = when (this) {
+    ImporterEvent.Started -> ImportBookmarksDialogFragment.IMPORT_STARTED
+    is ImporterEvent.Success -> ImportBookmarksDialogFragment.IMPORT_SUCCESS
+    ImporterEvent.Failure -> ImportBookmarksDialogFragment.IMPORT_FAILURE
+    ImporterEvent.Canceled -> ImportBookmarksDialogFragment.IMPORT_CANCELLED
 }

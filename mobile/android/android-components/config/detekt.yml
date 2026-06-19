@@ -791,6 +791,8 @@ style:
 
 mozilla-rules:
   active: true
+  ClassAcronymCasing:
+    active: true
 
 acorn-detekt-rules:
   active: true

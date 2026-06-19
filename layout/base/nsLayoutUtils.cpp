@@ -1972,10 +1972,19 @@ void nsLayoutUtils::PostTranslate(Matrix4x4& aTransform, const nsPoint& aOrigin,
   aTransform.PostTranslate(gfxOrigin);
 }
 
-bool nsLayoutUtils::ShouldSnapToGrid(const nsIFrame* aFrame) {
+bool nsLayoutUtils::ShouldSnapToGrid(const nsIFrame* aFrame,
+                                     const nsDisplayListBuilder* aBuilder) {
   // TODO: Remove this function when this pref is being removed.
-  if (StaticPrefs::layout_disable_pixel_alignment()) {
-    return aFrame && aFrame->IsSVGOuterSVGAnonChildFrame();
+  if (StaticPrefs::layout_disable_pixel_alignment() && aBuilder &&
+      aBuilder->IsPaintingForWebRender()) {
+    // On the WebRender path, reference-frame origins are snapped in WebRender,
+    // where the (potentially fractional) external scroll offset can be removed
+    // reliably. Snapping the origin here would round it in scrolled space and
+    // the builder would then re-add the unsnapped external scroll offset,
+    // leaving a fractional residue that mis-places content by a device pixel.
+    // The drawSnapshot / non-WebRender path has no WebRender snapping, so it
+    // must keep snapping here.
+    return false;
   }
 
   return !aFrame || !aFrame->HasAnyStateBits(NS_FRAME_SVG_LAYOUT) ||

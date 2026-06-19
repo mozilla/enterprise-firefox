@@ -57,6 +57,8 @@ const COLOR_TAKING_FUNCTIONS = new Set([
   "oklab",
   "oklch",
   "rgb",
+  // alpha() takes a relative color after `from`
+  "alpha",
   // image(<color>) is equivalent to linear-gradient(<color>)
   "image",
 ]);

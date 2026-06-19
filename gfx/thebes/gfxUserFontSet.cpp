@@ -285,7 +285,7 @@ already_AddRefed<gfxFontSrcPrincipal> gfxFontFaceSrc::LoadPrincipal(
 void gfxUserFontEntry::GetFamilyNameAndURIForLogging(uint32_t aSrcIndex,
                                                      nsACString& aFamilyName,
                                                      nsACString& aURI) {
-  aFamilyName = mFamilyName;
+  aFamilyName = FamilyName();
 
   aURI.Truncate();
   if (aSrcIndex >= mSrcList.Length()) {
@@ -443,7 +443,7 @@ void gfxUserFontEntry::DoLoadNextSrc(bool aIsContinue) {
   RefPtr<gfxUserFontSet> fontSet = GetUserFontSet();
   if (NS_WARN_IF(!fontSet)) {
     LOG(("userfonts (%p) failed expired font set for (%s)\n", fontSet.get(),
-         mFamilyName.get()));
+         FamilyName().get()));
     mFontDataLoadingState = LOADING_FAILED;
     SetLoadState(STATUS_FAILED);
     return;
@@ -481,11 +481,11 @@ void gfxUserFontEntry::DoLoadNextSrc(bool aIsContinue) {
       if (fe) {
         LOG(("userfonts (%p) [src %d] loaded local: (%s) for (%s) gen: %8.8x\n",
              fontSet.get(), mCurrentSrcIndex, currSrc.mLocalName.get(),
-             mFamilyName.get(), uint32_t(fontSet->GetGeneration())));
+             FamilyName().get(), uint32_t(fontSet->GetGeneration())));
         fe->mFeatureSettings.AppendElements(mFeatureSettings);
         fe->mVariationSettings.AppendElements(mVariationSettings);
         fe->mLanguageOverride = mLanguageOverride;
-        fe->mFamilyName = mFamilyName;
+        fe->SetFamilyName(FamilyName());
         fe->mRangeFlags = mRangeFlags;
         fe->mAscentOverride = mAscentOverride;
         fe->mDescentOverride = mDescentOverride;
@@ -503,7 +503,7 @@ void gfxUserFontEntry::DoLoadNextSrc(bool aIsContinue) {
       }
       LOG(("userfonts (%p) [src %d] failed local: (%s) for (%s)\n",
            fontSet.get(), mCurrentSrcIndex, currSrc.mLocalName.get(),
-           mFamilyName.get()));
+           FamilyName().get()));
     }
 
     // src url ==> start the load process
@@ -538,7 +538,7 @@ void gfxUserFontEntry::DoLoadNextSrc(bool aIsContinue) {
                 ("userfonts (%p) [src %d] "
                  "loaded uri from cache: (%s) for (%s)\n",
                  fontSet.get(), mCurrentSrcIndex,
-                 currSrc.mURI->GetSpecOrDefault().get(), mFamilyName.get()));
+                 currSrc.mURI->GetSpecOrDefault().get(), FamilyName().get()));
             return;
           }
         }
@@ -608,7 +608,7 @@ void gfxUserFontEntry::DoLoadNextSrc(bool aIsContinue) {
           if (NS_SUCCEEDED(rv)) {
             LOG(("userfonts (%p) [src %d] loading uri: (%s) for (%s)\n",
                  fontSet.get(), mCurrentSrcIndex,
-                 currSrc.mURI->GetSpecOrDefault().get(), mFamilyName.get()));
+                 currSrc.mURI->GetSpecOrDefault().get(), FamilyName().get()));
             return;
           }
           fontSet->LogMessage(this, mCurrentSrcIndex,
@@ -651,7 +651,7 @@ void gfxUserFontEntry::DoLoadNextSrc(bool aIsContinue) {
 
   // all src's failed; mark this entry as unusable (so fallback will occur)
   LOG(("userfonts (%p) failed all src for (%s)\n", fontSet.get(),
-       mFamilyName.get()));
+       FamilyName().get()));
   mFontDataLoadingState = LOADING_FAILED;
   SetLoadState(STATUS_FAILED);
 }
@@ -801,7 +801,7 @@ bool gfxUserFontEntry::LoadPlatformFont(uint32_t aSrcIndex,
     fe->mFeatureSettings.AppendElements(mFeatureSettings);
     fe->mVariationSettings.AppendElements(mVariationSettings);
     fe->mLanguageOverride = mLanguageOverride;
-    fe->mFamilyName = mFamilyName;
+    fe->SetFamilyName(FamilyName());
     fe->mRangeFlags = mRangeFlags;
     fe->mAscentOverride = mAscentOverride;
     fe->mDescentOverride = mDescentOverride;
@@ -813,7 +813,7 @@ bool gfxUserFontEntry::LoadPlatformFont(uint32_t aSrcIndex,
         ("userfonts (%p) [src %d] loaded uri: (%s) for (%s) "
          "(%p) gen: %8.8x compress: %d%%\n",
          fontSet.get(), aSrcIndex,
-         mSrcList[aSrcIndex].mURI->GetSpecOrDefault().get(), mFamilyName.get(),
+         mSrcList[aSrcIndex].mURI->GetSpecOrDefault().get(), FamilyName().get(),
          this, uint32_t(fontSet->GetGeneration()), fontCompressionRatio));
     mPlatformFontEntry = fe;
     SetLoadState(STATUS_LOADED);
@@ -823,11 +823,12 @@ bool gfxUserFontEntry::LoadPlatformFont(uint32_t aSrcIndex,
       gfxUserFontSet::UserFontCache::CacheFont(fe);
     }
   } else {
-    LOG((
-        "userfonts (%p) [src %d] failed uri: (%s) for (%s)"
-        " error making platform font\n",
-        fontSet.get(), aSrcIndex,
-        mSrcList[aSrcIndex].mURI->GetSpecOrDefault().get(), mFamilyName.get()));
+    LOG(
+        ("userfonts (%p) [src %d] failed uri: (%s) for (%s)"
+         " error making platform font\n",
+         fontSet.get(), aSrcIndex,
+         mSrcList[aSrcIndex].mURI->GetSpecOrDefault().get(),
+         FamilyName().get()));
   }
 
   // The downloaded data can now be discarded; the font entry is using the
@@ -1225,7 +1226,7 @@ bool gfxUserFontSet::UserFontCache::Entry::KeyEquals(
       mFontEntry->mDescentOverride != fe->mDescentOverride ||
       mFontEntry->mLineGapOverride != fe->mLineGapOverride ||
       mFontEntry->mSizeAdjust != fe->mSizeAdjust ||
-      mFontEntry->mFamilyName != fe->mFamilyName) {
+      mFontEntry->FamilyName() != fe->FamilyName()) {
     return false;
   }
 
@@ -1361,7 +1362,7 @@ void gfxUserFontSet::UserFontCache::Entry::ReportMemory(
   if (aAnonymize) {
     path.AppendPrintf("<anonymized-%p>", this);
   } else {
-    path.AppendPrintf("family=%s", mFontEntry->mFamilyName.get());
+    path.AppendPrintf("family=%s", mFontEntry->FamilyName().get());
     if (mURI) {
       nsCString spec = mURI->GetSpecOrDefault();
       spec.ReplaceChar('/', '\\');

@@ -269,6 +269,11 @@
 #endif
 #endif
 
+; shell assets
+#ifdef XP_WIN
+@RESPATH@/browser/components/shell/assets/kit.gif
+#endif
+
 ; [Default Preferences]
 ; All the pref files must be part of base to prevent migration bugs
 @RESPATH@/browser/@PREF_DIR@/firefox.js

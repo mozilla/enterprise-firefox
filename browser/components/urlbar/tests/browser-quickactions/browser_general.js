@@ -25,7 +25,7 @@ const DUMMY_PAGE =
 let testActionCalled = 0;
 
 const assertAction = async name => {
-  await BrowserTestUtils.waitForCondition(() =>
+  await TestUtils.waitForCondition(() =>
     window.document.querySelector(`.urlbarView-action-btn[data-action=${name}]`)
   );
   Assert.ok(true, `We found action "${name}`);
@@ -316,7 +316,7 @@ add_task(async function test_update_in_actions_mode() {
       window,
       value: "update",
     });
-    let updateButton = await BrowserTestUtils.waitForCondition(() =>
+    let updateButton = await TestUtils.waitForCondition(() =>
       window.document.querySelector(
         `.urlbarView-action-btn[data-action=update]`
       )
@@ -333,7 +333,7 @@ add_task(async function test_update_in_actions_mode() {
       window,
       value: "update",
     });
-    updateButton = await BrowserTestUtils.waitForCondition(() =>
+    updateButton = await TestUtils.waitForCondition(() =>
       window.document.querySelector(
         `.urlbarView-action-btn[data-action=update]`
       )

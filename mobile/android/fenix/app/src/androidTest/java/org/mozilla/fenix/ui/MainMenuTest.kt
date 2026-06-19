@@ -14,6 +14,7 @@ import org.junit.Test
 import org.mozilla.fenix.IntentReceiverActivity
 import org.mozilla.fenix.R
 import org.mozilla.fenix.customannotations.Converted
+import org.mozilla.fenix.customannotations.SkipLeaks
 import org.mozilla.fenix.customannotations.SmokeTest
 import org.mozilla.fenix.helpers.AppAndSystemHelper.assertExternalAppOpens
 import org.mozilla.fenix.helpers.AppAndSystemHelper.assertNativeAppOpens
@@ -28,6 +29,7 @@ import org.mozilla.fenix.helpers.HomeActivityIntentTestRule
 import org.mozilla.fenix.helpers.MatcherHelper
 import org.mozilla.fenix.helpers.MatcherHelper.itemContainingText
 import org.mozilla.fenix.helpers.MockBrowserDataHelper
+import org.mozilla.fenix.helpers.MockBrowserDataHelper.createBookmarkItem
 import org.mozilla.fenix.helpers.TestAssetHelper.articleSummaryAsset
 import org.mozilla.fenix.helpers.TestAssetHelper.firstForeignWebPageAsset
 import org.mozilla.fenix.helpers.TestAssetHelper.getGenericAsset
@@ -769,6 +771,56 @@ class MainMenuTest {
                 false,
                 waitingTimeVeryShort,
             )
+        }
+    }
+
+    @Test
+    @SkipLeaks(
+        reasons = [
+            "https://bugzilla.mozilla.org/show_bug.cgi?id=2041351",
+        ],
+    )
+    fun verifyTheAddBookmarkMenuItemInACustomTabTest() {
+        val customTabPage = mockWebServer.getGenericAsset(1)
+
+        intentReceiverActivityTestRule.launchActivity(
+            createCustomTabIntent(
+                customTabPage.url.toString(),
+            ),
+        )
+
+        customTabScreen(composeTestRule) {
+        }.openMainMenu {
+            verifyBookmarkThisPageButton()
+            clickBookmarkThisPageButton()
+        }.openMainMenu {
+            verifyEditBookmarkButton()
+        }
+    }
+
+    @Test
+    @SkipLeaks(
+        reasons = [
+            "https://bugzilla.mozilla.org/show_bug.cgi?id=2041351",
+        ],
+    )
+    fun verifyTheDeleteBookmarkMenuItemInACustomTabTest() {
+        val customTabPage = mockWebServer.getGenericAsset(1)
+        // presume we have bookmarked the page
+        createBookmarkItem(customTabPage.url.toString(), customTabPage.title, null)
+
+        intentReceiverActivityTestRule.launchActivity(
+            createCustomTabIntent(
+                customTabPage.url.toString(),
+            ),
+        )
+
+        customTabScreen(composeTestRule) {
+        }.openMainMenu {
+            verifyEditBookmarkButton()
+        }.clickEditBookmarkButton {
+            verifyEditBookmarksView()
+            clickDeleteBookmarkButtonInEditMode()
         }
     }
 

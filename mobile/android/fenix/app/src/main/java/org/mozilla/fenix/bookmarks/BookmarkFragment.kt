@@ -24,7 +24,7 @@ import mozilla.components.browser.state.state.searchEngines
 import mozilla.components.compose.browser.toolbar.store.BrowserToolbarState
 import mozilla.components.compose.browser.toolbar.store.BrowserToolbarStore
 import mozilla.components.compose.browser.toolbar.store.Mode
-import mozilla.components.feature.importer.ImporterResult
+import mozilla.components.feature.importer.ImporterEvent
 import mozilla.components.lib.state.helpers.StoreProvider.Companion.fragmentStore
 import mozilla.components.support.base.feature.ViewBoundFeatureWrapper
 import org.mozilla.fenix.HomeActivity
@@ -88,7 +88,7 @@ class BookmarkFragment : Fragment(), SystemInsetsPaddedFragment {
             lensFeature?.get()?.onCameraPermissionResult(isGranted)
         }
 
-    private val importResultFlow = MutableSharedFlow<ImporterResult>(extraBufferCapacity = 1)
+    private val importEventsFlow = MutableSharedFlow<ImporterEvent>(extraBufferCapacity = 1)
 
     @Suppress("LongMethod")
     override fun onCreateView(
@@ -195,7 +195,7 @@ class BookmarkFragment : Fragment(), SystemInsetsPaddedFragment {
                                         AppAction.BookmarkAction.BookmarkOperationResultReported(it),
                                     )
                                 },
-                                importResults = { importResultFlow },
+                                importEvents = { importEventsFlow },
                             ),
                         ),
                     )
@@ -229,7 +229,7 @@ class BookmarkFragment : Fragment(), SystemInsetsPaddedFragment {
             viewLifecycleOwner,
         ) { _, bundle ->
             ImportBookmarksDialogFragment.decodeResult(bundle)?.let {
-                importResultFlow.tryEmit(it)
+                importEventsFlow.tryEmit(it)
             }
         }
     }

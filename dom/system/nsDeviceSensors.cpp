@@ -514,7 +514,7 @@ bool nsDeviceSensors::IsSensorAllowedByPref(uint32_t aType,
         return false;
       }
       if (doc) {
-        doc->WarnOnceAbout(DeprecatedOperations::eMotionEvent);
+        doc->WarnOnceAndReportAbout(DeprecatedOperations::eMotionEvent);
       }
       break;
     case nsIDeviceSensorData::TYPE_GAME_ROTATION_VECTOR:
@@ -525,7 +525,7 @@ bool nsDeviceSensors::IsSensorAllowedByPref(uint32_t aType,
         return false;
       }
       if (doc) {
-        doc->WarnOnceAbout(DeprecatedOperations::eOrientationEvent);
+        doc->WarnOnceAndReportAbout(DeprecatedOperations::eOrientationEvent);
       }
       break;
     case nsIDeviceSensorData::TYPE_PROXIMITY:
@@ -534,7 +534,7 @@ bool nsDeviceSensors::IsSensorAllowedByPref(uint32_t aType,
         return false;
       }
       if (doc) {
-        doc->WarnOnceAbout(DeprecatedOperations::eProximityEvent, true);
+        doc->WarnOnceAndReportAbout(DeprecatedOperations::eProximityEvent);
       }
       break;
     case nsIDeviceSensorData::TYPE_LIGHT:
@@ -543,7 +543,7 @@ bool nsDeviceSensors::IsSensorAllowedByPref(uint32_t aType,
         return false;
       }
       if (doc) {
-        doc->WarnOnceAbout(DeprecatedOperations::eAmbientLightEvent, true);
+        doc->WarnOnceAndReportAbout(DeprecatedOperations::eAmbientLightEvent);
       }
       break;
     default:

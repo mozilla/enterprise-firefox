@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 6.0.372
- * pdfjsBuild = 7f7b38b42
+ * pdfjsVersion = 6.0.393
+ * pdfjsBuild = e74be4491
  */
 
 ;// ./web/ui_utils.js
@@ -548,6 +548,10 @@ const defaultOptions = {
     value: true,
     kind: OptionKind.BROWSER
   },
+  supportsDownloading: {
+    value: true,
+    kind: OptionKind.BROWSER
+  },
   supportsIntegratedFind: {
     value: false,
     kind: OptionKind.BROWSER
@@ -981,7 +985,7 @@ const {
 } = globalThis.pdfjsLib;
 
 ;// ./web/internal_evt.js
-const INTERNAL_EVT = "5f790b80-85a4-4bd7-ad9a-0c5fb0c46d37";
+const INTERNAL_EVT = "ceca4fee-8d91-4eb8-b06c-b2b293fef895";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -6277,7 +6281,7 @@ class AnnotationLayerBuilder {
     return inferredLinks.filter(link => {
       let linkAreaRects;
       for (const annotation of this.#annotations) {
-        if (annotation.annotationType !== AnnotationType.LINK || !annotation.url) {
+        if (annotation.annotationType !== AnnotationType.LINK) {
           continue;
         }
         const intersections = intersectAnnotations(annotation, link);
@@ -8669,7 +8673,7 @@ class PDFViewer {
   #savedPageViews = null;
   #deletedPageNumbers = null;
   constructor(options) {
-    const viewerVersion = "6.0.372";
+    const viewerVersion = "6.0.393";
     if (version !== viewerVersion) {
       throw new Error(`The API version "${version}" does not match the Viewer version "${viewerVersion}".`);
     }
@@ -10724,7 +10728,14 @@ const PDFViewerApplication = {
       externalLinkRel: AppOptions.get("externalLinkRel"),
       ignoreDestinationZoom: AppOptions.get("ignoreDestinationZoom")
     });
-    const downloadManager = this.downloadManager = new DownloadManager();
+    const supportsDownloading = AppOptions.get("supportsDownloading");
+    const downloadManager = this.downloadManager = supportsDownloading ? new DownloadManager() : null;
+    if (appConfig.secondaryToolbar?.downloadButton) {
+      appConfig.secondaryToolbar.downloadButton.hidden = !supportsDownloading;
+    }
+    if (appConfig.toolbar?.download) {
+      appConfig.toolbar.download.hidden = !supportsDownloading;
+    }
     const findController = this.findController = new PDFFindController({
       linkService,
       eventBus,
@@ -11200,6 +11211,9 @@ const PDFViewerApplication = {
     });
   },
   async download() {
+    if (!this.downloadManager) {
+      return;
+    }
     let data;
     try {
       data = await (this.pdfDocument ? this.pdfDocument.getData() : this.pdfLoadingTask.getData());
@@ -11207,6 +11221,9 @@ const PDFViewerApplication = {
     this.downloadManager.download(data, this._downloadUrl, this._docFilename);
   },
   async save() {
+    if (!this.downloadManager) {
+      return;
+    }
     if (this._saveInProgress) {
       return;
     }
@@ -11234,6 +11251,9 @@ const PDFViewerApplication = {
     }
   },
   async downloadOrSave() {
+    if (!this.downloadManager) {
+      return;
+    }
     const {
       classList
     } = this.appConfig.appContainer;
@@ -11913,6 +11933,9 @@ const PDFViewerApplication = {
   async onSavePages({
     data: extractParams
   }) {
+    if (!this.downloadManager) {
+      return;
+    }
     if (!this.pdfDocument) {
       return;
     }

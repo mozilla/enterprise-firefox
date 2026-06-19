@@ -796,6 +796,8 @@ newtab-sports-widget-show-less =
 # Toggle that filters the list of teams the user follows
 newtab-sports-widget-followed-only-toggle =
     .label = Only followed teams
+# Status shown when more matches are being fetched.
+newtab-sports-widget-loading-more = Loading more matches…
 
 ## Sports widget live-games pagination. Shown when 2+ matches are live at the same time
 

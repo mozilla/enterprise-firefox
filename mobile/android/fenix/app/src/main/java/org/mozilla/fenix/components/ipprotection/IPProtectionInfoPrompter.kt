@@ -13,6 +13,7 @@ import mozilla.components.feature.ipprotection.store.state.Authorized
 import mozilla.components.feature.ipprotection.store.state.EligibilityStatus
 import mozilla.components.feature.ipprotection.store.state.IPProtectionState
 import mozilla.components.lib.state.helpers.AbstractBinding
+import org.mozilla.fenix.GleanMetrics.Vpn
 import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.appstate.AppAction
 
@@ -50,6 +51,7 @@ class IPProtectionInfoPrompter(
 
     private fun processStateForSnackbar(state: IPProtectionState) {
         if (state.eligibilityStatus == EligibilityStatus.Eligible && state.proxyStatus == Authorized.DataLimitReached) {
+            Vpn.bandwidthLimitError.record()
             appStore.dispatch(AppAction.IPProtectionSnackbarAction.DataLimitReached(errorMessages.dataLimitReached))
         }
     }

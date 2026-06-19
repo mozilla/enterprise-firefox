@@ -1055,6 +1055,27 @@ networking:
       - bleaching
       - received-unsent-ect-1
 
+  http_3_quic_version:
+    type: labeled_counter
+    description: >
+      The QUIC version negotiated for an HTTP/3 connection, recorded once per
+      connection that completes its handshake. Used to track the effect of
+      enabling compatible version negotiation (RFC 9368/9369), i.e. how often
+      connections end up on QUIC v2 versus v1.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2040450
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2040450
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - necko@mozilla.com
+      - minden@mozilla.com
+    expires: never
+    labels:
+      - v1
+      - v2
+
   http_3_loss_ratio:
     type: custom_distribution
     unit: integer

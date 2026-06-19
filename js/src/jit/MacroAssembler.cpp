@@ -3064,10 +3064,10 @@ void MacroAssembler::emitMegamorphicCacheLookupByValueCommon(
   rshiftPtr(Imm32(MegamorphicCache::ShapeHashShift2), scratch2);
   xorPtr(scratch2, outEntryPtr);
 
-  if constexpr (std::is_same<IdOperandType, ValueOperand>::value) {
+  if constexpr (std::is_same_v<IdOperandType, ValueOperand>) {
     loadAtomOrSymbolAndHash(id, scratch1, scratch2, cacheMiss);
   } else {
-    static_assert(std::is_same<IdOperandType, Register>::value);
+    static_assert(std::is_same_v<IdOperandType, Register>);
     movePtr(id, scratch1);
     loadAtomHash(scratch1, scratch2, nullptr);
   }
@@ -3357,11 +3357,11 @@ void MacroAssembler::emitMegamorphicCachedSetSlot(
   rshiftPtr(Imm32(MegamorphicSetPropCache::ShapeHashShift2), scratch2);
   xorPtr(scratch2, scratch3);
 
-  if constexpr (std::is_same<IdType, ValueOperand>::value) {
+  if constexpr (std::is_same_v<IdType, ValueOperand>) {
     loadAtomOrSymbolAndHash(id, scratch1, scratch2, &cacheMiss);
     addPtr(scratch2, scratch3);
   } else {
-    static_assert(std::is_same<IdType, PropertyKey>::value);
+    static_assert(std::is_same_v<IdType, PropertyKey>);
     addPtr(Imm32(HashPropertyKeyThreadSafe(id)), scratch3);
     movePropertyKey(id, scratch1);
   }

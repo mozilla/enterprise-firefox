@@ -57,7 +57,7 @@ const SERP_BODY_MARKER = "Description of the first result.";
  * @param {ChatConversation} conversation
  */
 async function waitForRunSearchResult(conversation) {
-  return BrowserTestUtils.waitForCondition(
+  return TestUtils.waitForCondition(
     () =>
       conversation.messages.find(
         m => m.role === MESSAGE_ROLE.TOOL && m.content?.name === RUN_SEARCH
@@ -232,7 +232,7 @@ add_task(async function test_run_search_verbatim_query_path() {
   await submitSmartbar(sidebarBrowser);
 
   /** @type {ChatConversation} */
-  const conversation = await BrowserTestUtils.waitForCondition(
+  const conversation = await TestUtils.waitForCondition(
     () => AIWindow.getActiveConversation(win),
     "Conversation should be created when the first message is sent."
   );
@@ -265,7 +265,7 @@ add_task(async function test_run_search_verbatim_query_path() {
   });
 
   const targetBrowser = win.gBrowser.selectedBrowser;
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => targetBrowser.currentURI?.spec?.startsWith(serpUrl),
     "Foreground tab navigates to the mock SERP URL."
   );
@@ -344,7 +344,7 @@ add_task(async function test_run_search_verbatim_query_path() {
     response: "Latest tech news",
   });
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () =>
       conversation.messages.find(
         m =>
@@ -387,7 +387,7 @@ add_task(async function test_run_search_generated_query_path() {
   await submitSmartbar(sidebarBrowser);
 
   /** @type {ChatConversation} */
-  const conversation = await BrowserTestUtils.waitForCondition(
+  const conversation = await TestUtils.waitForCondition(
     () => AIWindow.getActiveConversation(win),
     "Conversation should be created when the first message is sent."
   );
@@ -439,7 +439,7 @@ add_task(async function test_run_search_generated_query_path() {
   });
 
   const targetBrowser = win.gBrowser.selectedBrowser;
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => targetBrowser.currentURI?.spec?.startsWith(serpUrl),
     "Foreground tab navigates to the mock SERP URL."
   );
@@ -504,7 +504,7 @@ add_task(async function test_run_search_generated_query_path() {
   });
 
   // Wait for the follow-up to commit so cleanup isn't mid-generation.
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () =>
       conversation.messages.find(
         m =>
@@ -539,7 +539,7 @@ add_task(async function test_run_search_extraction_failure_flags_still_flip() {
   await submitSmartbar(sidebarBrowser);
 
   /** @type {ChatConversation} */
-  const conversation = await BrowserTestUtils.waitForCondition(
+  const conversation = await TestUtils.waitForCondition(
     () => AIWindow.getActiveConversation(win),
     "Conversation should be created when the first message is sent."
   );
@@ -566,7 +566,7 @@ add_task(async function test_run_search_extraction_failure_flags_still_flip() {
   });
 
   const targetBrowser = win.gBrowser.selectedBrowser;
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => targetBrowser.currentURI?.spec?.startsWith(serpUrl),
     "Foreground tab navigates to the mock (empty) SERP URL."
   );
@@ -613,7 +613,7 @@ add_task(async function test_run_search_extraction_failure_flags_still_flip() {
     response: "Empty SERP",
   });
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () =>
       conversation.messages.find(
         m =>

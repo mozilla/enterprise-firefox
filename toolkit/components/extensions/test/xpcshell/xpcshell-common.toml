@@ -946,10 +946,9 @@ run-if = [
 
 ["test_webRequest_filtering.js"]
 
+["test_wpt_actor_pref.js"]
+
 ["test_wpt_test_events.js"]
 prefs = ["extensions.wpt.enabled=true"]
-skip-if = [
-  "!nightly_build",
-]
 
 ["text_ext_webRequest_js_cache.js"]

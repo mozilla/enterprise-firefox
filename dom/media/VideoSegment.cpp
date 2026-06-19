@@ -8,7 +8,7 @@
 #include "VideoUtils.h"
 #include "gfx2DGlue.h"
 #include "mozilla/CheckedInt.h"
-#include "mozilla/UniquePtr.h"
+#include "mozilla/UniquePtrExtensions.h"
 
 namespace mozilla {
 
@@ -41,9 +41,20 @@ void VideoFrame::TakeFrom(VideoFrame* aFrame) {
   mPrincipalHandle = aFrame->mPrincipalHandle;
 }
 
-/* static */
-already_AddRefed<Image> VideoFrame::CreateBlackImage(
-    const gfx::IntSize& aSize) {
+already_AddRefed<Image> VideoFrame::CloneAsBlackImage() const {
+  const gfx::IntSize size = GetIntrinsicSize();
+
+  // Cap on input dimensions. Without this, valid int32_t dimensions can produce
+  // astronomically large-but-non-overflowing size_t values, causing the OS to
+  // thrash or kill lower priority processes when there are too many page
+  // faults. 16384 (16K) bounds the allocation to ~384 MB.
+  constexpr int32_t kMaxBlackImageDimension = 16384;
+  if (size.width <= 0 || size.height <= 0 ||
+      size.width > kMaxBlackImageDimension ||
+      size.height > kMaxBlackImageDimension) {
+    return nullptr;
+  }
+
   RefPtr<ImageContainer> container = MakeAndAddRef<ImageContainer>(
       ImageUsageType::BlackImage, ImageContainer::ASYNCHRONOUS);
   RefPtr<PlanarYCbCrImage> image = container->CreatePlanarYCbCrImage();
@@ -51,24 +62,24 @@ already_AddRefed<Image> VideoFrame::CreateBlackImage(
     return nullptr;
   }
 
-  if (aSize.width <= 0 || aSize.height <= 0) {
-    return nullptr;
-  }
-  auto checkedYLen = CheckedInt32(aSize.width) * aSize.height;
+  auto checkedYLen = CheckedInt32(size.width) * size.height;
   if (!checkedYLen.isValid()) {
     return nullptr;
   }
-  auto checkedCbCrWidth = (CheckedInt32(aSize.width) + 1) / 2;
-  auto checkedCbCrHeight = (CheckedInt32(aSize.height) + 1) / 2;
+  auto checkedCbCrWidth = (CheckedInt32(size.width) + 1) / 2;
+  auto checkedCbCrHeight = (CheckedInt32(size.height) + 1) / 2;
   auto checkedCbCrLen = checkedCbCrWidth * checkedCbCrHeight;
   if (!checkedCbCrLen.isValid()) {
     return nullptr;
   }
-  int yLen = checkedYLen.value();
-  int cbcrLen = checkedCbCrLen.value();
+  size_t yLen = checkedYLen.value();
+  size_t cbcrLen = checkedCbCrLen.value();
 
   // Generate a black image.
-  auto frame = MakeUnique<uint8_t[]>(yLen + 2 * cbcrLen);
+  auto frame = MakeUniqueFallible<uint8_t[]>(yLen + 2 * cbcrLen);
+  if (!frame) {
+    return nullptr;
+  }
   // Fill Y plane.
   memset(frame.get(), 0x10, yLen);
   // Fill Cb/Cr planes.
@@ -76,11 +87,11 @@ already_AddRefed<Image> VideoFrame::CreateBlackImage(
 
   layers::PlanarYCbCrData data;
   data.mYChannel = frame.get();
-  data.mYStride = aSize.width;
+  data.mYStride = size.width;
   data.mCbCrStride = checkedCbCrWidth.value();
   data.mCbChannel = frame.get() + yLen;
   data.mCrChannel = data.mCbChannel + cbcrLen;
-  data.mPictureRect = gfx::IntRect(0, 0, aSize.width, aSize.height);
+  data.mPictureRect = gfx::IntRect(0, 0, size.width, size.height);
   data.mStereoMode = StereoMode::MONO;
   data.mYUVColorSpace = gfx::YUVColorSpace::BT601;
   // This could be made FULL once bug 1568745 is complete. A black pixel being

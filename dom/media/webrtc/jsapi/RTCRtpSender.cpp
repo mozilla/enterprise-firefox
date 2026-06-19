@@ -488,6 +488,8 @@ nsTArray<RefPtr<dom::RTCStatsPromise>> RTCRtpSender::GetStatsInternal(
             local.mPliCount.Construct(
                 streamStats->rtcp_packet_type_counts.pli_packets);
             local.mFramesEncoded.Construct(streamStats->frames_encoded);
+            local.mKeyFramesEncoded.Construct(
+                streamStats->frame_counts.key_frames);
             if (streamStats->qp_sum) {
               local.mQpSum.Construct(*streamStats->qp_sum);
             }

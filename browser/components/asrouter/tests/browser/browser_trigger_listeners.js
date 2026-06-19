@@ -103,7 +103,7 @@ async function test_formAutofillTrigger(settingsRedesignEnabled) {
             )
           )?.click()
         );
-        await BrowserTestUtils.waitForCondition(
+        await TestUtils.waitForCondition(
           () => browser.contentWindow?.gSubDialog?.dialogs.length
         );
       } else {
@@ -478,7 +478,7 @@ add_task(async function test_activityAfterIdleHiddenWindow() {
     handlerStub.callsFake(() => resolve(true))
   );
   window.minimize();
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => window.windowState === window.STATE_MINIMIZED,
     "Window should be minimized"
   );

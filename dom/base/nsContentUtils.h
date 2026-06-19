@@ -172,6 +172,7 @@ struct CustomElementDefinition;
 class CustomElementFormValue;
 class CustomElementRegistry;
 class DataTransfer;
+enum class DeprecatedOperations : uint16_t;
 class Document;
 class DocumentFragment;
 class DOMArena;
@@ -1392,6 +1393,24 @@ class nsContentUtils {
       const mozilla::SourceLocation& aLocation =
           mozilla::JSCallingLocation::Get());
 
+  /**
+   * Queue a deprecation report for a deprecated operation, to be delivered
+   * through the Reporting API. The localized warning message for the operation
+   * is looked up in the DOM properties file.
+   *   @param aGlobal The global object the report is associated with.
+   *   @param aDoc Document used to localize the warning message. May be null.
+   *   @param aURI URI to attribute the report to. If it uses the data scheme,
+   *          only the scheme is reported to avoid copying a potentially long
+   *          spec.
+   *   @param aOperation The deprecated operation being reported.
+   *   @param aLocation Source location of the operation. Pass the empty
+   *          location to omit line and column information.
+   */
+  static void ReportDeprecation(nsIGlobalObject* aGlobal, const Document* aDoc,
+                                nsIURI* aURI,
+                                mozilla::dom::DeprecatedOperations aOperation,
+                                const mozilla::JSCallingLocation& aLocation);
+
   static void ReportEmptyGetElementByIdArg(const Document* aDoc);
 
   static void LogMessageToConsole(const char* aMsg);
@@ -1408,7 +1427,8 @@ class nsContentUtils {
    * page.
    */
   static nsresult GetMaybeLocalizedString(PropertiesFile aFile,
-                                          const char* aKey, Document* aDocument,
+                                          const char* aKey,
+                                          const Document* aDocument,
                                           nsAString& aResult);
 
   /**

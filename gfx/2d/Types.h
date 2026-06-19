@@ -31,6 +31,7 @@ enum class SurfaceType : int8_t {
   COREGRAPHICS_CGCONTEXT, /* Surface wrapping a CG context */
   SKIA,                   /* Surface wrapping a Skia bitmap */
   RECORDING,              /* Surface used for recording */
+  CANVAS_RECORDING,       /* Surface used for canvas recording */
   DATA_SHARED,            /* Data surface using shared memory */
   DATA_RECYCLING_SHARED,  /* Data surface using shared memory */
   OFFSET,                 /* Offset */

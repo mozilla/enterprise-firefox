@@ -431,7 +431,7 @@ public final class GeckoRuntime implements Parcelable {
     }
 
     final Context context = GeckoAppShell.getApplicationContext();
-    final CrashHelper.Pipes pipes = CrashHelper.createCrashHelperPipes(context);
+    final CrashHelper.Pipes pipes = CrashHelper.createCrashHelperPipes();
 
     if (pipes == null) {
       Log.e(LOGTAG, "Could not create the crash reporter IPC pipes");

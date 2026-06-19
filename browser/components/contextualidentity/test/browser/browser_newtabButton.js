@@ -73,7 +73,7 @@ add_task(async function test_containers_with_left_click() {
   ok(newTabButton, "New tab button exists");
   ok(!newTabButton.hidden, "New tab button is visible");
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => !!findPopup(),
     "Wait for popup to exist"
   );

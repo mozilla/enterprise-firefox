@@ -128,8 +128,7 @@ struct WebRenderUserDataKey {
   }
   PLDHashNumber Hash() const {
     return HashGeneric(
-        mFrameKey,
-        static_cast<std::underlying_type<decltype(mType)>::type>(mType));
+        mFrameKey, static_cast<std::underlying_type_t<decltype(mType)>>(mType));
   }
 
   uint32_t mFrameKey;

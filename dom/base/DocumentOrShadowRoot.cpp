@@ -411,12 +411,11 @@ static void QueryNodesFromRect(DocumentOrShadowRoot& aRoot, const nsRect& aRect,
                                Multiple aMultiple, ViewportType aViewportType,
                                PerformRetargeting aPerformRetargeting,
                                nsTArray<RefPtr<NodeOrElement>>& aNodes) {
-  static_assert(std::is_same<nsINode, NodeOrElement>::value ||
-                    std::is_same<Element, NodeOrElement>::value,
+  static_assert(std::is_same_v<nsINode, NodeOrElement> ||
+                    std::is_same_v<Element, NodeOrElement>,
                 "Should returning nodes or elements");
 
-  constexpr bool returningElements =
-      std::is_same<Element, NodeOrElement>::value;
+  constexpr bool returningElements = std::is_same_v<Element, NodeOrElement>;
   const bool retargeting = aPerformRetargeting == PerformRetargeting::Yes;
 
   nsCOMPtr<Document> doc = aRoot.AsNode().OwnerDoc();

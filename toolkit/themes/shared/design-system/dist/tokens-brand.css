@@ -7,7 +7,7 @@
 
 @import url("chrome://global/skin/design-system/tokens-shared.css");
 
-@layer tokens-foundation {
+@layer tokens-foundation-brand {
   :root,
   :host(.anonymous-content-host) {
     /** background-color **/
@@ -27,13 +27,6 @@
     --button-background-color-active: color-mix(in srgb, currentColor 21%, transparent);
     --button-text-color: light-dark(var(--color-gray-100), var(--color-gray-0));
     --button-text-color-primary: light-dark(var(--color-white), var(--color-gray-100));
-
-    /** color **/
-    --color-accent-attention: light-dark(#2ac3a2, #54ffbd);
-    --color-accent-primary: light-dark(var(--color-blue-60), var(--color-cyan-30));
-    --color-accent-primary-hover: light-dark(var(--color-blue-70), var(--color-cyan-20));
-    --color-accent-primary-active: light-dark(var(--color-blue-80), var(--color-cyan-10));
-    --color-accent-primary-selected: light-dark(var(--color-blue-60), var(--color-cyan-30));
 
     /** font-size **/
     --font-size-root: 15px;

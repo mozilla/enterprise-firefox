@@ -746,7 +746,7 @@ add_task(async function avoidWillHideRace() {
   // We can't wait for UrlbarTestUtils.promiseSearchComplete here since we
   // expect the popup will not open. We wait for _engineInfo to be populated
   // instead.
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => !!oneOffSearchButtons._engineInfo,
     "_engineInfo is set."
   );

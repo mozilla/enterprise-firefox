@@ -67,6 +67,7 @@ using ARMBuffer = js::jit::AssemblerBufferWithConstantPools<
         .instSize = 4,
         .guardSize = 1,
         .headerSize = 1,
+        .veneerSize = 1,
         .pcBias = 0,
         .alignFillInst = HINT | (NOP << ImmHint_offset),
         .nopFillInst = HINT | (NOP << ImmHint_offset),

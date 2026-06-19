@@ -83,7 +83,20 @@ void nsDragSessionGtk::ReplyToDragMotion(GdkDragContext* aDragContext,
   // becames locked and won't be returned when D&D modifiers (CTRL/SHIFT)
   // are released.
 
-  gdk_drag_status(aDragContext, GetDragActionGtk(), aTime);
+  GdkDragAction action = GetDragActionGtk();
+
+  // On Wayland, gdk_drag_status() controls the preferred action via
+  // wl_data_offer.set_actions(). Passing GDK_ACTION_COPY would lock
+  // the action to COPY due to the feedback loop between
+  // gdk_drag_status() and gdk_drag_context_get_selected_action().
+  // Always prefer MOVE; user modifiers (CTRL) are handled by the
+  // compositor and reflected in gdk_drag_context_get_selected_action().
+  if (widget::GdkIsWaylandDisplay() && action == GDK_ACTION_COPY) {
+    LOGDRAGSERVICE("  Wayland: switch copy to move");
+    action = GDK_ACTION_MOVE;
+  }
+
+  gdk_drag_status(aDragContext, action, aTime);
 }
 
 // This will update the drag action based on the information in the

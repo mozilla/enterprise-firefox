@@ -264,7 +264,7 @@ add_task(async function test_search_topsite_remove_engine() {
   SpecialPowers.spawn(browser, [], addContentHelpers);
 
   // Wait for React to render something
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () =>
       SpecialPowers.spawn(
         browser,

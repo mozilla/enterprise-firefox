@@ -32,6 +32,22 @@ import:
               "ampMobile": false,
               "wikipedia": true,
             }
+  - path: ../../android-components/components/feature/media/media.fml.yaml
+    channel: default
+    features:
+      media-notification-improvements:
+        - channel: developer
+          value:
+            enabled: true
+        - channel: nightly
+          value:
+            enabled: true
+        - channel: beta
+          value:
+            enabled: false
+        - channel: release
+          value:
+            enabled: false
 
 features:
   homescreen:

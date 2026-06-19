@@ -86,7 +86,7 @@ PickleIterator::PickleIterator(const Pickle& pickle)
 
 template <typename T>
 void PickleIterator::CopyInto(T* dest) {
-  static_assert(std::is_trivially_copyable<T>::value,
+  static_assert(std::is_trivially_copyable_v<T>,
                 "Copied type must be a POD type");
   Copier<T, sizeof(T), (alignof(T) <= sizeof(Pickle::memberAlignmentType))>::
       Copy(dest, iter_.Data());

@@ -116,6 +116,7 @@ class TestWorkerWatcher extends ExtensionCommon.EventEmitter {
       child: {
         esModuleURI: `resource://testing-common/${JS_ACTOR_NAME}Child.sys.mjs`,
       },
+      safeForUntrustedWebProcess: true,
     });
   }
 

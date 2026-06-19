@@ -179,7 +179,7 @@ class BrowsertimeAndroid(PerftestAndroid, Browsertime):
 
         if test.get("playback", False):
             pb_args = [
-                "--proxy-server=%s:%d" % (self.playback.host, self.playback.port),
+                f"--proxy-server={self.playback.host}:{self.playback.port}",
                 "--proxy-bypass-list=localhost;127.0.0.1",
                 "--ignore-certificate-errors",
             ]
@@ -221,7 +221,7 @@ class BrowsertimeAndroid(PerftestAndroid, Browsertime):
 
         self.geckodriver_profile = os.path.join(
             self.android_external_storage,
-            "%s-geckodriver-profile" % self.config["binary"],
+            f"{self.config['binary']}-geckodriver-profile",
         )
 
         # make sure no remote profile exists

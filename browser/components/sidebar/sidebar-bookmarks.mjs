@@ -1156,7 +1156,7 @@ export class SidebarBookmarks extends SidebarPage {
       [bookmarks.unfiledGuid]: "sidebar-bookmarks-folder-other",
       [bookmarks.mobileGuid]: "sidebar-bookmarks-folder-mobile",
     };
-    this.#normalizeBookmarkNode(tree, guidToL10nId);
+    await this.#normalizeBookmarkNode(tree, guidToL10nId);
     tree.children?.sort((a, b) => {
       if (a.guid === bookmarks.toolbarGuid) {
         return -1;
@@ -1169,7 +1169,7 @@ export class SidebarBookmarks extends SidebarPage {
     return tree;
   }
 
-  #normalizeBookmarkNode(node, guidToL10nId) {
+  async #normalizeBookmarkNode(node, guidToL10nId) {
     if (node.iconUri && !node.iconUri.startsWith("fake-favicon-uri:")) {
       node.icon = node.iconUri;
     } else if (node.uri) {
@@ -1184,7 +1184,7 @@ export class SidebarBookmarks extends SidebarPage {
       node.type === lazy.PlacesUtils.TYPE_X_MOZ_PLACE &&
       node.uri?.startsWith("place:")
     ) {
-      this.#expandPlaceQuery(node);
+      await this.#expandPlaceQuery(node);
     }
     const l10nId = guidToL10nId?.[node.guid];
     if (l10nId) {
@@ -1193,137 +1193,234 @@ export class SidebarBookmarks extends SidebarPage {
       ]);
       node.title = msg.value;
     }
-    for (const child of node.children ?? []) {
-      this.#normalizeBookmarkNode(child, guidToL10nId);
-    }
+    // allSettled so that a single child failing to normalize (e.g. an
+    // unexpected rejection while expanding a nested query) doesn't discard the
+    // whole tree; the worst case is an incomplete branch.
+    await Promise.allSettled(
+      (node.children ?? []).map(child =>
+        this.#normalizeBookmarkNode(child, guidToL10nId)
+      )
+    );
   }
 
   /**
-   * Execute a smart-bookmark (place:) query and attach its results as
-   * children, so it renders as a folder like the legacy bookmarks sidebar.
+   * Execute a smart-bookmark (place:) query off the main thread and attach its
+   * results as children, so it renders as a folder like the legacy bookmarks
+   * sidebar.
    *
-   * TODO (Bug 2043613): migrate to asyncExecuteLegacyQuery to avoid
-   * main-thread I/O. That requires the bookmarks tree pipeline to support
-   * async child expansion.
+   * Uses asyncExecuteLegacyQuery to avoid main-thread I/O. That API delivers
+   * flat result rows rather than a node tree, so the container/leaf structure
+   * is rebuilt here (see #runPlaceQueryAsync / #convertPlaceRow).
    *
    * @param {object} node
    *   The bookmark tree node whose `uri` is a `place:` query.
    */
-  #expandPlaceQuery(node) {
-    const placesHistory = lazy.PlacesUtils.history;
+  async #expandPlaceQuery(node) {
     const queryRef = {};
     const optionsRef = {};
-    placesHistory.queryStringToQuery(node.uri, queryRef, optionsRef);
-    let result;
     try {
-      result = placesHistory.executeQuery(queryRef.value, optionsRef.value);
+      lazy.PlacesUtils.history.queryStringToQuery(
+        node.uri,
+        queryRef,
+        optionsRef
+      );
     } catch (e) {
       return;
     }
-    const wasOpen = result.root.containerOpen;
-    result.root.containerOpen = true;
+    node.isPlaceContainer = true;
+    node.isTagsRoot =
+      optionsRef.value.resultType ===
+      Ci.nsINavHistoryQueryOptions.RESULTS_AS_TAGS_ROOT;
+    // Seed the loop guard with the target folder of a simple folder query, so
+    // children that link back to it don't recurse infinitely.
+    const targetGuid = this.#simpleFolderTargetGuid(
+      queryRef.value,
+      optionsRef.value
+    );
+    const ancestorKeys = targetGuid ? new Set([targetGuid]) : new Set();
     try {
-      const { targetFolderGuid } = lazy.PlacesUtils.asQuery(result.root);
-      const ancestors = targetFolderGuid
-        ? new Set([targetFolderGuid])
-        : new Set();
-      node.children = this.#collectPlaceChildren(result.root, ancestors);
-      node.isPlaceContainer = true;
-      node.isTagsRoot =
-        optionsRef.value.resultType ===
-        Ci.nsINavHistoryQueryOptions.RESULTS_AS_TAGS_ROOT;
-    } finally {
-      if (!wasOpen) {
-        result.root.containerOpen = false;
-      }
-    }
-  }
-
-  #collectPlaceChildren(container, ancestorGuids) {
-    const children = [];
-    for (let i = 0; i < container.childCount; i++) {
-      const child = this.#convertPlaceResultNode(
-        container.getChild(i),
-        ancestorGuids
+      node.children = await this.#runPlaceQueryAsync(
+        queryRef.value,
+        optionsRef.value,
+        ancestorKeys
       );
-      if (child) {
-        children.push(child);
-      }
+    } catch (e) {
+      node.children = [];
     }
-    return children;
   }
 
-  #convertPlaceResultNode(placeNode, ancestorGuids) {
-    const {
-      RESULT_TYPE_URI,
-      RESULT_TYPE_FOLDER_SHORTCUT,
-      RESULT_TYPE_QUERY,
-      RESULT_TYPE_FOLDER,
-    } = Ci.nsINavHistoryResultNode;
-    switch (placeNode.type) {
-      case RESULT_TYPE_URI:
-        return {
-          title: placeNode.title,
-          uri: placeNode.uri,
-          guid: placeNode.bookmarkGuid || placeNode.pageGuid,
+  /**
+   * Run a place: query off the main thread and build child nodes from the flat
+   * result rows, recursing into nested query/folder containers.
+   *
+   * @param {nsINavHistoryQuery} query
+   * @param {nsINavHistoryQueryOptions} options
+   * @param {Set<string>} ancestorKeys
+   *   Guids (or uris, for keyless rows) of ancestor containers, used to break
+   *   query loops.
+   * @returns {Promise<object[]>}
+   */
+  #runPlaceQueryAsync(query, options, ancestorKeys) {
+    return new Promise((resolve, reject) => {
+      const entries = [];
+      lazy.PlacesUtils.history.asyncExecuteLegacyQuery(query, options, {
+        handleResult: resultSet => {
+          for (let row; (row = resultSet.getNextRow()); ) {
+            const entry = this.#convertPlaceRow(row, options, ancestorKeys);
+            if (entry) {
+              entries.push(entry);
+            }
+          }
+        },
+        handleError: error => {
+          reject(
+            new Error(
+              `Async place query error (${error.result}): ${error.message}`
+            )
+          );
+        },
+        handleCompletion: () => resolve(entries),
+      });
+    }).then(async entries => {
+      // Recurse only after each level's rows are drained, so the storage
+      // callbacks never block on a nested async query.
+      await Promise.all(
+        entries
+          .filter(entry => entry.recurse)
+          .map(async entry => {
+            entry.node.children = await this.#runPlaceQueryAsync(
+              entry.recurse.query,
+              entry.recurse.options,
+              entry.recurse.ancestorKeys
+            );
+          })
+      );
+      return entries.map(entry => entry.node);
+    });
+  }
+
+  /**
+   * Convert a flat asyncExecuteLegacyQuery result row into a bookmark tree
+   * node, classifying place: children as leaf URIs or as containers to recurse
+   * into (queries, folders, and folder shortcuts).
+   *
+   * @param {mozIStorageRow} row
+   * @param {nsINavHistoryQueryOptions} parentOptions
+   *   Options of the query that produced this row, used to detect tag
+   *   containers under a tags-root query.
+   * @param {Set<string>} ancestorKeys
+   * @returns {?{node: object, recurse: ?object}}
+   */
+  #convertPlaceRow(row, parentOptions, ancestorKeys) {
+    // Column indices match the SELECT in nsNavHistory::ConstructQueryString
+    // (the kGetInfoIndex_* constants in nsNavHistory.cpp): 1 = URL, 2 = title,
+    // 14 = page guid. Bookmark queries append further columns, with the
+    // bookmark guid (b.guid) at 18; it's null for history queries, so fall
+    // back to the page guid to mirror the old bookmarkGuid || pageGuid.
+    const url = row.getResultByIndex(1);
+    const title = row.getResultByIndex(2);
+    const guid = row.getResultByIndex(18) || row.getResultByIndex(14);
+
+    if (!url?.startsWith("place:")) {
+      return {
+        node: {
+          title,
+          uri: url,
+          guid,
           type: lazy.PlacesUtils.TYPE_X_MOZ_PLACE,
           isPlaceChild: true,
-        };
-      case RESULT_TYPE_FOLDER_SHORTCUT:
-      case RESULT_TYPE_QUERY:
-      case RESULT_TYPE_FOLDER: {
-        const isTagContainer =
-          placeNode.type === RESULT_TYPE_QUERY &&
-          lazy.PlacesUtils.nodeIsTagQuery(placeNode);
-        const guid =
-          placeNode.bookmarkGuid || placeNode.pageGuid || placeNode.uri;
-        const node = {
-          title: placeNode.title,
-          uri: placeNode.uri,
-          guid,
+        },
+        recurse: null,
+      };
+    }
+
+    const queryRef = {};
+    const optionsRef = {};
+    try {
+      lazy.PlacesUtils.history.queryStringToQuery(url, queryRef, optionsRef);
+    } catch (e) {
+      // Unparseable nested query: surface it as an empty, read-only container
+      // rather than dropping it. Keeping it a container (with children already
+      // set) means normalizeBookmarkNode won't try to expand it again.
+      return {
+        node: {
+          title,
+          uri: url,
+          guid: guid || url,
           type: lazy.PlacesUtils.TYPE_X_MOZ_PLACE_CONTAINER,
           isPlaceContainer: true,
           isPlaceChild: true,
-          isTagContainer,
-        };
-        // Guard against query results or folder shortcuts that loop back into
-        // an ancestor.
-        const targetGuid =
-          placeNode.type === RESULT_TYPE_FOLDER_SHORTCUT
-            ? lazy.PlacesUtils.asQuery(placeNode).targetFolderGuid
-            : null;
-        if (ancestorGuids.has(guid) || ancestorGuids.has(targetGuid)) {
-          node.children = [];
-          return node;
-        }
-        const container = lazy.PlacesUtils.asContainer(placeNode);
-        if (container) {
-          ancestorGuids.add(guid);
-          if (targetGuid) {
-            ancestorGuids.add(targetGuid);
-          }
-          const wasOpen = container.containerOpen;
-          container.containerOpen = true;
-          try {
-            node.children = this.#collectPlaceChildren(
-              container,
-              ancestorGuids
-            );
-          } finally {
-            if (!wasOpen) {
-              container.containerOpen = false;
-            }
-            ancestorGuids.delete(guid);
-            ancestorGuids.delete(targetGuid);
-          }
-        } else {
-          node.children = [];
-        }
-        return node;
-      }
-      default:
-        return null;
+          children: [],
+        },
+        recurse: null,
+      };
     }
+
+    const isTagContainer =
+      parentOptions.resultType ===
+        Ci.nsINavHistoryQueryOptions.RESULTS_AS_TAGS_ROOT ||
+      queryRef.value.tags?.length === 1;
+    const key = guid || url;
+    const node = {
+      title,
+      uri: url,
+      guid: key,
+      type: lazy.PlacesUtils.TYPE_X_MOZ_PLACE_CONTAINER,
+      isPlaceContainer: true,
+      isPlaceChild: true,
+      isTagContainer,
+    };
+    // Guard against query results or folder shortcuts that loop back into an
+    // ancestor.
+    const targetGuid = this.#simpleFolderTargetGuid(
+      queryRef.value,
+      optionsRef.value
+    );
+    if (ancestorKeys.has(key) || (targetGuid && ancestorKeys.has(targetGuid))) {
+      node.children = [];
+      return { node, recurse: null };
+    }
+    const nextKeys = new Set(ancestorKeys).add(key);
+    if (targetGuid) {
+      nextKeys.add(targetGuid);
+    }
+    return {
+      node,
+      recurse: {
+        query: queryRef.value,
+        options: optionsRef.value,
+        ancestorKeys: nextKeys,
+      },
+    };
+  }
+
+  /**
+   * Return the concrete target folder guid of a simple bookmarks folder query
+   * (or folder shortcut), or null if it isn't one. Mirrors
+   * GetSimpleBookmarksQueryParent in nsNavHistory.cpp; the flat result rows
+   * don't carry the node type, so this is derived from the query parameters.
+   *
+   * @param {nsINavHistoryQuery} query
+   * @param {nsINavHistoryQueryOptions} options
+   * @returns {?string}
+   */
+  #simpleFolderTargetGuid(query, options) {
+    if (query.parentCount !== 1) {
+      return null;
+    }
+    if (
+      query.hasBeginTime ||
+      query.hasEndTime ||
+      query.hasDomain ||
+      query.hasUri ||
+      query.hasSearchTerms ||
+      query.tags?.length > 0 ||
+      options.maxResults > 0
+    ) {
+      return null;
+    }
+    const parentGuid = query.getParents()[0];
+    return lazy.PlacesUtils.isValidGuid(parentGuid) ? parentGuid : null;
   }
 
   #searchResultsTemplate() {

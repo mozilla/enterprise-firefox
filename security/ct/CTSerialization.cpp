@@ -123,7 +123,7 @@ template <size_t length, typename T>
 static inline Result WriteUint(T value, Buffer& output) {
   static_assert(length <= 8, "At most 8 byte integers can be written");
   static_assert(sizeof(T) >= length, "T must be able to hold <length> bytes");
-  if (std::is_signed<T>::value) {
+  if (std::is_signed_v<T>) {
     // We accept signed integer types assuming the actual value is non-negative.
     if (value < 0) {
       return Result::FATAL_ERROR_INVALID_ARGS;

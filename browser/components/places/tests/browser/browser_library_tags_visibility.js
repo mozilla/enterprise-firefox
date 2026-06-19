@@ -66,7 +66,7 @@ async function assertTagsVisibility(libraryDocument, expectedVisible) {
   const locationInput = libraryDocument.getElementById(
     "editBMPanel_locationField"
   );
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => locationInput.value === TEST_URI.spec,
     "Wait until the panel ready"
   );

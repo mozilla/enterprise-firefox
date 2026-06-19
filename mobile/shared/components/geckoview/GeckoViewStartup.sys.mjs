@@ -38,12 +38,14 @@ const JSPROCESSACTORS = {
         "PeerConnection:request",
       ],
     },
+    safeForUntrustedWebProcess: true,
   },
   GeckoViewPush: {
     parent: {
       esModuleURI: "resource:///actors/GeckoViewPushParent.sys.mjs",
     },
     includeParent: true,
+    safeForUntrustedWebProcess: true,
   },
 };
 
@@ -56,6 +58,7 @@ const JSWINDOWACTORS = {
       esModuleURI: "resource:///actors/LoadURIDelegateChild.sys.mjs",
     },
     messageManagerGroups: ["browsers"],
+    safeForUntrustedWebProcess: true,
   },
   GeckoViewPermission: {
     parent: {
@@ -66,6 +69,7 @@ const JSWINDOWACTORS = {
     },
     allFrames: true,
     includeChrome: true,
+    safeForUntrustedWebProcess: true,
   },
   GeckoViewPrompt: {
     parent: {
@@ -84,6 +88,7 @@ const JSWINDOWACTORS = {
     },
     allFrames: true,
     messageManagerGroups: ["browsers"],
+    safeForUntrustedWebProcess: true,
   },
   GeckoViewFormValidation: {
     child: {
@@ -94,6 +99,7 @@ const JSWINDOWACTORS = {
     },
     allFrames: true,
     messageManagerGroups: ["browsers"],
+    safeForUntrustedWebProcess: true,
   },
   GeckoViewPdfjs: {
     parent: {
@@ -103,6 +109,7 @@ const JSWINDOWACTORS = {
       esModuleURI: "resource://pdf.js/GeckoViewPdfjsChild.sys.mjs",
     },
     allFrames: true,
+    safeForUntrustedWebProcess: true,
   },
 };
 

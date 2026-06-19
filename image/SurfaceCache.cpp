@@ -1398,7 +1398,7 @@ class SurfaceCacheImpl final : public nsIMemoryReporter {
     MaybeRemoveEmptyCache(aImageKey, cache);
   }
 
-  void ReleaseImageOnMainThread(already_AddRefed<image::Image>&& aImage,
+  void ReleaseImageOnMainThread(already_AddRefed<image::Image> aImage,
                                 const StaticMutexAutoLock& aAutoLock) {
     RefPtr<image::Image> image = aImage;
     if (!image) {

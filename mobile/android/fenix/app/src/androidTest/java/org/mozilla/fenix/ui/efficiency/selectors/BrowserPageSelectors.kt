@@ -74,6 +74,13 @@ object BrowserPageSelectors {
         groups = listOf("tabCrashReporter"),
     )
 
+    fun pageContentSelector(text: String) = Selector(
+        strategy = SelectorStrategy.UIAUTOMATOR_WITH_TEXT_CONTAINS,
+        value = text,
+        description = "Page content '$text'",
+        groups = listOf(),
+    )
+
     val all = listOf(
         ENGINE_VIEW,
         PAGE_CONTENT,

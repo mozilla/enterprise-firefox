@@ -104,6 +104,8 @@ class CSSNumericValue : public CSSStyleValue {
 
   // end of CSSNumbericValue Web IDL declarations
 
+  const StyleNumericType& GetNumericType() const { return *mNumericType; }
+
   NumericValueType GetNumericValueType() const { return mNumericValueType; }
 
   bool IsCSSUnitValue() const;

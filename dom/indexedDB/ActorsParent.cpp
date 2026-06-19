@@ -38,6 +38,7 @@
 #include "ReportInternalError.h"
 #include "SafeRefPtr.h"
 #include "SchemaUpgrades.h"
+#include "TransactionOpResult.h"
 #include "chrome/common/ipc_channel.h"
 #include "ipc/IPCMessageUtils.h"
 #include "js/RootingAPI.h"
@@ -552,33 +553,6 @@ uint32_t HashName(const nsAString& aName) {
                            return kGoldenRatioU32 *
                                   (Helper::RotateBitsLeft32(hash, 5) ^ ch);
                          });
-}
-
-nsresult ClampResultCode(nsresult aResultCode) {
-  if (NS_SUCCEEDED(aResultCode) ||
-      NS_ERROR_GET_MODULE(aResultCode) == NS_ERROR_MODULE_DOM_INDEXEDDB) {
-    return aResultCode;
-  }
-
-  switch (aResultCode) {
-    case NS_ERROR_FILE_NO_DEVICE_SPACE:
-      return NS_ERROR_DOM_INDEXEDDB_QUOTA_ERR;
-    case NS_ERROR_STORAGE_CONSTRAINT:
-      return NS_ERROR_DOM_INDEXEDDB_CONSTRAINT_ERR;
-    default:
-#ifdef DEBUG
-      nsPrintfCString message("Converting non-IndexedDB error code (0x%" PRIX32
-                              ") to "
-                              "NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR",
-                              static_cast<uint32_t>(aResultCode));
-      NS_WARNING(message.get());
-#else
-        ;
-#endif
-  }
-
-  IDB_REPORT_INTERNAL_ERR();
-  return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
 }
 
 Result<nsCOMPtr<nsIFileURL>, nsresult> GetDatabaseFileURL(
@@ -2041,13 +2015,13 @@ class TransactionDatabaseOperationBase : public DatabaseOperationBase {
   // Must be overridden in subclasses. Called on the background thread to allow
   // the subclass to serialize its results and send them to the child actor. A
   // failed return value will trigger a SendFailureResult callback.
-  virtual nsresult SendSuccessResult() = 0;
+  virtual TransactionOpResult SendSuccessResult() = 0;
 
   // Must be overridden in subclasses. Called on the background thread to allow
   // the subclass to send its failure code. Returning false will cause the
   // transaction to be aborted with aResultCode. Returning true will not cause
   // the transaction to be aborted.
-  virtual bool SendFailureResult(nsresult aResultCode) = 0;
+  virtual bool SendFailureResult(const TransactionOpResult& aResult) = 0;
 
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
   auto MakeAutoSavepointCleanupHandler(DatabaseConnection& aConnection) {
@@ -2433,9 +2407,9 @@ class Database::StartTransactionOp final
 
   nsresult DoDatabaseWork(DatabaseConnection* aConnection) override;
 
-  nsresult SendSuccessResult() override;
+  TransactionOpResult SendSuccessResult() override;
 
-  bool SendFailureResult(nsresult aResultCode) override;
+  bool SendFailureResult(const TransactionOpResult& aResult) override;
 
   void Cleanup() override;
 };
@@ -3355,9 +3329,9 @@ class OpenDatabaseOp::VersionChangeOp final
 
   nsresult DoDatabaseWork(DatabaseConnection* aConnection) override;
 
-  nsresult SendSuccessResult() override;
+  TransactionOpResult SendSuccessResult() override;
 
-  bool SendFailureResult(nsresult aResultCode) override;
+  bool SendFailureResult(const TransactionOpResult& aResult) override;
 
   void Cleanup() override;
 };
@@ -3474,9 +3448,9 @@ class VersionChangeTransactionOp : public TransactionDatabaseOperationBase {
   ~VersionChangeTransactionOp() override = default;
 
  private:
-  nsresult SendSuccessResult() override;
+  TransactionOpResult SendSuccessResult() override;
 
-  bool SendFailureResult(nsresult aResultCode) override;
+  bool SendFailureResult(const TransactionOpResult& aResult) override;
 };
 
 class CreateObjectStoreOp final : public VersionChangeTransactionOp {
@@ -3681,9 +3655,9 @@ class NormalTransactionOp : public TransactionDatabaseOperationBase,
  private:
   nsresult SendPreprocessInfo() override;
 
-  nsresult SendSuccessResult() override;
+  TransactionOpResult SendSuccessResult() override;
 
-  bool SendFailureResult(nsresult aResultCode) override;
+  bool SendFailureResult(const TransactionOpResult& aResult) override;
 
   // IPDL methods.
   void ActorDestroy(ActorDestroyReason aWhy) override;
@@ -4590,8 +4564,8 @@ class Cursor<CursorType>::CursorOpBase
 
   ~CursorOpBase() override = default;
 
-  bool SendFailureResult(nsresult aResultCode) final;
-  nsresult SendSuccessResult() final;
+  bool SendFailureResult(const TransactionOpResult& aResult) final;
+  TransactionOpResult SendSuccessResult() final;
 
   void Cleanup() override;
 };
@@ -9988,13 +9962,13 @@ nsresult Database::StartTransactionOp::DoDatabaseWork(
   return NS_OK;
 }
 
-nsresult Database::StartTransactionOp::SendSuccessResult() {
+TransactionOpResult Database::StartTransactionOp::SendSuccessResult() {
   // We don't need to do anything here.
   return NS_OK;
 }
 
 bool Database::StartTransactionOp::SendFailureResult(
-    nsresult /* aResultCode */) {
+    const TransactionOpResult& /* aResult */) {
   IDB_REPORT_INTERNAL_ERR();
 
   // Abort the transaction.
@@ -16651,7 +16625,7 @@ nsresult OpenDatabaseOp::VersionChangeOp::DoDatabaseWork(
   return NS_OK;
 }
 
-nsresult OpenDatabaseOp::VersionChangeOp::SendSuccessResult() {
+TransactionOpResult OpenDatabaseOp::VersionChangeOp::SendSuccessResult() {
   AssertIsOnOwningThread();
   MOZ_ASSERT(mOpenDatabaseOp);
   MOZ_ASSERT(mOpenDatabaseOp->mState == State::DatabaseWorkVersionChange);
@@ -16665,13 +16639,14 @@ nsresult OpenDatabaseOp::VersionChangeOp::SendSuccessResult() {
   return NS_OK;
 }
 
-bool OpenDatabaseOp::VersionChangeOp::SendFailureResult(nsresult aResultCode) {
+bool OpenDatabaseOp::VersionChangeOp::SendFailureResult(
+    const TransactionOpResult& aResult) {
   AssertIsOnOwningThread();
   MOZ_ASSERT(mOpenDatabaseOp);
   MOZ_ASSERT(mOpenDatabaseOp->mState == State::DatabaseWorkVersionChange);
   MOZ_ASSERT(mOpenDatabaseOp->mVersionChangeOp == this);
 
-  mOpenDatabaseOp->SetFailureCode(aResultCode);
+  mOpenDatabaseOp->SetFailureCode(aResult.mCode);
   mOpenDatabaseOp->mState = State::SendingResults;
 
   MOZ_ALWAYS_SUCCEEDS(mOpenDatabaseOp->Run());
@@ -17564,7 +17539,7 @@ void TransactionDatabaseOperationBase::SendPreprocessInfoOrResults(
     OverrideFailureCode(NS_ERROR_DOM_INDEXEDDB_ABORT_ERR);
   }
 
-  const nsresult rv = [aSendPreprocessInfo, this] {
+  const auto result = [aSendPreprocessInfo, this]() -> TransactionOpResult {
     if (HasFailed()) {
       return ResultCode();
     }
@@ -17576,13 +17551,13 @@ void TransactionDatabaseOperationBase::SendPreprocessInfoOrResults(
     return SendSuccessResult();
   }();
 
-  if (NS_FAILED(rv)) {
-    SetFailureCodeIfUnset(rv);
+  if (NS_FAILED(result.mCode)) {
+    SetFailureCodeIfUnset(result.mCode);
 
     // This should definitely release the IPDL reference.
-    if (!SendFailureResult(rv)) {
+    if (!SendFailureResult(result)) {
       // Abort the transaction.
-      (*mTransaction)->Abort(rv, /* aForce */ false);
+      (*mTransaction)->Abort(result.mCode, /* aForce */ false);
     }
   }
 
@@ -17884,14 +17859,15 @@ void TransactionBase::CommitOp::TransactionFinishedAfterUnblock() {
 #endif
 }
 
-nsresult VersionChangeTransactionOp::SendSuccessResult() {
+TransactionOpResult VersionChangeTransactionOp::SendSuccessResult() {
   AssertIsOnOwningThread();
 
   // Nothing to send here, the API assumes that this request always succeeds.
   return NS_OK;
 }
 
-bool VersionChangeTransactionOp::SendFailureResult(nsresult aResultCode) {
+bool VersionChangeTransactionOp::SendFailureResult(
+    const TransactionOpResult& /* aResult */) {
   AssertIsOnOwningThread();
 
   // The only option here is to cause the transaction to abort.
@@ -18948,7 +18924,7 @@ nsresult NormalTransactionOp::SendPreprocessInfo() {
   return NS_OK;
 }
 
-nsresult NormalTransactionOp::SendSuccessResult() {
+TransactionOpResult NormalTransactionOp::SendSuccessResult() {
   AssertIsOnOwningThread();
 
   if (!IsActorDestroyed()) {
@@ -18975,15 +18951,23 @@ nsresult NormalTransactionOp::SendSuccessResult() {
           " (size=%zu bytes, max=%zu bytes).",
           responseSize, kMaxMessageSize);
       NS_WARNING(warning.get());
-      return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
+      // Structured serialization encodings/sizes are explicitly
+      // implementation-dependent. It's OK for us to expose the exact size
+      // here because IndexedDB serializations cannot include any no-cors data
+      // like opaque Responses and because the existence of this threshold is
+      // itself already a primitive for determining sizes since there's a
+      // boolean indicator of whether we reach the max message size.
+      // Additionally, it's useful information for bugs and potentially more
+      // actionable for developers encountering the problem.
+      return TransactionOpResult(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR, warning);
     }
 
     MOZ_ASSERT(response.type() != RequestResponse::T__None);
 
-    if (response.type() == RequestResponse::Tnsresult) {
-      MOZ_ASSERT(NS_FAILED(response.get_nsresult()));
+    if (response.type() == RequestResponse::TTransactionOpResult) {
+      MOZ_ASSERT(NS_FAILED(response.get_TransactionOpResult().mCode));
 
-      return response.get_nsresult();
+      return response.get_TransactionOpResult();
     }
 
     if (NS_WARN_IF(
@@ -19000,15 +18984,15 @@ nsresult NormalTransactionOp::SendSuccessResult() {
   return NS_OK;
 }
 
-bool NormalTransactionOp::SendFailureResult(nsresult aResultCode) {
+bool NormalTransactionOp::SendFailureResult(
+    const TransactionOpResult& aResult) {
   AssertIsOnOwningThread();
-  MOZ_ASSERT(NS_FAILED(aResultCode));
+  MOZ_ASSERT(NS_FAILED(aResult.mCode));
 
   bool result = false;
 
   if (!IsActorDestroyed()) {
-    result = PBackgroundIDBRequestParent::Send__delete__(
-        this, ClampResultCode(aResultCode));
+    result = PBackgroundIDBRequestParent::Send__delete__(this, aResult);
   }
 
 #ifdef DEBUG
@@ -19761,7 +19745,9 @@ void ObjectStoreGetRequestOp::GetResponse(RequestResponse& aResponse,
                     mDatabase, std::move(info));
               },
               fallible),
-          QM_VOID, [&aResponse](const nsresult result) { aResponse = result; });
+          QM_VOID, [&aResponse](const nsresult result) {
+            aResponse = TransactionOpResult(result);
+          });
     }
 
     return;
@@ -19778,8 +19764,9 @@ void ObjectStoreGetRequestOp::GetResponse(RequestResponse& aResponse,
     QM_TRY_UNWRAP(serializedInfo,
                   ConvertResponse<SerializedStructuredCloneReadInfo>(
                       mDatabase, std::move(mResponse[0])),
-                  QM_VOID,
-                  [&aResponse](const nsresult result) { aResponse = result; });
+                  QM_VOID, [&aResponse](const nsresult result) {
+                    aResponse = TransactionOpResult(result);
+                  });
   }
 }
 
@@ -20255,18 +20242,19 @@ void IndexGetRequestOp::GetResponse(RequestResponse& aResponse,
     *aResponseSize = 0;
 
     if (!mResponse.IsEmpty()) {
-      QM_TRY_UNWRAP(
-          aResponse.get_IndexGetAllResponse().cloneInfos(),
-          TransformIntoNewArrayAbortOnErr(
-              std::make_move_iterator(mResponse.begin()),
-              std::make_move_iterator(mResponse.end()),
-              [convertResponse,
-               &aResponseSize](StructuredCloneReadInfoParent&& info) {
-                *aResponseSize += info.Size();
-                return convertResponse(std::move(info));
-              },
-              fallible),
-          QM_VOID, [&aResponse](const nsresult result) { aResponse = result; });
+      QM_TRY_UNWRAP(aResponse.get_IndexGetAllResponse().cloneInfos(),
+                    TransformIntoNewArrayAbortOnErr(
+                        std::make_move_iterator(mResponse.begin()),
+                        std::make_move_iterator(mResponse.end()),
+                        [convertResponse,
+                         &aResponseSize](StructuredCloneReadInfoParent&& info) {
+                          *aResponseSize += info.Size();
+                          return convertResponse(std::move(info));
+                        },
+                        fallible),
+                    QM_VOID, [&aResponse](const nsresult result) {
+                      aResponse = TransactionOpResult(result);
+                    });
     }
 
     return;
@@ -20281,8 +20269,9 @@ void IndexGetRequestOp::GetResponse(RequestResponse& aResponse,
 
     *aResponseSize += mResponse[0].Size();
     QM_TRY_UNWRAP(serializedInfo, convertResponse(std::move(mResponse[0])),
-                  QM_VOID,
-                  [&aResponse](const nsresult result) { aResponse = result; });
+                  QM_VOID, [&aResponse](const nsresult result) {
+                    aResponse = TransactionOpResult(result);
+                  });
   }
 }
 
@@ -20500,7 +20489,9 @@ void ObjectStoreGetAllRecordsRequestOp::GetResponse(RequestResponse& aResponse,
                 mDatabase, std::move(info));
           },
           fallible),
-      QM_VOID, [&aResponse](const nsresult result) { aResponse = result; });
+      QM_VOID, [&aResponse](const nsresult result) {
+        aResponse = TransactionOpResult(result);
+      });
 }
 
 IndexGetAllRecordsRequestOp::IndexGetAllRecordsRequestOp(
@@ -20652,7 +20643,9 @@ void IndexGetAllRecordsRequestOp::GetResponse(RequestResponse& aResponse,
                 database, std::move(info));
           },
           fallible),
-      QM_VOID, [&aResponse](const nsresult result) { aResponse = result; });
+      QM_VOID, [&aResponse](const nsresult result) {
+        aResponse = TransactionOpResult(result);
+      });
 }
 
 nsresult IndexCountRequestOp::DoDatabaseWork(DatabaseConnection* aConnection) {
@@ -20711,15 +20704,16 @@ nsresult IndexCountRequestOp::DoDatabaseWork(DatabaseConnection* aConnection) {
 }
 
 template <IDBCursorType CursorType>
-bool Cursor<CursorType>::CursorOpBase::SendFailureResult(nsresult aResultCode) {
+bool Cursor<CursorType>::CursorOpBase::SendFailureResult(
+    const TransactionOpResult& aResult) {
   AssertIsOnOwningThread();
-  MOZ_ASSERT(NS_FAILED(aResultCode));
+  MOZ_ASSERT(NS_FAILED(aResult.mCode));
   MOZ_ASSERT(mCursor);
   MOZ_ASSERT(mCursor->mCurrentlyRunningOp == this);
   MOZ_ASSERT(!mResponseSent);
 
   if (!IsActorDestroyed()) {
-    mResponse = ClampResultCode(aResultCode);
+    mResponse = aResult.mCode;
 
     // This is an expected race when the transaction is invalidated after
     // data is retrieved from database.
@@ -21359,7 +21353,7 @@ nsresult Cursor<CursorType>::OpenOp::DoDatabaseWork(
 }
 
 template <IDBCursorType CursorType>
-nsresult Cursor<CursorType>::CursorOpBase::SendSuccessResult() {
+TransactionOpResult Cursor<CursorType>::CursorOpBase::SendSuccessResult() {
   AssertIsOnOwningThread();
   MOZ_ASSERT(mCursor);
   MOZ_ASSERT(mCursor->mCurrentlyRunningOp == this);

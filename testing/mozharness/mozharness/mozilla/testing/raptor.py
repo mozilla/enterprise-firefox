@@ -573,6 +573,15 @@ class Raptor(
                 },
             ],
             [
+                ["--etw-profile"],
+                {
+                    "action": "store_true",
+                    "dest": "etw_profile",
+                    "default": False,
+                    "help": ("Enable ETW (Xperf) profiling (Windows only)."),
+                },
+            ],
+            [
                 ["--extra-summary-methods"],
                 {
                     "action": "append",
@@ -1109,6 +1118,8 @@ class Raptor(
             options.extend(["--collect-perfstats"])
         if self.config.get("simpleperf", False):
             options.extend(["--simpleperf"])
+        if self.config.get("etw_profile", False):
+            options.extend(["--etw-profile"])
         if self.config.get("extra_summary_methods"):
             options.extend([
                 f"--extra-summary-methods={method}"

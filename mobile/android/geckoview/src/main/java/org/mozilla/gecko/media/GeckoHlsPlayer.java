@@ -9,7 +9,6 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.Log;
-import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -29,10 +28,7 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.hls.HlsMediaSource;
-import androidx.media3.exoplayer.source.LoadEventInfo;
-import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.source.MediaSource;
-import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
@@ -230,34 +226,6 @@ public class GeckoHlsPlayer
         mDemuxerCallbacks.onInitialized(mTracksInfo.hasAudio(), mTracksInfo.hasVideo());
       }
       mIsDemuxerInitDone = true;
-    }
-  }
-
-  @UnstableApi
-  private final class SourceEventListener implements MediaSourceEventListener {
-    @Override
-    public void onLoadStarted(
-        final int windowIndex,
-        @Nullable final MediaSource.MediaPeriodId mediaPeriodId,
-        final LoadEventInfo loadEventInfo,
-        final MediaLoadData mediaLoadData,
-        final int retryCount) {
-      assertTrue(isPlayerThread());
-
-      synchronized (GeckoHlsPlayer.this) {
-        if (mediaLoadData.dataType != C.DATA_TYPE_MEDIA) {
-          // Don't report non-media URLs.
-          return;
-        }
-        if (mResourceCallbacks == null || loadEventInfo.uri == null || mReleasing) {
-          return;
-        }
-
-        if (DEBUG) {
-          Log.d(LOGTAG, "on-load: url=" + loadEventInfo.uri);
-        }
-        mResourceCallbacks.onLoad(loadEventInfo.uri.toString());
-      }
     }
   }
 
@@ -788,7 +756,6 @@ public class GeckoHlsPlayer
     final Uri uri = Uri.parse(url);
     final MediaSource mediaSource =
         buildDataSourceFactory(ctx).createMediaSource(MediaItem.fromUri(uri));
-    mediaSource.addEventListener(mMainHandler, new SourceEventListener());
     if (DEBUG) {
       Log.d(LOGTAG, "Uri is " + uri + ", ContentType is " + Util.inferContentType(uri));
     }

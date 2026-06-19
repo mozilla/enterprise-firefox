@@ -877,7 +877,7 @@ async function promiseFullscreenEntered(window, asyncFn) {
 
   await entered;
 
-  await BrowserTestUtils.waitForCondition(() => {
+  await TestUtils.waitForCondition(() => {
     return !gBrowser.selectedBrowser.browsingContext.currentWindowGlobal.getActor(
       "DOMFullscreen"
     ).timerId;
@@ -913,7 +913,7 @@ async function promiseFullscreenExited(window, asyncFn) {
 
   await exited;
 
-  await BrowserTestUtils.waitForCondition(() => {
+  await TestUtils.waitForCondition(() => {
     return !gBrowser.selectedBrowser.browsingContext.currentWindowGlobal.getActor(
       "DOMFullscreen"
     ).timerId;

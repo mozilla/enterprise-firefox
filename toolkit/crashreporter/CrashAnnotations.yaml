@@ -1468,6 +1468,12 @@ UnknownNetAddrSocketFamily:
   type: u32
   scope: report
 
+UniFFILeakedCallbackId:
+  description: >
+    ID of the leaked callbacks when we force crash in `UniFFI.sys.mjs`
+  type: u32
+  scope: report
+
 UptimeTS:
   description: >
     Uptime in seconds. This annotation uses a string instead of an integer

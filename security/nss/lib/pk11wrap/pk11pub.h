@@ -562,6 +562,14 @@ SECKEYPrivateKey *PK11_FindPrivateKeyFromCert(PK11SlotInfo *slot,
 SECKEYPrivateKey *PK11_FindKeyByAnyCert(CERTCertificate *cert, void *wincx);
 SECKEYPrivateKey *PK11_FindKeyByKeyID(PK11SlotInfo *slot, SECItem *keyID,
                                       void *wincx);
+/*
+ * Create a SECKEYPrivateKey directly from a fully-specified PKCS #11 private
+ * key template (CKA_CLASS = CKO_PRIVATE_KEY, CKA_KEY_TYPE, and the key
+ * material). The key is created as a session object on 'slot'.
+ */
+SECKEYPrivateKey *PK11_CreatePrivateKeyFromTemplate(
+    PK11SlotInfo *slot, const CK_ATTRIBUTE *theTemplate, unsigned int count,
+    void *wincx);
 int PK11_GetPrivateModulusLen(SECKEYPrivateKey *key);
 
 SECStatus PK11_Decrypt(PK11SymKey *symkey,

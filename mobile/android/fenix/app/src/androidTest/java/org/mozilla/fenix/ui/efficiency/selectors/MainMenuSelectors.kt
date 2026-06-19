@@ -5,6 +5,7 @@
 package org.mozilla.fenix.ui.efficiency.selectors
 
 import org.mozilla.fenix.R
+import org.mozilla.fenix.components.menu.MenuDialogTestTag
 import org.mozilla.fenix.helpers.DataGenerationHelper.getStringResource
 import org.mozilla.fenix.helpers.TestHelper.appName
 import org.mozilla.fenix.ui.efficiency.helpers.Selector
@@ -123,6 +124,20 @@ object MainMenuSelectors {
         value = getStringResource(R.string.browser_menu_desktop_site),
         description = "Main menu Desktop site button",
         groups = listOf("browserViewMainMenuItems"),
+    )
+
+    val DESKTOP_SITE_ON = Selector(
+        strategy = SelectorStrategy.COMPOSE_BY_TAG,
+        value = MenuDialogTestTag.DESKTOP_SITE_ON,
+        description = "Main menu Desktop site ON state",
+        groups = listOf(),
+    )
+
+    val DESKTOP_SITE_OFF = Selector(
+        strategy = SelectorStrategy.COMPOSE_BY_TAG,
+        value = MenuDialogTestTag.DESKTOP_SITE_OFF,
+        description = "Main menu Desktop site OFF state",
+        groups = listOf(),
     )
 
     val MORE_BUTTON = Selector(

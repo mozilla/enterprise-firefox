@@ -86,7 +86,7 @@ add_setup(async function () {
  * @param {ChatConversation} conversation
  */
 async function waitForGetUserMemoriesResult(conversation) {
-  return BrowserTestUtils.waitForCondition(
+  return TestUtils.waitForCondition(
     () =>
       conversation.messages.find(
         m =>
@@ -116,7 +116,7 @@ async function openMemoriesConversation(mockEngineManager) {
   });
 
   /** @type {ChatConversation} */
-  const conversation = await BrowserTestUtils.waitForCondition(
+  const conversation = await TestUtils.waitForCondition(
     () => AIWindow.getActiveConversation(win),
     "Conversation should exist on the active AI window before submit."
   );

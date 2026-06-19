@@ -2,6 +2,32 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
+    <ID>ClassAcronymCasing:AppAction.kt$AppAction$URLCopiedToClipboard : AppAction</ID>
+    <ID>ClassAcronymCasing:BookmarksAction.kt$EditBookmarkAction$URLChanged : EditBookmarkAction</ID>
+    <ID>ClassAcronymCasing:BrowserToolbarCFRPresenter.kt$BrowserToolbarCFRPresenter</ID>
+    <ID>ClassAcronymCasing:BrowserToolbarCFRPresenter.kt$ToolbarCFR</ID>
+    <ID>ClassAcronymCasing:CfrToolsStore.kt$CfrToolsAction$ResetLastCFRTimestampButtonClicked : CfrToolsAction</ID>
+    <ID>ClassAcronymCasing:ClientUUID.kt$ClientUUID : UserIdProviderRequestHashProvider</ID>
+    <ID>ClassAcronymCasing:ClientUUID.kt$PrefsBackedClientUUID : ClientUUID</ID>
+    <ID>ClassAcronymCasing:CustomCBHSwitchPreference.kt$CustomCBHSwitchPreference : SwitchPreferenceCompat</ID>
+    <ID>ClassAcronymCasing:FakeClientUUID.kt$FakeClientUUID : ClientUUID</ID>
+    <ID>ClassAcronymCasing:FenixFxAEntryPoint.kt$FenixFxAEntryPoint$CREATOR : Creator</ID>
+    <ID>ClassAcronymCasing:InstallReferrerWorker.kt$UTMParams</ID>
+    <ID>ClassAcronymCasing:MARSUseCases.kt$MARSUseCases</ID>
+    <ID>ClassAcronymCasing:MenuAction.kt$MenuAction$OnCFRDismiss : MenuAction</ID>
+    <ID>ClassAcronymCasing:MenuAction.kt$MenuAction$OnCFRShown : MenuAction</ID>
+    <ID>ClassAcronymCasing:MenuDialogBottomSheet.kt$MenuCFRState</ID>
+    <ID>ClassAcronymCasing:PersistStoryUTMRequestInterceptor.kt$PersistStoryUTMRequestInterceptor : RequestInterceptor</ID>
+    <ID>ClassAcronymCasing:RtamoAttributionHandler.kt$RtamoAttributionHandler.Companion$RTAMOFailReason</ID>
+    <ID>ClassAcronymCasing:SaveToPDFInteractor.kt$SaveToPDFInteractor</ID>
+    <ID>ClassAcronymCasing:SaveToPDFMiddleware.kt$SaveToPDFMiddleware : Middleware</ID>
+    <ID>ClassAcronymCasing:SnackbarState.kt$SnackbarState$URLCopiedToClipboard : SnackbarState</ID>
+    <ID>ClassAcronymCasing:SummarizeToolbarCFRBinding.kt$SummarizeToolbarCFRBinding : AbstractBinding</ID>
+    <ID>ClassAcronymCasing:TabsTrayAction.kt$TabsTrayAction$DismissInactiveTabsCFR : TabsTrayAction</ID>
+    <ID>ClassAcronymCasing:TrustPanelAction.kt$TrustPanelAction$RequestQWAC : TrustPanelAction</ID>
+    <ID>ClassAcronymCasing:TrustPanelAction.kt$TrustPanelAction$UpdateQWAC : TrustPanelAction</ID>
+    <ID>ClassAcronymCasing:TrustPanelAction.kt$TrustPanelAction.Navigate$QWAC : Navigate</ID>
+    <ID>ClassAcronymCasing:WebCompatReporterStore.kt$WebCompatReporterAction$PreviewJSONUpdated : WebCompatReporterAction</ID>
     <ID>ForbiddenSuppress:AccountSettingsFragment.kt$AccountSettingsFragment$@Suppress("LongMethod", "CyclomaticComplexMethod")</ID>
     <ID>ForbiddenSuppress:AddonMenuItem.kt$@Suppress("LongMethod")</ID>
     <ID>ForbiddenSuppress:AddonPermissionsScreen.kt$@Suppress("LongParameterList", "LongMethod", "CognitiveComplexMethod")</ID>

@@ -303,9 +303,9 @@
     "forcedColors": "{Theme$button/background/color/primary}"
   },
   "button/background/color/menu/selected": {
-    "light": "{Theme$button/background/color/ghost/active}",
-    "dark": "{Theme$button/background/color/ghost/active}",
-    "forcedColors": "{Theme$button/background/color/ghost/active}"
+    "light": "{Theme$button/background/color/ghost/selected}",
+    "dark": "{Theme$button/background/color/ghost/selected}",
+    "forcedColors": "{Theme$button/background/color/primary/selected}"
   },
   "button/background/color/selected": {
     "light": "{Theme$button/background/color/active}",
@@ -336,6 +336,11 @@
     "light": "transparent",
     "dark": "transparent",
     "forcedColors": "{Theme$border/color/interactive}"
+  },
+  "button/border/color/nova-@base": {
+    "light": "transparent",
+    "dark": "transparent",
+    "forcedColors": "transparent"
   },
   "button/border/color/active": {
     "light": "{Theme$button/border/color}",
@@ -580,9 +585,9 @@
     "forcedColors": "{Theme$button/text/color/primary}"
   },
   "button/text/color/menu/selected": {
-    "light": "{Theme$button/text/color/ghost/active}",
-    "dark": "{Theme$button/text/color/ghost/active}",
-    "forcedColors": "{Theme$button/text/color/ghost/active}"
+    "light": "{Theme$button/text/color/ghost/selected}",
+    "dark": "{Theme$button/text/color/ghost/selected}",
+    "forcedColors": "{Theme$button/text/color/primary/selected}"
   },
   "button/text/color/primary": {
     "light": "{Colors$color/white}",
@@ -1029,16 +1034,6 @@
     "dark": "{Theme$toolbox/text/color}",
     "forcedColors": "{Theme$toolbox/text/color}"
   },
-  "badge/text/color": {
-    "light": "{Theme$text/color/deemphasized}",
-    "dark": "{Theme$text/color/deemphasized}",
-    "forcedColors": "{HCM Theme$CanvasText}"
-  },
-  "badge/text/color/filled": {
-    "light": "{Colors$color/white}",
-    "dark": "{Colors$color/gray/100}",
-    "forcedColors": "{HCM Theme$AccentColorText}"
-  },
   "badge/background/color": {
     "light": "transparent",
     "dark": "transparent",
@@ -1058,6 +1053,16 @@
     "light": "rgba(251, 251, 254, 0.4)",
     "dark": "rgba(21, 20, 26, 0.4)",
     "forcedColors": "{HCM Theme$CanvasText}"
+  },
+  "badge/text/color": {
+    "light": "{Theme$text/color/deemphasized}",
+    "dark": "{Theme$text/color/deemphasized}",
+    "forcedColors": "{HCM Theme$CanvasText}"
+  },
+  "badge/text/color/filled": {
+    "light": "{Colors$color/white}",
+    "dark": "{Colors$color/gray/100}",
+    "forcedColors": "{HCM Theme$AccentColorText}"
   },
   "breadcrumb/link/color": {
     "light": "{Theme$link/color}",

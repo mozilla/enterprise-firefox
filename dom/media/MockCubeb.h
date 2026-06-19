@@ -121,7 +121,7 @@ static int cubeb_mock_get_max_channel_count(cubeb* context,
 
 // Mock cubeb impl, only supports device enumeration for now.
 cubeb_ops const mock_ops = {
-    /*.init =*/NULL,
+    /*.init =*/nullptr,
     /*.get_backend_id =*/cubeb_mock_get_backend_id,
     /*.get_max_channel_count =*/cubeb_mock_get_max_channel_count,
     /*.get_min_latency =*/cubeb_mock_get_min_latency,
@@ -136,16 +136,16 @@ cubeb_ops const mock_ops = {
     /*.stream_start =*/cubeb_mock_stream_start,
     /*.stream_stop =*/cubeb_mock_stream_stop,
     /*.stream_get_position =*/cubeb_mock_stream_get_position,
-    /*.stream_get_latency =*/NULL,
-    /*.stream_get_input_latency =*/NULL,
+    /*.stream_get_latency =*/nullptr,
+    /*.stream_get_input_latency =*/nullptr,
     /*.stream_set_volume =*/cubeb_mock_stream_set_volume,
     /*.stream_set_name =*/cubeb_mock_stream_set_name,
-    /*.stream_get_current_device =*/NULL,
+    /*.stream_get_current_device =*/nullptr,
 
-    /*.stream_set_input_mute =*/NULL,
+    /*.stream_set_input_mute =*/nullptr,
     /*.stream_set_input_processing_params =*/
     cubeb_mock_stream_set_input_processing_params,
-    /*.stream_device_destroy =*/NULL,
+    /*.stream_device_destroy =*/nullptr,
     /*.stream_register_device_changed_callback =*/
     cubeb_mock_stream_register_device_changed_callback,
     /*.register_device_collection_changed =*/

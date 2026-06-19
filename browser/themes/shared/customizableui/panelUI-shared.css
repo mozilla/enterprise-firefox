@@ -2537,8 +2537,12 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
 
 /* ----- IP Protection panel ----- */
 #PanelUI-ipprotection {
-  width: 400px;
   padding: var(--space-small);
+  width: 28em;
+
+  @media not -moz-pref("browser.nova.enabled") {
+    width: 400px;
+  }
 
   > .panel-header {
     margin: 0;
@@ -2566,5 +2570,5 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
 }
 
 #PanelUI-ipprotection-locations {
-  max-height: 400px;
+  max-height: 43rem;
 }

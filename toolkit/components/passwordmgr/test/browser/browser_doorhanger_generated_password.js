@@ -61,7 +61,7 @@ async function checkPromptContents(
     info(
       `Waiting for password value to be ${expectedPasswordLength} chars long`
     );
-    await BrowserTestUtils.waitForCondition(() => {
+    await TestUtils.waitForCondition(() => {
       return (
         notificationElement.querySelector("#password-notification-password")
           .value.length == expectedPasswordLength

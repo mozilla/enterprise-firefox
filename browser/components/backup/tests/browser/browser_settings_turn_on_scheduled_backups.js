@@ -182,7 +182,7 @@ add_task(async function test_turn_on_custom_location_filepicker() {
     assertLocationInputLabelled(turnOnScheduledBackups, filePathInputDefault);
 
     // Next, verify the filepicker and updated dialog
-    let inputUpdatePromise = BrowserTestUtils.waitForCondition(
+    let inputUpdatePromise = TestUtils.waitForCondition(
       () => turnOnScheduledBackups.filePathInputCustomEl
     );
 
@@ -415,7 +415,7 @@ add_task(async function test_turn_on_scheduled_backups_encryption_error() {
       "Scheduled backups pref should still be false"
     );
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => !!turnOnScheduledBackups.errorEl,
       "Error should be displayed to the user"
     );
@@ -587,7 +587,7 @@ add_task(async function test_embedded_component_persistent_data_filepicker() {
     await filePickerShownPromise;
     await turnOnScheduledBackups.updateComplete;
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () =>
         settings.backupServiceState.embeddedComponentPersistentData?.path !==
         undefined,
@@ -746,7 +746,7 @@ add_task(
         await filePickerShownPromise;
         await turnOnScheduledBackups.updateComplete;
 
-        await BrowserTestUtils.waitForCondition(
+        await TestUtils.waitForCondition(
           () =>
             settings.backupServiceState.embeddedComponentPersistentData
               ?.path !== undefined,
@@ -764,7 +764,7 @@ add_task(
         dialog.close();
         await closedPromise;
 
-        await BrowserTestUtils.waitForCondition(
+        await TestUtils.waitForCondition(
           () =>
             Object.keys(
               settings.backupServiceState.embeddedComponentPersistentData

@@ -4968,7 +4968,7 @@ struct MOZ_STACK_CLASS CanvasBidiProcessor final
       strokeOpts.mMiterLimit = state.miterLimit;
       strokeOpts.mDashLength = state.dash.Length();
       strokeOpts.mDashPattern =
-          (strokeOpts.mDashLength > 0) ? state.dash.Elements() : 0;
+          (strokeOpts.mDashLength > 0) ? state.dash.Elements() : nullptr;
       strokeOpts.mDashOffset = state.dashOffset;
 
       params.drawMode = DrawMode::GLYPH_STROKE;

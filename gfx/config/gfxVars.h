@@ -121,6 +121,9 @@ class MOZ_STACK_CLASS gfxVarsCollectUpdates;
   _(WebRenderOverlayHDR, bool, false)                              \
   _(UseWebRenderDCompositionTextureOverlayWin, bool, false)        \
   _(VideoHDR, bool, false)                                         \
+  _(AdapterVendorID, nsCString, nsCString())                       \
+  _(AdapterDeviceID, nsCString, nsCString())                       \
+  _(AdapterDriverVersion, nsCString, nsCString())                  \
 /* Add new entries above this line. */
 
 // Some graphics settings are computed on the UI process and must be

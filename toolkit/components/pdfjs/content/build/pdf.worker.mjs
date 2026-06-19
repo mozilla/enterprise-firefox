@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 6.0.372
- * pdfjsBuild = 7f7b38b42
+ * pdfjsVersion = 6.0.393
+ * pdfjsBuild = e74be4491
  */
 
 ;// ./src/shared/util.js
@@ -5996,19 +5996,19 @@ class OperatorList {
 }
 class CheckedOperatorList extends OperatorList {
   needsIsolation = false;
+  hasSoftMask = false;
   addOp(fn, args) {
-    if (!this.needsIsolation) {
+    if (!this.needsIsolation || !this.hasSoftMask) {
       if (fn === OPS.beginGroup) {
-        this.needsIsolation = args[0].needsIsolation;
+        this.needsIsolation ||= args[0].needsIsolation;
+        this.hasSoftMask ||= args[0].hasSoftMask;
       } else if (fn === OPS.setGState) {
         for (const [key, val] of args[0]) {
           if (key === "BM" && val !== "source-over") {
             this.needsIsolation = true;
-            break;
-          }
-          if (key === "SMask" && val !== false) {
+          } else if (key === "SMask" && val !== false) {
             this.needsIsolation = true;
-            break;
+            this.hasSoftMask = true;
           }
         }
       }
@@ -18665,7 +18665,8 @@ class CFFParser {
         }
       }
       if (maxZoneHeight > 0) {
-        const minBlueScale = blueScale < DEFAULT_BLUE_SCALE ? 0.5 / maxZoneHeight : -Infinity;
+        const lowerBound = 0.5 / maxZoneHeight;
+        const minBlueScale = lowerBound <= DEFAULT_BLUE_SCALE ? lowerBound : -Infinity;
         const maxBlueScale = 1 / maxZoneHeight;
         const clamped = MathClamp(blueScale, minBlueScale, maxBlueScale);
         if (clamped !== blueScale) {
@@ -34234,6 +34235,7 @@ class PartialEvaluator {
         isolated: false,
         knockout: false,
         needsIsolation: false,
+        hasSoftMask: false,
         isGray: false
       };
       const groupSubtype = group.get("S");
@@ -34268,6 +34270,7 @@ class PartialEvaluator {
     });
     if (group) {
       groupOptions.needsIsolation = newOpList.needsIsolation || !!smask;
+      groupOptions.hasSoftMask = newOpList.hasSoftMask || !!smask;
       operatorList.addOp(OPS.beginGroup, [groupOptions]);
       operatorList.addOp(OPS.paintFormXObjectBegin, args);
       operatorList.addOpList(newOpList);
@@ -38602,16 +38605,6 @@ function clearGlobalCaches() {
 
 
 
-function pickPlatformItem(dict) {
-  if (dict instanceof Dict) {
-    for (const key of ["UF", "F", "Unix", "Mac", "DOS"]) {
-      if (dict.has(key)) {
-        return dict.get(key);
-      }
-    }
-  }
-  return null;
-}
 class FileSpec {
   constructor(root) {
     if (!(root instanceof Dict)) {
@@ -38626,7 +38619,7 @@ class FileSpec {
     }
   }
   get filename() {
-    const item = pickPlatformItem(this.root);
+    const item = FileSpec.pickPlatformItem(this.root);
     if (item && typeof item === "string") {
       return stringToPDFString(item, true).replaceAll("\\\\", "\\").replaceAll("\\/", "/").replaceAll("\\", "/");
     }
@@ -38650,20 +38643,33 @@ class FileSpec {
       description
     };
   }
+  static pickPlatformItem(dict, raw = false) {
+    if (dict instanceof Dict) {
+      for (const key of ["UF", "F", "Unix", "Mac", "DOS"]) {
+        if (dict.has(key)) {
+          return raw ? dict.getRaw(key) : dict.get(key);
+        }
+      }
+    }
+    return null;
+  }
   static readContent(dict) {
     if (!(dict instanceof Dict)) {
       return null;
     }
-    const ef = pickPlatformItem(dict.get("EF"));
+    const ef = this.pickPlatformItem(dict.get("EF"));
     if (!(ef instanceof BaseStream)) {
       warn("Embedded file specification points to non-existing/invalid content");
       return null;
     }
-    const encrypt = dict.xref?.encrypt;
+    return this.readStreamContent(ef);
+  }
+  static readStreamContent(stream) {
+    const encrypt = stream.dict?.xref?.encrypt;
     if (encrypt?.encryptionKey === null) {
       throw new PasswordException("No password given", PasswordResponses.NEED_PASSWORD);
     }
-    return ef.getBytes();
+    return stream.getBytes();
   }
 }
 
@@ -40061,9 +40067,9 @@ function fetchRemoteDest(action) {
 }
 class Catalog {
   #actualNumPages = null;
-  #attachmentIdByRef = null;
+  #annotationAttachmentIdByRef = new RefSetCache();
+  #annotationAttachmentRefById = new Map();
   #catDict = null;
-  attachmentDictById = new Map();
   builtInCMapCache = new Map();
   fontCache = new RefSetCache();
   globalColorSpaceCache = new GlobalColorSpaceCache();
@@ -40083,21 +40089,23 @@ class Catalog {
     }
     this.toplevelPagesDict;
   }
-  get attachmentIdByRef() {
-    if (this.#attachmentIdByRef) {
-      return this.#attachmentIdByRef;
-    }
-    const attachmentIdByRef = new RefSetCache();
-    for (const [name, ref] of this.rawEmbeddedFiles || []) {
-      if (!(ref instanceof Ref)) {
-        continue;
-      }
-      attachmentIdByRef.put(ref, stringToPDFString(name, true));
-    }
-    return this.#attachmentIdByRef = attachmentIdByRef;
-  }
   cloneDict() {
     return this.#catDict.clone();
+  }
+  getAttachmentIdForAnnotation(ref) {
+    let id = this.#annotationAttachmentIdByRef.get(ref);
+    if (id) {
+      return id;
+    }
+    const baseId = `attachmentRef:${ref.toString()}`;
+    id = baseId;
+    let i = 1;
+    while (this.#annotationAttachmentRefById.has(id) || this.attachments?.has(id)) {
+      id = `${baseId}-${i++}`;
+    }
+    this.#annotationAttachmentIdByRef.put(ref, id);
+    this.#annotationAttachmentRefById.set(id, ref);
+    return id;
   }
   get version() {
     const version = this.#catDict.get("Version");
@@ -40919,11 +40927,7 @@ class Catalog {
     }
     return shadow(this, "attachments", attachments);
   }
-  attachmentContent(id) {
-    const dict = this.attachmentDictById.get(id);
-    if (dict) {
-      return FileSpec.readContent(dict);
-    }
+  #attachmentContentByName(id) {
     const obj = this.#catDict.get("Names");
     if (obj instanceof Dict && obj.has("EmbeddedFiles")) {
       const nameTree = new NameTree(obj.getRaw("EmbeddedFiles"), this.xref);
@@ -40932,6 +40936,21 @@ class Catalog {
           return FileSpec.readContent(value);
         }
       }
+    }
+    return undefined;
+  }
+  attachmentContent(id) {
+    const namedContent = this.#attachmentContentByName(id);
+    if (namedContent !== undefined) {
+      return namedContent;
+    }
+    const ref = this.#annotationAttachmentRefById.get(id);
+    if (ref) {
+      const target = this.xref.fetch(ref);
+      if (target instanceof BaseStream) {
+        return FileSpec.readStreamContent(target);
+      }
+      return target instanceof Dict ? FileSpec.readContent(target) : null;
     }
     return null;
   }
@@ -41007,9 +41026,6 @@ class Catalog {
   }
   async cleanup(manuallyTriggered = false) {
     clearGlobalCaches();
-    this.#attachmentIdByRef?.clear();
-    this.#attachmentIdByRef = null;
-    this.attachmentDictById.clear();
     this.globalColorSpaceCache.clear();
     this.globalImageCache.clear(manuallyTriggered);
     this.pageKidsCountCache.clear();
@@ -55819,11 +55835,7 @@ class HighlightAnnotation extends MarkupAnnotation {
     this.data.opacity = dict.get("CA") || 1;
     const quadPoints = this.data.quadPoints = getQuadPoints(dict, null);
     if (quadPoints) {
-      const resources = this.appearance?.dict.get("Resources");
-      if (!this.appearance || !resources?.has("ExtGState")) {
-        if (this.appearance) {
-          warn("HighlightAnnotation - ignoring built-in appearance stream.");
-        }
+      if (!this.appearance) {
         const fillColor = getPdfColorArray(this.color, [1, 1, 0]);
         const fillAlpha = dict.get("CA");
         this._setDefaultAppearance({
@@ -56150,21 +56162,20 @@ class FileAttachmentAnnotation extends MarkupAnnotation {
       annotationGlobals,
       dict
     } = params;
-    const fileSpecRef = dict.getRaw("FS");
     const fsDict = dict.get("FS");
     const file = new FileSpec(fsDict);
     const {
       catalog
     } = annotationGlobals.pdfManager.pdfDocument;
-    let fileId = fileSpecRef instanceof Ref ? catalog?.attachmentIdByRef.get(fileSpecRef) : undefined;
-    if (catalog && fsDict instanceof Dict && typeof fileId !== "string") {
-      const baseFileId = `annotation:${this.data.id}`;
-      fileId = baseFileId;
-      let i = 1;
-      while (catalog.attachmentDictById.has(fileId)) {
-        fileId = `${baseFileId}-${i++}`;
+    let fileId;
+    if (fsDict instanceof Dict) {
+      let contentRef = dict.getRaw("FS");
+      if (!(contentRef instanceof Ref)) {
+        contentRef = FileSpec.pickPlatformItem(fsDict.get("EF"), true);
       }
-      catalog.attachmentDictById.set(fileId, fsDict);
+      if (contentRef instanceof Ref) {
+        fileId = catalog?.getAttachmentIdForAnnotation(contentRef);
+      }
     }
     this.data.hasOwnCanvas = this.data.noRotate;
     this.data.noHTML = false;
@@ -61255,21 +61266,13 @@ class PDFEditor {
     const classNames = node.get("C");
     if (classNames instanceof Name) {
       const newClassName = dedupClasses.get(classNames.name);
-      if (newClassName) {
-        newNode.set("C", Name.get(newClassName));
-      } else {
-        newNode.set("C", classNames);
-      }
+      newNode.set("C", newClassName ? Name.get(newClassName) : classNames);
     } else if (Array.isArray(classNames)) {
       const newClassNames = [];
       for (const className of classNames) {
         if (className instanceof Name) {
           const newClassName = dedupClasses.get(className.name);
-          if (newClassName) {
-            newClassNames.push(Name.get(newClassName));
-          } else {
-            newClassNames.push(className);
-          }
+          newClassNames.push(newClassName ? Name.get(newClassName) : className);
         }
       }
       newNode.set("C", newClassNames);
@@ -61277,21 +61280,13 @@ class PDFEditor {
     const roleName = node.get("S");
     if (roleName instanceof Name) {
       const newRoleName = dedupRoles.get(roleName.name);
-      if (newRoleName) {
-        newNode.set("S", Name.get(newRoleName));
-      } else {
-        newNode.set("S", roleName);
-      }
+      newNode.set("S", newRoleName ? Name.get(newRoleName) : roleName);
     }
     const id = node.get("ID");
     if (typeof id === "string") {
       const stringId = stringToPDFString(id, false);
       const newId = dedupIDs.get(stringId);
-      if (newId) {
-        newNode.set("ID", stringToAsciiOrUTF16BE(newId));
-      } else {
-        newNode.set("ID", id);
-      }
+      newNode.set("ID", newId ? stringToAsciiOrUTF16BE(newId) : id);
     }
     let attributes = newNode.get("A");
     if (attributes) {
@@ -63426,7 +63421,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = "6.0.372";
+    const workerVersion = "6.0.393";
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match ` + `the Worker version "${workerVersion}".`);
     }

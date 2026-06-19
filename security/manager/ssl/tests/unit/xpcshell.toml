@@ -156,6 +156,11 @@ run-if = [
   "debug", # Requires hard-coded debug-only data
 ]
 
+["test_crlite_preexisting_tls.js"]
+run-if = [
+  "debug", # Requires hard-coded debug-only data
+]
+
 ["test_ct.js"]
 run-if = [
   "debug", # Requires hard-coded debug-only data

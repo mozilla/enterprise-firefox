@@ -556,6 +556,9 @@ Debugger::Debugger(JSContext* cx, NativeObject* dbg)
       allocationsLogOverflowed(false),
       frames(cx->zone()),
       generatorFrames(cx),
+#ifdef ENABLE_WASM_JSPI
+      wasmContFrames(cx->zone()),
+#endif
       scripts(cx),
       sources(cx),
       objects(cx),
@@ -713,6 +716,17 @@ bool Debugger::getFrame(JSContext* cx, const FrameIter& iter,
       ReportOutOfMemory(cx);
       return false;
     }
+
+#ifdef ENABLE_WASM_JSPI
+    if (frame->isWasmContFrame()) {
+      if (!wasmContFrames.append(referent)) {
+        // terminateDebuggerFrameGuard is still armed and will remove the
+        // entry from `frames` on return.
+        ReportOutOfMemory(cx);
+        return false;
+      }
+    }
+#endif
 
     terminateDebuggerFrameGuard.release();
   }
@@ -3437,7 +3451,7 @@ void Debugger::forEachOnStackDebuggerFrame(AbstractFramePtr frame,
 
 template <typename FrameFn>
 /* static */
-void Debugger::forEachOnStackOrSuspendedDebuggerFrame(
+void Debugger::forEachOnStackOrSuspendedGeneratorDebuggerFrame(
     JSContext* cx, AbstractFramePtr frame, const JS::AutoRequireNoGC& nogc,
     FrameFn fn) {
   Rooted<AbstractGeneratorObject*> genObj(
@@ -4136,6 +4150,34 @@ void DebugAPI::sweepAll(JS::GCContext* gcx) {
                                            nullptr, &iter);
         }
       }
+
+#ifdef ENABLE_WASM_JSPI
+      // Wasm continuation frames whose wasm instance is dying must be
+      // terminated here, before finalization. Without this,
+      // ContObject::finalize would call onLeaveWasmCont ->
+      // DebuggerFrame::terminate, which would call
+      // IsAboutToBeFinalizedUnbarriered on the instance object - forbidden
+      // during finalization. Terminating those frames now removes them from
+      // dbg->frames so that onLeaveWasmCont will skip them.
+      for (size_t i = 0; i < dbg->wasmContFrames.length();) {
+        AbstractFramePtr fp = dbg->wasmContFrames[i];
+        wasm::Instance* inst = fp.asWasmDebugFrame()->instance();
+        if (!IsAboutToBeFinalizedUnbarriered(inst->objectUnbarriered())) {
+          i++;
+          continue;
+        }
+        auto p = dbg->frames.lookup(fp);
+        MOZ_ASSERT(p);
+        // terminateDebuggerFrame erases fp from wasmContFrames, shifting any
+        // later entries down into index i, so we don't advance i here. Assert
+        // it removed exactly the entry at i so the loop makes progress and
+        // cannot spin forever.
+        mozilla::DebugOnly<size_t> lengthBefore = dbg->wasmContFrames.length();
+        Debugger::terminateDebuggerFrame(gcx, dbg, p->value(), fp, nullptr,
+                                         nullptr);
+        MOZ_ASSERT(dbg->wasmContFrames.length() == lengthBefore - 1);
+      }
+#endif
     }
 
     // Detach dying debuggers and debuggees from each other. Since this
@@ -6773,7 +6815,7 @@ bool Debugger::CallData::adoptFrame() {
     if (!dbg->getFrame(cx, iter, &adoptedFrame)) {
       return false;
     }
-  } else if (frameObj->isSuspended()) {
+  } else if (frameObj->isSuspendedGeneratorFrame()) {
     Rooted<AbstractGeneratorObject*> gen(cx, &frameObj->unwrappedGenerator());
     if (!dbg->observesGlobal(&gen->global())) {
       JS_ReportErrorASCII(cx, "Debugger.Frame's global is not a debuggee");
@@ -7154,7 +7196,7 @@ void Debugger::suspendGeneratorDebuggerFrames(JSContext* cx,
         MOZ_ASSERT(p->value() == dbgFrame);
 #endif
 
-        dbgFrame->suspend(gcx);
+        dbgFrame->suspendGeneratorFrame(gcx);
       });
 }
 
@@ -7163,7 +7205,7 @@ void Debugger::terminateDebuggerFrames(JSContext* cx, AbstractFramePtr frame) {
   JS::GCContext* gcx = cx->gcContext();
 
   JS::AutoAssertNoGC nogc;
-  forEachOnStackOrSuspendedDebuggerFrame(
+  forEachOnStackOrSuspendedGeneratorDebuggerFrame(
       cx, frame, nogc, [&](Debugger* dbg, DebuggerFrame* dbgFrame) {
         Debugger::terminateDebuggerFrame(gcx, dbg, dbgFrame, frame);
       });
@@ -7195,6 +7237,10 @@ void Debugger::terminateDebuggerFrame(
     } else {
       dbg->frames.remove(frame);
     }
+#ifdef ENABLE_WASM_JSPI
+    dbg->wasmContFrames.eraseIf(
+        [&frame](const AbstractFramePtr& fp) { return fp == frame; });
+#endif
   }
 
   if (dbgFrame->hasGeneratorInfo()) {

@@ -119,7 +119,7 @@ function assertUiChannelCarriesThumbnailFavicon(conversation, expectedUrls) {
  */
 function assertModelHistoryPayloadSanitized(conversation) {
   const toolMessage = conversation
-    .getMessagesInOpenAiFormat()
+    .getMessagesInChatCompletionsFormat()
     .find(m => m.role === "tool" && m.name === SEARCH_BROWSING_HISTORY);
   Assert.ok(
     toolMessage,
@@ -183,7 +183,7 @@ async function seedHistory(entries) {
  * @param {ChatConversation} conversation
  */
 async function waitForSearchHistoryResult(conversation) {
-  return BrowserTestUtils.waitForCondition(
+  return TestUtils.waitForCondition(
     () =>
       conversation.messages.find(
         m =>
@@ -270,7 +270,7 @@ add_task(async function test_search_browsing_history_returns_sanitized_data() {
   await submitSmartbar(sidebarBrowser);
 
   /** @type {ChatConversation} */
-  const conversation = await BrowserTestUtils.waitForCondition(
+  const conversation = await TestUtils.waitForCondition(
     () => AIWindow.getActiveConversation(win),
     "Conversation should be created when the first message is sent."
   );
@@ -413,7 +413,7 @@ add_task(
     await submitSmartbar(sidebarBrowser);
 
     /** @type {ChatConversation} */
-    const conversation = await BrowserTestUtils.waitForCondition(
+    const conversation = await TestUtils.waitForCondition(
       () => AIWindow.getActiveConversation(win),
       "Conversation should be created when the first message is sent."
     );
@@ -504,7 +504,7 @@ add_task(async function test_search_browsing_history_no_results_shape() {
   await submitSmartbar(sidebarBrowser);
 
   /** @type {ChatConversation} */
-  const conversation = await BrowserTestUtils.waitForCondition(
+  const conversation = await TestUtils.waitForCondition(
     () => AIWindow.getActiveConversation(win),
     "Conversation should be created when the first message is sent."
   );
@@ -579,7 +579,7 @@ add_task(async function test_search_browsing_history_caps_results() {
   await submitSmartbar(sidebarBrowser);
 
   /** @type {ChatConversation} */
-  const conversation = await BrowserTestUtils.waitForCondition(
+  const conversation = await TestUtils.waitForCondition(
     () => AIWindow.getActiveConversation(win),
     "Conversation should be created when the first message is sent."
   );
@@ -645,7 +645,7 @@ add_task(
     });
 
     /** @type {ChatConversation} */
-    const conversation = await BrowserTestUtils.waitForCondition(
+    const conversation = await TestUtils.waitForCondition(
       () => AIWindow.getActiveConversation(win),
       "Conversation should exist on the active AI window before submit."
     );

@@ -115,10 +115,9 @@ struct ParamTraits<nsTDependentString<T>> : ParamTraits<nsTSubstring<T>> {};
 
 // Key type must be a type with ParamTraits, a default constructor and a move
 // constructor.
-template <
-    typename KeyClass,
-    typename ConstructableKeyType = typename std::remove_const<
-        typename std::remove_reference<typename KeyClass::KeyType>::type>::type>
+template <typename KeyClass,
+          typename ConstructableKeyType = std::remove_const_t<
+              std::remove_reference_t<typename KeyClass::KeyType>>>
 struct ParamTraitsforHashSet {
   typedef nsTBaseHashSet<KeyClass> paramType;
   using KeyType = typename KeyClass::KeyType;
@@ -438,7 +437,7 @@ struct ParamTraits<mozilla::EnumSet<T, U>> {
     static_assert(mozilla::MaxEnumValue<T>::value < kUnderlyingWidth,
                   "Enum max value is not in the range!");
     static_assert(
-        std::is_unsigned<decltype(mozilla::MaxEnumValue<T>::value)>::value,
+        std::is_unsigned_v<decltype(mozilla::MaxEnumValue<T>::value)>,
         "Type of MaxEnumValue<T>::value specialization should be unsigned!");
 
     return (value & AllEnumBits()) == value;

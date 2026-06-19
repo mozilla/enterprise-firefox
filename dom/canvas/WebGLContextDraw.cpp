@@ -1300,15 +1300,15 @@ bool WebGLContext::DoFakeVertexAttrib0(
   switch (mGenericVertexAttribTypes[0]) {
     case webgl::AttribBaseType::Boolean:
     case webgl::AttribBaseType::Float:
-      gl->fVertexAttribPointer(0, 4, LOCAL_GL_FLOAT, false, 0, 0);
+      gl->fVertexAttribPointer(0, 4, LOCAL_GL_FLOAT, false, 0, nullptr);
       break;
 
     case webgl::AttribBaseType::Int:
-      gl->fVertexAttribIPointer(0, 4, LOCAL_GL_INT, 0, 0);
+      gl->fVertexAttribIPointer(0, 4, LOCAL_GL_INT, 0, nullptr);
       break;
 
     case webgl::AttribBaseType::Uint:
-      gl->fVertexAttribIPointer(0, 4, LOCAL_GL_UNSIGNED_INT, 0, 0);
+      gl->fVertexAttribIPointer(0, 4, LOCAL_GL_UNSIGNED_INT, 0, nullptr);
       break;
   }
 

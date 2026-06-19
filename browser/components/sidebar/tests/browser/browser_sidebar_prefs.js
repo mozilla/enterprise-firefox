@@ -42,7 +42,7 @@ add_task(async function test_tools_prefs() {
       continue;
     }
     toolInput.click();
-    await BrowserTestUtils.waitForCondition(() => {
+    await TestUtils.waitForCondition(() => {
       let toggledTool = win.SidebarController.toolsAndExtensions.get(
         toolInput.id
       );

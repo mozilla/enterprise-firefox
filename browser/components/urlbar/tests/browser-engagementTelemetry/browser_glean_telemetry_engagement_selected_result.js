@@ -562,7 +562,7 @@ add_task(async function selected_result_tab() {
     await openPopup("example");
     await selectRowByProvider("UrlbarProviderPlaces");
     EventUtils.synthesizeKey("KEY_Enter");
-    await BrowserTestUtils.waitForCondition(() => gBrowser.selectedTab === tab);
+    await TestUtils.waitForCondition(() => gBrowser.selectedTab === tab);
 
     assertEngagementTelemetry([
       {
@@ -598,7 +598,7 @@ add_task(async function selected_result_tab_adaptive() {
     await openPopup("exa");
     await selectRowByProvider("UrlbarProviderInputHistory");
     EventUtils.synthesizeKey("KEY_Enter");
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => gBrowser.selectedTab === tab,
       "Waiting for selected tab to be the tab we opened."
     );
@@ -640,7 +640,7 @@ add_task(async function selected_result_tab_adaptive_serp() {
     await selectRowByProvider("UrlbarProviderInputHistory");
 
     EventUtils.synthesizeKey("KEY_Enter");
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => gBrowser.selectedTab === tab,
       "Waiting for selected tab to be the tab we opened."
     );
@@ -674,7 +674,7 @@ add_task(async function selected_result_tab_serp() {
     await openPopup("test sea");
     await selectRowByProvider("UrlbarProviderPlaces");
     EventUtils.synthesizeKey("KEY_Enter");
-    await BrowserTestUtils.waitForCondition(() => gBrowser.selectedTab === tab);
+    await TestUtils.waitForCondition(() => gBrowser.selectedTab === tab);
 
     assertEngagementTelemetry([
       {
@@ -1318,7 +1318,7 @@ add_task(async function selected_result_action() {
     await openPopup("settings");
     EventUtils.synthesizeKey("KEY_Tab");
     EventUtils.synthesizeKey("KEY_Enter");
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () =>
         gBrowser.selectedTab.linkedBrowser.currentURI.spec ==
         "about:preferences"

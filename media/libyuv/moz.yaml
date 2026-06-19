@@ -56,4 +56,5 @@ vendoring:
     - 02_update_gyp.patch
     - 03_add_neon64_and_sve_gyp_targets.patch
     - 04_disable_sme.patch
+    - 05_fix_gcc_neon_rgbtouvmatrixrow.patch
 

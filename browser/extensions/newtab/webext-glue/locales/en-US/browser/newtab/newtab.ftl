@@ -796,6 +796,8 @@ newtab-sports-widget-show-less =
 # Toggle that filters the list of teams the user follows
 newtab-sports-widget-followed-only-toggle =
     .label = Only followed teams
+# Status shown when more matches are being fetched.
+newtab-sports-widget-loading-more = Loading more matches…
 
 ## Sports widget live-games pagination. Shown when 2+ matches are live at the same time
 
@@ -921,6 +923,9 @@ newtab-sports-widget-third-place = Third place
 newtab-sports-widget-runner-up = Runner-up
 newtab-sports-widget-champions = Champions
 newtab-sports-widget-world-cup-champions = 2026 World Cup Champions
+# Compact champions label for the medium-size widget result card; the larger
+# card uses newtab-sports-widget-world-cup-champions.
+newtab-sports-widget-world-cup-champions-short = 2026 Champions
 
 # Variables:
 #   $date (Date) - The match start time

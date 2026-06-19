@@ -239,7 +239,7 @@ class Browsertime(Perftest, metaclass=ABCMeta):
                 if not os.path.exists(self.browsertime_chromedriver):
                     raise Exception(
                         "Cannot find the chromedriver for the chrome version "
-                        "being tested: %s" % self.browsertime_chromedriver
+                        f"being tested: {self.browsertime_chromedriver}"
                     )
 
             self.driver_paths.extend([
@@ -834,6 +834,10 @@ class Browsertime(Perftest, metaclass=ABCMeta):
         if self.config["gecko_profile"] is True:
             bt_timeout += 5 * 60
 
+        # if etw profiling enabled and instantiated, give browser more time for profiling
+        if self.config.get("etw_profile") and self.etw_profiler:
+            bt_timeout += 5 * 60
+
         # if simpleperf enabled, give browser more time for profiling
         if self.config["simpleperf"] is True:
             bt_timeout += 5 * 60
@@ -961,6 +965,15 @@ class Browsertime(Perftest, metaclass=ABCMeta):
 
         self.run_test_setup(test)
 
+        # xperf profiling is currently only supported in CI as it requires
+        # scheduled tasks that are currently only configured on the
+        # CI machines.
+        if self.config.get("etw_profile"):
+            if not self.config.get("run_local"):
+                self._init_etw_profiling(test)
+            else:
+                LOG.error("ETW profiling is not supported in local runs")
+
         if self.config.get("simpleperf"):
             self._init_simpleperf_profiling(test)
 
@@ -1011,6 +1024,16 @@ class Browsertime(Perftest, metaclass=ABCMeta):
 
         LOG.info("PATH: {}".format(env["PATH"]))
 
+        # Start ETW profiling if enabled before browsertime starts
+        etw_started = False
+        if self.config.get("etw_profile") and self.etw_profiler:
+            try:
+                etw_started = self.etw_profiler.start()
+            except Exception as e:
+                LOG.warning(f"Failed to start ETW profiling: {e}")
+                self.etw_profiler = None  # Disable profiler to skip stop() later
+
+        browsertime_test_failed = False
         try:
             line_matcher = re.compile(r".*(\[.*\])\s+([a-zA-Z]+):\s+(.*)")
 
@@ -1169,5 +1192,21 @@ class Browsertime(Perftest, metaclass=ABCMeta):
                 )
 
         except Exception as e:
+            browsertime_test_failed = True
             LOG.critical(str(e))
             raise
+
+        finally:
+            if etw_started and self.etw_profiler:
+                try:
+                    # Additionally upload kernel and user ETL files
+                    # for debugging if test fails
+                    self.etw_profiler.stop()
+                    self.etw_profiler.upload_etl(debug=browsertime_test_failed)
+                    self.etw_profiler.symbolicate()
+                    self.etw_profiler.archive()
+                    self.etw_profiler.clean()
+                    etw_started = False
+                    LOG.info("ETW profiling has completed successfully")
+                except Exception as e:
+                    LOG.error(f"Failed to finalize ETW profiling: {e}")

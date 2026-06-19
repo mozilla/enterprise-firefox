@@ -543,9 +543,9 @@ NSDictionary<NSData*, ASAuthorizationPublicKeyCredentialPRFAssertionInputValues*
            NS_ConvertUTF16toUTF8(errorDomain).get(), error.code,
            NS_ConvertUTF16toUTF8(errorDescription).get()));
   nsresult rv = NS_ERROR_DOM_NOT_ALLOWED_ERR;
-  // For some reason, the error for "the credential used in a registration was
-  // on the exclude list" is in the "WKErrorDomain" domain with code 8, which
-  // is presumably WKErrorDuplicateCredential.
+  // On older macOS versions, the excluded-credential error is reported in the
+  // "WKErrorDomain" domain with code 8 (WKErrorDuplicateCredential) rather
+  // than as ASAuthorizationErrorMatchedExcludedCredential.
   const NSInteger WKErrorDuplicateCredential = 8;
   if (errorDomain.EqualsLiteral("WKErrorDomain") &&
       error.code == WKErrorDuplicateCredential) {
@@ -554,6 +554,9 @@ NSDictionary<NSData*, ASAuthorizationPublicKeyCredentialPRFAssertionInputValues*
     switch (error.code) {
       case ASAuthorizationErrorCanceled:
         rv = NS_ERROR_DOM_NOT_ALLOWED_ERR;
+        break;
+      case ASAuthorizationErrorMatchedExcludedCredential:
+        rv = NS_ERROR_DOM_INVALID_STATE_ERR;
         break;
       case ASAuthorizationErrorFailed:
         // The message is right, but it's not about indexeddb.

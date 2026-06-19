@@ -200,7 +200,7 @@ describe("aichat open link", () => {
 
       await clickRenderedLink(chatTab.linkedBrowser, TEST_URL);
 
-      await BrowserTestUtils.waitForCondition(
+      await TestUtils.waitForCondition(
         () => gBrowser.selectedTab === existingTab,
         "Browser should switch to the existing tab with the matching URL"
       );
@@ -322,7 +322,7 @@ describe("aichat open link", () => {
         );
       });
 
-      await BrowserTestUtils.waitForCondition(
+      await TestUtils.waitForCondition(
         () => gBrowser.selectedTab === prefsTab,
         "Should switch to existing preferences tab"
       );
@@ -439,7 +439,7 @@ describe("aichat open link", () => {
         }
       );
 
-      await BrowserTestUtils.waitForCondition(
+      await TestUtils.waitForCondition(
         () => gBrowser.selectedTab === existingTab,
         "Should switch to the existing tab with the matching URL"
       );

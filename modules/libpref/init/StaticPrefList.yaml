@@ -3702,6 +3702,13 @@
   mirror: always
 #endif
 
+# If this is true, any JS actor with safeForUntrustedWebProcess set to false
+# won't be allowed in a process that can hold web content.
+- name: dom.jsipc.check_safeForUntrustedWebProcess
+  type: bool
+  value: false
+  mirror: always
+
 # This controls whether JS IPC messages are sent from child to parent using
 # the typeable JSIPCValue encoding, or simply sent using structured cloning.
 # This being true is necessary to type check messages.
@@ -10747,6 +10754,13 @@
   value: false
   mirror: always
 
+# Is support for closest/farthest-corner enabled in ellipse()?
+- name: layout.css.ellipse-corners.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+  rust: true
+
 - name: layout.css.cross-fade.enabled
   type: RelaxedAtomicBool
   value: false
@@ -13476,11 +13490,7 @@
   # acceleration for decoding.
 -   name: media.navigator.mediadatadecoder_vpx_enabled
     type: RelaxedAtomicBool
-#if defined(NIGHTLY_BUILD) || defined(MOZ_WIDGET_GTK)
     value: true
-#else
-    value: false
-#endif
     mirror: always
 
   # Use MediaDataDecoder API for H264 in WebRTC. This includes hardware
@@ -15254,7 +15264,11 @@
 # This is the number of dns cache entries allowed
 - name: network.dnsCacheEntries
   type: RelaxedAtomicUint32
+#if defined(NIGHTLY_BUILD)
+  value: 3200
+#else
   value: 1600
+#endif
   mirror: always
 
 # In the absence of OS TTLs, the DNS cache TTL value
@@ -20423,6 +20437,12 @@
   type: bool
   value: false
   mirror: always
+
+# Use xdg-session-management-v1 for session restore on Wayland.
+- name: widget.wayland.session-management.enabled
+  type: bool
+  value: true
+  mirror: once
 
 # Use native D&D session type on Wayland instead of Gtk.
 # Recently disabled due compositor bugs (Bug 2046911).

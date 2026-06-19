@@ -16,6 +16,7 @@
 #include "mozilla/AsyncPlatformPipes.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/Result.h"
+#include "mozilla/ResultVariant.h"
 #include "mozilla/SyncRunnable.h"
 #include "nsDirectoryServiceDefs.h"
 #include "nsIFile.h"

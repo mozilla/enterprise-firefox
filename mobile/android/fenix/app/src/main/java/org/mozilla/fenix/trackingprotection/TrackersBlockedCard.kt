@@ -148,15 +148,13 @@ fun TrackersBlockedCard(
             ProtectionStatusPill(
                 trackersBlockedCount = trackersBlockedCount,
                 onClick = if (longfoxEnabled) onLongfoxEntryPointClicked else onPrivacyReportTapped,
+                longfoxEnabled = longfoxEnabled,
             )
         }
 
         if (isPlayingAnimation && foxOffsetY.value < 1f) {
-            Spacer(modifier = Modifier.height(6.dp))
-
             TypewriterText(
-                modifier = Modifier.padding(bottom = FirefoxTheme.layout.space.static300),
-                text = stringResource(R.string.help_catch_trackers),
+                text = stringResource(org.mozilla.fenix.longfox.R.string.tap_to_play),
                 isReversing = isReversing,
             )
         }
@@ -167,6 +165,7 @@ fun TrackersBlockedCard(
 private fun ProtectionStatusPill(
     trackersBlockedCount: Int,
     onClick: (() -> Unit)? = null,
+    longfoxEnabled: Boolean,
 ) {
     val shape = MaterialTheme.shapes.extraLarge
     Row(
@@ -193,7 +192,10 @@ private fun ProtectionStatusPill(
         )
 
         Text(
-            text = if (trackersBlockedCount > 0) {
+            text =
+            if (longfoxEnabled) {
+                stringResource(R.string.help_catch_trackers)
+            } else if (trackersBlockedCount > 0) {
                 pluralStringResource(
                     R.plurals.trackers_blocked_count_2,
                     trackersBlockedCount,

@@ -684,7 +684,7 @@ nsresult nsXMLContentSink::AddContentAsLeaf(nsIContent* aContent) {
 nsresult nsXMLContentSink::LoadXSLStyleSheet(nsIURI* aUrl) {
   nsCOMPtr<nsIDocumentTransformer> processor = new txMozillaXSLTProcessor();
   mDocument->SetUseCounter(eUseCounter_custom_XSLStylesheet);
-  mDocument->WarnOnceAbout(DeprecatedOperations::eXSLTDeprecated);
+  mDocument->WarnOnceAndReportAbout(DeprecatedOperations::eXSLTDeprecated);
 
   processor->SetTransformObserver(this);
 
@@ -1378,7 +1378,7 @@ nsXMLContentSink::ReportError(const char16_t* aErrorText,
   parsererror.Append((char16_t)0xFFFF);
   parsererror.AppendLiteral("parsererror");
 
-  const char16_t* dirAttr[] = {u"dir", u"ltr", 0, 0};
+  const char16_t* dirAttr[] = {u"dir", u"ltr", nullptr, nullptr};
   if (intl::LocaleService::GetInstance()->IsAppLocaleRTL() &&
       !mDocument->ShouldResistFingerprinting(RFPTarget::JSLocale)) {
     dirAttr[1] = u"rtl";
@@ -1393,7 +1393,7 @@ nsXMLContentSink::ReportError(const char16_t* aErrorText,
   sourcetext.Append((char16_t)0xFFFF);
   sourcetext.AppendLiteral("sourcetext");
 
-  const char16_t* noAtts[] = {0, 0};
+  const char16_t* noAtts[] = {nullptr, nullptr};
   rv = HandleStartElement(sourcetext.get(), noAtts, 0, (uint32_t)-1, 0);
   NS_ENSURE_SUCCESS(rv, rv);
 

@@ -471,7 +471,7 @@ void EventListenerManager::AddEventListenerInternal(
         if (nsScreen* screen = mTarget->GetAsScreen()) {
           if (nsPIDOMWindowOuter* outer = screen->GetOuter()) {
             if (Document* doc = outer->GetExtantDoc()) {
-              doc->WarnOnceAbout(
+              doc->WarnOnceAndReportAbout(
                   DeprecatedOperations::eMozorientationchangeDeprecated);
             }
           }

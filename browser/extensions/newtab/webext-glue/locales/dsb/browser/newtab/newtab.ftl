@@ -1098,6 +1098,8 @@ newtab-sports-widget-show-less =
 # Toggle that filters the list of teams the user follows
 newtab-sports-widget-followed-only-toggle =
     .label = Jano mustwa, kótarymž slědujośo
+# Status shown when more matches are being fetched.
+newtab-sports-widget-loading-more = Dalšne graśa se zacytuju…
 # Watch is a verb (as in watch matches online).
 newtab-sports-widget-watch =
     .label = Glědaś
@@ -1177,6 +1179,9 @@ newtab-sports-widget-third-place = Tśeśe městno
 newtab-sports-widget-runner-up = Druge městno
 newtab-sports-widget-champions = Mejstarje
 newtab-sports-widget-world-cup-champions = Swětowe mejstarje 2026
+# Compact champions label for the medium-size widget result card; the larger
+# card uses newtab-sports-widget-world-cup-champions.
+newtab-sports-widget-world-cup-champions-short = Mejstarje 2026
 # Variables:
 #   $date (Date) - The match start time
 newtab-sports-widget-match-time = { DATETIME($date, hour: "2-digit", minute: "2-digit") }

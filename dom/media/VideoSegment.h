@@ -47,8 +47,9 @@ class VideoFrame {
   void SetNull();
   void TakeFrom(VideoFrame* aFrame);
 
-  // Create a planar YCbCr black image.
-  static already_AddRefed<Image> CreateBlackImage(const gfx::IntSize& aSize);
+  // Create a planar YCbCr black image at intrinsic size. Returns nullptr if the
+  // size is invalid or exceeds 16K in either dimension.
+  already_AddRefed<Image> CloneAsBlackImage() const;
 
  protected:
   // mImage can be null to indicate "no video" (aka "empty frame"). It can

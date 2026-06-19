@@ -746,6 +746,13 @@ nsRect LocalAccessible::BoundsInAppUnits() const {
   nsIFrame* boundingFrame = nullptr;
   nsRect unionRectTwips = RelativeBounds(&boundingFrame);
   if (!boundingFrame) {
+    if (nsCoreUtils::IsDisplayContents(mContent)) {
+      nsRect result;
+      for (uint32_t i = 0, n = ChildCount(); i < n; i++) {
+        result.UnionRect(result, LocalChildAt(i)->BoundsInAppUnits());
+      }
+      return result;
+    }
     return nsRect();
   }
 

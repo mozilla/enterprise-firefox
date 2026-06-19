@@ -334,6 +334,7 @@ export class UserCharacteristicsPageService {
           DOMContentLoaded: {},
         },
       },
+      safeForUntrustedWebProcess: true,
     });
 
     for (const { success, actor, error } of this.getActorFromTabsOrWindows(
@@ -700,6 +701,7 @@ export class UserCharacteristicsPageService {
         esModuleURI:
           "resource://gre/actors/UserCharacteristicsCanvasRenderingChild.sys.mjs",
       },
+      safeForUntrustedWebProcess: true,
     });
 
     let data = new Map();

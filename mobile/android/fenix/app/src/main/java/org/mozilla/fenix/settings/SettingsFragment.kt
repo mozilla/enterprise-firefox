@@ -60,6 +60,7 @@ import org.mozilla.fenix.GleanMetrics.Events
 import org.mozilla.fenix.GleanMetrics.SettingsSearch
 import org.mozilla.fenix.GleanMetrics.TrackingProtection
 import org.mozilla.fenix.GleanMetrics.Translations
+import org.mozilla.fenix.GleanMetrics.Vpn
 import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.Components
@@ -429,6 +430,7 @@ class SettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFragment 
             }
 
             resources.getString(R.string.pref_key_ip_protection_settings) -> {
+                Vpn.settingsPageTapped.record(Vpn.SettingsPageTappedExtra(entrypoint = "Settings"))
                 SettingsFragmentDirections.actionSettingsFragmentToIpProtectionFragment(
                     entrypoint = FenixFxAEntryPoint.IPProtectionSettings,
                 )

@@ -205,7 +205,7 @@ add_task(async function test_about_addons_pages() {
       await flakyWaitForManyIdles();
     }
     EventUtils.synthesizeKey("KEY_Enter", {}, window);
-    await BrowserTestUtils.waitForCondition(() => testFun());
+    await TestUtils.waitForCondition(() => testFun());
     Assert.ok(true, "The tab correspondent action is selected");
   }
   Assert.equal(

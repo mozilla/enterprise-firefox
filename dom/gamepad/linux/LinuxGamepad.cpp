@@ -427,7 +427,7 @@ bool LinuxGamepadService::IsDeviceGamepad(struct udev_device* aDev) {
 }
 
 bool LinuxGamepadService::IsXboxDevice(struct udev_device* aDev) {
-  const char* driver = NULL;
+  const char* driver = nullptr;
   struct udev_device* p = mUdev.udev_device_get_parent(aDev);
   while (p && !driver) {
     driver = mUdev.udev_device_get_driver(p);

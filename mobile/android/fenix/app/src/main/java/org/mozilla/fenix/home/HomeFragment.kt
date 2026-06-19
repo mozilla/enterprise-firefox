@@ -74,6 +74,7 @@ import mozilla.components.support.utils.ext.navigateToDefaultBrowserAppsSettings
 import mozilla.telemetry.glean.private.NoExtras
 import org.mozilla.fenix.BrowserDirection
 import org.mozilla.fenix.GleanMetrics.HomeScreen
+import org.mozilla.fenix.GleanMetrics.Vpn
 import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.NavGraphDirections
 import org.mozilla.fenix.R
@@ -889,8 +890,9 @@ class HomeFragment : Fragment() {
     }
 
     private fun initStoriesState() {
+        val components = context?.components ?: return
         lifecycleScope.launch(IO) {
-            val settings = requireComponents.settings
+            val settings = components.settings
 
             val showStories =
                 settings.showPocketRecommendationsFeature ||
@@ -899,19 +901,19 @@ class HomeFragment : Fragment() {
             val showSponsoredStories = showStories && settings.showPocketSponsoredStories
 
             if (showStories) {
-                requireComponents.appStore.dispatch(
+                components.appStore.dispatch(
                     ContentRecommendationsAction.ContentRecommendationsFetched(
-                        recommendations = requireComponents.core.pocketStoriesService.getContentRecommendations(),
+                        recommendations = components.core.pocketStoriesService.getContentRecommendations(),
                     ),
                 )
             } else {
-                requireComponents.appStore.dispatch(ContentRecommendationsAction.PocketStoriesClean)
+                components.appStore.dispatch(ContentRecommendationsAction.PocketStoriesClean)
             }
 
             if (showSponsoredStories) {
-                requireComponents.appStore.dispatch(
+                components.appStore.dispatch(
                     ContentRecommendationsAction.SponsoredContentsChange(
-                        sponsoredContents = requireComponents.core.pocketStoriesService.getSponsoredContents(),
+                        sponsoredContents = components.core.pocketStoriesService.getSponsoredContents(),
                     ),
                 )
             }
@@ -1217,6 +1219,7 @@ class HomeFragment : Fragment() {
             feature = IPProtectionWarningBinding(
                 store = requireComponents.ipProtection.store,
                 proxyUnavailable = {
+                    Vpn.errorEncountered.record()
                     findNavController().navigate(
                         HomeFragmentDirections.actionGlobalIpProtectionUnavailableDialog(),
                     )

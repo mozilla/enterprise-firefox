@@ -10,7 +10,6 @@ import mozilla.components.support.test.robolectric.testContext
 import org.junit.Rule
 import org.junit.runner.RunWith
 import org.mozilla.fenix.GleanMetrics.BookmarksManagement
-import org.mozilla.fenix.GleanMetrics.Metrics
 import org.mozilla.fenix.helpers.FenixGleanTestRule
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -67,6 +66,20 @@ class BookmarksTelemetryMiddlewareTest {
             message = "Expected bookmarks_count extra to be 2",
         )
     }
+
+    @Test
+    fun `GIVEN import file started, an import file started event is recorded`() =
+        runTest {
+            val store = middleware.makeStore()
+
+            store.dispatch(ImportAction.ImportStarted)
+
+            testScheduler.advanceUntilIdle()
+
+            val events = BookmarksManagement.importStarted.testGetValue() ?: emptyList()
+
+            assertEquals(1, events.size, "Expected 1 import file started event, but got ${events.size}")
+        }
 
     private fun BookmarksTelemetryMiddleware.makeStore(): BookmarksStore {
         return BookmarksStore(

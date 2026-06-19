@@ -87,7 +87,7 @@ add_task(async function test_locations_list_default_rendering() {
     checkmark,
     "checkmark element should exist on the recommended button"
   );
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => getComputedStyle(checkmark).visibility === "visible",
     "checkmark should be visible on selected item"
   );
@@ -102,7 +102,7 @@ add_task(async function test_locations_list_default_rendering() {
       "false",
       `${code} button should not be selected`
     );
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () =>
         getComputedStyle(unSelectedButton.querySelector(".location-check"))
           .visibility === "hidden",
@@ -220,7 +220,7 @@ add_task(async function test_locations_list_selection_persists_to_pref() {
 
   let panel = IPProtection.getPanel(window);
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => panel.state.location === "CA",
     "panel state.location should update to the selected code"
   );
@@ -259,7 +259,7 @@ add_task(
 
     locationsList.querySelector("#location-option-CA").click();
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => switchStub.calledWith("CA"),
       "switch should be called with the selected country code"
     );
@@ -268,7 +268,7 @@ add_task(
 
     locationsList.querySelector("#location-option-REC").click();
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => switchStub.calledWith(undefined),
       "switch should be called with undefined when REC is selected"
     );

@@ -9,7 +9,9 @@ Superclass to handle profiling in Raptor-Browsertime.
 import gzip
 import json
 import os
+from pathlib import Path
 
+import mozfile
 from logger.logger import RaptorLogger
 
 here = os.path.dirname(os.path.realpath(__file__))
@@ -19,7 +21,7 @@ import tempfile
 
 class RaptorProfiling:
     """
-    Superclass for handling profling for Firefox and Chrom* applications.
+    Superclass for handling profling for Firefox and Chrome applications.
     """
 
     def __init__(self, upload_dir, raptor_config, test_config):
@@ -152,5 +154,10 @@ class RaptorProfiling:
                     "type": __get_test_type(),
                 })
 
-        LOG.info("Found %s profiles: %s" % (len(res), str(res)))
+        LOG.info(f"Found {len(res)} profiles: {res}")
         return res
+
+    def clean(self):
+        """Clean up temp profile directory created during initialization."""
+        if self.temp_profile_dir and Path(self.temp_profile_dir).exists():
+            mozfile.remove(self.temp_profile_dir)

@@ -88,7 +88,10 @@ class IPProtectionFragment : Fragment(), SystemInsetsPaddedFragment {
                 promoDate = promoDate,
                 onVpnToggle = { enabled ->
                     if (enabled) {
+                        Vpn.settingsTurnedOn.record(NoExtras())
                         requireComponents.settings.hasAlreadyUsedVpn = true
+                    } else {
+                        Vpn.settingsTurnedOff.record(NoExtras())
                     }
                     requireComponents.ipProtection.store.dispatch(IPProtectionAction.Toggle)
                 },
@@ -104,7 +107,7 @@ class IPProtectionFragment : Fragment(), SystemInsetsPaddedFragment {
                     )
                 },
                 onGetStartedClick = {
-                    Vpn.getStartedTapped.record()
+                    Vpn.getStartedTapped.record(Vpn.GetStartedTappedExtra(entrypoint = "Settings"))
                     requireComponents.ipProtection.store.dispatch(IPProtectionAction.Toggle)
                 },
                 showDebugAction = requireComponents.settings.showSecretDebugMenuThisSession,
@@ -145,6 +148,7 @@ class IPProtectionFragment : Fragment(), SystemInsetsPaddedFragment {
             feature = IPProtectionWarningBinding(
                 store = requireComponents.ipProtection.store,
                 proxyUnavailable = {
+                    Vpn.errorEncountered.record()
                     findNavController().navigate(
                         HomeFragmentDirections.actionGlobalIpProtectionUnavailableDialog(),
                     )

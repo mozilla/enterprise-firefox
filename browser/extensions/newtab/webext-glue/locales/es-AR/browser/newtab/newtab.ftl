@@ -101,6 +101,11 @@ home-prefs-choose-wallpaper-link2 =
     .label = Elegir un fondo de pantalla
 home-prefs-firefox-logo-header =
     .label = Logo de { -brand-short-name }
+# Informational message bar that appears in the Firefox Home section when the options are disabled.
+# The user must select Firefox Home as their homepage for either new tabs or new windows to enable
+# the features in settings.
+home-prefs-firefox-home-disabled-notice =
+    .message = Para usar estas funcionalidades, hay que configurar las nuevas pestañas o nuevas ventanas a { -firefox-home-brand-name }.
 # Variables:
 #   $num (number) - Number of rows displayed
 home-prefs-sections-rows-option-srd =

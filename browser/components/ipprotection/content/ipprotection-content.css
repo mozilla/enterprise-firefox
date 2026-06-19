@@ -4,6 +4,16 @@
 
 @import "chrome://global/skin/global.css";
 
+:host {
+  --skeleton-container-bg-color: var(--background-color-box-info);
+  --skeleton-placeholder-bg-color: var(--card-border-color);
+
+  @media -moz-pref("browser.nova.enabled") {
+    --skeleton-container-bg-color: light-dark(var(--color-gray-0), var(--color-black-alpha-50));
+    --skeleton-placeholder-bg-color: light-dark(var(--color-black-alpha-10), var(--color-white-alpha-20));
+  }
+}
+
 hr {
   border-style: solid none none none;
   border-color: var(--panel-separator-color);
@@ -15,6 +25,10 @@ hr {
   display: flex;
   flex-direction: column;
   padding: var(--space-large);
+
+  @media -moz-pref("browser.nova.enabled") {
+    margin-inline: var(--space-small);
+  }
 }
 
 .vpn-top-content {
@@ -160,12 +174,18 @@ ipprotection-message-bar.vpn-top-content {
 }
 
 #enrolling-container {
-  background-color: var(--background-color-box-info);
+  background-color: var(--skeleton-container-bg-color);
   border-radius: var(--border-radius-medium);
   display: flex;
   flex-direction: column;
   gap: var(--space-large);
   padding: var(--space-medium);
+
+  @media -moz-pref("browser.nova.enabled") {
+    /* stylelint-disable-next-line stylelint-plugin-mozilla/no-base-design-tokens, stylelint-plugin-mozilla/use-design-tokens */
+    border: var(--border-width) solid light-dark(var(--color-black-alpha-10), var(--color-white-alpha-20));
+    border-radius: var(--border-radius-xlarge);
+  }
 }
 
 #enrolling-header {
@@ -178,17 +198,10 @@ ipprotection-message-bar.vpn-top-content {
     flex-direction: column;
     flex: 1;
   }
-
-  img {
-    height: var(--size-image-small);
-    width: var(--size-image-small);
-    -moz-context-properties: fill;
-    fill: var(--icon-color);
-  }
 }
 
 .skeleton {
-  background-color: var(--card-border-color);
+  background-color: var(--skeleton-placeholder-bg-color);
 }
 
 .skeleton-title {
@@ -196,6 +209,10 @@ ipprotection-message-bar.vpn-top-content {
   width: var(--size-layout-xsmall);
   border-radius: var(--space-xxsmall);
   margin-block: var(--space-medium) var(--space-small);
+
+  @media -moz-pref("browser.nova.enabled") {
+    margin-block: var(--space-xsmall) 0;
+  }
 }
 
 .skeleton-line {
@@ -214,6 +231,18 @@ ipprotection-message-bar.vpn-top-content {
   &:first-of-type {
     margin-block-start: var(--space-xxlarge);
   }
+
+  @media -moz-pref("browser.nova.enabled") {
+    padding-block: var(--space-xsmall);
+    border-radius: var(--border-radius-circle);
+  }
+}
+
+.skeleton-image {
+  width: var(--size-item-large);
+  height: var(--size-item-large);
+  border-radius: var(--border-radius-circle);
+  margin: var(--space-xsmall);
 }
 
 #site-exclusion-control {

@@ -135,7 +135,17 @@ class SourceSurfaceCanvasRecording final : public gfx::SourceSurface {
         });
   }
 
-  gfx::SurfaceType GetType() const final { return mRecordedSurface->GetType(); }
+  gfx::SurfaceType GetType() const final {
+    return gfx::SurfaceType::CANVAS_RECORDING;
+  }
+
+  gfx::SurfaceType GetUnderlyingType() const final {
+    return mRecordedSurface->GetType();
+  }
+
+  already_AddRefed<SourceSurface> GetUnderlyingSurface() final {
+    return do_AddRef(mRecordedSurface);
+  }
 
   gfx::IntSize GetSize() const final { return mRecordedSurface->GetSize(); }
 

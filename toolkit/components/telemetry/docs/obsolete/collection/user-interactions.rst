@@ -25,7 +25,7 @@ User Interactions also will add profiler markers for each recording.
 Serialization format
 ====================
 
-User Interactions are submitted in a :doc:`../../data/backgroundhangmonitor-ping` as a property under the `annotations` for a hang, e.g.:
+User Interactions are submitted in a :doc:`backgroundhangmonitor-ping` as a property under the `annotations` for a hang, e.g.:
 
 .. code-block:: js
 

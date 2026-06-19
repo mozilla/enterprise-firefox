@@ -1111,7 +1111,7 @@ void AudioCallbackDriver::PanOutputIfNeeded(bool aMicrophoneActive) {
   char name[128];
   size_t length = sizeof(name);
 
-  rv = sysctlbyname("hw.model", name, &length, NULL, 0);
+  rv = sysctlbyname("hw.model", name, &length, nullptr, 0);
   if (rv) {
     return;
   }

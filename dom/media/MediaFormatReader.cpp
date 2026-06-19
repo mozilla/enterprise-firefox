@@ -21,6 +21,7 @@
 #include "VideoUtils.h"
 #include "mozilla/AbstractThread.h"
 #include "mozilla/CDMProxy.h"
+#include "mozilla/CheckedInt.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/NotNull.h"
 #include "mozilla/Preferences.h"
@@ -2100,6 +2101,30 @@ void MediaFormatReader::DecodeDemuxedSamples(TrackType aTrack,
           aSample->mEOS ? " eos" : "");
 
   decoder.StartRecordDecodingPerf(aTrack, aSample);
+
+  const CryptoSample& crypto = aSample->mCrypto;
+  if (crypto.IsEncrypted() && !crypto.mPlainSizes.IsEmpty()) {
+    if (crypto.mPlainSizes.Length() != crypto.mEncryptedSizes.Length()) {
+      NotifyError(aTrack,
+                  MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR,
+                              "Mismatched crypto subsample array lengths"));
+      return;
+    }
+    CheckedInt<size_t> subsampleTotal = 0;
+    for (size_t i = 0; i < crypto.mPlainSizes.Length(); i++) {
+      subsampleTotal += crypto.mPlainSizes[i];
+      subsampleTotal += crypto.mEncryptedSizes[i];
+    }
+    if (!subsampleTotal.isValid() ||
+        subsampleTotal.value() != aSample->Size()) {
+      NotifyError(
+          aTrack,
+          MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR,
+                      "Crypto subsample sizes don't match sample size"));
+      return;
+    }
+  }
+
   if (aSample->mCrypto.IsEncrypted() &&
       (mMediaEngineId || (mCDMProxy && !!mCDMProxy->AsRemoteCDMProxy()))) {
     aSample->mShouldCopyCryptoToRemoteRawData = true;

@@ -19,6 +19,8 @@ import org.mozilla.fenix.ui.efficiency.selectors.MainMenuSelectors
 import org.mozilla.fenix.ui.efficiency.selectors.MainMenuSelectors.BACK_BUTTON
 import org.mozilla.fenix.ui.efficiency.selectors.MainMenuSelectors.BOOKMARK_THIS_PAGE_BUTTON
 import org.mozilla.fenix.ui.efficiency.selectors.MainMenuSelectors.DESKTOP_SITE_BUTTON
+import org.mozilla.fenix.ui.efficiency.selectors.MainMenuSelectors.DESKTOP_SITE_OFF
+import org.mozilla.fenix.ui.efficiency.selectors.MainMenuSelectors.DESKTOP_SITE_ON
 import org.mozilla.fenix.ui.efficiency.selectors.MainMenuSelectors.EDIT_BOOKMARK_BUTTON
 import org.mozilla.fenix.ui.efficiency.selectors.MainMenuSelectors.FORWARD_BUTTON
 
@@ -203,20 +205,20 @@ class MainMenuTest : BaseTest() {
         on.mainMenu
             .navigateToPage()
             .mozVerify(DESKTOP_SITE_BUTTON)
-            .mozVerifyElementIsNotEnabled(DESKTOP_SITE_BUTTON)
+            .mozVerify(DESKTOP_SITE_OFF)
         on.mainMenu
             .mozClick(DESKTOP_SITE_BUTTON)
         on.browserPage
             .navigateToPage()
         on.mainMenu
             .navigateToPage()
-            .mozVerifyElementIsEnabled(DESKTOP_SITE_BUTTON)
+            .mozVerify(DESKTOP_SITE_ON)
         on.mainMenu
             .mozClick(DESKTOP_SITE_BUTTON)
         on.browserPage
             .navigateToPage()
         on.mainMenu
             .navigateToPage()
-            .mozVerifyElementIsNotEnabled(DESKTOP_SITE_BUTTON)
+            .mozVerify(DESKTOP_SITE_OFF)
     }
 }

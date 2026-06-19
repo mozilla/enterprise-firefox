@@ -4,7 +4,6 @@
 
 package org.mozilla.fenix.ui.efficiency.pageObjects
 
-import android.util.Log
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ComposeTimeoutException
@@ -27,7 +26,6 @@ import org.mozilla.fenix.helpers.TestHelper.packageName
 import org.mozilla.fenix.helpers.ext.waitNotNull
 import org.mozilla.fenix.ui.efficiency.helpers.BasePage
 import org.mozilla.fenix.ui.efficiency.helpers.Selector
-import org.mozilla.fenix.ui.efficiency.helpers.SelectorStrategy
 import org.mozilla.fenix.ui.efficiency.navigation.NavigationRegistry
 import org.mozilla.fenix.ui.efficiency.navigation.NavigationStep
 import org.mozilla.fenix.ui.efficiency.selectors.BrowserPageSelectors
@@ -127,26 +125,12 @@ class BrowserPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule
     }
 
     fun clickPageContent(text: String): BrowserPage {
-        mozClick(
-            Selector(
-                strategy = SelectorStrategy.UIAUTOMATOR_WITH_TEXT_CONTAINS,
-                value = text,
-                description = "Page content '$text'",
-                groups = listOf(),
-            ),
-        )
+        mozClick(BrowserPageSelectors.pageContentSelector(text))
         return this
     }
 
     fun clickPageContentIfPresent(text: String): BrowserPage {
-        mozClickIfPresent(
-            Selector(
-                strategy = SelectorStrategy.UIAUTOMATOR_WITH_TEXT_CONTAINS,
-                value = text,
-                description = "Page content '$text'",
-                groups = listOf(),
-            ),
-        )
+        mozClickIfPresent(BrowserPageSelectors.pageContentSelector(text))
         return this
     }
 
@@ -155,24 +139,20 @@ class BrowserPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule
     }
 
     fun verifyUrl(url: String): BrowserPage {
-        Log.i(TAG, "verifyUrl: Trying to verify $url")
-
         val expectedText = url.replace("http://", "")
         val textMatcher = hasText(expectedText, substring = true, ignoreCase = true)
         try {
             composeRule.waitUntil(waitingTimeShort) {
-                composeRule.onAllNodesWithTag(ADDRESSBAR_URL, useUnmergedTree = true).fetchSemanticsNodes()
+                composeRule.onAllNodesWithTag(ADDRESSBAR_URL, useUnmergedTree = true)
+                    .fetchSemanticsNodes()
                     .any { textMatcher.matches(it) }
             }
         } catch (_: ComposeTimeoutException) {
-            Log.i(TAG, "verifyUrl [$url] failed because: ")
-            composeRule.onAllNodesWithTag(ADDRESSBAR_URL, useUnmergedTree = true).fetchSemanticsNodes()
-                .forEachIndexed { index, node ->
-                    val text = node.config.getOrNull(SemanticsProperties.Text)?.joinToString("")
-                    Log.i(TAG, "verifyUrl: Node[$index] with tag '$ADDRESSBAR_URL' has text: '$text'")
-                }
+            val actual = composeRule.onAllNodesWithTag(ADDRESSBAR_URL, useUnmergedTree = true)
+                .fetchSemanticsNodes()
+                .mapNotNull { it.config.getOrNull(SemanticsProperties.Text)?.joinToString("") }
+            throw AssertionError("Expected URL to contain '$expectedText' but found: $actual")
         }
-
         return this
     }
 

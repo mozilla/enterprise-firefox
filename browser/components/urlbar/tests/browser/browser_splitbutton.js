@@ -225,7 +225,7 @@ async function doActivateTest({
   );
   Assert.equal(splitButtonMain.dataset.command, expectedMainCommand);
   EventUtils.synthesizeMouseAtCenter(splitButtonMain, {});
-  await BrowserTestUtils.waitForCondition(() => engaged == expectedMainCommand);
+  await TestUtils.waitForCondition(() => engaged == expectedMainCommand);
   Assert.ok(true, `${expectedMainCommand} is engaged`);
 
   for (let i = 0; i < expectedMenuCommands.length; i++) {
@@ -252,9 +252,7 @@ async function doActivateTest({
     }
     await onPopupHidden;
     const expectedMenuCommand = expectedMenuCommands[i];
-    await BrowserTestUtils.waitForCondition(
-      () => engaged == expectedMenuCommand
-    );
+    await TestUtils.waitForCondition(() => engaged == expectedMenuCommand);
     Assert.ok(true, `${expectedMenuCommand} is engaged`);
   }
 

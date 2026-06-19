@@ -3396,7 +3396,7 @@ MediaTrackGraphImpl::MediaTrackGraphImpl(uint64_t aWindowID,
       ,
       mMainThreadGraphTime(0, "MediaTrackGraphImpl::mMainThreadGraphTime"),
       mAudioOutputLatency(0.0),
-      mMaxOutputChannelCount(CubebUtils::MaxNumberOfChannels()) {
+      mMaxOutputChannelCount(0) {
 }
 
 void MediaTrackGraphImpl::Init(GraphDriverType aDriverRequested,
@@ -3405,6 +3405,10 @@ void MediaTrackGraphImpl::Init(GraphDriverType aDriverRequested,
   mSelfRef = this;
   mEndTime = aDriverRequested == OFFLINE_THREAD_DRIVER ? 0 : GRAPH_TIME_MAX;
   mRealtime = aDriverRequested != OFFLINE_THREAD_DRIVER;
+  // The caller queries the default output device's channel count off the graph
+  // thread and passes it in. Offline graphs have no audio output device, so
+  // they pass 0 here and avoid the (potentially expensive) query entirely.
+  mMaxOutputChannelCount = aChannelCount;
   // The primary output device always exists because an AudioCallbackDriver
   // may exist, and want to be fed data, even when no tracks have audio
   // outputs.

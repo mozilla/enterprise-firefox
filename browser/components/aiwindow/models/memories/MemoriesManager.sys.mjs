@@ -13,13 +13,18 @@ import {
 import { getRecentChats } from "./MemoriesChatSource.sys.mjs";
 import {
   MODEL_FEATURES,
-  openAIEngine,
   renderPrompt,
 } from "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs";
+import { openAIEngine } from "moz-src:///browser/components/aiwindow/models/openAIEngine.sys.mjs";
 import {
-  loadCallContext,
+  buildConversation,
   loadPrompt,
 } from "moz-src:///browser/components/aiwindow/models/PromptLoader.sys.mjs";
+import {
+  ChatStore,
+  MESSAGE_ROLE,
+} from "moz-src:///browser/components/aiwindow/ui/modules/ChatStore.sys.mjs";
+import { SensitiveInfoDetector } from "moz-src:///browser/components/aiwindow/models/memories/SensitiveInfoDetector.sys.mjs";
 
 import { MemoryStore } from "moz-src:///browser/components/aiwindow/services/MemoryStore.sys.mjs";
 import {
@@ -27,8 +32,10 @@ import {
   INTENTS,
   HISTORY as SOURCE_HISTORY,
   CONVERSATION as SOURCE_CONVERSATION,
+  CONVERSATION_USER_REQUEST as SOURCE_USER_REQUEST,
   PREF_GENERATE_MEMORIES_FROM_HISTORY,
   PREF_GENERATE_MEMORIES_FROM_CONVERSATION,
+  MAX_MEMORY_SUMMARY_LENGTH,
 } from "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs";
 import {
   getFormattedMemoryAttributeList,
@@ -63,6 +70,11 @@ const LAST_HISTORY_MEMORY_TS_ATTRIBUTE = "last_history_memory_ts";
 const LAST_CONVERSATION_MEMORY_TS_ATTRIBUTE = "last_chat_memory_ts";
 
 const PREF_FIRSTRUN_HAS_COMPLETED = "browser.smartwindow.firstrun.hasCompleted";
+
+// Single shared detector instance, mirroring MemoriesChatSource /
+// MemoriesHistorySource usage.
+const _sensitiveInfoDetector = new SensitiveInfoDetector();
+
 /**
  * MemoriesManager class
  */
@@ -70,11 +82,14 @@ export class MemoriesManager {
   // Exposed to be stubbed for testing
   static _getRecentChats = getRecentChats;
 
-  // openaiEngine for memory generation
-  static #openAIEngineGenerationPromise = null;
+  // Cached Conversation for the 3 serial LLM steps in one generateMemories()
+  // pass. Callers MUST NOT invoke generation concurrently — clearMessages /
+  // addMessage sequences on the shared instance race across acquires.
+  static #generationConversationPromise = null;
 
-  // openAIEngine for memory usage
-  static #openAIEngineUsagePromise = null;
+  // Cached Conversation for memory usage (classification, relevance).
+  // Same serial-only contract.
+  static #usageConversationPromise = null;
 
   // Embeddings cache for semantic memory search
   static #embeddingsGenerator = null;
@@ -82,85 +97,69 @@ export class MemoriesManager {
   static #memoryCacheKey = null;
 
   /**
-   * Creates and returns an openAIEngine instance for memory generation.
-   * This engine loads prompts for: initial generation, deduplication, sensitivity filter.
+   * Returns a Conversation wired to the memory-generation feature. Used for:
+   * initial generation, deduplication, sensitivity filter.
    *
-   * @returns {Promise<openAIEngine>}  openAIEngine instance
+   * @returns {Promise<Conversation>}
    */
-  static async ensureOpenAIEngineForGeneration() {
+  static async ensureConversationForGeneration() {
     const buildFresh = async () => {
-      const callContext = await loadCallContext(
+      this.#generationConversationPromise = buildConversation(
         MODEL_FEATURES.MEMORIES_INITIAL_GENERATION_SYSTEM
       );
-      this.#openAIEngineGenerationPromise = openAIEngine.build({
-        model: callContext.model,
-        serviceType: callContext.serviceType,
-        purpose: callContext.purpose,
-        flowId: null,
-        feature: MODEL_FEATURES.MEMORIES_INITIAL_GENERATION_SYSTEM,
-      });
-      return this.#openAIEngineGenerationPromise;
+      return this.#generationConversationPromise;
     };
 
-    if (!this.#openAIEngineGenerationPromise) {
+    if (!this.#generationConversationPromise) {
       return await buildFresh();
     }
 
-    let engine;
+    let conversation;
     try {
-      engine = await this.#openAIEngineGenerationPromise;
+      conversation = await this.#generationConversationPromise;
     } catch (e) {
-      this.#openAIEngineGenerationPromise = null;
+      this.#generationConversationPromise = null;
       return await buildFresh();
     }
 
-    const status = engine?.engineInstance?.engineStatus;
-    if (status !== "ready") {
-      this.#openAIEngineGenerationPromise = null;
+    if (!conversation?.isReady) {
+      this.#generationConversationPromise = null;
       return await buildFresh();
     }
-    return engine;
+    return conversation;
   }
 
   /**
-   * Creates and returns an openAIEngine instance for memory usage.
-   * This engine loads prompts for: message classification, relevant context.
+   * Returns a Conversation wired to the memory-usage feature. Used for:
+   * message classification, relevant context.
    *
-   * @returns {Promise<openAIEngine>}  openAIEngine instance
+   * @returns {Promise<Conversation>}
    */
-  static async ensureOpenAIEngineForUsage() {
+  static async ensureConversationForUsage() {
     const buildFresh = async () => {
-      const callContext = await loadCallContext(
+      this.#usageConversationPromise = buildConversation(
         MODEL_FEATURES.MEMORIES_MESSAGE_CLASSIFICATION_SYSTEM
       );
-      this.#openAIEngineUsagePromise = openAIEngine.build({
-        model: callContext.model,
-        serviceType: callContext.serviceType,
-        purpose: callContext.purpose,
-        flowId: null,
-        feature: MODEL_FEATURES.MEMORIES_MESSAGE_CLASSIFICATION_SYSTEM,
-      });
-      return this.#openAIEngineUsagePromise;
+      return this.#usageConversationPromise;
     };
 
-    if (!this.#openAIEngineUsagePromise) {
+    if (!this.#usageConversationPromise) {
       return await buildFresh();
     }
 
-    let engine;
+    let conversation;
     try {
-      engine = await this.#openAIEngineUsagePromise;
+      conversation = await this.#usageConversationPromise;
     } catch (e) {
-      this.#openAIEngineUsagePromise = null;
+      this.#usageConversationPromise = null;
       return await buildFresh();
     }
 
-    const status = engine?.engineInstance?.engineStatus;
-    if (status !== "ready") {
-      this.#openAIEngineUsagePromise = null;
+    if (!conversation?.isReady) {
+      this.#usageConversationPromise = null;
       return await buildFresh();
     }
-    return engine;
+    return conversation;
   }
 
   /**
@@ -179,9 +178,9 @@ export class MemoriesManager {
     const existingMemoriesSummaries = existingMemories.map(
       i => i.memory_summary
     );
-    const engine = await this.ensureOpenAIEngineForGeneration();
+    const conversation = await this.ensureConversationForGeneration();
     const memories = await generateMemories(
-      engine,
+      conversation,
       sources,
       existingMemoriesSummaries
     );
@@ -515,6 +514,71 @@ export class MemoriesManager {
   }
 
   /**
+   * Adds a single memory based on a user request. Rejects requests with empty
+   * summaries or containing personally identifiable information (PII).
+   * Unlike saveMemories, this does not advance the conversation/history meta
+   * timestamps, so it won't interfere with delta memory generation.
+   *
+   * @param {string} memorySummary
+   * @returns {Promise<{ok: true,  memory: MemoryPartial, action: string} | {ok: false, reason: string}>}
+   */
+  static async saveRequestedMemory(memorySummary) {
+    if (typeof memorySummary !== "string" || !memorySummary.trim()) {
+      return { ok: false, reason: "Memory summary is empty." };
+    }
+
+    // Hard-truncate independently of the schema's maxLength: the stored summary is
+    // later treated as trusted context, so bound any payload that survives.
+    const summary = memorySummary.trim().slice(0, MAX_MEMORY_SUMMARY_LENGTH);
+
+    // The chat message that triggered this tool, used as evidence and as a second
+    // input to the PII detector.
+    const recentUserMessages = await ChatStore.getMostRecentMessages(
+      MESSAGE_ROLE.USER,
+      1
+    );
+    const message = recentUserMessages[0]?.content?.body ?? "";
+
+    // Structured PII/financial pattern detection.
+    if (
+      _sensitiveInfoDetector.containsSensitiveInfo(summary) ||
+      _sensitiveInfoDetector.containsSensitiveInfo(message)
+    ) {
+      return {
+        ok: false,
+        reason: "Memory contains personally identifiable information.",
+      };
+    }
+
+    let candidateMemory = {
+      memory_summary: summary,
+      score: 5.0,
+      reasoning: "User requested.",
+      evidence: [{ type: "chat", value: message }],
+      source: SOURCE_USER_REQUEST,
+    };
+
+    const addedMemory = await MemoryStore.addMemory(candidateMemory);
+    return { ok: true, memory: addedMemory, action: "created" };
+  }
+
+  /**
+   * Enriches an existing memory with classified categories and intents.
+   * Intended to be called fire-and-forget after saveRequestedMemory.
+   *
+   * @param {string} memoryId
+   * @param {string} memorySummary
+   */
+  static async enrichExistingMemory(memoryId, memorySummary) {
+    const { categories, intents } =
+      await this.memoryClassifyMessage(memorySummary);
+    await MemoryStore.updateMemory(memoryId, {
+      category: categories[0] ?? "",
+      intent: intents[0] ?? "",
+    });
+  }
+
+  /**
    * Soft deletes a memory by its ID.
    * Soft deletion sets the memory's `is_deleted` flag to true. This prevents memory getter functions
    * from returning the memory when using default parameters. It does not delete the memory from storage.
@@ -549,7 +613,7 @@ export class MemoriesManager {
    * @returns {Promise<Map<{categories: Array<string>, intents: Array<string>}>>}}  Categories and intents into which the message was classified
    */
   static async memoryClassifyMessage(message) {
-    const engine = await this.ensureOpenAIEngineForUsage();
+    const conversation = await this.ensureConversationForUsage();
     const { prompt: systemPrompt } = await loadPrompt(
       MODEL_FEATURES.MEMORIES_MESSAGE_CLASSIFICATION_SYSTEM
     );
@@ -562,11 +626,10 @@ export class MemoriesManager {
       intents: getFormattedMemoryAttributeList(INTENTS),
     });
 
-    const response = await engine.run({
-      args: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
+    conversation.clearMessages();
+    conversation.setSystemMessage(systemPrompt);
+    conversation.addUserMessage(userPrompt);
+    const response = await conversation.run({
       responseFormat: {
         type: "json_schema",
         schema: MEMORIES_MESSAGE_CLASSIFY_SCHEMA,
@@ -625,7 +688,7 @@ export class MemoriesManager {
    *
    * @param {string} message                  User message to find relevant memories for
    * @param {number} topK                     Number of top relevant memories to return (default: 5)
-   * @param {number} similarityThreshold      Minimum similarity score (0-1) to include (default: 0.3)
+   * @param {number} similarityThreshold      Minimum similarity score (0-1) to include (default: 0.22)
    * @returns {Promise<Array<{
    *  memory_summary: string,
    *  category: string,

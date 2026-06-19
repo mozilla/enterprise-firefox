@@ -79,14 +79,14 @@ describe("Smart Window model settings", () => {
       'moz-radio[data-l10n-id="smart-window-model-fast"]'
     );
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => BrowserTestUtils.isVisible(fastRadio),
       "Waiting for radio to be visible"
     );
 
     fastRadio.click();
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () =>
         Services.prefs.getStringPref(
           "browser.smartwindow.firstrun.modelChoice",
@@ -104,7 +104,7 @@ describe("Smart Window model settings", () => {
     fastRadio.focus();
     EventUtils.synthesizeKey("KEY_ArrowDown", {}, win);
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () =>
         Services.prefs.getStringPref(
           "browser.smartwindow.firstrun.modelChoice",
@@ -128,7 +128,7 @@ describe("Smart Window model settings", () => {
     );
     EventUtils.synthesizeMouseAtCenter(customRadio, {}, win);
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => BrowserTestUtils.isVisible(doc.getElementById("customModelName")),
       "Waiting for custom fields to be visible"
     );
@@ -170,7 +170,7 @@ describe("Smart Window model settings", () => {
     );
     fastRadio.click();
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => !BrowserTestUtils.isVisible(doc.getElementById("customModelName")),
       "Waiting for custom fields to be hidden"
     );
@@ -181,7 +181,7 @@ describe("Smart Window model settings", () => {
     EventUtils.synthesizeKey("KEY_ArrowDown", {}, win);
     EventUtils.synthesizeKey("KEY_ArrowDown", {}, win);
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => BrowserTestUtils.isVisible(doc.getElementById("customModelName")),
       "Waiting for custom fields to be visible via keyboard"
     );
@@ -200,7 +200,7 @@ describe("Smart Window model settings", () => {
     );
     EventUtils.synthesizeMouseAtCenter(customRadio, {}, win);
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () =>
         BrowserTestUtils.isVisible(doc.getElementById("customModelSaveButton")),
       "Waiting for save button to be visible"
@@ -221,7 +221,7 @@ describe("Smart Window model settings", () => {
     );
     EventUtils.synthesizeMouseAtCenter(customRadio, {}, win);
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () =>
         BrowserTestUtils.isVisible(doc.getElementById("customModelEndpoint")),
       "Waiting for custom fields to be visible"
@@ -231,7 +231,7 @@ describe("Smart Window model settings", () => {
     customModelEndpoint.value = "example.com";
     customModelEndpoint.dispatchEvent(new Event("input"));
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => doc.getElementById("customModelSaveButton").disabled,
       "Waiting for save button to be disabled because endpoint is not valid"
     );
@@ -251,7 +251,7 @@ describe("Smart Window model settings", () => {
     );
     EventUtils.synthesizeMouseAtCenter(customRadio, {}, win);
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () =>
         BrowserTestUtils.isVisible(doc.getElementById("customModelEndpoint")),
       "Waiting for custom fields to be visible"
@@ -261,7 +261,7 @@ describe("Smart Window model settings", () => {
     customModelEndpoint.value = "https://example.com";
     customModelEndpoint.dispatchEvent(new Event("change", { bubbles: true }));
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => !doc.getElementById("customModelSaveButton").disabled,
       "Waiting for save button to be enabled"
     );
@@ -281,7 +281,7 @@ describe("Smart Window model settings", () => {
     );
     EventUtils.synthesizeMouseAtCenter(customRadio, {}, win);
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () =>
         BrowserTestUtils.isVisible(doc.getElementById("customModelEndpoint")),
       "Waiting for custom fields to be visible"
@@ -291,7 +291,7 @@ describe("Smart Window model settings", () => {
     customModelEndpoint.value = "http://localhost:8080";
     customModelEndpoint.dispatchEvent(new Event("change", { bubbles: true }));
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => !doc.getElementById("customModelSaveButton").disabled,
       "Waiting for save button to be enabled"
     );
@@ -311,7 +311,7 @@ describe("Smart Window model settings", () => {
     );
     EventUtils.synthesizeMouseAtCenter(customRadio, {}, win);
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () =>
         BrowserTestUtils.isVisible(doc.getElementById("customModelEndpoint")),
       "Waiting for custom fields to be visible"
@@ -326,7 +326,7 @@ describe("Smart Window model settings", () => {
 
     // Wait for button to be enabled
     const customModelSaveButton = doc.getElementById("customModelSaveButton");
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => !customModelSaveButton.disabled,
       "Waiting for save button to be enabled"
     );
@@ -339,7 +339,7 @@ describe("Smart Window model settings", () => {
     customModelSaveButton.scrollIntoView({});
     EventUtils.synthesizeMouseAtCenter(customModelSaveButton, {}, win);
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () =>
         Services.prefs.getStringPref("browser.smartwindow.model", "") ===
         "my-custom-model",
@@ -377,7 +377,7 @@ describe("Smart Window model settings", () => {
     customModelSaveButton.focus();
     EventUtils.synthesizeKey(" ", {}, win);
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () =>
         Services.prefs.getStringPref("browser.smartwindow.model", "") ===
         "keyboard-model",
@@ -408,7 +408,7 @@ describe("Smart Window model settings", () => {
     );
     EventUtils.synthesizeMouseAtCenter(customRadio, {}, win);
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () =>
         BrowserTestUtils.isVisible(doc.getElementById("customModelEndpoint")),
       "Waiting for custom fields to be visible"
@@ -416,7 +416,7 @@ describe("Smart Window model settings", () => {
 
     const customModelEndpoint = doc.getElementById("customModelEndpoint");
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => customModelEndpoint.value === "https://example.com",
       "Waiting for endpoint to be restored in input"
     );
@@ -440,7 +440,7 @@ describe("Smart Window model settings", () => {
     );
     fastRadio.click();
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => !BrowserTestUtils.isVisible(doc.getElementById("customModelName")),
       "Waiting for custom fields to be hidden"
     );

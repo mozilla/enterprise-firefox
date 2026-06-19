@@ -5242,7 +5242,11 @@
       this.removeTabs(tabsToRemove, aParams);
     }
 
-    removeMultiSelectedTabs({ isUserTriggered, telemetrySource } = {}) {
+    removeMultiSelectedTabs({
+      isUserTriggered,
+      telemetrySource,
+      excludePinnedTabs,
+    } = {}) {
       let selectedTabs = this.selectedTabs;
       if (
         !this.warnAboutClosingTabs(
@@ -5253,7 +5257,20 @@
         return;
       }
 
-      this.removeTabs(selectedTabs, { isUserTriggered, telemetrySource });
+      if (excludePinnedTabs) {
+        selectedTabs = this.selectedTabs.filter(tab => !tab.pinned);
+        this.removeTabs(selectedTabs, { isUserTriggered, telemetrySource });
+        this.clearMultiSelectedTabs();
+        if (
+          this.selectedTab.pinned &&
+          gBrowser.visibleTabs.length > gBrowser.pinnedTabCount
+        ) {
+          // Select first unpinned tab if the selected tab is pinned.
+          gBrowser.tabContainer.selectedIndex = gBrowser.pinnedTabCount;
+        }
+      } else {
+        this.removeTabs(selectedTabs, { isUserTriggered, telemetrySource });
+      }
     }
 
     /**
@@ -8117,6 +8134,25 @@
           this.moveTabForward();
           aEvent.preventDefault();
           return;
+        case ShortcutUtils.MOVE_TAB_TO_START:
+        case ShortcutUtils.MOVE_TAB_TO_END: {
+          let userIsInputtingText =
+            window.windowUtils.IMEStatus !=
+            Ci.nsIDOMWindowUtils.IME_STATUS_DISABLED;
+          if (aEvent.defaultPrevented || userIsInputtingText) {
+            return;
+          }
+          if (
+            ShortcutUtils.getSystemActionForEvent(aEvent) ==
+            ShortcutUtils.MOVE_TAB_TO_START
+          ) {
+            this.moveTabToStart();
+          } else {
+            this.moveTabToEnd();
+          }
+          aEvent.preventDefault();
+          return;
+        }
         case ShortcutUtils.CLOSE_TAB:
           if (gBrowser.multiSelectedTabsCount) {
             gBrowser.removeMultiSelectedTabs();

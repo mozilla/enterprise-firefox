@@ -162,6 +162,7 @@
 #include "mozilla/dom/DOMSecurityMonitor.h"
 #include "mozilla/dom/DOMTypes.h"
 #include "mozilla/dom/DataTransfer.h"
+#include "mozilla/dom/DeprecationReportBody.h"
 #include "mozilla/dom/DocGroup.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/DocumentFragment.h"
@@ -199,6 +200,7 @@
 #include "mozilla/dom/PContentChild.h"
 #include "mozilla/dom/PrototypeList.h"
 #include "mozilla/dom/ReferrerPolicyBinding.h"
+#include "mozilla/dom/ReportingUtils.h"
 #include "mozilla/dom/Sanitizer.h"
 #include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/dom/Selection.h"
@@ -5303,7 +5305,7 @@ void nsContentUtils::AsyncPrecreateStringBundles() {
 
 static PropertiesFile GetMaybeSpoofedPropertiesFile(PropertiesFile aFile,
                                                     const char* aKey,
-                                                    Document* aDocument) {
+                                                    const Document* aDocument) {
   // When we spoof English, use en-US properties in strings that are accessible
   // by content.
   bool spoofLocale = nsContentUtils::ShouldResistFingerprinting(
@@ -5324,7 +5326,7 @@ static PropertiesFile GetMaybeSpoofedPropertiesFile(PropertiesFile aFile,
 /* static */
 nsresult nsContentUtils::GetMaybeLocalizedString(PropertiesFile aFile,
                                                  const char* aKey,
-                                                 Document* aDocument,
+                                                 const Document* aDocument,
                                                  nsAString& aResult) {
   return GetLocalizedString(
       GetMaybeSpoofedPropertiesFile(aFile, aKey, aDocument), aKey, aResult);
@@ -5498,6 +5500,65 @@ nsresult nsContentUtils::ReportToConsoleByWindowID(
   NS_ENSURE_SUCCESS(rv, rv);
 
   return sConsoleService->LogMessage(errorObject);
+}
+
+namespace {
+
+#define DEPRECATED_OPERATION(_op) #_op,
+static const char* kDeprecatedOperations[] = {
+#include "nsDeprecatedOperationList.inc"
+    nullptr};
+#undef DEPRECATED_OPERATION
+
+}  // anonymous namespace
+
+/* static */
+void nsContentUtils::ReportDeprecation(
+    nsIGlobalObject* aGlobal, const Document* aDoc, nsIURI* aURI,
+    DeprecatedOperations aOperation,
+    const mozilla::JSCallingLocation& aLocation) {
+  MOZ_ASSERT(aGlobal);
+  MOZ_ASSERT(aURI);
+
+  // If the URI has the data scheme, report that instead of the spec,
+  // as the spec may be arbitrarily long and we would like to avoid
+  // copying it.
+  nsAutoCString specOrScheme;
+  nsresult rv = nsContentUtils::AnonymizeURI(aURI, specOrScheme);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return;
+  }
+
+  const char* operation =
+      kDeprecatedOperations[static_cast<size_t>(aOperation)];
+  nsAutoString type;
+  type.AppendASCII(operation);
+
+  nsAutoCString key;
+  key.AssignLiteral(operation, strlen(operation));
+  key.AppendLiteral("Warning");
+
+  // XXX do we really want the localized string for deprecation report?
+  nsAutoString msg;
+  rv = nsContentUtils::GetMaybeLocalizedString(PropertiesFile::DOM_PROPERTIES,
+                                               key.get(), aDoc, msg);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return;
+  }
+
+  Nullable<uint32_t> lineNumber;
+  Nullable<uint32_t> columnNumber;
+  if (aLocation) {
+    lineNumber.SetValue(aLocation.mLine);
+    columnNumber.SetValue(aLocation.mColumn);
+  }
+
+  RefPtr<DeprecationReportBody> body =
+      new DeprecationReportBody(aGlobal, type, nullptr /* date */, msg,
+                                aLocation.FileName(), lineNumber, columnNumber);
+
+  ReportingUtils::Report(aGlobal, nsGkAtoms::deprecation, u"default"_ns,
+                         NS_ConvertUTF8toUTF16(specOrScheme), body);
 }
 
 void nsContentUtils::LogMessageToConsole(const char* aMsg) {

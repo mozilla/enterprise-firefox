@@ -179,7 +179,7 @@ private class FakeNimbus(
         }
     }
 
-    override fun applyPendingExperiments(): Job {
+    override fun applyPendingExperiments(initial: Boolean): Job {
         applyPendingExperimentsWasCalled = true
         return coroutineScope.launch {
             delay(applyExperimentDelayMillis) // simulate async apply.

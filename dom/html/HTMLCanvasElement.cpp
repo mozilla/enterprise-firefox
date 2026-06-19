@@ -372,6 +372,13 @@ HTMLCanvasPrintState::HTMLCanvasPrintState(
 
 HTMLCanvasPrintState::~HTMLCanvasPrintState() = default;
 
+HTMLCanvasElement* HTMLCanvasPrintState::GetParentObject() {
+  if (auto* original = mCanvas->GetOriginalCanvas()) {
+    return original;
+  }
+  return mCanvas;
+}
+
 /* virtual */
 JSObject* HTMLCanvasPrintState::WrapObject(JSContext* aCx,
                                            JS::Handle<JSObject*> aGivenProto) {
@@ -908,7 +915,8 @@ already_AddRefed<CanvasCaptureMediaStream> HTMLCanvasElement::CaptureStream(
   // If no permission, arrange for the frame capture listener to return
   // all-white, opaque image data.
   CanvasUtils::ImageExtraction extractionBehaviour =
-      CanvasUtils::ImageExtractionResult(this, nullptr, &aSubjectPrincipal);
+      CanvasUtils::ImageExtractionResult(
+          this, nsContentUtils::GetCurrentJSContext(), &aSubjectPrincipal);
 
   rv = RegisterFrameCaptureListener(
       stream->FrameCaptureListener(),

@@ -152,7 +152,7 @@ class AsyncNotifyRunnable : public Runnable {
 };
 
 ProgressTracker::RenderBlockingRunnable::RenderBlockingRunnable(
-    already_AddRefed<AsyncNotifyRunnable>&& aEvent)
+    already_AddRefed<AsyncNotifyRunnable> aEvent)
     : PrioritizableRunnable(std::move(aEvent),
                             nsIRunnablePriority::PRIORITY_RENDER_BLOCKING) {}
 
@@ -169,7 +169,7 @@ void ProgressTracker::RenderBlockingRunnable::RemoveObserver(
 /* static */
 already_AddRefed<ProgressTracker::RenderBlockingRunnable>
 ProgressTracker::RenderBlockingRunnable::Create(
-    already_AddRefed<AsyncNotifyRunnable>&& aEvent) {
+    already_AddRefed<AsyncNotifyRunnable> aEvent) {
   MOZ_ASSERT(NS_IsMainThread());
   RefPtr<ProgressTracker::RenderBlockingRunnable> event(
       new ProgressTracker::RenderBlockingRunnable(std::move(aEvent)));

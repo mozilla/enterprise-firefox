@@ -105,13 +105,13 @@ async function checkPreviewPanelUX(rbs) {
     const summary = details.querySelector("summary");
 
     rbs.click(summary);
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => details.open == !!idx,
       `Next preview item properly ${idx ? "opens" : "closes"}`
     );
 
     rbs.click(summary);
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => details.open == !idx,
       `Next preview item properly ${idx ? "closes" : "opens"} again`
     );

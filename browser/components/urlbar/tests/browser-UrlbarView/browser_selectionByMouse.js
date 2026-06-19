@@ -535,7 +535,7 @@ add_task(async function buttons() {
 
 async function waitForElements(selectors) {
   let elements;
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => {
       elements = selectors.map(s => document.querySelector(s));
       return elements.every(e => e && BrowserTestUtils.isVisible(e));

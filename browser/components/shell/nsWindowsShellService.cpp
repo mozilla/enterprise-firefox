@@ -51,6 +51,8 @@
 #include "nsXULAppAPI.h"
 #include "Windows11TaskbarPinning.h"
 #include "WindowsDefaultBrowser.h"
+#include "WindowsUIElement.h"
+#include "WindowsUIOverlayImage.h"
 #include "WindowsUserChoice.h"
 #include "WinUtils.h"
 
@@ -518,32 +520,154 @@ nsWindowsShellService::LaunchModernSettingsDialogDefaultApps() {
   return ::LaunchModernSettingsDialogDefaultApps() ? NS_OK : NS_ERROR_FAILURE;
 }
 
-static void FocusSetDefaultBrowserButton() {
+static void DisplayOverlayImageWhileVisible(
+    nsCOMPtr<nsISerialEventTarget> aSerialEventTarget,
+    RefPtr<WindowsUIElement> aElement,
+    WindowsUIOverlayImage::DisplayMode aDisplayMode) {
+  RefPtr<WindowsUIOverlayImage> overlayImage{
+      aElement->CreateOverlayImage(aDisplayMode)};
+  if (!overlayImage) {
+    return;
+  }
+
+  auto timer{std::make_shared<nsCOMPtr<nsITimer>>()};
+  auto callback{[timer, aElement, overlayImage](nsITimer* aTimer) {
+    if (aElement->IsMoving().valueOr(true)) {
+      // The element is moving
+      aTimer->Cancel();
+      return;
+    }
+
+    if (!aElement->IsVisible()) {
+      // The element isn't visible
+      aTimer->Cancel();
+      return;
+    }
+
+    if (!overlayImage->IsVisible()) {
+      // The overlay image isn't visible
+      aTimer->Cancel();
+      return;
+    }
+
+    overlayImage->AdvanceFrame();
+  }};
+
+  const uint32_t kDelayMs{30};
+  NS_NewTimerWithCallback(getter_AddRefs(*timer), callback, kDelayMs,
+                          nsITimer::TYPE_REPEATING_SLACK,
+                          "DisplayOverlayImageWhileVisibleTimer"_ns,
+                          aSerialEventTarget);
+}
+
+static void DisplayOverlayImageWhenElementIsStill(
+    nsCOMPtr<nsISerialEventTarget> aSerialEventTarget,
+    RefPtr<WindowsUIElement> aElement,
+    WindowsUIOverlayImage::DisplayMode aDisplayMode) {
+  auto timer{std::make_shared<nsCOMPtr<nsITimer>>()};
+  auto attempts{std::make_shared<int>(0)};
+  auto callback{[timer, attempts, aSerialEventTarget, aElement,
+                 aDisplayMode](nsITimer* aTimer) {
+    const int kMaxAttempts{10};
+    if (++(*attempts) > kMaxAttempts) {
+      // Maximum number of attempts reached
+      aTimer->Cancel();
+      return;
+    }
+
+    if (aElement->IsMoving().valueOr(true)) {
+      // The element is moving
+      return;
+    }
+
+    // The element is still
+    aTimer->Cancel();
+
+    DisplayOverlayImageWhileVisible(aSerialEventTarget, aElement, aDisplayMode);
+  }};
+
+  const uint32_t kTrackingDelayMs{500};
+  NS_NewTimerWithCallback(getter_AddRefs(*timer), callback, kTrackingDelayMs,
+                          nsITimer::TYPE_REPEATING_SLACK,
+                          "DisplayOverlayImageWhenElementIsStillTimer"_ns,
+                          aSerialEventTarget);
+}
+
+static mozilla::Maybe<WindowsUIOverlayImage::DisplayMode>
+GetDisplayKitImagePref() {
+  if (!mozilla::IsWin11OrLater()) {
+    // The feature is only available in Win11
+    return mozilla::Nothing();
+  }
+
+  nsAutoString pref;
+  Preferences::GetString(
+      "browser.shell.displayKitImageBehindSetDefaultBrowserButton", pref);
+
+  if (pref.EqualsIgnoreCase("static")) {
+    return mozilla::Some(WindowsUIOverlayImage::DisplayMode::Static);
+  }
+  if (pref.EqualsIgnoreCase("animated")) {
+    return mozilla::Some(WindowsUIOverlayImage::DisplayMode::Animated);
+  }
+  return mozilla::Nothing();
+}
+
+static bool GetFocusPref() {
+  return Preferences::GetBool("browser.shell.focusSetDefaultBrowserButton",
+                              false);
+}
+
+static void HighlightSetDefaultBrowserButton() {
+  const bool focus{GetFocusPref()};
+  const mozilla::Maybe<WindowsUIOverlayImage::DisplayMode> displayMode{
+      GetDisplayKitImagePref()};
+  if (!focus && displayMode.isNothing()) {
+    return;
+  }
+
   nsCOMPtr<nsISerialEventTarget> serialEventTarget;
-  const nsresult nsr{NS_CreateBackgroundTaskQueue(
-      "FocusSetDefaultBrowserButtonQueue", getter_AddRefs(serialEventTarget))};
+  const nsresult nsr{
+      NS_CreateBackgroundTaskQueue("HighlightSetDefaultBrowserButtonQueue",
+                                   getter_AddRefs(serialEventTarget))};
   if (NS_FAILED(nsr)) {
     return;
   }
 
-  auto attempts{std::make_shared<int>(0)};
   auto timer{std::make_shared<nsCOMPtr<nsITimer>>()};
-  auto timerCallback{[attempts, timer](nsITimer* aTimer) {
+  auto attempts{std::make_shared<int>(0)};
+  auto callback{[timer, attempts, focus, displayMode,
+                 serialEventTarget](nsITimer* aTimer) {
     const int kMaxAttempts{40};
     if (++(*attempts) > kMaxAttempts) {
+      // Maximum number of attempts reached
       aTimer->Cancel();
       return;
     }
+
     auto [window, button]{FindSetDefaultBrowserButton()};
-    if (window && button) {
-      FocusElement(window, button);
-      aTimer->Cancel();
+    if (!window || !button) {
+      // The window or button cannot be found
+      return;
+    }
+
+    // The window and button are found
+    aTimer->Cancel();
+
+    RefPtr<WindowsUIElement> element{new WindowsUIElement(window, button)};
+    if (focus) {
+      element->Focus();
+    }
+    if (displayMode.isSome()) {
+      DisplayOverlayImageWhenElementIsStill(serialEventTarget, element,
+                                            *displayMode);
     }
   }};
+
   const uint32_t kRetryDelayMs{500};
-  NS_NewTimerWithCallback(getter_AddRefs(*timer), timerCallback, kRetryDelayMs,
+  NS_NewTimerWithCallback(getter_AddRefs(*timer), callback, kRetryDelayMs,
                           nsITimer::TYPE_REPEATING_SLACK,
-                          "FocusSetDefaultBrowserButtonTimer"_ns,
+                          "HighlightSetDefaultBrowserButtonTimer"_ns,
                           serialEventTarget);
 }
 
@@ -569,10 +693,7 @@ nsWindowsShellService::SetDefaultBrowser(bool aForAllUsers) {
   if (NS_SUCCEEDED(rv)) {
     rv = LaunchModernSettingsDialogDefaultApps();
     if (NS_SUCCEEDED(rv)) {
-      if (Preferences::GetBool("browser.shell.focusSetDefaultBrowserButton",
-                               false)) {
-        FocusSetDefaultBrowserButton();
-      }
+      HighlightSetDefaultBrowserButton();
     } else {
       // The above call should never really fail, but just in case
       // fall back to showing control panel for all defaults

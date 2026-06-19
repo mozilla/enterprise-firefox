@@ -19,8 +19,23 @@ const TEST_URI = `data:text/html,<meta charset=utf8>
     div::after {
       line-height: calc(1em + 1px);
     }
+
+    ol {
+      font-size: 36px;
+    }
+
+    li {
+      line-height: 20px;
+      rotate: calc(sibling-index() * 2deg);
+      translate: calc(sibling-count() * 1em + 1lh);
+    }
   </style>
-  <div>CSS explainers</div>`;
+  <div>CSS explainers</div>
+  <ol>
+    <li>First</li>
+    <li>Second</li>
+    <li>Third</li>
+  </ol>`;
 
 add_task(async function () {
   await pushPref("devtools.inspector.css-explainers", true);
@@ -66,6 +81,50 @@ add_task(async function () {
     expected: {
       functionText: "calc(1em + 1px)",
       tooltipText: ["calc(1em + 1px)", "calc(24px + 1px)", "25px"].join("\n"),
+    },
+  });
+
+  await selectNode("li:nth-of-type(2)", inspector);
+  await assertCssExplainersTooltip({
+    view,
+    selector: "li",
+    propertyName: "rotate",
+    functionIndex: 0,
+    expected: {
+      functionText: "calc(sibling-index() * 2deg)",
+      tooltipText: [
+        "calc(sibling-index() * 2deg)",
+        "calc(2 * 2deg)",
+        "4deg",
+      ].join("\n"),
+    },
+  });
+
+  await assertCssExplainersTooltip({
+    view,
+    selector: "li",
+    propertyName: "rotate",
+    functionIndex: 1,
+    expected: {
+      functionText: "sibling-index()",
+      tooltipText: ["sibling-index()", "2"].join("\n"),
+    },
+  });
+
+  await assertCssExplainersTooltip({
+    view,
+    selector: "li",
+    propertyName: "translate",
+    functionIndex: 0,
+    expected: {
+      functionText: "calc(sibling-count() * 1em + 1lh)",
+      tooltipText: [
+        "calc(sibling-count() * 1em + 1lh)",
+        "calc((sibling-count() * 1em) + 1lh)",
+        "calc((3 * 36px) + 20px)",
+        "calc(108px + 20px)",
+        "128px",
+      ].join("\n"),
     },
   });
 });

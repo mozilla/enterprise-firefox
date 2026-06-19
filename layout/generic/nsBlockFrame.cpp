@@ -5951,13 +5951,14 @@ void nsBlockFrame::PushLines(BlockReflowState& aState,
       // Mark all the overflow lines dirty so that they get reflowed when
       // they are pulled up by our next-in-flow.
 
-      nsLineBox* cursor = GetLineCursorForDisplay();
+      nsLineBox* cursorForDisplay = GetLineCursorForDisplay();
+      nsLineBox* cursorForQuery = GetLineCursorForQuery();
 
       // XXXldb Can this get called O(N) times making the whole thing O(N^2)?
       for (LineIterator line = overflowLines->mLines.begin(),
                         line_end = overflowLines->mLines.end();
            line != line_end; ++line) {
-        if (line == cursor) {
+        if (line == cursorForDisplay || line == cursorForQuery) {
           ClearLineCursors();
         }
         line->MarkDirty();

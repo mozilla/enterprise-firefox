@@ -818,7 +818,7 @@ already_AddRefed<SourceSurface> DrawTargetRecording::OptimizeSourceSurface(
                                       "OptimizeSourceSurface")) {
       // Surface was already stored, but doesn't have UserData so must be one
       // of our recording surfaces.
-      MOZ_ASSERT(aSurface->GetType() == SurfaceType::RECORDING);
+      MOZ_ASSERT(aSurface->GetUnderlyingType() == SurfaceType::RECORDING);
       return do_AddRef(aSurface);
     }
 

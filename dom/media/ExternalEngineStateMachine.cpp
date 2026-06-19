@@ -20,6 +20,7 @@
 #include "mozilla/ProfilerLabels.h"
 #include "mozilla/StaticMutex.h"
 #include "mozilla/UniquePtr.h"
+#include "mozilla/gfx/gfxVars.h"
 #include "mozilla/glean/DomMediaPlatformsWmfMetrics.h"
 #include "nsPrintfCString.h"
 #include "nsThreadUtils.h"
@@ -278,6 +279,7 @@ void ExternalEngineStateMachine::OnEngineInitSuccess() {
     return;
   }
   // We just recovered from CDM process crash, seek to previous position.
+  ReportRecoveryTelemetry(true);
   SeekTarget target(mCurrentPosition.Ref(), SeekTarget::Type::Accurate);
   Seek(target);
 }
@@ -288,6 +290,9 @@ void ExternalEngineStateMachine::OnEngineInitFailure() {
   LOGE("Failed to initialize the external playback engine");
   PROFILER_MARKER_UNTYPED("EESM::OnEngineInitFailure", MEDIA_PLAYBACK);
   mIsEngineReady = false;
+  if (mState.IsRecoverEngine()) {
+    ReportRecoveryTelemetry(false);
+  }
   auto* state = mState.AsInitEngine();
   state->mEngineInitRequest.Complete();
   state->mInitPromise = nullptr;
@@ -1412,6 +1417,7 @@ void ExternalEngineStateMachine::RecoverFromHardwareReset() {
     LOG("In the recover state already");
     return;
   }
+  mRecoveryAttempts++;
   if (IsBeingProfiledOrLogEnabled()) {
     nsPrintfCString msg(
         "Hardware context reset, recovering engine (pos=%" PRId64 ")",
@@ -1564,6 +1570,16 @@ void ExternalEngineStateMachine::ReportTelemetry(const MediaResult& aError) {
   if (auto platformErrorCode = aError.GetPlatformErrorCode()) {
     extraData.platformError = platformErrorCode;
   }
+  // These gfxVars are populated once in the parent process before any content
+  // process starts and are not modified afterwards. This runs on the state
+  // machine task queue rather than the main thread, so copy the values out
+  // instead of holding a reference into the gfxVars singleton.
+  const nsCString adapterVendorID = gfx::gfxVars::AdapterVendorID();
+  if (!adapterVendorID.IsEmpty()) {
+    extraData.adapterVendorId = Some(adapterVendorID);
+    extraData.adapterDeviceId = Some(gfx::gfxVars::AdapterDeviceID());
+    extraData.adapterDriverVersion = Some(gfx::gfxVars::AdapterDriverVersion());
+  }
   glean::mfcdm::error.Record(Some(extraData));
   if (MOZ_LOG_TEST(gMediaDecoderLog, LogLevel::Debug)) {
     nsPrintfCString logMessage{"MFCDM Error event, error=%s",
@@ -1587,6 +1603,25 @@ void ExternalEngineStateMachine::ReportTelemetry(const MediaResult& aError) {
     }
     LOG("%s", logMessage.get());
   }
+}
+
+void ExternalEngineStateMachine::ReportRecoveryTelemetry(bool aRecovered) {
+  glean::mfcdm::RecoveryExtra extraData;
+  extraData.recovered = Some(aRecovered);
+  extraData.attempts = Some(mRecoveryAttempts);
+  if (mHardwareResetError) {
+    extraData.platformError = mHardwareResetError;
+  }
+  if (!mKeySystem.IsEmpty()) {
+    extraData.keySystem = Some(mKeySystem);
+  }
+  extraData.currentState = Some(nsAutoCString{StateToStr(mState.mName)});
+  glean::mfcdm::recovery.Record(Some(extraData));
+  LOG("MFCDM Recovery event, recovered=%d, attempts=%u", aRecovered,
+      mRecoveryAttempts);
+
+  mRecoveryAttempts = 0;
+  mHardwareResetError = Nothing();
 }
 
 void ExternalEngineStateMachine::DecodeError(const MediaResult& aError) {

@@ -127,11 +127,6 @@ dictionary RTCOutboundRtpStreamStats : RTCSentRtpStreamStats {
   DOMString mid;
   DOMString remoteId;
   DOMString rid;
-  unsigned long framesEncoded;
-  unsigned long long qpSum;
-  unsigned long nackCount;
-  unsigned long firCount;
-  unsigned long pliCount;
   unsigned long long headerBytesSent;
   unsigned long long retransmittedPacketsSent;
   unsigned long long retransmittedBytesSent;
@@ -141,7 +136,13 @@ dictionary RTCOutboundRtpStreamStats : RTCSentRtpStreamStats {
   double framesPerSecond;
   unsigned long framesSent;
   unsigned long hugeFramesSent;
+  unsigned long framesEncoded;
+  unsigned long keyFramesEncoded;
+  unsigned long long qpSum;
   double totalEncodeTime;
+  unsigned long nackCount;
+  unsigned long firCount;
+  unsigned long pliCount;
 };
 
 dictionary RTCRemoteOutboundRtpStreamStats : RTCSentRtpStreamStats {
@@ -198,13 +199,15 @@ dictionary RTCIceCandidatePairStats : RTCStats {
   RTCStatsIceCandidatePairState state;
   unsigned long long priority;
   boolean nominated;
-  boolean writable;
-  boolean readable;
+  boolean writable; // removed from standard
+  boolean readable; // removed from standard
+  unsigned long long packetsSent;
+  unsigned long long packetsReceived;
   unsigned long long bytesSent;
   unsigned long long bytesReceived;
   DOMHighResTimeStamp lastPacketSentTimestamp;
   DOMHighResTimeStamp lastPacketReceivedTimestamp;
-  boolean selected;
+  boolean selected; // removed from standard
   double totalRoundTripTime;
   double currentRoundTripTime;
   unsigned long long responsesReceived;

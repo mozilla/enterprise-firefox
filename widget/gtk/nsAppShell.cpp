@@ -598,6 +598,14 @@ bool nsAppShell::ProcessNextNativeEvent(bool mayWait) {
   return didProcessEvent;
 }
 
+void nsAppShell::InitSessionRestore() {
+#ifdef MOZ_WAYLAND
+  if (WaylandDisplayGet()) {
+    WaylandDisplayGet()->SessionManagerInit();
+  }
+#endif
+}
+
 SessionRestoreState nsAppShell::UpdateAndGetSessionState() {
   if (!sAppShell) {
     return eSessionRestoreFinished;
@@ -605,7 +613,7 @@ SessionRestoreState nsAppShell::UpdateAndGetSessionState() {
 #ifdef MOZ_WAYLAND
   // If session restore is not supported, report 'finished' as we don't want to
   // block window creation.
-  if (!WaylandDisplayGet()->GetSessionManager()) {
+  if (!WaylandDisplayGet() || !WaylandDisplayGet()->GetSessionManager()) {
     return eSessionRestoreFinished;
   }
 #endif
@@ -613,6 +621,9 @@ SessionRestoreState nsAppShell::UpdateAndGetSessionState() {
   // restore enabled).
   if (sAppShell->mSessionRestoreState == eSessionDefault &&
       Preferences::GetInt("browser.startup.page", 0) == 3) {
+    LOGW(
+        "nsAppShell::UpdateAndGetSessionState(): session restore enabled, "
+        "restoring...");
     sAppShell->mSessionRestoreState = eSessionRestoring;
   }
   LOGW("nsAppShell::GetSessionState() state %d",
@@ -625,8 +636,10 @@ nsAppShell::Observe(nsISupports* aSubject, const char* aTopic,
                     const char16_t* aData) {
   LOGW("nsAppShell::Observe() topic %s", aTopic);
   if (!nsCRT::strcmp(aTopic, "sessionstore-restoring-on-startup")) {
+    LOGW("  mSessionRestoreState = eSessionRestoring");
     mSessionRestoreState = eSessionRestoring;
   } else if (!nsCRT::strcmp(aTopic, "sessionstore-windows-restored")) {
+    LOGW("  mSessionRestoreState = eSessionRestoreFinished");
     mSessionRestoreState = eSessionRestoreFinished;
     nsWindow::SessionRestoreFinished();
   } else {

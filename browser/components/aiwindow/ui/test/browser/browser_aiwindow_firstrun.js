@@ -66,7 +66,7 @@ add_task(async function test_launchWindow_shows_firstrun_when_not_completed() {
 
   await AIWindow.launchWindow(gBrowser.selectedBrowser);
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => gBrowser.selectedBrowser.currentURI.spec === FIRSTRUN_URL,
     "Should navigate to firstrun.html"
   );
@@ -118,7 +118,7 @@ add_task(async function test_switcher_shows_firstrun_when_not_completed() {
     "Window should have ai-window attribute after switching"
   );
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => gBrowser.selectedBrowser.currentURI.spec === FIRSTRUN_URL,
     "Should navigate to firstrun.html"
   );
@@ -225,7 +225,7 @@ add_task(async function test_firstrun_explainer_page_opens() {
 
   await AIWindow.launchWindow(gBrowser.selectedBrowser);
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => gBrowser.selectedBrowser.currentURI.spec === FIRSTRUN_URL,
     "Should navigate to firstrun.html"
   );
@@ -282,7 +282,7 @@ add_task(async function test_firstrun_explainer_page_opens() {
     EventUtils.synthesizeMouseAtCenter(letsGoButton, {}, content);
   });
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => calls.length,
     "openLinkIn function was called"
   );
@@ -379,7 +379,7 @@ add_task(async function test_firstrun_telemetry() {
     EventUtils.synthesizeMouseAtCenter(letsGoButton, {}, content);
   });
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => calls.length,
     "openLinkIn was called after onboarding completion"
   );
@@ -630,7 +630,7 @@ add_task(async function test_firstrun_telemetry_unchecked() {
     EventUtils.synthesizeMouseAtCenter(letsGoButton, {}, content);
   });
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => calls.length,
     "openLinkIn was called after onboarding completion"
   );

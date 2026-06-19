@@ -12,13 +12,14 @@ import {
 } from "resource://nimbus/ExperimentAPI.sys.mjs";
 import { ExperimentStore } from "resource://nimbus/lib/ExperimentStore.sys.mjs";
 import { FileTestUtils } from "resource://testing-common/FileTestUtils.sys.mjs";
+import enrollmentSchema from "resource://testing-common/nimbus/schemas/NimbusEnrollment.schema.json" with { type: "json" };
+import featureSchema from "resource://testing-common/nimbus/schemas/ExperimentFeature.schema.json" with { type: "json" };
 
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   FeatureManifest: "resource://nimbus/FeatureManifest.sys.mjs",
   JsonSchema: "resource://gre/modules/JsonSchema.sys.mjs",
-  NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
   NimbusEnrollments: "resource://nimbus/lib/Enrollments.sys.mjs",
   NimbusMigrations: "resource://nimbus/lib/Migrations.sys.mjs",
   NimbusTelemetry: "resource://nimbus/lib/Telemetry.sys.mjs",
@@ -30,38 +31,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "resource://nimbus/lib/RemoteSettingsExperimentLoader.sys.mjs",
   TestUtils: "resource://testing-common/TestUtils.sys.mjs",
   sinon: "resource://testing-common/Sinon.sys.mjs",
-});
-
-function fetchSchemaSync(uri) {
-  // Yes, this is doing a sync load, but this is only done *once* and we cache
-  // the result after *and* it is test-only.
-  const channel = lazy.NetUtil.newChannel({
-    uri,
-    loadUsingSystemPrincipal: true,
-  });
-  const stream = Cc["@mozilla.org/scriptableinputstream;1"].createInstance(
-    Ci.nsIScriptableInputStream
-  );
-
-  stream.init(channel.open());
-
-  const available = stream.available();
-  const json = stream.read(available);
-  stream.close();
-
-  return JSON.parse(json);
-}
-
-ChromeUtils.defineLazyGetter(lazy, "enrollmentSchema", () => {
-  return fetchSchemaSync(
-    "resource://testing-common/nimbus/schemas/NimbusEnrollment.schema.json"
-  );
-});
-
-ChromeUtils.defineLazyGetter(lazy, "featureSchema", () => {
-  return fetchSchemaSync(
-    "resource://testing-common/nimbus/schemas/ExperimentFeature.schema.json"
-  );
 });
 
 const { SYNC_DATA_PREF_BRANCH, SYNC_DEFAULTS_PREF_BRANCH } = ExperimentStore;
@@ -694,7 +663,7 @@ export const NimbusTestUtils = {
    *          A cleanup function to remove the features once the test has completed.
    */
   addTestFeatures(...features) {
-    const validator = new lazy.JsonSchema.Validator(lazy.featureSchema);
+    const validator = new lazy.JsonSchema.Validator(featureSchema);
 
     for (const feature of features) {
       if (Object.hasOwn(NimbusFeatures, feature.featureId)) {
@@ -1383,7 +1352,7 @@ export const NimbusTestUtils = {
 
     validateFeatureValueEnum(enrollment);
     validateSchema(
-      lazy.enrollmentSchema,
+      enrollmentSchema,
       enrollment,
       `Enrollment ${enrollment.slug} is not valid`
     );

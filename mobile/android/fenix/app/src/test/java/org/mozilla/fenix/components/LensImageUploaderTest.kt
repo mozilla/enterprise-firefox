@@ -6,17 +6,23 @@ package org.mozilla.fenix.components
 
 import android.content.ContentResolver
 import android.content.Context
+import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.net.Uri
+import android.util.DisplayMetrics
 import androidx.exifinterface.media.ExifInterface
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
+import kotlinx.coroutines.test.runTest
 import mozilla.components.concept.fetch.Client
 import mozilla.components.concept.fetch.MutableHeaders
+import mozilla.components.concept.fetch.Request
 import mozilla.components.concept.fetch.Response
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -92,6 +98,17 @@ class LensImageUploaderTest {
     }
 
     @Test
+    fun `GIVEN an image url WHEN buildUploadByUrl THEN builds the by-url endpoint with ep fntpubu and encoded url`() {
+        val imageUrl = "https://example.com/a b.jpg?x=1&y=2"
+
+        val result = createUploaderWithMetrics().buildUploadByUrl(imageUrl)
+
+        assertTrue(result.startsWith("${LensImageUploader.UPLOAD_BY_URL_ENDPOINT}?"))
+        assertTrue(result.contains("ep=${LensImageUploader.EP_BY_URL}"))
+        assertTrue(result.contains("url=${Uri.encode(imageUrl)}"))
+    }
+
+    @Test
     fun `GIVEN fetched jpeg with no exif orientation WHEN fetched THEN dimensions are preserved`() {
         val jpegBytes = encodeJpeg(width = 80, height = 40)
 
@@ -138,6 +155,32 @@ class LensImageUploaderTest {
         assertEquals(80, bitmap.height)
     }
 
+    @Test
+    fun `GIVEN an image WHEN upload THEN posts to the upload endpoint with ep fntpubb`() = runTest {
+        val requestSlot = slot<Request>()
+        val client = mockk<Client>()
+        every { client.fetch(capture(requestSlot)) } answers {
+            Response(
+                url = "https://lens.google.com/search?results",
+                status = 200,
+                headers = MutableHeaders(),
+                body = Response.Body(ByteArrayInputStream(ByteArray(0))),
+            )
+        }
+        val uploader = LensImageUploader(
+            context = metricsContext(jpegBytes = encodeJpeg(width = 80, height = 40)),
+            client = client,
+            userAgent = "test",
+        )
+
+        uploader.upload(mockk())
+
+        val request = requestSlot.captured
+        assertTrue(request.url.startsWith("${LensImageUploader.UPLOAD_ENDPOINT}?"))
+        assertTrue(request.url.contains("ep=${LensImageUploader.EP_BY_BYTES}"))
+        assertEquals(Request.Method.POST, request.method)
+    }
+
     private fun createUploaderWithFetch(jpegBytes: ByteArray): LensImageUploader {
         val client = mockk<Client>()
         every { client.fetch(any()) } answers {
@@ -153,6 +196,31 @@ class LensImageUploaderTest {
             client = client,
             userAgent = "test",
         )
+    }
+
+    private fun createUploaderWithMetrics(): LensImageUploader =
+        LensImageUploader(
+            context = metricsContext(),
+            client = mockk<Client>(),
+            userAgent = "test",
+        )
+
+    private fun metricsContext(jpegBytes: ByteArray? = null): Context {
+        val context = mockk<Context>()
+        val resources = mockk<Resources>()
+        every { resources.displayMetrics } returns DisplayMetrics().apply {
+            widthPixels = 1080
+            heightPixels = 1920
+        }
+        every { context.resources } returns resources
+        if (jpegBytes != null) {
+            val contentResolver = mockk<ContentResolver>()
+            every { contentResolver.openInputStream(any<Uri>()) } answers {
+                ByteArrayInputStream(jpegBytes)
+            }
+            every { context.contentResolver } returns contentResolver
+        }
+        return context
     }
 
     private fun createUploader(jpegBytes: ByteArray): LensImageUploader {

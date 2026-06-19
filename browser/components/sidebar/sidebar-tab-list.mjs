@@ -160,13 +160,55 @@ export class SidebarTabList extends FxviewTabListBase {
 }
 customElements.define("sidebar-tab-list", SidebarTabList);
 
+/**
+ * A sidebar-specific tab row.
+ *
+ * Three Boolean states coexist on this row and they each mean something
+ * different:
+ *   - `active`   (inherited from FxviewTabRowBase): the row currently has
+ *                keyboard focus via the parent list's activeIndex.
+ *   - `selected`: the row is selected through the SidebarTreeView (user
+ *                click or multi-select inside the panel).
+ *   - `current`:  the row's tabElement is gBrowser.selectedTab. Tracked
+ *                live via a MutationObserver on the tab's [selected]
+ *                attribute.
+ */
 export class SidebarTabRow extends FxviewTabRowBase {
   static properties = {
     containerObj: { type: Object },
     guid: { type: String, reflect: true, attribute: "data-guid" },
     selected: { type: Boolean, reflect: true },
+    current: { type: Boolean, reflect: true },
     indicators: { type: Array },
   };
+
+  #tabSelectObserver = null;
+
+  willUpdate(changedProperties) {
+    super.willUpdate?.(changedProperties);
+    if (changedProperties.has("tabElement")) {
+      this.#tabSelectObserver?.disconnect();
+      this.#tabSelectObserver = null;
+      if (this.tabElement) {
+        this.current = this.tabElement.selected;
+        this.#tabSelectObserver = new MutationObserver(() => {
+          this.current = this.tabElement?.selected ?? false;
+        });
+        this.#tabSelectObserver.observe(this.tabElement, {
+          attributes: true,
+          attributeFilter: ["selected"],
+        });
+      } else {
+        this.current = false;
+      }
+    }
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this.#tabSelectObserver?.disconnect();
+    this.#tabSelectObserver = null;
+  }
 
   get tooltipText() {
     return !this.primaryL10nId ? this.url : null;

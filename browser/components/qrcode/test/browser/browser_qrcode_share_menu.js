@@ -64,7 +64,7 @@ add_task(async function test_qrcode_dialog_opens() {
     qrCodeItem.doCommand();
 
     info("Waiting for subdialog to appear");
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => dialogManager._dialogs.length,
       "Waiting for QR code subdialog"
     );
@@ -86,7 +86,7 @@ add_task(async function test_qrcode_dialog_opens() {
       "Should open QR code dialog"
     );
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => !dialogDoc.getElementById("success-container").hidden,
       "Waiting for QR code to be displayed"
     );
@@ -103,6 +103,17 @@ add_task(async function test_qrcode_dialog_opens() {
       TEST_URL,
       "URL should be displayed correctly"
     );
+
+    // Force the dialog into RTL and confirm the URL still resolves to LTR, so
+    // its scheme, separators and path aren't reordered (bug 2044674).
+    let dialogWin = dialogDoc.defaultView;
+    dialogDoc.documentElement.setAttribute("dir", "rtl");
+    Assert.equal(
+      dialogWin.getComputedStyle(urlDisplay).direction,
+      "ltr",
+      "URL element should compute as LTR even when the dialog is RTL"
+    );
+    dialogDoc.documentElement.removeAttribute("dir");
 
     Assert.ok(
       dialogDoc.getElementById("copy-button"),
@@ -132,7 +143,7 @@ add_task(async function test_qrcode_enter_triggers_copy() {
     let { qrCodeItem } = await openShareMenuAndGetQRItem(window);
     qrCodeItem.doCommand();
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => dialogManager._dialogs.length,
       "Waiting for QR code subdialog"
     );
@@ -143,12 +154,12 @@ add_task(async function test_qrcode_enter_triggers_copy() {
     let dialogDoc = dialog._frame.contentDocument;
     let dialogWin = dialog._frame.contentWindow;
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => !dialogDoc.getElementById("success-container").hidden,
       "Waiting for QR code to be displayed"
     );
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => dialogDoc.activeElement?.id === "copy-button",
       "Copy button should be focused on open so native Enter copies"
     );
@@ -208,7 +219,7 @@ add_task(async function test_qrcode_dialog_shows_error_on_generation_failure() {
       { url: TEST_URL, qrCodeDataURI: null }
     );
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => dialogManager._dialogs.length,
       "Waiting for QR code subdialog"
     );

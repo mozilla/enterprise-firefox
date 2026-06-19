@@ -44,6 +44,8 @@ clang_checkers:
         value: safe
       - key: UseCxx20ReverseRanges
         value: false
+  - name: modernize-type-traits
+    reliability: high
   - name: modernize-use-bool-literals
     reliability: high
   - name: bugprone-forwarding-reference-overload

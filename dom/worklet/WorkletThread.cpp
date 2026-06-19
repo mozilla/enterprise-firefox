@@ -191,7 +191,7 @@ class WorkletJSContext final : public CycleCollectedJSContext {
     nsCOMPtr<WorkletGlobalScope> workletGlobal =
         do_QueryInterface(nativeGlobal);
     if (NS_WARN_IF(!workletGlobal)) {
-      return 0;
+      return nullptr;
     }
 
     return workletGlobal->Impl();

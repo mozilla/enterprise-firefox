@@ -1253,7 +1253,7 @@ async function checkProfilesButtons(
 
 async function checkFxABadged() {
   const button = document.getElementById("fxa-toolbar-menu-button");
-  await BrowserTestUtils.waitForCondition(() => {
+  await TestUtils.waitForCondition(() => {
     return button.querySelector("label.feature-callout");
   });
   const badge = button.querySelector("label.feature-callout");

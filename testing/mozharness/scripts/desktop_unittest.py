@@ -243,6 +243,15 @@ class DesktopUnittest(TestingMixin, MercurialScript, MozbaseMixin, CodeCoverageM
                 },
             ],
             [
+                ["--combine-suites"],
+                {
+                    "action": "store_true",
+                    "dest": "combine_suites",
+                    "default": False,
+                    "help": "Combine test suites into one gtest invocation.",
+                },
+            ],
+            [
                 ["--threads"],
                 {
                     "action": "store",
@@ -827,7 +836,16 @@ class DesktopUnittest(TestingMixin, MercurialScript, MozbaseMixin, CodeCoverageM
                     base_cmd.append("--filter-set={}".format(c["filter_set"]))
                 else:
                     self.warning(
-                        "--filter-set does not currently work with suites other then "
+                        "--filter-set does not currently work with suites other than "
+                        "gtest."
+                    )
+
+            if c["combine_suites"]:
+                if suite_category == "gtest":
+                    base_cmd.append("--combine-suites")
+                else:
+                    self.warning(
+                        "--combine-suites does not currently work with suites other than "
                         "gtest."
                     )
 

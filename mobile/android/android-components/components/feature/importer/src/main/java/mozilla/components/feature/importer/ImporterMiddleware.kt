@@ -32,8 +32,6 @@ class ImporterMiddleware(
         val actionResult = when (action) {
             is ImporterAction.FileSelected -> {
                 importJob = lifecycleScope.launch {
-                    store.dispatch(ImporterAction.ImportStarted)
-
                     // We want to make sure we stay in the loading state for at least one second
                     // during an import to prevent the dialog from flashing before the user can
                     // comprehend what is currently happening.

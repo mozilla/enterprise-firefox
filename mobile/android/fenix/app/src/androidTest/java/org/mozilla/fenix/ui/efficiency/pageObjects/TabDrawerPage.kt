@@ -4,15 +4,8 @@
 
 package org.mozilla.fenix.ui.efficiency.pageObjects
 
-import androidx.compose.ui.test.filter
-import androidx.compose.ui.test.hasParent
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
-import androidx.compose.ui.test.onAllNodesWithTag
-import androidx.compose.ui.test.onFirst
-import androidx.compose.ui.test.performClick
 import org.mozilla.fenix.helpers.HomeActivityIntentTestRule
-import org.mozilla.fenix.tabstray.TabsTrayTestTag
 import org.mozilla.fenix.ui.efficiency.helpers.BasePage
 import org.mozilla.fenix.ui.efficiency.helpers.Selector
 import org.mozilla.fenix.ui.efficiency.navigation.NavigationRegistry
@@ -50,10 +43,20 @@ class TabDrawerPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRu
     }
 
     fun closeTabWithTitle(title: String): TabDrawerPage {
-        composeRule.onAllNodesWithTag(TabsTrayTestTag.TAB_ITEM_CLOSE)
-            .filter(hasParent(hasText(title)))
-            .onFirst()
-            .performClick()
+        mozClickFirstWithParentText(TabDrawerSelectors.TAB_ITEM_CLOSE, title)
+        return this
+    }
+
+    fun verifyNormalTabsList(): TabDrawerPage {
+        mozWaitUntilAbsent(TabDrawerSelectors.EMPTY_NORMAL_TABS_LIST)
+        mozVerify(TabDrawerSelectors.NORMAL_TABS_LIST)
+        return this
+    }
+
+    fun verifyExistingOpenTabs(vararg urls: String): TabDrawerPage {
+        urls.forEach { url ->
+            mozVerifyAnyHasChildWithText(TabDrawerSelectors.TAB_ITEM_ROOT, url)
+        }
         return this
     }
 }

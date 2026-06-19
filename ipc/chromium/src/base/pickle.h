@@ -125,8 +125,8 @@ class Pickle {
 
   template <class T>
   [[nodiscard]] bool ReadScalar(PickleIterator* iter, T* result) const {
-    static_assert(std::is_arithmetic<T>::value);
-    static_assert(!std::is_same<typename std::remove_cv<T>::type, bool>::value);
+    static_assert(std::is_arithmetic_v<T>);
+    static_assert(!std::is_same_v<std::remove_cv_t<T>, bool>);
 
     DCHECK(iter);
 
@@ -172,8 +172,8 @@ class Pickle {
 
   template <class T>
   bool WriteScalar(const T& value) {
-    static_assert(std::is_arithmetic<T>::value);
-    static_assert(!std::is_same<typename std::remove_cv<T>::type, bool>::value);
+    static_assert(std::is_arithmetic_v<T>);
+    static_assert(!std::is_same_v<std::remove_cv_t<T>, bool>);
     return WriteBytes(&value, sizeof(value));
   }
 

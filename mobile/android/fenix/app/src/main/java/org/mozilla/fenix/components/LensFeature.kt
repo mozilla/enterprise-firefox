@@ -120,18 +120,31 @@ class LensFeature(
 
         currentScope.launch {
             try {
-                val resultUrl = uploader.uploadFromUrl(imageUrl)
+                // Download and upload the image bytes ourselves; this uses the browser's
+                // User-Agent and cookies, which succeeds for hosts that block Lens's server-side
+                // fetcher. When the client-side upload yields no result, fall back to letting Lens
+                // fetch the image by URL -- but not in private mode, where we must not hand the
+                // source image URL to Google.
+                val uploadedUrl = try {
+                    uploader.uploadFromUrl(imageUrl)
+                } catch (e: IOException) {
+                    logger.debug("Lens image upload failed, falling back to uploadbyurl for $imageUrl", e)
+                    null
+                }
+
+                val isPrivate = appStore.state.mode.isPrivate
+                val resultUrl = uploadedUrl
+                    ?: if (isPrivate) null else uploader.buildUploadByUrl(imageUrl)
+
                 if (resultUrl != null) {
                     context.components.useCases.tabsUseCases.addTab(
                         url = resultUrl,
                         selectTab = true,
                         startLoading = true,
-                        private = appStore.state.mode.isPrivate,
+                        private = isPrivate,
                     )
                     appStore.dispatch(LensAction.LensResultAvailable(resultUrl))
                 }
-            } catch (e: IOException) {
-                logger.debug("uploadFromImageUrl failed for $imageUrl", e)
             } finally {
                 appStore.dispatch(LensAction.LensDismissed)
             }

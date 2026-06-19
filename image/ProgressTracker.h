@@ -205,7 +205,7 @@ class ProgressTracker : public mozilla::SupportsWeakPtr {
   // other imagelib runnables.
   class RenderBlockingRunnable final : public PrioritizableRunnable {
     explicit RenderBlockingRunnable(
-        already_AddRefed<AsyncNotifyRunnable>&& aEvent);
+        already_AddRefed<AsyncNotifyRunnable> aEvent);
     virtual ~RenderBlockingRunnable() = default;
 
    public:
@@ -213,7 +213,7 @@ class ProgressTracker : public mozilla::SupportsWeakPtr {
     void RemoveObserver(IProgressObserver* aObserver);
 
     static already_AddRefed<RenderBlockingRunnable> Create(
-        already_AddRefed<AsyncNotifyRunnable>&& aEvent);
+        already_AddRefed<AsyncNotifyRunnable> aEvent);
   };
 
   // The runnable, if any, that we've scheduled to deliver async notifications.

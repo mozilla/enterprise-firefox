@@ -18,6 +18,9 @@
     const { BrowserTestUtils } = ChromeUtils.importESModule(
       "resource://testing-common/BrowserTestUtils.sys.mjs"
     );
+    const { TestUtils } = ChromeUtils.importESModule(
+      "resource://testing-common/TestUtils.sys.mjs"
+    );
 
     /**
      * Tests that adding a turn-on-scheduled-backups element to the DOM causes it to
@@ -45,7 +48,7 @@
       let inputDefault = turnOnScheduledBackups.filePathInputDefaultEl;
       ok(inputDefault, "Default input should be found");
 
-      let promise = BrowserTestUtils.waitForCondition(() => inputDefault.value);
+      let promise = TestUtils.waitForCondition(() => inputDefault.value);
 
       /* Normally we would pass in the default attributes, but for this test, we will
        * hardcode them since file paths vary across different platforms.

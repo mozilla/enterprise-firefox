@@ -29,8 +29,10 @@ import mozilla.components.feature.media.ext.getArtistOrUrl
 import mozilla.components.feature.media.ext.getNonPrivateIcon
 import mozilla.components.feature.media.ext.getTitleOrUrl
 import mozilla.components.feature.media.ext.toPlaybackState
+import mozilla.components.feature.media.facts.emitNotificationNextFact
 import mozilla.components.feature.media.facts.emitNotificationPauseFact
 import mozilla.components.feature.media.facts.emitNotificationPlayFact
+import mozilla.components.feature.media.facts.emitNotificationPreviousFact
 import mozilla.components.feature.media.facts.emitStatePauseFact
 import mozilla.components.feature.media.facts.emitStatePlayFact
 import mozilla.components.feature.media.facts.emitStateStopFact
@@ -135,6 +137,14 @@ internal class MediaSessionServiceDelegate(
             AbstractMediaSessionService.ACTION_PAUSE -> {
                 controller?.pause()
                 emitNotificationPauseFact()
+            }
+            AbstractMediaSessionService.ACTION_NEXT_TRACK -> {
+                controller?.nextTrack()
+                emitNotificationNextFact()
+            }
+            AbstractMediaSessionService.ACTION_PREV_TRACK -> {
+                controller?.previousTrack()
+                emitNotificationPreviousFact()
             }
             else -> logger.debug("Can't process action: ${intent?.action}")
         }

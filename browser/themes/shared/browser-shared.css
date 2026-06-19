@@ -783,14 +783,6 @@ menupopup::part(drop-indicator) {
   z-index: var(--browser-stack-z-index-screenshots-panel); /* Above the web content in this stack. */
 }
 
-/* Override theme colors since the picker uses extra colors that
-   themes cannot set */
-#DateTimePickerPanel {
-  color-scheme: env(-moz-content-preferred-color-scheme);
-  --panel-background-color: Field;
-  --panel-text-color: FieldText;
-}
-
 #widget-overflow .webextension-popup-browser {
   background: white;
 

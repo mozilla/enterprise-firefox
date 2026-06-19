@@ -1006,7 +1006,7 @@ add_task(async function preferences() {
       const privacyClickId = srdEnabled
         ? "etpStatusAdvancedButton"
         : "contentBlockingLearnMore";
-      await BrowserTestUtils.waitForCondition(
+      await TestUtils.waitForCondition(
         () =>
           gBrowser.selectedBrowser.contentDocument.getElementById(
             privacyClickId

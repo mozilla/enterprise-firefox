@@ -5,10 +5,42 @@
 import { Preferences } from "chrome://global/content/preferences/Preferences.mjs";
 import { SettingGroupManager } from "chrome://browser/content/preferences/config/SettingGroupManager.mjs";
 
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
+);
+
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  WindowsVersionInfo:
+    "resource://gre/modules/components-utils/WindowsVersionInfo.sys.mjs",
+});
+
 const FORCED_COLORS_QUERY = matchMedia("(forced-colors)");
+
+// browser.uidensity mode values are defined by gUIDensity in browser.js;
+// reference them through the chrome window so the two stay in sync.
+function getUIDensity() {
+  // @ts-ignore topChromeWindow global
+  return window.browsingContext.topChromeWindow.gUIDensity;
+}
+
+const isWindows = AppConstants.platform == "win";
+// The auto-touch-mode checkbox is only offered on Windows 10 and Linux; Windows
+// 11 manages tablet mode differently and macOS has no touch density.
+function isAutoTouchModeAvailable() {
+  if (AppConstants.MOZ_WIDGET_GTK) {
+    return true;
+  }
+  return (
+    isWindows &&
+    lazy.WindowsVersionInfo.get({ throwOnError: false }).buildNumber < 22000
+  );
+}
 
 Preferences.addAll([
   { id: "layout.css.prefers-color-scheme.content-override", type: "int" },
+  { id: "browser.uidensity", type: "int" },
+  { id: "browser.touchmode.auto", type: "bool" },
 ]);
 
 Preferences.addSetting({
@@ -94,6 +126,68 @@ Preferences.addSetting({
 
 Preferences.addSetting({ id: "relatedSettingsBoxGroup" });
 
+// Tracks the browser.uidensity pref so the uiDensity radio group re-renders
+// when the density changes (including via clearUserPref for the automatic
+// option).
+Preferences.addSetting({
+  id: "uiDensityPref",
+  pref: "browser.uidensity",
+});
+
+// The "Use touch spacing" checkbox nested under the Standard option, controlling
+// whether the browser automatically switches to the touch density in tablet
+// mode.
+Preferences.addSetting({
+  id: "uiDensityAutoTouchMode",
+  pref: "browser.touchmode.auto",
+  visible: () => isAutoTouchModeAvailable(),
+});
+
+Preferences.addSetting({
+  id: "uiDensity",
+  deps: ["uiDensityPref"],
+  visible: () => Services.prefs.getBoolPref("browser.nova.enabled", false),
+  // Map the browser.uidensity pref to one of the radio options. When the pref
+  // has no user value, gUIDensity (see browser.js) chooses the density
+  // automatically: small windows are auto-compacted based on
+  // browser.compactmode.auto.threshold and tablet mode switches to touch. An
+  // explicit user value pins the density to the matching option, so users who
+  // opted into compact or touch before Nova keep that choice rather than
+  // reverting to automatic.
+  get(_, { uiDensityPref }) {
+    if (!uiDensityPref.pref.hasUserValue) {
+      return "auto";
+    }
+    let gUIDensity = getUIDensity();
+    switch (uiDensityPref.value) {
+      case gUIDensity.MODE_COMPACT:
+        return "compact";
+      case gUIDensity.MODE_TOUCH:
+        return "touch";
+      default:
+        return "standard";
+    }
+  },
+  set(val, { uiDensityPref }) {
+    let { id } = uiDensityPref.pref;
+    let gUIDensity = getUIDensity();
+    switch (val) {
+      case "auto":
+        Services.prefs.clearUserPref(id);
+        break;
+      case "compact":
+        Services.prefs.setIntPref(id, gUIDensity.MODE_COMPACT);
+        break;
+      case "touch":
+        Services.prefs.setIntPref(id, gUIDensity.MODE_TOUCH);
+        break;
+      default:
+        Services.prefs.setIntPref(id, gUIDensity.MODE_NORMAL);
+        break;
+    }
+  },
+});
+
 SettingGroupManager.registerGroups({
   appearance: {
     l10nId: "appearance-group2",
@@ -141,6 +235,48 @@ SettingGroupManager.registerGroups({
               imagesrc:
                 "chrome://browser/content/preferences/web-appearance-dark.svg",
             },
+          },
+        ],
+      },
+    ],
+  },
+  windowDensity: {
+    l10nId: "appearance-window-density-group",
+    iconSrc: "chrome://browser/skin/window.svg",
+    headingLevel: 2,
+    items: [
+      {
+        id: "uiDensity",
+        control: "moz-radio-group",
+        l10nId: "appearance-window-density-radio-group",
+        options: [
+          {
+            value: "auto",
+            // Touch spacing is only applied automatically (in tablet mode)
+            // where auto-touch-mode is available, so reflect that in the
+            // description.
+            l10nId: isAutoTouchModeAvailable()
+              ? "appearance-window-density-automatic"
+              : "appearance-window-density-automatic-no-touch",
+          },
+          {
+            value: "standard",
+            l10nId: "appearance-window-density-standard",
+            items: [
+              {
+                id: "uiDensityAutoTouchMode",
+                control: "moz-checkbox",
+                l10nId: "appearance-window-density-auto-touch-mode",
+              },
+            ],
+          },
+          {
+            value: "compact",
+            l10nId: "appearance-window-density-compact",
+          },
+          {
+            value: "touch",
+            l10nId: "appearance-window-density-touch",
           },
         ],
       },

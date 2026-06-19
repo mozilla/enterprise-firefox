@@ -452,7 +452,6 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
         }
 
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_longfox).apply {
-            isVisible = Config.channel.isNightlyOrDebug
             isChecked = settings.longfoxEnabled
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
@@ -505,6 +504,10 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
 
             resources.getString(R.string.pref_key_search_optimization) -> {
                 SecretSettingsFragmentDirections.actionSecretSettingsFragmentToSearchOptimizationFragment()
+            }
+
+            resources.getString(R.string.pref_key_show_debug_info) -> {
+                SecretSettingsFragmentDirections.actionSecretSettingsFragmentToDebugInfoBottomSheetFragment()
             }
 
             else -> return super.onPreferenceTreeClick(preference)

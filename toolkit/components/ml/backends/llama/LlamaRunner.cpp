@@ -16,6 +16,7 @@
 #include "nsXPCOM.h"
 #include "prsystem.h"
 #include "mozilla/Casting.h"
+#include "mozilla/ScopeExit.h"
 #include <cstddef>
 #include "mozilla/dom/Promise.h"
 
@@ -689,7 +690,13 @@ void LlamaRunner::OnMetadataReceived() {
 #else
   PROsfd fd = PR_FileDesc2NativeHandle(fileDesc);
   FILE* fp = fdopen(fd, "r");
+  if (!fp) {
+    LOGE_RUNNER("Conversion to FILE* failed");
+    return;
+  }
 #endif
+
+  auto closeFp = mozilla::MakeScopeExit([fp] { fclose(fp); });
 
   auto result = mBackend->Reinitialize(LlamaModelOptions(mModelOptions), fp);
 

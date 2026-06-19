@@ -151,7 +151,7 @@ add_task(async function test_reload_tabs_message_bar() {
   await prefChange;
 
   info("Wait for message bar to become visible");
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => BrowserTestUtils.isVisible(reloadTabsHint),
     "Waiting for reload tabs message bar to become visible"
   );
@@ -167,7 +167,7 @@ add_task(async function test_reload_tabs_message_bar() {
   info("Click reload button to hide the message bar");
   synthesizeClick(reloadButton);
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => BrowserTestUtils.isHidden(reloadTabsHint),
     "Waiting for reload tabs message bar to become hidden"
   );

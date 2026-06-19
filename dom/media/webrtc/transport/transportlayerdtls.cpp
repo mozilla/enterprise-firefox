@@ -1344,8 +1344,7 @@ class TlsParser {
   bool error() const { return error_; }
   size_t remaining() const { return remaining_; }
 
-  template <typename T,
-            class = typename std::enable_if<std::is_unsigned<T>::value>::type>
+  template <typename T, class = std::enable_if_t<std::is_unsigned_v<T>>>
   void Read(T* v, size_t sz = sizeof(T)) {
     MOZ_ASSERT(sz <= sizeof(T),
                "Type is too small to hold the value requested");
@@ -1362,8 +1361,7 @@ class TlsParser {
     *v = result;
   }
 
-  template <typename T,
-            class = typename std::enable_if<std::is_unsigned<T>::value>::type>
+  template <typename T, class = std::enable_if_t<std::is_unsigned_v<T>>>
   void ReadVector(std::vector<T>* v, size_t w) {
     MOZ_ASSERT(v->empty(), "vector needs to be empty");
 

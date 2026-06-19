@@ -65,7 +65,7 @@ add_task(async function engagement_type_dismiss() {
     const originalResultCount = UrlbarTestUtils.getResultCount(window);
     await selectRowByURL("https://example.com/amp");
     UrlbarTestUtils.openResultMenuAndPressAccesskey(window, "D");
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => originalResultCount != UrlbarTestUtils.getResultCount(window)
     );
 
@@ -90,7 +90,7 @@ add_task(async function engagement_type_dismiss() {
     const originalResultCount = UrlbarTestUtils.getResultCount(window);
     await selectRowByURL("https://example.com/amp");
     EventUtils.synthesizeKey("KEY_Delete", { shiftKey: true });
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => originalResultCount != UrlbarTestUtils.getResultCount(window)
     );
 

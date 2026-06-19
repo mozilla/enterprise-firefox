@@ -188,7 +188,7 @@ add_task(async function test_create_new_backup_trigger() {
     // the file should show once it's created
     Assert.ok(fileName, "the archive was created");
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => !settings.backupInProgressMessageBarEl,
       "A backup is no longer in progress, the message bar should disappear"
     );

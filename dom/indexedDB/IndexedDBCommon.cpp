@@ -4,10 +4,39 @@
 
 #include "IndexedDBCommon.h"
 
+#include "ReportInternalError.h"
 #include "js/StructuredClone.h"
 #include "mozilla/SnappyUncompressInputStream.h"
+#include "nsError.h"
 
 namespace mozilla::dom::indexedDB {
+
+nsresult ClampResultCode(nsresult aResultCode) {
+  if (NS_SUCCEEDED(aResultCode) ||
+      NS_ERROR_GET_MODULE(aResultCode) == NS_ERROR_MODULE_DOM_INDEXEDDB) {
+    return aResultCode;
+  }
+
+  switch (aResultCode) {
+    case NS_ERROR_FILE_NO_DEVICE_SPACE:
+      return NS_ERROR_DOM_INDEXEDDB_QUOTA_ERR;
+    case NS_ERROR_STORAGE_CONSTRAINT:
+      return NS_ERROR_DOM_INDEXEDDB_CONSTRAINT_ERR;
+    default:
+#ifdef DEBUG
+      nsPrintfCString message("Converting non-IndexedDB error code (0x%" PRIX32
+                              ") to "
+                              "NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR",
+                              static_cast<uint32_t>(aResultCode));
+      NS_WARNING(message.get());
+#else
+        ;
+#endif
+  }
+
+  IDB_REPORT_INTERNAL_ERR();
+  return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
+}
 
 // aStructuredCloneData is a parameter rather than a return value because one
 // caller preallocates it on the heap not immediately before calling for some

@@ -1440,6 +1440,8 @@ void MediaTransportHandlerSTS::GetIceStats(
     s.mSelected.Construct(candPair.selected);
     s.mBytesSent.Construct(candPair.bytes_sent);
     s.mBytesReceived.Construct(candPair.bytes_recvd);
+    s.mPacketsSent.Construct(candPair.packets_sent);
+    s.mPacketsReceived.Construct(candPair.packets_recvd);
     s.mLastPacketSentTimestamp.Construct(candPair.ms_since_last_send);
     s.mLastPacketReceivedTimestamp.Construct(candPair.ms_since_last_recv);
     s.mState.Construct(dom::RTCStatsIceCandidatePairState(candPair.state));

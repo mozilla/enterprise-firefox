@@ -178,7 +178,7 @@ SettingGroupManager.registerGroups({
       },
       {
         id: "containers-new-tab-check",
-        l10nId: "containers-new-tab-check2",
+        l10nId: "containers-new-tab-check3",
       },
     ],
   },

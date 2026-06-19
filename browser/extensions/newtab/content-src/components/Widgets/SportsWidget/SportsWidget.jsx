@@ -1215,6 +1215,7 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
             setShowResultsList={setShowResultsList}
             showUpcomingList={showUpcomingList}
             setShowUpcomingList={setShowUpcomingList}
+            loadMore={sportsWidgetData.loadMore}
             onWatchClick={() => setWatchLiveOpen(true)}
           />
         )}
@@ -1406,6 +1407,52 @@ function SportsSectionLabel({ match, withLiveBadge = false }) {
   );
 }
 
+// Mounts an IntersectionObserver on a bottom-of-list sentinel element.
+// When the sentinel scrolls into the scrollable `.sports-body` ancestor
+// (or within 200px of doing so), the hook dispatches
+// WIDGETS_SPORTS_FETCH_MORE_MATCHES with the given `direction`. The
+// observer is torn down when the list collapses, when load-more is
+// exhausted, or when the sentinel element unmounts.
+//
+// - `active`: whether the list this sentinel belongs to is expanded
+// - `loading`: current in-flight flag for this direction
+// - `exhausted`: end-of-data flag for this direction
+function useLoadMoreSentinel({
+  direction,
+  sentinelRef,
+  active,
+  loading,
+  exhausted,
+  dispatch,
+}) {
+  useEffect(() => {
+    if (!active || exhausted || !sentinelRef.current) {
+      return undefined;
+    }
+    const sentinel = sentinelRef.current;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !loading && !exhausted) {
+          dispatch(
+            ac.OnlyToMain({
+              type: at.WIDGETS_SPORTS_FETCH_MORE_MATCHES,
+              data: { direction },
+            })
+          );
+        }
+      },
+      {
+        root: sentinel.closest(".sports-body"),
+        // Fire the fetch when the sentinel is within 200px of being
+        // visible, not only once it's actually on screen.
+        rootMargin: "200px 0px",
+      }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [dispatch, direction, sentinelRef, active, loading, exhausted]);
+}
+
 function SportsMatchesView({
   dispatch,
   matchesTab,
@@ -1433,10 +1480,23 @@ function SportsMatchesView({
   setShowResultsList,
   showUpcomingList,
   setShowUpcomingList,
+  loadMore,
   onWatchClick,
 }) {
   const resultsPanelRef = useRef(null);
   const upcomingPanelRef = useRef(null);
+  // Refs to 1px-tall invisible divs rendered at the end of the upcoming /
+  // results lists. IntersectionObserver can only watch real DOM elements,
+  // so we need a concrete element at the bottom of each list to detect
+  // "user scrolled to the end". When a sentinel scrolls into view, the
+  // observer below dispatches WIDGETS_SPORTS_FETCH_MORE_MATCHES for the
+  // corresponding direction.
+  const upcomingSentinelRef = useRef(null);
+  const resultsSentinelRef = useRef(null);
+  const upcomingLoadMoreLoading = !!loadMore?.upcoming?.loading;
+  const upcomingLoadMoreExhausted = !!loadMore?.upcoming?.exhausted;
+  const resultsLoadMoreLoading = !!loadMore?.results?.loading;
+  const resultsLoadMoreExhausted = !!loadMore?.results?.exhausted;
   const hasFollowedTeams = selectedTeamsSet.size > 0;
   // Read the persisted per-tab toggle state from redux. Defaults to true so
   // users with followed teams see the filtered list right away.
@@ -1501,6 +1561,27 @@ function SportsMatchesView({
       upcomingPanelRef.current?.querySelector(".sports-match-row")?.focus();
     }
   }, [showUpcomingList]);
+
+  // Hook up the IntersectionObserver-driven load-more for each list. The
+  // hook dispatches WIDGETS_SPORTS_FETCH_MORE_MATCHES with the matching
+  // direction when its sentinel scrolls into view; it only runs while the
+  // list is expanded and not yet exhausted.
+  useLoadMoreSentinel({
+    direction: "upcoming",
+    sentinelRef: upcomingSentinelRef,
+    active: showUpcomingList,
+    loading: upcomingLoadMoreLoading,
+    exhausted: upcomingLoadMoreExhausted,
+    dispatch,
+  });
+  useLoadMoreSentinel({
+    direction: "results",
+    sentinelRef: resultsSentinelRef,
+    active: showResultsList,
+    loading: resultsLoadMoreLoading,
+    exhausted: resultsLoadMoreExhausted,
+    dispatch,
+  });
 
   // Tracks whether the live-refresh button is in its post-click cooldown
   // window.
@@ -1638,6 +1719,21 @@ function SportsMatchesView({
                   </ul>
                 </div>
               ))}
+              {resultsLoadMoreLoading && (
+                <div
+                  className="sports-results-loading-more"
+                  role="status"
+                  aria-live="polite"
+                  data-l10n-id="newtab-sports-widget-loading-more"
+                />
+              )}
+              {!resultsLoadMoreExhausted && (
+                <div
+                  ref={resultsSentinelRef}
+                  className="sports-results-load-more-sentinel"
+                  aria-hidden="true"
+                />
+              )}
             </div>
           </>
         ) : (
@@ -1788,6 +1884,21 @@ function SportsMatchesView({
                   </ul>
                 </div>
               ))}
+              {upcomingLoadMoreLoading && (
+                <div
+                  className="sports-upcoming-loading-more"
+                  role="status"
+                  aria-live="polite"
+                  data-l10n-id="newtab-sports-widget-loading-more"
+                />
+              )}
+              {!upcomingLoadMoreExhausted && (
+                <div
+                  ref={upcomingSentinelRef}
+                  className="sports-upcoming-load-more-sentinel"
+                  aria-hidden="true"
+                />
+              )}
             </div>
           </>
         ) : (
@@ -1834,39 +1945,42 @@ function SportsMatchesView({
   );
 }
 
+// Full ISO timestamps with the host (ET) offset so DATETIME projects each
+// kickoff onto the viewer's local calendar day. Bounds are the first and
+// last match kickoffs of each stage, sourced from FIFA's 2026 fixtures.
 const keyDatesList = [
   {
     stageL10nId: "newtab-sports-widget-group-stage",
-    start: "2026-06-11",
-    end: "2026-06-27",
+    start: "2026-06-11T15:00:00-04:00",
+    end: "2026-06-27T22:00:00-04:00",
   },
   {
     stageL10nId: "newtab-sports-widget-round-32",
-    start: "2026-06-28",
-    end: "2026-07-03",
+    start: "2026-06-28T15:00:00-04:00",
+    end: "2026-07-03T21:30:00-04:00",
   },
   {
     stageL10nId: "newtab-sports-widget-round-16",
-    start: "2026-07-04",
-    end: "2026-07-07",
+    start: "2026-07-04T13:00:00-04:00",
+    end: "2026-07-07T16:00:00-04:00",
   },
   {
     stageL10nId: "newtab-sports-widget-quarter-finals",
-    start: "2026-07-09",
-    end: "2026-07-11",
+    start: "2026-07-09T16:00:00-04:00",
+    end: "2026-07-11T21:00:00-04:00",
   },
   {
     stageL10nId: "newtab-sports-widget-semi-finals",
-    start: "2026-07-14",
-    end: "2026-07-15",
+    start: "2026-07-14T15:00:00-04:00",
+    end: "2026-07-15T15:00:00-04:00",
   },
   {
     stageL10nId: "newtab-sports-widget-bronze-finals",
-    date: "2026-07-18",
+    date: "2026-07-18T17:00:00-04:00",
   },
   {
     stageL10nId: "newtab-sports-widget-final",
-    date: "2026-07-19",
+    date: "2026-07-19T15:00:00-04:00",
   },
 ];
 

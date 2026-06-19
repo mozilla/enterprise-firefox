@@ -125,6 +125,42 @@ class MediaSessionServiceDelegateTest {
     }
 
     @Test
+    fun `GIVEN media playing started WHEN a next-track command is received THEN forward to controller and emit telemetry`() = runTest {
+        val delegate = MediaSessionServiceDelegate(testContext, mock(), BrowserStore(), mock(), mock(), this)
+        delegate.controller = mock()
+
+        CollectionProcessor.withFactCollection { facts ->
+            delegate.onStartCommand(Intent(AbstractMediaSessionService.ACTION_NEXT_TRACK))
+
+            verify(delegate.controller)!!.nextTrack()
+            assertEquals(1, facts.size)
+            with(facts[0]) {
+                assertEquals(Component.FEATURE_MEDIA, component)
+                assertEquals(Action.NEXT, action)
+                assertEquals(MediaFacts.Items.NOTIFICATION, item)
+            }
+        }
+    }
+
+    @Test
+    fun `GIVEN media playing started WHEN a previous-track command is received THEN forward to controller and emit telemetry`() = runTest {
+        val delegate = MediaSessionServiceDelegate(testContext, mock(), BrowserStore(), mock(), mock(), this)
+        delegate.controller = mock()
+
+        CollectionProcessor.withFactCollection { facts ->
+            delegate.onStartCommand(Intent(AbstractMediaSessionService.ACTION_PREV_TRACK))
+
+            verify(delegate.controller)!!.previousTrack()
+            assertEquals(1, facts.size)
+            with(facts[0]) {
+                assertEquals(Component.FEATURE_MEDIA, component)
+                assertEquals(Action.PREVIOUS, action)
+                assertEquals(MediaFacts.Items.NOTIFICATION, item)
+            }
+        }
+    }
+
+    @Test
     fun `WHEN the task is removed THEN stop media in all tabs and shutdown`() = runTest {
         val notificationManagerCompat: NotificationManagerCompat = mock()
         val notificationsDelegate: NotificationsDelegate = mock()

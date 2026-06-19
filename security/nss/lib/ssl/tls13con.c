@@ -3265,6 +3265,12 @@ tls13_HandleCertificateRequest(sslSocket *ss, PRUint8 *b, PRUint32 length)
     PORT_Assert(ss->opt.noLocks || ssl_HaveRecvBufLock(ss));
     PORT_Assert(ss->opt.noLocks || ssl_HaveSSL3HandshakeLock(ss));
 
+    /* CertificateRequest is sent by servers; a server must never receive one. */
+    if (ss->sec.isServer) {
+        FATAL_ERROR(ss, SSL_ERROR_RX_UNEXPECTED_CERT_REQUEST, unexpected_message);
+        return SECFailure;
+    }
+
     /* Client */
     if (ss->opt.enablePostHandshakeAuth) {
         rv = TLS13_CHECK_HS_STATE(ss, SSL_ERROR_RX_UNEXPECTED_CERT_REQUEST,
@@ -5206,6 +5212,13 @@ tls13_HandleEncryptedExtensions(sslSocket *ss, PRUint8 *b, PRUint32 length)
 
     SSL_TRC(3, ("%d: TLS13[%d]: handle encrypted extensions",
                 SSL_GETPID(), ss->fd));
+
+    /* EncryptedExtensions is sent by servers; a server must never receive one. */
+    if (ss->sec.isServer) {
+        FATAL_ERROR(ss, SSL_ERROR_RX_UNEXPECTED_ENCRYPTED_EXTENSIONS,
+                    unexpected_message);
+        return SECFailure;
+    }
 
     rv = TLS13_CHECK_HS_STATE(ss, SSL_ERROR_RX_UNEXPECTED_ENCRYPTED_EXTENSIONS,
                               wait_encrypted_extensions);
@@ -7167,6 +7180,13 @@ tls13_HandleEndOfEarlyData(sslSocket *ss, const PRUint8 *b, PRUint32 length)
     SECStatus rv;
 
     PORT_Assert(ss->version >= SSL_LIBRARY_VERSION_TLS_1_3);
+
+    /* EndOfEarlyData is sent by clients; a client must never receive one. */
+    if (!ss->sec.isServer) {
+        FATAL_ERROR(ss, SSL_ERROR_RX_UNEXPECTED_END_OF_EARLY_DATA,
+                    unexpected_message);
+        return SECFailure;
+    }
 
     rv = TLS13_CHECK_HS_STATE(ss, SSL_ERROR_RX_UNEXPECTED_END_OF_EARLY_DATA,
                               wait_end_of_early_data);

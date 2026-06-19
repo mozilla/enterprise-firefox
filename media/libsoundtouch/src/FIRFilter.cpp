@@ -78,7 +78,7 @@ uint FIRFilter::evaluateFilterStereo(SAMPLETYPE *dest, const SAMPLETYPE *src, ui
     uint ilength = length & -8;
 
     assert((length != 0) && (length == ilength) && (src != nullptr) && (dest != nullptr) && (filterCoeffs != nullptr));
-    assert(numSamples > ilength);
+    assert(numSamples >= ilength);
 
     end = 2 * (numSamples - ilength);
 
@@ -165,7 +165,7 @@ uint FIRFilter::evaluateFilterMulti(SAMPLETYPE *dest, const SAMPLETYPE *src, uin
     for (j = 0; j < end; j += numChannels)
     {
         const SAMPLETYPE *ptr;
-        LONG_SAMPLETYPE sums[16];
+        LONG_SAMPLETYPE sums[SOUNDTOUCH_MAX_CHANNELS];
         uint c;
         int i;
 

@@ -1164,6 +1164,9 @@ newtab-sports-widget-third-place = Τρίτη θέση
 newtab-sports-widget-runner-up = Φιναλίστ
 newtab-sports-widget-champions = Πρωταθλητές
 newtab-sports-widget-world-cup-champions = Πρωταθλητές Παγκοσμίου Κυπέλλου 2026
+# Compact champions label for the medium-size widget result card; the larger
+# card uses newtab-sports-widget-world-cup-champions.
+newtab-sports-widget-world-cup-champions-short = Πρωταθλητές 2026
 # Variables:
 #   $date (Date) - The match start time
 newtab-sports-widget-match-time = { DATETIME($date, hour: "2-digit", minute: "2-digit") }
@@ -1171,6 +1174,11 @@ newtab-sports-widget-match-full-time = Κανονική διάρκεια
 newtab-sports-widget-match-halftime = Ημίχρονο
 newtab-sports-widget-match-extra-time = Παράταση
 newtab-sports-widget-match-penalties = Πέναλτι
+# Separator shown between two teams in a placeholder match row when no upcoming
+# match details are available yet.
+newtab-sports-widget-match-vs = εναντίον
+# Note shown in the Upcoming tab when no match details are available yet.
+newtab-sports-widget-no-upcoming-matches = Μείνετε συντονισμένοι για λεπτομέρειες του επερχόμενου αγώνα
 
 ## Sports widget live-games pagination. Shown when 2+ matches are live at the same time
 
@@ -1248,6 +1256,8 @@ newtab-sports-widget-team-name-label-eng =
     .label = Αγγλία
 newtab-sports-widget-team-name-label-sco =
     .label = Σκωτία
+# Placeholder used in a match row's aria-label for an undecided team (shown visually as "--").
+newtab-sports-widget-team-tbd = Θα καθοριστεί
 
 ## Sports widget OMC messages
 ## Shown as on-screen messages promoting the Sports widget and World Cup wallpapers.

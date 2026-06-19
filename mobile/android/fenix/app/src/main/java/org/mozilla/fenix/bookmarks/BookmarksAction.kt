@@ -165,6 +165,7 @@ internal sealed class SnackbarAction : BookmarksAction {
 internal data object RootOverflowMenuClicked : BookmarksAction
 internal data object RootOverflowMenuDismissed : BookmarksAction
 internal sealed class ImportAction : BookmarksAction {
+    internal data object ImportStarted : ImportAction()
     internal data object ImportFailed : ImportAction()
     internal data class ImportSucceeded(val count: Int) : ImportAction()
     internal sealed class ImportFileClicked : ImportAction() {

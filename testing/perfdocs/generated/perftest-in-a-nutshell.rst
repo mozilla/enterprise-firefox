@@ -252,7 +252,7 @@ When the job completes, click on the artifacts tab, and then click the `Open in 
 
 Native Profiling
 ----------------
-To generate CI profiles with an OS-specific profiler (i.e., Simpleperf for Android), use the ``--native-profiling`` flag with ``./mach try`` and select a `supported job <browsertime.html#native-profiling-with-raptor-browsertime>`_.
+To generate CI profiles with an OS-specific profiler (i.e., Simpleperf for Android, Xperf for Windows), use the ``--native-profiling`` flag with ``./mach try`` and select a `supported job <browsertime.html#native-profiling-with-raptor-browsertime>`_.
 
 Side-by-Side
 ------------

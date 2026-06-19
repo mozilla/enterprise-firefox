@@ -85,8 +85,8 @@ pane-appearance-title = Appearance
 pane-downloads-title2 = Downloads
   .title = Downloads
 
-pane-downloads2 =
-    .heading = { pane-downloads-title2 }
+pane-downloads3 =
+    .heading = Downloads
 
 pane-accessibility-title = Accessibility
   .title = { pane-accessibility-title }
@@ -94,8 +94,8 @@ pane-accessibility-title = Accessibility
 pane-languages-title2 = Languages
   .title = Languages
 
-preferences-languages-header2 =
-    .heading = { pane-languages-title2 }
+preferences-languages-header3 =
+    .heading = Languages
 
 settings-pane-labs-title2 = { -firefoxlabs-brand-name }
   .title = { -firefoxlabs-brand-name }
@@ -1240,10 +1240,9 @@ containers-add-button2 =
     .label = Add new container
     .accesskey = A
 
-containers-new-tab-check2 =
+containers-new-tab-check3 =
     .label = Select a container for each new tab
     .accesskey = S
-    .description = This will open the containers menu every time you press the open new tab button.
 
 containers-settings-button2 =
     .title = Settings
@@ -1589,8 +1588,7 @@ forms-primary-pw-use-2 =
     .accesskey = U
 forms-primary-pw-set =
     .label = Set primary password
-forms-primary-pw-on =
-    .label = Primary password is ON
+forms-primary-pw-on-2 = Primary password is <strong>ON</strong>
 forms-primary-pw-change-2 =
     .label = Change primary password
 # Label for button to disable primary password.
@@ -2381,6 +2379,36 @@ browser-theme-group =
 browser-theme-manage-link =
     .label = Manage { -brand-short-name } themes
 
+appearance-window-density-group =
+    .label = Window density
+    .description = Adjust the spacing around window elements like toolbar, tabs, and sidebar.
+
+appearance-window-density-radio-group =
+    .aria-label = Window density
+
+appearance-window-density-automatic =
+    .label = Automatic (default)
+    .description = Standard, compact, or touch spacing is applied automatically
+
+appearance-window-density-automatic-no-touch =
+    .label = Automatic (default)
+    .description = Standard or compact spacing is applied automatically
+
+appearance-window-density-standard =
+    .label = Standard
+    .description = Balanced spacing for most screens
+
+appearance-window-density-auto-touch-mode =
+    .label = Use touch spacing for tablet mode
+
+appearance-window-density-compact =
+    .label = Compact
+    .description = Reduced spacing for smaller screens
+
+appearance-window-density-touch =
+    .label = Touch
+    .description = Larger window elements and click targets, optimized for touch screens
+
 related-settings-group =
     .label = Related settings
 
@@ -2425,8 +2453,8 @@ motion-and-link-group =
 
 ## AI controls page
 
-preferences-ai-controls-header2 =
-    .heading = { pane-ai-controls-title2 }
+preferences-ai-controls-header3 =
+    .heading = AI controls
 
 preferences-ai-controls-description = You always have a choice in { -brand-short-name }, including whether to use features enhanced with AI. More controls coming soon.
 

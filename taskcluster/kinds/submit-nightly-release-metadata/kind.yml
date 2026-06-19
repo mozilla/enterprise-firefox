@@ -24,7 +24,6 @@ task-defaults:
         substitution-fields:
             - scopes
             - worker
-            - worker.locales-file
     worker-type: shipit
     worker:
         implementation: shipit-nightly-metadata
@@ -53,7 +52,4 @@ tasks:
             channel: nightly
             buildid: "{moz_build_date}"
             version: "{version}"
-            locales-file:
-                by-project:
-                    try: browser/locales/l10n-onchange-changesets.json
-                    default: browser/locales/l10n-changesets.json
+            locales-file: browser/locales/all-locales

@@ -24,7 +24,7 @@ add_task(async function test_clickInsecureFieldWarning() {
       let warningItem = popup.querySelector(`[type="insecureWarning"]`);
       Assert.ok(warningItem, "Got warning richlistitem");
 
-      await BrowserTestUtils.waitForCondition(
+      await TestUtils.waitForCondition(
         () => !warningItem.collapsed,
         "Wait for warning to show"
       );

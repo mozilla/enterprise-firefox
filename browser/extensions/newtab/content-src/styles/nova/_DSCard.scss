@@ -159,3 +159,8 @@
     }
   }
 }
+
+// Bug 2039943: prevent the broken-image fallback from inheriting the active link color.
+.nova-enabled .ds-card .img-wrapper {
+  color: var(--newtab-primary-action-background);
+}

@@ -49,7 +49,7 @@ function pinLastAccessed(tabsOldestFirst) {
  * @param {ChatConversation} conversation
  */
 async function waitForGetOpenTabsResult(conversation) {
-  return BrowserTestUtils.waitForCondition(
+  return TestUtils.waitForCondition(
     () =>
       conversation.messages.find(
         m => m.role === MESSAGE_ROLE.TOOL && m.content?.name === GET_OPEN_TABS
@@ -116,7 +116,7 @@ async function startFreshTurn({
   });
 
   /** @type {ChatConversation} */
-  const conversation = await BrowserTestUtils.waitForCondition(
+  const conversation = await TestUtils.waitForCondition(
     () => AIWindow.getActiveConversation(win),
     "Conversation should exist on the active AI window before submit."
   );

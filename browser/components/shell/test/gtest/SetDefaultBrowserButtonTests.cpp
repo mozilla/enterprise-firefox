@@ -15,6 +15,7 @@
 #include "mozilla/Maybe.h"
 #include "mozilla/UniquePtr.h"
 #include "WindowsDefaultBrowser.h"
+#include "WindowsUIElement.h"
 
 static bool RegWriteStringValue(HKEY aRoot, std::wstring_view aKey,
                                 const mozilla::Maybe<std::wstring>& aName,
@@ -232,6 +233,9 @@ TEST_F(SetDefaultBrowserButtonTests, FocusDefaultBrowserButton) {
   ASSERT_THAT(window, testing::NotNull());
   ASSERT_THAT(button, testing::NotNull());
 
-  FocusElement(window, button);
+  RefPtr<mozilla::WindowsUIElement> element{
+      new mozilla::WindowsUIElement(window, button)};
+  element->Focus();
+
   ASSERT_TRUE(IsElementFocus(button));
 }

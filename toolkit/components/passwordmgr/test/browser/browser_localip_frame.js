@@ -80,7 +80,7 @@ add_task(async function test_warningForLocalIP() {
     let item = popup.querySelector(test.expected);
     Assert.ok(item, "Got expected richlistitem");
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => !item.collapsed,
       "Wait for autocomplete to show"
     );

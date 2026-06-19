@@ -117,7 +117,7 @@ add_task(
         await EventUtils.synthesizeKey("KEY_ArrowDown");
         await EventUtils.synthesizeKey("KEY_ArrowDown");
 
-        await BrowserTestUtils.waitForCondition(
+        await TestUtils.waitForCondition(
           () => secondLoginItem.attributes.selected,
           "Wait for second login to become active"
         );

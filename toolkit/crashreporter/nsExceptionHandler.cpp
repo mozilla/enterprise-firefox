@@ -142,6 +142,10 @@ using google_breakpad::PageAllocator;
 #endif
 using namespace mozilla;
 
+// The gToolkitBuildID global is defined to MOZ_BUILDID via gen_buildid.py
+// in toolkit/library. See related comment in toolkit/library/moz.build.
+extern const char gToolkitBuildID[];
+
 #ifdef MOZ_PHC
 
 namespace mozilla::phc {
@@ -3270,7 +3274,8 @@ nsresult OOPInit(nsIFile* aXREDirectory) {
   crashHelperClient = crash_helper_launch(
       (const BreakpadChar*)crashHelperPath.c_str(),
       (const BreakpadChar*)NS_ConvertUTF8toUTF16(childCrashNotifyPipe).getW(),
-      mozilla::BitwiseCast<const BreakpadChar*>(tempPath.get()));
+      mozilla::BitwiseCast<const BreakpadChar*>(tempPath.get()),
+      gToolkitBuildID);
 #elif defined(XP_LINUX)
 #  if !defined(MOZ_WIDGET_ANDROID)
   if (!CrashGenerationServer::CreateReportChannel(&serverSocketFd,
@@ -3278,8 +3283,8 @@ nsresult OOPInit(nsIFile* aXREDirectory) {
     MOZ_CRASH("can't create crash reporter socketpair()");
   }
 
-  crashHelperClient = crash_helper_launch(crashHelperPath.c_str(),
-                                          serverSocketFd, tempPath.get());
+  crashHelperClient = crash_helper_launch(
+      crashHelperPath.c_str(), serverSocketFd, tempPath.get(), gToolkitBuildID);
   close(serverSocketFd);
 #  else
   crashHelperClient = crash_helper_connect(crashHelperClientFd);
@@ -3294,7 +3299,7 @@ nsresult OOPInit(nsIFile* aXREDirectory) {
 
   crashHelperClient = crash_helper_launch(
       crashHelperPath.c_str(), (BreakpadRawData)childCrashNotifyPipe.get(),
-      tempPath.get());
+      tempPath.get(), gToolkitBuildID);
 #endif
   if (!crashHelperClient) {
     return NS_ERROR_FAILURE;

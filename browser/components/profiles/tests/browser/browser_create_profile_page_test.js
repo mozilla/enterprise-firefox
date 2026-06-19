@@ -541,12 +541,12 @@ add_task(async function test_new_profile_delete_telemetry() {
         );
       });
 
-      await BrowserTestUtils.waitForCondition(
+      await TestUtils.waitForCondition(
         () => quitCanceled,
         "We expect the quit to have been canceled"
       );
 
-      await BrowserTestUtils.waitForCondition(
+      await TestUtils.waitForCondition(
         () => pingSubmitted,
         "We expect the ping to have been submitted"
       );
@@ -605,7 +605,7 @@ add_task(async function test_profile_age_redirect() {
         );
       });
 
-      await BrowserTestUtils.waitForCondition(
+      await TestUtils.waitForCondition(
         () => browser.documentURI.spec == "about:editprofile"
       );
       Assert.equal(

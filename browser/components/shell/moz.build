@@ -62,6 +62,8 @@ elif CONFIG["OS_ARCH"] == "WINNT":
         "nsWindowsShellService.cpp",
         "Windows11TaskbarPinning.cpp",
         "WindowsDefaultBrowser.cpp",
+        "WindowsUIElement.cpp",
+        "WindowsUIOverlayImage.cpp",
         "WindowsUserChoice.cpp",
     ]
     LOCAL_INCLUDES += [
@@ -72,7 +74,13 @@ elif CONFIG["OS_ARCH"] == "WINNT":
         "bcrypt",
         "crypt32",
         "propsys",
+        "windowscodecs",
     ]
+
+    FINAL_TARGET_FILES.components.shell.assets += [
+        "assets/kit.gif",
+    ]
+
     FINAL_TARGET_FILES += ["content/blank.pdf", "content/confused_fox.pdf"]
 
     MOZ_SRC_FILES += [

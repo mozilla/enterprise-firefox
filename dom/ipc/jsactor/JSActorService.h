@@ -109,6 +109,7 @@ class JSActorProtocol : public nsISupports {
 
   nsCString mName;
   nsTArray<nsCString> mRemoteTypes;
+  bool mSafeForUntrustedWebProcess = false;
 };
 
 }  // namespace dom

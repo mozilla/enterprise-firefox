@@ -277,7 +277,7 @@ add_task(async function test_lna_accept_receives_sni() {
 
   // The server is a raw TCP socket, so the TLS handshake will fail after the
   // ClientHello is sent. Wait for the SNI to be captured by the server.
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     async () => !!(await gServer.sniValues()).length,
     "Waiting for SNI value after accepting the LNA prompt"
   );

@@ -45,7 +45,7 @@ class SurfaceTextureImage final : public GLImage {
  public:
   class SetCurrentCallback {
    public:
-    virtual void operator()(void) = 0;
+    virtual bool operator()(bool aRender) = 0;
     virtual ~SetCurrentCallback() {}
   };
 
@@ -91,7 +91,7 @@ class SurfaceTextureImage final : public GLImage {
 
   void OnSetCurrent() override {
     if (mSetCurrentCallback) {
-      (*mSetCurrentCallback)();
+      (*mSetCurrentCallback)(/* aRender */ true);
       mSetCurrentCallback.reset();
     }
   }

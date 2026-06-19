@@ -121,7 +121,9 @@ class AnimationUtils {
     return aType == PseudoStyleType::Before ||
            aType == PseudoStyleType::After ||
            aType == PseudoStyleType::Marker ||
-           aType == PseudoStyleType::Backdrop;
+           aType == PseudoStyleType::Backdrop ||
+           aType == PseudoStyleType::Checkmark ||
+           aType == PseudoStyleType::PickerIcon;
   }
 
   /**

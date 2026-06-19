@@ -102,6 +102,7 @@ const statsExpectedByType = {
     localAudioOnly: [],
     localVideoOnly: [
       "framesEncoded",
+      "keyFramesEncoded",
       "firCount",
       "pliCount",
       "frameWidth",
@@ -184,7 +185,6 @@ const statsExpectedByType = {
     optional: [],
     deprecated: [],
   },
-  csrc: { skip: true },
   codec: {
     expected: [
       "timestamp",
@@ -201,7 +201,6 @@ const statsExpectedByType = {
   },
   "peer-connection": { skip: true },
   "data-channel": { skip: true },
-  track: { skip: true },
   "candidate-pair": {
     expected: [
       "id",
@@ -217,6 +216,8 @@ const statsExpectedByType = {
       "readable",
       "bytesSent",
       "bytesReceived",
+      "packetsSent",
+      "packetsReceived",
       "lastPacketSentTimestamp",
       "lastPacketReceivedTimestamp",
       "totalRoundTripTime",
@@ -1142,6 +1143,17 @@ function pedanticChecks(report) {
             `${stat.kind} test. value=${stat.framesEncoded}`
         );
 
+        // keyFramesEncoded
+        ok(
+          stat.keyFramesEncoded >= 0 && stat.keyFramesEncoded < 1000000,
+          `${stat.type}.keyFramesEncoded is a sane number for a short ` +
+            `${stat.kind} test. value=${stat.keyFramesEncoded}`
+        );
+        ok(
+          stat.keyFramesEncoded <= stat.framesEncoded,
+          `${stat.type}.keyFramesEncoded is less than or equal to ${stat.type}.framesEncoded`
+        );
+
         // frameWidth
         ok(
           stat.frameWidth >= 0 && stat.frameWidth < 100000,
@@ -1601,6 +1613,19 @@ function pedanticChecks(report) {
           stat.bytesReceived >= recvExpectation,
           `${stat.type}.bytesReceived is a sane number (>${recvExpectation}) if media is flowing. ` +
             `value=${stat.bytesReceived}`
+        );
+
+        // packetsSent
+        ok(
+          stat.packetsSent > 0 && stat.packetsSent < 10000,
+          `${stat.type}.packetsSent is a sane number for a short ` +
+            `test. value=${stat.packetsSent}`
+        );
+
+        ok(
+          stat.packetsReceived >= 0 && stat.packetsReceived < 10000,
+          `${stat.type}.packetsReceived is a sane number for a short ` +
+            `test. value=${stat.packetsReceived}`
         );
 
         // lastPacketSentTimestamp

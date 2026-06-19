@@ -398,7 +398,7 @@ nsresult WebMDemuxer::GetCodecPrivateData(
   }
 
   for (uint32_t header = 0; header < nheaders; ++header) {
-    unsigned char* data = 0;
+    unsigned char* data = nullptr;
     size_t length = 0;
     r = nestegg_track_codec_data(aContext, aTrackId, header, &data, &length);
     if (r == -1) {
@@ -979,7 +979,7 @@ nsresult WebMDemuxer::GetNextPacket(TrackInfo::TrackType aType,
         } else if (packetEncryption ==
                    NESTEGG_PACKET_HAS_SIGNAL_BYTE_PARTITIONED) {
           uint8_t numPartitions = 0;
-          const uint32_t* partitions = NULL;
+          const uint32_t* partitions = nullptr;
           nestegg_packet_offsets(holder->Packet(), &partitions, &numPartitions);
 
           // WebM stores a list of 'partitions' in the data, which alternate

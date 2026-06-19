@@ -1046,7 +1046,7 @@ class PerfParser(CompareParser):
 
     def determine_lando_instance(push_to_vcs=False):
         """Determine the lando instance id that a push will use."""
-        return "" if push_to_vcs else get_lando_instance_id(vcs.path)
+        return "" if push_to_vcs else get_lando_instance_id(vcs)
 
     def check_cached_revision(selected_tasks, base_commit=None, push_to_vcs=True):
         """

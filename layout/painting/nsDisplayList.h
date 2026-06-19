@@ -2025,7 +2025,7 @@ class nsDisplayListBuilder {
 
 template <typename T>
 MOZ_ALWAYS_INLINE T* MakeClone(nsDisplayListBuilder* aBuilder, const T* aItem) {
-  static_assert(std::is_base_of<nsDisplayWrapList, T>::value,
+  static_assert(std::is_base_of_v<nsDisplayWrapList, T>,
                 "Display item type should be derived from nsDisplayWrapList");
   T* item = new (aBuilder) T(aBuilder, *aItem);
   item->SetType(T::ItemType());
@@ -2053,9 +2053,9 @@ template <typename T, typename F, typename... Args>
 MOZ_ALWAYS_INLINE T* MakeDisplayItemWithIndex(nsDisplayListBuilder* aBuilder,
                                               F* aFrame, const uint16_t aIndex,
                                               Args&&... aArgs) {
-  static_assert(std::is_base_of<nsDisplayItem, T>::value,
+  static_assert(std::is_base_of_v<nsDisplayItem, T>,
                 "Display item type should be derived from nsDisplayItem");
-  static_assert(std::is_base_of<nsIFrame, F>::value,
+  static_assert(std::is_base_of_v<nsIFrame, F>,
                 "Frame type should be derived from nsIFrame");
 
   const DisplayItemType type = T::ItemType();
@@ -6337,7 +6337,8 @@ class nsDisplayTransform final : public nsPaintedDisplayItem {
 
   bool ShouldSkipTransform(nsDisplayListBuilder* aBuilder) const;
   Matrix4x4 GetTransformForRendering(
-      LayoutDevicePoint* aOutOrigin = nullptr) const;
+      LayoutDevicePoint* aOutOrigin = nullptr,
+      const nsDisplayListBuilder* aBuilder = nullptr) const;
 
   /**
    * Return the transform that is aggregation of all transform on the

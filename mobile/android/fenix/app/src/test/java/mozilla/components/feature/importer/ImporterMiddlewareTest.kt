@@ -34,6 +34,16 @@ class ImporterMiddlewareTest {
     }
 
     @Test
+    fun `when ImportStarted is received, the state is transitioned to Loading`() =
+        runTest {
+            val store = middleware.makeStore()
+
+            store.dispatch(ImporterAction.ImportStarted)
+
+            assertEquals(ImporterState.Loading, store.state)
+        }
+
+    @Test
     fun `when ImportCancelled action is received while import is in progress, the state is transitioned to Cancelled`() =
         runTest {
             // Given a store
@@ -51,7 +61,7 @@ class ImporterMiddlewareTest {
 
             // Then verify that the state is updated to canceled
             assertEquals(
-                ImporterState.Finished(result = ImporterResult.Canceled),
+                ImporterState.Finished(result = ImporterEvent.Canceled),
                 store.state,
             )
         }
@@ -75,7 +85,7 @@ class ImporterMiddlewareTest {
             // Then verify that the state remains "failed"
             val finalState = store.state
             assertIs<ImporterState.Finished>(finalState)
-            assertIs<ImporterResult.Failure>(finalState.result)
+            assertIs<ImporterEvent.Failure>(finalState.result)
         }
 
     @Test
@@ -99,7 +109,7 @@ class ImporterMiddlewareTest {
             // Then verify that the state remains "success"
             val finalState = store.state
             assertIs<ImporterState.Finished>(finalState)
-            assertIs<ImporterResult.Success>(finalState.result)
+            assertIs<ImporterEvent.Success>(finalState.result)
         }
 
     private fun ImporterMiddleware.makeStore(
@@ -108,7 +118,7 @@ class ImporterMiddlewareTest {
         return ImporterStore(
             initialState = initialState,
             middleware = listOf(this),
-            reducer = ::importerReducer,
+            reducer = { _, action -> importerReducer(action) },
         )
     }
 

@@ -256,7 +256,7 @@ add_task(async function test_groupsViewShowMore() {
   }
 
   let allTabsMenu = await openTabsMenu();
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () =>
       allTabsMenu.querySelectorAll(
         "#allTabsMenu-groupsView .all-tabs-group-item"
@@ -351,7 +351,7 @@ add_task(async function test_tabGroupsViewContextMenu_savedGroups() {
   menu.querySelector("#saved-tab-group-context-menu_openInThisWindow").click();
   menu.hidePopup();
   await waitForGroup;
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () =>
       !allTabsMenu.querySelector(
         `#allTabsMenu-groupsView .all-tabs-group-saved-group[data-tab-group-id="${savedGroupId}"]`
@@ -380,7 +380,7 @@ add_task(async function test_tabGroupsViewContextMenu_savedGroups() {
   menu.querySelector("#saved-tab-group-context-menu_delete").click();
   menu.hidePopup();
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () =>
       !allTabsMenu.querySelector(
         `#allTabsMenu-groupsView [data-tab-group-id="${savedGroupId}"]`
@@ -532,7 +532,7 @@ add_task(async function test_tabGroupsViewContextMenu_openGroups() {
     "wait for tab group to be deleted"
   );
   info("waiting for menu sync");
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () =>
       !allTabsMenu.querySelector(
         `#allTabsMenu-groupsView [data-tab-group-id="${groupId}"]`

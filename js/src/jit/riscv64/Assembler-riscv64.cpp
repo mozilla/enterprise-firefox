@@ -84,31 +84,6 @@ void Assembler::executableCopy(uint8_t* buffer) {
   m_buffer.executableCopy(buffer);
 }
 
-uint32_t Assembler::AsmPoolMaxOffset = 1024;
-
-uint32_t Assembler::GetPoolMaxOffset() {
-  static bool isSet = false;
-  if (!isSet) {
-    char* poolMaxOffsetStr = getenv("ASM_POOL_MAX_OFFSET");
-    uint32_t poolMaxOffset;
-    if (poolMaxOffsetStr &&
-        sscanf(poolMaxOffsetStr, "%u", &poolMaxOffset) == 1) {
-      AsmPoolMaxOffset = poolMaxOffset;
-    }
-    isSet = true;
-  }
-  return AsmPoolMaxOffset;
-}
-
-// Pool callbacks stuff:
-void Assembler::InsertIndexIntoTag(uint8_t* load_, uint32_t index) {
-  MOZ_CRASH("Unimplement");
-}
-
-void Assembler::PatchConstantPoolLoad(void* loadAddr, void* constPoolAddr) {
-  MOZ_CRASH("Unimplement");
-}
-
 void Assembler::processCodeLabels(uint8_t* rawCode) {
   for (const CodeLabel& label : codeLabels_) {
     Bind(rawCode, label);
@@ -125,22 +100,20 @@ void Assembler::WritePoolGuard(BufferOffset branch, Instruction* inst,
 
   DEBUG_PRINTF("%p(%x): ", inst, branch.getOffset());
 #ifdef JS_DISASM_RISCV64
-  disassembleInstr(inst, JitSpew_Codegen);
+  if (JitSpewEnabled(JitSpew_Codegen)) {
+    disassembleInstr(inst, JitSpew_Codegen);
+    inst += kInstrSize;
+
+    // Disassemble veneer branches after spewing the pool guard, so all
+    // instructions appear in order.
+    BufferOffset bo(branch.getOffset() + kInstrSize);
+    while (bo < dest) {
+      disassembleInstr(inst, JitSpew_Codegen);
+      inst += kInstrSize;
+      bo = BufferOffset(bo.getOffset() + kInstrSize);
+    }
+  }
 #endif /* JS_DISASM_RISCV64 */
-}
-
-void Assembler::WritePoolHeader(uint8_t* start, Pool* p, bool isNatural) {
-  static_assert(sizeof(PoolHeader) == 4);
-
-  // Get the total size of the pool.
-  const uintptr_t totalPoolSize = sizeof(PoolHeader) + p->getPoolSize();
-  const uintptr_t totalPoolInstructions = totalPoolSize / kInstrSize;
-
-  MOZ_ASSERT((totalPoolSize & 0x3) == 0);
-  MOZ_ASSERT(totalPoolInstructions < (1 << 15));
-
-  PoolHeader header(totalPoolInstructions, isNatural);
-  *(PoolHeader*)start = header;
 }
 
 void Assembler::copyJumpRelocationTable(uint8_t* dest) {
@@ -1587,7 +1560,7 @@ void Assembler::PatchShortRangeBranchToVeneer(Buffer* buffer, unsigned rangeIdx,
 
   DEBUG_PRINTF("\t%p(%x): ", branchInst, branch.getOffset());
 #ifdef JS_DISASM_RISCV64
-  disassembleInstr(branchInst, JitSpew_Codegen);
+  disassembleInstr(branchInst);
 #endif /* JS_DISASM_RISCV64 */
   DEBUG_PRINTF("\t insert veneer %x, branch: %x deadline: %x\n",
                veneer.getOffset(), branch.getOffset(), deadline.getOffset());

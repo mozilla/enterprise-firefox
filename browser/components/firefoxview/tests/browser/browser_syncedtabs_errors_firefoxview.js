@@ -90,7 +90,7 @@ add_task(async function test_network_offline() {
       .querySelector("moz-button[data-action='network-offline']")
       .buttonEl.click();
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => TabsSetupFlowManager.tryToClearError.calledOnce
     );
 

@@ -4741,18 +4741,18 @@ inline bool OpIter<Policy>::readCallBuiltinModuleFunc(
 }  // namespace wasm
 }  // namespace js
 
-static_assert(std::is_trivially_copyable<
-                  js::wasm::TypeAndValueT<mozilla::Nothing>>::value,
-              "Must be trivially copyable");
-static_assert(std::is_trivially_destructible<
-                  js::wasm::TypeAndValueT<mozilla::Nothing>>::value,
-              "Must be trivially destructible");
+static_assert(
+    std::is_trivially_copyable_v<js::wasm::TypeAndValueT<mozilla::Nothing>>,
+    "Must be trivially copyable");
+static_assert(
+    std::is_trivially_destructible_v<js::wasm::TypeAndValueT<mozilla::Nothing>>,
+    "Must be trivially destructible");
 
-static_assert(std::is_trivially_copyable<
-                  js::wasm::ControlStackEntry<mozilla::Nothing>>::value,
-              "Must be trivially copyable");
-static_assert(std::is_trivially_destructible<
-                  js::wasm::ControlStackEntry<mozilla::Nothing>>::value,
+static_assert(
+    std::is_trivially_copyable_v<js::wasm::ControlStackEntry<mozilla::Nothing>>,
+    "Must be trivially copyable");
+static_assert(std::is_trivially_destructible_v<
+                  js::wasm::ControlStackEntry<mozilla::Nothing>>,
               "Must be trivially destructible");
 
 #endif  // wasm_op_iter_h

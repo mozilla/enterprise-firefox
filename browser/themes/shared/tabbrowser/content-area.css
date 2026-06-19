@@ -518,11 +518,20 @@ split-view-footer {
   }
 }
 
-/* Content tooltips */
+/* Content popups */
 
+#contentAreaContextMenu,
+#DateTimePickerPanel,
 #remoteBrowserTooltip,
 #aHTMLTooltip[contenttooltip] {
   color-scheme: env(-moz-content-preferred-color-scheme);
+}
+
+#DateTimePickerPanel {
+  /* Override theme colors since the picker uses extra colors that
+     themes cannot set */
+  --panel-background-color: Field;
+  --panel-text-color: FieldText;
 }
 
 /* Shortcuts */

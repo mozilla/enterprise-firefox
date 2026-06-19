@@ -1,0 +1,5 @@
+
+1 Added function:
+
+  'function SECKEYPrivateKey* PK11_CreatePrivateKeyFromTemplate(PK11SlotInfo*, const CK_ATTRIBUTE*, unsigned int, void*)'    {PK11_CreatePrivateKeyFromTemplate@@NSS_3.126}
+

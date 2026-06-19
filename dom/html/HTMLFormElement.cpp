@@ -602,7 +602,7 @@ nsresult HTMLFormElement::PostHandleEvent(EventChainPostVisitor& aVisitor) {
         case eFormSubmit: {
           if (!aVisitor.mEvent->IsTrusted()) {
             // Warning about the form submission is from untrusted event.
-            OwnerDoc()->WarnOnceAbout(
+            OwnerDoc()->WarnOnceAndReportAbout(
                 DeprecatedOperations::eFormSubmissionUntrustedEvent);
           }
           RefPtr<Event> event = aVisitor.mDOMEvent;

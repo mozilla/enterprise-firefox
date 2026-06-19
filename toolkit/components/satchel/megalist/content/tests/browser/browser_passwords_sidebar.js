@@ -354,7 +354,7 @@ add_task(async function test_passwords_visibility_when_view_shown() {
 
   info("Hide the sidebar");
   SidebarController.hide();
-  await BrowserTestUtils.waitForCondition(() => {
+  await TestUtils.waitForCondition(() => {
     return !SidebarController.isOpen;
   }, "Sidebar did not close.");
 

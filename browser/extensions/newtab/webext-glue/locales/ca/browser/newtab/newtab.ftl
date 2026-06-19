@@ -621,8 +621,15 @@ newtab-weather-opt-in-not-now =
     .label = Ara no
 newtab-weather-opt-in-yes =
     .label = Sí
+newtab-weather-opt-in-headline = Obteniu la previsió meteorològica local
+newtab-weather-opt-in-use-location =
+    .label = Utilitza la ubicació
+newtab-weather-opt-in-choose-location = Trieu la ubicació
 # We'll be showing static (fake) weather data if the user has not opted in to using their location
 newtab-weather-static-city = Nova York
+# "Lowest" here refers to the lowest temperature of the day
+newtab-weather-low =
+    .aria-label = Baixa
 # Variables:
 #   $provider (string) - Service provider for weather data
 newtab-weather-see-forecast-description =
@@ -674,8 +681,16 @@ newtab-topic-selection-button-pick-interests = Trieu els vostres interessos
 ## e.g. Following the travel section of stories.
 
 newtab-section-follow-button = Segueix
+# Variables:
+#   $topic (string) - Topic that the user can follow
+newtab-section-follow-button-label =
+    .aria-label = Segueix { $topic }
 newtab-section-following-button = Seguint
 newtab-section-unfollow-button = Deixar de seguir
+# Variables:
+#   $topic (string) - Topic that the user is following and can unfollow
+newtab-section-unfollow-button-label =
+    .aria-label = Seguint: Deixa de seguir { $topic }
 # A modal may appear next to the Follow button, directing users to try out the feature
 newtab-section-follow-highlight-title = Ajusteu el canal
 newtab-section-follow-highlight-subtitle = Seguiu els vostres interessos per a veure més contingut que us agradi.
@@ -687,6 +702,22 @@ newtab-section-follow-highlight-subtitle = Seguiu els vostres interessos per a v
 newtab-section-block-button = Bloqueja
 newtab-section-blocked-button = Blocat
 newtab-section-unblock-button = Desbloca
+# Variables:
+#   $topic (string) - Name of topic that user is following
+newtab-section-follow-topic =
+    .aria-label = Segueix { $topic }
+# Variables:
+#   $topic (string) - Name of topic that user is unfollowing
+newtab-section-unfollow-topic =
+    .aria-label = Deixa de seguir { $topic }
+# Variables:
+#   $topic (string) - Name of topic that user is blocking
+newtab-section-block-topic =
+    .aria-label = Bloca { $topic }
+# Variables:
+#   $topic (string) - Name of topic that user is unblocking
+newtab-section-unblock-topic =
+    .aria-label = Desbloca { $topic }
 
 ## Confirmation modal for blocking a section
 
@@ -696,6 +727,7 @@ newtab-section-confirm-block-topic-p2 = Els temes blocats ja no apareixeran a la
 # Variables:
 #   $topic (string) - Name of topic that user is blocking
 newtab-section-block-topic-button = Bloca { $topic }
+newtab-section-block-cancel-button = Cancel·la
 
 ## Strings for custom wallpaper highlight
 
@@ -716,6 +748,12 @@ newtab-custom-wallpaper-cta = Proveu-ho
 newtab-new-user-custom-wallpaper-title = Trieu un fons de pantalla per a personalitzar el { -brand-product-name }
 newtab-new-user-custom-wallpaper-subtitle = Decoreu cada pestanya nova al vostre gust amb fons de pantalla i colors personalitzats.
 newtab-new-user-custom-wallpaper-cta = Proveu-ho ara
+
+## Strings for Nova wallpaper feature highlight
+
+newtab-wallpaper-feature-highlight-title = Nous fons de pantalla acabats d'arribar
+newtab-wallpaper-feature-highlight-subtitle = Trieu el vostre preferit i feu que cada pestanya nova us faci sentir com a casa.
+newtab-wallpaper-feature-highlight-cta = Trieu un fons de pantalla
 
 ## Strings for download mobile highlight
 
@@ -757,6 +795,20 @@ newtab-report-cancel = Cancel·la
 newtab-report-submit = Envia
 newtab-toast-thanks-for-reporting =
     .message = Gràcies per denunciar-ho.
+newtab-toast-widgets-hidden =
+    .message = Seleccioneu la icona del llapis per tornar a afegir ginys en qualsevol moment.
+# Variables:
+#   $topic (string) - Topic that the user has followed
+newtab-section-toast-follow =
+    .message = Ara seguiu { $topic }.
+# Variables:
+#   $topic (string) - Topic that the user has unfollowed
+newtab-section-toast-unfollow =
+    .message = Ja no seguiu { $topic }.
+# Variables:
+#   $topic (string) - Topic that the user has blocked
+newtab-section-toast-block =
+    .message = Ja no veureu més històries sobre { $topic }.
 
 ## Strings for task / to-do list productivity widget
 
@@ -832,6 +884,7 @@ newtab-widget-timer-menu-learn-more = Més informació
 newtab-widget-message-title = Mantingueu la concentració amb les llistes i amb un temporitzador integrat
 # to-dos stands for "things to do".
 newtab-widget-message-copy = Des de recordatoris ràpids fins a tasques diàries pendents, sessions de concentració o pauses d'estirament: manteniu la productivitat i la puntualitat.
+newtab-promo-card-title = Col·laboreu amb el { -brand-product-name }
 newtab-promo-card-body = Els nostres patrocinadors donen suport a la nostra missió de crear un web millor
 newtab-promo-card-cta = Més informació
 newtab-promo-card-dismiss-button =

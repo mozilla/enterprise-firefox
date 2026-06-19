@@ -5,6 +5,7 @@
 #ifndef mozilla_dom_indexeddb_serializationhelpers_h_
 #define mozilla_dom_indexeddb_serializationhelpers_h_
 
+#include "TransactionOpResult.h"
 #include "ipc/EnumSerializer.h"
 #include "ipc/IPCMessageUtilsSpecializations.h"
 #include "mozilla/dom/BindingIPCUtils.h"
@@ -77,6 +78,9 @@ struct ParamTraits<mozilla::dom::IDBTransaction::Durability>
           mozilla::dom::IDBTransaction::Durability,
           mozilla::dom::IDBTransaction::Durability::Default,
           mozilla::dom::IDBTransaction::Durability::Invalid> {};
+
+DEFINE_IPC_SERIALIZER_WITH_FIELDS(mozilla::dom::indexedDB::TransactionOpResult,
+                                  mCode, mErrorMessage)
 
 }  // namespace IPC
 

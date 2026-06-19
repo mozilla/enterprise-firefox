@@ -258,7 +258,7 @@ export class SettingGroup extends SettingElement {
       (this.srdEnabled || this.inSubPane || this.config.card == "always") &&
       this.config.card != "never"
     ) {
-      return html`<moz-card>${content}</moz-card>`;
+      return html`<moz-card role="presentation">${content}</moz-card>`;
     }
     return content;
   }

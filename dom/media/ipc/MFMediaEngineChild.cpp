@@ -195,12 +195,13 @@ mozilla::ipc::IPCResult MFMediaEngineChild::RecvNotifyError(
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult MFMediaEngineChild::RecvNotifyHardwareReset() {
+mozilla::ipc::IPCResult MFMediaEngineChild::RecvNotifyHardwareReset(
+    uint32_t aPlatformError) {
   AssertOnManagerThread();
   if (mShutdown || !mOwner) {
     return IPC_OK();
   }
-  mOwner->NotifyHardwareReset();
+  mOwner->NotifyHardwareReset(aPlatformError);
   return IPC_OK();
 }
 
@@ -438,10 +439,10 @@ void MFMediaEngineWrapper::NotifyError(const MediaResult& aError) {
   mOwner->NotifyError(aError);
 }
 
-void MFMediaEngineWrapper::NotifyHardwareReset() {
+void MFMediaEngineWrapper::NotifyHardwareReset(uint32_t aPlatformError) {
   AssertOnManagerThread();
   WLOG("Received hardware reset");
-  mOwner->NotifyHardwareReset();
+  mOwner->NotifyHardwareReset(aPlatformError);
 }
 
 void MFMediaEngineWrapper::NotifyWaitingForKey() {

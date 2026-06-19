@@ -277,7 +277,11 @@ pref("browser.uitour.surveyDuration", 7200);
 
 // UI density of the browser chrome. This mostly affects toolbarbutton
 // and urlbar spacing. The possible values are 0=normal, 1=compact, 2=touch.
-pref("browser.uidensity", 0);
+// Sticky so an explicit "Standard" choice (value 0, equal to the default)
+// is still recorded as a user value. This lets the appearance settings and
+// gUIDensity distinguish an explicit normal density (which must never be
+// auto-compacted) from the automatic density (no user value).
+sticky_pref("browser.uidensity", 0);
 // Whether Firefox will automatically override the uidensity to "touch"
 // while the user is in a touch environment (such as Windows tablet mode).
 pref("browser.touchmode.auto", true);
@@ -328,6 +332,13 @@ pref("browser.shell.checkDefaultPDF.silencedByUser", false);
 pref("browser.shell.setDefaultGuidanceNotifications", true);
 pref("browser.shell.focusSetDefaultBrowserButton", false);
 
+// Whether to display a Kit image behind the set default browser button in
+// Windows Settings. It can take the following values:
+// - "off": Don't display the image.
+// - "static": Display a static image.
+// - "animated": Display an animated image.
+pref("browser.shell.displayKitImageBehindSetDefaultBrowserButton", "off");
+
 // After a failed UserChoice attempt, show the OS "Open with" picker via the
 // undocumented IOpenWithLauncher API so the user can pick Firefox themselves.
 pref("browser.shell.setDefaultPDFHandler.useOpenWith", true);
@@ -360,10 +371,12 @@ pref("browser.startup.preXulSkeletonUI", true);
 pref("browser.startup.windowsLaunchOnLogin.enabled", true);
 // Whether to show the launch on login infobar notification
 pref("browser.startup.windowsLaunchOnLogin.disableLaunchOnLoginPrompt", false);
-// Whether new installs should default to launching Firefox on Windows login.
-// Set to false by DefaultWindowsLaunchOnLogin.applyExperimentOverride when
-// Nimbus opts users out. Read by StartupOSIntegration on first run.
-pref("browser.startup.windowsLaunchOnLogin.defaultEnabled", true);
+// Whether new installs default to launching Firefox on Windows login when the
+// user is not enrolled in Nimbus for this feature. When false, launch-on-login
+// is enabled only by a Nimbus rollout or experiment; when true, it is enabled
+// by default for everyone. A Nimbus enrollment overrides this in either
+// direction.
+pref("browser.startup.windowsLaunchOnLogin.defaultEnabled", false);
 #endif
 
 // Show an upgrade dialog on major upgrades.
@@ -2317,6 +2330,7 @@ pref("browser.ml.chat.prompts.4", '{"id":"proofread", "l10nId":"genai-prompts-pr
 pref("browser.ml.chat.provider", "");
 pref("browser.ml.chat.shortcuts", true);
 pref("browser.ml.chat.shortcuts.custom", true);
+pref("browser.ml.chat.shortcuts.smartwindow", false);
 pref("browser.ml.chat.shortcuts.longPress", 60000);
 pref("browser.ml.chat.shortcut.onboardingMouseoverCount", 0);
 pref("browser.ml.chat.sidebar", true);

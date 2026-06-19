@@ -127,7 +127,7 @@ add_task(async function test_switchtab_with_userContextId() {
   let button = document.querySelector(
     ".urlbarView-actions-container .urlbarView-action-btn.urlbarView-userContext"
   );
-  await BrowserTestUtils.waitForCondition(() => button.textContent.length);
+  await TestUtils.waitForCondition(() => button.textContent.length);
 
   Assert.ok(button, "Action button with userContext is in the result");
   Assert.ok(button.textContent.includes("personal"), "Label is correct");
@@ -138,7 +138,7 @@ add_task(async function test_switchtab_with_userContextId() {
 
   info("Switch the tab");
   EventUtils.synthesizeMouseAtCenter(button, {});
-  await BrowserTestUtils.waitForCondition(() => gBrowser.selectedTab == tab);
+  await TestUtils.waitForCondition(() => gBrowser.selectedTab == tab);
   Assert.ok(true, "Expected tab is selected");
   await SpecialPowers.popPrefEnv();
 });

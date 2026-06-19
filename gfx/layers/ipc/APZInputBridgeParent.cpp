@@ -204,10 +204,14 @@ mozilla::ipc::IPCResult APZInputBridgeParent::RecvProcessUnhandledEvent(
 }
 
 void APZInputBridgeParent::ActorDestroy(ActorDestroyReason aWhy) {
-  StaticMonitorAutoLock lock(CompositorBridgeParent::sIndirectLayerTreesLock);
-  CompositorBridgeParent::LayerTreeState& state =
-      CompositorBridgeParent::sIndirectLayerTrees[mLayersId];
-  state.mApzInputBridgeParent = nullptr;
+  // EnsureLayerTreeStateUnderLock mirrors the previous sIndirectLayerTrees[]
+  // access (insert-or-get), so this stays a behavior-preserving translation.
+  CompositorBridgeParent::WithIndirectLayerTreesLock(
+      [&](const StaticMonitorAutoLock& aProofOfLock) {
+        CompositorBridgeParent::EnsureLayerTreeStateUnderLock(mLayersId,
+                                                              aProofOfLock)
+            .mApzInputBridgeParent = nullptr;
+      });
   // We shouldn't need it after this
   mTreeManager = nullptr;
 }

@@ -600,7 +600,7 @@ Nullable<double> Animation::GetOverallProgress() const {
 
   const StickyTimeDuration endTime = EffectEnd();
   if (endTime.IsZero()) {
-    if (currentTime.Value() < TimeDuration(0)) {
+    if (currentTime.Value() < TimeDuration()) {
       result.SetValue(0.0);
     } else {
       result.SetValue(1.0);
@@ -860,7 +860,7 @@ void Animation::Finish(ErrorResult& aRv) {
 
   // Seek to the end
   TimeDuration limit =
-      PlaybackRateInternal() > 0 ? TimeDuration(EffectEnd()) : TimeDuration(0);
+      PlaybackRateInternal() > 0 ? TimeDuration(EffectEnd()) : TimeDuration();
   bool didChange = GetCurrentTimeAsDuration() != Nullable<TimeDuration>(limit);
   SilentlySetCurrentTime(limit);
 
@@ -1794,7 +1794,7 @@ void Animation::Pause(ErrorResult& aRv) {
       // below:
       if (PlaybackRateInternal() >= 0.0) {
         // If animation’s playback rate is ≥ 0, set hold time to zero.
-        mHoldTime.SetValue(TimeDuration(0));
+        mHoldTime.SetValue(TimeDuration());
       } else {
         if (EffectEnd() == TimeDuration::Forever()) {
           // If associated effect end for animation is positive infinity, throw
@@ -1949,9 +1949,9 @@ void Animation::UpdateFinishedState(SeekFlag aSeekFlag,
         mHoldTime = unconstrainedCurrentTime;
       } else if (!mPreviousCurrentTime.IsNull()) {
         mHoldTime.SetValue(
-            std::min(mPreviousCurrentTime.Value(), TimeDuration(0)));
+            std::min(mPreviousCurrentTime.Value(), TimeDuration()));
       } else {
-        mHoldTime.SetValue(0);
+        mHoldTime.SetValue(TimeDuration());
       }
     } else if (PlaybackRateInternal() != 0.0 && mTimeline &&
                !mTimeline->GetCurrentTimeAsDuration().IsNull()) {
@@ -2093,7 +2093,7 @@ void Animation::MaybeUpdateKeyframeComputedOffsets() {
 
 StickyTimeDuration Animation::EffectEnd() const {
   if (!mEffect) {
-    return StickyTimeDuration(0);
+    return StickyTimeDuration();
   }
 
   // FIXME: The definition of end time in web-animation-1 is different from that

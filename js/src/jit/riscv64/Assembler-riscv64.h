@@ -112,18 +112,22 @@ static const Scale ScalePointer = TimesEight;
 
 class Assembler;
 
-using Buffer =
-    js::jit::AssemblerBufferWithConstantPools<Instruction, Assembler,
-                                              js::jit::AssemblerBufferSettings{
-                                                  .instSize = kInstrSize,
-                                                  .guardSize = 2,
-                                                  .headerSize = 2,
-                                                  .pcBias = 8,
-                                                  .alignFillInst = kNopByte,
-                                                  .nopFillInst = kNopByte,
-                                                  .numShortBranchRanges =
-                                                      NumShortBranchRangeTypes,
-                                              }>;
+using Buffer = js::jit::AssemblerBufferWithConstantPools<
+    Instruction, Assembler,
+    js::jit::AssemblerBufferSettings{
+        .instSize = kInstrSize,
+        // Guard around veneer branches uses a single 'jal' instruction.
+        .guardSize = 1,
+        // Constant pools not used, so no header needed.
+        .headerSize = 0,
+        // Veneer branches use an 'auipc + jalr' instruction pair.
+        .veneerSize = 2,
+        // No bias needed when constant pool not used.
+        .pcBias = 0,
+        .alignFillInst = kNopByte,
+        .nopFillInst = kNopByte,
+        .numShortBranchRanges = NumShortBranchRangeTypes,
+    }>;
 
 class Assembler : public AssemblerShared,
                   public AssemblerRISCVI,
@@ -138,6 +142,13 @@ class Assembler : public AssemblerShared,
                   public AssemblerRISCVZicond,
                   public AssemblerRISCVZicsr,
                   public AssemblerRISCVZifencei {
+  // No maximum pool offset necessary when constant pool not used.
+  static constexpr size_t BufferMaxPoolOffset = 0;
+
+  // Number of nop instructions to add before instructions. Can be set to a non-
+  // zero value to check instruction locations are correctly referenced.
+  static constexpr unsigned BufferNumDebugNopsToInsert = 0;
+
   GeneralRegisterSet scratch_register_list_;
 
 #ifdef JS_JITSPEW
@@ -192,12 +203,9 @@ class Assembler : public AssemblerShared,
 #ifdef JS_JITSPEW
         printer(nullptr),
 #endif
-        m_buffer(/*poolMaxOffset*/ GetPoolMaxOffset(), /*nopFill*/ 0),
+        m_buffer(BufferMaxPoolOffset, BufferNumDebugNopsToInsert),
         isFinished(false) {
   }
-  static uint32_t NopFill;
-  static uint32_t AsmPoolMaxOffset;
-  static uint32_t GetPoolMaxOffset();
   bool reserve(size_t size);
   bool oom() const;
   void setPrinter(Sprinter* sp) {
@@ -209,6 +217,8 @@ class Assembler : public AssemblerShared,
     MOZ_ASSERT(!isFinished);
     isFinished = true;
   }
+
+  void flushBuffer() { m_buffer.flushPool(); }
 
   void enterNoPool(size_t maxInst, size_t maxNewDeadlines = 0) {
     m_buffer.enterNoPool(maxInst, maxNewDeadlines);
@@ -231,64 +241,13 @@ class Assembler : public AssemblerShared,
   // Copy the assembly code to the given buffer, and perform any pending
   // relocations relying on the target address.
   void executableCopy(uint8_t* buffer);
-  // API for speaking with the IonAssemblerBufferWithConstantPools generate an
-  // initial placeholder instruction that we want to later fix up.
-  static void InsertIndexIntoTag(uint8_t* load, uint32_t index);
-  static void PatchConstantPoolLoad(void* loadAddr, void* constPoolAddr);
-  // We're not tracking short-range branches for ARM for now.
+
   static void PatchShortRangeBranchToVeneer(Buffer*, unsigned rangeIdx,
                                             BufferOffset deadline,
                                             BufferOffset veneer);
-  struct PoolHeader {
-    uint32_t data;
-
-    struct Header {
-      // The size should take into account the pool header.
-      // The size is in units of Instruction (4bytes), not byte.
-      union {
-        struct {
-          uint32_t size : 15;
-
-          // "Natural" guards are part of the normal instruction stream,
-          // while "non-natural" guards are inserted for the sole purpose
-          // of skipping around a pool.
-          uint32_t isNatural : 1;
-          uint32_t ONES : 16;
-        };
-        uint32_t data;
-      };
-
-      Header(int size_, bool isNatural_)
-          : size(size_), isNatural(isNatural_), ONES(0xffff) {}
-
-      explicit Header(uint32_t data) : data(data) {
-        static_assert(sizeof(Header) == sizeof(uint32_t));
-        MOZ_ASSERT(ONES == 0xffff);
-      }
-
-      uint32_t raw() const {
-        static_assert(sizeof(Header) == sizeof(uint32_t));
-        return data;
-      }
-    };
-
-    PoolHeader(int size_, bool isNatural_)
-        : data(Header(size_, isNatural_).raw()) {}
-
-    uint32_t size() const {
-      Header tmp(data);
-      return tmp.size;
-    }
-
-    uint32_t isNatural() const {
-      Header tmp(data);
-      return tmp.isNatural;
-    }
-  };
-
-  static void WritePoolHeader(uint8_t* start, Pool* p, bool isNatural);
   static void WritePoolGuard(BufferOffset branch, Instruction* inst,
                              BufferOffset dest);
+
   void processCodeLabels(uint8_t* rawCode);
 
   // Get the next usable buffer offset. Note that a constant pool may be placed
@@ -374,7 +333,7 @@ class Assembler : public AssemblerShared,
   };
 
   Register getStackPointer() const { return StackPointer; }
-  void flushBuffer() {}
+
 #ifdef JS_DISASM_RISCV64
   static int disassembleInstr(Instruction* instr, bool enable_spew = false);
 #endif /* JS_DISASM_RISCV64 */

@@ -1014,6 +1014,10 @@ bool GLBlitHelper::BlitImageToFramebuffer(layers::Image* const srcImage,
       return false;
 #endif
     }
+    case ImageFormat::ANDROID_IMAGE_READER: {
+      MOZ_ASSERT(false);
+      return false;
+    }
     case ImageFormat::MAC_IOSURFACE:
 #ifdef XP_MACOSX
       return BlitImage(srcImage->AsMacIOSurfaceImage(), destRect, destOrigin,

@@ -10,7 +10,6 @@ Data documentation
    common-ping
    environment
    main-ping
-   backgroundhangmonitor-ping
    anonymous-ping
    first-shutdown-ping
    *-ping

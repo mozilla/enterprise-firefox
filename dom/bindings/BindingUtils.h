@@ -933,7 +933,7 @@ struct IsRefcounted {
   // This struct only works if T is fully declared (not just forward declared).
   // The std::is_base_of check will ensure that, we don't really need it for any
   // other reason (the static assert will of course always be true).
-  static_assert(!std::is_base_of<nsISupports, T>::value || IsRefcounted::value,
+  static_assert(!std::is_base_of_v<nsISupports, T> || IsRefcounted::value,
                 "Classes derived from nsISupports are refcounted!");
 };
 
@@ -1055,7 +1055,7 @@ struct CheckCastableWrapperCache {
            1 + binding_detail::CastableToWrapperCacheHelper::OffsetOf<T>();
   }
 };
-template <class T, bool isISupports = std::is_base_of<nsISupports, T>::value>
+template <class T, bool isISupports = std::is_base_of_v<nsISupports, T>>
 struct CheckWrapperCacheCast : public CheckCastableWrapperCache<T> {};
 template <class T>
 struct CheckWrapperCacheCast<T, true> {
@@ -1207,13 +1207,13 @@ template <class T>
 struct TypeNeedsOuterization {
   // We only need to outerize Window objects, so anything inheriting from
   // nsGlobalWindow (which inherits from EventTarget itself).
-  static const bool value = std::is_base_of<nsGlobalWindowInner, T>::value ||
-                            std::is_base_of<nsGlobalWindowOuter, T>::value ||
+  static const bool value = std::is_base_of_v<nsGlobalWindowInner, T> ||
+                            std::is_base_of_v<nsGlobalWindowOuter, T> ||
                             std::is_same_v<EventTarget, T>;
 };
 
 #ifdef DEBUG
-template <typename T, bool isISupports = std::is_base_of<nsISupports, T>::value>
+template <typename T, bool isISupports = std::is_base_of_v<nsISupports, T>>
 struct CheckWrapperCacheTracing {
   static inline void Check(T* aObject) {}
 };
@@ -1280,7 +1280,7 @@ MOZ_ALWAYS_INLINE bool DoGetOrCreateDOMReflector(
     }
 
 #ifdef DEBUG
-    if (std::is_base_of<nsWrapperCache, T>::value) {
+    if (std::is_base_of_v<nsWrapperCache, T>) {
       CheckWrapperCacheTracing<T>::Check(value);
     }
 #endif
@@ -1298,7 +1298,7 @@ MOZ_ALWAYS_INLINE bool DoGetOrCreateDOMReflector(
     //     reinterpret_castable to nsWrapperCache.
     MOZ_ASSERT(clasp, "What happened here?");
     MOZ_ASSERT_IF(clasp->mDOMObjectIsISupports,
-                  (std::is_base_of<nsISupports, T>::value));
+                  (std::is_base_of_v<nsISupports, T>));
     MOZ_ASSERT(CheckWrapperCacheCast<T>::Check());
   }
 #endif
@@ -2776,7 +2776,7 @@ inline bool UTF8StringToJsval(JSContext* cx, const nsACString& str,
   return NonVoidUTF8StringToJsval(cx, str, rval);
 }
 
-template <class T, bool isISupports = std::is_base_of<nsISupports, T>::value>
+template <class T, bool isISupports = std::is_base_of_v<nsISupports, T>>
 struct PreserveWrapperHelper {
   static void PreserveWrapper(T* aObject) {
     aObject->PreserveWrapper(aObject, NS_CYCLE_COLLECTION_PARTICIPANT(T));
@@ -2795,7 +2795,7 @@ void PreserveWrapper(T* aObject) {
   PreserveWrapperHelper<T>::PreserveWrapper(aObject);
 }
 
-template <class T, bool isISupports = std::is_base_of<nsISupports, T>::value>
+template <class T, bool isISupports = std::is_base_of_v<nsISupports, T>>
 struct CastingAssertions {
   static bool ToSupportsIsCorrect(T*) { return true; }
   static bool ToSupportsIsOnPrimaryInheritanceChain(T*, nsWrapperCache*) {
@@ -2907,7 +2907,7 @@ class MOZ_STACK_CLASS BindingJSObjectCreator {
   struct OwnedNative {
     // Make sure the native objects inherit from NonRefcountedDOMObject so
     // that we log their ctor and dtor.
-    static_assert(std::is_base_of<NonRefcountedDOMObject, T>::value,
+    static_assert(std::is_base_of_v<NonRefcountedDOMObject, T>,
                   "Non-refcounted objects with DOM bindings should inherit "
                   "from NonRefcountedDOMObject.");
 
@@ -2941,7 +2941,7 @@ struct DeferredFinalizerImpl {
   typedef SegmentedVector<SmartPtr> SmartPtrArray;
 
   static_assert(
-      std::is_same_v<T, nsISupports> || !std::is_base_of<nsISupports, T>::value,
+      std::is_same_v<T, nsISupports> || !std::is_base_of_v<nsISupports, T>,
       "nsISupports classes should all use the nsISupports instantiation");
 
   static inline void AppendAndTake(
@@ -2979,7 +2979,7 @@ struct DeferredFinalizerImpl {
   }
 };
 
-template <class T, bool isISupports = std::is_base_of<nsISupports, T>::value>
+template <class T, bool isISupports = std::is_base_of_v<nsISupports, T>>
 struct DeferredFinalizer {
   static void AddForDeferredFinalization(T* aObject) {
     typedef DeferredFinalizerImpl<T> Impl;
@@ -3003,7 +3003,7 @@ static void AddForDeferredFinalization(T* aObject) {
 // This returns T's CC participant if it participates in CC and does not inherit
 // from nsISupports. Otherwise, it returns null. QI should be used to get the
 // participant if T inherits from nsISupports.
-template <class T, bool isISupports = std::is_base_of<nsISupports, T>::value>
+template <class T, bool isISupports = std::is_base_of_v<nsISupports, T>>
 class GetCCParticipant {
   // Helper for GetCCParticipant for classes that participate in CC.
   template <class U>
@@ -3358,9 +3358,6 @@ void SetUseCounter(UseCounterWorker aUseCounter);
 
 // Warnings
 void DeprecationWarning(JSContext* aCx, JSObject* aObject,
-                        DeprecatedOperations aOperation);
-
-void DeprecationWarning(const GlobalObject& aGlobal,
                         DeprecatedOperations aOperation);
 
 namespace binding_detail {

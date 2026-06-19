@@ -1007,8 +1007,8 @@ UniquePtr<AVIFDecodedData> Dav1dDecoder::Dav1dPictureToDecodedData(
     OwnedDav1dPicture aAlphaPlane, bool aPremultipliedAlpha) {
   MOZ_ASSERT(aPicture);
 
-  static_assert(std::is_same<int, decltype(aPicture->p.w)>::value);
-  static_assert(std::is_same<int, decltype(aPicture->p.h)>::value);
+  static_assert(std::is_same_v<int, decltype(aPicture->p.w)>);
+  static_assert(std::is_same_v<int, decltype(aPicture->p.h)>);
 
   UniquePtr<AVIFDecodedData> data = MakeUnique<AVIFDecodedData>();
 

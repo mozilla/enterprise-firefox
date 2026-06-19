@@ -65,7 +65,7 @@ add_task(async function open_settings_with_there_is_already_opened_settings() {
   await onFocus;
   Assert.ok(true, "The window that has perference page got focus");
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => window.gBrowser.selectedTab == preferencesTab
   );
   Assert.ok(true, "Focus opened settings page");
@@ -256,7 +256,7 @@ add_task(async function detect_searchmode_changes() {
   gURLBar.querySelector(".searchmode-switcher-close").click();
   await UrlbarTestUtils.assertSearchMode(window, null);
 
-  await BrowserTestUtils.waitForCondition(() => {
+  await TestUtils.waitForCondition(() => {
     return (
       gURLBar.querySelector(".searchmode-switcher-title").textContent == ""
     );
@@ -327,7 +327,7 @@ add_task(async function test_search_icon_change() {
   newWin.gURLBar.querySelector(".searchmode-switcher-close").click();
   await UrlbarTestUtils.assertSearchMode(newWin, null);
 
-  let searchModeSwitcherIconUrl = await BrowserTestUtils.waitForCondition(
+  let searchModeSwitcherIconUrl = await TestUtils.waitForCondition(
     () => UrlbarTestUtils.getSearchModeSwitcherIcon(newWin),
     "Waiting for the search mode switcher icon to update after exiting search mode."
   );
@@ -792,7 +792,7 @@ add_task(async function test_search_service_fail() {
     set: [["keyword.enabled", false]],
   });
 
-  let searchModeSwitcherIconUrl = await BrowserTestUtils.waitForCondition(
+  let searchModeSwitcherIconUrl = await TestUtils.waitForCondition(
     () => UrlbarTestUtils.getSearchModeSwitcherIcon(newWin),
     "Waiting for the search mode switcher icon to update after exiting search mode."
   );
@@ -982,7 +982,7 @@ add_task(async function change_engines_with_accel_updown() {
 
   EventUtils.synthesizeKey("KEY_ArrowDown", { accelKey: true }, win);
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => !!win.gURLBar.searchMode,
     "We entered searchmode"
   );
@@ -990,12 +990,12 @@ add_task(async function change_engines_with_accel_updown() {
   let firstEngine = win.gURLBar.searchMode.engineName;
   EventUtils.synthesizeKey("KEY_ArrowDown", { accelKey: true }, win);
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => win.gURLBar.searchMode.engineName != firstEngine,
     "We navigated to another engine"
   );
 
-  await BrowserTestUtils.waitForCondition(() => {
+  await TestUtils.waitForCondition(() => {
     EventUtils.synthesizeKey("KEY_ArrowDown", { accelKey: true }, win);
     return win.gURLBar.searchMode?.engineName == firstEngine;
   }, "We navigated back to first engine");
@@ -1025,7 +1025,7 @@ add_task(async function search_engines_with_accel_updown() {
     let searchmodeChanged = TestUtils.topicObserved("urlbar-searchmodechanged");
     EventUtils.synthesizeKey("KEY_ArrowDown", { accelKey: true }, win);
     await searchmodeChanged;
-    await BrowserTestUtils.waitForCondition(async () => {
+    await TestUtils.waitForCondition(async () => {
       let complete = win.gURLBar.searchMode?.engineName != searchModeEngineName;
       if (complete) {
         searchModeEngineName = win.gURLBar.searchMode?.engineName;

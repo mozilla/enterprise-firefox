@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
@@ -54,6 +55,7 @@ import mozilla.components.ui.icons.R as iconsR
  * @param isDesktopMode Whether or not the current site is in desktop mode.
  * @param isSandboxCustomTab Whether or not the current custom tab is sandboxed.
  * @param isPrivate Whether or not the current custom tab is in a private browsing session.
+ * @param isBookmarked Whether or not the current custom tab is bookmarked.
  * @param isExtensionsExpanded Whether or not the extensions submenu is expanded.
  * @param isExtensionsProcessDisabled Whether or not the extensions process is disabled due to extension errors.
  * @param isAllWebExtensionsDisabled Whether or not all web extensions are disabled.
@@ -65,6 +67,8 @@ import mozilla.components.ui.icons.R as iconsR
  * @param scrollState The [ScrollState] used for vertical scrolling.
  * @param onSwitchToDesktopSiteMenuClick Invoked when the user clicks on the switch to desktop site
  * menu toggle.
+ * @param onBookmarkPageMenuClick Invoked when the user clicks on the bookmark page menu item.
+ * @param onEditBookmarkMenuClick Invoked when the user clicks on the edit bookmark menu item.
  * @param onFindInPageMenuClick Invoked when the user clicks on the find in page menu item.
  * @param onOpenInFirefoxMenuClick Invoked when the user clicks on the open in browser menu item.
  * @param onBackButtonClick Invoked when the user clicks on the back button.
@@ -86,6 +90,7 @@ internal fun CustomTabMenu(
     isDesktopMode: Boolean,
     isSandboxCustomTab: Boolean,
     isPrivate: Boolean,
+    isBookmarked: Boolean,
     isExtensionsExpanded: Boolean,
     isExtensionsProcessDisabled: Boolean,
     isAllWebExtensionsDisabled: Boolean,
@@ -96,6 +101,8 @@ internal fun CustomTabMenu(
     onCustomMenuItemClick: (PendingIntent) -> Unit,
     scrollState: ScrollState,
     onSwitchToDesktopSiteMenuClick: () -> Unit,
+    onBookmarkPageMenuClick: () -> Unit,
+    onEditBookmarkMenuClick: () -> Unit,
     onFindInPageMenuClick: () -> Unit,
     onOpenInFirefoxMenuClick: () -> Unit,
     onBackButtonClick: (longPress: Boolean) -> Unit,
@@ -187,6 +194,23 @@ internal fun CustomTabMenu(
                     MenuItemState.ENABLED
                 },
             )
+
+            if (isBookmarked) {
+                MenuItem(
+                    label = stringResource(id = R.string.browser_menu_edit_bookmark),
+                    modifier = Modifier.testTag(CustomTabMenuTestTags.EDIT_BOOKMARK_PAGE_ITEM),
+                    beforeIconPainter = painterResource(id = iconsR.drawable.mozac_ic_bookmark_fill_24),
+                    state = MenuItemState.ACTIVE,
+                    onClick = onEditBookmarkMenuClick,
+                )
+            } else {
+                MenuItem(
+                    label = stringResource(id = R.string.browser_menu_bookmark_this_page_2),
+                    modifier = Modifier.testTag(CustomTabMenuTestTags.BOOKMARK_PAGE_ITEM),
+                    beforeIconPainter = painterResource(id = iconsR.drawable.mozac_ic_bookmark_24),
+                    onClick = onBookmarkPageMenuClick,
+                )
+            }
 
             MenuItem(
                 label = stringResource(id = R.string.browser_menu_find_in_page),
@@ -322,6 +346,7 @@ private fun CustomTabMenuPreview(
                 isDesktopMode = false,
                 isSandboxCustomTab = false,
                 isPrivate = false,
+                isBookmarked = true,
                 isExtensionsExpanded = false,
                 isExtensionsProcessDisabled = false,
                 isAllWebExtensionsDisabled = false,
@@ -332,6 +357,8 @@ private fun CustomTabMenuPreview(
                 onCustomMenuItemClick = { _: PendingIntent -> },
                 scrollState = rememberScrollState(),
                 onSwitchToDesktopSiteMenuClick = {},
+                onBookmarkPageMenuClick = {},
+                onEditBookmarkMenuClick = {},
                 onFindInPageMenuClick = {},
                 onOpenInFirefoxMenuClick = {},
                 onBackButtonClick = {},
@@ -360,6 +387,7 @@ private fun CustomTabMenuDisabledButtonsPreview(
             CustomTabMenu(
                 canGoBack = false,
                 canGoForward = false,
+                isBookmarked = false,
                 isBottomToolbar = true,
                 isSiteLoading = false,
                 isPdf = true,
@@ -376,6 +404,8 @@ private fun CustomTabMenuDisabledButtonsPreview(
                 onCustomMenuItemClick = { _: PendingIntent -> },
                 scrollState = rememberScrollState(),
                 onSwitchToDesktopSiteMenuClick = {},
+                onBookmarkPageMenuClick = {},
+                onEditBookmarkMenuClick = {},
                 onFindInPageMenuClick = {},
                 onOpenInFirefoxMenuClick = {},
                 onBackButtonClick = {},

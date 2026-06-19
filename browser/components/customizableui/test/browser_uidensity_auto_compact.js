@@ -189,7 +189,7 @@ add_task(async function test_threshold_change_reevaluates() {
 
     // Start above the threshold: not compact.
     Services.prefs.setCharPref(PREF_THRESHOLD, above(ratio));
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => !isCompact(win),
       "Window starts non-compact above the threshold"
     );
@@ -197,14 +197,14 @@ add_task(async function test_threshold_change_reevaluates() {
     // Lowering the threshold under the ratio should engage compact via the
     // pref observer, without an explicit update() call.
     Services.prefs.setCharPref(PREF_THRESHOLD, below(ratio));
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => isCompact(win),
       "Lowering the threshold re-evaluates and engages compact"
     );
 
     // Raising it back should disengage compact.
     Services.prefs.setCharPref(PREF_THRESHOLD, above(ratio));
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => !isCompact(win),
       "Raising the threshold re-evaluates and disengages compact"
     );
@@ -331,7 +331,7 @@ add_task(async function test_collapsed_launcher_width_triggers_compact() {
   });
 
   await withNewWindow(async win => {
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => win.SidebarController?.initialized,
       "SidebarController is initialized"
     );

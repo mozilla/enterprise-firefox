@@ -704,11 +704,17 @@ export class TemporaryMerinoClientShim {
    *   The source that is requesting this fetch.
    * @param {string} options.endpointUrl
    *   The matches endpoint URL.
+   * @param {string} [options.date]
+   *   Optional YYYY-MM-DD date around which the backend should return its
+   *   ±21 day window of matches. Used by the load-more scroll on both the
+   *   Upcoming and Results lists (stepping the date forward to load future
+   *   matches or backward to load older ones); omit for the initial fetch
+   *   (which defaults to "today" backend-side).
    * @returns {Promise<{data: object|null, error: null | "invalid_url" | "load_error"}>}
    *   `error: null` with `data: null` means the endpoint is not configured
    *   (deliberate skip).
    */
-  async fetchSportsMatches({ source, endpointUrl }) {
+  async fetchSportsMatches({ source, endpointUrl, date }) {
     if (!endpointUrl) {
       return { data: null, error: null };
     }
@@ -722,6 +728,9 @@ export class TemporaryMerinoClientShim {
     }
     if (source) {
       url.searchParams.set("source", source);
+    }
+    if (date) {
+      url.searchParams.set("date", date);
     }
     try {
       const response = await fetch(url);

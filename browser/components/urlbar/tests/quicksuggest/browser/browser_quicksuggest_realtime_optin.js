@@ -474,7 +474,7 @@ add_task(async function not_interested() {
 });
 
 async function openRealtimeSuggestion({ input }) {
-  await BrowserTestUtils.waitForCondition(async () => {
+  await TestUtils.waitForCondition(async () => {
     await UrlbarTestUtils.promiseAutocompleteResultPopup({
       window,
       value: input,

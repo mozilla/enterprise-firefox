@@ -755,7 +755,7 @@ template <typename PtrType, class C, typename R, bool Owning,
           mozilla::RunnableKind Kind, typename... As>
 struct nsRunnableMethodTraits<PtrType, R (C::*)(As...), Owning, Kind> {
   using class_type = mozilla::RemoveRawOrSmartPointer<PtrType>;
-  static_assert(std::is_base_of<C, class_type>::value,
+  static_assert(std::is_base_of_v<C, class_type>,
                 "Stored class must inherit from method's class");
   using return_type = R;
   using base_type = nsRunnableMethod<C, R, Owning, Kind>;
@@ -766,7 +766,7 @@ template <typename PtrType, class C, typename R, bool Owning,
           mozilla::RunnableKind Kind, typename... As>
 struct nsRunnableMethodTraits<PtrType, R (C::*)(As...) const, Owning, Kind> {
   using class_type = const mozilla::RemoveRawOrSmartPointer<PtrType>;
-  static_assert(std::is_base_of<C, class_type>::value,
+  static_assert(std::is_base_of_v<C, class_type>,
                 "Stored class must inherit from method's class");
   using return_type = R;
   using base_type = nsRunnableMethod<C, R, Owning, Kind>;

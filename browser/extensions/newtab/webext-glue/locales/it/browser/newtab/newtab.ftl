@@ -1088,6 +1088,8 @@ newtab-sports-widget-show-less =
 # Toggle that filters the list of teams the user follows
 newtab-sports-widget-followed-only-toggle =
     .label = Solo squadre seguite
+# Status shown when more matches are being fetched.
+newtab-sports-widget-loading-more = Caricamento altre partite…
 # Watch is a verb (as in watch matches online).
 newtab-sports-widget-watch =
     .label = Guarda
@@ -1167,6 +1169,9 @@ newtab-sports-widget-third-place = Terzo posto
 newtab-sports-widget-runner-up = Secondi classificati
 newtab-sports-widget-champions = Campioni
 newtab-sports-widget-world-cup-champions = Campioni della Coppa del Mondo 2026
+# Compact champions label for the medium-size widget result card; the larger
+# card uses newtab-sports-widget-world-cup-champions.
+newtab-sports-widget-world-cup-champions-short = Campioni 2026
 # Variables:
 #   $date (Date) - The match start time
 newtab-sports-widget-match-time = { DATETIME($date, hour: "2-digit", minute: "2-digit") }
@@ -1366,3 +1371,4 @@ newtab-clock-widget-menu-button =
     .aria-label = Apri il menu per l’orologio
 # $nickname (String) - The user-defined nickname for a saved clock location (e.g., "Home", "Office").
 newtab-clock-widget-label-nickname-with-value = Nome: { $nickname }
+

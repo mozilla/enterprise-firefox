@@ -35,7 +35,7 @@ async function clickQuickActionOneoffButton() {
 }
 
 const assertAction = async name => {
-  await BrowserTestUtils.waitForCondition(() =>
+  await TestUtils.waitForCondition(() =>
     window.document.querySelector(`.urlbarView-action-btn[data-action=${name}]`)
   );
   Assert.ok(true, `We found action "${name}`);

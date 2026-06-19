@@ -259,7 +259,7 @@ add_task(
 
           const sidebarBrowser =
             win.document.getElementById("ai-window-browser");
-          await BrowserTestUtils.waitForCondition(() => {
+          await TestUtils.waitForCondition(() => {
             const el =
               sidebarBrowser.contentDocument?.querySelector("ai-window");
             return el?.shadowRoot;

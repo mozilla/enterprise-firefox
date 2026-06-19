@@ -245,7 +245,8 @@ function SportsMatchRow({
       case "now": {
         const liveStatusL10nId =
           LIVE_STATUS_L10N_MAP[status_type?.toLowerCase()];
-        if (!liveStatusL10nId) {
+        // The Now tab's live status footer is only shown in the large widget.
+        if (!liveStatusL10nId || size !== "large") {
           return (
             <ScorePill
               homeScore={displayHomeScore}

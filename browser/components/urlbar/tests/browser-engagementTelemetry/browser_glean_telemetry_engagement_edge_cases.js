@@ -104,7 +104,7 @@ add_task(async function engagement_before_showing_results() {
     // Wait until starting the query and filling expected results.
     const context = await anotherHeuristicProvider.onQueryStarted();
     const query = providersManager.queries.get(context);
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () =>
         query.unsortedResults.some(
           r => r.providerName === "UrlbarProviderHeuristicFallback"
@@ -190,7 +190,7 @@ add_task(async function enter_to_reload_current_url() {
 
     // Focus the urlbar.
     EventUtils.synthesizeMouseAtCenter(gURLBar.inputField, {});
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => window.document.activeElement === gURLBar.inputField
     );
 

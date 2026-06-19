@@ -879,7 +879,7 @@ async function clickDoorhangerButton(buttonType, index = 0) {
   } else if (buttonType == MENU_BUTTON) {
     // Click the dropmarker arrow and wait for the menu to show up.
     info("expecting notification menu button present");
-    await BrowserTestUtils.waitForCondition(() => getNotification().menubutton);
+    await TestUtils.waitForCondition(() => getNotification().menubutton);
     await sleep(2000); // menubutton needs extra time for binding
     let notification = getNotification();
 
@@ -1688,7 +1688,7 @@ async function add_heuristic_tests(
       info(`Waiting for expected section count`);
       const actor =
         browser.browsingContext.currentWindowGlobal.getActor("FormAutofill");
-      await BrowserTestUtils.waitForCondition(() => {
+      await TestUtils.waitForCondition(() => {
         const sections = Array.from(actor.sectionsByRootId.values()).flat();
         return sections.length == testPattern.expectedResult.length;
       }, "Expected section count.");

@@ -15,10 +15,18 @@ DIST_SUBDIR = ""
 
 FINAL_TARGET_FILES += [
     "../extension/bg.js",
-    "../extension/manifest.json",
+    "../manifest.json",
 ]
 
-FINAL_TARGET_FILES.breakages += ["../extension/breakages/**"]
-FINAL_TARGET_FILES.conditions += ["../extension/conditions/**"]
-FINAL_TARGET_FILES.api.parent += ["../extension/api/parent/**"]
-FINAL_TARGET_FILES.api.schemas += ["../extension/api/schemas/**"]
+FINAL_TARGET_FILES.breakages += [
+    "/browser/extensions/ipp-activator/extension/breakages/**"
+]
+FINAL_TARGET_FILES.conditions += [
+    "/browser/extensions/ipp-activator/extension/conditions/**"
+]
+FINAL_TARGET_FILES.api.parent += [
+    "/browser/extensions/ipp-activator/extension/api/parent/**"
+]
+FINAL_TARGET_FILES.api.schemas += [
+    "/browser/extensions/ipp-activator/extension/api/schemas/**"
+]

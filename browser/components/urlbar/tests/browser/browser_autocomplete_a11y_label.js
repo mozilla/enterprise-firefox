@@ -16,7 +16,7 @@ const TEST_ENGINE_BASENAME = "searchSuggestionEngine.xml";
 let accService;
 
 async function getResultText(element, expectedValue, description = "") {
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => {
       let accessible = accService.getAccessibleFor(element);
       return accessible !== null && accessible.name === expectedValue;

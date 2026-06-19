@@ -126,7 +126,7 @@ IntervalType MediaSourceDecoder::GetSeekableImpl() {
       // 2. Return a single range with a start time equal to the earliest start
       // time in union ranges and an end time equal to the highest end time in
       // union ranges and abort these steps.
-      if constexpr (std::is_same<IntervalType, TimeRanges>::value) {
+      if constexpr (std::is_same_v<IntervalType, TimeRanges>) {
         TimeRanges seekableRange = media::TimeRanges(
             TimeRange(unionRanges.GetStart(), unionRanges.GetEnd()));
         return seekableRange;
@@ -139,10 +139,10 @@ IntervalType MediaSourceDecoder::GetSeekableImpl() {
       seekable += media::TimeInterval(TimeUnit::Zero(), buffered.GetEnd());
     }
   } else {
-    if constexpr (std::is_same<IntervalType, TimeRanges>::value) {
+    if constexpr (std::is_same_v<IntervalType, TimeRanges>) {
       // Common case: seekable in entire range of the media.
       return TimeRanges(TimeRange(0, duration));
-    } else if constexpr (std::is_same<IntervalType, TimeIntervals>::value) {
+    } else if constexpr (std::is_same_v<IntervalType, TimeIntervals>) {
       seekable += media::TimeInterval(TimeUnit::Zero(),
                                       mDuration.match(DurationToTimeUnit()));
     } else {

@@ -63,11 +63,14 @@ import mozilla.components.support.base.feature.ViewBoundFeatureWrapper
 import mozilla.components.support.base.log.logger.Logger
 import mozilla.components.support.ktx.kotlinx.coroutines.flow.ifAnyChanged
 import org.mozilla.fenix.BuildConfig
+import org.mozilla.fenix.GleanMetrics.Vpn
 import org.mozilla.fenix.R
+import org.mozilla.fenix.components.Components
 import org.mozilla.fenix.components.components
 import org.mozilla.fenix.components.menu.IPProtectionMenuBinding
 import org.mozilla.fenix.components.menu.compose.MenuDialogBottomSheet
 import org.mozilla.fenix.components.menu.compose.MenuHandleState
+import org.mozilla.fenix.components.menu.store.IPProtectionMenuState
 import org.mozilla.fenix.components.menu.store.IPProtectionMenuStatus
 import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.ext.runIfFragmentIsAttached
@@ -358,13 +361,12 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
                                     store.dispatch(TrustPanelAction.Navigate.QWAC)
                                 },
                                 onIPProtectionToggle = {
-                                    if (ipProtectionMenuState.status == IPProtectionMenuStatus.AuthRequired) {
-                                        store.dispatch(TrustPanelAction.Navigate.IPProtectionSettings)
-                                    } else {
-                                        components.ipProtection.store.dispatch(IPProtectionAction.Toggle)
-                                    }
+                                    handleIPProtectionToggleAndRecordTelemetry(ipProtectionMenuState, components)
                                 },
                                 onIPProtectionNavigate = {
+                                    Vpn.settingsPageTapped.record(
+                                        Vpn.SettingsPageTappedExtra(entrypoint = "Trust Panel"),
+                                    )
                                     store.dispatch(TrustPanelAction.Navigate.IPProtectionSettings)
                                 },
                             )
@@ -431,6 +433,33 @@ class TrustPanelFragment : BottomSheetDialogFragment() {
                     }
                 }
             }
+        }
+    }
+
+    private fun handleIPProtectionToggleAndRecordTelemetry(
+        ipProtectionMenuState: IPProtectionMenuState,
+        components: Components,
+    ) {
+        recordIPProtectionTelemetry(ipProtectionMenuState.status)
+
+        when (ipProtectionMenuState.status) {
+            IPProtectionMenuStatus.AuthRequired ->
+                store.dispatch(TrustPanelAction.Navigate.IPProtectionSettings)
+
+            else -> components.ipProtection.store.dispatch(IPProtectionAction.Toggle)
+        }
+    }
+
+    private fun recordIPProtectionTelemetry(status: IPProtectionMenuStatus) {
+        when (status) {
+            IPProtectionMenuStatus.Disabled -> Vpn.trustPanelTurnedOn.record()
+            IPProtectionMenuStatus.Enabled -> Vpn.trustPanelTurnedOff.record()
+            IPProtectionMenuStatus.AuthRequired -> Vpn.trustPanelTryItTapped.record()
+
+            IPProtectionMenuStatus.DataLimitReached,
+            IPProtectionMenuStatus.ConnectionError,
+            IPProtectionMenuStatus.Activating,
+                -> Unit
         }
     }
 

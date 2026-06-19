@@ -162,7 +162,7 @@ add_task(async function test_block_trending() {
     resultIndex: 0,
   });
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => UrlbarTestUtils.getResultCount(window) == 1
   );
   let { result: heuristicResult } = await UrlbarTestUtils.getDetailsOfResultAt(

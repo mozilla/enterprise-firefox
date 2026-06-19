@@ -94,7 +94,7 @@ let COMMANDS_TESTS = [
     uri: "about:firefoxview",
     loadType: LOAD_TYPE.PRE_LOADED,
     testFun: async () => {
-      await BrowserTestUtils.waitForCondition(() => {
+      await TestUtils.waitForCondition(() => {
         return (
           window.gBrowser.selectedBrowser.currentURI.spec == "about:firefoxview"
         );
@@ -111,7 +111,7 @@ let COMMANDS_TESTS = [
       registerCleanupFunction(cleanup);
     },
     testFun: async () => {
-      await BrowserTestUtils.waitForCondition(() => {
+      await TestUtils.waitForCondition(() => {
         return (
           window.gBrowser.selectedBrowser.currentURI.spec ==
           "about:preferences#experimental"
@@ -223,7 +223,7 @@ let COMMANDS_TESTS = [
   {
     cmd: "library",
     testFun: async () => {
-      await BrowserTestUtils.waitForCondition(() => {
+      await TestUtils.waitForCondition(() => {
         return Services.wm.getMostRecentWindow("Places:Organizer");
       });
       const libraryWindow = Services.wm.getMostRecentWindow("Places:Organizer");

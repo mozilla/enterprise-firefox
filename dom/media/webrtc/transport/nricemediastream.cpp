@@ -451,6 +451,8 @@ nsresult NrIceMediaStream::GetCandidatePairs(
     pair.codeword = p1->codeword;
     pair.bytes_sent = p1->bytes_sent;
     pair.bytes_recvd = p1->bytes_recvd;
+    pair.packets_sent = p1->packets_sent;
+    pair.packets_recvd = p1->packets_recvd;
     pair.ms_since_last_send =
         p1->last_sent.tv_sec * 1000 + p1->last_sent.tv_usec / 1000;
     pair.ms_since_last_recv =

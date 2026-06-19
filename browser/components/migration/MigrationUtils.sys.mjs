@@ -98,7 +98,7 @@ const MIGRATOR_MODULES = Object.freeze({
   },
   ChromiumEdgeMigrator: {
     moduleURI: "resource:///modules/ChromeProfileMigrator.sys.mjs",
-    platforms: ["macosx", "win"],
+    platforms: ["linux", "macosx", "win"],
   },
   ChromiumEdgeBetaMigrator: {
     moduleURI: "resource:///modules/ChromeProfileMigrator.sys.mjs",

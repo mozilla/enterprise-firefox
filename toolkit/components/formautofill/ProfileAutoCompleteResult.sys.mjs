@@ -5,6 +5,7 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  AutofillDataTypes: "resource://gre/modules/shared/AutofillDataTypes.sys.mjs",
   CreditCard: "resource://gre/modules/CreditCard.sys.mjs",
 });
 
@@ -18,7 +19,7 @@ ChromeUtils.defineLazyGetter(
     )
 );
 
-class ProfileAutoCompleteResult {
+export class ProfileAutoCompleteResult {
   externalEntries = [];
 
   constructor(
@@ -258,6 +259,23 @@ class ProfileAutoCompleteResult {
     }
 
     return "item";
+  }
+
+  /**
+   * Build the autocomplete result for a data type. The result classes live
+   * here, so this factory owns the type-id -> class mapping.
+   *
+   * @param {string} typeId An AutofillDataTypes id.
+   * @param {...any} args Forwarded to the result constructor.
+   * @returns {ProfileAutoCompleteResult}
+   */
+  static createResult(typeId, ...args) {
+    switch (typeId) {
+      case lazy.AutofillDataTypes.CREDIT_CARD:
+        return new CreditCardResult(...args);
+      default:
+        return new AddressResult(...args);
+    }
   }
 }
 

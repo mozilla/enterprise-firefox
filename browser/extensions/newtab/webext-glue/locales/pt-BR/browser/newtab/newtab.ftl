@@ -894,11 +894,11 @@ newtab-widget-lists-dropdown-create =
 newtab-widget-lists-name-label-default =
     .label = Lista de tarefas
 newtab-widget-lists-name-label-checklist =
-    .label = Lista de verificação
+    .label = Lista de tarefas
 newtab-widget-lists-name-placeholder-default =
     .placeholder = Lista de tarefas
 newtab-widget-lists-name-placeholder-checklist2 =
-    .placeholder = Lista de verificação
+    .placeholder = Lista de tarefas
     .aria-label = Editar nome da lista
 # The placeholder value of the name field for a newly created list
 newtab-widget-lists-name-placeholder-new2 =
@@ -947,7 +947,7 @@ newtab-widget-section-show-more =
 # allowing users to collapse it back to one row.
 newtab-widget-section-show-less =
     .label = Mostrar menos widgets
-newtab-widget-lists-name-default = Lista de verificação
+newtab-widget-lists-name-default = Lista de tarefas
 
 ## Strings introduced by the Nova redesign of the Timer widget
 

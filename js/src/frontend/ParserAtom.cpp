@@ -688,10 +688,10 @@ bool ParserAtomsTable::isIdentifier(TaggedParserAtomIndex index) const {
   if (index.isLength1StaticParserString()) {
     char content[1];
     getLength1Content(index.toLength1StaticParserString(), content);
-    if (MOZ_UNLIKELY(content[0] > 127)) {
+    if (uint8_t(content[0]) > 127) [[unlikely]] {
       return IsIdentifier(reinterpret_cast<const Latin1Char*>(content), 1);
     }
-    return IsIdentifierASCII(char(content[0]));
+    return IsIdentifierASCII(content[0]);
   }
 
   if (index.isLength2StaticParserString()) {

@@ -234,6 +234,15 @@ export const INITIAL_STATE = {
     // just-ended match's global_event_id to the ms timestamp it left /live;
     // `celebrated` lists ids that have already triggered a celebration.
     celebrations: { endedAt: {}, celebrated: [] },
+    // Session-only state for infinite-scroll load-more on the Upcoming and
+    // Results expanded "View all" lists. Each direction tracks its own
+    // in-flight flag, end-of-data flag, and the most recently requested
+    // date. Fetched windows are NOT persisted — they re-fetch on next
+    // session start.
+    loadMore: {
+      upcoming: { loading: false, exhausted: false, lastFetchedDate: null },
+      results: { loading: false, exhausted: false, lastFetchedDate: null },
+    },
   },
 };
 
@@ -1224,8 +1233,6 @@ function ExternalComponents(
 
 function SportsWidget(prevState = INITIAL_STATE.SportsWidget, action) {
   switch (action.type) {
-    case at.WIDGETS_SPORTS_WIDGET_SET:
-      return { ...prevState, data: action.data, initialized: true };
     case at.WIDGETS_SPORTS_SET_WIDGET_STATE:
       return { ...prevState, widgetState: action.data };
     case at.WIDGETS_SPORTS_SET_SELECTED_TEAMS:
@@ -1261,6 +1268,67 @@ function SportsWidget(prevState = INITIAL_STATE.SportsWidget, action) {
       return { ...prevState, liveIndex: action.data };
     case at.WIDGETS_SPORTS_SET_CELEBRATIONS:
       return { ...prevState, celebrations: action.data };
+    case at.WIDGETS_SPORTS_SET_LOAD_MORE: {
+      const {
+        direction,
+        matches: newMatches,
+        ...loadMoreUpdates
+      } = action.data || {};
+      if (direction !== "upcoming" && direction !== "results") {
+        return prevState;
+      }
+      // Upcoming appends to data.matches.next; results appends to
+      // data.matches.previous. The key used to skip duplicates is the same
+      // in both cases.
+      const targetField = direction === "upcoming" ? "next" : "previous";
+      const nextState = {
+        ...prevState,
+        loadMore: {
+          ...prevState.loadMore,
+          [direction]: {
+            ...prevState.loadMore[direction],
+            ...loadMoreUpdates,
+          },
+        },
+      };
+      if (Array.isArray(newMatches) && newMatches.length && prevState.data) {
+        const existing = prevState.data.matches?.[targetField] ?? [];
+        // Build a stable key for each match so we can skip ones already in
+        // the list. Prefer global_event_id; fall back to a composite that
+        // mirrors the React row key used in the list view.
+        const matchKey = match =>
+          match?.global_event_id ??
+          `${match?.home_team?.key}-${match?.away_team?.key}-${match?.date}`;
+        const existingKeys = new Set(existing.map(matchKey));
+        const additions = newMatches.filter(
+          m => !existingKeys.has(matchKey(m))
+        );
+        if (additions.length) {
+          nextState.data = {
+            ...prevState.data,
+            matches: {
+              ...(prevState.data.matches || {
+                previous: [],
+                current: [],
+                next: [],
+              }),
+              [targetField]: [...existing, ...additions],
+            },
+          };
+        }
+      }
+      return nextState;
+    }
+    case at.WIDGETS_SPORTS_WIDGET_SET:
+      // A wholesale-replace of `data` (initial load / post-match resync) also
+      // resets the session-only load-more state so we don't keep stale
+      // lastFetchedDate / exhausted flags from a previous fetch round.
+      return {
+        ...prevState,
+        data: action.data,
+        initialized: true,
+        loadMore: { ...INITIAL_STATE.SportsWidget.loadMore },
+      };
     default:
       return prevState;
   }

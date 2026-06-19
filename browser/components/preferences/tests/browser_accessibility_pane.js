@@ -47,7 +47,7 @@ add_task(async function test_accessibility_pane_click_sidebar() {
   let doc = tab.linkedBrowser.contentDocument;
 
   let navButton = doc.getElementById("category-accessibility");
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => navButton?.buttonEl,
     "Wait for accessibility nav button to render"
   );

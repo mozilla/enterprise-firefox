@@ -448,10 +448,7 @@ export default class IPProtectionContentElement extends MozLitElement {
             <div class="skeleton skeleton-title"></div>
             <div class="skeleton skeleton-line"></div>
           </span>
-          <img
-            role="presentation"
-            src="chrome://browser/content/ipprotection/assets/states/ipprotection-loading.svg"
-          />
+          <div class="skeleton skeleton-image"></div>
         </span>
         <div class="skeleton skeleton-line-thick"></div>
         <div class="skeleton skeleton-line-thick"></div>

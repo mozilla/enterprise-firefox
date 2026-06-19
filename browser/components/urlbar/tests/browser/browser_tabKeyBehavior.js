@@ -395,7 +395,7 @@ async function waitForFocusOnNextFocusableElement(reverse = false) {
     !Services.prefs.getBoolPref("browser.toolbars.keyboard_navigation", true)
   ) {
     let sidebar = document.querySelector("sidebar-main");
-    return BrowserTestUtils.waitForCondition(
+    return TestUtils.waitForCondition(
       () =>
         document.activeElement ==
         (!sidebarLauncherVisible ? gBrowser.selectedBrowser : sidebar)
@@ -425,9 +425,7 @@ async function waitForFocusOnNextFocusableElement(reverse = false) {
     "We should have a reference to the next focusable element after the Urlbar."
   );
 
-  return BrowserTestUtils.waitForCondition(
-    () => nextFocusableElement.tabIndex == -1
-  );
+  return TestUtils.waitForCondition(() => nextFocusableElement.tabIndex == -1);
 }
 
 async function exitSearchMode() {

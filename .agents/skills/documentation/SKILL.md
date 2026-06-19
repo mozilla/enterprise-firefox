@@ -1,4 +1,5 @@
 ---
+name: documentation
 description: Use this skill when working with Firefox documentation,
   including building documentation with `./mach doc`,
   fixing Sphinx build errors or warnings, modifying existing

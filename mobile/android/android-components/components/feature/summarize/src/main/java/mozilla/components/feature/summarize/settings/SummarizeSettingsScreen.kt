@@ -34,6 +34,7 @@ import mozilla.components.compose.base.Switch
 import mozilla.components.compose.base.button.IconButton
 import mozilla.components.compose.base.theme.AcornTheme
 import mozilla.components.feature.summarize.R
+import mozilla.components.lib.shake.ShakeSensitivity
 import mozilla.components.ui.icons.R as iconsR
 
 /**
@@ -58,6 +59,7 @@ fun SummarizeSettingsContent(
         onSummarizePagesToggled = { store.dispatch(SummarizePagesPreferenceToggled) },
         onShakeToSummarizeToggled = { store.dispatch(ShakeToSummarizePreferenceToggled) },
         onLearnMoreClicked = { store.dispatch(LearnMoreClicked) },
+        onShakeSensitivityChanged = { store.dispatch(ShakeSensitivityChanged(it)) },
     )
 }
 
@@ -68,6 +70,7 @@ fun SummarizeSettingsContent(
  * @param onSummarizePagesToggled Called when the user toggles the summarize pages setting.
  * @param onShakeToSummarizeToggled Called when the user toggles the shake to summarize setting.
  * @param onLearnMoreClicked Called when the user clicks the learn more link.
+ * @param onShakeSensitivityChanged Called when user slides shake sensitivity slider.
  */
 @Composable
 fun SummarizeSettingsContent(
@@ -75,6 +78,7 @@ fun SummarizeSettingsContent(
     onSummarizePagesToggled: () -> Unit,
     onShakeToSummarizeToggled: () -> Unit,
     onLearnMoreClicked: () -> Unit,
+    onShakeSensitivityChanged: (ShakeSensitivity) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -91,7 +95,7 @@ fun SummarizeSettingsContent(
 
         Text(
             text = stringResource(id = R.string.mozac_summarize_settings_learn_more),
-            style = MaterialTheme.typography.bodyMedium.copy(
+            style = AcornTheme.typography.body2.copy(
                 color = MaterialTheme.colorScheme.tertiary,
                 textDecoration = TextDecoration.Underline,
             ),
@@ -103,7 +107,7 @@ fun SummarizeSettingsContent(
 
         Text(
             text = stringResource(id = R.string.mozac_summarize_settings_gestures),
-            style = MaterialTheme.typography.titleSmall.copy(
+            style = AcornTheme.typography.headline8.copy(
                 color = MaterialTheme.colorScheme.onSurface,
             ),
             modifier = Modifier.padding(vertical = AcornTheme.layout.space.static100),
@@ -119,6 +123,12 @@ fun SummarizeSettingsContent(
             checked = state.isGestureEnabled,
             enabled = state.isFeatureEnabled,
             onToggle = onShakeToSummarizeToggled,
+        )
+
+        ShakeSensitivityPreference(
+            isEnabled = state.isFeatureEnabled && state.isGestureEnabled,
+            value = state.shakeSensitivity,
+            onValueChange = onShakeSensitivityChanged,
         )
     }
 }
@@ -148,7 +158,7 @@ private fun SwitchRow(
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodyLarge.copy(
+                style = AcornTheme.typography.body1.copy(
                     color = if (enabled) {
                         MaterialTheme.colorScheme.onSurface
                     } else {
@@ -158,7 +168,7 @@ private fun SwitchRow(
             )
             Text(
                 text = description,
-                style = MaterialTheme.typography.bodyMedium.copy(
+                style = AcornTheme.typography.body2.copy(
                     color = if (enabled) {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     } else {
@@ -209,7 +219,7 @@ internal fun SettingsAppBar(
 
         Text(
             text = stringResource(id = R.string.mozac_summarize_settings_title),
-            style = MaterialTheme.typography.headlineSmall,
+            style = AcornTheme.typography.headline5,
             color = MaterialTheme.colorScheme.onSurface,
         )
     }

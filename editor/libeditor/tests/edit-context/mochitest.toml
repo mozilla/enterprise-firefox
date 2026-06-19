@@ -9,3 +9,6 @@ prefs = [
 ["test_editcontext_composition.html"]
 
 ["test_editcontext_format_commands.html"]
+
+["test_editcontext_resist_fingerprinting.html"]
+support-files = ["file_editcontext_resist_fingerprinting.html"]

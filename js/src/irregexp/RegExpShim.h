@@ -294,7 +294,7 @@ inline uint8_t saturated_cast<uint8_t, uint32_t>(uint32_t x) {
 // branch.
 template <typename T, typename U>
 inline constexpr bool IsInRange(T value, U lower_limit, U higher_limit) {
-  using unsigned_T = typename std::make_unsigned<T>::type;
+  using unsigned_T = std::make_unsigned_t<T>;
   // Use static_cast to support enum classes.
   return static_cast<unsigned_T>(static_cast<unsigned_T>(value) -
                                  static_cast<unsigned_T>(lower_limit)) <=
@@ -730,8 +730,8 @@ inline int CompareChars(const lchar* lhs, const rchar* rhs, size_t chars) {
 template <typename lchar, typename rchar>
 inline bool CompareCharsEqualUnsigned(const lchar* lhs, const rchar* rhs,
                                       size_t chars) {
-  STATIC_ASSERT(std::is_unsigned<lchar>::value);
-  STATIC_ASSERT(std::is_unsigned<rchar>::value);
+  STATIC_ASSERT(std::is_unsigned_v<lchar>);
+  STATIC_ASSERT(std::is_unsigned_v<rchar>);
   if (sizeof(*lhs) == sizeof(*rhs)) {
     // memcmp compares byte-by-byte, but for equality it doesn't matter whether
     // two-byte char comparison is little- or big-endian.
@@ -746,8 +746,8 @@ inline bool CompareCharsEqualUnsigned(const lchar* lhs, const rchar* rhs,
 template <typename lchar, typename rchar>
 inline bool CompareCharsEqual(const lchar* lhs, const rchar* rhs,
                               size_t chars) {
-  using ulchar = typename std::make_unsigned<lchar>::type;
-  using urchar = typename std::make_unsigned<rchar>::type;
+  using ulchar = std::make_unsigned_t<lchar>;
+  using urchar = std::make_unsigned_t<rchar>;
   return CompareCharsEqualUnsigned(reinterpret_cast<const ulchar*>(lhs),
                                    reinterpret_cast<const urchar*>(rhs), chars);
 }
@@ -956,7 +956,7 @@ inline bool IsByteArray(Object obj) {
 template <typename T>
 class FixedIntegerArray : public ByteArray {
   static_assert(alignof(T) <= alignof(ByteArrayData));
-  static_assert(std::is_integral<T>::value);
+  static_assert(std::is_integral_v<T>);
 
  public:
   static Handle<FixedIntegerArray<T>> New(Isolate* isolate, uint32_t length);

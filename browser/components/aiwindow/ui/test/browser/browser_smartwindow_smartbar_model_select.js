@@ -315,7 +315,7 @@ add_task(async function test_model_switch_routes_to_correct_endpoint() {
     // Test initial preset turn
     await typeInSmartbar(browser, "Preset message");
     await submitSmartbar(browser);
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => presetRequests.length,
       "MLPA endpoint should receive the preset request"
     );
@@ -330,7 +330,7 @@ add_task(async function test_model_switch_routes_to_correct_endpoint() {
     await switchSmartbarModel(browser, "0");
     await typeInSmartbar(browser, "Custom message");
     await submitSmartbar(browser);
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => customRequests.length,
       "Custom endpoint should receive the custom-model request"
     );

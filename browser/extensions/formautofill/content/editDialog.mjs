@@ -11,6 +11,7 @@ import {
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  AutofillDataTypes: "resource://gre/modules/shared/AutofillDataTypes.sys.mjs",
   AutofillTelemetry: "resource://gre/modules/shared/AutofillTelemetry.sys.mjs",
   formAutofillStorage: "resource://autofill/FormAutofillStorage.sys.mjs",
 });
@@ -152,20 +153,17 @@ class AutofillEditDialog {
 
   recordFormSubmit() {
     let method = this._record?.guid ? "edit" : "add";
-    lazy.AutofillTelemetry.recordManageEvent(this.telemetryType, method);
+    lazy.AutofillTelemetry.recordManageEvent(this.dataType, method);
   }
 }
 
 export class EditAddressDialog extends AutofillEditDialog {
-  telemetryType = lazy.AutofillTelemetry.ADDRESS;
+  dataType = lazy.AutofillDataTypes.ADDRESS;
 
   constructor(elements, record) {
     super("addresses", elements, record);
     if (record) {
-      lazy.AutofillTelemetry.recordManageEvent(
-        this.telemetryType,
-        "show_entry"
-      );
+      lazy.AutofillTelemetry.recordManageEvent(this.dataType, "show_entry");
     }
   }
 
@@ -200,7 +198,7 @@ export class EditAddressDialog extends AutofillEditDialog {
 }
 
 export class EditCreditCardDialog extends AutofillEditDialog {
-  telemetryType = lazy.AutofillTelemetry.CREDIT_CARD;
+  dataType = lazy.AutofillDataTypes.CREDIT_CARD;
 
   constructor(elements, record) {
     elements.fieldContainer._elements.billingAddress.disabled = true;
@@ -210,10 +208,7 @@ export class EditCreditCardDialog extends AutofillEditDialog {
       this._onCCNumberFieldBlur.bind(this)
     );
     if (record) {
-      lazy.AutofillTelemetry.recordManageEvent(
-        this.telemetryType,
-        "show_entry"
-      );
+      lazy.AutofillTelemetry.recordManageEvent(this.dataType, "show_entry");
     }
   }
 

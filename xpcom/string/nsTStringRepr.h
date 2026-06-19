@@ -50,12 +50,10 @@ namespace mozilla {
 // will get a semi-decent compiler error if you use `T` directly.
 
 template <typename CharType>
-using CharOnlyT =
-    typename std::enable_if<std::is_same<char, CharType>::value>::type;
+using CharOnlyT = std::enable_if_t<std::is_same_v<char, CharType>>;
 
 template <typename CharType>
-using Char16OnlyT =
-    typename std::enable_if<std::is_same<char16_t, CharType>::value>::type;
+using Char16OnlyT = std::enable_if_t<std::is_same_v<char16_t, CharType>>;
 
 namespace detail {
 

@@ -215,7 +215,7 @@ add_task(async function test_elementSelectedOnEnter() {
       let visibleButton = await helper.getPanelButton("#visible-page");
       visibleButton.focus();
 
-      await BrowserTestUtils.waitForCondition(() => {
+      await TestUtils.waitForCondition(() => {
         return visibleButton.getRootNode().activeElement === visibleButton;
       }, "The visible button in the panel should have focus");
       info(
@@ -231,7 +231,7 @@ add_task(async function test_elementSelectedOnEnter() {
 
       // Focus should move to the browser
       let fullpageButton = await helper.getPanelButton("#full-page");
-      await BrowserTestUtils.waitForCondition(() => {
+      await TestUtils.waitForCondition(() => {
         return (
           fullpageButton.getRootNode().activeElement !== fullpageButton &&
           visibleButton.getRootNode().activeElement !== visibleButton

@@ -667,6 +667,12 @@ impl NeqoHttp3Conn {
             return;
         }
 
+        let version_label = match stats.version {
+            Version::Version1 => "v1",
+            Version::Version2 => "v2",
+        };
+        glean::http_3_quic_version.get(version_label).add(1);
+
         if !static_prefs::pref!("network.http.http3.use_nspr_for_io")
             && static_prefs::pref!("network.http.http3.ecn_report")
         {

@@ -538,25 +538,11 @@ add_task(async function test_restore_from_backup_displays_invalid_backup() {
  */
 add_task(async function test_restore_from_backup_embedded_textarea() {
   await BrowserTestUtils.withNewTab("about:preferences#sync", async browser => {
-    let { settings, restoreFromBackup } =
-      await initializedBackupWidgets(browser);
-    let sandbox = sinon.createSandbox();
-
-    // We want to close it and reopen to see whether resizeTextarea is called.
-    settings.dispatchEvent(new CustomEvent("dialogCancel"));
-    let resizeTextareaSpy = sandbox.spy(restoreFromBackup, "resizeTextarea");
-    settings.restoreFromBackupButtonEl.click();
-    await settings.updateComplete;
-    Assert.equal(
-      resizeTextareaSpy.callCount,
-      1,
-      "resizeTextarea was called when the dialog opened"
-    );
+    let { restoreFromBackup } = await initializedBackupWidgets(browser);
 
     const textarea = restoreFromBackup.shadowRoot.querySelector(
       "#backup-filepicker-input"
     );
-
     Assert.ok(textarea, "textarea should be present");
     Assert.equal(
       textarea.tagName.toLowerCase(),
@@ -570,45 +556,25 @@ add_task(async function test_restore_from_backup_embedded_textarea() {
     );
 
     // Test resize functionality when content changes
-    const initialHeight = textarea.style.height;
-    Assert.ok(initialHeight, "Textarea should have an initial height set");
+    const initialHeight = textarea.clientHeight;
+    Assert.ok(initialHeight, "Textarea should have an initial height");
 
     const longPath =
       "/a/very/long/path/to/a/backup/file/that/would/wrap/multiple/lines.html";
     restoreFromBackup.backupServiceState.backupFileToRestore = longPath;
     restoreFromBackup.requestUpdate();
     await restoreFromBackup.updateComplete;
-    Assert.equal(
-      resizeTextareaSpy.callCount,
-      2,
-      "resizeTextarea was called when the content changed"
-    );
 
-    let heightRule = textarea.style.height;
-    textarea.style.height = "auto";
-    Assert.equal(
-      heightRule,
-      textarea.scrollHeight + "px",
-      "Textarea height should contain all content once content is added"
+    Assert.greater(
+      textarea.clientHeight,
+      initialHeight,
+      "Textarea grew to accomodate the new content"
     );
-    textarea.style.height = heightRule;
-
-    // The text area resize function should also be called
-    // when the resize event occurs on the window
-    let promise = BrowserTestUtils.waitForEvent(
-      browser.contentWindow,
-      "resize"
+    Assert.greaterOrEqual(
+      textarea.clientHeight,
+      textarea.scrollHeight,
+      "Textarea does not require any scrolling"
     );
-    browser.contentWindow.dispatchEvent(new Event("resize"));
-    await promise;
-
-    Assert.equal(
-      resizeTextareaSpy.callCount,
-      3,
-      "resizeTextarea should be called when window resize event is fired"
-    );
-
-    sandbox.restore();
   });
 });
 

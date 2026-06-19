@@ -19,7 +19,7 @@ const PRIVATE_THEME_ID = "firefox-privatewindow@mozilla.org";
 
 async function checkWindowTheme(win, { effectiveThemeId, expectInApp }) {
   let root = win.document.documentElement;
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => root.getAttribute("theme-effective-id") === effectiveThemeId,
     `Waiting for theme-effective-id to be ${effectiveThemeId}`
   );

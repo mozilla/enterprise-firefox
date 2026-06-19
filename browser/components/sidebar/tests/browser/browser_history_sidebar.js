@@ -256,7 +256,7 @@ async function test_history_search({ component, contentWindow }) {
       ) &&
       component.lists[0]
   );
-  await BrowserTestUtils.waitForCondition(() => {
+  await TestUtils.waitForCondition(() => {
     const { rowEls } = component.lists[0];
     return rowEls.length === 1 && rowEls[0].mainEl.href === URLs[1];
   }, "There is one matching search result.");

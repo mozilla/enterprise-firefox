@@ -282,7 +282,7 @@ add_task(async function test_migration_is_idempotent() {
   await SpecialPowers.pushPrefEnv({
     set: [["signon.rustMirror.enabled", true]],
   });
-  await BrowserTestUtils.waitForCondition(async () => {
+  await TestUtils.waitForCondition(async () => {
     const logins = await rustStorage.getAllLogins();
     return logins.length === 1;
   }, "Login migrated to Rust after first migration");
@@ -575,7 +575,7 @@ add_task(async function test_rust_migration_failure_event() {
   await Services.logins.addLoginAsync(login_bad);
 
   Services.prefs.setBoolPref("signon.rustMirror.migrationNeeded", true);
-  const waitForGleanEvent = BrowserTestUtils.waitForCondition(
+  const waitForGleanEvent = TestUtils.waitForCondition(
     () => Glean.pwmgr.rustWriteFailure.testGetValue()?.length == 1,
     "event has been emitted"
   );
@@ -654,7 +654,7 @@ add_task(async function test_rust_mirror_addLogin_failure() {
     ],
   });
   Services.fog.testResetFOG();
-  const waitForGleanEvent = BrowserTestUtils.waitForCondition(
+  const waitForGleanEvent = TestUtils.waitForCondition(
     () => Glean.pwmgr.rustMirrorStatus.testGetValue()?.length == 1,
     "rust_mirror_status event has been emitted"
   );
@@ -708,7 +708,7 @@ add_task(async function test_rust_mirror_addLogin_failure() {
   );
 
   // produce another failure
-  const waitForSecondGleanEvent = BrowserTestUtils.waitForCondition(
+  const waitForSecondGleanEvent = TestUtils.waitForCondition(
     () => Glean.pwmgr.rustMirrorStatus.testGetValue()?.length == 2,
     "two events have been emitted"
   );
@@ -751,7 +751,7 @@ add_task(async function test_punycode_origin_metric() {
     password: "pass1",
   });
 
-  const waitForGleanEvent = BrowserTestUtils.waitForCondition(
+  const waitForGleanEvent = TestUtils.waitForCondition(
     () => Glean.pwmgr.rustMirrorStatus.testGetValue()?.length == 1,
     "event has been emitted"
   );
@@ -793,7 +793,7 @@ add_task(async function test_punycode_formActionOrigin_metric() {
     password: "pass1",
   });
 
-  const waitForGleanEvent = BrowserTestUtils.waitForCondition(
+  const waitForGleanEvent = TestUtils.waitForCondition(
     () => Glean.pwmgr.rustMirrorStatus.testGetValue()?.length == 1,
     "event has been emitted"
   );
@@ -849,7 +849,7 @@ for (const origin of originsToTest) {
       password: "pass1",
     });
 
-    const waitForGleanEvent = BrowserTestUtils.waitForCondition(
+    const waitForGleanEvent = TestUtils.waitForCondition(
       () => Glean.pwmgr.rustMirrorStatus.testGetValue()?.length == 1,
       "rust_mirror_status event has been emitted"
     );
@@ -903,7 +903,7 @@ for (const origin in fixedUpOriginsToTest) {
       password: "pass1",
     });
 
-    const waitForGleanEvent = BrowserTestUtils.waitForCondition(
+    const waitForGleanEvent = TestUtils.waitForCondition(
       () => Glean.pwmgr.rustMirrorStatus.testGetValue()?.length == 1,
       "event has been emitted"
     );
@@ -943,7 +943,7 @@ add_task(async function test_username_linebreak_metric() {
     password: "pass1",
   });
 
-  const waitForGleanEvent = BrowserTestUtils.waitForCondition(
+  const waitForGleanEvent = TestUtils.waitForCondition(
     () => Glean.pwmgr.rustMirrorStatus.testGetValue()?.length == 1,
     "event has been emitted"
   );
@@ -974,7 +974,7 @@ add_task(async function test_rust_mirror_addLogin_failure_with_time_metrics() {
   });
   Services.fog.testResetFOG();
 
-  const waitForGleanEvent = BrowserTestUtils.waitForCondition(
+  const waitForGleanEvent = TestUtils.waitForCondition(
     () => Glean.pwmgr.rustMirrorStatus.testGetValue()?.length == 1,
     "rust_mirror_status event has been emitted"
   );

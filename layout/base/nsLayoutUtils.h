@@ -1029,8 +1029,15 @@ class nsLayoutUtils {
    * Whether the frame should snap to grid. This will end up being passed
    * as the aRounded parameter in PostTranslate above. SVG frames should
    * not have their translation rounded.
+   *
+   * When aBuilder is supplied and is painting for WebRender, reference-frame
+   * origin snapping is left to WebRender (so it can remove the fractional
+   * external scroll offset reliably) and this returns false under the
+   * layout.disable-pixel-alignment pref. The drawSnapshot / non-WebRender path
+   * (no aBuilder, or not painting for WebRender) keeps snapping.
    */
-  static bool ShouldSnapToGrid(const nsIFrame* aFrame);
+  static bool ShouldSnapToGrid(const nsIFrame* aFrame,
+                               const nsDisplayListBuilder* aBuilder = nullptr);
 
   /**
    * Get the border-box of aElement's primary frame, transformed it to be

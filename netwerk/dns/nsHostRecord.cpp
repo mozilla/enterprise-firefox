@@ -259,8 +259,16 @@ size_t AddrHostRecord::SizeOfIncludingThis(MallocSizeOf mallocSizeOf) const {
 
 bool AddrHostRecord::HasUsableResultInternal(
     const mozilla::TimeStamp& now, nsIDNSService::DNSFlags queryFlags) const {
-  // don't use cached negative results for high priority queries.
-  if (negative && IsHighPriority(queryFlags)) {
+  // Normally we don't use cached negative results for high priority queries, so
+  // that user-facing lookups get a fresh answer. Happy Eyeballs, however,
+  // issues high priority per-family (A and AAAA) lookups, so this rule would
+  // force a re-resolution of a permanently-negative family on every connection
+  // (e.g. the AAAA lookup on an IPv4-only network), tanking the DNS cache hit
+  // rate. When HE is enabled, reuse the negative result instead; a background
+  // refresh still runs, so a host that gains the missing family is picked up on
+  // a later lookup.
+  if (negative && IsHighPriority(queryFlags) &&
+      !StaticPrefs::network_http_happy_eyeballs_enabled()) {
     return false;
   }
 

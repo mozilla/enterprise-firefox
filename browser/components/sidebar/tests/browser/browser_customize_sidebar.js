@@ -74,7 +74,7 @@ add_task(async function test_customize_sidebar_actions() {
   for (const toolInput of customizeComponent.toolInputs) {
     let toolDisabledInitialState = !toolInput.checked;
     toolInput.click();
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => {
         let toggledTool = SidebarController.toolsAndExtensions.get(
           toolInput.id
@@ -95,7 +95,7 @@ add_task(async function test_customize_sidebar_actions() {
       }.`
     );
     toolInput.click();
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => {
         let toggledTool = SidebarController.toolsAndExtensions.get(
           toolInput.id
@@ -189,7 +189,7 @@ add_task(async function test_customize_position_setting() {
   const newWin = await BrowserTestUtils.openNewBrowserWindow();
   const newPanel = await showCustomizePanel(newWin);
   const newSidebarBox = newWin.document.getElementById("sidebar-box");
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => BrowserTestUtils.isVisible(newSidebarBox),
     "Sidebar panel is visible"
   );

@@ -19,6 +19,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import mozilla.components.browser.state.state.SessionState
@@ -239,6 +241,7 @@ class BrowserFragment : BaseBrowserFragment(), UserInteractionHandler, SystemIns
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun setupShakeDetection() {
         val shouldSetupShake = requireComponents.core.summarizeFeatureSettings.canShowFeature &&
                 requireComponents.core.summarizationSettings.isGestureEnabled.value
@@ -252,7 +255,10 @@ class BrowserFragment : BaseBrowserFragment(), UserInteractionHandler, SystemIns
             lifecycle.addObserver(accelerometer)
             lifecycleScope.launch {
                 viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                    accelerometer.detectShakes()
+                    requireComponents.core.summarizationSettings.shakeSensitivity
+                        .flatMapLatest { sensitivity ->
+                            accelerometer.detectShakes(sensitivity = sensitivity)
+                        }
                         .collect {
                             summarizeToolbarCfrBinding.get()?.maybeDismissCfr()
                             navigateToSummarizationIfEligible()

@@ -322,7 +322,7 @@ void MFMediaEngineParent::NotifyError(MF_MEDIA_ENGINE_ERR aError,
       cdmParent->OnHardwareContextReset();
       sPendingHDCPCheck = cdmParent->WaitForHDCPSettleAfterReset();
     }
-    (void)SendNotifyHardwareReset();
+    (void)SendNotifyHardwareReset(static_cast<uint32_t>(aResult));
     return;
   }
 #endif
@@ -829,7 +829,7 @@ void MFMediaEngineParent::EnsureDcompSurfaceHandle() {
   if (FAILED(rv)) {
     if (IsHardwareResetHRESULT(rv)) {
       LOG("GetVideoSwapchainHandle failed with hardware reset hr={:x}", rv);
-      (void)SendNotifyHardwareReset();
+      (void)SendNotifyHardwareReset(static_cast<uint32_t>(rv));
     } else {
       LOG("GetVideoSwapchainHandle failed, hr={:x}", rv);
       MediaResult error(

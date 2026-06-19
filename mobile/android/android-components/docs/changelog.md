@@ -7,6 +7,10 @@ permalink: /changelog/
 # 154.0 (In Development)
 * **browser-icons**
     * ⚠️ **Breaking change**: Removed the `useMerinoManifest` parameter from `BrowserIcons`. The Merino manifest is now always used as the icon source. Removed `TippyTopIconPreparer` and the `IconRequest.Resource.Type.TIPPY_TOP` resource type. [Bug 2047476](https://bugzilla.mozilla.org/show_bug.cgi?id=2047476)
+* **support-base**
+    * 🆕 Added `Action.NEXT` and `Action.PREVIOUS` to the `Fact`.
+* **feature-media**
+    * 🆕 The media notification now emits `Action.NEXT` and `Action.PREVIOUS` facts when the next/previous track buttons are tapped.
 
 # 153.0
 * **support-utils**

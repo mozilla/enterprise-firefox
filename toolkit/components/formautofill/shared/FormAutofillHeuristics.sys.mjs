@@ -7,6 +7,7 @@ import { HeuristicsRegExp } from "resource://gre/modules/shared/HeuristicsRegExp
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  AutofillDataTypes: "resource://gre/modules/shared/AutofillDataTypes.sys.mjs",
   CreditCard: "resource://gre/modules/CreditCard.sys.mjs",
   CreditCardRulesets: "resource://gre/modules/shared/CreditCardRuleset.sys.mjs",
   FieldDetail: "resource://gre/modules/shared/FieldScanner.sys.mjs",
@@ -371,7 +372,7 @@ export const FormAutofillHeuristics = {
         scanner.parsingIndex++;
       } else if (
         prev &&
-        lazy.FormAutofillUtils.getCategoryFromFieldName(prev.fieldName) == "tel"
+        lazy.AutofillDataTypes.fieldToSubCategory[prev.fieldName] == "tel"
       ) {
         // If the previous parsed field is a "tel" field, run heuristic to see
         // if the current field is a "tel-extension" field
@@ -655,7 +656,7 @@ export const FormAutofillHeuristics = {
     for (let idx = scanner.parsingIndex - 1; ; idx--) {
       const detail = scanner.getFieldDetailByIndex(idx);
       if (
-        lazy.FormAutofillUtils.getCategoryFromFieldName(detail?.fieldName) !=
+        lazy.AutofillDataTypes.fieldToSubCategory[detail?.fieldName] !=
         "creditCard"
       ) {
         break;
@@ -760,7 +761,7 @@ export const FormAutofillHeuristics = {
     for (let idx = scanner.parsingIndex - 1; ; idx--) {
       const detail = scanner.getFieldDetailByIndex(idx);
       if (
-        lazy.FormAutofillUtils.getCategoryFromFieldName(detail?.fieldName) !=
+        lazy.AutofillDataTypes.fieldToSubCategory[detail?.fieldName] !=
         "creditCard"
       ) {
         break;
@@ -776,12 +777,12 @@ export const FormAutofillHeuristics = {
         // For updates we only check subsequent fields that are not of type address or do not have an
         // alternative field name that is of type address, to avoid falsely updating address
         // form name fields to cc-*-name.
-        lazy.FormAutofillUtils.getCategoryFromFieldName(detail?.fieldName) !=
+        lazy.AutofillDataTypes.fieldToSubCategory[detail?.fieldName] !=
           "creditCard" ||
         (detail?.alternativeFieldName !== undefined &&
-          lazy.FormAutofillUtils.getCategoryFromFieldName(
+          lazy.AutofillDataTypes.fieldToSubCategory[
             detail?.alternativeFieldName
-          ) != "creditCard")
+          ] != "creditCard")
       ) {
         break;
       }

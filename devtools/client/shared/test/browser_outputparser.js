@@ -411,6 +411,19 @@ function testParseCssProperty(doc, parser) {
     },
 
     {
+      name: "color",
+      value: "alpha(from red / calc(alpha * 0.5))",
+      expected: getColorMarkup({
+        color: "alpha(from red / calc(alpha * 0.5))",
+        // we have a nested color span for the inner `red` after `from`
+        content:
+          `alpha(from ` +
+          getColorMarkup({ color: "red", colorFunction: "alpha" }) +
+          ` / calc(alpha * 0.5))`,
+      }),
+    },
+
+    {
       name: "background-image",
       value: `image(rgb(255 0 0 / 0.5)), url("bg-image.png")`,
       expected:

@@ -301,13 +301,13 @@ class TrustedHTMLOrTrustedScriptOrTrustedScriptURLOrString;
 
 class Element : public FragmentOrElement {
  public:
-#ifdef MOZILLA_INTERNAL_API
   explicit Element(already_AddRefed<mozilla::dom::NodeInfo> aNodeInfo)
       : FragmentOrElement(std::move(aNodeInfo)),
         mState(ElementState::READONLY | ElementState::DEFINED |
                ElementState::LTR) {
     MOZ_ASSERT(mNodeInfo->NodeType() == ELEMENT_NODE,
                "Bad NodeType in aNodeInfo");
+    mAttrs.UpdateSubtreeBloomFilter(NodeInfo()->NameBloomFilterHash());
     SetIsElement();
   }
 
@@ -315,8 +315,6 @@ class Element : public FragmentOrElement {
     NS_ASSERTION(!HasServoData(), "expected ServoData to be cleared earlier");
     UnlinkCustomElementRegistry(this);
   }
-
-#endif  // MOZILLA_INTERNAL_API
 
   NS_INLINE_DECL_STATIC_IID(NS_ELEMENT_IID)
 

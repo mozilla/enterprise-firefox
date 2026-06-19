@@ -80,15 +80,13 @@ class MOZ_STACK_CLASS MappedDeclarationsBuilder final {
     }
   }
 
-  template <typename T,
-            typename = typename std::enable_if<std::is_enum<T>::value>::type>
+  template <typename T, typename = std::enable_if_t<std::is_enum_v<T>>>
   void SetKeywordValue(NonCustomCSSPropertyId aId, T aValue) {
     static_assert(EnumTypeFitsWithin<T, int32_t>::value,
                   "aValue must be an enum that fits within 32 bits");
     SetKeywordValue(aId, static_cast<int32_t>(aValue));
   }
-  template <typename T,
-            typename = typename std::enable_if<std::is_enum<T>::value>::type>
+  template <typename T, typename = std::enable_if_t<std::is_enum_v<T>>>
   void SetKeywordValueIfUnset(NonCustomCSSPropertyId aId, T aValue) {
     static_assert(EnumTypeFitsWithin<T, int32_t>::value,
                   "aValue must be an enum that fits within 32 bits");

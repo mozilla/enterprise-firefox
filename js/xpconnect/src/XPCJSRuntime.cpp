@@ -1616,15 +1616,12 @@ static void ReportZoneStats(const JS::ZoneStats& zStats,
     MOZ_ASSERT(!zStats.isTotals);
     nsAutoCString desc;
     desc.AppendPrintf(
-        "String deduplication was stopped after 5 seconds because there "
-        "were too many strings (%zu total in this zone). The notable strings "
-        "listed above are only those seen before the cutoff.",
-        zStats.stringsTotalCount);
-    handleReport->Callback(
-        ""_ns,
-        pathPrefix + "strings/string(<deduplication-truncated>)/count"_ns,
-        nsIMemoryReporter::KIND_OTHER, nsIMemoryReporter::UNITS_COUNT,
-        zStats.stringsTotalCount, desc, data);
+        "Number of JS strings seen in zones where notable string detection was "
+        "cut off before it could finish.");
+    handleReport->Callback(""_ns, "js-notable-truncated-strings-count"_ns,
+                           nsIMemoryReporter::KIND_OTHER,
+                           nsIMemoryReporter::UNITS_COUNT,
+                           zStats.stringsTotalCount, desc, data);
   }
 
   const JS::ShapeInfo& shapeInfo = zStats.shapeInfo;

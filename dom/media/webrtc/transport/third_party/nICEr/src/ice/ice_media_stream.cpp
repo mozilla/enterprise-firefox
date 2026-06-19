@@ -910,8 +910,9 @@ int nr_ice_media_stream_send(nr_ice_peer_ctx *pctx, nr_ice_media_stream *str, in
       ABORT(r);
     }
 
-    // accumulate the sent bytes for the active candidate pair
+    // accumulate the sent bytes and packets for the active candidate pair
     comp->active->bytes_sent += len;
+    comp->active->packets_sent += 1;
     gettimeofday(&comp->active->last_sent, 0);
 
     _status=0;

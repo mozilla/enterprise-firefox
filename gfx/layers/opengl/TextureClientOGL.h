@@ -158,6 +158,40 @@ class AndroidHardwareBufferTextureData : public TextureData {
   bool mIsLocked;
 };
 
+class AndroidImageReaderImageTextureData : public TextureData {
+ public:
+  static already_AddRefed<TextureClient> CreateTextureClient(
+      const layers::GpuProcessAndroidImageReaderId aImageReaderId,
+      const layers::AndroidMediaCodecFrameId aFrameId, gfx::IntSize aSize,
+      gl::OriginPos aOriginPos, bool aHasAlpha, LayersIPCChannel* aAllocator,
+      TextureFlags aFlags);
+
+  virtual ~AndroidImageReaderImageTextureData();
+
+  void FillInfo(TextureData::Info& aInfo) const override;
+
+  bool Serialize(SurfaceDescriptor& aOutDescriptor) override;
+
+  // Useless functions.
+  bool Lock(OpenMode) override { return true; }
+
+  void Unlock() override {}
+
+  // Our data is always owned externally.
+  void Deallocate(LayersIPCChannel*) override {}
+
+ protected:
+  AndroidImageReaderImageTextureData(
+      const layers::GpuProcessAndroidImageReaderId aImageReaderId,
+      const layers::AndroidMediaCodecFrameId aFrameId, gfx::IntSize aSize,
+      bool aHasAlpha);
+
+  const layers::GpuProcessAndroidImageReaderId mImageReaderId;
+  const layers::AndroidMediaCodecFrameId mFrameId;
+  const gfx::IntSize mSize;
+  const bool mHasAlpha;
+};
+
 #endif  // MOZ_WIDGET_ANDROID
 
 }  // namespace layers

@@ -12,7 +12,9 @@ sealed class NavigationStep {
     data class ClickIfPresent(val selector: Selector) : NavigationStep()
     data class Swipe(val selector: Selector, val direction: SwipeDirection = SwipeDirection.UP) : NavigationStep()
     data class OpenNotificationsTray(val openNotificationsTrayAction: () -> Unit) : NavigationStep()
+    data class Action(val action: () -> Unit) : NavigationStep()
     data class EnterText(val selector: Selector) : NavigationStep()
     data class PressEnter(val selector: Selector) : NavigationStep()
     object PressBack : NavigationStep()
+    object WaitForIdle : NavigationStep()
 }

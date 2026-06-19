@@ -116,7 +116,7 @@ class EditBookmarkFragment : Fragment(), SystemInsetsPaddedFragment {
                                             AppAction.BookmarkAction.BookmarkOperationResultReported(it),
                                         )
                                     },
-                                    importResults = { emptyFlow() },
+                                    importEvents = { emptyFlow() },
                                     lifecycleScope = lifecycleScope,
                                 ),
                             ),

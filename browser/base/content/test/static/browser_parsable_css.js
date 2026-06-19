@@ -276,6 +276,9 @@ let propNameAllowlist = [
   { propName: "--tab-group-gray-text", isFromDevTools: false },
   { propName: "--tab-group-gray-text-invert", isFromDevTools: false },
 
+  /* This variable is used in a radial-gradient function, which confuses the test. */
+  { propName: "--radio-indicator-background-color", isFromDevTools: false },
+
   /* Allow design tokens in devtools without all variables being used there */
   { sourceName: /\/design-system\/tokens-.*\.css$/, isFromDevTools: true },
 

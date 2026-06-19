@@ -746,7 +746,7 @@ add_task(async function testMIDIAccessGrantedUseCounter() {
   }
 
   async function waitForFlush(prevRequestPage) {
-    await BrowserTestUtils.waitForCondition(async () => {
+    await TestUtils.waitForCondition(async () => {
       await Services.fog.testFlushAllChildren();
       return (
         (Glean.useCounterPage.navigatorRequestmidiaccess.testGetValue() ?? 0) >

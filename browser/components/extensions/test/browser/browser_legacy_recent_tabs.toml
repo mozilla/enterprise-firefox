@@ -1,3 +1,4 @@
+# Keep the test list here in sync with browser-sessions.toml.
 [DEFAULT]
 #
 # This manifest lists tests that use cover the session API and recently-closed tabs behavior with the legacy pref values

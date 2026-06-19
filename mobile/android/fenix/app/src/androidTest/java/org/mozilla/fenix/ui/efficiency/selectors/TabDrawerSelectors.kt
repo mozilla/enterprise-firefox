@@ -12,11 +12,39 @@ import org.mozilla.fenix.ui.efficiency.helpers.SelectorStrategy
 
 object TabDrawerSelectors {
 
+    val TABS_TRAY = Selector(
+        strategy = SelectorStrategy.COMPOSE_BY_TAG,
+        value = TabsTrayTestTag.TABS_TRAY,
+        description = "Tabs tray container",
+        groups = listOf("requiredForPage"),
+    )
+
     val NORMAL_BROWSING_OPEN_TABS_BUTTON = Selector(
         strategy = SelectorStrategy.COMPOSE_BY_TAG,
         value = TabsTrayTestTag.NORMAL_TABS_PAGE_BUTTON,
         description = "Normal browsing tabs tray button",
         groups = listOf("requiredForPage"),
+    )
+
+    val NORMAL_TABS_LIST = Selector(
+        strategy = SelectorStrategy.COMPOSE_BY_TAG,
+        value = TabsTrayTestTag.NORMAL_TABS_LIST,
+        description = "Normal tabs list grid view",
+        groups = listOf(),
+    )
+
+    val EMPTY_NORMAL_TABS_LIST = Selector(
+        strategy = SelectorStrategy.COMPOSE_BY_TAG,
+        value = TabsTrayTestTag.EMPTY_NORMAL_TABS_LIST,
+        description = "Empty normal tabs list placeholder",
+        groups = listOf(),
+    )
+
+    val TAB_ITEM_ROOT = Selector(
+        strategy = SelectorStrategy.COMPOSE_BY_TAG,
+        value = TabsTrayTestTag.TAB_ITEM_ROOT,
+        description = "Tab item root",
+        groups = listOf(),
     )
 
     val SYNCED_TABS_BUTTON = Selector(
@@ -113,7 +141,11 @@ object TabDrawerSelectors {
     )
 
     val all = listOf(
+        TABS_TRAY,
         NORMAL_BROWSING_OPEN_TABS_BUTTON,
+        NORMAL_TABS_LIST,
+        EMPTY_NORMAL_TABS_LIST,
+        TAB_ITEM_ROOT,
         SYNCED_TABS_BUTTON,
         SIGN_IN_TO_SYNC_BUTTON,
         UNAUTHENTICATED_SYNCED_TABS_PAGE,

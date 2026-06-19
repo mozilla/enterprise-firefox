@@ -4,7 +4,7 @@
 
 export const HISTORY = "history";
 export const CONVERSATION = "conversation";
-export const ALL_SOURCES = new Set([HISTORY, CONVERSATION]);
+export const CONVERSATION_USER_REQUEST = "user_request";
 
 /**
  * Memory categories

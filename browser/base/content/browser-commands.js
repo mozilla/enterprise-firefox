@@ -361,10 +361,14 @@ var BrowserCommands = {
     }
 
     // In a multi-select context, close all selected tabs
+    // pinned tabs excluded if closed using keyboard
     if (gBrowser.multiSelectedTabsCount) {
-      gBrowser.removeMultiSelectedTabs(
-        gBrowser.TabMetrics.userTriggeredContext()
-      );
+      let excludePinnedTabs =
+        event && (event.ctrlKey || event.metaKey || event.altKey);
+      gBrowser.removeMultiSelectedTabs({
+        ...gBrowser.TabMetrics.userTriggeredContext(),
+        excludePinnedTabs,
+      });
       return;
     }
 

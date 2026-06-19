@@ -3895,6 +3895,8 @@ static bool WasmCall(JSContext* cx, unsigned argc, Value* vp) {
 
 bool Instance::getExportedFunction(JSContext* cx, uint32_t funcIndex,
                                    MutableHandleFunction result) {
+  MOZ_RELEASE_ASSERT(realm() == cx->realm());
+
   uint32_t funcExportIndex = codeMeta().findFuncExportIndex(funcIndex);
   FuncExportInstanceData& instanceData =
       funcExportInstanceData(funcExportIndex);
@@ -4071,6 +4073,7 @@ bool Instance::callExport(JSContext* cx, uint32_t funcIndex,
       // Store in rooted array until no more GC is possible.
       RootedAnyRef ref(cx, AnyRef::fromCompiledCode(ptr));
       if (!refs.emplaceBack(ref.get())) {
+        ReportOutOfMemory(cx);
         return false;
       }
       DebugCodegen(DebugChannel::Function, "/(#%d)", int(refs.length() - 1));

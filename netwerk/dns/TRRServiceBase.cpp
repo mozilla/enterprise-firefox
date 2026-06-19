@@ -285,9 +285,20 @@ void TRRServiceBase::AsyncCreateTRRConnectionInfoInternal(
     return;
   }
 
+  // Tag this lookup with a generation. Consecutive proxy config changes start
+  // overlapping ProxyConfigLookups that may complete out of order; only the
+  // most recent one is allowed to store its result, so a stale lookup (e.g.
+  // resolved before a PAC took effect) can't overwrite a newer one.
+  uint32_t generation = ++mTRRConnectionInfoGeneration;
+
   rv = ProxyConfigLookup::Create(
-      [self = RefPtr{this}, uri(dnsURI)](nsIProxyInfo* aProxyInfo,
-                                         nsresult aStatus) mutable {
+      [self = RefPtr{this}, uri(dnsURI), generation](nsIProxyInfo* aProxyInfo,
+                                                     nsresult aStatus) mutable {
+        if (generation != self->mTRRConnectionInfoGeneration) {
+          // A newer lookup has been started since; ignore this stale result.
+          return;
+        }
+
         if (NS_FAILED(aStatus)) {
           self->SetDefaultTRRConnectionInfo(nullptr);
           return;

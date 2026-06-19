@@ -261,7 +261,6 @@ export default class BackupSettings extends MozLitElement {
         })
       );
       this.restoreFromBackupDialogEl.showModal();
-      this.restoreFromBackupEl.resizeTextarea();
     }
   }
 

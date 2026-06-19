@@ -40,7 +40,6 @@
 #include "mozilla/UseCounter.h"
 #include "mozilla/dom/CustomElementRegistry.h"
 #include "mozilla/dom/DOMException.h"
-#include "mozilla/dom/DeprecationReportBody.h"
 #include "mozilla/dom/DocGroup.h"
 #include "mozilla/dom/ElementBinding.h"
 #include "mozilla/dom/Exceptions.h"
@@ -52,7 +51,6 @@
 #include "mozilla/dom/MaybeCrossOriginObject.h"
 #include "mozilla/dom/ObservableArrayProxyHandler.h"
 #include "mozilla/dom/Promise.h"
-#include "mozilla/dom/ReportingUtils.h"
 #include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/dom/WebIDLGlobalNameHash.h"
 #include "mozilla/dom/WindowProxyHolder.h"
@@ -2503,7 +2501,8 @@ bool ReportLenientThisUnwrappingFailure(JSContext* cx, JSObject* obj) {
   nsCOMPtr<nsPIDOMWindowInner> window =
       do_QueryInterface(global.GetAsSupports());
   if (window && window->GetDoc()) {
-    window->GetDoc()->WarnOnceAbout(DeprecatedOperations::eLenientThis);
+    window->GetDoc()->WarnOnceAndReportAbout(
+        DeprecatedOperations::eLenientThis);
   }
   return true;
 }
@@ -3972,50 +3971,6 @@ void SetUseCounter(UseCounterWorker aUseCounter) {
 
 namespace {
 
-#define DEPRECATED_OPERATION(_op) #_op,
-static const char* kDeprecatedOperations[] = {
-#include "nsDeprecatedOperationList.inc"
-    nullptr};
-#undef DEPRECATED_OPERATION
-
-void ReportDeprecation(nsIGlobalObject* aGlobal, Document* aDoc, nsIURI* aURI,
-                       DeprecatedOperations aOperation,
-                       const nsACString& aFileName,
-                       const Nullable<uint32_t>& aLineNumber,
-                       const Nullable<uint32_t>& aColumnNumber) {
-  MOZ_ASSERT(aURI);
-
-  // If the URI has the data scheme, report that instead of the spec,
-  // as the spec may be arbitrarily long and we would like to avoid
-  // copying it.
-  nsAutoCString specOrScheme;
-  nsresult rv = nsContentUtils::AnonymizeURI(aURI, specOrScheme);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return;
-  }
-
-  nsAutoString type;
-  type.AssignASCII(kDeprecatedOperations[static_cast<size_t>(aOperation)]);
-
-  nsAutoCString key;
-  key.AssignASCII(kDeprecatedOperations[static_cast<size_t>(aOperation)]);
-  key.AppendASCII("Warning");
-
-  nsAutoString msg;
-  rv = nsContentUtils::GetMaybeLocalizedString(PropertiesFile::DOM_PROPERTIES,
-                                               key.get(), aDoc, msg);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return;
-  }
-
-  RefPtr<DeprecationReportBody> body =
-      new DeprecationReportBody(aGlobal, type, nullptr /* date */, msg,
-                                aFileName, aLineNumber, aColumnNumber);
-
-  ReportingUtils::Report(aGlobal, nsGkAtoms::deprecation, u"default"_ns,
-                         NS_ConvertUTF8toUTF16(specOrScheme), body);
-}
-
 // This runnable is used to write a deprecation message from a worker to the
 // console running on the main-thread.
 class DeprecationWarningRunnable final
@@ -4041,69 +3996,6 @@ class DeprecationWarningRunnable final
   }
 };
 
-void MaybeShowDeprecationWarning(const GlobalObject& aGlobal,
-                                 DeprecatedOperations aOperation) {
-  if (NS_IsMainThread()) {
-    nsCOMPtr<nsPIDOMWindowInner> window =
-        do_QueryInterface(aGlobal.GetAsSupports());
-    if (window && window->GetExtantDoc()) {
-      window->GetExtantDoc()->WarnOnceAbout(aOperation);
-    }
-    return;
-  }
-
-  WorkerPrivate* workerPrivate = GetWorkerPrivateFromContext(aGlobal.Context());
-  if (!workerPrivate) {
-    return;
-  }
-
-  RefPtr<DeprecationWarningRunnable> runnable =
-      new DeprecationWarningRunnable(aOperation);
-  runnable->Dispatch(workerPrivate);
-}
-
-void MaybeReportDeprecation(const GlobalObject& aGlobal,
-                            DeprecatedOperations aOperation) {
-  nsCOMPtr<nsIURI> uri;
-  nsCOMPtr<Document> doc;
-  if (NS_IsMainThread()) {
-    nsCOMPtr<nsPIDOMWindowInner> window =
-        do_QueryInterface(aGlobal.GetAsSupports());
-    if (!window || !window->GetExtantDoc()) {
-      return;
-    }
-
-    doc = window->GetExtantDoc();
-    uri = doc->GetDocumentURI();
-  } else {
-    WorkerPrivate* workerPrivate =
-        GetWorkerPrivateFromContext(aGlobal.Context());
-    if (!workerPrivate) {
-      return;
-    }
-
-    uri = workerPrivate->GetResolvedScriptURI();
-  }
-
-  if (NS_WARN_IF(!uri)) {
-    return;
-  }
-
-  auto location = JSCallingLocation::Get(aGlobal.Context());
-  Nullable<uint32_t> lineNumber;
-  Nullable<uint32_t> columnNumber;
-  if (location) {
-    lineNumber.SetValue(location.mLine);
-    columnNumber.SetValue(location.mColumn);
-  }
-
-  nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
-  MOZ_ASSERT(global);
-
-  ReportDeprecation(global, doc, uri, aOperation, location.FileName(),
-                    lineNumber, columnNumber);
-}
-
 }  // anonymous namespace
 
 void DeprecationWarning(JSContext* aCx, JSObject* aObject,
@@ -4114,13 +4006,37 @@ void DeprecationWarning(JSContext* aCx, JSObject* aObject,
     return;
   }
 
-  DeprecationWarning(global, aOperation);
-}
+  if (NS_IsMainThread()) {
+    nsCOMPtr<nsPIDOMWindowInner> window =
+        do_QueryInterface(global.GetAsSupports());
+    if (window && window->GetExtantDoc()) {
+      window->GetExtantDoc()->WarnOnceAndReportAbout(
+          aOperation, false, nsTArray<nsString>(),
+          JSCallingLocation::Get(global.Context()));
+    }
+    return;
+  }
 
-void DeprecationWarning(const GlobalObject& aGlobal,
-                        DeprecatedOperations aOperation) {
-  MaybeShowDeprecationWarning(aGlobal, aOperation);
-  MaybeReportDeprecation(aGlobal, aOperation);
+  WorkerPrivate* workerPrivate = GetWorkerPrivateFromContext(global.Context());
+  if (!workerPrivate) {
+    return;
+  }
+
+  RefPtr<DeprecationWarningRunnable> runnable =
+      new DeprecationWarningRunnable(aOperation);
+  runnable->Dispatch(workerPrivate);
+
+  nsCOMPtr<nsIURI> uri = workerPrivate->GetResolvedScriptURI();
+  if (NS_WARN_IF(!uri)) {
+    return;
+  }
+
+  nsCOMPtr<nsIGlobalObject> globalObject =
+      do_QueryInterface(global.GetAsSupports());
+  MOZ_ASSERT(globalObject);
+
+  nsContentUtils::ReportDeprecation(globalObject, nullptr, uri, aOperation,
+                                    JSCallingLocation::Get(global.Context()));
 }
 
 namespace binding_detail {

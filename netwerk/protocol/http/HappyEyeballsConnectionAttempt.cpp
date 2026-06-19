@@ -1915,6 +1915,7 @@ nsresult HappyEyeballsConnectionAttempt::OnHTTPSRecord(nsIDNSRecord* aRecord,
     (void)svcbRecord->GetValues(values);
 
     nsTArray<nsCString> alpn;
+    bool noDefaultAlpn = false;
     nsTArray<RefPtr<nsINetAddr>> ipv4Hint;
     nsTArray<RefPtr<nsINetAddr>> ipv6Hint;
 
@@ -1928,6 +1929,7 @@ nsresult HappyEyeballsConnectionAttempt::OnHTTPSRecord(nsIDNSRecord* aRecord,
           break;
         }
         case SvcParamKeyNoDefaultAlpn:
+          noDefaultAlpn = true;
           break;
         case SvcParamKeyIpv4Hint: {
           nsCOMPtr<nsISVCParamIPv4Hint> ipv4Param = do_QueryInterface(value);
@@ -1959,6 +1961,13 @@ nsresult HappyEyeballsConnectionAttempt::OnHTTPSRecord(nsIDNSRecord* aRecord,
       if (protocol) {
         svcInfo.alpn_http_versions.AppendElement(protocol.ref());
       }
+    }
+
+    // The SVCB ALPN set includes the scheme default ("http/1.1") unless
+    // "no-default-alpn" is present (RFC 9460 Section 7.1.2).
+    if (!noDefaultAlpn &&
+        !svcInfo.alpn_http_versions.Contains(happy_eyeballs::HttpVersion::H1)) {
+      svcInfo.alpn_http_versions.AppendElement(happy_eyeballs::HttpVersion::H1);
     }
 
     for (const auto& addr : ipv4Hint) {

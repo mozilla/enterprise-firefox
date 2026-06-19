@@ -6387,7 +6387,7 @@ static const ClassSpec
       static_prototype_properties[Scalar::Type::Name],              \
       TypedArrayMethods(Scalar::Type::Name),                        \
       static_prototype_properties[Scalar::Type::Name],              \
-      GenericFinishInit<WhichHasRealmFuseProperty::Proto>,          \
+      GenericFinishInit<WhichHasRealmFuseProperty::ProtoAndCtor>,   \
       JSProto_TypedArray,                                           \
   },
 

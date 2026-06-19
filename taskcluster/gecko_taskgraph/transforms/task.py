@@ -11,7 +11,6 @@ complexities of worker implementations, scopes, and treeherder annotations.
 import datetime
 import functools
 import hashlib
-import json
 import os
 import re
 import time
@@ -1441,7 +1440,7 @@ def build_ship_it_maybe_release_payload(config, task, task_def):
 @payload_builder("shipit-nightly-metadata", schema=ShipitNightlyMetadataSchema)
 def build_ship_it_nightly_metadata_payload(_, task, task_def):
     locales_file = task["worker"].get("locales-file")
-    locales = list(json.loads(open(locales_file).read()).keys())
+    locales = open(locales_file).read().split("\n")
     task_def["payload"] = {
         "product": task["worker"]["product"],
         "channel": task["worker"]["channel"],

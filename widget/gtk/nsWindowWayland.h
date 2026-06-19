@@ -232,8 +232,9 @@ class nsWindowWayland final : public nsWindow {
   RefPtr<mozilla::WaylandVsyncSource> mWaylandVsyncSource;
   RefPtr<mozilla::VsyncDispatcher> mWaylandVsyncDispatcher;
   LayoutDeviceIntPoint mNativeLockedPoint;
-  xx_toplevel_session_v1* mSessionRestoreToken = nullptr;
-  int mSessionID = 0;
+  xdg_toplevel_session_v1* mSessionRestoreToken = nullptr;
+  nsString mSessionID;
+
   gulong mXdgToplevelRealizedID = 0;
 
   zwp_locked_pointer_v1* mLockedPointer = nullptr;

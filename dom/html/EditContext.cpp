@@ -272,10 +272,18 @@ void EditContext::FireTextFormatUpdate(const TextRangeArray* aRanges,
       TextFormatInit formatOptions;
       formatOptions.mRangeStart = range.mStartOffset + aCompositionOffset;
       formatOptions.mRangeEnd = range.mEndOffset + aCompositionOffset;
-      // TODO: Check ShouldResistFingerprinting here?
-      // See https://w3c.github.io/edit-context/#h-note-3
-      if (range.mRangeStyle.IsLineStyleDefined() &&
-          range.mRangeStyle.mLineStyle != LineStyle::None) {
+      if (mText->OwnerDoc()->ShouldResistFingerprinting(RFPTarget::IMEStyle)) {
+        // Don't expose details of how IME styles text to the web app.
+        // Instead, always use thick solid underline for selected clause,
+        // and thin solid underline for other clauses.
+        formatOptions.mUnderlineStyle = UnderlineStyle::Solid;
+        formatOptions.mUnderlineThickness =
+            range.mRangeType == TextRangeType::eSelectedClause ||
+                    range.mRangeType == TextRangeType::eSelectedRawClause
+                ? UnderlineThickness::Thick
+                : UnderlineThickness::Thin;
+      } else if (range.mRangeStyle.IsLineStyleDefined() &&
+                 range.mRangeStyle.mLineStyle != LineStyle::None) {
         formatOptions.mUnderlineStyle =
             ToDOMStyle(range.mRangeStyle.mLineStyle);
         formatOptions.mUnderlineThickness = range.mRangeStyle.mIsBoldLine

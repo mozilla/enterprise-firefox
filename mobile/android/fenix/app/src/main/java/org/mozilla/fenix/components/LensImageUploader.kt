@@ -46,6 +46,8 @@ class LensImageUploader(
 
     /**
      * Fetches the image at [imageUrl], then scales, compresses, and uploads it to Google Lens.
+     * Preferred over [buildUploadByUrl] because the browser's User-Agent and cookies are used to
+     * fetch the image, which succeeds for hosts that block Lens's own server-side fetcher.
      *
      * @return The Lens results URL on success, or null on failure.
      */
@@ -53,6 +55,15 @@ class LensImageUploader(
         val bitmap = fetchBitmap(imageUrl) ?: return@withContext null
         uploadBitmap(bitmap)
     }
+
+    /**
+     * Builds the Google Lens "by URL" search URL for [imageUrl], letting Lens fetch the image
+     * server-side. Loading the returned URL redirects to the Lens results page. Used as a fallback
+     * when [uploadFromUrl] yields no result client-side, whether because the image could not be
+     * downloaded or because the byte upload itself produced no Lens results URL.
+     */
+    fun buildUploadByUrl(imageUrl: String): String =
+        "$UPLOAD_BY_URL_ENDPOINT?url=${Uri.encode(imageUrl)}&ep=$EP_BY_URL&${commonParams()}"
 
     private fun uploadBitmap(bitmap: Bitmap): String? {
         val scaled = scaleBitmap(bitmap)
@@ -64,16 +75,7 @@ class LensImageUploader(
         if (scaled !== bitmap) scaled.recycle()
         bitmap.recycle()
 
-        val metrics = context.resources.displayMetrics
-        val timestamp = System.currentTimeMillis()
-        val locale = Locale.getDefault().language
-
-        val uploadUrl = "https://lens.google.com/v3/upload" +
-            "?hl=$locale" +
-            "&vpw=${metrics.widthPixels}" +
-            "&vph=${metrics.heightPixels}" +
-            "&ep=ccm" +
-            "&st=$timestamp"
+        val uploadUrl = "$UPLOAD_ENDPOINT?${commonParams()}&ep=$EP_BY_BYTES"
 
         val boundary = "----LensBoundary${System.nanoTime()}"
 
@@ -231,6 +233,18 @@ class LensImageUploader(
         return sampleSize
     }
 
+    /**
+     * Builds the query parameters common to both Lens endpoints: language override and the
+     * viewport dimensions and start time used for server-side rendering and latency tracking.
+     */
+    private fun commonParams(): String {
+        val metrics = context.resources.displayMetrics
+        return "hl=${Locale.getDefault().language}" +
+            "&vpw=${metrics.widthPixels}" +
+            "&vph=${metrics.heightPixels}" +
+            "&st=${System.currentTimeMillis()}"
+    }
+
     private fun scaleBitmap(bitmap: Bitmap): Bitmap {
         val longestDim = max(bitmap.width, bitmap.height)
         if (longestDim <= MAX_IMAGE_DIMENSION) return bitmap
@@ -248,6 +262,19 @@ class LensImageUploader(
     }
 
     companion object {
+        @VisibleForTesting
+        internal const val UPLOAD_ENDPOINT = "https://lens.google.com/upload"
+
+        @VisibleForTesting
+        internal const val UPLOAD_BY_URL_ENDPOINT = "https://lens.google.com/uploadbyurl"
+
+        // Entry-point identifiers assigned to Mozilla by Google for attribution.
+        @VisibleForTesting
+        internal const val EP_BY_BYTES = "fntpubb"
+
+        @VisibleForTesting
+        internal const val EP_BY_URL = "fntpubu"
+
         private const val MAX_IMAGE_DIMENSION = 1000
         private const val JPEG_QUALITY = 85
         private const val CONNECT_TIMEOUT_MS = 15_000

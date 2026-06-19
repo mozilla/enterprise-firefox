@@ -431,7 +431,7 @@ class AutoScroller final : public nsITimerCallback, public nsINamed {
 
   explicit AutoScroller(nsFrameSelection* aFrameSelection)
       : mFrameSelection(aFrameSelection),
-        mPresContext(0),
+        mPresContext(nullptr),
         mPoint(0, 0),
         mDelayInMs(30),
         mFurtherScrollingAllowed(FurtherScrollingAllowed::kYes) {

@@ -5449,7 +5449,9 @@ ${
         }
         // Don't close the view when clicking on a tab; we may want to keep the
         // view open on tab switch, and the TabSelect event arrived earlier.
-        if (event.target.closest?.("tab")) {
+        // Also ignore mousedown on the urlbarView context menu: opening/closing the
+        // view is already handled by the result opening flow.
+        if (event.target.closest?.("tab, #urlbarView-context-menu")) {
           break;
         }
 

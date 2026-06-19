@@ -322,6 +322,50 @@ UniqueFileHandle AndroidHardwareBufferTextureData::GetAcquireFence() {
   return mAndroidHardwareBuffer->GetAcquireFence();
 }
 
+already_AddRefed<TextureClient>
+AndroidImageReaderImageTextureData::CreateTextureClient(
+    const layers::GpuProcessAndroidImageReaderId aImageReaderId,
+    const layers::AndroidMediaCodecFrameId aFrameId, gfx::IntSize aSize,
+    gl::OriginPos aOriginPos, bool aHasAlpha, LayersIPCChannel* aAllocator,
+    TextureFlags aFlags) {
+  if (aOriginPos == gl::OriginPos::BottomLeft) {
+    aFlags |= TextureFlags::ORIGIN_BOTTOM_LEFT;
+  }
+
+  return TextureClient::CreateWithData(
+      new AndroidImageReaderImageTextureData(aImageReaderId, aFrameId, aSize,
+                                             aHasAlpha),
+      aFlags, aAllocator);
+}
+
+AndroidImageReaderImageTextureData::AndroidImageReaderImageTextureData(
+    const layers::GpuProcessAndroidImageReaderId aImageReaderId,
+    const layers::AndroidMediaCodecFrameId aFrameId, gfx::IntSize aSize,
+    bool aHasAlpha)
+    : mImageReaderId(aImageReaderId),
+      mFrameId(aFrameId),
+      mSize(aSize),
+      mHasAlpha(aHasAlpha) {}
+
+AndroidImageReaderImageTextureData::~AndroidImageReaderImageTextureData() {}
+
+void AndroidImageReaderImageTextureData::FillInfo(
+    TextureData::Info& aInfo) const {
+  aInfo.size = mSize;
+  aInfo.format = gfx::SurfaceFormat::UNKNOWN;
+  aInfo.hasSynchronization = false;
+  aInfo.supportsMoz2D = false;
+  aInfo.canExposeMappedData = false;
+}
+
+bool AndroidImageReaderImageTextureData::Serialize(
+    SurfaceDescriptor& aOutDescriptor) {
+  aOutDescriptor = AndroidImageReaderImageDescriptor(
+      mImageReaderId, mFrameId, mSize,
+      mHasAlpha ? gfx::SurfaceFormat::R8G8B8A8 : gfx::SurfaceFormat::R8G8B8X8);
+  return true;
+}
+
 #endif  // MOZ_WIDGET_ANDROID
 
 }  // namespace layers

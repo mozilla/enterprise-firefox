@@ -34,7 +34,7 @@ function waitForDBInit() {
     Ci.nsIUrlClassifierDBService
   );
 
-  return BrowserTestUtils.waitForCondition(
+  return TestUtils.waitForCondition(
     () =>
       new Promise(resolve => {
         dbService.lookup(principal, PHISH_TABLE, value => {

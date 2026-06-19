@@ -33,7 +33,7 @@ let assertMetricEmpty = async metricName => {
 };
 
 let assertMetricFoundFor = async (metricName, count = 1) => {
-  await BrowserTestUtils.waitForCondition(() => {
+  await TestUtils.waitForCondition(() => {
     return Glean.tabgroup.tabInteractions[metricName].testGetValue() == count;
   }, `Wait for tab_interactions.${metricName} to be recorded`);
   Assert.equal(
@@ -220,10 +220,16 @@ add_task(async function test_tabInteractionsClose() {
     "Test that closing a tab via firefox view calls tab_interactions.close_tab_other"
   );
   await openFirefoxViewTab(window).then(async viewTab => {
-    const openTabs = viewTab.linkedBrowser.contentDocument
+    const openTabsCard = viewTab.linkedBrowser.contentDocument
       .querySelector("named-deck > view-recentbrowsing view-opentabs")
-      .shadowRoot.querySelector("view-opentabs-card").tabList.rowEls;
-    const tabElement = Array.from(openTabs).find(t => t.__tabElement.group);
+      .shadowRoot.querySelector("view-opentabs-card");
+    let tabElement;
+    await TestUtils.waitForCondition(() => {
+      tabElement = Array.from(openTabsCard.tabList.rowEls).find(
+        t => t.__tabElement?.group
+      );
+      return !!tabElement;
+    }, "Wait for grouped tab to appear in Firefox View open tabs");
     tabElement.shadowRoot.querySelector("moz-button.dismiss-button").click();
     await assertMetricFoundFor("close_tab_other", 3);
   });
@@ -289,7 +295,7 @@ add_task(async function test_tabInteractionsCloseViaAnotherTabContext() {
 
   // Dismiss the confirmation panel that appears after closing duplicate tabs.
   EventUtils.synthesizeMouseAtCenter(document.documentElement, {});
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => !window.ConfirmationHint._panel.getAttribute("animating"),
     "Ensure the confirmation panel is closed"
   );

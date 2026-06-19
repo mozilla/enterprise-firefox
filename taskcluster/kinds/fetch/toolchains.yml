@@ -397,13 +397,6 @@ clang-17:
         repo: https://github.com/llvm/llvm-project
         revision: 6009708b4367171ccdbf4b5905cb6a803753fe18
 
-clang-20:
-    description: clang 20.1.8 source code
-    fetch:
-        type: git
-        repo: https://github.com/llvm/llvm-project
-        revision: 87f0227cb60147a26a1eeb4fb06e3b505e9c7261
-
 clang-21:
     description: clang 21.1.8 source code
     fetch:
@@ -581,7 +574,7 @@ samply:
     fetch:
         type: git
         repo: https://github.com/mstange/samply
-        revision: c947d6339a9bea6c5659c6317796c5061d0fd7e6
+        revision: 49c072db1a88165c9ba92b7b0ee0d425bb6e7231
 
 nodejs-12-linux64:
     description: nodejs 12 for x64 linux
@@ -834,7 +827,7 @@ firefox-profiler:
     fetch:
         type: git
         repo: https://github.com/firefox-devtools/profiler
-        revision: 8c0afb1f47190487b08ea2561ae3cc0f7a5d31e9
+        revision: bdc1c36eedce2cd445726a9d0b28b72082ccad4f
 
 # See https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads
 # We can't catch regressions from these updates in CI. Testing should focus on

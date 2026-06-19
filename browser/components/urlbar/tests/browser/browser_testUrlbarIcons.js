@@ -48,7 +48,7 @@ add_task(async function test_icon_is_search_glass_when_empty() {
     value: "",
   });
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => getSwitcherIconUrl(window) == DEFAULT_ENGINE_ICON,
     "Icon should be default engine icon when focused"
   );
@@ -65,7 +65,7 @@ add_task(async function test_icon_updates_to_engine_icon_on_search_result() {
   });
 
   let engine = await SearchService.getDefault();
-  await BrowserTestUtils.waitForCondition(() => {
+  await TestUtils.waitForCondition(() => {
     let result = window.gURLBar.view.getResultAtIndex(0);
     return (
       result?.type == UrlbarUtils.RESULT_TYPE.SEARCH &&
@@ -73,7 +73,7 @@ add_task(async function test_icon_updates_to_engine_icon_on_search_result() {
     );
   }, "Waiting for a default engine SEARCH result at index 0");
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => getSwitcherIconUrl(window) == DEFAULT_ENGINE_ICON,
     "Waiting for icon to update to the default engine's icon"
   );
@@ -96,12 +96,12 @@ add_task(async function test_icon_updates_to_globe_on_url_result() {
     value: "example.com",
   });
 
-  await BrowserTestUtils.waitForCondition(() => {
+  await TestUtils.waitForCondition(() => {
     let result = window.gURLBar.view.getResultAtIndex(0);
     return result?.type == UrlbarUtils.RESULT_TYPE.URL;
   }, "Waiting for a URL result at index 0");
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => getSwitcherIconUrl(window) == UrlbarUtils.ICON.GLOBE,
     "Waiting for icon to update to globe for URL result"
   );
@@ -124,12 +124,12 @@ add_task(async function test_icon_updates_to_globe_on_autofill_result() {
     value: "example.com/autofill",
   });
 
-  await BrowserTestUtils.waitForCondition(() => {
+  await TestUtils.waitForCondition(() => {
     let result = window.gURLBar.view.getResultAtIndex(0);
     return result?.autofill;
   }, "Waiting for an autofill result at index 0");
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => getSwitcherIconUrl(window) == UrlbarUtils.ICON.GLOBE,
     "Waiting for icon to update to globe for autofill result"
   );

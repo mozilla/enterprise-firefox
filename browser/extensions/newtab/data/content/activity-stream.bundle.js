@@ -313,6 +313,7 @@ for (const type of [
   "WIDGETS_SPORTS_CHANGE_MATCHES_TAB",
   "WIDGETS_SPORTS_CHANGE_SELECTED_TEAMS",
   "WIDGETS_SPORTS_CHANGE_WIDGET_STATE",
+  "WIDGETS_SPORTS_FETCH_MORE_MATCHES",
   "WIDGETS_SPORTS_LIVE_HIDDEN",
   "WIDGETS_SPORTS_LIVE_REFRESH",
   "WIDGETS_SPORTS_LIVE_UPDATE",
@@ -322,6 +323,7 @@ for (const type of [
   "WIDGETS_SPORTS_SET_CELEBRATIONS",
   "WIDGETS_SPORTS_SET_FOLLOWED_ONLY",
   "WIDGETS_SPORTS_SET_LIVE_INDEX",
+  "WIDGETS_SPORTS_SET_LOAD_MORE",
   "WIDGETS_SPORTS_SET_MATCHES_TAB",
   "WIDGETS_SPORTS_SET_SELECTED_TEAMS",
   "WIDGETS_SPORTS_SET_WIDGET_STATE",
@@ -6835,6 +6837,15 @@ const INITIAL_STATE = {
     // just-ended match's global_event_id to the ms timestamp it left /live;
     // `celebrated` lists ids that have already triggered a celebration.
     celebrations: { endedAt: {}, celebrated: [] },
+    // Session-only state for infinite-scroll load-more on the Upcoming and
+    // Results expanded "View all" lists. Each direction tracks its own
+    // in-flight flag, end-of-data flag, and the most recently requested
+    // date. Fetched windows are NOT persisted — they re-fetch on next
+    // session start.
+    loadMore: {
+      upcoming: { loading: false, exhausted: false, lastFetchedDate: null },
+      results: { loading: false, exhausted: false, lastFetchedDate: null },
+    },
   },
 };
 
@@ -7825,8 +7836,6 @@ function ExternalComponents(
 
 function SportsWidget(prevState = INITIAL_STATE.SportsWidget, action) {
   switch (action.type) {
-    case actionTypes.WIDGETS_SPORTS_WIDGET_SET:
-      return { ...prevState, data: action.data, initialized: true };
     case actionTypes.WIDGETS_SPORTS_SET_WIDGET_STATE:
       return { ...prevState, widgetState: action.data };
     case actionTypes.WIDGETS_SPORTS_SET_SELECTED_TEAMS:
@@ -7862,6 +7871,67 @@ function SportsWidget(prevState = INITIAL_STATE.SportsWidget, action) {
       return { ...prevState, liveIndex: action.data };
     case actionTypes.WIDGETS_SPORTS_SET_CELEBRATIONS:
       return { ...prevState, celebrations: action.data };
+    case actionTypes.WIDGETS_SPORTS_SET_LOAD_MORE: {
+      const {
+        direction,
+        matches: newMatches,
+        ...loadMoreUpdates
+      } = action.data || {};
+      if (direction !== "upcoming" && direction !== "results") {
+        return prevState;
+      }
+      // Upcoming appends to data.matches.next; results appends to
+      // data.matches.previous. The key used to skip duplicates is the same
+      // in both cases.
+      const targetField = direction === "upcoming" ? "next" : "previous";
+      const nextState = {
+        ...prevState,
+        loadMore: {
+          ...prevState.loadMore,
+          [direction]: {
+            ...prevState.loadMore[direction],
+            ...loadMoreUpdates,
+          },
+        },
+      };
+      if (Array.isArray(newMatches) && newMatches.length && prevState.data) {
+        const existing = prevState.data.matches?.[targetField] ?? [];
+        // Build a stable key for each match so we can skip ones already in
+        // the list. Prefer global_event_id; fall back to a composite that
+        // mirrors the React row key used in the list view.
+        const matchKey = match =>
+          match?.global_event_id ??
+          `${match?.home_team?.key}-${match?.away_team?.key}-${match?.date}`;
+        const existingKeys = new Set(existing.map(matchKey));
+        const additions = newMatches.filter(
+          m => !existingKeys.has(matchKey(m))
+        );
+        if (additions.length) {
+          nextState.data = {
+            ...prevState.data,
+            matches: {
+              ...(prevState.data.matches || {
+                previous: [],
+                current: [],
+                next: [],
+              }),
+              [targetField]: [...existing, ...additions],
+            },
+          };
+        }
+      }
+      return nextState;
+    }
+    case actionTypes.WIDGETS_SPORTS_WIDGET_SET:
+      // A wholesale-replace of `data` (initial load / post-match resync) also
+      // resets the session-only load-more state so we don't keep stale
+      // lastFetchedDate / exhausted flags from a previous fetch round.
+      return {
+        ...prevState,
+        data: action.data,
+        initialized: true,
+        loadMore: { ...INITIAL_STATE.SportsWidget.loadMore },
+      };
     default:
       return prevState;
   }
@@ -9144,8 +9214,11 @@ class _TopSiteList extends (external_React_default()).PureComponent {
     // (there should only be one of these)
     const addButtonIndex = topSites.findIndex(site => site?.isAddButton);
 
-    // Find the position right after the last regular shortcut
-    let targetPosition = topSites.length - 1;
+    // Find the position right after the last regular shortcut. Defaults to the
+    // first slot so that with no shortcuts the Add button sits at the front
+    // (a length-1 default would place it in the last slot, and adding the first
+    // shortcut there would push the button out of bounds and hide it).
+    let targetPosition = 0;
     for (let i = topSites.length - 1; i >= 0; i--) {
       if (topSites[i] && !topSites[i].isAddButton) {
         targetPosition = i + 1;
@@ -16880,7 +16953,8 @@ function SportsMatchRow({
       case "now":
         {
           const liveStatusL10nId = LIVE_STATUS_L10N_MAP[status_type?.toLowerCase()];
-          if (!liveStatusL10nId) {
+          // The Now tab's live status footer is only shown in the large widget.
+          if (!liveStatusL10nId || size !== "large") {
             return /*#__PURE__*/external_React_default().createElement(ScorePill, {
               homeScore: displayHomeScore,
               awayScore: displayAwayScore,
@@ -18527,6 +18601,7 @@ function SportsWidget_SportsWidget({
     setShowResultsList: setShowResultsList,
     showUpcomingList: showUpcomingList,
     setShowUpcomingList: setShowUpcomingList,
+    loadMore: sportsWidgetData.loadMore,
     onWatchClick: () => setWatchLiveOpen(true)
   }), widgetState === WIDGET_STATES.KEY_DATES && /*#__PURE__*/external_React_default().createElement(SportsWidgetKeyDates, {
     handleViewMatches: handleViewMatches
@@ -18667,6 +18742,49 @@ function SportsSectionLabel({
     "data-l10n-id": "newtab-sports-widget-live"
   })));
 }
+
+// Mounts an IntersectionObserver on a bottom-of-list sentinel element.
+// When the sentinel scrolls into the scrollable `.sports-body` ancestor
+// (or within 200px of doing so), the hook dispatches
+// WIDGETS_SPORTS_FETCH_MORE_MATCHES with the given `direction`. The
+// observer is torn down when the list collapses, when load-more is
+// exhausted, or when the sentinel element unmounts.
+//
+// - `active`: whether the list this sentinel belongs to is expanded
+// - `loading`: current in-flight flag for this direction
+// - `exhausted`: end-of-data flag for this direction
+function useLoadMoreSentinel({
+  direction,
+  sentinelRef,
+  active,
+  loading,
+  exhausted,
+  dispatch
+}) {
+  (0,external_React_namespaceObject.useEffect)(() => {
+    if (!active || exhausted || !sentinelRef.current) {
+      return undefined;
+    }
+    const sentinel = sentinelRef.current;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !loading && !exhausted) {
+        dispatch(actionCreators.OnlyToMain({
+          type: actionTypes.WIDGETS_SPORTS_FETCH_MORE_MATCHES,
+          data: {
+            direction
+          }
+        }));
+      }
+    }, {
+      root: sentinel.closest(".sports-body"),
+      // Fire the fetch when the sentinel is within 200px of being
+      // visible, not only once it's actually on screen.
+      rootMargin: "200px 0px"
+    });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [dispatch, direction, sentinelRef, active, loading, exhausted]);
+}
 function SportsMatchesView({
   dispatch,
   matchesTab,
@@ -18694,10 +18812,23 @@ function SportsMatchesView({
   setShowResultsList,
   showUpcomingList,
   setShowUpcomingList,
+  loadMore,
   onWatchClick
 }) {
   const resultsPanelRef = (0,external_React_namespaceObject.useRef)(null);
   const upcomingPanelRef = (0,external_React_namespaceObject.useRef)(null);
+  // Refs to 1px-tall invisible divs rendered at the end of the upcoming /
+  // results lists. IntersectionObserver can only watch real DOM elements,
+  // so we need a concrete element at the bottom of each list to detect
+  // "user scrolled to the end". When a sentinel scrolls into view, the
+  // observer below dispatches WIDGETS_SPORTS_FETCH_MORE_MATCHES for the
+  // corresponding direction.
+  const upcomingSentinelRef = (0,external_React_namespaceObject.useRef)(null);
+  const resultsSentinelRef = (0,external_React_namespaceObject.useRef)(null);
+  const upcomingLoadMoreLoading = !!loadMore?.upcoming?.loading;
+  const upcomingLoadMoreExhausted = !!loadMore?.upcoming?.exhausted;
+  const resultsLoadMoreLoading = !!loadMore?.results?.loading;
+  const resultsLoadMoreExhausted = !!loadMore?.results?.exhausted;
   const hasFollowedTeams = selectedTeamsSet.size > 0;
   // Read the persisted per-tab toggle state from redux. Defaults to true so
   // users with followed teams see the filtered list right away.
@@ -18748,6 +18879,27 @@ function SportsMatchesView({
       upcomingPanelRef.current?.querySelector(".sports-match-row")?.focus();
     }
   }, [showUpcomingList]);
+
+  // Hook up the IntersectionObserver-driven load-more for each list. The
+  // hook dispatches WIDGETS_SPORTS_FETCH_MORE_MATCHES with the matching
+  // direction when its sentinel scrolls into view; it only runs while the
+  // list is expanded and not yet exhausted.
+  useLoadMoreSentinel({
+    direction: "upcoming",
+    sentinelRef: upcomingSentinelRef,
+    active: showUpcomingList,
+    loading: upcomingLoadMoreLoading,
+    exhausted: upcomingLoadMoreExhausted,
+    dispatch
+  });
+  useLoadMoreSentinel({
+    direction: "results",
+    sentinelRef: resultsSentinelRef,
+    active: showResultsList,
+    loading: resultsLoadMoreLoading,
+    exhausted: resultsLoadMoreExhausted,
+    dispatch
+  });
 
   // Tracks whether the live-refresh button is in its post-click cooldown
   // window.
@@ -18853,7 +19005,16 @@ function SportsMatchesView({
     followedTeams: selectedTeamsSet,
     tbdTeamName: tbdTeamName,
     localizedNames: localizedNames
-  })))))))) : previous[0] && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, size === "large" && /*#__PURE__*/external_React_default().createElement(SportsSectionLabel, {
+  })))))), resultsLoadMoreLoading && /*#__PURE__*/external_React_default().createElement("div", {
+    className: "sports-results-loading-more",
+    role: "status",
+    "aria-live": "polite",
+    "data-l10n-id": "newtab-sports-widget-loading-more"
+  }), !resultsLoadMoreExhausted && /*#__PURE__*/external_React_default().createElement("div", {
+    ref: resultsSentinelRef,
+    className: "sports-results-load-more-sentinel",
+    "aria-hidden": "true"
+  }))) : previous[0] && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, size === "large" && /*#__PURE__*/external_React_default().createElement(SportsSectionLabel, {
     match: previous[0]
   }), /*#__PURE__*/external_React_default().createElement("div", {
     className: "match-highlight-view"
@@ -18941,7 +19102,16 @@ function SportsMatchesView({
     followedTeams: selectedTeamsSet,
     tbdTeamName: tbdTeamName,
     localizedNames: localizedNames
-  })))))))) : /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, next[0] && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, size === "large" && /*#__PURE__*/external_React_default().createElement(SportsSectionLabel, {
+  })))))), upcomingLoadMoreLoading && /*#__PURE__*/external_React_default().createElement("div", {
+    className: "sports-upcoming-loading-more",
+    role: "status",
+    "aria-live": "polite",
+    "data-l10n-id": "newtab-sports-widget-loading-more"
+  }), !upcomingLoadMoreExhausted && /*#__PURE__*/external_React_default().createElement("div", {
+    ref: upcomingSentinelRef,
+    className: "sports-upcoming-load-more-sentinel",
+    "aria-hidden": "true"
+  }))) : /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, next[0] && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, size === "large" && /*#__PURE__*/external_React_default().createElement(SportsSectionLabel, {
     match: next[0]
   }), /*#__PURE__*/external_React_default().createElement("div", {
     className: "match-highlight-view"
@@ -18965,32 +19135,36 @@ function SportsMatchesView({
     onClick: () => setShowUpcomingList(v => !v)
   })));
 }
+
+// Full ISO timestamps with the host (ET) offset so DATETIME projects each
+// kickoff onto the viewer's local calendar day. Bounds are the first and
+// last match kickoffs of each stage, sourced from FIFA's 2026 fixtures.
 const keyDatesList = [{
   stageL10nId: "newtab-sports-widget-group-stage",
-  start: "2026-06-11",
-  end: "2026-06-27"
+  start: "2026-06-11T15:00:00-04:00",
+  end: "2026-06-27T22:00:00-04:00"
 }, {
   stageL10nId: "newtab-sports-widget-round-32",
-  start: "2026-06-28",
-  end: "2026-07-03"
+  start: "2026-06-28T15:00:00-04:00",
+  end: "2026-07-03T21:30:00-04:00"
 }, {
   stageL10nId: "newtab-sports-widget-round-16",
-  start: "2026-07-04",
-  end: "2026-07-07"
+  start: "2026-07-04T13:00:00-04:00",
+  end: "2026-07-07T16:00:00-04:00"
 }, {
   stageL10nId: "newtab-sports-widget-quarter-finals",
-  start: "2026-07-09",
-  end: "2026-07-11"
+  start: "2026-07-09T16:00:00-04:00",
+  end: "2026-07-11T21:00:00-04:00"
 }, {
   stageL10nId: "newtab-sports-widget-semi-finals",
-  start: "2026-07-14",
-  end: "2026-07-15"
+  start: "2026-07-14T15:00:00-04:00",
+  end: "2026-07-15T15:00:00-04:00"
 }, {
   stageL10nId: "newtab-sports-widget-bronze-finals",
-  date: "2026-07-18"
+  date: "2026-07-18T17:00:00-04:00"
 }, {
   stageL10nId: "newtab-sports-widget-final",
-  date: "2026-07-19"
+  date: "2026-07-19T15:00:00-04:00"
 }];
 function SportsWidgetKeyDates({
   handleViewMatches
@@ -20342,7 +20516,7 @@ function WidgetWrapper({
 // Elements where mousedown should start an interaction, not a widget reorder.
 // Anchors are excluded so clicking still navigates, and dragging an anchor
 // drags the widget.
-const INTERACTIVE_DESCENDANT_SELECTOR = ["button", "moz-button", "moz-checkbox", "moz-toggle", "moz-radio", "moz-select", "moz-input-text", "moz-input-password", "moz-input-search", "input", "textarea", "select", "[contenteditable='true']", "[role='button']", "[role='checkbox']", "[role='switch']", "[role='textbox']"].join(", ");
+const INTERACTIVE_DESCENDANT_SELECTOR = ["button", "moz-button", "moz-checkbox", "moz-toggle", "moz-radio", "moz-select", "moz-input-text", "moz-input-password", "moz-input-search", "input", "textarea", "select", "dialog", "[contenteditable='true']", "[role='button']", "[role='checkbox']", "[role='switch']", "[role='textbox']"].join(", ");
 
 /**
  * Builds a high-DPI drag image clone anchored at the cursor's grab point.

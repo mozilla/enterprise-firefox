@@ -636,7 +636,7 @@ add_task(async function testAvailableUpdates() {
   );
 
   // Wait for the available updates count to finalize, it's async.
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => AboutAddonsTestUtils.getCategoryBadgeCount(availableCat) === 3
   );
 

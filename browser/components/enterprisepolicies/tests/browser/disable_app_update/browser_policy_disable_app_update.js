@@ -58,7 +58,7 @@ add_task(async function test_update_about_ui() {
   let aboutDialog = await waitForAboutDialog();
   let panelId = "policyDisabled";
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => aboutDialog.gAppUpdater?.selectedPanel?.id == panelId,
     'Waiting for expected panel ID - expected "' + panelId + '"'
   );

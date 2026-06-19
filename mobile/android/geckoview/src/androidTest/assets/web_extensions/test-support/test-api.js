@@ -21,12 +21,14 @@ this.test = class extends ExtensionAPI {
           "resource://android/assets/web_extensions/test-support/TestSupportChild.sys.mjs",
       },
       allFrames: true,
+      safeForUntrustedWebProcess: true,
     });
     ChromeUtils.registerProcessActor("TestSupportProcess", {
       child: {
         esModuleURI:
           "resource://android/assets/web_extensions/test-support/TestSupportProcessChild.sys.mjs",
       },
+      safeForUntrustedWebProcess: true,
     });
   }
 

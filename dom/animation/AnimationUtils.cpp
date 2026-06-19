@@ -125,6 +125,16 @@ AnimationUtils::GetElementPseudoPair(const Element* aElementOrPseudo) {
             PseudoStyleRequest::Backdrop()};
   }
 
+  if (aElementOrPseudo->IsGeneratedContentContainerForCheckmark()) {
+    return {aElementOrPseudo->GetParent()->AsElement(),
+            PseudoStyleRequest(PseudoStyleType::Checkmark)};
+  }
+
+  if (aElementOrPseudo->IsGeneratedContentContainerForPickerIcon()) {
+    return {aElementOrPseudo->GetParent()->AsElement(),
+            PseudoStyleRequest(PseudoStyleType::PickerIcon)};
+  }
+
   const PseudoStyleType type = aElementOrPseudo->GetPseudoElementType();
   if (PseudoStyle::IsViewTransitionPseudoElement(type)) {
     // Note: ::view-transition doesn't have a name, so we check if it has a name

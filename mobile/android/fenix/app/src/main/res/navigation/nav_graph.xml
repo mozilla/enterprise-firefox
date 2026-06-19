@@ -1073,7 +1073,13 @@
             app:exitAnim="@anim/slide_out_left"
             app:popEnterAnim="@anim/slide_in_left"
             app:popExitAnim="@anim/slide_out_right" />
+        <action
+            android:id="@+id/action_secretSettingsFragment_to_debugInfoBottomSheetFragment"
+            app:destination="@id/debugInfoBottomSheetFragment" />
     </fragment>
+    <dialog
+        android:id="@+id/debugInfoBottomSheetFragment"
+        android:name="org.mozilla.fenix.debugsettings.info.DebugInfoBottomSheetFragment" />
     <fragment
         android:id="@+id/secretSettingsSearchFragment"
         android:name="org.mozilla.fenix.settings.settingssearch.secretsettings.SecretSettingsSearchFragment"

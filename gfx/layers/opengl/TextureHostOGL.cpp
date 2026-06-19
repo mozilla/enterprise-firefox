@@ -27,7 +27,9 @@
 
 #ifdef MOZ_WIDGET_ANDROID
 #  include "mozilla/layers/AndroidHardwareBuffer.h"
+#  include "mozilla/layers/AndroidImageConsumer.h"
 #  include "mozilla/webrender/RenderAndroidHardwareBufferTextureHost.h"
+#  include "mozilla/webrender/RenderAndroidImageReaderImageTextureHost.h"
 #  include "mozilla/webrender/RenderAndroidSurfaceTextureHost.h"
 #endif
 
@@ -75,6 +77,12 @@ already_AddRefed<TextureHost> CreateTextureHostOGL(
       const SurfaceDescriptorAndroidHardwareBuffer& desc =
           aDesc.get_SurfaceDescriptorAndroidHardwareBuffer();
       result = AndroidHardwareBufferTextureHost::Create(aFlags, desc);
+      break;
+    }
+    case SurfaceDescriptor::TAndroidImageReaderImageDescriptor: {
+      const AndroidImageReaderImageDescriptor& desc =
+          aDesc.get_AndroidImageReaderImageDescriptor();
+      result = new AndroidImageReaderImageTextureHost(aFlags, desc);
       break;
     }
 #endif
@@ -932,6 +940,154 @@ void AndroidHardwareBufferTextureHost::PushDisplayItems(
 }
 
 bool AndroidHardwareBufferTextureHost::SupportsExternalCompositing(
+    WebRenderBackend aBackend) {
+  return aBackend == WebRenderBackend::SOFTWARE;
+}
+
+////////////////////////////////////////////////////////////////////////
+// AndroidImageReaderImageTextureSource
+
+AndroidImageReaderImageTextureSource::AndroidImageReaderImageTextureSource(
+    TextureSourceProvider* aProvider,
+    AndroidImageConsumer* aAndroidImageConsumer, gfx::SurfaceFormat aFormat,
+    GLenum aTarget, GLenum aWrapMode, gfx::IntSize aSize)
+    : mGL(aProvider->GetGLContext()),
+      mAndroidImageConsumer(aAndroidImageConsumer),
+      mFormat(aFormat),
+      mTextureTarget(aTarget),
+      mWrapMode(aWrapMode),
+      mSize(aSize) {}
+
+AndroidImageReaderImageTextureSource::~AndroidImageReaderImageTextureSource() {}
+
+void AndroidImageReaderImageTextureSource::BindTexture(
+    GLenum aTextureUnit, gfx::SamplingFilter aSamplingFilter) {
+  MOZ_ASSERT(mAndroidImageConsumer);
+
+  GLContext* gl = this->gl();
+  if (!gl || !gl->MakeCurrent()) {
+    NS_WARNING("Trying to bind a texture without a GLContext");
+    return;
+  }
+
+  const auto handle = mAndroidImageConsumer->GetGlTextureHandle();
+
+  gl->fActiveTexture(aTextureUnit);
+  gl->fBindTexture(mTextureTarget, handle);
+
+  ApplySamplingFilterToBoundTexture(gl, aSamplingFilter, mTextureTarget);
+}
+
+bool AndroidImageReaderImageTextureSource::IsValid() const { return !!gl(); }
+
+void AndroidImageReaderImageTextureSource::DeallocateDeviceData() {
+  mAndroidImageConsumer = nullptr;
+}
+
+////////////////////////////////////////////////////////////////////////
+
+AndroidImageReaderImageTextureHost::AndroidImageReaderImageTextureHost(
+    TextureFlags aFlags, const AndroidImageReaderImageDescriptor& aDescriptor)
+    : TextureHost(TextureHostType::AndroidSurfaceTexture, aFlags),
+      mImageReaderId(aDescriptor.imageReaderId()),
+      mFrameId(aDescriptor.frameId()),
+      mSize(aDescriptor.size()),
+      mFormat(aDescriptor.format()) {}
+
+AndroidImageReaderImageTextureHost::~AndroidImageReaderImageTextureHost() {}
+
+gfx::SurfaceFormat AndroidImageReaderImageTextureHost::GetFormat() const {
+  return mFormat;
+}
+
+void AndroidImageReaderImageTextureHost::DeallocateDeviceData() {}
+
+void AndroidImageReaderImageTextureHost::CreateRenderTexture(
+    const wr::ExternalImageId& aExternalImageId) {
+  MOZ_ASSERT(mExternalImageId.isSome());
+
+  RefPtr<wr::RenderTextureHost> texture =
+      new wr::RenderAndroidImageReaderImageTextureHost(mImageReaderId, mFrameId,
+                                                       mSize, mFormat);
+  wr::RenderThread::Get()->RegisterExternalImage(aExternalImageId,
+                                                 texture.forget());
+}
+
+uint32_t AndroidImageReaderImageTextureHost::NumSubTextures() { return 1; }
+
+void AndroidImageReaderImageTextureHost::PushResourceUpdates(
+    wr::TransactionBuilder& aResources, ResourceUpdateOp aOp,
+    const Range<wr::ImageKey>& aImageKeys, const wr::ExternalImageId& aExtID) {
+  auto method = aOp == TextureHost::ADD_IMAGE
+                    ? &wr::TransactionBuilder::AddExternalImage
+                    : &wr::TransactionBuilder::UpdateExternalImage;
+
+  // Prefer TextureExternal unless the backend requires TextureRect.
+  TextureHost::NativeTexturePolicy policy =
+      TextureHost::BackendNativeTexturePolicy(aResources.GetBackendType(),
+                                              GetSize());
+  auto imageType = wr::ExternalImageType::TextureHandle(
+      wr::ImageBufferKind::TextureExternal);
+  if (policy == TextureHost::NativeTexturePolicy::REQUIRE) {
+    imageType =
+        wr::ExternalImageType::TextureHandle(wr::ImageBufferKind::TextureRect);
+  }
+
+  switch (GetFormat()) {
+    case gfx::SurfaceFormat::R8G8B8X8:
+    case gfx::SurfaceFormat::R8G8B8A8: {
+      if (aImageKeys.length() != 1) {
+        MOZ_ASSERT_UNREACHABLE("unexpected to be called");
+        return;
+      }
+
+      // XXX Add RGBA handling. Temporary hack to avoid crash
+      // With BGRA format setting, rendering works without problem.
+      auto format = GetFormat() == gfx::SurfaceFormat::R8G8B8A8
+                        ? gfx::SurfaceFormat::B8G8R8A8
+                        : gfx::SurfaceFormat::B8G8R8X8;
+      wr::ImageDescriptor descriptor(GetSize(), format);
+      (aResources.*method)(aImageKeys[0], descriptor, aExtID, imageType, 0,
+                           /* aNormalizedUvs */ false);
+      break;
+    }
+    default: {
+      MOZ_ASSERT_UNREACHABLE("unexpected to be called");
+    }
+  }
+}
+
+void AndroidImageReaderImageTextureHost::PushDisplayItems(
+    wr::DisplayListBuilder& aBuilder, const wr::LayoutRect& aBounds,
+    const wr::LayoutRect& aClip, wr::ImageRendering aFilter,
+    const Range<wr::ImageKey>& aImageKeys, PushDisplayItemFlagSet aFlags) {
+  bool preferCompositorSurface =
+      aFlags.contains(PushDisplayItemFlag::PREFER_COMPOSITOR_SURFACE);
+  bool supportsExternalCompositing =
+      SupportsExternalCompositing(aBuilder.GetBackendType());
+
+  switch (GetFormat()) {
+    case gfx::SurfaceFormat::R8G8B8X8:
+    case gfx::SurfaceFormat::R8G8B8A8:
+    case gfx::SurfaceFormat::B8G8R8A8:
+    case gfx::SurfaceFormat::B8G8R8X8: {
+      if (aImageKeys.length() != 1) {
+        MOZ_ASSERT_UNREACHABLE("unexpected key length");
+        return;
+      }
+      aBuilder.PushImage(aBounds, aClip, true, false, aFilter, aImageKeys[0],
+                         !(mFlags & TextureFlags::NON_PREMULTIPLIED),
+                         wr::ColorF{1.0f, 1.0f, 1.0f, 1.0f},
+                         preferCompositorSurface, supportsExternalCompositing);
+      break;
+    }
+    default: {
+      MOZ_ASSERT_UNREACHABLE("unexpected to be called");
+    }
+  }
+}
+
+bool AndroidImageReaderImageTextureHost::SupportsExternalCompositing(
     WebRenderBackend aBackend) {
   return aBackend == WebRenderBackend::SOFTWARE;
 }

@@ -64,7 +64,7 @@ async function pickActionByClick() {
 add_task(async function selected_result_action_via_enter() {
   await doTest(async () => {
     await openPopup("testaction");
-    await BrowserTestUtils.waitForCondition(() =>
+    await TestUtils.waitForCondition(() =>
       window.document.querySelector(
         `.urlbarView-action-btn[data-action=testaction]`
       )
@@ -86,7 +86,7 @@ add_task(async function selected_result_action_via_enter() {
 add_task(async function selected_result_action_via_click() {
   await doTest(async () => {
     await openPopup("testaction");
-    await BrowserTestUtils.waitForCondition(() =>
+    await TestUtils.waitForCondition(() =>
       window.document.querySelector(
         `.urlbarView-action-btn[data-action=testaction]`
       )
@@ -110,7 +110,7 @@ add_task(async function selected_result_action_via_click() {
 add_task(async function selected_result_multi_action_via_click() {
   await doTest(async () => {
     await openPopup("multiaction");
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () =>
         window.document.querySelector(
           `.urlbarView-action-btn[data-action=multiaction1]`

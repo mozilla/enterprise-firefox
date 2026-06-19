@@ -52,7 +52,7 @@ async function testModeMenuitem(mode, modePref) {
 
   // Hover the normal menuitem again and check that the UI density reset to normal.
   EventUtils.synthesizeMouseAtCenter(normalItem, { type: "mouseover" });
-  await BrowserTestUtils.waitForCondition(() => !win.hasAttribute("uidensity"));
+  await TestUtils.waitForCondition(() => !win.hasAttribute("uidensity"));
 
   ok(
     !win.hasAttribute("uidensity"),

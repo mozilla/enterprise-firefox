@@ -843,9 +843,9 @@ static void global_registry_handler(void* data, wl_registry* registry,
     auto* dmabuf = WaylandRegistryBind<zwp_linux_dmabuf_v1>(
         registry, id, &zwp_linux_dmabuf_v1_interface, vers);
     display->SetDmabuf(dmabuf, vers);
-  } else if (iface.EqualsLiteral("xx_session_manager_v1")) {
-    auto* sessionManager = WaylandRegistryBind<xx_session_manager_v1>(
-        registry, id, &xx_session_manager_v1_interface, 1);
+  } else if (iface.EqualsLiteral("xdg_session_manager_v1")) {
+    auto* sessionManager = WaylandRegistryBind<xdg_session_manager_v1>(
+        registry, id, &xdg_session_manager_v1_interface, 1);
     display->SetSessionManager(sessionManager);
   } else if (iface.EqualsLiteral("xdg_activation_v1")) {
     auto* activation = WaylandRegistryBind<xdg_activation_v1>(
@@ -942,8 +942,8 @@ nsWaylandDisplay::~nsWaylandDisplay() {
   MozClearPointer(mColorManager, wp_color_manager_v1_destroy);
   MozClearPointer(mColorRepresentationManager,
                   wp_color_representation_manager_v1_destroy);
-  MozClearPointer(mWaylandSession, xx_session_v1_destroy);
-  MozClearPointer(mSessionManager, xx_session_manager_v1_destroy);
+  MozClearPointer(mWaylandSession, xdg_session_v1_destroy);
+  MozClearPointer(mSessionManager, xdg_session_manager_v1_destroy);
 }
 
 void nsWaylandDisplay::AsyncRoundtripCallback(void* aData,
@@ -981,7 +981,7 @@ void nsWaylandDisplay::RequestRoundtrip() {
   wl_display_roundtrip(mDisplay);
 }
 
-void nsWaylandDisplay::SessionCreate(void* aData, xx_session_v1* aSession,
+void nsWaylandDisplay::SessionCreate(void* aData, xdg_session_v1* aSession,
                                      const char* aSessionId) {
   LOG("nsWaylandDisplay::SessionCreate() %s", aSessionId);
 
@@ -990,7 +990,7 @@ void nsWaylandDisplay::SessionCreate(void* aData, xx_session_v1* aSession,
   Preferences::SetCString("widget.wayland.session-id", aSessionId);
 }
 
-void nsWaylandDisplay::SessionRestore(void* aData, xx_session_v1* aSession) {
+void nsWaylandDisplay::SessionRestore(void* aData, xdg_session_v1* aSession) {
 #ifdef MOZ_LOGGING
   auto* display = static_cast<nsWaylandDisplay*>(aData);
   LOG("nsWaylandDisplay::SessionRestore() %s",
@@ -998,13 +998,13 @@ void nsWaylandDisplay::SessionRestore(void* aData, xx_session_v1* aSession) {
 #endif
 }
 
-void nsWaylandDisplay::SessionReplace(void* aData, xx_session_v1* aSession) {
+void nsWaylandDisplay::SessionReplace(void* aData, xdg_session_v1* aSession) {
   LOG("nsWaylandDisplay::SessionReplace()");
   auto* display = static_cast<nsWaylandDisplay*>(aData);
   display->CreateSession();
 }
 
-static const xx_session_v1_listener sSessionListener = {
+static const xdg_session_v1_listener sSessionListener = {
     nsWaylandDisplay::SessionCreate,
     nsWaylandDisplay::SessionRestore,
     nsWaylandDisplay::SessionReplace,
@@ -1014,12 +1014,12 @@ void nsWaylandDisplay::CreateSession(const char* aSessionId) {
   LOG("nsWaylandDisplay::CreateSession() ID %s", aSessionId);
 
   // TODO: WUniquePtr
-  MozClearPointer(mWaylandSession, xx_session_v1_destroy);
+  MozClearPointer(mWaylandSession, xdg_session_v1_destroy);
 
-  mWaylandSession = xx_session_manager_v1_get_session(
+  mWaylandSession = xdg_session_manager_v1_get_session(
       mSessionManager,
-      aSessionId ? XX_SESSION_MANAGER_V1_REASON_SESSION_RESTORE
-                 : XX_SESSION_MANAGER_V1_REASON_LAUNCH,
+      aSessionId ? XDG_SESSION_MANAGER_V1_REASON_SESSION_RESTORE
+                 : XDG_SESSION_MANAGER_V1_REASON_LAUNCH,
       aSessionId);
 
   if (!mWaylandSession) {
@@ -1027,17 +1027,26 @@ void nsWaylandDisplay::CreateSession(const char* aSessionId) {
     return;
   }
 
-  xx_session_v1_add_listener(mWaylandSession, &sSessionListener, this);
+  xdg_session_v1_add_listener(mWaylandSession, &sSessionListener, this);
 }
 
 void nsWaylandDisplay::SetSessionManager(
-    xx_session_manager_v1* aSessionManager) {
-  mSessionManager = aSessionManager;
+    xdg_session_manager_v1* aSessionManager) {
   LOG("nsWaylandDisplay::SetSessionManager()");
+  mSessionManager = aSessionManager;
+}
+
+void nsWaylandDisplay::SessionManagerInit() {
+  if (!mSessionManager ||
+      !StaticPrefs::widget_wayland_session_management_enabled_AtStartup()) {
+    return;
+  }
 
   nsAutoCString prevSessionId;
   Preferences::GetCString("widget.wayland.session-id", prevSessionId);
 
+  LOG("nsWaylandDisplay::SessionManagerInit() session ID '%s'",
+      prevSessionId.get());
   CreateSession(prevSessionId.IsEmpty() ? nullptr : prevSessionId.get());
 }
 

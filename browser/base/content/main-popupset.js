@@ -13,6 +13,10 @@ document.addEventListener(
       TabNotes: "moz-src:///browser/components/tabnotes/TabNotes.sys.mjs",
     });
     let mainPopupSet = document.getElementById("mainPopupSet");
+    // The trigger node may be a descendant of the tab group row carrying
+    // `data-tab-group-id`, e.g. its label or icon.
+    let getContextTabGroupId = popup =>
+      popup.triggerNode?.closest("[data-tab-group-id]")?.dataset.tabGroupId;
     // eslint-disable-next-line complexity
     mainPopupSet.addEventListener("command", event => {
       switch (event.target.id) {
@@ -159,14 +163,14 @@ document.addEventListener(
         // == open-tab-group-context-menu ==
         case "open-tab-group-context-menu_moveToNewWindow":
           {
-            let { tabGroupId } = event.target.parentElement.triggerNode.dataset;
+            let tabGroupId = getContextTabGroupId(event.target.parentElement);
             let tabGroup = gBrowser.getTabGroupById(tabGroupId);
             tabGroup.documentGlobal.gBrowser.replaceGroupWithWindow(tabGroup);
           }
           break;
         case "open-tab-group-context-menu_moveToThisWindow":
           {
-            let { tabGroupId } = event.target.parentElement.triggerNode.dataset;
+            let tabGroupId = getContextTabGroupId(event.target.parentElement);
             let otherTabGroup = gBrowser.getTabGroupById(tabGroupId);
             let adoptedTabGroup = gBrowser.adoptTabGroup(otherTabGroup, {
               tabIndex: gBrowser.tabs.length,
@@ -176,7 +180,7 @@ document.addEventListener(
           break;
         case "open-tab-group-context-menu_delete":
           {
-            let { tabGroupId } = event.target.parentElement.triggerNode.dataset;
+            let tabGroupId = getContextTabGroupId(event.target.parentElement);
             let tabGroup = gBrowser.getTabGroupById(tabGroupId);
             // Tabs need to be removed by their owning `Tabbrowser` or else
             // there are errors.
@@ -192,7 +196,7 @@ document.addEventListener(
         // == saved-tab-group-context-menu ==
         case "saved-tab-group-context-menu_openInThisWindow":
           {
-            let { tabGroupId } = event.target.parentElement.triggerNode.dataset;
+            let tabGroupId = getContextTabGroupId(event.target.parentElement);
             SessionStore.openSavedTabGroup(tabGroupId, window, {
               source: lazy.TabMetrics.METRIC_SOURCE.TAB_OVERFLOW_MENU,
             });
@@ -201,7 +205,7 @@ document.addEventListener(
         case "saved-tab-group-context-menu_openInNewWindow":
           {
             // TODO Bug 1940112: "Open Group in New Window" should directly restore saved tab groups into a new window
-            let { tabGroupId } = event.target.parentElement.triggerNode.dataset;
+            let tabGroupId = getContextTabGroupId(event.target.parentElement);
             let tabGroup = SessionStore.openSavedTabGroup(tabGroupId, window, {
               source: lazy.TabMetrics.METRIC_SOURCE.TAB_OVERFLOW_MENU,
             });
@@ -210,7 +214,7 @@ document.addEventListener(
           break;
         case "saved-tab-group-context-menu_delete":
           {
-            let { tabGroupId } = event.target.parentElement.triggerNode.dataset;
+            let tabGroupId = getContextTabGroupId(event.target.parentElement);
             SessionStore.forgetSavedTabGroup(tabGroupId);
           }
           break;
@@ -609,7 +613,7 @@ document.addEventListener(
         if (event.target.id == "open-tab-group-context-menu") {
           // Disable "Move Group to This Window" menu option for tab groups
           // that are open in the current window.
-          let { tabGroupId } = event.target.triggerNode.dataset;
+          let tabGroupId = getContextTabGroupId(event.target);
           let tabGroup = gBrowser.getTabGroupById(tabGroupId);
           let tabGroupIsInThisWindow = tabGroup.ownerDocument == document;
           event.target.querySelector(

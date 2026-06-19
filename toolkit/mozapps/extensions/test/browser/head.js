@@ -1685,7 +1685,7 @@ async function switchToDetailView({ id, win }) {
 async function triggerPageOptionsAction(win, action) {
   let button = win.document.querySelector(`#page-options [action="${action}"]`);
   // Button is temporarily disabled on click. Wait in case we just clicked.
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => !button.disabled,
     "Wait for button to become enabled"
   );

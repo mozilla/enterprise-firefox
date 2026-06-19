@@ -799,6 +799,22 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
       DebuggerWeakMap<AbstractGeneratorObject, DebuggerFrame>;
   GeneratorWeakMap generatorFrames;
 
+#ifdef ENABLE_WASM_JSPI
+  // Secondary index of entries in `frames` that are wasm continuation frames
+  // (i.e., have WASM_CONT_FRAME_PTR_SLOT set). Note this only means the frame
+  // is on a continuation, not that it is currently suspended. Maintained
+  // so that sweepAll can iterate just these frames without scanning all of
+  // `frames`. An entry exists here if and only if an entry with the same
+  // AbstractFramePtr key exists in `frames` with WASM_CONT_FRAME_PTR_SLOT set.
+  //
+  // This holds because every `frames` removal reaching a wasm cont frame goes
+  // through terminateDebuggerFrame, which erases the entry here. The other
+  // removals (replaceFrameGuts, suspendGeneratorDebuggerFrames) never apply to
+  // wasm cont frames; wiring them in would need to update this index too.
+  using WasmContFrameKeys = Vector<AbstractFramePtr, 0, ZoneAllocPolicy>;
+  WasmContFrameKeys wasmContFrames;
+#endif
+
   // An ephemeral map from BaseScript* to Debugger.Script instances.
   using ScriptWeakMap = DebuggerWeakMap<BaseScript, DebuggerScript>;
   ScriptWeakMap scripts;
@@ -986,7 +1002,7 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
                                           const JS::AutoRequireNoGC& nogc,
                                           FrameFn fn);
   template <typename FrameFn /* void (Debugger*, DebuggerFrame*) */>
-  static void forEachOnStackOrSuspendedDebuggerFrame(
+  static void forEachOnStackOrSuspendedGeneratorDebuggerFrame(
       JSContext* cx, AbstractFramePtr frame, const JS::AutoRequireNoGC& nogc,
       FrameFn fn);
 

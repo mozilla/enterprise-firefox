@@ -493,12 +493,10 @@ struct nsGridContainerFrame::TrackSize {
 
 MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(TrackSize::StateBits)
 
-static_assert(
-    std::is_trivially_copyable<nsGridContainerFrame::TrackSize>::value,
-    "Must be trivially copyable");
-static_assert(
-    std::is_trivially_destructible<nsGridContainerFrame::TrackSize>::value,
-    "Must be trivially destructible");
+static_assert(std::is_trivially_copyable_v<nsGridContainerFrame::TrackSize>,
+              "Must be trivially copyable");
+static_assert(std::is_trivially_destructible_v<nsGridContainerFrame::TrackSize>,
+              "Must be trivially destructible");
 
 TrackSize::StateBits nsGridContainerFrame::TrackSize::Initialize(
     nscoord aPercentageBasis, const StyleTrackSize& aSize) {

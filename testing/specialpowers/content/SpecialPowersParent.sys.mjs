@@ -195,6 +195,7 @@ export class SpecialPowersParent extends JSWindowActorParent {
       parent: {
         esModuleURI: "resource://testing-common/SpecialPowersParent.sys.mjs",
       },
+      safeForUntrustedWebProcess: true,
     });
     ChromeUtils.registerProcessActor("SpecialPowersProcessActor", {
       child: {
@@ -205,6 +206,7 @@ export class SpecialPowersParent extends JSWindowActorParent {
         esModuleURI:
           "resource://testing-common/SpecialPowersProcessActor.sys.mjs",
       },
+      safeForUntrustedWebProcess: true,
     });
   }
 

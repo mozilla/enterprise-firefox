@@ -28,7 +28,7 @@ add_task(async function test_new_chat_button_sidebar() {
     AIWindowUI.toggleSidebar(win);
 
     // Wait for sidebar to be ready
-    await BrowserTestUtils.waitForCondition(() => {
+    await TestUtils.waitForCondition(() => {
       const sidebarBrowser = win.document.getElementById("ai-window-browser");
       return sidebarBrowser && sidebarBrowser.contentDocument;
     }, "Sidebar browser should be loaded");
@@ -36,7 +36,7 @@ add_task(async function test_new_chat_button_sidebar() {
     const sidebarBrowser = win.document.getElementById("ai-window-browser");
 
     // Wait for ai-window component to be loaded
-    await BrowserTestUtils.waitForCondition(() => {
+    await TestUtils.waitForCondition(() => {
       const aiWindow =
         sidebarBrowser.contentDocument.querySelector("ai-window");
       return aiWindow && aiWindow.shadowRoot;

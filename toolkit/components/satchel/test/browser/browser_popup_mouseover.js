@@ -31,7 +31,7 @@ add_task(async function test() {
 
       // show popup
       await BrowserTestUtils.synthesizeKey("VK_DOWN", {}, browser);
-      await BrowserTestUtils.waitForCondition(() => {
+      await TestUtils.waitForCondition(() => {
         return autoCompletePopup.popupOpen;
       });
       Assert.equal(
@@ -60,7 +60,7 @@ add_task(async function test() {
       EventUtils.synthesizeMouseAtCenter(listItemElems[1], {
         type: "mouseover",
       });
-      await BrowserTestUtils.waitForCondition(() => {
+      await TestUtils.waitForCondition(() => {
         return (autoCompletePopup.mousedOverIndex = 1);
       });
       Assert.ok(true, "mousedOverIndex changed");

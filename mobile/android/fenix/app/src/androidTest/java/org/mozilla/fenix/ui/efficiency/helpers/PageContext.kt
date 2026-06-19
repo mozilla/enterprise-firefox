@@ -6,6 +6,7 @@ package org.mozilla.fenix.ui.efficiency.helpers
 
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import org.mozilla.fenix.helpers.HomeActivityIntentTestRule
+import org.mozilla.fenix.ui.efficiency.pageObjects.BookmarkSearchPage
 import org.mozilla.fenix.ui.efficiency.pageObjects.BookmarksPage
 import org.mozilla.fenix.ui.efficiency.pageObjects.BrowserPage
 import org.mozilla.fenix.ui.efficiency.pageObjects.CollectionsPage
@@ -53,6 +54,7 @@ import androidx.compose.ui.test.junit4.v2.AndroidComposeTestRule as AndroidCompo
 
 class PageContext(val composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule, *>) {
     // Let's make sure we have them in a lexicographic order
+    val bookmarkSearch = BookmarkSearchPage(composeRule)
     val bookmarks = BookmarksPage(composeRule)
     val browserPage = BrowserPage(composeRule)
     val collections = CollectionsPage(composeRule)

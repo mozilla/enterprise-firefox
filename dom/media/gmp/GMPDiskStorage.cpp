@@ -435,7 +435,7 @@ class GMPDiskStorage : public GMPStorage {
 
   struct Record {
     Record(const nsAString& aFilename, const nsACString& aRecordName)
-        : mFilename(aFilename), mRecordName(aRecordName), mFileDesc(0) {}
+        : mFilename(aFilename), mRecordName(aRecordName), mFileDesc(nullptr) {}
     ~Record() { MOZ_ASSERT(!mFileDesc); }
     nsString mFilename;
     nsCString mRecordName;

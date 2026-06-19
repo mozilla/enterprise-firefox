@@ -99,7 +99,7 @@ add_task(async function import_suggestion_wizard() {
       );
       Assert.ok(importableItem, "Got importable suggestion richlistitem");
 
-      await BrowserTestUtils.waitForCondition(
+      await TestUtils.waitForCondition(
         () => !importableItem.collapsed,
         "Wait for importable suggestion to show"
       );
@@ -149,7 +149,7 @@ add_task(async function import_suggestion_learn_more() {
       // otherwise, the synthesized mouse event might not be dispatched
       // correctly.
       await new Promise(requestAnimationFrame);
-      await BrowserTestUtils.waitForCondition(() => {
+      await TestUtils.waitForCondition(() => {
         return !learnMoreItem.collapsed && !EventUtils.isHidden(learnMoreItem);
       }, "Wait for importable learn more to show");
 
@@ -188,7 +188,7 @@ add_task(async function import_suggestion_migrate() {
       );
       Assert.ok(importableItem, "Got importable suggestion richlistitem");
 
-      await BrowserTestUtils.waitForCondition(
+      await TestUtils.waitForCondition(
         () => !importableItem.collapsed,
         "Wait for importable suggestion to show"
       );
@@ -197,7 +197,7 @@ add_task(async function import_suggestion_migrate() {
       gTestMigrator.profiles.length = 1;
 
       info("Clicking on importable suggestion");
-      const migratePromise = BrowserTestUtils.waitForCondition(
+      const migratePromise = TestUtils.waitForCondition(
         () => gTestMigrator.migrate.callCount,
         "Wait for direct migration attempt"
       );
@@ -206,7 +206,7 @@ add_task(async function import_suggestion_migrate() {
       const callCount = await migratePromise;
       Assert.equal(callCount, 1, "Direct migrate used once");
 
-      const importedItem = await BrowserTestUtils.waitForCondition(
+      const importedItem = await TestUtils.waitForCondition(
         () => popup.querySelector(`[originaltype="loginWithOrigin"]`),
         "Wait for imported login to show"
       );

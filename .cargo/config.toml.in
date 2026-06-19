@@ -85,19 +85,19 @@ git = "https://github.com/mozilla/cubeb-pulse-rs"
 rev = "3cf4a1af09a1748d0e184297a17132bdcc608874"
 replace-with = "vendored-sources"
 
+[source."git+https://github.com/mozilla/happy-eyeballs?tag=v0.8.0"]
+git = "https://github.com/mozilla/happy-eyeballs"
+tag = "v0.8.0"
+replace-with = "vendored-sources"
+
 [source."git+https://github.com/mozilla/ipc-channel?rev=f2b5aed36a60f07589579d31aaace2f90d2e5e9e"]
 git = "https://github.com/mozilla/ipc-channel"
 rev = "f2b5aed36a60f07589579d31aaace2f90d2e5e9e"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/happy-eyeballs?tag=v0.6.0"]
-git = "https://github.com/mozilla/happy-eyeballs"
-tag = "v0.6.0"
-replace-with = "vendored-sources"
-
-[source."git+https://github.com/mozilla/ipc-channel?rev=2e47e642b34aebfaaf953497c3834f96c365c8a0"]
+[source."git+https://github.com/mozilla/ipc-channel?rev=f2b5aed36a60f07589579d31aaace2f90d2e5e9e"]
 git = "https://github.com/mozilla/ipc-channel"
-rev = "2e47e642b34aebfaaf953497c3834f96c365c8a0"
+rev = "f2b5aed36a60f07589579d31aaace2f90d2e5e9e"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/mozilla/memtest?rev=ad681ba425beb0aeba95f03e671432b4be932174"]

@@ -2,15 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use euclid::vec2;
 use api::{BorderRadius, BorderSide, BorderStyle, ColorF, ColorU};
 use api::{NormalBorder as ApiNormalBorder, RepeatMode};
 use api::units::*;
 use crate::clip::ClipNodeId;
 use crate::ellipse::Ellipse;
-use euclid::vec2;
+use crate::renderer::GpuBufferBuilderF;
 use crate::scene_building::SceneBuilder;
 use crate::spatial_tree::SpatialNodeIndex;
-use crate::gpu_types::{BorderInstance, BorderSegment, BrushFlags};
+use crate::gpu_types::{BorderInstance, BorderInstanceGpuData, BorderSegment, BrushFlags};
 use crate::prim_store::{BorderSegmentInfo, BrushSegment, NinePatchDescriptor};
 use crate::prim_store::borders::NormalBorderPrim;
 use crate::util::{lerp, RectHelpers};
@@ -127,6 +128,7 @@ impl From<NormalBorderAu> for ApiNormalBorder {
 pub struct BorderSegmentCacheKey {
     pub size: LayoutSizeAu,
     pub radius: LayoutSizeAu,
+    pub shape: u32,
     pub side0: BorderSideAu,
     pub side1: BorderSideAu,
     pub segment: BorderSegment,
@@ -764,6 +766,7 @@ pub fn create_border_segments(
         border.top,
         LayoutSize::new(widths.left, widths.top),
         border.radius.top_left,
+        border.radius.shape_top_left,
         BorderSegment::TopLeft,
         EdgeMask::TOP | EdgeMask::LEFT,
         rect.top_right(),
@@ -791,6 +794,7 @@ pub fn create_border_segments(
         border.right,
         LayoutSize::new(widths.right, widths.top),
         border.radius.top_right,
+        border.radius.shape_top_right,
         BorderSegment::TopRight,
         EdgeMask::TOP | EdgeMask::RIGHT,
         rect.min,
@@ -818,6 +822,7 @@ pub fn create_border_segments(
         border.bottom,
         LayoutSize::new(widths.right, widths.bottom),
         border.radius.bottom_right,
+        border.radius.shape_bottom_right,
         BorderSegment::BottomRight,
         EdgeMask::BOTTOM | EdgeMask::RIGHT,
         rect.bottom_left(),
@@ -845,6 +850,7 @@ pub fn create_border_segments(
         border.left,
         LayoutSize::new(widths.left, widths.bottom),
         border.radius.bottom_left,
+        border.radius.shape_bottom_left,
         BorderSegment::BottomLeft,
         EdgeMask::BOTTOM | EdgeMask::LEFT,
         rect.max,
@@ -883,26 +889,33 @@ fn add_segment(
     instances: &mut Vec<BorderInstance>,
     widths: DeviceSize,
     radius: DeviceSize,
+    shape: f32,
     do_aa: bool,
     h_adjacent_corner_outer: DevicePoint,
     h_adjacent_corner_radius: DeviceSize,
     v_adjacent_corner_outer: DevicePoint,
     v_adjacent_corner_radius: DeviceSize,
+    gpu_buffer_builder: &mut GpuBufferBuilderF,
 ) {
     let base_flags = (segment as i32) |
                      ((style0 as i32) << 8) |
                      ((style1 as i32) << 16) |
                      ((do_aa as i32) << 28);
 
-    let base_instance = BorderInstance {
-        task_origin: DevicePoint::zero(),
+    let instance_gpu_data = BorderInstanceGpuData {
         local_rect: task_rect,
-        flags: base_flags,
         color0: color0.premultiplied(),
         color1: color1.premultiplied(),
         widths,
         radius,
+        shape
+    };
+
+    let base_instance = BorderInstance {
+        task_origin: DevicePoint::zero(),
+        flags: base_flags,
         clip_params: [0.0; 8],
+        gpu_data_address: instance_gpu_data.write(gpu_buffer_builder)
     };
 
     match segment {
@@ -1020,6 +1033,7 @@ fn add_corner_segment(
     side1: BorderSide,
     widths: LayoutSize,
     radius: LayoutSize,
+    shape: f32,
     segment: BorderSegment,
     edge_flags: EdgeMask,
     h_adjacent_corner_outer: LayoutPoint,
@@ -1139,6 +1153,7 @@ fn add_corner_segment(
             side1: side1.into(),
             segment,
             radius: radius.to_au(),
+            shape: shape.to_bits(),
             size: widths.to_au(),
             h_adjacent_corner_outer: (h_corner_outer - image_rect.min).to_point().to_au(),
             h_adjacent_corner_radius: h_corner_radius.to_au(),
@@ -1202,6 +1217,7 @@ fn add_edge_segment(
             side0: side.into(),
             side1: side.into(),
             radius: LayoutSizeAu::zero(),
+            shape: 0,
             size: size.to_au(),
             segment,
             h_adjacent_corner_outer: LayoutPointAu::zero(),
@@ -1219,6 +1235,7 @@ pub fn build_border_instances(
     cache_size: DeviceIntSize,
     border: &ApiNormalBorder,
     scale: LayoutToDeviceScale,
+    gpu_buffer_builder: &mut GpuBufferBuilderF,
 ) -> Vec<BorderInstance> {
     let mut instances = Vec::new();
 
@@ -1249,6 +1266,7 @@ pub fn build_border_instances(
 
     let widths = (LayoutSize::from_au(cache_key.size) * scale).ceil();
     let radius = (LayoutSize::from_au(cache_key.radius) * scale).ceil();
+    let shape = f32::from_bits(cache_key.shape);
 
     let h_corner_outer = (LayoutPoint::from_au(cache_key.h_adjacent_corner_outer) * scale).round();
     let h_corner_radius = (LayoutSize::from_au(cache_key.h_adjacent_corner_radius) * scale).ceil();
@@ -1265,11 +1283,13 @@ pub fn build_border_instances(
         &mut instances,
         widths,
         radius,
+        shape,
         border.do_aa,
         h_corner_outer,
         h_corner_radius,
         v_corner_outer,
         v_corner_radius,
+        gpu_buffer_builder,
     );
 
     instances
@@ -1533,9 +1553,11 @@ pub fn compute_border_repetition_1d(
         let remaining_space = (segment_size.width - stretch_size * repetitions).max(0.0);
 
         if repeat_mode == RepeatMode::Round {
-            // Stretch the pattern so that an integer number of repetitions
-            // fill the segment exactly.
-            stretch_size = segment_size.width / repetitions
+            // Rescale the pattern so that the nearest whole number of
+            // repetitions fills the segment exactly. Unlike Repeat and Space,
+            // Round rounds to the closest integer rather than truncating.
+            let round_repetitions = (segment_size.width / stretch_size).round().max(1.0);
+            stretch_size = segment_size.width / round_repetitions
         }
 
         if repeat_mode == RepeatMode::Space {
@@ -1546,12 +1568,15 @@ pub fn compute_border_repetition_1d(
 
 
         if repeat_mode == RepeatMode::Repeat {
-            // Offset the pattern to distribute the overflowing repetitions
-            // equally on both sides. To partially include a repetition on the
-            // left side we have to enlarge the local rect to include a full
-            // repetition and let the local clip rect remove the part we don't
-            // want.
-            *out_offset = (remaining_space - stretch_size) * 0.5;
+            // Center the tiled pattern so that a tile is centered on the
+            // segment's midpoint (matching the CSS "repeat" behavior). We move
+            // the tiling origin back to the tile boundary at or before the
+            // start of the segment; the caller enlarges the local rect to
+            // include that partial repetition and clips it back to the segment.
+            // Reducing modulo stretch_size keeps the offset in
+            // (-stretch_size, 0] so we don't emit unnecessary repetitions.
+            let half_overflow = (segment_size.width - stretch_size) * 0.5;
+            *out_offset = half_overflow - (half_overflow / stretch_size).ceil() * stretch_size;
         }
     }
 

@@ -3409,9 +3409,15 @@ class Document : public nsINode,
   void FlushPendingLinkUpdates();
 
   bool HasWarnedAbout(DeprecatedOperations aOperation) const;
-  void WarnOnceAbout(
+  void WarnOnceAbout(DeprecatedOperations aOperation, bool asError = false,
+                     const nsTArray<nsString>& aParams = nsTArray<nsString>(),
+                     const mozilla::SourceLocation& aLocation =
+                         mozilla::JSCallingLocation::Get()) const;
+  void WarnOnceAndReportAbout(
       DeprecatedOperations aOperation, bool asError = false,
-      const nsTArray<nsString>& aParams = nsTArray<nsString>()) const;
+      const nsTArray<nsString>& aParams = nsTArray<nsString>(),
+      const mozilla::JSCallingLocation& aLocation =
+          mozilla::JSCallingLocation::Get()) const;
 
 #define DOCUMENT_WARNING(_op) e##_op,
   enum DocumentWarnings {

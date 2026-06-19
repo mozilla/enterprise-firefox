@@ -25,6 +25,7 @@
 #include "mozilla/StaticPrefs_media.h"
 #include "mozilla/StaticPtr.h"
 #include "mozilla/dom/DOMTypes.h"
+#include "mozilla/gfx/gfxVars.h"
 #include "mozilla/glean/DomMediaMetrics.h"
 #include "mozilla/glean/DomMediaPlatformsWmfMetrics.h"
 #include "nsComponentManagerUtils.h"
@@ -443,6 +444,16 @@ bool MediaDecoder::SwitchStateMachine(const MediaResult& aError) {
         DetermineResolutionForTelemetry(*mInfo, resolution);
         extraData.resolution = Some(resolution);
       }
+    }
+    // These gfxVars are populated once in the parent process before any content
+    // process starts and are not modified afterwards; copy the values out
+    // rather than holding a reference into the gfxVars singleton.
+    const nsCString adapterVendorID = gfx::gfxVars::AdapterVendorID();
+    if (!adapterVendorID.IsEmpty()) {
+      extraData.adapterVendorId = Some(adapterVendorID);
+      extraData.adapterDeviceId = Some(gfx::gfxVars::AdapterDeviceID());
+      extraData.adapterDriverVersion =
+          Some(gfx::gfxVars::AdapterDriverVersion());
     }
     glean::mfcdm::error.Record(Some(extraData));
     if (MOZ_LOG_TEST(gMediaDecoderLog, LogLevel::Debug)) {
@@ -884,6 +895,7 @@ void MediaDecoder::DecodeError(const MediaResult& aError) {
   MOZ_DIAGNOSTIC_ASSERT(!IsShutdown());
   LOG("DecodeError, type=%s, error=%s", ContainerType().OriginalString().get(),
       aError.ErrorName().get());
+  mTelemetryProbesReporter->OnDecodeError(aError);
   GetOwner()->DecodeError(aError);
 }
 
@@ -1269,9 +1281,9 @@ namespace {
 // Returns zero, either as a TimeUnit or as a double.
 template <typename T>
 constexpr T Zero() {
-  if constexpr (std::is_same<T, double>::value) {
+  if constexpr (std::is_same_v<T, double>) {
     return 0.0;
-  } else if constexpr (std::is_same<T, TimeUnit>::value) {
+  } else if constexpr (std::is_same_v<T, TimeUnit>) {
     return TimeUnit::Zero();
   }
   MOZ_RELEASE_ASSERT(false);
@@ -1280,9 +1292,9 @@ constexpr T Zero() {
 // Returns Infinity either as a TimeUnit or as a double.
 template <typename T>
 constexpr T Infinity() {
-  if constexpr (std::is_same<T, double>::value) {
+  if constexpr (std::is_same_v<T, double>) {
     return std::numeric_limits<double>::infinity();
-  } else if constexpr (std::is_same<T, TimeUnit>::value) {
+  } else if constexpr (std::is_same_v<T, TimeUnit>) {
     return TimeUnit::FromInfinity();
   }
   MOZ_RELEASE_ASSERT(false);
@@ -1313,7 +1325,7 @@ IntervalType MediaDecoder::GetSeekableImpl() {
   // avoid rounding the value differently. When dealing with TimeUnit, it's
   // returned directly.
   typename IntervalType::InnerType duration;
-  if constexpr (std::is_same<typename IntervalType::InnerType, double>::value) {
+  if constexpr (std::is_same_v<typename IntervalType::InnerType, double>) {
     duration = GetDuration();
   } else {
     duration = mDuration.as<TimeUnit>();

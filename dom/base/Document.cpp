@@ -4769,7 +4769,7 @@ bool Document::AllowsL10n() const {
 
 DocumentTimeline* Document::Timeline() {
   if (!mDocumentTimeline) {
-    mDocumentTimeline = new DocumentTimeline(this, TimeDuration(0));
+    mDocumentTimeline = new DocumentTimeline(this, TimeDuration());
   }
 
   return mDocumentTimeline;
@@ -7224,11 +7224,11 @@ void Document::SetFgColor(const nsAString& aFgColor) {
 }
 
 void Document::CaptureEvents() {
-  WarnOnceAbout(DeprecatedOperations::eUseOfCaptureEvents);
+  // Intentionally a no-op, as this API is deprecated.
 }
 
 void Document::ReleaseEvents() {
-  WarnOnceAbout(DeprecatedOperations::eUseOfReleaseEvents);
+  // Intentionally a no-op, as this API is deprecated.
 }
 
 HTMLAllCollection* Document::All() {
@@ -11836,7 +11836,7 @@ void Document::RetrieveRelevantHeaders(nsIChannel* aChannel) {
         // add more http headers if you need
         // XXXbz don't add content-location support without reading bug
         // 238654 and its dependencies/dups first.
-        0};
+        nullptr};
 
     nsAutoCString headerVal;
     const char* const* name = headers;
@@ -14508,7 +14508,9 @@ bool Document::HasWarnedAbout(DeprecatedOperations aOperation) const {
 
 void Document::WarnOnceAbout(
     DeprecatedOperations aOperation, bool asError /* = false */,
-    const nsTArray<nsString>& aParams /* = empty array */) const {
+    const nsTArray<nsString>& aParams /* = empty array */,
+    const SourceLocation& aLocation /* = mozilla::JSCallingLocation::Get() */)
+    const {
   MOZ_ASSERT(NS_IsMainThread());
   if (HasWarnedAbout(aOperation)) {
     return;
@@ -14519,7 +14521,30 @@ void Document::WarnOnceAbout(
       asError ? nsIScriptError::errorFlag : nsIScriptError::warningFlag;
   nsContentUtils::ReportToConsole(
       flags, "DOM Core"_ns, this, PropertiesFile::DOM_PROPERTIES,
-      kDeprecationWarnings[static_cast<size_t>(aOperation)], aParams);
+      kDeprecationWarnings[static_cast<size_t>(aOperation)], aParams,
+      aLocation);
+}
+
+void Document::WarnOnceAndReportAbout(
+    DeprecatedOperations aOperation, bool asError /* = false */,
+    const nsTArray<nsString>& aParams /* = empty array */,
+    const JSCallingLocation&
+        aLocation /* = mozilla::JSCallingLocation::Get() */) const {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  Document::WarnOnceAbout(aOperation, asError, aParams, aLocation);
+
+  nsCOMPtr<nsIURI> uri = GetDocumentURI();
+  if (NS_WARN_IF(!uri)) {
+    return;
+  }
+
+  nsIGlobalObject* global = GetScopeObject();
+  if (NS_WARN_IF(!global)) {
+    return;
+  }
+
+  nsContentUtils::ReportDeprecation(global, this, uri, aOperation, aLocation);
 }
 
 bool Document::HasWarnedAbout(DocumentWarnings aWarning) const {

@@ -123,7 +123,7 @@ add_task(async function test_click_on_footer() {
         true
       );
       // Make sure dropdown is visible before continuing mouse synthesizing.
-      await BrowserTestUtils.waitForCondition(() =>
+      await TestUtils.waitForCondition(() =>
         BrowserTestUtils.isVisible(optionButton)
       );
       EventUtils.synthesizeMouseAtCenter(optionButton, {});

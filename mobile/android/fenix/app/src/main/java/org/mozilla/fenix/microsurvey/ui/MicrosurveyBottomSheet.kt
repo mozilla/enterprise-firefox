@@ -100,7 +100,7 @@ fun MicrosurveyBottomSheet(
                     modifier = Modifier
                         .padding(bottom = 8.dp),
                 ) {
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(Modifier.height(FirefoxTheme.layout.space.static300))
 
                     MicrosurveyFooter(
                         isSubmitted = isSubmitted,
@@ -113,6 +113,8 @@ fun MicrosurveyBottomSheet(
                             }
                         },
                     )
+
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
             },
         ) { innerPadding ->

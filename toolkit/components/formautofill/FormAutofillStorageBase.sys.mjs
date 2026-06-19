@@ -131,6 +131,7 @@
 
 import { FormAutofill } from "resource://autofill/FormAutofill.sys.mjs";
 import { AddressRecord } from "resource://gre/modules/shared/AddressRecord.sys.mjs";
+import { AutofillDataTypes } from "resource://gre/modules/shared/AutofillDataTypes.sys.mjs";
 
 const lazy = {};
 
@@ -290,12 +291,11 @@ class AutofillRecords {
       if (collectionName != this._collectionName) {
         return;
       }
-      const telemetryType =
-        subject.wrappedJSObject.collectionName == "creditCards"
-          ? lazy.AutofillTelemetry.CREDIT_CARD
-          : lazy.AutofillTelemetry.ADDRESS;
+      const dataType = AutofillDataTypes.all.find(
+        type => type.collectionName == collectionName
+      )?.id;
       const count = this._data.filter(entry => !entry.deleted).length;
-      lazy.AutofillTelemetry.recordAutofillProfileCount(telemetryType, count);
+      lazy.AutofillTelemetry.recordAutofillProfileCount(dataType, count);
     }
   }
 
