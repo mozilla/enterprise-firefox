@@ -4013,12 +4013,15 @@ pref("dom.postMessage.sharedArrayBuffer.bypassCOOP_COEP.insecure.enabled", false
 pref("dom.postMessage.sharedArrayBuffer.bypassCOOP_COEP.insecure.enabled", false, locked);
 #endif
 
-// Locked so end users cannot toggle SQLite encryption from about:config or
-// user.js. Enterprise policies (Preferences allowlist) and our keystore
-// auto-recovery use the unlock/setDefault/relock dance to override.
-// Defined in StaticPrefList.yaml; locked here because the YAML has no
-// "locked" attribute.
-pref("security.storage.encryption.sqlite.enabled", false, locked);
+#if defined(MOZ_ENTERPRISE)
+// SQLite at-rest encryption enabled and locked on (enterprise enforcement;
+// end users cannot toggle it from about:config or user.js). Per-DB DEKs are
+// wrapped under a Password KEK keyed by the enterprise primarySecret (D304778).
+// The StaticPrefList.yaml entry carries the enterprise-build default that the
+// startup launch gate reads before the pref files load; this `locked` line is
+// what actually prevents runtime toggling.
+pref("security.storage.encryption.sqlite.enabled", true, locked);
+#endif
 
 // Preferences for the form autofill toolkit component.
 // The truthy values of "extensions.formautofill.addresses.available"

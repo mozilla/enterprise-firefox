@@ -19098,7 +19098,11 @@
 # ciphertext. Read at Connection::initialize, not hot-reloadable.
 - name: security.storage.encryption.sqlite.enabled
   type: RelaxedAtomicBool
+#if defined(MOZ_ENTERPRISE)
+  value: true
+#else
   value: false
+#endif
   mirror: always
 
 - name: security.tls13.aes_128_gcm_sha256
