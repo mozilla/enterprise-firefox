@@ -62,6 +62,7 @@ export let RemotePageAccessManager = {
       RPMGetHostForDisplay: ["*"],
       RPMGetInnermostAsciiHost: ["*"],
       RPMIsWindowPrivate: ["*"],
+      RPMIsEnterprise: ["*"],
     },
     "about:home": {
       RPMSendAsyncMessage: ["ActivityStream:ContentToMain"],
@@ -137,6 +138,7 @@ export let RemotePageAccessManager = {
       RPMGetHttpResponseHeader: ["*"],
       RPMIsTRROnlyFailure: ["*"],
       RPMIsFirefox: ["*"],
+      RPMIsEnterprise: ["*"],
       RPMHasConnectivity: ["*"],
       RPMGetTRRSkipReason: ["*"],
       RPMGetTRRDomain: ["*"],

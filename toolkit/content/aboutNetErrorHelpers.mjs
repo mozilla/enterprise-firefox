@@ -51,6 +51,7 @@ export const VPN_ACTIVE = RPMGetBoolPref(
  */
 export function isAccessConnectorActive() {
   return (
+    RPMIsEnterprise() &&
     RPMGetBoolPref("browser.ipProtection.enabled", false) &&
     RPMGetIntPref("browser.ipProtection.mode", 0) === 3
   );

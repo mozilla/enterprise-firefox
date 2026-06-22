@@ -21,6 +21,7 @@ export default {
     RPMGetFormatURLPref: "readonly",
     RPMIsTRROnlyFailure: "readonly",
     RPMIsFirefox: "readonly",
+    RPMIsEnterprise: "readonly",
     RPMIsWindowPrivate: "readonly",
     RPMSendAsyncMessage: "readonly",
     RPMSendQuery: "readonly",
