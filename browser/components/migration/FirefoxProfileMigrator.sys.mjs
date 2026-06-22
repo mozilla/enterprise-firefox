@@ -177,7 +177,16 @@ export class FirefoxProfileMigrator extends MigratorBase {
         type: aMigrationType,
         migrate(aCallback) {
           for (let file of files) {
-            file.copyTo(currentProfileDir, "");
+            // Skip files already present in the destination. A refreshed
+            // profile can already hold some of these (e.g. the NSS key
+            // databases, which the storage-encryption path copies earlier so
+            // NSS initializes from the source SDR key); copyTo() would otherwise
+            // throw NS_ERROR_FILE_ALREADY_EXISTS and abort the remaining copies.
+            let dest = currentProfileDir.clone();
+            dest.append(file.leafName);
+            if (!dest.exists()) {
+              file.copyTo(currentProfileDir, "");
+            }
           }
           aCallback(true);
         },
@@ -243,6 +252,13 @@ export class FirefoxProfileMigrator extends MigratorBase {
     ]);
     let passwords = getFileResource(types.PASSWORDS, [
       "logins.json",
+      // logins.db is the Rust-backed login store, an at-rest-encrypted SQLite
+      // database. It travels alongside logins.json; its DEK is re-wrapped into
+      // this profile's keystore by the storage layer the first time it is
+      // opened, using the refresh-source marker written below. Absent when the
+      // Rust backend is off.
+      "logins.db",
+      "logins.db-wal",
       "key3.db",
       "key4.db",
     ]);

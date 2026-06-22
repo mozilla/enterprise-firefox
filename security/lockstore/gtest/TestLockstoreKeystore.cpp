@@ -725,3 +725,66 @@ TEST_F(LockstoreKeystoreTest, SwitchKekMissingOldWrapping) {
   rv = keystore_switch_kek(mKeystore, &coll, &otherLocal, &mLocalKekRef);
   ASSERT_EQ(rv, NS_ERROR_NOT_AVAILABLE);
 }
+
+// "Refresh Firefox" copies an encrypted database into a NEW profile whose own
+// per-profile LocalKey cannot unwrap the source profile's DEK. SQLiteEncryption
+// recovers it by reading the raw DEK from the source keystore and re-importing
+// it into the destination keystore under the destination's own KEK -- a re-wrap,
+// never a keystore-file copy. This verifies that round-trip across two distinct
+// keystores preserves the DEK bytes, so the copied ciphertext stays readable.
+TEST_F(LockstoreKeystoreTest, CrossKeystoreDekRewrap) {
+  // Source keystore (this test's profile dir) + its own LocalKey + a DEK.
+  nsresult rv = keystore_open(&mProfilePath, &mKeystore);
+  ASSERT_NS_SUCCEEDED(rv);
+  MintLocalKek();
+  const nsCString coll("places.sqlite"_ns);
+  rv = keystore_create_dek(mKeystore, &coll, &mLocalKekRef,
+                           /* extractable */ true, 32);
+  ASSERT_NS_SUCCEEDED(rv);
+  nsTArray<uint8_t> srcDek;
+  rv = keystore_get_dek(mKeystore, &coll, &mLocalKekRef, &srcDek);
+  ASSERT_NS_SUCCEEDED(rv);
+  ASSERT_EQ(srcDek.Length(), 32u);
+
+  // A separate destination profile keystore with its OWN (distinct) LocalKey.
+  nsCOMPtr<nsIFile> destDir;
+  rv = NS_GetSpecialDirectory(NS_OS_TEMP_DIR, getter_AddRefs(destDir));
+  ASSERT_NS_SUCCEEDED(rv);
+  rv = destDir->AppendNative("lockstore_ks_dest_test"_ns);
+  ASSERT_NS_SUCCEEDED(rv);
+  rv = destDir->CreateUnique(nsIFile::DIRECTORY_TYPE, 0700);
+  ASSERT_NS_SUCCEEDED(rv);
+  nsAutoString destPathWide;
+  rv = destDir->GetPath(destPathWide);
+  ASSERT_NS_SUCCEEDED(rv);
+  NS_ConvertUTF16toUTF8 destPath(destPathWide);
+
+  KeystoreHandle* destKeystore = nullptr;
+  rv = keystore_open(&destPath, &destKeystore);
+  ASSERT_NS_SUCCEEDED(rv);
+
+  const nsCString kekType("local"_ns);
+  const nsCString empty;
+  nsCString destKekRef;
+  rv = keystore_create_kek(destKeystore, &kekType, &empty, &empty,
+                           /* cache_timeout_ms */ 0, &destKekRef);
+  ASSERT_NS_SUCCEEDED(rv);
+  // Distinct keystores have independent random LocalKeys.
+  EXPECT_FALSE(destKekRef.Equals(mLocalKekRef));
+
+  // Re-wrap: import the source DEK bytes under the destination's own KEK.
+  rv = keystore_import_dek(destKeystore, &coll, &destKekRef, srcDek.Elements(),
+                           srcDek.Length(), /* extractable */ true);
+  ASSERT_NS_SUCCEEDED(rv);
+
+  // The destination unwraps to the SAME DEK bytes, so a database encrypted with
+  // that DEK in the source profile remains readable after the copy.
+  nsTArray<uint8_t> destDek;
+  rv = keystore_get_dek(destKeystore, &coll, &destKekRef, &destDek);
+  ASSERT_NS_SUCCEEDED(rv);
+  ASSERT_EQ(destDek.Length(), srcDek.Length());
+  EXPECT_EQ(memcmp(destDek.Elements(), srcDek.Elements(), srcDek.Length()), 0);
+
+  EXPECT_NS_SUCCEEDED(keystore_close(destKeystore));
+  destDir->Remove(true);
+}

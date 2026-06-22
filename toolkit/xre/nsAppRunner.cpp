@@ -5827,6 +5827,43 @@ int XREMain::XRE_mainStartup(bool* aExitFlag,
     }
   }
 
+#if defined(MOZ_ENTERPRISE)
+  // SQLite at-rest encryption + Profile Refresh: copy the source profile's NSS
+  // key databases into the new profile here, in XRE_mainStartup, BEFORE
+  // anything brings NSS up. With encryption enabled NSS is initialized before
+  // the profile migrator runs; on first init it creates a fresh key4.db with a
+  // new SDR master key, and the migrator's copyTo() will not overwrite an
+  // existing key4.db -- so the source SDR key never reaches the new profile and
+  // the migrated logins / FxA secure data cannot be decrypted. key4.db does not
+  // exist in the freshly created reset profile yet at this point, so copying the
+  // source key DBs now makes NSS initialize from them. (The migrator's later
+  // copy of these same files becomes a no-op; see FirefoxProfileMigrator.)
+  if (gDoProfileReset && gResetOldProfile && mProfD) {
+    nsCOMPtr<nsIFile> srcRoot = gResetOldProfile->GetRootDir();
+    if (srcRoot) {
+      auto copyIfAbsent = [&](const nsAString& aName) {
+        nsCOMPtr<nsIFile> src, dst;
+        if (NS_FAILED(srcRoot->Clone(getter_AddRefs(src))) ||
+            NS_FAILED(mProfD->Clone(getter_AddRefs(dst)))) {
+          return;
+        }
+        src->Append(aName);
+        dst->Append(aName);
+        bool srcEx = false, dstEx = false;
+        src->Exists(&srcEx);
+        dst->Exists(&dstEx);
+        if (srcEx && !dstEx) {
+          if (NS_FAILED(src->CopyTo(mProfD, u""_ns))) {
+            NS_WARNING("Failed to copy source NSS key DB into the reset profile");
+          }
+        }
+      };
+      copyIfAbsent(u"key4.db"_ns);
+      copyIfAbsent(u"key3.db"_ns);
+    }
+  }
+#endif
+
 #ifdef MOZ_BLOCK_PROFILE_DOWNGRADE
   // The argument check must come first so the argument is always removed from
   // the command line regardless of whether this is a downgrade or not.
@@ -6136,6 +6173,50 @@ nsresult XREMain::XRE_mainRun() {
             } else {
               aKey = MOZ_APP_NAME;
             }
+
+#if defined(MOZ_ENTERPRISE)
+            // SQLite at-rest encryption: record the source profile path in the
+            // new profile so the storage layer can transfer the source's
+            // per-database DEKs into the refreshed keystore on first open. The
+            // migrator copies the (encrypted) databases, but their DEKs live in
+            // the source keystore; without the source DEK the storage layer
+            // would mint a fresh one and the copied contents would be
+            // unreadable. Written here -- before migration and before
+            // profile-do-change, hence before any database service opens --
+            // because the migrator's own resources run too late to beat the
+            // earliest opens (e.g. permissions, logins).
+            nsCOMPtr<nsIFile> newProfDir;
+            if (!aProfilePath.IsEmpty() &&
+                NS_SUCCEEDED(NS_GetSpecialDirectory(
+                    NS_APP_USER_PROFILE_50_DIR, getter_AddRefs(newProfDir)))) {
+              nsCOMPtr<nsIFile> marker;
+              if (NS_SUCCEEDED(newProfDir->Clone(getter_AddRefs(marker)))) {
+                marker->Append(u".sqlite-refresh-source"_ns);
+                nsCOMPtr<nsIOutputStream> out;
+                nsresult mrv =
+                    NS_NewLocalFileOutputStream(getter_AddRefs(out), marker);
+                if (NS_SUCCEEDED(mrv)) {
+                  uint32_t written = 0;
+                  mrv = out->Write(aProfilePath.get(), aProfilePath.Length(),
+                                   &written);
+                  if (NS_SUCCEEDED(mrv) && written != aProfilePath.Length()) {
+                    mrv = NS_ERROR_UNEXPECTED;
+                  }
+                  nsresult crv = out->Close();
+                  if (NS_SUCCEEDED(mrv)) {
+                    mrv = crv;
+                  }
+                }
+                if (NS_FAILED(mrv)) {
+                  // A truncated marker would point the refreshed browser's DEK
+                  // transfer at a wrong source path, so remove it instead of
+                  // leaving a partial file behind.
+                  marker->Remove(/* aRecursive */ false);
+                  NS_WARNING("Failed to write .sqlite-refresh-source marker");
+                }
+              }
+            }
+#endif
           }
 #ifdef XP_MACOSX
           // Necessary for migration wizard to be accessible.
