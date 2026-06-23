@@ -53,6 +53,7 @@ class BrowserAccessConnector(FeltTests):
 
         self.run_access_connector_enabled_in_browser()
         self.run_access_connector_neterror_page()
+        self.run_disable_access_connector()
 
     def run_enable_access_connector(self):
         self._logger.info("Enabling AccessConnector")
