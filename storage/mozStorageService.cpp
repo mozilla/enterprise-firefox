@@ -29,6 +29,7 @@
 #include "mozilla/intl/Collator.h"
 #include "mozilla/intl/LocaleService.h"
 #include "mozilla/storage/SQLiteEncryption.h"
+#include "nsAppRunner.h"
 
 #include "sqlite3.h"
 #include "mozilla/AutoSQLiteLifetime.h"
@@ -356,21 +357,26 @@ nsresult Service::initialize() {
     return convertResultCode(rc);
   }
 
-  // obfsvfs registers as the SQLite default VFS *only* when at-rest
-  // encryption is enabled, so that every keyless sqlite3_open_v2 (e.g.
-  // rusqlite callers like app-services, skv) flows through it and gets
-  // path-aware at-rest encryption applied by xOpen. When the pref is off
-  // we register it non-default (exactly as before this feature): keyless
-  // opens keep using the OS default VFS and never enter obfsOpen's policy
-  // path, so the pref-off build is a true no-op. mozStorage callers that
-  // explicitly name `obfsvfs::GetVFSName()` keep using it by name in
-  // either case; callers that name `basevfs` / `quotavfs` / the
-  // read-only-no-lock VFS keep their named choice (sqlite3_open_v2 with
-  // an explicit zVfs argument bypasses the default).
+  // obfsvfs registers as the SQLite default VFS *only* when the running
+  // profile is marked encrypted (compatibility.ini carries
+  // EncryptedDatabases=1, surfaced as IsProfileEncryptedDatabases()), so
+  // every keyless sqlite3_open_v2 (e.g. rusqlite callers like app-services,
+  // skv) flows through it and gets path-aware at-rest encryption applied by
+  // xOpen. Unmarked profiles (xpcshell tests, background tasks, profiles a
+  // user has never encrypted) register it non-default: keyless opens keep
+  // using the OS default VFS and never enter obfsOpen's policy path, so the
+  // unmarked build is a true no-op. The marker is the authoritative,
+  // profile-local signal (vs. the build-default pref) and is set eagerly in
+  // CheckEncryptionCompatibility when the encryption pref is on, so the
+  // first launch of a fresh enterprise profile still gets encrypted.
+  // mozStorage callers that explicitly name `obfsvfs::GetVFSName()` keep
+  // using it by name in either case; callers that name `basevfs` /
+  // `quotavfs` / the read-only-no-lock VFS keep their named choice
+  // (sqlite3_open_v2 with an explicit zVfs argument bypasses the default).
   rc = mObfuscatingSqliteVFS.Init(
       obfsvfs::ConstructVFS(quotavfs::GetVFSName()),
       /* aMakeDefault = */
-      StaticPrefs::security_storage_encryption_sqlite_enabled());
+      mozilla::IsProfileEncryptedDatabases());
   if (rc != SQLITE_OK) {
     return convertResultCode(rc);
   }

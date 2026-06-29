@@ -13,3 +13,6 @@ head = "head.js"
 ["test_pick_canonical_url.js"]
 
 ["test_tab_notes.js"]
+# Bug 1996558: opens tabnotes.sqlite in PathUtils.tempDir (out-of-profile);
+# the encryption layer cannot mint a DEK for that path, so the open fails.
+prefs = ["security.storage.encryption.sqlite.enabled=false"]

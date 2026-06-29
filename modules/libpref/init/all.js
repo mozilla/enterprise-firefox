@@ -4014,13 +4014,15 @@ pref("dom.postMessage.sharedArrayBuffer.bypassCOOP_COEP.insecure.enabled", false
 #endif
 
 #if defined(MOZ_ENTERPRISE)
-// SQLite at-rest encryption enabled and locked on (enterprise enforcement;
-// end users cannot toggle it from about:config or user.js). Per-DB DEKs are
-// wrapped under a Password KEK keyed by the enterprise primarySecret (D304778).
-// The StaticPrefList.yaml entry carries the enterprise-build default that the
-// startup launch gate reads before the pref files load; this `locked` line is
-// what actually prevents runtime toggling.
-pref("security.storage.encryption.sqlite.enabled", true, locked);
+// SQLite at-rest encryption enabled by default on enterprise builds. Per-DB
+// DEKs are wrapped under a Password KEK keyed by the enterprise primarySecret.
+// Intentionally not `locked`: the authoritative profile-local signal that
+// gates obfsvfs's default-VFS registration is compatibility.ini's
+// EncryptedDatabases marker (set eagerly in CheckEncryptionCompatibility,
+// read back via IsProfileEncryptedDatabases()), and a declarative `locked`
+// here would silently mask the test-manifest `prefs = [..]` overrides that
+// the encryption-aware xpcshell tests rely on.
+pref("security.storage.encryption.sqlite.enabled", true);
 #endif
 
 // Preferences for the form autofill toolkit component.

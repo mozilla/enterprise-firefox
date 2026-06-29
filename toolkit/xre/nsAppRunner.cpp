@@ -1530,6 +1530,10 @@ nsXULAppInfo::InvalidateCachesOnRestart() {
   return NS_OK;
 }
 
+bool mozilla::IsProfileEncryptedDatabases() {
+  return gProfileEncryptedDatabases;
+}
+
 nsresult mozilla::MarkProfileEncryptedDatabases() {
   // Append the EncryptedDatabases marker to compatibility.ini (modeled on
   // InvalidateCachesOnRestart above). Read back by CheckCompatibility() on the
@@ -4027,12 +4031,23 @@ static EncryptionCompatResult CheckEncryptionCompatibility(nsIFile* aProfileDir,
   }
 
   // Pref on, marker absent (or =0). Disambiguate by header inspection:
-  // - empty profile or already-encrypted DBs -> OK (the marker is
-  //   (re)written by the storage layer on profile-after-change).
+  // - empty profile or already-encrypted DBs -> OK; eagerly mark the profile
+  //   so mozStorage's Service::initialize (which runs after this gate but
+  //   before any DB open writes the marker) sees the latched in-memory flag
+  //   and registers obfsvfs as the default VFS. Without this eager mark the
+  //   first launch of a fresh enterprise profile would silently open the
+  //   first batch of databases through the plain VFS and never encrypt them.
   // - plaintext DBs present -> refuse, migration required.
-  if (!gProfileEncryptedDatabases &&
-      DetectEncryptedDBHeader(aProfileDir) == DBHeaderResult::Plaintext) {
-    return EncryptionCompatResult::RefuseMigrationRequired;
+  if (!gProfileEncryptedDatabases) {
+    if (DetectEncryptedDBHeader(aProfileDir) == DBHeaderResult::Plaintext) {
+      return EncryptionCompatResult::RefuseMigrationRequired;
+    }
+    // Append the marker on disk and update the in-memory flag in lockstep
+    // so the rest of startup (mozStorage, the encryption code path) reads a
+    // consistent decision.
+    if (NS_SUCCEEDED(mozilla::MarkProfileEncryptedDatabases())) {
+      gProfileEncryptedDatabases = true;
+    }
   }
 
   return EncryptionCompatResult::OK;

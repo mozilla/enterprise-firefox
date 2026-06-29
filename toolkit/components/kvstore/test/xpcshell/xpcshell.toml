@@ -7,3 +7,7 @@ support-files = ["data/**"]
 ["test_kvstore.js"]
 
 ["test_sqlite_kvstore.js"]
+# Bug 1996558: exercises the SQLite kvstore backend directly; obfsvfs would
+# intercept the connection and turn writes into "readonly database" errors
+# once the first put goes through the encryption path.
+prefs = ["security.storage.encryption.sqlite.enabled=false"]

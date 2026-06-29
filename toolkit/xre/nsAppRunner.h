@@ -70,6 +70,15 @@ nsresult AppInfoConstructor(const nsID& aIID, void** aResult);
 // nsIXULRuntime::MarkProfileEncryptedDatabases delegates here for the JS / test
 // entry point.
 nsresult MarkProfileEncryptedDatabases();
+
+// True if the running profile's compatibility.ini carries EncryptedDatabases=1
+// (populated by CheckCompatibility() at startup, and by the eager-mark step in
+// CheckEncryptionCompatibility for fresh profiles). The single source of
+// truth mozStorage consults to decide whether to register obfsvfs as the
+// SQLite default VFS. Returns false in contexts where nsAppRunner has not
+// resolved a profile yet (e.g. xpcshell, background tasks), so those callers
+// see plaintext by default.
+bool IsProfileEncryptedDatabases();
 }  // namespace mozilla
 
 // Exported for gtests.
