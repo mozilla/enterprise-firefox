@@ -6,6 +6,7 @@ loader: taskgraph.loader.transform:loader
 
 transforms:
     - taskgraph.transforms.task_context
+    - gecko_taskgraph.transforms.require_deps
     - taskgraph.transforms.from_deps
     - gecko_taskgraph.transforms.task
 
@@ -46,9 +47,11 @@ tasks:
                 - enterprise-repack-mac-notarization
             with-attributes:
                 shipping_product: firefox-enterprise
+        shipping-product: firefox-enterprise
+        shipping-phase: promote
         index:
             type: shippable
-        run-on-projects: [enterprise-firefox]
+        run-on-projects: []
         task-context:
             from-object:
                 symbol: Rpk-Ent

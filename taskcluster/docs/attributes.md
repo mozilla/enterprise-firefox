@@ -583,4 +583,16 @@ the Authenticode comment embedded in the installer signature.
 
 Similar to msi_display_name but for MSIX packaging.
 
+## repack_id
+
+TODO
+
+## partner
+
+TODO
+
+## sub_config
+
+TODO
+
 [primary one]: https://taskcluster-taskgraph.readthedocs.io/en/latest/reference/transforms/from_deps.html#primary-kind

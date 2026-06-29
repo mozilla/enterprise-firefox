@@ -941,3 +941,14 @@ windowsappsdk-redist:
         sha256: ab078d5b1d730f093ed4e1a33d0e709d1dbca85fa4a10f546cc6824e3b48057f
         size: 478796379
         artifact-name: Microsoft.WindowsAppRuntime.Redist.tar.zst
+
+mozilla-oci-artifacts-cli:
+    description: Tooling to handle releases using OCI image manifest
+    fetch:
+        type: static-url
+        url: https://crates.io/api/v1/crates/mozilla-oci-artifacts-cli/0.1.0/download
+        sha256: b161ed6f2da718f725568e9e374f53be7887cb3a721a212c4e3fcf516443780a
+        size: 43827
+        artifact-name: mozilla-oci-artifacts-cli.tar.zst
+        strip-components: 1
+        add-prefix: mozilla-oci-artifacts-cli/
