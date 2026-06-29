@@ -619,3 +619,18 @@ msix_identity_name
 ==================
 
 Similar to msi_display_name but for MSIX packaging.
+
+repack_id
+=========
+
+TODO
+
+partner
+=======
+
+TODO
+
+sub_config
+==========
+
+TODO

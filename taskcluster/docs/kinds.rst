@@ -63,6 +63,30 @@ complete
 
 Barrier tasks that resolve once all their dependencies have completed
 
+enterprise-release-definition
+-----------------------------
+
+Generates the Mozilla OCI release definition (the JSON consumed by ``moa push
+release``) for a Firefox Enterprise console. It assembles the per-variant
+artifact references from its MAR-signing and installer dependencies and emits
+``public/build/release-definition.json``.
+
+enterprise-release-push
+-----------------------
+
+Stages a Firefox Enterprise OCI release in the registry, addressed by digest.
+One task per console consumes the matching ``enterprise-release-definition``
+artifact and the prebuilt ``moa`` binary, runs ``moa push release --no-tag``,
+and emits the resulting index digest as ``public/build/release-index.json``.
+
+enterprise-release-ship
+-----------------------
+
+Ships a Firefox Enterprise OCI release by tagging the digest staged by the push
+task with the release channel (a manifest-only retag, no re-upload). One task
+per console consumes the ``enterprise-release-push`` ``release-index.json``
+handoff and runs ``moa tag``.
+
 artifact-build
 --------------
 

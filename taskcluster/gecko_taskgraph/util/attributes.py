@@ -103,6 +103,7 @@ _COPYABLE_ATTRIBUTES = (
     "mar-channel-id",
     "maven_packages",
     "nightly",
+    "repack_id",
     "shippable",
     "shipping_phase",
     "shipping_product",
@@ -142,11 +143,19 @@ match_run_on_repo_type = _match_run_on
 
 
 def copy_attributes_from_dependent_job(dep_job, denylist=()):
-    return {
+    attributes = {
         attr: dep_job.attributes[attr]
         for attr in _COPYABLE_ATTRIBUTES
         if attr in dep_job.attributes and attr not in denylist
     }
+    # ``repack_id`` is reliably set in ``extra`` by ``chunk_partners`` but isn't
+    # always promoted to attributes by the intermediate transforms. Lift it here
+    # so a partner repack's identity propagates down the whole repackage/signing
+    # chain even when an intermediate task rebuilt its attributes.
+    repack_id = dep_job.task.get("extra", {}).get("repack_id")
+    if repack_id and "repack_id" not in denylist:
+        attributes.setdefault("repack_id", repack_id)
+    return attributes
 
 
 def sorted_unique_list(*args):

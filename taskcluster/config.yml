@@ -209,6 +209,7 @@ treeherder:
         'Attr-L10n': 'Build Attribution'
         'android-l10n': 'Import strings from android-l10n repo'
         'updt-tst': 'Test updates to release from older firefox versions'
+        'Ent': 'Firefox Enterprise release tasks'
         'Rpk-Ent': 'Enterprise repacks'
         'Rpk-Ent-Rpk': 'Enterprise repacks repackage'
         'Rpk': 'Classic repacks'
@@ -503,6 +504,15 @@ release-promotion:
             target-tasks-method: ship_desktop
             version-bump: true
             partial-updates: true
+        promote_firefox_enterprise:
+            product: firefox-enterprise
+            target-tasks-method: promote_firefox_enterprise_tasks
+        push_firefox_enterprise:
+            product: firefox-enterprise
+            target-tasks-method: push_firefox_enterprise_tasks
+        ship_firefox_enterprise:
+            product: firefox-enterprise
+            target-tasks-method: ship_firefox_enterprise_tasks
         promote_android:
             product: firefox-android
             target-tasks-method: promote_android

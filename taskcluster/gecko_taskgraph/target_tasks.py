@@ -688,6 +688,27 @@ def target_tasks_ship_desktop(full_task_graph, parameters, graph_config):
     return [l for l, t in full_task_graph.tasks.items() if filter(t)]
 
 
+# Firefox Enterprise reuses the generic, release_product-driven desktop phase
+# selectors. These thin wrappers give the flavors clear, product-specific names
+# and a place to diverge from desktop if needed.
+@register_target_task("promote_firefox_enterprise_tasks")
+def target_tasks_promote_firefox_enterprise(full_task_graph, parameters, graph_config):
+    """Select the promote-phase tasks for a Firefox Enterprise release."""
+    return target_tasks_promote_desktop(full_task_graph, parameters, graph_config)
+
+
+@register_target_task("push_firefox_enterprise_tasks")
+def target_tasks_push_firefox_enterprise(full_task_graph, parameters, graph_config):
+    """Select the push-phase tasks for a Firefox Enterprise release."""
+    return target_tasks_push_desktop(full_task_graph, parameters, graph_config)
+
+
+@register_target_task("ship_firefox_enterprise_tasks")
+def target_tasks_ship_firefox_enterprise(full_task_graph, parameters, graph_config):
+    """Select the ship-phase tasks for a Firefox Enterprise release."""
+    return target_tasks_ship_desktop(full_task_graph, parameters, graph_config)
+
+
 @register_target_task("cypress_tasks")
 def target_tasks_cypress(full_task_graph, parameters, graph_config):
     filtered_for_project = target_tasks_default(
