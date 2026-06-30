@@ -19098,7 +19098,7 @@
 # ciphertext. Read at Connection::initialize, not hot-reloadable.
 - name: security.storage.encryption.sqlite.enabled
   type: RelaxedAtomicBool
-#if defined(MOZ_ENTERPRISE)
+#if defined(MOZ_ENTERPRISE) && !defined(MOZ_THUNDERBIRD)
   value: true
 #else
   value: false
