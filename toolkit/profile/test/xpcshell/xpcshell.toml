@@ -33,6 +33,8 @@ run-if = ["os == 'mac'"]
 
 ["test_encrypted_databases_marker.js"]
 
+["test_encryption_mismatch_recovery.js"]
+
 ["test_find_currentProfile.js"]
 
 ["test_fix_directory_case.js"]
