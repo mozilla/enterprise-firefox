@@ -17,6 +17,12 @@ run-if = [
   "buildapp == 'browser'", # open new tab
 ]
 
+["test_browsing_child_encryption_mismatch.py"]
+disabled = "Bug 1996558: scaffolding for the browsing-child encryption-mismatch flow; not run in CI yet."
+run-if = [
+  "buildapp == 'browser'",
+]
+
 ["test_felt_browser_compulsory_restart.py"]
 run-if = [
   "buildapp == 'browser'", # browser specific
@@ -140,6 +146,9 @@ run-if = [
 ["test_felt_starts_missing_bin.py"]
 
 ["test_felt_starts_utf8.py"]
+
+["test_felt_ui_scratch_reset.py"]
+disabled = "Bug 1996558: scaffolding for the Felt UI scratch-reset flow; not run in CI yet."
 
 ["test_felt_updater_errors.py"]
 
