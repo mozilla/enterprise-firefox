@@ -10,6 +10,7 @@ from mozilla_taskgraph import register as register_mozilla_taskgraph
 from taskgraph import config as taskgraph_config
 from taskgraph import generator
 from taskgraph import morph as taskgraph_morph
+from taskgraph.parameters import Parameters
 from taskgraph.transforms.task import payload_builders
 from taskgraph.util import docker, schema
 from taskgraph.util import taskcluster as tc_util
@@ -74,6 +75,19 @@ schema.EXCEPTED_SCHEMA_IDENTIFIERS.extend([
 del payload_builders["beetmover"]
 del payload_builders["docker-worker"]
 del payload_builders["generic-worker"]
+
+orig_file_url = Parameters.file_url
+
+
+def local_file_url(self, path, pretty=False):
+    value = orig_file_url(self, path, pretty)
+    trigger_project = self["head_repository"].split("/")[-1]
+    if trigger_project == self["project"]:
+        return value
+    return value.replace(self["comm_head_repository"], self["head_repository"])
+
+
+Parameters.file_url = local_file_url
 
 
 def register(graph_config):
