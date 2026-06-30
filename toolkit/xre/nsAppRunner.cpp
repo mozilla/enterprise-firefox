@@ -2937,6 +2937,298 @@ static nsresult ProfileEncryptionMismatchDialog(const char* aMsgKey,
 #endif  // MOZ_WIDGET_ANDROID
 }
 
+#if defined(MOZ_ENTERPRISE)
+// Wipes the contents of the Felt UI scratch profile directory(ies) so that the
+// next startup behaves like a brand-new profile. Does not delete the directory
+// itself (its path is held in mProfD / mProfLD by the caller); only its direct
+// children. Recreates the directories with 0700 if missing.
+static nsresult ResetFeltUIScratchProfile(nsIFile* aProfileDir,
+                                          nsIFile* aLocalProfileDir) {
+  auto wipeDir = [](nsIFile* aDir) -> nsresult {
+    if (!aDir) {
+      return NS_OK;
+    }
+    bool exists = false;
+    nsresult rv = aDir->Exists(&exists);
+    NS_ENSURE_SUCCESS(rv, rv);
+    if (exists) {
+      nsCOMPtr<nsIDirectoryEnumerator> entries;
+      rv = aDir->GetDirectoryEntries(getter_AddRefs(entries));
+      NS_ENSURE_SUCCESS(rv, rv);
+      nsCOMPtr<nsIFile> entry;
+      while (NS_SUCCEEDED(entries->GetNextFile(getter_AddRefs(entry))) &&
+             entry) {
+        nsresult removeRv = entry->Remove(true);
+        if (NS_FAILED(removeRv)) {
+          NS_WARNING("ResetFeltUIScratchProfile: failed to remove entry");
+        }
+      }
+    }
+    rv = aDir->Create(nsIFile::DIRECTORY_TYPE, 0700);
+    if (NS_FAILED(rv) && rv != NS_ERROR_FILE_ALREADY_EXISTS) {
+      return rv;
+    }
+    return NS_OK;
+  };
+
+  nsresult rv = wipeDir(aProfileDir);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  bool sameDir = false;
+  if (aProfileDir && aLocalProfileDir) {
+    (void)aProfileDir->Equals(aLocalProfileDir, &sameDir);
+  }
+  if (!sameDir) {
+    rv = wipeDir(aLocalProfileDir);
+    NS_ENSURE_SUCCESS(rv, rv);
+  }
+  return NS_OK;
+}
+
+// Handles the "build requires encrypted storage but the existing profile is
+// plaintext" case for the browsing-child (full Firefox) case. Presents a
+// three-button dialog asking the user to delete the old data and continue, keep
+// the old data and continue (creating a new encrypted profile alongside the old
+// one), or quit. On delete/keep, registers a new (salted) profile under the
+// original name, persists the change to profiles.ini, optionally removes the
+// old profile's files, and re-launches Firefox with the new profile.
+//
+// Returns NS_ERROR_LAUNCHED_CHILD_PROCESS on successful relaunch (caller treats
+// that like a clean exit). Returns NS_OK with *aExitFlag = true on quit.
+static nsresult HandleBrowsingChildEncryptionMismatch(
+    nsIFile* aProfileDir, nsIFile* aLocalProfileDir,
+    nsToolkitProfileService* aProfileSvc, nsINativeAppSupport* aNative,
+    bool* aExitFlag) {
+  MOZ_ASSERT(aProfileDir);
+  MOZ_ASSERT(aProfileSvc);
+  MOZ_ASSERT(aExitFlag);
+
+  enum class Choice { Delete, Keep, Quit };
+  Choice choice = Choice::Quit;
+
+  // Test-automation shortcut: when this env is set, skip the modal.
+  const char* autoConfirm = PR_GetEnv("MOZ_TEST_AUTO_CONFIRM_PROFILE_RESET");
+  if (autoConfirm && *autoConfirm) {
+    nsDependentCString val(autoConfirm);
+    if (val.EqualsLiteral("delete")) {
+      choice = Choice::Delete;
+    } else if (val.EqualsLiteral("keep")) {
+      choice = Choice::Keep;
+    } else {
+      choice = Choice::Quit;
+    }
+  } else {
+#  ifdef MOZ_WIDGET_ANDROID
+    Output(true, "Profile encryption migration required.\n");
+    *aExitFlag = true;
+    return NS_OK;
+#  else
+#    ifdef MOZ_BACKGROUNDTASKS
+    if (BackgroundTasks::IsBackgroundTaskMode()) {
+      printf_stderr(
+          "Profile encryption migration required in backgroundtask mode\n");
+      *aExitFlag = true;
+      return NS_OK;
+    }
+#    endif
+
+    nsresult rv;
+    ScopedXPCOMStartup xpcom;
+    rv = xpcom.Initialize();
+    NS_ENSURE_SUCCESS(rv, rv);
+
+    rv = xpcom.SetWindowCreator(aNative);
+    NS_ENSURE_SUCCESS(rv, NS_ERROR_FAILURE);
+
+#    ifdef XP_MACOSX
+    InitializeMacApp();
+#    endif
+
+    {  // extra scope to release components before xpcom shutdown
+      nsCOMPtr<nsIStringBundleService> sbs =
+          mozilla::components::StringBundle::Service();
+      NS_ENSURE_TRUE(sbs, NS_ERROR_FAILURE);
+
+      nsCOMPtr<nsIStringBundle> sb;
+      sbs->CreateBundle(kProfileProperties, getter_AddRefs(sb));
+      NS_ENSURE_TRUE_LOG(sb, NS_ERROR_FAILURE);
+
+      // Prefer the branded product name (e.g. "Firefox Enterprise")
+      // over gAppData->name (the internal binary name, e.g. "Firefox").
+      // Fall back to gAppData->name if the branding bundle is unavailable.
+      nsAutoString appName;
+      {
+        nsCOMPtr<nsIStringBundle> brandBundle;
+        sbs->CreateBundle("chrome://branding/locale/brand.properties",
+                          getter_AddRefs(brandBundle));
+        if (brandBundle) {
+          brandBundle->GetStringFromName("brandShortName", appName);
+        }
+        if (appName.IsEmpty()) {
+          CopyUTF8toUTF16(mozilla::MakeStringSpan(gAppData->name), appName);
+        }
+      }
+      AutoTArray<nsString, 1> params = {appName};
+
+      nsAutoString msg;
+      rv = sb->FormatStringFromName("profileNotEncryptedButPrefOn", params,
+                                    msg);
+      NS_ENSURE_SUCCESS(rv, rv);
+
+      AutoTArray<nsString, 1> titleParams = {appName};
+      nsAutoString title;
+      rv = sb->FormatStringFromName("profileNotEncryptedButPrefOnTitle",
+                                    titleParams, title);
+      NS_ENSURE_SUCCESS(rv, rv);
+
+      nsAutoString btnDelete;
+      rv = sb->GetStringFromName("profileMismatchDeleteAndContinue", btnDelete);
+      NS_ENSURE_SUCCESS(rv, rv);
+
+      nsAutoString btnKeep;
+      rv = sb->GetStringFromName("profileMismatchKeepAndContinue", btnKeep);
+      NS_ENSURE_SUCCESS(rv, rv);
+
+      nsAutoString btnQuit;
+      rv = sb->GetStringFromName("profileMismatchQuit", btnQuit);
+      NS_ENSURE_SUCCESS(rv, rv);
+
+      nsCOMPtr<nsIPromptService> ps(
+          do_GetService(NS_PROMPTSERVICE_CONTRACTID));
+      NS_ENSURE_TRUE(ps, NS_ERROR_FAILURE);
+
+      const uint32_t flags = (nsIPromptService::BUTTON_TITLE_IS_STRING *
+                              nsIPromptService::BUTTON_POS_0) +
+                             (nsIPromptService::BUTTON_TITLE_IS_STRING *
+                              nsIPromptService::BUTTON_POS_1) +
+                             (nsIPromptService::BUTTON_TITLE_IS_STRING *
+                              nsIPromptService::BUTTON_POS_2);
+
+      int32_t button = 2;
+      bool checkState = false;
+      rv = ps->ConfirmEx(nullptr, title.get(), msg.get(), flags,
+                         btnDelete.get(), btnKeep.get(), btnQuit.get(),
+                         nullptr, &checkState, &button);
+      NS_ENSURE_SUCCESS(rv, rv);
+
+      switch (button) {
+        case 0:
+          choice = Choice::Delete;
+          break;
+        case 1:
+          choice = Choice::Keep;
+          break;
+        default:
+          choice = Choice::Quit;
+          break;
+      }
+    }
+#  endif  // MOZ_WIDGET_ANDROID
+  }
+
+  if (choice == Choice::Quit) {
+    *aExitFlag = true;
+    return NS_OK;
+  }
+
+  // Find the old profile registration so we can mirror ApplyResetProfile:
+  // rename the old registration aside, create a fresh registration under the
+  // original name (salt picks a new on-disk directory), and persist.
+  nsCOMPtr<nsIToolkitProfile> oldProfile;
+  nsresult rv = aProfileSvc->GetProfileByDir(aProfileDir, aLocalProfileDir,
+                                             getter_AddRefs(oldProfile));
+  NS_ENSURE_SUCCESS(rv, rv);
+  if (!oldProfile) {
+    NS_WARNING(
+        "HandleBrowsingChildEncryptionMismatch: no profile registration "
+        "matches the active profile directory");
+    *aExitFlag = true;
+    return NS_OK;
+  }
+
+  nsCString originalName;
+  rv = oldProfile->GetName(originalName);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  // Snapshot the current default BEFORE renaming/creating, so we can decide
+  // whether to promote the new profile to default. Mirrors ApplyResetProfile:
+  // never steal default-ness from an unrelated profile that the user happened
+  // to launch with -P (nsToolkitProfileService.cpp:2114-2134).
+  nsCOMPtr<nsIToolkitProfile> previousDefault;
+  (void)aProfileSvc->GetDefaultProfile(getter_AddRefs(previousDefault));
+
+  // Rename old profile aside so its slot in profiles.ini does not collide
+  // with the new (encrypted) profile that takes over the original name.
+  nsCString renamedName(originalName);
+  renamedName.AppendLiteral("-plaintext-");
+  renamedName.AppendInt(static_cast<int64_t>(PR_Now() / PR_USEC_PER_SEC));
+  rv = oldProfile->SetName(renamedName);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsCOMPtr<nsIToolkitProfile> newProfile;
+  rv = aProfileSvc->CreateProfile(/*aRootDir*/ nullptr, originalName,
+                                  "encryption-migration"_ns,
+                                  getter_AddRefs(newProfile));
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  // Promote the new profile to default only if the old profile was already
+  // the default. Otherwise the user launched -P some-other-profile and we
+  // must not silently steal default-ness from whatever profile holds it.
+  if (previousDefault == oldProfile) {
+    (void)aProfileSvc->SetDefaultProfile(newProfile);
+  }
+
+  if (choice == Choice::Delete) {
+    // Drop the old profile's registration from profiles.ini; we'll delete the
+    // files after Flush so an orphan dir is the worst failure mode.
+    (void)oldProfile->Remove(/*aRemoveFiles*/ false);
+  }
+
+  rv = aProfileSvc->Flush();
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  if (choice == Choice::Delete) {
+    // Best-effort: remove old directories after a successful flush. Failures
+    // leave orphan directories but do not block the relaunch.
+    if (aProfileDir) {
+      nsresult removeRv = aProfileDir->Remove(/*aRecursive*/ true);
+      if (NS_FAILED(removeRv)) {
+        NS_WARNING(
+            "HandleBrowsingChildEncryptionMismatch: failed to remove old "
+            "profile root directory");
+      }
+    }
+    bool sameDir = false;
+    if (aProfileDir && aLocalProfileDir) {
+      (void)aProfileDir->Equals(aLocalProfileDir, &sameDir);
+    }
+    if (!sameDir && aLocalProfileDir) {
+      nsresult removeRv = aLocalProfileDir->Remove(/*aRecursive*/ true);
+      if (NS_FAILED(removeRv)) {
+        NS_WARNING(
+            "HandleBrowsingChildEncryptionMismatch: failed to remove old "
+            "profile local directory");
+      }
+    }
+  }
+
+  // Resolve the new profile's directories and re-launch into them.
+  nsCOMPtr<nsIFile> newRoot;
+  rv = newProfile->GetRootDir(getter_AddRefs(newRoot));
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsCOMPtr<nsIFile> newLocal;
+  rv = newProfile->GetLocalDir(getter_AddRefs(newLocal));
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  SaveFileToEnv("XRE_PROFILE_PATH", newRoot);
+  SaveFileToEnv("XRE_PROFILE_LOCAL_PATH", newLocal);
+
+  *aExitFlag = true;
+  return LaunchChild(/*aBlankCommandLine*/ false, /*aTryExec*/ true);
+}
+#endif  // MOZ_ENTERPRISE
+
 static ReturnAbortOnError ProfileLockedDialog(nsIFile* aProfileDir,
                                               nsIFile* aProfileLocalDir,
                                               nsIProfileUnlocker* aUnlocker,
@@ -5827,6 +6119,36 @@ int XREMain::XRE_mainStartup(bool* aExitFlag,
         StaticPrefs::security_storage_encryption_sqlite_enabled();
     EncryptionCompatResult ec =
         CheckEncryptionCompatibility(mProfD, prefEnabled);
+#if defined(MOZ_ENTERPRISE)
+    // Enterprise: prefer recovery over a hard refusal when the profile is
+    // plaintext but the build requires encryption. Felt UI uses a scratch
+    // profile directory whose contents are disposable, so silently wipe and
+    // re-check. The full Firefox ("Felt browser") path puts up a 3-button
+    // dialog and either deletes/keeps the old profile, then relaunches into a
+    // freshly-created encrypted profile.
+    if (ec == EncryptionCompatResult::RefuseMigrationRequired) {
+      if (is_felt_ui()) {
+        nsresult wipeRv = ResetFeltUIScratchProfile(mProfD, mProfLD);
+        if (NS_SUCCEEDED(wipeRv)) {
+          ec = CheckEncryptionCompatibility(mProfD, prefEnabled);
+        } else {
+          NS_WARNING(
+              "Felt UI scratch profile wipe failed; falling through to "
+              "refusal");
+        }
+      } else if (is_felt_browser()) {
+        nsresult handleRv = HandleBrowsingChildEncryptionMismatch(
+            mProfD, mProfLD, mProfileSvc, mNativeApp, aExitFlag);
+        if (handleRv == NS_ERROR_LAUNCHED_CHILD_PROCESS) {
+          *aExitFlag = true;
+          return 0;
+        }
+        // Quit path (NS_OK with *aExitFlag=true) or failure: exit cleanly.
+        *aExitFlag = true;
+        return 0;
+      }
+    }
+#endif  // MOZ_ENTERPRISE
     if (ec != EncryptionCompatResult::OK) {
       const char* msgKey =
           ec == EncryptionCompatResult::RefuseEncryptedButPrefOff
