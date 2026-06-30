@@ -214,6 +214,28 @@ interface nsIToolkitProfileService : nsISupports
     [implicit_jscontext]
     Promise removeProfileFilesByPath(in nsIFile aRootDir, in nsIFile aLocalDir,
                                      in unsigned long aTimeout);
+
+    /**
+     * Recovers a profile whose on-disk encryption state does not match the
+     * configured policy. Renames the supplied profile's registration aside
+     * (using a "-plaintext-<unix-timestamp>" suffix), creates a fresh
+     * profile under the original name so the on-disk directory is
+     * re-salted, promotes the new profile to default only if the old
+     * profile was the previous default, and (if aDeleteOldFiles is true)
+     * removes the old registration and its files via the background
+     * thread. The caller is responsible for calling flush() afterwards.
+     *
+     * @param aOldProfile
+     *        The plaintext profile registration to recover from.
+     * @param aDeleteOldFiles
+     *        When true, the old registration is removed and its files are
+     *        deleted on the background thread. When false, the renamed
+     *        registration is preserved alongside the new profile.
+     * @return The newly-created profile under the original name.
+     */
+    nsIToolkitProfile applyEncryptionMismatchRecovery(
+        in nsIToolkitProfile aOldProfile,
+        in boolean aDeleteOldFiles);
 };
 
 %{C++

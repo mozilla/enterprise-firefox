@@ -2164,6 +2164,60 @@ nsresult nsToolkitProfileService::ApplyResetProfile(
 }
 
 NS_IMETHODIMP
+nsToolkitProfileService::ApplyEncryptionMismatchRecovery(
+    nsIToolkitProfile* aOldProfile, bool aDeleteOldFiles,
+    nsIToolkitProfile** aNewProfile) {
+  NS_ENSURE_ARG_POINTER(aOldProfile);
+  NS_ENSURE_ARG_POINTER(aNewProfile);
+  *aNewProfile = nullptr;
+
+  nsCString originalName;
+  nsresult rv = aOldProfile->GetName(originalName);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  // Snapshot the current default BEFORE renaming/creating, so we can decide
+  // whether to promote the new profile to default. Mirrors ApplyResetProfile:
+  // never steal default-ness from an unrelated profile that the user happened
+  // to launch with -P.
+  nsCOMPtr<nsIToolkitProfile> previousDefault;
+  (void)GetDefaultProfile(getter_AddRefs(previousDefault));
+
+  // Rename old profile aside so its slot in profiles.ini does not collide
+  // with the new (encrypted) profile that takes over the original name.
+  // Note: SetName rewrites the profile's registered `Name=` entry in
+  // profiles.ini only; the on-disk directory (rootDir.leafName) is
+  // untouched and keeps its original salted name.
+  nsCString renamedName(originalName);
+  renamedName.AppendLiteral("-plaintext-");
+  renamedName.AppendInt(static_cast<int64_t>(PR_Now() / PR_USEC_PER_SEC));
+  rv = aOldProfile->SetName(renamedName);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsCOMPtr<nsIToolkitProfile> newProfile;
+  rv = CreateProfile(/*aRootDir*/ nullptr, originalName,
+                     "encryption-migration"_ns, getter_AddRefs(newProfile));
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  // Promote the new profile to default only if the old profile was already
+  // the default. Otherwise the user launched -P some-other-profile and we
+  // must not silently steal default-ness from whatever profile holds it.
+  if (previousDefault == aOldProfile) {
+    (void)SetDefaultProfile(newProfile);
+  }
+
+  if (aDeleteOldFiles) {
+    // RemoveInBackground drops the registration synchronously and schedules
+    // file deletion on the stream transport thread (orphan-safe: a failed
+    // delete leaves files behind but never blocks startup).
+    rv = aOldProfile->RemoveInBackground(/*aRemoveFiles*/ true);
+    NS_ENSURE_SUCCESS(rv, rv);
+  }
+
+  newProfile.forget(aNewProfile);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsToolkitProfileService::GetProfileByName(const nsACString& aName,
                                           nsIToolkitProfile** aResult) {
   RefPtr<nsToolkitProfile> profile = GetProfileByName(aName);

@@ -3131,9 +3131,10 @@ static nsresult HandleBrowsingChildEncryptionMismatch(
     return NS_OK;
   }
 
-  // Find the old profile registration so we can mirror ApplyResetProfile:
-  // rename the old registration aside, create a fresh registration under the
-  // original name (salt picks a new on-disk directory), and persist.
+  // Find the old profile registration and hand it to the profile service,
+  // which renames it aside, creates a fresh (salted) registration under the
+  // original name, optionally drops the old registration + files in the
+  // background, and returns the new profile.
   nsCOMPtr<nsIToolkitProfile> oldProfile;
   nsresult rv = aProfileSvc->GetProfileByDir(aProfileDir, aLocalProfileDir,
                                              getter_AddRefs(oldProfile));
@@ -3146,71 +3147,14 @@ static nsresult HandleBrowsingChildEncryptionMismatch(
     return NS_OK;
   }
 
-  nsCString originalName;
-  rv = oldProfile->GetName(originalName);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  // Snapshot the current default BEFORE renaming/creating, so we can decide
-  // whether to promote the new profile to default. Mirrors ApplyResetProfile:
-  // never steal default-ness from an unrelated profile that the user happened
-  // to launch with -P (nsToolkitProfileService.cpp:2114-2134).
-  nsCOMPtr<nsIToolkitProfile> previousDefault;
-  (void)aProfileSvc->GetDefaultProfile(getter_AddRefs(previousDefault));
-
-  // Rename old profile aside so its slot in profiles.ini does not collide
-  // with the new (encrypted) profile that takes over the original name.
-  nsCString renamedName(originalName);
-  renamedName.AppendLiteral("-plaintext-");
-  renamedName.AppendInt(static_cast<int64_t>(PR_Now() / PR_USEC_PER_SEC));
-  rv = oldProfile->SetName(renamedName);
-  NS_ENSURE_SUCCESS(rv, rv);
-
   nsCOMPtr<nsIToolkitProfile> newProfile;
-  rv = aProfileSvc->CreateProfile(/*aRootDir*/ nullptr, originalName,
-                                  "encryption-migration"_ns,
-                                  getter_AddRefs(newProfile));
+  rv = aProfileSvc->ApplyEncryptionMismatchRecovery(
+      oldProfile, /*aDeleteOldFiles*/ choice == Choice::Delete,
+      getter_AddRefs(newProfile));
   NS_ENSURE_SUCCESS(rv, rv);
-
-  // Promote the new profile to default only if the old profile was already
-  // the default. Otherwise the user launched -P some-other-profile and we
-  // must not silently steal default-ness from whatever profile holds it.
-  if (previousDefault == oldProfile) {
-    (void)aProfileSvc->SetDefaultProfile(newProfile);
-  }
-
-  if (choice == Choice::Delete) {
-    // Drop the old profile's registration from profiles.ini; we'll delete the
-    // files after Flush so an orphan dir is the worst failure mode.
-    (void)oldProfile->Remove(/*aRemoveFiles*/ false);
-  }
 
   rv = aProfileSvc->Flush();
   NS_ENSURE_SUCCESS(rv, rv);
-
-  if (choice == Choice::Delete) {
-    // Best-effort: remove old directories after a successful flush. Failures
-    // leave orphan directories but do not block the relaunch.
-    if (aProfileDir) {
-      nsresult removeRv = aProfileDir->Remove(/*aRecursive*/ true);
-      if (NS_FAILED(removeRv)) {
-        NS_WARNING(
-            "HandleBrowsingChildEncryptionMismatch: failed to remove old "
-            "profile root directory");
-      }
-    }
-    bool sameDir = false;
-    if (aProfileDir && aLocalProfileDir) {
-      (void)aProfileDir->Equals(aLocalProfileDir, &sameDir);
-    }
-    if (!sameDir && aLocalProfileDir) {
-      nsresult removeRv = aLocalProfileDir->Remove(/*aRecursive*/ true);
-      if (NS_FAILED(removeRv)) {
-        NS_WARNING(
-            "HandleBrowsingChildEncryptionMismatch: failed to remove old "
-            "profile local directory");
-      }
-    }
-  }
 
   // Resolve the new profile's directories and re-launch into them.
   nsCOMPtr<nsIFile> newRoot;

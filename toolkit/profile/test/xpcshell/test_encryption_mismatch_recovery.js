@@ -2,122 +2,139 @@
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
 /*
- * Unit test for the profile-service rename + create + setNormalDefault + flush
- * sequence used by the enterprise encryption-mismatch recovery path. This
- * exercises the profile-service API only; it does not touch nsAppRunner.
+ * Unit test for nsIToolkitProfileService.applyEncryptionMismatchRecovery,
+ * the public XPCOM method that nsAppRunner's
+ * HandleBrowsingChildEncryptionMismatch delegates to when recovering from
+ * an encryption-policy mismatch. Exercises both the "delete old files" and
+ * "keep old registration" branches.
  */
 
-const ORIGINAL_NAME = "enterprise-profile-default-TEST";
+const ORIGINAL_NAME_DELETE = "enterprise-profile-default-DELETE";
+const ORIGINAL_NAME_KEEP = "enterprise-profile-default-KEEP";
 
-add_task(async () => {
+function findProfile(profileData, name) {
+  return profileData.profiles.find(p => p.name == name);
+}
+
+function findRenamedProfile(profileData, originalName) {
+  return profileData.profiles.find(
+    p => p.name.startsWith(`${originalName}-plaintext-`)
+  );
+}
+
+add_task(async function delete_branch() {
   let service = getProfileService();
 
-  // 1. Create the original profile with a known root dir.
-  let originalRootDir = makeRandomProfileDir(ORIGINAL_NAME);
+  let originalRootDir = makeRandomProfileDir(ORIGINAL_NAME_DELETE);
   let originalProfile = service.createProfile(
     originalRootDir,
-    ORIGINAL_NAME,
+    ORIGINAL_NAME_DELETE,
     "tests"
   );
+  service.defaultProfile = originalProfile;
 
-  // 2. Capture the original name + root path.
-  let capturedOriginalName = originalProfile.name;
-  let capturedOriginalPath = originalProfile.rootDir.path;
-  let capturedOriginalLeaf = originalProfile.rootDir.leafName;
-  Assert.equal(
-    capturedOriginalName,
-    ORIGINAL_NAME,
-    "Original profile should have the expected name."
+  let newProfile = service.applyEncryptionMismatchRecovery(
+    originalProfile,
+    /* aDeleteOldFiles */ true
   );
-  Assert.equal(
-    capturedOriginalPath,
-    originalRootDir.path,
-    "Original profile should be at the requested root dir."
-  );
-
-  // 3. Rename it to add "-plaintext-" + a timestamp suffix.
-  let renamedName = `${ORIGINAL_NAME}-plaintext-${Date.now()}`;
-  originalProfile.name = renamedName;
-  Assert.equal(
-    originalProfile.name,
-    renamedName,
-    "Rename should update the profile's name in-memory."
-  );
-
-  // 4. CreateProfile with the ORIGINAL name and nullptr root dir
-  // (SaltProfileName will pick a fresh, salted directory).
-  let newProfile = service.createProfile(null, ORIGINAL_NAME, "tests");
+  Assert.ok(newProfile, "Method should return a new profile.");
   Assert.equal(
     newProfile.name,
-    ORIGINAL_NAME,
+    ORIGINAL_NAME_DELETE,
     "New profile should reuse the original name."
   );
   Assert.ok(
     !newProfile.rootDir.equals(originalRootDir),
-    "New profile should live in a different directory than the renamed one."
+    "New profile should live in a different (salted) directory."
   );
-  let newProfileLeaf = newProfile.rootDir.leafName;
-
-  // 5. setNormalDefault on the new profile (JS-visible: defaultProfile=).
-  service.defaultProfile = newProfile;
   Assert.strictEqual(
     service.defaultProfile,
     newProfile,
-    "Default profile should now be the new profile."
+    "Default should have migrated to the new profile."
   );
 
-  // 6. Flush.
+  let newProfileLeaf = newProfile.rootDir.leafName;
+
   service.flush();
 
-  // 7. Read profiles.ini back and assert both entries exist with the expected
-  // names + paths, Default points to the new profile's path.
   let profileData = readProfilesIni();
-
-  Assert.equal(
-    profileData.profiles.length,
-    2,
-    "profiles.ini should contain both the renamed and the new profile."
+  Assert.ok(
+    !findRenamedProfile(profileData, ORIGINAL_NAME_DELETE),
+    "Old plaintext registration should have been removed."
+  );
+  let newEntry = findProfile(profileData, ORIGINAL_NAME_DELETE);
+  Assert.ok(newEntry, "New profile entry should be present.");
+  Assert.ok(
+    newEntry.path.endsWith(newProfileLeaf),
+    `New profile path (${newEntry.path}) should end with the salted leaf.`
   );
 
-  let renamedEntry = profileData.profiles.find(p => p.name == renamedName);
-  Assert.ok(renamedEntry, "Renamed profile entry should be present.");
+  let hash = xreDirProvider.getInstallHash();
+  Assert.ok(
+    profileData.installs[hash].default.endsWith(newProfileLeaf),
+    "Install default should point at the new profile."
+  );
+
+  checkProfileService(profileData);
+
+  newProfile.remove(false);
+  service.flush();
+});
+
+add_task(async function keep_branch() {
+  let service = getProfileService();
+
+  let originalRootDir = makeRandomProfileDir(ORIGINAL_NAME_KEEP);
+  let originalProfile = service.createProfile(
+    originalRootDir,
+    ORIGINAL_NAME_KEEP,
+    "tests"
+  );
+  let capturedOriginalLeaf = originalProfile.rootDir.leafName;
+  // Don't make this profile default: verify the method does NOT silently
+  // steal default-ness when the recovered profile wasn't the default.
+  let preservedDefault = service.defaultProfile;
+
+  let newProfile = service.applyEncryptionMismatchRecovery(
+    originalProfile,
+    /* aDeleteOldFiles */ false
+  );
+  Assert.ok(newProfile, "Method should return a new profile.");
+  Assert.equal(
+    newProfile.name,
+    ORIGINAL_NAME_KEEP,
+    "New profile should reuse the original name."
+  );
+  Assert.equal(
+    service.defaultProfile,
+    preservedDefault,
+    "Default should not change when the recovered profile wasn't default."
+  );
+
+  let newProfileLeaf = newProfile.rootDir.leafName;
+
+  service.flush();
+
+  let profileData = readProfilesIni();
+  let renamedEntry = findRenamedProfile(profileData, ORIGINAL_NAME_KEEP);
+  Assert.ok(renamedEntry, "Renamed plaintext registration should be present.");
   Assert.equal(
     renamedEntry.path,
     capturedOriginalLeaf,
     "Renamed profile should still point at the original root dir."
   );
-
-  let newEntry = profileData.profiles.find(p => p.name == ORIGINAL_NAME);
-  Assert.ok(newEntry, "Newly created profile entry should be present.");
-  // The new profile lives under the install's Profiles/ root (rootDir was
-  // null at create time, so the service picked a salted path); profiles.ini
-  // stores it relative-to that root with the "Profiles/" prefix.
+  let newEntry = findProfile(profileData, ORIGINAL_NAME_KEEP);
+  Assert.ok(newEntry, "New profile entry should be present.");
   Assert.ok(
     newEntry.path.endsWith(newProfileLeaf),
-    `New profile entry path (${newEntry.path}) should end with the salted leaf (${newProfileLeaf}).`
-  );
-
-  let hash = xreDirProvider.getInstallHash();
-  Assert.ok(
-    profileData.installs && hash in profileData.installs,
-    "An install entry should have been written for this build."
-  );
-  Assert.ok(
-    profileData.installs[hash].default.endsWith(newProfileLeaf),
-    `Install default (${profileData.installs[hash].default}) should end with the new profile's salted leaf (${newProfileLeaf}).`
+    `New profile path (${newEntry.path}) should end with the salted leaf.`
   );
 
   checkProfileService(profileData);
 
-  // 8. Cleanup: remove both profiles.
-  originalProfile.remove(false);
+  // Cleanup: remove both registrations.
+  let renamed = service.getProfileByName(renamedEntry.name);
+  renamed.remove(false);
   newProfile.remove(false);
   service.flush();
-
-  let cleaned = readProfilesIni();
-  Assert.equal(
-    cleaned.profiles.length,
-    0,
-    "Both profiles should be removed after cleanup."
-  );
 });
