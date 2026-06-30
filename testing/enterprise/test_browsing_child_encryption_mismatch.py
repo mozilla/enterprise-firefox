@@ -103,13 +103,24 @@ class BrowsingChildEncryptionMismatch(MarionetteTestCase):
 
     def _find_profiles_ini(self):
         candidates = [
-            os.path.join(self._workdir, ".mozilla", "firefox", "profiles.ini"),
-            os.path.join(self._workdir, ".config", "mozilla", "firefox", "profiles.ini"),
+            # The HOME we set above also drives XDG_CONFIG_HOME, so profiles.ini
+            # lives under $XDG_CONFIG_HOME/mozilla/firefox/ -- not under
+            # ~/.mozilla/firefox/ which is the legacy non-XDG path.
+            os.path.join(
+                self._workdir, ".config", "mozilla", "firefox", "profiles.ini"
+            ),
         ]
         if sys.platform == "darwin":
-            candidates.insert(0, os.path.join(
-                self._workdir, "Library", "Application Support", "Firefox",
-                "profiles.ini"))
+            candidates.insert(
+                0,
+                os.path.join(
+                    self._workdir,
+                    "Library",
+                    "Application Support",
+                    "Firefox",
+                    "profiles.ini",
+                ),
+            )
         for c in candidates:
             if os.path.isfile(c):
                 return c
@@ -130,8 +141,11 @@ class BrowsingChildEncryptionMismatch(MarionetteTestCase):
         return None
 
     def _profile_paths(self, cp):
-        return [cp[s].get("Path") for s in cp.sections()
-                if s.startswith("Profile") and cp[s].get("Path")]
+        return [
+            cp[s].get("Path")
+            for s in cp.sections()
+            if s.startswith("Profile") and cp[s].get("Path")
+        ]
 
     def _exercise(self, choice):
         profiles_dir = os.path.join(self._workdir, "profiles")
@@ -149,47 +163,58 @@ class BrowsingChildEncryptionMismatch(MarionetteTestCase):
             timeout=180,
         )
         out = result.stdout.decode("utf-8", errors="replace")
-        self._logger.info(f"choice={choice} rc={result.returncode}; tail:\n{out[-1500:]}")
+        self._logger.info(
+            f"choice={choice} rc={result.returncode}; tail:\n{out[-1500:]}"
+        )
         return profiles_dir, old_path, siblings_before
 
     def _assert_delete(self, profiles_dir, old_path, before):
         assert not os.path.exists(old_path), (
-            f"delete: old profile dir {old_path} should be gone")
+            f"delete: old profile dir {old_path} should be gone"
+        )
         new_dirs = set(os.listdir(profiles_dir)) - before
         assert len(new_dirs) == 1, f"delete: expected one new dir, saw {new_dirs}"
         cp = self._read_profiles_ini()
         default = self._default_path(cp)
         assert default and default.endswith(new_dirs.pop()), (
-            f"delete: profiles.ini Default ({default}) should point at the new dir")
+            f"delete: profiles.ini Default ({default}) should point at the new dir"
+        )
 
     def _assert_keep(self, profiles_dir, old_path, before):
         assert os.path.exists(old_path), (
-            f"keep: old profile dir {old_path} should still exist")
+            f"keep: old profile dir {old_path} should still exist"
+        )
         assert os.path.exists(os.path.join(old_path, "cookies.sqlite")), (
-            "keep: plaintext cookies.sqlite should still be on disk")
+            "keep: plaintext cookies.sqlite should still be on disk"
+        )
         new_dirs = set(os.listdir(profiles_dir)) - before
         assert len(new_dirs) == 1, f"keep: expected one new dir, saw {new_dirs}"
         cp = self._read_profiles_ini()
         old_base = os.path.basename(old_path)
         assert any(p.endswith(old_base) for p in self._profile_paths(cp)), (
-            f"keep: old profile path should still be registered; paths={self._profile_paths(cp)}")
+            f"keep: old profile path should still be registered; paths={self._profile_paths(cp)}"
+        )
         default = self._default_path(cp)
         new_dir = next(iter(new_dirs))
         assert default and default.endswith(new_dir), (
-            f"keep: profiles.ini Default ({default}) should point at new dir ({new_dir})")
+            f"keep: profiles.ini Default ({default}) should point at new dir ({new_dir})"
+        )
 
     def _assert_quit(self, profiles_dir, old_path, before):
         assert os.path.exists(old_path), (
-            f"quit: old profile dir {old_path} should still exist")
+            f"quit: old profile dir {old_path} should still exist"
+        )
         assert os.path.exists(os.path.join(old_path, "cookies.sqlite")), (
-            "quit: plaintext cookies.sqlite should still be on disk")
+            "quit: plaintext cookies.sqlite should still be on disk"
+        )
         after = set(os.listdir(profiles_dir))
         assert after == before, f"quit: no new dir should appear; new={after - before}"
         cp = self._read_profiles_ini()
         default = self._default_path(cp)
         if default:
             assert default.endswith(os.path.basename(old_path)), (
-                f"quit: profiles.ini Default ({default}) should still point at old dir")
+                f"quit: profiles.ini Default ({default}) should still point at old dir"
+            )
 
     def test_browsing_child_encryption_mismatch(self):
         asserters = {

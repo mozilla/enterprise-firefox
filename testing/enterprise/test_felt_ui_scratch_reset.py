@@ -14,7 +14,6 @@ sys.path.append(os.path.dirname(__file__))
 
 from felt_tests import FeltTests
 
-
 # The Felt UI launch gate (toolkit/xre/nsAppRunner.cpp) selects a scratch
 # profile directory at "${OS_TemporaryDirectory}/felt-{MOZ_UPDATE_CHANNEL}".
 # For local/dev builds MOZ_UPDATE_CHANNEL is "default". If that directory is
@@ -81,9 +80,7 @@ class FeltUIScratchReset(FeltTests):
         # exist when Felt's binary comes up. Record both paths so teardown can
         # clean up even if the test bails partway through.
         self._scratch_path = self._scratch_dir()
-        self._planted_sqlite = self._plant_plaintext_places_sqlite(
-            self._scratch_path
-        )
+        self._planted_sqlite = self._plant_plaintext_places_sqlite(self._scratch_path)
         assert os.path.isfile(self._planted_sqlite), (
             f"plaintext places.sqlite was not planted at {self._planted_sqlite}"
         )

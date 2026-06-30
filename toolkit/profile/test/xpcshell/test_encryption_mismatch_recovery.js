@@ -17,8 +17,8 @@ function findProfile(profileData, name) {
 }
 
 function findRenamedProfile(profileData, originalName) {
-  return profileData.profiles.find(
-    p => p.name.startsWith(`${originalName}-plaintext-`)
+  return profileData.profiles.find(p =>
+    p.name.startsWith(`${originalName}-plaintext-`)
   );
 }
 
