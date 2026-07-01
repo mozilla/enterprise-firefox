@@ -12,6 +12,7 @@ import time
 sys.path.append(os.path.dirname(__file__))
 
 import requests
+from base_test import Environment
 from felt_tests import FeltTests
 
 
@@ -34,11 +35,16 @@ class FeltDevicePosture(FeltTests):
     }
 
     def test_felt_device_posture(self):
+        # Keep the FELT window alive after login so EDR probing can run in the
+        # FELT chrome context, where device posture is collected in production.
+        self.get_driver(Environment.FELT).set_prefs(
+            {"enterprise.felt_tests.should_not_close_window": True},
+            default_branch=True,
+        )
         super().run_felt_base()
         self.run_device_posture_content()
-        # The FELT login flow discards the parent's auth window, so EDR probing
-        # (which runs chrome-context script) must target the live managed-browser
-        # window connected by run_access()'s connect_child_browser().
+        # Connect the managed browser so its policy polls populate the posture
+        # history that run_posture_history() checks.
         self.run_access()
         self.run_all_edr_detection()
         self.run_posture_history()
@@ -56,9 +62,10 @@ class FeltDevicePosture(FeltTests):
         spurious empty result while a sweep is still running.
         """
         self._logger.info("Probing all EDR agents via the EDR-checker")
-        self._child_driver.set_context("chrome")
+        driver = self.get_driver(Environment.FELT)
+        driver.set_context("chrome")
         try:
-            rv = self._child_driver.execute_async_script(
+            rv = driver.execute_async_script(
                 """
                 const callback = arguments[arguments.length - 1];
                 const { EdrDetection } = ChromeUtils.importESModule(
@@ -77,7 +84,7 @@ class FeltDevicePosture(FeltTests):
                 """,
             )
         finally:
-            self._child_driver.set_context("content")
+            driver.set_context("content")
 
         assert "_error" not in rv, f"Probing all EDR agents threw: {rv.get('_error')}"
         results = rv["results"]
