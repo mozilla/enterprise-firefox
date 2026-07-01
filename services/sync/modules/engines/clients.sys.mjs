@@ -50,7 +50,7 @@ ChromeUtils.defineLazyGetter(lazy, "fxAccounts", () => {
 
 if (AppConstants.MOZ_ENTERPRISE) {
   ChromeUtils.defineESModuleGetters(lazy, {
-    MachineId: "resource://gre/modules/MachineId.sys.mjs",
+    MachineId: "resource://gre/modules/enterprise/MachineId.sys.mjs",
   });
 }
 

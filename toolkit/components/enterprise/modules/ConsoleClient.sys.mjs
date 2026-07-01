@@ -15,8 +15,8 @@ const EDR_AGENTS_TO_PROBE = ["crowdstrike", "cortex-xdr"];
 
 ChromeUtils.defineESModuleGetters(lazy, {
   AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
-  EdrDetection: "resource://gre/modules/EdrDetection.sys.mjs",
-  MachineId: "resource://gre/modules/MachineId.sys.mjs",
+  EdrDetection: "resource://gre/modules/enterprise/EdrDetection.sys.mjs",
+  MachineId: "resource://gre/modules/enterprise/MachineId.sys.mjs",
   TelemetryEnvironment: "resource://gre/modules/TelemetryEnvironment.sys.mjs",
   EnterpriseCommon:
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",

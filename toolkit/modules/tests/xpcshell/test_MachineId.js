@@ -12,7 +12,7 @@ const enterpriseOnly = () => ({ skip_if: () => !AppConstants.MOZ_ENTERPRISE });
 let MachineId;
 if (AppConstants.MOZ_ENTERPRISE) {
   ({ MachineId } = ChromeUtils.importESModule(
-    "resource://gre/modules/MachineId.sys.mjs"
+    "resource://gre/modules/enterprise/MachineId.sys.mjs"
   ));
 }
 
@@ -272,13 +272,16 @@ add_task(
   }
 );
 
-add_task(enterpriseOnly, async function test_get_source_null_when_unresolved() {
-  await withStubbedResolve(null, async () => {
-    equal(
-      await MachineId.getSource(),
-      null,
-      "Should return null source when no ID could be resolved"
-    );
-    equal(await MachineId.getRawId(), null, "Should return null ID as well");
-  });
-});
+add_task(
+  enterpriseOnly(),
+  async function test_get_source_null_when_unresolved() {
+    await withStubbedResolve(null, async () => {
+      equal(
+        await MachineId.getSource(),
+        null,
+        "Should return null source when no ID could be resolved"
+      );
+      equal(await MachineId.getRawId(), null, "Should return null ID as well");
+    });
+  }
+);

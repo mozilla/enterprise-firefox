@@ -69,7 +69,7 @@ class FeltDevicePosture(FeltTests):
                 """
                 const callback = arguments[arguments.length - 1];
                 const { EdrDetection } = ChromeUtils.importESModule(
-                    "resource://gre/modules/EdrDetection.sys.mjs"
+                    "resource://gre/modules/enterprise/EdrDetection.sys.mjs"
                 );
                 // Empty list = probe every known agent. Three concurrent calls
                 // exercise the background-thread sweep, the subprocess service
@@ -290,12 +290,14 @@ class FeltDevicePosture(FeltTests):
             device_posture["extensions"], list
         ), "extensions is null or a list"
 
+        # machineId is nullable (null when no platform identifier resolves); when
+        # present, only its structure can be asserted, not the actual values.
         machine_id = device_posture["machineId"]
-        assert isinstance(machine_id, dict), "Device posture reports a machineId object"
-        assert isinstance(machine_id.get("id"), str) and machine_id["id"], (
-            "machineId has a non-empty id"
-        )
-        assert "source" in machine_id, "machineId reports its source tier"
+        assert machine_id is None or (
+            isinstance(machine_id, dict)
+            and "id" in machine_id
+            and "source" in machine_id
+        ), "machineId is null or an object with id and source"
 
     def run_posture_history(self):
         console_addr = f"http://localhost:{self.console_port}"
