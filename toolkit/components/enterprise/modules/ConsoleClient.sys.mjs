@@ -699,9 +699,9 @@ export const ConsoleClient = {
         ]);
         return addons.map(addon => ({
           id: addon.id,
-          name: addon.name,
+          name: addon.name ?? "",
           type: addon.type,
-          version: addon.version,
+          version: addon.version ?? "",
           enabled: addon.isActive,
         }));
       } catch {

@@ -1932,8 +1932,7 @@ bool nsSystemInfo::GetDomainJoinedStatus() {
   // artifacts -- realmd ("realm list" reporting "configured: kerberos-member"),
   // an /etc/sssd/sssd.conf domain section, or a host /etc/krb5.keytab. These
   // are parse-or-shell heuristics and vendor-dependent, so we report false
-  // rather than guess (Chromium's device_signals likewise covers no platform
-  // but Windows here).
+  // rather than guess.
   return false;
 #  else
   return false;
