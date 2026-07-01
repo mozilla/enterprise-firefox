@@ -165,7 +165,6 @@ EXTRA_JS_MODULES += [
     "CreditCard.sys.mjs",
     "DeferredTask.sys.mjs",
     "E10SUtils.sys.mjs",
-    "EdrDetection.sys.mjs",
     "EventEmitter.sys.mjs",
     "FileUtils.sys.mjs",
     "FindBarContent.sys.mjs",
@@ -189,7 +188,6 @@ EXTRA_JS_MODULES += [
     "KeywordUtils.sys.mjs",
     "Log.sys.mjs",
     "LogManager.sys.mjs",
-    "MachineId.sys.mjs",
     "NewTabUtils.sys.mjs",
     "NLP.sys.mjs",
     "ObjectUtils.sys.mjs",
@@ -224,6 +222,12 @@ MOZ_SRC_FILES += [
     "FaviconUtils.sys.mjs",
     "InputPickerPanelCommon.sys.mjs",
 ]
+
+if CONFIG["MOZ_ENTERPRISE"]:
+    EXTRA_JS_MODULES += [
+        "EdrDetection.sys.mjs",
+        "MachineId.sys.mjs",
+    ]
 
 if CONFIG["MOZ_ASAN_REPORTER"]:
     EXTRA_JS_MODULES += [

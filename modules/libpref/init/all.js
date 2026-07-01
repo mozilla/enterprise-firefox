@@ -3776,11 +3776,13 @@ pref("services.common.log.logger.tokenserverclient", "Debug");
   pref("services.sync.lastversion", "firstrun");
   pref("services.sync.sendVersionInfo", true);
 
+#ifdef MOZ_ENTERPRISE
   // Enterprise: when enabled, the clients engine resets the FxA device
   // registration on sync startup if it detects the machine ID changed (e.g. a
   // profile cloned onto new hardware). Off by default; flip via enterprise
   // policy or pref to enable.
   pref("services.sync.client.machineId.detectChange", false);
+#endif
 
   pref("services.sync.scheduler.idleInterval", 3600);  // 1 hour
   pref("services.sync.scheduler.activeInterval", 600);   // 10 minutes

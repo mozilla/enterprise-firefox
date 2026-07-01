@@ -48,9 +48,11 @@ ChromeUtils.defineLazyGetter(lazy, "fxAccounts", () => {
   ).getFxAccountsSingleton();
 });
 
-ChromeUtils.defineESModuleGetters(lazy, {
-  MachineId: "resource://gre/modules/MachineId.sys.mjs",
-});
+if (AppConstants.MOZ_ENTERPRISE) {
+  ChromeUtils.defineESModuleGetters(lazy, {
+    MachineId: "resource://gre/modules/MachineId.sys.mjs",
+  });
+}
 
 import { PREF_ACCOUNT_ROOT } from "resource://gre/modules/FxAccountsCommon.sys.mjs";
 
