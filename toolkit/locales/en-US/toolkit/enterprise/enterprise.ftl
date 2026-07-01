@@ -8,6 +8,9 @@
 # Shown in the about:support "Application Basics" table on enterprise builds.
 app-basics-machine-id = Machine ID
 
+# Shown in the about:support "Security Software" section on enterprise builds.
+security-software-edr = Endpoint Detection and Response
+
 enterprise-toolbar-button =
     .label = { -brand-short-name }
     .tooltiptext = { -brand-short-name }

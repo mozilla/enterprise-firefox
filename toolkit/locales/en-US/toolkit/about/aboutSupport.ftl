@@ -33,7 +33,6 @@ security-software-name = Name
 security-software-antivirus = Antivirus
 security-software-antispyware = Antispyware
 security-software-firewall = Firewall
-security-software-edr = Endpoint Detection and Response
 processes-title = Remote Processes
 processes-type = Type
 processes-count = Count
