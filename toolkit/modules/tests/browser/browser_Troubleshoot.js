@@ -355,6 +355,18 @@ const SNAPSHOT_SCHEMA = {
           required: false,
           type: "array",
         },
+        machineIdRaw: {
+          required: false,
+          type: "string",
+        },
+        machineIdHashed: {
+          required: false,
+          type: "string",
+        },
+        machineIdSource: {
+          required: false,
+          type: "string",
+        },
       },
     },
     crashes: {
@@ -436,6 +448,10 @@ const SNAPSHOT_SCHEMA = {
         registeredFirewall: {
           required: true,
           type: "string",
+        },
+        presentEdrs: {
+          required: false,
+          type: "array",
         },
       },
     },

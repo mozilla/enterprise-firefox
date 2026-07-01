@@ -259,9 +259,14 @@ var dataProviders = {
 
     if (AppConstants.MOZ_ENTERPRISE) {
       try {
-        data.machineIdRaw = await lazy.MachineId.getRawId();
-        data.machineIdHashed = await lazy.MachineId.getHashedId();
-        data.machineIdSource = await lazy.MachineId.getSource();
+        // Omit the machine-id fields entirely when none resolves, rather than
+        // reporting nulls (about:support hides the row when they are absent).
+        const machineIdRaw = await lazy.MachineId.getRawId();
+        if (machineIdRaw) {
+          data.machineIdRaw = machineIdRaw;
+          data.machineIdHashed = await lazy.MachineId.getHashedId();
+          data.machineIdSource = await lazy.MachineId.getSource();
+        }
       } catch (e) {
         console.error("Troubleshoot: Failed to get machine ID:", e);
       }
