@@ -9,11 +9,11 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use moz_task::{DispatchOptions, Task, TaskRunnable, ThreadPtrHandle, ThreadPtrHolder};
-use nserror::{nsresult, NS_ERROR_FAILURE, NS_ERROR_NULL_POINTER, NS_OK};
+use nserror::{nsresult, NS_ERROR_FAILURE, NS_OK};
 use nsstring::nsCString;
 use thin_vec::ThinVec;
 use xpcom::interfaces::nsIEdrCheckerCallback;
-use xpcom::RefPtr;
+use xpcom::{xpcom_method, RefPtr};
 
 #[cfg(target_os = "linux")]
 use crate::edr_checker_linux::Snapshot;
@@ -407,7 +407,12 @@ fn detect_present_edrs(requested: &[EdrId]) -> Vec<&'static str> {
     };
     requested
         .iter()
-        .filter_map(|&id| map.get(&id).copied().unwrap_or(false).then_some(id.as_str()))
+        .filter_map(|&id| {
+            map.get(&id)
+                .copied()
+                .unwrap_or(false)
+                .then_some(id.as_str())
+        })
         .collect()
 }
 
@@ -467,26 +472,23 @@ impl EdrCheckerXPCOM {
         EdrCheckerXPCOM::allocate(InitEdrCheckerXPCOM {})
     }
 
-    fn GetPresentEdrs(
-        &self,
-        requested_ids: *const ThinVec<nsCString>,
-        callback: *const nsIEdrCheckerCallback,
-    ) -> nsresult {
-        if requested_ids.is_null() || callback.is_null() {
-            return NS_ERROR_NULL_POINTER;
-        }
-        let requested_ids = unsafe { &*requested_ids };
-        let callback = unsafe { &*callback };
+    xpcom_method!(
+        get_present_edrs => GetPresentEdrs(
+            requested_ids: *const ThinVec<nsCString>,
+            callback: *const nsIEdrCheckerCallback
+        )
+    );
 
+    fn get_present_edrs(
+        &self,
+        requested_ids: &ThinVec<nsCString>,
+        callback: &nsIEdrCheckerCallback,
+    ) -> Result<(), nsresult> {
         let requested = resolve_requested(requested_ids);
 
         // Hold the callback so it can be invoked back on this (the main) thread
         // once detection completes.
-        let callback =
-            match ThreadPtrHolder::new(cstr!("nsIEdrCheckerCallback"), RefPtr::new(callback)) {
-                Ok(handle) => handle,
-                Err(rv) => return rv,
-            };
+        let callback = ThreadPtrHolder::new(cstr!("nsIEdrCheckerCallback"), RefPtr::new(callback))?;
 
         let task = Box::new(EdrDetectionTask {
             requested,
@@ -494,19 +496,14 @@ impl EdrCheckerXPCOM {
             result: Mutex::new(Vec::new()),
         });
 
-        let runnable = match TaskRunnable::new("EdrChecker::getPresentEdrs", task) {
-            Ok(runnable) => runnable,
-            Err(rv) => return rv,
-        };
+        let runnable = TaskRunnable::new("EdrChecker::getPresentEdrs", task)?;
 
         // Detection enumerates processes and queries services, so let the
         // background pool know it may block.
-        match runnable
-            .dispatch_background_task_with_options(DispatchOptions::default().may_block(true))
-        {
-            Ok(()) => NS_OK,
-            Err(rv) => rv,
-        }
+        runnable
+            .dispatch_background_task_with_options(DispatchOptions::default().may_block(true))?;
+
+        Ok(())
     }
 }
 
