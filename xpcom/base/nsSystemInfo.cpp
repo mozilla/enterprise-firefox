@@ -32,6 +32,12 @@
 // Net{Get,Free}* domain/AAD join APIs (netapi32), used by the isDomainJoined
 // device-posture signal.
 #    include <lm.h>
+// <lm.h> pulls in <lmaccess.h>, which #defines ACCESS_READ/ACCESS_WRITE/
+// ACCESS_ALL. Those collide with the identically-named nsIWindowsRegKey enum
+// members (see GetWinModelId below); we only need the Net* join APIs here.
+#    undef ACCESS_READ
+#    undef ACCESS_WRITE
+#    undef ACCESS_ALL
 #  endif  // MOZ_ENTERPRISE
 #  ifndef __MINGW32__
 #    include <wrl.h>
