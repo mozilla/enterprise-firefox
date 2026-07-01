@@ -3169,7 +3169,7 @@ static nsresult HandleBrowsingChildEncryptionMismatch(
   SaveFileToEnv("XRE_PROFILE_LOCAL_PATH", newLocal);
 
   *aExitFlag = true;
-  return LaunchChild(/*aBlankCommandLine*/ false, /*aTryExec*/ true);
+  return NS_ERROR_RESTART_FORCED;
 }
 #endif  // MOZ_ENTERPRISE
 
@@ -6083,8 +6083,9 @@ int XREMain::XRE_mainStartup(bool* aExitFlag,
       } else if (is_felt_browser()) {
         nsresult handleRv = HandleBrowsingChildEncryptionMismatch(
             mProfD, mProfLD, mProfileSvc, mNativeApp, aExitFlag);
-        if (handleRv == NS_ERROR_LAUNCHED_CHILD_PROCESS) {
+        if (handleRv == NS_ERROR_RESTART_FORCED) {
           *aExitFlag = true;
+          mozilla::AppShutdown::DoImmediateExit(0x93);
           return 0;
         }
         // Quit path (NS_OK with *aExitFlag=true) or failure: exit cleanly.

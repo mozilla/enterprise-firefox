@@ -632,6 +632,7 @@ export class FeltProcessParent extends JSProcessActorParent {
       "enterprise.profile_path",
       ""
     );
+    let foundProfile = null;
 
     if (!profilePath) {
       let profileService = Cc[
@@ -639,7 +640,6 @@ export class FeltProcessParent extends JSProcessActorParent {
       ].getService(Ci.nsIToolkitProfileService);
 
       let profileName = await this.profileName();
-      let foundProfile = null;
 
       for (let profile of profileService.profiles) {
         if (profile.name === profileName) {
@@ -658,8 +658,6 @@ export class FeltProcessParent extends JSProcessActorParent {
 
         await profileService.asyncFlush();
       }
-
-      profilePath = foundProfile.rootDir.path;
     } else if (Services.appinfo.OS == "WINNT") {
       profilePath = PathUtils.normalize(profilePath.replaceAll("/", "\\"));
     }
@@ -688,10 +686,19 @@ export class FeltProcessParent extends JSProcessActorParent {
       extraRunArgs.push("--safe-mode");
     }
 
+    let profileArgs = [];
+    if (profilePath) {
+      profileArgs = ["--profile", profilePath];
+    }
+
+    if (foundProfile) {
+      profileArgs = ["-P", foundProfile.name];
+    }
+
+    lazy.log.debug(`Using profileArgs: ${profileArgs}`);
     const firefoxRunArgs = [
       "--foreground",
-      "--profile",
-      profilePath,
+      ...profileArgs,
       "-felt",
       socket,
       ...extraRunArgs,
