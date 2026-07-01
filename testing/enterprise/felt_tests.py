@@ -253,15 +253,6 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 "extra_prefs": [["marionette.port", 0]],
             })
 
-        elif path == "/api/browser/policies":
-            if not self.check_auth():
-                return
-            if self.server.policies_fail_request.value:
-                self.reply("", 500, "Internal Server Error", "application/json")
-                return
-            m = self.build_policies_response()
-            contentType = "application/json"
-
         elif path == "/api/browser/whoami":
             if not self.check_auth():
                 return

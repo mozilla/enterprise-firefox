@@ -276,9 +276,19 @@ class FeltDevicePosture(FeltTests):
 
         assert found_one_ipv6, "Device posture reports network interfaces (IPv6)"
 
+        # In the FELT UI context AddonManager is unavailable, so extensions is
+        # null here; run_posture_history() asserts the populated browser-poll case.
         assert "extensions" in device_posture, "Device posture reports extensions"
+        assert device_posture["extensions"] is None or isinstance(
+            device_posture["extensions"], list
+        ), "extensions is null or a list"
 
-        assert "machineId" in device_posture, "Device posture reports machineId"
+        machine_id = device_posture["machineId"]
+        assert isinstance(machine_id, dict), "Device posture reports a machineId object"
+        assert isinstance(machine_id.get("id"), str) and machine_id["id"], (
+            "machineId has a non-empty id"
+        )
+        assert "source" in machine_id, "machineId reports its source tier"
 
     def run_posture_history(self):
         console_addr = f"http://localhost:{self.console_port}"
