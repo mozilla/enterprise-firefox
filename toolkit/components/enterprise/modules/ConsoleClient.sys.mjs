@@ -318,8 +318,8 @@ export const ConsoleClient = {
   /**
    * Collect the device posture data and send them to the console.
    *
-   * @param {object} root0
-   * @param {boolean} root0.waitForAddons
+   * @param {object} [options]
+   * @param {boolean} [options.waitForAddons=false]
    * @returns {Promise<{posture: string}>} Token reported by console.
    */
   async sendDevicePosture({ waitForAddons = false } = {}) {
@@ -658,8 +658,8 @@ export const ConsoleClient = {
    * Collects the device posture from TelemetryEnvironment.currentEnvironment
    * and others data sources.
    *
-   * @param {object} root0
-   * @param {boolean} root0.waitForAddons
+   * @param {object} [options]
+   * @param {boolean} [options.waitForAddons=false]
    * @returns {Promise<DevicePosture>} devicePosture
    */
   async collectDevicePosture({ waitForAddons = false } = {}) {

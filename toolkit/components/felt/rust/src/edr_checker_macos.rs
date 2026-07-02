@@ -65,7 +65,8 @@ impl Snapshot {
             return false;
         };
         for line in output.lines() {
-            if line.contains(identifier) && line.to_lowercase().contains("activated enabled") {
+            if line.contains(identifier) && line.to_ascii_lowercase().contains("activated enabled")
+            {
                 trace!("EdrChecker: found {} via system extension", app_id);
                 return true;
             }
