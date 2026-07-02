@@ -741,20 +741,49 @@ nsresult GetDatabaseEncryptionStatus(const nsACString& aDatabasePath,
   nsresult rv = GetCachedProfilePath(profilePath);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  nsCOMPtr<nsIFile> profileDir = new nsLocalFile();
-  rv = profileDir->InitWithPath(profilePath);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  nsCOMPtr<nsIFile> dbFile = new nsLocalFile();
-  rv = dbFile->InitWithPath(NS_ConvertUTF8toUTF16(aDatabasePath));
-  NS_ENSURE_SUCCESS(rv, rv);
-
   // A database under the profile directory is encrypted; anything else (an
   // xpcshell temp file, a migration import opened from outside the profile)
   // has no stable per-database identifier and is opened as plaintext.
+  //
+  // We do a direct string prefix comparison rather than going through
+  // nsIFile::Contains because on Windows callers that opt in to
+  // nsILocalFileWin::SetUseDOSDevicePathSyntax (notably QuotaManager, for
+  // MAX_PATH bypass -- see dom/quota/QuotaCommon.cpp) hand us paths with a
+  // leading "\\?\" DOS-device prefix, while NS_APP_USER_PROFILE_50_DIR returns
+  // a plain "C:\..." path. nsIFile::Contains prefix-matches the raw path
+  // strings; the "\\?\" mismatch makes it report "outside profile" for
+  // in-profile databases and drops them onto the plaintext base VFS.
+  // Normalize by stripping the "\\?\" prefix from both sides before comparing.
+  nsAutoString normalizedProfilePath;
+  normalizedProfilePath.Assign(profilePath);
+  nsAutoString normalizedDbPath;
+  CopyUTF8toUTF16(aDatabasePath, normalizedDbPath);
+#ifdef XP_WIN
+  constexpr auto kDevicePrefix = u"\\\\?\\"_ns;
+  if (StringBeginsWith(normalizedProfilePath, kDevicePrefix)) {
+    normalizedProfilePath.Cut(0, kDevicePrefix.Length());
+  }
+  if (StringBeginsWith(normalizedDbPath, kDevicePrefix)) {
+    normalizedDbPath.Cut(0, kDevicePrefix.Length());
+  }
+  constexpr char16_t kDirSeparator = u'\\';
+#else
+  constexpr char16_t kDirSeparator = u'/';
+#endif
+
   bool isUnder = false;
-  rv = profileDir->Contains(dbFile, &isUnder);
-  NS_ENSURE_SUCCESS(rv, rv);
+  const uint32_t profileLen = normalizedProfilePath.Length();
+  if (normalizedDbPath.Length() > profileLen &&
+      normalizedDbPath.CharAt(profileLen) == kDirSeparator) {
+#ifdef XP_WIN
+    // Windows filesystems are case-insensitive; match nsLocalFileWin::Contains.
+    isUnder = _wcsnicmp(char16ptr_t(normalizedProfilePath.get()),
+                        char16ptr_t(normalizedDbPath.get()), profileLen) == 0;
+#else
+    isUnder = memcmp(normalizedProfilePath.get(), normalizedDbPath.get(),
+                     profileLen * sizeof(char16_t)) == 0;
+#endif
+  }
 
   if (!isUnder) {
     aStatus = EncryptionStatus::Plaintext;
