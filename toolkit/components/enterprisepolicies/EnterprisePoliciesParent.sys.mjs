@@ -1362,23 +1362,12 @@ class RemotePoliciesProvider extends PoliciesProvider {
    *
    * @param {object} [options]
    * @param {boolean} [options.waitForAddons] passed through to
-   *   ConsoleClient.collectDevicePosture(); see its documentation.
+   *   ConsoleClient.getRemotePolicies(); see its documentation.
    * @returns {Promise<boolean>} whether the policies or the failure state
    *   changed, i.e. whether the engine should re-evaluate
    */
   async ingestPolicies({ waitForAddons = false } = {}) {
-    // Device posture is supplementary; if collecting it fails, fall back to
-    // a plain policy fetch rather than failing the policy update.
-    let posture = null;
-    try {
-      posture = await lazy.ConsoleClient.collectDevicePosture({
-        waitForAddons,
-      });
-    } catch (e) {
-      lazy.log.error("Failed to collect device posture:", e);
-    }
-
-    const res = await lazy.ConsoleClient.getRemotePolicies(posture);
+    const res = await lazy.ConsoleClient.getRemotePolicies({ waitForAddons });
     if (!res?.policies) {
       lazy.log.error(
         `No policies were found in the response: ${JSON.stringify(res)}.`

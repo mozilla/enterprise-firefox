@@ -219,13 +219,24 @@ export const ConsoleClient = {
   /**
    * Fetches remote enterprise policies, including device posture in the body.
    *
-   * The endpoint is POST-based; when posture is unavailable we POST an empty
-   * object rather than falling back to GET.
+   * The endpoint is POST-based; when posture is unavailable (either
+   * collection failed or is disabled) we POST an empty object rather than
+   * falling back to GET.
    *
-   * @param {object} [devicePosture] - Device posture to include in request.
+   * @param {object} [options]
+   * @param {boolean} [options.waitForAddons=false] passed through to
+   *   collectDevicePosture(); see its documentation.
    * @returns {Promise<{policies: Record<string, any>}>}
    */
-  async getRemotePolicies(devicePosture = null) {
+  async getRemotePolicies({ waitForAddons = false } = {}) {
+    // Device posture is supplementary; if collecting it fails, fall back to
+    // a plain policy fetch rather than failing the policy update.
+    let devicePosture = null;
+    try {
+      devicePosture = await this.collectDevicePosture({ waitForAddons });
+    } catch (e) {
+      lazy.log.error("Failed to collect device posture:", e);
+    }
     return this._post(this._paths.REMOTE_POLICIES, devicePosture ?? {});
   },
 
