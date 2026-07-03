@@ -225,8 +225,7 @@ export const ConsoleClient = {
    *
    * @param {object} [options]
    * @param {boolean} [options.isStartup=true] - Whether this is the initial
-   *   startup fetch, as opposed to a periodic poll. Maps internally to
-   *   collectDevicePosture()'s waitForAddons option.
+   *   startup fetch, as opposed to a periodic poll.
    * @returns {Promise<{policies: Record<string, any>}>}
    */
   async getRemotePolicies({ isStartup = true } = {}) {
