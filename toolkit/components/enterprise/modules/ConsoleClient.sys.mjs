@@ -224,16 +224,19 @@ export const ConsoleClient = {
    * falling back to GET.
    *
    * @param {object} [options]
-   * @param {boolean} [options.waitForAddons=false] passed through to
-   *   collectDevicePosture(); see its documentation.
+   * @param {boolean} [options.isStartup=true] - Whether this is the initial
+   *   startup fetch, as opposed to a periodic poll. Maps internally to
+   *   collectDevicePosture()'s waitForAddons option.
    * @returns {Promise<{policies: Record<string, any>}>}
    */
-  async getRemotePolicies({ waitForAddons = false } = {}) {
+  async getRemotePolicies({ isStartup = true } = {}) {
     // Device posture is supplementary; if collecting it fails, fall back to
     // a plain policy fetch rather than failing the policy update.
     let devicePosture = null;
     try {
-      devicePosture = await this.collectDevicePosture({ waitForAddons });
+      devicePosture = await this.collectDevicePosture({
+        waitForAddons: !isStartup,
+      });
     } catch (e) {
       lazy.log.error("Failed to collect device posture:", e);
     }
@@ -670,7 +673,8 @@ export const ConsoleClient = {
    * and others data sources.
    *
    * @param {object} [options]
-   * @param {boolean} [options.waitForAddons=false]
+   * @param {boolean} [options.waitForAddons=false] - Whether to block until
+   *   AddonManager is ready so extensions are always reported.
    * @returns {Promise<DevicePosture>} devicePosture
    */
   async collectDevicePosture({ waitForAddons = false } = {}) {
