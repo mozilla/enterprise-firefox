@@ -485,13 +485,25 @@ ClientEngine.prototype = {
         await this._resetFxADeviceRegistration();
         Services.prefs.clearUserPref("services.sync.client.GUID");
         await this.resetClient();
-        await this._tracker.removeChangedID(oldLocalID);
       } catch (error) {
         this._log.warn(
           "Could not reset client state for machine ID change; will retry on next sync",
           error
         );
         return false;
+      }
+
+      // Best-effort: the device and client rotation above already
+      // succeeded, so a failure here must not undo that progress by
+      // re-triggering it on the next sync. Worst case is a stale entry
+      // for an abandoned client ID left behind in the tracker.
+      try {
+        await this._tracker.removeChangedID(oldLocalID);
+      } catch (error) {
+        this._log.warn(
+          "Could not remove old client ID from tracker after machine ID change",
+          error
+        );
       }
 
       // Persist the new machine ID before notifying, so observers that read

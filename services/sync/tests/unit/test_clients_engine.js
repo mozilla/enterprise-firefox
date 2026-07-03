@@ -2291,6 +2291,75 @@ add_task(
   }
 );
 
+add_task(
+  {
+    skip_if: () => !AppConstants.MOZ_ENTERPRISE,
+  },
+  async function test_machine_id_change_survives_remove_changed_id_failure() {
+    // removeChangedID() is best-effort cleanup: a failure there must not
+    // undo the FxA device reset and client ID rotation that already
+    // succeeded, or the next sync would redo that disruptive work again.
+    const machineIdStub = sinon
+      .stub(MachineId, "getHashedId")
+      .resolves("new-id");
+    const resetClientStub = sinon.stub(engine, "resetClient").resolves();
+    const removeChangedIDStub = sinon
+      .stub(engine._tracker, "removeChangedID")
+      .rejects(new Error("disk full"));
+    const updateUserAccountData = sinon.stub().resolves();
+    const getLocalId = sinon.stub().resolves("new-fxa-device-id");
+    const oldFxAccounts = engine.fxAccounts;
+    const oldLocalID = engine.localID;
+    let observed = false;
+
+    Services.prefs.setStringPref("services.sync.client.machineId", "old-id");
+
+    engine.fxAccounts = {
+      ...oldFxAccounts,
+      device: {
+        ...oldFxAccounts.device,
+        getLocalId,
+      },
+      _internal: {
+        ...oldFxAccounts._internal,
+        updateUserAccountData,
+      },
+    };
+
+    let observer = () => {
+      observed = true;
+    };
+    Services.obs.addObserver(observer, "sync:machine-id-changed");
+
+    try {
+      ok(
+        await engine._checkMachineIdChanged(),
+        "Should still report the machine change"
+      );
+      notEqual(engine.localID, oldLocalID, "Should still rotate the client ID");
+      ok(resetClientStub.calledOnce, "Should still reset local Sync state");
+      ok(
+        removeChangedIDStub.calledOnceWith(oldLocalID),
+        "Should have attempted to remove tracking for the old client ID"
+      );
+      equal(
+        Services.prefs.getStringPref("services.sync.client.machineId"),
+        "new-id",
+        "Should still persist the new machine ID"
+      );
+      ok(observed, "Should still notify machine ID observers");
+    } finally {
+      Services.obs.removeObserver(observer, "sync:machine-id-changed");
+      engine.fxAccounts = oldFxAccounts;
+      machineIdStub.restore();
+      resetClientStub.restore();
+      removeChangedIDStub.restore();
+      Services.prefs.clearUserPref("services.sync.client.machineId");
+      await cleanup();
+    }
+  }
+);
+
 add_task(async function test_create_record_command_limit() {
   await engine._store.wipe();
   await generateNewKeys(Service.collectionKeys);
