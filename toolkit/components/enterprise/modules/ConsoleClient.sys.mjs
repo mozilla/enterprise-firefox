@@ -767,6 +767,13 @@ export const ConsoleClient = {
         getPresentEDRs(),
       ]);
 
+    let isDomainJoined = false;
+    try {
+      isDomainJoined = Services.sysinfo.getPropertyAsBool("isDomainJoined");
+    } catch {
+      // ... ?
+    }
+
     const devicePosturePayload = {
       os,
       security: lazy.TelemetryEnvironment.currentEnvironment.system.sec,
@@ -779,7 +786,7 @@ export const ConsoleClient = {
       machineId,
       secureBootEnabled:
         Services.sysinfo.getPropertyAsBool("secureBootEnabled"),
-      isDomainJoined: Services.sysinfo.getPropertyAsBool("isDomainJoined"),
+      isDomainJoined,
       presentEdrs,
     };
     return devicePosturePayload;
