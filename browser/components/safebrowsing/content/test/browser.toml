@@ -6,6 +6,10 @@ support-files = [
 
 ["browser_bug400731.js"]
 
+["browser_enterprise_unsafe_site_telemetry.js"]
+# Only run in MOZ_ENTERPRISE builds
+run-if = ["enterprise"]
+
 ["browser_bug415846.js"]
 skip-if = [
   "true", # Bug 1248632
