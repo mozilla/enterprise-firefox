@@ -209,6 +209,17 @@
             <span slot="message" class="felt-browser-error-details"></span>
           </moz-message-bar>
           <moz-message-bar
+            class="felt-browser-error-captive-portal is-hidden"
+            data-l10n-id="felt-browser-error-captive-portal"
+            type="warning"
+          >
+            <moz-button
+              slot="actions"
+              id="felt-open-network-login"
+              data-l10n-id="felt-captive-portal-open-login"
+            ></moz-button>
+          </moz-message-bar>
+          <moz-message-bar
             class="felt-browser-error-connection is-hidden"
             data-l10n-id="felt-browser-error-connection2"
             type="error"
@@ -248,6 +259,18 @@
           <browser
             xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
             id="browser"
+            type="content"
+            disablehistory="true"
+            disableglobalhistory="true"
+            remote="true"
+            maychangeremoteness="true"
+          ></browser>
+        </div>
+
+        <div class="felt-login__portal is-hidden">
+          <browser
+            xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+            id="portal-browser"
             type="content"
             disablehistory="true"
             disableglobalhistory="true"

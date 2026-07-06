@@ -62,6 +62,14 @@ felt-browser-error-connection2 =
 felt-browser-error-no-network =
     .heading = No network connection
 
+## Captive portal (network sign-in required before signing in to { -brand-short-name })
+
+felt-browser-error-captive-portal =
+    .heading = Sign in to this network
+    .message = This Wi-Fi network requires you to sign in before you can continue. If a sign-in page hasn’t already opened, use the button below.
+felt-captive-portal-open-login =
+    .label = Open network sign-in
+
 ## Network error details.
 
 felt-error-network = Unknown network error

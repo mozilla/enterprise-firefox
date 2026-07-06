@@ -248,12 +248,22 @@ export const ConsoleClient = {
    * @param {string} [options.method="GET"] - HTTP method
    * @param {object} [options.headers={}] - Request headers
    * @param {string|null} [options.body=null] - Request body
+   * @param {AbortSignal|null} [options.signal=null] - Optional signal to abort
+   *   the in-flight request (e.g. on a caller-side timeout), so it doesn't
+   *   keep a connection to the host open indefinitely in the background.
    * @returns {Promise<{ok: boolean, status: number, json: Function, text: Function}>}
    */
-  _xhrFetch(url, { method = "GET", headers = {}, body = null } = {}) {
+  _xhrFetch(
+    url,
+    { method = "GET", headers = {}, body = null, signal = null } = {}
+  ) {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open(method, url, true);
+
+      if (signal) {
+        signal.addEventListener("abort", () => xhr.abort(), { once: true });
+      }
 
       // Handle both plain objects and Headers instances
       const headerEntries = Headers.isInstance(headers)
@@ -303,9 +313,11 @@ export const ConsoleClient = {
   /**
    * Collect the device posture data and send them to the console.
    *
+   * @param {AbortSignal} [signal] - Optional signal to cancel the in-flight
+   *   request.
    * @returns {Promise<{posture: string}>} Token reported by console.
    */
-  async sendDevicePosture() {
+  async sendDevicePosture(signal) {
     const devicePosture = await this._collectDevicePosture();
     const url = await this.constructURI(this._paths.DEVICE_POSTURE);
 
@@ -316,6 +328,7 @@ export const ConsoleClient = {
         Accept: "application/json",
       },
       body: JSON.stringify(devicePosture),
+      signal,
     });
 
     if (res.ok) {

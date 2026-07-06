@@ -209,6 +209,21 @@ moz-input-text::part(label) {
   flex: 1 1 auto;
 }
 
+/* Overlay the captive-portal browser on top of the whole login area (which is
+ * position:relative) so it fills reliably instead of competing in the flex row. */
+.felt-login__portal {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  background: var(--background-color-box);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  padding: 10px;
+}
+
+.felt-login__portal > browser {
+  flex: 1 1 auto;
+}
+
 .felt-powered-by {
   position: absolute;
   /* stylelint-disable-next-line */
