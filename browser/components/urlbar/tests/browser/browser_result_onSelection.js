@@ -10,8 +10,8 @@ add_task(async function test() {
 
   let results = [
     new UrlbarResult({
-      type: UrlbarUtils.RESULT_TYPE.URL,
-      source: UrlbarUtils.RESULT_SOURCE.HISTORY,
+      type: UrlbarShared.RESULT_TYPE.URL,
+      source: UrlbarShared.RESULT_SOURCE.HISTORY,
       heuristic: true,
       payload: {
         url: "http://mozilla.org/1",
@@ -21,8 +21,8 @@ add_task(async function test() {
       },
     }),
     new UrlbarResult({
-      type: UrlbarUtils.RESULT_TYPE.URL,
-      source: UrlbarUtils.RESULT_SOURCE.HISTORY,
+      type: UrlbarShared.RESULT_TYPE.URL,
+      source: UrlbarShared.RESULT_SOURCE.HISTORY,
       payload: {
         url: "http://mozilla.org/2",
         helpUrl: "http://example.com/",
@@ -31,8 +31,8 @@ add_task(async function test() {
       },
     }),
     new UrlbarResult({
-      type: UrlbarUtils.RESULT_TYPE.TIP,
-      source: UrlbarUtils.RESULT_SOURCE.OTHER_LOCAL,
+      type: UrlbarShared.RESULT_TYPE.TIP,
+      source: UrlbarShared.RESULT_SOURCE.OTHER_LOCAL,
       payload: {
         helpUrl: "http://example.com/",
         type: "test",

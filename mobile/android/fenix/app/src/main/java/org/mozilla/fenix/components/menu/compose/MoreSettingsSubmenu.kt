@@ -299,16 +299,15 @@ private fun TranslationMenuItem(
     isReaderViewActive: Boolean,
 ) {
     if (translationInfo.isTranslated) {
-        val state = if (isReaderViewActive || translationInfo.isPdf) MenuItemState.DISABLED else MenuItemState.ACTIVE
         MenuItem(
             label = stringResource(id = R.string.browser_menu_translated),
             beforeIconPainter = painterResource(id = iconsR.drawable.mozac_ic_translate_active_24),
-            state = state,
+            state = MenuItemState.ACTIVE,
             onClick = translationInfo.onTranslatePageMenuClick,
         ) {
             Badge(
                 badgeText = translationInfo.translatedLanguage,
-                state = state,
+                state = MenuItemState.ACTIVE,
             )
         }
     } else {

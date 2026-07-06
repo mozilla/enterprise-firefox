@@ -349,6 +349,7 @@ class GitRepository(Repository):
         ref: Optional[str] = None,
         dest_branch: Optional[str] = None,
         force: bool = False,
+        env: Optional[dict] = None,
     ):
         if ref and not remote:
             raise ValueError("Cannot specify ref without specifying remote")
@@ -365,8 +366,9 @@ class GitRepository(Repository):
                 args.append(f"{ref}:refs/heads/{dest_branch}")
             else:
                 args.append(ref)
-        (cmd, _, env) = self._process_run_args(*args)
-        subprocess.check_call(cmd, cwd=self.path, env=env)
+        run_kwargs = {"env": env} if env else {}
+        (cmd, _, merged_env) = self._process_run_args(*args, **run_kwargs)
+        subprocess.check_call(cmd, cwd=self.path, env=merged_env)
 
     def _resolve_try_branch(self):
         if not self.branch:

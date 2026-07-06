@@ -2255,7 +2255,20 @@ DocumentLoadListener::RedirectToRealChannel(
     chan = vsc->GetInnerChannel();
   }
   mRedirectChannelId = nsContentUtils::GenerateLoadIdentifier();
-  MOZ_ALWAYS_SUCCEEDS(registrar->RegisterChannel(chan, mRedirectChannelId));
+
+  // Bind the registered channel to the content process the redirect is
+  // destined for (0 for the parent process), so only that process can link
+  // its parent channel to it.
+  uint64_t ownerContentParentId = 0;
+  if (aDestinationProcess) {
+    if (ContentParent* destCp = *aDestinationProcess) {
+      ownerContentParentId = destCp->ChildID();
+    }
+  } else if (mContentParent) {
+    ownerContentParentId = mContentParent->ChildID();
+  }
+  MOZ_ALWAYS_SUCCEEDS(registrar->RegisterChannel(chan, mRedirectChannelId,
+                                                 ownerContentParentId));
 
   if (aDestinationProcess) {
     RefPtr<ContentParent> cp = *aDestinationProcess;
@@ -2428,10 +2441,9 @@ void DocumentLoadListener::TriggerRedirectToRealChannel(
     // NOTE: Keep this in sync with the similar check in
     // BrowserParent::RecvNewWindowGlobal.
     EnumSet<ValidatePrincipalOptions> validationOptions = {};
-    // FIXME(bug 1699385): Remove allowSystem for blobs
     // FIXME(bug 1698087): chrome://devtools/**/webextension-fallback.html
     // Automation-Only: chrome://reftest/** + blank subframes
-    if (docURI->SchemeIs("blob") || docURI->SchemeIs("chrome") ||
+    if (docURI->SchemeIs("chrome") ||
         (xpc::IsInAutomation() && NS_IsAboutBlank(docURI) &&
          GetParentWindowContext() &&
          GetParentWindowContext()->Manager()->Manager() == contentParent &&

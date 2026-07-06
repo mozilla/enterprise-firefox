@@ -560,6 +560,7 @@ nsresult OpaqueResponseBlocker::ValidateJavaScript(HttpBaseChannel* aChannel,
             // case.
             allowed = true;
             self->AllowResponse();
+            channel->OnOpaqueResponseAllowed();
             break;
           case OpaqueResponse::Block:
             self->BlockResponse(channel, NS_ERROR_FAILURE);

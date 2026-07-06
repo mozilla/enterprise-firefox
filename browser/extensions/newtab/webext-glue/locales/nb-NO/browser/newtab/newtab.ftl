@@ -86,13 +86,19 @@ home-prefs-lists-header =
     .label = Lister
 # Timer is a widget on New Tab, similar to the Pomodoro timer.
 home-prefs-timer-header =
-    .label = Nedtelling
+    .label = Timer
 # Sports is a widget on New Tab showing sports scores and schedules.
 home-prefs-sports-widget-header =
     .label = Sport
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = Klokke
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = Personvern
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = Aksjer
 home-prefs-mission-message2 =
     .message = Våre sponsorer støtter vårt oppdrag om å bygge et bedre internett.
 home-prefs-manage-topics-link2 =
@@ -152,6 +158,20 @@ home-prefs-support-firefox-header-srd =
     .label = Støtt { -brand-product-name }
 home-prefs-mission-message-learn-more-link-srd = Finn ut hvordan
 
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = Les mer
+
+## Strings for the Stocks widget
+
+# Context menu item for searching stock ticker symbols.
+newtab-stocks-menu-search = Søk etter aksjesymboler
+# Context menu item that hides the Stocks widget.
+newtab-stocks-menu-hide = Skjul aksjer
+# Context menu item linking to more information about the Stocks widget.
+newtab-stocks-menu-learn-more = Les mer
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -187,6 +207,7 @@ newtab-topsites-add-shortcut-label = Legg til snarvei
 newtab-topsites-add-shortcut-title =
     .title = Legg til snarvei
     .aria-label = Legg til snarvei
+newtab-shortcuts-pinned-area = Festet område
 newtab-topsites-title-label = Tittel
 newtab-topsites-title-input =
     .placeholder = Oppgi en tittel
@@ -194,8 +215,8 @@ newtab-topsites-url-label = URL
 newtab-topsites-url-input =
     .placeholder = Skriv eller lim inn en URL
 newtab-topsites-url-validation = Gyldig URL er nødvendig
-newtab-topsites-image-url-label = Egendefinert bilde-URL
-newtab-topsites-use-image-link = Bruk et egendefinert bilde…
+newtab-topsites-image-url-label = Tilpasset bilde-URL
+newtab-topsites-use-image-link = Bruk et tilpasset bilde…
 newtab-topsites-image-validation = Kunne ikke lese inn bildet. Prøv en annen URL.
 
 ## Clear text button for the URL and image URL input fields in the Top Sites form.
@@ -488,13 +509,17 @@ newtab-custom-widget-weather-toggle =
 newtab-custom-widget-lists-toggle =
     .label = Lister
 newtab-custom-widget-timer-toggle =
-    .label = Nedtelling
+    .label = Timer
 newtab-custom-widget-sports-toggle =
     .label = VM
 newtab-custom-widget-clock-toggle =
     .label = Klokke
 newtab-custom-widget-sports-toggle2 =
     .label = Sport
+newtab-custom-widget-privacy-toggle =
+    .label = Personvern
+newtab-custom-widget-stocks-toggle =
+    .label = Aksjer
 newtab-custom-widget-section-title = Widgeter
 newtab-custom-widget-section-toggle =
     .label = Widgeter
@@ -783,7 +808,7 @@ newtab-section-mangage-topics-blocked-topics = Blokkert
 newtab-section-mangage-topics-blocked-topics-empty-state = Du har ikke blokkert noen emner ennå.
 newtab-custom-wallpaper-title = Nå kan du velge din egen bakgrunn
 # 'Make firefox yours" means to customize or personalize
-newtab-custom-wallpaper-subtitle = Last opp ditt eget bakgrunnsbilde eller velg en egendefinert farge for å gjøre { -brand-product-name } til ditt eget.
+newtab-custom-wallpaper-subtitle = Last opp ditt eget bakgrunnsbilde eller velg en tilpasset farge for å gjøre { -brand-product-name } til ditt eget.
 newtab-custom-wallpaper-cta = Prøv det
 
 ## Strings for new user activation custom wallpaper highlight
@@ -954,7 +979,7 @@ newtab-widget-lists-name-default = Sjekkliste
 
 ## Strings introduced by the Nova redesign of the Timer widget
 
-newtab-widget-timer-notification-title = Nedtelling
+newtab-widget-timer-notification-title = Timer
 newtab-widget-timer-notification-focus = Fokustiden er over. Bra jobbet. Trenger du en pause?
 newtab-widget-timer-notification-break = Pausen din er over. Klar til å fokusere?
 newtab-widget-timer-notification-warning = Varsler er av
@@ -971,6 +996,8 @@ newtab-widget-timer-reset =
 newtab-widget-timer-menu-notifications = Slå av varsler
 newtab-widget-timer-menu-notifications-on = Slå på varsler
 newtab-widget-timer-menu-learn-more = Les mer
+newtab-widget-timer-menu-button =
+    .aria-label = Timer-innstillinger
 # The title displays above a set of top news headlines.
 newtab-daily-briefing-card-title = Toppoverskrifter
 newtab-daily-briefing-card-menu-dismiss = Ignorer
@@ -1003,7 +1030,7 @@ newtab-promo-card-dismiss-button =
 newtab-widget-timer-start-aria =
     .aria-label =
         { $minutes ->
-           *[other] Start { $minutes }-minutt nedtelling
+           *[other] Start { $minutes }-minutt timer
         }
 newtab-widget-timer-pause-aria =
     .aria-label = Sett nedtelleren på pause
@@ -1016,7 +1043,7 @@ newtab-widget-timer-decrease-min =
 newtab-widget-timer-increase-min =
     .title = Øk med 1 minutt
 newtab-widget-timer-mode-group =
-    .aria-label = Nedtellingsmodus
+    .aria-label = Timermodus
 # Small label shown beneath the live time while the focus timer is running or paused.
 newtab-widget-timer-running-focus = Fokus
 # Small label shown beneath the live time while the break timer is running or paused.
@@ -1261,6 +1288,8 @@ newtab-sports-widget-team-tbd = Ikke avgjort
 newtab-sports-widget-message-wallpapers-title = Spark i gang VM med nye bakgrunnsbilder
 newtab-sports-widget-message-wallpapers-body = Gi nettleseren litt kampstemning under turneringen.
 newtab-sports-widget-message-wallpapers-cta = Velg bakgrunnsbilde
+newtab-sports-widget-message-wallpapers-semifinals-title = Få et nytt bakgrunnsbilde til semifinalene
+newtab-sports-widget-message-wallpapers-semifinals-body = Skap den rette stemningen for de største kampene i VM.
 newtab-sports-widget-message-add-widgets-cta =
     .label = Legg til widgeter
 newtab-sports-widget-message-day-in-play-title = Hold dagen i gang med widgeter i { -brand-product-name }

@@ -164,9 +164,18 @@ export class SettingPane extends MozLitElement {
    * @param {CustomEvent} e
    */
   handlePaneShown = e => {
-    if (this.isSubPane && e.detail.category === this.name) {
-      // preventScroll so that a previously saved scroll position (restored
-      // by ScrollOffsets just before the paneshown event) is preserved.
+    if (
+      this.isSubPane &&
+      e.detail.category === this.name &&
+      !this.contains(document.activeElement)
+    ) {
+      /**
+       * Default focus for a freshly entered sub-pane lands on the back
+       * arrow. Skipped when FocusHistory has already restored focus to a
+       * control inside this pane (e.g. after navigating back into a
+       * sub-pane from a sub-sub-pane). preventScroll keeps the saved
+       * scroll position intact.
+       */
       this.pageHeaderEl.backButtonEl.focus({ preventScroll: true });
     }
   };

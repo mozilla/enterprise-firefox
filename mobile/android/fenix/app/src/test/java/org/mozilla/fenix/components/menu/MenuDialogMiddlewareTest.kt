@@ -935,27 +935,6 @@ class MenuDialogMiddlewareTest {
     }
 
     @Test
-    fun `WHEN CFR is shown THEN on CFR shown action is dispatched`() = runTest(testDispatcher) {
-        var shownWasCalled = false
-
-        val appStore = spyk(AppStore())
-        val store = createStore(
-            appStore = appStore,
-            menuState = MenuState(
-                browserMenuState = null,
-            ),
-            onDismiss = { shownWasCalled = true },
-        )
-        testScheduler.advanceUntilIdle()
-
-        store.dispatch(MenuAction.OnCFRShown)
-        testScheduler.advanceUntilIdle()
-
-        assertFalse(settings.shouldShowMenuCFR)
-        assertFalse(shownWasCalled)
-    }
-
-    @Test
     fun `GIVEN summarization feature setting indicates the menu item is not visible, WHEN menu is initialized, THEN the menu item is not visible`() =
         runTest(testDispatcher) {
             summarizeFeatureSettings.showMenuItem = false
@@ -1002,22 +981,6 @@ class MenuDialogMiddlewareTest {
             assertTrue(
                 "Expected the menu item to be visible because the feature settings indicate that it should be visible",
                 store.state.summarizationMenuState.visible,
-            )
-        }
-
-    @Test
-    fun `GIVEN a page is loading, WHEN menu is initialized, THEN the the summarization menu item is disabled`() =
-        runTest(testDispatcher) {
-            summarizeFeatureSettings.showMenuItem = true
-
-            val store = createStore(isTabLoading = true)
-            store.dispatch(MenuAction.InitAction)
-
-            testScheduler.advanceUntilIdle()
-
-            assertFalse(
-                "Expected the menu item to be disabled because the page is loading",
-                store.state.summarizationMenuState.enabled,
             )
         }
 
@@ -1160,7 +1123,6 @@ class MenuDialogMiddlewareTest {
 
     private fun createStore(
         appStore: AppStore = AppStore(),
-        isTabLoading: Boolean = false,
         summarizationEligibilityChecker: SummarizationEligibilityChecker = TestSummarizationEligibilityChecker(),
         menuState: MenuState = MenuState(
             browserMenuState = BrowserMenuState(
@@ -1168,7 +1130,6 @@ class MenuDialogMiddlewareTest {
                     url = "https://mozilla.org",
                     engineSession = TestEngineSession(),
                 ),
-                isLoading = isTabLoading,
             ),
         ),
         onDismiss: suspend () -> Unit = {},

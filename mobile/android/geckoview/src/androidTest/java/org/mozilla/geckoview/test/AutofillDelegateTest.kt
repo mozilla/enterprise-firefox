@@ -666,6 +666,43 @@ class AutofillDelegateTest : BaseSessionTest() {
 
     @WithDisplay(width = 100, height = 100)
     @Test
+    fun autofillPhoneAsUsername() {
+        mainSession.loadTestPath(FORMS_AUTOCOMPLETE2_HTML_PATH)
+        sessionRule.waitUntilCalled(object : Autofill.Delegate, GeckoSession.ProgressDelegate {
+            @AssertCalled(count = -1)
+            override fun onNodeAdd(
+                session: GeckoSession,
+                node: Autofill.Node,
+                data: Autofill.NodeData,
+            ) {}
+
+            @AssertCalled(count = 1)
+            override fun onPageStop(session: GeckoSession, success: Boolean) {}
+        })
+
+        fun checkAutofillChild(child: Autofill.Node): Int {
+            var sum = 0
+            for (c in child.children) {
+                sum += checkAutofillChild(c!!)
+            }
+            if (child.hint == Autofill.Hint.USERNAME &&
+                child.inputType == Autofill.InputType.PHONE
+            ) {
+                return sum + 1
+            }
+            return sum
+        }
+
+        val root = mainSession.autofillSession.root
+        assertThat(
+            "autofill username hint count",
+            checkAutofillChild(root),
+            equalTo(2),
+        )
+    }
+
+    @WithDisplay(width = 100, height = 100)
+    @Test
     fun autofillWaitForKeyboard() {
         // Wait for the accessibility nodes to populate.
         mainSession.loadUri(pageUrl)

@@ -295,6 +295,23 @@ export var SessionStore = {
     );
   },
 
+  /**
+   * Get the SessionStore-assigned identifier for a chrome window.
+   *
+   * The identifier is stable for the lifetime of a window (including across
+   * a session restore that re-opens the same window) but is regenerated when
+   * a closed window is reopened from the Recently Closed list.
+   *
+   * @param {Window} aWindow
+   *        A chrome window to look up.
+   * @returns {string | null}
+   *        The window's SessionStore id, or null if the window has not been
+   *        registered with SessionStore yet.
+   */
+  getWindowId(aWindow) {
+    return aWindow.__SSi ?? null;
+  },
+
   getBrowserState: function ss_getBrowserState() {
     return SessionStoreInternal.getBrowserState();
   },

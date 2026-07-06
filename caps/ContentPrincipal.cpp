@@ -5,6 +5,7 @@
 #include "ContentPrincipal.h"
 
 #include "mozIThirdPartyUtil.h"
+#include "nsAboutProtocolUtils.h"
 #include "nsContentUtils.h"
 #include "nscore.h"
 #include "nsScriptSecurityManager.h"
@@ -131,14 +132,12 @@ nsresult ContentPrincipal::GenerateOriginNoSuffixFromURI(
   // These constraints can generally be achieved by restricting .origin to
   // nsIStandardURL-based URIs, but there are a few other URI schemes that we
   // need to handle.
-  if (origin->SchemeIs("about") ||
-      (origin->SchemeIs("moz-safe-about") &&
-       // We generally consider two about:foo origins to be same-origin, but
-       // about:blank is special since it can be generated from different
-       // sources. We check for moz-safe-about:blank since origin is an
-       // innermost URI.
-       !StringBeginsWith(origin->GetSpecOrDefault(),
-                         "moz-safe-about:blank"_ns))) {
+  if (origin->SchemeIs("about")) {
+    MOZ_ASSERT(!NS_IsContentAccessibleAboutURI(origin),
+               "about:blank and about:srcdoc should appear as "
+               "moz-safe-about:{blank,srcdoc} in this method, "
+               "and should not get an origin");
+
     rv = origin->GetAsciiSpec(aOriginNoSuffix);
     NS_ENSURE_SUCCESS(rv, rv);
 

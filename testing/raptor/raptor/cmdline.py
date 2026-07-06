@@ -399,6 +399,16 @@ def create_parser(mach_interface=False):
         "if we should obtain the profile from CI.",
     )
     add_arg(
+        "--install-extension",
+        dest="install_extensions",
+        action="append",
+        default=[],
+        metavar="ADDON_ID_OR_URL",
+        help="Install a webextension into the test profile before running. Accepts "
+        "an AMO addon GUID/slug, a direct .xpi URL, or a local .xpi path. May be "
+        "specified multiple times.",
+    )
+    add_arg(
         "--test-bytecode-cache",
         dest="test_bytecode_cache",
         default=False,

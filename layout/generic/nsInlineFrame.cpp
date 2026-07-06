@@ -175,8 +175,7 @@ nscoord nsInlineFrame::GetCaretBaseline() const {
     // will get placed into a non-empty line unless all lines are empty, I
     // believe...
     if (container && container->LinesAreEmpty()) {
-      nscoord blockSize = container->ContentBSize(GetWritingMode());
-      return GetFontMetricsDerivedCaretBaseline(blockSize);
+      return GetFontMetricsDerivedCaretBaseline();
     }
   }
   return nsIFrame::GetCaretBaseline();

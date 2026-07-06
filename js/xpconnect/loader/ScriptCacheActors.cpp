@@ -80,6 +80,10 @@ IPCResult ScriptCacheParent::Recv__delete__(nsTArray<ScriptData>&& scripts) {
   auto parent = static_cast<dom::ContentParent*>(Manager());
   auto processType =
       ScriptPreloader::GetChildProcessType(parent->GetRemoteType());
+  if (parent->IsUntrusted()) {
+    return IPC_FAIL(this,
+                    "Expected script data before process became untrusted");
+  }
 
   auto& cache = ScriptPreloader::GetChildSingleton();
   for (auto& script : scripts) {

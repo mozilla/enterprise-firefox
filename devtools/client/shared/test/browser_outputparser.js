@@ -570,6 +570,53 @@ function testParseCssProperty(doc, parser) {
           ")",
       }),
     },
+
+    {
+      name: "color",
+      value: "hsl(100 sibling-index() sibling-count())",
+      // Check what happens without provided siblingCount/siblingIndex
+      parserExtraOptions: {
+        siblingCount: null,
+        siblingIndex: null,
+      },
+      expected: getColorMarkup({
+        color: "hsl(100 sibling-index() sibling-count())",
+      }),
+    },
+
+    {
+      name: "color",
+      value: "hsl(100 sibling-index() sibling-count())",
+      parserExtraOptions: {
+        siblingCount: 20,
+        siblingIndex: 10,
+      },
+      expected: getColorMarkup({
+        content: "hsl(100 sibling-index() sibling-count())",
+        color: "hsl(100 10 20)",
+      }),
+    },
+
+    {
+      name: "color",
+      value:
+        "oklch(from hsl(100 sibling-count() 50) l c calc(h * sibling-index()))",
+      parserExtraOptions: {
+        siblingCount: 11,
+        siblingIndex: 7,
+      },
+      expected: getColorMarkup({
+        color: "oklch(from hsl(100 11 50) l c calc(h * 7))",
+        content:
+          "oklch(from " +
+          getColorMarkup({
+            color: "hsl(100 11 50)",
+            colorFunction: "oklch",
+            content: "hsl(100 sibling-count() 50)",
+          }) +
+          " l c calc(h * sibling-index()))",
+      }),
+    },
   ];
 
   const target = doc.querySelector("div");

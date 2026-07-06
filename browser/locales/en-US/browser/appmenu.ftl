@@ -87,7 +87,7 @@ appmenuitem-zoom-enlarge =
 appmenuitem-zoom-reduce =
   .label = Zoom Out
 appmenuitem-fullscreen =
-  .label = Full Screen
+  .label = Full screen
 
 ## Firefox Account toolbar button and Sync panel in App menu.
 
@@ -317,6 +317,8 @@ appmenu-customizetoolbar =
     .label = Customize toolbar…
 appmenu-abouttranslations =
     .label = Translate…
+appmenu-edit-pdf =
+    .label = Edit PDF…
 
 appmenu-developer-tools-subheader = Browser tools
 appmenu-developer-tools-extensions =
@@ -328,30 +330,39 @@ appmenuitem-report-broken-site =
 
 appmenuitem-sign-in-account = Sign in to your account
 
-appmenuitem-monitor-title = { -monitor-brand-short-name }
-appmenuitem-monitor-description = Get data breach alerts
+appmenuitem-monitor-title2 = Stay Ahead of Identity Theft
+appmenuitem-monitor-description2 = Get alerts about data breaches
 appmenuitem-relay-title = { -relay-brand-short-name }
-appmenuitem-relay-description = Mask your real email and phone
+appmenuitem-relay-title2 = Keep Your Email Private
+appmenuitem-relay-description2 = Helps prevent spam in your inbox
 appmenuitem-services-relay-description = Launch email masks dashboard
-appmenuitem-vpn-title = { -mozilla-vpn-brand-name }
-appmenuitem-vpn-description-2 = Get whole-device protection
+appmenuitem-vpn-title2 = Hide Your Location with { -mozilla-vpn-brand-name }
+appmenuitem-vpn-description3 = Make your browsing harder to trace
 
 appmenu-services-header = My services
 # "Mozilla" is intentionally hardcoded to prevent forks from replacing it
 # with their own vendor name, since these tools are created and maintained by
 # Mozilla.
-appmenu-other-protection-header2 = Try other protection tools from Mozilla:
+appmenu-other-protection-header3 = Privacy tools
 
 ## Profiles panel
+
+appmenu-profiles-header = Profiles
+appmenu-all-profiles =
+    .label = All Profiles
+appmenu-secure-sync-header = Secure sync
 
 appmenu-profiles-2 =
     .label = Profiles
 appmenu-other-profiles = Other profiles
 appmenu-manage-profiles =
-    .label = Manage profiles
+    .label = Manage Profiles
 appmenu-copy-profile =
-    .label = Copy this profile
-appmenu-create-profile =
-    .label = New profile
+    .label = Copy This Profile
+appmenu-create-profile2 =
+    .label = Create a New Profile
 appmenu-edit-profile =
     .aria-label = Edit profile
+appmenu-edit-this-profile =
+    .label = Edit This Profile
+appmenu-profile-current-in-use = Current profile in use

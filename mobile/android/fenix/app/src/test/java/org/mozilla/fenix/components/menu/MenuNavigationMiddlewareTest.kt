@@ -771,12 +771,38 @@ class MenuNavigationMiddlewareTest {
     }
 
     @Test
-    fun `GIVEN view history is true WHEN navigate back action is dispatched THEN navigate to tab history dialog fragment`() = runTest {
+    fun `GIVEN view history is true for non-custom tab WHEN navigate back action is dispatched THEN navigate to tab history dialog fragment with no session id`() = runTest {
         val store = createStore(
             scope = this,
             menuState = MenuState(
                 browserMenuState = BrowserMenuState(
                     selectedTab = createTab(id = "0", url = "https://example.com"),
+                ),
+            ),
+        )
+
+        store.dispatch(MenuAction.Navigate.Back(viewHistory = true))
+        testScheduler.advanceUntilIdle()
+
+        verify {
+            navController.navigate(
+                directions = MenuDialogFragmentDirections.actionGlobalTabHistoryDialogFragment(
+                    activeSessionId = null,
+                ),
+                navOptions = NavOptions.Builder()
+                    .setPopUpTo(R.id.browserFragment, false)
+                    .build(),
+            )
+        }
+    }
+
+    @Test
+    fun `GIVEN view history is true for a custom tab WHEN navigate back action is dispatched THEN navigate to tab history dialog fragment with the session id`() = runTest {
+        val store = createStore(
+            scope = this,
+            menuState = MenuState(
+                browserMenuState = BrowserMenuState(
+                    selectedTab = createCustomTab(id = "0", url = "https://example.com"),
                 ),
             ),
         )
@@ -984,7 +1010,7 @@ class MenuNavigationMiddlewareTest {
     }
 
     @Test
-    fun `GIVEN view history is true WHEN navigate forward action is dispatched THEN navigate to tab history dialog fragment`() = runTest {
+    fun `GIVEN view history is true for non-custom tab WHEN navigate forward action is dispatched THEN navigate to tab history dialog fragment with no session id`() = runTest {
         val store = createStore(
             scope = this,
             menuState = MenuState(
@@ -999,9 +1025,31 @@ class MenuNavigationMiddlewareTest {
 
         verify {
             navController.navigate(
-                directions = MenuDialogFragmentDirections.actionGlobalTabHistoryDialogFragment(
-                    activeSessionId = "1",
+                directions = MenuDialogFragmentDirections.actionGlobalTabHistoryDialogFragment(activeSessionId = null),
+                navOptions = NavOptions.Builder()
+                    .setPopUpTo(R.id.browserFragment, false)
+                    .build(),
+            )
+        }
+    }
+
+    @Test
+    fun `GIVEN view history is true for custom tab WHEN navigate forward action is dispatched THEN navigate to tab history dialog fragment with no session id`() = runTest {
+        val store = createStore(
+            scope = this,
+            menuState = MenuState(
+                browserMenuState = BrowserMenuState(
+                    selectedTab = createCustomTab(id = "1", url = "https://example.com"),
                 ),
+            ),
+        )
+
+        store.dispatch(MenuAction.Navigate.Forward(viewHistory = true))
+        testScheduler.advanceUntilIdle()
+
+        verify {
+            navController.navigate(
+                directions = MenuDialogFragmentDirections.actionGlobalTabHistoryDialogFragment(activeSessionId = "1"),
                 navOptions = NavOptions.Builder()
                     .setPopUpTo(R.id.browserFragment, false)
                     .build(),

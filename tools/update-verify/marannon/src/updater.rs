@@ -37,12 +37,12 @@ impl std::str::FromStr for CertOverride {
 /// updater binary inside.
 pub(crate) fn prepare_updater(
     pkg: &Path,
-    appname: &str,
+    product: &str,
     cert_dir: Option<&Path>,
     cert_overrides: &[CertOverride],
     output_dir: &Path,
 ) -> Result<PathBuf> {
-    let updater = unpack_updater(pkg, appname, output_dir)?;
+    let updater = unpack_updater(pkg, product, output_dir)?;
     if !cert_overrides.is_empty() {
         replace_certs(
             cert_dir.ok_or_else(|| anyhow!("cert_dir is required to override certs"))?,
@@ -53,13 +53,13 @@ pub(crate) fn prepare_updater(
     return Ok(updater);
 }
 
-fn unpack_updater(pkg: &Path, appname: &str, output_dir: &Path) -> Result<PathBuf> {
+fn unpack_updater(pkg: &Path, product: &str, output_dir: &Path) -> Result<PathBuf> {
     let compressed = File::open(pkg)?;
     let tar = XzDecoder::new(compressed);
     let mut archive = Archive::new(tar);
     archive.unpack(output_dir)?;
     let mut updater_binary = output_dir.to_path_buf();
-    updater_binary.push(appname);
+    updater_binary.push(product);
     updater_binary.push("updater");
     let updater_path = updater_binary
         .to_str()
@@ -130,7 +130,7 @@ mod tests {
         return fixture_dir().join(item);
     }
 
-    fn make_tar_xz(appname: &str, output: &std::path::Path) {
+    fn make_tar_xz(product: &str, output: &std::path::Path) {
         use tar::Header;
         use xz::write::XzEncoder;
 
@@ -140,7 +140,7 @@ mod tests {
 
         let content = b"#!/bin/sh\n";
         let mut header = Header::new_gnu();
-        header.set_path(format!("{appname}/updater")).unwrap();
+        header.set_path(format!("{product}/updater")).unwrap();
         header.set_size(content.len() as u64);
         header.set_mode(0o755);
         header.set_cksum();

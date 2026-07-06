@@ -84,7 +84,8 @@ import org.mozilla.fenix.telemetry.ACTION_MENU_CLICKED
 import org.mozilla.fenix.telemetry.ACTION_SECURITY_INDICATOR_CLICKED
 import org.mozilla.fenix.telemetry.ACTION_SHARE_CLICKED
 import org.mozilla.fenix.telemetry.ACTION_SITE_CUSTOM_CLICKED
-import org.mozilla.fenix.telemetry.SOURCE_CUSTOM_BAR
+import org.mozilla.fenix.telemetry.SOURCE_ADDRESS_BAR
+import org.mozilla.fenix.telemetry.SURFACE_CUSTOM_TAB
 import org.mozilla.fenix.utils.Settings
 import mozilla.components.browser.toolbar.R as toolbarR
 import mozilla.components.feature.customtabs.R as customtabsR
@@ -166,7 +167,11 @@ class CustomTabBrowserToolbarMiddleware(
 
             is CloseClicked -> {
                 Toolbar.buttonTapped.record(
-                    Toolbar.ButtonTappedExtra(source = SOURCE_CUSTOM_BAR, item = ACTION_CLOSE_CLICKED),
+                    Toolbar.ButtonTappedExtra(
+                        source = SOURCE_ADDRESS_BAR,
+                        item = ACTION_CLOSE_CLICKED,
+                        surface = SURFACE_CUSTOM_TAB,
+                    ),
                 )
 
                 useCases.remove(customTabId)
@@ -175,7 +180,11 @@ class CustomTabBrowserToolbarMiddleware(
 
             is SiteInfoClicked -> {
                 Toolbar.buttonTapped.record(
-                    Toolbar.ButtonTappedExtra(source = SOURCE_CUSTOM_BAR, item = ACTION_SECURITY_INDICATOR_CLICKED),
+                    Toolbar.ButtonTappedExtra(
+                        source = SOURCE_ADDRESS_BAR,
+                        item = ACTION_SECURITY_INDICATOR_CLICKED,
+                        surface = SURFACE_CUSTOM_TAB,
+                    ),
                 )
 
                 val safeCustomTab = customTab ?: return
@@ -236,7 +245,11 @@ class CustomTabBrowserToolbarMiddleware(
 
             is CustomButtonClicked -> {
                 Toolbar.buttonTapped.record(
-                    Toolbar.ButtonTappedExtra(source = SOURCE_CUSTOM_BAR, item = ACTION_SITE_CUSTOM_CLICKED),
+                    Toolbar.ButtonTappedExtra(
+                        source = SOURCE_ADDRESS_BAR,
+                        item = ACTION_SITE_CUSTOM_CLICKED,
+                        surface = SURFACE_CUSTOM_TAB,
+                    ),
                 )
                 val customTab = customTab
                 customTab?.config?.actionButtonConfig?.pendingIntent?.send(
@@ -248,7 +261,11 @@ class CustomTabBrowserToolbarMiddleware(
 
             is ShareClicked -> {
                 Toolbar.buttonTapped.record(
-                    Toolbar.ButtonTappedExtra(source = SOURCE_CUSTOM_BAR, item = ACTION_SHARE_CLICKED),
+                    Toolbar.ButtonTappedExtra(
+                        source = SOURCE_ADDRESS_BAR,
+                        item = ACTION_SHARE_CLICKED,
+                        surface = SURFACE_CUSTOM_TAB,
+                    ),
                 )
                 val customTab = customTab
                 navController.navigate(
@@ -267,7 +284,11 @@ class CustomTabBrowserToolbarMiddleware(
 
             is MenuClicked -> {
                 Toolbar.buttonTapped.record(
-                    Toolbar.ButtonTappedExtra(source = SOURCE_CUSTOM_BAR, item = ACTION_MENU_CLICKED),
+                    Toolbar.ButtonTappedExtra(
+                        source = SOURCE_ADDRESS_BAR,
+                        item = ACTION_MENU_CLICKED,
+                        surface = SURFACE_CUSTOM_TAB,
+                    ),
                 )
                 navController.nav(
                     R.id.externalAppBrowserFragment,

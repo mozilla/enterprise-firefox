@@ -118,6 +118,14 @@ async function cleanupPings() {
   return exitCode === 0;
 }
 
+function reportSubmissionDisabledByPolicy() {
+  return (
+    AppConstants.MOZ_ENTERPRISE &&
+    Services.policies?.getActivePolicies()?.CrashReportsSubmit?.Enabled ===
+      false
+  );
+}
+
 /**
  * A gateway to crash-related data.
  *
@@ -469,7 +477,11 @@ CrashManager.prototype = Object.freeze({
       let offset = this.PURGE_OLDER_THAN_DAYS * MILLISECONDS_IN_DAY;
       await this.pruneOldCrashes(new Date(Date.now() - offset));
 
-      if (AppConstants.platform !== "android" && !this._disableGleanPing) {
+      if (
+        !reportSubmissionDisabledByPolicy() &&
+        AppConstants.platform !== "android" &&
+        !this._disableGleanPing
+      ) {
         this._cleanupPingsResult = await cleanupPings().catch(error => {
           // The pipes can race (especially if the program exits quickly) and
           // throw File closed. Don't treat it as an error.
@@ -794,6 +806,7 @@ CrashManager.prototype = Object.freeze({
       true
     );
     if (
+      !reportSubmissionDisabledByPolicy() &&
       telemetryEnabled &&
       AppConstants.platform !== "android" &&
       !this._disableGleanPing
@@ -815,6 +828,9 @@ CrashManager.prototype = Object.freeze({
       // is passed the ping data (if applicable). This _doesn't_ mean the ping
       // was received by the telemetry server. We rely on the crashreporter
       // client's Glean instance to handle reliable delivery.
+      // When CrashReportsSubmit.Enabled is set to false we deliberately
+      // skip the send above but still mark as submitted so the ping is not
+      // retried forever; the admin chose not to deliver this data.
       store.setPingSubmitted(crashId);
     }
   },

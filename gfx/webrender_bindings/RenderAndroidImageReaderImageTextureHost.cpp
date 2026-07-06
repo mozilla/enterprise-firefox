@@ -61,6 +61,11 @@ bool RenderAndroidImageReaderImageTextureHost::EnsureLockable() {
 
   mAndroidImageConsumer->UpdateTexImage(mFrameId);
 
+  if (!mAndroidImageConsumer->HasImage()) {
+    // XXX
+    return false;
+  }
+
   MOZ_RELEASE_ASSERT(mAndroidImageConsumer->GetSize() == mSize);
   MOZ_RELEASE_ASSERT(mAndroidImageConsumer->GetFormat() == mFormat);
 

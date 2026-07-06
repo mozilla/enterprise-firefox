@@ -2816,7 +2816,10 @@ void APZCTreeManager::FlushRepaintsToClearScreenToGeckoTransform() {
 }
 
 void APZCTreeManager::ClearTree() {
-  AssertOnUpdaterThread();
+  // ClearTree may run directly on the compositor thread when the updater
+  // (scene builder) thread never came up (see APZUpdater::ClearTree), so allow
+  // that case in addition to running on the updater thread itself.
+  GetUpdater()->AssertOnUpdaterThreadOrNotInitialized();
 
   // Ensure that no references to APZCs are alive in any lingering input
   // blocks. This breaks cycles from InputBlockState::mTargetApzc back to

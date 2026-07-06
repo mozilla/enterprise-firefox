@@ -366,6 +366,8 @@ class HTMLMediaElement : public nsGenericHTMLElement,
   // Stops listening for async GV autoplay permissions if observer exists.
   void StopObservingGVAutoplayIfNeeded();
 
+  bool ShouldDelayPlayUntilGVAutoplayRequestResolved() const;
+
   // Check if the media element had crossorigin set when loading started
   bool ShouldCheckAllowOrigin();
 

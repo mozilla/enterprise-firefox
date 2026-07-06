@@ -64,8 +64,8 @@ class AnotherHeuristicProvider extends UrlbarTestUtils.TestProvider {
 const anotherHeuristicProvider = new AnotherHeuristicProvider({
   results: [
     new UrlbarResult({
-      type: UrlbarUtils.RESULT_TYPE.URL,
-      source: UrlbarUtils.RESULT_SOURCE.OTHER_LOCAL,
+      type: UrlbarShared.RESULT_TYPE.URL,
+      source: UrlbarShared.RESULT_SOURCE.OTHER_LOCAL,
       heuristic: true,
       payload: { url: "https://example.com/immediate" },
     }),

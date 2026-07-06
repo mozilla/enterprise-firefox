@@ -20,6 +20,12 @@ sealed class LabsAction : Action {
     data object InitAction : LabsAction()
 
     /**
+     * [LabsAction] dispatched to refresh the Labs against the latest from Nimbus, reconciling them
+     * with what is on screen. Unlike [InitAction] this preserves the currently displayed items.
+     */
+    data object RefreshLabs : LabsAction()
+
+    /**
      * [LabsAction] dispatched when the list of Labs items is updated.
      *
      * @property items The new list of [LabsItem]s to store.
@@ -32,6 +38,14 @@ sealed class LabsAction : Action {
      * @property item The [LabsItem] to toggle.
      */
     data class ToggleLabsItem(val item: LabsItem) : LabsAction()
+
+    /**
+     * [LabsAction] dispatched to remove a Labs item from the screen, used when Nimbus reports the
+     * Lab is no longer available.
+     *
+     * @property slug The Nimbus slug identifying the [LabsItem] to remove.
+     */
+    data class RemoveLabsItem(val slug: String) : LabsAction()
 
     /**
      * [LabsAction] dispatched to restore the default settings without any Labs items enabled.

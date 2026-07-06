@@ -64,49 +64,39 @@ async def install_new_tab_extension(bidi_session, install_webextension):
 
 
 @pytest_asyncio.fixture
-async def parent_process_context(configuration, current_session, geckodriver):
+async def parent_process_context(session, configuration, geckodriver):
     """Start a geckodriver session with about:about opened via command line
     argument and return the BiDi session and the parent process context id.
 
     Note: This uses geckodriver instead of the browser/new_session fixture
     because the browser fixture doesn't support Android yet (bug 2040886).
     """
-    current_session.end()
-
     config = deepcopy(configuration)
     config["capabilities"]["moz:firefoxOptions"]["args"].append("about:about")
     config["capabilities"]["moz:firefoxOptions"]["androidIntentArguments"] = [
         "-d",
         "about:about",
     ]
-    config["capabilities"]["webSocketUrl"] = True
 
-    driver = geckodriver(config=config)
+    driver = geckodriver(config=config, force_new=True)
+    driver.new_session()
+    driver.session.timeouts.page_load = 3
 
-    try:
-        driver.new_session()
-        driver.session.timeouts.page_load = 3
+    bidi_session = driver.session.bidi_session
+    await bidi_session.start()
 
-        bidi_session = driver.session.bidi_session
-        await bidi_session.start()
+    contexts = await bidi_session.browsing_context.get_tree(max_depth=0)
+    page_context = next((ctx for ctx in contexts if ctx["url"] == "about:about"), None)
+    assert page_context is not None, "No context found with URL about:about"
 
-        contexts = await bidi_session.browsing_context.get_tree(max_depth=0)
-        page_context = next(
-            (ctx for ctx in contexts if ctx["url"] == "about:about"), None
-        )
-        assert page_context is not None, "No context found with URL about:about"
-
-        yield bidi_session, page_context["context"]
-
-    finally:
-        await driver.stop()
+    yield bidi_session, page_context["context"]
 
 
 # To minimize Firefox restarts, run tests requiring system access first,
 # followed by those that don't; so only one restart is needed.
 
 
-@pytest.mark.allow_system_access
+@pytest.mark.geckodriver(allow_system_access=True)
 async def test_about_pages_with_system_access(bidi_session, new_tab):
     await bidi_session.browsing_context.navigate(
         context=new_tab["context"], url=ABOUT_URL, wait="complete"
@@ -118,10 +108,9 @@ async def test_about_pages_with_system_access(bidi_session, new_tab):
     assert contexts[0]["url"] == ABOUT_URL
 
 
-@pytest.mark.allow_system_access
-async def test_chrome_url_with_system_access(bidi_session, chrome_url, new_tab):
-    """Bug 2040978: Disabled because it crashes Firefox debug builds."""
-
+@pytest.mark.geckodriver(allow_system_access=True)
+async def tst_chrome_url_with_system_access(bidi_session, chrome_url, new_tab):
+    """Bug 2040978: Disabled because it crashes/hangs Firefox builds"""
     await bidi_session.browsing_context.navigate(
         context=new_tab["context"], url=chrome_url, wait="complete"
     )
@@ -132,7 +121,7 @@ async def test_chrome_url_with_system_access(bidi_session, chrome_url, new_tab):
     assert contexts[0]["url"] == chrome_url
 
 
-@pytest.mark.allow_system_access
+@pytest.mark.geckodriver(allow_system_access=True)
 async def test_moz_extension_url_with_system_access(
     bidi_session, current_session, extension_data, install_webextension, new_tab
 ):
@@ -153,7 +142,7 @@ async def test_moz_extension_url_with_system_access(
     assert contexts[0]["url"] == ext_url
 
 
-@pytest.mark.allow_system_access
+@pytest.mark.geckodriver(allow_system_access=True)
 async def test_resource_url_with_system_access(bidi_session, new_tab):
     await bidi_session.browsing_context.navigate(
         context=new_tab["context"], url=RESOURCE_URL, wait="complete"
@@ -165,7 +154,7 @@ async def test_resource_url_with_system_access(bidi_session, new_tab):
     assert contexts[0]["url"] == RESOURCE_URL
 
 
-@pytest.mark.allow_system_access
+@pytest.mark.geckodriver(allow_system_access=True)
 @pytest.mark.parametrize(
     "url",
     [

@@ -93,6 +93,9 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = 시계
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = 개인 정보 보호
 home-prefs-mission-message2 =
     .message = 스폰서는 더 나은 웹을 만들려는 저희를 지원합니다.
 home-prefs-manage-topics-link2 =
@@ -147,6 +150,11 @@ home-prefs-weather-header-srd =
 home-prefs-support-firefox-header-srd =
     .label = { -brand-product-name } 지원
 home-prefs-mission-message-learn-more-link-srd = 방법 알아보기
+
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = 더 알아보기
 
 ## Search box component.
 
@@ -490,6 +498,8 @@ newtab-custom-widget-clock-toggle =
     .label = 시계
 newtab-custom-widget-sports-toggle2 =
     .label = 스포츠
+newtab-custom-widget-privacy-toggle =
+    .label = 개인 정보 보호
 newtab-custom-widget-section-title = 위젯
 newtab-custom-widget-section-toggle =
     .label = 위젯
@@ -966,6 +976,8 @@ newtab-widget-timer-reset =
 newtab-widget-timer-menu-notifications = 알림 끄기
 newtab-widget-timer-menu-notifications-on = 알림 켜기
 newtab-widget-timer-menu-learn-more = 더 알아보기
+newtab-widget-timer-menu-button =
+    .aria-label = 타이머 옵션
 # The title displays above a set of top news headlines.
 newtab-daily-briefing-card-title = 주요 헤드라인
 newtab-daily-briefing-card-menu-dismiss = 닫기
@@ -1250,6 +1262,8 @@ newtab-sports-widget-team-tbd = 미정
 newtab-sports-widget-message-wallpapers-title = 새로운 배경 화면으로 월드컵을 시작하세요
 newtab-sports-widget-message-wallpapers-body = 토너먼트 기간 동안 브라우저에 경기 날의 생생한 열기를 더해 보세요.
 newtab-sports-widget-message-wallpapers-cta = 배경 화면 선택
+newtab-sports-widget-message-wallpapers-semifinals-title = 새 준결승전 배경 화면을 받으세요
+newtab-sports-widget-message-wallpapers-semifinals-body = World 컵에서 가장 큰 성패를 가릴 수 있는 발판을 마련하세요.
 newtab-sports-widget-message-add-widgets-cta =
     .label = 위젯 추가
 newtab-sports-widget-message-day-in-play-title = { -brand-product-name } 위젯으로 활기를 되찾으세요

@@ -57,10 +57,10 @@ class WebPlatformTestsRunner:
     def __init__(self, setup):
         self.setup = setup
 
-    def setup_logging(self, **kwargs):
+    def logging_manager(self, **kwargs):
         from tools.wpt import run
 
-        return run.setup_logging(
+        return run.GlobalLogger(
             kwargs,
             {self.setup.default_log_type: sys.stdout},
             formatter_defaults={"screenshot": True},

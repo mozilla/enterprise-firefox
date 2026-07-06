@@ -1,4 +1,13 @@
 {
+  "nova": {
+    "padding": {
+      "inline": {
+        "small": {
+          "value": "{space.medium}"
+        }
+      }
+    }
+  },
   "background": {
     "color": {
       "@base": {
@@ -103,8 +112,9 @@
         "@base": {
           "value": {
             "default": "transparent",
+            "forcedColors": "ButtonFace",
             "brand": {
-              "forcedColors": "{button.background.color.@base}"
+              "forcedColors": "ButtonFace"
             },
             "nativeTheme": "transparent"
           }
@@ -125,6 +135,23 @@
         },
         "selected": {
           "value": "{button.background.color.ghost.active}"
+        }
+      },
+      "muted": {
+        "@base": {
+          "value": "{button.background.color.@base}"
+        },
+        "active": {
+          "value": "{button.background.color.active}"
+        },
+        "hover": {
+          "value": "{button.background.color.hover}"
+        },
+        "disabled": {
+          "value": "{button.background.color.disabled}"
+        },
+        "selected": {
+          "value": "{button.background.color.muted.active}"
         }
       },
       "menu": {
@@ -185,6 +212,16 @@
       }
     }
   },
+  "badge": {
+    "background": {
+      "color": {
+        "value": "{color.accent.attention}"
+      }
+    },
+    "size": {
+      "value": "6px"
+    }
+  },
   "border": {
     "@base": {
       "value": "{border.width} solid {button.border.color.@base}"
@@ -195,12 +232,6 @@
           "default": "transparent",
           "prefersContrast": "{button.text.color.@base}",
           "forcedColors": "{border.color.interactive.@base}"
-        }
-      },
-      "nova-@base": {
-        "comment": "This looks weird with AccentColor when the background is a color-mix() (can't override the background in nativeTheme from Figma currently)",
-        "value": {
-          "nativeTheme": "transparent"
         }
       },
       "active": {
@@ -294,6 +325,23 @@
           "value": "{button.border.color.menu.active}"
         }
       },
+      "muted": {
+        "@base": {
+          "value": "{button.border.color.@base}"
+        },
+        "active": {
+          "value": "{button.border.color.active}"
+        },
+        "hover": {
+          "value": "{button.border.color.hover}"
+        },
+        "disabled": {
+          "value": "{button.border.color.disabled}"
+        },
+        "selected": {
+          "value": "{button.border.color.muted.active}"
+        }
+      },
       "hover": {
         "value": {
           "default": "{button.border.color.@base}",
@@ -359,6 +407,11 @@
       "value": "{border.radius.medium}"
     }
   },
+  "content": {
+    "alignment": {
+      "value": "center"
+    }
+  },
   "font": {
     "size": {
       "@base": {
@@ -386,6 +439,9 @@
     },
     "small": {
       "value": "{size.item.medium}"
+    },
+    "large": {
+      "value": "40px"
     }
   },
   "opacity": {
@@ -398,7 +454,29 @@
   },
   "padding": {
     "@base": {
-      "value": "{space.xsmall} {space.large}"
+      "value": "{button.padding.block.@base} {button.padding.inline.@base}"
+    },
+    "block": {
+      "@base": {
+        "value": "{space.xsmall}"
+      },
+      "large": {
+        "value": "{space.small}"
+      },
+      "small": {
+        "value": "{space.xxsmall}"
+      }
+    },
+    "inline": {
+      "@base": {
+        "value": "{space.large}"
+      },
+      "large": {
+        "value": "{space.xlarge}"
+      },
+      "small": {
+        "value": "{button.padding.inline.@base}"
+      }
     },
     "icon": {
       "value": 0
@@ -411,6 +489,9 @@
       },
       "small": {
         "value": "{button.min-height.small}"
+      },
+      "large": {
+        "value": "{button.min-height.large}"
       }
     }
   },
@@ -509,6 +590,23 @@
           "value": "{button.text.color.ghost.active}"
         }
       },
+      "muted": {
+        "@base": {
+          "value": "{button.text.color.@base}"
+        },
+        "active": {
+          "value": "{button.text.color.active}"
+        },
+        "hover": {
+          "value": "{button.text.color.hover}"
+        },
+        "disabled": {
+          "value": "{button.text.color.disabled}"
+        },
+        "selected": {
+          "value": "{button.text.color.muted.active}"
+        }
+      },
       "hover": {
         "value": {
           "default": "{button.text.color.@base}",
@@ -537,7 +635,8 @@
         "selected": {
           "value": {
             "default": "{button.text.color.ghost.selected}",
-            "forcedColors": "{button.text.color.primary.selected}"
+            "forcedColors": "{button.text.color.primary.selected}",
+            "nativeTheme": "currentColor"
           }
         }
       },

@@ -44,15 +44,6 @@ function checkProxyPref(proxytype, address, port, unlocked = true) {
   }
 }
 
-add_setup(async () => {
-  registerCleanupFunction(async () => {
-    await clearPolicyEngine();
-  });
-  await EnterprisePolicyTesting.ensureRemotePoliciesMockServer(
-    registerCleanupFunction
-  );
-});
-
 add_task(async function test_apply_then_remove_proxy() {
   // Assert proxy settings are not set
   checkProxyPref("http", "", 0);
@@ -66,7 +57,8 @@ add_task(async function test_apply_then_remove_proxy() {
     "changeProxySettings is allowed"
   );
 
-  await EnterprisePolicyTesting.servePolicyWithJson(
+  info("Setting up policy engine.");
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
     {
       policies: {
         Proxy: {
@@ -89,18 +81,17 @@ add_task(async function test_apply_then_remove_proxy() {
   is(
     Services.policies.isAllowed("changeProxySettings"),
     true,
-    "changeProxySettings is blocked"
+    "changeProxySettings is allowed"
   );
 
-  // New policy removing proxy
-  await EnterprisePolicyTesting.servePolicyWithJson(
-    {
-      policies: {},
-    },
-    null
-  );
+  // Remove Proxy policy
+  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
+  EnterprisePolicyTesting.stubRemotePolicies({
+    policies: {},
+  });
+  await updateApplied;
 
-  // Assert proxy settings are remove
+  // Assert proxy settings are removed
   checkProxyPref("http", "", 0);
   checkProxyPref("ssl", "", 0);
   // SOCKS proxy should NOT be overwritten with UseHTTPProxyForAllProtocols
@@ -126,7 +117,7 @@ add_task(async function test_apply_then_remove_proxy_locked() {
     "changeProxySettings is allowed"
   );
 
-  await EnterprisePolicyTesting.servePolicyWithJson(
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
     {
       policies: {
         Proxy: {
@@ -153,15 +144,14 @@ add_task(async function test_apply_then_remove_proxy_locked() {
     "changeProxySettings is blocked"
   );
 
-  // New policy removing proxy
-  await EnterprisePolicyTesting.servePolicyWithJson(
-    {
-      policies: {},
-    },
-    null
-  );
+  // Remove Proxy policy
+  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
+  EnterprisePolicyTesting.stubRemotePolicies({
+    policies: {},
+  });
+  await updateApplied;
 
-  // Assert proxy settings are remove
+  // Assert proxy settings are removed
   checkProxyPref("http", "", 0);
   checkProxyPref("ssl", "", 0);
   // SOCKS proxy should NOT be overwritten with UseHTTPProxyForAllProtocols
@@ -175,7 +165,7 @@ add_task(async function test_apply_then_remove_proxy_locked() {
 });
 
 add_task(async function test_apply_proxy_then_change_proxy() {
-  await EnterprisePolicyTesting.servePolicyWithJson(
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
     {
       policies: {
         Proxy: {
@@ -202,19 +192,18 @@ add_task(async function test_apply_proxy_then_change_proxy() {
   );
 
   // Network change from device posture? New policy
-  await EnterprisePolicyTesting.servePolicyWithJson(
-    {
-      policies: {
-        Proxy: {
-          HTTPProxy: "http.proxy2.example.com:10",
-          SSLProxy: "ssl.proxy2.example.com:30",
-          SOCKSProxy: "socks.proxy2.example.com:40",
-          UseHTTPProxyForAllProtocols: true,
-        },
+  const updateApplied = EnterprisePolicyTesting.awaitNextPolicyUpdate();
+  EnterprisePolicyTesting.stubRemotePolicies({
+    policies: {
+      Proxy: {
+        HTTPProxy: "http.proxy2.example.com:10",
+        SSLProxy: "ssl.proxy2.example.com:30",
+        SOCKSProxy: "socks.proxy2.example.com:40",
+        UseHTTPProxyForAllProtocols: true,
       },
     },
-    null
-  );
+  });
+  await updateApplied;
 
   // Assert proxy settings are set
   checkProxyPref("http", "http.proxy2.example.com", 10);

@@ -48,6 +48,15 @@ export class ContentSection extends React.PureComponent {
         case "WIDGET_CLOCKS":
           widgetName = "clocks";
           break;
+        case "WIDGET_PRIVACY":
+          widgetName = "privacy";
+          break;
+        case "WIDGET_CROSSWORD":
+          widgetName = "crossword";
+          break;
+        case "WIDGET_STOCKS":
+          widgetName = "stocks";
+          break;
       }
 
       if (widgetName) {
@@ -172,6 +181,9 @@ export class ContentSection extends React.PureComponent {
       mayHaveListsWidget,
       mayHaveSportsWidget,
       mayHaveClocksWidget,
+      mayHavePrivacyWidget,
+      mayHaveCrosswordWidget,
+      mayHaveStocksWidget,
       mayHaveWeatherForecast,
       openPreferences,
       wallpapersUserEnabled,
@@ -197,7 +209,14 @@ export class ContentSection extends React.PureComponent {
       showInferredPersonalizationEnabled,
       topSitesRowsCount,
     } = enabledSections;
-    const { timerEnabled, listsEnabled, clocksEnabled } = enabledWidgets;
+    const {
+      timerEnabled,
+      listsEnabled,
+      clocksEnabled,
+      privacyEnabled,
+      crosswordEnabled,
+      stocksEnabled,
+    } = enabledWidgets;
 
     // @nova-cleanup(remove-conditional): Remove novaEnabled check and newtab-custom-stories-toggle, default to newtab-recommended-stories-toggle
     let pocketToggleL10nId;
@@ -295,6 +314,49 @@ export class ContentSection extends React.PureComponent {
                       data-preference="widgets.clocks.enabled"
                       data-event-source="WIDGET_CLOCKS"
                       data-l10n-id="newtab-custom-widget-clock-toggle"
+                    />
+                  </div>
+                )}
+
+                {/* Privacy */}
+                {mayHavePrivacyWidget && (
+                  <div id="privacy-widget-section" className="section">
+                    <moz-toggle
+                      id="privacy-toggle"
+                      pressed={privacyEnabled || null}
+                      ontoggle={this.onPreferenceSelect}
+                      data-preference="widgets.privacy.enabled"
+                      data-event-source="WIDGET_PRIVACY"
+                      data-l10n-id="newtab-custom-widget-privacy-toggle"
+                    />
+                  </div>
+                )}
+
+                {/* Crossword */}
+                {mayHaveCrosswordWidget && (
+                  <div id="crossword-widget-section" className="section">
+                    {/* TODO: Add in fluent string when correct preview files are set up */}
+                    <moz-toggle
+                      id="crossword-toggle"
+                      pressed={!!crosswordEnabled}
+                      ontoggle={this.onPreferenceSelect}
+                      data-preference="widgets.crossword.enabled"
+                      data-event-source="WIDGET_CROSSWORD"
+                      label="Crossword"
+                    ></moz-toggle>
+                  </div>
+                )}
+
+                {/* Stocks */}
+                {mayHaveStocksWidget && (
+                  <div id="stocks-widget-section" className="section">
+                    <moz-toggle
+                      id="stocks-toggle"
+                      pressed={stocksEnabled || null}
+                      ontoggle={this.onPreferenceSelect}
+                      data-preference="widgets.stocks.enabled"
+                      data-event-source="WIDGET_STOCKS"
+                      data-l10n-id="newtab-custom-widget-stocks-toggle"
                     />
                   </div>
                 )}
@@ -412,6 +474,9 @@ export class ContentSection extends React.PureComponent {
                             mayHaveListsWidget={mayHaveListsWidget}
                             mayHaveSportsWidget={mayHaveSportsWidget}
                             mayHaveClocksWidget={mayHaveClocksWidget}
+                            mayHavePrivacyWidget={mayHavePrivacyWidget}
+                            mayHaveCrosswordWidget={mayHaveCrosswordWidget}
+                            mayHaveStocksWidget={mayHaveStocksWidget}
                             mayHaveWeatherForecast={mayHaveWeatherForecast}
                             weatherDisplay={weatherDisplay}
                             setPref={setPref}

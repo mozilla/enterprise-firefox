@@ -1338,6 +1338,15 @@ export class TranslationsParent extends JSWindowActorParent {
   static mockedSystemLocales = null;
 
   /**
+   * Provide a way for tests to override the platform (as reported by
+   * AppConstants.platform), so that platform-specific behavior such as Android's
+   * can be exercised from desktop test automation.
+   *
+   * @type {null | string}
+   */
+  static mockedPlatform = null;
+
+  /**
    * The "Accept-Language" values that the localizer or user has indicated for
    * the preferences for the web. https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Accept-Language
    *
@@ -4267,13 +4276,29 @@ export class TranslationsParent extends JSWindowActorParent {
       return langTags;
     }
 
-    if (
-      TranslationsParent.getWebContentLanguages()
-        .keys()
-        .some(langTag =>
-          lazy.TranslationsUtils.langTagsMatch(langTag, langTags.docLangTag)
+    // On Android the Accept-Language list is generated from the app and OS
+    // locales rather than being a user-curated list of preferred web-content
+    // languages, so only the primary (first) language reliably reflects the
+    // user's own language. Matching against every entry there would suppress the
+    // offer for any page whose language appears anywhere in the OS locale list
+    // (commonly a secondary "en-US"), even when it differs from the primary
+    // language. On other platforms any configured web-content language counts.
+    const isAndroid =
+      (TranslationsParent.mockedPlatform ?? AppConstants.platform) ===
+      "android";
+    const webContentLanguages = TranslationsParent.getWebContentLanguages();
+    const docLangIsKnown = isAndroid
+      ? lazy.TranslationsUtils.langTagsMatch(
+          webContentLanguages.values().next().value,
+          langTags.docLangTag
         )
-    ) {
+      : webContentLanguages
+          .keys()
+          .some(langTag =>
+            lazy.TranslationsUtils.langTagsMatch(langTag, langTags.docLangTag)
+          );
+
+    if (docLangIsKnown) {
       // The doc language has been marked as a known language by the user, do not
       // offer a translation.
       const message =

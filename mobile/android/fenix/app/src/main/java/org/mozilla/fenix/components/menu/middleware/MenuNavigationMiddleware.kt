@@ -313,7 +313,10 @@ class MenuNavigationMiddleware(
                         navController.nav(
                             id = R.id.menuDialogFragment,
                             directions = MenuDialogFragmentDirections.actionGlobalTabHistoryDialogFragment(
-                                activeSessionId = currentState.browserMenuState?.selectedTab?.id,
+                                // active session here implies a custom tab. so we only set this if it's a custom tab
+                                activeSessionId = currentState.browserMenuState?.selectedTab
+                                    ?.takeIf { it.isCustomTab() }
+                                    ?.id,
                             ),
                             navOptions = NavOptions.Builder()
                                 .setPopUpTo(R.id.browserFragment, false)
@@ -363,7 +366,10 @@ class MenuNavigationMiddleware(
                         navController.nav(
                             id = R.id.menuDialogFragment,
                             directions = MenuDialogFragmentDirections.actionGlobalTabHistoryDialogFragment(
-                                activeSessionId = session?.id,
+                                // active session here implies a custom tab. so we only set this if it's a custom tab
+                                activeSessionId = currentState.browserMenuState?.selectedTab
+                                    ?.takeIf { it.isCustomTab() }
+                                    ?.id,
                             ),
                             navOptions = NavOptions.Builder()
                                 .setPopUpTo(R.id.browserFragment, false)

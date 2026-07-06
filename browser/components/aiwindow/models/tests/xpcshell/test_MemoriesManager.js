@@ -15,7 +15,6 @@ const { MemoriesManager } = ChromeUtils.importESModule(
 );
 const {
   HISTORY: SOURCE_HISTORY,
-  CONVERSATION: SOURCE_CONVERSATION,
   CONVERSATION_USER_REQUEST: SOURCE_USER_REQUEST,
   MAX_MEMORY_SUMMARY_LENGTH,
 } = ChromeUtils.importESModule(
@@ -26,10 +25,6 @@ const { MemoryStore } = ChromeUtils.importESModule(
 );
 const { EmbeddingsGenerator } = ChromeUtils.importESModule(
   "chrome://global/content/ml/EmbeddingsGenerator.sys.mjs"
-);
-
-const { sanitizeUntrustedContent } = ChromeUtils.importESModule(
-  "moz-src:///browser/components/aiwindow/models/ChatUtils.sys.mjs"
 );
 const { AIWindow } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs"
@@ -43,9 +38,17 @@ const { EveryWindow } = ChromeUtils.importESModule(
 const { ChatStore } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/ui/modules/ChatStore.sys.mjs"
 );
+const { Conversation } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/aiwindow/models/Conversation.sys.mjs"
+);
+const { MODEL_FEATURES, SERVICE_TYPES, PURPOSES } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs"
+);
+
 /**
  * Constants for test memories
  */
+const TEST_MODEL = "test-model";
 const TEST_MESSAGE = "Remember I like coffee.";
 const TEST_MEMORIES = [
   {
@@ -123,75 +126,6 @@ add_setup(async function () {
       }
     }
   });
-});
-
-/**
- * Tests getting aggregated browser history from MemoriesHistorySource
- */
-add_task(async function test_getAggregatedBrowserHistory() {
-  // Setup fake history data
-  const now = Date.now();
-  const seeded = [
-    {
-      url: "https://www.google.com/search?q=firefox+history",
-      title: "Google Search: firefox history",
-      visits: [{ date: new Date(now - 5 * 60 * 1000) }],
-    },
-    {
-      url: "https://news.ycombinator.com/",
-      title: "Hacker News",
-      visits: [{ date: new Date(now - 15 * 60 * 1000) }],
-    },
-    {
-      url: "https://mozilla.org/en-US/",
-      title: "Internet for people, not profit — Mozilla",
-      visits: [{ date: new Date(now - 25 * 60 * 1000) }],
-    },
-  ];
-  await PlacesUtils.history.clear();
-  await PlacesUtils.history.insertMany(seeded);
-  for (const { url, visits } of [seeded[1], seeded[2]]) {
-    await insertPlacesMetadata(url, visits[0].date.getTime());
-  }
-
-  // Check that all 3 outputs are arrays
-  const [domainItems, titleItems, searchItems] =
-    await MemoriesManager.getAggregatedBrowserHistory();
-  Assert.ok(Array.isArray(domainItems), "Domain items should be an array");
-  Assert.ok(Array.isArray(titleItems), "Title items should be an array");
-  Assert.ok(Array.isArray(searchItems), "Search items should be an array");
-
-  // Check the length of each
-  Assert.equal(domainItems.length, 3, "Should have 3 domain items");
-  Assert.equal(titleItems.length, 3, "Should have 3 title items");
-  Assert.equal(searchItems.length, 1, "Should have 1 search item");
-
-  // Check the top entry in each aggregate
-  Assert.deepEqual(
-    domainItems[0],
-    ["mozilla.org", 100],
-    "Top domain should be `mozilla.org' with score 100"
-  );
-  Assert.deepEqual(
-    titleItems[0],
-    [
-      sanitizeUntrustedContent(
-        "Internet for people, not profit — Mozilla | mozilla.org",
-        true
-      ),
-      100,
-    ],
-    "Top title should be 'Internet for people, not profit — Mozilla' with score 100"
-  );
-  Assert.equal(
-    searchItems[0].q[0],
-    sanitizeUntrustedContent(
-      "Google Search: firefox history | www.google.com",
-      true
-    ),
-    "Top search item query should be 'Google Search: firefox history'"
-  );
-  Assert.equal(searchItems[0].r, 1, "Top search item rank should be 1");
 });
 
 /**
@@ -806,328 +740,6 @@ add_task(
 );
 
 /**
- * Tests saveMemories correctly persists history memories and updates last_history_memory_ts.
- */
-add_task(async function test_saveMemories_history_updates_meta() {
-  const sb = sinon.createSandbox();
-  try {
-    const now = Date.now();
-
-    const generatedMemories = [
-      {
-        memory_summary: "foo",
-        category: "A",
-        intent: "X",
-        score: 1,
-        updated_at: now - 1000,
-      },
-      {
-        memory_summary: "bar",
-        category: "B",
-        intent: "Y",
-        score: 2,
-        updated_at: now + 500,
-      },
-    ];
-
-    const storedMemories = generatedMemories.map((generatedMemory, idx) => ({
-      id: `id-${idx}`,
-      ...generatedMemory,
-    }));
-
-    const addMemoryStub = sb
-      .stub(MemoryStore, "addMemory")
-      .callsFake(async partial => {
-        // simple mapping: return first / second stored memory based on summary
-        return storedMemories.find(
-          s => s.memory_summary === partial.memory_summary
-        );
-      });
-
-    const updateMetaStub = sb.stub(MemoryStore, "updateMeta").resolves();
-
-    const { persistedMemories, newTimestampMs } =
-      await MemoriesManager.saveMemories(
-        generatedMemories,
-        SOURCE_HISTORY,
-        now
-      );
-
-    Assert.equal(
-      addMemoryStub.callCount,
-      generatedMemories.length,
-      "addMemory should be called once per generated memory"
-    );
-    Assert.deepEqual(
-      persistedMemories.map(i => i.id),
-      storedMemories.map(i => i.id),
-      "Persisted memories should match stored memories"
-    );
-
-    Assert.ok(
-      updateMetaStub.calledOnce,
-      "updateMeta should be called once for history source"
-    );
-    const metaArg = updateMetaStub.firstCall.args[0];
-    Assert.ok(
-      "last_history_memory_ts" in metaArg,
-      "updateMeta should update last_history_memory_ts for history source"
-    );
-    Assert.equal(
-      metaArg.last_history_memory_ts,
-      storedMemories[1].updated_at,
-      "last_history_memory_ts should be set to max(updated_at) among persisted memories"
-    );
-    Assert.equal(
-      newTimestampMs,
-      storedMemories[1].updated_at,
-      "Returned newTimestampMs should match the updated meta timestamp"
-    );
-  } finally {
-    sb.restore();
-  }
-});
-
-/**
- * Tests saveMemories correctly persists conversation memories and updates last_chat_memory_ts.
- */
-add_task(async function test_saveMemories_conversation_updates_meta() {
-  const sb = sinon.createSandbox();
-  try {
-    const now = Date.now();
-
-    const generatedMemories = [
-      {
-        memory_summary: "chat-memory",
-        category: "Chat",
-        intent: "Talk",
-        score: 1,
-        updated_at: now,
-      },
-    ];
-    const storedMemory = { id: "chat-1", ...generatedMemories[0] };
-
-    const addMemoryStub = sb
-      .stub(MemoryStore, "addMemory")
-      .resolves(storedMemory);
-    const updateMetaStub = sb.stub(MemoryStore, "updateMeta").resolves();
-
-    const { persistedMemories, newTimestampMs } =
-      await MemoriesManager.saveMemories(
-        generatedMemories,
-        SOURCE_CONVERSATION,
-        now
-      );
-
-    Assert.equal(
-      addMemoryStub.callCount,
-      1,
-      "addMemory should be called once for conversation memory"
-    );
-    Assert.equal(
-      persistedMemories[0].id,
-      storedMemory.id,
-      "Persisted memory should match stored memory"
-    );
-
-    Assert.ok(
-      updateMetaStub.calledOnce,
-      "updateMeta should be called once for conversation source"
-    );
-    const metaArg = updateMetaStub.firstCall.args[0];
-    Assert.ok(
-      "last_chat_memory_ts" in metaArg,
-      "updateMeta should update last_chat_memory_ts for conversation source"
-    );
-    Assert.equal(
-      metaArg.last_chat_memory_ts,
-      storedMemory.updated_at,
-      "last_chat_memory_ts should be set to memory.updated_at"
-    );
-    Assert.equal(
-      newTimestampMs,
-      storedMemory.updated_at,
-      "Returned newTimestampMs should match the updated meta timestamp"
-    );
-  } finally {
-    sb.restore();
-  }
-});
-
-/**
- * Tests that getLastHistoryMemoryTimestamp reads the same value written via MemoryStore.updateMeta.
- */
-add_task(async function test_getLastHistoryMemoryTimestamp_reads_meta() {
-  const ts = Date.now() - 12345;
-
-  // Write meta directly
-  await MemoryStore.updateMeta({
-    last_history_memory_ts: ts,
-  });
-
-  // Read via MemoriesManager helper
-  const readTs = await MemoriesManager.getLastHistoryMemoryTimestamp();
-
-  Assert.equal(
-    readTs,
-    ts,
-    "getLastHistoryMemoryTimestamp should return last_history_memory_ts from MemoryStore meta"
-  );
-});
-
-/**
- * Tests that getLastConversationMemoryTimestamp reads the same value written via MemoryStore.updateMeta.
- */
-add_task(async function test_getLastConversationMemoryTimestamp_reads_meta() {
-  const ts = Date.now() - 54321;
-
-  // Write meta directly
-  await MemoryStore.updateMeta({
-    last_chat_memory_ts: ts,
-  });
-
-  // Read via MemoriesManager helper
-  const readTs = await MemoriesManager.getLastConversationMemoryTimestamp();
-
-  Assert.equal(
-    readTs,
-    ts,
-    "getLastConversationMemoryTimestamp should return last_chat_memory_ts from MemoryStore meta"
-  );
-});
-
-/**
- * Tests that non-empty aggregated browser history triggers generation,
- * ensures the LLM is called, and last_history_memory_ts is updated.
- */
-add_task(
-  async function test_historyTimestampUpdatedAfterHistoryMemoriesGenerationPass() {
-    const sb = sinon.createSandbox();
-
-    const lastConversationMemoriesUpdateTs =
-      await MemoriesManager.getLastConversationMemoryTimestamp();
-
-    try {
-      const domainAgg = [["mozilla.org", 100]];
-      const titleAgg = [
-        ["Internet for people, not profit — Mozilla | mozilla.org", 100],
-      ];
-      const searchAgg = [
-        { q: ["Google Search: firefox history | www.google.com"], r: 1 },
-      ];
-
-      sb.stub(MemoriesManager, "getAggregatedBrowserHistory").resolves([
-        domainAgg,
-        titleAgg,
-        searchAgg,
-      ]);
-
-      const now = Date.now();
-      const fakePersisted = [
-        {
-          id: "m1",
-          memory_summary: "Searches for Firefox information",
-          updated_at: now,
-        },
-      ];
-
-      const saveStub = sb
-        .stub(MemoriesManager, "generateAndSaveMemoriesFromSources")
-        .callsFake(async (_sources, sourceType) => {
-          Assert.equal(
-            sourceType,
-            SOURCE_HISTORY,
-            "Should pass SOURCE_HISTORY"
-          );
-          await MemoryStore.updateMeta({ last_history_memory_ts: now }); // real write
-          return fakePersisted;
-        });
-
-      const result =
-        await MemoriesManager.generateMemoriesFromBrowsingHistory();
-
-      Assert.ok(Array.isArray(result), "Result should be an array.");
-      Assert.equal(
-        result.length,
-        1,
-        "Result should contain persisted memories."
-      );
-      Assert.ok(
-        saveStub.calledOnce,
-        "generateAndSaveMemoriesFromSources should be called once"
-      );
-
-      Assert.equal(
-        await MemoriesManager.getLastConversationMemoryTimestamp(),
-        lastConversationMemoriesUpdateTs,
-        "Last conversation memory timestamp should remain unchanged after history generation pass"
-      );
-
-      Assert.equal(
-        await MemoriesManager.getLastHistoryMemoryTimestamp(),
-        now,
-        "Last history memory timestamp should match meta written during generation"
-      );
-    } finally {
-      sb.restore();
-    }
-  }
-);
-
-/**
- * Tests that when aggregated browser history is empty we skip generation,
- * warn, and do not call generateAndSaveMemoriesFromSources (no timestamp updates).
- */
-add_task(async function test_historyGeneration_skips_when_aggregates_empty() {
-  const sb = sinon.createSandbox();
-
-  const lastHistoryMemoriesUpdateTs =
-    await MemoriesManager.getLastHistoryMemoryTimestamp();
-  const lastConversationMemoriesUpdateTs =
-    await MemoriesManager.getLastConversationMemoryTimestamp();
-
-  try {
-    sb.stub(MemoriesManager, "getAggregatedBrowserHistory").resolves([
-      [],
-      [],
-      [],
-    ]);
-
-    const saveStub = sb.stub(
-      MemoriesManager,
-      "generateAndSaveMemoriesFromSources"
-    );
-
-    const result = await MemoriesManager.generateMemoriesFromBrowsingHistory();
-
-    Assert.ok(Array.isArray(result), "Result should be an array.");
-    Assert.equal(
-      result.length,
-      0,
-      "Result should be empty when aggregates are empty."
-    );
-
-    Assert.ok(
-      saveStub.notCalled,
-      "generateAndSaveMemoriesFromSources should NOT be called"
-    );
-
-    Assert.equal(
-      await MemoriesManager.getLastHistoryMemoryTimestamp(),
-      lastHistoryMemoriesUpdateTs,
-      "History timestamp should remain unchanged when generation is skipped"
-    );
-    Assert.equal(
-      await MemoriesManager.getLastConversationMemoryTimestamp(),
-      lastConversationMemoriesUpdateTs,
-      "Conversation timestamp should remain unchanged when history generation is skipped"
-    );
-  } finally {
-    sb.restore();
-  }
-});
-
-/**
  * Tests that getRelevantMemories properly invalidates cache when memories are updated.
  * Cache should be reused when memories haven't changed, but invalidated when updated_at changes.
  */
@@ -1196,148 +808,6 @@ add_task(async function test_getRelevantMemories_cache_invalidation() {
     sb.restore();
     // Clear the cache after this test to avoid affecting other tests
     MemoriesManager._clearEmbeddingsCache();
-  }
-});
-
-/**
- * Tests that non-empty recent chats trigger generation,
- * and last_chat_memory_ts is updated (history timestamp unchanged).
- */
-add_task(
-  async function test_conversationTimestampUpdatedAfterConversationMemoriesGenerationPass() {
-    const sb = sinon.createSandbox();
-
-    const lastConversationMemoriesUpdateTs =
-      await MemoriesManager.getLastConversationMemoryTimestamp();
-    const lastHistoryMemoriesUpdateTs =
-      await MemoriesManager.getLastHistoryMemoryTimestamp();
-
-    try {
-      // Non-empty chats so guard does not short-circuit
-      const now = Date.now();
-      const chatMessages = [
-        {
-          id: "msg-1",
-          author: "user",
-          content: "Remember I like coffee.",
-          ts: now,
-        },
-      ];
-
-      const getRecentChatsStub = sb
-        .stub(MemoriesManager, "_getRecentChats")
-        .resolves(chatMessages);
-
-      const fakePersisted = [
-        { id: "c1", memory_summary: "Loves drinking coffee", updated_at: now },
-      ];
-
-      const saveStub = sb
-        .stub(MemoriesManager, "generateAndSaveMemoriesFromSources")
-        .callsFake(async (_sources, sourceType) => {
-          Assert.equal(
-            sourceType,
-            SOURCE_CONVERSATION,
-            "Should pass SOURCE_CONVERSATION"
-          );
-          // Real write so readback works
-          await MemoryStore.updateMeta({ last_chat_memory_ts: now });
-          return fakePersisted;
-        });
-
-      const result =
-        await MemoriesManager.generateMemoriesFromConversationHistory();
-
-      Assert.ok(
-        getRecentChatsStub.calledOnce,
-        "_getRecentChats should be called once"
-      );
-      Assert.ok(
-        saveStub.calledOnce,
-        "generateAndSaveMemoriesFromSources should be called once"
-      );
-
-      Assert.ok(Array.isArray(result), "Result should be an array.");
-      Assert.equal(
-        result.length,
-        1,
-        "Result should contain persisted memories."
-      );
-
-      Assert.equal(
-        await MemoriesManager.getLastHistoryMemoryTimestamp(),
-        lastHistoryMemoriesUpdateTs,
-        "Last history memory timestamp should remain unchanged after conversation generation pass"
-      );
-
-      const readTs = await MemoriesManager.getLastConversationMemoryTimestamp();
-      Assert.ok(
-        typeof readTs === "number" && readTs > 0,
-        "Last conversation memory timestamp should be a positive number"
-      );
-      Assert.equal(
-        readTs,
-        now,
-        "Last conversation memory timestamp should match meta written during generation"
-      );
-      Assert.greaterOrEqual(
-        readTs,
-        lastConversationMemoriesUpdateTs,
-        "Conversation timestamp should be >= the previous value"
-      );
-    } finally {
-      sb.restore();
-    }
-  }
-);
-
-/**
- * Tests when there are no recent chat messages we skip generation
- * and do not call generateAndSaveMemoriesFromSources (no timestamp updates).
- */
-add_task(async function test_conversationGeneration_skips_when_chats_empty() {
-  const sb = sinon.createSandbox();
-
-  const lastConversationMemoriesUpdateTs =
-    await MemoriesManager.getLastConversationMemoryTimestamp();
-  const lastHistoryMemoriesUpdateTs =
-    await MemoriesManager.getLastHistoryMemoryTimestamp();
-
-  try {
-    sb.stub(MemoriesManager, "_getRecentChats").resolves([]);
-
-    const saveStub = sb.stub(
-      MemoriesManager,
-      "generateAndSaveMemoriesFromSources"
-    );
-
-    const result =
-      await MemoriesManager.generateMemoriesFromConversationHistory();
-
-    Assert.ok(Array.isArray(result), "Result should be an array.");
-    Assert.equal(
-      result.length,
-      0,
-      "Result should be empty when no chat messages exist."
-    );
-
-    Assert.ok(
-      saveStub.notCalled,
-      "generateAndSaveMemoriesFromSources should NOT be called"
-    );
-
-    Assert.equal(
-      await MemoriesManager.getLastConversationMemoryTimestamp(),
-      lastConversationMemoriesUpdateTs,
-      "Conversation timestamp should remain unchanged when generation is skipped"
-    );
-    Assert.equal(
-      await MemoriesManager.getLastHistoryMemoryTimestamp(),
-      lastHistoryMemoriesUpdateTs,
-      "History timestamp should remain unchanged when conversation generation is skipped"
-    );
-  } finally {
-    sb.restore();
   }
 });
 
@@ -1437,7 +907,6 @@ add_task(async function test_saveRequestedMemory_blocks_pii_in_summary() {
     Assert.equal(result.ok, false, "PII should be blocked in summary");
   } finally {
     sandbox.restore();
-    await deleteAllMemories();
   }
 });
 
@@ -1491,3 +960,389 @@ add_task(async function test_saveRequestedMemory_happy_path_creates() {
     await deleteAllMemories();
   }
 });
+
+/**
+ * Tests the unified session watermark: read/write and migration seeding from
+ * the legacy per-modality timestamps.
+ */
+add_task(async function test_sessionWatermark_readWrite_and_migration() {
+  await MemoryStore.updateMeta({
+    last_session_memory_ts: 0,
+    last_history_memory_ts: 0,
+    last_chat_memory_ts: 0,
+  });
+
+  await MemoriesManager.setLastSessionMemoryTimestamp(123456);
+  Assert.equal(
+    await MemoriesManager.getLastSessionMemoryTimestamp(),
+    123456,
+    "Should read back the persisted session watermark"
+  );
+
+  // With no session watermark, seed from the older of the two legacy values.
+  await MemoryStore.updateMeta({
+    last_session_memory_ts: 0,
+    last_history_memory_ts: 500,
+    last_chat_memory_ts: 300,
+  });
+  Assert.equal(
+    await MemoriesManager.getLastSessionMemoryTimestamp(),
+    300,
+    "Should seed from min(legacy history, legacy chat) when no session watermark"
+  );
+
+  await MemoryStore.updateMeta({
+    last_session_memory_ts: 0,
+    last_history_memory_ts: 0,
+    last_chat_memory_ts: 0,
+  });
+});
+
+/**
+ * Tests saveMemories persists with the given source tag and leaves the
+ * watermark untouched (advancing it is the caller's responsibility now).
+ */
+add_task(async function test_saveMemories_persists_with_source() {
+  await deleteAllMemories();
+  await MemoriesManager.setLastSessionMemoryTimestamp(777);
+
+  const { persistedMemories } = await MemoriesManager.saveMemories(
+    [
+      {
+        memory_summary: "Likes both dogs and cats",
+        category: "Pets & Animals",
+        intent: "Entertain / Relax",
+        reasoning: "r",
+        score: 4,
+      },
+    ],
+    "session"
+  );
+
+  Assert.equal(persistedMemories.length, 1, "Should persist one memory");
+  Assert.equal(
+    persistedMemories[0].source,
+    "session",
+    "Persisted memory should carry the session source tag"
+  );
+  Assert.equal(
+    await MemoriesManager.getLastSessionMemoryTimestamp(),
+    777,
+    "saveMemories should not change the watermark"
+  );
+
+  await deleteAllMemories();
+});
+
+/**
+ * Tests the unified entry point short-circuits when neither source is enabled.
+ */
+add_task(async function test_generateMemoriesFromSessions_disabled_noop() {
+  const sb = sinon.createSandbox();
+  try {
+    sb.stub(MemoriesManager, "shouldEnableMemoriesFromSchedulers").returns(
+      false
+    );
+    const result = await MemoriesManager.generateMemoriesFromSessions({
+      maxBatchRetries: 1,
+      initialMemoryGenerationRetryDelayMS: 1,
+    });
+    Assert.deepEqual(result, [], "Should return [] when no source is enabled");
+  } finally {
+    sb.restore();
+  }
+});
+
+/**
+ * Tests the unified entry point end-to-end: builds sessions from fetched
+ * history, runs the pipeline, persists, and advances the watermark to the
+ * processed session end.
+ */
+add_task(async function test_generateMemoriesFromSessions_happy_path() {
+  await deleteAllMemories();
+  await MemoryStore.updateMeta({
+    last_session_memory_ts: 0,
+    last_history_memory_ts: 0,
+    last_chat_memory_ts: 0,
+  });
+
+  const sb = sinon.createSandbox();
+  try {
+    sb.stub(MemoriesManager, "shouldEnableMemoriesFromSchedulers").returns(
+      true
+    );
+
+    const visitDateMicros = 1_700_000_000_000_000;
+    sb.stub(MemoriesManager, "_getRecentHistory").resolves([
+      {
+        urlHash: 1,
+        domain: "mozilla.org",
+        title: "Mozilla",
+        searchQuery: "firefox privacy",
+        visitDateMicros,
+        totalViewTimeMs: 1000,
+        source: "search",
+      },
+    ]);
+    sb.stub(MemoriesManager, "_getRecentChats").resolves([]);
+
+    let callIndex = 0;
+    const fakeEngine = {
+      run() {
+        callIndex++;
+        if (callIndex === 1) {
+          return {
+            finalOutput: `[{"reasoning":"r","category":"Internet & Telecom","intent":"Research / Learn","memory_summary":"Researches firefox privacy","score":4,"evidence":[]}]`,
+          };
+        }
+        if (callIndex === 2) {
+          return {
+            finalOutput: `{"kept_memories":["Researches firefox privacy"]}`,
+          };
+        }
+        return {
+          finalOutput: `{"unique_memories":[{"main_memory":"Researches firefox privacy"}]}`,
+        };
+      },
+    };
+
+    const conversation = new Conversation({
+      feature: MODEL_FEATURES.MEMORIES_INITIAL_GENERATION_SYSTEM,
+      model: TEST_MODEL,
+      serviceType: SERVICE_TYPES.MEMORIES,
+      purpose: PURPOSES.MEMORY_GENERATION,
+      parameters: {},
+      flowId: null,
+      engine: fakeEngine,
+    });
+
+    sb.stub(MemoriesManager, "ensureConversationForGeneration").resolves(
+      conversation
+    );
+
+    const setWatermark = sb.spy(
+      MemoriesManager,
+      "setLastSessionMemoryTimestamp"
+    );
+
+    const persisted = await MemoriesManager.generateMemoriesFromSessions({
+      maxBatchRetries: 1,
+      initialMemoryGenerationRetryDelayMS: 1,
+    });
+
+    Assert.equal(persisted.length, 1, "Should persist one memory");
+    Assert.equal(
+      persisted[0].memory_summary,
+      "Researches firefox privacy",
+      "Persisted memory should come from the pipeline"
+    );
+    Assert.ok(setWatermark.calledOnce, "Watermark should be advanced once");
+    Assert.equal(
+      setWatermark.firstCall.args[0],
+      Math.floor(visitDateMicros / 1000),
+      "Watermark should advance to the session end (visit time in ms)"
+    );
+  } finally {
+    sb.restore();
+    await deleteAllMemories();
+  }
+});
+
+/**
+ * Tests that when every built session gates to SKIP, the watermark still
+ * advances past them so the same trivial sessions are not re-pulled and
+ * re-gated on the next run.
+ */
+add_task(
+  async function test_generateMemoriesFromSessions_all_skipped_advances_watermark() {
+    await deleteAllMemories();
+    await MemoryStore.updateMeta({
+      last_session_memory_ts: 0,
+      last_history_memory_ts: 0,
+      last_chat_memory_ts: 0,
+    });
+
+    const sb = sinon.createSandbox();
+    try {
+      sb.stub(MemoriesManager, "shouldEnableMemoriesFromSchedulers").returns(
+        true
+      );
+
+      const visitDateMicros = 1_700_000_000_000_000;
+      // Auth-domain visit with a nav title and no query -> gate SKIPs it.
+      sb.stub(MemoriesManager, "_getRecentHistory").resolves([
+        {
+          urlHash: 2,
+          domain: "accounts.google.com",
+          title: "Sign in",
+          visitDateMicros,
+          totalViewTimeMs: 100,
+          source: "typed",
+        },
+      ]);
+      sb.stub(MemoriesManager, "_getRecentChats").resolves([]);
+
+      const setWatermark = sb.spy(
+        MemoriesManager,
+        "setLastSessionMemoryTimestamp"
+      );
+
+      const persisted = await MemoriesManager.generateMemoriesFromSessions({
+        maxBatchRetries: 1,
+        initialMemoryGenerationRetryDelayMS: 1,
+      });
+
+      Assert.deepEqual(
+        persisted,
+        [],
+        "Should persist nothing when all gated out"
+      );
+      Assert.ok(
+        setWatermark.calledOnce,
+        "Watermark should still advance past the skipped sessions"
+      );
+      Assert.equal(
+        setWatermark.firstCall.args[0],
+        Math.floor(visitDateMicros / 1000),
+        "Watermark should advance to the skipped session end (visit time in ms)"
+      );
+    } finally {
+      sb.restore();
+      await deleteAllMemories();
+    }
+  }
+);
+
+/**
+ * Stubs an enabled history source with one gate-passing search session and an
+ * engine whose run() is driven by the given callback.
+ *
+ * @param {object} sb       Sinon sandbox to register the stubs on
+ * @param {Function} runFn  Implementation for the fake engine's run()
+ */
+function stubPipelineWithEngine(sb, runFn) {
+  const visitDateMicros = 1_700_000_000_000_000;
+  sb.stub(MemoriesManager, "shouldEnableMemoriesFromSchedulers").returns(true);
+  // A search session with a query passes the gate, so the pipeline runs.
+  sb.stub(MemoriesManager, "_getRecentHistory").resolves([
+    {
+      urlHash: 1,
+      domain: "mozilla.org",
+      title: "Mozilla",
+      searchQuery: "firefox privacy",
+      visitDateMicros,
+      totalViewTimeMs: 1000,
+      source: "search",
+    },
+  ]);
+  sb.stub(MemoriesManager, "_getRecentChats").resolves([]);
+
+  const fakeEngine = {
+    run(...args) {
+      return runFn(...args);
+    },
+  };
+
+  const conversation = new Conversation({
+    feature: MODEL_FEATURES.MEMORIES_INITIAL_GENERATION_SYSTEM,
+    model: TEST_MODEL,
+    serviceType: SERVICE_TYPES.MEMORIES,
+    purpose: PURPOSES.MEMORY_GENERATION,
+    parameters: {},
+    flowId: null,
+    engine: fakeEngine,
+  });
+
+  sb.stub(MemoriesManager, "ensureConversationForGeneration").resolves(
+    conversation
+  );
+}
+
+/**
+ * Tests that a 429 from the pipeline is re-thrown (so the scheduler can back
+ * off) and the watermark is not advanced. The 429 surfaces during generation.
+ */
+add_task(async function test_generateMemoriesFromSessions_rethrows_429() {
+  await deleteAllMemories();
+  await MemoryStore.updateMeta({
+    last_session_memory_ts: 0,
+    last_history_memory_ts: 0,
+    last_chat_memory_ts: 0,
+  });
+
+  const sb = sinon.createSandbox();
+  try {
+    stubPipelineWithEngine(sb, function () {
+      throw Object.assign(new Error("rate limited"), { status: 429 });
+    });
+    const setWatermark = sb.spy(
+      MemoriesManager,
+      "setLastSessionMemoryTimestamp"
+    );
+
+    await Assert.rejects(
+      MemoriesManager.generateMemoriesFromSessions({
+        maxBatchRetries: 1,
+        initialMemoryGenerationRetryDelayMS: 1,
+      }),
+      /rate limited/,
+      "A 429 should be re-thrown to the scheduler"
+    );
+    Assert.ok(
+      setWatermark.notCalled,
+      "Watermark should not advance when the pipeline is rate-limited"
+    );
+  } finally {
+    sb.restore();
+    await deleteAllMemories();
+  }
+});
+
+/**
+ * Tests that a non-retryable wholesale failure is swallowed (returns []) so the
+ * run is retried on the next interval rather than propagating. Generation
+ * succeeds and the failure surfaces at the (unguarded) filter step.
+ */
+add_task(
+  async function test_generateMemoriesFromSessions_swallows_non_retryable() {
+    await deleteAllMemories();
+    await MemoryStore.updateMeta({
+      last_session_memory_ts: 0,
+      last_history_memory_ts: 0,
+      last_chat_memory_ts: 0,
+    });
+
+    const sb = sinon.createSandbox();
+    try {
+      let callIndex = 0;
+      stubPipelineWithEngine(sb, function () {
+        callIndex++;
+        if (callIndex === 1) {
+          // Generation succeeds so there are candidates for the filter step.
+          return {
+            finalOutput: `[{"reasoning":"r","category":"Internet & Telecom","intent":"Research / Learn","memory_summary":"Researches firefox privacy","score":4,"evidence":[]}]`,
+          };
+        }
+        // Filter step fails with a non-retryable error -> swallowed by the manager.
+        throw new Error("some other failure");
+      });
+      const setWatermark = sb.spy(
+        MemoriesManager,
+        "setLastSessionMemoryTimestamp"
+      );
+
+      const result = await MemoriesManager.generateMemoriesFromSessions({
+        maxBatchRetries: 1,
+        initialMemoryGenerationRetryDelayMS: 1,
+      });
+      Assert.deepEqual(result, [], "Non-retryable failure should return []");
+      Assert.ok(
+        setWatermark.notCalled,
+        "Watermark should not advance on a wholesale failure"
+      );
+    } finally {
+      sb.restore();
+      await deleteAllMemories();
+    }
+  }
+);

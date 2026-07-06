@@ -30,7 +30,7 @@ SAMPLY_TIMEOUT = 900
 class ETWProfile(RaptorProfiling):
     """Record kernel ETW traces (.etl) using xperf (via pre-configured
     scheduled tasks), then use Samply to convert and symbolicate them
-    into Firefox Profiler JSON profiles.
+    into profiles in the Firefox Profiler JSON format.
 
     On the Windows pool, scheduled tasks allow an
     unprivileged user to start/stop xperf kernel tracing/profiling:
@@ -60,7 +60,9 @@ class ETWProfile(RaptorProfiling):
             Path(os.environ["USERPROFILE"]) / XPERF_ETL_USER_SESSION_RELATIVE
         )
         self.upload_dir = Path(self.upload_dir)
-        self.profile = self.upload_dir / f"etw-{self.test_name}.json.gz"
+        self.profile = (
+            self.upload_dir / f"profile_etw_{self.test_name}_unprocessed.json.gz"
+        )
 
         # Temporary working directory for intermediate files
         self.temp_dir = Path(tempfile.mkdtemp())
@@ -158,24 +160,6 @@ class ETWProfile(RaptorProfiling):
             etl_dest = self.upload_dir / f"xperf-combined-{self.test_name}.etl"
             shutil.move(self.etl_source, etl_dest)
             LOG.info(f"Combined ETL archived to: {etl_dest}")
-
-    def archive(self):
-        if self.profile.exists():
-            profile_archive = Path(self.upload_dir, f"profile_{self.test_name}.zip")
-
-            try:
-                mode = zipfile.ZIP_DEFLATED
-            except NameError:
-                mode = zipfile.ZIP_STORED
-
-            with zipfile.ZipFile(profile_archive, "a", mode) as zipf:
-                path_in_zip = f"etw/{self.profile.name}"
-                LOG.info(
-                    f"Adding {self.profile.name} to {profile_archive} as {path_in_zip}"
-                )
-                zipf.write(self.profile, arcname=path_in_zip)
-                self.profile.unlink(missing_ok=True)
-                return profile_archive
 
     def symbolicate(self):
         if not self.etl_kernel_session_path.exists():

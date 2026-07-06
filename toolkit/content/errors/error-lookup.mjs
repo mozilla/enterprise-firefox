@@ -29,6 +29,7 @@ import {
  * @param {string} signals.gErrorCode - URL-derived error code (e= parameter)
  * @param {boolean} signals.noConnectivity - System has no network connectivity
  * @param {boolean} signals.vpnActive - VPN is currently active
+ * @param {boolean} signals.accessConnectorActive - Enterprise Access Connector is active
  * @returns {string|null} Canonical registry ID, or null if the error has no
  *   Felt Privacy config.
  */
@@ -37,11 +38,19 @@ export function resolveErrorID({
   gErrorCode,
   noConnectivity,
   vpnActive,
+  accessConnectorActive,
 }) {
   // System state overrides.
   // Currently these are all network-related.
   if (noConnectivity) {
     return "NS_ERROR_OFFLINE";
+  }
+  if (
+    (gErrorCode === "proxyConnectFailure" ||
+      gErrorCode === "proxyResolveFailure") &&
+    accessConnectorActive
+  ) {
+    return "accessConnectorFailure";
   }
   if (gErrorCode === "proxyConnectFailure" && vpnActive) {
     return "vpnFailure";

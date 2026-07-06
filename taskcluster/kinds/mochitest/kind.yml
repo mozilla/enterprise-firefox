@@ -581,11 +581,15 @@ tasks:
         suite:
             name: mochitest-browser-screenshots
         treeherder-symbol: M(ss)
+        index:
+            product: test
+            job-name: mochitest-browser-screenshots
         loopback-video: true
-        variants: ["no-fission"]
         run-on-projects:
             by-test-platform:
                 linux2404-64.*/opt: ['trunk']
+                windows11-64-25h2.*/opt: ['trunk']
+                macosx1500-aarch64/opt: ['trunk']
                 default: []
         max-run-time: 3600
         mozharness:

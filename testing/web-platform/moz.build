@@ -17,6 +17,7 @@ with Files("**"):
         "web-platform-tests",
         "web-platform-tests-reftest",
         "web-platform-tests-wdspec",
+        "web-platform-tests-aam",
     ]
 
 with Files("moz.build"):

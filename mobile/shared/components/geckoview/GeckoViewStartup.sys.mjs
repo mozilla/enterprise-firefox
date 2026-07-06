@@ -11,8 +11,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ActorManagerParent: "resource://gre/modules/ActorManagerParent.sys.mjs",
   DoHController: "moz-src:///toolkit/components/doh/DoHController.sys.mjs",
   EventDispatcher: "resource://gre/modules/Messaging.sys.mjs",
-  NimbusGeckoViewQATelemetry:
-    "resource://gre/modules/NimbusGeckoViewQATelemetry.sys.mjs",
   PdfJs: "resource://pdf.js/PdfJs.sys.mjs",
   GeckoViewPreferences: "resource://gre/modules/GeckoViewPreferences.sys.mjs",
 });
@@ -336,8 +334,6 @@ export class GeckoViewStartup {
 
         Services.obs.addObserver(this, "browser-idle-startup-tasks-finished");
         Services.obs.addObserver(this, "handlersvc-store-initialized");
-
-        lazy.NimbusGeckoViewQATelemetry.init();
 
         Services.obs.notifyObservers(null, "geckoview-startup-complete");
         break;

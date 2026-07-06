@@ -1119,6 +1119,34 @@ add_task(async function test_aboutwelcome_secondary_top_backup_restore_only() {
   sandbox.restore();
 });
 
+add_task(
+  async function test_aboutwelcome_import_embedded_backup_restore_button() {
+    const sandbox = sinon.createSandbox();
+
+    sandbox
+      .stub(ASRouterScreenUtils, "evaluateScreenTargeting")
+      .resolves(false)
+      .withArgs("useEmbeddedMigrationWizard")
+      .resolves(true)
+      .withArgs("backupRestoreEnabled && isDefaultBrowser && !doesAppNeedPin")
+      .resolves(true);
+
+    let { browser, cleanup } = await openMRAboutWelcome();
+
+    await test_screen_content(
+      browser,
+      "Import embedded screen renders with backup restore top button",
+      [
+        "main.AW_IMPORT_SETTINGS_EMBEDDED",
+        "button[data-l10n-id='restore-from-backup-secondary-top-button']",
+      ]
+    );
+
+    await cleanup();
+    sandbox.restore();
+  }
+);
+
 add_task(async function test_aboutwelcome_both_secondary_top_buttons() {
   const sandbox = sinon.createSandbox();
 

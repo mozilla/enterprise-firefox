@@ -73,9 +73,7 @@
     /* Use one neutral panel background for every state with Nova enabled. */
     /* stylelint-disable-next-line stylelint-plugin-mozilla/no-base-design-tokens, stylelint-plugin-mozilla/use-design-tokens */
     background-color: light-dark(var(--color-gray-0), var(--color-black-alpha-50));
-    border: var(--border-width) solid var(--border-color);
-    /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-    border-radius: var(--border-radius-xlarge);
+    border: var(--border-width) solid var(--border-color-deemphasized);
   }
 }
 
@@ -83,7 +81,7 @@
   display: flex;
   justify-content: space-between;
   gap: var(--space-medium);
-  min-block-size: var(--size-image-small);
+  min-block-size: var(--size-image-xsmall);
 }
 
 #title {
@@ -128,8 +126,8 @@
 
 ::slotted([slot="image"]) {
   display: block;
-  height: var(--size-image-small);
-  width: var(--size-image-small);
+  height: var(--size-image-xsmall);
+  width: var(--size-image-xsmall);
 }
 
 ::slotted([slot="bandwidth"]) {

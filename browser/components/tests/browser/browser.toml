@@ -14,6 +14,9 @@ skip-if = [
 
 ["browser_browserGlue_sandboxDisabledNotification.js"]
 
+["browser_browserGlue_rosettaNotification.js"]
+run-if = ["os == 'mac'"]
+
 ["browser_browserGlue_telemetry.js"]
 
 ["browser_browserGlue_upgradeDialog_trigger.js"]

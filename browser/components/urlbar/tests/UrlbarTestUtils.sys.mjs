@@ -28,9 +28,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   TestUtils: "resource://testing-common/TestUtils.sys.mjs",
+  UrlbarChildController:
+    "chrome://browser/content/urlbar/UrlbarChildController.mjs",
   UrlbarParentController:
     "moz-src:///browser/components/urlbar/UrlbarParentController.sys.mjs",
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
+  UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
   UrlbarSearchUtils:
     "moz-src:///browser/components/urlbar/UrlbarSearchUtils.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
@@ -570,10 +573,14 @@ class UrlbarInputTestUtils {
    *
    * @param {ChromeWindow} win The window containing the urlbar.
    * @param {string} url The URL to match against the result's payload.
-   * @param {number} [type] The UrlbarUtils.RESULT_TYPE to match.
+   * @param {number} [type] The lazy.UrlbarShared.RESULT_TYPE to match.
    *   Defaults to RESULT_TYPE.URL.
    */
-  async pickResultAndWaitForLoad(win, url, type = UrlbarUtils.RESULT_TYPE.URL) {
+  async pickResultAndWaitForLoad(
+    win,
+    url,
+    type = lazy.UrlbarShared.RESULT_TYPE.URL
+  ) {
     let resultCount = this.getResultCount(win);
     let targetIndex = -1;
     for (let i = 0; i < resultCount; i++) {
@@ -656,7 +663,7 @@ class UrlbarInputTestUtils {
       title: element.getElementsByClassName("urlbarView-title")[0],
       url: element.getElementsByClassName("urlbarView-url")[0],
     };
-    if (details.type == UrlbarUtils.RESULT_TYPE.SEARCH) {
+    if (details.type == lazy.UrlbarShared.RESULT_TYPE.SEARCH) {
       details.searchParams = {
         engine: result.payload.engine,
         keyword: result.payload.keyword,
@@ -665,9 +672,9 @@ class UrlbarInputTestUtils {
         inPrivateWindow: result.payload.inPrivateWindow,
         isPrivateEngine: result.payload.isPrivateEngine,
       };
-    } else if (details.type == UrlbarUtils.RESULT_TYPE.KEYWORD) {
+    } else if (details.type == lazy.UrlbarShared.RESULT_TYPE.KEYWORD) {
       details.keyword = result.payload.keyword;
-    } else if (details.type == UrlbarUtils.RESULT_TYPE.DYNAMIC) {
+    } else if (details.type == lazy.UrlbarShared.RESULT_TYPE.DYNAMIC) {
       details.dynamicType = result.payload.dynamicType;
     }
     return details;
@@ -772,7 +779,8 @@ class UrlbarInputTestUtils {
     return this.promiseSearchComplete(win).then(context => {
       // Look for search suggestions.
       let firstSearchSuggestionIndex = context.results.findIndex(
-        r => r.type == UrlbarUtils.RESULT_TYPE.SEARCH && r.payload.suggestion
+        r =>
+          r.type == lazy.UrlbarShared.RESULT_TYPE.SEARCH && r.payload.suggestion
       );
       if (firstSearchSuggestionIndex == -1) {
         throw new Error("Cannot find a search suggestion");
@@ -981,7 +989,7 @@ class UrlbarInputTestUtils {
       () =>
         results.hasAttribute("actionmode") ==
         (this.#urlbar(window).searchMode?.source ==
-          UrlbarUtils.RESULT_SOURCE.ACTIONS)
+          lazy.UrlbarShared.RESULT_SOURCE.ACTIONS)
     );
     this.Assert.ok(true, "Urlbar results have proper actionmode attribute");
 
@@ -1139,7 +1147,7 @@ class UrlbarInputTestUtils {
       let resultCount = this.getResultCount(window);
       for (let i = 0; i < resultCount; i++) {
         let result = await this.getDetailsOfResultAt(window, i);
-        if (result.source == UrlbarUtils.RESULT_SOURCE.SEARCH) {
+        if (result.source == lazy.UrlbarShared.RESULT_SOURCE.SEARCH) {
           this.Assert.equal(
             expectedSearchMode.engineName,
             result.searchParams.engine,
@@ -1196,7 +1204,7 @@ class UrlbarInputTestUtils {
       searchMode = { engineName: buttons[0].engine.name };
       let engine = lazy.SearchService.getEngineByName(searchMode.engineName);
       if (engine.isGeneralPurposeEngine) {
-        searchMode.source = UrlbarUtils.RESULT_SOURCE.SEARCH;
+        searchMode.source = lazy.UrlbarShared.RESULT_SOURCE.SEARCH;
       }
     }
 
@@ -1361,9 +1369,16 @@ class UrlbarInputTestUtils {
   /**
    * Returns a new mock controller.  This is useful for xpcshell tests.
    *
+   * Mirrors production: the returned controller is a `UrlbarChildController`
+   * (which owns listener registration and dispatch) wrapping a
+   * `UrlbarParentController` reached through a stubbed Urlbar actor. The
+   * underlying parent is exposed as `controller.parentController` for tests
+   * that need it (e.g. to assert it's the controller passed to the providers
+   * manager).
+   *
    * @param {object} options Additional options to pass to the
    *        UrlbarParentController constructor.
-   * @returns {UrlbarParentController} A new controller.
+   * @returns {UrlbarChildController} A new controller.
    */
   newMockController(options = {}) {
     let sapName = options.sapName || "urlbar";
@@ -1377,30 +1392,45 @@ class UrlbarInputTestUtils {
         configurable: true,
       });
     }
-    return new lazy.UrlbarParentController(
-      Object.assign(
-        {
-          input: {
-            isPrivate: false,
-            get sapName() {
-              return sapName;
-            },
-            onFirstResult() {
-              return false;
-            },
-            getSearchSource() {
-              return "dummy-search-source";
-            },
-            window: {
-              location: {
-                href: AppConstants.BROWSER_CHROME_URL,
-              },
+    let parentOptions = Object.assign(
+      {
+        input: {
+          isPrivate: false,
+          get sapName() {
+            return sapName;
+          },
+          onFirstResult() {
+            return false;
+          },
+          getSearchSource() {
+            return "dummy-search-source";
+          },
+          window: {
+            location: {
+              href: AppConstants.BROWSER_CHROME_URL,
             },
           },
         },
-        options
-      )
+      },
+      options
     );
+    let parentController = new lazy.UrlbarParentController({
+      sapName,
+      isPrivate: parentOptions.input.isPrivate,
+      manager: parentOptions.manager,
+    });
+    // Stub the actor plumbing so the child controller's constructor reaches
+    // the parent we just built.
+    parentOptions.input.window.windowGlobalChild = {
+      getActor: () => ({
+        getOrCreateController: () => parentController,
+      }),
+    };
+    let controller = new lazy.UrlbarChildController({
+      input: parentOptions.input,
+    });
+    controller.parentController = parentController;
+    return controller;
   }
 
   /**

@@ -11,7 +11,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
-  UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
+  UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
   SessionStore: "resource:///modules/sessionstore/SessionStore.sys.mjs",
   TabMetrics: "moz-src:///browser/components/tabbrowser/TabMetrics.sys.mjs",
 });
@@ -31,7 +31,7 @@ class ProviderTabGroups extends ActionsProvider {
       queryContext.sapName == "urlbar" &&
       Services.prefs.getBoolPref("browser.tabs.groups.enabled") &&
       (!queryContext.restrictSource ||
-        queryContext.restrictSource == lazy.UrlbarUtils.RESULT_SOURCE.TABS) &&
+        queryContext.restrictSource == lazy.UrlbarShared.RESULT_SOURCE.TABS) &&
       queryContext.trimmedSearchString.length < 50 &&
       queryContext.trimmedSearchString.length >=
         lazy.UrlbarPrefs.get(MIN_SEARCH_PREF)

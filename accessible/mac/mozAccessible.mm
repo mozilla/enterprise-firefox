@@ -432,11 +432,17 @@ static bool IsNonNativePopover(Accessible* aAccessible) {
     }
   }
 
+  // `macSubrole` may be the literal `nil` specified in RoleMap. We cast it to
+  // NSString* before dispatching on it because `nil` expands to `nullptr`
+  // during macro substitution, per a typedef in the SDK. The compiler won't
+  // allow an obj cpp message send on a `nullptr`, though dispatcing on `nil` is
+  // traditionally supported and safe in obj cpp.
 #define ROLE(geckoRole, stringRole, ariaRole, atkRole, macRole, macSubrole, \
              msaaRole, ia2Role, androidClass, iosIsElement, uiaControlType, \
              nameRule)                                                      \
   case roles::geckoRole:                                                    \
-    if (![macSubrole isEqualToString:NSAccessibilityUnknownSubrole]) {      \
+    if (![(NSString*)macSubrole                                             \
+            isEqualToString:NSAccessibilityUnknownSubrole]) {               \
       return macSubrole;                                                    \
     } else {                                                                \
       break;                                                                \
@@ -876,6 +882,10 @@ static bool ProvidesTitle(const Accessible* aAccessible, nsString& aName) {
 
 - (NSArray*)moxLinkedUIElements {
   return [self getRelationsByType:RelationType::FLOWS_TO];
+}
+
+- (NSArray*)moxDetailsElements {
+  return [self getRelationsByType:RelationType::DETAILS];
 }
 
 - (NSArray*)moxARIAControls {

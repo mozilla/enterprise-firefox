@@ -172,6 +172,9 @@ class AndroidImageReaderImageTextureData : public TextureData {
 
   bool Serialize(SurfaceDescriptor& aOutDescriptor) override;
 
+  void GetSubDescriptor(
+      RemoteDecoderVideoSubDescriptor* const aOutDesc) override;
+
   // Useless functions.
   bool Lock(OpenMode) override { return true; }
 

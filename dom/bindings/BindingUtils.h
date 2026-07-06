@@ -1671,15 +1671,10 @@ inline void UpdateWrapper(T* p, void*, JSObject* obj, const JSObject* old) {
   UpdateWrapper(p, cache, obj, old);
 }
 
-// Attempt to preserve the wrapper, if any, for a Paris DOM bindings object.
-// Return true if we successfully preserved the wrapper, or there is no wrapper
-// to preserve. In the latter case we don't need to preserve the wrapper,
-// because the object can only be obtained by JS once, or they cannot be
-// meaningfully owned from the native side.
-//
-// This operation will return false only for non-nsISupports cycle-collected
-// objects, because we cannot determine if they are wrappercached or not.
-bool TryPreserveWrapper(JS::Handle<JSObject*> obj);
+// Preserve the wrapper, if any, for a Paris DOM bindings object. If there is no
+// wrapper to preserve this does nothing, because the object can only be
+// obtained by JS once, or it cannot be meaningfully owned from the native side.
+void TryPreserveWrapper(JS::Handle<JSObject*> obj);
 
 bool HasReleasedWrapper(JS::Handle<JSObject*> obj);
 
@@ -3049,7 +3044,7 @@ struct CreateGlobalOptionsGeneric {
     mozilla::dom::TraceProtoAndIfaceCache(aTrc, aObj);
   }
   static bool PostCreateGlobal(JSContext* aCx, JS::Handle<JSObject*> aGlobal) {
-    MOZ_ALWAYS_TRUE(TryPreserveWrapper(aGlobal));
+    TryPreserveWrapper(aGlobal);
 
     return true;
   }

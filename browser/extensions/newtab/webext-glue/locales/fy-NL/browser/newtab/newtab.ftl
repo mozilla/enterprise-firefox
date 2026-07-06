@@ -93,6 +93,9 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = Klok
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = Privacy
 home-prefs-mission-message2 =
     .message = Us sponsors stypje ús misje om in better web te bouwen.
 home-prefs-manage-topics-link2 =
@@ -151,6 +154,11 @@ home-prefs-weather-header-srd =
 home-prefs-support-firefox-header-srd =
     .label = { -brand-product-name } stypje
 home-prefs-mission-message-learn-more-link-srd = Lês hjir hoe
+
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = Mear ynfo
 
 ## Search box component.
 
@@ -496,6 +504,8 @@ newtab-custom-widget-clock-toggle =
     .label = Klok
 newtab-custom-widget-sports-toggle2 =
     .label = Sport
+newtab-custom-widget-privacy-toggle =
+    .label = Privacy
 newtab-custom-widget-section-title = Widgets
 newtab-custom-widget-section-toggle =
     .label = Widgets
@@ -972,6 +982,8 @@ newtab-widget-timer-reset =
 newtab-widget-timer-menu-notifications = Notifikaasjes útskeakelje
 newtab-widget-timer-menu-notifications-on = Notifikaasjes ynskeakelje
 newtab-widget-timer-menu-learn-more = Mear ynfo
+newtab-widget-timer-menu-button =
+    .aria-label = Timeropsjes
 # The title displays above a set of top news headlines.
 newtab-daily-briefing-card-title = Topberjochten
 newtab-daily-briefing-card-menu-dismiss = Slute
@@ -1086,6 +1098,8 @@ newtab-sports-widget-show-less =
 # Toggle that filters the list of teams the user follows
 newtab-sports-widget-followed-only-toggle =
     .label = Allinnich folge teams
+# Status shown when more matches are being fetched.
+newtab-sports-widget-loading-more = Mear oerienkomsten lade…
 # Watch is a verb (as in watch matches online).
 newtab-sports-widget-watch =
     .label = Besjen
@@ -1165,6 +1179,9 @@ newtab-sports-widget-third-place = Tredde plak
 newtab-sports-widget-runner-up = Twadde plak
 newtab-sports-widget-champions = Kampioen
 newtab-sports-widget-world-cup-champions = Wrâldkampioen 2026
+# Compact champions label for the medium-size widget result card; the larger
+# card uses newtab-sports-widget-world-cup-champions.
+newtab-sports-widget-world-cup-champions-short = Kampioenen fan 2026
 # Variables:
 #   $date (Date) - The match start time
 newtab-sports-widget-match-time = { DATETIME($date, hour: "2-digit", minute: "2-digit") }
@@ -1263,6 +1280,8 @@ newtab-sports-widget-team-tbd = Noch te bepalen
 newtab-sports-widget-message-wallpapers-title = Begjin it WK mei nije eftergrûnen
 newtab-sports-widget-message-wallpapers-body = Bring wat wedstriiddei-enerzjy nei jo browser foar it toernoai.
 newtab-sports-widget-message-wallpapers-cta = Eftergrûn kieze
+newtab-sports-widget-message-wallpapers-semifinals-title = Download in nije eftergrûn foar de heale finalen
+newtab-sports-widget-message-wallpapers-semifinals-body = Meitsje ien dekôr foar de grutste wedstriden fan it WK.
 newtab-sports-widget-message-add-widgets-cta =
     .label = Widgets tafoegje
 newtab-sports-widget-message-day-in-play-title = Hâld jo dei yn beweging mei { -brand-product-name }-widgets

@@ -4,6 +4,7 @@ subsuite = "devtools"
 support-files = [
   "reload/*",
   "local-mode/index.html",
+  "local-mode/folder/test.html",
   "browser_toolbox_options_disable_js.html",
   "browser_toolbox_options_disable_js_iframe.html",
   "browser_toolbox_options_disable_cache.sjs",
@@ -140,6 +141,9 @@ skip-if = [
 ["browser_target_support.js"]
 
 ["browser_toolbox_adopted_tab.js"]
+skip-if = [
+  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && tsan",
+]
 
 ["browser_toolbox_backward_forward_navigation.js"]
 
@@ -229,7 +233,11 @@ skip-if = [
 
 ["browser_toolbox_options_local_mode.js"]
 
+["browser_toolbox_options_local_mode_notice.js"]
+
 ["browser_toolbox_options_multiple_tabs.js"]
+
+["browser_toolbox_options_network_body_limit.js"]
 
 ["browser_toolbox_options_panel_toggle.js"]
 
@@ -248,6 +256,8 @@ disabled = "Bug 962258"
 
 ["browser_toolbox_remoteness_change.js"]
 
+["browser_toolbox_rulers_button_highlighter_reload.js"]
+
 ["browser_toolbox_screenshot_tool.js"]
 
 ["browser_toolbox_select_event.js"]
@@ -264,6 +274,8 @@ disabled = "Bug 962258"
 skip-if = [
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && debug", # Bug 2021290
 ]
+
+["browser_toolbox_splitter_keyboard.js"]
 
 ["browser_toolbox_tabsswitch_shortcuts.js"]
 

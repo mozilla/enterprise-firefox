@@ -12,8 +12,8 @@ add_task(async function () {
   // heuristics and that will return results after the first onQueryResults.
   // Luckily TEST providers come first in the heuristic group!
   let result = new UrlbarResult({
-    type: UrlbarUtils.RESULT_TYPE.URL,
-    source: UrlbarUtils.RESULT_SOURCE.OTHER_LOCAL,
+    type: UrlbarShared.RESULT_TYPE.URL,
+    source: UrlbarShared.RESULT_SOURCE.OTHER_LOCAL,
     heuristic: true,
     // To ensure the selectedElement is removed, we use this special property
     // that asks the view to generate new content for the row.

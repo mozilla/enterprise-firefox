@@ -831,57 +831,23 @@ UniquePtr<CharT[], JS::FreePolicy> JSRope::copyCharsInternal(
 }
 
 template <typename CharT>
-void AddStringToHash(uint32_t* hash, const CharT* chars, size_t len) {
-  // It's tempting to use |HashString| instead of this loop, but that's
-  // slightly different than our existing implementation for non-ropes. We
-  // want to pretend we have a contiguous set of chars so we need to
-  // accumulate char by char rather than generate a new hash for substring
-  // and then accumulate that.
+static void AddStringToHash(mozilla::detail::UTF16Hasher& aHasher,
+                            const CharT* chars, size_t len) {
+  // It's tempting to use |HashString| / |HashLatin1AsUTF16| instead of this
+  // loop, but that's slightly different than our existing implementation for
+  // non-ropes. We want to pretend we have a contiguous set of chars so we need
+  // to accumulate char by char using UTF16Hasher rather than generate a new
+  // hash for substring and then accumulate that.
   for (size_t i = 0; i < len; i++) {
-    *hash = mozilla::AddToHash(*hash, chars[i]);
+    aHasher.Add(char16_t(chars[i]));
   }
-}
-
-void AddStringToHash(uint32_t* hash, const JSString* str) {
-  AutoCheckCannotGC nogc;
-  const auto& s = str->asLinear();
-  if (s.hasLatin1Chars()) {
-    AddStringToHash(hash, s.latin1Chars(nogc), s.length());
-  } else {
-    AddStringToHash(hash, s.twoByteChars(nogc), s.length());
-  }
-}
-
-bool JSRope::hash(uint32_t* outHash) const {
-  Vector<const JSString*, 8, SystemAllocPolicy> nodeStack;
-  const JSString* str = this;
-
-  *outHash = 0;
-
-  while (true) {
-    if (str->isRope()) {
-      if (!nodeStack.append(str->asRope().rightChild())) {
-        return false;
-      }
-      str = str->asRope().leftChild();
-    } else {
-      AddStringToHash(outHash, str);
-      if (nodeStack.empty()) {
-        break;
-      }
-      str = nodeStack.popCopy();
-    }
-  }
-
-  return true;
 }
 
 bool JSRope::hashPrefix(size_t budget, uint32_t* outHash) const {
   Vector<const JSString*, 8, SystemAllocPolicy> nodeStack;
   const JSString* str = this;
 
-  *outHash = 0;
-
+  mozilla::detail::UTF16Hasher hasher;
   while (budget > 0) {
     if (str->isRope()) {
       if (!nodeStack.append(str->asRope().rightChild())) {
@@ -893,9 +859,9 @@ bool JSRope::hashPrefix(size_t budget, uint32_t* outHash) const {
       const auto& s = str->asLinear();
       size_t toHash = std::min(s.length(), budget);
       if (s.hasLatin1Chars()) {
-        AddStringToHash(outHash, s.latin1Chars(nogc), toHash);
+        AddStringToHash(hasher, s.latin1Chars(nogc), toHash);
       } else {
-        AddStringToHash(outHash, s.twoByteChars(nogc), toHash);
+        AddStringToHash(hasher, s.twoByteChars(nogc), toHash);
       }
       budget -= toHash;
       if (nodeStack.empty()) {
@@ -905,6 +871,7 @@ bool JSRope::hashPrefix(size_t budget, uint32_t* outHash) const {
     }
   }
 
+  *outHash = hasher.Finish();
   return true;
 }
 
@@ -1185,7 +1152,7 @@ first_visit_node: {
   ropeBarrierDuringFlattening<usingBarrier>(str);
 
   JSString& left = *str->d.s.u2.left;
-  str->d.s.u2.parent = parent;
+  setField(&str->d.s.u2.parent, parent);
   str->setFlagBit(parentFlag);
   parent = nullptr;
   parentFlag = 0;
@@ -1238,8 +1205,11 @@ finish_node: {
   uint32_t flags = StringFlags::dependentStringFlags(encoding);
   flags |= str->flags() & StringFlags::PRESERVE_ROPE_BITS_ON_REPLACE;
   str->changeStringType(str->length(), flags);
-  str->d.s.u3.base =
-      reinterpret_cast<JSLinearString*>(root); /* will be true on exit */
+  {
+    // Will be true on exit.
+    auto* newBase = reinterpret_cast<JSLinearString*>(root);
+    setField(&str->d.s.u3.base, newBase);
+  }
   newRootFlags |= StringFlags::DEPENDED_ON_BIT;
 
   // Every interior (rope) node in the rope's tree will be visited during
@@ -2960,7 +2930,7 @@ bool JSString::tryReplaceWithAtomRef(JSAtom* atom) {
            (isRope() ? StringFlags::PRESERVE_ROPE_BITS_ON_REPLACE
                      : StringFlags::PRESERVE_LINEAR_NONATOM_BITS_ON_REPLACE);
   changeStringType(length(), flags);
-  d.s.u3.atom = atom;
+  d.s.u3.base = atom;
   if (atom->hasLatin1Chars()) {
     setNonInlineChars(atom->chars<Latin1Char>(nogc), atom->hasStringBuffer());
   } else {
@@ -2970,6 +2940,7 @@ bool JSString::tryReplaceWithAtomRef(JSAtom* atom) {
   // Redundant, but just a reminder that this needs to be true or else we need
   // to check and conditionally put ourselves in the store buffer
   MOZ_ASSERT(atom->isTenured());
+
   return true;
 }
 

@@ -72,30 +72,9 @@ struct ParamTraits<mozilla::gfx::VRDisplayBlendMode>
 
 // -
 
-template <>
-struct ParamTraits<mozilla::gfx::VRSubmitFrameResultInfo> {
-  typedef mozilla::gfx::VRSubmitFrameResultInfo paramType;
-
-  static void Write(MessageWriter* aWriter, const paramType& aParam) {
-    WriteParam(aWriter, aParam.mBase64Image);
-    WriteParam(aWriter, aParam.mFormat);
-    WriteParam(aWriter, aParam.mWidth);
-    WriteParam(aWriter, aParam.mHeight);
-    WriteParam(aWriter, aParam.mFrameNum);
-  }
-
-  static bool Read(MessageReader* aReader, paramType* aResult) {
-    if (!ReadParam(aReader, &(aResult->mBase64Image)) ||
-        !ReadParam(aReader, &(aResult->mFormat)) ||
-        !ReadParam(aReader, &(aResult->mWidth)) ||
-        !ReadParam(aReader, &(aResult->mHeight)) ||
-        !ReadParam(aReader, &(aResult->mFrameNum))) {
-      return false;
-    }
-
-    return true;
-  }
-};
+DEFINE_IPC_SERIALIZER_WITH_FIELDS(mozilla::gfx::VRSubmitFrameResultInfo,
+                                  mBase64Image, mFormat, mWidth, mHeight,
+                                  mFrameNum);
 
 template <>
 struct ParamTraits<mozilla::gfx::VRDisplayCapabilityFlags>

@@ -288,14 +288,22 @@ export class SelectControlBaseElement extends MozLitElement {
       });
     }
     if (changedProperties.has("type")) {
-      let childRole = this.type == "radio" ? "radio" : "option";
-      this.childElements.forEach(item => {
-        item.role = childRole;
-      });
+      this.updateChildRoles();
     }
     if (changedProperties.has("value")) {
       this.#internals.setFormValue(this.value);
     }
+  }
+
+  getChildRole() {
+    return this.type == "radio" ? "radio" : "option";
+  }
+
+  updateChildRoles() {
+    let childRole = this.getChildRole();
+    this.childElements.forEach(item => {
+      item.role = childRole;
+    });
   }
 
   handleSetName() {
@@ -391,7 +399,7 @@ export const SelectControlItemMixin = superClass =>
 
       this.#controller = hostElement;
       this.parentDisabled = this.#controller.disabled;
-      this.role = this.#controller.type == "radio" ? "radio" : "option";
+      this.role = this.#controller.getChildRole();
       if (this.#controller.hasValue) {
         this.checked = this.value === this.#controller.value;
       }

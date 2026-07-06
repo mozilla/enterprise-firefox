@@ -5991,7 +5991,7 @@ void AsyncPanZoomController::NotifyMainThreadTransaction(
       // When this happens, we need to send a new scroll offset update with
       // the combined scroll offset or else the main thread may have an
       // incorrect scroll offset for a period of time.
-      if (Metrics().HasPendingScroll(aLayerMetrics)) {
+      if (aScrollMetadata.GetScrollGenerationOnApz() != mScrollGeneration) {
         needContentRepaint = true;
         contentRepaintType = RepaintUpdateType::eUserAction;
       }

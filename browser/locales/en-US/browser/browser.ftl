@@ -276,6 +276,10 @@ quickactions-addons = View add-ons
 # same word).
 quickactions-cmd-addons3 = extensions, themes, addons, add-ons
 
+# Opens preferences page at AI controls
+quickactions-manageai = Manage AI controls
+quickactions-cmd-manageai = disable ai, off ai, manage ai
+
 # Opens the bookmarks library window
 quickactions-bookmarks2 = Manage bookmarks
 quickactions-cmd-bookmarks = bookmarks
@@ -333,6 +337,10 @@ quickactions-cmd-print = print
 # Opens the print dialog at the save to PDF option
 quickactions-savepdf = Save page as PDF
 quickactions-cmd-savepdf2 = pdf, save page
+
+# Opens about:pdf, the PDF editor landing page
+quickactions-editpdf = Open PDF editor
+quickactions-cmd-editpdf = pdf
 
 # Opens a new private browsing window
 quickactions-private2 = Open private window
@@ -678,43 +686,43 @@ urlbar-result-action-undefined-calculator-result = undefined
 # following relative dates: "yesterday", "today"
 # Variables:
 #   $date (string) - A localized relative date string
-urlbar-result-explanation-last-visited-relative = You last visited { $date }
+urlbar-result-explanation-last-visited-relative-2 = Last visited { $date }
 
 # This explanation is used when the last-visited date is a small number of days
 # in the past.
 # Variables:
 #   $daysAgo (number) - The number of days ago
-urlbar-result-explanation-last-visited-days =
+urlbar-result-explanation-last-visited-days-2 =
     { $daysAgo ->
-        [one] You last visited { $daysAgo } day ago
-        *[other] You last visited { $daysAgo } days ago
+        [one] Last visited { $daysAgo } day ago
+        *[other] Last visited { $daysAgo } days ago
     }
 
 # This explanation is used when the last-visited date is a small number of weeks
 # in the past.
 # Variables:
 #   $weeksAgo (number) - The number of weeks ago
-urlbar-result-explanation-last-visited-weeks =
+urlbar-result-explanation-last-visited-weeks-2 =
     { $weeksAgo ->
-        [one] You last visited { $weeksAgo } week ago
-        *[other] You last visited { $weeksAgo } weeks ago
+        [one] Last visited { $weeksAgo } week ago
+        *[other] Last visited { $weeksAgo } weeks ago
     }
 
 # This explanation is used when the last-visited date is a small number of
 # months in the past.
 # Variables:
 #   $monthsAgo (number) - The number of months ago
-urlbar-result-explanation-last-visited-months =
+urlbar-result-explanation-last-visited-months-2 =
     { $monthsAgo ->
-        [one] You last visited { $monthsAgo } month ago
-        *[other] You last visited { $monthsAgo } months ago
+        [one] Last visited { $monthsAgo } month ago
+        *[other] Last visited { $monthsAgo } months ago
     }
 
 # This explanation is used when the last-visited date is further in the past.
 # The date will be formatted as an absolute date like: "11 May", "11 May 2026"
 # Variables:
 #   $date (string) - A localized absolute date string
-urlbar-result-explanation-last-visited-absolute = You last visited on { $date }
+urlbar-result-explanation-last-visited-absolute-2 = Last visited { $date }
 
 # This explanation is used when the result is bookmarked. The date will be
 # formatted as an absolute date like: "11 May", "11 May 2026"

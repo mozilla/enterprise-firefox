@@ -13,7 +13,7 @@ firefox_config = {
         "pref_value": "",
     },
     "polling_frequency": {
-        "pref_id": "browser.policies.live_polling.frequency",
+        "pref_id": "enterprise.policies.live.polling_interval",
         "pref_value": 500,
     },
     "tokenserver_url": {

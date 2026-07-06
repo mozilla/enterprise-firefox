@@ -21,17 +21,15 @@
 #include "WidgetUtilsGtk.h"
 #include "x11/keysym2ucs.h"
 #include "nsContentUtils.h"
-#include "nsGtkUtils.h"
 #include "nsIBidiKeyboard.h"
 #include "nsPrintfCString.h"
 #include "nsReadableUtils.h"
-#include "nsServiceManagerUtils.h"
 #include "nsWindow.h"
 
 #include "mozilla/MouseEvents.h"
-#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/TextEventDispatcher.h"
 #include "mozilla/TextEvents.h"
+#include "mozilla/Utf16.h"
 
 #ifdef MOZ_WAYLAND
 #  include <sys/mman.h>
@@ -44,8 +42,7 @@
 // Therefore you shouldn't use `LogLevel::Verbose` for logging usual behavior.
 mozilla::LazyLogModule gKeyLog("KeyboardHandler");
 
-namespace mozilla {
-namespace widget {
+namespace mozilla::widget {
 
 #define IS_ASCII_ALPHABETICAL(key) \
   ((('a' <= key) && (key <= 'z')) || (('A' <= key) && (key <= 'Z')))
@@ -182,10 +179,10 @@ static const nsCString GetCharacterCodeName(char16_t aChar) {
       if (aChar < ' ' || (aChar >= 0x80 && aChar < 0xA0)) {
         return nsPrintfCString("control (0x%04X)", aChar);
       }
-      if (NS_IS_HIGH_SURROGATE(aChar)) {
+      if (IsHighSurrogate(aChar)) {
         return nsPrintfCString("high surrogate (0x%04X)", aChar);
       }
-      if (NS_IS_LOW_SURROGATE(aChar)) {
+      if (IsLowSurrogate(aChar)) {
         return nsPrintfCString("low surrogate (0x%04X)", aChar);
       }
       return nsPrintfCString("'%s' (0x%04X)",
@@ -2253,6 +2250,7 @@ static struct KeyCodeData gKeyCodes[] = {
 #define NS_DEFINE_VK(aDOMKeyName, aDOMKeyCode) \
   {#aDOMKeyName, sizeof(#aDOMKeyName) - 1, aDOMKeyCode},
 #include "mozilla/VirtualKeyCodeList.inc"
+#include "mozilla/Utf16.h"
 #undef NS_DEFINE_VK
     {nullptr, 0, 0}};
 
@@ -2815,5 +2813,4 @@ void KeymapWrapper::ClearKeymap() {
 }
 #endif
 
-}  // namespace widget
-}  // namespace mozilla
+}  // namespace mozilla::widget

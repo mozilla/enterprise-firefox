@@ -115,7 +115,6 @@ describe("Action Checklist component", () => {
       label: {
         raw: "test",
       },
-      showExternalLinkIcon: true,
     };
 
     const handleAction = sinon.spy();
@@ -126,10 +125,9 @@ describe("Action Checklist component", () => {
           item={mockItem}
           index={0}
           handleAction={handleAction}
-          showExternalLinkIcon={true}
         />
       );
-      assert.ok(wrapper.find("button"));
+      assert.ok(wrapper.find("button").exists());
     });
 
     it("should render with a label", async () => {
@@ -138,10 +136,9 @@ describe("Action Checklist component", () => {
           item={mockItem}
           index={0}
           handleAction={handleAction}
-          showExternalLinkIcon={true}
         />
       );
-      assert.ok(wrapper.find("span"));
+      assert.ok(wrapper.find("span").exists());
       assert.equal(wrapper.find("span").text(), mockItem.label.raw);
     });
 
@@ -151,37 +148,38 @@ describe("Action Checklist component", () => {
           item={mockItem}
           index={0}
           handleAction={handleAction}
-          showExternalLinkIcon={true}
         />
       );
       await wrapper.find("button").simulate("click");
       assert.calledOnce(handleAction);
     });
 
-    it("should display an empty checkbox when targeting is false", async () => {
+    it("should display an action arrow when targeting is false", async () => {
       sandbox.stub(window, "AWEvaluateAttributeTargeting").resolves(false);
-      const wrapper = shallow(
+      const wrapper = mount(
         <ActionChecklistItem
           item={mockItem}
           index={0}
           handleAction={handleAction}
-          showExternalLinkIcon={true}
         />
       );
-      assert.ok(wrapper.find(".check-empty"));
+      await new Promise(resolve => setTimeout(resolve, 0));
+      wrapper.update();
+      assert.ok(wrapper.find(".action-arrow").exists());
     });
 
     it("should display a filled checkbox when targeting is true", async () => {
       sandbox.stub(window, "AWEvaluateAttributeTargeting").resolves(true);
-      const wrapper = shallow(
+      const wrapper = mount(
         <ActionChecklistItem
           item={mockItem}
           index={0}
           handleAction={handleAction}
-          showExternalLinkIcon={true}
         />
       );
-      assert.ok(wrapper.find(".check-empty"));
+      await new Promise(resolve => setTimeout(resolve, 0));
+      wrapper.update();
+      assert.ok(wrapper.find(".check-filled").exists());
     });
 
     it("should be disabled when targeting is true", async () => {
@@ -191,7 +189,6 @@ describe("Action Checklist component", () => {
           item={mockItem}
           index={0}
           handleAction={handleAction}
-          showExternalLinkIcon={true}
         />
       );
       assert.ok(wrapper.find("button").prop("disabled"));
@@ -203,23 +200,9 @@ describe("Action Checklist component", () => {
           item={mockItem}
           index={0}
           handleAction={handleAction}
-          showExternalLinkIcon={true}
         />
       );
       await wrapper.find("button").simulate("click");
-      assert.ok(wrapper.find("button").prop("disabled"));
-    });
-
-    it("should display an external link icon when external link property is set to true and targeting is false", async () => {
-      sandbox.stub(window, "AWEvaluateAttributeTargeting").resolves(false);
-      const wrapper = shallow(
-        <ActionChecklistItem
-          item={mockItem}
-          index={0}
-          handleAction={handleAction}
-          showExternalLinkIcon={true}
-        />
-      );
       assert.ok(wrapper.find("button").prop("disabled"));
     });
   });

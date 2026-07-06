@@ -2,7 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { html, when } from "chrome://global/content/vendor/lit.all.mjs";
+import {
+  html,
+  when,
+  classMap,
+} from "chrome://global/content/vendor/lit.all.mjs";
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
 
 // eslint-disable-next-line import/no-unassigned-import
@@ -15,6 +19,7 @@ class AutocompleteRowItem extends MozLitElement {
     value: { type: String },
     icon: { type: String },
     actions: { type: Object },
+    selected: { type: Boolean, reflect: true },
   };
 
   #openActionsMenu(anchor, actions) {
@@ -61,31 +66,34 @@ class AutocompleteRowItem extends MozLitElement {
     // We're expecting a single action
     if (action) {
       return html`<moz-button
-        @mousedown=${stopMouseEvents}
-        @mouseup=${stopMouseEvents}
-        @click=${e => {
+        @mousedown=${e => {
           e.stopPropagation();
           action();
         }}
+        @mouseup=${stopMouseEvents}
         type="icon ghost"
         .iconSrc=${this.getSecondaryActionItemIcon(type)}
-        class="secondary-action"
+        class=${classMap({
+          "secondary-action": true,
+          selected: this.selected,
+        })}
       ></moz-button>`;
     }
 
     // We're expecting multiple actions for this item
     if (actions) {
       return html`<moz-button
-        @mousedown=${stopMouseEvents}
-        @mouseup=${stopMouseEvents}
-        @click=${e => {
+        @mousedown=${e => {
           e.stopPropagation();
           this.#openActionsMenu(e.currentTarget, actions);
         }}
-        type="icon ghost"
+        @mouseup=${stopMouseEvents}
         type="icon ghost"
         .iconSrc=${this.getSecondaryActionItemIcon(type)}
-        class="secondary-action"
+        class=${classMap({
+          "secondary-action": true,
+          selected: this.selected,
+        })}
         menuId="secondary-action-menu"
       ></moz-button>`;
     }

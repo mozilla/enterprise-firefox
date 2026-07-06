@@ -1480,11 +1480,11 @@ export class CustomizeMode {
       let commandID = aWrapper.getAttribute("itemcommand");
       toolbarItem.setAttribute("command", commandID);
 
-      // XXX Bug 309953 - toolbarbuttons aren't in sync with their commands after customizing
       let command = this.$(commandID);
-      if (command?.hasAttribute("disabled")) {
-        toolbarItem.setAttribute("disabled", command.getAttribute("disabled"));
-      }
+      toolbarItem.toggleAttribute(
+        "disabled",
+        !!command?.hasAttribute("disabled")
+      );
     }
 
     let wrappedContext = toolbarItem.getAttribute("wrapped-context");

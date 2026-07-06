@@ -39,15 +39,15 @@ class BookmarksTest : BaseTest() {
         createBookmarkItem(website.url.toString(), website.title, null)
 
         on.bookmarks.navigateToPage()
-            .mozVerify(BookmarksSelectors.bookmarkItemSelector(website.title))
+            .mozVerify(BookmarksSelectors.BOOKMARK_ITEM(website.title))
         on.bookmarks.createFolder(bookmarkFolderName)
-            .mozVerify(BookmarksSelectors.bookmarkItemSelector(bookmarkFolderName))
+            .mozVerify(BookmarksSelectors.BOOKMARK_ITEM(bookmarkFolderName))
         on.bookmarks.openItemMenu(website.title)
             .mozClick(BookmarksSelectors.EDIT_BUTTON)
         on.bookmarks.setParentFolder(bookmarkFolderName)
             .saveEditBookmark()
             .createFolder("My Folder 2")
-            .mozVerify(BookmarksSelectors.bookmarkItemSelector("My Folder 2"))
+            .mozVerify(BookmarksSelectors.BOOKMARK_ITEM("My Folder 2"))
         on.bookmarks.openItemMenu("My Folder 2")
             .mozClick(BookmarksSelectors.EDIT_BUTTON)
         on.bookmarks.setParentFolder(bookmarkFolderName)
@@ -55,13 +55,13 @@ class BookmarksTest : BaseTest() {
             .openItemMenu(bookmarkFolderName)
             .mozClick(BookmarksSelectors.DELETE_BUTTON)
             .mozClick(BookmarksSelectors.CANCEL_FOLDER_DELETION_BUTTON)
-            .mozVerify(BookmarksSelectors.bookmarkItemSelector(bookmarkFolderName))
+            .mozVerify(BookmarksSelectors.BOOKMARK_ITEM(bookmarkFolderName))
         on.bookmarks.openItemMenu(bookmarkFolderName)
             .mozClick(BookmarksSelectors.DELETE_BUTTON)
             .mozClick(BookmarksSelectors.DELETE_BUTTON)
-            .mozVerifyElementAbsent(BookmarksSelectors.bookmarkItemSelector(bookmarkFolderName))
-            .mozVerifyElementAbsent(BookmarksSelectors.bookmarkItemSelector("My Folder 2"))
-            .mozVerifyElementAbsent(BookmarksSelectors.bookmarkItemSelector(website.title))
+            .mozVerifyElementAbsent(BookmarksSelectors.BOOKMARK_ITEM(bookmarkFolderName))
+            .mozVerifyElementAbsent(BookmarksSelectors.BOOKMARK_ITEM("My Folder 2"))
+            .mozVerifyElementAbsent(BookmarksSelectors.BOOKMARK_ITEM(website.title))
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/2833693
@@ -73,7 +73,7 @@ class BookmarksTest : BaseTest() {
         createBookmarkItem(defaultWebPage.url.toString(), defaultWebPage.title, null)
 
         on.bookmarks.navigateToPage()
-            .mozVerify(BookmarksSelectors.bookmarkItemSelector(defaultWebPage.title))
+            .mozVerify(BookmarksSelectors.BOOKMARK_ITEM(defaultWebPage.title))
         on.bookmarks.openItemMenu(defaultWebPage.title)
             .mozClick(BookmarksSelectors.SHARE_BUTTON)
         on.shareOverlay.mozVerifyElementsByGroup("shareTabLayout")
@@ -135,8 +135,8 @@ class BookmarksTest : BaseTest() {
             .clickMultiSelectThreeDotButton()
             .mozClick(BookmarksSelectors.DELETE_BUTTON)
             .mozClick(BookmarksSelectors.DELETE_BUTTON)
-        on.bookmarks.mozVerifyElementAbsent(BookmarksSelectors.bookmarkItemSelector(webPages[0].title))
-            .mozVerifyElementAbsent(BookmarksSelectors.bookmarkItemSelector(webPages[1].title))
+        on.bookmarks.mozVerifyElementAbsent(BookmarksSelectors.BOOKMARK_ITEM(webPages[0].title))
+            .mozVerifyElementAbsent(BookmarksSelectors.BOOKMARK_ITEM(webPages[1].title))
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/2833712

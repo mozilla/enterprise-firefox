@@ -240,6 +240,9 @@ class nsWindow final : public nsIWidget {
   void* GetNativeData(uint32_t aDataType) override;
   nsresult SetTitle(const nsAString& aTitle) override;
   void SetIcon(const nsAString& aIconSpec) override;
+  // Apply WM_SETICON from an icon resource embedded in this process's
+  // executable. A resource ID of 0 reverts to IDI_APPICON.
+  void SetIconFromExeResource(uint16_t aResourceId);
   LayoutDeviceIntPoint WidgetToScreenOffset() override;
   LayoutDeviceIntMargin NormalSizeModeClientToWindowMargin() override;
   void EnableDragDrop(bool aEnable) override;
@@ -704,6 +707,10 @@ class nsWindow final : public nsIWidget {
   // is on, or Nothing if taskbar isn't hidden.
   mozilla::Maybe<UINT> GetHiddenTaskbarEdge();
 
+  void SetNativeLockedRegion();
+  void ReleaseNativeLockedRegion();
+  void MaybeUpdateNativeLockedRegion();
+
   static bool sTouchInjectInitialized;
   static InjectTouchInputPtr sInjectTouchFuncPtr;
   static uint32_t sInstanceCount;
@@ -716,6 +723,7 @@ class nsWindow final : public nsIWidget {
   static bool sIsRestoringSession;
   static bool sIsNativePointLocked;
   static bool sIsUsingRawInputForMouseMove;
+  static nsWindow* sNativePointLockedWindow;
 
   // Message postponement hack. See the definition-site of
   // WndProcUrgentInvocation::sDepth for details.

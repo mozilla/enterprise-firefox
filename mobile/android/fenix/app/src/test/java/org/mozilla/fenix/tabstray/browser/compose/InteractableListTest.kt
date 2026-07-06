@@ -556,6 +556,21 @@ class InteractableListTest {
         assertIs<InteractionState.List.None>(reorderState.hoveredItem)
     }
 
+    @Test
+    fun `WHEN reset is called THEN the state is reset`() {
+        val reorderState = fakeListInteractionState(listState = mockListState())
+        reorderState.onTouchSlopPassed(0f, false)
+        reorderState.onDragEnd()
+
+        reorderState.reset()
+
+        assertEquals(InteractionState.List.None, reorderState.draggedItem)
+        assertEquals(InteractionState.List.None, reorderState.hoveredItem)
+        assertNull(reorderState.highlightedRect)
+        assertEquals(InteractionMode.List.None, reorderState.interactionMode)
+        assertEquals(reorderState.previousItemAnimatableOffset.value, 0f)
+    }
+
     private fun mockListItem(
         key: String = "key",
         index: Int = 1,

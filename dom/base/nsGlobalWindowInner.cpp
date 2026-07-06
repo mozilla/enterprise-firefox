@@ -86,6 +86,7 @@
 #include "mozilla/ThrottledEventQueue.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/UniquePtr.h"
+#include "mozilla/Utf16.h"
 #include "mozilla/dom/AudioContext.h"
 #include "mozilla/dom/AutoEntryScript.h"
 #include "mozilla/dom/BarProps.h"
@@ -212,7 +213,6 @@
 #include "nsCRT.h"
 #include "nsCRTGlue.h"
 #include "nsCanvasFrame.h"
-#include "nsCharTraits.h"
 #include "nsCheapSets.h"
 #include "nsContentUtils.h"
 #include "nsCoord.h"
@@ -230,7 +230,6 @@
 #include "nsHistory.h"
 #include "nsIAddonPolicyService.h"
 #include "nsIArray.h"
-#include "nsIBaseWindow.h"
 #include "nsIBrowserChild.h"
 #include "nsICancelableRunnable.h"
 #include "nsIChannel.h"
@@ -5382,14 +5381,14 @@ nsGlobalWindowInner::ShowSlowScriptDialog(JSContext* aCx,
       size_t cutStart = 30;
       size_t cutLength = filenameUTF16.Length() - 60;
       MOZ_ASSERT(cutLength > 0);
-      if (NS_IS_LOW_SURROGATE(filenameUTF16[cutStart])) {
+      if (IsLowSurrogate(filenameUTF16[cutStart])) {
         // Don't truncate before the low surrogate, in case it's preceded by a
         // high surrogate and forms a single Unicode character.  Instead, just
         // include the low surrogate.
         ++cutStart;
         --cutLength;
       }
-      if (NS_IS_LOW_SURROGATE(filenameUTF16[cutStart + cutLength])) {
+      if (IsLowSurrogate(filenameUTF16[cutStart + cutLength])) {
         // Likewise, don't drop a trailing low surrogate here.  We want to
         // increase cutLength, since it might be 0 already so we can't very well
         // decrease it.
@@ -6482,7 +6481,6 @@ int32_t nsGlobalWindowInner::SetTimeoutOrInterval(
   if (!GetContextInternal() || !HasJSGlobal()) {
     // This window was already closed, or never properly initialized,
     // don't let a timer be scheduled on such a window.
-    aError.Throw(NS_ERROR_NOT_INITIALIZED);
     return 0;
   }
 

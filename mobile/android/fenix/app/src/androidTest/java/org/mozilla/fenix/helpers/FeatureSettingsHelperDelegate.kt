@@ -40,11 +40,9 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
         isHomepageSportsWidgetVisible = settings.showHomepageSportsWidget,
         etpPolicy = getETPPolicy(settings),
         isLocationPermissionEnabled = getFeaturePermission(PhoneFeature.LOCATION, settings),
-        isMenuRedesignCFREnabled = settings.shouldShowMenuCFR,
         isMicrosurveyEnabled = settings.microsurveyFeatureEnabled,
         shouldUseBottomToolbar = settings.shouldUseBottomToolbar,
         onboardingFeatureEnabled = settings.onboardingFeatureEnabled,
-        isUseNewCrashReporterFlow = settings.useNewCrashReporterFlow,
         isTabSwipeCFREnabled = settings.hasShownTabSwipeCFR,
         isTermsOfServiceAccepted = settings.hasAcceptedTermsOfService,
         openLinksInApp = getOpenLinksInApp(settings),
@@ -72,11 +70,9 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
     override var isHomepageSportsWidgetVisible: Boolean by updatedFeatureFlags::isHomepageSportsWidgetVisible
     override var etpPolicy: ETPPolicy by updatedFeatureFlags::etpPolicy
     override var isLocationPermissionEnabled: SitePermissionsRules.Action by updatedFeatureFlags::isLocationPermissionEnabled
-    override var isMenuRedesignCFREnabled: Boolean by updatedFeatureFlags::isMenuRedesignCFREnabled
     override var isMicrosurveyEnabled: Boolean by updatedFeatureFlags::isMicrosurveyEnabled
     override var shouldUseBottomToolbar: Boolean by updatedFeatureFlags::shouldUseBottomToolbar
     override var onboardingFeatureEnabled: Boolean by updatedFeatureFlags::onboardingFeatureEnabled
-    override var isUseNewCrashReporterFlow: Boolean by updatedFeatureFlags::isUseNewCrashReporterFlow
     override var isTabSwipeCFREnabled: Boolean by updatedFeatureFlags::isTabSwipeCFREnabled
     override var isTermsOfServiceAccepted: Boolean by updatedFeatureFlags::isTermsOfServiceAccepted
     override var openLinksInExternalApp: OpenLinksInApp by updatedFeatureFlags::openLinksInApp
@@ -110,7 +106,6 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
         settings.showWallpaperOnboarding = featureFlags.isWallpaperOnboardingEnabled
         settings.deleteSitePermissions = featureFlags.isDeleteSitePermissionsEnabled
         settings.shouldShowOpenInAppBanner = featureFlags.isOpenInAppBannerEnabled
-        settings.shouldShowMenuCFR = featureFlags.isMenuRedesignCFREnabled
         settings.microsurveyFeatureEnabled = featureFlags.isMicrosurveyEnabled
         settings.shouldUseBottomToolbar = featureFlags.shouldUseBottomToolbar
         settings.enableUnifiedTrustPanel = featureFlags.isUnifiedTrustPanelEnabled
@@ -119,7 +114,6 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
         setETPPolicy(featureFlags.etpPolicy)
         setPermissions(PhoneFeature.LOCATION, featureFlags.isLocationPermissionEnabled)
         settings.onboardingFeatureEnabled = featureFlags.onboardingFeatureEnabled
-        settings.useNewCrashReporterFlow = featureFlags.isUseNewCrashReporterFlow
         settings.hasShownTabSwipeCFR = !featureFlags.isTabSwipeCFREnabled
         settings.hasAcceptedTermsOfService = featureFlags.isTermsOfServiceAccepted
         setOpenLinksInApp(featureFlags.openLinksInApp)
@@ -145,11 +139,9 @@ private data class FeatureFlags(
     var isHomepageSportsWidgetVisible: Boolean,
     var etpPolicy: ETPPolicy,
     var isLocationPermissionEnabled: SitePermissionsRules.Action,
-    var isMenuRedesignCFREnabled: Boolean,
     var isMicrosurveyEnabled: Boolean,
     var shouldUseBottomToolbar: Boolean,
     var onboardingFeatureEnabled: Boolean,
-    var isUseNewCrashReporterFlow: Boolean,
     var isTabSwipeCFREnabled: Boolean,
     var isTermsOfServiceAccepted: Boolean,
     var openLinksInApp: OpenLinksInApp,

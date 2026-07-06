@@ -180,7 +180,7 @@ object MainMenuSelectors {
         strategy = SelectorStrategy.COMPOSE_BY_CONTENT_DESCRIPTION,
         value = getStringResource(R.string.browser_menu_change_wallpaper),
         description = "Change wallpaper Settings button",
-        groups = listOf("requiredForPage", "homePageMainMenuItems", "browserViewMainMenuItems"),
+        groups = listOf("homePageMainMenuItems"),
     )
 
     val SAVE_TO_COLLECTIONS_BUTTON = Selector(
@@ -212,11 +212,14 @@ object MainMenuSelectors {
         DEFAULT_BROWSER_BANNER_TITLE,
         DEFAULT_BROWSER_BANNER_SUBTITLE,
         DEFAULT_BROWSER_BANNER_DISMISS,
+        QUIT_FIREFOX_BUTTON,
         BACK_BUTTON,
         FORWARD_BUTTON,
         REFRESH_BUTTON,
         SHARE_BUTTON,
         DESKTOP_SITE_BUTTON,
+        DESKTOP_SITE_ON,
+        DESKTOP_SITE_OFF,
         MORE_BUTTON,
         CHANGE_WALLPAPER_BUTTON,
         SAVE_TO_COLLECTIONS_BUTTON,

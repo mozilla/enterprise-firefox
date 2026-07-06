@@ -705,7 +705,7 @@ button.tab-button:-moz-focusring {
   box-shadow: none;
 }
 
-section:not(:empty) ~ #empty-addons-message {
+section:not(:empty) ~ :is(#empty-addons-message, #empty-addons-promo) {
   display: none;
 }
 
@@ -730,5 +730,16 @@ section:not(:empty) ~ #empty-addons-message {
     height: 5px;
     border-radius: var(--border-radius-circle);
     background-color: var(--color-accent-primary);
+  }
+}
+
+@media -moz-pref("browser.nova.enabled") {
+  [is="recommended-footer"] > .amo-link-container,
+  #empty-addons-message {
+    display: none;
+  }
+
+  addon-list:not([type="extension"]) #empty-addons-promo {
+    display: none;
   }
 }

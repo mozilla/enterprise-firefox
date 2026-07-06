@@ -6973,13 +6973,6 @@ bool nsDisplayTransform::CreateWebRenderCommands(
   params.paired_with_perspective = mHasAssociatedPerspective;
   params.mDeferredTransformItem = deferredTransformItem;
   params.mAnimated = animated;
-  // Determine if we would have to rasterize any items in local raster space
-  // (i.e. disable subpixel AA). We don't always need to rasterize locally even
-  // if the stacking context is possibly animated (at the cost of potentially
-  // some false negatives with respect to will-change handling), so we pass in
-  // this determination separately to accurately match with when FLB would
-  // normally disable subpixel AA.
-  params.mRasterizeLocally = animated && Frame()->HasAnimationOfTransform();
   params.SetPreserve3D(mFrame->Extend3DContext() && !mIsTransformSeparator);
   params.clip =
       wr::WrStackingContextClip::ClipChain(aBuilder.CurrentClipChainId());
@@ -7960,8 +7953,9 @@ void nsDisplayText::RenderToContext(gfxContext* aCtx,
     params.state = nsTextFrame::PaintTextParams::PaintText;
   }
 
+  imgDrawingParams imgParams(aBuilder->GetImageDecodeFlags());
   f->PaintText(params, mVisIStartEdge, mVisIEndEdge, ToReferenceFrame(),
-               f->IsSelected(), aOpacity);
+               f->IsSelected(), imgParams, aOpacity);
 }
 
 // This could go to nsDisplayListInvalidation.h, but

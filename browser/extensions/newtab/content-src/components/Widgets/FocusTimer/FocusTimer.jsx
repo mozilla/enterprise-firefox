@@ -225,6 +225,10 @@ export const FocusTimer = ({
   } = useWidgetCelebration(widgetCelebrationRef);
   // Guards against a double-fire that would re-toggle SET_TYPE.
   const celebrationCompletedRef = useRef(false);
+  // The timer is shared across open newtab/home pages, but each page fires its
+  // own end-of-session switch. Set the next type directly rather than toggling
+  // the shared value, so two pages don't toggle it and cancel out.
+  const completingTypeRef = useRef(timerType);
 
   useEffect(() => {
     if (isCelebrating) {
@@ -248,18 +252,20 @@ export const FocusTimer = ({
     celebrationCompletedRef.current = true;
     resetProgressCircle();
 
+    const completedType = completingTypeRef.current;
+    const nextType = completedType === "focus" ? "break" : "focus";
+    const userAction =
+      completedType === "focus"
+        ? USER_ACTION_TYPES.TIMER_TOGGLE_BREAK
+        : USER_ACTION_TYPES.TIMER_TOGGLE_FOCUS;
+
     batch(() => {
       dispatch(
         ac.AlsoToMain({
           type: at.WIDGETS_TIMER_SET_TYPE,
-          data: { timerType: timerType === "focus" ? "break" : "focus" },
+          data: { timerType: nextType },
         })
       );
-
-      const userAction =
-        timerType === "focus"
-          ? USER_ACTION_TYPES.TIMER_TOGGLE_BREAK
-          : USER_ACTION_TYPES.TIMER_TOGGLE_FOCUS;
 
       dispatch(
         ac.OnlyToMain({
@@ -282,13 +288,7 @@ export const FocusTimer = ({
     });
 
     completeCelebration();
-  }, [
-    completeCelebration,
-    dispatch,
-    resetProgressCircle,
-    timerType,
-    widgetSize,
-  ]);
+  }, [completeCelebration, dispatch, resetProgressCircle, widgetSize]);
 
   const showSystemNotifications =
     prefs["widgets.focusTimer.showSystemNotifications"];
@@ -330,6 +330,7 @@ export const FocusTimer = ({
       );
     });
 
+    completingTypeRef.current = timerType;
     celebrationCompletedRef.current = false;
 
     // animate the progress circle to turn solid green

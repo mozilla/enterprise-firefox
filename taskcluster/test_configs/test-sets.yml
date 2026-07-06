@@ -31,6 +31,7 @@ web-platform-tests:
     - web-platform-tests-canvas
     - web-platform-tests-webcodecs
     - web-platform-tests-eme
+    - web-platform-tests-aam
 
 web-platform-tests-2404-tsan:
     - web-platform-tests
@@ -41,6 +42,7 @@ web-platform-tests-2404-tsan:
     - web-platform-tests-canvas
     - web-platform-tests-webcodecs
     - web-platform-tests-eme
+    - web-platform-tests-aam
 
 web-platform-tests-backlog:
     - web-platform-tests-backlog
@@ -105,6 +107,7 @@ browsertime:
     - browsertime-benchmark-wasm
     - browsertime-youtube-playback
     - browsertime-youtube-playback-power
+    - browsertime-media-seek
     - browsertime-custom
     - browsertime-first-install
     - browsertime-responsiveness
@@ -114,6 +117,7 @@ browsertime:
     - browsertime-speculative
     - browsertime-throttled
     - browsertime-pageload-benchmark
+    - browsertime-nav-bench
     - browsertime-indexeddb
     - browsertime-video-playback-latency
     - browsertime-network-bench
@@ -141,6 +145,7 @@ browsertime-high-priority:
 
 browsertime-ref-hw:
     - browsertime-benchmark
+    - browsertime-nav-bench
 
 awsy:
     - awsy
@@ -576,6 +581,7 @@ macosx64-talos:
 
 macosx1500-64-perftests:
     - browsertime-benchmark
+    - browsertime-nav-bench
     - browsertime-tp6-essential
 
 # Android

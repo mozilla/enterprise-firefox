@@ -1,14 +1,4 @@
 {
-  "nova": {
-    "padding": {
-      "block": {
-        "value": "1px"
-      },
-      "inline": {
-        "value": "calc({space.xsmall} + {space.xxsmall})"
-      }
-    }
-  },
   "background": {
     "color": {
       "@base": {
@@ -52,6 +42,9 @@
     },
     "inline": {
       "value": "{space.xsmall}"
+    },
+    "nova-inline": {
+      "value": "calc({space.xsmall} + {space.xxsmall})"
     }
   },
   "text": {

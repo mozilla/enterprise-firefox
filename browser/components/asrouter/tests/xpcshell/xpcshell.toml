@@ -28,10 +28,6 @@ support-files = ["../schemas/*.schema.json"]
 
 ["test_CFRMessageProvider.js"]
 
-["test_InflightAssetsMessageProvider.js"]
-
-["test_NimbusRolloutMessageProvider.js"]
-
 ["test_OnboardingMessageProvider.js"]
 
 ["test_PanelTestProvider.js"]

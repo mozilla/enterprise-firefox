@@ -70,17 +70,31 @@ document.addEventListener(
           break;
         case "context_pinTab":
           gBrowser.pinTab(TabContextMenu.contextTab, {
-            telemetrySource: lazy.TabMetrics.METRIC_SOURCE.TAB_MENU,
+            metricsContext: lazy.TabMetrics.userTriggeredContext(
+              lazy.TabMetrics.METRIC_SOURCE.TAB_MENU
+            ),
           });
           break;
         case "context_unpinTab":
-          gBrowser.unpinTab(TabContextMenu.contextTab);
+          gBrowser.unpinTab(TabContextMenu.contextTab, {
+            metricsContext: lazy.TabMetrics.userTriggeredContext(
+              lazy.TabMetrics.METRIC_SOURCE.TAB_MENU
+            ),
+          });
           break;
         case "context_pinSelectedTabs":
-          gBrowser.pinMultiSelectedTabs();
+          gBrowser.pinMultiSelectedTabs(
+            lazy.TabMetrics.userTriggeredContext(
+              lazy.TabMetrics.METRIC_SOURCE.TAB_MENU
+            )
+          );
           break;
         case "context_unpinSelectedTabs":
-          gBrowser.unpinMultiSelectedTabs();
+          gBrowser.unpinMultiSelectedTabs(
+            lazy.TabMetrics.userTriggeredContext(
+              lazy.TabMetrics.METRIC_SOURCE.TAB_MENU
+            )
+          );
           break;
         case "context_duplicateTab":
           duplicateTabIn(TabContextMenu.contextTab, "tab");
@@ -123,28 +137,32 @@ document.addEventListener(
           TabContextMenu.closeContextTabs();
           break;
         case "context_closeDuplicateTabs":
-          gBrowser.removeDuplicateTabs(
-            TabContextMenu.contextTab,
-            lazy.TabMetrics.userTriggeredContext()
-          );
+          gBrowser.removeDuplicateTabs(TabContextMenu.contextTab, {
+            metricsContext: lazy.TabMetrics.userTriggeredContext(
+              lazy.TabMetrics.METRIC_SOURCE.TAB_MENU
+            ),
+          });
           break;
         case "context_closeTabsToTheStart":
-          gBrowser.removeTabsToTheStartFrom(
-            TabContextMenu.contextTab,
-            lazy.TabMetrics.userTriggeredContext()
-          );
+          gBrowser.removeTabsToTheStartFrom(TabContextMenu.contextTab, {
+            metricsContext: lazy.TabMetrics.userTriggeredContext(
+              lazy.TabMetrics.METRIC_SOURCE.TAB_MENU
+            ),
+          });
           break;
         case "context_closeTabsToTheEnd":
-          gBrowser.removeTabsToTheEndFrom(
-            TabContextMenu.contextTab,
-            lazy.TabMetrics.userTriggeredContext()
-          );
+          gBrowser.removeTabsToTheEndFrom(TabContextMenu.contextTab, {
+            metricsContext: lazy.TabMetrics.userTriggeredContext(
+              lazy.TabMetrics.METRIC_SOURCE.TAB_MENU
+            ),
+          });
           break;
         case "context_closeOtherTabs":
-          gBrowser.removeAllTabsBut(
-            TabContextMenu.contextTab,
-            lazy.TabMetrics.userTriggeredContext()
-          );
+          gBrowser.removeAllTabsBut(TabContextMenu.contextTab, {
+            metricsContext: lazy.TabMetrics.userTriggeredContext(
+              lazy.TabMetrics.METRIC_SOURCE.TAB_MENU
+            ),
+          });
           break;
         case "context_unloadTab":
           TabContextMenu.explicitUnloadTabs();
@@ -180,12 +198,11 @@ document.addEventListener(
             let tabGroup = gBrowser.getTabGroupById(tabGroupId);
             // Tabs need to be removed by their owning `Tabbrowser` or else
             // there are errors.
-            tabGroup.documentGlobal.gBrowser.removeTabGroup(
-              tabGroup,
-              lazy.TabMetrics.userTriggeredContext(
+            tabGroup.documentGlobal.gBrowser.removeTabGroup(tabGroup, {
+              metricsContext: lazy.TabMetrics.userTriggeredContext(
                 lazy.TabMetrics.METRIC_SOURCE.TAB_OVERFLOW_MENU
-              )
-            );
+              ),
+            });
           }
           break;
 

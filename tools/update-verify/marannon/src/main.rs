@@ -152,7 +152,7 @@ fn main() -> Result<()> {
         &args.target_platform,
         &args.to_installer,
         &args.channel,
-        &args.appname,
+        &args.product,
         args.cert_dir.as_deref(),
         &args.cert_override,
         tests,

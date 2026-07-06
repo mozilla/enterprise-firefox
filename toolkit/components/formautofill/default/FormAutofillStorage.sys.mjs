@@ -26,6 +26,21 @@ const PROFILE_JSON_FILE_NAME = "autofill-profiles.json";
 
 class Addresses extends AddressesBase {}
 
+/**
+ * An empty, read-only passport collection.
+ *
+ * The passport storage backend is not implemented yet. Until it is, expose an
+ * empty collection so passport detection can be enabled without
+ * FormAutofillStorageBase throwing NS_ERROR_NOT_IMPLEMENTED (for example from
+ * updateSavedFieldNames, which runs on focus and queries every available data
+ * type's saved field names).
+ */
+class Passports {
+  async getSavedFieldNames() {
+    return new Set();
+  }
+}
+
 class CreditCards extends CreditCardsBase {
   constructor(store) {
     super(store);
@@ -72,6 +87,13 @@ export class FormAutofillStorage extends FormAutofillStorageBase {
       this._creditCards = new CreditCards(this._store);
     }
     return this._creditCards;
+  }
+
+  getPassports() {
+    if (!this._passports) {
+      this._passports = new Passports();
+    }
+    return this._passports;
   }
 
   /**

@@ -13,7 +13,10 @@
  */
 
 import { searchBrowsingHistory as implSearchBrowsingHistory } from "moz-src:///browser/components/aiwindow/models/SearchBrowsingHistory.sys.mjs";
-import { closeTabsAction } from "moz-src:///browser/components/aiwindow/models/ManageTabs.sys.mjs";
+import {
+  manageTabsAction,
+  TAB_ACTIONS,
+} from "moz-src:///browser/components/aiwindow/models/ManageTabs.sys.mjs";
 import { WCSMerinoClient } from "moz-src:///browser/components/aiwindow/models/WCSMerinoClient.sys.mjs";
 import { PageExtractorParent } from "resource://gre/actors/PageExtractorParent.sys.mjs";
 import {
@@ -339,7 +342,7 @@ export const toolsConfig = [
           action: {
             type: "string",
             description: "The action to be performed on the tabs.",
-            enum: ["close_tabs"],
+            enum: TAB_ACTIONS,
           },
           ask_confirmation: {
             type: "boolean",
@@ -347,7 +350,7 @@ export const toolsConfig = [
               "Whether to show the user the list of tabs and require their confirmation " +
               "before executing the action. Default to true. Only set to false when " +
               "the user's request unambiguously identifies the specific tabs to act on, " +
-              "and the action does not close all (or nearly all) of the user's open tabs. " +
+              "and the action does not affect all (or nearly all) of the user's open tabs. " +
               "When in doubt, set to true.",
           },
           url_tokens: {
@@ -359,6 +362,13 @@ export const toolsConfig = [
             minItems: 1,
             description:
               "List of URL tokens identifying the tabs the action should be taken on.",
+          },
+          label: {
+            type: "string",
+            description:
+              "Optional concise label (1-3 words) for the new tab group. " +
+              "Only used when action is 'group_tabs'. Derive from the common " +
+              "theme of the selected tabs. Omit when no clear theme exists.",
           },
         },
         required: ["action", "ask_confirmation", "url_tokens"],
@@ -1203,7 +1213,7 @@ function countOpenAIWindowTabs() {
  * @returns {"unsupported" | "tab_mention" | "description"}
  */
 function getActionType(conversation, action) {
-  if (action !== "close_tabs") {
+  if (!TAB_ACTIONS.includes(action)) {
     return "unsupported";
   }
 
@@ -1219,6 +1229,8 @@ function getActionType(conversation, action) {
  * @param {ChatConversation} conversation
  * @param {string} [mode] - Location/mode of the AI Window for telemetry
  * @param {string} [model] - Identifier of the model that invoked the tool
+ * @param {string} [toolCallId] - Id of the tool call, used to register the
+ *   confirmation's token -> permanentKey map
  * @returns {Promise<{ toolResult: object, uiData: ?object }>}
  *   `toolResult` is appended as the body of the `role: "tool"` message sent
  *   to the model. `uiData` is attached to the assistant message for UI
@@ -1228,10 +1240,16 @@ export async function manageTabs(
   toolParams,
   conversation,
   mode = "",
-  model = ""
+  model = "",
+  toolCallId = ""
 ) {
   const params = toolParams && typeof toolParams === "object" ? toolParams : {};
-  const { action, ask_confirmation = true, url_tokens = [] } = params;
+  const {
+    action,
+    ask_confirmation = true,
+    url_tokens = [],
+    label = "",
+  } = params;
 
   const actionType = getActionType(conversation, action);
 
@@ -1256,6 +1274,20 @@ export async function manageTabs(
     mentions: conversation.getLatestUserMentionCount(),
     submit_type: conversation?.lastSubmitType || "",
   });
+
+  if (actionType === "unsupported") {
+    lazy.ToolUITelemetry.recordBrowserActionComplete({
+      ...baseTelemetryInfo,
+      result: "error",
+      tabs_affected: 0,
+      undo_available: false,
+      error: "unsupported_action",
+    });
+    return {
+      toolResult: `Error: Unsupported manage_tabs action "${action}".`,
+      uiData: null,
+    };
+  }
 
   if (!Array.isArray(url_tokens)) {
     lazy.ToolUITelemetry.recordBrowserActionComplete({
@@ -1289,24 +1321,17 @@ export async function manageTabs(
     };
   }
 
-  if (action === "close_tabs") {
-    return closeTabsAction(
-      { validUrls, ask_confirmation, mode, model },
-      conversation
-    );
-  }
-
-  lazy.ToolUITelemetry.recordBrowserActionComplete({
-    ...baseTelemetryInfo,
-    result: "error",
-    tabs_affected: 0,
-    undo_available: false,
-    error: "unsupported_action",
-  });
-  return {
-    toolResult: `Error: Unsupported action for manage_tabs: ${action}`,
-    uiData: null,
-  };
+  return manageTabsAction(
+    {
+      action,
+      validUrls,
+      ask_confirmation,
+      label,
+      baseTelemetryInfo,
+      toolCallId,
+    },
+    conversation
+  );
 }
 
 export const toolFns = {

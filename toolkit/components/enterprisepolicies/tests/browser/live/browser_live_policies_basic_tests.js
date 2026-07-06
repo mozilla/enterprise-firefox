@@ -3,24 +3,11 @@
 
 "use strict";
 
-add_setup(async () => {
-  registerCleanupFunction(async () => {
-    await clearPolicyEngine();
-  });
-  await EnterprisePolicyTesting.ensureRemotePoliciesMockServer(
-    registerCleanupFunction
-  );
-});
-
 /**
  * This is a copy of test_simple_policies from toolkit/components/enterprisepolicies/tests/browser/browser_policies_basic_tests.js
- * except that the policies are served through the RemotePoliciesProvider polling from a mock server
+ * except that the policies are served through the RemotePoliciesProvider from a stubbed endpoint
  */
 add_task(async function test_simple_remote_policies() {
-  let { Policies } = ChromeUtils.importESModule(
-    "resource:///modules/policies/Policies.sys.mjs"
-  );
-
   let policy0Ran = false,
     policy1Ran = false,
     policy2Ran = false,
@@ -61,8 +48,7 @@ add_task(async function test_simple_remote_policies() {
     },
   };
 
-  // Ensuring that the endpoint /api/browser/policies was hit
-  await EnterprisePolicyTesting.servePolicyWithJson(
+  await EnterprisePolicyTesting.setupEngineWithRemotePolicies(
     {
       policies: {
         simple_policy0: true,

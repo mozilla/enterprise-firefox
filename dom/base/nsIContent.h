@@ -20,6 +20,7 @@ struct URLExtraData;
 namespace dom {
 struct BindContext;
 class CharacterDataBuffer;
+class CustomElementRegistry;
 struct UnbindContext;
 class ShadowRoot;
 class HTMLSlotElement;

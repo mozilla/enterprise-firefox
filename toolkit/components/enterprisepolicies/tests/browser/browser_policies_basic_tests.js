@@ -127,9 +127,9 @@ add_task(async function test_simple_policies() {
 
 add_task(async function test_policy_cleanup() {
   await EnterprisePolicyTesting.setupPolicyEngineWithJson("");
-  is(
+  Assert.deepEqual(
     Services.policies.getActivePolicies(),
-    undefined,
+    {},
     "No policies should be defined"
   );
   is(

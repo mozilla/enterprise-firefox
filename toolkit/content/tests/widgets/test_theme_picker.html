@@ -1,0 +1,132 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>ThemePicker Tests</title>
+    <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
+    <script src="chrome://mochikit/content/tests/SimpleTest/EventUtils.js"></script>
+    <link rel="stylesheet" href="chrome://global/skin/in-content/common.css" />
+    <link
+      rel="stylesheet"
+      href="chrome://mochikit/content/tests/SimpleTest/test.css"
+    />
+    <script
+      type="module"
+      src="chrome://global/content/elements/theme-picker.mjs"
+    ></script>
+    <script>
+      const DEFAULT_THEME_ID = "default-theme@mozilla.org";
+
+      async function renderThemePicker() {
+        await customElements.whenDefined("theme-picker");
+        let content = document.getElementById("content");
+        content.textContent = "";
+        let picker = document.createElement("theme-picker");
+        content.append(picker);
+        await picker.updateComplete;
+        return picker;
+      }
+
+      // The mocked controller populates the picker with themes and default
+      // state when it is connected to the DOM.
+      add_task(async function testInitialState() {
+        let picker = await renderThemePicker();
+
+        ok(picker.themes.length, "Theme picker is populated with themes.");
+        is(
+          picker.activeThemeId,
+          DEFAULT_THEME_ID,
+          "The default theme is active initially."
+        );
+        is(picker.appearance, "device", "Device appearance is set initially.");
+        ok(!picker.nativeTheme, "Native theme is off initially.");
+
+        let items = picker.shadowRoot.querySelectorAll(
+          "moz-visual-picker-item"
+        );
+        is(
+          items.length,
+          picker.themes.length,
+          "A picker item is rendered for each theme."
+        );
+
+        let segmentedControl = picker.shadowRoot.querySelector(
+          "moz-segmented-control"
+        );
+        is(
+          segmentedControl.value,
+          "device",
+          "The segmented control reflects the current appearance."
+        );
+      });
+
+      // Changing appearance, theme, and native theme each dispatch a
+      // themechange event with the expected detail, and the mocked controller
+      // reflects the change back onto the picker.
+      add_task(async function testThemeChangeEvents() {
+        let picker = await renderThemePicker();
+
+        let events = [];
+        picker.addEventListener("themechange", e => events.push(e.detail));
+
+        picker.appearanceChange({ target: { value: "dark" } });
+        await picker.updateComplete;
+        is(picker.appearance, "dark", "Appearance is updated to dark.");
+
+        let secondTheme = picker.themes[1];
+        picker.themeChange({ target: { value: secondTheme.id } });
+        await picker.updateComplete;
+        is(
+          picker.activeThemeId,
+          secondTheme.id,
+          "The active theme is updated."
+        );
+
+        picker.nativeThemeChange({ target: { checked: true } });
+        await picker.updateComplete;
+        ok(picker.nativeTheme, "Native theme is turned on.");
+
+        SimpleTest.isDeeply(
+          events,
+          [
+            { property: "appearance", value: "dark" },
+            { property: "theme", value: secondTheme.id },
+            { property: "nativeTheme", value: true },
+          ],
+          "themechange events are dispatched with the expected details."
+        );
+      });
+
+      // The native theme checkbox is only enabled while the default theme is
+      // active.
+      add_task(async function testNativeThemeCheckboxDisabled() {
+        let picker = await renderThemePicker();
+
+        let checkbox = picker.shadowRoot.querySelector("moz-checkbox");
+        ok(
+          !checkbox.disabled,
+          "The native theme checkbox is enabled for the default theme."
+        );
+
+        picker.themeChange({ target: { value: picker.themes[1].id } });
+        await picker.updateComplete;
+        ok(
+          checkbox.disabled,
+          "The native theme checkbox is disabled for non-default themes."
+        );
+
+        picker.themeChange({ target: { value: DEFAULT_THEME_ID } });
+        await picker.updateComplete;
+        ok(
+          !checkbox.disabled,
+          "The native theme checkbox is re-enabled for the default theme."
+        );
+      });
+    </script>
+  </head>
+  <body>
+    <p id="display"></p>
+    <div id="content" style="display: none"></div>
+    <pre id="test"></pre>
+  </body>
+</html>

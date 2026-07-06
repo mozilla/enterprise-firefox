@@ -35,7 +35,9 @@ class BlockReflowState {
           mHasLineAdjacentToTop(false),
           mBlockNeedsFloatManager(false),
           mIsLineLayoutEmpty(false),
-          mCanHaveOverflowMarkers(false) {}
+          mCanHaveOverflowMarkers(false),
+          mShouldApplyTextBoxTrimStart(false),
+          mShouldApplyTextBoxTrimEnd(false) {}
 
     // Set in the BlockReflowState constructor when reflowing a "block margin
     // root" frame (i.e. a frame with any of the NS_BLOCK_BFC flag set, for
@@ -85,6 +87,11 @@ class BlockReflowState {
 
     // Set when we need text-overflow or -webkit-line-clamp processing.
     bool mCanHaveOverflowMarkers : 1;
+
+    // Set when the block or one of its ancestors requests text-box-trim
+    // on the trim-start or trim-end side.
+    bool mShouldApplyTextBoxTrimStart : 1;
+    bool mShouldApplyTextBoxTrimEnd : 1;
   };
 
  public:

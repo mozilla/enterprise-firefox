@@ -1,5 +1,18 @@
 {
-  "$schema": "http://json-schema.org/draft-04/schema#",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$comment": "Validation uses standard JSON Schema. Before validating, Firefox normalizes platform input in PolicySchemaValidator.sys.mjs: a value delivered as a JSON string is parsed where contentMediaType is application/json, and 0/1 integers become booleans. After validation, strings with format uri become URL objects, and a list entry that fails validation is dropped and logged rather than discarding the whole policy.",
+  "definitions": {
+    "url": { "type": "string", "format": "uri" },
+    "urlOrEmpty": {
+      "type": "string",
+      "anyOf": [{ "format": "uri" }, { "maxLength": 0 }]
+    },
+    "origin": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^([Ff][Ii][Ll][Ee]://.*|[Hh][Tt][Tt][Pp][Ss]?://[^/]+/?)$"
+    }
+  },
   "type": "object",
   "properties": {
     "3rdparty": {
@@ -32,7 +45,8 @@
           "type": "object",
           "patternProperties": {
             "^.*$": {
-              "type": "JSON"
+              "type": ["object", "array"],
+              "contentMediaType": "application/json"
             }
           }
         }
@@ -316,7 +330,7 @@
       "examples": ["106."]
     },
     "AppUpdateURL": {
-      "type": "URL",
+      "$ref": "#/definitions/url",
       "x-category": "Device update settings",
       "description": "Change the URL for application update if you are providing Firefox updates from a custom update server.",
       "examples": ["https://yoursite.com"]
@@ -404,7 +418,8 @@
       "examples": [true, false]
     },
     "AutoLaunchProtocolsFromOrigins": {
-      "type": ["array", "JSON"],
+      "type": "array",
+      "contentMediaType": "application/json",
       "x-category": "Network security",
       "description": "Define a list of external protocols that can be used from listed origins without prompting the user.",
       "examples": [
@@ -420,9 +435,7 @@
         "properties": {
           "allowed_origins": {
             "type": "array",
-            "items": {
-              "type": "origin"
-            }
+            "items": { "$ref": "#/definitions/origin" }
           },
           "protocol": {
             "type": "string"
@@ -510,10 +523,10 @@
             "type": "string"
           },
           "URL": {
-            "type": "URL"
+            "$ref": "#/definitions/url"
           },
           "Favicon": {
-            "type": "URLorEmpty"
+            "$ref": "#/definitions/urlOrEmpty"
           },
           "Placement": {
             "type": "string",
@@ -590,7 +603,8 @@
       ],
       "properties": {
         "Default": {
-          "type": ["array", "JSON"],
+          "type": "array",
+          "contentMediaType": "application/json",
           "items": {
             "properties": {
               "name": {
@@ -785,24 +799,15 @@
       "properties": {
         "Allow": {
           "type": "array",
-          "strict": false,
-          "items": {
-            "type": "origin"
-          }
+          "items": { "$ref": "#/definitions/origin" }
         },
         "AllowSession": {
           "type": "array",
-          "strict": false,
-          "items": {
-            "type": "origin"
-          }
+          "items": { "$ref": "#/definitions/origin" }
         },
         "Block": {
           "type": "array",
-          "strict": false,
-          "items": {
-            "type": "origin"
-          }
+          "items": { "$ref": "#/definitions/origin" }
         },
         "Default": {
           "type": "boolean"
@@ -850,13 +855,16 @@
       "description": "Configure crash report submission settings.",
       "examples": [
         {
-          "ForceAutoSubmit": true
+          "Enabled": false
+        },
+        {
+          "Enabled": true
         }
       ],
       "x-category": "Cloud reporting",
       "type": "object",
       "properties": {
-        "ForceAutoSubmit": {
+        "Enabled": {
           "type": "boolean"
         }
       }
@@ -1115,18 +1123,25 @@
       "examples": []
     },
     "DisplayBookmarksToolbar": {
-      "type": ["boolean", "string"],
+      "anyOf": [
+        { "type": "boolean" },
+        { "type": "string", "enum": ["always", "never", "newtab"] }
+      ],
       "x-category": "Bookmarks",
       "description": "Set the initial state of the bookmarks toolbar.",
-      "examples": ["always"],
-      "enum": ["always", "never", "newtab"]
+      "examples": ["always"]
     },
     "DisplayMenuBar": {
-      "type": ["boolean", "string"],
+      "anyOf": [
+        { "type": "boolean" },
+        {
+          "type": "string",
+          "enum": ["always", "never", "default-on", "default-off"]
+        }
+      ],
       "x-category": "Browser UI",
       "description": "Set the state of the menubar.",
-      "examples": ["always"],
-      "enum": ["always", "never", "default-on", "default-off"]
+      "examples": ["always"]
     },
     "DNSOverHTTPS": {
       "type": "object",
@@ -1145,9 +1160,7 @@
         "Enabled": {
           "type": "boolean"
         },
-        "ProviderURL": {
-          "type": "URLorEmpty"
-        },
+        "ProviderURL": { "$ref": "#/definitions/urlOrEmpty" },
         "ExcludedDomains": {
           "type": "array",
           "items": {
@@ -1232,10 +1245,7 @@
         },
         "Exceptions": {
           "type": "array",
-          "strict": false,
-          "items": {
-            "type": "origin"
-          }
+          "items": { "$ref": "#/definitions/origin" }
         },
         "Category": {
           "type": "string",
@@ -1337,7 +1347,8 @@
       }
     },
     "ExtensionSettings": {
-      "type": ["object", "JSON"],
+      "type": "object",
+      "contentMediaType": "application/json",
       "x-category": "Extensions",
       "description": "Manage all aspects of extensions.",
       "examples": [
@@ -1417,12 +1428,18 @@
               "items": {
                 "type": "string"
               }
+            },
+            "allowed_permissions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         }
       },
       "patternProperties": {
-        "^.*$": {
+        "^(?!\\*$).*$": {
           "type": "object",
           "properties": {
             "installation_mode": {
@@ -1443,9 +1460,7 @@
             "updates_disabled": {
               "type": "boolean"
             },
-            "update_url": {
-              "type": "URL"
-            },
+            "update_url": { "$ref": "#/definitions/url" },
             "default_area": {
               "type": "string",
               "enum": ["navbar", "menupanel"]
@@ -1469,6 +1484,12 @@
               "type": "boolean"
             },
             "blocked_permissions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "allowed_permissions": {
               "type": "array",
               "items": {
                 "type": "string"
@@ -1609,7 +1630,8 @@
       "examples": [true, false]
     },
     "Handlers": {
-      "type": ["object", "JSON"],
+      "type": "object",
+      "contentMediaType": "application/json",
       "x-category": "Security",
       "description": "Configure default application handlers.",
       "examples": [
@@ -1702,18 +1724,13 @@
         }
       ],
       "properties": {
-        "URL": {
-          "type": "URL"
-        },
+        "URL": { "$ref": "#/definitions/url" },
         "Locked": {
           "type": "boolean"
         },
         "Additional": {
           "type": "array",
-          "strict": false,
-          "items": {
-            "type": "URL"
-          }
+          "items": { "$ref": "#/definitions/url" }
         },
         "StartPage": {
           "type": "string",
@@ -1723,13 +1740,11 @@
     },
     "HttpAllowlist": {
       "type": "array",
+      "items": { "$ref": "#/definitions/origin" },
       "x-category": "Network security",
       "description": "Configure sites that will not be upgraded to HTTPS.",
       "examples": [["http://example.org", "http://example.edu"]],
-      "strict": false,
-      "items": {
-        "type": "origin"
-      }
+      "strict": false
     },
     "HttpsOnlyMode": {
       "type": "string",
@@ -1751,10 +1766,7 @@
       "properties": {
         "Allow": {
           "type": "array",
-          "strict": false,
-          "items": {
-            "type": "origin"
-          }
+          "items": { "$ref": "#/definitions/origin" }
         },
         "Default": {
           "type": "boolean"
@@ -1837,9 +1849,7 @@
           "children": {
             "items": {
               "properties": {
-                "favicon": {
-                  "type": "URL"
-                },
+                "favicon": { "$ref": "#/definitions/url" },
                 "name": {
                   "type": "string"
                 },
@@ -1851,7 +1861,8 @@
                 },
                 "children": {
                   "items": {
-                    "type": "JSON"
+                    "type": ["object", "array"],
+                    "contentMediaType": "application/json"
                   },
                   "type": "array"
                 }
@@ -1860,9 +1871,7 @@
             },
             "type": "array"
           },
-          "favicon": {
-            "type": "URL"
-          },
+          "favicon": { "$ref": "#/definitions/url" },
           "name": {
             "type": "string"
           },
@@ -1875,7 +1884,8 @@
         },
         "type": "object"
       },
-      "type": ["array", "JSON"],
+      "type": "array",
+      "contentMediaType": "application/json",
       "x-category": "Bookmarks",
       "description": "Configures a list of bookmarks managed by an administrator that cannot be changed by the user.",
       "examples": [
@@ -1952,7 +1962,7 @@
       "examples": ["https://example.org"]
     },
     "OverridePostUpdatePage": {
-      "type": "URLorEmpty",
+      "$ref": "#/definitions/urlOrEmpty",
       "x-category": "Startup",
       "description": "Override the upgrade page.",
       "examples": ["http://example.org"]
@@ -1965,13 +1975,11 @@
     },
     "PasswordManagerExceptions": {
       "type": "array",
+      "items": { "$ref": "#/definitions/origin" },
       "x-category": "Password manager",
       "description": "Prevent Firefox from saving passwords for specific sites.",
       "examples": [["https://example.org", "https://example.edu"]],
-      "strict": false,
-      "items": {
-        "type": "origin"
-      }
+      "strict": false
     },
     "PDFjs": {
       "type": "object",
@@ -2048,17 +2056,11 @@
           "properties": {
             "Allow": {
               "type": "array",
-              "strict": false,
-              "items": {
-                "type": "origin"
-              }
+              "items": { "$ref": "#/definitions/origin" }
             },
             "Block": {
               "type": "array",
-              "strict": false,
-              "items": {
-                "type": "origin"
-              }
+              "items": { "$ref": "#/definitions/origin" }
             },
             "BlockNewRequests": {
               "type": "boolean"
@@ -2073,17 +2075,11 @@
           "properties": {
             "Allow": {
               "type": "array",
-              "strict": false,
-              "items": {
-                "type": "origin"
-              }
+              "items": { "$ref": "#/definitions/origin" }
             },
             "Block": {
               "type": "array",
-              "strict": false,
-              "items": {
-                "type": "origin"
-              }
+              "items": { "$ref": "#/definitions/origin" }
             },
             "BlockNewRequests": {
               "type": "boolean"
@@ -2102,17 +2098,11 @@
             },
             "Allow": {
               "type": "array",
-              "strict": false,
-              "items": {
-                "type": "origin"
-              }
+              "items": { "$ref": "#/definitions/origin" }
             },
             "Block": {
               "type": "array",
-              "strict": false,
-              "items": {
-                "type": "origin"
-              }
+              "items": { "$ref": "#/definitions/origin" }
             },
             "Locked": {
               "type": "boolean"
@@ -2124,17 +2114,11 @@
           "properties": {
             "Allow": {
               "type": "array",
-              "strict": false,
-              "items": {
-                "type": "origin"
-              }
+              "items": { "$ref": "#/definitions/origin" }
             },
             "Block": {
               "type": "array",
-              "strict": false,
-              "items": {
-                "type": "origin"
-              }
+              "items": { "$ref": "#/definitions/origin" }
             },
             "BlockNewRequests": {
               "type": "boolean"
@@ -2149,17 +2133,11 @@
           "properties": {
             "Allow": {
               "type": "array",
-              "strict": false,
-              "items": {
-                "type": "origin"
-              }
+              "items": { "$ref": "#/definitions/origin" }
             },
             "Block": {
               "type": "array",
-              "strict": false,
-              "items": {
-                "type": "origin"
-              }
+              "items": { "$ref": "#/definitions/origin" }
             },
             "BlockNewRequests": {
               "type": "boolean"
@@ -2174,17 +2152,11 @@
           "properties": {
             "Allow": {
               "type": "array",
-              "strict": false,
-              "items": {
-                "type": "origin"
-              }
+              "items": { "$ref": "#/definitions/origin" }
             },
             "Block": {
               "type": "array",
-              "strict": false,
-              "items": {
-                "type": "origin"
-              }
+              "items": { "$ref": "#/definitions/origin" }
             },
             "BlockNewRequests": {
               "type": "boolean"
@@ -2199,17 +2171,11 @@
           "properties": {
             "Allow": {
               "type": "array",
-              "strict": false,
-              "items": {
-                "type": "origin"
-              }
+              "items": { "$ref": "#/definitions/origin" }
             },
             "Block": {
               "type": "array",
-              "strict": false,
-              "items": {
-                "type": "origin"
-              }
+              "items": { "$ref": "#/definitions/origin" }
             },
             "BlockNewRequests": {
               "type": "boolean"
@@ -2254,10 +2220,7 @@
       "properties": {
         "Allow": {
           "type": "array",
-          "strict": false,
-          "items": {
-            "type": "origin"
-          }
+          "items": { "$ref": "#/definitions/origin" }
         },
         "Default": {
           "type": "boolean"
@@ -2274,7 +2237,8 @@
       "examples": [true, false]
     },
     "Preferences": {
-      "type": ["object", "JSON"],
+      "type": "object",
+      "contentMediaType": "application/json",
       "x-category": "Security",
       "description": "Set and lock preferences.",
       "examples": [
@@ -2382,7 +2346,7 @@
           "type": "boolean"
         },
         "AutoConfigURL": {
-          "type": "URLorEmpty"
+          "$ref": "#/definitions/urlOrEmpty"
         },
         "FTPProxy": {
           "type": "string"
@@ -2496,6 +2460,10 @@
         },
         "Locked": {
           "type": "boolean"
+        },
+        "Exceptions": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/origin" }
         }
       }
     },
@@ -2541,9 +2509,7 @@
               "Name": {
                 "type": "string"
               },
-              "IconURL": {
-                "type": "URLorEmpty"
-              },
+              "IconURL": { "$ref": "#/definitions/urlOrEmpty" },
               "Alias": {
                 "type": "string"
               },
@@ -2650,9 +2616,7 @@
         }
       ],
       "patternProperties": {
-        "^(?!Add$|Delete$)": {
-          "type": "string"
-        }
+        "^(?!Add$|Delete$).*$": { "type": "string" }
       },
       "properties": {
         "Add": {
@@ -2764,9 +2728,7 @@
         "Title": {
           "type": "string"
         },
-        "URL": {
-          "type": "URL"
-        },
+        "URL": { "$ref": "#/definitions/url" },
         "AccessKey": {
           "type": "string"
         }
@@ -2888,7 +2850,8 @@
       "examples": [true, false]
     },
     "WebsiteFilter": {
-      "type": ["object", "JSON"],
+      "type": "object",
+      "contentMediaType": "application/json",
       "x-category": "Browsing restrictions",
       "description": "Block websites from being visited.",
       "examples": [

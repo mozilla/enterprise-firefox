@@ -460,6 +460,13 @@ pref("browser.urlbar.filter.javascript", true);
 // remaining typed history.
 pref("browser.urlbar.focusContentDocumentOnEsc", true);
 
+// When true, in-process (chrome) <moz-urlbar> instances route through the
+// Urlbar actor's message-passing path instead of holding a direct
+// UrlbarParentController reference, exercising the same wire path a
+// content-process <moz-urlbar> uses. Off by default; intended for the
+// pref-on CI variant and local testing of the actor path.
+pref("browser.urlbar.ipc.chromeMessagePassing", false);
+
 // Enable a certain level of urlbar logging to the Browser Console. See
 // ConsoleInstance.webidl.
 pref("browser.urlbar.loglevel", "Error");
@@ -1356,9 +1363,6 @@ pref("privacy.globalprivacycontrol.functionality.enabled",  true);
 
 // Enable GPC in private browsing mode
 pref("privacy.globalprivacycontrol.pbmode.enabled", true);
-
-// What custom schemes to treat as accessing digital wallets, comma separated
-pref("privacy.wallet_schemes", "openid4vp,mdoc,mdoc-openid4vp,haip,eudi-wallet,eudi-openid4vp,openid-credential-offer");
 
 pref("network.proxy.share_proxy_settings",  false); // use the same proxy settings for all protocols
 
@@ -2297,6 +2301,11 @@ pref("sidebar.main.tools", "");
 pref("sidebar.installed.extensions", "");
 pref("sidebar.verticalTabs", false);
 pref("sidebar.verticalTabs.dragToPinPromo.dismissed", false);
+// One value per behavior, none shared across tab orientations. Vertical tabs:
+// "always-show", "expand-on-hover", "hide-sidebar". Horizontal tabs:
+// "hide-on-close" (default) and "hide-launcher" (switcher-only). The default
+// here is the vertical default; SidebarManager normalizes to the right value
+// for the current orientation.
 pref("sidebar.visibility", "always-show");
 // Sidebar UI state is stored per-window via session restore. Use this pref
 // as a backup to restore the sidebar UI state when a user has PPB mode on
@@ -2312,6 +2321,7 @@ pref("sidebar.updatedBookmarks.enabled", true);
 pref("sidebar.updatedBookmarks.enabled", false);
 #endif
 pref("sidebar.openTabsPanel.enabled", false);
+pref("sidebar.openTabsPanel.collapsedWindows", "{}");
 
 pref("sidebar.notification.badge.aichat", false);
 
@@ -3353,6 +3363,8 @@ pref("devtools.webconsole.filter.debug", true);
 pref("devtools.webconsole.filter.css", false);
 pref("devtools.webconsole.filter.net", false);
 pref("devtools.webconsole.filter.netxhr", false);
+pref("devtools.webconsole.filter.chrome", true);
+pref("devtools.webconsole.filter.content", true);
 
 // Webconsole autocomplete preference
 pref("devtools.webconsole.input.autocomplete",true);
@@ -3370,6 +3382,10 @@ pref("devtools.browserconsole.filter.debug", true);
 pref("devtools.browserconsole.filter.css", false);
 pref("devtools.browserconsole.filter.net", false);
 pref("devtools.browserconsole.filter.netxhr", false);
+// Origin filters allow to separately show or hide messages emitted by the
+// browser itself (privileged code) and those emitted by web content.
+pref("devtools.browserconsole.filter.chrome", true);
+pref("devtools.browserconsole.filter.content", true);
 
 // Max number of inputs to store in web console history.
 pref("devtools.webconsole.inputHistoryCount", 300);
@@ -3649,13 +3665,8 @@ pref("browser.backup.enabled", true);
 pref("browser.backup.scheduled.enabled", false);
 
 // Prefs to control visibility and usability of the create backup and restore from backup features.
-#ifndef XP_MACOSX
-  pref("browser.backup.archive.enabled", true);
-  pref("browser.backup.restore.enabled", true);
-#else
-  pref("browser.backup.archive.enabled", false);
-  pref("browser.backup.restore.enabled", false);
-#endif
+pref("browser.backup.archive.enabled", true);
+pref("browser.backup.restore.enabled", true);
 
 // The number of SQLite database pages to backup per step.
 pref("browser.backup.sqlite.pages_per_step", 50);
@@ -3788,3 +3799,7 @@ pref("browser.contentsharing.enabled", false);
 
 // When enabled, Firefox ignores the distribution.ini file if global.id is MozillaOnline.
 pref("distribution.mozillaonline.ignore", true);
+
+#ifdef XP_MACOSX
+  pref("browser.macAppMenu.setAsDefaultShown", false);
+#endif

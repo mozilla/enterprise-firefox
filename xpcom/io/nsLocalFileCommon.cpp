@@ -5,6 +5,7 @@
 #include "nsLocalFile.h"  // includes platform-specific headers
 
 #include "mozilla/Try.h"
+#include "mozilla/Utf16.h"
 #include "nsString.h"
 #include "nsCOMPtr.h"
 #include "nsReadableUtils.h"
@@ -278,7 +279,7 @@ nsLocalFile::CreateUnique(uint32_t aType, uint32_t aAttributes) {
 
 #ifdef XP_WIN
     // ensure that we don't cut the name in mid-UTF16-character
-    rootName.SetLength(NS_IS_LOW_SURROGATE(rootName[maxRootLength])
+    rootName.SetLength(mozilla::IsLowSurrogate(rootName[maxRootLength])
                            ? maxRootLength - 1
                            : maxRootLength);
     SetLeafName(rootName + suffix);

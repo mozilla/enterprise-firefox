@@ -24,6 +24,11 @@
       "value": "{border.radius.circle}"
     }
   },
+  "padding": {
+    "block": {
+      "value": "1px"
+    }
+  },
   "text": {
     "color": {
       "@base": {

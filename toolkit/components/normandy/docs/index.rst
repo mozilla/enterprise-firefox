@@ -1,4 +1,4 @@
-.. _components/normandy:
+.. _components-normandy:
 
 ====================
 Shield Recipe Client
@@ -8,7 +8,7 @@ Normandy (aka the Shield Recipe Client) is a targeted change control
 system, allowing small changes to be made within a release of Firefox,
 such as studies.
 
-It downloads recipes and actions from :ref:`Remote Settings <services/remotesettings>`
+It downloads recipes and actions from :ref:`Remote Settings <services-remotesettings>`
 and then executes them.
 
 .. note::

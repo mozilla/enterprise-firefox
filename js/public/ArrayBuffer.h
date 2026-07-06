@@ -123,7 +123,7 @@ extern JS_PUBLIC_API JSObject* NewArrayBufferWithContents(
  * |JS::NewArrayBufferWithContents| passing in |maybeArrayBuffer|'s internal
  * data pointer and length, in a manner safe against |maybeArrayBuffer|'s data
  * being moved around by the GC.  In particular, the new ArrayBuffer will not
- * behave like one created for WASM or asm.js, so it *can* be detached.
+ * behave like one created for WASM, so it *can* be detached.
  */
 extern JS_PUBLIC_API JSObject* CopyArrayBuffer(
     JSContext* cx, JS::Handle<JSObject*> maybeArrayBuffer);
@@ -323,8 +323,7 @@ extern JS_PUBLIC_API uint8_t* GetArrayBufferData(JSObject* obj,
  * the ArrayBuffer's original attached memory.
  *
  * This function throws only if it is provided a non-ArrayBuffer object or if
- * the provided ArrayBuffer is a WASM-backed ArrayBuffer or an ArrayBuffer used
- * in asm.js code.
+ * the provided ArrayBuffer is a WASM-backed ArrayBuffer.
  */
 extern JS_PUBLIC_API bool DetachArrayBuffer(JSContext* cx,
                                             Handle<JSObject*> obj);

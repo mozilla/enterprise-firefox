@@ -64,12 +64,8 @@ import org.mozilla.fenix.GleanMetrics.ProgressiveWebApp
 import org.mozilla.fenix.GleanMetrics.SitePermissions
 import org.mozilla.fenix.GleanMetrics.Sync
 import org.mozilla.fenix.GleanMetrics.SyncedTabs
-import org.mozilla.fenix.GleanMetrics.Toolbar
 import org.mozilla.fenix.GleanMetrics.TrackingProtection
 import org.mozilla.fenix.components.share.ShareSource
-import org.mozilla.fenix.telemetry.ACTION_TAB_COUNTER_CLICKED
-import org.mozilla.fenix.telemetry.ACTION_TAB_COUNTER_LONG_CLICKED
-import org.mozilla.fenix.telemetry.SOURCE_ADDRESS_BAR
 import org.mozilla.fenix.utils.Settings
 import java.util.UUID
 import mozilla.components.compose.browser.awesomebar.AwesomeBarFacts as ComposeAwesomeBarFacts
@@ -203,16 +199,6 @@ internal class ReleaseMetricController(
         }
         Component.BROWSER_TOOLBAR to ToolbarFacts.Items.MENU -> {
             Events.toolbarMenuVisible.record(NoExtras())
-        }
-        Component.UI_TABCOUNTER to ToolbarFacts.Items.TOOLBAR -> {
-            Toolbar.buttonTapped.record(
-                Toolbar.ButtonTappedExtra(source = SOURCE_ADDRESS_BAR, item = ACTION_TAB_COUNTER_CLICKED),
-            )
-        }
-        Component.UI_TABCOUNTER to ToolbarFacts.Items.MENU -> {
-            Toolbar.buttonTapped.record(
-                Toolbar.ButtonTappedExtra(source = SOURCE_ADDRESS_BAR, item = ACTION_TAB_COUNTER_LONG_CLICKED),
-            )
         }
         Component.FEATURE_CONTEXTMENU to ContextMenuFacts.Items.ITEM -> {
             metadata?.get("item")?.let { item ->

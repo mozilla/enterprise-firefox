@@ -246,6 +246,10 @@ class RustLoginsStoreAdapter {
     return result;
   }
 
+  bridgedEngine() {
+    return this.#store.bridgedEngine();
+  }
+
   shutdown() {
     return this.#store.shutdown();
   }
@@ -394,6 +398,17 @@ export class LoginManagerRustStorage {
   testSaveForReplace() {}
 
   /**
+   * Returns the Sync bridged engine backed by the same Rust store instance the
+   * storage layer uses, so that Sync and data access share one database handle.
+   * Assumes the storage is already initialized; the sync engine only reaches it
+   * via the active store, which is set after initialization completes.
+   *
+   */
+  bridgedEngine() {
+    return this.#storageAdapter.bridgedEngine();
+  }
+
+  /**
    * Returns the "sync id" used by Sync to know whether the store is current with
    * respect to the sync servers. It is stored encrypted, but only so we
    * can detect failure to decrypt (for example, a "reset" of the primary
@@ -419,10 +434,6 @@ export class LoginManagerRustStorage {
 
   async setLastSync(_timestamp) {
     throw Components.Exception("setLastSync", Cr.NS_ERROR_NOT_IMPLEMENTED);
-  }
-
-  async resetSyncCounter(_guid, _value) {
-    throw Components.Exception("resetSyncCounter", Cr.NS_ERROR_NOT_IMPLEMENTED);
   }
 
   loginIsDeleted(_guid) {

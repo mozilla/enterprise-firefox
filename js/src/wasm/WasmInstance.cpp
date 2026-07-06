@@ -548,7 +548,6 @@ static int32_t PerformWake(Instance* instance, PtrT byteOffset, int32_t count,
                                                uint32_t delta,
                                                uint32_t memoryIndex) {
   MOZ_ASSERT(SASigMemoryGrowM32.failureMode == FailureMode::Infallible);
-  MOZ_ASSERT(!instance->isAsmJS());
 
   JSContext* cx = instance->cx();
   Rooted<WasmMemoryObject*> memory(cx, instance->memory(memoryIndex));
@@ -569,7 +568,6 @@ static int32_t PerformWake(Instance* instance, PtrT byteOffset, int32_t count,
                                                uint64_t delta,
                                                uint32_t memoryIndex) {
   MOZ_ASSERT(SASigMemoryGrowM64.failureMode == FailureMode::Infallible);
-  MOZ_ASSERT(!instance->isAsmJS());
 
   JSContext* cx = instance->cx();
   Rooted<WasmMemoryObject*> memory(cx, instance->memory(memoryIndex));
@@ -1216,7 +1214,6 @@ bool Instance::iterElemsAnyrefs(JSContext* cx, const ModuleElemSegment& seg,
       table.fillAnyRef(start, len, AnyRef::fromCompiledCode(value));
       break;
     case TableRepr::Func:
-      MOZ_RELEASE_ASSERT(!table.isAsmJS());
       table.fillFuncRef(start, len, FuncRef::fromCompiledCode(value), cx);
       break;
   }
@@ -1315,7 +1312,6 @@ static int32_t MemDiscardShared(Instance* instance, I byteOffset, I byteLen,
     case TableRepr::Ref:
       return table.getAnyRef(address).forCompiledCode();
     case TableRepr::Func: {
-      MOZ_RELEASE_ASSERT(!table.isAsmJS());
       RootedFunction fun(cx);
       if (!table.getFuncRef(cx, address, &fun)) {
         return AnyRef::invalid().forCompiledCode();
@@ -1365,7 +1361,6 @@ static int32_t MemDiscardShared(Instance* instance, I byteOffset, I byteLen,
       table.setAnyRef(address, AnyRef::fromCompiledCode(value));
       break;
     case TableRepr::Func:
-      MOZ_RELEASE_ASSERT(!table.isAsmJS());
       table.fillFuncRef(address, 1, FuncRef::fromCompiledCode(value), cx);
       break;
   }
@@ -2682,7 +2677,7 @@ bool Instance::init(JSContext* cx, const JSObjectVector& funcImports,
     import.isFunctionCallBind = false;
     if (f->is<JSFunction>()) {
       JSFunction* fun = &f->as<JSFunction>();
-      if (!isAsmJS() && !codeMeta().funcImportsAreJS && fun->isWasm()) {
+      if (!codeMeta().funcImportsAreJS && fun->isWasm()) {
         import.instance = &fun->wasmInstance();
         import.realm = fun->realm();
         import.code = fun->wasmUncheckedCallEntry();
@@ -3671,7 +3666,6 @@ class MOZ_RAII ReturnToJSResultCollector {
  * functions are:
  *
  *  - any wasm function exported via the export section
- *  - any asm.js export
  *  - the module start function
  *
  * There are also /implicitly/ exported functions, these are the functions whose
@@ -3690,7 +3684,7 @@ class MOZ_RAII ReturnToJSResultCollector {
  * actually exposed to JS the first time.  The creation is performed by
  * getExportedFunction(), below, as follows:
  *
- *  - A function exported via the export section (or from asm.js) is created
+ *  - A function exported via the export section is created
  *    when the export object is created, which happens at instantiation time.
  *
  *  - A function implicitly exported via a table is created when the table
@@ -3940,67 +3934,45 @@ bool Instance::getExportedFunction(JSContext* cx, uint32_t funcIndex,
   void* uncheckedCallEntry =
       codeBlock.base() + codeRange.funcUncheckedCallEntry();
 
-  if (isAsmJS()) {
-    // asm.js needs to act like a normal JS function which means having the
-    // name from the original source and being callable as a constructor.
-    Rooted<JSAtom*> name(cx, getFuncDisplayAtom(cx, funcIndex));
-    if (!name) {
-      return false;
-    }
-    result.set(NewNativeConstructor(cx, WasmCall, numArgs, name,
-                                    gc::AllocKind::FUNCTION_EXTENDED,
-                                    TenuredObject, FunctionFlags::ASMJS_CTOR));
-    if (!result) {
-      return false;
-    }
-    MOZ_ASSERT(result->isTenured());
-    STATIC_ASSERT_WASM_FUNCTIONS_TENURED;
-
-    // asm.js does not support jit entries.
-    result->initWasm(funcIndex, instance, superTypeVector, uncheckedCallEntry);
-  } else {
-    Rooted<JSAtom*> name(cx, NumberToAtom(cx, funcIndex));
-    if (!name) {
-      return false;
-    }
-    RootedObject proto(cx);
+  Rooted<JSAtom*> name(cx, NumberToAtom(cx, funcIndex));
+  if (!name) {
+    return false;
+  }
+  RootedObject proto(cx);
 #ifdef ENABLE_WASM_TYPE_REFLECTIONS
-    proto = GlobalObject::getOrCreatePrototype(cx, JSProto_WasmFunction);
-    if (!proto) {
-      return false;
-    }
+  proto = GlobalObject::getOrCreatePrototype(cx, JSProto_WasmFunction);
+  if (!proto) {
+    return false;
+  }
 #endif
-    result.set(NewFunctionWithProto(
-        cx, WasmCall, numArgs, FunctionFlags::WASM, nullptr, name, proto,
-        gc::AllocKind::FUNCTION_EXTENDED, TenuredObject));
-    if (!result) {
-      return false;
-    }
-    MOZ_ASSERT(result->isTenured());
-    STATIC_ASSERT_WASM_FUNCTIONS_TENURED;
+  result.set(NewFunctionWithProto(
+      cx, WasmCall, numArgs, FunctionFlags::WASM, nullptr, name, proto,
+      gc::AllocKind::FUNCTION_EXTENDED, TenuredObject));
+  if (!result) {
+    return false;
+  }
+  MOZ_ASSERT(result->isTenured());
+  STATIC_ASSERT_WASM_FUNCTIONS_TENURED;
 
-    // Some applications eagerly access all table elements which currently
-    // triggers worst-case behavior for lazy stubs, since each will allocate a
-    // separate 4kb code page. Most eagerly-accessed functions are not called,
-    // so use a shared, provisional (and slow) lazy stub as JitEntry and wait
-    // until Instance::callExport() to create the fast entry stubs.
-    if (funcTypeDef.funcType().canHaveJitEntry()) {
-      const FuncExport& funcExport = codeBlock.lookupFuncExport(funcIndex);
-      if (!funcExport.hasEagerStubs()) {
-        if (!EnsureBuiltinThunksInitialized()) {
-          return false;
-        }
-        void* provisionalLazyJitEntryStub = ProvisionalLazyJitEntryStub();
-        MOZ_ASSERT(provisionalLazyJitEntryStub);
-        code().setJitEntryIfNull(funcIndex, provisionalLazyJitEntryStub);
+  // Some applications eagerly access all table elements which currently
+  // triggers worst-case behavior for lazy stubs, since each will allocate a
+  // separate 4kb code page. Most eagerly-accessed functions are not called,
+  // so use a shared, provisional (and slow) lazy stub as JitEntry and wait
+  // until Instance::callExport() to create the fast entry stubs.
+  if (funcTypeDef.funcType().canHaveJitEntry()) {
+    const FuncExport& funcExport = codeBlock.lookupFuncExport(funcIndex);
+    if (!funcExport.hasEagerStubs()) {
+      if (!EnsureBuiltinThunksInitialized()) {
+        return false;
       }
-      result->initWasmWithJitEntry(code().getAddressOfJitEntry(funcIndex),
-                                   instance, superTypeVector,
-                                   uncheckedCallEntry);
-    } else {
-      result->initWasm(funcIndex, instance, superTypeVector,
-                       uncheckedCallEntry);
+      void* provisionalLazyJitEntryStub = ProvisionalLazyJitEntryStub();
+      MOZ_ASSERT(provisionalLazyJitEntryStub);
+      code().setJitEntryIfNull(funcIndex, provisionalLazyJitEntryStub);
     }
+    result->initWasmWithJitEntry(code().getAddressOfJitEntry(funcIndex),
+                                 instance, superTypeVector, uncheckedCallEntry);
+  } else {
+    result->initWasm(funcIndex, instance, superTypeVector, uncheckedCallEntry);
   }
 
   instanceData.func = result;
@@ -4117,19 +4089,6 @@ bool Instance::callExport(JSContext* cx, uint32_t funcIndex,
 
   MOZ_ASSERT(pendingException_.isNull());
 
-  if (isAsmJS() && args.isConstructing()) {
-    // By spec, when a JS function is called as a constructor and this
-    // function returns a primary type, which is the case for all asm.js
-    // exported functions, the returned value is discarded and an empty
-    // object is returned instead.
-    PlainObject* obj = NewPlainObject(cx);
-    if (!obj) {
-      return false;
-    }
-    args.rval().set(ObjectValue(*obj));
-    return true;
-  }
-
   // Note that we're not rooting the register result, if any; we depend
   // on ResultsCollector::collect to root the value on our behalf,
   // before causing any GC.
@@ -4198,14 +4157,9 @@ JSAtom* Instance::getFuncDisplayAtom(JSContext* cx, uint32_t funcIndex) const {
   // The "display name" of a function is primarily shown in Error.stack which
   // also includes location, so use getFuncNameBeforeLocation.
   UTF8Bytes name;
-  bool ok;
-  if (codeMetaForAsmJS()) {
-    ok = codeMetaForAsmJS()->getFuncNameForAsmJS(funcIndex, &name);
-  } else {
-    ok = codeMeta().getFuncNameForWasm(NameContext::BeforeLocation, funcIndex,
-                                       codeTailMeta().nameSectionPayload.get(),
-                                       &name);
-  }
+  bool ok =
+      codeMeta().getFuncName(NameContext::BeforeLocation, funcIndex,
+                             codeTailMeta().nameSectionPayload.get(), &name);
   if (!ok) {
     return nullptr;
   }
@@ -4218,7 +4172,6 @@ void Instance::ensureProfilingLabels(bool profilingEnabled) const {
 }
 
 void Instance::onMovingGrowMemory(const WasmMemoryObject* memory) {
-  MOZ_ASSERT(!isAsmJS());
   MOZ_ASSERT(!memory->isShared());
 
   for (uint32_t i = 0; i < codeMeta().memories.length(); i++) {
@@ -4251,8 +4204,6 @@ void Instance::onMovingGrowMemory(const WasmMemoryObject* memory) {
 }
 
 void Instance::onMovingGrowTable(const Table* table) {
-  MOZ_ASSERT(!isAsmJS());
-
   // `table` has grown and we must update cached data for it.  Importantly,
   // we can have cached those data in more than one location: we'll have
   // cached them once for each time the table was imported into this instance.
@@ -4360,23 +4311,23 @@ void Instance::disassembleExport(JSContext* cx, uint32_t funcIndex, Tier tier,
   jit::Disassemble(functionCode, range.end() - range.begin(), printString);
 }
 
-void Instance::addSizeOfMisc(
-    mozilla::MallocSizeOf mallocSizeOf, CodeMetadata::SeenSet* seenCodeMeta,
-    CodeMetadataForAsmJS::SeenSet* seenCodeMetaForAsmJS,
-    Code::SeenSet* seenCode, Table::SeenSet* seenTables, size_t* code,
-    size_t* data) const {
+void Instance::addSizeOfMisc(mozilla::MallocSizeOf mallocSizeOf,
+                             CodeMetadata::SeenSet* seenCodeMeta,
+                             Code::SeenSet* seenCode,
+                             Table::SeenSet* seenTables, size_t* code,
+                             size_t* data) const {
   *data += mallocSizeOf(this);
   for (const SharedTable& table : tables_) {
     *data += table->sizeOfIncludingThisIfNotSeen(mallocSizeOf, seenTables);
   }
 
   if (maybeDebug_) {
-    maybeDebug_->addSizeOfMisc(mallocSizeOf, seenCodeMeta, seenCodeMetaForAsmJS,
-                               seenCode, code, data);
+    maybeDebug_->addSizeOfMisc(mallocSizeOf, seenCodeMeta, seenCode, code,
+                               data);
   }
 
-  code_->addSizeOfMiscIfNotSeen(mallocSizeOf, seenCodeMeta,
-                                seenCodeMetaForAsmJS, seenCode, code, data);
+  code_->addSizeOfMiscIfNotSeen(mallocSizeOf, seenCodeMeta, seenCode, code,
+                                data);
 }
 
 //////////////////////////////////////////////////////////////////////////////

@@ -13,6 +13,10 @@ const {
 } = reducers;
 import { actionTypes as at } from "common/Actions.mjs";
 
+// Bug 2050900: Add new reducer tests to the Jest suite at
+// test/jest/common/Reducers.test.jsx, not here. This Karma/Enzyme file is being
+// migrated to Jest incrementally; the PrivacyWidget reducer lives there now.
+
 describe("Reducers", () => {
   describe("App", () => {
     it("should return the initial state", () => {
@@ -23,6 +27,36 @@ describe("Reducers", () => {
       const nextState = App(undefined, { type: "INIT" });
 
       assert.propertyVal(nextState, "initialized", true);
+    });
+    it("should show the customize panel on SHOW_PERSONALIZE", () => {
+      const nextState = App(undefined, { type: at.SHOW_PERSONALIZE });
+
+      assert.propertyVal(nextState, "customizeMenuVisible", true);
+      assert.propertyVal(nextState, "customizePanelWallpaperCategory", null);
+    });
+    it("should store the deep-linked wallpaper category on SHOW_PERSONALIZE", () => {
+      const nextState = App(undefined, {
+        type: at.SHOW_PERSONALIZE,
+        data: { wallpaperCategory: "firefox" },
+      });
+
+      assert.propertyVal(
+        nextState,
+        "customizePanelWallpaperCategory",
+        "firefox"
+      );
+    });
+    it("should clear customize panel state on HIDE_PERSONALIZE", () => {
+      const nextState = App(
+        {
+          customizeMenuVisible: true,
+          customizePanelWallpaperCategory: "firefox",
+        },
+        { type: at.HIDE_PERSONALIZE }
+      );
+
+      assert.propertyVal(nextState, "customizeMenuVisible", false);
+      assert.propertyVal(nextState, "customizePanelWallpaperCategory", null);
     });
   });
   describe("TopSites", () => {
@@ -1342,6 +1376,47 @@ describe("Reducers", () => {
       assert.equal(next.widgetState, "sports-matches");
       assert.deepEqual(next.selectedTeams, ["ENG"]);
       assert.deepEqual(next.data.matches, baseMatches);
+    });
+
+    describe("WIDGETS_SPORTS_WATCH_LIVE", () => {
+      const watchLiveData = {
+        your_region: [{ product_name: "SBS", entitlement: "Free", url: "u" }],
+        other_regions: [],
+      };
+
+      it("WIDGETS_SPORTS_WATCH_LIVE_SET stores the payload and marks it loaded", () => {
+        const next = SportsWidget(INITIAL_STATE.SportsWidget, {
+          type: at.WIDGETS_SPORTS_WATCH_LIVE_SET,
+          data: watchLiveData,
+        });
+        assert.deepEqual(next.watchLive, {
+          loaded: true,
+          data: watchLiveData,
+        });
+      });
+
+      it("WIDGETS_SPORTS_WATCH_LIVE_REQUEST shows the loading state when nothing is cached", () => {
+        const next = SportsWidget(INITIAL_STATE.SportsWidget, {
+          type: at.WIDGETS_SPORTS_WATCH_LIVE_REQUEST,
+        });
+        assert.deepEqual(next.watchLive, { loaded: false, data: null });
+      });
+
+      it("WIDGETS_SPORTS_WATCH_LIVE_REQUEST preserves a previously-fetched payload", () => {
+        // The button is gated on this data; a re-request (modal refresh) must
+        // not drop it and hide the entry point mid-session.
+        const loaded = SportsWidget(INITIAL_STATE.SportsWidget, {
+          type: at.WIDGETS_SPORTS_WATCH_LIVE_SET,
+          data: watchLiveData,
+        });
+        const next = SportsWidget(loaded, {
+          type: at.WIDGETS_SPORTS_WATCH_LIVE_REQUEST,
+        });
+        assert.deepEqual(next.watchLive, {
+          loaded: true,
+          data: watchLiveData,
+        });
+      });
     });
 
     describe("WIDGETS_SPORTS_SET_LOAD_MORE", () => {

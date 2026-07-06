@@ -154,6 +154,7 @@ namespace layers {
   SurfaceDescriptorDMABuf;
   SurfaceDescriptorMacIOSurface;
   SurfaceDescriptorDcompSurface;
+  AndroidImageReaderImageDescriptor;
   null_t;
 };
 

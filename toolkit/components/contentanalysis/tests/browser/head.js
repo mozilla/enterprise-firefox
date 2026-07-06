@@ -254,8 +254,7 @@ function makeMockContentAnalysis() {
       info(
         `  Text content: '${request.textContent}' ` +
           `| filePath: '${request.filePath}' ` +
-          `| printDataHandle: ${request.printDataHandle} ` +
-          `| printDataSize: ${request.printDataSize}`
+          `| printDataLength: ${request.getPrintData().length}`
       );
       info(
         `  Printer name: '${request.printerName}' ` +

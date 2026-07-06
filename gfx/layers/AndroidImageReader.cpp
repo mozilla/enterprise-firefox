@@ -10,15 +10,26 @@
 #include <media/NdkImage.h>
 #include <media/NdkImageReader.h>
 
+#include "GLContext.h"
+#include "GLContextEGL.h"
+#include "GLContextProvider.h"
+#include "GLLibraryEGL.h"
+#include "GLReadTexImageHelper.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/Logging.h"
 #include "mozilla/layers/AndroidImageConsumer.h"
+#include "mozilla/RemoteMediaManagerParent.h"
+#include "mozilla/ScopeExit.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/webrender/RenderThread.h"
 #include "nsProxyRelease.h"
+#include "OGLShaderConfig.h"
+#include "ScopedGLHelpers.h"
 
 namespace mozilla {
 namespace layers {
+
+constinit static RefPtr<gl::GLContext> sAImageSnapshotContext;
 
 AndroidImageReaderImage::AndroidImageReaderImage(
     const GpuProcessAndroidImageReaderId aImageReaderId,
@@ -55,6 +66,60 @@ bool AndroidImageReaderImage::MaybeReleaseFrameToCodec(bool aRender) {
   return ret;
 }
 
+nsresult AndroidImageReaderImage::BuildSurfaceDescriptorBuffer(
+    SurfaceDescriptorBuffer& aSdBuffer, BuildSdbFlags aFlags,
+    const std::function<MemoryOrShmem(uint32_t)>& aAllocate) {
+  MOZ_ASSERT(RemoteMediaManagerParent::OnManagerThread());
+
+  if (!sAImageSnapshotContext) {
+    nsCString discardFailureId;
+    sAImageSnapshotContext =
+        gl::GLContextProvider::CreateHeadless({}, &discardFailureId);
+    if (!sAImageSnapshotContext) {
+      NS_WARNING("Failed to create snapshot GLContext");
+      return NS_ERROR_FAILURE;
+    }
+  }
+
+  auto* imageReaderMap = layers::GpuProcessAndroidImageReaderMap::Get();
+  if (!imageReaderMap) {
+    return NS_ERROR_FAILURE;
+  }
+
+  RefPtr<AndroidImageReader> imageReader =
+      imageReaderMap->GetImageReader(mImageReaderId);
+  if (!imageReader) {
+    return NS_ERROR_FAILURE;
+  }
+
+  gfx::IntSize size = GetSize();
+  // auto format = gfx::SurfaceFormat::R8G8B8X8
+  auto format = gfx::SurfaceFormat::B8G8R8A8;
+
+  uint8_t* buffer = nullptr;
+  int32_t stride = 0;
+  nsresult rv = Image::AllocateSurfaceDescriptorBufferRgb(
+      size, format, buffer, aSdBuffer, stride, aAllocate);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+
+  RefPtr<gfx::DataSourceSurface> surface;
+  surface = gfx::Factory::CreateWrappingDataSourceSurface(buffer, stride, size,
+                                                          format);
+  if (!surface) {
+    return NS_ERROR_FAILURE;
+  }
+
+  bool ret = imageReader->UpdateTexImageWithReadback(
+      mFrameId, sAImageSnapshotContext, surface, size, format);
+  if (!ret) {
+    return NS_ERROR_FAILURE;
+  }
+
+  return NS_OK;
+}
+
 AndroidImageWrapper::AndroidImageWrapper(AndroidImageReader* aImageReader,
                                          AImage* aImage,
                                          AHardwareBuffer* aHardwareBuffer,
@@ -66,12 +131,16 @@ AndroidImageWrapper::AndroidImageWrapper(AndroidImageReader* aImageReader,
       mFormat(aFormat),
       mImageReader(aImageReader),
       mImage(aImage),
-      mFence(std::move(aFence)) {}
+      mFence(std::move(aFence)) {
+  MOZ_ASSERT(mImageReader);
+  mImageReader->mAcquiredImageCount++;
+}
 
 AndroidImageWrapper::~AndroidImageWrapper() {
   AImage_delete(mImage);
   // XXX Add fence handling
   // AImage_deleteAsync(mImage fence);
+  mImageReader->mAcquiredImageCount--;
 }
 
 mozilla::UniqueFileHandle AndroidImageWrapper::CloneFence() {
@@ -123,9 +192,6 @@ bool AndroidImageReader::Init() {
   // are/maybe overriden by the producer sending buffers to this imageReader's
   // Surface.
   const int32_t width = 1, height = 1;
-  // AndroidImageConsumer::UpdateTexImage() requests at least 2 concurrently
-  // acquired AImages.
-  const uint32_t maxImageCount = 2;
   uint64_t usage = AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE;
 
   // XXX set if video could be used for overlay.
@@ -134,7 +200,7 @@ bool AndroidImageReader::Init() {
   media_status_t result;
   AImageReader* reader = nullptr;
   result = AImageReader_newWithUsage(width, height, AIMAGE_FORMAT_PRIVATE,
-                                     usage, maxImageCount, &reader);
+                                     usage, mMaxImageCount, &reader);
   if (result != AMEDIA_OK) {
     gfxCriticalNoteOnce << "AImageReader_newWithUsage failed"
                         << static_cast<int32_t>(result);
@@ -200,26 +266,159 @@ void AndroidImageReader::OnFrameAvailable(void* aContext,
 void AndroidImageReader::NotifyFrameAvailable() {
   MonitorAutoLock lock(mMonitor);
   mWaitingFrameAvailable = false;
-  mMonitor.Notify();
+  mMonitor.NotifyAll();
 }
 
-bool AndroidImageReader::UpdateTexImage(
-    const AndroidMediaCodecFrameId aFrameId) {
+bool AndroidImageReader::UpdateTexImage(const AndroidMediaCodecFrameId aFrameId,
+                                        gl::GLContext* aGL, GLuint aTexture,
+                                        AndroidImageWrapper** aImage) {
+  MOZ_ASSERT(aGL);
+  MOZ_ASSERT(aImage);
+
   MonitorAutoLock lock(mMonitor);
+
+  DebugOnly<bool> ret = DoUpdateTexImage(lock, aFrameId);
+  if (!mCurrentImage || *aImage == mCurrentImage) {
+    MOZ_ASSERT(!ret);
+    return false;
+  }
+
+  MOZ_ASSERT(mCurrentImage);
+
+  // XXX add fence handling
+
+  const auto& gle = gl::GLContextEGL::Cast(aGL);
+  const auto& egl = gle->mEgl;
+
+  const EGLint attrs[] = {
+      LOCAL_EGL_IMAGE_PRESERVED,
+      LOCAL_EGL_TRUE,
+      LOCAL_EGL_NONE,
+  };
+
+  auto* nativeBuffer = mCurrentImage->mHardwareBuffer;
+
+  EGLClientBuffer clientBuffer =
+      egl->mLib->fGetNativeClientBufferANDROID(nativeBuffer);
+  EGLImage eglImage = egl->fCreateImage(
+      EGL_NO_CONTEXT, LOCAL_EGL_NATIVE_BUFFER_ANDROID, clientBuffer, attrs);
+
+  MOZ_ASSERT(eglImage);
+  if (!eglImage) {
+    return false;
+  }
+
+  aGL->fBindTexture(LOCAL_GL_TEXTURE_EXTERNAL, aTexture);
+  aGL->fTexParameteri(LOCAL_GL_TEXTURE_EXTERNAL, LOCAL_GL_TEXTURE_WRAP_T,
+                      LOCAL_GL_CLAMP_TO_EDGE);
+  aGL->fTexParameteri(LOCAL_GL_TEXTURE_EXTERNAL, LOCAL_GL_TEXTURE_WRAP_S,
+                      LOCAL_GL_CLAMP_TO_EDGE);
+  aGL->fEGLImageTargetTexture2D(LOCAL_GL_TEXTURE_EXTERNAL, eglImage);
+  egl->fDestroyImage(eglImage);
+
+  *aImage = mCurrentImage;
+  NS_ADDREF(*aImage);
+
+  return true;
+}
+
+bool AndroidImageReader::UpdateTexImageWithReadback(
+    AndroidMediaCodecFrameId aFrameId, gl::GLContext* aGL,
+    gfx::DataSourceSurface* aSurface, const gfx::IntSize aSize,
+    const gfx::SurfaceFormat aFormat) {
+  MOZ_ASSERT(aGL);
+  MOZ_ASSERT(aSurface);
+
+  MonitorAutoLock lock(mMonitor);
+
+  DoUpdateTexImage(lock, aFrameId);
+  if (!mCurrentImage) {
+    MOZ_ASSERT_UNREACHABLE("unexpected to be called");
+    return false;
+  }
+
+  aGL->MakeCurrent();
+  gl::ScopedTexture scopedTex(aGL);
+
+  const auto& gle = gl::GLContextEGL::Cast(aGL);
+  const auto& egl = gle->mEgl;
+
+  const EGLint attrs[] = {
+      LOCAL_EGL_IMAGE_PRESERVED,
+      LOCAL_EGL_TRUE,
+      LOCAL_EGL_NONE,
+  };
+
+  auto* nativeBuffer = mCurrentImage->mHardwareBuffer;
+
+  EGLClientBuffer clientBuffer =
+      egl->mLib->fGetNativeClientBufferANDROID(nativeBuffer);
+  EGLImage eglImage = egl->fCreateImage(
+      EGL_NO_CONTEXT, LOCAL_EGL_NATIVE_BUFFER_ANDROID, clientBuffer, attrs);
+
+  MOZ_ASSERT(eglImage);
+
+  if (!eglImage) {
+    return false;
+  }
+
+  aGL->fBindTexture(LOCAL_GL_TEXTURE_EXTERNAL, scopedTex.Texture());
+  aGL->fTexParameteri(LOCAL_GL_TEXTURE_EXTERNAL, LOCAL_GL_TEXTURE_WRAP_T,
+                      LOCAL_GL_CLAMP_TO_EDGE);
+  aGL->fTexParameteri(LOCAL_GL_TEXTURE_EXTERNAL, LOCAL_GL_TEXTURE_WRAP_S,
+                      LOCAL_GL_CLAMP_TO_EDGE);
+  aGL->fEGLImageTargetTexture2D(LOCAL_GL_TEXTURE_EXTERNAL, eglImage);
+  egl->fDestroyImage(eglImage);
+
+  ShaderConfigOGL config =
+      ShaderConfigFromTargetAndFormat(LOCAL_GL_TEXTURE_EXTERNAL, aFormat);
+  int shaderConfig = config.mFeatures;
+
+  bool ret = aGL->ReadTexImageHelper()->ReadTexImage(
+      aSurface, scopedTex.Texture(), LOCAL_GL_TEXTURE_EXTERNAL, aSize,
+      gfx::Matrix4x4(), shaderConfig, /* aYInvert */ false);
+  if (!ret) {
+    return false;
+  }
+
+  return true;
+}
+
+bool AndroidImageReader::DoUpdateTexImage(const MonitorAutoLock& aProofOfLock,
+                                          AndroidMediaCodecFrameId aFrameId) {
+  MOZ_ASSERT(static_cast<int32_t>(mAcquiredImageCount) <= mMaxImageCount);
 
   if (mCurrentFrameId == aFrameId) {
     return false;
   }
 
+  // Limit as only one thread could do DoUpdateTexImage()
+  const TimeDuration pendingTimeout = TimeDuration::FromMilliseconds(20);
+  while (mIsPendingNextImage) {
+    CVStatus status = mMonitor.Wait(pendingTimeout);
+    if (status == CVStatus::Timeout) {
+      gfxCriticalNoteOnce << "Pending next image wait timeout";
+      return false;
+    }
+  }
+  MOZ_ASSERT(!mIsPendingNextImage);
+
+  auto scopeExit = MakeScopeExit([&]() MOZ_REQUIRES(mMonitor) {
+    mIsPendingNextImage = false;
+    mMonitor.NotifyAll();
+  });
+
+  mIsPendingNextImage = true;
+
   MOZ_ASSERT(!mWaitingFrameAvailable);
   mWaitingFrameAvailable = true;
 
-  if (!MaybeReleaseFrameToCodec(lock, aFrameId, /* aRender */ true)) {
+  if (!MaybeReleaseFrameToCodec(aProofOfLock, aFrameId, /* aRender */ true)) {
     mWaitingFrameAvailable = false;
     return false;
   }
 
-  const TimeDuration timeout = TimeDuration::FromMilliseconds(10000);
+  const TimeDuration timeout = TimeDuration::FromMilliseconds(20);
 
   while (mWaitingFrameAvailable) {
     CVStatus status = mMonitor.Wait(timeout);
@@ -266,6 +465,9 @@ bool AndroidImageReader::UpdateTexImage(
   if (!nativeBuffer) {
     gfxCriticalNoteOnce << "AImage_getHardwareBuffer failed"
                         << static_cast<int32_t>(result);
+    AImage_delete(image);
+    // XXX Add fence handling
+    // AImage_deleteAsync(image, fence);
     return false;
   }
 
@@ -274,12 +476,15 @@ bool AndroidImageReader::UpdateTexImage(
 
   const gfx::IntSize size = gfx::IntSize(bufferInfo.width, bufferInfo.height);
   // XXX
-  const gfx::SurfaceFormat format = gfx::SurfaceFormat::R8G8B8A8;
+  const gfx::SurfaceFormat format = gfx::SurfaceFormat::R8G8B8X8;
 
   // XXX add crop handling
 
   mCurrentImage = new AndroidImageWrapper(this, image, nativeBuffer, size,
                                           format, std::move(fence));
+
+  MOZ_ASSERT(static_cast<int32_t>(mAcquiredImageCount) <= mMaxImageCount);
+
   return true;
 }
 

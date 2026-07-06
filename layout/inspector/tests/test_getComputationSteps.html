@@ -584,6 +584,43 @@ add_task(async function() {
     ]
   });
 
+  /// progress()
+  test({
+    expression: "progress(5, 0, 10)",
+    el: sectionEl,
+    expected: [
+      "progress(5, 0, 10)",
+      "0.5",
+    ]
+  });
+  test({
+    expression: "progress(2em, 2cqw, 92cqh)",
+    el: sectionEl,
+    expected: [
+      "progress(2em, 2cqw, 92cqh)",
+      "progress(48px, 4px, 92px)",
+      "0.5",
+    ]
+  });
+  test({
+    expression: "progress(2em, 0cqw, 2.4cqw)",
+    el: sectionEl,
+    expected: [
+      "progress(2em, 0cqw, 2.4cqw)",
+      "progress(48px, 0px, 4.8px)",
+      "1",
+    ]
+  });
+  test({
+    expression: "progress(no-clamp 2em, 0cqw, 2.4cqw)",
+    el: sectionEl,
+    expected: [
+      "progress(no-clamp 2em, 0cqw, 2.4cqw)",
+      "progress(no-clamp 48px, 0px, 4.8px)",
+      "10",
+    ]
+  });
+
   /// calc() operations
   test({
     expression: "calc(1px)",

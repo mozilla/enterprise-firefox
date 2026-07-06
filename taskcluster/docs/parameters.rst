@@ -47,6 +47,11 @@ Push Information
 ``head_rev``
    The revision to check out; this can be a short revision string
 
+``head_git_repository``
+
+   Optionally, the git repository containing ``head_git_rev`` when it's in a Mercurial
+   repository.
+
 ``head_git_rev``
    Optionally, the git commit corresponding to the head_rev when it's in a Mercurial
    repository.
@@ -207,7 +212,7 @@ Release Promotion
    Specify the next version for version bump tasks.
 
 ``release_type``
-   The type of release being promoted. One of "nightly", "beta", "esr115", "esr128", "esr140", or "release".
+   The type of release being promoted. One of "nightly", "beta", "esr115", "esr140", "esr153" or "release".
 
 ``release_eta``
    The time and date when a release is scheduled to live. This value is passed to Balrog.

@@ -244,6 +244,15 @@ nsresult NS_NewXULElement(Element** aResult,
                           already_AddRefed<mozilla::dom::NodeInfo> aNodeInfo,
                           FromParser aFromParser, nsAtom* aIsAtom,
                           mozilla::dom::CustomElementDefinition* aDefinition) {
+  return NS_NewXULElement(aResult, std::move(aNodeInfo), aFromParser, aIsAtom,
+                          aDefinition, Nothing());
+}
+
+nsresult NS_NewXULElement(
+    Element** aResult, already_AddRefed<mozilla::dom::NodeInfo> aNodeInfo,
+    FromParser aFromParser, nsAtom* aIsAtom,
+    mozilla::dom::CustomElementDefinition* aDefinition,
+    Maybe<RefPtr<CustomElementRegistry>> aCustomElementRegistry) {
   RefPtr<mozilla::dom::NodeInfo> nodeInfo = aNodeInfo;
 
   MOZ_ASSERT(nodeInfo, "need nodeinfo for non-proto Create");
@@ -258,7 +267,8 @@ nsresult NS_NewXULElement(Element** aResult,
   }
 
   return nsContentUtils::NewXULOrHTMLElement(aResult, nodeInfo, aFromParser,
-                                             aIsAtom, aDefinition);
+                                             aIsAtom, aDefinition,
+                                             std::move(aCustomElementRegistry));
 }
 
 void NS_TrustedNewXULElement(

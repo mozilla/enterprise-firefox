@@ -1405,9 +1405,8 @@ bool PresShell::FixUpFocus() {
     return false;
   }
   if (auto* element = fm->GetFocusedElement()) {
-    // Set focus navigation starting point, so that focus navigation still
-    // starts from this element.
-    element->OwnerDoc()->SetFocusNavigationStartingPoint(element);
+    // Ensure that focus navigation still starts from this element.
+    element->OwnerDoc()->SetPreviouslyFocusedContent(element);
   }
   fm->ClearFocus(window);
   return true;
@@ -3265,11 +3264,11 @@ nsresult PresShell::GoToAnchor(const nsAString& aAnchorName,
         }
       }
     }
-    // The focusing stuff above could have set the dedicated sequential
-    // focus navigation starting point due to blurring the focused element.
+    // The focusing stuff above could have set the previously-focused
+    // content due to blurring the focused element.
     // However, we want focus navigation to start from the the selection
     // (which is now target), so we clear that here.
-    mDocument->SetFocusNavigationStartingPoint(nullptr);
+    mDocument->SetPreviouslyFocusedContent(nullptr);
 
     // If the target is an animation element, activate the animation
     if (auto* animationElement = SVGAnimationElement::FromNode(target.get())) {
@@ -5945,7 +5944,12 @@ void PresShell::ProcessSynthMouseMoveEvent(bool aFromScroll) {
   if (mLastMousePointerId.isSome()) {
     if (const PointerInfo* const lastMouseInfo =
             PointerEventHandler::GetLastMouseInfo(this)) {
-      if (lastMouseInfo->HasLastState()) {
+      // We shouldn't dispatch mouse boundary events when a layout change
+      // if the mouse event was caused by a pointing device which does not
+      // support hover state.
+      if (lastMouseInfo->HasLastState() &&
+          (lastMouseInfo->InputSourceSupportsHover() ||
+           lastMouseInfo->mIsActive)) {
         ProcessSynthMouseOrPointerMoveEvent(eMouseMove, *mLastMousePointerId,
                                             *lastMouseInfo);
       }
@@ -9799,6 +9803,11 @@ nsresult PresShell::EventHandler::DispatchEventToDOM(
           MOZ_CRASH("MouseEvent target must be an element");
         }
 #endif  // #ifdef DEBUG
+      }
+      if (aEvent->mClass == eMouseEventClass) {
+        MOZ_ASSERT(aEvent->AsMouseEvent());
+        PointerEventHandler::WillDispatchMouseEventToDOM(
+            *aEvent->AsMouseEvent());
       }
       RefPtr<nsPresContext> presContext = GetPresContext();
       EventDispatcher::Dispatch(eventTarget, presContext, aEvent, nullptr,

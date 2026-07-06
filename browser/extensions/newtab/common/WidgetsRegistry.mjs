@@ -93,6 +93,18 @@ export const PREF_WIDGETS_CLOCKS_ENABLED = "widgets.clocks.enabled";
 export const PREF_CLOCKS_SIZE = "widgets.clocks.size";
 export const PREF_WIDGETS_SYSTEM_CLOCKS_ENABLED =
   "widgets.system.clocks.enabled";
+export const PREF_WIDGETS_PRIVACY_ENABLED = "widgets.privacy.enabled";
+export const PREF_PRIVACY_SIZE = "widgets.privacy.size";
+export const PREF_WIDGETS_SYSTEM_PRIVACY_ENABLED =
+  "widgets.system.privacy.enabled";
+export const PREF_WIDGETS_CROSSWORD_ENABLED = "widgets.crossword.enabled";
+export const PREF_CROSSWORD_SIZE = "widgets.crossword.size";
+export const PREF_WIDGETS_SYSTEM_CROSSWORD_ENABLED =
+  "widgets.system.crossword.enabled";
+export const PREF_WIDGETS_STOCKS_ENABLED = "widgets.stocks.enabled";
+export const PREF_STOCKS_SIZE = "widgets.stocks.size";
+export const PREF_WIDGETS_SYSTEM_STOCKS_ENABLED =
+  "widgets.system.stocks.enabled";
 
 /**
  * @typedef {object} WidgetRegistryEntry
@@ -193,6 +205,54 @@ export const WIDGET_REGISTRY = [
     trainhopSidebarKey: "weatherSidebar",
     widgetsSettingsVisibleKey: "weatherVisible",
     widgetsSettingsEnabledKey: "weatherEnabled",
+  },
+  {
+    id: "privacy",
+    telemetryName: "privacy",
+    order: 5,
+    enabledPref: PREF_WIDGETS_PRIVACY_ENABLED,
+    sizePref: PREF_PRIVACY_SIZE,
+    defaultSize: "medium",
+    validSizes: ["medium", "large"],
+    hasSidebar: false,
+    systemEnabledPref: PREF_WIDGETS_SYSTEM_PRIVACY_ENABLED,
+    trainhopEnabledKey: "privacyEnabled",
+    trainhopSizeKey: "privacySize",
+    trainhopSidebarKey: null,
+    widgetsSettingsVisibleKey: "privacyVisible",
+    widgetsSettingsEnabledKey: "privacyEnabled",
+  },
+  {
+    id: "crossword",
+    telemetryName: "crossword",
+    order: 6,
+    enabledPref: PREF_WIDGETS_CROSSWORD_ENABLED,
+    sizePref: PREF_CROSSWORD_SIZE,
+    defaultSize: "medium",
+    validSizes: ["medium", "large"],
+    hasSidebar: false,
+    systemEnabledPref: PREF_WIDGETS_SYSTEM_CROSSWORD_ENABLED,
+    trainhopEnabledKey: "crosswordEnabled",
+    trainhopSizeKey: "crosswordSize",
+    trainhopSidebarKey: null,
+    widgetsSettingsVisibleKey: "crosswordVisible",
+    widgetsSettingsEnabledKey: "crosswordEnabled",
+  },
+  {
+    id: "stocks",
+    telemetryName: "stocks",
+    order: 7,
+    enabledPref: PREF_WIDGETS_STOCKS_ENABLED,
+    sizePref: PREF_STOCKS_SIZE,
+    defaultSize: "medium",
+    validSizes: ["small", "medium", "large"],
+    hasSidebar: false,
+    systemEnabledPref: PREF_WIDGETS_SYSTEM_STOCKS_ENABLED,
+    trainhopEnabledKey: "stocksEnabled",
+    trainhopSizeKey: "stocksSize",
+    trainhopSidebarKey: null,
+    widgetsSettingsVisibleKey: "stocksVisible",
+    widgetsSettingsEnabledKey: "stocksEnabled",
   },
 ];
 

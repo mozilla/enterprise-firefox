@@ -275,6 +275,7 @@ impl<Angle: Zero> FontStyle<Angle> {
     ToResolvedValue,
     ToShmem,
 )]
+#[cfg_attr(feature = "servo", derive(Serialize, Deserialize))]
 pub enum GenericFontSizeAdjust<Factor> {
     #[animation(error)]
     None,
@@ -343,10 +344,6 @@ impl<Factor: ToTyped> ToTyped for GenericFontSizeAdjust<Factor> {
 pub enum GenericLineHeight<N, L> {
     /// `normal`
     Normal,
-    /// `-moz-block-height`
-    #[cfg(feature = "gecko")]
-    #[parse(condition = "ParserContext::in_ua_sheet")]
-    MozBlockHeight,
     /// `<number>`
     Number(N),
     /// `<length-percentage>`

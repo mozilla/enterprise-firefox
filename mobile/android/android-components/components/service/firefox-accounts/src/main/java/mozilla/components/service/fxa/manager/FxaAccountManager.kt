@@ -31,6 +31,8 @@ import mozilla.components.concept.sync.DeviceConfig
 import mozilla.components.concept.sync.FxAEntryPoint
 import mozilla.components.concept.sync.OAuthAccount
 import mozilla.components.concept.sync.Profile
+import mozilla.components.concept.sync.SyncConfig
+import mozilla.components.concept.sync.SyncEngine
 import mozilla.components.service.fxa.AccessTokenUnexpectedlyWithoutKey
 import mozilla.components.service.fxa.AccountManagerException
 import mozilla.components.service.fxa.AccountStorage
@@ -42,8 +44,6 @@ import mozilla.components.service.fxa.ServerConfig
 import mozilla.components.service.fxa.SharedPrefAccountStorage
 import mozilla.components.service.fxa.StorageWrapper
 import mozilla.components.service.fxa.SyncAuthInfoCache
-import mozilla.components.service.fxa.SyncConfig
-import mozilla.components.service.fxa.SyncEngine
 import mozilla.components.service.fxa.asSyncAuthInfo
 import mozilla.components.service.fxa.emitSyncFailedFact
 import mozilla.components.service.fxa.into
@@ -118,6 +118,7 @@ open class FxaAccountManager(
     private val accountOnDisk by lazy { getStorageWrapper().account() }
     private val account by lazy { accountOnDisk.account() }
     private val accountStateEventsObserver = AccountStateEventsObserver(this::queueEvent)
+    private val accountScopeAccessor by lazy { AccountScopeAccessor(getAccountStorage()) }
 
     // Note on threading: we use a single-threaded executor, so there's no concurrent access possible.
     // However, that executor doesn't guarantee that it'll always use the same thread, and so vars
@@ -260,6 +261,28 @@ open class FxaAccountManager(
     }
 
     /**
+     * Checks whether the given OAuth [scope] is granted to the persisted account. Only consults the
+     * stored account when it is in an accessible state; otherwise `false` is returned.
+     *
+     * @param scope The OAuth scope to look for.
+     * @return `true` if the scope is granted, `false` otherwise.
+     */
+    suspend fun containsScope(scope: String): Boolean {
+        if (authenticatedAccount() == null) {
+            return false
+        }
+        return when (val status = accountScopeAccessor.containsScope(scope)) {
+            ScopeStatus.Granted -> true
+            ScopeStatus.NotGranted -> false
+            is ScopeStatus.Unavailable -> {
+                logger.warn("Unable to determine scope status for account.", status.cause)
+                crashReporter?.submitCaughtException(status.cause ?: ScopeUnavailableException(status.reason))
+                false
+            }
+        }
+    }
+
+    /**
      * Call this after registering your observers, and before interacting with this class.
      */
     suspend fun start() = withContext(coroutineContext) {
@@ -369,6 +392,23 @@ open class FxaAccountManager(
      */
     suspend fun handleWebChannelLogin(jsonPayload: String) = withContext(coroutineContext) {
         account.handleWebChannelLogin(jsonPayload)
+    }
+
+    /**
+     * Handles the `fxaccounts:change_password` WebChannel payload after the user
+     * changes their password from the manage-account flow.
+     */
+    suspend fun handleWebChannelPasswordChange(jsonPayload: String) = withContext(coroutineContext) {
+        val wasInAuthIssues = state == FxaState.AuthIssues
+        processQueue(Event.Account.WebChannelPasswordChange(jsonPayload))
+        if (state == FxaState.Connected) {
+            SyncAuthInfoCache(context).clear()
+            authenticationSideEffects("WebChannelPasswordChange")
+            if (wasInAuthIssues) {
+                notifyObservers { onAuthenticated(account, AuthType.Recovered) }
+            }
+            refreshProfile(ignoreCache = true)
+        }
     }
 
     /**
@@ -495,6 +535,8 @@ open class FxaAccountManager(
         is Event.Account.AuthenticationError -> FxaEvent.CheckAuthorizationStatus
         Event.Account.AccessTokenKeyError -> FxaEvent.CheckAuthorizationStatus
         Event.Account.Logout -> FxaEvent.Disconnect
+        is Event.Account.WebChannelPasswordChange ->
+            FxaEvent.WebChannelPasswordChange(jsonPayload = event.jsonPayload)
         // This is the one ProgressEvent that's considered a "public event" in app-services
         is Event.Progress.AuthData -> FxaEvent.CompleteOAuthFlow(event.authData.code, event.authData.state)
         else -> null

@@ -3194,28 +3194,19 @@ export const SearchService = new (class SearchService {
     let extensionEngines = this.#getEnginesByExtensionID(extension.id);
 
     for (let engine of extensionEngines) {
-      let isDefault = engine == this.defaultEngine;
-      let isDefaultPrivate = engine == this.defaultPrivateEngine;
-
       let originalName = engine.name;
 
       await engine.update({
         extension,
       });
 
-      if (engine.name != originalName) {
-        if (isDefault) {
-          this._settings.setVerifiedMetaDataAttribute(
-            "defaultEngineId",
-            engine.id
-          );
-        }
-        if (isDefaultPrivate) {
-          this._settings.setVerifiedMetaDataAttribute(
-            "privateDefaultEngineId",
-            engine.id
-          );
-        }
+      // If the name has changed, and we aren't using the pre-saved orders,
+      // clear the sorted engines cache so that we'll update the orders next
+      // time it is accessed.
+      if (
+        engine.name != originalName &&
+        !this._settings.getMetaDataAttribute("useSavedOrder")
+      ) {
         this._cachedSortedEngines = null;
       }
     }
@@ -3471,6 +3462,8 @@ export const SearchService = new (class SearchService {
         null,
         eventReason
       );
+      this._settings.setMetaDataAttribute("privateDefaultEngineId", "");
+      this.#currentPrivateEngine = null;
     }
   }
 

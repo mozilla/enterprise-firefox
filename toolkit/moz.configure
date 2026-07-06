@@ -4174,9 +4174,7 @@ with only_when(compile_environment):
 with only_when(target_has_linux_kernel & compile_environment):
     option(
         env="MOZ_LINKER",
-        default=depends(target.os, when="--enable-jemalloc")(
-            lambda os: os == "Android"
-        ),
+        default=False,
         help="{Enable|Disable} custom dynamic linker",
     )
 

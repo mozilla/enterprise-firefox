@@ -710,13 +710,17 @@ void CacheFileMetadata::SetFrecency(uint32_t aFrecency) {
   LOG(("CacheFileMetadata::SetFrecency() [this=%p, frecency=%f]", this,
        (double)aFrecency));
 
-  MarkDirty(false);
+  // Deliberately do not mark the metadata dirty. Frecency is persisted through
+  // the central index (the authoritative store for eviction); rewriting the
+  // entry file on every read hit would generate needless IO and trigger
+  // on-access anti-malware scans. The updated value is still written out for
+  // free whenever the metadata is flushed for some other reason.
   mMetaHdr.mFrecency = aFrecency;
 }
 
 void CacheFileMetadata::OnFetched() {
-  MarkDirty(false);
-
+  // Likewise stat-only: keep lastFetched/fetchCount current in memory without
+  // dirtying the file. They may be approximate across a restart.
   mMetaHdr.mLastFetched = NOW_SECONDS();
   ++mMetaHdr.mFetchCount;
 }

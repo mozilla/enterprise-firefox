@@ -60,7 +60,9 @@ function URLFetcher(url, timeout) {
       if (self._isAborted) {
         return;
       }
-      if (xhr.status === 200) {
+      if (
+        xhr.status === Services.prefs.getIntPref("captivedetect.expectedStatus")
+      ) {
         self.onsuccess(xhr.responseText);
       } else if (xhr.status) {
         self.onredirectorerror(xhr.status);
@@ -242,6 +244,7 @@ export function CaptivePortalDetector() {
   // Load preference
   this._canonicalSiteURL = null;
   this._canonicalSiteExpectedContent = null;
+  this._expectedStatus = 200;
 
   try {
     this._canonicalSiteURL = Services.prefs.getCharPref(
@@ -249,6 +252,9 @@ export function CaptivePortalDetector() {
     );
     this._canonicalSiteExpectedContent = Services.prefs.getCharPref(
       "captivedetect.canonicalContent"
+    );
+    this._expectedStatus = Services.prefs.getIntPref(
+      "captivedetect.expectedStatus"
     );
   } catch (e) {
     debug("canonicalURL or canonicalContent not set.");
@@ -397,7 +403,13 @@ CaptivePortalDetector.prototype = {
         self.executeCallback(true);
         return;
       }
-      if (status >= 300 && status <= 399) {
+      if (
+        status >= 200 &&
+        status <= 299 &&
+        status != Services.prefs.getIntPref("captivedetect.expectedStatus")
+      ) {
+        self._startLogin();
+      } else if (status >= 300 && status <= 399) {
         // The canonical website has been redirected to an unknown location
         self._startLogin();
       } else if (status === 511) {

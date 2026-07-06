@@ -93,6 +93,9 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = Hodiny
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = Súkromie
 home-prefs-mission-message2 =
     .message = Naši sponzori podporujú našu misiu budovať lepší web.
 home-prefs-manage-topics-link2 =
@@ -152,6 +155,11 @@ home-prefs-weather-header-srd =
 home-prefs-support-firefox-header-srd =
     .label = Podpora pre { -brand-product-name(case: "acc") }
 home-prefs-mission-message-learn-more-link-srd = Pozrite sa ako
+
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = Ďalšie informácie
 
 ## Search box component.
 
@@ -495,6 +503,8 @@ newtab-custom-widget-clock-toggle =
     .label = Hodiny
 newtab-custom-widget-sports-toggle2 =
     .label = Šport
+newtab-custom-widget-privacy-toggle =
+    .label = Súkromie
 newtab-custom-widget-section-title = Miniaplikácie
 newtab-custom-widget-section-toggle =
     .label = Miniaplikácie
@@ -971,6 +981,8 @@ newtab-widget-timer-reset =
 newtab-widget-timer-menu-notifications = Vypnúť upozornenia
 newtab-widget-timer-menu-notifications-on = Zapnúť upozornenia
 newtab-widget-timer-menu-learn-more = Ďalšie informácie
+newtab-widget-timer-menu-button =
+    .aria-label = Možnosti časovača
 # The title displays above a set of top news headlines.
 newtab-daily-briefing-card-title = Najlepšie titulky
 newtab-daily-briefing-card-menu-dismiss = Zavrieť
@@ -1273,6 +1285,8 @@ newtab-sports-widget-team-tbd = Bude upresnené
 newtab-sports-widget-message-wallpapers-title = Začnite Majstrovstvá sveta vo futbale s novými tapetami
 newtab-sports-widget-message-wallpapers-body = Prineste si do prehliadača energiu na zápasový deň počas turnaja.
 newtab-sports-widget-message-wallpapers-cta = Vyberte si tapetu
+newtab-sports-widget-message-wallpapers-semifinals-title = Získajte novú tapetu pre semifinále
+newtab-sports-widget-message-wallpapers-semifinals-body = Pripravte si pôdu pre najväčšie zápasy Majstrovstiev sveta.
 newtab-sports-widget-message-add-widgets-cta =
     .label = Pridať miniaplikácie
 newtab-sports-widget-message-day-in-play-title = Využite svoj deň naplno s miniaplikáciami vo { -brand-product-name(case: "loc") }

@@ -1,4 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<issues format="6" by="lint 8.13.2" type="baseline" client="gradle" dependencies="false" name="AGP (8.13.2)" variant="all" version="8.13.2">
+<issues format="6" by="lint 9.2.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.2.1)" variant="all" version="9.2.1">
+
+    <issue
+        id="AssertTrueInsteadOfAssertIs"
+        message="Use assertIs&lt;TimeoutCancellationException>() for better failure messages and smart casts"
+        errorLine1="        assertTrue(failure.exception.cause is TimeoutCancellationException)"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/test/java/mozilla/components/feature/summarize/SummarizationStoreTest.kt"
+            line="342"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="AssertTrueInsteadOfAssertIs"
+        message="Use assertIs&lt;TimeoutCancellationException>() for better failure messages and smart casts"
+        errorLine1="        assertTrue(reportedErrors.single().cause is TimeoutCancellationException)"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/test/java/mozilla/components/feature/summarize/SummarizationStoreTest.kt"
+            line="345"
+            column="9"/>
+    </issue>
 
 </issues>

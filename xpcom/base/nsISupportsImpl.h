@@ -67,6 +67,7 @@ class nsISerialEventTarget;
 class nsAutoOwningEventTarget {
  public:
   nsAutoOwningEventTarget();
+  explicit nsAutoOwningEventTarget(nsISerialEventTarget* aTarget);
 
   nsAutoOwningEventTarget(const nsAutoOwningEventTarget& aOther);
 

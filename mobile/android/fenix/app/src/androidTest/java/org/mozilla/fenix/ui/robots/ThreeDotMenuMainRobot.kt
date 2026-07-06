@@ -18,11 +18,13 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeTestRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.RootMatchers
@@ -218,9 +220,6 @@ class ThreeDotMenuMainRobot(private val composeTestRule: ComposeTestRule) {
         Log.i(TAG, "verifyPageMainMenuItems: Trying to verify that the \"Sign in\" button exists.")
         composeTestRule.signInButton().assertIsDisplayed()
         Log.i(TAG, "verifyPageMainMenuItems: Verified that the \"Sign in\" button exists.")
-        Log.i(TAG, "verifyHomeMainMenuItems: Trying to verify that the \"Change wallpaper\" button exists.")
-        composeTestRule.changeWallpaperButton().assertIsDisplayed()
-        Log.i(TAG, "verifyHomeMainMenuItems: Verified that the \"Change wallpaper\" button exists.")
         Log.i(TAG, "verifyPageMainMenuItems: Trying to verify that the \"Settings\" button exists.")
         composeTestRule.settingsButton().assertIsDisplayed()
         Log.i(TAG, "verifyPageMainMenuItems: Verified that the \"Settings\" button exists.")
@@ -306,18 +305,6 @@ class ThreeDotMenuMainRobot(private val composeTestRule: ComposeTestRule) {
         composeTestRule.settingsButton().assertIsDisplayed()
         Log.i(TAG, "verifyHomeMainMenuItems: Verified that the \"Settings\" button exists.")
         Log.i(TAG, "verifyHomeMainMenuItems: Verified the main menu items on the home page.")
-    }
-
-    fun verifyMainMenuCFR() {
-        Log.i(TAG, "verifyMainMenuCFR: Trying to verify the main menu CFR title is displayed.")
-        composeTestRule.mainMenuCFRTitle().assertIsDisplayed()
-        Log.i(TAG, "verifyMainMenuCFR: Verified the main menu CFR title is displayed.")
-        Log.i(TAG, "verifyMainMenuCFR: Trying to verify the main menu CFR message is displayed.")
-        composeTestRule.mainMenuCFRMessage().assertIsDisplayed()
-        Log.i(TAG, "verifyMainMenuCFR: Verified the main menu CFR message is displayed.")
-        Log.i(TAG, "verifyMainMenuCFR: Trying to verify the main menu CFR dismiss button is displayed.")
-        composeTestRule.closeMainMenuCFRButton().assertIsDisplayed()
-        Log.i(TAG, "verifyMainMenuCFR: Verified the main menu CFR dismiss button is displayed.")
     }
 
     fun clickTheQuitFirefoxButton() {
@@ -588,10 +575,35 @@ class ThreeDotMenuMainRobot(private val composeTestRule: ComposeTestRule) {
             return BrowserRobot.Transition(composeTestRule)
         }
 
+        /**
+         * Long click forward page button
+         */
+        fun longClickForwardPageButton(interact: BrowserRobot.() -> Unit): BrowserRobot.Transition {
+            Log.i(TAG, "longClickForwardPageButton: Trying to long-click the \"Forward\" button")
+            composeTestRule.forwardButton().performTouchInput {
+                longClick(durationMillis = LONG_CLICK_DURATION)
+            }
+            Log.i(TAG, "longClickForwardPageButton: long-clicked the \"Forward\" button")
+
+            BrowserRobot(composeTestRule).interact()
+            return BrowserRobot.Transition(composeTestRule)
+        }
+
         fun clickPreviousPageButton(interact: BrowserRobot.() -> Unit): BrowserRobot.Transition {
             Log.i(TAG, "clickPreviousPageButton: Trying to click the \"Back\" button")
             composeTestRule.backButton().performClick()
             Log.i(TAG, "clickPreviousPageButton: Clicked the \"Back\" button")
+
+            BrowserRobot(composeTestRule).interact()
+            return BrowserRobot.Transition(composeTestRule)
+        }
+
+        fun longClickPreviousPageButton(interact: BrowserRobot.() -> Unit): BrowserRobot.Transition {
+            Log.i(TAG, "longClickPreviousPageButton: Trying to long-click the \"Back\" button")
+            composeTestRule.backButton().performTouchInput {
+                longClick(durationMillis = LONG_CLICK_DURATION)
+            }
+            Log.i(TAG, "longClickPreviousPageButton: long-clicked the \"Back\" button")
 
             BrowserRobot(composeTestRule).interact()
             return BrowserRobot.Transition(composeTestRule)
@@ -867,12 +879,6 @@ private fun shareAllTabsButton() =
     onView(allOf(withText("Share all tabs"))).inRoot(RootMatchers.isPlatformPopup())
 
 // ComposeMainMenu
-
-private fun ComposeTestRule.mainMenuCFRTitle() = onNodeWithText(getStringResource(R.string.menu_cfr_title))
-
-private fun ComposeTestRule.mainMenuCFRMessage() = onNodeWithText(getStringResource(R.string.menu_cfr_body))
-
-private fun ComposeTestRule.closeMainMenuCFRButton() = onNodeWithTag("cfr.dismiss")
 
 private fun ComposeTestRule.backButton() = onNodeWithText("Back")
 

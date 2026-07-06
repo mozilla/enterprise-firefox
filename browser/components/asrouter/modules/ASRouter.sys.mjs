@@ -522,8 +522,12 @@ export const MessageLoaderUtils = {
           for (const branchMessage of branchMessages) {
             // If you want a message to record reach events, opt in by setting
             // recordReach to true. Reach events only get recorded when the
-            // message's trigger fires, so the message must have a trigger.
-            if (!branchMessage?.recordReach || !branchMessage?.trigger) {
+            // message's trigger fires, so the message must have at least one
+            // trigger.
+            if (
+              !branchMessage?.recordReach ||
+              !lazy.ASRouterTargeting.getMessageTriggers(branchMessage).length
+            ) {
               continue;
             }
             let reachId = `${meta.slug}:${branch.slug}:${branchMessage.id}`;
@@ -1071,19 +1075,21 @@ export class _ASRouter {
       // Some messages have triggers that require us to initalise trigger listeners
       const unseenListeners = new Set(lazy.ASRouterTriggerListeners.keys());
       for (const message of newState.messages) {
-        const { trigger } = message;
-        if (
-          trigger &&
-          lazy.ASRouterTriggerListeners.has(trigger.id) &&
-          !this._shouldSkipForAutomation(message)
-        ) {
-          lazy.ASRouterTriggerListeners.get(trigger.id).init(
-            this._triggerHandler,
-            trigger.params,
-            trigger.patterns,
-            trigger.regexPatterns
-          );
-          unseenListeners.delete(trigger.id);
+        if (this._shouldSkipForAutomation(message)) {
+          continue;
+        }
+        for (const trigger of lazy.ASRouterTargeting.getMessageTriggers(
+          message
+        )) {
+          if (trigger && lazy.ASRouterTriggerListeners.has(trigger.id)) {
+            lazy.ASRouterTriggerListeners.get(trigger.id).init(
+              this._triggerHandler,
+              trigger.params,
+              trigger.patterns,
+              trigger.regexPatterns
+            );
+            unseenListeners.delete(trigger.id);
+          }
         }
       }
       // We don't need these listeners, but they may have previously been
@@ -2092,16 +2098,22 @@ export class _ASRouter {
           lazy.ASRouterPreferences.console.debug(m.id, " filtered by template");
           return false;
         }
-        if (triggerId && !m.trigger) {
-          lazy.ASRouterPreferences.console.debug(m.id, " filtered by trigger");
-          return false;
-        }
-        if (triggerId && m.trigger.id !== triggerId) {
-          lazy.ASRouterPreferences.console.debug(
-            m.id,
-            " filtered by triggerId"
-          );
-          return false;
+        if (triggerId) {
+          const triggers = lazy.ASRouterTargeting.getMessageTriggers(m);
+          if (!triggers.length) {
+            lazy.ASRouterPreferences.console.debug(
+              m.id,
+              " filtered by trigger"
+            );
+            return false;
+          }
+          if (!triggers.some(t => t.id === triggerId)) {
+            lazy.ASRouterPreferences.console.debug(
+              m.id,
+              " filtered by triggerId"
+            );
+            return false;
+          }
         }
         // Show message after checking it's  profile scope.
         if (!this.hasValidProfileScope(m)) {
@@ -2602,6 +2614,13 @@ export class _ASRouter {
       return;
     }
     await this.loadMessagesFromAllProviders([experimentProvider]);
+
+    if (lazy.ASRouterTriggerListeners.get("nimbusUpdate")?.initialized) {
+      const browser =
+        Services.wm.getMostRecentBrowserWindow()?.gBrowser?.selectedBrowser;
+
+      await this.sendTriggerMessage({ browser, id: "nimbusUpdate" }, true);
+    }
   }
 
   async forcePBWindow(browser, msg) {

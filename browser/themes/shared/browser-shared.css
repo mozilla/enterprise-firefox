@@ -929,17 +929,15 @@ menupopup::part(drop-indicator) {
   }
 
   &[data-notification-bucket="CFR_MILESTONE_MESSAGE"] {
-    &:not([hidden]) {
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      background: radial-gradient(circle farthest-side at top right, var(--short-notification-gradient), var(--short-notification-background));
-      width: unset;
-      /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-      max-width: 700px;
-      overflow-wrap: break-word;
-      padding: var(--space-xsmall);
-    }
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    background: radial-gradient(circle farthest-side at top right, var(--short-notification-gradient), var(--short-notification-background));
+    width: unset;
+    /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+    max-width: 700px;
+    overflow-wrap: break-word;
+    padding: var(--space-xsmall);
 
     &:-moz-locale-dir(rtl) {
       background: radial-gradient(circle farthest-side at top left, var(--short-notification-gradient), var(--short-notification-background));
@@ -1353,10 +1351,16 @@ popupnotificationcontent {
 
     > span:first-child {
       margin-inline-end: var(--space-xlarge);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+      flex: 1;
     }
 
     > span:last-child {
       opacity: var(--opacity-deemphasized-strong);
+      flex-shrink: 0;
     }
   }
 }
@@ -1559,7 +1563,10 @@ popupnotificationcontent {
         --toolbarbutton-background-color-hover: var(--background-color-box);
         --toolbarbutton-background-color-active: var(--background-color-box);
         --toolbarbutton-outline-color-hover: var(--smart-window-toolbarbutton-color);
-        --toolbarbutton-outline-color-active: var(--smart-window-toolbarbutton-color);
+        --toolbarbutton-outline-color-active: light-dark(
+          color-mix(in srgb, var(--color-violet-desaturated-50) 30%, transparent),
+          var(--color-violet-desaturated-50)
+        );
         --toolbarbutton-outline-color-selected: var(--smart-window-toolbarbutton-color);
       }
     }
@@ -1568,9 +1575,14 @@ popupnotificationcontent {
 
 #ai-window-switch-classic,
 #ai-window-switch-ai {
-  &:hover {
-    background-color: var(--button-background-color-ghost-hover);
-  }
+  --button-background-color-ghost-active: light-dark(
+    color-mix(in srgb, var(--color-violet-desaturated-60) 30%, transparent),
+    color-mix(in srgb, var(--color-violet-desaturated-40) 36%, transparent)
+  );
+  --button-background-color-ghost-hover: light-dark(
+    color-mix(in srgb, var(--color-violet-desaturated-60) 16%, transparent),
+    color-mix(in srgb, var(--color-violet-desaturated-40) 24%, transparent)
+  );
 
   .toolbarbutton-icon {
     margin-inline-end: var(--space-small);
@@ -1600,11 +1612,7 @@ popupnotificationcontent {
   @media -moz-pref("browser.nova.enabled") {
     /* TODO: replace with token when available - Bug 2033070 */
     /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-    border-radius: 24px;
-
-    &[checked] {
-      background-color: var(--button-background-color-active);
-    }
+    border-radius: 12px;
 
     #ai-window-switch-ai-badge {
       display: none;

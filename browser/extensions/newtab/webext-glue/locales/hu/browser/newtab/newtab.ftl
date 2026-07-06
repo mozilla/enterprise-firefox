@@ -93,6 +93,9 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = Óra
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = Adatvédelem
 home-prefs-mission-message2 =
     .message = Szponzoraink támogatják a küldetésünket, hogy jobb webet építsünk.
 home-prefs-manage-topics-link2 =
@@ -151,6 +154,11 @@ home-prefs-weather-header-srd =
 home-prefs-support-firefox-header-srd =
     .label = A { -brand-product-name } támogatása
 home-prefs-mission-message-learn-more-link-srd = Tudja meg hogyan
+
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = További tudnivalók
 
 ## Search box component.
 
@@ -496,6 +504,8 @@ newtab-custom-widget-clock-toggle =
     .label = Óra
 newtab-custom-widget-sports-toggle2 =
     .label = Sport
+newtab-custom-widget-privacy-toggle =
+    .label = Adatvédelem
 newtab-custom-widget-section-title = Kisalkalmazások
 newtab-custom-widget-section-toggle =
     .label = Kisalkalmazások
@@ -972,6 +982,8 @@ newtab-widget-timer-reset =
 newtab-widget-timer-menu-notifications = Értesítések kikapcsolása
 newtab-widget-timer-menu-notifications-on = Értesítések bekapcsolása
 newtab-widget-timer-menu-learn-more = További tudnivalók
+newtab-widget-timer-menu-button =
+    .aria-label = Időzítő beállításai
 # The title displays above a set of top news headlines.
 newtab-daily-briefing-card-title = Legfontosabb szalagcímek
 newtab-daily-briefing-card-menu-dismiss = Eltüntetés
@@ -1086,6 +1098,8 @@ newtab-sports-widget-show-less =
 # Toggle that filters the list of teams the user follows
 newtab-sports-widget-followed-only-toggle =
     .label = Csak követett csapatok
+# Status shown when more matches are being fetched.
+newtab-sports-widget-loading-more = További találatok betöltése…
 # Watch is a verb (as in watch matches online).
 newtab-sports-widget-watch =
     .label = Követés
@@ -1165,6 +1179,9 @@ newtab-sports-widget-third-place = Harmadik helyezett
 newtab-sports-widget-runner-up = Második helyezett
 newtab-sports-widget-champions = Bajnokok
 newtab-sports-widget-world-cup-champions = A 2026-os világbajnokság bajnokai
+# Compact champions label for the medium-size widget result card; the larger
+# card uses newtab-sports-widget-world-cup-champions.
+newtab-sports-widget-world-cup-champions-short = 2026 bajnokai
 # Variables:
 #   $date (Date) - The match start time
 newtab-sports-widget-match-time = { DATETIME($date, hour: "2-digit", minute: "2-digit") }
@@ -1263,6 +1280,8 @@ newtab-sports-widget-team-tbd = Még nincs meghatározva
 newtab-sports-widget-message-wallpapers-title = Indítsa a világbajnokságot új háttérképekkel
 newtab-sports-widget-message-wallpapers-body = Vigyen egy kis játékos energiát a böngészőjébe a bajnokság alatt.
 newtab-sports-widget-message-wallpapers-cta = Háttérkép választása
+newtab-sports-widget-message-wallpapers-semifinals-title = Szerezzen új háttérképet az elődöntőkhöz
+newtab-sports-widget-message-wallpapers-semifinals-body = Készítsd elő a színteret a világbajnokság legnagyobb mérkőzéseire!
 newtab-sports-widget-message-add-widgets-cta =
     .label = Kisalkalmazások hozzáadása
 newtab-sports-widget-message-day-in-play-title = Maradjon játékban egész nap a { -brand-product-name } kisalkalmazásaival

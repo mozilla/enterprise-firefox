@@ -62,9 +62,9 @@ static PlainObject* CreateThis(JSContext* cx, HandleObject newTarget) {
   gc::AllocKind allocKind = NewObjectGCKind();
 
   if (proto) {
-    return NewPlainObjectWithProtoAndAllocKind(cx, proto, allocKind);
+    return NewPlainObjectWithProto(cx, proto, {.allocKind = allocKind});
   }
-  return NewPlainObjectWithAllocKind(cx, allocKind);
+  return NewPlainObject(cx, {.allocKind = allocKind});
 }
 
 bool js::obj_construct(JSContext* cx, unsigned argc, Value* vp) {
@@ -80,7 +80,7 @@ bool js::obj_construct(JSContext* cx, unsigned argc, Value* vp) {
   } else {
     /* Make an object whether this was called with 'new' or not. */
     gc::AllocKind allocKind = NewObjectGCKind();
-    obj = NewPlainObjectWithAllocKind(cx, allocKind);
+    obj = NewPlainObject(cx, {.allocKind = allocKind});
   }
   if (!obj) {
     return false;
@@ -1246,7 +1246,8 @@ PlainObject* js::ObjectCreateImpl(JSContext* cx, HandleObject proto,
   // Give the new object a small number of fixed slots, like we do for empty
   // object literals ({}).
   gc::AllocKind allocKind = NewObjectGCKind();
-  return NewPlainObjectWithProtoAndAllocKind(cx, proto, allocKind, newKind);
+  return NewPlainObjectWithProto(cx, proto,
+                                 {.newKind = newKind, .allocKind = allocKind});
 }
 
 PlainObject* js::ObjectCreateWithTemplate(JSContext* cx,
@@ -2284,7 +2285,7 @@ static JSObject* CreateObjectPrototype(JSContext* cx, JSProtoKey key) {
    * prototype of the created object.
    */
   Rooted<PlainObject*> objectProto(
-      cx, NewPlainObjectWithProto(cx, nullptr, TenuredObject));
+      cx, NewPlainObjectWithProto(cx, nullptr, {.newKind = TenuredObject}));
   if (!objectProto) {
     return nullptr;
   }

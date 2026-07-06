@@ -3019,6 +3019,13 @@ RefPtr<MediaManager::StreamPromise> MediaManager::GetUserMedia(
           nsPIDOMWindowOuter* outer = aWindow->GetOuterWindow();
           vc.mBrowserWindow.Construct(outer->WindowID());
         }
+        // Allow tab capture requests from chrome context if device id is
+        // specified, since no prompt is needed.
+        if (isChrome && videoType == MediaSourceEnum::Browser &&
+            c.mVideo.IsMediaTrackConstraints() &&
+            c.mVideo.GetAsMediaTrackConstraints().mDeviceId.WasPassed()) {
+          break;
+        }
         [[fallthrough]];
       case MediaSourceEnum::Screen:
       case MediaSourceEnum::Window:
@@ -3204,6 +3211,20 @@ RefPtr<MediaManager::StreamPromise> MediaManager::GetUserMedia(
   EnumerationFlags flags = EnumerationFlag::AllowPermissionRequest;
   if (forceFakes) {
     flags += EnumerationFlag::ForceFakes;
+  }
+  if (privileged && videoType == MediaSourceEnum::Browser &&
+      c.mVideo.IsMediaTrackConstraints() &&
+      c.mVideo.GetAsMediaTrackConstraints().mDeviceId.WasPassed()) {
+    // Bug 2041678: For automation purposes when calling getUserMedia
+    // in privileged context to record a browser window, since we avoid
+    // the interface to choose the device and just provide it directly,
+    // we have to invalidate the device cache.
+    MOZ_ALWAYS_SUCCEEDS(mMediaThread->Dispatch(NS_NewRunnableFunction(
+        __func__, [self = RefPtr(this), this, videoType] {
+          if (mBackend) {
+            mBackend->InvalidateDesktopCaptureDeviceCache(videoType);
+          }
+        })));
   }
   RefPtr<MediaManager> self = this;
   return EnumerateDevicesImpl(

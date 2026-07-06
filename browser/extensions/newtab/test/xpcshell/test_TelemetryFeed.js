@@ -2898,3 +2898,14 @@ add_task(async function test_recordEnabledWidgets_none_enabled() {
     "widgetsEnabledList should be empty when no widgets are enabled"
   );
 });
+
+add_task(async function test_onAction_NEW_TAB_SCROLL_records_scroll_metric() {
+  Services.fog.testResetFOG();
+  let instance = new TelemetryFeed();
+  instance.onAction({ type: actionTypes.NEW_TAB_SCROLL });
+  Assert.equal(
+    Glean.newtab.scroll.testGetValue(),
+    true,
+    "newtab.scroll should be true after NEW_TAB_SCROLL action"
+  );
+});

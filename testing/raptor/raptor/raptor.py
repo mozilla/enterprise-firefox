@@ -112,6 +112,7 @@ def main(args=sys.argv[1:]):
             device_name=args.device_name,
             disable_perf_tuning=args.disable_perf_tuning,
             conditioned_profile=args.conditioned_profile,
+            install_extensions=args.install_extensions,
             test_bytecode_cache=args.test_bytecode_cache,
             chimera=args.chimera,
             project=args.project,

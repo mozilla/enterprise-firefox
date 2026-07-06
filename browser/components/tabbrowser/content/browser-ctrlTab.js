@@ -270,6 +270,17 @@ var ctrlTab = {
   },
 
   prefName: "browser.ctrlTab.sortByRecentlyUsed",
+
+  observePref: function ctrlTab_observePref() {
+    Services.prefs.addObserver(this.prefName, this);
+    this.readPref();
+  },
+
+  stopObservingPref: function ctrlTab_stopObservingPref() {
+    Services.prefs.removeObserver(this.prefName, this);
+    this.uninit();
+  },
+
   readPref: function ctrlTab_readPref() {
     var enable =
       Services.prefs.getBoolPref(this.prefName) &&

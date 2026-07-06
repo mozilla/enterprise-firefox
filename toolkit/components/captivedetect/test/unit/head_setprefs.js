@@ -45,6 +45,7 @@ const kCanonicalSitePath = "/canonicalSite.html";
 const kCanonicalSiteContent = "true";
 const kPrefsCanonicalURL = "captivedetect.canonicalURL";
 const kPrefsCanonicalContent = "captivedetect.canonicalContent";
+const kPrefsExpectedStatus = "captivedetect.expectedStatus";
 const kPrefsMaxWaitingTime = "captivedetect.maxWaitingTime";
 const kPrefsPollingTime = "captivedetect.pollingTime";
 
@@ -57,6 +58,7 @@ function setupPrefs() {
     gServerURL + kCanonicalSitePath
   );
   Services.prefs.setCharPref(kPrefsCanonicalContent, kCanonicalSiteContent);
+  Services.prefs.setIntPref(kPrefsExpectedStatus, 200);
   Services.prefs.setIntPref(kPrefsMaxWaitingTime, 0);
   Services.prefs.setIntPref(kPrefsPollingTime, 1);
 }

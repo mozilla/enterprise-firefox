@@ -187,6 +187,9 @@ class XPCShellTestThread(Thread):
             # Retry in CI, but report results without retry when run locally to
             # avoid confusion and ease local debugging.
             self.retry = os.environ.get("MOZ_AUTOMATION") is not None
+        # True only for the re-run of a test that failed the first time, so it
+        # can name artifacts differently from the initial run.
+        self.is_retry = kwargs.get("is_retry", False)
         self.verbose = verbose
         self.usingTSan = usingTSan
         self.usingCrashReporter = usingCrashReporter
@@ -453,6 +456,29 @@ class XPCShellTestThread(Thread):
         extra = None
         if self.timeout_factor > 1:
             extra = {"timeoutfactor": self.timeout_factor}
+
+        # If the profiler dumped a profile from its sampler thread before we
+        # killed the wedged process (scheduled by head.js via scheduleDumpToFile
+        # since the main thread can't write one once it stops returning to the
+        # event loop), report it here as a structured test_status, logged while
+        # the test is still in progress so the artifact is linked to this test.
+        # A structured message (unlike a raw log line) is downgraded to expected
+        # on a retried run, and is recorded as a FAIL marker in the
+        # resource-usage profile the dashboards read.
+        profile_name = self.timeout_profile_name
+        upload_dir = self.env.get("MOZ_UPLOAD_DIR")
+        if (
+            profile_name
+            and upload_dir
+            and os.path.isfile(os.path.join(upload_dir, profile_name))
+        ):
+            self.log.test_status(
+                self.test_object["id"],
+                "",
+                "FAIL",
+                expected="FAIL" if (self.retry or self.timeoutAsPass) else expected,
+                message=f"Test timed out; profile uploaded in {profile_name}",
+            )
 
         if self.retry:
             self.log.test_end(
@@ -967,6 +993,14 @@ class XPCShellTestThread(Thread):
                     self.profileDir, "profile_" + os.path.basename(name) + ".json"
                 )
                 self.env["MOZ_PROFILER_SHUTDOWN"] = profile_path
+                # The user explicitly asked for a profile, so use the normal
+                # profiler feature set and sampling interval instead of the
+                # low-overhead defaults applied in buildCoreEnvironment,
+                # unless they have already picked values themselves.
+                if "MOZ_PROFILER_STARTUP_FEATURES" not in os.environ:
+                    self.env["MOZ_PROFILER_STARTUP_FEATURES"] = "default"
+                if "MOZ_PROFILER_STARTUP_INTERVAL" not in os.environ:
+                    self.env.pop("MOZ_PROFILER_STARTUP_INTERVAL", None)
 
         if (
             self.test_object.get("headless", "true" if self.headless else None)
@@ -982,10 +1016,40 @@ class XPCShellTestThread(Thread):
 
         testTimeoutInterval = self.harness_timeout * self.timeout_factor
 
+        self.timeout_profile_name = None
         if not self.interactive and not self.debuggerInfo and not self.jsDebuggerInfo:
             self.timer = Timer(testTimeoutInterval, lambda: self.testTimeout(proc))
             self.timer.start()
             self.env["MOZ_TEST_TIMEOUT_INTERVAL"] = str(testTimeoutInterval)
+
+            # When the profiler runs by default, have it dump a profile from its
+            # sampler thread shortly before this timeout fires (armed by
+            # head.js), so a test wedged in a synchronous run (where the main
+            # thread can never write one) still leaves a profile. We pick the
+            # artifact name here so the retry of a test that timed out doesn't
+            # overwrite the initial run's profile: the retry gets a "_retry"
+            # suffix, and a numeric counter is only added on an actual name
+            # collision (the same test listed in two manifests). The suffixes go
+            # before the test extension so the name still ends in e.g.
+            # ".js.json" as Treeherder expects. testTimeout reports this name.
+            upload_dir = self.env.get("MOZ_UPLOAD_DIR")
+            if (
+                upload_dir
+                and self.env.get("MOZ_PROFILER_STARTUP")
+                and "MOZ_PROFILER_SHUTDOWN" not in self.env
+            ):
+                root, ext = os.path.splitext(os.path.basename(name))
+                if self.is_retry:
+                    root += "_retry"
+                filename = f"profile_{root}{ext}.json"
+                i = 2
+                while os.path.exists(os.path.join(upload_dir, filename)):
+                    filename = f"profile_{root}-{i}{ext}.json"
+                    i += 1
+                self.timeout_profile_name = filename
+                self.env["MOZ_TEST_TIMEOUT_PROFILE_PATH"] = os.path.join(
+                    upload_dir, filename
+                )
 
         proc = None
         process_output = None
@@ -1462,6 +1526,33 @@ class XPCShellTests:
             self.env["MOZ_FORCE_USE_SOCKET_PROCESS"] = "1"
         else:
             self.env["MOZ_DISABLE_SOCKET_PROCESS"] = "1"
+
+        # Self-tests run many sub-processes whose tests fail on purpose, so
+        # profiling them only wastes overhead and uploads useless artifacts.
+        # Strip any startup-profiling request inherited from the environment
+        # (e.g. a `mach try fuzzy --profiler` push) and don't enable it by
+        # default.
+        if self.selfTest:
+            self.env.pop("MOZ_PROFILER_STARTUP", None)
+            return
+
+        # Enable the profiler by default with a feature set chosen to keep
+        # overhead low while still producing useful profiles: the platform
+        # defaults minus `stackwalk` and `fileioall` (both too expensive),
+        # plus `ipcmessages` and `memory` so IPC and memory tracks show up.
+        #
+        # The profiler is left disabled under ThreadSanitizer, where it causes
+        # too many failures.
+        if not self.mozInfo.get("tsan"):
+            self.env.setdefault("MOZ_PROFILER_STARTUP", "1")
+            self.env.setdefault(
+                "MOZ_PROFILER_STARTUP_FEATURES",
+                "java,js,cpu,screenshots,processcpu,ipcmessages,memory",
+            )
+
+            # Set the sampling interval to 10ms to reduce the sampling overhead
+            # and avoid triggering the timer resolution change on Windows.
+            self.env.setdefault("MOZ_PROFILER_STARTUP_INTERVAL", "10")
 
     def buildEnvironment(self):
         """
@@ -2533,6 +2624,7 @@ class XPCShellTests:
 
         try_again_kwargs = kwargs.copy()
         try_again_kwargs["retry"] = False
+        try_again_kwargs["is_retry"] = True
         for test_object in self.try_again_list:
             test = testClass(
                 test_object,

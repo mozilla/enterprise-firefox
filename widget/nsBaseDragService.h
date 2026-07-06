@@ -282,6 +282,13 @@ class nsBaseDragSession : public nsIDragSession {
 
   bool mIsDraggingTextInTextControl = false;
   bool mSessionIsSynthesizedForTests = false;
+  // True if this session was started by a synthesized (test) event that was
+  // dispatched asynchronously through WebDriver.  Such a session has no native
+  // drag loop, but (unlike a plain synthesized session) it is started from the
+  // parent process so it goes through the normal cross-process drag path: the
+  // content process must send PBrowser::InvokeDragSession so the parent owns
+  // the session.  See nsBaseDragSession::InvokeDragSession.
+  bool mSessionIsAsyncSynthesizedForTests = false;
 
   // true if in EndDragSession
   bool mEndingSession = false;

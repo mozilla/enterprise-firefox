@@ -979,33 +979,38 @@ browser:
       Recorded once per call to ShellService.setAsDefaultPDFHandler. Captures
       the last method that was attempted, whether that method's API call
       succeeded without throwing, and whether Firefox is the default PDF
-      handler when the OS state is sampled after
-      browser.shell.setDefaultPDFHandler.attemptWaitTimeMs has elapsed. The
-      wait gives the user time to interact with any picker or settings
-      dialog that the chosen method launched.
+      handler when the OS state is sampled. On Windows, sampling occurs after
+      browser.shell.setDefaultPDFHandler.attemptWaitTimeMs has elapsed, giving
+      the user time to interact with any picker or settings dialog that the
+      chosen method launched. On macOS, sampling occurs once the NSWorkspace
+      default-application change (including any user-consent prompt) completes.
     extra_keys:
       method:
         type: string
         description: >
-          Which method was last attempted. One of "user_choice" (UserChoice
-          registry write), "open_with" (IOpenWithLauncher API), or "settings"
-          (ms-settings:defaultapps modern settings dialog).
+          Which method was last attempted. On Windows, one of "user_choice"
+          (UserChoice registry write), "open_with" (IOpenWithLauncher API), or
+          "settings" (ms-settings:defaultapps modern settings dialog). On
+          macOS, "launch_services" (NSWorkspace setDefaultApplication).
       success:
         type: boolean
         description: >
           Whether the API call for the chosen method returned without
           throwing. For user_choice this means the registry write completed;
           for open_with and settings it only means the launcher was invoked,
-          not that the user picked Firefox.
+          not that the user picked Firefox. For launch_services this means
+          macOS reported the default-application change succeeded (i.e. the
+          user accepted any consent prompt).
       result_is_default:
         type: boolean
         description: >
-          Whether Firefox is the default PDF handler when sampled after the
-          attemptWaitTimeMs delay.
+          Whether Firefox is the default PDF handler when sampled.
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2022617
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2047633
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2022617
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2047633
     notification_emails:
       - hsohaney@mozilla.com
       - application-update-telemetry-alerts@mozilla.com

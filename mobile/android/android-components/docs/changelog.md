@@ -11,11 +11,15 @@ permalink: /changelog/
     * 🆕 Added `Action.NEXT` and `Action.PREVIOUS` to the `Fact`.
 * **feature-media**
     * 🆕 The media notification now emits `Action.NEXT` and `Action.PREVIOUS` facts when the next/previous track buttons are tapped.
+* **compose-base**
+    * 🆕 Added a version of `FloatingActionButton` that accepts a custom icon composable. [Bug 2050581](https://bugzilla.mozilla.org/show_bug.cgi?id=2050581)
 
 # 153.0
 * **support-utils**
   * 🆕 Added `DiskLruCacheStore` to provide shared `DiskLruCache` read, write, remove, and clear helpers for disk-backed components.
   * 🆕 Added `CacheDirectoryMigration` to help migrating the cache directory used by `DiskLruCache`.
+* **concept-sync**, **service-firefox-accounts**
+    * ⚠️ **Breaking change**: Removed `OAuthAccount.beginOAuthFlow`, `OAuthAccount.beginPairingFlow`, `OAuthAccount.completeOAuthFlow` and the `AuthFlowUrl` type. Sign-in is now driven entirely through the state machine via `FxaAccountManager.beginAuthentication` / `finishAuthentication`.
 
 # 152.0
 * **browser-engine-gecko**

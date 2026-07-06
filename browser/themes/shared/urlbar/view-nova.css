@@ -721,7 +721,7 @@
 .urlbarView-row[has-action]:is([type="switchtab"], [type="remotetab"], [type="clipboard"]) {
   .urlbarView-action {
     border-radius: var(--urlbar-border-radius);
-    padding: 4px 8px;
+    padding: 4px var(--space-medium);
     margin-block: -2px;
     margin-inline-start: 8px;
 
@@ -740,23 +740,23 @@
 
     -moz-context-properties: fill, fill-opacity;
 
-    border-inline: 1px solid var(--border-color-deemphasized);
-    border-block-end: 1px solid var(--border-color-deemphasized);
+    border-inline: 1px solid currentColor;
+    border-block-end: 1px solid currentColor;
 
     &.urlbarView-switchToTab {
-      padding-inline-start: calc(var(--urlbarView-favicon-size) + 8px);
+      padding-inline-start: calc(var(--space-medium) + var(--urlbarView-favicon-size) + var(--space-small));
       background-image: url("chrome://browser/content/firefoxview/view-opentabs.svg");
       background-repeat: no-repeat;
-      background-position: 4px center;
+      background-position: var(--space-medium) center;
       background-size: var(--urlbarView-favicon-size);
+
+      &:-moz-locale-dir(rtl) {
+        background-position-x: right var(--space-medium);
+      }
     }
 
     &:not(.urlbarView-userContext) {
-      border-block-start: 1px solid var(--border-color-deemphasized);
-    }
-
-    &:-moz-locale-dir(rtl) {
-      background-position-x: right 4px;
+      border-block-start: 1px solid currentColor;
     }
   }
 }
@@ -1119,7 +1119,7 @@
   > img {
     width: 16px;
     height: 16px;
-    margin-inline-end: 0.4em;
+    margin-inline-end: var(--space-medium);
     -moz-context-properties: fill, fill-opacity;
   }
 

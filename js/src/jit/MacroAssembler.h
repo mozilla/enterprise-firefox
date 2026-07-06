@@ -3766,8 +3766,7 @@ class MacroAssembler : public MacroAssemblerSpecific {
   // branches out of line to the trap, the barrier will actually be executed
   // when the bounds check passes.
   //
-  // On 32-bit systems for both wasm and asm.js, and on 64-bit systems for
-  // asm.js, heap lengths are limited to 2GB.  On 64-bit systems for wasm,
+  // On 32-bit systems, heap lengths are limited to 2GB.  On 64-bit systems,
   // 32-bit heap lengths are limited to 4GB, and 64-bit heap lengths will be
   // limited to something much larger.
 
@@ -3983,11 +3982,6 @@ class MacroAssembler : public MacroAssemblerSpecific {
   void wasmReturnCallRef(const wasm::CallSiteDesc& desc,
                          const wasm::CalleeDesc& callee,
                          const ReturnCallAdjustmentInfo& retCallInfo);
-
-  // WasmTableCallIndexReg must contain the index of the indirect call.
-  // This is for asm.js calls only.
-  CodeOffset asmCallIndirect(const wasm::CallSiteDesc& desc,
-                             const wasm::CalleeDesc& callee);
 
   // This function takes care of loading the pointer to the current instance
   // as the implicit first argument. It preserves instance and pinned registers.

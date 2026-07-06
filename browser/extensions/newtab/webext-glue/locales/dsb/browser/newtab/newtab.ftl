@@ -93,6 +93,9 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = Zeger
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = Priwatnosć
 home-prefs-mission-message2 =
     .message = Naše sponsory našu misiju pódpěraju, aby lěpšy web twórili.
 home-prefs-manage-topics-link2 =
@@ -153,6 +156,11 @@ home-prefs-weather-header-srd =
 home-prefs-support-firefox-header-srd =
     .label = { -brand-product-name } pódpěraś
 home-prefs-mission-message-learn-more-link-srd = Zgóńśo kak
+
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = Dalšne informacije
 
 ## Search box component.
 
@@ -502,6 +510,8 @@ newtab-custom-widget-clock-toggle =
     .label = Zeger
 newtab-custom-widget-sports-toggle2 =
     .label = Sport
+newtab-custom-widget-privacy-toggle =
+    .label = Priwatnosć
 newtab-custom-widget-section-title = Asistenty
 newtab-custom-widget-section-toggle =
     .label = Asistenty
@@ -978,6 +988,8 @@ newtab-widget-timer-reset =
 newtab-widget-timer-menu-notifications = Zdźělenja znjemóžniś
 newtab-widget-timer-menu-notifications-on = Zdźělenja zmóžniś
 newtab-widget-timer-menu-learn-more = Dalšne informacije
+newtab-widget-timer-menu-button =
+    .aria-label = Casowe nastajenja
 # The title displays above a set of top news headlines.
 newtab-daily-briefing-card-title = Wažne głowne nadpisma
 newtab-daily-briefing-card-menu-dismiss = Zachyśiś
@@ -1280,6 +1292,8 @@ newtab-sports-widget-team-tbd = Musy se póstajiś
 newtab-sports-widget-message-wallpapers-title = Zachopśo swětowe mejstaŕstwo z nowym slězynowymi wobrazami
 newtab-sports-widget-message-wallpapers-body = Pśinjasćo atmosferu grajnego dnja do swójogo wobglědowaka za turněr.
 newtab-sports-widget-message-wallpapers-cta = Slězynowy wobraz wubraś
+newtab-sports-widget-message-wallpapers-semifinals-title = Wobstarajśo se nowy slězynow wobraz za połfinale
+newtab-sports-widget-message-wallpapers-semifinals-body = Pśigótujśo jawišćo za nejwětše graśa swětowego mejstaŕstwa.
 newtab-sports-widget-message-add-widgets-cta =
     .label = Asistenty pśidaś
 newtab-sports-widget-message-day-in-play-title = Grajśo z asistentami { -brand-product-name } ceły źeń

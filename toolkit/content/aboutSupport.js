@@ -93,6 +93,17 @@ var snapshotFormatters = {
     } else {
       $("os-theme-row").hidden = true;
     }
+    if (data.machineIdHashed) {
+      let text = data.machineIdRaw
+        ? `${data.machineIdRaw} (hashed: ${data.machineIdHashed})`
+        : data.machineIdHashed;
+      if (data.machineIdSource) {
+        text += ` [source: ${data.machineIdSource}]`;
+      }
+      $("machine-id-box").textContent = text;
+    } else {
+      $("machine-id-row").hidden = true;
+    }
     if (AppConstants.platform == "macosx") {
       $("rosetta-box").textContent = data.rosetta;
     }
@@ -344,15 +355,33 @@ var snapshotFormatters = {
   },
 
   securitySoftware(data) {
-    if (AppConstants.platform !== "win") {
-      $("security-software").hidden = true;
-      $("security-software-table").hidden = true;
-      return;
+    let isWin = AppConstants.platform == "win";
+
+    // Antivirus/antispyware/firewall come from the Windows Security Center and
+    // are Windows-only; EDR detection is cross-platform (enterprise builds).
+    for (let row of [
+      "security-software-antivirus-row",
+      "security-software-antispyware-row",
+      "security-software-firewall-row",
+    ]) {
+      $(row).hidden = !isWin;
+    }
+    if (isWin) {
+      $("security-software-antivirus").textContent = data.registeredAntiVirus;
+      $("security-software-antispyware").textContent =
+        data.registeredAntiSpyware;
+      $("security-software-firewall").textContent = data.registeredFirewall;
     }
 
-    $("security-software-antivirus").textContent = data.registeredAntiVirus;
-    $("security-software-antispyware").textContent = data.registeredAntiSpyware;
-    $("security-software-firewall").textContent = data.registeredFirewall;
+    let hasEdrs = Array.isArray(data.presentEdrs) && data.presentEdrs.length;
+    $("security-software-edr-row").hidden = !hasEdrs;
+    if (hasEdrs) {
+      $("security-software-edr").textContent = data.presentEdrs.join(", ");
+    }
+
+    let hasContent = isWin || hasEdrs;
+    $("security-software").hidden = !hasContent;
+    $("security-software-table").hidden = !hasContent;
   },
 
   async processes(data) {
@@ -1760,9 +1789,23 @@ function soundsLikeDir(key) {
   return dirSuffixes.some(suffix => key.toLowerCase().endsWith(suffix));
 }
 
+// Keys carrying a stable machine identifier (enterprise builds). Redacted from
+// the copied snapshot so device serials/hashes are not pasted into bug reports;
+// the values are still shown on the page, whose rows are marked no-copy so the
+// text-copy path omits them too.
+const SENSITIVE_KEYS = new Set(["machineidraw", "machineidhashed"]);
+
 /**
- * Recursively replaces values with keys that
- * sound like paths by "<non-empty string>".
+ * @param {string} key
+ * @returns {boolean}
+ */
+function isSensitiveKey(key) {
+  return SENSITIVE_KEYS.has(key.toLowerCase());
+}
+
+/**
+ * Recursively replaces values whose keys sound like paths, or hold a sensitive
+ * machine identifier, by "<non-empty string>".
  *
  * @param {object} object
  */
@@ -1774,7 +1817,10 @@ function sanitizeSnapshot(object) {
     }
     if (typeof val == "object") {
       sanitizeSnapshot(val);
-    } else if (typeof val == "string" && soundsLikeDir(key)) {
+    } else if (
+      typeof val == "string" &&
+      (soundsLikeDir(key) || isSensitiveKey(key))
+    ) {
       object[key] = "<non-empty string>";
     }
   }

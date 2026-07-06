@@ -1702,7 +1702,7 @@ nsresult HTMLEditor::ParseCFHTML(const nsCString& aCfhtml,
     return NS_ERROR_FAILURE;
   }
   if (!FindIntegerAfterString("EndFragment:", aCfhtml, endFragment) ||
-      startFragment < 0) {
+      endFragment < 0) {
     return NS_ERROR_FAILURE;
   }
 

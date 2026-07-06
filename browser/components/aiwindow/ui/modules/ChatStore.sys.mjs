@@ -7,7 +7,8 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   Sqlite: "resource://gre/modules/Sqlite.sys.mjs",
-  UI_TYPES: "moz-src:///browser/components/aiwindow/ui/modules/ToolUI.sys.mjs",
+  CONFIRMATION_UI_TYPES:
+    "moz-src:///browser/components/aiwindow/ui/modules/ToolUI.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", function () {
@@ -145,6 +146,21 @@ class ChatStore {
       await this.#closeConnection();
     };
     this.#lastRecordedSize = null;
+
+    this.QueryInterface = ChromeUtils.generateQI([
+      "nsIObserver",
+      "nsISupportsWeakReference",
+    ]);
+
+    Services.obs.addObserver(this, "idle-daily", true);
+  }
+
+  observe(_subject, topic) {
+    if (topic === "idle-daily") {
+      this.pruneDatabase().catch(e => {
+        lazy.log.error("Could not prune chat database", e.message, e.stack);
+      });
+    }
   }
 
   /**
@@ -605,86 +621,86 @@ class ChatStore {
   }
 
   /**
-   * Prunes the database of old conversations in order to get the
-   * database file size to the specified maximum size.
+   * Reads the actual bytes being used by the database as opposed
+   * to the physical size on disk of the sqlite file
    *
-   * @todo Bug 2005411
-   * Review the requirements for db pruning and set up invocation schedule, and refactor
-   * to use dbstat
+   * @returns {number} Current bytes in use by db
+   */
+  async getDbBytesInUse() {
+    const rows = await this.#conn.execute(
+      "SELECT sum(pgsize) AS size FROM dbstat WHERE aggregate = TRUE"
+    );
+
+    return rows[0].getResultByName("size") ?? 0;
+  }
+
+  /**
+   * Prunes the database of old conversations in order to keep the
+   * database file size to stay under the specified maximum size.
    *
    * @param {number} [reduceByPercentage=0.05] - Percentage to reduce db file size by
    * @param {number} [maxDbSizeBytes=MAX_DB_SIZE_BYTES] - Db max file size
+   * @param {number} [deleteBatchSize=2] - Number of conversations to delete
+   *                                       at a time
    */
   async pruneDatabase(
     reduceByPercentage = 0.05,
-    maxDbSizeBytes = MAX_DB_SIZE_BYTES
+    maxDbSizeBytes = MAX_DB_SIZE_BYTES,
+    deleteBatchSize = 50
   ) {
-    if (!IOUtils.exists(this.databaseFilePath)) {
+    await this.#ensureDatabase().catch(e => {
+      lazy.log.error(
+        "Could not ensure a database connection.",
+        e.message,
+        e.stack
+      );
+      throw e;
+    });
+
+    const dbExists = await IOUtils.exists(this.databaseFilePath);
+    if (!dbExists) {
       return;
     }
 
-    const DELETE_BATCH_SIZE = 50;
-
-    const getPragmaInt = async name => {
-      const result = await this.#conn.execute(`PRAGMA ${name}`);
-      return result[0].getInt32(0);
-    };
-
-    // compute the logical DB size in bytes using SQLite's page_size,
-    // page_count, and freelist_count
-    const getLogicalDbSizeBytes = async () => {
-      const pageSize = await getPragmaInt("page_size");
-      const pageCount = await getPragmaInt("page_count");
-      const freelistCount = await getPragmaInt("freelist_count");
-
-      // Logical used pages = total pages - free pages
-      const usedPages = pageCount - freelistCount;
-      const lSize = usedPages * pageSize;
-
-      return lSize;
-    };
-
-    let logicalSize = await getLogicalDbSizeBytes();
-    if (logicalSize < maxDbSizeBytes) {
+    let dbSize = await this.getDbBytesInUse();
+    if (dbSize < maxDbSizeBytes) {
       return;
     }
 
-    const targetLogicalSize = Math.max(
-      0,
-      logicalSize * (1 - reduceByPercentage)
-    );
+    const targetDbSize = Math.max(0, dbSize * (1 - reduceByPercentage));
 
     const MAX_ITERATIONS = 100;
-    // how many "no file size change" batches we tolerate
+    // how many "no size change" batches we tolerate
     const MAX_STAGNANT = 5;
     let iterations = 0;
     let stagnantIterations = 0;
 
     while (
-      logicalSize > targetLogicalSize &&
+      dbSize > targetDbSize &&
       iterations < MAX_ITERATIONS &&
       stagnantIterations < MAX_STAGNANT
     ) {
       iterations++;
 
-      const recentChats = await this.findOldestConversations(DELETE_BATCH_SIZE);
+      const oldestConversations =
+        await this.findOldestConversations(deleteBatchSize);
 
-      if (!recentChats.length) {
+      if (!oldestConversations.length) {
         break;
       }
 
-      for (const chat of recentChats) {
+      for (const chat of oldestConversations) {
         await this.deleteConversationById(chat.id);
       }
 
-      const newLogicalSize = await getLogicalDbSizeBytes();
-      if (newLogicalSize >= logicalSize) {
+      const newDbSize = await this.getDbBytesInUse();
+      if (newDbSize >= dbSize) {
         stagnantIterations++;
       } else {
         stagnantIterations = 0;
       }
 
-      logicalSize = newLogicalSize;
+      dbSize = newDbSize;
     }
 
     // Actually reclaim disk space.
@@ -890,7 +906,7 @@ class ChatStore {
     const byConv = {};
     parseMessageRows(rows).forEach(message => {
       if (convs[message.convId]) {
-        if (message.toolUIData?.uiType === lazy.UI_TYPES.WEBSITE_CONFIRMATION) {
+        if (lazy.CONFIRMATION_UI_TYPES.includes(message.toolUIData?.uiType)) {
           message.isRestored = true;
         }
         (byConv[message.convId] ??= []).push(message);
@@ -932,8 +948,9 @@ class ChatStore {
     );
 
     try {
-      // TODO: remove this after switching pruneDatabase() to use dbstat
+      // TODO - Bug 2048333 Migrate this to default value 32k
       await this.#conn.execute("PRAGMA page_size = 4096;");
+
       // Setup WAL journaling, as it is generally faster.
       await this.#conn.execute("PRAGMA journal_mode = WAL;");
       await this.#conn.execute("PRAGMA wal_autocheckpoint = 16;");

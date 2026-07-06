@@ -102,7 +102,7 @@ add_task(async function test_filter_passwords() {
 });
 
 add_task(async function test_filter_passwords_after_sidebar_closed() {
-  const megalist = await openPasswordsSidebar();
+  let megalist = await openPasswordsSidebar();
   await addBreach();
   await addMockPasswords();
   info("Adding breached login");
@@ -122,7 +122,7 @@ add_task(async function test_filter_passwords_after_sidebar_closed() {
   info("Hide sidebar.");
   SidebarController.hide();
   info("Show sidebar.");
-  await SidebarController.show("viewCPMSidebar");
+  megalist = await openPasswordsSidebar();
   await checkAllLoginsRendered(megalist);
   info("All saved logins are displayed.");
 
@@ -238,7 +238,11 @@ add_task(async function test_filter_passwords_and_update_login() {
   saveButton.buttonEl.click();
 
   await waitForNotification(megalist, "update-login-success");
-  const updatedPasswordCard = megalist.querySelector("password-card");
+  const updatedPasswordCard = await BrowserTestUtils.waitForMutationCondition(
+    megalist,
+    { childList: true, subtree: true },
+    () => megalist.querySelector("password-card")
+  );
   info("Check that the login has a new username and password");
   await TestUtils.waitForCondition(
     () => updatedPasswordCard.usernameLine.value === newUsername,

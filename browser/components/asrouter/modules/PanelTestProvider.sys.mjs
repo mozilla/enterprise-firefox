@@ -220,6 +220,8 @@ const MESSAGES = () => [
           force_hide_steps_indicator: true,
           content: {
             position: "center",
+            zap_border: true,
+            zap_shadow: true,
             screen_style: {
               width: "650px",
               height: "500px",
@@ -282,8 +284,6 @@ const MESSAGES = () => [
                     text: {
                       string_id: "create-backup-screen-1-flair",
                       fontSize: "0.625em",
-                      fontWeight: "600",
-                      top: "revert",
                       lineHeight: "normal",
                     },
                   },
@@ -442,6 +442,8 @@ const MESSAGES = () => [
           force_hide_steps_indicator: true,
           content: {
             position: "center",
+            zap_border: true,
+            zap_shadow: true,
             screen_style: {
               width: "650px",
               height: "560px",
@@ -662,6 +664,8 @@ const MESSAGES = () => [
           force_hide_steps_indicator: true,
           targeting: "!isEncryptedBackup",
           content: {
+            zap_border: true,
+            zap_shadow: true,
             logo: {
               imageURL:
                 "https://firefox-settings-attachments.cdn.mozilla.net/main-workspace/ms-images/0706f067-eaf8-4537-a9e1-6098d990f511.svg",
@@ -711,6 +715,8 @@ const MESSAGES = () => [
           force_hide_steps_indicator: true,
           targeting: "isEncryptedBackup",
           content: {
+            zap_border: true,
+            zap_shadow: true,
             isEncryptedBackup: true,
             logo: {
               imageURL:
@@ -759,6 +765,8 @@ const MESSAGES = () => [
           force_hide_steps_indicator: true,
           targeting: "isEncryptedBackup",
           content: {
+            zap_border: true,
+            zap_shadow: true,
             isEncryptedBackup: true,
             title: {
               raw: "Create a backup file password",
@@ -808,6 +816,8 @@ const MESSAGES = () => [
           force_hide_steps_indicator: true,
           targeting: "!isEncryptedBackup",
           content: {
+            zap_border: true,
+            zap_shadow: true,
             screen_style: {
               width: "664px",
               height: "620px",
@@ -900,6 +910,8 @@ const MESSAGES = () => [
           force_hide_steps_indicator: true,
           targeting: "isEncryptedBackup",
           content: {
+            zap_border: true,
+            zap_shadow: true,
             isEncryptedBackup: true,
             screen_style: {
               width: "664px",
@@ -1687,6 +1699,9 @@ const MESSAGES = () => [
               action: {
                 dismiss: true,
               },
+              background: true,
+              marginInline: "0 24px",
+              marginBlock: "24px 0",
             },
           },
         },
@@ -2404,7 +2419,7 @@ const MESSAGES = () => [
             title: { raw: "Panel Feature Callout" },
             subtitle: { raw: "Hello!" },
             secondary_button: {
-              label: { raw: "Advance" },
+              label: { raw: "Cancel" },
               action: { advance_screens: { direction: 1 } },
             },
             submenu_button: {
@@ -2446,6 +2461,10 @@ const MESSAGES = () => [
                 },
               ],
               attached_to: "secondary_button",
+            },
+            primary_button: {
+              label: { raw: "Advance" },
+              action: { advance_screens: { direction: 1 } },
             },
             dismiss_button: { action: { dismiss: true } },
           },
@@ -3090,7 +3109,6 @@ const MESSAGES = () => [
                       string_id: "create-backup-screen-1-flair",
                       fontSize: "0.625em",
                       fontWeight: "600",
-                      top: "revert",
                       lineHeight: "normal",
                     },
                   },
@@ -3830,103 +3848,6 @@ const MESSAGES = () => [
     },
   },
   {
-    id: "TEST_NEW_TAB_DIV_FEATURE_TOUR",
-    groups: [],
-    template: "feature_callout",
-    content: {
-      id: "TEST_NEW_TAB_MESSAGE_FEATURE_TOUR",
-      template: "multistage",
-      backdrop: "transparent",
-      transitions: true,
-      disableHistoryUpdates: true,
-      screens: [
-        {
-          id: "FIRST_NEW_TAB_SCREEN",
-          force_hide_steps_indicator: true,
-          anchors: [
-            {
-              selector: "hbox#browser",
-              hide_arrow: true,
-              absolute_position: {
-                right: "20px",
-                bottom: "20px",
-              },
-            },
-          ],
-          content: {
-            position: "callout",
-            width: "320px",
-            padding: "0 16px 16px 16px",
-            title: {
-              raw: "Test Message",
-            },
-            logo: null,
-            subtitle: {
-              raw: "Test Screen message",
-            },
-            secondary_button: {
-              label: {
-                raw: "Next",
-              },
-              style: "primary",
-              action: {
-                type: "MULTI_ACTION",
-                advance_screens: {
-                  id: "SECOND_NEW_TAB_SCREEN",
-                },
-                data: {
-                  actions: [],
-                },
-              },
-            },
-          },
-        },
-        {
-          id: "SECOND_NEW_TAB_SCREEN",
-          force_hide_steps_indicator: true,
-          anchors: [
-            {
-              selector: "hbox#browser",
-              hide_arrow: true,
-              absolute_position: {
-                right: "20px",
-                bottom: "20px",
-              },
-            },
-          ],
-          content: {
-            position: "callout",
-            width: "320px",
-            padding: "0 16px 16px 16px",
-            title: {
-              raw: "Test Message ",
-            },
-            logo: null,
-            subtitle: {
-              raw: "Test Screen 2 message.",
-            },
-            secondary_button: {
-              label: {
-                raw: "Done",
-              },
-              style: "primary",
-              action: {
-                dismiss: true,
-              },
-            },
-          },
-        },
-      ],
-    },
-    frequency: {
-      lifetime: 1,
-    },
-    targeting: "!activeNotifications",
-    trigger: {
-      id: "newtabFeatureCalloutCheck",
-    },
-  },
-  {
     weight: 100,
     id: "TEST_ADDRESS_BAR_MESSAGING_OPEN_NEW_TAB_TRY_NEW_WAY_GOOGLE",
     groups: ["cfr"],
@@ -4203,6 +4124,8 @@ const MESSAGES = () => [
           force_hide_steps_indicator: true,
           content: {
             position: "split",
+            zap_border: true,
+            zap_shadow: true,
             main_content_style: {
               paddingBlockStart: "40px",
             },

@@ -83,6 +83,7 @@ template <typename T>
 class AncestorsOfTypeIterator;
 struct BoxQuadOptions;
 struct ConvertCoordinateOptions;
+class CustomElementRegistry;
 class DocGroup;
 class Document;
 class DocumentFragment;
@@ -766,12 +767,6 @@ class nsINode : public mozilla::dom::EventTarget {
    */
   mozilla::Maybe<uint32_t> ComputeIndexInParentNode() const;
   mozilla::Maybe<uint32_t> ComputeIndexInParentContent() const;
-
-  /**
-   * Return true if the parent node may cache the computed index for further
-   * calls.
-   */
-  [[nodiscard]] bool MaybeParentCachesComputedIndex() const;
 
   /**
    * Get the index of a child within this content.
@@ -2335,6 +2330,10 @@ class nsINode : public mozilla::dom::EventTarget {
   void ClearHasCustomElementData() {
     ClearBoolFlag(ElementHasCustomElementData);
   }
+
+  // Whether looking up a custom element registry for this node would yield a
+  // scoped (non-global) registry.
+  inline bool HasScopedRegistry() const;
 
   void SetElementCreatedFromPrototypeAndHasUnmodifiedL10n() {
     SetBoolFlag(ElementCreatedFromPrototypeAndHasUnmodifiedL10n);

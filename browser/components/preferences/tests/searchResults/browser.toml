@@ -12,6 +12,8 @@ tags = "os_integration"
 
 ["browser_search_results.js"]
 
+["browser_search_results_back_button.js"]
+
 ["browser_search_subdialog_tooltip_saved_addresses.js"]
 
 ["browser_search_subdialogs_within_preferences_1.js"]

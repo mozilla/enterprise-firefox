@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
-
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -12,6 +10,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   CustomizableUI:
     "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
   IPPExceptionsManager:
+    "moz-src:///toolkit/components/ipprotection/IPPExceptionsManager.sys.mjs",
+  IPPPrincipalRules:
     "moz-src:///toolkit/components/ipprotection/IPPExceptionsManager.sys.mjs",
   IPPOnboardingMessage:
     "moz-src:///browser/components/ipprotection/IPPOnboardingMessageHelper.sys.mjs",
@@ -646,12 +646,6 @@ export class IPProtectionPanel {
 
     let headerButton = panelView.querySelector(".panel-info-button");
     if (headerButton) {
-      if (AppConstants.MOZ_ENTERPRISE) {
-        headerButton.replaceWith(
-          this.#createAccessConnectorStatusLabel(ownerDocument)
-        );
-      }
-
       headerButton.addEventListener("click", IPProtectionPanel.showHelpPage);
       headerButton.addEventListener(
         "keypress",
@@ -666,21 +660,6 @@ export class IPProtectionPanel {
     contentArea.appendChild(contentEl);
     this.components.add(contentEl);
     return contentEl;
-  }
-
-  #createAccessConnectorStatusLabel(ownerDocument) {
-    const statusLabel = ownerDocument.createXULElement("label");
-
-    statusLabel.id = IPProtectionPanel.HEADER_BUTTON_ID;
-    statusLabel.className = "panel-info-button";
-
-    ownerDocument.l10n.setAttributes(
-      statusLabel,
-      (this.state?.siteData?.isInclusion ?? false)
-        ? "enterprise-access-connector-status-label-active"
-        : "enterprise-access-connector-status-label-inactive"
-    );
-    return statusLabel;
   }
 
   /**
@@ -1044,20 +1023,13 @@ export class IPProtectionPanel {
 
   #getSiteData() {
     const principal = this.gBrowser?.contentPrincipal;
-
-    if (!principal) {
+    if (!principal || !lazy.IPPExceptionsManager.canManage(principal)) {
       return null;
     }
-
-    const isExclusion = lazy.IPPExceptionsManager.hasExclusion(principal);
-    const isInclusion =
-      lazy.IPPProxyManager.channelFilter()?.shouldInclude({
-        URI: principal.URI,
-      }) ?? false;
-    const isPrivileged = this._isPrivilegedPage(principal);
-
-    let siteData = !isPrivileged ? { isExclusion, isInclusion } : null;
-    return siteData;
+    const isExclusion =
+      lazy.IPPExceptionsManager.getPrincipalRule(principal) ===
+      lazy.IPPPrincipalRules.EXCLUDED;
+    return { isExclusion };
   }
 
   /**
@@ -1091,23 +1063,6 @@ export class IPProtectionPanel {
     }
 
     return null;
-  }
-
-  /**
-   * Checks if the given principal represents a privileged page.
-   *
-   * @param {nsIPrincipal} principal
-   *  The principal to evaluate.
-   * @returns {boolean}
-   *  True if the page is privileged (about: pages or system principal).
-   */
-  _isPrivilegedPage(principal) {
-    // Ignore about: pages for automated tests, which load in about:blank pages by default.
-    // Do not register this method as private though so that we can stub it.
-    return (
-      (principal.schemeIs("about") || principal.isSystemPrincipal) &&
-      !Cu.isInAutomation
-    );
   }
 
   /**

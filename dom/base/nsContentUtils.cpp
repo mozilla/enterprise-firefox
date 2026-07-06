@@ -104,6 +104,7 @@
 #include "mozilla/RangeBoundary.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/Result.h"
+#include "mozilla/ScopeExit.h"
 #include "mozilla/ScrollContainerFrame.h"
 #include "mozilla/ScrollbarPreferences.h"
 #include "mozilla/ShutdownPhase.h"
@@ -167,6 +168,7 @@
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/DocumentFragment.h"
 #include "mozilla/dom/DocumentInlines.h"
+#include "mozilla/dom/DocumentOrShadowRoot.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/ElementBinding.h"
 #include "mozilla/dom/ElementInlines.h"
@@ -5520,14 +5522,8 @@ void nsContentUtils::ReportDeprecation(
   MOZ_ASSERT(aGlobal);
   MOZ_ASSERT(aURI);
 
-  // If the URI has the data scheme, report that instead of the spec,
-  // as the spec may be arbitrarily long and we would like to avoid
-  // copying it.
-  nsAutoCString specOrScheme;
-  nsresult rv = nsContentUtils::AnonymizeURI(aURI, specOrScheme);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return;
-  }
+  nsAutoCString url;
+  ReportingUtils::StripURL(aURI, url);
 
   const char* operation =
       kDeprecatedOperations[static_cast<size_t>(aOperation)];
@@ -5540,25 +5536,27 @@ void nsContentUtils::ReportDeprecation(
 
   // XXX do we really want the localized string for deprecation report?
   nsAutoString msg;
-  rv = nsContentUtils::GetMaybeLocalizedString(PropertiesFile::DOM_PROPERTIES,
-                                               key.get(), aDoc, msg);
+  nsresult rv = nsContentUtils::GetMaybeLocalizedString(
+      PropertiesFile::DOM_PROPERTIES, key.get(), aDoc, msg);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return;
   }
 
   Nullable<uint32_t> lineNumber;
   Nullable<uint32_t> columnNumber;
+  nsAutoCString sourceFile;
   if (aLocation) {
     lineNumber.SetValue(aLocation.mLine);
     columnNumber.SetValue(aLocation.mColumn);
+    ReportingUtils::StripLocationFileName(aLocation, sourceFile);
   }
 
   RefPtr<DeprecationReportBody> body =
       new DeprecationReportBody(aGlobal, type, nullptr /* date */, msg,
-                                aLocation.FileName(), lineNumber, columnNumber);
+                                sourceFile, lineNumber, columnNumber);
 
   ReportingUtils::Report(aGlobal, nsGkAtoms::deprecation, u"default"_ns,
-                         NS_ConvertUTF8toUTF16(specOrScheme), body);
+                         NS_ConvertUTF8toUTF16(url), body);
 }
 
 void nsContentUtils::LogMessageToConsole(const char* aMsg) {
@@ -10037,6 +10035,10 @@ Result<bool, nsresult> nsContentUtils::SynthesizeMouseEvent(
     }
   } else if (aOptions.mIsAsyncEnabled ||
              StaticPrefs::test_events_async_enabled()) {
+    // The event is dispatched asynchronously via WebDriver when it is not
+    // targeted directly at a window and async dispatching is requested.
+    mouseOrPointerEvent.mFlags.mIsAsyncSynthesizedForTests =
+        aOptions.mIsDOMEventSynthesized;
     status = aWidget->DispatchInputEvent(&mouseOrPointerEvent).mContentStatus;
   } else {
     status = aWidget->DispatchEvent(&mouseOrPointerEvent);
@@ -11548,7 +11550,8 @@ static void DoCustomElementCreate(Element** aElement, JSContext* aCx,
 nsresult nsContentUtils::NewXULOrHTMLElement(
     Element** aResult, mozilla::dom::NodeInfo* aNodeInfo,
     FromParser aFromParser, nsAtom* aIsAtom,
-    mozilla::dom::CustomElementDefinition* aDefinition) {
+    mozilla::dom::CustomElementDefinition* aDefinition,
+    Maybe<RefPtr<CustomElementRegistry>> aCustomElementRegistry) {
   RefPtr<mozilla::dom::NodeInfo> nodeInfo = aNodeInfo;
   MOZ_ASSERT(nodeInfo->NamespaceEquals(kNameSpaceID_XHTML) ||
                  nodeInfo->NamespaceEquals(kNameSpaceID_XUL),
@@ -11597,10 +11600,39 @@ nsresult nsContentUtils::NewXULOrHTMLElement(
   RefPtr<CustomElementDefinition> definition = aDefinition;
   if (isCustomElement && !definition) {
     MOZ_ASSERT(nodeInfo->NameAtom()->Equals(nodeInfo->LocalName()));
-    definition = nsContentUtils::LookupCustomElementDefinition(
-        nodeInfo->GetDocument(), nodeInfo->NameAtom(), nodeInfo->NamespaceID(),
-        typeAtom);
+    if (aCustomElementRegistry.isSome()) {
+      if (RefPtr<CustomElementRegistry> registry =
+              aCustomElementRegistry.value()) {
+        definition = registry->LookupCustomElementDefinition(
+            nodeInfo->NameAtom(), nodeInfo->NamespaceID(), typeAtom);
+      }
+    } else {
+      definition = nsContentUtils::LookupCustomElementDefinition(
+          nodeInfo->GetDocument(), nodeInfo->NameAtom(),
+          nodeInfo->NamespaceID(), typeAtom);
+    }
   }
+
+  auto setRegistryOnExit = MakeScopeExit([&]() {
+    if (!*aResult ||
+        !StaticPrefs::dom_scoped_custom_element_registries_enabled()) {
+      return;
+    }
+    if (aCustomElementRegistry.isSome()) {
+      RefPtr<CustomElementRegistry> registry = aCustomElementRegistry.value();
+      if (registry) {
+        (*aResult)->SetCustomElementRegistry(registry);
+      } else {
+        (*aResult)->SetKeepCustomElementRegistryNull();
+      }
+    } else {
+      Document* doc = (*aResult)->OwnerDoc();
+      if (CustomElementRegistry* globalRegistry =
+              doc->GetEffectiveGlobalCustomElementRegistry()) {
+        (*aResult)->SetCustomElementRegistry(globalRegistry);
+      }
+    }
+  });
 
   // It might be a problem that parser synchronously calls constructor, so
   // filed bug 1378079 to figure out what we should do for parser case.
@@ -11755,34 +11787,34 @@ nsresult nsContentUtils::NewXULOrHTMLElement(
   return NS_OK;
 }
 
-/* https://html.spec.whatwg.org/#look-up-a-custom-element-registry */
+// https://html.spec.whatwg.org/#look-up-a-custom-element-registry
 CustomElementRegistry* nsContentUtils::GetCustomElementRegistry(
-    Document* aDoc) {
+    nsINode* aNode) {
+  if (!aNode || !StaticPrefs::dom_scoped_custom_element_registries_enabled()) {
+    return nullptr;
+  }
   // 1. If node is an Element object, then return node's custom element
-  //    registry.
+  // registry.
+  if (aNode->IsElement()) {
+    return aNode->AsElement()->GetCustomElementRegistry();
+  }
   // 2. If node is a ShadowRoot object, then return node's custom element
-  //    registry.
+  // registry.
+  if (aNode->IsShadowRoot()) {
+    return ShadowRoot::FromNode(aNode)->GetCustomElementRegistry();
+  }
   // 3. If node is a Document object, then return node's custom element
-  //    registry.
+  // registry.
+  if (aNode->IsDocument()) {
+    return aNode->AsDocument()->GetEffectiveGlobalCustomElementRegistry();
+  }
   // 4. Return null.
-  // TODO(keithamus): Scoped Registries
-  MOZ_ASSERT(aDoc);
-
-  if (!aDoc->GetDocShell()) {
-    return nullptr;
-  }
-
-  nsPIDOMWindowInner* window = aDoc->GetInnerWindow();
-  if (!window) {
-    return nullptr;
-  }
-
-  return window->CustomElements();
+  return nullptr;
 }
 
 /* https://html.spec.whatwg.org/#look-up-a-custom-element-definition */
 CustomElementDefinition* nsContentUtils::LookupCustomElementDefinition(
-    Document* aDoc, nsAtom* aNameAtom, uint32_t aNameSpaceID,
+    DocumentOrShadowRoot* aDoc, nsAtom* aNameAtom, uint32_t aNameSpaceID,
     nsAtom* aTypeAtom) {
   // 2. If namespace is not the HTML namespace, then return null.
   if (aNameSpaceID != kNameSpaceID_XUL && aNameSpaceID != kNameSpaceID_XHTML) {
@@ -11791,7 +11823,7 @@ CustomElementDefinition* nsContentUtils::LookupCustomElementDefinition(
 
   // 1. If registry is null, then return null.
   // TODO(keithamus): re-order for Scoped Registries
-  RefPtr<CustomElementRegistry> registry = GetCustomElementRegistry(aDoc);
+  RefPtr<CustomElementRegistry> registry = aDoc->GetCustomElementRegistry();
   if (!registry) {
     return nullptr;
   }
@@ -11812,8 +11844,7 @@ void nsContentUtils::RegisterCallbackUpgradeElement(Element* aElement,
                                                     nsAtom* aTypeName) {
   MOZ_ASSERT(aElement);
 
-  Document* doc = aElement->OwnerDoc();
-  CustomElementRegistry* registry = GetCustomElementRegistry(doc);
+  CustomElementRegistry* registry = aElement->GetCustomElementRegistry();
   if (registry) {
     registry->RegisterCallbackUpgradeElement(aElement, aTypeName);
   }
@@ -11824,8 +11855,7 @@ void nsContentUtils::RegisterUnresolvedElement(Element* aElement,
                                                nsAtom* aTypeName) {
   MOZ_ASSERT(aElement);
 
-  Document* doc = aElement->OwnerDoc();
-  CustomElementRegistry* registry = GetCustomElementRegistry(doc);
+  CustomElementRegistry* registry = aElement->GetCustomElementRegistry();
   if (registry) {
     registry->RegisterUnresolvedElement(aElement, aTypeName);
   }
@@ -11836,8 +11866,7 @@ void nsContentUtils::UnregisterUnresolvedElement(Element* aElement) {
   MOZ_ASSERT(aElement);
 
   nsAtom* typeAtom = aElement->GetCustomElementData()->GetCustomElementType();
-  Document* doc = aElement->OwnerDoc();
-  CustomElementRegistry* registry = GetCustomElementRegistry(doc);
+  CustomElementRegistry* registry = aElement->GetCustomElementRegistry();
   if (registry) {
     registry->UnregisterUnresolvedElement(aElement, typeAtom);
   }

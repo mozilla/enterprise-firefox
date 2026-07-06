@@ -101,8 +101,10 @@ class AggregateCapturer final
     // allocated and not deallocated, which controls the presence of this stream
     // altogether.
     bool mActive{false};
-    // The timestamp of the last frame sent to mParent for this stream.
-    media::TimeUnit mLastFrameTime{media::TimeUnit::FromNegativeInfinity()};
+    // The ideal timestamp of the next frame to be sent to mParent for this
+    // stream. Initialized to negative infinity so the first frame is always
+    // sent.
+    media::TimeUnit mNextFrameTime{media::TimeUnit::FromNegativeInfinity()};
   };
   // The video capture thread is where all access to this class must happen.
   const nsCOMPtr<nsISerialEventTarget> mVideoCaptureThread;
@@ -209,6 +211,8 @@ class CamerasParent : public PCamerasParent {
       const int& aCaptureId, mozilla::ipc::Shmem&& aShmem) override;
   void ActorDestroy(ActorDestroyReason aWhy) override;
   mozilla::ipc::IPCResult RecvEnsureInitialized(
+      const CaptureEngine& aCapEngine) override;
+  mozilla::ipc::IPCResult RecvInvalidateDesktopCaptureDeviceCache(
       const CaptureEngine& aCapEngine) override;
 
   bool IsWindowCapturing(uint64_t aWindowId, const nsACString& aUniqueId) const

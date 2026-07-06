@@ -7,20 +7,25 @@
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/EventDispatcher.h"
+#include "mozilla/IMEContentObserver.h"
+#include "mozilla/IMEStateManager.h"
 #include "mozilla/TextEvents.h"
 #include "mozilla/dom/AnonymousContent.h"
+#include "mozilla/dom/CharacterBoundsUpdateEvent.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/DocumentInlines.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/Text.h"
 #include "mozilla/dom/TextFormatUpdateEvent.h"
 #include "mozilla/dom/TextUpdateEvent.h"
+#include "mozilla/intl/Segmenter.h"
 #include "nsDOMCSSDeclaration.h"
 #include "nsGenericHTMLElement.h"
 #include "nsTextNode.h"
 
 namespace mozilla::dom {
 
+using InlineDir = WritingMode::InlineDir;
 using LineStyle = TextRangeStyle::LineStyle;
 
 NS_IMPL_ADDREF_INHERITED(EditContext, DOMEventTargetHelper)
@@ -99,6 +104,11 @@ void EditContext::Deactivate() {
   // TODO
 }
 
+bool EditContext::IsActive() const {
+  return mAssociatedElement &&
+         mAssociatedElement->OwnerDoc()->GetActiveEditContext() == this;
+}
+
 // static
 bool EditContext::IsAnyAttached() {
   MOZ_ASSERT(NS_IsMainThread());
@@ -139,6 +149,11 @@ EditContext::EditContext(nsIGlobalObject* aGlobalObject,
 
 void EditContext::GetText(nsAString& aText) const { mText->GetData(aText); }
 
+void EditContext::GetTextSubstring(uint32_t aStart, uint32_t aEnd,
+                                   nsAString& aText) {
+  mText->SubstringData(aStart, aEnd - aStart, aText, IgnoreErrors());
+}
+
 RefPtr<DOMRect> EditContext::ToDOMRect(const Rect& copy) const {
   return MakeRefPtr<DOMRect>(GetRelevantGlobal(), copy.x, copy.y, copy.width,
                              copy.height);
@@ -146,6 +161,24 @@ RefPtr<DOMRect> EditContext::ToDOMRect(const Rect& copy) const {
 
 auto EditContext::ToRect(const DOMRect& rect) const -> Rect {
   return Rect(rect.X(), rect.Y(), rect.Width(), rect.Height());
+}
+
+void EditContext::UpdateSelection(uint32_t aStart, uint32_t aEnd) {
+  if (aStart == mSelectionStart && aEnd == mSelectionEnd) {
+    return;
+  }
+  mSelectionStart = aStart;
+  mSelectionEnd = aEnd;
+  // Changing selection, so there may now be different
+  // text around the caret.
+  mTextNextToCaretChangedByTextUpdateHandler = true;
+
+  if (IsActive()) {
+    if (IMEContentObserver* observer =
+            IMEStateManager::GetActiveContentObserver()) {
+      observer->EditContextSelectionChanged();
+    }
+  }
 }
 
 void EditContext::UpdateCharacterBounds(
@@ -156,6 +189,15 @@ void EditContext::UpdateCharacterBounds(
   mCodepointRects.SetCapacity(aCharacterBounds.Length());
   for (const auto& rect : aCharacterBounds) {
     mCodepointRects.AppendElement(ToRect(rect));
+  }
+  if (!mExpectingCharacterBounds && IsActive()) {
+    // Web app sent new character bounds of its own accord, without
+    // a characterboundsupdate event - inform IME that position may
+    // have changed
+    if (IMEContentObserver* observer =
+            IMEStateManager::GetActiveContentObserver()) {
+      observer->EditContextPositionChanged();
+    }
   }
 }
 
@@ -168,19 +210,48 @@ void EditContext::CharacterBounds(nsTArray<RefPtr<DOMRect>>& aRetVal) const {
 
 uint32_t EditContext::TextLength() const { return mText->TextLength(); }
 
+WritingMode EditContext::WritingMode() const {
+  if (!mAssociatedElement) {
+    return mozilla::WritingMode();
+  }
+  nsIFrame* frame = mAssociatedElement->GetPrimaryFrame();
+  if (!frame) {
+    return mozilla::WritingMode();
+  }
+  return frame->GetWritingMode();
+}
+
 void EditContext::UpdateText(uint32_t aRangeStart, uint32_t aRangeEnd,
                              const nsAString& aText, ErrorResult& aRv) {
   if (NS_WARN_IF(!mText->DataBuffer().CanGrowBy(aText.Length()))) {
     aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
     return;
   }
+  const uint32_t prevSelectionStart = SelectionStartClamped();
+  const uint32_t prevSelectionEnd = SelectionEndClamped();
   uint32_t start = std::min(aRangeStart, aRangeEnd);
   start = std::min(start, TextLength());
   uint32_t end = std::max(aRangeStart, aRangeEnd);
   end = std::min(end, TextLength());
+  if (mSelectionStart == mSelectionEnd && start <= mSelectionStart &&
+      end >= mSelectionStart) {
+    // The character before or after the caret has changed.
+    // This may affect how we render the caret for BiDi text.
+    mTextNextToCaretChangedByTextUpdateHandler = true;
+  }
   mText->ReplaceData(start, end - start, aText, IgnoreErrors());
   // XXX: Perhaps mSelectionStart/End should be clamped to new length
   //      of text? See https://github.com/w3c/edit-context/issues/88
+  if (IsActive()) {
+    if (IMEContentObserver* observer =
+            IMEStateManager::GetActiveContentObserver()) {
+      if (SelectionStartClamped() != prevSelectionStart ||
+          SelectionEndClamped() != prevSelectionEnd) {
+        observer->EditContextSelectionChanged();
+      }
+      observer->EditContextTextChanged(aRangeStart, aRangeEnd, aText);
+    }
+  }
 }
 
 void EditContext::UpdateControlBounds(DOMRect& aControlBounds) {
@@ -219,6 +290,7 @@ void EditContext::UpdateTextAndFireEvent(uint32_t aStart, uint32_t aEnd,
   RefPtr<TextUpdateEvent> e =
       TextUpdateEvent::Constructor(this, u"textupdate"_ns, options);
   e->SetTrusted(true);
+  mTextNextToCaretChangedByTextUpdateHandler = false;
   DispatchEvent(*e);
 }
 
@@ -301,6 +373,170 @@ void EditContext::FireTextFormatUpdate(const TextRangeArray* aRanges,
       this, u"textformatupdate"_ns, eventOptions);
   e->SetTrusted(true);
   DispatchEvent(*e);
+}
+
+static InlineDir ReverseInlineDir(InlineDir dir) {
+  switch (dir) {
+    case InlineDir::LTR:
+      return InlineDir::RTL;
+    case InlineDir::RTL:
+      return InlineDir::LTR;
+    case InlineDir::BTT:
+      return InlineDir::TTB;
+    case InlineDir::TTB:
+      return InlineDir::BTT;
+  }
+  MOZ_ASSERT(false, "invalid InlineDir");
+  return InlineDir::LTR;
+}
+
+nsresult EditContext::FireCharacterBoundsUpdateAndGetRects(
+    uint32_t aStart, uint32_t aEnd, nsTArray<LayoutDeviceIntRect>& aRects) {
+  MOZ_ASSERT(aRects.IsEmpty());
+  aStart = std::min(aStart, TextLength());
+  aEnd = std::min(aEnd, TextLength());
+  enum class CollapseDirection {
+    // Don't collapse returned rectangle
+    None,
+    // Collapse returned rectangle in the direction of the previous character
+    // (e.g. for LTR, set width = 0)
+    Previous,
+    // Collapse returned rectangle in the direction of the next character
+    // (e.g. for LTR, set x += width, width = 0)
+    Next,
+  };
+  CollapseDirection collapse = CollapseDirection::None;
+  if (aStart == aEnd) {
+    if (TextLength() == 0) {
+      // TODO: fall back to selection or control bounds in this case
+      return NS_ERROR_FAILURE;
+    }
+    // In this case, ContentEventHandler still wants a rectangle for the caret
+    if (aEnd < TextLength()) {
+      // If requested range is before end of text, query the next character,
+      // and collapse its rectangle in the opposite direction of the writing.
+      aEnd++;
+      collapse = CollapseDirection::Previous;
+    } else {
+      // If requested range is at end of text, query the previous character,
+      // and collapse its rectangle in the direction of the writing.
+      MOZ_ASSERT(aStart > 0);
+      aStart--;
+      collapse = CollapseDirection::Next;
+    }
+  }
+  MOZ_ASSERT(aStart < aEnd);
+
+  // Extend requested range to grapheme cluster boundaries,
+  // in case web app has poor handling of ranges starting/ending
+  // in the middle of a grapheme cluster.
+  uint32_t startExtendedToGraphemeCluster = aStart;
+  // Number of code units of context to use when determining the
+  // grapheme cluster boundaries.
+  constexpr uint32_t kContext = 16;
+  {
+    nsAutoString startText;
+    uint32_t startTextOffset = std::max(aStart, kContext) - kContext;
+    GetTextSubstring(startTextOffset, std::min(aStart + kContext, TextLength()),
+                     startText);
+    intl::GraphemeClusterBreakIteratorUtf16 iter(startText);
+    // find first grapheme cluster break before or equal to aStart
+    while (Maybe<uint32_t> i = iter.Next()) {
+      if (startTextOffset + *i > aStart) {
+        break;
+      }
+      startExtendedToGraphemeCluster = startTextOffset + *i;
+    }
+  }
+  uint32_t endExtendedToGraphemeCluster = aEnd;
+  {
+    nsAutoString endText;
+    uint32_t endTextOffset = std::max(aEnd, kContext) - kContext;
+    GetTextSubstring(endTextOffset, std::min(aEnd + kContext, TextLength()),
+                     endText);
+    // find first grapheme cluster break after or equal to aEnd
+    intl::GraphemeClusterBreakIteratorUtf16 iter(endText);
+    while (Maybe<uint32_t> i = iter.Next()) {
+      if (endTextOffset + *i >= aEnd) {
+        endExtendedToGraphemeCluster = endTextOffset + *i;
+        break;
+      }
+    }
+  }
+
+  RefPtr<nsPresContext> presContext = mText->OwnerDoc()->GetPresContext();
+
+  CharacterBoundsUpdateEventInit eventOptions;
+  eventOptions.mBubbles = false;
+  eventOptions.mCancelable = true;
+  eventOptions.mRangeStart = startExtendedToGraphemeCluster;
+  eventOptions.mRangeEnd = endExtendedToGraphemeCluster;
+  {
+    AutoRestore restore(mExpectingCharacterBounds);
+    mExpectingCharacterBounds = true;
+    RefPtr event = CharacterBoundsUpdateEvent::Constructor(
+        this, u"characterboundsupdate"_ns, eventOptions);
+    event->SetTrusted(true);
+    DispatchEvent(*event);
+  }
+  aRects.SetCapacity(aEnd - aStart);
+  for (uint32_t i = aStart; i < aEnd; i++) {
+    CheckedUint32 indexInCodepointRects =
+        CheckedUint32(i) - mCodepointRectsStartIndex;
+    if (!indexInCodepointRects.isValid() ||
+        indexInCodepointRects.value() >= mCodepointRects.Length()) {
+      // Web app did not provide correct character bounds synchronously in the
+      // event handler.
+      // XXX: Should we emit a console warning about this?
+      return NS_ERROR_FAILURE;
+    }
+    CSSIntRect rect;
+    mCodepointRects[indexInCodepointRects.value()].ToIntRect(&rect);
+    LayoutDeviceIntRect deviceRect;
+    deviceRect.x = presContext->CSSPixelsToDevPixels(rect.x);
+    deviceRect.y = presContext->CSSPixelsToDevPixels(rect.y);
+    // ContentCache, etc. is confused if the rectangles are empty,
+    // so ensure that they aren't.
+    deviceRect.width =
+        std::max(1, presContext->CSSPixelsToDevPixels(rect.width));
+    deviceRect.height =
+        std::max(1, presContext->CSSPixelsToDevPixels(rect.height));
+    aRects.AppendElement(deviceRect);
+  }
+  if (collapse != CollapseDirection::None) {
+    // collapse should only be set when we just want one rectangle
+    MOZ_ASSERT(aRects.Length() == 1);
+    if (aRects.IsEmpty()) {
+      // Don't index out of bounds
+      return NS_ERROR_FAILURE;
+    }
+    LayoutDeviceIntRect& rect = aRects[0];
+    InlineDir dir = WritingMode().GetInlineDir();
+    if (collapse == CollapseDirection::Next) {
+      dir = ReverseInlineDir(dir);
+    }
+    switch (dir) {
+      case InlineDir::LTR:
+        // Collapse rect to the left.
+        rect.width = 1;
+        break;
+      case InlineDir::RTL:
+        // Collapse rect to the right.
+        rect.x += rect.width;
+        rect.width = 1;
+        break;
+      case InlineDir::BTT:
+        // Collapse rect to the bottom.
+        rect.y += rect.height;
+        rect.height = 1;
+        break;
+      case InlineDir::TTB:
+        // Collapse rect to the top.
+        rect.height = 1;
+        break;
+    }
+  }
+  return NS_OK;
 }
 
 }  // namespace mozilla::dom

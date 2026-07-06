@@ -188,7 +188,7 @@ add_task(async function enter_action_search_mode() {
       value: "> ",
     });
     await UrlbarTestUtils.assertSearchMode(window, {
-      source: UrlbarUtils.RESULT_SOURCE.ACTIONS,
+      source: UrlbarShared.RESULT_SOURCE.ACTIONS,
       entry: "typed",
       restrictType: "symbol",
     });

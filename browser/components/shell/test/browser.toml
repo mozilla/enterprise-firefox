@@ -117,6 +117,12 @@ run-if = [
 ]
 tags = "os_integration"
 
+["browser_setDefaultPDFHandler_mac.js"]
+run-if = [
+  "os == 'mac'",
+]
+tags = "os_integration"
+
 ["browser_setDefaultProtocolHandler.js"]
 run-if = [
   "os == 'win'",

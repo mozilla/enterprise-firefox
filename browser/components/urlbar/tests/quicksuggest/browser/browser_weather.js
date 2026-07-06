@@ -162,7 +162,7 @@ async function doDismissTest(command) {
   );
   Assert.equal(
     details.type,
-    UrlbarUtils.RESULT_TYPE.TIP,
+    UrlbarShared.RESULT_TYPE.TIP,
     "Row should be a tip after dismissal"
   );
   Assert.equal(
@@ -198,7 +198,7 @@ async function doDismissTest(command) {
     details = await UrlbarTestUtils.getDetailsOfResultAt(window, i);
     Assert.notEqual(
       details.type,
-      UrlbarUtils.RESULT_TYPE.TIP,
+      UrlbarShared.RESULT_TYPE.TIP,
       "Tip result should not be present"
     );
     info("Weather result should not be present");

@@ -15,7 +15,6 @@ add_task(function initSandbox() {
     Services.prefs.clearUserPref(
       "messaging-system-action.showRestoreFromBackup"
     );
-    Services.prefs.clearUserPref("messaging-system-action.showEmbeddedImport");
     sandbox.restore();
   });
 });
@@ -51,8 +50,7 @@ async function openAboutWelcome() {
   await pushPrefs(
     // Speed up the tests by disabling transitions.
     ["browser.aboutwelcome.transitions", false],
-    ["intl.multilingual.aboutWelcome.languageMismatchEnabled", true],
-    ["messaging-system-action.showEmbeddedImport", true]
+    ["intl.multilingual.aboutWelcome.languageMismatchEnabled", true]
   );
   await setAboutWelcomePref(true);
 

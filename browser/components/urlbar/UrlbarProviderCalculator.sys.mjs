@@ -14,6 +14,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
   UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
+  UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => {
@@ -131,8 +132,8 @@ export class UrlbarProviderCalculator extends UrlbarProvider {
       }
       let value = Calculator.evaluatePostfix(postfix);
       const result = new lazy.UrlbarResult({
-        type: UrlbarUtils.RESULT_TYPE.DYNAMIC,
-        source: UrlbarUtils.RESULT_SOURCE.OTHER_LOCAL,
+        type: lazy.UrlbarShared.RESULT_TYPE.DYNAMIC,
+        source: lazy.UrlbarShared.RESULT_SOURCE.OTHER_LOCAL,
         suggestedIndex: 1,
         payload: {
           value,

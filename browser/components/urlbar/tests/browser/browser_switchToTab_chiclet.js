@@ -40,7 +40,7 @@ add_task(async function test_with_oneoff_button() {
 
   info("Enter Tabs mode");
   await UrlbarTestUtils.enterSearchMode(window, {
-    source: UrlbarUtils.RESULT_SOURCE.TABS,
+    source: UrlbarShared.RESULT_SOURCE.TABS,
   });
 
   info("Select first popup entry");
@@ -53,7 +53,7 @@ add_task(async function test_with_oneoff_button() {
     window,
     UrlbarTestUtils.getSelectedRowIndex(window)
   );
-  Assert.equal(result.type, UrlbarUtils.RESULT_TYPE.TAB_SWITCH);
+  Assert.equal(result.type, UrlbarShared.RESULT_TYPE.TAB_SWITCH);
 
   info("Enter escape key");
   EventUtils.synthesizeKey("KEY_Escape");
@@ -107,7 +107,7 @@ add_task(async function test_with_keytype() {
     window,
     UrlbarTestUtils.getSelectedRowIndex(window)
   );
-  Assert.equal(result.type, UrlbarUtils.RESULT_TYPE.TAB_SWITCH);
+  Assert.equal(result.type, UrlbarShared.RESULT_TYPE.TAB_SWITCH);
 
   info("Enter escape key");
   EventUtils.synthesizeKey("KEY_Escape");
@@ -159,7 +159,7 @@ add_task(async function test_chiclet_contextual_id() {
 
   Assert.equal(
     result.type,
-    UrlbarUtils.RESULT_TYPE.TAB_SWITCH,
+    UrlbarShared.RESULT_TYPE.TAB_SWITCH,
     "Result at index 1 should be a tab switch"
   );
 
@@ -221,7 +221,7 @@ add_task(async function test_chiclet_tab_group() {
 
   Assert.equal(
     result.type,
-    UrlbarUtils.RESULT_TYPE.TAB_SWITCH,
+    UrlbarShared.RESULT_TYPE.TAB_SWITCH,
     "Result at index 1 should be a tab switch"
   );
 
@@ -299,7 +299,7 @@ add_task(async function test_chiclet_tab_group_no_stale_after_row_reuse() {
     let details = await UrlbarTestUtils.getDetailsOfResultAt(window, i);
     Assert.notEqual(
       details.type,
-      UrlbarUtils.RESULT_TYPE.TAB_SWITCH,
+      UrlbarShared.RESULT_TYPE.TAB_SWITCH,
       `Row ${i} should not be a TAB_SWITCH result`
     );
     Assert.ok(
@@ -317,7 +317,7 @@ add_task(async function test_chiclet_tab_group_no_stale_after_row_reuse() {
 async function getDetailsOfTabSwitchResult() {
   for (let i = 0; i < UrlbarTestUtils.getResultCount(window); i++) {
     let details = await UrlbarTestUtils.getDetailsOfResultAt(window, i);
-    if (details.type == UrlbarUtils.RESULT_TYPE.TAB_SWITCH) {
+    if (details.type == UrlbarShared.RESULT_TYPE.TAB_SWITCH) {
       return details;
     }
   }

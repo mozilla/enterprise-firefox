@@ -236,7 +236,8 @@ void LocalesChangedObserver::Register() {
 
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
   if (obs) {
-    obs->AddObserver(this, INTL_APP_LOCALES_CHANGED, true);
+    MOZ_ALWAYS_SUCCEEDS(
+        obs->AddObserver(this, INTL_APP_LOCALES_CHANGED, false));
   }
 
   // Locale might be update before registering

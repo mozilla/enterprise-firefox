@@ -21,6 +21,7 @@
  */
 
 import { Async } from "resource://services-common/async.sys.mjs";
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 import {
   DEVICE_TYPE_DESKTOP,
@@ -47,6 +48,12 @@ ChromeUtils.defineLazyGetter(lazy, "fxAccounts", () => {
   ).getFxAccountsSingleton();
 });
 
+if (AppConstants.MOZ_ENTERPRISE) {
+  ChromeUtils.defineESModuleGetters(lazy, {
+    MachineId: "resource://gre/modules/enterprise/MachineId.sys.mjs",
+  });
+}
+
 import { PREF_ACCOUNT_ROOT } from "resource://gre/modules/FxAccountsCommon.sys.mjs";
 
 const CLIENTS_TTL = 15552000; // 180 days
@@ -66,6 +73,10 @@ const COLLECTION_MODIFIED_REASON_FIRSTSYNC = "firstsync";
 const SUPPORTED_PROTOCOL_VERSIONS = [SYNC_API_VERSION];
 const LAST_MODIFIED_ON_PROCESS_COMMAND_PREF =
   "services.sync.clients.lastModifiedOnProcessCommands";
+const MACHINE_ID_PREF = "services.sync.client.machineId";
+const MACHINE_ID_DETECT_CHANGE_PREF =
+  "services.sync.client.machineId.detectChange";
+const MACHINE_ID_CHANGED_TOPIC = "sync:machine-id-changed";
 
 function hasDupeCommand(commands, action) {
   if (!commands) {
@@ -442,7 +453,90 @@ ClientEngine.prototype = {
     this._knownStaleFxADeviceIds = Utils.arraySub(localClients, fxaClients);
   },
 
+  async _checkMachineIdChanged() {
+    const storedMachineId = Services.prefs.getStringPref(MACHINE_ID_PREF, "");
+
+    let currentMachineId = null;
+    try {
+      currentMachineId = await lazy.MachineId.getHashedId();
+    } catch (error) {
+      this._log.warn("Could not get machine ID", error);
+      return false;
+    }
+
+    if (!currentMachineId) {
+      return false;
+    }
+
+    if (storedMachineId && storedMachineId !== currentMachineId) {
+      const oldLocalID = this.localID;
+
+      this._log.info(
+        "Machine ID changed - profile may have been copied to a different machine"
+      );
+
+      // Reset the FxA device registration first, then rotate the local Sync
+      // state. If any step fails (e.g. a transient network error), leave the
+      // stored machine ID untouched and bail rather than aborting the sync, so
+      // the change is detected and retried on the next sync instead of being
+      // silently lost. The individual resets are idempotent, so a retry after a
+      // partial run is safe.
+      try {
+        await this._resetFxADeviceRegistration();
+        Services.prefs.clearUserPref("services.sync.client.GUID");
+        await this.resetClient();
+      } catch (error) {
+        this._log.warn(
+          "Could not reset client state for machine ID change; will retry on next sync",
+          error
+        );
+        return false;
+      }
+
+      // Best-effort: the device and client rotation above already
+      // succeeded, so a failure here must not undo that progress by
+      // re-triggering it on the next sync. Worst case is a stale entry
+      // for an abandoned client ID left behind in the tracker.
+      try {
+        await this._tracker.removeChangedID(oldLocalID);
+      } catch (error) {
+        this._log.warn(
+          "Could not remove old client ID from tracker after machine ID change",
+          error
+        );
+      }
+
+      // Persist the new machine ID before notifying, so observers that read
+      // MACHINE_ID_PREF see the updated value rather than the old one.
+      Services.prefs.setStringPref(MACHINE_ID_PREF, currentMachineId);
+      Services.obs.notifyObservers(null, MACHINE_ID_CHANGED_TOPIC);
+      return true;
+    }
+
+    if (!storedMachineId) {
+      Services.prefs.setStringPref(MACHINE_ID_PREF, currentMachineId);
+    }
+    return false;
+  },
+
+  async _resetFxADeviceRegistration() {
+    await this.fxAccounts._internal.updateUserAccountData({
+      device: null,
+      encryptedSendTabKeys: null,
+    });
+    await this.fxAccounts.device.getLocalId();
+  },
+
   async _syncStartup() {
+    if (
+      AppConstants.MOZ_ENTERPRISE &&
+      Services.prefs.getBoolPref(MACHINE_ID_DETECT_CHANGE_PREF, false) &&
+      (await this._checkMachineIdChanged())
+    ) {
+      this._log.info("Machine ID changed, regenerating client ID");
+      await this._tracker.addChangedID(this.localID);
+    }
+
     // Reupload new client record periodically.
     if (Date.now() / 1000 - this.lastRecordUpload > CLIENTS_TTL_REFRESH) {
       await this._tracker.addChangedID(this.localID);

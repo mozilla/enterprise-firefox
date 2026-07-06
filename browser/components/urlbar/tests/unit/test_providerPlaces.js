@@ -191,7 +191,7 @@ add_task(async function test_bookmarkBehaviorDisabled_tagged() {
   );
 
   Assert.deepEqual(
-    [UrlbarUtils.RESULT_TYPE.SEARCH, UrlbarUtils.RESULT_TYPE.URL],
+    [UrlbarShared.RESULT_TYPE.SEARCH, UrlbarShared.RESULT_TYPE.URL],
     context.results.map(m => m.type),
     "Check result types"
   );
@@ -239,7 +239,7 @@ add_task(async function test_bookmarkBehaviorDisabled_untagged() {
   );
 
   Assert.deepEqual(
-    [UrlbarUtils.RESULT_TYPE.SEARCH, UrlbarUtils.RESULT_TYPE.URL],
+    [UrlbarShared.RESULT_TYPE.SEARCH, UrlbarShared.RESULT_TYPE.URL],
     context.results.map(m => m.type),
     "Check result types"
   );
@@ -284,7 +284,7 @@ add_task(async function test_diacritics() {
   );
 
   Assert.deepEqual(
-    [UrlbarUtils.RESULT_TYPE.SEARCH, UrlbarUtils.RESULT_TYPE.URL],
+    [UrlbarShared.RESULT_TYPE.SEARCH, UrlbarShared.RESULT_TYPE.URL],
     context.results.map(m => m.type),
     "Check result types"
   );

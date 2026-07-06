@@ -65,6 +65,7 @@
 #include "mozilla/StaticPrefs_fission.h"
 #include "mozilla/StaticPrefs_media.h"
 #include "mozilla/StaticPrefs_network.h"
+#include "mozilla/StaticPrefs_telemetry.h"
 #include "mozilla/StaticPrefs_threads.h"
 #include "mozilla/StaticPrefs_widget.h"
 #include "mozilla/StorageAccessAPIHelper.h"
@@ -138,8 +139,10 @@
 #  include "mozilla/glean/DomMediaPlatformsWmfMetrics.h"
 #endif
 #include "mozilla/glean/DomMetrics.h"
+#include "mozilla/glean/FOGTransportParent.h"
 #include "mozilla/glean/GleanPings.h"
 #include "mozilla/glean/IpcMetrics.h"
+#include "mozilla/glean/PFOGTransport.h"
 #include "mozilla/hal_sandbox/PHalParent.h"
 #include "mozilla/intl/L10nRegistry.h"
 #include "mozilla/intl/LocaleService.h"
@@ -200,7 +203,6 @@
 #include "nsIBidiKeyboard.h"
 #include "nsIBrowserDOMWindow.h"
 #include "nsICaptivePortalService.h"
-#include "nsICertOverrideService.h"
 #include "nsIClipboard.h"
 #include "nsIContentAnalysis.h"
 #include "nsIContentSecurityPolicy.h"
@@ -230,7 +232,6 @@
 #include "nsIURL.h"
 #include "nsIUserIdleService.h"
 #include "nsIWebBrowserChrome.h"
-#include "nsIX509Cert.h"
 #include "nsIXULRuntime.h"
 #include "nsPIDNSService.h"
 #if defined(MOZ_WIDGET_GTK) || defined(XP_WIN)
@@ -2667,6 +2668,7 @@ ContentParent::ContentParent(const nsACString& aRemoteType)
       mShutdownPending(false),
       mLaunchResolved(false),
       mLaunchResolvedOk(false),
+      mIsUntrusted(false),
       mIsRemoteInputEventQueueEnabled(false),
       mIsInputPriorityEventEnabled(false),
       mIsInPool(false),
@@ -2968,6 +2970,30 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
     // Sending all information to content process.
     (void)SendAppInfo(version, buildID, name, UAName, ID, vendor, sourceURL,
                       updateURL);
+  }
+
+  MOZ_LOG(
+      ContentParent::GetLog(), LogLevel::Verbose,
+      ("FOG transport enabled: %s",
+       StaticPrefs::telemetry_fog_enable_fog_transport() ? "true" : "false"));
+  if (StaticPrefs::telemetry_fog_enable_fog_transport()) {
+    // Set up FOGTransport
+    Endpoint<PFOGTransportParent> parentEndpoint;
+    Endpoint<PFOGTransportChild> childEndpoint;
+    MOZ_ALWAYS_SUCCEEDS(
+        glean::PFOGTransport::CreateEndpoints(&parentEndpoint, &childEndpoint));
+    (void)SendCreateFOGTransport(std::move(childEndpoint));
+
+    nsCOMPtr<nsISerialEventTarget> queue =
+        glean::FOGTransportParent::GetQueue();
+    mFOGTransportParentActor = MakeRefPtr<glean::FOGTransportParent>();
+    queue->Dispatch(
+        NS_NewRunnableFunction("Bind FOGTransportParent",
+                               [parentEndpoint = std::move(parentEndpoint),
+                                actor = mFOGTransportParentActor]() mutable {
+                                 parentEndpoint.Bind(actor);
+                               }),
+        NS_DISPATCH_NORMAL);
   }
 
   // Send the child its remote type. On Mac, this needs to be sent prior
@@ -4783,7 +4809,7 @@ mozilla::ipc::IPCResult ContentParent::RecvAccumulateMixedContentHSTS(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvLoadURIExternal(
-    nsIURI* uri, nsIPrincipal* aTriggeringPrincipal,
+    NotNull<nsIURI*> uri, NotNull<nsIPrincipal*> aTriggeringPrincipal,
     nsIPrincipal* aRedirectPrincipal,
     const MaybeDiscarded<BrowsingContext>& aContext,
     bool aWasExternallyTriggered, bool aHasValidUserGestureActivation,
@@ -4792,14 +4818,19 @@ mozilla::ipc::IPCResult ContentParent::RecvLoadURIExternal(
     return IPC_OK();
   }
 
+  if (!ValidatePrincipal(aTriggeringPrincipal)) {
+    return PrincipalValidationIpcFail(aTriggeringPrincipal, this, __func__);
+  }
+
+  if (!ValidatePrincipal(aRedirectPrincipal,
+                         {ValidatePrincipalOptions::AllowNullPtr})) {
+    return PrincipalValidationIpcFail(aRedirectPrincipal, this, __func__);
+  }
+
   nsCOMPtr<nsIExternalProtocolService> extProtService(
       do_GetService(NS_EXTERNALPROTOCOLSERVICE_CONTRACTID));
   if (!extProtService) {
     return IPC_OK();
-  }
-
-  if (!uri) {
-    return IPC_FAIL(this, "uri must not be null.");
   }
 
   BrowsingContext* bc = aContext.get();
@@ -4815,14 +4846,16 @@ mozilla::ipc::IPCResult ContentParent::RecvExtProtocolChannelConnectParent(
 
   // First get the real channel created before redirect on the parent.
   nsCOMPtr<nsIChannel> channel;
-  rv = NS_LinkRedirectChannels(registrarId, nullptr, getter_AddRefs(channel));
+  rv = NS_LinkRedirectChannels(registrarId, ChildID(), nullptr,
+                               getter_AddRefs(channel));
   NS_ENSURE_SUCCESS(rv, IPC_OK());
 
   nsCOMPtr<nsIParentChannel> parent = do_QueryInterface(channel, &rv);
   NS_ENSURE_SUCCESS(rv, IPC_OK());
 
   // The channel itself is its own (faked) parent, link it.
-  rv = NS_LinkRedirectChannels(registrarId, parent, getter_AddRefs(channel));
+  rv = NS_LinkRedirectChannels(registrarId, ChildID(), parent,
+                               getter_AddRefs(channel));
   NS_ENSURE_SUCCESS(rv, IPC_OK());
 
   // Signal the parent channel that it's a redirect-to parent.  This will
@@ -5314,11 +5347,10 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
     const bool& aForPrinting, const bool& aForWindowDotPrint,
     const bool& aIsTopLevelCreatedByWebContent, nsIURI* aURIToLoad,
     const nsACString& aFeatures, const UserActivation::Modifiers& aModifiers,
-    BrowserParent* aNextRemoteBrowser, const nsAString& aName,
-    nsresult& aResult, nsCOMPtr<nsIRemoteTab>& aNewRemoteTab,
-    bool* aWindowIsNew, int32_t& aOpenLocation,
-    nsIPrincipal* aTriggeringPrincipal, nsIReferrerInfo* aReferrerInfo,
-    bool aLoadURI, nsIPolicyContainer* aPolicyContainer,
+    BrowserParent* aNextRemoteBrowser, nsresult& aResult,
+    nsCOMPtr<nsIRemoteTab>& aNewRemoteTab, bool* aWindowIsNew,
+    int32_t& aOpenLocation, nsIPrincipal* aTriggeringPrincipal,
+    nsIReferrerInfo* aReferrerInfo, nsIPolicyContainer* aPolicyContainer,
     const OriginAttributes& aOriginAttributes, bool aUserActivation,
     bool aTextDirectiveUserActivation) {
   // The content process should never be in charge of computing whether or
@@ -5450,15 +5482,9 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
 
     RefPtr<Element> el;
 
-    if (aLoadURI) {
-      aResult = browserDOMWin->OpenURIInFrame(aURIToLoad, params, aOpenLocation,
-                                              nsIBrowserDOMWindow::OPEN_NEW,
-                                              aName, getter_AddRefs(el));
-    } else {
-      aResult = browserDOMWin->CreateContentWindowInFrame(
-          aURIToLoad, params, aOpenLocation, nsIBrowserDOMWindow::OPEN_NEW,
-          aName, getter_AddRefs(el));
-    }
+    aResult = browserDOMWin->CreateContentWindowInFrame(
+        aURIToLoad, params, aOpenLocation, nsIBrowserDOMWindow::OPEN_NEW,
+        VoidString(), getter_AddRefs(el));
     RefPtr<nsFrameLoaderOwner> frameLoaderOwner = do_QueryObject(el);
     if (NS_SUCCEEDED(aResult) && frameLoaderOwner) {
       RefPtr<nsFrameLoader> frameLoader = frameLoaderOwner->GetFrameLoader();
@@ -5504,7 +5530,6 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
 
   MOZ_ASSERT(aNewRemoteTab);
   RefPtr<BrowserHost> newBrowserHost = BrowserHost::GetFrom(aNewRemoteTab);
-  RefPtr<BrowserParent> newBrowserParent = newBrowserHost->GetActor();
 
   // At this point, it's possible the inserted frameloader hasn't gone through
   // layout yet. To ensure that the dimensions that we send down when telling
@@ -5527,32 +5552,8 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
     frameLoader->ForceLayoutIfNecessary();
   }
 
-  // If we were passed a name for the window which would override the default,
-  // we should send it down to the new tab.
-  if (nsContentUtils::IsOverridingWindowName(aName)) {
-    MOZ_ALWAYS_SUCCEEDS(newBrowserHost->GetBrowsingContext()->SetName(aName));
-  }
-
   MOZ_ASSERT(newBrowserHost->GetBrowsingContext()->OriginAttributesRef() ==
              aOriginAttributes);
-
-  if (aURIToLoad && aLoadURI) {
-    nsCOMPtr<mozIDOMWindowProxy> openerWindow;
-    if (aSetOpener && topParent) {
-      openerWindow = topParent->GetParentWindowOuter();
-    }
-    nsCOMPtr<nsIBrowserDOMWindow> newBrowserDOMWin =
-        newBrowserParent->GetBrowserDOMWindow();
-    if (NS_WARN_IF(!newBrowserDOMWin)) {
-      aResult = NS_ERROR_ABORT;
-      return IPC_OK();
-    }
-    RefPtr<BrowsingContext> bc;
-    aResult = newBrowserDOMWin->OpenURI(
-        aURIToLoad, openInfo, nsIBrowserDOMWindow::OPEN_CURRENTWINDOW,
-        nsIBrowserDOMWindow::OPEN_NEW, aTriggeringPrincipal, aPolicyContainer,
-        getter_AddRefs(bc));
-  }
 
   return IPC_OK();
 }
@@ -5650,10 +5651,10 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindow(
   mozilla::ipc::IPCResult ipcResult = CommonCreateWindow(
       aThisTab, *parent, newBCOpenerId != 0, aChromeFlags, aCalledFromJS,
       aForPrinting, aForWindowDotPrint, aIsTopLevelCreatedByWebContent,
-      aURIToLoad, aFeatures, aModifiers, newTab, VoidString(), rv, newRemoteTab,
+      aURIToLoad, aFeatures, aModifiers, newTab, rv, newRemoteTab,
       &cwi.windowOpened(), openLocation, aTriggeringPrincipal, aReferrerInfo,
-      /* aLoadUri = */ false, aPolicyContainer, aOriginAttributes,
-      aUserActivation, aTextDirectiveUserActivation);
+      aPolicyContainer, aOriginAttributes, aUserActivation,
+      aTextDirectiveUserActivation);
   if (!ipcResult) {
     return ipcResult;
   }
@@ -5681,73 +5682,6 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindow(
   }
 
   cwi.maxTouchPoints() = newTab->GetMaxTouchPoints();
-
-  return IPC_OK();
-}
-
-mozilla::ipc::IPCResult ContentParent::RecvCreateWindowInDifferentProcess(
-    PBrowserParent* aThisTab, const MaybeDiscarded<BrowsingContext>& aParent,
-    const uint32_t& aChromeFlags, const bool& aCalledFromJS,
-    const bool& aIsTopLevelCreatedByWebContent, nsIURI* aURIToLoad,
-    const nsACString& aFeatures, const UserActivation::Modifiers& aModifiers,
-    const nsAString& aName, nsIPrincipal* aTriggeringPrincipal,
-    nsIPolicyContainer* aPolicyContainer, nsIReferrerInfo* aReferrerInfo,
-    const OriginAttributes& aOriginAttributes, bool aUserActivation,
-    bool aTextDirectiveUserActivation) {
-  MOZ_DIAGNOSTIC_ASSERT(!nsContentUtils::IsSpecialName(aName));
-
-  // Don't continue to try to create a new window if we've been fully discarded.
-  RefPtr<BrowsingContext> parent = aParent.GetMaybeDiscarded();
-  if (NS_WARN_IF(!parent)) {
-    return IPC_OK();
-  }
-
-  nsCOMPtr<nsIRemoteTab> newRemoteTab;
-  bool windowIsNew;
-  int32_t openLocation = nsIBrowserDOMWindow::OPEN_NEWWINDOW;
-
-  // If we have enough data, check the schemes of the loader and loadee
-  // to make sure they make sense.
-  if (aURIToLoad && aURIToLoad->SchemeIs("file") &&
-      GetRemoteType() != FILE_REMOTE_TYPE &&
-      Preferences::GetBool("browser.tabs.remote.enforceRemoteTypeRestrictions",
-                           false)) {
-#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
-#  ifdef DEBUG
-    nsAutoCString uriToLoadStr;
-    nsAutoCString triggeringUriStr;
-    aURIToLoad->GetAsciiSpec(uriToLoadStr);
-    aTriggeringPrincipal->GetAsciiSpec(triggeringUriStr);
-
-    NS_WARNING(nsPrintfCString(
-                   "RecvCreateWindowInDifferentProcess blocked loading file "
-                   "scheme from non-file remotetype: %s tried to load %s",
-                   triggeringUriStr.get(), uriToLoadStr.get())
-                   .get());
-#  endif
-    MOZ_CRASH(
-        "RecvCreateWindowInDifferentProcess blocked loading improper scheme");
-#endif
-    return IPC_OK();
-  }
-
-  nsresult rv;
-  mozilla::ipc::IPCResult ipcResult = CommonCreateWindow(
-      aThisTab, *parent, /* aSetOpener = */ false, aChromeFlags, aCalledFromJS,
-      /* aForPrinting = */ false,
-      /* aForWindowDotPrint = */ false, aIsTopLevelCreatedByWebContent,
-      aURIToLoad, aFeatures, aModifiers,
-      /* aNextRemoteBrowser = */ nullptr, aName, rv, newRemoteTab, &windowIsNew,
-      openLocation, aTriggeringPrincipal, aReferrerInfo,
-      /* aLoadUri = */ true, aPolicyContainer, aOriginAttributes,
-      aUserActivation, aTextDirectiveUserActivation);
-  if (!ipcResult) {
-    return ipcResult;
-  }
-
-  if (NS_FAILED(rv)) {
-    NS_WARNING("Call to CommonCreateWindow failed.");
-  }
 
   return IPC_OK();
 }
@@ -6632,22 +6566,6 @@ mozilla::ipc::IPCResult ContentParent::RecvBHRThreadHang(
         new nsHangDetails(HangDetails(aHangDetails), PersistedToDisk::No);
     obs->NotifyObservers(hangDetails, "bhr-thread-hang", nullptr);
   }
-  return IPC_OK();
-}
-
-mozilla::ipc::IPCResult ContentParent::RecvAddCertException(
-    nsIX509Cert* aCert, const nsACString& aHostName, int32_t aPort,
-    const OriginAttributes& aOriginAttributes, bool aIsTemporary,
-    AddCertExceptionResolver&& aResolver) {
-  nsCOMPtr<nsICertOverrideService> overrideService =
-      do_GetService(NS_CERTOVERRIDE_CONTRACTID);
-  if (!overrideService) {
-    aResolver(NS_ERROR_FAILURE);
-    return IPC_OK();
-  }
-  nsresult rv = overrideService->RememberValidityOverride(
-      aHostName, aPort, aOriginAttributes, aCert, aIsTemporary);
-  aResolver(rv);
   return IPC_OK();
 }
 
@@ -7929,6 +7847,25 @@ already_AddRefed<JSActor> ContentParent::InitJSActor(
 IPCResult ContentParent::RecvFOGData(ByteBuf&& buf) {
   glean::FOGData(std::move(buf));
   return IPC_OK();
+}
+
+RefPtr<FlushFOGDataPromise> ContentParent::DoFlushFOGData() {
+  MOZ_LOG(ContentParent::GetLog(), LogLevel::Verbose,
+          ("FOGTransportActor exists: %s",
+           !!mFOGTransportParentActor ? "true" : "false"));
+  if (mFOGTransportParentActor) {
+    nsCOMPtr<nsISerialEventTarget> queue =
+        glean::FOGTransportParent::GetQueue();
+    MOZ_LOG(ContentParent::GetLog(), LogLevel::Verbose,
+            ("Calling FOGtransportParentActor->SendFlushFOGData()"));
+    return InvokeAsync(queue, __func__,
+                       [transport = RefPtr{mFOGTransportParentActor}] {
+                         return transport->SendFlushFOGData();
+                       });
+  }
+  MOZ_LOG(ContentParent::GetLog(), LogLevel::Verbose,
+          ("Calling ContentParent->SendFlushFOGData()"));
+  return SendFlushFOGData();
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvGeckoTraceExport(ByteBuf&& aBuf) {

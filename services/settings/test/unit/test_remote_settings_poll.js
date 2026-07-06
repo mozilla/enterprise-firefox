@@ -7,8 +7,6 @@ const { remoteSettingsBroadcastHandler, BROADCAST_ID } =
     "resource://services-settings/remote-settings.sys.mjs"
   );
 
-const IS_ANDROID = AppConstants.platform == "android";
-
 const PREF_SETTINGS_SERVER = "services.settings.server";
 const PREF_SETTINGS_SERVER_BACKOFF = "services.settings.server.backoff";
 const PREF_LAST_UPDATE = "services.settings.last_update_seconds";
@@ -1263,4 +1261,27 @@ add_task(
     Assert.equal(passedTrigger, "broadcast");
   }
 );
+add_task(clear_state);
+
+add_task(async function test_stale_startup_timestamp() {
+  Services.prefs.setStringPref(PREF_LAST_ETAG, 42);
+
+  let error;
+  try {
+    await RemoteSettings.pollChanges({
+      trigger: "startup",
+      expectedTimestamp: "41",
+    });
+  } catch (e) {
+    error = e;
+  }
+
+  Assert.equal(error, undefined);
+  Assert.equal(Services.prefs.getStringPref(PREF_LAST_ETAG), "42");
+  assertTelemetryEvents([
+    {
+      value: UptakeTelemetry.STATUS.STALE_EXPECTED,
+    },
+  ]);
+});
 add_task(clear_state);

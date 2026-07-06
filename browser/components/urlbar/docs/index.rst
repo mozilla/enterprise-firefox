@@ -50,6 +50,7 @@ API Reference
 
 .. toctree::
 
-   UrlbarParentController
+   UrlbarChildController
    UrlbarInput
+   UrlbarParentController
    UrlbarView

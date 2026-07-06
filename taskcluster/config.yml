@@ -5,6 +5,37 @@
 trust-domain: enterprise
 project-repo-param-prefix: ''
 product-dir: 'browser'
+# Mapping of project to the branches that should be considered "production"
+# releases. A value of `true` means all branches of the project are release
+# branches, while a list restricts releases to the named branches. Consumed by
+# mozilla_taskgraph.util.attributes:release_level.
+release-branches:
+    # https://github.com/mozilla-firefox/firefox
+    firefox:
+        - main
+        - beta
+        - release
+        - esr140
+        - esr153
+    enterprise-firefox:
+        - enterprise-main
+        - enterprise-beta
+        - enterprise-release
+    mozilla-central: true
+    mozilla-beta: true
+    mozilla-release: true
+    mozilla-esr115: true
+    mozilla-esr140: true
+    mozilla-esr153: true
+    # bug 1845368: pine is a permanent project branch used for testing
+    # nightly updates
+    pine: true
+    # bug 1877483: larch has similar needs for nightlies
+    larch: true
+    # maple is also an L3 branch: https://phabricator.services.mozilla.com/D184833
+    maple: true
+    # bug 1988213: cypress project branch
+    cypress: true
 treeherder:
     branch-map:
         by-project:
@@ -362,6 +393,7 @@ treeherder:
         'service-merino-manifest': 'service-merino-manifest'
         'service-nimbus': 'service-nimbus'
         'service-pocket': 'service-pocket'
+        'service-sync': 'service-sync'
         'service-sync-autofill': 'service-sync-autofill'
         'service-sync-logins': 'service-sync-logins'
         'support-android-test': 'support-android-test'
@@ -386,6 +418,7 @@ treeherder:
         'tooling-detekt': 'tooling-detekt'
         'tooling-fetch-tests': 'tooling-fetch-tests'
         'tooling-lint': 'tooling-lint'
+        'ui-animation': 'ui-animation'
         'ui-autocomplete': 'ui-autocomplete'
         'ui-colors': 'ui-colors'
         'ui-fonts': 'ui-fonts'
@@ -416,6 +449,7 @@ index:
         - 'static-analysis'
         - 'devedition'
         - 'source'
+        - 'test'
         - 'system-symbols'
         - 'geckodriver'
 

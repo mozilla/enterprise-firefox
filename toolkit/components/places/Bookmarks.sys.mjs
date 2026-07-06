@@ -2298,16 +2298,11 @@ function insertBookmarkTree(items, source, parent, urls, lastAddedForParent) {
         );
 
         // Remove stale tombstones for new items.
-        for (let chunk of lazy.PlacesUtils.chunkArray(
-          items,
-          db.variableLimit
-        )) {
-          await db.executeCached(
-            `DELETE FROM moz_bookmarks_deleted
-             WHERE guid IN (${lazy.PlacesUtils.sqlBindPlaceholders(chunk)})`,
-            chunk.map(item => item.guid)
-          );
-        }
+        await db.executeCached(
+          `DELETE FROM moz_bookmarks_deleted
+             WHERE guid IN carray(:guids)`,
+          { guids: items.map(item => item.guid) }
+        );
 
         await setAncestorsLastModified(
           db,
@@ -2754,18 +2749,12 @@ function removeBookmarks(items, options) {
           }
         }
 
-        for (let chunk of lazy.PlacesUtils.chunkArray(
-          items,
-          db.variableLimit
-        )) {
-          // Remove the bookmarks.
-          await db.executeCached(
-            `DELETE FROM moz_bookmarks
-             WHERE guid IN (${lazy.PlacesUtils.sqlBindPlaceholders(chunk)})`,
-            chunk.map(item => item.guid)
-          );
-        }
-
+        // Remove the bookmarks.
+        await db.executeCached(
+          `DELETE FROM moz_bookmarks
+           WHERE guid IN carray(:guids)`,
+          { guids: items.map(item => item.guid) }
+        );
         for (let [parentGuid, parentId] of parents.entries()) {
           // Now recalculate the positions.
           await db.executeCached(
@@ -3138,6 +3127,10 @@ var removeFoldersContents = async function (db, folderGuids, options) {
     options.source
   );
 
+  if (!folderGuids.length) {
+    return [];
+  }
+
   let itemsRemoved = [];
   for (let folderGuid of folderGuids) {
     let rows = await db.executeCached(
@@ -3163,21 +3156,13 @@ var removeFoldersContents = async function (db, folderGuids, options) {
        LEFT JOIN moz_places h ON b.fk = h.id`,
       { folderGuid }
     );
-
     itemsRemoved = itemsRemoved.concat(rowsToItemsArray(rows, true));
+  }
 
+  if (itemsRemoved.length) {
     await db.executeCached(
-      `WITH RECURSIVE
-       descendants(did) AS (
-         SELECT b.id FROM moz_bookmarks b
-         JOIN moz_bookmarks p ON b.parent = p.id
-         WHERE p.guid = :folderGuid
-         UNION ALL
-         SELECT id FROM moz_bookmarks
-         JOIN descendants ON parent = did
-       )
-       DELETE FROM moz_bookmarks WHERE id IN descendants`,
-      { folderGuid }
+      `DELETE FROM moz_bookmarks WHERE id IN carray(:removedIds)`,
+      { removedIds: itemsRemoved.map(item => item._id) }
     );
   }
 
@@ -3266,18 +3251,15 @@ function insertTombstones(db, itemsRemoved, syncChangeDelta) {
   if (!syncedItems.length) {
     return Promise.resolve();
   }
-  let dateRemoved = lazy.PlacesUtils.toPRTime(Date.now());
-  let valuesTable = syncedItems
-    .map(
-      item => `(
-    ${JSON.stringify(item.guid)},
-    ${dateRemoved}
-  )`
-    )
-    .join(",");
-  return db.execute(`
-    INSERT INTO moz_bookmarks_deleted (guid, dateRemoved)
-    VALUES ${valuesTable}`);
+
+  return db.executeCached(
+    `INSERT INTO moz_bookmarks_deleted (guid, dateRemoved)
+     SELECT value, :time FROM carray(:guids)`,
+    {
+      time: lazy.PlacesUtils.toPRTime(Date.now()),
+      guids: syncedItems.map(item => item.guid),
+    }
+  );
 }
 
 // Bumps the change counter for all bookmarks with URLs referenced in removed
@@ -3386,13 +3368,15 @@ async function retrieveFullBookmarkPath(guid, options = {}) {
  * guid.
  */
 async function getBookmarkDetailMap(aGuids) {
+  if (!aGuids.length) {
+    return new Map();
+  }
   return lazy.PlacesUtils.withConnectionWrapper(
     "Bookmarks.geBookmarkDetailMap",
     async db => {
       let entries = new Map();
-      for (let chunk of lazy.PlacesUtils.chunkArray(aGuids, db.variableLimit)) {
-        await db.executeCached(
-          `
+      await db.executeCached(
+        `
             SELECT
               b.guid,
               b.id,
@@ -3413,28 +3397,27 @@ async function getBookmarkDetailMap(aGuids) {
             FROM moz_bookmarks b
             LEFT JOIN moz_places h ON h.id = b.fk
             LEFT JOIN moz_bookmarks t ON t.guid = target_folder_guid(h.url)
-            WHERE b.guid IN (${lazy.PlacesUtils.sqlBindPlaceholders(chunk)})
+            WHERE b.guid IN carray(:guids)
             `,
-          chunk,
-          row => {
-            const lastVisitDate = row.getResultByIndex(6);
-            entries.set(row.getResultByIndex(0), {
-              id: row.getResultByIndex(1),
-              parentId: row.getResultByIndex(2),
-              frecency: row.getResultByIndex(3),
-              hidden: row.getResultByIndex(4),
-              visitCount: row.getResultByIndex(5),
-              lastVisitDate: lastVisitDate
-                ? lazy.PlacesUtils.toDate(lastVisitDate).getTime()
-                : null,
-              tags: row.getResultByIndex(7),
-              targetFolderGuid: row.getResultByIndex(8),
-              targetFolderItemId: row.getResultByIndex(9),
-              targetFolderTitle: row.getResultByIndex(10),
-            });
-          }
-        );
-      }
+        { guids: aGuids },
+        row => {
+          const lastVisitDate = row.getResultByIndex(6);
+          entries.set(row.getResultByIndex(0), {
+            id: row.getResultByIndex(1),
+            parentId: row.getResultByIndex(2),
+            frecency: row.getResultByIndex(3),
+            hidden: row.getResultByIndex(4),
+            visitCount: row.getResultByIndex(5),
+            lastVisitDate: lastVisitDate
+              ? lazy.PlacesUtils.toDate(lastVisitDate).getTime()
+              : null,
+            tags: row.getResultByIndex(7),
+            targetFolderGuid: row.getResultByIndex(8),
+            targetFolderItemId: row.getResultByIndex(9),
+            targetFolderTitle: row.getResultByIndex(10),
+          });
+        }
+      );
       return entries;
     }
   );

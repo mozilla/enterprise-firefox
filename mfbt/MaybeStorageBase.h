@@ -31,8 +31,8 @@ struct MaybeStorageBase<T, false> {
   union Union {
     constexpr Union() : empty{} {}
     explicit Union(const T& aVal) : val{aVal} {}
-    template <typename U,
-              typename = std::enable_if_t<std::is_move_constructible_v<U>>>
+    template <typename U>
+      requires(std::is_constructible_v<NonConstT, U>)
     explicit Union(U&& aVal) : val{std::forward<U>(aVal)} {}
     template <typename... Args>
     explicit Union(std::in_place_t, Args&&... aArgs)

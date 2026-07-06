@@ -881,6 +881,9 @@ nsDNSService::Init() {
   if (prefs) {
     // register as prefs observer
     prefs->AddObserver(kPrefDnsCacheEntries, this, false);
+    // [pref-trie-audit] "network.dnsCacheExpiration" is an ambiguous prefix of
+    // "network.dnsCacheExpirationGracePeriod"; triggers only for the exact pref
+    // (grace period has its own AddObserver on the next line).
     prefs->AddObserver(kPrefDnsCacheExpiration, this, false);
     prefs->AddObserver(kPrefDnsCacheGrace, this, false);
     prefs->AddObserver(kPrefIPv4OnlyDomains, this, false);

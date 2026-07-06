@@ -69,6 +69,7 @@
 #include "GeckoEditableSupport.h"
 #include "GeckoNetworkManager.h"
 #include "GeckoProcessManager.h"
+#include "GeckoSensorSupport.h"
 #include "GeckoSystemStateListener.h"
 #include "GeckoVRManager.h"
 #include "ImageDecoderSupport.h"
@@ -256,49 +257,6 @@ class GeckoAppShellSupport final
     CrashReporter::AppendAppNotesToCrashReport(aNotes->ToCString());
   }
 
-  static void OnSensorChanged(int32_t aType, float aX, float aY, float aZ,
-                              float aW, int64_t aTime) {
-    AutoTArray<float, 4> values;
-
-    switch (aType) {
-      // Bug 938035, transfer HAL data for orientation sensor to meet w3c
-      // spec, ex: HAL report alpha=90 means East but alpha=90 means West
-      // in w3c spec
-      case hal::SENSOR_ORIENTATION:
-        values.AppendElement(360.0f - aX);
-        values.AppendElement(-aY);
-        values.AppendElement(-aZ);
-        break;
-
-      case hal::SENSOR_LINEAR_ACCELERATION:
-      case hal::SENSOR_ACCELERATION:
-      case hal::SENSOR_GYROSCOPE:
-        values.AppendElement(aX);
-        values.AppendElement(aY);
-        values.AppendElement(aZ);
-        break;
-
-      case hal::SENSOR_LIGHT:
-        values.AppendElement(aX);
-        break;
-
-      case hal::SENSOR_ROTATION_VECTOR:
-      case hal::SENSOR_GAME_ROTATION_VECTOR:
-        values.AppendElement(aX);
-        values.AppendElement(aY);
-        values.AppendElement(aZ);
-        values.AppendElement(aW);
-        break;
-
-      default:
-        __android_log_print(ANDROID_LOG_ERROR, "Gecko",
-                            "Unknown sensor type %d", aType);
-    }
-
-    hal::SensorData sdata(hal::SensorType(aType), aTime, values);
-    hal::NotifySensorChange(sdata);
-  }
-
   static void OnLocationChanged(double aLatitude, double aLongitude,
                                 double aAltitude, float aAccuracy,
                                 float aAltitudeAccuracy, float aHeading,
@@ -434,10 +392,6 @@ nsAppShell::nsAppShell()
       XPCOMEventTargetWrapper::Init();
       mozilla::widget::MozLogSupport::Init();
 
-      if (XRE_IsGPUProcess()) {
-        mozilla::gl::AndroidSurfaceTexture::Init();
-      }
-
       // Set the corresponding state in GeckoThread.
       java::GeckoThread::SetState(java::GeckoThread::State::RUNNING());
     }
@@ -461,8 +415,8 @@ nsAppShell::nsAppShell()
     mozilla::widget::WebExecutorSupport::Init();
     mozilla::widget::Base64UtilsSupport::Init();
     nsWindow::InitNatives();
-    mozilla::gl::AndroidSurfaceTexture::Init();
     mozilla::widget::MozLogSupport::Init();
+    mozilla::widget::GeckoSensorSupport::Init();
 
     java::GeckoThread::SetState(java::GeckoThread::State::JNI_READY());
 

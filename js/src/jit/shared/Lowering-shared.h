@@ -150,6 +150,7 @@ class LIRGeneratorShared {
   // the value fits in an int32.
   inline LAllocation useRegisterOrInt32Constant(MDefinition* mir);
   inline LAllocation useAnyOrInt32Constant(MDefinition* mir);
+  inline LAllocation useAnyOrInt32ConstantAtStart(MDefinition* mir);
 
   // Like useRegisterOrInt32Constant, but uses a constant only if
   // |int32val * Scalar::byteSize(type)| doesn't overflow int32.

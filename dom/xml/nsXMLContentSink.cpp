@@ -183,7 +183,7 @@ nsresult nsXMLContentSink::MaybePrettyPrint() {
   NS_ENSURE_SUCCESS(rv, rv);
 
   bool isPrettyPrinting;
-  rv = printer->PrettyPrint(mDocument, &isPrettyPrinting);
+  rv = printer->PrettyPrint(mDocument, mXSLTIsDisabled, &isPrettyPrinting);
   NS_ENSURE_SUCCESS(rv, rv);
 
   mPrettyPrinting = isPrettyPrinting;
@@ -730,18 +730,14 @@ nsresult nsXMLContentSink::MaybeProcessXSLTLink(
     ProcessingInstruction* aProcessingInstruction, const nsAString& aHref,
     bool aAlternate, const nsAString& aTitle, const nsAString& aType,
     const nsAString& aMedia, const nsAString& aReferrerPolicy, bool* aWasXSLT) {
-  bool wasXSLT = StaticPrefs::dom_xslt_enabled() &&
-                 (aType.LowerCaseEqualsLiteral(TEXT_XSL) ||
-                  aType.LowerCaseEqualsLiteral(APPLICATION_XSLT_XML) ||
-                  aType.LowerCaseEqualsLiteral(TEXT_XML) ||
-                  aType.LowerCaseEqualsLiteral(APPLICATION_XML));
+  bool wasXSLTType = aType.LowerCaseEqualsLiteral(TEXT_XSL) ||
+                     aType.LowerCaseEqualsLiteral(APPLICATION_XSLT_XML) ||
+                     aType.LowerCaseEqualsLiteral(TEXT_XML) ||
+                     aType.LowerCaseEqualsLiteral(APPLICATION_XML);
+  bool wasXSLT = StaticPrefs::dom_xslt_enabled() && wasXSLTType;
 
   if (aWasXSLT) {
     *aWasXSLT = wasXSLT;
-  }
-
-  if (!wasXSLT) {
-    return NS_OK;
   }
 
   if (aAlternate) {
@@ -750,6 +746,13 @@ nsresult nsXMLContentSink::MaybeProcessXSLTLink(
   }
   // LoadXSLStyleSheet needs a mDocShell.
   if (!mDocShell) {
+    return NS_OK;
+  }
+
+  if (!wasXSLT) {
+    mPrettyPrintXML =
+        mPrettyPrintXML || (wasXSLTType && !StaticPrefs::dom_xslt_enabled());
+    mXSLTIsDisabled = wasXSLTType;
     return NS_OK;
   }
 

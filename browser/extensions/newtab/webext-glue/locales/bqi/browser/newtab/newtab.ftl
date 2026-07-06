@@ -13,6 +13,9 @@ newtab-customize-panel-icon-button =
 newtab-customize-panel-icon-button-label = سفارشی کردن
 newtab-customize-panel-label =
     .label = سفارشی کردن
+newtab-personalize-settings-icon-label =
+    .title = سفارشی کردن بلگه نۊ
+    .aria-label = سامووا
 newtab-settings-dialog-label =
     .aria-label = سامووا
 newtab-logo-and-wordmark =
@@ -469,6 +472,7 @@ newtab-section-cancel-button = سکو ن
 # Variables:
 #   $topic (string) - Name of topic that user is blocking
 newtab-section-block-topic-button = مسدۊد کردن { $topic }
+newtab-section-block-cancel-button = لقو
 
 ## Strings for custom wallpaper highlight
 
@@ -542,6 +546,9 @@ newtab-widget-lists-input-menu-move-up = جاگورو و روء
 newtab-widget-lists-input-menu-move-down = جاگورو و لم
 newtab-widget-lists-input-menu-delete = پاک کردن
 newtab-widget-lists-input-menu-edit = آلشت
+newtab-widget-lists-edit-clear =
+    .title = لقو
+    .aria-label = لقو
 # the + symbol emphasises the functionality of adding a new list
 newtab-widget-lists-dropdown-create =
     .label = + وورکل ی نومگه نۊ
@@ -559,6 +566,7 @@ newtab-widget-section-hide-all-button =
     .title = بؽڌار کردن ویجتا
     .aria-label = بؽڌار کردن پوی ویجتا
 newtab-widget-section-menu-manage = دؽوۉداری ویجتا
+newtab-widget-section-menu-learn-more = قلوه دووسته بۊین
 
 ## Strings introduced by the Nova redesign of the Timer widget
 
@@ -584,6 +592,22 @@ newtab-promo-card-dismiss-button =
     .title = رڌ کردن
     .aria-label = رڌ کردن
 
+##
+
+newtab-sports-widget-menu-learn-more = قلوه دووسته بۊین
+newtab-sports-widget-cancel = لقو
+newtab-sports-widget-cancelled = لقو وابی
+
+## Accessible labels for match rows in the sports widget. These are read by
+## screen readers to announce the match details and status.
+## Variables shared by all messages in this group:
+##   $homeTeam (String) - The full name of the home team (e.g. "Mexico")
+##   $awayTeam (String) - The full name of the away team (e.g. "Russia")
+
+# An upcoming match row whose status is "cancelled".
+newtab-sports-widget-match-aria-label-upcoming-cancelled =
+    .aria-label = { $homeTeam } ری و ری { $awayTeam }، لقو وابی
+
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input
 ## for the first 48 hours of a new profile's lifetime. Some messages include buttons with
@@ -592,3 +616,8 @@ newtab-promo-card-dismiss-button =
 newtab-activation-window-message-dismiss-button =
     .title = رڌ کردن
     .aria-label = رڌ کردن
+
+## Strings for the Clock widget
+
+newtab-clock-widget-menu-learn-more = قلوه دووسته بۊین
+newtab-clock-widget-button-cancel = لقو

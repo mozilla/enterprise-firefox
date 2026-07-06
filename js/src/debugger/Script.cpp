@@ -51,8 +51,8 @@
 #include "gc/Marking-inl.h"       // for MaybeForwardedObjectIs
 #include "vm/BytecodeUtil-inl.h"  // for BytecodeRangeWithPosition
 #include "vm/JSAtomUtils-inl.h"   // for PrimitiveValueToId
-#include "vm/JSObject-inl.h"  // for NewBuiltinClassInstance, NewObjectWithGivenProto, NewTenuredObjectWithGivenProto
-#include "vm/JSScript-inl.h"  // for JSScript::global
+#include "vm/JSObject-inl.h"  // for NewBuiltinClassInstance, NewObjectWithGivenProto
+#include "vm/JSScript-inl.h"          // for JSScript::global
 #include "vm/ObjectOperations-inl.h"  // for GetProperty
 #include "vm/Realm-inl.h"             // for AutoRealm::AutoRealm
 
@@ -106,8 +106,8 @@ NativeObject* DebuggerScript::initClass(JSContext* cx,
 DebuggerScript* DebuggerScript::create(JSContext* cx, HandleObject proto,
                                        Handle<DebuggerScriptReferent> referent,
                                        Handle<NativeObject*> debugger) {
-  DebuggerScript* scriptobj =
-      NewTenuredObjectWithGivenProto<DebuggerScript>(cx, proto);
+  DebuggerScript* scriptobj = NewObjectWithGivenProto<DebuggerScript>(
+      cx, proto, {.newKind = TenuredObject});
   if (!scriptobj) {
     return nullptr;
   }
@@ -494,7 +494,6 @@ bool DebuggerScript::CallData::getFormat() {
 
 static bool PushFunctionScript(JSContext* cx, Debugger* dbg, HandleFunction fun,
                                HandleObject array) {
-  // Ignore asm.js natives.
   if (!IsInterpretedNonSelfHostedFunction(fun)) {
     return true;
   }

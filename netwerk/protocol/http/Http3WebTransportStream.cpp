@@ -44,7 +44,7 @@ class DummyWebTransportStreamTransaction : public nsAHttpTransaction {
   void Close(nsresult reason) override {}
   nsHttpConnectionInfo* ConnectionInfo() override { return nullptr; }
   void SetProxyConnectFailed() override {}
-  nsHttpRequestHead* RequestHead() override { return nullptr; }
+  const nsHttpRequestHead* RequestHead() override { return nullptr; }
   uint32_t Http1xTransactionCount() override { return 0; }
   [[nodiscard]] nsresult TakeSubTransactions(
       nsTArray<RefPtr<nsAHttpTransaction>>& outTransactions) override {

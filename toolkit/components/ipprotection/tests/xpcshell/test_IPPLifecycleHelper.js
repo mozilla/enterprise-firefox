@@ -228,6 +228,40 @@ add_task(async function test_observers_only_active_while_active() {
   sandbox.restore();
 });
 
+/**
+ * On Android the helper reacts to the app moving to the background/foreground
+ * the same way it reacts to sleep/wake on desktop: suspend on background, resume
+ * on foreground.
+ */
+add_task(async function test_android_background_foreground_cycle() {
+  setupStubs({ validProxyPass: true });
+  await startActiveProxy();
+
+  const channelFilter = IPPProxyManager.channelFilter();
+  const savedKey = IPPProxyManager.isolationKey;
+
+  Services.obs.notifyObservers(null, "application-background");
+  Assert.equal(
+    channelFilter.proxyInfo,
+    null,
+    "Channel filter is suspended when the app is backgrounded"
+  );
+
+  Services.obs.notifyObservers(null, "application-foreground");
+  Assert.ok(
+    channelFilter.proxyInfo,
+    "Connection resumed when the app is foregrounded"
+  );
+  Assert.equal(
+    IPPProxyManager.isolationKey,
+    savedKey,
+    "Resuming reuses the isolation key captured before backgrounding"
+  );
+
+  await IPPProxyManager.stop();
+  IPProtectionService.uninit();
+});
+
 function channelFilterProxyInfoPresent() {
   return !!IPPProxyManager.channelFilter()?.proxyInfo;
 }

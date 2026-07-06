@@ -216,6 +216,38 @@
         assertButtonPropertiesMatch(toolbar, {
           minHeight: "--button-min-height-small",
         });
+
+        buttons.forEach(btn => (btn.size = "large"));
+
+        await Promise.all(buttons.map(btn => btn.updateComplete));
+
+        assertButtonPropertiesMatch(one, {
+          minHeight: "--button-min-height-large",
+        });
+        assertButtonPropertiesMatch(two, {
+          minHeight: "--button-min-height-large",
+        });
+        assertButtonPropertiesMatch(three, {
+          minHeight: "--button-min-height-large",
+        });
+        assertButtonPropertiesMatch(four, {
+          width: "--button-size-icon-large",
+          height: "--button-size-icon-large",
+        });
+        assertButtonPropertiesMatch(five, {
+          width: "--button-size-icon-large",
+          height: "--button-size-icon-large",
+        });
+        assertButtonPropertiesMatch(six, {
+          width: "--button-size-icon-large",
+          height: "--button-size-icon-large",
+        });
+        assertButtonPropertiesMatch(seven, {
+          minHeight: "--button-min-height-large",
+        });
+        assertButtonPropertiesMatch(toolbar, {
+          minHeight: "--button-min-height-large",
+        });
       });
 
       add_task(async function testA11yAttributes() {

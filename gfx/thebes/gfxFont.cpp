@@ -41,6 +41,7 @@
 #include "mozilla/Preferences.h"
 #include "mozilla/Services.h"
 #include "mozilla/glean/GfxMetrics.h"
+#include "mozilla/Utf16.h"
 #include "gfxMathTable.h"
 #include "gfxSVGGlyphs.h"
 #include "gfx2DGlue.h"
@@ -59,6 +60,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <numeric>
 #include <cmath>
 
 using namespace mozilla;
@@ -723,8 +725,8 @@ void gfxShapedText::SetupClusterBoundaries(uint32_t aOffset,
   // GraphemeClusterBreakIteratorUtf16 won't be able to tell us if the string
   // _begins_ with a cluster-extender, so we handle that here
   uint32_t ch = aString[0];
-  if (aLength > 1 && NS_IS_SURROGATE_PAIR(ch, aString[1])) {
-    ch = SURROGATE_TO_UCS4(ch, aString[1]);
+  if (aLength > 1 && mozilla::IsSurrogatePair(ch, aString[1])) {
+    ch = mozilla::SurrogateToUCS4(ch, aString[1]);
   }
   if (IsClusterExtender(ch)) {
     glyphs[0] = extendCluster;
@@ -1700,9 +1702,9 @@ bool gfxFont::SupportsSubSuperscript(uint32_t aSubSuperscript,
   for (uint32_t i = 0; i < aLength; i++) {
     uint32_t ch = aString[i];
 
-    if (i + 1 < aLength && NS_IS_SURROGATE_PAIR(ch, aString[i + 1])) {
+    if (i + 1 < aLength && mozilla::IsSurrogatePair(ch, aString[i + 1])) {
       i++;
-      ch = SURROGATE_TO_UCS4(ch, aString[i]);
+      ch = mozilla::SurrogateToUCS4(ch, aString[i]);
     }
 
     hb_codepoint_t gid = shaper->GetNominalGlyph(ch);
@@ -1823,9 +1825,11 @@ class GlyphBufferAzure {
 
  public:
   GlyphBufferAzure(const TextRunDrawParams& aRunParams,
-                   const FontDrawParams& aFontParams)
+                   const FontDrawParams& aFontParams,
+                   imgDrawingParams& aImgParams)
       : mRunParams(aRunParams),
         mFontParams(aFontParams),
+        mImgParams(aImgParams),
         mBuffer(*mAutoBuffer.addr()),
         mBufSize(AUTO_BUFFER_SIZE),
         mCapacity(0),
@@ -1892,6 +1896,7 @@ class GlyphBufferAzure {
 
   const TextRunDrawParams& mRunParams;
   const FontDrawParams& mFontParams;
+  imgDrawingParams& mImgParams;
 
  private:
   static DrawMode GetStrokeMode(DrawMode aMode) {
@@ -1919,10 +1924,9 @@ class GlyphBufferAzure {
 
         RefPtr<gfxPattern> fillPattern;
         if (mFontParams.contextPaint) {
-          imgDrawingParams imgParams;
-          fillPattern = mFontParams.contextPaint->GetFillPattern(
-              mRunParams.context->GetDrawTarget(),
-              mRunParams.context->CurrentMatrixDouble(), imgParams);
+          fillPattern = mFontParams.contextPaint->GetPattern(
+              SVGContextPaint::Tag::Fill, mRunParams.context->GetDrawTarget(),
+              mRunParams.context->CurrentMatrixDouble(), mImgParams);
         }
         if (!fillPattern) {
           if (state.pattern) {
@@ -2211,8 +2215,8 @@ void gfxFont::DrawOneGlyph(uint32_t aGlyphID, const gfx::Point& aPt,
           runParams.drawMode != DrawMode::GLYPH_PATH,
           "Rendering SVG glyph despite request for glyph path");
       if (RenderSVGGlyph(runParams.context, textDrawer, devPt, aGlyphID,
-                         fontParams.contextPaint, runParams.callbacks,
-                         *aEmittedGlyphs)) {
+                         fontParams.contextPaint, aBuffer.mImgParams,
+                         runParams.callbacks, *aEmittedGlyphs)) {
         return;
       }
     }
@@ -2305,7 +2309,8 @@ bool gfxFont::DrawMissingGlyph(const TextRunDrawParams& aRunParams,
 // This method is mostly parallel to DrawGlyphs.
 void gfxFont::DrawEmphasisMarks(const gfxTextRun* aShapedText, gfx::Point* aPt,
                                 uint32_t aOffset, uint32_t aCount,
-                                const EmphasisMarkDrawParams& aParams) {
+                                const EmphasisMarkDrawParams& aParams,
+                                imgDrawingParams& aImgParams) {
   float& inlineCoord = aParams.isVertical ? aPt->y.value : aPt->x.value;
   gfxTextRun::Range markRange(aParams.mark);
   gfxTextRun::DrawParams params(aParams.context, aParams.paletteCache);
@@ -2326,11 +2331,11 @@ void gfxFont::DrawEmphasisMarks(const gfxTextRun* aShapedText, gfx::Point* aPt,
     inlineCoord += aParams.direction * aShapedText->GetAdvanceForGlyph(idx);
     if (shouldDrawEmphasisMark &&
         (i + 1 == aCount || aShapedText->IsClusterStart(idx + 1))) {
-      float clusterAdvance = inlineCoord - clusterStart;
+      gfxFloat clusterAdvance = inlineCoord - clusterStart;
       // Move the coord backward to get the needed start point.
-      float delta = (clusterAdvance + aParams.advance) / 2;
+      float delta = std::midpoint(clusterAdvance, aParams.advance);
       inlineCoord -= delta;
-      aParams.mark->Draw(markRange, *aPt, params);
+      aParams.mark->Draw(markRange, *aPt, params, aImgParams);
       inlineCoord += delta;
       shouldDrawEmphasisMark = false;
     }
@@ -2342,6 +2347,7 @@ void gfxFont::DrawEmphasisMarks(const gfxTextRun* aShapedText, gfx::Point* aPt,
 
 void gfxFont::Draw(const gfxTextRun* aTextRun, uint32_t aStart, uint32_t aEnd,
                    gfx::Point* aPt, TextRunDrawParams& aRunParams,
+                   imgDrawingParams& aImgParams,
                    gfx::ShapedTextFlags aOrientation) {
   NS_ASSERTION(aRunParams.drawMode == DrawMode::GLYPH_PATH ||
                    !(int(aRunParams.drawMode) & int(DrawMode::GLYPH_PATH)),
@@ -2511,10 +2517,8 @@ void gfxFont::Draw(const gfxTextRun* aTextRun, uint32_t aStart, uint32_t aEnd,
     // If no pattern is specified for fill, use the current pattern
     NS_ASSERTION((int(aRunParams.drawMode) & int(DrawMode::GLYPH_STROKE)) == 0,
                  "no pattern supplied for stroking text");
-    RefPtr<gfxPattern> fillPattern = aRunParams.context->GetPattern();
-    contextPaint = new SimpleTextContextPaint(
-        fillPattern, nullptr, aRunParams.context->CurrentMatrixDouble());
-    fontParams.contextPaint = contextPaint.get();
+    contextPaint = MakeRefPtr<SVGContextPaint>(aRunParams.context);
+    fontParams.contextPaint = contextPaint;
   }
 
   // Synthetic-bold strikes are each offset one device pixel in run direction
@@ -2609,7 +2613,7 @@ void gfxFont::Draw(const gfxTextRun* aTextRun, uint32_t aStart, uint32_t aEnd,
     // to output glyphs to the buffer, depending on complexity needed
     // for the type of font, and whether added inter-glyph spacing
     // is specified.
-    GlyphBufferAzure buffer(aRunParams, fontParams);
+    GlyphBufferAzure buffer(aRunParams, fontParams, aImgParams);
     if (fontParams.haveSVGGlyphs || fontParams.haveColorGlyphs ||
         fontParams.extraStrikes ||
         (fontParams.obliqueSkew != 0.0f && fontParams.isVerticalFont &&
@@ -2658,7 +2662,8 @@ void gfxFont::Draw(const gfxTextRun* aTextRun, uint32_t aStart, uint32_t aEnd,
 bool gfxFont::RenderSVGGlyph(gfxContext* aContext,
                              layout::TextDrawTarget* aTextDrawer,
                              gfx::Point aPoint, uint32_t aGlyphId,
-                             SVGContextPaint* aContextPaint) const {
+                             SVGContextPaint* aContextPaint,
+                             imgDrawingParams& aImgParams) const {
   if (!GetFontEntry()->HasSVGGlyph(aGlyphId)) {
     return false;
   }
@@ -2680,7 +2685,7 @@ bool gfxFont::RenderSVGGlyph(gfxContext* aContext,
 
   aContextPaint->InitStrokeGeometry(aContext, devUnitsPerSVGUnit);
 
-  GetFontEntry()->RenderSVGGlyph(aContext, aGlyphId, aContextPaint);
+  GetFontEntry()->RenderSVGGlyph(aContext, aGlyphId, aContextPaint, aImgParams);
   aContext->NewPath();
   return true;
 }
@@ -2689,13 +2694,15 @@ bool gfxFont::RenderSVGGlyph(gfxContext* aContext,
                              layout::TextDrawTarget* aTextDrawer,
                              gfx::Point aPoint, uint32_t aGlyphId,
                              SVGContextPaint* aContextPaint,
+                             imgDrawingParams& aImgParams,
                              gfxTextRunDrawCallbacks* aCallbacks,
                              bool& aEmittedGlyphs) const {
   if (aCallbacks && aEmittedGlyphs) {
     aCallbacks->NotifyGlyphPathEmitted();
     aEmittedGlyphs = false;
   }
-  return RenderSVGGlyph(aContext, aTextDrawer, aPoint, aGlyphId, aContextPaint);
+  return RenderSVGGlyph(aContext, aTextDrawer, aPoint, aGlyphId, aContextPaint,
+                        aImgParams);
 }
 
 bool gfxFont::RenderColorGlyph(DrawTarget* aDrawTarget, gfxContext* aContext,
@@ -3584,7 +3591,7 @@ bool gfxFont::ShapeFragmentWithoutWordCache(const T* aText, uint32_t aOffset,
           // if we didn't find any cluster start while backtracking,
           // just check that we're not in the middle of a surrogate
           // pair; back up by one code unit if we are.
-          if (NS_IS_SURROGATE_PAIR(aText[fragLen - 1], aText[fragLen])) {
+          if (mozilla::IsSurrogatePair(aText[fragLen - 1], aText[fragLen])) {
             --fragLen;
           }
         }
@@ -3921,8 +3928,8 @@ bool gfxFont::InitFakeSmallCapsRun(
     // character will need.
     if (i < aLength) {
       uint32_t ch = aText[i];
-      if (i < aLength - 1 && NS_IS_SURROGATE_PAIR(ch, aText[i + 1])) {
-        ch = SURROGATE_TO_UCS4(ch, aText[i + 1]);
+      if (i < aLength - 1 && mozilla::IsSurrogatePair(ch, aText[i + 1])) {
+        ch = mozilla::SurrogateToUCS4(ch, aText[i + 1]);
         extraCodeUnits = 1;
       }
       // Characters that aren't the start of a cluster are ignored here.
@@ -4004,13 +4011,13 @@ bool gfxFont::InitFakeSmallCapsRun(
           char16_t highSurrogate = 0;
           for (const char16_t* cp = convertedString.BeginReading();
                cp != convertedString.EndReading(); ++cp) {
-            if (NS_IS_HIGH_SURROGATE(*cp)) {
+            if (mozilla::IsHighSurrogate(*cp)) {
               highSurrogate = *cp;
               continue;
             }
             uint32_t ch = *cp;
-            if (NS_IS_LOW_SURROGATE(*cp) && highSurrogate) {
-              ch = SURROGATE_TO_UCS4(highSurrogate, *cp);
+            if (mozilla::IsLowSurrogate(*cp) && highSurrogate) {
+              ch = mozilla::SurrogateToUCS4(highSurrogate, *cp);
             }
             highSurrogate = 0;
             if (!f->HasCharacter(ch)) {

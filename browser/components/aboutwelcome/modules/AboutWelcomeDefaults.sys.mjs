@@ -324,15 +324,6 @@ const MR_ABOUT_WELCOME_DEFAULT = {
                   },
                 },
                 {
-                  type: "SET_PREF",
-                  data: {
-                    pref: {
-                      name: "showEmbeddedImport",
-                      value: true,
-                    },
-                  },
-                },
-                {
                   type: "FXA_AIWINDOW_SIGNIN_FLOW",
                 },
               ],
@@ -353,15 +344,6 @@ const MR_ABOUT_WELCOME_DEFAULT = {
                   data: {
                     args: "newtab",
                     where: "current",
-                  },
-                },
-                {
-                  type: "SET_PREF",
-                  data: {
-                    pref: {
-                      name: "showEmbeddedImport",
-                      value: true,
-                    },
                   },
                 },
                 {
@@ -430,15 +412,6 @@ const MR_ABOUT_WELCOME_DEFAULT = {
                   },
                 },
                 {
-                  type: "SET_PREF",
-                  data: {
-                    pref: {
-                      name: "showEmbeddedImport",
-                      value: true,
-                    },
-                  },
-                },
-                {
                   type: "FXA_AIWINDOW_SIGNIN_FLOW",
                 },
               ],
@@ -459,15 +432,6 @@ const MR_ABOUT_WELCOME_DEFAULT = {
                   data: {
                     args: "newtab",
                     where: "current",
-                  },
-                },
-                {
-                  type: "SET_PREF",
-                  data: {
-                    pref: {
-                      name: "showEmbeddedImport",
-                      value: true,
-                    },
                   },
                 },
                 {
@@ -547,15 +511,6 @@ const MR_ABOUT_WELCOME_DEFAULT = {
                   },
                 },
                 {
-                  type: "SET_PREF",
-                  data: {
-                    pref: {
-                      name: "showEmbeddedImport",
-                      value: true,
-                    },
-                  },
-                },
-                {
                   type: "FXA_AIWINDOW_SIGNIN_FLOW",
                 },
               ],
@@ -576,15 +531,6 @@ const MR_ABOUT_WELCOME_DEFAULT = {
                   data: {
                     args: "newtab",
                     where: "current",
-                  },
-                },
-                {
-                  type: "SET_PREF",
-                  data: {
-                    pref: {
-                      name: "showEmbeddedImport",
-                      value: true,
-                    },
                   },
                 },
                 {
@@ -633,15 +579,6 @@ const MR_ABOUT_WELCOME_DEFAULT = {
                   data: {
                     args: "newtab",
                     where: "current",
-                  },
-                },
-                {
-                  type: "SET_PREF",
-                  data: {
-                    pref: {
-                      name: "showEmbeddedImport",
-                      value: true,
-                    },
                   },
                 },
                 {
@@ -709,44 +646,6 @@ const MR_ABOUT_WELCOME_DEFAULT = {
               },
               action: {
                 type: "SET_DEFAULT_BROWSER",
-              },
-            },
-            {
-              id: "checkbox-3",
-              defaultValue: true,
-              label: {
-                string_id: "mr2022-onboarding-easy-setup-import-checkbox-label",
-              },
-              uncheckedAction: {
-                type: "MULTI_ACTION",
-                data: {
-                  actions: [
-                    {
-                      type: "SET_PREF",
-                      data: {
-                        pref: {
-                          name: "showEmbeddedImport",
-                        },
-                      },
-                    },
-                  ],
-                },
-              },
-              checkedAction: {
-                type: "MULTI_ACTION",
-                data: {
-                  actions: [
-                    {
-                      type: "SET_PREF",
-                      data: {
-                        pref: {
-                          name: "showEmbeddedImport",
-                          value: true,
-                        },
-                      },
-                    },
-                  ],
-                },
               },
             },
           ],
@@ -830,44 +729,6 @@ const MR_ABOUT_WELCOME_DEFAULT = {
               },
               action: {
                 type: "SET_DEFAULT_BROWSER",
-              },
-            },
-            {
-              id: "checkbox-2",
-              defaultValue: true,
-              label: {
-                string_id: "mr2022-onboarding-easy-setup-import-checkbox-label",
-              },
-              uncheckedAction: {
-                type: "MULTI_ACTION",
-                data: {
-                  actions: [
-                    {
-                      type: "SET_PREF",
-                      data: {
-                        pref: {
-                          name: "showEmbeddedImport",
-                        },
-                      },
-                    },
-                  ],
-                },
-              },
-              checkedAction: {
-                type: "MULTI_ACTION",
-                data: {
-                  actions: [
-                    {
-                      type: "SET_PREF",
-                      data: {
-                        pref: {
-                          name: "showEmbeddedImport",
-                          value: true,
-                        },
-                      },
-                    },
-                  ],
-                },
               },
             },
           ],
@@ -959,44 +820,6 @@ const MR_ABOUT_WELCOME_DEFAULT = {
                     },
                     {
                       type: "PIN_FIREFOX_TO_START_MENU",
-                    },
-                  ],
-                },
-              },
-            },
-            {
-              id: "checkbox-2",
-              defaultValue: true,
-              label: {
-                string_id: "mr2022-onboarding-easy-setup-import-checkbox-label",
-              },
-              uncheckedAction: {
-                type: "MULTI_ACTION",
-                data: {
-                  actions: [
-                    {
-                      type: "SET_PREF",
-                      data: {
-                        pref: {
-                          name: "showEmbeddedImport",
-                        },
-                      },
-                    },
-                  ],
-                },
-              },
-              checkedAction: {
-                type: "MULTI_ACTION",
-                data: {
-                  actions: [
-                    {
-                      type: "SET_PREF",
-                      data: {
-                        pref: {
-                          name: "showEmbeddedImport",
-                          value: true,
-                        },
-                      },
                     },
                   ],
                 },
@@ -1133,7 +956,7 @@ const MR_ABOUT_WELCOME_DEFAULT = {
     },
     {
       id: "AW_IMPORT_SETTINGS_EMBEDDED",
-      targeting: `("messaging-system-action.showEmbeddedImport" |preferenceValue == true) && useEmbeddedMigrationWizard`,
+      targeting: "useEmbeddedMigrationWizard",
       content: {
         fullscreen: true,
         tiles: { type: "migration-wizard" },
@@ -1169,20 +992,34 @@ const MR_ABOUT_WELCOME_DEFAULT = {
           },
           has_arrow_icon: true,
         },
-        secondary_button_top: {
-          label: {
-            string_id: "mr1-onboarding-sign-in-button-label",
-          },
-          action: {
-            data: {
-              entrypoint: "activity-stream-firstrun",
-              where: "tab",
+        secondary_button_top: [
+          {
+            label: {
+              string_id: "mr1-onboarding-sign-in-button-label",
             },
-            type: "SHOW_FIREFOX_ACCOUNTS",
-            addFlowParams: true,
+            action: {
+              data: {
+                entrypoint: "activity-stream-firstrun",
+                where: "tab",
+              },
+              type: "SHOW_FIREFOX_ACCOUNTS",
+              addFlowParams: true,
+            },
+            targeting: "!isFxASignedIn",
           },
-          targeting: "!isFxASignedIn",
-        },
+          {
+            label: { string_id: "restore-from-backup-secondary-top-button" },
+            action: {
+              type: "SET_PREF",
+              data: {
+                pref: { name: "showRestoreFromBackup", value: true },
+              },
+              navigate: true,
+            },
+            targeting:
+              "backupRestoreEnabled && isDefaultBrowser && !doesAppNeedPin",
+          },
+        ],
       },
     },
     {

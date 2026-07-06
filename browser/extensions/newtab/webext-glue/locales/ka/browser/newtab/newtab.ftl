@@ -1167,7 +1167,7 @@ newtab-sports-widget-world-cup-champions = 2026 მსოფლიოს გა�
 # Variables:
 #   $date (Date) - The match start time
 newtab-sports-widget-match-time = { DATETIME($date, hour: "2-digit", minute: "2-digit") }
-newtab-sports-widget-match-full-time = დასრულდა
+newtab-sports-widget-match-full-time = ძირითადი
 newtab-sports-widget-match-penalties = თერთმეტმეტრიანები
 
 ## Accessible labels for match rows in the sports widget. These are read by

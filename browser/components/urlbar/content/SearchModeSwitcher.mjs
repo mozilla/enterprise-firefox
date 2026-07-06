@@ -8,6 +8,9 @@
  * @import { OpenSearchData } from "moz-src:///browser/components/search/OpenSearchManager.sys.mjs"
  * @import { PanelItem, PanelList } from "chrome://global/content/elements/panel-list.mjs"
  */
+
+import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -421,7 +424,7 @@ export class SearchModeSwitcher {
       {
         entry: "searchbutton",
         isPreview: false,
-        source: selectedEngine?.source || lazy.UrlbarUtils.RESULT_SOURCE.SEARCH,
+        source: selectedEngine?.source || UrlbarShared.RESULT_SOURCE.SEARCH,
         engineName: selectedEngine?.name,
       },
       this.#input.window.gBrowser.selectedBrowser
@@ -478,8 +481,8 @@ export class SearchModeSwitcher {
         let result = this.#input.view?.getResultAtIndex(0);
         if (
           result &&
-          (result.type == lazy.UrlbarUtils.RESULT_TYPE.URL ||
-            result.type == lazy.UrlbarUtils.RESULT_TYPE.TAB_SWITCH)
+          (result.type == UrlbarShared.RESULT_TYPE.URL ||
+            result.type == UrlbarShared.RESULT_TYPE.TAB_SWITCH)
         ) {
           // If the user has typed a url then indicate that ENTER will visit
           // that address.

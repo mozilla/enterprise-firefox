@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -34,6 +36,20 @@ ChromeUtils.defineLazyGetter(
   () =>
     ChromeUtils.importESModule("resource://gre/modules/Timer.sys.mjs")
       .clearTimeout
+);
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "timeout",
+  "browser.ipProtection.guardian.timeout",
+  Temporal.Duration.from({ seconds: 30 }).total("milliseconds")
+);
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "retryAfter",
+  "browser.ipProtection.guardian.retryAfter",
+  500
 );
 
 export const ERRORS = Object.freeze({
@@ -617,6 +633,41 @@ class IPPProxyManagerSingleton extends EventTarget {
   }
 
   /**
+   * Attempts getting a new ProxyPass and usage info, retrying on transient errors
+   * until the abort signal is triggered.
+   *
+   * @param {AbortSignal} abortSignal
+   * @returns {Promise<object|null>}
+   */
+  async #attemptPassRotation(abortSignal) {
+    let delay = lazy.retryAfter;
+    while (!abortSignal.aborted) {
+      let result;
+      try {
+        result = await this.#getPassAndUsage(abortSignal);
+      } catch (e) {
+        if (abortSignal.aborted) {
+          return null;
+        }
+        if (!lazy.IPPNetworkUtils.isOffline) {
+          throw e;
+        }
+      }
+      if (result && !(result.status >= 500 && result.status <= 599)) {
+        return result;
+      }
+      await scheduleCallback(
+        () => {
+          delay *= 2;
+        },
+        Temporal.Now.instant().add({ milliseconds: delay }),
+        abortSignal
+      );
+    }
+    return null;
+  }
+
+  /**
    * Given a ProxyPass, sets a timer and triggers a rotation when it's about to expire.
    *
    * @param {*} pass
@@ -661,11 +712,15 @@ class IPPProxyManagerSingleton extends EventTarget {
       return this.#rotation.promise;
     }
     const controller = new AbortController();
+    const timeoutId = lazy.setTimeout(() => {
+      controller.abort(ERRORS.TIMEOUT);
+    }, lazy.timeout);
     let { promise, resolve } = Promise.withResolvers();
     this.#rotation = { promise, controller };
     let resumed = false;
     using scopeGuard = new DisposableStack();
     scopeGuard.defer(() => {
+      lazy.clearTimeout(timeoutId);
       if (!resumed) {
         this.#connection?.abortPendingChannels();
       }
@@ -677,12 +732,15 @@ class IPPProxyManagerSingleton extends EventTarget {
       this.#connection.suspend();
     }
 
-    const { pass, usage, error } = await this.#getPassAndUsage(
-      controller.signal
-    );
-    if (controller.signal.aborted) {
+    let result = await this.#attemptPassRotation(controller.signal);
+    if (controller.signal.aborted || !result) {
+      if (controller.signal.reason === ERRORS.TIMEOUT) {
+        this.#setErrorState(ERRORS.TIMEOUT);
+      }
       return null;
     }
+
+    const { pass, usage, error } = result;
     if (usage) {
       this.#setUsage(usage);
       if (usage.quotaExhausted) {
@@ -802,7 +860,7 @@ class IPPProxyManagerSingleton extends EventTarget {
   #setErrorState(error) {
     this.#rotation?.controller.abort();
 
-    this.#errorType = error;
+    this.#errorType = typeof error === "string" ? error : ERRORS.GENERIC;
     if (this.#state === IPPProxyStates.ACTIVE) {
       // If the proxy is active, switch to the error state.
       // Stop will need to be called to move out of the error state.

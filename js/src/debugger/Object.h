@@ -202,6 +202,7 @@ class DebuggerObject : public NativeObject {
   static const JSPropertySpec properties_[];
   static const JSPropertySpec promiseProperties_[];
   static const JSFunctionSpec methods_[];
+  static const JSFunctionSpec fuzzing_unsafe_methods_[];
 
   PromiseObject* promise() const;
 

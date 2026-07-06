@@ -58,11 +58,9 @@ class HomeActivityTestRule(
         isHomepageSportsWidgetVisible: Boolean = false,
         etpPolicy: ETPPolicy = getETPPolicy(settings),
         isLocationPermissionEnabled: SitePermissionsRules.Action = getFeaturePermission(PhoneFeature.LOCATION, settings),
-        isMenuRedesignCFREnabled: Boolean = false,
         isPageLoadTranslationsPromptEnabled: Boolean = false,
         isMicrosurveyEnabled: Boolean = settings.microsurveyFeatureEnabled,
         shouldUseBottomToolbar: Boolean = settings.shouldUseBottomToolbar,
-        isUseNewCrashReporterFlow: Boolean = false,
         isIPProtectionEnabled: Boolean = false,
         isTabSwipeCFREnabled: Boolean = false,
         isTermsOfServiceAccepted: Boolean = true,
@@ -85,11 +83,9 @@ class HomeActivityTestRule(
         this.isHomepageSportsWidgetVisible = isHomepageSportsWidgetVisible
         this.etpPolicy = etpPolicy
         this.isLocationPermissionEnabled = isLocationPermissionEnabled
-        this.isMenuRedesignCFREnabled = isMenuRedesignCFREnabled
         this.enableOrDisablePageLoadTranslationsPrompt(isPageLoadTranslationsPromptEnabled)
         this.isMicrosurveyEnabled = isMicrosurveyEnabled
         this.shouldUseBottomToolbar = shouldUseBottomToolbar
-        this.isUseNewCrashReporterFlow = isUseNewCrashReporterFlow
         this.enableOrDisableIPProtection(isIPProtectionEnabled)
         this.isTabSwipeCFREnabled = isTabSwipeCFREnabled
         this.isTermsOfServiceAccepted = isTermsOfServiceAccepted
@@ -160,7 +156,6 @@ class HomeActivityTestRule(
             shouldUseBottomToolbar = true,
             isPageLoadTranslationsPromptEnabled = false,
             isIPProtectionEnabled = false,
-            isUseNewCrashReporterFlow = useNewCrashReporterFlow,
             isTabSwipeCFREnabled = true,
             hasSeenShakeToSummarizeToolbarCfr = true,
             isTermsOfServiceAccepted = true,
@@ -201,7 +196,6 @@ class HomeActivityIntentTestRule internal constructor(
         isHomepageSportsWidgetVisible: Boolean = false,
         etpPolicy: ETPPolicy = getETPPolicy(settings),
         isLocationPermissionEnabled: SitePermissionsRules.Action = getFeaturePermission(PhoneFeature.LOCATION, settings),
-        isMenuRedesignCFREnabled: Boolean = false,
         isPageLoadTranslationsPromptEnabled: Boolean = false,
         isMicrosurveyEnabled: Boolean = settings.microsurveyFeatureEnabled,
         shouldUseBottomToolbar: Boolean = settings.shouldUseBottomToolbar,
@@ -229,7 +223,6 @@ class HomeActivityIntentTestRule internal constructor(
         this.isHomepageSportsWidgetVisible = isHomepageSportsWidgetVisible
         this.etpPolicy = etpPolicy
         this.isLocationPermissionEnabled = isLocationPermissionEnabled
-        this.isMenuRedesignCFREnabled = isMenuRedesignCFREnabled
         this.enableOrDisablePageLoadTranslationsPrompt(isPageLoadTranslationsPromptEnabled)
         this.isMicrosurveyEnabled = isMicrosurveyEnabled
         this.shouldUseBottomToolbar = shouldUseBottomToolbar
@@ -311,7 +304,6 @@ class HomeActivityIntentTestRule internal constructor(
         isHomepageSportsWidgetVisible = settings.showHomepageSportsWidget
         etpPolicy = getETPPolicy(settings)
         isLocationPermissionEnabled = getFeaturePermission(PhoneFeature.LOCATION, settings)
-        isMenuRedesignCFREnabled = settings.shouldShowMenuCFR
         isMicrosurveyEnabled = settings.microsurveyFeatureEnabled
         shouldUseBottomToolbar = settings.shouldUseBottomToolbar
         isTabSwipeCFREnabled = !settings.hasShownTabSwipeCFR

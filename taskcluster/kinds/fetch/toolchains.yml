@@ -390,12 +390,12 @@ clang-14:
         repo: https://github.com/llvm/llvm-project
         revision: 4bc1d0b51c8e488d78ab69c8b19cfbcd1f7db6a4
 
-clang-17:
-    description: clang 17.0.6 source code
+clang-19:
+    description: clang 19.1.7 source code
     fetch:
         type: git
         repo: https://github.com/llvm/llvm-project
-        revision: 6009708b4367171ccdbf4b5905cb6a803753fe18
+        revision: cd708029e0b2869e80abe31ddb175f7c35361f90
 
 clang-21:
     description: clang 21.1.8 source code
@@ -405,11 +405,11 @@ clang-21:
         revision: 2078da43e25a4623cab2d0d60decddf709aaea28
 
 clang-22:
-    description: clang 22.1.6 source code
+    description: clang 22.1.8 source code
     fetch:
         type: git
         repo: https://github.com/llvm/llvm-project
-        revision: fc4aad7b5db3fff421df9a9637605b9ca5667881
+        revision: ca7933e47d3a3451d81e72ac174dcb5aa28b59d1
 
 clang-trunk:
     description: clang main branch source code

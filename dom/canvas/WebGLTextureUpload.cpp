@@ -120,6 +120,9 @@ static layers::SurfaceDescriptor Flatten(const layers::SurfaceDescriptor& sd) {
     case layers::RemoteDecoderVideoSubDescriptor::
         TSurfaceDescriptorDcompSurface:
       return subdesc.get_SurfaceDescriptorDcompSurface();
+    case layers::RemoteDecoderVideoSubDescriptor::
+        TAndroidImageReaderImageDescriptor:
+      return subdesc.get_AndroidImageReaderImageDescriptor();
   }
   MOZ_CRASH("unreachable");
 }

@@ -143,6 +143,12 @@ class CustomizationFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFrag
 
         val shortcutPreference = if (isExpandedToolbarEnabled) {
             buildExpandedToolbarCustomButtonSetting()
+        } else if (settings.isTabStripEnabled) {
+            if (settings.toolbarTabStripShortcutKey != ShortcutType.NONE.value) {
+                buildTabStripToolbarWithCustomButtonSelectedSetting()
+            } else {
+                buildTabStripToolbarWithNoCustomButtonSelectedSetting()
+            }
         } else if (isAnyShortcutSelectedForSimpleToolbar) {
             buildSimpleToolbarWithCustomButtonSelectedSetting()
         } else {
@@ -176,6 +182,28 @@ class CustomizationFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFrag
     private fun buildSimpleToolbarWithNoCustomButtonSelectedSetting() =
         ToolbarSimpleNoShortcutPreference(requireContext()).apply {
             key = getString(R.string.pref_key_toolbar_simple_no_shortcut)
+            layoutResource = R.layout.preference_toolbar_shortcut
+            optionChangedListener = { newOption ->
+                if (newOption == null || newOption.key.value != ShortcutType.NONE.value) {
+                    updateToolbarShortcut()
+                }
+            }
+        }
+
+    private fun buildTabStripToolbarWithCustomButtonSelectedSetting() =
+        ToolbarTabStripShortcutPreference(requireContext()).apply {
+            key = getString(R.string.pref_key_toolbar_tab_strip_shortcut)
+            layoutResource = R.layout.preference_toolbar_shortcut
+            optionChangedListener = { newOption ->
+                if (newOption == null || newOption.key.value == ShortcutType.NONE.value) {
+                    updateToolbarShortcut()
+                }
+            }
+        }
+
+    private fun buildTabStripToolbarWithNoCustomButtonSelectedSetting() =
+        ToolbarTabStripNoShortcutPreference(requireContext()).apply {
+            key = getString(R.string.pref_key_toolbar_tab_strip_no_shortcut)
             layoutResource = R.layout.preference_toolbar_shortcut
             optionChangedListener = { newOption ->
                 if (newOption == null || newOption.key.value != ShortcutType.NONE.value) {
@@ -282,6 +310,7 @@ class CustomizationFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFrag
             context.components.settings.isTabStripEnabled = enabled
             updateToolbarCategoryBasedOnTabStrip(enabled)
             setupToolbarLayout()
+            updateToolbarShortcut()
             true
         }
     }

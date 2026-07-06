@@ -59,7 +59,6 @@
 #endif
 
 #define STARTUP_COMPLETE_TOPIC "browser-delayed-startup-finished"
-#define DOC_ELEM_INSERTED_TOPIC "document-element-inserted"
 #define CONTENT_DOCUMENT_LOADED_TOPIC "content-document-loaded"
 #define CACHE_WRITE_TOPIC "browser-idle-startup-tasks-finished"
 #define XPCOM_SHUTDOWN_TOPIC "xpcom-shutdown"
@@ -553,17 +552,16 @@ Result<Ok, nsresult> ScriptPreloader::InitCache(
   MOZ_RELEASE_ASSERT(obs);
 
   if (sProcessType == ProcessType::PrivilegedAbout) {
-    // Since we control all of the documents loaded in the privileged
-    // content process, we can increase the window of active time for the
-    // ScriptPreloader to include the scripts that are loaded until the
-    // first document finishes loading.
+    // Since we control all of the documents loaded in the privileged content
+    // process, the kBecomeUntrusted notification will never fire. Instead we
+    // increase the window of active time for the ScriptPreloader to include the
+    // scripts that are loaded until the first document finishes loading.
     mContentStartupFinishedTopic.AssignLiteral(CONTENT_DOCUMENT_LOADED_TOPIC);
   } else {
     // In the child process, we need to freeze the script cache before any
-    // untrusted code has been executed. The insertion of the first DOM
-    // document element may sometimes be earlier than is ideal, but at
-    // least it should always be safe.
-    mContentStartupFinishedTopic.AssignLiteral(DOC_ELEM_INSERTED_TOPIC);
+    // untrusted code has been executed. Use the shared kBecameUntrustedTopic
+    // notification as a proxy for this.
+    mContentStartupFinishedTopic = ContentChild::kBecameUntrustedTopic;
   }
   obs->AddObserver(this, mContentStartupFinishedTopic.get(), false);
 

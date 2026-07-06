@@ -515,6 +515,21 @@ class InteractableGridTest {
         assertEquals(expected = IntSize(600, 750), actual = reorderState.itemSize)
     }
 
+    @Test
+    fun `WHEN reset is called THEN the state is reset`() {
+        val reorderState = fakeGridReorderState(mockGridState())
+        reorderState.onTouchSlopPassed(Offset(50f, 50f), false)
+        reorderState.onDrag(offset = Offset(50f, 50f), preserveSelectMode = false)
+
+        reorderState.reset()
+
+        assertEquals(InteractionState.Grid.None, reorderState.draggedItem)
+        assertEquals(InteractionState.Grid.None, reorderState.hoveredItem)
+        assertNull(reorderState.highlightedRect)
+        assertEquals(InteractionMode.Grid.None, reorderState.interactionMode)
+        assertEquals(reorderState.previousItemAnimatableOffset.value, Offset.Zero)
+    }
+
     private fun mockGridItem(
         key: String = "key",
         index: Int = 1,

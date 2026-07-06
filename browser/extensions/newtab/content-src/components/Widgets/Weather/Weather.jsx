@@ -350,7 +350,6 @@ function Weather({ dispatch, size, widgetEnabledMap }) {
         />
         <panel-list id="weather-widget-context-menu">
           {!showOptInState &&
-            !isOptInEnabled &&
             (prefs["weather.temperatureUnits"] === "f" ? (
               <panel-item
                 data-l10n-id="newtab-weather-menu-change-temperature-units-celsius"

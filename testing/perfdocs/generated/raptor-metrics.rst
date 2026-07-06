@@ -200,6 +200,16 @@ Similar to SpeedIndex, except that it uses the structural similarity index measu
      * **Mobile**: `allrecipes <raptor.html#allrecipes-m>`__, `amazon <raptor.html#amazon-m>`__, `amazon-search <raptor.html#amazon-search-m>`__, `bild-de <raptor.html#bild-de-m>`__, `bing <raptor.html#bing-m>`__, `bing-search-restaurants <raptor.html#bing-search-restaurants-m>`__, `booking <raptor.html#booking-m>`__, `cnn <raptor.html#cnn-m>`__, `cnn-ampstories <raptor.html#cnn-ampstories-m>`__, `dailymail <raptor.html#dailymail-m>`__, `ebay-kleinanzeigen <raptor.html#ebay-kleinanzeigen-m>`__, `ebay-kleinanzeigen-search <raptor.html#ebay-kleinanzeigen-search-m>`__, `espn <raptor.html#espn-m>`__, `facebook <raptor.html#facebook-m>`__, `facebook-cristiano <raptor.html#facebook-cristiano-m>`__, `google <raptor.html#google-m>`__, `google-maps <raptor.html#google-maps-m>`__, `google-search-restaurants <raptor.html#google-search-restaurants-m>`__, `imdb <raptor.html#imdb-m>`__, `instagram <raptor.html#instagram-m>`__, `microsoft-support <raptor.html#microsoft-support-m>`__, `reddit <raptor.html#reddit-m>`__, `sina <raptor.html#sina-m>`__, `stackoverflow <raptor.html#stackoverflow-m>`__, `wikipedia <raptor.html#wikipedia-m>`__, `youtube <raptor.html#youtube-m>`__, `youtube-watch <raptor.html#youtube-watch-m>`__
 
 
+Seek Latency
+============
+Time (in ms) from issuing a buffered currentTime seek to the seeked event, measured with the video decoder warm (kept playing) and cold (released while paused and recreated per seek).
+
+
+  * **Aliases**: seekedColdLatency, seekedWarmLatency
+  * **Tests using it**:
+     * **Custom**: `media-seek <raptor.html#media-seek-c>`__
+
+
 Speed Index
 ===========
 A metric used to denote the speed at which a page loaded. Lower values indicate faster pageloads. Units are in (Visually-Complete x Milliseconds). Calculated by using videos of the pageload which provide a measure of visual completeness. Visual completeness is calculated by comparing the histogram of a given frame to the final frame of the pageload. The SpeedIndex is calculated as the area between the curves of a constant line at y=1, and the graph of the visual completeness from 0ms to when visual completeness reaches 100% (or hits the y=1 line).
@@ -212,6 +222,7 @@ A metric used to denote the speed at which a page loaded. Lower values indicate 
      * **Interactive**: `cnn-nav <raptor.html#cnn-nav-i>`__, `facebook-nav <raptor.html#facebook-nav-i>`__, `reddit-billgates-ama <raptor.html#reddit-billgates-ama-i>`__, `reddit-billgates-post-1 <raptor.html#reddit-billgates-post-1-i>`__, `reddit-billgates-post-2 <raptor.html#reddit-billgates-post-2-i>`__
      * **Live**: `booking-sf <raptor.html#booking-sf-l>`__, `discord <raptor.html#discord-l>`__, `fashionbeans <raptor.html#fashionbeans-l>`__, `google-accounts <raptor.html#google-accounts-l>`__, `imdb-firefox <raptor.html#imdb-firefox-l>`__, `medium-article <raptor.html#medium-article-l>`__, `people-article <raptor.html#people-article-l>`__, `reddit-thread <raptor.html#reddit-thread-l>`__, `rumble-fox <raptor.html#rumble-fox-l>`__, `stackoverflow-question <raptor.html#stackoverflow-question-l>`__, `urbandictionary-define <raptor.html#urbandictionary-define-l>`__, `wikia-marvel <raptor.html#wikia-marvel-l>`__
      * **Mobile**: `allrecipes <raptor.html#allrecipes-m>`__, `amazon <raptor.html#amazon-m>`__, `amazon-search <raptor.html#amazon-search-m>`__, `bild-de <raptor.html#bild-de-m>`__, `bing <raptor.html#bing-m>`__, `bing-search-restaurants <raptor.html#bing-search-restaurants-m>`__, `booking <raptor.html#booking-m>`__, `cnn <raptor.html#cnn-m>`__, `cnn-ampstories <raptor.html#cnn-ampstories-m>`__, `dailymail <raptor.html#dailymail-m>`__, `ebay-kleinanzeigen <raptor.html#ebay-kleinanzeigen-m>`__, `ebay-kleinanzeigen-search <raptor.html#ebay-kleinanzeigen-search-m>`__, `espn <raptor.html#espn-m>`__, `facebook <raptor.html#facebook-m>`__, `facebook-cristiano <raptor.html#facebook-cristiano-m>`__, `google <raptor.html#google-m>`__, `google-maps <raptor.html#google-maps-m>`__, `google-search-restaurants <raptor.html#google-search-restaurants-m>`__, `imdb <raptor.html#imdb-m>`__, `instagram <raptor.html#instagram-m>`__, `microsoft-support <raptor.html#microsoft-support-m>`__, `reddit <raptor.html#reddit-m>`__, `sina <raptor.html#sina-m>`__, `stackoverflow <raptor.html#stackoverflow-m>`__, `wikipedia <raptor.html#wikipedia-m>`__, `youtube <raptor.html#youtube-m>`__, `youtube-watch <raptor.html#youtube-watch-m>`__
+     * **Nav-bench**: `nav-bench <raptor.html#nav-bench-n>`__
 
 
 Youtube Playback Metrics

@@ -6,6 +6,7 @@
 #define MOZILLA_GFX_SCALEFACTORS2D_H_
 
 #include <ostream>
+#include <tuple>
 
 #include "mozilla/FloatingPoint.h"
 #include "mozilla/gfx/ScaleFactor.h"
@@ -181,6 +182,8 @@ struct BaseScaleFactors2D {
     return BaseScaleFactors2D(std::max(aA.xScale, aB.xScale),
                               std::max(aA.yScale, aB.yScale));
   }
+
+  auto MutTiedFields() { return std::tie(xScale, yScale); }
 };
 
 template <class Src, class Dst>

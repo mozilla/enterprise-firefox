@@ -3226,9 +3226,9 @@ void SVGTextFrame::PaintSVG(gfxContext& aContext, const gfxMatrix& aTransform,
   while (run.mFrame) {
     nsTextFrame* frame = run.mFrame;
 
-    auto contextPaint = MakeRefPtr<SVGContextPaintImpl>();
-    DrawMode drawMode = contextPaint->Init(&aDrawTarget, initialMatrix, frame,
-                                           outerContextPaint, aImgParams);
+    auto contextPaint = MakeRefPtr<SVGContextPaint>(
+        &aDrawTarget, initialMatrix, frame, outerContextPaint, aImgParams);
+    DrawMode drawMode = contextPaint->GetDrawMode();
     if (drawMode & DrawMode::GLYPH_STROKE) {
       ctxSR.EnsureSaved(&aContext);
       // This may change the gfxContext's transform (for non-scaling stroke),
@@ -3278,9 +3278,11 @@ void SVGTextFrame::PaintSVG(gfxContext& aContext, const gfxMatrix& aTransform,
                                            frame, matrixForPaintServers,
                                            aImgParams, paintSVGGlyphs);
         params.callbacks = &callbacks;
-        frame->PaintText(params, startEdge, endEdge, nsPoint(), isSelected);
+        frame->PaintText(params, startEdge, endEdge, nsPoint(), isSelected,
+                         aImgParams);
       } else {
-        frame->PaintText(params, startEdge, endEdge, nsPoint(), isSelected);
+        frame->PaintText(params, startEdge, endEdge, nsPoint(), isSelected,
+                         aImgParams);
       }
     }
 

@@ -74,7 +74,8 @@ object BrowserPageSelectors {
         groups = listOf("tabCrashReporter"),
     )
 
-    fun pageContentSelector(text: String) = Selector(
+    @Suppress("ktlint:standard:function-naming", "FunctionName")
+    fun PAGE_CONTENT(text: String = "") = Selector(
         strategy = SelectorStrategy.UIAUTOMATOR_WITH_TEXT_CONTAINS,
         value = text,
         description = "Page content '$text'",
@@ -91,5 +92,6 @@ object BrowserPageSelectors {
         TAB_CRASH_REPORTER_MESSAGE,
         TAB_CRASH_REPORTER_RESTORE_BUTTON,
         TAB_CRASH_REPORTER_CLOSE_BUTTON,
+        PAGE_CONTENT,
     )
 }

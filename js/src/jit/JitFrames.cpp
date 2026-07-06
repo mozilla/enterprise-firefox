@@ -1510,7 +1510,9 @@ void TraceWasmSuspendedContStacks(JSContext* cx, JSTracer* trc) {
 
   cx->wasm().contStacks().forEachAllocatedStack([trc](wasm::ContStack* stack) {
     if (stack->canResume()) {
-      stack->traceSuspended(trc);
+      // The tenuring tracer has no owning ContObject as a source; inferred
+      // ContObject to Debugger.Frame edges are only traced while marking.
+      stack->traceSuspended(trc, nullptr);
     }
   });
 }
@@ -1811,13 +1813,14 @@ Value SnapshotIterator::allocationValue(const RValueAllocation& alloc,
       return NullValue();
 
     case RValueAllocation::DOUBLE_REG:
-      return DoubleValue(fromRegister<double>(alloc.fpuReg()));
+      return JS::CanonicalizedDoubleValue(fromRegister<double>(alloc.fpuReg()));
 
     case RValueAllocation::FLOAT32_REG:
-      return Float32Value(fromRegister<float>(alloc.fpuReg()));
+      return JS::CanonicalizedDoubleValue(fromRegister<float>(alloc.fpuReg()));
 
     case RValueAllocation::FLOAT32_STACK:
-      return Float32Value(ReadFrameFloat32Slot(fp_, alloc.stackOffset()));
+      return JS::CanonicalizedDoubleValue(
+          ReadFrameFloat32Slot(fp_, alloc.stackOffset()));
 
     case RValueAllocation::TYPED_REG:
       return FromTypedPayload(alloc.knownType(), fromRegister(alloc.reg2()));
@@ -1825,7 +1828,8 @@ Value SnapshotIterator::allocationValue(const RValueAllocation& alloc,
     case RValueAllocation::TYPED_STACK: {
       switch (alloc.knownType()) {
         case JSVAL_TYPE_DOUBLE:
-          return DoubleValue(ReadFrameDoubleSlot(fp_, alloc.stackOffset2()));
+          return JS::CanonicalizedDoubleValue(
+              ReadFrameDoubleSlot(fp_, alloc.stackOffset2()));
         case JSVAL_TYPE_INT32:
           return Int32Value(ReadFrameInt32Slot(fp_, alloc.stackOffset2()));
         case JSVAL_TYPE_BOOLEAN:

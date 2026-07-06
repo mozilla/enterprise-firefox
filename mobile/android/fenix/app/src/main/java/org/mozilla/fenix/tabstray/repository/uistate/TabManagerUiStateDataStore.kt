@@ -30,3 +30,8 @@ internal val tabGroupOnboardingImpressionCountKey = intPreferencesKey("tabGroupO
  * Datastore key for reading/writing whether the user has ever had at least one tab group.
  */
 internal val hasUserEverHadOneTabGroupKey = booleanPreferencesKey("hasUserEverHadOneTabGroupKey")
+
+/**
+ * Datastore key for reading/writing whether the user has viewed the Tab Groups page.
+ */
+internal val hasViewedTabGroupsPageKey = booleanPreferencesKey("hasViewedTabGroupsPageKey")

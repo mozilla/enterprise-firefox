@@ -41,9 +41,8 @@ const MAX_CELEBRATED_IDS = 100;
 // the generic newtab source; the search team may ask us to switch to a
 // widget-specific source later.
 const SEARCH_SAP_SOURCE = "about_newtab";
-// Status types that count as in-progress for the Now tab. Mirrors the keys in
-// LIVE_STATUS_L10N_MAP in SportsMatchRow.jsx plus the catch-all "live"; keep
-// the two in sync when new live sub-statuses are added.
+// Status types that count as in-progress for the Now tab. Kept as a
+// defensive filter so the Now tab only ever surfaces actually-live matches.
 const LIVE_STATUS_TYPES = new Set(["live", "halftime", "extra time"]);
 
 // Adaptive live-polling prefs and constants
@@ -196,6 +195,7 @@ export class SportsFeed {
       // first VISIBLE see a pending pollTimer and skip its fetchNow, so the
       // first live update wouldn't land until a full interval later.
       this.updatePollingStateFromMatches();
+      await this.maybeFetchWatchLive();
     }
   }
 
@@ -416,9 +416,7 @@ export class SportsFeed {
     const liveMatchesValid = Array.isArray(liveData?.matches);
     // The /live endpoint is meant to be pre-filtered to in-progress games,
     // but we re-filter against LIVE_STATUS_TYPES as a defensive guard so the
-    // Now tab only ever surfaces actually-live matches. Keep the set in sync
-    // with LIVE_STATUS_L10N_MAP in SportsMatchRow.jsx when new live
-    // sub-statuses are introduced.
+    // Now tab only ever surfaces actually-live matches.
     const liveMatches = liveMatchesValid
       ? liveData.matches.filter(match =>
           LIVE_STATUS_TYPES.has(match?.status_type?.toLowerCase())
@@ -632,6 +630,21 @@ export class SportsFeed {
     }
   }
 
+  // Proactively fetch the watch-live broadcaster listings once a live game is
+  // present, so the "Watch live" entry point can be gated on region support
+  // before the button renders. The backend hoists the caller's own country
+  // into `your_region`; an empty `your_region` means the user's country has no
+  // listed broadcasters and the button must stay hidden. Fetches at most once
+  // per session — the user's region can't change mid-session, and the modal
+  // re-fetches on open for fresh links.
+  async maybeFetchWatchLive() {
+    const state = this.store.getState()?.SportsWidget;
+    const hasLiveGames = !!(state?.data?.live ?? []).length;
+    if (hasLiveGames && !state?.watchLive?.loaded) {
+      await this.fetchWatchLive();
+    }
+  }
+
   async fetchWatchLive() {
     const prefs = this.store.getState()?.Prefs.values;
     const watchLiveEndpoint =
@@ -649,6 +662,14 @@ export class SportsFeed {
     ) {
       console.error(
         `Sports watch-live endpoint not in allowlist: ${watchLiveEndpoint}`
+      );
+      // Settle the loaded flag with no data so the proactive maybeFetchWatchLive
+      // caller doesn't re-attempt this disallowed fetch on every poll tick.
+      this.store.dispatch(
+        ac.BroadcastToContent({
+          type: at.WIDGETS_SPORTS_WATCH_LIVE_SET,
+          data: null,
+        })
       );
       return;
     }
@@ -804,6 +825,7 @@ export class SportsFeed {
         await this.persistSportsData();
       }
       this.updatePollingStateFromMatches();
+      await this.maybeFetchWatchLive();
       this.retryCount = 0;
       return true;
     }
@@ -811,6 +833,7 @@ export class SportsFeed {
     // long intervals, so no retry/backoff on this branch.
     await this.fetchSportsData();
     this.updatePollingStateFromMatches();
+    await this.maybeFetchWatchLive();
     this.retryCount = 0;
     return true;
   }

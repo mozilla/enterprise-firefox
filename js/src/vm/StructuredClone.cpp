@@ -2371,11 +2371,6 @@ bool JSStructuredCloneWriter::transferOwnership() {
         return false;
       }
 
-      if (arrayBuffer->isPreparedForAsmJS()) {
-        reportDataCloneError(JS_SCERR_WASM_NO_TRANSFER);
-        return false;
-      }
-
       if (scope == JS::StructuredCloneScope::DifferentProcess ||
           scope == JS::StructuredCloneScope::DifferentProcessForIndexedDB ||
           arrayBuffer->isResizable()) {
@@ -3047,12 +3042,11 @@ bool JSStructuredCloneReader::readSharedWasmMemory(uint32_t nbytes,
     return false;
   }
   if (!payload.isObject() ||
-      !payload.toObject().is<SharedArrayBufferObject>() ||
-      payload.toObject().as<SharedArrayBufferObject>().isGrowable()) {
+      !payload.toObject().is<SharedArrayBufferObject>()) {
     JS_ReportErrorNumberASCII(context(), GetErrorMessage, nullptr,
                               JSMSG_SC_BAD_SERIALIZED_DATA,
                               "shared wasm memory must be backed by a "
-                              "non-growable SharedArrayBuffer");
+                              "SharedArrayBuffer");
     return false;
   }
 
@@ -3279,7 +3273,7 @@ bool JSStructuredCloneReader::startReadUnchecked(
         obj = NewDenseUnallocatedArray(
             context(), NativeEndian::swapFromLittleEndian(data), kind);
       } else {
-        obj = NewPlainObject(context(), kind);
+        obj = NewPlainObject(context(), {.newKind = kind});
       }
       if (!obj || !objs.append(ObjectValue(*obj))) {
         return false;

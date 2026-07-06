@@ -23,6 +23,7 @@
 #include "mozilla/TextEvents.h"
 #include "mozilla/ToString.h"
 #include "mozilla/WritingModes.h"
+#include "mozilla/Utf16.h"
 
 // For collecting other people's log, tell `MOZ_LOG=IMEHandler:4,sync`
 // rather than `MOZ_LOG=IMEHandler:5,sync` since using `5` may create too
@@ -2320,7 +2321,7 @@ bool IMContextWrapper::DispatchCompositionStart(GtkIMContext* aContext) {
     NS_ConvertUTF8toUTF16 im(GetIMName());
     // 72 is kMaximumKeyStringLength in TelemetryScalar.cpp
     if (im.Length() > 72) {
-      if (NS_IS_SURROGATE_PAIR(im[72 - 2], im[72 - 1])) {
+      if (mozilla::IsSurrogatePair(im[72 - 2], im[72 - 1])) {
         im.Truncate(72 - 2);
       } else {
         im.Truncate(72 - 1);

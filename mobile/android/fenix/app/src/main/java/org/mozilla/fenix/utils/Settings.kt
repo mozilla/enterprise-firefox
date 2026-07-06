@@ -25,7 +25,14 @@ import mozilla.components.feature.sitepermissions.SitePermissionsRules.Action
 import mozilla.components.feature.sitepermissions.SitePermissionsRules.AutoplayAction
 import mozilla.components.lib.crash.store.CrashReportOption
 import mozilla.components.support.base.log.logger.Logger
+import mozilla.components.support.ktx.android.content.PreferencesHolder
+import mozilla.components.support.ktx.android.content.booleanPreference
 import mozilla.components.support.ktx.android.content.doesDeviceHaveHinge
+import mozilla.components.support.ktx.android.content.floatPreference
+import mozilla.components.support.ktx.android.content.intPreference
+import mozilla.components.support.ktx.android.content.longPreference
+import mozilla.components.support.ktx.android.content.stringPreference
+import mozilla.components.support.ktx.android.content.stringSetPreference
 import mozilla.components.support.locale.LocaleManager
 import mozilla.components.support.utils.Browsers
 import mozilla.components.support.utils.ext.PackageManagerCompatHelper
@@ -87,7 +94,7 @@ class Settings(
     private val packageManagerCompatHelper: PackageManagerCompatHelper = appContext.packageManagerCompatHelper,
     @Suppress("unused")
     private val isBenchmarkBuild: Boolean = BuildConfig.IS_BENCHMARK_BUILD,
-) : RegisteringPreferencesHolder {
+) : PreferencesHolder {
     companion object {
         const val FENIX_PREFERENCES = "fenix_preferences"
 
@@ -168,8 +175,6 @@ class Settings(
         private const val CLOUDFLARE_URI = "https://mozilla.cloudflare-dns.com/dns-query"
     }
 
-    override val preferenceGetters: MutableMap<String, () -> Any?> = mutableMapOf()
-
     private val logger = Logger("Settings")
 
     @VisibleForTesting
@@ -222,6 +227,24 @@ class Settings(
         default = { ShortcutType.BOOKMARK.value },
         persistDefaultIfNotExists = true,
     )
+
+    /**
+     * Indicates what shortcut key is currently selected for the simple toolbar while the tab strip is
+     * enabled. The tab strip provides its own "new tab" button, so this uses a separate option set that
+     * excludes it.
+     */
+    var toolbarTabStripShortcutKey: String by stringPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_toolbar_tab_strip_shortcut),
+        default = { ShortcutType.SHARE.value },
+        persistDefaultIfNotExists = true,
+    )
+
+    /**
+     * The shortcut key that the simple toolbar's primary slot should currently use: the tab-strip
+     * specific key when the tab strip is enabled, otherwise the regular simple toolbar key.
+     */
+    val activeSimpleToolbarShortcutKey: String
+        get() = if (isTabStripEnabled) toolbarTabStripShortcutKey else toolbarSimpleShortcutKey
 
     /**
      * Indicates if the Pocket recommendations homescreen section should also show sponsored stories.
@@ -2231,6 +2254,14 @@ class Settings(
     var onboardingFeatureEnabled = FeatureFlags.onboardingFeatureEnabled
 
     /**
+     * The current onboarding page index.
+     */
+    var onboardingCurrentPageIndex by intPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_onboarding_current_page_index),
+        default = 0,
+    )
+
+    /**
      * The completion timestamp of the initial onboarding flow.
      */
     var onboardingCompletedTimestamp: Long by longPreference(
@@ -2289,14 +2320,6 @@ class Settings(
     var useRemoteSearchConfiguration by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_use_remote_search_configuration),
         default = { FxNimbus.features.remoteSearchConfiguration.value().enabled },
-    )
-
-    /**
-     * Indicates if the menu CFR should be displayed to the user.
-     */
-    var shouldShowMenuCFR by booleanPreference(
-        key = appContext.getPreferenceKey(R.string.pref_key_menu_cfr),
-        default = false,
     )
 
     /**
@@ -2902,14 +2925,6 @@ class Settings(
     )
 
     /**
-     * Indicates whether or not we should use the new crash reporter flow.
-     */
-    var useNewCrashReporterFlow by booleanPreference(
-        appContext.getPreferenceKey(R.string.pref_key_use_new_crash_reporter),
-        default = Config.channel.isNightlyOrDebug || Config.channel.isBeta,
-    )
-
-    /**
      * Do not show crash pull dialog before this date.
      * cf browser.crashReports.dontShowBefore on desktop
      */
@@ -3258,5 +3273,14 @@ class Settings(
     var webCompatReporterEnhancementsEnabled by booleanPreference(
         appContext.getPreferenceKey(R.string.pref_key_webcompat_reporter_enhancements),
         default = { FxNimbus.features.webcompatReporterEnhancements.value().enabled },
+    )
+
+    /**
+     * Feature flag that indicates if the uninstall survey shortcut feature is enabled.
+     * It checks if the feature is activated via the remote Nimbus experiment OR forced via Secret Settings.
+     */
+    var uninstallSurveyFeatureFlagEnabled by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_enable_uninstall_survey),
+        default = { FxNimbus.features.uninstallSurvey.value().enabled },
     )
 }

@@ -1522,6 +1522,96 @@ function CreateContainerTabMenu(event) {
   });
 }
 
+// Shared entry point for the "Add new container" menu items. Shows a panel,
+// hosting the same editor as the about:preferences container dialog, anchored
+// to the URL-bar container indicator (revealing it temporarily when the
+// current tab has no container).
+var gContainerCreation = {
+  _editor: null,
+
+  get _panel() {
+    return document.getElementById("containerCreation-panel");
+  },
+
+  get _anchorEl() {
+    return document.getElementById("userContext-icons");
+  },
+
+  // Honored by updateUserContextUIIndicator() so the temporarily-revealed
+  // indicator isn't hidden again while the panel is open.
+  isPillPinned: false,
+
+  async open() {
+    let panel = this._panel;
+    if (panel.state == "open" || panel.state == "showing") {
+      return;
+    }
+
+    let { ContainerEditor } =
+      await import("chrome://browser/content/usercontext/ContainerEditor.mjs");
+
+    let body = document.getElementById("containerCreation-panel-body");
+    body.replaceChildren();
+    this._editor = new ContainerEditor(body);
+    this._editor.render();
+
+    let createButton = document.getElementById(
+      "containerCreation-create-button"
+    );
+    let cancelButton = document.getElementById(
+      "containerCreation-cancel-button"
+    );
+
+    let updateValidity = () => {
+      createButton.disabled = !this._editor.isValid;
+    };
+    this._editor.form.addEventListener("input", updateValidity);
+    updateValidity();
+
+    let onCreate = () => {
+      this._editor.commit();
+      panel.hidePopup();
+    };
+    let onCancel = () => panel.hidePopup();
+    createButton.addEventListener("click", onCreate);
+    cancelButton.addEventListener("click", onCancel);
+
+    panel.addEventListener("popupshown", () => this._editor?.focus(), {
+      once: true,
+    });
+    panel.addEventListener(
+      "popuphidden",
+      () => {
+        createButton.removeEventListener("click", onCreate);
+        cancelButton.removeEventListener("click", onCancel);
+        body.replaceChildren();
+        this._editor = null;
+        this._unpinAnchor();
+      },
+      { once: true }
+    );
+
+    let anchor = this._anchorEl;
+    if (anchor.hidden) {
+      anchor.classList.add("container-anchor-pinned");
+      anchor.hidden = false;
+      this.isPillPinned = true;
+    }
+
+    panel.openPopup(anchor, "bottomleft topleft");
+  },
+
+  _unpinAnchor() {
+    if (!this.isPillPinned) {
+      return;
+    }
+    this.isPillPinned = false;
+    let anchor = this._anchorEl;
+    anchor.hidden = true;
+    anchor.classList.remove("container-anchor-pinned");
+  },
+};
+
 function FillHistoryMenu(event) {
   let parent = event.target;
 
@@ -1870,7 +1960,9 @@ let gFileMenu = {
       this.updateTabCloseCountState();
       SharingUtils.ensureShareMenu(
         gBrowser.selectedBrowser,
-        null,
+        gBrowser.selectedTabs.length > 1
+          ? gBrowser.selectedTabs.map(t => t.linkedBrowser)
+          : null,
         document.getElementById("menu_savePage")
       );
     }
@@ -3239,6 +3331,18 @@ var gUIDensity = {
 
   handleEvent(event) {
     if (event.type == "resize") {
+      // Window size only affects the resolved density through auto-compact,
+      // which applies only under nova when the user hasn't explicitly chosen a
+      // uidensity value. When it can't apply, a resize can't change the
+      // density, so skip update() entirely: this listener runs on every resize
+      // event, and doing per-resize work there regressed tresize (bug
+      // 2049353).
+      if (
+        !this.novaEnabled ||
+        Services.prefs.prefHasUserValue(this.uiDensityPref)
+      ) {
+        return;
+      }
       this.update();
     }
   },
@@ -3261,6 +3365,14 @@ var gUIDensity = {
   },
 
   _shouldAutoCompact() {
+    // Auto-compact reclaims some of the space taken by the chrome in small
+    // windows. Popups (window.open without toolbar features) hide the tabstrip,
+    // so the heuristic is less valuable. And we end up changing density
+    // mid-flight as the window gets resized during opening, which throws off
+    // the content area sizing, inflating it past the requested dimensions (bug 2050255).
+    if (!window.toolbar.visible) {
+      return false;
+    }
     const threshold = parseFloat(
       Services.prefs.getCharPref(this.autoCompactThresholdPref, "0.05")
     );
@@ -3311,7 +3423,7 @@ var gUIDensity = {
     // Under nova, auto-compact in small windows, but only when the user
     // hasn't explicitly chosen a uidensity value.
     if (
-      Services.prefs.getBoolPref("browser.nova.enabled", false) &&
+      this.novaEnabled &&
       !Services.prefs.prefHasUserValue(this.uiDensityPref) &&
       this._shouldAutoCompact()
     ) {
@@ -3379,6 +3491,13 @@ var gUIDensity = {
     window.dispatchEvent(new CustomEvent("uidensitychanged"));
   },
 };
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  gUIDensity,
+  "novaEnabled",
+  "browser.nova.enabled",
+  false
+);
 
 const DynamicShortcutTooltip = {
   nodeToTooltipMap: {

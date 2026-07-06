@@ -13,7 +13,7 @@ includes = ["nsStringFwd.h", "nsTArrayForwardDeclare.h"]
 namespaces = ["mozilla", "dom"]
 after_includes = """
 namespace mozilla::dom {
-class SpeculationRules;
+class SpeculationRuleSet;
 }
 """
 
@@ -22,7 +22,7 @@ item_types = ["functions", "enums"]
 
 [export.rename]
 "ThinVec" = "nsTArray"
-"SpeculationRuleSet" = "mozilla::dom::SpeculationRules"
+"SpeculationRuleSet" = "mozilla::dom::SpeculationRuleSet"
 
 [fn]
 rename_args = "GeckoCase"

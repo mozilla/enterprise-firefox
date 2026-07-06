@@ -22,6 +22,9 @@ function WidgetsManagementPanel({
   mayHaveListsWidget,
   mayHaveSportsWidget,
   mayHaveClocksWidget,
+  mayHavePrivacyWidget,
+  mayHaveCrosswordWidget,
+  mayHaveStocksWidget,
   setPref,
 }) {
   const prefs = useSelector(state => state.Prefs.values);
@@ -70,6 +73,15 @@ function WidgetsManagementPanel({
         case "WIDGET_CLOCKS":
           widgetName = "clocks";
           break;
+        case "WIDGET_PRIVACY":
+          widgetName = "privacy";
+          break;
+        case "WIDGET_CROSSWORD":
+          widgetName = "crossword";
+          break;
+        case "WIDGET_STOCKS":
+          widgetName = "stocks";
+          break;
       }
 
       if (widgetName) {
@@ -96,12 +108,17 @@ function WidgetsManagementPanel({
   };
 
   const { weatherEnabled } = enabledSections;
-  const { timerEnabled, listsEnabled, sportsWidgetEnabled, clocksEnabled } =
-    enabledWidgets;
+  const {
+    timerEnabled,
+    listsEnabled,
+    sportsWidgetEnabled,
+    clocksEnabled,
+    privacyEnabled,
+    crosswordEnabled,
+    stocksEnabled,
+  } = enabledWidgets;
   const isRTL = typeof document !== "undefined" && document.dir === "rtl";
-  // @backward-compat { version 151 } Switch to chrome://global/skin/icons/shaft-arrow-${dir}.svg
-  // once Firefox 151 reaches Release (icons not available in toolkit until then).
-  const arrowIconSrc = `chrome://newtab/content/data/content/assets/shaft-arrow-${isRTL ? "right" : "left"}.svg`;
+  const arrowIconSrc = `chrome://global/skin/icons/shaft-arrow-${isRTL ? "right" : "left"}.svg`;
 
   return (
     <div id="widgets-management-panel" className="widgets-mgmt-panel-container">
@@ -187,6 +204,43 @@ function WidgetsManagementPanel({
                     data-preference="widgets.clocks.enabled"
                     data-event-source="WIDGET_CLOCKS"
                     data-l10n-id="newtab-custom-widget-clock-toggle"
+                  />
+                </div>
+              )}
+              {mayHavePrivacyWidget && (
+                <div id="privacy-widget-section" className="section">
+                  <moz-toggle
+                    id="privacy-toggle"
+                    pressed={privacyEnabled || null}
+                    ontoggle={onToggleWidget}
+                    data-preference="widgets.privacy.enabled"
+                    data-event-source="WIDGET_PRIVACY"
+                    data-l10n-id="newtab-custom-widget-privacy-toggle"
+                  />
+                </div>
+              )}
+              {mayHaveCrosswordWidget && (
+                <div id="crossword-widget-section" className="section">
+                  {/* TODO: Add in fluent string when correct preview files are set up */}
+                  <moz-toggle
+                    id="crossword-toggle"
+                    pressed={crosswordEnabled || null}
+                    ontoggle={onToggleWidget}
+                    data-preference="widgets.crossword.enabled"
+                    data-event-source="WIDGET_CROSSWORD"
+                    label="Crossword"
+                  ></moz-toggle>
+                </div>
+              )}
+              {mayHaveStocksWidget && (
+                <div id="stocks-widget-section" className="section">
+                  <moz-toggle
+                    id="stocks-toggle"
+                    pressed={stocksEnabled || null}
+                    ontoggle={onToggleWidget}
+                    data-preference="widgets.stocks.enabled"
+                    data-event-source="WIDGET_STOCKS"
+                    data-l10n-id="newtab-custom-widget-stocks-toggle"
                   />
                 </div>
               )}

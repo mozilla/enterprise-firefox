@@ -167,7 +167,8 @@ UrlClassifierFeatureSocialTrackingProtection::ProcessChannel(
   nsresult rv = ChannelClassifierUtils::MaybeBlockChannel(
       aChannel, mName, list, NS_ERROR_SOCIALTRACKING_URI,
       nsIWebProgressListener::STATE_REPLACED_TRACKING_CONTENT,
-      nsIWebProgressListener::STATE_ALLOWED_TRACKING_CONTENT, &decision);
+      nsIWebProgressListener::STATE_ALLOWED_TRACKING_CONTENT, nullptr,
+      &decision);
   *aShouldContinue = (decision != ChannelBlockDecision::Blocked);
   return rv;
 }

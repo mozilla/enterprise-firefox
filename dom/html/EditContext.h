@@ -26,10 +26,7 @@ class EditContext final : public DOMEventTargetHelper {
 
   void UpdateText(uint32_t aRangeStart, uint32_t aRangeEnd,
                   const nsAString& aText, ErrorResult& aRv);
-  void UpdateSelection(uint32_t aStart, uint32_t aEnd) {
-    mSelectionStart = aStart;
-    mSelectionEnd = aEnd;
-  }
+  void UpdateSelection(uint32_t aStart, uint32_t aEnd);
   void UpdateControlBounds(DOMRect& aControlBounds);
   void UpdateSelectionBounds(DOMRect& aSelectionBounds);
   void UpdateCharacterBounds(
@@ -42,9 +39,23 @@ class EditContext final : public DOMEventTargetHelper {
   }
 
   void GetText(nsAString& aText) const;
+  void GetTextSubstring(uint32_t aStart, uint32_t aEnd, nsAString& aText);
   uint32_t TextLength() const;
   uint32_t SelectionStart() const { return mSelectionStart; }
   uint32_t SelectionEnd() const { return mSelectionEnd; }
+
+  // Selection start, clamped to <= length of text
+  uint32_t SelectionStartClamped() const {
+    // XXX: Perhaps selectionStart/End should already be clamped.
+    //      See https://github.com/w3c/edit-context/issues/88
+    return std::min(SelectionStart(), TextLength());
+  }
+  // Selection end, clamped to <= length of text
+  uint32_t SelectionEndClamped() const {
+    // XXX: Perhaps selectionStart/End should already be clamped.
+    //      See https://github.com/w3c/edit-context/issues/88
+    return std::min(SelectionEnd(), TextLength());
+  }
   uint32_t CharacterBoundsRangeStart() const {
     return mCodepointRectsStartIndex;
   }
@@ -60,6 +71,9 @@ class EditContext final : public DOMEventTargetHelper {
   // Anonymous <div> element that holds the text being edited.
   nsGenericHTMLElement& TextContainer() { return *mTextContainer; }
   nsTextNode& TextNode() { return *mText; }
+
+  // Get writing mode of associated element.
+  mozilla::WritingMode WritingMode() const;
 
   // https://w3c.github.io/edit-context/#dfn-deactivate-an-editcontext
   MOZ_CAN_RUN_SCRIPT void Deactivate();
@@ -78,6 +92,8 @@ class EditContext final : public DOMEventTargetHelper {
    */
   static bool IsAnyAttached();
 
+  bool IsActive() const;
+
   MOZ_CAN_RUN_SCRIPT void UpdateTextAndFireEvent(uint32_t aStart, uint32_t aEnd,
                                                  const nsAString& aString);
   MOZ_CAN_RUN_SCRIPT void StartComposition(
@@ -86,6 +102,12 @@ class EditContext final : public DOMEventTargetHelper {
 
   MOZ_CAN_RUN_SCRIPT void FireTextFormatUpdate(const TextRangeArray* aRanges,
                                                uint32_t aCompositionOffset);
+  MOZ_CAN_RUN_SCRIPT nsresult FireCharacterBoundsUpdateAndGetRects(
+      uint32_t aStart, uint32_t aEnd, nsTArray<LayoutDeviceIntRect>& aRects);
+
+  bool WasTextNextToCaretChangedByTextUpdateHandler() const {
+    return mTextNextToCaretChangedByTextUpdateHandler;
+  }
 
  private:
   EditContext(nsIGlobalObject* aGlobalObject, const EditContextInit& aInit,
@@ -107,6 +129,8 @@ class EditContext final : public DOMEventTargetHelper {
   uint32_t mSelectionEnd = 0;
   uint32_t mCodepointRectsStartIndex = 0;
   bool mIsComposing = false;
+  bool mTextNextToCaretChangedByTextUpdateHandler = false;
+  bool mExpectingCharacterBounds = false;
 };
 
 }  // namespace mozilla::dom

@@ -8,6 +8,8 @@ import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  EdrDetection: "resource://gre/modules/enterprise/EdrDetection.sys.mjs",
+  MachineId: "resource://gre/modules/enterprise/MachineId.sys.mjs",
   PlacesDBUtils: "resource://gre/modules/PlacesDBUtils.sys.mjs",
 });
 
@@ -255,6 +257,21 @@ var dataProviders = {
 
     data.osTheme = Services.sysinfo.getProperty("osThemeInfo");
 
+    if (AppConstants.MOZ_ENTERPRISE) {
+      try {
+        // Omit the machine-id fields entirely when none resolves, rather than
+        // reporting nulls (about:support hides the row when they are absent).
+        const machineIdRaw = await lazy.MachineId.getRawId();
+        if (machineIdRaw) {
+          data.machineIdRaw = machineIdRaw;
+          data.machineIdHashed = await lazy.MachineId.getHashedId();
+          data.machineIdSource = await lazy.MachineId.getSource();
+        }
+      } catch (e) {
+        console.error("Troubleshoot: Failed to get machine ID:", e);
+      }
+    }
+
     try {
       // MacOSX: Check for rosetta status, if it exists
       data.rosetta = Services.sysinfo.getProperty("rosettaStatus");
@@ -371,7 +388,7 @@ var dataProviders = {
     );
   },
 
-  securitySoftware: function securitySoftware(done) {
+  securitySoftware: async function securitySoftware(done) {
     let data = {};
 
     const keys = [
@@ -386,6 +403,10 @@ var dataProviders = {
       } catch (e) {}
 
       data[key] = prop;
+    }
+
+    if (AppConstants.MOZ_ENTERPRISE) {
+      data.presentEdrs = await lazy.EdrDetection.getPresentEdrs();
     }
 
     done(data);
@@ -488,8 +509,13 @@ var dataProviders = {
     // Limit the environment variables to those that we
     // know may affect Firefox to reduce leaking PII.
     let filteredEnvironmentKeys = ["xre_", "moz_", "gdk", "display"];
+    let exactEnvironmentKeys = ["sslkeylogfile"];
     for (let key of Object.keys(environment)) {
-      if (filteredEnvironmentKeys.some(k => key.toLowerCase().startsWith(k))) {
+      let lowerKey = key.toLowerCase();
+      if (
+        filteredEnvironmentKeys.some(k => lowerKey.startsWith(k)) ||
+        exactEnvironmentKeys.includes(lowerKey)
+      ) {
         filteredEnvironment[key] = environment[key];
       }
     }

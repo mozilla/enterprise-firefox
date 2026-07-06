@@ -231,6 +231,16 @@ let COMMANDS_TESTS = [
       return true;
     },
   },
+  {
+    // "edit pdf" also phrase-matches the savepdf action ("pdf, save page"), so
+    // both actions are offered. editpdf is picked first because it is declared
+    // before savepdf in DEFAULT_ACTIONS; the about:pdf URI check below fails if
+    // that ordering ever changes and the print dialog is triggered instead.
+    cmd: "edit pdf",
+    uri: "about:pdf",
+    testFun: async () =>
+      gBrowser.selectedBrowser.currentURI.spec == "about:pdf",
+  },
 ];
 
 add_task(async function test_pages() {

@@ -9,6 +9,7 @@
 #include "MMPrinter.h"
 #include "mozilla/AntiTrackingUtils.h"
 #include "mozilla/AsyncEventDispatcher.h"
+#include "mozilla/BasePrincipal.h"
 #include "mozilla/BounceTrackingProtection.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Components.h"
@@ -59,6 +60,7 @@
 #include "mozilla/glean/GeckoviewMetrics.h"
 #include "mozilla/glean/NetwerkProtocolHttpMetrics.h"
 #include "mozilla/ipc/ProtocolUtils.h"
+#include "mozilla/net/CookieCommons.h"
 #include "mozilla/net/CookieServiceParent.h"
 #include "mozilla/net/NeckoParent.h"
 #include "mozilla/net/PCookieServiceParent.h"
@@ -69,6 +71,7 @@
 #include "nsFrameLoader.h"
 #include "nsFrameLoaderOwner.h"
 #include "nsIBrowser.h"
+#include "nsICertOverrideService.h"
 #include "nsICookieManager.h"
 #include "nsICookieService.h"
 #include "nsIEffectiveTLDService.h"
@@ -81,6 +84,7 @@
 #include "nsITimer.h"
 #include "nsIURIMutator.h"
 #include "nsIWebProgressListener.h"
+#include "nsIX509Cert.h"
 #include "nsIXPConnect.h"
 #include "nsIXULRuntime.h"
 #include "nsImportModule.h"
@@ -1595,6 +1599,50 @@ mozilla::ipc::IPCResult WindowGlobalParent::RecvSetSiteIntegrityProtected(
   return IPC_OK();
 }
 
+nsresult WindowGlobalParent::DoAddCertException(bool aTemporary) {
+  nsCOMPtr<nsIChannel> failedChannel(GetFailedChannel());
+  NS_ENSURE_TRUE(failedChannel, NS_ERROR_NOT_AVAILABLE);
+
+  nsCOMPtr<nsIURI> failedChannelURI;
+  nsresult rv =
+      NS_GetFinalChannelURI(failedChannel, getter_AddRefs(failedChannelURI));
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsCOMPtr<nsIURI> innerURI(NS_GetInnermostURI(failedChannelURI));
+  NS_ENSURE_TRUE(innerURI, NS_ERROR_DOM_INVALID_STATE_ERR);
+
+  nsAutoCString host;
+  rv = innerURI->GetAsciiHost(host);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  int32_t port;
+  rv = innerURI->GetPort(&port);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsCOMPtr<nsITransportSecurityInfo> failedSecurityInfo;
+  rv = failedChannel->GetSecurityInfo(getter_AddRefs(failedSecurityInfo));
+  NS_ENSURE_SUCCESS(rv, rv);
+  NS_ENSURE_TRUE(failedSecurityInfo, NS_ERROR_NOT_AVAILABLE);
+
+  nsCOMPtr<nsIX509Cert> cert;
+  rv = failedSecurityInfo->GetServerCert(getter_AddRefs(cert));
+  NS_ENSURE_SUCCESS(rv, rv);
+  NS_ENSURE_TRUE(cert, NS_ERROR_NOT_AVAILABLE);
+
+  nsCOMPtr<nsICertOverrideService> overrideService(
+      do_GetService(NS_CERTOVERRIDE_CONTRACTID));
+  NS_ENSURE_TRUE(overrideService, NS_ERROR_FAILURE);
+
+  return overrideService->RememberValidityOverride(
+      host, port, mDocumentPrincipal->OriginAttributesRef(), cert, aTemporary);
+}
+
+IPCResult WindowGlobalParent::RecvAddCertException(
+    bool aTemporary, AddCertExceptionResolver&& aResolver) {
+  aResolver(DoAddCertException(aTemporary));
+  return IPC_OK();
+}
+
 mozilla::ipc::IPCResult WindowGlobalParent::RecvReloadWithHttpsOnlyException() {
   nsresult rv;
   nsCOMPtr<nsIURI> currentURI = BrowsingContext()->Top()->GetCurrentURI();
@@ -1978,6 +2026,27 @@ void WindowGlobalParent::SetShouldReportHasBlockedOpaqueResponse(
 IPCResult WindowGlobalParent::RecvSetCookies(
     const nsCString& aBaseDomain, const OriginAttributes& aOriginAttributes,
     nsIURI* aHost, bool aIsThirdParty, const nsTArray<CookieStruct>& aCookies) {
+  // Only content principals should be setting cookies via this path.
+  // Reject non-content principals (system, null, expanded) to prevent a
+  // compromised content process from bypassing the baseDomain check below.
+  nsIPrincipal* documentPrincipal = DocumentPrincipal();
+  if (!documentPrincipal || !documentPrincipal->GetIsContentPrincipal()) {
+    return IPC_FAIL(this,
+                    "SetCookies requires a content principal on the window");
+  }
+
+  // file:// principals have no meaningful baseDomain for cookie validation,
+  // skip the domain check.
+  if (!documentPrincipal->SchemeIs("file")) {
+    nsAutoCString principalBaseDomain;
+    if (NS_FAILED(net::CookieCommons::GetBaseDomain(documentPrincipal,
+                                                    principalBaseDomain)) ||
+        !principalBaseDomain.Equals(aBaseDomain)) {
+      return IPC_FAIL(
+          this, "SetCookies baseDomain does not match document principal");
+    }
+  }
+
   // Get CookieServiceParent via
   // ContentParent->NeckoParent->CookieServiceParent.
   ContentParent* contentParent = GetContentParent();
@@ -1990,6 +2059,21 @@ IPCResult WindowGlobalParent::RecvSetCookies(
       LoneManagedOrNullAsserts(neckoParent->ManagedPCookieServiceParent());
   NS_ENSURE_TRUE(csParent, IPC_OK());
   auto* cs = static_cast<net::CookieServiceParent*>(csParent);
+
+  if (!aHost) {
+    return IPC_FAIL(this, "aHost must not be null");
+  }
+
+  // Authorize the write if the process has already loaded this cookie key, or
+  // could legitimately load this principal. The latter covers documents with no
+  // channel registration (e.g. file://), which never populate the key set.
+  nsCOMPtr<nsIPrincipal> principal =
+      BasePrincipal::CreateContentPrincipal(aHost, aOriginAttributes);
+  if (!cs->ContentProcessHasCookie(aBaseDomain, aOriginAttributes) &&
+      !contentParent->ValidatePrincipal(principal)) {
+    return IPC_FAIL(this,
+                    "Content process not authorized for this cookie domain");
+  }
 
   return cs->SetCookies(aBaseDomain, aOriginAttributes, aHost, aIsThirdParty,
                         aCookies, GetBrowsingContext());

@@ -35,6 +35,8 @@ nsresult felt_constructor(REFNSIID iid, void** result);
 
 nsresult felt_restartforced_constructor(REFNSIID iid, void** result);
 
+nsresult edr_checker_constructor(REFNSIID iid, void** result);
+
 }  // extern "C"
 
 #endif  // felt_h

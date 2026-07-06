@@ -238,7 +238,7 @@ static MOZ_GLIBCXX_CONSTINIT xpstring memoryReportPath;
 static MOZ_GLIBCXX_CONSTINIT xpstring eventsDirectory;
 
 // If this is false, we don't launch the crash reporter
-static bool doReport = true;
+static mozilla::Atomic<bool> doReport(true);
 
 // if this is true, we pass the exception on to the OS crash reporter
 static bool showOSCrashReporter = false;
@@ -1904,20 +1904,12 @@ static void TeardownAppNotes() {
 nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force /*=false*/) {
   if (gExceptionHandler) return NS_ERROR_ALREADY_INITIALIZED;
 
-#if defined(DEBUG)
-  // In debug builds, disable the crash reporter by default, and allow to
-  // enable it with the MOZ_CRASHREPORTER environment variable.
-  const char* envvar = PR_GetEnv("MOZ_CRASHREPORTER");
-  if ((!envvar || !*envvar) && !force) return NS_OK;
-#else
-  // In other builds, enable the crash reporter by default, and allow
-  // disabling it with the MOZ_CRASHREPORTER_DISABLE environment variable.
-  const char* envvar = PR_GetEnv("MOZ_CRASHREPORTER_DISABLE");
-  if (envvar && *envvar && !force) return NS_OK;
-#endif
+  if (!CrashReporterIsEnabled(force)) {
+    return NS_OK;
+  }
 
-  // this environment variable prevents us from launching
-  // the crash reporter client
+  // Initialize the launch-client decision from the environment. Policies and
+  // other callers can update it later via UpdateShouldReport().
   doReport = ShouldReport();
 
   RegisterRuntimeExceptionModule();
@@ -1956,6 +1948,14 @@ nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force /*=false*/) {
   // Pre-load psapi.dll to prevent it from being loaded during exception
   // handling.
   ::LoadLibraryW(L"psapi.dll");
+
+  // Pre-load verifier.dll for the same reason: when MiniDumpWithHandleData is
+  // set, dbgcore loads it mid-dump (Win32LiveSystemProvider) to enumerate
+  // handle operations. Because MiniDumpWriteDump has already suspended every
+  // other thread, that LoadLibrary deadlocks in LdrpDrainWorkQueue waiting on
+  // the loader worker threads it just suspended, wedging the crashing process
+  // (bug 1760099). Loading it now turns the mid-dump load into a refcount bump.
+  ::LoadLibraryW(L"verifier.dll");
 #endif  // XP_WIN
 
 #ifdef MOZ_WIDGET_ANDROID
@@ -2797,6 +2797,8 @@ nsresult SetSubmitReports(bool aSubmitReports) {
   return NS_OK;
 }
 
+void UpdateShouldReport() { doReport = ShouldReport(); }
+
 static void SetCrashEventsDir(nsIFile* aDir) {
   static const XP_CHAR eventsDirectoryEnv[] =
       XP_TEXT("MOZ_CRASHREPORTER_EVENTS_DIRECTORY");
@@ -3165,7 +3167,23 @@ static bool MoveToPending(nsIFile* dumpFile, nsIFile* extraFile,
   return true;
 }
 
-nsresult OOPInit(nsIFile* aXREDirectory) {
+nsresult OOPInit(nsIFile* aXREDirectory, bool force /*=false*/) {
+  // Android is exempt from early return because the helper has already been
+  // started and is unconditionally expecting a rendezvous.
+#if !defined(MOZ_WIDGET_ANDROID)
+  if (!CrashReporterIsEnabled(force)) {
+    return NS_OK;
+  }
+#endif
+
+  {
+    // It's already started, no work to do here!
+    StaticMutexAutoLock lock(gCrashHelperClientMutex);
+    if (gCrashHelperClient) {
+      return NS_OK;
+    }
+  }
+
   CrashHelperClient* crashHelperClient;
 
   PathString tempPath;
@@ -3245,6 +3263,14 @@ void OOPDeinit() {
     crash_helper_shutdown(gCrashHelperClient);
     gCrashHelperClient = nullptr;
   }
+}
+
+uint32_t GetCrashHelperPid() {
+  StaticMutexAutoLock lock(gCrashHelperClientMutex);
+  if (!gCrashHelperClient) {
+    return 0;
+  }
+  return static_cast<uint32_t>(crash_helper_pid(gCrashHelperClient));
 }
 
 // Parent-side API for children

@@ -95,6 +95,8 @@ tags = "remote-settings"
 
 ["test_Log_stackTrace.js"]
 
+["test_MachineId.js"]
+
 ["test_MatchURLFilters.js"]
 
 ["test_NewTabUtils.js"]

@@ -19,7 +19,7 @@
       }
     },
     "radius": {
-      "value": "16px"
+      "value": "{border.radius.large}"
     }
   },
   "padding": {
@@ -35,15 +35,6 @@
       "value": {
         "nativeTheme": "FieldText",
         "default": "{text.color.@base}"
-      }
-    }
-  },
-  "separator": {
-    "color": {
-      "value": {
-        "light": "rgba(24, 14, 48, 0.25)",
-        "dark": "rgba(242, 240, 248, 0.25)",
-        "forcedColors": "{border.color.@base}"
       }
     }
   }

@@ -339,6 +339,7 @@ InjectTouchInputPtr nsWindow::sInjectTouchFuncPtr;
 
 bool nsWindow::sIsNativePointLocked = false;
 bool nsWindow::sIsUsingRawInputForMouseMove = false;
+nsWindow* nsWindow::sNativePointLockedWindow = nullptr;
 
 static SystemTimeConverter<DWORD>& TimeConverter() {
   static SystemTimeConverter<DWORD> timeConverterSingleton;
@@ -1075,6 +1076,21 @@ nsresult nsWindow::Create(nsIWidget* aParent, const LayoutDeviceIntRect& aRect,
       ::SetClassLongPtrW(mWnd, GCLP_WNDPROC,
                          reinterpret_cast<LONG_PTR>(
                              WinUtils::NonClientDpiScalingDefWindowProcW));
+      // Since we're consuming the PreXULSkeletonUI we must have a custom
+      // titlebar. Doing this here means the OnWindowMaximized() call below will
+      // work as intended.
+      SetCustomTitlebar(true);
+
+      // A window that starts out maximized (e.g. one that took over the
+      // maximized pre-XUL skeleton UI) never transitions into the maximized
+      // size mode, so TaskbarConcealer never gets a chance to tell Windows that
+      // it isn't actually fullscreen. Now that the window has a custom
+      // non-client area -- the configuration Windows may misdetect as
+      // fullscreen -- re-assert that state if we're already maximized. See bug
+      // 1957069.
+      if (mFrameState->GetSizeMode() == nsSizeMode_Maximized) {
+        TaskbarConcealer::OnWindowMaximized(this, /* aForce = */ true);
+      }
     }
   }
 
@@ -1171,9 +1187,21 @@ nsresult nsWindow::Create(nsIWidget* aParent, const LayoutDeviceIntRect& aRect,
         PropVariantClear(&pv);
       }
     }
-    HICON icon = ::LoadIconW(
-        ::GetModuleHandleW(nullptr),
-        MAKEINTRESOURCEW(usePrivateAumid ? IDI_PBMODE : IDI_APPICON));
+    // Resolve the icon resource once. A custom-icon override (if any) wins for
+    // normal windows; Private Browsing windows always keep IDI_PBMODE and
+    // ignore the override, matching WinTaskbar::SetAllWindowIcons. Since these
+    // are resources embedded in the executable, the load cannot fail on a
+    // missing file, so there's no need to set a default icon first.
+    uint16_t iconId;
+    if (usePrivateAumid) {
+      iconId = IDI_PBMODE;
+    } else {
+      uint16_t iconOverride =
+          mozilla::widget::WinTaskbar::GetWindowIconOverride();
+      iconId = iconOverride ? iconOverride : IDI_APPICON;
+    }
+    HICON icon =
+        ::LoadIconW(::GetModuleHandleW(nullptr), MAKEINTRESOURCEW(iconId));
     SetBigIcon(icon);
     SetSmallIcon(icon);
   }
@@ -3607,6 +3635,17 @@ void nsWindow::SetIcon(const nsAString& aIconSpec) {
              ::GetLastError()));
   }
 #endif
+}
+
+void nsWindow::SetIconFromExeResource(uint16_t aResourceId) {
+  // A resource ID of 0 means "no override" -> fall back to the default icon.
+  HICON icon =
+      ::LoadIconW(::GetModuleHandleW(nullptr),
+                  MAKEINTRESOURCEW(aResourceId ? aResourceId : IDI_APPICON));
+  if (icon) {
+    SetBigIcon(icon);
+    SetSmallIcon(icon);
+  }
 }
 
 void nsWindow::SetBigIconNoData() {
@@ -6520,6 +6559,8 @@ void nsWindow::OnWindowPosChanged(WINDOWPOS* wp) {
     // Send a gecko resize event
     OnResize(clientSize);
   }
+
+  MaybeUpdateNativeLockedRegion();
 }
 
 void nsWindow::OnWindowPosChanging(WINDOWPOS* info) {
@@ -6888,6 +6929,8 @@ void nsWindow::OnDestroy() {
   // Prevent the widget from sending additional events.
   mWidgetListener = nullptr;
   mAttachedWidgetListener = nullptr;
+
+  ReleaseNativeLockedRegion();
 
   DestroyDirectManipulation();
 
@@ -8672,15 +8715,20 @@ void nsWindow::LockNativePointer(NativePointerLockMode aNativePointerLockMode) {
   // sIsNativePointLocked.
   sIsNativePointLocked = true;
   SetNativePointerLockMode(aNativePointerLockMode);
+  SetNativeLockedRegion();
 }
 
 void nsWindow::UnlockNativePointer() {
   if (NS_WARN_IF(!IsNativePointerLocked())) {
     return;
   }
+  if (NS_WARN_IF(sNativePointLockedWindow != this)) {
+    return;
+  }
 
   // SetNativePointerLockMode() have to be called before resetting
   // sIsNativePointLocked.
+  ReleaseNativeLockedRegion();
   SetNativePointerLockMode(NativePointerLockMode::Regular);
   sIsNativePointLocked = false;
 }
@@ -8705,6 +8753,49 @@ void nsWindow::SetNativePointerLockMode(
   RegisterRawInputDevices(&device, 1, sizeof(device));
 
   sIsUsingRawInputForMouseMove = usingRawInput;
+}
+
+void nsWindow::MaybeUpdateNativeLockedRegion() {
+  if (sNativePointLockedWindow != this) {
+    return;
+  }
+
+  MOZ_ASSERT(StaticPrefs::dom_pointer_lock_native_lock_enabled());
+  MOZ_ASSERT(IsNativePointerLocked());
+
+  // When the mouse hits the edge of the window, it may become visible again
+  // and remain visible. To prevent this, we add a small border around the
+  // edge.
+  static constexpr int kRegionBorder = 5;
+  LayoutDeviceIntRect lockedRegionRect = GetClientBounds();
+  lockedRegionRect.Deflate(kRegionBorder, kRegionBorder);
+
+  RECT winRect = WinUtils::ToWinRect(lockedRegionRect);
+  ClipCursor(&winRect);
+}
+
+void nsWindow::SetNativeLockedRegion() {
+  if (!StaticPrefs::dom_pointer_lock_native_lock_enabled()) {
+    return;
+  }
+
+  MOZ_ASSERT(!sNativePointLockedWindow);
+  MOZ_ASSERT(IsNativePointerLocked());
+
+  sNativePointLockedWindow = this;
+  MaybeUpdateNativeLockedRegion();
+}
+
+void nsWindow::ReleaseNativeLockedRegion() {
+  if (sNativePointLockedWindow != this) {
+    return;
+  }
+
+  MOZ_ASSERT(StaticPrefs::dom_pointer_lock_native_lock_enabled());
+  MOZ_ASSERT(IsNativePointerLocked());
+
+  sNativePointLockedWindow = nullptr;
+  ClipCursor(nullptr);
 }
 
 #ifdef DEBUG

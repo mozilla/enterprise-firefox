@@ -311,10 +311,11 @@ bool gfxFontEntry::GetSVGGlyphExtents(DrawTarget* aDrawTarget,
 }
 
 void gfxFontEntry::RenderSVGGlyph(gfxContext* aContext, uint32_t aGlyphId,
-                                  SVGContextPaint* aContextPaint) {
+                                  SVGContextPaint* aContextPaint,
+                                  imgDrawingParams& aImgParams) {
   MOZ_ASSERT(mSVGInitialized,
              "SVG data has not yet been loaded. TryGetSVGData() first.");
-  GetSVGGlyphs()->RenderGlyph(aContext, aGlyphId, aContextPaint);
+  GetSVGGlyphs()->RenderGlyph(aContext, aGlyphId, aContextPaint, aImgParams);
 }
 
 bool gfxFontEntry::TryGetSVGData(const gfxFont* aFont) {

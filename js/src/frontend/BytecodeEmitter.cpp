@@ -6208,7 +6208,8 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitFunction(
       return false;
     }
     MOZ_ASSERT(funNode->functionIsHoisted());
-  } else if (funbox->isInterpreted()) {
+  } else {
+    MOZ_ASSERT(funbox->isInterpreted());
     if (!funbox->emitBytecode) {
       return fe.emitLazy();
       //            [stack] FUN?
@@ -6231,11 +6232,6 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitFunction(
 
     if (!fe.emitNonLazyEnd()) {
       //            [stack] FUN?
-      return false;
-    }
-  } else {
-    if (!fe.emitAsmJSModule()) {
-      //            [stack]
       return false;
     }
   }

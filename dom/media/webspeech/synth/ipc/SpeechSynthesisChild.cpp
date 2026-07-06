@@ -4,9 +4,142 @@
 
 #include "SpeechSynthesisChild.h"
 
+#include "mozilla/dom/BrowsingContext.h"
+#include "mozilla/dom/ContentMediaController.h"
+#include "mozilla/dom/MediaControlUtils.h"
+#include "nsPIDOMWindowInlines.h"
 #include "nsSynthVoiceRegistry.h"
+#include "nsXULAppAPI.h"
+
+#define MEDIA_CONTROL_LOG(msg, ...) \
+  MOZ_LOG_FMT(gMediaControlLog, LogLevel::Debug, msg, ##__VA_ARGS__)
 
 namespace mozilla::dom {
+
+// Registers the speech task as an uncontrollable receiver while it is
+// speaking, reports audibility, and reacts to media control keys. The owning
+// SpeechTaskChild outlives this listener (Shutdown() runs from
+// DispatchEndImpl/DispatchErrorImpl before the task is released), so the
+// back-reference is always valid until Shutdown.
+//
+// Note that on Linux/speechd and Android, nsISpeechService::OnPause is a
+// no-op, so MediaControlKey::Stop will not actually silence speech on those
+// platforms (tracked by Bug 2038329 / Bug 1238538). Audibility is still
+// reported so the tab sound indicator and the audiblechange event remain
+// accurate.
+class MediaSharedKeysListener final : public ContentMediaControlKeyReceiver {
+ public:
+  NS_INLINE_DECL_REFCOUNTING(MediaSharedKeysListener, override)
+
+  // The W3C Audio Session API does not cover Web Speech / SpeechSynthesis;
+  // see https://github.com/w3c/audio-session/issues/28. We tag utterances as
+  // "transient" as an interim choice — short-lived TTS briefly takes focus
+  // and may duck concurrent audio for the utterance's duration. Revisit and
+  // align with the spec once it adds Web Speech support.
+  static constexpr AudioSessionType kSessionType = AudioSessionType::Transient;
+
+  explicit MediaSharedKeysListener(SpeechTaskChild& aTask) : mTask(aTask) {
+    MOZ_ASSERT(XRE_IsContentProcess());
+    MOZ_ASSERT(NS_IsMainThread());
+  }
+
+  void Start(nsPIDOMWindowInner* aWindow) {
+    MOZ_ASSERT(NS_IsMainThread());
+    MOZ_ASSERT(!mAgent, "Start() must not be retried");
+    BrowsingContext* bc = aWindow ? aWindow->GetBrowsingContext() : nullptr;
+    if (!bc) {
+      MEDIA_CONTROL_LOG(
+          "MediaSharedKeysListener {} Start: no browsing context, skip",
+          fmt::ptr(this));
+      return;
+    }
+    mAgent = ContentMediaAgent::Get(bc);
+    if (!mAgent) {
+      MEDIA_CONTROL_LOG(
+          "MediaSharedKeysListener {} Start: no ContentMediaAgent, skip",
+          fmt::ptr(this));
+      return;
+    }
+    mBrowsingContextId = bc->Id();
+    mAgent->AddReceiver(this, ControlType::eUncontrollable);
+    // Speech is audible from the moment the platform starts speaking until
+    // DispatchEnd; there is no separate audibility detection.
+    mAgent->NotifyMediaAudibleChanged(
+        mBrowsingContextId, MediaAudibleState::eAudible,
+        ControlType::eUncontrollable, kSessionType);
+    mIsAudible = true;
+    MEDIA_CONTROL_LOG(
+        "MediaSharedKeysListener {} Start: registered as uncontrollable "
+        "receiver and reported audible in BC {}",
+        fmt::ptr(this), mBrowsingContextId);
+  }
+
+  void Shutdown() {
+    MOZ_ASSERT(NS_IsMainThread());
+    MOZ_ASSERT(!mShutdown, "Shutdown() must not be retried");
+    mShutdown = true;
+    if (!mAgent) {
+      // Start() bailed out (no BC or no agent at the time); nothing to undo.
+      MEDIA_CONTROL_LOG(
+          "MediaSharedKeysListener {} Shutdown: never registered, skip",
+          fmt::ptr(this));
+      return;
+    }
+    if (mIsAudible) {
+      mAgent->NotifyMediaAudibleChanged(
+          mBrowsingContextId, MediaAudibleState::eInaudible,
+          ControlType::eUncontrollable, kSessionType);
+      mIsAudible = false;
+    }
+    mAgent->RemoveReceiver(this, ControlType::eUncontrollable);
+    mAgent = nullptr;
+    MEDIA_CONTROL_LOG(
+        "MediaSharedKeysListener {} Shutdown: unregistered from BC {}",
+        fmt::ptr(this), mBrowsingContextId);
+  }
+
+  bool IsPlaying() const override { return mTask.IsSpeaking(); }
+
+  void HandleMediaKey(MediaControlKey aKey,
+                      const MediaControlActionParams& aParams) override {
+    MOZ_ASSERT(NS_IsMainThread());
+    MOZ_ASSERT(!mShutdown, "HandleMediaKey must not be called after Shutdown");
+    MEDIA_CONTROL_LOG("MediaSharedKeysListener {} HandleMediaKey '{}'",
+                      fmt::ptr(this), GetEnumString(aKey).get());
+    if (aKey == MediaControlKey::Stop) {
+      mTask.Pause();
+    }
+    // TODO: implement Setvolume/Mute/Unmute for Web Speech.
+  }
+
+  // The interrupt only pauses an utterance that is actively speaking and not
+  // already paused; the task remembers that the interruption owns the pause and
+  // ResumeFromMediaControl revives only that one, so a page-initiated pause
+  // issued while interrupted is never overridden when the interrupt ends.
+  void SuspendForInterrupt() override {
+    MOZ_ASSERT(NS_IsMainThread());
+    const bool willPause = mTask.IsSpeaking() && !mTask.IsPaused();
+    MEDIA_CONTROL_LOG(
+        "MediaSharedKeysListener {} SuspendForInterrupt in BC {}, pause={}",
+        fmt::ptr(this), mBrowsingContextId, willPause);
+    mTask.PauseFromMediaControl();
+  }
+  void ResumeFromInterrupt() override {
+    MOZ_ASSERT(NS_IsMainThread());
+    MEDIA_CONTROL_LOG("MediaSharedKeysListener {} ResumeFromInterrupt in BC {}",
+                      fmt::ptr(this), mBrowsingContextId);
+    mTask.ResumeFromMediaControl();
+  }
+
+ private:
+  ~MediaSharedKeysListener() = default;
+
+  SpeechTaskChild& mTask;
+  RefPtr<ContentMediaAgent> mAgent;
+  uint64_t mBrowsingContextId = 0;
+  bool mIsAudible = false;
+  bool mShutdown = false;
+};
 
 SpeechSynthesisChild::SpeechSynthesisChild() {
   MOZ_COUNT_CTOR(SpeechSynthesisChild);
@@ -145,18 +278,29 @@ SpeechTaskChild::SpeechTaskChild(SpeechSynthesisUtterance* aUtterance,
                                  bool aShouldResistFingerprinting)
     : nsSpeechTask(aUtterance, aShouldResistFingerprinting), mActor(nullptr) {}
 
+SpeechTaskChild::~SpeechTaskChild() { StopMediaControl(); }
+
 NS_IMETHODIMP
 SpeechTaskChild::Setup(nsISpeechTaskCallback* aCallback) {
   MOZ_CRASH("Should never be called from child");
 }
 
 void SpeechTaskChild::Pause() {
+  // A pause from the page takes over the paused state from an interruption, so
+  // a later interruption end must not resume it.
+  mPausedByMediaControl = false;
   if (mActor) {
     mActor->SendPause();
   }
 }
 
 void SpeechTaskChild::Resume() {
+  // TODO(bug 2047321): while the tab is under an audio-focus interruption we
+  // have lost focus, and the platform does not expect us to restart on our
+  // own, so a page resume() should be gated until focus is regained. That
+  // gating is handled in bug 2047321.
+  // A resume from the page clears any interruption ownership of the pause.
+  mPausedByMediaControl = false;
   if (mActor) {
     mActor->SendResume();
   }
@@ -179,5 +323,40 @@ void SpeechTaskChild::SetAudioOutputVolume(float aVolume) {
     mActor->SendSetAudioOutputVolume(aVolume);
   }
 }
+
+void SpeechTaskChild::StartMediaControl() {
+  mSharedKeysListener = new MediaSharedKeysListener(*this);
+  mSharedKeysListener->Start(mUtterance->GetOwnerWindow());
+}
+
+void SpeechTaskChild::StopMediaControl() {
+  if (mSharedKeysListener) {
+    mSharedKeysListener->Shutdown();
+    mSharedKeysListener = nullptr;
+  }
+}
+
+void SpeechTaskChild::PauseFromMediaControl() {
+  const bool willPause = !mPausedByMediaControl && IsSpeaking() && !IsPaused();
+  MEDIA_CONTROL_LOG("SpeechTaskChild {} PauseFromMediaControl, pause={}",
+                    fmt::ptr(this), willPause);
+  if (!willPause) {
+    return;
+  }
+  Pause();
+  mPausedByMediaControl = true;
+}
+
+void SpeechTaskChild::ResumeFromMediaControl() {
+  MEDIA_CONTROL_LOG("SpeechTaskChild {} ResumeFromMediaControl, resume={}",
+                    fmt::ptr(this), mPausedByMediaControl);
+  if (!mPausedByMediaControl) {
+    return;
+  }
+  mPausedByMediaControl = false;
+  Resume();
+}
+
+#undef MEDIA_CONTROL_LOG
 
 }  // namespace mozilla::dom

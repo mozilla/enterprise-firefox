@@ -4127,7 +4127,7 @@ uint32_t Http2Session::Caps() {
   return 0;
 }
 
-nsHttpRequestHead* Http2Session::RequestHead() {
+const nsHttpRequestHead* Http2Session::RequestHead() {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   MOZ_ASSERT(false,
              "Http2Session::RequestHead() "

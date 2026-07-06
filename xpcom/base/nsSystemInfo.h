@@ -99,6 +99,7 @@ class nsSystemInfo final : public nsISystemInfo, public nsHashPropertyBag {
 
 #if defined(MOZ_ENTERPRISE)
   static bool GetSecureBootStatus();
+  static bool GetDomainJoinedStatus();
 #endif
 
 #ifdef MOZ_WIDGET_ANDROID

@@ -909,7 +909,14 @@ class Selection final : public nsSupportsWeakReference,
 
   SelectionCustomColors* GetCustomColors() const { return mCustomColors.get(); }
 
-  MOZ_CAN_RUN_SCRIPT void NotifySelectionListeners(bool aCalledByJS);
+  enum class IsFromRangeMutationObserver { Yes, No };
+  /**
+   * IsFromRangeMutationObserver::Yes should only be passed if the selection
+   * change is due to a nsRange observing a DOM mutation.
+   */
+  MOZ_CAN_RUN_SCRIPT void NotifySelectionListeners(
+      bool aCalledByJS, IsFromRangeMutationObserver aIsFromRange =
+                            IsFromRangeMutationObserver::No);
   MOZ_CAN_RUN_SCRIPT void NotifySelectionListeners();
 
   bool ChangesDuringBatching() const { return mChangesDuringBatching; }

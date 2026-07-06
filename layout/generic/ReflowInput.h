@@ -535,6 +535,12 @@ struct ReflowInput : public SizeComputationInput {
     // If true, then children of this frame can generate class A breakpoints
     // for paginated reflow.
     bool mCanHaveClassABreakpoints : 1;
+
+    // These two flags indicate whether an ancestor of this frame has requested
+    // trimming on the start/end side of the first/last line of this frame.
+    // https://drafts.csswg.org/css-inline-3/#text-box-trim
+    bool mShouldApplyTextBoxTrimStart : 1;
+    bool mShouldApplyTextBoxTrimEnd : 1;
   };
   Flags mFlags;
 
@@ -670,11 +676,6 @@ struct ReflowInput : public SizeComputationInput {
    * Calculate the used line-height property without a reflow input instance.
    * The return value will be >= 0.
    *
-   * @param aBlockBSize The computed block size of the content rect of the block
-   *                    that the line should fill. Only used with
-   *                    line-height:-moz-block-height. NS_UNCONSTRAINEDSIZE
-   *                    results in a normal line-height for
-   *                    line-height:-moz-block-height.
    * @param aFontSizeInflation The result of the appropriate
    *                           nsLayoutUtils::FontSizeInflationFor call,
    *                           or 1.0 if during intrinsic size
@@ -682,15 +683,13 @@ struct ReflowInput : public SizeComputationInput {
    */
   static nscoord CalcLineHeight(const ComputedStyle&,
                                 nsPresContext* aPresContext,
-                                const nsIContent* aContent, nscoord aBlockBSize,
+                                const nsIContent* aContent,
                                 float aFontSizeInflation);
-
   static nscoord CalcLineHeight(const StyleLineHeight&,
                                 const nsStyleFont& aRelativeToFont,
                                 nsPresContext* aPresContext, bool aIsVertical,
-                                const nsIContent* aContent, nscoord aBlockBSize,
+                                const nsIContent* aContent,
                                 float aFontSizeInflation);
-
   static nscoord CalcLineHeightForCanvas(const StyleLineHeight& aLh,
                                          const nsFont& aRelativeToFont,
                                          nsAtom* aLanguage,

@@ -54,7 +54,6 @@
 #include "nsIWindowWatcher.h"
 #include "nsIXULRuntime.h"
 #include "nsLiteralString.h"
-#include "nsNSSHelper.h"
 #include "nsNSSIOLayer.h"
 #include "nsNetCID.h"
 #include "nsPrintfCString.h"
@@ -2191,48 +2190,6 @@ CertVerifier::CertificateTransparencyMode GetCertificateTransparencyMode() {
 
 }  // namespace psm
 }  // namespace mozilla
-
-NS_IMPL_ISUPPORTS(PipUIContext, nsIInterfaceRequestor)
-
-PipUIContext::PipUIContext() = default;
-
-PipUIContext::~PipUIContext() = default;
-
-NS_IMETHODIMP
-PipUIContext::GetInterface(const nsIID& uuid, void** result) {
-  NS_ENSURE_ARG_POINTER(result);
-  *result = nullptr;
-
-  if (!NS_IsMainThread()) {
-    NS_ERROR("PipUIContext::GetInterface called off the main thread");
-    return NS_ERROR_NOT_SAME_THREAD;
-  }
-
-  if (!uuid.Equals(NS_GET_IID(nsIPrompt))) return NS_ERROR_NO_INTERFACE;
-
-  nsIPrompt* prompt = nullptr;
-  nsresult rv = nsNSSComponent::GetNewPrompter(&prompt);
-  *result = prompt;
-  return rv;
-}
-
-nsresult getNSSDialogs(void** _result, REFNSIID aIID, const char* contract) {
-  if (!NS_IsMainThread()) {
-    NS_ERROR("getNSSDialogs called off the main thread");
-    return NS_ERROR_NOT_SAME_THREAD;
-  }
-
-  nsresult rv;
-
-  nsCOMPtr<nsISupports> svc = do_GetService(contract, &rv);
-  if (NS_FAILED(rv)) {
-    return rv;
-  }
-
-  rv = svc->QueryInterface(aIID, _result);
-
-  return rv;
-}
 
 static PRBool ConvertBetweenUCS2andASCII(PRBool toUnicode, unsigned char* inBuf,
                                          unsigned int inBufLen,

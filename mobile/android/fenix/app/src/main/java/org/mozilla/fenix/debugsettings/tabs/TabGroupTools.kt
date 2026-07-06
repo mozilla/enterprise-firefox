@@ -124,6 +124,7 @@ fun TabGroupTools(
                             hasUserDismissedTabGroupOnboarding = false,
                             tabGroupOnboardingImpressionCount = 0,
                             hasUserEverHadOneTabGroup = false,
+                            hasViewedTabGroupsPage = false,
                         ),
                     )
                 }

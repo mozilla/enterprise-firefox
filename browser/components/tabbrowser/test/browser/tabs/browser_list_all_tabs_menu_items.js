@@ -146,8 +146,8 @@ add_task(async function test_hidden_tabs_button_at_bottom() {
   BrowserTestUtils.removeTab(hiddenTab);
 });
 
-// When a hidden tab is playing audio, it sits at the top of the current window
-// section. The "Hidden Tabs" button and the tab playing audio appear before the
+// When a hidden tab is playing audio, it sits at the top of the tab list.
+// The "Hidden Tabs" button and the tab playing audio appear before the
 // visible tabs.
 add_task(async function test_hidden_audio_tabs_at_top() {
   const hiddenTab = await addTab("about:blank");
@@ -159,9 +159,6 @@ add_task(async function test_hidden_audio_tabs_at_top() {
   window.gTabsPanel.init();
   await openAllTabsMenu();
 
-  const currentWindowHeader = document.getElementById(
-    "allTabsMenu-currentWindowHeader"
-  );
   const hiddenTabsButton = document.getElementById(
     "allTabsMenu-hiddenTabsButton"
   );
@@ -172,6 +169,9 @@ add_task(async function test_hidden_audio_tabs_at_top() {
     "allTabsMenu-hiddenTabsSeparator"
   );
   const tabsList = document.getElementById("allTabsMenu-allTabsView-tabs");
+  const containerButton = document.getElementById(
+    "allTabsMenu-containerTabsButton"
+  );
 
   ok(
     BrowserTestUtils.isVisible(hiddenTabsButton),
@@ -182,9 +182,14 @@ add_task(async function test_hidden_audio_tabs_at_top() {
     "Hidden audio tabs container is visible"
   );
   is(
-    currentWindowHeader.nextElementSibling,
+    hiddenTabsButton.parentNode,
+    tabsList,
+    "Hidden Tabs button is inside the scrollable tab list"
+  );
+  is(
+    tabsList.children[0],
     hiddenTabsButton,
-    "Hidden Tabs button is immediately after the current window header"
+    "Hidden Tabs button is the first item in the scrollable tab list"
   );
   is(
     hiddenTabsButton.nextElementSibling,
@@ -197,9 +202,9 @@ add_task(async function test_hidden_audio_tabs_at_top() {
     "Separator follows the audio tabs container"
   );
   ok(
-    hiddenTabsSeparator.compareDocumentPosition(tabsList) &
+    hiddenTabsSeparator.compareDocumentPosition(containerButton) &
       Node.DOCUMENT_POSITION_FOLLOWING,
-    "Visible tabs list comes after the separator"
+    "The visible tab list comes after the separator, within the scrollable list"
   );
 
   info("Muted tabs should stay in the audio-playing list");
@@ -262,7 +267,9 @@ add_task(async function test_buttons_persist_after_tab_added() {
   BrowserTestUtils.removeTab(newTab);
 });
 
-add_task(async function test_view_all_tabs_at_bottom() {
+// "Search All Tabs" is pinned above the scrollable list and "View All Tabs" is
+// pinned below it
+add_task(async function test_search_and_view_all_tabs_pinned() {
   const hiddenTab = await addTab("about:blank");
   const tabHiddenPromise = BrowserTestUtils.waitForEvent(hiddenTab, "TabHide");
   gBrowser.hideTab(hiddenTab);
@@ -272,21 +279,28 @@ add_task(async function test_view_all_tabs_at_bottom() {
   await openAllTabsMenu();
 
   const tabsList = document.getElementById("allTabsMenu-allTabsView-tabs");
+  const outerBody = tabsList.parentNode;
+  const searchTabsButton = document.getElementById("allTabsMenu-searchTabs");
   const viewAllTabsButton = document.getElementById("allTabsMenu-viewAllTabs");
+
+  ok(
+    BrowserTestUtils.isVisible(searchTabsButton),
+    "Search All Tabs button is visible"
+  );
+  is(
+    outerBody.children[0],
+    searchTabsButton,
+    "Search All Tabs is the first item, pinned to the top outside the tab list"
+  );
 
   ok(
     BrowserTestUtils.isVisible(viewAllTabsButton),
     "View All Tabs button is visible"
   );
   is(
-    viewAllTabsButton.parentNode,
-    tabsList,
-    "View All Tabs button is inside the scrollable tab list"
-  );
-  is(
-    tabsList.children[tabsList.children.length - 1],
+    outerBody.children[outerBody.children.length - 1],
     viewAllTabsButton,
-    "View All Tabs is the last item in the tab list, below the hidden tabs button"
+    "View All Tabs is the last item, pinned to the bottom outside the tab list"
   );
 
   await closeAllTabsMenu();

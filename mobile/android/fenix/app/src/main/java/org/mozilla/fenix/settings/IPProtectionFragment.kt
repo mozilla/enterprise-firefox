@@ -9,6 +9,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -43,6 +44,7 @@ import org.mozilla.fenix.ipprotection.ui.IPProtectionSnackbarBinding
 import org.mozilla.fenix.nimbus.FxNimbus
 import org.mozilla.fenix.snackbar.FenixSnackbarDelegate
 import org.mozilla.fenix.theme.FirefoxTheme
+import java.time.LocalDate
 
 /** Fragment hosting the IP Protection settings screen. */
 class IPProtectionFragment : Fragment(), SystemInsetsPaddedFragment {
@@ -76,8 +78,15 @@ class IPProtectionFragment : Fragment(), SystemInsetsPaddedFragment {
         // To make the transition smoother, we prevent the fragment from drawing UI in that case.
         if (shouldHideUi(state)) return@content
 
-        val promoDate = IsoPromoDeadline(FxNimbus.features.ipProtection.value().promoDeadline)
-            .formatPromoDateOrCatch { requireComponents.analytics.crashReporter.submitCaughtException(it) }
+        val promoDate = FxNimbus.features.ipProtection.value().promoDeadline.let { promoDate ->
+            IsoPromoDeadline(promoDate)
+                .formatPromoDateOrCatch { requireComponents.analytics.crashReporter.submitCaughtException(it) }
+                ?.takeIf { LocalDate.now() <= LocalDate.parse(promoDate) }
+        }
+
+        LaunchedEffect(Unit) {
+           requireComponents.ipProtection.store.dispatch(IPProtectionAction.CheckAccount)
+        }
 
         FirefoxTheme {
             IPProtectionScreen(
@@ -148,7 +157,7 @@ class IPProtectionFragment : Fragment(), SystemInsetsPaddedFragment {
             feature = IPProtectionWarningBinding(
                 store = requireComponents.ipProtection.store,
                 proxyUnavailable = {
-                    Vpn.errorEncountered.record()
+                    Vpn.proxyUnavailable.record()
                     findNavController().navigate(
                         HomeFragmentDirections.actionGlobalIpProtectionUnavailableDialog(),
                     )

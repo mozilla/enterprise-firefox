@@ -23,10 +23,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   UrlbarProviderOpenTabs:
     "moz-src:///browser/components/urlbar/UrlbarProviderOpenTabs.sys.mjs",
   UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
+  UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "logger", function () {
-  return UrlbarUtils.getLogger({ prefix: "SemanticHistorySearch" });
+  return lazy.UrlbarShared.getLogger({ prefix: "SemanticHistorySearch" });
 });
 
 /**
@@ -99,7 +100,8 @@ export class UrlbarProviderSemanticHistorySearch extends UrlbarProvider {
       lazy.UrlbarPrefs.get("suggest.history") &&
       queryContext.searchString.length >= minSearchStringLength &&
       (!queryContext.searchMode ||
-        queryContext.searchMode.source == UrlbarUtils.RESULT_SOURCE.HISTORY)
+        queryContext.searchMode.source ==
+          lazy.UrlbarShared.RESULT_SOURCE.HISTORY)
     ) {
       // The smartbar (SW-only surface) is gated on the SW pref so it can light
       // up independently of the CW feature gate; all other surfaces (urlbar in
@@ -147,8 +149,8 @@ export class UrlbarProviderSemanticHistorySearch extends UrlbarProvider {
         )
       ) {
         const result = new lazy.UrlbarResult({
-          type: UrlbarUtils.RESULT_TYPE.URL,
-          source: UrlbarUtils.RESULT_SOURCE.HISTORY,
+          type: lazy.UrlbarShared.RESULT_TYPE.URL,
+          source: lazy.UrlbarShared.RESULT_SOURCE.HISTORY,
           payload: {
             title: res.title,
             url: res.url,
@@ -202,8 +204,8 @@ export class UrlbarProviderSemanticHistorySearch extends UrlbarProvider {
         continue;
       }
       let result = new lazy.UrlbarResult({
-        type: UrlbarUtils.RESULT_TYPE.TAB_SWITCH,
-        source: UrlbarUtils.RESULT_SOURCE.TABS,
+        type: lazy.UrlbarShared.RESULT_TYPE.TAB_SWITCH,
+        source: lazy.UrlbarShared.RESULT_SOURCE.TABS,
         payload: {
           url: res.url,
           title: res.title,

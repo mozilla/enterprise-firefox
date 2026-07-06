@@ -55,7 +55,7 @@ async function enterActionsMode() {
   });
   EventUtils.synthesizeKey("KEY_Tab");
   await UrlbarTestUtils.assertSearchMode(window, {
-    source: UrlbarUtils.RESULT_SOURCE.ACTIONS,
+    source: UrlbarShared.RESULT_SOURCE.ACTIONS,
     entry: "keywordoffer",
     restrictType: "keyword",
   });
@@ -398,7 +398,7 @@ async function clickQuickActionOneoffButton() {
 
   EventUtils.synthesizeMouseAtCenter(oneOffButton, {}, window);
   await UrlbarTestUtils.assertSearchMode(window, {
-    source: UrlbarUtils.RESULT_SOURCE.ACTIONS,
+    source: UrlbarShared.RESULT_SOURCE.ACTIONS,
     entry: "oneoff",
   });
 }
@@ -418,7 +418,7 @@ add_task(async function test_searchMode() {
   EventUtils.synthesizeKey("KEY_Tab");
 
   await UrlbarTestUtils.assertSearchMode(window, {
-    source: UrlbarUtils.RESULT_SOURCE.ACTIONS,
+    source: UrlbarShared.RESULT_SOURCE.ACTIONS,
     entry: "keywordoffer",
     restrictType: "keyword",
   });

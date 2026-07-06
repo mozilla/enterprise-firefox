@@ -153,6 +153,42 @@ class SsoHttpHandler(LocalHttpRequestHandler):
 
 
 class ConsoleHttpHandler(LocalHttpRequestHandler):
+    def build_policies_response(self):
+        policy_content = {}
+
+        # Reflect the states:
+        #  - "Unset" is -1, no value is pushed
+        #  - "False" is 0
+        #  - "True" is 1
+        if self.server.policy_block_about_config.value >= 0:
+            policy_content.update({
+                "BlockAboutConfig": self.server.policy_block_about_config.value == 1
+            })
+
+        if self.server.policy_access_connector.value == 1:
+            policy_content.update({
+                "AccessConnector": {
+                    "Host": "proxy",
+                    "MatchPatterns": [
+                        "https://*.mozilla.org",
+                    ],
+                    "Port": 18443,
+                }
+            })
+
+        if self.server.policy_extensions.value == 1:
+            policy_content.update({
+                "ExtensionSettings": {
+                    "treestyletab@piro.sakura.ne.jp": {
+                        "installation_mode": "force_installed",
+                        "install_url": f"http://localhost:{self.server.console_port}/downloads/tree_style_tab-4.2.7.xpi",
+                        "updates_disabled": True,
+                    }
+                }
+            })
+
+        return json.dumps({"policies": policy_content})
+
     def check_auth(self):
         auth = self.headers.get("Authorization")
         if not auth:
@@ -216,48 +252,6 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 },
                 "extra_prefs": [["marionette.port", 0]],
             })
-
-        elif path == "/api/browser/policies":
-            if not self.check_auth():
-                return
-            if self.server.policies_fail_request.value:
-                self.reply("", 500, "Internal Server Error", "application/json")
-                return
-            policy_content = {}
-
-            # Reflect the states:
-            #  - "Unset" is -1, no value is pushed
-            #  - "False" is 0
-            #  - "True" is 1
-            if self.server.policy_block_about_config.value >= 0:
-                policy_content.update({
-                    "BlockAboutConfig": self.server.policy_block_about_config.value == 1
-                })
-
-            if self.server.policy_access_connector.value == 1:
-                policy_content.update({
-                    "AccessConnector": {
-                        "Host": "proxy",
-                        "MatchPatterns": [
-                            "https://*.mozilla.org",
-                        ],
-                        "Port": 18443,
-                    }
-                })
-
-            if self.server.policy_extensions.value == 1:
-                policy_content.update({
-                    "ExtensionSettings": {
-                        "treestyletab@piro.sakura.ne.jp": {
-                            "installation_mode": "force_installed",
-                            "install_url": f"http://localhost:{self.server.console_port}/downloads/tree_style_tab-4.2.7.xpi",
-                            "updates_disabled": True,
-                        }
-                    }
-                })
-
-            m = json.dumps({"policies": policy_content})
-            contentType = "application/json"
 
         elif path == "/api/browser/whoami":
             if not self.check_auth():
@@ -397,6 +391,11 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             m = json.dumps(self.server.device_posture_payload)
             contentType = "application/json"
 
+        elif path == "/sso/get_device_posture_history":
+            history = getattr(self.server, "device_posture_history", [])
+            m = json.dumps(history)
+            contentType = "application/json"
+
         elif path.startswith("/downloads/"):
             filename = os.path.join(os.path.dirname(__file__), os.path.basename(path))
             if os.path.isfile(filename):
@@ -469,11 +468,30 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             })
 
         elif path == "/sso/device_posture":
-            self.server.device_posture_payload = json.loads(
+            payload = json.loads(
                 self.rfile.read(int(self.headers.get("Content-Length")))
             )
+            self.server.device_posture_payload = payload
+            if not hasattr(self.server, "device_posture_history"):
+                self.server.device_posture_history = []
+            self.server.device_posture_history.append(payload)
             self.server.device_posture_token = str(uuid.uuid4())
             m = json.dumps({"posture": self.server.device_posture_token})
+
+        elif path == "/api/browser/policies":
+            if not self.check_auth():
+                return
+            payload = json.loads(
+                self.rfile.read(int(self.headers.get("Content-Length")))
+            )
+            self.server.device_posture_payload = payload
+            if not hasattr(self.server, "device_posture_history"):
+                self.server.device_posture_history = []
+            self.server.device_posture_history.append(payload)
+            if self.server.policies_fail_request.value:
+                self.reply("", 500, "Internal Server Error", "application/json")
+                return
+            m = self.build_policies_response()
 
         elif path == "/sso/logout":
             if not self.check_auth():

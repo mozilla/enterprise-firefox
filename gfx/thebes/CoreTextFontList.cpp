@@ -21,6 +21,7 @@
 #include "mozilla/Sprintf.h"
 #include "mozilla/StaticPrefs_gfx.h"
 #include "mozilla/glean/GfxMetrics.h"
+#include "mozilla/Utf16.h"
 
 #include "nsAppDirectoryServiceDefs.h"
 #include "nsCharTraits.h"
@@ -1322,13 +1323,13 @@ gfxFontEntry* CoreTextFontList::PlatformGlobalFontFallback(
   UniChar ch[2];
   CFIndex length = 1;
 
-  if (IS_IN_BMP(aCh)) {
+  if (mozilla::IsInBMP(aCh)) {
     ch[0] = aCh;
     str = CFStringCreateWithCharactersNoCopy(kCFAllocatorDefault, ch, 1,
                                              kCFAllocatorNull);
   } else {
-    ch[0] = H_SURROGATE(aCh);
-    ch[1] = L_SURROGATE(aCh);
+    ch[0] = mozilla::HighSurrogate(aCh);
+    ch[1] = mozilla::LowSurrogate(aCh);
     str = CFStringCreateWithCharactersNoCopy(kCFAllocatorDefault, ch, 2,
                                              kCFAllocatorNull);
     length = 2;

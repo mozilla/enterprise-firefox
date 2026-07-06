@@ -186,11 +186,11 @@ nsHttpTransaction::~nsHttpTransaction() {
 nsresult nsHttpTransaction::Init(
     uint32_t caps, nsHttpConnectionInfo* cinfo, nsHttpRequestHead* requestHead,
     nsIInputStream* requestBody, uint64_t requestContentLength,
-    bool requestBodyHasHeaders, nsIEventTarget* target,
-    nsIInterfaceRequestor* callbacks, nsITransportEventSink* eventsink,
-    uint64_t browserId, HttpTrafficCategory trafficCategory,
-    nsIRequestContext* requestContext, ClassOfService classOfService,
-    uint32_t initialRwin, bool responseTimeoutEnabled, uint64_t channelId,
+    nsIEventTarget* target, nsIInterfaceRequestor* callbacks,
+    nsITransportEventSink* eventsink, uint64_t browserId,
+    HttpTrafficCategory trafficCategory, nsIRequestContext* requestContext,
+    ClassOfService classOfService, uint32_t initialRwin,
+    bool responseTimeoutEnabled, uint64_t channelId,
     TransactionObserverFunc&& transactionObserver,
     nsILoadInfo::IPAddressSpace aParentIpAddressSpace,
     const struct LNAPerms& aLnaPermissionStatus) {
@@ -267,8 +267,7 @@ nsresult nsHttpTransaction::Init(
   mRequestHead = requestHead;
 
   mReqHeaderBuf = nsHttp::ConvertRequestHeadToString(
-      *requestHead, !!requestBody, requestBodyHasHeaders,
-      cinfo->UsingConnect());
+      *requestHead, !!requestBody, false, cinfo->UsingConnect());
 
   if (LOG1_ENABLED()) {
     LOG1(("http request [\n"));
@@ -520,7 +519,9 @@ UniquePtr<nsHttpHeaderArray> nsHttpTransaction::TakeResponseTrailers() {
 
 void nsHttpTransaction::SetProxyConnectFailed() { mProxyConnectFailed = true; }
 
-nsHttpRequestHead* nsHttpTransaction::RequestHead() { return mRequestHead; }
+const nsHttpRequestHead* nsHttpTransaction::RequestHead() {
+  return mRequestHead;
+}
 
 uint32_t nsHttpTransaction::Http1xTransactionCount() { return 1; }
 
@@ -1433,6 +1434,12 @@ void nsHttpTransaction::Close(nsresult reason) {
   MaybeCancelFallbackTimer();
 
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
+
+  if (mTokenBucketCancel) {
+    mTokenBucketCancel->Cancel(reason);
+    mTokenBucketCancel = nullptr;
+  }
+
   if (reason == NS_BINDING_RETARGETED) {
     LOG(("  close %p skipped due to ERETARGETED\n", this));
     return;
@@ -1444,11 +1451,6 @@ void nsHttpTransaction::Close(nsresult reason) {
   }
 
   NotifyTransactionObserver(reason);
-
-  if (mTokenBucketCancel) {
-    mTokenBucketCancel->Cancel(reason);
-    mTokenBucketCancel = nullptr;
-  }
 
   // report the reponse is complete if not already reported
   if (!mResponseIsComplete) {

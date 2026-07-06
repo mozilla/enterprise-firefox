@@ -412,6 +412,22 @@ export class AboutPreferences {
         type: "bool",
       },
       {
+        id: "browser.newtabpage.activity-stream.widgets.system.privacy.enabled",
+        type: "bool",
+      },
+      {
+        id: "browser.newtabpage.activity-stream.widgets.privacy.enabled",
+        type: "bool",
+      },
+      {
+        id: "browser.newtabpage.activity-stream.widgets.system.stocks.enabled",
+        type: "bool",
+      },
+      {
+        id: "browser.newtabpage.activity-stream.widgets.stocks.enabled",
+        type: "bool",
+      },
+      {
         id: "browser.newtabpage.activity-stream.feeds.topsites",
         type: "bool",
       },
@@ -1341,6 +1357,30 @@ export class AboutPreferences {
       visible: widgetToggleVisible("clocks"),
     });
 
+    Preferences.addSetting({
+      id: "privacyEnabled",
+      pref: "browser.newtabpage.activity-stream.widgets.system.privacy.enabled",
+    });
+
+    Preferences.addSetting({
+      id: "privacy",
+      pref: "browser.newtabpage.activity-stream.widgets.privacy.enabled",
+      deps: ["privacyEnabled"],
+      visible: widgetToggleVisible("privacy"),
+    });
+
+    Preferences.addSetting({
+      id: "stocksEnabled",
+      pref: "browser.newtabpage.activity-stream.widgets.system.stocks.enabled",
+    });
+
+    Preferences.addSetting({
+      id: "stocks",
+      pref: "browser.newtabpage.activity-stream.widgets.stocks.enabled",
+      deps: ["stocksEnabled"],
+      visible: widgetToggleVisible("stocks"),
+    });
+
     // Shortcuts
     Preferences.addSetting({
       id: "shortcuts",
@@ -1553,6 +1593,14 @@ export class AboutPreferences {
             {
               id: "clocks",
               l10nId: "home-prefs-clocks-header",
+            },
+            {
+              id: "privacy",
+              l10nId: "home-prefs-privacy-header",
+            },
+            {
+              id: "stocks",
+              l10nId: "home-prefs-stocks-header",
             },
             ...(novaEnabled && widgetsSystemEnabled ? [weatherItem] : []),
           ],

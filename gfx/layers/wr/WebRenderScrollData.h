@@ -345,25 +345,8 @@ class WebRenderScrollData {
 }  // namespace mozilla
 
 namespace IPC {
-
-template <>
-struct ParamTraits<mozilla::layers::WebRenderLayerScrollData> {
-  typedef mozilla::layers::WebRenderLayerScrollData paramType;
-
-  static void Write(MessageWriter* aWriter, const paramType& aParam);
-
-  static bool Read(MessageReader* aReader, paramType* aResult);
-};
-
-template <>
-struct ParamTraits<mozilla::layers::WebRenderScrollData> {
-  typedef mozilla::layers::WebRenderScrollData paramType;
-
-  static void Write(MessageWriter* aWriter, const paramType& aParam);
-
-  static bool Read(MessageReader* aReader, paramType* aResult);
-};
-
+DECLARE_IPC_SERIALIZER(mozilla::layers::WebRenderLayerScrollData);
+DECLARE_IPC_SERIALIZER(mozilla::layers::WebRenderScrollData);
 }  // namespace IPC
 
 #endif /* GFX_WEBRENDERSCROLLDATA_H */

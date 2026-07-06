@@ -20,6 +20,7 @@ transforms:
 
 task-defaults:
     run-on-repo-type: ["hg", "git"]
+    run-on-projects: ["release", "enterprise-firefox"]
     treeherder:
         symbol: Bpgo(run)
         kind: build
@@ -55,7 +56,6 @@ tasks:
             cwd: '{checkout}'
             command: >
                 ./taskcluster/scripts/misc/run-profileserver.sh
-        run-on-projects: ["release", "enterprise-firefox"]
         fetches:
             toolchain:
                 - linux64-clang
@@ -94,7 +94,6 @@ tasks:
                 - android/android_common.py
                 - android/android-x86_64-profile-generation.py
                 - android/android_pgo.py
-        run-on-projects: ['release']
         fetches:
             toolchain:
                 - linux64-clang
@@ -136,7 +135,6 @@ tasks:
                 --config=android/android_common.py
                 --config=android/android-aarch64-profile-generation-macos.py
                 --config=android/android_pgo.py
-        run-on-projects: ['release']
         dependencies:
             instrumented-build-android-aarch64-shippable/opt: instrumented-build-android-aarch64-shippable/opt
         fetches:
@@ -184,7 +182,6 @@ tasks:
                 - android/android_common.py
                 - android/android-arm-profile-generation.py
                 - android/android_pgo.py
-        run-on-projects: ['release']
         fetches:
             toolchain:
                 - linux64-clang
@@ -220,7 +217,6 @@ tasks:
             sparse-profile: profile-generate
             cwd: '{checkout}'
             command: ./taskcluster/scripts/misc/run-profileserver.sh
-        run-on-projects: ['release']
         fetches:
             toolchain:
                 - win64-clang-toolchain
@@ -250,7 +246,6 @@ tasks:
             sparse-profile: profile-generate
             cwd: '{checkout}'
             command: ./taskcluster/scripts/misc/run-profileserver.sh
-        run-on-projects: ["release", "enterprise-firefox"]
         fetches:
             toolchain:
                 - win64-clang-toolchain
@@ -280,7 +275,6 @@ tasks:
             sparse-profile: profile-generate
             cwd: '{checkout}'
             command: ./taskcluster/scripts/misc/run-profileserver.sh
-        run-on-projects: ['release']
         fetches:
             toolchain:
                 - win64-clang-toolchain
@@ -310,7 +304,6 @@ tasks:
             sparse-profile: profile-generate
             cwd: '{checkout}'
             command: ./taskcluster/scripts/misc/run-profileserver.sh
-        run-on-projects: [trunk-only]
         fetches:
             toolchain:
                 - win64-clang-toolchain
@@ -340,7 +333,6 @@ tasks:
             sparse-profile: profile-generate
             cwd: '{checkout}'
             command: ./taskcluster/scripts/misc/run-profileserver-macos.sh
-        run-on-projects: ['release']
         fetches:
             toolchain:
                 - macosx64-clang
@@ -370,7 +362,6 @@ tasks:
             sparse-profile: profile-generate
             cwd: '{checkout}'
             command: ./taskcluster/scripts/misc/run-profileserver-macos.sh
-        run-on-projects: ["release", "enterprise-firefox"]
         fetches:
             toolchain:
                 - macosx64-aarch64-clang

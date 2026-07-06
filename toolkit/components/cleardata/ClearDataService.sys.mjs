@@ -2497,6 +2497,16 @@ const FLAGS_MAP = [
   },
 ];
 
+// Returns the nsIClearDataService.CLEAR_* constant name matching a single flag
+// value, for use in log messages. Falls back to the hexadecimal value.
+function flagToName(aFlag) {
+  return (
+    Object.entries(Ci.nsIClearDataService).find(
+      ([key, value]) => key.startsWith("CLEAR_") && value === aFlag
+    )?.[0] ?? `0x${aFlag.toString(16)}`
+  );
+}
+
 export function ClearDataService() {
   this._initialize();
 }
@@ -2783,7 +2793,10 @@ ClearDataService.prototype = Object.freeze({
       return Promise.all(
         c.cleaners.map(cleaner => {
           return aHelper(cleaner).catch(e => {
-            console.error(e);
+            console.error(
+              `ClearDataService failed to clear ${flagToName(c.flag)}:`,
+              e
+            );
             resultFlags |= c.flag;
           });
         })

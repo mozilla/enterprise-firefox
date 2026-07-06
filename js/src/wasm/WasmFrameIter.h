@@ -76,7 +76,7 @@ class WasmFrameIter {
 
   const Code* code_ = nullptr;
   uint32_t funcIndex_ = UINT32_MAX;
-  uint32_t lineOrBytecode_ = UINT32_MAX;
+  uint32_t bytecodeOffset_ = UINT32_MAX;
   BytecodeOffsetSpan inlinedCallerOffsets_;
   Frame* fp_ = nullptr;
   Instance* instance_ = nullptr;
@@ -148,10 +148,8 @@ class WasmFrameIter {
 
   bool hasSourceInfo() const;
   const char* filename() const;
-  const char16_t* displayURL() const;
-  bool mutedErrors() const;
   JSAtom* functionDisplayAtom() const;
-  unsigned lineOrBytecode() const;
+  unsigned bytecodeOffset() const;
   uint32_t funcIndex() const;
   unsigned computeLine(JS::TaggedColumnNumberOneOrigin* column) const;
 

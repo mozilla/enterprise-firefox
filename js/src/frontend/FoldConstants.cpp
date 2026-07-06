@@ -1528,18 +1528,6 @@ class FoldVisitor : public RewritingParseNodeVisitor<FoldVisitor> {
            SimplifyCondition(info(), node.unsafeRightReference());
   }
 
-  bool visitFunction(ParseNode*& pn) {
-    FunctionNode& node = pn->as<FunctionNode>();
-
-    // Don't constant-fold inside "use asm" code, as this could create a parse
-    // tree that doesn't type-check as asm.js.
-    if (node.funbox()->useAsmOrInsideUseAsm()) {
-      return true;
-    }
-
-    return Base::visitFunction(pn);
-  }
-
   bool visitArrayExpr(ParseNode*& pn) {
     if (!Base::visitArrayExpr(pn)) {
       return false;

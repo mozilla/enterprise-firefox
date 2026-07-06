@@ -118,6 +118,7 @@ private fun DebugInfoRow(item: DebugInfoItem) {
                 Text(
                     text = value.text,
                     style = FirefoxTheme.typography.body2,
+                    modifier = Modifier.weight(1f),
                 )
             }
         }
@@ -152,6 +153,19 @@ private val previewSections = listOf(
         items = listOf(
             DebugInfoItem(label = "enableHomepageSearchBar", value = DebugInfoValue.State(enabled = true)),
             DebugInfoItem(label = "tabGroupsEnabled", value = DebugInfoValue.State(enabled = false)),
+            DebugInfoItem(
+                label = "enableVeryLongSecretSettingDescription",
+                value = DebugInfoValue.Text("a-very-long-configuration-value-that-needs-to-wrap-onto-multiple-lines"),
+            ),
+        ),
+    ),
+    DebugInfoSection(
+        title = "Build",
+        items = listOf(
+            DebugInfoItem(
+                label = "VCS Commit",
+                value = DebugInfoValue.Text("2839629039f3a1b2c4d5e6f7890123456789abcd"),
+            ),
         ),
     ),
 )

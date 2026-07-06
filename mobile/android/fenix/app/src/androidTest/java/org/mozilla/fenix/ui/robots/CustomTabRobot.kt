@@ -10,6 +10,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeTestRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -30,6 +31,7 @@ import org.mozilla.fenix.R
 import org.mozilla.fenix.components.menu.MenuDialogTestTag.DESKTOP_SITE_OFF
 import org.mozilla.fenix.components.menu.MenuDialogTestTag.DESKTOP_SITE_ON
 import org.mozilla.fenix.components.menu.compose.CustomTabMenuTestTags
+import org.mozilla.fenix.helpers.Constants.LONG_CLICK_DURATION
 import org.mozilla.fenix.helpers.Constants.TAG
 import org.mozilla.fenix.helpers.DataGenerationHelper.getStringResource
 import org.mozilla.fenix.helpers.MatcherHelper.assertUIObjectExists
@@ -315,6 +317,17 @@ class CustomTabRobot(private val composeTestRule: ComposeTestRule) {
             Log.i(TAG, "clickBackButtonFromMenu: Trying to click the \"Back\" button from custom tab main menu.")
             composeTestRule.backButton().performClick()
             Log.i(TAG, "clickBackButtonFromMenu: Clicked the \"Back\" button from custom tab main menu.")
+
+            BrowserRobot(composeTestRule).interact()
+            return BrowserRobot.Transition(composeTestRule)
+        }
+
+        fun longClickBackButtonFromMenu(interact: BrowserRobot.() -> Unit): BrowserRobot.Transition {
+            Log.i(TAG, "longClickBackButtonFromMenu: Trying to long-click the \"Back\" button")
+            composeTestRule.backButton().performTouchInput {
+                longClick(durationMillis = LONG_CLICK_DURATION)
+            }
+            Log.i(TAG, "longClickBackButtonFromMenu: long-clicked the \"Back\" button")
 
             BrowserRobot(composeTestRule).interact()
             return BrowserRobot.Transition(composeTestRule)

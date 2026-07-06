@@ -4614,8 +4614,9 @@ HTMLMediaElement* HTMLMediaElement::LookupMediaElementURITable(nsIURI* aURI) {
 }
 
 // This GeckoView-specific observer ensures that suspended elements resume
-// downloading data after receiving a late autoplay permission grant, as
-// autoplay permissions are granted asynchronously on GeckoView.
+// downloading data or pending play() calls continue after receiving a late
+// autoplay permission response, as permissions are granted asynchronously on
+// GeckoView.
 class HTMLMediaElement::GVAutoplayObserver final : public nsIObserver {
   enum class Phase : int8_t { Init, Subscribed, Unsubscribed };
 
@@ -4639,17 +4640,9 @@ class HTMLMediaElement::GVAutoplayObserver final : public nsIObserver {
   NS_IMETHOD Observe(nsISupports* aSubject, const char* aTopic,
                      const char16_t*) override {
     if (!mElement || !aTopic || !aSubject || (mPhase != Phase::Subscribed) ||
-        strcmp(aTopic, kGVAutoplayAllowedTopic)) {
+        strcmp(aTopic, kGVAutoplayRequestStatusChangedTopic)) {
       LOG(LogLevel::Debug, ("{} GVAutoplayObserver::Observe observer={} "
                             "Invalid element/topic/subject/phase, skip.",
-                            fmt::ptr(mElement.get()), fmt::ptr(this)));
-      return NS_OK;
-    }
-
-    if ((mElement->NetworkState() >= NETWORK_LOADING) &&
-        (mElement->ReadyState() >= HAVE_CURRENT_DATA)) {
-      LOG(LogLevel::Debug, ("{} GVAutoplayObserver::Observe observer={} "
-                            "Loading or has enough data, skip.",
                             fmt::ptr(mElement.get()), fmt::ptr(this)));
       return NS_OK;
     }
@@ -4678,11 +4671,42 @@ class HTMLMediaElement::GVAutoplayObserver final : public nsIObserver {
       return NS_OK;
     }
 
+    RefPtr<HTMLMediaElement> element = mElement.get();
+    if (!element->mPendingPlayPromises.IsEmpty()) {
+      if (element->AllowedToPlay()) {
+        LOG(LogLevel::Debug, ("{} GVAutoplayObserver::Observe observer={} "
+                              "Resuming pending play().",
+                              fmt::ptr(element.get()), fmt::ptr(this)));
+        element->mAllowedToPlayPromise.ResolveIfExists(true, __func__);
+        element->PlayInternal(false);
+        element->UpdateCustomPolicyAfterPlayed();
+        element->MaybeMarkSHEntryAsUserInteracted();
+        return NS_OK;
+      }
+      if (!element->ShouldDelayPlayUntilGVAutoplayRequestResolved()) {
+        LOG(LogLevel::Debug, ("{} GVAutoplayObserver::Observe observer={} "
+                              "Rejecting pending play().",
+                              fmt::ptr(element.get()), fmt::ptr(this)));
+        element->AsyncRejectPendingPlayPromises(
+            NS_ERROR_DOM_MEDIA_NOT_ALLOWED_ERR);
+        element->StopObservingGVAutoplayIfNeeded();
+        return NS_OK;
+      }
+    }
+
+    if ((element->NetworkState() >= NETWORK_LOADING) &&
+        (element->ReadyState() >= HAVE_CURRENT_DATA)) {
+      LOG(LogLevel::Debug, ("{} GVAutoplayObserver::Observe observer={} "
+                            "Loading or has enough data, skip.",
+                            fmt::ptr(element.get()), fmt::ptr(this)));
+      return NS_OK;
+    }
+
     // Element needs more data and the autoplay message is valid - update.
     LOG(LogLevel::Debug, ("{} GVAutoplayObserver::Observe observer={} "
                           "Updating preload action.",
-                          fmt::ptr(mElement.get()), fmt::ptr(this)));
-    mElement->UpdatePreloadAction(JSCallingLocation::Get());
+                          fmt::ptr(element.get()), fmt::ptr(this)));
+    element->UpdatePreloadAction(JSCallingLocation::Get());
     return NS_OK;
   }
 
@@ -4694,7 +4718,8 @@ class HTMLMediaElement::GVAutoplayObserver final : public nsIObserver {
     nsCOMPtr<nsIObserverService> observerService =
         mozilla::services::GetObserverService();
     if (mElement && observerService) {
-      observerService->AddObserver(this, kGVAutoplayAllowedTopic, false);
+      observerService->AddObserver(this, kGVAutoplayRequestStatusChangedTopic,
+                                   false);
     }
     mPhase = Phase::Subscribed;
   }
@@ -4707,7 +4732,8 @@ class HTMLMediaElement::GVAutoplayObserver final : public nsIObserver {
     nsCOMPtr<nsIObserverService> observerService =
         mozilla::services::GetObserverService();
     if (observerService) {
-      observerService->RemoveObserver(this, kGVAutoplayAllowedTopic);
+      observerService->RemoveObserver(this,
+                                      kGVAutoplayRequestStatusChangedTopic);
     }
     mElement = nullptr;
     mPhase = Phase::Unsubscribed;
@@ -5080,6 +5106,15 @@ already_AddRefed<Promise> HTMLMediaElement::Play(ErrorResult& aRv) {
 
     MaybeMarkSHEntryAsUserInteracted();
   } else {
+#if defined(MOZ_WIDGET_ANDROID)
+    if (ShouldDelayPlayUntilGVAutoplayRequestResolved()) {
+      AUTOPLAY_LOG("delay MediaElement {} play while waiting for GeckoView",
+                   fmt::ptr(this));
+      StartObservingGVAutoplayIfNeeded();
+      MaybeDoLoad();
+      return promise.forget();
+    }
+#endif
     AUTOPLAY_LOG("reject MediaElement {} to play", fmt::ptr(this));
     AsyncRejectPendingPlayPromises(NS_ERROR_DOM_MEDIA_NOT_ALLOWED_ERR);
   }
@@ -6896,6 +6931,32 @@ void HTMLMediaElement::StopObservingGVAutoplayIfNeeded() {
       !GVAutoplayPermissionRequestor::HasUnresolvedRequest(inner)) {
     mGVAutoplayObserver = nullptr;
   }
+#endif
+}
+
+bool HTMLMediaElement::ShouldDelayPlayUntilGVAutoplayRequestResolved() const {
+#if defined(MOZ_WIDGET_ANDROID)
+  if (!StaticPrefs::media_geckoview_autoplay_request()) {
+    return false;
+  }
+  nsPIDOMWindowInner* inner = OwnerDoc()->GetInnerWindow();
+  if (!inner) {
+    return false;
+  }
+  RefPtr<BrowsingContext> context = inner->GetBrowsingContext();
+  if (!context) {
+    return false;
+  }
+  context = context->Top();
+  const bool isInaudible = Volume() == 0.0 || Muted() ||
+                           (!HasAudio() && mReadyState >= HAVE_METADATA);
+  const auto status = isInaudible
+                          ? context->GetGVInaudibleAutoplayRequestStatus()
+                          : context->GetGVAudibleAutoplayRequestStatus();
+  return status == GVAutoplayRequestStatus::eUNKNOWN ||
+         status == GVAutoplayRequestStatus::ePENDING;
+#else
+  return false;
 #endif
 }
 

@@ -3535,7 +3535,7 @@ class MOZ_STACK_CLASS PromiseForOfIterator : public JS::ForOfIterator {
 
   bool isOptimizedDenseArrayIteration() {
     MOZ_ASSERT(valueIsIterable());
-    return index != NOT_ARRAY && IsPackedArray(iterator);
+    return isOptimizedArray_ && IsPackedArray(iteratorOrArray_);
   }
 };
 

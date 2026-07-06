@@ -372,8 +372,8 @@ float SVGContentUtils::GetLineHeight(const Element* aElement) {
         if (!context) {
           return;
         }
-        const auto lineHeightAu = ReflowInput::CalcLineHeight(
-            *style, context, aElement, NS_UNCONSTRAINEDSIZE, 1.0f);
+        const auto lineHeightAu =
+            ReflowInput::CalcLineHeight(*style, context, aElement, 1.0f);
         result = CSSPixel::FromAppUnits(lineHeightAu);
       });
 

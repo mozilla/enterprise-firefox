@@ -104,6 +104,7 @@ lints:
             - 'mobile/android/gradle.configure'
             - 'mobile/android/**/moz.build'
             - '**/*.gradle'
+            - '**/*.gradle.kts'
             # Other misc lint related files.
             - 'python/mozlint/**'
             - 'tools/lint/**'

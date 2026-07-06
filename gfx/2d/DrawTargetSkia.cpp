@@ -275,30 +275,35 @@ static sk_sp<SkImage> GetSkImageForSurface(SourceSurface* aSurface,
     return nullptr;
   }
 
-  // Wrapper surfaces (e.g. SourceSurfaceOffset) can hand back the inner
-  // SourceSurfaceSkia here; route it through GetImage so copy-on-write
-  // snapshots are detached/locked rather than borrowing a raw pixel pointer
-  // that can outlive the originating SkSurface.
-  if (dataSurface->GetType() == SurfaceType::SKIA) {
-    return static_cast<SourceSurfaceSkia*>(dataSurface.get())->GetImage(aLock);
-  }
-
   DataSourceSurface::MappedSurface map;
   void (*releaseProc)(const void*, void*);
-  if (dataSurface->GetType() == SurfaceType::DATA_SHARED_WRAPPER) {
-    // Technically all surfaces should be mapped and unmapped explicitly but it
-    // appears SourceSurfaceSkia and DataSourceSurfaceWrapper have issues with
-    // this. For now, we just map SourceSurfaceSharedDataWrapper to ensure we
-    // don't unmap the data during the transaction (for blob images).
-    if (!dataSurface->Map(DataSourceSurface::MapType::READ, &map)) {
-      gfxWarning() << "Failed mapping DataSourceSurface for Skia image";
-      return nullptr;
-    }
-    releaseProc = ReleaseTemporaryMappedSurface;
-  } else {
-    map.mData = dataSurface->GetData();
-    map.mStride = dataSurface->Stride();
-    releaseProc = ReleaseTemporarySurface;
+  switch (dataSurface->GetType()) {
+    case SurfaceType::SKIA:
+      // Wrapper surfaces (e.g. SourceSurfaceOffset) can hand back the inner
+      // SourceSurfaceSkia here; route it through GetImage so copy-on-write
+      // snapshots are detached/locked rather than borrowing a raw pixel pointer
+      // that can outlive the originating SkSurface.
+      return static_cast<SourceSurfaceSkia*>(dataSurface.get())
+          ->GetImage(aLock);
+    case SurfaceType::DATA_SHARED_WRAPPER:
+    case SurfaceType::DATA_SHARED:
+    case SurfaceType::DATA_RECYCLING_SHARED:
+      // Technically all surfaces should be mapped and unmapped explicitly but
+      // it appears SourceSurfaceSkia and DataSourceSurfaceWrapper have issues
+      // with this. For now, we just map SourceSurfaceSharedDataWrapper to
+      // ensure we don't unmap the data during the transaction (for blob
+      // images).
+      if (!dataSurface->Map(DataSourceSurface::MapType::READ, &map)) {
+        gfxWarning() << "Failed mapping DataSourceSurface for Skia image";
+        return nullptr;
+      }
+      releaseProc = ReleaseTemporaryMappedSurface;
+      break;
+    default:
+      map.mData = dataSurface->GetData();
+      map.mStride = dataSurface->Stride();
+      releaseProc = ReleaseTemporarySurface;
+      break;
   }
 
   if (!map.mData || map.mStride <= 0) {

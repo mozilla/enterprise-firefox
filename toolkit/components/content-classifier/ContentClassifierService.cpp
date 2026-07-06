@@ -4,10 +4,10 @@
 
 #include "ContentClassifierService.h"
 
+#include "ContentClassifierFeatureUtils.h"
 #include "ErrorList.h"
 #include "ContentClassifierPrefMirror.h"
 #include "mozilla/Logging.h"
-#include "mozilla/net/HttpBaseChannel.h"
 #include "mozilla/net/ChannelClassifierUtils.h"
 #include "MainThreadUtils.h"
 #include "nsDebug.h"
@@ -26,6 +26,8 @@
 #include "nsIAsyncShutdown.h"
 #include "nsIChannel.h"
 #include "nsIClassifiedChannel.h"
+#include "nsIObserverService.h"
+#include "nsILoadInfo.h"
 #include "nsIStreamLoader.h"
 #include "nsIURI.h"
 #include "nsNetUtil.h"
@@ -33,6 +35,7 @@
 #include "nsIWebProgressListener.h"
 #include "nsStringFwd.h"
 #include "nsTArray.h"
+#include "nsTHashSet.h"
 #include "nsThreadUtils.h"
 
 namespace mozilla {
@@ -58,6 +61,8 @@ constexpr nsLiteralCString kMajorExceptionListIds[] = {
     "mozilla-major-exceptions"_ns};
 constexpr nsLiteralCString kMinorExceptionListIds[] = {
     "mozilla-minor-exceptions"_ns};
+constexpr nsLiteralCString kHarmfulAddonListIds[] = {
+    "mozilla-harmful-addon"_ns};
 constexpr nsLiteralCString kTestBlockListIds[] = {"test_block"_ns};
 constexpr nsLiteralCString kTestAnnotateListIds[] = {"test_annotate"_ns};
 
@@ -67,7 +72,9 @@ constexpr ContentClassifierFeature kFeatures[] = {
      nsIWebProgressListener::STATE_LOADED_LEVEL_1_TRACKING_CONTENT,
      nsIWebProgressListener::STATE_REPLACED_TRACKING_CONTENT,
      nsIWebProgressListener::STATE_ALLOWED_TRACKING_CONTENT,
-     NS_ERROR_TRACKING_URI, false},
+     NS_ERROR_TRACKING_URI, false,
+     Some(nsIScopedPrefs::PRIVACY_TRACKINGPROTECTION_CONTENT_ENABLED),
+     &ContentClassifierFeatureUtils::IsThirdPartyRequest, nullptr},
     // The annotation variant adds content-track-digest256, which mirrors
     // url-classifier's promotion to STATE_LOADED_LEVEL_2_TRACKING_CONTENT
     // when a content-track-* table matches.
@@ -77,39 +84,62 @@ constexpr ContentClassifierFeature kFeatures[] = {
      nsIWebProgressListener::STATE_LOADED_LEVEL_2_TRACKING_CONTENT,
      nsIWebProgressListener::STATE_REPLACED_TRACKING_CONTENT,
      nsIWebProgressListener::STATE_ALLOWED_TRACKING_CONTENT,
-     NS_ERROR_TRACKING_URI, false},
+     NS_ERROR_TRACKING_URI, false, Nothing(),
+     &ContentClassifierFeatureUtils::IsThirdPartyRequest, nullptr},
     {"social-trackers"_ns, Span<const nsLiteralCString>(kSocialTrackersListIds),
      nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_SOCIALTRACKING,
      nsIWebProgressListener::STATE_LOADED_SOCIALTRACKING_CONTENT,
      nsIWebProgressListener::STATE_REPLACED_TRACKING_CONTENT,
      nsIWebProgressListener::STATE_ALLOWED_TRACKING_CONTENT,
-     NS_ERROR_SOCIALTRACKING_URI, false},
+     NS_ERROR_SOCIALTRACKING_URI, false,
+     Some(nsIScopedPrefs::
+              PRIVACY_TRACKINGPROTECTION_CONTENT_SOCIALTRACKING_ENABLED),
+     &ContentClassifierFeatureUtils::IsThirdPartyRequest, nullptr},
     {"fingerprinters"_ns, Span<const nsLiteralCString>(kFingerprintersListIds),
      nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_FINGERPRINTING,
      nsIWebProgressListener::STATE_LOADED_FINGERPRINTING_CONTENT,
      nsIWebProgressListener::STATE_REPLACED_FINGERPRINTING_CONTENT,
      nsIWebProgressListener::STATE_ALLOWED_FINGERPRINTING_CONTENT,
-     NS_ERROR_FINGERPRINTING_URI, false},
+     NS_ERROR_FINGERPRINTING_URI, false,
+     Some(nsIScopedPrefs::
+              PRIVACY_TRACKINGPROTECTION_CONTENT_FINGERPRINTING_ENABLED),
+     &ContentClassifierFeatureUtils::IsThirdPartyRequest, nullptr},
     {"email-trackers"_ns, Span<const nsLiteralCString>(kEmailTrackersListIds),
      nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_EMAILTRACKING,
      nsIWebProgressListener::STATE_LOADED_EMAILTRACKING_LEVEL_1_CONTENT,
      nsIWebProgressListener::STATE_REPLACED_TRACKING_CONTENT,
      nsIWebProgressListener::STATE_ALLOWED_TRACKING_CONTENT,
-     NS_ERROR_EMAILTRACKING_URI, false},
+     NS_ERROR_EMAILTRACKING_URI, false,
+     Some(nsIScopedPrefs::
+              PRIVACY_TRACKINGPROTECTION_CONTENT_EMAILTRACKING_ENABLED),
+     &ContentClassifierFeatureUtils::IsThirdPartyRequest, nullptr},
     {"cryptominers"_ns, Span<const nsLiteralCString>(kCryptominersListIds),
      nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_CRYPTOMINING,
      nsIWebProgressListener::STATE_LOADED_CRYPTOMINING_CONTENT,
      nsIWebProgressListener::STATE_REPLACED_TRACKING_CONTENT,
      nsIWebProgressListener::STATE_ALLOWED_TRACKING_CONTENT,
-     NS_ERROR_CRYPTOMINING_URI, false},
+     NS_ERROR_CRYPTOMINING_URI, false,
+     Some(nsIScopedPrefs::
+              PRIVACY_TRACKINGPROTECTION_CONTENT_CRYPTOMINING_ENABLED),
+     &ContentClassifierFeatureUtils::IsThirdPartyRequest, nullptr},
+    {"harmful-addon"_ns, Span<const nsLiteralCString>(kHarmfulAddonListIds),
+     nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_TRACKING,
+     0,  // mLoadedState: blocking-only feature, not annotated
+     0,  // mReplacedState
+     0,  // mAllowedState
+     NS_ERROR_HARMFULADDON_URI, false, Nothing(),
+     &ContentClassifierFeatureUtils::IsNonRecommendedAddonRequest,
+     &ContentClassifierFeatureUtils::HarmfulAddonCancelChannelCallback},
     {"minor-exceptions"_ns,
      Span<const nsLiteralCString>(kMinorExceptionListIds),
      nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_TRACKING, 0, 0, 0,
-     NS_OK, true},
+     NS_OK, true, Nothing(),
+     &ContentClassifierFeatureUtils::IsThirdPartyRequest, nullptr},
     {"major-exceptions"_ns,
      Span<const nsLiteralCString>(kMajorExceptionListIds),
      nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_TRACKING, 0, 0, 0,
-     NS_OK, true},
+     NS_OK, true, Nothing(),
+     &ContentClassifierFeatureUtils::IsThirdPartyRequest, nullptr},
     // Test-only features. Their engines are built directly by the HTTP
     // test loader (driven by the *.test_list_urls prefs) and installed
     // into mEngines under these names. They behave like any other
@@ -119,12 +149,15 @@ constexpr ContentClassifierFeature kFeatures[] = {
      nsIWebProgressListener::STATE_LOADED_LEVEL_1_TRACKING_CONTENT,
      nsIWebProgressListener::STATE_REPLACED_TRACKING_CONTENT,
      nsIWebProgressListener::STATE_ALLOWED_TRACKING_CONTENT,
-     NS_ERROR_TRACKING_URI, false},
+     NS_ERROR_TRACKING_URI, false,
+     Some(nsIScopedPrefs::PRIVACY_TRACKINGPROTECTION_CONTENT_TEST_ENABLED),
+     &ContentClassifierFeatureUtils::IsThirdPartyRequest, nullptr},
     {"test_annotate"_ns, Span<const nsLiteralCString>(kTestAnnotateListIds),
      nsIClassifiedChannel::ClassificationFlags::CLASSIFIED_TRACKING,
      nsIWebProgressListener::STATE_LOADED_LEVEL_1_TRACKING_CONTENT,
      nsIWebProgressListener::STATE_REPLACED_TRACKING_CONTENT,
-     nsIWebProgressListener::STATE_ALLOWED_TRACKING_CONTENT, NS_OK, false},
+     nsIWebProgressListener::STATE_ALLOWED_TRACKING_CONTENT, NS_OK, false,
+     Nothing(), &ContentClassifierFeatureUtils::IsThirdPartyRequest, nullptr},
 };
 
 // Prefs that name feature engines built into mEngines.
@@ -634,6 +667,10 @@ ContentClassifierResult ContentClassifierService::ClassifyWithEngines(
   }
   bool matchedSoFar = false;
   for (const auto& engine : aEngines) {
+    if (engine->Feature().mRequestFilter &&
+        !engine->Feature().mRequestFilter(aRequest)) {
+      continue;
+    }
     ContentClassifierEngineResult er = engine->CheckNetworkRequest(
         aRequest, aIndependentEngines ? false : matchedSoFar);
     result.Accumulate(er);
@@ -760,11 +797,19 @@ net::ChannelBlockDecision ContentClassifierService::MaybeCancelChannel(
     return net::ChannelBlockDecision::Allowed;
   }
 
+  // Check if the scoped pref overrides the blocking decision.
+  if (blockingFeature->mReferencedScopedPref.isSome() &&
+      !ScopedPrefs::BoolPrefScoped(blockingFeature->mReferencedScopedPref.ref(),
+                                   aChannel)) {
+    return net::ChannelBlockDecision::Allowed;
+  }
+
   net::ChannelBlockDecision decision = net::ChannelBlockDecision::Allowed;
   net::ChannelClassifierUtils::MaybeBlockChannel(
       aChannel, "content-classifier"_ns, "content-classifier-block"_ns,
       blockingFeature->mBlockingErrorCode, blockingFeature->mReplacedState,
-      blockingFeature->mAllowedState, &decision);
+      blockingFeature->mAllowedState, blockingFeature->mCancelChannelCallback,
+      &decision);
   return decision;
 }
 
@@ -951,6 +996,23 @@ nsTHashSet<nsCString> ContentClassifierService::ActiveFeatureNames(
     names.Insert(name);
   }
   return names;
+}
+
+// static
+bool ContentClassifierService::IsBlockingFeatureActive(
+    const nsACString& aFeatureName, bool aIsPrivate) {
+  if (!StaticPrefs::privacy_trackingprotection_content_protection_enabled()) {
+    return false;
+  }
+
+  // The feature is active only if it is listed in the protection engines pref.
+  nsTArray<nsCString> names;
+  EnginesPrefsSnapshot::AppendFeatureNamesFromPref(
+      aIsPrivate
+          ? "privacy.trackingprotection.content.protection.engines.pbmode"
+          : "privacy.trackingprotection.content.protection.engines",
+      names);
+  return names.Contains(aFeatureName);
 }
 
 void ContentClassifierService::PruneInactiveEngines(

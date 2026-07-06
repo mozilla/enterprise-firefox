@@ -1,0 +1,50 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* stylelint-disable stylelint-plugin-mozilla/use-design-tokens */
+
+.crossword {
+  @include widget-base-style;
+
+  &.medium-widget {
+    grid-row: span 2;
+  }
+
+  &.large-widget {
+    grid-row: span 4;
+  }
+}
+
+.crossword-title-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-block-end: var(--space-xsmall);
+
+  h3 {
+    margin-block: 0;
+    font-weight: var(--font-weight);
+    font-size: var(--font-size-root);
+  }
+}
+
+.crossword-context-menu-wrapper {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.crossword:hover,
+.crossword:focus-within {
+  .crossword-context-menu-wrapper {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.crossword-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-small);
+}

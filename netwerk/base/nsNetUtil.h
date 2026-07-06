@@ -871,7 +871,10 @@ bool NS_ShouldRemoveAuthHeaderOnRedirect(nsIChannel* aOldChannel,
                                          nsIChannel* aNewChannel,
                                          uint32_t aFlags);
 
-nsresult NS_LinkRedirectChannels(uint64_t channelId,
+// aContentParentId identifies the process requesting the link (0 for the
+// parent process). The link only succeeds if the channel was registered for
+// that same process.
+nsresult NS_LinkRedirectChannels(uint64_t channelId, uint64_t aContentParentId,
                                  nsIParentChannel* parentChannel,
                                  nsIChannel** _result);
 
@@ -1119,6 +1122,12 @@ struct LinkHeader {
 
   void MaybeUpdateAttribute(const nsAString& aAttribute,
                             const char16_t* aValue);
+
+  auto MutTiedFields() {
+    return std::tie(mHref, mRel, mTitle, mNonce, mIntegrity, mSrcset, mSizes,
+                    mType, mMedia, mAnchor, mCrossOrigin, mReferrerPolicy, mAs,
+                    mFetchPriority);
+  }
 };
 
 // Implements roughly step 2 to 4 of

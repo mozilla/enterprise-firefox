@@ -882,7 +882,6 @@ HttpBaseChannel::SetUploadStream(nsIInputStream* stream,
 
   if (stream) {
     nsAutoCString method;
-    bool hasHeaders = false;
 
     // This method and ExplicitSetUploadStream mean different things by "empty
     // content type string".  This method means "no header", but
@@ -905,10 +904,8 @@ HttpBaseChannel::SetUploadStream(nsIInputStream* stream,
         mimeStream->VisitHeaders(visitor);
 
         return ExplicitSetUploadStream(stream, contentType, contentLength,
-                                       method, hasHeaders);
+                                       method);
       }
-
-      hasHeaders = true;
     } else {
       method = "PUT"_ns;
 
@@ -916,13 +913,11 @@ HttpBaseChannel::SetUploadStream(nsIInputStream* stream,
           NS_FAILED(CallQueryInterface(stream, getter_AddRefs(mimeStream))),
           "nsIMIMEInputStream should not be set with an explicit content type");
     }
-    return ExplicitSetUploadStream(stream, contentType, contentLength, method,
-                                   hasHeaders);
+    return ExplicitSetUploadStream(stream, contentType, contentLength, method);
   }
 
   // if stream is null, ExplicitSetUploadStream returns error.
   // So we need special case for GET method.
-  StoreUploadStreamHasHeaders(false);
   SetRequestMethod("GET"_ns);  // revert to GET request
   mUploadStream = nullptr;
   return NS_OK;
@@ -1219,23 +1214,14 @@ NS_IMETHODIMP
 HttpBaseChannel::ExplicitSetUploadStream(nsIInputStream* aStream,
                                          const nsACString& aContentType,
                                          int64_t aContentLength,
-                                         const nsACString& aMethod,
-                                         bool aStreamHasHeaders) {
+                                         const nsACString& aMethod) {
   // Ensure stream is set and method is valid
   NS_ENSURE_TRUE(aStream, NS_ERROR_FAILURE);
-
-  {
-    DebugOnly<nsCOMPtr<nsIMIMEInputStream>> mimeStream;
-    MOZ_ASSERT(
-        !aStreamHasHeaders || NS_FAILED(CallQueryInterface(
-                                  aStream, getter_AddRefs(mimeStream.value))),
-        "nsIMIMEInputStream should not include headers");
-  }
 
   nsresult rv = SetRequestMethod(aMethod);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  if (!aStreamHasHeaders && !aContentType.IsVoid()) {
+  if (!aContentType.IsVoid()) {
     if (aContentType.IsEmpty()) {
       SetEmptyRequestHeader("Content-Type"_ns);
     } else {
@@ -1243,9 +1229,7 @@ HttpBaseChannel::ExplicitSetUploadStream(nsIInputStream* aStream,
     }
   }
 
-  StoreUploadStreamHasHeaders(aStreamHasHeaders);
-
-  return InternalSetUploadStream(aStream, aContentLength, !aStreamHasHeaders);
+  return InternalSetUploadStream(aStream, aContentLength, true);
 }
 
 nsresult HttpBaseChannel::InternalSetUploadStream(
@@ -1346,14 +1330,6 @@ void HttpBaseChannel::ExplicitSetUploadStreamLength(
   nsAutoCString contentLengthStr;
   contentLengthStr.AppendInt(aContentLength);
   SetRequestHeader(header, contentLengthStr, false);
-}
-
-NS_IMETHODIMP
-HttpBaseChannel::GetUploadStreamHasHeaders(bool* hasHeaders) {
-  NS_ENSURE_ARG(hasHeaders);
-
-  *hasHeaders = LoadUploadStreamHasHeaders();
-  return NS_OK;
 }
 
 bool HttpBaseChannel::MaybeWaitForUploadStreamNormalization(
@@ -2095,7 +2071,7 @@ nsresult HttpBaseChannel::SetRequestHeaderInternal(
     StoreIsUserAgentHeaderModified(true);
   }
 
-  return mRequestHead.SetHeader(aHeader, flatValue, aMerge);
+  return mRequestHead.SetHeader(aHeader, flatValue, aMerge, aVariety);
 }
 
 NS_IMETHODIMP
@@ -5000,7 +4976,6 @@ HttpBaseChannel::CloneReplacementChannelConfig(bool aPreserveMethod,
       config.uploadStream = mUploadStream;
     }
     config.uploadStreamLength = mReqContentLength;
-    config.uploadStreamHasHeaders = LoadUploadStreamHasHeaders();
 
     nsAutoCString contentType;
     nsresult rv = mRequestHead.GetHeader(nsHttp::Content_Type, contentType);
@@ -5141,9 +5116,8 @@ HttpBaseChannel::CloneReplacementChannelConfig(bool aPreserveMethod,
       // because ExplicitSetUploadStream treats the former as "no header" and
       // the latter as "header with empty string value".
       const nsACString& method = config.method ? *config.method : VoidCString();
-      uploadChannel2->ExplicitSetUploadStream(config.uploadStream, ctype,
-                                              config.uploadStreamLength, method,
-                                              config.uploadStreamHasHeaders);
+      uploadChannel2->ExplicitSetUploadStream(
+          config.uploadStream, ctype, config.uploadStreamLength, method);
     } else if (nsCOMPtr<nsIUploadChannel> uploadChannel =
                    do_QueryInterface(httpChannel)) {
       MOZ_ASSERT(false,
@@ -5173,7 +5147,6 @@ HttpBaseChannel::ReplacementChannelConfig::ReplacementChannelConfig(
   timedChannelInfo = aInit.timedChannelInfo();
   uploadStream = aInit.uploadStream();
   uploadStreamLength = aInit.uploadStreamLength();
-  uploadStreamHasHeaders = aInit.uploadStreamHasHeaders();
   contentType = aInit.contentType();
   contentLength = aInit.contentLength();
 }
@@ -5190,7 +5163,6 @@ HttpBaseChannel::ReplacementChannelConfig::Serialize() {
   config.uploadStream() =
       uploadStream ? RemoteLazyInputStream::WrapStream(uploadStream) : nullptr;
   config.uploadStreamLength() = uploadStreamLength;
-  config.uploadStreamHasHeaders() = uploadStreamHasHeaders;
   config.contentType() = contentType;
   config.contentLength() = contentLength;
 

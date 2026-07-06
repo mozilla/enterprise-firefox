@@ -3,6 +3,11 @@ support-files = ["head.js"]
 
 ["browser_aboutCrashes.js"]
 
+["browser_aboutCrashesPolicyDisabled.js"]
+run-if = [
+  "enterprise",
+]
+
 ["browser_aboutCrashesResubmit.js"]
 https_first_disabled = true
 

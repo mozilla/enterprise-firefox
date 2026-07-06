@@ -404,7 +404,7 @@ nsresult nsHttpHeaderArray::ParseHeaderLine(const nsACString& line,
 }
 
 void nsHttpHeaderArray::Flatten(nsACString& buf, bool pruneProxyHeaders,
-                                bool pruneTransients) {
+                                bool pruneTransients) const {
   auto shouldInclude = [&](const nsEntry& entry) {
     if (entry.variety == eVarietyResponseNetOriginal) return false;
     if (pruneProxyHeaders && (entry.header == nsHttp::Proxy_Authorization ||

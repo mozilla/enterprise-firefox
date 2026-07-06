@@ -2926,9 +2926,9 @@ void LocalAccessible::BindToParent(LocalAccessible* aParent,
     }
   }
 
-  mContextFlags |=
-      static_cast<uint32_t>((mParent->IsAlert() || mParent->IsInsideAlert())) &
-      eInsideAlert;
+  if (mParent->IsAlert() || mParent->IsInsideAlert()) {
+    mContextFlags |= eInsideAlert;
+  }
 
   if (IsTableRow() || IsTableCell()) {
     CachedTableAccessible::Invalidate(this);

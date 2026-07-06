@@ -254,7 +254,8 @@ export const tokensTable = {
     {
       value: {
         default: "transparent",
-        brand: { forcedColors: "var(--button-background-color)" },
+        forcedColors: "ButtonFace",
+        brand: { forcedColors: "ButtonFace" },
         nativeTheme: "transparent",
         platform: { default: "transparent", browserTheme: {} },
       },
@@ -278,6 +279,26 @@ export const tokensTable = {
     {
       value: "var(--button-background-color-ghost-active)",
       name: "--button-background-color-ghost-selected",
+    },
+    {
+      value: "var(--button-background-color)",
+      name: "--button-background-color-muted",
+    },
+    {
+      value: "var(--button-background-color-active)",
+      name: "--button-background-color-muted-active",
+    },
+    {
+      value: "var(--button-background-color-hover)",
+      name: "--button-background-color-muted-hover",
+    },
+    {
+      value: "var(--button-background-color-disabled)",
+      name: "--button-background-color-muted-disabled",
+    },
+    {
+      value: "var(--button-background-color-muted-active)",
+      name: "--button-background-color-muted-selected",
     },
     {
       value: "var(--button-background-color-ghost)",
@@ -337,6 +358,10 @@ export const tokensTable = {
     {
       value: "var(--button-background-color-ghost-active)",
       name: "--button-background-color-toolbar-selected",
+    },
+    {
+      value: "var(--color-accent-attention)",
+      name: "--button-badge-background-color",
     },
     { value: "var(--background-color-box)", name: "--card-background-color" },
     {
@@ -975,6 +1000,26 @@ export const tokensTable = {
       name: "--button-border-color-menu-selected",
     },
     {
+      value: "var(--button-border-color)",
+      name: "--button-border-color-muted",
+    },
+    {
+      value: "var(--button-border-color-active)",
+      name: "--button-border-color-muted-active",
+    },
+    {
+      value: "var(--button-border-color-hover)",
+      name: "--button-border-color-muted-hover",
+    },
+    {
+      value: "var(--button-border-color-disabled)",
+      name: "--button-border-color-muted-disabled",
+    },
+    {
+      value: "var(--button-border-color-muted-active)",
+      name: "--button-border-color-muted-selected",
+    },
+    {
       value: {
         default: "var(--button-border-color)",
         forcedColors: "var(--border-color-interactive-hover)",
@@ -1061,6 +1106,26 @@ export const tokensTable = {
     {
       value: "var(--checkbox-background-color-checked-disabled)",
       name: "--checkbox-border-color-checked-disabled",
+    },
+    {
+      value: {
+        light: "var(--color-violet-desaturated-20)",
+        dark: "var(--color-gray-60)",
+        nativeTheme: "var(--toolbarseparator-color)",
+        prefersContrast: "CanvasText",
+        platform: {
+          default: "var(--toolbarseparator-color)",
+          browserTheme: {
+            light: "var(--color-violet-desaturated-20)",
+            dark: "var(--color-gray-60)",
+            default:
+              "light-dark(var(--color-violet-desaturated-20), var(--color-gray-60))",
+          },
+        },
+        default:
+          "light-dark(var(--color-violet-desaturated-20), var(--color-gray-60))",
+      },
+      name: "--info-bar-border-color",
     },
     { value: "var(--border-color-interactive)", name: "--input-border-color" },
     { value: "var(--border-color)", name: "--input-text-border-color" },
@@ -1168,6 +1233,10 @@ export const tokensTable = {
     },
     { value: "var(--color-violet-30)", name: "--promo-border-color-vibrant" },
     {
+      value: "var(--border-color-interactive)",
+      name: "--segmented-control-border-color",
+    },
+    {
       value: "var(--button-border-color-hover)",
       name: "--select-border-color-hover",
     },
@@ -1244,6 +1313,11 @@ export const tokensTable = {
       name: "--page-nav-button-border-radius-focused",
     },
     { value: "var(--border-radius-medium)", name: "--promo-border-radius" },
+    {
+      value:
+        "calc(var(--button-border-radius) + var(--focus-outline-width) + var(--focus-outline-offset) + var(--border-width))",
+      name: "--segmented-control-border-radius",
+    },
     { value: "var(--button-border-radius)", name: "--select-border-radius" },
     { value: "var(--border-radius-circle)", name: "--toggle-border-radius" },
     {
@@ -1339,7 +1413,7 @@ export const tokensTable = {
       name: "--panel-box-shadow",
     },
     { value: "var(--box-shadow-level-3)", name: "--popup-box-shadow" },
-    { value: "var(--box-shadow-level-1)", name: "--tab-box-shadow" },
+    { value: "var(--box-shadow-level-1)", name: "--tab-selected-box-shadow" },
   ],
   color: [
     { value: "#fbfbfe", name: "--color-gray-0" },
@@ -1579,6 +1653,7 @@ export const tokensTable = {
       value: {
         default: "color-mix(in srgb, currentColor 25%, transparent)",
         prefersContrast: "currentColor",
+        forcedColors: "var(--border-color)",
       },
       name: "--panel-separator-color",
     },
@@ -1721,50 +1796,15 @@ export const tokensTable = {
     },
     {
       value: {
-        brand: {
-          default: "0.733rem",
-          comment:
-            "11px / Note this token is to be used in rare cases because its hard to read. Please consult with the Design Systems and A11y teams for case-by-case feedback.",
-        },
-        platform: { default: "unset" },
-      },
-      name: "--font-size-xsmall",
-    },
-    {
-      value: {
-        brand: { default: "0.867rem", comment: "13px" },
+        brand: { default: "0.867rem", comment: "13px (in-content)" },
         platform: { default: "unset" },
       },
       name: "--font-size-small",
     },
-    {
-      value: {
-        brand: { default: "1.133rem", comment: "17px" },
-        platform: { default: "unset" },
-      },
-      name: "--font-size-large",
-    },
-    {
-      value: {
-        brand: { default: "1.467rem", comment: "22px" },
-        platform: { default: "unset" },
-      },
-      name: "--font-size-xlarge",
-    },
-    {
-      value: {
-        brand: { default: "1.6rem", comment: "24px" },
-        platform: { default: "unset" },
-      },
-      name: "--font-size-xxlarge",
-    },
-    {
-      value: {
-        brand: { default: "2.2rem", comment: "33px" },
-        platform: { default: "unset" },
-      },
-      name: "--font-size-xxxlarge",
-    },
+    { value: "1.133rem", name: "--font-size-large" },
+    { value: "1.467rem", name: "--font-size-xlarge" },
+    { value: "1.6rem", name: "--font-size-xxlarge" },
+    { value: "2.2rem", name: "--font-size-xxxlarge" },
     { value: "var(--font-size-xxlarge)", name: "--font-size-heading-xlarge" },
     { value: "var(--font-size-xlarge)", name: "--font-size-heading-large" },
     { value: "var(--font-size-large)", name: "--font-size-heading-medium" },
@@ -1772,6 +1812,7 @@ export const tokensTable = {
     { value: "var(--font-size-small)", name: "--button-font-size-small" },
     { value: "10px", name: "--toolbarbutton-badge-font-size" },
     { value: "var(--button-font-size)", name: "--select-font-size" },
+    { value: "var(--select-font-size)", name: "--select-font-size-small" },
   ],
   "font-weight": [
     { value: "normal", name: "--font-weight" },
@@ -1801,12 +1842,18 @@ export const tokensTable = {
     { value: "var(--dimension-500)", name: "--size-layout-xlarge" },
     { value: "280px", name: "--size-sidebar" },
     { value: "118px", name: "--size-sidebar-narrow" },
+    { value: "6px", name: "--button-badge-size" },
     { value: "var(--size-item-large)", name: "--button-min-height" },
     { value: "var(--size-item-medium)", name: "--button-min-height-small" },
+    { value: "40px", name: "--button-min-height-large" },
     { value: "var(--button-min-height)", name: "--button-size-icon" },
     {
       value: "var(--button-min-height-small)",
       name: "--button-size-icon-small",
+    },
+    {
+      value: "var(--button-min-height-large)",
+      name: "--button-size-icon-large",
     },
     { value: "var(--size-item-small)", name: "--checkbox-size" },
     { value: "var(--size-item-small)", name: "--input-height" },
@@ -1834,6 +1881,7 @@ export const tokensTable = {
     },
     { value: "2px", name: "--reorderable-list-indicator-size" },
     { value: "var(--button-min-height)", name: "--select-min-height" },
+    { value: "var(--select-min-height)", name: "--select-min-height-small" },
     { value: "var(--size-item-small)", name: "--toggle-height" },
     { value: "var(--size-item-large)", name: "--toggle-width" },
     {
@@ -1862,14 +1910,26 @@ export const tokensTable = {
     { value: "var(--dimension-relative-150)", name: "--space-xlarge" },
     { value: "var(--dimension-relative-200)", name: "--space-xxlarge" },
     {
-      value: "var(--space-xsmall) var(--space-large)",
+      value: "var(--button-padding-block) var(--button-padding-inline)",
       name: "--button-padding",
+    },
+    { value: "var(--space-xsmall)", name: "--button-padding-block" },
+    { value: "var(--space-small)", name: "--button-padding-block-large" },
+    { value: "var(--space-xxsmall)", name: "--button-padding-block-small" },
+    { value: "var(--space-large)", name: "--button-padding-inline" },
+    { value: "var(--space-xlarge)", name: "--button-padding-inline-large" },
+    {
+      value: "var(--button-padding-inline)",
+      name: "--button-padding-inline-small",
     },
     { value: 0, name: "--button-padding-icon" },
     { value: "var(--space-large)", name: "--card-padding" },
     { value: "var(--card-padding)", name: "--card-gap" },
     { value: "var(--space-small)", name: "--card-gap-article" },
     { value: "var(--space-small)", name: "--checkbox-margin-inline" },
+    { value: "4px", name: "--info-bar-margin-block-start" },
+    { value: "4px", name: "--info-bar-margin-block-end" },
+    { value: "4px", name: "--info-bar-margin-inline" },
     { value: "var(--space-medium)", name: "--input-folder-gap" },
     { value: { brand: { default: "64px" } }, name: "--page-space-block-start" },
     {
@@ -1966,6 +2026,11 @@ export const tokensTable = {
       value: "var(--reorderable-list-indicator-size)",
       name: "--reorderable-list-indicator-margin",
     },
+    { value: "var(--space-xsmall)", name: "--segmented-control-padding" },
+    { value: "var(--space-small)", name: "--select-padding-block" },
+    { value: "var(--icon-size)", name: "--select-padding-icon" },
+    { value: "var(--space-large)", name: "--select-space-inline" },
+    { value: "var(--space-large)", name: "--select-space-inline-small" },
     { value: "1px", name: "--toggle-dot-margin" },
     { value: "calc(-1 * var(--dimension-2))", name: "--toggle-inset" },
     { value: "var(--space-large)", name: "--box-padding" },
@@ -2148,6 +2213,23 @@ export const tokensTable = {
       value: "var(--button-text-color-ghost-active)",
       name: "--button-text-color-ghost-selected",
     },
+    { value: "var(--button-text-color)", name: "--button-text-color-muted" },
+    {
+      value: "var(--button-text-color-active)",
+      name: "--button-text-color-muted-active",
+    },
+    {
+      value: "var(--button-text-color-hover)",
+      name: "--button-text-color-muted-hover",
+    },
+    {
+      value: "var(--button-text-color-disabled)",
+      name: "--button-text-color-muted-disabled",
+    },
+    {
+      value: "var(--button-text-color-muted-active)",
+      name: "--button-text-color-muted-selected",
+    },
     {
       value: {
         default: "var(--button-text-color)",
@@ -2181,6 +2263,11 @@ export const tokensTable = {
       value: {
         default: "var(--button-text-color-ghost-selected)",
         forcedColors: "var(--button-text-color-primary-selected)",
+        nativeTheme: "currentColor",
+        platform: {
+          default: "currentColor",
+          browserTheme: { default: "var(--button-text-color-ghost-selected)" },
+        },
       },
       name: "--button-text-color-menu-selected",
     },
@@ -2580,220 +2667,18 @@ export const tokensTable = {
       value: "var(--promo-border-width) solid var(--promo-border-color)",
       name: "--promo-border",
     },
+    {
+      value: "var(--border-width) solid var(--segmented-control-border-color)",
+      name: "--segmented-control-border",
+    },
     { value: "var(--button-border)", name: "--select-border" },
     {
       value: "var(--box-border-width) solid var(--box-border-color)",
       name: "--box-border",
     },
   ],
-  "icon-color": [
-    { value: "currentColor", name: "--button-icon-fill" },
-    { value: "var(--button-icon-fill)", name: "--button-icon-stroke" },
-    {
-      value: {
-        light: "var(--color-gray-70)",
-        dark: "var(--color-gray-0)",
-        prefersContrast: "var(--text-color)",
-        default: "light-dark(var(--color-gray-70), var(--color-gray-0))",
-      },
-      name: "--icon-color",
-    },
-    {
-      value: {
-        light: "var(--color-blue-60)",
-        dark: "var(--color-blue-20)",
-        prefersContrast: "var(--icon-color)",
-        default: "light-dark(var(--color-blue-60), var(--color-blue-20))",
-      },
-      name: "--icon-color-information",
-    },
-    {
-      value: {
-        light: "var(--color-green-60)",
-        dark: "var(--color-green-20)",
-        prefersContrast: "var(--icon-color)",
-        default: "light-dark(var(--color-green-60), var(--color-green-20))",
-      },
-      name: "--icon-color-success",
-    },
-    {
-      value: {
-        light: "var(--color-yellow-60)",
-        dark: "var(--color-yellow-20)",
-        prefersContrast: "var(--icon-color)",
-        default: "light-dark(var(--color-yellow-60), var(--color-yellow-20))",
-      },
-      name: "--icon-color-warning",
-    },
-    {
-      value: {
-        light: "var(--color-red-60)",
-        dark: "var(--color-red-20)",
-        prefersContrast: "var(--icon-color)",
-        default: "light-dark(var(--color-red-60), var(--color-red-20))",
-      },
-      name: "--icon-color-critical",
-    },
-    {
-      value: {
-        light: "var(--color-gray-70)",
-        dark: "var(--color-gray-0)",
-        nativeTheme: "currentColor",
-        platform: {
-          default: "currentColor",
-          browserTheme: {
-            light: "var(--color-gray-70)",
-            dark: "var(--color-gray-0)",
-            default: "light-dark(var(--color-gray-70), var(--color-gray-0))",
-          },
-        },
-        default: "light-dark(var(--color-gray-70), var(--color-gray-0))",
-      },
-      name: "--toolbarbutton-icon-fill",
-    },
-    {
-      value: {
-        light: "var(--color-blue-60)",
-        dark: "var(--color-cyan-30)",
-        nativeTheme: "AccentColor",
-        platform: {
-          default: "AccentColor",
-          browserTheme: {
-            light: "var(--color-blue-60)",
-            dark: "var(--color-cyan-30)",
-            default: "light-dark(var(--color-blue-60), var(--color-cyan-30))",
-          },
-        },
-        default: "light-dark(var(--color-blue-60), var(--color-cyan-30))",
-      },
-      name: "--toolbarbutton-icon-fill-attention",
-    },
-    {
-      value: {
-        light: "var(--color-gray-20)",
-        dark: "var(--color-gray-90)",
-        nativeTheme: "AccentColorText",
-        platform: {
-          default: "AccentColorText",
-          browserTheme: {
-            light: "var(--color-gray-20)",
-            dark: "var(--color-gray-90)",
-            default: "light-dark(var(--color-gray-20), var(--color-gray-90))",
-          },
-        },
-        default: "light-dark(var(--color-gray-20), var(--color-gray-90))",
-      },
-      name: "--toolbarbutton-icon-fill-attention-text",
-    },
-    {
-      value: "var(--icon-color-information)",
-      name: "--message-bar-icon-color",
-    },
-    { value: "var(--button-icon-fill)", name: "--select-icon-fill" },
-    { value: "var(--icon-color)", name: "--box-icon-fill" },
-    { value: "var(--box-icon-fill)", name: "--box-icon-stroke" },
-    { value: "var(--color-blue-50)", name: "--tab-loading-fill" },
-    {
-      value: {
-        default: "0.9",
-        nativeTheme: "0.9",
-        prefersContrast: "1",
-        browserTheme: { default: "0.72" },
-      },
-      name: "--urlbar-icon-fill-opacity",
-    },
-  ],
-  opacity: [
-    {
-      value: { default: "0.5", forcedColors: "1" },
-      name: "--button-opacity-disabled",
-    },
-    {
-      value: "var(--button-opacity-disabled)",
-      name: "--checkbox-opacity-disabled",
-    },
-    {
-      value: "var(--button-opacity-disabled)",
-      name: "--input-text-opacity-disabled",
-    },
-    {
-      value: { default: "0.6", prefersContrast: "1" },
-      name: "--opacity-deemphasized-strong",
-    },
-    {
-      value: { default: "0.8", prefersContrast: "1" },
-      name: "--opacity-deemphasized",
-    },
-    {
-      value: {
-        default: "var(--button-opacity-disabled)",
-        prefersContrast: 0.3,
-      },
-      name: "--toolbarbutton-opacity-disabled",
-    },
-    {
-      value: "var(--button-opacity-disabled)",
-      name: "--select-opacity-disabled",
-    },
-    {
-      value: "var(--button-opacity-disabled)",
-      name: "--toggle-opacity-disabled",
-    },
-  ],
-  "icon-size": [
-    { value: "var(--icon-size-small)", name: "--icon-size" },
-    { value: "var(--dimension-12)", name: "--icon-size-xsmall" },
-    { value: "var(--dimension-16)", name: "--icon-size-small" },
-    { value: "var(--dimension-20)", name: "--icon-size-medium" },
-    { value: "var(--dimension-24)", name: "--icon-size-large" },
-    { value: "var(--dimension-32)", name: "--icon-size-xlarge" },
-    { value: "var(--icon-size-xsmall)", name: "--input-text-icon-size" },
-    { value: "var(--icon-size-xsmall)", name: "--breadcrumb-icon-size" },
-    { value: "var(--icon-size)", name: "--message-bar-icon-size" },
-    { value: "var(--icon-size)", name: "--box-icon-size" },
-  ],
-  "table-background": [
-    {
-      value: {
-        light: "#f8f8fa",
-        dark: "rgb(35, 34, 43)",
-        forcedColors: "Canvas",
-        default: "light-dark(#f8f8fa, rgb(35, 34, 43))",
-      },
-      name: "--table-background-color",
-    },
-  ],
-  "table-border": [
-    {
-      value: {
-        default: "color-mix(in srgb, currentColor 41%, transparent)",
-        forcedColors: "CanvasText",
-      },
-      name: "--table-border-color",
-    },
-  ],
-  "table-header": [
-    {
-      value: {
-        default: "var(--color-accent-primary)",
-        forcedColors: "AccentColor",
-      },
-      name: "--table-header-background-color",
-    },
-    {
-      value: {
-        forcedColors: "AccentColorText",
-        brand: {
-          light: "var(--color-white)",
-          dark: "var(--color-gray-100)",
-          default: "light-dark(var(--color-white), var(--color-gray-100))",
-        },
-        platform: { default: "AccentColorText" },
-      },
-      name: "--table-header-text-color",
-    },
-  ],
   uncategorized: [
+    { value: "center", name: "--button-content-alignment" },
     {
       value: {
         nativeTheme: "var(--toolbar-text-color)",
@@ -3173,6 +3058,213 @@ export const tokensTable = {
         browserTheme: { default: "none" },
       },
       name: "--tabs-navbar-separator-style",
+    },
+  ],
+  "icon-color": [
+    { value: "currentColor", name: "--button-icon-fill" },
+    { value: "var(--button-icon-fill)", name: "--button-icon-stroke" },
+    {
+      value: {
+        light: "var(--color-gray-70)",
+        dark: "var(--color-gray-0)",
+        prefersContrast: "var(--text-color)",
+        default: "light-dark(var(--color-gray-70), var(--color-gray-0))",
+      },
+      name: "--icon-color",
+    },
+    {
+      value: {
+        light: "var(--color-blue-60)",
+        dark: "var(--color-blue-20)",
+        prefersContrast: "var(--icon-color)",
+        default: "light-dark(var(--color-blue-60), var(--color-blue-20))",
+      },
+      name: "--icon-color-information",
+    },
+    {
+      value: {
+        light: "var(--color-green-60)",
+        dark: "var(--color-green-20)",
+        prefersContrast: "var(--icon-color)",
+        default: "light-dark(var(--color-green-60), var(--color-green-20))",
+      },
+      name: "--icon-color-success",
+    },
+    {
+      value: {
+        light: "var(--color-yellow-60)",
+        dark: "var(--color-yellow-20)",
+        prefersContrast: "var(--icon-color)",
+        default: "light-dark(var(--color-yellow-60), var(--color-yellow-20))",
+      },
+      name: "--icon-color-warning",
+    },
+    {
+      value: {
+        light: "var(--color-red-60)",
+        dark: "var(--color-red-20)",
+        prefersContrast: "var(--icon-color)",
+        default: "light-dark(var(--color-red-60), var(--color-red-20))",
+      },
+      name: "--icon-color-critical",
+    },
+    {
+      value: {
+        light: "var(--color-gray-70)",
+        dark: "var(--color-gray-0)",
+        nativeTheme: "currentColor",
+        platform: {
+          default: "currentColor",
+          browserTheme: {
+            light: "var(--color-gray-70)",
+            dark: "var(--color-gray-0)",
+            default: "light-dark(var(--color-gray-70), var(--color-gray-0))",
+          },
+        },
+        default: "light-dark(var(--color-gray-70), var(--color-gray-0))",
+      },
+      name: "--toolbarbutton-icon-fill",
+    },
+    {
+      value: {
+        light: "var(--color-blue-60)",
+        dark: "var(--color-cyan-30)",
+        nativeTheme: "AccentColor",
+        platform: {
+          default: "AccentColor",
+          browserTheme: {
+            light: "var(--color-blue-60)",
+            dark: "var(--color-cyan-30)",
+            default: "light-dark(var(--color-blue-60), var(--color-cyan-30))",
+          },
+        },
+        default: "light-dark(var(--color-blue-60), var(--color-cyan-30))",
+      },
+      name: "--toolbarbutton-icon-fill-attention",
+    },
+    {
+      value: {
+        light: "var(--color-gray-20)",
+        dark: "var(--color-gray-90)",
+        nativeTheme: "AccentColorText",
+        platform: {
+          default: "AccentColorText",
+          browserTheme: {
+            light: "var(--color-gray-20)",
+            dark: "var(--color-gray-90)",
+            default: "light-dark(var(--color-gray-20), var(--color-gray-90))",
+          },
+        },
+        default: "light-dark(var(--color-gray-20), var(--color-gray-90))",
+      },
+      name: "--toolbarbutton-icon-fill-attention-text",
+    },
+    {
+      value: "var(--icon-color-information)",
+      name: "--message-bar-icon-color",
+    },
+    { value: "var(--button-icon-fill)", name: "--select-icon-fill" },
+    { value: "var(--icon-color)", name: "--box-icon-fill" },
+    { value: "var(--box-icon-fill)", name: "--box-icon-stroke" },
+    { value: "var(--color-blue-50)", name: "--tab-loading-fill" },
+    {
+      value: {
+        default: "0.9",
+        nativeTheme: "0.9",
+        prefersContrast: "1",
+        browserTheme: { default: "0.72" },
+      },
+      name: "--urlbar-icon-fill-opacity",
+    },
+  ],
+  opacity: [
+    {
+      value: { default: "0.5", forcedColors: "1" },
+      name: "--button-opacity-disabled",
+    },
+    {
+      value: "var(--button-opacity-disabled)",
+      name: "--checkbox-opacity-disabled",
+    },
+    {
+      value: "var(--button-opacity-disabled)",
+      name: "--input-text-opacity-disabled",
+    },
+    {
+      value: { default: "0.6", prefersContrast: "1" },
+      name: "--opacity-deemphasized-strong",
+    },
+    {
+      value: { default: "0.8", prefersContrast: "1" },
+      name: "--opacity-deemphasized",
+    },
+    {
+      value: {
+        default: "var(--button-opacity-disabled)",
+        prefersContrast: 0.3,
+      },
+      name: "--toolbarbutton-opacity-disabled",
+    },
+    {
+      value: "var(--button-opacity-disabled)",
+      name: "--select-opacity-disabled",
+    },
+    {
+      value: "var(--button-opacity-disabled)",
+      name: "--toggle-opacity-disabled",
+    },
+  ],
+  "icon-size": [
+    { value: "var(--icon-size-small)", name: "--icon-size" },
+    { value: "var(--dimension-12)", name: "--icon-size-xsmall" },
+    { value: "var(--dimension-16)", name: "--icon-size-small" },
+    { value: "var(--dimension-20)", name: "--icon-size-medium" },
+    { value: "var(--dimension-24)", name: "--icon-size-large" },
+    { value: "var(--dimension-32)", name: "--icon-size-xlarge" },
+    { value: "var(--icon-size-xsmall)", name: "--input-text-icon-size" },
+    { value: "var(--icon-size-xsmall)", name: "--breadcrumb-icon-size" },
+    { value: "var(--icon-size)", name: "--message-bar-icon-size" },
+    { value: "var(--icon-size)", name: "--box-icon-size" },
+  ],
+  "table-background": [
+    {
+      value: {
+        light: "#f8f8fa",
+        dark: "rgb(35, 34, 43)",
+        forcedColors: "Canvas",
+        default: "light-dark(#f8f8fa, rgb(35, 34, 43))",
+      },
+      name: "--table-background-color",
+    },
+  ],
+  "table-border": [
+    {
+      value: {
+        default: "color-mix(in srgb, currentColor 41%, transparent)",
+        forcedColors: "CanvasText",
+      },
+      name: "--table-border-color",
+    },
+  ],
+  "table-header": [
+    {
+      value: {
+        default: "var(--color-accent-primary)",
+        forcedColors: "AccentColor",
+      },
+      name: "--table-header-background-color",
+    },
+    {
+      value: {
+        forcedColors: "AccentColorText",
+        brand: {
+          light: "var(--color-white)",
+          dark: "var(--color-gray-100)",
+          default: "light-dark(var(--color-white), var(--color-gray-100))",
+        },
+        platform: { default: "AccentColorText" },
+      },
+      name: "--table-header-text-color",
     },
   ],
 };
@@ -3616,34 +3708,14 @@ export const variableLookupTable = {
     brand: { default: "15px" },
     platform: { default: "unset" },
   },
-  "font-size-xsmall": {
-    brand: {
-      default: "0.733rem",
-      comment:
-        "11px / Note this token is to be used in rare cases because its hard to read. Please consult with the Design Systems and A11y teams for case-by-case feedback.",
-    },
-    platform: { default: "unset" },
-  },
   "font-size-small": {
-    brand: { default: "0.867rem", comment: "13px" },
+    brand: { default: "0.867rem", comment: "13px (in-content)" },
     platform: { default: "unset" },
   },
-  "font-size-large": {
-    brand: { default: "1.133rem", comment: "17px" },
-    platform: { default: "unset" },
-  },
-  "font-size-xlarge": {
-    brand: { default: "1.467rem", comment: "22px" },
-    platform: { default: "unset" },
-  },
-  "font-size-xxlarge": {
-    brand: { default: "1.6rem", comment: "24px" },
-    platform: { default: "unset" },
-  },
-  "font-size-xxxlarge": {
-    brand: { default: "2.2rem", comment: "33px" },
-    platform: { default: "unset" },
-  },
+  "font-size-large": "1.133rem",
+  "font-size-xlarge": "1.467rem",
+  "font-size-xxlarge": "1.6rem",
+  "font-size-xxxlarge": "2.2rem",
   "font-size-heading-xlarge": "var(--font-size-xxlarge)",
   "font-size-heading-large": "var(--font-size-xlarge)",
   "font-size-heading-medium": "var(--font-size-large)",
@@ -3792,7 +3864,8 @@ export const variableLookupTable = {
     "var(--button-background-color-destructive-active)",
   "button-background-color-ghost": {
     default: "transparent",
-    brand: { forcedColors: "var(--button-background-color)" },
+    forcedColors: "ButtonFace",
+    brand: { forcedColors: "ButtonFace" },
     nativeTheme: "transparent",
     platform: { default: "transparent", browserTheme: {} },
   },
@@ -3805,6 +3878,14 @@ export const variableLookupTable = {
   "button-background-color-ghost-hover": "var(--button-background-color-hover)",
   "button-background-color-ghost-selected":
     "var(--button-background-color-ghost-active)",
+  "button-background-color-muted": "var(--button-background-color)",
+  "button-background-color-muted-active":
+    "var(--button-background-color-active)",
+  "button-background-color-muted-hover": "var(--button-background-color-hover)",
+  "button-background-color-muted-disabled":
+    "var(--button-background-color-disabled)",
+  "button-background-color-muted-selected":
+    "var(--button-background-color-muted-active)",
   "button-background-color-menu": "var(--button-background-color-ghost)",
   "button-background-color-menu-active": {
     default: "var(--button-background-color-ghost-active)",
@@ -3835,6 +3916,8 @@ export const variableLookupTable = {
     "var(--toolbarbutton-background-color-hover)",
   "button-background-color-toolbar-selected":
     "var(--button-background-color-ghost-active)",
+  "button-badge-background-color": "var(--color-accent-attention)",
+  "button-badge-size": "6px",
   "button-border": "var(--border-width) solid var(--button-border-color)",
   "button-border-color": {
     default: "transparent",
@@ -3890,6 +3973,12 @@ export const variableLookupTable = {
     default: "var(--button-border-color-ghost-hover)",
   },
   "button-border-color-menu-selected": "var(--button-border-color-menu-active)",
+  "button-border-color-muted": "var(--button-border-color)",
+  "button-border-color-muted-active": "var(--button-border-color-active)",
+  "button-border-color-muted-hover": "var(--button-border-color-hover)",
+  "button-border-color-muted-disabled": "var(--button-border-color-disabled)",
+  "button-border-color-muted-selected":
+    "var(--button-border-color-muted-active)",
   "button-border-color-hover": {
     default: "var(--button-border-color)",
     forcedColors: "var(--border-color-interactive-hover)",
@@ -3923,6 +4012,7 @@ export const variableLookupTable = {
   "button-border-color-toolbar-selected":
     "var(--button-border-color-ghost-active)",
   "button-border-radius": "var(--border-radius-medium)",
+  "button-content-alignment": "center",
   "button-font-size": "var(--font-size-root)",
   "button-font-size-small": "var(--font-size-small)",
   "button-font-weight": "var(--font-weight-semibold)",
@@ -3930,11 +4020,19 @@ export const variableLookupTable = {
   "button-icon-stroke": "var(--button-icon-fill)",
   "button-min-height": "var(--size-item-large)",
   "button-min-height-small": "var(--size-item-medium)",
+  "button-min-height-large": "40px",
   "button-opacity-disabled": { default: "0.5", forcedColors: "1" },
-  "button-padding": "var(--space-xsmall) var(--space-large)",
+  "button-padding": "var(--button-padding-block) var(--button-padding-inline)",
+  "button-padding-block": "var(--space-xsmall)",
+  "button-padding-block-large": "var(--space-small)",
+  "button-padding-block-small": "var(--space-xxsmall)",
+  "button-padding-inline": "var(--space-large)",
+  "button-padding-inline-large": "var(--space-xlarge)",
+  "button-padding-inline-small": "var(--button-padding-inline)",
   "button-padding-icon": 0,
   "button-size-icon": "var(--button-min-height)",
   "button-size-icon-small": "var(--button-min-height-small)",
+  "button-size-icon-large": "var(--button-min-height-large)",
   "button-text-color": {
     forcedColors: "ButtonText",
     brand: {
@@ -4005,6 +4103,11 @@ export const variableLookupTable = {
     forcedColors: "var(--button-text-color-hover)",
   },
   "button-text-color-ghost-selected": "var(--button-text-color-ghost-active)",
+  "button-text-color-muted": "var(--button-text-color)",
+  "button-text-color-muted-active": "var(--button-text-color-active)",
+  "button-text-color-muted-hover": "var(--button-text-color-hover)",
+  "button-text-color-muted-disabled": "var(--button-text-color-disabled)",
+  "button-text-color-muted-selected": "var(--button-text-color-muted-active)",
   "button-text-color-hover": {
     default: "var(--button-text-color)",
     forcedColors: "SelectedItem",
@@ -4022,6 +4125,11 @@ export const variableLookupTable = {
   "button-text-color-menu-selected": {
     default: "var(--button-text-color-ghost-selected)",
     forcedColors: "var(--button-text-color-primary-selected)",
+    nativeTheme: "currentColor",
+    platform: {
+      default: "currentColor",
+      browserTheme: { default: "var(--button-text-color-ghost-selected)" },
+    },
   },
   "button-text-color-primary": {
     forcedColors: "ButtonFace",
@@ -4153,6 +4261,26 @@ export const variableLookupTable = {
   "icon-size-medium": "var(--dimension-20)",
   "icon-size-large": "var(--dimension-24)",
   "icon-size-xlarge": "var(--dimension-32)",
+  "info-bar-border-color": {
+    light: "var(--color-violet-desaturated-20)",
+    dark: "var(--color-gray-60)",
+    nativeTheme: "var(--toolbarseparator-color)",
+    prefersContrast: "CanvasText",
+    platform: {
+      default: "var(--toolbarseparator-color)",
+      browserTheme: {
+        light: "var(--color-violet-desaturated-20)",
+        dark: "var(--color-gray-60)",
+        default:
+          "light-dark(var(--color-violet-desaturated-20), var(--color-gray-60))",
+      },
+    },
+    default:
+      "light-dark(var(--color-violet-desaturated-20), var(--color-gray-60))",
+  },
+  "info-bar-margin-block-start": "4px",
+  "info-bar-margin-block-end": "4px",
+  "info-bar-margin-inline": "4px",
   "input-border-color": "var(--border-color-interactive)",
   "input-folder-gap": "var(--space-medium)",
   "input-height": "var(--size-item-small)",
@@ -4291,6 +4419,7 @@ export const variableLookupTable = {
   "panel-separator-color": {
     default: "color-mix(in srgb, currentColor 25%, transparent)",
     prefersContrast: "currentColor",
+    forcedColors: "var(--border-color)",
   },
   "popup-box-shadow": "var(--box-shadow-level-3)",
   "sidebar-background-color": {
@@ -4742,6 +4871,12 @@ export const variableLookupTable = {
   "reorderable-list-indicator-background-color": "var(--color-accent-primary)",
   "reorderable-list-indicator-margin": "var(--reorderable-list-indicator-size)",
   "reorderable-list-indicator-size": "2px",
+  "segmented-control-border":
+    "var(--border-width) solid var(--segmented-control-border-color)",
+  "segmented-control-border-color": "var(--border-color-interactive)",
+  "segmented-control-border-radius":
+    "calc(var(--button-border-radius) + var(--focus-outline-width) + var(--focus-outline-offset) + var(--border-width))",
+  "segmented-control-padding": "var(--space-xsmall)",
   "select-background-color": "var(--button-background-color)",
   "select-background-color-hover": "var(--button-background-color-hover)",
   "select-background-color-disabled": "var(--button-background-color-disabled)",
@@ -4750,12 +4885,18 @@ export const variableLookupTable = {
   "select-border-color-disabled": "var(--button-border-color-disabled)",
   "select-border-radius": "var(--button-border-radius)",
   "select-font-size": "var(--button-font-size)",
+  "select-font-size-small": "var(--select-font-size)",
   "select-font-weight": "var(--button-font-weight)",
   "select-icon-fill": "var(--button-icon-fill)",
   "select-min-height": "var(--button-min-height)",
+  "select-min-height-small": "var(--select-min-height)",
   "select-opacity-disabled": "var(--button-opacity-disabled)",
   "select-option-font-weight": "var(--font-weight)",
   "select-option-text-color": "var(--text-color)",
+  "select-padding-block": "var(--space-small)",
+  "select-padding-icon": "var(--icon-size)",
+  "select-space-inline": "var(--space-large)",
+  "select-space-inline-small": "var(--space-large)",
   "select-text-color": "var(--button-text-color)",
   "select-text-color-hover": "var(--button-text-color-hover)",
   "select-text-color-disabled": "var(--button-text-color-disabled)",
@@ -4830,7 +4971,6 @@ export const variableLookupTable = {
   "box-padding": "var(--space-large)",
   "tab-block-margin": "var(--dimension-4)",
   "tab-border-radius": "var(--toolbarbutton-border-radius)",
-  "tab-box-shadow": "var(--box-shadow-level-1)",
   "tab-attention-dot-color": "var(--color-accent-attention)",
   "tab-close-button-padding": "6px",
   "tab-hover-outline-color": {
@@ -4873,6 +5013,7 @@ export const variableLookupTable = {
       default: "light-dark(rgb(21, 20, 26), var(--color-white))",
     },
   },
+  "tab-selected-box-shadow": "var(--box-shadow-level-1)",
   "tab-vertical-block-margin": "var(--dimension-2)",
   "tab-vertical-inline-padding": "var(--space-medium)",
   "tab-group-blue": {

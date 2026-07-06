@@ -5,6 +5,7 @@
 #ifndef MOZILLA_BASEPOINT3D_H_
 #define MOZILLA_BASEPOINT3D_H_
 
+#include <tuple>
 #include "mozilla/Assertions.h"
 
 namespace mozilla {
@@ -132,6 +133,8 @@ struct BasePoint3D {
     return stream << '(' << aPoint.x << ',' << aPoint.y << ',' << aPoint.z
                   << ')';
   }
+
+  auto MutTiedFields() { return std::tie(components); }
 };
 
 }  // namespace gfx

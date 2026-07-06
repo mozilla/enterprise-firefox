@@ -239,7 +239,7 @@ add_task(async function tabNoSearchStringSearchMode() {
   );
 
   await UrlbarTestUtils.assertSearchMode(window, {
-    source: UrlbarUtils.RESULT_SOURCE.HISTORY,
+    source: UrlbarShared.RESULT_SOURCE.HISTORY,
     entry: "searchbutton",
   });
 
@@ -293,7 +293,7 @@ add_task(async function tabActionsSearchMode() {
   EventUtils.synthesizeKey("KEY_Enter");
 
   await UrlbarTestUtils.assertSearchMode(window, {
-    source: UrlbarUtils.RESULT_SOURCE.ACTIONS,
+    source: UrlbarShared.RESULT_SOURCE.ACTIONS,
     isPreview: false,
     entry: "keywordoffer",
     restrictType: "keyword",

@@ -2751,7 +2751,7 @@ bool WasmMemoryObject::bufferGetterImpl(JSContext* cx, const CallArgs& args) {
       cx, &args.thisv().toObject().as<WasmMemoryObject>());
 
   Rooted<ArrayBufferObjectMaybeShared*> buffer(cx, &memoryObj->buffer());
-  MOZ_RELEASE_ASSERT(buffer->isWasm() && !buffer->isPreparedForAsmJS());
+  MOZ_RELEASE_ASSERT(buffer->isWasm());
 
   ArrayBufferObjectMaybeShared* refreshedBuffer =
       WasmMemoryObject::refreshBuffer(cx, memoryObj, buffer);
@@ -2866,7 +2866,7 @@ bool WasmMemoryObject::toFixedLengthBufferImpl(JSContext* cx,
       cx, &args.thisv().toObject().as<WasmMemoryObject>());
 
   Rooted<ArrayBufferObjectMaybeShared*> buffer(cx, &memory->buffer());
-  MOZ_RELEASE_ASSERT(buffer->isWasm() && !buffer->isPreparedForAsmJS());
+  MOZ_RELEASE_ASSERT(buffer->isWasm());
   // If IsFixedLengthArrayBuffer(buffer) is true, return buffer.
   if (!buffer->isResizable()) {
     ArrayBufferObjectMaybeShared* refreshedBuffer =
@@ -3319,7 +3319,6 @@ WasmTableObject* WasmTableObject::create(JSContext* cx, const TableType& type,
   MOZ_ASSERT(obj->isNewborn());
 
   TableDesc td(type, Nothing(),
-               /*isAsmJS*/ false,
                /*isImported=*/true, /*isExported=*/true);
 
   SharedTable table = Table::create(cx, td, obj);
@@ -3655,7 +3654,6 @@ bool WasmTableObject::fillRange(JSContext* cx, uint32_t index, uint32_t length,
   }
   switch (tab.repr()) {
     case TableRepr::Func:
-      MOZ_RELEASE_ASSERT(!tab.isAsmJS());
       tab.fillFuncRef(index, length, FuncRef::fromAnyRefUnchecked(any.get()),
                       cx);
       break;
@@ -6020,8 +6018,8 @@ static JSObject* CreateWebAssemblyObject(JSContext* cx, JSProtoKey key) {
   MOZ_RELEASE_ASSERT(HasSupport(cx));
 
   RootedObject proto(cx, &cx->global()->getObjectPrototype());
-  return NewTenuredObjectWithGivenProto(cx, &WasmNamespaceObject::class_,
-                                        proto);
+  return NewObjectWithGivenProto(cx, &WasmNamespaceObject::class_, proto,
+                                 {.newKind = TenuredObject});
 }
 
 struct NameAndProtoKey {

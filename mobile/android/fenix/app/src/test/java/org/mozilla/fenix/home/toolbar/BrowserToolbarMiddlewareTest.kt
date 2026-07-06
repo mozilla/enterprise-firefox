@@ -941,6 +941,10 @@ class BrowserToolbarMiddlewareTest {
             HomeToolbarAction.FakeBack,
             ShortcutType.BACK.toHomeToolbarAction(),
         )
+        assertEquals(
+            HomeToolbarAction.FakeSummarize,
+            ShortcutType.SUMMARIZE.toHomeToolbarAction(),
+        )
     }
 
     private fun buildMiddlewareAndAddToStore(

@@ -93,6 +93,9 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = Časnik
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = Priwatnosć
 home-prefs-mission-message2 =
     .message = Naši sponsorojo našu misiju podpěruja, zo bychu lěpši web tworili.
 home-prefs-manage-topics-link2 =
@@ -153,6 +156,11 @@ home-prefs-weather-header-srd =
 home-prefs-support-firefox-header-srd =
     .label = { -brand-product-name } podpěrać
 home-prefs-mission-message-learn-more-link-srd = Zhońće kak
+
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = Dalše informacije
 
 ## Search box component.
 
@@ -502,6 +510,8 @@ newtab-custom-widget-clock-toggle =
     .label = Časnik
 newtab-custom-widget-sports-toggle2 =
     .label = Sport
+newtab-custom-widget-privacy-toggle =
+    .label = Priwatnosć
 newtab-custom-widget-section-title = Asistenty
 newtab-custom-widget-section-toggle =
     .label = Asistenty
@@ -978,6 +988,8 @@ newtab-widget-timer-reset =
 newtab-widget-timer-menu-notifications = Zdźělenja znjemóžnić
 newtab-widget-timer-menu-notifications-on = Zdźělenja zmóžnić
 newtab-widget-timer-menu-learn-more = Dalše informacije
+newtab-widget-timer-menu-button =
+    .aria-label = Časowe nastajenja
 # The title displays above a set of top news headlines.
 newtab-daily-briefing-card-title = Wažne hłowne nadpisma
 newtab-daily-briefing-card-menu-dismiss = Zaćisnyć
@@ -1280,6 +1292,8 @@ newtab-sports-widget-team-tbd = Dyrbi so postajić
 newtab-sports-widget-message-wallpapers-title = Započńće swětowe mišterstwo z nowym pozadkowymi wobrazami
 newtab-sports-widget-message-wallpapers-body = Přinjesće atmosferu hrajneho dnja do swojeho wobhladowaka za turněr.
 newtab-sports-widget-message-wallpapers-cta = Pozadkowy wobraz wubrać
+newtab-sports-widget-message-wallpapers-semifinals-title = Wobstarajće sej nowy pozadkowy wobraz za połfinale
+newtab-sports-widget-message-wallpapers-semifinals-body = Přihotujće jewišćo za najwjetše hry swětoweho mišterstwa.
 newtab-sports-widget-message-add-widgets-cta =
     .label = Asistenty přidać
 newtab-sports-widget-message-day-in-play-title = Hrajće z asistentami { -brand-product-name } cyły dźeń

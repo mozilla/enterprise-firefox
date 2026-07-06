@@ -120,8 +120,6 @@ class MOZ_RAII StackingContextHelper {
   // WebRenderCommandBuilder::CreateWebRenderCommandsFromDisplayList.
   mutable nsDisplayTransform* mDeferredTransformItem;
   Maybe<gfx::Matrix4x4> mDeferredAncestorTransform;
-
-  bool mRasterizeLocally;
 };
 
 }  // namespace layers

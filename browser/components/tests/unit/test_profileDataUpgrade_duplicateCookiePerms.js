@@ -91,6 +91,46 @@ add_task(async function test_duplicateCookieAllowToPersistDataOnShutdown() {
   );
 });
 
+add_task(async function test_policySetCookieAllowIsNotMigrated() {
+  // Bug 2051572: policy-set cookie ALLOW permissions are re-applied from the
+  // enterprise policy on every startup. They must not be duplicated as regular
+  // persist-data-on-shutdown permissions during the migration.
+  const { ProfileDataUpgrader } = ChromeUtils.importESModule(
+    "moz-src:///browser/components/ProfileDataUpgrader.sys.mjs"
+  );
+
+  Services.perms.removeAll();
+
+  const POLICY_ORIGIN = "https://policy.example.com";
+  Services.perms.addFromPrincipal(
+    principalFromOrigin(POLICY_ORIGIN),
+    "cookie",
+    Ci.nsICookiePermission.ACCESS_ALLOW,
+    Services.perms.EXPIRE_POLICY
+  );
+
+  Assert.equal(
+    Services.perms.getAllByTypes(["cookie"]).length,
+    1,
+    "One policy-set cookie permission is set up"
+  );
+
+  ProfileDataUpgrader.upgrade(175, 176);
+
+  Assert.equal(
+    getPersistPerm(POLICY_ORIGIN),
+    Services.perms.UNKNOWN_ACTION,
+    "Policy-set cookie ALLOW origin is not duplicated"
+  );
+  Assert.equal(
+    Services.perms.getAllByTypes(["persist-data-on-shutdown"]).length,
+    0,
+    "No persist-data-on-shutdown permissions were added for policy-set perms"
+  );
+
+  Services.perms.removeAll();
+});
+
 add_task(async function test_runningTwiceIsIdempotent() {
   const { ProfileDataUpgrader } = ChromeUtils.importESModule(
     "moz-src:///browser/components/ProfileDataUpgrader.sys.mjs"

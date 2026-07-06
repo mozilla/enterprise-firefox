@@ -93,6 +93,12 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = Clock
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = Privacy
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = Stocks
 home-prefs-mission-message2 =
     .message = Our sponsors support our mission to build a better web.
 home-prefs-manage-topics-link2 =
@@ -152,6 +158,20 @@ home-prefs-support-firefox-header-srd =
     .label = Support { -brand-product-name }
 home-prefs-mission-message-learn-more-link-srd = Find out how
 
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = Learn more
+
+## Strings for the Stocks widget
+
+# Context menu item for searching stock ticker symbols.
+newtab-stocks-menu-search = Search ticker symbols
+# Context menu item that hides the Stocks widget.
+newtab-stocks-menu-hide = Hide stocks
+# Context menu item linking to more information about the Stocks widget.
+newtab-stocks-menu-learn-more = Learn more
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -187,6 +207,7 @@ newtab-topsites-add-shortcut-label = Add Shortcut
 newtab-topsites-add-shortcut-title =
     .title = Add Shortcut
     .aria-label = Add Shortcut
+newtab-shortcuts-pinned-area = Pinned Area
 newtab-topsites-title-label = Title
 newtab-topsites-title-input =
     .placeholder = Enter a title
@@ -496,6 +517,10 @@ newtab-custom-widget-clock-toggle =
     .label = Clock
 newtab-custom-widget-sports-toggle2 =
     .label = Sports
+newtab-custom-widget-privacy-toggle =
+    .label = Privacy
+newtab-custom-widget-stocks-toggle =
+    .label = Stocks
 newtab-custom-widget-section-title = Widgets
 newtab-custom-widget-section-toggle =
     .label = Widgets
@@ -972,6 +997,8 @@ newtab-widget-timer-reset =
 newtab-widget-timer-menu-notifications = Turn off notifications
 newtab-widget-timer-menu-notifications-on = Turn on notifications
 newtab-widget-timer-menu-learn-more = Learn more
+newtab-widget-timer-menu-button =
+    .aria-label = Timer options
 # The title displays above a set of top news headlines.
 newtab-daily-briefing-card-title = Top Headlines
 newtab-daily-briefing-card-menu-dismiss = Dismiss
@@ -1085,6 +1112,8 @@ newtab-sports-widget-show-less =
 # Toggle that filters the list of teams the user follows
 newtab-sports-widget-followed-only-toggle =
     .label = Only followed teams
+# Status shown when more matches are being fetched.
+newtab-sports-widget-loading-more = Loading more matches…
 # Watch is a verb (as in watch matches online).
 newtab-sports-widget-watch =
     .label = Watch
@@ -1164,6 +1193,9 @@ newtab-sports-widget-third-place = Third place
 newtab-sports-widget-runner-up = Runner-up
 newtab-sports-widget-champions = Champions
 newtab-sports-widget-world-cup-champions = 2026 World Cup Champions
+# Compact champions label for the medium-size widget result card; the larger
+# card uses newtab-sports-widget-world-cup-champions.
+newtab-sports-widget-world-cup-champions-short = 2026 Champions
 # Variables:
 #   $date (Date) - The match start time
 newtab-sports-widget-match-time = { DATETIME($date, hour: "2-digit", minute: "2-digit") }
@@ -1262,6 +1294,8 @@ newtab-sports-widget-team-tbd = To be determined
 newtab-sports-widget-message-wallpapers-title = Kick off the World Cup with new wallpapers
 newtab-sports-widget-message-wallpapers-body = Bring some match-day energy to your browser for the tournament.
 newtab-sports-widget-message-wallpapers-cta = Choose wallpaper
+newtab-sports-widget-message-wallpapers-semifinals-title = Get a new wallpaper for the semi-finals
+newtab-sports-widget-message-wallpapers-semifinals-body = Set the stage for the World Cup’s biggest matches.
 newtab-sports-widget-message-add-widgets-cta =
     .label = Add widgets
 newtab-sports-widget-message-day-in-play-title = Keep your day in play with { -brand-product-name } widgets

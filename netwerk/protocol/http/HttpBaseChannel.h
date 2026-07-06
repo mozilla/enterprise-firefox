@@ -530,10 +530,6 @@ class HttpBaseChannel : public nsHashPropertyBag,
                                    int64_t aContentLength = -1,
                                    bool aSetContentLengthHeader = false);
 
-  void SetUploadStreamHasHeaders(bool hasHeaders) {
-    StoreUploadStreamHasHeaders(hasHeaders);
-  }
-
   virtual nsresult SetReferrerHeader(const nsACString& aReferrer,
                                      bool aRespectBeforeConnect = true) {
     if (aRespectBeforeConnect) {
@@ -569,7 +565,6 @@ class HttpBaseChannel : public nsHashPropertyBag,
     Maybe<dom::TimedChannelInfo> timedChannelInfo;
     nsCOMPtr<nsIInputStream> uploadStream;
     uint64_t uploadStreamLength = 0;
-    bool uploadStreamHasHeaders = false;
     Maybe<nsCString> contentType;
     Maybe<nsCString> contentLength;
 
@@ -715,6 +710,9 @@ class HttpBaseChannel : public nsHashPropertyBag,
       const OpaqueResponseBlockedTelemetryReason aTelemetryReason);
   void AllowOpaqueResponseAfterSniff();
   void SetChannelBlockedByOpaqueResponse();
+  // Called when ORB allows a response after its asynchronous validation.
+  // Subclasses that retained state pending the validation can release it here.
+  virtual void OnOpaqueResponseAllowed() {}
   bool Http3Allowed() const;
 
   virtual void ExplicitSetUploadStreamLength(uint64_t aContentLength,
@@ -914,7 +912,6 @@ class HttpBaseChannel : public nsHashPropertyBag,
     (uint32_t, ResponseHeadersModified, 1),
     (uint32_t, AllowSTS, 1),
     (uint32_t, ThirdPartyFlags, 3),
-    (uint32_t, UploadStreamHasHeaders, 1),
     (uint32_t, ChannelIsForDownload, 1),
     (uint32_t, TracingEnabled, 1),
     (uint32_t, ReportTiming, 1),

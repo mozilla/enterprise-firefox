@@ -111,7 +111,7 @@ class nsHttpHeaderArray {
       const nsACString& line, nsHttpAtom* hdr = nullptr,
       nsACString* headerNameOriginal = nullptr, nsACString* value = nullptr);
 
-  void Flatten(nsACString&, bool pruneProxyHeaders, bool pruneTransients);
+  void Flatten(nsACString&, bool pruneProxyHeaders, bool pruneTransients) const;
   void FlattenOriginalHeader(nsACString&);
 
   uint32_t Count() const { return mHeaders.Length(); }

@@ -12,14 +12,99 @@ import time
 sys.path.append(os.path.dirname(__file__))
 
 import requests
+from base_test import Environment
 from felt_tests import FeltTests
 
 
 class FeltDevicePosture(FeltTests):
+    # Identifiers of every EDR agent the EDR-checker knows about; must match
+    # EdrId::as_str() in toolkit/components/felt/rust/src/edr_checker.rs.
+    KNOWN_EDR_IDS = {
+        "crowdstrike",
+        "cortex-xdr",
+        "sentinelone",
+        "ms-defender",
+        "carbon-black",
+        "trellix",
+        "sophos",
+        "cisco-secure-endpoint",
+        "eset",
+        "cylance",
+        "symantec",
+        "trend-micro",
+    }
+
     def test_felt_device_posture(self):
+        # Keep the FELT window alive after login so EDR probing can run in the
+        # FELT chrome context, where device posture is collected in production.
+        self.get_driver(Environment.FELT).set_prefs(
+            {"enterprise.felt_tests.should_not_close_window": True},
+            default_branch=True,
+        )
         super().run_felt_base()
         self.run_device_posture_content()
+        # Connect the managed browser so its policy polls populate the posture
+        # history that run_posture_history() checks.
         self.run_access()
+        self.run_all_edr_detection()
+        self.run_posture_history()
+
+    def run_all_edr_detection(self):
+        """Drive the EDR-checker directly against *every* known agent.
+
+        The device-posture payload only probes a couple of agents, so this
+        separately requests the full catalog (an empty id list means "all").
+        Probing every agent exercises all detection methods on the host,
+        including the service-status subprocess shell-outs (systemctl / service /
+        rc-service on Linux, `sc` on Windows, systemextensionsctl on macOS) --
+        the most brittle paths. We fire several probes concurrently so the
+        in-flight coalescing is exercised too: a late caller must never observe a
+        spurious empty result while a sweep is still running.
+        """
+        self._logger.info("Probing all EDR agents via the EDR-checker")
+        driver = self.get_driver(Environment.FELT)
+        driver.set_context("chrome")
+        try:
+            rv = driver.execute_async_script(
+                """
+                const callback = arguments[arguments.length - 1];
+                const { EdrDetection } = ChromeUtils.importESModule(
+                    "resource://gre/modules/enterprise/EdrDetection.sys.mjs"
+                );
+                // Empty list = probe every known agent. Three concurrent calls
+                // exercise the background-thread sweep, the subprocess service
+                // checks, and the in-flight coalescing.
+                Promise.all([
+                    EdrDetection.getPresentEdrs([]),
+                    EdrDetection.getPresentEdrs([]),
+                    EdrDetection.getPresentEdrs([]),
+                ])
+                    .then(results => callback({ results }))
+                    .catch(err => callback({ _error: String(err) }));
+                """,
+            )
+        finally:
+            driver.set_context("content")
+
+        assert "_error" not in rv, f"Probing all EDR agents threw: {rv.get('_error')}"
+        results = rv["results"]
+        assert len(results) == 3, "All three concurrent probe-all calls resolved"
+
+        for present in results:
+            assert isinstance(present, list), "getPresentEdrs([]) returns an array"
+            for name in present:
+                assert name in self.KNOWN_EDR_IDS, (
+                    f"Probe-all returned an unknown EDR id: {name}"
+                )
+
+        # Coalescing invariant: every concurrent caller sees the same result.
+        # Before the in-flight requests were coalesced, a second caller racing a
+        # cold sweep could fall through to a still-empty cache and report a false
+        # "none present"; identical results across concurrent calls guards that.
+        assert results[0] == results[1] == results[2], (
+            f"Concurrent probe-all calls disagreed: {results}"
+        )
+        self._logger.info(f"Probe-all EDR detection result: {sorted(results[0])}")
 
     def get_device_posture(self):
         console_addr = f"http://localhost:{self.console_port}"
@@ -61,6 +146,11 @@ class FeltDevicePosture(FeltTests):
             f"Expected device posture to report applicationName: '{expected_app_name}' but got '{device_posture['build']['applicationName']}'"
         )
         assert "secureBootEnabled" in device_posture
+
+        assert "isDomainJoined" in device_posture
+        assert isinstance(device_posture["isDomainJoined"], bool), (
+            "isDomainJoined is a boolean"
+        )
 
         os_long_name = device_posture["os"].get("os_long_name")
 
@@ -139,6 +229,15 @@ class FeltDevicePosture(FeltTests):
                     f"os_short_name '{os_short_name}' does not match expected Linux format"
                 )
 
+        assert "presentEdrs" in device_posture, "Device posture reports presentEdrs"
+        present_edrs = device_posture["presentEdrs"]
+        # We don't assert on which EDRs are present: the test host may legitimately
+        # have one installed (e.g. a managed CI worker). Only the shape is checked.
+        self._logger.info(f"EDR detection results: {present_edrs}")
+        assert isinstance(present_edrs, list), "presentEdrs is an array"
+        for edr in present_edrs:
+            assert "name" in edr, "Each EDR entry has a name field"
+
         assert "mobileEquipmentId" in device_posture["network"], (
             "Device posture reports IMEI/MEID"
         )
@@ -183,6 +282,52 @@ class FeltDevicePosture(FeltTests):
         assert found_one_ipv4, "Device posture reports network interfaces (IPv4)"
 
         assert found_one_ipv6, "Device posture reports network interfaces (IPv6)"
+
+        # In the FELT UI context AddonManager is unavailable, so extensions is
+        # null here; run_posture_history() asserts the populated browser-poll case.
+        assert "extensions" in device_posture, "Device posture reports extensions"
+        assert device_posture["extensions"] is None or isinstance(
+            device_posture["extensions"], list
+        ), "extensions is null or a list"
+
+        # machineId is nullable (null when no platform identifier resolves); when
+        # present, only its structure can be asserted, not the actual values.
+        machine_id = device_posture["machineId"]
+        assert machine_id is None or (
+            isinstance(machine_id, dict)
+            and "id" in machine_id
+            and "source" in machine_id
+        ), "machineId is null or an object with id and source"
+
+    def run_posture_history(self):
+        console_addr = f"http://localhost:{self.console_port}"
+        # Wait until at least one posture has a non-null extensions field,
+        # meaning the browser poll sent it after AddonManager was ready.
+        max_tries = 40
+        for _ in range(max_tries):
+            r = requests.get(f"{console_addr}/sso/get_device_posture_history")
+            history = r.json()
+            has_extensions = any(p["extensions"] is not None for p in history)
+            if len(history) >= 2 and has_extensions:
+                break
+            time.sleep(0.5)
+        else:
+            assert False, (
+                f"Expected a posture with extensions list, got {len(history)} "
+                f"submissions all with null extensions"
+            )
+
+        # The first posture comes from the FELT UI where AddonManager is
+        # unavailable, so extensions must be null (not yet known).
+        assert history[0]["extensions"] is None, (
+            "First posture (FELT UI) has null extensions"
+        )
+        # Once the browser poll fires (after AddonManager is ready),
+        # extensions must be a list.
+        browser_posture = next(p for p in history if p["extensions"] is not None)
+        assert isinstance(browser_posture["extensions"], list), (
+            "Browser poll posture has extensions list"
+        )
 
     def run_access(self):
         """

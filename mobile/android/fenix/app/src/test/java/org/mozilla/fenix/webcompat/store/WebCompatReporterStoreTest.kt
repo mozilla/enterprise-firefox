@@ -136,6 +136,14 @@ class WebCompatReporterStoreTest {
     }
 
     @Test
+    fun `WHEN the deceptive site reason is selected THEN the state should be updated`() {
+        val expected = WebCompatReporterState.BrokenSiteReason.DeceptiveSite
+
+        store.dispatch(WebCompatReporterAction.ReasonChanged(newReason = expected))
+        assertEquals(expected, store.state.reason)
+    }
+
+    @Test
     fun `WHEN the problem description is updated THEN the state is updated`() {
         val expected = "Test description"
 
@@ -156,6 +164,14 @@ class WebCompatReporterStoreTest {
         val expected = store.state
 
         store.dispatch(WebCompatReporterAction.ReportSubmitted)
+        assertEquals(expected, store.state)
+    }
+
+    @Test
+    fun `WHEN the deceptive site report is selected THEN the state remains the same`() {
+        val expected = store.state
+
+        store.dispatch(WebCompatReporterAction.DeceptiveSiteReportSelected)
         assertEquals(expected, store.state)
     }
 

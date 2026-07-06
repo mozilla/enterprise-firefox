@@ -189,7 +189,8 @@ void gfxSVGGlyphsDocument::FindGlyphElements(Element* aElem) {
  * @return true iff rendering succeeded
  */
 void gfxSVGGlyphs::RenderGlyph(gfxContext* aContext, uint32_t aGlyphId,
-                               SVGContextPaint* aContextPaint) {
+                               SVGContextPaint* aContextPaint,
+                               image::imgDrawingParams& aImgParams) {
   gfxContextAutoSaveRestore aContextRestorer(aContext);
 
   Element* glyph = mGlyphIdMap.Get(aGlyphId);
@@ -198,7 +199,7 @@ void gfxSVGGlyphs::RenderGlyph(gfxContext* aContext, uint32_t aGlyphId,
   AutoSetRestoreSVGContextPaint autoSetRestore(aContextPaint,
                                                glyph->OwnerDoc());
 
-  SVGUtils::PaintSVGGlyph(glyph, aContext);
+  SVGUtils::PaintSVGGlyph(glyph, aContext, aImgParams);
 
 #if DEBUG
   // This will not have any effect, because we're about to restore the state

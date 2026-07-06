@@ -42,6 +42,8 @@ class AndroidImageConsumer final {
 
   void UpdateTexImage(const AndroidMediaCodecFrameId aFrameId);
 
+  bool HasImage() { return !!mCurrentImage; }
+
   GLuint GetGlTextureHandle() { return mTextureHandle; }
   gfx::SurfaceFormat GetFormat();
   gfx::IntSize GetSize();

@@ -42,6 +42,7 @@
 #  include "nsStringStream.h"
 static bool ShouldEnableWAICT(mozilla::dom::Document* aDoc);
 #endif
+#include "mozilla/gfx/Types.h"
 #include "mozilla/image/ImageMemoryReporter.h"
 #include "mozilla/layers/CompositorManagerChild.h"
 #include "nsCOMPtr.h"
@@ -352,6 +353,7 @@ class imgMemoryReporter final : public nsIMemoryReporter {
       nsIHandleReportCallback* aHandleReport, nsISupports* aData,
       const nsACString& aPathPrefix, const ImageMemoryCounter& aCounter,
       layers::SharedSurfacesMemoryReport& aSharedSurfaces) {
+    using DeviceColor = mozilla::gfx::DeviceColor;
     for (const SurfaceMemoryCounter& counter : aCounter.Surfaces()) {
       nsAutoCString surfacePathPrefix(aPathPrefix);
       switch (counter.Type()) {
@@ -467,24 +469,27 @@ class imgMemoryReporter final : public nsIMemoryReporter {
         surfacePathPrefix.AppendInt(int32_t(*scheme));
         surfacePathPrefix.AppendLiteral(" ");
       }
-      if (context.GetContextPaint()) {
-        const SVGEmbeddingContextPaint* paint = context.GetContextPaint();
+      if (const SVGContextPaint* paint = context.GetContextPaint()) {
         surfacePathPrefix.AppendLiteral("contextPaint=(");
-        if (paint->GetFill()) {
+        if (paint->IsSolidColor(SVGContextPaint::Tag::Fill)) {
+          DeviceColor color = paint->AsSolidColor(SVGContextPaint::Tag::Fill);
           surfacePathPrefix.AppendLiteral(" fill=");
-          surfacePathPrefix.AppendInt(paint->GetFill()->ToABGR(), 16);
+          surfacePathPrefix.AppendInt(color.ToABGR(), 16);
         }
-        if (paint->GetFillOpacity() != 1.0) {
+        if (paint->GetOpacity(SVGContextPaint::Tag::Fill) != 1.0) {
           surfacePathPrefix.AppendLiteral(" fillOpa=");
-          surfacePathPrefix.AppendFloat(paint->GetFillOpacity());
+          surfacePathPrefix.AppendFloat(
+              paint->GetOpacity(SVGContextPaint::Tag::Fill));
         }
-        if (paint->GetStroke()) {
+        if (paint->IsSolidColor(SVGContextPaint::Tag::Stroke)) {
+          DeviceColor color = paint->AsSolidColor(SVGContextPaint::Tag::Stroke);
           surfacePathPrefix.AppendLiteral(" stroke=");
-          surfacePathPrefix.AppendInt(paint->GetStroke()->ToABGR(), 16);
+          surfacePathPrefix.AppendInt(color.ToABGR(), 16);
         }
-        if (paint->GetStrokeOpacity() != 1.0) {
+        if (paint->GetOpacity(SVGContextPaint::Tag::Stroke) != 1.0) {
           surfacePathPrefix.AppendLiteral(" strokeOpa=");
-          surfacePathPrefix.AppendFloat(paint->GetStrokeOpacity());
+          surfacePathPrefix.AppendFloat(
+              paint->GetOpacity(SVGContextPaint::Tag::Stroke));
         }
         surfacePathPrefix.AppendLiteral(" ) ");
       }

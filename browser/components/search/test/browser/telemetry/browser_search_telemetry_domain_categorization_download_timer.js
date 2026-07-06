@@ -15,6 +15,7 @@ ChromeUtils.defineESModuleGetters(this, {
   SERPDomainToCategoriesMap:
     "moz-src:///browser/components/search/SERPCategorization.sys.mjs",
   SearchUtils: "moz-src:///toolkit/components/search/SearchUtils.sys.mjs",
+  Utils: "resource://services-settings/Utils.sys.mjs",
 });
 
 const TEST_PROVIDER_INFO = [
@@ -81,6 +82,18 @@ add_setup(async function () {
   await waitForIdle();
 
   await db.clear();
+
+  // Pre-populate the cached attachments base URL so that resolving it does not
+  // attempt to reach the Remote Settings server.
+  // Attachment downloads still fail fast against the local test server, which
+  // is the failure this test simulates.
+  Services.prefs.setStringPref(
+    "services.settings.base_attachments_url",
+    `${Utils.SERVER_URL}|https://unreachable-cdn/`
+  );
+  registerCleanupFunction(() => {
+    Services.prefs.clearUserPref("services.settings.base_attachments_url");
+  });
 
   // If the pref is by default on, disable it as the following tests toggle
   // the preference to check what happens when the preference is off and the

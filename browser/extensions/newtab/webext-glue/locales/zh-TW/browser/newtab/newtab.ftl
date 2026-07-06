@@ -93,6 +93,9 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = 時鐘
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = 隱私權
 home-prefs-mission-message2 =
     .message = 贊助商支持我們打造出一個更好的網路環境的使命。
 home-prefs-manage-topics-link2 =
@@ -151,6 +154,11 @@ home-prefs-weather-header-srd =
 home-prefs-support-firefox-header-srd =
     .label = 支持 { -brand-product-name }
 home-prefs-mission-message-learn-more-link-srd = 看看是如何達成的
+
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = 更多資訊
 
 ## Search box component.
 
@@ -492,6 +500,8 @@ newtab-custom-widget-clock-toggle =
     .label = 時鐘
 newtab-custom-widget-sports-toggle2 =
     .label = 體育
+newtab-custom-widget-privacy-toggle =
+    .label = 隱私權
 newtab-custom-widget-section-title = 小工具
 newtab-custom-widget-section-toggle =
     .label = 小工具
@@ -968,6 +978,8 @@ newtab-widget-timer-reset =
 newtab-widget-timer-menu-notifications = 關閉通知
 newtab-widget-timer-menu-notifications-on = 開啟通知
 newtab-widget-timer-menu-learn-more = 更多資訊
+newtab-widget-timer-menu-button =
+    .aria-label = 計時器選項
 # The title displays above a set of top news headlines.
 newtab-daily-briefing-card-title = 頭條新聞
 newtab-daily-briefing-card-menu-dismiss = 知道了！
@@ -1070,6 +1082,8 @@ newtab-sports-widget-show-less =
 # Toggle that filters the list of teams the user follows
 newtab-sports-widget-followed-only-toggle =
     .label = 僅關注中的隊伍
+# Status shown when more matches are being fetched.
+newtab-sports-widget-loading-more = 正在載入更多賽事…
 # Watch is a verb (as in watch matches online).
 newtab-sports-widget-watch =
     .label = 觀賞
@@ -1149,6 +1163,9 @@ newtab-sports-widget-third-place = 季軍
 newtab-sports-widget-runner-up = 亞軍
 newtab-sports-widget-champions = 冠軍
 newtab-sports-widget-world-cup-champions = 2026 年世界盃足球賽冠軍
+# Compact champions label for the medium-size widget result card; the larger
+# card uses newtab-sports-widget-world-cup-champions.
+newtab-sports-widget-world-cup-champions-short = 2026 年冠軍
 # Variables:
 #   $date (Date) - The match start time
 newtab-sports-widget-match-time = { DATETIME($date, hour: "2-digit", minute: "2-digit") }
@@ -1247,6 +1264,8 @@ newtab-sports-widget-team-tbd = 尚未決定
 newtab-sports-widget-message-wallpapers-title = 使用新的背景圖片，為世足賽拉開序幕
 newtab-sports-widget-message-wallpapers-body = 將賽事的活力帶進您的瀏覽器。
 newtab-sports-widget-message-wallpapers-cta = 挑選背景圖
+newtab-sports-widget-message-wallpapers-semifinals-title = 獲得準決賽的新背景圖
+newtab-sports-widget-message-wallpapers-semifinals-body = 準備好參加世界盃足球賽最重要的賽事。
 newtab-sports-widget-message-add-widgets-cta =
     .label = 新增小工具
 newtab-sports-widget-message-day-in-play-title = 使用 { -brand-product-name } 小工具隨時關注最新足球賽事

@@ -9,8 +9,7 @@
 using namespace js;
 using namespace js::jit;
 
-void MoveEmitterLOONG64::breakCycle(const MoveOperand& from,
-                                    const MoveOperand& to, MoveOp::Type type,
+void MoveEmitterLOONG64::breakCycle(const MoveOperand& to, MoveOp::Type type,
                                     uint32_t slotId) {
   // There is some pattern:
   //   (A -> B)
@@ -130,13 +129,14 @@ void MoveEmitterLOONG64::emit(const MoveResolver& moves) {
   }
 }
 
-Address MoveEmitterLOONG64::cycleSlot(uint32_t slot, uint32_t subslot) const {
+Address MoveEmitterLOONG64::cycleSlot(uint32_t slot) const {
   int32_t offset = masm.framePushed() - pushedAtCycle_;
   MOZ_ASSERT(Imm16::IsInSignedRange(offset));
-  return Address(StackPointer, offset + slot * sizeof(double) + subslot);
+  return Address(StackPointer, offset + slot * sizeof(double));
 }
 
-int32_t MoveEmitterLOONG64::getAdjustedOffset(const MoveOperand& operand) {
+int32_t MoveEmitterLOONG64::getAdjustedOffset(
+    const MoveOperand& operand) const {
   MOZ_ASSERT(operand.isMemoryOrEffectiveAddress());
   if (operand.base() != StackPointer) {
     return operand.disp();
@@ -146,7 +146,8 @@ int32_t MoveEmitterLOONG64::getAdjustedOffset(const MoveOperand& operand) {
   return operand.disp() + masm.framePushed() - pushedAtStart_;
 }
 
-Address MoveEmitterLOONG64::getAdjustedAddress(const MoveOperand& operand) {
+Address MoveEmitterLOONG64::getAdjustedAddress(
+    const MoveOperand& operand) const {
   return Address(operand.base(), getAdjustedOffset(operand));
 }
 
@@ -287,7 +288,7 @@ void MoveEmitterLOONG64::emit(const MoveOp& move) {
   if (move.isCycleEnd() && move.isCycleBegin()) {
     // A fun consequence of aliased registers is you can have multiple
     // cycles at once, and one can end exactly where another begins.
-    breakCycle(from, to, move.endCycleType(), move.cycleBeginSlot());
+    breakCycle(to, move.endCycleType(), move.cycleBeginSlot());
     completeCycle(from, to, move.type(), move.cycleEndSlot());
     return;
   }
@@ -301,7 +302,7 @@ void MoveEmitterLOONG64::emit(const MoveOp& move) {
   }
 
   if (move.isCycleBegin()) {
-    breakCycle(from, to, move.endCycleType(), move.cycleBeginSlot());
+    breakCycle(to, move.endCycleType(), move.cycleBeginSlot());
     inCycle_++;
   }
 
@@ -322,8 +323,6 @@ void MoveEmitterLOONG64::emit(const MoveOp& move) {
       MOZ_CRASH("Unexpected move type");
   }
 }
-
-void MoveEmitterLOONG64::assertDone() { MOZ_ASSERT(inCycle_ == 0); }
 
 void MoveEmitterLOONG64::finish() {
   assertDone();

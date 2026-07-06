@@ -155,9 +155,6 @@ class Module : public JS::WasmModule {
   const ModuleMetadata& moduleMeta() const { return *moduleMeta_; }
   const CodeMetadata& codeMeta() const { return code_->codeMeta(); }
   const CodeTailMetadata& codeTailMeta() const { return code_->codeTailMeta(); }
-  const CodeMetadataForAsmJS* codeMetaForAsmJS() const {
-    return code_->codeMetaForAsmJS();
-  }
   const BytecodeSource& debugBytecode() const {
     return codeTailMeta().debugBytecode.source();
   }
@@ -192,13 +189,11 @@ class Module : public JS::WasmModule {
   // JS API and JS::WasmModule implementation:
 
   JSObject* createObject(JSContext* cx) const override;
-  JSObject* createObjectForAsmJS(JSContext* cx) const override;
 
   // about:memory reporting:
 
   void addSizeOfMisc(mozilla::MallocSizeOf mallocSizeOf,
                      CodeMetadata::SeenSet* seenCodeMeta,
-                     CodeMetadataForAsmJS::SeenSet* seenCodeMetaForAsmJS,
                      Code::SeenSet* seenCode, size_t* code, size_t* data) const;
 
   // GC malloc memory tracking:

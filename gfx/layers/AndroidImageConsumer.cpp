@@ -61,47 +61,11 @@ void AndroidImageConsumer::UpdateTexImage(
     const AndroidMediaCodecFrameId aFrameId) {
   MOZ_ASSERT(wr::RenderThread::IsInRenderThread());
 
-  if (!mImageReader->UpdateTexImage(aFrameId)) {
+  if (!mImageReader->UpdateTexImage(aFrameId, mGL, mTextureHandle,
+                                    getter_AddRefs(mCurrentImage))) {
     return;
   }
-
-  RefPtr<AndroidImageWrapper> image = mImageReader->GetCurrentImage();
-  if (!image) {
-    MOZ_ASSERT_UNREACHABLE("unexpected to be called");
-    return;
-  }
-
-  // XXX add fence handling
-
-  const auto& gle = gl::GLContextEGL::Cast(mGL);
-  const auto& egl = gle->mEgl;
-
-  const EGLint attrs[] = {
-      LOCAL_EGL_IMAGE_PRESERVED,
-      LOCAL_EGL_TRUE,
-      LOCAL_EGL_NONE,
-  };
-
-  auto* nativeBuffer = image->mHardwareBuffer;
-
-  EGLClientBuffer clientBuffer =
-      egl->mLib->fGetNativeClientBufferANDROID(nativeBuffer);
-  EGLImage eglImage = egl->fCreateImage(
-      EGL_NO_CONTEXT, LOCAL_EGL_NATIVE_BUFFER_ANDROID, clientBuffer, attrs);
-
-  MOZ_ASSERT(eglImage);
-
-  if (eglImage) {
-    mGL->fBindTexture(LOCAL_GL_TEXTURE_EXTERNAL, mTextureHandle);
-    mGL->fTexParameteri(LOCAL_GL_TEXTURE_EXTERNAL, LOCAL_GL_TEXTURE_WRAP_T,
-                        LOCAL_GL_CLAMP_TO_EDGE);
-    mGL->fTexParameteri(LOCAL_GL_TEXTURE_EXTERNAL, LOCAL_GL_TEXTURE_WRAP_S,
-                        LOCAL_GL_CLAMP_TO_EDGE);
-    mGL->fEGLImageTargetTexture2D(LOCAL_GL_TEXTURE_EXTERNAL, eglImage);
-    egl->fDestroyImage(eglImage);
-  }
-
-  mCurrentImage = image;
+  MOZ_ASSERT(mCurrentImage);
 }
 
 gfx::SurfaceFormat AndroidImageConsumer::GetFormat() {

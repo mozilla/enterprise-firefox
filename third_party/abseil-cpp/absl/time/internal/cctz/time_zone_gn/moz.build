@@ -59,6 +59,10 @@ if CONFIG["OS_TARGET"] == "Darwin":
 
     DEFINES["_XOPEN_SOURCE"] = "700"
 
+    OS_LIBS += [
+        "-framework Foundation"
+    ]
+
 if CONFIG["OS_TARGET"] == "Linux":
 
     DEFINES["USE_AURA"] = "1"

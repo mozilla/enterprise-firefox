@@ -355,6 +355,18 @@ nsProfiler::DumpProfileToFile(const char* aFilename) {
 }
 
 NS_IMETHODIMP
+nsProfiler::ScheduleDumpToFile(double aDelaySeconds, const char* aFilename) {
+  profiler_schedule_dump_to_file(aDelaySeconds, aFilename);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsProfiler::CancelScheduledDump() {
+  profiler_cancel_scheduled_dump();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsProfiler::GetProfileData(double aSinceTime, JSContext* aCx,
                            JS::MutableHandle<JS::Value> aResult) {
   mozilla::UniquePtr<char[]> profile = profiler_get_profile(aSinceTime);

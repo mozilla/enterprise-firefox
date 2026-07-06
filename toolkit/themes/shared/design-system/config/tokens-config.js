@@ -530,7 +530,11 @@ function formatNovaNewtabTokens({ mediaQuery, args }) {
       return;
     }
 
-    let originalVal = getOriginalTokenValue(token, prop);
+    // The newtab is an in-content surface, so prefer brand values. Tokens
+    // without a brand/platform split fall back to their shared value.
+    let originalVal =
+      getOriginalTokenValue(token, prop, "brand") ??
+      getOriginalTokenValue(token, prop);
     if (originalVal != undefined) {
       let formattedToken = transformToken({ token, originalVal, dictionary });
       tokens.push(formattedToken);

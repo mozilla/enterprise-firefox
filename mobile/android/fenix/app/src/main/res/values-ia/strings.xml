@@ -72,7 +72,7 @@
   <!-- Text for the menu button to remove a recently saved bookmark from the user's home screen -->
   <string name="home_bookmarks_menu_item_remove">Remover</string>
   <!-- About content. %1$s is the name of the app (for example "Firefox"). -->
-  <string name="about_content">%1$s es producite per Mozilla.</string>
+  <string name="about_content" tools:ignore="BrandUsage">%1$s es producite per Mozilla.</string>
   <!-- Private Browsing -->
   <string name="private_browsing_common_myths">Mythos commun sur le navigation private</string>
   <!-- Text to be announced by the accessibility service to inform the user that the private browsing mode is currently active. -->
@@ -149,6 +149,8 @@
   <string name="home_screen_shortcut_open_new_private_tab_2">Nove scheda private</string>
   <!-- Shortcut action to open Passwords screen -->
   <string name="home_screen_shortcut_passwords">Contrasignos</string>
+  <!-- Shortcut action to open uninstall survey -->
+  <string name="home_screen_shortcut_uninstall_survey">Disinstallar, que?</string>
   <!--
     Recent Tabs
 
@@ -454,62 +456,6 @@
     Content description (not visible, for screen readers etc.): Close button for the home onboarding dialog
   -->
   <string name="onboarding_home_content_description_close_button">Clauder</string>
-  <!--
-    Juno first user onboarding flow experiment, strings are marked unused as they are only referenced by Nimbus experiments.
-
-    Description for learning more about our privacy notice.
-  -->
-  <string name="juno_onboarding_privacy_notice_text" tools:ignore="BrandUsage">Aviso de confidentialitate de Firefox</string>
-  <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_title_nimbus_2">A nos place mantener te secur</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_3">Nostre navigator supportate per un organisation sin fin d lucro adjuta stoppar le companias de sequer secretemente tu movimentos circum le web.</string>
-  <!-- Text for the button to set firefox as default browser on the device -->
-  <string name="juno_onboarding_default_browser_positive_button" tools:ignore="UnusedResources">Eliger como navigator predefinite</string>
-  <!-- Text for the button dismiss the screen and move on with the flow -->
-  <string name="juno_onboarding_default_browser_negative_button" tools:ignore="UnusedResources">Non ora</string>
-  <!-- Title for sign in to sync screen. -->
-  <string name="juno_onboarding_sign_in_title_2">Resta cryptate quando tu passa inter apparatos</string>
-  <!--
-    Description for sign in to sync screen. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_sign_in_description_3" tools:ignore="BrandUsage">Firefox crypta tu contrasignos, marcapaginas, e plus quando tu es synchronisate.</string>
-  <!-- Text for the button to sign in to sync on the device -->
-  <string name="juno_onboarding_sign_in_positive_button" tools:ignore="UnusedResources">Aperir session</string>
-  <!-- Text for the button dismiss the screen and move on with the flow -->
-  <string name="juno_onboarding_sign_in_negative_button" tools:ignore="UnusedResources">Non ora</string>
-  <!--
-    Title for enable notification permission screen used by Nimbus experiments. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_enable_notifications_title_nimbus_2" tools:ignore="BrandUsage">Le notificationes te adjuta a star plus secur con Firefox</string>
-  <!--
-    Description for enable notification permission screen used by Nimbus experiments. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_enable_notifications_description_nimbus_2" tools:ignore="BrandUsage">Invia schedas inter tu apparatos e discoperi altere functiones private in Firefox.</string>
-  <!-- Text for the button to request notification permission on the device -->
-  <string name="juno_onboarding_enable_notifications_positive_button" tools:ignore="UnusedResources">Activar notificationes</string>
-  <!-- Text for the button dismiss the screen and move on with the flow -->
-  <string name="juno_onboarding_enable_notifications_negative_button" tools:ignore="UnusedResources">Non ora</string>
-  <!--
-    Title for add search widget screen used by Nimbus experiments. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_add_search_widget_title" tools:ignore="BrandUsage,UnusedResources">Prova le widget de recerca de Firefox</string>
-  <!--
-    Description for add search widget screen used by Nimbus experiments. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_add_search_widget_description" tools:ignore="BrandUsage,UnusedResources">Con Firefox sur tu pagina initial, tu habera facile accesso al navigator de maxime discretion que bloca traciatores inter-sitos.</string>
-  <!--
-    Text for the button to add search widget on the device used by Nimbus experiments. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_add_search_widget_positive_button" tools:ignore="BrandUsage,UnusedResources">Adde le widget Firefox</string>
-  <!-- Text for the button to dismiss the screen and move on with the flow -->
-  <string name="juno_onboarding_add_search_widget_negative_button" tools:ignore="UnusedResources">Non ora</string>
   <!-- Title for the privacy preferences dialog shown during onboarding. Note: The word "Firefox" should NOT be translated. -->
   <string name="onboarding_preferences_dialog_title" tools:ignore="BrandUsage">Adjuta nos a render Firefox melior</string>
   <!-- Title for the crash reporting option in the privacy preferences dialog shown during onboarding. -->
@@ -529,17 +475,13 @@
   <!-- Button text to reopen firefox after the crash is processed %s is the name of the app (for example "Firefox") -->
   <string name="startup_crash_restart">Reaperir %s</string>
   <!-- Title for the usage data option in the privacy preferences dialog shown during onboarding. Note: The word "Mozilla" should NOT be translated. -->
-  <string name="onboarding_preferences_dialog_usage_data_title">Inviar a Mozilla datos technic e de interaction</string>
+  <string name="onboarding_preferences_dialog_usage_data_title" tools:ignore="BrandUsage">Inviar a Mozilla datos technic e de interaction</string>
   <string name="onboarding_preferences_dialog_usage_data_description_2" tools:ignore="BrandUsage">Le datos re tu apparato, re tu configuration hardware, e re tu uso de Firefox adjuta meliorar functiones, prestation, e stabilitate pro totes.</string>
   <string name="onboarding_preferences_dialog_usage_data_learn_more_2">Pro saper plus</string>
   <!-- Positive button label for the privacy preferences dialog shown during onboarding. -->
   <string name="onboarding_preferences_dialog_positive_button">Facite</string>
   <!-- Terms of service onboarding title card label. 'Firefox' intentionally hardcoded here -->
   <string name="onboarding_welcome_to_firefox" tools:ignore="BrandUsage">Benvenite in Firefox</string>
-  <!-- Terms of service sub header label. -->
-  <string name="onboarding_terms_of_service_sub_header_2">Navigation del web veloce e secur</string>
-  <!-- Terms of service onboarding page continue button label. -->
-  <string name="onboarding_term_of_service_agree_and_continue_button_label_2">Continuar</string>
   <!-- Line one of the terms of service onboarding page. %1$s is replaced by an active link, using onboarding_term_of_service_line_one_link_text_2 as text (“Firefox Terms of Use”). -->
   <string name="onboarding_term_of_service_line_one_2">Continuante, tu accepta le %1$s.</string>
   <!-- Used as text for the link in onboarding_term_of_service_line_one_2. -->
@@ -607,16 +549,6 @@
   <string name="onboarding_redesign_sync_positive_button" tools:ignore="UnusedResources">Comenciar a synchronisar</string>
   <!-- Sync onboarding redesign negative button text. -->
   <string name="onboarding_redesign_sync_negative_button" tools:ignore="UnusedResources">Non ora</string>
-  <!-- Marketing onboarding page title. 'Firefox' is intentionally hardcoded. -->
-  <string name="onboarding_marketing_title" tools:ignore="BrandUsage,UnusedResources">Adjuta nos a facer crescer Firefox</string>
-  <!-- Marketing onboarding page body. 'Firefox' is intentionally hardcoded. -->
-  <string name="onboarding_marketing_body" tools:ignore="BrandUsage,UnusedResources">Quando tu comparti como cognosceva Firefox y como lo usa, tu adjuta nos a presentar nostre navigator a plus personas.</string>
-  <!-- Marketing onboarding page opt-out checkbox. Unchecking the box does not increase data collection. Our data practices remain the same. 'Mozilla' is intentionally hardcoded. -->
-  <string name="onboarding_marketing_opt_out_checkbox">Comparti datos con le socios technologic de marketing de Mozilla. Iste datos jammais se vende ni se usa pro monstrar te annuncios.</string>
-  <!-- Marketing onboarding page clickable link text to "learn more" on how data is used. -->
-  <string name="onboarding_marketing_learn_more" tools:ignore="UnusedResources">Como nos usa le datos</string>
-  <!-- Marketing onboarding page button label. Button to confirm choice and start browsing. -->
-  <string name="onboarding_marketing_positive_button" tools:ignore="UnusedResources">Confirmar e initiar a navigar</string>
   <!-- Marketing onboarding page title variant. “One last thing” refers to the final step or action in the onboarding process that we’re asking users to take before they can start using the browser. -->
   <string name="onboarding_marketing_title_1" tools:ignore="UnusedResources">Un ultime cosa</string>
   <!-- Marketing onboarding page body variant. 'Firefox' is intentionally hardcoded. -->
@@ -696,12 +628,12 @@
   <!-- Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded. -->
   <string name="nova_onboarding_marketing_body_2" tools:ignore="BrandUsage">Condivide como tu discoperiva Firefox e como tu lo usa, con le socios de marketing de Mozilla. Iste datos jammais sera vendite.</string>
   <!-- Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded. -->
-  <string name="nova_onboarding_marketing_body_3" tools:ignore="BrandUsage">Tu pote adjutar nos attinger plus personas permittente a Mozilla de informar le canales ubi nos promove Firefox que tu es un usator de Firefox.</string>
+  <string name="nova_onboarding_marketing_body_3" tools:ignore="BrandUsage,UnusedResources">Tu pote adjutar nos attinger plus personas permittente a Mozilla de informar le canales ubi nos promove Firefox que tu es un usator de Firefox.</string>
   <!--
     Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded.
     “Platform you came from” refers to the external app, website, store, campaign, or other source that directed the user to Firefox.
   -->
-  <string name="nova_onboarding_marketing_body_4" tools:ignore="BrandUsage">Tu pote adjutar nos attinger plus personas permittente a Mozilla de informar le platteforma de que tu arrivava que tu usa Firefox.</string>
+  <string name="nova_onboarding_marketing_body_4" tools:ignore="BrandUsage,UnusedResources">Tu pote adjutar nos attinger plus personas permittente a Mozilla de informar le platteforma de que tu arrivava que tu usa Firefox.</string>
   <!--
     Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded.
     “Platform you came from” refers to the external app, website, store, campaign, or other source that directed the user to Firefox.
@@ -731,7 +663,7 @@
   <!-- Marketing onboarding body link text. -->
   <string name="nova_onboarding_marketing_body_link_text_1">Pro saper plus</string>
   <!-- Marketing onboarding primary button text. 'Firefox' is intentionally hardcoded. -->
-  <string name="nova_onboarding_marketing_primary_button_text" tools:ignore="BrandUsage">Adjuta Firefox</string>
+  <string name="nova_onboarding_marketing_primary_button_text" tools:ignore="BrandUsage,UnusedResources">Adjuta Firefox</string>
   <!-- Marketing onboarding primary button text. -->
   <string name="nova_onboarding_marketing_primary_button_text_2">Permitter e continuar</string>
   <!-- Marketing onboarding secondary button text. -->
@@ -769,41 +701,6 @@
   <string name="nova_onboarding_app_icon_prompt_body" tools:ignore="UnusedResources">Da a tu pagina initial un tocco personal.</string>
   <!-- ==== End of Project "Nova" onboarding strings ==== -->
 
-  <!-- Onboarding header for the toolbar selection card, used by Nimbus experiments. -->
-  <string name="onboarding_customize_toolbar_title" tools:ignore="UnusedResources">Elige le ubication del barra del instrumentos</string>
-  <!-- Onboarding sub header for toolbar selection card, used by Nimbus experiments. -->
-  <string name="onboarding_customize_toolbar_description" tools:ignore="UnusedResources">Mantene a portata de manos tu recercas.</string>
-  <!-- Onboarding label for 'Save and continue' button, used by Nimbus experiments. -->
-  <string name="onboarding_save_and_continue_button">Salvar e continuar</string>
-  <!-- Onboarding toolbar selection card label for 'top' option, used by Nimbus experiments. -->
-  <string name="onboarding_customize_toolbar_top_option">Apice</string>
-  <!-- Onboarding toolbar selection card label for 'bottom' option, used by Nimbus experiments. -->
-  <string name="onboarding_customize_toolbar_bottom_option">Basso</string>
-  <!-- Onboarding toolbar selection card content description for the main image. -->
-  <string name="onboarding_customize_toolbar_main_image_content_description">Grande imagine de titulo del selection del barra del instrumentos monstrante un barra del instrumentos illustrate.</string>
-  <!-- Onboarding toolbar selection card content description for the toolbar placement image. -->
-  <string name="onboarding_customize_toolbar_placement_bottom_content_description">Imagine del barra del instrumentos inferior</string>
-  <string name="onboarding_customize_toolbar_placement_top_content_description">Imagine del barra del instrumentos superior</string>
-  <!-- Action label for toolbar options that can be selected. Talkback will append this to say "Double tap to select". -->
-  <string name="onboarding_customize_toolbar_a11y_action_label_select">seliger</string>
-  <!-- Onboarding header for the theme selection card, used by Nimbus experiments. -->
-  <string name="onboarding_customize_theme_title" tools:ignore="UnusedResources">Selige un thema</string>
-  <!-- Onboarding sub header for theme selection card, used by Nimbus experiments. -->
-  <string name="onboarding_customize_theme_description" tools:ignore="UnusedResources">Vide le web in le luce melior.</string>
-  <!-- Onboarding label for 'Save and start browsing' button, used by Nimbus experiments. -->
-  <string name="onboarding_save_and_start_button">Salvar e initiar a navigar</string>
-  <!-- Onboarding theme selection card label for 'dark' option, used by Nimbus experiments. -->
-  <string name="onboarding_customize_theme_dark_option">Obscur</string>
-  <!-- Onboarding theme selection card label for 'light' option, used by Nimbus experiments. -->
-  <string name="onboarding_customize_theme_light_option">Clar</string>
-  <!-- Onboarding theme selection card label for 'System auto' option, used by Nimbus experiments. -->
-  <string name="onboarding_customize_theme_system_option">Automatic (systema)</string>
-  <!-- Onboarding theme selection card content description for the main image. -->
-  <string name="onboarding_customize_theme_main_image_content_description">Grande imagine del titulo de selection del thema monstrante utensiles de artista e constructor illustrate.</string>
-  <!-- Onboarding theme selection card content description for the theme selection image. %1$s is placeholder for either 'system', 'light' or 'dark'. -->
-  <string name="onboarding_customize_theme_content_description">Imagine del thema de %1$s</string>
-  <!-- Action label for options that can be selected. Talkback will append this to say "Double tap to select". -->
-  <string name="onboarding_customize_theme_a11y_action_label_select">seliger</string>
   <!--
     Widget Picker
 
@@ -948,7 +845,7 @@
   <!-- Preference for accessibility -->
   <string name="preferences_accessibility">Accessibilitate</string>
   <!-- Preference to override the Mozilla account server -->
-  <string name="preferences_override_account_server">Servitores de conto Mozilla personalisate</string>
+  <string name="preferences_override_account_server" tools:ignore="BrandUsage">Servitores de conto Mozilla personalisate</string>
   <!-- Preference to override the Sync token server -->
   <string name="preferences_override_sync_tokenserver">Servitor del Sync personalisate</string>
   <!-- Preference category for account information -->
@@ -976,7 +873,7 @@
   <!-- Preference description shown in the banner prompting the user to sign in for sync features -->
   <string name="preferences_sign_in_description">Synchronisa schedas, marcapaginas, contrasignos e plus.</string>
   <!-- Preference shown instead of account display name while account profile information isn't available yet. -->
-  <string name="preferences_account_default_name_2">Conto Mozilla</string>
+  <string name="preferences_account_default_name_2" tools:ignore="BrandUsage">Conto Mozilla</string>
   <!-- Preference text for account title when there was an error syncing FxA -->
   <string name="preferences_account_sync_error">Reconnecte te pro resumer le synchronisation</string>
   <!-- Preference for language -->
@@ -1024,7 +921,7 @@
   <!-- Summary for preference to show Firefox Suggest search suggestions for web content -->
   <string name="preferences_show_nonsponsored_suggestions_summary">Recipe suggestiones del web relative a tu recerca</string>
   <!-- Preference title for switch preference to show search optimization cards -->
-  <string name="preferences_show_search_optimization_cards">Obtene suggestiones ab Mozilla durante que tu digita</string>
+  <string name="preferences_show_search_optimization_cards" tools:ignore="BrandUsage">Obtene suggestiones ab Mozilla durante que tu digita</string>
   <!-- Preference for link sharing -->
   <string name="preferences_link_sharing">Compartimentos de ligamine</string>
   <!-- Title for the link sharing toggle. %1$s is replaced by the brand name (e.g. Firefox). -->
@@ -1354,7 +1251,7 @@
   <string name="preferences_usage_data_description_1" tools:ignore="BrandUsage">Datos re tu apparato, configuration hardware, e uso adjuta nos meliorar functiones, prestation e stabilitate.</string>
   <!-- Preference switch for daily usage ping data collection -->
   <string name="preferences_daily_usage_ping_title">Ping de uso quotidian</string>
-  <string name="preferences_daily_usage_ping_description">Isto adjuta Mozilla a estimar le usatores active.</string>
+  <string name="preferences_daily_usage_ping_description" tools:ignore="BrandUsage">Isto adjuta Mozilla a estimar le usatores active.</string>
   <string name="preferences_daily_usage_ping_learn_more">Saper plus re le uso del ping quotidian</string>
   <!-- Title for the crash reporting option in the privacy preferences dialog shown during onboarding. -->
   <string name="crash_reporting_snack_bar_message">Reporto inviate</string>
@@ -1380,7 +1277,7 @@
   <!-- Title for studies preferences -->
   <string name="preference_experiments_2">Studios</string>
   <!-- Summary for studies preferences -->
-  <string name="preference_experiments_summary_2">Consenti Mozilla installar e exequer studios</string>
+  <string name="preference_experiments_summary_2" tools:ignore="BrandUsage">Consenti Mozilla installar e exequer studios</string>
   <!--
     Turn On Sync Preferences
 
@@ -2070,6 +1967,8 @@
   <string name="webcompat_reporter_label_whats_broken_3">Que non functiona?</string>
   <!-- Content description for the icon button that clears the selected broken site reason in the WebCompat Reporter. -->
   <string name="webcompat_reporter_clear_reason_content_description">Cancellar le ration seligite</string>
+  <!-- The error message of the description when the user selects "Something else" as the reason, but left the description empty or too short. -->
+  <string name="webcompat_reporter_description_error">Insere al minus 10 characteres</string>
   <!-- The label/title of a field in the Web Compat Reporter feature for explaining a high-level reason why the site is broken. -->
   <string name="webcompat_reporter_label_whats_broken_2">Que es corrupte?</string>
   <!-- The placeholder text for the dropdown where a user selects a high-level reason why the site is broken. -->
@@ -2143,7 +2042,7 @@
   -->
   <string name="tab_crash_title_2">Desolate. %1$s non pote cargar iste pagina.</string>
   <!-- Send crash report checkbox text on the tab crash page -->
-  <string name="tab_crash_send_report">Inviar reporto de crash a Mozilla</string>
+  <string name="tab_crash_send_report" tools:ignore="BrandUsage">Inviar reporto de crash a Mozilla</string>
   <!-- Close tab button text on the tab crash page -->
   <string name="tab_crash_close">Clauder le scheda</string>
   <!-- Restore tab button text on the tab crash page -->
@@ -2552,6 +2451,8 @@
   <string name="preferences_take_survey">Participar al questionario</string>
   <!-- Preference for not taking the short survey. -->
   <string name="preferences_not_take_survey">No, gratias</string>
+  <!-- Error message shown in a Toast when the system fails to trigger the device uninstallation prompt. -->
+  <string name="uninstall_survey_error_failed">Impossibile aperir le requesta de disinstallation, usa directemente le action pro disinstallar del systema operative.</string>
   <!--
     Snackbar
 
@@ -4171,6 +4072,8 @@
   <string name="microsurvey_sync_title" tools:ignore="BrandUsage,UnusedResources">Quanto es tu satisfacite con le experientia de sync in Firefox?</string>
   <!-- Text shown in the survey title for 'describe your experience so far' microsurvey. Note: The word "Firefox" should NOT be translated. -->
   <string name="microsurvey_describe_your_experience_title" tools:ignore="BrandUsage,UnusedResources">Adjuta nos a meliorar Firefox. Que describe melio tu experientia adhuc?</string>
+  <!-- Uninstall Survey -->
+  <string name="uninstall_survey_button_label">Inviar commentarios e disinstallar</string>
   <!--
     Accessibility
 
@@ -4808,6 +4711,8 @@
   <string name="firefox_labs_feature_enable_dialog_message">Pro activar iste function, reinitialisar %s.</string>
   <!-- The description text that is displayed in the confirmation dialog on the Firefox Labs screen for toggling "off" experimental features. %s is the name of the app (for example "Firefox Nightly") -->
   <string name="firefox_labs_feature_disable_dialog_message">Pro disactivar iste function, reinitialisar %s.</string>
+  <!-- Helper text shown beneath a Firefox Labs item when it is blocked from being turned on. -->
+  <string name="firefox_labs_feature_conflict">Le function non es disponibile pro essayar.</string>
   <!-- Text displayed on the Firefox Labs screen when there are no Labs experimental features present. -->
   <string name="firefox_labs_no_labs_available_description">Necun functionalitate experimental a essayar ancora</string>
 </resources>

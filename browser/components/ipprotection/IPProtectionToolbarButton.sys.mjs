@@ -11,6 +11,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
   IPPExceptionsManager:
     "moz-src:///toolkit/components/ipprotection/IPPExceptionsManager.sys.mjs",
+  IPPPrincipalRules:
+    "moz-src:///toolkit/components/ipprotection/IPPExceptionsManager.sys.mjs",
   IPPProxyManager:
     "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
   IPProtectionService:
@@ -245,10 +247,14 @@ export class IPProtectionToolbarButton {
       return;
     }
 
-    // Check the ipp-vpn permission using IPPExceptionsManager.
     let principal = this.gBrowser?.contentPrincipal;
-    let isExcluded = this.#isExcludedSite(principal);
-    let isIncluded = this.#isIncludedSite(principal);
+    // Only surface an exclusion for pages the user can manage (normal content
+    // pages), matching the panel: about:/system pages are never shown excluded.
+    let isExcluded =
+      !!principal &&
+      lazy.IPPExceptionsManager.canManage(principal) &&
+      lazy.IPPExceptionsManager.getPrincipalRule(principal) ===
+        lazy.IPPPrincipalRules.EXCLUDED;
 
     let isActive = lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVE;
     let isPaused = lazy.IPPProxyManager.state === lazy.IPPProxyStates.PAUSED;
@@ -284,7 +290,6 @@ export class IPProtectionToolbarButton {
       isError,
       isNetworkError,
       isExcluded,
-      isIncluded,
       isPaused,
     });
 
@@ -390,7 +395,6 @@ export class IPProtectionToolbarButton {
       isActive: false,
       isError: false,
       isExcluded: false,
-      isIncluded: false,
       isPaused: false,
       isNetworkError: false,
     }
@@ -403,9 +407,11 @@ export class IPProtectionToolbarButton {
     let isNetworkError = status.isNetworkError;
     let isError = status.isError && !isNetworkError;
     let isExcluded = status.isExcluded && this.isExceptionsFeatureEnabled;
-    let isIncluded = status.isIncluded;
     let isPaused = status.isPaused;
-    let l10nId = "enterprise-access-connector-button2";
+    let l10nId =
+      isError || isNetworkError
+        ? "ipprotection-button-error"
+        : "ipprotection-button";
 
     toolbaritem.classList.remove(
       "ipprotection-on",
@@ -421,48 +427,13 @@ export class IPProtectionToolbarButton {
       toolbaritem.classList.add("ipprotection-error");
     } else if (isPaused) {
       toolbaritem.classList.add("ipprotection-paused");
-    } else if ((isExcluded || !isIncluded) && isActive) {
+    } else if (isExcluded && isActive) {
       toolbaritem.classList.add("ipprotection-excluded");
-    } else if (isActive && isIncluded) {
+    } else if (isActive) {
       toolbaritem.classList.add("ipprotection-on");
     }
 
     toolbaritem.setAttribute("data-l10n-id", l10nId);
-  }
-
-  /**
-   * Checks if the given principal is excluded from IP Protection.
-   *
-   * @param {nsIPrincipal} principal
-   *  The principal to check.
-   * @returns {boolean}
-   *  True if the site is excluded, false otherwise.
-   */
-  #isExcludedSite(principal) {
-    if (!principal || principal.isNullPrincipal) {
-      return false;
-    }
-
-    return lazy.IPPExceptionsManager.hasExclusion(principal);
-  }
-
-  /**
-   * Checks if the given principal is included in IP Protection.
-   *
-   * @param {nsIPrincipal} principal
-   *  The principal to check.
-   * @returns {boolean}
-   *  True if the site is included, false otherwise.
-   */
-  #isIncludedSite(principal) {
-    if (!principal || principal.isNullPrincipal) {
-      return false;
-    }
-    return (
-      lazy.IPPProxyManager.channelFilter()?.shouldInclude({
-        URI: principal.URI,
-      }) ?? false
-    );
   }
 
   /**

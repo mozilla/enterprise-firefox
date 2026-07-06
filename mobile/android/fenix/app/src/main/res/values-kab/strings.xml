@@ -66,7 +66,7 @@
   <!-- Text for the menu button to remove a recently saved bookmark from the user's home screen -->
   <string name="home_bookmarks_menu_item_remove">Kkes</string>
   <!-- About content. %1$s is the name of the app (for example "Firefox"). -->
-  <string name="about_content">%1$s d afares n Mozilla.</string>
+  <string name="about_content" tools:ignore="BrandUsage">%1$s d afares n Mozilla.</string>
   <!-- Private Browsing -->
   <string name="private_browsing_common_myths">Tiktiwin tigejdanin yuzzlen ur nṣeḥḥi ara</string>
   <!-- Text to be announced by the accessibility service to inform the user that the private browsing mode is currently active. -->
@@ -143,6 +143,8 @@
   <string name="home_screen_shortcut_open_new_private_tab_2">Iccer uslig amaynut</string>
   <!-- Shortcut action to open Passwords screen -->
   <string name="home_screen_shortcut_passwords">Awalen uffiren</string>
+  <!-- Shortcut action to open uninstall survey -->
+  <string name="home_screen_shortcut_uninstall_survey">Kkes asbeddi, ayɣeṛ?</string>
   <!--
     Recent Tabs
 
@@ -380,62 +382,6 @@
     Content description (not visible, for screen readers etc.): Close button for the home onboarding dialog
   -->
   <string name="onboarding_home_content_description_close_button">Mdel</string>
-  <!--
-    Juno first user onboarding flow experiment, strings are marked unused as they are only referenced by Nimbus experiments.
-
-    Description for learning more about our privacy notice.
-  -->
-  <string name="juno_onboarding_privacy_notice_text" tools:ignore="BrandUsage">Tasertit tabaḍnit n Firefox</string>
-  <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_title_nimbus_2">Nḥemmel ad teqqimeḍ d aɣellsan</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_3">Iminig-nneɣ tettallit yiwet n tkebbanit ur nettnadi ɣef tedrimt, tessewḥal tikebbaniyin ara ak-iḍefren deg web.</string>
-  <!-- Text for the button to set firefox as default browser on the device -->
-  <string name="juno_onboarding_default_browser_positive_button" tools:ignore="UnusedResources">Sbadu-t d iminig amezwer</string>
-  <!-- Text for the button dismiss the screen and move on with the flow -->
-  <string name="juno_onboarding_default_browser_negative_button" tools:ignore="UnusedResources">Mačči tura</string>
-  <!-- Title for sign in to sync screen. -->
-  <string name="juno_onboarding_sign_in_title_2">Mmesten iman-ik s ttawil n uwgelhen mi ara tɛeddiḍ seg yibenk ɣer wayeḍ</string>
-  <!--
-    Description for sign in to sync screen. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_sign_in_description_3" tools:ignore="BrandUsage">Firefox ittewgelhin awalen uffiren, ticraḍ n yisebtar, d wugar mi ara tremdeḍ amtawi.</string>
-  <!-- Text for the button to sign in to sync on the device -->
-  <string name="juno_onboarding_sign_in_positive_button" tools:ignore="UnusedResources">Kcem</string>
-  <!-- Text for the button dismiss the screen and move on with the flow -->
-  <string name="juno_onboarding_sign_in_negative_button" tools:ignore="UnusedResources">Mačči tura</string>
-  <!--
-    Title for enable notification permission screen used by Nimbus experiments. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_enable_notifications_title_nimbus_2" tools:ignore="BrandUsage">Ilɣa ad ak-ɛawnen ad teqqimeḍ d aɣellsan s Firefox</string>
-  <!--
-    Description for enable notification permission screen used by Nimbus experiments. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_enable_notifications_description_nimbus_2" tools:ignore="BrandUsage">Azen s wudem aɣellsan accaren seg yibenk ɣer wayeḍ, tesnirmeḍ timahilin timaynutin n ummesten n tudert tabaḍnit deg Firefox.</string>
-  <!-- Text for the button to request notification permission on the device -->
-  <string name="juno_onboarding_enable_notifications_positive_button" tools:ignore="UnusedResources">Rmed ilɣa</string>
-  <!-- Text for the button dismiss the screen and move on with the flow -->
-  <string name="juno_onboarding_enable_notifications_negative_button" tools:ignore="UnusedResources">Mačči tura</string>
-  <!--
-    Title for add search widget screen used by Nimbus experiments. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_add_search_widget_title" tools:ignore="BrandUsage,UnusedResources">Ɛreḍ iwiǧit n unadi n Firefox</string>
-  <!--
-    Description for add search widget screen used by Nimbus experiments. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_add_search_widget_description" tools:ignore="BrandUsage,UnusedResources">Er Firefox ɣef ugdil agejdan i unekcum uzrib ɣer yiminig yebnan ɣef uqader n tudert tabaḍnit, iyessewḥalen ineḍfaren ger yismal.</string>
-  <!--
-    Text for the button to add search widget on the device used by Nimbus experiments. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_add_search_widget_positive_button" tools:ignore="BrandUsage,UnusedResources">Rnu awiǧit n Firefox</string>
-  <!-- Text for the button to dismiss the screen and move on with the flow -->
-  <string name="juno_onboarding_add_search_widget_negative_button" tools:ignore="UnusedResources">Mačči tura</string>
   <!-- Title for the privacy preferences dialog shown during onboarding. Note: The word "Firefox" should NOT be translated. -->
   <string name="onboarding_preferences_dialog_title" tools:ignore="BrandUsage">All-aneɣ ad nerr Firefox igerrez ugar</string>
   <!-- Title for the crash reporting option in the privacy preferences dialog shown during onboarding. -->
@@ -453,17 +399,13 @@
   <!-- Button text to reopen firefox after the crash is processed %s is the name of the app (for example "Firefox") -->
   <string name="startup_crash_restart">Ales alday n %s</string>
   <!-- Title for the usage data option in the privacy preferences dialog shown during onboarding. Note: The word "Mozilla" should NOT be translated. -->
-  <string name="onboarding_preferences_dialog_usage_data_title">Azen isefka itiknikanen d yimyigawen ɣer Mozilla</string>
+  <string name="onboarding_preferences_dialog_usage_data_title" tools:ignore="BrandUsage">Azen isefka itiknikanen d yimyigawen ɣer Mozilla</string>
   <string name="onboarding_preferences_dialog_usage_data_description_2" tools:ignore="BrandUsage">Isefka yerzan ibenk-ik, tawila n warrum akked wamek i tesseqdaceḍ Firefox yettal-aneɣ ad nesnerni timahilin, tamlellit akked urkad i yal yiwen.</string>
   <string name="onboarding_preferences_dialog_usage_data_learn_more_2">Issin ugar</string>
   <!-- Positive button label for the privacy preferences dialog shown during onboarding. -->
   <string name="onboarding_preferences_dialog_positive_button">Immed</string>
   <!-- Terms of service onboarding title card label. 'Firefox' intentionally hardcoded here -->
   <string name="onboarding_welcome_to_firefox" tools:ignore="BrandUsage">Anṣuf ar Firefox</string>
-  <!-- Terms of service sub header label. -->
-  <string name="onboarding_terms_of_service_sub_header_2">Tinigin taruradt, taɣellsant deg uẓeṭṭa</string>
-  <!-- Terms of service onboarding page continue button label. -->
-  <string name="onboarding_term_of_service_agree_and_continue_button_label_2">Kemmel</string>
   <!-- Line one of the terms of service onboarding page. %1$s is replaced by an active link, using onboarding_term_of_service_line_one_link_text_2 as text (“Firefox Terms of Use”). -->
   <string name="onboarding_term_of_service_line_one_2">S ukemmel, ad tqebleḍ %1$s.</string>
   <!-- Used as text for the link in onboarding_term_of_service_line_one_2. -->
@@ -513,16 +455,6 @@
   <string name="onboarding_redesign_sync_positive_button" tools:ignore="UnusedResources">Bdu amtawi</string>
   <!-- Sync onboarding redesign negative button text. -->
   <string name="onboarding_redesign_sync_negative_button" tools:ignore="UnusedResources">Mačči tura</string>
-  <!-- Marketing onboarding page title. 'Firefox' is intentionally hardcoded. -->
-  <string name="onboarding_marketing_title" tools:ignore="BrandUsage,UnusedResources">Mudd afus i usnerni n Firefox</string>
-  <!-- Marketing onboarding page body. 'Firefox' is intentionally hardcoded. -->
-  <string name="onboarding_marketing_body" tools:ignore="BrandUsage,UnusedResources">Mi ara tebḍuḍ amek i d-tessneḍ Firefox d wamek i t-tesseqdaceḍ, ad aɣ-tɛawneḍ ad nessiweḍ iminig-nneɣ i wugar n yimdanen.</string>
-  <!-- Marketing onboarding page opt-out checkbox. Unchecking the box does not increase data collection. Our data practices remain the same. 'Mozilla' is intentionally hardcoded. -->
-  <string name="onboarding_marketing_opt_out_checkbox">Bḍu isefka akked yisefkaicriken n tetiknulujit n Mozilla. Isefka-a werǧin ttnuzun neɣ ttusqdacen i uskan n udellel.</string>
-  <!-- Marketing onboarding page clickable link text to "learn more" on how data is used. -->
-  <string name="onboarding_marketing_learn_more" tools:ignore="UnusedResources">Amek i nesseqdac isefka</string>
-  <!-- Marketing onboarding page button label. Button to confirm choice and start browsing. -->
-  <string name="onboarding_marketing_positive_button" tools:ignore="UnusedResources">Sentem syen bdu tunigin</string>
   <!-- Marketing onboarding page title variant. “One last thing” refers to the final step or action in the onboarding process that we’re asking users to take before they can start using the browser. -->
   <string name="onboarding_marketing_title_1" tools:ignore="UnusedResources">Taɣawsa taneggarut</string>
   <!-- Marketing onboarding page body variant. 'Firefox' is intentionally hardcoded. -->
@@ -533,41 +465,6 @@
 
   <!-- ==== End of Project "Nova" onboarding strings ==== -->
 
-  <!-- Onboarding header for the toolbar selection card, used by Nimbus experiments. -->
-  <string name="onboarding_customize_toolbar_title" tools:ignore="UnusedResources">Fren adeg deg ufeggag n yifecka</string>
-  <!-- Onboarding sub header for toolbar selection card, used by Nimbus experiments. -->
-  <string name="onboarding_customize_toolbar_description" tools:ignore="UnusedResources">Eǧǧ inadiyen-ik ɣef wafus.</string>
-  <!-- Onboarding label for 'Save and continue' button, used by Nimbus experiments. -->
-  <string name="onboarding_save_and_continue_button">Sekles syen kemmel</string>
-  <!-- Onboarding toolbar selection card label for 'top' option, used by Nimbus experiments. -->
-  <string name="onboarding_customize_toolbar_top_option">Afella</string>
-  <!-- Onboarding toolbar selection card label for 'bottom' option, used by Nimbus experiments. -->
-  <string name="onboarding_customize_toolbar_bottom_option">Adday</string>
-  <!-- Onboarding toolbar selection card content description for the main image. -->
-  <string name="onboarding_customize_toolbar_main_image_content_description">Tugna tameqqrant n uqerru n teskan n tefrant n ufeggag n yifecka i d-yeskanen amedya n ufeggag n yifecka .</string>
-  <!-- Onboarding toolbar selection card content description for the toolbar placement image. -->
-  <string name="onboarding_customize_toolbar_placement_bottom_content_description">Tugna n ufeggag n yifecka adday</string>
-  <string name="onboarding_customize_toolbar_placement_top_content_description">Tugna n ufeggag n yifecka afelay</string>
-  <!-- Action label for toolbar options that can be selected. Talkback will append this to say "Double tap to select". -->
-  <string name="onboarding_customize_toolbar_a11y_action_label_select">fren</string>
-  <!-- Onboarding header for the theme selection card, used by Nimbus experiments. -->
-  <string name="onboarding_customize_theme_title" tools:ignore="UnusedResources">Fren asentel</string>
-  <!-- Onboarding sub header for theme selection card, used by Nimbus experiments. -->
-  <string name="onboarding_customize_theme_description" tools:ignore="UnusedResources">Wali web s tafat taceεlalt i tebɣiḍ.</string>
-  <!-- Onboarding label for 'Save and start browsing' button, used by Nimbus experiments. -->
-  <string name="onboarding_save_and_start_button">Sekles syen bdu tunigin</string>
-  <!-- Onboarding theme selection card label for 'dark' option, used by Nimbus experiments. -->
-  <string name="onboarding_customize_theme_dark_option">Aberkan</string>
-  <!-- Onboarding theme selection card label for 'light' option, used by Nimbus experiments. -->
-  <string name="onboarding_customize_theme_light_option">Aceɛlal</string>
-  <!-- Onboarding theme selection card label for 'System auto' option, used by Nimbus experiments. -->
-  <string name="onboarding_customize_theme_system_option">Anagraw awurman</string>
-  <!-- Onboarding theme selection card content description for the main image. -->
-  <string name="onboarding_customize_theme_main_image_content_description">Tugna meqqren n tmuɣli n ufran n usentel i d-yeskanen anaẓur d yifecka n lebni.</string>
-  <!-- Onboarding theme selection card content description for the theme selection image. %1$s is placeholder for either 'system', 'light' or 'dark'. -->
-  <string name="onboarding_customize_theme_content_description">Tugna n usentel %1$s</string>
-  <!-- Action label for options that can be selected. Talkback will append this to say "Double tap to select". -->
-  <string name="onboarding_customize_theme_a11y_action_label_select">fren</string>
   <!--
     Widget Picker
 
@@ -702,7 +599,7 @@
   <!-- Preference for accessibility -->
   <string name="preferences_accessibility">Tuffart</string>
   <!-- Preference to override the Mozilla account server -->
-  <string name="preferences_override_account_server">Sagen aqeddac n umiḍan Mozilla</string>
+  <string name="preferences_override_account_server" tools:ignore="BrandUsage">Sagen aqeddac n umiḍan Mozilla</string>
   <!-- Preference to override the Sync token server -->
   <string name="preferences_override_sync_tokenserver">Sagen aeddac n umtawi</string>
   <!-- Preference category for account information -->
@@ -726,7 +623,7 @@
   <!-- Preference description shown in the banner prompting the user to sign in for sync features -->
   <string name="preferences_sign_in_description">Mtawi iccaren, ticraḍ, awalen n uɛeddi d wayen niḍen.</string>
   <!-- Preference shown instead of account display name while account profile information isn't available yet. -->
-  <string name="preferences_account_default_name_2">Amiḍan n Mozilla</string>
+  <string name="preferences_account_default_name_2" tools:ignore="BrandUsage">Amiḍan n Mozilla</string>
   <!-- Preference text for account title when there was an error syncing FxA -->
   <string name="preferences_account_sync_error">Ales tuqqna akken ad ikemmel umtawi</string>
   <!-- Preference for language -->
@@ -1060,7 +957,7 @@
   <string name="preferences_usage_data_description_1" tools:ignore="BrandUsage">Isefka yerzan ibenk-ik, tawila n warrum akked useqdec-ik, ttεawanen-aɣ ad nesnerni timahilin, tamlellit akked urkad n Firefox.</string>
   <!-- Preference switch for daily usage ping data collection -->
   <string name="preferences_daily_usage_ping_title">Ping n useqdec n yal ass</string>
-  <string name="preferences_daily_usage_ping_description">Aya yettallel Mozilla ad tessekyed amḍan n yiseqdacen urmiden.</string>
+  <string name="preferences_daily_usage_ping_description" tools:ignore="BrandUsage">Aya yettallel Mozilla ad tessekyed amḍan n yiseqdacen urmiden.</string>
   <string name="preferences_daily_usage_ping_learn_more">Issin ugar ɣef ping n useqdec n yal ass</string>
   <!-- Title for the crash reporting option in the privacy preferences dialog shown during onboarding. -->
   <string name="crash_reporting_snack_bar_message">Aneqqis yettwazen</string>
@@ -1081,7 +978,7 @@
   <!-- Title for studies preferences -->
   <string name="preference_experiments_2">Studies</string>
   <!-- Summary for studies preferences -->
-  <string name="preference_experiments_summary_2">Sireg Mozilla ad tesbedded sakin ad tseddu studies</string>
+  <string name="preference_experiments_summary_2" tools:ignore="BrandUsage">Sireg Mozilla ad tesbedded sakin ad tseddu studies</string>
   <!--
     Turn On Sync Preferences
 
@@ -1570,7 +1467,7 @@
   -->
   <string name="tab_crash_title_2">Suref-aɣ. %1$s ur izmir ara ad isali asebter-nni.</string>
   <!-- Send crash report checkbox text on the tab crash page -->
-  <string name="tab_crash_send_report">Azen aneqqis n uɣelluy i Mozilla</string>
+  <string name="tab_crash_send_report" tools:ignore="BrandUsage">Azen aneqqis n uɣelluy i Mozilla</string>
   <!-- Close tab button text on the tab crash page -->
   <string name="tab_crash_close">Mdel iccer</string>
   <!-- Restore tab button text on the tab crash page -->

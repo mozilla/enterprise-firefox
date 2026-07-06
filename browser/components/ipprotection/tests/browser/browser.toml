@@ -83,6 +83,9 @@ skip-if = [
 ]
 
 ["browser_ipprotection_locations_list.js"]
+skip-if = [
+  "enterprise", # Enterprise does not initialize the IP Protection panel, so getPanel() returns null.
+]
 
 ["browser_ipprotection_message_bar.js"]
 skip-if = [
@@ -95,6 +98,9 @@ skip-if = [
 ]
 
 ["browser_ipprotection_optout.js"]
+skip-if = [
+  "enterprise", # Enterprise does not initialize the IP Protection toolbar button or widget.
+]
 
 ["browser_ipprotection_panel.js"]
 skip-if = [

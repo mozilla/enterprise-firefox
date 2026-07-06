@@ -2,26 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-
-buildscript {
-    repositories {
-        gradle.configureMavenRepositories(delegate)
-    }
-    dependencies {
-        classpath libs.kotlin.serialization
-    }
-}
-
 plugins {
-    alias(libs.plugins.dependency.analysis)
-    alias(libs.plugins.python.envs.plugin)
+    id 'com.android.library'
     id 'org.mozilla.nimbus-gradle-plugin'
+    alias(libs.plugins.dependency.analysis)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.python.envs.plugin)
 }
-
-apply plugin: 'com.android.library'
-apply plugin: 'kotlin-android'
-apply plugin: 'kotlinx-serialization'
 
 android {
     namespace = 'mozilla.components.feature.fxsuggest'

@@ -107,6 +107,10 @@ class InsecureLoginFormAutocompleteItem extends AutocompleteItem {
       "insecureFieldWarningDescription2",
       getLocalizedString("insecureFieldWarningLearnMore")
     );
+    this.comment = JSON.stringify({
+      fillMessageName: "PasswordManager:OpenInsecureFieldWarningLearnMore",
+      icon: "chrome://global/skin/icons/security-broken.svg",
+    });
   }
 }
 
@@ -152,6 +156,11 @@ class LoginAutocompleteItem extends AutocompleteItem {
         isOriginMatched && login.httpRealm === null
           ? getLocalizedString("displaySameOrigin")
           : login.displayOrigin,
+      secondaryAction: {
+        type: "edit",
+        fillMessageName: "PasswordManager:OpenPreferences",
+        fillMessageData: { loginGuid: login.guid, entryPoint: "Autocomplete" },
+      },
     });
     this.image = `page-icon:${login.origin}`;
   }
@@ -178,8 +187,28 @@ class GeneratedPasswordAutocompleteItem extends AutocompleteItem {
       fillMessageName: "PasswordManager:FillGeneratedPassword",
       generatedPassword,
       willAutoSaveGeneratedPassword,
+      primary: this.label,
+      secondary: this._autoSaveString(),
     });
+    // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
     this.image = "chrome://browser/skin/login.svg";
+  }
+
+  _autoSaveString() {
+    let brandShorterName;
+    try {
+      brandShorterName = Services.strings
+        .createBundle("chrome://branding/locale/brand.properties")
+        .GetStringFromName("brandShorterName");
+    } catch (e) {
+      // The branding package isn't always registered (e.g. in xpcshell tests),
+      // in which case we can't build the localized string.
+      return "";
+    }
+
+    return Services.strings
+      .createBundle("chrome://passwordmgr/locale/passwordmgr.properties")
+      .formatStringFromName("generatedPasswordWillBeSaved", [brandShorterName]);
   }
 }
 
@@ -188,6 +217,9 @@ class ImportableLearnMoreAutocompleteItem extends AutocompleteItem {
     super("importableLearnMore");
     this.comment = JSON.stringify({
       fillMessageName: "PasswordManager:OpenImportableLearnMore",
+      l10n: {
+        id: "autocomplete-import-learn-more",
+      },
     });
   }
 }
@@ -204,6 +236,12 @@ class ImportableLoginsAutocompleteItem extends AutocompleteItem {
       fillMessageData: {
         browserId,
       },
+      l10n: {
+        id: `autocomplete-import-logins-${browserId}`,
+        args: { host: hostname.replace(/^www\./, "") },
+      },
+      // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
+      icon: "chrome://browser/skin/import.svg",
     });
     this.#actor = actor;
 

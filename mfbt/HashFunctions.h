@@ -48,6 +48,7 @@
 #include "mozilla/Attributes.h"
 #include "mozilla/EndianUtils.h"
 #include "mozilla/MathAlgorithms.h"
+#include "mozilla/Types.h"
 #include "mozilla/WrappingOperations.h"
 
 #include <cstdint>
@@ -167,7 +168,7 @@ inline HashNumber AddUintNToHash<8>(HashNumber aHash, uint64_t aValue) {
   return AddU32ToHash(AddU32ToHash(aHash, v1), v2);
 }
 
-} /* namespace detail */
+}  // namespace detail
 
 /**
  * AddToHash takes a hash and some values and returns a new hash based on the
@@ -176,44 +177,30 @@ inline HashNumber AddUintNToHash<8>(HashNumber aHash, uint64_t aValue) {
  * Currently, we support hashing uint32_t's, values which we can implicitly
  * convert to uint32_t, data pointers, and function pointers.
  */
-template <typename T, bool TypeIsNotIntegral = !std::is_integral_v<T>,
-          bool TypeIsNotEnum = !std::is_enum_v<T>,
-          std::enable_if_t<TypeIsNotIntegral && TypeIsNotEnum, int> = 0>
-[[nodiscard]] inline HashNumber AddToHash(HashNumber aHash, T aA) {
-  /*
-   * Try to convert |A| to uint32_t implicitly.  If this works, great.  If not,
-   * we'll error out.
-   */
-  return detail::AddU32ToHash(aHash, aA);
-}
-
-template <typename A>
-[[nodiscard]] inline HashNumber AddToHash(HashNumber aHash, A* aA) {
-  /*
-   * You might think this function should just take a void*.  But then we'd only
-   * catch data pointers and couldn't handle function pointers.
-   */
-
-  static_assert(sizeof(aA) == sizeof(uintptr_t), "Strange pointer!");
-
-  return detail::AddUintNToHash<sizeof(uintptr_t)>(aHash, uintptr_t(aA));
-}
-
-// We use AddUintNToHash() for hashing all integral types.  8-byte integral
-// types are treated the same as 64-bit pointers, and smaller integral types are
-// first implicitly converted to 32 bits and then passed to AddUintNToHash()
-// to be hashed.
-template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
+template <typename T>
 [[nodiscard]] constexpr HashNumber AddToHash(HashNumber aHash, T aA) {
-  return detail::AddUintNToHash<sizeof(T)>(aHash, aA);
-}
+  if constexpr (std::is_integral_v<T>) {
+    // We use AddUintNToHash() for hashing all integral types.  8-byte integral
+    // types are treated the same as 64-bit pointers, and smaller integral types
+    // are first implicitly converted to 32 bits and then passed to
+    // AddUintNToHash() to be hashed.
+    return detail::AddUintNToHash<sizeof(T)>(aHash, aA);
+  } else if constexpr (std::is_enum_v<T>) {
+    // Hash using AddUintNToHash with the underlying type of the enum type
+    using UnderlyingType = typename std::underlying_type<T>::type;
+    return detail::AddUintNToHash<sizeof(UnderlyingType)>(
+        aHash, static_cast<UnderlyingType>(aA));
+  } else if constexpr (std::is_pointer_v<T>) {
+    static_assert(sizeof(aA) == sizeof(uintptr_t), "Strange pointer!");
 
-template <typename T, std::enable_if_t<std::is_enum_v<T>, int> = 0>
-[[nodiscard]] constexpr HashNumber AddToHash(HashNumber aHash, T aA) {
-  // Hash using AddUintNToHash with the underlying type of the enum type
-  using UnderlyingType = typename std::underlying_type<T>::type;
-  return detail::AddUintNToHash<sizeof(UnderlyingType)>(
-      aHash, static_cast<UnderlyingType>(aA));
+    return detail::AddUintNToHash<sizeof(uintptr_t)>(aHash, uintptr_t(aA));
+  } else {
+    /*
+     * Try to convert |A| to uint32_t implicitly.  If this works, great.  If
+     * not, we'll error out.
+     */
+    return detail::AddU32ToHash(aHash, aA);
+  }
 }
 
 template <typename A, typename... Args>
@@ -288,20 +275,78 @@ template <size_t N>
   return HashBytes(aStr, aLength);
 }
 
+namespace detail {
+
+/**
+ * Helper to hash a stream of char16_t code units two-at-a-time (i.e. four bytes
+ * at a time), so that the result matches HashBytes() run over the units' native
+ * byte representation. This is used to keep HashString(const char16_t*),
+ * HashLatin1AsUTF16() and HashUTF8AsUTF16() producing identical hashes for
+ * equivalent strings while hashing 32 bits at a time.
+ */
+class UTF16Hasher {
+  HashNumber mHash;
+  char16_t mPending = 0;
+  bool mHasPending = false;
+
+ public:
+  constexpr explicit UTF16Hasher(HashNumber aStartingHash = 0)
+      : mHash(aStartingHash) {}
+
+  constexpr void Add(char16_t aUnit) {
+    if (!mHasPending) {
+      mPending = aUnit;
+      mHasPending = true;
+      return;
+    }
+    uint32_t data;
+    if constexpr (std::endian::native == std::endian::big) {
+      data = (uint32_t(mPending) << 16) | uint32_t(aUnit);
+    } else {
+      data = uint32_t(mPending) | (uint32_t(aUnit) << 16);
+    }
+    mHash = AddToHash(mHash, data);
+    mHasPending = false;
+  }
+
+  constexpr HashNumber Finish() const {
+    if (!mHasPending) {
+      return mHash;
+    }
+    // Match HashBytes()'s handling of the trailing bytes that don't fill a
+    // whole uint32_t: hash them one byte at a time, in native byte order.
+    if constexpr (std::endian::native == std::endian::big) {
+      return AddToHash(AddToHash(mHash, uint8_t(mPending >> 8)),
+                       uint8_t(mPending & 0xff));
+    }
+    return AddToHash(AddToHash(mHash, uint8_t(mPending & 0xff)),
+                     uint8_t(mPending >> 8));
+  }
+};
+
+}  // namespace detail
+
 [[nodiscard]] constexpr HashNumber HashString(const char16_t* aStr,
                                               size_t aLength) {
-  HashNumber hash = 0;
-  for (size_t i = 0; i < aLength; i++) {
-    hash = AddToHash(hash, aStr[i]);
+  if (std::is_constant_evaluated()) {
+    detail::UTF16Hasher hasher;
+    for (size_t i = 0; i < aLength; i++) {
+      hasher.Add(aStr[i]);
+    }
+    return hasher.Finish();
   }
-  return hash;
+  return HashBytes(aStr, aLength * sizeof(char16_t));
 }
 
-template <typename WCharT>
-  requires(std::is_same_v<WCharT, wchar_t> &&
-           !std::is_same_v<wchar_t, char16_t>)
-[[nodiscard]] inline HashNumber HashString(const WCharT* aStr, size_t aLength) {
-  static_assert(sizeof(WCharT) == sizeof(char16_t));
+/**
+ * HashString overloads for |wchar_t| on platforms where it isn't |char16_t|.
+ */
+template <typename T>
+concept WCharT = std::same_as<T, wchar_t> && !std::same_as<wchar_t, char16_t>;
+
+template <WCharT T>
+[[nodiscard]] inline HashNumber HashString(const T* aStr, size_t aLength) {
+  static_assert(sizeof(T) == sizeof(char16_t));
   return HashString(reinterpret_cast<const char16_t*>(aStr), aLength);
 }
 
@@ -314,12 +359,24 @@ template <size_t N>
 // were char16_t strings. See also HashUTF8AsUTF16.
 [[nodiscard]] constexpr HashNumber HashLatin1AsUTF16(const unsigned char* aStr,
                                                      size_t aLength) {
-  HashNumber hash = 0;
+  detail::UTF16Hasher hasher;
   for (size_t i = 0; i < aLength; i++) {
-    hash = AddToHash(hash, char16_t(aStr[i]));
+    hasher.Add(char16_t(aStr[i]));
   }
-  return hash;
+  return hasher.Finish();
 }
+
+/**
+ * Hash a UTF-8 string as though it were a UTF-16 string.
+ *
+ * The value returned is the same as if we converted the string to UTF-16 and
+ * then ran HashString() on the result, with the same semantics as
+ * NS_ConvertUTF8toUTF16 (i.e. replacing invalid codepoints by the unicode
+ * replacement character).
+ *
+ * The given |aLength| is in bytes.
+ */
+extern MFBT_API HashNumber HashUTF8AsUTF16(const char* aUTF8, size_t aLength);
 
 /**
  * A pseudorandom function mapping 32-bit integers to 32-bit integers.

@@ -344,16 +344,6 @@ pub const FONT_STYLE_OBLIQUE_MAX_ANGLE_DEGREES: f32 = 90.;
 pub const FONT_STYLE_OBLIQUE_MIN_ANGLE_DEGREES: f32 = -90.;
 
 impl SpecifiedFontStyle {
-    /// Gets a clamped angle in degrees from a specified Angle.
-    pub fn compute_angle_degrees(angle: &Angle) -> Option<f32> {
-        Some(
-            angle
-                .degrees()?
-                .max(FONT_STYLE_OBLIQUE_MIN_ANGLE_DEGREES)
-                .min(FONT_STYLE_OBLIQUE_MAX_ANGLE_DEGREES),
-        )
-    }
-
     /// Parse a suitable angle for font-style: oblique.
     pub fn parse_angle<'i, 't>(
         context: &ParserContext,
@@ -1813,6 +1803,7 @@ impl MetricsOverride {
     ToShmem,
     ToTyped,
 )]
+#[cfg_attr(feature = "servo", derive(Serialize, Deserialize))]
 #[repr(u8)]
 /// How to do font-size scaling.
 pub enum XTextScale {
@@ -1994,8 +1985,6 @@ impl ToComputedValue for LineHeight {
     fn to_computed_value(&self, context: &Context) -> Self::ComputedValue {
         match self {
             GenericLineHeight::Normal => GenericLineHeight::Normal,
-            #[cfg(feature = "gecko")]
-            GenericLineHeight::MozBlockHeight => GenericLineHeight::MozBlockHeight,
             GenericLineHeight::Number(ref number) => {
                 GenericLineHeight::Number(number.to_computed_value(context))
             },
@@ -2040,8 +2029,6 @@ impl ToComputedValue for LineHeight {
     fn from_computed_value(computed: &Self::ComputedValue) -> Self {
         match *computed {
             GenericLineHeight::Normal => GenericLineHeight::Normal,
-            #[cfg(feature = "gecko")]
-            GenericLineHeight::MozBlockHeight => GenericLineHeight::MozBlockHeight,
             GenericLineHeight::Number(ref number) => {
                 GenericLineHeight::Number(NonNegativeNumber::from_computed_value(number))
             },

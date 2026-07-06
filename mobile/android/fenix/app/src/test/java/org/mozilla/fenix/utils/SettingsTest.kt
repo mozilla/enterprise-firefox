@@ -31,6 +31,7 @@ import org.mozilla.fenix.nimbus.FakeNimbusEventStore
 import org.mozilla.fenix.nimbus.FxNimbus
 import org.mozilla.fenix.nimbus.HomescreenEdgeToEdgeBackground
 import org.mozilla.fenix.settings.PhoneFeature
+import org.mozilla.fenix.settings.ShortcutType
 import org.mozilla.fenix.settings.deletebrowsingdata.DeleteBrowsingDataOnQuitType
 import org.mozilla.fenix.wallpapers.Wallpaper
 import org.robolectric.RobolectricTestRunner
@@ -1316,6 +1317,24 @@ class SettingsTest {
 
         val result = settings.deleteDownloadBehavior
         assertEquals(Settings.DeleteDownloadBehavior.ASK_WHEN_DELETING, result)
+    }
+
+    @Test
+    fun `WHEN tab strip is disabled THEN activeSimpleToolbarShortcutKey reads the simple toolbar key`() {
+        settings.isTabStripEnabled = false
+        settings.toolbarSimpleShortcutKey = ShortcutType.NEW_TAB.value
+        settings.toolbarTabStripShortcutKey = ShortcutType.BOOKMARK.value
+
+        assertEquals(ShortcutType.NEW_TAB.value, settings.activeSimpleToolbarShortcutKey)
+    }
+
+    @Test
+    fun `WHEN tab strip is enabled THEN activeSimpleToolbarShortcutKey reads the tab strip key`() {
+        settings.isTabStripEnabled = true
+        settings.toolbarSimpleShortcutKey = ShortcutType.NEW_TAB.value
+        settings.toolbarTabStripShortcutKey = ShortcutType.BOOKMARK.value
+
+        assertEquals(ShortcutType.BOOKMARK.value, settings.activeSimpleToolbarShortcutKey)
     }
 
     @Test

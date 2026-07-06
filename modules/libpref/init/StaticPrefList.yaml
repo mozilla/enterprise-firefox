@@ -1132,6 +1132,15 @@
   value: 20000
   mirror: always
 
+# Maximum delay in milliseconds before the disk cache index is written back when
+# there is at least one dirty entry, regardless of min_unwritten_changes. This
+# bounds how much recently-updated frecency can be lost on a crash or Android
+# process kill under light browsing. Must be >= min_dump_interval_ms.
+- name: browser.cache.disk.index.max_dump_interval_ms
+  type: RelaxedAtomicUint32
+  value: 60000
+  mirror: always
+
 # Delay in milliseconds after startup before the disk cache index build/update
 # process is started. Lowering it (e.g. to 0) makes the index reach the ready
 # state sooner; intended for tests.
@@ -2031,6 +2040,12 @@
 #endif
   mirror: once
   do_not_use_directly: true
+
+# Enables file IO for testing Windows shortcut and shortcut log.
+- name: browser.shell.shortcut.test
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
 
 # Whether to show an about:blank window as early as possible for quick startup feedback.
 # Held to nightly on Linux due to bug 1450626.
@@ -3271,6 +3286,13 @@
   value: true
   mirror: always
 
+# Whether to do the navigation for form submission asynchronously
+# (which is what the spec wants)
+- name: dom.forms.submit_async_navigation
+  type: bool
+  value: true
+  mirror: always
+
 # The interval in milliseconds between two Escape key events where the second
 # key event will exit fullscreen, even if it is consumed.
 - name: dom.fullscreen.force_exit_on_multiple_escape_interval
@@ -3439,6 +3461,12 @@
 
 # Whether or not indexedDB test mode is enabled.
 - name: dom.indexedDB.testing
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Whether or not system IndexedDB access from a content process is allowed.
+- name: dom.indexedDB.testing.allowContentSystem
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -3706,7 +3734,7 @@
 # won't be allowed in a process that can hold web content.
 - name: dom.jsipc.check_safeForUntrustedWebProcess
   type: bool
-  value: false
+  value: true
   mirror: always
 
 # This controls whether JS IPC messages are sent from child to parent using
@@ -4162,7 +4190,7 @@
   value: true
   mirror: always
 
-#if defined(MOZ_WIDGET_COCOA) || defined(MOZ_WIDGET_GTK)
+#if !defined(ANDROID)
 # Whether to use the platform API to "lock" the native pointer for pointer lock.
 - name: dom.pointer-lock.native-lock.enabled
   type: bool
@@ -4175,6 +4203,13 @@
 # asks the widget to deliver raw, unaccelerated mouse delta in mouse events
 # while the lock is active.
 - name: dom.pointer-lock.unadjusted-movement.enabled
+  type: bool
+  value: true
+  mirror: always
+
+# Whether the parent process should reset pointer when pointer lock is
+# requested.
+- name: dom.pointer-lock.reset-to-center-from-parent.enabled
   type: bool
   value: true
   mirror: always
@@ -4787,7 +4822,7 @@
 # For testing purposes only: Cache stencil across navigation
 - name: dom.script_loader.experimental.navigation_cache
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # The delay until saving the script disk cache in microseconds.
@@ -7454,6 +7489,22 @@
   value: false
   mirror: always
 
+# Use a shader as a fallback if the regular video processor does not support a
+# format combination (e.g. YUV BT.2100 HLG to RGB BT.2100 PQ), this may use more
+# energy than using the regular video processor
+- name: gfx.color_management.hdr.yuv_to_rgb_video_shader.fallback
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# Use a shader to convert YUV video to RGB video in all cases, this uses more
+# power than using VideoProcessorBlt but does make it look identical across
+# drivers.
+- name: gfx.color_management.hdr.yuv_to_rgb_video_shader.always
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 #ifdef XP_MACOSX
 # Whether GL contexts can be migrated to a different GPU (to match the one the
 # OS is using for composition).
@@ -9523,6 +9574,27 @@
   mirror: always
   set_spidermonkey_pref: startup
 
+  # Experimental support for Iterator Includes in JavaScript.
+- name: javascript.options.experimental.iterator_includes
+  type: bool
+  value: true
+  mirror: always
+  set_spidermonkey_pref: startup
+
+  # Experimental support for Iterator.join in JavaScript.
+- name: javascript.options.experimental.iterator_join
+  type: bool
+  value: true
+  mirror: always
+  set_spidermonkey_pref: startup
+
+  # Experimental support for Iterator Chunking in JavaScript.
+- name: javascript.options.experimental.iterator_chunking
+  type: bool
+  value: true
+  mirror: always
+  set_spidermonkey_pref: startup
+
 #ifdef NIGHTLY_BUILD
   # Experimental support for Async Iterator Helpers in JavaScript.
 -   name: javascript.options.experimental.async_iterator_helpers
@@ -9554,27 +9626,6 @@
 
   # Experimental support for Promise.allKeyed in JavaScript.
 - name: javascript.options.experimental.promise_allkeyed
-  type: bool
-  value: false
-  mirror: always
-  set_spidermonkey_pref: startup
-
-  # Experimental support for Iterator Chunking in JavaScript.
-- name: javascript.options.experimental.iterator_chunking
-  type: bool
-  value: false
-  mirror: always
-  set_spidermonkey_pref: startup
-
- # Experimental support for Iterator.join in JavaScript.
-- name: javascript.options.experimental.iterator_join
-  type: bool
-  value: false
-  mirror: always
-  set_spidermonkey_pref: startup
-
-  # Experimental support for Iterator Includes in JavaScript.
-- name: javascript.options.experimental.iterator_includes
   type: bool
   value: false
   mirror: always
@@ -10080,25 +10131,6 @@
   value: true
   mirror: always
 
-# asm.js
-- name: javascript.options.asmjs
-  type: bool
-  value: false
-  mirror: always
-
-# Whether to throw a TypeError if asm.js code hits validation failure.
-- name: javascript.options.throw_on_asmjs_validation_failure
-  type: bool
-  value: false
-  mirror: always
-
-# Whether to show a warning if asm.js is used.
-- name: javascript.options.warn_asmjs_deprecation
-  type: bool
-  value: true
-  mirror: always
-  set_spidermonkey_pref: always
-
 # Whether to disable the jit within the main process
 - name: javascript.options.main_process_disable_jit
   type: bool
@@ -10486,7 +10518,7 @@
 # https://drafts.csswg.org/css-values-5/#tree-counting
 - name: layout.css.tree-counting-functions.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
@@ -10899,7 +10931,7 @@
 #   2 - Symmetrical spacing, half added to each side
 - name: layout.css.letter-spacing.model
   type: int32_t
-#if defined(MOZ_DEV_EDITION) || defined(EARLY_BETA_OR_EARLIER)
+#ifdef NIGHTLY_BUILD
   value: 2
 #else
   value: 0
@@ -11195,7 +11227,7 @@
 # https://drafts.csswg.org/css-inline-3/#text-box-shorthand
 - name: layout.css.text-box.enabled
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Maximum number of lines to try balancing.
@@ -11217,6 +11249,14 @@
 - name: layout.css.text-decoration-inset.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+  rust: true
+
+# Support the percentage value for text-decoration-inset.
+# https://github.com/w3c/csswg-drafts/issues/8403
+- name: layout.css.text-decoration-inset-percentage.enabled
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
   rust: true
 
@@ -11311,7 +11351,7 @@
 # Are dynamic reflow roots enabled?
 - name: layout.dynamic-reflow-roots.enabled
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Enables the mechanism to optimize away flex item's final reflow.
@@ -11679,11 +11719,22 @@
 
 # Is support for CSS Typed Object Model API enabled?
 #
-# Note that this feature is experimental and under active development.
-# Enabling this pref will only expose some interfaces that are already
-# implemented and is intended solely to enable WPT coverage during
-# incremental development.
+# This feature is still under development. The pref is enabled on Nightly so
+# Firefox results show up on wpt.fyi alongside other engines, and to gather
+# real-world feedback. Only interfaces that are implemented are exposed.
+# Color interfaces are additionally gated by layout.css.typed-om-color.enabled.
 - name: layout.css.typed-om.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+  rust: true
+
+# Is support for CSS Typed Object Model color interfaces enabled?
+#
+# Additional gate on top of layout.css.typed-om.enabled. Color interfaces
+# (CSSColorValue and related) require both prefs to be true. Kept separate so
+# color work can progress independently from the rest of Typed OM.
+- name: layout.css.typed-om-color.enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -11805,7 +11856,7 @@
 # Whether to disable layer pixel alignment in layout stuff.
 - name: layout.disable-pixel-alignment
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Whether scrollIntoView scrolls to `position: fixed` frames visually.
@@ -11853,7 +11904,7 @@
 # "thickmathspace" etc for length attributes.
 - name: mathml.mathspace_names.disabled
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Whether to disable fallback for mathvariant=italic/bold/bold-italic via
@@ -11880,7 +11931,7 @@
 # implemented via text-transform: auto when that flag is enabled.
 - name: mathml.legacy_mathvariant_attribute.disabled
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -13844,6 +13895,14 @@
   value: 0
   mirror: always
 
+ # When true, GeckoView shapes its platform audio-focus request after the tab's
+ # W3C Audio Session type. When false, GeckoView keeps requesting durable
+ # media-playback focus regardless of the type, preserving existing behaviour.
+- name: media.geckoview.audio_session_type.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 - name: media.mediacontrol.testingevents.enabled
   type: bool
   value: false
@@ -14701,6 +14760,15 @@
   value: 393216
   mirror: always
 
+# When true (default), decode Content-Encoding (e.g. gzip) when saving to disk
+# even if the URL extension matches the encoding (.gz, .tgz, .zip, .z, .svgz),
+# avoiding double-compressed files. When false, restore the legacy behavior of
+# not decoding. See bug 610679, bug 1470011.
+- name: network.http.decode_content_for_known_compressed_extensions
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # Whether or not we give more priority to active tab.
 - name: network.http.active_tab_priority
   type: RelaxedAtomicBool
@@ -15260,6 +15328,13 @@
   value: true
   mirror: always
 
+# When false, negative (NXDOMAIN/NODATA) A/AAAA cache entries are served from
+# cache without an async re-resolution on every use.
+- name: network.dns.refresh_negative_addr_on_use
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # When true, DNS resolutions will downgrade DNS
 # from AF_UNSPEC to AF_INET when no non-local IPv6 addresses are
 # available.
@@ -15425,10 +15500,9 @@
 
 # When this pref is false, skip all LNA checks for WebSocket connections.
 # When true, WebSocket connections follow normal LNA rules.
-# Currently this is disabled for parity with chrome
 - name: network.lna.websocket.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # When this pref is true, skip LNA checks for requests from private network
@@ -16346,7 +16420,7 @@
 
 - name: network.http.http3.version_negotiation.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # When a Http/3 connection failed, whether to retry with a different IP address.
@@ -16621,7 +16695,7 @@
 # Can be set to false to disable the feature if regressions are observed.
 - name: network.cache.no_vary_search
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # When this pref is true, AddStorageEntry will return an error if the
@@ -16780,12 +16854,24 @@
   type: RelaxedAtomicUint32
   value: 50
   mirror: always
+  rust: true
 
 # The time to wait between successive connection attempts (ms).
 - name: network.http.happy_eyeballs_connection_attempt_delay
   type: RelaxedAtomicUint32
-  value: 250
+  value: 50
   mirror: always
+  rust: true
+
+# Multiplier applied to the connection attempt delay for each additional
+# concurrent attempt, growing the delay exponentially. A value of 1 keeps the
+# delay constant. With a 50ms base delay and a multiplier of 2, attempts are
+# scheduled at t=0, 50, 150, 350, 750, ... ms.
+- name: network.http.happy_eyeballs_connection_attempt_delay_multiplier
+  type: RelaxedAtomicUint32
+  value: 2
+  mirror: always
+  rust: true
 
 # If true, it will include extra tags to be sniffed by nsUnknownDecoder
 # These tags were previously sniffed by Firefox for legacy/webcompat but
@@ -16799,6 +16885,14 @@
 # but not followed by space or > as HTML. This differs from the mimesniff
 # standard but matches Chrome.
 - name: network.mimesniff.non_standard_html_comment
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# Enable MIME sniffing for content served with misconfigured Content-Type headers.
+# When enabled, detects binary formats (images, archives, etc.) that are incorrectly
+# served as text types.
+- name: network.mimesniff.sniff_misconfigured_types
   type: RelaxedAtomicBool
   value: true
   mirror: always
@@ -17313,7 +17407,7 @@
 # Whether we should try to use skpdf for pdf output.
 - name: print.experimental.skpdf
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Encoding quality for images. 101 means lossless, otherwise they get
@@ -17567,6 +17661,13 @@
   type: String
   value: "Warn"
   mirror: never
+
+# When true, disable the URLClassifier while the ContentClassifier (channel
+# classifier) engine is active.
+- name: privacy.trackingprotection.urlclassifier.disable_for_channel_classifier
+  type: bool
+  value: false
+  mirror: always
 
 # Enable the "baseline" allow-list for fixing severe site breakage (e.g. blank
 # page).
@@ -19148,6 +19249,11 @@
 - name: telemetry.fog.init_on_shutdown
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+- name: telemetry.fog.enable_fog_transport
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 #---------------------------------------------------------------------------

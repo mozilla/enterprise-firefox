@@ -44,7 +44,6 @@
   &[lwt-tab-selected="dark"] {
     --tab-selected-color-scheme: dark;
   }
-  --tab-selected-shadow: var(--tab-box-shadow);
   @media (forced-colors) {
     &:not([lwtheme]) {
       --tab-outline-color: ButtonText;
@@ -151,7 +150,7 @@
   }
 
   &[noshadowfortests] {
-    --tab-selected-shadow: none;
+    --tab-selected-box-shadow: none;
   }
 
   &[orient="horizontal"] {
@@ -924,7 +923,7 @@ tab-split-view-wrapper[dragtarget] {
   &:is([selected], [multiselected]) {
     background-color: var(--tab-background-color-selected);
     outline-color: var(--tab-selected-outline-color);
-    box-shadow: var(--tab-selected-shadow);
+    box-shadow: var(--tab-selected-box-shadow);
   }
 
   &:is([selected]:not([multiselected])) {
@@ -2603,7 +2602,7 @@ tab-group {
       background-image: image(var(--close-button-extra-background)), image(var(--tab-background-color-selected)), image(var(--toolbox-background-color));
       color-scheme: var(--tab-selected-color-scheme);
       outline-color: var(--tab-selected-outline-color);
-      box-shadow: var(--tab-selected-shadow);
+      box-shadow: var(--tab-selected-box-shadow);
       border-radius: var(--border-radius-circle);
       display: block;
       position: absolute;
@@ -2685,7 +2684,7 @@ tab-group {
 
 #TabsToolbar #firefox-view-button[open] > .toolbarbutton-icon {
   background-color: var(--tab-background-color-selected);
-  box-shadow: var(--tab-selected-shadow);
+  box-shadow: var(--tab-selected-box-shadow);
   outline-color: var(--tab-selected-outline-color);
   color: var(--tab-selected-textcolor);
   color-scheme: var(--tab-selected-color-scheme);
@@ -2693,7 +2692,7 @@ tab-group {
   /* The below lines are required for dark, light, and
       system themes to achieve the gradient border appearance */
   @media (not (prefers-contrast)) and (-moz-pref("browser.nova.enabled")) {
-    :root:not([lwtheme]) & {
+    :root[theme-in-app] & {
       border: 1px solid transparent;
       background:
         var(--tab-border-color-accent) border-box border-area,
@@ -2777,15 +2776,8 @@ toolbar:not(#TabsToolbar) #firefox-view-button {
   }
 }
 
-/* The list of tabs is in its own panel-subview-body which will scroll. We don't
-   want any padding below the scrollbar, so remove the bottom padding
-   from the outer panel-subview-body. */
-#allTabsMenu-allTabsView > .panel-subview-body {
-  padding-bottom: 0;
-}
-
 #allTabsMenu-allTabsView-tabs {
-  padding-top: 0;
+  padding-block: 0;
 }
 
 #allTabsMenu-dropIndicatorHolder {
@@ -2994,18 +2986,18 @@ toolbar:not(#TabsToolbar) #firefox-view-button {
   display: none;
 }
 
-#tab-group-suggestions-heading:not([hidden]),
-#tab-group-main:not([hidden]),
-#tab-group-suggestions-separator:not([hidden]),
-#tab-group-suggestions-load-actions:not([hidden]),
-#tab-group-suggestions-loading:not([hidden]),
-#tab-group-default-actions:not([hidden]),
-#tab-group-suggestion-button:not([hidden]) {
+#tab-group-suggestions-heading,
+#tab-group-main,
+#tab-group-suggestions-separator,
+#tab-group-suggestions-load-actions,
+#tab-group-suggestions-loading,
+#tab-group-default-actions,
+#tab-group-suggestion-button {
   display: flex;
 }
 
-#tab-group-suggestions-message-container:not([hidden]),
-#tab-group-suggestions-container:not([hidden]) {
+#tab-group-suggestions-message-container,
+#tab-group-suggestions-container {
   display: block;
 }
 
@@ -3014,7 +3006,7 @@ toolbar:not(#TabsToolbar) #firefox-view-button {
   color: inherit;
 }
 
-#tab-group-suggestions-disclaimer:not([hidden]) {
+#tab-group-suggestions-disclaimer {
   display: initial;
 }
 

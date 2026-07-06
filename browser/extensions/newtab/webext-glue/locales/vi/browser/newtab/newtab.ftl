@@ -93,6 +93,9 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = Đồng hồ
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = Riêng tư
 home-prefs-mission-message2 =
     .message = Các nhà tài trợ của chúng tôi hỗ trợ sứ mệnh của chúng tôi là xây dựng một trang web tốt hơn.
 home-prefs-manage-topics-link2 =
@@ -147,6 +150,11 @@ home-prefs-weather-header-srd =
 home-prefs-support-firefox-header-srd =
     .label = Hỗ trợ cho { -brand-product-name }
 home-prefs-mission-message-learn-more-link-srd = Tìm hiểu cách thức
+
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = Tìm hiểu thêm
 
 ## Search box component.
 
@@ -1071,6 +1079,8 @@ newtab-sports-widget-show-less =
 # Toggle that filters the list of teams the user follows
 newtab-sports-widget-followed-only-toggle =
     .label = Chỉ các đội đã theo dõi
+# Status shown when more matches are being fetched.
+newtab-sports-widget-loading-more = Đang tải thêm kết quả phù hợp…
 # Watch is a verb (as in watch matches online).
 newtab-sports-widget-watch =
     .label = Xem
@@ -1150,6 +1160,9 @@ newtab-sports-widget-third-place = Hạng ba
 newtab-sports-widget-runner-up = Á quân
 newtab-sports-widget-champions = Nhà vô địch
 newtab-sports-widget-world-cup-champions = Nhà vô địch World Cup 2026
+# Compact champions label for the medium-size widget result card; the larger
+# card uses newtab-sports-widget-world-cup-champions.
+newtab-sports-widget-world-cup-champions-short = Nhà vô địch năm 2026
 # Variables:
 #   $date (Date) - The match start time
 newtab-sports-widget-match-time = { DATETIME($date, hour: "2-digit", minute: "2-digit") }

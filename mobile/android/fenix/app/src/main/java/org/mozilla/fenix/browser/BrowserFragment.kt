@@ -75,6 +75,7 @@ import org.mozilla.fenix.onboarding.continuous.ContinuousOnboardingStageProvider
 import org.mozilla.fenix.settings.downloads.DownloadLocationManager
 import org.mozilla.fenix.settings.quicksettings.protections.cookiebanners.getCookieBannerUIMode
 import org.mozilla.fenix.shortcut.PwaOnboardingObserver
+import org.mozilla.fenix.summarization.SummarizationNavigator
 import org.mozilla.fenix.termsofuse.store.Surface
 import org.mozilla.fenix.utils.Settings
 import org.mozilla.fenix.ipprotection.store.Surface as IPProtectionSurface
@@ -123,6 +124,14 @@ class BrowserFragment : BaseBrowserFragment(), UserInteractionHandler, SystemIns
                 resultCode = result.resultCode,
             )
         }
+
+    private val summarizationNavigator by lazy {
+        SummarizationNavigator(
+            summarizationSettings = requireComponents.core.summarizationSettings,
+            eligibilityChecker = requireComponents.core.summarizationEligibilityChecker,
+            getCurrentTab = ::getSafeCurrentTab,
+        )
+    }
 
     private val telemetryRecorder by lazy {
         OnboardingTelemetryRecorder(
@@ -261,62 +270,13 @@ class BrowserFragment : BaseBrowserFragment(), UserInteractionHandler, SystemIns
                         }
                         .collect {
                             summarizeToolbarCfrBinding.get()?.maybeDismissCfr()
-                            navigateToSummarizationIfEligible()
+                            summarizationNavigator.navigateToSummarizationIfEligible(
+                                navController = findNavController(),
+                                fromShakeGesture = true,
+                            )
                         }
                 }
             }
-        }
-    }
-
-    private suspend fun navigateToSummarizationIfEligible() {
-        findNavController().apply {
-            // If the shake gesture or the parent feature was disabled in the bottom sheet hosted
-            // settings but the fragment has not been recreated yet, we need to check both are still
-            // active before proceeding.
-            val summarizationSettings = requireComponents.core.summarizationSettings
-            val shakeEnabled = summarizationSettings.isFeatureEnabled.value &&
-                summarizationSettings.isGestureEnabled.value
-
-            if (!shakeEnabled) {
-                return
-            }
-
-            // We don't want to navigate to the summarization fragment if the current
-            // tab is private.
-            val isPrivate = getSafeCurrentTab()?.content?.private == true
-
-            // We don't want to navigate to the summarization fragment if the current
-            // tab is loading.
-            val isPageLoading = getSafeCurrentTab()?.content?.loading == true
-
-            // Since the summarization fragment is in a dialog, it's possible that we
-            // can still detect shakes in the background. Don't try to navigate twice.
-            val currentDestinationIsNotTheBrowser = currentDestination?.id != R.id.browserFragment
-
-            // evaluate this lazy, to try and avoid querying the engine unless necessary
-            val isEnglishContent: suspend () -> Boolean = {
-                getSafeCurrentTab()?.engineState?.engineSession?.let { session ->
-                    requireComponents.core.summarizationEligibilityChecker
-                        .checkLanguage(session)
-                        .getOrNull()
-                } ?: false
-            }
-
-            // this can be removed when we get rid of language gating
-            @Suppress("ComplexCondition")
-            if (isPrivate ||
-                isPageLoading ||
-                currentDestinationIsNotTheBrowser ||
-                !isEnglishContent()
-            ) {
-                return
-            }
-
-            navigate(
-                BrowserFragmentDirections.actionBrowserFragmentToSummarizationFragment(
-                    true,
-                ),
-            )
         }
     }
 

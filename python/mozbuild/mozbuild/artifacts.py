@@ -100,11 +100,11 @@ class GeckoJobConfiguration:
     beta_candidate_trees = [
         "releases/mozilla-beta",
     ]
-    # The list below list should be updated when we have new ESRs.
+    # The list below should be updated when we have new ESRs.
     esr_candidate_trees = [
-        "releases/mozilla-esr115",
-        "releases/mozilla-esr128",
+        "releases/mozilla-esr153",
         "releases/mozilla-esr140",
+        "releases/mozilla-esr115",
     ]
     try_tree = "try"
 
@@ -142,10 +142,9 @@ class ThunderbirdJobConfiguration:
     beta_candidate_trees = [
         "releases/comm-beta",
     ]
-    # The list below list should be updated when we have new ESRs.
+    # The list below should be updated when we have new ESRs.
     esr_candidate_trees = [
-        "releases/comm-esr115",
-        "releases/comm-esr128",
+        "releases/comm-esr153",
         "releases/comm-esr140",
     ]
     try_tree = "try-comm-central"

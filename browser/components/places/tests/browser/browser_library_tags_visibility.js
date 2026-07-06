@@ -12,7 +12,7 @@ registerCleanupFunction(async function () {
 });
 
 const TEST_URI = Services.io.newURI("https://example.com/");
-const TEST_TAGS = ["tagB", "tagA"];
+const TEST_TAGS = ["tagB", "tagA", "tagC"];
 const TAGS_TEXT = TEST_TAGS.sort().join(", ");
 
 add_task(async function base() {

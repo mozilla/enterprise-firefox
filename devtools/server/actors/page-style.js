@@ -835,6 +835,26 @@ class PageStyleActor extends Actor {
     rawNode = null,
     { inherited, isSystem, pseudoElement, keyframes } = {}
   ) {
+    let element = inherited?.rawNode || rule.currentlySelectedElement;
+    // if we have a pseudoElement, the sibling-count() and sibling-index() are computed
+    // based on its binding element
+    if (element.implementedPseudoElement) {
+      element = CssLogic.getBindingElementAndPseudo(element).bindingElement;
+    }
+
+    const parentNode = element?.parentNode;
+    const siblingCount = parentNode?.childElementCount;
+    let siblingIndex;
+    if (parentNode) {
+      for (let i = 0; i < siblingCount; i++) {
+        if (parentNode.children[i] === element) {
+          // sibling-index() is 1-based
+          siblingIndex = i + 1;
+          break;
+        }
+      }
+    }
+
     return {
       // /!\ Keep "appliedstyle" protocol.js type definition in sync with this object
       rule,
@@ -847,9 +867,10 @@ class PageStyleActor extends Actor {
         ? InspectorUtils.isUsedColorSchemeDark(rawNode)
         : undefined,
       keyframes,
-
       // May be later set from getAppliedProps.
       matchedSelectorIndexes: undefined,
+      siblingCount,
+      siblingIndex,
     };
   }
 

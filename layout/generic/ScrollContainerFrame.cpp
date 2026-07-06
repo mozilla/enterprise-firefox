@@ -2493,7 +2493,9 @@ void ScrollContainerFrame::ScrollToCSSPixels(const CSSPoint& aScrollPosition,
 }
 
 void ScrollContainerFrame::ScrollToCSSPixelsForApz(
-    const CSSPoint& aScrollPosition, ScrollSnapTargetIds&& aLastSnapTargetIds) {
+    const CSSPoint& aScrollPosition, ScrollSnapTargetIds&& aLastSnapTargetIds,
+    const APZScrollGeneration& aGenerationOnApz) {
+  mScrollGenerationOnApz = aGenerationOnApz;
   nsPoint pt = CSSPoint::ToAppUnits(aScrollPosition);
   nscoord halfRange = nsPresContext::CSSPixelsToAppUnits(1000);
   nsRect range(pt.x - halfRange, pt.y - halfRange, 2 * halfRange - 1,
@@ -7383,7 +7385,6 @@ ScrollContainerFrame::ScrollAnimationState() const {
 
 void ScrollContainerFrame::ResetScrollInfoIfNeeded(
     const MainThreadScrollGeneration& aGeneration,
-    const APZScrollGeneration& aGenerationOnApz,
     APZScrollAnimationType aAPZScrollAnimationType,
     InScrollingGesture aInScrollingGesture) {
   if (aGeneration == mScrollGeneration) {
@@ -7392,7 +7393,6 @@ void ScrollContainerFrame::ResetScrollInfoIfNeeded(
     mApzAnimationTriggeredByScriptRequested = false;
   }
 
-  mScrollGenerationOnApz = aGenerationOnApz;
   // We can reset this regardless of scroll generation, as this is only set
   // here, as a response to APZ requesting a repaint.
   mCurrentAPZScrollAnimationType = aAPZScrollAnimationType;

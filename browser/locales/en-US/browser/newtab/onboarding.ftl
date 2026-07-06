@@ -445,6 +445,10 @@ onboarding-checklist-pin = Pin { -brand-short-name } to taskbar
 onboarding-checklist-import = Import from previous browser
 onboarding-checklist-extension = Add an extension
 onboarding-checklist-sign-up = Sign up or sign in to your account
+onboarding-checklist-minimize =
+    .label = Minimize
+onboarding-checklist-remove =
+    .label = Remove checklist
 
 ## Tab Groups feature onboarding strings
 

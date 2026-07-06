@@ -4,6 +4,8 @@
 
 #include "WebrtcMediaDataDecoderCodec.h"
 
+#include <optional>
+
 #include "ImageContainer.h"
 #include "MediaDataDecoderProxy.h"
 #include "PDMFactory.h"
@@ -13,6 +15,8 @@
 #include "mozilla/media/MediaUtils.h"
 // #include "modules/video_coding/include/video_codec_interface.h"
 #include "modules/video_coding/include/video_error_codes.h"
+#include "modules/video_coding/utility/vp8_header_parser.h"
+#include "modules/video_coding/utility/vp9_uncompressed_header_parser.h"
 
 namespace mozilla {
 
@@ -94,6 +98,23 @@ bool WebrtcMediaDataDecoder::Configure(
   return WEBRTC_VIDEO_CODEC_OK == CreateDecoder();
 }
 
+std::optional<uint8_t> WebrtcMediaDataDecoder::ExtractQp(
+    const webrtc::EncodedImage& aImage) {
+  // Platform decoders don't expose the QP, so parse it from the bitstream for
+  // the inbound-rtp qpSum stat. Bug 2049503 will expose it from PEMs/PDMs.
+  int qp = -1;
+  if (mInfo.mMimeType.EqualsLiteral("video/vp8")) {
+    if (webrtc::vp8::GetQp(aImage.data(), aImage.size(), &qp)) {
+      return static_cast<uint8_t>(qp);
+    }
+  } else if (mInfo.mMimeType.EqualsLiteral("video/vp9")) {
+    if (webrtc::vp9::GetQp(aImage.data(), aImage.size(), &qp)) {
+      return static_cast<uint8_t>(qp);
+    }
+  }
+  return std::nullopt;
+}
+
 int32_t WebrtcMediaDataDecoder::Decode(const webrtc::EncodedImage& aInputImage,
                                        bool aMissingFrames,
                                        int64_t aRenderTimeMs) {
@@ -137,6 +158,7 @@ int32_t WebrtcMediaDataDecoder::Decode(const webrtc::EncodedImage& aInputImage,
         },
         [&](const MediaResult& aError) { mError = aError; });
 
+    const std::optional<uint8_t> qp = ExtractQp(aInputImage);
     for (auto& frame : mResults) {
       MOZ_ASSERT(frame->mType == MediaData::Type::VIDEO_DATA);
       RefPtr<VideoData> video = frame->As<VideoData>();
@@ -153,7 +175,7 @@ int32_t WebrtcMediaDataDecoder::Decode(const webrtc::EncodedImage& aInputImage,
                             .set_timestamp_rtp(aInputImage.RtpTimestamp())
                             .set_rotation(aInputImage.rotation_)
                             .build();
-      mCallback->Decoded(videoFrame);
+      mCallback->Decoded(videoFrame, /* decode_time_ms */ std::nullopt, qp);
     }
     mResults.Clear();
   }

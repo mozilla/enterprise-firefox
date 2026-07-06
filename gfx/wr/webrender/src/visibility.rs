@@ -24,8 +24,9 @@ use crate::picture::{PictureScratch, SurfaceIndex, RasterConfig};
 use crate::tile_cache::SubSliceIndex;
 use crate::prim_store::{ClipTaskIndex, PictureIndex, PrimitiveKind, SegmentInstanceIndex};
 use crate::prim_store::{PrimitiveStore, PrimitiveInstance, PrimitiveInstanceIndex};
-use crate::prim_store::borders::{ImageBorderScratch, NormalBorderScratch};
+use crate::prim_store::borders::ImageBorderScratch;
 use crate::prim_store::image::ImageScratch;
+use crate::prim_store::rectangle::RectangleScratch;
 use crate::prim_store::storage;
 use crate::prim_store::text_run::TextRunScratch;
 use crate::render_backend::{DataStores, ScratchBuffer};
@@ -49,7 +50,7 @@ pub struct FrameVisibilityState<'a> {
     pub clip_store: &'a mut ClipStore,
     pub resource_cache: &'a mut ResourceCache,
     pub frame_gpu_data: &'a mut GpuBufferBuilder,
-    pub data_stores: &'a mut DataStores,
+    pub data_stores: &'a DataStores,
     pub clip_tree: &'a mut ClipTree,
     pub composite_state: &'a mut CompositeState,
     pub rg_builder: &'a mut RenderTaskGraphBuilder,
@@ -122,7 +123,7 @@ pub enum DrawState {
 #[cfg_attr(feature = "capture", derive(Serialize))]
 pub enum KindScratchHandle {
     None,
-    NormalBorder(storage::Index<NormalBorderScratch>),
+    Rectangle(storage::Index<RectangleScratch>),
     ImageBorder(storage::Index<ImageBorderScratch>),
     Image(storage::Index<ImageScratch>),
     TextRun(storage::Index<TextRunScratch>),
@@ -133,12 +134,15 @@ impl KindScratchHandle {
     /// Extract the specific scratch index. Panics if the variant
     /// doesn't match — readers in the specific arm of the
     /// PrimitiveKind match know the variant by construction.
-   pub fn unwrap_normal_border(&self) -> storage::Index<NormalBorderScratch> {
+   pub fn unwrap_rectangle(&self) -> storage::Index<RectangleScratch> {
         match *self {
-            KindScratchHandle::NormalBorder(h) => h,
-            _ => panic!("kind_scratch mismatch: expected NormalBorder, got {:?}", self),
+            KindScratchHandle::Rectangle(h) => h,
+            _ => panic!("kind_scratch mismatch: expected Rectangle, got {:?}", self),
         }
     }
+    /// Extract the specific scratch index. Panics if the variant
+    /// doesn't match — readers in the specific arm of the
+    /// PrimitiveKind match know the variant by construction.
     pub fn unwrap_image_border(&self) -> storage::Index<ImageBorderScratch> {
         match *self {
             KindScratchHandle::ImageBorder(h) => h,
@@ -459,7 +463,7 @@ pub fn update_prim_visibility(
                     &mut frame_state.frame_gpu_data.f32,
                     frame_state.resource_cache,
                     &surface_culling_rect,
-                    &mut frame_state.data_stores.clip,
+                    &frame_state.data_stores.clip,
                     frame_state.rg_builder,
                     true,
                 );
@@ -470,6 +474,26 @@ pub fn update_prim_visibility(
                     continue;
                 }
             };
+
+            let is_mix_blend_picture = |prim_instance: &PrimitiveInstance| {
+                if let PrimitiveKind::Picture { pic_index, .. } = prim_instance.kind {
+                    let pic = &store.pictures[pic_index.0];
+
+                    matches!(
+                        pic.composite_mode,
+                        Some(PictureCompositeMode::MixBlend(_))
+                    )
+                } else {
+                    false
+                }
+            };
+
+            if is_root_tile_cache && is_mix_blend_picture(prim_instance) {
+                let prim_clip_chain = &frame_state.scratch.primitive.frame.draws[prim_instance_index].clip_chain;
+                if let Some(tile_cache) = tile_cache {
+                    tile_cache.mix_blend_pic_rects.push(prim_clip_chain.pic_coverage_rect);
+                }
+            }
 
             {
                 let prim_surface_index = frame_state.surface_stack.last().unwrap().1;

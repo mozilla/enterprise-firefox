@@ -3929,10 +3929,15 @@ void Selection::StyledRanges::MaybeFocusCommonEditingHost(
   }
 }
 
-void Selection::NotifySelectionListeners(bool aCalledByJS) {
+void Selection::NotifySelectionListeners(
+    bool aCalledByJS, IsFromRangeMutationObserver aIsFromRange) {
   AutoRestore<bool> calledFromJSRestorer(mCalledByJS);
   mCalledByJS = aCalledByJS;
   NotifySelectionListeners();
+  if (aIsFromRange == IsFromRangeMutationObserver::Yes &&
+      mSelectionChangeEventDispatcher) {
+    mSelectionChangeEventDispatcher->SelectionRangeObservedMutation();
+  }
 }
 
 void Selection::NotifySelectionListeners() {
@@ -3986,7 +3991,8 @@ void Selection::NotifySelectionListeners() {
     if (mSelectionType == SelectionType::eNormal && RangeCount() && doc) {
       // Focus navigation should start from the new selection, instead
       // of the last focused element.
-      doc->SetFocusNavigationStartingPoint(nullptr);
+      doc->SetPreviouslyFocusedContent(nullptr);
+      doc->SetSelectionMoreRecentThanFocus(true);
     }
   }
 

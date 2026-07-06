@@ -56,7 +56,29 @@ add_task(async function test_typeIdForFieldName() {
   Assert.equal(AutofillDataTypes.typeIdForFieldName("tel"), "address");
   Assert.equal(AutofillDataTypes.typeIdForFieldName("email"), "address");
   Assert.equal(AutofillDataTypes.typeIdForFieldName("cc-number"), "creditCard");
+  Assert.equal(
+    AutofillDataTypes.typeIdForFieldName("passport-number"),
+    "passport"
+  );
+  Assert.equal(
+    AutofillDataTypes.typeIdForFieldName("passport-given-name"),
+    "passport"
+  );
+  Assert.equal(
+    AutofillDataTypes.typeIdForFieldName("passport-family-name"),
+    "passport"
+  );
   Assert.equal(AutofillDataTypes.typeIdForFieldName("not-a-field"), null);
+});
+
+add_task(async function test_passport_descriptor() {
+  const passport = AutofillDataTypes.get(AutofillDataTypes.PASSPORT);
+  Assert.notEqual(passport, null, "passport type is registered");
+  Assert.equal(passport.collectionName, "passports");
+  Assert.equal(
+    FormAutofillUtils.getCollectionNameFromFieldName("passport-number"),
+    "passports"
+  );
 });
 
 add_task(async function test_is_field_helpers_match_registry() {

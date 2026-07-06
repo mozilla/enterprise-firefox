@@ -171,34 +171,30 @@ pub enum GenericTextDecorationLength<L> {
 /// https://drafts.csswg.org/css-text-decor-4/#text-decoration-skip-inset-property
 #[repr(C, u8)]
 #[derive(
-    Animate,
     Clone,
-    ComputeSquaredDistance,
     Debug,
     Eq,
     MallocSizeOf,
     PartialEq,
     SpecifiedValueInfo,
-    ToAnimatedValue,
-    ToAnimatedZero,
     ToComputedValue,
     ToResolvedValue,
     ToShmem,
     ToTyped,
 )]
-pub enum GenericTextDecorationInset<L> {
+pub enum GenericTextDecorationInset<LP> {
     /// `auto` value
     Auto,
     /// Start and end length values.
     #[allow(missing_docs)]
-    Length { start: L, end: L },
+    LengthPercentage { start: LP, end: LP },
 }
 
 impl<L: Zero> GenericTextDecorationInset<L> {
     /// Gets the initial value (zero)
     #[inline]
     pub fn get_initial_value() -> Self {
-        GenericTextDecorationInset::Length {
+        GenericTextDecorationInset::LengthPercentage {
             start: L::zero(),
             end: L::zero(),
         }
@@ -212,7 +208,7 @@ impl<L: ToCss + PartialEq> ToCss for GenericTextDecorationInset<L> {
     {
         match self {
             GenericTextDecorationInset::Auto => dst.write_str("auto"),
-            GenericTextDecorationInset::Length { start, end } => {
+            GenericTextDecorationInset::LengthPercentage { start, end } => {
                 start.to_css(dst)?;
                 if start != end {
                     dst.write_char(' ')?;

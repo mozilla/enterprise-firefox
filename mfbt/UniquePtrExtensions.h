@@ -301,9 +301,8 @@ class MOZ_TEMPORARY_CLASS UniquePtrGetterTransfers {
   Receiver& operator*() { return mReceiver; }
 
   // operator void** is conditionally enabled if `Receiver` is a pointer.
-  template <typename U = Receiver,
-            typename = std::enable_if_t<
-                std::is_pointer_v<U> && std::is_same_v<U, Receiver>, void>>
+  template <std::same_as<Receiver> U = Receiver>
+    requires std::is_pointer_v<U>
   operator void**() {
     return reinterpret_cast<void**>(&mReceiver);
   }

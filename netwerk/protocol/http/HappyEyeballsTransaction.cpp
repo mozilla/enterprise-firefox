@@ -281,7 +281,7 @@ bool HappyEyeballsTransaction::AllowedToConnectToIpAddressSpace(
   return real->AllowedToConnectToIpAddressSpace(aTargetIpAddressSpace);
 }
 
-nsHttpRequestHead* HappyEyeballsTransaction::RequestHead() {
+const nsHttpRequestHead* HappyEyeballsTransaction::RequestHead() {
   if (mZeroRttHandle) {
     if (nsHttpTransaction* real = mZeroRttHandle->RealTxn()) {
       return real->RequestHead();

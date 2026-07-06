@@ -69,7 +69,7 @@ sealed interface TabsTrayAction : Action {
     /**
      * The active page in the tray that is now in focus.
      */
-    data class PageSelected(val page: Page) : TabsTrayAction
+    data class PageSelected(val page: Page) : TabsTrayAction, TabManagerUiStateStorageAction
 
     /**
      * A request to perform a "sync" action.

@@ -5,6 +5,12 @@
 # Access Connector is an Enterprise feature name and must not be translated.
 -enterprise-feature-access-connector = Access Connector
 
+# Shown in the about:support "Application Basics" table on enterprise builds.
+app-basics-machine-id = Machine ID
+
+# Shown in the about:support "Security Software" section on enterprise builds.
+security-software-edr = Endpoint Detection and Response
+
 enterprise-toolbar-button =
     .label = { -brand-short-name }
     .tooltiptext = { -brand-short-name }
@@ -76,17 +82,19 @@ lockdown-mode-button =
 lockdown-mode-popup-header = Viewing with restrictions applied
 lockdown-mode-popup-message = You’re viewing this page with extra security protections applied by your organization. Some features may be limited to help reduce security risks.
 
+access-connector-button =
+    .aria-label = { -enterprise-feature-access-connector } enabled
+    .tooltiptext = { -enterprise-feature-access-connector } enabled
+access-connector-panel-header = { -enterprise-feature-access-connector } enabled
+access-connector-panel-message = Connections to this site use additional authentication methods and are routed through a secure enterprise proxy.
+
 blocked-by-policy-title-enterprise = Access to this site is restricted
 neterror-blocked-by-policy-page-title-enterprise = Access to this site is restricted
 neterror-blocked-by-policy-contact-admin = If you believe this is an error or need access for work purposes, please contact your IT administrator.
 
-enterprise-access-connector-heading2 = { -enterprise-feature-access-connector }
-enterprise-access-connector-info-active = This site is being accessed through a secure company connection.
-enterprise-access-connector-button2 =
-  .label = { -enterprise-feature-access-connector }
-  .tooltiptext = { -enterprise-feature-access-connector }
-enterprise-access-connector-status-label-active = active
-enterprise-access-connector-status-label-inactive = inactive
-
 crashed-policy-auto-submit-title = Crash reports help us improve
 crashed-policy-auto-submit-message = Your administrator has configured { -brand-short-name } to send crash reports automatically.
+
+fp-neterror-access-connector-error-title = This website can’t be reached
+fp-neterror-access-connector-error-description = Your organization routes this website through a secure connection service, but that service is currently unavailable.
+fp-neterror-access-connector-error-contact-admin = Try again later, or contact your administrator if you need access.

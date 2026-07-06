@@ -402,7 +402,8 @@ void nsFontMetrics::DrawString(const char* aString, uint32_t aLength,
   mozilla::gfx::PaletteCache paletteCache;
   gfxTextRun::DrawParams params(aContext, paletteCache);
   params.provider = &provider;
-  textRun->Draw(range, pt, params);
+  mozilla::image::imgDrawingParams dummy;
+  textRun->Draw(range, pt, params, dummy);
 }
 
 void nsFontMetrics::DrawString(
@@ -428,7 +429,8 @@ void nsFontMetrics::DrawString(
   mozilla::gfx::PaletteCache paletteCache;
   gfxTextRun::DrawParams params(aContext, paletteCache);
   params.provider = &provider;
-  textRun->Draw(range, pt, params);
+  mozilla::image::imgDrawingParams dummy;
+  textRun->Draw(range, pt, params, dummy);
 }
 
 static nsBoundingMetrics GetTextBoundingMetrics(

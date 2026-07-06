@@ -16,16 +16,6 @@
 
 namespace js {
 
-static bool TryPreserveReflector(JSContext* cx, HandleObject obj) {
-  if (!MaybePreserveDOMWrapper(cx, obj)) {
-    JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
-                              JSMSG_BAD_WEAKMAP_KEY);
-    return false;
-  }
-
-  return true;
-}
-
 static MOZ_ALWAYS_INLINE bool EnsureObjectHasWeakMap(
     JSContext* cx, WeakCollectionObject* obj) {
   if (obj->getMap()) {
@@ -43,20 +33,18 @@ static MOZ_ALWAYS_INLINE bool EnsureObjectHasWeakMap(
   return true;
 }
 
-static MOZ_ALWAYS_INLINE bool PreserveReflectorAndAssertValidEntry(
+static MOZ_ALWAYS_INLINE void PreserveReflectorAndAssertValidEntry(
     JSContext* cx, Handle<WeakCollectionObject*> obj, HandleValue key,
     HandleValue value) {
   if (key.isObject()) {
     RootedObject keyObj(cx, &key.toObject());
 
     // Preserve wrapped native keys to prevent wrapper optimization.
-    if (!TryPreserveReflector(cx, keyObj)) {
-      return false;
-    }
+    MaybePreserveDOMWrapper(cx, keyObj);
 
     RootedObject delegate(cx, UncheckedUnwrapWithoutExpose(keyObj));
-    if (delegate && !TryPreserveReflector(cx, delegate)) {
-      return false;
+    if (delegate) {
+      MaybePreserveDOMWrapper(cx, delegate);
     }
   }
 
@@ -67,7 +55,6 @@ static MOZ_ALWAYS_INLINE bool PreserveReflectorAndAssertValidEntry(
                     gc::ToMarkable(value)->zoneFromAnyThread()->isAtomsZone());
   MOZ_ASSERT_IF(value.isObject(),
                 value.toObject().compartment() == obj->compartment());
-  return true;
 }
 
 static MOZ_ALWAYS_INLINE bool WeakCollectionPutEntryInternal(
@@ -77,9 +64,7 @@ static MOZ_ALWAYS_INLINE bool WeakCollectionPutEntryInternal(
     return false;
   }
 
-  if (!PreserveReflectorAndAssertValidEntry(cx, obj, key, value)) {
-    return false;
-  }
+  PreserveReflectorAndAssertValidEntry(cx, obj, key, value);
 
   if (!obj->getMap()->put(key, value)) {
     JS_ReportOutOfMemory(cx);

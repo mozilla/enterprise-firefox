@@ -2585,3 +2585,8 @@ ComponentsSH::PreCreate(nsISupports* nativeObj, JSContext* cx,
   *parentObj = self->GetScope()->GetGlobalForWrappedNatives();
   return NS_OK;
 }
+
+// These functions are used in the implementation of ffi bindings for
+// xpcom::xpc from Rust.
+
+extern "C" bool Gecko_IsInAutomation() { return xpc::IsInAutomation(); }

@@ -51,6 +51,7 @@ function createAIWindowConfig(modelData) {
           background: "transparent",
           screen_style: {
             overflow: "hidden",
+            width: "100%",
           },
           title: {
             fontWeight: 350,
@@ -75,7 +76,7 @@ function createAIWindowConfig(modelData) {
           position: "center",
           background: "transparent",
           screen_style: {
-            width: "750px",
+            width: "100%",
           },
           title: {
             string_id: "aiwindow-firstrun-model-title",
@@ -101,17 +102,15 @@ function createAIWindowConfig(modelData) {
                 id: "model_1",
                 label: {
                   string_id: "aiwindow-firstrun-model-fast-label",
-                  fontSize: "20px",
-                  fontWeight: 613,
+                  fontSize: "17px",
+                  fontWeight: 590,
                 },
                 icon: {
                   background:
-                    'center / contain no-repeat url("chrome://browser/content/aiwindow/assets/model-choice-1.svg")',
+                    'var(--card-icon-bg) center / calc(100% - var(--space-medium)) calc(100% - var(--space-medium)) no-repeat url("chrome://browser/content/aiwindow/assets/model-choice-1.svg")',
                 },
                 body: {
                   string_id: "aiwindow-firstrun-model-fast-body",
-                  fontSize: "15px",
-                  fontWeight: 320,
                 },
                 subtitle: {
                   string_id: "aiwindow-firstrun-model-chip-subtitle",
@@ -131,17 +130,15 @@ function createAIWindowConfig(modelData) {
                 id: "model_2",
                 label: {
                   string_id: "aiwindow-firstrun-model-allpurpose-label",
-                  fontSize: "20px",
-                  fontWeight: 613,
+                  fontSize: "17px",
+                  fontWeight: 590,
                 },
                 icon: {
                   background:
-                    'center / contain no-repeat url("chrome://browser/content/aiwindow/assets/model-choice-2.svg")',
+                    'var(--card-icon-bg) center / calc(100% - var(--space-medium)) calc(100% - var(--space-medium)) no-repeat url("chrome://browser/content/aiwindow/assets/model-choice-2.svg")',
                 },
                 body: {
                   string_id: "aiwindow-firstrun-model-allpurpose-body",
-                  fontSize: "15px",
-                  fontWeight: 320,
                 },
                 subtitle: {
                   string_id: "aiwindow-firstrun-model-chip-subtitle",
@@ -161,17 +158,15 @@ function createAIWindowConfig(modelData) {
                 id: "model_3",
                 label: {
                   string_id: "aiwindow-firstrun-model-personal-label",
-                  fontSize: "20px",
-                  fontWeight: 613,
+                  fontSize: "17px",
+                  fontWeight: 590,
                 },
                 icon: {
                   background:
-                    'center / contain no-repeat url("chrome://browser/content/aiwindow/assets/model-choice-3.svg")',
+                    'var(--card-icon-bg) center / calc(100% - var(--space-medium)) calc(100% - var(--space-medium)) no-repeat url("chrome://browser/content/aiwindow/assets/model-choice-3.svg")',
                 },
                 body: {
                   string_id: "aiwindow-firstrun-model-personal-body",
-                  fontSize: "15px",
-                  fontWeight: 320,
                 },
                 subtitle: {
                   string_id: "aiwindow-firstrun-model-chip-subtitle",
@@ -207,7 +202,7 @@ function createAIWindowConfig(modelData) {
           position: "center",
           background: "transparent",
           screen_style: {
-            width: "650px",
+            width: "100%",
           },
           title: {
             fontWeight: 350,
@@ -216,7 +211,7 @@ function createAIWindowConfig(modelData) {
           subtitle: {
             fontWeight: 320,
             string_id: "aiwindow-firstrun-memories-subtitle",
-            width: "556px",
+            width: "100%",
           },
           primary_button: {
             label: {
@@ -374,7 +369,7 @@ function createAIWindowConfig(modelData) {
           position: "center",
           background: "transparent",
           screen_style: {
-            width: "650px",
+            width: "100%",
           },
           title: {
             fontWeight: 350,
@@ -383,7 +378,7 @@ function createAIWindowConfig(modelData) {
           subtitle: {
             fontWeight: 320,
             string_id: "aiwindow-firstrun-default-subtitle",
-            width: "556px",
+            width: "100%",
           },
           primary_button: {
             label: {

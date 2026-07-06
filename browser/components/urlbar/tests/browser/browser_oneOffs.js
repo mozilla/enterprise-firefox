@@ -19,7 +19,7 @@ ChromeUtils.defineLazyGetter(this, "oneOffSearchButtons", () => {
 // The oneoffs are disabled within scotchBonnet so for most of the
 // time we want to filter out the actions search mode.
 let filterActionsMode = action =>
-  action.source != UrlbarUtils.RESULT_SOURCE.ACTIONS;
+  action.source != UrlbarShared.RESULT_SOURCE.ACTIONS;
 
 add_setup(async function () {
   gMaxResults = Services.prefs.getIntPref("browser.urlbar.maxRichResults");
@@ -951,13 +951,13 @@ async function doLocalShortcutsShownTest() {
     seenIDs.add(button.id);
     switch (button.id) {
       case "urlbar-engine-one-off-item-bookmarks":
-        expectedSource = UrlbarUtils.RESULT_SOURCE.BOOKMARKS;
+        expectedSource = UrlbarShared.RESULT_SOURCE.BOOKMARKS;
         break;
       case "urlbar-engine-one-off-item-tabs":
-        expectedSource = UrlbarUtils.RESULT_SOURCE.TABS;
+        expectedSource = UrlbarShared.RESULT_SOURCE.TABS;
         break;
       case "urlbar-engine-one-off-item-history":
-        expectedSource = UrlbarUtils.RESULT_SOURCE.HISTORY;
+        expectedSource = UrlbarShared.RESULT_SOURCE.HISTORY;
         break;
       default:
         Assert.ok(false, `Unexpected local shortcut ID: ${button.id}`);

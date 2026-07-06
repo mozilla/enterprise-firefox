@@ -388,7 +388,7 @@ export class AutoCompleteParent extends JSWindowActorParent {
       // to the parent to indicate that an autocomplete entry is selected.
       case "AutoComplete:SelectEntry": {
         if (this.openedPopup) {
-          this.selectAutoCompleteEntry(this.openedPopup.selectedIndex);
+          this.selectAutoCompleteEntry();
         }
         break;
       }
@@ -645,18 +645,25 @@ export class AutoCompleteParent extends JSWindowActorParent {
   }
 
   /**
-   * When an autocomplete entry is selected, notify the actor that provides the entry
+   * When an autocomplete entry is selected, notify the actor that provides the
+   * entry. The same path handles an entry's secondary action (such as the edit
+   * button shown next to a saved login): when `secondary` is true we dispatch
+   * the message declared by the entry's `secondaryAction` instead of its
+   * primary fill message.
+   *
+   * @param {boolean} secondary Whether to dispatch the entry's secondary action.
    */
-  selectAutoCompleteEntry() {
+  selectAutoCompleteEntry(secondary = false) {
     const selectedIndex = this.openedPopup?.selectedIndex;
     const result = AutoCompleteResultView.results[selectedIndex];
     if (!result) {
       return;
     }
 
-    const { fillMessageName, fillMessageData } = JSON.parse(
-      result.comment || "{}"
-    );
+    const parsedComment = JSON.parse(result.comment || "{}");
+    const { fillMessageName, fillMessageData } = secondary
+      ? (parsedComment.secondaryAction ?? {})
+      : parsedComment;
     if (!fillMessageName) {
       return;
     }

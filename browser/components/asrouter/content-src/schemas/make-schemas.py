@@ -425,7 +425,7 @@ def validate_corpus(schema_def: SchemaDefinition, schema: dict[str, Any]):
         print(f"    Validating messages from {provider}:")
 
         try:
-            with provider_path.open("r") as f:
+            with provider_path.open("r", encoding="utf-8") as f:
                 messages = json.load(f)
         except FileNotFoundError as e:
             if not provider_path.parent.exists():

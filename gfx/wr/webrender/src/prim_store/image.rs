@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use api::{
-    AlphaType, ColorDepth, ColorF, ColorRange, ColorU, ExternalImageData, ExternalImageType, ImageBufferKind, ImageKey as ApiImageKey, ImageRendering, PremultipliedColorF, RasterSpace, Shadow, YuvColorSpace, YuvFormat
+    AlphaType, ColorDepth, ColorF, ColorRange, ExternalImageData, ExternalImageType, ImageBufferKind, ImageKey as ApiImageKey, ImageRendering, PremultipliedColorF, RasterSpace, Shadow, YuvColorSpace, YuvFormat
 };
 use api::units::*;
 use euclid::point2;
@@ -18,7 +18,7 @@ use crate::frame_builder::{FrameBuildingContext, FrameBuildingState, PictureCont
 use crate::intern::{DataStore, Handle as InternHandle, InternDebug, Internable};
 use crate::internal_types::LayoutPrimitiveInfo;
 use crate::prim_store::{
-    EdgeMask, InternablePrimitive, PrimKey, PrimTemplate, PrimTemplateCommonData, PrimitiveInstanceIndex, PrimitiveKind, PrimitiveOpacity, PrimitiveScratchBuffer, PrimitiveStore, SizeKey
+    EdgeMask, InternablePrimitive, PrimKey, PrimTemplate, PrimTemplateCommonData, PrimitiveInstanceIndex, PrimitiveKind, PrimitiveOpacity, PrimitiveScratchBuffer, PrimitiveStore
 };
 use crate::prim_store::storage;
 use crate::render_target::RenderTargetKind;
@@ -88,6 +88,10 @@ pub struct ImageScratch {
     /// the resolved stretch size and adjustment-mapped values vary per
     /// instance, even when many instances share a single template.
     pub gpu_address: GpuBufferAddress,
+    /// Per-instance opacity. Recomputed each frame from the image's
+    /// resource-cache properties (and tile-spacing padding); lives here
+    /// rather than on the now-immutable template's common data.
+    pub opacity: PrimitiveOpacity,
 }
 
 impl ImageScratch {
@@ -100,37 +104,16 @@ impl ImageScratch {
             tight_local_clip_rect: LayoutRect::zero(),
             may_need_repetition: true,
             gpu_address: GpuBufferAddress::INVALID,
+            opacity: PrimitiveOpacity::translucent(),
         }
     }
 }
 
-/// How to compute the effective stretch size for an image primitive, per
-/// axis. `FillsPrim` resolves to the (snapped) prim-rect extent at
-/// frame-build so the value sent to the GPU lands on the snapped pixel
-/// grid. `Explicit` keeps the gecko-specified value verbatim. Per-axis
-/// because gecko can specify a background tile that fills the prim on
-/// one axis but tiles on the other (e.g. `background-repeat: repeat-y`
-/// with `background-size: 116.8px 0.8px`).
-#[cfg_attr(feature = "capture", derive(Serialize))]
-#[cfg_attr(feature = "replay", derive(Deserialize))]
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, MallocSizeOf)]
-pub struct StretchSizeKey {
-    pub size: SizeKey,
-    pub fills_width: bool,
-    pub fills_height: bool,
-}
-
-impl StretchSizeKey {
-    /// Both axes fill the prim. The stored size is unused; normalised
-    /// to zero so different prim sizes still intern to the same key.
-    pub fn fills_prim() -> Self {
-        StretchSizeKey {
-            size: LayoutSize::zero().into(),
-            fills_width: true,
-            fills_height: true,
-        }
-    }
-}
+// `StretchSizeKey` now lives in `webrender_api::key_types` so builder-side
+// interning keys can reference it. The resolved `StretchSize` below (and its
+// frame-build `resolve`) stay here. Re-exported to keep existing references
+// working.
+pub use api::key_types::StretchSizeKey;
 
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
@@ -164,17 +147,9 @@ impl StretchSize {
     }
 }
 
-#[cfg_attr(feature = "capture", derive(Serialize))]
-#[cfg_attr(feature = "replay", derive(Deserialize))]
-#[derive(Debug, Clone, Eq, PartialEq, MallocSizeOf, Hash)]
-pub struct Image {
-    pub key: ApiImageKey,
-    pub stretch_size: StretchSizeKey,
-    pub tile_spacing: SizeKey,
-    pub color: ColorU,
-    pub image_rendering: ImageRendering,
-    pub alpha_type: AlphaType,
-}
+// `Image` now lives in `webrender_api::interned_prims` so content-process
+// interning can hold it. Re-exported to keep existing references working.
+pub use api::interned_prims::Image;
 
 pub type ImageKey = PrimKey<Image>;
 
@@ -223,8 +198,7 @@ impl ImageData {
     /// template. The initial request call to the GPU cache ensures that work is only
     /// done if the cache entry is invalid (due to first use or eviction).
     pub fn update(
-        &mut self,
-        common: &mut PrimTemplateCommonData,
+        &self,
         prim_instance_index: PrimitiveInstanceIndex,
         prim_spatial_node_index: SpatialNodeIndex,
         frame_state: &mut FrameBuildingState,
@@ -236,17 +210,6 @@ impl ImageData {
         let image_properties = frame_state
             .resource_cache
             .get_image_properties(self.key);
-
-        common.opacity = match &image_properties {
-            Some(properties) => {
-                if properties.descriptor.is_opaque() {
-                    PrimitiveOpacity::from_alpha(self.color.a)
-                } else {
-                    PrimitiveOpacity::translucent()
-                }
-            }
-            None => PrimitiveOpacity::opaque(),
-        };
 
         let request = ImageRequest {
             key: self.key,
@@ -269,6 +232,16 @@ impl ImageData {
 
         let mut image_scratch = ImageScratch::empty();
         image_scratch.tight_local_clip_rect = tight_clip_rect;
+        image_scratch.opacity = match &image_properties {
+            Some(properties) => {
+                if properties.descriptor.is_opaque() {
+                    PrimitiveOpacity::from_alpha(self.color.a)
+                } else {
+                    PrimitiveOpacity::translucent()
+                }
+            }
+            None => PrimitiveOpacity::opaque(),
+        };
         if effective_stretch_size.width >= prim_rect.size().width
             && effective_stretch_size.height >= prim_rect.size().height
         {
@@ -343,7 +316,7 @@ impl ImageData {
                     size.height += padding.vertical();
 
                     if padding != DeviceIntSideOffsets::zero() {
-                        common.opacity = PrimitiveOpacity::translucent();
+                        image_scratch.opacity = PrimitiveOpacity::translucent();
                     }
 
                     let image_cache_key = ImageCacheKey {
@@ -528,7 +501,6 @@ pub fn prepare_image_quads(
     };
 
     let src_is_opaque = image_properties.descriptor.is_opaque()
-        && common_data.opacity.is_opaque
         && image_data.color.a >= 0.9999;
 
     let premultiplied = image_data.alpha_type == AlphaType::PremultipliedAlpha;
@@ -884,17 +856,9 @@ impl AdjustedImageSource {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[cfg_attr(feature = "capture", derive(Serialize))]
-#[cfg_attr(feature = "replay", derive(Deserialize))]
-#[derive(Debug, Clone, Eq, MallocSizeOf, PartialEq, Hash)]
-pub struct YuvImage {
-    pub color_depth: ColorDepth,
-    pub yuv_key: [ApiImageKey; 3],
-    pub format: YuvFormat,
-    pub color_space: YuvColorSpace,
-    pub color_range: ColorRange,
-    pub image_rendering: ImageRendering,
-}
+// `YuvImage` now lives in `webrender_api::interned_prims` so content-process
+// interning can hold it. Re-exported to keep existing references working.
+pub use api::interned_prims::YuvImage;
 
 pub type YuvImageKey = PrimKey<YuvImage>;
 
@@ -1039,9 +1003,9 @@ fn test_struct_sizes() {
     // (b) You made a structure larger. This is not necessarily a problem, but should only
     //     be done with care, and after checking if talos performance regresses badly.
     assert_eq!(mem::size_of::<Image>(), 36, "Image size changed");
-    assert_eq!(mem::size_of::<ImageTemplate>(), 56, "ImageTemplate size changed");
+    assert_eq!(mem::size_of::<ImageTemplate>(), 52, "ImageTemplate size changed");
     assert_eq!(mem::size_of::<ImageKey>(), 40, "ImageKey size changed");
     assert_eq!(mem::size_of::<YuvImage>(), 32, "YuvImage size changed");
-    assert_eq!(mem::size_of::<YuvImageTemplate>(), 76, "YuvImageTemplate size changed");
+    assert_eq!(mem::size_of::<YuvImageTemplate>(), 72, "YuvImageTemplate size changed");
     assert_eq!(mem::size_of::<YuvImageKey>(), 36, "YuvImageKey size changed");
 }

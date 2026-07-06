@@ -7,6 +7,7 @@
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/Span.h"
+#include "mozilla/StaticPrefs_privacy.h"
 #include "MainThreadUtils.h"
 #include "nsString.h"
 #include "nsThreadUtils.h"
@@ -35,6 +36,9 @@ constexpr char kAnnotationEnginesPref[] =
     "privacy.trackingprotection.content.annotation.engines";
 constexpr char kAnnotationEnginesPBMPref[] =
     "privacy.trackingprotection.content.annotation.engines.pbmode";
+
+constexpr char kMajorExceptionsEngine[] = "major-exceptions";
+constexpr char kMinorExceptionsEngine[] = "minor-exceptions";
 
 // Maps a content classifier engine name (see ContentClassifierService.cpp,
 // kFeatures) onto the ETP prefs that gate it in normal and private-browsing
@@ -85,6 +89,8 @@ constexpr const char* kWatchedPrefs[] = {
     "privacy.trackingprotection.socialtracking.enabled",
     "privacy.trackingprotection.emailtracking.enabled",
     "privacy.trackingprotection.emailtracking.pbmode.enabled",
+    "privacy.trackingprotection.allow_list.baseline.enabled",
+    "privacy.trackingprotection.allow_list.convenience.enabled",
 };
 
 // Build a comma-separated engine list, selecting each mapping's normal or
@@ -101,6 +107,27 @@ void BuildEngineList(Span<const EngineMapping> aMappings, bool aPrivateBrowsing,
       }
       aOut.Append(nsDependentCString(mapping.mEngine));
     }
+  }
+}
+
+// Append the WebCompat exception engines to a protection engine list built by
+// BuildEngineList.
+void AppendExceptionEngines(nsACString& aProtectionEngines) {
+  // Only add exception engines if the list already holds a blocking engine.
+  if (aProtectionEngines.IsEmpty()) {
+    return;
+  }
+  bool baseline =
+      StaticPrefs::privacy_trackingprotection_allow_list_baseline_enabled();
+  bool convenience =
+      StaticPrefs::privacy_trackingprotection_allow_list_convenience_enabled();
+  if (baseline) {
+    aProtectionEngines.Append(',');
+    aProtectionEngines.Append(nsDependentCString(kMajorExceptionsEngine));
+  }
+  if (baseline && convenience) {
+    aProtectionEngines.Append(',');
+    aProtectionEngines.Append(nsDependentCString(kMinorExceptionsEngine));
   }
 }
 
@@ -208,6 +235,9 @@ void ContentClassifierPrefMirror::Sync() {
   BuildEngineList(Span(kProtectionMappings), true, protectionEnginesPBM);
   BuildEngineList(Span(kAnnotationMappings), false, annotationEngines);
   BuildEngineList(Span(kAnnotationMappings), true, annotationEnginesPBM);
+
+  AppendExceptionEngines(protectionEngines);
+  AppendExceptionEngines(protectionEnginesPBM);
 
   Preferences::SetCString(kProtectionEnginesPref, protectionEngines);
   Preferences::SetCString(kProtectionEnginesPBMPref, protectionEnginesPBM);

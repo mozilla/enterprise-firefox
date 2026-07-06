@@ -112,6 +112,7 @@
 #  include "mozilla/java/SampleBufferWrappers.h"
 #  include "mozilla/java/SampleWrappers.h"
 #  include "mozilla/java/SurfaceAllocatorWrappers.h"
+#  include "mozilla/layers/AndroidImageReader.h"
 #  include "mozilla/layers/TextureClientOGL.h"
 #endif
 
@@ -864,8 +865,8 @@ bool FFmpegVideoDecoder<LIBAV_VER>::ShouldDisableHWDecoding(
     FFMPEG_LOG("Codec {} is not accelerated", AVCodecToString(mCodecID));
     return true;
   }
-  if (!XRE_IsRDDProcess()) {
-    FFMPEG_LOG("Platform decoder works in RDD process only");
+  if (!XRE_IsRDDProcess() && !XRE_IsGPUProcess()) {
+    FFMPEG_LOG("Platform decoder works in RDD/GPU process only");
     return true;
   }
 #  endif
@@ -976,7 +977,7 @@ void FFmpegVideoDecoder<LIBAV_VER>::InitHWDecoderIfAllowed() {
 #  endif  // MOZ_ENABLE_D3D11VA
 
 #  ifdef MOZ_WIDGET_ANDROID
-  if ((XRE_IsRDDProcess() ||
+  if ((XRE_IsRDDProcess() || XRE_IsGPUProcess() ||
        (XRE_IsParentProcess() && PR_GetEnv("MOZ_RUN_GTEST"))) &&
       NS_SUCCEEDED(InitMediaCodecDecoder())) {
     return;
@@ -3087,23 +3088,59 @@ MediaResult FFmpegVideoDecoder<LIBAV_VER>::InitMediaCodecDecoder() {
   AVMediaCodecDeviceContext* mediacodecctx =
       (AVMediaCodecDeviceContext*)hwctx->hwctx;
 
-  mSurface =
-      java::GeckoSurface::LocalRef(java::SurfaceAllocator::AcquireSurface(
-          mInfo.mImage.width, mInfo.mImage.height, false));
-  if (!mSurface) {
-    return MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
-                       RESULT_DETAIL("unable to acquire Java surface"));
+  if (XRE_IsGPUProcess() &&
+      gfx::gfxVars::UseAImageReaderVideoGpuProcessAndroid()) {
+    MOZ_ASSERT(!mAndroidImageReader);
+    mAndroidImageReader = layers::AndroidImageReader::Create();
   }
 
-  mSurfaceHandle = mSurface->GetHandle();
+  if (mAndroidImageReader) {
+    auto* window = mAndroidImageReader->GetANativeWindow();
+    MOZ_ASSERT(window);
+    if (!window) {
+      return MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
+                         RESULT_DETAIL("unable to acquire ANativeWindow"));
+    }
 
-  JNIEnv* const env = jni::GetEnvForThread();
-  ANativeWindow* native_window =
-      ANativeWindow_fromSurface(env, mSurface->GetSurface().Get());
+    JNIEnv* const env = jni::GetEnvForThread();
+    jobject surface = ANativeWindow_toSurface(env, window);
+    if (!surface) {
+      return MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
+                         RESULT_DETAIL("unable to acquire Java surface"));
+    }
 
-  mediacodecctx->surface = mSurface->GetSurface().Get();
-  mediacodecctx->native_window = native_window;
-  mediacodecctx->create_window = 0;  // default -- useful when encoding?
+    mImageReaderSurface = java::sdk::Surface::LocalRef::Adopt(env, surface);
+
+    if (!mImageReaderSurface) {
+      return MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
+                         RESULT_DETAIL("unable to acquire Java surface"));
+    }
+
+    mediacodecctx->surface = mImageReaderSurface.Get();
+    // Acquire a reference on the ANativeWindow.
+    // ANativeWindow_release() will be called on uninit the native_window.
+    ANativeWindow_acquire(window);
+    mediacodecctx->native_window = window;
+    mediacodecctx->create_window = 0;  // default -- useful when encoding?
+  } else {
+    mSurfaceTextureSurface =
+        java::GeckoSurface::LocalRef(java::SurfaceAllocator::AcquireSurface(
+            mInfo.mImage.width, mInfo.mImage.height, false));
+    if (!mSurfaceTextureSurface) {
+      return MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
+                         RESULT_DETAIL("unable to acquire Java surface"));
+    }
+
+    mSurfaceHandle = mSurfaceTextureSurface->GetHandle();
+
+    JNIEnv* const env = jni::GetEnvForThread();
+    ANativeWindow* native_window = ANativeWindow_fromSurface(
+        env, mSurfaceTextureSurface->GetSurface().Get());
+
+    mediacodecctx->surface = mSurfaceTextureSurface->GetSurface().Get();
+    mediacodecctx->native_window = native_window;
+    mediacodecctx->create_window = 0;  // default -- useful when encoding?
+  }
 
   if (mLib->av_hwdevice_ctx_init(mMediaCodecDeviceContext) < 0) {
     FFMPEG_LOG("  av_hwdevice_ctx_init failed.");
@@ -3143,11 +3180,16 @@ MediaResult FFmpegVideoDecoder<LIBAV_VER>::CreateImageMediaCodec(
     MediaDataDecoder::DecodedData& aResults) {
   MOZ_DIAGNOSTIC_ASSERT(mFrame);
 
-  auto img = MakeRefPtr<layers::SurfaceTextureImage>(
-      mSurfaceHandle, gfx::IntSize(mFrame->width, mFrame->height),
-      false /* NOT continuous */, gl::OriginPos::BottomLeft, mInfo.HasAlpha(),
-      false /* force color space stuff */,
-      /* aTransformOverride */ Nothing());
+  if (!mFrame || !mFrame->buf[0]) {
+    FFMPEG_LOG("  CreateImageMediaCodec failed, no valid frame");
+    return NS_ERROR_INVALID_ARG;
+  }
+
+  AVFrame* frame = mLib->av_frame_clone(mFrame);
+  if (!frame) {
+    FFMPEG_LOG("  CreateImageMediaCodec failed, cannot clone frame");
+    return NS_ERROR_INVALID_ARG;
+  }
 
   class CompositeListener final
       : public layers::SurfaceTextureImage::SetCurrentCallback {
@@ -3177,21 +3219,27 @@ MediaResult FFmpegVideoDecoder<LIBAV_VER>::CreateImageMediaCodec(
     RefPtr<FFmpegVideoDecoder<LIBAV_VER>> mDecoder;
   };
 
-  if (!mFrame || !mFrame->buf[0]) {
-    FFMPEG_LOG("  CreateImageMediaCodec failed, no valid frame");
-    return NS_ERROR_INVALID_ARG;
+  RefPtr<layers::Image> img;
+  if (mAndroidImageReader) {
+    auto listener = MakeUnique<CompositeListener>(this);
+    mFrameMap.Insert(listener.get(), frame);
+    auto readerImage = MakeRefPtr<layers::AndroidImageReaderImage>(
+        mAndroidImageReader->mImageReaderId,
+        gfx::IntSize(mFrame->width, mFrame->height), mInfo.HasAlpha());
+    readerImage->RegisterSetCurrentCallback(std::move(listener));
+    mAndroidImageReader->RegisterReaderImage(readerImage);
+    img = readerImage.forget();
+  } else {
+    img = MakeRefPtr<layers::SurfaceTextureImage>(
+        mSurfaceHandle, gfx::IntSize(mFrame->width, mFrame->height),
+        false /* NOT continuous */, gl::OriginPos::BottomLeft, mInfo.HasAlpha(),
+        false /* force color space stuff */,
+        /* aTransformOverride */ Nothing());
+    auto listener = MakeUnique<CompositeListener>(this);
+    mFrameMap.Insert(listener.get(), frame);
+    img->AsSurfaceTextureImage()->RegisterSetCurrentCallback(
+        std::move(listener));
   }
-
-  AVFrame* frame = mLib->av_frame_clone(mFrame);
-  if (!frame) {
-    FFMPEG_LOG("  CreateImageMediaCodec failed, cannot clone frame");
-    return NS_ERROR_INVALID_ARG;
-  }
-
-  auto listener = MakeUnique<CompositeListener>(this);
-  MOZ_ASSERT(!mFrameMap.Contains(listener.get()));
-  mFrameMap.Insert(listener.get(), frame);
-  img->RegisterSetCurrentCallback(std::move(listener));
 
   RefPtr<VideoData> v = VideoData::CreateFromImage(
       {mFrame->width, mFrame->height}, aOffset,

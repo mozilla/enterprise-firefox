@@ -28,8 +28,10 @@ skip-if = [
 ["test_dirtyPrefs.js"]
 
 ["test_libPrefs.js"]
+skip-if = ["socketprocess_networking"] # Fails due to Mochia (bug 1982446)
 
 ["test_locked_file_prefs.js"]
+skip-if = ["socketprocess_networking"] # Fails due to Mochia (bug 1982446)
 support-files = [
   "data/testPrefLocked.js", "data/testPrefLockedUser.js",
 ]
@@ -41,9 +43,11 @@ support-files = ["data/testPrefUTF8.js"]
 head = ""
 
 ["test_parser.js"]
+skip-if = ["socketprocess_networking"] # Fails due to Mochia (bug 1982446)
 support-files = ["data/testParser.js"]
 
 ["test_stickyprefs.js"]
+skip-if = ["socketprocess_networking"] # Fails due to Mochia (bug 1982446)
 support-files = [
   "data/testPrefSticky.js", "data/testPrefStickyUser.js",
 ]

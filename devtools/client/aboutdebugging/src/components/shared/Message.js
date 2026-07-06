@@ -22,6 +22,13 @@ const ICONS = {
     "chrome://devtools/skin/images/aboutdebugging-information.svg",
   [MESSAGE_LEVEL.WARNING]: "chrome://devtools/skin/images/alert.svg",
 };
+
+const ICON_L10N_ID = {
+  [MESSAGE_LEVEL.ERROR]: "about-debugging-message-error-icon",
+  [MESSAGE_LEVEL.INFO]: "about-debugging-message-info-icon",
+  [MESSAGE_LEVEL.WARNING]: "about-debugging-message-warning-icon",
+};
+
 const CLOSE_ICON_SRC = "chrome://devtools/skin/images/close.svg";
 
 /**
@@ -76,6 +83,7 @@ class Message extends PureComponent {
       },
       dom.img({
         className: "message__icon",
+        "data-l10n-id": ICON_L10N_ID[level],
         src: ICONS[level],
       }),
       dom.div(

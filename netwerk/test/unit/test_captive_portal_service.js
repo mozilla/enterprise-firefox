@@ -22,6 +22,8 @@ function contentHandler(metadata, response) {
 const PREF_CAPTIVE_ENABLED = "network.captive-portal-service.enabled";
 const PREF_CAPTIVE_TESTMODE = "network.captive-portal-service.testMode";
 const PREF_CAPTIVE_ENDPOINT = "captivedetect.canonicalURL";
+const PREF_CAPTIVE_CANONICAL_CONTENT = "captivedetect.canonicalContent";
+const PREF_CAPTIVE_EXPECTED_STATUS = "captivedetect.expectedStatus";
 const PREF_CAPTIVE_MINTIME = "network.captive-portal-service.minInterval";
 const PREF_CAPTIVE_MAXTIME = "network.captive-portal-service.maxInterval";
 const PREF_DNS_NATIVE_IS_LOCALHOST = "network.dns.native-is-localhost";
@@ -34,6 +36,8 @@ registerCleanupFunction(async () => {
   Services.prefs.clearUserPref(PREF_CAPTIVE_ENABLED);
   Services.prefs.clearUserPref(PREF_CAPTIVE_TESTMODE);
   Services.prefs.clearUserPref(PREF_CAPTIVE_ENDPOINT);
+  Services.prefs.clearUserPref(PREF_CAPTIVE_CANONICAL_CONTENT);
+  Services.prefs.clearUserPref(PREF_CAPTIVE_EXPECTED_STATUS);
   Services.prefs.clearUserPref(PREF_CAPTIVE_MINTIME);
   Services.prefs.clearUserPref(PREF_CAPTIVE_MAXTIME);
   Services.prefs.clearUserPref(PREF_DNS_NATIVE_IS_LOCALHOST);
@@ -63,6 +67,8 @@ add_task(function setup() {
   httpserver.registerPathHandler("/captive.html", contentHandler);
   httpserver.start(-1);
 
+  Services.prefs.setIntPref(PREF_CAPTIVE_EXPECTED_STATUS, 200);
+  Services.prefs.setCharPref(PREF_CAPTIVE_CANONICAL_CONTENT, SUCCESS_STRING);
   Services.prefs.setCharPref(PREF_CAPTIVE_ENDPOINT, cpURI);
   Services.prefs.setIntPref(PREF_CAPTIVE_MINTIME, 50);
   Services.prefs.setIntPref(PREF_CAPTIVE_MAXTIME, 100);
@@ -95,6 +101,59 @@ add_task(async function test_simple() {
   cps.recheckCaptivePortal();
   await notification;
   equal(cps.state, Ci.nsICaptivePortalService.UNLOCKED_PORTAL);
+});
+
+// This test mimics the production configuration where the canonical endpoint
+// returns an empty 204 response when there is no captive portal. Any other 2xx
+// status is interpreted as a captive portal intercepting the request.
+add_task(async function test_204_endpoint() {
+  Services.prefs.setBoolPref(PREF_CAPTIVE_ENABLED, false);
+  equal(cps.state, Ci.nsICaptivePortalService.UNKNOWN);
+
+  let savedStatus = Services.prefs.getIntPref(PREF_CAPTIVE_EXPECTED_STATUS);
+  let savedContent = Services.prefs.getCharPref(PREF_CAPTIVE_CANONICAL_CONTENT);
+  Services.prefs.setIntPref(PREF_CAPTIVE_EXPECTED_STATUS, 204);
+  Services.prefs.setCharPref(PREF_CAPTIVE_CANONICAL_CONTENT, "");
+
+  let captive = false;
+  httpserver.registerPathHandler("/captive.html", (metadata, response) => {
+    if (captive) {
+      // A captive portal returns its login page instead of the empty 204.
+      response.setStatusLine(metadata.httpVersion, 200, "OK");
+      response.setHeader("Content-Type", "text/html");
+      response.bodyOutputStream.write(SUCCESS_STRING, SUCCESS_STRING.length);
+    } else {
+      response.setStatusLine(metadata.httpVersion, 204, "No Content");
+    }
+  });
+
+  let notification = observerPromise("network:captive-portal-connectivity");
+  Services.prefs.setBoolPref(PREF_CAPTIVE_ENABLED, true);
+  equal(await notification, "clear", "204 response means no captive portal");
+  equal(cps.state, Ci.nsICaptivePortalService.NOT_CAPTIVE);
+
+  captive = true;
+  notification = observerPromise("captive-portal-login");
+  cps.recheckCaptivePortal();
+  await notification;
+  equal(
+    cps.state,
+    Ci.nsICaptivePortalService.LOCKED_PORTAL,
+    "A 200 response instead of 204 means a captive portal"
+  );
+
+  captive = false;
+  notification = observerPromise("captive-portal-login-success");
+  cps.recheckCaptivePortal();
+  await notification;
+  equal(cps.state, Ci.nsICaptivePortalService.UNLOCKED_PORTAL);
+
+  // Restore the shared configuration for the following tests.
+  Services.prefs.setIntPref(PREF_CAPTIVE_EXPECTED_STATUS, savedStatus);
+  Services.prefs.setCharPref(PREF_CAPTIVE_CANONICAL_CONTENT, savedContent);
+  httpserver.registerPathHandler("/captive.html", contentHandler);
+  cpResponse = SUCCESS_STRING;
+  Services.prefs.setBoolPref(PREF_CAPTIVE_ENABLED, false);
 });
 
 // This test redirects to another URL which returns the same content.

@@ -231,7 +231,7 @@ loader.lazyGetter(this, "ProfilerBackground", () => {
 const DEVTOOLS_STYLESHEETS_IN_DEBUGGER =
   "devtools.debugger.features.stylesheets-in-debugger";
 
-const BOOLEAN_CONFIGURATION_PREFS = {
+const CONFIGURATION_PREFS = {
   "devtools.cache.disabled": {
     name: "cacheDisabled",
   },
@@ -251,8 +251,11 @@ const BOOLEAN_CONFIGURATION_PREFS = {
   "devtools.command-button-jstracer.enabled": {
     name: "isTracerFeatureEnabled",
   },
+  "devtools.netmonitor.bodyLimit": {
+    name: "networkBodyLimit",
+  },
 };
-exports.BOOLEAN_CONFIGURATION_PREFS = BOOLEAN_CONFIGURATION_PREFS;
+exports.CONFIGURATION_PREFS = CONFIGURATION_PREFS;
 
 /**
  * A "Toolbox" is the component that holds all the tools for one specific
@@ -962,6 +965,10 @@ class Toolbox extends EventEmitter {
       this.commands.targetCommand.on(
         "target-thread-wrong-order-on-resume",
         this.#onTargetThreadFrontResumeWrongOrder
+      );
+      this.commands.targetCommand.on(
+        "target-location-updated",
+        this.#onTargetLocationUpdated.bind(this)
       );
       registerStoreObserver(
         this.commands.targetCommand.store,
@@ -2423,11 +2430,11 @@ class Toolbox extends EventEmitter {
     // Get the current thread settings from the prefs as well as debugger internal storage for breakpoints.
     const threadConfiguration = await getThreadOptions();
 
-    for (const prefName in BOOLEAN_CONFIGURATION_PREFS) {
-      const { name, thread } = BOOLEAN_CONFIGURATION_PREFS[prefName];
-      const value = Services.prefs.getBoolPref(prefName, false);
+    for (const prefName in CONFIGURATION_PREFS) {
+      const { name, thread } = CONFIGURATION_PREFS[prefName];
+      const value = this.#getPrefValue(prefName);
 
-      // Based on the pref name, this will be stored in either target or thread specific configuration
+      // Based on the `thread` boolean, this will be stored in either target or thread specific configuration
       if (thread) {
         threadConfiguration[name] = value;
       } else {
@@ -2435,10 +2442,7 @@ class Toolbox extends EventEmitter {
       }
 
       // Also listen for any future change
-      Services.prefs.addObserver(
-        prefName,
-        this.#onBooleanConfigurationPrefChange
-      );
+      Services.prefs.addObserver(prefName, this.#onConfigurationPrefChange);
     }
 
     // Now communicate the configurations to the server
@@ -2448,10 +2452,56 @@ class Toolbox extends EventEmitter {
     await this.commands.threadConfigurationCommand.updateConfiguration(
       threadConfiguration
     );
+
+    // @backward-compat { version 153 } Fx 153 unified the two following pref into a unique one.
+    // Migrate the value from old profiles.
+    const requestBodyLimit = Services.prefs.getIntPref(
+      "devtools.netmonitor.requestBodyLimit",
+      1048576
+    );
+    const responseBodyLimit = Services.prefs.getIntPref(
+      "devtools.netmonitor.responseBodyLimit",
+      1048576
+    );
+    if (responseBodyLimit != 1048576) {
+      Services.prefs.setIntPref(
+        "devtools.netmonitor.bodyLimit",
+        responseBodyLimit
+      );
+    } else if (requestBodyLimit != 1048576) {
+      Services.prefs.setIntPref(
+        "devtools.netmonitor.bodyLimit",
+        requestBodyLimit
+      );
+    }
+    Services.prefs.clearUserPref("devtools.netmonitor.requestBodyLimit");
+    Services.prefs.clearUserPref("devtools.netmonitor.responseBodyLimit");
   }
 
   /**
-   * Called whenever a preference registered in BOOLEAN_CONFIGURATION_PREFS
+   * Helper to retrieve any preference value regardless of its type.
+   *
+   * @param {string} name
+   *        Preference name.
+   * @return {string|number|boolean}
+   *        Preference value
+   */
+  #getPrefValue(name) {
+    const type = Services.prefs.getPrefType(name);
+    switch (type) {
+      case Services.prefs.PREF_STRING:
+        return Services.prefs.getStringPref(name, "");
+      case Services.prefs.PREF_INT:
+        return Services.prefs.getIntPref(name, 0);
+      case Services.prefs.PREF_BOOL:
+        return Services.prefs.getBoolPref(name, false);
+      default:
+        throw new Error("Unknown pref type for: " + name);
+    }
+  }
+
+  /**
+   * Called whenever a preference registered in CONFIGURATION_PREFS
    * changes.
    * This is used to communicate the new setting's value to the server.
    *
@@ -2460,9 +2510,9 @@ class Toolbox extends EventEmitter {
    * @param {string} prefName
    *        The preference name which changed
    */
-  #onBooleanConfigurationPrefChange = async (subject, topic, prefName) => {
-    const { name, thread } = BOOLEAN_CONFIGURATION_PREFS[prefName];
-    const value = Services.prefs.getBoolPref(prefName, false);
+  #onConfigurationPrefChange = async (subject, topic, prefName) => {
+    const { name, thread } = CONFIGURATION_PREFS[prefName];
+    const value = this.#getPrefValue(prefName);
 
     const configurationCommand = thread
       ? this.commands.threadConfigurationCommand
@@ -2485,31 +2535,23 @@ class Toolbox extends EventEmitter {
   updateToolboxButtonsVisibility({ fromWillNavigate = false } = {}) {
     const inspectorFront = this.target.getCachedFront("inspector");
 
-    let hasHighlighters = false;
+    let toggledHighlighters = false;
     for (const button of this.toolbarButtons) {
       button.isVisible = this.#commandIsVisible(button);
 
+      // We want to hide highlighters when the toolbox button is disabled from the options panel
       if (
         inspectorFront &&
-        // We want to destroy highlighters associated with the toolbox button when:
-        // - the button gets hidden (from the Settings panel)
-        // - or when we're going to navigate
-        (!button.isVisible || fromWillNavigate)
+        button.highlighterTypes &&
+        !button.isVisible &&
+        button.isChecked
       ) {
-        if (!button.highlighterTypes) {
-          continue;
-        }
-
-        for (const type of button.highlighterTypes) {
-          if (inspectorFront.getKnownHighlighter(type)?.isShown()) {
-            inspectorFront.destroyHighlighterByType(type);
-            hasHighlighters = true;
-          }
-        }
+        button.onClick({});
+        toggledHighlighters = true;
       }
     }
 
-    if (hasHighlighters || !fromWillNavigate) {
+    if (toggledHighlighters || !fromWillNavigate) {
       this.#renderToolboxButtons();
     }
   }
@@ -4373,11 +4415,8 @@ class Toolbox extends EventEmitter {
     gDevTools.off("tool-registered", this.#toolRegistered);
     gDevTools.off("tool-unregistered", this.#toolUnregistered);
 
-    for (const prefName in BOOLEAN_CONFIGURATION_PREFS) {
-      Services.prefs.removeObserver(
-        prefName,
-        this.#onBooleanConfigurationPrefChange
-      );
+    for (const prefName in CONFIGURATION_PREFS) {
+      Services.prefs.removeObserver(prefName, this.#onConfigurationPrefChange);
     }
     Services.prefs.removeObserver(
       BROWSERTOOLBOX_SCOPE_PREF,
@@ -5059,39 +5098,6 @@ class Toolbox extends EventEmitter {
         errors = 0;
       }
 
-      if (
-        resourceType === TYPES.DOCUMENT_EVENT &&
-        !resource.isFrameSwitching &&
-        // `url` is set on the targetFront when we receive dom-loading, and `title` when
-        // `dom-interactive` is received. Here we're only updating the window title in
-        // the "newer" event.
-        resource.name === "dom-interactive"
-      ) {
-        // the targetFront title and url are updated on dom-interactive, so delay refreshing
-        // the host title a bit in order for the event listener in targetCommand to be
-        // executed.
-        setTimeout(() => {
-          if (resource.targetFront.isDestroyed()) {
-            // The resource's target might have been destroyed in between and
-            // would no longer have a valid actorID available.
-            return;
-          }
-
-          this.#updateFrames({
-            frameData: {
-              id: resource.targetFront.actorID,
-              url: resource.targetFront.url,
-              title: resource.targetFront.title,
-            },
-          });
-
-          if (resource.targetFront.isTopLevel) {
-            this.#refreshHostTitle();
-            this.#setDebugTargetData();
-          }
-        }, 0);
-      }
-
       if (resourceType == TYPES.THREAD_STATE) {
         this.#onThreadStateChanged(resource);
       }
@@ -5120,6 +5126,25 @@ class Toolbox extends EventEmitter {
 
     this.setErrorCount(errors);
   };
+
+  /**
+   * Called by TargetCommand whenever the top level target navigated to a new document
+   * and its `url` and `title` are guaranteed to be updated to the new location.
+   */
+  #onTargetLocationUpdated(targetFront) {
+    this.#updateFrames({
+      frameData: {
+        id: targetFront.actorID,
+        url: targetFront.url,
+        title: targetFront.title,
+      },
+    });
+
+    if (targetFront.isTopLevel) {
+      this.#refreshHostTitle();
+      this.#setDebugTargetData();
+    }
+  }
 
   /**
    * Set the number of errors in the toolbar icon.

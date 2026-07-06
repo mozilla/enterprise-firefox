@@ -10,6 +10,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 import { RemotePageChild } from "resource://gre/actors/RemotePageChild.sys.mjs";
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 export class NetErrorChild extends RemotePageChild {
   actorCreated() {
@@ -34,6 +35,7 @@ export class NetErrorChild extends RemotePageChild {
       "RPMSetTRRDisabledLoadFlags",
       "RPMGetCurrentTRRMode",
       "RPMShowOSXLocalNetworkPermissionWarning",
+      "RPMIsEnterprise",
     ];
     this.exportFunctions(exportableFunctions);
   }
@@ -202,6 +204,10 @@ export class NetErrorChild extends RemotePageChild {
 
   RPMIsFirefox() {
     return lazy.AppInfo.isFirefox;
+  }
+
+  RPMIsEnterprise() {
+    return AppConstants.MOZ_ENTERPRISE;
   }
 
   RPMHasConnectivity() {

@@ -4,20 +4,45 @@
 
 "use strict";
 
-const { EnterprisePolicyTesting } = ChromeUtils.importESModule(
-  "resource://testing-common/EnterprisePolicyTesting.sys.mjs"
+const { EnterprisePolicyTesting, PoliciesPrefTracker } =
+  ChromeUtils.importESModule(
+    "resource://testing-common/EnterprisePolicyTesting.sys.mjs"
+  );
+
+const { Policies } = ChromeUtils.importESModule(
+  "resource:///modules/policies/Policies.sys.mjs"
 );
 
-async function clearPolicyEngine() {
-  await EnterprisePolicyTesting.servePolicyWithJson({ policies: {} }, {});
-  is(
-    Object.keys(Services.policies.getActivePolicies()).length,
-    0,
-    "No policies should be defined"
-  );
-  is(
-    Services.policies.status,
-    Ci.nsIEnterprisePolicies.INACTIVE,
-    "Engine is inactive at the end of the test"
-  );
-}
+EnterprisePolicyTesting.pathResolver = getTestFilePath;
+
+const POLICY_PARAM_STATE = {
+  DEFAULT: "default",
+  APPLIED: "applied",
+  APPLIED_LOCAL_POLICY: "applied-by-local-policy",
+  APPLIED_REMOTE_POLICY: "applied-by-remote-policy",
+  UPDATED_BY_REMOTE_POLICY: "updated-by-remote-policy",
+  REMOVED: "removed",
+};
+
+add_setup(async () => {
+  PoliciesPrefTracker.start();
+
+  // The engine initializes during browser startup, before this setup runs.
+  // Enabling remote policies via the manifest would make the startup init
+  // attempt an unstubbed remote fetch, fail, and shut the browser down. Instead
+  // enable remote here, serve an empty policy set, the policy engines get
+  // restarted in each test file
+  EnterprisePolicyTesting.stubRemotePolicies({ policies: {} });
+  await SpecialPowers.pushPrefEnv({
+    set: [["enterprise.policies.live.enabled", true]],
+  });
+
+  registerCleanupFunction(() => {
+    Services.obs.notifyObservers(null, "EnterprisePolicies:Reset");
+    if (EnterprisePolicyTesting.remotePoliciesStub) {
+      EnterprisePolicyTesting.remotePoliciesStub.restore();
+      EnterprisePolicyTesting.remotePoliciesStub = null;
+    }
+    PoliciesPrefTracker.stop();
+  });
+});

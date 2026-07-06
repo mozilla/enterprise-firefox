@@ -120,7 +120,7 @@ async function doOptInTest(useKeyboard) {
   let { element, result } = await openRealtimeSuggestion({ input: "stock" });
   Assert.ok(result.isBestMatch);
   Assert.equal(result.payload.suggestionType, "market_opt_in");
-  Assert.equal(result.type, UrlbarUtils.RESULT_TYPE.TIP);
+  Assert.equal(result.type, UrlbarShared.RESULT_TYPE.TIP);
 
   Assert.ok(
     !element.row.querySelector(".urlbarView-button-result-menu"),

@@ -51,7 +51,6 @@
 #include "NSSCertDBTrustDomain.h"
 #include "nsIClientAuthRememberService.h"
 #include "nsIX509CertDB.h"
-#include "nsNSSHelper.h"
 #include "mozpkix/pkixnss.h"
 #include "mozpkix/pkixutil.h"
 #include "mozpkix/pkix.h"

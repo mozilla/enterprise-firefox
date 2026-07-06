@@ -59,7 +59,7 @@
 
     <!-- Layers -->
     <!-- Card background, Menu background, Dialog, Banner -->
-    <color name="fx_mobile_layer_color_2">@color/photonWhite</color>
+    <color name="fx_mobile_layer_color_2">@color/novaWhite</color>
     <!-- Search -->
     <color name="fx_mobile_layer_color_3">@color/photonLightGrey20</color>
     <!-- Tooltip -->
@@ -93,10 +93,6 @@
     <color name="fx_mobile_icon_color_accent_pink">@color/photonPink60</color>
     <color name="fx_mobile_icon_color_accent_green">@color/photonGreen60</color>
     <color name="fx_mobile_icon_color_accent_yellow">@color/photonYellow60</color>
-
-    <!-- Border -->
-    <!-- Active tab (Nav), Selected tab, Active form -->
-    <color name="fx_mobile_border_color_accent">@color/photonInk20</color>
 
     <!-- Private theme color variables -->
 

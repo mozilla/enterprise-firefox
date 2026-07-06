@@ -368,19 +368,19 @@ impl RemoteBrowser {
     }
 
     pub(crate) fn check_status(&self) -> (u32, BrowserStatus) {
-        let command = format!("kill -0 {} 2>/dev/null; echo $?", self.pid);
+        let command = format!("test -d /proc/{} && echo 0 || echo 1", self.pid);
         let status = match self
             .handler
             .process
             .device
             .execute_host_shell_command(&command)
         {
-            Ok(output) if output.trim() != "0" => BrowserStatus::Exited(None),
+            Ok(output) if output.trim() == "0" => BrowserStatus::Running,
+            Ok(_) => BrowserStatus::Exited(None),
             Err(e) => {
                 warn!("Failed to check browser status via adb: {}", e);
                 BrowserStatus::Running
             }
-            _ => BrowserStatus::Running,
         };
         (self.pid, status)
     }

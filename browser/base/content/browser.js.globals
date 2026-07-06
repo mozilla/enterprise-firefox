@@ -40,6 +40,7 @@
   "PageProxyClickHandler",
   "OpenSearchManager",
   "CreateContainerTabMenu",
+  "gContainerCreation",
   "FillHistoryMenu",
   "toOpenWindowByType",
   "OpenBrowserWindow",

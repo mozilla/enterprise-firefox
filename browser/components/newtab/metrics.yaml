@@ -1399,6 +1399,26 @@ newtab:
     send_in_pings:
       - newtab
 
+  scroll:
+    lifetime: ping
+    type: boolean
+    description: >
+      Whether the user scrolled more than SCROLL_TELEMETRY_THRESHOLD pixels
+      during a newtab session. Absent if no qualifying scroll occurred during
+      the session.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2049897
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2049897
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - sdowne@mozilla.com
+      - jbrown@mozilla.com
+    expires: never
+    send_in_pings:
+      - newtab
+
 newtab.search:
   enabled:
     lifetime: application
@@ -1828,6 +1848,25 @@ topsites:
       - web_activity
     notification_emails:
       - gleonard@mozilla.com
+    expires: never
+    send_in_pings:
+      - newtab
+
+  pinned_count:
+    lifetime: application
+    type: quantity
+    unit: integer
+    description: >
+      The number of pinned top site tiles at the time of the newtab session.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2049528
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2049528
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - sdowne@mozilla.com
+      - jbrown@mozilla.com
     expires: never
     send_in_pings:
       - newtab

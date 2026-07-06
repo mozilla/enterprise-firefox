@@ -30,6 +30,7 @@
 #include "mozilla/intl/Segmenter.h"
 #include "mozilla/intl/UnicodeProperties.h"
 #include "mozilla/StaticPrefs_browser.h"
+#include "mozilla/Utf16.h"
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -522,13 +523,13 @@ nsFind::SetMatchDiacritics(bool aMatchDiacritics) {
 char32_t nsFind::DecodeChar(const char16_t* t2b, int32_t* index) const {
   char32_t c = t2b[*index];
   if (mFindBackward) {
-    if (*index >= 1 && NS_IS_SURROGATE_PAIR(t2b[*index - 1], t2b[*index])) {
-      c = SURROGATE_TO_UCS4(t2b[*index - 1], t2b[*index]);
+    if (*index >= 1 && mozilla::IsSurrogatePair(t2b[*index - 1], t2b[*index])) {
+      c = mozilla::SurrogateToUCS4(t2b[*index - 1], t2b[*index]);
       (*index)--;
     }
   } else {
-    if (NS_IS_SURROGATE_PAIR(t2b[*index], t2b[*index + 1])) {
-      c = SURROGATE_TO_UCS4(t2b[*index], t2b[*index + 1]);
+    if (mozilla::IsSurrogatePair(t2b[*index], t2b[*index + 1])) {
+      c = mozilla::SurrogateToUCS4(t2b[*index], t2b[*index + 1]);
       (*index)++;
     }
   }
@@ -935,7 +936,7 @@ already_AddRefed<nsRange> nsFind::FindFromRangeBoundaries(
       if (!matchAnchorNode) {
         matchAnchorNode = state.GetCurrentNode();
         matchAnchorOffset = findex;
-        if (!IS_IN_BMP(c)) {
+        if (!mozilla::IsInBMP(c)) {
           matchAnchorOffset -= incr;
         }
         matchAnchorChar = c;

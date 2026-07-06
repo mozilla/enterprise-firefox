@@ -458,6 +458,30 @@
           "properties": {
             "type": {
               "type": "string",
+              "enum": ["CONFIRM_LAUNCH_ON_LOGIN"]
+            }
+          },
+          "required": ["type"],
+          "additionalProperties": false,
+          "description": "Configure Firefox to launch on Windows login"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["REMOVE_LAUNCH_ON_LOGIN"]
+            }
+          },
+          "required": ["type"],
+          "additionalProperties": false,
+          "description": "Remove Firefox from Windows login items"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
               "enum": ["SET_DEFAULT_BROWSER"]
             }
           },
@@ -502,6 +526,37 @@
           "required": ["type"],
           "additionalProperties": false,
           "description": "Message action to decline setting Firefox as the default PDF handler"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["SET_DEFAULT_PROTOCOL_HANDLER"]
+            },
+            "data": {
+              "type": "object",
+              "properties": {
+                "protocol": {
+                  "type": "string",
+                  "description": "The protocol to claim, e.g. \"mailto\"."
+                },
+                "url": {
+                  "type": "string",
+                  "description": "URL passed to the OS default-app picker."
+                },
+                "openInFirefox": {
+                  "type": "boolean",
+                  "description": "If the OS hands the URL back to Firefox after the user picks Firefox in the open-with dialog, open the protocol's default URL in a new tab instead of suppressing the launch."
+                }
+              },
+              "required": ["protocol"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["type", "data"],
+          "additionalProperties": false,
+          "description": "Message action to set Firefox as the default protocol handler"
         },
         {
           "type": "object",
@@ -636,6 +691,29 @@
           "required": ["data", "type"],
           "additionalProperties": false,
           "description": "Sets prefs from special message actions"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "data": {
+              "type": "object",
+              "properties": {
+                "widget_id": {
+                  "type": "string",
+                  "description": "The id of the widget to destroy"
+                }
+              },
+              "required": ["widget_id"],
+              "additionalProperties": false
+            },
+            "type": {
+              "type": "string",
+              "enum": ["DESTROY_UIWIDGET"]
+            }
+          },
+          "required": ["data", "type"],
+          "additionalProperties": false,
+          "description": "Destroys a customizable UI widget"
         },
         {
           "type": "object",
@@ -783,7 +861,7 @@
                 },
                 "source": {
                   "type": "integer",
-                  "description": "A result source to restrict to. One of the values in UrlbarUtils.RESULT_SOURCE.",
+                  "description": "A result source to restrict to. One of the values in UrlbarShared.RESULT_SOURCE.",
                   "default": 3
                 },
                 "entry": {

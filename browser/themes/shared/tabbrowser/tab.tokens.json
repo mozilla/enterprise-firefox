@@ -9,11 +9,6 @@
       "value": "var(--toolbarbutton-border-radius)"
     }
   },
-  "box": {
-    "shadow": {
-      "value": "{box-shadow.level-1}"
-    }
-  },
   "attention": {
     "dot": {
       "color": {
@@ -141,6 +136,9 @@
         "dark": "{color.white.@base}",
         "nativeTheme": "var(--toolbar-text-color)"
       }
+    },
+    "box-shadow": {
+      "value": "{box-shadow.level-1}"
     }
   },
   "vertical": {

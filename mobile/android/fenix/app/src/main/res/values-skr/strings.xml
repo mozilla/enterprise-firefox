@@ -52,7 +52,7 @@
   <!-- Text for the menu button to remove a recently saved bookmark from the user's home screen -->
   <string name="home_bookmarks_menu_item_remove">ہٹاؤ</string>
   <!-- About content. %1$s is the name of the app (for example "Firefox"). -->
-  <string name="about_content">%1$s موزلّا ولوں تیار تھیا ہے۔</string>
+  <string name="about_content" tools:ignore="BrandUsage">%1$s موزلّا ولوں تیار تھیا ہے۔</string>
   <!-- Private Browsing -->
   <string name="private_browsing_common_myths">نجی براؤزنگ بارے عام فرضی قصے</string>
   <!--
@@ -293,62 +293,6 @@
     Content description (not visible, for screen readers etc.): Close button for the home onboarding dialog
   -->
   <string name="onboarding_home_content_description_close_button">بند کرو</string>
-  <!--
-    Juno first user onboarding flow experiment, strings are marked unused as they are only referenced by Nimbus experiments.
-
-    Description for learning more about our privacy notice.
-  -->
-  <string name="juno_onboarding_privacy_notice_text" tools:ignore="BrandUsage">فائرفوکس رازداری نوٹس</string>
-  <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_title_nimbus_2">اَساکوں تُہاکوں محفوظ رکّھݨ بھان٘دا ہِے</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_3">اَساݙا غیر منافع بخش حمایت یافتہ براؤزر کمپنیاں کوں لُکّل طور تے ویب دے چَودھار تُہاݙی پیروی کرݨ کنوں روکݨ وِچ مَدَت کرین٘دا ہِے۔</string>
-  <!-- Text for the button to set firefox as default browser on the device -->
-  <string name="juno_onboarding_default_browser_positive_button" tools:ignore="UnusedResources">پہلوں مقرر براؤز تے طور تے سیٹ کرو</string>
-  <!-- Text for the button dismiss the screen and move on with the flow -->
-  <string name="juno_onboarding_default_browser_negative_button" tools:ignore="UnusedResources">ہݨ کائناں</string>
-  <!-- Title for sign in to sync screen. -->
-  <string name="juno_onboarding_sign_in_title_2">جہڑیلے تُساں ڈیوائساں دے وِچالے ہاپ کرین٘دے ہِیوے تاں انکرپٹ رہؤو۔</string>
-  <!--
-    Description for sign in to sync screen. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_sign_in_description_3" tools:ignore="BrandUsage">جہڑے ویلے تساں ہم وقت تھیندے ہو تاں Firefox تہاݙے پاس ورڈ، نشانیاں تے ٻیا ٻہوں کجھ خفیہ کر ݙیندا ہے۔</string>
-  <!-- Text for the button to sign in to sync on the device -->
-  <string name="juno_onboarding_sign_in_positive_button" tools:ignore="UnusedResources">سائن ان</string>
-  <!-- Text for the button dismiss the screen and move on with the flow -->
-  <string name="juno_onboarding_sign_in_negative_button" tools:ignore="UnusedResources">ہݨ کائناں</string>
-  <!--
-    Title for enable notification permission screen used by Nimbus experiments. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_enable_notifications_title_nimbus_2" tools:ignore="BrandUsage">اطلاع نامے تُہاکوں فائر فاکس دے نال محفوظ رہوݨ وِچ مَدَد کرین٘دِن</string>
-  <!--
-    Description for enable notification permission screen used by Nimbus experiments. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_enable_notifications_description_nimbus_2" tools:ignore="BrandUsage">محفوظ طریقے نال آپݨے ڈیوائساں دے وِچالے ٹیب گَھلّو اَتے فائر فاکس وِچ رازداری دیاں ٻئیاں خاصیتاں دی ڳویڑ کرو۔</string>
-  <!-- Text for the button to request notification permission on the device -->
-  <string name="juno_onboarding_enable_notifications_positive_button" tools:ignore="UnusedResources">اطلاع نامے چالو کرو</string>
-  <!-- Text for the button dismiss the screen and move on with the flow -->
-  <string name="juno_onboarding_enable_notifications_negative_button" tools:ignore="UnusedResources">ہݨ کائناں</string>
-  <!--
-    Title for add search widget screen used by Nimbus experiments. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_add_search_widget_title" tools:ignore="BrandUsage,UnusedResources">فائر فاکس ڳویڑی ویجیٹ اَزماؤ</string>
-  <!--
-    Description for add search widget screen used by Nimbus experiments. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_add_search_widget_description" tools:ignore="BrandUsage,UnusedResources">تُہاݙی ہوم سکرین اُتے فائر فاکس دے نال، تُہاکوں رازداری-پہلاں براؤزر تئیں سَوکھی رسائی حاصل تھی ویسی جہڑا کراس سائٹ ٹریکراں کوں روکین٘دا ہِے۔</string>
-  <!--
-    Text for the button to add search widget on the device used by Nimbus experiments. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_add_search_widget_positive_button" tools:ignore="BrandUsage,UnusedResources">Firefox ویجٹ شامل کرو</string>
-  <!-- Text for the button to dismiss the screen and move on with the flow -->
-  <string name="juno_onboarding_add_search_widget_negative_button" tools:ignore="UnusedResources">ہݨ کائناں</string>
   <!-- Positive button label for the privacy preferences dialog shown during onboarding. -->
   <string name="onboarding_preferences_dialog_positive_button">تھی ڳیا</string>
   <!-- Used as text for the link in onboarding_term_of_service_line_two. -->
@@ -359,10 +303,6 @@
 
   <!-- ==== End of Project "Nova" onboarding strings ==== -->
 
-  <!-- Onboarding toolbar selection card label for 'top' option, used by Nimbus experiments. -->
-  <string name="onboarding_customize_toolbar_top_option">چوٹی</string>
-  <!-- Onboarding toolbar selection card label for 'bottom' option, used by Nimbus experiments. -->
-  <string name="onboarding_customize_toolbar_bottom_option">تل</string>
   <!--
     Search Widget
 
@@ -489,7 +429,7 @@
   <!-- Preference for accessibility -->
   <string name="preferences_accessibility">رسائیت</string>
   <!-- Preference to override the Mozilla account server -->
-  <string name="preferences_override_account_server">آپݨی مرضی دا موزیلا اکاؤنٹ سرور</string>
+  <string name="preferences_override_account_server" tools:ignore="BrandUsage">آپݨی مرضی دا موزیلا اکاؤنٹ سرور</string>
   <!-- Preference to override the Sync token server -->
   <string name="preferences_override_sync_tokenserver">من پسند ہم وقت سرور</string>
   <!-- Preference category for account information -->
@@ -505,7 +445,7 @@
   <!-- Preference for settings related to visual options -->
   <string name="preferences_customize">تخصیص کرو</string>
   <!-- Preference shown instead of account display name while account profile information isn't available yet. -->
-  <string name="preferences_account_default_name_2">Mozilla کھاتہ</string>
+  <string name="preferences_account_default_name_2" tools:ignore="BrandUsage">Mozilla کھاتہ</string>
   <!-- Preference text for account title when there was an error syncing FxA -->
   <string name="preferences_account_sync_error">ہم وقت کرݨ کوں ولدا شروع کرݨ کیتے ولدا کنکٹ کرو</string>
   <!-- Preference for language -->
@@ -748,7 +688,7 @@
   <!-- Title for studies preferences -->
   <string name="preference_experiments_2">مطالعہ</string>
   <!-- Summary for studies preferences -->
-  <string name="preference_experiments_summary_2">موزلّا کوں پڑھائی انسٹال کرݨ تے چلاوݨ دی اجازت ݙیندے</string>
+  <string name="preference_experiments_summary_2" tools:ignore="BrandUsage">موزلّا کوں پڑھائی انسٹال کرݨ تے چلاوݨ دی اجازت ݙیندے</string>
   <!-- Preference for reconnecting to FxA sync -->
   <string name="preferences_sync_sign_in_to_reconnect">ولدا کنکٹ کرݨ کیتے سائن ان تھیوو</string>
   <!-- Preference for removing FxA account -->
@@ -1020,7 +960,7 @@
   -->
   <string name="tab_crash_title_2">افسوس۔ ایں ورقے کوں %1$s لوڈ کائنی کر سڳدا۔</string>
   <!-- Send crash report checkbox text on the tab crash page -->
-  <string name="tab_crash_send_report">موزلّا کوں کریش رپوٹ بھیڄو</string>
+  <string name="tab_crash_send_report" tools:ignore="BrandUsage">موزلّا کوں کریش رپوٹ بھیڄو</string>
   <!-- Close tab button text on the tab crash page -->
   <string name="tab_crash_close">ٹیب بند کرو</string>
   <!-- Restore tab button text on the tab crash page -->

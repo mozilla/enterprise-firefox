@@ -15,9 +15,7 @@ const lazy = XPCOMUtils.declareLazy({
     // IndexedDB backend database when it is detected as corrupted
     // for debugging purpose.
     pref: "extensions.webextensions.keepStorageOnCorrupted.storageLocal",
-    // TODO(Bug 1992973): change the default behavior as part of enabling auto-reset
-    // corrupted storage.local IndexedDB databases on all channels.
-    default: true,
+    default: false,
   },
 });
 

@@ -5,6 +5,7 @@
 #include "ClientValidation.h"
 
 #include "mozilla/StaticPrefs_security.h"
+#include "mozilla/dom/ProcessIsolation.h"
 #include "mozilla/ipc/PBackgroundSharedTypes.h"
 #include "mozilla/net/MozURL.h"
 
@@ -14,11 +15,22 @@ using mozilla::ipc::ContentPrincipalInfo;
 using mozilla::ipc::PrincipalInfo;
 using mozilla::net::MozURL;
 
-bool ClientIsValidPrincipalInfo(const PrincipalInfo& aPrincipalInfo) {
-  // Ideally we would verify that the source process has permission to
-  // create a window or worker with the given principal, but we don't
-  // currently have any such restriction in place.  Instead, at least
-  // verify the PrincipalInfo is an expected type and has a parsable
+bool ClientIsValidPrincipalInfo(const PrincipalInfo& aPrincipalInfo,
+                                const nsACString& aRemoteType) {
+  auto result = mozilla::ipc::PrincipalInfoToPrincipal(aPrincipalInfo);
+  if (NS_WARN_IF(result.isErr())) {
+    return false;
+  }
+
+  // FIXME: Remove the system allowance once for non-inference processes once we
+  // can load documents with the system principal into content.
+  if (NS_WARN_IF(!ValidatePrincipalCouldPotentiallyBeLoadedBy(
+          result.inspect(), aRemoteType,
+          {ValidatePrincipalOptions::AllowSystem}))) {
+    return false;
+  }
+
+  // Verify the PrincipalInfo is an expected type and has a parsable
   // origin/spec.
   switch (aPrincipalInfo.type()) {
     // Any system and null principal is acceptable.
@@ -47,17 +59,6 @@ bool ClientIsValidPrincipalInfo(const PrincipalInfo& aPrincipalInfo) {
 
       nsAutoCString specOrigin;
       specURL->Origin(specOrigin);
-
-      // Linkable about URIs end up with a nested inner scheme of moz-safe-about
-      // which will have been captured in the originNoSuffix but the spec and
-      // its resulting specOrigin will not have this transformed scheme, so
-      // ignore the "moz-safe-" prefix when the originURL has that transformed
-      // scheme.
-      if (originURL->Scheme().Equals("moz-safe-about")) {
-        return specOrigin == originOrigin ||
-               specOrigin == Substring(originOrigin, 9 /*moz-safe-*/,
-                                       specOrigin.Length());
-      }
 
       // For now require Clients to have a principal where both its
       // originNoSuffix and spec have the same origin.  This will
@@ -117,16 +118,6 @@ bool ClientIsValidCreationURL(const PrincipalInfo& aPrincipalInfo,
       // Generally any origin can also open javascript: windows and workers.
       if (scheme.LowerCaseEqualsLiteral("javascript")) {
         return true;
-      }
-
-      // Linkable about URIs end up with a nested inner scheme of moz-safe-about
-      // but the url and its resulting origin will not have this transformed
-      // scheme, so ignore the "moz-safe-" prefix when the principal has that
-      // transformed scheme.
-      if (principalURL->Scheme().Equals("moz-safe-about")) {
-        return origin == principalOrigin ||
-               origin ==
-                   Substring(principalOrigin, 9 /*moz-safe-*/, origin.Length());
       }
 
       // Otherwise don't support this URL type in the clients sub-system for

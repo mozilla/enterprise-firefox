@@ -4650,15 +4650,9 @@ JSObject* js::LambdaOptimizedFallback(JSContext* cx, HandleFunction fun,
 
 JSObject* js::Lambda(JSContext* cx, HandleFunction fun, HandleObject parent,
                      gc::Heap heap, gc::AllocSite* site) {
-  JSFunction* clone;
-  if (fun->isNativeFun()) {
-    MOZ_ASSERT(IsAsmJSModule(fun));
-    MOZ_ASSERT(heap == gc::Heap::Default);  // Not supported.
-    clone = CloneAsmJSModuleFunction(cx, fun);
-  } else {
-    RootedObject proto(cx, fun->staticPrototype());
-    clone = CloneFunctionReuseScript(cx, fun, parent, proto, heap, site);
-  }
+  RootedObject proto(cx, fun->staticPrototype());
+  JSFunction* clone =
+      CloneFunctionReuseScript(cx, fun, parent, proto, heap, site);
   if (!clone) {
     return nullptr;
   }
@@ -5177,7 +5171,7 @@ JSObject* js::NewObjectOperation(JSContext* cx, HandleScript script,
   uint8_t propCount = GET_UINT8(pc);
   if (propCount > 0) {
     gc::AllocKind allocKind = gc::GetGCObjectKind(propCount);
-    return NewPlainObjectWithAllocKind(cx, allocKind);
+    return NewPlainObject(cx, {.allocKind = allocKind});
   }
   return NewPlainObject(cx);
 }

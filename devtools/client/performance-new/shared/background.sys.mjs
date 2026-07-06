@@ -659,27 +659,34 @@ async function getPageFavicons(pageUrls) {
   // Get the data of favicons and return them.
   const { favicons, toURI } = lazy.PlacesUtils();
 
-  const promises = pageUrls.map(pageUrl =>
-    favicons
-      .getFaviconForPage(toURI(pageUrl), /* preferredWidth = */ 32)
-      .then(favicon => {
-        // Check if data is found in the database and return it if so.
-        if (favicon.rawData.length) {
-          return {
-            // PlacesUtils returns a number array for the data. Converting it to
-            // the Uint8Array here to send it to the tab more efficiently.
-            data: new Uint8Array(favicon.rawData).buffer,
-            mimeType: favicon.mimeType,
-          };
-        }
+  const promises = pageUrls.map(async pageUrl => {
+    try {
+      // toURI can throw synchronously for URLs that can't be parsed into
+      // a URI, so it needs to be inside the try block rather than outside the
+      // promise chain.
+      const favicon = await favicons.getFaviconForPage(
+        toURI(pageUrl),
+        /* preferredWidth = */ 32
+      );
 
-        return null;
-      })
-      .catch(() => {
-        // Couldn't find a favicon for this page, return null explicitly.
-        return null;
-      })
-  );
+      // Check if data is found in the database and return it if so.
+      if (favicon.rawData.length) {
+        return {
+          // PlacesUtils returns a number array for the data. Converting it to
+          // the Uint8Array here to send it to the tab more efficiently.
+          data: new Uint8Array(favicon.rawData).buffer,
+          mimeType: favicon.mimeType,
+        };
+      }
+
+      return null;
+    } catch (e) {
+      // Couldn't find a favicon for this page, or the URL couldn't be parsed
+      // into a URI. Return null explicitly so a single bad URL doesn't abort
+      // the whole batch.
+      return null;
+    }
+  });
 
   return Promise.all(promises);
 }

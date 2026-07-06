@@ -59,6 +59,7 @@
 #include "mozilla/dom/GainNodeBinding.h"
 #include "mozilla/dom/HTMLMediaElement.h"
 #include "mozilla/dom/IIRFilterNodeBinding.h"
+#include "mozilla/dom/MediaControlUtils.h"
 #include "mozilla/dom/MediaElementAudioSourceNodeBinding.h"
 #include "mozilla/dom/MediaStreamAudioSourceNodeBinding.h"
 #include "mozilla/dom/MediaStreamTrackAudioSourceNodeBinding.h"
@@ -84,6 +85,9 @@ extern mozilla::LazyLogModule gAutoplayPermissionLog;
 
 #define AUTOPLAY_LOG(msg, ...) \
   MOZ_LOG_FMT(gAutoplayPermissionLog, LogLevel::Debug, msg, ##__VA_ARGS__)
+
+#define MEDIA_CONTROL_LOG(msg, ...) \
+  MOZ_LOG_FMT(gMediaControlLog, LogLevel::Debug, msg, ##__VA_ARGS__)
 
 namespace mozilla::dom {
 
@@ -172,7 +176,8 @@ AudioContext::AudioContext(nsPIDOMWindowInner* aWindow, bool aIsOffline,
       mTracksAreSuspended(!aIsOffline),
       mWasAllowedToStart(true),
       mSuspendedByContent(false),
-      mSuspendedByChrome(nsGlobalWindowInner::Cast(aWindow)->IsSuspended()) {
+      mSuspendedByChrome(nsGlobalWindowInner::Cast(aWindow)->IsSuspended()),
+      mSuspendedByMediaControl(false) {
   bool mute = aWindow->AddAudioContext(this);
 
   // Note: AudioDestinationNode needs an AudioContext that must already be
@@ -214,7 +219,7 @@ void AudioContext::StartBlockedAudioContextIfAllowed() {
   // Only start the AudioContext if this resume() call was initiated by content,
   // not if it was a result of the AudioContext starting after having been
   // blocked because of the auto-play policy.
-  if (isAllowedToPlay && !mSuspendedByContent) {
+  if (isAllowedToPlay && !mSuspendedByContent && !mSuspendedByMediaControl) {
     ResumeInternal();
   } else {
     ReportBlocked();
@@ -986,6 +991,12 @@ already_AddRefed<Promise> AudioContext::Suspend(ErrorResult& aRv) {
   }
 
   mSuspendedByContent = true;
+  if (mSuspendedByMediaControl) {
+    MEDIA_CONTROL_LOG(
+        "AudioContext {} page suspend() takes over an interruption suspend",
+        fmt::ptr(this));
+    mSuspendedByMediaControl = false;
+  }
   mPromiseGripArray.AppendElement(promise);
   SuspendInternal(promise, AudioContextOperationFlags::SendStateChange);
   return promise.forget();
@@ -1002,16 +1013,42 @@ void AudioContext::SuspendFromChrome() {
                                : AudioContextOperationFlags::None);
 }
 
-void AudioContext::SuspendByMediaControl() {
+void AudioContext::SuspendFromMediaControl() {
   // Offline contexts never register a media-control listener, so this should
   // not be reachable for them.
   MOZ_DIAGNOSTIC_ASSERT(!mIsOffline);
   if (mIsShutDown || mCloseCalled) {
     return;
   }
-  // Tag the suspend as "by content" so that the page can resume.
-  mSuspendedByContent = true;
+  MEDIA_CONTROL_LOG("AudioContext {} SuspendFromMediaControl", fmt::ptr(this));
+  // Track this as an interruption-owned suspend. The shared "stay suspended"
+  // reads (ResumeInternal's guard and the autoplay implicit-start guard) test
+  // this flag too, so a media-control suspend sticks without overloading
+  // mSuspendedByContent, which now means "the page called suspend()" only.
+  mSuspendedByMediaControl = true;
   SuspendInternal(nullptr, AudioContextOperationFlags::SendStateChange);
+}
+
+void AudioContext::ResumeFromMediaControl() {
+  // Offline contexts never register a media-control listener, so this should
+  // not be reachable for them.
+  MOZ_DIAGNOSTIC_ASSERT(!mIsOffline);
+  if (mIsShutDown || mCloseCalled) {
+    return;
+  }
+  // Only auto-resume a suspend that the interruption itself started. If the
+  // page called suspend() (or resume()) while interrupted, it has taken over
+  // the suspended state (mSuspendedByContent) and we must leave it alone; even
+  // if we proceed, ResumeInternal's guard keeps it suspended.
+  if (!mSuspendedByMediaControl) {
+    MEDIA_CONTROL_LOG(
+        "AudioContext {} ResumeFromMediaControl skipped: page owns the suspend",
+        fmt::ptr(this));
+    return;
+  }
+  MEDIA_CONTROL_LOG("AudioContext {} ResumeFromMediaControl", fmt::ptr(this));
+  mSuspendedByMediaControl = false;
+  ResumeInternal();
 }
 
 void AudioContext::SuspendInternal(void* aPromise,
@@ -1074,6 +1111,16 @@ already_AddRefed<Promise> AudioContext::Resume(ErrorResult& aRv) {
   }
 
   mSuspendedByContent = false;
+  // TODO(bug 2047321): while the tab is under an audio-focus interruption we
+  // have lost focus, and the platform does not expect us to restart on our
+  // own, so a page resume() should be gated until focus is regained. That
+  // gating, tied to the Web Audio interrupted state, is handled in bug 2047321.
+  if (mSuspendedByMediaControl) {
+    MEDIA_CONTROL_LOG(
+        "AudioContext {} page resume() takes over an interruption suspend",
+        fmt::ptr(this));
+    mSuspendedByMediaControl = false;
+  }
   mPendingResumePromises.AppendElement(promise);
 
   const bool isAllowedToPlay = media::AutoplayPolicy::IsAllowedToPlay(*this);
@@ -1093,7 +1140,8 @@ void AudioContext::ResumeInternal() {
   AUTOPLAY_LOG("Allow to resume AudioContext {}", fmt::ptr(this));
   mWasAllowedToStart = true;
 
-  if (mSuspendedByChrome || mSuspendedByContent || mCloseCalled) {
+  if (mSuspendedByChrome || mSuspendedByContent || mSuspendedByMediaControl ||
+      mCloseCalled) {
     MOZ_ASSERT(mTracksAreSuspended);
     return;
   }

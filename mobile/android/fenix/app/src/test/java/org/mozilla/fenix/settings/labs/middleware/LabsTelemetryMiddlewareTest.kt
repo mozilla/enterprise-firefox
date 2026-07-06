@@ -11,10 +11,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mozilla.fenix.GleanMetrics.FirefoxLabs
-import org.mozilla.fenix.R
 import org.mozilla.fenix.helpers.FenixGleanTestRule
 import org.mozilla.fenix.settings.labs.LabsItem
-import org.mozilla.fenix.settings.labs.LabsItemSlugs
 import org.mozilla.fenix.settings.labs.store.DialogState
 import org.mozilla.fenix.settings.labs.store.LabsAction
 import org.mozilla.fenix.settings.labs.store.LabsState
@@ -35,9 +33,9 @@ class LabsTelemetryMiddlewareTest {
     )
 
     private fun homepageItem(enrolled: Boolean = false) = LabsItem(
-        slug = LabsItemSlugs.HOMEPAGE_AS_NEW_TAB,
-        title = R.string.firefox_labs_homepage_as_a_new_tab,
-        description = R.string.firefox_labs_homepage_as_a_new_tab_description,
+        slug = "homepage-as-new-tab",
+        title = "Homepage as a New Tab",
+        description = "With this feature enabled, Homepage will behave as a tab.",
         enrolled = enrolled,
         requiresRestart = true,
     )

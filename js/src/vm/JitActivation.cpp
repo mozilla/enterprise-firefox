@@ -256,7 +256,7 @@ void js::jit::JitActivation::startWasmTrap(wasm::Trap trap,
     wasm::CallSite site;
     MOZ_ALWAYS_TRUE(code.lookupCallSite(pc, &site));
     wasmTrapData_->trapSite.bytecodeOffset =
-        wasm::BytecodeOffset(site.lineOrBytecode());
+        wasm::BytecodeOffset(site.bytecodeOffset());
     wasmTrapData_->trapSite.inlinedCallerOffsets = site.inlinedCallerOffsets();
   } else {
     wasmTrapData_->trapSite = trapSite;

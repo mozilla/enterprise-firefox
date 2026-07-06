@@ -13,6 +13,7 @@ include protocol PCycleCollectWithLogs;
 include protocol PDocumentChannel;
 include protocol PExtensions;
 include protocol PExternalHelperApp;
+include protocol PFOGTransport;
 include protocol PHandlerService;
 include protocol PHal;
 include protocol PHeapSnapshotTempFileHelper;
@@ -151,6 +152,7 @@ using mozilla::dom::WindowContextTransaction from "mozilla/dom/WindowContext.h";
 using gfxSparseBitSet from "gfxSparseBitSet.h";
 using FontVisibility from "gfxTypes.h";
 using mozilla::dom::MediaControlAction from "mozilla/dom/MediaControlKeySource.h";
+using mozilla::dom::AudioFocusInterruptAction from "mozilla/dom/ContentMediaController.h";
 using mozilla::dom::MediaPlaybackState from "mozilla/dom/MediaPlaybackStatus.h";
 using mozilla::dom::MediaAudibleState from "mozilla/dom/MediaPlaybackStatus.h";
 using mozilla::dom::ControlType from "mozilla/dom/MediaPlaybackStatus.h";
@@ -177,7 +179,6 @@ using mozilla::dom::PerformanceTimingData from "mozilla/dom/PerformanceTiming.h"
 using mozilla::dom::MaybeFeaturePolicyInfo from "mozilla/dom/FeaturePolicy.h";
 using mozilla::dom::Wireframe from "mozilla/dom/DocumentBinding.h";
 using mozilla::PerfStats::MetricMask from "mozilla/PerfStats.h";
-[RefCounted] using class nsIX509Cert from "nsIX509Cert.h";
 using nsIDNSService::ResolverMode from "nsIDNSService.h";
 using mozilla::dom::UserActivation::Modifiers from "mozilla/dom/UserActivation.h";
 using mozilla::dom::PrivateAttributionImpressionType from "mozilla/dom/PrivateAttributionIPCUtils.h";
@@ -704,6 +705,12 @@ child:
 parent:
     async UpdateScriptCacheEverHitTelemetry(uint64_t aChildId, uint32_t aRate);
 
+    // Sent by the content process immediately before it does an operation which
+    // it believes makes it "untrusted", such as loading untrusted content in an
+    // content docshell, starting a worker, etc. Operations which rely on a
+    // trusted content process must only happen before this message is sent.
+    async BecomeUntrusted();
+
 child:
     async SetOffline(bool offline);
     async SetConnectivity(bool connectivity);
@@ -1009,6 +1016,15 @@ child:
     async UpdateMediaControlAction(MaybeDiscardedBrowsingContext aContext,
                                    MediaControlAction aAction);
 
+    /**
+     * Dispatch an audio-focus interrupt (suspend or resume) to a browsing
+     * context tree so its audible sources react to a focus change. This is
+     * distinct from a media-control key: it is not user-initiated and reaches
+     * uncontrollable sources as well.
+     */
+    async UpdateMediaSessionInterrupt(MaybeDiscardedBrowsingContext aContext,
+                                      AudioFocusInterruptAction aAction);
+
     // Begin subscribing to a new BrowsingContextGroup, sending down the current
     // value for every individual BrowsingContext.
     async RegisterBrowsingContextGroup(uint64_t aGroupId,
@@ -1186,8 +1202,8 @@ parent:
     async StartVisitedQueries(nullable nsIURI[] uri);
     async SetURITitle(nullable nsIURI uri, nsString title);
 
-    async LoadURIExternal(nullable nsIURI uri,
-                          nullable nsIPrincipal triggeringPrincipal,
+    async LoadURIExternal(nsIURI uri,
+                          nsIPrincipal triggeringPrincipal,
                           nullable nsIPrincipal redirectPrincipal,
                           MaybeDiscardedBrowsingContext browsingContext,
                           bool wasExternallyTriggered,
@@ -1596,23 +1612,6 @@ parent:
                        bool aTextDirectiveUserActivation)
         returns (CreatedWindowInfo window);
 
-    async CreateWindowInDifferentProcess(
-      PBrowser aThisTab,
-      MaybeDiscardedBrowsingContext aParent,
-      uint32_t aChromeFlags,
-      bool aCalledFromJS,
-      bool aTopLevelCreatedByContent,
-      nullable nsIURI aURIToLoad,
-      nsCString aFeatures,
-      Modifiers aModifiers,
-      nsString aName,
-      nullable nsIPrincipal aTriggeringPrincipal,
-      nullable nsIPolicyContainer aPolicyContainer,
-      nullable nsIReferrerInfo aReferrerInfo,
-      OriginAttributes aOriginAttributes,
-      bool aUserActivation,
-      bool aTextDirectiveUserActivation);
-
      async GetFilesRequest(nsID aID, nsString[] aDirectories, bool aRecursiveFlag);
      async DeleteGetFilesRequest(nsID aID);
 
@@ -1639,14 +1638,6 @@ parent:
     async AddMemoryReport(MemoryReport aReport);
 
     async BHRThreadHang(HangDetails aHangDetails);
-
-    /*
-     * Adds a certificate exception for the given hostname and port.
-     */
-    async AddCertException(nullable nsIX509Cert aCert, nsCString aHostName,
-                           int32_t aPort, OriginAttributes aOriginAttributes,
-                           bool aIsTemporary)
-          returns (nsresult success);
 
     /*
      * Determines whether storage access can be granted automatically by the
@@ -1967,6 +1958,8 @@ parent:
     async GeckoTraceExport(ByteBuf aBuf);
 
 child:
+    async CreateFOGTransport(Endpoint<PFOGTransportChild> aChildEndpoint);
+
     // Temporary (bug 1641989) conduit for Glean data in content processes.
     // Tells the child to flush any pending data. Used in tests and ping
     // assembly. Buffer contains bincoded Rust structs.

@@ -3,11 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 plugins {
+    id 'com.android.application'
     alias(libs.plugins.dependency.analysis)
 }
 
-apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
 
 android {
     compileSdk { version = release(config.compileSdkMajorVersion) { minorApiLevel = config.compileSdkMinorVersion } }
@@ -46,7 +45,7 @@ dependencies {
     implementation project(':components:support-ktx')
 
     implementation libs.androidx.appcompat
-    implementation libs.androidx.core.ktx
+    implementation libs.androidx.core
     implementation libs.androidx.recyclerview
     implementation libs.google.material
     implementation libs.kotlinx.coroutines

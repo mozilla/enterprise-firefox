@@ -12,8 +12,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SearchTestUtils: "resource://testing-common/SearchTestUtils.sys.mjs",
   modifySchemaForTests: "resource:///modules/policies/schema.sys.mjs",
-  HttpServer: "resource://testing-common/httpd.sys.mjs",
-  setTimeout: "resource://gre/modules/Timer.sys.mjs",
+  sinon: "resource://testing-common/Sinon.sys.mjs",
+  ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
 });
 
 export var EnterprisePolicyTesting = {
@@ -21,6 +21,47 @@ export var EnterprisePolicyTesting = {
   // Mochitest heads use |getTestFilePath|; xpcshell heads use
   // |path => do_get_file(path).path|.
   pathResolver: null,
+
+  /* The stub wrapping ConsoleClient.getRemotePolicies to control which remote policies are fetched */
+  get remotePoliciesStub() {
+    return this._remotePoliciesStub;
+  },
+
+  set remotePoliciesStub(stub) {
+    this._remotePoliciesStub = stub;
+  },
+
+  /**
+   * Listens for all policies to be applied. This notification
+   * is sent when the policy engine is started up or reset.
+   *
+   * @param {Function} resolve a promise's resolve callback invoked once all policies are applied.
+   */
+  resolveOnceAllPoliciesApplied(resolve) {
+    Services.obs.addObserver(function observer() {
+      Services.obs.removeObserver(
+        observer,
+        "EnterprisePolicies:AllPoliciesApplied"
+      );
+      resolve();
+    }, "EnterprisePolicies:AllPoliciesApplied");
+  },
+
+  /**
+   * Listens for a policy update. This notification is sent once
+   * we check the console for updated policies.
+   *
+   * @param {Function} resolve a promise's resolve callback invoked once all policy updates are applied.
+   */
+  resolveOnceAllPolicyUpdatesApplied(resolve) {
+    Services.obs.addObserver(function observer() {
+      Services.obs.removeObserver(
+        observer,
+        "EnterprisePolicies:PolicyUpdatesApplied"
+      );
+      resolve();
+    }, "EnterprisePolicies:PolicyUpdatesApplied");
+  },
 
   // |json| must be an object representing the desired policy configuration, OR
   // a path (absolute or test-relative) to the JSON file containing the policy
@@ -52,15 +93,10 @@ export var EnterprisePolicyTesting = {
 
     Services.prefs.setStringPref("browser.policies.alternatePath", filePath);
 
-    let promise = new Promise(resolve => {
-      Services.obs.addObserver(function observer() {
-        Services.obs.removeObserver(
-          observer,
-          "EnterprisePolicies:AllPoliciesApplied"
-        );
-        resolve();
-      }, "EnterprisePolicies:AllPoliciesApplied");
-    });
+    const { promise, resolve } = Promise.withResolvers();
+    // Referenced by name rather than |this| because callers (e.g. the browser
+    // test head) destructure setupPolicyEngineWithJson and call it unbound.
+    EnterprisePolicyTesting.resolveOnceAllPoliciesApplied(resolve);
 
     // Clear any previously used custom schema or assign a new one
     lazy.modifySchemaForTests(customSchema || null);
@@ -82,56 +118,80 @@ export var EnterprisePolicyTesting = {
     await settingsWritten;
   },
 
-  ensureRemotePoliciesMockServer: async function ensureRemotePoliciesMockServer(
-    registerCleanupFunction
-  ) {
-    if (this._httpd === undefined) {
-      this._httpd = new lazy.HttpServer();
-      await this._httpd.start(-1);
-
-      const expires_in = 3600;
-      const expires_at = Math.floor(Date.now() / 1000) + Number(expires_in);
-      const tokenData = {
-        access_token: "test_access_token",
-        refresh_token: "test_refresh_token",
-        expires_at,
-        token_type: "Bearer",
-      };
-      Services.felt.setTokens(
-        tokenData.access_token,
-        tokenData.refresh_token,
-        tokenData.expires_at
-      );
-
-      const serverAddr = `http://localhost:${this._httpd.identity.primaryPort}`;
-      Services.prefs.setStringPref("enterprise.console.address", serverAddr);
-      Services.prefs.setBoolPref("browser.policies.live_polling.enabled", true);
-      Services.prefs.setIntPref("browser.policies.live_polling.frequency", 100);
-
-      registerCleanupFunction(async () => {
-        await new Promise(resolve => this._httpd.stop(resolve));
-        this._httpd = undefined;
-        Services.prefs.clearUserPref("enterprise.console.address");
-        Services.prefs.clearUserPref("browser.policies.live_polling.enabled");
-        Services.prefs.clearUserPref("browser.policies.live_polling.frequency");
-      });
-    }
+  awaitNextPolicyUpdate() {
+    const { promise, resolve } = Promise.withResolvers();
+    this.resolveOnceAllPolicyUpdatesApplied(resolve);
+    return promise;
   },
 
-  servePolicyWithJson: async function servePolicyWithJson(json, customSchema) {
-    let { promise, resolve } = Promise.withResolvers();
-
-    this._httpd.registerPathHandler("/api/browser/policies", (req, resp) => {
-      resp.setStatusLine(req.httpVersion, 200, "OK");
-      resp.setHeader("Content-Type", "application/json", false);
-      resp.write(JSON.stringify(json));
-      lazy.modifySchemaForTests(customSchema || null);
-      lazy.setTimeout(() => {
-        resolve();
-      }, 200);
-    });
-
+  awaitAllPoliciesApplied() {
+    const { promise, resolve } = Promise.withResolvers();
+    this.resolveOnceAllPoliciesApplied(resolve);
     return promise;
+  },
+
+  /**
+   * Sets up policy engine with initial set of startup policies provided remotely
+   *
+   * @param {object} policies set of remote policies served by the stubbed ConsoleClient.getRemotePolicies
+   * @param {object} customSchema custom policy schema
+   * @returns {Promise} Promise that resolves once the initial set of policies are applied
+   */
+  async setupEngineWithRemotePolicies(policies, customSchema) {
+    PoliciesPrefTracker.restoreDefaultValues();
+
+    lazy.modifySchemaForTests(customSchema || null);
+
+    const policiesAppliedPromise = this.awaitAllPoliciesApplied();
+
+    this.stubRemotePolicies(policies);
+
+    Services.obs.notifyObservers(null, "EnterprisePolicies:Restart");
+
+    return policiesAppliedPromise;
+  },
+
+  /**
+   * Stub ConsoleClient.getRemotePolicies so the remote provider serves the
+   * given policies.
+   *
+   * @param {object} policies set of remote policies to serve
+   */
+  stubRemotePolicies(policies) {
+    if (this.remotePoliciesStub) {
+      this.remotePoliciesStub.restore();
+    }
+    this.remotePoliciesStub = lazy.sinon.stub(
+      lazy.ConsoleClient,
+      "getRemotePolicies"
+    );
+    this.remotePoliciesStub.callsFake(() => Promise.resolve(policies));
+  },
+
+  /**
+   * Set up a policy engine that combines local policies (read from a local
+   * policies.json) and remote policies (fetched from the stubbed ConsoleClient
+   * endpoint).
+   *
+   * @param {object} localPolicies Policies to be read from a local policies.json
+   * @param {object} remotePolicies Policies to be fetched from the stubbed endpoint
+   * @param {object} customSchema
+   * @returns {Promise} Resolves once local and remote policies are applied after a restart.
+   */
+  async setupPolicyEngineWithCombinedPolicyProvider(
+    localPolicies,
+    remotePolicies,
+    customSchema
+  ) {
+    // Stub the remote policies endpoint before the restart so the remote provider
+    // serves them during startup.
+    EnterprisePolicyTesting.stubRemotePolicies(remotePolicies);
+
+    // Apply the local policies (via policies.json) and restart the engine.
+    return EnterprisePolicyTesting.setupPolicyEngineWithJson(
+      localPolicies,
+      customSchema
+    );
   },
 
   checkPolicyPref(prefName, expectedValue, expectedLockedness) {
@@ -230,6 +290,10 @@ export var PoliciesPrefTracker = {
     let defaults = new Preferences({ defaultBranch: true });
 
     for (let [prefName, stored] of this._originalValues) {
+      if (Preferences.get(prefName) === undefined) {
+        // Pref might have been removed by the test.
+        continue;
+      }
       // If a pref was used through setDefaultPref instead
       // of setAndLockPref, it wasn't locked, but calling
       // unlockPref is harmless

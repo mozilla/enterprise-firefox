@@ -71,6 +71,13 @@ class BaseInBrowserHost {
         ? "devtools-toolbox-bottom-iframe"
         : "devtools-toolbox-side-iframe"
     );
+    // Set an id on the frame so we can reference it in the splitter aria-controls attribute
+    const container = this.hostTab.ownerDocument.querySelector(
+      ".browserSidebarContainer"
+    );
+    if (container) {
+      this.frame.id = `${container.id}-devtools-toolbox`;
+    }
   }
 
   observe(subject, topic) {
@@ -131,9 +138,9 @@ class BottomHost extends BaseInBrowserHost {
     this.heightPref = "devtools.toolbox.footer.height";
   }
 
-  #splitter;
-
   #destroyed;
+  #splitter;
+  #resizeObserver;
 
   /**
    * Create a box at the bottom of the host tab.
@@ -145,12 +152,23 @@ class BottomHost extends BaseInBrowserHost {
     this.#splitter.setAttribute("resizebefore", "none");
     this.#splitter.setAttribute("resizeafter", "sibling");
 
+    this.#splitter.setAttribute("tabindex", "0");
+    this.#splitter.setAttribute("role", "separator");
+    this.#splitter.setAttribute("data-l10n-id", "tab-devtools-splitter");
+
     this._createFrame();
-    this.frame.style.height =
-      Math.min(
-        Services.prefs.getIntPref(this.heightPref),
-        this._browserContainer.clientHeight - MIN_PAGE_SIZE
-      ) + "px";
+    this.#splitter.setAttribute("aria-controls", this.frame.id);
+    this.#splitter.setAttribute("aria-orientation", "vertical");
+
+    const height = Math.min(
+      Services.prefs.getIntPref(this.heightPref),
+      this._browserContainer.clientHeight - MIN_PAGE_SIZE
+    );
+    this.frame.style.height = `${height}px`;
+    this.#resizeObserver = new this.hostTab.documentGlobal.ResizeObserver(
+      this.#onFrameResize
+    );
+    this.#resizeObserver.observe(this.frame);
 
     this._browserContainer.appendChild(this.#splitter);
     this._browserContainer.appendChild(this.frame);
@@ -162,6 +180,27 @@ class BottomHost extends BaseInBrowserHost {
 
     focusTab(this.hostTab);
   }
+
+  #onFrameResize = () => {
+    const global = this.hostTab.documentGlobal;
+    this.#splitter.setAttribute(
+      "aria-valuenow",
+      global.windowUtils.getBoundsWithoutFlushing(this.frame).height
+    );
+    const minHeight = parseFloat(global.getComputedStyle(this.frame).minHeight);
+    this.#splitter.setAttribute("aria-valuemin", minHeight);
+    // maxHeight of the toolbox is the height of .browserContainer (the container of both
+    // the content page and DevTools toolbox), minus the min-height of .browserStack (the content page)
+    const browserStackEl =
+      this._browserContainer.querySelector(".browserStack");
+    const browserStackElMinHeight = parseFloat(
+      global.getComputedStyle(browserStackEl).minHeight
+    );
+    const maxHeight =
+      global.windowUtils.getBoundsWithoutFlushing(this._browserContainer)
+        .height - browserStackElMinHeight;
+    this.#splitter.setAttribute("aria-valuemax", maxHeight);
+  };
 
   /**
    * Destroy the bottom dock.
@@ -175,9 +214,12 @@ class BottomHost extends BaseInBrowserHost {
         Services.prefs.setIntPref(this.heightPref, height);
       }
 
+      this.#resizeObserver.disconnect();
       this._browserContainer.removeChild(this.#splitter);
       this._browserContainer.removeChild(this.frame);
       this.frame = null;
+
+      this.#resizeObserver = null;
       this.#splitter = null;
 
       super.destroy();
@@ -197,9 +239,10 @@ class SidebarHost extends BaseInBrowserHost {
     this.widthPref = "devtools.toolbox.sidebar.width";
   }
 
-  #splitter;
   #browserPanel;
   #destroyed;
+  #resizeObserver;
+  #splitter;
 
   /**
    * Create a box in the sidebar of the host tab.
@@ -210,21 +253,31 @@ class SidebarHost extends BaseInBrowserHost {
 
     this.#splitter = ownerDocument.createXULElement("splitter");
     this.#splitter.setAttribute("class", "devtools-side-splitter");
+    this.#splitter.setAttribute("resizebefore", "none");
+    this.#splitter.setAttribute("resizeafter", "none");
+
+    this.#splitter.setAttribute("tabindex", "0");
+    this.#splitter.setAttribute("role", "separator");
+    this.#splitter.setAttribute("data-l10n-id", "tab-devtools-splitter");
 
     this._createFrame();
-    this.frame.style.width =
-      Math.min(
-        Services.prefs.getIntPref(this.widthPref),
-        this.#browserPanel.clientWidth - MIN_PAGE_SIZE
-      ) + "px";
+    this.#splitter.setAttribute("aria-controls", this.frame.id);
+    this.#splitter.setAttribute("aria-orientation", "horizontal");
+
+    const width = Math.min(
+      Services.prefs.getIntPref(this.widthPref),
+      this.#browserPanel.clientWidth - MIN_PAGE_SIZE
+    );
+    this.frame.style.width = `${width}px`;
+    this.#resizeObserver = new this.hostTab.documentGlobal.ResizeObserver(
+      this.#onFrameResize
+    );
+    this.#resizeObserver.observe(this.frame);
 
     // We should consider the direction when changing the dock position.
     const topWindow = this.hostTab.documentGlobal;
     const topDoc = topWindow.document.documentElement;
     const isLTR = topWindow.getComputedStyle(topDoc).direction === "ltr";
-
-    this.#splitter.setAttribute("resizebefore", "none");
-    this.#splitter.setAttribute("resizeafter", "none");
 
     if ((isLTR && this.type == "right") || (!isLTR && this.type == "left")) {
       this.#splitter.setAttribute("resizeafter", "sibling");
@@ -244,6 +297,33 @@ class SidebarHost extends BaseInBrowserHost {
     focusTab(this.hostTab);
   }
 
+  #onFrameResize = () => {
+    const global = this.hostTab.documentGlobal;
+    this.#splitter.setAttribute(
+      "aria-valuenow",
+      global.windowUtils.getBoundsWithoutFlushing(this.frame).width
+    );
+    const minWidth = parseFloat(global.getComputedStyle(this.frame).minWidth);
+    this.#splitter.setAttribute("aria-valuemin", minWidth);
+
+    // maxWidth of the toolbox is the height of .browserSidebarContainer (the container of
+    // both the content page and DevTools toolbox), minus the min-width of .browserContainer
+    // (the content page), which is not set directly on it, but on .browserStack
+    const browserSibarContainerEl = this._browserContainer.closest(
+      ".browserSidebarContainer"
+    );
+    const browserStackEl =
+      this._browserContainer.querySelector(".browserStack");
+    const browserStackElMinWidth = parseFloat(
+      global.getComputedStyle(browserStackEl).minWidth
+    );
+    const maxWidth =
+      global.windowUtils.getBoundsWithoutFlushing(browserSibarContainerEl)
+        .width - browserStackElMinWidth;
+
+    this.#splitter.setAttribute("aria-valuemax", maxWidth);
+  };
+
   /**
    * Destroy the sidebar.
    */
@@ -256,9 +336,12 @@ class SidebarHost extends BaseInBrowserHost {
         Services.prefs.setIntPref(this.widthPref, width);
       }
 
+      this.#resizeObserver.disconnect();
       this.#browserPanel.removeChild(this.#splitter);
       this.#browserPanel.removeChild(this.frame);
       this.#browserPanel = null;
+
+      this.#resizeObserver = null;
       this.#splitter = null;
       this.frame = null;
 

@@ -15,7 +15,6 @@ var gTabsPanel = {
     allTabsButton: "alltabs-button",
     allTabsView: "allTabsMenu-allTabsView",
     allTabsViewTabs: "allTabsMenu-allTabsView-tabs",
-    viewAllTabs: "allTabsMenu-viewAllTabs",
     dropIndicator: "allTabsMenu-dropIndicator",
     containerTabsView: "allTabsMenu-containerTabsView",
     hiddenTabsButton: "allTabsMenu-hiddenTabsButton",
@@ -109,23 +108,24 @@ var gTabsPanel = {
       );
       hiddenTabsButton.hidden = !hasHiddenTabs;
 
-      // When hidden tabs are playing audio, bump them to the top of the menu:
-      // the "Hidden tabs" button and the audio-playing hidden tabs are placed
-      // above the visible tab list, with a separator dividing them from the
-      // visible tabs. Otherwise the "Hidden tabs" button sits at the end of the
-      // scrollable tab list as an ordinary item, with no separator.
+      // Hidden tabs normally sit at the bottom of the list, but are bumped to
+      // the top if any of them are playing audio.
       const hasHiddenAudioTabs = this.hiddenAudioTabs.hasChildNodes();
       this.hiddenAudioTabs.hidden = !hasHiddenAudioTabs;
       hiddenTabsSeparator.hidden = !hasHiddenAudioTabs;
       if (hasHiddenAudioTabs) {
-        document
-          .getElementById("allTabsMenu-currentWindowHeader")
-          .after(hiddenTabsButton, this.hiddenAudioTabs, hiddenTabsSeparator);
+        this.allTabsViewTabs.prepend(
+          hiddenTabsButton,
+          this.hiddenAudioTabs,
+          hiddenTabsSeparator
+        );
       } else {
-        this.allTabsViewTabs.append(hiddenTabsButton, this.hiddenAudioTabs);
+        this.allTabsViewTabs.append(
+          hiddenTabsButton,
+          this.hiddenAudioTabs,
+          hiddenTabsSeparator
+        );
       }
-
-      this.allTabsViewTabs.append(this.viewAllTabs);
 
       let closeDuplicateTabsItem = document.getElementById(
         "allTabsMenu-closeDuplicateTabs"

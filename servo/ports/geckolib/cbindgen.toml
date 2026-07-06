@@ -95,6 +95,7 @@ exclude = [
   "LockedNestedDeclarationsRule",
 ]
 include = [
+  "ContainerAttributeDependencyKind",
   "AlignmentBaseline",
   "AnchorName",
   "ScopedName",
@@ -129,7 +130,7 @@ include = [
   "FontVariantNumeric",
   "ComputedMozPrefFeatureValue",
   "ComputedFontStretchRange",
-  "ComputedFontStyleDescriptor",
+  "ComputedFontStyleRange",
   "ComputedFontWeightRange",
   "ComputedTimingFunction",
   "ComputedValueFlags",
@@ -333,6 +334,7 @@ include = [
   "PageOrientation",
   "PageSize",
   "DProperty",
+  "ImageDecoding",
   "ImageRendering",
   "PrintColorAdjust",
   "ForcedColorAdjust",
@@ -1183,12 +1185,6 @@ renaming_overrides_prefixing = true
 "Time" = """
  float ToSeconds() const { return seconds; }
  float ToMilliseconds() const { return seconds * 1000.0f; }
-"""
-
-"ComputedFontStyleDescriptor" = """
-  inline static StyleComputedFontStyleDescriptor Normal() {
-    return StyleComputedFontStyleDescriptor::Oblique({0}, {0});
-  }
 """
 
 "FontFaceSourceTechFlags" = """

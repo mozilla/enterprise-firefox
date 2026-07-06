@@ -211,11 +211,10 @@ interface nsIContentAnalysisRequest : nsISupports
   // defined.
   readonly attribute AString filePath;
 
-  // HANDLE to the printed data in PDF format.
-  readonly attribute unsigned long long printDataHandle;
-
-  // Size of the data stored in printDataHandle.
-  readonly attribute unsigned long long printDataSize;
+  // The printed data to analyze, in PDF format. Used by backends that read the
+  // PDF bytes directly; the external-agent backend builds the Windows
+  // shared-memory HANDLE it sends to the agent from these bytes.
+  Array<octet> getPrintData();
 
   // Name of the printer being printed to.
   readonly attribute AString printerName;

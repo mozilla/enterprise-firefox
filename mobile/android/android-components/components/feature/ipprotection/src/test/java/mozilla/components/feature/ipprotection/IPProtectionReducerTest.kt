@@ -26,7 +26,7 @@ import org.junit.Test
 @OptIn(ExperimentalAndroidComponentsApi::class)
 class IPProtectionReducerTest {
 
-    private val defaultState = IPProtectionState()
+    private val defaultState = buildIPProtectionState(accountStatus = AccountStatus.Authenticated)
 
     @Test
     fun `WHEN EligibilityChanged is dispatched THEN eligibilityStatus is updated`() {
@@ -286,6 +286,24 @@ class IPProtectionReducerTest {
             ),
             resultState,
         )
+    }
+
+    @Test
+    fun `GIVEN AccountStatus is NeedsAuthorization WHEN CheckAccount is dispatched THEN AccountStatus is TryAgain`() {
+        val initialState = buildIPProtectionState(accountStatus = AccountStatus.NeedsAuthorization)
+
+        val resultState = iPProtectionReducer(initialState, IPProtectionAction.CheckAccount)
+
+        assertEquals(AccountStatus.TryAgain, resultState.accountState.status)
+    }
+
+    @Test
+    fun `GIVEN AccountStatus is not NeedsAuthorization WHEN CheckAccount is dispatched THEN state does not change`() {
+        val initialState = buildIPProtectionState(accountStatus = AccountStatus.EnrolledAndEntitled)
+
+        val resultState = iPProtectionReducer(initialState, IPProtectionAction.CheckAccount)
+
+        assertEquals(initialState, resultState)
     }
 
     private fun buildIPProtectionState(

@@ -102,6 +102,8 @@ import org.mozilla.fenix.telemetry.ACTION_MICROPHONE_CLICKED
 import org.mozilla.fenix.telemetry.ACTION_QR_CLICKED
 import org.mozilla.fenix.telemetry.ACTION_SEARCH_ENGINE_SELECTOR_CLICKED
 import org.mozilla.fenix.telemetry.SOURCE_ADDRESS_BAR
+import org.mozilla.fenix.telemetry.SURFACE_BROWSER
+import org.mozilla.fenix.telemetry.SURFACE_HOME
 import org.mozilla.fenix.utils.Settings
 import org.robolectric.RobolectricTestRunner
 import kotlin.test.assertNotNull
@@ -209,8 +211,12 @@ class BrowserToolbarSearchMiddlewareTest {
     @Test
     fun `GIVEN a custom search engine WHEN the qr button is clicked THEN start qr recognition and record telemetry`() {
         val appStore: AppStore = mockk(relaxed = true) {
-            every { state.searchState.selectedSearchEngine?.searchEngine } returns
-                fakeSearchState().customSearchEngines.first()
+            every { state.searchState } returns AppSearchState.EMPTY.copy(
+                selectedSearchEngine = SelectedSearchEngine(
+                    searchEngine = fakeSearchState().customSearchEngines.first(),
+                    isUserSelected = true,
+                ),
+            )
         }
         val (_, store) = buildMiddlewareAndAddToStore(appStore = appStore)
         store.dispatch(EnterEditMode(false))
@@ -226,7 +232,9 @@ class BrowserToolbarSearchMiddlewareTest {
     @Test
     fun `WHEN the voice search button is clicked THEN start voice recognition and record telemetry`() {
         val appStore: AppStore = mockk(relaxed = true) {
-            every { state.searchState.selectedSearchEngine } returns mockk(relaxed = true)
+            every { state.searchState } returns AppSearchState.EMPTY.copy(
+                selectedSearchEngine = mockk(relaxed = true),
+            )
         }
         every { settings.shouldShowVoiceSearch } returns true
         val middleware = spyk(buildMiddleware(appStore = appStore))
@@ -249,6 +257,20 @@ class BrowserToolbarSearchMiddlewareTest {
         store.dispatch(SearchSelectorClicked)
 
         assertTelemetryRecorded(ACTION_SEARCH_ENGINE_SELECTOR_CLICKED)
+    }
+
+    @Test
+    fun `GIVEN a search started from a browser tab WHEN the search selector button is clicked THEN record telemetry with the browser surface`() {
+        val appStore = AppStore(
+            initialState = AppState(
+                searchState = AppSearchState.EMPTY.copy(sourceTabId = "test"),
+            ),
+        )
+        val (_, store) = buildMiddlewareAndAddToStore(appStore = appStore)
+
+        store.dispatch(SearchSelectorClicked)
+
+        assertTelemetryRecorded(ACTION_SEARCH_ENGINE_SELECTOR_CLICKED, surface = SURFACE_BROWSER)
     }
 
     @Test
@@ -1358,7 +1380,12 @@ class BrowserToolbarSearchMiddlewareTest {
         every { settings.googleLensIntegrationEnabled } returns true
         every { settings.googleLensIntegrationUserEnabled } returns true
         val appStore: AppStore = mockk(relaxed = true) {
-            every { state.searchState.selectedSearchEngine?.searchEngine } returns googleSearchEngine()
+            every { state.searchState } returns AppSearchState.EMPTY.copy(
+                selectedSearchEngine = SelectedSearchEngine(
+                    searchEngine = googleSearchEngine(),
+                    isUserSelected = true,
+                ),
+            )
         }
         val (_, store) = buildMiddlewareAndAddToStore(appStore = appStore)
         store.dispatch(EnterEditMode(false))
@@ -1554,7 +1581,7 @@ class BrowserToolbarSearchMiddlewareTest {
     )
 
     private val expectedLensButton = ActionButtonRes(
-        drawableResId = iconsR.drawable.mozac_ic_image_24,
+        drawableResId = R.drawable.ic_logo_google_lens_24,
         contentDescription = R.string.lens_search_content_description,
         state = ActionButton.State.DEFAULT,
         onClick = LensButtonClicked,
@@ -1700,11 +1727,12 @@ class BrowserToolbarSearchMiddlewareTest {
         isGeneral = true,
     )
 
-    private fun assertTelemetryRecorded(item: String) {
+    private fun assertTelemetryRecorded(item: String, surface: String = SURFACE_HOME) {
        val values = Toolbar.buttonTapped.testGetValue()
        assertNotNull(values)
        val last = values.last()
        assertEquals(item, last.extra?.get("item"))
        assertEquals(SOURCE_ADDRESS_BAR, last.extra?.get("source"))
+       assertEquals(surface, last.extra?.get("surface"))
     }
 }

@@ -133,7 +133,7 @@ add_task(async function () {
 
     Assert.equal(
       result.type,
-      UrlbarUtils.RESULT_TYPE.URL,
+      UrlbarShared.RESULT_TYPE.URL,
       "Should have a URL result type"
     );
     // The Quantum Bar differs from the legacy urlbar in the fact that, if

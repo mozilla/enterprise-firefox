@@ -1,0 +1,1104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 9.2.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.2.1)" variant="all" version="9.2.1">
+
+    <issue
+        id="MissingPermission"
+        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
+        errorLine1="    return new AudioRecord.Builder()"
+        errorLine2="           ^">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="424"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by Builder.build: android.permission.RECORD_AUDIO"
+        errorLine1="    return new AudioRecord.Builder()"
+        errorLine2="           ^">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="424"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
+        errorLine1="    return new AudioRecord(audioSource, sampleRate, channelConfig, audioFormat, bufferSizeInBytes);"
+        errorLine2="           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="438"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by AudioRecord.AudioRecord: android.permission.RECORD_AUDIO"
+        errorLine1="    return new AudioRecord(audioSource, sampleRate, channelConfig, audioFormat, bufferSizeInBytes);"
+        errorLine2="           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="438"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 33 (current min is 26): `android.media.MediaFormat#KEY_CROP_RIGHT`"
+        errorLine1="      newWidth = 1 + format.getInteger(MediaFormat.KEY_CROP_RIGHT)"
+        errorLine2="                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/AndroidVideoDecoder.java"
+            line="566"
+            column="40"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 33 (current min is 26): `android.media.MediaFormat#KEY_CROP_LEFT`"
+        errorLine1="          - format.getInteger(MediaFormat.KEY_CROP_LEFT);"
+        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/AndroidVideoDecoder.java"
+            line="567"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 33 (current min is 26): `android.media.MediaFormat#KEY_CROP_BOTTOM`"
+        errorLine1="      newHeight = 1 + format.getInteger(MediaFormat.KEY_CROP_BOTTOM)"
+        errorLine2="                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/AndroidVideoDecoder.java"
+            line="568"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 33 (current min is 26): `android.media.MediaFormat#KEY_CROP_TOP`"
+        errorLine1="          - format.getInteger(MediaFormat.KEY_CROP_TOP);"
+        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/AndroidVideoDecoder.java"
+            line="569"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 33 (current min is 26): `android.media.MediaFormat#KEY_VIDEO_ENCODING_STATISTICS_LEVEL`"
+        errorLine1="        format.setInteger(MediaFormat.KEY_VIDEO_ENCODING_STATISTICS_LEVEL,"
+        errorLine2="                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/HardwareVideoEncoder.java"
+            line="276"
+            column="27"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 33 (current min is 26): `android.media.MediaFormat#VIDEO_ENCODING_STATISTICS_LEVEL_1`"
+        errorLine1="            MediaFormat.VIDEO_ENCODING_STATISTICS_LEVEL_1);"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/HardwareVideoEncoder.java"
+            line="277"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 33 (current min is 26): `android.media.MediaFormat#KEY_VIDEO_QP_AVERAGE`"
+        errorLine1="          qp = format.getInteger(MediaFormat.KEY_VIDEO_QP_AVERAGE);"
+        errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/HardwareVideoEncoder.java"
+            line="622"
+            column="34"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 33 (current min is 26): `android.media.MediaCodecInfo.CodecCapabilities#FEATURE_EncodingStatistics`"
+        errorLine1="    return codecCaps.isFeatureSupported(CodecCapabilities.FEATURE_EncodingStatistics);"
+        errorLine2="                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/HardwareVideoEncoder.java"
+            line="764"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="Range"
+        message="Value must be ≥ 1 (was 0)"
+        errorLine1="        .setSessionId(AudioManager.AUDIO_SESSION_ID_GENERATE)"
+        errorLine2="                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioTrack.java"
+            line="459"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `OnValueListener.onValue(…)` is allowing `@AnyThread`"
+        errorLine1="                          if (!session.isOpen()) {"
+        errorLine2="                                       ~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/GeckoRuntime.java"
+            line="351"
+            column="40"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `OnValueListener.onValue(…)` is allowing `@AnyThread`"
+        errorLine1="                            session.open(sRuntime);"
+        errorLine2="                                    ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/GeckoRuntime.java"
+            line="352"
+            column="37"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `OnValueListener.onValue(…)` is allowing `@AnyThread`"
+        errorLine1="                          final boolean isOpen = session.isOpen();"
+        errorLine2="                                                         ~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/GeckoRuntime.java"
+            line="378"
+            column="58"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `OnValueListener.onValue(…)` is allowing `@AnyThread`"
+        errorLine1="                            session.open(sRuntime);"
+        errorLine2="                                    ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/GeckoRuntime.java"
+            line="380"
+            column="37"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but context is allowing `@AnyThread`"
+        errorLine1="    ThreadUtils.runOnUiThread("
+        errorLine2="                ^">
+        <location
+            file="src/main/java/org/mozilla/geckoview/GeckoRuntime.java"
+            line="902"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but context is allowing `@AnyThread`"
+        errorLine1="    ThreadUtils.runOnUiThread("
+        errorLine2="                ^">
+        <location
+            file="src/main/java/org/mozilla/geckoview/GeckoRuntime.java"
+            line="915"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but context is allowing `@AnyThread`"
+        errorLine1="    SessionAccessibility.setForceEnabled(value);"
+        errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/GeckoRuntimeSettings.java"
+            line="1370"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `Consumer.accept(…)` is allowing `@AnyThread`"
+        errorLine1="                    ThreadUtils.runOnUiThread("
+        errorLine2="                                ^">
+        <location
+            file="src/main/java/org/mozilla/geckoview/GeckoSession.java"
+            line="657"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but context is allowing `@AnyThread`"
+        errorLine1="    shouldLoadUri(loadRequest, loadFlags)"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/GeckoSession.java"
+            line="2409"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `Consumer.accept(…)` is allowing `@AnyThread`"
+        errorLine1="                ThreadUtils.runOnUiThread("
+        errorLine2="                            ^">
+        <location
+            file="src/main/java/org/mozilla/geckoview/GeckoSession.java"
+            line="2417"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but context is allowing `@AnyThread`"
+        errorLine1="    ThreadUtils.runOnUiThread(() -> getAutofillSupport().onActiveChanged(active));"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/GeckoSession.java"
+            line="2848"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but context is allowing `@AnyThread`"
+        errorLine1="    mHistoryHandler.setDelegate(delegate, this);"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/GeckoSession.java"
+            line="3535"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but context is allowing `@AnyThread`"
+        errorLine1="    mContentBlockingHandler.setDelegate(delegate, this);"
+        errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/GeckoSession.java"
+            line="3553"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but context is allowing `@AnyThread`"
+        errorLine1="    mMediaHandler.setDelegate(delegate, this);"
+        errorLine2="                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/GeckoSession.java"
+            line="3613"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but context is allowing `@AnyThread`"
+        errorLine1="    mMediaSessionHandler.setDelegate(delegate, this);"
+        errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/GeckoSession.java"
+            line="3633"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but context is allowing `@AnyThread`"
+        errorLine1="    mTranslationsHandler.setDelegate(delegate, this);"
+        errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/GeckoSession.java"
+            line="3665"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but context is allowing `@AnyThread`"
+        errorLine1="    mPrintHandler.setDelegate(delegate, this);"
+        errorLine2="                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/GeckoSession.java"
+            line="8565"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but context is allowing `@AnyThread`"
+        errorLine1="    mExperimentHandler.setDelegate(delegate, this);"
+        errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/GeckoSession.java"
+            line="8604"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but context is allowing `@AnyThread`"
+        errorLine1="    mEditable.onCreateInputConnection(attrs);"
+        errorLine2="              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/SessionTextInput.java"
+            line="341"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `Consumer.accept(…)` is allowing `@AnyThread`"
+        errorLine1="                    ThreadUtils.runOnUiThread("
+        errorLine2="                                ^">
+        <location
+            file="src/main/java/org/mozilla/geckoview/WebAuthnTokenManager.java"
+            line="350"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `Consumer.accept(…)` is allowing `@AnyThread`"
+        errorLine1="                    ThreadUtils.runOnUiThread("
+        errorLine2="                                ^">
+        <location
+            file="src/main/java/org/mozilla/geckoview/WebAuthnTokenManager.java"
+            line="553"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `Consumer.accept(…)` is allowing `@AnyThread`"
+        errorLine1="                                    ThreadUtils.runOnUiThread("
+        errorLine2="                                                ^">
+        <location
+            file="src/main/java/org/mozilla/geckoview/WebAuthnTokenManager.java"
+            line="570"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but context is allowing `@AnyThread`"
+        errorLine1="      mListener.setMessageDelegate(webExtension, delegate, nativeApp);"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/WebExtension.java"
+            line="920"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `Consumer.accept(…)` is allowing `@AnyThread`"
+        errorLine1="                newTab(message, extension);"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/WebExtensionController.java"
+            line="1137"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `Consumer.accept(…)` is allowing `@AnyThread`"
+        errorLine1="                updateTab(message, extension);"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/WebExtensionController.java"
+            line="1140"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `Consumer.accept(…)` is allowing `@AnyThread`"
+        errorLine1="                closeTab(message, extension);"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/WebExtensionController.java"
+            line="1143"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `Consumer.accept(…)` is allowing `@AnyThread`"
+        errorLine1="                actionUpdate(message, extension, WebExtension.Action.TYPE_BROWSER_ACTION);"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/WebExtensionController.java"
+            line="1146"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `Consumer.accept(…)` is allowing `@AnyThread`"
+        errorLine1="                actionUpdate(message, extension, WebExtension.Action.TYPE_PAGE_ACTION);"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/WebExtensionController.java"
+            line="1149"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `Consumer.accept(…)` is allowing `@AnyThread`"
+        errorLine1="                openPopup(message, extension, WebExtension.Action.TYPE_BROWSER_ACTION);"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/WebExtensionController.java"
+            line="1152"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `Consumer.accept(…)` is allowing `@AnyThread`"
+        errorLine1="                openPopup(message, extension, WebExtension.Action.TYPE_PAGE_ACTION);"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/WebExtensionController.java"
+            line="1155"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `Consumer.accept(…)` is allowing `@AnyThread`"
+        errorLine1="                openOptionsPage(message, extension);"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/WebExtensionController.java"
+            line="1158"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `Consumer.accept(…)` is allowing `@AnyThread`"
+        errorLine1="                getSettings(message, extension);"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/WebExtensionController.java"
+            line="1161"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `Consumer.accept(…)` is allowing `@AnyThread`"
+        errorLine1="                browsingDataClear(message, extension);"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/WebExtensionController.java"
+            line="1164"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `Consumer.accept(…)` is allowing `@AnyThread`"
+        errorLine1="                optionalPrompt(message, extension);"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/WebExtensionController.java"
+            line="1170"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `Consumer.accept(…)` is allowing `@AnyThread`"
+        errorLine1="                connect(nativeApp, bundle.getLong(&quot;portId&quot;, -1), message, sender);"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/WebExtensionController.java"
+            line="1203"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `Consumer.accept(…)` is allowing `@AnyThread`"
+        errorLine1="                message(nativeApp, message, sender);"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/WebExtensionController.java"
+            line="1205"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ThreadConstraint"
+        message="Call must be from `@{Main,Ui}Thread`, but super method `OnValueMapper.onValue(…)` is allowing `@AnyThread`"
+        errorLine1="                  WebExtension.Download.downloadInfoToBundle(value.initData);"
+        errorLine2="                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/WebExtensionController.java"
+            line="1528"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one or more of: AudioManager.GET_DEVICES_INPUTS, AudioManager.GET_DEVICES_OUTPUTS"
+        errorLine1="    final AudioDeviceInfo[] devices = audioManager.getDevices(AudioManager.GET_DEVICES_ALL);"
+        errorLine2="                                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioUtils.java"
+            line="255"
+            column="63"/>
+    </issue>
+
+    <issue
+        id="AppBundleLocaleChanges"
+        message="Found dynamic locale changes, but did not find corresponding Play Core library calls for downloading languages and splitting by language is not disabled in the `bundle` configuration"
+        errorLine1="      config.locale = mappedLocale;"
+        errorLine2="             ~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/gecko/GeckoThread.java"
+            line="319"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="DiscouragedApi"
+        message="Use of `scheduleAtFixedRate` is strongly discouraged because it can lead to unexpected behavior when Android processes become cached (tasks may unexpectedly execute hundreds or thousands of times in quick succession when a process changes from cached to uncached); prefer using `scheduleWithFixedDelay`"
+        errorLine1="          sSamplingScheduler.scheduleAtFixedRate("
+        errorLine2="          ^">
+        <location
+            file="src/main/java/org/mozilla/gecko/GeckoJavaSampler.java"
+            line="610"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="DiscouragedApi"
+        message="Use of `scheduleAtFixedRate` is strongly discouraged because it can lead to unexpected behavior when Android processes become cached (tasks may unexpectedly execute hundreds or thousands of times in quick succession when a process changes from cached to uncached); prefer using `scheduleWithFixedDelay`"
+        errorLine1="          sSamplingScheduler.scheduleAtFixedRate("
+        errorLine2="          ^">
+        <location
+            file="src/main/java/org/mozilla/gecko/GeckoJavaSampler.java"
+            line="756"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UseRequiresApi"
+        message="Use `@RequiresApi(29) instead of `@TargetApi` to propagate the requirement to callers of `isHardwareAcceleratedQOrHigher`"
+        errorLine1="  @TargetApi(29)"
+        errorLine2="  ~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/MediaCodecUtils.java"
+            line="104"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="UseRequiresApi"
+        message="Use `@RequiresApi(29) instead of `@TargetApi` to propagate the requirement to callers of `isSoftwareOnlyQOrHigher`"
+        errorLine1="  @TargetApi(29)"
+        errorLine2="  ~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/MediaCodecUtils.java"
+            line="122"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="UseRequiresApi"
+        message="Use `@RequiresApi(Build.VERSION_CODES.M) instead of `@TargetApi` to propagate the requirement to callers of `setPreferredDevice`"
+        errorLine1="  @TargetApi(Build.VERSION_CODES.M)"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="362"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="UseRequiresApi"
+        message="Use `@RequiresApi(Build.VERSION_CODES.M) instead of `@TargetApi` to propagate the requirement to callers of `createAudioRecordOnMOrHigher`"
+        errorLine1="  @TargetApi(Build.VERSION_CODES.M)"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="420"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="UseRequiresApi"
+        message="Use `@RequiresApi(Build.VERSION_CODES.M) instead of `@TargetApi` to propagate the requirement to callers of `logMainParametersExtended`"
+        errorLine1="  @TargetApi(Build.VERSION_CODES.M)"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="449"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="UseRequiresApi"
+        message="Use `@RequiresApi(Build.VERSION_CODES.N) instead of `@TargetApi` to propagate the requirement to callers of `logRecordingConfigurations`"
+        errorLine1="  @TargetApi(Build.VERSION_CODES.N)"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="459"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="UseRequiresApi"
+        message="Use `@RequiresApi(Build.VERSION_CODES.N) instead of `@TargetApi` to propagate the requirement to callers of `logActiveRecordingConfigs`"
+        errorLine1="  @TargetApi(Build.VERSION_CODES.N)"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="619"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="UseRequiresApi"
+        message="Use `@RequiresApi(Build.VERSION_CODES.N) instead of `@TargetApi` to propagate the requirement to callers of `verifyAudioConfig`"
+        errorLine1="  @TargetApi(Build.VERSION_CODES.N)"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="687"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="UseRequiresApi"
+        message="Use `@RequiresApi(Build.VERSION_CODES.N) instead of `@TargetApi` to propagate the requirement to callers of `checkDeviceMatch`"
+        errorLine1="  @TargetApi(Build.VERSION_CODES.N)"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="720"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="UseRequiresApi"
+        message="Use `@RequiresApi(Build.VERSION_CODES.O) instead of `@TargetApi` to propagate the requirement to callers of `createAudioTrackOnOreoOrHigher`"
+        errorLine1="  @TargetApi(Build.VERSION_CODES.O)"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioTrack.java"
+            line="442"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="UseRequiresApi"
+        message="Use `@RequiresApi(Build.VERSION_CODES.Q) instead of `@TargetApi` to propagate the requirement to callers of `applyAttributesOnQOrHigher`"
+        errorLine1="  @TargetApi(Build.VERSION_CODES.Q)"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioTrack.java"
+            line="463"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="UseRequiresApi"
+        message="Use `@RequiresApi(VERSION_CODES.N) instead of `@TargetApi` to propagate the requirement to callers of `audioEncodingToString`"
+        errorLine1="  @TargetApi(VERSION_CODES.N)"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioUtils.java"
+            line="184"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="WakelockTimeout"
+        message="Provide a timeout when requesting a wakelock with `PowerManager.Wakelock.acquire(long timeout)`. This will ensure the OS will cleanup any wakelocks that last longer than you intend, and will save your user&apos;s battery."
+        errorLine1="      wl.acquire();"
+        errorLine2="      ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/gecko/GeckoAppShell.java"
+            line="597"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 26"
+        errorLine1="    if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.LOLLIPOP_MR1"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*2}/org/webrtc/Camera2Enumerator.java"
+            line="149"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="      if (useLowLatency &amp;&amp; Build.VERSION.SDK_INT >= MIN_LOW_LATENCY_SDK_VERSION) {"
+        errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*2}/org/webrtc/audio/JavaAudioDeviceModule.java"
+            line="249"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 23"
+        errorLine1="  @RequiresApi(Build.VERSION_CODES.M)"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*2}/org/webrtc/audio/JavaAudioDeviceModule.java"
+            line="434"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="    if (Build.VERSION.SDK_INT >= 26) {"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/LowLatencyAudioBufferManager.java"
+            line="42"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &amp;&amp; name.startsWith(EXYNOS_PREFIX)) {"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/MediaCodecVideoDecoderFactory.java"
+            line="129"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="      if (Build.VERSION.SDK_INT >= 24) {"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="135"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="            if (Build.VERSION.SDK_INT >= 24) {"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="150"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="314"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 23"
+        errorLine1="  @RequiresApi(Build.VERSION_CODES.M)"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="361"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 23"
+        errorLine1="  @TargetApi(Build.VERSION_CODES.M)"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="362"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 23"
+        errorLine1="  @TargetApi(Build.VERSION_CODES.M)"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="420"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 23"
+        errorLine1="  @TargetApi(Build.VERSION_CODES.M)"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="449"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="451"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 24"
+        errorLine1="  @TargetApi(Build.VERSION_CODES.N)"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="459"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.N` is never true here"
+        errorLine1="    if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.N) {"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="463"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 26"
+        errorLine1="    if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.N) {"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="599"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 24"
+        errorLine1="  @TargetApi(Build.VERSION_CODES.N)"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="619"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 24"
+        errorLine1="  @TargetApi(Build.VERSION_CODES.N)"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="687"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 24"
+        errorLine1="  @TargetApi(Build.VERSION_CODES.N)"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioRecord.java"
+            line="720"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="      if (useLowLatency &amp;&amp; Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {"
+        errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioTrack.java"
+            line="230"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioTrack.java"
+            line="257"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="    if (Build.VERSION.SDK_INT >= 24) {"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioTrack.java"
+            line="365"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="  @TargetApi(Build.VERSION_CODES.O)"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioTrack.java"
+            line="442"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioTrack.java"
+            line="470"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioTrack.java"
+            line="480"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioTrack.java"
+            line="492"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioTrack.java"
+            line="512"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 24"
+        errorLine1="  @TargetApi(VERSION_CODES.N)"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioUtils.java"
+            line="184"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="        if (Build.VERSION.SDK_INT >= VERSION_CODES.M) {"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioUtils.java"
+            line="243"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 26"
+        errorLine1="    if (Build.VERSION.SDK_INT &lt; VERSION_CODES.M) {"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="${:geckoview*debug*MAIN*sourceProvider*0*javaDir*3}/java/org/webrtc/audio/WebRtcAudioUtils.java"
+            line="252"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="StaticFieldLeak"
+        message="This `AsyncTask` class should be static or leaks might occur (org.mozilla.gecko.media.GeckoMediaDrmBridge.PostRequestTask)"
+        errorLine1="  private class PostRequestTask extends AsyncTask&lt;Void, Void, Void> {"
+        errorLine2="                ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/gecko/media/GeckoMediaDrmBridge.java"
+            line="534"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="StaticFieldLeak"
+        message="Do not place Android context classes in static fields (static reference to `GeckoNetworkManager` which has field `mContext` pointing to `Context`); this is a memory leak"
+        errorLine1="  private static GeckoNetworkManager instance;"
+        errorLine2="          ~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/gecko/GeckoNetworkManager.java"
+            line="48"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="Custom view `GeckoView` overrides `onTouchEvent` but not `performClick`"
+        errorLine1="  public boolean onTouchEvent(final MotionEvent event) {"
+        errorLine2="                 ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/mozilla/geckoview/GeckoView.java"
+            line="934"
+            column="18"/>
+    </issue>
+
+</issues>

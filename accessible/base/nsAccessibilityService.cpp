@@ -594,17 +594,36 @@ void nsAccessibilityService::NotifyOfPossibleBoundsChange(
     return;
   }
   LocalAccessible* accessible = document->GetAccessible(aContent);
-  if (!accessible && aContent == document->GetContent()) {
-    // DocAccessible::GetAccessible() won't return the document if a root
-    // element like body is passed. In that case we need the doc accessible
-    // itself.
-    accessible = document;
+  bool shouldQueueUpdateForDocument = false;
+  if (aContent == document->GetContent()) {
+    // When queuing an update for the document's content, two situations are
+    // possible: (1) This content is a different element (like <body>),
+    // and its accessible is the Doc Accessible (2) This content is a different
+    // element (like <body>) and has its own accessible, separate from the Doc
+    // Accessible
+
+    if (!accessible) {
+      // When (1) is true, the call to DocAccessible::GetAccessible() will
+      // return null. Still, the document should reflect the bounds of this
+      // content, so we manually map this update to the document.
+      accessible = document;
+    } else if (accessible != document) {
+      // When (2) is true, there are _two_ updates needed: one for the Doc Acc
+      // and one for the acc this content creates. Because
+      // DocAccessible::GetAccessible() returns the appropriate non-Doc acc, we
+      // only need to worry about queuing an additional update for the doc. The
+      // non-doc acc's update will be queued by the call for `accessible` below.
+      shouldQueueUpdateForDocument = true;
+    }
   }
   if (!accessible) {
     return;
   }
   if (IPCAccessibilityActive()) {
     document->QueueCacheUpdate(accessible, CacheDomain::Bounds);
+    if (shouldQueueUpdateForDocument) {
+      document->QueueCacheUpdate(document, CacheDomain::Bounds);
+    }
   }
   MOZ_ASSERT(!aContent->IsText() || accessible->IsTextLeaf(),
              "A DOM Text node should only ever have a TextLeafAccessible");
@@ -1340,6 +1359,11 @@ LocalAccessible* nsAccessibilityService::CreateAccessible(
     if (!newAcc &&
         (hasNonPresentationalARIARole || MustBeAccessible(content, document))) {
       newAcc = MakeRefPtr<HyperTextAccessible>(content, document);
+    }
+
+    if (content->IsElement() && content->AsElement()->GetPseudoElementType() ==
+                                    PseudoStyleType::Picker) {
+      newAcc = MakeRefPtr<HTMLComboboxListAccessible>(content, document);
     }
 
     // If there's still no Accessible but we do have an entry in the markup

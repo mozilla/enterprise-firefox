@@ -647,6 +647,8 @@ class TextPropertyEditor {
         // @backward-compat { version 153 } Server support for CSS explainers was added
         // in 153, so the line below can be removed once it hits release.
         this.rule.domRule.supportsCssExplainers,
+      siblingCount: this.rule.siblingCount,
+      siblingIndex: this.rule.siblingIndex,
     };
 
     if (this.rule.darkColorScheme !== undefined) {

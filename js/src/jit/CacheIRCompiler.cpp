@@ -3472,13 +3472,11 @@ bool CacheIRCompiler::emitInt32MulResult(Int32OperandId lhsId,
     return false;
   }
 
-  Label maybeNegZero, done;
+  Label done;
   masm.mov(lhs, scratch);
   masm.branchMul32(Assembler::Overflow, rhs, scratch, failure->label());
-  masm.branchTest32(Assembler::Zero, scratch, scratch, &maybeNegZero);
-  masm.jump(&done);
+  masm.branchTest32(Assembler::NonZero, scratch, scratch, &done);
 
-  masm.bind(&maybeNegZero);
   masm.mov(lhs, scratch2);
   // Result is -0 if exactly one of lhs or rhs is negative.
   masm.or32(rhs, scratch2);

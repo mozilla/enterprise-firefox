@@ -140,7 +140,12 @@ already_AddRefed<Promise> Promise::Resolve(
     nsIGlobalObject* aGlobal, JSContext* aCx, JS::Handle<JS::Value> aValue,
     ErrorResult& aRv, PropagateUserInteraction aPropagateUserInteraction) {
   JSAutoRealm ar(aCx, aGlobal->GetGlobalJSObject());
-  JS::Rooted<JSObject*> p(aCx, JS::CallOriginalPromiseResolve(aCx, aValue));
+  JS::Rooted<JS::Value> value(aCx, aValue);
+  if (!JS_WrapValue(aCx, &value)) {
+    aRv.NoteJSContextException(aCx);
+    return nullptr;
+  }
+  JS::Rooted<JSObject*> p(aCx, JS::CallOriginalPromiseResolve(aCx, value));
   if (!p) {
     aRv.NoteJSContextException(aCx);
     return nullptr;
@@ -155,7 +160,12 @@ already_AddRefed<Promise> Promise::Reject(nsIGlobalObject* aGlobal,
                                           JS::Handle<JS::Value> aValue,
                                           ErrorResult& aRv) {
   JSAutoRealm ar(aCx, aGlobal->GetGlobalJSObject());
-  JS::Rooted<JSObject*> p(aCx, JS::CallOriginalPromiseReject(aCx, aValue));
+  JS::Rooted<JS::Value> value(aCx, aValue);
+  if (!JS_WrapValue(aCx, &value)) {
+    aRv.NoteJSContextException(aCx);
+    return nullptr;
+  }
+  JS::Rooted<JSObject*> p(aCx, JS::CallOriginalPromiseReject(aCx, value));
   if (!p) {
     aRv.NoteJSContextException(aCx);
     return nullptr;
@@ -1188,6 +1198,16 @@ void DomPromise_Release(mozilla::dom::Promise* aPromise) {
   aPromise->Release();
 }
 
+void DomPromise_ResolveWithUndefined(mozilla::dom::Promise* aPromise) {
+  MOZ_ASSERT(aPromise);
+  aPromise->MaybeResolveWithUndefined();
+}
+
+void DomPromise_RejectWithUndefined(mozilla::dom::Promise* aPromise) {
+  MOZ_ASSERT(aPromise);
+  aPromise->MaybeRejectWithUndefined();
+}
+
 #define DOM_PROMISE_FUNC_WITH_VARIANT(name, func)                         \
   void name(mozilla::dom::Promise* aPromise, nsIVariant* aVariant) {      \
     MOZ_ASSERT(aPromise);                                                 \
@@ -1206,8 +1226,14 @@ void DomPromise_Release(mozilla::dom::Promise* aPromise) {
     aPromise->func(val);                                                  \
   }
 
-DOM_PROMISE_FUNC_WITH_VARIANT(DomPromise_RejectWithVariant, MaybeReject)
 DOM_PROMISE_FUNC_WITH_VARIANT(DomPromise_ResolveWithVariant, MaybeResolve)
+DOM_PROMISE_FUNC_WITH_VARIANT(DomPromise_RejectWithVariant, MaybeReject)
+
+void DomPromise_RejectWithNsresult(mozilla::dom::Promise* aPromise,
+                                   nsresult aResult) {
+  MOZ_ASSERT(aPromise);
+  aPromise->MaybeReject(aResult);
+}
 
 #undef DOM_PROMISE_FUNC_WITH_VARIANT
 }

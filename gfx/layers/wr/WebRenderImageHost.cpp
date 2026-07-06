@@ -155,7 +155,7 @@ void WebRenderImageHost::PushPendingRemoteTexture(
       CompositableTextureHostRef(texture.get()));
 }
 
-void WebRenderImageHost::UseRemoteTexture() {
+void WebRenderImageHost::UseRemoteTexture(bool aCalledInCallback) {
   if (mPendingRemoteTextureWrappers.empty()) {
     return;
   }
@@ -190,7 +190,7 @@ void WebRenderImageHost::UseRemoteTexture() {
             }
 
             self->mWaitingReadyCallback = false;
-            self->UseRemoteTexture();
+            self->UseRemoteTexture(/* aCalledInCallback */ true);
           });
 
       CompositorThread()->Dispatch(runnable.forget());
@@ -201,7 +201,10 @@ void WebRenderImageHost::UseRemoteTexture() {
       auto* wrapper =
           mPendingRemoteTextureWrappers.front()->AsRemoteTextureHostWrapper();
 
-      if (mWaitForRemoteTextureOwner) {
+      // When UseRemoteTexture() is called in callback, it does not need to wait
+      // RemoteTextureOwner. In this case, RemoteTextureOwner should be alive or
+      // obsoleted.
+      if (mWaitForRemoteTextureOwner && !aCalledInCallback) {
         // XXX remove sync wait
         RemoteTextureMap::Get()->WaitForRemoteTextureOwner(wrapper);
       }

@@ -20,9 +20,9 @@ git = "https://github.com/franziskuskiefer/cose-rust"
 rev = "43c22248d136c8b38fe42ea709d08da6355cf04b"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/gfx-rs/wgpu?rev=6e8d0bd149fc6de7799755a4b9ee1ecd5fa63cb3"]
+[source."git+https://github.com/gfx-rs/wgpu?rev=43981de526bffe6773403029c2e26f18d9c0a976"]
 git = "https://github.com/gfx-rs/wgpu"
-rev = "6e8d0bd149fc6de7799755a4b9ee1ecd5fa63cb3"
+rev = "43981de526bffe6773403029c2e26f18d9c0a976"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/glandium/allocator-api2?rev=ad5f3d56a5a4519eff52af4ff85293431466ef5c"]
@@ -65,9 +65,9 @@ git = "https://github.com/martinthomson/ohttp"
 rev = "600931b5a1e947776cbaad931ed78f1e89005352"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/audioipc?rev=c9dcbaee1624daad2fa6b1445fd047efde4f1ec0"]
+[source."git+https://github.com/mozilla/audioipc?rev=88fe860"]
 git = "https://github.com/mozilla/audioipc"
-rev = "c9dcbaee1624daad2fa6b1445fd047efde4f1ec0"
+rev = "88fe860"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/mozilla/authenticator-rs?tag=v0.6.0"]
@@ -75,14 +75,14 @@ git = "https://github.com/mozilla/authenticator-rs"
 tag = "v0.6.0"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/cubeb-coreaudio-rs?rev=0bb8a45a040e85d313eb18deb36570e87df3a6af"]
+[source."git+https://github.com/mozilla/cubeb-coreaudio-rs?rev=840f69c1b3f95accd582555e10abcef8ee67514b"]
 git = "https://github.com/mozilla/cubeb-coreaudio-rs"
-rev = "0bb8a45a040e85d313eb18deb36570e87df3a6af"
+rev = "840f69c1b3f95accd582555e10abcef8ee67514b"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/cubeb-pulse-rs?rev=3cf4a1af09a1748d0e184297a17132bdcc608874"]
+[source."git+https://github.com/mozilla/cubeb-pulse-rs?rev=a3770b75c22ae3fdc12539a0cdccc04d46d791f7"]
 git = "https://github.com/mozilla/cubeb-pulse-rs"
-rev = "3cf4a1af09a1748d0e184297a17132bdcc608874"
+rev = "a3770b75c22ae3fdc12539a0cdccc04d46d791f7"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/mozilla/ipc-channel?rev=f2b5aed36a60f07589579d31aaace2f90d2e5e9e"]
@@ -90,9 +90,14 @@ git = "https://github.com/mozilla/ipc-channel"
 rev = "f2b5aed36a60f07589579d31aaace2f90d2e5e9e"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/happy-eyeballs?tag=v0.8.0"]
+[source."git+https://github.com/mozilla/glean?tag=v68.0.0"]
+git = "https://github.com/mozilla/glean"
+tag = "v68.0.0"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/mozilla/happy-eyeballs?tag=v0.9.0"]
 git = "https://github.com/mozilla/happy-eyeballs"
-tag = "v0.8.0"
+tag = "v0.9.0"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/mozilla/ipc-channel?rev=2e47e642b34aebfaaf953497c3834f96c365c8a0"]

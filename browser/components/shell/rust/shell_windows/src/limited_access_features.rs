@@ -229,7 +229,7 @@ fn generate_attestation(feature_id: &str, publisher_id: &PublisherId) -> String 
 // The Family Name associated to the application.
 //
 // For packaged MSIX installs this is derived as `"{Name}_{Publisher ID}"` from
-// `<Identity Name="" Publisher="">` in AppxManfiest.xml. Note that `Publisher`
+// `<Identity Name="" Publisher="">` in AppxManifest.xml. Note that `Publisher`
 // is not equivalent to `PublisherId`.
 //
 // For unpackaged applications this is set by `Identity LimitedAccessFeature` in
@@ -241,7 +241,7 @@ struct FamilyName<'a>(Cow<'a, str>);
 // For packaged MSIX installs this is derived as a hash of `<Identity
 // Publisher="">` from AppxManifest.xml.
 //
-// For unpackaged applications this this is inferred from last 13 characters of
+// For unpackaged applications this is inferred from last 13 characters of
 // Package Family Name defined by `Identity LimitedAccessFeature` in the
 // embedded .rc resource file.
 struct PublisherId<'a>(Cow<'a, str>);
@@ -286,7 +286,7 @@ fn get_package_identity<'a>() -> Result<(FamilyName<'a>, PublisherId<'a>), nsres
 ///
 /// # Safety
 ///
-/// This function much be called with valid `iid` and `result` pointers.
+/// This function must be called with valid `iid` and `result` pointers.
 #[unsafe(no_mangle)]
 pub extern "C" fn new_limited_access_feature_service(
     iid: *const xpcom::nsIID,

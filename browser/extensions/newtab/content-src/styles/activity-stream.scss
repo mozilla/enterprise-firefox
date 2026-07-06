@@ -185,10 +185,14 @@ panel-item::part(button) {
 @import '../components/Widgets/FocusTimer/FocusTimer';
 @import '../components/Widgets/SportsWidget/SportsWidget';
 @import '../components/Widgets/SportsWidget/SportsMatchRow';
+@import '../components/Widgets/SportsWidget/SportsResultCelebration';
 @import '../components/Widgets/SportsWidget/WatchLiveModal';
 @import '../components/Widgets/SportsWidget/LivePagination';
 @import '../components/Widgets/Weather/Weather';
 @import '../components/Widgets/Clocks/Clocks';
+@import '../components/Widgets/Privacy/Privacy';
+@import '../components/Widgets/Crossword/Crossword';
+@import '../components/Widgets/Stocks/Stocks';
 @import '../components/Widgets/WeatherForecast/WeatherForecast';
 
 // Discovery Stream Components

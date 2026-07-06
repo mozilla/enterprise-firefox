@@ -612,7 +612,7 @@ const char16_t* FrameIter::displayURL() const {
     case INTERP:
     case JIT:
       if (isWasm()) {
-        return wasmFrame().displayURL();
+        return nullptr;
       }
       ScriptSource* ss = script()->scriptSource();
       return ss->hasDisplayURL() ? ss->displayURL() : nullptr;
@@ -647,7 +647,7 @@ bool FrameIter::mutedErrors() const {
     case INTERP:
     case JIT:
       if (isWasm()) {
-        return wasmFrame().mutedErrors();
+        return false;
       }
       return script()->mutedErrors();
   }

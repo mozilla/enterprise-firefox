@@ -10,9 +10,11 @@ package org.mozilla.fenix.tabstray.repository.uistate.data
  * @property hasUserDismissedTabGroupOnboarding Whether the user has previously dismissed the onboarding.
  * @property tabGroupOnboardingImpressionCount How many times the user has been presented the onboarding.
  * @property hasUserEverHadOneTabGroup Whether the user has ever had a tab group.
+ * @property hasViewedTabGroupsPage Whether the user has viewed the Tab Groups page.
  */
 data class PersistedUIState(
     val hasUserDismissedTabGroupOnboarding: Boolean = false,
     val tabGroupOnboardingImpressionCount: Int = 0,
     val hasUserEverHadOneTabGroup: Boolean = false,
+    val hasViewedTabGroupsPage: Boolean = false,
 )

@@ -437,15 +437,6 @@ nsresult BackgroundFileSaver::ProcessStateChange() {
         rv = renamedTarget->GetLeafName(renamedTargetName);
         NS_ENSURE_SUCCESS(rv, rv);
 
-        // We must delete any existing target file before moving the current
-        // one.
-        rv = renamedTarget->Exists(&exists);
-        NS_ENSURE_SUCCESS(rv, rv);
-        if (exists) {
-          rv = renamedTarget->Remove(false);
-          NS_ENSURE_SUCCESS(rv, rv);
-        }
-
         // Move the file.  If this fails, we still reference the original file
         // in mActualTarget, so that it is deleted if requested.  If this
         // succeeds, the nsIFile instance referenced by mActualTarget mutates

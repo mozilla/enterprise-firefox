@@ -208,6 +208,8 @@ export class FormAutofillSection {
     switch (typeId) {
       case lazy.AutofillDataTypes.CREDIT_CARD:
         return FormAutofillCreditCardSection;
+      case lazy.AutofillDataTypes.PASSPORT:
+        return FormAutofillPassportSection;
       default:
         return FormAutofillAddressSection;
     }
@@ -726,5 +728,23 @@ export class FormAutofillCreditCardSection extends FormAutofillSection {
       reauth = false;
     }
     return await lazy.OSKeyStore.decrypt(cipherText, "formautofill_cc", reauth);
+  }
+}
+
+export class FormAutofillPassportSection extends FormAutofillSection {
+  get type() {
+    return lazy.AutofillDataTypes.PASSPORT;
+  }
+
+  isValidSection() {
+    // The passport number is the required field of a passport section, so a
+    // section is valid as long as it contains one.
+    return this.fieldDetails.some(
+      detail => detail.fieldName == "passport-number"
+    );
+  }
+
+  isRecordCreatable(record) {
+    return !!record["passport-number"];
   }
 }

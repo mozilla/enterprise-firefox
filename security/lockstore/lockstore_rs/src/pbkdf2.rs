@@ -3,13 +3,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::LockstoreError;
-use nss_rs::hmac::{hmac, HmacAlgorithm};
+use nss_rs::hmac::HmacAlgorithm;
 
-pub const PBKDF2_ITERATIONS: u32 = 800_000;
+pub const PBKDF2_ITERATIONS: u32 = 600_000;
 pub const PBKDF2_SALT_SIZE: usize = 16;
-const HMAC_SHA256_LEN: usize = 32;
 
-/// PBKDF2-HMAC-SHA256 (RFC 8018 §5.2) using NSS's HMAC primitive.
+/// PBKDF2-HMAC-SHA256 (RFC 8018 §5.2) via NSS's PBKDF2 primitive.
 pub fn derive_kek(
     password: &[u8],
     salt: &[u8],
@@ -27,31 +26,14 @@ pub fn derive_kek(
         ));
     }
 
-    let block_count = key_size.div_ceil(HMAC_SHA256_LEN);
-    let mut out = Vec::with_capacity(block_count * HMAC_SHA256_LEN);
-
-    for i in 1u32..=block_count as u32 {
-        let mut salt_block = Vec::with_capacity(salt.len() + 4);
-        salt_block.extend_from_slice(salt);
-        salt_block.extend_from_slice(&i.to_be_bytes());
-
-        let mut u = hmac(&HmacAlgorithm::HMAC_SHA2_256, password, &salt_block)
-            .map_err(|e| LockstoreError::Encryption(format!("PBKDF2 HMAC failed: {}", e)))?;
-        let mut t = u.clone();
-
-        for _ in 1..iterations {
-            u = hmac(&HmacAlgorithm::HMAC_SHA2_256, password, &u)
-                .map_err(|e| LockstoreError::Encryption(format!("PBKDF2 HMAC failed: {}", e)))?;
-            for (a, b) in t.iter_mut().zip(u.iter()) {
-                *a ^= *b;
-            }
-        }
-
-        out.extend_from_slice(&t);
-    }
-
-    out.truncate(key_size);
-    Ok(out)
+    nss_rs::pbkdf2::pbkdf2(
+        &HmacAlgorithm::HMAC_SHA2_256,
+        password,
+        salt,
+        iterations,
+        key_size,
+    )
+    .map_err(|e| LockstoreError::Encryption(format!("PBKDF2 failed: {e}")))
 }
 
 #[cfg(test)]

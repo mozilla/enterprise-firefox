@@ -17,6 +17,7 @@
 #include "mozilla/glean/NetwerkProtocolHttpMetrics.h"
 #include "mozilla/net/CaptivePortalService.h"
 #include "mozilla/net/CookieServiceParent.h"
+#include "mozilla/net/NoVarySearchUtils.h"
 #include "mozilla/StoragePrincipalHelper.h"
 
 #include "nsCOMPtr.h"
@@ -68,6 +69,7 @@
 #include "mozilla/BasePrincipal.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/PerfStats.h"
+#include "mozilla/ProfilerDumpOrCrash.h"
 #include "mozilla/ProfilerLabels.h"
 #include "mozilla/FlowMarkers.h"
 #include "mozilla/Components.h"
@@ -2058,13 +2060,27 @@ LNAPermission nsHttpChannel::UpdateLocalNetworkAccessPermissions(
 
   MOZ_ASSERT(mLoadInfo->TriggeringPrincipal(), "need triggering principal");
 
-  // Skip LNA checks if the triggering principal and target are same origin
+  // Skip LNA checks if the triggering principal and target are same origin.
   // Note: This could be a case where there is a network change or device
-  // migration to a private or corporate network
+  // migration to a private or corporate network.
+  //
+  // This only holds when we connect directly to the origin's own endpoint. If
+  // the connection was rerouted via Alt-Svc to a different host/port, a
+  // same-origin URL no longer implies we are talking to the origin itself: a
+  // public origin could steer same-origin traffic to an attacker-selected
+  // private address. Don't grant the exemption in that case.
+  bool reroutedElsewhere =
+      mConnectionInfo && !mConnectionInfo->GetRoutedHost().IsEmpty() &&
+      (!mConnectionInfo->GetRoutedHost().Equals(mConnectionInfo->GetOrigin()) ||
+       mConnectionInfo->RoutedPort() != mConnectionInfo->OriginPort());
+  // This exemption (same origin) should apply only to secure contexts.
+  const bool triggeringPrincipalIsPotentiallyTrustworthy =
+      mLoadInfo->TriggeringPrincipal()->GetIsOriginPotentiallyTrustworthy();
   bool isSameOrigin = false;
   nsresult rv =
       mLoadInfo->TriggeringPrincipal()->IsSameOrigin(mURI, &isSameOrigin);
-  if (NS_SUCCEEDED(rv) && isSameOrigin) {
+  if (NS_SUCCEEDED(rv) && isSameOrigin && !reroutedElsewhere &&
+      triggeringPrincipalIsPotentiallyTrustworthy) {
     userPerms = LNAPermission::Granted;
     return userPerms;
   }
@@ -2106,18 +2122,14 @@ LNAPermission nsHttpChannel::UpdateLocalNetworkAccessPermissions(
   }
 
   // Check if we should block LNA requests from insecure contexts
-  if (StaticPrefs::network_lna_block_insecure_contexts()) {
-    nsCOMPtr<nsIPrincipal> triggeringPrincipal =
-        mLoadInfo->TriggeringPrincipal();
-    if (triggeringPrincipal &&
-        !triggeringPrincipal->GetIsOriginPotentiallyTrustworthy()) {
-      LOG(
-          ("nsHttpChannel::UpdateLocalNetworkAccessPermissions [this=%p] "
-           "blocking LNA request from insecure context\n",
-           this));
-      userPerms = LNAPermission::Denied;
-      return userPerms;
-    }
+  if (StaticPrefs::network_lna_block_insecure_contexts() &&
+      !triggeringPrincipalIsPotentiallyTrustworthy) {
+    LOG(
+        ("nsHttpChannel::UpdateLocalNetworkAccessPermissions [this=%p] "
+         "blocking LNA request from insecure context\n",
+         this));
+    userPerms = LNAPermission::Denied;
+    return userPerms;
   }
 
   // Step 3
@@ -2231,12 +2243,12 @@ nsresult nsHttpChannel::InitTransaction() {
     mLNAPermission.mLocalNetworkPermission = LNAPermission::Granted;
   }
 
-  rv = mTransaction->Init(
-      mCaps, mConnectionInfo, &mRequestHead, mUploadStream, mReqContentLength,
-      LoadUploadStreamHasHeaders(), GetCurrentSerialEventTarget(), callbacks,
-      this, mBrowserId, category, mRequestContext, mClassOfService,
-      mInitialRwin, LoadResponseTimeoutEnabled(), mChannelId, nullptr,
-      parentAddressSpace, mLNAPermission);
+  rv = mTransaction->Init(mCaps, mConnectionInfo, &mRequestHead, mUploadStream,
+                          mReqContentLength, GetCurrentSerialEventTarget(),
+                          callbacks, this, mBrowserId, category,
+                          mRequestContext, mClassOfService, mInitialRwin,
+                          LoadResponseTimeoutEnabled(), mChannelId, nullptr,
+                          parentAddressSpace, mLNAPermission);
   if (NS_FAILED(rv)) {
     mTransaction = nullptr;
     return rv;
@@ -2321,6 +2333,52 @@ void nsHttpChannel::SetCachedContentType() {
   }
 
   mCacheEntry->SetContentType(contentType);
+}
+
+static bool ShouldSniffMisconfiguredType(nsHttpResponseHead* aResponseHead,
+                                         nsILoadInfo* aLoadInfo) {
+  if (!StaticPrefs::network_mimesniff_sniff_misconfigured_types()) {
+    return false;
+  }
+
+  // Only sniff document navigations, not subresources.
+  // https://mimesniff.spec.whatwg.org/#sniffing-a-mislabeled-binary-resource
+  auto type = aLoadInfo->GetExternalContentPolicyType();
+  if (type != ExtContentPolicyType::TYPE_DOCUMENT &&
+      type != ExtContentPolicyType::TYPE_SUBDOCUMENT) {
+    return false;
+  }
+
+  // Responses marked as attachments are already going to be downloaded
+  // regardless of their content type, so there is no need to sniff them.
+  nsAutoCString contentDisposition;
+  if (NS_SUCCEEDED(aResponseHead->GetHeader(nsHttp::Content_Disposition,
+                                            contentDisposition)) &&
+      !contentDisposition.IsEmpty() &&
+      NS_GetContentDispositionFromHeader(contentDisposition) ==
+          nsIChannel::DISPOSITION_ATTACHMENT) {
+    return false;
+  }
+
+  nsAutoCString contentTypeOptionsHeader;
+  if (aResponseHead->GetContentTypeOptionsHeader(contentTypeOptionsHeader) &&
+      contentTypeOptionsHeader.EqualsIgnoreCase("nosniff")) {
+    return false;
+  }
+
+  nsAutoCString contentType;
+  aResponseHead->ContentType(contentType);
+
+  if (contentType.EqualsLiteral("text/plain")) {
+    return true;
+  }
+
+  if (contentType.EqualsLiteral(UNKNOWN_CONTENT_TYPE) ||
+      contentType.IsEmpty()) {
+    return true;
+  }
+
+  return false;
 }
 
 nsresult nsHttpChannel::CallOnStartRequest() {
@@ -2486,7 +2544,16 @@ nsresult nsHttpChannel::CallOnStartRequest() {
   // sure HttpTransactionChild::CanSendODAToContentProcessDirectly() returns
   // false when a stream converter is applied.
   bool unknownDecoderStarted = false;
-  if (mResponseHead && !mResponseHead->HasContentType()) {
+  bool shouldSniff = false;
+  if (mResponseHead) {
+    if (!mResponseHead->HasContentType()) {
+      shouldSniff = true;
+    } else {
+      shouldSniff =
+          ShouldSniffMisconfiguredType(mResponseHead.get(), mLoadInfo);
+    }
+  }
+  if (shouldSniff) {
     MOZ_ASSERT(mConnectionInfo, "Should have connection info here");
     if (!mContentTypeHint.IsEmpty()) {
       mResponseHead->SetContentType(mContentTypeHint);
@@ -5966,7 +6033,13 @@ void nsHttpChannel::CloseCacheEntry(bool doomOnFailure) {
   // partial cache entry is complete.
 
   bool doom = false;
-  if (LoadInitedCacheEntry()) {
+  if (mChannelBlockedByOpaqueResponse && mCachedOpaqueResponseBlockingPref) {
+    // A response blocked by ORB is fully written to the cache before the block
+    // decision is made, so it must be doomed here; otherwise it lingers as a
+    // complete entry that a same-partition request (e.g. a navigation reusing a
+    // prefetch) could consume.
+    doom = true;
+  } else if (LoadInitedCacheEntry()) {
     MOZ_ASSERT(mResponseHead, "oops");
     if (NS_FAILED(mStatus) && doomOnFailure && LoadCacheEntryIsWriteOnly() &&
         (!mResponseHead || !mResponseHead->IsResumable())) {
@@ -6012,6 +6085,13 @@ void nsHttpChannel::CloseCacheEntry(bool doomOnFailure) {
         }
       }
     }
+
+    // ORB's JavaScript validation finishes asynchronously, after this point,
+    // so the response may yet be blocked. Keep a reference to the committed
+    // entry so CancelInternal() can doom it if that happens.
+    if (mORB && mORB->IsSniffing()) {
+      mORBValidationCacheEntry = mCacheEntry;
+    }
   }
 
   mCachedResponseHead = nullptr;
@@ -6024,6 +6104,15 @@ void nsHttpChannel::CloseCacheEntry(bool doomOnFailure) {
   mCacheEntry = nullptr;
   StoreCacheEntryIsWriteOnly(false);
   StoreInitedCacheEntry(false);
+}
+
+void nsHttpChannel::OnOpaqueResponseAllowed() {
+  // mORBValidationCacheEntry is only ever touched on the main thread; this
+  // relies on ORB delivering its validation verdict there.
+  MOZ_ASSERT(NS_IsMainThread());
+  // ORB allowed the response, so the entry we kept in case it had to be doomed
+  // (see CloseCacheEntry) can stay in the cache; drop our reference to it.
+  mORBValidationCacheEntry = nullptr;
 }
 
 // Initialize the cache entry for writing.
@@ -6241,6 +6330,16 @@ nsresult nsHttpChannel::UpdateCacheEntryHeaders(nsICacheEntry* entry,
       NS_SUCCEEDED(
           mResponseHead->GetHeader(nsHttp::No_Vary_Search, noVarySearch)) &&
       !noVarySearch.IsEmpty()) {
+    glean::network::no_vary_search_header_received.Add(1);
+    bool parseError = false;
+    auto data = ParseNoVarySearchHeader(noVarySearch, &parseError);
+    glean::network::no_vary_search_rule_type
+        .Get(NoVarySearchRuleLabel(data.paramsRule))
+        .Add(1);
+    if (parseError) {
+      glean::network::no_vary_search_parse_error.Add(1);
+    }
+
     rv = entry->SetMetaDataElement("no-vary-search", noVarySearch.get());
     if (NS_FAILED(rv)) {
       return rv;
@@ -7247,6 +7346,15 @@ nsresult nsHttpChannel::CancelInternal(nsresult status) {
   mWebTransportSessionEventListener = nullptr;
   mCanceled = true;
   mStatus = NS_FAILED(status) ? status : NS_ERROR_ABORT;
+
+  // If ORB blocked this response, doom the entry that was committed to the
+  // cache before the (asynchronous) block decision, so it can't be reused
+  // later (e.g. a navigation consuming a prefetched, ORB-blocked cross-origin
+  // document). See bug 2045809.
+  if (mChannelBlockedByOpaqueResponse && mORBValidationCacheEntry) {
+    mORBValidationCacheEntry->AsyncDoom(nullptr);
+    mORBValidationCacheEntry = nullptr;
+  }
 
   // If we're waiting for LNA permission result and the channel is being
   // cancelled, we need to call OnPermissionPromptResult with permission denied
@@ -8280,18 +8388,10 @@ void nsHttpChannel::MaybeStartDNSPrefetch() {
     if (StaticPrefs::network_dns_use_https_rr_as_altsvc() && !mHTTPSSVCRecord &&
         !(mCaps & NS_HTTP_DISALLOW_HTTPS_RR) &&
         canUseHTTPSRRonNetwork(unused)) {
-      MOZ_ASSERT(!mHTTPSSVCRecord);
-
-      OriginAttributes originAttributes;
-      StoragePrincipalHelper::GetOriginAttributesForHTTPSRR(this,
-                                                            originAttributes);
-
-      RefPtr<nsDNSPrefetch> resolver =
-          new nsDNSPrefetch(mURI, originAttributes, nsIRequest::GetTRRMode());
-      (void)resolver->FetchHTTPSSVC(mCaps & NS_HTTP_REFRESH_DNS, true,
-                                    [](nsIDNSHTTPSSVCRecord*) {
-                                      // Do nothing. This is a DNS prefetch.
-                                    });
+      (void)mDNSPrefetch->FetchHTTPSSVC(mCaps & NS_HTTP_REFRESH_DNS, true,
+                                        [](nsIDNSHTTPSSVCRecord*) {
+                                          // Do nothing. This is a DNS prefetch.
+                                        });
     }
 
     // Issue per-family prefetches (A and AAAA) so Happy Eyeballs can reuse
@@ -9128,14 +9228,13 @@ nsHttpChannel::OnStartRequest(nsIRequest* request) {
   }
 
   if (mStatus == NS_ERROR_NON_LOCAL_CONNECTION_REFUSED) {
-    MOZ_CRASH_UNSAFE(nsPrintfCString("Attempting to connect to non-local "
-                                     "address! opener is [%s], uri is "
-                                     "[%s]",
-                                     mOpenerCallingScriptLocation
-                                         ? mOpenerCallingScriptLocation->get()
-                                         : "unknown",
-                                     mURI->GetSpecOrDefault().get())
-                         .get());
+    MOZ_DUMP_PROFILE_OR_CRASH_UNSAFE(nsPrintfCString(
+        "Attempting to connect to non-local "
+        "address! opener is [%s], uri is "
+        "[%s]",
+        mOpenerCallingScriptLocation ? mOpenerCallingScriptLocation->get()
+                                     : "unknown",
+        mURI->GetSpecOrDefault().get()));
   }
 
   if (mStatus == NS_ERROR_LOCAL_NETWORK_ACCESS_DENIED) {

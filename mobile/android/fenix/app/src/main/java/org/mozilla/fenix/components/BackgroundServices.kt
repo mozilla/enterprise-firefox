@@ -20,6 +20,9 @@ import mozilla.components.concept.sync.DeviceCommandQueue
 import mozilla.components.concept.sync.DeviceConfig
 import mozilla.components.concept.sync.DeviceType
 import mozilla.components.concept.sync.OAuthAccount
+import mozilla.components.concept.sync.PeriodicSyncConfig
+import mozilla.components.concept.sync.SyncConfig
+import mozilla.components.concept.sync.SyncEngine
 import mozilla.components.feature.accounts.push.CloseTabsCommandReceiver
 import mozilla.components.feature.accounts.push.CloseTabsFeature
 import mozilla.components.feature.accounts.push.FxaPushSupportFeature
@@ -31,10 +34,7 @@ import mozilla.components.feature.syncedtabs.storage.SyncedTabsStorage
 import mozilla.components.lib.crash.CrashReporter
 import mozilla.components.lib.state.Middleware
 import mozilla.components.lib.state.Store
-import mozilla.components.service.fxa.PeriodicSyncConfig
 import mozilla.components.service.fxa.ServerConfig
-import mozilla.components.service.fxa.SyncConfig
-import mozilla.components.service.fxa.SyncEngine
 import mozilla.components.service.fxa.manager.FxaAccountManager
 import mozilla.components.service.fxa.manager.SCOPE_SYNC
 import mozilla.components.service.fxa.store.SyncAction

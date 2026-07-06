@@ -15,6 +15,8 @@ import mozilla.components.lib.state.State
 import mozilla.components.lib.state.Store
 import org.mozilla.fenix.R
 
+private const val MIN_PROBLEM_DESCRIPTION_LENGTH = 10
+
 /**
  * Value type that represents the state of the WebCompat Reporter.
  *
@@ -46,32 +48,32 @@ data class WebCompatReporterState(
     enum class BrokenSiteReason(
         @param:StringRes val displayStringId: Int,
     ) {
+        NotSupported(
+            displayStringId = R.string.webcompat_reporter_reason_notsupported_2,
+        ),
         Load(
             displayStringId = R.string.webcompat_reporter_reason_load,
-        ),
-        Checkout(
-            displayStringId = R.string.webcompat_reporter_reason_checkout,
-        ),
-        Slow(
-            displayStringId = R.string.webcompat_reporter_reason_slow2,
         ),
         Media(
             displayStringId = R.string.webcompat_reporter_reason_media2,
         ),
+        DeceptiveSite(
+            displayStringId = R.string.webcompat_reporter_reason_site_is_deceptive,
+        ),
         Content(
             displayStringId = R.string.webcompat_reporter_reason_content2,
+        ),
+        Slow(
+            displayStringId = R.string.webcompat_reporter_reason_slow2,
+        ),
+        Checkout(
+            displayStringId = R.string.webcompat_reporter_reason_checkout,
         ),
         Account(
             displayStringId = R.string.webcompat_reporter_reason_account2,
         ),
         AdBlocker(
             displayStringId = R.string.webcompat_reporter_reason_turn_off_adblocker,
-        ),
-        NotSupported(
-            displayStringId = R.string.webcompat_reporter_reason_notsupported_2,
-        ),
-        DeceptiveSite(
-            displayStringId = R.string.webcompat_reporter_reason_site_is_deceptive,
         ),
         Other(
             displayStringId = R.string.webcompat_reporter_reason_other,
@@ -100,10 +102,22 @@ data class WebCompatReporterState(
         get() = !isValidUrl(editedUrl)
 
     /**
+     * Whether the reason dropdown has an error.
+     */
+    val hasReasonDropdownError: Boolean
+        get() = reason == null
+
+    /**
+     * Whether the problem description has an error.
+     */
+    val hasDescriptionError: Boolean
+        get() = reason == BrokenSiteReason.Other && problemDescription.trim().length < MIN_PROBLEM_DESCRIPTION_LENGTH
+
+    /**
      * Whether the submit button is enabled.
      */
     val isSubmitEnabled: Boolean
-        get() = !hasUrlTextError && reason != null
+        get() = !hasUrlTextError && !hasReasonDropdownError && !hasDescriptionError
 }
 
 /**
@@ -175,6 +189,11 @@ sealed class WebCompatReporterAction : Action {
      * Dispatched when the user requests to send the WebCompat report.
      */
     data object SendReportClicked : WebCompatReporterAction()
+
+    /**
+     * Dispatched when the user selects the "Deceptive site" reason.
+     */
+    data object DeceptiveSiteReportSelected : WebCompatReporterAction(), NavigationAction
 
     /**
      * Dispatched when the WebCompat report has been submitted.
@@ -249,6 +268,7 @@ private fun reduce(
     is WebCompatReporterAction.PreviewJSONUpdated -> state.copy(
         previewJSON = action.previewJSON,
     )
+    is WebCompatReporterAction.DeceptiveSiteReportSelected -> state
     is WebCompatReporterAction.NavigationAction -> state
     WebCompatReporterAction.SendReportClicked -> state // UPDATED: Just return state here!
     WebCompatReporterAction.AddMoreInfoClicked -> state

@@ -4,6 +4,7 @@
 
 package org.mozilla.fenix.tabstray.redux.state
 
+import androidx.compose.runtime.Immutable
 import org.mozilla.fenix.tabgroups.EditTabGroup
 import org.mozilla.fenix.tabstray.data.TabGroupTheme
 import org.mozilla.fenix.tabstray.data.TabsTrayItem.TabGroup
@@ -20,6 +21,7 @@ import org.mozilla.fenix.tabstray.data.TabsTrayItem.TabGroup
  * will be selected based on the last theme used.
  * @property edited Whether the user has modified the form fields.
  */
+@Immutable
 data class TabGroupFormState(
     val tabGroupId: String?,
     val name: String,

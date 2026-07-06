@@ -631,9 +631,37 @@ const POLICIES_TESTS = [
       },
     },
     lockedPrefs: {
-      "browser.newtabpage.activity-stream.feeds.system.topstories": false,
       "browser.newtabpage.activity-stream.feeds.section.topstories": false,
       "browser.newtabpage.activity-stream.showSponsored": false,
+    },
+  },
+
+  // POLICY: FirefoxHome (Weather sets both the legacy and Nova prefs)
+  {
+    policies: {
+      FirefoxHome: {
+        Weather: false,
+        Locked: true,
+      },
+    },
+    lockedPrefs: {
+      "browser.newtabpage.activity-stream.showWeather": false,
+      "browser.newtabpage.activity-stream.widgets.weather.enabled": false,
+    },
+  },
+
+  // POLICY: FirefoxHome (locking both sponsored settings locks the parent
+  // "Support Firefox" toggle to their combined value)
+  {
+    policies: {
+      FirefoxHome: {
+        SponsoredTopSites: false,
+        SponsoredStories: false,
+        Locked: true,
+      },
+    },
+    lockedPrefs: {
+      "browser.newtabpage.activity-stream.showSponsoredCheckboxes": false,
     },
   },
 
@@ -1346,9 +1374,56 @@ const POLICIES_TESTS = [
       "browser.tabs.groups.smart.userEnabled": false,
     },
   },
+
+  // CrashReportsSubmit - enabled
+  {
+    policies: {
+      CrashReportsSubmit: {
+        Enabled: true,
+      },
+    },
+    lockedPrefs: {
+      "browser.tabs.crashReporting.sendReport": true,
+      "browser.tabs.crashReporting.includeURL": true,
+      "browser.crashReports.unsubmittedCheck.enabled": true,
+      "browser.crashReports.unsubmittedCheck.autoSubmit2": true,
+    },
+    env: {
+      MOZ_CRASHREPORTER_NO_REPORT: "",
+      MOZ_CRASHREPORTER_POLICY_AUTO_SUBMIT: "1",
+    },
+  },
+
+  // CrashReportsSubmit - disabled
+  {
+    policies: {
+      CrashReportsSubmit: {
+        Enabled: false,
+      },
+    },
+    lockedPrefs: {
+      "browser.tabs.crashReporting.sendReport": false,
+      "browser.crashReports.unsubmittedCheck.enabled": false,
+      "browser.crashReports.unsubmittedCheck.autoSubmit2": false,
+    },
+    env: {
+      MOZ_CRASHREPORTER_NO_REPORT: "1",
+      MOZ_CRASHREPORTER_POLICY_AUTO_SUBMIT: "",
+    },
+  },
 ];
 
 add_task(async function test_policy_simple_prefs() {
+  // The test harness sets MOZ_CRASHREPORTER_NO_REPORT, which disables crash
+  // reports.  This test doesn't do crashes, but changes the env variable
+  // as part of a policy, so clear the env variable to a clean slate at the
+  // start of the test.
+  let noReport = Services.env.get("MOZ_CRASHREPORTER_NO_REPORT");
+  Services.env.set("MOZ_CRASHREPORTER_NO_REPORT", "");
+  registerCleanupFunction(function () {
+    Services.env.set("MOZ_CRASHREPORTER_NO_REPORT", noReport);
+  });
+
   for (let test of POLICIES_TESTS) {
     await setupPolicyEngineWithJson({
       policies: test.policies,
@@ -1364,6 +1439,14 @@ add_task(async function test_policy_simple_prefs() {
       test.unlockedPrefs || {}
     )) {
       checkUnlockedPref(prefName, prefValue);
+    }
+
+    for (let [envName, envValue] of Object.entries(test.env || {})) {
+      equal(
+        Services.env.get(envName),
+        envValue,
+        `Env var ${envName} should be "${envValue}"`
+      );
     }
   }
 });

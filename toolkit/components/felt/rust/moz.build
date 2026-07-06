@@ -24,6 +24,7 @@ elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "gtk":
 FINAL_LIBRARY = "xul"
 
 XPIDL_SOURCES += [
+    "nsIEdrChecker.idl",
     "nsIFelt.idl",
     "nsIFeltRestartForced.idl",
 ]

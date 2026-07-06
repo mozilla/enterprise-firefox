@@ -46,6 +46,7 @@ class ConnectSection extends PureComponent {
         dom.img({
           className: "connect-section__header__icon",
           src: this.props.icon,
+          alt: "",
         }),
         dom.h3(
           {

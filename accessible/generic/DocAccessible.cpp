@@ -2318,12 +2318,6 @@ bool InsertIterator::Next() {
       continue;
     }
 
-    // HTML comboboxes have no-content list accessible as an intermediate
-    // containing all options.
-    if (container->IsHTMLCombobox()) {
-      container = container->LocalFirstChild();
-    }
-
     if (!container->IsAcceptableChild(node)) {
       continue;
     }
@@ -3003,18 +2997,16 @@ void DocAccessible::CacheChildrenInSubtree(LocalAccessible* aRoot,
     *aFocusedAcc = aRoot;
   }
 
-  LocalAccessible* root =
-      aRoot->IsHTMLCombobox() ? aRoot->LocalFirstChild() : aRoot;
-  if (root->KidsFromDOM()) {
-    TreeMutation mt(root, TreeMutation::kNoEvents);
-    TreeWalker walker(root);
+  if (aRoot->KidsFromDOM()) {
+    TreeMutation mt(aRoot, TreeMutation::kNoEvents);
+    TreeWalker walker(aRoot);
     while (LocalAccessible* child = walker.Next()) {
       if (child->IsBoundToParent()) {
-        MoveChild(child, root, root->mChildren.Length());
+        MoveChild(child, aRoot, aRoot->mChildren.Length());
         continue;
       }
 
-      root->AppendChild(child);
+      aRoot->AppendChild(child);
       mt.AfterInsertion(child);
 
       CacheChildrenInSubtree(child, aFocusedAcc);

@@ -93,6 +93,9 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = Reloj
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = Privacidad
 home-prefs-mission-message2 =
     .message = Nuestros patrocinadores apoyan nuestra misión de construir una web mejor.
 home-prefs-manage-topics-link2 =
@@ -151,6 +154,11 @@ home-prefs-weather-header-srd =
 home-prefs-support-firefox-header-srd =
     .label = Ayudar a { -brand-product-name }
 home-prefs-mission-message-learn-more-link-srd = Descubra cómo
+
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = Conocer más
 
 ## Search box component.
 
@@ -495,6 +503,8 @@ newtab-custom-widget-clock-toggle =
     .label = Reloj
 newtab-custom-widget-sports-toggle2 =
     .label = Deportes
+newtab-custom-widget-privacy-toggle =
+    .label = Privacidad
 newtab-custom-widget-section-title = Widgets
 newtab-custom-widget-section-toggle =
     .label = Widgets
@@ -970,6 +980,8 @@ newtab-widget-timer-reset =
 newtab-widget-timer-menu-notifications = Desactivar notificaciones
 newtab-widget-timer-menu-notifications-on = Activar notificaciones
 newtab-widget-timer-menu-learn-more = Conocer más
+newtab-widget-timer-menu-button =
+    .aria-label = Opciones de temporizador
 # The title displays above a set of top news headlines.
 newtab-daily-briefing-card-title = Noticias principales
 newtab-daily-briefing-card-menu-dismiss = Descartar
@@ -1080,6 +1092,8 @@ newtab-sports-widget-show-less =
 # Toggle that filters the list of teams the user follows
 newtab-sports-widget-followed-only-toggle =
     .label = Solo equipos seguidos
+# Status shown when more matches are being fetched.
+newtab-sports-widget-loading-more = Cargando más coincidencias…
 # Watch is a verb (as in watch matches online).
 newtab-sports-widget-watch =
     .label = Ver
@@ -1155,6 +1169,9 @@ newtab-sports-widget-third-place = Tercer lugar
 newtab-sports-widget-runner-up = Subcampeón
 newtab-sports-widget-champions = Campeones
 newtab-sports-widget-world-cup-champions = Campeones de la Copa del Mundo 2026
+# Compact champions label for the medium-size widget result card; the larger
+# card uses newtab-sports-widget-world-cup-champions.
+newtab-sports-widget-world-cup-champions-short = Campeones 2026
 # Variables:
 #   $date (Date) - The match start time
 newtab-sports-widget-match-time = { DATETIME($date, hour: "2-digit", minute: "2-digit") }
@@ -1252,6 +1269,8 @@ newtab-sports-widget-team-tbd = Por determinar
 
 newtab-sports-widget-message-wallpapers-title = Llegue al puntapié inicial de la Copa del Mundo con nuevos fondos de pantalla
 newtab-sports-widget-message-wallpapers-cta = Elegir un fondo de pantalla
+newtab-sports-widget-message-wallpapers-semifinals-title = Tenga un nuevo fondo de pantalla para las semifinales
+newtab-sports-widget-message-wallpapers-semifinals-body = Prepare el escenario para los partidos más importantes de la Copa del Mundo.
 newtab-sports-widget-message-add-widgets-cta =
     .label = Agregar widgets
 newtab-sports-widget-message-explore-widgets-cta =

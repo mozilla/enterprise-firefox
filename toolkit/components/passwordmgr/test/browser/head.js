@@ -188,18 +188,15 @@ async function getFormSubmitResponseResult(
   { username = "#user", password = "#pass" } = {}
 ) {
   // default selectors are for the response page produced by formsubmit.sjs
-  // TODO: Switch to SpecialPowers.spawn
-  // eslint-disable-next-line mozilla/reject-contenttask-spawn
-  let fieldValues = await ContentTask.spawn(
+  if (!new URL(browser.currentURI.spec).pathname.endsWith(resultURL)) {
+    await BrowserTestUtils.browserLoaded(browser, false, url => {
+      return new URL(url).pathname.endsWith(resultURL);
+    });
+  }
+  let fieldValues = await SpecialPowers.spawn(
     browser,
-    { resultURL, usernameSelector: username, passwordSelector: password },
-    async function ({ resultURL, usernameSelector, passwordSelector }) {
-      await ContentTaskUtils.waitForCondition(() => {
-        return (
-          content.location.pathname.endsWith(resultURL) &&
-          content.document.readyState == "complete"
-        );
-      }, `Wait for form submission load (${resultURL})`);
+    [username, password],
+    (usernameSelector, passwordSelector) => {
       let username =
         content.document.querySelector(usernameSelector).textContent;
       // Bug 1686071: Since generated passwords can have special characters in them,
@@ -591,9 +588,9 @@ async function _selectDoorhanger(text, inputSelector, dropmarkerSelector) {
       .getElementsByTagName("richlistitem"),
   ].filter(richlistitem => !richlistitem.collapsed);
 
-  let suggestionText = suggestions.map(
-    richlistitem => richlistitem.querySelector(".ac-title-text").innerHTML
-  );
+  let suggestionText = suggestions.map(richlistitem => {
+    return richlistitem.querySelector("autocomplete-row-item").label;
+  });
 
   let targetIndex = suggestionText.indexOf(text);
   Assert.notEqual(targetIndex, -1, "Suggestions include expected text");

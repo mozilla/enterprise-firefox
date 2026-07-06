@@ -143,7 +143,7 @@ export const EnterpriseHandler = {
     }
     this.updateBadge(window);
     this.restrictEnterpriseView(window);
-    this._initLockdownModeButton(window);
+    this._initUrlbarButtons(window);
   },
 
   async initUser() {
@@ -160,6 +160,22 @@ export const EnterpriseHandler = {
     }
   },
 
+  /**
+   * Initializes the enterprise-related urlbar buttons.
+   *
+   * @param {Window} window chrome window
+   */
+  _initUrlbarButtons(window) {
+    this._initLockdownModeButton(window);
+  },
+
+  /**
+   * Initializes the lockdown mode button in the urlbar.
+   *
+   * The button will be visible based on whether the current page is in lockdown mode, as determined by the JIT policy state for the page's URI.
+   *
+   * @param {Window} window chrome window
+   */
   _initLockdownModeButton(window) {
     const button = window.document.getElementById("lockdown-mode-button");
 

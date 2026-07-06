@@ -217,6 +217,9 @@ audit-as-crates-io = true
 audit-as-crates-io = true
 notes = "Part of the wgpu repository, pinned as the rest of wgpu crates."
 
+[policy.naga-types]
+notes = "Part of the wgpu repository, pinned as the rest of wgpu crates. New crate; add `audit-as-crates-io = true` when it is published to crates.io."
+
 [policy.nimbus-sdk]
 audit-as-crates-io = false
 notes = "This lives in application-services but was pushed to crates.io a very long time ago."
@@ -484,14 +487,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.env_logger]]
 version = "0.9.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.fallible-iterator]]
-version = "0.2.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.fallible-streaming-iterator]]
-version = "0.1.9"
 criteria = "safe-to-deploy"
 
 [[exemptions.fallible_collections]]

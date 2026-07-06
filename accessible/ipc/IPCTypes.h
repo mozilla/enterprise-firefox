@@ -45,31 +45,11 @@ struct ParamTraits<mozilla::a11y::CacheUpdateType>
           mozilla::a11y::CacheUpdateType::Initial,
           mozilla::a11y::CacheUpdateType::Update> {};
 
-template <>
-struct ParamTraits<mozilla::a11y::FontSize> {
-  typedef mozilla::a11y::FontSize paramType;
-
-  static void Write(MessageWriter* aWriter, const paramType& aParam) {
-    WriteParam(aWriter, aParam.mValue);
-  }
-
-  static bool Read(MessageReader* aReader, paramType* aResult) {
-    return ReadParam(aReader, &(aResult->mValue));
-  }
-};
-
-template <>
-struct ParamTraits<mozilla::a11y::DeleteEntry> {
-  typedef mozilla::a11y::DeleteEntry paramType;
-
-  static void Write(MessageWriter* aWriter, const paramType& aParam) {
-    WriteParam(aWriter, aParam.mValue);
-  }
-
-  static bool Read(MessageReader* aReader, paramType* aResult) {
-    return ReadParam(aReader, &(aResult->mValue));
-  }
-};
+DEFINE_IPC_SERIALIZER_WITH_FIELDS(mozilla::a11y::FontSize, mValue);
+DEFINE_IPC_SERIALIZER_WITH_FIELDS(mozilla::a11y::DeleteEntry, mValue);
+DEFINE_IPC_SERIALIZER_WITH_FIELDS(mozilla::a11y::Color, mValue);
+DEFINE_IPC_SERIALIZER_WITH_FIELDS(mozilla::a11y::TextOffsetAttribute,
+                                  mStartOffset, mEndOffset, mAttribute);
 
 template <>
 struct ParamTraits<mozilla::a11y::AccGroupInfo> {
@@ -82,36 +62,6 @@ struct ParamTraits<mozilla::a11y::AccGroupInfo> {
   static bool Read(MessageReader* aReader, paramType* aResult) {
     MOZ_ASSERT_UNREACHABLE("Cannot de-serialize AccGroupInfo");
     return false;
-  }
-};
-
-template <>
-struct ParamTraits<mozilla::a11y::Color> {
-  typedef mozilla::a11y::Color paramType;
-
-  static void Write(MessageWriter* aWriter, const paramType& aParam) {
-    WriteParam(aWriter, aParam.mValue);
-  }
-
-  static bool Read(MessageReader* aReader, paramType* aResult) {
-    return ReadParam(aReader, &(aResult->mValue));
-  }
-};
-
-template <>
-struct ParamTraits<mozilla::a11y::TextOffsetAttribute> {
-  typedef mozilla::a11y::TextOffsetAttribute paramType;
-
-  static void Write(MessageWriter* aWriter, const paramType& aParam) {
-    WriteParam(aWriter, aParam.mStartOffset);
-    WriteParam(aWriter, aParam.mEndOffset);
-    WriteParam(aWriter, aParam.mAttribute);
-  }
-
-  static bool Read(MessageReader* aReader, paramType* aResult) {
-    return ReadParam(aReader, &(aResult->mStartOffset)) &&
-           ReadParam(aReader, &(aResult->mEndOffset)) &&
-           ReadParam(aReader, &(aResult->mAttribute));
   }
 };
 

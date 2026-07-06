@@ -8,6 +8,9 @@ import android.Manifest
 import androidx.test.rule.GrantPermissionRule
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.Until
+import mozilla.components.support.ktx.util.PromptAbuserDetector
+import org.junit.After
+import org.junit.Before
 import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
@@ -26,6 +29,16 @@ import org.mozilla.fenix.ui.efficiency.selectors.SitePermissionsSelectors
 class SettingsDeleteBrowsingDataOnQuitTest : BaseTest() {
     @get:Rule
     val grantPermissionRule: GrantPermissionRule = GrantPermissionRule.grant(Manifest.permission.RECORD_AUDIO)
+
+    @Before
+    fun disablePromptAbuserDetector() {
+        PromptAbuserDetector.validationsEnabled = false
+    }
+
+    @After
+    fun restorePromptAbuserDetector() {
+        PromptAbuserDetector.validationsEnabled = true
+    }
 
     @Ignore("Covered by verifyNavigationReachability[1: SettingsDeleteBrowsingDataOnQuitPage (TBD) — Navigation Reachability]")
     @Test

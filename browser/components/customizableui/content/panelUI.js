@@ -51,8 +51,7 @@ const PanelUI = {
   _notifications: null,
   _notificationPanel: null,
 
-  init(shouldSuppress) {
-    this._shouldSuppress = shouldSuppress;
+  init() {
     this._initElements();
 
     this.menuButton.addEventListener("mousedown", this);
@@ -997,7 +996,7 @@ const PanelUI = {
     if (
       (window.fullScreen && FullScreen.navToolboxHidden) ||
       document.fullscreenElement ||
-      this._shouldSuppress()
+      shouldSuppressPopupNotifications()
     ) {
       this._hidePopup();
       return;

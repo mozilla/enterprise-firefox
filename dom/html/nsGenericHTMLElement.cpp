@@ -966,7 +966,7 @@ void nsGenericHTMLElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
       }
     } else if (aName == nsGkAtoms::id) {
       if (Document* doc = GetUncomposedDoc()) {
-        if (ShouldExposeIdAsHTMLDocumentProperty(this)) {
+        if (aValue && ShouldExposeIdAsHTMLDocumentProperty(this)) {
           nsAtom* id = aValue->GetAtomValue();
           nsAtom* name = ShouldExposeNameAsHTMLDocumentProperty(this)
                              ? GetParsedAttr(nsGkAtoms::name)->GetAtomValue()

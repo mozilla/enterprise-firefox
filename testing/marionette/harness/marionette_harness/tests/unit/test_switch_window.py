@@ -10,7 +10,6 @@ from marionette_driver.keys import Keys
 from marionette_harness import (
     MarionetteTestCase,
     WindowManagerMixin,
-    skip_if_no_window_manager,
 )
 
 
@@ -154,9 +153,6 @@ class TestSwitchToWindowContent(WindowManagerMixin, MarionetteTestCase):
         self.assertEqual(self.marionette.current_window_handle, self.start_tab)
         self.assertEqual(self.get_selected_tab_index(), self.selected_tab_index)
 
-    @skip_if_no_window_manager(
-        "Bug 2048226 - in-app restart times out on headless macOS VM workers"
-    )
     def test_switch_to_unloaded_tab(self):
         first_page = inline("<p>foo")
         second_page = inline("<p>bar")

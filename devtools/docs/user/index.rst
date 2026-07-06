@@ -193,6 +193,9 @@ These developer tools are also built into Firefox. Unlike the "Core Tools" above
   * - :doc:`JavaScript tracer <javascript_tracer/index>`
     - Live display all JavaScript function calls.
 
+  * - :doc:`Local Mode <local_mode/index>`
+    - Easily open local files through custom https:// URL.
+
 .. image:: logo-developer-quantum.png
     :class: center
 

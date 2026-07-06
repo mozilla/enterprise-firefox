@@ -12,6 +12,7 @@ import stat
 import sys
 import tarfile
 import tempfile
+import zipfile
 from collections import defaultdict
 
 import buildconfig
@@ -511,25 +512,46 @@ class VendorManifest(MozbuildObject):
                         mozfile.remove(file)
 
                 self.logInfo({"vd": vendor_dir}, "Unpacking upstream files for {vd}.")
-                with tarfile.open(tmptarfile.name) as tar:
-                    safe_extract(tar, tmpextractdir.name)
 
-                    def get_first_dir(p):
-                        halves = os.path.split(p)
-                        return get_first_dir(halves[0]) if halves[0] else halves[1]
+                def get_first_dir(p):
+                    halves = os.path.split(p)
+                    return get_first_dir(halves[0]) if halves[0] else halves[1]
 
-                    one_prefix = get_first_dir(tar.getnames()[0])
-                    has_prefix = all(
-                        map(lambda name: name.startswith(one_prefix), tar.getnames())
-                    )
+                if zipfile.is_zipfile(tmptarfile.name):
+                    with zipfile.ZipFile(tmptarfile.name) as zf:
+                        zf.extractall(tmpextractdir.name)
+                        one_prefix = get_first_dir(zf.namelist()[0])
+                        has_prefix = all(
+                            map(
+                                lambda name: name.startswith(one_prefix),
+                                zf.namelist(),
+                            )
+                        )
+                    if has_prefix:
+                        zipdir = mozpath.join(tmpextractdir.name, one_prefix)
+                        mozfile.copy_contents(
+                            zipdir, tmpextractdir.name, ignore_dangling_symlinks=True
+                        )
+                        mozfile.remove(zipdir)
+                else:
+                    with tarfile.open(tmptarfile.name) as tar:
+                        safe_extract(tar, tmpextractdir.name)
 
-                # GitLab puts everything down a directory; move it up.
-                if has_prefix:
-                    tardir = mozpath.join(tmpextractdir.name, one_prefix)
-                    mozfile.copy_contents(
-                        tardir, tmpextractdir.name, ignore_dangling_symlinks=True
-                    )
-                    mozfile.remove(tardir)
+                        one_prefix = get_first_dir(tar.getnames()[0])
+                        has_prefix = all(
+                            map(
+                                lambda name: name.startswith(one_prefix),
+                                tar.getnames(),
+                            )
+                        )
+
+                    # GitLab puts everything down a directory; move it up.
+                    if has_prefix:
+                        tardir = mozpath.join(tmpextractdir.name, one_prefix)
+                        mozfile.copy_contents(
+                            tardir, tmpextractdir.name, ignore_dangling_symlinks=True
+                        )
+                        mozfile.remove(tardir)
 
                 if self.should_perform_step("include"):
                     self.logInfo({}, "Retaining wanted files from upstream changes.")

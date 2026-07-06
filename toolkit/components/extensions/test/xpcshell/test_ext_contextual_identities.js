@@ -109,12 +109,12 @@ add_task(async function test_contextualIdentities_supported_colors_and_icons() {
         browser.test.fail(`Failed to load image: ${img.src} - ${e}`);
       }
       browser.test.assertEq(
-        16,
+        32,
         img.naturalWidth,
         `Expected width for ${entry.icon}`
       );
       browser.test.assertEq(
-        16,
+        32,
         img.naturalHeight,
         `Expected height for ${entry.icon}`
       );

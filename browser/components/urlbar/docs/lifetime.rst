@@ -25,7 +25,12 @@ of April 2023.
    *UrlbarInput* :searchfox:`starts a search <mozilla-central/rev/1f4f99a8f331cce8467a50742178b6d46914ab89:browser/components/urlbar/UrlbarInput.sys.mjs#3395>`.
    It :searchfox:`creates <mozilla-central/rev/1f4f99a8f331cce8467a50742178b6d46914ab89:browser/components/urlbar/UrlbarInput.sys.mjs#1549>`
    a `UrlbarQueryContext <https://firefox-source-docs.mozilla.org/browser/urlbar/overview.html#the-urlbarquerycontext>`_
-   and :searchfox:`passes it to UrlbarController <mozilla-central/rev/1f4f99a8f331cce8467a50742178b6d46914ab89:browser/components/urlbar/UrlbarInput.sys.mjs#1548>`.
+   and passes it to the :searchfox:`UrlbarChildController <browser/components/urlbar/content/UrlbarChildController.mjs>`,
+   which forwards it to the *UrlbarParentController*. The controller is split in
+   two: the *UrlbarChildController* lives alongside the input, while the
+   *UrlbarParentController* owns the *ProvidersManager* and runs the query. This
+   split is what lets the input run in a content process (such as about:newtab)
+   while the providers stay in the parent process.
    The query context is an object that will exist for the lifetime of the query
    and it's how we keep track of what results to show. It contains information
    like what kind of results are allowed, the search string ("coffee near me",
@@ -33,7 +38,7 @@ of April 2023.
    *UrlbarQueryContext* is created every time the text in the input changes.
 
 #.
-   *UrlbarController* :searchfox:`tells ProvidersManager <mozilla-central/rev/0ffaecaa075887ab07bf4c607c61ea2faa81b172:browser/components/urlbar/UrlbarController.sys.mjs#140>`
+   *UrlbarParentController* :searchfox:`tells ProvidersManager <browser/components/urlbar/UrlbarParentController.sys.mjs>`
    that the providers should fetch results.
 
 #.
@@ -83,13 +88,14 @@ of April 2023.
 
 #.
    Once the results are sorted, *ProvidersManager*
-   :searchfox:`tells UrlbarController <mozilla-central/rev/0ffaecaa075887ab07bf4c607c61ea2faa81b172:browser/components/urlbar/UrlbarProvidersManager.sys.mjs#675>`
+   :searchfox:`tells UrlbarParentController <mozilla-central/rev/0ffaecaa075887ab07bf4c607c61ea2faa81b172:browser/components/urlbar/UrlbarProvidersManager.sys.mjs#675>`
    that results are ready to be shown.
 
 #.
-   *UrlbarController* :searchfox:`sends out a notification <mozilla-central/rev/0ffaecaa075887ab07bf4c607c61ea2faa81b172:browser/components/urlbar/UrlbarController.sys.mjs#213>`
-   that results are ready to be shown. *UrlbarView* was :searchfox:`listening <mozilla-central/rev/0ffaecaa075887ab07bf4c607c61ea2faa81b172:browser/components/urlbar/UrlbarView.sys.mjs#662>`
-   for that notification. Once the view gets the notification, it :searchfox:`calls #updateResults <mozilla-central/rev/0ffaecaa075887ab07bf4c607c61ea2faa81b172:browser/components/urlbar/UrlbarView.sys.mjs#670>`
+   *UrlbarParentController* :searchfox:`sends out a notification <browser/components/urlbar/UrlbarParentController.sys.mjs>`
+   that results are ready to be shown. The notification is dispatched by the
+   *UrlbarChildController*, which *UrlbarView* was :searchfox:`listening <mozilla-central/rev/0ffaecaa075887ab07bf4c607c61ea2faa81b172:browser/components/urlbar/UrlbarView.sys.mjs#662>`
+   to. Once the view gets the notification, it :searchfox:`calls #updateResults <mozilla-central/rev/0ffaecaa075887ab07bf4c607c61ea2faa81b172:browser/components/urlbar/UrlbarView.sys.mjs#670>`
    to create :searchfox:`DOM nodes <mozilla-central/rev/0ffaecaa075887ab07bf4c607c61ea2faa81b172:browser/components/urlbar/UrlbarView.sys.mjs#1185>`
    for each *UrlbarResult* and :searchfox:`inserts them <mozilla-central/rev/0ffaecaa075887ab07bf4c607c61ea2faa81b172:browser/components/urlbar/UrlbarView.sys.mjs#1156>`
    into the view's DOM element.

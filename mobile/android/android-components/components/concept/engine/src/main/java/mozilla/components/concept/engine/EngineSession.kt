@@ -225,6 +225,14 @@ abstract class EngineSession(
         fun onMediaMuteChanged(muted: Boolean) = Unit
 
         /**
+         * Notify that the tab's W3C Audio Session type changed, used to pick
+         * the matching platform audio focus.
+         *
+         * @param type The audio-session type the tab is now claiming.
+         */
+        fun onMediaAudioSessionTypeChanged(type: MediaSession.AudioSessionType) = Unit
+
+        /**
          * Notify on changed fullscreen state.
          *
          * @param fullscreen True when this media session in in fullscreen mode.

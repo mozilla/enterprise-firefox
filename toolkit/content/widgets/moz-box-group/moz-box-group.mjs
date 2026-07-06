@@ -27,7 +27,11 @@ export const GROUP_TYPES = {
  *   when the group is type="reorderable-list".
  * @fires reorder
  *  Fired when items are reordered via drag-and-drop or keyboard shortcuts.
- *  The detail object contains draggedElement, targetElement, position, draggedIndex, and targetIndex.
+ *  The detail object contains draggedElement, targetElement, position, draggedIndex, targetIndex, and insertAt.
+ * @fires scroll
+ *  Re-dispatched on the host when a scroll container in the shadow tree
+ *  scrolls, so light DOM listeners can observe scrolls that wouldn't otherwise
+ *  cross the shadow boundary.
  */
 
 export default class MozBoxGroup extends MozLitElement {
@@ -63,8 +67,18 @@ export default class MozBoxGroup extends MozLitElement {
       subtree: true,
       childList: true,
     });
+    // Capture scrolls from any scroll container in component shadow tree.
+    this.renderRoot.addEventListener("scroll", this.#forwardScroll, {
+      capture: true,
+    });
     this.updateItems();
   }
+
+  // Re-dispatch on the host so light DOM listeners (e.g. an anchored
+  // panel-list's hide-on-scroll) see scrolls that can't cross the shadow root.
+  #forwardScroll = () => {
+    this.dispatchEvent(new Event("scroll", { composed: true }));
+  };
 
   /**
    * Whether this group renders its items as a list.
@@ -210,7 +224,8 @@ export default class MozBoxGroup extends MozLitElement {
    * @param {Element} event.detail.targetElement - The target element to reorder relative to.
    * @param {number} event.detail.position - Position relative to target (-1 for before, 0 for after).
    * @param {number} event.detail.draggedIndex - The index of the element being reordered.
-   * @param {number} event.detail.targetIndex - The new index of the draggedElement.
+   * @param {number} event.detail.targetIndex - The index of the target element.
+   * @param {number} event.detail.insertAt - The index at which to insert the draggedElement after removing it from its original position.
    */
   handleReorder(event) {
     let { targetIndex } = event.detail;

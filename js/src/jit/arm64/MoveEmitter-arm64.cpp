@@ -29,7 +29,12 @@ void MoveEmitterARM64::emit(const MoveResolver& moves) {
   // register, otherwise we need the scratch float register for memory to
   // memory moves that may happen in the cycle. We cannot use the scratch
   // general register for SIMD128 cycles as it is not large enough.
-  cycleGeneralReg_ = temps.AcquireX();
+  //
+  // Don't acquire a scratch register if no cycles are present to avoid
+  // unnecessarily spilling temporary registers in LoadStoreMacro (bug 1939962).
+  if (moves.numCycles()) {
+    cycleGeneralReg_ = temps.AcquireX();
+  }
 
   for (size_t i = 0; i < moves.numMoves(); i++) {
     emitMove(moves.getMove(i));
@@ -50,7 +55,7 @@ void MoveEmitterARM64::emitMove(const MoveOp& move) {
 
   if (move.isCycleBegin()) {
     MOZ_ASSERT(!inCycle_ && !move.isCycleEnd());
-    breakCycle(from, to, move.endCycleType());
+    breakCycle(to, move.endCycleType());
     inCycle_ = true;
   } else if (move.isCycleEnd()) {
     MOZ_ASSERT(inCycle_);
@@ -224,8 +229,9 @@ MemOperand MoveEmitterARM64::cycleSlot() {
                     masm.framePushed() - pushedAtCycle_);
 }
 
-void MoveEmitterARM64::breakCycle(const MoveOperand& from,
-                                  const MoveOperand& to, MoveOp::Type type) {
+void MoveEmitterARM64::breakCycle(const MoveOperand& to, MoveOp::Type type) {
+  MOZ_ASSERT(cycleGeneralReg_.IsValid());
+
   switch (type) {
     case MoveOp::FLOAT32:
       if (to.isMemory()) {
@@ -277,6 +283,8 @@ void MoveEmitterARM64::breakCycle(const MoveOperand& from,
 
 void MoveEmitterARM64::completeCycle(const MoveOperand& from,
                                      const MoveOperand& to, MoveOp::Type type) {
+  MOZ_ASSERT(cycleGeneralReg_.IsValid());
+
   switch (type) {
     case MoveOp::FLOAT32:
       if (to.isMemory()) {

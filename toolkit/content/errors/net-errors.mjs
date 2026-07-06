@@ -857,6 +857,26 @@ export const NET_ERRORS = [
     hasNoUserFix: false,
   },
   {
+    id: "accessConnectorFailure",
+    errorCode: "accessConnectorFailure",
+    category: "net",
+    introContent: {
+      dataL10nId: "fp-neterror-access-connector-error-description",
+    },
+    buttons: {
+      showTryAgain: true,
+    },
+    customNetError: {
+      titleL10nId: "fp-neterror-access-connector-error-title",
+      whatCanYouDoL10nId: "fp-neterror-access-connector-error-contact-admin",
+    },
+    image: {
+      src: "chrome://global/skin/enterprise/access-connector-neterror.svg",
+      className: "access-connector-error",
+    },
+    hasNoUserFix: false,
+  },
+  {
     id: "proxyResolveFailure",
     errorCode: "proxyResolveFailure",
     category: "net",

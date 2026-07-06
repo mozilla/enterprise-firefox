@@ -216,8 +216,8 @@ auto DerefHelper(const T&) -> T&;
 template <typename T>
 auto DerefHelper(T*) -> T&;
 
-template <template <class> class SmartPtr, typename T,
-          typename = decltype(*std::declval<const SmartPtr<T>>())>
+template <template <class> class SmartPtr, typename T>
+  requires requires(const SmartPtr<T> p) { *p; }
 auto DerefHelper(const SmartPtr<T>&) -> T&;
 
 template <typename T>
@@ -226,8 +226,8 @@ using DerefedType =
 }  // namespace detail
 
 template <typename E = nsresult, typename T, typename U, typename... XArgs,
-          typename... Args,
-          typename = std::enable_if_t<std::is_base_of_v<U, T>>>
+          typename... Args>
+  requires std::derived_from<T, U>
 auto ToResultInvokeMember(T& aObj, nsresult (U::*aFunc)(XArgs...),
                           Args&&... aArgs) {
   return detail::ToResultInvokeMemberInternal<E,
@@ -236,8 +236,8 @@ auto ToResultInvokeMember(T& aObj, nsresult (U::*aFunc)(XArgs...),
 }
 
 template <typename E = nsresult, typename T, typename U, typename... XArgs,
-          typename... Args,
-          typename = std::enable_if_t<std::is_base_of_v<U, T>>>
+          typename... Args>
+  requires std::derived_from<T, U>
 auto ToResultInvokeMember(const T& aObj, nsresult (U::*aFunc)(XArgs...) const,
                           Args&&... aArgs) {
   return detail::ToResultInvokeMemberInternal<E,
@@ -261,18 +261,22 @@ auto ToResultInvokeMember(const T* const aObj,
 }
 
 template <typename E = nsresult, template <class> class SmartPtr, typename T,
-          typename U, typename... XArgs, typename... Args,
-          typename = std::enable_if_t<std::is_base_of_v<U, T>>,
-          typename = decltype(*std::declval<const SmartPtr<T>>())>
+          typename U, typename... XArgs, typename... Args>
+  requires requires(const SmartPtr<T> p) {
+    requires std::is_base_of_v<U, T>;
+    *p;
+  }
 auto ToResultInvokeMember(const SmartPtr<T>& aObj,
                           nsresult (U::*aFunc)(XArgs...), Args&&... aArgs) {
   return ToResultInvokeMember<E>(*aObj, aFunc, std::forward<Args>(aArgs)...);
 }
 
 template <typename E = nsresult, template <class> class SmartPtr, typename T,
-          typename U, typename... XArgs, typename... Args,
-          typename = std::enable_if_t<std::is_base_of_v<U, T>>,
-          typename = decltype(*std::declval<const SmartPtr<T>>())>
+          typename U, typename... XArgs, typename... Args>
+  requires requires(const SmartPtr<T> p) {
+    requires std::is_base_of_v<U, T>;
+    *p;
+  }
 auto ToResultInvokeMember(const SmartPtr<const T>& aObj,
                           nsresult (U::*aFunc)(XArgs...) const,
                           Args&&... aArgs) {
@@ -281,8 +285,8 @@ auto ToResultInvokeMember(const SmartPtr<const T>& aObj,
 
 #if defined(XP_WIN) && !defined(_WIN64)
 template <typename E = nsresult, typename T, typename U, typename... XArgs,
-          typename... Args,
-          typename = std::enable_if_t<std::is_base_of_v<U, T>>>
+          typename... Args>
+  requires std::derived_from<T, U>
 auto ToResultInvokeMember(T& aObj, nsresult (__stdcall U::*aFunc)(XArgs...),
                           Args&&... aArgs) {
   return detail::ToResultInvokeMemberInternal<E,
@@ -291,8 +295,8 @@ auto ToResultInvokeMember(T& aObj, nsresult (__stdcall U::*aFunc)(XArgs...),
 }
 
 template <typename E = nsresult, typename T, typename U, typename... XArgs,
-          typename... Args,
-          typename = std::enable_if_t<std::is_base_of_v<U, T>>>
+          typename... Args>
+  requires std::derived_from<T, U>
 auto ToResultInvokeMember(const T& aObj,
                           nsresult (__stdcall U::*aFunc)(XArgs...) const,
                           Args&&... aArgs) {
@@ -318,9 +322,11 @@ auto ToResultInvokeMember(const T* const aObj,
 }
 
 template <typename E = nsresult, template <class> class SmartPtr, typename T,
-          typename U, typename... XArgs, typename... Args,
-          typename = std::enable_if_t<std::is_base_of_v<U, T>>,
-          typename = decltype(*std::declval<const SmartPtr<T>>())>
+          typename U, typename... XArgs, typename... Args>
+  requires requires(const SmartPtr<T> p) {
+    requires std::is_base_of_v<U, T>;
+    *p;
+  }
 auto ToResultInvokeMember(const SmartPtr<T>& aObj,
                           nsresult (__stdcall U::*aFunc)(XArgs...),
                           Args&&... aArgs) {
@@ -328,9 +334,11 @@ auto ToResultInvokeMember(const SmartPtr<T>& aObj,
 }
 
 template <typename E = nsresult, template <class> class SmartPtr, typename T,
-          typename U, typename... XArgs, typename... Args,
-          typename = std::enable_if_t<std::is_base_of_v<U, T>>,
-          typename = decltype(*std::declval<const SmartPtr<T>>())>
+          typename U, typename... XArgs, typename... Args>
+  requires requires(const SmartPtr<T> p) {
+    requires std::is_base_of_v<U, T>;
+    *p;
+  }
 auto ToResultInvokeMember(const SmartPtr<const T>& aObj,
                           nsresult (__stdcall U::*aFunc)(XArgs...) const,
                           Args&&... aArgs) {

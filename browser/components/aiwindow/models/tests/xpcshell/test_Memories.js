@@ -4,28 +4,11 @@
 
 do_get_profile();
 
-const { sanitizeUntrustedContent } = ChromeUtils.importESModule(
-  "moz-src:///browser/components/aiwindow/models/ChatUtils.sys.mjs"
-);
-const { ChatStore, ChatMessage, MESSAGE_ROLE } = ChromeUtils.importESModule(
-  "moz-src:///browser/components/aiwindow/ui/modules/ChatStore.sys.mjs"
-);
-const {
-  getRecentHistory,
-  generateProfileInputs,
-  aggregateSessions,
-  topkAggregates,
-} = ChromeUtils.importESModule(
-  "moz-src:///browser/components/aiwindow/models/memories/MemoriesHistorySource.sys.mjs"
-);
-const { getRecentChats } = ChromeUtils.importESModule(
-  "moz-src:///browser/components/aiwindow/models/memories/MemoriesChatSource.sys.mjs"
+const { Conversation } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/aiwindow/models/Conversation.sys.mjs"
 );
 const { MODEL_FEATURES, SERVICE_TYPES, PURPOSES } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs"
-);
-const { Conversation } = ChromeUtils.importESModule(
-  "moz-src:///browser/components/aiwindow/models/Conversation.sys.mjs"
 );
 const { sinon } = ChromeUtils.importESModule(
   "resource://testing-common/Sinon.sys.mjs"
@@ -34,15 +17,31 @@ const { sinon } = ChromeUtils.importESModule(
 const TEST_MODEL = "test-model";
 
 const {
-  renderRecentHistoryForPrompt,
-  renderRecentConversationForPrompt,
+  renderSessionsForPrompt,
   mapFilteredMemoriesToInitialList,
   generateInitialMemoriesList,
+  runSessionMemoryPipeline,
   deduplicateMemories,
   applyQualityAndSensitivityFilter,
 } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/models/memories/Memories.sys.mjs"
 );
+
+/**
+ * Minimal gate-passing session bundle used to exercise the sessions pipeline.
+ * The fake engines below return canned output regardless of input, so the exact
+ * contents only matter for `renderSessionsForPrompt` assertions.
+ */
+const SAMPLE_SESSIONS = [
+  {
+    session_id: 1_700_000_000_000,
+    session_start_ms: 1_700_000_000_000,
+    session_end_ms: 1_700_000_500_000,
+    search_queries: ["firefox history"],
+    titles: ["Internet for people, not profit — Mozilla"],
+    chats: [{ content: "tell me about firefox" }],
+  },
+];
 
 /**
  * Constants for preference keys and test values
@@ -81,231 +80,6 @@ add_setup(async function () {
       }
     }
   });
-});
-
-/**
- * Shortcut for full browser history aggregation pipeline
- */
-async function getBrowserHistoryAggregates() {
-  const profileRecords = await getRecentHistory();
-  const profilePreparedInputs = await generateProfileInputs(profileRecords);
-  const [domainAgg, titleAgg, searchAgg] = aggregateSessions(
-    profilePreparedInputs
-  );
-
-  return await topkAggregates(domainAgg, titleAgg, searchAgg);
-}
-
-/**
- * Builds fake chat history data for testing
- */
-async function buildFakeChatHistory() {
-  const fixedNow = 1_700_000_000_000;
-
-  return [
-    new ChatMessage({
-      createdDate: fixedNow - 1_000,
-      ordinal: 1,
-      role: MESSAGE_ROLE.USER,
-      content: { type: "text", body: "I like dogs." },
-      pageUrl: "https://example.com/1",
-      turnIndex: 0,
-    }),
-    new ChatMessage({
-      createdDate: fixedNow - 10_000,
-      ordinal: 2,
-      role: MESSAGE_ROLE.USER,
-      content: { type: "text", body: "I also like cats." },
-      pageUrl: "https://example.com/2",
-      turnIndex: 0,
-    }),
-    new ChatMessage({
-      createdDate: fixedNow - 100_000,
-      ordinal: 3,
-      role: MESSAGE_ROLE.USER,
-      content: {
-        type: "text",
-        body: "Tell me a joke about my favorite animals.",
-      },
-      pageUrl: "https://example.com/3",
-      turnIndex: 0,
-    }),
-  ];
-}
-
-/**
- * Tests rendering history as CSV when only search data is present
- */
-add_task(async function test_buildRecentHistoryCSV_only_search() {
-  const now = Date.now();
-  const seeded = [
-    {
-      url: "https://www.google.com/search?q=firefox+history",
-      title: "Google Search: firefox history",
-      visits: [{ date: new Date(now - 5 * 60 * 1000) }],
-    },
-  ];
-  await PlacesUtils.history.clear();
-  await PlacesUtils.history.insertMany(seeded);
-
-  const [domainItems, titleItems, searchItems] =
-    await getBrowserHistoryAggregates();
-  const renderedBrowserHistory = await renderRecentHistoryForPrompt(
-    domainItems,
-    titleItems,
-    searchItems
-  );
-  Assert.equal(
-    renderedBrowserHistory,
-    `# Website Titles
-Website Title,Importance Score
-${sanitizeUntrustedContent("Google Search: firefox history | www.google.com", true)},100
-
-# Web Searches
-Search Query,Importance Score
-${sanitizeUntrustedContent("Google Search: firefox history | www.google.com", true)},1`.trim()
-  );
-});
-
-/**
- * Tests rendering history as CSV when only history data is present
- */
-add_task(async function test_buildRecentHistoryCSV_only_browsing_history() {
-  const now = Date.now();
-  const seeded = [
-    {
-      url: "https://news.ycombinator.com/",
-      title: "Hacker News",
-      visits: [{ date: new Date(now - 15 * 60 * 1000) }],
-    },
-    {
-      url: "https://mozilla.org/en-US/",
-      title: "Internet for people, not profit — Mozilla",
-      visits: [{ date: new Date(now - 25 * 60 * 1000) }],
-    },
-  ];
-  await PlacesUtils.history.clear();
-  await PlacesUtils.history.insertMany(seeded);
-  for (const { url, visits } of seeded) {
-    await insertPlacesMetadata(url, visits[0].date.getTime());
-  }
-
-  const [domainItems, titleItems, searchItems] =
-    await getBrowserHistoryAggregates();
-  const renderedBrowserHistory = await renderRecentHistoryForPrompt(
-    domainItems,
-    titleItems,
-    searchItems
-  );
-  Assert.equal(
-    renderedBrowserHistory,
-    `# Website Titles
-Website Title,Importance Score
-${sanitizeUntrustedContent("Hacker News | news.ycombinator.com", true)},100
-${sanitizeUntrustedContent("Internet for people, not profit — Mozilla | mozilla.org", true)},100`.trim()
-  );
-});
-
-/**
- * Tests generating initial memories from conversation/chat data
- */
-add_task(async function test_generateInitialMemoriesList_only_chat() {
-  const messages = await buildFakeChatHistory();
-  const sb = sinon.createSandbox();
-  const maxResults = 3;
-  const halfLifeDays = 7;
-  const startTime = 1_700_000_000_000 - 1_000_000;
-
-  try {
-    // Stub the method
-    const chatStub = sb
-      .stub(ChatStore, "findMessagesByDate")
-      .callsFake(async () => {
-        return messages;
-      });
-
-    const recentMessages = await getRecentChats(
-      startTime,
-      maxResults,
-      halfLifeDays
-    );
-
-    // Assert stub was actually called
-    Assert.equal(
-      chatStub.callCount,
-      1,
-      "findMessagesByDate should be called once"
-    );
-
-    // Double check we get only the 3 expected messages back
-    Assert.equal(recentMessages.length, 3, "Should return 3 chat messages");
-
-    // Render the messages into CSV format and check correctness
-    const renderedConversationHistory =
-      await renderRecentConversationForPrompt(recentMessages);
-    Assert.equal(
-      renderedConversationHistory,
-      `# Chat History
-Message
-I like dogs.
-I also like cats.
-Tell me a joke about my favorite animals.`.trim(),
-      "Rendered conversation history should match expected CSV format"
-    );
-
-    // Test generateInitialMemoriesList with conversation sources
-    const fakeEngine = {
-      run() {
-        return {
-          finalOutput: `[
-  {
-    "reasoning": "User likes dogs and cats.",
-    "category": "Pets & Animals",
-    "intent": "Entertain / Relax",
-    "memory_summary": "Likes both dogs and cats",
-    "score": 4,
-    "evidence": []
-  }
-]`,
-        };
-      },
-    };
-
-    const conversation = new Conversation({
-      feature: MODEL_FEATURES.MEMORIES_INITIAL_GENERATION_SYSTEM,
-      model: TEST_MODEL,
-      serviceType: SERVICE_TYPES.MEMORIES,
-      purpose: PURPOSES.MEMORY_GENERATION,
-      parameters: {},
-      flowId: null,
-      engine: fakeEngine,
-    });
-
-    const sources = { conversation: recentMessages };
-    const memoriesList = await generateInitialMemoriesList(
-      conversation,
-      sources
-    );
-
-    // Verify memories were generated from conversation data
-    Assert.ok(
-      Array.isArray(memoriesList),
-      "Should return an array of memories"
-    );
-    Assert.equal(memoriesList.length, 1, "Should generate 1 memory from chat");
-    Assert.equal(
-      memoriesList[0].memory_summary,
-      "Likes both dogs and cats",
-      "Memory should be generated from chat content"
-    );
-    Assert.equal(
-      memoriesList[0].category,
-      "Pets & Animals",
-      "Memory should have correct category"
-    );
-  } finally {
-    sb.restore();
-  }
 });
 
 /**
@@ -357,7 +131,6 @@ add_task(async function test_generateInitialMemoriesList_happy_path() {
       },
     };
 
-    // Check that the stub was called
     const conversation = new Conversation({
       feature: MODEL_FEATURES.MEMORIES_INITIAL_GENERATION_SYSTEM,
       model: TEST_MODEL,
@@ -368,9 +141,7 @@ add_task(async function test_generateInitialMemoriesList_happy_path() {
       engine: fakeEngine,
     });
 
-    const [domainItems, titleItems, searchItems] =
-      await getBrowserHistoryAggregates();
-    const sources = { history: [domainItems, titleItems, searchItems] };
+    const sources = { sessions: SAMPLE_SESSIONS };
     const memoriesList = await generateInitialMemoriesList(
       conversation,
       sources
@@ -392,8 +163,18 @@ add_task(async function test_generateInitialMemoriesList_happy_path() {
     );
     Assert.equal(
       Object.keys(firstMemory).length,
-      5,
-      "First memory should have 5 keys"
+      7,
+      "First memory should have 7 keys (incl. derived source and source_ids)"
+    );
+    Assert.equal(
+      firstMemory.source,
+      "history",
+      "Source should be derived from the search/title evidence"
+    );
+    Assert.deepEqual(
+      firstMemory.source_ids,
+      { history_source_ids: [], conversation_source_ids: [] },
+      "source_ids present (empty here: evidence strings don't match the session)"
     );
     Assert.equal(
       firstMemory.category,
@@ -455,9 +236,7 @@ add_task(
         engine: fakeEngine,
       });
 
-      const [domainItems, titleItems, searchItems] =
-        await getBrowserHistoryAggregates();
-      const sources = { history: [domainItems, titleItems, searchItems] };
+      const sources = { sessions: SAMPLE_SESSIONS };
       const memoriesList = await generateInitialMemoriesList(
         conversation,
         sources
@@ -498,9 +277,7 @@ add_task(
         engine: fakeEngine,
       });
 
-      const [domainItems, titleItems, searchItems] =
-        await getBrowserHistoryAggregates();
-      const sources = { history: [domainItems, titleItems, searchItems] };
+      const sources = { sessions: SAMPLE_SESSIONS };
       const memoriesList = await generateInitialMemoriesList(
         conversation,
         sources
@@ -541,9 +318,7 @@ add_task(
         engine: fakeEngine,
       });
 
-      const [domainItems, titleItems, searchItems] =
-        await getBrowserHistoryAggregates();
-      const sources = { history: [domainItems, titleItems, searchItems] };
+      const sources = { sessions: SAMPLE_SESSIONS };
       const memoriesList = await generateInitialMemoriesList(
         conversation,
         sources
@@ -630,9 +405,7 @@ add_task(
         engine: fakeEngine,
       });
 
-      const [domainItems, titleItems, searchItems] =
-        await getBrowserHistoryAggregates();
-      const sources = { history: [domainItems, titleItems, searchItems] };
+      const sources = { sessions: SAMPLE_SESSIONS };
       const memoriesList = await generateInitialMemoriesList(
         conversation,
         sources
@@ -644,6 +417,88 @@ add_task(
         "Should return an array of memories"
       );
       Assert.equal(memoriesList.length, 1, "Array should contain 1 memory");
+      Assert.equal(
+        memoriesList[0].memory_summary,
+        "Purchases dog food online",
+        "Memory summary should match the valid memory"
+      );
+    } finally {
+      sb.restore();
+    }
+  }
+);
+
+/**
+ * Tests that a memory whose required field is present but not a string is rejected.
+ */
+add_task(
+  async function test_generateInitialMemoriesList_rejects_non_string_field() {
+    const sb = sinon.createSandbox();
+    try {
+      // LLM returns a memories list where:
+      // - 1 has a `category` that is present but a number instead of a string, so it should be rejected
+      // - 1 is fully correct and should be kept
+      const fakeEngine = {
+        run() {
+          return {
+            finalOutput: `[
+  {
+    "reasoning": "User has recently searched for Firefox history and visited mozilla.org.",
+    "category": 12345,
+    "intent": "Research / Learn",
+    "memory_summary": "Searches for Firefox information",
+    "score": 7,
+    "evidence": [
+      {
+        "type": "domain",
+        "value": "mozilla.org"
+      }
+    ]
+  },
+  {
+    "reasoning": "User buys dog food online regularly from multiple sources.",
+    "category": "Pets & Animals",
+    "intent": "Buy / Acquire",
+    "memory_summary": "Purchases dog food online",
+    "score": 4,
+    "evidence": [
+      {
+        "type": "domain",
+        "value": "example.com"
+      }
+    ]
+  }
+]`,
+          };
+        },
+      };
+
+      const conversation = new Conversation({
+        feature: MODEL_FEATURES.MEMORIES_INITIAL_GENERATION_SYSTEM,
+        model: TEST_MODEL,
+        serviceType: SERVICE_TYPES.MEMORIES,
+        purpose: PURPOSES.MEMORY_GENERATION,
+        parameters: {},
+        flowId: null,
+        engine: fakeEngine,
+      });
+
+      const sources = { sessions: SAMPLE_SESSIONS };
+      const memoriesList = await generateInitialMemoriesList(
+        conversation,
+        sources
+      );
+
+      Assert.equal(
+        Array.isArray(memoriesList),
+        true,
+        "Should return an array of memories"
+      );
+      Assert.equal(
+        memoriesList.length,
+        1,
+        "Memory with a non-string required field should be rejected"
+      );
       Assert.equal(
         memoriesList[0].memory_summary,
         "Purchases dog food online",
@@ -1386,4 +1241,384 @@ add_task(async function test_mapFilteredMemoriesToInitialList() {
     3,
     "Final memory should have the correct score"
   );
+});
+
+/**
+ * Tests rendering of unified session bundles into prompt text.
+ */
+add_task(async function test_renderSessionsForPrompt() {
+  const rendered = renderSessionsForPrompt(SAMPLE_SESSIONS);
+  Assert.ok(
+    rendered.includes("# Session 1 ("),
+    "Should render a numbered, dated session header"
+  );
+  Assert.ok(rendered.includes("## Web Searches"), "Should render searches");
+  Assert.ok(rendered.includes("- firefox history"), "Should list the query");
+  Assert.ok(rendered.includes("## Website Titles"), "Should render titles");
+  Assert.ok(
+    rendered.includes("- Internet for people, not profit — Mozilla"),
+    "Should list the title"
+  );
+  Assert.ok(rendered.includes("## Chat"), "Should render chat");
+  Assert.ok(
+    rendered.includes("- tell me about firefox"),
+    "Should list the chat content"
+  );
+
+  // A session with no chat should omit the Chat section.
+  const noChat = renderSessionsForPrompt([
+    {
+      session_start_ms: 1_700_000_000_000,
+      session_end_ms: 1_700_000_500_000,
+      search_queries: ["only a query"],
+      titles: [],
+      chats: [],
+    },
+  ]);
+  Assert.ok(noChat.includes("## Web Searches"), "Should still render searches");
+  Assert.ok(
+    !noChat.includes("## Chat"),
+    "Should omit Chat section when there are no chats"
+  );
+});
+
+/**
+ * Builds a fake engine whose `run()` returns a different canned payload per
+ * call, matching the pipeline order: generate -> filter -> dedup.
+ */
+function makeSessionsPipelineEngine() {
+  let callIndex = 0;
+  return {
+    run() {
+      callIndex++;
+      if (callIndex === 1) {
+        // Step 1: initial generation.
+        return {
+          finalOutput: `[
+  {
+    "reasoning": "User likes dogs and cats.",
+    "category": "Pets & Animals",
+    "intent": "Entertain / Relax",
+    "memory_summary": "Likes both dogs and cats",
+    "score": 4,
+    "evidence": []
+  }
+]`,
+        };
+      }
+      if (callIndex === 2) {
+        // Step 2: quality + sensitivity filter.
+        return {
+          finalOutput: `{ "kept_memories": ["Likes both dogs and cats"] }`,
+        };
+      }
+      // Step 3: dedup.
+      return {
+        finalOutput: `{ "unique_memories": [{ "main_memory": "Likes both dogs and cats" }] }`,
+      };
+    },
+  };
+}
+
+/**
+ * Tests the batched sessions pipeline end-to-end: generate -> global filter ->
+ * global dedup -> map, and that the watermark advances to the max processed
+ * session end.
+ */
+add_task(async function test_runSessionMemoryPipeline_happy_path() {
+  const sb = sinon.createSandbox();
+  try {
+    const fakeEngine = makeSessionsPipelineEngine();
+    const conversation = new Conversation({
+      feature: MODEL_FEATURES.MEMORIES_INITIAL_GENERATION_SYSTEM,
+      model: TEST_MODEL,
+      serviceType: SERVICE_TYPES.MEMORIES,
+      purpose: PURPOSES.MEMORY_GENERATION,
+      parameters: {},
+      flowId: null,
+      engine: fakeEngine,
+    });
+
+    const result = await runSessionMemoryPipeline(
+      conversation,
+      SAMPLE_SESSIONS,
+      EXISTING_MEMORIES,
+      { maxBatchRetries: 1 }
+    );
+
+    Assert.equal(result.memories.length, 1, "Should return one memory");
+    Assert.equal(
+      result.memories[0].memory_summary,
+      "Likes both dogs and cats",
+      "Should map the deduped summary back to the candidate"
+    );
+    Assert.equal(
+      result.processedThroughMs,
+      SAMPLE_SESSIONS[0].session_end_ms,
+      "Watermark should advance to the max processed session end"
+    );
+  } finally {
+    sb.restore();
+  }
+});
+
+/**
+ * Tests that a rate-limited (429) batch aborts the pipeline by re-throwing, so
+ * the caller can back off and the whole run is retried next time.
+ */
+add_task(
+  async function test_runSessionMemoryPipeline_rate_limited_batch_throws() {
+    const sb = sinon.createSandbox();
+    try {
+      const twoSessions = [
+        { ...SAMPLE_SESSIONS[0], session_end_ms: 1_000 },
+        { ...SAMPLE_SESSIONS[0], session_end_ms: 2_000 },
+      ];
+
+      let callIndex = 0;
+      const fakeEngine = {
+        run() {
+          callIndex++;
+          if (callIndex === 1) {
+            // First batch generates one candidate.
+            return {
+              finalOutput: `[
+  {
+    "reasoning": "r",
+    "category": "Pets & Animals",
+    "intent": "Entertain / Relax",
+    "memory_summary": "Likes both dogs and cats",
+    "score": 4,
+    "evidence": []
+  }
+]`,
+            };
+          }
+          // Second batch is rate-limited -> the pipeline re-throws.
+          throw Object.assign(new Error("rate limited"), { status: 429 });
+        },
+      };
+      const conversation = new Conversation({
+        feature: MODEL_FEATURES.MEMORIES_INITIAL_GENERATION_SYSTEM,
+        model: TEST_MODEL,
+        serviceType: SERVICE_TYPES.MEMORIES,
+        purpose: PURPOSES.MEMORY_GENERATION,
+        parameters: {},
+        flowId: null,
+        engine: fakeEngine,
+      });
+
+      await Assert.rejects(
+        runSessionMemoryPipeline(conversation, twoSessions, EXISTING_MEMORIES, {
+          batchSize: 1,
+          maxBatchRetries: 1,
+        }),
+        /rate limited/,
+        "A 429 during generation should propagate out of the pipeline"
+      );
+    } finally {
+      sb.restore();
+    }
+  }
+);
+
+/**
+ * Tests that a 429 from the quality+sensitivity filter step (after generation
+ * succeeds) propagates out of the pipeline so the caller can back off.
+ */
+add_task(async function test_runSessionMemoryPipeline_filter_429_throws() {
+  const sb = sinon.createSandbox();
+  try {
+    const oneSession = [{ ...SAMPLE_SESSIONS[0], session_end_ms: 1_000 }];
+
+    let callIndex = 0;
+    const fakeEngine = {
+      run() {
+        callIndex++;
+        if (callIndex === 1) {
+          // Generation succeeds.
+          return {
+            finalOutput: `[
+  {
+    "reasoning": "r",
+    "category": "Pets & Animals",
+    "intent": "Entertain / Relax",
+    "memory_summary": "Likes both dogs and cats",
+    "score": 4,
+    "evidence": []
+  }
+]`,
+          };
+        }
+        // Quality+sensitivity filter is rate-limited -> the pipeline re-throws.
+        throw Object.assign(new Error("rate limited"), { status: 429 });
+      },
+    };
+    const conversation = new Conversation({
+      feature: MODEL_FEATURES.MEMORIES_INITIAL_GENERATION_SYSTEM,
+      model: TEST_MODEL,
+      serviceType: SERVICE_TYPES.MEMORIES,
+      purpose: PURPOSES.MEMORY_GENERATION,
+      parameters: {},
+      flowId: null,
+      engine: fakeEngine,
+    });
+
+    await Assert.rejects(
+      runSessionMemoryPipeline(conversation, oneSession, EXISTING_MEMORIES, {
+        batchSize: 1,
+        maxBatchRetries: 1,
+      }),
+      /rate limited/,
+      "A 429 from the filter step should propagate out of the pipeline"
+    );
+  } finally {
+    sb.restore();
+  }
+});
+
+/**
+ * Tests that a deterministic (non-429) batch failure advances the watermark past
+ * the failed batch: retrying it would only wedge the pipeline, so it is skipped.
+ */
+add_task(
+  async function test_runSessionMemoryPipeline_deterministic_failure_skips_batch() {
+    const sb = sinon.createSandbox();
+    try {
+      const twoSessions = [
+        { ...SAMPLE_SESSIONS[0], session_end_ms: 1_000 },
+        { ...SAMPLE_SESSIONS[0], session_end_ms: 2_000 },
+      ];
+
+      let callIndex = 0;
+      const fakeEngine = {
+        run() {
+          callIndex++;
+          if (callIndex === 1) {
+            // First batch generates one candidate.
+            return {
+              finalOutput: `[
+  {
+    "reasoning": "r",
+    "category": "Pets & Animals",
+    "intent": "Entertain / Relax",
+    "memory_summary": "Likes both dogs and cats",
+    "score": 4,
+    "evidence": []
+  }
+]`,
+            };
+          }
+          if (callIndex === 2) {
+            // Second batch fails deterministically -> skipped, watermark advances.
+            throw new Error("simulated deterministic failure");
+          }
+          if (callIndex === 3) {
+            return {
+              finalOutput: `{ "kept_memories": ["Likes both dogs and cats"] }`,
+            };
+          }
+          return {
+            finalOutput: `{ "unique_memories": [{ "main_memory": "Likes both dogs and cats" }] }`,
+          };
+        },
+      };
+      const conversation = new Conversation({
+        feature: MODEL_FEATURES.MEMORIES_INITIAL_GENERATION_SYSTEM,
+        model: TEST_MODEL,
+        serviceType: SERVICE_TYPES.MEMORIES,
+        purpose: PURPOSES.MEMORY_GENERATION,
+        parameters: {},
+        flowId: null,
+        engine: fakeEngine,
+      });
+
+      const result = await runSessionMemoryPipeline(
+        conversation,
+        twoSessions,
+        EXISTING_MEMORIES,
+        { batchSize: 1, maxBatchRetries: 1 }
+      );
+
+      Assert.equal(
+        result.processedThroughMs,
+        2_000,
+        "Watermark should advance past the deterministically-failed batch"
+      );
+    } finally {
+      sb.restore();
+    }
+  }
+);
+
+/**
+ * Tests that source + source_ids are derived from evidence and joined back to
+ * the session bundles client-side (cross-modal -> "session", real IDs attached).
+ */
+add_task(async function test_generateInitialMemoriesList_source_attribution() {
+  const sb = sinon.createSandbox();
+  try {
+    const fakeEngine = {
+      run() {
+        return {
+          finalOutput: `[
+  {
+    "reasoning": "Recurring vegan interest across browse and chat.",
+    "category": "Food & Drink",
+    "intent": "Research / Learn",
+    "memory_summary": "Researches vegan meal prep",
+    "score": 4,
+    "evidence": [
+      { "type": "search", "value": "vegan recipes" },
+      { "type": "chat", "value": "vegan meal prep" }
+    ]
+  }
+]`,
+        };
+      },
+    };
+    const conversation = new Conversation({
+      feature: MODEL_FEATURES.MEMORIES_INITIAL_GENERATION_SYSTEM,
+      model: TEST_MODEL,
+      serviceType: SERVICE_TYPES.MEMORIES,
+      purpose: PURPOSES.MEMORY_GENERATION,
+      parameters: {},
+      flowId: null,
+      engine: fakeEngine,
+    });
+
+    const sessions = [
+      {
+        session_id: 1,
+        session_start_ms: 1_700_000_000_000,
+        session_end_ms: 1_700_000_500_000,
+        search_queries: ["vegan recipes"],
+        titles: [],
+        chats: [{ content: "what's a good vegan meal prep for the week?" }],
+        history_source_ids: ["h1"],
+        conversation_source_ids: ["c1"],
+      },
+    ];
+
+    const [memory] = await generateInitialMemoriesList(conversation, {
+      sessions,
+    });
+
+    Assert.equal(
+      memory.source,
+      "session",
+      "Cross-modal evidence (search + chat) should derive source 'session'"
+    );
+    Assert.deepEqual(
+      memory.source_ids,
+      { history_source_ids: ["h1"], conversation_source_ids: ["c1"] },
+      "source_ids should be joined back from the matching session"
+    );
+    Assert.ok(
+      !("evidence" in memory),
+      "Transient evidence should be stripped before returning"
+    );
+  } finally {
+    sb.restore();
+  }
 });

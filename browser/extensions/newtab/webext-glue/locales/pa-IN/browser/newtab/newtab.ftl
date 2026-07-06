@@ -93,6 +93,12 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = ਘੜੀ
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = ਪਰਦੇਦਾਰੀ
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = ਸਟਾਕ
 home-prefs-mission-message2 =
     .message = ਸਾਡੇ ਸਪਾਂਸਰ ਵੈੱਬ ਨੂੰ ਹੋਰ ਬੇਹਤਰ ਬਣਾਉਣ ਲਈ ਸਾਡੇ ਮਕਸਦ ਲਈ ਸਹਿਯੋਗ ਦਿੰਦੇ ਹਨ।
 home-prefs-manage-topics-link2 =
@@ -152,6 +158,20 @@ home-prefs-support-firefox-header-srd =
     .label = { -brand-product-name } ਲਈ ਸਹਿਯੋਗ
 home-prefs-mission-message-learn-more-link-srd = ਸਮਝੋ ਕਿ ਕਿਵੇਂ
 
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = ਹੋਰ ਜਾਣੋ
+
+## Strings for the Stocks widget
+
+# Context menu item for searching stock ticker symbols.
+newtab-stocks-menu-search = ਟਿੱਕਰ ਨਿਸ਼ਾਨ ਨੂੰ ਖੋਜੋ
+# Context menu item that hides the Stocks widget.
+newtab-stocks-menu-hide = ਸਟਾਕਾਂ ਨੂੰ ਲੁਕਾਓ
+# Context menu item linking to more information about the Stocks widget.
+newtab-stocks-menu-learn-more = ਹੋਰ ਜਾਣੋ
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -187,6 +207,7 @@ newtab-topsites-add-shortcut-label = ਸ਼ਾਰਟਕੱਟ ਨੂੰ ਜੋੜ�
 newtab-topsites-add-shortcut-title =
     .title = ਸ਼ਾਰਟਕੱਟ ਨੂੰ ਜੋੜੋ
     .aria-label = ਸ਼ਾਰਟਕੱਟ ਨੂੰ ਜੋੜੋ
+newtab-shortcuts-pinned-area = ਪਿੰਨ ਕੀਤਾ ਖੇਤਰ
 newtab-topsites-title-label = ਸਿਰਲੇਖ
 newtab-topsites-title-input =
     .placeholder = ਸਿਰਲੇਖ ਦਿਓ
@@ -495,6 +516,10 @@ newtab-custom-widget-clock-toggle =
     .label = ਘੜੀ
 newtab-custom-widget-sports-toggle2 =
     .label = ਖੇਡਾਂ
+newtab-custom-widget-privacy-toggle =
+    .label = ਪਰਦੇਦਾਰੀ
+newtab-custom-widget-stocks-toggle =
+    .label = ਸਟਾਕ
 newtab-custom-widget-section-title = ਵਿਜੈੱਟ
 newtab-custom-widget-section-toggle =
     .label = ਵਿਜੈੱਟ
@@ -971,6 +996,8 @@ newtab-widget-timer-reset =
 newtab-widget-timer-menu-notifications = ਨੋਟੀਫਿਕੇਸ਼ਨਾਂ ਨੂੰ ਚਾਲੂ ਕਰੋ
 newtab-widget-timer-menu-notifications-on = ਨੋਟੀਫਿਕੇਸ਼ਨਾਂ ਨੂੰ ਚਾਲੂ ਕਰੋ
 newtab-widget-timer-menu-learn-more = ਹੋਰ ਜਾਣੋ
+newtab-widget-timer-menu-button =
+    .aria-label = ਟਾਈਮਰ ਚੋਣਾਂ
 # The title displays above a set of top news headlines.
 newtab-daily-briefing-card-title = ਚੋਟੀਆਂ ਦੀਆਂ ਸੁਰਖੀਆਂ
 newtab-daily-briefing-card-menu-dismiss = ਖ਼ਾਰਜ ਕਰੋ
@@ -982,6 +1009,7 @@ newtab-widget-message-title = ਸੂਚੀਆਂ ਅਤੇ ਵਿੱਚ ਮੌ�
 newtab-widget-message-copy = ਕਰਨ ਵਾਲੇ ਕੰਮਾਂ, ਫ਼ੋਕਸ ਵਾਲੇ ਸ਼ੈਸ਼ਨਾਂ ਤੋਂ ਲੈ ਕੇ ਛੋਟੀ ਬਰੇਕ ਲੈਣ ਲਈ ਫ਼ੌਰਨ ਯਾਦ ਕਰਵਾਉਣਾ — ਕੰਮ ਸਮੇਂ ਸਿਰ ਪੂਰੇ ਕਰੋ।
 # One spot refers to a dedicated section on new tab to manage and use widgets
 newtab-widget-message-focus-forecasts-title = ਫੋਕਸ ਰੱਖਣ, ਭਵਿੱਖਬਾਣੀਆਂ ਅਤੇ ਹੋਰਾਂ ਲਈ ਇੱਕ ਥਾਂ
+newtab-widget-message-focus-forecasts-body = { -brand-product-name } ਵਿਜੈਟ ਨਾਲ ਆਪਣੇ ਦਿਨ ਦੇ ਕੰਮਕਾਰ ਜਾਰੀ ਰੱਖੋ। ਮੌਸਮ ਦੀ ਭਵਿੱਖਬਾਣੀ ਵੇਖੋ, ਕੰਮ ਕਰੋ ਜਾਂ ਸੰਸਾਰ ਭਰ ਦੇ ਸਮੇਂ ਉੱਤੇ ਨਿਗ੍ਹਾ ਰੱਖੋ।
 # "Make Firefox yours" refers to about:newtab. The call to action here ("Try it now")
 # is to customize the new tab page with a background image or color from
 # the built-in wallpaper collection or uploading your own image.
@@ -1082,6 +1110,8 @@ newtab-sports-widget-show-less =
 # Toggle that filters the list of teams the user follows
 newtab-sports-widget-followed-only-toggle =
     .label = ਸਿਰਫ਼ ਫ਼ਾਲੋ ਕੀਤੀਆਂ ਟੀਮਾਂ
+# Status shown when more matches are being fetched.
+newtab-sports-widget-loading-more = …ਹੋਰ ਮੈਚ ਲੋਡ ਕੀਤੇ ਜਾ ਰਹੇ ਹਨ
 # Watch is a verb (as in watch matches online).
 newtab-sports-widget-watch =
     .label = ਵੇਖੋ
@@ -1161,6 +1191,9 @@ newtab-sports-widget-third-place = ਤੀਜੀ ਥਾਂ
 newtab-sports-widget-runner-up = ਦੂਜੇ ਨੰਬਰ ਉੱਤੇ
 newtab-sports-widget-champions = ਚੈਂਪੀਅਨ
 newtab-sports-widget-world-cup-champions = 2026 ਵਰਲਡ ਕੱਪ ਚੈਪੀਅਨ
+# Compact champions label for the medium-size widget result card; the larger
+# card uses newtab-sports-widget-world-cup-champions.
+newtab-sports-widget-world-cup-champions-short = 2026 ਚੈਂਪੀਅਨ
 # Variables:
 #   $date (Date) - The match start time
 newtab-sports-widget-match-time = { DATETIME($date, hour: "2-digit", minute: "2-digit") }
@@ -1168,6 +1201,11 @@ newtab-sports-widget-match-full-time = ਸਾਰਾ ਸਮਾਂ
 newtab-sports-widget-match-halftime = ਅੱਧਾ ਟਾਈਮ
 newtab-sports-widget-match-extra-time = ਵਾਧੂ ਟਾਈਮ
 newtab-sports-widget-match-penalties = ਪਨੈਲਟੀਆਂ
+# Separator shown between two teams in a placeholder match row when no upcoming
+# match details are available yet.
+newtab-sports-widget-match-vs = ਬਨਾਮ
+# Note shown in the Upcoming tab when no match details are available yet.
+newtab-sports-widget-no-upcoming-matches = ਆਉਣ ਵਾਲੇ ਮੈਚਾਂ ਦੇ ਵੇਰਵਿਆਂ ਲਈ ਤਿਆਰ ਰਹੋ
 
 ## Sports widget live-games pagination. Shown when 2+ matches are live at the same time
 
@@ -1245,14 +1283,21 @@ newtab-sports-widget-team-name-label-eng =
     .label = ਇੰਗਲੈਂਡ
 newtab-sports-widget-team-name-label-sco =
     .label = ਸਕਾਟਲੈਂਡ
+# Placeholder used in a match row's aria-label for an undecided team (shown visually as "--").
+newtab-sports-widget-team-tbd = ਪਤਾ ਲੱਗਣਾ ਹੈ
 
 ## Sports widget OMC messages
 ## Shown as on-screen messages promoting the Sports widget and World Cup wallpapers.
 
 newtab-sports-widget-message-wallpapers-title = ਵਰਲਡ ਕੱਪ ਨੂੰ ਨਵੇਂ ਵਾਲਪੇਪਰ ਨਾਲ ਸ਼ੁਰੂ ਕਰੋ
+newtab-sports-widget-message-wallpapers-body = ਟੂਰਨਾਮੈਂਟ ਲਈ ਆਪਣੇ ਬਰਾਊਜ਼ਰ ਵਿੱਚ ਕੁਝ ਮੈਚ ਵਾਲੇ ਦਿਨਾਂ ਵਰਗੀ ਊਰਜਾ ਲਿਆਓ।
 newtab-sports-widget-message-wallpapers-cta = ਕੋਈ ਵਾਲਪੇਪਰ ਚੁਣੋ
+newtab-sports-widget-message-wallpapers-semifinals-title = ਸੈਮੀ-ਫਾਈਨਲ ਲਈ ਨਵਾਂ ਵਾਲਪੇਪਰ ਲਵੋ
+newtab-sports-widget-message-wallpapers-semifinals-body = ਵਰਲਡ ਕੱਪ ਦੇ ਸਭ ਤੋਂ ਵੱਡੇ ਮੈਚਾਂ ਲਈ ਸਟੇਜ ਸਜਾਓ।
 newtab-sports-widget-message-add-widgets-cta =
     .label = ਵਿਜੈੱਟ ਜੋੜੋ
+newtab-sports-widget-message-day-in-play-title = { -brand-product-name } ਵਿਜੈਟ ਨਾਲ ਆਪਣੇ ਦਿਨ ਵਿੱਚ ਖੇਡ ਨੂੰ ਬਣਾਈ ਰੱਖੋ
+newtab-sports-widget-message-day-in-play-body = ਵਰਲਡ ਕੱਪ ਨੂੰ ਫ਼ਾਲੋ ਕਰੋ, ਕੰਮ ਕਰਦੇ ਰਹੋ, ਸੰਸਾਰ ਭਰ ਦੇ ਟਾਈਮ ਉੱਤੇ ਨਿਗ੍ਹਾ ਰੱਖੋ ਅਤੇ ਹੋਰ ਕਈ ਕੁਝ।
 newtab-sports-widget-message-explore-widgets-cta =
     .label = ਵਿਜੈੱਟ ਲੱਭੋ
 

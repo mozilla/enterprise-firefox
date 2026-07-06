@@ -1468,6 +1468,7 @@ class gfxFont {
 
   using RoundingFlags = gfxFontShaper::RoundingFlags;
   using ShapedTextFlags = mozilla::gfx::ShapedTextFlags;
+  using imgDrawingParams = mozilla::image::imgDrawingParams;
 
  public:
   using FontSlantStyle = mozilla::FontSlantStyle;
@@ -1788,6 +1789,7 @@ class gfxFont {
    */
   void Draw(const gfxTextRun* aTextRun, uint32_t aStart, uint32_t aEnd,
             mozilla::gfx::Point* aPt, TextRunDrawParams& aRunParams,
+            imgDrawingParams& aImgParams,
             mozilla::gfx::ShapedTextFlags aOrientation);
 
   /**
@@ -1798,8 +1800,8 @@ class gfxFont {
    */
   void DrawEmphasisMarks(const gfxTextRun* aShapedText,
                          mozilla::gfx::Point* aPt, uint32_t aOffset,
-                         uint32_t aCount,
-                         const EmphasisMarkDrawParams& aParams);
+                         uint32_t aCount, const EmphasisMarkDrawParams& aParams,
+                         imgDrawingParams& aImgParams);
 
   /**
    * Measure a run of characters. See gfxTextRun::Metrics.
@@ -2366,11 +2368,13 @@ class gfxFont {
   bool RenderSVGGlyph(gfxContext* aContext,
                       mozilla::layout::TextDrawTarget* aTextDrawer,
                       mozilla::gfx::Point aPoint, uint32_t aGlyphId,
-                      SVGContextPaint* aContextPaint) const;
+                      SVGContextPaint* aContextPaint,
+                      imgDrawingParams& aImgParams) const;
   bool RenderSVGGlyph(gfxContext* aContext,
                       mozilla::layout::TextDrawTarget* aTextDrawer,
                       mozilla::gfx::Point aPoint, uint32_t aGlyphId,
                       SVGContextPaint* aContextPaint,
+                      imgDrawingParams& aImgParams,
                       gfxTextRunDrawCallbacks* aCallbacks,
                       bool& aEmittedGlyphs) const;
 

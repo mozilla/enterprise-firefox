@@ -1221,8 +1221,10 @@ nsresult nsHostResolver::NameLookup(nsHostRecord* rec) {
 
 nsresult nsHostResolver::ConditionallyRefreshRecord(nsHostRecord* rec,
                                                     const nsACString& host) {
+  const bool refreshNegative =
+      rec->negative && StaticPrefs::network_dns_refresh_negative_addr_on_use();
   if ((rec->CheckExpiration(TimeStamp::NowLoRes()) == nsHostRecord::EXP_GRACE ||
-       rec->negative) &&
+       refreshNegative) &&
       !rec->mResolving && rec->RefreshForNegativeResponse()) {
     LOG(("  Using %s cache entry for host [%s] but starting async renewal.",
          rec->negative ? "negative" : "positive",

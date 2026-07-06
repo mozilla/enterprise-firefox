@@ -418,7 +418,7 @@ class ModuleObject : public NativeObject {
       JSContext* cx, MutableHandle<ExportNameVector> exportNames);
 
   // Initialize the slots on this object that are dependent on the script.
-  void initScriptSlots(HandleScript script);
+  [[nodiscard]] bool initScriptSlots(JSContext* cx, HandleScript script);
   void initModuleSourceSlot(HandleObject moduleSource);
   void initScriptSourceObject(ScriptSourceObject* sso);
 
@@ -507,6 +507,7 @@ class ModuleObject : public NativeObject {
   static ModuleNamespaceObject* createNamespace(
       JSContext* cx, Handle<ModuleObject*> self,
       MutableHandle<UniquePtr<ExportNameVector>> exports);
+  void clearNamespaceOnFailure();
 
   static bool createEnvironment(JSContext* cx, Handle<ModuleObject*> self);
   static bool createSyntheticEnvironment(JSContext* cx,

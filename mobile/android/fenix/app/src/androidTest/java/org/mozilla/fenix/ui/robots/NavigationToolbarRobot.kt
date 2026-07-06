@@ -423,6 +423,12 @@ class NavigationToolbarRobot(private val composeTestRule: ComposeTestRule) {
         Log.i(TAG, "verifyTheTabStripCloseTabButton: Verified close button for tab in tab strip is displayed")
     }
 
+    fun verifyTheTabStripAddTabButton() {
+        Log.i(TAG, "verifyTheTabStripAddTabButton: Trying to verify the tab strip \"Add tab\" button is displayed")
+        composeTestRule.onNodeWithContentDescription("Add tab").assertIsDisplayed()
+        Log.i(TAG, "verifyTheTabStripAddTabButton: Verified the tab strip \"Add tab\" button is displayed")
+    }
+
     fun verifyTheBackButton() {
         Log.i(TAG, "verifyTheBackButton: Trying to verify that the \"Back\" nav bar button is displayed in landscape mode.")
         composeTestRule.onNodeWithContentDescription("Back").assertIsDisplayed()

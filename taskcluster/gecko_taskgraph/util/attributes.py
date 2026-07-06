@@ -6,6 +6,7 @@
 import re
 from typing import Literal, Union
 
+from mozilla_taskgraph.util.attributes import release_level
 from taskgraph.util.attributes import _match_run_on
 
 INTEGRATION_PROJECTS = {
@@ -23,22 +24,20 @@ PROJECT_RELEASE_BRANCHES: dict[str, Union[list[str], Literal[True]]] = {
         "main",
         "beta",
         "release",
-        "esr115",
-        "esr128",
         "esr140",
+        "esr153",
     ],
     "mozilla-central": True,
     "mozilla-beta": True,
     "mozilla-release": True,
     "mozilla-esr115": True,
-    "mozilla-esr128": True,
     "mozilla-esr140": True,
+    "mozilla-esr153": True,
     "comm-central": True,
     "comm-beta": True,
     "comm-release": True,
-    "comm-esr115": True,
-    "comm-esr128": True,
     "comm-esr140": True,
+    "comm-esr153": True,
     # bug 1845368: pine is a permanent project branch used for testing
     # nightly updates
     "pine": True,
@@ -79,7 +78,8 @@ RUN_ON_PROJECT_ALIASES = {
         params["project"] in INTEGRATION_PROJECTS or params["project"] == "toolchains"
     ),
     "release": lambda params: (
-        release_level(params) == "production" or params["project"] == "toolchains"
+        release_level(PROJECT_RELEASE_BRANCHES, params) == "production"
+        or params["project"] == "toolchains"
     ),
     "trunk": lambda params: (
         params["project"] in TRUNK_PROJECTS or params["project"] == "toolchains"
@@ -155,25 +155,6 @@ def sorted_unique_list(*args):
     """Join one or more lists, and return a sorted list of unique members"""
     combined = set().union(*args)
     return sorted(combined)
-
-
-def release_level(params):
-    """
-    Whether this is a staging release or not.
-
-    :return str: One of "production" or "staging".
-    """
-    if params["level"] != "3":
-        return "staging"
-    if branches := PROJECT_RELEASE_BRANCHES.get(params.get("project")):
-        if branches is True:
-            return "production"
-
-        m = re.match(r"refs/heads/(\S+)$", params["head_ref"])
-        if m is not None and m.group(1) in branches:
-            return "production"
-
-    return "staging"
 
 
 def task_name(task):

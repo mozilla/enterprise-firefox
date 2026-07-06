@@ -339,7 +339,7 @@ bool Compartment::getOrCreateWrapper(JSContext* cx, HandleObject existing,
     // took this path, for example if the object metadata callback stashes a
     // reference to it.
     if (wrapper->is<CrossCompartmentWrapperObject>()) {
-      NukeCrossCompartmentWrapper(cx, wrapper);
+      NukeRemovedCrossCompartmentWrapper(cx, wrapper);
     }
     return false;
   }

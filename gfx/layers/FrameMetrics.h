@@ -238,16 +238,6 @@ struct FrameMetrics {
   void ZoomBy(float aScale) { mZoom.scale *= aScale; }
 
   /*
-   * Compares an APZ frame metrics with an incoming content frame metrics
-   * to see if APZ has a scroll offset that has not been incorporated into
-   * the content frame metrics.
-   */
-  bool HasPendingScroll(const FrameMetrics& aContentFrameMetrics) const {
-    return GetVisualScrollOffset() !=
-           aContentFrameMetrics.GetVisualScrollOffset();
-  }
-
-  /*
    * Returns true if the layout scroll offset or visual scroll offset changed.
    */
   bool ApplyScrollUpdateFrom(const ScrollPositionUpdate& aUpdate);
@@ -830,7 +820,8 @@ struct ScrollMetadata {
            mOverscrollBehavior == aOther.mOverscrollBehavior &&
            mOverflow == aOther.mOverflow &&
            mScrollUpdates == aOther.mScrollUpdates &&
-           mWritingMode == aOther.mWritingMode;
+           mWritingMode == aOther.mWritingMode &&
+           mScrollGenerationOnApz == aOther.mScrollGenerationOnApz;
   }
 
   bool operator!=(const ScrollMetadata& aOther) const {
@@ -948,6 +939,13 @@ struct ScrollMetadata {
   }
   const WritingMode GetWritingMode() const { return mWritingMode; }
 
+  void SetScrollGenerationOnApz(const APZScrollGeneration& aGeneration) {
+    mScrollGenerationOnApz = aGeneration;
+  }
+  const APZScrollGeneration& GetScrollGenerationOnApz() const {
+    return mScrollGenerationOnApz;
+  }
+
   void UpdatePendingScrollInfo(nsTArray<ScrollPositionUpdate>&& aUpdates) {
     MOZ_ASSERT(!aUpdates.IsEmpty());
     mMetrics.UpdatePendingScrollInfo(aUpdates.LastElement());
@@ -1055,6 +1053,12 @@ struct ScrollMetadata {
 
   // The writing-mode of this scroll container.
   WritingMode mWritingMode;
+
+  // The APZ scroll generation associated with the last APZ scroll offset for
+  // which the main thread processed a repaint request. This is relayed back to
+  // APZ so it can tell which of its own generations the main-thread state in
+  // this transaction reflects.
+  APZScrollGeneration mScrollGenerationOnApz;
 
   // WARNING!!!!
   //

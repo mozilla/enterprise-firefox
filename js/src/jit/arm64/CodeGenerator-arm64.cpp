@@ -796,7 +796,9 @@ static void Divide64WithConstant(MacroAssembler& masm, LDivOrMod* ins) {
   // (M * n) >> (64 + shift) is the truncated division answer if n is
   // non-negative, as proved in the comments of computeDivisionConstants. We
   // must add 1 later if n is negative to get the right answer in all cases.
-  masm.Asr(output64, output64, rmc.shiftAmount);
+  if (rmc.shiftAmount > 0) {
+    masm.Asr(output64, output64, rmc.shiftAmount);
+  }
 
   // We'll subtract -1 instead of adding 1, because (n < 0 ? -1 : 0) can be
   // computed with just a sign-extending shift of 63 bits.
@@ -859,7 +861,9 @@ static void UnsignedDivide64WithConstant(MacroAssembler& masm,
     masm.Add(output64, output64, Operand(const64, vixl::LSR, 1));
     masm.Lsr(output64, output64, rmc.shiftAmount - 1);
   } else {
-    masm.Lsr(output64, output64, rmc.shiftAmount);
+    if (rmc.shiftAmount > 0) {
+      masm.Lsr(output64, output64, rmc.shiftAmount);
+    }
   }
 }
 
@@ -1761,115 +1765,6 @@ Register getBase(U* mir) {
       return HeapReg;
   }
   return InvalidReg;
-}
-
-void CodeGenerator::visitAsmJSLoadHeap(LAsmJSLoadHeap* ins) {
-  const MAsmJSLoadHeap* mir = ins->mir();
-  MOZ_ASSERT(!mir->hasMemoryBase());
-
-  const LAllocation* ptr = ins->ptr();
-  const LAllocation* boundsCheckLimit = ins->boundsCheckLimit();
-
-  Register ptrReg = ToRegister(ptr);
-  Scalar::Type accessType = mir->accessType();
-  bool isFloat = accessType == Scalar::Float32 || accessType == Scalar::Float64;
-  Label done;
-
-  if (mir->needsBoundsCheck()) {
-    Label boundsCheckPassed;
-    Register boundsCheckLimitReg = ToRegister(boundsCheckLimit);
-    masm.wasmBoundsCheck32(Assembler::Below, ptrReg, boundsCheckLimitReg,
-                           &boundsCheckPassed);
-    // Return a default value in case of a bounds-check failure.
-    if (isFloat) {
-      if (accessType == Scalar::Float32) {
-        masm.loadConstantFloat32(GenericNaN(), ToFloatRegister(ins->output()));
-      } else {
-        masm.loadConstantDouble(GenericNaN(), ToFloatRegister(ins->output()));
-      }
-    } else {
-      masm.Mov(ARMRegister(ToRegister(ins->output()), 64), 0);
-    }
-    masm.jump(&done);
-    masm.bind(&boundsCheckPassed);
-  }
-
-  MemOperand addr(ARMRegister(HeapReg, 64), ARMRegister(ptrReg, 64));
-  switch (accessType) {
-    case Scalar::Int8:
-      masm.Ldrb(toWRegister(ins->output()), addr);
-      masm.Sxtb(toWRegister(ins->output()), toWRegister(ins->output()));
-      break;
-    case Scalar::Uint8:
-      masm.Ldrb(toWRegister(ins->output()), addr);
-      break;
-    case Scalar::Int16:
-      masm.Ldrh(toWRegister(ins->output()), addr);
-      masm.Sxth(toWRegister(ins->output()), toWRegister(ins->output()));
-      break;
-    case Scalar::Uint16:
-      masm.Ldrh(toWRegister(ins->output()), addr);
-      break;
-    case Scalar::Int32:
-    case Scalar::Uint32:
-      masm.Ldr(toWRegister(ins->output()), addr);
-      break;
-    case Scalar::Float64:
-      masm.Ldr(ARMFPRegister(ToFloatRegister(ins->output()), 64), addr);
-      break;
-    case Scalar::Float32:
-      masm.Ldr(ARMFPRegister(ToFloatRegister(ins->output()), 32), addr);
-      break;
-    default:
-      MOZ_CRASH("unexpected array type");
-  }
-  if (done.used()) {
-    masm.bind(&done);
-  }
-}
-
-void CodeGenerator::visitAsmJSStoreHeap(LAsmJSStoreHeap* ins) {
-  const MAsmJSStoreHeap* mir = ins->mir();
-  MOZ_ASSERT(!mir->hasMemoryBase());
-
-  const LAllocation* ptr = ins->ptr();
-  const LAllocation* boundsCheckLimit = ins->boundsCheckLimit();
-
-  Register ptrReg = ToRegister(ptr);
-
-  Label done;
-  if (mir->needsBoundsCheck()) {
-    Register boundsCheckLimitReg = ToRegister(boundsCheckLimit);
-    masm.wasmBoundsCheck32(Assembler::AboveOrEqual, ptrReg, boundsCheckLimitReg,
-                           &done);
-  }
-
-  MemOperand addr(ARMRegister(HeapReg, 64), ARMRegister(ptrReg, 64));
-  switch (mir->accessType()) {
-    case Scalar::Int8:
-    case Scalar::Uint8:
-      masm.Strb(toWRegister(ins->value()), addr);
-      break;
-    case Scalar::Int16:
-    case Scalar::Uint16:
-      masm.Strh(toWRegister(ins->value()), addr);
-      break;
-    case Scalar::Int32:
-    case Scalar::Uint32:
-      masm.Str(toWRegister(ins->value()), addr);
-      break;
-    case Scalar::Float64:
-      masm.Str(ARMFPRegister(ToFloatRegister(ins->value()), 64), addr);
-      break;
-    case Scalar::Float32:
-      masm.Str(ARMFPRegister(ToFloatRegister(ins->value()), 32), addr);
-      break;
-    default:
-      MOZ_CRASH("unexpected array type");
-  }
-  if (done.used()) {
-    masm.bind(&done);
-  }
 }
 
 void CodeGenerator::visitWasmCompareExchangeHeap(

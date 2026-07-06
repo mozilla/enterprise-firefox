@@ -241,8 +241,10 @@ export default class RestoreFromBackup extends MozLitElement {
   }
 
   handleConfirm() {
-    let backupFile = this.backupServiceState?.backupFileToRestore;
-    if (!backupFile || this.backupServiceState?.recoveryInProgress) {
+    if (
+      !this.backupServiceState?.backupFileToRestore ||
+      this.backupServiceState?.recoveryInProgress
+    ) {
       return;
     }
     let backupPassword = this.passwordInput?.value;
@@ -251,7 +253,6 @@ export default class RestoreFromBackup extends MozLitElement {
         bubbles: true,
         composed: true,
         detail: {
-          backupFile,
           backupPassword,
           restoreType: this._restoreType,
           source: this.aboutWelcomeEmbedded ? "onboarding" : "preferences",

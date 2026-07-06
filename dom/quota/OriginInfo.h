@@ -7,7 +7,7 @@
 
 #include "Assertions.h"
 #include "ClientUsageArray.h"
-#include "mozilla/dom/SafeRefPtr.h"
+#include "mozilla/ThreadSafeWeakPtr.h"
 #include "mozilla/dom/quota/QuotaManager.h"
 
 namespace mozilla::dom::quota {
@@ -15,25 +15,21 @@ namespace mozilla::dom::quota {
 class CanonicalQuotaObject;
 class GroupInfo;
 
-class OriginInfo final : public AtomicSafeRefCounted<OriginInfo> {
+class OriginInfo final : public SupportsThreadSafeWeakPtr<OriginInfo> {
   friend class CanonicalQuotaObject;
   friend class GroupInfo;
   friend class PersistOp;
   friend class QuotaManager;
+  friend class SupportsThreadSafeWeakPtr<OriginInfo>;
 
  public:
-  MOZ_DECLARE_REFCOUNTED_TYPENAME(mozilla::dom::quota::OriginInfo)
+  MOZ_DECLARE_REFCOUNTED_TYPENAME(OriginInfo)
 
   OriginInfo(GroupInfo* aGroupInfo, const nsACString& aOrigin,
              const nsACString& aStorageOrigin, bool aIsPrivate,
              const ClientUsageArray& aClientUsages, uint64_t aUsage,
              int64_t aAccessTime, int32_t aMaintenanceDate, bool aPersisted,
              bool aDirectoryExists);
-
-  ~OriginInfo() {
-    MOZ_COUNT_DTOR(OriginInfo);
-    MOZ_ASSERT(!mCanonicalQuotaObjects.Count());
-  }
 
   GroupInfo* GetGroupInfo() const { return mGroupInfo; }
 
@@ -98,6 +94,13 @@ class OriginInfo final : public AtomicSafeRefCounted<OriginInfo> {
   nsresult LockedBindToStatement(mozIStorageStatement* aStatement) const;
 
  private:
+  // Private destructor, to discourage deletion outside of Release():
+  ~OriginInfo() {
+    MOZ_COUNT_DTOR(OriginInfo);
+
+    MOZ_ASSERT(!mCanonicalQuotaObjects.Count());
+  }
+
   void LockedDecreaseUsage(Client::Type aClientType, int64_t aSize);
 
   void LockedResetUsageForClient(Client::Type aClientType);
@@ -169,13 +172,13 @@ class OriginInfo final : public AtomicSafeRefCounted<OriginInfo> {
 
 class OriginInfoAccessTimeComparator {
  public:
-  bool Equals(const NotNull<SafeRefPtr<OriginInfo>>& a,
-              const NotNull<SafeRefPtr<OriginInfo>>& b) const {
+  bool Equals(const NotNull<RefPtr<const OriginInfo>>& a,
+              const NotNull<RefPtr<const OriginInfo>>& b) const {
     return a->LockedAccessTime() == b->LockedAccessTime();
   }
 
-  bool LessThan(const NotNull<SafeRefPtr<OriginInfo>>& a,
-                const NotNull<SafeRefPtr<OriginInfo>>& b) const {
+  bool LessThan(const NotNull<RefPtr<const OriginInfo>>& a,
+                const NotNull<RefPtr<const OriginInfo>>& b) const {
     return a->LockedAccessTime() < b->LockedAccessTime();
   }
 };

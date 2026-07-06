@@ -370,9 +370,6 @@
 
           <hbox id="page-action-buttons" context="pageActionContextMenu" align="center" urlbar-slot="page-actions">
             <toolbartabstop/>
-#ifdef MOZ_ENTERPRISE
-#include ../../components/enterprise/content/enterprise-urlbar-actions.inc.xhtml
-#endif
             <hbox id="contextual-feature-recommendation" role="button" hidden="true">
               <hbox id="cfr-label-container">
                 <label id="cfr-label"/>
@@ -430,6 +427,9 @@
                   hidden="true">
               <image class="urlbar-icon" id="split-view-button-icon" />
             </hbox>
+#ifdef MOZ_ENTERPRISE
+#include ../../components/enterprise/content/enterprise-urlbar-actions.inc.xhtml
+#endif
             <hbox id="pageActionButton"
                   class="urlbar-page-action"
                   role="button"

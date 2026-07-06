@@ -124,7 +124,7 @@ add_task(async function test_no_update_intervention() {
       fireInputEvent: true,
     });
     for (let result of context.results) {
-      Assert.notEqual(result.type, UrlbarUtils.RESULT_TYPE.TIP);
+      Assert.notEqual(result.type, UrlbarShared.RESULT_TYPE.TIP);
     }
     await UrlbarTestUtils.promisePopupClose(window, () =>
       window.gURLBar.blur()

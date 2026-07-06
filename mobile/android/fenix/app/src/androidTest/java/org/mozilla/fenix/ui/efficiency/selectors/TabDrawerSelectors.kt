@@ -163,7 +163,7 @@ object TabDrawerSelectors {
     )
 
     @Suppress("ktlint:standard:function-naming")
-    fun CREATE_TAB_GROUP_COLOR_BUTTON(color: String) = Selector(
+    fun CREATE_TAB_GROUP_COLOR_BUTTON(color: String = "") = Selector(
         strategy = SelectorStrategy.COMPOSE_BY_CONTENT_DESCRIPTION,
         value = color,
         description = "Create tab group color: $color button",
@@ -295,6 +295,7 @@ object TabDrawerSelectors {
     val all = listOf(
         TABS_TRAY,
         NORMAL_BROWSING_EMPTY_TABS_PAGE,
+        NORMAL_BROWSING_TABS_PAGE,
         NORMAL_BROWSING_OPEN_TABS_BUTTON,
         NORMAL_TABS_LIST,
         EMPTY_NORMAL_TABS_LIST,
@@ -308,9 +309,12 @@ object TabDrawerSelectors {
         TAB_GROUPS_BUTTON,
         EMPTY_TAB_GROUP_PAGE,
         THREE_DOT_BUTTON,
+        SELECT_TABS_BUTTON,
         SELECT_ALL_TABS_BUTTON,
         TAB_SELECTION_THREE_DOT_BUTTON,
         ADD_TO_GROUP_THREE_DOT_BUTTON,
+        CREATE_TAB_GROUP_NAME_TEXT_FIELD,
+        CREATE_TAB_GROUP_COLOR_BUTTON(),
         CREATE_TAB_GROUP_SAVE_BUTTON,
         TAB_GROUP_ITEM(),
         TAB_GROUP_MORE_OPTIONS_BUTTON,

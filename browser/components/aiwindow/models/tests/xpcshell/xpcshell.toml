@@ -19,17 +19,13 @@ firefox-appdir = "browser"
 
 ["test_MemoriesChatSource.js"]
 
-["test_MemoriesConversationScheduler.js"]
-
-["test_MemoriesDriftDetector.js"]
-
-["test_MemoriesHistoryScheduler.js"]
-
 ["test_MemoriesHistorySource.js"]
 
 ["test_MemoriesHistorySource_blocklist.js"]
 
 ["test_MemoriesManager.js"]
+
+["test_MemoriesSessionGate.js"]
 
 ["test_MemoriesSessions.js"]
 

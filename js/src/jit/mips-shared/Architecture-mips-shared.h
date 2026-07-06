@@ -299,9 +299,6 @@ inline bool hasFPU() { return MIPSFlags::HasFPU(); }
 inline bool isLoongson() { return MIPSFlags::IsLoongson(); }
 inline bool hasR2() { return MIPSFlags::HasR2(); }
 
-// MIPS doesn't have double registers that can NOT be treated as float32.
-inline bool hasUnaliasedDouble() { return false; }
-
 // MIPS64 doesn't support it.
 inline bool hasMultiAlias() { return false; }
 

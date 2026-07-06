@@ -24,8 +24,7 @@ struct CSSPropertyId;
 class ErrorResult;
 template <typename T>
 class MovingNotNull;
-struct StyleNumericValue;
-using StyleMathSum = CopyableTArray<StyleNumericValue>;
+struct StyleMathSum;
 
 namespace dom {
 
@@ -36,8 +35,6 @@ class Sequence;
 
 class CSSMathSum final : public CSSMathValue {
  public:
-  CSSMathSum(nsCOMPtr<nsISupports> aParent, RefPtr<CSSNumericArray> aValues);
-
   CSSMathSum(nsCOMPtr<nsISupports> aParent,
              MovingNotNull<UniquePtr<StyleNumericType>> aNumericType,
              RefPtr<CSSNumericArray> aValues);

@@ -34,6 +34,7 @@ const ADDRESSES_COLLECTION_NAME = "addresses";
 const CREDITCARDS_COLLECTION_NAME = "creditCards";
 const AUTOFILL_CREDITCARDS_OS_AUTH_LOCKED_PREF =
   FormAutofill.AUTOFILL_CREDITCARDS_OS_AUTH_LOCKED_PREF;
+const AUTOFILL_ML_SUCCESS_PREF = "extensions.formautofill.useml.successful";
 const MANAGE_ADDRESSES_L10N_IDS = [
   "autofill-add-address-title",
   "autofill-manage-addresses-title",
@@ -77,10 +78,10 @@ const MANAGE_CREDITCARDS_L10N_IDS = [
   "autofill-manage-payment-methods-title",
 ];
 const EDIT_CREDITCARD_L10N_IDS = [
-  "autofill-card-number",
-  "autofill-card-name-on-card",
-  "autofill-card-expires-month",
-  "autofill-card-expires-year",
+  "autofill-card-number-2",
+  "autofill-card-name-on-card-2",
+  "autofill-card-expires-month-2",
+  "autofill-card-expires-year-2",
   "autofill-card-network",
 
   // This string isn't ever displayed, but is used to make the payment methods
@@ -155,6 +156,13 @@ FormAutofillUtils = {
     );
   },
 
+  isPassportField(fieldName) {
+    return (
+      lazy.AutofillDataTypes.typeIdForFieldName(fieldName) ==
+      lazy.AutofillDataTypes.PASSPORT
+    );
+  },
+
   // Returns true if the field is one we don't fill handle via the autocomplete
   // attribute. It should be identified using heuristics.
   isUnsupportedField(fieldName) {
@@ -194,6 +202,10 @@ FormAutofillUtils = {
     return (
       AppConstants.platform !== "android" && FormAutofillUtils.enableMLAutofill
     );
+  },
+
+  setMLUsedAlready() {
+    Services.prefs.setBoolPref(AUTOFILL_ML_SUCCESS_PREF, true);
   },
 
   /**
@@ -1525,5 +1537,12 @@ XPCOMUtils.defineLazyPreferenceGetter(
   FormAutofillUtils,
   "enableMLAutofill",
   "extensions.formautofill.useml",
+  false
+);
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  FormAutofillUtils,
+  "isMLUsedAlready",
+  AUTOFILL_ML_SUCCESS_PREF,
   false
 );

@@ -35,8 +35,8 @@ const REMOTE_SETTINGS_RESULTS = [
 ];
 
 const EXPECTED_SPONSORED_URLBAR_RESULT = {
-  type: UrlbarUtils.RESULT_TYPE.URL,
-  source: UrlbarUtils.RESULT_SOURCE.SEARCH,
+  type: UrlbarShared.RESULT_TYPE.URL,
+  source: UrlbarShared.RESULT_SOURCE.SEARCH,
   heuristic: false,
   payload: {
     telemetryType: "adm_sponsored",
@@ -62,8 +62,8 @@ const EXPECTED_SPONSORED_URLBAR_RESULT = {
 };
 
 const EXPECTED_NONSPONSORED_URLBAR_RESULT = {
-  type: UrlbarUtils.RESULT_TYPE.URL,
-  source: UrlbarUtils.RESULT_SOURCE.SEARCH,
+  type: UrlbarShared.RESULT_TYPE.URL,
+  source: UrlbarShared.RESULT_SOURCE.SEARCH,
   heuristic: false,
   payload: {
     telemetryType: "adm_nonsponsored",

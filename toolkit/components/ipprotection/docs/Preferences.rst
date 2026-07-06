@@ -70,6 +70,14 @@ Networking and routing
 ``browser.ipProtection.guardian.endpoint`` (string, default: ``"https://vpn.mozilla.org/"``)
   Endpoint for the server‑side infrastructure.
 
+``browser.ipProtection.guardian.timeout`` (integer, default: ``30000``)
+  Milliseconds to wait for a proxy activation or a proxy pass rotation to finish
+  before aborting the attempt and moving to the error state.
+
+``browser.ipProtection.guardian.retryAfter`` (integer, default: ``500``)
+  Milliseconds to delay before retrying a proxy pass fetch that failed with a
+  transient error (a 5xx response, or a network error while offline).
+
 ``browser.ipProtection.productVpn.endpoint`` (string, default: ``"https://www.mozilla.org/"``)
   Endpoint for the production mozilla webservice.
 

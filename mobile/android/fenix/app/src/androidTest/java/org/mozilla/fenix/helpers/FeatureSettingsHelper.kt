@@ -72,11 +72,6 @@ interface FeatureSettingsHelper {
     var isLocationPermissionEnabled: SitePermissionsRules.Action
 
     /**
-     * Enable or disable the new main menu CFR.
-     */
-    var isMenuRedesignCFREnabled: Boolean
-
-    /**
      * Enable or disable the new microsurvey feature.
      */
     var isMicrosurveyEnabled: Boolean
@@ -90,11 +85,6 @@ interface FeatureSettingsHelper {
      * Enable or disable the onboarding feature.
      */
     var onboardingFeatureEnabled: Boolean
-
-    /**
-     * Enable or disable new crash reporter flow.
-     */
-    var isUseNewCrashReporterFlow: Boolean
 
     /**
      * Enable or disable the tab swipe CFR.

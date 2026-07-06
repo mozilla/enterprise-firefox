@@ -168,16 +168,30 @@ already_AddRefed<CSSUnitValue> CSSNumericValue::To(const nsACString& aUnit,
 already_AddRefed<CSSMathSum> CSSNumericValue::ToSum(
     const Sequence<nsCString>& aUnits, ErrorResult& aRv) const {
   // Step 1.
+  AutoTArray<StyleNumericType, 4> numericTypes;
+  numericTypes.SetCapacity(aUnits.Length());
+
   for (const auto& unit : aUnits) {
-    StyleNumericType numericType;
-    if (!Servo_NumericType_Create(&unit, &numericType)) {
+    StyleNumericType* numericType = numericTypes.AppendElement();
+    if (!Servo_NumericType_Create(&unit, numericType)) {
       aRv.ThrowSyntaxError("Invalid unit: "_ns + unit);
       return nullptr;
     }
   }
 
-  // TODO: The toSum() algorithm should also verify that the requested units
-  // are addable with each other (file a spec issue).
+  // The spec currently relies on CSSMathSum construction to reject requested
+  // units that are not addable. Since the numeric types for all requested
+  // units must already be created, validate addability here instead so
+  // incompatible units fail early and the remaining algorithm can be skipped.
+  //
+  // TODO: Propose making this an explicit step in the specification.
+  if (!numericTypes.IsEmpty()) {
+    StyleNumericType numericType;
+    if (!Servo_NumericType_AddTypesFromValues(&numericTypes, &numericType)) {
+      aRv.ThrowTypeError("Units are not addable");
+      return nullptr;
+    }
+  }
 
   // Step 2.
   auto styleNumericValue = ToStyleNumericValue();

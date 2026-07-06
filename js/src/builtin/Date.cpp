@@ -4960,7 +4960,7 @@ const JSClass DateObject::protoClass_ = {
 };
 
 DateObject* DateObject::createTemplateObject(JSContext* cx) {
-  return NewTenuredBuiltinClassInstance<DateObject>(cx);
+  return NewBuiltinClassInstance<DateObject>(cx, {.newKind = TenuredObject});
 }
 
 JSObject* js::NewDateObjectMsec(JSContext* cx, ClippedTime t,

@@ -93,6 +93,9 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = Saat
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = Gizlilik
 home-prefs-mission-message2 =
     .message = Sponsorlarımız daha iyi bir web inşa etme misyonumuzu destekliyor.
 home-prefs-manage-topics-link2 =
@@ -151,6 +154,11 @@ home-prefs-weather-header-srd =
 home-prefs-support-firefox-header-srd =
     .label = { -brand-product-name } tarayıcısını destekleyin
 home-prefs-mission-message-learn-more-link-srd = Nasıl mı?
+
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = Daha fazla bilgi al
 
 ## Search box component.
 
@@ -492,6 +500,8 @@ newtab-custom-widget-clock-toggle =
     .label = Saat
 newtab-custom-widget-sports-toggle2 =
     .label = Spor
+newtab-custom-widget-privacy-toggle =
+    .label = Gizlilik
 newtab-custom-widget-section-title = Araçlar
 newtab-custom-widget-section-toggle =
     .label = Araçlar
@@ -968,6 +978,8 @@ newtab-widget-timer-reset =
 newtab-widget-timer-menu-notifications = Bildirimleri kapat
 newtab-widget-timer-menu-notifications-on = Bildirimleri aç
 newtab-widget-timer-menu-learn-more = Daha fazla bilgi al
+newtab-widget-timer-menu-button =
+    .aria-label = Sayaç seçenekleri
 # The title displays above a set of top news headlines.
 newtab-daily-briefing-card-title = Öne çıkan başlıklar
 newtab-daily-briefing-card-menu-dismiss = Kapat
@@ -1082,6 +1094,8 @@ newtab-sports-widget-show-less =
 # Toggle that filters the list of teams the user follows
 newtab-sports-widget-followed-only-toggle =
     .label = Yalnızca takip edilen takımlar
+# Status shown when more matches are being fetched.
+newtab-sports-widget-loading-more = Diğer maçlar yükleniyor…
 # Watch is a verb (as in watch matches online).
 newtab-sports-widget-watch =
     .label = İzle
@@ -1161,6 +1175,9 @@ newtab-sports-widget-third-place = Üçüncü
 newtab-sports-widget-runner-up = İkinci
 newtab-sports-widget-champions = Şampiyon
 newtab-sports-widget-world-cup-champions = 2026 Dünya Kupası Şampiyonu
+# Compact champions label for the medium-size widget result card; the larger
+# card uses newtab-sports-widget-world-cup-champions.
+newtab-sports-widget-world-cup-champions-short = 2026 Şampiyonu
 # Variables:
 #   $date (Date) - The match start time
 newtab-sports-widget-match-time = { DATETIME($date, hour: "2-digit", minute: "2-digit") }
@@ -1259,6 +1276,8 @@ newtab-sports-widget-team-tbd = Belli değil
 newtab-sports-widget-message-wallpapers-title = Dünya Kupası’na yeni duvar kâğıtlarıyla başlayın
 newtab-sports-widget-message-wallpapers-body = Maçların heyecanını tarayıcınıza taşıyın.
 newtab-sports-widget-message-wallpapers-cta = Duvar kâğıdı seçin
+newtab-sports-widget-message-wallpapers-semifinals-title = Yarı finaller için yeni bir duvar kâğıdı indirin
+newtab-sports-widget-message-wallpapers-semifinals-body = Dünya Kupası’nın en büyük maçlarına hazırlanın.
 newtab-sports-widget-message-add-widgets-cta =
     .label = Araç ekleyin
 newtab-sports-widget-message-day-in-play-title = { -brand-product-name } araçlarıyla gününüze keyif katın

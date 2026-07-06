@@ -694,7 +694,7 @@ class DesktopUnittest(TestingMixin, MercurialScript, MozbaseMixin, CodeCoverageM
             abs_app_dir = self.query_abs_app_dir()
             abs_res_dir = self.query_abs_res_dir()
 
-            raw_log_file, error_summary_file = self.get_indexed_logs(
+            raw_log_file, error_summary_file, test_summary_file = self.get_indexed_logs(
                 dirs["abs_blob_upload_dir"], suite
             )
 
@@ -706,6 +706,7 @@ class DesktopUnittest(TestingMixin, MercurialScript, MozbaseMixin, CodeCoverageM
                 "abs_res_dir": abs_res_dir,
                 "raw_log_file": raw_log_file,
                 "error_summary_file": error_summary_file,
+                "test_summary_file": test_summary_file,
                 "gtest_dir": os.path.join(dirs["abs_test_install_dir"], "gtest"),
             }
 

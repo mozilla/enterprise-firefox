@@ -3533,3 +3533,79 @@ add_task(
     Assert.ok(stub.calledOnceWith("results"), "feed forwards direction");
   }
 );
+
+const WATCH_LIVE_ENDPOINT =
+  "https://merino.services.mozilla.com/api/v1/wcs/watch-links";
+
+function makeWatchLiveFeed({ live = [], watchLive } = {}) {
+  const feed = makeFeed();
+  feed.store.state.Prefs.values["sports.worldCup.watchLiveEndpoint"] =
+    WATCH_LIVE_ENDPOINT;
+  feed.store.state.SportsWidget = {
+    data: { live },
+    watchLive: watchLive ?? { loaded: false, data: null },
+  };
+  return feed;
+}
+
+add_task(async function test_maybeFetchWatchLive_fetches_when_live_present() {
+  const feed = makeWatchLiveFeed({
+    live: [{ global_event_id: 1, status_type: "live" }],
+  });
+  const stub = sinon.stub(feed, "fetchWatchLive").resolves();
+
+  await feed.maybeFetchWatchLive();
+
+  Assert.ok(
+    stub.calledOnce,
+    "fetches watch-live once a live game is present and nothing is loaded"
+  );
+});
+
+add_task(async function test_maybeFetchWatchLive_skips_when_no_live_games() {
+  const feed = makeWatchLiveFeed({ live: [] });
+  const stub = sinon.stub(feed, "fetchWatchLive").resolves();
+
+  await feed.maybeFetchWatchLive();
+
+  Assert.ok(stub.notCalled, "no proactive fetch without a live game");
+});
+
+add_task(async function test_maybeFetchWatchLive_skips_when_already_loaded() {
+  const feed = makeWatchLiveFeed({
+    live: [{ global_event_id: 1, status_type: "live" }],
+    watchLive: { loaded: true, data: { your_region: [], other_regions: [] } },
+  });
+  const stub = sinon.stub(feed, "fetchWatchLive").resolves();
+
+  await feed.maybeFetchWatchLive();
+
+  Assert.ok(
+    stub.notCalled,
+    "does not re-fetch once watch-live has settled this session"
+  );
+});
+
+add_task(
+  async function test_fetchWatchLive_settles_loaded_on_disallowed_endpoint() {
+    // A disallowed endpoint must still dispatch a SET so the proactive
+    // maybeFetchWatchLive caller doesn't retry the bad fetch every poll tick.
+    const feed = makeWatchLiveFeed({
+      live: [{ global_event_id: 1, status_type: "live" }],
+    });
+    feed.store.state.Prefs.values["sports.worldCup.watchLiveEndpoint"] =
+      "https://evil.example.com/watch-links";
+    const merinoStub = sinon.stub(feed.merino, "fetchWatchLive").resolves(null);
+
+    await feed.fetchWatchLive();
+
+    Assert.ok(merinoStub.notCalled, "disallowed endpoint is never fetched");
+    const [dispatched] = feed.store.dispatch.firstCall.args;
+    Assert.equal(
+      dispatched.type,
+      actionTypes.WIDGETS_SPORTS_WATCH_LIVE_SET,
+      "still dispatches WATCH_LIVE_SET to settle the loaded flag"
+    );
+    Assert.equal(dispatched.data, null, "with null data");
+  }
+);

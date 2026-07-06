@@ -86,8 +86,8 @@ async function do_noExposure(showExposureResults) {
   for (let i = 0; i < MAX_RESULT_COUNT; i++) {
     gProvider.results.push(
       new UrlbarResult({
-        type: UrlbarUtils.RESULT_TYPE.SEARCH,
-        source: UrlbarUtils.RESULT_SOURCE.SEARCH,
+        type: UrlbarShared.RESULT_TYPE.SEARCH,
+        source: UrlbarShared.RESULT_SOURCE.SEARCH,
         payload: {
           suggestion: "suggestion " + i,
           engine: SearchService.defaultEngine.name,
@@ -113,13 +113,13 @@ async function do_noExposure(showExposureResults) {
   let bookmarkUrl = "https://example.com/bookmark";
   gProvider.results = [
     new UrlbarResult({
-      type: UrlbarUtils.RESULT_TYPE.URL,
-      source: UrlbarUtils.RESULT_SOURCE.HISTORY,
+      type: UrlbarShared.RESULT_TYPE.URL,
+      source: UrlbarShared.RESULT_SOURCE.HISTORY,
       payload: { url: historyUrl },
     }),
     new UrlbarResult({
-      type: UrlbarUtils.RESULT_TYPE.URL,
-      source: UrlbarUtils.RESULT_SOURCE.BOOKMARKS,
+      type: UrlbarShared.RESULT_TYPE.URL,
+      source: UrlbarShared.RESULT_SOURCE.BOOKMARKS,
       payload: { url: bookmarkUrl },
     }),
   ];
@@ -160,15 +160,15 @@ async function do_noExposure(showExposureResults) {
   // hidden rows for the history and/or bookmark results.
   let expected = [
     {
-      source: UrlbarUtils.RESULT_SOURCE.BOOKMARKS,
-      type: UrlbarUtils.RESULT_TYPE.URL,
+      source: UrlbarShared.RESULT_SOURCE.BOOKMARKS,
+      type: UrlbarShared.RESULT_TYPE.URL,
       url: bookmarkUrl,
     },
   ];
   if (showExposureResults) {
     expected.unshift({
-      source: UrlbarUtils.RESULT_SOURCE.HISTORY,
-      type: UrlbarUtils.RESULT_TYPE.URL,
+      source: UrlbarShared.RESULT_SOURCE.HISTORY,
+      type: UrlbarShared.RESULT_TYPE.URL,
       url: historyUrl,
     });
   }
@@ -185,7 +185,7 @@ async function do_noExposure(showExposureResults) {
     Assert.ok(BrowserTestUtils.isVisible(row), `rows[${i}] should be visible`);
     Assert.equal(
       row.result.type,
-      UrlbarUtils.RESULT_TYPE.SEARCH,
+      UrlbarShared.RESULT_TYPE.SEARCH,
       `rows[${i}].result.type should be SEARCH`
     );
     // The heuristic won't have a suggestion so skip it.
@@ -294,16 +294,16 @@ async function do_exposure_append_underfilled({
   let bookmarkUrl = "https://example.com/bookmark";
   gProvider.results = [
     new UrlbarResult({
-      type: UrlbarUtils.RESULT_TYPE.SEARCH,
-      source: UrlbarUtils.RESULT_SOURCE.SEARCH,
+      type: UrlbarShared.RESULT_TYPE.SEARCH,
+      source: UrlbarShared.RESULT_SOURCE.SEARCH,
       payload: {
         suggestion: newSuggestion,
         engine: SearchService.defaultEngine.name,
       },
     }),
     new UrlbarResult({
-      type: UrlbarUtils.RESULT_TYPE.URL,
-      source: UrlbarUtils.RESULT_SOURCE.BOOKMARKS,
+      type: UrlbarShared.RESULT_TYPE.URL,
+      source: UrlbarShared.RESULT_SOURCE.BOOKMARKS,
       payload: { url: bookmarkUrl },
     }),
   ];
@@ -411,8 +411,8 @@ async function do_exposure_replace({ showExposureResults, cancelSecondQuery }) {
   // Make the provider return a search suggestion.
   gProvider.results = [
     new UrlbarResult({
-      type: UrlbarUtils.RESULT_TYPE.SEARCH,
-      source: UrlbarUtils.RESULT_SOURCE.SEARCH,
+      type: UrlbarShared.RESULT_TYPE.SEARCH,
+      source: UrlbarShared.RESULT_SOURCE.SEARCH,
       payload: {
         suggestion: "suggestion",
         engine: SearchService.defaultEngine.name,
@@ -447,16 +447,16 @@ async function do_exposure_replace({ showExposureResults, cancelSecondQuery }) {
   let bookmarkUrl = "https://example.com/bookmark";
   gProvider.results = [
     new UrlbarResult({
-      type: UrlbarUtils.RESULT_TYPE.SEARCH,
-      source: UrlbarUtils.RESULT_SOURCE.SEARCH,
+      type: UrlbarShared.RESULT_TYPE.SEARCH,
+      source: UrlbarShared.RESULT_SOURCE.SEARCH,
       payload: {
         suggestion: newSuggestion,
         engine: SearchService.defaultEngine.name,
       },
     }),
     new UrlbarResult({
-      type: UrlbarUtils.RESULT_TYPE.URL,
-      source: UrlbarUtils.RESULT_SOURCE.BOOKMARKS,
+      type: UrlbarShared.RESULT_TYPE.URL,
+      source: UrlbarShared.RESULT_SOURCE.BOOKMARKS,
       payload: { url: bookmarkUrl },
     }),
   ];
@@ -570,8 +570,8 @@ async function do_exposure_append_full(showExposureResults) {
   for (let i = 0; i < MAX_RESULT_COUNT; i++) {
     gProvider.results.push(
       new UrlbarResult({
-        type: UrlbarUtils.RESULT_TYPE.SEARCH,
-        source: UrlbarUtils.RESULT_SOURCE.SEARCH,
+        type: UrlbarShared.RESULT_TYPE.SEARCH,
+        source: UrlbarShared.RESULT_SOURCE.SEARCH,
         payload: {
           suggestion: "suggestion " + i,
           engine: SearchService.defaultEngine.name,
@@ -597,13 +597,13 @@ async function do_exposure_append_full(showExposureResults) {
   let bookmarkUrl = "https://example.com/bookmark";
   gProvider.results = [
     new UrlbarResult({
-      type: UrlbarUtils.RESULT_TYPE.URL,
-      source: UrlbarUtils.RESULT_SOURCE.HISTORY,
+      type: UrlbarShared.RESULT_TYPE.URL,
+      source: UrlbarShared.RESULT_SOURCE.HISTORY,
       payload: { url: historyUrl },
     }),
     new UrlbarResult({
-      type: UrlbarUtils.RESULT_TYPE.URL,
-      source: UrlbarUtils.RESULT_SOURCE.BOOKMARKS,
+      type: UrlbarShared.RESULT_TYPE.URL,
+      source: UrlbarShared.RESULT_SOURCE.BOOKMARKS,
       payload: { url: bookmarkUrl },
     }),
   ];
@@ -644,15 +644,15 @@ async function do_exposure_append_full(showExposureResults) {
   // hidden rows for the history and bookmark results.
   let expected = [
     {
-      source: UrlbarUtils.RESULT_SOURCE.BOOKMARKS,
-      type: UrlbarUtils.RESULT_TYPE.URL,
+      source: UrlbarShared.RESULT_SOURCE.BOOKMARKS,
+      type: UrlbarShared.RESULT_TYPE.URL,
       url: bookmarkUrl,
     },
   ];
   if (showExposureResults) {
     expected.unshift({
-      source: UrlbarUtils.RESULT_SOURCE.HISTORY,
-      type: UrlbarUtils.RESULT_TYPE.URL,
+      source: UrlbarShared.RESULT_SOURCE.HISTORY,
+      type: UrlbarShared.RESULT_TYPE.URL,
       url: historyUrl,
     });
   }
@@ -669,7 +669,7 @@ async function do_exposure_append_full(showExposureResults) {
     Assert.ok(BrowserTestUtils.isVisible(row), `rows[${i}] should be visible`);
     Assert.equal(
       row.result.type,
-      UrlbarUtils.RESULT_TYPE.SEARCH,
+      UrlbarShared.RESULT_TYPE.SEARCH,
       `rows[${i}].result.type should be SEARCH`
     );
     // The heuristic won't have a suggestion so skip it.
@@ -796,8 +796,8 @@ async function do_exposure_append_full_twice(showExposureResults) {
   for (let i = 0; i < MAX_RESULT_COUNT; i++) {
     gProvider.results.push(
       new UrlbarResult({
-        type: UrlbarUtils.RESULT_TYPE.SEARCH,
-        source: UrlbarUtils.RESULT_SOURCE.SEARCH,
+        type: UrlbarShared.RESULT_TYPE.SEARCH,
+        source: UrlbarShared.RESULT_SOURCE.SEARCH,
         payload: {
           suggestion: "suggestion " + i,
           engine: SearchService.defaultEngine.name,
@@ -824,18 +824,18 @@ async function do_exposure_append_full_twice(showExposureResults) {
   let bookmarkUrl = "https://example.com/bookmark";
   gProvider.results = [
     new UrlbarResult({
-      type: UrlbarUtils.RESULT_TYPE.URL,
-      source: UrlbarUtils.RESULT_SOURCE.HISTORY,
+      type: UrlbarShared.RESULT_TYPE.URL,
+      source: UrlbarShared.RESULT_SOURCE.HISTORY,
       payload: { url: historyUrl },
     }),
     new UrlbarResult({
-      type: UrlbarUtils.RESULT_TYPE.TAB_SWITCH,
-      source: UrlbarUtils.RESULT_SOURCE.TABS,
+      type: UrlbarShared.RESULT_TYPE.TAB_SWITCH,
+      source: UrlbarShared.RESULT_SOURCE.TABS,
       payload: { url: tabUrl },
     }),
     new UrlbarResult({
-      type: UrlbarUtils.RESULT_TYPE.URL,
-      source: UrlbarUtils.RESULT_SOURCE.BOOKMARKS,
+      type: UrlbarShared.RESULT_TYPE.URL,
+      source: UrlbarShared.RESULT_SOURCE.BOOKMARKS,
       payload: { url: bookmarkUrl },
     }),
   ];
@@ -876,21 +876,21 @@ async function do_exposure_append_full_twice(showExposureResults) {
   // three hidden rows for the history, tab, and bookmark results.
   let expected = [
     {
-      source: UrlbarUtils.RESULT_SOURCE.BOOKMARKS,
-      type: UrlbarUtils.RESULT_TYPE.URL,
+      source: UrlbarShared.RESULT_SOURCE.BOOKMARKS,
+      type: UrlbarShared.RESULT_TYPE.URL,
       url: bookmarkUrl,
     },
   ];
   if (showExposureResults) {
     expected.unshift(
       {
-        source: UrlbarUtils.RESULT_SOURCE.HISTORY,
-        type: UrlbarUtils.RESULT_TYPE.URL,
+        source: UrlbarShared.RESULT_SOURCE.HISTORY,
+        type: UrlbarShared.RESULT_TYPE.URL,
         url: historyUrl,
       },
       {
-        source: UrlbarUtils.RESULT_SOURCE.TABS,
-        type: UrlbarUtils.RESULT_TYPE.TAB_SWITCH,
+        source: UrlbarShared.RESULT_SOURCE.TABS,
+        type: UrlbarShared.RESULT_TYPE.TAB_SWITCH,
         url: tabUrl,
       }
     );
@@ -908,7 +908,7 @@ async function do_exposure_append_full_twice(showExposureResults) {
     Assert.ok(BrowserTestUtils.isVisible(row), `rows[${i}] should be visible`);
     Assert.equal(
       row.result.type,
-      UrlbarUtils.RESULT_TYPE.SEARCH,
+      UrlbarShared.RESULT_TYPE.SEARCH,
       `rows[${i}].result.type should be SEARCH`
     );
     // The heuristic won't have a suggestion so skip it.
@@ -946,8 +946,8 @@ async function do_exposure_append_full_twice(showExposureResults) {
   // Now make the provider return only a history result.
   gProvider.results = [
     new UrlbarResult({
-      type: UrlbarUtils.RESULT_TYPE.URL,
-      source: UrlbarUtils.RESULT_SOURCE.HISTORY,
+      type: UrlbarShared.RESULT_TYPE.URL,
+      source: UrlbarShared.RESULT_SOURCE.HISTORY,
       payload: { url: historyUrl },
     }),
   ];
@@ -993,8 +993,8 @@ async function do_exposure_append_full_twice(showExposureResults) {
   expected = [];
   if (showExposureResults) {
     expected.unshift({
-      source: UrlbarUtils.RESULT_SOURCE.HISTORY,
-      type: UrlbarUtils.RESULT_TYPE.URL,
+      source: UrlbarShared.RESULT_SOURCE.HISTORY,
+      type: UrlbarShared.RESULT_TYPE.URL,
       url: historyUrl,
     });
   }

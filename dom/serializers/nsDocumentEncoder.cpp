@@ -220,7 +220,7 @@ class nsDocumentEncoder : public nsIDocumentEncoder {
    public:
     virtual ~RangeNodeContext() = default;
 
-    virtual bool IncludeInContext(nsINode& aNode) const { return false; }
+    virtual bool IncludeInContext(nsINode& aNode) const;
 
     virtual int32_t GetImmediateContextCount(
         const nsTArray<nsINode*>& aAncestorArray) const {
@@ -1300,6 +1300,17 @@ nsresult nsDocumentEncoder::RangeSerializer::SerializeChildrenOfContent(
   }
 
   return NS_OK;
+}
+
+bool nsDocumentEncoder::RangeNodeContext::IncludeInContext(
+    nsINode& aNode) const {
+  // Thunderbird wraps quoted replies in <span _moz_quote="true">, styled
+  // pre-wrap so the plaintext serializer leaves the "> " lines unwrapped.
+  // Re-emit it as context; otherwise selecting only its contents drops the
+  // span's start tag and the quote is re-wrapped without its "> " markers.
+  const nsIContent* const content = nsIContent::FromNodeOrNull(&aNode);
+  return content && content->IsHTMLElement(nsGkAtoms::span) &&
+         content->AsElement()->HasAttr(nsGkAtoms::mozquote);
 }
 
 nsresult nsDocumentEncoder::RangeContextSerializer::SerializeRangeContextStart(

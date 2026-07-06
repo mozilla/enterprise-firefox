@@ -780,8 +780,6 @@ static XDRResult CodeMarker(XDRState<mode>* xdr, SectionMarker marker) {
 template <XDRMode mode>
 /* static */ XDRResult StencilXDR::codeCompilationStencil(
     XDRState<mode>* xdr, CompilationStencil& stencil) {
-  MOZ_ASSERT(!stencil.hasAsmJS());
-
   if constexpr (mode == XDR_DECODE) {
     const auto& options = static_cast<XDRStencilDecoder*>(xdr)->options();
     if (options.borrowBuffer) {
@@ -1625,18 +1623,10 @@ template /* static */ XDRResult StencilXDR::codeCompilationStencil(
 
 /* static */ XDRResult StencilXDR::checkCompilationStencil(
     XDRStencilEncoder* encoder, const CompilationStencil& stencil) {
-  if (stencil.hasAsmJS()) {
-    return encoder->fail(JS::TranscodeResult::Failure_AsmJSNotSupported);
-  }
-
   return Ok();
 }
 
 /* static */ XDRResult StencilXDR::checkCompilationStencil(
     const ExtensibleCompilationStencil& stencil) {
-  if (stencil.hasAsmJS()) {
-    return mozilla::Err(JS::TranscodeResult::Failure_AsmJSNotSupported);
-  }
-
   return Ok();
 }

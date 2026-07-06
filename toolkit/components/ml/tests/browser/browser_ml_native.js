@@ -35,11 +35,14 @@ async function llama_crash() {
 
   try {
     const crashMan = Services.crashmanager;
+    // A content process can emit ipc:content-shutdown for a normal teardown,
+    // which carries no crash information. Wait for the abnormal one so that
+    // the dumpID set by ContentParent is present on the subject.
     const contentShutdown = TestUtils.topicObserved(
       "ipc:content-shutdown",
       (subject, data) => {
         info(`ipc:content-shutdown: data=${data} subject=${subject}`);
-        return true;
+        return subject instanceof Ci.nsIPropertyBag2 && subject.get("abnormal");
       }
     );
 

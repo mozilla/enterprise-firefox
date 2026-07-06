@@ -899,9 +899,11 @@ export var DiscoveryAPI = {
 };
 
 /**
- * @param {Element} el The button element.
+ * @param {string} [path] Optional path to append to the base AMO URL.
+ * @param {object} [options]
+ * @param {string} [options.utmContent="aboutaddons"] UTM content parameter for tracking.
  */
-export function openAmoInTab(el, path) {
+export function openAmoInTab(path, { utmContent = "aboutaddons" } = {}) {
   let amoUrl = Services.urlFormatter.formatURLPref(
     "extensions.getAddons.link.url"
   );
@@ -910,7 +912,7 @@ export function openAmoInTab(el, path) {
     amoUrl += path;
   }
 
-  amoUrl = formatUTMParams("find-more-link-bottom", amoUrl);
+  amoUrl = formatUTMParams(utmContent, amoUrl);
   window.windowRoot.window.openTrustedLinkIn(amoUrl, "tab");
 }
 

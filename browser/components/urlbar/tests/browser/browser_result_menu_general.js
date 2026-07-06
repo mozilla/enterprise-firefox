@@ -351,8 +351,8 @@ function registerTestProvider({
   let provider = new UrlbarTestUtils.TestProvider({
     results: [
       new UrlbarResult({
-        type: UrlbarUtils.RESULT_TYPE.URL,
-        source: UrlbarUtils.RESULT_SOURCE.OTHER_LOCAL,
+        type: UrlbarShared.RESULT_TYPE.URL,
+        source: UrlbarShared.RESULT_SOURCE.OTHER_LOCAL,
         suggestedIndex,
         payload,
       }),
@@ -373,7 +373,7 @@ async function assertIsTestResult(index) {
   let result = await UrlbarTestUtils.getDetailsOfResultAt(window, index);
   Assert.equal(
     result.type,
-    UrlbarUtils.RESULT_TYPE.URL,
+    UrlbarShared.RESULT_TYPE.URL,
     "The second result should be a URL"
   );
   Assert.equal(

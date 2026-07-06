@@ -16,8 +16,9 @@ xul|findbar {
   color: -moz-dialogtext;
 
   &:where([hidden]) {
-    /* Override display:none to make the transition work. */
-    display: flex;
+    /* Override display:none to make the transition work. `!important` beats the
+       global `[hidden] { display: none !important }` rule. */
+    display: flex !important;
     margin-bottom: calc(-1 * (28px + 12px + 1px)); /* findbar-container's height + padding-block + top border */
     visibility: collapse;
     transition-delay: 0s, 150ms;

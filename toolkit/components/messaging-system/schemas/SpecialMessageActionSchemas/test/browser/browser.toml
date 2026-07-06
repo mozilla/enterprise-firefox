@@ -29,6 +29,8 @@ support-files = [
 
 ["browser_sma_default_pdf_handler.js"]
 
+["browser_sma_destroy_uiwidget.js"]
+
 ["browser_sma_disable_doh.js"]
 
 ["browser_sma_docs.js"]
@@ -38,6 +40,11 @@ support-files = [
 ["browser_sma_handle_multiaction.js"]
 
 ["browser_sma_ipprotection_enroll.js"]
+
+["browser_sma_launch_on_login.js"]
+run-if = [
+  "os == 'win'",
+]
 
 ["browser_sma_open_about_page.js"]
 

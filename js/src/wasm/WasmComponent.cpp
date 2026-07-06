@@ -135,6 +135,179 @@ bool StronglyUniqueNameSet::add(mozilla::Span<const char> name,
   return data_.add(p, std::move(owned));
 }
 
+uint32_t ComponentInlineExports::Builder::trackItemOfSort(ComponentSort sort) {
+  switch (sort) {
+    case ComponentSort::Func:
+      return numFuncs++;
+    case ComponentSort::Type:
+      return numTypes++;
+    case ComponentSort::Component:
+      return numComponents++;
+    case ComponentSort::Instance:
+      return numInstances++;
+    case ComponentSort::CoreFunction:
+      return numCoreFunctions++;
+    case ComponentSort::CoreTable:
+      return numCoreTables++;
+    case ComponentSort::CoreMemory:
+      return numCoreMemories++;
+    case ComponentSort::CoreGlobal:
+      return numCoreGlobals++;
+    case ComponentSort::CoreTag:
+      return numCoreTags++;
+    case ComponentSort::CoreType:
+      return numCoreTypes++;
+    case ComponentSort::CoreModule:
+      return numCoreModules++;
+    case ComponentSort::CoreInstance:
+      return numCoreInstances++;
+    default:
+      MOZ_CRASH();
+  }
+}
+
+bool ComponentInlineExports::addExport(Builder* builder, CacheableName&& name,
+                                       ComponentSort sort, uint32_t index) {
+  uint32_t indexInThisInstance = builder->trackItemOfSort(sort);
+  ComponentItem exportItem = ComponentItem::raw(sort, indexInThisInstance);
+
+  // Add export name -> item-in-this-instance mapping
+  auto p1 = exports_.lookupForAdd(name.utf8Bytes());
+  MOZ_RELEASE_ASSERT(!p1, "duplicates should have been caught in validation");
+  if (!exports_.add(p1, std::move(name), exportItem)) {
+    return false;
+  }
+
+  // Add item-in-this-instance -> original index mapping
+  auto p2 = originalIndices_.lookupForAdd(
+      ComponentItem::raw(sort, indexInThisInstance));
+  MOZ_RELEASE_ASSERT(!p2);
+  if (!originalIndices_.add(p2, exportItem, index)) {
+    return false;
+  }
+
+  return true;
+}
+
+mozilla::Maybe<ComponentItem> ComponentInlineExports::getExport(
+    const CacheableName& name) const {
+  auto p = exports_.lookup(name.utf8Bytes());
+  if (!p) {
+    return mozilla::Nothing();
+  }
+  return mozilla::Some(p->value());
+}
+
+ComponentItem ComponentInlineExports::resolveOriginalItem(
+    ComponentItem exp) const {
+  auto p = originalIndices_.lookup(exp);
+  MOZ_RELEASE_ASSERT(p.found());
+  ComponentItem orig = ComponentItem::raw(exp.sort(), p->value());
+  MOZ_ASSERT(orig.sort() == exp.sort());
+  return orig;
+}
+
+mozilla::Maybe<ComponentItem> CoreInstanceDesc::getExport(
+    const CacheableName& name) const {
+  return desc_.match(
+      [&](const CoreInstanceDescFromModule& fromModule)
+          -> mozilla::Maybe<ComponentItem> {
+        SharedModule mod = component_->getCoreModule(fromModule.moduleIndex);
+        mozilla::Maybe<const Export&> exp = mod->moduleMeta().getExport(name);
+        if (exp.isNothing()) {
+          return mozilla::Nothing();
+        }
+        switch (exp->kind()) {
+          case DefinitionKind::Function:
+            return mozilla::Some(ComponentItem::raw(ComponentSort::CoreFunction,
+                                                    exp->funcIndex()));
+          case DefinitionKind::Table:
+            return mozilla::Some(ComponentItem::raw(ComponentSort::CoreTable,
+                                                    exp->tableIndex()));
+          case DefinitionKind::Memory:
+            return mozilla::Some(ComponentItem::raw(ComponentSort::CoreMemory,
+                                                    exp->memoryIndex()));
+          case DefinitionKind::Global:
+            return mozilla::Some(ComponentItem::raw(ComponentSort::CoreGlobal,
+                                                    exp->globalIndex()));
+          case DefinitionKind::Tag:
+            return mozilla::Some(
+                ComponentItem::raw(ComponentSort::CoreTag, exp->tagIndex()));
+          default:
+            MOZ_CRASH();
+        }
+      },
+      [&](const ComponentInlineExports& inlineExports)
+          -> mozilla::Maybe<ComponentItem> {
+        return inlineExports.getExport(name);
+      });
+}
+
+const TypeDef& CoreInstanceDesc::getCoreFuncType(uint32_t coreFuncIndex) const {
+  return desc_.match(
+      [&](const CoreInstanceDescFromModule& fromModule) -> const TypeDef& {
+        SharedModule mod = component_->getCoreModule(fromModule.moduleIndex);
+        return mod->codeMeta().getFuncTypeDef(coreFuncIndex);
+      },
+      [&](const ComponentInlineExports& inlineExports) -> const TypeDef& {
+        ComponentItem originalFunc = inlineExports.resolveOriginalItem(
+            ComponentItem::raw(ComponentSort::CoreFunction, coreFuncIndex));
+        return component_->getTypeForCoreFunc(originalFunc.itemIndex());
+      });
+}
+
+const TableDesc& CoreInstanceDesc::getTable(uint32_t tableIndex) const {
+  return desc_.match(
+      [&](const CoreInstanceDescFromModule& fromModule) -> const TableDesc& {
+        SharedModule mod = component_->getCoreModule(fromModule.moduleIndex);
+        return mod->codeMeta().tables[tableIndex];
+      },
+      [&](const ComponentInlineExports& inlineExports) -> const TableDesc& {
+        ComponentItem originalTable = inlineExports.resolveOriginalItem(
+            ComponentItem::raw(ComponentSort::CoreTable, tableIndex));
+        return component_->getCoreTable(originalTable.itemIndex());
+      });
+}
+
+const MemoryDesc& CoreInstanceDesc::getMemory(uint32_t memoryIndex) const {
+  return desc_.match(
+      [&](const CoreInstanceDescFromModule& fromModule) -> const MemoryDesc& {
+        SharedModule mod = component_->getCoreModule(fromModule.moduleIndex);
+        return mod->codeMeta().memories[memoryIndex];
+      },
+      [&](const ComponentInlineExports& inlineExports) -> const MemoryDesc& {
+        ComponentItem originalMemory = inlineExports.resolveOriginalItem(
+            ComponentItem::raw(ComponentSort::CoreMemory, memoryIndex));
+        return component_->getCoreMemory(originalMemory.itemIndex());
+      });
+}
+
+const GlobalDesc& CoreInstanceDesc::getGlobal(uint32_t globalIndex) const {
+  return desc_.match(
+      [&](const CoreInstanceDescFromModule& fromModule) -> const GlobalDesc& {
+        SharedModule mod = component_->getCoreModule(fromModule.moduleIndex);
+        return mod->codeMeta().globals[globalIndex];
+      },
+      [&](const ComponentInlineExports& inlineExports) -> const GlobalDesc& {
+        ComponentItem originalGlobal = inlineExports.resolveOriginalItem(
+            ComponentItem::raw(ComponentSort::CoreGlobal, globalIndex));
+        return component_->getCoreGlobal(originalGlobal.itemIndex());
+      });
+}
+
+const TagDesc& CoreInstanceDesc::getTag(uint32_t tagIndex) const {
+  return desc_.match(
+      [&](const CoreInstanceDescFromModule& fromModule) -> const TagDesc& {
+        SharedModule mod = component_->getCoreModule(fromModule.moduleIndex);
+        return mod->codeMeta().tags[tagIndex];
+      },
+      [&](const ComponentInlineExports& inlineExports) -> const TagDesc& {
+        ComponentItem originalTag = inlineExports.resolveOriginalItem(
+            ComponentItem::raw(ComponentSort::CoreTag, tagIndex));
+        return component_->getCoreTag(originalTag.itemIndex());
+      });
+}
+
 bool ComponentExternDesc::matches(const ComponentExternDesc& sub,
                                   const ComponentExternDesc& super) {
   MOZ_ASSERT(ComponentSortValidForExternDesc(sub.sort()));
@@ -635,29 +808,92 @@ void wasm::PurgeComponentCanonicalTypes() {
 }
 
 mozilla::Maybe<FuncType> wasm::FlattenFuncType(
-    const Component& c, const ComponentFuncType& funcType) {
+    const ComponentFuncType& funcType, CanonMode mode, bool* memoryRequired,
+    bool* reallocRequired, bool* tooDeep) {
+  const uint32_t MaxFlatParams = 16;
+  const uint32_t MaxFlatResults = 1;
+
   ValTypeVector params;
   ValTypeVector results;
 
-  // TODO(wasm-cm): Handle (and test) the case where params or results exceed
-  // the maximums set by the component model, at which point the ABI falls back
-  // to passing values in memory. (Or maybe this will all change with lazy
-  // lowering, who knows.)
-
-  if (!FlattenTypes(c, funcType.paramTypes, &params)) {
+  bool paramsHaveStringsOrLists = false;
+  bool resultsHaveStringsOrLists = false;
+  if (!FlattenTypes(funcType.paramTypes, &params, &paramsHaveStringsOrLists,
+                    tooDeep, /*depth=*/0)) {
     return mozilla::Nothing();
   }
   if (funcType.resultType.isSome()) {
-    if (!FlattenType(c, funcType.resultType.ref(), &results)) {
+    if (!FlattenType(funcType.resultType.ref(), &results,
+                     &resultsHaveStringsOrLists, tooDeep, /*depth=*/0)) {
       return mozilla::Nothing();
     }
+  }
+
+  // String or list params require realloc on lift and memory on lower.
+  // String or list results require memory on lift and realloc on lower.
+  if ((mode == CanonMode::Lift && resultsHaveStringsOrLists) ||
+      (mode == CanonMode::Lower && paramsHaveStringsOrLists)) {
+    *memoryRequired = true;
+  }
+  if ((mode == CanonMode::Lift && paramsHaveStringsOrLists) ||
+      (mode == CanonMode::Lower && resultsHaveStringsOrLists)) {
+    *reallocRequired = true;
+  }
+
+  // Regardless of lifting or lowering, if there are too many flattened params,
+  // values must be passed in memory. Replace the params with a single pointer
+  // to memory.
+  if (params.length() > MaxFlatParams) {
+    params.clear();
+    if (!params.append(ValType::i32())) {
+      return mozilla::Nothing();
+    }
+
+    // Spilled params must be alloced by the host on lifted functions, whereas
+    // on lowered functions they are allocated by the module and read by the
+    // host.
+    if (mode == CanonMode::Lift) {
+      *reallocRequired = true;
+    } else {
+      *memoryRequired = true;
+    }
+  }
+
+  // If there are too many flattened results (e.g. returning a record), the
+  // results must also be passed in memory. When lifting a core func, the core
+  // module does the obvious thing and allocates space for the results,
+  // returning a pointer. When lowering a component func, however, returning a
+  // pointer would imply that the component callee has to call `realloc` to get
+  // such a pointer, which is dumb when the core caller could just allocate
+  // stack space for it, so instead the canonical ABI chooses to make the
+  // results an out param.
+  if (results.length() > MaxFlatResults) {
+    if (mode == CanonMode::Lift) {
+      results.clear();
+      if (!results.append(ValType::i32())) {
+        return mozilla::Nothing();
+      }
+    } else {
+      if (!params.append(ValType::i32())) {
+        return mozilla::Nothing();
+      }
+      results.clear();
+    }
+
+    *memoryRequired = true;
+  }
+
+  // If realloc is required, memory is always also required.
+  if (*reallocRequired) {
+    *memoryRequired = true;
   }
 
   return mozilla::Some(FuncType(std::move(params), std::move(results)));
 }
 
-bool wasm::FlattenTypes(const Component& c, const ComponentTypeVector& types,
-                        ValTypeVector* result) {
+bool wasm::FlattenTypes(const ComponentTypeVector& types, ValTypeVector* result,
+                        bool* hasStringsOrLists, bool* tooDeep,
+                        uint32_t depth) {
   // Pre-reserve at least enough space for a bunch of primitives. We still may
   // exceed the capacity reserved here but at least we can avoid a little bit of
   // allocation. (Appends after this point are not to be considered infallible.)
@@ -666,7 +902,7 @@ bool wasm::FlattenTypes(const Component& c, const ComponentTypeVector& types,
   }
 
   for (const ComponentType& t : types) {
-    if (!FlattenType(c, t, result)) {
+    if (!FlattenType(t, result, hasStringsOrLists, tooDeep, depth)) {
       return false;
     }
   }
@@ -686,8 +922,14 @@ static ValType JoinVariantValType(ValType a, ValType b) {
   }
 }
 
-bool wasm::FlattenType(const Component& c, const ComponentType& type,
-                       ValTypeVector* result) {
+bool wasm::FlattenType(const ComponentType& type, ValTypeVector* result,
+                       bool* hasStringsOrLists, bool* tooDeep, uint32_t depth) {
+  if (depth > MaxComponentFlatteningDepth) {
+    *tooDeep = true;
+    return false;
+  }
+  depth += 1;
+
   switch (type.kind()) {
     // Simple primitives
     case ComponentTypeKind::Bool:
@@ -725,6 +967,7 @@ bool wasm::FlattenType(const Component& c, const ComponentType& type,
 
     // Strings are always two i32's
     case ComponentTypeKind::String: {
+      *hasStringsOrLists = true;
       if (!result->append(ValType::i32())) {
         return false;
       }
@@ -737,6 +980,7 @@ bool wasm::FlattenType(const Component& c, const ComponentType& type,
     // types disagrees with the categories in the canonical ABI explainer, e.g.
     // we represent tuples as a vector of value types, not a record.
     case ComponentTypeKind::List: {
+      *hasStringsOrLists = true;
       // This will have to change when support is added for fixed-length lists.
       if (!result->append(ValType::i32())) {
         return false;
@@ -746,12 +990,14 @@ bool wasm::FlattenType(const Component& c, const ComponentType& type,
       }
     } break;
     case ComponentTypeKind::Record: {
-      if (!FlattenRecord(c, type.asRecord(), result)) {
+      if (!FlattenRecord(type.asRecord(), result, hasStringsOrLists, tooDeep,
+                         depth)) {
         return false;
       }
     } break;
     case ComponentTypeKind::Tuple: {
-      if (!FlattenTypes(c, type.asTuple(), result)) {
+      if (!FlattenTypes(type.asTuple(), result, hasStringsOrLists, tooDeep,
+                        depth)) {
         return false;
       }
     } break;
@@ -770,7 +1016,8 @@ bool wasm::FlattenType(const Component& c, const ComponentType& type,
         }
 
         ValTypeVector caseFlattened;
-        if (!FlattenType(c, *case_.type, &caseFlattened)) {
+        if (!FlattenType(*case_.type, &caseFlattened, hasStringsOrLists,
+                         tooDeep, depth)) {
           return false;
         }
         for (size_t i = 0; i < caseFlattened.length(); i++) {
@@ -793,7 +1040,7 @@ bool wasm::FlattenType(const Component& c, const ComponentType& type,
       if (!result->append(ValType::i32())) {
         return false;
       }
-      if (!FlattenType(c, inner, result)) {
+      if (!FlattenType(inner, result, hasStringsOrLists, tooDeep, depth)) {
         return false;
       }
     } break;
@@ -810,13 +1057,15 @@ bool wasm::FlattenType(const Component& c, const ComponentType& type,
       // Payload(s)
       size_t startIndex = result->length();
       if (inner.type.isSome()) {
-        if (!FlattenType(c, *inner.type, result)) {
+        if (!FlattenType(*inner.type, result, hasStringsOrLists, tooDeep,
+                         depth)) {
           return false;
         }
       }
       if (inner.errorType.isSome()) {
         ValTypeVector errorFlattened;
-        if (!FlattenType(c, *inner.errorType, &errorFlattened)) {
+        if (!FlattenType(*inner.errorType, &errorFlattened, hasStringsOrLists,
+                         tooDeep, depth)) {
           return false;
         }
         for (size_t i = 0; i < errorFlattened.length(); i++) {
@@ -840,11 +1089,11 @@ bool wasm::FlattenType(const Component& c, const ComponentType& type,
   return true;
 }
 
-bool wasm::FlattenRecord(const Component& c,
-                         const ComponentRecordFieldVector& fields,
-                         ValTypeVector* result) {
+bool wasm::FlattenRecord(const ComponentRecordFieldVector& fields,
+                         ValTypeVector* result, bool* hasStringsOrLists,
+                         bool* tooDeep, uint32_t depth) {
   for (const ComponentRecordField& field : fields) {
-    if (!FlattenType(c, field.type, result)) {
+    if (!FlattenType(field.type, result, hasStringsOrLists, tooDeep, depth)) {
       return false;
     }
   }
@@ -888,7 +1137,7 @@ bool Component::addImport(ComponentImport&& import) {
   }
 
   // Add import to appropriate index space
-  ComponentItem item = ComponentItem::import(importIndex);
+  ComponentItem item = ComponentItem::import(sort, importIndex);
   switch (sort) {
     case ComponentSort::Func: {
       if (!funcs_.append(item)) {
@@ -933,7 +1182,7 @@ bool Component::addExport(ComponentExport&& exp) {
   }
 
   // Add export to appropriate index space
-  ComponentItem item = ComponentItem::export_(exportIndex);
+  ComponentItem item = ComponentItem::export_(sort, exportIndex);
   switch (sort) {
     case ComponentSort::Func: {
       if (!funcs_.append(item)) {
@@ -965,6 +1214,219 @@ bool Component::addExport(ComponentExport&& exp) {
   }
 
   return true;
+}
+
+ComponentType Component::getType(uint32_t typeIndex) const {
+  ComponentItem item = types_[typeIndex];
+  MOZ_ASSERT(item.sort() == ComponentSort::Type);
+  switch (item.kind()) {
+    case ComponentItem::ItemKind::Defined:
+      return definedTypes_[item.itemIndex()];
+    case ComponentItem::ItemKind::Import:
+      return imports_[item.itemIndex()].externDesc().asType();
+    case ComponentItem::ItemKind::Export:
+      return exports_[item.itemIndex()].externDesc().asType();
+    case ComponentItem::ItemKind::Alias:
+      MOZ_CRASH("should be impossible for now");
+    default:
+      MOZ_CRASH();
+  }
+}
+
+ComponentType Component::getTypeForFunc(uint32_t funcIndex) const {
+  ComponentItem item = funcs_[funcIndex];
+  MOZ_ASSERT(item.sort() == ComponentSort::Func);
+  switch (item.kind()) {
+    case ComponentItem::ItemKind::Defined:
+      return getType(definedFuncs_[item.itemIndex()].typeIndex());
+    case ComponentItem::ItemKind::Import:
+      return imports_[item.itemIndex()].externDesc().asFunc();
+    case ComponentItem::ItemKind::Export:
+      return exports_[item.itemIndex()].externDesc().asFunc();
+    case ComponentItem::ItemKind::Alias:
+      MOZ_CRASH("should be impossible for now");
+    default:
+      MOZ_CRASH();
+  }
+}
+
+const TypeDef& Component::getTypeForCoreFunc(uint32_t coreFuncIndex) const {
+  ComponentItem item = coreFuncs_[coreFuncIndex];
+  MOZ_ASSERT(item.sort() == ComponentSort::CoreFunction);
+  switch (item.kind()) {
+    case ComponentItem::ItemKind::Defined:
+      return *loweredFuncs_[item.itemIndex()].flattenedType();
+    case ComponentItem::ItemKind::Import:
+    case ComponentItem::ItemKind::Export:
+      // Core funcs cannot be imported or exported.
+      MOZ_CRASH();
+    case ComponentItem::ItemKind::Alias: {
+      if (item.aliasKind() == ComponentAliasKind::Outer) {
+        // TODO(wasm-cm): Right now we should only produce outer aliases with
+        // an index of 0. In the future this will need to be expanded to
+        // handle all outer aliases.
+        //
+        // TODO(wasm-cm): Well, but is it ever valid to outer-alias a core
+        // thing (other than a module) with a depth other than 0? Probably
+        // not.
+        MOZ_RELEASE_ASSERT(item.aliasInstanceIndex() == 0);
+        return getTypeForCoreFunc(item.itemIndex());
+      }
+      MOZ_RELEASE_ASSERT(item.aliasKind() == ComponentAliasKind::CoreExport);
+      return getCoreInstance(item.aliasInstanceIndex())
+          .getCoreFuncType(item.itemIndex());
+    } break;
+    default:
+      MOZ_CRASH();
+  }
+}
+
+const TableDesc& Component::getCoreTable(uint32_t tableIndex) const {
+  ComponentItem item = coreTables_[tableIndex];
+  MOZ_ASSERT(item.sort() == ComponentSort::CoreTable);
+  switch (item.kind()) {
+    case ComponentItem::ItemKind::Defined:
+    case ComponentItem::ItemKind::Import:
+    case ComponentItem::ItemKind::Export:
+      // Tables cannot be defined, imported, or exported.
+      MOZ_CRASH();
+    case ComponentItem::ItemKind::Alias: {
+      if (item.aliasKind() == ComponentAliasKind::Outer) {
+        // TODO(wasm-cm): Right now we should only produce outer aliases with
+        // an index of 0. In the future this will need to be expanded to
+        // handle all outer aliases.
+        MOZ_RELEASE_ASSERT(item.aliasInstanceIndex() == 0);
+        return getCoreTable(item.itemIndex());
+      }
+      MOZ_RELEASE_ASSERT(item.aliasKind() == ComponentAliasKind::CoreExport);
+
+      return getCoreInstance(item.aliasInstanceIndex())
+          .getTable(item.itemIndex());
+    } break;
+    default:
+      MOZ_CRASH();
+  }
+}
+
+const MemoryDesc& Component::getCoreMemory(uint32_t memoryIndex) const {
+  ComponentItem item = coreMemories_[memoryIndex];
+  MOZ_ASSERT(item.sort() == ComponentSort::CoreMemory);
+  switch (item.kind()) {
+    case ComponentItem::ItemKind::Defined:
+    case ComponentItem::ItemKind::Import:
+    case ComponentItem::ItemKind::Export:
+      // Memories cannot be defined, imported, or exported.
+      MOZ_CRASH();
+    case ComponentItem::ItemKind::Alias: {
+      if (item.aliasKind() == ComponentAliasKind::Outer) {
+        // TODO(wasm-cm): Right now we should only produce outer aliases with
+        // an index of 0. In the future this will need to be expanded to
+        // handle all outer aliases.
+        MOZ_RELEASE_ASSERT(item.aliasInstanceIndex() == 0);
+        return getCoreMemory(item.itemIndex());
+      }
+      MOZ_RELEASE_ASSERT(item.aliasKind() == ComponentAliasKind::CoreExport);
+
+      return getCoreInstance(item.aliasInstanceIndex())
+          .getMemory(item.itemIndex());
+    } break;
+    default:
+      MOZ_CRASH();
+  }
+}
+
+const GlobalDesc& Component::getCoreGlobal(uint32_t globalIndex) const {
+  ComponentItem item = coreGlobals_[globalIndex];
+  MOZ_ASSERT(item.sort() == ComponentSort::CoreGlobal);
+  switch (item.kind()) {
+    case ComponentItem::ItemKind::Defined:
+    case ComponentItem::ItemKind::Import:
+    case ComponentItem::ItemKind::Export:
+      // Globals cannot be defined, imported, or exported.
+      MOZ_CRASH();
+    case ComponentItem::ItemKind::Alias: {
+      if (item.aliasKind() == ComponentAliasKind::Outer) {
+        // TODO(wasm-cm): Right now we should only produce outer aliases with
+        // an index of 0. In the future this will need to be expanded to
+        // handle all outer aliases.
+        MOZ_RELEASE_ASSERT(item.aliasInstanceIndex() == 0);
+        return getCoreGlobal(item.itemIndex());
+      }
+      MOZ_RELEASE_ASSERT(item.aliasKind() == ComponentAliasKind::CoreExport);
+
+      return getCoreInstance(item.aliasInstanceIndex())
+          .getGlobal(item.itemIndex());
+    } break;
+    default:
+      MOZ_CRASH();
+  }
+}
+
+const TagDesc& Component::getCoreTag(uint32_t tagIndex) const {
+  ComponentItem item = coreTags_[tagIndex];
+  MOZ_ASSERT(item.sort() == ComponentSort::CoreTag);
+  switch (item.kind()) {
+    case ComponentItem::ItemKind::Defined:
+    case ComponentItem::ItemKind::Import:
+    case ComponentItem::ItemKind::Export:
+      // Tags cannot be defined, imported, or exported.
+      MOZ_CRASH();
+    case ComponentItem::ItemKind::Alias: {
+      if (item.aliasKind() == ComponentAliasKind::Outer) {
+        // TODO(wasm-cm): Right now we should only produce outer aliases with
+        // an index of 0. In the future this will need to be expanded to
+        // handle all outer aliases.
+        MOZ_RELEASE_ASSERT(item.aliasInstanceIndex() == 0);
+        return getCoreTag(item.itemIndex());
+      }
+      MOZ_RELEASE_ASSERT(item.aliasKind() == ComponentAliasKind::CoreExport);
+
+      return getCoreInstance(item.aliasInstanceIndex())
+          .getTag(item.itemIndex());
+    } break;
+    default:
+      MOZ_CRASH();
+  }
+}
+
+SharedModule Component::getCoreModule(uint32_t modIndex) const {
+  ComponentItem item = coreModules_[modIndex];
+  MOZ_ASSERT(item.sort() == ComponentSort::CoreModule);
+  switch (item.kind()) {
+    case ComponentItem::ItemKind::Defined:
+      return definedCoreModules_[item.itemIndex()];
+    case ComponentItem::ItemKind::Import:
+      // TODO(wasm-cm): Fix when core module types are supported
+      MOZ_CRASH("should be impossible for now");
+    case ComponentItem::ItemKind::Export: {
+      const ComponentExport& exp = exports_[item.itemIndex()];
+      MOZ_ASSERT(exp.externDesc().sort() == ComponentSort::CoreModule);
+      return definedCoreModules_[exp.externDesc().asCoreModule()];
+    } break;
+    case ComponentItem::ItemKind::Alias:
+      // TODO(wasm-cm): Fix when nested components are supported
+      MOZ_CRASH("should be impossible for now");
+    default:
+      MOZ_CRASH();
+  }
+}
+
+const CoreInstanceDesc& Component::getCoreInstance(
+    uint32_t instanceIndex) const {
+  ComponentItem item = coreInstances_[instanceIndex];
+  MOZ_ASSERT(item.sort() == ComponentSort::CoreInstance);
+  switch (item.kind()) {
+    case ComponentItem::ItemKind::Defined:
+      return definedCoreInstances_[item.itemIndex()];
+    case ComponentItem::ItemKind::Import:
+    case ComponentItem::ItemKind::Export:
+    case ComponentItem::ItemKind::Alias:
+      // Core instances cannot be imported or exported, and because of this,
+      // they cannot be aliased either.
+      MOZ_CRASH();
+    default:
+      MOZ_CRASH();
+  }
 }
 
 #endif  // ENABLE_WASM_COMPONENTS

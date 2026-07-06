@@ -4,7 +4,6 @@
 
 package org.mozilla.fenix.home.topsites
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +24,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -38,7 +38,6 @@ import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -55,7 +54,6 @@ import mozilla.components.compose.base.PagerIndicator
 import mozilla.components.compose.base.annotation.FlexibleWindowPreview
 import mozilla.components.compose.base.modifier.rightClickable
 import mozilla.components.feature.top.sites.TopSite
-import mozilla.components.ui.colors.PhotonColors
 import org.mozilla.fenix.R
 import org.mozilla.fenix.compose.ContextualMenu
 import org.mozilla.fenix.compose.Favicon
@@ -517,10 +515,10 @@ fun TopSiteItem(
                             .size(16.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Image(
+                        Icon(
                             painter = painterResource(id = iconsR.drawable.mozac_ic_pin_8),
-                            colorFilter = ColorFilter.tint(PhotonColors.LightGrey80),
                             contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
                         )
                     }
                 }

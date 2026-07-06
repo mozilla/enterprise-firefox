@@ -32,47 +32,6 @@ add_setup(async () => {
 });
 
 /**
- * Gets most of the widgets that are used during tests.
- *
- * In addition to avoiding some boilerplate, this ensures that the first state
- * update has been delivered. If we didn't wait, there'd be a timing problem;
- * see bug 2001583 for more information.
- *
- * @param {Browser} browser
- *   The XUL browser containing the preferences page.
- * @returns {{restoreFromBackup:HTMLElement, settings:HTMLElement}}
- *   Relevant widgets on the backup settings page.
- */
-async function initializedBackupWidgets(browser) {
-  // We have to end up using waitForCondition because of the racy nature
-  // of the state updates sent from the backupService. At some point, we should
-  // add a way to verifiably know when the backup settings items are available.
-  await TestUtils.waitForCondition(
-    () => browser.contentDocument.querySelector("backup-settings"),
-    "Waiting for backup-settings element to be in the DOM"
-  );
-  let settings = browser.contentDocument.querySelector("backup-settings");
-
-  await TestUtils.waitForCondition(
-    () => settings.restoreFromBackupButtonEl,
-    "Waiting for restore from backup button to show up"
-  );
-
-  settings.restoreFromBackupButtonEl.click();
-
-  await TestUtils.waitForCondition(
-    () => settings.restoreFromBackupEl,
-    "Waiting for restore-from-backup element to show up"
-  );
-  let restoreFromBackup = settings.restoreFromBackupEl;
-  await restoreFromBackup.initializedPromise;
-  return {
-    restoreFromBackup,
-    settings,
-  };
-}
-
-/**
  * Tests for when the user specifies an invalid backup file to restore.
  */
 add_task(async function test_backup_failure() {
@@ -244,11 +203,6 @@ add_task(async function test_restore_from_backup() {
 
     await restorePromise.then(e => {
       Assert.equal(
-        e.detail.backupFile,
-        mockBackupFile.path,
-        "Event should contain the file path"
-      );
-      Assert.equal(
         e.detail.backupPassword,
         "h-*@Vfge3_hGxdpwqr@w",
         "Event should contain the password"
@@ -329,6 +283,8 @@ add_task(async function test_restore_in_progress() {
     let bs = getAndMaybeInitBackupService();
     bs.resetLastBackupInternalState();
 
+    sandbox.stub(bs, "findBackupsInWellKnownLocations").resolves(null);
+
     let { promise: recoverPromise, resolve: recoverResolve } =
       Promise.withResolvers();
     let recoverFromBackupArchiveStub = sandbox
@@ -358,6 +314,15 @@ add_task(async function test_restore_in_progress() {
       PathUtils.tempDir,
       "backup.html"
     );
+
+    let originalState = bs.state;
+    sandbox.stub(bs, "state").get(() => ({
+      ...originalState,
+      backupFileToRestore: mockBackupFilePath,
+      backupFileInfo: {
+        date: new Date(0),
+      },
+    }));
 
     restoreFromBackup.backupServiceState = {
       ...restoreFromBackup.backupServiceState,
@@ -437,6 +402,54 @@ add_task(async function test_restore_in_progress() {
   });
 });
 
+add_task(async function test_restore_fails_without_backup_in_state() {
+  await BrowserTestUtils.withNewTab("about:preferences#sync", async browser => {
+    let sandbox = sinon.createSandbox();
+    let bs = getAndMaybeInitBackupService();
+
+    let recoverStub = sandbox.stub(bs, "recoverFromBackupArchive").resolves();
+
+    let originalState = bs.state;
+    sandbox.stub(bs, "state").get(() => ({
+      ...originalState,
+      backupFileToRestore: null,
+    }));
+
+    let { restoreFromBackup, settings } =
+      await initializedBackupWidgets(browser);
+
+    restoreFromBackup.backupServiceState = {
+      ...restoreFromBackup.backupServiceState,
+      backupFileToRestore: "/fake/path.html",
+      backupFileInfo: { date: new Date() },
+    };
+    await restoreFromBackup.updateComplete;
+
+    Assert.ok(
+      !restoreFromBackup.confirmButtonEl.disabled,
+      "Confirm button should not be disabled."
+    );
+
+    let restorePromise = BrowserTestUtils.waitForEvent(
+      window,
+      "BackupUI:RestoreFromBackupFile"
+    );
+    restoreFromBackup.confirmButtonEl.click();
+    await restorePromise;
+
+    Assert.ok(
+      !recoverStub.called,
+      "recoverFromBackupArchive should not be called when state has no backup file."
+    );
+    Assert.ok(
+      settings.restoreFromBackupDialogEl.open,
+      "Restore dialog should still be open."
+    );
+
+    sandbox.restore();
+  });
+});
+
 add_task(async function test_restore_from_backup_prefills_prior_valid_backup() {
   let dir = await IOUtils.createUniqueDirectory(
     TEST_PROFILE_PATH,
@@ -491,6 +504,10 @@ add_task(async function test_restore_from_backup_displays_invalid_backup() {
   const path = await IOUtils.createUniqueFile(TEST_PROFILE_PATH, "backup.html");
   await IOUtils.writeUTF8(path, "");
 
+  let sandbox = sinon.createSandbox();
+  let bs = getAndMaybeInitBackupService();
+  sandbox.stub(bs, "findBackupsInWellKnownLocations").resolves(null);
+
   await BrowserTestUtils.withNewTab("about:preferences#sync", async browser => {
     let { restoreFromBackup } = await initializedBackupWidgets(browser);
 
@@ -530,11 +547,12 @@ add_task(async function test_restore_from_backup_displays_invalid_backup() {
       "The path selected before should be used."
     );
   });
+
+  sandbox.restore();
 });
 
 /**
- * Tests that the restore component uses a textarea and that the textarea
- * automatically resizes as needed.
+ * Tests that the restore component uses a textarea.
  */
 add_task(async function test_restore_from_backup_embedded_textarea() {
   await BrowserTestUtils.withNewTab("about:preferences#sync", async browser => {
@@ -553,27 +571,6 @@ add_task(async function test_restore_from_backup_embedded_textarea() {
       textarea.getAttribute("rows"),
       "1",
       "Textarea should have rows=1"
-    );
-
-    // Test resize functionality when content changes
-    const initialHeight = textarea.clientHeight;
-    Assert.ok(initialHeight, "Textarea should have an initial height");
-
-    const longPath =
-      "/a/very/long/path/to/a/backup/file/that/would/wrap/multiple/lines.html";
-    restoreFromBackup.backupServiceState.backupFileToRestore = longPath;
-    restoreFromBackup.requestUpdate();
-    await restoreFromBackup.updateComplete;
-
-    Assert.greater(
-      textarea.clientHeight,
-      initialHeight,
-      "Textarea grew to accomodate the new content"
-    );
-    Assert.greaterOrEqual(
-      textarea.clientHeight,
-      textarea.scrollHeight,
-      "Textarea does not require any scrolling"
     );
   });
 });

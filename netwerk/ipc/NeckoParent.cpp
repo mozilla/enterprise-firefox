@@ -354,7 +354,8 @@ mozilla::ipc::IPCResult NeckoParent::RecvConnectBaseChannel(
       new nsBaseParentChannel(ContentParent::Cast(Manager())->GetRemoteType());
 
   nsCOMPtr<nsIChannel> channel;
-  NS_LinkRedirectChannels(channelId, parentChannel, getter_AddRefs(channel));
+  NS_LinkRedirectChannels(channelId, ContentParent::Cast(Manager())->ChildID(),
+                          parentChannel, getter_AddRefs(channel));
   return IPC_OK();
 }
 
@@ -742,6 +743,13 @@ mozilla::ipc::IPCResult NeckoParent::RecvGetPageThumbStream(
     return IPC_FAIL(this, "Wrong process type");
   }
 
+  nsCOMPtr<nsILoadInfo> loadInfo;
+  nsresult rv = mozilla::ipc::LoadInfoArgsToLoadInfo(
+      aLoadInfoArgs, PRIVILEGEDABOUT_REMOTE_TYPE, getter_AddRefs(loadInfo));
+  if (NS_FAILED(rv)) {
+    return IPC_FAIL(this, "moz-page-thumb request must include loadInfo");
+  }
+
   RefPtr<PageThumbProtocolHandler> ph(PageThumbProtocolHandler::GetSingleton());
   MOZ_ASSERT(ph);
 
@@ -753,7 +761,7 @@ mozilla::ipc::IPCResult NeckoParent::RecvGetPageThumbStream(
   // validating the request.
   nsCOMPtr<nsIInputStream> inputStream;
   bool terminateSender = true;
-  auto inputStreamPromise = ph->NewStream(aURI, &terminateSender);
+  auto inputStreamPromise = ph->NewStream(aURI, loadInfo, &terminateSender);
 
   if (terminateSender) {
     return IPC_FAIL(this, "Malformed moz-page-thumb request");
@@ -787,6 +795,13 @@ mozilla::ipc::IPCResult NeckoParent::RecvGetMozNewTabWallpaperStream(
     return IPC_FAIL(this, "Wrong process type");
   }
 
+  nsCOMPtr<nsILoadInfo> loadInfo;
+  nsresult rv = mozilla::ipc::LoadInfoArgsToLoadInfo(
+      aLoadInfoArgs, PRIVILEGEDABOUT_REMOTE_TYPE, getter_AddRefs(loadInfo));
+  if (NS_FAILED(rv)) {
+    return IPC_FAIL(this, "moz-newtab-wallpaper request must include loadInfo");
+  }
+
   RefPtr<net::MozNewTabWallpaperProtocolHandler> ph(
       net::MozNewTabWallpaperProtocolHandler::GetSingleton());
   MOZ_ASSERT(ph);
@@ -799,7 +814,7 @@ mozilla::ipc::IPCResult NeckoParent::RecvGetMozNewTabWallpaperStream(
   // validating the request.
   nsCOMPtr<nsIInputStream> inputStream;
   bool terminateSender = true;
-  auto inputStreamPromise = ph->NewStream(aURI, &terminateSender);
+  auto inputStreamPromise = ph->NewStream(aURI, loadInfo, &terminateSender);
 
   if (terminateSender) {
     return IPC_FAIL(this, "Malformed moz-newtab-wallpaper request");

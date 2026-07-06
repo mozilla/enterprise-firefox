@@ -30,6 +30,7 @@ for path in paths:
         raise OSError(f"{path} does not exist. ")
     sys.path.insert(0, path)
 
+from addon_utils import is_local_path, is_url, resolve_amo_addon
 from chrome_trace import ChromeTrace
 from cmdline import (
     CHROME_ANDROID_APPS,
@@ -39,7 +40,7 @@ from cmdline import (
     TRACE_APPS,
 )
 from condprof.client import ProfileNotFoundError, get_profile
-from condprof.util import get_current_platform
+from condprof.util import download_file, get_current_platform
 from etw_profile import ETWProfile
 from gecko_profile import GeckoProfile
 from logger.logger import RaptorLogger
@@ -114,6 +115,7 @@ class Perftest(metaclass=ABCMeta):
         clean=False,
         screenshot_on_failure=False,
         power_test=False,
+        install_extensions=None,
         **kwargs,
     ):
         self._remote_test_root = None
@@ -164,6 +166,7 @@ class Perftest(metaclass=ABCMeta):
             "clean": clean,
             "screenshot_on_failure": screenshot_on_failure,
             "power_test": power_test,
+            "install_extensions": install_extensions or [],
         }
 
         self.firefox_android_apps = FIREFOX_ANDROID_APPS
@@ -436,12 +439,55 @@ class Perftest(metaclass=ABCMeta):
             LOG.info(f"Merging profile: {path}")
             self.profile.merge(path)
 
-        LOG.info("Browser preferences: {}".format(self.config["extra_prefs"]))
+        LOG.info(f"Browser preferences: {self.config['extra_prefs']}")
         self.profile.set_preferences(self.config["extra_prefs"])
+
+        self.install_extra_extensions()
 
         # share the profile dir with the config and the control server
         self.config["local_profile_dir"] = self.profile.profile
         LOG.info(f"Local browser profile: {self.profile.profile}")
+
+    def install_extra_extensions(self):
+        """Install webextensions requested via --install-extension into the profile.
+
+        Each entry may be an AMO addon GUID/slug, a direct .xpi URL, or a local
+        .xpi path. A single entry may also be a comma-separated list of these, which
+        is how `mach try perf` forwards them through the PERF_FLAGS environment.
+        """
+        install_extensions = [
+            entry
+            for value in self.config.get("install_extensions") or []
+            for entry in value.split(",")
+            if entry
+        ]
+        if not install_extensions:
+            return
+
+        # Sideloaded extensions are disabled by default; these prefs make them
+        # install and enable on startup (mirrors the condprof webext customization).
+        self.profile.set_preferences({
+            "extensions.autoDisableScopes": 0,
+            "extensions.enabledScopes": 1,
+            "extensions.startupScanScopes": 1,
+        })
+
+        xpis = []
+        for entry in install_extensions:
+            if is_local_path(entry):
+                xpis.append(entry)
+            else:
+                url = entry if is_url(entry) else resolve_amo_addon(entry)
+                LOG.info(f"Downloading webextension {entry} from {url}")
+                xpis.append(download_file(url, mozfetches_subdir="firefox-addons"))
+
+        self.profile.addons.install(xpis)
+        for xpi in xpis:
+            details = self.profile.addons.addon_details(xpi)
+            LOG.info(
+                f"Installed webextension {details['id']} "
+                f"({details['version']}) into the test profile"
+            )
 
     @property
     def profile_data_dir(self):
@@ -611,17 +657,22 @@ class Perftest(metaclass=ABCMeta):
 
     def start_playback(self, test):
         # creating the playback tool
-        playback_dir = os.path.join(here, "tooltool-manifests", "playback")
+        manifests_subdir = test.get("playback_manifests_dir", "playback")
+        playback_dir = os.path.join(here, "tooltool-manifests", manifests_subdir)
 
         playback_manifest = test.get("playback_pageset_manifest")
         playback_manifests = playback_manifest.split(",")
+        playback_files = [
+            os.path.join(playback_dir, manifest) for manifest in playback_manifests
+        ]
 
         self.config.update({
             "playback_tool": test.get("playback"),
             "playback_version": test.get("playback_version", "8.1.1"),
-            "playback_files": [
-                os.path.join(playback_dir, manifest) for manifest in playback_manifests
-            ],
+            "playback_files": playback_files,
+            "verbose": self.config.get("verbose", False)
+            or bool(test.get("verbose", False)),
+            "test_name": test.get("name", ""),
         })
 
         LOG.info(f"test uses playback tool: {self.config['playback_tool']} ")

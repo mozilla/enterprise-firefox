@@ -5,6 +5,7 @@
 import React, { useCallback } from "react";
 import { useSelector } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
+import { WALLPAPER_CATEGORIES } from "content-src/lib/constants.mjs";
 import { FeatureHighlight } from "./FeatureHighlight";
 
 export function WallpaperFeatureHighlight({
@@ -23,7 +24,11 @@ export function WallpaperFeatureHighlight({
 
   const onToggleClick = useCallback(
     elementId => {
-      dispatch({ type: at.SHOW_PERSONALIZE });
+      // Deep-link the customize panel into the Firefox wallpaper category.
+      dispatch({
+        type: at.SHOW_PERSONALIZE,
+        data: { wallpaperCategory: WALLPAPER_CATEGORIES.Firefox },
+      });
       dispatch(ac.UserEvent({ event: "SHOW_PERSONALIZE" }));
       handleClick(elementId);
       onDismiss();
@@ -33,9 +38,18 @@ export function WallpaperFeatureHighlight({
 
   // Extract the strings and feature ID from OMC
   const { messageData } = useSelector(state => state.Messages);
+  const { messageType } = messageData?.content || {};
+  const isSemiFinal =
+    isNova && messageType === "WorldCupSemiFinalWallpaperHighlight";
   const isWorldCup =
-    isNova &&
-    messageData?.content?.messageType === "WorldCupWallpaperHighlight";
+    isNova && (messageType === "WorldCupWallpaperHighlight" || isSemiFinal);
+
+  const worldCupTitleL10nId = isSemiFinal
+    ? "newtab-sports-widget-message-wallpapers-semifinals-title"
+    : "newtab-sports-widget-message-wallpapers-title";
+  const worldCupSubtitleL10nId = isSemiFinal
+    ? "newtab-sports-widget-message-wallpapers-semifinals-body"
+    : "newtab-sports-widget-message-wallpapers-body";
 
   const novaHighlightImage = isWorldCup
     ? "chrome://newtab/content/data/content/assets/highlights/wallpaper-callout.png"
@@ -43,10 +57,10 @@ export function WallpaperFeatureHighlight({
   const novaImgWidth = isWorldCup ? "319" : "207";
   const novaImgHeight = isWorldCup ? "204" : "156";
   const novaTitleL10nId = isWorldCup
-    ? "newtab-sports-widget-message-wallpapers-title"
+    ? worldCupTitleL10nId
     : "newtab-wallpaper-feature-highlight-title";
   const novaSubtitleL10nId = isWorldCup
-    ? "newtab-sports-widget-message-wallpapers-body"
+    ? worldCupSubtitleL10nId
     : "newtab-wallpaper-feature-highlight-subtitle";
   const novaCtaL10nId = isWorldCup
     ? "newtab-sports-widget-message-wallpapers-cta"

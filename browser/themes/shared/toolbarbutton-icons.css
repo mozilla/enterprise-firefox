@@ -76,7 +76,7 @@
 }
 
 #send-tab-button {
-  list-style-image: url("chrome://browser/skin/send-tab-20.svg");
+  list-style-image: url("chrome://browser/skin/send-tab.svg");
 
   &:-moz-locale-dir(rtl) {
     transform: scaleX(-1);
@@ -372,7 +372,7 @@
 
   &.ipprotection-paused {
     list-style-image: url("chrome://browser/content/logos/ipprotection-states.svg#paused");
-    fill: var(--icon-color);
+    fill: var(--toolbarbutton-icon-fill);
 
     &:is([overflowedItem="true"], [cui-areatype="panel"]) {
       list-style-image: url("chrome://browser/content/ipprotection/assets/states/ipprotection-paused.svg");

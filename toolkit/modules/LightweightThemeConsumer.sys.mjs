@@ -345,11 +345,18 @@ LightweightThemeConsumer.prototype = {
       !!lazy.BuiltInThemeConfig.get(themeId)?.inApp;
 
     if (this._isAIWindow) {
-      if (manager.aiThemeData) {
-        themeData = manager.aiThemeData;
+      const useNova = this.BROWSER_NOVA_ENABLED;
+      const cachedData = useNova
+        ? manager.aiNovaThemeData
+        : manager.aiThemeData;
+      if (cachedData) {
+        themeData = cachedData;
         isDefaultOrInApp = true;
       } else {
-        manager.promiseAIThemeData().then(() => {
+        const promise = useNova
+          ? manager.promiseAINovathemeData()
+          : manager.promiseAIThemeData();
+        promise.then(() => {
           if (this._isAIWindow && this._win && !this._win.closed) {
             this._update(this._lastData);
           }

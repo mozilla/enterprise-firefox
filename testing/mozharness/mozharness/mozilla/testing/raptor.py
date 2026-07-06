@@ -648,6 +648,17 @@ class Raptor(
                     "help": "Run power usage testing on mobile tests using a USB power meter.",
                 },
             ],
+            [
+                ["--install-extension"],
+                {
+                    "action": "append",
+                    "dest": "install_extensions",
+                    "default": [],
+                    "help": "Install a webextension into the test profile before "
+                    "running. Accepts an AMO addon GUID/slug, a direct .xpi URL, or a "
+                    "local .xpi path. May be specified multiple times.",
+                },
+            ],
         ]
         + testing_config_options
         + copy.deepcopy(code_coverage_config_options)
@@ -943,27 +954,25 @@ class Raptor(
                 )
             else:
                 self.error(
-                    "Chrome is not installed on the platform %s yet."
-                    % self.platform_name()
+                    f"Chrome is not installed on the platform {self.platform_name()} yet."
                 )
 
             if os.path.exists(self.chromium_dist_path):
                 self.info(
-                    "Google Chrome found in expected location %s"
-                    % self.chromium_dist_path
+                    f"Google Chrome found in expected location {self.chromium_dist_path}"
                 )
             else:
-                self.error("Cannot find Google Chrome at %s" % self.chromium_dist_path)
+                self.error(f"Cannot find Google Chrome at {self.chromium_dist_path}")
 
             return
 
         chromium_dist = self.app
 
         if self.config.get("run_local"):
-            self.info("Expecting %s to be pre-installed locally" % chromium_dist)
+            self.info(f"Expecting {chromium_dist} to be pre-installed locally")
             return
 
-        self.info("Getting fetched %s build" % chromium_dist)
+        self.info(f"Getting fetched {chromium_dist} build")
         self.chromium_dist_dest = os.path.normpath(
             os.path.abspath(os.environ["MOZ_FETCHES_DIR"])
         )
@@ -983,17 +992,16 @@ class Raptor(
                 self.chromium_dist_dest, *binary_location[chromium_dist][win]
             )
 
-        self.info("%s dest is: %s" % (chromium_dist, self.chromium_dist_dest))
-        self.info("%s path is: %s" % (chromium_dist, self.chromium_dist_path))
+        self.info(f"{chromium_dist} dest is: {self.chromium_dist_dest}")
+        self.info(f"{chromium_dist} path is: {self.chromium_dist_path}")
 
         # Now ensure Chromium binary exists
         if os.path.exists(self.chromium_dist_path):
             self.info(
-                "Successfully installed %s to: %s"
-                % (chromium_dist, self.chromium_dist_path)
+                f"Successfully installed {chromium_dist} to: {self.chromium_dist_path}"
             )
         else:
-            self.info("Abort: failed to install %s" % chromium_dist)
+            self.info(f"Abort: failed to install {chromium_dist}")
 
     def raptor_options(self, args=None, **kw):
         """Return options to Raptor"""
@@ -1020,8 +1028,7 @@ class Raptor(
                 # i.e. fennec_aurora or fennec_release etc.
                 kw_options["binary"] = self.query_package_name()
                 self.info(
-                    "Set binary to %s instead of %s"
-                    % (kw_options["binary"], binary_path)
+                    f"Set binary to {kw_options['binary']} instead of {binary_path}"
                 )
         elif self.app == "safari" and not self.run_local:
             binary_path = "/Applications/Safari.app/Contents/MacOS/Safari"
@@ -1106,12 +1113,12 @@ class Raptor(
             options.extend([f"--setpref={i}" for i in self.config.get("extra_prefs")])
         if self.config.get("environment"):
             options.extend([f"--setenv={i}" for i in self.config.get("environment")])
+        for extension in self.config.get("install_extensions") or []:
+            options.extend(["--install-extension", extension])
         if self.config.get("enable_marionette_trace", False):
             options.extend(["--enable-marionette-trace"])
         if self.config.get("browser_cycles"):
-            options.extend([
-                "--browser-cycles={}".format(self.config.get("browser_cycles"))
-            ])
+            options.extend([f"--browser-cycles={self.config.get('browser_cycles')}"])
         if self.config.get("test_bytecode_cache", False):
             options.extend(["--test-bytecode-cache"])
         if self.config.get("collect_perfstats", False):
@@ -1138,7 +1145,6 @@ class Raptor(
             options.extend(["--screenshot-on-failure"])
         if self.config.get("power_test", False):
             options.extend(["--power-test"])
-
         for (arg,), details in Raptor.browsertime_options:
             # Allow overriding defaults on the `./mach raptor-test ...` command-line
             value = self.config.get(details["dest"])
@@ -1155,7 +1161,7 @@ class Raptor(
                     options.extend([arg])
 
         for key, value in kw_options.items():
-            options.extend(["--%s" % key, value])
+            options.extend([f"--{key}", value])
 
         return options
 
@@ -1325,13 +1331,10 @@ class Raptor(
         if os.path.exists(path_to_ffmpeg):
             os.environ["PATH"] += os.pathsep + path_to_ffmpeg
             self.browsertime_ffmpeg = path_to_ffmpeg
-            self.info(
-                "Added local ffmpeg found at: %s to environment." % path_to_ffmpeg
-            )
+            self.info(f"Added local ffmpeg found at: {path_to_ffmpeg} to environment.")
         else:
             raise Exception(
-                "No local ffmpeg binary found. Expected it to be here: %s"
-                % path_to_ffmpeg
+                f"No local ffmpeg binary found. Expected it to be here: {path_to_ffmpeg}"
             )
 
     def install(self):
@@ -1359,13 +1362,13 @@ class Raptor(
     def _artifact_perf_data(self, src, dest):
         if not os.path.isdir(os.path.dirname(dest)):
             # create upload dir if it doesn't already exist
-            self.info("Creating dir: %s" % os.path.dirname(dest))
+            self.info(f"Creating dir: {os.path.dirname(dest)}")
             os.makedirs(os.path.dirname(dest))
-        self.info("Copying raptor results from %s to %s" % (src, dest))
+        self.info(f"Copying raptor results from {src} to {dest}")
         try:
             copyfile(src, dest)
         except Exception as e:
-            self.critical("Error copying results %s to upload dir %s" % (src, dest))
+            self.critical(f"Error copying results {src} to upload dir {dest}")
             self.info(str(e))
 
     def run_tests(self, args=None, **kw):
@@ -1446,10 +1449,9 @@ class Raptor(
         mozlog_opts = [f"--log-tbpl-level={self.config['log_level']}"]
 
         if not self.run_local and "suite" in self.config:
-            fname_pattern = "%s_%%s.log" % self.config["test"]
+            fname_pattern = f"{self.config['test']}_%s.log"
             mozlog_opts.append(
-                "--log-errorsummary=%s"
-                % os.path.join(env["MOZ_UPLOAD_DIR"], fname_pattern % "errorsummary")
+                f"--log-errorsummary={os.path.join(env['MOZ_UPLOAD_DIR'], fname_pattern % 'errorsummary')}"
             )
 
         def launch_in_debug_mode(cmdline):
@@ -1508,7 +1510,7 @@ class Raptor(
 
                 src = file
                 dest = os.path.join(
-                    env["MOZ_UPLOAD_DIR"], "perfherder-data-%s.json" % data_name
+                    env["MOZ_UPLOAD_DIR"], f"perfherder-data-{data_name}.json"
                 )
                 self._artifact_perf_data(src, dest)
 
@@ -1526,8 +1528,7 @@ class Raptor(
         if parser.tbpl_status != TBPL_SUCCESS:
             parser_status = EXIT_STATUS_DICT[parser.tbpl_status]
             self.info(
-                "return code %s changed to %s due to log output"
-                % (str(self.return_code), str(parser_status))
+                f"return code {str(self.return_code)} changed to {str(parser_status)} due to log output"
             )
             self.return_code = parser_status
 
@@ -1556,7 +1557,7 @@ class RaptorOutputParser(OutputParser):
             self.found_perf_data.append(m.group(1))
 
         if self.harness_retry_re.search(line):
-            self.critical(" %s" % line)
+            self.critical(f" {line}")
             self.worst_log_level = self.worst_level(CRITICAL, self.worst_log_level)
             self.tbpl_status = self.worst_level(
                 TBPL_RETRY, self.tbpl_status, levels=TBPL_WORST_LEVEL_TUPLE

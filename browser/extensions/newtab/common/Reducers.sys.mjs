@@ -25,6 +25,10 @@ export const INITIAL_STATE = {
       Wallpaper: false,
     },
     customizeMenuVisible: false,
+    // When the customize panel is opened via a CTA that should deep-link into a
+    // specific wallpaper category (e.g. "firefox"), this holds that category id
+    // so WallpaperCategories can open it. Cleared when the panel closes.
+    customizePanelWallpaperCategory: null,
   },
   Ads: {
     initialized: false,
@@ -244,6 +248,15 @@ export const INITIAL_STATE = {
       results: { loading: false, exhausted: false, lastFetchedDate: null },
     },
   },
+  PrivacyWidget: {
+    initialized: false,
+    // Count of trackers blocked today, fetched by PrivacyFeed.
+    trackersToday: 0,
+    // Count of distinct sites visited today (Places-based proxy for
+    // "sites where we blocked something"; see PrivacyFeed).
+    sitesToday: 0,
+    lastUpdated: null,
+  },
 };
 
 function App(prevState = INITIAL_STATE.App, action) {
@@ -286,10 +299,12 @@ function App(prevState = INITIAL_STATE.App, action) {
     case at.SHOW_PERSONALIZE:
       return Object.assign({}, prevState, {
         customizeMenuVisible: true,
+        customizePanelWallpaperCategory: action.data?.wallpaperCategory ?? null,
       });
     case at.HIDE_PERSONALIZE:
       return Object.assign({}, prevState, {
         customizeMenuVisible: false,
+        customizePanelWallpaperCategory: null,
       });
     default:
       return prevState;
@@ -1107,6 +1122,21 @@ function Weather(prevState = INITIAL_STATE.Weather, action) {
   }
 }
 
+function PrivacyWidget(prevState = INITIAL_STATE.PrivacyWidget, action) {
+  switch (action.type) {
+    case at.WIDGETS_PRIVACY_UPDATE:
+      return {
+        ...prevState,
+        trackersToday: action.data.trackersToday,
+        sitesToday: action.data.sitesToday,
+        lastUpdated: action.data.lastUpdated,
+        initialized: true,
+      };
+    default:
+      return prevState;
+  }
+}
+
 function Ads(prevState = INITIAL_STATE.Ads, action) {
   switch (action.type) {
     case at.ADS_INIT:
@@ -1244,11 +1274,19 @@ function SportsWidget(prevState = INITIAL_STATE.SportsWidget, action) {
         ...prevState,
         followedOnly: { ...prevState.followedOnly, ...action.data },
       };
-    case at.WIDGETS_SPORTS_WATCH_LIVE_REQUEST:
+    case at.WIDGETS_SPORTS_WATCH_LIVE_REQUEST: {
+      // Preserve any previously-fetched payload so a re-request (e.g. the modal
+      // refreshing links on open) doesn't drop the data the "Watch live" entry
+      // point is gated on. Only show the loading state when nothing is cached.
+      const existingWatchLiveData = prevState.watchLive?.data ?? null;
       return {
         ...prevState,
-        watchLive: { loaded: false, data: null },
+        watchLive: {
+          loaded: !!existingWatchLiveData,
+          data: existingWatchLiveData,
+        },
       };
+    }
     case at.WIDGETS_SPORTS_WATCH_LIVE_SET:
       return {
         ...prevState,
@@ -1354,4 +1392,5 @@ export const reducers = {
   Weather,
   ExternalComponents,
   SportsWidget,
+  PrivacyWidget,
 };

@@ -10,7 +10,7 @@ How to use the JavaScript Tracer
 
   This feature is still under development and may drastically change at any time.
   You may enable it from the DevTools settings panel, in "Available Toolbox Buttons" section in Nightly.
-  For other channels, you will have to toggle ``devtools.debugger.features.javascript-tracing preference``
+  For other channels, you will have to toggle ``devtools.debugger.features.javascript-tracing``
   preference to true in about:config before opening DevTools in order to use it.
 
 Once enabled, you have three ways to toggle the tracer:

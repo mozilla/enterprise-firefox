@@ -308,7 +308,7 @@ using IsMaybe = IsMaybeImpl<std::decay_t<T>>;
 
 }  // namespace detail
 
-template <typename T, typename U = std::remove_cv_t<std::remove_reference_t<T>>>
+template <typename T, typename U = std::remove_cvref_t<T>>
 constexpr Maybe<U> Some(T&& aValue);
 
 /*
@@ -363,9 +363,9 @@ constexpr Maybe<U> Some(T&& aValue);
  *     functions |Some()| and |Nothing()|.
  */
 template <class T>
-class MOZ_INHERIT_TYPE_ANNOTATIONS_FROM_TEMPLATE_ARGS MOZ_GSL_OWNER
-    MOZ_EMPTY_BASES Maybe : private detail::MaybeStorage<T>,
-                            public detail::Maybe_CopyMove_Enabler<T> {
+class MOZ_INHERIT_TYPE_ANNOTATIONS_FROM_TEMPLATE_ARGS
+MOZ_GSL_OWNER MOZ_EMPTY_BASES Maybe : private detail::MaybeStorage<T>,
+                                      public detail::Maybe_CopyMove_Enabler<T> {
   template <typename, bool, bool, bool>
   friend class detail::Maybe_CopyMove_Enabler;
 
@@ -398,36 +398,36 @@ class MOZ_INHERIT_TYPE_ANNOTATIONS_FROM_TEMPLATE_ARGS MOZ_GSL_OWNER
    * Maybe<T> can be copy-constructed from a Maybe<U> if T is constructible from
    * a const U&.
    */
-  template <typename U,
-            std::enable_if_t<std::is_constructible_v<T, const U&>, bool> = true>
+  template <typename U>
+    requires(std::is_constructible_v<T, const U&>)
   MOZ_IMPLICIT Maybe(const Maybe<U>& aOther) {
     if (aOther.isSome()) {
       emplace(*aOther);
     }
   }
 
-  template <typename U, std::enable_if_t<!std::is_constructible_v<T, const U&>,
-                                         bool> = true>
+  template <typename U>
+    requires(!std::is_constructible_v<T, const U&>)
   explicit Maybe(const Maybe<U>& aOther) = delete;
 
   /**
    * Maybe<T> can be move-constructed from a Maybe<U> if T is constructible from
    * a U&&.
    */
-  template <typename U,
-            std::enable_if_t<std::is_constructible_v<T, U&&>, bool> = true>
+  template <typename U>
+    requires(std::is_constructible_v<T, U &&>)
   MOZ_IMPLICIT Maybe(Maybe<U>&& aOther) {
     if (aOther.isSome()) {
       emplace(std::move(*aOther));
       aOther.reset();
     }
   }
-  template <typename U,
-            std::enable_if_t<!std::is_constructible_v<T, U&&>, bool> = true>
+  template <typename U>
+    requires(!std::is_constructible_v<T, U &&>)
   explicit Maybe(Maybe<U>&& aOther) = delete;
 
-  template <typename U,
-            std::enable_if_t<std::is_constructible_v<T, const U&>, bool> = true>
+  template <typename U>
+    requires(std::is_constructible_v<T, const U&>)
   Maybe& operator=(const Maybe<U>& aOther) {
     if (aOther.isSome()) {
       if (mIsSome) {
@@ -441,12 +441,12 @@ class MOZ_INHERIT_TYPE_ANNOTATIONS_FROM_TEMPLATE_ARGS MOZ_GSL_OWNER
     return *this;
   }
 
-  template <typename U, std::enable_if_t<!std::is_constructible_v<T, const U&>,
-                                         bool> = true>
+  template <typename U>
+    requires(!std::is_constructible_v<T, const U&>)
   Maybe& operator=(const Maybe<U>& aOther) = delete;
 
-  template <typename U,
-            std::enable_if_t<std::is_constructible_v<T, U&&>, bool> = true>
+  template <typename U>
+    requires(std::is_constructible_v<T, U &&>)
   Maybe& operator=(Maybe<U>&& aOther) {
     if (aOther.isSome()) {
       if (mIsSome) {
@@ -462,8 +462,8 @@ class MOZ_INHERIT_TYPE_ANNOTATIONS_FROM_TEMPLATE_ARGS MOZ_GSL_OWNER
     return *this;
   }
 
-  template <typename U,
-            std::enable_if_t<!std::is_constructible_v<T, U&&>, bool> = true>
+  template <typename U>
+    requires(!std::is_constructible_v<T, U &&>)
   Maybe& operator=(Maybe<U>&& aOther) = delete;
 
   constexpr Maybe& operator=(Nothing) {
@@ -713,7 +713,7 @@ class MOZ_INHERIT_TYPE_ANNOTATIONS_FROM_TEMPLATE_ARGS MOZ_GSL_OWNER
     if (isSome()) {
       return std::invoke(std::forward<Func>(aFunc), ref());
     }
-    return std::remove_cv_t<std::remove_reference_t<U>>{};
+    return std::remove_cvref_t<U>{};
   }
 
   template <typename Func>
@@ -724,7 +724,7 @@ class MOZ_INHERIT_TYPE_ANNOTATIONS_FROM_TEMPLATE_ARGS MOZ_GSL_OWNER
     if (isSome()) {
       return std::invoke(std::forward<Func>(aFunc), ref());
     }
-    return std::remove_cv_t<std::remove_reference_t<U>>{};
+    return std::remove_cvref_t<U>{};
   }
 
   template <typename Func>
@@ -735,7 +735,7 @@ class MOZ_INHERIT_TYPE_ANNOTATIONS_FROM_TEMPLATE_ARGS MOZ_GSL_OWNER
     if (isSome()) {
       return std::invoke(std::forward<Func>(aFunc), extract());
     }
-    return std::remove_cv_t<std::remove_reference_t<U>>{};
+    return std::remove_cvref_t<U>{};
   }
 
   template <typename Func>
@@ -746,7 +746,7 @@ class MOZ_INHERIT_TYPE_ANNOTATIONS_FROM_TEMPLATE_ARGS MOZ_GSL_OWNER
     if (isSome()) {
       return std::invoke(std::forward<Func>(aFunc), extract());
     }
-    return std::remove_cv_t<std::remove_reference_t<U>>{};
+    return std::remove_cvref_t<U>{};
   }
 
   /*
@@ -757,8 +757,7 @@ class MOZ_INHERIT_TYPE_ANNOTATIONS_FROM_TEMPLATE_ARGS MOZ_GSL_OWNER
   constexpr Maybe orElse(Func&& aFunc) & {
     static_assert(std::is_invocable_v<Func>);
     using U = std::invoke_result_t<Func>;
-    static_assert(
-        std::is_same_v<Maybe, std::remove_cv_t<std::remove_reference_t<U>>>);
+    static_assert(std::is_same_v<Maybe, std::remove_cvref_t<U>>);
     if (isSome()) {
       return *this;
     }
@@ -769,8 +768,7 @@ class MOZ_INHERIT_TYPE_ANNOTATIONS_FROM_TEMPLATE_ARGS MOZ_GSL_OWNER
   constexpr Maybe orElse(Func&& aFunc) const& {
     static_assert(std::is_invocable_v<Func>);
     using U = std::invoke_result_t<Func>;
-    static_assert(
-        std::is_same_v<Maybe, std::remove_cv_t<std::remove_reference_t<U>>>);
+    static_assert(std::is_same_v<Maybe, std::remove_cvref_t<U>>);
     if (isSome()) {
       return *this;
     }
@@ -781,8 +779,7 @@ class MOZ_INHERIT_TYPE_ANNOTATIONS_FROM_TEMPLATE_ARGS MOZ_GSL_OWNER
   constexpr Maybe orElse(Func&& aFunc) && {
     static_assert(std::is_invocable_v<Func>);
     using U = std::invoke_result_t<Func>;
-    static_assert(
-        std::is_same_v<Maybe, std::remove_cv_t<std::remove_reference_t<U>>>);
+    static_assert(std::is_same_v<Maybe, std::remove_cvref_t<U>>);
     if (isSome()) {
       return std::move(*this);
     }
@@ -793,8 +790,7 @@ class MOZ_INHERIT_TYPE_ANNOTATIONS_FROM_TEMPLATE_ARGS MOZ_GSL_OWNER
   constexpr Maybe orElse(Func&& aFunc) const&& {
     static_assert(std::is_invocable_v<Func>);
     using U = std::invoke_result_t<Func>;
-    static_assert(
-        std::is_same_v<Maybe, std::remove_cv_t<std::remove_reference_t<U>>>);
+    static_assert(std::is_same_v<Maybe, std::remove_cvref_t<U>>);
     if (isSome()) {
       return std::move(*this);
     }
@@ -875,10 +871,9 @@ class MOZ_INHERIT_TYPE_ANNOTATIONS_FROM_TEMPLATE_ARGS MOZ_GSL_OWNER
   constexpr void emplace(Args&&... aArgs);
 
   template <typename U>
-  constexpr std::enable_if_t<std::is_same_v<T, U> &&
-                             std::is_copy_constructible_v<U> &&
-                             !std::is_move_constructible_v<U>>
-  emplace(U&& aArgs) {
+    requires(std::is_same_v<T, U> && std::is_copy_constructible_v<U> &&
+             !std::is_move_constructible_v<U>)
+  constexpr void emplace(U&& aArgs) {
     emplace(aArgs);
   }
 
@@ -946,15 +941,14 @@ class Maybe<T&> {
     if (isSome()) {
       return std::invoke(std::forward<Func>(aFunc), ref());
     }
-    return std::remove_cv_t<std::remove_reference_t<U>>{};
+    return std::remove_cvref_t<U>{};
   }
 
   template <typename Func>
   constexpr Maybe orElse(Func&& aFunc) const {
     static_assert(std::is_invocable_v<Func>);
     using U = std::invoke_result_t<Func>;
-    static_assert(
-        std::is_same_v<Maybe, std::remove_cv_t<std::remove_reference_t<U>>>);
+    static_assert(std::is_same_v<Maybe, std::remove_cvref_t<U>>);
     if (isSome()) {
       return *this;
     }
@@ -1097,7 +1091,7 @@ constexpr Maybe<T&> ToMaybeRef(T* const aPtr) {
 }
 
 template <typename T>
-Maybe<std::remove_cv_t<std::remove_reference_t<T>>> ToMaybe(T* aPtr) {
+Maybe<std::remove_cvref_t<T>> ToMaybe(T* aPtr) {
   if (aPtr) {
     return Some(*aPtr);
   }

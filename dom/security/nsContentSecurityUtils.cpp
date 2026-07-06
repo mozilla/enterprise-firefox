@@ -1242,7 +1242,8 @@ nsString nsContentSecurityUtils::GetIsElementNonceableNonce(
 // style-src data:
 //  This is more or less the same as allowing arbitrary inline styles.
 static nsLiteralCString sStyleSrcDataAllowList[] = {
-    "about:preferences"_ns, "about:settings"_ns,
+    "about:preferences"_ns,
+    "about:settings"_ns,
     // STOP! Do not add anything to this list.
 };
 // style-src 'unsafe-inline'
@@ -1319,6 +1320,7 @@ static nsLiteralCString sStyleSrcUnsafeInlineAllowList[] = {
     "chrome://pippki/content/downloadcert.xhtml"_ns,
     "chrome://pippki/content/editcacert.xhtml"_ns,
     "chrome://pippki/content/load_device.xhtml"_ns,
+    "chrome://pippki/content/resetpassword.xhtml"_ns,
     "chrome://pippki/content/setp12password.xhtml"_ns,
 };
 // img-src moz-remote-image:
@@ -1405,7 +1407,8 @@ static nsLiteralCString sImgSrcHttpsAllowList[] = {
 // img-src http:
 //  UNSAFE! Do not use.
 static nsLiteralCString sImgSrcHttpAllowList[] = {
-    "about:addons"_ns, "chrome://devtools/content/application/index.html"_ns,
+    "about:addons"_ns,
+    "chrome://devtools/content/application/index.html"_ns,
     "chrome://devtools/content/framework/browser-toolbox/window.html"_ns,
     "chrome://devtools/content/framework/toolbox-window.xhtml"_ns,
     // STOP! Do not add anything to this list.
@@ -1419,7 +1422,8 @@ static nsLiteralCString sImgSrcAddonsAllowList[] = {
 // img-src *
 //  UNSAFE! Allows loading everything.
 static nsLiteralCString sImgSrcWildcardAllowList[] = {
-    "about:reader"_ns, "chrome://browser/content/syncedtabs/sidebar.xhtml"_ns,
+    "about:reader"_ns,
+    "chrome://browser/content/syncedtabs/sidebar.xhtml"_ns,
     // STOP! Do not add anything to this list.
 };
 // img-src https://example.org
@@ -1864,9 +1868,23 @@ void nsContentSecurityUtils::AssertAboutPageHasCSP(Document* aDocument) {
     return;
   }
 
-  MOZ_ASSERT(policyCount == 1, "about: page should have exactly one CSP");
+  // All about: pages loaded with a system principal automatically get a
+  // baseline CSP applied to them.
+  bool hasBaselineCSP = aDocument->NodePrincipal()->IsSystemPrincipal() &&
+                        StaticPrefs::security_chrome_baseline_csp_enabled();
 
-  const nsCSPPolicy* policy = csp->GetPolicy(0);
+  if (policyCount != (hasBaselineCSP ? 2 : 1)) {
+    MOZ_CRASH_UNSAFE_PRINTF("Document (%s) does not have a custom CSP!",
+                            spec.get());
+  }
+
+  if (hasBaselineCSP) {
+    nsAutoString baselinePolicy;
+    csp->GetPolicy(0)->toString(baselinePolicy);
+    MOZ_ASSERT(baselinePolicy == kBaselineSystemCSP);
+  }
+
+  const nsCSPPolicy* policy = csp->GetPolicy(hasBaselineCSP ? 1 : 0);
   {
     AllowBuiltinSrcVisitor visitor(CSPDirective::DEFAULT_SRC_DIRECTIVE, spec);
     if (!visitor.visit(policy)) {
@@ -1926,7 +1944,7 @@ void nsContentSecurityUtils::AssertChromePageHasCSP(Document* aDocument) {
   nsAutoCString spec;
   documentURI->GetSpec(spec);
 
-  if (IsExemptedFromBaselineChromeCSP(spec)) {
+  if (IsExemptedFromBaselineSystemCSP(spec)) {
     return;
   }
 
@@ -1949,7 +1967,7 @@ void nsContentSecurityUtils::AssertChromePageHasCSP(Document* aDocument) {
     nsAutoString baselinePolicy;
     static_cast<nsCSPContext*>(csp.get())->GetPolicy(0)->toString(
         baselinePolicy);
-    MOZ_ASSERT(baselinePolicy == kBaselineChromeCSP);
+    MOZ_ASSERT(baselinePolicy == kBaselineSystemCSP);
   }
 
   // Both of these have a known weaker policy that differs
@@ -2010,7 +2028,7 @@ void nsContentSecurityUtils::AssertChromePageHasCSP(Document* aDocument) {
 #endif
 
 /* static */
-bool nsContentSecurityUtils::IsExemptedFromBaselineChromeCSP(
+bool nsContentSecurityUtils::IsExemptedFromBaselineSystemCSP(
     nsACString& aSpec) {
   if (xpc::IsInAutomation()) [[unlikely]] {
     // Test files

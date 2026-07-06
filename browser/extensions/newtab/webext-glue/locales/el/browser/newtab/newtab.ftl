@@ -93,6 +93,12 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = Ρολόι
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = Απόρρητο
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = Μετοχές
 home-prefs-mission-message2 =
     .message = Οι χορηγοί μας υποστηρίζουν την αποστολή μας για ένα καλύτερο διαδίκτυο.
 home-prefs-manage-topics-link2 =
@@ -152,6 +158,20 @@ home-prefs-support-firefox-header-srd =
     .label = Υποστηρίξτε το { -brand-product-name }
 home-prefs-mission-message-learn-more-link-srd = Μάθετε πώς
 
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = Μάθετε περισσότερα
+
+## Strings for the Stocks widget
+
+# Context menu item for searching stock ticker symbols.
+newtab-stocks-menu-search = Αναζήτηση συμβόλων μετοχών
+# Context menu item that hides the Stocks widget.
+newtab-stocks-menu-hide = Απόκρυψη μετοχών
+# Context menu item linking to more information about the Stocks widget.
+newtab-stocks-menu-learn-more = Μάθετε περισσότερα
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -187,6 +207,7 @@ newtab-topsites-add-shortcut-label = Προσθήκη συντόμευσης
 newtab-topsites-add-shortcut-title =
     .title = Προσθήκη συντόμευσης
     .aria-label = Προσθήκη συντόμευσης
+newtab-shortcuts-pinned-area = Καρφιτσωμένη περιοχή
 newtab-topsites-title-label = Τίτλος
 newtab-topsites-title-input =
     .placeholder = Εισαγωγή τίτλου
@@ -496,6 +517,10 @@ newtab-custom-widget-clock-toggle =
     .label = Ρολόι
 newtab-custom-widget-sports-toggle2 =
     .label = Αθλήματα
+newtab-custom-widget-privacy-toggle =
+    .label = Απόρρητο
+newtab-custom-widget-stocks-toggle =
+    .label = Μετοχές
 newtab-custom-widget-section-title = Γραφικά στοιχεία
 newtab-custom-widget-section-toggle =
     .label = Γραφικά στοιχεία
@@ -972,6 +997,8 @@ newtab-widget-timer-reset =
 newtab-widget-timer-menu-notifications = Απενεργοποίηση ειδοποιήσεων
 newtab-widget-timer-menu-notifications-on = Ενεργοποίηση ειδοποιήσεων
 newtab-widget-timer-menu-learn-more = Μάθετε περισσότερα
+newtab-widget-timer-menu-button =
+    .aria-label = Επιλογές αντίστροφης μέτρησης
 # The title displays above a set of top news headlines.
 newtab-daily-briefing-card-title = Κορυφαίες επικεφαλίδες
 newtab-daily-briefing-card-menu-dismiss = Απόρριψη
@@ -1085,6 +1112,8 @@ newtab-sports-widget-show-less =
 # Toggle that filters the list of teams the user follows
 newtab-sports-widget-followed-only-toggle =
     .label = Μόνο ομάδες που ακολουθείτε
+# Status shown when more matches are being fetched.
+newtab-sports-widget-loading-more = Φόρτωση περισσότερων αγώνων…
 # Watch is a verb (as in watch matches online).
 newtab-sports-widget-watch =
     .label = Παρακολούθηση
@@ -1265,6 +1294,8 @@ newtab-sports-widget-team-tbd = Θα καθοριστεί
 newtab-sports-widget-message-wallpapers-title = Ξεκινήστε το Παγκόσμιο Κύπελλο με νέες ταπετσαρίες
 newtab-sports-widget-message-wallpapers-body = Φέρτε λίγη από την ατμόσφαιρα των αγώνων στο πρόγραμμα περιήγησής σας, καθ' όλη τη διάρκεια του τουρνουά.
 newtab-sports-widget-message-wallpapers-cta = Επιλογή ταπετσαρίας
+newtab-sports-widget-message-wallpapers-semifinals-title = Αποκτήστε μια νέα ταπετσαρία για τους ημιτελικούς
+newtab-sports-widget-message-wallpapers-semifinals-body = Προετοιμάστε το έδαφος για τους μεγαλύτερους αγώνες του Παγκοσμίου Κυπέλλου.
 newtab-sports-widget-message-add-widgets-cta =
     .label = Προσθήκη γραφικών στοιχείων
 newtab-sports-widget-message-day-in-play-title = Διατηρήστε την ημέρα σας γεμάτη δράση με τα γραφικά στοιχεία του { -brand-product-name }

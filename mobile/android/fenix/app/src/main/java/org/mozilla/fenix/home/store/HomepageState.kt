@@ -238,7 +238,7 @@ internal sealed class HomepageState {
                 ),
                 pocketState = PocketState.build(appState = appState),
                 showTopSites = settings.showTopSitesFeature && topSites.isNotEmpty(),
-                showTopSitesHeader = !(settings.privateModeAndStoriesEntryPointEnabled && topSites.size <= 8),
+                showTopSitesHeader = !(settings.privateModeAndStoriesEntryPointEnabled && topSites.size < 8),
                 showRecentTabs = shouldShowRecentTabs(settings),
                 showBookmarks = settings.showBookmarksHomeFeature && bookmarks.isNotEmpty(),
                 showRecentSyncedTab = shouldShowRecentSyncedTabs() && settings.showSyncedTabs,

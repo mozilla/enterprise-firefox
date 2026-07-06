@@ -16,6 +16,8 @@
         <item name="materialTimePickerTheme">@style/Normal.MaterialTimePicker</item>
         <item name="materialCalendarTheme">@style/MaterialCalendar</item>
         <item name="materialSwitchStyle">@style/MaterialSwitchStyle</item>
+        <item name="checkboxStyle">@style/CheckBoxStyle</item>
+        <item name="radioButtonStyle">@style/RadioButtonStyle</item>
         <!-- Android system styling -->
         <item name="searchViewStyle">@style/SearchViewStyle</item>
         <item name="autoCompleteTextViewStyle">@style/AutoCompleteTextViewStyle</item>
@@ -123,13 +125,15 @@
         <item name="iconOnColor">@color/fx_mobile_icon_color_oncolor</item>
 
         <!-- Tint for activated controls (selected radio button, checked checkbox, switch thumb, seek bar, progress bar) -->
-        <item name="colorControlActivated">?attr/colorPrimary</item>
+        <item name="colorControlActivated">@color/fx_mobile_primary</item>
+        <item name="android:colorControlActivated">@color/fx_mobile_primary</item>
         <!-- Inactive thumb color -->
         <item name="colorSwitchThumbNormal">@color/toggle_off_knob_normal_theme</item>
         <!-- Inactive track color(30% transparency) -->
         <item name="android:colorForeground">@color/toggle_off_track_normal_theme</item>
         <!-- sets the toolbar back button color, radio buttons / unselected checkboxes -->
         <item name="colorControlNormal">@color/fx_mobile_on_surface</item>
+        <item name="android:colorControlNormal">@color/fx_mobile_on_surface</item>
 
         <!-- Updated color attributes -->
         <item name="accent">@color/accent_normal_theme</item>
@@ -297,6 +301,8 @@
         <item name="materialTimePickerTheme">@style/Private.MaterialTimePicker</item>
         <item name="materialCalendarTheme">@style/MaterialCalendar</item>
         <item name="materialSwitchStyle">@style/MaterialSwitchStyle</item>
+        <item name="checkboxStyle">@style/CheckBoxStyle</item>
+        <item name="radioButtonStyle">@style/RadioButtonStyle</item>
         <item name="searchViewStyle">@style/SearchViewStyle</item>
         <item name="android:textColorLink">@color/fx_mobile_private_tertiary</item>
         <item name="preferenceTheme">@style/PreferenceTheme</item>
@@ -308,7 +314,8 @@
         <item name="android:windowBackground">@color/fx_mobile_private_surface</item>
         <item name="android:colorEdgeEffect">@color/accent_private_theme</item>
         <item name="android:colorAccent">@color/fx_mobile_private_on_surface</item>
-        <item name="colorControlActivated">?attr/colorPrimary</item>
+        <item name="colorControlActivated">@color/fx_mobile_private_primary</item>
+        <item name="android:colorControlActivated">@color/fx_mobile_private_primary</item>
         <item name="android:textColorPrimary">@color/state_list_text_color</item>
         <item name="android:textColorSecondary">@color/secondary_state_list_text_color</item>
         <item name="materialAlertDialogTheme">@style/BaseDialogStyle.Private</item>
@@ -408,6 +415,7 @@
         <item name="android:colorForeground">@color/toggle_off_track_dark_theme</item>
         <!-- sets the toolbar back button color, radio buttons/ unselected checkboxes -->
         <item name="colorControlNormal">@color/fx_mobile_private_on_surface</item>
+        <item name="android:colorControlNormal">@color/fx_mobile_private_on_surface</item>
 
         <!-- Updated color attributes -->
         <item name="accent">@color/accent_private_theme</item>
@@ -439,7 +447,7 @@
         <item name="fenixWordmarkSportLogo">@drawable/ic_wordmark_sport_logo</item>
         <item name="bottomBarBackground">@drawable/private_home_bottom_bar_background_gradient</item>
         <item name="bottomBarBackgroundTop">@drawable/private_home_bottom_bar_background_gradient_top</item>
-        <item name="mozac_ic_private_mode_circle_fill_background_color">@color/photonWhite</item>
+        <item name="mozac_ic_private_mode_circle_fill_background_color">@color/novaWhite</item>
         <item name="mozac_ic_private_mode_circle_fill_icon_color">@color/fx_mobile_private_layer_color_2</item>
         <item name="mozac_ic_shield_slash_bg_fill_critical">?attr/colorOnSurface</item>
         <item name="mozac_ic_shield_slash_fill_critical">?attr/colorError</item>
@@ -526,8 +534,7 @@
     </style>
 
     <style name="PreferenceTheme" parent="PreferenceThemeOverlay.v14.Material">
-        <item name="android:textFontWeight" tools:ignore="NewApi">@integer/font_weight_light</item>
-        <item name="android:fontWeight">@integer/font_weight_light</item>
+        <item name="android:fontFamily">sans-serif</item>
         <item name="switchPreferenceCompatStyle">@style/SwitchCompatPreferenceMaterialStyle</item>
     </style>
 
@@ -779,4 +786,11 @@
         <item name="trackTint">@color/material_switch_track_tint</item>
     </style>
 
+    <style name="CheckBoxStyle" parent="Widget.Material3.CompoundButton.CheckBox">
+        <item name="buttonTint">@color/compound_button_tint</item>
+    </style>
+
+    <style name="RadioButtonStyle" parent="Widget.Material3.CompoundButton.RadioButton">
+        <item name="buttonTint">@color/compound_button_tint</item>
+    </style>
 </resources>

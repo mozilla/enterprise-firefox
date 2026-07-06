@@ -93,6 +93,12 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = Klocka
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = Sekretess
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = Aktier
 home-prefs-mission-message2 =
     .message = Våra sponsorer stöder vårt uppdrag att bygga en bättre webb.
 home-prefs-manage-topics-link2 =
@@ -152,6 +158,20 @@ home-prefs-support-firefox-header-srd =
     .label = Stöd { -brand-product-name }
 home-prefs-mission-message-learn-more-link-srd = Ta reda på hur
 
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = Läs mer
+
+## Strings for the Stocks widget
+
+# Context menu item for searching stock ticker symbols.
+newtab-stocks-menu-search = Sök efter tickersymboler
+# Context menu item that hides the Stocks widget.
+newtab-stocks-menu-hide = Dölj aktier
+# Context menu item linking to more information about the Stocks widget.
+newtab-stocks-menu-learn-more = Läs mer
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -187,6 +207,7 @@ newtab-topsites-add-shortcut-label = Lägg till genväg
 newtab-topsites-add-shortcut-title =
     .title = Lägg till genväg
     .aria-label = Lägg till genväg
+newtab-shortcuts-pinned-area = Fäst område
 newtab-topsites-title-label = Titel
 newtab-topsites-title-input =
     .placeholder = Ange en titel
@@ -496,6 +517,10 @@ newtab-custom-widget-clock-toggle =
     .label = Klocka
 newtab-custom-widget-sports-toggle2 =
     .label = Sport
+newtab-custom-widget-privacy-toggle =
+    .label = Sekretess
+newtab-custom-widget-stocks-toggle =
+    .label = Aktier
 newtab-custom-widget-section-title = Widgetar
 newtab-custom-widget-section-toggle =
     .label = Widgetar
@@ -972,6 +997,8 @@ newtab-widget-timer-reset =
 newtab-widget-timer-menu-notifications = Stäng av aviseringar
 newtab-widget-timer-menu-notifications-on = Slå på aviseringar
 newtab-widget-timer-menu-learn-more = Läs mer
+newtab-widget-timer-menu-button =
+    .aria-label = Alternativ för timer
 # The title displays above a set of top news headlines.
 newtab-daily-briefing-card-title = Topprubriker
 newtab-daily-briefing-card-menu-dismiss = Ignorera
@@ -1267,6 +1294,8 @@ newtab-sports-widget-team-tbd = Kommer att bestämmas
 newtab-sports-widget-message-wallpapers-title = Sparka igång VM med nya bakgrundsbilder
 newtab-sports-widget-message-wallpapers-body = Ta med lite energi till din webbläsare under tävlingen.
 newtab-sports-widget-message-wallpapers-cta = Välj bakgrundsbild
+newtab-sports-widget-message-wallpapers-semifinals-title = Få en ny bakgrundsbild inför semislutspelen
+newtab-sports-widget-message-wallpapers-semifinals-body = Dubbla för världscupens största matcher.
 newtab-sports-widget-message-add-widgets-cta =
     .label = Lägg till widgetar
 newtab-sports-widget-message-day-in-play-title = Håll igång dagen med { -brand-product-name } widgets

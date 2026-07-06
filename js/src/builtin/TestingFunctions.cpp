@@ -131,7 +131,6 @@
 #include "vm/StringObject.h"
 #include "vm/StringType.h"
 #include "vm/WrapperObject.h"
-#include "wasm/AsmJS.h"
 #include "wasm/WasmBaselineCompile.h"
 #include "wasm/WasmBuiltinModule.h"
 #include "wasm/WasmDump.h"
@@ -1887,14 +1886,7 @@ static bool DisassembleNative(JSContext* cx, unsigned argc, Value* vp) {
   uint8_t* jit_begin = nullptr;
   uint8_t* jit_end = nullptr;
 
-  if (fun->isAsmJSNative() || fun->isWasmWithJitEntry()) {
-    if (IsAsmJSModule(fun)) {
-      JS_ReportErrorASCII(cx, "Can't disassemble asm.js module function.");
-      return false;
-    }
-    if (fun->isAsmJSNative()) {
-      sprinter.printf("; backend=asmjs\n");
-    }
+  if (fun->isWasmWithJitEntry()) {
     sprinter.printf("; backend=wasm\n");
 
     js::wasm::Instance& inst = fun->wasmInstance();
@@ -8461,7 +8453,8 @@ static bool AllocationMarker(JSContext* cx, unsigned argc, Value* vp) {
   JSObject* obj =
       allocateInsideNursery
           ? NewObjectWithGivenProto<AllocationMarkerObject>(cx, nullptr)
-          : NewTenuredObjectWithGivenProto<AllocationMarkerObject>(cx, nullptr);
+          : NewObjectWithGivenProto<AllocationMarkerObject>(
+                cx, nullptr, {.newKind = TenuredObject});
   if (!obj) {
     return false;
   }
@@ -9927,6 +9920,11 @@ static bool ResetFallbackStubStates(JSContext* cx, unsigned argc, Value* vp) {
   for (uint32_t i = 0; i < numEntries; i++) {
     jit::ICFallbackStub* stub = script->jitScript()->fallbackStub(i);
     stub->discardStubs(zone, &icScript->icEntry(i));
+
+    if (icScript->hasInlinedChild(stub->pcOffset())) {
+      icScript->removeInlinedChild(stub->pcOffset());
+    }
+
     stub->state().reset();
   }
   script->jitScript()->notePurgedStubs();
@@ -10319,6 +10317,26 @@ static bool GetLastOOMStackTrace(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   args.rval().setString(str);
+  return true;
+}
+
+static bool ValueAsRawBits(JSContext* cx, unsigned argc, Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+
+  if (js::SupportDifferentialTesting()) {
+    RootedObject callee(cx, &args.callee());
+    ReportUsageErrorASCII(cx, callee,
+                          "Function unavailable in differential testing mode.");
+    return false;
+  }
+
+  uint64_t rawBits = args.get(0).asRawBits();
+  auto* bigInt = BigInt::createFromUint64(cx, rawBits);
+  if (!bigInt) {
+    return false;
+  }
+
+  args.rval().setBigInt(bigInt);
   return true;
 }
 
@@ -10802,24 +10820,9 @@ gc::ZealModeHelpText),
 "  inferred name based on where the function was defined. This can be\n"
 "  different from the 'name' property on the function."),
 
-    JS_FN_HELP("isAsmJSCompilationAvailable", IsAsmJSCompilationAvailable, 0, 0,
-"isAsmJSCompilationAvailable",
-"  Returns whether asm.js compilation is currently available or whether it is disabled\n"
-"  (e.g., by the debugger)."),
-
     JS_FN_HELP("getJitCompilerOptions", GetJitCompilerOptions, 0, 0,
 "getJitCompilerOptions()",
 "  Return an object describing some of the JIT compiler options.\n"),
-
-    JS_FN_HELP("isAsmJSModule", IsAsmJSModule, 1, 0,
-"isAsmJSModule(fn)",
-"  Returns whether the given value is a function containing \"use asm\" that has been\n"
-"  validated according to the asm.js spec."),
-
-    JS_FN_HELP("isAsmJSFunction", IsAsmJSFunction, 1, 0,
-"isAsmJSFunction(fn)",
-"  Returns whether the given value is a nested function in an asm.js module that has been\n"
-"  both compile- and link-time validated."),
 
     JS_FN_HELP("isAvxPresent", IsAvxPresent, 0, 0,
 "isAvxPresent([minVersion])",
@@ -11501,6 +11504,10 @@ JS_FN_HELP("isSmallFunction", IsSmallFunction, 1, 0,
 JS_FN_HELP("supportDifferentialTesting", TestingFunc_SupportDifferentialTesting, 0, 0,
 "supportDifferentialTesting()",
 "  Return the value of JS::SupportDifferentialTesting."),
+
+  JS_FN_HELP("valueAsRawBits", ValueAsRawBits, 1, 0,
+"valueAsRawBits(value)",
+"  Return the raw bits of the input value as a BigInt."),
 
   JS_FS_HELP_END
 };

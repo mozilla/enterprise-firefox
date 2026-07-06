@@ -13,16 +13,6 @@ const { AboutAddonsTestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/AboutAddonsTestUtils.sys.mjs"
 );
 
-add_setup(async function setup() {
-  await SpecialPowers.pushPrefEnv({
-    set: [
-      ["browser.urlbar.quickactions.enabled", true],
-      ["browser.urlbar.secondaryActions.featureGate", true],
-      ["browser.urlbar.shortcuts.quickactions", true],
-    ],
-  });
-});
-
 add_task(async function test_about_pages() {
   const testData = [
     {
@@ -36,6 +26,14 @@ add_task(async function test_about_pages() {
     {
       firstInput: "settings",
       uri: "about:preferences",
+    },
+    {
+      firstInput: "edit pdf",
+      uri: "about:pdf",
+    },
+    {
+      firstInput: "disable ai",
+      uri: "about:preferences#ai",
     },
     {
       firstInput: "add-ons",

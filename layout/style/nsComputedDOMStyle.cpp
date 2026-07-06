@@ -939,8 +939,6 @@ bool nsComputedDOMStyle::NeedsToFlushLayout(
     case eCSSProperty_width:
     case eCSSProperty_height:
       return !IsNonReplacedInline(frame);
-    case eCSSProperty_line_height:
-      return frame->StyleFont()->mLineHeight.IsMozBlockHeight();
     case eCSSProperty_grid_template_rows:
     case eCSSProperty_grid_template_columns:
       return !!nsGridContainerFrame::GetGridContainerFrame(frame);

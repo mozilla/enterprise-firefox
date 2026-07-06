@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 6.0.413
- * pdfjsBuild = 28a7606c1
+ * pdfjsVersion = 6.1.208
+ * pdfjsBuild = 25eae30e4
  */
 
 ;// ./web/ui_utils.js
@@ -985,7 +985,7 @@ const {
 } = globalThis.pdfjsLib;
 
 ;// ./web/internal_evt.js
-const INTERNAL_EVT = "eda8370a-1b2d-4fc1-8133-2bbc3cedc883";
+const INTERNAL_EVT = "eb370c1c-46d0-449b-862e-05d691979336";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -6195,6 +6195,7 @@ class AnnotationLayerBuilder {
     this._cancelled = true;
     this.#eventAC?.abort();
     this.#eventAC = null;
+    this.annotationLayer?.destroy();
   }
   refreshCanvases() {
     this.annotationLayer?.refreshCanvases();
@@ -6237,7 +6238,7 @@ class AnnotationLayerBuilder {
         return;
     }
     for (const section of this.div.childNodes) {
-      if (section.hasAttribute("data-internal-link")) {
+      if (section.hasAttribute("data-internal-link") || section.classList.contains("mediaAnnotation")) {
         continue;
       }
       section.inert = disableFormElements;
@@ -6462,7 +6463,7 @@ class BasePDFPageView extends RenderableView {
     this.pageColors = options.pageColors || null;
     this.renderingQueue = options.renderingQueue;
     this.enableOptimizedPartialRendering = options.enableOptimizedPartialRendering ?? false;
-    this.enableSelectionRendering = options.enableSelectionRendering !== false;
+    this.enableSelectionRendering = options.enableSelectionRendering !== false && FeatureTest.isBackdropFilterSupported;
     this.imagesRightClickMinSize = options.imagesRightClickMinSize ?? -1;
     this.minDurationToUpdateCanvas = options.minDurationToUpdateCanvas ?? 500;
   }
@@ -7259,7 +7260,7 @@ class TextAccessibilityManager {
       return;
     }
     const children = this.#textChildren;
-    if (!children || children.length === 0) {
+    if (!children?.length) {
       return;
     }
     const {
@@ -7304,7 +7305,7 @@ class TextAccessibilityManager {
       this.removePointerInTextLayer(element);
     }
     const children = this.#textChildren;
-    if (!children || children.length === 0) {
+    if (!children?.length) {
       return null;
     }
     const index = binarySearchFirstItem(children, node => TextAccessibilityManager.#compareElementPositions(element, node) < 0);
@@ -8674,7 +8675,7 @@ class PDFViewer {
   #savedPageViews = null;
   #deletedPageNumbers = null;
   constructor(options) {
-    const viewerVersion = "6.0.413";
+    const viewerVersion = "6.1.208";
     if (version !== viewerVersion) {
       throw new Error(`The API version "${version}" does not match the Viewer version "${viewerVersion}".`);
     }

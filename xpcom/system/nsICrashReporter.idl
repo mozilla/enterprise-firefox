@@ -181,6 +181,15 @@ interface nsICrashReporter : nsISupports
   void UpdateCrashEventsDir();
 
   /**
+   * Re-evaluate environment variables that gate whether the crash reporter
+   * client is launched after a crash (MOZ_CRASHREPORTER_NO_REPORT and
+   * MOZ_CRASHREPORTER_FULLDUMP). Call this after modifying those env vars
+   * so the signal-safe cached value used by the crash callback stays in
+   * sync.
+   */
+  void updateShouldReport();
+
+  /**
    * Save an anonymized memory report file for inclusion in a future crash
    * report in this session.
    *

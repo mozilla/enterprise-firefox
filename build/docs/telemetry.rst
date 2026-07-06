@@ -16,7 +16,7 @@ Glean Telemetry
 ===============
 
 Mozbuild reports data using `Glean <https://mozilla.github.io/glean/>`_ via
-:ref:`mach_telemetry`.  The metrics collected are documented :ref:`here<metrics>`.
+:ref:`mach-telemetry`.  The metrics collected are documented :ref:`here<metrics>`.
 
 Error Reporting
 ===============

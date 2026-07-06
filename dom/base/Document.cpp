@@ -246,6 +246,7 @@
 #include "mozilla/dom/ServiceWorkerManager.h"
 #include "mozilla/dom/ShadowIncludingTreeIterator.h"
 #include "mozilla/dom/ShadowRoot.h"
+#include "mozilla/dom/SpeculationRuleSet.h"
 #include "mozilla/dom/SpeculationRules.h"
 #include "mozilla/dom/StyleSheetApplicableStateChangeEvent.h"
 #include "mozilla/dom/StyleSheetApplicableStateChangeEventBinding.h"
@@ -491,6 +492,7 @@ mozilla::LazyLogModule gSHIPBFCacheLog("SHIPBFCache");
 mozilla::LazyLogModule gTimeoutDeferralLog("TimeoutDefer");
 mozilla::LazyLogModule gUseCountersLog("UseCounters");
 static mozilla::LazyLogModule gFingerprinterDetection("FingerprinterDetection");
+extern mozilla::LazyLogModule gFocusNavigationLog;
 
 namespace mozilla {
 
@@ -1399,6 +1401,8 @@ Document::Document(const char* aContentType,
       mHasBeenRevealed(false),
       mAutoSizesEnabled(StaticPrefs::dom_image_sizes_auto_enabled()),
       mWasFocusedElementRemoved(false),
+      mHasScopedCustomElementRegistry(false),
+      mSelectionMoreRecentThanFocus(false),
       mXMLDeclarationBits(0),
       mOnloadBlockCount(0),
       mWriteLevel(0),
@@ -1524,91 +1528,22 @@ already_AddRefed<mozilla::dom::Promise> Document::AddCertException(
     return nullptr;
   }
 
-  nsresult rv = NS_OK;
-  if (NS_WARN_IF(!mFailedChannel)) {
-    promise->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
-    return promise.forget();
+  WindowGlobalChild* wgc = GetWindowGlobalChild();
+  if (!wgc) {
+    return nullptr;
   }
+  wgc->SendAddCertException(aIsTemporary)
+      ->Then(GetCurrentSerialEventTarget(), __func__,
+             [promise](const mozilla::MozPromise<
+                       nsresult, mozilla::ipc::ResponseRejectReason,
+                       true>::ResolveOrRejectValue& aValue) {
+               if (aValue.IsResolve() && NS_SUCCEEDED(aValue.ResolveValue())) {
+                 promise->MaybeResolveWithUndefined();
+               } else {
+                 promise->MaybeReject(NS_ERROR_FAILURE);
+               }
+             });
 
-  nsCOMPtr<nsIURI> failedChannelURI;
-  NS_GetFinalChannelURI(mFailedChannel, getter_AddRefs(failedChannelURI));
-  if (!failedChannelURI) {
-    promise->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
-    return promise.forget();
-  }
-
-  nsCOMPtr<nsIURI> innerURI = NS_GetInnermostURI(failedChannelURI);
-  if (!innerURI) {
-    promise->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
-    return promise.forget();
-  }
-
-  nsAutoCString host;
-  innerURI->GetAsciiHost(host);
-  int32_t port;
-  innerURI->GetPort(&port);
-
-  nsCOMPtr<nsITransportSecurityInfo> tsi;
-  rv = mFailedChannel->GetSecurityInfo(getter_AddRefs(tsi));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    promise->MaybeReject(rv);
-    return promise.forget();
-  }
-  if (NS_WARN_IF(!tsi)) {
-    promise->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
-    return promise.forget();
-  }
-
-  nsCOMPtr<nsIX509Cert> cert;
-  rv = tsi->GetServerCert(getter_AddRefs(cert));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    promise->MaybeReject(rv);
-    return promise.forget();
-  }
-  if (NS_WARN_IF(!cert)) {
-    promise->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
-    return promise.forget();
-  }
-
-  if (XRE_IsContentProcess()) {
-    ContentChild* cc = ContentChild::GetSingleton();
-    MOZ_ASSERT(cc);
-    OriginAttributes const& attrs = NodePrincipal()->OriginAttributesRef();
-    cc->SendAddCertException(cert, host, port, attrs, aIsTemporary)
-        ->Then(GetCurrentSerialEventTarget(), __func__,
-               [promise](const mozilla::MozPromise<
-                         nsresult, mozilla::ipc::ResponseRejectReason,
-                         true>::ResolveOrRejectValue& aValue) {
-                 if (aValue.IsResolve()) {
-                   promise->MaybeResolve(aValue.ResolveValue());
-                 } else {
-                   promise->MaybeRejectWithUndefined();
-                 }
-               });
-    return promise.forget();
-  }
-
-  if (XRE_IsParentProcess()) {
-    nsCOMPtr<nsICertOverrideService> overrideService =
-        do_GetService(NS_CERTOVERRIDE_CONTRACTID);
-    if (!overrideService) {
-      promise->MaybeReject(NS_ERROR_FAILURE);
-      return promise.forget();
-    }
-
-    OriginAttributes const& attrs = NodePrincipal()->OriginAttributesRef();
-    rv = overrideService->RememberValidityOverride(host, port, attrs, cert,
-                                                   aIsTemporary);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      promise->MaybeReject(rv);
-      return promise.forget();
-    }
-
-    promise->MaybeResolveWithUndefined();
-    return promise.forget();
-  }
-
-  promise->MaybeReject(NS_ERROR_FAILURE);
   return promise.forget();
 }
 
@@ -2369,7 +2304,8 @@ Document::~Document() {
   // Clear mObservers to keep it in sync with the mutationobserver list
   mObservers.Clear();
 
-  mIntersectionObservers.Clear();
+  mIntersectionObservers.clear();
+  mResizeObservers.clear();
 
   if (mStyleSheetSetList) {
     mStyleSheetSetList->Disconnect();
@@ -2540,7 +2476,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(Document)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCachedAncestorOrigins)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDisplayDocument)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFontFaceSet)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFocusNavigationStartingPoint)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPreviouslyFocusedContent)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mReadyForIdle)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDocumentL10n)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFragmentDirective)
@@ -2597,6 +2533,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(Document)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mViewTransitionUpdateCallbacks)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDocGroup)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFrameRequestManager)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mSpeculationRules)
 
   // Traverse all our nsCOMArrays.
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPreloadingImages)
@@ -2628,10 +2565,6 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(Document)
   }
 
   // XXX: This should be not needed once bug 1569185 lands.
-  for (const auto& entry : tmp->mSpeculationRulesFromScript) {
-    NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(cb, "mSpeculationRulesFromScript key");
-    cb.NoteXPCOMChild(entry.GetKey());
-  }
   for (const auto& entry : tmp->mL10nProtoElements) {
     NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(cb, "mL10nProtoElements key");
     cb.NoteXPCOMChild(entry.GetKey());
@@ -2700,7 +2633,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Document)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mElementsObservedForLastRememberedSize);
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mActiveEditContext)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mFontFaceSet)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mFocusNavigationStartingPoint)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mPreviouslyFocusedContent)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mReadyForIdle)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDocumentL10n)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mFragmentDirective)
@@ -2737,6 +2670,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Document)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPreloadReferrerInfo)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPictureInPictureElement)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPopoverHintStackParent)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mSpeculationRules)
 
   if (tmp->mDocGroup && tmp->mDocGroup->GetBrowsingContextGroup()) {
     tmp->mDocGroup->GetBrowsingContextGroup()->RemoveDocument(tmp,
@@ -2752,7 +2686,8 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Document)
 
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPreloadingImages)
 
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mIntersectionObservers)
+  tmp->mIntersectionObservers.clear();
+  tmp->mResizeObservers.clear();
 
   if (tmp->mListenerManager) {
     tmp->mListenerManager->Disconnect();
@@ -2818,7 +2753,6 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Document)
 
   tmp->UnregisterFromMemoryReportingForDataDocument();
 
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mSpeculationRulesFromScript)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mL10nProtoElements)
   NS_IMPL_CYCLE_COLLECTION_UNLINK_WEAK_PTR
   NS_IMPL_CYCLE_COLLECTION_UNLINK_WEAK_REFERENCE
@@ -3867,13 +3801,18 @@ nsresult Document::InitCSP(nsIChannel* aChannel) {
     return rv;
   }
 
-  if (mDocumentURI && mDocumentURI->SchemeIs("chrome") &&
+  nsCOMPtr<nsIPrincipal> principal = NodePrincipal();
+  if ((principal->IsSystemPrincipal() ||
+       (mDocumentURI && mDocumentURI->SchemeIs("chrome"))) &&
       StaticPrefs::security_chrome_baseline_csp_enabled()) {
     nsAutoCString spec;
-    mDocumentURI->GetSpec(spec);
-    if (!nsContentSecurityUtils::IsExemptedFromBaselineChromeCSP(spec)) {
+    if (mDocumentURI) {
+      mDocumentURI->GetSpec(spec);
+    }
+    if (spec.IsEmpty() ||
+        !nsContentSecurityUtils::IsExemptedFromBaselineSystemCSP(spec)) {
       rv = CSP_AppendCSPFromHeader(
-          csp, nsContentSecurityUtils::kBaselineChromeCSP, false);
+          csp, nsContentSecurityUtils::kBaselineSystemCSP, false);
       NS_ENSURE_SUCCESS(rv, rv);
     }
   }
@@ -3897,7 +3836,6 @@ nsresult Document::InitCSP(nsIChannel* aChannel) {
   NS_ConvertASCIItoUTF16 cspROHeaderValue(tCspROHeaderValue);
 
   // Check if this is a document from a WebExtension.
-  nsCOMPtr<nsIPrincipal> principal = NodePrincipal();
   MOZ_ASSERT(!BasePrincipal::Cast(principal)->Is<ExpandedPrincipal>());
   auto addonPolicy = BasePrincipal::Cast(principal)->AddonPolicy();
 
@@ -6809,15 +6747,18 @@ void Document::SetLastFocusTime(const TimeStamp& aFocusTime) {
   mLastFocusTime = aFocusTime;
 }
 
-void Document::SetFocusNavigationStartingPoint(nsIContent* aContent,
-                                               bool aWillBeRemoved) {
+void Document::SetPreviouslyFocusedContent(nsIContent* aContent,
+                                           bool aWillBeRemoved) {
+  MOZ_LOG_FMT(gFocusNavigationLog, LogLevel::Debug,
+              "Set previously-focused content to {} (will be removed = {})",
+              aContent ? ToString(*aContent).c_str() : "null", aWillBeRemoved);
   mWasFocusedElementRemoved = aWillBeRemoved;
   if (!aWillBeRemoved) {
-    mFocusNavigationStartingPoint = aContent;
+    mPreviouslyFocusedContent = aContent;
     return;
   }
   if (!aContent) {
-    mFocusNavigationStartingPoint = nullptr;
+    mPreviouslyFocusedContent = nullptr;
     return;
   }
 
@@ -6828,15 +6769,15 @@ void Document::SetFocusNavigationStartingPoint(nsIContent* aContent,
        aContent = parent, parent = aContent->GetFlattenedTreeParent()) {
     FlattenedChildIterator iterator(parent);
     if (NS_WARN_IF(!iterator.Seek(aContent))) {
-      mFocusNavigationStartingPoint = nullptr;
+      mPreviouslyFocusedContent = nullptr;
       return;
     }
     if (auto* sibling = iterator.GetPreviousChild()) {
-      mFocusNavigationStartingPoint = sibling;
+      mPreviouslyFocusedContent = sibling;
       return;
     }
   }
-  mFocusNavigationStartingPoint = nullptr;
+  mPreviouslyFocusedContent = nullptr;
 }
 
 void Document::GetReferrer(nsACString& aReferrer) const {
@@ -9089,6 +9030,49 @@ bool IsLowercaseASCII(const nsAString& aValue) {
   return true;
 }
 
+// https://dom.spec.whatwg.org/#flatten-element-creation-options
+void Document::FlattenElementCreationOptions(
+    const ElementCreationOptionsOrString& aOptions, const nsString*& aIs,
+    Maybe<RefPtr<CustomElementRegistry>>& aRegistry, ErrorResult& rv) {
+  // 1. Let registry be the result of looking up a custom element registry given
+  // document.
+  // (This is handled implicitly by aRegistry being Nothing())
+
+  // 2. Let is be null.
+
+  // 3. If options is a dictionary:
+  if (!aOptions.IsElementCreationOptions()) {
+    return;
+  }
+  const ElementCreationOptions& options =
+      aOptions.GetAsElementCreationOptions();
+
+  // 3.1. If options["is"] exists, then set is to it.
+  if (options.mIs.WasPassed()) {
+    aIs = &options.mIs.Value();
+  }
+  // 3.2. If options["customElementRegistry"] exists:
+  if (options.mCustomElementRegistry.WasPassed()) {
+    // 3.2.1. If is is non-null, then throw a "NotSupportedError" DOMException.
+    if (aIs) {
+      rv.ThrowNotSupportedError(
+          "Cannot specify both 'is' and 'customElementRegistry' options");
+      return;
+    }
+    // 3.2.2. Set registry to options["customElementRegistry"].
+    aRegistry.emplace(options.mCustomElementRegistry.Value());
+    CustomElementRegistry* registry = aRegistry.ref();
+    // 3.3. If registry is non-null, registry’s is scoped is false, and registry
+    // is not document’s custom element registry, then throw a
+    // "NotSupportedError" DOMException.
+    if (registry && !registry->IsScoped() &&
+        registry != GetCustomElementRegistry()) {
+      rv.ThrowNotSupportedError(
+          "Cannot use a global CustomElementRegistry from another document");
+    }
+  }
+}
+
 /* https://dom.spec.whatwg.org/#dom-document-createelement */
 already_AddRefed<Element> Document::CreateElement(
     const nsAString& aTagName, const ElementCreationOptionsOrString& aOptions,
@@ -9110,20 +9094,18 @@ already_AddRefed<Element> Document::CreateElement(
 
   // 3. Let registry and is be the result of flattening element creation
   //    options given options and this.
-  // TODO(keithamus): Scoped Element Registries (`registry`).
   const nsString* is = nullptr;
+  Maybe<RefPtr<CustomElementRegistry>> customElementRegistry;
+  FlattenElementCreationOptions(aOptions, is, customElementRegistry, rv);
+  if (rv.Failed()) {
+    return nullptr;
+  }
+
+  // Non-standard 'pseudo' option.
   PseudoStyleType pseudoType = PseudoStyleType::NotPseudo;
   if (aOptions.IsElementCreationOptions()) {
     const ElementCreationOptions& options =
         aOptions.GetAsElementCreationOptions();
-
-    if (options.mIs.WasPassed()) {
-      is = &options.mIs.Value();
-    }
-
-    // XXX: Non-standard 'pseudo' option.
-    // Check 'pseudo' and throw an exception if it's not one allowed
-    // with CSS_PSEUDO_ELEMENT_IS_JS_CREATED_NAC.
     if (options.mPseudo.WasPassed()) {
       Maybe<PseudoStyleRequest> request = PseudoStyleRequest::Parse(
           options.mPseudo.Value(), DefaultStyleAttrURLData());
@@ -9140,10 +9122,14 @@ already_AddRefed<Element> Document::CreateElement(
   //    this's content type is "application/xhtml+xml"; otherwise null.
   // 5. Return the result of creating an element given this, localName,
   //    namespace, null, is, true, and registry.
-  RefPtr<Element> elem = CreateElem(needsLowercase ? lcTagName : aTagName,
-                                    nullptr, mDefaultElementType, is);
 
-  // XXX: Non-standard 'pseudo' option.
+  // nsContentUtils::NewXULOrHTMLElement handles tri-state logic of
+  // customElementRegistry
+  RefPtr<Element> elem =
+      CreateElem(needsLowercase ? lcTagName : aTagName, nullptr,
+                 mDefaultElementType, is, std::move(customElementRegistry));
+
+  // ChromeOnly 'pseudo' option.
   if (pseudoType != PseudoStyleType::NotPseudo) {
     elem->SetPseudoElementType(pseudoType);
   }
@@ -9168,21 +9154,18 @@ already_AddRefed<Element> Document::CreateElementNS(
 
   // 2. Let registry and is be the result of flattening element creation
   //    options given options and this.
-  // TODO(keithamus): Scoped Element Registries (`registry`).
   const nsString* is = nullptr;
-  if (aOptions.IsElementCreationOptions()) {
-    const ElementCreationOptions& options =
-        aOptions.GetAsElementCreationOptions();
-    if (options.mIs.WasPassed()) {
-      is = &options.mIs.Value();
-    }
+  Maybe<RefPtr<CustomElementRegistry>> customElementRegistry;
+  FlattenElementCreationOptions(aOptions, is, customElementRegistry, rv);
+  if (rv.Failed()) {
+    return nullptr;
   }
 
   // 3. Return the result of creating an element given document, localName,
   //    namespace, prefix, is, true, and registry.
   nsCOMPtr<Element> element;
   rv = NS_NewElement(getter_AddRefs(element), nodeInfo.forget(),
-                     NOT_FROM_PARSER, is);
+                     NOT_FROM_PARSER, is, std::move(customElementRegistry));
   if (rv.Failed()) {
     return nullptr;
   }
@@ -9200,15 +9183,14 @@ already_AddRefed<Element> Document::CreateXULElement(
   }
 
   const nsString* is = nullptr;
-  if (aOptions.IsElementCreationOptions()) {
-    const ElementCreationOptions& options =
-        aOptions.GetAsElementCreationOptions();
-    if (options.mIs.WasPassed()) {
-      is = &options.mIs.Value();
-    }
+  Maybe<RefPtr<CustomElementRegistry>> customElementRegistry;
+  FlattenElementCreationOptions(aOptions, is, customElementRegistry, aRv);
+  if (aRv.Failed()) {
+    return nullptr;
   }
 
-  RefPtr<Element> elem = CreateElem(aTagName, nullptr, kNameSpaceID_XUL, is);
+  RefPtr<Element> elem = CreateElem(aTagName, nullptr, kNameSpaceID_XUL, is,
+                                    customElementRegistry);
   if (!elem) {
     aRv.Throw(NS_ERROR_NOT_AVAILABLE);
     return nullptr;
@@ -11951,10 +11933,10 @@ CustomElementRegistry* Document::GetEffectiveGlobalCustomElementRegistry() {
   return nullptr;
 }
 
-already_AddRefed<Element> Document::CreateElem(const nsAString& aName,
-                                               nsAtom* aPrefix,
-                                               int32_t aNamespaceID,
-                                               const nsAString* aIs) {
+already_AddRefed<Element> Document::CreateElem(
+    const nsAString& aName, nsAtom* aPrefix, int32_t aNamespaceID,
+    const nsAString* aIs,
+    Maybe<RefPtr<CustomElementRegistry>> aCustomElementRegistry) {
 #ifdef DEBUG
   if (!aPrefix) {
     NS_ASSERTION(nsContentUtils::IsValidElementLocalName(aName),
@@ -11979,8 +11961,9 @@ already_AddRefed<Element> Document::CreateElem(const nsAString& aName,
   NS_ENSURE_TRUE(nodeInfo, nullptr);
 
   nsCOMPtr<Element> element;
-  nsresult rv = NS_NewElement(getter_AddRefs(element), nodeInfo.forget(),
-                              NOT_FROM_PARSER, aIs);
+  nsresult rv =
+      NS_NewElement(getter_AddRefs(element), nodeInfo.forget(), NOT_FROM_PARSER,
+                    aIs, std::move(aCustomElementRegistry));
   return NS_SUCCEEDED(rv) ? element.forget() : nullptr;
 }
 
@@ -13561,7 +13544,7 @@ bool Document::IsActive() const {
 
 uint32_t Document::LastScrollGeneration() const {
   if (nsPresContext* pc = GetPresContext()) {
-    pc->LastScrollGeneration();
+    return pc->LastScrollGeneration();
   }
 
   return 0;
@@ -13570,7 +13553,7 @@ uint32_t Document::LastScrollGeneration() const {
 bool Document::HasBeenScrolledSince(
     const uint32_t& aLastScrollGeneration) const {
   if (nsPresContext* pc = GetPresContext()) {
-    pc->HasBeenScrolledSince(aLastScrollGeneration);
+    return pc->HasBeenScrolledSince(aLastScrollGeneration);
   }
 
   return false;
@@ -17450,10 +17433,6 @@ void Document::DocAddSizeOfExcludingThis(nsWindowSizes& aWindowSizes) const {
         mCSSLoader->SizeOfIncludingThis(aWindowSizes.mState.mMallocSizeOf);
   }
 
-  aWindowSizes.mDOMSizes.mDOMResizeObserverControllerSize +=
-      mResizeObservers.ShallowSizeOfExcludingThis(
-          aWindowSizes.mState.mMallocSizeOf);
-
   if (mAttributeStyles) {
     aWindowSizes.mDOMSizes.mDOMOtherSize +=
         mAttributeStyles->DOMSizeOfIncludingThis(
@@ -18230,7 +18209,7 @@ WindowContext* Document::GetWindowContextForPageUseCounters() const {
 }
 
 void Document::UpdateIntersections(TimeStamp aNowTime) {
-  if (!mIntersectionObservers.IsEmpty()) {
+  if (!mIntersectionObservers.isEmpty()) {
     DOMHighResTimeStamp time = 0;
     if (nsPIDOMWindowInner* win = GetInnerWindow()) {
       if (Performance* perf = win->GetPerformance()) {
@@ -18357,9 +18336,25 @@ void Document::SynchronouslyUpdateRemoteBrowserDimensions(
   UpdateRemoteFrameEffects(aIncludeInactive);
 }
 
+void Document::AddIntersectionObserver(DOMIntersectionObserver& aObserver) {
+  MOZ_DIAGNOSTIC_ASSERT(!aObserver.isInList(),
+                        "Intersection observer already in a list");
+  mIntersectionObservers.insertBack(&aObserver);
+}
+
+void Document::RemoveIntersectionObserver(DOMIntersectionObserver& aObserver) {
+  if (aObserver.isInList()) {
+    aObserver.remove();
+  }
+}
+
 void Document::NotifyIntersectionObservers() {
-  const auto observers = ToTArray<nsTArray<RefPtr<DOMIntersectionObserver>>>(
-      mIntersectionObservers);
+  // Snapshot the observers: the callbacks can register/unregister observers,
+  // and the RefPtrs keep them alive across the notification.
+  AutoTArray<RefPtr<DOMIntersectionObserver>, 8> observers;
+  for (DOMIntersectionObserver* observer : mIntersectionObservers) {
+    observers.AppendElement(observer);
+  }
   for (const auto& observer : observers) {
     // MOZ_KnownLive because the 'observers' array guarantees to keep it
     // alive.
@@ -19419,6 +19414,18 @@ void Document::DetermineProximityToViewportAndNotifyResizeObservers() {
   ps->NotifyFontFaceSetOnRefresh();
 }
 
+void Document::AddResizeObserver(ResizeObserver& aObserver) {
+  MOZ_DIAGNOSTIC_ASSERT(!aObserver.isInList(),
+                        "Resize observer already in a list");
+  mResizeObservers.insertBack(&aObserver);
+}
+
+void Document::RemoveResizeObserver(ResizeObserver& aObserver) {
+  if (aObserver.isInList()) {
+    aObserver.remove();
+  }
+}
+
 void Document::GatherAllActiveResizeObservations(uint32_t aDepth) {
   for (ResizeObserver* observer : mResizeObservers) {
     observer->GatherActiveObservations(aDepth);
@@ -19430,8 +19437,10 @@ uint32_t Document::BroadcastAllActiveResizeObservations() {
 
   // Copy the observers as this invokes the callbacks and could register and
   // unregister observers at will.
-  const auto observers =
-      ToTArray<nsTArray<RefPtr<ResizeObserver>>>(mResizeObservers);
+  AutoTArray<RefPtr<ResizeObserver>, 8> observers;
+  for (ResizeObserver* observer : mResizeObservers) {
+    observers.AppendElement(observer);
+  }
   for (const auto& observer : observers) {
     // MOZ_KnownLive because 'observers' is guaranteed to keep it
     // alive.
@@ -19449,7 +19458,7 @@ uint32_t Document::BroadcastAllActiveResizeObservations() {
 }
 
 bool Document::HasAnySkippedResizeObservations() const {
-  for (const auto& observer : mResizeObservers) {
+  for (const auto* observer : mResizeObservers) {
     if (observer->HasSkippedObservations()) {
       return true;
     }
@@ -19458,7 +19467,7 @@ bool Document::HasAnySkippedResizeObservations() const {
 }
 
 bool Document::HasAnyActiveResizeObservations() const {
-  for (const auto& observer : mResizeObservers) {
+  for (const auto* observer : mResizeObservers) {
     if (observer->HasActiveObservations()) {
       return true;
     }
@@ -21331,17 +21340,11 @@ bool Document::HasFullscreenKeyboardLockEnabled() {
   return elem && elem->State().HasState(ElementState::FULLSCREEN_KEYBOARD_LOCK);
 }
 
-// https://html.spec.whatwg.org/#register-speculation-rules
-void Document::RegisterSpeculationRulesFromScript(
-    nsIScriptElement* aScriptElement,
-    UniquePtr<SpeculationRules> aSpeculationRules) {
-  mSpeculationRulesFromScript.InsertOrUpdate(aScriptElement,
-                                             std::move(aSpeculationRules));
-}
-
-// html.spec.whatwg.org/#unregister-speculation-rules
-void Document::UnregisterSpeculationRules(nsIScriptElement* aScriptElement) {
-  mSpeculationRulesFromScript.Remove(aScriptElement);
+class SpeculationRules& Document::SpeculationRules() {
+  if (!mSpeculationRules) {
+    mSpeculationRules = MakeRefPtr<class SpeculationRules>();
+  }
+  return *mSpeculationRules;
 }
 
 }  // namespace mozilla::dom

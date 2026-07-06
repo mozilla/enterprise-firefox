@@ -144,20 +144,8 @@ struct ParamTraits<mozilla::dom::TouchEventsOverride>
     : public mozilla::dom::WebIDLEnumSerializer<
           mozilla::dom::TouchEventsOverride> {};
 
-template <>
-struct ParamTraits<mozilla::dom::EmbedderColorSchemes> {
-  using paramType = mozilla::dom::EmbedderColorSchemes;
-
-  static void Write(MessageWriter* aWriter, const paramType& aParam) {
-    WriteParam(aWriter, aParam.mUsed);
-    WriteParam(aWriter, aParam.mPreferred);
-  }
-
-  static bool Read(MessageReader* aReader, paramType* aResult) {
-    return ReadParam(aReader, &aResult->mUsed) &&
-           ReadParam(aReader, &aResult->mPreferred);
-  }
-};
+DEFINE_IPC_SERIALIZER_WITH_FIELDS(mozilla::dom::EmbedderColorSchemes, mUsed,
+                                  mPreferred);
 
 }  // namespace IPC
 
@@ -4692,39 +4680,12 @@ bool ParamTraits<MaybeDiscarded<BrowsingContext>>::Read(
   return true;
 }
 
-void ParamTraits<BrowsingContext::IPCInitializer>::Write(
-    IPC::MessageWriter* aWriter, const paramType& aInit) {
-  // Write actor ID parameters.
-  WriteParam(aWriter, aInit.mId);
-  WriteParam(aWriter, aInit.mParentId);
-  WriteParam(aWriter, aInit.mWindowless);
-  WriteParam(aWriter, aInit.mUseRemoteTabs);
-  WriteParam(aWriter, aInit.mUseRemoteSubframes);
-  WriteParam(aWriter, aInit.mCreatedDynamically);
-  WriteParam(aWriter, aInit.mChildOffset);
-  WriteParam(aWriter, aInit.mOriginAttributes);
-  WriteParam(aWriter, aInit.mRequestContextId);
-  WriteParam(aWriter, aInit.mSessionHistoryIndex);
-  WriteParam(aWriter, aInit.mSessionHistoryCount);
-  WriteParam(aWriter, aInit.mFields);
-}
-
-bool ParamTraits<BrowsingContext::IPCInitializer>::Read(
-    IPC::MessageReader* aReader, paramType* aInit) {
-  // Read actor ID parameters.
-  return ReadParam(aReader, &aInit->mId) &&
-         ReadParam(aReader, &aInit->mParentId) &&
-         ReadParam(aReader, &aInit->mWindowless) &&
-         ReadParam(aReader, &aInit->mUseRemoteTabs) &&
-         ReadParam(aReader, &aInit->mUseRemoteSubframes) &&
-         ReadParam(aReader, &aInit->mCreatedDynamically) &&
-         ReadParam(aReader, &aInit->mChildOffset) &&
-         ReadParam(aReader, &aInit->mOriginAttributes) &&
-         ReadParam(aReader, &aInit->mRequestContextId) &&
-         ReadParam(aReader, &aInit->mSessionHistoryIndex) &&
-         ReadParam(aReader, &aInit->mSessionHistoryCount) &&
-         ReadParam(aReader, &aInit->mFields);
-}
+IMPLEMENT_IPC_SERIALIZER_WITH_FIELDS(BrowsingContext::IPCInitializer, mId,
+                                     mParentId, mWindowless, mUseRemoteTabs,
+                                     mUseRemoteSubframes, mCreatedDynamically,
+                                     mChildOffset, mOriginAttributes,
+                                     mRequestContextId, mSessionHistoryIndex,
+                                     mSessionHistoryCount, mFields);
 
 template struct ParamTraits<BrowsingContext::BaseTransaction>;
 

@@ -99,7 +99,8 @@ export async function executeToolByName(
         toolParams,
         conversation,
         mode,
-        conversation.engine?.model
+        conversation.engine?.model,
+        toolCallId
       );
       if (uiData) {
         conversation.addUIToolToCurrentMessage(toolCallId, uiData);

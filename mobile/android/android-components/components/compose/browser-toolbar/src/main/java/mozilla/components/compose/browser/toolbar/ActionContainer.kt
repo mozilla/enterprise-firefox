@@ -69,6 +69,7 @@ fun ActionContainer(
                             highlighted = action.highlighted,
                             onLongClick = action.onLongClick,
                             onInteraction = { onInteraction(it) },
+                            testTag = action.testTag,
                         )
                     }
                 }
@@ -83,6 +84,7 @@ fun ActionContainer(
                             highlighted = action.highlighted,
                             onLongClick = action.onLongClick,
                             onInteraction = { onInteraction(it) },
+                            testTag = action.testTag,
                         )
                     }
                 }
@@ -119,6 +121,7 @@ fun ActionContainer(
                             animated = action.animated,
                             onClick = action.onClick,
                             onInteraction = onInteraction,
+                            testTag = action.testTag,
                         )
                     }
                 }

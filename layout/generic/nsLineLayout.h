@@ -106,9 +106,12 @@ class nsLineLayout {
   void RemoveMarkerFrame(nsIFrame* aFrame);
 
   /**
-   * Place frames in the block direction (CSS property vertical-align)
+   * Place frames in the block direction (CSS property vertical-align).
+   * Also performs text box trimming if requested on the start edge
+   * or on the end edge (if aIsLastFormattedLine is true).
    */
-  void VerticalAlignLine();
+  void VerticalAlignLine(nsFlowAreaRect* aFlowArea = nullptr,
+                         bool aIsLastFormattedLine = false);
 
   bool TrimTrailingWhiteSpace();
 
@@ -651,6 +654,11 @@ class nsLineLayout {
                                   const nsSize& aContainerSize,
                                   nscoord aBStartEdge);
   void VerticalAlignFrames(PerSpanData* psd);
+
+  void ApplyBlockTextBoxTrim(PerSpanData* psd, mozilla::WritingMode aLineWM,
+                             nscoord* aLineBSize, nscoord* aBaselineBCoord,
+                             nsFlowAreaRect* aFlowArea,
+                             bool aIsLastFormattedLine);
 
   nscoord ComputeTopAlignFrameStart(const PerFrameData* pfd,
                                     const mozilla::WritingMode& aWM,

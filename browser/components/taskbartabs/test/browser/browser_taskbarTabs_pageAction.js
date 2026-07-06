@@ -9,6 +9,7 @@ const BASE_URL = "https://example.com/";
 // eslint-disable-next-line @microsoft/sdl/no-insecure-url
 const BASE_URL_HTTP = "http://mochi.test:8888/";
 const HIDDEN_URI = "about:about";
+const FILE_URI = "file:///";
 
 ChromeUtils.defineESModuleGetters(this, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
@@ -249,6 +250,8 @@ add_task(async function testVariousVisibilityChanges() {
     [BASE_URL, BASE_URL_HTTP, true, true],
     [HIDDEN_URI, BASE_URL, false, true],
     [HIDDEN_URI, BASE_URL_HTTP, false, true],
+    [FILE_URI, BASE_URL, false, true],
+    [BASE_URL, FILE_URI, true, false],
   ];
 
   for (const args of argsList) {
@@ -271,7 +274,7 @@ async function testVisibilityChange(aFrom, aTo, aFirstVisible, aSecondVisible) {
   is(
     element.hidden,
     !aFirstVisible,
-    `Page action is ${aFirstVisible ? "" : "not "}hidden on ${getURIScheme(aFrom)} new tab`
+    `Page action is ${aFirstVisible ? "not " : ""}hidden on ${getURIScheme(aFrom)} new tab`
   );
 
   locationChange = BrowserTestUtils.waitForLocationChange(gBrowser, aTo);
@@ -281,7 +284,7 @@ async function testVisibilityChange(aFrom, aTo, aFirstVisible, aSecondVisible) {
   is(
     element.hidden,
     !aSecondVisible,
-    `Page action is ${aSecondVisible ? "" : "not "}hidden on ${getURIScheme(aTo)} reused tab`
+    `Page action is ${aSecondVisible ? "not " : ""}hidden on ${getURIScheme(aTo)} reused tab`
   );
 
   BrowserTestUtils.removeTab(tab);
@@ -410,6 +413,33 @@ add_task(async function test_findOrCreateTaskbarTabParentWindow() {
     "Provided window was passed to pinTaskbarTab"
   );
   await TaskbarTabs.removeTaskbarTab(result.taskbarTab.id);
+});
+
+add_task(async function test_findOrCreateTaskbarTabEnsurePin() {
+  gPinStub.resetHistory();
+
+  let uri = Services.io.newURI(BASE_URL);
+  let result1 = await TaskbarTabs.findOrCreateTaskbarTab(uri, 0);
+  is(gPinStub.callCount, 1, "Exactly one pin was attempted");
+
+  let result2 = await TaskbarTabs.findOrCreateTaskbarTab(uri, 0, {
+    ensurePinned: true,
+  });
+  is(gPinStub.callCount, 2, "A second pin was attempted");
+
+  Assert.equal(
+    result1.taskbarTab.id,
+    result2.taskbarTab.id,
+    "The same taskbar tab was removed each time"
+  );
+  Assert.ok(result1.created, "The taskbar tab was created the first time");
+  Assert.equal(
+    result2.created,
+    false,
+    "The taskbar tab was reused the second time"
+  );
+
+  await TaskbarTabs.removeTaskbarTab(result1.taskbarTab.id);
 });
 
 add_task(async function test_page_action_uses_manifest() {

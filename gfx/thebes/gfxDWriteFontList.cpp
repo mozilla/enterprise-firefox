@@ -23,6 +23,7 @@
 #include "mozilla/StaticPrefs_gfx.h"
 #include "mozilla/glean/GfxMetrics.h"
 #include "mozilla/WindowsProcessMitigations.h"
+#include "mozilla/Utf16.h"
 #include "nsDirectoryServiceUtils.h"
 #include "nsDirectoryServiceDefs.h"
 #include "nsAppDirectoryServiceDefs.h"
@@ -2305,13 +2306,13 @@ gfxFontEntry* gfxDWriteFontList::PlatformGlobalFontFallback(
   wchar_t str[16];
   uint32_t strLen;
 
-  if (IS_IN_BMP(aCh)) {
+  if (mozilla::IsInBMP(aCh)) {
     str[0] = static_cast<wchar_t>(aCh);
     str[1] = 0;
     strLen = 1;
   } else {
-    str[0] = static_cast<wchar_t>(H_SURROGATE(aCh));
-    str[1] = static_cast<wchar_t>(L_SURROGATE(aCh));
+    str[0] = static_cast<wchar_t>(mozilla::HighSurrogate(aCh));
+    str[1] = static_cast<wchar_t>(mozilla::LowSurrogate(aCh));
     str[2] = 0;
     strLen = 2;
   }

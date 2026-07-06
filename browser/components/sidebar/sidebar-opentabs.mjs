@@ -12,6 +12,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   NonPrivateTabs: "resource:///modules/OpenTabs.sys.mjs",
   OpenTabsController: "resource:///modules/OpenTabsController.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  SidebarCollapsedWindows:
+    "moz-src:///browser/components/sidebar/SidebarCollapsedWindows.sys.mjs",
   SidebarTreeView:
     "moz-src:///browser/components/sidebar/SidebarTreeView.sys.mjs",
   getTabsTargetForWindow: "resource:///modules/OpenTabs.sys.mjs",
@@ -40,6 +42,10 @@ export class SidebarOpenTabs extends SidebarPage {
       this.openTabsTarget = lazy.NonPrivateTabs;
     }
     this.openTabsTarget.addEventListener("TabChange", this);
+    lazy.SidebarCollapsedWindows.addEventListener(
+      "CollapsedWindowsChanged",
+      this
+    );
     this.openTabsTarget.readyWindowsPromise.finally(() => {
       this.initialWindowsReady = true;
       this.#updateWindowList();
@@ -49,6 +55,10 @@ export class SidebarOpenTabs extends SidebarPage {
   disconnectedCallback() {
     super.disconnectedCallback();
     this.openTabsTarget.removeEventListener("TabChange", this);
+    lazy.SidebarCollapsedWindows.removeEventListener(
+      "CollapsedWindowsChanged",
+      this
+    );
   }
 
   shouldUpdate(changedProperties) {
@@ -62,6 +72,9 @@ export class SidebarOpenTabs extends SidebarPage {
     switch (e.type) {
       case "TabChange":
         this.#updateWindowList();
+        break;
+      case "CollapsedWindowsChanged":
+        this.requestUpdate();
         break;
       default:
         super.handleEvent(e);
@@ -119,6 +132,18 @@ export class SidebarOpenTabs extends SidebarPage {
     tabElement.documentGlobal.gBrowser.removeTabs([tabElement]);
   }
 
+  #onCardToggle(event) {
+    const windowId = event.currentTarget.dataset.windowId;
+    if (!windowId) {
+      return;
+    }
+    if (event.newState === "closed") {
+      lazy.SidebarCollapsedWindows.collapseWindowById(windowId);
+    } else {
+      lazy.SidebarCollapsedWindows.expandWindowById(windowId);
+    }
+  }
+
   #pinnedTabsTemplate(pinnedTabItems) {
     return html`
       <div
@@ -151,14 +176,18 @@ export class SidebarOpenTabs extends SidebarPage {
     const headerL10nId = isCurrent
       ? "sidebar-opentabs-current-window-header"
       : "sidebar-opentabs-window-header";
+    const windowId = win.__SSi;
+    const expanded = !lazy.SidebarCollapsedWindows.isCollapsed(win);
     return html`
       <moz-card
         type="accordion"
-        expanded
+        ?expanded=${expanded}
         class="window-card"
         data-inner-id=${win.windowGlobalChild.innerWindowId}
+        data-window-id=${windowId}
         data-l10n-id=${headerL10nId}
         data-l10n-args=${JSON.stringify({ winID })}
+        @toggle=${this.#onCardToggle}
       >
         ${when(pinnedTabItems.length, () =>
           this.#pinnedTabsTemplate(pinnedTabItems)

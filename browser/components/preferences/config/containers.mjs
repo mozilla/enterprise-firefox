@@ -110,7 +110,7 @@ Preferences.addSetting(
             {
               control: "moz-button",
               iconSrc: "chrome://global/skin/icons/delete.svg",
-              l10nId: "containers-remove-button2",
+              l10nId: "containers-remove-button3",
               controlAttrs: {
                 slot: "actions",
                 action: "remove",

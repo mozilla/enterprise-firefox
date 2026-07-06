@@ -24,6 +24,9 @@ support-files = [
 ["browser_policies_setAndLockPref_API.js"]
 
 ["browser_policy_allowfileselectiondialogs.js"]
+skip-if = [
+  "headless", # bug 2046455 - file dialog can't be exercised headless
+]
 
 ["browser_policy_app_auto_update.js"]
 run-if = [

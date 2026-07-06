@@ -78,6 +78,21 @@ class BrowserWeakMap extends WeakMap {
   }
 }
 
+function reportSubmissionDisabledByPolicy() {
+  return (
+    AppConstants.MOZ_ENTERPRISE &&
+    Services.policies?.getActivePolicies()?.CrashReportsSubmit?.Enabled ===
+      false
+  );
+}
+
+function reportSubmissionForcedByPolicy() {
+  return (
+    AppConstants.MOZ_ENTERPRISE &&
+    Services.policies?.getActivePolicies()?.CrashReportsSubmit?.Enabled === true
+  );
+}
+
 export var TabCrashHandler = {
   _crashedTabCount: 0,
   childMap: new Map(),
@@ -539,10 +554,7 @@ export var TabCrashHandler = {
    *        The browser that has recently crashed.
    */
   sendToTabCrashedPage(browser) {
-    if (
-      AppConstants.MOZ_CRASHREPORTER &&
-      Services.policies.getActivePolicies()?.CrashReportsSubmit?.ForceAutoSubmit
-    ) {
+    if (AppConstants.MOZ_CRASHREPORTER && reportSubmissionForcedByPolicy()) {
       let dumpID = this.getDumpID(browser);
       if (dumpID) {
         lazy.CrashSubmit.submit(dumpID, lazy.CrashSubmit.SUBMITTED_FROM_AUTO);
@@ -589,6 +601,10 @@ export var TabCrashHandler = {
    */
   maybeSendCrashReport(browser, message) {
     if (!AppConstants.MOZ_CRASHREPORTER) {
+      return;
+    }
+
+    if (reportSubmissionDisabledByPolicy()) {
       return;
     }
 
@@ -697,12 +713,17 @@ export var TabCrashHandler = {
       this.unseenCrashedChildIDs.splice(index, 1);
     }
 
+    if (reportSubmissionDisabledByPolicy()) {
+      return {
+        hasReport: false,
+      };
+    }
+
     let dumpID = this.getDumpID(browser);
-    let policyAutoSubmit =
-      !!Services.policies.getActivePolicies()?.CrashReportsSubmit
-        ?.ForceAutoSubmit;
-    // When ForceAutoSubmit is active, the crash report is submitted automatically
-    // at crash time, so no dumpID is available. Allow the flow to continue.
+    let policyAutoSubmit = reportSubmissionForcedByPolicy();
+    // When CrashReportsSubmit.Enabled is set to true,
+    // the crash report is submitted automatically at crash time,
+    // so no dumpID is available. Allow the flow to continue.
     if (!dumpID && !policyAutoSubmit) {
       return {
         hasReport: false,
@@ -713,8 +734,9 @@ export var TabCrashHandler = {
     let sendReport = this.prefs.getBoolPref("sendReport");
     let includeURL = this.prefs.getBoolPref("includeURL");
 
-    // With ForceAutoSubmit, the report was already submitted so we skip the
-    // normal report UI, but still signal the policy state to the crash page.
+    // With CrashReportsSubmit.Enabled set to true,
+    // the report was already submitted so we skip the normal report UI,
+    // but still signal the policy state to the crash page.
     if (policyAutoSubmit) {
       return {
         hasReport: false,

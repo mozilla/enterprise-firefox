@@ -979,6 +979,15 @@ struct ParamTraitsStd<std::span<const T>> {
   }
 };
 
+template <class T>
+decltype(auto) ForwardSubscript(T&& t, size_t index) {
+  if constexpr (std::is_lvalue_reference_v<T&&>) {
+    return t[index];
+  } else {
+    return std::move(t[index]);
+  }
+}
+
 template <class C, class E, size_t N>
 struct ParamTraitsFixedSizeCollectionHelper {
   using param_type = C;
@@ -1011,7 +1020,7 @@ struct ParamTraitsFixedSizeCollectionHelper {
   template <class P, size_t... Is>
   static void WriteImpl(MessageWriter* writer, P&& p,
                         std::index_sequence<Is...>) {
-    (WriteParam(writer, std::get<Is>(std::forward<P>(p))), ...);
+    (WriteParam(writer, ForwardSubscript<P>(p, Is)), ...);
   }
 
   template <size_t... Is>

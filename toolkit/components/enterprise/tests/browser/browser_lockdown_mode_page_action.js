@@ -155,14 +155,18 @@ add_task(async function test_button_position() {
       "Urlbar button should be inside the enterprise urlbar actions container"
     );
 
-    const pageActionButtons = document.getElementById("page-action-buttons");
-    const firstNonTabstop = Array.from(pageActionButtons.children).find(
-      el => el.localName !== "toolbartabstop"
+    const enterpriseActions = document.getElementById(
+      "enterprise-urlbar-actions"
     );
     Assert.equal(
-      firstNonTabstop?.id,
-      "enterprise-urlbar-actions",
-      "Enterprise urlbar actions container should be first in page-action-buttons"
+      enterpriseActions.parentElement.id,
+      "page-action-buttons",
+      "Enterprise urlbar actions container should be inside page-action-buttons"
+    );
+    Assert.equal(
+      enterpriseActions.nextElementSibling?.id,
+      "pageActionButton",
+      "Enterprise urlbar actions container should be positioned just before the page action button"
     );
   });
 });

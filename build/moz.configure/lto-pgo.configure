@@ -319,7 +319,7 @@ def lto(
         elif (
             pgo_build
             and moz_automation
-            and target.os in ("WINNT", "GNU")
+            and target.os == "WINNT"
             and target.cpu == "x86_64"
         ):
             values += ("full",)
@@ -411,31 +411,37 @@ def lto(
         ldflags.append("-flto=%s" % num_cores)
         ldflags.append("-flifetime-dse=1")
 
-    # Tell LTO not to inline functions above a certain size, to mitigate
-    # binary size growth while still getting good performance.
-    # (For hot functions, PGO will put a multiplier on this limit.)
-    if c_compiler.type == "clang-cl":
-        ldflags.append("-mllvm:-import-instr-limit=10")
-    elif target.kernel == "Darwin":
-        ldflags.append("-Wl,-mllvm,-import-instr-limit=10")
-    elif c_compiler.type == "clang":
-        ldflags.append("-Wl,-plugin-opt=-import-instr-limit=10")
+    # We used to apply those customization for older version of the compiler.
+    # Starting with clang 20 we're fine with the defaults, but we keep old
+    # settings otherwise, both for documentation and to prevent regression when
+    # compiling firefox with older compilers.
 
-    # If we're using the new pass manager, we can also enable the new PM
-    # during LTO. Further we can use the resulting size savings to increase
-    # the import limit in hot functions.
-    if pass_manager:
+    if c_compiler.version < "20.0.0" or target.os in ("Android", "WINNT"):
+        # Tell LTO not to inline functions above a certain size, to mitigate
+        # binary size growth while still getting good performance.
+        # (For hot functions, PGO will put a multiplier on this limit.)
         if c_compiler.type == "clang-cl":
-            if c_compiler.version >= "12.0.0" and c_compiler.version < "13.0.0":
-                ldflags.append("-opt:ltonewpassmanager")
-            if c_compiler.version >= "12.0.0":
-                ldflags.append("-mllvm:-import-hot-multiplier=30")
+            ldflags.append("-mllvm:-import-instr-limit=10")
         elif target.kernel == "Darwin":
-            ldflags.append("-Wl,-mllvm,-import-hot-multiplier=30")
-        else:
-            if c_compiler.version < "13.0.0":
-                ldflags.append("-Wl,-plugin-opt=new-pass-manager")
-            ldflags.append("-Wl,-plugin-opt=-import-hot-multiplier=30")
+            ldflags.append("-Wl,-mllvm,-import-instr-limit=10")
+        elif c_compiler.type == "clang":
+            ldflags.append("-Wl,-plugin-opt=-import-instr-limit=10")
+
+        # If we're using the new pass manager, we can also enable the new PM
+        # during LTO. Further we can use the resulting size savings to increase
+        # the import limit in hot functions.
+        if pass_manager:
+            if c_compiler.type == "clang-cl":
+                if c_compiler.version >= "12.0.0" and c_compiler.version < "13.0.0":
+                    ldflags.append("-opt:ltonewpassmanager")
+                if c_compiler.version >= "12.0.0":
+                    ldflags.append("-mllvm:-import-hot-multiplier=30")
+            elif target.kernel == "Darwin":
+                ldflags.append("-Wl,-mllvm,-import-hot-multiplier=30")
+            else:
+                if c_compiler.version < "13.0.0":
+                    ldflags.append("-Wl,-plugin-opt=new-pass-manager")
+                ldflags.append("-Wl,-plugin-opt=-import-hot-multiplier=30")
 
     # Pick Rust LTO mode in case of cross lTO. Thin is the default.
     if "cross" in values:

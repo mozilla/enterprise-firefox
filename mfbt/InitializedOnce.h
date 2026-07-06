@@ -47,19 +47,18 @@ class InitializedOnce final {
   static_assert(std::is_const_v<T>);
   using MaybeType = Maybe<std::remove_const_t<T>>;
 
-  template <typename Dummy>
-  using requires_lazy_init_allowed =
-      std::enable_if_t<InitWhenVal == InitWhen::LazyAllowed, Dummy>;
+  static constexpr bool lazy_init_allowed =
+      InitWhenVal == InitWhen::LazyAllowed;
 
-  template <typename Dummy>
-  using requires_early_destroy_allowed =
-      std::enable_if_t<DestroyWhenVal == DestroyWhen::EarlyAllowed, Dummy>;
+  static constexpr bool early_destroy_allowed =
+      DestroyWhenVal == DestroyWhen::EarlyAllowed;
 
  public:
   using ValueType = T;
 
-  template <typename Dummy = void, typename = requires_lazy_init_allowed<Dummy>>
-  explicit constexpr InitializedOnce() {}
+  explicit constexpr InitializedOnce()
+    requires lazy_init_allowed
+  {}
 
   // note: aArg0 is named separately here to disallow calling this with no
   // arguments. The default constructor should only be available conditionally
@@ -92,9 +91,10 @@ class InitializedOnce final {
     return *this;
   }
 
-  template <typename... Args, typename Dummy = void,
-            typename = requires_lazy_init_allowed<Dummy>>
-  constexpr void init(Args&&... aArgs) {
+  template <typename... Args>
+  constexpr void init(Args&&... aArgs)
+    requires lazy_init_allowed
+  {
     MOZ_ASSERT(mMaybe.isNothing());
     MOZ_ASSERT(!mWasReset);
     mMaybe.emplace(std::remove_const_t<T>{std::forward<Args>(aArgs)...});
@@ -110,25 +110,25 @@ class InitializedOnce final {
 
   constexpr T& ref() const { return mMaybe.ref(); }
 
-  template <typename Dummy = void,
-            typename = requires_early_destroy_allowed<Dummy>>
-  void destroy() {
+  void destroy()
+    requires early_destroy_allowed
+  {
     MOZ_ASSERT(mMaybe.isSome());
     maybeDestroy();
   }
 
-  template <typename Dummy = void,
-            typename = requires_early_destroy_allowed<Dummy>>
-  void maybeDestroy() {
+  void maybeDestroy()
+    requires early_destroy_allowed
+  {
     mMaybe.reset();
 #ifdef DEBUG
     mWasReset = true;
 #endif
   }
 
-  template <typename Dummy = void,
-            typename = requires_early_destroy_allowed<Dummy>>
-  T release() {
+  T release()
+    requires early_destroy_allowed
+  {
     MOZ_ASSERT(mMaybe.isSome());
     auto res = std::move(mMaybe.ref());
     destroy();

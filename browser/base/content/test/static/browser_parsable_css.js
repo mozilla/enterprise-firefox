@@ -174,6 +174,11 @@ let propNameAllowlist = [
   // (content-search-handoff-ui component), which confuses the test.
   { propName: /^--content-search-handoff-ui-/, isFromDevTools: false },
 
+  // This variable defines the icon background for smart window first run model
+  // cards and is consumed from JS in firstrun.js (built into a `background`
+  // shorthand string), so it isn't referenced via var() in CSS.
+  { propName: "--card-icon-bg", isFromDevTools: false },
+
   // These variables are used in JS in viewer.mjs (PDF.js).
   {
     propName: "--scale-round-x",
@@ -294,6 +299,10 @@ let propNameAllowlist = [
   // This variable is read from JS to determine the column count when handling
   // keyboard navigation in the New Tab sections grid.
   { propName: "--sections-col-count", isFromDevTools: false },
+
+  // This property was used in the onboarding set up feature callout checklist.
+  // It's currently not referenced in CSS but may be needed for future use.
+  { propName: "--fc-icon-success-color", isFromDevTools: false },
 ];
 
 // Add suffix to stylesheets' URI so that we always load them here and

@@ -13,6 +13,7 @@
 #include "mozilla/StaticPtr.h"
 #include "mozilla/TextEvents.h"
 #include "mozilla/widget/WinRegistry.h"
+#include "mozilla/Utf16.h"
 
 #include "nsExceptionHandler.h"
 #include "nsGkAtoms.h"
@@ -412,13 +413,13 @@ static const nsCString GetCharacterCodeName(WPARAM aCharCode) {
       if (aCharCode < ' ' || (aCharCode >= 0x80 && aCharCode < 0xA0)) {
         return nsPrintfCString("control (0x%04zX)", aCharCode);
       }
-      if (NS_IS_HIGH_SURROGATE(aCharCode)) {
+      if (mozilla::IsHighSurrogate(aCharCode)) {
         return nsPrintfCString("high surrogate (0x%04zX)", aCharCode);
       }
-      if (NS_IS_LOW_SURROGATE(aCharCode)) {
+      if (mozilla::IsLowSurrogate(aCharCode)) {
         return nsPrintfCString("low surrogate (0x%04zX)", aCharCode);
       }
-      return IS_IN_BMP(aCharCode)
+      return mozilla::IsInBMP(aCharCode)
                  ? nsPrintfCString(
                        "'%s' (0x%04zX)",
                        NS_ConvertUTF16toUTF8(nsAutoString(aCharCode)).get(),

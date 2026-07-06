@@ -409,7 +409,8 @@ tasks:
                   $let:
                       repoType:
                           $switch:
-                              'repoUrl == "https://github.com/mozilla/enterprise-firefox"': "enterprise"
+                              'repoUrl == "https://github.com/mozilla/enterprise-firefox"': "prod"
+                              'repoUrl == "https://github.com/mozilla/enterprise-firefox-try"': "dev"
                               'repoUrl == "https://github.com/mozilla/firefox-dev"': "dev"
                               'repoUrl == "https://github.com/mozilla-releng/staging-firefox"': "dev"
                               'repoUrl == "https://github.com/mozilla-firefox/firefox"': "prod"
@@ -421,13 +422,13 @@ tasks:
                   in:
                       $if: >
                         eventType in ["action", "cron"]
-                        || (eventType == "push" && repoType == "enterprise" && shortRef in ["enterprise-main", "enterprise-beta", "enterprise-release"])
-                        || (eventType == "push" && project == "enterprise-firefox-try")
+                        || (eventType == "push" && repoType == "prod" && shortRef in ["enterprise-main", "enterprise-beta", "enterprise-release"])
+                        || (eventType == "push" && repoType == "dev")
                         || (isPullRequest && eventAction in ["opened", "reopened", "synchronize"])
                       then:
                           $let:
                               level:
-                                  $if: '(tasks_for == "action" || eventType in ["cron", "push"]) && repoType == "enterprise" && project == "enterprise-firefox"'
+                                  $if: '(tasks_for == "action" || eventType in ["cron", "push"]) && repoType == "prod"'
                                   then: 3
                                   else: 1
                           in:

@@ -177,7 +177,7 @@ prefs:
 You can either do this by passing these prefs to your ``./mach run`` command
 like this: ``./mach run --setpref "gfx.x11-egl.force-disabled=true" --setpref "gfx.webrender.software.opengl=true" --setpref "layers.acceleration.disabled=true"``
 or you can add them to your ``machrc`` file. Learn more about mach settings
-:ref:`here<mach_settings>`.
+:ref:`here<mach-settings>`.
 
 Building only the JavaScript shell
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

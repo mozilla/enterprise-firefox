@@ -5,6 +5,9 @@ import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.DeviceConfigurationOverride
 import androidx.compose.ui.test.WindowSize
@@ -129,6 +132,80 @@ class TabLayoutTest {
     @Test
     fun `WHEN screen width is small THEN columnCount is 3 in landscape`() {
         assertEquals(expected = 3, numberOfGridColumnsLandscape(screenWidthDp = 200f))
+    }
+
+    @Test
+    fun `GIVEN the tab group onboarding card is shown in grid view WHEN onboarding is no longer displayed THEN the card is removed`() {
+        var displayTabGroupOnboarding by mutableStateOf(true)
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalUnderTest provides true) {
+                FirefoxTheme(theme = Theme.Light) {
+                    Surface {
+                        TabLayout(
+                            tabs = List(10) { createTab(url = "www.mozilla.org") },
+                            displayTabsInGrid = true,
+                            dragAndDropEnabled = true,
+                            displayTabGroupOnboarding = displayTabGroupOnboarding,
+                            selectedItemIndex = 0,
+                            selectionMode = TabsTrayState.Mode.Normal,
+                            focusEnabled = true,
+                            tabInteractionHandler = fakeTabInteractionHandler(),
+                            onTabClose = { _ -> },
+                            onItemClick = { _ -> },
+                            onItemLongClick = { _ -> },
+                            onDeleteTabGroupClick = { _ -> },
+                            onEditTabGroupClick = { _ -> },
+                            onCloseTabGroupClick = { _ -> },
+                            onTabGroupOnboardingDismiss = { },
+                            liveReorderEnabled = false,
+                        )
+                    }
+                }
+            }
+        }
+
+        composeTestRule.onNodeWithTag(TabsTrayTestTag.TAB_GROUP_ONBOARDING_GRID_ITEM).assertExists()
+
+        displayTabGroupOnboarding = false
+
+        composeTestRule.onNodeWithTag(TabsTrayTestTag.TAB_GROUP_ONBOARDING_GRID_ITEM).assertDoesNotExist()
+    }
+
+    @Test
+    fun `GIVEN the tab group onboarding card is shown in list view WHEN onboarding is no longer displayed THEN the card is removed`() {
+        var displayTabGroupOnboarding by mutableStateOf(true)
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalUnderTest provides true) {
+                FirefoxTheme(theme = Theme.Light) {
+                    Surface {
+                        TabLayout(
+                            tabs = List(10) { createTab(url = "www.mozilla.org") },
+                            displayTabsInGrid = false,
+                            dragAndDropEnabled = true,
+                            displayTabGroupOnboarding = displayTabGroupOnboarding,
+                            selectedItemIndex = 0,
+                            selectionMode = TabsTrayState.Mode.Normal,
+                            focusEnabled = true,
+                            tabInteractionHandler = fakeTabInteractionHandler(),
+                            onTabClose = { _ -> },
+                            onItemClick = { _ -> },
+                            onItemLongClick = { _ -> },
+                            onDeleteTabGroupClick = { _ -> },
+                            onEditTabGroupClick = { _ -> },
+                            onCloseTabGroupClick = { _ -> },
+                            onTabGroupOnboardingDismiss = { },
+                            liveReorderEnabled = false,
+                        )
+                    }
+                }
+            }
+        }
+
+        composeTestRule.onNodeWithTag(TabsTrayTestTag.TAB_GROUP_ONBOARDING_LIST_ITEM).assertExists()
+
+        displayTabGroupOnboarding = false
+
+        composeTestRule.onNodeWithTag(TabsTrayTestTag.TAB_GROUP_ONBOARDING_LIST_ITEM).assertDoesNotExist()
     }
 
     private val gridColumnCount: Int

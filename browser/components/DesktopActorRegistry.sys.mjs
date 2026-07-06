@@ -291,13 +291,14 @@ let JSWINDOWACTORS = {
         "BackupUI:EnableEncryption": { wantUntrusted: true },
         "BackupUI:DisableEncryption": { wantUntrusted: true },
         "BackupUI:ShowBackupLocation": { wantUntrusted: true },
-        "BackupUI:EditBackupLocation": { wantUntrusted: true },
         "BackupUI:SetEmbeddedComponentPersistentData": { wantUntrusted: true },
         "BackupUI:FlushEmbeddedComponentPersistentData": {
           wantUntrusted: true,
         },
         "BackupUI:ErrorBarDismissed": { wantUntrusted: true },
         "BackupUI:FindBackupsInWellKnownLocations": { wantUntrusted: true },
+        "BackupUI:ProbeDefaultBackupDir": { wantUntrusted: true },
+        "BackupUI:PrepareRestoreDialog": { wantUntrusted: true },
       },
     },
     includeChrome: true,
@@ -888,6 +889,7 @@ let JSWINDOWACTORS = {
     },
     includeChrome: true,
     matches: ["chrome://browser/content/browser.xhtml"],
+    remoteTypes: ["parent"],
   },
 
   WebRTC: {

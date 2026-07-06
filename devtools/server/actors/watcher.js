@@ -777,6 +777,10 @@ exports.WatcherActor = class WatcherActor extends Actor {
     return this._networkParentActor;
   }
 
+  getExistingNetworkParentActor() {
+    return this._networkParentActor;
+  }
+
   /**
    * Returns the blackboxing actor.
    *

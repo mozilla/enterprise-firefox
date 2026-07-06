@@ -641,7 +641,7 @@ abstract class BaseBrowserFragment :
             feature = IPProtectionWarningBinding(
                 store = requireComponents.ipProtection.store,
                 proxyUnavailable = {
-                    Vpn.errorEncountered.record()
+                    Vpn.proxyUnavailable.record()
                     findNavController().navigate(
                         BrowserFragmentDirections.actionGlobalIpProtectionUnavailableDialog(),
                     )
@@ -1456,7 +1456,7 @@ abstract class BaseBrowserFragment :
     ): @Composable () -> Unit = {
         FirefoxTheme {
             TabStrip(
-                showActionButtons = false,
+                showTabCounterButton = false,
                 onAddTabClick = {
                     if (settings.enableHomepageAsNewTab) {
                         requireComponents.useCases.fenixBrowserUseCases.addNewHomepageTab(

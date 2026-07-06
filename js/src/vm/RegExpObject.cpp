@@ -66,8 +66,8 @@ static_assert(RegExpFlag::Sticky == REGEXP_STICKY_FLAG,
  */
 RegExpObject* js::RegExpAlloc(JSContext* cx, NewObjectKind newKind,
                               HandleObject proto, HandleObject newTarget) {
-  Rooted<RegExpObject*> regexp(
-      cx, NewObjectWithClassProtoAndKind<RegExpObject>(cx, proto, newKind));
+  Rooted<RegExpObject*> regexp(cx, NewObjectWithClassProto<RegExpObject>(
+                                       cx, proto, {.newKind = newKind}));
   if (!regexp) {
     return nullptr;
   }

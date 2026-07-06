@@ -11,6 +11,7 @@
 #include "mozilla/Assertions.h"
 #include "mozilla/Logging.h"
 #include "mozilla/glean/WidgetWindowsMetrics.h"
+#include "mozilla/Utf16.h"
 
 #include <comutil.h>  // for _bstr_t
 #include <oleauto.h>  // for SysAllocString
@@ -78,8 +79,8 @@ bool TSFStaticSink::GetActiveTIPNameForTelemetry(nsAString& aName) {
   description.Assign(sInstance->mActiveTIPKeyboardDescription);
   static const uint32_t kMaxDescriptionLength = 72 - aName.Length();
   if (description.Length() > kMaxDescriptionLength) {
-    if (NS_IS_LOW_SURROGATE(description[kMaxDescriptionLength - 1]) &&
-        NS_IS_HIGH_SURROGATE(description[kMaxDescriptionLength - 2])) {
+    if (mozilla::IsLowSurrogate(description[kMaxDescriptionLength - 1]) &&
+        mozilla::IsHighSurrogate(description[kMaxDescriptionLength - 2])) {
       description.Truncate(kMaxDescriptionLength - 2);
     } else {
       description.Truncate(kMaxDescriptionLength - 1);

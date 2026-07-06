@@ -11,6 +11,7 @@
 
 #include "GLImages.h"
 #include "ImageContainer.h"
+#include "mozilla/Atomics.h"
 #include "mozilla/gfx/Types.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/layers/LayersTypes.h"
@@ -50,9 +51,7 @@ class AndroidImageReaderImage final : public Image {
 
   nsresult BuildSurfaceDescriptorBuffer(
       SurfaceDescriptorBuffer& aSdBuffer, BuildSdbFlags aFlags,
-      const std::function<MemoryOrShmem(uint32_t)>& aAllocate) override {
-    return NS_ERROR_NOT_IMPLEMENTED;
-  }
+      const std::function<MemoryOrShmem(uint32_t)>& aAllocate) override;
 
   AndroidImageReaderImage* AsAndroidImageReaderImage() override { return this; }
 
@@ -122,7 +121,18 @@ class AndroidImageReader final {
 
   explicit AndroidImageReader();
 
-  bool UpdateTexImage(AndroidMediaCodecFrameId aFrameId);
+  bool UpdateTexImage(AndroidMediaCodecFrameId aFrameId, gl::GLContext* aGL,
+                      GLuint aTexture, AndroidImageWrapper** aImage);
+
+  bool UpdateTexImageWithReadback(AndroidMediaCodecFrameId aFrameId,
+                                  gl::GLContext* aGL,
+                                  gfx::DataSourceSurface* aSurface,
+                                  const gfx::IntSize aSize,
+                                  const gfx::SurfaceFormat aFormat);
+
+  bool DoUpdateTexImage(const MonitorAutoLock& aProofOfLock,
+                        AndroidMediaCodecFrameId aFrameId)
+      MOZ_REQUIRES(mMonitor);
 
   ANativeWindow* GetANativeWindow();
 
@@ -139,9 +149,14 @@ class AndroidImageReader final {
 
   void NotifyFrameAvailable();
 
+  // AndroidImageConsumer::UpdateTexImage() requests at least 2 concurrently
+  // acquired AImages.
+  const int32_t mMaxImageCount = 2;
   const GpuProcessAndroidImageReaderId mImageReaderId;
 
  protected:
+  friend class AndroidImageWrapper;
+
   virtual ~AndroidImageReader();
   bool Init();
   void ReleaseResources();
@@ -156,6 +171,9 @@ class AndroidImageReader final {
   AndroidMediaCodecFrameId mCurrentFrameId MOZ_GUARDED_BY(mMonitor);
   RefPtr<AndroidImageWrapper> mCurrentImage MOZ_GUARDED_BY(mMonitor);
   bool mWaitingFrameAvailable MOZ_GUARDED_BY(mMonitor) = false;
+  bool mIsPendingNextImage MOZ_GUARDED_BY(mMonitor) = false;
+
+  mozilla::Atomic<int32_t> mAcquiredImageCount{0};
 
   // mPendingFrames does not own AndroidImageReaderImage and stores only its
   // pointer.

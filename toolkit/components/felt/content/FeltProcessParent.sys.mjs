@@ -329,12 +329,6 @@ export class FeltProcessParent extends JSProcessActorParent {
       lazy.CONSOLE_ADDRESS_PREF,
       await lazy.ConsoleClient.consoleBaseURI
     );
-
-    // Enables remote policy polling
-    Services.felt.sendBoolPreference(
-      "browser.policies.live_polling.enabled",
-      true
-    );
   }
 
   /**
@@ -372,7 +366,7 @@ export class FeltProcessParent extends JSProcessActorParent {
       lazy.log.error("No polling_frequency in Firefox configuration");
     } else {
       Services.felt.sendIntPreference(
-        "browser.policies.live_polling.frequency",
+        "enterprise.policies.live.polling_interval",
         polling_frequency
       );
     }

@@ -5,6 +5,8 @@
 #ifndef nsIContentInlines_h
 #define nsIContentInlines_h
 
+#include "mozilla/StaticPrefs_dom.h"
+#include "mozilla/dom/CustomElementRegistry.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/HTMLSlotElement.h"
@@ -13,6 +15,29 @@
 #include "nsContentUtils.h"
 #include "nsIContent.h"
 #include "nsIFrame.h"
+#include "nsINode.h"
+
+inline bool nsINode::HasScopedRegistry() const {
+  if (!mozilla::StaticPrefs::dom_scoped_custom_element_registries_enabled()) {
+    return false;
+  }
+  bool isScoped = false;
+  if (IsElement()) {
+    isScoped = AsElement()->GetCustomElementRegistryState() ==
+               CustomElementRegistryState::Scoped;
+  } else if (const auto* shadowRoot =
+                 mozilla::dom::ShadowRoot::FromNode(this)) {
+    isScoped = shadowRoot->GetCustomElementRegistryState() ==
+               CustomElementRegistryState::Scoped;
+  } else if (IsDocument()) {
+    isScoped = AsDocument()->HasScopedCustomElementRegistry();
+  }
+  MOZ_ASSERT(
+      isScoped == mozilla::dom::CustomElementRegistry::IsInScopedRegistryMap(
+                      const_cast<nsINode&>(*this)),
+      "scoped-registry check disagrees with the registry map");
+  return isScoped;
+}
 
 inline bool nsIContent::IsInHTMLDocument() const {
   return OwnerDoc()->IsHTMLDocument();

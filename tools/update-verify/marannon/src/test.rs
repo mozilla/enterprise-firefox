@@ -83,7 +83,7 @@ pub(crate) fn run_tests(
     target_platform: &str,
     to_installer: &Path,
     channel: &str,
-    appname: &str,
+    product: &str,
     cert_dir: Option<&Path>,
     cert_overrides: &Vec<CertOverride>,
     tests: Vec<Test>,
@@ -132,7 +132,7 @@ pub(crate) fn run_tests(
                             // Unpack it...
                             let result = prepare_updater(
                                 updater_package,
-                                appname,
+                                product,
                                 cert_dir,
                                 cert_overrides,
                                 unpack_dir,
@@ -191,7 +191,7 @@ pub(crate) fn run_tests(
                                 target_platform,
                                 to_installer,
                                 channel,
-                                appname,
+                                product,
                                 tmpdir,
                                 artifact_dir,
                                 runner,
@@ -246,7 +246,7 @@ fn run_test(
     target_platform: &str,
     to_installer: &Path,
     channel: &str,
-    appname: &str,
+    product: &str,
     tmpdir: &Path,
     artifact_dir: &Path,
     runner: &dyn CommandRunner,
@@ -278,7 +278,7 @@ fn run_test(
                 .parent()
                 .ok_or_else(|| anyhow!("Couldn't determine update-settings.ini dir!"))?,
         )
-        .arg(appname)
+        .arg(product)
         .current_dir(test_dir);
     let command_result = runner.run(cmd)?;
     let result = match command_result.exit_code {

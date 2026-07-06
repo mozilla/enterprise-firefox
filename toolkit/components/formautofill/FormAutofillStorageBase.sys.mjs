@@ -1971,11 +1971,19 @@ export class FormAutofillStorageBase {
     return this.getCreditCards();
   }
 
+  get passports() {
+    return this.getPassports();
+  }
+
   getAddresses() {
     throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   }
 
   getCreditCards() {
+    throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
+  }
+
+  getPassports() {
     throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   }
 

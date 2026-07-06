@@ -9,6 +9,7 @@
 #include "mozilla/Maybe.h"
 #include "mozilla/Mutex.h"
 #include "mozilla/MozPromise.h"
+#include "mozilla/ScopedPrefs.h"
 #include "mozilla/Span.h"
 #include "mozilla/StaticPtr.h"
 #include "mozilla/RefPtr.h"
@@ -75,6 +76,21 @@ struct ContentClassifierFeature {
   // sanity-check that such features are listed after the features they may
   // except in the engines pref.
   bool mExceptionOnly;
+
+  // The scoped pref that gates this feature's blocking decision. When the
+  // scoped pref is set to false, blocking is suppressed for the channel's site.
+  // Only consulted on the blocking path.
+  Maybe<nsIScopedPrefs::Pref> mReferencedScopedPref;
+
+  // Optional predicate evaluated before classification. When non-null, the
+  // feature's engine is skipped for any request where this returns false.
+  // Allows features to restrict classification to a request subset without
+  // needing per-request engine variants.
+  bool (*mRequestFilter)(const ContentClassifierRequest&);
+
+  // Optional callback invoked just before a matched channel is cancelled, after
+  // SetBlockedContent and before aChannel->Cancel(). Null for most features.
+  void (*mCancelChannelCallback)(nsIChannel*);
 };
 
 enum class InitPhase {
@@ -198,6 +214,10 @@ class ContentClassifierService final : public nsIAsyncShutdownBlocker,
   // feature exists in the static table.
   static Maybe<const ContentClassifierFeature&> GetFeatureByName(
       const nsACString& aName);
+
+  // Returns whether the named blocking feature is currently active.
+  static bool IsBlockingFeatureActive(const nsACString& aFeatureName,
+                                      bool aIsPrivate);
 
   ContentClassifierResult ClassifyForCancel(
       const ContentClassifierRequest& aRequest);

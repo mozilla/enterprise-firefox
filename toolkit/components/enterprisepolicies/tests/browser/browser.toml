@@ -1,6 +1,9 @@
 [DEFAULT]
 head = "head.js"
 support-files = ["config_broken_json.json"]
+prefs = [
+  "enterprise.policies.live.enabled=false",
+]
 
 ["browser_policies_basic_tests.js"]
 

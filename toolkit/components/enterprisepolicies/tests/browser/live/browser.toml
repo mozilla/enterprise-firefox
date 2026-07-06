@@ -1,13 +1,13 @@
 [DEFAULT]
 head = "head.js"
 prefs = [
-  "enterprise.console.address=",
-  "browser.policies.testUseHttp=true",
-  "browser.policies.remote.enabled=true",
+  "enterprise.policies.live.polling_interval=500",
 ]
 run-if = [
   "enterprise",
 ]
+
+["browser_live_and_local_policies_merging.js"]
 
 ["browser_live_policies_basic_tests.js"]
 

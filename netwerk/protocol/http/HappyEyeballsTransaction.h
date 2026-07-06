@@ -133,7 +133,7 @@ class HappyEyeballsTransaction final : public SpeculativeTransaction {
   // off RequestHead() when encoding the 0-RTT HEADERS frame; we have
   // to return the real txn's head so :method/:authority/:path/:scheme
   // are correct. Post-swap the session queries the real txn directly.
-  nsHttpRequestHead* RequestHead() override;
+  const nsHttpRequestHead* RequestHead() override;
 
   // Not implementable from this context — callers must reach the real
   // txn through nsHttpChannel's own HTTPS-RR path, not via the shim.

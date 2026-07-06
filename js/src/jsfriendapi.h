@@ -190,7 +190,7 @@ extern JS_PUBLIC_API void RunJobs(JSContext* cx);
 
 extern JS_PUBLIC_API JS::Zone* GetRealmZone(JS::Realm* realm);
 
-using PreserveWrapperCallback = bool (*)(JSContext*, JS::HandleObject);
+using PreserveWrapperCallback = void (*)(JSContext*, JS::HandleObject);
 using HasReleasedWrapperCallback = bool (*)(JS::HandleObject);
 
 extern JS_PUBLIC_API bool IsSystemRealm(JS::Realm* realm);

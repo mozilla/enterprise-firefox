@@ -221,6 +221,7 @@ class nsHttpConnectionMgr final : public HttpConnectionMgrShell,
   friend class ConnectionAttemptPool;
   friend class DnsAndConnectSocket;
   friend class HappyEyeballsConnectionAttempt;
+  friend class DefaultHappyEyeballsConnMgrDelegate;
   friend class PendingTransactionInfo;
   friend class ConnectionEstablisher;
   friend class TCPConnectionEstablisher;

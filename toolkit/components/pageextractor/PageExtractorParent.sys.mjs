@@ -177,9 +177,9 @@ export class PageExtractorParent extends JSWindowActorParent {
           // TODO (bug 2043254) - Move this into the HiddenBrowserManager so all hidden browsers don't affect global history.
           browser.setAttribute("disableglobalhistory", "true");
           // Suppress audio output from the loaded page.
-          browser.mute();
+          browser.browsingContext?.mediaController?.mute();
           browser.addEventListener("DidChangeBrowserRemoteness", () =>
-            browser.mute()
+            browser.browsingContext?.mediaController?.mute()
           );
           const { browsingContext } = browser;
           // Tracking Protection so third-party trackers on the page cannot profile the request or correlate it with the user.

@@ -20,11 +20,6 @@
 namespace mozilla::dom {
 
 CSSMathSum::CSSMathSum(nsCOMPtr<nsISupports> aParent,
-                       RefPtr<CSSNumericArray> aValues)
-    : CSSMathValue(std::move(aParent), MathValueType::MathSum),
-      mValues(std::move(aValues)) {}
-
-CSSMathSum::CSSMathSum(nsCOMPtr<nsISupports> aParent,
                        MovingNotNull<UniquePtr<StyleNumericType>> aNumericType,
                        RefPtr<CSSNumericArray> aValues)
     : CSSMathValue(std::move(aParent), std::move(aNumericType),
@@ -36,13 +31,16 @@ RefPtr<CSSMathSum> CSSMathSum::Create(nsCOMPtr<nsISupports> aParent,
                                       const StyleMathSum& aMathSum) {
   nsTArray<RefPtr<CSSNumericValue>> values;
 
-  for (const auto& value : aMathSum) {
+  for (const auto& value : aMathSum.values) {
     values.AppendElement(CSSNumericValue::Create(aParent, value));
   }
 
   auto array = MakeRefPtr<CSSNumericArray>(aParent, std::move(values));
 
-  return MakeRefPtr<CSSMathSum>(std::move(aParent), std::move(array));
+  return MakeRefPtr<CSSMathSum>(
+      std::move(aParent),
+      WrapMovingNotNull(MakeUnique<StyleNumericType>(aMathSum.numeric_type)),
+      std::move(array));
 }
 
 NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED_0(CSSMathSum, CSSMathValue)
@@ -152,7 +150,7 @@ StyleMathSum CSSMathSum::ToStyleMathSum() const {
     values.AppendElement(value->ToStyleNumericValue());
   }
 
-  return StyleMathSum{std::move(values)};
+  return StyleMathSum{GetNumericType(), std::move(values)};
 }
 
 const CSSMathSum& CSSMathValue::GetAsCSSMathSum() const {

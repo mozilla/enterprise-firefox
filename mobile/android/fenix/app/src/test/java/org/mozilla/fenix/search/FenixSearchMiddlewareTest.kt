@@ -73,6 +73,8 @@ import org.mozilla.fenix.search.awesomebar.SearchSuggestionsProvidersBuilder
 import org.mozilla.fenix.search.fixtures.EMPTY_SEARCH_FRAGMENT_STATE
 import org.mozilla.fenix.telemetry.ACTION_SEARCH_ENGINE_SELECTED
 import org.mozilla.fenix.telemetry.SOURCE_ADDRESS_BAR
+import org.mozilla.fenix.telemetry.SURFACE_BROWSER
+import org.mozilla.fenix.telemetry.SURFACE_HOME
 import org.mozilla.fenix.utils.Settings
 import org.robolectric.RobolectricTestRunner
 import kotlin.test.assertIs
@@ -156,6 +158,28 @@ class FenixSearchMiddlewareTest {
         )
 
         assertSearchEngineSelectedTelemetryRecorded(preselectedSearchEngine.telemetryName())
+    }
+
+    @Test
+    fun `GIVEN a search started from a browser tab WHEN the user preselects a search engine THEN record telemetry with the browser surface`() {
+        val preselectedSearchEngine = SearchEngine("engine-a", "Engine A", mockk(), type = SearchEngine.Type.BUNDLED)
+        val middleware = buildMiddleware()
+        val store = buildStore(middleware, initialState = buildEmptySearchState(tabId = "test"))
+        every { middleware.buildSearchSuggestionsProvider(any()) } returns mockk(relaxed = true)
+
+        store.dispatch(
+            SearchStarted(
+                selectedSearchEngine = preselectedSearchEngine,
+                isUserSelected = true,
+                inPrivateMode = false,
+                searchStartedForCurrentUrl = false,
+            ),
+        )
+
+        assertSearchEngineSelectedTelemetryRecorded(
+            preselectedSearchEngine.telemetryName(),
+            surface = SURFACE_BROWSER,
+        )
     }
 
     @Test
@@ -604,8 +628,9 @@ class FenixSearchMiddlewareTest {
 
     private fun buildStore(
         middleware: FenixSearchMiddleware = buildMiddleware(),
+        initialState: SearchFragmentState = buildEmptySearchState(),
     ) = SearchFragmentStore(
-        initialState = buildEmptySearchState(),
+        initialState = initialState,
         middleware = listOf(middleware, searchActionsCaptor),
     )
 
@@ -615,6 +640,7 @@ class FenixSearchMiddlewareTest {
         showHistorySuggestionsForCurrentEngine: Boolean = true,
         showSponsoredSuggestions: Boolean = true,
         showNonSponsoredSuggestions: Boolean = true,
+        tabId: String? = null,
     ): SearchFragmentState = EMPTY_SEARCH_FRAGMENT_STATE.copy(
         searchEngineSource = searchEngineSource,
         defaultEngine = defaultEngine,
@@ -623,6 +649,7 @@ class FenixSearchMiddlewareTest {
         showSponsoredSuggestions = showSponsoredSuggestions,
         showNonSponsoredSuggestions = showNonSponsoredSuggestions,
         showQrButton = true,
+        tabId = tabId,
     )
 
     private fun fakeSearchEnginesState() = SearchState(
@@ -653,6 +680,7 @@ class FenixSearchMiddlewareTest {
 
     private fun assertSearchEngineSelectedTelemetryRecorded(
         extra: String,
+        surface: String = SURFACE_HOME,
     ) {
         val values = Toolbar.buttonTapped.testGetValue()
         assertNotNull(values)
@@ -660,6 +688,7 @@ class FenixSearchMiddlewareTest {
         assertEquals(ACTION_SEARCH_ENGINE_SELECTED, last.extra?.get("item"))
         assertEquals(SOURCE_ADDRESS_BAR, last.extra?.get("source"))
         assertEquals(extra, last.extra?.get("extra"))
+        assertEquals(surface, last.extra?.get("surface"))
     }
 }
 

@@ -1033,6 +1033,11 @@ Result<EditActionResult, nsresult> HTMLEditor::HandleInsertText(
   if (RefPtr editContext = GetEditContext()) {
     uint32_t start = editContext->SelectionStart();
     uint32_t end = editContext->SelectionEnd();
+    RefPtr<nsFrameSelection> frameSelection =
+        SelectionRef().GetFrameSelection();
+    if (NS_WARN_IF(!frameSelection)) {
+      return Err(NS_ERROR_FAILURE);
+    }
     if (InsertingTextForComposition(aPurpose)) {
       MOZ_ASSERT(mComposition);
       if (mComposition->GetContainerTextNode()) {
@@ -1049,6 +1054,15 @@ Result<EditActionResult, nsresult> HTMLEditor::HandleInsertText(
     if (editContext != GetEditContext()) {
       // textupdate handler deactivated this EditContext
       return Err(NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE);
+    }
+
+    // Set caret association to "before" after text insertion.
+    // Without this, the caret will not be next to the
+    // inserted text when inserting LTR into RTL, for example.
+    // However, we don't do this if the web app changed the text next to the
+    // caret, since in that case this may not be a simple insertion.
+    if (!editContext->WasTextNextToCaretChangedByTextUpdateHandler()) {
+      frameSelection->SetHint(CaretAssociationHint::Before);
     }
     return EditActionResult::HandledResult();
   }

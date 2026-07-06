@@ -69,6 +69,7 @@
 #include "mozilla/dom/Selection.h"
 
 #include "mozilla/dom/ContentList.h"
+#include "mozilla/Utf16.h"
 #include "nsContentUtils.h"
 #include "nsCRT.h"
 #include "nsDebug.h"
@@ -1594,7 +1595,7 @@ nsresult HTMLEditor::HandleKeyPressEvent(WidgetKeyboardEvent* aKeyboardEvent) {
   if (!StaticPrefs::dom_event_keypress_dispatch_once_per_surrogate_pair() &&
       !StaticPrefs::dom_event_keypress_key_allow_lone_surrogate() &&
       aKeyboardEvent->mKeyValue.IsEmpty() &&
-      IS_SURROGATE(aKeyboardEvent->mCharCode)) {
+      mozilla::IsSurrogate(aKeyboardEvent->mCharCode)) {
     return NS_OK;
   }
   nsAutoString str(aKeyboardEvent->mKeyValue);

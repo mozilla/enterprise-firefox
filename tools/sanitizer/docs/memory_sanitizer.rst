@@ -122,9 +122,9 @@ zlib are handled with special annotations inside the engine.
 
    **Warning: Certain technologies used inside the JavaScript engine are
    incompatible with MSan and must be disabled at runtime to prevent
-   false positives. This includes the JITs and asm.js. Therefore always
+   false positives. This includes the JITs. Therefore always
    make sure to run with
-   ``--no-ion --no-baseline --no-asmjs --no-native-regexp``.**
+   ``--no-ion --no-baseline --no-native-regexp``.**
 
 If you want to build only the JavaScript shell instead of doing a full
 Firefox build, the build script below will probably help you to do so.

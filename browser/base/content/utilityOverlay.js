@@ -182,6 +182,7 @@ function createUserContextMenu(
     excludeUserContextId = 0,
     showDefaultTab = false,
     useAccessKeys = true,
+    showAddContainer = true,
     showManageContainers = true,
   } = {}
 ) {
@@ -244,9 +245,25 @@ function createUserContextMenu(
     docfrag.appendChild(menuitem);
   });
 
-  if (showManageContainers) {
+  if (showAddContainer || showManageContainers) {
     docfrag.appendChild(document.createXULElement("menuseparator"));
+  }
 
+  if (showAddContainer) {
+    let menuitem = document.createXULElement("menuitem");
+    if (useAccessKeys) {
+      document.l10n.setAttributes(menuitem, "user-context-add-container");
+    } else {
+      const label = ContextualIdentityService.formatContextLabel(
+        "user-context-add-container"
+      );
+      menuitem.setAttribute("label", label);
+    }
+    menuitem.setAttribute("command", "Browser:AddContainer");
+    docfrag.appendChild(menuitem);
+  }
+
+  if (showManageContainers) {
     let menuitem = document.createXULElement("menuitem");
     if (useAccessKeys) {
       document.l10n.setAttributes(menuitem, "user-context-manage-containers");

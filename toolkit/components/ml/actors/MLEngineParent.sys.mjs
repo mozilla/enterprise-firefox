@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 import { MLTelemetry } from "chrome://global/content/ml/MLTelemetry.sys.mjs";
-import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 /**
  * @import { MLEngineChild } from "./MLEngineChild.sys.mjs"
@@ -52,9 +51,6 @@ const RS_INFERENCE_OPTIONS_COLLECTION = "ml-inference-options";
 const RS_ALLOW_DENY_COLLECTION = "ml-model-allow-deny-list";
 const TERMINATE_TIMEOUT = 5000;
 
-const RS_FALLBACK_BASE_URL = AppConstants.MOZ_ENTERPRISE
-  ? ""
-  : "https://firefox-settings-attachments.cdn.mozilla.net/";
 const RUNTIME_ROOT_IN_OPFS = "mlRuntimeFiles";
 
 /**
@@ -783,14 +779,14 @@ export class MLEngineParent extends JSProcessActorParent {
   static async downloadRSAttachment({ wasmRecord, localRoot }) {
     const { attachment, version } = wasmRecord;
     const { location, filename, hash, size } = attachment;
-    let baseURL = RS_FALLBACK_BASE_URL;
+
+    // If the base URL cannot be obtained from Remote Settings, no need to go further.
+    let baseURL;
     try {
       baseURL = await lazy.Utils.baseAttachmentsURL();
     } catch (error) {
-      console.error(
-        `Error fetching remote settings base url from CDN. Falling back to ${RS_FALLBACK_BASE_URL}`,
-        error
-      );
+      console.error("Error fetching content from Remote settings:", error);
+      throw error;
     }
 
     // Validate inputs

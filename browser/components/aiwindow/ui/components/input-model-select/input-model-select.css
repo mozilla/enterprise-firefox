@@ -52,6 +52,12 @@ moz-badge {
   &:active {
     background-color: var(--button-background-color-active);
   }
+
+  /* TODO: Bug 2033070 -  Nova tokens were implemented as the default value for the custom properties, and the fallbacks (and lint exceptions) will need to be removed after launch */
+  @media -moz-pref("browser.nova.enabled") {
+    /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+    border-radius: var(--smartwindow-panel-item-border-radius);
+  }
 }
 
 .model-item-icon {

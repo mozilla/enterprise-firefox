@@ -518,13 +518,16 @@ class alignas(uintptr_t) JitScript final
     }
   }
 
+  static bool IsBaselineScript(BaselineScript* baselineScript) {
+    return baselineScript && baselineScript != BaselineDisabledScriptPtr &&
+           baselineScript != BaselineQueuedScriptPtr &&
+           baselineScript != BaselineCompilingScriptPtr;
+  }
+
  public:
   // Methods for getting/setting/clearing a BaselineScript*.
   bool hasBaselineScript() const {
-    bool res = baselineScript_ &&
-               baselineScript_ != BaselineDisabledScriptPtr &&
-               baselineScript_ != BaselineQueuedScriptPtr &&
-               baselineScript_ != BaselineCompilingScriptPtr;
+    bool res = IsBaselineScript(baselineScript_);
     MOZ_ASSERT_IF(!res, !hasIonScript());
     return res;
   }
@@ -578,11 +581,15 @@ class alignas(uintptr_t) JitScript final
   template <typename F>
   void forEachICScript(const F& f) const;
 
+  static bool IsIonScript(IonScript* ionScript) {
+    return ionScript && ionScript != IonDisabledScriptPtr &&
+           ionScript != IonCompilingScriptPtr;
+  }
+
  public:
   // Methods for getting/setting/clearing an IonScript*.
   bool hasIonScript() const {
-    bool res = ionScript_ && ionScript_ != IonDisabledScriptPtr &&
-               ionScript_ != IonCompilingScriptPtr;
+    bool res = IsIonScript(ionScript_);
     MOZ_ASSERT_IF(res, baselineScript_);
     return res;
   }

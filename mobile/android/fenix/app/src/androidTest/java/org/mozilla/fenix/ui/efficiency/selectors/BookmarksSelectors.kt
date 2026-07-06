@@ -145,6 +145,38 @@ object BookmarksSelectors {
         groups = listOf(),
     )
 
+    @Suppress("ktlint:standard:function-naming", "FunctionName")
+    fun MULTI_SELECTION_COUNTER(count: Int = 0) = Selector(
+        strategy = SelectorStrategy.COMPOSE_BY_TEXT,
+        value = "$count selected",
+        description = "Multi-selection counter: $count selected",
+        groups = listOf(),
+    )
+
+    @Suppress("ktlint:standard:function-naming", "FunctionName")
+    fun ITEM_MENU(title: String = "") = Selector(
+        strategy = SelectorStrategy.COMPOSE_BY_CONTENT_DESCRIPTION,
+        value = "Item Menu for $title",
+        description = "Three dot menu button for bookmark item: $title",
+        groups = listOf(),
+    )
+
+    @Suppress("ktlint:standard:function-naming", "FunctionName")
+    fun BOOKMARK_ITEM(title: String = "") = Selector(
+        strategy = SelectorStrategy.COMPOSE_BY_TEXT_MERGED,
+        value = title,
+        description = "Bookmark item or folder with title: $title",
+        groups = listOf(),
+    )
+
+    @Suppress("ktlint:standard:function-naming", "FunctionName")
+    fun EXPAND_FOLDER_BUTTON(folderTitle: String = "") = Selector(
+        strategy = SelectorStrategy.COMPOSE_BY_CONTENT_DESCRIPTION,
+        value = getStringResource(R.string.bookmark_select_folder_expand_folder_content_description, folderTitle),
+        description = "Expand folder button for: $folderTitle",
+        groups = listOf(),
+    )
+
     val all = listOf(
         TOOLBAR_TITLE,
         OPEN_IN_NEW_TAB_BUTTON,
@@ -165,33 +197,9 @@ object BookmarksSelectors {
         CANCEL_FOLDER_DELETION_BUTTON,
         SEARCH_BUTTON,
         MULTI_SELECTION_THREE_DOT_BUTTON,
-    )
-
-    fun multiSelectionCounterSelector(count: Int) = Selector(
-        strategy = SelectorStrategy.COMPOSE_BY_TEXT,
-        value = "$count selected",
-        description = "Multi-selection counter: $count selected",
-        groups = listOf(),
-    )
-
-    fun itemMenuSelector(title: String) = Selector(
-        strategy = SelectorStrategy.COMPOSE_BY_CONTENT_DESCRIPTION,
-        value = "Item Menu for $title",
-        description = "Three dot menu button for bookmark item: $title",
-        groups = listOf(),
-    )
-
-    fun bookmarkItemSelector(title: String) = Selector(
-        strategy = SelectorStrategy.COMPOSE_BY_TEXT_MERGED,
-        value = title,
-        description = "Bookmark item or folder with title: $title",
-        groups = listOf(),
-    )
-
-    fun expandFolderSelector(folderTitle: String) = Selector(
-        strategy = SelectorStrategy.COMPOSE_BY_CONTENT_DESCRIPTION,
-        value = getStringResource(R.string.bookmark_select_folder_expand_folder_content_description, folderTitle),
-        description = "Expand folder button for: $folderTitle",
-        groups = listOf(),
+        MULTI_SELECTION_COUNTER(),
+        ITEM_MENU(),
+        BOOKMARK_ITEM(),
+        EXPAND_FOLDER_BUTTON(),
     )
 }

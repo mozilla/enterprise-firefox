@@ -41,6 +41,7 @@ import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.ext.showToolbar
 import org.mozilla.fenix.ext.showToolbarWithIconButton
+import org.mozilla.fenix.home.sports.hasWorldCupEnded
 import org.mozilla.fenix.theme.FirefoxTheme
 import org.mozilla.fenix.utils.SecretSettingsPrefDefaults
 import mozilla.components.ui.icons.R as iconsR
@@ -158,7 +159,7 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
         }
 
         requirePreference<Preference>(R.string.pref_key_search_optimization).apply {
-            isVisible = Config.channel.isNightlyOrDebug
+            isVisible = Config.channel.isNightlyOrDebug || Config.channel.isBeta
         }
 
         requirePreference<SwitchPreferenceCompat>(
@@ -298,16 +299,6 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
             }
         }
 
-        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_use_new_crash_reporter).apply {
-            isVisible = true
-            isChecked = settings.useNewCrashReporterFlow
-            onPreferenceChangeListener =
-                Preference.OnPreferenceChangeListener { _, newValue ->
-                    settings.useNewCrashReporterFlow = newValue as Boolean
-                    true
-                }
-        }
-
         // for performance reasons, this is only available in Nightly or Debug builds
         requirePreference<EditTextPreference>(R.string.pref_key_custom_glean_server_url).apply {
             isVisible = Config.channel.isNightlyOrDebug && BuildConfig.GLEAN_CUSTOM_URL.isNullOrEmpty()
@@ -360,6 +351,12 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_import_passwords).apply {
             isVisible = Config.channel.isDebug
             isChecked = settings.importPasswordsFeatureFlagEnabled
+            onPreferenceChangeListener = SharedPreferenceUpdater()
+        }
+
+        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_uninstall_survey).apply {
+            isVisible = true
+            isChecked = context.components.settings.uninstallSurveyFeatureFlagEnabled
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 
@@ -457,7 +454,7 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
         }
 
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_google_lens_integration).apply {
-            isVisible = Config.channel.isNightlyOrDebug
+            isVisible = Config.channel.isNightlyOrDebug || Config.channel.isBeta
             isChecked = settings.googleLensIntegrationEnabled
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
@@ -469,6 +466,8 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
         }
 
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_homepage_sports_widget).apply {
+            // Hide the toggle once the World Cup is over — the widget is retired.
+            isVisible = !hasWorldCupEnded()
             isChecked = settings.enableHomepageSportsWidget
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }

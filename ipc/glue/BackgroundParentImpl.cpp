@@ -254,6 +254,10 @@ BackgroundParentImpl::AllocPBackgroundSDBConnectionParent(
   AssertIsInMainProcess();
   AssertIsOnBackgroundThread();
 
+  if (!BackgroundParent::ValidatePrincipalInfo(this, aPrincipalInfo, {})) {
+    return nullptr;
+  }
+
   return mozilla::dom::AllocPBackgroundSDBConnectionParent(aPersistenceType,
                                                            aPrincipalInfo);
 }
@@ -390,6 +394,12 @@ BackgroundParentImpl::RecvPBackgroundLocalStorageCacheConstructor(
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(aActor);
 
+  if (!BackgroundParent::ValidatePrincipalInfo(this, aPrincipalInfo, {})) {
+    return IPC_FAIL(
+        this,
+        "Invalid aPrincipalInfo in PBackgroundLocalStorageCacheConstructor");
+  }
+
   return mozilla::dom::RecvPBackgroundLocalStorageCacheConstructor(
       this, aActor, aPrincipalInfo, aOriginKey, aPrivateBrowsingId);
 }
@@ -457,6 +467,17 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateFileSystemManagerParent(
   AssertIsInMainProcess();
   AssertIsOnBackgroundThread();
 
+  // The inference process uses ChromeWorkers which have a system principal,
+  // so system principals must be allowed there.
+  EnumSet<dom::ValidatePrincipalOptions> options;
+  if (BackgroundParent::GetRemoteType(this) == INFERENCE_REMOTE_TYPE) {
+    options += dom::ValidatePrincipalOptions::AllowSystem;
+  }
+  if (!BackgroundParent::ValidatePrincipalInfo(this, aPrincipalInfo, options)) {
+    aResolver(NS_ERROR_FAILURE);
+    return IPC_OK();
+  }
+
   return mozilla::dom::CreateFileSystemManagerParent(
       this, aPrincipalInfo, std::move(aParentEndpoint), std::move(aResolver));
 }
@@ -490,6 +511,20 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateNotificationParent(
     CreateNotificationParentResolver&& aResolver) {
   AssertIsInMainProcess();
   AssertIsOnBackgroundThread();
+
+  if (!BackgroundParent::ValidatePrincipal(this, aPrincipal, {})) {
+    ContentParent::LogAndAssertFailedPrincipalValidationInfo(aPrincipal,
+                                                             __func__);
+    return IPC_FAIL(this, "Invalid aPrincipal for CreateNotificationParent");
+  }
+  if (!BackgroundParent::ValidatePrincipal(this, aEffectiveStoragePrincipal,
+                                           {})) {
+    ContentParent::LogAndAssertFailedPrincipalValidationInfo(
+        aEffectiveStoragePrincipal, __func__);
+    return IPC_FAIL(
+        this,
+        "Invalid aEffectiveStoragePrincipal for CreateNotificationParent");
+  }
 
   dom::notification::NotificationParentArgs args{
       aPrincipal, aEffectiveStoragePrincipal, aIsSecureContext,
@@ -543,6 +578,12 @@ IPCResult BackgroundParentImpl::RecvPSharedWorkerConstructor(
   if (MOZ_UNLIKELY(aData.serviceWorkerData().type() !=
                    OptionalServiceWorkerData::Tvoid_t)) {
     return IPC_FAIL(this, "Invalid worker type for PSharedWorkerParent");
+  }
+
+  if (!BackgroundParent::ValidatePrincipalInfo(
+          this, aData.loadingPrincipalInfo(), {})) {
+    return IPC_FAIL(this,
+                    "Invalid loadingPrincipalInfo for PSharedWorkerParent");
   }
 
   mozilla::dom::SharedWorkerParent* actor =
@@ -732,82 +773,30 @@ BackgroundParentImpl::AllocPBroadcastChannelParent(
   return new BroadcastChannelParent(originChannelKey);
 }
 
-namespace {
-
-class CheckPrincipalRunnable final : public Runnable {
- public:
-  CheckPrincipalRunnable(
-      already_AddRefed<ThreadsafeContentParentHandle> aParent,
-      const PrincipalInfo& aPrincipalInfo, const nsACString& aOrigin)
-      : Runnable("ipc::CheckPrincipalRunnable"),
-        mContentParent(aParent),
-        mPrincipalInfo(aPrincipalInfo),
-        mOrigin(aOrigin) {
-    AssertIsInMainProcess();
-    AssertIsOnBackgroundThread();
-
-    MOZ_ASSERT(mContentParent);
-  }
-
-  NS_IMETHOD Run() override {
-    AssertIsOnMainThread();
-    RefPtr<ContentParent> contentParent = mContentParent->GetContentParent();
-    if (!contentParent) {
-      return NS_OK;
-    }
-
-    auto principalOrErr = PrincipalInfoToPrincipal(mPrincipalInfo);
-    if (NS_WARN_IF(principalOrErr.isErr())) {
-      contentParent->KillHard(
-          "BroadcastChannel killed: PrincipalInfoToPrincipal failed.");
-      return NS_OK;
-    }
-
-    nsAutoCString origin;
-    nsresult rv = principalOrErr.unwrap()->GetOrigin(origin);
-    if (NS_FAILED(rv)) {
-      contentParent->KillHard(
-          "BroadcastChannel killed: principal::GetOrigin failed.");
-      return NS_OK;
-    }
-
-    if (NS_WARN_IF(!mOrigin.Equals(origin))) {
-      contentParent->KillHard("BroadcastChannel killed: origins do not match.");
-      return NS_OK;
-    }
-
-    return NS_OK;
-  }
-
- private:
-  RefPtr<ThreadsafeContentParentHandle> mContentParent;
-  PrincipalInfo mPrincipalInfo;
-  nsCString mOrigin;
-};
-
-}  // namespace
-
 mozilla::ipc::IPCResult BackgroundParentImpl::RecvPBroadcastChannelConstructor(
     PBroadcastChannelParent* actor, const PrincipalInfo& aPrincipalInfo,
     const nsACString& aOrigin, const nsAString& aChannel) {
   AssertIsInMainProcess();
   AssertIsOnBackgroundThread();
 
-  RefPtr<ThreadsafeContentParentHandle> parent =
-      BackgroundParent::GetContentParentHandle(this);
+  auto principalOrErr = PrincipalInfoToPrincipal(aPrincipalInfo);
+  if (NS_WARN_IF(principalOrErr.isErr())) {
+    return IPC_FAIL(this, "PrincipalInfoToPrincipal failed");
+  }
+  nsCOMPtr<nsIPrincipal> principal = principalOrErr.unwrap();
 
-  // If the ContentParent is null we are dealing with a same-process actor.
-  if (!parent) {
-    return IPC_OK();
+  if (!BackgroundParent::ValidatePrincipal(this, principal, {})) {
+    return IPC_FAIL(this, "Invalid principal for BroadcastChannel");
   }
 
-  // XXX The principal can be checked right here on the PBackground thread
-  // since BackgroundParentImpl now overrides the ProcessingError method and
-  // kills invalid child processes (IPC_FAIL triggers a processing error).
+  nsAutoCString origin;
+  if (NS_FAILED(principal->GetOrigin(origin))) {
+    return IPC_FAIL(this, "principal::GetOrigin failed");
+  }
 
-  RefPtr<CheckPrincipalRunnable> runnable =
-      new CheckPrincipalRunnable(parent.forget(), aPrincipalInfo, aOrigin);
-  MOZ_ALWAYS_SUCCEEDS(NS_DispatchToMainThread(runnable));
+  if (NS_WARN_IF(!aOrigin.Equals(origin))) {
+    return IPC_FAIL(this, "origins do not match");
+  }
 
   return IPC_OK();
 }
@@ -885,6 +874,10 @@ BackgroundParentImpl::RecvShutdownServiceWorkerRegistrar() {
 already_AddRefed<PCacheStorageParent>
 BackgroundParentImpl::AllocPCacheStorageParent(
     const Namespace& aNamespace, const PrincipalInfo& aPrincipalInfo) {
+  if (!BackgroundParent::ValidatePrincipalInfo(this, aPrincipalInfo, {})) {
+    return nullptr;
+  }
+
   return dom::cache::AllocPCacheStorageParent(this, nullptr, aNamespace,
                                               aPrincipalInfo);
 }
@@ -1094,7 +1087,12 @@ BackgroundParentImpl::RecvPHttpBackgroundChannelConstructor(
   net::HttpBackgroundChannelParent* aParent =
       static_cast<net::HttpBackgroundChannelParent*>(aActor);
 
-  if (NS_WARN_IF(NS_FAILED(aParent->Init(aChannelId)))) {
+  // Record the content process that owns this PBackground actor, so the
+  // background channel can only ever be paired with a HttpChannelParent
+  // from the same process.
+  dom::ContentParentId cpId(BackgroundParent::GetChildID(this));
+
+  if (NS_WARN_IF(NS_FAILED(aParent->Init(cpId, aChannelId)))) {
     return IPC_FAIL_NO_REASON(this);
   }
 
@@ -1106,6 +1104,10 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateBoundStorageKeyParent(
     const Namespace& aNamespace, const PrincipalInfo& aPrincipalInfo) {
   AssertIsInMainProcess();
   AssertIsOnBackgroundThread();
+
+  if (!BackgroundParent::ValidatePrincipalInfo(this, aPrincipalInfo, {})) {
+    return IPC_FAIL(this, "Invalid principalInfo for BoundStorageKeyParent");
+  }
 
   if (!aEndpoint.IsValid()) {
     return IPC_FAIL(this, "Invalid endpoint for BoundStorageKeyParent");
@@ -1277,6 +1279,10 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvPClientManagerConstructor(
 
 IPCResult BackgroundParentImpl::RecvStorageActivity(
     const PrincipalInfo& aPrincipalInfo) {
+  if (!BackgroundParent::ValidatePrincipalInfo(this, aPrincipalInfo, {})) {
+    return IPC_FAIL(this, "Invalid principalInfo for StorageActivity");
+  }
+
   dom::StorageActivityService::SendActivity(aPrincipalInfo);
   return IPC_OK();
 }

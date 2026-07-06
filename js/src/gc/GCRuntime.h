@@ -566,6 +566,9 @@ class GCRuntime {
     return *markers[1];
   }
 
+  bool haveAllImplicitEdges() const { return haveAllImplicitEdges_; }
+  void clearHaveAllImplicitEdges() { haveAllImplicitEdges_ = false; }
+
   JS::Zone* getCurrentSweepGroup() { return currentSweepGroup; }
   unsigned getCurrentSweepGroupIndex() {
     MOZ_ASSERT_IF(unsigned(state()) < unsigned(State::Sweep),
@@ -747,8 +750,8 @@ class GCRuntime {
 
   static bool isFinalizationObserverTarget(const Value& target);
 
-  static bool relocateFinalizationObserverTarget(const Value& oldTarget,
-                                                 const Value& newTarget);
+  bool relocateFinalizationObserverTarget(const Value& oldTarget,
+                                          const Value& newTarget);
 
   static void clearWeakRefTargets(JS::Compartment* source, const Value& target);
   static void clearWeakRefTargets(const CompartmentFilter& sourceFilter,
@@ -1307,6 +1310,9 @@ class GCRuntime {
   MainThreadData<bool> preparedForSweepInThisSlice;
 
   MainThreadData<size_t> markSliceCount;
+
+  /* Whether we successfully added all edges to the implicit edges table. */
+  mozilla::Atomic<bool, mozilla::ReleaseAcquire> haveAllImplicitEdges_{false};
 
 #ifdef JS_GC_CONCURRENT_MARKING
   MainThreadData<size_t> concurrentMarkingFinishedCount;

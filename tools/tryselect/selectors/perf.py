@@ -108,6 +108,7 @@ class PerfParser(CompareParser):
         "build-car",
         "disable-pgo",
         "env",
+        "extensions",
         "gecko-profile",
         "native-profiling",
         "path",
@@ -1183,7 +1184,9 @@ class PerfParser(CompareParser):
         env = try_config.setdefault("env", {})
         if extra_args:
             args = " ".join(extra_args)
-            env["PERF_FLAGS"] = args
+            env["PERF_FLAGS"] = (
+                f"{env['PERF_FLAGS']} {args}" if env.get("PERF_FLAGS") else args
+            )
         if (
             PerfParser.push_info.base_revision
             or PerfParser.push_info.base_lando_commit_id

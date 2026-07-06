@@ -1167,12 +1167,20 @@ void ModuleObject::initAsyncSlots(JSContext* cx, bool hasTopLevelAwait,
   cyclicModuleFields()->asyncParentModules = asyncParentModules;
 }
 
-void ModuleObject::initScriptSlots(HandleScript script) {
+bool ModuleObject::initScriptSlots(JSContext* cx, HandleScript script) {
   MOZ_ASSERT(script);
   MOZ_ASSERT(script->sourceObject());
   MOZ_ASSERT(script->filename());
   initReservedSlot(ScriptSlot, PrivateGCThingValue(script));
   cyclicModuleFields()->scriptSourceObject = script->sourceObject();
+  auto& sources = ObjectRealm::get(this).moduleScriptSources;
+  WeakHeapPtr<ScriptSourceObject*> key(script->sourceObject());
+  auto p = sources.lookupForAdd(key);
+  if (!p.found() && !sources.add(p, key)) {
+    ReportOutOfMemory(cx);
+    return false;
+  }
+  return true;
 }
 
 void ModuleObject::initModuleSourceSlot(HandleObject moduleSource) {
@@ -1575,6 +1583,10 @@ ModuleNamespaceObject* ModuleObject::createNamespace(
 
   self->initReservedSlot(NamespaceSlot, ObjectValue(*ns));
   return ns;
+}
+
+void ModuleObject::clearNamespaceOnFailure() {
+  setReservedSlot(NamespaceSlot, UndefinedValue());
 }
 
 /* static */

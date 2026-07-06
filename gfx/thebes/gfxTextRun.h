@@ -104,6 +104,7 @@ class gfxTextRun : public gfxShapedText {
  public:
   typedef gfxFont::RunMetrics Metrics;
   typedef mozilla::gfx::DrawTarget DrawTarget;
+  using imgDrawingParams = mozilla::image::imgDrawingParams;
 
   // Public textrun API for general use
 
@@ -299,7 +300,7 @@ class gfxTextRun : public gfxShapedText {
    * if they overlap (perhaps due to negative spacing).
    */
   void Draw(const Range aRange, const mozilla::gfx::Point aPt,
-            const DrawParams& aParams) const;
+            const DrawParams& aParams, imgDrawingParams& aImgParams) const;
 
   /**
    * Draws the emphasis marks for this text run. Uses only GetSpacing
@@ -309,7 +310,8 @@ class gfxTextRun : public gfxShapedText {
   void DrawEmphasisMarks(gfxContext* aContext, gfxTextRun* aMark,
                          gfxFloat aMarkAdvance, mozilla::gfx::Point aPt,
                          Range aRange, const PropertyProvider* aProvider,
-                         mozilla::gfx::PaletteCache& aPaletteCache) const;
+                         mozilla::gfx::PaletteCache& aPaletteCache,
+                         imgDrawingParams& aImgParams) const;
 
   /**
    * Computes the ReflowMetrics for a substring.
@@ -858,6 +860,7 @@ class gfxTextRun : public gfxShapedText {
                            mozilla::gfx::Point* aPt,
                            const PropertyProvider* aProvider,
                            TextRunDrawParams& aParams,
+                           imgDrawingParams& aImgParams,
                            mozilla::gfx::ShapedTextFlags aOrientation) const;
   // Advance aRange.start to the start of the nearest ligature, back
   // up aRange.end to the nearest ligature end; may result in
@@ -884,7 +887,7 @@ class gfxTextRun : public gfxShapedText {
   // **** drawing helper ****
   void DrawGlyphs(gfxFont* aFont, Range aRange, mozilla::gfx::Point* aPt,
                   const PropertyProvider* aProvider, Range aSpacingRange,
-                  TextRunDrawParams& aParams,
+                  TextRunDrawParams& aParams, imgDrawingParams& aImgParams,
                   mozilla::gfx::ShapedTextFlags aOrientation) const;
 
   // The textrun holds either a single GlyphRun -or- an array.

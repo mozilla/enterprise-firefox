@@ -128,7 +128,6 @@ class MenuDialogMiddleware(
             is MenuAction.InstallAddonSuccess -> installAddonSuccess()
             is MenuAction.CustomMenuItemAction -> customMenuItemAction(action.intent, action.url)
             is MenuAction.CustomizeReaderView -> customizeReaderView()
-            is MenuAction.OnCFRShown -> onCFRShown()
             is MenuAction.OnSummarizationMenuExposed -> cacheMenuExposure(store)
             is MenuAction.OnMoreMenuClicked -> cacheMoreMenuClick(store)
             is MenuAction.MoveToNonPrivateTab -> migratePrivateTab(store)
@@ -155,18 +154,17 @@ class MenuDialogMiddleware(
     }
 
     private suspend fun setupPageSummarizationState(store: Store<MenuState, MenuAction>) {
-        val isNormalTab = store.state.browserMenuState?.selectedTab?.isNormalTab() ?: false
-        val isLoading = store.state.browserMenuState?.isLoading ?: false
+        val selectedTab = store.state.browserMenuState?.selectedTab
+        val isNormalTab = selectedTab?.isNormalTab() ?: false
+        val isSummarizationEligible = selectedTab.checkSummarizationEligibility()
+        val showMenuItem = summarizeMenuSettings.showMenuItem
 
         val summarizationState = SummarizationMenuState.Default.copy(
-            visible = summarizeMenuSettings.showMenuItem,
+            visible = showMenuItem,
             highlighted = summarizeMenuSettings.shouldHighlightMenuItem && isNormalTab,
             overflowMenuHighlighted = summarizeMenuSettings.shouldHighlightOverflowMenuItem && isNormalTab,
             showNewFeatureBadge = true,
-            enabled = summarizeMenuSettings.showMenuItem &&
-                    isNormalTab &&
-                    !isLoading &&
-                    store.state.browserMenuState?.selectedTab.checkSummarizationEligibility(),
+            enabled = showMenuItem && isNormalTab && isSummarizationEligible,
         )
         store.dispatch(
             MenuAction.InitializeSummarizationMenuState(summarizationState),
@@ -433,11 +431,6 @@ class MenuDialogMiddleware(
     ) = scope.launch {
         onSendPendingIntentWithUrl(intent, url)
         onDismiss()
-    }
-
-    private fun onCFRShown() = scope.launch {
-        settings.shouldShowMenuCFR = false
-        settings.lastCfrShownTimeInMillis = System.currentTimeMillis()
     }
 
     private fun cacheMenuExposure(store: Store<MenuState, MenuAction>) = scope.launch {

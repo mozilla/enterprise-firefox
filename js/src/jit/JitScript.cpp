@@ -141,6 +141,9 @@ bool JSScript::createJitScript(JSContext* cx) {
       jit::OptimizationInfo::baseWarmUpThresholdForScript(cx, this);
   jitScript->setIonThreshold(baseWarmUpThreshold);
 
+  // Ensure concurrent marking doesn't see uninitialized jitScript.
+  MemoryReleaseFence(cx->zone());
+
   warmUpData_.initJitScript(jitScript.release());
   AddCellMemory(this, allocSize.value(), MemoryUse::JitScript);
 
@@ -195,12 +198,14 @@ void JitScript::trace(JSTracer* trc) {
 
   icScript_.trace(trc);
 
-  if (hasBaselineScript()) {
-    baselineScript()->trace(trc);
+  BaselineScript* baselineScript = baselineScript_.getForTracing();
+  if (baselineScript && IsBaselineScript(baselineScript)) {
+    baselineScript->trace(trc);
   }
 
-  if (hasIonScript()) {
-    ionScript()->trace(trc);
+  IonScript* ionScript = ionScript_.getForTracing();
+  if (ionScript && IsIonScript(ionScript)) {
+    ionScript->trace(trc);
   }
 
   TraceEdge(trc, &templateEnv_, "jitscript-template-env");

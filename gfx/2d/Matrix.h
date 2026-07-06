@@ -607,6 +607,8 @@ class Matrix4x4Typed {
     T components[16];
   };
 
+  auto MutTiedFields() { return std::tie(components); }
+
   friend std::ostream& operator<<(std::ostream& aStream,
                                   const Matrix4x4Typed& aMatrix) {
     if (aMatrix.Is2D()) {

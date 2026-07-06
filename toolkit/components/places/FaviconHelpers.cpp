@@ -452,8 +452,13 @@ nsresult FetchIconInfo(const UniquePtr<ConnectionAdapter>& aConn,
   // than 4 times greater than the difference between the preferred width and
   // the smaller icon, we prefer the smaller icon.
   // Non-rich icons are prioritized over rich ones for preferred widths <=
-  // THRESHOLD_WIDTH. After the inital selection, we check if a suitable SVG
+  // THRESHOLD_WIDTH. After the initial selection, we check if a suitable SVG
   // icon exists that could override the initial selection.
+  // Finally, if the main selection chose a root domain icon but an associated
+  // icon exists with an acceptable rescale factor, we prefer the associated
+  // icon. Any downscale is acceptable; the risk of quality degradation from
+  // downscaling a large image is limited because we already skip rich icons for
+  // small sizes. For upscales we cap at 4x.
 
   bool hasResult;
 
@@ -480,6 +485,7 @@ nsresult FetchIconInfo(const UniquePtr<ConnectionAdapter>& aConn,
 
   UniquePtr<IconInfo> svgIcon;
   UniquePtr<IconInfo> selectedIcon;
+  UniquePtr<IconInfo> bestAssociatedIcon;
   uint16_t lastIconWidth = 0;
 
   bool preferNonRichIcons = aPreferredWidth <= THRESHOLD_WIDTH;
@@ -532,6 +538,17 @@ nsresult FetchIconInfo(const UniquePtr<ConnectionAdapter>& aConn,
       break;
     }
 
+    // Track the best-fitting non-SVG associated icon. Icons arrive in width
+    // DESC order, so we update while width >= aPreferredWidth (giving the
+    // smallest icon still at or above preferred = closest from above), and
+    // set once on first encounter if all are below preferred (giving the
+    // largest below = closest from below).
+    if (!isSVG && !rootIcon &&
+        (!bestAssociatedIcon || width >= aPreferredWidth)) {
+      bestAssociatedIcon = MakeUnique<IconInfo>(iconId, data, expiration,
+                                                isRich, false, width, iconURL);
+    }
+
     if (!_icon.spec.IsEmpty() && width < aPreferredWidth) {
       // We found the best match, or we already found a match so we don't need
       // to fallback to the root domain icon.
@@ -553,6 +570,12 @@ nsresult FetchIconInfo(const UniquePtr<ConnectionAdapter>& aConn,
                                         rootIcon, width, EmptyCString());
     rv = stmt->GetUTF8String(4, _icon.spec);
     NS_ENSURE_SUCCESS(rv, rv);
+  }
+
+  if (selectedIcon && selectedIcon->rootIcon && bestAssociatedIcon &&
+      static_cast<uint32_t>(bestAssociatedIcon->width) * 4 >= aPreferredWidth) {
+    _icon.spec = bestAssociatedIcon->spec;
+    selectedIcon = std::move(bestAssociatedIcon);
   }
 
   // Check to see if we should overwrite the original icon selection with an

@@ -657,21 +657,10 @@ bool FontFaceImpl::GetAttributesFromRule(
     aAttr.mStretch = StretchRange(stretchRange._0, stretchRange._1);
   }
 
-  auto styleDesc = StyleComputedFontStyleDescriptor::Normal();
-  if (Servo_FontFaceRule_GetFontStyle(aData, &styleDesc)) {
+  StyleComputedFontStyleRange styleRange;
+  if (Servo_FontFaceRule_GetFontStyle(aData, &styleRange)) {
     aAttr.mRangeFlags &= ~gfxFontEntry::RangeFlags::eAutoSlantStyle;
-    switch (styleDesc.tag) {
-      case StyleComputedFontStyleDescriptor::Tag::Italic:
-        aAttr.mStyle = SlantStyleRange(FontSlantStyle::ITALIC);
-        break;
-      case StyleComputedFontStyleDescriptor::Tag::Oblique:
-        aAttr.mStyle =
-            SlantStyleRange(FontSlantStyle{styleDesc.AsOblique()._0},
-                            FontSlantStyle{styleDesc.AsOblique()._1});
-        break;
-      default:
-        MOZ_ASSERT_UNREACHABLE("Unhandled tag");
-    }
+    aAttr.mStyle = SlantStyleRange(styleRange._0, styleRange._1);
   }
 
   StylePercentage ascent{0};

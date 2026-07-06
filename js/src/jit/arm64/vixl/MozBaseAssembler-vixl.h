@@ -168,7 +168,7 @@ class MozBaseAssembler : public js::jit::AssemblerShared {
   }
 
   void spewBranch(BufferOffset offs,
-                  const vixl::Instruction* instr, const LabelDoc& target) {
+                  const vixl::Instruction* instr, LabelDoc target) {
     if (spew_.isDisabled() || !instr)
       return;
 
@@ -258,7 +258,7 @@ class MozBaseAssembler : public js::jit::AssemblerShared {
     return offs;
   }
 
-  BufferOffset EmitBranch(Instr instruction, const LabelDoc& doc) {
+  BufferOffset EmitBranch(Instr instruction, LabelDoc doc) {
     BufferOffset offs = Emit(instruction, true);
 #ifdef JS_DISASM_ARM64
     spewBranch(offs, armbuffer_.getInstOrNull(offs), doc);

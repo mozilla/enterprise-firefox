@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<issues format="6" by="lint 8.13.2" type="baseline" client="gradle" dependencies="false" name="AGP (8.13.2)" variant="all" version="8.13.2">
+<issues format="6" by="lint 9.2.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.2.1)" variant="all" version="9.2.1">
 
     <issue
         id="ButtonStyleXmlDetector"
@@ -21,6 +21,17 @@
             file="src/main/res/layout/activity_main.xml"
             line="54"
             column="6"/>
+    </issue>
+
+    <issue
+        id="JUnitAssertNotNull"
+        message="Use kotlin.test.assertNotNull instead of JUnit assertNotNull"
+        errorLine1="        assertNotNull(GleanTestMetrics.counter.testGetValue())"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/androidTest/java/org/mozilla/samples/glean/MainActivityTest.kt"
+            line="36"
+            column="9"/>
     </issue>
 
 </issues>

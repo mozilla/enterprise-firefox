@@ -101,13 +101,11 @@ class PageContext(val composeRule: AndroidComposeTestRule<HomeActivityIntentTest
 
     fun initTestRule(
         skipOnboarding: Boolean = true,
-        isMenuRedesignCFREnabled: Boolean = false,
         isPageLoadTranslationsPromptEnabled: Boolean = false,
     ): AndroidComposeTestRule<HomeActivityIntentTestRule, *> {
         return AndroidComposeTestRuleV2(
             HomeActivityIntentTestRule(
                 skipOnboarding = skipOnboarding,
-                isMenuRedesignCFREnabled = isMenuRedesignCFREnabled,
                 isPageLoadTranslationsPromptEnabled = isPageLoadTranslationsPromptEnabled,
             ),
         ) { it.activity }

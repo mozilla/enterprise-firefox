@@ -44,15 +44,15 @@ class Range {
     MOZ_ASSERT_DEBUG_OR_FUZZING(aStart <= aEnd);
   }
 
-  template <typename U, class = std::enable_if_t<
-                            std::is_convertible_v<U (*)[], T (*)[]>, int>>
+  template <typename U>
+    requires(std::is_convertible_v<U (*)[], T (*)[]>)
   MOZ_IMPLICIT Range(const Range<U>& aOther)
       : mStart(aOther.mStart), mEnd(aOther.mEnd) {}
 
   MOZ_IMPLICIT Range(Span<T> aSpan) : Range(aSpan.Elements(), aSpan.Length()) {}
 
-  template <typename U, class = std::enable_if_t<
-                            std::is_convertible_v<U (*)[], T (*)[]>, int>>
+  template <typename U>
+    requires(std::is_convertible_v<U (*)[], T (*)[]>)
   MOZ_IMPLICIT Range(const Span<U>& aSpan)
       : Range(aSpan.Elements(), aSpan.Length()) {}
 

@@ -63,7 +63,6 @@ EXPORTS += [
     "nsNSSCallbacks.h",
     "nsNSSCertificate.h",
     "nsNSSComponent.h",
-    "nsNSSHelper.h",
     "nsRandomGenerator.h",
     "nsSecureBrowserUI.h",
     "nsSecurityHeaderParser.h",

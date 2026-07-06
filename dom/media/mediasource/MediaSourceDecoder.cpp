@@ -20,12 +20,12 @@
 
 extern mozilla::LogModule* GetMediaSourceLog();
 
-#define MSE_DEBUG(arg, ...)                                              \
-  DDMOZ_LOG(GetMediaSourceLog(), mozilla::LogLevel::Debug, "::%s: " arg, \
-            __func__, ##__VA_ARGS__)
-#define MSE_DEBUGV(arg, ...)                                               \
-  DDMOZ_LOG(GetMediaSourceLog(), mozilla::LogLevel::Verbose, "::%s: " arg, \
-            __func__, ##__VA_ARGS__)
+#define MSE_DEBUG(arg, ...)                                                  \
+  DDMOZ_LOG_FMT(GetMediaSourceLog(), mozilla::LogLevel::Debug, "::{}: " arg, \
+                __func__, ##__VA_ARGS__)
+#define MSE_DEBUGV(arg, ...)                                                   \
+  DDMOZ_LOG_FMT(GetMediaSourceLog(), mozilla::LogLevel::Verbose, "::{}: " arg, \
+                __func__, ##__VA_ARGS__)
 
 using namespace mozilla::media;
 
@@ -149,7 +149,7 @@ IntervalType MediaSourceDecoder::GetSeekableImpl() {
       MOZ_RELEASE_ASSERT(false);
     }
   }
-  MSE_DEBUG("ranges=%s", DumpTimeRanges(seekable).get());
+  MSE_DEBUG("ranges={}", DumpTimeRanges(seekable).get());
   return IntervalType(std::move(seekable));
 }
 
@@ -199,7 +199,7 @@ media::TimeIntervals MediaSourceDecoder::GetBuffered() {
     buffered.Intersection(range);
   }
 
-  MSE_DEBUG("ranges=%s", DumpTimeRanges(buffered).get());
+  MSE_DEBUG("ranges={}", DumpTimeRanges(buffered).get());
   return buffered;
 }
 

@@ -276,6 +276,7 @@ class ServiceWorkerDescriptor;
 class ShadowRoot;
 class SimpleContentList;
 class SpeculationRules;
+class SpeculationRuleSet;
 class SVGDocument;
 class SVGElement;
 class SVGSVGElement;
@@ -2402,13 +2403,23 @@ class Document : public nsINode,
    * Create an element with the specified name, prefix and namespace ID.
    * Returns null if element name parsing failed.
    */
-  already_AddRefed<Element> CreateElem(const nsAString& aName, nsAtom* aPrefix,
-                                       int32_t aNamespaceID,
-                                       const nsAString* aIs = nullptr);
+  already_AddRefed<Element> CreateElem(
+      const nsAString& aName, nsAtom* aPrefix, int32_t aNamespaceID,
+      const nsAString* aIs = nullptr,
+      mozilla::Maybe<RefPtr<mozilla::dom::CustomElementRegistry>>
+          aCustomElementRegistry = mozilla::Nothing());
 
   // https://dom.spec.whatwg.org/#effective-global-custom-element-registry
   mozilla::dom::CustomElementRegistry*
   GetEffectiveGlobalCustomElementRegistry();
+
+  // Whether this document is the key of a scoped custom element registry.
+  bool HasScopedCustomElementRegistry() const {
+    return mHasScopedCustomElementRegistry;
+  }
+  void SetHasScopedCustomElementRegistry(bool aValue) {
+    mHasScopedCustomElementRegistry = aValue;
+  }
 
   /**
    * Get the security info (i.e. SSL state etc) that the document got
@@ -3637,12 +3648,18 @@ class Document : public nsINode,
   TimeStamp LastFocusTime() const;
   void SetLastFocusTime(const TimeStamp& aFocusTime);
 
-  void SetFocusNavigationStartingPoint(nsIContent* aContent,
-                                       bool aWillBeRemoved = false);
-  nsIContent* GetFocusNavigationStartingPoint() const {
-    return mFocusNavigationStartingPoint;
+  void SetPreviouslyFocusedContent(nsIContent* aContent,
+                                   bool aWillBeRemoved = false);
+  nsIContent* GetPreviouslyFocusedContent() const {
+    return mPreviouslyFocusedContent;
   }
   bool WasFocusedElementRemoved() const { return mWasFocusedElementRemoved; }
+  void SetSelectionMoreRecentThanFocus(bool aValue) {
+    mSelectionMoreRecentThanFocus = aValue;
+  }
+  bool IsSelectionMoreRecentThanFocus() const {
+    return mSelectionMoreRecentThanFocus;
+  }
 
   // Event handlers are all on nsINode already
   bool MozSyntheticDocument() const { return IsSyntheticDocument(); }
@@ -4085,19 +4102,10 @@ class Document : public nsINode,
            GetDocGroup() == GetInProcessParentDocument()->GetDocGroup();
   }
 
-  void AddIntersectionObserver(DOMIntersectionObserver& aObserver) {
-    MOZ_ASSERT(!mIntersectionObservers.Contains(&aObserver),
-               "Intersection observer already in the list");
-    mIntersectionObservers.AppendElement(&aObserver);
-  }
-  void RemoveIntersectionObserver(DOMIntersectionObserver& aObserver) {
-    // TODO(emilio): This can fail during unlink because Document unlink clears
-    // the IntersectionObserver array, but it seems it wouldn't need to?
-    // MOZ_ASSERT(mIntersectionObservers.Contains(&aObserver));
-    mIntersectionObservers.RemoveElement(&aObserver);
-  }
+  void AddIntersectionObserver(DOMIntersectionObserver& aObserver);
+  void RemoveIntersectionObserver(DOMIntersectionObserver& aObserver);
   bool HasIntersectionObservers() const {
-    return !mIntersectionObservers.IsEmpty();
+    return !mIntersectionObservers.isEmpty();
   }
 
   // Update intersection observers in this document and all
@@ -4142,15 +4150,9 @@ class Document : public nsINode,
   }
 
   // ResizeObserver usage.
-  void AddResizeObserver(ResizeObserver& aObserver) {
-    MOZ_ASSERT(!mResizeObservers.Contains(&aObserver));
-    mResizeObservers.AppendElement(&aObserver);
-  }
-  void RemoveResizeObserver(ResizeObserver& aObserver) {
-    MOZ_ASSERT(mResizeObservers.Contains(&aObserver));
-    mResizeObservers.RemoveElement(&aObserver);
-  }
-  bool HasResizeObservers() const { return !mResizeObservers.IsEmpty(); }
+  void AddResizeObserver(ResizeObserver& aObserver);
+  void RemoveResizeObserver(ResizeObserver& aObserver);
+  bool HasResizeObservers() const { return !mResizeObservers.isEmpty(); }
 
   void ScheduleResizeObserversNotification();
   /**
@@ -4330,6 +4332,10 @@ class Document : public nsINode,
   virtual bool UseWidthDeviceWidthFallbackViewport() const;
 
  private:
+  void FlattenElementCreationOptions(
+      const ElementCreationOptionsOrString& aOptions, const nsString*& aIs,
+      Maybe<RefPtr<CustomElementRegistry>>& aDocumentRegistry, ErrorResult& rv);
+
   bool IsErrorPage() const;
 
   // Notifies the pres context that an image we track may have started or
@@ -4993,11 +4999,11 @@ class Document : public nsINode,
   // container for per-context fonts (downloadable, SVG, etc.)
   RefPtr<FontFaceSet> mFontFaceSet;
 
-  // Points to the focus navigation starting point if the focused element is
-  // removed or becomes non-focusable, so that focus navigation isn't reset when
-  // that happens.
-  // https://html.spec.whatwg.org/#sequential-focus-navigation-starting-point
-  RefPtr<nsIContent> mFocusNavigationStartingPoint;
+  // Points to the previously-focused element when it becomes non-focusable,
+  // or if the focused element is removed, it points to its previous sibling
+  // (or parent's previous sibling if it has none, etc.) in the flat tree.
+  // Used for determining sequential focus navigation starting point.
+  RefPtr<nsIContent> mPreviouslyFocusedContent;
 
   // Last time this document or a one of its sub-documents was focused.  If
   // focus has never occurred then mLastFocusTime.IsNull() will be true.
@@ -5342,10 +5348,19 @@ class Document : public nsINode,
   // Cached value of dom.image.sizes_auto.enabled
   const bool mAutoSizesEnabled : 1;
 
-  // If false, mFocusNavigationStartingPoint is the previously-focused element.
-  // If true, mFocusNavigationStartingPoint is the previously-focused element's
-  // previous sibling in the flat tree.
+  // If false, mPreviouslyFocusedContent is the previously-focused element.
+  // If true, mPreviouslyFocusedContent is the previously-focused element's
+  // previous sibling in the flat tree (or its parent's previous sibling
+  // if it has none, etc.).
   bool mWasFocusedElementRemoved : 1;
+
+  // True if this document is the key of a scoped custom element registry. Lets
+  // HasScopedRegistry() answer cheaply without a hash lookup.
+  bool mHasScopedCustomElementRegistry : 1;
+
+  // Whether the selection was set more recently than the last focused
+  // element was focused. Used for determining focus navigation starting point.
+  bool mSelectionMoreRecentThanFocus : 1;
 
   // The fingerprinting protections overrides for this document. The value will
   // override the default enabled fingerprinting protections for this document.
@@ -5653,10 +5668,11 @@ class Document : public nsINode,
   // is a weak reference to avoid leaks due to circular references.
   nsWeakPtr mScopeObject;
 
-  // Array of intersection observers with active observations.
-  nsTArray<DOMIntersectionObserver*> mIntersectionObservers;
-  // Array of resize observers with active observations.
-  nsTArray<ResizeObserver*> mResizeObservers;
+  // Intersection observers registered with this document, in registration
+  // order as required by the spec.
+  LinkedList<DOMIntersectionObserver> mIntersectionObservers;
+  // Resize observers registered with this document, same order.
+  LinkedList<ResizeObserver> mResizeObservers;
 
   RefPtr<DOMIntersectionObserver> mLazyLoadObserver;
 
@@ -5906,8 +5922,7 @@ class Document : public nsINode,
   nsCOMPtr<nsIURI> mTLSCertificateBindingURI;
 
   // https://html.spec.whatwg.org/#document-sr-sets
-  nsClassHashtable<nsRefPtrHashKey<nsIScriptElement>, SpeculationRules>
-      mSpeculationRulesFromScript;
+  RefPtr<class SpeculationRules> mSpeculationRules;
 
  public:
   // Needs to be public because the bindings code pokes at it.
@@ -5932,10 +5947,7 @@ class Document : public nsINode,
                                               const SetHTMLOptions& aOptions,
                                               ErrorResult& aError);
 
-  void RegisterSpeculationRulesFromScript(
-      nsIScriptElement* aScriptElement,
-      UniquePtr<SpeculationRules> aSpeculationRules);
-  void UnregisterSpeculationRules(nsIScriptElement* aScriptElement);
+  class SpeculationRules& SpeculationRules();
 
   nsIURI* GetTlsCertificateBindingURI() const {
     return mTLSCertificateBindingURI;

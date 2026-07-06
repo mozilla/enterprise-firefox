@@ -10,7 +10,16 @@ const { CrashReports } = ChromeUtils.importESModule(
 
 ChromeUtils.defineESModuleGetters(this, {
   CrashSubmit: "resource://gre/modules/CrashSubmit.sys.mjs",
+  AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
 });
+
+function reportSubmissionDisabledByPolicy() {
+  return (
+    AppConstants.MOZ_ENTERPRISE &&
+    Services.policies?.getActivePolicies()?.CrashReportsSubmit?.Enabled ===
+      false
+  );
+}
 
 document.addEventListener("DOMContentLoaded", () => {
   populateReportLists();
@@ -50,6 +59,10 @@ function populateReportLists() {
   if (!reportURL) {
     document.getElementById("noConfig").classList.remove("hidden");
     return;
+  }
+
+  if (reportSubmissionDisabledByPolicy()) {
+    document.getElementById("submitAllUnsubmittedReports").hidden = true;
   }
 
   const reports = CrashReports.getReports();
@@ -95,15 +108,17 @@ function addReportRow(isPending, isIgnored, id, date, dateFormatter) {
     if (isIgnored) {
       row.classList.add("ignored");
     }
-    const buttonTemplate = document.getElementById("crashSubmitButton");
-    const button = document
-      .importNode(buttonTemplate.content, true)
-      .querySelector("button");
-    const buttonText = button.querySelector("span");
-    button.addEventListener("click", () =>
-      submitPendingReport(id, row, button, buttonText, dateFormatter)
-    );
-    cells[2].appendChild(button);
+    if (!reportSubmissionDisabledByPolicy()) {
+      const buttonTemplate = document.getElementById("crashSubmitButton");
+      const button = document
+        .importNode(buttonTemplate.content, true)
+        .querySelector("button");
+      const buttonText = button.querySelector("span");
+      button.addEventListener("click", () =>
+        submitPendingReport(id, row, button, buttonText, dateFormatter)
+      );
+      cells[2].appendChild(button);
+    }
     document.getElementById("unsubmitted").appendChild(row);
   } else {
     const linkTemplate = document.getElementById("viewCrashLink");
@@ -152,6 +167,9 @@ function showAppropriateSections() {
  * @param {object}              dateFormatter formatter for presenting dates to users
  */
 function submitPendingReport(reportId, row, button, buttonText, dateFormatter) {
+  if (reportSubmissionDisabledByPolicy()) {
+    return;
+  }
   button.classList.add("submitting");
   document.getElementById("submitAllUnsubmittedReports").disabled = true;
   CrashSubmit.submit(reportId, CrashSubmit.SUBMITTED_FROM_ABOUT_CRASHES, {
@@ -211,6 +229,9 @@ async function clearUnsubmittedReports() {
  * and add them to submitted crash reports.
  */
 async function submitAllUnsubmittedReports() {
+  if (reportSubmissionDisabledByPolicy()) {
+    return;
+  }
   for (
     var i = 0;
     i < document.getElementById("unsubmitted").childNodes.length;

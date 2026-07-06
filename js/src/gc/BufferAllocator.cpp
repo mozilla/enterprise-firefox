@@ -1477,9 +1477,13 @@ void BufferAllocator::abortMajorSweeping(const AutoLock& lock) {
   clearAllocatedDuringCollectionState(lock);
 
   if (minorState == State::Sweeping) {
-    // If we are minor sweeping then chunks with allocatedDuringCollection set
-    // may be present in |mixedChunksToSweep|. Set a flag so these are cleared
-    // when they are merged later.
+    // If we are minor sweeping then stolen chunks may be in
+    // |mixedChunksToSweep|; ensure mergeSweptData clears their
+    // stolenFromSweepList flag and stale mark bits.
+    majorSweepingStartedWhileMinorSweeping = true;
+    // Also, chunks with allocatedDuringCollection set may be present in
+    // |mixedChunksToSweep|. Set a flag so these are cleared when they are
+    // merged later.
     majorFinishedWhileMinorSweeping = true;
   }
 

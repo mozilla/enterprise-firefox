@@ -21,6 +21,10 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] != "android":
         "SitePolicyUtils.sys.mjs",
     ]
 
+    EXTRA_JS_MODULES.policies += [
+        "PolicySchemaValidator.sys.mjs",
+    ]
+
     XPCOM_MANIFESTS += [
         "components.conf",
     ]

@@ -16,6 +16,7 @@ run-if = [
 ["test_autoconfig.js"]
 skip-if = [
   "os == 'android' && os_version == '14' && arch == 'x86_64' && debug && !fission", # Bug 1982954
+  "socketprocess_networking" # Fails due to Mochia (bug 1982446)
 ]
 
 ["test_autoconfig_custom_path.js"]
@@ -32,6 +33,7 @@ run-if = [
 run-sequentially = ["true"] # fails more than 50% of the time in parallel
 skip-if = [
   "os == 'android' && os_version == '14' && arch == 'x86_64' && debug && !fission", # Bug 1982954
+  "socketprocess_networking" # Fails due to Mochia (bug 1982446)
 ]
 
 ["test_autoconfig_nonascii.js"]
@@ -43,4 +45,5 @@ skip-if = [
 ["test_autoconfig_sysconfd.js"]
 run-if = [
   "os == 'linux'",
+  "socketprocess_networking" # Fails due to Mochia (bug 1982446)
 ]

@@ -1209,11 +1209,12 @@ static MOZ_ALWAYS_INLINE bool PreserveAnyUnpreservedWrapper(
     return true;
   }
 
+  MaybePreserveDOMWrapper(cx, obj);
+
   // The flag is used to guard against having a wrapper that needs to be
   // preserved but isn't so it's OK if we preserve the wrapper but fail to set
   // the flag.
-  return MaybePreserveDOMWrapper(cx, obj) &&
-         JSObject::setFlag(cx, obj, ObjectFlag::HasPreservedWrapper);
+  return JSObject::setFlag(cx, obj, ObjectFlag::HasPreservedWrapper);
 }
 
 static MOZ_ALWAYS_INLINE bool CallAddPropertyHook(JSContext* cx,

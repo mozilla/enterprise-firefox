@@ -66,10 +66,6 @@ class MacIOSurface final
       ChromaSubsampling aChromaSubsampling, YUVColorSpace aColorSpace,
       TransferFunction aTransferFunction, ColorRange aColorRange,
       ColorDepth aColorDepth, AllowAlpha aAllowAlpha);
-  static already_AddRefed<MacIOSurface> CreateSinglePlanarSurface(
-      const IntSize& aSize, YUVColorSpace aColorSpace,
-      TransferFunction aTransferFunction, ColorRange aColorRange,
-      AllowAlpha aAllowAlpha);
   static void ReleaseIOSurface(MacIOSurface* aIOSurface);
   static already_AddRefed<MacIOSurface> LookupSurface(
       IOSurfaceID aSurfaceID, YUVColorSpace aColorSpace,

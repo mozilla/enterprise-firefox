@@ -69,6 +69,17 @@ class CacheEntryTable : public TCacheEntryTable {
     }
   }
 
+  void RemoveNoVarySearchEntryByKey(const nsACString& aFullKey) {
+    for (auto iter = mNoVarySearchIndex.Iter(); !iter.Done(); iter.Next()) {
+      if (iter.Data().RemoveElement(aFullKey)) {
+        if (iter.Data().IsEmpty()) {
+          iter.Remove();
+        }
+        break;
+      }
+    }
+  }
+
  private:
   EType const mType;
 };

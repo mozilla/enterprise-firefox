@@ -31,7 +31,6 @@ forbid-mscom-init:
         # These files are existing legacy uses of CoInitialize (and so forth)
         # that must eventually be fixed -- probably by converting them to use
         # ApartmentRegion and moving them to _that_ lint's exception-list.
-        - browser/components/shell/nsWindowsShellService.cpp
         - image/DecodePool.cpp
         - ipc/glue/IOThread.cpp
         - netwerk/system/win32/nsNotifyAddrListener.cpp

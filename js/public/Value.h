@@ -551,7 +551,8 @@ class Value {
 
   /**
    * Returns false if creating a NumberValue containing the given type would
-   * be lossy, true otherwise.
+   * be lossy, true otherwise. Note that this will return false for NaN,
+   * despite NaN being representable as a double, because NaN !== NaN.
    */
   template <typename T>
   static bool isNumberRepresentable(const T t) {

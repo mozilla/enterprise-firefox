@@ -130,6 +130,7 @@ add_task(async function test_ask_button() {
       "false",
       "Ask button has aria-expanded=false after second click"
     );
+    await waitForSidebarClosed(win);
     Assert.ok(sidebar.collapsed, "AI Sidebar is hidden after second click");
 
     askButton.setAttribute("tabindex", "-1");
@@ -161,6 +162,7 @@ add_task(async function test_ask_button() {
       "false",
       "Ask button has aria-expanded=false after second tab enter"
     );
+    await waitForSidebarClosed(win);
     Assert.ok(sidebar.collapsed, "AI Sidebar is hidden after second tab enter");
 
     focusAskButton();
@@ -191,6 +193,7 @@ add_task(async function test_ask_button() {
       "false",
       "Ask button has aria-expanded=false after second space"
     );
+    await waitForSidebarClosed(win);
     Assert.ok(sidebar.collapsed, "AI Sidebar is hidden after second space");
     askButton.removeAttribute("tabindex");
   } finally {
@@ -285,10 +288,7 @@ add_task(async function test_sidebar_close_button() {
 
     closeButton.click();
 
-    await TestUtils.waitForCondition(
-      () => !AIWindowUI.isSidebarOpen(win),
-      "Wait for sidebar to close after clicking close button"
-    );
+    await waitForSidebarClosed(win);
 
     Assert.ok(
       sidebar.collapsed,

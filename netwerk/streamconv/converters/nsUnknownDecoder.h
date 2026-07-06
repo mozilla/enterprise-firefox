@@ -78,11 +78,10 @@ class nsUnknownDecoder : public nsIStreamConverter, public nsIContentSniffer {
   // using the extentsion)
   bool SniffURI(nsIRequest* aRequest);
 
-  // LastDitchSniff guesses at text/plain vs. application/octet-stream
+  // SniffBinary guesses at text/plain vs. application/octet-stream
   // by just looking at whether the data contains null bytes, and
-  // maybe at the fraction of chars with high bit set.  Use this only
-  // as a last-ditch attempt to decide a content type!
-  bool LastDitchSniff(nsIRequest* aRequest);
+  // maybe at the fraction of chars with high bit set.
+  bool SniffBinary(nsIRequest* aRequest);
 
   /**
    * An entry struct for our array of sniffers.  Each entry has either
@@ -141,7 +140,7 @@ class nsUnknownDecoder : public nsIStreamConverter, public nsIContentSniffer {
 /**
  * Class that detects whether a data stream is text or binary.  This reuses
  * most of nsUnknownDecoder except the actual content-type determination logic
- * -- our overridden DetermineContentType simply calls LastDitchSniff and sets
+ * -- our overridden DetermineContentType simply calls SniffBinary and sets
  * the type to APPLICATION_GUESS_FROM_EXT if the data is detected as binary.
  */
 class nsBinaryDetector : public nsUnknownDecoder {

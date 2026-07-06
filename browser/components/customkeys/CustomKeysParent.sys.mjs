@@ -24,7 +24,11 @@ export class CustomKeysParent extends JSWindowActorParent {
       return null;
     }
     return {
-      shortcut: ShortcutUtils.prettifyShortcut(keyEl),
+      // Do not prettify a shortcut that is cleared
+      shortcut:
+        keyEl.hasAttribute("key") || keyEl.hasAttribute("keycode")
+          ? ShortcutUtils.prettifyShortcut(keyEl)
+          : "",
       isCustomized: !!CustomKeys.getDefaultKey(id),
     };
   }
@@ -132,7 +136,7 @@ export class CustomKeysParent extends JSWindowActorParent {
     );
     add(cat, "key_profilerCapture", "customkeys-dev-profiler-capture");
     add(cat, "key_profilerCaptureAlternate", "customkeys-dev-profiler-capture");
-    cat = keys["customkeys-category-navigation"] = {};
+    cat = keys["customkeys-category-navigation-2"] = {};
     add(cat, "goBackKb", "customkeys-nav-back");
     add(cat, "goForwardKb", "customkeys-nav-forward");
     add(cat, "goHome", "customkeys-nav-home");
@@ -190,6 +194,27 @@ export class CustomKeysParent extends JSWindowActorParent {
         const id = message.data;
         CustomKeys.clearKey(id);
         return this.getKeyData(id);
+      }
+      case "CustomKeys:Confirm": {
+        const result = await Services.prompt.asyncConfirmEx(
+          this.browsingContext,
+          Ci.nsIPrompt.MODAL_TYPE_CONTENT,
+          message.data.title,
+          message.data.body,
+          Ci.nsIPromptService.BUTTON_POS_0_DEFAULT |
+            (Ci.nsIPromptService.BUTTON_TITLE_IS_STRING *
+              Ci.nsIPromptService.BUTTON_POS_0) |
+            (Ci.nsIPromptService.BUTTON_TITLE_IS_STRING *
+              Ci.nsIPromptService.BUTTON_POS_1),
+          message.data.buttonConfirm,
+          message.data.buttonCancel,
+          null,
+          null,
+          false,
+          { useTitle: true }
+        );
+        // Return true for confirm, false for cancel.
+        return result.get("buttonNumClicked") == 0;
       }
       case "CustomKeys:GetDefaultKey": {
         const data = { id: message.data };
@@ -263,7 +288,9 @@ export class CustomKeysParent extends JSWindowActorParent {
           data.isValid = false;
         }
       }
-      data.shortcut = this.prettifyShortcut(data);
+      if (data.isValid) {
+        data.shortcut = this.prettifyShortcut(data);
+      }
       this.sendAsyncMessage("CustomKeys:CapturedKey", data);
     }
   }

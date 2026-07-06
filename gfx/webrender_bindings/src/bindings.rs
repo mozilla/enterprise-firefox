@@ -751,12 +751,19 @@ pub extern "C" fn wr_renderer_map_and_recycle_screenshot(
     dst_buffer: *mut u8,
     dst_buffer_len: usize,
     dst_stride: usize,
+    dest_format: ImageFormat,
 ) -> bool {
     renderer.map_and_recycle_screenshot(
         handle,
         unsafe { make_slice_mut(dst_buffer, dst_buffer_len) },
         dst_stride,
+        dest_format,
     )
+}
+
+#[no_mangle]
+pub extern "C" fn wr_renderer_supports_bgra_readback(renderer: &Renderer) -> bool {
+    renderer.supports_bgra_readback()
 }
 
 #[no_mangle]
@@ -3122,6 +3129,7 @@ pub extern "C" fn wr_dp_push_stacking_context(
                 is_2d_scale_translation: params.is_2d_scale_translation,
                 should_snap: params.should_snap,
                 paired_with_perspective: params.paired_with_perspective,
+                is_offset_only: false,
             },
             WrReferenceFrameKind::Perspective => ReferenceFrameKind::Perspective { scrolling_relative_to },
         };
@@ -3165,6 +3173,7 @@ pub extern "C" fn wr_dp_push_stacking_context(
                 is_2d_scale_translation: true,
                 should_snap: false,
                 paired_with_perspective: false,
+                is_offset_only: true,
             },
         );
         result.id = wr_spatial_id.0;

@@ -659,7 +659,7 @@ Http2StreamWebSocket::~Http2StreamWebSocket() {
 
 nsresult Http2StreamWebSocket::GenerateHeaders(nsCString& aCompressedData,
                                                uint8_t& firstFrameFlags) {
-  nsHttpRequestHead* head = mTransaction->RequestHead();
+  const nsHttpRequestHead* head = mTransaction->RequestHead();
 
   nsAutoCString authorityHeader;
   nsresult rv = head->GetHeader(nsHttp::Host, authorityHeader);

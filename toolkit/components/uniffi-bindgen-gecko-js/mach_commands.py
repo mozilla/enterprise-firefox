@@ -5,6 +5,7 @@
 import argparse
 import os
 import subprocess
+import sys
 from enum import Enum
 
 from mach.decorators import Command, CommandArgument, SubCommand
@@ -44,6 +45,19 @@ def build_gkrust_uniffi_library(command_context, source_library):
         source_library.value,
     ] + cargo_args_for_library(source_library)
     print(cmdline)
+    # nss_sys (via logins' keydb) and the mozbuild crate need an NSS library to
+    # link against. Run [app-services-repo]libs/verify-desktop-environment.sh
+    # to configure it (see bug 1981747 / D260481), or set MOZ_TOPOBJDIR to a
+    # populated objdir. Warn here so a missing environment is easier to diagnose
+    # than a raw link failure.
+    if "NSS_DIR" not in os.environ and "MOZ_TOPOBJDIR" not in os.environ:
+        print(
+            "warning: NSS build environment not detected; building the UniFFI "
+            + "library may fail to link against NSS. Run "
+            + "[app-services-repo]libs/verify-desktop-environment.sh to "
+            + "configure it.",
+            file=sys.stderr,
+        )
     subprocess.check_call(cmdline, cwd=uniffi_root)
     print()
 

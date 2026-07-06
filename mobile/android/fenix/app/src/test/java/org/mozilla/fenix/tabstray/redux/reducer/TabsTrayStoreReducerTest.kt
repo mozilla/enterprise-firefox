@@ -13,6 +13,7 @@ import org.mozilla.fenix.tabstray.data.createTab
 import org.mozilla.fenix.tabstray.data.createTabGroup
 import org.mozilla.fenix.tabstray.navigation.TabManagerNavDestination
 import org.mozilla.fenix.tabstray.redux.action.TabsTrayAction
+import org.mozilla.fenix.tabstray.redux.state.Page
 import org.mozilla.fenix.tabstray.redux.state.TabSearchState
 import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
 import org.mozilla.fenix.tabstray.redux.state.TabsTrayState.Mode
@@ -41,6 +42,16 @@ class TabsTrayStoreReducerTest {
         )
 
         assertEquals(expectedState, resultState)
+    }
+
+    @Test
+    fun `WHEN PageSelected THEN the selected page is updated`() {
+        val resultState = TabsTrayReducer.reduce(
+            TabsTrayState(selectedPage = Page.NormalTabs),
+            TabsTrayAction.PageSelected(Page.TabGroups),
+        )
+
+        assertEquals(Page.TabGroups, resultState.selectedPage)
     }
 
     @Test
@@ -290,7 +301,7 @@ class TabsTrayStoreReducerTest {
     }
 
     @Test
-    fun `WHEN navigating back from create tab group in multiselect mode THEN only the sheet is dismissed`() {
+    fun `WHEN navigating back from create tab group in multiselect mode THEN the sheet is dismissed and group state updated`() {
         val initialState = TabsTrayState(
             mode = Mode.Select(selectedTabs = setOf(createTab("https://mozilla.org"))),
             backStack = listOf(
@@ -306,6 +317,9 @@ class TabsTrayStoreReducerTest {
         )
 
         val expectedState = initialState.copy(
+            tabGroupState = initialState.tabGroupState.copy(
+                dragProcessingState = TabsTrayState.DragProcessingState.COMPLETED,
+            ),
             backStack = listOf(
                 TabManagerNavDestination.Root,
                 TabManagerNavDestination.AddToTabGroup,
@@ -316,7 +330,7 @@ class TabsTrayStoreReducerTest {
     }
 
     @Test
-    fun `WHEN navigating back from add to tab group in drag and drop mode then mode is set to normal`() {
+    fun `WHEN navigating back from add to tab group in drag and drop mode then mode is set to normal and the group state is updated`() {
         val initialState = TabsTrayState(
             mode = Mode.DragAndDrop(
                 sourceId = "123",
@@ -335,6 +349,9 @@ class TabsTrayStoreReducerTest {
 
         val expectedState = initialState.copy(
             mode = Mode.Normal,
+            tabGroupState = initialState.tabGroupState.copy(
+                dragProcessingState = TabsTrayState.DragProcessingState.COMPLETED,
+            ),
             backStack = listOf(TabManagerNavDestination.Root),
         )
 
@@ -342,7 +359,7 @@ class TabsTrayStoreReducerTest {
     }
 
     @Test
-    fun `WHEN navigating back from edit tab group in drag and drop mode then mode is set to normal`() {
+    fun `WHEN navigating back from edit tab group in drag and drop mode then mode is set to normal and the group state is updated`() {
         val initialState = TabsTrayState(
             mode = Mode.DragAndDrop(
                 sourceId = "123",
@@ -361,6 +378,9 @@ class TabsTrayStoreReducerTest {
 
         val expectedState = initialState.copy(
             mode = Mode.Normal,
+            tabGroupState = initialState.tabGroupState.copy(
+                dragProcessingState = TabsTrayState.DragProcessingState.COMPLETED,
+            ),
             backStack = listOf(TabManagerNavDestination.Root),
         )
 
@@ -368,7 +388,7 @@ class TabsTrayStoreReducerTest {
     }
 
     @Test
-    fun `WHEN navigating back from add to tab group in multiselect mode THEN only the sheet is dismissed`() {
+    fun `WHEN navigating back from add to tab group in multiselect mode THEN only the sheet is dismissed and the group state is updated`() {
         val initialState = TabsTrayState(
             mode = Mode.Select(selectedTabs = setOf(createTab("https://mozilla.org"))),
             backStack = listOf(
@@ -383,6 +403,9 @@ class TabsTrayStoreReducerTest {
         )
 
         val expectedState = initialState.copy(
+            tabGroupState = initialState.tabGroupState.copy(
+                dragProcessingState = TabsTrayState.DragProcessingState.COMPLETED,
+            ),
             backStack = listOf(TabManagerNavDestination.Root),
         )
 
@@ -390,7 +413,7 @@ class TabsTrayStoreReducerTest {
     }
 
     @Test
-    fun `WHEN navigating back from expanded tab group THEN only the sheet is dismissed`() {
+    fun `WHEN navigating back from expanded tab group THEN only the sheet is dismissed and the group state is updated`() {
         val group = createTabGroup()
         val initialState = TabsTrayState(
             mode = Mode.Normal,
@@ -407,6 +430,9 @@ class TabsTrayStoreReducerTest {
         )
 
         val expectedState = initialState.copy(
+            tabGroupState = initialState.tabGroupState.copy(
+                dragProcessingState = TabsTrayState.DragProcessingState.COMPLETED,
+            ),
             backStack = listOf(
                 TabManagerNavDestination.Root,
                 TabManagerNavDestination.ExpandedTabGroup(group),
@@ -827,6 +853,7 @@ class TabsTrayStoreReducerTest {
             hasUserDismissedTabGroupOnboarding = true,
             tabGroupOnboardingImpressionCount = 10,
             hasUserEverHadOneTabGroup = true,
+            hasViewedTabGroupsPage = true,
         )
         val result = TabsTrayReducer.reduce(
             state = TabsTrayState(),
@@ -835,10 +862,21 @@ class TabsTrayStoreReducerTest {
                     hasUserDismissedTabGroupOnboarding = expectedState.hasUserDismissedTabGroupOnboarding,
                     tabGroupOnboardingImpressionCount = expectedState.tabGroupOnboardingImpressionCount,
                     hasUserEverHadOneTabGroup = expectedState.hasUserEverHadOneTabGroup,
+                    hasViewedTabGroupsPage = expectedState.hasViewedTabGroupsPage,
                 ),
             ),
         )
 
         assertEquals(expectedState, result.tabGroupState)
+    }
+
+    @Test
+    fun `WHEN TabDragStart is dispatched THEN tab drag handling state is DRAG_IN_PROGRESS`() {
+        val result = TabsTrayReducer.reduce(
+            state = TabsTrayState(),
+            action = TabsTrayAction.TabDragStart(sourceId = "123", preserveSelectMode = false),
+        )
+
+        assertEquals(expected = TabsTrayState.DragProcessingState.DRAG_IN_PROGRESS, actual = result.tabGroupState.dragProcessingState)
     }
 }

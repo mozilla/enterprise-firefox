@@ -23,10 +23,21 @@
     --smartwindow-text-color-accent-primary: var(--text-color);
     --smartwindow-icon-color-accent-primary-desaturated: var(--icon-color);
 
+    --smartwindow-panel-item-border-radius: var(--border-radius-xlarge);
+
     @media not (forced-colors) {
       /* Smart Window Nova Tokens */
       --smartwindow-text-color-accent-primary: light-dark(var(--color-violet-60), var(--color-violet-30));
       --smartwindow-icon-color-accent-primary-desaturated: light-dark(var(--color-violet-desaturated-60), var(--color-violet-desaturated-50));
+
+      --smartwindow-panel-item-background-color-hover: light-dark(
+        color-mix(in srgb, var(--color-violet-60) 15%, transparent),
+        color-mix(in srgb, var(--color-violet-40) 25%, transparent)
+      );
+      --smartwindow-panel-item-background-color-active: light-dark(
+        color-mix(in srgb, var(--color-violet-60) 27%, transparent),
+        color-mix(in srgb, var(--color-violet-40) 40%, transparent)
+      );
 
       --box-shadow-color-lighter-layer-1: color-mix(in srgb, var(--color-violet-70) 15%, transparent);
       --box-shadow-color-lighter-layer-2: color-mix(in srgb, var(--color-violet-70) 24%, transparent);

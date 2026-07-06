@@ -8,6 +8,11 @@ run-if = [
   "os == 'mac'",
 ]
 
+["browser_idle_service_mutter.js"]
+run-if = [
+  "os == 'linux'",
+]
+
 ["browser_test_AZERTY_digit_shortcut.js"]
 skip-if = [
   "os == 'linux' && os_version == '22.04' && arch == 'x86_64' && display == 'wayland'", # Linux build has not implemented sendNativeKeyEvent yet

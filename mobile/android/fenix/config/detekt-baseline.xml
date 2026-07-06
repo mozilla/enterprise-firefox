@@ -89,6 +89,7 @@
     <ID>ForbiddenSuppress:HomeActivity.kt$HomeActivity$@SuppressWarnings("TooManyFunctions", "LargeClass", "LongMethod")</ID>
     <ID>ForbiddenSuppress:HomeDeepLinkIntentProcessor.kt$HomeDeepLinkIntentProcessor$@Suppress("CyclomaticComplexMethod")</ID>
     <ID>ForbiddenSuppress:HomeFragment.kt$HomeFragment$@Suppress("LongMethod")</ID>
+    <ID>ForbiddenSuppress:HomeFragment.kt$HomeFragment$@Suppress("LongMethod", "CognitiveComplexMethod")</ID>
     <ID>ForbiddenSuppress:Homepage.kt$@Suppress("LongMethod", "CyclomaticComplexMethod", "CognitiveComplexMethod")</ID>
     <ID>ForbiddenSuppress:InstalledAddonDetailsFragment.kt$InstalledAddonDetailsFragment$@SuppressWarnings("LongMethod")</ID>
     <ID>ForbiddenSuppress:ListItem.kt$@Suppress("CognitiveComplexMethod")</ID>
@@ -411,6 +412,7 @@
     <ID>HardcodedPaddingUsage:WebCompatReporter.kt$(vertical = 6.dp)</ID>
     <ID>HardcodedPaddingUsage:WebCompatReporterPreviewSheet.kt$(top = 72.dp)</ID>
     <ID>HardcodedPaddingUsage:Wordmark.kt$(end = 10.dp)</ID>
+    <ID>LongMethod:BrowserToolbarMiddleware.kt$BrowserToolbarMiddleware$@VisibleForTesting internal fun buildHomeAction( action: HomeToolbarAction, source: Source = Source.Unknown, ): Action</ID>
     <ID>MaterialTextButtonUsage:AppLinksPromptFragment.kt$import androidx.compose.material3.TextButton</ID>
     <ID>MaterialTextButtonUsage:HomeSectionHeader.kt$import androidx.compose.material3.TextButton</ID>
     <ID>MaterialTextButtonUsage:WallpaperOnboarding.kt$import androidx.compose.material3.TextButton</ID>

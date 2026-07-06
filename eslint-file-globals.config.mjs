@@ -448,6 +448,7 @@ export default [
       "testing/raptor/browsertime/indexeddb_open.js",
       "testing/raptor/browsertime/indexeddb_write.js",
       "testing/raptor/browsertime/jetstream3.js",
+      "testing/raptor/browsertime/media_seek.js",
       "testing/raptor/browsertime/motionmark-1-3.js",
       "testing/raptor/browsertime/network_bench.js",
       "testing/raptor/browsertime/process_switch.js",

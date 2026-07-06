@@ -7,12 +7,34 @@ package org.mozilla.fenix.webcompat.middleware
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
+import mozilla.components.support.test.middleware.CaptureActionsMiddleware
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.mozilla.fenix.webcompat.store.WebCompatReporterAction
+import org.mozilla.fenix.webcompat.store.WebCompatReporterState
 import org.mozilla.fenix.webcompat.store.WebCompatReporterStore
 
 class WebCompatReporterNavigationMiddlewareTest {
+
+    @Test
+    fun `GIVEN DeceptiveSite reason is selected WHEN ReasonChanged is dispatched THEN DeceptiveSiteReportSelected is dispatched`() =
+        runTest {
+            val captor = CaptureActionsMiddleware<WebCompatReporterState, WebCompatReporterAction>()
+            val store = WebCompatReporterStore(
+                middleware = listOf(
+                    captor,
+                    WebCompatReporterNavigationMiddleware(),
+                ),
+            )
+
+            store.dispatch(
+                WebCompatReporterAction.ReasonChanged(
+                    WebCompatReporterState.BrokenSiteReason.DeceptiveSite,
+                ),
+            )
+
+            captor.findLastAction(WebCompatReporterAction.DeceptiveSiteReportSelected::class)
+        }
 
     @Test
     fun `WHEN a navigation action is emitted before and after the flow is collected THEN only the navigation action emitted after the collection is collected`() = runTest {

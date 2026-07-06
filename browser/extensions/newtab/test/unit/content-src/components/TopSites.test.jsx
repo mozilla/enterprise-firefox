@@ -1,6 +1,7 @@
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import { GlobalOverrider } from "test/unit/utils";
 import { MIN_RICH_FAVICON_SIZE } from "content-src/components/TopSites/TopSitesConstants";
+import { buildTopSitesList } from "content-src/components/TopSites/TopSiteListContainer";
 import {
   TOP_SITES_DEFAULT_ROWS,
   TOP_SITES_MAX_SITES_PER_ROW,
@@ -1465,13 +1466,15 @@ describe("<TopSiteList>", () => {
   const APP = { isForStartupCache: { App: false } };
 
   it("should render a TopSiteList element", () => {
-    const wrapper = shallow(<TopSiteList {...DEFAULT_PROPS} App={APP} />);
+    const wrapper = shallow(
+      <TopSiteList {...DEFAULT_PROPS} sites={[]} App={APP} />
+    );
     assert.ok(wrapper.exists());
   });
   it("should render a TopSite for each link with the right url", () => {
     const rows = [{ url: "https://foo.com" }, { url: "https://bar.com" }];
     const wrapper = shallow(
-      <TopSiteList {...DEFAULT_PROPS} TopSites={{ rows }} App={APP} />
+      <TopSiteList {...DEFAULT_PROPS} sites={rows} App={APP} />
     );
     const links = wrapper.find(TopSite);
     assert.lengthOf(links, 2);
@@ -1479,7 +1482,7 @@ describe("<TopSiteList>", () => {
       assert.equal(links.get(i).props.link.url, row.url)
     );
   });
-  it("should slice the TopSite rows to the TopSitesRows pref", () => {
+  it("should render the sliced list it is given", () => {
     const rows = [];
     for (
       let i = 0;
@@ -1488,37 +1491,37 @@ describe("<TopSiteList>", () => {
     ) {
       rows.push({ url: `https://foo${i}.com` });
     }
+    const sites = buildTopSitesList(
+      rows,
+      TOP_SITES_DEFAULT_ROWS,
+      TOP_SITES_MAX_SITES_PER_ROW
+    );
     const wrapper = shallow(
       <TopSiteList
         {...DEFAULT_PROPS}
-        TopSites={{ rows }}
+        sites={sites}
         TopSitesRows={TOP_SITES_DEFAULT_ROWS}
         App={APP}
       />
     );
-    const links = wrapper.find(TopSite);
     assert.lengthOf(
-      links,
+      wrapper.find(TopSite),
       TOP_SITES_DEFAULT_ROWS * TOP_SITES_MAX_SITES_PER_ROW
     );
   });
-  it("should add a add topsite button if there is availible space in the row", () => {
+  it("should render an Add button when the list includes one", () => {
     const rows = [{ url: "https://foo.com" }, { url: "https://bar.com" }];
-    const availibleRows = 1;
+    const sites = buildTopSitesList(rows, 1, TOP_SITES_MAX_SITES_PER_ROW);
     const wrapper = shallow(
       <TopSiteList
         {...DEFAULT_PROPS}
-        TopSites={{ rows }}
-        TopSitesRows={availibleRows}
+        sites={sites}
+        TopSitesRows={1}
         App={APP}
       />
     );
     assert.lengthOf(wrapper.find(TopSite), 2, "topSites");
-    assert.lengthOf(
-      wrapper.find(TopSiteAddButton),
-      availibleRows >= wrapper.find(TopSite).length ? 0 : 1,
-      "placeholders"
-    );
+    assert.lengthOf(wrapper.find(TopSiteAddButton), 1, "add button");
   });
   it("should fill sponsored top sites with placeholders while rendering for startup cache", () => {
     const rows = [
@@ -1528,10 +1531,11 @@ describe("<TopSiteList>", () => {
       { url: "https://foo.com" },
       { url: "https://bar.com" },
     ];
+    const sites = buildTopSitesList(rows, 1, TOP_SITES_MAX_SITES_PER_ROW);
     const wrapper = shallow(
       <TopSiteList
         {...DEFAULT_PROPS}
-        TopSites={{ rows }}
+        sites={sites}
         TopSitesRows={1}
         App={{ isForStartupCache: { TopSites: true } }}
       />
@@ -1539,264 +1543,16 @@ describe("<TopSiteList>", () => {
     assert.lengthOf(wrapper.find(TopSite), 2, "topSites");
     assert.lengthOf(wrapper.find(TopSitePlaceholder), 3, "placeholders");
   });
-  it("should update state onDragStart and clear it onDragEnd", () => {
-    const wrapper = shallow(<TopSiteList {...DEFAULT_PROPS} App={APP} />);
-    const instance = wrapper.instance();
-    const index = 7;
-    const link = { url: "https://foo.com" };
-    const title = "foo";
-    instance.onDragEvent({ type: "dragstart" }, index, link, title);
-    assert.equal(instance.state.draggedIndex, index);
-    assert.equal(instance.state.draggedSite, link);
-    assert.equal(instance.state.draggedTitle, title);
-    instance.onDragEvent({ type: "dragend" });
-    assert.deepEqual(instance.state, TopSiteList.DEFAULT_STATE);
-  });
-  it("should clear state when new props arrive after a drop", () => {
-    const site1 = { url: "https://foo.com" };
-    const site2 = { url: "https://bar.com" };
-    const rows = [site1, site2];
-    const wrapper = shallow(
-      <TopSiteList {...DEFAULT_PROPS} TopSites={{ rows }} App={APP} />
-    );
-    const instance = wrapper.instance();
-    instance.setState({
-      draggedIndex: 1,
-      draggedSite: site2,
-      draggedTitle: "bar",
-      topSitesPreview: [],
-    });
-    wrapper.setProps({ TopSites: { rows: [site2, site1] } });
-    assert.deepEqual(instance.state, TopSiteList.DEFAULT_STATE);
-  });
-  it("should dispatch events on drop", () => {
-    const dispatch = sinon.spy();
-    const wrapper = shallow(
-      <TopSiteList {...DEFAULT_PROPS} dispatch={dispatch} App={APP} />
-    );
-    const instance = wrapper.instance();
-    const index = 7;
-    const link = { url: "https://foo.com", customScreenshotURL: "foo" };
-    const title = "foo";
-    instance.onDragEvent({ type: "dragstart" }, index, link, title);
-    dispatch.resetHistory();
-    instance.onDragEvent({ type: "drop" }, 3);
-    assert.calledTwice(dispatch);
-    assert.calledWith(dispatch, {
-      data: {
-        draggedFromIndex: 7,
-        index: 3,
-        site: {
-          label: "foo",
-          url: "https://foo.com",
-          customScreenshotURL: "foo",
-        },
-      },
-      meta: { from: "ActivityStream:Content", to: "ActivityStream:Main" },
-      type: "TOP_SITES_INSERT",
-    });
-    assert.calledWith(dispatch, {
-      data: { action_position: 3, event: "DROP", source: "TOP_SITES" },
-      meta: { from: "ActivityStream:Content", to: "ActivityStream:Main" },
-      type: "TELEMETRY_USER_EVENT",
-    });
-  });
-  it("should make a topSitesPreview onDragEnter", () => {
-    const wrapper = shallow(<TopSiteList {...DEFAULT_PROPS} App={APP} />);
-    const instance = wrapper.instance();
-    const site = { url: "https://foo.com" };
-    instance.setState({
-      draggedIndex: 4,
-      draggedSite: site,
-      draggedTitle: "foo",
-    });
-    const draggedSite = Object.assign({}, site, {
-      isPinned: true,
-      isDragged: true,
-    });
-    instance.onDragEvent({ type: "dragenter" }, 2);
-    assert.ok(instance.state.topSitesPreview);
-    assert.deepEqual(instance.state.topSitesPreview[2], draggedSite);
-  });
-  it("should _makeTopSitesPreview correctly", () => {
-    const site1 = { url: "https://foo.com" };
-    const site2 = { url: "https://bar.com" };
-    const site3 = { url: "https://baz.com" };
-    const rows = [site1, site2, site3];
-    let wrapper = shallow(
-      <TopSiteList
-        {...DEFAULT_PROPS}
-        TopSites={{ rows }}
-        TopSitesRows={1}
-        App={APP}
-      />
-    );
-    const addButton = { isAddButton: true };
-    let instance = wrapper.instance();
-    instance.setState({
-      draggedIndex: 0,
-      draggedSite: site1,
-      draggedTitle: "foo",
-    });
-    let draggedSite = Object.assign({}, site1, {
-      isPinned: true,
-      isDragged: true,
-    });
-    assert.deepEqual(instance._makeTopSitesPreview(1), [
-      site2,
-      draggedSite,
-      site3,
-      addButton,
-      null,
-      null,
-      null,
-      null,
-    ]);
-    assert.deepEqual(instance._makeTopSitesPreview(2), [
-      site2,
-      site3,
-      draggedSite,
-      addButton,
-      null,
-      null,
-      null,
-      null,
-    ]);
-    site2.isPinned = true;
-    assert.deepEqual(instance._makeTopSitesPreview(1), [
-      site2,
-      draggedSite,
-      site3,
-      addButton,
-      null,
-      null,
-      null,
-      null,
-    ]);
-    assert.deepEqual(instance._makeTopSitesPreview(2), [
-      site3,
-      site2,
-      draggedSite,
-      addButton,
-      null,
-      null,
-      null,
-      null,
-    ]);
-    site3.isPinned = true;
-    assert.deepEqual(instance._makeTopSitesPreview(1), [
-      site2,
-      draggedSite,
-      site3,
-      addButton,
-      null,
-      null,
-      null,
-      null,
-    ]);
-    assert.deepEqual(instance._makeTopSitesPreview(2), [
-      site2,
-      site3,
-      draggedSite,
-      addButton,
-      null,
-      null,
-      null,
-      null,
-    ]);
-    site2.isPinned = false;
-    assert.deepEqual(instance._makeTopSitesPreview(1), [
-      site2,
-      draggedSite,
-      site3,
-      addButton,
-      null,
-      null,
-      null,
-      null,
-    ]);
-    assert.deepEqual(instance._makeTopSitesPreview(2), [
-      site2,
-      site3,
-      draggedSite,
-      addButton,
-      null,
-      null,
-      null,
-      null,
-    ]);
-    site3.isPinned = false;
-    instance.setState({
-      draggedIndex: 1,
-      draggedSite: site2,
-      draggedTitle: "bar",
-    });
-    draggedSite = Object.assign({}, site2, { isPinned: true, isDragged: true });
-    assert.deepEqual(instance._makeTopSitesPreview(0), [
-      draggedSite,
-      site1,
-      site3,
-      addButton,
-      null,
-      null,
-      null,
-      null,
-    ]);
-    assert.deepEqual(instance._makeTopSitesPreview(2), [
-      site1,
-      site3,
-      draggedSite,
-      addButton,
-      null,
-      null,
-      null,
-      null,
-    ]);
-    site2.type = "SPOC";
-    instance.setState({
-      draggedIndex: 2,
-      draggedSite: site3,
-      draggedTitle: "baz",
-    });
-    draggedSite = Object.assign({}, site3, { isPinned: true, isDragged: true });
-    assert.deepEqual(instance._makeTopSitesPreview(0), [
-      draggedSite,
-      site2,
-      site1,
-      addButton,
-      null,
-      null,
-      null,
-      null,
-    ]);
-    site2.type = "";
-    site2.sponsored_position = 2;
-    instance.setState({
-      draggedIndex: 2,
-      draggedSite: site3,
-      draggedTitle: "baz",
-    });
-    draggedSite = Object.assign({}, site3, { isPinned: true, isDragged: true });
-    assert.deepEqual(instance._makeTopSitesPreview(0), [
-      draggedSite,
-      site2,
-      site1,
-      addButton,
-      null,
-      null,
-      null,
-      null,
-    ]);
-  });
   it("should add a className hide-for-narrow to sites after 6/row", () => {
     const rows = [];
     for (let i = 0; i < TOP_SITES_MAX_SITES_PER_ROW; i++) {
       rows.push({ url: `https://foo${i}.com` });
     }
+    const sites = buildTopSitesList(rows, 1, TOP_SITES_MAX_SITES_PER_ROW);
     const wrapper = mount(
       <TopSiteList
         {...DEFAULT_PROPS}
-        TopSites={{ rows }}
+        sites={sites}
         TopSitesRows={1}
         App={APP}
       />
@@ -1819,7 +1575,7 @@ describe("<TopSiteList>", () => {
         { url: "https://baz.com" },
       ];
       wrapper = shallow(
-        <TopSiteList {...DEFAULT_PROPS} TopSites={{ rows }} App={APP} />
+        <TopSiteList {...DEFAULT_PROPS} sites={rows} App={APP} />
       );
       instance = wrapper.instance();
 

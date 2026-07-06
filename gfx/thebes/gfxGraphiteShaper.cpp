@@ -15,6 +15,7 @@
 #include "harfbuzz/hb.h"
 
 #include "mozilla/ScopeExit.h"
+#include "mozilla/Utf16.h"
 
 #include "ThebesRLBox.h"
 
@@ -116,8 +117,8 @@ static inline size_t CountUnicodes(const char16_t* aText, uint32_t aLength) {
   size_t total = 0;
   const char16_t* end = aText + aLength;
   while (aText < end) {
-    if (NS_IS_HIGH_SURROGATE(*aText) && aText + 1 < end &&
-        NS_IS_LOW_SURROGATE(*(aText + 1))) {
+    if (mozilla::IsHighSurrogate(*aText) && aText + 1 < end &&
+        mozilla::IsLowSurrogate(*(aText + 1))) {
       aText += 2;
     } else {
       aText++;

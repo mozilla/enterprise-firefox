@@ -415,8 +415,8 @@ preferences-contrast-control-custom =
     .label = Custom
     .accesskey = C
 
-preferences-colors-manage-button =
-    .label = Manage Colors…
+preferences-colors-manage-button2 =
+    .label = Manage colors
     .accesskey = C
 
 preferences-fonts-header2 =
@@ -884,6 +884,12 @@ browsing-search-on-start-typing =
     .label = Search for text when you start typing
     .accesskey = x
 
+settings-keyboard-shortcuts-group =
+    .label = Keyboard shortcuts
+    .description = Control how you move around and interact with { -brand-short-name }.
+settings-keyboard-shortcuts-customkeys-link =
+    .label = Customize keyboard shortcuts
+
 settings-media-group =
     .label = Media
 
@@ -1246,8 +1252,8 @@ containers-new-tab-check3 =
 
 containers-settings-button2 =
     .title = Settings
-containers-remove-button2 =
-    .title = Remove
+containers-remove-button3 =
+    .title = Delete
 
 ## Account and sync
 

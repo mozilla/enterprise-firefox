@@ -96,8 +96,11 @@ object HomeSelectors {
     )
 
     val all = listOf(
+        TOP_SITES_LIST,
+        TOP_SITES_LIST_COMPOSE,
         HOMEPAGE_VIEW,
         MAIN_MENU_BUTTON,
+        MAIN_MENU_BUTTON_UIAUTOMATOR,
         PRIVATE_BROWSING_BUTTON,
         TOP_SITES_LIST,
         HOME_WORDMARK_LOGO,

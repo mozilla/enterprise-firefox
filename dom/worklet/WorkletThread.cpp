@@ -42,11 +42,11 @@ const uint32_t kWorkletStackSize = 256 * sizeof(size_t) * 1024;
 
 // Helper functions
 
-bool PreserveWrapper(JSContext* aCx, JS::Handle<JSObject*> aObj) {
+void PreserveWrapper(JSContext* aCx, JS::Handle<JSObject*> aObj) {
   MOZ_ASSERT(aCx);
   MOZ_ASSERT(aObj);
   MOZ_ASSERT(mozilla::dom::IsDOMObject(aObj));
-  return mozilla::dom::TryPreserveWrapper(aObj);
+  mozilla::dom::TryPreserveWrapper(aObj);
 }
 
 JSObject* Wrap(JSContext* aCx, JS::Handle<JSObject*> aExisting,

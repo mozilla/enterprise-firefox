@@ -45,6 +45,11 @@ interface TabManagerUiStateRepository {
      * Records the user as having at least one tab group during their use of the application.
      */
     suspend fun recordUserHadTabGroup(): Boolean
+
+    /**
+     * Records the user as having viewed the Tab Groups page.
+     */
+    suspend fun recordTabGroupsPageViewed(): Boolean
 }
 
 /**
@@ -81,6 +86,7 @@ class DefaultTabManagerUiStateRepository internal constructor(
                 hasUserDismissedTabGroupOnboarding = preferences[hasUserDismissedTabGroupOnboardingKey] ?: false,
                 tabGroupOnboardingImpressionCount = preferences[tabGroupOnboardingImpressionCountKey] ?: 0,
                 hasUserEverHadOneTabGroup = preferences[hasUserEverHadOneTabGroupKey] ?: false,
+                hasViewedTabGroupsPage = preferences[hasViewedTabGroupsPageKey] ?: false,
             )
         }.stateIn(
             scope = stateFlowScope,
@@ -101,6 +107,10 @@ class DefaultTabManagerUiStateRepository internal constructor(
         preferences[hasUserEverHadOneTabGroupKey] = true
     }
 
+    override suspend fun recordTabGroupsPageViewed(): Boolean = updateDataStore { preferences ->
+        preferences[hasViewedTabGroupsPageKey] = true
+    }
+
     @VisibleForTesting
     internal suspend fun initializeDataStore(initialUiState: PersistedUIState) {
         dataStore.editOrCatch(
@@ -109,6 +119,7 @@ class DefaultTabManagerUiStateRepository internal constructor(
             preferences[hasUserDismissedTabGroupOnboardingKey] = initialUiState.hasUserDismissedTabGroupOnboarding
             preferences[tabGroupOnboardingImpressionCountKey] = initialUiState.tabGroupOnboardingImpressionCount
             preferences[hasUserEverHadOneTabGroupKey] = initialUiState.hasUserEverHadOneTabGroup
+            preferences[hasViewedTabGroupsPageKey] = initialUiState.hasViewedTabGroupsPage
         }
     }
 

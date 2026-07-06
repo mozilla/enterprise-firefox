@@ -19,6 +19,7 @@ transforms:
 
 task-defaults:
     run-on-repo-type: ["hg", "git"]
+    run-on-projects: ["release", "enterprise-firefox"]
     shipping-phase: build
     treeherder:
         symbol: Bpgo(instr)
@@ -60,7 +61,6 @@ tasks:
                 - builds/releng_base_linux_64_builds.py
             mozconfig-variant: profile-generate
             tooltool-downloads: public
-        run-on-projects: ["release", "enterprise-firefox"]
         fetches:
             toolchain:
                 - linux64-clang
@@ -92,7 +92,6 @@ tasks:
                 extra_mozconfig_content:
                     - ac_add_options --target=aarch64
             tooltool-downloads: public
-        run-on-projects: ["release", "enterprise-firefox"]
         fetches:
             toolchain:
                 - linux64-clang
@@ -140,7 +139,6 @@ tasks:
             script: "mozharness/scripts/fx_desktop_build.py"
             secrets: true
             mozconfig-variant: profile-generate
-        run-on-projects: ['release']
         fetches:
             toolchain:
                 - linux64-clang
@@ -191,7 +189,6 @@ tasks:
             mozconfig-variant: profile-generate
             extra-config:
                 mozconfig_platform: macosx64-aarch64
-        run-on-projects: ["release", "enterprise-firefox"]
         fetches:
             toolchain:
                 - linux64-clang
@@ -245,7 +242,6 @@ tasks:
                 - builds/releng_base_android_64_builds.py
             custom-build-variant-cfg: x86_64-profile-generate
             tooltool-downloads: internal
-        run-on-projects: ['release']
         fetches:
             toolchain:
                 - android-gradle-dependencies
@@ -302,7 +298,6 @@ tasks:
                 - builds/releng_base_android_64_builds.py
             custom-build-variant-cfg: aarch64-profile-generate
             tooltool-downloads: internal
-        run-on-projects: ['release']
         fetches:
             toolchain:
                 - android-gradle-dependencies
@@ -359,7 +354,6 @@ tasks:
                 - builds/releng_base_android_64_builds.py
             custom-build-variant-cfg: arm-profile-generate
             tooltool-downloads: internal
-        run-on-projects: ['release']
         fetches:
             toolchain:
                 - android-gradle-dependencies
@@ -396,7 +390,6 @@ tasks:
             extra-config:
                 stage_platform: win32
                 mozconfig_platform: win32
-        run-on-projects: ['release']
         fetches:
             toolchain:
                 - linux64-7zz
@@ -438,7 +431,6 @@ tasks:
                 mozconfig_platform: win64
                 extra_mozconfig_content:
                     - ac_add_options --as-milestone=release
-        run-on-projects: [trunk-only]
         fetches:
             toolchain:
                 - linux64-7zz
@@ -479,7 +471,6 @@ tasks:
             extra-config:
                 stage_platform: win64
                 mozconfig_platform: win64
-        run-on-projects: ["release", "enterprise-firefox"]
         fetches:
             toolchain:
                 - linux64-7zz
@@ -520,7 +511,6 @@ tasks:
             extra-config:
                 stage_platform: win64-aarch64
                 mozconfig_platform: win64-aarch64
-        run-on-projects: ['release']
         fetches:
             toolchain:
                 - linux64-7zz

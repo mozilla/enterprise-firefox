@@ -2951,7 +2951,7 @@ getHardcodedLayout = ({
               },
             ],
             privacyNoticeURL: {
-              url: "https://www.mozilla.org/privacy/firefox/#recommend-relevant-content",
+              url: "https://www.mozilla.org/privacy/firefox/#to-serve-relevant-content-and-advertising-on-firefox-new-tab",
               title: {
                 id: "newtab-section-menu-privacy-notice",
               },

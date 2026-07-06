@@ -128,6 +128,12 @@ describe("ASRouter", () => {
     ASRouterTargeting = {
       isMatch: sandbox.stub(),
       findMatchingMessage: sandbox.stub(),
+      getMessageTriggers: message => {
+        if (Array.isArray(message.triggers)) {
+          return message.triggers;
+        }
+        return message.trigger ? [message.trigger] : [];
+      },
       Environment: {
         locale: "en-US",
         localeLanguageCode: "en",
@@ -1017,6 +1023,44 @@ describe("ASRouter", () => {
         undefined // regexPatterns
       );
     });
+    it("should register a listener for each trigger of a multi-trigger message", async () => {
+      sandbox.spy(ASRouterTriggerListeners.get("openURL"), "init");
+      sandbox.spy(ASRouterTriggerListeners.get("frequentVisits"), "init");
+
+      await createRouterAndInit([
+        {
+          id: "foo",
+          type: "local",
+          enabled: true,
+          messages: [
+            {
+              id: "multi",
+              template: "simple_template",
+              triggers: [
+                { id: "openURL", params: ["www.mozilla.org"] },
+                { id: "frequentVisits", params: ["www.example.com"] },
+              ],
+              content: { title: "Multi", body: "Multi123" },
+            },
+          ],
+        },
+      ]);
+
+      assert.calledWithExactly(
+        ASRouterTriggerListeners.get("openURL").init,
+        Router._triggerHandler,
+        ["www.mozilla.org"],
+        undefined, // patterns
+        undefined // regexPatterns
+      );
+      assert.calledWithExactly(
+        ASRouterTriggerListeners.get("frequentVisits").init,
+        Router._triggerHandler,
+        ["www.example.com"],
+        undefined, // patterns
+        undefined // regexPatterns
+      );
+    });
     it("should parse the message's messagesLoaded trigger and immediately fire trigger", async () => {
       setMessageProviderPref([
         {
@@ -1409,6 +1453,45 @@ describe("ASRouter", () => {
       });
 
       assert.deepEqual(result, message1);
+    });
+    it("should match a message with multiple triggers against any of its trigger ids", async () => {
+      const message = {
+        id: "MULTI",
+        campaign: "foocampaign",
+        triggers: [{ id: "foo" }, { id: "bar" }],
+        groups: ["cfr"],
+        provider: "cfr",
+      };
+      await Router.setState({ messages: [message] });
+      ASRouterTargeting.findMatchingMessage.callsFake(
+        ({ messages }) => messages[0] || null
+      );
+
+      assert.deepEqual(
+        await Router.handleMessageRequest({ triggerId: "foo" }),
+        message
+      );
+      assert.deepEqual(
+        await Router.handleMessageRequest({ triggerId: "bar" }),
+        message
+      );
+    });
+    it("should filter out a multi-trigger message when no trigger id matches", async () => {
+      const message = {
+        id: "MULTI",
+        campaign: "foocampaign",
+        triggers: [{ id: "foo" }, { id: "bar" }],
+        groups: ["cfr"],
+        provider: "cfr",
+      };
+      await Router.setState({ messages: [message] });
+      ASRouterTargeting.findMatchingMessage.callsFake(
+        ({ messages }) => messages[0] || null
+      );
+
+      const result = await Router.handleMessageRequest({ triggerId: "baz" });
+
+      assert.isNull(result);
     });
     it("should have messageImpressions in the message context", () => {
       assert.propertyVal(

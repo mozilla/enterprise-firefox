@@ -33,6 +33,7 @@
   --urlbarView-row-padding-inline: var(--space-small);
   --urlbarView-row-padding-block: var(--space-small);
   --urlbarView-labeled-row-margin-top: 0;
+  --urlbar-background-border: var(--border-width) solid var(--border-color-transparent);
 
   --urlbarView-small-font-size: var(--font-size-small);
 
@@ -194,6 +195,12 @@
 /* Background: border, glow */
 .smartbar > .urlbar-background {
   border-radius: var(--border-radius-large);
+
+  /* TODO: Bug 2033070 -  Nova tokens were implemented as the default value for the custom properties, and the fallbacks (and lint exceptions) will need to be removed after launch */
+  @media -moz-pref("browser.nova.enabled") {
+    /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+    border-radius: 24px;
+  }
 
   @media not (forced-colors) {
     background-color: var(--smartbar-inactive-background-color);

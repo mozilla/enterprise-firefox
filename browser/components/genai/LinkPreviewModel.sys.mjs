@@ -430,7 +430,7 @@ export const LinkPreviewModel = {
           taskName: "wllama-text-generation",
           timeoutMS: -1,
           useMlock: false,
-          useMmap: true,
+          useMmap: false,
           ...JSON.parse(lazy.config),
         },
         data => {

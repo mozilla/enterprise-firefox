@@ -91,6 +91,7 @@ export const AIWindow = {
     if (!this._windowStates.has(win)) {
       this._windowStates.set(win, {});
       this.initializeAITabsToolbar(win);
+      this._updateToolbarButtonPositions(win);
       this._initializeAskButtonOnToolbox(win);
       const windowArgs = win?.arguments?.[1];
       if (
@@ -282,47 +283,31 @@ export const AIWindow = {
     if (modeSwitcherButton) {
       modeSwitcherButton.hidden = !this.isAIWindowEnabled() || isPrivateWindow;
     }
-    if (!isPrivateWindow) {
-      this._updateToolbarButtonPositions(win);
-    }
   },
 
   _onTabstripOrientationChange() {
-    this._forEachWindow(win => {
-      if (!lazy.PrivateBrowsingUtils.isWindowPrivate(win)) {
-        this._updateToolbarButtonPositions(win);
-      }
-    });
+    this._forEachWindow(win => this._updateToolbarButtonPositions(win));
   },
 
-  _updateToolbarButtonPositions(win) {
+  _updateToolbarButtonPositions(win, { isToggling = false } = {}) {
     const modeSwitcherButton = win.document.getElementById("ai-window-toggle");
     const hamburgerMenu = win.document.getElementById("PanelUI-button");
-    const hamburgerMenuShouldBeAdjacent =
-      this.isAIWindowEnabled() || this.verticalTabsEnabled;
     const targetToolbar = win.document.getElementById(
       this.verticalTabsEnabled ? "nav-bar" : "TabsToolbar"
     );
     const titlebarContainer = targetToolbar.querySelector(
       ".titlebar-buttonbox-container"
     );
-    const postTabsSpacer = win.document
-      .getElementById("nav-bar")
-      .querySelector('.titlebar-spacer[type="post-tabs"]');
 
-    if (modeSwitcherButton.previousElementSibling !== titlebarContainer) {
-      titlebarContainer.after(modeSwitcherButton);
-    }
+    titlebarContainer.after(modeSwitcherButton);
 
-    if (
-      hamburgerMenuShouldBeAdjacent &&
-      modeSwitcherButton.nextElementSibling !== hamburgerMenu
-    ) {
+    if (this.isAIWindowActive(win) || this.verticalTabsEnabled) {
       modeSwitcherButton.after(hamburgerMenu);
-    } else if (
-      !hamburgerMenuShouldBeAdjacent &&
-      hamburgerMenu.nextElementSibling !== postTabsSpacer
-    ) {
+    } else if (isToggling) {
+      // Restore hamburger menu to its original position in nav-bar.
+      const postTabsSpacer = win.document
+        .getElementById("nav-bar")
+        .querySelector('.titlebar-spacer[type="post-tabs"]');
       postTabsSpacer.before(hamburgerMenu);
     }
   },
@@ -751,6 +736,7 @@ export const AIWindow = {
       win.document.documentElement.toggleAttribute("ai-window");
 
       this._reconcileNewTabPages(win, newTabPref, homePagePref);
+      this._updateToolbarButtonPositions(win, { isToggling: true });
       this._initializeAskButtonOnToolbox(win);
       Services.obs.notifyObservers(
         win,

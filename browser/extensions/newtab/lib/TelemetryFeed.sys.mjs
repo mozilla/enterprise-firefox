@@ -1409,6 +1409,9 @@ export class TelemetryFeed {
       case at.NEW_TAB_UNLOAD:
         this.endSession(au.getPortIdOfSender(action));
         break;
+      case at.NEW_TAB_SCROLL:
+        Glean.newtab.scroll.set(true);
+        break;
       case at.SAVE_SESSION_PERF_DATA:
         this.saveSessionPerfData(au.getPortIdOfSender(action), action.data);
         break;

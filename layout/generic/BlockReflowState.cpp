@@ -66,6 +66,30 @@ BlockReflowState::BlockReflowState(
     mFlags.mBlockNeedsFloatManager = true;
   }
 
+  // Determine the requested text-box-trim sides for this block by checking
+  // the request both from the block's ancestors (passed down via `ReflowInput`)
+  // and from the block itself.
+  //
+  // Note, if the current block establishes a new block formatting context, then
+  // any ancestor's trimming request does not propagate into the block, *unless*
+  // it's a multi-column container, which explicitly propagates to each column.
+  // https://drafts.csswg.org/css-inline-3/#text-box-trim
+  //
+  // TODO(Bug 2049484) - Clarify BFC propagation in the specification and WPTs.
+  const bool shouldPropagateTextBoxTrim =
+      !mBlock->HasAnyStateBits(NS_BLOCK_BFC) ||
+      mBlock->IsColumnSetWrapperFrame() ||
+      mBlock->Style()->GetPseudoType() == PseudoStyleType::MozColumnContent;
+  const StyleTextBoxTrim trim = mBlock->StyleTextReset()->mTextBoxTrim;
+  mFlags.mShouldApplyTextBoxTrimStart =
+      (shouldPropagateTextBoxTrim &&
+       aReflowInput.mFlags.mShouldApplyTextBoxTrimStart) ||
+      !!(trim & StyleTextBoxTrim::TRIM_START);
+  mFlags.mShouldApplyTextBoxTrimEnd =
+      (shouldPropagateTextBoxTrim &&
+       aReflowInput.mFlags.mShouldApplyTextBoxTrimEnd) ||
+      !!(trim & StyleTextBoxTrim::TRIM_END);
+
   mFlags.mCanHaveOverflowMarkers = css::TextOverflow::CanHaveOverflowMarkers(
       mBlock, css::TextOverflow::BeforeReflow::Yes);
 

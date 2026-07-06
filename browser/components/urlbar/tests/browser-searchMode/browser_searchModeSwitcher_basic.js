@@ -103,7 +103,7 @@ add_task(async function disabled_unified_button() {
   );
 
   await UrlbarTestUtils.enterSearchMode(window, {
-    source: UrlbarUtils.RESULT_SOURCE.BOOKMARKS,
+    source: UrlbarShared.RESULT_SOURCE.BOOKMARKS,
   });
 
   Assert.equal(
@@ -601,7 +601,7 @@ add_task(async function test_enter_searchmode_by_key_if_single_result() {
     EventUtils.synthesizeKey(key, {});
     await UrlbarTestUtils.promiseSearchComplete(window);
     await UrlbarTestUtils.assertSearchMode(window, {
-      source: UrlbarUtils.RESULT_SOURCE.BOOKMARKS,
+      source: UrlbarShared.RESULT_SOURCE.BOOKMARKS,
       entry: expectedEntry,
       restrictType: "keyword",
     });
@@ -609,8 +609,8 @@ add_task(async function test_enter_searchmode_by_key_if_single_result() {
     info("Check the suggestions");
     Assert.equal(UrlbarTestUtils.getResultCount(window), 1);
     const bookmark = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
-    Assert.equal(bookmark.result.source, UrlbarUtils.RESULT_SOURCE.BOOKMARKS);
-    Assert.equal(bookmark.result.type, UrlbarUtils.RESULT_TYPE.URL);
+    Assert.equal(bookmark.result.source, UrlbarShared.RESULT_SOURCE.BOOKMARKS);
+    Assert.equal(bookmark.result.type, UrlbarShared.RESULT_TYPE.URL);
     Assert.equal(bookmark.result.payload.url, "https://example.com/");
     Assert.equal(bookmark.result.payload.title, "BOOKMARK");
 
@@ -656,7 +656,7 @@ add_task(
           result.payload.keyword == "*"
         ) {
           await UrlbarTestUtils.assertSearchMode(window, {
-            source: UrlbarUtils.RESULT_SOURCE.BOOKMARKS,
+            source: UrlbarShared.RESULT_SOURCE.BOOKMARKS,
             entry: "keywordoffer",
             restrictType: "keyword",
             isPreview: true,

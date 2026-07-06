@@ -167,6 +167,13 @@ nsStaticAtom* nsAccUtils::NormalizeARIAToken(const AttrArray* aAttrs,
     return (idx >= 0) ? tokens[idx] : nsGkAtoms::_true;
   }
 
+  if (aAttr == nsGkAtoms::aria_haspopup) {
+    if (aAttrs->AttrValueIs(kNameSpaceID_None, aAttr, nsGkAtoms::_true,
+                            eCaseMatters)) {
+      return nsGkAtoms::menu;
+    }
+  }
+
   static AttrArray::AttrValuesArray tokens[] = {
       nsGkAtoms::_false, nsGkAtoms::_true, nsGkAtoms::mixed, nullptr};
   int32_t idx =

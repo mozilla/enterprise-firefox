@@ -83,6 +83,7 @@
   NS_DECL_OWNINGTHREAD                              \
  public:
 
+class nsIReferrerInfo;
 class nsWindow;
 struct KeyPair;
 
@@ -579,6 +580,28 @@ class WinUtils {
   static nsresult GetProcessImageName(DWORD aProcessId, nsAString& aName);
 
   static void InvalidateWindowPreviews();
+
+  /**
+   * MozPromise that resolves to true if zone was successfully written,
+   * false if the zone was not written due to a policy, and rejects on errors.
+   */
+  using WriteFileZonePromise = MozPromise<bool, nsresult, true>;
+
+  /**
+   * Updates the ZoneId of aSaveFilePath to reflect the source URL and
+   * referrer, if Windows policy permits.
+   * The actual file operation will be performed async.
+   * Requests to set ZoneId to be more privileged than ZONE_INTERNET are
+   * ignored and the returned promise will resolve to false.
+   * The returned promise is rejected on error.
+   */
+  static RefPtr<WriteFileZonePromise> MaybeWriteFileZoneId(
+      nsIFile* aSaveFile, nsIURI* aSourceURI, nsIReferrerInfo* aReferrerInfo,
+      bool aShouldStoreUrls);
+
+  static Result<bool, nsresult> MaybeWriteFileZoneIdSync(
+      nsIFile* aSaveFile, nsIURI* aSourceURI, nsIReferrerInfo* aReferrerInfo,
+      bool aShouldStoreUrls);
 
  private:
   static WhitelistVec BuildWhitelist();

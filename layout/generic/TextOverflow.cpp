@@ -125,6 +125,8 @@ static bool IsFrameDescendantOfAny(
 }
 
 class nsDisplayTextOverflowMarker final : public nsPaintedDisplayItem {
+  using imgDrawingParams = mozilla::image::imgDrawingParams;
+
  public:
   nsDisplayTextOverflowMarker(nsDisplayListBuilder* aBuilder, nsIFrame* aFrame,
                               const nsRect& aRect, nscoord aAscent,
@@ -162,7 +164,8 @@ class nsDisplayTextOverflowMarker final : public nsPaintedDisplayItem {
 
   virtual void Paint(nsDisplayListBuilder* aBuilder, gfxContext* aCtx) override;
 
-  void PaintTextToContext(gfxContext* aCtx, nsPoint aOffsetFromRect);
+  void PaintTextToContext(gfxContext* aCtx, imgDrawingParams& aImgParams,
+                          const nsPoint& aOffsetFromRect);
 
   virtual bool CreateWebRenderCommands(
       mozilla::wr::DisplayListBuilder& aBuilder,
@@ -179,27 +182,30 @@ class nsDisplayTextOverflowMarker final : public nsPaintedDisplayItem {
   RefPtr<gfxTextRun> mTextRun;  // precached textrun, if available
 };
 
-static void PaintTextShadowCallback(gfxContext* aCtx, nsPoint aShadowOffset,
-                                    const nscolor& aShadowColor, void* aData) {
+static void PaintTextShadowCallback(
+    gfxContext* aCtx, mozilla::image::imgDrawingParams& aImgParams,
+    const nsPoint& aShadowOffset, const nscolor& aShadowColor, void* aData) {
   reinterpret_cast<nsDisplayTextOverflowMarker*>(aData)->PaintTextToContext(
-      aCtx, aShadowOffset);
+      aCtx, aImgParams, aShadowOffset);
 }
 
 void nsDisplayTextOverflowMarker::Paint(nsDisplayListBuilder* aBuilder,
                                         gfxContext* aCtx) {
   nscolor foregroundColor =
       nsLayoutUtils::GetTextColor(mFrame, &nsStyleText::mWebkitTextFillColor);
+  imgDrawingParams imgParams(aBuilder->GetImageDecodeFlags());
 
   // Paint the text-shadows for the overflow marker
-  nsLayoutUtils::PaintTextShadow(mFrame, aCtx, mRect,
+  nsLayoutUtils::PaintTextShadow(mFrame, aCtx, imgParams, mRect,
                                  GetPaintRect(aBuilder, aCtx), foregroundColor,
                                  PaintTextShadowCallback, (void*)this);
   aCtx->SetColor(gfx::sRGBColor::FromABGR(foregroundColor));
-  PaintTextToContext(aCtx, nsPoint(0, 0));
+  PaintTextToContext(aCtx, imgParams, nsPoint(0, 0));
 }
 
-void nsDisplayTextOverflowMarker::PaintTextToContext(gfxContext* aCtx,
-                                                     nsPoint aOffsetFromRect) {
+void nsDisplayTextOverflowMarker::PaintTextToContext(
+    gfxContext* aCtx, imgDrawingParams& aImgParams,
+    const nsPoint& aOffsetFromRect) {
   WritingMode wm = mFrame->GetWritingMode();
   nsPoint pt(mRect.x, mRect.y);
   if (wm.IsVertical()) {
@@ -220,7 +226,7 @@ void nsDisplayTextOverflowMarker::PaintTextToContext(gfxContext* aCtx,
     gfx::Point gfxPt(pt.x, pt.y);
     auto& paletteCache = mFrame->PresContext()->FontPaletteCache();
     mTextRun->Draw(gfxTextRun::Range(mTextRun), gfxPt,
-                   gfxTextRun::DrawParams(aCtx, paletteCache));
+                   gfxTextRun::DrawParams(aCtx, paletteCache), aImgParams);
     return;
   }
 

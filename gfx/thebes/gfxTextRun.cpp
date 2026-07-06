@@ -26,6 +26,7 @@
 #include "mozilla/Sprintf.h"
 #include "mozilla/StaticPresData.h"
 #include "mozilla/UniquePtr.h"
+#include "mozilla/Utf16.h"
 #include "nsLayoutUtils.h"
 #include "nsStyleConsts.h"
 #include "nsStyleUtil.h"
@@ -412,12 +413,14 @@ bool gfxTextRun::ShrinkToLigatureBoundaries(Range* aRange) const {
 void gfxTextRun::DrawGlyphs(gfxFont* aFont, Range aRange, gfx::Point* aPt,
                             const PropertyProvider* aProvider,
                             Range aSpacingRange, TextRunDrawParams& aParams,
+                            imgDrawingParams& aImgParams,
                             gfx::ShapedTextFlags aOrientation) const {
   AutoTArray<PropertyProvider::Spacing, 200> spacingBuffer;
   bool haveSpacing =
       GetAdjustedSpacingArray(aRange, aProvider, aSpacingRange, &spacingBuffer);
   aParams.spacing = haveSpacing ? spacingBuffer.Elements() : nullptr;
-  aFont->Draw(this, aRange.start, aRange.end, aPt, aParams, aOrientation);
+  aFont->Draw(this, aRange.start, aRange.end, aPt, aParams, aImgParams,
+              aOrientation);
 }
 
 static void ClipPartialLigature(const gfxTextRun* aTextRun, gfxFloat* aStart,
@@ -445,6 +448,7 @@ void gfxTextRun::DrawPartialLigature(gfxFont* aFont, Range aRange,
                                      gfx::Point* aPt,
                                      const PropertyProvider* aProvider,
                                      TextRunDrawParams& aParams,
+                                     imgDrawingParams& aImgParams,
                                      gfx::ShapedTextFlags aOrientation) const {
   if (aRange.start >= aRange.end) {
     return;
@@ -487,7 +491,8 @@ void gfxTextRun::DrawPartialLigature(gfxFont* aFont, Range aRange,
     pt = Point(aPt->x - aParams.direction * data.mPartAdvance, aPt->y);
   }
 
-  DrawGlyphs(aFont, data.mRange, &pt, aProvider, aRange, aParams, aOrientation);
+  DrawGlyphs(aFont, data.mRange, &pt, aProvider, aRange, aParams, aImgParams,
+             aOrientation);
 
   if (aParams.isVerticalRun) {
     aPt->y += aParams.direction * data.mPartWidth;
@@ -543,7 +548,8 @@ struct MOZ_STACK_CLASS BufferAlphaColor {
 };
 
 void gfxTextRun::Draw(const Range aRange, const gfx::Point aPt,
-                      const DrawParams& aParams) const {
+                      const DrawParams& aParams,
+                      imgDrawingParams& aImgParams) const {
   NS_ASSERTION(aRange.end <= GetLength(), "Substring out of range");
   NS_ASSERTION(aParams.drawMode == DrawMode::GLYPH_PATH ||
                    !(aParams.drawMode & DrawMode::GLYPH_PATH),
@@ -667,16 +673,16 @@ void gfxTextRun::Draw(const Range aRange, const gfx::Point aPt,
 
     if (drawPartial) {
       DrawPartialLigature(font, Range(runRange.start, ligatureRange.start), &pt,
-                          aParams.provider, params,
+                          aParams.provider, params, aImgParams,
                           iter.GlyphRun()->mOrientation);
     }
 
     DrawGlyphs(font, ligatureRange, &pt, aParams.provider, ligatureRange,
-               params, iter.GlyphRun()->mOrientation);
+               params, aImgParams, iter.GlyphRun()->mOrientation);
 
     if (drawPartial) {
       DrawPartialLigature(font, Range(ligatureRange.end, runRange.end), &pt,
-                          aParams.provider, params,
+                          aParams.provider, params, aImgParams,
                           iter.GlyphRun()->mOrientation);
     }
 
@@ -701,7 +707,8 @@ void gfxTextRun::Draw(const Range aRange, const gfx::Point aPt,
 void gfxTextRun::DrawEmphasisMarks(
     gfxContext* aContext, gfxTextRun* aMark, gfxFloat aMarkAdvance,
     gfx::Point aPt, Range aRange, const PropertyProvider* aProvider,
-    mozilla::gfx::PaletteCache& aPaletteCache) const {
+    mozilla::gfx::PaletteCache& aPaletteCache,
+    mozilla::image::imgDrawingParams& aImgParams) const {
   MOZ_ASSERT(aRange.end <= GetLength());
 
   EmphasisMarkDrawParams params(aContext, aPaletteCache);
@@ -731,7 +738,7 @@ void gfxTextRun::DrawEmphasisMarks(
                                                ligatureRange, &spacingBuffer);
     params.spacing = haveSpacing ? spacingBuffer.Elements() : nullptr;
     font->DrawEmphasisMarks(this, &aPt, ligatureRange.start,
-                            ligatureRange.Length(), params);
+                            ligatureRange.Length(), params, aImgParams);
 
     if (adjusted) {
       inlineCoord += direction * ComputePartialLigatureWidth(
@@ -2058,24 +2065,27 @@ already_AddRefed<gfxFont> gfxFontGroup::GetFontAt(uint32_t i, uint32_t aCh,
 
   RefPtr<gfxFont> font = ff.Font();
   if (!font) {
-    gfxFontEntry* fe = ff.FontEntry();
+    RefPtr<gfxFontEntry> fe = ff.FontEntry();
     if (!fe) {
       return nullptr;
     }
-    gfxCharacterMap* unicodeRangeMap = nullptr;
+    RefPtr<gfxCharacterMap> unicodeRangeMap;
     if (fe->mIsUserFontContainer) {
-      gfxUserFontEntry* ufe = static_cast<gfxUserFontEntry*>(fe);
+      // This raw pointer is OK because fe holds a strong ref to the object.
+      gfxUserFontEntry* ufe = static_cast<gfxUserFontEntry*>(fe.get());
       if (ufe->LoadState() == gfxUserFontEntry::STATUS_NOT_LOADED &&
           ufe->CharacterInUnicodeRange(aCh) && !*aLoading) {
         ufe->Load();
         ff.CheckState(mSkipDrawing);
         *aLoading = ff.IsLoading();
       }
+      unicodeRangeMap = ufe->GetUnicodeRangeMap();
+      // Update fe to refer to the actual platform font entry, rather than the
+      // webfont wrapper. After this, we no longer have a strong ref to ufe.
       fe = ufe->GetPlatformFontEntry();
       if (!fe) {
         return nullptr;
       }
-      unicodeRangeMap = ufe->GetUnicodeRangeMap();
     }
     font = fe->FindOrMakeFont(&mStyle, unicodeRangeMap);
     if (!font || !font->Valid()) {
@@ -2989,8 +2999,8 @@ void gfxFontGroup::InitScriptRun(DrawTarget* aDrawTarget, gfxTextRun* aTextRun,
         // special Unicode spaces; omit these checks in 8-bit runs
         if constexpr (sizeof(T) == sizeof(char16_t)) {
           if (index + 1 < aLength &&
-              NS_IS_SURROGATE_PAIR(ch, aString[index + 1])) {
-            uint32_t usv = SURROGATE_TO_UCS4(ch, aString[index + 1]);
+              mozilla::IsSurrogatePair(ch, aString[index + 1])) {
+            uint32_t usv = mozilla::SurrogateToUCS4(ch, aString[index + 1]);
             aTextRun->SetMissingGlyph(aOffset + index, usv, mainFont);
             index++;
             if (!mSkipDrawing && !IsPUA(usv)) {
@@ -3573,8 +3583,8 @@ void gfxFontGroup::ComputeRanges(nsTArray<TextRange>& aRanges, const T* aString,
   uint32_t prevCh = 0;
   uint32_t nextCh = aString[0];
   if constexpr (sizeof(T) == sizeof(char16_t)) {
-    if (aLength > 1 && NS_IS_SURROGATE_PAIR(nextCh, aString[1])) {
-      nextCh = SURROGATE_TO_UCS4(nextCh, aString[1]);
+    if (aLength > 1 && mozilla::IsSurrogatePair(nextCh, aString[1])) {
+      nextCh = mozilla::SurrogateToUCS4(nextCh, aString[1]);
     }
   }
 
@@ -3614,8 +3624,9 @@ void gfxFontGroup::ComputeRanges(nsTArray<TextRange>& aRanges, const T* aString,
       // Get the next character, if any, decoding any surrogate pair.
       if (i < maxIndex) {
         nextCh = aString[i + 1];
-        if (i + 2 <= maxIndex && NS_IS_SURROGATE_PAIR(nextCh, aString[i + 2])) {
-          nextCh = SURROGATE_TO_UCS4(nextCh, aString[i + 2]);
+        if (i + 2 <= maxIndex &&
+            mozilla::IsSurrogatePair(nextCh, aString[i + 2])) {
+          nextCh = mozilla::SurrogateToUCS4(nextCh, aString[i + 2]);
         }
       } else {
         nextCh = 0;
@@ -3686,8 +3697,9 @@ void gfxFontGroup::ComputeRanges(nsTArray<TextRange>& aRanges, const T* aString,
         uint32_t charLen = 1;
         if constexpr (sizeof(T) == sizeof(char16_t)) {
           // Decode surrogate pair.
-          if (i + 2 <= maxIndex && NS_IS_SURROGATE_PAIR(c, aString[i + 2])) {
-            c = SURROGATE_TO_UCS4(c, aString[i + 2]);
+          if (i + 2 <= maxIndex &&
+              mozilla::IsSurrogatePair(c, aString[i + 2])) {
+            c = mozilla::SurrogateToUCS4(c, aString[i + 2]);
             charLen = 2;
           }
           // If we've found a join control or variation selector, back up to
@@ -3748,14 +3760,14 @@ void gfxFontGroup::ComputeRanges(nsTArray<TextRange>& aRanges, const T* aString,
         // Update prevCh and nextCh for the end of the fast-path run.
         prevCh = aString[i];
         if constexpr (sizeof(T) == sizeof(char16_t)) {
-          if (i > 0 && NS_IS_SURROGATE_PAIR(aString[i - 1], prevCh)) {
-            prevCh = SURROGATE_TO_UCS4(aString[i - 1], prevCh);
+          if (i > 0 && mozilla::IsSurrogatePair(aString[i - 1], prevCh)) {
+            prevCh = mozilla::SurrogateToUCS4(aString[i - 1], prevCh);
           }
           if (i < maxIndex) {
             nextCh = aString[i + 1];
             if (i + 2 <= maxIndex &&
-                NS_IS_SURROGATE_PAIR(nextCh, aString[i + 2])) {
-              nextCh = SURROGATE_TO_UCS4(nextCh, aString[i + 2]);
+                mozilla::IsSurrogatePair(nextCh, aString[i + 2])) {
+              nextCh = mozilla::SurrogateToUCS4(nextCh, aString[i + 2]);
             }
           } else {
             nextCh = 0;

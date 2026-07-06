@@ -93,6 +93,9 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = Ura
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = Zasebnost
 home-prefs-mission-message2 =
     .message = Naši sponzorji podpirajo naše poslanstvo ustvarjanja boljšega spleta.
 home-prefs-manage-topics-link2 =
@@ -148,6 +151,11 @@ home-prefs-weather-header-srd =
 home-prefs-support-firefox-header-srd =
     .label = Podprite { -brand-product-name(sklon: "tozilnik") }
 home-prefs-mission-message-learn-more-link-srd = Spoznajte, kako
+
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = Več o tem
 
 ## Search box component.
 
@@ -496,6 +504,8 @@ newtab-custom-widget-clock-toggle =
     .label = Ura
 newtab-custom-widget-sports-toggle2 =
     .label = Šport
+newtab-custom-widget-privacy-toggle =
+    .label = Zasebnost
 newtab-custom-widget-section-title = Pripomočki
 newtab-custom-widget-section-toggle =
     .label = Pripomočki
@@ -814,6 +824,8 @@ newtab-report-cancel = Prekliči
 newtab-report-submit = Pošlji
 newtab-toast-thanks-for-reporting =
     .message = Hvala za prijavo.
+newtab-toast-widgets-hidden =
+    .message = Pripomočke lahko kadarkoli dodate nazaj s klikom na ikono svinčnika.
 # Variables:
 #   $topic (string) - Topic that the user has followed
 newtab-section-toast-follow =
@@ -904,10 +916,21 @@ newtab-widget-section-minimize =
 newtab-widget-section-menu-button =
     .title = Meni Pripomočki
     .aria-label = Odpri meni pripomočkov
+newtab-widget-add-widgets-button =
+    .aria-label = Dodaj pripomoček
+    .title = Dodaj pripomoček
 newtab-widget-section-menu-manage = Upravljanje pripomočkov
 newtab-widget-section-menu-hide-all = Skrij pripomočke
 newtab-widget-section-menu-learn-more = Več o tem
 newtab-widget-section-feedback = Povejte nam svoje mnenje
+# Button shown when additional widgets are hidden beyond the
+# first row, allowing users to show them.
+newtab-widget-section-show-more =
+    .label = Prikaži več pripomočkov
+# Button shown when the widgets row is expanded to multiple rows,
+# allowing users to collapse it back to one row.
+newtab-widget-section-show-less =
+    .label = Prikaži manj pripomočkov
 
 ## Strings introduced by the Nova redesign of the Timer widget
 
@@ -928,6 +951,8 @@ newtab-widget-timer-reset =
 newtab-widget-timer-menu-notifications = Izklopi obvestila
 newtab-widget-timer-menu-notifications-on = Vklopi obvestila
 newtab-widget-timer-menu-learn-more = Več o tem
+newtab-widget-timer-menu-button =
+    .aria-label = Možnosti časovnika
 # The title displays above a set of top news headlines.
 newtab-daily-briefing-card-title = Glavne novice
 newtab-daily-briefing-card-menu-dismiss = Skrij
@@ -979,14 +1004,22 @@ newtab-widget-timer-menu-hide = Skrij časovnik
 
 ##
 
+newtab-sports-widget-menu-view-schedule = Prikaži razpored
 newtab-sports-widget-menu-view-results = Prikaži izide
+# Milestone dates (e.g. group stage, semifinals, etc.). Refers to calendar dates.
+newtab-sports-widget-menu-key-dates = Pomembni datumi
 newtab-sports-widget-menu-learn-more = Več o tem
+# “Keep tabs on” is an informal expression meaning to stay updated on, stay informed on, or regularly follow something (in this case, World Cup matches and updates).
+newtab-sports-widget-keep-tabs = Spremljajte svetovno prvenstvo
 newtab-sports-widget-get-updates = V živo prejemajte obvestila o dogajanju na tekmah in še več.
 newtab-sports-widget-view-schedule =
     .label = Prikaži razpored
 newtab-sports-widget-choose-wallpaper =
     .label = Izberite si ozadje
 newtab-sports-widget-skip = Preskoči
+newtab-sports-widget-search-country =
+    .placeholder = Išči državo
+    .aria-label = Iskanje držav
 newtab-sports-widget-cancel = Prekliči
 newtab-sports-widget-back-button =
     .aria-label = Nazaj
@@ -994,6 +1027,14 @@ newtab-sports-widget-back-button =
 # Variables:
 #   $teamName (string) - the localized team name (e.g. "Canada").
 newtab-sports-widget-team-name-eliminated = { $teamName } (izpadli)
+newtab-sports-widget-view-all =
+    .label = Prikaži vse
+newtab-sports-widget-show-less =
+    .label = Prikaži manj
+# Watch is a verb (as in watch matches online).
+newtab-sports-widget-watch-icon =
+    .aria-label = Glej v živo
+    .title = Glej v živo
 newtab-sports-widget-watch-dialog-close =
     .aria-label = Zapri
     .title = Zapri
@@ -1015,7 +1056,13 @@ newtab-sports-widget-round-16 = Osmina finala
 newtab-sports-widget-quarter-finals = Četrtfinale
 # The "LIVE" string is meant to be uppercase in English, but other languages and locales may vary in how they handle this.
 newtab-sports-widget-live = V ŽIVO
+newtab-custom-widget-live-refresh =
+    .title = Osveži izide
+    .aria-label = Osveži izide
+# Milestone dates (e.g. group stage, semifinals, etc.). Refers to calendar dates.
+newtab-sports-widget-key-dates = Pomembni datumi
 newtab-sports-widget-upcoming = Kmalu
+newtab-sports-widget-results = Izidi
 newtab-sports-widget-semi-finals = Polfinala
 newtab-sports-widget-bronze-finals = Tekma za tretje mesto
 # Final is the final match for 1st place.
@@ -1024,6 +1071,11 @@ newtab-sports-widget-final = Finale
 #   $start (Date) - Start date of a tournament stage
 #   $end (Date) - End date of a tournament stage
 newtab-sports-widget-key-date-range = { DATETIME($start, month: "short", day: "numeric") }–{ DATETIME($end, month: "short", day: "numeric") }
+# Variables:
+#   $date (Date) - Date of a single tournament event
+newtab-sports-widget-key-date = { DATETIME($date, month: "short", day: "numeric") }
+newtab-sports-widget-postponed = Prestavljena
+newtab-sports-widget-suspended = Prekinjena
 newtab-sports-widget-cancelled = Odpovedano
 newtab-sports-widget-information = Podatki o tekmi
 newtab-sports-widget-view-results-link = Prikaži izide
@@ -1032,6 +1084,62 @@ newtab-sports-widget-third-place = Tretje mesto
 newtab-sports-widget-runner-up = Podprvaki
 newtab-sports-widget-champions = Prvaki
 newtab-sports-widget-world-cup-champions = Zmagovalci svetovnega prvenstva 2026
+# Compact champions label for the medium-size widget result card; the larger
+# card uses newtab-sports-widget-world-cup-champions.
+newtab-sports-widget-world-cup-champions-short = Prvaki 2026
+newtab-sports-widget-match-halftime = Polčas
+newtab-sports-widget-match-extra-time = Podaljški
+newtab-sports-widget-match-penalties = Enajstmetrovke
+# Separator shown between two teams in a placeholder match row when no upcoming
+# match details are available yet.
+newtab-sports-widget-match-vs = :
+
+## Sports widget live-games pagination. Shown when 2+ matches are live at the same time
+
+# arrow button that goes to the previous page of live matches.
+newtab-sports-widget-pagination-previous =
+    .title = Prejšnja
+    .aria-label = Prejšnja
+# arrow button that goes to the next page of live matches.
+newtab-sports-widget-pagination-next =
+    .title = Naslednja
+    .aria-label = Naslednja
+
+## Accessible labels for match rows in the sports widget. These are read by
+## screen readers to announce the match details and status.
+## Variables shared by all messages in this group:
+##   $homeTeam (String) - The full name of the home team (e.g. "Mexico")
+##   $awayTeam (String) - The full name of the away team (e.g. "Russia")
+
+# A finished match row (regular full-time result).
+# Variables:
+#   $homeScore (number) - The home team's regular-time score
+#   $awayScore (number) - The away team's regular-time score
+newtab-sports-widget-match-aria-label-results =
+    .aria-label = { $homeTeam }, { $homeScore } : { $awayTeam }, { $awayScore }
+# A finished match row that went to a penalty shootout.
+# Parenthesized values are the shootout score.
+# Variables:
+#   $homeScore (number) - The home team's regular-time score
+#   $awayScore (number) - The away team's regular-time score
+#   $homePenalty (number) - The home team's penalty shootout score
+#   $awayPenalty (number) - The away team's penalty shootout score
+newtab-sports-widget-match-aria-label-results-penalties =
+    .aria-label = { $homeTeam }, { $homeScore } ({ $homePenalty }) : { $awayTeam }, { $awayScore } ({ $awayPenalty })
+# A match that is currently in progress.
+# Variables:
+#   $homeScore (number) - The home team's current score
+#   $awayScore (number) - The away team's current score
+newtab-sports-widget-match-aria-label-now =
+    .aria-label = V živo: { $homeTeam }, { $homeScore } : { $awayTeam }, { $awayScore }
+# An upcoming scheduled match row. Announces kickoff time and date.
+# Variables:
+#   $date (Date) - The scheduled kickoff date/time
+newtab-sports-widget-match-aria-label-upcoming =
+    .aria-label = { $homeTeam } : { $awayTeam }, { DATETIME($date, hour: "numeric", minute: "numeric") }, { DATETIME($date, day: "numeric", month: "long") }
+# An upcoming match row whose status is "cancelled".
+newtab-sports-widget-match-aria-label-upcoming-cancelled =
+    .aria-label = { $homeTeam } : { $awayTeam }, odpovedano
 
 ## Sports widget — team names (FIFA country codes)
 ## Only includes names not adequately covered by standard country-code
@@ -1047,6 +1155,14 @@ newtab-sports-widget-team-name-label-eng =
     .label = Anglija
 newtab-sports-widget-team-name-label-sco =
     .label = Škotska
+
+## Sports widget OMC messages
+## Shown as on-screen messages promoting the Sports widget and World Cup wallpapers.
+
+newtab-sports-widget-message-add-widgets-cta =
+    .label = Dodaj pripomočke
+newtab-sports-widget-message-explore-widgets-cta =
+    .label = Raziščite pripomočke
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

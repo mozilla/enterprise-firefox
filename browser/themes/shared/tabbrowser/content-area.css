@@ -39,16 +39,6 @@
     box-sizing: border-box;
   }
 
-  /* AI window splitter and box use visibility:collapse, not display:none, so
-   * they are separated by flexbox gaps even when invisible. Override in nova
-   * mode so the gaps disappear. This means that the AI window frame won't be
-   * properly preserved when hidden in nova mode; to be addressed in a future
-   * patch. See bug2033594. */
-  #ai-window-splitter[collapsed],
-  #ai-window-box[collapsed] {
-    display: none;
-  }
-
   /* Match the .browserContainer of any tab panel that is not a split-view
    * panel. This covers the initial state, the state after split-view is fully
    * dissolved, and the suspended state — where #tabbrowser-tabpanels still
@@ -520,6 +510,7 @@ split-view-footer {
 
 /* Content popups */
 
+#clipboardReadPasteMenuPopup,
 #contentAreaContextMenu,
 #DateTimePickerPanel,
 #remoteBrowserTooltip,

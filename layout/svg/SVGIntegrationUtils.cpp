@@ -1185,7 +1185,8 @@ already_AddRefed<gfxDrawable> SVGIntegrationUtils::DrawableFromPaintServer(
                            aPaintServerSize.height);
     overrideBounds.Scale(1.0 / aFrame->PresContext()->AppUnitsPerDevPixel());
     uint32_t imgFlags = imgIContainer::FLAG_ASYNC_NOTIFY;
-    if (aFlags.contains(DecodeFlag::SyncDecodeImages)) {
+    if (aFlags.contains(DecodeFlag::SyncDecodeImages) ||
+        aFrame->UsedImageDecoding() == StyleImageDecoding::Sync) {
       imgFlags |= imgIContainer::FLAG_SYNC_DECODE;
     }
     imgDrawingParams imgParams(imgFlags);

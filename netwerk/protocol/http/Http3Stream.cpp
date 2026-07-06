@@ -89,7 +89,7 @@ void Http3Stream::SetIncremental(bool incremental) {
 nsresult Http3Stream::TryActivating() {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   LOG(("Http3Stream::TryActivating [this=%p]", this));
-  nsHttpRequestHead* head = mTransaction->RequestHead();
+  const nsHttpRequestHead* head = mTransaction->RequestHead();
 
   nsAutoCString authorityHeader;
   nsresult rv = head->GetHeader(nsHttp::Host, authorityHeader);

@@ -31,7 +31,48 @@ const FIGMA_VALUE_MAP = {
   Value: "",
 };
 const TOKEN_VALUE_KEYS = new Set(["light", "dark", "forcedColors", "value"]);
-const FIGMA_IGNORES = new Set(["focus/outline", "focus/outline/inset"]);
+// Figma variables that we deliberately don't import, because the corresponding
+// base token relies on platform structure that Figma can't express (e.g.
+// `color-mix()` on `currentColor`, a `prefers-contrast` treatment, or a
+// brand/platform surface split). Ignoring the variable lets the Nova token fall
+// back to the carefully-chosen base value instead of a flattened light/dark pair.
+const FIGMA_IGNORES = new Set([
+  "focus/outline",
+  "focus/outline/inset",
+  "text/color/deemphasized",
+  "text/color/disabled",
+  "panel/separator/color",
+]);
+
+// Nova overrides whose value must keep platform structure that Figma flattens
+// away. Keyed by resolved token path (with `@base` segments removed). When the
+// importer reaches one of these tokens it emits this value verbatim and consumes
+// the matching Figma variables, so the structure survives a re-import. The colors
+// still come from Figma; only the surrounding structure is maintained here.
+// See bug 2031765.
+const NOVA_STRUCTURAL_OVERRIDES = {
+  "text/color": {
+    prefersContrast: "CanvasText",
+    nativeTheme: "currentColor",
+    light: "{color.violet-desaturated.90}",
+    dark: "{color.violet-desaturated.0}",
+  },
+  "text/color/error": {
+    light: "{color.red.50}",
+    dark: "{color.red.20}",
+    prefersContrast: "inherit",
+  },
+  "text/color/accent/primary/selected": {
+    forcedColors: "SelectedItemText",
+    brand: {
+      light: "{color.white.@base}",
+      dark: "{color.gray.55}",
+    },
+    platform: {
+      default: "SelectedItemText",
+    },
+  },
+};
 
 function transformValue(val, tokenNames, figmaName) {
   if (typeof val === "number") {
@@ -191,6 +232,17 @@ function matchesFigmaVar(resolvedPath, figmaVar) {
   );
 }
 
+function consumeFigmaVars(resolvedPath, vars) {
+  for (const figmaVar in vars) {
+    if (matchesFigmaVar(resolvedPath, figmaVar)) {
+      const figmaName = figmaVar.slice(resolvedPath.length + 1);
+      if (!figmaName || TOKEN_VALUE_KEYS.has(figmaName)) {
+        delete vars[figmaVar];
+      }
+    }
+  }
+}
+
 function walkUpdateNovaTokens(tokens, vars, tokenNames, path = []) {
   for (const tokenProp in tokens) {
     if (tokenProp === "comment") {
@@ -198,6 +250,13 @@ function walkUpdateNovaTokens(tokens, vars, tokenNames, path = []) {
     }
     if (tokenProp === "value") {
       let resolvedPath = path.filter(p => p !== "@base").join("/");
+      if (resolvedPath in NOVA_STRUCTURAL_OVERRIDES) {
+        consumeFigmaVars(resolvedPath, vars);
+        tokens.value = JSON.parse(
+          JSON.stringify(NOVA_STRUCTURAL_OVERRIDES[resolvedPath])
+        );
+        continue;
+      }
       let newValue = {};
       let { nativeTheme } = tokens.value;
       for (const figmaVar in vars) {

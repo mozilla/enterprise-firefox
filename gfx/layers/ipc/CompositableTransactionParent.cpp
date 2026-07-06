@@ -103,7 +103,7 @@ bool CompositableParentManager::ReceiveCompositableUpdate(
       host->PushPendingRemoteTexture(op.textureId(), op.ownerId(),
                                      GetChildProcessId(), op.size(),
                                      op.textureFlags());
-      host->UseRemoteTexture();
+      host->UseRemoteTexture(/* aCalledInCallback */ false);
       break;
     }
     default: {

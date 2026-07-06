@@ -840,8 +840,7 @@ nsresult FetchDriver::HttpFetch(
       nsAutoCString method;
       mRequest->GetMethod(method);
       rv = uploadChan->ExplicitSetUploadStream(bodyStream, contentType,
-                                               bodyLength, method,
-                                               false /* aStreamHasHeaders */);
+                                               bodyLength, method);
       NS_ENSURE_SUCCESS(rv, rv);
     }
   }

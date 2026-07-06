@@ -148,6 +148,11 @@ home-prefs-support-firefox-header-srd =
     .label = 支持 { -brand-product-name }
 home-prefs-mission-message-learn-more-link-srd = 了解其方式
 
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = 详细了解
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -1064,6 +1069,8 @@ newtab-sports-widget-show-less =
 # Toggle that filters the list of teams the user follows
 newtab-sports-widget-followed-only-toggle =
     .label = 仅显示关注的球队
+# Status shown when more matches are being fetched.
+newtab-sports-widget-loading-more = 正加载更多匹配项…
 # Watch is a verb (as in watch matches online).
 newtab-sports-widget-watch =
     .label = 观看
@@ -1143,6 +1150,9 @@ newtab-sports-widget-third-place = 季军
 newtab-sports-widget-runner-up = 亚军
 newtab-sports-widget-champions = 冠军
 newtab-sports-widget-world-cup-champions = 2026 年世界杯冠军
+# Compact champions label for the medium-size widget result card; the larger
+# card uses newtab-sports-widget-world-cup-champions.
+newtab-sports-widget-world-cup-champions-short = 2026 年世界杯冠军
 # Variables:
 #   $date (Date) - The match start time
 newtab-sports-widget-match-time = { DATETIME($date, hour: "2-digit", minute: "2-digit") }

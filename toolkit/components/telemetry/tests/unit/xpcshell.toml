@@ -185,6 +185,7 @@ run-if = [
 ]
 skip-if = [
   "artifact", # disabled for artifact for bug 1982870.
+  "socketprocess_networking", # Fails due to Mochia (bug 1982446)
 ]
 
 ["test_UninstallPing.js"]

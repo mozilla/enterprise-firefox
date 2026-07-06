@@ -345,6 +345,12 @@ class DictionaryCache final : public nsIObserver {
   nsresult Init();
   static void Shutdown();
 
+  // Test-only: undo Shutdown()'s permanent disable so the cache can be used
+  // again after a simulated restart (see
+  // nsICacheTesting::startupCacheForTesting). The instance is recreated lazily
+  // by GetInstance().
+  static void ResetShutdownForTesting() { sShutdown = false; }
+
   nsresult AddEntry(nsIURI* aURI, const nsACString& aKey,
                     const nsACString& aPattern, nsTArray<nsCString>& aMatchDest,
                     const nsACString& aId, const Maybe<nsCString>& aHash,

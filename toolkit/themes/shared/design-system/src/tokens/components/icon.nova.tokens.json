@@ -8,7 +8,7 @@
         "desaturated": {
           "value": {
             "light": "{color.violet-desaturated.60}",
-            "dark": "{color.violet-desaturated.50}",
+            "dark": "{color.violet-desaturated.40}",
             "forcedColors": "CanvasText"
           }
         }

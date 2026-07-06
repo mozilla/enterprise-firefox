@@ -166,15 +166,12 @@ void MacroAssembler::loadFromTypedArray(Scalar::Type arrayType, const T& src,
       break;
     case Scalar::Float16:
       loadFloat16(src, dest.fpu(), temp1, temp2, volatileLiveRegs);
-      canonicalizeFloatNaN(dest.fpu());
       break;
     case Scalar::Float32:
       loadFloat32(src, dest.fpu());
-      canonicalizeFloatNaN(dest.fpu());
       break;
     case Scalar::Float64:
       loadDouble(src, dest.fpu());
-      canonicalizeDoubleNaN(dest.fpu());
       break;
     case Scalar::BigInt64:
     case Scalar::BigUint64:
@@ -218,6 +215,7 @@ void MacroAssembler::loadFromTypedArray(Scalar::Type arrayType,
       FloatRegister fscratch = dscratch.asSingle();
       loadFromTypedArray(arrayType, src, AnyRegister(fscratch),
                          dest.scratchReg(), temp, nullptr, volatileLiveRegs);
+      canonicalizeFloatNaN(fscratch);
       convertFloat32ToDouble(fscratch, dscratch);
       boxDouble(dscratch, dest, dscratch);
       break;
@@ -227,6 +225,7 @@ void MacroAssembler::loadFromTypedArray(Scalar::Type arrayType,
       FloatRegister fscratch = dscratch.asSingle();
       loadFromTypedArray(arrayType, src, AnyRegister(fscratch), InvalidReg,
                          InvalidReg, nullptr, LiveRegisterSet{});
+      canonicalizeFloatNaN(fscratch);
       convertFloat32ToDouble(fscratch, dscratch);
       boxDouble(dscratch, dest, dscratch);
       break;
@@ -235,6 +234,7 @@ void MacroAssembler::loadFromTypedArray(Scalar::Type arrayType,
       ScratchDoubleScope fpscratch(*this);
       loadFromTypedArray(arrayType, src, AnyRegister(fpscratch), InvalidReg,
                          InvalidReg, nullptr, LiveRegisterSet{});
+      canonicalizeDoubleNaN(fpscratch);
       boxDouble(fpscratch, dest, fpscratch);
       break;
     }
@@ -6595,7 +6595,7 @@ CodeOffset MacroAssembler::wasmReturnCallImport(
            Address(getStackPointer(), WasmCalleeInstanceOffsetBeforeCall));
   loadWasmPinnedRegsFromInstance(mozilla::Nothing());
 
-  wasm::CallSiteDesc stubDesc(desc.lineOrBytecode(),
+  wasm::CallSiteDesc stubDesc(desc.bytecodeOffset(),
                               wasm::CallSiteKind::ReturnStub);
   wasmCollapseFrameSlow(retCallInfo, stubDesc);
   jump(ABINonArgReg0);
@@ -6686,41 +6686,6 @@ void MacroAssembler::wasmTrapOnFailedInstanceCall(
   bind(&noTrap);
 }
 
-CodeOffset MacroAssembler::asmCallIndirect(const wasm::CallSiteDesc& desc,
-                                           const wasm::CalleeDesc& callee) {
-  MOZ_ASSERT(callee.which() == wasm::CalleeDesc::AsmJSTable);
-
-  const Register scratch = WasmTableCallScratchReg0;
-  const Register index = WasmTableCallIndexReg;
-
-  // Optimization opportunity: when offsetof(FunctionTableElem, code) == 0, as
-  // it is at present, we can probably generate better code here by folding
-  // the address computation into the load.
-
-  static_assert(sizeof(wasm::FunctionTableElem) == 8 ||
-                    sizeof(wasm::FunctionTableElem) == 16,
-                "elements of function tables are two words");
-
-  // asm.js tables require no signature check, and have had their index
-  // masked into range and thus need no bounds check.
-  loadPtr(
-      Address(InstanceReg, wasm::Instance::offsetInData(
-                               callee.tableFunctionBaseInstanceDataOffset())),
-      scratch);
-  if (sizeof(wasm::FunctionTableElem) == 8) {
-    computeEffectiveAddress(BaseIndex(scratch, index, TimesEight), scratch);
-  } else {
-    lshift32(Imm32(4), index);
-    addPtr(index, scratch);
-  }
-  loadPtr(Address(scratch, offsetof(wasm::FunctionTableElem, code)), scratch);
-  storePtr(InstanceReg,
-           Address(getStackPointer(), WasmCallerInstanceOffsetBeforeCall));
-  storePtr(InstanceReg,
-           Address(getStackPointer(), WasmCalleeInstanceOffsetBeforeCall));
-  return call(desc, scratch);
-}
-
 // In principle, call_indirect requires an expensive context switch to the
 // callee's instance and realm before the call and an almost equally expensive
 // switch back to the caller's ditto after.  However, if the caller's instance
@@ -6757,7 +6722,6 @@ void MacroAssembler::wasmCallIndirect(const wasm::CallSiteDesc& desc,
     case wasm::CallIndirectIdKind::Immediate:
       move32(Imm32(callIndirectId.immediate()), WasmTableCallSigReg);
       break;
-    case wasm::CallIndirectIdKind::AsmJS:
     case wasm::CallIndirectIdKind::None:
       break;
   }
@@ -6837,7 +6801,7 @@ void MacroAssembler::wasmCallIndirect(const wasm::CallSiteDesc& desc,
   // We use a different type of call site for the fast call since the instance
   // slots in the frame do not have valid values.
 
-  wasm::CallSiteDesc newDesc(desc.lineOrBytecode(),
+  wasm::CallSiteDesc newDesc(desc.bytecodeOffset(),
                              wasm::CallSiteKind::IndirectFast);
   *fastCallOffset = call(newDesc, calleeScratch);
 
@@ -6869,7 +6833,6 @@ void MacroAssembler::wasmReturnCallIndirect(
     case wasm::CallIndirectIdKind::Immediate:
       move32(Imm32(callIndirectId.immediate()), WasmTableCallSigReg);
       break;
-    case wasm::CallIndirectIdKind::AsmJS:
     case wasm::CallIndirectIdKind::None:
       break;
   }
@@ -6916,7 +6879,7 @@ void MacroAssembler::wasmReturnCallIndirect(
   loadPtr(Address(calleeScratch, offsetof(wasm::FunctionTableElem, code)),
           calleeScratch);
 
-  wasm::CallSiteDesc stubDesc(desc.lineOrBytecode(),
+  wasm::CallSiteDesc stubDesc(desc.bytecodeOffset(),
                               wasm::CallSiteKind::ReturnStub);
   wasmCollapseFrameSlow(retCallInfo, stubDesc);
   jump(calleeScratch);
@@ -6993,7 +6956,7 @@ void MacroAssembler::wasmCallRef(const wasm::CallSiteDesc& desc,
   // We use a different type of call site for the fast call since the instance
   // slots in the frame do not have valid values.
 
-  wasm::CallSiteDesc newDesc(desc.lineOrBytecode(),
+  wasm::CallSiteDesc newDesc(desc.bytecodeOffset(),
                              wasm::CallSiteKind::FuncRefFast);
   *fastCallOffset = call(newDesc, calleeScratch);
 
@@ -7039,7 +7002,7 @@ void MacroAssembler::wasmReturnCallRef(
       FunctionExtended::WASM_FUNC_UNCHECKED_ENTRY_SLOT);
   loadPtr(Address(calleeFnObj, uncheckedEntrySlotOffset), calleeScratch);
 
-  wasm::CallSiteDesc stubDesc(desc.lineOrBytecode(),
+  wasm::CallSiteDesc stubDesc(desc.bytecodeOffset(),
                               wasm::CallSiteKind::ReturnStub);
   wasmCollapseFrameSlow(retCallInfo, stubDesc);
   jump(calleeScratch);
@@ -7565,15 +7528,16 @@ void MacroAssembler::branchWasmAnyRefIsJSString(bool isJSString, Register src,
 
 void MacroAssembler::branchWasmAnyRefIsGCThing(bool isGCThing, Register src,
                                                Label* label) {
-  Label fallthrough;
-  Label* isGCThingLabel = isGCThing ? label : &fallthrough;
-  Label* isNotGCThingLabel = isGCThing ? &fallthrough : label;
-
   // A null value or i31 value are not GC things.
-  branchWasmAnyRefIsNull(true, src, isNotGCThingLabel);
-  branchWasmAnyRefIsI31(true, src, isNotGCThingLabel);
-  jump(isGCThingLabel);
-  bind(&fallthrough);
+  if (isGCThing) {
+    Label fallthrough;
+    branchWasmAnyRefIsNull(true, src, &fallthrough);
+    branchWasmAnyRefIsI31(false, src, label);
+    bind(&fallthrough);
+  } else {
+    branchWasmAnyRefIsNull(true, src, label);
+    branchWasmAnyRefIsI31(true, src, label);
+  }
 }
 
 void MacroAssembler::branchWasmAnyRefIsNurseryCell(bool isNurseryCell,

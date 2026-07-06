@@ -720,10 +720,7 @@ void EventListenerManager::EnableDevice(nsAtom* aTypeAtom) {
 
   if (aTypeAtom == nsGkAtoms::ondeviceorientation) {
 #ifdef MOZ_WIDGET_ANDROID
-    // Falls back to SENSOR_ROTATION_VECTOR and SENSOR_ORIENTATION if
-    // unavailable on device.
     window->EnableDeviceSensor(SENSOR_GAME_ROTATION_VECTOR);
-    window->EnableDeviceSensor(SENSOR_ROTATION_VECTOR);
 #else
     window->EnableDeviceSensor(SENSOR_ORIENTATION);
 #endif
@@ -777,7 +774,6 @@ void EventListenerManager::DisableDevice(nsAtom* aTypeAtom) {
 #ifdef MOZ_WIDGET_ANDROID
     // Disable all potential fallback sensors.
     window->DisableDeviceSensor(SENSOR_GAME_ROTATION_VECTOR);
-    window->DisableDeviceSensor(SENSOR_ROTATION_VECTOR);
 #endif
     window->DisableDeviceSensor(SENSOR_ORIENTATION);
     return;

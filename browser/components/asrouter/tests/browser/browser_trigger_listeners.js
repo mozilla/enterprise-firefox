@@ -200,6 +200,16 @@ add_task(async function test_openURL_visit_counter() {
     2,
     "Third call should have count 2 for http://example.com"
   );
+  Assert.equal(
+    stub.firstCall.args[1].context.host,
+    "example.com",
+    "context.host is the navigated host"
+  );
+  Assert.equal(
+    stub.firstCall.args[1].context.url,
+    "https://example.com/",
+    "context.url is the navigated URL spec"
+  );
 });
 
 add_task(async function test_openURL_visit_counter_withPattern() {

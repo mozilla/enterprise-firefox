@@ -49,7 +49,7 @@ use core::time::Duration;
 
 use crate::pattern::PatternKind;
 use crate::render_api::{DebugCommand, ApiMsg, MemoryReport};
-use crate::batch::{AlphaBatchContainer, BatchKind, BatchFeatures, BatchTextures, BrushBatchKind, ClipBatchList, TextureSet};
+use crate::batch::{AlphaBatchContainer, BatchKind, BatchFeatures, BatchTextures, BrushBatchKind, TextureSet};
 use crate::batch::ClipMaskInstanceList;
 #[cfg(any(feature = "capture", feature = "replay"))]
 use crate::capture::{CaptureConfig, ExternalCaptureImage, PlainExternalImage};
@@ -129,7 +129,7 @@ pub use shade::{PendingShadersToPrecache, Shaders, SharedShaders};
 pub use vertex::{desc, VertexArrayKind, MAX_VERTEX_TEXTURE_WIDTH};
 pub use gpu_buffer::{GpuBuffer, GpuBufferF, GpuBufferBuilderF, GpuBufferI, GpuBufferBuilderI};
 pub use gpu_buffer::{GpuBufferHandle, GpuBufferAddress, GpuBufferBuilder, GpuBufferWriterF};
-pub use gpu_buffer::{GpuBufferBlockF, GpuBufferDataF, GpuBufferDataI, GpuBufferWriterI};
+pub use gpu_buffer::{GpuBufferDataF, GpuBufferDataI, GpuBufferWriterI};
 
 /// The size of the array of each type of vertex data texture that
 /// is round-robin-ed each frame during bind_frame_data. Doing this
@@ -284,6 +284,8 @@ impl BatchKind {
             BatchKind::Quad(PatternKind::YuvTextureExternalBT709) => GPU_TAG_BRUSH_YUV_IMAGE,
             BatchKind::Quad(PatternKind::YuvTextureRect) => GPU_TAG_BRUSH_YUV_IMAGE,
             BatchKind::Quad(PatternKind::Backdrop) => GPU_TAG_PRIMITIVE,
+            BatchKind::Quad(PatternKind::Blend) => GPU_TAG_PRIMITIVE,
+            BatchKind::Quad(PatternKind::MixBlend) => GPU_TAG_PRIMITIVE,
             BatchKind::Quad(PatternKind::Mask) => GPU_TAG_INDIRECT_MASK,
         }
     }
@@ -3143,6 +3145,16 @@ impl Renderer {
                     );
                 }
 
+                if let Some(readback) = batch.readback {
+                    debug_assert_eq!(batch.instances.len(), 1);
+                    self.handle_readback_composite(
+                        draw_target,
+                        uses_scissor,
+                        &render_tasks[readback.src_task_id],
+                        &render_tasks[readback.readback_task_id],
+                    );
+                }
+
                 let _timer = self.gpu_profiler.start_timer(batch.key.kind.sampler_tag());
                 shader.bind(
                     &mut self.device,
@@ -3565,47 +3577,15 @@ impl Renderer {
         );
 
         // Draw the clip items into the tiled alpha mask.
-        let has_primary_clips = !target.clip_batcher.primary_clips.is_empty();
-        let has_secondary_clips = !target.clip_batcher.secondary_clips.is_empty();
-        let has_clip_masks = !target.clip_masks.is_empty();
-        if has_primary_clips | has_secondary_clips | has_clip_masks {
+        if !target.clip_masks.is_empty() && !self.debug_flags.contains(DebugFlags::DISABLE_CLIP_MASKS) {
             let _timer = self.gpu_profiler.start_timer(GPU_TAG_CACHE_CLIP);
 
-            // TODO(gw): Consider grouping multiple clip masks per shader
-            //           invocation here to reduce memory bandwith further?
-
-            if has_primary_clips {
-                // Draw the primary clip mask - since this is the first mask
-                // for the task, we can disable blending, knowing that it will
-                // overwrite every pixel in the mask area.
-                self.set_blend(false, FramebufferKind::Other);
-                self.draw_clip_batch_list(
-                    &target.clip_batcher.primary_clips,
-                    &projection,
-                    stats,
-                );
-            }
-
-            if has_secondary_clips {
-                // switch to multiplicative blending for secondary masks, using
-                // multiplicative blending to accumulate clips into the mask.
-                self.set_blend(true, FramebufferKind::Other);
-                self.set_blend_mode_multiply(FramebufferKind::Other);
-                self.draw_clip_batch_list(
-                    &target.clip_batcher.secondary_clips,
-                    &projection,
-                    stats,
-                );
-            }
-
-            if has_clip_masks {
-                self.handle_clips(
-                    &draw_target,
-                    &target.clip_masks,
-                    &projection,
-                    stats,
-                );
-            }
+            self.handle_clips(
+                &draw_target,
+                &target.clip_masks,
+                &projection,
+                stats,
+            );
         }
 
         if needs_depth {
@@ -3640,54 +3620,6 @@ impl Renderer {
     }
 
     /// Draw all the instances in a clip batcher list to the current target.
-    fn draw_clip_batch_list(
-        &mut self,
-        list: &ClipBatchList,
-        projection: &default::Transform3D<f32>,
-        stats: &mut RendererStats,
-    ) {
-        if self.debug_flags.contains(DebugFlags::DISABLE_CLIP_MASKS) {
-            return;
-        }
-
-        // draw rounded cornered rectangles
-        if !list.slow_rectangles.is_empty() {
-            let _gm2 = self.gpu_profiler.start_marker("slow clip rectangles");
-            self.shaders.borrow_mut().cs_clip_rectangle_slow().bind(
-                &mut self.device,
-                projection,
-                None,
-                &mut self.renderer_errors,
-                &mut self.profile,
-                &mut self.command_log,
-            );
-            self.draw_instanced_batch(
-                &list.slow_rectangles,
-                VertexArrayKind::ClipRect,
-                &BatchTextures::empty(),
-                stats,
-            );
-        }
-        if !list.fast_rectangles.is_empty() {
-            let _gm2 = self.gpu_profiler.start_marker("fast clip rectangles");
-            self.shaders.borrow_mut().cs_clip_rectangle_fast().bind(
-                &mut self.device,
-                projection,
-                None,
-                &mut self.renderer_errors,
-                &mut self.profile,
-                &mut self.command_log,
-            );
-            self.draw_instanced_batch(
-                &list.fast_rectangles,
-                VertexArrayKind::ClipRect,
-                &BatchTextures::empty(),
-                stats,
-            );
-        }
-
-    }
-
     fn bind_frame_data(&mut self, frame: &mut Frame) {
         profile_scope!("bind_frame_data");
 

@@ -10,13 +10,19 @@ add_setup(async () => {
   await SpecialPowers.pushPrefEnv({
     set: [
       ["sidebar.animation.enabled", false],
+      // These tests cover the vertical-tabs "hide-sidebar" behavior, where the
+      // launcher is hidden but becomes visible while a panel is open and
+      // restores to hidden once the panel closes. (In horizontal tabs
+      // "hide-sidebar" the launcher stays hidden and the panel is shown on its
+      // own; that mode is covered by browser_hide_sidebar.js.)
       // Note: "visibility" in the context of the sidebar launcher refers to the
       // pref-controlled behavior of when and how the launcher shows/hides, not
-      // if it is currently showing or hiding. These tests are specifically for
-      // the "hide-sidebar" behavior.
+      // if it is currently showing or hiding.
+      [VERTICAL_TABS_PREF, true],
       [SIDEBAR_VISIBILITY_PREF, "hide-sidebar"],
     ],
   });
+  await SidebarTestUtils.waitForTabstripOrientation(window, "vertical");
   await SidebarController.waitUntilStable();
   sidebarLauncher = SidebarController.sidebarContainer;
 });

@@ -187,6 +187,9 @@ class PrefObserver {
   #domWindow;
 
   #prefs = new Map([
+    // [pref-trie-audit] "accessibility.browsewithcaret" is an ambiguous prefix of
+    // "accessibility.browsewithcaret_shortcut.enabled"; triggers only for the exact pref
+    // (sibling is not in this Map so the observe() handler returns early for it).
     [
       caretBrowsingModePref,
       {
@@ -223,6 +226,9 @@ class PrefObserver {
       });
 
       // Once the experiment for new alt-text stuff is removed, we can remove this.
+      // [pref-trie-audit] "pdfjs.enableAltText" is an ambiguous prefix of
+      // "pdfjs.enableAltTextForEnglish", "pdfjs.enableAltTextModelDownload"; triggers only for
+      // the exact pref ("enableAltTextModelDownload" has its own entry in this Map above).
       this.#prefs.set("pdfjs.enableAltText", {
         name: "enableAltText",
         type: "bool",

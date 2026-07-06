@@ -214,21 +214,77 @@ add_task(async function test_threshold_change_reevaluates() {
   await SpecialPowers.popPrefEnv();
 });
 
-add_task(async function test_resize_event_triggers_update() {
-  await withNewWindow(async win => {
-    let original = win.gUIDensity.update;
-    let called = false;
-    win.gUIDensity.update = function (...args) {
-      called = true;
-      return original.apply(this, args);
-    };
-    try {
-      win.dispatchEvent(new win.Event("resize"));
-      Assert.ok(called, "A resize event triggers gUIDensity.update()");
-    } finally {
-      win.gUIDensity.update = original;
-    }
+// A resize triggers update() only when auto-compact could change the density.
+// When it can't apply, resizing can't affect density, so update() is skipped
+// to keep the resize hot path cheap (bug 2049353).
+function resizeCallsUpdate(win) {
+  let original = win.gUIDensity.update;
+  let called = false;
+  win.gUIDensity.update = function (...args) {
+    called = true;
+    return original.apply(this, args);
+  };
+  try {
+    win.dispatchEvent(new win.Event("resize"));
+    return called;
+  } finally {
+    win.gUIDensity.update = original;
+  }
+}
+
+add_task(
+  async function test_resize_triggers_update_when_auto_compact_applies() {
+    await SpecialPowers.pushPrefEnv({
+      set: [[PREF_NOVA, true]],
+      clear: [[PREF_UI_DENSITY]],
+    });
+
+    await withNewWindow(async win => {
+      Assert.ok(
+        resizeCallsUpdate(win),
+        "A resize triggers update() when auto-compact can apply"
+      );
+    });
+
+    await SpecialPowers.popPrefEnv();
+  }
+);
+
+add_task(
+  async function test_resize_skips_update_when_auto_compact_inapplicable() {
+    await SpecialPowers.pushPrefEnv({
+      set: [[PREF_NOVA, false]],
+      clear: [[PREF_UI_DENSITY]],
+    });
+
+    await withNewWindow(async win => {
+      Assert.ok(
+        !resizeCallsUpdate(win),
+        "A resize skips update() when auto-compact can't apply (nova disabled)"
+      );
+    });
+
+    await SpecialPowers.popPrefEnv();
+  }
+);
+
+add_task(async function test_resize_skips_update_with_user_uidensity() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [PREF_NOVA, true],
+      // A non-default (touch) value so prefHasUserValue() is unambiguously true.
+      [PREF_UI_DENSITY, 2],
+    ],
   });
+
+  await withNewWindow(async win => {
+    Assert.ok(
+      !resizeCallsUpdate(win),
+      "A resize skips update() when the user has chosen a uidensity value"
+    );
+  });
+
+  await SpecialPowers.popPrefEnv();
 });
 
 // Regression test for bug 2047330: update() runs on every window resize, but

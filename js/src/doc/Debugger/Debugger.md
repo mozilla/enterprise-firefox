@@ -13,18 +13,6 @@ debuggees.
 A `Debugger` instance inherits the following accessor properties from
 its prototype:
 
-### `allowUnobservedAsmJS`
-A boolean value indicating whether asm.js code running inside this
-`Debugger` instance's debuggee globals is invisible to Debugger API
-handlers and breakpoints. Setting this to `false` inhibits the
-ahead-of-time asm.js compiler and forces asm.js code to run as normal
-JavaScript. This is an accessor property with a getter and setter. It is
-initially `false` in a freshly created `Debugger` instance.
-
-Setting this flag to `true` is intended for uses of subsystems of the
-Debugger API (e.g, [`Debugger.Source`][source]) for purposes other than
-step debugging a target JavaScript program.
-
 ### `collectCoverageInfo`
 A boolean value indicating whether code coverage should be enabled inside
 each debuggee of this `Debugger` instance. Changing this flag value will

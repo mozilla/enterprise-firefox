@@ -13,6 +13,7 @@ XPIDL_SOURCES += [
 XPIDL_MODULE = "content-classifier"
 
 UNIFIED_SOURCES += [
+    "ContentClassifierFeatureUtils.cpp",
     "ContentClassifierPrefMirror.cpp",
     "ContentClassifierService.cpp",
 ]

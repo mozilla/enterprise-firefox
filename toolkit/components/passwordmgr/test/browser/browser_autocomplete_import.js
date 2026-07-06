@@ -142,7 +142,9 @@ add_task(async function import_suggestion_learn_more() {
       Assert.ok(popup, "Got popup");
       await openACPopup(popup, browser, "#form-basic-username");
 
-      const learnMoreItem = popup.querySelector(`[type="importableLearnMore"]`);
+      const learnMoreItem = popup.querySelector(
+        `[originaltype="importableLearnMore"]`
+      );
       Assert.ok(learnMoreItem, "Got importable learn more richlistitem");
 
       // Wait for the layout to stabilize by waiting for possible reflow;

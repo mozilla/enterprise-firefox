@@ -70,6 +70,7 @@
 #include "mozilla/CycleCollectedJSContext.h"
 #include "mozilla/ExtensionPolicyService.h"
 #include "mozilla/extensions/WebExtensionPolicy.h"
+#include "mozilla/FOGIPC.h"
 #include "mozilla/glean/ProcesstoolsMetrics.h"
 #include "mozilla/Monitor.h"
 #include "mozilla/Preferences.h"
@@ -80,10 +81,12 @@
 #include "mozilla/ProfileBufferChunkManagerWithLocalLimit.h"
 #include "mozilla/ProfileChunkedBuffer.h"
 #include "mozilla/ProfilerBandwidthCounter.h"
+#include "mozilla/ProfilerDumpOrCrash.h"
 #include "mozilla/SchedulerGroup.h"
 #include "mozilla/SharedLibraries.h"
 #include "mozilla/Services.h"
 #include "mozilla/StackWalk.h"
+#include "mozilla/SyncRunnable.h"
 #include "mozilla/Try.h"
 #ifdef XP_WIN
 #  include "mozilla/NativeNt.h"
@@ -987,6 +990,28 @@ class CorePS {
   PS_GET_AND_SET(const Maybe<nsCOMPtr<nsIFile>>&, AsyncSignalDumpDirectory)
 #endif
 
+  // The scheduled off-main-thread profile dump deadline
+  // (profiler_schedule_dump_to_file). A null deadline means none is scheduled.
+  // Read by the sampler thread.
+  static const TimeStamp& ScheduledDumpDeadline(PSLockRef) {
+    MOZ_ASSERT(sInstance);
+    return sInstance->mScheduledDumpDeadline;
+  }
+  static const nsACString& ScheduledDumpPath(PSLockRef) {
+    MOZ_ASSERT(sInstance);
+    return sInstance->mScheduledDumpPath;
+  }
+  static void ScheduleDumpToFile(PSLockRef, const TimeStamp& aDeadline,
+                                 const nsACString& aPath) {
+    MOZ_ASSERT(sInstance);
+    sInstance->mScheduledDumpDeadline = aDeadline;
+    sInstance->mScheduledDumpPath = aPath;
+  }
+  static void CancelScheduledDump(PSLockRef) {
+    MOZ_ASSERT(sInstance);
+    sInstance->mScheduledDumpDeadline = TimeStamp{};
+  }
+
   static void SetBandwidthCounter(ProfilerBandwidthCounter* aBandwidthCounter) {
     MOZ_ASSERT(sInstance);
 
@@ -1039,6 +1064,12 @@ class CorePS {
   // Private name, provided by child process initialization code (eTLD+1 in
   // fission)
   nsAutoCString mETLDplus1;
+
+  // A scheduled off-main-thread profile dump (profiler_schedule_dump_to_file):
+  // the deadline at which the sampler thread should write the profile, and the
+  // file to write it to. Null deadline when none is scheduled.
+  TimeStamp mScheduledDumpDeadline;
+  nsAutoCString mScheduledDumpPath;
 
   // This memory buffer is used by the MergeStacks mechanism. Previously it was
   // stack allocated, but this led to a stack overflow, as it was too much
@@ -4661,6 +4692,12 @@ void SamplerThread::Run() {
   // This will be set inside the loop, before invoking callbacks outside.
   SamplingState samplingState{};
 
+  // Set inside the locked scope when a scheduled off-main-thread profile dump
+  // (profiler_schedule_dump_to_file) is due, then acted on outside the lock
+  // (profiler_save_profile_to_file takes the profiler lock itself).
+  bool scheduledDumpDue = false;
+  nsAutoCString scheduledDumpPath;
+
   const TimeDuration sampleInterval =
       TimeDuration::FromMicroseconds(mIntervalMicroseconds);
   const uint32_t minimumIntervalSleepUs =
@@ -4733,6 +4770,13 @@ void SamplerThread::Run() {
       }
 
       ActivePS::ClearExpiredExitProfiles(lock);
+
+      if (const TimeStamp& deadline = CorePS::ScheduledDumpDeadline(lock);
+          !deadline.IsNull() && sampleStart >= deadline) {
+        scheduledDumpDue = true;
+        scheduledDumpPath = CorePS::ScheduledDumpPath(lock);
+        CorePS::CancelScheduledDump(lock);
+      }
 
       TimeStamp expiredMarkersCleaned = TimeStamp::Now();
 
@@ -5208,6 +5252,13 @@ void SamplerThread::Run() {
     // Invoke end-of-sampling callbacks outside of the locked scope.
     InvokePostSamplingCallbacks(std::move(postSamplingCallbacks),
                                 samplingState);
+
+    // We've hit the deadline for a scheduled profile dump; call
+    // profiler_save_profile_to_file outside the lock to avoid a deadlock.
+    if (scheduledDumpDue) {
+      scheduledDumpDue = false;
+      profiler_save_profile_to_file(scheduledDumpPath.get());
+    }
 
     ProfilerChild::ProcessPendingUpdate();
 
@@ -6602,6 +6653,65 @@ void profiler_save_profile_to_file(const char* aFilename) {
                                        preRecordedMetaInformation);
 }
 
+void profiler_schedule_dump_to_file(double aDelaySeconds,
+                                    const char* aFilename) {
+  if (!aFilename || !CorePS::Exists()) {
+    return;
+  }
+
+  // Compute the deadline before grabbing the lock, which may already be held
+  // by another thread for a while.
+  TimeStamp deadline =
+      TimeStamp::Now() + TimeDuration::FromSeconds(aDelaySeconds);
+
+  PSAutoLock lock;
+  CorePS::ScheduleDumpToFile(lock, deadline, nsDependentCString(aFilename));
+}
+
+void profiler_cancel_scheduled_dump() {
+  if (!CorePS::Exists()) {
+    return;
+  }
+
+  PSAutoLock lock;
+  CorePS::CancelScheduledDump(lock);
+}
+
+void profiler_request_dump_and_quit_for_test(const nsACString& aReason) {
+  if (!profiler_is_active()) {
+    return;
+  }
+
+  nsCString reason(aReason);
+  auto notify = [reason] {
+    MOZ_RELEASE_ASSERT(NS_IsMainThread());
+    if (nsCOMPtr<nsIObserverService> os = services::GetObserverService()) {
+      os->NotifyObservers(nullptr, "profiler-dump-and-quit",
+                          NS_ConvertUTF8toUTF16(reason).get());
+    }
+  };
+
+  if (NS_IsMainThread()) {
+    notify();
+    return;
+  }
+
+  // The notification, the profile gathering it triggers, and the process exit
+  // all have to happen on the main thread, so dispatch there and block this
+  // thread until the harness has handled it. When handled, the harness ends the
+  // process, so this normally does not return.
+  //
+  // There is a slight risk of deadlock here: if the main thread is blocked (for
+  // example waiting on this thread, or wedged), it will never run the
+  // dispatched runnable and we will block forever. We accept this because
+  // gathering a multi-process profile fundamentally requires the main thread's
+  // event loop; in that case the test harness timeout will eventually kill the
+  // process.
+  nsCOMPtr<nsIRunnable> runnable = NS_NewRunnableFunction(
+      "profiler_request_dump_and_quit_for_test", std::move(notify));
+  SyncRunnable::DispatchToThread(GetMainThreadSerialEventTarget(), runnable);
+}
+
 uint32_t profiler_get_available_features() {
   MOZ_RELEASE_ASSERT(CorePS::Exists());
   return AvailableFeatures();
@@ -7738,11 +7848,34 @@ void profiler_record_wakeup_count(const nsACString& aProcessType) {
   }
 
 #ifdef NIGHTLY_BUILD
-  ThreadRegistry::LockedRegistry lockedRegistry;
-  for (ThreadRegistry::OffThreadRef offThreadRef : lockedRegistry) {
-    const ThreadRegistry::UnlockedConstReaderAndAtomicRW& threadData =
-        offThreadRef.UnlockedConstReaderAndAtomicRWRef();
-    threadData.RecordWakeCount();
+  struct ThreadWakeData {
+    nsCString mThreadName;
+    uint64_t mCpuTimeMs;
+    uint64_t mWakeCount;
+  };
+  // Collect the per-thread data under the ThreadRegistry lock, then report it
+  // to Glean below once the lock has been released: recording it while holding
+  // the lock would create a lock-order inversion with the Glean/Telemetry
+  // locks.
+  nsTArray<ThreadWakeData> threadWakeData;
+  {
+    ThreadRegistry::LockedRegistry lockedRegistry;
+    for (ThreadRegistry::OffThreadRef offThreadRef : lockedRegistry) {
+      const ThreadRegistry::UnlockedConstReaderAndAtomicRW& threadData =
+          offThreadRef.UnlockedConstReaderAndAtomicRWRef();
+      nsAutoCString threadName;
+      uint64_t cpuTimeMs;
+      uint64_t wakeCount;
+      if (threadData.RecordWakeCount(threadName, cpuTimeMs, wakeCount)) {
+        threadWakeData.AppendElement(
+            ThreadWakeData{std::move(threadName), cpuTimeMs, wakeCount});
+      }
+    }
+  }
+
+  for (const ThreadWakeData& data : threadWakeData) {
+    mozilla::glean::RecordThreadCpuUse(data.mThreadName, data.mCpuTimeMs,
+                                       data.mWakeCount);
   }
 #endif
 }

@@ -6,7 +6,10 @@ import { act, render, fireEvent } from "@testing-library/react";
 import { INITIAL_STATE } from "common/Reducers.sys.mjs";
 import { actionTypes as at } from "common/Actions.mjs";
 import { WrapWithProvider } from "test/jest/test-utils";
-import { SportsWidget } from "content-src/components/Widgets/SportsWidget/SportsWidget";
+import {
+  SportsWidget,
+  shouldShowResultView,
+} from "content-src/components/Widgets/SportsWidget/SportsWidget";
 
 // Pin Date.now() to a post-kickoff timestamp for the entire suite so the
 // kickoff-date guard on /live data does not zero out the mock live matches
@@ -35,6 +38,22 @@ const mockTeams = [
 ];
 
 const emptyMatches = { previous: [], current: [], next: [] };
+
+// A loaded watch-live payload whose non-empty your_region marks the user's
+// region as supported, so the "Watch live" entry point renders.
+const supportedWatchLive = {
+  loaded: true,
+  data: {
+    your_region: [
+      {
+        product_name: "SBS On Demand",
+        entitlement: "Free",
+        url: "https://www.sbs.com.au/ondemand/",
+      },
+    ],
+    other_regions: [],
+  },
+};
 
 const mockMatch = {
   home_team: { key: "ENG", name: "England" },
@@ -1286,6 +1305,55 @@ describe("<SportsWidget> matches view", () => {
     expect(titles).not.toEqual(expect.arrayContaining(["Brazil"]));
   });
 
+  describe("Watch live button region gating", () => {
+    const liveNowOverrides = {
+      matchesTab: "now",
+      data: { teams: [], matches: emptyMatches, live: [mockMatch] },
+    };
+
+    it("hides the Watch live button when the user's region is unsupported (empty your_region)", () => {
+      const { container } = renderInMatchesState({
+        ...liveNowOverrides,
+        watchLive: {
+          loaded: true,
+          data: { your_region: [], other_regions: [] },
+        },
+      });
+      expect(
+        container.querySelector(".sports-watch-live-button")
+      ).not.toBeInTheDocument();
+    });
+
+    it("hides the Watch live button before watch-live data has loaded", () => {
+      const { container } = renderInMatchesState(liveNowOverrides);
+      expect(
+        container.querySelector(".sports-watch-live-button")
+      ).not.toBeInTheDocument();
+    });
+
+    it("shows the Watch live button when your_region has broadcasters", () => {
+      const { container } = renderInMatchesState({
+        ...liveNowOverrides,
+        watchLive: {
+          loaded: true,
+          data: {
+            your_region: [
+              {
+                product_name: "SBS On Demand",
+                entitlement: "Free",
+                url: "https://www.sbs.com.au/ondemand/",
+              },
+            ],
+            other_regions: [],
+          },
+        },
+      });
+      expect(
+        container.querySelector(".sports-watch-live-button")
+      ).toBeInTheDocument();
+    });
+  });
+
   it("marks the active tab based on matchesTab state", () => {
     const { container } = renderInMatchesState({ matchesTab: "results" });
     const activeTab = container.querySelector(".sports-matches-tab.is-active");
@@ -1423,6 +1491,7 @@ describe("<SportsWidget> matches view", () => {
         }),
       })
     );
+    expect(handleUserInteraction).toHaveBeenCalledWith("sportsWidget");
   });
 
   it("dispatches change_tab telemetry when the results tab is clicked", () => {
@@ -1448,6 +1517,7 @@ describe("<SportsWidget> matches view", () => {
         }),
       })
     );
+    expect(handleUserInteraction).toHaveBeenCalledWith("sportsWidget");
   });
 
   it("does not dispatch change_tab telemetry when clicking the already-active tab", () => {
@@ -2181,6 +2251,7 @@ describe("<SportsWidget> Watch button (live tab)", () => {
               matches: emptyMatches,
               live: [mockMatch],
             },
+            watchLive: supportedWatchLive,
           }
         )}
       >
@@ -2265,6 +2336,7 @@ describe("<SportsWidget> live refresh button", () => {
               matches: emptyMatches,
               live: [mockMatch],
             },
+            watchLive: supportedWatchLive,
           }
         )}
       >
@@ -2305,6 +2377,7 @@ describe("<SportsWidget> live refresh button", () => {
               matches: emptyMatches,
               live: [mockMatch],
             },
+            watchLive: supportedWatchLive,
           }
         )}
       >
@@ -4713,6 +4786,72 @@ describe("<SportsWidget> end-of-match celebration", () => {
     );
   }
 
+  const RESULT_TEAMS = [
+    {
+      key: "ARG",
+      name: "Argentina",
+      colors: ["#75aadb", "#ffffff"],
+      icon_url: "https://example.test/ARG.svg",
+    },
+    {
+      key: "FRA",
+      name: "France",
+      colors: ["#0055a4", "#ffffff", "#ef4135"],
+      icon_url: "https://example.test/FRA.svg",
+    },
+    {
+      key: "CRO",
+      name: "Croatia",
+      colors: ["#f00000", "#ffffff"],
+      icon_url: "https://example.test/CRO.svg",
+    },
+    {
+      key: "MAR",
+      name: "Morocco",
+      colors: ["#c1272d", "#006233"],
+      icon_url: "https://example.test/MAR.svg",
+    },
+  ];
+
+  const resultTeam = key => RESULT_TEAMS.find(team => team.key === key);
+
+  function resultMatch(stage, homeKey, awayKey, homeScore, awayScore) {
+    return {
+      global_event_id: `evt-${stage.toLowerCase().replaceAll(" ", "-")}`,
+      stage,
+      home_team: resultTeam(homeKey),
+      away_team: resultTeam(awayKey),
+      date: "2026-07-19T17:00:00+00:00",
+      status_type: "past",
+      home_score: homeScore,
+      away_score: awayScore,
+      home_extra: null,
+      away_extra: null,
+      home_penalty: null,
+      away_penalty: null,
+      query: `${homeKey} vs ${awayKey}`,
+    };
+  }
+
+  function resultState(matches, prefOverrides = {}, selectedTeams = []) {
+    return makeState(
+      {
+        "widgets.sportsWidget.celebrations.enabled": true,
+        ...prefOverrides,
+      },
+      {
+        widgetState: "sports-matches",
+        matchesTab: "results",
+        selectedTeams,
+        data: {
+          teams: RESULT_TEAMS,
+          matches: { previous: matches, current: [], next: [] },
+          live: [],
+        },
+      }
+    );
+  }
+
   function renderState(
     state,
     dispatch = defaultProps.dispatch,
@@ -5069,6 +5208,150 @@ describe("<SportsWidget> end-of-match celebration", () => {
       container.querySelector(".sports-celebration")
     ).not.toBeInTheDocument();
   });
+
+  it("shows the third-place result view from a real Bronze Final result", () => {
+    const bronzeMatch = resultMatch("Bronze Final", "CRO", "MAR", 2, 1);
+    const { container } = renderState(resultState([bronzeMatch]));
+
+    expect(
+      container.querySelector(".sports-result-card-third")
+    ).toBeInTheDocument();
+    expect(container.querySelector(".sports-result-name").textContent).toBe(
+      "Croatia"
+    );
+  });
+
+  it("suppresses the animated mascot under prefers-reduced-motion", () => {
+    mockMatchMedia(true);
+    const bronzeMatch = resultMatch("Bronze Final", "CRO", "MAR", 2, 1);
+    const { container } = renderState(resultState([bronzeMatch]));
+
+    // The static result card still renders; only the animated mascot is gone.
+    expect(
+      container.querySelector(".sports-result-card-third")
+    ).toBeInTheDocument();
+    expect(container.querySelector(".sports-result-mascot")).toBeNull();
+  });
+
+  it("shows third place when the 3rd Place match is still in current and the Final is upcoming", () => {
+    // Production shape: earlier rounds in `previous` (so the Results tab is
+    // enabled), the just-finished third-place match still in `current`, and the
+    // Final scheduled in `next`. The result view must trigger off `current`.
+    const quarterFinal = resultMatch("Quarter-finals", "BRA", "PRT", 3, 0);
+    const thirdMatch = resultMatch("3rd Place", "CRO", "MAR", 2, 1);
+    const finalUpcoming = {
+      ...resultMatch("Final", "ARG", "IRQ", 0, 0),
+      status_type: "scheduled",
+    };
+    const state = makeState(
+      { "widgets.sportsWidget.celebrations.enabled": true },
+      {
+        widgetState: "sports-matches",
+        matchesTab: "results",
+        data: {
+          teams: RESULT_TEAMS,
+          matches: {
+            previous: [quarterFinal],
+            current: [thirdMatch],
+            next: [finalUpcoming],
+          },
+          live: [],
+        },
+      }
+    );
+    const { container } = renderState(state);
+
+    expect(
+      container.querySelector(".sports-result-card-third")
+    ).toBeInTheDocument();
+    expect(container.querySelector(".sports-result-name").textContent).toBe(
+      "Croatia"
+    );
+  });
+
+  it("shows the podium to a follower of the runner-up team on the large widget", () => {
+    const bronzeMatch = resultMatch("Bronze Final", "CRO", "MAR", 2, 1);
+    const finalMatch = resultMatch("Final", "ARG", "FRA", 3, 2);
+    // FRA lost the Final, so they are the runner-up; following them earns the
+    // full podium (their team's moment).
+    const { container } = renderState(
+      resultState(
+        [bronzeMatch, finalMatch],
+        { [PREF_SPORTS_WIDGET_SIZE]: "large" },
+        ["FRA"]
+      )
+    );
+
+    expect(container.querySelector(".sports-podium")).toBeInTheDocument();
+    const names = [...container.querySelectorAll(".sports-result-name")].map(
+      el => el.textContent
+    );
+    expect(names).toEqual(["Argentina", "France", "Croatia"]);
+  });
+
+  it("shows the champion card (not the podium) when the runner-up is not followed", () => {
+    const bronzeMatch = resultMatch("Bronze Final", "CRO", "MAR", 2, 1);
+    const finalMatch = resultMatch("Final", "ARG", "FRA", 3, 2);
+    // Following the champion (or no one) gets the champion card, not the podium.
+    const { container } = renderState(
+      resultState(
+        [bronzeMatch, finalMatch],
+        { [PREF_SPORTS_WIDGET_SIZE]: "large" },
+        ["ARG"]
+      )
+    );
+
+    expect(container.querySelector(".sports-podium")).toBeNull();
+    expect(
+      container.querySelector(".sports-result-card-champion")
+    ).toBeInTheDocument();
+  });
+
+  it("downgrades the runner-up follower's podium to the champion card at medium", () => {
+    const bronzeMatch = resultMatch("Bronze Final", "CRO", "MAR", 2, 1);
+    const finalMatch = resultMatch("Final", "ARG", "FRA", 3, 2);
+    const { container } = renderState(
+      resultState(
+        [bronzeMatch, finalMatch],
+        { [PREF_SPORTS_WIDGET_SIZE]: "medium" },
+        ["FRA"]
+      )
+    );
+
+    expect(container.querySelector(".sports-podium")).toBeNull();
+    expect(
+      container.querySelector(".sports-result-card-champion")
+    ).toBeInTheDocument();
+  });
+
+  it("advances the result view from Bronze Final to Final as triggers arrive", () => {
+    const bronzeMatch = resultMatch("Bronze Final", "CRO", "MAR", 2, 1);
+    const finalMatch = resultMatch("Final", "ARG", "FRA", 3, 2);
+    const { container, rerender } = renderState(resultState([bronzeMatch]));
+
+    // Bronze decided, Final not yet: third-place view with its video mascot.
+    expect(
+      container.querySelector(".sports-result-card-third")
+    ).toBeInTheDocument();
+    expect(
+      container.querySelector("video.sports-result-mascot")
+    ).not.toBeNull();
+
+    rerender(
+      <WrapWithProvider state={resultState([bronzeMatch, finalMatch])}>
+        <SportsWidget {...defaultProps} />
+      </WrapWithProvider>
+    );
+
+    // Final decided: the champion card replaces the third-place view (medium
+    // downgrades the podium to the champion card).
+    expect(
+      container.querySelector(".sports-result-card-champion")
+    ).toBeInTheDocument();
+    expect(
+      container.querySelector("video.sports-result-mascot")
+    ).not.toBeNull();
+  });
 });
 
 describe("<SportsWidget> load more (Upcoming + Results)", () => {
@@ -5351,5 +5634,55 @@ describe("<SportsWidget> load more (Upcoming + Results)", () => {
       ([action]) => action?.type === at.WIDGETS_SPORTS_FETCH_MORE_MATCHES
     );
     expect(fetchCalls).toHaveLength(0);
+  });
+});
+
+describe("shouldShowResultView", () => {
+  const allShowing = {
+    celebrationsEnabled: true,
+    resultViewReady: true,
+    hasLiveGames: false,
+    isMatchesState: true,
+    isResultsTab: true,
+    showResultsList: false,
+  };
+
+  it("shows the result view when every condition is met", () => {
+    expect(shouldShowResultView(allShowing)).toBe(true);
+  });
+
+  it("hides it while a match is live, even on the Results tab (live wins)", () => {
+    // The result views hide the tab bar; showing one during a live match would
+    // strand the user away from the live game.
+    expect(shouldShowResultView({ ...allShowing, hasLiveGames: true })).toBe(
+      false
+    );
+  });
+
+  it("hides it when no placement is decided yet", () => {
+    expect(
+      shouldShowResultView({ ...allShowing, resultViewReady: false })
+    ).toBe(false);
+  });
+
+  it("hides it when celebrations are disabled", () => {
+    expect(
+      shouldShowResultView({ ...allShowing, celebrationsEnabled: false })
+    ).toBe(false);
+  });
+
+  it("hides it off the Results tab and outside the matches state", () => {
+    expect(shouldShowResultView({ ...allShowing, isResultsTab: false })).toBe(
+      false
+    );
+    expect(shouldShowResultView({ ...allShowing, isMatchesState: false })).toBe(
+      false
+    );
+  });
+
+  it("hides it while the expanded results list is open", () => {
+    expect(shouldShowResultView({ ...allShowing, showResultsList: true })).toBe(
+      false
+    );
   });
 });

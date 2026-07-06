@@ -424,8 +424,8 @@ function yelpOptInResult({ dismissButton = false } = {}) {
         },
       };
   return {
-    type: UrlbarUtils.RESULT_TYPE.TIP,
-    source: UrlbarUtils.RESULT_SOURCE.OTHER_LOCAL,
+    type: UrlbarShared.RESULT_TYPE.TIP,
+    source: UrlbarShared.RESULT_SOURCE.OTHER_LOCAL,
     heuristic: false,
     isBestMatch: true,
     payload: {
@@ -473,8 +473,8 @@ function yelpOptInResult({ dismissButton = false } = {}) {
 
 function yelpMerinoResult() {
   return {
-    type: UrlbarUtils.RESULT_TYPE.DYNAMIC,
-    source: UrlbarUtils.RESULT_SOURCE.SEARCH,
+    type: UrlbarShared.RESULT_TYPE.DYNAMIC,
+    source: UrlbarShared.RESULT_SOURCE.SEARCH,
     heuristic: false,
     isBestMatch: true,
     payload: {

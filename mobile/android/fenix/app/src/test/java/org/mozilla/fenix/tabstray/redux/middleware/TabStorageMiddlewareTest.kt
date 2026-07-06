@@ -48,6 +48,8 @@ import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
 import org.mozilla.fenix.tabstray.redux.state.TabsTrayState.Mode
 import org.mozilla.fenix.tabstray.redux.store.TabsTrayStore
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(AndroidJUnit4::class)
@@ -992,24 +994,30 @@ class TabStorageMiddlewareTest {
                 theme = TabGroupTheme.Red.name,
                 lastModified = 0L,
             )
-            val tabGroups = List(size = 3) {
+            val tabGroupData = List(size = 3) {
                 TabGroup(
                     title = "Group $it",
                     theme = TabGroupTheme.Red.name,
                     lastModified = 0L,
                 )
             }
-            val selectedTabGroups = tabGroups.map {
-                createTabGroup(
-                    id = it.id,
-                    title = it.title,
+            val interstitialTabGroups = tabGroupData.map {
+                MutableTabGroup(
+                    metaData = it,
                     theme = TabGroupTheme.valueOf(it.theme),
                 )
             }
             // Assign tabs to the 3 multi-selected groups
-            selectedTabGroups[0].tabs.addAll(selectedTabs.subList(10, 20))
-            selectedTabGroups[1].tabs.addAll(selectedTabs.subList(20, 30))
-            selectedTabGroups[2].tabs.addAll(selectedTabs.subList(30, 40))
+            interstitialTabGroups[0].tabs.addAll(selectedTabs.subList(10, 20))
+            interstitialTabGroups[1].tabs.addAll(selectedTabs.subList(20, 30))
+            interstitialTabGroups[2].tabs.addAll(selectedTabs.subList(30, 40))
+            val selectedTabGroups = tabGroupData.mapIndexed { index, group ->
+                createTabGroup(
+                    id = group.id,
+                    title = group.title,
+                    tabs = interstitialTabGroups[index].tabs.toList(),
+                )
+            }
             val initialTabAssignments = mutableListOf<Pair<String, String>>()
             selectedTabGroups.forEach { group ->
                 group.tabs.forEach { tab ->
@@ -1026,7 +1034,7 @@ class TabStorageMiddlewareTest {
                 tabGroupsEnabled = true,
                 tabDataFlow = flowOf(tabData),
                 tabGroupRepository = createRepository(
-                    initialTabGroups = tabGroups + destinationTabGroup,
+                    initialTabGroups = tabGroupData + destinationTabGroup,
                     initialTabGroupAssignments = initialTabAssignments,
                 ),
             )
@@ -1064,31 +1072,38 @@ class TabStorageMiddlewareTest {
             val tabs = MutableList(size = 40) { createTab(url = "") }
             val selectedTabs = MutableList(size = 40) { TabsTrayItem.Tab(tabs[it]) }
             val tabData = TabData(tabs = tabs)
-            val tabGroups = List(size = 3) {
+            val tabGroupData = List(size = 3) {
                 TabGroup(
                     title = "Group $it",
                     theme = TabGroupTheme.Red.name,
                     lastModified = 0L,
                 )
             }
-            val selectedTabGroups = tabGroups.map {
-                createTabGroup(
-                    id = it.id,
-                    title = it.title,
+            val interstitialTabGroups = tabGroupData.map {
+                MutableTabGroup(
+                    metaData = it,
                     theme = TabGroupTheme.valueOf(it.theme),
                 )
             }
-            val destinationTabGroup = selectedTabGroups.first()
             // Assign tabs to the 3 multi-selected groups
-            selectedTabGroups[0].tabs.addAll(selectedTabs.subList(10, 20))
-            selectedTabGroups[1].tabs.addAll(selectedTabs.subList(20, 30))
-            selectedTabGroups[2].tabs.addAll(selectedTabs.subList(30, 40))
+            interstitialTabGroups[0].tabs.addAll(selectedTabs.subList(10, 20))
+            interstitialTabGroups[1].tabs.addAll(selectedTabs.subList(20, 30))
+            interstitialTabGroups[2].tabs.addAll(selectedTabs.subList(30, 40))
+            val selectedTabGroups = tabGroupData.mapIndexed { index, group ->
+                createTabGroup(
+                    id = group.id,
+                    title = group.title,
+                    tabs = interstitialTabGroups[index].tabs.toList(),
+                    theme = TabGroupTheme.valueOf(group.theme),
+                )
+            }
             val initialTabAssignments = mutableListOf<Pair<String, String>>()
             selectedTabGroups.forEach { group ->
                 group.tabs.forEach { tab ->
                     initialTabAssignments.add(tab.id to group.id)
                 }
             }
+            val destinationTabGroup = selectedTabGroups.first()
             val store = createStore(
                 initialState = TabsTrayState(
                     mode = Mode.Select(
@@ -1099,7 +1114,7 @@ class TabStorageMiddlewareTest {
                 tabGroupsEnabled = true,
                 tabDataFlow = flowOf(tabData),
                 tabGroupRepository = createRepository(
-                    initialTabGroups = tabGroups,
+                    initialTabGroups = tabGroupData,
                     initialTabGroupAssignments = initialTabAssignments,
                 ),
             )
@@ -1821,7 +1836,7 @@ class TabStorageMiddlewareTest {
         advanceUntilIdle()
 
         store.dispatch(
-            TabGroupAction.DragAndDropCompleted(
+            TabGroupAction.DragAndDropInitiated(
                 sourceId = sourceGroup.id,
                 destinationId = targetGroup.id,
             ),
@@ -2186,15 +2201,16 @@ class TabStorageMiddlewareTest {
                         theme = TabGroupTheme.Pink,
                         edited = false,
                     ),
+                    dragProcessingState = TabsTrayState.DragProcessingState.EDIT_IN_PROGRESS,
                 ),
                 backStack = listOf(TabManagerNavDestination.Root, TabManagerNavDestination.EditTabGroup),
             )
-            store.dispatch(TabGroupAction.DragAndDropCompleted(sourceId = tab.id, destinationId = otherTab.id))
+            store.dispatch(TabGroupAction.DragAndDropInitiated(sourceId = tab.id, destinationId = otherTab.id))
 
             runCurrent()
             advanceUntilIdle()
 
-            assertEquals(expected = expectedState, store.state)
+            assertEquals(expected = expectedState, actual = store.state)
         }
 
     @Test
@@ -2251,6 +2267,7 @@ class TabStorageMiddlewareTest {
             ),
             tabGroupState = TabsTrayState.TabGroupState(
                 groups = expectedTabGroupList,
+                dragProcessingState = TabsTrayState.DragProcessingState.COMPLETED,
             ),
             hasTabDataLoaded = true,
         )
@@ -2259,7 +2276,7 @@ class TabStorageMiddlewareTest {
         advanceUntilIdle()
 
         store.dispatch(
-            TabGroupAction.DragAndDropCompleted(
+            TabGroupAction.DragAndDropInitiated(
                 sourceId = sourceStoredGroup.id,
                 destinationId = destinationStoredGroup.id,
             ),
@@ -2268,7 +2285,7 @@ class TabStorageMiddlewareTest {
         runCurrent()
         advanceUntilIdle()
 
-        assertEquals(expectedState, store.state)
+        assertEquals(expected = expectedState, actual = store.state)
     }
 
     @Test
@@ -2304,6 +2321,7 @@ class TabStorageMiddlewareTest {
             ),
             tabGroupState = TabsTrayState.TabGroupState(
                 groups = expectedTabGroupList,
+                dragProcessingState = TabsTrayState.DragProcessingState.COMPLETED,
             ),
             hasTabDataLoaded = true,
         )
@@ -2311,12 +2329,12 @@ class TabStorageMiddlewareTest {
         runCurrent()
         advanceUntilIdle()
 
-        store.dispatch(TabGroupAction.DragAndDropCompleted(sourceId = tab.id, destinationId = storedGroup.id))
+        store.dispatch(TabGroupAction.DragAndDropInitiated(sourceId = tab.id, destinationId = storedGroup.id))
 
         runCurrent()
         advanceUntilIdle()
 
-        assertEquals(expectedState, store.state)
+        assertEquals(expected = expectedState, actual = store.state)
     }
 
     @Test
@@ -2352,6 +2370,7 @@ class TabStorageMiddlewareTest {
             ),
             tabGroupState = TabsTrayState.TabGroupState(
                 groups = expectedTabGroupList,
+                dragProcessingState = TabsTrayState.DragProcessingState.COMPLETED,
             ),
             hasTabDataLoaded = true,
         )
@@ -2359,12 +2378,12 @@ class TabStorageMiddlewareTest {
         runCurrent()
         advanceUntilIdle()
 
-        store.dispatch(TabGroupAction.DragAndDropCompleted(sourceId = storedGroup.id, destinationId = tab.id))
+        store.dispatch(TabGroupAction.DragAndDropInitiated(sourceId = storedGroup.id, destinationId = tab.id))
 
         runCurrent()
         advanceUntilIdle()
 
-        assertEquals(expectedState, store.state)
+        assertEquals(expected = expectedState, actual = store.state)
     }
 
     @Test
@@ -2393,7 +2412,7 @@ class TabStorageMiddlewareTest {
             runCurrent()
             advanceUntilIdle()
 
-            store.dispatch(TabGroupAction.DragAndDropCompleted(sourceId = sourceGroup.id, destinationId = targetTab.id))
+            store.dispatch(TabGroupAction.DragAndDropInitiated(sourceId = sourceGroup.id, destinationId = targetTab.id))
 
             runCurrent()
             advanceUntilIdle()
@@ -2402,7 +2421,7 @@ class TabStorageMiddlewareTest {
         }
 
     @Test
-    fun `WHEN source id is not in the items list THEN no action is taken`() = runTest {
+    fun `WHEN source id is not in the items list THEN only drag state is updated`() = runTest {
         val tab = createTab(url = "")
         val groupedTab = createTab(url = "")
         val tabData = TabData(tabs = listOf(tab, groupedTab))
@@ -2423,16 +2442,19 @@ class TabStorageMiddlewareTest {
         runCurrent()
         advanceUntilIdle()
         val initialState = store.state
-        store.dispatch(TabGroupAction.DragAndDropCompleted(sourceId = "BadId", destinationId = tab.id))
+        store.dispatch(TabGroupAction.DragAndDropInitiated(sourceId = "BadId", destinationId = tab.id))
 
         runCurrent()
         advanceUntilIdle()
 
-        assertEquals(initialState, store.state)
+        val expectedState = initialState.copy(
+            tabGroupState = initialState.tabGroupState.copy(dragProcessingState = TabsTrayState.DragProcessingState.COMPLETED),
+        )
+        assertEquals(expectedState, store.state)
     }
 
     @Test
-    fun `WHEN dropping a tab onto an illegal item THEN no action is taken`() = runTest {
+    fun `WHEN dropping a tab onto an illegal item THEN only drag state is updated`() = runTest {
         val tab = createTab(url = "")
         val groupedTab = createTab(url = "")
         val tabData = TabData(tabs = listOf(tab, groupedTab))
@@ -2453,16 +2475,17 @@ class TabStorageMiddlewareTest {
         runCurrent()
         advanceUntilIdle()
         val initialState = store.state
-        store.dispatch(TabGroupAction.DragAndDropCompleted(sourceId = tab.id, destinationId = "BadId"))
+        store.dispatch(TabGroupAction.DragAndDropInitiated(sourceId = tab.id, destinationId = "BadId"))
 
         runCurrent()
         advanceUntilIdle()
 
-        assertEquals(initialState, store.state)
+        val expectedState = initialState.copy(tabGroupState = initialState.tabGroupState.copy(dragProcessingState = TabsTrayState.DragProcessingState.COMPLETED))
+        assertEquals(expectedState, store.state)
     }
 
     @Test
-    fun `WHEN dropping a group onto an illegal item THEN no action is taken`() = runTest {
+    fun `WHEN dropping a group onto an illegal item THEN only drag state is updated`() = runTest {
         val tab = createTab(url = "")
         val groupedTab = createTab(url = "")
         val tabData = TabData(tabs = listOf(tab, groupedTab))
@@ -2483,12 +2506,13 @@ class TabStorageMiddlewareTest {
         runCurrent()
         advanceUntilIdle()
         val initialState = store.state
-        store.dispatch(TabGroupAction.DragAndDropCompleted(sourceId = storedGroup.id, destinationId = "BadId"))
+        store.dispatch(TabGroupAction.DragAndDropInitiated(sourceId = storedGroup.id, destinationId = "BadId"))
 
         runCurrent()
         advanceUntilIdle()
 
-        assertEquals(initialState, store.state)
+        val expectedState = initialState.copy(tabGroupState = initialState.tabGroupState.copy(dragProcessingState = TabsTrayState.DragProcessingState.COMPLETED))
+        assertEquals(expected = expectedState, actual = store.state)
     }
 
     @Test
@@ -2559,6 +2583,316 @@ class TabStorageMiddlewareTest {
         advanceUntilIdle()
 
         assertEquals(1, browserStore.state.tabs.size)
+    }
+
+    @Test
+    fun `WHEN save is clicked from group creation with valid drag and drop data THEN entering group is updated`() = runTest {
+        val repository = createRepository()
+        val sourceTab = createTab(url = "https://mozilla.org")
+        val destinationTab = createTab(url = "https://example.com")
+        val expectedTitle = "Group 1"
+        val expectedTheme = TabGroupTheme.Red
+        val store = createStore(
+            initialState = TabsTrayState(
+                mode = Mode.DragAndDrop(sourceId = sourceTab.id, destinationId = destinationTab.id),
+                tabGroupState = TabsTrayState.TabGroupState(
+                    formState = TabGroupFormState(
+                        name = expectedTitle,
+                        tabGroupId = null,
+                        theme = expectedTheme,
+                    ),
+                ),
+            ),
+            tabDataFlow = flowOf(TabData(tabs = listOf(sourceTab, destinationTab))),
+            tabGroupsEnabled = true,
+            tabGroupRepository = repository,
+            dateTimeProvider = fakeDateTimeProvider,
+        )
+
+        runCurrent()
+        advanceUntilIdle()
+
+        store.dispatch(TabGroupAction.SaveClicked)
+
+        runCurrent()
+        advanceUntilIdle()
+
+        assertNotNull(actual = store.state.tabGroupState.enteringGroupId)
+    }
+
+    @Test
+    fun `WHEN save is clicked from group creation with valid multi-select data THEN entering group is updated`() = runTest {
+        val repository = createRepository()
+        val sourceTab = createTab(url = "https://mozilla.org")
+        val destinationTab = createTab(url = "https://example.com")
+        val expectedTitle = "Group 1"
+        val expectedTheme = TabGroupTheme.Red
+        val store = createStore(
+            initialState = TabsTrayState(
+                mode = Mode.Select(selectedTabs = setOf(TabsTrayItem.Tab(tab = sourceTab), TabsTrayItem.Tab(tab = destinationTab))),
+                tabGroupState = TabsTrayState.TabGroupState(
+                    formState = TabGroupFormState(
+                        name = expectedTitle,
+                        tabGroupId = null,
+                        theme = expectedTheme,
+                    ),
+                ),
+            ),
+            tabDataFlow = flowOf(TabData(tabs = listOf(sourceTab, destinationTab))),
+            tabGroupsEnabled = true,
+            tabGroupRepository = repository,
+            dateTimeProvider = fakeDateTimeProvider,
+        )
+
+        runCurrent()
+        advanceUntilIdle()
+
+        store.dispatch(TabGroupAction.SaveClicked)
+
+        runCurrent()
+        advanceUntilIdle()
+
+        assertNotNull(actual = store.state.tabGroupState.enteringGroupId)
+    }
+
+    @Test
+    fun `WHEN save is clicked from group creation with invalid data THEN it is handled gracefully AND entering group is not updated`() = runTest {
+        val repository = createRepository()
+        val sourceTab = createTab(url = "https://mozilla.org")
+        val destinationTab = createTab(url = "https://example.com")
+        val expectedTitle = "Group 1"
+        val expectedTheme = TabGroupTheme.Red
+        val store = createStore(
+            initialState = TabsTrayState(
+                mode = Mode.DragAndDrop(sourceId = sourceTab.id, destinationId = null),
+                tabGroupState = TabsTrayState.TabGroupState(
+                    formState = TabGroupFormState(
+                        name = expectedTitle,
+                        tabGroupId = null,
+                        theme = expectedTheme,
+                    ),
+                ),
+            ),
+            tabDataFlow = flowOf(TabData(tabs = listOf(sourceTab, destinationTab))),
+            tabGroupsEnabled = true,
+            tabGroupRepository = repository,
+            dateTimeProvider = fakeDateTimeProvider,
+        )
+
+        runCurrent()
+        advanceUntilIdle()
+
+        store.dispatch(TabGroupAction.SaveClicked)
+
+        runCurrent()
+        advanceUntilIdle()
+
+        assertNull(actual = store.state.tabGroupState.enteringGroupId)
+    }
+
+    @Test
+    fun `GIVEN tab dragged onto tab, WHEN DragAndDropInitiated is called, THEN drag state is EDIT_IN_PROGRESS`() = runTest {
+        val tab = createTab(url = "")
+        val otherTab = createTab(url = "")
+        val groupedTab = createTab(url = "")
+        val tabData = TabData(tabs = listOf(tab, otherTab, groupedTab))
+        val storedGroup = TabGroup(
+            title = "Name",
+            theme = TabGroupTheme.Red.name,
+            lastModified = 0L,
+        )
+        val store = createStore(
+            tabGroupsEnabled = true,
+            tabDataFlow = flowOf(tabData),
+            tabGroupRepository = createRepository(
+                initialTabGroups = listOf(storedGroup),
+                initialTabGroupAssignments = listOf(groupedTab.id to storedGroup.id),
+            ),
+        )
+
+        runCurrent()
+        advanceUntilIdle()
+
+        store.dispatch(TabGroupAction.DragAndDropInitiated(sourceId = tab.id, destinationId = otherTab.id))
+
+        runCurrent()
+        advanceUntilIdle()
+
+        assertEquals(expected = TabsTrayState.DragProcessingState.EDIT_IN_PROGRESS, store.state.tabGroupState.dragProcessingState)
+    }
+
+    @Test
+    fun `GIVEN tab dragged onto group, WHEN DragAndDropInitiated is called, THEN drag handling state is COMPLETED`() = runTest {
+        val tab = createTab(url = "")
+        val otherTab = createTab(url = "")
+        val groupedTab = createTab(url = "")
+        val tabData = TabData(tabs = listOf(tab, otherTab, groupedTab))
+        val storedGroup = TabGroup(
+            title = "Name",
+            theme = TabGroupTheme.Red.name,
+            lastModified = 0L,
+        )
+        val store = createStore(
+            tabGroupsEnabled = true,
+            tabDataFlow = flowOf(tabData),
+            tabGroupRepository = createRepository(
+                initialTabGroups = listOf(storedGroup),
+                initialTabGroupAssignments = listOf(groupedTab.id to storedGroup.id),
+            ),
+        )
+
+        runCurrent()
+        advanceUntilIdle()
+
+        store.dispatch(TabGroupAction.DragAndDropInitiated(sourceId = tab.id, destinationId = storedGroup.id))
+
+        runCurrent()
+        advanceUntilIdle()
+
+        assertEquals(expected = TabsTrayState.DragProcessingState.COMPLETED, store.state.tabGroupState.dragProcessingState)
+    }
+
+    @Test
+    fun `GIVEN group dragged onto tab, WHEN DragAndDropInitiated is called, THEN drag handling state is COMPLETED`() = runTest {
+        val tab = createTab(url = "")
+        val otherTab = createTab(url = "")
+        val groupedTab = createTab(url = "")
+        val tabData = TabData(tabs = listOf(tab, otherTab, groupedTab))
+        val storedGroup = TabGroup(
+            title = "Name",
+            theme = TabGroupTheme.Red.name,
+            lastModified = 0L,
+        )
+        val store = createStore(
+            tabGroupsEnabled = true,
+            tabDataFlow = flowOf(tabData),
+            tabGroupRepository = createRepository(
+                initialTabGroups = listOf(storedGroup),
+                initialTabGroupAssignments = listOf(groupedTab.id to storedGroup.id),
+            ),
+        )
+
+        runCurrent()
+        advanceUntilIdle()
+
+        store.dispatch(TabGroupAction.DragAndDropInitiated(sourceId = storedGroup.id, destinationId = tab.id))
+
+        runCurrent()
+        advanceUntilIdle()
+
+        assertEquals(expected = TabsTrayState.DragProcessingState.COMPLETED, store.state.tabGroupState.dragProcessingState)
+    }
+
+    @Test
+    fun `GIVEN group dragged onto group, WHEN  DragAndDropInitiated is called, THEN drag handling state is COMPLETED`() = runTest {
+        val tab = createTab(url = "")
+        val groupedTab = createTab(url = "")
+        val otherGroupedTab = createTab(url = "")
+        val tabData = TabData(tabs = listOf(tab, groupedTab, otherGroupedTab))
+        val storedGroup = TabGroup(
+            title = "Group 1",
+            theme = TabGroupTheme.Red.name,
+            lastModified = 0L,
+        )
+        val otherStoredGroup = TabGroup(
+            title = "Group 2",
+            theme = TabGroupTheme.Blue.name,
+            lastModified = 0L,
+        )
+        val store = createStore(
+            tabGroupsEnabled = true,
+            tabDataFlow = flowOf(tabData),
+            tabGroupRepository = createRepository(
+                initialTabGroups = listOf(storedGroup, otherStoredGroup),
+                initialTabGroupAssignments = listOf(groupedTab.id to storedGroup.id),
+            ),
+        )
+
+        runCurrent()
+        advanceUntilIdle()
+
+        store.dispatch(TabGroupAction.DragAndDropInitiated(sourceId = storedGroup.id, destinationId = otherStoredGroup.id))
+
+        runCurrent()
+        advanceUntilIdle()
+
+        assertEquals(expected = TabsTrayState.DragProcessingState.COMPLETED, store.state.tabGroupState.dragProcessingState)
+    }
+
+    @Test
+    fun `GIVEN invalid drop state, WHEN  DragAndDropInitiated is called, THEN drag handling state is COMPLETED`() = runTest {
+        val tab = createTab(url = "")
+        val groupedTab = createTab(url = "")
+        val tabData = TabData(tabs = listOf(tab, groupedTab))
+        val storedGroup = TabGroup(
+            title = "Group 1",
+            theme = TabGroupTheme.Red.name,
+            lastModified = 0L,
+        )
+        val store = createStore(
+            tabGroupsEnabled = true,
+            tabDataFlow = flowOf(tabData),
+            tabGroupRepository = createRepository(
+                initialTabGroups = listOf(storedGroup),
+                initialTabGroupAssignments = listOf(groupedTab.id to storedGroup.id),
+            ),
+        )
+
+        runCurrent()
+        advanceUntilIdle()
+
+        store.dispatch(
+            TabGroupAction.DragAndDropInitiated(
+                sourceId = "notATab1",
+                destinationId = "notATab2",
+            ),
+        )
+
+        runCurrent()
+        advanceUntilIdle()
+
+        assertEquals(expected = TabsTrayState.DragProcessingState.COMPLETED, store.state.tabGroupState.dragProcessingState)
+    }
+
+    @Test
+    fun `WHEN  DragAndDropInitiated is called, if an exception is thrown by the storage layer, THEN drag handling state is still COMPLETED`() = runTest {
+        val tab = createTab(url = "")
+        val groupedTab = createTab(url = "")
+        val tabData = TabData(tabs = listOf(tab, groupedTab))
+        val storedGroup = TabGroup(
+            title = "Group 1",
+            theme = TabGroupTheme.Red.name,
+            lastModified = 0L,
+        )
+        val store = createStore(
+            tabGroupsEnabled = true,
+            tabDataFlow = flowOf(tabData),
+            tabGroupRepository = object : TabGroupRepository by FakeTabGroupRepository(
+                initialTabGroupData = TabGroupData(
+                    tabGroups = listOf(storedGroup),
+                    tabGroupAssignments = mapOf(groupedTab.id to storedGroup.id),
+                ),
+            ) {
+                override suspend fun addTabGroupAssignment(tabId: String, tabGroupId: String) {
+                    throw Exception("Storage layer exception")
+                }
+            },
+        )
+
+        runCurrent()
+        advanceUntilIdle()
+
+        store.dispatch(
+            TabGroupAction.DragAndDropInitiated(
+                sourceId = tab.id,
+                destinationId = storedGroup.id,
+            ),
+        )
+
+        runCurrent()
+        advanceUntilIdle()
+
+        assertEquals(expected = TabsTrayState.DragProcessingState.COMPLETED, store.state.tabGroupState.dragProcessingState)
     }
 
     private fun TestScope.createStore(

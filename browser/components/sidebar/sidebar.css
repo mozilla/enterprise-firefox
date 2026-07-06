@@ -123,6 +123,12 @@ fxview-empty-state {
   }
 }
 
+.options-container {
+  display: flex;
+  width: 100%;
+  align-items: center;
+}
+
 moz-input-search {
   width: 100%;
 }

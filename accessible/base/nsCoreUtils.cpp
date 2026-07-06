@@ -605,6 +605,12 @@ bool nsCoreUtils::CanCreateAccessibleWithoutFrame(nsIContent* aContent) {
     if (auto* select = optgroup->GetSelect(); select && select->IsCombobox()) {
       element = select;
     }
+  } else if (element->GetPseudoElementType() == PseudoStyleType::Picker) {
+    if (auto* select =
+            dom::HTMLSelectElement::FromNode(element->GetFlattenedTreeParent());
+        select && select->IsCombobox()) {
+      element = select;
+    }
   }
 
   // If we aren't display: contents or option/optgroup we can't create an

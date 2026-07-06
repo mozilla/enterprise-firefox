@@ -93,6 +93,12 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = Сағат
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = Жекелік
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = Акциялар
 home-prefs-mission-message2 =
     .message = Біздің демеушілеріміз жақсырақ интернет құру миссиямызға қолдау көрсетеді.
 home-prefs-manage-topics-link2 =
@@ -152,6 +158,16 @@ home-prefs-support-firefox-header-srd =
     .label = { -brand-product-name } қолдау
 home-prefs-mission-message-learn-more-link-srd = Қалай екенін білу
 
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = Көбірек білу
+
+## Strings for the Stocks widget
+
+# Context menu item linking to more information about the Stocks widget.
+newtab-stocks-menu-learn-more = Көбірек білу
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -187,6 +203,7 @@ newtab-topsites-add-shortcut-label = Жарлықты қосу
 newtab-topsites-add-shortcut-title =
     .title = Жарлықты қосу
     .aria-label = Жарлықты қосу
+newtab-shortcuts-pinned-area = Бекітілген аймақ
 newtab-topsites-title-label = Атауы
 newtab-topsites-title-input =
     .placeholder = Атауын енгізіңіз
@@ -494,6 +511,8 @@ newtab-custom-widget-clock-toggle =
     .label = Сағат
 newtab-custom-widget-sports-toggle2 =
     .label = Спорт
+newtab-custom-widget-privacy-toggle =
+    .label = Жекелік
 newtab-custom-widget-section-title = Виджеттер
 newtab-custom-widget-section-toggle =
     .label = Виджеттер
@@ -1161,6 +1180,9 @@ newtab-sports-widget-third-place = Үшінші орын
 newtab-sports-widget-runner-up = Екінші орын алған
 newtab-sports-widget-champions = Чемпиондар
 newtab-sports-widget-world-cup-champions = 2026 ӘЧ чемпиондары
+# Compact champions label for the medium-size widget result card; the larger
+# card uses newtab-sports-widget-world-cup-champions.
+newtab-sports-widget-world-cup-champions-short = 2026 чемпиондары
 # Variables:
 #   $date (Date) - The match start time
 newtab-sports-widget-match-time = { DATETIME($date, hour: "2-digit", minute: "2-digit") }

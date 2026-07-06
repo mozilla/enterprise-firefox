@@ -4,7 +4,7 @@
 
 do_get_profile();
 
-const { closeTabsAction } = ChromeUtils.importESModule(
+const { manageTabsAction, CLOSE_TABS } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/models/ManageTabs.sys.mjs"
 );
 
@@ -33,6 +33,7 @@ function createFakeTab(
     linkedBrowser: {
       currentURI: { spec: url },
     },
+    permanentKey: {},
     label,
     linkedPanel: linkedPanel ?? `panel-${url}`,
     image: image ?? "",
@@ -60,7 +61,7 @@ function setupBrowserWindowTracker(sandbox, windows) {
   sandbox.stub(BrowserWindowTracker, "orderedWindows").get(() => list);
 }
 
-add_task(async function test_closeTabsAction_confirmation_path_matches_tabs() {
+add_task(async function test_manageTabsAction_confirmation_path_matches_tabs() {
   const sb = sinon.createSandbox();
   try {
     const url1 = "https://example.com/a";
@@ -75,12 +76,16 @@ add_task(async function test_closeTabsAction_confirmation_path_matches_tabs() {
     });
     setupBrowserWindowTracker(sb, createFakeWindow([tab1, tab2]));
 
+    const registerTabKeys = sb.stub(ToolUI, "registerTabKeys");
+
     const conversation = makeConversation();
 
-    const { toolResult: result, uiData } = await closeTabsAction(
+    const { toolResult: result, uiData } = await manageTabsAction(
       {
+        action: CLOSE_TABS,
         validUrls: new Set([url1, url2]),
         ask_confirmation: true,
+        toolCallId: "tool-call-1",
       },
       conversation
     );
@@ -93,10 +98,12 @@ add_task(async function test_closeTabsAction_confirmation_path_matches_tabs() {
     );
 
     const [shapedTab1, shapedTab2] = uiData.properties.tabs;
+    Assert.ok(shapedTab1.token, "First tab carries a resolution token");
+    Assert.ok(shapedTab2.token, "Second tab carries a resolution token");
     Assert.deepEqual(
       shapedTab1,
       {
-        linkedPanel: "panel-1",
+        token: shapedTab1.token,
         url: url1,
         title: sanitizeUntrustedContent("Example"),
         userContextId: undefined,
@@ -110,7 +117,7 @@ add_task(async function test_closeTabsAction_confirmation_path_matches_tabs() {
     Assert.deepEqual(
       shapedTab2,
       {
-        linkedPanel: "panel-2",
+        token: shapedTab2.token,
         url: url2,
         title: sanitizeUntrustedContent("Mozilla"),
         userContextId: undefined,
@@ -120,6 +127,30 @@ add_task(async function test_closeTabsAction_confirmation_path_matches_tabs() {
         checked: true,
       },
       "Second tab shape matches the UI contract"
+    );
+
+    // The token -> permanentKey map is registered for this confirmation so the
+    // later confirm can resolve the selection back to live tabs.
+    Assert.ok(
+      registerTabKeys.calledOnce,
+      "registerTabKeys is called for the confirmation"
+    );
+    const [registeredToolCallId, tokenToKey] = registerTabKeys.firstCall.args;
+    Assert.equal(
+      registeredToolCallId,
+      "tool-call-1",
+      "Registered under the tool call id"
+    );
+    Assert.equal(tokenToKey.size, 2, "Map has an entry per tab");
+    Assert.equal(
+      tokenToKey.get(shapedTab1.token),
+      tab1.permanentKey,
+      "First token maps to the first tab's permanentKey"
+    );
+    Assert.equal(
+      tokenToKey.get(shapedTab2.token),
+      tab2.permanentKey,
+      "Second token maps to the second tab's permanentKey"
     );
 
     Assert.equal(result.selectedTabs.length, 2, "toolResult has both tabs");
@@ -144,7 +175,7 @@ add_task(async function test_closeTabsAction_confirmation_path_matches_tabs() {
   }
 });
 
-add_task(async function test_closeTabsAction_direct_close_path() {
+add_task(async function test_manageTabsAction_direct_close_path() {
   const sb = sinon.createSandbox();
   try {
     const url = "https://example.com/a";
@@ -168,8 +199,9 @@ add_task(async function test_closeTabsAction_direct_close_path() {
 
     const conversation = makeConversation();
 
-    const { toolResult: result, uiData } = await closeTabsAction(
+    const { toolResult: result, uiData } = await manageTabsAction(
       {
+        action: CLOSE_TABS,
         validUrls: new Set([url]),
         ask_confirmation: false,
       },
@@ -185,10 +217,11 @@ add_task(async function test_closeTabsAction_direct_close_path() {
     const { selectedTabs: uiTabs, operationId } =
       uiData.properties.confirmedData;
     Assert.equal(uiTabs.length, 1, "1 tab is returned to the UI");
+    Assert.ok(uiTabs[0].token, "UI tab carries a resolution token");
     Assert.deepEqual(
       uiTabs[0],
       {
-        linkedPanel: "panel-1",
+        token: uiTabs[0].token,
         url,
         title: sanitizeUntrustedContent("Example"),
         userContextId: undefined,
@@ -217,7 +250,7 @@ add_task(async function test_closeTabsAction_direct_close_path() {
   }
 });
 
-add_task(async function test_closeTabsAction_marks_failed_tabs() {
+add_task(async function test_manageTabsAction_marks_failed_tabs() {
   const sb = sinon.createSandbox();
   try {
     const closedUrl = "https://example.com/a";
@@ -235,13 +268,12 @@ add_task(async function test_closeTabsAction_marks_failed_tabs() {
     sb.stub(ToolUI, "closeSelectedTabs").resolves({
       operationId: "op-1",
       closedTabs: [],
-      failedTabs: [
-        { tab: { linkedPanel: "panel-b" }, reason: "already-closing" },
-      ],
+      failedTabs: [{ tab: failedTab, reason: "already-closing" }],
     });
 
-    const { toolResult: result } = await closeTabsAction(
+    const { toolResult: result } = await manageTabsAction(
       {
+        action: CLOSE_TABS,
         validUrls: new Set([closedUrl, failedUrl]),
         ask_confirmation: false,
       },
@@ -278,7 +310,7 @@ add_task(async function test_closeTabsAction_marks_failed_tabs() {
  * are silently skipped), and the matched tab's label flows through
  * sanitizeUntrustedContent.
  */
-add_task(async function test_closeTabsAction_matches_and_sanitizes() {
+add_task(async function test_manageTabsAction_matches_and_sanitizes() {
   const sb = sinon.createSandbox();
   try {
     const url = "https://untrusted.example/";
@@ -292,8 +324,9 @@ add_task(async function test_closeTabsAction_matches_and_sanitizes() {
 
     const conversation = makeConversation();
 
-    const { toolResult: result } = await closeTabsAction(
+    const { toolResult: result } = await manageTabsAction(
       {
+        action: CLOSE_TABS,
         validUrls: new Set([url, "https://not-open.example/"]),
         ask_confirmation: true,
       },
@@ -316,7 +349,7 @@ add_task(async function test_closeTabsAction_matches_and_sanitizes() {
   }
 });
 
-add_task(async function test_closeTabsAction_no_matches_returns_failure() {
+add_task(async function test_manageTabsAction_no_matches_returns_failure() {
   const sb = sinon.createSandbox();
   try {
     setupBrowserWindowTracker(
@@ -326,8 +359,9 @@ add_task(async function test_closeTabsAction_no_matches_returns_failure() {
 
     const conversation = makeConversation();
 
-    const { toolResult: result, uiData } = await closeTabsAction(
+    const { toolResult: result, uiData } = await manageTabsAction(
       {
+        action: CLOSE_TABS,
         validUrls: new Set(["https://nope.example/"]),
         ask_confirmation: true,
       },
@@ -345,7 +379,7 @@ add_task(async function test_closeTabsAction_no_matches_returns_failure() {
   }
 });
 
-add_task(async function test_closeTabsAction_skips_non_ai_windows() {
+add_task(async function test_manageTabsAction_skips_non_ai_windows() {
   const sb = sinon.createSandbox();
   try {
     const url = "https://example.com/classic";
@@ -357,8 +391,9 @@ add_task(async function test_closeTabsAction_skips_non_ai_windows() {
 
     const conversation = makeConversation();
 
-    const { toolResult: result } = await closeTabsAction(
+    const { toolResult: result } = await manageTabsAction(
       {
+        action: CLOSE_TABS,
         validUrls: new Set([url]),
         ask_confirmation: true,
       },
@@ -374,7 +409,7 @@ add_task(async function test_closeTabsAction_skips_non_ai_windows() {
   }
 });
 
-add_task(async function test_closeTabsAction_forces_confirmation_overrides() {
+add_task(async function test_manageTabsAction_forces_confirmation_overrides() {
   const url1 = "https://example.com/a";
   const url2 = "https://example.com/b";
 
@@ -419,8 +454,12 @@ add_task(async function test_closeTabsAction_forces_confirmation_overrides() {
     const sb = sinon.createSandbox();
     try {
       setupBrowserWindowTracker(sb, makeWindow());
-      const { uiData } = await closeTabsAction(
-        { validUrls: new Set(validUrls), ask_confirmation: false },
+      const { uiData } = await manageTabsAction(
+        {
+          action: CLOSE_TABS,
+          validUrls: new Set(validUrls),
+          ask_confirmation: false,
+        },
         makeConversation(conversationOpts)
       );
       Assert.equal(

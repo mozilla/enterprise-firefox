@@ -10,10 +10,14 @@ add_setup(async () => {
 });
 
 async function showOpenTabsPanel() {
-  await SidebarController.show("viewOpenTabsSidebar");
+  await SidebarTestUtils.showPanel(window, "viewOpenTabsSidebar");
   const { contentDocument } = SidebarController.browser;
   const component = contentDocument.querySelector("sidebar-opentabs");
-  Assert.ok(component, "Open tabs panel is shown.");
+  Assert.ok(component, "Open tabs panel element exists.");
+  Assert.ok(
+    BrowserTestUtils.isVisible(SidebarController.sidebarContainer),
+    "Open tabs panel is shown."
+  );
   return component;
 }
 
@@ -57,7 +61,7 @@ add_task(async function test_opentabs_lists_current_window_tabs() {
 
   BrowserTestUtils.removeTab(tab1);
   BrowserTestUtils.removeTab(tab2);
-  SidebarController.hide();
+  SidebarTestUtils.closePanel(window);
 });
 
 add_task(async function test_clicking_row_selects_tab() {
@@ -89,7 +93,7 @@ add_task(async function test_clicking_row_selects_tab() {
   );
 
   BrowserTestUtils.removeTab(tab);
-  SidebarController.hide();
+  SidebarTestUtils.closePanel(window);
 });
 
 add_task(async function test_list_updates_on_open_and_close() {
@@ -118,7 +122,7 @@ add_task(async function test_list_updates_on_open_and_close() {
     "Closing a tab removes its row."
   );
 
-  SidebarController.hide();
+  SidebarTestUtils.closePanel(window);
 });
 
 add_task(async function test_close_button_closes_tab() {
@@ -157,7 +161,7 @@ add_task(async function test_close_button_closes_tab() {
   );
   await waitForRowCount(tabList, initialCount - 1);
 
-  SidebarController.hide();
+  SidebarTestUtils.closePanel(window);
 });
 
 add_task(async function test_pinned_tabs_show_as_icons_above_regular_list() {
@@ -234,12 +238,12 @@ add_task(async function test_pinned_tabs_show_as_icons_above_regular_list() {
   );
 
   BrowserTestUtils.removeTab(tabToPin);
-  SidebarController.hide();
+  SidebarTestUtils.closePanel(window);
 });
 
 add_task(async function test_keyboard_shortcut_toggles_open_tabs_panel() {
   // Ensure sidebar starts closed so the first keystroke is an unambiguous open.
-  SidebarController.hide();
+  SidebarTestUtils.closePanel(window);
   Assert.ok(!SidebarController.isOpen, "Sidebar starts closed.");
 
   // On macOS the shortcut is literal Ctrl+U; on Windows/Linux it is Ctrl+Alt+U.
@@ -316,7 +320,7 @@ add_task(async function test_multiple_windows_render_separate_cards() {
     "Closing the second window removes its card."
   );
 
-  SidebarController.hide();
+  SidebarTestUtils.closePanel(window);
 });
 
 add_task(async function test_nova_current_tab_marker() {
@@ -367,6 +371,141 @@ add_task(async function test_nova_current_tab_marker() {
 
   BrowserTestUtils.removeTab(tabA);
   BrowserTestUtils.removeTab(tabB);
-  SidebarController.hide();
+  SidebarTestUtils.closePanel(window);
+  await SpecialPowers.popPrefEnv();
+});
+
+add_task(async function test_window_card_collapse_state_persists() {
+  const PREF = "sidebar.openTabsPanel.collapsedWindows";
+  const { SidebarCollapsedWindows } = ChromeUtils.importESModule(
+    "moz-src:///browser/components/sidebar/SidebarCollapsedWindows.sys.mjs"
+  );
+
+  await SpecialPowers.pushPrefEnv({ set: [[PREF, "{}"]] });
+
+  const component = await showOpenTabsPanel();
+  await BrowserTestUtils.waitForMutationCondition(
+    component.shadowRoot,
+    { childList: true, subtree: true },
+    () => component.shadowRoot.querySelector("moz-card")
+  );
+
+  const card = component.shadowRoot.querySelector("moz-card");
+  Assert.ok(card, "Window card exists.");
+  const windowId = card.dataset.windowId;
+  Assert.ok(windowId, "Card has a data-window-id from SessionStore.");
+
+  // Collapsing the card writes through to the module and the pref.
+  card.dispatchEvent(
+    new ToggleEvent("toggle", { newState: "closed", oldState: "open" })
+  );
+  Assert.ok(
+    SidebarCollapsedWindows.isCollapsed(window),
+    "Module reports the current window as collapsed."
+  );
+  Assert.equal(
+    JSON.parse(Services.prefs.getStringPref(PREF))[windowId],
+    true,
+    "Pref persists the collapsed state for this window."
+  );
+
+  // Hide and re-show the panel; the module's state should survive.
+  SidebarTestUtils.closePanel(window);
+  const component2 = await showOpenTabsPanel();
+  await BrowserTestUtils.waitForMutationCondition(
+    component2.shadowRoot,
+    { childList: true, subtree: true },
+    () => component2.shadowRoot.querySelector("moz-card")
+  );
+  Assert.ok(
+    SidebarCollapsedWindows.isCollapsed(window),
+    "Module still reports collapsed after panel re-mount."
+  );
+
+  // Expanding clears the entry from both the module and the pref.
+  const card2 = component2.shadowRoot.querySelector("moz-card");
+  card2.dispatchEvent(
+    new ToggleEvent("toggle", { newState: "open", oldState: "closed" })
+  );
+  Assert.equal(
+    SidebarCollapsedWindows.isCollapsed(window),
+    false,
+    "Expanding clears the module's state."
+  );
+  Assert.equal(
+    JSON.parse(Services.prefs.getStringPref(PREF))[windowId],
+    undefined,
+    "Pref no longer has an entry for this window."
+  );
+
+  SidebarTestUtils.closePanel(window);
+  await SpecialPowers.popPrefEnv();
+});
+
+add_task(async function test_private_window_skips_pref() {
+  const PREF = "sidebar.openTabsPanel.collapsedWindows";
+  const { SidebarCollapsedWindows } = ChromeUtils.importESModule(
+    "moz-src:///browser/components/sidebar/SidebarCollapsedWindows.sys.mjs"
+  );
+
+  await SpecialPowers.pushPrefEnv({ set: [[PREF, "{}"]] });
+
+  const privateWin = await BrowserTestUtils.openNewBrowserWindow({
+    private: true,
+  });
+
+  // The module must never write the pref for a private window, regardless
+  // of how the toggle path is exercised.
+  SidebarCollapsedWindows.collapseWindow(privateWin);
+  Assert.equal(
+    Services.prefs.getStringPref(PREF),
+    "{}",
+    "Pref is untouched after collapseWindow on a private window."
+  );
+  Assert.equal(
+    SidebarCollapsedWindows.isCollapsed(privateWin),
+    false,
+    "isCollapsed reports false for private windows."
+  );
+
+  await BrowserTestUtils.closeWindow(privateWin);
+  await SpecialPowers.popPrefEnv();
+});
+
+add_task(async function test_window_close_drops_pref_entry() {
+  const PREF = "sidebar.openTabsPanel.collapsedWindows";
+  const { SidebarCollapsedWindows } = ChromeUtils.importESModule(
+    "moz-src:///browser/components/sidebar/SidebarCollapsedWindows.sys.mjs"
+  );
+
+  await SpecialPowers.pushPrefEnv({ set: [[PREF, "{}"]] });
+
+  const secondWin = await BrowserTestUtils.openNewBrowserWindow();
+  const secondWindowId = secondWin.__SSi;
+  Assert.ok(secondWindowId, "Second window has a SessionStore id.");
+
+  // Collapse the second window via the module and confirm the pref records it.
+  SidebarCollapsedWindows.collapseWindow(secondWin);
+  Assert.ok(
+    SidebarCollapsedWindows.isCollapsed(secondWin),
+    "Module reports the second window as collapsed."
+  );
+  Assert.equal(
+    JSON.parse(Services.prefs.getStringPref(PREF))[secondWindowId],
+    true,
+    "Pref records the collapsed entry for the second window."
+  );
+
+  // Close the window. The module's domwindowclosed observer should drop the
+  // entry from both the in-memory map and the pref.
+  await BrowserTestUtils.closeWindow(secondWin);
+
+  await TestUtils.waitForCondition(
+    () =>
+      JSON.parse(Services.prefs.getStringPref(PREF))[secondWindowId] ===
+      undefined,
+    "Pref entry for the closed window is dropped."
+  );
+
   await SpecialPowers.popPrefEnv();
 });

@@ -95,6 +95,8 @@ skip-if = [
 ["test_altsvc.js"]
 run-sequentially = ["true"] # node server exceptions dont replay well
 
+["test_altsvc_lna.js"]
+
 ["test_altsvc_pref.js"]
 skip-if = [
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && msix",
@@ -490,6 +492,18 @@ prefs = ["browser.cache.disk.encryption.enabled=true"]
 
 ["test_cache2-35-racing-onCacheEntryCheck.js"]
 
+["test_cache2-36-frecency-no-rewrite.js"]
+
+["test_cache2-37-index-background-flush.js"]
+
+["test_cache2-38-index-max-dump-interval.js"]
+
+["test_cache2-39-index-corruption-recovery.js"]
+
+["test_cache2-40-index-format-upgrade.js"]
+
+["test_cache2-41-fetchcount-durable.js"]
+
 ["test_cache2_clear_with_principal.js"]
 run-sequentially = ["true"] # httpd server
 
@@ -645,6 +659,8 @@ skip-if = [
 
 ["test_dns_localredirect.js"]
 
+["test_dns_negative_refresh_on_use.js"]
+
 ["test_dns_offline.js"]
 
 ["test_dns_onion.js"]
@@ -773,6 +789,9 @@ skip-if = [
 ["test_happy_eyeballs_dns_prefetch_reuse.js"]
 run-sequentially = ["true"] # node server exceptions dont replay well
 
+["test_happy_eyeballs_https_rr_prefetch_reuse.js"]
+run-sequentially = ["true"] # node server exceptions dont replay well
+
 ["test_happy_eyeballs_h1_0rtt.js"]
 run-sequentially = ["true"] # TlsServer listens to the same port
 skip-if = [
@@ -817,13 +836,6 @@ skip-if = [
   "os == 'win'",
 ]
 
-["test_happy_eyeballs_zero_ip_blocked.js"]
-run-sequentially = ["true"] # node server exceptions dont replay well
-skip-if = [
-  "os == 'android'",
-  "os == 'win'",
-]
-
 ["test_happy_eyeballs_ip_preference.js"]
 run-sequentially = ["true"] # node server exceptions dont replay well
 
@@ -842,6 +854,13 @@ skip-if = [
 ]
 
 ["test_happy_eyeballs_websocket_https_rr.js"]
+
+["test_happy_eyeballs_zero_ip_blocked.js"]
+run-sequentially = ["true"] # node server exceptions dont replay well
+skip-if = [
+  "os == 'android'",
+  "os == 'win'",
+]
 
 ["test_he_client_auth_pause.js"]
 skip-if = [
@@ -923,6 +942,10 @@ head = "head_channels.js head_cache.js head_cookies.js head_trr.js head_http3.js
 ["test_http3.js"]
 head = "head_cookies.js head_channels.js head_cache.js head_http3.js http3_common.js"
 run-sequentially = ["true"] # http3server
+# Some platform consumers may default speculative-parallel-limit to 0, which
+# starves the alt-svc/h3 connection these requests route over. Enforce the
+# value the test requires to pass.
+prefs = ["network.http.speculative-parallel-limit=20"]
 skip-if = [
   "os == 'android' && os_version == '14' && arch == 'x86_64'", # Bug 1982955
   "os == 'win' && os_version == '10.2009' && arch == 'x86_64'", # Bug 1807931
@@ -965,6 +988,10 @@ skip-if = [
 
 ["test_http3_alt_svc.js"]
 run-sequentially = ["true"] # http3server
+# Some platform consumers may default speculative-parallel-limit to 0, which
+# disables the speculative connect this test exercises. Enforce the value the
+# test requires to pass.
+prefs = ["network.http.speculative-parallel-limit=20"]
 skip-if = [
   "os == 'android' && os_version == '14' && arch == 'x86_64'",
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && msix", # Bug 1807931
@@ -1392,6 +1419,8 @@ run-if = [
 
 ["test_no_cookies_after_last_pb_exit.js"]
 
+["test_no_vary_search_telemetry.js"]
+
 ["test_node_execute.js"]
 
 ["test_node_execute_npm.js"]
@@ -1441,12 +1470,7 @@ skip-if = [
 ]
 
 ["test_port_remapping.js"]
-skip-if = [
-  "os == 'win' && os_version == '11.26100' && arch == 'x86' && socketprocess_networking",
-  "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && socketprocess_networking",
-  "os == 'win' && os_version == '11.26200' && arch == 'x86' && socketprocess_networking",
-  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && socketprocess_networking",
-]
+skip-if = ["socketprocess_networking"] # Fails due to Mochia (bug 1982446)
 
 ["test_post.js"]
 
@@ -1886,6 +1910,7 @@ run-if = [
 
 ["test_trr_with_proxy.js"]
 head = "head_channels.js head_cache.js head_cookies.js head_trr.js trr_common.js"
+requesttimeoutfactor = 2  # Slow in parallel on Windows and on macOS AArch64
 skip-if = [
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && !fission && socketprocess_networking", # Bug 1808233
 ]

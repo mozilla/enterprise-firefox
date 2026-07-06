@@ -74,7 +74,6 @@ const FAST_PATH_FEATURE: &str = "FAST_PATH";
 pub(crate) enum ShaderKind {
     Primitive,
     Cache(VertexArrayKind),
-    ClipCache(VertexArrayKind),
     Brush,
     Text,
     Composite,
@@ -203,13 +202,6 @@ impl LazilyCompiledShader {
                         &self.features,
                     )
                 }
-                ShaderKind::ClipCache(..) => {
-                    create_clip_shader(
-                        self.name,
-                        device,
-                        &self.features,
-                    )
-                }
             };
             self.program = Some(program?);
 
@@ -229,7 +221,6 @@ impl LazilyCompiledShader {
                 ShaderKind::Brush |
                 ShaderKind::Text => VertexArrayKind::Primitive,
                 ShaderKind::Cache(format) => format,
-                ShaderKind::ClipCache(format) => format,
                 ShaderKind::Composite => VertexArrayKind::Composite,
                 ShaderKind::Clear => VertexArrayKind::Clear,
                 ShaderKind::Copy => VertexArrayKind::Copy,
@@ -239,7 +230,6 @@ impl LazilyCompiledShader {
                 VertexArrayKind::Primitive => &desc::PRIM_INSTANCES,
                 VertexArrayKind::LineDecoration => &desc::LINE,
                 VertexArrayKind::Blur => &desc::BLUR,
-                VertexArrayKind::ClipRect => &desc::CLIP_RECT,
                 VertexArrayKind::Border => &desc::BORDER,
                 VertexArrayKind::Scale => &desc::SCALE,
                 VertexArrayKind::SvgFilterNode => &desc::SVG_FILTER_NODE,
@@ -251,40 +241,22 @@ impl LazilyCompiledShader {
 
             device.link_program(program, vertex_descriptor)?;
             device.bind_program(program);
-            match self.kind {
-                ShaderKind::ClipCache(..) => {
-                    device.bind_shader_samplers(
-                        &program,
-                        &[
-                            ("sColor0", TextureSampler::Color0),
-                            ("sTransformPalette", TextureSampler::TransformPalette),
-                            ("sRenderTasks", TextureSampler::RenderTasks),
-                            ("sPrimitiveHeadersF", TextureSampler::PrimitiveHeadersF),
-                            ("sPrimitiveHeadersI", TextureSampler::PrimitiveHeadersI),
-                            ("sGpuBufferF", TextureSampler::GpuBufferF),
-                            ("sGpuBufferI", TextureSampler::GpuBufferI),
-                        ],
-                    );
-                }
-                _ => {
-                    device.bind_shader_samplers(
-                        &program,
-                        &[
-                            ("sColor0", TextureSampler::Color0),
-                            ("sColor1", TextureSampler::Color1),
-                            ("sColor2", TextureSampler::Color2),
-                            ("sDither", TextureSampler::Dither),
-                            ("sTransformPalette", TextureSampler::TransformPalette),
-                            ("sRenderTasks", TextureSampler::RenderTasks),
-                            ("sPrimitiveHeadersF", TextureSampler::PrimitiveHeadersF),
-                            ("sPrimitiveHeadersI", TextureSampler::PrimitiveHeadersI),
-                            ("sClipMask", TextureSampler::ClipMask),
-                            ("sGpuBufferF", TextureSampler::GpuBufferF),
-                            ("sGpuBufferI", TextureSampler::GpuBufferI),
-                        ],
-                    );
-                }
-            }
+            device.bind_shader_samplers(
+                &program,
+                &[
+                    ("sColor0", TextureSampler::Color0),
+                    ("sColor1", TextureSampler::Color1),
+                    ("sColor2", TextureSampler::Color2),
+                    ("sDither", TextureSampler::Dither),
+                    ("sTransformPalette", TextureSampler::TransformPalette),
+                    ("sRenderTasks", TextureSampler::RenderTasks),
+                    ("sPrimitiveHeadersF", TextureSampler::PrimitiveHeadersF),
+                    ("sPrimitiveHeadersI", TextureSampler::PrimitiveHeadersI),
+                    ("sClipMask", TextureSampler::ClipMask),
+                    ("sGpuBufferF", TextureSampler::GpuBufferF),
+                    ("sGpuBufferI", TextureSampler::GpuBufferI),
+                ],
+            );
 
             if let Some(profile) = &mut profile {
                 let end_time = zeitstempel::now();
@@ -508,16 +480,6 @@ fn create_prim_shader(
     device.create_program(name, features)
 }
 
-fn create_clip_shader(
-    name: &'static str,
-    device: &mut Device,
-    features: &[&'static str],
-) -> Result<Program, ShaderError> {
-    debug!("ClipShader {}", name);
-
-    device.create_program(name, features)
-}
-
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct ShaderHandle(usize);
 
@@ -600,12 +562,6 @@ pub struct Shaders {
     brush_opacity: BrushShader,
     brush_opacity_aa: BrushShader,
 
-    /// These are "cache clip shaders". These shaders are used to
-    /// draw clip instances into the cached clip mask. The results
-    /// of these shaders are also used by the primitive shaders.
-    cs_clip_rectangle_slow: ShaderHandle,
-    cs_clip_rectangle_fast: ShaderHandle,
-
     // The are "primitive shaders". These shaders draw and blend
     // final results on screen. They are aware of tile boundaries.
     // Most draw directly to the framebuffer, but some use inputs
@@ -635,6 +591,8 @@ pub struct Shaders {
     ps_quad_yuv_external_bt709: Option<ShaderHandle>,
     ps_quad_yuv_rect: Option<ShaderHandle>,
     ps_quad_backdrop: ShaderHandle,
+    ps_quad_blend: ShaderHandle,
+    ps_quad_mix_blend: ShaderHandle,
     ps_mask: ShaderHandle,
     ps_mask_fast: ShaderHandle,
     ps_clear: ShaderHandle,
@@ -743,20 +701,6 @@ impl Shaders {
         let ps_mask_fast = loader.create_shader(
             ShaderKind::Cache(VertexArrayKind::Mask),
             "ps_quad_mask",
-            &[FAST_PATH_FEATURE],
-            &shader_list,
-        )?;
-
-        let cs_clip_rectangle_slow = loader.create_shader(
-            ShaderKind::ClipCache(VertexArrayKind::ClipRect),
-            "cs_clip_rectangle",
-            &[],
-            &shader_list,
-        )?;
-
-        let cs_clip_rectangle_fast = loader.create_shader(
-            ShaderKind::ClipCache(VertexArrayKind::ClipRect),
-            "cs_clip_rectangle",
             &[FAST_PATH_FEATURE],
             &shader_list,
         )?;
@@ -947,6 +891,20 @@ impl Shaders {
             &shader_list,
         )?;
 
+        let ps_quad_blend = loader.create_shader(
+            ShaderKind::Primitive,
+            "ps_quad_blend",
+            &["TEXTURE_2D"],
+            &shader_list,
+        )?;
+
+        let ps_quad_mix_blend = loader.create_shader(
+            ShaderKind::Primitive,
+            "ps_quad_mix_blend",
+            &["TEXTURE_2D"],
+            &shader_list,
+        )?;
+
         let ps_split_composite = loader.create_shader(
         ShaderKind::Primitive,
         "ps_split_composite",
@@ -1108,8 +1066,6 @@ impl Shaders {
             brush_yuv_image,
             brush_opacity,
             brush_opacity_aa,
-            cs_clip_rectangle_slow,
-            cs_clip_rectangle_fast,
             ps_text_run,
             ps_text_run_dual_source,
             ps_quad_textured,
@@ -1124,6 +1080,8 @@ impl Shaders {
             ps_quad_yuv_external_bt709,
             ps_quad_yuv_rect,
             ps_quad_backdrop,
+            ps_quad_blend,
+            ps_quad_mix_blend,
             ps_mask,
             ps_mask_fast,
             ps_split_composite,
@@ -1205,6 +1163,8 @@ impl Shaders {
             PatternKind::YuvTextureRect => self.ps_quad_yuv_rect
                 .expect("bug: ps_quad_yuv TEXTURE_RECT variant not loaded"),
             PatternKind::Backdrop => self.ps_quad_backdrop,
+            PatternKind::Blend => self.ps_quad_blend,
+            PatternKind::MixBlend => self.ps_quad_mix_blend,
             PatternKind::Mask => unreachable!("clip mask pattern is not a quad shader"),
         };
         self.loader.get(shader_handle)
@@ -1270,6 +1230,12 @@ impl Shaders {
             }
             BatchKind::Quad(PatternKind::Backdrop) => {
                 self.ps_quad_backdrop
+            }
+            BatchKind::Quad(PatternKind::Blend) => {
+                self.ps_quad_blend
+            }
+            BatchKind::Quad(PatternKind::MixBlend) => {
+                self.ps_quad_mix_blend
             }
             BatchKind::Quad(PatternKind::Mask) => {
             unreachable!();
@@ -1339,8 +1305,6 @@ impl Shaders {
     pub fn cs_border_solid(&mut self) -> &mut LazilyCompiledShader { self.loader.get(self.cs_border_solid) }
     pub fn cs_line_decoration(&mut self) -> &mut LazilyCompiledShader { self.loader.get(self.cs_line_decoration) }
     pub fn cs_svg_filter_node(&mut self) -> &mut LazilyCompiledShader { self.loader.get(self.cs_svg_filter_node) }
-    pub fn cs_clip_rectangle_slow(&mut self) -> &mut LazilyCompiledShader { self.loader.get(self.cs_clip_rectangle_slow) }
-    pub fn cs_clip_rectangle_fast(&mut self) -> &mut LazilyCompiledShader { self.loader.get(self.cs_clip_rectangle_fast) }
     pub fn ps_quad_textured(&mut self) -> &mut LazilyCompiledShader {
         self.loader.get(self.ps_quad_textured)
     }

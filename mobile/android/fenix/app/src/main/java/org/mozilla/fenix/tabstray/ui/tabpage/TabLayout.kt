@@ -125,7 +125,7 @@ import org.mozilla.fenix.tabstray.ui.tabitems.TabsTrayItemClickHandler
 import org.mozilla.fenix.tabstray.ui.tabitems.TabsTrayItemSelectionState
 import org.mozilla.fenix.tabstray.ui.tabitems.gridItemAspectRatio
 import org.mozilla.fenix.tabstray.ui.tabitems.tabGridColumnCount
-import org.mozilla.fenix.tabstray.ui.tabitems.tabItemListInteractionAnimation
+import org.mozilla.fenix.tabstray.ui.tabitems.tabItemGroupListInteractionAnimation
 import org.mozilla.fenix.tabstray.ui.tabitems.tabListItemShapeStyling
 import org.mozilla.fenix.theme.FirefoxTheme
 import org.mozilla.fenix.theme.Theme
@@ -181,6 +181,7 @@ private val ignoredItems = setOf(HEADER_ITEM_KEY, SPAN_ITEM_KEY, TAB_GROUP_ONBOA
  * @param modifier [Modifier] to be applied to the layout.
  * @param reorderingEnabled Whether tabs can be reordered by dragging.
  * @param trackersBlockedCount The number of trackers blocked to display in the footer card.
+ * @param dragProcessingState The lifecycle state of tab-group drag handling
  * @param onTabClose Invoked when the user clicks to close a tab.
  * @param onItemClick Invoked when the user clicks on a tab.
  * @param onItemLongClick Invoked when the user long clicks a tab.
@@ -188,9 +189,12 @@ private val ignoredItems = setOf(HEADER_ITEM_KEY, SPAN_ITEM_KEY, TAB_GROUP_ONBOA
  * @param onEditTabGroupClick Invoked when the user clicks to edit a tab group.
  * @param onCloseTabGroupClick Invoked when the user clicks to close a tab group.
  * @param onTabGroupOnboardingDismiss Invoked when the user dismisses the tab group onboarding card.
+ * @param onTabGroupOnboardingShown Invoked when the tab group onboarding card is shown to the user.
  * @param header Optional layout to display before [tabs].
  * @param contentPadding Optional PaddingValues to pad the tab's content.
  * @param onPrivacyReportTapped Invoked when the trackers blocked pill is tapped.
+ * @param enteringGroupId The id of a group entering composition for the first time, if any. Can be null.
+ * @param onGroupEntranceAnimationPlayed Called when a new group's entrance animation is played.
  */
 @Suppress("LongParameterList")
 @Composable
@@ -207,6 +211,7 @@ fun TabLayout(
     modifier: Modifier = Modifier,
     reorderingEnabled: Boolean = true,
     trackersBlockedCount: Int? = null,
+    dragProcessingState: TabsTrayState.DragProcessingState = TabsTrayState.DragProcessingState.UNINITIALIZED,
     onTabClose: (TabsTrayItem.Tab) -> Unit,
     onItemClick: (TabsTrayItem) -> Unit,
     onItemLongClick: (TabsTrayItem) -> Unit,
@@ -214,9 +219,12 @@ fun TabLayout(
     onEditTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
     onCloseTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
     onTabGroupOnboardingDismiss: () -> Unit,
+    onTabGroupOnboardingShown: () -> Unit = {},
     header: (@Composable () -> Unit)? = null,
     contentPadding: PaddingValues = defaultTabLayoutContentPadding(),
     onPrivacyReportTapped: (() -> Unit)? = null,
+    enteringGroupId: String? = null,
+    onGroupEntranceAnimationPlayed: () -> Unit = {},
 ) {
     if (displayTabsInGrid) {
         TabGrid(
@@ -233,6 +241,7 @@ fun TabLayout(
             onEditTabGroupClick = onEditTabGroupClick,
             onCloseTabGroupClick = onCloseTabGroupClick,
             onTabGroupOnboardingDismiss = onTabGroupOnboardingDismiss,
+            onTabGroupOnboardingShown = onTabGroupOnboardingShown,
             header = header,
             contentPadding = contentPadding,
             focusEnabled = focusEnabled,
@@ -241,6 +250,9 @@ fun TabLayout(
             onPrivacyReportTapped = onPrivacyReportTapped,
             displayTabGroupOnboarding = displayTabGroupOnboarding,
             liveReorderEnabled = liveReorderEnabled,
+            enteringGroupId = enteringGroupId,
+            onGroupEntranceAnimationPlayed = onGroupEntranceAnimationPlayed,
+            dragProcessingState = dragProcessingState,
         )
     } else {
         TabList(
@@ -256,6 +268,7 @@ fun TabLayout(
             onEditTabGroupClick = onEditTabGroupClick,
             onCloseTabGroupClick = onCloseTabGroupClick,
             onTabGroupOnboardingDismiss = onTabGroupOnboardingDismiss,
+            onTabGroupOnboardingShown = onTabGroupOnboardingShown,
             header = header,
             trackersBlockedCount = trackersBlockedCount,
             focusEnabled = focusEnabled,
@@ -264,6 +277,9 @@ fun TabLayout(
             onPrivacyReportTapped = onPrivacyReportTapped,
             displayTabGroupOnboarding = displayTabGroupOnboarding,
             liveReorderEnabled = liveReorderEnabled,
+            enteringGroupId = enteringGroupId,
+            onGroupEntranceAnimationPlayed = onGroupEntranceAnimationPlayed,
+            dragProcessingState = dragProcessingState,
         )
     }
 }
@@ -279,6 +295,7 @@ private fun TabList(
     selectionMode: TabsTrayState.Mode,
     focusEnabled: Boolean,
     tabInteractionHandler: TabInteractionHandler,
+    enteringGroupId: String?,
     modifier: Modifier = Modifier,
     reorderingEnabled: Boolean = true,
     trackersBlockedCount: Int? = null,
@@ -289,8 +306,11 @@ private fun TabList(
     onEditTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
     onCloseTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
     onTabGroupOnboardingDismiss: () -> Unit = {},
+    onTabGroupOnboardingShown: () -> Unit = {},
     header: (@Composable () -> Unit)? = null,
     onPrivacyReportTapped: (() -> Unit)? = null,
+    onGroupEntranceAnimationPlayed: () -> Unit,
+    dragProcessingState: TabsTrayState.DragProcessingState = TabsTrayState.DragProcessingState.UNINITIALIZED,
 ) {
     if (dragAndDropEnabled) {
         InteractableTabList(
@@ -306,6 +326,7 @@ private fun TabList(
             onEditTabGroupClick = onEditTabGroupClick,
             onCloseTabGroupClick = onCloseTabGroupClick,
             onTabGroupOnboardingDismiss = onTabGroupOnboardingDismiss,
+            onTabGroupOnboardingShown = onTabGroupOnboardingShown,
             header = header,
             trackersBlockedCount = trackersBlockedCount,
             focusEnabled = focusEnabled,
@@ -313,6 +334,9 @@ private fun TabList(
             onPrivacyReportTapped = onPrivacyReportTapped,
             displayTabGroupOnboarding = displayTabGroupOnboarding,
             liveReorderEnabled = liveReorderEnabled,
+            enteringGroupId = enteringGroupId,
+            onGroupEntranceAnimationPlayed = onGroupEntranceAnimationPlayed,
+            dragProcessingState = dragProcessingState,
         )
     } else {
         ReorderableTabList(
@@ -349,6 +373,7 @@ private fun TabGrid(
     selectionMode: TabsTrayState.Mode,
     focusEnabled: Boolean,
     tabInteractionHandler: TabInteractionHandler,
+    enteringGroupId: String?,
     modifier: Modifier = Modifier,
     reorderingEnabled: Boolean = true,
     trackersBlockedCount: Int? = null,
@@ -359,9 +384,12 @@ private fun TabGrid(
     onEditTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
     onCloseTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
     onTabGroupOnboardingDismiss: () -> Unit = {},
+    onTabGroupOnboardingShown: () -> Unit = {},
     header: (@Composable () -> Unit)? = null,
     contentPadding: PaddingValues = defaultTabLayoutContentPadding(),
     onPrivacyReportTapped: (() -> Unit)? = null,
+    onGroupEntranceAnimationPlayed: () -> Unit,
+    dragProcessingState: TabsTrayState.DragProcessingState = TabsTrayState.DragProcessingState.UNINITIALIZED,
 ) {
     if (dragAndDropEnabled) {
         InteractableTabGrid(
@@ -379,11 +407,15 @@ private fun TabGrid(
             onEditTabGroupClick = onEditTabGroupClick,
             onCloseTabGroupClick = onCloseTabGroupClick,
             onTabGroupOnboardingDismiss = onTabGroupOnboardingDismiss,
+            onTabGroupOnboardingShown = onTabGroupOnboardingShown,
             header = header,
             contentPadding = contentPadding,
             focusEnabled = focusEnabled,
             onPrivacyReportTapped = onPrivacyReportTapped,
             liveReorderEnabled = liveReorderEnabled,
+            enteringGroupId = enteringGroupId,
+            onGroupEntranceAnimationPlayed = onGroupEntranceAnimationPlayed,
+            dragProcessingState = dragProcessingState,
         )
     } else {
         ReorderableTabGrid(
@@ -572,7 +604,6 @@ private fun ReorderableTabGrid(
                     focusEnabled = focusEnabled,
                     isMultiSelected = selectionMode.contains(tab),
                     reorderState = reorderState,
-                    gridState = gridState,
                     onTabClose = onTabClose,
                     onItemClick = onItemClick,
                     onDeleteTabGroupClick = onDeleteTabGroupClick,
@@ -610,8 +641,12 @@ private fun InteractableTabGrid(
     onEditTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
     onCloseTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
     onTabGroupOnboardingDismiss: () -> Unit = {},
+    onTabGroupOnboardingShown: () -> Unit = {},
     header: (@Composable () -> Unit)? = null,
     onPrivacyReportTapped: (() -> Unit)? = null,
+    enteringGroupId: String? = null,
+    onGroupEntranceAnimationPlayed: () -> Unit,
+    dragProcessingState: TabsTrayState.DragProcessingState,
 ) {
     val gridState = rememberLazyGridState()
     val tabGridBottomPadding = dimensionResource(id = R.dimen.tab_tray_grid_bottom_padding)
@@ -627,8 +662,6 @@ private fun InteractableTabGrid(
         isHeaderPresent = header != null,
     )
 
-    // Don't show the onboarding card while a drag is active
-    var showOnboardingCardInGrid by remember { mutableStateOf(displayTabGroupOnboarding) }
     var isInMultiSelectMode by remember { mutableStateOf(selectionMode is TabsTrayState.Mode.Select) }
     val gridInteractionState = createGridInteractionState(
         gridState = gridState,
@@ -637,13 +670,32 @@ private fun InteractableTabGrid(
         liveReorderEnabled = liveReorderEnabled,
         ignoredItems = ignoredItems,
     )
+    // Don't show the onboarding card while a drag is active
+    val showOnboardingCardInGrid by remember(displayTabGroupOnboarding) {
+        derivedStateOf { displayTabGroupOnboarding && gridInteractionState.draggedItem.key == null }
+    }
+    val onboardingCardInView by remember {
+        derivedStateOf { gridState.layoutInfo.visibleItemsInfo.any { it.key == TAB_GROUP_ONBOARDING_ITEM_KEY } }
+    }
+    LaunchedEffect(onboardingCardInView) {
+        if (onboardingCardInView) {
+            onTabGroupOnboardingShown()
+        }
+    }
+
     // Prevent a race between multi-select and drag by updating the select mode only if the dragging key is null
     LaunchedEffect(selectionMode, gridInteractionState.draggedItem.key) {
         if (gridInteractionState.draggedItem.key == null) {
             isInMultiSelectMode = selectionMode is TabsTrayState.Mode.Select
         }
-        showOnboardingCardInGrid = displayTabGroupOnboarding && (gridInteractionState.draggedItem.key == null)
     }
+
+    LaunchedEffect(dragProcessingState) {
+        if (dragProcessingState == TabsTrayState.DragProcessingState.COMPLETED) {
+            gridInteractionState.reset()
+        }
+    }
+
     BoxWithConstraints(
         modifier = Modifier
             .onGloballyPositioned {
@@ -705,12 +757,13 @@ private fun InteractableTabGrid(
                     focusEnabled = focusEnabled,
                     isMultiSelected = selectionMode.contains(tab),
                     reorderState = gridInteractionState,
-                    gridState = gridState,
                     onTabClose = onTabClose,
                     onItemClick = onItemClick,
                     onDeleteTabGroupClick = onDeleteTabGroupClick,
                     onEditTabGroupClick = onEditTabGroupClick,
                     onCloseTabGroupClick = onCloseTabGroupClick,
+                    enteringGroupId = enteringGroupId,
+                    onGroupEntranceAnimationPlayed = onGroupEntranceAnimationPlayed,
                 )
             }
 
@@ -801,7 +854,6 @@ private fun LazyGridItemScope.ReorderableTabGridItemContent(
     focusEnabled: Boolean,
     isMultiSelected: Boolean,
     reorderState: GridReorderState,
-    gridState: LazyGridState,
     onTabClose: (TabsTrayItem.Tab) -> Unit,
     onItemClick: (TabsTrayItem) -> Unit,
     onDeleteTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
@@ -811,10 +863,10 @@ private fun LazyGridItemScope.ReorderableTabGridItemContent(
     val decayAnimationSpec: DecayAnimationSpec<Float> = rememberSplineBasedDecay()
     val density = LocalDensity.current
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    val swipeState = remember(isInMultiSelectMode, !gridState.isScrollInProgress) {
+    val swipeState = remember(isInMultiSelectMode) {
         SwipeToDismissState2(
             density = density,
-            enabled = !isInMultiSelectMode && !gridState.isScrollInProgress,
+            enabled = !isInMultiSelectMode,
             decayAnimationSpec = decayAnimationSpec,
             isRtl = isRtl,
         )
@@ -879,20 +931,21 @@ private fun LazyGridItemScope.InteractableTabGridItemContent(
     focusEnabled: Boolean,
     isMultiSelected: Boolean,
     reorderState: GridInteractionState,
-    gridState: LazyGridState,
     onTabClose: (TabsTrayItem.Tab) -> Unit,
     onItemClick: (TabsTrayItem) -> Unit,
     onDeleteTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
     onEditTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
     onCloseTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
+    enteringGroupId: String?,
+    onGroupEntranceAnimationPlayed: () -> Unit,
 ) {
     val decayAnimationSpec: DecayAnimationSpec<Float> = rememberSplineBasedDecay()
     val density = LocalDensity.current
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    val swipeState = remember(isInMultiSelectMode, !gridState.isScrollInProgress) {
+    val swipeState = remember(isInMultiSelectMode) {
         SwipeToDismissState2(
             density = density,
-            enabled = !isInMultiSelectMode && !gridState.isScrollInProgress,
+            enabled = !isInMultiSelectMode,
             decayAnimationSpec = decayAnimationSpec,
             isRtl = isRtl,
         )
@@ -906,6 +959,8 @@ private fun LazyGridItemScope.InteractableTabGridItemContent(
         position = index + if (hasHeader) 1 else 0,
         key = tabsTrayItem.id,
         swipingActive = swipingActive,
+        enteringGroupId = enteringGroupId,
+        onGroupEntranceAnimationPlayed = onGroupEntranceAnimationPlayed,
     ) { interactionState ->
         val selectionState = TabsTrayItemSelectionState(
             isFocused = tabsTrayItem.isFocused,
@@ -971,12 +1026,12 @@ private fun TabListItemContent(
     selectionState: TabsTrayItemSelectionState,
     tabInteractionState: TabItemInteractionState,
     listInteractionState: ListInteractionState,
-    lazyListState: LazyListState,
     onTabClose: (TabsTrayItem.Tab) -> Unit,
     onItemClick: (TabsTrayItem) -> Unit,
     onDeleteTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
     onEditTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
     onCloseTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
+    onGroupEntranceAnimationPlayed: () -> Unit,
 ) {
     val shouldClickListen = listInteractionState.draggedItem.key != tab.id
     when (tab) {
@@ -991,7 +1046,6 @@ private fun TabListItemContent(
                 selectionState = selectionState,
                 interactionState = tabInteractionState,
                 shouldClickListen = shouldClickListen,
-                swipingEnabled = !lazyListState.isScrollInProgress,
                 onCloseClick = onTabClose,
                 onClick = onItemClick,
             )
@@ -1008,7 +1062,11 @@ private fun TabListItemContent(
                     )
                     // The interaction animation must be applied before the background for the
                     // conditional transparency to behave as expected
-                    .tabItemListInteractionAnimation(interactionState = tabInteractionState)
+                    .tabItemGroupListInteractionAnimation(
+                        interactionState = tabInteractionState,
+                        key = tab.id,
+                        onGroupEntranceAnimationPlayed = onGroupEntranceAnimationPlayed,
+                    )
                     .background(
                         if (selectionState.isSelected) {
                             MaterialTheme.colorScheme.primaryContainer
@@ -1055,11 +1113,15 @@ private fun InteractableTabList(
     onEditTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
     onCloseTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
     onTabGroupOnboardingDismiss: () -> Unit = {},
+    onTabGroupOnboardingShown: () -> Unit = {},
     trackersBlockedCount: Int?,
     focusEnabled: Boolean,
     dragAndDropEnabled: Boolean,
     header: (@Composable () -> Unit)? = null,
     onPrivacyReportTapped: (() -> Unit)? = null,
+    enteringGroupId: String?,
+    onGroupEntranceAnimationPlayed: () -> Unit,
+    dragProcessingState: TabsTrayState.DragProcessingState,
 ) {
     val state = rememberLazyListState()
     val tabListBottomPadding = dimensionResource(id = R.dimen.tab_tray_list_bottom_padding)
@@ -1078,18 +1140,33 @@ private fun InteractableTabList(
         dragAndDropEnabled = dragAndDropEnabled,
         liveReorderEnabled = liveReorderEnabled,
     )
-    var showOnboardingCardInList by remember { mutableStateOf(displayTabGroupOnboarding) }
     var isInMultiSelectMode by remember {
         mutableStateOf(
             selectionMode is TabsTrayState.Mode.Select,
         )
+    }
+    // Don't show the onboarding card while a drag is active
+    val showOnboardingCardInList by remember(displayTabGroupOnboarding) {
+        derivedStateOf { displayTabGroupOnboarding && listInteractionState.draggedItem.key == null }
+    }
+    val onboardingCardInView by remember {
+        derivedStateOf { state.layoutInfo.visibleItemsInfo.any { it.key == TAB_GROUP_ONBOARDING_ITEM_KEY } }
+    }
+    LaunchedEffect(onboardingCardInView) {
+        if (onboardingCardInView) {
+            onTabGroupOnboardingShown()
+        }
     }
     // Prevent a race between multi-select and drag by updating the select mode only if the dragging key is null
     LaunchedEffect(selectionMode, listInteractionState.draggedItem.key) {
         if (listInteractionState.draggedItem.key == null) {
             isInMultiSelectMode = selectionMode is TabsTrayState.Mode.Select
         }
-        showOnboardingCardInList = displayTabGroupOnboarding && (listInteractionState.draggedItem.key == null)
+    }
+    LaunchedEffect(dragProcessingState) {
+        if (dragProcessingState == TabsTrayState.DragProcessingState.COMPLETED) {
+            listInteractionState.reset()
+        }
     }
     Box(
         modifier = Modifier
@@ -1125,7 +1202,6 @@ private fun InteractableTabList(
                 isInMultiSelectMode = isInMultiSelectMode,
                 selectionMode = selectionMode,
                 focusEnabled = focusEnabled,
-                lazyListState = state,
                 onTabClose = onTabClose,
                 onItemClick = onItemClick,
                 onDeleteTabGroupClick = onDeleteTabGroupClick,
@@ -1134,6 +1210,8 @@ private fun InteractableTabList(
                 onTabGroupOnboardingDismiss = onTabGroupOnboardingDismiss,
                 trackersBlockedCount = trackersBlockedCount,
                 onPrivacyReportTapped = onPrivacyReportTapped,
+                enteringGroupId = enteringGroupId,
+                onGroupEntranceAnimationPlayed = onGroupEntranceAnimationPlayed,
             )
         }
     }
@@ -1149,7 +1227,6 @@ private fun LazyListScope.interactableTabListContent(
     isInMultiSelectMode: Boolean,
     selectionMode: TabsTrayState.Mode,
     focusEnabled: Boolean,
-    lazyListState: LazyListState,
     onTabClose: (TabsTrayItem.Tab) -> Unit,
     onItemClick: (TabsTrayItem) -> Unit,
     onDeleteTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
@@ -1158,6 +1235,8 @@ private fun LazyListScope.interactableTabListContent(
     onTabGroupOnboardingDismiss: () -> Unit = {},
     trackersBlockedCount: Int?,
     onPrivacyReportTapped: (() -> Unit)? = null,
+    enteringGroupId: String?,
+    onGroupEntranceAnimationPlayed: () -> Unit,
 ) {
     header?.let {
         item(key = HEADER_ITEM_KEY) {
@@ -1190,6 +1269,7 @@ private fun LazyListScope.interactableTabListContent(
             state = listInteractionState,
             position = position + if (header != null) 1 else 0,
             key = tab.id,
+            enteringGroupId = enteringGroupId,
         ) { tabInteractionState ->
             TabListItemContent(
                 tab = tab,
@@ -1202,12 +1282,12 @@ private fun LazyListScope.interactableTabListContent(
                 ),
                 tabInteractionState = tabInteractionState.copy(isHeld = isHeld),
                 listInteractionState = listInteractionState,
-                lazyListState = lazyListState,
                 onTabClose = onTabClose,
                 onItemClick = onItemClick,
                 onDeleteTabGroupClick = onDeleteTabGroupClick,
                 onEditTabGroupClick = onEditTabGroupClick,
                 onCloseTabGroupClick = onCloseTabGroupClick,
+                onGroupEntranceAnimationPlayed = onGroupEntranceAnimationPlayed,
             )
         }
         if (showDivider) {
@@ -1427,7 +1507,6 @@ private fun ReorderableTabList(
                                     ),
                                 selectionState = selectionState,
                                 shouldClickListen = shouldClickListen,
-                                swipingEnabled = !state.isScrollInProgress,
                                 onCloseClick = onTabClose,
                                 onClick = onItemClick,
                             )
@@ -1607,6 +1686,8 @@ private fun TabListPreview(
                 onCloseTabGroupClick = {},
                 onTabGroupOnboardingDismiss = {},
                 focusEnabled = true,
+                onGroupEntranceAnimationPlayed = {},
+                dragProcessingState = TabsTrayState.DragProcessingState.UNINITIALIZED,
             )
         }
     }
@@ -1645,6 +1726,8 @@ private fun TabGridPreview(
             onCloseTabGroupClick = {},
             onTabGroupOnboardingDismiss = {},
             focusEnabled = true,
+            onGroupEntranceAnimationPlayed = {},
+            dragProcessingState = TabsTrayState.DragProcessingState.UNINITIALIZED,
         )
     }
 }
@@ -1680,6 +1763,8 @@ private fun TabListWindowSizePreview() {
                 onCloseTabGroupClick = {},
                 onTabGroupOnboardingDismiss = {},
                 focusEnabled = true,
+                onGroupEntranceAnimationPlayed = {},
+                dragProcessingState = TabsTrayState.DragProcessingState.UNINITIALIZED,
             )
         }
     }
@@ -1716,6 +1801,8 @@ private fun TabGridWindowSizePreview() {
             onCloseTabGroupClick = {},
             onTabGroupOnboardingDismiss = {},
             focusEnabled = true,
+            onGroupEntranceAnimationPlayed = {},
+            dragProcessingState = TabsTrayState.DragProcessingState.UNINITIALIZED,
         )
     }
 }
@@ -1798,6 +1885,8 @@ private fun MultiSelectPreview(
             onTabGroupOnboardingDismiss = {},
             focusEnabled = true,
             liveReorderEnabled = false,
+            onGroupEntranceAnimationPlayed = {},
+            dragProcessingState = TabsTrayState.DragProcessingState.UNINITIALIZED,
         )
     }
 }

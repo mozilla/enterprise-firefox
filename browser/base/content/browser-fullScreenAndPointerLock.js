@@ -902,14 +902,14 @@ var FullScreen = {
     }
   },
 
-  // UrlbarController listener method
+  // UrlbarChildController listener method
   onViewOpen() {
     if (!this._isChromeCollapsed) {
       this._isPopupOpen = true;
     }
   },
 
-  // UrlbarController listener method
+  // UrlbarChildController listener method
   onViewClose() {
     this._isPopupOpen = false;
     this.hideNavToolbox(true);

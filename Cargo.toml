@@ -162,7 +162,7 @@ uniffi_pipeline = "0.31"
 # Shared across multiple application-services consumers.
 rusqlite = "0.37"
 # Shared across multiple glean consumers.
-glean = "=67.3.2"
+glean = "=68.0.0"
 
 # Explicitly specify what our profiles use.  The opt-level setting here is
 # a total fiction; see the setup of MOZ_RUST_DEFAULT_FLAGS for what the
@@ -392,6 +392,7 @@ objc = { git = "https://github.com/glandium/rust-objc", rev = "4de89f5aa9851ceca
 allocator-api2 = { git = "https://github.com/glandium/allocator-api2", rev = "ad5f3d56a5a4519eff52af4ff85293431466ef5c" }
 
 # application-services overrides to make updating them all simpler.
+ads-client = { path = "third_party/application-services/components/ads-client" }
 context_id = { path = "third_party/application-services/components/context_id" }
 error-support = { path = "third_party/application-services/components/support/error" }
 filter_adult = { path = "third_party/application-services/components/filter_adult" }

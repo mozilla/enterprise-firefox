@@ -68,7 +68,7 @@ add_task(async function test_icon_updates_to_engine_icon_on_search_result() {
   await TestUtils.waitForCondition(() => {
     let result = window.gURLBar.view.getResultAtIndex(0);
     return (
-      result?.type == UrlbarUtils.RESULT_TYPE.SEARCH &&
+      result?.type == UrlbarShared.RESULT_TYPE.SEARCH &&
       result?.payload?.engine == engine.name
     );
   }, "Waiting for a default engine SEARCH result at index 0");
@@ -98,7 +98,7 @@ add_task(async function test_icon_updates_to_globe_on_url_result() {
 
   await TestUtils.waitForCondition(() => {
     let result = window.gURLBar.view.getResultAtIndex(0);
-    return result?.type == UrlbarUtils.RESULT_TYPE.URL;
+    return result?.type == UrlbarShared.RESULT_TYPE.URL;
   }, "Waiting for a URL result at index 0");
 
   await TestUtils.waitForCondition(

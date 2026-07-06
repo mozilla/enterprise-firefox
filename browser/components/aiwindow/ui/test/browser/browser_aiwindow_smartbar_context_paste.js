@@ -4,6 +4,7 @@
 "use strict";
 
 const PASTE_TEXT = "context-menu paste text";
+const PASTE_URL = "https://example.com/";
 
 /**
  * Returns the Smartbar, its multiline editor and the moz-input-box menupopup
@@ -33,7 +34,7 @@ async function setupSmartbar(win) {
   );
 
   const inputBox = smartbar.querySelector("moz-input-box");
-  return { editor, smartbar, menupopup: inputBox.menupopup };
+  return { editor, smartbar, inputBox, menupopup: inputBox.menupopup };
 }
 
 /**
@@ -154,11 +155,7 @@ add_task(async function test_smartbar_context_menu_paste() {
   const win = await openAIWindow();
   const { editor, menupopup } = await setupSmartbar(win);
 
-  await SimpleTest.promiseClipboardChange(PASTE_TEXT, () => {
-    Cc["@mozilla.org/widget/clipboardhelper;1"]
-      .getService(Ci.nsIClipboardHelper)
-      .copyString(PASTE_TEXT);
-  });
+  SpecialPowers.clipboardCopyString(PASTE_TEXT);
 
   await openAndCloseContextMenu(menupopup);
   const pasteItem = menupopup.querySelector('[cmd="cmd_paste"]');
@@ -177,5 +174,63 @@ add_task(async function test_smartbar_context_menu_paste() {
     "Context-menu Paste should insert clipboard text into the Smartbar"
   );
 
+  await BrowserTestUtils.closeWindow(win);
+});
+
+add_task(async function test_smartbar_context_menu_paste_and_go_exists() {
+  const win = await openAIWindow();
+  const { inputBox, menupopup } = await setupSmartbar(win);
+
+  await openAndCloseContextMenu(menupopup);
+  const pasteAndGo = inputBox.getMenuItem("paste-and-go");
+  Assert.ok(pasteAndGo, "Paste and Go menu item exists");
+
+  await BrowserTestUtils.closeWindow(win);
+});
+
+add_task(async function test_smartbar_context_menu_paste_and_go_disabled() {
+  const win = await openAIWindow();
+  const { inputBox, menupopup } = await setupSmartbar(win);
+
+  Services.clipboard.emptyClipboard(Ci.nsIClipboard.kGlobalClipboard);
+
+  await openAndCloseContextMenu(menupopup);
+  const pasteAndGo = inputBox.getMenuItem("paste-and-go");
+  Assert.ok(
+    pasteAndGo.disabled,
+    "Paste and Go is disabled with an empty clipboard"
+  );
+
+  SpecialPowers.clipboardCopyString(PASTE_URL);
+  await openAndCloseContextMenu(menupopup);
+  Assert.ok(
+    !pasteAndGo.disabled,
+    "Paste and Go is enabled once the clipboard has content"
+  );
+
+  await BrowserTestUtils.closeWindow(win);
+});
+
+add_task(async function test_smartbar_context_menu_paste_and_go_submits() {
+  const win = await openAIWindow();
+  const { editor, inputBox, smartbar, menupopup } = await setupSmartbar(win);
+
+  SpecialPowers.clipboardCopyString(PASTE_URL);
+
+  await openAndCloseContextMenu(menupopup);
+  const pasteAndGo = inputBox.getMenuItem("paste-and-go");
+
+  const sb = sinon.createSandbox();
+  const loadURL = sb.stub(smartbar, "_loadURL");
+  pasteAndGo.doCommand();
+
+  await BrowserTestUtils.waitForMutationCondition(
+    editor,
+    { childList: true, characterData: true, subtree: true },
+    () => smartbar.value === ""
+  );
+  Assert.ok(loadURL.calledWith(PASTE_URL), "Paste and Go loads the pasted URL");
+
+  sb.restore();
   await BrowserTestUtils.closeWindow(win);
 });

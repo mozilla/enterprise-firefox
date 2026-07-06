@@ -15,7 +15,6 @@
     --tab-background-color-selected: var(--toolbar-background-color);
     --tab-block-margin: var(--dimension-4);
     --tab-border-radius: var(--toolbarbutton-border-radius);
-    --tab-box-shadow: var(--box-shadow-level-1);
     --tab-close-button-padding: 6px;
     --tab-group-blue: light-dark(var(--color-blue-50), var(--color-blue-10));
     --tab-group-blue-hover: light-dark(var(--color-blue-60), var(--color-blue-20));
@@ -75,6 +74,7 @@
     --tab-pinned-container-margin-inline-expanded: var(--space-small);
     --tab-pinned-expanded-background-width: var(--dimension-40);
     --tab-pinned-margin-inline-expanded: var(--space-xsmall);
+    --tab-selected-box-shadow: var(--box-shadow-level-1);
     --tab-selected-outline-color: transparent;
     --tab-selected-textcolor: var(--toolbar-text-color);
     --tab-vertical-block-margin: var(--dimension-2);
@@ -116,7 +116,7 @@
       --tab-border-color-selected-leading: var(--color-violet-30);
       --tab-border-color-selected-trailing: light-dark(var(--color-orange-30), var(--color-violet-50));
       --tab-border-radius: var(--border-radius-circle);
-      --tab-selected-shadow: none;
+      --tab-selected-box-shadow: none;
     }
   }
 

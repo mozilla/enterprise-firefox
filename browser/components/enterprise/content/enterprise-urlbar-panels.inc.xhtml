@@ -5,7 +5,7 @@
 <html:link rel="stylesheet" href="chrome://browser/content/enterprise/enterprise-urlbar-actions.css" />
 <html:link rel="localization" href="toolkit/enterprise/enterprise.ftl" />
 
-<panelview id="panelUI-lockdown-mode" class="PanelUI-subView lockdown-mode-subview"
+<panelview id="panelUI-lockdown-mode" class="PanelUI-subView enterprise-urlbar-panel-subview"
            has-custom-header="true">
   <box class="panel-header">
     <html:h1>
@@ -15,5 +15,19 @@
   <toolbarseparator />
   <vbox class="panel-subview-body">
     <html:div data-l10n-id="lockdown-mode-popup-message" />
+  </vbox>
+</panelview>
+
+<panelview id="panelUI-access-connector" class="PanelUI-subView enterprise-urlbar-panel-subview"
+           has-custom-header="true">
+  <box class="panel-header">
+    <html:h1>
+      <html:span data-l10n-id="access-connector-panel-header" />
+    </html:h1>
+  </box>
+  <toolbarseparator />
+  <vbox class="panel-subview-body">
+    <html:div id="access-connector-panel-message"
+              data-l10n-id="access-connector-panel-message" />
   </vbox>
 </panelview>

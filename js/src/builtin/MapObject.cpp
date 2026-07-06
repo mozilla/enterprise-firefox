@@ -588,8 +588,8 @@ MapObject* MapObject::createWithProto(JSContext* cx, HandleObject proto,
   gc::AllocKind allocKind = gc::GetGCObjectKind(SlotCount);
 
   AutoSetNewObjectMetadata metadata(cx);
-  auto* mapObj =
-      NewObjectWithGivenProtoAndKinds<MapObject>(cx, proto, allocKind, newKind);
+  auto* mapObj = NewObjectWithGivenProto<MapObject>(
+      cx, proto, {.newKind = newKind, .allocKind = allocKind});
   if (!mapObj) {
     return nullptr;
   }
@@ -1297,8 +1297,8 @@ SetObject* SetObject::createWithProto(JSContext* cx, HandleObject proto,
   gc::AllocKind allocKind = gc::GetGCObjectKind(SlotCount);
 
   AutoSetNewObjectMetadata metadata(cx);
-  auto* setObj =
-      NewObjectWithGivenProtoAndKinds<SetObject>(cx, proto, allocKind, newKind);
+  auto* setObj = NewObjectWithGivenProto<SetObject>(
+      cx, proto, {.newKind = newKind, .allocKind = allocKind});
   if (!setObj) {
     return nullptr;
   }

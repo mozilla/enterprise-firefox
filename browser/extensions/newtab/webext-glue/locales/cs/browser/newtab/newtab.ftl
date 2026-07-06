@@ -1009,6 +1009,8 @@ newtab-widget-timer-reset =
 newtab-widget-timer-menu-notifications = Vypnout oznámení
 newtab-widget-timer-menu-notifications-on = Zapnout oznámení
 newtab-widget-timer-menu-learn-more = Zjistit více
+newtab-widget-timer-menu-button =
+    .aria-label = Možnosti časovače
 # The title displays above a set of top news headlines.
 newtab-daily-briefing-card-title = Hlavní titulky
 newtab-daily-briefing-card-menu-dismiss = Skrýt
@@ -1137,6 +1139,8 @@ newtab-sports-widget-show-less =
 # Toggle that filters the list of teams the user follows
 newtab-sports-widget-followed-only-toggle =
     .label = Pouze sledované týmy
+# Status shown when more matches are being fetched.
+newtab-sports-widget-loading-more = Načítají se další zápasy…
 # Watch is a verb (as in watch matches online).
 newtab-sports-widget-watch =
     .label = Sledovat
@@ -1216,6 +1220,9 @@ newtab-sports-widget-third-place = Třetí místo
 newtab-sports-widget-runner-up = Druhé místo
 newtab-sports-widget-champions = Vítěz
 newtab-sports-widget-world-cup-champions = Mistrovství světa ve fotbale 2026
+# Compact champions label for the medium-size widget result card; the larger
+# card uses newtab-sports-widget-world-cup-champions.
+newtab-sports-widget-world-cup-champions-short = Mistři pro rok 2026
 # Variables:
 #   $date (Date) - The match start time
 newtab-sports-widget-match-time = { DATETIME($date, hour: "2-digit", minute: "2-digit") }

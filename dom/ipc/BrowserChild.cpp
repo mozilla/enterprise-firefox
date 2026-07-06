@@ -466,6 +466,15 @@ nsresult BrowserChild::Init(mozIDOMWindowProxy* aParent,
   MOZ_ASSERT(aInitialWindowChild->DocumentPrincipal() ==
              aOpenWindowInfo->PrincipalToInheritForAboutBlank());
 
+  // Ensure we have marked this process as untrusted before BrowserChild can
+  // receive any further messages.
+  //
+  // This call could load additional trusted scripts, which are safe to cache
+  // with the ScriptPreloader, so we avoid setting ourselves as untrusted until
+  // this method returns.
+  auto markAsUntrustedGuard =
+      MakeScopeExit([&] { ContentChild::MaybeBecomeUntrusted(); });
+
   nsCOMPtr<nsIWidget> widget = nsIWidget::CreatePuppetWidget(this);
   mPuppetWidget = static_cast<PuppetWidget*>(widget.get());
   if (!mPuppetWidget) {

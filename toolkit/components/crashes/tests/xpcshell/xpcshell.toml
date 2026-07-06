@@ -10,6 +10,13 @@ skip-if = [
   "os == 'android'",
 ]
 
+["test_crash_manager_policies.js"]
+run-if = ["enterprise"]
+skip-if = [
+  "os == 'android'",
+]
+firefox-appdir = "browser"
+
 ["test_crash_service.js"]
 skip-if = [
   "os == 'android'",

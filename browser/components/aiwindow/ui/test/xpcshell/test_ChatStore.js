@@ -593,42 +593,52 @@ add_atomic_task(async function test_ChatStorage_deleteConversationById() {
   Assert.equal(conversations.length, 0, "Test conversation was not deleted");
 });
 
-// TODO: Disabled this test. pruneDatabase() needs some work to switch
-// db file size to be checked via dbstat. Additionally, after switching
-// the last line to `PRAGMA incremental_vacuum;` the disk storage is
-// not immediately freed, so this test is now failing. Will need to
-// revisit this test when pruneDatabase() is updated.
-//
-// add_atomic_task(async function test_ChatStorage_pruneDatabase() {
-//   const initialDbSize = await gChatStore.getDatabaseSize();
-//
-//   // NOTE: Add enough conversations to increase the SQLite file
-//   // by a measurable size
-//   for (let i = 0; i < 1000; i++) {
-//     await addBasicConvoTestData("1/1/2025", "a conversation");
-//   }
-//
-//   const dbSizeWithTestData = await gChatStore.getDatabaseSize();
-//
-//   Assert.greater(
-//     dbSizeWithTestData,
-//     initialDbSize,
-//     "Test conversations not saved for pruneDatabase() test"
-//   );
-//
-//   await gChatStore.pruneDatabase(0.5, 100000);
-//
-//   const dbSizeAfterPrune = await gChatStore.getDatabaseSize();
-//
-//   const proximityToInitialSize = dbSizeAfterPrune - initialDbSize;
-//   const proximityToTestDataSize = dbSizeWithTestData - initialDbSize;
-//
-//   Assert.less(
-//     proximityToInitialSize,
-//     proximityToTestDataSize,
-//     "The pruned size is not closer to the initial db size than it is to the size with test data in it"
-//   );
-// });
+add_atomic_task(async function test_ChatStorage_pruneDatabase() {
+  const CONVERSATION_COUNT = 100;
+  const MESSAGE_CONTENT_BYTES = 50_000;
+  const DELETE_BATCH_SIZE = 2;
+  const REDUCE_BY_PERCENTAGE = 0.5;
+
+  // Give each conversation one large message so it occupies its own, roughly
+  // equal chunk of storage so it's deleted predictably during testing.
+  const largeContent = "a".repeat(MESSAGE_CONTENT_BYTES);
+  const link = "https://www.firefox.com";
+
+  for (let i = 0; i < CONVERSATION_COUNT; i++) {
+    await addConvoWithSpecificTestData(
+      new Date("1/1/2025"),
+      link,
+      link,
+      "a conversation",
+      largeContent
+    );
+  }
+
+  const sizeBefore = await gChatStore.getDbBytesInUse();
+
+  await gChatStore.pruneDatabase(
+    REDUCE_BY_PERCENTAGE,
+    1_000_000,
+    DELETE_BATCH_SIZE
+  );
+
+  const sizeAfter = await gChatStore.getDbBytesInUse();
+
+  // Assert on the in-use byte size, which is what pruneDatabase() targets:
+  // the loop stops once size drops below REDUCE_BY_PERCENTAGE of the start, so
+  // this lands around ~50% every run.
+  const reduction = 1 - sizeAfter / sizeBefore;
+  Assert.greater(
+    reduction,
+    0.45,
+    "pruneDatabase() should free ~50% of in-use bytes"
+  );
+  Assert.less(
+    reduction,
+    0.55,
+    "pruneDatabase() should not over-free past ~50%"
+  );
+});
 
 add_atomic_task(async function test_applyMigrations_notCalledOnInitialSetup() {
   gSandbox.stub(gChatStore, "CURRENT_SCHEMA_VERSION").returns(0);

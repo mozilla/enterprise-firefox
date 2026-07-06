@@ -7,6 +7,8 @@ package org.mozilla.fenix.home.topsites.middleware
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -35,6 +37,8 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class ShortcutsMiddlewareTest {
 
+    private val testDispatcher = UnconfinedTestDispatcher()
+
     private lateinit var settings: Settings
     private lateinit var appStore: AppStore
     private val topSitesUseCases: TopSitesUseCases = mockk(relaxed = true)
@@ -48,7 +52,7 @@ class ShortcutsMiddlewareTest {
     }
 
     @Test
-    fun `WHEN InitAction action is dispatched THEN showAddShortcut, topSites and popularSites values are set with the correct values`() = runTest(UnconfinedTestDispatcher()) {
+    fun `WHEN InitAction action is dispatched THEN showAddShortcut, topSites and popularSites values are set with the correct values`() = runTest(testDispatcher) {
         settings.enableAddShortcutsImprovement = true
 
         val topSites = listOf(
@@ -57,19 +61,26 @@ class ShortcutsMiddlewareTest {
         val manifestEntries = listOf(
             ManifestEntry(
                 rank = 1,
-                domain = "mozilla",
+                domain = "example",
                 categories = emptyList(),
                 serpCategories = emptyList(),
-                url = "https://mozilla.org",
-                title = "Mozilla",
-                icon = "https://mozilla.org",
+                url = "https://example.com",
+                title = "example",
+                icon = "https://example.com",
             ),
         )
-        every { merinoManifestProvider.getTopDomains(any()) } returns manifestEntries
+        every { merinoManifestProvider.getTopDomains(any(), any()) } returns manifestEntries
 
         appStore = AppStore(initialState = AppState(topSites = topSites))
 
         val store = createStore(scope = backgroundScope)
+
+        verify {
+            merinoManifestProvider.getTopDomains(
+                limit = POPULAR_SITES_LIMIT,
+                excludedDomains = setOf("mozilla.org"),
+            )
+        }
 
         assertEquals(settings.enableAddShortcutsImprovement, store.state.showAddShortcut)
         assertEquals(topSites, store.state.topSites)
@@ -77,7 +88,7 @@ class ShortcutsMiddlewareTest {
     }
 
     @Test
-    fun `WHEN appStore is updated with new top sites THEN UpdateTopSites action is dispatched`() = runTest(UnconfinedTestDispatcher()) {
+    fun `WHEN appStore is updated with new top sites THEN UpdateTopSites action is dispatched`() = runTest(testDispatcher) {
         val captureMiddleware = CaptureActionsMiddleware<ShortcutsState, ShortcutsAction>()
         createStore(captureMiddleware = captureMiddleware, scope = backgroundScope)
 
@@ -92,7 +103,7 @@ class ShortcutsMiddlewareTest {
     }
 
     @Test
-    fun `WHEN SaveShortcut action is dispatched THEN addPinnedSites use case is called and dialog is closed`() = runTest(UnconfinedTestDispatcher()) {
+    fun `WHEN SaveShortcut action is dispatched THEN addPinnedSites use case is called and dialog is closed`() = runTest(testDispatcher) {
         val captureMiddleware = CaptureActionsMiddleware<ShortcutsState, ShortcutsAction>()
         val store = createStore(captureMiddleware = captureMiddleware, scope = backgroundScope)
 
@@ -108,6 +119,7 @@ class ShortcutsMiddlewareTest {
         initialState: ShortcutsState = ShortcutsState.INITIAL,
         captureMiddleware: CaptureActionsMiddleware<ShortcutsState, ShortcutsAction> = CaptureActionsMiddleware(),
         scope: CoroutineScope,
+        ioDispatcher: CoroutineDispatcher = testDispatcher,
     ): ShortcutsStore {
         val middleware = ShortcutsMiddleware(
             appStore = appStore,
@@ -115,6 +127,7 @@ class ShortcutsMiddlewareTest {
             merinoManifestProvider = merinoManifestProvider,
             settings = settings,
             scope = scope,
+            ioDispatcher = ioDispatcher,
         )
         return ShortcutsStore(
             initialState = initialState,

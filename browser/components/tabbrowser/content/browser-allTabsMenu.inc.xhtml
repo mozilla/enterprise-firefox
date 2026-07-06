@@ -29,10 +29,11 @@
         <toolbarbutton id="allTabsMenu-closeDuplicateTabs"
                        class="subviewbutton"
                        data-l10n-id="all-tabs-menu-close-duplicate-tabs"/>
-        <toolbarbutton id="allTabsMenu-viewAllTabs"
-                       class="subviewbutton"
-                       data-l10n-id="all-tabs-menu-view-all-tabs"/>
       </vbox>
+      <toolbarseparator/>
+      <toolbarbutton id="allTabsMenu-viewAllTabs"
+                     class="subviewbutton"
+                     data-l10n-id="all-tabs-menu-view-all-tabs"/>
     </vbox>
   </panelview>
 
@@ -43,6 +44,9 @@
   <panelview id="allTabsMenu-containerTabsView" class="PanelUI-subView">
     <vbox class="panel-subview-body">
       <toolbarseparator class="container-tabs-submenu-separator"/>
+      <toolbarbutton class="subviewbutton"
+                     data-l10n-id="user-context-add-container"
+                     command="Browser:AddContainer"/>
       <toolbarbutton class="subviewbutton"
                      data-l10n-id="user-context-manage-containers"
                      command="Browser:OpenAboutContainers"/>

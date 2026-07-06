@@ -1606,6 +1606,66 @@ networking:
       - omansfeld@mozilla.com
     expires: 157
 
+  http_3_rtt:
+    type: custom_distribution
+    range_min: 1
+    range_max: 10000
+    bucket_count: 100
+    histogram_type: exponential
+    unit: ms
+    description: >
+      HTTP3: The smoothed round-trip time estimate in milliseconds on the connection's primary path, sampled at connection close.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2050587
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2050587
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - necko@mozilla.com
+      - minden@mozilla.com
+    expires: never
+
+  http_3_rtt_var:
+    type: custom_distribution
+    range_min: 1
+    range_max: 10000
+    bucket_count: 100
+    histogram_type: exponential
+    unit: ms
+    description: >
+      HTTP3: The round-trip time variation in milliseconds on the connection's primary path, sampled at connection close.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2050587
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2050587
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - necko@mozilla.com
+      - minden@mozilla.com
+    expires: never
+
+  http_3_min_rtt:
+    type: custom_distribution
+    range_min: 1
+    range_max: 10000
+    bucket_count: 100
+    histogram_type: exponential
+    unit: ms
+    description: >
+      HTTP3: The minimum round-trip time in milliseconds observed on the connection's primary path, sampled at connection close.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2050587
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2050587
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - necko@mozilla.com
+      - minden@mozilla.com
+    expires: never
+
   http_3_congestion_event_count:
     type: custom_distribution
     range_min: 0
@@ -2254,13 +2314,14 @@ networking:
     bugs:
     - https://bugzilla.mozilla.org/show_bug.cgi?id=1960582
     - https://bugzilla.mozilla.org/show_bug.cgi?id=2010463
+    - https://bugzilla.mozilla.org/show_bug.cgi?id=2048455
     data_reviews:
     - https://bugzilla.mozilla.org/show_bug.cgi?id=1960582
     notification_emails:
      - smayya@mozilla.com
      - vgosu@mozilla.com
      - necko@gmail.com
-    expires: 155
+    expires: 160
     labels:
       - private_to_local_http
       - private_to_local_https
@@ -2280,13 +2341,14 @@ networking:
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1960582
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2010463
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2048459
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1960582
     notification_emails:
       - smayya@mozilla.com
       - vgosu@mozilla.com
       - necko@mozilla.com
-    expires: 155
+    expires: 160
     labels:
       - localhost
       - local_network
@@ -2314,6 +2376,7 @@ networking:
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1989916
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2010465
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2048457
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1989916#c5
     data_sensitivity:
@@ -2324,7 +2387,7 @@ networking:
       - necko@mozilla.com
     send_in_pings:
       - local-network-access
-    expires: 155
+    expires: 160
     extra_keys:
       top_level_site:
         description: The base domain (eTLD+1) of the top-level document/main window.

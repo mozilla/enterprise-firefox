@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use api::{ClipMode, ColorF, units::*};
+use api::{BorderRadius, ClipMode, ColorF, units::*};
 use euclid::{Scale, point2};
 
 use crate::ItemUid;
@@ -74,6 +74,22 @@ impl QuadTransformState {
             prim_spatial_node: SpatialNodeIndex::INVALID,
             raster_spatial_node: SpatialNodeIndex::INVALID,
             device_pixel_scale: DevicePixelScale::identity(),
+        }
+    }
+
+    pub fn from_scale_offset(
+        local_to_raster: ScaleOffset,
+        prim_node: SpatialNodeIndex,
+        raster_node: SpatialNodeIndex,
+        scale: DevicePixelScale,
+    ) -> QuadTransformState {
+        QuadTransformState {
+            map_prim_to_raster: CoordinateSpaceMapping::ScaleOffset(local_to_raster),
+            as_scale_offset: Some(local_to_raster.then_scale(scale.0)),
+            is_2d_axis_aligned: true,
+            prim_spatial_node: prim_node,
+            raster_spatial_node: raster_node,
+            device_pixel_scale: scale,
         }
     }
 
@@ -853,13 +869,15 @@ fn prepare_indirect_pattern(
 
     let mut clipped_surface_rect = *clipped_surface_rect;
     if local_to_device_scale_offset.is_some() && aa_flags.is_empty() {
-        // If the primitive has a simple transform, then quad.clip is in device space
-        // and is a strict subset of clipped_surface_rect. If there is no anti-aliasing,
-        // and the pattern is opaque, we want to ensure that the primitive covers the
-        // entire render task so that we can safely skip clearing it.
-        // In this situation, create_quad_primitive has rounded the edges of quad.clip
-        // so we are not introducing a fractional offset in clipped_surface_rect.
-        clipped_surface_rect = quad.clip.cast_unit();
+        // If the primitive has a simple transform, then quad.bounds is in device
+        // space and is a subset of clipped_surface_rect (the clip rect is folded
+        // into the bounds). If there is no anti-aliasing, and the pattern is
+        // opaque, we want to ensure that the primitive covers the entire render
+        // task so that we can safely skip clearing it.
+        // In this situation, create_quad_primitive has rounded the edges of
+        // quad.bounds so we are not introducing a fractional offset in
+        // clipped_surface_rect.
+        clipped_surface_rect = quad.bounds.cast_unit();
     }
 
     let task_size = clipped_surface_rect.size().to_i32();
@@ -1725,6 +1743,56 @@ pub fn prepare_clip_range(
         .set_sub_tasks(sub_tasks);
 }
 
+/// Write the GPU buffer blocks describing a (rounded) rectangle clip, in the
+/// format consumed by ps_quad_mask. Returns the clip's address along with
+/// whether the uniform-radius fast path can be used.
+pub fn write_rounded_rect_clip_blocks(
+    gpu_buffer: &mut GpuBufferBuilderF,
+    clip_rect: LayoutRect,
+    radius: &BorderRadius,
+    mode: ClipMode,
+) -> (GpuBufferAddress, bool) {
+    let radius = clamped_radius(radius, clip_rect.size());
+
+    if radius.can_use_fast_path_in(&clip_rect) {
+        let mut writer = gpu_buffer.write_blocks(3);
+        writer.push_one(clip_rect);
+        writer.push_one([
+            radius.bottom_right.width,
+            radius.top_right.width,
+            radius.bottom_left.width,
+            radius.top_left.width,
+        ]);
+        writer.push_one([mode as i32 as f32, 0.0, 0.0, 0.0]);
+
+        (writer.finish(), true)
+    } else {
+        let mut writer = gpu_buffer.write_blocks(5);
+        writer.push_one(clip_rect);
+        writer.push_one([
+            radius.top_left.width,
+            radius.top_left.height,
+            radius.top_right.width,
+            radius.top_right.height,
+        ]);
+        writer.push_one([
+            radius.bottom_left.width,
+            radius.bottom_left.height,
+            radius.bottom_right.width,
+            radius.bottom_right.height,
+        ]);
+        writer.push_one([mode as i32 as f32, 0.0, 0.0, 0.0]);
+        writer.push_one([
+            radius.shape_top_left,
+            radius.shape_top_right,
+            radius.shape_bottom_right,
+            radius.shape_bottom_left,
+        ]);
+
+        (writer.finish(), false)
+    }
+}
+
 pub fn prepare_clip_task(
     clip_instance: &ClipNodeInstance,
     clip_item: &ClipItem,
@@ -1742,48 +1810,12 @@ pub fn prepare_clip_task(
 ) {
     let (clip_address, fast_path) = match clip_item.kind {
         ClipItemKind::RoundedRectangle { radius, mode } => {
-            let radius = clamped_radius(&radius, clip_instance.clip_rect.size());
-            let (fast_path, clip_address) = if radius.can_use_fast_path_in(&clip_instance.clip_rect) {
-                let mut writer = gpu_buffer.write_blocks(3);
-                writer.push_one(clip_instance.clip_rect);
-                writer.push_one([
-                    radius.bottom_right.width,
-                    radius.top_right.width,
-                    radius.bottom_left.width,
-                    radius.top_left.width,
-                ]);
-                writer.push_one([mode as i32 as f32, 0.0, 0.0, 0.0]);
-                let clip_address = writer.finish();
-
-                (true, clip_address)
-            } else {
-                let mut writer = gpu_buffer.write_blocks(5);
-                writer.push_one(clip_instance.clip_rect);
-                writer.push_one([
-                    radius.top_left.width,
-                    radius.top_left.height,
-                    radius.top_right.width,
-                    radius.top_right.height,
-                ]);
-                writer.push_one([
-                    radius.bottom_left.width,
-                    radius.bottom_left.height,
-                    radius.bottom_right.width,
-                    radius.bottom_right.height,
-                ]);
-                writer.push_one([mode as i32 as f32, 0.0, 0.0, 0.0]);
-                writer.push_one([
-                    radius.shape_top_left,
-                    radius.shape_top_right,
-                    radius.shape_bottom_right,
-                    radius.shape_bottom_left,
-                ]);
-                let clip_address = writer.finish();
-
-                (false, clip_address)
-            };
-
-            (clip_address, fast_path)
+            write_rounded_rect_clip_blocks(
+                gpu_buffer,
+                clip_instance.clip_rect,
+                &radius,
+                mode,
+            )
         }
         ClipItemKind::Rectangle { mode, .. } => {
             let mut writer = gpu_buffer.write_blocks(3);
@@ -1957,6 +1989,7 @@ fn create_quad_primitive(
 ) -> QuadPrimitive {
     let mut prim_rect;
     let mut prim_clip_rect;
+    let pattern_rect;
     let pattern_transform;
     if let Some(local_to_device) = local_to_device {
         prim_rect = local_to_device.map_rect(local_rect);
@@ -1964,6 +1997,9 @@ fn create_quad_primitive(
                 .map_rect(&local_clip_rect)
                 .intersection_unchecked(device_clip_rect)
                 .to_untyped();
+        // Capture the pattern rect before rounding: rounding is only meant to
+        // snap vertex coverage to the device grid, not to move the samples.
+        pattern_rect = prim_rect;
         prim_rect = round_edges.select(prim_rect.round(), prim_rect);
         prim_clip_rect = round_edges.select(prim_clip_rect.round(), prim_clip_rect);
 
@@ -1971,12 +2007,14 @@ fn create_quad_primitive(
     } else {
         prim_rect = local_rect.to_untyped();
         prim_clip_rect = local_clip_rect.to_untyped();
+        pattern_rect = prim_rect;
         pattern_transform = ScaleOffset::identity();
     };
 
     QuadPrimitive {
-        bounds: prim_rect,
-        clip: prim_clip_rect,
+        // Fold the clip rect into the bounds: a single coverage rect.
+        bounds: prim_rect.intersection_unchecked(&prim_clip_rect),
+        pattern_rect,
         input_task: pattern.texture_input.task_id(),
         pattern_scale_offset: pattern_transform,
         color: pattern.base_color.premultiplied(),
@@ -1999,6 +2037,7 @@ fn write_prim_blocks(
 ) -> GpuBufferAddress {
     let mut prim_rect;
     let mut prim_clip_rect;
+    let pattern_rect;
     let pattern_transform;
     if let Some(local_to_device) = local_to_device {
         prim_rect = local_to_device.map_rect(&local_rect);
@@ -2006,19 +2045,24 @@ fn write_prim_blocks(
                 .map_rect(&local_clip_rect)
                 .intersection_unchecked(&device_clip_rect)
                 .to_untyped();
+        // Capture the pattern rect before rounding: rounding is only meant to
+        // snap vertex coverage to the device grid, not to move the samples.
+        pattern_rect = prim_rect;
         prim_rect = round_edges.select(prim_rect.round(), prim_rect);
-        prim_clip_rect = round_edges.select(prim_rect.round(), prim_clip_rect);
+        prim_clip_rect = round_edges.select(prim_clip_rect.round(), prim_clip_rect);
         pattern_transform = local_to_device.inverse();
     } else {
         prim_rect = local_rect.to_untyped();
         prim_clip_rect = local_clip_rect.to_untyped();
+        pattern_rect = prim_rect;
         pattern_transform = ScaleOffset::identity();
     };
 
     write_prim_blocks_impl(
         builder,
-        prim_rect,
-        prim_clip_rect,
+        // Fold the clip rect into the bounds: a single coverage rect.
+        prim_rect.intersection_unchecked(&prim_clip_rect),
+        pattern_rect,
         pattern.base_color,
         pattern.texture_input.task_id(),
         &[],
@@ -2038,8 +2082,12 @@ pub fn write_device_prim_blocks(
 ) -> GpuBufferAddress {
     write_prim_blocks_impl(
         builder,
+        // Fold the clip rect into the bounds: a single coverage rect.
+        prim_rect.to_untyped().intersection_unchecked(&clip_rect.to_untyped()),
+        // These device-space rects are already pixel-aligned (or sampled via
+        // segment uv rects with MAP_TO_SEGMENT), so the pattern rect matches the
+        // (unclipped) bounds.
         prim_rect.to_untyped(),
-        clip_rect.to_untyped(),
         pattern_base_color,
         pattern_texture_input,
         segments,
@@ -2058,8 +2106,11 @@ pub fn write_layout_prim_blocks(
 ) -> GpuBufferAddress {
     write_prim_blocks_impl(
         builder,
+        // Fold the clip rect into the bounds: a single coverage rect.
+        prim_rect.to_untyped().intersection_unchecked(&clip_rect.to_untyped()),
+        // Layout-space prims are not rounded, so the pattern rect matches the
+        // (unclipped) bounds.
         prim_rect.to_untyped(),
-        clip_rect.to_untyped(),
         pattern_base_color,
         pattern_texture_input,
         segments,
@@ -2069,8 +2120,10 @@ pub fn write_layout_prim_blocks(
 
 fn write_prim_blocks_impl(
     builder: &mut GpuBufferBuilderF,
+    // The (clipped) coverage rect: the caller has already folded the clip rect
+    // into this.
     prim_rect: LayoutOrDeviceRect,
-    clip_rect: LayoutOrDeviceRect,
+    pattern_rect: LayoutOrDeviceRect,
     pattern_base_color: ColorF,
     pattern_texture_input: RenderTaskId,
     segments: &[QuadSegment],
@@ -2080,7 +2133,7 @@ fn write_prim_blocks_impl(
 
     writer.push(&QuadPrimitive {
         bounds: prim_rect,
-        clip: clip_rect,
+        pattern_rect,
         input_task: pattern_texture_input,
         pattern_scale_offset,
         color: pattern_base_color.premultiplied(),
@@ -2105,6 +2158,7 @@ pub fn add_to_batch<F>(
     src_task_ids: [RenderTaskId; 3],
     z_id: ZBufferId,
     blend_mode: BlendMode,
+    readback: Option<RenderTaskId>,
     render_tasks: &RenderTaskGraph,
     gpu_buffer_builder: &mut GpuBufferBuilder,
     mut f: F,
@@ -2163,16 +2217,20 @@ pub fn add_to_batch<F>(
 
     let edge_flags_bits = edge_flags.bits();
 
+    let readback = readback.unwrap_or(RenderTaskId::INVALID);
+
     let prim_batch_key = BatchKey {
         blend_mode: prim_blend_mode,
         kind: BatchKind::Quad(kind),
         textures,
+        readback,
     };
 
     let aa_batch_key = BatchKey {
         blend_mode,
         kind: BatchKind::Quad(kind),
         textures,
+        readback,
     };
 
     let mut instance = QuadInstance {

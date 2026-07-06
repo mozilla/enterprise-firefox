@@ -220,7 +220,7 @@ panelview {
   transition: height var(--panelui-subview-transition-duration);
 }
 
-.panel-subview-body:where(:not([hidden])) {
+.panel-subview-body {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -244,8 +244,8 @@ panelview {
 
 .panel-info-button {
   appearance: none;
-  color: var(--button-text-color-ghost);
-  background-color: var(--button-background-color-ghost);
+  color: var(--button-text-color-menu);
+  background-color: var(--button-background-color-menu);
   padding: 0;
   border-radius: var(--button-border-radius);
   flex-shrink: 0;
@@ -255,14 +255,14 @@ panelview {
   }
 
   &:hover {
-    color: var(--button-text-color-ghost-hover);
-    background-color: var(--button-background-color-ghost-hover);
+    color: var(--button-text-color-menu-hover);
+    background-color: var(--button-background-color-menu-hover);
   }
 
   &:not(:hover)[checked],
   &:hover:active {
-    color: var(--button-text-color-ghost-active);
-    background-color: var(--button-background-color-ghost-active);
+    color: var(--button-text-color-menu-active);
+    background-color: var(--button-background-color-menu-active);
   }
 
   &:focus-visible {
@@ -317,18 +317,18 @@ panelview {
   menu,
   menuitem {
     &[disabled] {
-      color: var(--button-text-color-ghost-disabled);
-      background-color: var(--button-background-color-ghost-disabled);
+      color: var(--button-text-color-menu-disabled);
+      background-color: var(--button-background-color-menu-disabled);
       opacity: var(--button-opacity-disabled);
     }
 
     &:not([disabled])[_moz-menuactive] {
-      color: var(--button-text-color-ghost-hover);
-      background-color: var(--button-background-color-ghost-hover);
+      color: var(--button-text-color-menu-hover);
+      background-color: var(--button-background-color-menu-hover);
 
       &:active {
-        color: var(--button-text-color-ghost-active);
-        background-color: var(--button-background-color-ghost-active);
+        color: var(--button-text-color-menu-active);
+        background-color: var(--button-background-color-menu-active);
       }
     }
 
@@ -386,7 +386,6 @@ menupopup[emptyplacesresult] > .hide-if-empty-places-result {
   --panel-border-color: var(--button-border-color-ghost);
   --panel-text-color: var(--button-text-color-primary);
   --panel-padding: var(--space-small) var(--space-medium);
-  font-size: var(--font-size-heading-medium);
 
   &::part(content) {
     align-items: center;
@@ -469,7 +468,7 @@ menupopup[emptyplacesresult] > .hide-if-empty-places-result {
 
 #confirmation-hint-message {
   #confirmation-hint.with-description & {
-    font-size: 1.2em;
+    font-size: var(--font-size-heading-medium);
     font-weight: var(--font-weight-semibold);
   }
 }
@@ -1001,7 +1000,7 @@ toolbarbutton[constrain-size="true"][cui-areatype="panel"] > .toolbarbutton-badg
 .ctaMenuLogo {
   width: var(--icon-size);
   height: var(--icon-size);
-  margin-inline-end: var(--space-xsmall);
+  margin-inline-end: var(--space-medium);
 }
 
 #PanelUI-fxa-menu-monitor-button {
@@ -1010,7 +1009,7 @@ toolbarbutton[constrain-size="true"][cui-areatype="panel"] > .toolbarbutton-badg
 
 #PanelUI-fxa-menu-relay-button,
 #PanelUI-services-menu-relay-button {
-  list-style-image: url(chrome://browser/content/logos/relay.svg);
+  list-style-image: url(chrome://browser/content/logos/relay-monochrome.svg);
 }
 
 #PanelUI-fxa-menu-vpn-button {
@@ -1275,19 +1274,44 @@ panelview .toolbarbutton-1,
   }
 }
 
-#appMenu-profiles-button,
-#PanelUI-fxa-menu-profiles-button {
+#appMenu-profiles-button {
   justify-content: space-between;
+}
+
+#PanelUI-fxa-menu-all-profiles-list {
+  overflow: hidden auto;
+}
+
+#PanelUI-fxa-menu-all-profiles-list .profile-item-labels {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+
+  > label {
+    margin: 0;
+  }
+}
+
+#PanelUI-fxa-menu-all-profiles-list .profile-item-current-label {
+  color: var(--text-color-deemphasized);
+}
+
+#PanelUI-fxa-menu-all-profiles-list .profile-item-check-icon {
+  -moz-context-properties: fill;
+  fill: currentColor;
+  width: 16px;
+  height: 16px;
 }
 
 /* Set the --appmenu-profiles-theme-bg and --appmenu-profiles-theme-fg
  * variables inline on the toolbarbutton */
-#appMenu-profiles-button.subviewbutton-iconic > .toolbarbutton-icon,
-#PanelUI-fxa-menu-profiles-button.subviewbutton-iconic > .toolbarbutton-icon,
 .subviewbutton-iconic.profile-item > .toolbarbutton-icon {
   -moz-context-properties: fill, stroke;
   fill: var(--appmenu-profiles-theme-bg);
   stroke: var(--appmenu-profiles-theme-fg);
+  width: var(--icon-size-large);
+  height: var(--icon-size-large);
 }
 
 /* Adjust the Zoom toolbaritem padding to have its height the same as other toolbarbuttons,
@@ -1480,8 +1504,8 @@ panelview .toolbarbutton-1 {
   .widget-overflow-list .toolbarbutton-1,
   .toolbaritem-combined-buttons:is(:not([cui-areatype="toolbar"]), [overflowedItem="true"]) > toolbarbutton
 ) {
-  color: var(--button-text-color-ghost);
-  background-color: var(--button-background-color-ghost);
+  color: var(--button-text-color-menu);
+  background-color: var(--button-background-color-menu);
 
   &:focus-visible {
     outline: var(--focus-outline);
@@ -1489,18 +1513,18 @@ panelview .toolbarbutton-1 {
   }
 
   &[disabled] {
-    color: var(--button-text-color-ghost-disabled);
-    background-color: var(--button-background-color-ghost-disabled);
+    color: var(--button-text-color-menu-disabled);
+    background-color: var(--button-background-color-menu-disabled);
     opacity: var(--button-opacity-disabled);
   }
 
   &:not([disabled]):hover {
-    color: var(--button-text-color-ghost-hover);
-    background-color: var(--button-background-color-ghost-hover);
+    color: var(--button-text-color-menu-hover);
+    background-color: var(--button-background-color-menu-hover);
 
     &:active {
-      color: var(--button-text-color-ghost-active);
-      background-color: var(--button-background-color-ghost-active);
+      color: var(--button-text-color-menu-active);
+      background-color: var(--button-background-color-menu-active);
       box-shadow: 0 1px 0 hsla(210, 4%, 10%, 0.03) inset;
     }
   }
@@ -1825,6 +1849,7 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
   > h1 {
     flex: auto;
     margin: 0;
+    font-size: inherit;
   }
 
   &.panel-header-with-info-button > h1 {
@@ -2024,6 +2049,9 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
 #PanelUI-profiler-presets {
   margin: 8px 0;
 
+  /* Remove once this is migrated to moz-select. */
+  border: var(--button-border);
+
   &[disabled]::part(label-box) {
     opacity: 0.5;
   }
@@ -2043,7 +2071,7 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
   color: var(--text-color-deemphasized);
 }
 
-#PanelUI-profiler-content-recording:not([hidden]) {
+#PanelUI-profiler-content-recording {
   display: flex;
   place-items: center;
   place-content: center;
@@ -2356,7 +2384,7 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
     fieldset > label,
     details > summary {
       color: var(--button-text-color);
-      background-color: var(--button-background-color-ghost);
+      background-color: var(--button-background-color-menu);
 
       &:hover {
         background-color: var(--button-background-color-hover);
@@ -2472,24 +2500,6 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
   text-overflow: ellipsis;
 }
 
-#profiles-edit-this-profile-button {
-  list-style-image: url("chrome://global/skin/icons/edit-outline.svg");
-  padding: var(--panel-header-back-icon-padding);
-  margin: 0;
-}
-
-#profiles-edit-this-profile-button > .toolbarbutton-text {
-  display: none;
-}
-
-#profiles-copy-profile-button {
-  list-style-image: url("chrome://global/skin/icons/edit-copy.svg");
-}
-
-#profiles-create-profile-button {
-  list-style-image: url("chrome://global/skin/icons/plus.svg");
-}
-
 #profile-icon-image {
   width: 90px;
   height: 90px;
@@ -2518,6 +2528,21 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
 
 #PanelUI-profiles > .panel-subview-body {
   padding-block-start: 0;
+  flex: none;
+}
+
+#profiles-subview-list {
+  max-height: 50dvh;
+  overflow: hidden auto;
+}
+
+#PanelUI-profiles {
+  height: fit-content;
+  min-height: 0 !important;
+}
+
+.panel-viewcontainer:has(#PanelUI-profiles[visible]) {
+  min-height: 0 !important;
 }
 
 /* ----- Profiles FxA panel ----- */
@@ -2525,7 +2550,9 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
 /* Special case: hide the profiles menuitem if the FxA/Sync panel is shown as
  * a submenu of the app menu, rather than anchored to the FxA/Sync toolbar
  * button. */
-#appMenu-popup panelmultiview[mainViewId="appMenu-mainView"] #PanelUI-fxa-menu-profiles-button {
+#appMenu-popup
+  panelmultiview[mainViewId="appMenu-mainView"]
+  :is(#PanelUI-fxa-menu-profiles-header-separator, #PanelUI-fxa-menu-profiles-header-label, #PanelUI-fxa-menu-profile-buttons) {
   display: none;
 }
 
@@ -2570,5 +2597,5 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
 }
 
 #PanelUI-ipprotection-locations {
-  max-height: 43rem;
+  max-height: 43em;
 }

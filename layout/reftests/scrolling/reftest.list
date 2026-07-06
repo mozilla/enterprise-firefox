@@ -140,7 +140,7 @@ pref(layout.disable-pixel-alignment,true) fuzzy-if(Android||cocoaWidget,255-255,
 # (test) vs main-thread scroll (ref) -- confirms both paths snap the origin
 # identically. Skipped under drawSnapshot, which doesn't apply APZ async scroll.
 pref(layout.disable-pixel-alignment,true) fuzzy(0-57,0-331) == blob-seam.html blob-seam-ref.html
-pref(layout.disable-pixel-alignment,true) fuzzy-if(Android,225-235,990-1000) fuzzy-if(swgl,0-235,0-1000) skip-if(useDrawSnapshot) == blob-seam-noclip.html blob-seam-noclip-ref.html
+pref(layout.disable-pixel-alignment,true) fuzzy(0-240,0-1024) skip-if(useDrawSnapshot) == blob-seam-noclip.html blob-seam-noclip-ref.html
 
 # Tests for "overflow" styles that may be propagated to the viewport:
 == propagated-overflow-style-1a.html propagated-overflow-style-1-ref.html

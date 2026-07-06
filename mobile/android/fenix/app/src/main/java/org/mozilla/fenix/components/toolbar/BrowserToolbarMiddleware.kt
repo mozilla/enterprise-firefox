@@ -27,6 +27,8 @@ import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.browser.thumbnails.BrowserThumbnails
 import mozilla.components.compose.browser.toolbar.concept.Action
 import mozilla.components.compose.browser.toolbar.concept.Action.ActionButton
+import mozilla.components.compose.browser.toolbar.concept.Action.ActionButton.State.DEFAULT
+import mozilla.components.compose.browser.toolbar.concept.Action.ActionButton.State.DISABLED
 import mozilla.components.compose.browser.toolbar.concept.Action.ActionButtonRes
 import mozilla.components.compose.browser.toolbar.concept.Action.TabCounterAction
 import mozilla.components.compose.browser.toolbar.concept.PageOrigin
@@ -102,10 +104,15 @@ import org.mozilla.fenix.components.appstate.AppAction.SearchAction.SearchEnded
 import org.mozilla.fenix.components.appstate.AppAction.SearchAction.SearchStarted
 import org.mozilla.fenix.components.appstate.AppAction.SnackbarAction.SnackbarDismissed
 import org.mozilla.fenix.components.appstate.AppAction.URLCopiedToClipboard
+import org.mozilla.fenix.components.appstate.SupportedMenuNotifications.NotDefaultBrowser
 import org.mozilla.fenix.components.appstate.snackbar.SnackbarState
 import org.mozilla.fenix.components.menu.MenuAccessPoint
 import org.mozilla.fenix.components.metrics.MetricsUtils
 import org.mozilla.fenix.components.share.ShareSource
+import org.mozilla.fenix.components.toolbar.BrowserToolbarTestTags.SITE_INFO_LOCAL_FILE
+import org.mozilla.fenix.components.toolbar.BrowserToolbarTestTags.SITE_INFO_SECURE
+import org.mozilla.fenix.components.toolbar.BrowserToolbarTestTags.SITE_INFO_UNKNOWN
+import org.mozilla.fenix.components.toolbar.BrowserToolbarTestTags.SITE_INFO_UNSECURE
 import org.mozilla.fenix.components.toolbar.DisplayActions.AddBookmarkClicked
 import org.mozilla.fenix.components.toolbar.DisplayActions.EditBookmarkClicked
 import org.mozilla.fenix.components.toolbar.DisplayActions.HomepageClicked
@@ -117,6 +124,7 @@ import org.mozilla.fenix.components.toolbar.DisplayActions.NavigateForwardLongCl
 import org.mozilla.fenix.components.toolbar.DisplayActions.RefreshClicked
 import org.mozilla.fenix.components.toolbar.DisplayActions.ShareClicked
 import org.mozilla.fenix.components.toolbar.DisplayActions.StopRefreshClicked
+import org.mozilla.fenix.components.toolbar.DisplayActions.SummarizeClicked
 import org.mozilla.fenix.components.toolbar.DisplayActions.TranslateClicked
 import org.mozilla.fenix.components.toolbar.PageEndActionsInteractions.ReaderModeClicked
 import org.mozilla.fenix.components.toolbar.PageOriginInteractions.OriginClicked
@@ -132,12 +140,15 @@ import org.mozilla.fenix.ext.navigateSafe
 import org.mozilla.fenix.nimbus.FxNimbus
 import org.mozilla.fenix.settings.ShortcutType
 import org.mozilla.fenix.settings.quicksettings.protections.cookiebanners.getCookieBannerUIMode
+import org.mozilla.fenix.summarization.SummarizationNavigator
+import org.mozilla.fenix.summarization.onboarding.SummarizationFeatureDiscoveryConfiguration
 import org.mozilla.fenix.tabstray.ext.isActiveDownload
 import org.mozilla.fenix.tabstray.redux.state.Page
 import org.mozilla.fenix.utils.Settings
 import org.mozilla.fenix.utils.Stories.hasUrlOfAHomeScreenStory
 import org.mozilla.fenix.utils.Stories.hasUrlOfAStoriesScreenStory
 import mozilla.components.browser.toolbar.R as toolbarR
+import mozilla.components.feature.summarize.R as summariesR
 import mozilla.components.lib.state.Action as MVIAction
 import mozilla.components.ui.icons.R as iconsR
 import mozilla.components.ui.tabcounter.R as tabcounterR
@@ -156,6 +167,7 @@ internal sealed class DisplayActions(override val source: Source) : BrowserToolb
     data class ShareClicked(override val source: Source) : DisplayActions(source)
     data class TranslateClicked(override val source: Source) : DisplayActions(source)
     data class HomepageClicked(override val source: Source) : DisplayActions(source)
+    data class SummarizeClicked(override val source: Source) : DisplayActions(source)
 }
 
 @VisibleForTesting
@@ -184,6 +196,13 @@ internal sealed class PageEndActionsInteractions(override val source: Source) : 
     ) : PageEndActionsInteractions(Source.AddressBar.PageEnd)
 }
 
+internal object BrowserToolbarTestTags {
+    const val SITE_INFO_LOCAL_FILE = "browser.toolbar.site.info.local.file"
+    const val SITE_INFO_UNKNOWN = "browser.toolbar.site.info.unknown"
+    const val SITE_INFO_SECURE = "browser.toolbar.site.info.secure"
+    const val SITE_INFO_UNSECURE = "browser.toolbar.site.info.unsecure"
+}
+
 /**
  * [Middleware] responsible for configuring and handling interactions with the composable toolbar.
  *
@@ -204,7 +223,9 @@ internal sealed class PageEndActionsInteractions(override val source: Source) : 
  * @param clipboard [ClipboardHandler] to use for reading from device's clipboard.
  * @param publicSuffixList [PublicSuffixList] used to obtain the base domain of the current site.
  * @param settings [Settings] for accessing user preferences.
+ * @param summarizationFeatureSettings Web content summarization settings.
  * @param navController [NavController] to use for navigating to other in-app destinations.
+ * @param summarizationNavigator [SummarizationNavigator] used to navigate to the summarization screen.
  * @param browsingModeManager [BrowsingModeManager] for querying the current browsing mode.
  * @param readerModeController [ReaderModeController] for showing or hiding the reader view UX.
  * @param thumbnailsFeature [BrowserThumbnails] for requesting screenshots of the current tab.
@@ -231,7 +252,9 @@ class BrowserToolbarMiddleware(
     private val clipboard: ClipboardHandler,
     private val publicSuffixList: PublicSuffixList,
     private val settings: Settings,
+    private val summarizationFeatureSettings: SummarizationFeatureDiscoveryConfiguration,
     private val navController: NavController,
+    private val summarizationNavigator: SummarizationNavigator,
     private val browsingModeManager: BrowsingModeManager,
     private val readerModeController: ReaderModeController,
     private val thumbnailsFeature: () -> BrowserThumbnails?,
@@ -615,6 +638,16 @@ class BrowserToolbarMiddleware(
                 next(action)
             }
 
+            is SummarizeClicked -> {
+                scope.launch {
+                    summarizationNavigator.navigateToSummarizationIfEligible(
+                        navController = navController,
+                        fromShakeGesture = false,
+                    )
+                }
+                next(action)
+            }
+
             else -> next(action)
         }
     }
@@ -748,7 +781,7 @@ class BrowserToolbarMiddleware(
     private fun buildEndPageActions(): List<Action> {
         val isWideScreen = isWideScreen()
         val tabStripEnabled = settings.isTabStripEnabled
-        val simpleShortcut = ShortcutType.fromValue(settings.toolbarSimpleShortcutKey)
+        val simpleShortcut = ShortcutType.fromValue(settings.activeSimpleToolbarShortcutKey)
         val translateShortcutEnabled = simpleShortcut == ShortcutType.TRANSLATE
         val shareShortcutEnabled = simpleShortcut == ShortcutType.SHARE
 
@@ -775,7 +808,7 @@ class BrowserToolbarMiddleware(
         val isWideWindow = isWideScreen()
         val isTallWindow = isTallScreen()
         val shouldUseExpandedToolbar = settings.shouldUseExpandedToolbar
-        val primarySlotAction = ShortcutType.fromValue(settings.toolbarSimpleShortcutKey)?.toToolbarAction()
+        val primarySlotAction = ShortcutType.fromValue(settings.activeSimpleToolbarShortcutKey)?.toToolbarAction()
 
         val configs = listOfNotNull(
             primarySlotAction?.let {
@@ -1023,7 +1056,7 @@ class BrowserToolbarMiddleware(
             distinctUntilChangedBy { it.pageTranslationStatus }
                 .collect {
                     updateEndPageActions(store)
-                    if (ShortcutType.fromValue(settings.toolbarSimpleShortcutKey) == ShortcutType.TRANSLATE) {
+                    if (ShortcutType.fromValue(settings.activeSimpleToolbarShortcutKey) == ShortcutType.TRANSLATE) {
                         updateEndBrowserActions(store)
                     }
                     if (ShortcutType.fromValue(settings.toolbarExpandedShortcutKey) == ShortcutType.TRANSLATE) {
@@ -1042,7 +1075,7 @@ class BrowserToolbarMiddleware(
                 )
             }.collect {
                 updateStartBrowserActions(store)
-                if (ShortcutType.fromValue(settings.toolbarSimpleShortcutKey) == ShortcutType.BACK) {
+                if (ShortcutType.fromValue(settings.activeSimpleToolbarShortcutKey) == ShortcutType.BACK) {
                     updateEndBrowserActions(store)
                 }
                 if (ShortcutType.fromValue(settings.toolbarExpandedShortcutKey) == ShortcutType.BACK) {
@@ -1076,7 +1109,7 @@ class BrowserToolbarMiddleware(
                 it.snackbarState is SnackbarState.BookmarkAdded ||
                         it.snackbarState is SnackbarState.BookmarkDeleted
             }.collect { isBookmarked ->
-                if (ShortcutType.fromValue(settings.toolbarSimpleShortcutKey) == ShortcutType.BOOKMARK) {
+                if (ShortcutType.fromValue(settings.activeSimpleToolbarShortcutKey) == ShortcutType.BOOKMARK) {
                     updateEndBrowserActions(store)
                 }
                 if (ShortcutType.fromValue(settings.toolbarExpandedShortcutKey) == ShortcutType.BOOKMARK) {
@@ -1116,6 +1149,7 @@ class BrowserToolbarMiddleware(
         EditBookmark,
         Share,
         Homepage,
+        Summarize,
     }
 
     private data class ToolbarActionConfig(
@@ -1191,7 +1225,8 @@ class BrowserToolbarMiddleware(
         ToolbarAction.Menu -> ActionButtonRes(
             drawableResId = iconsR.drawable.mozac_ic_ellipsis_vertical_24,
             contentDescription = R.string.content_description_menu,
-            highlighted = appStore.state.supportedMenuNotifications.isNotEmpty(),
+            highlighted = appStore.state.supportedMenuNotifications
+                .filterNot { it == NotDefaultBrowser }.isNotEmpty(),
             onClick = MenuClicked(source),
         )
 
@@ -1262,6 +1297,7 @@ class BrowserToolbarMiddleware(
                     contentDescription = toolbarR.string.mozac_browser_toolbar_content_description_site_info,
                     highlighted = highlight,
                     onClick = StartPageActions.SiteInfoClicked,
+                    testTag = SITE_INFO_LOCAL_FILE,
                 )
             } else if (selectedTab?.content?.securityInfo == null ||
                 selectedTab.content.securityInfo == SecurityInfo.Unknown
@@ -1271,6 +1307,7 @@ class BrowserToolbarMiddleware(
                     contentDescription = toolbarR.string.mozac_browser_toolbar_content_description_site_info,
                     highlighted = highlight,
                     onClick = object : BrowserToolbarEvent {},
+                    testTag = SITE_INFO_UNKNOWN,
                 )
             } else if (
                 selectedTab.content.securityInfo.isSecure &&
@@ -1282,6 +1319,7 @@ class BrowserToolbarMiddleware(
                     contentDescription = toolbarR.string.mozac_browser_toolbar_content_description_site_info,
                     highlighted = highlight,
                     onClick = StartPageActions.SiteInfoClicked,
+                    testTag = SITE_INFO_SECURE,
                 )
             } else {
                 buildSiteInfoAction(
@@ -1289,6 +1327,7 @@ class BrowserToolbarMiddleware(
                     contentDescription = toolbarR.string.mozac_browser_toolbar_content_description_site_info,
                     highlighted = highlight,
                     onClick = StartPageActions.SiteInfoClicked,
+                    testTag = SITE_INFO_UNSECURE,
                 )
             }
         }
@@ -1321,6 +1360,16 @@ class BrowserToolbarMiddleware(
             contentDescription = R.string.browser_menu_homepage,
             onClick = HomepageClicked(source),
         )
+
+        ToolbarAction.Summarize -> ActionButtonRes(
+            drawableResId = iconsR.drawable.mozac_ic_lightning_24,
+            contentDescription = summariesR.string.mozac_summarize_settings_summarize_pages,
+            state = when (browsingModeManager.mode) {
+                Normal -> DEFAULT
+                Private -> DISABLED
+            },
+            onClick = SummarizeClicked(source),
+        )
     }
 
     private fun buildSiteInfoAction(
@@ -1328,6 +1377,7 @@ class BrowserToolbarMiddleware(
         contentDescription: Int,
         highlighted: Boolean = false,
         onClick: BrowserToolbarInteraction,
+        testTag: String? = null,
     ): Action {
         return if (ipProtectionStore.state.proxyStatus == Authorized.Active) {
             Action.AnimatedPillActionRes(
@@ -1338,6 +1388,7 @@ class BrowserToolbarMiddleware(
                 animated = !ipProtectionStore.state.proxyActiveShown,
                 highlighted = highlighted,
                 onClick = onClick,
+                testTag = testTag,
             ).also {
                 ipProtectionStore.dispatch(IPProtectionAction.ProxyActiveShown)
             }
@@ -1347,6 +1398,7 @@ class BrowserToolbarMiddleware(
                 contentDescription = contentDescription,
                 highlighted = highlighted,
                 onClick = onClick,
+                testTag = testTag,
             )
         }
     }
@@ -1372,6 +1424,12 @@ class BrowserToolbarMiddleware(
         ShortcutType.TRANSLATE -> ToolbarAction.Translate
         ShortcutType.HOMEPAGE -> ToolbarAction.Homepage
         ShortcutType.BACK -> ToolbarAction.Back
+        ShortcutType.SUMMARIZE -> when {
+            summarizationFeatureSettings.canShowFeature -> ToolbarAction.Summarize
+            // The tab strip already provides a new tab button, so fall back to the default tab strip shortcut.
+            settings.isTabStripEnabled -> ToolbarAction.Share
+            else -> ToolbarAction.NewTab
+        }
         ShortcutType.NONE -> null
     }
 }

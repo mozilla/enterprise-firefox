@@ -67,6 +67,8 @@ import org.mozilla.fenix.search.awesomebar.SearchSuggestionsProvidersBuilder
 import org.mozilla.fenix.search.awesomebar.toSearchProviderState
 import org.mozilla.fenix.telemetry.ACTION_SEARCH_ENGINE_SELECTED
 import org.mozilla.fenix.telemetry.SOURCE_ADDRESS_BAR
+import org.mozilla.fenix.telemetry.SURFACE_BROWSER
+import org.mozilla.fenix.telemetry.SURFACE_HOME
 import org.mozilla.fenix.utils.Settings
 import mozilla.components.lib.state.Action as MVIAction
 
@@ -414,6 +416,7 @@ class FenixSearchMiddleware(
                 source = SOURCE_ADDRESS_BAR,
                 item = ACTION_SEARCH_ENGINE_SELECTED,
                 extra = searchEngine.telemetryName(),
+                surface = if (store.state.tabId == null) SURFACE_HOME else SURFACE_BROWSER,
             ),
         )
     }

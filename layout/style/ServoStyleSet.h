@@ -30,6 +30,7 @@ enum class MediaFeatureChangeReason : uint8_t;
 enum class StylePageSizeOrientation : uint8_t;
 enum class StyleRuleChangeKind : uint32_t;
 enum class StyleRelativeSelectorNthEdgeInvalidateFor : uint8_t;
+enum class StyleContainerAttributeDependencyKind;
 union StylePositionTryFallbacksItem;
 struct StyleRuleChange;
 struct StyleCascadeLevel;
@@ -449,6 +450,17 @@ class ServoStyleSet {
    */
   bool MightHaveAttributeDependency(const dom::Element&,
                                     nsAtom* aAttribute) const;
+
+  /**
+   * Returns the ContainerAttributeDependencyKind for invalidating descendants.
+   * None if the attribute does not depend on attr() being used inside of a
+   * style container query. UnnamedContainer if the rule we're matching is not
+   * inside a named container query and would only affect direct children.
+   * NamedContainer if the rule we are matching for is a named container and
+   * therefore could affect elements further down the tree.
+   */
+  StyleContainerAttributeDependencyKind MightHaveAttributeDependencyInContainer(
+      const dom::Element&, nsAtom* aAttribute) const;
 
   /**
    * Returns true if a modification to an attribute with the specified local

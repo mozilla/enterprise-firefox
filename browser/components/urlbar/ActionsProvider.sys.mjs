@@ -44,7 +44,7 @@ export class ActionsProvider {
    * Pick an action.
    *
    * @param {UrlbarQueryContext} _queryContext The query context object.
-   * @param {UrlbarController} _controller The urlbar controller.
+   * @param {UrlbarParentController} _controller The urlbar controller.
    * @param {Element} _element The element that was selected.
    * @abstract
    */

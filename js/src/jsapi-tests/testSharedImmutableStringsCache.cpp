@@ -10,7 +10,13 @@
 #include "util/Text.h"
 #include "vm/SharedImmutableStringsCache.h"
 
+// Use only 32 threads on 32-bit ASan builds to avoid OOMs.
+#if defined(MOZ_ASAN) && !defined(JS_64BIT)
+const int NUM_THREADS = 32;
+#else
 const int NUM_THREADS = 256;
+#endif
+
 const int NUM_ITERATIONS = 256;
 
 const int NUM_STRINGS = 4;

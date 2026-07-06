@@ -41,6 +41,7 @@
     <ID>ForbiddenSuppress:ActionButton.kt$@Suppress("LongMethod", "CyclomaticComplexMethod", "CognitiveComplexMethod")</ID>
     <ID>ForbiddenSuppress:Addon.kt$Addon.Companion$@Suppress("MagicNumber", "CognitiveComplexMethod", "CyclomaticComplexMethod")</ID>
     <ID>ForbiddenSuppress:AndroidAssetFinder.kt$AndroidAssetFinder$@Suppress("MagicNumber")</ID>
+    <ID>ForbiddenSuppress:AnimatedPillButton.kt$@Suppress("CognitiveComplexMethod")</ID>
     <ID>ForbiddenSuppress:AnimatedProgressBar.kt$@Suppress("LongMethod", "CognitiveComplexMethod")</ID>
     <ID>ForbiddenSuppress:AnimatedProgressBar.kt$@Suppress("MagicNumber")</ID>
     <ID>ForbiddenSuppress:AppLinksInterceptor.kt$AppLinksInterceptor$@Suppress("CognitiveComplexMethod", "ReturnCount", "CyclomaticComplexMethod")</ID>

@@ -26,6 +26,7 @@
 
 #include "mozilla/Maybe.h"
 #include "mozilla/StaticPrefs_dom.h"
+#include "mozilla/Utf16.h"
 #include "mozilla/dom/CharacterDataBuffer.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/Element.h"
@@ -40,7 +41,6 @@
 #include "nsIContent.h"
 #include "nsIContentInlines.h"
 #include "nsINode.h"
-#include "nsUnicodeProperties.h"
 
 namespace mozilla {
 
@@ -154,13 +154,13 @@ Directionality GetDirectionFromText(const char16_t* aText,
     uint32_t current = start - aText;
     uint32_t ch = *start++;
 
-    if (start < end && NS_IS_SURROGATE_PAIR(ch, *start)) {
-      ch = SURROGATE_TO_UCS4(ch, *start++);
+    if (start < end && IsSurrogatePair(ch, *start)) {
+      ch = SurrogateToUCS4(ch, *start++);
       current++;
     }
 
     // Just ignore lone surrogates
-    if (!IS_SURROGATE(ch)) {
+    if (!IsSurrogate(ch)) {
       Directionality dir = GetDirectionFromChar(ch);
       if (dir != Directionality::Unset) {
         if (aFirstStrong) {

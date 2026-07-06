@@ -7,9 +7,19 @@
 #include "ReportInternalError.h"
 #include "js/StructuredClone.h"
 #include "mozilla/SnappyUncompressInputStream.h"
+#include "mozilla/StaticPrefs_dom.h"
 #include "nsError.h"
 
 namespace mozilla::dom::indexedDB {
+
+EnumSet<ValidatePrincipalOptions> PrincipalValidationOptions() {
+  EnumSet<ValidatePrincipalOptions> options;
+  if (StaticPrefs::dom_indexedDB_testing_allowContentSystem() &&
+      xpc::IsInAutomation()) {
+    options += ValidatePrincipalOptions::AllowSystem;
+  }
+  return options;
+}
 
 nsresult ClampResultCode(nsresult aResultCode) {
   if (NS_SUCCEEDED(aResultCode) ||

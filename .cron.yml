@@ -179,6 +179,7 @@ jobs:
           - mozilla-beta
           - mozilla-release
           - mozilla-esr140
+          - mozilla-esr153
           - elm
           - cypress
           - enterprise-firefox

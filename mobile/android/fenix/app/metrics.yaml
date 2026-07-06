@@ -4636,6 +4636,26 @@ preferences:
       tags:
         - Toolbar
         - Settings
+  toolbar_tab_strip_shortcut:
+    type: string
+    description: |
+      The toolbar shortcut used when the tab strip is enabled.
+      Possible values are: share, bookmark, translate, homepage, back, summarize or none.
+    send_in_pings:
+      - metrics
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2019946
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2019946
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - Toolbar
+        - Settings
 
   accessibility_services:
     type: string_list
@@ -7234,6 +7254,84 @@ tabs_tray:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2029221
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2029221
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+
+  tab_group_named:
+    type: event
+    description: |
+      Fired when a user assigns a name to a tab group.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2029227
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D301300
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+
+  tab_group_name_changed:
+    type: event
+    description: |
+      Fired when a user changes an existing tab group's name.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2029227
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D301300
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+
+  tab_group_color_assigned:
+    type: event
+    description: |
+      Fired when a user assigns a color to a tab group.
+    extra_keys:
+      color:
+        description: The color name of the tab group.
+        type: string
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2029221
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D301300
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+
+  tab_group_color_changed:
+    type: event
+    description: |
+      Fired when a user changes an existing tab group's color.
+    extra_keys:
+      tab_group_color_changed:
+        description: The new color name of the tab group.
+        type: string
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2029221
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D301300
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+
+  tab_group_edited:
+    type: event
+    description: |
+      Fired when a user clicks on the edit button of an existing tab group.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2029221
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D301300
     data_sensitivity:
       - interaction
     notification_emails:
@@ -12358,34 +12456,6 @@ home_menu:
         - Settings
         - MainMenu
 
-menu:
-  show_cfr:
-    type: event
-    description: |
-      Menu CFR was shown to the user.
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1885640
-    data_reviews:
-      - https://phabricator.services.mozilla.com/D216600
-    data_sensitivity:
-      - interaction
-    notification_emails:
-      - android-probes@mozilla.com
-    expires: never
-  dismiss_cfr:
-    type: event
-    description: |
-      A user has dismissed the Menu CFR.
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1885640
-    data_reviews:
-      - https://phabricator.services.mozilla.com/D216600
-    data_sensitivity:
-      - interaction
-    notification_emails:
-      - android-probes@mozilla.com
-    expires: never
-
 home_screen:
   home_screen_displayed:
     type: event
@@ -14112,18 +14182,20 @@ customization_settings:
     extra_keys:
       toolbar_type:
         description: |
-          Where the interaction occurred. One of: simple, expanded.
+          Where the interaction occurred. One of: simple, expanded, tab_strip.
         type: string
       item:
         description: |
           A string containing the name of the shortcut the user selected. These items include:
-          new_tab, share, bookmark, translate, homepage, back, none.
+          new_tab, share, bookmark, translate, homepage, back, summarize, none.
         type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2002636
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2020026
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2019946
     data_reviews:
       - https://phabricator.services.mozilla.com/D274607
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2019946
     data_sensitivity:
       - interaction
     notification_emails:
@@ -14230,6 +14302,10 @@ nimbus_system:
             type: string
         tou_points:
           type: number
+        are_notifications_enabled:
+          type: boolean
+        are_marketing_notifications_enabled:
+          type: boolean
     description: |
       The Nimbus context object that is recorded to Glean
     bugs:
@@ -14242,6 +14318,7 @@ nimbus_system:
       - 'https://bugzilla.mozilla.org/show_bug.cgi?id=1993034'
       - 'https://bugzilla.mozilla.org/show_bug.cgi?id=1992306'
       - 'https://bugzilla.mozilla.org/show_bug.cgi?id=2028993'
+      - 'https://bugzilla.mozilla.org/show_bug.cgi?id=2036418'
     data_reviews:
       - 'https://bugzilla.mozilla.org/show_bug.cgi?id=1898552#c3'
       - 'https://phabricator.services.mozilla.com/D258942'
@@ -15569,7 +15646,7 @@ toolbar:
     extra_keys:
       source:
         description: |
-          Where the interaction occurred. One of: url_bar, navigation_bar, custom_bar.
+          Where the interaction occurred. One of: url_bar, navigation_bar.
         type: string
       item:
         description: |
@@ -15578,16 +15655,29 @@ toolbar:
           add_new_tab, add_new_tab_long_press, add_new_private_tab, tab_counter, tab_counter_long_press,
           menu, share, clear, refresh, stop, add_bookmark, edit_bookmark, security_indicator, qr_code,
           home, reader_mode, microphone, open_in_fenix, close, site_custom, search_engine_selector,
-          search_engine_selected, translate.
+          search_engine_selected, translate, summarize.
         type: string
       extra:
         description: |
-          Any extra information about the button that was tapped.
+          Sub-position on the bar. Populated only for `source = url_bar` on the home and browser
+          surfaces, where it is one of: browser_start, page_start, page_end, browser_end.
+          For the `search_engine_selected` item it instead holds the telemetry name of the chosen
+          search engine: the engine name for regular engines (e.g. Google, Bing, DuckDuckGo), or one
+          of the fixed values `custom`, `history`, `bookmarks`, `tabs`, or `application` for custom
+          and application search engines.
+        type: string
+      surface:
+        description: |
+          The app surface where the toolbar lives. One of: home, browser, custom_tab.
+          Distinguishes the Home fragment toolbar, the Browser fragment toolbar,
+          and the custom tab toolbar.
         type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1971857
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2043252
     data_reviews:
       - https://phabricator.services.mozilla.com/D264134
+      - https://phabricator.services.mozilla.com/D303181
     data_sensitivity:
       - interaction
     notification_emails:
@@ -15600,6 +15690,11 @@ ai_summarize:
     description: |
       Recorded when the user cancels or closes the summarization at any point.
     extra_keys:
+      session_id:
+        description: |
+          A UUID identifying a single summarization session, shared across all
+          events recorded during that session.
+        type: string
       model:
         description: The name of the model used for summarization.
         type: string
@@ -15612,6 +15707,7 @@ ai_summarize:
     data_reviews:
       - https://phabricator.services.mozilla.com/D289882
       - https://phabricator.services.mozilla.com/D300181
+      - https://phabricator.services.mozilla.com/D306313
     data_sensitivity:
       - interaction
     notification_emails:
@@ -15622,6 +15718,11 @@ ai_summarize:
     description: |
       Recorded when the summarizer service returns the summary or errors out.
     extra_keys:
+      session_id:
+        description: |
+          A UUID identifying a single summarization session, shared across all
+          events recorded during that session.
+        type: string
       success:
         description: True for success, false for failure.
         type: boolean
@@ -15666,8 +15767,10 @@ ai_summarize:
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2025523
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2036474
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2046968
     data_reviews:
       - https://phabricator.services.mozilla.com/D289882
+      - https://phabricator.services.mozilla.com/D306313
     data_sensitivity:
       - interaction
     notification_emails:
@@ -15679,13 +15782,20 @@ ai_summarize:
       Recorded when the consent flow concludes, either by the user
       accepting, declining, or dismissing the dialogue.
     extra_keys:
+      session_id:
+        description: |
+          A UUID identifying a single summarization session, shared across all
+          events recorded during that session.
+        type: string
       agreed:
         description: Whether the user accepted the consent.
         type: boolean
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2025523
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2046968
     data_reviews:
       - https://phabricator.services.mozilla.com/D289882
+      - https://phabricator.services.mozilla.com/D306313
     data_sensitivity:
       - interaction
     notification_emails:
@@ -15697,6 +15807,11 @@ ai_summarize:
       Records when the user initiates summarization.
       (e.g. taps menu button, toolbar icon or shakes the device).
     extra_keys:
+      session_id:
+        description: |
+          A UUID identifying a single summarization session, shared across all
+          events recorded during that session.
+        type: string
       trigger:
         description: |
           How the user initiated summarization. Possible values:
@@ -15705,8 +15820,10 @@ ai_summarize:
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2025523
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2036474
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2046968
     data_reviews:
       - https://phabricator.services.mozilla.com/D289882
+      - https://phabricator.services.mozilla.com/D306313
     data_sensitivity:
       - interaction
     notification_emails:
@@ -15717,6 +15834,11 @@ ai_summarize:
     description: |
       Recorded when the summarizer service starts processing the page's text content.
     extra_keys:
+      session_id:
+        description: |
+          A UUID identifying a single summarization session, shared across all
+          events recorded during that session.
+        type: string
       trigger:
         description: |
           How the user initiated summarization. Possible values:
@@ -15738,10 +15860,58 @@ ai_summarize:
         type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2025523
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2046968
     data_reviews:
       - https://phabricator.services.mozilla.com/D289882
+      - https://phabricator.services.mozilla.com/D306313
     data_sensitivity:
       - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+  provider_initialized:
+    type: event
+    description: |
+      Recorded when the LLM provider finishes initializing and is ready to
+      receive a prompt.
+    extra_keys:
+      session_id:
+        description: |
+          A UUID identifying a single summarization session, shared across all
+          events recorded during that session.
+        type: string
+      model:
+        description: The name of the model used for summarization.
+        type: string
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2046968
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D306314
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+  first_response:
+    type: event
+    description: |
+      Recorded when the first chunk of the response is received back from the
+      LLM after the prompt is sent.
+    extra_keys:
+      session_id:
+        description: |
+          A UUID identifying a single summarization session, shared across all
+          events recorded during that session.
+        type: string
+      model:
+        description: The name of the model used for summarization.
+        type: string
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2046968
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D306314
+    data_sensitivity:
+      - technical
     notification_emails:
       - android-probes@mozilla.com
     expires: never
@@ -16382,6 +16552,21 @@ vpn:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2031198
     data_reviews:
       - https://phabricator.services.mozilla.com/D293774
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+  proxy_unavailable:
+    type: event
+    description: >
+      Triggered when the VPN is unavailable due to an unrecoverable error,
+      leaving IP protection unable to function. This results in a blocking warning dialog which
+      requires a user action.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2048642
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D308910
     data_sensitivity:
       - technical
     notification_emails:

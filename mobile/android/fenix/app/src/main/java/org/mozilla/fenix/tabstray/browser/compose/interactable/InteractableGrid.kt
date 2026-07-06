@@ -49,6 +49,8 @@ import mozilla.components.compose.base.modifier.thenConditional
 import org.mozilla.fenix.tabstray.browser.compose.TabItemInteractionState
 import org.mozilla.fenix.tabstray.controller.TabInteractionHandler
 import org.mozilla.fenix.tabstray.ui.tabitems.Elevation
+import org.mozilla.fenix.tabstray.ui.tabitems.defaultGridItemAnimation
+import org.mozilla.fenix.tabstray.ui.tabitems.tabGroupEntranceAnimation
 
 /**
  * Remember the interactable state for grid items.
@@ -159,6 +161,11 @@ interface GridInteractionState {
      * Updates the stored layout coordinates in order to map grid space to screen space.
      */
     fun updateGridLayoutCoordinates(coordinates: LayoutCoordinates)
+
+    /**
+     * Called to indicate to the grid that the drop handling has been completed and the state can be reset.
+     */
+    fun reset()
 }
 
 /**
@@ -250,11 +257,14 @@ class GridInteractionStateImpl internal constructor(
         if (draggedItem is InteractionState.Grid.Active) {
             handleDragEnd(interactionMode)
         }
-        resetState()
     }
 
     override fun updateGridLayoutCoordinates(coordinates: LayoutCoordinates) {
         gridLayoutCoordinates = coordinates
+    }
+
+    override fun reset() {
+        resetState()
     }
 
     private fun doReorder(mode: InteractionMode.Grid.Reordering) {
@@ -284,6 +294,7 @@ class GridInteractionStateImpl internal constructor(
                     doReorder(mode)
                 }
                 tabInteractionHandler.onDragCancel()
+                resetState()
             }
 
             is InteractionMode.Grid.Scroll, is InteractionMode.Grid.None -> {
@@ -291,6 +302,7 @@ class GridInteractionStateImpl internal constructor(
                 if (moved) {
                     tabInteractionHandler.onDragCancel()
                 }
+                resetState()
             }
         }
     }
@@ -702,16 +714,25 @@ private fun findOverscroll(
  * @param key Key of the item to be displayed.
  * @param position Position in the grid of the item to be displayed.
  * @param swipingActive Whether the container is being swiped.
+ * @param enteringGroupId The id of the group entering composition, if any.  Can be null.
+ * @param onGroupEntranceAnimationPlayed Invoked when the group entrance animation is finished playing.
  * @param content Content of the item to be displayed.
  */
 @Composable
 fun LazyGridItemScope.InteractableDragItemContainer(
     state: GridInteractionState,
-    key: TabItemKey,
+    key: String,
     position: Int,
     swipingActive: Boolean,
+    enteringGroupId: String?,
+    onGroupEntranceAnimationPlayed: () -> Unit,
     content: @Composable (interactionState: TabItemInteractionState) -> Unit,
 ) {
+    val tabItemInteractionState = TabItemInteractionState(
+        isHoveredByItem = key == state.hoveredItem.key,
+        isDragged = key == state.draggedItem.key,
+        isEnteringGroup = key == enteringGroupId,
+    )
     /*
      * This outer box allows us to retrieve the global layout coordinates, so we can continue to render
      * an off-screen LazyGridItem as the user drags it, since we will lose the item's position as a reference
@@ -723,6 +744,8 @@ fun LazyGridItemScope.InteractableDragItemContainer(
             .zIndex(
                 if (swipingActive) {
                     Elevation.SWIPE_ACTIVE
+                } else if (key == enteringGroupId) {
+                    Elevation.ENTERING_ITEM
                 } else if (key == state.draggedItem.key || key == state.previousKeyOfDraggedItem) {
                     Elevation.DRAGGED_ITEM
                 } else {
@@ -734,10 +757,19 @@ fun LazyGridItemScope.InteractableDragItemContainer(
                     state.onDraggedItemPositioned(it)
                 }
             }
+            // The group entrance animation values must be hoisted above the rest of the grid
+            // to prevent clipping when the group item is oversized past its bounds.
+            // This only impacts the grid view.
+            .tabGroupEntranceAnimation(
+                interactionState = tabItemInteractionState,
+                key = key,
+                onGroupEntranceAnimationPlayed = onGroupEntranceAnimationPlayed,
+            )
             .thenConditional(
-                Modifier.animateItem(
-                    placementSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                ),
+                modifier = Modifier.defaultGridItemAnimation(
+                lazyGridItemScope = this,
+                enteringGroupId = enteringGroupId,
+            ),
                 { key != state.draggedItem.key && key != state.previousKeyOfDraggedItem },
             ),
     ) {
@@ -745,8 +777,7 @@ fun LazyGridItemScope.InteractableDragItemContainer(
             modifier = Modifier.then(
                 when (key) {
                     state.draggedItem.key -> {
-                        Modifier
-                            .graphicsLayer {
+                        Modifier.graphicsLayer {
                                 translationX = state.computeItemOffset(position).x
                                 translationY = state.computeItemOffset(position).y
                             }
@@ -767,10 +798,7 @@ fun LazyGridItemScope.InteractableDragItemContainer(
             propagateMinConstraints = true,
         ) {
             content(
-                TabItemInteractionState(
-                    isHoveredByItem = key == state.hoveredItem.key,
-                    isDragged = key == state.draggedItem.key,
-                ),
+                tabItemInteractionState,
             )
         }
     }

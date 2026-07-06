@@ -150,7 +150,7 @@ nsresult NullHttpTransaction::WriteSegments(nsAHttpSegmentWriter* writer,
 
 uint32_t NullHttpTransaction::Http1xTransactionCount() { return 0; }
 
-nsHttpRequestHead* NullHttpTransaction::RequestHead() {
+const nsHttpRequestHead* NullHttpTransaction::RequestHead() {
   // We suport a requesthead at all so that a CONNECT tunnel transaction
   // can obtain a Host header from it, but we lazy-popualate that header.
 

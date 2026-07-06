@@ -383,9 +383,6 @@ constexpr auto kColumnNameKey = "key"_ns;
 constexpr auto kColumnNameValue = "value"_ns;
 constexpr auto kColumnNameAliasSortKey = "sort_column"_ns;
 
-// SQL fragments used at multiple locations.
-constexpr auto kOpenLimit = " LIMIT "_ns;
-
 // The deletion marker file is created before RemoveDatabaseFilesAndDirectory
 // begins deleting a database. It is removed as the last step of deletion. If a
 // deletion marker file is found when initializing the origin, the deletion
@@ -476,15 +473,14 @@ using ObjectStoreTable =
     nsTHashMap<nsUint64HashKey, SafeRefPtr<FullObjectStoreMetadata>>;
 
 static_assert(
-    std::is_same_v<IndexOrObjectStoreId,
-                   std::remove_cv_t<std::remove_reference_t<
-                       decltype(std::declval<const ObjectStoreGetParams&>()
-                                    .objectStoreId())>>>);
-static_assert(
     std::is_same_v<
         IndexOrObjectStoreId,
-        std::remove_cv_t<std::remove_reference_t<
-            decltype(std::declval<const IndexGetParams&>().objectStoreId())>>>);
+        std::remove_cvref_t<decltype(std::declval<const ObjectStoreGetParams&>()
+                                         .objectStoreId())>>);
+static_assert(std::is_same_v<
+              IndexOrObjectStoreId,
+              std::remove_cvref_t<decltype(std::declval<const IndexGetParams&>()
+                                               .objectStoreId())>>);
 
 struct FullDatabaseMetadata final : AtomicSafeRefCounted<FullDatabaseMetadata> {
   DatabaseMetadata mCommonMetadata;
@@ -6168,8 +6164,7 @@ uint32_t TelemetryIdForFile(nsIFile* aFile) {
   // Any databases in these directories are owned by the application and should
   // not have their filenames masked. Hopefully they also appear in the
   // Telemetry.cpp whitelist.
-  if (origin.EqualsLiteral("chrome") ||
-      origin.EqualsLiteral("moz-safe-about+home")) {
+  if (origin.EqualsLiteral("chrome")) {
     return 0;
   }
 
@@ -9206,6 +9201,12 @@ Factory::AllocPBackgroundIDBFactoryRequestParent(
   MOZ_ASSERT(principalInfo.type() == PrincipalInfo::TSystemPrincipalInfo ||
              principalInfo.type() == PrincipalInfo::TContentPrincipalInfo);
 
+  if (!BackgroundParent::ValidatePrincipalInfo(Manager(), principalInfo,
+                                               PrincipalValidationOptions())) {
+    IPC_FAIL(this, "Invalid principal!");
+    return nullptr;
+  }
+
   if (NS_AUUF_OR_WARN_IF(
           principalInfo.type() == PrincipalInfo::TSystemPrincipalInfo &&
           metadata.persistenceType() != PERSISTENCE_TYPE_PERSISTENT)) {
@@ -9287,6 +9288,10 @@ mozilla::ipc::IPCResult Factory::RecvGetDatabases(
 
   MOZ_ASSERT(aPrincipalInfo.type() == PrincipalInfo::TSystemPrincipalInfo ||
              aPrincipalInfo.type() == PrincipalInfo::TContentPrincipalInfo);
+
+  QM_TRY(MOZ_TO_RESULT(BackgroundParent::ValidatePrincipalInfo(
+             Manager(), aPrincipalInfo, PrincipalValidationOptions())),
+         QM_IPC_FAIL(this));
 
   PersistenceType persistenceType =
       IDBFactory::GetPersistenceType(aPrincipalInfo);
@@ -14799,7 +14804,7 @@ Result<bool, nsresult> DatabaseOperationBase::ObjectStoreHasIndexes(
                         "SELECT id "
                         "FROM object_store_index "
                         "WHERE object_store_id = :"_ns +
-                            kStmtParamNameObjectStoreId + kOpenLimit + "1;"_ns,
+                            kStmtParamNameObjectStoreId + " LIMIT 1;"_ns,
                         [aObjectStoreId](auto& stmt) -> Result<Ok, nsresult> {
                           QM_TRY(MOZ_TO_RESULT(stmt.BindInt64ByName(
                               kStmtParamNameObjectStoreId, aObjectStoreId)));
@@ -19652,7 +19657,7 @@ nsresult ObjectStoreGetRequestOp::DoDatabaseWork(
       kStmtParamNameObjectStoreId +
       MaybeGetBindingClauseForKeyRange(mOptionalKeyRange, kColumnNameKey) +
       MakeDirectionClause(mDirection) +
-      (mLimit ? kOpenLimit + IntToCString(mLimit) : EmptyCString());
+      (mLimit ? " LIMIT "_ns + IntToCString(mLimit) : EmptyCString());
 
   QM_TRY_INSPECT(const auto& stmt, aConnection->BorrowCachedStatement(query));
 
@@ -20160,7 +20165,7 @@ nsCString IndexGetRequestOp::MakeQuery() const {
            "AND object_data.key = "
            "index_table.object_data_key"_ns +
            MakeDirectionClause(mDirection, "index_table.value"_ns) +
-           (mLimit ? kOpenLimit + IntToCString(mLimit) : EmptyCString());
+           (mLimit ? " LIMIT "_ns + IntToCString(mLimit) : EmptyCString());
   }
   return "SELECT file_ids, data "
          "FROM object_data "
@@ -20175,7 +20180,7 @@ nsCString IndexGetRequestOp::MakeQuery() const {
          kStmtParamNameIndexId +
          MaybeGetBindingClauseForKeyRange(mOptionalKeyRange, kColumnNameValue) +
          MakeDirectionClause(mDirection, "index_table.value"_ns) +
-         (mLimit ? kOpenLimit + IntToCString(mLimit) : EmptyCString());
+         (mLimit ? " LIMIT "_ns + IntToCString(mLimit) : EmptyCString());
 }
 
 nsresult IndexGetRequestOp::DoDatabaseWork(DatabaseConnection* aConnection) {
@@ -20299,14 +20304,14 @@ nsCString IndexGetKeyRequestOp::MakeQuery() const {
                                             kColumnNameValue) +
            " GROUP BY value"_ns +
            MakeDirectionClause(mDirection, kColumnNameValue) +
-           (mLimit ? kOpenLimit + IntToCString(mLimit) : EmptyCString());
+           (mLimit ? " LIMIT "_ns + IntToCString(mLimit) : EmptyCString());
   }
   return "SELECT object_data_key "
          "FROM "_ns +
          indexTable + "WHERE index_id = :"_ns + kStmtParamNameIndexId +
          MaybeGetBindingClauseForKeyRange(mOptionalKeyRange, kColumnNameValue) +
          MakeDirectionClause(mDirection, kColumnNameValue) +
-         (mLimit ? kOpenLimit + IntToCString(mLimit) : EmptyCString());
+         (mLimit ? " LIMIT "_ns + IntToCString(mLimit) : EmptyCString());
 }
 
 IndexGetKeyRequestOp::IndexGetKeyRequestOp(
@@ -20422,7 +20427,7 @@ nsresult ObjectStoreGetAllRecordsRequestOp::DoDatabaseWork(
       kStmtParamNameObjectStoreId +
       MaybeGetBindingClauseForKeyRange(mOptionalKeyRange, kColumnNameKey) +
       MakeDirectionClause(mDirection) +
-      (mLimit ? kOpenLimit + IntToCString(mLimit) : EmptyCString());
+      (mLimit ? " LIMIT "_ns + IntToCString(mLimit) : EmptyCString());
 
   QM_TRY_INSPECT(const auto& stmt, aConnection->BorrowCachedStatement(query));
 
@@ -20540,7 +20545,7 @@ nsCString IndexGetAllRecordsRequestOp::MakeQuery() const {
            "AND object_data.key = "
            "index_table.object_data_key"_ns +
            MakeDirectionClause(mDirection, "index_table.value"_ns) +
-           (mLimit ? kOpenLimit + IntToCString(mLimit) : EmptyCString());
+           (mLimit ? " LIMIT "_ns + IntToCString(mLimit) : EmptyCString());
   }
   return "SELECT index_table.value, object_data.key, "
          "object_data.file_ids, object_data.data "
@@ -20556,7 +20561,7 @@ nsCString IndexGetAllRecordsRequestOp::MakeQuery() const {
          kStmtParamNameIndexId +
          MaybeGetBindingClauseForKeyRange(mOptionalKeyRange, kColumnNameValue) +
          MakeDirectionClause(mDirection, "index_table.value"_ns) +
-         (mLimit ? kOpenLimit + IntToCString(mLimit) : EmptyCString());
+         (mLimit ? " LIMIT "_ns + IntToCString(mLimit) : EmptyCString());
 }
 
 nsresult IndexGetAllRecordsRequestOp::DoDatabaseWork(
@@ -20947,7 +20952,7 @@ void ObjectStoreOpenOpHelper<CursorType>::PrepareKeyConditionClauses(
   }
 
   const nsAutoCString suffix =
-      aDirectionClause + kOpenLimit + ":"_ns + kStmtParamNameLimit;
+      aDirectionClause + " LIMIT :"_ns + kStmtParamNameLimit;
 
   GetCursor().mContinueQueries.init(
       aQueryStart + keyRangeClause + suffix,
@@ -21030,7 +21035,7 @@ void IndexOpenOpHelper<CursorType>::PrepareIndexKeyConditionClause(
   }
 
   const nsAutoCString suffix =
-      aDirectionClause + kOpenLimit + ":"_ns + kStmtParamNameLimit;
+      aDirectionClause + " LIMIT :"_ns + kStmtParamNameLimit;
   continueQuery += suffix;
   continueToQuery += suffix;
   if (!continuePrimaryKeyQuery.IsEmpty()) {
@@ -21097,7 +21102,7 @@ nsresult OpenOpHelper<IDBCursorType::ObjectStore>::DoDatabaseWork(
   // Note: Changing the number or order of SELECT columns in the query will
   // require changes to CursorOpBase::PopulateResponseFromStatement.
   const nsCString firstQuery = queryStart + keyRangeClause + directionClause +
-                               kOpenLimit +
+                               " LIMIT "_ns +
                                IntToCString(1 + GetCursor().mMaxExtraCount);
 
   QM_TRY_INSPECT(const auto& stmt,
@@ -21141,7 +21146,7 @@ nsresult OpenOpHelper<IDBCursorType::ObjectStoreKey>::DoDatabaseWork(
   // Note: Changing the number or order of SELECT columns in the query will
   // require changes to CursorOpBase::PopulateResponseFromStatement.
   const nsCString firstQuery =
-      queryStart + keyRangeClause + directionClause + kOpenLimit + "1"_ns;
+      queryStart + keyRangeClause + directionClause + " LIMIT 1"_ns;
 
   QM_TRY_INSPECT(const auto& stmt,
                  aConnection->BorrowCachedStatement(firstQuery));
@@ -21225,7 +21230,7 @@ nsresult OpenOpHelper<IDBCursorType::Index>::DoDatabaseWork(
   // Note: Changing the number or order of SELECT columns in the query will
   // require changes to CursorOpBase::PopulateResponseFromStatement.
   const nsCString firstQuery = queryStart + keyRangeClause + directionClause +
-                               kOpenLimit +
+                               " LIMIT "_ns +
                                IntToCString(1 + GetCursor().mMaxExtraCount);
 
   QM_TRY_INSPECT(const auto& stmt,
@@ -21309,7 +21314,7 @@ nsresult OpenOpHelper<IDBCursorType::IndexKey>::DoDatabaseWork(
   // Note: Changing the number or order of SELECT columns in the query will
   // require changes to CursorOpBase::PopulateResponseFromStatement.
   const nsCString firstQuery =
-      queryStart + keyRangeClause + directionClause + kOpenLimit + "1"_ns;
+      queryStart + keyRangeClause + directionClause + " LIMIT 1"_ns;
 
   QM_TRY_INSPECT(const auto& stmt,
                  aConnection->BorrowCachedStatement(firstQuery));

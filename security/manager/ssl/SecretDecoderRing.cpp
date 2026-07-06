@@ -18,7 +18,6 @@
 #include "nsIInterfaceRequestorUtils.h"
 #include "nsIObserverService.h"
 #include "nsNSSComponent.h"
-#include "nsNSSHelper.h"
 #include "nsNetCID.h"
 #include "pk11func.h"
 #include "pk11sdr.h"
@@ -115,8 +114,7 @@ nsresult SecretDecoderRing::Encrypt(CK_MECHANISM_TYPE type,
   }
 
   /* Force authentication */
-  nsCOMPtr<nsIInterfaceRequestor> ctx = new PipUIContext();
-  if (PK11_Authenticate(slot.get(), true, ctx) != SECSuccess) {
+  if (PK11_Authenticate(slot.get(), true, nullptr) != SECSuccess) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
@@ -129,7 +127,7 @@ nsresult SecretDecoderRing::Encrypt(CK_MECHANISM_TYPE type,
   request.len = data.Length();
   ScopedAutoSECItem reply;
   if (PK11SDR_EncryptWithMechanism(slot.get(), &keyid, type, &request, &reply,
-                                   ctx) != SECSuccess) {
+                                   nullptr) != SECSuccess) {
     return NS_ERROR_FAILURE;
   }
 
@@ -146,8 +144,7 @@ nsresult SecretDecoderRing::Decrypt(const nsACString& data,
   }
 
   /* Force authentication */
-  nsCOMPtr<nsIInterfaceRequestor> ctx = new PipUIContext();
-  if (PK11_Authenticate(slot.get(), true, ctx) != SECSuccess) {
+  if (PK11_Authenticate(slot.get(), true, nullptr) != SECSuccess) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
@@ -155,7 +152,7 @@ nsresult SecretDecoderRing::Decrypt(const nsACString& data,
   request.data = BitwiseCast<unsigned char*, const char*>(data.BeginReading());
   request.len = data.Length();
   ScopedAutoSECItem reply;
-  if (PK11SDR_Decrypt(&request, &reply, ctx) != SECSuccess) {
+  if (PK11SDR_Decrypt(&request, &reply, nullptr) != SECSuccess) {
     return NS_ERROR_FAILURE;
   }
 

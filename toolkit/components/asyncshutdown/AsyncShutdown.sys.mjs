@@ -1054,12 +1054,6 @@ Barrier.prototype = Object.freeze({
             " within a reasonable amount of time. Causing a crash to" +
             " ensure that we do not leave the user with an unresponsive" +
             " process draining resources.";
-          fatalerr(msg);
-          if (gBrokenAddBlockers.length) {
-            fatalerr(
-              "Broken addBlocker calls: " + JSON.stringify(gBrokenAddBlockers)
-            );
-          }
           if (Services.appinfo.crashReporterEnabled) {
             Services.appinfo.annotateCrashReport(
               "AsyncShutdownTimeout",
@@ -1080,6 +1074,26 @@ Barrier.prototype = Object.freeze({
             ({ filename, lineNumber } = blocker.getOrigin());
             break;
           }
+
+          // In a profiled test run, give the harness a chance to save a profile
+          // and end the process with an unmissable failure instead of crashing,
+          // so the profile leading up to the hang isn't lost. This mirrors
+          // MOZ_DUMP_PROFILE_OR_CRASH_UNSAFE: if the profiler is inactive, or no
+          // harness handles the notification, we fall through and crash below.
+          // The fatalerr() logging is deferred until after this so a run the
+          // harness handles (saving a profile and ending the process) doesn't
+          // also emit this crash's FATAL ERROR line.
+          if (Services.profiler.IsActive()) {
+            Services.obs.notifyObservers(null, "profiler-dump-and-quit", msg);
+          }
+
+          fatalerr(msg);
+          if (gBrokenAddBlockers.length) {
+            fatalerr(
+              "Broken addBlocker calls: " + JSON.stringify(gBrokenAddBlockers)
+            );
+          }
+
           lazy.gDebug.abort(filename, lineNumber);
         },
         function onSatisfied() {

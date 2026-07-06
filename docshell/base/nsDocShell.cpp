@@ -3814,9 +3814,19 @@ nsresult nsDocShell::LoadErrorPage(nsIURI* aURI, const char16_t* aURL,
 
   nsCOMPtr<nsICaptivePortalService> cps = do_GetService(NS_CAPTIVEPORTAL_CID);
   int32_t cpsState;
-  if (cps && NS_SUCCEEDED(cps->GetState(&cpsState)) &&
-      cpsState == nsICaptivePortalService::LOCKED_PORTAL) {
-    errorPageUrl.AppendLiteral("&captive=true");
+  if (cps && NS_SUCCEEDED(cps->GetState(&cpsState))) {
+    if (cpsState == nsICaptivePortalService::LOCKED_PORTAL) {
+      errorPageUrl.AppendLiteral("&captive=true");
+    }
+    if (strcmp(aErrorPage, "neterror") == 0) {
+      static const char* const kCaptivePortalStateNames[] = {
+          "unknown", "not_captive", "unlocked_portal", "locked_portal"};
+      if (cpsState >= 0 &&
+          size_t(cpsState) < std::size(kCaptivePortalStateNames)) {
+        errorPageUrl.AppendLiteral("&captivePortalState=");
+        errorPageUrl.AppendASCII(kCaptivePortalStateNames[cpsState]);
+      }
+    }
   }
 
   errorPageUrl.AppendLiteral("&d=");
@@ -4227,6 +4237,10 @@ nsresult nsDocShell::StopInternal(
       // XXX Consider using a flag on LoadGroup instead of CanceledReason
       mLoadGroup->SetCanceledReason("navigation"_ns);
     }
+    // Cancel <form> planned navigations.
+    // Not currently in the spec, but it follows other browsers' behaviour:
+    // https://github.com/whatwg/html/issues/12609
+    CancelPlannedFormNavigation();
     Stop();
 
     // Clear out mChannelToDisconnectOnPageHide. This page won't go in the
@@ -4303,6 +4317,8 @@ nsDocShell::LoadPageAsViewSource(nsIDocShell* aOtherDocShell,
   // is only exposed to system code.  The triggering principal for this load
   // should be the system principal.
   loadState->SetTriggeringPrincipal(nsContentUtils::GetSystemPrincipal());
+  loadState->SetPrincipalToInherit(nullptr);
+  loadState->SetPartitionedPrincipalToInherit(nullptr);
   loadState->SetOriginalURI(nullptr);
   loadState->SetResultPrincipalURI(nullptr);
 
@@ -7460,15 +7476,12 @@ bool nsDocShell::NoopenerForceEnabled() {
          !mBrowsingContext->SameOriginWithTop();
 }
 
-nsresult nsDocShell::PerformRetargeting(nsDocShellLoadState* aLoadState) {
-  MOZ_ASSERT(aLoadState, "need a load state!");
-  MOZ_ASSERT(!aLoadState->Target().IsEmpty(), "should have a target here!");
-  MOZ_ASSERT(aLoadState->TargetBrowsingContext().IsNull(),
-             "should not have picked target yet");
-
-  nsresult rv = NS_OK;
-  RefPtr<BrowsingContext> targetContext;
-
+nsresult nsDocShell::ComputeNamedTargetBrowsingContext(
+    nsDocShellLoadState* aLoadState) {
+  if (aLoadState->HasComputedNamedTargetBrowsingContext() ||
+      aLoadState->Target().IsEmpty()) {
+    return NS_OK;
+  }
   // Only _self, _parent, and _top are supported in noopener case.  But we
   // have to be careful to not apply that to the noreferrer case.  See bug
   // 1358469.
@@ -7483,9 +7496,30 @@ nsresult nsDocShell::PerformRetargeting(nsDocShellLoadState* aLoadState) {
     NS_ENSURE_TRUE(document, NS_ERROR_FAILURE);
     WindowGlobalChild* wgc = document->GetWindowGlobalChild();
     NS_ENSURE_TRUE(wgc, NS_ERROR_FAILURE);
-    targetContext = wgc->FindBrowsingContextWithName(
-        aLoadState->Target(), /* aUseEntryGlobalForAccessCheck */ false);
+    aLoadState->SetTargetBrowsingContext(wgc->FindBrowsingContextWithName(
+        aLoadState->Target(), /* aUseEntryGlobalForAccessCheck */ false));
   }
+  aLoadState->SetHasComputedNamedTargetBrowsingContext(true);
+  return NS_OK;
+}
+
+nsresult nsDocShell::PerformRetargeting(nsDocShellLoadState* aLoadState) {
+  MOZ_ASSERT(aLoadState, "need a load state!");
+  MOZ_ASSERT(!aLoadState->Target().IsEmpty(), "should have a target here!");
+
+  nsresult rv = NS_OK;
+
+  rv = ComputeNamedTargetBrowsingContext(aLoadState);
+  NS_ENSURE_SUCCESS(rv, rv);
+  const MaybeDiscarded<BrowsingContext>& targetBCMaybeDiscarded =
+      aLoadState->TargetBrowsingContext();
+  if (targetBCMaybeDiscarded.IsDiscarded()) {
+    // e.g. target frame navigated to cross-origin site before async navigation
+    // happened
+    return NS_BINDING_ABORTED;
+  }
+  RefPtr<BrowsingContext> targetContext =
+      targetBCMaybeDiscarded.GetMaybeDiscarded();
 
   if (!targetContext) {
     // If the targetContext doesn't exist, then this is a new docShell and we
@@ -8420,6 +8454,14 @@ static void MaybeConvertToReplaceLoad(nsDocShellLoadState* aLoadState,
       aExtantDocument->GetPrincipal()->Equals(aLoadState->TriggeringPrincipal(),
                                               &convertToReplaceLoad);
     }
+  } else if (aLoadState->HistoryBehavior() ==
+             Some(NavigationHistoryBehavior::Replace)) {
+    // This load is supposed to be a replace, regardless of completely loaded.
+    // This can happen for form submissions since the planned form
+    // navigation might be queued before the document is completely loaded
+    // and then actually run after it is completely loaded:
+    // https://html.spec.whatwg.org/#concept-form-submit
+    convertToReplaceLoad = true;
   }
 
   convertToReplaceLoad =
@@ -10423,7 +10465,9 @@ nsresult nsDocShell::OpenRedirectedChannel(nsDocShellLoadState* aLoadState) {
     // that forwards functionality as needed, and then we register
     // it under the provided identifier.
     RefPtr wrapper = MakeRefPtr<ParentChannelWrapper>(channel, loader);
-    wrapper->Register(aLoadState->GetPendingRedirectChannelRegistrarId());
+    // We're in the parent process, so the redirect is owned by the parent
+    // process (ContentParentId 0).
+    wrapper->Register(aLoadState->GetPendingRedirectChannelRegistrarId(), 0);
 
     mLoadGroup->AddRequest(channel, nullptr);
   } else if (nsCOMPtr<nsIChildChannel> childChannel =
@@ -12007,13 +12051,17 @@ nsresult nsDocShell::EnsureCommandHandler() {
 
 // link handling
 
-class OnLinkClickEvent : public Runnable {
+class OnLinkClickEvent : public CancelableRunnable, public SupportsWeakPtr {
  public:
   OnLinkClickEvent(nsDocShell* aHandler, nsIContent* aContent,
                    nsDocShellLoadState* aLoadState, bool aNoOpenerImplied,
                    nsIPrincipal* aTriggeringPrincipal);
 
   NS_IMETHOD Run() override {
+    if (mCancelled) {
+      return NS_OK;
+    }
+
     // We need to set up an AutoJSAPI here for the following reason: When we
     // do OnLinkClickSync we'll eventually end up in
     // nsGlobalWindow::OpenInternal which only does popup blocking if
@@ -12022,10 +12070,22 @@ class OnLinkClickEvent : public Runnable {
     // concerned. (Bug 1930445)
     AutoJSAPI jsapi;
     if (jsapi.Init(mContent->OwnerDoc()->GetScopeObject())) {
-      mLoadState->SetSourceElement(mContent->AsElement());
+      // For form submissions, the source element is set to the submitter,
+      // and we don't want to overwrite it with the <form> element here.
+      if (!mLoadState->HasSourceElement()) {
+        mLoadState->SetSourceElement(mContent->AsElement());
+      }
       mHandler->OnLinkClickSync(mContent, mLoadState, mNoOpenerImplied,
                                 mTriggeringPrincipal);
     }
+    return NS_OK;
+  }
+
+  nsresult Cancel() override final {
+    mCancelled = true;
+    // Don't clear mLoadState, etc. here since this can be called
+    // from the OnLinkClickSync() above, and we might be holding
+    // the last references to them.
     return NS_OK;
   }
 
@@ -12035,18 +12095,91 @@ class OnLinkClickEvent : public Runnable {
   RefPtr<nsDocShellLoadState> mLoadState;
   nsCOMPtr<nsIPrincipal> mTriggeringPrincipal;
   bool mNoOpenerImplied;
+  bool mCancelled = false;
 };
 
 OnLinkClickEvent::OnLinkClickEvent(nsDocShell* aHandler, nsIContent* aContent,
                                    nsDocShellLoadState* aLoadState,
                                    bool aNoOpenerImplied,
                                    nsIPrincipal* aTriggeringPrincipal)
-    : mozilla::Runnable("OnLinkClickEvent"),
+    : mozilla::CancelableRunnable("OnLinkClickEvent"),
       mHandler(aHandler),
       mContent(aContent),
       mLoadState(aLoadState),
       mTriggeringPrincipal(aTriggeringPrincipal),
       mNoOpenerImplied(aNoOpenerImplied) {}
+
+Result<RefPtr<OnLinkClickEvent>, nsresult> nsDocShell::OnLinkClickWithLoadState(
+    nsIContent* aContent, nsDocShellLoadState* aLoadState,
+    bool aNoOpenerImplied, nsIPrincipal* aTriggeringPrincipal) {
+  if (StaticPrefs::dom_forms_submit_async_navigation()) {
+    // Determine BC to target synchronously, for consistency with other browsers
+    // (Guarding this behind dom.forms.submit_async_navigation since this change
+    //  is necessary for async form navigation, and it may cause regressions.)
+    ComputeNamedTargetBrowsingContext(aLoadState);
+    if (aContent->IsHTMLElement(nsGkAtoms::form)) {
+      // https://html.spec.whatwg.org/#form-submission-algorithm
+      // 25. If form document equals targetNavigable's active document, and form
+      //     document has not yet completely loaded, then set historyHandling to
+      //     "replace".
+      const MaybeDiscarded<BrowsingContext>& bc =
+          aLoadState->TargetBrowsingContext();
+      Document* formDocument = aContent->OwnerDoc();
+      if ((bc.IsNull() || bc == formDocument->GetBrowsingContext()) &&
+          !formDocument->IsCompletelyLoaded()) {
+        aLoadState->SetHistoryBehavior(NavigationHistoryBehavior::Replace);
+      }
+    }
+  }
+  RefPtr ev = MakeRefPtr<OnLinkClickEvent>(
+      this, aContent, aLoadState, aNoOpenerImplied, aTriggeringPrincipal);
+  RefPtr<nsIRunnable> runnable = ev;
+  nsresult rv = Dispatch(runnable.forget());
+  NS_ENSURE_SUCCESS(rv, Err(rv));
+  return ev;
+}
+
+nsresult nsDocShell::OnFormSubmit(HTMLFormElement* aForm,
+                                  nsDocShellLoadState* aLoadState) {
+  // Need to do this here, since it's ordinarily done in OnLinkClick.
+  if (ShouldBlockLoadingForBackButton()) {
+    return NS_OK;
+  }
+  if (!StaticPrefs::dom_forms_submit_async_navigation()) {
+    return OnLinkClickSync(aForm, aLoadState, false, aForm->NodePrincipal());
+  }
+
+  auto result = OnLinkClickWithLoadState(aForm, aLoadState, false,
+                                         aForm->NodePrincipal());
+  if (result.isErr()) {
+    return result.unwrapErr();
+  }
+  nsDocShell* targetDocShell = this;
+  if (!aLoadState->Target().IsEmpty()) {
+    const MaybeDiscarded<BrowsingContext>& targetBC =
+        aLoadState->TargetBrowsingContext();
+    targetDocShell =
+        targetBC.IsNullOrDiscarded()
+            ? nullptr
+            : static_cast<nsDocShell*>(targetBC.get()->GetDocShell());
+  }
+  if (targetDocShell) {
+    targetDocShell->CancelPlannedFormNavigation();
+    // Chrome stops pending javascript: navigations here.
+    // https://github.com/whatwg/html/issues/12607
+    targetDocShell->StopPendingJavascriptURLNavigations();
+    targetDocShell->mPlannedFormNavigation = result.unwrap().get();
+  }
+  return NS_OK;
+}
+
+nsresult nsDocShell::CancelPlannedFormNavigation() {
+  if (mPlannedFormNavigation) {
+    mPlannedFormNavigation->Cancel();
+    mPlannedFormNavigation = nullptr;
+  }
+  return NS_OK;
+}
 
 nsresult nsDocShell::OnLinkClick(
     nsIContent* aContent, nsIURI* aURI, const nsAString& aTargetSpec,
@@ -12141,9 +12274,9 @@ nsresult nsDocShell::OnLinkClick(
       ownerDoc->GetScriptTrackingFlags());
   loadState->SetHistoryBehavior(NavigationHistoryBehavior::Auto);
 
-  RefPtr ev = MakeRefPtr<OnLinkClickEvent>(
-      this, aContent, loadState, noOpenerImplied, aTriggeringPrincipal);
-  return Dispatch(ev.forget());
+  auto result = OnLinkClickWithLoadState(aContent, loadState, noOpenerImplied,
+                                         aTriggeringPrincipal);
+  return result.isErr() ? result.unwrapErr() : NS_OK;
 }
 
 bool nsDocShell::ShouldOpenInBlankTarget(const nsAString& aOriginalTarget,
@@ -12219,14 +12352,6 @@ nsresult nsDocShell::OnLinkClickSync(nsIContent* aContent,
                                      bool aNoOpenerImplied,
                                      nsIPrincipal* aTriggeringPrincipal) {
   if (!IsNavigationAllowed() || !IsOKToLoadURI(aLoadState->URI())) {
-    return NS_OK;
-  }
-
-  // XXX When the linking node was HTMLFormElement, it is synchronous event.
-  //     That is, the caller of this method is not |OnLinkClickEvent::Run()|
-  //     but |HTMLFormElement::SubmitSubmission(...)|.
-  if (aContent->IsHTMLElement(nsGkAtoms::form) &&
-      ShouldBlockLoadingForBackButton()) {
     return NS_OK;
   }
 
@@ -13220,4 +13345,22 @@ void nsDocShell::SetOngoingNavigation(
 
   // Step 3
   mOngoingNavigation = aOngoingNavigation;
+}
+
+void nsDocShell::StopPendingJavascriptURLNavigations() {
+  nsCOMPtr<nsISimpleEnumerator> requests;
+  mLoadGroup->GetRequests(getter_AddRefs(requests));
+  bool hasMore;
+  while (NS_SUCCEEDED(requests->HasMoreElements(&hasMore)) && hasMore) {
+    nsCOMPtr<nsISupports> elem;
+    requests->GetNext(getter_AddRefs(elem));
+    nsCOMPtr<nsIScriptChannel> script = do_QueryInterface(elem);
+    if (script) {
+      nsCOMPtr<nsIRequest> request = do_QueryInterface(elem);
+      MOZ_ASSERT(request);
+      mLoadGroup->CancelRequest(
+          request, "nsDocShell::StopPendingJavascriptNavigations"_ns,
+          NS_BINDING_ABORTED);
+    }
+  }
 }

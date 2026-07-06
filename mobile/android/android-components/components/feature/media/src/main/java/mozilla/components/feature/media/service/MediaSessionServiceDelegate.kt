@@ -170,7 +170,11 @@ internal class MediaSessionServiceDelegate(
             // Audio focus must be requested only while a foreground service is running.
             // On Android 15+, requesting audio focus from the background without one
             // silently returns AUDIOFOCUS_REQUEST_FAILED.
-            audioFocus.request(sessionState.id)
+            audioFocus.request(
+                sessionState.id,
+                sessionState.mediaSessionState?.audioSessionType
+                    ?: MediaSession.AudioSessionType.AUTO,
+            )
             updateNotification(sessionState)
         } else {
             // startForeground() requests audio focus once the service is started, ensuring

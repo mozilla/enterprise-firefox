@@ -53,6 +53,7 @@ namespace nsIWindowsAlertNotification {
 
 interface nsIWindowsAlertNotification extends nsIAlertNotification, Enums<typeof nsIWindowsAlertNotification_ImagePlacement> {
   imagePlacement: nsIWindowsAlertNotification.ImagePlacement;
+  imagePathUnchecked: string;
 }
 
 interface nsIWindowsAlertsService extends nsIAlertsService {
@@ -72,7 +73,7 @@ interface nsIDefaultAgent extends nsISupports {
   getDefaultBrowser(): string;
   getReplacePreviousDefaultBrowser(aCurrentBrowser: string): string;
   getDefaultPdfHandler(): string;
-  sendPing(aCurrentBrowser: string, aPreviousBrowser: string, aPdfHandler: string, aNotificationShown: string, aNotificationAction: string, daysSinceLastAppLaunch: u32): void;
+  sendPing(aCurrentBrowser: string, aPreviousBrowser: string, aPdfHandler: string, aNotificationShown: string, aNotificationAction: string, daysSinceLastAppLaunch: u32, aIsTaskbarPinned: string): void;
   setDefaultBrowserUserChoice(aAumid: string, aExtraFileExtensions: string[]): void;
   setDefaultBrowserUserChoiceAsync(aAumid: string, aExtraFileExtensions: string[]): Promise<any>;
   setDefaultExtensionHandlersUserChoice(aAumid: string, aFileExtensions: string[]): void;
@@ -89,12 +90,6 @@ interface nsIWindowsMutex extends nsISupports {
 
 interface nsIWindowsMutexFactory extends nsISupports {
   createMutex(aName: string): nsIWindowsMutex;
-}
-
-// https://searchfox.org/firefox-main/source/dom/geolocation/nsIGeolocationUIUtilsWin.idl
-
-interface nsIGeolocationUIUtilsWin extends nsISupports {
-  dismissPrompts(aBC: BrowsingContext): void;
 }
 
 // https://searchfox.org/firefox-main/source/netwerk/socket/nsINamedPipeService.idl
@@ -117,21 +112,27 @@ namespace nsIWindowsShellService {
 }
 
 interface nsIWindowsShellService extends nsIShellService, Enums<typeof nsIWindowsShellService_LaunchOnLoginEnabledEnumerator> {
-  createShortcut(aBinary: nsIFile, aArguments: string[], aDescription: string, aIconFile: nsIFile, aIconIndex: u16, aAppUserModelId: string, aShortcutFolder: string, aShortcutName: string): Promise<any>;
+  readonly OPEN_WITH_SUPPRESS_OPEN?: 4;
+  readonly OPEN_WITH_PROTOCOL_MESSAGING?: 8;
+  readonly OPEN_WITH_OPEN_ONCE?: 64;
+  readonly OPEN_WITH_SET_HANDLER?: 128;
+  readonly OPEN_WITH_SET_HANDLER_WIN10?: 8192;
+
+  createShortcut(aBinary: nsIFile, aArguments: string[], aDescription: string, aIconFile: nsIFile, aIconIndex: u16, aAppUserModelId: string, aShortcutFolder: string, aShortcutRelativePath: string): Promise<any>;
+  deleteShortcut(aShortcutFolder: string, aShortcutRelativePath: string): Promise<any>;
   getLaunchOnLoginShortcuts(): string[];
   pinCurrentAppToStartMenuAsync(aCheckOnly: boolean): Promise<any>;
   isCurrentAppPinnedToStartMenuAsync(): Promise<any>;
   enableLaunchOnLoginMSIXAsync(aTaskId: string): Promise<any>;
   disableLaunchOnLoginMSIXAsync(aTaskId: string): Promise<any>;
   getLaunchOnLoginEnabledMSIXAsync(aTaskId: string): Promise<any>;
-  pinCurrentAppToTaskbarAsync(aPrivateBrowsing: boolean): Promise<any>;
+  pinCurrentAppToTaskbarAsync(aPrivateBrowsing: boolean, aFireAndForget?: boolean): Promise<any>;
   checkPinCurrentAppToTaskbarAsync(aPrivateBrowsing: boolean): Promise<any>;
   isCurrentAppPinnedToTaskbarAsync(aumid: string): Promise<any>;
-  pinShortcutToTaskbar(aAppUserModelId: string, aShortcutPath: string): Promise<any>;
-  createWindowsIcon(aFile: nsIFile, aContainer: imgIContainer): Promise<any>;
-  unpinShortcutFromTaskbar(aShortcutPath: string): void;
-  getTaskbarTabShortcutPath(aShortcutName: string): string;
-  getTaskbarTabPins(): string[];
+  pinShortcutToTaskbar(aAppUserModelId: string, aShortcutFolder: string, aShortcutRelativePath: string): Promise<any>;
+  unpinShortcutFromTaskbar(aShortcutFolder: string, aShortcutRelativePath: string): void;
+  launchSetDefaultAppPicker(aTarget: string, aFlags: i32): void;
+  launchModernSettingsDialogDefaultApps(): void;
   classifyShortcut(aPath: string): string;
   hasPinnableShortcut(aAUMID: string, aPrivateBrowsing: boolean): Promise<any>;
   canSetDefaultBrowserUserChoice(): boolean;
@@ -140,6 +141,8 @@ interface nsIWindowsShellService extends nsIShellService, Enums<typeof nsIWindow
   checkCurrentProcessAUMIDForTesting(): string;
   isDefaultHandlerFor(aFileExtensionOrProtocol: string): boolean;
   queryCurrentDefaultHandlerFor(aFileExtensionOrProtocol: string): string;
+  setShortcutsIcon(aShortcutPaths: string[], aIconPath: string, aIconResourceId: u16): Promise<any>;
+  enumerateInstallShortcuts(aAppUserModelId: string): Promise<any>;
 }
 
 // https://searchfox.org/firefox-main/source/toolkit/components/taskscheduler/nsIWinTaskSchedulerService.idl
@@ -163,6 +166,7 @@ interface nsIJumpListBuilder extends nsISupports {
   isAvailable(): Promise<any>;
   checkForRemovals(): Promise<any>;
   populateJumpList(aTaskDescriptions: any, aCustomTitle: string, aCustomDescriptions: any): Promise<any>;
+  clearRecentsList(): void;
   clearJumpList(): Promise<any>;
 }
 
@@ -254,6 +258,7 @@ interface nsIWinTaskbar extends nsISupports {
   createJumpListBuilder(aPrivateBrowsing: boolean): nsIJumpListBuilder;
   getGroupIdForWindow(aParent: mozIDOMWindow): string;
   setGroupIdForWindow(aParent: mozIDOMWindow, aIdentifier: string): void;
+  setAllWindowIcons(aIconResourceId: u16): void;
 }
 
 // https://searchfox.org/firefox-main/source/widget/nsIWindowsUIUtils.idl
@@ -339,7 +344,6 @@ interface nsIXPCComponents_Interfaces {
   nsIDefaultAgent: nsJSIID<nsIDefaultAgent>;
   nsIWindowsMutex: nsJSIID<nsIWindowsMutex>;
   nsIWindowsMutexFactory: nsJSIID<nsIWindowsMutexFactory>;
-  nsIGeolocationUIUtilsWin: nsJSIID<nsIGeolocationUIUtilsWin>;
   nsIWindowsShellService: nsJSIID<nsIWindowsShellService, typeof nsIWindowsShellService_LaunchOnLoginEnabledEnumerator>;
   nsIWinTaskSchedulerService: nsJSIID<nsIWinTaskSchedulerService>;
   nsIJumpListBuilder: nsJSIID<nsIJumpListBuilder>;
@@ -361,7 +365,10 @@ interface nsIXPCComponents_Interfaces {
 }  // global
 
 // Typedefs from xpidl.
+type CSPDirective = nsIContentSecurityPolicy.CSPDirective;
 type PRTime = i64;
+type RequireTrustedTypesForDirectiveState = nsIContentSecurityPolicy.RequireTrustedTypesForDirectiveState;
+type nsContentPolicyType = nsIContentPolicy.nsContentPolicyType;
 type nsTaskbarProgressState = i32;
 
 // XPCOM internal utility types.

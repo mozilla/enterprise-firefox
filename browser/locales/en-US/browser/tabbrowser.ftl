@@ -337,6 +337,8 @@ tab-context-move-split-view-to-group =
 
 tab-splitview-splitter =
     .aria-label = Resize split view tabs
+tab-devtools-splitter =
+    .aria-label = Resize Developer Tools panel
 
 tab-context-move-tab-to-group-saved-groups =
     .label = Closed Groups

@@ -34,6 +34,8 @@ support-files = [
 
 ["browser_audiblechange_event.js"]
 
+["browser_audio_focus_interrupt_suspend_resume.js"]
+
 ["browser_audio_focus_management.js"]
 skip-if = [
   "os == 'mac' && os_version == '14.70' && arch == 'x86_64'", # Bug 1866742

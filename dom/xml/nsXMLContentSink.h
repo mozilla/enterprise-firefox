@@ -197,6 +197,8 @@ class nsXMLContentSink : public nsContentSink,
   bool mPrettyPrinting : 1 = false;
   // True to call prevent script execution in the fragment mode.
   bool mPreventScriptExecution : 1 = false;
+  // XSLT is disabled
+  bool mXSLTIsDisabled : 1 = false;
 
   nsTArray<StackNode> mContentStack;
 

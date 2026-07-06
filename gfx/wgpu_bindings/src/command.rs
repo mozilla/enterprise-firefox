@@ -714,8 +714,8 @@ pub fn replay_render_pass(
         &wgc::command::RenderPassDescriptor {
             label: src_pass.base.label.as_ref().map(|s| s.as_str().into()),
             color_attachments: Cow::Borrowed(&src_pass.color_attachments),
-            depth_stencil_attachment: src_pass.depth_stencil_attachment.as_ref(),
-            timestamp_writes: src_pass.timestamp_writes.as_ref(),
+            depth_stencil_attachment: src_pass.depth_stencil_attachment.clone(),
+            timestamp_writes: src_pass.timestamp_writes.clone(),
             occlusion_query_set: src_pass.occlusion_query_set_id,
             multiview_mask: None,
         },

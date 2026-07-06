@@ -9,6 +9,7 @@
 #include "nsITaskbarPreviewController.h"
 
 #include "mozilla/RefPtr.h"
+#include "mozilla/StaticPtr.h"
 #include "mozilla/widget/JumpListBuilder.h"
 #include <nsError.h>
 #include <nsCOMPtr.h>
@@ -28,6 +29,9 @@
 #include "nsAppRunner.h"
 #include "nsXREDirProvider.h"
 #include "mozilla/widget/WinRegistry.h"
+#include "nsIWindowMediator.h"
+#include "mozilla/ScopeExit.h"
+#include "mozilla/SimpleEnumerator.h"
 #include <io.h>
 #include <propvarutil.h>
 #include <propkey.h>
@@ -51,6 +55,26 @@ HWND GetHWNDFromDOMWindow(mozIDOMWindow* dw) {
 
   nsCOMPtr<nsPIDOMWindowInner> window = nsPIDOMWindowInner::From(dw);
   return GetHWNDFromDocShell(window->GetDocShell());
+}
+
+static bool GetWindowAumid(HWND aHwnd, nsAString& aAumid) {
+  RefPtr<IPropertyStore> propStore;
+  if (FAILED(SHGetPropertyStoreForWindow(aHwnd, IID_IPropertyStore,
+                                         getter_AddRefs(propStore)))) {
+    return false;
+  }
+
+  PROPVARIANT pv;
+  PropVariantInit(&pv);
+  auto cleanup = mozilla::MakeScopeExit([&] { PropVariantClear(&pv); });
+
+  if (FAILED(propStore->GetValue(PKEY_AppUserModel_ID, &pv)) ||
+      pv.vt != VT_LPWSTR) {
+    // No window-specific AUMID here, I guess.
+    return false;
+  }
+  aAumid.Assign(char16ptr_t(pv.pwszVal));
+  return true;
 }
 
 nsresult SetWindowAppUserModelProp(mozIDOMWindow* aParent,
@@ -458,6 +482,51 @@ WinTaskbar::PrepareFullScreen(void* aHWND, bool aFullScreen) {
   HRESULT hr = mTaskbar->MarkFullscreenWindow((HWND)aHWND, aFullScreen);
   if (FAILED(hr)) {
     return NS_ERROR_UNEXPECTED;
+  }
+
+  return NS_OK;
+}
+
+static uint16_t sProcessIconOverrideResId = 0;
+
+uint16_t WinTaskbar::GetWindowIconOverride() {
+  MOZ_ASSERT(NS_IsMainThread());
+  return sProcessIconOverrideResId;
+}
+
+NS_IMETHODIMP
+WinTaskbar::SetAllWindowIcons(uint16_t aIconResourceId) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  sProcessIconOverrideResId = aIconResourceId;
+
+  nsAutoString expectedAumid;
+  GetAppUserModelID(expectedAumid, /* aPrivateBrowsing */ false);
+
+  nsCOMPtr<nsIWindowMediator> wm = do_GetService(NS_WINDOWMEDIATOR_CONTRACTID);
+  if (!wm) {
+    return NS_ERROR_FAILURE;
+  }
+
+  nsCOMPtr<nsISimpleEnumerator> windows;
+  if (NS_FAILED(wm->GetEnumerator(nullptr, getter_AddRefs(windows)))) {
+    return NS_ERROR_FAILURE;
+  }
+
+  for (const auto& outer : SimpleEnumerator<nsPIDOMWindowOuter>(windows)) {
+    HWND hwnd = GetHWNDFromDocShell(outer->GetDocShell());
+    if (!hwnd) {
+      continue;
+    }
+    RefPtr<nsWindow> win = WinUtils::GetNSWindowPtr(hwnd);
+    if (!win) {
+      continue;
+    }
+    nsAutoString windowAumid;
+    if (GetWindowAumid(hwnd, windowAumid) &&
+        windowAumid.Equals(expectedAumid)) {
+      win->SetIconFromExeResource(aIconResourceId);
+    }
   }
 
   return NS_OK;

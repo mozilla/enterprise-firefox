@@ -14,9 +14,34 @@ const HTTP_AUTH_PREFS = [
   ["browser.http.blank_page_with_error_response.enabled", true],
 ];
 
+const VALID_CAPTIVE_PORTAL_STATES = [
+  "unknown",
+  "not_captive",
+  "unlocked_portal",
+  "locked_portal",
+];
+
 async function getGleanEvents(metric) {
   await Services.fog.testFlushAllChildren();
   return metric.testGetValue();
+}
+
+function assertNeterrorLoadEvent(
+  event,
+  { value = "dnsNotFound", is_frame = "false" } = {}
+) {
+  Assert.equal(event.extra.value, value, `value is ${value}`);
+  Assert.equal(event.extra.is_frame, is_frame, `is_frame is ${is_frame}`);
+  Assert.equal(
+    event.extra.no_connectivity,
+    "false",
+    "no_connectivity is false"
+  );
+  Assert.ok(
+    VALID_CAPTIVE_PORTAL_STATES.includes(event.extra.captive_portal_state),
+    `captive_portal_state "${event.extra.captive_portal_state}" is a valid state`
+  );
+  Assert.equal(event.extra.trr_only, "false", "trr_only is false");
 }
 
 async function openNetErrorPage(url, prefs = []) {
@@ -80,12 +105,7 @@ add_task(async function test_feltprivacy_neterror_load() {
   );
 
   Assert.equal(events.length, 1, "Exactly one load event recorded");
-  Assert.equal(events[0].extra.is_frame, "false", "Not in an iframe");
-  Assert.equal(
-    events[0].extra.value,
-    "dnsNotFound",
-    "Error code is dnsNotFound"
-  );
+  assertNeterrorLoadEvent(events[0]);
 
   BrowserTestUtils.removeTab(tab);
 });
@@ -103,7 +123,7 @@ add_task(async function test_feltprivacy_neterror_load_iframe() {
   );
 
   Assert.equal(events.length, 1, "Exactly one load event recorded");
-  Assert.equal(events[0].extra.is_frame, "true", "Recorded as iframe");
+  assertNeterrorLoadEvent(events[0], { is_frame: "true" });
 
   BrowserTestUtils.removeTab(tab);
 });
@@ -156,12 +176,7 @@ add_task(async function test_legacy_neterror_load() {
   );
 
   Assert.equal(events.length, 1, "Exactly one load event recorded");
-  Assert.equal(events[0].extra.is_frame, "false", "Not in an iframe");
-  Assert.equal(
-    events[0].extra.value,
-    "dnsNotFound",
-    "Error code is dnsNotFound"
-  );
+  assertNeterrorLoadEvent(events[0]);
 
   BrowserTestUtils.removeTab(tab);
   await SpecialPowers.popPrefEnv();

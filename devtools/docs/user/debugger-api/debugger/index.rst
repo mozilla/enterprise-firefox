@@ -24,12 +24,6 @@ A ``Debugger`` instance inherits the following accessor properties from its prot
 
   This property gives debugger code a single point of control for disentangling itself from the debuggee, regardless of what sort of events or handlers or “points” we add to the interface.
 
-``allowUnobservedAsmJS``
-
-  A boolean value indicating whether asm.js code running inside this ``Debugger`` instance’s debuggee globals is invisible to Debugger API handlers and breakpoints. Setting this to ``false`` inhibits the ahead-of-time asm.js compiler and forces asm.js code to run as normal JavaScript. This is an accessor property with a getter and setter. It is initially ``false`` in a freshly created ``Debugger`` instance.
-
-  Setting this flag to ``true`` is intended for uses of subsystems of the Debugger API (e.g, :doc:`Debugger.Source <../debugger.source/index>`) for purposes other than step debugging a target JavaScript program.
-
 ``allowWasmBinarySource``
 
   A boolean value indicating whether WebAssembly sources will be available in binary form. The WebAssembly text generation will be disabled.

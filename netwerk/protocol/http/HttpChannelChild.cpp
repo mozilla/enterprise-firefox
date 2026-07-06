@@ -1921,6 +1921,9 @@ HttpChannelChild::ConnectParent(uint32_t registrarId) {
     return NS_ERROR_FAILURE;
   }
 
+  // Defensively ensure the process is marked as untrusted.
+  ContentChild::MaybeBecomeUntrusted();
+
   HttpBaseChannel::SetDocshellUserAgentOverride();
 
   // This must happen before the constructor message is sent. Otherwise messages
@@ -2484,6 +2487,9 @@ nsresult HttpChannelChild::ContinueAsyncOpen() {
     return NS_ERROR_FAILURE;
   }
 
+  // Defensively ensure the process is marked as untrusted.
+  ContentChild::MaybeBecomeUntrusted();
+
   // add ourselves to the load group.
   if (mLoadGroup) {
     mLoadGroup->AddRequest(this, nullptr);
@@ -2521,7 +2527,6 @@ nsresult HttpChannelChild::ContinueAsyncOpen() {
 
   openArgs.preflightArgs() = optionalCorsPreflightArgs;
 
-  openArgs.uploadStreamHasHeaders() = LoadUploadStreamHasHeaders();
   openArgs.priority() = mPriority;
   openArgs.classOfService() = mClassOfService;
   openArgs.redirectionLimit() = mRedirectionLimit;

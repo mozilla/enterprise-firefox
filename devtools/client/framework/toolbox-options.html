@@ -168,6 +168,39 @@
           </label>
         </fieldset>
 
+        <fieldset id="netmonitor-options" class="options-groupbox">
+          <legend data-l10n-id="options-netmonitor-label"></legend>
+          <label
+            data-l10n-id="options-netmonitor-body-limit-tooltip"
+            class="netmonitor-body-limit"
+            for="netmonitor-body-limit"
+          >
+            <div
+              data-l10n-id="options-netmonitor-body-limit-label"
+              class="netmonitor-body-limit-label"
+            ></div>
+            <span id="netmonitor-body-limit-value"></span>
+            <button
+              data-l10n-id="options-netmonitor-body-limit-button"
+              class="devtools-button netmonitor-body-limit-button"
+              type="button"
+            ></button>
+            <button
+              data-l10n-id="options-netmonitor-body-limit-restore-default"
+              class="devtools-button netmonitor-body-limit-restore-default"
+              type="button"
+            ></button>
+          </label>
+          <div id="netmonitor-body-limit-edit">
+            <input type="text" id="netmonitor-body-limit" pattern="\d+" />
+            <button
+              data-l10n-id="options-netmonitor-body-limit-set"
+              class="devtools-button netmonitor-body-limit-set"
+              type="button"
+            ></button>
+          </div>
+        </fieldset>
+
         <fieldset id="styleeditor-options" class="options-groupbox">
           <legend data-l10n-id="options-styleeditor-label"></legend>
           <label data-l10n-id="options-stylesheet-autocompletion-tooltip">

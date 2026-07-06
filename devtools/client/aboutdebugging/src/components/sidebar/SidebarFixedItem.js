@@ -44,6 +44,7 @@ class SidebarFixedItem extends PureComponent {
         dom.img({
           className: "sidebar-fixed-item__icon",
           src: icon,
+          alt: "",
         }),
         dom.span(
           {

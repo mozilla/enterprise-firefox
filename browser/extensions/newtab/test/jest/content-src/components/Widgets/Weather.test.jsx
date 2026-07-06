@@ -510,7 +510,7 @@ describe("<Weather> (Widgets/Weather)", () => {
       ).toBeInTheDocument();
     });
 
-    it("hides temp unit items when opt-in is enabled (shortened menu)", () => {
+    it("hides temp unit items while the opt-in card is showing (shortened menu)", () => {
       const { container } = renderWeather("small", optInMockState);
       expect(
         container.querySelector(
@@ -522,6 +522,15 @@ describe("<Weather> (Widgets/Weather)", () => {
           "panel-item[data-l10n-id='newtab-weather-menu-change-temperature-units-fahrenheit']"
         )
       ).not.toBeInTheDocument();
+    });
+
+    it("shows temp unit items in an opt-in region once the user has accepted", () => {
+      const { container } = renderWeather("medium", optInAcceptedState);
+      expect(
+        container.querySelector(
+          "panel-item[data-l10n-id='newtab-weather-menu-change-temperature-units-celsius']"
+        )
+      ).toBeInTheDocument();
     });
   });
 

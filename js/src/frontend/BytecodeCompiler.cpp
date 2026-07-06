@@ -46,7 +46,6 @@
 #include "vm/NativeObject.h"   // NativeDefineDataProperty
 #include "vm/PlainObject.h"    // NewPlainObjectWithProto
 #include "vm/Time.h"           // AutoIncrementalTimer
-#include "wasm/AsmJS.h"
 
 #include "vm/Compartment-inl.h"  // JS::Compartment::wrap
 #include "vm/GeckoProfiler-inl.h"
@@ -851,7 +850,6 @@ void SourceAwareCompiler<Unit>::handleParseFailure(
 
   // Assignment must be monotonic to prevent reparsing iloops
   MOZ_ASSERT_IF(compilationState_.directives.strict(), newDirectives.strict());
-  MOZ_ASSERT_IF(compilationState_.directives.asmJS(), newDirectives.asmJS());
   compilationState_.directives = newDirectives;
 }
 
@@ -1095,37 +1093,29 @@ bool StandaloneFunctionCompiler<Unit>::compile(
 
   FunctionBox* funbox = parsedFunction->funbox();
 
-  if (funbox->isInterpreted()) {
-    Maybe<BytecodeEmitter> emitter;
-    if (!emplaceEmitter(emitter, funbox)) {
-      return false;
-    }
-
-    if (!emitter->emitFunctionScript(parsedFunction)) {
-      return false;
-    }
-
-    // The parser extent has stripped off the leading `function...` but
-    // we want the SourceExtent used in the final standalone script to
-    // start from the beginning of the buffer, and use the provided
-    // line and column.
-    const auto& options = compilationState_.input.options;
-    compilationState_.scriptExtra[CompilationStencil::TopLevelIndex].extent =
-        SourceExtent{/* sourceStart = */ 0,
-                     sourceBuffer_.length(),
-                     funbox->extent().toStringStart,
-                     funbox->extent().toStringEnd,
-                     options.lineno,
-                     JS::LimitedColumnNumberOneOrigin::fromUnlimited(
-                         JS::ColumnNumberOneOrigin(options.column))};
-  } else {
-    // The asm.js module was created by parser. Instantiation below will
-    // allocate the JSFunction that wraps it.
-    MOZ_ASSERT(funbox->isAsmJSModule());
-    MOZ_ASSERT(compilationState_.asmJS->moduleMap.has(funbox->index()));
-    MOZ_ASSERT(compilationState_.scriptData[CompilationStencil::TopLevelIndex]
-                   .functionFlags.isAsmJSNative());
+  MOZ_ASSERT(funbox->isInterpreted());
+  Maybe<BytecodeEmitter> emitter;
+  if (!emplaceEmitter(emitter, funbox)) {
+    return false;
   }
+
+  if (!emitter->emitFunctionScript(parsedFunction)) {
+    return false;
+  }
+
+  // The parser extent has stripped off the leading `function...` but
+  // we want the SourceExtent used in the final standalone script to
+  // start from the beginning of the buffer, and use the provided
+  // line and column.
+  const auto& options = compilationState_.input.options;
+  compilationState_.scriptExtra[CompilationStencil::TopLevelIndex].extent =
+      SourceExtent{/* sourceStart = */ 0,
+                   sourceBuffer_.length(),
+                   funbox->extent().toStringStart,
+                   funbox->extent().toStringEnd,
+                   options.lineno,
+                   JS::LimitedColumnNumberOneOrigin::fromUnlimited(
+                       JS::ColumnNumberOneOrigin(options.column))};
 
   return true;
 }
@@ -1710,17 +1700,15 @@ static JSFunction* CompileStandaloneFunction(
 
     fun = gcOutput.get().getFunctionNoBaseIndex(
         CompilationStencil::TopLevelIndex);
-    MOZ_ASSERT(fun->hasBytecode() || IsAsmJSModule(fun));
+    MOZ_ASSERT(fun->hasBytecode());
 
     // Enqueue an off-thread source compression task after finishing parsing.
     if (!source->tryCompressOffThread(cx)) {
       return nullptr;
     }
 
-    // Note: If AsmJS successfully compiles, the into.script will still be
-    // nullptr. In this case we have compiled to a native function instead of an
-    // interpreted script.
-    if (gcOutput.get().script) {
+    MOZ_ASSERT(gcOutput.get().script);
+    {
       if (parameterListEnd) {
         source->setParameterListEnd(*parameterListEnd);
       }

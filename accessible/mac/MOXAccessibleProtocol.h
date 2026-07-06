@@ -158,6 +158,9 @@
 // AXARIAControls
 - (NSArray* _Nullable)moxARIAControls;
 
+// AXDetailsElements
+- (NSArray* _Nullable)moxDetailsElements;
+
 // AXDOMIdentifier
 - (NSString* _Nullable)moxDOMIdentifier;
 

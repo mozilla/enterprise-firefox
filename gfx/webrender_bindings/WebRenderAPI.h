@@ -322,13 +322,13 @@ class WebRenderAPI final {
   RefPtr<EndRecordingPromise> EndRecording();
 
 #ifdef MOZ_WIDGET_ANDROID
-  using ScreenPixelsPromise =
-      MozPromise<RefPtr<layers::AndroidHardwareBuffer>, nsresult, true>;
+  using ScreenPixelsPromise = MozPromise<Ok, nsresult, true>;
   // Queues a task to the render thread to capture screen pixels for the next
   // rendered frame. Returns a promise that resolves once the pixels are
   // captured.
-  RefPtr<ScreenPixelsPromise> RequestScreenPixels(gfx::IntRect aSourceRect,
-                                                  gfx::IntSize aDestSize);
+  RefPtr<ScreenPixelsPromise> RequestScreenPixels(
+      gfx::IntRect aSourceRect,
+      RefPtr<layers::AndroidHardwareBuffer> aHardwareBuffer);
 #endif
 
   layers::RemoteTextureInfoList* GetPendingRemoteTextureInfoList();
@@ -576,10 +576,6 @@ struct MOZ_STACK_CLASS StackingContextParams : public WrStackingContextParams {
   // coordinates are transformed/snapped to invalidate less when transforms
   // change frequently.
   bool mAnimated = false;
-  // Whether items should be rasterized in a local space that is (mostly)
-  // invariant to transforms, i.e. disabling subpixel AA and screen space pixel
-  // snapping on text runs that would only make sense in screen space.
-  bool mRasterizeLocally = false;
 };
 
 /// This is a simple C++ wrapper around WrState defined in the rust bindings.

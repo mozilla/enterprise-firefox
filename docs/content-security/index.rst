@@ -101,7 +101,7 @@ principals.
 
 References
 ----------
-The interface definition in source code have a lot of detailed comments:
+The interface definitions in source code have a lot of detailed comments:
 
 - The :searchfox:`nsIPrincipal <caps/nsIPrincipal.idl>` interface definition.
 - The :searchfox:`nsILoadInfo <netwerk/base/nsILoadInfo.idl>` interface definition.

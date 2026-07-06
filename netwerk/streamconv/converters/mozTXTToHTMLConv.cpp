@@ -6,6 +6,7 @@
 #include "mozTXTToHTMLConv.h"
 #include "mozilla/intl/Segmenter.h"
 #include "mozilla/Maybe.h"
+#include "mozilla/Utf16.h"
 #include "nsIThreadRetargetableStreamListener.h"
 #include "nsNetUtil.h"
 #include "nsUnicharUtils.h"
@@ -569,8 +570,8 @@ bool mozTXTToHTMLConv::ItMatchesDelimited(const char16_t* aInString,
   }
 
   uint32_t text0 = aInString[0];
-  if (aInLength > 1 && NS_IS_SURROGATE_PAIR(text0, aInString[1])) {
-    text0 = SURROGATE_TO_UCS4(text0, aInString[1]);
+  if (aInLength > 1 && mozilla::IsSurrogatePair(text0, aInString[1])) {
+    text0 = mozilla::SurrogateToUCS4(text0, aInString[1]);
   }
   // find length of the char/cluster to be ignored
   int32_t ignoreLen = before == LT_IGNORE ? 0 : 1;
@@ -585,8 +586,9 @@ bool mozTXTToHTMLConv::ItMatchesDelimited(const char16_t* aInString,
   if (afterIndex < aInLength) {
     textAfterPos = aInString[afterIndex];
     if (aInLength > afterIndex + 1 &&
-        NS_IS_SURROGATE_PAIR(textAfterPos, aInString[afterIndex + 1])) {
-      textAfterPos = SURROGATE_TO_UCS4(textAfterPos, aInString[afterIndex + 1]);
+        mozilla::IsSurrogatePair(textAfterPos, aInString[afterIndex + 1])) {
+      textAfterPos =
+          mozilla::SurrogateToUCS4(textAfterPos, aInString[afterIndex + 1]);
     }
   }
 

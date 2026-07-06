@@ -34,6 +34,34 @@ let patterns: string[];
 }
 ```
 
+## Multiple triggers
+
+A message may declare multiple triggers via the `triggers` array instead of the
+singular `trigger`. The message becomes eligible when **any** one of the listed
+triggers matches, which avoids duplicating a message once per trigger:
+
+```javascript
+{
+  ...
+  triggers: [
+    { id: "openURL", params: ["example.com"] },
+    { id: "frequentVisits", params: ["example.com"] }
+  ]
+  ...
+}
+```
+
+When `trigger` and `triggers` are both present, `triggers` takes precedence.
+
+**Targeting is evaluated using the context of whichever trigger fired.** Because
+each trigger contributes its own context, a context value provided by one
+trigger is only available when *that* trigger fires. A targeting expression that
+depends on a specific trigger's context (such as `tabsClosedCount` from
+`nthTabClosed`) evaluates to `false` when a different trigger fires and does not
+supply that value. When using `triggers`, make sure the `targeting` expression
+is valid for every trigger listed. If the triggers need genuinely different
+targeting, use separate messages instead.
+
 ## Available trigger actions
 
 - [`openArticleURL`](#openarticleurl)
@@ -69,6 +97,7 @@ let patterns: string[];
 - [`ipProtectionBandwidthReset`](#ipprotectionbandwidthreset)
 - [`selectableProfilesUpdated`](#selectableprofilesupdated)
 - [`smartWindowNewTab`](#smartwindownewtab)
+- [`nimbusUpdate`](#nimbusupdate)
 
 ### `openArticleURL`
 
@@ -521,3 +550,29 @@ Occurs every time a user opens a new Smart Window tab.
   targeting: "isAIWindow && 'browser.smartwindow.firstrun.hasCompleted' | preferenceValue",
 }
 ```
+
+### `nimbusUpdate`
+
+Fired after ASRouter's Nimbus experiment enrollment listener finishes reloading
+messages from the `messaging-experiments` provider. Because messages are already
+in `ASRouter.state.messages` by the time this trigger fires, any message using it
+will be routed synchronously on the same tick as enrollment, without waiting for
+a timer or restart.
+
+This is the correct trigger for moments page (`update_action`) messages delivered
+via Nimbus experiments. It replaces the deprecated `momentsUpdate` pseudo-trigger.
+
+```js
+{
+  trigger: { id: "nimbusUpdate" },
+  template: "update_action",
+  content: {
+    action: {
+      id: "moments-wnp",
+      data: { url: "https://www.mozilla.org/firefox/welcome/12", expireDelta: 172800000 }
+    }
+  }
+}
+```
+
+Does not filter by host, patterns, or params.

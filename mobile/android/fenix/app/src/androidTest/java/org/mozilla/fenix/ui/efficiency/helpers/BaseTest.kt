@@ -52,7 +52,6 @@ import androidx.compose.ui.test.junit4.v2.AndroidComposeTestRule as AndroidCompo
  */
 abstract class BaseTest(
     private val skipOnboarding: Boolean = true,
-    private val isMenuRedesignCFREnabled: Boolean = false,
     private val isPageLoadTranslationsPromptEnabled: Boolean = false,
     private val isPocketEnabled: Boolean = true,
     private val isRecentlyVisitedFeatureEnabled: Boolean = true,
@@ -82,7 +81,6 @@ abstract class BaseTest(
                     _composeRule = AndroidComposeTestRuleV2(
                         HomeActivityIntentTestRule(
                             skipOnboarding = skipOnboarding,
-                            isMenuRedesignCFREnabled = isMenuRedesignCFREnabled,
                             isPageLoadTranslationsPromptEnabled = isPageLoadTranslationsPromptEnabled,
                             isPocketEnabled = isPocketEnabled,
                             isRecentlyVisitedFeatureEnabled = isRecentlyVisitedFeatureEnabled,

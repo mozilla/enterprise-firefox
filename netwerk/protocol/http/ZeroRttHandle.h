@@ -109,6 +109,9 @@ class ZeroRttHandle {
   // otherwise return before Adopt.
   nsHttpTransaction* RealTxn() const;
 
+  // Test-only: force the race-wide 0-RTT started flag directly.
+  void SetAnyStartedForTesting() { mAny0RttStarted = true; }
+
   void Cleanup();
 
  private:

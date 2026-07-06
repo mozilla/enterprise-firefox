@@ -11,6 +11,7 @@ sys.path.append(os.path.dirname(__file__))
 
 from felt_consts import firefox_config
 from felt_tests import FeltTests
+from marionette_driver.by import By
 from marionette_driver.errors import NoSuchElementException, UnknownException
 
 
@@ -42,6 +43,16 @@ class BrowserAccessConnector(FeltTests):
         self.run_enable_access_connector()
         self.run_disable_access_connector()
         self.run_enable_access_connector()
+        self.run_disable_access_connector()
+
+    def test_browser_access_connector_neterror_page(self):
+        self._logger.info("Enabling AccessConnector")
+        self.run_change_access_connector_policy(1)
+        self.run_felt_base()
+        self.connect_child_browser()
+
+        self.run_access_connector_enabled_in_browser()
+        self.run_access_connector_neterror_page()
         self.run_disable_access_connector()
 
     def run_enable_access_connector(self):
@@ -112,17 +123,8 @@ class BrowserAccessConnector(FeltTests):
     def get_access_connector_icon_is_displayed(self):
         with self._child_driver.using_context(self._child_driver.CONTEXT_CHROME):
             try:
-                ipprotection = self.find_elem_child("#ipprotection-button")
-                return ipprotection.is_displayed()
-            except NoSuchElementException:
-                return False
-
-    def get_access_connector_icon_is_green(self):
-        with self._child_driver.using_context(self._child_driver.CONTEXT_CHROME):
-            try:
-                ipprotection = self.find_elem_child("#ipprotection-button")
-                classes = ipprotection.get_attribute("class")
-                return "ipprotection-on" in classes
+                button = self.find_elem_child("#access-connector-button")
+                return button.is_displayed()
             except NoSuchElementException:
                 return False
 
@@ -197,9 +199,6 @@ class BrowserAccessConnector(FeltTests):
             assert self.get_access_connector_icon_is_displayed(), (
                 "Access Connector icon is displayed"
             )
-            assert self.get_access_connector_icon_is_green(), (
-                "Access Connector icon is reporting active"
-            )
         self.run_load_page_ok(f"http://localhost:{self.console_port}/ping", "Pong!")
 
     def run_load_page_without_access_connector(self):
@@ -207,7 +206,50 @@ class BrowserAccessConnector(FeltTests):
         assert not self.get_access_connector_icon_is_displayed(), (
             "Access Connector icon is not displayed"
         )
-        assert not self.get_access_connector_icon_is_green(), (
-            "Access Connector icon is reporting inactive"
-        )
         self.run_load_page_ok(f"http://localhost:{self.console_port}/ping", "Pong!")
+
+    def run_access_connector_neterror_page(self):
+        self._logger.info("Navigating to URL routed through access connector proxy")
+        with self.assertRaisesRegex(
+            UnknownException,
+            r"Reached error page: about:neterror\?e=proxyResolveFailure",
+        ):
+            self.open_tab_child("https://support.mozilla.org/en-US/")
+
+        self._child_driver.set_context("content")
+
+        self._logger.info("Waiting for access connector error page to render")
+        self._child_longwait.until(
+            lambda d: d.execute_script(
+                "return !!document.querySelector('net-error-card')?.shadowRoot"
+            )
+        )
+
+        self.run_check_access_connector_neterror_card()
+
+    def run_check_access_connector_neterror_card(self):
+        card_root = self.find_elem_child("net-error-card").shadow_root
+
+        self._logger.info("Checking custom error title l10n id")
+        title_l10n_id = card_root.find_element(By.ID, "error-title").get_attribute(
+            "data-l10n-id"
+        )
+        assert title_l10n_id == "fp-neterror-access-connector-error-title", (
+            f"Expected access connector error title, got: {title_l10n_id}"
+        )
+
+        self._logger.info("Checking error page illustration image")
+        image_src = card_root.find_element(
+            By.CSS_SELECTOR, ".img-container img"
+        ).get_attribute("src")
+        assert image_src.endswith("enterprise/access-connector-neterror.svg"), (
+            f"Expected access connector neterror image, got: {image_src}"
+        )
+
+        self._logger.info("Checking Try Again button is present")
+        try:
+            card_root.find_element(By.ID, "tryAgainButton")
+        except NoSuchElementException:
+            raise AssertionError(
+                "Expected Try Again button on access connector error page"
+            )

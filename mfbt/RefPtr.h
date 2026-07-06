@@ -110,22 +110,22 @@ class MOZ_IS_REFPTR MOZ_NULL_AFTER_MOVE RefPtr {
 
   MOZ_IMPLICIT constexpr RefPtr(std::nullptr_t) : mRawPtr(nullptr) {}
 
-  template <typename I,
-            typename = std::enable_if_t<std::is_convertible_v<I*, T*>>>
+  template <typename I>
+    requires std::convertible_to<I*, T*>
   MOZ_IMPLICIT RefPtr(already_AddRefed<I>& aSmartPtr)
       : mRawPtr(aSmartPtr.take())
   // construct from |already_AddRefed|
   {}
 
-  template <typename I,
-            typename = std::enable_if_t<std::is_convertible_v<I*, T*>>>
+  template <typename I>
+    requires std::convertible_to<I*, T*>
   MOZ_IMPLICIT RefPtr(already_AddRefed<I>&& aSmartPtr)
       : mRawPtr(aSmartPtr.take())
   // construct from |otherRefPtr.forget()|
   {}
 
-  template <typename I,
-            typename = std::enable_if_t<std::is_convertible_v<I*, T*>>>
+  template <typename I>
+    requires std::convertible_to<I*, T*>
   MOZ_IMPLICIT RefPtr(const RefPtr<I>& aSmartPtr)
       : mRawPtr(aSmartPtr.get())
   // copy-construct from a smart pointer with a related pointer type
@@ -135,24 +135,22 @@ class MOZ_IS_REFPTR MOZ_NULL_AFTER_MOVE RefPtr {
     }
   }
 
-  template <typename I,
-            typename = std::enable_if_t<std::is_convertible_v<I*, T*>>>
+  template <typename I>
+    requires std::convertible_to<I*, T*>
   MOZ_IMPLICIT RefPtr(RefPtr<I>&& aSmartPtr)
       : mRawPtr(aSmartPtr.forget().take())
   // construct from |Move(RefPtr<SomeSubclassOfT>)|.
   {}
 
-  template <typename I,
-            typename = std::enable_if_t<!std::is_same_v<I, RefPtr<T>> &&
-                                        std::is_convertible_v<I, RefPtr<T>>>>
+  template <typename I>
+    requires(!std::same_as<I, RefPtr<T>> && std::convertible_to<I, RefPtr<T>>)
   MOZ_IMPLICIT RefPtr(const mozilla::NotNull<I>& aSmartPtr)
       : mRawPtr(RefPtr<T>(aSmartPtr.get()).forget().take())
   // construct from |mozilla::NotNull|.
   {}
 
-  template <typename I,
-            typename = std::enable_if_t<!std::is_same_v<I, RefPtr<T>> &&
-                                        std::is_convertible_v<I, RefPtr<T>>>>
+  template <typename I>
+    requires(!std::same_as<I, RefPtr<T>> && std::convertible_to<I, RefPtr<T>>)
   MOZ_IMPLICIT RefPtr(mozilla::MovingNotNull<I>&& aSmartPtr)
       : mRawPtr(RefPtr<T>(std::move(aSmartPtr).unwrapBasePtr()).forget().take())
   // construct from |mozilla::MovingNotNull|.
@@ -221,15 +219,15 @@ class MOZ_IS_REFPTR MOZ_NULL_AFTER_MOVE RefPtr {
   RefPtr<T>& operator=(const nsQueryReferent& aQueryReferent);
   RefPtr<T>& operator=(const nsCOMPtr_helper& aHelper);
 
-  template <typename I,
-            typename = std::enable_if_t<std::is_convertible_v<I*, T*>>>
+  template <typename I>
+    requires(std::is_convertible_v<I*, T*>)
   RefPtr<T>& operator=(RefPtr<I>&& aRefPtr) noexcept {
     assign_assuming_AddRef(aRefPtr.forget().take());
     return *this;
   }
 
-  template <typename I,
-            typename = std::enable_if_t<std::is_convertible_v<I, RefPtr<T>>>>
+  template <typename I>
+    requires(std::is_convertible_v<I, RefPtr<T>>)
   RefPtr<T>& operator=(const mozilla::NotNull<I>& aSmartPtr)
   // assign from |mozilla::NotNull|.
   {
@@ -237,8 +235,8 @@ class MOZ_IS_REFPTR MOZ_NULL_AFTER_MOVE RefPtr {
     return *this;
   }
 
-  template <typename I,
-            typename = std::enable_if_t<std::is_convertible_v<I, RefPtr<T>>>>
+  template <typename I>
+    requires(std::is_convertible_v<I, RefPtr<T>>)
   RefPtr<T>& operator=(mozilla::MovingNotNull<I>&& aSmartPtr)
   // assign from |mozilla::MovingNotNull|.
   {

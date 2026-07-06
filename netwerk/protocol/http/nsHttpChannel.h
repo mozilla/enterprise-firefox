@@ -221,6 +221,8 @@ class nsHttpChannel final : public HttpBaseChannel,
   enum class SnifferType { Media, Image };
   void DisableIsOpaqueResponseAllowedAfterSniffCheck(SnifferType aType);
 
+  void OnOpaqueResponseAllowed() override;
+
  public: /* internal necko use only */
   uint32_t GetRequestTime() const { return mRequestTime; }
   const nsACString& GetLNAPromptAction() const { return mLNAPromptAction; }
@@ -626,6 +628,11 @@ class nsHttpChannel final : public HttpBaseChannel,
   // Needed because calling openAlternativeOutputStream needs a reference
   // to the cache entry.
   nsCOMPtr<nsICacheEntry> mAltDataCacheEntry;
+  // Holds the cache entry whose ORB validation is still pending when
+  // CloseCacheEntry() runs. ORB's JavaScript validation completes
+  // asynchronously, after the entry has already been committed, so we keep a
+  // reference here in order to doom the entry if the response ends up blocked.
+  nsCOMPtr<nsICacheEntry> mORBValidationCacheEntry;
 
   nsCOMPtr<nsIURI> mCacheEntryURI;
   nsCString mCacheIdExtension;

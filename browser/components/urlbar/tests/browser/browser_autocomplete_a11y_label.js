@@ -99,7 +99,7 @@ add_task(async function switchToTab() {
   let result = await UrlbarTestUtils.getDetailsOfResultAt(window, index);
   Assert.equal(
     result.type,
-    UrlbarUtils.RESULT_TYPE.TAB_SWITCH,
+    UrlbarShared.RESULT_TYPE.TAB_SWITCH,
     "Should have a switch tab result"
   );
 
@@ -151,7 +151,7 @@ add_task(async function searchSuggestions() {
   let expectedSearches = [searchTerm, "foofoo", "foobar"];
   for (let i = 0; i < length; i++) {
     let result = await UrlbarTestUtils.getDetailsOfResultAt(window, i);
-    if (result.type === UrlbarUtils.RESULT_TYPE.SEARCH) {
+    if (result.type === UrlbarShared.RESULT_TYPE.SEARCH) {
       Assert.greaterOrEqual(
         expectedSearches.length,
         0,

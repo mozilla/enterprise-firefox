@@ -1302,7 +1302,7 @@ size_t binding_detail::NeedsQIToWrapperCache::ObjectMoved(JSObject* aObj,
   return 0;
 }
 
-bool TryPreserveWrapper(JS::Handle<JSObject*> obj) {
+void TryPreserveWrapper(JS::Handle<JSObject*> obj) {
   MOZ_ASSERT(IsDOMObject(obj));
 
   // nsISupports objects are special cased because DOM proxies are nsISupports
@@ -1314,7 +1314,7 @@ bool TryPreserveWrapper(JS::Handle<JSObject*> obj) {
     if (cache) {
       cache->PreserveWrapper(native);
     }
-    return true;
+    return;
   }
 
   const JSClass* clasp = JS::GetClass(obj);
@@ -1325,7 +1325,7 @@ bool TryPreserveWrapper(JS::Handle<JSObject*> obj) {
                      "Should not call addProperty for proxies.");
 
   if (!clasp->preservesWrapper()) {
-    return true;
+    return;
   }
 
   WrapperCacheGetter getter = domClass->mWrapperCacheGetter;
@@ -1339,8 +1339,6 @@ bool TryPreserveWrapper(JS::Handle<JSObject*> obj) {
     cache->PreserveWrapper(
         cache, reinterpret_cast<nsScriptObjectTracer*>(domClass->mParticipant));
   }
-
-  return true;
 }
 
 bool HasReleasedWrapper(JS::Handle<JSObject*> obj) {

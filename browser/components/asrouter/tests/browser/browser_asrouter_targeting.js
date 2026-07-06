@@ -8,6 +8,7 @@ ChromeUtils.defineESModuleGetters(this, {
   ASRouterTargeting: "resource:///modules/asrouter/ASRouterTargeting.sys.mjs",
   AttributionCode:
     "moz-src:///browser/components/attribution/AttributionCode.sys.mjs",
+  BrowserInitState: "resource:///modules/BrowserGlue.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   BuiltInThemes: "resource:///modules/BuiltInThemes.sys.mjs",
   CFRMessageProvider: "resource:///modules/asrouter/CFRMessageProvider.sys.mjs",
@@ -610,6 +611,111 @@ add_task(async function checkisDefaultBrowser() {
     message,
     "should select correct item by isDefaultBrowser"
   );
+});
+
+add_task(async function checkisDefaultHandler_pdf() {
+  const expected = ShellService.isDefaultHandlerFor(".pdf");
+  const result = await ASRouterTargeting.Environment.isDefaultHandler.pdf;
+  is(
+    typeof result,
+    "boolean",
+    "isDefaultHandler.pdf should be a boolean value"
+  );
+  is(
+    result,
+    expected,
+    "isDefaultHandler.pdf should equal ShellService.isDefaultHandlerFor('.pdf')"
+  );
+  const message = {
+    id: "pdf_test",
+    targeting: `isDefaultHandler.pdf == ${expected.toString()}`,
+  };
+  is(
+    await ASRouterTargeting.findMatchingMessage({ messages: [message] }),
+    message,
+    "should select correct item by isDefaultHandler.pdf"
+  );
+});
+
+add_task(async function checkisDefaultHandler_html() {
+  const expected = ShellService.isDefaultHandlerFor(".html");
+  const result = await ASRouterTargeting.Environment.isDefaultHandler.html;
+  is(
+    typeof result,
+    "boolean",
+    "isDefaultHandler.html should be a boolean value"
+  );
+  is(
+    result,
+    expected,
+    "isDefaultHandler.html should equal ShellService.isDefaultHandlerFor('.html')"
+  );
+  const message = {
+    id: "html_test",
+    targeting: `isDefaultHandler.html == ${expected.toString()}`,
+  };
+  is(
+    await ASRouterTargeting.findMatchingMessage({ messages: [message] }),
+    message,
+    "should select correct item by isDefaultHandler.html"
+  );
+});
+
+add_task(async function checkisDefaultHandler_mailto() {
+  const expected = ShellService.isDefaultHandlerFor("mailto");
+  const result = await ASRouterTargeting.Environment.isDefaultHandler.mailto;
+  is(
+    typeof result,
+    "boolean",
+    "isDefaultHandler.mailto should be a boolean value"
+  );
+  is(
+    result,
+    expected,
+    "isDefaultHandler.mailto should equal ShellService.isDefaultHandlerFor('mailto')"
+  );
+  const message = {
+    id: "mailto_test",
+    targeting: `isDefaultHandler.mailto == ${expected.toString()}`,
+  };
+  is(
+    await ASRouterTargeting.findMatchingMessage({ messages: [message] }),
+    message,
+    "should select correct item by isDefaultHandler.mailto"
+  );
+});
+
+add_task(async function checkMailtoHandlerHost() {
+  const result = await ASRouterTargeting.Environment.mailtoHandlerHost;
+  ok(
+    result === null || typeof result === "string",
+    "mailtoHandlerHost should be null or a host string"
+  );
+
+  const nullMessage = {
+    id: "mailto_host_null_test",
+    targeting: "mailtoHandlerHost == null",
+  };
+  const nullMatch = await ASRouterTargeting.findMatchingMessage({
+    messages: [nullMessage],
+  });
+  ok(
+    nullMatch === nullMessage || nullMatch === null,
+    "should be able to target on mailtoHandlerHost == null"
+  );
+
+  if (typeof result === "string") {
+    ok(result.includes("."), `should return a host (got "${result}")`);
+    const message = {
+      id: "mailto_host_test",
+      targeting: `mailtoHandlerHost == "${result}"`,
+    };
+    is(
+      await ASRouterTargeting.findMatchingMessage({ messages: [message] }),
+      message,
+      "should select correct item by mailtoHandlerHost"
+    );
+  }
 });
 
 add_task(async function checkisPrivateWindow_false() {
@@ -2961,4 +3067,24 @@ add_task(async function check_daysSinceLastCrash_returnsDaysSinceLastCrash() {
   } finally {
     sandbox.restore();
   }
+});
+
+add_task(async function check_isLaunchOnLogin() {
+  const result = ASRouterTargeting.Environment.isLaunchOnLogin;
+  is(typeof result, "boolean", "isLaunchOnLogin should be a boolean");
+  is(
+    result,
+    BrowserInitState.isLaunchOnLogin,
+    "isLaunchOnLogin should reflect BrowserInitState.isLaunchOnLogin"
+  );
+
+  const message = {
+    id: "check_isLaunchOnLogin",
+    targeting: `isLaunchOnLogin == ${BrowserInitState.isLaunchOnLogin}`,
+  };
+  is(
+    (await ASRouterTargeting.findMatchingMessage({ messages: [message] })).id,
+    message.id,
+    "should select message matching current isLaunchOnLogin value"
+  );
 });

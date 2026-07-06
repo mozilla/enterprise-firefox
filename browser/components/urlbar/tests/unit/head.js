@@ -441,7 +441,7 @@ async function cleanupPlaces() {
  * @param {boolean} [options.heuristic]
  *   True if this is a heuristic result. Defaults to false.
  * @param {number} [options.source]
- *   Where the results should be sourced from. See {@link UrlbarUtils.RESULT_SOURCE}.
+ *   Where the results should be sourced from. See {@link UrlbarShared.RESULT_SOURCE}.
  * @param {number} [options.bookmarkDateMs]
  *   The date the bookmark was added in ms since epoch.
  *   For `check_results()`, leave this undefined to ignore the actual value.
@@ -460,7 +460,7 @@ function makeBookmarkResult(
     iconUri,
     tags = [],
     heuristic = false,
-    source = UrlbarUtils.RESULT_SOURCE.BOOKMARKS,
+    source = UrlbarShared.RESULT_SOURCE.BOOKMARKS,
     bookmarkDateMs = undefined,
     lastVisit = undefined,
   }
@@ -471,13 +471,14 @@ function makeBookmarkResult(
     tags,
     // Check against undefined so consumers can pass in the empty string.
     icon: typeof iconUri != "undefined" ? iconUri : `page-icon:${uri}`,
-    isBlockable: source == UrlbarUtils.RESULT_SOURCE.HISTORY ? true : undefined,
+    isBlockable:
+      source == UrlbarShared.RESULT_SOURCE.HISTORY ? true : undefined,
     blockL10n:
-      source == UrlbarUtils.RESULT_SOURCE.HISTORY
+      source == UrlbarShared.RESULT_SOURCE.HISTORY
         ? { id: "urlbar-result-menu-remove-from-history" }
         : undefined,
     helpUrl:
-      source == UrlbarUtils.RESULT_SOURCE.HISTORY
+      source == UrlbarShared.RESULT_SOURCE.HISTORY
         ? Services.urlFormatter.formatURLPref("app.support.baseURL") +
           "awesome-bar-result-menu"
         : undefined,
@@ -491,7 +492,7 @@ function makeBookmarkResult(
   }
 
   return new UrlbarResult({
-    type: UrlbarUtils.RESULT_TYPE.URL,
+    type: UrlbarShared.RESULT_TYPE.URL,
     source,
     heuristic,
     payload,
@@ -513,8 +514,8 @@ function makeBookmarkResult(
  */
 function makeFormHistoryResult(queryContext, { suggestion, engineName }) {
   return new UrlbarResult({
-    type: UrlbarUtils.RESULT_TYPE.SEARCH,
-    source: UrlbarUtils.RESULT_SOURCE.HISTORY,
+    type: UrlbarShared.RESULT_TYPE.SEARCH,
+    source: UrlbarShared.RESULT_SOURCE.HISTORY,
     payload: {
       engine: engineName,
       suggestion,
@@ -553,8 +554,8 @@ function makeOmniboxResult(
   { content, description, keyword, heuristic = false }
 ) {
   return new UrlbarResult({
-    type: UrlbarUtils.RESULT_TYPE.OMNIBOX,
-    source: UrlbarUtils.RESULT_SOURCE.ADDON,
+    type: UrlbarShared.RESULT_TYPE.OMNIBOX,
+    source: UrlbarShared.RESULT_SOURCE.ADDON,
     heuristic,
     payload: {
       title: description,
@@ -621,8 +622,8 @@ function makeTabSwitchResult(
   }
 
   return new UrlbarResult({
-    type: UrlbarUtils.RESULT_TYPE.TAB_SWITCH,
-    source: UrlbarUtils.RESULT_SOURCE.TABS,
+    type: UrlbarShared.RESULT_TYPE.TAB_SWITCH,
+    source: UrlbarShared.RESULT_SOURCE.TABS,
     payload,
   });
 }
@@ -653,8 +654,8 @@ function makeKeywordSearchResult(
   { uri, keyword, title, iconUri, postData, heuristic = false }
 ) {
   return new UrlbarResult({
-    type: UrlbarUtils.RESULT_TYPE.KEYWORD,
-    source: UrlbarUtils.RESULT_SOURCE.BOOKMARKS,
+    type: UrlbarShared.RESULT_TYPE.KEYWORD,
+    source: UrlbarShared.RESULT_SOURCE.BOOKMARKS,
     heuristic,
     payload: {
       title: title || uri,
@@ -707,8 +708,8 @@ function makeRemoteTabResult(
   }
 
   return new UrlbarResult({
-    type: UrlbarUtils.RESULT_TYPE.REMOTE_TAB,
-    source: UrlbarUtils.RESULT_SOURCE.TABS,
+    type: UrlbarShared.RESULT_TYPE.REMOTE_TAB,
+    source: UrlbarShared.RESULT_SOURCE.TABS,
     payload,
   });
 }
@@ -758,9 +759,9 @@ function makeRemoteTabResult(
  *   For tab-to-search results, the search engine domain without the public
  *   suffix.
  * @param {number} [options.type]
- *   The type of the search result. Defaults to UrlbarUtils.RESULT_TYPE.SEARCH.
+ *   The type of the search result. Defaults to UrlbarShared.RESULT_TYPE.SEARCH.
  * @param {number} [options.source]
- *   The source of the search result. Defaults to UrlbarUtils.RESULT_SOURCE.SEARCH.
+ *   The source of the search result. Defaults to UrlbarShared.RESULT_SOURCE.SEARCH.
  * @param {boolean} [options.satisfiesAutofillThreshold]
  *   If this search should appear in the autofill section of the box
  * @param {boolean} [options.trending]
@@ -789,8 +790,8 @@ function makeSearchResult(
     heuristic = false,
     trending = false,
     isRichSuggestion = false,
-    type = UrlbarUtils.RESULT_TYPE.SEARCH,
-    source = UrlbarUtils.RESULT_SOURCE.SEARCH,
+    type = UrlbarShared.RESULT_TYPE.SEARCH,
+    source = UrlbarShared.RESULT_SOURCE.SEARCH,
     satisfiesAutofillThreshold = false,
   }
 ) {
@@ -912,7 +913,7 @@ function makeVisitResult(
     providerName,
     tags = [],
     heuristic = false,
-    source = UrlbarUtils.RESULT_SOURCE.HISTORY,
+    source = UrlbarShared.RESULT_SOURCE.HISTORY,
     isAutofillFallback = false,
     bookmarkDateMs = undefined,
     lastVisit = undefined,
@@ -935,7 +936,7 @@ function makeVisitResult(
   if (
     !heuristic &&
     providerName != "UrlbarProviderAboutPages" &&
-    source == UrlbarUtils.RESULT_SOURCE.HISTORY
+    source == UrlbarShared.RESULT_SOURCE.HISTORY
   ) {
     payload.isBlockable = true;
     payload.blockL10n = { id: "urlbar-result-menu-remove-from-history" };
@@ -948,7 +949,7 @@ function makeVisitResult(
     payload.icon = iconUri;
   } else if (
     iconUri === undefined &&
-    source != UrlbarUtils.RESULT_SOURCE.OTHER_LOCAL
+    source != UrlbarShared.RESULT_SOURCE.OTHER_LOCAL
   ) {
     payload.icon = `page-icon:${uri}`;
   }
@@ -962,7 +963,7 @@ function makeVisitResult(
   }
 
   return new UrlbarResult({
-    type: UrlbarUtils.RESULT_TYPE.URL,
+    type: UrlbarShared.RESULT_TYPE.URL,
     source,
     heuristic,
     providerName,
@@ -983,8 +984,8 @@ function makeVisitResult(
  */
 function makeCalculatorResult(queryContext, { value }) {
   return new UrlbarResult({
-    type: UrlbarUtils.RESULT_TYPE.DYNAMIC,
-    source: UrlbarUtils.RESULT_SOURCE.OTHER_LOCAL,
+    type: UrlbarShared.RESULT_TYPE.DYNAMIC,
+    source: UrlbarShared.RESULT_SOURCE.OTHER_LOCAL,
     payload: {
       value,
       input: queryContext.searchString,
@@ -1024,15 +1025,15 @@ function makeGlobalActionsResult({
   };
 
   return new UrlbarResult({
-    type: UrlbarUtils.RESULT_TYPE.DYNAMIC,
-    source: UrlbarUtils.RESULT_SOURCE.ACTIONS,
+    type: UrlbarShared.RESULT_TYPE.DYNAMIC,
+    source: UrlbarShared.RESULT_SOURCE.ACTIONS,
     providerName: "UrlbarProviderGlobalActions",
     payload,
   });
 }
 
 /**
- * Checks that the results returned by a UrlbarController match those in
+ * Checks that the results returned by a UrlbarParentController match those in
  * the param `matches`.
  *
  * @param {object} options Options for the check.
@@ -1219,8 +1220,8 @@ async function check_results({
     }
 
     if (
-      actual.type == UrlbarUtils.RESULT_TYPE.SEARCH &&
-      actual.source == UrlbarUtils.RESULT_SOURCE.SEARCH &&
+      actual.type == UrlbarShared.RESULT_TYPE.SEARCH &&
+      actual.source == UrlbarShared.RESULT_SOURCE.SEARCH &&
       actual.providerName == "UrlbarProviderHeuristicFallback"
     ) {
       expected.payload.icon = SEARCH_GLASS_ICON;
@@ -1231,7 +1232,7 @@ async function check_results({
         const payloadUrlProtocol = new URL(actual.payload.url).protocol;
         if (
           !UrlbarUtils.PROTOCOLS_WITH_ICONS.includes(payloadUrlProtocol) &&
-          actual.source != UrlbarUtils.RESULT_SOURCE.OTHER_LOCAL
+          actual.source != UrlbarShared.RESULT_SOURCE.OTHER_LOCAL
         ) {
           expected.payload.icon = UrlbarUtils.ICON.DEFAULT;
         }

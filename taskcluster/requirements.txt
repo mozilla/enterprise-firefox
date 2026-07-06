@@ -517,9 +517,9 @@ mozilla-repo-urls==0.1.1 \
     # via
     #   -c ../third_party/python/requirements.txt
     #   taskcluster-taskgraph
-mozilla-taskgraph==4.1.3 \
-    --hash=sha256:182143d0278efcd0ba57b0be442f5f0f9d7a629130ca7113ba2d31ef6d287fff \
-    --hash=sha256:1f56e0c62274712ce2e2b97ac594906886fd058656316d8d22c0ed49713f009b
+mozilla-taskgraph==4.3.0 \
+    --hash=sha256:33807de7ca2174bdb8f617b506273b1d6fd6fd6a0d5e54fe069f1d367e5a3d33 \
+    --hash=sha256:69d8c792f10f0a89680ccda09a28201086c7fdc890ccf32c69348c8362a97432
     # via -r requirements.in
 msgspec==0.20.0 ; python_full_version < '3.10' \
     --hash=sha256:00648b1e19cf01b2be45444ba9dc961bd4c056ffb15706651e64e5d6ec6197b7 \

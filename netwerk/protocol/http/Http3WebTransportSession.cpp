@@ -54,7 +54,7 @@ bool Http3TunnelStreamBase::ConsumeHeaders(const char* buf, uint32_t avail,
 
 nsresult Http3TunnelStreamBase::TryActivating() {
   LOG(("Http3TunnelStreamBase::TryActivating [this=%p]", this));
-  nsHttpRequestHead* head = mTransaction->RequestHead();
+  const nsHttpRequestHead* head = mTransaction->RequestHead();
 
   nsAutoCString host;
   nsresult rv = head->GetHeader(nsHttp::Host, host);

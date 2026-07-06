@@ -2307,12 +2307,6 @@ VARIABLES = {
         """List of manifest files defining browser chrome tests.
         """,
     ),
-    "ANDROID_INSTRUMENTATION_MANIFESTS": (
-        ManifestparserManifestList,
-        list,
-        """List of manifest files defining Android instrumentation tests.
-        """,
-    ),
     "FIREFOX_UI_FUNCTIONAL_MANIFESTS": (
         ManifestparserManifestList,
         list,

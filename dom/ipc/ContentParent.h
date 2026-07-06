@@ -36,6 +36,7 @@
 #include "mozilla/dom/ipc/IdType.h"
 #include "mozilla/gfx/GPUProcessListener.h"
 #include "mozilla/gfx/gfxVarReceiver.h"
+#include "mozilla/glean/FOGTransportParent.h"
 #include "mozilla/ipc/BackgroundUtils.h"
 #include "mozilla/ipc/GeckoChildProcessHost.h"
 #include "mozilla/ipc/InputStreamUtils.h"
@@ -64,7 +65,6 @@ class nsITimer;
 class ParentIdleListener;
 class nsIOriginsListLoadCallback;
 class nsIWidget;
-class nsIX509Cert;
 
 namespace CrashReporter {
 class CrashReporterInitArgs;
@@ -443,6 +443,12 @@ class ContentParent final : public PContentParent,
   }
   bool IsDead() const { return mLifecycleState == LifecycleState::DEAD; }
 
+  /**
+   * Whether or not the content process has reported that it has become
+   * untrusted. See the documentation in ContentChild for more details.
+   */
+  bool IsUntrusted() const { return mIsUntrusted; }
+
   bool IsForBrowser() const { return mIsForBrowser; }
 
   GeckoChildProcessHost* Process() const { return mSubprocess; }
@@ -572,16 +578,6 @@ class ContentParent final : public PContentParent,
       nsIReferrerInfo* aReferrerInfo, const OriginAttributes& aOriginAttributes,
       bool aUserActivation, bool aTextDirectiveUserActivation,
       CreateWindowResolver&& aResolve);
-
-  mozilla::ipc::IPCResult RecvCreateWindowInDifferentProcess(
-      PBrowserParent* aThisTab, const MaybeDiscarded<BrowsingContext>& aParent,
-      const uint32_t& aChromeFlags, const bool& aCalledFromJS,
-      const bool& aTopLevelCreatedByWebContent, nsIURI* aURIToLoad,
-      const nsACString& aFeatures, const UserActivation::Modifiers& aModifiers,
-      const nsAString& aName, nsIPrincipal* aTriggeringPrincipal,
-      nsIPolicyContainer* aPolicyContainer, nsIReferrerInfo* aReferrerInfo,
-      const OriginAttributes& aOriginAttributes, bool aUserActivation,
-      bool aTextDirectiveUserActivation);
 
   static void BroadcastBlobURLRegistration(
       const nsACString& aURI, BlobImpl* aBlobImpl, nsIPrincipal* aPrincipal,
@@ -789,20 +785,18 @@ class ContentParent final : public PContentParent,
   static mozilla::StaticAutoPtr<std::vector<std::string>> sMacSandboxParams;
 #endif
 
-  // Set aLoadUri to true to load aURIToLoad and to false to only create the
-  // window. aURIToLoad should always be provided, if available, to ensure
-  // compatibility with GeckoView.
+  // aURIToLoad should always be provided, if available, to ensure compatibility
+  // with GeckoView.
   mozilla::ipc::IPCResult CommonCreateWindow(
       PBrowserParent* aThisTab, BrowsingContext& aParent, bool aSetOpener,
       const uint32_t& aChromeFlags, const bool& aCalledFromJS,
       const bool& aForPrinting, const bool& aForWindowDotPrint,
       const bool& aIsTopLevelCreatedByWebContent, nsIURI* aURIToLoad,
       const nsACString& aFeatures, const UserActivation::Modifiers& aModifiers,
-      BrowserParent* aNextRemoteBrowser, const nsAString& aName,
-      nsresult& aResult, nsCOMPtr<nsIRemoteTab>& aNewRemoteTab,
-      bool* aWindowIsNew, int32_t& aOpenLocation,
-      nsIPrincipal* aTriggeringPrincipal, nsIReferrerInfo* aReferrerInfo,
-      bool aLoadUri, nsIPolicyContainer* aPolicyContainer,
+      BrowserParent* aNextRemoteBrowser, nsresult& aResult,
+      nsCOMPtr<nsIRemoteTab>& aNewRemoteTab, bool* aWindowIsNew,
+      int32_t& aOpenLocation, nsIPrincipal* aTriggeringPrincipal,
+      nsIReferrerInfo* aReferrerInfo, nsIPolicyContainer* aPolicyContainer,
       const OriginAttributes& aOriginAttributes, bool aUserActivation,
       bool aTextDirectiveUserActivation);
 
@@ -1044,7 +1038,7 @@ class ContentParent final : public PContentParent,
   mozilla::ipc::IPCResult RecvSetURITitle(nsIURI* uri, const nsAString& title);
 
   mozilla::ipc::IPCResult RecvLoadURIExternal(
-      nsIURI* uri, nsIPrincipal* triggeringPrincipal,
+      NotNull<nsIURI*> uri, NotNull<nsIPrincipal*> triggeringPrincipal,
       nsIPrincipal* redirectPrincipal,
       const MaybeDiscarded<BrowsingContext>& aContext,
       bool aWasExternallyTriggered, bool aHasValidUserGestureActivation,
@@ -1215,11 +1209,6 @@ class ContentParent final : public PContentParent,
       const IPCStream& aIPCStream);
 
   mozilla::ipc::IPCResult RecvBHRThreadHang(const HangDetails& aHangDetails);
-
-  mozilla::ipc::IPCResult RecvAddCertException(
-      nsIX509Cert* aCert, const nsACString& aHostName, int32_t aPort,
-      const OriginAttributes& aOriginAttributes, bool aIsTemporary,
-      AddCertExceptionResolver&& aResolver);
 
   mozilla::ipc::IPCResult RecvAutomaticStorageAccessPermissionCanBeGranted(
       nsIPrincipal* aPrincipal,
@@ -1405,6 +1394,8 @@ class ContentParent final : public PContentParent,
 
   mozilla::ipc::IPCResult RecvFOGData(ByteBuf&& buf);
 
+  RefPtr<FlushFOGDataPromise> DoFlushFOGData();
+
   mozilla::ipc::IPCResult RecvGeckoTraceExport(ByteBuf&& aBuf);
 
   mozilla::ipc::IPCResult RecvSetContainerFeaturePolicy(
@@ -1441,6 +1432,11 @@ class ContentParent final : public PContentParent,
 #endif
 
   mozilla::ipc::IPCResult RecvDropParentProcessChannelHandle(const nsID& aUuid);
+
+  mozilla::ipc::IPCResult RecvBecomeUntrusted() {
+    mIsUntrusted = true;
+    return IPC_OK();
+  }
 
  public:
   void SendGetFilesResponseAndForget(const nsID& aID,
@@ -1567,6 +1563,9 @@ class ContentParent final : public PContentParent,
   uint8_t mLaunchResolved : 1;
   uint8_t mLaunchResolvedOk : 1;
 
+  // True if this process has marked itself as untrusted.
+  uint8_t mIsUntrusted : 1;
+
   // True if the input event queue on the main thread of the content process is
   // enabled.
   uint8_t mIsRemoteInputEventQueueEnabled : 1;
@@ -1603,6 +1602,8 @@ class ContentParent final : public PContentParent,
 
   UniquePtr<gfx::DriverCrashGuard> mDriverCrashGuard;
   UniquePtr<MemoryReportRequestHost> mMemoryReportRequest;
+
+  RefPtr<glean::FOGTransportParent> mFOGTransportParentActor;
 
 #if defined(XP_LINUX) && defined(MOZ_SANDBOX)
   RefPtr<SandboxBroker> mSandboxBroker;

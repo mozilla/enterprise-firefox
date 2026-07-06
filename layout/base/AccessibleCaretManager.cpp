@@ -619,7 +619,7 @@ nsresult AccessibleCaretManager::SelectWordOrShortcut(const nsPoint& aPoint) {
     return NS_ERROR_FAILURE;
   }
 
-  nsIFrame* focusableFrame = GetFocusableFrame(ptFrame);
+  AutoWeakFrame focusableFrame = GetFocusableFrame(ptFrame);
 
 #ifdef DEBUG_FRAME_DUMP
   AC_LOG("%s: Found %s under (%d, %d)", __FUNCTION__, ptFrame->ListTag().get(),
@@ -675,7 +675,9 @@ nsresult AccessibleCaretManager::SelectWordOrShortcut(const nsPoint& aPoint) {
     return NS_ERROR_FAILURE;
   }
 
-  // ptFrame is selectable. Now change the focus.
+  // ptFrame is selectable. Now change the focus. Note that focusableFrame may
+  // have died during NotifyIME() above, but it is fine to pass nullptr into
+  // ChangeFocusToOrClearOldFocus() to clear the old focus.
   ChangeFocusToOrClearOldFocus(focusableFrame);
   if (!ptFrame.IsAlive()) {
     // Cannot continue because ptFrame died.

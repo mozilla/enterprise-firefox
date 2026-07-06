@@ -21,6 +21,11 @@ skip-if = [
   "true", # Bug 1383315
 ]
 
+["browser_policyDisabled.js"]
+run-if = [
+  "enterprise",
+]
+
 ["browser_printpreview_crash.js"]
 https_first_disabled = true
 

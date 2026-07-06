@@ -14701,15 +14701,8 @@ if (IsCSSPropertyPrefEnabled("layout.css.text-decoration-inset.enabled")) {
         "from-font",
         "all",
         "stretch",
-        "-10%",
-        "43%",
         "10px5cm",
         "10px, 5cm",
-        "1em 10%",
-        "0 10%",
-        "50% 50%",
-        "100% 8mm",
-        "100% 0",
         "0 solid",
         "auto 7px",
         "word 9em",
@@ -14717,11 +14710,29 @@ if (IsCSSPropertyPrefEnabled("layout.css.text-decoration-inset.enabled")) {
         "1px 2px 3px",
         "45em auto 0",
         "0px 10% 9em",
-        "calc(10% + 1cm)",
-        "0 calc(100% - 10px)",
       ],
     },
   });
+
+  if (
+    IsCSSPropertyPrefEnabled(
+      "layout.css.text-decoration-inset-percentage.enabled"
+    )
+  ) {
+    gCSSProperties["text-decoration-inset"].other_values.push(
+      "-10%",
+      "43%",
+      "1em 10%",
+      "50% 50%",
+      "0 10%",
+      "100% 0",
+      "100% 8mm",
+      "calc(10% + 1cm)",
+      "0 calc(100% - 10px)",
+      "calc(10% + 10px) 20%",
+      "calc(10% + 10em) calc(20%)"
+    );
+  }
 }
 
 if (IsCSSPropertyPrefEnabled("layout.css.corner-shape.enabled")) {

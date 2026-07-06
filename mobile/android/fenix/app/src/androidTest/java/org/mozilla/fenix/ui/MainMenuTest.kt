@@ -33,6 +33,8 @@ import org.mozilla.fenix.helpers.MockBrowserDataHelper.createBookmarkItem
 import org.mozilla.fenix.helpers.TestAssetHelper.articleSummaryAsset
 import org.mozilla.fenix.helpers.TestAssetHelper.firstForeignWebPageAsset
 import org.mozilla.fenix.helpers.TestAssetHelper.getGenericAsset
+import org.mozilla.fenix.helpers.TestAssetHelper.navigablePageStartAsset
+import org.mozilla.fenix.helpers.TestAssetHelper.navigablePageTargetAsset
 import org.mozilla.fenix.helpers.TestAssetHelper.pdfFormAsset
 import org.mozilla.fenix.helpers.TestAssetHelper.refreshAsset
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTime
@@ -65,7 +67,6 @@ class MainMenuTest {
         AndroidComposeTestRuleV2(
             HomeActivityIntentTestRule(
                 skipOnboarding = true,
-                isMenuRedesignCFREnabled = false,
                 isPageLoadTranslationsPromptEnabled = false,
                 shakeToSummarizeFeatureFlagEnabled = true,
             ),
@@ -617,22 +618,6 @@ class MainMenuTest {
         }
     }
 
-    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080121
-    @Ignore("Disabled after enabling the composable toolbar and main menu: https://bugzilla.mozilla.org/show_bug.cgi?id=2006295")
-    @Test
-    fun verifyTheBrowserViewMainMenuCFRTest() {
-        val genericURL = mockWebServer.getGenericAsset(1)
-
-        composeTestRule.activityRule.applySettingsExceptions {
-            it.isMenuRedesignCFREnabled = true
-        }
-        navigationToolbar(composeTestRule) {
-        }.enterURLAndEnterToBrowser(genericURL.url) {
-        }.openThreeDotMenu {
-            verifyMainMenuCFR()
-        }
-    }
-
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080898
     @Test
     fun verifyTheFindInPageOptionInPDFsTest() {
@@ -779,6 +764,7 @@ class MainMenuTest {
         }
     }
 
+    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/4135485
     @Test
     @SkipLeaks(
         reasons = [
@@ -798,11 +784,15 @@ class MainMenuTest {
         }.openMainMenu {
             verifyBookmarkThisPageButton()
             clickBookmarkThisPageButton()
+            verifySnackBarText("Saved in “Bookmarks”")
+            waitUntilSnackbarGone()
         }.openMainMenu {
             verifyEditBookmarkButton()
         }
     }
 
+    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/4135486
+    @Ignore("Disabled for recently failing due to race conditions https://bugzilla.mozilla.org/show_bug.cgi?id=2050387")
     @Test
     @SkipLeaks(
         reasons = [
@@ -1202,6 +1192,27 @@ class MainMenuTest {
         }
     }
 
+    @SmokeTest
+    @Test
+    fun verifyTheMainMenuBackButtonLongPressTest() {
+        val firstWebPage = mockWebServer.getGenericAsset(1)
+        val nextWebPage = mockWebServer.getGenericAsset(2)
+
+        navigationToolbar(composeTestRule) {
+        }.enterURLAndEnterToBrowser(firstWebPage.url) {
+        }
+        navigationToolbar(composeTestRule) {
+        }.enterURLAndEnterToBrowser(nextWebPage.url) {
+            verifyUrl(nextWebPage.url.toString())
+        }.openThreeDotMenu {
+        }.longClickPreviousPageButton {
+            waitForAppWindowToBeUpdated()
+            verifyTabHistorySheetIsDisplayed(true)
+            verifyTabHistoryContainsWebsite(nextWebPage.url.toString(), true)
+            verifyTabHistoryContainsWebsite(firstWebPage.url.toString(), true)
+        }
+    }
+
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080126
     @Converted(
         replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.MainMenuTest#verifyTheMainMenuForwardButtonTest"],
@@ -1228,6 +1239,29 @@ class MainMenuTest {
         }.clickForwardButton {
             waitForAppWindowToBeUpdated()
             verifyUrl(nextWebPage.url.toString())
+        }
+    }
+
+    @SmokeTest
+    @Test
+    fun verifyTheMainMenuForwardButtonLongPressTest() {
+        val firstWebPage = mockWebServer.getGenericAsset(1)
+        val nextWebPage = mockWebServer.getGenericAsset(2)
+
+        navigationToolbar(composeTestRule) {
+        }.enterURLAndEnterToBrowser(firstWebPage.url) {
+        }
+        navigationToolbar(composeTestRule) {
+        }.enterURLAndEnterToBrowser(nextWebPage.url) {
+            verifyUrl(nextWebPage.url.toString())
+        }.openThreeDotMenu {
+        }.clickPreviousPageButton {
+        }.openThreeDotMenu {
+        }.longClickForwardPageButton {
+            waitForAppWindowToBeUpdated()
+            verifyTabHistorySheetIsDisplayed(true)
+            verifyTabHistoryContainsWebsite(nextWebPage.url.toString(), true)
+            verifyTabHistoryContainsWebsite(firstWebPage.url.toString(), true)
         }
     }
 
@@ -1345,6 +1379,34 @@ class MainMenuTest {
 
         browserScreen(composeTestRule) {
             verifyPageContent(customTabPage.content)
+        }
+    }
+
+    @SmokeTest
+    @Test
+    fun verifyTheMainMenuBackButtonLongClickFromCustomTabTest() {
+        val customMenuItem = "TestMenuItem"
+        val startPage = mockWebServer.navigablePageStartAsset
+        val targetPage = mockWebServer.navigablePageTargetAsset
+
+        intentReceiverActivityTestRule.launchActivity(
+            createCustomTabIntent(
+                startPage.url.toString(),
+                customMenuItem,
+            ),
+        )
+
+        customTabScreen(composeTestRule) {
+            clickPageObject(composeTestRule, itemContainingText("Go to target page"))
+        }.openMainMenu {
+        }.longClickBackButtonFromMenu {
+            waitForAppWindowToBeUpdated()
+        }
+
+        browserScreen(composeTestRule) {
+            verifyTabHistorySheetIsDisplayed(true)
+            verifyTabHistoryContainsWebsite(startPage.url.toString(), true)
+            verifyTabHistoryContainsWebsite(targetPage.url.toString(), true)
         }
     }
 

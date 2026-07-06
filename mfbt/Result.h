@@ -562,9 +562,7 @@ class [[nodiscard]] Result final {
    * Create a (success/error) result from another (success/error) result with
    * different but convertible value and error types.
    */
-  template <typename V2, typename E2,
-            typename = std::enable_if_t<std::is_convertible_v<V2, V> &&
-                                        std::is_convertible_v<E2, E>>>
+  template <std::convertible_to<V> V2, std::convertible_to<E> E2>
   MOZ_IMPLICIT constexpr Result(Result<V2, E2>&& aOther)
       : mImpl(aOther.isOk() ? Impl{aOther.unwrap()}
                             : Impl{aOther.unwrapErr()}) {}
@@ -827,8 +825,8 @@ class [[nodiscard]] Result final {
    *     MOZ_ASSERT(res2.isErr());
    *     MOZ_ASSERT(res.unwrapErr() == res2.unwrapErr());
    */
-  template <typename F, typename = std::enable_if_t<detail::IsResult<
-                            std::invoke_result_t<F, V&&>>::value>>
+  template <typename F>
+    requires(detail::IsResult<std::invoke_result_t<F, V &&>>::value)
   constexpr auto andThen(F f) -> std::invoke_result_t<F, V&&> {
     return MOZ_LIKELY(isOk()) ? f(unwrap()) : propagateErr();
   }

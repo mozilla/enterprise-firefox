@@ -20,6 +20,7 @@ MOZ_SRC_FILES += [
     "SmartbarMentionsPanelSearch.sys.mjs",
     "UrlbarMuxerStandard.sys.mjs",
     "UrlbarParentController.sys.mjs",
+    "UrlbarParentControllerProxy.sys.mjs",
     "UrlbarPrefs.sys.mjs",
     "UrlbarProviderAboutPages.sys.mjs",
     "UrlbarProviderActionsSearchMode.sys.mjs",

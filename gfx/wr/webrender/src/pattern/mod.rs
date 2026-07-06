@@ -9,6 +9,8 @@ pub mod image;
 pub mod cutout;
 pub mod yuv;
 pub mod backdrop;
+pub mod filter;
+pub mod mix_blend;
 
 use api::units::*;
 use api::ColorF;
@@ -47,10 +49,15 @@ pub enum PatternKind {
     YuvTextureRect = 11,
     // Samples a captured backdrop texture using a (bilerp) 4-corner uv quad.
     Backdrop = 12,
+    // Applies a filter to a sampled source texture; see ps_quad_blend.glsl.
+    Blend = 13,
+    // Composites a picture over its backdrop with a software mix-blend-mode;
+    // samples two textures (backdrop + source). See ps_quad_mix_blend.glsl.
+    MixBlend = 14,
     // When adding patterns, don't forget to update the NUM_PATTERNS constant.
 }
 
-pub const NUM_PATTERNS: u32 = 13;
+pub const NUM_PATTERNS: u32 = 15;
 
 impl PatternKind {
     pub fn from_u32(val: u32) -> Self {
@@ -68,8 +75,13 @@ impl PatternKind {
             | PatternKind::YuvTextureExternalBT709
             | PatternKind::YuvTextureRect
             => 3,
+            PatternKind::MixBlend => 2,
             _ => 1,
         }
+    }
+
+    pub fn requires_backdrop_readback(&self) -> bool {
+        *self == PatternKind::MixBlend
     }
 }
 
@@ -210,6 +222,8 @@ impl Pattern {
 
 pub const TEXTURED_SHADER_MODE_COLOR: i32 = 0;
 pub const TEXTURED_SHADER_MODE_TEXTURE: i32 = 1;
+// Only read the input texture's alpha.
+pub const TEXTURED_SHADER_MODE_TEXTURE_ALPHA: i32 = 2;
 
 // In the texture mode, whether to map the texture to the primitive's local rect
 // or segment rect.

@@ -32,6 +32,7 @@
 #include "mozilla/PresShell.h"
 #include "mozilla/ProfilerLabels.h"
 #include "mozilla/ServoBindings.h"
+#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StaticPrefs_layout.h"
 #include "mozilla/TextControlElement.h"
 #include "mozilla/TextControlState.h"
@@ -1251,10 +1252,11 @@ void nsINode::GetDebugDescription(nsACString& aOutput,
           data.Truncate(5);
           data.AppendLiteral("...");
         }
+        data.ReplaceSubstring(u"\\", u"\\\\");
         data.ReplaceSubstring(u"\n", u"\\n");
         data.ReplaceSubstring(u"\"", u"\\\"");
         data.ReplaceSubstring(u"\u00A0", u"&nbsp;");
-        aOutput.Append("(\""_ns + NS_ConvertUTF16toUTF8(data) + ")\""_ns);
+        aOutput.Append("(\""_ns + NS_ConvertUTF16toUTF8(data) + "\")"_ns);
       }
     }
 
@@ -2093,6 +2095,7 @@ static IndexCacheSlot sIndexCache[CACHE_NUM_SLOTS];
 static inline void AddChildAndIndexToCache(const nsINode* aParent,
                                            const nsINode* aChild,
                                            uint32_t aChildIndex) {
+  MOZ_ASSERT(NS_IsMainThread());
   uint32_t index = CACHE_GET_INDEX(aParent);
   sIndexCache[index].mParent = aParent;
   sIndexCache[index].mChild = aChild;
@@ -2102,6 +2105,8 @@ static inline void AddChildAndIndexToCache(const nsINode* aParent,
 static inline void GetChildAndIndexFromCache(const nsINode* aParent,
                                              const nsINode** aChild,
                                              Maybe<uint32_t>* aChildIndex) {
+  MOZ_ASSERT(NS_IsMainThread());
+
   uint32_t index = CACHE_GET_INDEX(aParent);
   if (sIndexCache[index].mParent == aParent) {
     *aChild = sIndexCache[index].mChild;
@@ -2113,6 +2118,7 @@ static inline void GetChildAndIndexFromCache(const nsINode* aParent,
 }
 
 static inline void RemoveFromCache(const nsINode* aParent) {
+  MOZ_ASSERT(NS_IsMainThread());
   uint32_t index = CACHE_GET_INDEX(aParent);
   if (sIndexCache[index].mParent == aParent) {
     sIndexCache[index] = {nullptr, nullptr, UINT32_MAX};
@@ -2254,12 +2260,13 @@ Maybe<uint32_t> nsINode::ComputeIndexOf(const nsINode* aPossibleChild) const {
     return Nothing();
   }
   const nsIContent* contentChild = nsIContent::FromNode(aPossibleChild);
+  const bool isMainThread = NS_IsMainThread();
   if (contentChild && GetChildCount() >= ChildIndexCache::kThreshold &&
-      NS_IsMainThread()) {
+      isMainThread) {
     return Some(ChildIndexCache::ComputeIndexOf(this, contentChild));
   }
 
-  if (MaybeCachesComputedIndex()) {
+  if (isMainThread && MaybeCachesComputedIndex()) {
     const nsINode* child;
     Maybe<uint32_t> maybeChildIndex;
     GetChildAndIndexFromCache(this, &child, &maybeChildIndex);
@@ -2300,7 +2307,7 @@ Maybe<uint32_t> nsINode::ComputeIndexOf(const nsINode* aPossibleChild) const {
   while (current) {
     MOZ_ASSERT(current->GetParentNode() == this);
     if (current == aPossibleChild) {
-      if (MaybeCachesComputedIndex()) {
+      if (isMainThread && MaybeCachesComputedIndex()) {
         AddChildAndIndexToCache(this, current, index);
       }
       return Some(index);
@@ -2331,11 +2338,6 @@ Maybe<uint32_t> nsINode::ComputeIndexInParentContent() const {
     return Nothing();
   }
   return parent->ComputeIndexOf(this);
-}
-
-bool nsINode::MaybeParentCachesComputedIndex() const {
-  nsINode* parent = GetParentNode();
-  return parent && parent->MaybeCachesComputedIndex();
 }
 
 uint32_t nsINode::GetFlatTreeChildCount() const {
@@ -4261,6 +4263,11 @@ already_AddRefed<nsINode> nsINode::CloneAndAdopt(
       init.mDelegatesFocus = originalShadowRoot->DelegatesFocus();
       init.mSlotAssignment = originalShadowRoot->SlotAssignment();
       init.mClonable = true;
+      if (StaticPrefs::dom_scoped_custom_element_registries_enabled() &&
+          originalShadowRoot->HasCustomElementRegistry()) {
+        init.mCustomElementRegistry.Construct(
+            originalShadowRoot->GetCustomElementRegistry());
+      }
 
       RefPtr<ShadowRoot> newShadowRoot =
           clone->AsElement()->AttachShadow(init, aError);
@@ -4268,6 +4275,9 @@ already_AddRefed<nsINode> nsINode::CloneAndAdopt(
         return nullptr;
       }
       newShadowRoot->SetIsDeclarative(originalShadowRoot->IsDeclarative());
+      if (originalShadowRoot->IsAvailableToElementInternals()) {
+        newShadowRoot->SetAvailableToElementInternals();
+      }
       nsAtom* referenceTarget = originalShadowRoot->ReferenceTarget();
       newShadowRoot->SetReferenceTarget(referenceTarget);
 

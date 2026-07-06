@@ -14,6 +14,7 @@
 #include "nsTHashSet.h"
 #include "happy_eyeballs_glue/HappyEyeballs.h"
 #include "ConnectionEstablisher.h"
+#include "HappyEyeballsConnMgrDelegate.h"
 #include "HappyEyeballsTransaction.h"
 
 namespace mozilla {
@@ -79,6 +80,19 @@ class HappyEyeballsConnectionAttempt final : public ConnectionAttempt,
   // override prevents.
   void Unclaim() override {}
   uint32_t UnconnectedUDPConnsLength() const override;
+
+  // Test-only seams; call before Init().
+  void SetConnectionEstablisherFactoryForTesting(
+      ConnectionEstablisherFactory* aFactory) {
+    mEstablisherFactory = aFactory;
+  }
+  void SetConnMgrDelegateForTesting(HappyEyeballsConnMgrDelegate* aDelegate) {
+    mConnMgrDelegate = aDelegate;
+  }
+
+  // Test-only accessors.
+  bool WasTransactionAdoptedForTesting() const { return mTransactionAdopted; }
+  ZeroRttHandle* ZeroRttHandleForTesting() const { return mZeroRttHandle; }
 
   // Real transaction accessor, used by the shared ZeroRttHandle.
   nsHttpTransaction* RealHttpTransaction() const {
@@ -219,9 +233,10 @@ class HappyEyeballsConnectionAttempt final : public ConnectionAttempt,
   nsresult EstablishTCPConnection(NetAddr aAddr, uint16_t aPort,
                                   nsTArray<uint8_t>&& aEchConfig, uint64_t aId,
                                   bool aIsEchRetry);
-  void HandleTCPConnectionResult(
+  // Handles both TCP and UDP results; IsUDP() distinguishes where it matters.
+  void HandleConnectionResult(
       Result<RefPtr<HttpConnectionBase>, nsresult> aResult,
-      TCPConnectionEstablisher* aEstablisher, uint64_t aId);
+      ConnectionEstablisher* aEstablisher, uint64_t aId);
   // If 0-RTT was active, forward the connection's security info to the real
   // transaction so MaybeRemoveSSLToken() in nsHttpTransaction::Restart() can
   // clear the SSL token cache for the retry.
@@ -230,9 +245,6 @@ class HappyEyeballsConnectionAttempt final : public ConnectionAttempt,
   nsresult EstablishUDPConnection(NetAddr aAddr, uint16_t aPort,
                                   nsTArray<uint8_t>&& aEchConfig, uint64_t aId,
                                   bool aIsEchRetry);
-  void HandleUDPConnectionResult(
-      Result<RefPtr<HttpConnectionBase>, nsresult> aResult,
-      UDPConnectionEstablisher* aEstablisher, uint64_t aId);
 
   nsresult CheckLNA(nsISocketTransport* aTransport);
   nsresult CheckLNAForAddr(const NetAddr& aAddr);
@@ -248,9 +260,9 @@ class HappyEyeballsConnectionAttempt final : public ConnectionAttempt,
   void EnterTimedOut();
   void EnterDone();
 
-  void ProcessTCPConn(nsHttpConnection* aConn, ConnectionEntry* aEntry,
+  void ProcessTCPConn(HttpConnectionBase* aConn, ConnectionEntry* aEntry,
                       bool aTransactionAlreadyOnConn);
-  void ProcessUDPConn(HttpConnectionUDP* aConn, ConnectionEntry* aEntry,
+  void ProcessUDPConn(HttpConnectionBase* aConn, ConnectionEntry* aEntry,
                       bool aTransactionAlreadyOnConn);
   void CloseHttpTransaction(happy_eyeballs::FailureReason aReason,
                             ConnectionEntry* aEntry);
@@ -264,6 +276,10 @@ class HappyEyeballsConnectionAttempt final : public ConnectionAttempt,
 
   nsRefPtrHashtable<nsUint64HashKey, ConnectionEstablisher>
       mConnectionEstablisherTable;
+  // Creates per-attempt establishers; default uses real sockets.
+  RefPtr<ConnectionEstablisherFactory> mEstablisherFactory;
+  // Wraps the connection manager + entry; default forwards to ConnMgr().
+  RefPtr<HappyEyeballsConnMgrDelegate> mConnMgrDelegate;
   RefPtr<HttpConnectionBase> mOutputConn;
   // Winning establisher's per-attempt transaction; used to read its
   // collected handshake timings before we dispatch the real transaction.

@@ -434,6 +434,29 @@ class BrowserRobot(private val composeTestRule: ComposeTestRule) {
         )
     }
 
+    fun verifyTabHistorySheetIsDisplayed(isDisplayed: Boolean) {
+        assertUIObjectExists(
+            itemWithResId("$packageName:id/tabHistoryRecyclerView"),
+            exists = isDisplayed,
+        )
+    }
+
+    fun verifyTabHistoryContainsWebsite(websiteUrl: String, isDisplayed: Boolean) {
+        Log.i(TAG, "verifyTabHistoryContainsWebsite: Trying to verify that tab history contains website: $websiteUrl")
+        val historyList = itemWithResId("$packageName:id/tabHistoryRecyclerView")
+        val websiteItem = historyList.getChild(
+            // selector =
+            UiSelector()
+                .resourceId("$packageName:id/site_list_item")
+                .childSelector(UiSelector().text(websiteUrl)),
+        )
+        assertUIObjectExists(
+            websiteItem,
+            exists = isDisplayed,
+        )
+        Log.i(TAG, "verifyTabHistoryContainsWebsite: Verified that the tab history contains website: $websiteUrl")
+    }
+
     fun verifyNavURLBarHidden() = assertUIObjectIsGone(navURLBar())
 
     fun verifyMenuButton() {
@@ -1459,6 +1482,13 @@ class BrowserRobot(private val composeTestRule: ComposeTestRule) {
         Log.i(TAG, "clickTheDismissButtonOnSummarizeCFR: Trying to click the \"X\" button on the summarize CFR")
         composeTestRule.summarizeCFRButton().performClick()
         Log.i(TAG, "clickTheDismissButtonOnSummarizeCFR: Clicked the \"X\" button on the summarize CFR")
+    }
+
+    fun clickStayInAppPromptButton() {
+        val stayInAppButton = itemContainingText(getStringResource(R.string.applinks_prompt_negative_button, argument = appName))
+        if (stayInAppButton.exists()) {
+            stayInAppButton.click()
+        }
     }
 
     class Transition(private val composeTestRule: ComposeTestRule) {

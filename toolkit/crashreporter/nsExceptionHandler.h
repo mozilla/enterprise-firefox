@@ -79,10 +79,15 @@ static inline bool IsDummy() {
 #endif
 }
 
-nsresult OOPInit(nsIFile* aXREDirectory);
+nsresult OOPInit(nsIFile* aXREDirectory, bool force = false);
 void OOPDeinit();
 nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force = false);
 nsresult UnsetExceptionHandler();
+
+/**
+ * Get the PID of the crash helper process, or 0 if disabled.
+ */
+uint32_t GetCrashHelperPid();
 
 /**
  * Tell the crash reporter to recalculate where crash events files should go.
@@ -205,6 +210,13 @@ nsresult AppendObjCExceptionInfoToAppNotes(void* inException);
 #endif
 nsresult GetSubmitReports(bool* aSubmitReport);
 nsresult SetSubmitReports(bool aSubmitReport);
+
+// Re-evaluate environment variables that gate whether the crash reporter
+// client is launched after a crash. Call this after modifying any of the
+// MOZ_CRASHREPORTER_NO_REPORT / MOZ_CRASHREPORTER_FULLDUMP environment
+// variables so the cached, signal-safe value used by the crash callback
+// stays in sync.
+void UpdateShouldReport();
 
 // Out-of-process crash reporter API.
 

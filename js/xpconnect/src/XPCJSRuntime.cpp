@@ -1706,12 +1706,6 @@ static void ReportClassStats(const ClassInfo& classInfo, const nsACString& path,
                  "JS array buffer elements allocated in the malloc heap.");
   }
 
-  if (classInfo.objectsMallocHeapElementsAsmJS > 0) {
-    REPORT_BYTES(path + "objects/malloc-heap/elements/asm.js"_ns, KIND_HEAP,
-                 classInfo.objectsMallocHeapElementsAsmJS,
-                 "asm.js array buffer elements allocated in the malloc heap.");
-  }
-
   if (classInfo.objectsMallocHeapGlobalData > 0) {
     REPORT_BYTES(path + "objects/malloc-heap/global-data"_ns, KIND_HEAP,
                  classInfo.objectsMallocHeapGlobalData,
@@ -1745,14 +1739,14 @@ static void ReportClassStats(const ClassInfo& classInfo, const nsACString& path,
   if (classInfo.objectsNonHeapElementsWasm > 0) {
     REPORT_BYTES(path + "objects/non-heap/elements/wasm"_ns, KIND_NONHEAP,
                  classInfo.objectsNonHeapElementsWasm,
-                 "wasm/asm.js array buffer elements allocated outside both the "
+                 "wasm array buffer elements allocated outside both the "
                  "malloc heap and the GC heap.");
   }
   if (classInfo.objectsNonHeapElementsWasmShared > 0) {
     REPORT_BYTES(
         path + "objects/non-heap/elements/wasm-shared"_ns, KIND_NONHEAP,
         classInfo.objectsNonHeapElementsWasmShared,
-        "wasm/asm.js array buffer elements allocated outside both the "
+        "wasm array buffer elements allocated outside both the "
         "malloc heap and the GC heap. These elements are shared between "
         "one or more runtimes; the reported size is divided by the "
         "buffer's refcount.");
@@ -1760,8 +1754,7 @@ static void ReportClassStats(const ClassInfo& classInfo, const nsACString& path,
 
   if (classInfo.objectsNonHeapCodeWasm > 0) {
     REPORT_BYTES(path + "objects/non-heap/code/wasm"_ns, KIND_NONHEAP,
-                 classInfo.objectsNonHeapCodeWasm,
-                 "AOT-compiled wasm/asm.js code.");
+                 classInfo.objectsNonHeapCodeWasm, "AOT-compiled wasm code.");
   }
 
   if (classInfo.objectsGCBufferMisc > 0) {
@@ -2891,14 +2884,8 @@ static void AccumulateTelemetryCallback(JSMetric id,
 
 static void SetUseCounterCallback(JSObject* obj, JSUseCounter counter) {
   switch (counter) {
-    case JSUseCounter::ASMJS:
-      SetUseCounter(obj, eUseCounter_custom_JS_asmjs);
-      return;
     case JSUseCounter::WASM:
       SetUseCounter(obj, eUseCounter_custom_JS_wasm);
-      return;
-    case JSUseCounter::USE_ASM:
-      SetUseCounter(obj, eUseCounter_custom_JS_use_asm);
       return;
     case JSUseCounter::WASM_LEGACY_EXCEPTIONS:
       SetUseCounter(obj, eUseCounter_custom_JS_wasm_legacy_exceptions);
@@ -2970,19 +2957,15 @@ static void DestroyRealm(JS::GCContext* gcx, JS::Realm* realm) {
   JS::SetRealmPrivate(realm, nullptr);
 }
 
-static bool PreserveWrapper(JSContext* cx, JS::Handle<JSObject*> obj) {
+static void PreserveWrapper(JSContext* cx, JS::Handle<JSObject*> obj) {
   MOZ_ASSERT(cx);
   MOZ_ASSERT(obj);
   MOZ_ASSERT(mozilla::dom::IsDOMObject(obj));
 
-  if (!mozilla::dom::TryPreserveWrapper(obj)) {
-    return false;
-  }
+  mozilla::dom::TryPreserveWrapper(obj);
 
   MOZ_ASSERT(!mozilla::dom::HasReleasedWrapper(obj),
              "There should be no released wrapper since we just preserved it");
-
-  return true;
 }
 
 static nsresult ReadSourceFromFilename(JSContext* cx, const char* filename,

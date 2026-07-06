@@ -500,6 +500,13 @@ LAllocation LIRGeneratorShared::useAnyOrInt32Constant(MDefinition* mir) {
   return useAny(mir);
 }
 
+LAllocation LIRGeneratorShared::useAnyOrInt32ConstantAtStart(MDefinition* mir) {
+  if (CanUseInt32Constant(mir)) {
+    return LAllocation(mir->toConstant());
+  }
+  return useAnyAtStart(mir);
+}
+
 LAllocation LIRGeneratorShared::useRegisterOrZero(MDefinition* mir) {
   if (mir->isConstant() &&
       (mir->toConstant()->isInt32(0) || mir->toConstant()->isInt64(0))) {

@@ -331,7 +331,18 @@ public:
 
     int onGetUPEM() const override
     {
-        return fFTFace->units_per_EM;
+        int upem = fFTFace->units_per_EM;
+        // At least some versions of FreeType set units_per_EM to 0 for bitmap
+        // only fonts (e.g. CBDT/CBLC color emoji); fall back to the head table.
+        if (upem == 0) {
+            mozilla_LockSharedFTFace(fFTFaceContext, nullptr);
+            if (auto* head =
+                    (TT_Header*)FT_Get_Sfnt_Table(fFTFace, ft_sfnt_head)) {
+                upem = head->Units_Per_EM;
+            }
+            mozilla_UnlockSharedFTFace(fFTFaceContext);
+        }
+        return upem;
     }
 
     SkTypeface::LocalizedStrings* onCreateFamilyNameIterator() const override

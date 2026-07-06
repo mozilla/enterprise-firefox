@@ -1224,6 +1224,33 @@ static void InitNamespaceOrSourceBinding(JSContext* cx,
   env->setSlot(prop->slot(), obj);
 }
 
+static bool ComputeNamespaceBindings(JSContext* cx,
+                                     Handle<ModuleObject*> module,
+                                     Handle<ModuleNamespaceObject*> ns) {
+  Rooted<JSAtom*> name(cx);
+  Rooted<Value> resolution(cx);
+  Rooted<ResolvedBindingObject*> binding(cx);
+  Rooted<ModuleObject*> importedModule(cx);
+  Rooted<JSAtom*> bindingName(cx);
+  for (JSAtom* atom : ns->exports()) {
+    name = atom;
+
+    if (!ModuleResolveExport(cx, module, name, &resolution)) {
+      return false;
+    }
+
+    MOZ_ASSERT(IsResolvedBinding(cx, resolution));
+    binding = &resolution.toObject().as<ResolvedBindingObject>();
+    importedModule = binding->module();
+    bindingName = binding->bindingName();
+    if (!ns->addBinding(cx, name, importedModule, bindingName)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 struct AtomComparator {
   bool operator()(JSAtom* a, JSAtom* b, bool* lessOrEqualp) {
     int32_t result = CompareStrings(a, b);
@@ -1259,25 +1286,9 @@ static ModuleNamespaceObject* ModuleNamespaceCreate(
   }
 
   // Pre-compute all binding mappings now instead of on each access.
-  Rooted<JSAtom*> name(cx);
-  Rooted<Value> resolution(cx);
-  Rooted<ResolvedBindingObject*> binding(cx);
-  Rooted<ModuleObject*> importedModule(cx);
-  Rooted<JSAtom*> bindingName(cx);
-  for (JSAtom* atom : ns->exports()) {
-    name = atom;
-
-    if (!ModuleResolveExport(cx, module, name, &resolution)) {
-      return nullptr;
-    }
-
-    MOZ_ASSERT(IsResolvedBinding(cx, resolution));
-    binding = &resolution.toObject().as<ResolvedBindingObject>();
-    importedModule = binding->module();
-    bindingName = binding->bindingName();
-    if (!ns->addBinding(cx, name, importedModule, bindingName)) {
-      return nullptr;
-    }
+  if (!ComputeNamespaceBindings(cx, module, ns)) {
+    module->clearNamespaceOnFailure();
+    return nullptr;
   }
 
   // Step 10. Return M.
@@ -1493,7 +1504,9 @@ static bool ModuleInitializeEnvironment(JSContext* cx,
     } else {
       // Step 7.d. Else:
       // Step 7.d.i. Assert: in.[[ImportName]] is a String.
-      MOZ_ASSERT(importName && importName != cx->names().star_namespace_star_);
+      MOZ_ASSERT(importName && importName != cx->names().star_namespace_star_ &&
+                 importName != cx->names().star_source_star_);
+
       // Step 7.d.ii. Let resolution be ?
       // importedModule.ResolveExport(in.[[ImportName]]).
       ModuleErrorInfo errorInfo{in.lineNumber(), in.columnNumber()};
@@ -2571,9 +2584,7 @@ void js::AsyncModuleExecutionFulfilled(JSContext* cx,
       // Step 12.b. Else if m.[[HasTLA]] is true, then:
       // Step 12.b.i. Perform ExecuteAsyncModule(m).
       if (!ExecuteAsyncModule(cx, m)) {
-        MOZ_ASSERT(!cx->isExceptionPending() || cx->isThrowingOutOfMemory() ||
-                   cx->isThrowingOverRecursed());
-        cx->clearPendingException();
+        RejectExecutionWithPendingException(cx, m);
       }
     } else {
       // Step 12.c. Else:

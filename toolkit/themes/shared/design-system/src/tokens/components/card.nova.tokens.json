@@ -6,9 +6,6 @@
         "dark": "rgba(255, 255, 255, 0.04)",
         "forcedColors": "CanvasText"
       }
-    },
-    "radius": {
-      "value": "{border.radius.xlarge}"
     }
   },
   "gap": {

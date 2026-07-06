@@ -8,9 +8,8 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
+import androidx.fragment.compose.content
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavHostController
 import androidx.navigation.fragment.findNavController
@@ -44,100 +43,98 @@ class EditBookmarkFragment : Fragment(), SystemInsetsPaddedFragment {
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?,
-    ): View? {
-        return ComposeView(requireContext()).apply {
-                setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
-                val buildStore = { composeNavController: NavHostController ->
-                    val appStore = requireComponents.appStore
-                    val navController = findNavController()
-                    val isSignedIntoSync = requireComponents
-                        .backgroundServices.accountManager.authenticatedAccount() != null
+    ): View {
+        val context = requireContext()
+        val buildStore = { composeNavController: NavHostController ->
+            val appStore = requireComponents.appStore
+            val navController = findNavController()
+            val isSignedIntoSync = requireComponents
+                .backgroundServices.accountManager.authenticatedAccount() != null
 
-                    val store by fragmentStore(
-                        BookmarksState.default.copy(
-                            isSignedIntoSync = isSignedIntoSync,
+            val store by fragmentStore(
+                BookmarksState.default.copy(
+                    isSignedIntoSync = isSignedIntoSync,
+                ),
+            ) {
+                BookmarksStore(
+                    initialState = it,
+                    middleware = listOf(
+                        BookmarksMiddleware(
+                            bookmarksStorage = context.bookmarkStorage,
+                            addNewTabUseCase = requireComponents.useCases.tabsUseCases.addTab,
+                            fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
+                            openBookmarksInNewTab = if (requireComponents.settings.enableHomepageAsNewTab) {
+                                false
+                            } else {
+                                appStore.state.mode.isPrivate
+                            },
+                            getNavController = { composeNavController },
+                            exitBookmarks = { navController.popBackStack() },
+                            navigateToBrowser = {
+                                navController.navigate(R.id.browserFragment)
+                            },
+                            navigateToSignIntoSync = {
+                                navController
+                                    .navigate(
+                                        BookmarkFragmentDirections.actionGlobalTurnOnSync(
+                                            entrypoint = FenixFxAEntryPoint.BookmarkView,
+                                        ),
+                                    )
+                            },
+                            navigateToImportDialog = {},
+                            shareBookmarks = { bookmarks ->
+                                requireComponents.useCases.shareUseCases.shareItems(
+                                    items = bookmarks.asShareDataArray().toList(),
+                                    source = ShareSource.BOOKMARKS,
+                                    navigateToShareFragment = {
+                                        navController.nav(
+                                            R.id.bookmarkFragment,
+                                            BookmarkFragmentDirections.actionGlobalShareFragment(
+                                                data = bookmarks.asShareDataArray(),
+                                            ),
+                                        )
+                                    },
+                                )
+                            },
+                            showTabsTray = { },
+                            resolveFolderTitle = {
+                                friendlyRootTitle(
+                                    context = context,
+                                    node = it,
+                                    rootTitles = composeRootTitles(context),
+                                ) ?: ""
+                            },
+                            getBrowsingMode = {
+                                appStore.state.mode
+                            },
+                            editBookmarkUseCase = requireComponents.useCases.bookmarksUseCases.editBookmark,
+                            saveBookmarkSortOrder = {},
+                            reportResultGlobally = {
+                                requireComponents.appStore.dispatch(
+                                    AppAction.BookmarkAction.BookmarkOperationResultReported(it),
+                                )
+                            },
+                            importEvents = { emptyFlow() },
+                            lifecycleScope = lifecycleScope,
                         ),
-                    ) {
-                        BookmarksStore(
-                            initialState = it,
-                            middleware = listOf(
-                                BookmarksMiddleware(
-                                    bookmarksStorage = requireContext().bookmarkStorage,
-                                    addNewTabUseCase = requireComponents.useCases.tabsUseCases.addTab,
-                                    fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
-                                    openBookmarksInNewTab = if (requireComponents.settings.enableHomepageAsNewTab) {
-                                        false
-                                    } else {
-                                        appStore.state.mode.isPrivate
-                                    },
-                                    getNavController = { composeNavController },
-                                    exitBookmarks = { navController.popBackStack() },
-                                    navigateToBrowser = {
-                                        navController.navigate(R.id.browserFragment)
-                                    },
-                                    navigateToSignIntoSync = {
-                                        navController
-                                            .navigate(
-                                                BookmarkFragmentDirections.actionGlobalTurnOnSync(
-                                                    entrypoint = FenixFxAEntryPoint.BookmarkView,
-                                                ),
-                                            )
-                                    },
-                                    navigateToImportDialog = {},
-                                    shareBookmarks = { bookmarks ->
-                                        requireComponents.useCases.shareUseCases.shareItems(
-                                            items = bookmarks.asShareDataArray().toList(),
-                                            source = ShareSource.BOOKMARKS,
-                                            navigateToShareFragment = {
-                                                navController.nav(
-                                                    R.id.bookmarkFragment,
-                                                    BookmarkFragmentDirections.actionGlobalShareFragment(
-                                                        data = bookmarks.asShareDataArray(),
-                                                    ),
-                                                )
-                                            },
-                                        )
-                                    },
-                                    showTabsTray = { },
-                                    resolveFolderTitle = {
-                                        friendlyRootTitle(
-                                            context = context,
-                                            node = it,
-                                            rootTitles = composeRootTitles(context),
-                                        ) ?: ""
-                                    },
-                                    getBrowsingMode = {
-                                        appStore.state.mode
-                                    },
-                                    editBookmarkUseCase = requireComponents.useCases.bookmarksUseCases.editBookmark,
-                                    saveBookmarkSortOrder = {},
-                                    reportResultGlobally = {
-                                        requireComponents.appStore.dispatch(
-                                            AppAction.BookmarkAction.BookmarkOperationResultReported(it),
-                                        )
-                                    },
-                                    importEvents = { emptyFlow() },
-                                    lifecycleScope = lifecycleScope,
-                                ),
-                            ),
-                        )
-                    }
-
-                    store
-                }
-                setContent {
-                    FirefoxTheme {
-                        BookmarksScreen(
-                            buildStore = buildStore,
-                            startDestination = BookmarksDestinations.EDIT_BOOKMARK,
-                            toolbarStore = BrowserToolbarStore(BrowserToolbarState(mode = Mode.EDIT)),
-                            searchStore = SearchFragmentStore(SearchFragmentState.EMPTY),
-                            bookmarksSearchEngine = null,
-                            bookmarkToLoad = args.guidToEdit,
-                        )
-                    }
-                }
+                    ),
+                )
             }
+
+            store
+        }
+        return content {
+            FirefoxTheme {
+                BookmarksScreen(
+                    buildStore = buildStore,
+                    startDestination = BookmarksDestinations.EDIT_BOOKMARK,
+                    toolbarStore = BrowserToolbarStore(BrowserToolbarState(mode = Mode.EDIT)),
+                    searchStore = SearchFragmentStore(SearchFragmentState.EMPTY),
+                    bookmarksSearchEngine = null,
+                    bookmarkToLoad = args.guidToEdit,
+                )
+            }
+        }
     }
 
     override fun onDestroyView() {

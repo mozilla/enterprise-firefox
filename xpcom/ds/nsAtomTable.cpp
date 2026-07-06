@@ -140,10 +140,11 @@ struct AtomTableKey {
       : AtomTableKey(aUTF16String, aLength, HashString(aUTF16String, aLength)) {
   }
 
-  AtomTableKey(const char* aUTF8String, uint32_t aLength, bool* aErr)
-      : mUTF16String(nullptr), mUTF8String(aUTF8String), mLength(aLength) {
-    mHash = HashUTF8AsUTF16(mUTF8String, mLength, aErr);
-  }
+  AtomTableKey(const char* aUTF8String, uint32_t aLength)
+      : mUTF16String(nullptr),
+        mUTF8String(aUTF8String),
+        mLength(aLength),
+        mHash(HashUTF8AsUTF16(aUTF8String, aLength)) {}
 
   const char16_t* mUTF16String;
   const char* mUTF8String;
@@ -164,12 +165,10 @@ struct AtomTableEntry : public PLDHashEntryHdr {
   // NOTE: GetKey cannot be implemented.
   bool KeyEquals(KeyTypePointer aKey) const {
     if (aKey->mUTF8String) {
-      bool err = false;
-      return (CompareUTF8toUTF16(
-                  nsDependentCSubstring(aKey->mUTF8String,
-                                        aKey->mUTF8String + aKey->mLength),
-                  nsDependentAtomString(mAtom), &err) == 0) &&
-             !err;
+      return CompareUTF8toUTF16(
+                 nsDependentCSubstring(aKey->mUTF8String,
+                                       aKey->mUTF8String + aKey->mLength),
+                 nsDependentAtomString(mAtom)) == 0;
     }
 
     return mAtom->Equals(aKey->mUTF16String, aKey->mLength);
@@ -538,16 +537,7 @@ already_AddRefed<nsAtom> NS_Atomize(const char* aUTF8String) {
 }
 
 already_AddRefed<nsAtom> nsAtomTable::Atomize(const nsACString& aUTF8String) {
-  bool err;
-  AtomTableKey key(aUTF8String.Data(), aUTF8String.Length(), &err);
-  if (MOZ_UNLIKELY(err)) {
-    MOZ_ASSERT_UNREACHABLE("Tried to atomize invalid UTF-8.");
-    // The input was invalid UTF-8. Let's replace the errors with U+FFFD
-    // and atomize the result.
-    nsString str;
-    CopyUTF8toUTF16(aUTF8String, str);
-    return Atomize(str, HashString(str));
-  }
+  AtomTableKey key(aUTF8String.Data(), aUTF8String.Length());
   nsAtomSubTable& table = SelectSubTable(key);
   {
     AutoReadLock lock(table.mLock);

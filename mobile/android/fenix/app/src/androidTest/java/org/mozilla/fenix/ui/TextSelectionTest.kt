@@ -24,7 +24,6 @@ import org.mozilla.fenix.ui.robots.homeScreen
 import org.mozilla.fenix.ui.robots.longClickPageObject
 import org.mozilla.fenix.ui.robots.navigationToolbar
 import org.mozilla.fenix.ui.robots.searchScreen
-import kotlin.test.Ignore
 import androidx.compose.ui.test.junit4.v2.AndroidComposeTestRule as AndroidComposeTestRuleV2
 
 class TextSelectionTest {
@@ -155,7 +154,7 @@ class TextSelectionTest {
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(genericURL.url) {
             clickPageObject(composeTestRule, itemWithText("PDF form file"))
-            clickPageObject(composeTestRule, itemContainingText("Stay in"))
+            clickStayInAppPromptButton()
             longClickPageObject(composeTestRule, itemContainingText("Crossing"))
             clickContextMenuItem("Select all")
             clickContextMenuItem("Copy")
@@ -174,7 +173,6 @@ class TextSelectionTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/243839
-    @Ignore("Disabled for failing after D306236: https://bugzilla.mozilla.org/show_bug.cgi?id=2048865")
     @SmokeTest
     @Test
     fun verifyCopyPDFTextOptionTest() {
@@ -183,17 +181,17 @@ class TextSelectionTest {
 
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(genericURL.url) {
-            clickPageObject(composeTestRule, itemWithText("PDF form file"))
-            verifyOpenLinkInAnotherAppPrompt(appName = "Drive")
-            clickPageObject(composeTestRule, itemContainingText("Stay in"))
+            clickPageObject(composeTestRule, itemContainingText("PDF form file"))
+            clickStayInAppPromptButton()
             longClickPageObject(composeTestRule, itemContainingText("Crossing"))
             clickContextMenuItem("Copy")
+        }.openNavigationToolbar {
         }
-
-        searchScreen(composeTestRule) {
+        searchScreen(retryableComposeTestRule.current) {
             clickClearButton()
+            verifySearchBarPlaceholder("Search or enter address")
             longClickToolbar()
-            clickPasteText()
+            clickContextMenuItem("Paste")
             verifyTypedToolbarText("Crossing", exists = true)
         }
     }
@@ -207,7 +205,7 @@ class TextSelectionTest {
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(genericURL.url) {
             clickPageObject(composeTestRule, itemWithText("PDF form file"))
-            clickPageObject(composeTestRule, itemContainingText("Stay in"))
+            clickStayInAppPromptButton()
             longClickPageObject(composeTestRule, itemContainingText("Crossing"))
         }.clickShareSelectedText {
             verifyAndroidShareLayout()
@@ -224,7 +222,7 @@ class TextSelectionTest {
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(genericURL.url) {
             clickPageObject(composeTestRule, itemWithText("PDF form file"))
-            clickPageObject(composeTestRule, itemContainingText("Stay in"))
+            clickStayInAppPromptButton()
             longClickPageObject(composeTestRule, itemContainingText("Crossing"))
             clickContextMenuItem("Search")
             verifyUrl("Crossing")
@@ -244,7 +242,7 @@ class TextSelectionTest {
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(genericURL.url) {
             clickPageObject(composeTestRule, itemWithText("PDF form file"))
-            clickPageObject(composeTestRule, itemContainingText("Stay in"))
+            clickStayInAppPromptButton()
             longClickPageObject(composeTestRule, itemContainingText("Crossing"))
             clickContextMenuItem("Private Search")
             verifyUrl("Crossing")

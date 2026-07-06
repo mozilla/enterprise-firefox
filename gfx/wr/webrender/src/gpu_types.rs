@@ -11,7 +11,7 @@ use crate::quad::LayoutOrDeviceRect;
 use crate::segment::EdgeMask;
 use crate::transform::GpuTransformId;
 use crate::internal_types::{FrameVec, FrameMemory};
-use crate::prim_store::{ClipData, VECS_PER_SEGMENT};
+use crate::prim_store::VECS_PER_SEGMENT;
 use crate::render_task::RenderTaskAddress;
 use crate::render_task_graph::RenderTaskId;
 use crate::renderer::{GpuBufferAddress, GpuBufferBuilderF, GpuBufferHandle, GpuBufferWriterF, GpuBufferDataF, GpuBufferDataI, GpuBufferWriterI, ShaderColorMode};
@@ -87,6 +87,7 @@ pub struct CopyInstance {
 #[cfg_attr(feature = "replay", derive(Deserialize))]
 #[repr(C)]
 pub enum RasterizationSpace {
+    #[allow(unused)]
     Local = 0,
     Screen = 1,
 }
@@ -225,29 +226,6 @@ pub struct BorderInstance {
     pub flags: i32,
     pub gpu_data_address: GpuBufferAddress,
     pub clip_params: [f32; 8],
-}
-
-#[derive(Copy, Clone, Debug)]
-#[cfg_attr(feature = "capture", derive(Serialize))]
-#[cfg_attr(feature = "replay", derive(Deserialize))]
-#[repr(C)]
-pub struct ClipMaskInstanceCommon {
-    pub sub_rect: DeviceRect,
-    pub task_origin: DevicePoint,
-    pub screen_origin: DevicePoint,
-    pub device_pixel_scale: f32,
-    pub clip_transform_id: GpuTransformId,
-    pub prim_transform_id: GpuTransformId,
-}
-
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "capture", derive(Serialize))]
-#[cfg_attr(feature = "replay", derive(Deserialize))]
-#[repr(C)]
-pub struct ClipMaskInstanceRect {
-    pub common: ClipMaskInstanceCommon,
-    pub local_pos: LayoutPoint,
-    pub clip_data: ClipData,
 }
 
 // 16 bytes per instance should be enough for anyone!
@@ -662,8 +640,11 @@ impl GpuBufferDataI for QuadHeader {
 
 /// Matches QuadPrimitive in ps_quad.glsl
 pub struct QuadPrimitive {
+    /// The (clipped) coverage rect: the local rect intersected with the local
+    /// clip rect. There is no separate clip rect; it is folded in here.
     pub bounds: LayoutOrDeviceRect,
-    pub clip: LayoutOrDeviceRect,
+    /// The rect that situates the source pattern.
+    pub pattern_rect: LayoutOrDeviceRect,
     // TODO: This gets translated into a Rect just before upload.
     // It would be better to send the gpu buffer address to the shader.
     pub input_task: RenderTaskId,
@@ -676,7 +657,7 @@ impl GpuBufferDataF for QuadPrimitive {
     const NUM_BLOCKS: usize = 5;
     fn write(&self, writer: &mut GpuBufferWriterF) {
         writer.push_one(self.bounds);
-        writer.push_one(self.clip);
+        writer.push_one(self.pattern_rect);
         writer.push_render_task(self.input_task);
         writer.push_one(self.pattern_scale_offset);
         writer.push_one(self.color);

@@ -4,6 +4,7 @@
 
 #include "PrintTargetSkPDF.h"
 
+#include "mozilla/AppShutdown.h"
 #include "imgIEncoder.h"
 #include "include/codec/SkCodec.h"
 #include "include/codec/SkEncodedImageFormat.h"
@@ -168,6 +169,11 @@ class GkSkWStream final : public SkWStream {
   explicit GkSkWStream(nsIOutputStream* aStream) : mStream(aStream) {
     MOZ_ASSERT(mStream);
   }
+  ~GkSkWStream() override {
+    // Close the stream so that its file handle is released. This matches
+    // cairo's handling.
+    (void)NS_WARN_IF(NS_FAILED(mStream->Close()));
+  }
   bool write(const void* aBuf, size_t aSize) override {
     const auto* data = reinterpret_cast<const char*>(aBuf);
     do {
@@ -267,7 +273,9 @@ nsresult PrintTargetSkPDF::EndPrinting() {
 }
 
 void PrintTargetSkPDF::Finish() {
-  if (mIsFinished) {
+  if (mIsFinished ||
+      AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdownConfirmed)) {
+    // See PrintTargetPDF::Finish().
     return;
   }
   mOStream->flush();

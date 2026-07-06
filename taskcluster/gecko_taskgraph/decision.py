@@ -47,6 +47,7 @@ from .util.taskgraph import find_decision_task, find_existing_tasks_from_previou
 logger = logging.getLogger(__name__)
 
 ARTIFACTS_DIR = os.environ.get("MOZ_UPLOAD_DIR", "artifacts")
+GIT_BACKING_REPO = "https://github.com/mozilla-releng/git-backing"
 
 # For each project, this gives a set of parameters specific to the project.
 # See `taskcluster/docs/parameters.rst` for information on parameters.
@@ -77,26 +78,35 @@ PER_PROJECT_PARAMETERS = {
         "target_tasks_method": "graphics_tasks",
     },
     "autoland": {
+        "head_git_repository": "https://github.com/mozilla-firefox/firefox",
         "optimize_strategies": "gecko_taskgraph.optimize:project.autoland",
         "target_tasks_method": "autoland_tasks",
         "test_manifest_loader": "bugbug",  # Remove this line to disable "manifest scheduling".
     },
     "mozilla-central": {
+        "head_git_repository": "https://github.com/mozilla-firefox/firefox",
         "target_tasks_method": "mozilla_central_tasks",
         "release_type": "nightly",
     },
     "mozilla-beta": {
+        "head_git_repository": "https://github.com/mozilla-firefox/firefox",
         "optimize_strategies": "gecko_taskgraph.optimize:project.beta",
         "target_tasks_method": "mozilla_beta_tasks",
         "release_type": "beta",
     },
     "mozilla-release": {
+        "head_git_repository": "https://github.com/mozilla-firefox/firefox",
         "target_tasks_method": "mozilla_release_tasks",
         "release_type": "release",
     },
     "mozilla-esr140": {
+        "head_git_repository": "https://github.com/mozilla-firefox/firefox",
         "target_tasks_method": "mozilla_esr140_tasks",
         "release_type": "esr140",
+    },
+    "mozilla-esr153": {
+        "target_tasks_method": "mozilla_esr153_tasks",
+        "release_type": "esr153",
     },
     "pine": {
         "target_tasks_method": "pine_tasks",
@@ -323,6 +333,7 @@ def get_decision_parameters(graph_config, options):
 
     # Set some vcs specific parameters
     if parameters["repository_type"] == "hg":
+        parameters["head_git_repository"] = GIT_BACKING_REPO
         if head_git_rev := get_hg_revision_info(
             GECKO, revision=parameters["head_rev"], info="extras.git_commit"
         ):

@@ -1046,7 +1046,7 @@ newtab-widget-timer-celebration-message-break = Czas się skoncentrować!
 ##
 
 newtab-sports-widget-menu-follow-teams = Obserwuj drużyny
-newtab-sports-widget-menu-view-schedule = Harmonogram
+newtab-sports-widget-menu-view-schedule = Terminarz
 newtab-sports-widget-menu-view-upcoming = Niedługo
 newtab-sports-widget-menu-view-results = Wyniki
 # Milestone dates (e.g. group stage, semifinals, etc.). Refers to calendar dates.
@@ -1056,7 +1056,7 @@ newtab-sports-widget-menu-learn-more = Więcej informacji
 newtab-sports-widget-keep-tabs = Bądź na bieżąco z mistrzostwami świata
 newtab-sports-widget-get-updates = Bieżące informacje o meczach i nie tylko.
 newtab-sports-widget-view-schedule =
-    .label = Harmonogram
+    .label = Terminarz
 newtab-sports-widget-follow-teams =
     .label = Obserwuj drużyny
 newtab-sports-widget-view-matches =
@@ -1091,6 +1091,8 @@ newtab-sports-widget-show-less =
 # Toggle that filters the list of teams the user follows
 newtab-sports-widget-followed-only-toggle =
     .label = Tylko obserwowane drużyny
+# Status shown when more matches are being fetched.
+newtab-sports-widget-loading-more = Wczytywanie meczy…
 # Watch is a verb (as in watch matches online).
 newtab-sports-widget-watch =
     .label = Oglądaj
@@ -1170,6 +1172,9 @@ newtab-sports-widget-third-place = Trzecie miejsce
 newtab-sports-widget-runner-up = Drugie miejsce
 newtab-sports-widget-champions = Mistrzowie
 newtab-sports-widget-world-cup-champions = Mistrzowie świata 2026
+# Compact champions label for the medium-size widget result card; the larger
+# card uses newtab-sports-widget-world-cup-champions.
+newtab-sports-widget-world-cup-champions-short = Mistrzowie 2026
 # Variables:
 #   $date (Date) - The match start time
 newtab-sports-widget-match-time = { DATETIME($date, hour: "2-digit", minute: "2-digit") }

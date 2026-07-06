@@ -23,7 +23,7 @@
 #include "debugger/Script.h"     // for DebuggerScript
 #include "debugger/Source.h"     // for DebuggerSource
 #include "gc/Tracer.h"        // for TraceManuallyBarrieredCrossCompartmentEdge
-#include "jit/JitOptions.h"   // for jit::HasJitBackend
+#include "jit/JitOptions.h"   // for jit::HasJitBackend, fuzzingSafe
 #include "js/ColumnNumber.h"  // JS::ColumnNumberOneOrigin
 #include "js/CompilationAndEvaluation.h"  //  for Compile
 #include "js/Conversions.h"               // for ToObject
@@ -1267,17 +1267,6 @@ bool DebuggerObject::CallData::createSource() {
 
   bool isScriptElement = ToBoolean(v);
 
-  if (!JS_GetProperty(cx, options, "forceEnableAsmJS", &v)) {
-    return false;
-  }
-
-  bool forceEnableAsmJS = ToBoolean(v);
-  if (forceEnableAsmJS && !jit::HasJitBackend()) {
-    JS_ReportErrorASCII(cx,
-                        "forceEnableAsmJS cannot be used with no JIT backend");
-    return false;
-  }
-
   RootedScript script(cx);
   {
     AutoRealm ar(cx, referent);
@@ -1285,9 +1274,6 @@ bool DebuggerObject::CallData::createSource() {
     JS::CompileOptions compileOptions(cx);
     compileOptions.lineno = startLine;
     compileOptions.column = JS::ColumnNumberOneOrigin(startColumn);
-    if (forceEnableAsmJS) {
-      compileOptions.setAsmJSOption(JS::AsmJSOption::Enabled);
-    }
 
     if (!JS::StringHasLatin1Chars(url)) {
       JS_ReportErrorASCII(cx, "URL must be a narrow string");
@@ -1570,9 +1556,13 @@ const JSFunctionSpec DebuggerObject::methods_[] = {
     JS_DEBUG_FN("isSameNative", isSameNativeMethod, 1),
     JS_DEBUG_FN("isSameNativeWithJitInfo", isSameNativeWithJitInfoMethod, 1),
     JS_DEBUG_FN("isNativeGetterWithJitInfo", isNativeGetterWithJitInfo, 1),
-    JS_DEBUG_FN("unsafeDereference", unsafeDereferenceMethod, 0),
     JS_DEBUG_FN("unwrap", unwrapMethod, 0),
     JS_DEBUG_FN("getPromiseReactions", getPromiseReactionsMethod, 0),
+    JS_FS_END,
+};
+
+const JSFunctionSpec DebuggerObject::fuzzing_unsafe_methods_[] = {
+    JS_DEBUG_FN("unsafeDereference", unsafeDereferenceMethod, 0),
     JS_FS_END,
 };
 
@@ -1593,6 +1583,13 @@ NativeObject* DebuggerObject::initClass(JSContext* cx,
     return nullptr;
   }
 
+  if (!fuzzingSafe) {
+    if (!DefinePropertiesAndFunctions(cx, objectProto, nullptr,
+                                      fuzzing_unsafe_methods_)) {
+      return nullptr;
+    }
+  }
+
   return objectProto;
 }
 
@@ -1600,10 +1597,9 @@ NativeObject* DebuggerObject::initClass(JSContext* cx,
 DebuggerObject* DebuggerObject::create(JSContext* cx, HandleObject proto,
                                        HandleObject referent,
                                        Handle<NativeObject*> debugger) {
+  NewObjectKind newKind = GetNewObjectKind(referent);
   DebuggerObject* obj =
-      IsInsideNursery(referent)
-          ? NewObjectWithGivenProto<DebuggerObject>(cx, proto)
-          : NewTenuredObjectWithGivenProto<DebuggerObject>(cx, proto);
+      NewObjectWithGivenProto<DebuggerObject>(cx, proto, {.newKind = newKind});
   if (!obj) {
     return nullptr;
   }

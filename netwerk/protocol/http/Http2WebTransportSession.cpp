@@ -571,7 +571,7 @@ void Http2WebTransportSession::CloseStream(nsresult aReason) {
 
 nsresult Http2WebTransportSession::GenerateHeaders(nsCString& aCompressedData,
                                                    uint8_t& aFirstFrameFlags) {
-  nsHttpRequestHead* head = mTransaction->RequestHead();
+  const nsHttpRequestHead* head = mTransaction->RequestHead();
 
   nsAutoCString authorityHeader;
   nsresult rv = head->GetHeader(nsHttp::Host, authorityHeader);

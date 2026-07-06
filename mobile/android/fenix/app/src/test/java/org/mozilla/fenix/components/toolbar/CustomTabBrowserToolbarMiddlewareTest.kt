@@ -71,13 +71,19 @@ import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.appstate.AppAction.URLCopiedToClipboard
 import org.mozilla.fenix.components.menu.MenuAccessPoint
 import org.mozilla.fenix.components.toolbar.CustomTabBrowserToolbarMiddleware.Companion.DisplayActions.MenuClicked
+import org.mozilla.fenix.components.toolbar.CustomTabBrowserToolbarMiddleware.Companion.DisplayActions.ShareClicked
 import org.mozilla.fenix.components.toolbar.CustomTabBrowserToolbarMiddleware.Companion.EndPageActions.CustomButtonClicked
 import org.mozilla.fenix.components.toolbar.CustomTabBrowserToolbarMiddleware.Companion.StartBrowserActions.CloseClicked
 import org.mozilla.fenix.components.toolbar.CustomTabBrowserToolbarMiddleware.Companion.StartPageActions.SiteInfoClicked
 import org.mozilla.fenix.ext.nav
 import org.mozilla.fenix.helpers.FenixGleanTestRule
+import org.mozilla.fenix.telemetry.ACTION_CLOSE_CLICKED
+import org.mozilla.fenix.telemetry.ACTION_MENU_CLICKED
 import org.mozilla.fenix.telemetry.ACTION_SECURITY_INDICATOR_CLICKED
-import org.mozilla.fenix.telemetry.SOURCE_CUSTOM_BAR
+import org.mozilla.fenix.telemetry.ACTION_SHARE_CLICKED
+import org.mozilla.fenix.telemetry.ACTION_SITE_CUSTOM_CLICKED
+import org.mozilla.fenix.telemetry.SOURCE_ADDRESS_BAR
+import org.mozilla.fenix.telemetry.SURFACE_CUSTOM_TAB
 import org.mozilla.fenix.utils.Settings
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -728,8 +734,9 @@ class CustomTabBrowserToolbarMiddlewareTest {
         assertNotNull(telemetry)
         assertEquals("toolbar", telemetry.category)
         assertEquals("button_tapped", telemetry.name)
-        assertEquals(SOURCE_CUSTOM_BAR, telemetry.extra?.get("source"))
+        assertEquals(SOURCE_ADDRESS_BAR, telemetry.extra?.get("source"))
         assertEquals(ACTION_SECURITY_INDICATOR_CLICKED, telemetry.extra?.get("item"))
+        assertEquals(SURFACE_CUSTOM_TAB, telemetry.extra?.get("surface"))
     }
 
     @Test
@@ -744,8 +751,61 @@ class CustomTabBrowserToolbarMiddlewareTest {
         assertNotNull(telemetry)
         assertEquals("toolbar", telemetry.category)
         assertEquals("button_tapped", telemetry.name)
-        assertEquals(SOURCE_CUSTOM_BAR, telemetry.extra?.get("source"))
+        assertEquals(SOURCE_ADDRESS_BAR, telemetry.extra?.get("source"))
         assertEquals(ACTION_SECURITY_INDICATOR_CLICKED, telemetry.extra?.get("item"))
+        assertEquals(SURFACE_CUSTOM_TAB, telemetry.extra?.get("surface"))
+    }
+
+    @Test
+    fun `GIVEN current custom tab WHEN the close button is clicked THEN record telemetry`() {
+        val useCases: CustomTabsUseCases = mockk(relaxed = true)
+        val middleware = buildMiddleware(useCases = useCases)
+        val toolbarStore = buildStore(middleware)
+
+        toolbarStore.dispatch(CloseClicked)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val telemetry = Toolbar.buttonTapped.testGetValue()?.get(0)
+        assertNotNull(telemetry)
+        assertEquals("toolbar", telemetry.category)
+        assertEquals("button_tapped", telemetry.name)
+        assertEquals(SOURCE_ADDRESS_BAR, telemetry.extra?.get("source"))
+        assertEquals(ACTION_CLOSE_CLICKED, telemetry.extra?.get("item"))
+        assertEquals(SURFACE_CUSTOM_TAB, telemetry.extra?.get("surface"))
+    }
+
+    @Test
+    fun `GIVEN current custom tab WHEN the share button is clicked THEN record telemetry`() {
+        val navController: NavController = mockk(relaxed = true)
+        val middleware = buildMiddleware(navController = navController)
+        val toolbarStore = buildStore(middleware)
+
+        toolbarStore.dispatch(ShareClicked)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val telemetry = Toolbar.buttonTapped.testGetValue()?.get(0)
+        assertNotNull(telemetry)
+        assertEquals("toolbar", telemetry.category)
+        assertEquals("button_tapped", telemetry.name)
+        assertEquals(SOURCE_ADDRESS_BAR, telemetry.extra?.get("source"))
+        assertEquals(ACTION_SHARE_CLICKED, telemetry.extra?.get("item"))
+        assertEquals(SURFACE_CUSTOM_TAB, telemetry.extra?.get("surface"))
+    }
+
+    @Test
+    fun `GIVEN current custom tab WHEN the custom action button is clicked THEN record telemetry`() {
+        val toolbarStore = buildStore()
+
+        toolbarStore.dispatch(CustomButtonClicked)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val telemetry = Toolbar.buttonTapped.testGetValue()?.get(0)
+        assertNotNull(telemetry)
+        assertEquals("toolbar", telemetry.category)
+        assertEquals("button_tapped", telemetry.name)
+        assertEquals(SOURCE_ADDRESS_BAR, telemetry.extra?.get("source"))
+        assertEquals(ACTION_SITE_CUSTOM_CLICKED, telemetry.extra?.get("item"))
+        assertEquals(SURFACE_CUSTOM_TAB, telemetry.extra?.get("surface"))
     }
 
     @Test
@@ -969,6 +1029,12 @@ class CustomTabBrowserToolbarMiddlewareTest {
                 ),
             )
         }
+
+        val telemetry = Toolbar.buttonTapped.testGetValue()?.get(0)
+        assertNotNull(telemetry)
+        assertEquals(SOURCE_ADDRESS_BAR, telemetry.extra?.get("source"))
+        assertEquals(ACTION_MENU_CLICKED, telemetry.extra?.get("item"))
+        assertEquals(SURFACE_CUSTOM_TAB, telemetry.extra?.get("surface"))
     }
 
     @Test
@@ -990,6 +1056,12 @@ class CustomTabBrowserToolbarMiddlewareTest {
                 ),
             )
         }
+
+        val telemetry = Toolbar.buttonTapped.testGetValue()?.get(0)
+        assertNotNull(telemetry)
+        assertEquals(SOURCE_ADDRESS_BAR, telemetry.extra?.get("source"))
+        assertEquals(ACTION_MENU_CLICKED, telemetry.extra?.get("item"))
+        assertEquals(SURFACE_CUSTOM_TAB, telemetry.extra?.get("surface"))
     }
 
     @Test

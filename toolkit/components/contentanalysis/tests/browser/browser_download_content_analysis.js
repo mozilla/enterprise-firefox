@@ -86,8 +86,7 @@ function assertContentAnalysisDownloadRequest(request, expectedFilePath) {
     "request userActionRequestsCount should match"
   );
   ok(request.userActionId.length, "request userActionId should not be empty");
-  is(request.printDataHandle, 0, "request printDataHandle should be 0");
-  is(request.printDataSize, 0, "request printDataSize should be 0");
+  is(request.getPrintData().length, 0, "request should have no print data");
   ok(!!request.requestToken.length, "request requestToken should not be empty");
 }
 

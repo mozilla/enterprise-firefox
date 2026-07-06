@@ -63,20 +63,16 @@ static const Instance* ExtractCalleeInstanceFromFrameWithInstances(
       FrameWithInstances::calleeInstanceOffset());
 }
 
-static uint32_t FuncIndexForLineOrBytecode(const Code& code,
-                                           uint32_t lineOrBytecode,
+static uint32_t FuncIndexForBytecodeOffset(const Code& code,
+                                           uint32_t bytecodeOffset,
                                            const CodeRange& codeRange) {
-  // If this is asm.js, then this is a line number and we also will not be
-  // doing any inlining. Report the physical func index.
-  //
-  // Or else if there is no bytecode offset in the call site, then this must be
+  // If there is no bytecode offset in the call site, then this must be
   // something internal we've generated and no inlining should be involved.
-  if (code.codeMeta().isAsmJS() ||
-      lineOrBytecode == CallSite::NO_LINE_OR_BYTECODE) {
+  if (bytecodeOffset == CallSite::NO_BYTECODE_OFFSET) {
     // Fall back to the physical function index of the code range.
     return codeRange.funcIndex();
   }
-  return code.codeTailMeta().findFuncIndex(lineOrBytecode);
+  return code.codeTailMeta().findFuncIndex(bytecodeOffset);
 }
 
 /*****************************************************************************/
@@ -117,9 +113,9 @@ WasmFrameIter::WasmFrameIter(JitActivation* activation, wasm::Frame* fp)
     MOZ_ASSERT(code_ == LookupCode(unwoundPC));
 
     const CodeRange* codeRange = code_->lookupFuncRange(unwoundPC);
-    lineOrBytecode_ = trapData.trapSite.bytecodeOffset.offset();
+    bytecodeOffset_ = trapData.trapSite.bytecodeOffset.offset();
     funcIndex_ =
-        FuncIndexForLineOrBytecode(*code_, lineOrBytecode_, *codeRange);
+        FuncIndexForBytecodeOffset(*code_, bytecodeOffset_, *codeRange);
     inlinedCallerOffsets_ = trapData.trapSite.inlinedCallerOffsetsSpan();
     failedUnwindSignatureMismatch_ = trapData.failedUnwindSignatureMismatch;
 #ifdef ENABLE_WASM_JSPI
@@ -166,7 +162,7 @@ WasmFrameIter::WasmFrameIter(JitActivation* activation, wasm::Frame* fp)
 WasmFrameIter::WasmFrameIter(Instance* instance, Frame* fp, void* returnAddress)
     : cx_(instance->cx()),
       activation_(nullptr),
-      lineOrBytecode_(0),
+      bytecodeOffset_(0),
       fp_(fp),
       instance_(instance),
       resumePCinCurrentFrame_((uint8_t*)returnAddress)
@@ -201,9 +197,9 @@ WasmFrameIter::WasmFrameIter(Instance* instance, Frame* fp, void* returnAddress)
 #endif
 
     MOZ_ASSERT(code_ == &instance_->code());
-    lineOrBytecode_ = site.lineOrBytecode();
+    bytecodeOffset_ = site.bytecodeOffset();
     funcIndex_ =
-        FuncIndexForLineOrBytecode(*code_, site.lineOrBytecode(), *codeRange);
+        FuncIndexForBytecodeOffset(*code_, site.bytecodeOffset(), *codeRange);
     inlinedCallerOffsets_ = site.inlinedCallerOffsetsSpan();
 
     MOZ_ASSERT(!done());
@@ -212,7 +208,7 @@ WasmFrameIter::WasmFrameIter(Instance* instance, Frame* fp, void* returnAddress)
   else if (codeRange->kind() == CodeRange::ContBaseFrame) {
     currentFrameStackSwitched_ = false;
     contStack_ = nullptr;
-    lineOrBytecode_ = 0;
+    bytecodeOffset_ = 0;
     funcIndex_ = 0;
     inlinedCallerOffsets_ = BytecodeOffsetSpan();
     fp_ = nullptr;
@@ -264,10 +260,10 @@ void WasmFrameIter::popFrame(bool isLeavingFrame) {
     const BytecodeOffset* first = inlinedCallerOffsets_.data();
     const BytecodeOffset* last =
         inlinedCallerOffsets_.data() + inlinedCallerOffsets_.size() - 1;
-    lineOrBytecode_ = last->offset();
+    bytecodeOffset_ = last->offset();
     inlinedCallerOffsets_ = BytecodeOffsetSpan(first, last);
-    MOZ_ASSERT(lineOrBytecode_ != CallSite::NO_LINE_OR_BYTECODE);
-    funcIndex_ = code_->codeTailMeta().findFuncIndex(lineOrBytecode_);
+    MOZ_ASSERT(bytecodeOffset_ != CallSite::NO_BYTECODE_OFFSET);
+    funcIndex_ = code_->codeTailMeta().findFuncIndex(bytecodeOffset_);
     // An inlined frame will never do a stack switch, nor fail a signature
     // mismatch. The contStack_ will be the same.
     currentFrameStackSwitched_ = false;
@@ -322,7 +318,7 @@ void WasmFrameIter::popFrame(bool isLeavingFrame) {
     fp_ = nullptr;
     code_ = nullptr;
     funcIndex_ = UINT32_MAX;
-    lineOrBytecode_ = UINT32_MAX;
+    bytecodeOffset_ = UINT32_MAX;
     inlinedCallerOffsets_ = BytecodeOffsetSpan();
     resumePCinCurrentFrame_ = nullptr;
 
@@ -345,7 +341,7 @@ void WasmFrameIter::popFrame(bool isLeavingFrame) {
     fp_ = nullptr;
     code_ = nullptr;
     funcIndex_ = UINT32_MAX;
-    lineOrBytecode_ = UINT32_MAX;
+    bytecodeOffset_ = UINT32_MAX;
     inlinedCallerOffsets_ = BytecodeOffsetSpan();
 
     if (isLeavingFrame) {
@@ -380,7 +376,7 @@ void WasmFrameIter::popFrame(bool isLeavingFrame) {
     fp_ = nullptr;
     code_ = nullptr;
     funcIndex_ = UINT32_MAX;
-    lineOrBytecode_ = UINT32_MAX;
+    bytecodeOffset_ = UINT32_MAX;
     inlinedCallerOffsets_ = BytecodeOffsetSpan();
 
     if (isLeavingFrame) {
@@ -410,7 +406,7 @@ void WasmFrameIter::popFrame(bool isLeavingFrame) {
     MOZ_ASSERT(site.kind() == CallSiteKind::StackSwitch);
 
     funcIndex_ =
-        FuncIndexForLineOrBytecode(*code_, site.lineOrBytecode(), *codeRange);
+        FuncIndexForBytecodeOffset(*code_, site.bytecodeOffset(), *codeRange);
     inlinedCallerOffsets_ = site.inlinedCallerOffsetsSpan();
     failedUnwindSignatureMismatch_ = false;
 
@@ -446,9 +442,9 @@ void WasmFrameIter::popFrame(bool isLeavingFrame) {
 
   MOZ_ASSERT(code_ == &instance_->code());
 
-  lineOrBytecode_ = site.lineOrBytecode();
+  bytecodeOffset_ = site.bytecodeOffset();
   funcIndex_ =
-      FuncIndexForLineOrBytecode(*code_, site.lineOrBytecode(), *codeRange);
+      FuncIndexForBytecodeOffset(*code_, site.bytecodeOffset(), *codeRange);
   inlinedCallerOffsets_ = site.inlinedCallerOffsetsSpan();
   failedUnwindSignatureMismatch_ = false;
 
@@ -473,22 +469,6 @@ const char* WasmFrameIter::filename() const {
   return code_->codeMeta().scriptedCaller().source.get();
 }
 
-const char16_t* WasmFrameIter::displayURL() const {
-  MOZ_ASSERT(!done());
-  MOZ_ASSERT(hasSourceInfo());
-  return code_->codeMetaForAsmJS()
-             ? code_->codeMetaForAsmJS()->displayURL()  // asm.js
-             : nullptr;                                 // wasm
-}
-
-bool WasmFrameIter::mutedErrors() const {
-  MOZ_ASSERT(!done());
-  MOZ_ASSERT(hasSourceInfo());
-  return code_->codeMetaForAsmJS()
-             ? code_->codeMetaForAsmJS()->mutedErrors()  // asm.js
-             : false;                                    // wasm
-}
-
 JSAtom* WasmFrameIter::functionDisplayAtom() const {
   MOZ_ASSERT(!done());
   MOZ_ASSERT(hasSourceInfo());
@@ -502,10 +482,10 @@ JSAtom* WasmFrameIter::functionDisplayAtom() const {
   return atom;
 }
 
-unsigned WasmFrameIter::lineOrBytecode() const {
+unsigned WasmFrameIter::bytecodeOffset() const {
   MOZ_ASSERT(!done());
   MOZ_ASSERT(hasSourceInfo());
-  return lineOrBytecode_;
+  return bytecodeOffset_;
 }
 
 uint32_t WasmFrameIter::funcIndex() const {
@@ -518,21 +498,13 @@ unsigned WasmFrameIter::computeLine(
     JS::TaggedColumnNumberOneOrigin* column) const {
   MOZ_ASSERT(!done());
   MOZ_ASSERT(hasSourceInfo());
-  if (instance_->isAsmJS()) {
-    if (column) {
-      *column =
-          JS::TaggedColumnNumberOneOrigin(JS::LimitedColumnNumberOneOrigin(
-              JS::WasmFunctionIndex::DefaultBinarySourceColumnNumberOneOrigin));
-    }
-    return lineOrBytecode_;
-  }
 
   MOZ_ASSERT(!(funcIndex_ & JS::TaggedColumnNumberOneOrigin::WasmFunctionTag));
   if (column) {
     *column =
         JS::TaggedColumnNumberOneOrigin(JS::WasmFunctionIndex(funcIndex_));
   }
-  return lineOrBytecode_;
+  return bytecodeOffset_;
 }
 
 bool WasmFrameIter::debugEnabled() const {
@@ -915,11 +887,6 @@ void wasm::GenerateFunctionPrologue(MacroAssembler& masm,
   // Only first-class functions (those that can be referenced in a table) need
   // the checked call prologue w/ signature check. It is impossible to perform
   // a checked call otherwise.
-  //
-  // asm.js function tables are homogeneous and don't need a signature check.
-  // However, they can be put in tables which expect a checked call entry point,
-  // so we generate a no-op entry point for consistency. If asm.js performance
-  // was important we could refine this in the future.
   if (callIndirectId.kind() != CallIndirectIdKind::None) {
     // Generate checked call entry. The BytecodeOffset of the trap is fixed up
     // to be the bytecode offset of the callsite by
@@ -1004,9 +971,6 @@ void wasm::GenerateFunctionPrologue(MacroAssembler& masm,
         masm.wasmTrap(Trap::IndirectCallBadSig, TrapSiteDesc());
         break;
       }
-      case CallIndirectIdKind::AsmJS:
-        masm.jump(&functionBody);
-        break;
       case CallIndirectIdKind::None:
         break;
     }
@@ -2309,7 +2273,7 @@ const char* wasm::ThunkedNativeToDescription(SymbolicAddress func) {
                  "not in sync with NeedsBuiltinThunk");
       break;
     case SymbolicAddress::ToInt32:
-      return "call to asm.js native ToInt32 coercion (in wasm)";
+      return "call to native ToInt32 coercion (in wasm)";
     case SymbolicAddress::DivI64:
       return "call to native i64.div_s (in wasm)";
     case SymbolicAddress::UDivI64:
@@ -2343,25 +2307,7 @@ const char* wasm::ThunkedNativeToDescription(SymbolicAddress func) {
     case SymbolicAddress::AllocateBigInt:
       return "call to native newCell<BigInt, NoGC> (in wasm)";
     case SymbolicAddress::ModD:
-      return "call to asm.js native f64 % (mod)";
-    case SymbolicAddress::SinNativeD:
-      return "call to asm.js native f64 Math.sin";
-    case SymbolicAddress::SinFdlibmD:
-      return "call to asm.js fdlibm f64 Math.sin";
-    case SymbolicAddress::CosNativeD:
-      return "call to asm.js native f64 Math.cos";
-    case SymbolicAddress::CosFdlibmD:
-      return "call to asm.js fdlibm f64 Math.cos";
-    case SymbolicAddress::TanNativeD:
-      return "call to asm.js native f64 Math.tan";
-    case SymbolicAddress::TanFdlibmD:
-      return "call to asm.js fdlibm f64 Math.tan";
-    case SymbolicAddress::ASinD:
-      return "call to asm.js native f64 Math.asin";
-    case SymbolicAddress::ACosD:
-      return "call to asm.js native f64 Math.acos";
-    case SymbolicAddress::ATanD:
-      return "call to asm.js native f64 Math.atan";
+      return "call to native f64 % (mod) (in wasm)";
     case SymbolicAddress::CeilD:
       return "call to native f64.ceil (in wasm)";
     case SymbolicAddress::CeilF:
@@ -2378,14 +2324,6 @@ const char* wasm::ThunkedNativeToDescription(SymbolicAddress func) {
       return "call to native f64.nearest (in wasm)";
     case SymbolicAddress::NearbyIntF:
       return "call to native f32.nearest (in wasm)";
-    case SymbolicAddress::ExpD:
-      return "call to asm.js native f64 Math.exp";
-    case SymbolicAddress::LogD:
-      return "call to asm.js native f64 Math.log";
-    case SymbolicAddress::PowD:
-      return "call to asm.js native f64 Math.pow";
-    case SymbolicAddress::ATan2D:
-      return "call to asm.js native f64 Math.atan2";
     case SymbolicAddress::AddSubI128:
       return "call to native 128-bit add/sub function";
     case SymbolicAddress::MulI64Wide:
@@ -2527,7 +2465,6 @@ const char* ProfilingFrameIterator::label() const {
 
   // Use the same string for both time inside and under so that the two
   // entries will be coalesced by the profiler.
-  // Must be kept in sync with /tools/profiler/tests/test_asm.js
   static const char importJitDescription[] = "fast exit trampoline (in wasm)";
   static const char importInterpDescription[] =
       "slow exit trampoline (in wasm)";

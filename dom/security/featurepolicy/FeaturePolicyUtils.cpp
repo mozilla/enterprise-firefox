@@ -215,14 +215,9 @@ void FeaturePolicyUtils::ReportViolation(Document* aDocument,
     return;
   }
 
-  // Strip the URL of any possible username/password and make it ready to be
-  // presented in the UI.
-  nsCOMPtr<nsIURI> exposableURI = net::nsIOService::CreateExposableURI(uri);
-  nsAutoCString spec;
-  nsresult rv = exposableURI->GetSpec(spec);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return;
-  }
+  nsAutoCString url;
+  ReportingUtils::StripURL(uri, url);
+
   JSContext* cx = nsContentUtils::GetCurrentJSContext();
   if (NS_WARN_IF(!cx)) {
     return;
@@ -230,10 +225,11 @@ void FeaturePolicyUtils::ReportViolation(Document* aDocument,
 
   Nullable<int32_t> lineNumber;
   Nullable<int32_t> columnNumber;
-  auto loc = JSCallingLocation::Get();
-  if (loc) {
+  nsAutoCString sourceFile;
+  if (auto loc = JSCallingLocation::Get()) {
     lineNumber.SetValue(static_cast<int32_t>(loc.mLine));
     columnNumber.SetValue(static_cast<int32_t>(loc.mColumn));
+    ReportingUtils::StripLocationFileName(loc, sourceFile);
   }
 
   nsPIDOMWindowInner* window = aDocument->GetInnerWindow();
@@ -243,11 +239,11 @@ void FeaturePolicyUtils::ReportViolation(Document* aDocument,
 
   RefPtr<FeaturePolicyViolationReportBody> body =
       new FeaturePolicyViolationReportBody(window->AsGlobal(), aFeatureName,
-                                           loc.FileName(), lineNumber,
-                                           columnNumber, u"enforce"_ns);
+                                           sourceFile, lineNumber, columnNumber,
+                                           u"enforce"_ns);
 
   ReportingUtils::Report(window->AsGlobal(), nsGkAtoms::featurePolicyViolation,
-                         u"default"_ns, NS_ConvertUTF8toUTF16(spec), body);
+                         u"default"_ns, NS_ConvertUTF8toUTF16(url), body);
 }
 
 }  // namespace dom
@@ -255,24 +251,10 @@ void FeaturePolicyUtils::ReportViolation(Document* aDocument,
 
 namespace IPC {
 
-void ParamTraits<mozilla::dom::FeaturePolicyInfo>::Write(
-    MessageWriter* aWriter, const mozilla::dom::FeaturePolicyInfo& aParam) {
-  WriteParam(aWriter, aParam.mInheritedDeniedFeatureNames);
-  WriteParam(aWriter, aParam.mAttributeEnabledFeatureNames);
-  WriteParam(aWriter, aParam.mDeclaredString);
-  WriteParam(aWriter, aParam.mDefaultOrigin);
-  WriteParam(aWriter, aParam.mSelfOrigin);
-  WriteParam(aWriter, aParam.mSrcOrigin);
-}
-
-bool ParamTraits<mozilla::dom::FeaturePolicyInfo>::Read(
-    MessageReader* aReader, mozilla::dom::FeaturePolicyInfo* aResult) {
-  return ReadParam(aReader, &aResult->mInheritedDeniedFeatureNames) &&
-         ReadParam(aReader, &aResult->mAttributeEnabledFeatureNames) &&
-         ReadParam(aReader, &aResult->mDeclaredString) &&
-         ReadParam(aReader, &aResult->mDefaultOrigin) &&
-         ReadParam(aReader, &aResult->mSelfOrigin) &&
-         ReadParam(aReader, &aResult->mSrcOrigin);
-}
+IMPLEMENT_IPC_SERIALIZER_WITH_FIELDS(mozilla::dom::FeaturePolicyInfo,
+                                     mInheritedDeniedFeatureNames,
+                                     mAttributeEnabledFeatureNames,
+                                     mDeclaredString, mDefaultOrigin,
+                                     mSelfOrigin, mSrcOrigin);
 
 }  // namespace IPC

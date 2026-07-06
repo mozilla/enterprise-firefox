@@ -164,9 +164,9 @@ class TabManagementFragment : Fragment() {
 
             override fun onDrop(sourceKey: String, targetKey: String) {
                 tabsTrayStore.dispatch(
-                    TabGroupAction.DragAndDropCompleted(
-                        sourceKey,
-                        targetKey,
+                    TabGroupAction.DragAndDropInitiated(
+                        sourceId = sourceKey,
+                        destinationId = targetKey,
                     ),
                 )
             }
@@ -326,8 +326,9 @@ class TabManagementFragment : Fragment() {
                         entryProvider = entryProvider {
                             entry<TabManagerNavDestination.Root> {
                                 TabsTray(
-                                    tabsTrayStore = tabsTrayStore,
+                                    state = state,
                                     snackbarHostState = snackbarHostState,
+                                    onAction = tabsTrayStore::dispatch,
                                     onTabPageClick = { page ->
                                         onTabPageClick(
                                             tabsTrayInteractor = tabManagerInteractor,
@@ -419,6 +420,9 @@ class TabManagementFragment : Fragment() {
                                     onTabGroupOnboardingDismiss = {
                                         tabsTrayStore.dispatch(TabGroupAction.OnboardingDismissed)
                                     },
+                                    onTabGroupOnboardingShown = {
+                                        tabsTrayStore.dispatch(TabGroupAction.OnboardingShown)
+                                    },
                                     onOpenNewNormalTabClicked = tabManagerInteractor::onNormalTabsFabClicked,
                                     onOpenNewPrivateTabClicked = tabManagerInteractor::onPrivateTabsFabClicked,
                                     onSyncedTabsFabClicked = tabManagerInteractor::onSyncedTabsFabClicked,
@@ -431,7 +435,10 @@ class TabManagementFragment : Fragment() {
                             }
 
                             entry<TabManagerNavDestination.TabSearch> {
-                                TabSearchScreen(store = tabsTrayStore)
+                                TabSearchScreen(
+                                    state = state.tabSearchState,
+                                    onAction = tabsTrayStore::dispatch,
+                                )
                             }
 
                             entry<TabManagerNavDestination.ExpandedTabGroup>(
@@ -502,7 +509,23 @@ class TabManagementFragment : Fragment() {
                                     showBetaLabel = true,
                                 ),
                             ) {
-                                EditTabGroup(tabsTrayStore = tabsTrayStore)
+                                val formState = state.tabGroupState.formState
+                                requireNotNull(formState) {
+                                    "Form state must not be null when navigating to the edit sheet"
+                                }
+
+                                EditTabGroup(
+                                    formState = formState,
+                                    onTabGroupNameChange = { newName ->
+                                        tabsTrayStore.dispatch(TabGroupAction.NameChanged(newName))
+                                    },
+                                    onTabGroupThemeChange = { newTheme ->
+                                        tabsTrayStore.dispatch(TabGroupAction.ThemeChanged(newTheme))
+                                    },
+                                    onConfirmSave = {
+                                        tabsTrayStore.dispatch(TabGroupAction.SaveClicked)
+                                    },
+                                )
                             }
 
                             entry<TabManagerNavDestination.AddToTabGroup>(

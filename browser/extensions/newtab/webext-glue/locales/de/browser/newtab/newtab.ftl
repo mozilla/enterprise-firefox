@@ -93,6 +93,12 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = Uhr
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = Datenschutz
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = Aktien
 home-prefs-mission-message2 =
     .message = Unsere Sponsoren unterstützen unsere Mission, ein besseres Web zu erschaffen.
 home-prefs-manage-topics-link2 =
@@ -152,6 +158,20 @@ home-prefs-support-firefox-header-srd =
     .label = { -brand-product-name } unterstützen
 home-prefs-mission-message-learn-more-link-srd = Erfahren, wie das geht
 
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = Weitere Informationen
+
+## Strings for the Stocks widget
+
+# Context menu item for searching stock ticker symbols.
+newtab-stocks-menu-search = Ticker-Symbole durchsuchen
+# Context menu item that hides the Stocks widget.
+newtab-stocks-menu-hide = Aktien ausblenden
+# Context menu item linking to more information about the Stocks widget.
+newtab-stocks-menu-learn-more = Weitere Informationen
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -187,6 +207,7 @@ newtab-topsites-add-shortcut-label = Verknüpfung hinzufügen
 newtab-topsites-add-shortcut-title =
     .title = Verknüpfung hinzufügen
     .aria-label = Verknüpfung hinzufügen
+newtab-shortcuts-pinned-area = Angehefteter Bereich
 newtab-topsites-title-label = Titel
 newtab-topsites-title-input =
     .placeholder = Name eingeben
@@ -496,6 +517,10 @@ newtab-custom-widget-clock-toggle =
     .label = Uhr
 newtab-custom-widget-sports-toggle2 =
     .label = Sport
+newtab-custom-widget-privacy-toggle =
+    .label = Datenschutz
+newtab-custom-widget-stocks-toggle =
+    .label = Aktien
 newtab-custom-widget-section-title = Widgets
 newtab-custom-widget-section-toggle =
     .label = Widgets
@@ -972,6 +997,8 @@ newtab-widget-timer-reset =
 newtab-widget-timer-menu-notifications = Benachrichtigungen deaktivieren
 newtab-widget-timer-menu-notifications-on = Benachrichtigungen aktivieren
 newtab-widget-timer-menu-learn-more = Weitere Informationen
+newtab-widget-timer-menu-button =
+    .aria-label = Timer-Optionen
 # The title displays above a set of top news headlines.
 newtab-daily-briefing-card-title = Wichtigste Schlagzeilen
 newtab-daily-briefing-card-menu-dismiss = Schließen
@@ -1090,6 +1117,8 @@ newtab-sports-widget-show-less =
 # Toggle that filters the list of teams the user follows
 newtab-sports-widget-followed-only-toggle =
     .label = Nur Teams, denen gefolgt wird
+# Status shown when more matches are being fetched.
+newtab-sports-widget-loading-more = Weitere Spiele werden geladen…
 # Watch is a verb (as in watch matches online).
 newtab-sports-widget-watch =
     .label = Ansehen
@@ -1169,6 +1198,9 @@ newtab-sports-widget-third-place = Dritter Platz
 newtab-sports-widget-runner-up = Zweiter
 newtab-sports-widget-champions = Meister
 newtab-sports-widget-world-cup-champions = Weltmeister 2026
+# Compact champions label for the medium-size widget result card; the larger
+# card uses newtab-sports-widget-world-cup-champions.
+newtab-sports-widget-world-cup-champions-short = Weltmeister 2026
 # Variables:
 #   $date (Date) - The match start time
 newtab-sports-widget-match-time = { DATETIME($date, hour: "2-digit", minute: "2-digit") }
@@ -1267,6 +1299,8 @@ newtab-sports-widget-team-tbd = Wird noch festgelegt
 newtab-sports-widget-message-wallpapers-title = Beginnen Sie die Weltmeisterschaft mit neuen Hintergrundbildern
 newtab-sports-widget-message-wallpapers-body = Bringen Sie ein bisschen Spieltagsstimmung in Ihren Browser – für das Turnier.
 newtab-sports-widget-message-wallpapers-cta = Hintergrundbild auswählen
+newtab-sports-widget-message-wallpapers-semifinals-title = Holen Sie sich ein neues Hintergrundbild für die Halbfinalspiele
+newtab-sports-widget-message-wallpapers-semifinals-body = Bereiten Sie die Bühne für die wichtigsten Spiele der Weltmeisterschaft vor.
 newtab-sports-widget-message-add-widgets-cta =
     .label = Widgets hinzufügen
 newtab-sports-widget-message-day-in-play-title = Behalten Sie den Überblick über Ihren Tag mit { -brand-product-name }-Widgets

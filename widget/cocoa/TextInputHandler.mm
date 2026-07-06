@@ -18,6 +18,7 @@
 #include "mozilla/TextEventDispatcher.h"
 #include "mozilla/TextEvents.h"
 #include "mozilla/ToString.h"
+#include "mozilla/Utf16.h"
 
 #include "nsCocoaWindow.h"
 #include "nsObjCExceptions.h"
@@ -34,13 +35,13 @@ using namespace mozilla::widget;
 // rather than `MOZ_LOG=IMEHandler:5,sync` since using `5` may create too
 // big file.
 // Therefore you shouldn't use `LogLevel::Verbose` for logging usual behavior.
-mozilla::LazyLogModule gIMELog("IMEHandler");
+LazyLogModule gIMELog("IMEHandler");
 
 // For collecting other people's log, tell them `MOZ_LOG=KeyboardHandler:4,sync`
 // rather than `MOZ_LOG=KeyboardHandler:5,sync` since using `5` may create too
 // big file.
 // Therefore you shouldn't use `LogLevel::Verbose` for logging usual behavior.
-mozilla::LazyLogModule gKeyLog("KeyboardHandler");
+LazyLogModule gKeyLog("KeyboardHandler");
 
 // The behavior of `TextInputHandler` class is important both for logging
 // keyboard handler and IME handler.  Therefore, the behavior is logged when
@@ -3254,7 +3255,7 @@ void IMEInputHandler::OnCurrentTextInputSourceChange(
     }
     // 72 is kMaximumKeyStringLength in TelemetryScalar.cpp
     if (key.Length() > 72) {
-      if (NS_IS_SURROGATE_PAIR(key[72 - 2], key[72 - 1])) {
+      if (IsSurrogatePair(key[72 - 2], key[72 - 1])) {
         key.Truncate(72 - 2);
       } else {
         key.Truncate(72 - 1);
@@ -5152,7 +5153,7 @@ void IMEInputHandler::OnTextSubstitution(uint32_t aStartOffset) {
 
   NSString* str;
   if (!queryTextContentEvent.mReply->DataRef().IsEmpty() &&
-      NS_IS_LOW_SURROGATE(queryTextContentEvent.mReply->DataRef().CharAt(0))) {
+      IsLowSurrogate(queryTextContentEvent.mReply->DataRef().CharAt(0))) {
     str = nsCocoaUtils::ToNSString(
         Substring(queryTextContentEvent.mReply->DataRef(), 1));
   } else {

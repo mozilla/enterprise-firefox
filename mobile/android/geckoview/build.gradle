@@ -1,8 +1,8 @@
 plugins {
-    alias(libs.plugins.kotlin.android)
     id 'com.android.library'
-    id 'checkstyle'
     id 'org.mozilla.apilint'
+    id 'checkstyle'
+    id 'maven-publish'
 }
 
 import groovy.json.JsonOutput
@@ -83,6 +83,8 @@ android {
 
     lint {
         abortOnError = false
+        baseline = file("lint-baseline.xml")
+        lintConfig = file("lint.xml")
     }
 
     sourceSets {
@@ -209,7 +211,6 @@ dependencies {
     testRuntimeOnly libs.junit.vintage
     testImplementation libs.robolectric
 
-    androidTestImplementation libs.androidx.core.ktx
     androidTestImplementation libs.androidx.test.espresso.core
     androidTestImplementation libs.androidx.test.junit
     androidTestImplementation libs.androidx.test.rules
@@ -372,8 +373,6 @@ afterEvaluate {
         configureLibraryVariantWithJNIWrappers(jniVariantName, javacClasspath(jniVariantName), "Generated")
     }
 }
-
-apply plugin: 'maven-publish'
 
 version = getVersionNumber()
 println("GeckoView version = " + version)

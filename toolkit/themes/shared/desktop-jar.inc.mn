@@ -175,3 +175,6 @@
   skin/classic/global/reader/content-width-20.svg          (../../shared/reader/content-width-20.svg)
   skin/classic/global/tree/sort-asc.svg                    (../../shared/tree/sort-asc.svg)
   skin/classic/global/tree/sort-dsc.svg                    (../../shared/tree/sort-dsc.svg)
+#ifdef MOZ_ENTERPRISE
+  skin/classic/global/enterprise/access-connector-neterror.svg  (../../shared/enterprise/access-connector-neterror.svg)
+#endif

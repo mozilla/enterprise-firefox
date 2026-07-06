@@ -78,7 +78,7 @@ and implement all the usual provider methods as you normally would:
 The ``startQuery`` method should create ``UrlbarResult`` objects with the
 following two requirements:
 
-* Result types must be ``UrlbarUtils.RESULT_TYPE.DYNAMIC``.
+* Result types must be ``UrlbarShared.RESULT_TYPE.DYNAMIC``.
 * Result payloads must have a ``dynamicType`` property. It will be used in DOM
   IDs, DOM class names, and CSS selectors, so it should not contain any spaces
   or other characters that are invalid in CSS.
@@ -573,8 +573,8 @@ payload property in the following example:
 .. code-block:: javascript
 
     let result = new UrlbarResult({
-      type: UrlbarUtils.RESULT_TYPE.DYNAMIC,
-      source: UrlbarUtils.RESULT_SOURCE.OTHER_NETWORK,
+      type: UrlbarShared.RESULT_TYPE.DYNAMIC,
+      source: UrlbarShared.RESULT_SOURCE.OTHER_NETWORK,
       payload: {
         title: [
           "Some result title",

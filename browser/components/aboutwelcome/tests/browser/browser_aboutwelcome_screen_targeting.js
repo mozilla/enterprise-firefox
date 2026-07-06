@@ -110,10 +110,7 @@ add_task(async function second_screen_filtered_by_targeting() {
  */
 add_task(async function test_aboutwelcome_mr_template_easy_setup_default() {
   const sandbox = sinon.createSandbox();
-  await pushPrefs(
-    ["browser.shell.checkDefaultBrowser", true],
-    ["messaging-system-action.showEmbeddedImport", false]
-  );
+  await pushPrefs(["browser.shell.checkDefaultBrowser", true]);
   sandbox.stub(ShellService, "doesAppNeedPin").returns(true);
   sandbox.stub(ShellService, "isDefaultBrowser").returns(false);
 
@@ -121,18 +118,13 @@ add_task(async function test_aboutwelcome_mr_template_easy_setup_default() {
 
   const { browser, cleanup } = await openMRAboutWelcome();
 
-  //should render easy setup with all checkboxes (default, pin, import)
   await test_screen_content(
     browser,
-    "doesn't render only pin, default, or import easy setup",
+    "Should render easy setup with all checkboxes (default, pin)",
     //Expected selectors:
     ["main.AW_EASY_SETUP_NEEDS_DEFAULT_AND_PIN"],
     //Unexpected selectors:
-    [
-      "main.AW_EASY_SETUP_NEEDS_DEFAULT",
-      "main.AW_EASY_SETUP_NEEDS_PIN",
-      "main.AW_ONLY_IMPORT",
-    ]
+    ["main.AW_EASY_SETUP_NEEDS_DEFAULT", "main.AW_EASY_SETUP_NEEDS_PIN"]
   );
 
   await cleanup();
@@ -146,10 +138,7 @@ add_task(async function test_aboutwelcome_mr_template_easy_setup_default() {
  */
 add_task(async function test_aboutwelcome_mr_template_easy_setup_needs_pin() {
   const sandbox = sinon.createSandbox();
-  await pushPrefs(
-    ["browser.shell.checkDefaultBrowser", true],
-    ["messaging-system-action.showEmbeddedImport", false]
-  );
+  await pushPrefs(["browser.shell.checkDefaultBrowser", true]);
   sandbox.stub(ShellService, "doesAppNeedPin").returns(true);
   sandbox.stub(ShellService, "isDefaultBrowser").returns(true);
 
@@ -160,14 +149,13 @@ add_task(async function test_aboutwelcome_mr_template_easy_setup_needs_pin() {
   //should render easy setup needs pin
   await test_screen_content(
     browser,
-    "doesn't render default and pin, only default or import easy setup",
+    "Should render easy setup with only pin checkbox",
     //Expected selectors:
     ["main.AW_EASY_SETUP_NEEDS_PIN"],
     //Unexpected selectors:
     [
       "main.AW_EASY_SETUP_NEEDS_DEFAULT",
       "main.AW_EASY_SETUP_NEEDS_DEFAULT_AND_PIN",
-      "main.AW_ONLY_IMPORT",
     ]
   );
 
@@ -183,10 +171,7 @@ add_task(async function test_aboutwelcome_mr_template_easy_setup_needs_pin() {
 add_task(
   async function test_aboutwelcome_mr_template_easy_setup_needs_default() {
     const sandbox = sinon.createSandbox();
-    await pushPrefs(
-      ["browser.shell.checkDefaultBrowser", true],
-      ["messaging-system-action.showEmbeddedImport", false]
-    );
+    await pushPrefs(["browser.shell.checkDefaultBrowser", true]);
     sandbox.stub(ShellService, "doesAppNeedPin").returns(false);
     sandbox.stub(ShellService, "doesAppNeedStartMenuPin").returns(false);
     sandbox.stub(ShellService, "isDefaultBrowser").returns(false);
@@ -198,14 +183,13 @@ add_task(
     //should render easy setup needs default
     await test_screen_content(
       browser,
-      "doesn't render pin, import and set to default",
+      "Should render easy setup with default only checkbox",
       //Expected selectors:
       ["main.AW_EASY_SETUP_NEEDS_DEFAULT"],
       //Unexpected selectors:
       [
         "main.AW_EASY_SETUP_NEEDS_PIN",
         "main.AW_EASY_SETUP_NEEDS_DEFAULT_AND_PIN",
-        "main.AW_ONLY_IMPORT",
       ]
     );
 

@@ -417,13 +417,26 @@ add_task(async function test_defaultPrivateEngine_turned_off() {
     },
   });
 
+  // setDefaultPrivate re-enables the pref, which fires a notification first.
+  // The saved private engine was cleared when the pref was turned off, so it
+  // transiently falls back to appPrivateDefault before engine2 is set.
   promise = promiseDefaultNotification("private");
+  let engine2Promise = SearchTestUtils.promiseSearchNotification(
+    SearchUtils.MODIFIED_TYPE.DEFAULT_PRIVATE,
+    SearchUtils.TOPIC_ENGINE_MODIFIED,
+    2
+  );
   await SearchService.setDefaultPrivate(
     engine2,
     SearchService.CHANGE_REASON.UNKNOWN
   );
   Assert.equal(
     await promise,
+    appPrivateDefault,
+    "Should have notified with the app default private engine when re-enabling the pref."
+  );
+  Assert.equal(
+    await engine2Promise,
     engine2,
     "Should have notified setting the second engine correctly."
   );
@@ -620,15 +633,22 @@ add_task(async function test_defaultPrivateEngine_same_engine_toggle_pref() {
     },
   });
 
-  // Re-enable pref
+  // Re-enable pref, the saved private engine was cleared when the pref was
+  // turned off, so it falls back to appPrivateDefault.
+  let reEnablePromise = promiseDefaultNotification("private");
   Services.prefs.setBoolPref(
     SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault",
     true
   );
   Assert.equal(
+    await reEnablePromise,
+    appPrivateDefault,
+    "Should have notified resetting to the app private default when re-enabling the pref."
+  );
+  Assert.equal(
     SearchService.defaultPrivateEngine,
-    engine2,
-    "Should not change the default private engine"
+    appPrivateDefault,
+    "Should have reset to the app private default engine"
   );
   Assert.equal(
     SearchService.defaultEngine,
@@ -642,8 +662,8 @@ add_task(async function test_defaultPrivateEngine_same_engine_toggle_pref() {
       engineId: "otherEngine2",
     },
     private: {
-      providerId: "otherEngine2",
-      engineId: "otherEngine2",
+      providerId: "appDefaultPrivate",
+      engineId: "appDefaultPrivate-123",
     },
   });
 });
@@ -703,15 +723,22 @@ add_task(async function test_defaultPrivateEngine_same_engine_toggle_ui_pref() {
     },
   });
 
-  // Re-enable UI pref
+  // Re-enable UI pref, the saved private engine was cleared when the pref was
+  // turned off, so it falls back to appPrivateDefault.
+  let reEnablePromise = promiseDefaultNotification("private");
   Services.prefs.setBoolPref(
     SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault.ui.enabled",
     true
   );
   Assert.equal(
+    await reEnablePromise,
+    appPrivateDefault,
+    "Should have notified resetting to the app private default when re-enabling the pref."
+  );
+  Assert.equal(
     SearchService.defaultPrivateEngine,
-    engine2,
-    "Should not change the default private engine"
+    appPrivateDefault,
+    "Should have reset to the app private default engine"
   );
   Assert.equal(
     SearchService.defaultEngine,
@@ -725,8 +752,8 @@ add_task(async function test_defaultPrivateEngine_same_engine_toggle_ui_pref() {
       engineId: "otherEngine2",
     },
     private: {
-      providerId: "otherEngine2",
-      engineId: "otherEngine2",
+      providerId: "appDefaultPrivate",
+      engineId: "appDefaultPrivate-123",
     },
   });
 });

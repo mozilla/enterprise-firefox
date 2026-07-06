@@ -173,12 +173,11 @@ class TabsListBase {
     } else if (event.target.classList.contains("all-tabs-close-button")) {
       const tab = getTabFromRow(event.target);
       if (tab) {
-        this.gBrowser.removeTab(
-          tab,
-          lazy.TabMetrics.userTriggeredContext(
+        this.gBrowser.removeTab(tab, {
+          metricsContext: lazy.TabMetrics.userTriggeredContext(
             lazy.TabMetrics.METRIC_SOURCE.TAB_OVERFLOW_MENU
-          )
-        );
+          ),
+        });
       }
     } else {
       const rowVariant = getRowVariant(event.target);
@@ -794,18 +793,17 @@ export class TabsPanel extends TabsListBase {
 
     // NOTE: Given the list is opened only when the window is focused,
     //       we don't have to check `draggedTab.container`.
-    const metricsContext = {
-      isUserTriggered: true,
-      telemetrySource: lazy.TabMetrics.METRIC_SOURCE.TAB_OVERFLOW_MENU,
-    };
+    const metricsContext = lazy.TabMetrics.userTriggeredContext(
+      lazy.TabMetrics.METRIC_SOURCE.TAB_OVERFLOW_MENU
+    );
     if (this.dropTargetDirection == -1) {
-      this.gBrowser.moveTabBefore(
-        draggedElement,
-        targetElement,
-        metricsContext
-      );
+      this.gBrowser.moveTabBefore(draggedElement, targetElement, {
+        metricsContext,
+      });
     } else {
-      this.gBrowser.moveTabAfter(draggedElement, targetElement, metricsContext);
+      this.gBrowser.moveTabAfter(draggedElement, targetElement, {
+        metricsContext,
+      });
     }
 
     this._clearDropTarget();
@@ -938,11 +936,17 @@ export class TabsPanel extends TabsListBase {
       if (rowVariant == ROW_VARIANT_TAB) {
         const tab = getTabFromRow(row);
         this.gBrowser.removeTab(tab, {
-          telemetrySource: lazy.TabMetrics.METRIC_SOURCE.TAB_OVERFLOW_MENU,
           animate: true,
+          metricsContext: lazy.TabMetrics.userTriggeredContext(
+            lazy.TabMetrics.METRIC_SOURCE.TAB_OVERFLOW_MENU
+          ),
         });
       } else if (rowVariant == ROW_VARIANT_TAB_GROUP) {
-        getTabGroupFromRow(row)?.saveAndClose({ isUserTriggered: true });
+        getTabGroupFromRow(row)?.saveAndClose(
+          lazy.TabMetrics.userTriggeredContext(
+            lazy.TabMetrics.METRIC_SOURCE.TAB_OVERFLOW_MENU
+          )
+        );
       }
     }
   }

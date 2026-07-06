@@ -70,6 +70,11 @@ class IMEContentObserver final : public nsStubMutationObserver,
    */
   void OnSelectionChange(dom::Selection& aSelection);
 
+  void EditContextTextChanged(uint32_t aRangeStart, uint32_t aRangeEnd,
+                              const nsAString& aText);
+  void EditContextSelectionChanged();
+  void EditContextPositionChanged();
+
   MOZ_CAN_RUN_SCRIPT bool OnMouseButtonEvent(nsPresContext& aPresContext,
                                              WidgetMouseEvent& aMouseEvent);
 
@@ -198,6 +203,14 @@ class IMEContentObserver final : public nsStubMutationObserver,
   void CancelEditAction();
 
   /**
+   * Return true if this is initialized for design mode.
+   */
+  [[nodiscard]] bool IsForDesignMode() const {
+    return mRootEditableNodeOrTextControlElement &&
+           mRootEditableNodeOrTextControlElement->IsDocument();
+  }
+
+  /**
    * Return an Element if and only if this instance is observing the element.
    * The element is the anonymous <div> of a text control element if this is
    * initialized with a TextEditor.  Otherwise, the focused editing host.
@@ -245,6 +258,8 @@ class IMEContentObserver final : public nsStubMutationObserver,
                       EditorBase& aEditorBase);
   void OnIMEReceivedFocus();
   void Clear();
+
+  dom::Element* ComputeRootElement(PresShell* aPresShell) const;
 
   /**
    * Return true if aElement is observed by this instance.

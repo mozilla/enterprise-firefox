@@ -17,6 +17,9 @@ const { IPPChannelFilter } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/ipprotection/IPPChannelFilter.sys.mjs"
 );
 
+const TIMEOUT_PREF = "browser.ipProtection.guardian.timeout";
+const RETRY_AFTER_PREF = "browser.ipProtection.guardian.retryAfter";
+
 add_setup(async function () {
   await putServerInRemoteSettings();
 });
@@ -300,7 +303,7 @@ add_task(async function test_IPPProxyStates_error() {
   await activeEvent;
 
   IPPDummyAuthProvider.setProxyPass({
-    status: 500,
+    status: 403,
     error: undefined,
     pass: undefined,
     usage: undefined,
@@ -332,6 +335,68 @@ add_task(async function test_IPPProxyStates_error() {
     IPPProxyStates.READY,
     "Proxy should return to READY state after stop() from ERROR"
   );
+
+  IPProtectionService.uninit();
+});
+
+/**
+ * Tests that a non-string error reaching the error state is normalized to a
+ * string errorType, so it survives serialization to GeckoView (where it is read
+ * back with GeckoBundle.getString and would otherwise throw ClassCastException).
+ */
+add_task(async function test_IPPProxyManager_non_string_error_normalized() {
+  setupStubs({ validProxyPass: true });
+
+  const readyPromise = waitForEvent(
+    IPProtectionService,
+    "IPProtectionService:StateChanged",
+    () => IPProtectionService.state === IPProtectionStates.READY
+  );
+  IPProtectionService.init();
+  await readyPromise;
+
+  const activeEvent = waitForEvent(
+    IPPProxyManager,
+    "IPPProxyManager:StateChanged",
+    () => IPPProxyManager.state === IPPProxyStates.ACTIVE
+  );
+  IPPProxyManager.start();
+  await activeEvent;
+
+  // Simulate a provider surfacing a non-string error
+  IPPDummyAuthProvider.setProxyPass({
+    status: 403,
+    error: new Error("boom"),
+    pass: undefined,
+    usage: undefined,
+  });
+
+  const errorPromise = waitForEvent(
+    IPPProxyManager,
+    "IPPProxyManager:StateChanged",
+    () => IPPProxyManager.state === IPPProxyStates.ERROR
+  );
+  await IPPProxyManager.rotateProxyPass();
+  await errorPromise;
+
+  Assert.equal(
+    typeof IPPProxyManager.errorType,
+    "string",
+    "errorType must be a string so it serializes to GeckoView"
+  );
+  Assert.equal(
+    IPPProxyManager.errorType,
+    ERRORS.GENERIC,
+    "A non-string error is normalized to ERRORS.GENERIC"
+  );
+
+  const resetPromise = waitForEvent(
+    IPPProxyManager,
+    "IPPProxyManager:StateChanged",
+    () => IPPProxyManager.state === IPPProxyStates.READY
+  );
+  await IPPProxyManager.stop();
+  await resetPromise;
 
   IPProtectionService.uninit();
 });
@@ -986,6 +1051,98 @@ add_task(async function test_IPPProxyManager_stop_during_rotation() {
 
   IPProtectionService.uninit();
   sandbox.restore();
+});
+
+add_task(
+  async function test_IPPProxyManager_rotation_retries_transient_error() {
+    let sandbox = sinon.createSandbox();
+    setupStubs({ validProxyPass: true });
+    try {
+      await initServiceToReady();
+      await IPPProxyManager.start();
+
+      Services.prefs.setIntPref(RETRY_AFTER_PREF, 1);
+      Services.prefs.setIntPref(TIMEOUT_PREF, 10000);
+
+      const validPass = new ProxyPass(createProxyPassToken());
+      const transient = { status: 503 };
+      const fetchStub = sandbox.stub(IPPDummyAuthProvider, "fetchProxyPass");
+      fetchStub.onCall(0).resolves(transient);
+      fetchStub.onCall(1).resolves(transient);
+      fetchStub.resolves({ status: 200, pass: validPass });
+
+      const newPass = await IPPProxyManager.rotateProxyPass();
+
+      Assert.ok(newPass, "Rotation should return a pass once the 5xx clears");
+      Assert.equal(
+        newPass.token,
+        validPass.token,
+        "Rotation should return the pass fetched after the retries"
+      );
+      Assert.greaterOrEqual(
+        fetchStub.callCount,
+        3,
+        "A 5xx response should be retried until it succeeds"
+      );
+      Assert.equal(
+        IPPProxyManager.state,
+        IPPProxyStates.ACTIVE,
+        "Proxy should stay ACTIVE after a successful retried rotation"
+      );
+    } finally {
+      sandbox.restore();
+      await IPPProxyManager.stop(false).catch(() => {});
+      IPProtectionService.uninit();
+      Services.prefs.clearUserPref(RETRY_AFTER_PREF);
+      Services.prefs.clearUserPref(TIMEOUT_PREF);
+    }
+  }
+);
+
+add_task(async function test_IPPProxyManager_rotation_retries_offline_errors() {
+  const { IPPNetworkUtils } = ChromeUtils.importESModule(
+    "moz-src:///toolkit/components/ipprotection/IPPNetworkUtils.sys.mjs"
+  );
+  let sandbox = sinon.createSandbox();
+  setupStubs({ validProxyPass: true });
+  try {
+    await initServiceToReady();
+    await IPPProxyManager.start();
+
+    Services.prefs.setIntPref(RETRY_AFTER_PREF, 5);
+    Services.prefs.setIntPref(TIMEOUT_PREF, 100);
+
+    sandbox.stub(IPPNetworkUtils, "isOffline").get(() => true);
+    const fetchSpy = sandbox.spy(IPPDummyAuthProvider, "fetchProxyPass");
+    IPPDummyAuthProvider.setProxyPassError(new Error("network down"));
+
+    const errorEvent = waitForProxyState(IPPProxyStates.ERROR);
+    const result = await IPPProxyManager.rotateProxyPass();
+    await errorEvent;
+
+    Assert.equal(
+      result,
+      null,
+      "Rotation should not surface an offline error directly"
+    );
+    Assert.greater(
+      fetchSpy.callCount,
+      1,
+      "An offline failure should be retried rather than thrown"
+    );
+    Assert.equal(
+      IPPProxyManager.state,
+      IPPProxyStates.ERROR,
+      "Proxy should move to ERROR when offline retries time out"
+    );
+  } finally {
+    IPPDummyAuthProvider.setProxyPassError(null);
+    sandbox.restore();
+    await IPPProxyManager.stop(false).catch(() => {});
+    IPProtectionService.uninit();
+    Services.prefs.clearUserPref(RETRY_AFTER_PREF);
+    Services.prefs.clearUserPref(TIMEOUT_PREF);
+  }
 });
 
 add_task(async function test_IPPProxyManager_restores_cached_usage() {

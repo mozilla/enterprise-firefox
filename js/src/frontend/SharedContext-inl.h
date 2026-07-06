@@ -12,7 +12,7 @@ namespace js {
 namespace frontend {
 
 inline Directives::Directives(ParseContext* parent)
-    : strict_(parent->sc()->strict()), asmJS_(parent->useAsmOrInsideUseAsm()) {}
+    : strict_(parent->sc()->strict()) {}
 
 }  // namespace frontend
 

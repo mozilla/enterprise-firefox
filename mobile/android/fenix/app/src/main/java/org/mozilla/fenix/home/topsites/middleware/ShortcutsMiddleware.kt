@@ -4,15 +4,21 @@
 
 package org.mozilla.fenix.home.topsites.middleware
 
+import androidx.annotation.VisibleForTesting
+import androidx.core.net.toUri
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import mozilla.components.feature.top.sites.TopSitesUseCases
 import mozilla.components.lib.state.Middleware
 import mozilla.components.lib.state.Store
 import mozilla.components.lib.state.ext.flow
 import mozilla.components.service.merino.manifest.MerinoManifestProvider
+import mozilla.components.support.ktx.android.net.hostWithoutCommonPrefixes
 import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.home.topsites.store.ShortcutsAction
 import org.mozilla.fenix.home.topsites.store.ShortcutsState
@@ -20,7 +26,8 @@ import org.mozilla.fenix.home.topsites.store.ShortcutsStore
 import org.mozilla.fenix.home.topsites.store.toPopularSite
 import org.mozilla.fenix.utils.Settings
 
-private const val POPULAR_SITES_LIMIT = 8
+@VisibleForTesting
+internal const val POPULAR_SITES_LIMIT = 8
 
 /**
  * [Middleware] implementation for handling [ShortcutsAction] and managing the [ShortcutsState]
@@ -33,6 +40,7 @@ private const val POPULAR_SITES_LIMIT = 8
  * @param scope The lifecycle-aware [CoroutineScope] used to launch coroutines. The consumer is
  * responsible for providing a scope that gets canceled when the consuming component is destroyed
  * to avoid leaking the [ShortcutsStore].
+ * @param ioDispatcher [CoroutineDispatcher] used for the IO operations.
  */
 class ShortcutsMiddleware(
     private val appStore: AppStore,
@@ -40,6 +48,7 @@ class ShortcutsMiddleware(
     private val merinoManifestProvider: MerinoManifestProvider,
     private val settings: Settings,
     private val scope: CoroutineScope,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : Middleware<ShortcutsState, ShortcutsAction> {
 
     override fun invoke(
@@ -68,19 +77,22 @@ class ShortcutsMiddleware(
             ShortcutsAction.UpdateShowAddShortcut(settings.enableAddShortcutsImprovement),
         )
 
-        store.dispatch(
-            ShortcutsAction.UpdatePopularSites(
-                merinoManifestProvider.getTopDomains(limit = POPULAR_SITES_LIMIT)
-                    .map { it.toPopularSite() },
-            ),
-        )
-
         scope.launch {
             appStore.flow()
                 .map { it.topSites }
                 .distinctUntilChanged()
                 .collect { topSites ->
                     store.dispatch(ShortcutsAction.UpdateTopSites(topSites))
+
+                    val popularSites = withContext(ioDispatcher) {
+                        merinoManifestProvider.getTopDomains(
+                            limit = POPULAR_SITES_LIMIT,
+                            excludedDomains = topSites.mapNotNullTo(mutableSetOf()) {
+                                it.url.toUri().hostWithoutCommonPrefixes
+                            },
+                        ).map { it.toPopularSite() }
+                    }
+                    store.dispatch(ShortcutsAction.UpdatePopularSites(popularSites))
                 }
         }
     }

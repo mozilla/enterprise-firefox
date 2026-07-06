@@ -552,7 +552,7 @@ class NavigationToolbarExpandedTest {
             verifyTheBackButton()
             verifyTheForwardButton()
             verifyTheRefreshButton()
-            verifyTheNewTabButton(false)
+            verifyTheTabStripAddTabButton()
             verifyTheTabCounter("1")
             verifyTheMainMenuButton()
         }

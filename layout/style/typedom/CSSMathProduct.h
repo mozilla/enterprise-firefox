@@ -7,6 +7,7 @@
 
 #include "js/TypeDecls.h"
 #include "mozilla/RefPtr.h"
+#include "mozilla/UniquePtr.h"
 #include "mozilla/dom/CSSMathValue.h"
 #include "mozilla/dom/CSSNumericArrayBindingFwd.h"
 #include "mozilla/dom/CSSNumericValueBindingFwd.h"
@@ -23,6 +24,8 @@ namespace mozilla {
 
 struct CSSPropertyId;
 class ErrorResult;
+template <typename T>
+class MovingNotNull;
 struct StyleNumericValue;
 using StyleMathProduct = CopyableTArray<StyleNumericValue>;
 
@@ -36,6 +39,10 @@ class Sequence;
 class CSSMathProduct final : public CSSMathValue {
  public:
   CSSMathProduct(nsCOMPtr<nsISupports> aParent,
+                 RefPtr<CSSNumericArray> aValues);
+
+  CSSMathProduct(nsCOMPtr<nsISupports> aParent,
+                 MovingNotNull<UniquePtr<StyleNumericType>> aNumericType,
                  RefPtr<CSSNumericArray> aValues);
 
   static RefPtr<CSSMathProduct> Create(nsCOMPtr<nsISupports> aParent,

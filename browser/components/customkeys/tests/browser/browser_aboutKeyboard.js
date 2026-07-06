@@ -33,6 +33,7 @@ function addAboutKbTask(task) {
             true
           );
         }
+        await content.customElements.whenDefined("moz-input-search");
       });
       await Services.fog.testFlushAllChildren();
       await task(tab);
@@ -57,14 +58,16 @@ addAboutKbTask(async function testInit(tab) {
   );
   await SpecialPowers.spawn(tab, [], () => {
     Assert.greater(
-      content.document.querySelectorAll("tbody").length,
+      content.document.querySelectorAll("moz-card.category").length,
       5,
       "At least 5 categories"
     );
     const numKeys = content.document.querySelectorAll(".key").length;
     Assert.greater(numKeys, 50, "At least 50 keys");
     is(
-      content.document.querySelectorAll("tbody[hidden], tr[hidden]").length,
+      content.document.querySelectorAll(
+        "moz-card.category[hidden], .key[hidden]"
+      ).length,
       0,
       "No hidden categories or keys"
     );
@@ -111,13 +114,40 @@ addAboutKbTask(async function testSearch(tab) {
     "Correct telemetry for opened"
   );
   await SpecialPowers.spawn(tab, [], async () => {
+    // Verify that visible category accordions are expanded
+    function checkStateOfCategories(categories, init = false) {
+      for (const card of categories) {
+        const heading = card.wrappedJSObject.heading;
+        if (card.hidden) {
+          ok(true, `Category "${heading}" is not visible`);
+        } else if (init && card != categories[0]) {
+          // In initial state, only the first category is open.
+          ok(
+            !card.wrappedJSObject.expanded,
+            `Category "${heading}" accordion is closed`
+          );
+        } else {
+          ok(
+            card.wrappedJSObject.expanded,
+            `Category "${heading}" accordion is open`
+          );
+        }
+      }
+    }
     is(
-      content.document.querySelectorAll("tbody[hidden], tr[hidden]").length,
+      content.document.querySelectorAll(
+        "moz-card.category[hidden], .key[hidden]"
+      ).length,
       0,
       "No hidden categories or keys"
     );
-    const search = content.document.getElementById("search");
+    const categories = content.document.querySelectorAll("moz-card.category");
+    checkStateOfCategories(categories, true /* initial state */);
+
+    const search = content.document.getElementById("search").wrappedJSObject;
+    let focused = ContentTaskUtils.waitForEvent(search, "focus");
     search.focus();
+    await focused;
 
     info("Searching for zzz");
     let updated = ContentTaskUtils.waitForEvent(
@@ -131,11 +161,12 @@ addAboutKbTask(async function testSearch(tab) {
     await updated;
     is(
       content.document.querySelectorAll(
-        "tbody:not([hidden]), .key:not([hidden])"
+        "moz-card.category:not([hidden]), .key:not([hidden])"
       ).length,
       0,
       "No visible categories or keys"
     );
+    checkStateOfCategories(categories);
 
     info("Clearing search");
     updated = ContentTaskUtils.waitForEvent(
@@ -148,10 +179,13 @@ addAboutKbTask(async function testSearch(tab) {
     EventUtils.synthesizeKey("KEY_Escape", {}, content);
     await updated;
     is(
-      content.document.querySelectorAll("tbody[hidden], tr[hidden]").length,
+      content.document.querySelectorAll(
+        "moz-card.category[hidden], .key[hidden]"
+      ).length,
       0,
       "No hidden categories or keys"
     );
+    checkStateOfCategories(categories, true /* return to initial state */);
 
     info("Searching for download");
     updated = ContentTaskUtils.waitForEvent(
@@ -171,18 +205,16 @@ addAboutKbTask(async function testSearch(tab) {
       "Visible key is key_openDownloads"
     );
     let visibleCategories = content.document.querySelectorAll(
-      "tbody:not([hidden])"
+      "moz-card.category:not([hidden])"
     );
     is(visibleCategories.length, 1, "1 visible category");
     is(
-      visibleKeys[0].closest("tbody"),
+      visibleKeys[0].closest("moz-card"),
       visibleCategories[0],
       "Visible key is inside visible category"
     );
-    ok(
-      !visibleCategories[0].querySelector(".category").hidden,
-      "Category header is visible"
-    );
+    ok(!visibleCategories[0].hidden, "Category card (accordion) is visible");
+    checkStateOfCategories(categories);
 
     info("Clearing search");
     updated = ContentTaskUtils.waitForEvent(
@@ -195,10 +227,13 @@ addAboutKbTask(async function testSearch(tab) {
     EventUtils.synthesizeKey("KEY_Escape", {}, content);
     await updated;
     is(
-      content.document.querySelectorAll("tbody[hidden], tr[hidden]").length,
+      content.document.querySelectorAll(
+        "moz-card.category[hidden], .key[hidden]"
+      ).length,
       0,
       "No hidden categories or keys"
     );
+    checkStateOfCategories(categories, true /* return to initial state */);
 
     info("Searching for history");
     updated = ContentTaskUtils.waitForEvent(
@@ -214,9 +249,10 @@ addAboutKbTask(async function testSearch(tab) {
     visibleKeys = content.document.querySelectorAll(".key:not([hidden])");
     is(visibleKeys.length, 3, "3 visible keys");
     visibleCategories = content.document.querySelectorAll(
-      "tbody:not([hidden])"
+      "moz-card.category:not([hidden])"
     );
     is(visibleCategories.length, 2, "2 visible categories");
+    checkStateOfCategories(categories);
   });
 });
 
@@ -230,23 +266,45 @@ addAboutKbTask(async function testChange(tab) {
     content.downloadsRow = content.document.querySelector(
       '.key[data-id="key_openDownloads"]'
     );
+    content.downloadsRow.closest(".category").wrappedJSObject.expanded = true;
+    await content.downloadsRow.closest(".category").wrappedJSObject
+      .updateComplete;
     ok(
       !content.downloadsRow.classList.contains("customized"),
       "key_openDownloads is not customized"
     );
     is(
-      content.downloadsRow.children[1].textContent,
+      content.downloadsRow.querySelector(".currentShortcut").wrappedJSObject
+        .value,
       _consts.downloadsDisplay,
       "Key is the default key"
     );
+    is(
+      content.getComputedStyle(
+        content.downloadsRow.querySelector(".currentShortcut")
+      ).display,
+      "block",
+      "Current shortcut field is visible"
+    );
     info("Clicking Change for key_openDownloads");
-    content.input = content.downloadsRow.querySelector(".new");
+    content.input =
+      content.downloadsRow.querySelector(".newKey").wrappedJSObject;
     let focused = ContentTaskUtils.waitForEvent(content.input, "focus");
     content.change = content.downloadsRow.querySelector(".change");
     content.change.click();
     await focused;
     ok(true, "New key input got focus");
-    content.selected = ContentTaskUtils.waitForEvent(content.input, "select");
+    is(
+      content.getComputedStyle(
+        content.downloadsRow.querySelector(".currentShortcut")
+      ).display,
+      "none",
+      "Current shortcut field is hidden in editing mode"
+    );
+    content.selected = ContentTaskUtils.waitForEvent(
+      content.input.inputEl,
+      "select"
+    );
   });
   await Services.fog.testFlushAllChildren();
   is(
@@ -259,7 +317,10 @@ addAboutKbTask(async function testChange(tab) {
   await SpecialPowers.spawn(tab, [consts], async _consts => {
     await content.selected;
     is(content.input.value, "Invalid", "Input shows invalid");
-    content.selected = ContentTaskUtils.waitForEvent(content.input, "select");
+    content.selected = ContentTaskUtils.waitForEvent(
+      content.input.inputEl,
+      "select"
+    );
   });
   info(`Pressing ${consts.unusedModifiersDisplay}`);
   EventUtils.synthesizeKey(...consts.unusedModifiersArgs, window);
@@ -270,14 +331,20 @@ addAboutKbTask(async function testChange(tab) {
       _consts.unusedModifiersDisplay,
       "Input shows modifiers as they're pressed"
     );
-    content.selected = ContentTaskUtils.waitForEvent(content.input, "select");
+    content.selected = ContentTaskUtils.waitForEvent(
+      content.input.inputEl,
+      "select"
+    );
   });
   info(`Pressing Shift+${consts.unusedKey}`);
   EventUtils.synthesizeKey(consts.unusedKey, { shiftKey: true }, window);
   await SpecialPowers.spawn(tab, [consts], async _consts => {
     await content.selected;
     is(content.input.value, "Invalid", "Input shows invalid");
-    content.selected = ContentTaskUtils.waitForEvent(content.input, "select");
+    content.selected = ContentTaskUtils.waitForEvent(
+      content.input.inputEl,
+      "select"
+    );
   });
   info(`Pressing ${consts.unusedModifiersDisplay}`);
   EventUtils.synthesizeKey(...consts.unusedModifiersArgs, window);
@@ -288,7 +355,10 @@ addAboutKbTask(async function testChange(tab) {
       _consts.unusedModifiersDisplay,
       "Input shows modifiers as they're pressed"
     );
-    content.selected = ContentTaskUtils.waitForEvent(content.input, "select");
+    content.selected = ContentTaskUtils.waitForEvent(
+      content.input.inputEl,
+      "select"
+    );
   });
   info("Pressing Backspace");
   EventUtils.synthesizeKey("KEY_Backspace", {}, window);
@@ -307,9 +377,17 @@ addAboutKbTask(async function testChange(tab) {
       "key_openDownloads is customized"
     );
     is(
-      content.downloadsRow.children[1].textContent,
+      content.downloadsRow.querySelector(".currentShortcut").wrappedJSObject
+        .value,
       _consts.unusedDisplay,
       "Key is the customized key"
+    );
+    is(
+      content.getComputedStyle(
+        content.downloadsRow.querySelector(".currentShortcut")
+      ).display,
+      "block",
+      "Current shortcut field is visible after editing mode is completed"
     );
   });
   // We deliberately let the result of this test leak into the next one.
@@ -326,12 +404,14 @@ addAboutKbTask(async function testReset(tab) {
     const downloadsRow = content.document.querySelector(
       '.key[data-id="key_openDownloads"]'
     );
+    downloadsRow.closest(".category").wrappedJSObject.expanded = true;
+    await downloadsRow.closest(".category").wrappedJSObject.updateComplete;
     ok(
       downloadsRow.classList.contains("customized"),
       "key_openDownloads is customized"
     );
     is(
-      downloadsRow.children[1].textContent,
+      downloadsRow.querySelector(".currentShortcut").wrappedJSObject.value,
       _consts.unusedDisplay,
       "Key is the customized key"
     );
@@ -351,7 +431,7 @@ addAboutKbTask(async function testReset(tab) {
       "key_openDownloads is not customized"
     );
     is(
-      downloadsRow.children[1].textContent,
+      downloadsRow.querySelector(".currentShortcut").wrappedJSObject.value,
       _consts.downloadsDisplay,
       "Key is the default key"
     );
@@ -374,6 +454,8 @@ addAboutKbTask(async function testClear(tab) {
     const downloadsRow = content.document.querySelector(
       '.key[data-id="key_openDownloads"]'
     );
+    downloadsRow.closest(".category").wrappedJSObject.expanded = true;
+    await downloadsRow.closest(".category").wrappedJSObject.updateComplete;
     ok(
       !downloadsRow.classList.contains("customized"),
       "key_openDownloads is not customized"
@@ -401,7 +483,11 @@ addAboutKbTask(async function testClear(tab) {
       !downloadsRow.classList.contains("assigned"),
       "key_openDownloads is not assigned"
     );
-    is(downloadsRow.children[1].textContent, "", "Key is empty");
+    is(
+      downloadsRow.querySelector(".currentShortcut").wrappedJSObject.value,
+      "",
+      "Key is empty"
+    );
   });
   await Services.fog.testFlushAllChildren();
   is(
@@ -423,6 +509,9 @@ addAboutKbTask(async function testResetAll(tab) {
     content.downloadsRow = content.document.querySelector(
       '.key[data-id="key_openDownloads"]'
     );
+    content.downloadsRow.closest(".category").wrappedJSObject.expanded = true;
+    await content.downloadsRow.closest(".category").wrappedJSObject
+      .updateComplete;
     ok(
       content.downloadsRow.classList.contains("customized"),
       "key_openDownloads is customized"
@@ -504,6 +593,9 @@ addAboutKbTask(async function testConflictingChange(tab) {
     content.downloadsRow = content.document.querySelector(
       '.key[data-id="key_openDownloads"]'
     );
+    content.downloadsRow.closest(".category").wrappedJSObject.expanded = true;
+    await content.downloadsRow.closest(".category").wrappedJSObject
+      .updateComplete;
     ok(
       !content.downloadsRow.classList.contains("customized"),
       "key_openDownloads is not customized"
@@ -517,7 +609,8 @@ addAboutKbTask(async function testConflictingChange(tab) {
     );
 
     info("Clicking Change for key_openDownloads");
-    content.input = content.downloadsRow.querySelector(".new");
+    content.input =
+      content.downloadsRow.querySelector(".newKey").wrappedJSObject;
     let focused = ContentTaskUtils.waitForEvent(content.input, "focus");
     content.change = content.downloadsRow.querySelector(".change");
     content.change.click();
@@ -540,6 +633,7 @@ addAboutKbTask(async function testConflictingChange(tab) {
   EventUtils.synthesizeKey("H", consts.historyOptions, window);
   await handled;
   await SpecialPowers.spawn(tab, [consts], async _consts => {
+    // Change button got focus and content is updated:
     await content.focused;
     ok(true, "Change button got focus");
     ok(
@@ -573,6 +667,7 @@ addAboutKbTask(async function testConflictingChange(tab) {
   EventUtils.synthesizeKey("H", consts.historyOptions, window);
   await handled;
   await SpecialPowers.spawn(tab, [consts], async _consts => {
+    // Change button got focus and content is updated:
     await content.focused;
     ok(true, "Change button got focus");
     ok(
@@ -584,7 +679,8 @@ addAboutKbTask(async function testConflictingChange(tab) {
       "key_openDownloads is assigned"
     );
     is(
-      content.downloadsRow.children[1].textContent,
+      content.downloadsRow.querySelector(".currentShortcut").wrappedJSObject
+        .value,
       _consts.historyDisplay,
       "Key is the customized key"
     );
@@ -596,7 +692,12 @@ addAboutKbTask(async function testConflictingChange(tab) {
       !content.historyRow.classList.contains("assigned"),
       "key_gotoHistory is not assigned"
     );
-    is(content.historyRow.children[1].textContent, "", "Key is empty");
+    is(
+      content.historyRow.querySelector(".currentShortcut").wrappedJSObject
+        .value,
+      "",
+      "Key is empty"
+    );
   });
   // We deliberately let the result of this test leak into the next one.
 });
@@ -608,6 +709,9 @@ addAboutKbTask(async function testConflictingReset(tab) {
     content.downloadsRow = content.document.querySelector(
       '.key[data-id="key_openDownloads"]'
     );
+    content.downloadsRow.closest(".category").wrappedJSObject.expanded = true;
+    await content.downloadsRow.closest(".category").wrappedJSObject
+      .updateComplete;
     ok(
       content.downloadsRow.classList.contains("customized"),
       "key_openDownloads is customized"
@@ -682,7 +786,12 @@ addAboutKbTask(async function testConflictingReset(tab) {
       !content.downloadsRow.classList.contains("assigned"),
       "key_openDownloads is not assigned"
     );
-    is(content.downloadsRow.children[1].textContent, "", "Key is empty");
+    is(
+      content.downloadsRow.querySelector(".currentShortcut").wrappedJSObject
+        .value,
+      "",
+      "Key is empty"
+    );
     ok(
       !content.historyRow.classList.contains("customized"),
       "key_gotoHistory is not customized"
@@ -692,7 +801,8 @@ addAboutKbTask(async function testConflictingReset(tab) {
       "key_gotoHistory is assigned"
     );
     is(
-      content.historyRow.children[1].textContent,
+      content.historyRow.querySelector(".currentShortcut").wrappedJSObject
+        .value,
       _consts.historyDisplay,
       "Key is the default key"
     );
@@ -707,8 +817,12 @@ addAboutKbTask(async function testReservedKey(tab) {
     content.downloadsRow = content.document.querySelector(
       '.key[data-id="key_openDownloads"]'
     );
+    content.downloadsRow.closest(".category").wrappedJSObject.expanded = true;
+    await content.downloadsRow.closest(".category").wrappedJSObject
+      .updateComplete;
     info("Clicking Change for key_openDownloads");
-    content.input = content.downloadsRow.querySelector(".new");
+    content.input =
+      content.downloadsRow.querySelector(".newKey").wrappedJSObject;
     let focused = ContentTaskUtils.waitForEvent(content.input, "focus");
     content.change = content.downloadsRow.querySelector(".change");
     content.change.click();
@@ -731,6 +845,7 @@ addAboutKbTask(async function testReservedKey(tab) {
   EventUtils.synthesizeKey("N", { accelKey: true }, window);
   await handled;
   await SpecialPowers.spawn(tab, [], async () => {
+    // Change button got focus and content is updated:
     await content.focused;
     ok(true, "Change button got focus");
   });
@@ -743,12 +858,16 @@ addAboutKbTask(async function testFunctionKey(tab) {
     content.downloadsRow = content.document.querySelector(
       '.key[data-id="key_openDownloads"]'
     );
+    content.downloadsRow.closest(".category").wrappedJSObject.expanded = true;
+    await content.downloadsRow.closest(".category").wrappedJSObject
+      .updateComplete;
     ok(
       !content.downloadsRow.classList.contains("customized"),
       "key_openDownloads is not customized"
     );
     info("Clicking Change for key_openDownloads");
-    content.input = content.downloadsRow.querySelector(".new");
+    content.input =
+      content.downloadsRow.querySelector(".newKey").wrappedJSObject;
     let focused = ContentTaskUtils.waitForEvent(content.input, "focus");
     content.change = content.downloadsRow.querySelector(".change");
     content.change.click();
@@ -765,6 +884,7 @@ addAboutKbTask(async function testFunctionKey(tab) {
   info("Pressing F1");
   EventUtils.synthesizeKey("KEY_F1", {}, window);
   await SpecialPowers.spawn(tab, [consts], async _consts => {
+    // Change button got focus and content is updated:
     await content.focused;
     ok(true, "Change button got focus");
     ok(
@@ -772,7 +892,8 @@ addAboutKbTask(async function testFunctionKey(tab) {
       "key_openDownloads is customized"
     );
     is(
-      content.downloadsRow.children[1].textContent,
+      content.downloadsRow.querySelector(".currentShortcut").wrappedJSObject
+        .value,
       "F1",
       "Key is the customized key"
     );
@@ -786,12 +907,14 @@ addAboutKbTask(async function testFunctionKey(tab) {
     content.backRow = content.document.querySelector(
       '.key[data-id="goBackKb"]'
     );
+    content.backRow.closest(".category").wrappedJSObject.expanded = true;
+    await content.backRow.closest(".category").wrappedJSObject.updateComplete;
     ok(
       !content.backRow.classList.contains("customized"),
       "goBackKb is not customized"
     );
     info("Clicking Change for goBackKb");
-    content.input = content.backRow.querySelector(".new");
+    content.input = content.backRow.querySelector(".newKey").wrappedJSObject;
     let focused = ContentTaskUtils.waitForEvent(content.input, "focus");
     content.change = content.backRow.querySelector(".change");
     content.change.click();
@@ -808,6 +931,7 @@ addAboutKbTask(async function testFunctionKey(tab) {
   info(`Pressing ${consts.backDisplay}`);
   EventUtils.synthesizeKey(...consts.backArgs, window);
   await SpecialPowers.spawn(tab, [consts], async _consts => {
+    // Change button got focus and content is updated:
     await content.focused;
     ok(true, "Change button got focus");
     ok(
@@ -815,7 +939,7 @@ addAboutKbTask(async function testFunctionKey(tab) {
       "goBackKb is not customized"
     );
     is(
-      content.backRow.children[1].textContent,
+      content.backRow.querySelector(".currentShortcut").wrappedJSObject.value,
       _consts.backDisplay,
       "Key is the default key"
     );
@@ -829,18 +953,25 @@ if (isLinux) {
       content.downloadsRow = content.document.querySelector(
         '.key[data-id="key_openDownloads"]'
       );
+      content.downloadsRow.closest(".category").wrappedJSObject.expanded = true;
+      await content.downloadsRow.closest(".category").wrappedJSObject
+        .updateComplete;
       ok(
         !content.downloadsRow.classList.contains("customized"),
         "key_openDownloads is not customized"
       );
       info("Clicking Change for key_openDownloads");
-      content.input = content.downloadsRow.querySelector(".new");
+      content.input =
+        content.downloadsRow.querySelector(".newKey").wrappedJSObject;
       let focused = ContentTaskUtils.waitForEvent(content.input, "focus");
       content.change = content.downloadsRow.querySelector(".change");
       content.change.click();
       await focused;
       ok(true, "New key input got focus");
-      content.selected = ContentTaskUtils.waitForEvent(content.input, "select");
+      content.selected = ContentTaskUtils.waitForEvent(
+        content.input.inputEl,
+        "select"
+      );
     });
     info("Pressing Meta (super) key");
     EventUtils.synthesizeKey("KEY_Meta", {}, window);
@@ -852,6 +983,7 @@ if (isLinux) {
     info("Pressing Meta+Y");
     EventUtils.synthesizeKey("Y", { metaKey: true }, window);
     await SpecialPowers.spawn(tab, [], async () => {
+      // Change button got focus and content is updated:
       await content.focused;
       ok(true, "Change button got focus");
       ok(
@@ -859,7 +991,8 @@ if (isLinux) {
         "key_openDownloads is customized"
       );
       is(
-        content.downloadsRow.children[1].textContent,
+        content.downloadsRow.querySelector(".currentShortcut").wrappedJSObject
+          .value,
         "Win+Y",
         "Key is the customized key"
       );
@@ -867,3 +1000,242 @@ if (isLinux) {
     CustomKeys.resetAll();
   });
 }
+
+// Test accordion components expanding/collapsing with keyboard alone, and
+// that action buttons are navigable with keyboard.
+addAboutKbTask(async function testKeyboardAccess(tab) {
+  await SpecialPowers.spawn(tab, [], async () => {
+    info("Verify an expanded accordion states are toggled with Space/Enter");
+    const firstCard =
+      content.document.querySelector("moz-card.category").wrappedJSObject;
+
+    ok(firstCard.expanded, "First category is initially expanded");
+    firstCard.summaryEl.focus();
+    is(
+      content.document.activeElement.wrappedJSObject,
+      firstCard,
+      "Category card host is an activeElement when its summary is focused"
+    );
+    let firstCardToggled = ContentTaskUtils.waitForEvent(
+      firstCard,
+      "toggle",
+      false,
+      null,
+      true
+    );
+    EventUtils.synthesizeKey("KEY_Enter", {}, content);
+    await firstCardToggled;
+    ok(!firstCard.expanded, "Accordion collapses with Enter");
+
+    firstCardToggled = ContentTaskUtils.waitForEvent(
+      firstCard,
+      "toggle",
+      false,
+      null,
+      true
+    );
+    EventUtils.synthesizeKey(" ", {}, content);
+    await firstCardToggled;
+    ok(firstCard.expanded, "Accordion expands with Space");
+
+    info("Verify a collapsed accordion states are toggled with Space/Enter");
+    const secondCard =
+      content.document.querySelectorAll("moz-card.category")[1].wrappedJSObject;
+    ok(!secondCard.expanded, "Second category is initially collapsed");
+    firstCardToggled = ContentTaskUtils.waitForEvent(
+      firstCard,
+      "toggle",
+      false,
+      null,
+      true
+    );
+    EventUtils.synthesizeKey(" ", {}, content);
+    await firstCardToggled;
+    ok(!firstCard.expanded, "First accordion collapses with Space");
+    EventUtils.synthesizeKey("KEY_Tab", {}, content);
+    is(
+      secondCard,
+      content.document.activeElement.wrappedJSObject,
+      "Second accordion is focused"
+    );
+    let secondCardToggled = ContentTaskUtils.waitForEvent(
+      secondCard,
+      "toggle",
+      false,
+      null,
+      true
+    );
+    EventUtils.synthesizeKey(" ", {}, content);
+    await secondCardToggled;
+    ok(secondCard.expanded, "Second accordion expands with Space");
+    secondCardToggled = ContentTaskUtils.waitForEvent(
+      secondCard,
+      "toggle",
+      false,
+      null,
+      true
+    );
+    EventUtils.synthesizeKey("KEY_Enter", {}, content);
+    await secondCardToggled;
+    ok(!secondCard.expanded, "Second accordion collapses with Enter");
+
+    info(
+      `Verify buttons are in the tab order and correctly are visible/hidden
+          depending on a row state`
+    );
+    const downloadsRow = content.document.querySelector(
+      '.key[data-id="key_openDownloads"]'
+    );
+
+    ok(!downloadsRow.classList.contains("customized"), "Row is not customized");
+    ok(downloadsRow.classList.contains("assigned"), "Shortcut is assigned");
+
+    info("Verify a card for key_openDownloads row is expanded");
+    const toolsCard = downloadsRow.closest("moz-card").wrappedJSObject;
+    toolsCard.summaryEl.focus();
+    is(
+      content.document.activeElement.wrappedJSObject,
+      toolsCard,
+      "Category card host is an activeElement when its summary is focused"
+    );
+    if (toolsCard !== firstCard) {
+      info("Expanding Tools card for key_openDownloads row");
+      ok(!toolsCard.expanded, "Tools card accordion is collapsed by default");
+      const cardToggled = ContentTaskUtils.waitForEvent(
+        toolsCard,
+        "toggle",
+        false,
+        null,
+        true
+      );
+      EventUtils.synthesizeKey("KEY_Enter", {}, content);
+      const openEvent = await cardToggled;
+      is(openEvent.newState, "open", "Tools card's new state is open");
+      is(openEvent.oldState, "closed", "Tools card's old state is closed");
+    }
+    ok(
+      toolsCard.expanded,
+      "key_openDownloads included in a card accordion that is expanded"
+    );
+
+    info("Testing visibility of controls within a row");
+    const currentInput = downloadsRow.querySelector(".currentShortcut");
+    const changeBtn = downloadsRow.querySelector(".change");
+    const clearBtn = downloadsRow.querySelector(".clear");
+    const resetBtn = downloadsRow.querySelector(".reset");
+
+    // Change and Clear are visible, Reset (Undo) is hidden until customized.
+    isnot(
+      content.getComputedStyle(changeBtn).display,
+      "none",
+      "Change button is visible for keyboard users"
+    );
+    isnot(
+      content.getComputedStyle(clearBtn).display,
+      "none",
+      "Clear button is visible when shortcut is assigned"
+    );
+    is(
+      content.getComputedStyle(resetBtn).display,
+      "none",
+      "Reset button is hidden when shortcut is not customized"
+    );
+    ok(!changeBtn.disabled, "Change button is not disabled");
+    ok(!clearBtn.disabled, "Clear button is not disabled");
+
+    info("Testing keyboard navigation within a row");
+    EventUtils.synthesizeKey("KEY_Tab", {}, content);
+    is(
+      currentInput,
+      content.document.activeElement,
+      "Current Shortcut text input is focused"
+    );
+    ok(
+      currentInput.hasAttribute("readonly"),
+      "Current Shortcut text input is in read-only mode"
+    );
+    ok(
+      !currentInput.hasAttribute("placeholder"),
+      "Current Shortcut text input does not have a placeholder"
+    );
+
+    EventUtils.synthesizeKey("KEY_Tab", {}, content);
+    is(
+      changeBtn,
+      content.document.activeElement,
+      "Change/Edit button is focused"
+    );
+    EventUtils.synthesizeKey("KEY_Tab", {}, content);
+    is(clearBtn, content.document.activeElement, "Clear button is focused");
+
+    info("Clearing the shortcut with keyboard");
+    let updated = ContentTaskUtils.waitForEvent(
+      content,
+      "CustomKeysUpdate",
+      false,
+      null,
+      true
+    );
+    EventUtils.synthesizeKey("KEY_Enter", {}, content);
+    await updated;
+    is(
+      currentInput.getAttribute("data-l10n-id"),
+      "customkeys-shortcut-unassigned",
+      "Current Shortcut text input receives an unassigned localization ID"
+    );
+    ok(downloadsRow.classList.contains("customized"), "Row is customized");
+    ok(
+      !downloadsRow.classList.contains("assigned"),
+      "Shortcut is not assigned"
+    );
+    is(
+      content.getComputedStyle(clearBtn).display,
+      "none",
+      "Clear button is not visible when shortcut is customized"
+    );
+    isnot(
+      content.getComputedStyle(resetBtn).display,
+      "none",
+      "Reset/Restore button is visible when shortcut is customized"
+    );
+    is(resetBtn, content.document.activeElement, "Reset button is focused");
+
+    info("Restoring the shortcut with keyboard");
+    updated = ContentTaskUtils.waitForEvent(
+      content,
+      "CustomKeysUpdate",
+      false,
+      null,
+      true
+    );
+    EventUtils.synthesizeKey("KEY_Enter", {}, content);
+    await updated;
+    isnot(
+      currentInput.getAttribute("data-l10n-id"),
+      "customkeys-shortcut-unassigned",
+      "Current Shortcut text input no longer has an unassigned localization ID"
+    );
+    ok(!downloadsRow.classList.contains("customized"), "Row is not customized");
+    ok(downloadsRow.classList.contains("assigned"), "Shortcut is assigned");
+    is(
+      content.getComputedStyle(resetBtn).display,
+      "none",
+      "Reset/Restore button is not visible when shortcut is restored"
+    );
+    isnot(
+      content.getComputedStyle(clearBtn).display,
+      "none",
+      "Clear button is not visible when shortcut is restored"
+    );
+    is(clearBtn, content.document.activeElement, "Clear button is focused");
+
+    info(
+      "Checking the focus is leaving the Downloads row from the Clear button"
+    );
+    EventUtils.synthesizeKey("KEY_Tab", {}, content);
+    ok(
+      !downloadsRow.contains(content.document.activeElement),
+      "Focus has left the key_openDownloads row"
+    );
+  });
+});

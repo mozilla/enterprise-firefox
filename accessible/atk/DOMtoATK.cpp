@@ -5,10 +5,7 @@
 #include "DOMtoATK.h"
 #include "nsUTF8Utils.h"
 
-namespace mozilla {
-namespace a11y {
-
-namespace DOMtoATK {
+namespace mozilla::a11y::DOMtoATK {
 
 void AddBOMs(nsACString& aDest, const nsACString& aSource) {
   uint32_t destlength = 0;
@@ -143,7 +140,4 @@ gchar* Convert(const nsAString& aStr) {
   return g_strdup(cautoStrBOMs.get());
 }
 
-}  // namespace DOMtoATK
-
-}  // namespace a11y
-}  // namespace mozilla
+}  // namespace mozilla::a11y::DOMtoATK

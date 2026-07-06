@@ -163,13 +163,12 @@ bool HttpChannelParent::Init(const HttpChannelCreationArgs& aArgs) {
       return DoAsyncOpen(
           a.uri(), a.original(), a.doc(), a.referrerInfo(), a.apiRedirectTo(),
           a.topWindowURI(), a.loadFlags(), a.requestHeaders(),
-          a.requestMethod(), a.uploadStream(), a.uploadStreamHasHeaders(),
-          a.priority(), a.classOfService(), a.redirectionLimit(), a.allowSTS(),
-          a.thirdPartyFlags(), a.resumeAt(), a.startPos(), a.entityID(),
-          a.allowSpdy(), a.allowHttp3(), a.allowAltSvc(), a.beConservative(),
-          a.bypassProxy(), a.tlsFlags(), a.loadInfo(), a.cacheKey(),
-          a.requestContextID(), a.preflightArgs(), a.initialRwin(),
-          a.blockAuthPrompt(), a.allowStaleCacheContent(),
+          a.requestMethod(), a.uploadStream(), a.priority(), a.classOfService(),
+          a.redirectionLimit(), a.allowSTS(), a.thirdPartyFlags(), a.resumeAt(),
+          a.startPos(), a.entityID(), a.allowSpdy(), a.allowHttp3(),
+          a.allowAltSvc(), a.beConservative(), a.bypassProxy(), a.tlsFlags(),
+          a.loadInfo(), a.cacheKey(), a.requestContextID(), a.preflightArgs(),
+          a.initialRwin(), a.blockAuthPrompt(), a.allowStaleCacheContent(),
           a.preferCacheLoadOverBypass(), a.contentTypeHint(), a.requestMode(),
           a.redirectMode(), a.channelId(), a.contentWindowId(),
           a.preferredAlternativeTypes(), a.browserId(),
@@ -211,6 +210,10 @@ void HttpChannelParent::TryInvokeAsyncOpen(nsresult aRv) {
   }
 
   InvokeAsyncOpen(aRv);
+}
+
+dom::ContentParentId HttpChannelParent::GetContentParentId() const {
+  return static_cast<ContentParent*>(Manager()->Manager())->ChildID();
 }
 
 void HttpChannelParent::OnBackgroundParentReady(
@@ -422,15 +425,14 @@ bool HttpChannelParent::DoAsyncOpen(
     nsIReferrerInfo* aReferrerInfo, nsIURI* aAPIRedirectToURI,
     nsIURI* aTopWindowURI, const uint32_t& aLoadFlags,
     const RequestHeaderTuples& requestHeaders, const nsCString& requestMethod,
-    const Maybe<IPCStream>& uploadStream, const bool& uploadStreamHasHeaders,
-    const int16_t& priority, const ClassOfService& classOfService,
-    const uint8_t& redirectionLimit, const bool& allowSTS,
-    const uint32_t& thirdPartyFlags, const bool& doResumeAt,
-    const uint64_t& startPos, const nsCString& entityID, const bool& allowSpdy,
-    const bool& allowHttp3, const bool& allowAltSvc, const bool& beConservative,
-    const bool& bypassProxy, const uint32_t& tlsFlags,
-    const LoadInfoArgs& aLoadInfoArgs, const uint32_t& aCacheKey,
-    const uint64_t& aRequestContextID,
+    const Maybe<IPCStream>& uploadStream, const int16_t& priority,
+    const ClassOfService& classOfService, const uint8_t& redirectionLimit,
+    const bool& allowSTS, const uint32_t& thirdPartyFlags,
+    const bool& doResumeAt, const uint64_t& startPos, const nsCString& entityID,
+    const bool& allowSpdy, const bool& allowHttp3, const bool& allowAltSvc,
+    const bool& beConservative, const bool& bypassProxy,
+    const uint32_t& tlsFlags, const LoadInfoArgs& aLoadInfoArgs,
+    const uint32_t& aCacheKey, const uint64_t& aRequestContextID,
     const Maybe<CorsPreflightArgs>& aCorsPreflightArgs,
     const uint32_t& aInitialRwin, const bool& aBlockAuthPrompt,
     const bool& aAllowStaleCacheContent, const bool& aPreferCacheLoadOverBypass,
@@ -595,8 +597,6 @@ bool HttpChannelParent::DoAsyncOpen(
     if (NS_FAILED(rv)) {
       return SendFailedAsyncOpen(rv);
     }
-
-    httpChannel->SetUploadStreamHasHeaders(uploadStreamHasHeaders);
   }
 
   nsCOMPtr<nsICacheInfoChannel> cacheChannel =
@@ -704,7 +704,8 @@ bool HttpChannelParent::ConnectChannel(const uint32_t& registrarId) {
        "[this=%p, id=%" PRIu32 "]\n",
        this, registrarId));
   nsCOMPtr<nsIChannel> channel;
-  rv = NS_LinkRedirectChannels(registrarId, this, getter_AddRefs(channel));
+  rv = NS_LinkRedirectChannels(registrarId, GetContentParentId(), this,
+                               getter_AddRefs(channel));
   if (NS_FAILED(rv)) {
     NS_WARNING("Could not find the http channel to connect its IPC parent");
     // This makes the channel delete itself safely.  It's the only thing
@@ -911,9 +912,40 @@ mozilla::ipc::IPCResult HttpChannelParent::RecvRedirect2Verify(
       }
 
       if (aTargetLoadInfoForwarder.isSome()) {
+        const auto& fw = aTargetLoadInfoForwarder.ref();
+        auto* cp = static_cast<ContentParent*>(Manager()->Manager());
+        auto checkPrincipalInfo =
+            [&](const PrincipalInfo& aPrincipalInfo) -> bool {
+          auto principalOrErr = PrincipalInfoToPrincipal(aPrincipalInfo);
+          if (principalOrErr.isErr()) {
+            return false;
+          }
+          nsCOMPtr<nsIPrincipal> principal = principalOrErr.unwrap();
+          if (!cp->ValidatePrincipal(principal,
+                                     {ValidatePrincipalOptions::AllowSystem})) {
+            ContentParent::LogAndAssertFailedPrincipalValidationInfo(principal,
+                                                                     __func__);
+            return false;
+          }
+          return true;
+        };
+
+        if (fw.reservedClientInfo().isSome() &&
+            !checkPrincipalInfo(
+                fw.reservedClientInfo().ref().principalInfo())) {
+          return IPC_FAIL(this, "Invalid reservedClientInfo principal");
+        }
+        if (fw.initialClientInfo().isSome() &&
+            !checkPrincipalInfo(fw.initialClientInfo().ref().principalInfo())) {
+          return IPC_FAIL(this, "Invalid initialClientInfo principal");
+        }
+        if (fw.controller().isSome() &&
+            !checkPrincipalInfo(fw.controller().ref().principalInfo())) {
+          return IPC_FAIL(this, "Invalid controller principal");
+        }
+
         nsCOMPtr<nsILoadInfo> newLoadInfo = newHttpChannel->LoadInfo();
-        rv = MergeChildLoadInfoForwarder(aTargetLoadInfoForwarder.ref(),
-                                         newLoadInfo);
+        rv = MergeChildLoadInfoForwarder(fw, newLoadInfo);
         if (NS_FAILED(rv) && NS_SUCCEEDED(result)) {
           result = rv;
         }
@@ -1798,7 +1830,8 @@ HttpChannelParent::StartRedirect(nsIChannel* newChannel, uint32_t redirectFlags,
   }
 
   mRedirectChannelId = nsContentUtils::GenerateLoadIdentifier();
-  rv = registrar->RegisterChannel(newChannel, mRedirectChannelId);
+  rv = registrar->RegisterChannel(newChannel, mRedirectChannelId,
+                                  GetContentParentId());
   NS_ENSURE_SUCCESS(rv, rv);
 
   LOG(("Registered %p channel under id=%" PRIx64, newChannel,
@@ -1860,8 +1893,8 @@ HttpChannelParent::StartRedirect(nsIChannel* newChannel, uint32_t redirectFlags,
 
       // Re-link the HttpChannelParent to the new channel.
       nsCOMPtr<nsIChannel> linkedChannel;
-      rv = NS_LinkRedirectChannels(mRedirectChannelId, this,
-                                   getter_AddRefs(linkedChannel));
+      rv = NS_LinkRedirectChannels(mRedirectChannelId, GetContentParentId(),
+                                   this, getter_AddRefs(linkedChannel));
       NS_ENSURE_SUCCESS(rv, rv);
       MOZ_ASSERT(linkedChannel == newChannel);
 

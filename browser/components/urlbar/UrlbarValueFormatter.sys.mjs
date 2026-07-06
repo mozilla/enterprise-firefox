@@ -9,7 +9,7 @@ const lazy = XPCOMUtils.declareLazy({
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
-  UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
+  UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
 });
 
 /**
@@ -641,11 +641,11 @@ export class UrlbarValueFormatter {
 
     let { type, payload } = this.#selectedResult;
 
-    if (type === lazy.UrlbarUtils.RESULT_TYPE.SEARCH) {
+    if (type === lazy.UrlbarShared.RESULT_TYPE.SEARCH) {
       return payload.keyword || null;
     }
 
-    if (type === lazy.UrlbarUtils.RESULT_TYPE.RESTRICT) {
+    if (type === lazy.UrlbarShared.RESULT_TYPE.RESTRICT) {
       return payload.autofillKeyword || null;
     }
 

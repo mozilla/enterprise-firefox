@@ -147,7 +147,7 @@ class HistoryFragment :
     SystemInsetsPaddedFragment {
     private lateinit var historyStore: HistoryFragmentStore
     private lateinit var searchStore: SearchFragmentStore
-    private val toolbarStore by buildToolbarStore()
+    private lateinit var toolbarStore: BrowserToolbarStore
 
     private lateinit var historyProvider: DefaultPagedHistoryProvider
 
@@ -222,6 +222,7 @@ class HistoryFragment :
                 ),
             )
         }.value
+        toolbarStore = buildToolbarStore().value
         searchStore = buildSearchStore(toolbarStore).value
 
         _historyView = HistoryView(
@@ -583,6 +584,7 @@ class HistoryFragment :
         stopStateBindings()
         _historyView = null
         _binding = null
+        searchLayout = null
     }
 
     private fun openItem(item: History) {

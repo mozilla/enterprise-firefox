@@ -1181,7 +1181,7 @@
 
 .moz-button-subviewbutton-nav {
   --button-font-weight: normal;
-  --button-alignment: inline-start;
+  --button-content-alignment: inline-start;
   --button-border-radius: var(--border-radius-small);
   --focus-outline-offset: -2px;
   margin: var(--space-small);

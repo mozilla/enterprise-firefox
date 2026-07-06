@@ -70,7 +70,7 @@ Examples of correct token usage for this rule:
 .. code-block:: css
 
   .tab {
-    box-shadow: var(--tab-box-shadow);
+    box-shadow: var(--tab-selected-box-shadow);
   }
 
 The rule also allows these non-token values:

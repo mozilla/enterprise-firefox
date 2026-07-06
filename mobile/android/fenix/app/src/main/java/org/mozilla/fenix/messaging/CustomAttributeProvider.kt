@@ -9,8 +9,8 @@ import android.os.Build
 import androidx.core.app.NotificationManagerCompat
 import mozilla.components.service.nimbus.messaging.JexlAttributeProvider
 import mozilla.components.support.base.ext.areNotificationsEnabledSafe
+import mozilla.components.support.base.ext.isNotificationChannelEnabled
 import mozilla.components.support.utils.Browsers
-import org.json.JSONArray
 import org.json.JSONObject
 import org.mozilla.fenix.components.metrics.UTMParams.Companion.UTM_CAMPAIGN
 import org.mozilla.fenix.components.metrics.UTMParams.Companion.UTM_CONTENT
@@ -18,6 +18,7 @@ import org.mozilla.fenix.components.metrics.UTMParams.Companion.UTM_MEDIUM
 import org.mozilla.fenix.components.metrics.UTMParams.Companion.UTM_SOURCE
 import org.mozilla.fenix.components.metrics.UTMParams.Companion.UTM_TERM
 import org.mozilla.fenix.ext.components
+import org.mozilla.fenix.onboarding.MARKETING_CHANNEL_ID
 import org.mozilla.fenix.utils.isLargeScreenSize
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -79,39 +80,32 @@ object CustomAttributeProvider : JexlAttributeProvider {
     override fun getCustomAttributes(context: Context): JSONObject {
         val now = Calendar.getInstance()
         val settings = context.components.settings
-
-        val customAttributes = mutableMapOf<String, Any>(
-            "is_default_browser" to Browsers.isDefaultBrowser(context),
-            "date_string" to formatter.format(now.time),
-            "number_of_app_launches" to settings.numberOfAppLaunches,
-            "adjust_campaign" to settings.adjustCampaignId,
-            "adjust_network" to settings.adjustNetwork,
-            "adjust_ad_group" to settings.adjustAdGroup,
-            "adjust_creative" to settings.adjustCreative,
-            UTM_SOURCE to settings.utmSource,
-            UTM_MEDIUM to settings.utmMedium,
-            UTM_CAMPAIGN to settings.utmCampaign,
-            UTM_TERM to settings.utmTerm,
-            UTM_CONTENT to settings.utmContent,
-            "are_notifications_enabled" to NotificationManagerCompat.from(context)
-                .areNotificationsEnabledSafe(),
-            "search_widget_is_installed" to settings.searchWidgetInstalled,
-            "android_version" to android.os.Build.VERSION.SDK_INT,
-            "is_fxa_signed_in" to settings.signedInFxaAccount,
-            "fxa_connected_devices" to (
-                context.components.backgroundServices.syncStore.state
-                    .constellationState?.otherDevices?.size ?: 0
-                ),
+        return JSONObject(
+            mapOf(
+                "is_default_browser" to Browsers.isDefaultBrowser(context),
+                "date_string" to formatter.format(now.time),
+                "number_of_app_launches" to settings.numberOfAppLaunches,
+                "adjust_campaign" to settings.adjustCampaignId,
+                "adjust_network" to settings.adjustNetwork,
+                "adjust_ad_group" to settings.adjustAdGroup,
+                "adjust_creative" to settings.adjustCreative,
+                UTM_SOURCE to settings.utmSource,
+                UTM_MEDIUM to settings.utmMedium,
+                UTM_CAMPAIGN to settings.utmCampaign,
+                UTM_TERM to settings.utmTerm,
+                UTM_CONTENT to settings.utmContent,
+                "are_notifications_enabled" to NotificationManagerCompat.from(context)
+                    .areNotificationsEnabledSafe(),
+                "are_marketing_notifications_enabled" to NotificationManagerCompat.from(context)
+                    .isNotificationChannelEnabled(MARKETING_CHANNEL_ID),
+                "search_widget_is_installed" to settings.searchWidgetInstalled,
+                "android_version" to android.os.Build.VERSION.SDK_INT,
+                "is_fxa_signed_in" to settings.signedInFxaAccount,
+                "fxa_connected_devices" to (
+                    context.components.backgroundServices.syncStore.state
+                        .constellationState?.otherDevices?.size ?: 0
+                    ),
+            ),
         )
-
-        settings.allPreferences().forEach { (key, value) ->
-            if (key in customAttributes) return@forEach
-            when (value) {
-                is Set<*> -> customAttributes[key] = JSONArray(value.toList())
-                else -> value?.let { customAttributes[key] = it }
-            }
-        }
-
-        return JSONObject(customAttributes)
     }
 }

@@ -272,6 +272,13 @@ bool AddrHostRecord::HasUsableResultInternal(
     return false;
   }
 
+  // The caller explicitly refuses a cached negative (e.g. the TRR service
+  // channel resolving the DoH server) so a transient negative can't stick.
+  if (negative &&
+      (queryFlags & nsIDNSService::RESOLVE_REFRESH_NEGATIVE_CACHE)) {
+    return false;
+  }
+
   if (CheckExpiration(now) == EXP_EXPIRED) {
     return false;
   }
@@ -508,6 +515,13 @@ TypeHostRecord::~TypeHostRecord() { mCallbacks.clear(); }
 
 bool TypeHostRecord::HasUsableResultInternal(
     const mozilla::TimeStamp& now, nsIDNSService::DNSFlags queryFlags) const {
+  // The caller explicitly refuses a cached negative so a transient negative
+  // can't stick (see AddrHostRecord::HasUsableResultInternal).
+  if (negative &&
+      (queryFlags & nsIDNSService::RESOLVE_REFRESH_NEGATIVE_CACHE)) {
+    return false;
+  }
+
   if (CheckExpiration(now) == EXP_EXPIRED) {
     return false;
   }

@@ -4,7 +4,7 @@
 
 import { LoginManagerStorage_json } from "resource://gre/modules/storage-json.sys.mjs";
 import { LoginManagerRustStorage } from "resource://gre/modules/storage-rust.sys.mjs";
-import { LoginManagerRustMirror } from "resource://gre/modules/LoginManagerRustMirror.sys.mjs";
+import { LoginStorageMigrator } from "resource://gre/modules/LoginStorageMigrator.sys.mjs";
 
 export class LoginManagerStorage extends LoginManagerStorage_json {
   static #jsonStorage = null;
@@ -20,10 +20,15 @@ export class LoginManagerStorage extends LoginManagerStorage_json {
       this.#initializationPromise = this.#jsonStorage
         .initialize()
         .then(() => this.#rustStorage.initialize())
-        .then(() => {
-          new LoginManagerRustMirror(this.#jsonStorage, this.#rustStorage);
-          this.#activeStore = this.#jsonStorage;
-          return this.#jsonStorage;
+        .then(async () => {
+          const store = await new LoginStorageMigrator(
+            this.#jsonStorage,
+            this.#rustStorage
+          ).run();
+          this.#activeStore = store;
+          this.#jsonStorage.isActive = store === this.#jsonStorage;
+          this.#rustStorage.isActive = store === this.#rustStorage;
+          return store;
         });
     }
 

@@ -30,7 +30,7 @@ add_task(async function test_switchtab_override() {
     window,
     UrlbarTestUtils.getSelectedRowIndex(window)
   );
-  Assert.equal(result.type, UrlbarUtils.RESULT_TYPE.TAB_SWITCH);
+  Assert.equal(result.type, UrlbarShared.RESULT_TYPE.TAB_SWITCH);
 
   // Check to see if the switchtab label is visible and
   // all other labels are hidden
@@ -110,7 +110,7 @@ add_task(async function test_switchtab_override_scotch_bonnet() {
     window,
     UrlbarTestUtils.getSelectedRowIndex(window)
   );
-  Assert.equal(result.type, UrlbarUtils.RESULT_TYPE.TAB_SWITCH);
+  Assert.equal(result.type, UrlbarShared.RESULT_TYPE.TAB_SWITCH);
 
   info("Check the current status");
   let actionButton = result.element.row.querySelector(
@@ -171,7 +171,7 @@ add_task(async function test_switchtab_override_scotch_bonnet_for_split_view() {
     window,
     UrlbarTestUtils.getSelectedRowIndex(window)
   );
-  Assert.equal(result.type, UrlbarUtils.RESULT_TYPE.TAB_SWITCH);
+  Assert.equal(result.type, UrlbarShared.RESULT_TYPE.TAB_SWITCH);
 
   info("Check the current status");
   let actionLabel = result.element.row.querySelector(".urlbarView-action");
@@ -224,7 +224,7 @@ add_task(async function test_tab_in_same_split_view_shows_switch_tab() {
     window,
     UrlbarTestUtils.getSelectedRowIndex(window)
   );
-  Assert.equal(result.type, UrlbarUtils.RESULT_TYPE.TAB_SWITCH);
+  Assert.equal(result.type, UrlbarShared.RESULT_TYPE.TAB_SWITCH);
 
   info("Check that action shows 'Switch to Tab' since tab1 is in split view");
   let actionLabel = result.element.row.querySelector(".urlbarView-action");
@@ -300,7 +300,7 @@ add_task(async function test_move_tab_to_split_view_from_another_window() {
     win2,
     UrlbarTestUtils.getSelectedRowIndex(win2)
   );
-  Assert.equal(result.type, UrlbarUtils.RESULT_TYPE.TAB_SWITCH);
+  Assert.equal(result.type, UrlbarShared.RESULT_TYPE.TAB_SWITCH);
 
   info("Check that action shows 'Move tab to Split View'");
   let actionLabel = result.element.row.querySelector(".urlbarView-action");
@@ -452,7 +452,7 @@ add_task(async function test_move_tab_to_split_view_with_collapsed_group() {
     window,
     UrlbarTestUtils.getSelectedRowIndex(window)
   );
-  Assert.equal(result.type, UrlbarUtils.RESULT_TYPE.TAB_SWITCH);
+  Assert.equal(result.type, UrlbarShared.RESULT_TYPE.TAB_SWITCH);
 
   info("Verify result is for the correct tab");
   Assert.equal(
@@ -545,7 +545,7 @@ add_task(async function test_move_tab_from_split_view_to_another_split_view() {
     window,
     UrlbarTestUtils.getSelectedRowIndex(window)
   );
-  Assert.equal(result.type, UrlbarUtils.RESULT_TYPE.TAB_SWITCH);
+  Assert.equal(result.type, UrlbarShared.RESULT_TYPE.TAB_SWITCH);
 
   info("Check that action shows 'Move tab to Split View'");
   let actionLabel = result.element.row.querySelector(".urlbarView-action");
@@ -655,7 +655,7 @@ add_task(async function test_move_tab_to_split_view_same_window_selection() {
     window,
     UrlbarTestUtils.getSelectedRowIndex(window)
   );
-  Assert.equal(result.type, UrlbarUtils.RESULT_TYPE.TAB_SWITCH);
+  Assert.equal(result.type, UrlbarShared.RESULT_TYPE.TAB_SWITCH);
 
   info("Check that action shows 'Move tab to Split View'");
   let actionLabel = result.element.row.querySelector(".urlbarView-action");

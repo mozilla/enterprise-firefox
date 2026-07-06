@@ -948,6 +948,9 @@ def compiler_wrapper(wrapper, ccache):
         return tuple(wrapper)
 
 
+set_config("COMPILER_WRAPPER", compiler_wrapper)
+
+
 @dependable
 def wasm():
     return split_triplet("wasm32-wasi", allow_wasi=True)
@@ -1491,9 +1494,9 @@ def compiler(
         # This version can be no higher than the version used in
         # src/bootstrap/src/core/build_steps/llvm.rs's check_llvm_version in the source
         # code of the minimum supported Rust version.
-        if info.type in ("clang", "clang-cl") and info.version < "17.0":
+        if info.type in ("clang", "clang-cl") and info.version < "19.0":
             raise FatalCheckError(
-                "Only %s 17.0 or newer is supported (found version %s)."
+                "Only %s 19.0 or newer is supported (found version %s)."
                 % (("clang/llvm" if info.type == "clang" else "clang-cl"), info.version)
             )
 
@@ -3655,6 +3658,52 @@ def path_remappings(target, build_env, sysroot_path, windows_sdk_dir, vc_path):
                 die(f"Cannot remap paths because {p} is an ancestor of {q}")
 
     return path_remappings
+
+
+option(
+    env="SCCACHE_BASEDIRS",
+    nargs=1,
+    help="Base directories sccache rewrites to relative paths for cache keys",
+)
+
+
+@depends(
+    "SCCACHE_BASEDIRS",
+    using_sccache,
+    build_environment,
+    target_sysroot.path,
+    valid_windows_sdk_dir,
+    vc_path,
+)
+@imports("os")
+def sccache_basedirs(
+    basedirs, using_sccache, build_env, sysroot_path, windows_sdk_dir, vc_path
+):
+    if not using_sccache:
+        return
+
+    # Don't override a value the developer set explicitly.
+    if basedirs:
+        return basedirs[0]
+
+    # sccache rewrites paths under these base directories to be relative
+    # before computing cache keys, so builds in different worktrees (or in
+    # automation versus locally) hit the same cache entries instead of
+    # missing on differing absolute paths. These are the same directories as
+    # the path remapping above: the object and source directories, plus the
+    # sysroot and SDKs.
+    basedirs = [build_env.topobjdir, build_env.topsrcdir]
+    if sysroot_path:
+        basedirs.append(sysroot_path)
+    if windows_sdk_dir:
+        basedirs.append(windows_sdk_dir.path)
+    if vc_path:
+        basedirs.append(vc_path)
+
+    return os.pathsep.join(basedirs)
+
+
+set_config("SCCACHE_BASEDIRS", sccache_basedirs)
 
 
 @depends(target)

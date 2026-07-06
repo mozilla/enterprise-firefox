@@ -2394,6 +2394,7 @@ package org.mozilla.geckoview {
 
   @UiThread public static interface MediaSession.Delegate {
     method default public void onActivated(@NonNull GeckoSession, @NonNull MediaSession);
+    method default public void onAudioSessionTypeChanged(@NonNull GeckoSession, @NonNull MediaSession, @NonNull String);
     method default public void onDeactivated(@NonNull GeckoSession, @NonNull MediaSession);
     method default public void onFeatures(@NonNull GeckoSession, @NonNull MediaSession, long);
     method default public void onFullscreen(@NonNull GeckoSession, @NonNull MediaSession, boolean, @Nullable MediaSession.ElementMetadata);

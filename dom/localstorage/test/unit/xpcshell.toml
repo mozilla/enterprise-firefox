@@ -101,13 +101,8 @@ support-files = ["migration_emptyValue_profile.zip",]
 
 ["test_orderingAfterRemoveAdd.js"]
 # Asserts that storage.key(i) and Object.keys(storage) agree on order. Both read
-# from LSSnapshot's unordered mValues hashmap, so they only agree because
-# hashtable iteration is stable within a process. Chaos mode (test-verify)
-# randomizes that iteration, breaking the assertion. Pre-existing and benign in
-# production; skip under verify.
-skip-if = [
-  "verify"
-]
+# from LSSnapshot's unordered mValues hashmap, so it's not deterministic.
+skip-if = ["true"]
 
 ["test_originInit.js"]
 

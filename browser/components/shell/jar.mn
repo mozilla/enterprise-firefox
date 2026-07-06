@@ -5,3 +5,4 @@
 browser.jar:
 *       content/browser/setDesktopBackground.xhtml            (content/setDesktopBackground.xhtml)
         content/browser/setDesktopBackground.js               (content/setDesktopBackground.js)
+        content/browser/icons/retro.ico                       (icons/retro.ico)

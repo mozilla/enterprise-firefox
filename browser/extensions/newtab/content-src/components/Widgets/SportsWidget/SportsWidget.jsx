@@ -28,7 +28,18 @@ import {
 } from "./stageLabels.mjs";
 import { WidgetCelebration } from "../WidgetCelebration";
 import { useWidgetCelebration } from "../useWidgetCelebration";
-import { getMatchWinnerKey } from "./matchResult.mjs";
+import {
+  getMatchWinnerKey,
+  getTournamentPlacements,
+  getFinishedTournamentMatches,
+  isFinalStage,
+  isBronzeFinalStage,
+} from "./matchResult.mjs";
+import {
+  SportsResultCard,
+  SportsPodium,
+  SportsResultMascot,
+} from "./SportsResultCelebration.jsx";
 
 const WIDGET_STATES = {
   INTRO: "sports-intro",
@@ -45,6 +56,15 @@ const MATCHES_TABS = {
 
 const SPORTS_CELEBRATION_ILLUSTRATION =
   "chrome://newtab/content/data/content/assets/firefox-motion-head-pop-up-no-bg.svg";
+
+const SPORTS_RESULT_CONFETTI_COLORS = [
+  "var(--color-orange-30)",
+  "var(--color-pink-30)",
+  "var(--color-purple-30)",
+  "var(--color-yellow-30)",
+  "var(--color-green-30)",
+  "var(--color-cyan-30)",
+];
 
 function getVisibleMatchesTabs(hasLiveGames, hasPreviousResults) {
   return (
@@ -151,6 +171,25 @@ function findCelebrationMatch(matches, celebrations, windowMs) {
   return best;
 }
 
+// Live matches keep priority because the result view hides the tab bar.
+export function shouldShowResultView({
+  celebrationsEnabled,
+  resultViewReady,
+  hasLiveGames,
+  isMatchesState,
+  isResultsTab,
+  showResultsList,
+}) {
+  return (
+    celebrationsEnabled &&
+    resultViewReady &&
+    !hasLiveGames &&
+    isMatchesState &&
+    isResultsTab &&
+    !showResultsList
+  );
+}
+
 // Moves the match with `id` to the front of `matches` (used to surface the
 // just-ended match as the Results highlight). No-op when it isn't present.
 function bubbleMatchToFront(matches, id) {
@@ -252,6 +291,13 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
     Date.now() >= WORLD_CUP_KICKOFF_MS || prefs[PREF_FORCE_LIVE_DATA_TRUSTABLE];
   const hasLiveGames =
     liveDataTrustable && sportsWidgetData?.data?.live?.length > 0;
+  // The watch-links endpoint only lists broadcasters for supported countries.
+  // The backend hoists the user's own country into `your_region`, so a
+  // non-empty `your_region` means the user's region is supported and the
+  // "Watch live" entry point should be shown; an empty one (e.g. Turkey) hides
+  // it.
+  const canWatchLive =
+    sportsWidgetData?.watchLive?.data?.your_region?.length > 0;
   const hasPreviousResults =
     sportsWidgetData?.data?.matches?.previous?.length > 0;
   // Upcoming matches alone don't mean the tournament has started — the backend
@@ -349,6 +395,21 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
       ),
     [rawMatches, celebrations, celebrationWindowMs]
   );
+
+  const placements = useMemo(
+    () => getTournamentPlacements(getFinishedTournamentMatches(rawMatches)),
+    [rawMatches]
+  );
+  const tournamentDecided = !!placements.champion;
+
+  const finalMatch = useMemo(() => {
+    const all = [
+      ...(rawMatches?.next ?? []),
+      ...(rawMatches?.current ?? []),
+      ...(rawMatches?.previous ?? []),
+    ];
+    return all.find(match => isFinalStage(match?.stage)) ?? null;
+  }, [rawMatches]);
 
   // Bubble followed teams to the front for the highlight view and list view
   // when the followed-only toggle is on; with it off, matches stay chronological.
@@ -493,6 +554,13 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
     triggerCelebration,
   } = useWidgetCelebration(celebrationRef);
   const [celebrationColors, setCelebrationColors] = useState(null);
+  const {
+    celebrationFrame: resultFrame,
+    celebrationId: resultCelebrationId,
+    completeCelebration: completeResultCelebration,
+    isCelebrating: isResultCelebrating,
+    triggerCelebration: triggerResultCelebration,
+  } = useWidgetCelebration(celebrationRef);
   // Seam consumed by the detection layer (Patch 2): a followed-team win passes
   // that team's colors; any other ended match passes none (generic). Celebrations
   // are off by default and opt-in via the pref OR trainhopConfig, so they ship
@@ -547,8 +615,6 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
   // the element as intersecting.)
   const [isWidgetVisible, setIsWidgetVisible] = useState(false);
   useEffect(() => {
-    // Only observe when celebrations are enabled — there's nothing to gate
-    // otherwise, and it avoids an idle observer on every sports widget.
     if (!celebrationsEnabled || !liveEl) {
       return undefined;
     }
@@ -572,6 +638,10 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
     }
     const match = celebrationMatch;
     if (!match || celebratedRef.current.has(match.global_event_id)) {
+      return;
+    }
+    // The result view handles Final and Bronze Final celebrations.
+    if (isFinalStage(match.stage) || isBronzeFinalStage(match.stage)) {
       return;
     }
     const id = match.global_event_id;
@@ -620,6 +690,51 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
     teamColorsByKey,
     celebrate,
     dispatch,
+  ]);
+
+  const resultViewReady = tournamentDecided || !!placements.third;
+  let resultTriggerId = null;
+  if (tournamentDecided) {
+    const { match, team } = placements.champion;
+    resultTriggerId = `final:${match.global_event_id}:${team.key}`;
+  } else if (placements.third) {
+    const { match, team } = placements.third;
+    resultTriggerId = `third:${match.global_event_id}:${team.key}`;
+  }
+  const showResultView = shouldShowResultView({
+    celebrationsEnabled,
+    resultViewReady,
+    hasLiveGames,
+    isMatchesState: widgetState === WIDGET_STATES.MATCHES,
+    isResultsTab: activeTab === MATCHES_TABS.RESULTS,
+    showResultsList,
+  });
+  // The result mascot is an animated WebP that can't be paused, so don't render
+  // it for reduced-motion users (the confetti/fireworks overlay is suppressed
+  // the same way in useWidgetCelebration). The static result card still shows.
+  const prefersReducedMotion =
+    globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ??
+    false;
+  // Visibility-gated so an off-screen widget can't spend the one-shot animation.
+  const resultCelebratedRef = useRef(null);
+  useEffect(() => {
+    if (
+      !showResultView ||
+      !resultTriggerId ||
+      !isPageVisible ||
+      !isWidgetVisible ||
+      resultCelebratedRef.current === resultTriggerId
+    ) {
+      return;
+    }
+    resultCelebratedRef.current = resultTriggerId;
+    triggerResultCelebration();
+  }, [
+    showResultView,
+    resultTriggerId,
+    isPageVisible,
+    isWidgetVisible,
+    triggerResultCelebration,
   ]);
 
   // Live polling visibility gate. Separate from the one-shot impression
@@ -971,8 +1086,9 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
           })
         );
       });
+      handleInteraction();
     },
-    [dispatch, widgetSize, activeTab]
+    [dispatch, widgetSize, activeTab, handleInteraction]
   );
 
   // @nova-cleanup(remove-gate): Remove this guard and PREF_NOVA_ENABLED after Nova ships
@@ -996,13 +1112,73 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
     }),
   };
 
+  // Result-view selection:
+  //  - Interim (3rd Place decided, Final not yet played): the third-place card,
+  //    shown to everyone.
+  //  - Final decided: a follower of the runner-up team gets the full podium
+  //    (their team's moment); everyone else gets the champion card. The podium
+  //    only fits the large widget, so it falls back to the champion card at
+  //    medium. `selectedTeams` (not the eliminated-filtered set) is used so the
+  //    runner-up — eliminated by losing the Final — still counts as followed.
+  const pickResultView = () => {
+    if (!placements.champion) {
+      return placements.third ? "third" : null;
+    }
+    const followsRunnerUp =
+      !!placements.runnerUp &&
+      selectedTeams.includes(placements.runnerUp.team.key);
+    if (followsRunnerUp && placements.third && displaySize === "large") {
+      return "podium";
+    }
+    return "champion";
+  };
+  const resultView = showResultView ? pickResultView() : null;
+  // Confetti/fireworks take the celebrated team's colors: the third-place team
+  // (interim), the runner-up (their podium), otherwise the champion.
+  let resultHeroTeam = placements.champion?.team;
+  if (resultView === "third") {
+    resultHeroTeam = placements.third?.team;
+  } else if (resultView === "podium") {
+    resultHeroTeam = placements.runnerUp?.team;
+  }
+  const resultConfettiColors =
+    (resultHeroTeam && teamColorsByKey.get(resultHeroTeam.key)) ||
+    SPORTS_RESULT_CONFETTI_COLORS;
+  let resultBody = null;
+  if (resultView === "podium") {
+    resultBody = (
+      <SportsPodium placements={placements} localizedNames={localizedNames} />
+    );
+  } else if (resultView === "champion" && placements.champion) {
+    resultBody = (
+      <SportsResultCard
+        team={placements.champion.team}
+        type="champion"
+        size={displaySize}
+        localizedNames={localizedNames}
+      />
+    );
+  } else if (resultView === "third" && placements.third) {
+    resultBody = (
+      <SportsResultCard
+        team={placements.third.team}
+        type="third"
+        size={displaySize}
+        finalMatch={displaySize === "large" ? finalMatch : null}
+        finalMatchVariant="upcoming"
+        tbdTeamName={tbdTeamName}
+        localizedNames={localizedNames}
+      />
+    );
+  }
+
   return (
     <article
       className={`sports widget col-4 ${displaySize}-widget ${widgetState}${
         followedGradient ? " is-followed-highlight" : ""
       }${isCelebrating ? " is-celebrating" : ""}${
         isFollowedCelebration ? " is-followed-celebration" : ""
-      }`}
+      }${resultBody ? " is-result-view" : ""}`}
       style={widgetStyle}
       ref={el => {
         widgetRef.current = [el];
@@ -1032,6 +1208,24 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
           confettiShape="soccer"
           illustrationSrc={SPORTS_CELEBRATION_ILLUSTRATION}
           onComplete={completeCelebration}
+        />
+      ) : null}
+      {isResultCelebrating && resultFrame ? (
+        <WidgetCelebration
+          classNamePrefix="sports-celebration"
+          celebrationFrame={resultFrame}
+          celebrationId={resultCelebrationId}
+          confettiColors={resultConfettiColors}
+          confettiShape="soccer"
+          confettiCount={84}
+          fireworkBursts={10}
+          onComplete={completeResultCelebration}
+        />
+      ) : null}
+      {resultBody && resultView && !prefersReducedMotion ? (
+        <SportsResultMascot
+          view={resultView}
+          animationId={resultCelebrationId}
         />
       ) : null}
       {widgetState === WIDGET_STATES.INTRO && (
@@ -1069,7 +1263,7 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
             aria-hidden={tournamentStarted}
           />
         )}
-        {widgetState === WIDGET_STATES.MATCHES && (
+        {widgetState === WIDGET_STATES.MATCHES && !resultBody && (
           <div className="sports-matches-tabs" role="tablist">
             {getVisibleMatchesTabs(hasLiveGames, hasPreviousResults).map(
               ({ id, disabled }) => (
@@ -1191,7 +1385,8 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
             localizedNames={localizedNames}
           />
         )}
-        {widgetState === WIDGET_STATES.MATCHES && (
+        {widgetState === WIDGET_STATES.MATCHES && resultBody}
+        {widgetState === WIDGET_STATES.MATCHES && !resultBody && (
           <SportsMatchesView
             dispatch={dispatch}
             matchesTab={activeTab}
@@ -1216,6 +1411,7 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
             showUpcomingList={showUpcomingList}
             setShowUpcomingList={setShowUpcomingList}
             loadMore={sportsWidgetData.loadMore}
+            canWatchLive={canWatchLive}
             onWatchClick={() => setWatchLiveOpen(true)}
           />
         )}
@@ -1481,6 +1677,7 @@ function SportsMatchesView({
   showUpcomingList,
   setShowUpcomingList,
   loadMore,
+  canWatchLive,
   onWatchClick,
 }) {
   const resultsPanelRef = useRef(null);
@@ -1806,18 +2003,20 @@ function SportsMatchesView({
                 />
               </div>
               {/* TODO: Replace play icon when finalized */}
-              <moz-button
-                className="sports-watch-live-button"
-                type={size === "medium" ? "icon" : "default"}
-                size={size === "medium" ? "small" : undefined}
-                iconSrc="chrome://browser/skin/device-tv.svg"
-                data-l10n-id={
-                  size === "medium"
-                    ? "newtab-sports-widget-watch-icon"
-                    : "newtab-sports-widget-watch"
-                }
-                onClick={onWatchClick}
-              ></moz-button>
+              {canWatchLive && (
+                <moz-button
+                  className="sports-watch-live-button"
+                  type={size === "medium" ? "icon" : "default"}
+                  size={size === "medium" ? "small" : undefined}
+                  iconSrc="chrome://browser/skin/device-tv.svg"
+                  data-l10n-id={
+                    size === "medium"
+                      ? "newtab-sports-widget-watch-icon"
+                      : "newtab-sports-widget-watch"
+                  }
+                  onClick={onWatchClick}
+                ></moz-button>
+              )}
               {size === "medium" && (
                 <LiveRefreshButton
                   isCoolingDown={liveRefreshCoolingDown}

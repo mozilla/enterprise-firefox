@@ -59,7 +59,6 @@
 #include "vm/JSScript.h"
 #include "vm/ModuleBuilder.h"  // js::ModuleBuilder
 #include "vm/Scope.h"          // GetScopeDataTrailingNames
-#include "wasm/AsmJS.h"
 
 #include "frontend/ParseContext-inl.h"
 #include "frontend/SharedContext-inl.h"
@@ -608,12 +607,6 @@ template <class ParseHandler, typename Unit>
 bool GeneralParser<ParseHandler, Unit>::noteDeclaredName(
     TaggedParserAtomIndex name, DeclarationKind kind, TokenPos pos,
     ClosedOver isClosedOver) {
-  // The asm.js validator does all its own symbol-table management so, as an
-  // optimization, avoid doing any work here.
-  if (pc_->useAsmOrInsideUseAsm()) {
-    return true;
-  }
-
   switch (kind) {
     case DeclarationKind::Var:
     case DeclarationKind::BodyLevelFunction: {
@@ -879,12 +872,6 @@ bool GeneralParser<ParseHandler, Unit>::noteDeclaredPrivateName(
 bool ParserBase::noteUsedNameInternal(TaggedParserAtomIndex name,
                                       NameVisibility visibility,
                                       mozilla::Maybe<TokenPos> tokenPosition) {
-  // The asm.js validator does all its own symbol-table management so, as an
-  // optimization, avoid doing any work here.
-  if (pc_->useAsmOrInsideUseAsm()) {
-    return true;
-  }
-
   // Global bindings are properties and not actual bindings; we don't need
   // to know if they are closed over. So no need to track used name at the
   // global scope. It is not incorrect to track them, this is an
@@ -1825,13 +1812,9 @@ Parser<FullParseHandler, Unit>::evalBody(EvalSharedContext* evalsc) {
   }
 
   ParseNode* node = body;
-  // Don't constant-fold inside "use asm" code, as this could create a parse
-  // tree that doesn't type-check as asm.js.
-  if (!pc_->useAsmOrInsideUseAsm()) {
-    if (!FoldConstants(this->fc_, this->parserAtoms(), this->bigInts(), &node,
-                       &handler_)) {
-      return errorResult();
-    }
+  if (!FoldConstants(this->fc_, this->parserAtoms(), this->bigInts(), &node,
+                     &handler_)) {
+    return errorResult();
   }
   body = handler_.asLexicalScopeNode(node);
 
@@ -1890,13 +1873,9 @@ FullParseHandler::ListNodeResult Parser<FullParseHandler, Unit>::globalBody(
   }
 
   ParseNode* node = body;
-  // Don't constant-fold inside "use asm" code, as this could create a parse
-  // tree that doesn't type-check as asm.js.
-  if (!pc_->useAsmOrInsideUseAsm()) {
-    if (!FoldConstants(this->fc_, this->parserAtoms(), this->bigInts(), &node,
-                       &handler_)) {
-      return errorResult();
-    }
+  if (!FoldConstants(this->fc_, this->parserAtoms(), this->bigInts(), &node,
+                     &handler_)) {
+    return errorResult();
   }
   body = &node->as<ListNode>();
 
@@ -2018,13 +1997,9 @@ FullParseHandler::ModuleNodeResult Parser<FullParseHandler, Unit>::moduleBody(
   }
 
   ParseNode* node = stmtList;
-  // Don't constant-fold inside "use asm" code, as this could create a parse
-  // tree that doesn't type-check as asm.js.
-  if (!pc_->useAsmOrInsideUseAsm()) {
-    if (!FoldConstants(this->fc_, this->parserAtoms(), this->bigInts(), &node,
-                       &handler_)) {
-      return errorResult();
-    }
+  if (!FoldConstants(this->fc_, this->parserAtoms(), this->bigInts(), &node,
+                     &handler_)) {
+    return errorResult();
   }
   stmtList = &node->as<ListNode>();
 
@@ -2409,13 +2384,9 @@ Parser<FullParseHandler, Unit>::standaloneFunction(
   }
 
   ParseNode* node = funNode;
-  // Don't constant-fold inside "use asm" code, as this could create a parse
-  // tree that doesn't type-check as asm.js.
-  if (!pc_->useAsmOrInsideUseAsm()) {
-    if (!FoldConstants(this->fc_, this->parserAtoms(), this->bigInts(), &node,
-                       &handler_)) {
-      return errorResult();
-    }
+  if (!FoldConstants(this->fc_, this->parserAtoms(), this->bigInts(), &node,
+                     &handler_)) {
+    return errorResult();
   }
   funNode = &node->as<FunctionNode>();
 
@@ -3111,7 +3082,6 @@ GeneralParser<ParseHandler, Unit>::functionDefinition(
     // Assignment must be monotonic to prevent infinitely attempting to
     // reparse.
     MOZ_ASSERT_IF(directives.strict(), newDirectives.strict());
-    MOZ_ASSERT_IF(directives.asmJS(), newDirectives.asmJS());
     directives = newDirectives;
 
     // Rewind to retry parsing with new directives applied.
@@ -3437,13 +3407,9 @@ Parser<FullParseHandler, Unit>::standaloneLazyFunction(
   }
 
   ParseNode* node = funNode;
-  // Don't constant-fold inside "use asm" code, as this could create a parse
-  // tree that doesn't type-check as asm.js.
-  if (!pc_->useAsmOrInsideUseAsm()) {
-    if (!FoldConstants(this->fc_, this->parserAtoms(), this->bigInts(), &node,
-                       &handler_)) {
-      return errorResult();
-    }
+  if (!FoldConstants(this->fc_, this->parserAtoms(), this->bigInts(), &node,
+                     &handler_)) {
+    return errorResult();
   }
   funNode = &node->as<FunctionNode>();
 
@@ -3823,86 +3789,6 @@ static inline bool IsUseStrictDirective(const TokenPos& pos,
   return atom == TaggedParserAtomIndex::WellKnown::use_strict_() &&
          pos.begin + useStrictLength == pos.end;
 }
-static inline bool IsUseAsmDirective(const TokenPos& pos,
-                                     TaggedParserAtomIndex atom) {
-  // the length of "use asm", including quotation.
-  static constexpr size_t useAsmLength = 9;
-  return atom == TaggedParserAtomIndex::WellKnown::use_asm_() &&
-         pos.begin + useAsmLength == pos.end;
-}
-
-template <typename Unit>
-bool Parser<SyntaxParseHandler, Unit>::asmJS(TokenPos directivePos,
-                                             ListNodeType list) {
-  // While asm.js could technically be validated and compiled during syntax
-  // parsing, we have no guarantee that some later JS wouldn't abort the
-  // syntax parse and cause us to re-parse (and re-compile) the asm.js module.
-  // For simplicity, unconditionally abort the syntax parse when "use asm" is
-  // encountered so that asm.js is always validated/compiled exactly once
-  // during a full parse.
-  MOZ_ALWAYS_FALSE(abortIfSyntaxParser());
-  return false;
-}
-
-template <typename Unit>
-bool Parser<FullParseHandler, Unit>::asmJS(TokenPos directivePos,
-                                           ListNodeType list) {
-  // Disable syntax parsing in anything nested inside the asm.js module.
-  disableSyntaxParser();
-
-  // We should be encountering the "use asm" directive for the first time; if
-  // the directive is already, we must have failed asm.js validation and we're
-  // reparsing. In that case, don't try to validate again. A non-null
-  // newDirectives means we're not in a normal function.
-  if (!pc_->newDirectives || pc_->newDirectives->asmJS()) {
-    return true;
-  }
-
-  // If there is no ScriptSource, then we are doing a non-compiling parse and
-  // so we shouldn't (and can't, without a ScriptSource) compile.
-  if (ss == nullptr) {
-    return true;
-  }
-
-  // Mark this function as being in a "use asm" directive.
-  if (!pc_->functionBox()->setUseAsm()) {
-    return false;
-  }
-
-  // Attempt to validate and compile this asm.js module. On success, the
-  // tokenStream has been advanced to the closing }. On failure, the
-  // tokenStream is in an indeterminate state and we must reparse the
-  // function from the beginning. Reparsing is triggered by marking that a
-  // new directive has been encountered and returning 'false'.
-  bool validated;
-  if (!CompileAsmJS(this->fc_, this->parserAtoms(), *this, list, &validated)) {
-    return false;
-  }
-
-  // Warn about asm.js deprecation even if we failed validation. Do this after
-  // compilation so that this warning is the last one we emit. This makes
-  // testing in asm.js/disabled-warning.js easier.
-  if (!js::SupportDifferentialTesting() &&
-      JS::Prefs::warn_asmjs_deprecation()) {
-    if (!warningAt(directivePos.begin, JSMSG_USE_ASM_DEPRECATED)) {
-      return false;
-    }
-  }
-
-  // If we failed validation, trigger a reparse. See above.
-  if (!validated) {
-    pc_->newDirectives->setAsmJS();
-    return false;
-  }
-
-  return true;
-}
-
-template <class ParseHandler, typename Unit>
-inline bool GeneralParser<ParseHandler, Unit>::asmJS(TokenPos directivePos,
-                                                     ListNodeType list) {
-  return asFinalParser()->asmJS(directivePos, list);
-}
 
 /*
  * Recognize Directive Prologue members and directives. Assuming |pn| is a
@@ -4014,11 +3900,6 @@ bool GeneralParser<ParseHandler, Unit>::maybeParseDirective(
 
       pc_->sc()->setStrictScript();
     }
-  } else if (IsUseAsmDirective(directivePos, directive)) {
-    if (pc_->isFunctionBox()) {
-      return asmJS(directivePos, list);
-    }
-    return warningAt(directivePos.begin, JSMSG_USE_ASM_DIRECTIVE_FAIL);
   }
   return true;
 }
@@ -9599,13 +9480,6 @@ GeneralParser<ParseHandler, Unit>::statementListItem(
     // These should probably be handled by a single ExpressionStatement
     // function in a default, not split up this way.
     case TokenKind::String:
-      if (!canHaveDirectives &&
-          anyChars.currentToken().atom() ==
-              TaggedParserAtomIndex::WellKnown::use_asm_()) {
-        if (!warning(JSMSG_USE_ASM_DIRECTIVE_FAIL)) {
-          return errorResult();
-        }
-      }
       return expressionStatement(yieldHandling);
 
     case TokenKind::Yield: {

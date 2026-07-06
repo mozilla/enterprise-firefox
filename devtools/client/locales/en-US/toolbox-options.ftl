@@ -86,6 +86,24 @@ options-webconsole-split-console-label = Enable Split Console
 options-webconsole-split-console-tooltip =
     .title = Open Split Console with the Escape Key
 
+## Network Monitor section
+
+# The heading
+options-netmonitor-label = Network Monitor
+
+# The label for the input defining the limit of stored request and response body size
+options-netmonitor-body-limit-label = Maximum request and response body size (set to 0 for unlimited):
+options-netmonitor-body-limit-tooltip =
+    .title = Request or response bodies which exceed the specified size will be truncated when displayed or downloaded in the Network Monitor. Set to 0 to have no limitation.
+# Text shown in the input when there is no limitation (instead of showing "0")
+options-netmonitor-body-limit-unlimited-label = Unlimited
+options-netmonitor-body-limit-button =
+    .title = Edit the maximum request/response body size.
+options-netmonitor-body-limit-restore-default =
+    .title = Restore the default value for maximum request/response body size.
+options-netmonitor-body-limit-set =
+    .title = Set the current input value as maximum request/response body size.
+
 ## Style Editor section
 
 # The heading

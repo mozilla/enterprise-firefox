@@ -482,7 +482,7 @@ let JSWINDOWACTORS = {
 
   ManifestMessages: {
     child: {
-      esModuleURI: "resource://gre/modules/ManifestMessagesChild.sys.mjs",
+      esModuleURI: "moz-src:///dom/ipc/ManifestMessagesChild.sys.mjs",
     },
     safeForUntrustedWebProcess: true,
   },
@@ -888,6 +888,8 @@ if (AppConstants.MOZ_ENTERPRISE && Services.felt?.isFeltUI()) {
       },
     },
     allFrames: true,
+    remoteTypes: ["webIsolated"],
+    safeForUntrustedWebProcess: true,
     matches: [],
     onAddActor(register, _unregister) {
       const { ConsoleClient } = ChromeUtils.importESModule(
@@ -936,6 +938,7 @@ if (AppConstants.MOZ_ENTERPRISE && Services.felt?.isFeltUI()) {
     parent: {
       esModuleURI: "chrome://felt/content/FeltProcessParent.sys.mjs",
     },
+    safeForUntrustedWebProcess: true,
   };
 }
 

@@ -19,6 +19,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SearchUtils: "moz-src:///toolkit/components/search/SearchUtils.sys.mjs",
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
   UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
+  UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
   UrlbarSearchUtils:
     "moz-src:///browser/components/urlbar/UrlbarSearchUtils.sys.mjs",
 });
@@ -147,8 +148,8 @@ export class UrlbarProviderRecentSearches extends UrlbarProvider {
 
     for (let result of results) {
       let res = new lazy.UrlbarResult({
-        type: UrlbarUtils.RESULT_TYPE.SEARCH,
-        source: UrlbarUtils.RESULT_SOURCE.HISTORY,
+        type: lazy.UrlbarShared.RESULT_TYPE.SEARCH,
+        source: lazy.UrlbarShared.RESULT_SOURCE.HISTORY,
         payload: {
           engine: engine.name,
           suggestion: result.value,

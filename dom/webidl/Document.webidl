@@ -32,6 +32,9 @@ enum VisibilityState { "hidden", "visible" };
 
 /* https://dom.spec.whatwg.org/#dictdef-elementcreationoptions */
 dictionary ElementCreationOptions {
+  [Pref="dom.scoped-custom-element-registries.enabled"]
+  CustomElementRegistry? customElementRegistry;
+
   DOMString is;
 
   [ChromeOnly]

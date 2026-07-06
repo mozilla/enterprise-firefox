@@ -103,6 +103,22 @@ class DefaultTabManagerUiStateRepositoryTest {
         assertTrue { repository.uiState.first()!!.hasUserEverHadOneTabGroup }
     }
 
+    @Test
+    fun `GIVEN the user has previously viewed the tab groups page WHEN the repository has initialized THEN the first emission contains this state`() = runTest {
+        val expectedInitialState = PersistedUIState(hasViewedTabGroupsPage = true)
+        val repository = createRepository(initialPersistedUIState = expectedInitialState)
+
+        assertEquals(expectedInitialState, repository.uiState.first())
+    }
+
+    @Test
+    fun `WHEN the tab groups page is viewed THEN the update is saved to disk`() = runTest {
+        val repository = createRepository()
+        repository.recordTabGroupsPageViewed()
+
+        assertTrue { repository.uiState.first()!!.hasViewedTabGroupsPage }
+    }
+
     private suspend fun TestScope.createRepository(
         initialPersistedUIState: PersistedUIState = PersistedUIState(
             hasUserDismissedTabGroupOnboarding = false,

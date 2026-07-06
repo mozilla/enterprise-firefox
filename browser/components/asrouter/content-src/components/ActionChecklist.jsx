@@ -10,12 +10,7 @@ async function evaluateTargeting(targeting) {
   return await window.AWEvaluateAttributeTargeting(targeting);
 }
 
-export const ActionChecklistItem = ({
-  item,
-  index,
-  handleAction,
-  showExternalLinkIcon,
-}) => {
+export const ActionChecklistItem = ({ item, index, handleAction }) => {
   const [actionTargeting, setActionTargeting] = useState(true);
 
   useEffect(() => {
@@ -45,22 +40,17 @@ export const ActionChecklistItem = ({
       onClick={onButtonClick}
     >
       <div className="action-checklist-label-container">
+        <Localized text={item.label}>
+          <span />
+        </Localized>
         <div className="check-icon-container">
           {actionTargeting ? (
             <div className="check-filled" />
           ) : (
-            <div className="check-empty" />
+            <div className="action-arrow" />
           )}
         </div>
-        <Localized text={item.label}>
-          <span />
-        </Localized>
       </div>
-      {!actionTargeting && showExternalLinkIcon && (
-        <div className="external-link-icon-container">
-          <div className="external-link-icon" />
-        </div>
-      )}
     </button>
   );
 };

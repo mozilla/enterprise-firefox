@@ -97,7 +97,7 @@ struct AutoProfilerMarker {
           text, sizeof(text) - 1, aFormatStr,
           fmt::make_format_args<fmt::buffered_context<CharT>>(aArgs...));
 
-      MOZ_ASSERT(size > sizeof(text) - 1,
+      MOZ_ASSERT(size <= sizeof(text) - 1,
                  "Truncated marker, consider increasing the buffer");
 
       *out = 0;

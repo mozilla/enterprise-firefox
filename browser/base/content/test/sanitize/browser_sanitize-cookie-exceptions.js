@@ -447,6 +447,92 @@ add_task(async function parentExceptionProtectsSubdomainData() {
   PermissionTestUtils.remove(parent, "persist-data-on-shutdown");
 });
 
+add_task(async function shutdownExceptionIsPerCookieJar() {
+  info(
+    "Shutdown exception for mozilla.org covers its cookie jar but not mozilla.org data in other cookie jars"
+  );
+
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["browser.sanitizer.loglevel", "All"],
+      ["privacy.sanitize.sanitizeOnShutdown", true],
+    ],
+  });
+
+  await new Promise(resolve => {
+    Services.clearData.deleteData(Ci.nsIClearDataService.CLEAR_ALL, resolve);
+  });
+
+  PermissionTestUtils.add(
+    "https://sub.mozilla.org",
+    "persist-data-on-shutdown",
+    Services.perms.ALLOW_ACTION
+  );
+
+  // 1. first party cookie in mozilla.org cookie jar
+  SiteDataTestUtils.addToCookies({
+    host: "sub.mozilla.org",
+    originAttributes: {},
+    name: "first_party",
+  });
+  // 2. third-party cookie in mozilla.org cookie jar.
+  SiteDataTestUtils.addToCookies({
+    host: "example.com",
+    originAttributes: { partitionKey: "(https,mozilla.org)" },
+    name: "in_moz_partition",
+  });
+  // 3. first party cookie in mozilla.org cookie jar on a different subdomain
+  SiteDataTestUtils.addToCookies({
+    host: "alt.mozilla.org",
+    originAttributes: {},
+    name: "first_party",
+  });
+  // 4. mozilla.org as a third party under example.com's (not in mozilla.org cookie jar)
+  SiteDataTestUtils.addToCookies({
+    host: "sub.mozilla.org",
+    originAttributes: { partitionKey: "(https,example.com)" },
+    name: "moz_in_example_partition",
+  });
+  // 5. Unrelated first-party example.com with no exception.
+  SiteDataTestUtils.addToCookies({
+    host: "example.com",
+    originAttributes: {},
+    name: "unrelated_first_party",
+  });
+
+  await Sanitizer.runSanitizeOnShutdown();
+
+  ok(
+    SiteDataTestUtils.hasCookies("https://sub.mozilla.org"),
+    "sub.mozilla.org first-party preserved (exception covers own jar)"
+  );
+  ok(
+    SiteDataTestUtils.hasCookies("https://example.com", null, {
+      partitionKey: "(https,mozilla.org)",
+    }),
+    "example.com in mozilla.org partition preserved (inside excepted jar)"
+  );
+  ok(
+    !SiteDataTestUtils.hasCookies("https://alt.mozilla.org"),
+    "alt.mozilla.org first-party removed (exception only specific to origin within jar)"
+  );
+  ok(
+    !SiteDataTestUtils.hasCookies("https://mozilla.org", null, {
+      partitionKey: "(https,example.com)",
+    }),
+    "mozilla.org in example.com partition cleared (not mozilla.org's jar)"
+  );
+  ok(
+    !SiteDataTestUtils.hasCookies("https://example.com"),
+    "example.com first-party cleared (no exception)"
+  );
+
+  PermissionTestUtils.remove(
+    "https://sub.mozilla.org",
+    "persist-data-on-shutdown"
+  );
+});
+
 // With privacy.sanitize.sanitizeOnShutdown=false, the user can still mark
 // individual sites for session-only cookies via "cookie" SESSION. Those
 // sites must be cleared on shutdown; all other sites must be preserved

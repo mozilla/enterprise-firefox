@@ -2664,11 +2664,53 @@ TEST_P(JsepSessionTest, ParseRejectsBadMediaFormat) {
   std::string offer = CreateOffer();
   UniquePtr<Sdp> munge(Parse(offer));
   SdpMediaSection& mediaSection = munge->GetMediaSection(0);
+  mediaSection.AddCodec("19", "DummyFormatVal", 8000, 1);
+  std::string sdpString = munge->ToString();
+  JsepSession::Result result =
+      mSessionOff->SetLocalDescription(kJsepSdpOffer, sdpString);
+  ASSERT_EQ(dom::PCError::InvalidAccessError, *result.mError);
+}
+
+TEST_P(JsepSessionTest, ParseRejectsRtcpMuxPayloadTypeInRtcpRange) {
+  AddTracks(*mSessionOff);
+  if (types.front() == SdpMediaSection::MediaType::kApplication) {
+    return;
+  }
+  std::string offer = CreateOffer();
+  UniquePtr<Sdp> munge(Parse(offer));
+  SdpMediaSection& mediaSection = munge->GetMediaSection(0);
+  ASSERT_TRUE(mediaSection.GetAttributeList().HasAttribute(
+      SdpAttribute::kRtcpMuxAttribute));
+  // https://www.rfc-editor.org/info/rfc5761/#section-4
+  // Payload types in the range 64-95 collide with RTCP packet types when
+  // rtcp-mux is in use (RFC 5761 section 4), and must be rejected.
   mediaSection.AddCodec("75", "DummyFormatVal", 8000, 1);
   std::string sdpString = munge->ToString();
   JsepSession::Result result =
       mSessionOff->SetLocalDescription(kJsepSdpOffer, sdpString);
-  ASSERT_EQ(dom::PCError::OperationError, *result.mError);
+  ASSERT_EQ(dom::PCError::InvalidAccessError, *result.mError);
+}
+
+TEST_P(JsepSessionTest, AnswerRejectsRtcpMuxPayloadTypeInRtcpRange) {
+  AddTracks(*mSessionOff);
+  AddTracks(*mSessionAns);
+  if (types.front() == SdpMediaSection::MediaType::kApplication) {
+    return;
+  }
+  std::string offer = CreateOffer();
+  SetLocalOffer(offer);
+  SetRemoteOffer(offer);
+  std::string answer = CreateAnswer();
+  UniquePtr<Sdp> munge(Parse(answer));
+  SdpMediaSection& mediaSection = munge->GetMediaSection(0);
+  ASSERT_TRUE(mediaSection.GetAttributeList().HasAttribute(
+      SdpAttribute::kRtcpMuxAttribute));
+  // RFC 5761 section 4, see ParseRejectsRtcpMuxPayloadTypeInRtcpRange
+  mediaSection.AddCodec("75", "DummyFormatVal", 8000, 1);
+  std::string sdpString = munge->ToString();
+  JsepSession::Result result =
+      mSessionOff->SetRemoteDescription(kJsepSdpAnswer, sdpString);
+  ASSERT_EQ(dom::PCError::InvalidAccessError, *result.mError);
 }
 
 TEST_P(JsepSessionTest, FullCallWithCandidates) {

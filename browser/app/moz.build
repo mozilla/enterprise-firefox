@@ -197,6 +197,16 @@ for icon in ("firefox", "document", "newwindow", "newtab", "pbmode", "document_p
         icon,
     )
 
+# User-selectable custom launcher icons (see CustomIconManager.sys.mjs). Unlike
+# the branding icons above, these are channel-agnostic decorations, so they live
+# in a single shared location rather than per-branding-directory. The same
+# source file is also shipped into omni.ja via browser/components/shell/jar.mn
+# so the about:settings picker can render a preview of it.
+for icon in ("retro",):
+    DEFINES["CUSTOM_" + icon.upper() + "_ICO"] = (
+        '"%s/browser/components/shell/icons/%s.ico"' % (TOPSRCDIR, icon)
+    )
+
 if CONFIG["MOZ_ASAN"] or CONFIG["MOZ_DEBUG"]:
     WINCONSOLE = True
 else:

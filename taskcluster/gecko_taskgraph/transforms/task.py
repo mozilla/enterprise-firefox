@@ -22,6 +22,7 @@ from urllib.parse import quote
 
 import msgspec
 import taskgraph
+from mozilla_taskgraph.util.attributes import release_level
 from mozilla_taskgraph.util.signed_artifacts import get_signed_artifacts
 from taskcluster.utils import fromNow
 from taskgraph import MAX_DEPENDENCIES
@@ -45,7 +46,7 @@ from gecko_taskgraph.optimize.schema import (
 )
 from gecko_taskgraph.transforms.job.common import get_expiration
 from gecko_taskgraph.util import docker as dockerutil
-from gecko_taskgraph.util.attributes import TRUNK_PROJECTS, release_level
+from gecko_taskgraph.util.attributes import TRUNK_PROJECTS
 from gecko_taskgraph.util.chunking import TEST_VARIANTS
 from gecko_taskgraph.util.hash import hash_path
 from gecko_taskgraph.util.partners import get_partners_to_be_published
@@ -1237,7 +1238,9 @@ def build_balrog_payload(config, task, task_def):
                     task["description"],
                     **{
                         "release-type": config.params["release_type"],
-                        "release-level": release_level(config.params),
+                        "release-level": release_level(
+                            config.graph_config["release-branches"], config.params
+                        ),
                         "beta-number": beta_number,
                     },
                 )
@@ -1440,7 +1443,7 @@ def build_ship_it_maybe_release_payload(config, task, task_def):
 @payload_builder("shipit-nightly-metadata", schema=ShipitNightlyMetadataSchema)
 def build_ship_it_nightly_metadata_payload(_, task, task_def):
     locales_file = task["worker"].get("locales-file")
-    locales = open(locales_file).read().split("\n")
+    locales = open(locales_file).read().strip().split("\n")
     task_def["payload"] = {
         "product": task["worker"]["product"],
         "channel": task["worker"]["channel"],

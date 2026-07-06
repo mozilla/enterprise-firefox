@@ -17,6 +17,8 @@ support-files = [
   "test_kit_mention_page.html",
   "test_memories_icon_button_page.html",
   "test_memories_icon_button.mjs",
+  "test_grouped_chips_page.html",
+  "test_grouped_chips.mjs",
   "test_smartwindow_panel_list_page.html",
   "test_smartwindow_panel_list.mjs",
   "test_website_chip_page.html",
@@ -27,7 +29,8 @@ support-files = [
   "test_website_confirmation.mjs",
   "test_aiwindow_tab_close_integration.html",
   "test_context_url_page.html",
-  "test_context_url_page2.html"
+  "test_context_url_page2.html",
+  "test_context_url_injection_page.html"
 ]
 
 ["browser_actor_user_prompt.js"]
@@ -74,6 +77,8 @@ skip-if = [
 
 ["browser_aiwindow_followup_tokens.js"]
 
+["browser_aiwindow_grouped_chips.js"]
+
 ["browser_aiwindow_immersive.js"]
 
 ["browser_aiwindow_integration.js"]
@@ -111,6 +116,8 @@ skip-if = [
 ["browser_aiwindow_smartbar_keyboard_navigation.js"]
 
 ["browser_aiwindow_smartbar_placeholder.js"]
+
+["browser_aiwindow_smartbar_quicksuggest.js"]
 
 ["browser_aiwindow_smartbar_suggestions.js"]
 
@@ -204,6 +211,8 @@ skip-if = [
   "debug && standalone", # Bug 2025711
 ]
 
+["browser_smartwindow_manage_tabs_tool.js"]
+
 ["browser_smartwindow_metrics_telemetry.js"]
 
 ["browser_smartwindow_nimbus.js"]
@@ -233,6 +242,8 @@ skip-if = [
 
 ["browser_smartwindow_smartbar_glow.js"]
 
+["browser_smartwindow_smartbar_mentions_filter.js"]
+
 ["browser_smartwindow_smartbar_model_select.js"]
 
 ["browser_smartwindow_smartbar_tab_state.js"]
@@ -257,5 +268,7 @@ skip-if = [
   "os == 'win' && os_version == '11.26200' && arch == 'x86'", # Bug 2024015
   "os == 'win' && os_version == '11.26200' && arch == 'x86_64'", # Bug 2024015
 ]
+
+["browser_smartwindow_topsites.js"]
 
 ["browser_smartwindow_uitool_telemetry.js"]

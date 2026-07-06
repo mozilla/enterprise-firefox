@@ -1463,7 +1463,7 @@ export class SidebarBookmarks extends SidebarPage {
             ></moz-input-search>
           </div>
         </sidebar-panel-header>
-        <div class="sidebar-panel-scrollable-content">
+        <div class="sidebar-panel-scrollable-content" tabindex="-1">
           ${when(
             this.searchQuery,
             () => this.#searchResultsTemplate(),

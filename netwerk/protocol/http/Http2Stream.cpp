@@ -80,7 +80,7 @@ nsresult Http2Stream::CallToWriteData(uint32_t count, uint32_t* countWritten) {
 // This is really a headers frame, but open is pretty clear from a workflow pov
 nsresult Http2Stream::GenerateHeaders(nsCString& aCompressedData,
                                       uint8_t& firstFrameFlags) {
-  nsHttpRequestHead* head = mTransaction->RequestHead();
+  const nsHttpRequestHead* head = mTransaction->RequestHead();
   nsAutoCString requestURI;
   head->RequestURI(requestURI);
   RefPtr<Http2Session> session = Session();

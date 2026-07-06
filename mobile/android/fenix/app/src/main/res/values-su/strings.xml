@@ -50,7 +50,7 @@
   <!-- Text for the menu button to remove a recently saved bookmark from the user's home screen -->
   <string name="home_bookmarks_menu_item_remove">Piceun</string>
   <!-- About content. %1$s is the name of the app (for example "Firefox"). -->
-  <string name="about_content">%1$s dihasilkeun ku Mozilla.</string>
+  <string name="about_content" tools:ignore="BrandUsage">%1$s dihasilkeun ku Mozilla.</string>
   <!-- Private Browsing -->
   <string name="private_browsing_common_myths">Mitos umum ngeunaan langlangan nyamuni</string>
   <!--
@@ -284,62 +284,6 @@
     Content description (not visible, for screen readers etc.): Close button for the home onboarding dialog
   -->
   <string name="onboarding_home_content_description_close_button">Tutup</string>
-  <!--
-    Juno first user onboarding flow experiment, strings are marked unused as they are only referenced by Nimbus experiments.
-
-    Description for learning more about our privacy notice.
-  -->
-  <string name="juno_onboarding_privacy_notice_text" tools:ignore="BrandUsage">Iber pripasi Firefox</string>
-  <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_title_nimbus_2">Urang resep ngajaga anjeun sangkan aman</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_3">Browser anu dirojong kalawan nirlaba urang nulungan pikeun mahing pausahaan ngukuntit anjuen dina wéb.</string>
-  <!-- Text for the button to set firefox as default browser on the device -->
-  <string name="juno_onboarding_default_browser_positive_button" tools:ignore="UnusedResources">Jadikeun panyungsi baku</string>
-  <!-- Text for the button dismiss the screen and move on with the flow -->
-  <string name="juno_onboarding_default_browser_negative_button" tools:ignore="UnusedResources">Moal waka</string>
-  <!-- Title for sign in to sync screen. -->
-  <string name="juno_onboarding_sign_in_title_2">Tetep énkripsi nalika anjeun luncat antara alat</string>
-  <!--
-    Description for sign in to sync screen. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_sign_in_description_3" tools:ignore="BrandUsage">Firefox ngaénkripsi sandikecap anjeun, tetengger, jeung réa-réa deui nalika anjeun nyingkronkeun.</string>
-  <!-- Text for the button to sign in to sync on the device -->
-  <string name="juno_onboarding_sign_in_positive_button" tools:ignore="UnusedResources">Asup</string>
-  <!-- Text for the button dismiss the screen and move on with the flow -->
-  <string name="juno_onboarding_sign_in_negative_button" tools:ignore="UnusedResources">Moal waka</string>
-  <!--
-    Title for enable notification permission screen used by Nimbus experiments. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_enable_notifications_title_nimbus_2" tools:ignore="BrandUsage">Iber mantuan anjeun tetep aman jeung Firefox</string>
-  <!--
-    Description for enable notification permission screen used by Nimbus experiments. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_enable_notifications_description_nimbus_2" tools:ignore="BrandUsage">Kirim tab kalawan aman antara parabot anjeun jeung téangan fitur privasi séjénna dina Firefox.</string>
-  <!-- Text for the button to request notification permission on the device -->
-  <string name="juno_onboarding_enable_notifications_positive_button" tools:ignore="UnusedResources">Hurungkeun iber</string>
-  <!-- Text for the button dismiss the screen and move on with the flow -->
-  <string name="juno_onboarding_enable_notifications_negative_button" tools:ignore="UnusedResources">Moal waka</string>
-  <!--
-    Title for add search widget screen used by Nimbus experiments. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_add_search_widget_title" tools:ignore="BrandUsage,UnusedResources">Coba wijet pamaluruhan Firefox</string>
-  <!--
-    Description for add search widget screen used by Nimbus experiments. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_add_search_widget_description" tools:ignore="BrandUsage,UnusedResources">Ku ayana Firefox dina layar tepas, anjeun boga jalan ka panyungsi anu ngutamakeun pripasi anu meungpeuk palacak meuntas loka.</string>
-  <!--
-    Text for the button to add search widget on the device used by Nimbus experiments. Nimbus experiments do not support string placeholders.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_add_search_widget_positive_button" tools:ignore="BrandUsage,UnusedResources">Tambahkeun wijet Firefox</string>
-  <!-- Text for the button to dismiss the screen and move on with the flow -->
-  <string name="juno_onboarding_add_search_widget_negative_button" tools:ignore="UnusedResources">Moal waka</string>
   <!-- ==== Project "Nova" onboarding strings ==== -->
 
   <!-- ==== End of Project "Nova" onboarding strings ==== -->
@@ -468,7 +412,7 @@
   <!-- Preference for accessibility -->
   <string name="preferences_accessibility">Aksésibilitas</string>
   <!-- Preference to override the Mozilla account server -->
-  <string name="preferences_override_account_server">Serper akun Mozilal kustom</string>
+  <string name="preferences_override_account_server" tools:ignore="BrandUsage">Serper akun Mozilal kustom</string>
   <!-- Preference to override the Sync token server -->
   <string name="preferences_override_sync_tokenserver">Serper Sync kustom</string>
   <!-- Preference category for account information -->
@@ -484,7 +428,7 @@
   <!-- Preference for settings related to visual options -->
   <string name="preferences_customize">Sesuaikeun</string>
   <!-- Preference shown instead of account display name while account profile information isn't available yet. -->
-  <string name="preferences_account_default_name_2">Akun Mozilla</string>
+  <string name="preferences_account_default_name_2" tools:ignore="BrandUsage">Akun Mozilla</string>
   <!-- Preference text for account title when there was an error syncing FxA -->
   <string name="preferences_account_sync_error">Sambungkeun deui pikeun neruskeun nyingkronkeun</string>
   <!-- Preference for language -->
@@ -727,7 +671,7 @@
   <!-- Title for studies preferences -->
   <string name="preference_experiments_2">Studi</string>
   <!-- Summary for studies preferences -->
-  <string name="preference_experiments_summary_2">Ngidinan Mozilla masang jeung ngajalankeun studi</string>
+  <string name="preference_experiments_summary_2" tools:ignore="BrandUsage">Ngidinan Mozilla masang jeung ngajalankeun studi</string>
   <!-- Preference for reconnecting to FxA sync -->
   <string name="preferences_sync_sign_in_to_reconnect">Asup pikeun nyambungkeun deui</string>
   <!-- Preference for removing FxA account -->
@@ -981,7 +925,7 @@
   -->
   <string name="tab_crash_title_2">Hampura. %1$s teu tiasa nyungsi ieu kaca.</string>
   <!-- Send crash report checkbox text on the tab crash page -->
-  <string name="tab_crash_send_report">Kirim laporan nu ruksak ka Mozilla</string>
+  <string name="tab_crash_send_report" tools:ignore="BrandUsage">Kirim laporan nu ruksak ka Mozilla</string>
   <!-- Close tab button text on the tab crash page -->
   <string name="tab_crash_close">Tutup tab</string>
   <!-- Restore tab button text on the tab crash page -->

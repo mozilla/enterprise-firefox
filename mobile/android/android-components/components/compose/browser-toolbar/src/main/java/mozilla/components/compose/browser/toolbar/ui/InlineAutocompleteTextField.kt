@@ -94,10 +94,12 @@ import mozilla.components.compose.base.theme.autofillText
 import mozilla.components.compose.base.theme.selectedText
 import mozilla.components.compose.browser.toolbar.concept.BrowserToolbarTestTags.ADDRESSBAR_SEARCH_BOX
 import mozilla.components.concept.toolbar.AutocompleteResult
+import mozilla.components.support.base.utils.MAX_URI_LENGTH
+import mozilla.components.support.ktx.kotlin.trimmed
 import mozilla.components.support.utils.SafeUrl
 
 private const val TEXT_SIZE = 15f
-private const val MAX_TEXT_LENGTH_TO_PASTE = 2_000
+private const val MIN_CHAR_COUNT_FOR_MULTILINE = 10_000
 
 /**
  * A text field composable that displays a suggestion inline with the user's input,
@@ -127,6 +129,8 @@ internal fun InlineAutocompleteTextField(
     onUrlEdit: (BrowserToolbarQuery) -> Unit = {},
     onUrlCommitted: (String) -> Unit = {},
 ) {
+    // Bound the editable text to a safe maximum to avoid any UX instability.
+    val query = query.trimmed()
     val textFieldState = rememberTextFieldState(
         initialText = query,
         initialSelection = when {
@@ -134,6 +138,15 @@ internal fun InlineAutocompleteTextField(
             else -> TextRange(query.length)
         },
     )
+    // A single line cannot be laid out by the platform above a certain length,
+    // so wrap very long URLs over multiple lines instead.
+    // Temporary workaround for https://issuetracker.google.com/issues/527276313.
+    val lineLimits = remember(query) {
+        when (query.length >= MIN_CHAR_COUNT_FOR_MULTILINE) {
+            true -> TextFieldLineLimits.MultiLine()
+            false -> TextFieldLineLimits.SingleLine
+        }
+    }
     var useSuggestion by remember { mutableStateOf(true) }
     // Properties referenced in long lived lambdas
     val currentSuggestion by rememberUpdatedState(suggestion)
@@ -354,7 +367,7 @@ internal fun InlineAutocompleteTextField(
                         LayoutDirection.Rtl -> TextAlign.End
                     },
                 ),
-                lineLimits = TextFieldLineLimits.SingleLine,
+                lineLimits = lineLimits,
                 scrollState = scrollState,
                 keyboardOptions = KeyboardOptions(
                     showKeyboardOnFocus = true,
@@ -907,7 +920,7 @@ private class PasteSanitizerTextToolbar(
             sb.append(safeTextToBePasted)
         }
 
-        return sb.toString().take(MAX_TEXT_LENGTH_TO_PASTE)
+        return sb.toString().take(MAX_URI_LENGTH)
     }
 }
 

@@ -655,16 +655,16 @@
 
       if (event.target.classList.contains("tab-close-button")) {
         if (this.multiselected) {
-          gBrowser.removeMultiSelectedTabs(
-            lazy.TabMetrics.userTriggeredContext(
+          gBrowser.removeMultiSelectedTabs({
+            metricsContext: lazy.TabMetrics.userTriggeredContext(
               lazy.TabMetrics.METRIC_SOURCE.TAB_STRIP
-            )
-          );
+            ),
+          });
         } else {
           gBrowser.removeTab(this, {
             animate: true,
             triggeringEvent: event,
-            ...lazy.TabMetrics.userTriggeredContext(
+            metricsContext: lazy.TabMetrics.userTriggeredContext(
               lazy.TabMetrics.METRIC_SOURCE.TAB_STRIP
             ),
           });
@@ -759,19 +759,107 @@
       if (browser.audioMuted) {
         if (this.linkedPanel) {
           // "Lazy Browser" should not invoke its unmute method
-          browser.unmute();
+          browser.browsingContext?.mediaController?.unmute();
         }
         this.removeAttribute("muted");
       } else {
         if (this.linkedPanel) {
           // "Lazy Browser" should not invoke its mute method
-          browser.mute();
+          browser.browsingContext?.mediaController?.mute();
         }
         this.toggleAttribute("muted", true);
       }
       this.muteReason = aMuteReason || null;
 
       gBrowser._tabAttrModified(this, ["muted"]);
+    }
+
+    // The handler listening to this tab's MediaController audiblechange event,
+    // and the controller it is attached to. Both null when not registered. The
+    // controller is remembered so the listener is removed from the exact
+    // controller it was added to, even if the browsing context (and thus the
+    // current controller) changed in between.
+    #audibleChangeHandler = null;
+    #audibleChangeController = null;
+
+    // Drive the soundplaying attribute from the parent-process MediaController's
+    // aggregated audibility (covers controllable and uncontrolled sources across
+    // cross-origin iframes). Re-registers against the current controller.
+    registerAudibleChangeHandler() {
+      this.unregisterAudibleChangeHandler();
+      let mediaController =
+        this.linkedBrowser?.browsingContext?.mediaController;
+      if (!mediaController) {
+        return;
+      }
+      this.#audibleChangeHandler = () => {
+        if (mediaController.isAudible) {
+          clearTimeout(this._soundPlayingAttrRemovalTimer);
+          this._soundPlayingAttrRemovalTimer = 0;
+
+          let modifiedAttrs = [];
+          if (this.hasAttribute("soundplaying-scheduledremoval")) {
+            this.removeAttribute("soundplaying-scheduledremoval");
+            modifiedAttrs.push("soundplaying-scheduledremoval");
+          }
+
+          if (!this.hasAttribute("soundplaying")) {
+            this.toggleAttribute("soundplaying", true);
+            modifiedAttrs.push("soundplaying");
+          }
+
+          if (modifiedAttrs.length) {
+            // Flush style so that the opacity takes effect immediately, in
+            // case the media is stopped before the style flushes naturally.
+            getComputedStyle(this).opacity;
+          }
+
+          gBrowser._tabAttrModified(this, modifiedAttrs);
+        } else if (this.hasAttribute("soundplaying")) {
+          let removalDelay = Services.prefs.getIntPref(
+            "browser.tabs.delayHidingAudioPlayingIconMS"
+          );
+
+          // When the tab is muted, the sound icon must be removed immediately
+          // without any anti-flicker grace period, because muting cannot be
+          // cancelled by a rapid re-audible event (loops stay inaudible while
+          // muted). Otherwise, apply a 300 ms floor to prevent icon flicker at
+          // loop boundaries.
+          let effectiveDelay = this.linkedBrowser?.audioMuted
+            ? removalDelay
+            : Math.max(removalDelay, 300);
+
+          this.style.setProperty(
+            "--soundplaying-removal-delay",
+            `${Math.max(effectiveDelay - 300, 0)}ms`
+          );
+          this.toggleAttribute("soundplaying-scheduledremoval", true);
+          gBrowser._tabAttrModified(this, ["soundplaying-scheduledremoval"]);
+
+          this._soundPlayingAttrRemovalTimer = setTimeout(() => {
+            this.removeAttribute("soundplaying-scheduledremoval");
+            this.removeAttribute("soundplaying");
+            gBrowser._tabAttrModified(this, [
+              "soundplaying",
+              "soundplaying-scheduledremoval",
+            ]);
+          }, effectiveDelay);
+        }
+      };
+      this.#audibleChangeController = mediaController;
+      mediaController.addEventListener(
+        "audiblechange",
+        this.#audibleChangeHandler
+      );
+    }
+
+    unregisterAudibleChangeHandler() {
+      this.#audibleChangeController?.removeEventListener(
+        "audiblechange",
+        this.#audibleChangeHandler
+      );
+      this.#audibleChangeController = null;
+      this.#audibleChangeHandler = null;
     }
 
     setUserContextId(aUserContextId) {

@@ -26,12 +26,17 @@ class LabsStore(
 private fun reducer(state: LabsState, action: LabsAction): LabsState {
     return when (action) {
         is LabsAction.InitAction,
+        is LabsAction.RefreshLabs,
         is LabsAction.RestartApplication,
         is LabsAction.ShareFeedbackClicked,
             -> state
 
         is LabsAction.UpdateLabsItems -> state.copy(
             labsItems = action.items,
+        )
+
+        is LabsAction.RemoveLabsItem -> state.copy(
+            labsItems = state.labsItems.filter { it.slug != action.slug },
         )
 
         is LabsAction.RestoreDefaults -> state.copy(

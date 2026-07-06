@@ -2652,6 +2652,15 @@ projects:
     - components:support-test
     - components:support-utils
     - components:tooling-lint
+  components:service-sync:
+    description: A library for integrating with the Firefox Sync service
+    path: components/service/sync
+    publish: true
+    upstream_dependencies:
+    - components:concept-base
+    - components:concept-fetch
+    - components:support-base
+    - components:tooling-lint
   components:service-sync-autofill:
     description: A library for autofilling addresses and credit cards.
     path: components/service/sync-autofill
@@ -2899,6 +2908,12 @@ projects:
     path: components/tooling/lint
     publish: false
     upstream_dependencies: []
+  components:ui-animation:
+    description: A library for providing animations.
+    path: components/ui/animation
+    publish: true
+    upstream_dependencies:
+    - components:tooling-lint
   components:ui-autocomplete:
     description: A set of components to provide autocomplete functionality.
     path: components/ui/autocomplete

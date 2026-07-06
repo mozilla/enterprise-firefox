@@ -94,10 +94,6 @@
     <color name="fx_mobile_icon_color_accent_green">@color/photonGreen20</color>
     <color name="fx_mobile_icon_color_accent_yellow">@color/photonYellow20</color>
 
-    <!-- Border -->
-    <!-- Active tab (Nav), Selected tab, Active form -->
-    <color name="fx_mobile_border_color_accent">@color/photonViolet40</color>
-
     <!-- Normal theme colors for dark mode -->
     <color name="accent_normal_theme">@color/photonViolet50</color>
     <color name="accent_high_contrast_normal_theme">@color/photonViolet40</color>

@@ -2791,8 +2791,7 @@ nsresult XMLHttpRequestMainThread::InitiateFetch(
       nsCOMPtr<nsIUploadChannel2> uploadChannel(do_QueryInterface(httpChannel));
       NS_ASSERTION(uploadChannel, "http must support nsIUploadChannel");
       rv = uploadChannel->ExplicitSetUploadStream(
-          uploadStream, aUploadContentType, mUploadTotal, mRequestMethod,
-          PR_FALSE);
+          uploadStream, aUploadContentType, mUploadTotal, mRequestMethod);
     }
   }
 

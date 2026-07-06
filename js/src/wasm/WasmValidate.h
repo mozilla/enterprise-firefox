@@ -114,8 +114,8 @@ using ValidatingOpIter = OpIter<ValidatingPolicy>;
                                     size_t opcodeOffset, StorageType subType,
                                     StorageType superType);
 
-// The local entries are part of function bodies and thus serialized by both
-// wasm and asm.js and decoded as part of both validation and compilation.
+// The local entries are part of function bodies and thus serialized and
+// decoded as part of both validation and compilation.
 
 [[nodiscard]] bool EncodeLocalEntries(Encoder& e, const ValTypeVector& locals);
 

@@ -93,6 +93,9 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = Cloc
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = Preifatrwydd
 home-prefs-mission-message2 =
     .message = Mae ein noddwyr yn cefnogi ein cenhadaeth i adeiladu gwe well
 home-prefs-manage-topics-link2 =
@@ -155,6 +158,11 @@ home-prefs-weather-header-srd =
 home-prefs-support-firefox-header-srd =
     .label = Cefnogi { -brand-product-name }
 home-prefs-mission-message-learn-more-link-srd = Dyma sut
+
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = Dysgu rhagor
 
 ## Search box component.
 
@@ -509,6 +517,8 @@ newtab-custom-widget-clock-toggle =
     .label = Cloc
 newtab-custom-widget-sports-toggle2 =
     .label = Chwaraeon
+newtab-custom-widget-privacy-toggle =
+    .label = Preifatrwydd
 newtab-custom-widget-section-title = Teclynnau
 newtab-custom-widget-section-toggle =
     .label = Teclynnau
@@ -985,6 +995,8 @@ newtab-widget-timer-reset =
 newtab-widget-timer-menu-notifications = Diffodd hysbysiadau
 newtab-widget-timer-menu-notifications-on = Troi hysbysiadau ymlaen
 newtab-widget-timer-menu-learn-more = Dysgu rhagor
+newtab-widget-timer-menu-button =
+    .aria-label = Dewisiadau amserydd
 # The title displays above a set of top news headlines.
 newtab-daily-briefing-card-title = Prif Benawdau
 newtab-daily-briefing-card-menu-dismiss = Cau
@@ -1111,6 +1123,8 @@ newtab-sports-widget-show-less =
 # Toggle that filters the list of teams the user follows
 newtab-sports-widget-followed-only-toggle =
     .label = Dim ond timau sy'n cael eu dilyn
+# Status shown when more matches are being fetched.
+newtab-sports-widget-loading-more = Wrthi'n llwytho mwy o gydweddu…
 # Watch is a verb (as in watch matches online).
 newtab-sports-widget-watch =
     .label = Gwylio
@@ -1190,6 +1204,9 @@ newtab-sports-widget-third-place = Yn Drydydd
 newtab-sports-widget-runner-up = Yn Ail
 newtab-sports-widget-champions = Pencampwyr
 newtab-sports-widget-world-cup-champions = Pencampwyr Cwpan y Byd 2026
+# Compact champions label for the medium-size widget result card; the larger
+# card uses newtab-sports-widget-world-cup-champions.
+newtab-sports-widget-world-cup-champions-short = Pencampwyr 2026
 # Variables:
 #   $date (Date) - The match start time
 newtab-sports-widget-match-time = { DATETIME($date, hour: "2-digit", minute: "2-digit") }
@@ -1288,6 +1305,8 @@ newtab-sports-widget-team-tbd = I'w benderfynu
 newtab-sports-widget-message-wallpapers-title = Cychwyn Cwpan y Byd gyda phapurau wal newydd
 newtab-sports-widget-message-wallpapers-body = Dewch ag ychydig o egni diwrnod gêm i'ch porwr ar gyfer y twrnamaint.
 newtab-sports-widget-message-wallpapers-cta = Dewis papur wal
+newtab-sports-widget-message-wallpapers-semifinals-title = Cael papur wal newydd ar gyfer y rowndiau cynderfynol
+newtab-sports-widget-message-wallpapers-semifinals-body = Patatoi ar gyfer gemau mwyaf Cwpan y Byd.
 newtab-sports-widget-message-add-widgets-cta =
     .label = Ychwanegu teclyn
 newtab-sports-widget-message-day-in-play-title = Cadwch eich diwrnod ar waith gyda theclynnau { -brand-product-name }

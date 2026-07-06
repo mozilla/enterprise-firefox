@@ -18,6 +18,7 @@
 #include "mozilla/StaticPrefs_gfx.h"
 #include "mozilla/StaticPrefs_webgl.h"
 #include "mozilla/widget/AndroidVsync.h"
+#include "mozilla/Utf16.h"
 
 #include "AndroidBuild.h"
 #include "AndroidSystemFontIterator.h"
@@ -236,7 +237,7 @@ void gfxAndroidPlatform::GetCommonFallbackFonts(
     aFontList.AppendElement(kNotoColorEmoji);
   }
 
-  if (IS_IN_BMP(aCh)) {
+  if (mozilla::IsInBMP(aCh)) {
     // try language-specific "Droid Sans *" and "Noto Sans *" fonts for
     // certain blocks, as most devices probably have these
     uint8_t block = (aCh >> 8) & 0xff;

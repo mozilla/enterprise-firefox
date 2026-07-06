@@ -11,6 +11,7 @@ import org.mozilla.fenix.tabstray.redux.action.TabSearchAction
 import org.mozilla.fenix.tabstray.redux.action.TabsTrayAction
 import org.mozilla.fenix.tabstray.redux.state.TabSearchState
 import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
+import org.mozilla.fenix.tabstray.redux.state.TabsTrayState.DragProcessingState
 import org.mozilla.fenix.tabstray.redux.store.TabsTrayStore
 
 /**
@@ -104,6 +105,9 @@ internal object TabsTrayReducer {
                     } else {
                         state.mode
                     },
+                    tabGroupState = state.tabGroupState.copy(
+                        dragProcessingState = DragProcessingState.DRAG_IN_PROGRESS,
+                    ),
                 )
 
             is TabsTrayAction.TabDragCancel ->
@@ -258,6 +262,7 @@ internal object TabsTrayReducer {
                         hasUserDismissedTabGroupOnboarding = action.update.hasUserDismissedTabGroupOnboarding,
                         tabGroupOnboardingImpressionCount = action.update.tabGroupOnboardingImpressionCount,
                         hasUserEverHadOneTabGroup = action.update.hasUserEverHadOneTabGroup,
+                        hasViewedTabGroupsPage = action.update.hasViewedTabGroupsPage,
                     ),
                 )
 
@@ -282,7 +287,6 @@ internal object TabsTrayReducer {
 
     private fun handleNavigateBack(state: TabsTrayState): TabsTrayState {
         val lastBackStackEntry = state.backStack.lastOrNull()
-
         return when {
             // Navigate away from the below destinations to maintain selection mode
             lastBackStackEntry in setOf(
@@ -290,6 +294,9 @@ internal object TabsTrayReducer {
                 TabManagerNavDestination.AddToTabGroup,
             ) -> state.copy(
                 mode = if (state.mode is TabsTrayState.Mode.DragAndDrop) TabsTrayState.Mode.Normal else state.mode,
+                tabGroupState = state.tabGroupState.copy(
+                    dragProcessingState = DragProcessingState.COMPLETED,
+                ),
                 backStack = state.popBackStack(),
             )
 

@@ -35,4 +35,10 @@ class FakeTabManagerUiStateRepository(
         uiStateFlow.emit(currentSnapshot.copy(hasUserEverHadOneTabGroup = true))
         return true
     }
+
+    override suspend fun recordTabGroupsPageViewed(): Boolean {
+        val currentSnapshot = uiStateFlow.value ?: PersistedUIState()
+        uiStateFlow.emit(currentSnapshot.copy(hasViewedTabGroupsPage = true))
+        return true
+    }
 }

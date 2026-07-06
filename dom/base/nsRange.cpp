@@ -995,7 +995,9 @@ void nsRange::NotifySelectionListenersAfterRangeSet() {
 #ifdef ACCESSIBILITY
     a11y::SelectionManager::SelectionRangeChanged(selection->GetType(), *this);
 #endif
-    selection->NotifySelectionListeners(calledByJSRestorer.SavedValue());
+    selection->NotifySelectionListeners(
+        calledByJSRestorer.SavedValue(),
+        Selection::IsFromRangeMutationObserver::Yes);
   } else {
     nsTArray<WeakPtr<Selection>> copiedSelections = mSelections.Clone();
     for (const auto& weakSelection : copiedSelections) {
@@ -1005,7 +1007,9 @@ void nsRange::NotifySelectionListenersAfterRangeSet() {
         a11y::SelectionManager::SelectionRangeChanged(selection->GetType(),
                                                       *this);
 #endif
-        selection->NotifySelectionListeners(calledByJSRestorer.SavedValue());
+        selection->NotifySelectionListeners(
+            calledByJSRestorer.SavedValue(),
+            Selection::IsFromRangeMutationObserver::Yes);
       }
     }
   }

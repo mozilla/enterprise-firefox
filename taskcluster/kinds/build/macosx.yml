@@ -186,6 +186,7 @@ macosx64-non-unified/plain:
         platform: osx-cross/plain
         symbol: Bp-nu
         tier: 1
+    worker-type: b-linux-docker-large-amd
     worker:
         max-run-time: 7200
         env:

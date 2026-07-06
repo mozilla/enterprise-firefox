@@ -90,24 +90,34 @@ export var Policies = {
   _cleanup: {
     onBeforeAddons() {
       if (Cu.isInAutomation || isXpcshell) {
-        console.log("_cleanup from onBeforeAddons");
         clearBlockedAboutPages();
       }
+      Services.obs.notifyObservers(
+        null,
+        "EnterprisePolicies:Cleanup",
+        "onBeforeAddons"
+      );
     },
     onProfileAfterChange() {
-      if (Cu.isInAutomation || isXpcshell) {
-        console.log("_cleanup from onProfileAfterChange");
-      }
+      Services.obs.notifyObservers(
+        null,
+        "EnterprisePolicies:Cleanup",
+        "onProfileAfterChange"
+      );
     },
     onBeforeUIStartup() {
-      if (Cu.isInAutomation || isXpcshell) {
-        console.log("_cleanup from onBeforeUIStartup");
-      }
+      Services.obs.notifyObservers(
+        null,
+        "EnterprisePolicies:Cleanup",
+        "onBeforeUIStartup"
+      );
     },
     onAllWindowsRestored() {
-      if (Cu.isInAutomation || isXpcshell) {
-        console.log("_cleanup from onAllWindowsRestored");
-      }
+      Services.obs.notifyObservers(
+        null,
+        "EnterprisePolicies:Cleanup",
+        "onAllWindowsRestored"
+      );
     },
     onRemove() {
       if (Cu.isInAutomation || isXpcshell) {
@@ -1001,6 +1011,24 @@ export var Policies = {
     onBeforeUIStartup(manager, param) {
       addAllowDenyPermissions("cookie", param.Allow, param.Block);
 
+      // Backwards-compat shim (Bug 2051574): before Bug 1767271, Cookies.Allow
+      // doubled as the clear-on-shutdown exception list. Sites are now exempted
+      // via the dedicated SanitizeOnShutdown.Exceptions key. If an admin hasn't
+      // adopted that key yet, treat Cookies.Allow entries as shutdown exceptions
+      // too. Remove this shim once admins have had a couple of releases to
+      // migrate.
+      if (
+        param.Allow?.length &&
+        !manager.getActivePolicies()?.SanitizeOnShutdown?.Exceptions?.length
+      ) {
+        lazy.log.warn(
+          "Using Cookies.Allow to exempt sites from clear-on-shutdown is " +
+            "deprecated and will stop working in a future release. Use the " +
+            "SanitizeOnShutdown.Exceptions policy instead."
+        );
+        addAllowDenyPermissions("persist-data-on-shutdown", param.Allow);
+      }
+
       if (param.AllowSession) {
         for (let origin of param.AllowSession) {
           try {
@@ -1107,30 +1135,65 @@ export var Policies = {
 
   CrashReportsSubmit: {
     onBeforeAddons(_manager, param) {
-      if (param.ForceAutoSubmit) {
-        setAndLockPref("browser.crashReports.unsubmittedCheck.enabled", true);
-        setAndLockPref(
-          "browser.crashReports.unsubmittedCheck.autoSubmit2",
-          true
-        );
-        setAndLockPref("browser.tabs.crashReporting.sendReport", true);
-        setAndLockPref("browser.tabs.crashReporting.includeURL", true);
-        Services.env.set("MOZ_CRASHREPORTER_POLICY_AUTO_SUBMIT", "1");
+      if ("Enabled" in param) {
+        if (param.Enabled) {
+          setAndLockPref(
+            "browser.crashReports.unsubmittedCheck.autoSubmit2",
+            true
+          );
+          setAndLockPref("browser.tabs.crashReporting.sendReport", true);
+          setAndLockPref("browser.crashReports.unsubmittedCheck.enabled", true);
+          setAndLockPref("browser.tabs.crashReporting.includeURL", true);
+          setEnvVar("MOZ_CRASHREPORTER_NO_REPORT", "");
+          setEnvVar("MOZ_CRASHREPORTER_POLICY_AUTO_SUBMIT", "1");
+        } else {
+          setAndLockPref(
+            "browser.crashReports.unsubmittedCheck.autoSubmit2",
+            false
+          );
+          setAndLockPref("browser.tabs.crashReporting.sendReport", false);
+          setAndLockPref(
+            "browser.crashReports.unsubmittedCheck.enabled",
+            false
+          );
+          unsetAndUnlockPref("browser.tabs.crashReporting.includeURL");
+          setEnvVar("MOZ_CRASHREPORTER_NO_REPORT", "1");
+          setEnvVar("MOZ_CRASHREPORTER_POLICY_AUTO_SUBMIT", "");
+        }
       } else {
-        // if ForceAutoSubmit is unset or is false
-        unsetAndUnlockPref("browser.crashReports.unsubmittedCheck.enabled");
         unsetAndUnlockPref("browser.crashReports.unsubmittedCheck.autoSubmit2");
         unsetAndUnlockPref("browser.tabs.crashReporting.sendReport");
+        unsetAndUnlockPref("browser.crashReports.unsubmittedCheck.enabled");
         unsetAndUnlockPref("browser.tabs.crashReporting.includeURL");
-        Services.env.set("MOZ_CRASHREPORTER_POLICY_AUTO_SUBMIT", "");
+        unsetEnvVar("MOZ_CRASHREPORTER_POLICY_AUTO_SUBMIT");
+        unsetEnvVar("MOZ_CRASHREPORTER_NO_REPORT");
+      }
+      // The crash callback reads a cached, signal-safe atomic; tell it to
+      // re-read the env vars now that we've changed them.
+      try {
+        Services.appinfo
+          .QueryInterface(Ci.nsICrashReporter)
+          .updateShouldReport();
+      } catch (e) {
+        // nsICrashReporter is unavailable in builds without the crash reporter.
       }
     },
     onRemove(_manager, _oldParams) {
-      unsetAndUnlockPref("browser.crashReports.unsubmittedCheck.enabled");
       unsetAndUnlockPref("browser.crashReports.unsubmittedCheck.autoSubmit2");
       unsetAndUnlockPref("browser.tabs.crashReporting.sendReport");
+      unsetAndUnlockPref("browser.crashReports.unsubmittedCheck.enabled");
       unsetAndUnlockPref("browser.tabs.crashReporting.includeURL");
-      Services.env.set("MOZ_CRASHREPORTER_POLICY_AUTO_SUBMIT", "");
+      unsetEnvVar("MOZ_CRASHREPORTER_POLICY_AUTO_SUBMIT");
+      unsetEnvVar("MOZ_CRASHREPORTER_NO_REPORT");
+      // The crash callback reads a cached, signal-safe atomic; tell it to
+      // re-read the env vars now that we've changed them.
+      try {
+        Services.appinfo
+          .QueryInterface(Ci.nsICrashReporter)
+          .updateShouldReport();
+      } catch (e) {
+        // nsICrashReporter is unavailable in builds without the crash reporter.
+      }
     },
   },
 
@@ -1163,6 +1226,10 @@ export var Policies = {
           `Unrecognized value for DefaultSerialGuardSetting: ${param}`
         );
       }
+    },
+    onRemove(_manager, _param) {
+      // Making sure WebSerial is always default opt-in when the policy engine is active
+      unsetAndUnlockPref("dom.webserial.enabled");
     },
   },
 
@@ -1970,7 +2037,9 @@ export var Policies = {
       try {
         manager.setExtensionSettings(param);
       } catch (e) {
-        lazy.log.error("Invalid ExtensionSettings");
+        lazy.log.error(
+          `Some ExtensionSettings could not be applied: ${e.message}`
+        );
       }
       try {
         applyExtensionGuards(param);
@@ -2169,6 +2238,13 @@ export var Policies = {
           param.Weather,
           param.Locked
         );
+        // The Nova layout (enabled by default) binds the weather toggle to a
+        // different pref, so set it too.
+        PoliciesUtils.setDefaultPref(
+          "browser.newtabpage.activity-stream.widgets.weather.enabled",
+          param.Weather,
+          param.Locked
+        );
       }
       if ("TopSites" in param) {
         PoliciesUtils.setDefaultPref(
@@ -2193,22 +2269,12 @@ export var Policies = {
       }
       if ("Pocket" in param) {
         PoliciesUtils.setDefaultPref(
-          "browser.newtabpage.activity-stream.feeds.system.topstories",
-          param.Pocket,
-          param.Locked
-        );
-        PoliciesUtils.setDefaultPref(
           "browser.newtabpage.activity-stream.feeds.section.topstories",
           param.Pocket,
           param.Locked
         );
       }
       if ("Stories" in param) {
-        PoliciesUtils.setDefaultPref(
-          "browser.newtabpage.activity-stream.feeds.system.topstories",
-          param.Stories,
-          param.Locked
-        );
         PoliciesUtils.setDefaultPref(
           "browser.newtabpage.activity-stream.feeds.section.topstories",
           param.Stories,
@@ -2226,6 +2292,20 @@ export var Policies = {
         PoliciesUtils.setDefaultPref(
           "browser.newtabpage.activity-stream.showSponsored",
           param.SponsoredStories,
+          param.Locked
+        );
+      }
+      // The "Support Firefox" toggle in the settings UI is a parent control for
+      // the two sponsored child settings. When both are locked by policy, lock
+      // it to their combined value so it can't be toggled to no effect.
+      if (
+        param.Locked &&
+        "SponsoredTopSites" in param &&
+        "SponsoredStories" in param
+      ) {
+        PoliciesUtils.setDefaultPref(
+          "browser.newtabpage.activity-stream.showSponsoredCheckboxes",
+          param.SponsoredTopSites || param.SponsoredStories,
           param.Locked
         );
       }
@@ -3362,6 +3442,9 @@ export var Policies = {
             locked
           );
         }
+        if (param.Exceptions) {
+          addAllowDenyPermissions("persist-data-on-shutdown", param.Exceptions);
+        }
       }
     },
   },
@@ -3906,6 +3989,20 @@ export function setAndLockPref(prefName, prefValue) {
 }
 
 /**
+ * setEnvVar
+ *
+ * Sets the value of an environment variable.
+ *
+ * @param {string} envVarName
+ *        The environment variable to be changed
+ * @param {string} envVarValue
+ *        The value to set the environment variable to
+ */
+export function setEnvVar(envVarName, envVarValue) {
+  PoliciesUtils.setEnvVar(envVarName, envVarValue);
+}
+
+/**
  * unsetAndUnlockPref
  *
  * Unsets the _default_ value of a pref, and unlocks it (meaning that
@@ -3916,6 +4013,19 @@ export function setAndLockPref(prefName, prefValue) {
  */
 export function unsetAndUnlockPref(prefName) {
   PoliciesUtils.unsetDefaultPref(prefName);
+}
+
+/**
+ * unsetEnvVar
+ *
+ * Unsets the value of an environment variable,
+ * restoring it to the value before any policy modification.
+ *
+ * @param {string} envVarName
+ *        The environment variable to be changed
+ */
+export function unsetEnvVar(envVarName) {
+  PoliciesUtils.unsetEnvVar(envVarName);
 }
 
 /**
@@ -3951,8 +4061,11 @@ export var PoliciesUtils = {
    * @property {boolean} isLocked - whether the preference is locked
    */
 
-  /** @type {PreferenceState} */
+  /** @type {{[key: string]: PreferenceState}} */
   _initialPrefState: {},
+
+  /** @type {{[key: string]: string}} */
+  _initialEnvVarState: {},
 
   /**
    * Reads a typed preference value from the given branch, returning null when
@@ -4029,6 +4142,22 @@ export var PoliciesUtils = {
   },
 
   /**
+   * Saves the current value of an env var before a policy changes it.
+   * No-op if the env var was already saved.
+   *
+   * @param {string} envVarName
+   */
+  saveEnvVarState(envVarName) {
+    if (envVarName in this._initialEnvVarState) {
+      return;
+    }
+
+    const envVarValue = Services.env.get(envVarName);
+
+    this._initialEnvVarState[envVarName] = envVarValue;
+  },
+
+  /**
    * Restores the preference to the state before any policy was applied. The user
    * value of a preference is only restored if the preference was locked by the policy
    * or was locked even before
@@ -4080,6 +4209,25 @@ export var PoliciesUtils = {
         this._writePref(Services.prefs, prefName, type, prefState.userValue);
       }
     }
+  },
+
+  /**
+   * Restores the value of an env var to the state before any policy was applied,
+   * or "" if it didn't exist before.
+   * No-op if no state was saved for the env var.
+   *
+   * @param {string} envVarName
+   */
+  restoreEnvVarState(envVarName) {
+    if (!(envVarName in this._initialEnvVarState)) {
+      // Nothing to restore
+      return;
+    }
+
+    const envVarValue = this._initialEnvVarState[envVarName];
+    Services.env.set(envVarName, envVarValue);
+
+    delete this._initialEnvVarState[envVarName];
   },
 
   /**
@@ -4144,6 +4292,23 @@ export var PoliciesUtils = {
   },
 
   /**
+   * setEnvVar
+   *
+   * Sets the value of an env var and stores the prior value
+   * so it can be restored.
+   *
+   * @param {string} envVarName
+   *        The env var to be changed
+   * @param {string} envVarValue
+   *        The value to set
+   */
+  setEnvVar(envVarName, envVarValue) {
+    this.saveEnvVarState(envVarName);
+
+    Services.env.set(envVarName, envVarValue);
+  },
+
+  /**
    * unsetDefaultPref
    *
    * Unsets the _default_ value of a pref and unlock it if it was locked.
@@ -4158,6 +4323,18 @@ export var PoliciesUtils = {
     }
 
     this.restorePreferenceState(prefName);
+  },
+
+  /**
+   * unsetEnvVar
+   *
+   * Restores the env var to its previous state, or "" if it didn't exist before.
+   *
+   * @param {string} envVarName
+   *        The env var to be changed
+   */
+  unsetEnvVar(envVarName) {
+    this.restoreEnvVarState(envVarName);
   },
 };
 
@@ -4411,11 +4588,13 @@ function installAddonFromURL(url, extensionID, addon) {
           );
           install.removeListener(listener);
           install.cancel();
+          return;
         }
         if (install.addon.appDisabled) {
           lazy.log.error(`Incompatible add-on - ${url}`);
           install.removeListener(listener);
           install.cancel();
+          return;
         }
         if (
           addon &&
@@ -4426,6 +4605,7 @@ function installAddonFromURL(url, extensionID, addon) {
           );
           install.removeListener(listener);
           install.cancel();
+          return;
         }
 
         // Cancel install if the addon version downloaded is detected

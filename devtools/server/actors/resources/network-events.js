@@ -15,17 +15,6 @@ const Targets = require("resource://devtools/server/actors/targets/index.js");
 
 const lazy = {};
 
-const { XPCOMUtils } = ChromeUtils.importESModule(
-  "resource://gre/modules/XPCOMUtils.sys.mjs",
-  { global: "contextual" }
-);
-XPCOMUtils.defineLazyPreferenceGetter(
-  lazy,
-  "responseBodyLimit",
-  "devtools.netmonitor.responseBodyLimit",
-  0
-);
-
 ChromeUtils.defineESModuleGetters(
   lazy,
   {
@@ -69,11 +58,17 @@ class NetworkEventWatcher {
     this.onNetworkEventUpdated = onUpdated;
     // Boolean to know if we keep previous document network events or not.
     this.persist = false;
+
+    // Retrive instantiation value for body limit from target configurations
+    const targetConfigurationActor =
+      this.watcherActor.getTargetConfigurationActor();
+    const bodyLimit = targetConfigurationActor.getNetworkBodyLimit();
+
     this.listener = new lazy.NetworkObserver({
       // The responses will be decoded lazily when the Response details are
       // requested by the UI.
       decodeResponseBodies: false,
-      responseBodyLimit: lazy.responseBodyLimit,
+      bodyLimit,
       ignoreChannelFunction: this.shouldIgnoreChannel.bind(this),
       onNetworkEvent: this.onNetworkEvent.bind(this),
     });
@@ -200,6 +195,10 @@ class NetworkEventWatcher {
 
   setLocalModeMappings(mappings) {
     this.listener.setLocalModeMappings(mappings);
+  }
+
+  setBodyLimit(bodyLimit) {
+    this.listener.setBodyLimit(bodyLimit);
   }
 
   /**
@@ -402,6 +401,7 @@ class NetworkEventWatcher {
         if (Number.isInteger(updateResource.priority)) {
           resourceUpdates.priority = updateResource.priority;
         }
+        resourceUpdates.truncated = updateResource.truncated;
         break;
       case NETWORK_EVENT_TYPES.EVENT_TIMINGS:
         resourceUpdates.totalTime = updateResource.totalTime;

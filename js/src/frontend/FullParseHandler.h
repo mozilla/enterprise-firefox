@@ -956,7 +956,6 @@ class FullParseHandler {
   }
   void setFunctionBox(FunctionNodeType funNode, FunctionBox* funbox) {
     funNode->setFunbox(funbox);
-    funbox->functionNode = funNode;
   }
   void addFunctionFormalParameter(FunctionNodeType funNode, Node argpn) {
     addList(/* list = */ funNode->body(), /* kid = */ argpn);

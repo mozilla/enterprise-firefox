@@ -6,6 +6,7 @@
 
 #include "ActiveLayerTracker.h"
 #include "ScrollSnap.h"
+#include "ServoStyleSet.h"
 #include "StickyScrollContainer.h"
 #include "mozilla/AnimationUtils.h"
 #include "mozilla/Assertions.h"
@@ -3691,6 +3692,27 @@ void RestyleManager::AttributeChanged(Element* aElement, int32_t aNameSpaceID,
     // TODO(emilio, bug 1598094): Maybe finer-grained invalidation for part
     // attribute changes?
     restyleHint |= RestyleHint::RESTYLE_SELF | RestyleHint::RESTYLE_PSEUDOS;
+  }
+
+  // If we match/unmatch a named container we have to restyle at least all our
+  // descendants that are affected by rules in style container queries.
+  // Ideally we could be more discerning by adding another Computed Value Flag
+  // for elements that are affected specifically by named container queries and
+  // thus require us to possibly restyle distant descendants.
+  switch (StyleSet()->MightHaveAttributeDependencyInContainer(*aElement,
+                                                              aAttribute)) {
+    case StyleContainerAttributeDependencyKind::NamedContainer:
+      /// Note that this unnecessarily restyles self if self also happens to
+      /// be affected by a style container query. This may be acceptable but...
+      /// TODO(descalante, bug 2050532): It's also worth looking into whether
+      /// or not we can rework the flags to avoid this extra restyle.
+      restyleHint |= RestyleHint::RESTYLE_IF_AFFECTED_BY_NAMED_STYLE_CONTAINER;
+      break;
+    case StyleContainerAttributeDependencyKind::UnnamedContainer:
+      restyleHint |= RestyleHint::RESTYLE_CHILD_IF_AFFECTED_BY_STYLE_QUERIES;
+      break;
+    case StyleContainerAttributeDependencyKind::None:
+      break;
   }
 
   if (nsIFrame* primaryFrame = aElement->GetPrimaryFrame()) {

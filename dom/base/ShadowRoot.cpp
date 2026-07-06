@@ -15,6 +15,7 @@
 #include "mozilla/ServoBindings.h"
 #include "mozilla/ServoStyleRuleMap.h"
 #include "mozilla/ServoStyleSet.h"
+#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StyleSheet.h"
 #include "mozilla/css/Rule.h"
 #include "mozilla/dom/BindContext.h"
@@ -64,7 +65,7 @@ ShadowRoot::ShadowRoot(Element* aElement, ShadowRootMode aMode,
                        IsClonable aIsClonable, IsSerializable aIsSerializable,
                        Declarative aDeclarative,
                        CustomSlotDispatch aCustomSlotDispatch,
-                       const Maybe<CustomElementRegistry*> aRegistry,
+                       const Maybe<RefPtr<CustomElementRegistry>> aRegistry,
                        already_AddRefed<mozilla::dom::NodeInfo> aNodeInfo)
     : DocumentFragment(std::move(aNodeInfo)), DocumentOrShadowRoot(this) {
   if (StaticPrefs::dom_scoped_custom_element_registries_enabled() &&
@@ -1070,7 +1071,6 @@ CustomElementRegistry* ShadowRoot::GetCustomElementRegistry() {
     case CustomElementRegistryState::Scoped: {
       RefPtr<CustomElementRegistry> registry =
           CustomElementRegistry::GetScopedRegistry(*this);
-      MOZ_ASSERT(registry);
       return registry;
     }
   }

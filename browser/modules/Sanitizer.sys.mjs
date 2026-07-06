@@ -1181,9 +1181,19 @@ async function maybeSanitizeSessionPrincipals(progress, principals, flags) {
   log("Sanitizing " + principals.length + " principals");
 
   let promises = [];
-  let shutdownExceptions = Services.perms.getAllByTypes([
-    "persist-data-on-shutdown",
-  ]);
+  let exceptionPartitionSites = new Set();
+  let shutdownExceptionHosts = [];
+  for (let perm of Services.perms.getAllByTypes(["persist-data-on-shutdown"])) {
+    // persist-data-on-shutdown only has one meaningful state: ALLOW, set via the
+    // "Manage Exceptions…" dialog. Anything else means no exception is in effect.
+    if (
+      perm.capability == Ci.nsIPermissionManager.ALLOW_ACTION &&
+      isSupportedPrincipal(perm.principal)
+    ) {
+      exceptionPartitionSites.add(perm.principal.baseDomain);
+      shutdownExceptionHosts.push(perm.principal.host);
+    }
+  }
 
   principals.forEach(principal => {
     progress.step = "checking-principal";
@@ -1197,20 +1207,19 @@ async function maybeSanitizeSessionPrincipals(progress, principals, flags) {
     //      clearing. The user has explicitly asked for session-only cookies;
     //      this takes priority over a shutdown exception.
     //   2. A shutdown exception found on the principal or any ancestor (via
-    //      the same walk), OR on any descendant within the base domain (via
-    //      anyMatchingPermission), preserves the data.
+    //      the same walk) preserves first-party data. For partitioned data,
+    //      the exception is matched against the partitionKey's base domain,
+    //      so only the excepted site's own cookie jar is protected.
     //   3. Otherwise clear.
     let preserve;
     if (isCookieSession(principal)) {
       preserve = false;
     } else {
-      preserve =
-        isShutdownExceptionAllowed(principal) ||
-        anyMatchingPermission(
-          principal,
-          shutdownExceptions,
-          isShutdownExceptionAllowed
-        );
+      preserve = isShutdownExceptionApplicable(
+        principal,
+        exceptionPartitionSites,
+        shutdownExceptionHosts
+      );
     }
     progress.step = "principal-checked:" + preserve;
 
@@ -1226,32 +1235,37 @@ async function maybeSanitizeSessionPrincipals(progress, principals, flags) {
   progress.step = "promises resolved";
 }
 
-// Returns true if `predicate(perm.principal)` holds for any permission in
-// `perms` whose host is equal to or a subdomain of `principal.host`.
-function anyMatchingPermission(principal, perms, predicate) {
-  for (let perm of perms) {
-    if (!isSupportedPrincipal(perm.principal)) {
-      continue;
-    }
+// Returns true if a shutdown exception applies to this principal:
+// - for first-party data (no partitionKey): a persist-data-on-shutdown ALLOW
+//   permission exists on the principal host, any ancestor domain or any subdomain
+// - for partitioned data: the partitionKey's base domain is in exceptionPartitionSites,
+//   meaning the top-level site that owns this cookie jar has an exception.
+function isShutdownExceptionApplicable(
+  principal,
+  exceptionPartitionSites,
+  shutdownExceptionHosts
+) {
+  let { partitionKey } = principal.originAttributes;
+  if (!partitionKey) {
     if (
-      Services.eTLD.hasRootDomain(perm.principal.host, principal.host) &&
-      predicate(perm.principal)
+      Services.perms.testPermissionFromPrincipal(
+        principal,
+        "persist-data-on-shutdown"
+      ) == Ci.nsIPermissionManager.ALLOW_ACTION
     ) {
       return true;
     }
+    return shutdownExceptionHosts.some(host =>
+      Services.eTLD.hasRootDomain(host, principal.host)
+    );
   }
-  return false;
-}
-
-// persist-data-on-shutdown only has one meaningful state: ALLOW, set via the
-// "Manage Exceptions…" dialog. Anything else means no exception is in effect.
-function isShutdownExceptionAllowed(principal) {
-  return (
-    Services.perms.testPermissionFromPrincipal(
-      principal,
-      "persist-data-on-shutdown"
-    ) == Ci.nsIPermissionManager.ALLOW_ACTION
-  );
+  let baseDomain;
+  try {
+    baseDomain = ChromeUtils.getBaseDomainFromPartitionKey(partitionKey);
+  } catch {
+    return false;
+  }
+  return exceptionPartitionSites.has(baseDomain);
 }
 
 function isCookieSession(principal) {

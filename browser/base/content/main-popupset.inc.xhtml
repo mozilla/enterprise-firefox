@@ -743,9 +743,33 @@
   </menupopup>
 
   <menupopup id="userContext-indicator-menu">
+    <menuitem data-l10n-id="user-context-add-container"
+              command="Browser:AddContainer"/>
     <menuitem data-l10n-id="user-context-manage-containers"
               command="Browser:OpenAboutContainers"/>
   </menupopup>
+
+  <panel id="containerCreation-panel"
+         class="panel-no-padding"
+         type="arrow"
+         orient="vertical"
+         role="dialog"
+         aria-labelledby="containerCreation-panel-title">
+    <box class="panel-header">
+      <html:h1 id="containerCreation-panel-title">
+        <html:span data-l10n-id="containers-panel-title"/>
+      </html:h1>
+    </box>
+    <toolbarseparator/>
+    <vbox id="containerCreation-panel-body" class="panel-subview-body"/>
+    <html:moz-button-group class="panel-footer">
+      <html:moz-button id="containerCreation-cancel-button"
+                       data-l10n-id="containers-panel-cancel-button"/>
+      <html:moz-button id="containerCreation-create-button"
+                       type="primary"
+                       data-l10n-id="containers-panel-create-button"/>
+    </html:moz-button-group>
+  </panel>
 
 #include ../../components/places/content/bookmarksHistoryTooltip.inc.xhtml
 

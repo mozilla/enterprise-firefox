@@ -127,6 +127,24 @@ interface nsIProfiler : nsISupports
    */
   void dumpProfileToFile(in string aFilename);
 
+  /**
+   * Schedule a one-shot profile dump performed off the main thread by the
+   * sampler thread once `aDelaySeconds` have elapsed, writing this process's
+   * profile to `aFilename` (a no-op if the profiler stops first).
+   *
+   * Unlike a main-thread timer, this still fires when the main thread is stuck
+   * in a long synchronous run, so a test that would otherwise be force-killed
+   * by the harness without a profile still leaves one. The harness that set the
+   * deadline is responsible for reporting the written file. Call
+   * `cancelScheduledDump` when the test ends normally.
+   */
+  void scheduleDumpToFile(in double aDelaySeconds, in string aFilename);
+
+  /**
+   * Cancel a dump scheduled by `scheduleDumpToFile`.
+   */
+  void cancelScheduledDump();
+
   boolean IsActive();
 
   /**

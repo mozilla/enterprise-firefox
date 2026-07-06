@@ -295,12 +295,15 @@ already_AddRefed<Promise> Localization::FormatValue(
     FluentBundle::ConvertArgs(args, l10nArgs);
   }
   RefPtr<Promise> promise = Promise::Create(mGlobal, aRv);
+  if (aRv.Failed()) {
+    return nullptr;
+  }
 
   ffi::localization_format_value(
-      mRaw.get(), &aId, &l10nArgs, promise,
-      [](const Promise* aPromise, const nsACString* aValue,
+      mRaw.get(), &aId, &l10nArgs, do_AddRef(promise).take(),
+      [](void* aPromise, const nsACString* aValue,
          const nsTArray<nsCString>* aErrors) {
-        Promise* promise = const_cast<Promise*>(aPromise);
+        RefPtr promise = dont_AddRef(static_cast<Promise*>(aPromise));
 
         ErrorResult rv;
         if (MaybeReportErrorsToGecko(*aErrors, rv,
@@ -324,12 +327,12 @@ already_AddRefed<Promise> Localization::FormatValues(
   }
 
   ffi::localization_format_values(
-      mRaw.get(), &l10nKeys, promise,
+      mRaw.get(), &l10nKeys, do_AddRef(promise).take(),
       // callback function which will be invoked by the rust code, passing the
       // promise back in.
-      [](const Promise* aPromise, const nsTArray<nsCString>* aValues,
+      [](void* aPromise, const nsTArray<nsCString>* aValues,
          const nsTArray<nsCString>* aErrors) {
-        Promise* promise = const_cast<Promise*>(aPromise);
+        RefPtr promise = dont_AddRef(static_cast<Promise*>(aPromise));
 
         ErrorResult rv;
         if (MaybeReportErrorsToGecko(*aErrors, rv,
@@ -353,13 +356,12 @@ already_AddRefed<Promise> Localization::FormatMessages(
   }
 
   ffi::localization_format_messages(
-      mRaw.get(), &l10nKeys, promise,
+      mRaw.get(), &l10nKeys, do_AddRef(promise).take(),
       // callback function which will be invoked by the rust code, passing the
       // promise back in.
-      [](const Promise* aPromise,
-         const nsTArray<ffi::OptionalL10nMessage>* aRaw,
+      [](void* aPromise, const nsTArray<ffi::OptionalL10nMessage>* aRaw,
          const nsTArray<nsCString>* aErrors) {
-        Promise* promise = const_cast<Promise*>(aPromise);
+        RefPtr promise = dont_AddRef(static_cast<Promise*>(aPromise));
 
         ErrorResult rv;
         if (MaybeReportErrorsToGecko(*aErrors, rv,

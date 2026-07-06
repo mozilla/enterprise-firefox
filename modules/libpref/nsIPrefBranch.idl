@@ -403,7 +403,14 @@ interface nsIPrefBranch : nsISupports
    *                  be the name of an entire branch to observe.
    *                  e.g. Holding the "root" prefbranch and calling
    *                  addObserver("foo.bar.", ...) will observe changes to
-   *                  foo.bar.baz and foo.bar.bzip
+   *                  foo.bar.baz and foo.bar.bzip.
+   *                  Matching is done on dot-segment boundaries: the observer
+   *                  fires for aDomain itself and for any pref that extends it
+   *                  by one or more whole `.`-delimited segments, but not for a
+   *                  pref that merely shares a leading substring (e.g.
+   *                  addObserver("foo.bar", ...) does not fire for foo.barbaz).
+   *                  A trailing `.` is optional and is normalized away, so
+   *                  "foo.bar" and "foo.bar." register the same observer.
    * @param aObserver The object to be notified if the preference changes.
    * @param aHoldWeak true  Hold a weak reference to |aObserver|. The object
    *                        must implement the nsISupportsWeakReference

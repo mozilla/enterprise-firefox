@@ -1916,6 +1916,31 @@ TEST_F(JsepTrackTest, NonDefaultAudioSdpFmtpLine) {
   EXPECT_EQ("2-9", codec->mSdpFmtpLine.valueOr("nothing"));
 }
 
+TEST_F(JsepTrackTest, OpusPtimeNegotiatedFromRemoteFmtp) {
+  Init(SdpMediaSection::kAudio);
+
+  for (auto& codec : mOffCodecs) {
+    if (codec->mName == "opus") {
+      auto* audio = static_cast<JsepAudioCodecDescription*>(codec.get());
+      audio->mFrameSizeMs = 40;
+      audio->mMinFrameSizeMs = 10;
+      audio->mMaxFrameSizeMs = 60;
+      audio->mFECEnabled = true;
+    }
+  }
+
+  InitTracks(SdpMediaSection::kAudio);
+  InitSdp(SdpMediaSection::kAudio);
+  OfferAnswer();
+
+  UniquePtr<JsepAudioCodecDescription> codec;
+  ASSERT_TRUE((codec = GetAudioCodec(mSendAns, 2, 0)));
+  ASSERT_EQ("opus", codec->mName);
+  ASSERT_EQ(40U, codec->mFrameSizeMs);
+  ASSERT_EQ(10U, codec->mMinFrameSizeMs);
+  ASSERT_EQ(60U, codec->mMaxFrameSizeMs);
+}
+
 TEST_F(JsepTrackTest, VideoSdpFmtpLine) {
   mOffCodecs = MakeCodecs(
       {.addFecCodecs = true, .preferRed = true, .addDtmfCodec = true});

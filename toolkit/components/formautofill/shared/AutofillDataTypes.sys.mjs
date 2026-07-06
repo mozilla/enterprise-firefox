@@ -12,6 +12,7 @@ class AutofillDataTypeRegistry {
   // used as the descriptor `id`s.
   static ADDRESS = "address";
   static CREDIT_CARD = "creditCard";
+  static PASSPORT = "passport";
 
   /** @type {Map<string, AutofillDataType>} */
   #byId;
@@ -60,6 +61,7 @@ class AutofillDataTypeRegistry {
     );
     this.ADDRESS = AutofillDataTypeRegistry.ADDRESS;
     this.CREDIT_CARD = AutofillDataTypeRegistry.CREDIT_CARD;
+    this.PASSPORT = AutofillDataTypeRegistry.PASSPORT;
     Object.freeze(this);
   }
 
@@ -144,6 +146,29 @@ export const AutofillDataTypes = new AutofillDataTypeRegistry([
         "cc-exp",
         "cc-type",
         "cc-csc",
+      ],
+    },
+  },
+  {
+    id: AutofillDataTypeRegistry.PASSPORT,
+    collectionName: "passports",
+    prefKey: "passports",
+    fields: {
+      passport: [
+        "passport-name",
+        "passport-given-name",
+        "passport-additional-name",
+        "passport-family-name",
+        "passport-country",
+        "passport-number",
+        "passport-issue-date-month",
+        "passport-issue-date-day",
+        "passport-issue-date-year",
+        "passport-issue-date",
+        "passport-expiry-date-month",
+        "passport-expiry-date-day",
+        "passport-expiry-date-year",
+        "passport-expiry-date",
       ],
     },
   },

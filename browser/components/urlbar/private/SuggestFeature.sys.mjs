@@ -9,7 +9,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   QuickSuggest: "moz-src:///browser/components/urlbar/QuickSuggest.sys.mjs",
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
-  UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
+  UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
 });
 
 /**
@@ -88,12 +88,12 @@ export class SuggestFeature {
   // Methods not designed for overriding below
 
   /**
-   * @returns {ConsoleInstance}
+   * @returns {Console}
    *   The feature's logger.
    */
   get logger() {
     if (!this._logger) {
-      this._logger = lazy.UrlbarUtils.getLogger({
+      this._logger = lazy.UrlbarShared.getLogger({
         prefix: `QuickSuggest.${this.name}`,
       });
     }
@@ -317,7 +317,7 @@ export class SuggestProvider extends SuggestFeature {
    *   The user-interaction state. See `UrlbarProvider.onImpression()`.
    * @param {UrlbarQueryContext} queryContext
    *   The urlbar session's query context.
-   * @param {UrlbarController} controller
+   * @param {UrlbarParentController} controller
    *   The controller.
    * @param {Array} featureResults
    *   The feature's results that were visible at the end of the session. This
@@ -334,7 +334,7 @@ export class SuggestProvider extends SuggestFeature {
    *
    * @param {UrlbarQueryContext} queryContext
    *   The urlbar session's query context.
-   * @param {UrlbarController} controller
+   * @param {UrlbarParentController} controller
    *   The controller.
    * @param {object|null} details
    *   See `UrlbarProvider.onEngagement()`.
@@ -422,7 +422,7 @@ export class SuggestBackend extends SuggestFeature {
    *
    * @param {UrlbarQueryContext} queryContext
    *    The query context.
-   * @param {UrlbarController} controller
+   * @param {UrlbarParentController} controller
    *    The controller.
    * @param {object} details
    *    Details object.

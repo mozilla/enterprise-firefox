@@ -38,7 +38,7 @@
 
 #include "debugger/Debugger-inl.h"  // for Debugger::fromJSObject
 #include "vm/JSObject-inl.h"        // for InitClass
-#include "vm/NativeObject-inl.h"    // for NewTenuredObjectWithGivenProto
+#include "vm/NativeObject-inl.h"
 #include "wasm/WasmInstance-inl.h"
 
 namespace js {
@@ -75,7 +75,8 @@ DebuggerSource* DebuggerSource::create(JSContext* cx, HandleObject proto,
                                        Handle<DebuggerSourceReferent> referent,
                                        Handle<NativeObject*> debugger) {
   Rooted<DebuggerSource*> sourceObj(
-      cx, NewTenuredObjectWithGivenProto<DebuggerSource>(cx, proto));
+      cx, NewObjectWithGivenProto<DebuggerSource>(cx, proto,
+                                                  {.newKind = TenuredObject}));
   if (!sourceObj) {
     return nullptr;
   }
@@ -375,11 +376,8 @@ struct DebuggerSourceGetDisplayURLMatcher {
     return ss->hasDisplayURL() ? ss->displayURL() : nullptr;
   }
   ReturnType match(Handle<WasmInstanceObject*> wasmInstance) {
-    return wasmInstance->instance().codeMetaForAsmJS()
-               ? wasmInstance->instance()
-                     .codeMetaForAsmJS()
-                     ->displayURL()  // asm.js
-               : nullptr;            // wasm
+    // Wasm sources don't have display URLs
+    return nullptr;
   }
 };
 

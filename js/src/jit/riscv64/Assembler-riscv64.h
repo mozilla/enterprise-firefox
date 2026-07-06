@@ -151,8 +151,11 @@ class Assembler : public AssemblerShared,
 
   GeneralRegisterSet scratch_register_list_;
 
-#ifdef JS_JITSPEW
-  Sprinter* printer;
+#ifdef JS_DISASM_RISCV64
+  static constexpr const char* const LabelIndent = "                 ";
+  static constexpr const char* const TargetIndent = "                    ";
+
+  DisassemblerSpew spew_;
 #endif
 
  protected:
@@ -200,19 +203,29 @@ class Assembler : public AssemblerShared,
   Assembler()
       : scratch_register_list_((1 << t5.code()) | (1 << t4.code()) |
                                (1 << t6.code())),
-#ifdef JS_JITSPEW
-        printer(nullptr),
-#endif
         m_buffer(BufferMaxPoolOffset, BufferNumDebugNopsToInsert),
         isFinished(false) {
-  }
-  bool reserve(size_t size);
-  bool oom() const;
-  void setPrinter(Sprinter* sp) {
-#ifdef JS_JITSPEW
-    printer = sp;
+#ifdef JS_DISASM_RISCV64
+    spew_.setLabelIndent(LabelIndent);
+    spew_.setTargetIndent(TargetIndent);
 #endif
   }
+
+  ~Assembler() {
+#ifdef JS_DISASM_RISCV64
+    spew_.spewOrphans();
+#endif
+  }
+
+  bool reserve(size_t size);
+  bool oom() const;
+
+  void setPrinter(Sprinter* sp) {
+#ifdef JS_DISASM_RISCV64
+    spew_.setPrinter(sp);
+#endif
+  }
+
   void finish() {
     MOZ_ASSERT(!isFinished);
     isFinished = true;
@@ -260,36 +273,21 @@ class Assembler : public AssemblerShared,
     return m_buffer.nextInstrOffset(numInsts, numNewDeadlines);
   }
 
-  void comment(const char* msg) { spew("; %s", msg); }
-
-#ifdef JS_JITSPEW
-  inline void spew(const char* fmt, ...) MOZ_FORMAT_PRINTF(2, 3) {
-    if (MOZ_UNLIKELY(printer || JitSpewEnabled(JitSpew_Codegen))) {
-      va_list va;
-      va_start(va, fmt);
-      spewVA(fmt, va);
-      va_end(va);
-    }
-  }
+ protected:
+#ifdef JS_DISASM_RISCV64
+  void spew(BufferOffset offs, Instruction* instr);
+  void spewBranch(BufferOffset offs, Instruction* instr, LabelDoc target);
+  LabelDoc refLabel(Label* label);
 #else
-  MOZ_ALWAYS_INLINE void spew(const char* fmt, ...) MOZ_FORMAT_PRINTF(2, 3) {}
+  LabelDoc refLabel(Label* label) { return {}; }
 #endif
 
-#ifdef JS_JITSPEW
-  MOZ_COLD void spewVA(const char* fmt, va_list va) MOZ_FORMAT_PRINTF(2, 0) {
-    // Buffer to hold the formatted string. Note that this may contain
-    // '%' characters, so do not pass it directly to printf functions.
-    char buf[200];
-
-    int i = VsprintfLiteral(buf, fmt, va);
-    if (i > -1) {
-      if (printer) {
-        printer->printf("%s\n", buf);
-      }
-      js::jit::JitSpew(js::jit::JitSpew_Codegen, "%s", buf);
-    }
+ public:
+  void comment(const char* msg) {
+#ifdef JS_DISASM_RISCV64
+    spew_.spew("; %s", msg);
+#endif
   }
-#endif
 
   enum Condition {
     Overflow = overflow,
@@ -335,8 +333,11 @@ class Assembler : public AssemblerShared,
   Register getStackPointer() const { return StackPointer; }
 
 #ifdef JS_DISASM_RISCV64
-  static int disassembleInstr(Instruction* instr, bool enable_spew = false);
-#endif /* JS_DISASM_RISCV64 */
+  static void disassembleInstr(Instruction* instr);
+  static void disassembleInstr(BufferOffset offs, Instruction* instr);
+#else
+  static void disassembleInstr(Instruction* instr) {}
+#endif
 
   BufferOffset jumpChainGetNextLink(BufferOffset pos);
 
@@ -355,30 +356,25 @@ class Assembler : public AssemblerShared,
 
   void nopAlign(int m) { m_buffer.align(m); }
 
-  virtual BufferOffset emit(Instr x) {
+  BufferOffset emit(Instr x) override final {
     MOZ_ASSERT(hasCreator());
     BufferOffset offset = m_buffer.putInt(x);
-#if (defined(DEBUG) || defined(JS_JITSPEW)) && defined(JS_DISASM_RISCV64)
-    if (offset.assigned()) {
-      DEBUG_PRINTF("0x%" PRIx64 "(%x):", uint64_t(getInstructionAt(offset)),
-                   unsigned(offset.getOffset()));
-      disassembleInstr(getInstructionAt(offset),
-                       JitSpewEnabled(JitSpew_Codegen));
-    }
+#ifdef JS_DISASM_RISCV64
+    spew(offset, m_buffer.getInstOrNull(offset));
 #endif
     return offset;
   }
-  virtual BufferOffset emit(ShortInstr x) { MOZ_CRASH(); }
-  virtual BufferOffset emit(uint64_t x) { MOZ_CRASH(); }
-  virtual BufferOffset emit(uint32_t x) {
+  BufferOffset emit(Instr x, LabelDoc doc) override final {
+    MOZ_ASSERT(hasCreator());
     BufferOffset offset = m_buffer.putInt(x);
-    if (offset.assigned()) {
-      DEBUG_PRINTF("0x%" PRIx64 "(%x): uint32_t: %" PRId32 "\n",
-                   uint64_t(getInstructionAt(offset)),
-                   unsigned(offset.getOffset()), x);
-    }
+#ifdef JS_DISASM_RISCV64
+    spewBranch(offset, m_buffer.getInstOrNull(offset), doc);
+#endif
     return offset;
   }
+  BufferOffset emit(ShortInstr x) override final { MOZ_CRASH(); }
+  BufferOffset emit(uint64_t x) override final { MOZ_CRASH(); }
+  BufferOffset emit(uint32_t x) { return m_buffer.putInt(x); }
 
   static Condition InvertCondition(Condition);
 
@@ -427,7 +423,7 @@ class Assembler : public AssemblerShared,
   // label operations
   void bind(Label* label, BufferOffset boff = BufferOffset());
   void bind(CodeLabel* label) { label->target()->bind(currentOffset()); }
-  uint32_t currentOffset() { return nextOffset().getOffset(); }
+  uint32_t currentOffset() override final { return nextOffset().getOffset(); }
   void retarget(Label* label, Label* target);
   static uint32_t NopSize() { return kInstrSize; }
 
@@ -596,14 +592,10 @@ class UseScratchRegisterScope {
   ~UseScratchRegisterScope();
 
   Register Acquire();
-  void Release(const Register& reg);
+  void Acquire(Register reg);
+  void Release(Register reg);
   bool hasAvailable() const;
-  void Include(const GeneralRegisterSet& list) {
-    *available_ = GeneralRegisterSet::Union(*available_, list);
-  }
-  void Exclude(const GeneralRegisterSet& list) {
-    *available_ = GeneralRegisterSet::Subtract(*available_, list);
-  }
+  uint32_t countAvailable() const;
 
  private:
   GeneralRegisterSet* available_;

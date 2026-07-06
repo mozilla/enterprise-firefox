@@ -13,6 +13,7 @@ import {
 //   d - error description
 //   captive - "true" to indicate we're behind a captive portal.
 //             Any other value is ignored.
+//   captivePortalState - the captive portal service state string
 
 // Note that this file uses document.documentURI to get
 // the URL (with the format from above). This is because
@@ -42,6 +43,20 @@ export const VPN_ACTIVE = RPMGetBoolPref(
   "browser.ipProtection.userEnabled",
   false
 );
+
+/**
+ * Returns true when the enterprise Access Connector policy has activated IP
+ * Protection. AC sets mode to 3 (MODE_INCLUSION); VPN uses modes 0-2.
+ *
+ * @returns {boolean}
+ */
+export function isAccessConnectorActive() {
+  return (
+    RPMIsEnterprise() &&
+    RPMGetBoolPref("browser.ipProtection.enabled", false) &&
+    RPMGetIntPref("browser.ipProtection.mode", 0) === 3
+  );
+}
 
 export function isCaptive() {
   return searchParams.get("captive") == "true";
@@ -188,6 +203,12 @@ export async function recordSecurityUITelemetry(category, name, errorInfo) {
         console.error("error parsing issuer certificate:", e);
       }
     }
+  }
+  if (category == "securityUiNeterror" && name == "loadAboutneterror") {
+    extraKeys.no_connectivity = gNoConnectivity;
+    extraKeys.trr_only = gErrorCode == "dnsNotFound" && RPMIsTRROnlyFailure();
+    extraKeys.captive_portal_state =
+      searchParams.get("captivePortalState") ?? "";
   }
   RPMRecordGleanEvent(category, name, extraKeys);
 }

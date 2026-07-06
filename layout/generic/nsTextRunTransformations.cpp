@@ -14,6 +14,7 @@
 #include "mozilla/StaticPrefs_layout.h"
 #include "mozilla/StaticPrefs_mathml.h"
 #include "mozilla/TextEditor.h"
+#include "mozilla/Utf16.h"
 #include "mozilla/gfx/2D.h"
 #include "nsLineBreaker.h"
 #include "nsSpecialCasingData.h"
@@ -378,8 +379,8 @@ bool nsCaseTransformTextRunFactory::TransformString(
     const unicode::MultiCharMapping* mcm;
     bool inhibitBreakBefore = false;  // have we just deleted preceding hyphen?
 
-    if (i < length - 1 && NS_IS_SURROGATE_PAIR(ch, str[i + 1])) {
-      ch = SURROGATE_TO_UCS4(ch, str[i + 1]);
+    if (i < length - 1 && mozilla::IsSurrogatePair(ch, str[i + 1])) {
+      ch = mozilla::SurrogateToUCS4(ch, str[i + 1]);
     }
     const uint32_t originalCh = ch;
 
@@ -854,7 +855,7 @@ bool nsCaseTransformTextRunFactory::TransformString(
                 : aTextRun->CanBreakBefore(aOffsetInTextRun));
       }
 
-      if (IS_IN_BMP(ch)) {
+      if (mozilla::IsInBMP(ch)) {
         aConvertedString.Append(maskPassword ? mask : ch);
       } else {
         if (maskPassword) {
@@ -862,12 +863,12 @@ bool nsCaseTransformTextRunFactory::TransformString(
           // TODO: We should show a password mask for a surrogate pair later.
           aConvertedString.Append(mask);
         } else {
-          aConvertedString.Append(H_SURROGATE(ch));
-          aConvertedString.Append(L_SURROGATE(ch));
+          aConvertedString.Append(mozilla::HighSurrogate(ch));
+          aConvertedString.Append(mozilla::LowSurrogate(ch));
         }
         ++extraChars;
       }
-      if (!IS_IN_BMP(originalCh)) {
+      if (!mozilla::IsInBMP(originalCh)) {
         // Skip the trailing surrogate.
         ++aOffsetInTextRun;
         ++i;

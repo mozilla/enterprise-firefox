@@ -190,6 +190,12 @@ var allowlist = [
   // SpiderMonkey parser API, currently unused in browser/ and toolkit/
   { file: "resource://gre/modules/reflect.sys.mjs" },
 
+  // UniFFI bindings for the sponsored content client component.
+  // The bindings landed in bug 2048346; consumers are added in follow-ups.
+  {
+    file: "moz-src:///toolkit/components/uniffi-bindgen-gecko-js/components/generated/RustAdsClient.sys.mjs",
+  },
+
   // extensions/pref/autoconfig/src/nsReadConfig.cpp
   { file: "resource://gre/defaults/autoconfig/prefcalls.js" },
 
@@ -251,7 +257,7 @@ var allowlist = [
   // Bug 1348559
   { file: "chrome://pippki/content/resetpassword.xhtml" },
   // Bug 1337345
-  { file: "resource://gre/modules/Manifest.sys.mjs" },
+  { file: "moz-src:///dom/manifest/Manifest.sys.mjs" },
   // Bug 1494170
   // (The references to these files are dynamically generated, so the test can't
   // find the references)
@@ -309,6 +315,12 @@ var allowlist = [
   // toolkit/xre/MacRunFromDmgUtils.mm
   { file: "resource://gre/localization/en-US/toolkit/global/run-from-dmg.ftl" },
 
+  // toolkit/modules/RosettaUtils.sys.mjs
+  {
+    file: "resource://gre/localization/en-US/toolkit/global/rosettaNotification.ftl",
+    platforms: ["linux", "win"],
+  },
+
   // Referenced programmatically
   { file: "chrome://browser/content/backup/BackupManifest.1.schema.json" },
   { file: "chrome://browser/content/backup/BackupManifest.2.schema.json" },
@@ -330,18 +342,6 @@ var allowlist = [
   // and this file will be needed for that.
   {
     file: "resource://app/modules/backup/CookiesBackupResource.sys.mjs",
-  },
-
-  // Bug 2023223: Replace loginOrigin, addresses, payments, and form history
-  // richlist items with autocomplete-row-item
-  {
-    file: "chrome://global/content/autocomplete-row-item/autocomplete-row-item.mjs",
-  },
-
-  // Bug 2041770: MemoriesSessions is introduced ahead of its production
-  // Remove this entry once the consumer lands.
-  {
-    file: "moz-src:///browser/components/aiwindow/models/memories/MemoriesSessions.sys.mjs",
   },
 
   // Referenced dynamically in newtab components via template literals:

@@ -26,7 +26,7 @@ static const uint32_t HTTP_REQUESTED_RANGE_NOT_SATISFIABLE_CODE = 416;
 mozilla::LazyLogModule gMediaResourceLog("MediaResource");
 // Debug logging macro with object pointer and class name.
 #define LOG(msg, ...) \
-  DDMOZ_LOG(gMediaResourceLog, mozilla::LogLevel::Debug, msg, ##__VA_ARGS__)
+  DDMOZ_LOG_FMT(gMediaResourceLog, mozilla::LogLevel::Debug, msg, ##__VA_ARGS__)
 
 namespace mozilla {
 
@@ -367,15 +367,14 @@ nsresult ChannelMediaResource::ParseContentRangeHeader(
 
   if (!IsContentRangeWithinMediaCacheLimits(aRangeStart, aRangeEnd,
                                             aRangeTotal)) {
-    LOG("Rejecting bytes [%" PRId64 "] to [%" PRId64 "] of [%" PRId64
-        "] for decoder[%p] due to media cache limits",
-        aRangeStart, aRangeEnd, aRangeTotal, mCallback.get());
+    LOG("Rejecting bytes [{}] to [{}] of [{}] for decoder[{}] due to media "
+        "cache limits",
+        aRangeStart, aRangeEnd, aRangeTotal, fmt::ptr(mCallback.get()));
     return NS_ERROR_ILLEGAL_VALUE;
   }
 
-  LOG("Received bytes [%" PRId64 "] to [%" PRId64 "] of [%" PRId64
-      "] for decoder[%p]",
-      aRangeStart, aRangeEnd, aRangeTotal, mCallback.get());
+  LOG("Received bytes [{}] to [{}] of [{}] for decoder[{}]", aRangeStart,
+      aRangeEnd, aRangeTotal, fmt::ptr(mCallback.get()));
 
   return NS_OK;
 }
@@ -467,7 +466,7 @@ nsresult ChannelMediaResource::OnChannelRedirect(nsIChannel* aOld,
   } else {
     nsCString err;
     GetErrorName(rv, err);
-    LOG("Veto redirect: fail to set up new channel: %s", err.get());
+    LOG("Veto redirect: fail to set up new channel: {}", err.get());
     mChannel = aOld;
   }
   return rv;
@@ -972,7 +971,7 @@ nsresult ChannelMediaResource::Seek(int64_t aOffset, bool aResume) {
     return NS_OK;
   }
 
-  LOG("Seek requested for aOffset [%" PRId64 "]", aOffset);
+  LOG("Seek requested for aOffset [{}]", aOffset);
 
   CloseChannel();
 

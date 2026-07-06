@@ -721,9 +721,9 @@ export class SpecialPowersParent extends JSWindowActorParent {
   _toggleMuteAudio(aMuted) {
     let browser = this.browsingContext.top.embedderElement;
     if (aMuted) {
-      browser.mute();
+      browser.browsingContext.mediaController.mute();
     } else {
-      browser.unmute();
+      browser.browsingContext.mediaController.unmute();
     }
   }
 

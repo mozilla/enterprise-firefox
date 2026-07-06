@@ -1052,7 +1052,7 @@ devtools.main:
         type: string
       trigger:
         description: >
-          The cause of the filter change: error, warn, log, info, debug, css, netxhr, net, text or reset and all, html, css, js, xhr, fonts, images, media, ws or other for netmonitor
+          The cause of the filter change: error, warn, log, info, debug, css, netxhr, net, chrome, content, text or reset and all, html, css, js, xhr, fonts, images, media, ws or other for netmonitor
         type: string
       active:
         description: >

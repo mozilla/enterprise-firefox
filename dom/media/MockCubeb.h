@@ -193,9 +193,9 @@ class MockCubebStream {
   cubeb_stream* AsCubebStream() MOZ_EXCLUDES(mMutex);
   static MockCubebStream* AsMock(cubeb_stream* aStream);
 
-  char const* StreamName() const MOZ_EXCLUDES(mMutex) {
+  nsCString StreamName() const MOZ_EXCLUDES(mMutex) {
     MutexAutoLock l(mMutex);
-    return mName.get();
+    return mName;
   }
   cubeb_devid GetInputDeviceID() const;
   cubeb_devid GetOutputDeviceID() const;

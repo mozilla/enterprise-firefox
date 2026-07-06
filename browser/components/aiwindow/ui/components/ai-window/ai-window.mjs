@@ -9,6 +9,8 @@ import "chrome://browser/content/aiwindow/components/smartwindow-prompts.mjs";
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/smartwindow-promo.mjs";
 // eslint-disable-next-line import/no-unassigned-import
+import "chrome://browser/content/aiwindow/components/smartwindow-topsites.mjs";
+// eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/kit-mention.mjs";
 
 const { XPCOMUtils } = ChromeUtils.importESModule(
@@ -18,6 +20,8 @@ const { XPCOMUtils } = ChromeUtils.importESModule(
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   Chat: "moz-src:///browser/components/aiwindow/models/Chat.sys.mjs",
+  GET_PAGE_CONTENT:
+    "moz-src:///browser/components/aiwindow/models/Tools.sys.mjs",
   FEATURE_MAJOR_VERSIONS:
     "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   MODEL_FEATURES: "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
@@ -35,6 +39,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/ui/modules/FeedbackModal.sys.mjs",
   ChatConversation:
     "moz-src:///browser/components/aiwindow/ui/modules/ChatConversation.sys.mjs",
+  TopSites: "resource:///modules/topsites/TopSites.sys.mjs",
+  URILoadingHelper: "resource:///modules/URILoadingHelper.sys.mjs",
   MEMORIES_FLAG_SOURCE:
     "moz-src:///browser/components/aiwindow/ui/modules/ChatEnums.sys.mjs",
   MESSAGE_ROLE:
@@ -141,8 +147,10 @@ const PREF_CUSTOM_ENDPOINT = "browser.smartwindow.customEndpoint";
 const TAB_FAVICON_CHAT =
   "chrome://browser/content/aiwindow/assets/ask-icon.svg";
 const PREF_CHAT_INTERACTION_COUNT = "browser.smartwindow.chat.interactionCount";
+const PREF_HIDE_TOP_SITES = "browser.smartwindow.hideTopSites";
 const MAX_INTERACTION_COUNT = 1000;
 const MAX_SIDEBAR_STARTER_CACHE_KEYS = 20;
+const MAX_TOP_SITES = 8;
 
 // 1-6 are MLPA spec codes; 7 is set locally for Fastly-blocked 406s.
 const ERROR_TELEMETRY_NAME_BY_CODE = {
@@ -195,6 +203,8 @@ export class AIWindow extends MozLitElement {
     isGenerating: { type: Boolean, state: true },
     availableModels: { type: Object, state: true },
     selectedModelId: { type: String, state: true },
+    topSites: { type: Array, state: true },
+    startersResolved: { type: Boolean, state: true },
   };
 
   #browser;
@@ -389,6 +399,13 @@ export class AIWindow extends MozLitElement {
       true,
       () => this.#syncMemoriesButtonUI()
     );
+    XPCOMUtils.defineLazyPreferenceGetter(
+      this,
+      "hideTopSitesPref",
+      PREF_HIDE_TOP_SITES,
+      false,
+      () => this.#syncTopSites()
+    );
 
     this.userPrompt = "";
     this.#browser = null;
@@ -400,6 +417,8 @@ export class AIWindow extends MozLitElement {
 
     this.mode = this.#detectModeFromContext();
     this.showStarters = false;
+    this.topSites = [];
+    this.startersResolved = false;
     this.showFooter = this.mode === MODE.FULLPAGE;
     this.promoMessage = null;
     this.showDisclaimer = this.mode !== MODE.FULLPAGE;
@@ -1003,6 +1022,8 @@ export class AIWindow extends MozLitElement {
     // so it can trigger the initial starter prompts loading
     this.#swapConversation(this.#conversation);
 
+    this.#syncTopSites();
+
     await this.#loadPendingConversation().catch(error => {
       console.error(
         `loadPendingConversation() error: ${error.toString()}, \nstack: ${error.stack}`
@@ -1107,7 +1128,7 @@ export class AIWindow extends MozLitElement {
     this.#starterPromptsAbortController = abortController;
 
     if (clear) {
-      this.#renderStarterPrompts([]);
+      this.#renderStarterPrompts([], false);
     }
 
     let starters = [];
@@ -1192,9 +1213,12 @@ export class AIWindow extends MozLitElement {
    * Sets the starters data and shows the prompts element.
    *
    * @param {Array<{text: string, type: string}>} starters - Array of starter prompt objects
+   * @param {boolean} [resolved=true] - Whether starter loading has settled;
+   *   false for the transient clear before an async load, which keeps Top
+   *   Sites hidden until the prompts row is ready.
    * @private
    */
-  #renderStarterPrompts(starters) {
+  #renderStarterPrompts(starters, resolved = true) {
     if (!this.isConnected) {
       return;
     }
@@ -1202,11 +1226,93 @@ export class AIWindow extends MozLitElement {
     this.#starters = this.#conversation?.messages?.length ? [] : starters;
     this.showStarters = !!this.#starters.length;
 
+    // Gate Top Sites on starter resolution so the prompts row and Top Sites
+    // render in the same update, avoiding a layout shift where Top Sites
+    // paint first and then jump down once the prompts row is inserted above.
+    if (resolved) {
+      this.startersResolved = true;
+    }
+
     if (this.showStarters) {
       this.onQuickPromptDisplayed(this.#starters.length);
     }
     this.requestUpdate();
   }
+
+  /**
+   * Loads the user's Top Sites and renders a single row of them below the
+   * Smartbar in fullpage mode. TopSites.getSites() already excludes sponsored
+   * sites; we only keep the first MAX_TOP_SITES entries to fit a single row.
+   *
+   * @private
+   */
+  /**
+   * Loads or clears Top Sites based on the current mode and the
+   * hideTopSites pref. Invoked on connect and whenever the pref changes
+   * so every open AI window reflects the new value.
+   *
+   * @private
+   */
+  #syncTopSites() {
+    if (this.mode === MODE.FULLPAGE) {
+      Glean.smartWindow.topsitesEnabled.set(!this.hideTopSitesPref);
+    }
+
+    if (this.mode === MODE.FULLPAGE && !this.hideTopSitesPref) {
+      // Only the visible tab can exhibit the prompts-row layout shift, so gate
+      // its Top Sites on starter resolution (see #renderStarterPrompts).
+      // Background tabs are hidden and never reload starters on tab switch, so
+      // reveal their Top Sites immediately to avoid leaving them blank.
+      if (this.ownerDocument.hidden) {
+        this.startersResolved = true;
+      }
+      this.#loadTopSites();
+    } else {
+      this.topSites = [];
+    }
+  }
+
+  async #loadTopSites() {
+    let sites = [];
+    try {
+      sites = await lazy.TopSites.getSites();
+    } catch (e) {
+      lazy.log.error("[TopSites] Failed to load top sites:", e);
+    }
+
+    if (!this.isConnected) {
+      return;
+    }
+
+    this.topSites = (sites ?? [])
+      .filter(site => site?.url)
+      .slice(0, MAX_TOP_SITES);
+
+    if (this.topSites.length) {
+      Glean.smartWindow.topsitesImpression.record({
+        visible_topsites: this.topSites.length,
+      });
+    }
+  }
+
+  /**
+   * Navigates the current tab to the selected Top Site.
+   *
+   * @param {CustomEvent} event - The site-selected event
+   * @private
+   */
+  #handleTopSiteSelected = event => {
+    const { url, position } = event.detail;
+    const win = this.#topChromeWindow;
+    if (!url || !win) {
+      return;
+    }
+    Glean.smartWindow.topsitesClick.record({
+      position,
+      visible_topsites: this.topSites.length,
+    });
+    lazy.URILoadingHelper.openTrustedLinkIn(win, url, "current");
+  };
 
   /**
    * Helper method to get or create the smartbar element
@@ -2557,17 +2663,53 @@ export class AIWindow extends MozLitElement {
     }
   }
 
+  #buildChatLogPayload() {
+    const messages = this.#conversation?.messages ?? [];
+
+    // Build a version of the log without page content by dropping:
+    // - tool result messages that are get_page_content responses (the raw page text)
+    // - assistant messages whose only tool call was get_page_content (the request to fetch it)
+    const withoutPageContent = messages.filter(msg => {
+      if (
+        msg.role === lazy.MESSAGE_ROLE.TOOL &&
+        msg.content?.name === lazy.GET_PAGE_CONTENT
+      ) {
+        return false;
+      }
+      if (msg.content?.body?.tool_calls?.length) {
+        const remaining = msg.content.body.tool_calls.filter(
+          tc => tc.function?.name !== lazy.GET_PAGE_CONTENT
+        );
+        if (!remaining.length) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    const hasPageContent = withoutPageContent.length < messages.length;
+    return {
+      withPageContent: { log: messages },
+      withoutPageContent: hasPageContent ? { log: withoutPageContent } : null,
+    };
+  }
+
   #openFeedbackModal(type) {
     const browser = this.#topChromeWindow?.gBrowser?.selectedBrowser;
     if (!browser) {
       return;
     }
+    // Two versions of the chat log are built so the user can toggle whether to
+    // include page content in the submitted report via the preview checkbox.
+    const { withPageContent, withoutPageContent } = this.#buildChatLogPayload();
     const metadata = {
       metadata: {
         model: this.modelName,
         turn_count: this.#conversation?.messageCount ?? 0,
         prompt_version: lazy.FEATURE_MAJOR_VERSIONS[lazy.MODEL_FEATURES.CHAT],
       },
+      chatLog: withPageContent,
+      chatLogWithoutPageContent: withoutPageContent,
     };
     lazy.FeedbackModal.open(browser, type, metadata);
   }
@@ -2770,6 +2912,15 @@ export class AIWindow extends MozLitElement {
                     @SmartWindowPrompt:prompt-selected=${this
                       .#handlePromptSelected}
                   ></smartwindow-prompts>
+                `
+              : ""}
+            ${this.startersResolved
+              ? html`
+                  <smartwindow-topsites
+                    .sites=${this.topSites}
+                    @SmartWindowTopSites:site-selected=${this
+                      .#handleTopSiteSelected}
+                  ></smartwindow-topsites>
                 `
               : ""}
           `}

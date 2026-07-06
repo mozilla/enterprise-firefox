@@ -7,6 +7,7 @@
 #include "CacheCrypto.h"
 #include "CacheStorageService.h"
 #include "CacheFileIOManager.h"
+#include "CacheIndex.h"
 #include "LoadContextInfo.h"
 #include "nsICacheStorage.h"
 #include "nsIObserverService.h"
@@ -61,6 +62,7 @@ nsresult CacheObserver::Init() {
   obs->AddObserver(sSelf, "xpcom-shutdown", true);
   obs->AddObserver(sSelf, "last-pb-context-exited", true);
   obs->AddObserver(sSelf, "memory-pressure", true);
+  obs->AddObserver(sSelf, "application-background", true);
   obs->AddObserver(sSelf, "browser-delayed-startup-finished", true);
   obs->AddObserver(sSelf, OBSERVER_TOPIC_IDLE_DAILY, true);
 
@@ -248,6 +250,14 @@ CacheObserver::Observe(nsISupports* aSubject, const char* aTopic,
       service->PurgeFromMemory(nsICacheStorageService::PURGE_EVERYTHING);
     }
 
+    return NS_OK;
+  }
+
+  if (!strcmp(aTopic, "application-background")) {
+    // The app is being backgrounded. On Android the process is typically
+    // killed without a clean shutdown, so persist the index now to bound how
+    // much recently-updated frecency is lost.
+    CacheIndex::WriteIndexToDiskNow();
     return NS_OK;
   }
 

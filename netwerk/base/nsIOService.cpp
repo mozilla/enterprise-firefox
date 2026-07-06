@@ -229,6 +229,10 @@ static const char* gCallbackPrefs[] = {
     NECKO_BUFFER_CACHE_SIZE_PREF,
     NETWORK_CAPTIVE_PORTAL_PREF,
     FORCE_EXTERNAL_PREF_PREFIX,
+    // [pref-trie-audit] "network.url.simple_uri_unknown_schemes" is an
+    // ambiguous prefix of "network.url.simple_uri_unknown_schemes_enabled";
+    // triggers only for the exact pref and its dot-bounded children ("_enabled"
+    // is a StaticPref and needs no callback).
     SIMPLE_URI_SCHEMES_PREF,
     PREF_LNA_IP_ADDR_SPACE_PUBLIC,
     PREF_LNA_IP_ADDR_SPACE_PRIVATE,

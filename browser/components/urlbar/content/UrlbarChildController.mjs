@@ -2,11 +2,25 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
+
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
+);
+
+const lazy = {};
+
+ChromeUtils.defineESModuleGetters(lazy, {
+  UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
+  UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
+});
+
 /**
  * @import {UrlbarChild} from "../../../actors/UrlbarChild.sys.mjs"
  * @import {UrlbarInput} from "chrome://browser/content/urlbar/UrlbarInput.mjs"
  * @import {UrlbarParentController} from "moz-src:///browser/components/urlbar/UrlbarParentController.sys.mjs"
  * @import {UrlbarView} from "chrome://browser/content/urlbar/UrlbarView.mjs"
+ * @import {SmartbarInput} from "moz-src:///browser/components/urlbar/content/SmartbarInput.mjs"
  */
 
 /**
@@ -25,15 +39,34 @@
  * without touching `UrlbarInput`, `UrlbarView`, or other callers.
  */
 export class UrlbarChildController {
+  /** @type {Console} */
+  static #logger;
+
+  get logger() {
+    if (!UrlbarChildController.#logger) {
+      UrlbarChildController.#logger = UrlbarShared.getLogger({
+        prefix: "ChildController",
+      });
+    }
+    return UrlbarChildController.#logger;
+  }
+
   /** @type {UrlbarParentController} */
   #parent;
 
+  #input;
+
+  /** @type {UrlbarView} */
+  #view = null;
+
   // Listeners (the view, the event bufferer, the search one-offs) live here,
   // on the input's side, rather than on the parent controller. The parent
-  // delegates its notifications to us via setListenerHost(). This keeps
-  // dispatch on the side where the listeners are, which is required once
-  // `<moz-urlbar>` runs in a content process.
+  // delegates its notifications to us via setChild(). This keeps dispatch on
+  // the side where the listeners are, which is required once `<moz-urlbar>`
+  // runs in a content process.
   #listeners = new Set();
+
+  #userSelectionBehavior = /** @type {"arrow"|"tab"|"none"} */ ("none");
 
   /**
    * @param {object} options
@@ -43,26 +76,24 @@ export class UrlbarChildController {
     if (!options.input) {
       throw new Error("Missing options: input");
     }
+    this.#input = options.input;
     let actor = /** @type {UrlbarChild} */ (
       /** @type {unknown} */ (
         options.input.window.windowGlobalChild.getActor("Urlbar")
       )
     );
     this.#parent = actor.getOrCreateController(options.input);
-    this.#parent.setListenerHost(this);
+    this.#parent.setChild(this);
   }
 
   get input() {
-    return this.#parent.input;
+    return this.#input;
   }
   get browserWindow() {
-    return this.#parent.browserWindow;
+    return this.#input.window;
   }
   get view() {
-    return this.#parent.view;
-  }
-  get manager() {
-    return this.#parent.manager;
+    return this.#view;
   }
   get engagementEvent() {
     return this.#parent.engagementEvent;
@@ -73,18 +104,49 @@ export class UrlbarChildController {
   get platform() {
     return this.#parent.platform;
   }
-  get _userSelectionBehavior() {
-    return this.#parent._userSelectionBehavior;
+  /**
+   * The selection behavior that the user has used to select a result. The
+   * setter ignores a change to "arrow" once "tab" has been recorded, since we
+   * want to know that tab was used first.
+   *
+   * @type {"arrow"|"tab"|"none"}
+   */
+  get userSelectionBehavior() {
+    return this.#userSelectionBehavior;
   }
-  set userSelectionBehavior(value) {
-    this.#parent.userSelectionBehavior = value;
+
+  set userSelectionBehavior(behavior) {
+    // Don't change the behavior to arrow if tab has already been recorded,
+    // as we want to know that the tab was used first.
+    if (behavior == "arrow" && this.#userSelectionBehavior == "tab") {
+      return;
+    }
+    this.#userSelectionBehavior = behavior;
   }
   get _lastQueryContextWrapper() {
     return this.#parent._lastQueryContextWrapper;
   }
 
   setView(view) {
-    return this.#parent.setView(view);
+    this.#view = view;
+  }
+  getViewTemplate(result) {
+    return this.#parent.getViewTemplate(result);
+  }
+  getViewUpdate(result, idsByName) {
+    return this.#parent.getViewUpdate(result, idsByName);
+  }
+  onBeforeSelection(result, element) {
+    return this.#parent.onBeforeSelection(result, element);
+  }
+  onSelection(result, element) {
+    return this.#parent.onSelection(result, element);
+  }
+  getResultCommands(result, isPrivate) {
+    return this.#parent.getResultCommands(result, isPrivate);
+  }
+  getHeuristicResult(queryContext) {
+    return this.#parent.getHeuristicResult(queryContext);
   }
   addListener(listener) {
     if (!listener || typeof listener != "object") {
@@ -125,16 +187,416 @@ export class UrlbarChildController {
   clearLastQueryContextCache() {
     return this.#parent.clearLastQueryContextCache();
   }
+  /**
+   * Receives keyboard events from the input and handles those that should
+   * navigate within the view or pick the currently selected item.
+   *
+   * @param {KeyboardEvent} event
+   *   The DOM KeyboardEvent.
+   * @param {boolean} executeAction
+   *   Whether the event should actually execute the associated action, or just
+   *   be managed (at a preventDefault() level). This is used when the event
+   *   will be deferred by the event bufferer, but preventDefault() and friends
+   *   should still happen synchronously.
+   */
+  // eslint-disable-next-line complexity
   handleKeyNavigation(event, executeAction = true) {
-    return this.#parent.handleKeyNavigation(event, executeAction);
+    const isMac = AppConstants.platform == "macosx";
+    // Handle readline/emacs-style navigation bindings on Mac.
+    if (
+      isMac &&
+      this.view.isOpen &&
+      event.ctrlKey &&
+      (event.key == "n" || event.key == "p")
+    ) {
+      if (executeAction) {
+        this.view.selectBy(1, { reverse: event.key == "p" });
+      }
+      event.preventDefault();
+      return;
+    }
+
+    if (executeAction) {
+      // In native inputs on most platforms, Shift+Up/Down moves the caret to the
+      // start/end of the input and changes its selection, so in that case defer
+      // handling to the input instead of changing the view's selection.
+      if (
+        event.shiftKey &&
+        (event.keyCode === KeyEvent.DOM_VK_UP ||
+          event.keyCode === KeyEvent.DOM_VK_DOWN)
+      ) {
+        return;
+      }
+
+      let handled = false;
+      if (lazy.UrlbarPrefs.get("scotchBonnet.enableOverride")) {
+        handled = this.input.searchModeSwitcher.handleKeyDown(event);
+      } else if (this.view.isOpen && this._lastQueryContextWrapper) {
+        let { queryContext } = this._lastQueryContextWrapper;
+        handled = this.view.oneOffSearchButtons?.handleKeyDown(
+          event,
+          this.view.visibleRowCount,
+          this.view.allowEmptySelection,
+          queryContext.searchString
+        );
+      }
+      if (handled) {
+        return;
+      }
+    }
+
+    switch (event.keyCode) {
+      case KeyEvent.DOM_VK_ESCAPE:
+        if (executeAction) {
+          if (this.view.isOpen) {
+            this.view.close();
+          } else if (
+            lazy.UrlbarPrefs.get("focusContentDocumentOnEsc") &&
+            !this.input.searchMode &&
+            (this.input.sapName == "searchbar"
+              ? this.input.value == ""
+              : this.input.getAttribute("pageproxystate") == "valid" ||
+                (this.input.value == "" &&
+                  this.browserWindow.isBlankPageURL(
+                    this.browserWindow.gBrowser.currentURI.spec
+                  )))
+          ) {
+            this.browserWindow.gBrowser.selectedBrowser.focus();
+          } else {
+            this.input.handleRevert();
+          }
+        }
+        event.preventDefault();
+        break;
+      case KeyEvent.DOM_VK_SPACE:
+        if (!this.view.shouldSpaceActivateSelectedElement()) {
+          break;
+        }
+      // Fall through, we want the SPACE key to activate this element.
+      case KeyEvent.DOM_VK_RETURN:
+        this.logger.debug(`Enter pressed${executeAction ? "" : " delayed"}`);
+        if (executeAction) {
+          this.input.handleCommand(event);
+        }
+        event.preventDefault();
+        break;
+      case KeyEvent.DOM_VK_TAB: {
+        if (!this.view.visibleRowCount) {
+          // Leave it to the default behaviour if there are not results.
+          break;
+        }
+
+        // In smartbar mode, mirror the urlbar's circular Tab pattern: cycle
+        // through results, then continue into the action buttons (Add Tab,
+        // memories, Submit), then wrap back to the first result. Shift+Tab
+        // mirrors the cycle in reverse. The view stays open the whole time;
+        // Tab from the action buttons back into the result list is handled
+        // by SmartbarInput.#onActionButtonsKeyDown.
+        if (
+          this.input.sapName == "smartbar" &&
+          this.view.isOpen &&
+          !event.ctrlKey &&
+          !event.altKey
+        ) {
+          const atEnd =
+            !event.shiftKey &&
+            this.view.selectedElement == this.view.getLastSelectableElement();
+          const atStart =
+            event.shiftKey &&
+            this.view.selectedElement == this.view.getFirstSelectableElement();
+
+          if (atEnd || atStart) {
+            if (executeAction) {
+              this.view.selectedRowIndex = -1;
+              // SAP is `smartbar`, so we can safely cast to SmartbarInput.
+              const smartbar = /** @type {SmartbarInput} */ (
+                /** @type {unknown} */ (this.input)
+              );
+              if (atEnd) {
+                smartbar.focusFirstActionButton();
+              } else {
+                smartbar.focusLastActionButton();
+              }
+            }
+            event.preventDefault();
+            break;
+          }
+          // Otherwise, fall through to the default cycling behaviour.
+        }
+
+        // Change the tab behavior when urlbar view is open.
+        if (
+          lazy.UrlbarPrefs.get("scotchBonnet.enableOverride") &&
+          this.view.isOpen &&
+          !event.ctrlKey &&
+          !event.altKey
+        ) {
+          if (
+            (event.shiftKey &&
+              this.view.selectedElement ==
+                this.view.getFirstSelectableElement()) ||
+            (!event.shiftKey &&
+              this.view.selectedElement == this.view.getLastSelectableElement())
+          ) {
+            // If pressing tab + shift when the first or pressing tab when last
+            // element has been selected, move the focus to the Unified Search
+            // Button. Then make urlbar results selectable by tab + shift.
+            event.preventDefault();
+            this.view.selectedRowIndex = -1;
+            this.focusOnUnifiedSearchButton();
+            break;
+          } else if (
+            !this.view.selectedElement &&
+            this.input.focusedViaMousedown
+          ) {
+            if (event.shiftKey) {
+              this.focusOnUnifiedSearchButton();
+            } else {
+              this.view.selectBy(1, {
+                userPressedTab: true,
+              });
+            }
+            event.preventDefault();
+            break;
+          }
+        }
+
+        // It's always possible to tab through results when the urlbar was
+        // focused with the mouse or has a search string, or when the view
+        // already has a selection.
+        // We allow tabbing without a search string when in search mode preview,
+        // since that means the user has interacted with the Urlbar since
+        // opening it.
+        // When there's no search string and no view selection, we want to focus
+        // the next toolbar item instead, for accessibility reasons.
+        let allowTabbingThroughResults =
+          this.input.focusedViaMousedown ||
+          this.input.searchMode?.isPreview ||
+          this.input.searchMode?.source == UrlbarShared.RESULT_SOURCE.ACTIONS ||
+          this.view.selectedElement ||
+          (this.input.value &&
+            this.input.getAttribute("pageproxystate") != "valid");
+        if (
+          // Even if the view is closed, we may be waiting results, and in
+          // such a case we don't want to tab out of the urlbar.
+          (this.view.isOpen || !executeAction) &&
+          !event.ctrlKey &&
+          !event.altKey &&
+          allowTabbingThroughResults
+        ) {
+          if (executeAction) {
+            this.userSelectionBehavior = "tab";
+            this.view.selectBy(1, {
+              reverse: event.shiftKey,
+              userPressedTab: true,
+            });
+          }
+          event.preventDefault();
+        }
+        break;
+      }
+      case KeyEvent.DOM_VK_PAGE_DOWN:
+      case KeyEvent.DOM_VK_PAGE_UP:
+        if (event.ctrlKey) {
+          break;
+        }
+      // eslint-disable-next-lined no-fallthrough
+      case KeyEvent.DOM_VK_DOWN:
+      case KeyEvent.DOM_VK_UP:
+        if (event.altKey) {
+          break;
+        }
+        if (this.view.isOpen) {
+          if (executeAction) {
+            this.userSelectionBehavior = "arrow";
+            this.view.selectBy(
+              event.keyCode == KeyEvent.DOM_VK_PAGE_DOWN ||
+                event.keyCode == KeyEvent.DOM_VK_PAGE_UP
+                ? lazy.UrlbarUtils.PAGE_UP_DOWN_DELTA
+                : 1,
+              {
+                reverse:
+                  event.keyCode == KeyEvent.DOM_VK_UP ||
+                  event.keyCode == KeyEvent.DOM_VK_PAGE_UP,
+              }
+            );
+          }
+        } else {
+          if (this.keyEventMovesCaret(event)) {
+            break;
+          }
+          if (executeAction) {
+            this.userSelectionBehavior = "arrow";
+            this.input.startQuery({
+              searchString: this.input.value,
+              event,
+            });
+          }
+        }
+        event.preventDefault();
+        break;
+      case KeyEvent.DOM_VK_RIGHT:
+      case KeyEvent.DOM_VK_END:
+        this.input.maybeConfirmSearchModeFromResult({
+          entry: "typed",
+          startQuery: true,
+        });
+      // Fall through.
+      case KeyEvent.DOM_VK_LEFT:
+      case KeyEvent.DOM_VK_HOME:
+        this.view.removeAccessibleFocus();
+        break;
+      case KeyEvent.DOM_VK_BACK_SPACE:
+        if (
+          this.input.searchMode &&
+          this.input.selectionStart == 0 &&
+          this.input.selectionEnd == 0 &&
+          !event.shiftKey
+        ) {
+          this.input.searchMode = null;
+          if (this.input.view.oneOffSearchButtons) {
+            this.input.view.oneOffSearchButtons.selectedButton = null;
+          }
+          this.input.startQuery({
+            allowAutofill: false,
+            event,
+          });
+        }
+      // Fall through.
+      case KeyEvent.DOM_VK_DELETE:
+        if (!this.view.isOpen) {
+          break;
+        }
+        if (event.shiftKey) {
+          if (!executeAction || this.#dismissSelectedResult(event)) {
+            event.preventDefault();
+          }
+        } else if (executeAction) {
+          this.userSelectionBehavior = "none";
+        }
+        break;
+    }
   }
+
+  /**
+   * Triggers a "dismiss" engagement for the selected result if one is selected.
+   * Providers that can respond to dismissals of their results should implement
+   * `onEngagement()`, handle the dismissal, and call `controller.removeResult()`.
+   *
+   * @param {Event} event
+   *   The event that triggered dismissal.
+   * @returns {boolean}
+   *   Whether providers were notified about the engagement. Providers will not
+   *   be notified if there is no selected result or the selected result is the
+   *   heuristic, since the heuristic result cannot be dismissed.
+   */
+  #dismissSelectedResult(event) {
+    if (!this._lastQueryContextWrapper) {
+      console.error("Cannot dismiss selected result, last query not present");
+      return false;
+    }
+    let { queryContext } = this._lastQueryContextWrapper;
+
+    let { selectedElement } = this.input.view;
+    if (selectedElement?.classList.contains("urlbarView-button")) {
+      // For results with buttons, delete them only when the main part of the
+      // row is selected, not a button.
+      return false;
+    }
+
+    let result = this.input.view.selectedResult;
+    if (!result) {
+      return false;
+    }
+    if (result.heuristic && !result.autofill) {
+      return false;
+    }
+
+    this.engagementEvent.record(event, {
+      result,
+      selType: "dismiss",
+      searchString: queryContext.searchString,
+      searchSource: this.input.getSearchSource(event),
+    });
+
+    return true;
+  }
+
+  /**
+   * Checks whether a keyboard event that would normally open the view should
+   * instead be handled natively by the input field.
+   * On certain platforms, the up and down keys can be used to move the caret,
+   * in which case we only want to open the view if the caret is at the
+   * start or end of the input.
+   *
+   * @param {KeyboardEvent} event
+   *   The DOM KeyboardEvent.
+   * @returns {boolean}
+   *   Returns true if the event should move the caret instead of opening the
+   *   view.
+   */
   keyEventMovesCaret(event) {
-    return this.#parent.keyEventMovesCaret(event);
+    if (this.view.isOpen) {
+      return false;
+    }
+    if (AppConstants.platform != "macosx" && AppConstants.platform != "linux") {
+      return false;
+    }
+    let isArrowUp = event.keyCode == KeyEvent.DOM_VK_UP;
+    let isArrowDown = event.keyCode == KeyEvent.DOM_VK_DOWN;
+    if (!isArrowUp && !isArrowDown) {
+      return false;
+    }
+    let start = this.input.selectionStart;
+    let end = this.input.selectionEnd;
+    if (
+      end != start ||
+      (isArrowUp && start > 0) ||
+      (isArrowDown && end < this.input.value.length)
+    ) {
+      return true;
+    }
+    return false;
   }
+
   speculativeConnect(result, context, reason) {
     return this.#parent.speculativeConnect(result, context, reason);
   }
   focusOnUnifiedSearchButton() {
-    return this.#parent.focusOnUnifiedSearchButton();
+    this.input.setUnifiedSearchButtonAvailability(true);
+
+    /** @type {HTMLElement} */
+    const switcher = this.input.querySelector(".searchmode-switcher");
+    // Set tabindex to be focusable.
+    switcher.setAttribute("tabindex", "-1");
+    // Remove blur listener to avoid closing urlbar view panel.
+    this.input.inputField.removeEventListener("blur", this.input);
+    // Move the focus.
+    switcher.focus();
+    // Restore all.
+    this.input.inputField.addEventListener("blur", this.input);
+    switcher.addEventListener(
+      "blur",
+      /** @type {(e: FocusEvent) => void} */
+      e => {
+        switcher.removeAttribute("tabindex");
+
+        let relatedTarget = /** @type {HTMLElement} */ (e.relatedTarget);
+        if (
+          this.input.hasAttribute("focused") &&
+          !this.input.contains(relatedTarget)
+        ) {
+          // If the focus is not back to urlbar, fire blur event explicitly to
+          // clear the urlbar. Because the input field has been losing an
+          // opportunity to lose the focus since we removed blur listener once.
+          this.input.inputField.dispatchEvent(
+            new FocusEvent("blur", {
+              relatedTarget: e.relatedTarget,
+            })
+          );
+        }
+      },
+      { once: true }
+    );
   }
 }

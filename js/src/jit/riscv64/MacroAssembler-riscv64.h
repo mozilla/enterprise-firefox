@@ -240,17 +240,16 @@ class MacroAssemblerRiscv64 : public Assembler {
 
   // branches when done from within la-specific code
   void ma_b(Register lhs, Register rhs, Label* l, Condition c,
-            JumpKind jumpKind = LongJump);
-  void ma_b(Register lhs, Imm32 imm, Label* l, Condition c,
-            JumpKind jumpKind = LongJump);
+            JumpKind jumpKind);
+  void ma_b(Register lhs, Imm32 imm, Label* l, Condition c, JumpKind jumpKind);
   void ma_b(Register lhs, ImmWord imm, Label* l, Condition c,
-            JumpKind jumpKind = LongJump);
+            JumpKind jumpKind);
   void ma_b(Register lhs, ImmPtr imm, Label* l, Condition c,
-            JumpKind jumpKind = LongJump) {
+            JumpKind jumpKind) {
     ma_b(lhs, ImmWord(uintptr_t(imm.value)), l, c, jumpKind);
   }
   void ma_b(Register lhs, ImmGCPtr imm, Label* l, Condition c,
-            JumpKind jumpKind = LongJump) {
+            JumpKind jumpKind) {
     UseScratchRegisterScope temps(this);
     Register scratch = temps.Acquire();
     ma_li(scratch, imm);
@@ -304,12 +303,6 @@ class MacroAssemblerRiscv64 : public Assembler {
                             Label* overflow);
   void ma_mul32TestOverflow(Register rd, Register rj, Imm32 imm,
                             Label* overflow);
-
-  // fast mod, uses scratch registers, and thus needs to be in the assembler
-  // implicitly assumes that we can overwrite dest at the beginning of the
-  // sequence
-  void ma_mod_mask(Register src, Register dest, Register hold, Register remain,
-                   int32_t shift, Label* negZero = nullptr);
 
   // FP branches
   void ma_compareF32(Register rd, DoubleCondition cc, FloatRegister cmp1,
@@ -724,6 +717,7 @@ class MacroAssemblerRiscv64Compat : public MacroAssemblerRiscv64 {
 
     label->patchAt()->bind(currentOffset());
     label->setLinkMode(CodeLabel::RawPointer);
+    comment(".space 64bit [0xffff'ffff, 0xffff'ffff]");
     emit(uint32_t(-1));
     emit(uint32_t(-1));
   }

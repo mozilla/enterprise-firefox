@@ -91,6 +91,9 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = ساعة
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = الخصوصية
 home-prefs-mission-message2 =
     .message = يدعم رعاتنا مهمتنا في بناء شبكة إنترنت أفضل.
 home-prefs-manage-topics-link2 =
@@ -153,6 +156,11 @@ home-prefs-weather-header-srd =
 home-prefs-support-firefox-header-srd =
     .label = ادعم { -brand-product-name }
 home-prefs-mission-message-learn-more-link-srd = اكتشف كيف
+
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = اطّلع على المزيد
 
 ## Search box component.
 
@@ -489,6 +497,8 @@ newtab-custom-widget-lists-toggle =
     .label = قوائم
 newtab-custom-widget-timer-toggle =
     .label = المؤقت
+newtab-custom-widget-privacy-toggle =
+    .label = الخصوصية
 newtab-widget-manage-widget-button =
     .label = أدر الويدجات
 # Tooltip for close button
@@ -855,6 +865,8 @@ newtab-widget-timer-reset =
 newtab-widget-timer-menu-notifications = عطّل الإشعارات
 newtab-widget-timer-menu-notifications-on = فعّل الإشعارات
 newtab-widget-timer-menu-learn-more = اطّلع على المزيد
+newtab-widget-timer-menu-button =
+    .aria-label = خيارات المؤقت
 # The title displays above a set of top news headlines.
 newtab-daily-briefing-card-title = أهم العناوين
 newtab-daily-briefing-card-menu-dismiss = أهمِل

@@ -61,7 +61,7 @@ struct MOZ_EMPTY_BASES IntMarginTyped
 typedef IntMarginTyped<UnknownUnits> IntMargin;
 
 template <class Units, class F = Float>
-struct MarginTyped
+struct MOZ_EMPTY_BASES MarginTyped
     : public BaseMargin<F, MarginTyped<Units, F>, CoordTyped<Units, F> >,
       public Units {
   static_assert(IsPixel<Units>::value,
