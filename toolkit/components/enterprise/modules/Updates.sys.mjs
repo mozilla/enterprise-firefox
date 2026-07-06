@@ -47,9 +47,7 @@ export const Updates = {
 
     this._checkingTimeout = null;
     this._receivedStaging = false;
-    if (this._canDoUpdateChecking) {
-      this.displayUpdateState();
-    }
+    this._updateCheckAbandoned = false;
 
     if (lazy.isUpdatesTesting()) {
       // on Windows at least, during testing, make sure we let time for the UI to show up
@@ -60,7 +58,7 @@ export const Updates = {
       });
     }
 
-    this.forceUpdateCheck();
+    this.runUpdateCheckWhenConnected();
 
     this._initialized = true;
   },
@@ -68,6 +66,11 @@ export const Updates = {
   uninit() {
     this.unobserve();
     this.cancelDelayedUpdateCheckUI();
+    this.stopWaitingForConnectivity();
+    if (this._updateCheckTimeout) {
+      lazy.clearTimeout(this._updateCheckTimeout);
+      this._updateCheckTimeout = null;
+    }
     this._document = undefined;
     this._initialized = false;
   },
@@ -138,6 +141,71 @@ export const Updates = {
     Services.obs.addObserver(this, "update-error");
   },
 
+  get _captivePortalService() {
+    return Cc["@mozilla.org/network/captive-portal-service;1"].getService(
+      Ci.nsICaptivePortalService
+    );
+  },
+
+  // Rather than blindly starting the update check (which hangs with no
+  // connectivity, e.g. behind a captive portal, and hides the login UI where
+  // the captive-portal banner lives), gate it on Gecko's own connectivity
+  // detection. If we aren't known to be online, reveal the login UI and defer
+  // the check until connectivity is (re)gained.
+  runUpdateCheckWhenConnected() {
+    if (this._canDoUpdateChecking !== true) {
+      // Prior-failure skip path is handled inside forceUpdateCheck().
+      this.forceUpdateCheck();
+      return;
+    }
+
+    const cps = this._captivePortalService;
+    if (cps.state === cps.NOT_CAPTIVE || cps.state === cps.UNLOCKED_PORTAL) {
+      this.beginUpdateCheck();
+      return;
+    }
+
+    // UNKNOWN or LOCKED_PORTAL: the update server isn't reachable yet. Show the
+    // login UI (so the captive-portal banner can appear) and wait for Gecko to
+    // report connectivity before checking.
+    this.displayLoginState();
+    this._connectivityObserver = () => {
+      this.stopWaitingForConnectivity();
+      // If the user had to clear a captive portal to get online, don't run the
+      // pre-login update check now: flipping back to "checking for updates"
+      // (and possibly restarting for an update) right after the portal sign-in
+      // would be hostile. Go straight to login; the update is caught on the
+      // next launch. Only the plain UNKNOWN -> NOT_CAPTIVE case (normal online
+      // startup) runs the pre-login check.
+      if (cps.state === cps.UNLOCKED_PORTAL) {
+        this.displayLoginState();
+        return;
+      }
+      this.beginUpdateCheck();
+    };
+    Services.obs.addObserver(
+      this._connectivityObserver,
+      "network:captive-portal-connectivity"
+    );
+    // Kick a probe so we get a prompt answer (and, if captive, a banner).
+    cps.recheckCaptivePortal();
+  },
+
+  stopWaitingForConnectivity() {
+    if (this._connectivityObserver) {
+      Services.obs.removeObserver(
+        this._connectivityObserver,
+        "network:captive-portal-connectivity"
+      );
+      this._connectivityObserver = null;
+    }
+  },
+
+  beginUpdateCheck() {
+    this.displayUpdateState();
+    this.forceUpdateCheck();
+  },
+
   forceUpdateCheck() {
     if (this._canDoUpdateChecking !== true) {
       lazy.log.warn(
@@ -146,6 +214,29 @@ export const Updates = {
       this.displayLoginStateWithUpdateError("contact-admin");
       return;
     }
+
+    // Don't let the update check hold the UI hostage. With no connectivity
+    // (e.g. behind a captive portal) the initial check-for-updates network call
+    // can hang indefinitely, and the "checking for updates" screen hides the
+    // login UI -- which is where the captive-portal banner lives, so the user
+    // can't even sign in to the network. If it doesn't resolve in time, give up
+    // and reveal the login UI. This timeout only bounds that initial call: once
+    // the server responds (appUpdaterCallback observes any status past
+    // CHECKING) it is cleared, so a legitimately slow-but-working download or
+    // staging phase is never mistaken for a hang.
+    const timeoutMs = Services.prefs.getIntPref(
+      "enterprise.felt.update_check_timeout_ms",
+      10000
+    );
+    this._updateCheckTimeout = lazy.setTimeout(() => {
+      this._updateCheckTimeout = null;
+      this._updateCheckAbandoned = true;
+      lazy.log.warn(
+        `FeltUpdates: update check did not complete within ${timeoutMs}ms; revealing login`
+      );
+      this.hideUpdateState();
+      this.displayLoginState();
+    }, timeoutMs);
 
     this._appUpdater
       .check()
@@ -157,6 +248,10 @@ export const Updates = {
         this.displayLoginStateWithUpdateError("contact-admin");
       })
       .finally(() => {
+        if (this._updateCheckTimeout !== null) {
+          lazy.clearTimeout(this._updateCheckTimeout);
+          this._updateCheckTimeout = null;
+        }
         this._appUpdater.removeListener(this._updaterCallback);
       });
   },
@@ -164,6 +259,31 @@ export const Updates = {
   // Similar to browser/base/content/aboutDialog-appUpdater.js:_onAppUpdateStatus
   appUpdaterCallback(status, downloadedBytes, totalBytes) {
     lazy.log.warn(`FeltUpdates: appUpdaterCallback: status:${status}`);
+
+    // STATUS.CHECKING is dispatched synchronously, before the actual network
+    // round-trip; any later status means the update server responded, so
+    // connectivity to it is confirmed and we should stop treating a
+    // legitimately slow download/staging phase as a hang.
+    if (
+      status !== lazy.AppUpdater.STATUS.CHECKING &&
+      this._updateCheckTimeout
+    ) {
+      lazy.clearTimeout(this._updateCheckTimeout);
+      this._updateCheckTimeout = null;
+    }
+
+    if (this._updateCheckAbandoned) {
+      // We already gave up on this check and moved the user past it (to
+      // login, or beyond). Don't let a late-arriving status flip the UI back
+      // to the update screens or force a restart out from under them: an
+      // update that finishes downloading in the background will simply be
+      // picked up by the normal update flow on a future check/restart.
+      lazy.log.warn(
+        `FeltUpdates: appUpdaterCallback: ignoring status ${status}, check was abandoned`
+      );
+      return;
+    }
+
     switch (status) {
       case lazy.AppUpdater.STATUS.CHECKING:
         this.scheduleDelayedUpdateCheckUI();
@@ -332,6 +452,13 @@ export const Updates = {
   },
 
   displayLoginStateWithUpdateError(errorMsg) {
+    // If we already gave up on the check (e.g. no connectivity / captive
+    // portal) and revealed the login UI, don't surface an update error on top
+    // of it -- the user just needs to sign in.
+    if (this._updateCheckAbandoned) {
+      this.displayLoginState();
+      return;
+    }
     this.hide(".felt-updates-message");
     lazy.FeltErrorReport.update("felt-updates-error-messages", errorMsg);
     this.displayLoginState();
