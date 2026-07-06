@@ -2209,7 +2209,10 @@ nsToolkitProfileService::ApplyEncryptionMismatchRecovery(
     // RemoveInBackground drops the registration synchronously and schedules
     // file deletion on the stream transport thread (orphan-safe: a failed
     // delete leaves files behind but never blocks startup).
-    rv = aOldProfile->RemoveInBackground(/*aRemoveFiles*/ true);
+    //
+    // The browser is about to restart, there is no point in doing this in
+    // background.
+    rv = aOldProfile->Remove(/*aRemoveFiles*/ true);
     NS_ENSURE_SUCCESS(rv, rv);
   }
 

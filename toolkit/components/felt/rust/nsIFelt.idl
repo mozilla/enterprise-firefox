@@ -8,6 +8,9 @@
 
 [scriptable, uuid(373195cb-bbb9-4e01-b276-b799a18ca355)]
 interface nsIFelt : nsISupports {
+  const unsigned long FeltEncryptionExitCode_Archive = 0x93;
+  const unsigned long FeltEncryptionExitCode_Delete = 0x94;
+
   [must_use]
   ACString oneShotIpcServer();
 

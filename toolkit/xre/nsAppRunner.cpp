@@ -47,6 +47,7 @@
 
 #if defined(MOZ_ENTERPRISE)
 #  include "mozilla/toolkit/components/felt/felt.h"
+#  include "nsIFelt.h"
 #  include "SpecialSystemDirectory.h"
 #endif
 
@@ -2998,7 +2999,7 @@ static nsresult ResetFeltUIScratchProfile(nsIFile* aProfileDir,
 static nsresult HandleBrowsingChildEncryptionMismatch(
     nsIFile* aProfileDir, nsIFile* aLocalProfileDir,
     nsToolkitProfileService* aProfileSvc, nsINativeAppSupport* aNative,
-    bool* aExitFlag) {
+    bool* aExitFlag, uint32_t* aDecision) {
   MOZ_ASSERT(aProfileDir);
   MOZ_ASSERT(aProfileSvc);
   MOZ_ASSERT(aExitFlag);
@@ -3169,7 +3170,15 @@ static nsresult HandleBrowsingChildEncryptionMismatch(
   SaveFileToEnv("XRE_PROFILE_LOCAL_PATH", newLocal);
 
   *aExitFlag = true;
-  return NS_ERROR_RESTART_FORCED;
+  rv = NS_OK;
+  if (choice == Choice::Delete) {
+    *aDecision = nsIFelt::FeltEncryptionExitCode_Delete;
+    rv = NS_ERROR_RESTART_FORCED;
+  } else if (choice == Choice::Keep) {
+    *aDecision = nsIFelt::FeltEncryptionExitCode_Archive;
+    rv = NS_ERROR_RESTART_FORCED;
+  }
+  return rv;
 }
 #endif  // MOZ_ENTERPRISE
 
@@ -6081,15 +6090,15 @@ int XREMain::XRE_mainStartup(bool* aExitFlag,
               "refusal");
         }
       } else if (is_felt_browser()) {
+        uint32_t decision = 0;
         nsresult handleRv = HandleBrowsingChildEncryptionMismatch(
-            mProfD, mProfLD, mProfileSvc, mNativeApp, aExitFlag);
+            mProfD, mProfLD, mProfileSvc, mNativeApp, aExitFlag, &decision);
+        *aExitFlag = true;
         if (handleRv == NS_ERROR_RESTART_FORCED) {
-          *aExitFlag = true;
-          mozilla::AppShutdown::DoImmediateExit(0x93);
+          mozilla::AppShutdown::DoImmediateExit(decision);
           return 0;
         }
         // Quit path (NS_OK with *aExitFlag=true) or failure: exit cleanly.
-        *aExitFlag = true;
         return 0;
       }
     }
