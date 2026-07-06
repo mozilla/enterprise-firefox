@@ -1,0 +1,57 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+transforms:
+    - taskgraph.transforms.from_deps
+    - gecko_taskgraph.transforms.enterprise_release_definition
+    - gecko_taskgraph.transforms.task
+
+kind-dependencies:
+    - mar-signing
+    - repackage-signing-msi
+    - repackage-deb
+    - enterprise-repack-mac-notarization
+
+task-defaults:
+    description: "Generate the Firefox Enterprise OCI release definition."
+    run-on-projects: [enterprise-firefox]
+    shipping-product: firefox-enterprise
+    shipping-phase: promote
+    attributes:
+        shippable: true
+    from-deps:
+        group-by: all
+        unique-kinds: false
+        set-name: false
+    # Metadata shared by every release definition. The transform fans this kind
+    # out into one task per partner repack (keyed by repack id).
+    release-config:
+        product: FirefoxEnterprise
+        vendor: Mozilla
+        license: MPL-2.0
+        documentation-url: https://mozilla.github.io/enterprise-firefox/
+    worker-type: b-linux
+    worker:
+        docker-image: {in-tree: lint}
+        max-run-time: 600
+        artifacts:
+            - type: file
+              name: public/build/release-definition.json
+              path: /builds/worker/release-definition.json
+        command:
+            - /bin/bash
+            - -cx
+            - >-
+                printf '%s' "$RELEASE_DEFINITION" > /builds/worker/release-definition.json &&
+                cat /builds/worker/release-definition.json
+    treeherder:
+        symbol: "Ent(def)"
+        kind: other
+        tier: 1
+        platform: firefox-release-enterprise/opt
+
+tasks:
+    firefox-enterprise: {}
