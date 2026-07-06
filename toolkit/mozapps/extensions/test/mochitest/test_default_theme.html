@@ -24,7 +24,8 @@ add_task(async function() {
 
   // Dev edition uses a different default theme on desktop.
   const expectActive = (!AppConstants.MOZ_DEV_EDITION ||
-                        AppConstants.MOZ_BUILD_APP !== "browser");
+                        AppConstants.MOZ_BUILD_APP !== "browser") &&
+                        !AppConstants.MOZ_ENTERPRISE;
 
   ok(addon != null, "Default theme exists");
   is(addon.type, "theme", "Add-on type is correct");
