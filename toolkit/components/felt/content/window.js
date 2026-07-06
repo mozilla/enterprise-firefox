@@ -271,9 +271,9 @@ async function connectToConsole(email) {
     devicePostureTimeoutMs
   );
   try {
-    posture = await lazy.ConsoleClient.sendDevicePosture(
-      devicePostureController.signal
-    );
+    posture = await lazy.ConsoleClient.sendDevicePosture({
+      signal: devicePostureController.signal,
+    });
   } catch (err) {
     lazy.log.error(`Failed to send device posture: ${err}`);
     // A captive portal (or being offline) surfaces here. Re-probe so that, if it

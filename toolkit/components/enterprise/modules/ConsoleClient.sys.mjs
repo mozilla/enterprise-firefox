@@ -347,7 +347,7 @@ export const ConsoleClient = {
    *   in-flight request.
    * @returns {Promise<{posture: string}>} Token reported by console.
    */
-  async sendDevicePosture({ waitForAddons = false } = {}) {
+  async sendDevicePosture({ waitForAddons = false, signal } = {}) {
     const devicePosture = await this.collectDevicePosture({ waitForAddons });
     const url = await this.constructURI(this._paths.DEVICE_POSTURE);
 
