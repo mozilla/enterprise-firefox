@@ -3275,13 +3275,11 @@ pref("network.connectivity-service.enabled", true);
 pref("network.connectivity-service.DNSv4.domain", "example.org");
 pref("network.connectivity-service.DNSv6.domain", "example.org");
 pref("network.connectivity-service.DNS_HTTPS.domain", "cloudflare-dns.com");
-#ifdef MOZ_ENTERPRISE
-pref("network.connectivity-service.IPv4.url", "");
-pref("network.connectivity-service.IPv6.url", "");
-#else
+// Captive-portal and connectivity probes must stay plaintext so a captive
+// portal can transparently intercept them; they are not routed through the
+// enterprise console (bug 2037079).
 pref("network.connectivity-service.IPv4.url", "http://detectportal.firefox.com/success.txt?ipv4");
 pref("network.connectivity-service.IPv6.url", "http://detectportal.firefox.com/success.txt?ipv6");
-#endif
 
 pref("network.trr.uri", "");
 // credentials to pass to DOH end-point
@@ -3298,11 +3296,7 @@ pref("network.trr.builtin-excluded-domains", "localhost,local");
 // Used for progressive rollout of LNA for ETP strict users
 pref("network.lna.etp.enabled", true);
 
-#ifdef MOZ_ENTERPRISE
-pref("captivedetect.canonicalURL", "");
-#else
 pref("captivedetect.canonicalURL", "http://detectportal.firefox.com/canonical.html");
-#endif
 pref("captivedetect.canonicalContent", "<meta http-equiv=\"refresh\" content=\"0;url=https://support.mozilla.org/kb/captive-portal\"/>");
 pref("captivedetect.maxWaitingTime", 5000);
 pref("captivedetect.pollingTime", 3000);

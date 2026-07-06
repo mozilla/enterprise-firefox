@@ -33,18 +33,13 @@ export const RELATIVE_CONSOLE_ENDPOINT_PREFS = [
     pref: "security.certerrors.mitm.priming.endpoint",
     path: "api/misc/mitm/",
   },
-  {
-    pref: "captivedetect.canonicalURL",
-    path: "api/misc/portal/canonical.html",
-  },
-  {
-    pref: "network.connectivity-service.IPv4.url",
-    path: "api/misc/connectivity?ipv4",
-  },
-  {
-    pref: "network.connectivity-service.IPv6.url",
-    path: "api/misc/connectivity?ipv6",
-  },
+  // Note: captive-portal detection (captivedetect.canonicalURL) and the
+  // connectivity service (network.connectivity-service.IPv4/IPv6.url) are
+  // intentionally NOT re-homed onto the console. Those probes must be plaintext
+  // HTTP requests to an endpoint a captive portal can transparently intercept;
+  // the console is HTTPS and is itself unreachable behind a portal, so routing
+  // them through it breaks detection entirely (bug 2037079). They keep the
+  // standard detectportal.firefox.com defaults instead.
 ];
 
 export const BASE_CONSOLE_URI_PREFS = new Set([
