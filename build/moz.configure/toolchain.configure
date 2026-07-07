@@ -1555,13 +1555,12 @@ def compiler(
 
     # This excludes WASM_CC from the list.
     if var in ("CC", "CXX", "HOST_CC", "HOST_CXX"):
-        # FIXME: we should return a plain list here.
-        @depends_if(valid_compiler)
-        @imports(_from="mozshellutil", _import="quote")
-        def value(x):
-            return quote(*x.wrapper, x.compiler, *x.flags)
-
-        set_config(var, value)
+        set_config(
+            var,
+            depends_if(valid_compiler)(
+                lambda x: list(x.wrapper) + [x.compiler] + list(x.flags)
+            ),
+        )
 
     # Set CC_TYPE/CC_VERSION/HOST_CC_TYPE/HOST_CC_VERSION to allow
     # old-configure to do some of its still existing checks.
@@ -2263,9 +2262,6 @@ def check_thread(target, c_compiler):
         return False
     if target.os == "Android":
         # The custom dynamic linker doesn't support TLS variables
-        return False
-    if target.kernel == "OpenBSD":
-        # OpenBSD doesn't have TLS support, and the test succeeds with clang++
         return False
     return c_compiler.type != "clang-cl"
 

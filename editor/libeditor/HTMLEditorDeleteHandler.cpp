@@ -524,7 +524,7 @@ Result<EditActionResult, nsresult> HTMLEditor::HandleDeleteSelection(
   MOZ_ASSERT(aStripWrappers == nsIEditor::eStrip ||
              aStripWrappers == nsIEditor::eNoStrip);
 
-  if (RefPtr<EditContext> editContext = GetEditContext()) {
+  if (RefPtr editContext = GetEditActionEditContext()) {
     MOZ_ASSERT(
         GetTopLevelEditSubAction() == EditSubAction::eDeleteSelectedContent,
         "Should not reach here if deletion is for preparing to insert text.");
@@ -541,7 +541,7 @@ Result<EditActionResult, nsresult> HTMLEditor::HandleDeleteSelection(
       if (NS_WARN_IF(Destroyed())) {
         return Err(NS_ERROR_EDITOR_DESTROYED);
       }
-      if (editContext != GetEditContext()) {
+      if (EditContextChangedSinceStartOfEditAction()) {
         // textupdate handler deactivated this EditContext
         return Err(NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE);
       }
@@ -556,7 +556,7 @@ Result<EditActionResult, nsresult> HTMLEditor::HandleDeleteSelection(
     if (NS_WARN_IF(Destroyed())) {
       return Err(NS_ERROR_EDITOR_DESTROYED);
     }
-    if (NS_WARN_IF(editContext != GetEditContext())) {
+    if (EditContextChangedSinceStartOfEditAction()) {
       // EditContext was deactivated by reflow
       return Err(NS_ERROR_FAILURE);
     }
@@ -598,7 +598,7 @@ Result<EditActionResult, nsresult> HTMLEditor::HandleDeleteSelection(
     if (NS_WARN_IF(Destroyed())) {
       return Err(NS_ERROR_EDITOR_DESTROYED);
     }
-    if (editContext != GetEditContext()) {
+    if (EditContextChangedSinceStartOfEditAction()) {
       // textupdate handler deactivated this EditContext
       return Err(NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE);
     }

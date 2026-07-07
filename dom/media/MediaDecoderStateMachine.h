@@ -429,6 +429,14 @@ class MediaDecoderStateMachine
   // The media sink resource.  Used on the state machine thread.
   RefPtr<MediaSink> mMediaSink;
 
+  // True from the completion of a warm seek (one that interrupted active
+  // playback, not a paused seek or a seek to end) until the playback resume it
+  // triggers has been handled. It marks the resume as warm so it can be made
+  // low-latency: the decode pipeline is already primed, so the resume does not
+  // need the full cold-start preroll cushion. Cleared once the resume has been
+  // handled, leaving later cold starts unaffected.
+  bool mStartSinkAfterWarmSeek = false;
+
   // The end time of the last audio frame that's been pushed onto the media sink
   // in microseconds. This will approximately be the end time
   // of the audio stream, unless another frame is pushed to the hardware.

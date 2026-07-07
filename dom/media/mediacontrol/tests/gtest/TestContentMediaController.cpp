@@ -159,6 +159,23 @@ TEST(ContentMediaController, AudioFocusInterruptResumesBothBuckets)
       << "Interrupt resume should reach uncontrollable receiver";
 }
 
+TEST(ContentMediaController, AudioFocusInterruptTogglesInterruptedFlag)
+{
+  RefPtr<ContentMediaController> controller =
+      new ContentMediaController(FAKE_BC_ID);
+
+  EXPECT_FALSE(controller->IsAudioInterruptedByPlatform())
+      << "Interrupted flag should start clear";
+
+  controller->HandleAudioFocusInterrupt(AudioFocusInterruptAction::Suspend);
+  EXPECT_TRUE(controller->IsAudioInterruptedByPlatform())
+      << "Suspend interrupt should set the interrupted flag";
+
+  controller->HandleAudioFocusInterrupt(AudioFocusInterruptAction::Resume);
+  EXPECT_FALSE(controller->IsAudioInterruptedByPlatform())
+      << "Resume interrupt should clear the interrupted flag";
+}
+
 TEST(ContentMediaController, UserPauseDoesNotSuspendUncontrollable)
 {
   RefPtr<ContentMediaController> controller =

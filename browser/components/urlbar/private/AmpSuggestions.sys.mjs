@@ -117,22 +117,37 @@ export class AmpSuggestions extends SuggestProvider {
       normalized.iabCategory = suggestion.iab_category;
       normalized.requestId = suggestion.request_id;
 
+      if (suggestion.custom_details?.amp) {
+        let { amp } = suggestion.custom_details;
+        normalized.suggestionId = amp.suggestion_id;
+      }
+
       // Replace URL timestamp templates inline. This isn't necessary for Rust
       // AMP suggestions because the Rust component handles it.
       this.#replaceSuggestionTemplates(normalized);
     }
 
-    let isTopPick =
-      (suggestion.source == "merino" && suggestion.is_top_pick) ||
-      (lazy.UrlbarPrefs.get("quickSuggestAmpTopPickCharThreshold") &&
-        lazy.UrlbarPrefs.get("quickSuggestAmpTopPickCharThreshold") <=
-          queryContext.trimmedLowerCaseSearchString.length) ||
-      lazy.UrlbarPrefs.get("quickSuggestSponsoredPriority");
+    let isTopPick;
+    if (
+      suggestion.source == "merino" &&
+      typeof suggestion.is_top_pick == "boolean"
+    ) {
+      // Defer entirely to Merino.
+      isTopPick = suggestion.is_top_pick;
+    } else {
+      isTopPick =
+        (lazy.UrlbarPrefs.get("quickSuggestAmpTopPickCharThreshold") &&
+          lazy.UrlbarPrefs.get("quickSuggestAmpTopPickCharThreshold") <=
+            queryContext.trimmedLowerCaseSearchString.length) ||
+        lazy.UrlbarPrefs.get("quickSuggestSponsoredPriority");
+    }
 
     let richSuggestionIconSize;
     if (!isTopPick) {
       richSuggestionIconSize = 16;
-    } else if (!lazy.UrlbarPrefs.get("quickSuggestAmpTopPickUseNovaIconSize")) {
+    } else if (
+      !lazy.UrlbarPrefs.get("quicksuggest.ampTopPickUseNovaIconSize")
+    ) {
       // Use the standard rich-suggestion size.
       richSuggestionIconSize = 28;
     }
@@ -154,6 +169,7 @@ export class AmpSuggestions extends SuggestProvider {
           id: "urlbar-result-action-sponsored",
         },
         requestId: normalized.requestId,
+        suggestionId: normalized.suggestionId,
         urlTimestampIndex: normalized.urlTimestampIndex,
         sponsoredImpressionUrl: normalized.impressionUrl,
         sponsoredClickUrl: normalized.clickUrl,
@@ -366,6 +382,7 @@ export class AmpSuggestions extends SuggestProvider {
         suggestedIndex: result.suggestedIndex.toString(),
         suggestedIndexRelativeToGroup: !!result.isSuggestedIndexRelativeToGroup,
         requestId: result.payload.requestId,
+        suggestionId: result.payload.suggestionId,
         source: result.payload.source,
         contextId: await lazy.ContextId.request(),
       };

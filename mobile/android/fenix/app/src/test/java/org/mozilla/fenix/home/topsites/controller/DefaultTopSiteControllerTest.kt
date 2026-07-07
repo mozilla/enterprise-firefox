@@ -44,7 +44,6 @@ import org.mozilla.fenix.components.Analytics
 import org.mozilla.fenix.components.usecases.FenixBrowserUseCases
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.helpers.FenixGleanTestRule
-import org.mozilla.fenix.home.mars.MARSUseCases
 import org.mozilla.fenix.home.topsites.ShortcutsFragmentDirections
 import org.mozilla.fenix.settings.SupportUtils
 import org.mozilla.fenix.utils.Settings
@@ -63,7 +62,6 @@ class DefaultTopSiteControllerTest {
     private val selectTabUseCase: TabsUseCases = mockk(relaxed = true)
     private val topSitesUseCases: TopSitesUseCases = mockk(relaxed = true)
     private val fenixBrowserUseCases: FenixBrowserUseCases = mockk(relaxed = true)
-    private val marsUseCases: MARSUseCases = mockk(relaxed = true)
     private val mozAdsUseCases: MozAdsUseCases = mockk(relaxed = true)
     private val settings: Settings = mockk(relaxed = true)
     private val analytics: Analytics = mockk(relaxed = true)
@@ -738,52 +736,6 @@ class DefaultTopSiteControllerTest {
 
         controller.handleSelectTopSite(topSite, position)
 
-        coVerify { marsUseCases.recordInteraction(topSite.clickUrl) }
-
-        val event = TopSites.contileClick.testGetValue()!!
-
-        assertEquals(1, event.size)
-        assertEquals("top_sites", event[0].category)
-        assertEquals("contile_click", event[0].name)
-        assertEquals("1", event[0].extra!!["position"])
-        assertEquals("newtab", event[0].extra!!["source"])
-
-        job.join()
-        assertTrue(topSiteImpressionPinged)
-    }
-
-    @Ignore("Bug 2016888 - passes on individual test run, fails when running entire app test suite.")
-    @Test
-    fun `GIVEN Ads client is enabled WHEN the provided top site is clicked THEN send a click callback request`() = runTest {
-        every { settings.enableMozillaAdsClient } returns true
-
-        val controller = spyk(createController(this))
-        val topSite = TopSite.Provided(
-            id = 3,
-            title = "Mozilla",
-            url = "https://mozilla.com",
-            clickUrl = "https://mozilla.com/click",
-            imageUrl = "https://test.com/image2.jpg",
-            impressionUrl = "https://mozilla.com/impression",
-            createdAt = 3,
-        )
-        val position = 0
-
-        every { controller.getAvailableSearchEngines() } returns listOf(searchEngine)
-
-        assertNull(TopSites.contileClick.testGetValue())
-
-        var topSiteImpressionPinged = false
-        val job = Pings.topsitesImpression.testBeforeNextSubmit {
-            assertEquals(3L, TopSites.contileTileId.testGetValue())
-            assertEquals("mozilla", TopSites.contileAdvertiser.testGetValue())
-            assertNull(TopSites.contileReportingUrl.testGetValue())
-
-            topSiteImpressionPinged = true
-        }
-
-        controller.handleSelectTopSite(topSite, position)
-
         coVerify { mozAdsUseCases.recordClickInteraction(clickUrl = topSite.clickUrl) }
 
         val event = TopSites.contileClick.testGetValue()!!
@@ -801,52 +753,6 @@ class DefaultTopSiteControllerTest {
     @Ignore("Bug 2016888 - passes on individual test run, fails when running entire app test suite.")
     @Test
     fun `WHEN the provided top site is seen THEN send a impression callback request`() = runTest {
-        val controller = spyk(createController(this))
-        val topSite = TopSite.Provided(
-            id = 3,
-            title = "Mozilla",
-            url = "https://mozilla.com",
-            clickUrl = "https://mozilla.com/click",
-            imageUrl = "https://test.com/image2.jpg",
-            impressionUrl = "https://mozilla.com/impression",
-            createdAt = 3,
-        )
-        val position = 0
-
-        every { controller.getAvailableSearchEngines() } returns listOf(searchEngine)
-
-        assertNull(TopSites.contileImpression.testGetValue())
-
-        var topSiteImpressionSubmitted = false
-        val job = Pings.topsitesImpression.testBeforeNextSubmit {
-            assertEquals(3L, TopSites.contileTileId.testGetValue())
-            assertEquals("mozilla", TopSites.contileAdvertiser.testGetValue())
-            assertNull(TopSites.contileReportingUrl.testGetValue())
-
-            topSiteImpressionSubmitted = true
-        }
-
-        controller.handleTopSiteImpression(topSite, position)
-
-        coVerify { marsUseCases.recordInteraction(topSite.impressionUrl) }
-
-        val event = TopSites.contileImpression.testGetValue()!!
-
-        assertEquals(1, event.size)
-        assertEquals("top_sites", event[0].category)
-        assertEquals("contile_impression", event[0].name)
-        assertEquals("1", event[0].extra!!["position"])
-        assertEquals("newtab", event[0].extra!!["source"])
-
-        job.join()
-        assertTrue(topSiteImpressionSubmitted)
-    }
-
-    @Ignore("Bug 2016888 - passes on individual test run, fails when running entire app test suite.")
-    @Test
-    fun `GIVEN Ads client is enabled WHEN the provided top site is seen THEN send a impression callback request`() = runTest {
-        every { settings.enableMozillaAdsClient } returns true
-
         val controller = spyk(createController(this))
         val topSite = TopSite.Provided(
             id = 3,
@@ -1173,7 +1079,6 @@ class DefaultTopSiteControllerTest {
             selectTabUseCase = selectTabUseCase.selectTab,
             fenixBrowserUseCases = fenixBrowserUseCases,
             topSitesUseCases = topSitesUseCases,
-            marsUseCases = marsUseCases,
             mozAdsUseCases = mozAdsUseCases,
             viewLifecycleScope = scope,
         )

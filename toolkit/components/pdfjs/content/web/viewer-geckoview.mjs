@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 6.1.208
- * pdfjsBuild = 25eae30e4
+ * pdfjsVersion = 6.1.239
+ * pdfjsBuild = 0cc1718b0
  */
 
 ;// ./web/ui_utils.js
@@ -680,6 +680,10 @@ const defaultOptions = {
     value: false,
     kind: OptionKind.VIEWER + OptionKind.PREFERENCE
   },
+  enableSignatureVerification: {
+    value: true,
+    kind: OptionKind.VIEWER + OptionKind.PREFERENCE
+  },
   enableSplitMerge: {
     value: false,
     kind: OptionKind.VIEWER + OptionKind.PREFERENCE
@@ -985,7 +989,7 @@ const {
 } = globalThis.pdfjsLib;
 
 ;// ./web/internal_evt.js
-const INTERNAL_EVT = "eb370c1c-46d0-449b-862e-05d691979336";
+const INTERNAL_EVT = "a683187c-5155-4022-ae51-654eff91e170";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -1533,6 +1537,9 @@ class BaseExternalServices {
   }
   createSignatureStorage() {
     throw new Error("Not implemented: createSignatureStorage");
+  }
+  createSignatureVerifier() {
+    return null;
   }
   updateEditorStates(data) {
     throw new Error("Not implemented: updateEditorStates");
@@ -2136,6 +2143,129 @@ class SignatureStorage {
     return false;
   }
 }
+const NSS_ERR_CODES = {
+  EXPIRED: new Set(["SEC_ERROR_EXPIRED_CERTIFICATE", "SEC_ERROR_EXPIRED_ISSUER_CERTIFICATE", "MOZILLA_PKIX_ERROR_NOT_YET_VALID_CERTIFICATE", "MOZILLA_PKIX_ERROR_NOT_YET_VALID_ISSUER_CERTIFICATE"]),
+  REVOKED: new Set(["SEC_ERROR_REVOKED_CERTIFICATE", "SEC_ERROR_REVOKED_KEY", "MOZILLA_PKIX_ERROR_REVOKED_CERTIFICATE"]),
+  UNTRUSTED: new Set(["SEC_ERROR_UNKNOWN_ISSUER", "SEC_ERROR_UNTRUSTED_CERT", "SEC_ERROR_UNTRUSTED_ISSUER", "MOZILLA_PKIX_ERROR_SELF_SIGNED_CERT", "MOZILLA_PKIX_ERROR_ADDITIONAL_POLICY_CONSTRAINT_FAILED"]),
+  CMS_NOT_YET_ATTEMPTED: "NS_ERROR_CMS_VERIFY_NOT_YET_ATTEMPTED"
+};
+function mapVerificationStatus(signatureCode, certificateCode) {
+  if (signatureCode === NSS_ERR_CODES.CMS_NOT_YET_ATTEMPTED) {
+    return {
+      status: "unknown",
+      errorCode: signatureCode
+    };
+  }
+  if (signatureCode && signatureCode !== "NS_OK") {
+    return {
+      status: "invalid",
+      errorCode: signatureCode
+    };
+  }
+  if (!certificateCode || certificateCode === "NS_OK") {
+    return {
+      status: "verified",
+      errorCode: null
+    };
+  }
+  if (NSS_ERR_CODES.REVOKED.has(certificateCode)) {
+    return {
+      status: "revoked",
+      errorCode: certificateCode
+    };
+  }
+  if (NSS_ERR_CODES.EXPIRED.has(certificateCode)) {
+    return {
+      status: "expired",
+      errorCode: certificateCode
+    };
+  }
+  if (NSS_ERR_CODES.UNTRUSTED.has(certificateCode)) {
+    return {
+      status: "untrusted",
+      errorCode: certificateCode
+    };
+  }
+  return {
+    status: "untrusted",
+    errorCode: certificateCode
+  };
+}
+class SignatureVerifier {
+  async verify(signature) {
+    if (signature.signatureType === null) {
+      return {
+        status: "unknown",
+        errorCode: "SUBFILTER_NOT_SUPPORTED",
+        message: signature.subFilter,
+        certificate: null,
+        documentModifiedAfterSigning: !signature.coversWholeDocument
+      };
+    }
+    let response;
+    try {
+      response = await FirefoxCom.requestAsync("verifyPdfSignature", {
+        pkcs7: signature.pkcs7,
+        data: signature.data,
+        signatureType: signature.signatureType
+      });
+    } catch (ex) {
+      return {
+        status: "unknown",
+        errorCode: "BRIDGE_ERROR",
+        message: ex?.message ?? null,
+        certificate: null,
+        documentModifiedAfterSigning: !signature.coversWholeDocument
+      };
+    }
+    if (!response || response.error) {
+      return {
+        status: "unknown",
+        errorCode: response?.error ?? "EMPTY_RESPONSE",
+        message: null,
+        certificate: null,
+        documentModifiedAfterSigning: !signature.coversWholeDocument
+      };
+    }
+    const entry = Array.isArray(response) ? response[0] : response;
+    if (!entry) {
+      return {
+        status: "unknown",
+        errorCode: "EMPTY_RESPONSE",
+        message: null,
+        certificate: null,
+        documentModifiedAfterSigning: !signature.coversWholeDocument
+      };
+    }
+    const {
+      status,
+      errorCode
+    } = mapVerificationStatus(entry.signatureResult, entry.certificateResult);
+    return {
+      status,
+      errorCode,
+      message: entry.message ?? null,
+      certificate: entry.certificate ?? null,
+      documentModifiedAfterSigning: !signature.coversWholeDocument
+    };
+  }
+  async viewCertificate(certificate) {
+    if (!certificate) {
+      return false;
+    }
+    const certs = Array.isArray(certificate.chain) && certificate.chain.length ? certificate.chain.map(c => c.derBase64).filter(Boolean) : [certificate.derBase64].filter(Boolean);
+    if (certs.length === 0) {
+      return false;
+    }
+    try {
+      return await FirefoxCom.requestAsync("viewPdfCertificate", {
+        certs
+      });
+    } catch {
+      return false;
+    }
+  }
+}
 class ExternalServices extends BaseExternalServices {
   updateFindControlState(data) {
     FirefoxCom.request("updateFindControlState", data);
@@ -2213,6 +2343,9 @@ class ExternalServices extends BaseExternalServices {
   createSignatureStorage(eventBus, signal) {
     return new SignatureStorage(eventBus, signal);
   }
+  createSignatureVerifier() {
+    return new SignatureVerifier();
+  }
   dispatchGlobalEvent(event) {
     FirefoxCom.request("dispatchGlobalEvent", event);
   }
@@ -2233,6 +2366,7 @@ const PDFPresentationMode = null;
 const PDFThumbnailViewer = null;
 const SecondaryToolbar = null;
 const SignatureManager = null;
+const SignaturePropertiesManager = null;
 const ViewsManager = null;
 
 ;// ./web/caret_browsing.js
@@ -8675,7 +8809,7 @@ class PDFViewer {
   #savedPageViews = null;
   #deletedPageNumbers = null;
   constructor(options) {
-    const viewerVersion = "6.1.208";
+    const viewerVersion = "6.1.239";
     if (version !== viewerVersion) {
       throw new Error(`The API version "${version}" does not match the Viewer version "${viewerVersion}".`);
     }
@@ -10517,6 +10651,7 @@ class ViewHistory {
 
 
 
+
 const FORCE_PAGES_LOADED_TIMEOUT = 10000;
 const ViewOnLoad = {
   UNKNOWN: -1,
@@ -10556,6 +10691,7 @@ const PDFViewerApplication = {
   eventBus: null,
   l10n: null,
   annotationEditorParams: null,
+  signaturePropertiesManager: null,
   imageAltTextSettings: null,
   isInitialViewSet: false,
   isViewerEmbedded: window.parent !== window,
@@ -11140,6 +11276,7 @@ const PDFViewerApplication = {
       this.pdfViewer.setDocument(null);
       this.pdfLinkService.setDocument(null);
       this.pdfDocumentProperties?.setDocument(null);
+      this.signaturePropertiesManager?.setDocument(null);
     }
     this.pdfLinkService.externalLinkEnabled = true;
     this.store = null;
@@ -11577,11 +11714,33 @@ const PDFViewerApplication = {
       console.warn("Warning: Interactive form support is not enabled");
     }
     if (info.IsSignaturesPresent) {
-      console.warn("Warning: Digital signatures validation is not supported");
+      const success = this._maybeInitSignatureProperties(pdfDocument);
+      if (!success) {
+        console.warn("Warning: Digital signatures validation is not supported");
+      }
     }
     this.eventBus.dispatch("metadataloaded", {
       source: this
     });
+  },
+  _maybeInitSignatureProperties(pdfDocument) {
+    if (!AppOptions.get("enableSignatureVerification")) {
+      return false;
+    }
+    const verifier = this.externalServices.createSignatureVerifier();
+    if (!verifier) {
+      return false;
+    }
+    if (pdfDocument !== this.pdfDocument) {
+      return true;
+    }
+    this.signaturePropertiesManager ??= new SignaturePropertiesManager({
+      appConfig: this.appConfig.toolbar,
+      verifier,
+      eventBus: this.eventBus
+    });
+    this.signaturePropertiesManager.setDocument(pdfDocument);
+    return true;
   },
   async _initializePageLabels(pdfDocument) {},
   _initializePdfHistory({
@@ -12262,6 +12421,13 @@ function closeEditorUndoBar(evt) {
     this.editorUndoBar.hide();
   }
 }
+function closeSignatureProperties({
+  target
+}) {
+  if (this.signaturePropertiesManager?.shouldCloseOnClick(target)) {
+    this.signaturePropertiesManager.close();
+  }
+}
 function onBeforeUnload(evt) {
   if (this._hasChanges()) {
     evt.preventDefault();
@@ -12273,6 +12439,7 @@ function onBeforeUnload(evt) {
 function onClick(evt) {
   closeSecondaryToolbar.call(this, evt);
   closeEditorUndoBar.call(this, evt);
+  closeSignatureProperties.call(this, evt);
 }
 function onKeyUp(evt) {
   if (evt.key === "Control") {
@@ -12430,6 +12597,10 @@ function onKeyDown(evt) {
       case 27:
         if (this.secondaryToolbar?.isOpen) {
           this.secondaryToolbar.close();
+          handled = true;
+        }
+        if (this.signaturePropertiesManager?.isOpen) {
+          this.signaturePropertiesManager.close();
           handled = true;
         }
         if (!this.supportsIntegratedFind && this.findBar?.opened) {

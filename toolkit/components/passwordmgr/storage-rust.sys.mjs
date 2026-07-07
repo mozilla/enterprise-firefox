@@ -866,7 +866,13 @@ export class LoginManagerRustStorage {
   }
 
   async arePotentiallyVulnerablePasswords(logins) {
-    const ids = logins.map(l => l.QueryInterface(Ci.nsILoginMetaInfo).guid);
+    const ids = logins.map(
+      l =>
+        (typeof l.QueryInterface === "function"
+          ? l.QueryInterface(Ci.nsILoginMetaInfo)
+          : l
+        ).guid
+    );
     return this.#storageAdapter.arePotentiallyVulnerablePasswords(ids);
   }
 

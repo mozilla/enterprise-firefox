@@ -12,15 +12,4 @@
             column="36"/>
     </issue>
 
-    <issue
-        id="NoSystemCurrentTimeMillis"
-        message="`System.currentTimeMillis()` must be injectable. Only permitted as a default value of a parameter on a top-level function or on a class."
-        errorLine1="                    lastModified = System.currentTimeMillis(),"
-        errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/mozilla/components/service/mars/MarsTopSitesProvider.kt"
-            line="177"
-            column="36"/>
-    </issue>
-
 </issues>

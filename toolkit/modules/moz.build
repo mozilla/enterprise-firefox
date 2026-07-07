@@ -163,6 +163,7 @@ EXTRA_JS_MODULES += [
     "Console.sys.mjs",
     "ContentDOMReference.sys.mjs",
     "CreditCard.sys.mjs",
+    "DateNormalizationUtils.sys.mjs",
     "DeferredTask.sys.mjs",
     "E10SUtils.sys.mjs",
     "EventEmitter.sys.mjs",

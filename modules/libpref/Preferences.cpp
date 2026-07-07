@@ -2758,6 +2758,8 @@ class nsPrefBranch final : public nsIPrefBranch,
 
   PrefName GetPrefName(const nsACString& aPrefName) const;
 
+  nsresult ClearBranch(const char* aStartingAt, bool deleteDefaults);
+
   void FreeObserverList(void);
 
   const nsCString mPrefRoot;
@@ -3276,9 +3278,8 @@ nsPrefBranch::UnlockPref(const char* aPrefName) {
   return Preferences::Unlock(pref.get());
 }
 
-NS_IMETHODIMP
-nsPrefBranch::DeleteBranch(const char* aStartingAt) {
-  ENSURE_PARENT_PROCESS("DeleteBranch", aStartingAt);
+nsresult nsPrefBranch::ClearBranch(const char* aStartingAt,
+                                   bool deleteDefaults) {
   NS_ENSURE_ARG(aStartingAt);
 
   MOZ_ASSERT(NS_IsMainThread());
@@ -3322,25 +3323,49 @@ nsPrefBranch::DeleteBranch(const char* aStartingAt) {
 
     if (Pref* pref = result.unwrap()) {
       pref->ClearUserValue();
-      pref->ClearDefaultValue();
-
-      MOZ_ASSERT(
-          !gSharedMap || !pref->IsSanitized() || !gSharedMap->Has(pref->Name()),
-          "A sanitized pref should never be in the shared pref map.");
-      if (!pref->IsSanitized() &&
-          (!gSharedMap || !gSharedMap->Has(pref->Name()))) {
-        HashTable()->remove(prefName);
-      } else {
-        // If there is a matching shared pref, it must be shadowed by an empty
-        // entry in the HashTable().
-        pref->SetType(PrefType::None);
+      if (deleteDefaults) {
+        pref->ClearDefaultValue();
       }
-      sPImpl->NotifyCallbacks(nsDependentCString{prefName});
+
+      // If there's no default value, or the pref has been completely deleted,
+      // handle that appropriately, otherwise send out a regular preference
+      // update.
+      if (deleteDefaults || !pref->HasDefaultValue()) {
+        MOZ_ASSERT(!gSharedMap || !pref->IsSanitized() ||
+                       !gSharedMap->Has(pref->Name()),
+                   "A sanitized pref should never be in the shared pref map.");
+        if (!pref->IsSanitized() &&
+            (!gSharedMap || !gSharedMap->Has(pref->Name()))) {
+          HashTable()->remove(prefName);
+        } else {
+          // If there is a matching shared pref, it must be shadowed by an empty
+          // entry in the HashTable().
+          pref->SetType(PrefType::None);
+        }
+        sPImpl->NotifyCallbacks(nsDependentCString{prefName});
+      } else {
+        sPImpl->NotifyCallbacks(nsDependentCString{prefName},
+                                PrefWrapper(pref));
+      }
     }
   }
 
   Preferences::HandleDirty();
   return NS_OK;
+}
+
+NS_IMETHODIMP
+nsPrefBranch::DeleteBranch(const char* aStartingAt) {
+  ENSURE_PARENT_PROCESS("DeleteBranch", aStartingAt);
+
+  return ClearBranch(aStartingAt, true);
+}
+
+NS_IMETHODIMP
+nsPrefBranch::ClearUserBranch(const char* aStartingAt) {
+  ENSURE_PARENT_PROCESS("ClearUserBranch", aStartingAt);
+
+  return ClearBranch(aStartingAt, false);
 }
 
 NS_IMETHODIMP
@@ -4737,6 +4762,9 @@ NS_IMETHODIMP Preferences::UnlockPref(const char* aPrefName) {
 }
 NS_IMETHODIMP Preferences::DeleteBranch(const char* aStartingAt) {
   return sPImpl->mRootBranch->DeleteBranch(aStartingAt);
+}
+NS_IMETHODIMP Preferences::ClearUserBranch(const char* aStartingAt) {
+  return sPImpl->mRootBranch->ClearUserBranch(aStartingAt);
 }
 NS_IMETHODIMP Preferences::GetChildList(const char* aStartingAt,
                                         nsTArray<nsCString>& aRetVal) {

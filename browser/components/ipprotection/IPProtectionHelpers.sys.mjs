@@ -70,6 +70,7 @@ class UIHelper {
 
     if (
       !lazy.IPProtection.isInitialized &&
+      !AppConstants.MOZ_ENTERPRISE &&
       state !== lazy.IPProtectionStates.UNINITIALIZED &&
       state !== lazy.IPProtectionStates.UNAVAILABLE
     ) {

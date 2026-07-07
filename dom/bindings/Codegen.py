@@ -18246,6 +18246,25 @@ class CGDictionary(CGThing):
             body=body.define(),
         )
 
+    def getStructMemberDefault(self, m, memberDefault):
+        # A member with a real IDL default keeps it.
+        if memberDefault is not None:
+            return memberDefault
+        # Required bare scalar members (numeric / boolean / enum, not nullable and
+        # not inside an Optional<>) are otherwise left uninitialized and only set
+        # by Init(). Value-initialize them so static-analysis tools don't report
+        # an uninitialized field; the cost is a single zero-store that Init()
+        # overwrites, and non-scalar members already have their own constructors.
+        member = m[0]
+        t = member.type
+        if (
+            not member.canHaveMissingValue()
+            and not t.nullable()
+            and (t.isPrimitive() or t.isEnum())
+        ):
+            return "{}"
+        return None
+
     def getStructs(self):
         d = self.dictionary
         selfName = self.makeClassName(d)
@@ -18255,11 +18274,12 @@ class CGDictionary(CGThing):
                 self.getMemberType(m),
                 visibility="public",
                 body=self.getMemberInitializer(m),
-                hasIgnoreInitCheckFlag=memberDefault is None,
-                defaultValue=memberDefault,
+                hasIgnoreInitCheckFlag=structDefault is None,
+                defaultValue=structDefault,
             )
-            for m, memberDefault in [
-                (m, self.getMemberDefaultValue(m)) for m in self.memberInfo
+            for m, structDefault in [
+                (m, self.getStructMemberDefault(m, self.getMemberDefaultValue(m)))
+                for m in self.memberInfo
             ]
         ]
         if d.parent:
@@ -19905,13 +19925,13 @@ class CGNativeMember(ClassMethod):
                 # No need for a third element in the isMember case
                 return "nsString", None, None
             # Outparam
-            return "void", "", "aRetVal = ${declName};\n"
+            return "void", "", "aRetVal = std::move(${declName});\n"
         if type.isByteString() or type.isUTF8String():
             if isMember:
                 # No need for a third element in the isMember case
                 return "nsCString", None, None
             # Outparam
-            return "void", "", "aRetVal = ${declName};\n"
+            return "void", "", "aRetVal = std::move(${declName});\n"
         if type.isEnum():
             enumName = type.unroll().inner.identifier.name
             if type.nullable():

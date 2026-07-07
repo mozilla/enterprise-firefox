@@ -781,19 +781,6 @@ void ShadowRoot::MaybeReassignContent(nsIContent& aElementOrText) {
   }
 }
 
-bool ShadowRoot::IsUAShadowRootSlow() const {
-  if (IsUAWidget()) {
-    return true;  // E.g., <details>, <video>, etc.
-  }
-  Element* const host = GetHost();
-  if (!host) {
-    return false;
-  }
-  // SVG <use>, etc cannot attach shadow root from JS so that the shadow root
-  // for them is always a UA ShadowRoot.
-  return !host->CanAttachShadowDOM();
-}
-
 Element* ShadowRoot::GetActiveElement() {
   return GetRetargetedFocusedElement();
 }

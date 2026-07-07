@@ -1336,7 +1336,6 @@ class HomeFragment : Fragment() {
         selectTabUseCase = requireComponents.useCases.tabsUseCases.selectTab,
         fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
         topSitesUseCases = requireComponents.useCases.topSitesUseCase,
-        marsUseCases = requireComponents.useCases.marsUseCases,
         mozAdsUseCases = requireComponents.useCases.mozAdsUseCases,
         viewLifecycleScope = viewLifecycleOwner.lifecycleScope,
     )

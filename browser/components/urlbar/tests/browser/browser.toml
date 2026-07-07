@@ -177,6 +177,8 @@ support-files = [
 
 ["browser_hideHeuristic.js"]
 
+["browser_historyInSearchMode.js"]
+
 ["browser_ime_composition.js"]
 
 ["browser_inputHistory.js"]
@@ -421,7 +423,7 @@ support-files = [
 
 ["browser_speculative_connect.js"]
 support-files = [
-  "searchSuggestionEngine2.xml",
+"searchSuggestionEngine2.xml",
   "searchSuggestionEngine.sjs",
 ]
 

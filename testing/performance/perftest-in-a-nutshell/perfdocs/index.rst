@@ -222,7 +222,7 @@ How to trigger a custom Gecko Profile
 5. Fill in the profiling parameters:
 
    * ``gecko_profile_interval`` – sampling interval in milliseconds (e.g. `1`)
-   * ``gecko_profile_features`` – comma-separated feature list (e.g. `js,stackwalk,cpu,screenshots,memory`)
+   * ``gecko_profile_features`` – comma-separated feature list (e.g. `js,stackwalk,screenshots,memory`)
    * ``gecko_profile_threads`` – comma-separated thread names (e.g. `GeckoMain,Compositor,Renderer`)
 
  .. image:: ./gpc_form.png

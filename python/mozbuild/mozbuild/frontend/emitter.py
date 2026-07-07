@@ -15,6 +15,7 @@ import mozpack.path as mozpath
 import toml
 from mach.mixin.logging import LoggingMixin
 from mozpack.chrome.manifest import Manifest
+from mozshellutil import quote
 
 from mozbuild.base import ExecutionSummary
 from mozbuild.util import HierarchicalStringList
@@ -1685,7 +1686,7 @@ class TreeMetadataEmitter(LoggingMixin):
         if context.get("USE_INTEGRATED_CLANGCL_AS") is True:
             if context.config.substs.get("CC_TYPE") != "clang-cl":
                 raise SandboxValidationError("clang-cl is not available", context)
-            passthru.variables["AS"] = context.config.substs.get("CC")
+            passthru.variables["AS"] = quote(*context.config.substs.get("CC"))
             passthru.variables["AS_DASH_C_FLAG"] = "-c"
             passthru.variables["ASOUTOPTION"] = "-o "
 

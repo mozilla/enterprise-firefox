@@ -4,10 +4,10 @@
 /**
  * Logic/unit tests for LoginStorageMigrator.
  *
- * These exercise the migrator's state machine and error handling against
- * in-memory fake storages, so every test is deterministic: the migrator is a
- * one-shot `await run()` with no observers or polling. Real end-to-end data
- * movement against the actual Rust store is covered by
+ * These exercise the migrator's state machine, error handling and telemetry
+ * against in-memory fake storages, so every test is deterministic: the migrator
+ * is a one-shot `await run()` with no observers or polling. Real end-to-end
+ * data movement against the actual Rust store is covered by
  * browser/browser_login_storage_migrator.js.
  */
 
@@ -19,17 +19,21 @@ const { LoginStorageMigrator } = ChromeUtils.importESModule(
 const { sinon } = ChromeUtils.importESModule(
   "resource://testing-common/Sinon.sys.mjs"
 );
+const { MockRegistrar } = ChromeUtils.importESModule(
+  "resource://testing-common/MockRegistrar.sys.mjs"
+);
 
 const PREF_ENABLED = "signon.storage.rust.enabled";
 const PREF_ACTIVE = "signon.storage.rust.active";
 const PREF_ATTEMPTS = "signon.storage.rust.migrationAttempts";
 
-// Brings the prefs back to a known-clean baseline. Called at the start of every
-// test so a previously failed test can't bleed in.
+// Brings the shared state (prefs + telemetry) back to a known-clean baseline.
+// Called at the start of every test so a previously failed test can't bleed in.
 function resetState() {
   Services.prefs.clearUserPref(PREF_ENABLED);
   Services.prefs.clearUserPref(PREF_ACTIVE);
   Services.prefs.clearUserPref(PREF_ATTEMPTS);
+  Services.fog.testResetFOG();
 }
 
 function makeJsonStorage({
@@ -98,7 +102,30 @@ function makeRustStorage({
   };
 }
 
+// Stands in for the primary password dialog. `accept` decides whether the user
+// submits the correct password or cancels. Returns the CID to unregister.
+function mockPrimaryPasswordPrompt(accept) {
+  const prompt = {
+    promptPassword(_dialogTitle, _text, password) {
+      if (accept) {
+        password.value = LoginTestUtils.primaryPassword.primaryPassword;
+      }
+      return accept;
+    },
+    QueryInterface: ChromeUtils.generateQI(["nsIPrompt"]),
+  };
+  const windowWatcher = {
+    getNewPrompter: () => prompt,
+    QueryInterface: ChromeUtils.generateQI(["nsIWindowWatcher"]),
+  };
+  return MockRegistrar.register(
+    "@mozilla.org/embedcomp/window-watcher;1",
+    windowWatcher
+  );
+}
+
 add_setup(function () {
+  Services.fog.initializeFOG();
   registerCleanupFunction(resetState);
 });
 
@@ -177,7 +204,7 @@ add_task(async function test_exceedMigrationBudget_falls_back_to_json() {
 // Successful migration
 // ---------------------------------------------------------------------------
 
-add_task(async function test_migration_completes() {
+add_task(async function test_migration_completes_and_reports_status() {
   resetState();
   Services.prefs.setBoolPref(PREF_ENABLED, true); // active defaults false => Pending
   const logins = [
@@ -200,6 +227,18 @@ add_task(async function test_migration_completes() {
   );
   Assert.equal(rust.added.length, 2, "both logins written to Rust");
   Assert.deepEqual(rust.vulnerable, ["vuln1"], "vulnerable password migrated");
+
+  const events = Glean.pwmgr.rustMigrationStatus.testGetValue();
+  Assert.equal(events.length, 1, "one status event");
+  const { extra } = events[0];
+  Assert.equal(extra.end_state, "RustPrimary");
+  Assert.equal(extra.number_of_logins_to_migrate, "2");
+  Assert.equal(extra.number_of_logins_migrated, "2");
+  Assert.equal(extra.number_of_logins_quarantined, "0");
+  Assert.equal(extra.number_of_vulnerable_passwords, "1");
+  Assert.equal(extra.attempt, "0");
+  Assert.ok(!("error_message" in extra), "no error_message on success");
+  Assert.greaterOrEqual(Number(extra.duration_ms), 0, "duration_ms recorded");
 });
 
 add_task(async function test_migration_sorts_by_timePasswordChanged_desc() {
@@ -258,9 +297,14 @@ add_task(async function test_migration_quarantines_duplicates() {
     rescued[0].origin.startsWith("moz-pwmngr-fixed-"),
     "rescued duplicate origin rewritten to fixed scheme"
   );
+
+  const { extra } = Glean.pwmgr.rustMigrationStatus.testGetValue()[0];
+  Assert.equal(extra.number_of_logins_to_migrate, "1");
+  Assert.equal(extra.number_of_logins_migrated, "1");
+  Assert.equal(extra.number_of_logins_quarantined, "1");
 });
 
-add_task(async function test_migration_partial_failure() {
+add_task(async function test_migration_partial_failure_records_login_error() {
   resetState();
   Services.prefs.setBoolPref(PREF_ENABLED, true);
   const ok = TestData.formLogin({ username: "ok" });
@@ -277,7 +321,18 @@ add_task(async function test_migration_partial_failure() {
 
   Assert.equal(result, rust, "partial failure still completes the migration");
   Assert.equal(rust.addedBatches[1].length, 0, "non-duplicate is not rescued");
-  Assert.equal(rust.added.length, 1, "only the valid login is written");
+
+  const status = Glean.pwmgr.rustMigrationStatus.testGetValue()[0].extra;
+  Assert.equal(status.number_of_logins_migrated, "1");
+  Assert.equal(status.number_of_logins_to_migrate, "2");
+
+  const errors = Glean.pwmgr.rustMigrationLoginError.testGetValue();
+  Assert.equal(errors.length, 1, "one login error recorded");
+  Assert.equal(
+    errors[0].extra.error_message,
+    "bad data",
+    "error message is normalized"
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -309,6 +364,12 @@ add_task(async function test_migration_fatal_aborts_and_increments_attempts() {
     1,
     "migration was retried within the session"
   );
+
+  const events = Glean.pwmgr.rustMigrationStatus.testGetValue();
+  Assert.greaterOrEqual(events.length, 1, "status event(s) recorded");
+  const { extra } = events.at(-1);
+  Assert.equal(extra.end_state, "MigrationPending");
+  Assert.ok("error_message" in extra, "fatal error message recorded");
 });
 
 add_task(async function test_migration_retries_then_completes() {
@@ -332,12 +393,44 @@ add_task(async function test_migration_retries_then_completes() {
 // Primary Password
 // ---------------------------------------------------------------------------
 
-add_task(async function test_primaryPassword_locked_defers_without_penalty() {
+add_task(async function test_primaryPassword_prompt_accepted_migrates() {
+  resetState();
+  Services.prefs.setBoolPref(PREF_ENABLED, true);
+  await LoginTestUtils.primaryPassword.enable();
+  const cid = mockPrimaryPasswordPrompt(true);
+  try {
+    const json = makeJsonStorage({
+      logins: [TestData.formLogin({})],
+      isLoggedIn: false,
+    });
+    const rust = makeRustStorage();
+
+    const result = await new LoginStorageMigrator(json, rust).run();
+
+    Assert.equal(
+      result,
+      rust,
+      "accepting the Primary Password prompt proceeds with migration"
+    );
+    Assert.equal(
+      Services.prefs.getBoolPref(PREF_ACTIVE),
+      true,
+      "rust activated"
+    );
+    const { extra } = Glean.pwmgr.rustMigrationStatus.testGetValue()[0];
+    Assert.equal(extra.primary_password_set, "true");
+  } finally {
+    MockRegistrar.unregister(cid);
+    await LoginTestUtils.primaryPassword.disable();
+  }
+});
+
+add_task(async function test_primaryPassword_prompt_canceled_defers() {
   resetState();
   Services.prefs.setBoolPref(PREF_ENABLED, true);
   Services.prefs.setIntPref(PREF_ATTEMPTS, 3);
-  const sandbox = sinon.createSandbox();
-  sandbox.stub(LoginHelper, "isPrimaryPasswordSet").returns(true);
+  await LoginTestUtils.primaryPassword.enable();
+  const cid = mockPrimaryPasswordPrompt(false);
   try {
     const json = makeJsonStorage({
       logins: [TestData.formLogin({})],
@@ -350,7 +443,7 @@ add_task(async function test_primaryPassword_locked_defers_without_penalty() {
     Assert.equal(
       result,
       json,
-      "locked Primary Password defers to the JSON store"
+      "canceling the Primary Password prompt defers to the JSON store"
     );
     Assert.equal(rust.calls.length, 0, "no migration performed");
     Assert.equal(
@@ -361,10 +454,16 @@ add_task(async function test_primaryPassword_locked_defers_without_penalty() {
     Assert.equal(
       Services.prefs.getIntPref(PREF_ATTEMPTS),
       3,
-      "deferral does not consume the attempt budget"
+      "canceling does not consume the attempt budget"
+    );
+    Assert.equal(
+      Glean.pwmgr.rustMigrationStatus.testGetValue(),
+      null,
+      "no status event for a deferred run"
     );
   } finally {
-    sandbox.restore();
+    MockRegistrar.unregister(cid);
+    await LoginTestUtils.primaryPassword.disable();
   }
 });
 
@@ -388,6 +487,8 @@ add_task(async function test_primaryPassword_unlocked_migrates() {
       true,
       "rust activated"
     );
+    const { extra } = Glean.pwmgr.rustMigrationStatus.testGetValue()[0];
+    Assert.equal(extra.primary_password_set, "true");
   } finally {
     sandbox.restore();
   }

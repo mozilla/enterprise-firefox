@@ -5721,7 +5721,10 @@ ${
 
     if (this.searchMode) {
       options.searchMode = this.searchMode;
-      if (this.searchMode.source) {
+      if (
+        this.searchMode.source &&
+        !lazy.UrlbarPrefs.get("unifiedSearchButton.historyInSearchMode")
+      ) {
         options.sources = [this.searchMode.source];
       }
     }

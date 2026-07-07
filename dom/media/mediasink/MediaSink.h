@@ -6,6 +6,7 @@
 #define MediaSink_h_
 
 #include "MediaInfo.h"
+#include "mozilla/DefineEnum.h"
 #include "mozilla/MozPromise.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/dom/MediaDebugInfoBinding.h"
@@ -111,12 +112,20 @@ class MediaSink {
   // Do nothing if this sink has no video track. Can be called in any state.
   virtual void Redraw(const VideoInfo& aInfo) {};
 
+  // Whether a Start() call begins initial playback or resumes after a seek.
+  // Sinks may start more cheaply for SeekResume; in particular the audio sink
+  // initializes the audio stream asynchronously so it does not block the state
+  // machine thread (and stall the clock) while resuming.
+  MOZ_DEFINE_ENUM_CLASS_WITH_TOSTRING_AT_CLASS_SCOPE(StartType,
+                                                     (Initial, SeekResume));
+
   // Begin a playback session with the provided start time in the media data
   // and media info.  Must be called when playback is stopped.  aStartTime is
   // compared with MediaData::mTime and continues to increase when looping,
   // unless decoding is reset.
   virtual nsresult Start(const media::TimeUnit& aStartTime,
-                         const MediaInfo& aInfo) = 0;
+                         const MediaInfo& aInfo,
+                         StartType aStartType = StartType::Initial) = 0;
 
   // Finish a playback session.
   // Must be called after playback starts.

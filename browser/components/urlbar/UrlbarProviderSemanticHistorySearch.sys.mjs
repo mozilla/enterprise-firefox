@@ -99,8 +99,8 @@ export class UrlbarProviderSemanticHistorySearch extends UrlbarProvider {
     if (
       lazy.UrlbarPrefs.get("suggest.history") &&
       queryContext.searchString.length >= minSearchStringLength &&
-      (!queryContext.searchMode ||
-        queryContext.searchMode.source ==
+      (!queryContext.restrictInSearchMode() ||
+        queryContext.searchMode?.source ==
           lazy.UrlbarShared.RESULT_SOURCE.HISTORY)
     ) {
       // The smartbar (SW-only surface) is gated on the SW pref so it can light

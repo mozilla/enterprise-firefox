@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
-
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -648,12 +646,6 @@ export class IPProtectionPanel {
 
     let headerButton = panelView.querySelector(".panel-info-button");
     if (headerButton) {
-      if (AppConstants.MOZ_ENTERPRISE) {
-        headerButton.replaceWith(
-          this.#createAccessConnectorStatusLabel(ownerDocument)
-        );
-      }
-
       headerButton.addEventListener("click", IPProtectionPanel.showHelpPage);
       headerButton.addEventListener(
         "keypress",
@@ -668,21 +660,6 @@ export class IPProtectionPanel {
     contentArea.appendChild(contentEl);
     this.components.add(contentEl);
     return contentEl;
-  }
-
-  #createAccessConnectorStatusLabel(ownerDocument) {
-    const statusLabel = ownerDocument.createXULElement("label");
-
-    statusLabel.id = IPProtectionPanel.HEADER_BUTTON_ID;
-    statusLabel.className = "panel-info-button";
-
-    ownerDocument.l10n.setAttributes(
-      statusLabel,
-      (this.state?.siteData?.isInclusion ?? false)
-        ? "enterprise-access-connector-status-label-active"
-        : "enterprise-access-connector-status-label-inactive"
-    );
-    return statusLabel;
   }
 
   /**
@@ -1052,10 +1029,7 @@ export class IPProtectionPanel {
     const isExclusion =
       lazy.IPPExceptionsManager.getPrincipalRule(principal) ===
       lazy.IPPPrincipalRules.EXCLUDED;
-    const isInclusion =
-      lazy.IPPExceptionsManager.getPrincipalRule(principal) ===
-      lazy.IPPPrincipalRules.INCLUDED;
-    return { isExclusion, isInclusion };
+    return { isExclusion };
   }
 
   /**

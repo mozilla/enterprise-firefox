@@ -34,7 +34,7 @@
    until Bug 1879349 lands */
 @layer tokens-browser-theme {
   @media not ((forced-colors) or (-moz-native-theme)) {
-    :root:not([lwtheme]),
+    :root:is([theme-in-app], :not([lwtheme])),
     :host(.anonymous-content-host) {
       --urlbarview-background-color-hover: light-dark(rgb(240, 240, 244), var(--background-color-dimmed));
       --urlbarview-background-color-selected: light-dark(#e0e0e6, rgb(43, 42, 51));

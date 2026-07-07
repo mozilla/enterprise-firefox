@@ -4,10 +4,10 @@
 
 :root[inDOMFullscreen] #navigator-toolbox,
 :root[inDOMFullscreen] #fullscr-toggler,
-:root[inDOMFullscreen] #sidebar-box,
-:root[inDOMFullscreen] #sidebar-container,
-:root[inDOMFullscreen] #sidebar-splitter,
-:root[inDOMFullscreen] #sidebar-launcher-splitter,
+:root[fullscreenNavToolboxHidden] #sidebar-box,
+:root[fullscreenNavToolboxHidden] #sidebar-container,
+:root[fullscreenNavToolboxHidden] #sidebar-splitter,
+:root[fullscreenNavToolboxHidden] #sidebar-launcher-splitter,
 :root[inFullscreen]:not([macOSNativeFullscreen]) toolbar:not([fullscreentoolbar="true"]) {
   visibility: collapse;
 }

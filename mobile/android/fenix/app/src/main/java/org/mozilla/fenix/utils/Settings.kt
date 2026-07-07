@@ -111,7 +111,6 @@ class Settings(
         const val ONE_MINUTE_MS = 60 * 1000L
         const val ONE_HOUR_MS = 60 * ONE_MINUTE_MS
         const val ONE_DAY_MS = 60 * 60 * 24 * 1000L
-        const val TWO_DAYS_MS = 2 * ONE_DAY_MS
         const val THREE_DAYS_MS = 3 * ONE_DAY_MS
         const val FIVE_DAYS_MS = 5 * ONE_DAY_MS
         const val ONE_WEEK_MS = 60 * 60 * 24 * 7 * 1000L
@@ -368,14 +367,6 @@ class Settings(
             )
         }
     }
-
-    /**
-     * Indicates if review prompt feature should use the new trigger criteria.
-     */
-    var newReviewPromptTriggerCriteriaEnabled by booleanPreference(
-        appContext.getPreferenceKey(R.string.pref_key_custom_review_prompt_enabled),
-        default = { FxNimbus.features.customReviewPrompt.value().enabled },
-    )
 
     /**
      * Indicates if the custom review prompt UI should be enabled.
@@ -2448,11 +2439,11 @@ class Settings(
     )
 
     /**
-     * Indicates if the Mozilla Ads Client is enabled.
+     * Indicates if the Mozilla Ads Client for Sponsored Stories is enabled.
      */
-    var enableMozillaAdsClient by booleanPreference(
-        key = appContext.getPreferenceKey(R.string.pref_key_enable_mozilla_ads_client),
-        default = { FxNimbus.features.mozillaAdsClient.value().enabled },
+    var enableAdsClientForStories by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_enable_ads_client_for_stories),
+        default = { FxNimbus.features.adsClientForStories.value().enabled },
     )
 
     /**

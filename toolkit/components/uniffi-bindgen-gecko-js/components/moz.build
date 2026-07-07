@@ -4,6 +4,7 @@
 
 MOZ_SRC_FILES += [
     "generated/RustAdsClient.sys.mjs",
+    "generated/RustAutofill.sys.mjs",
     "generated/RustBreachAlerts.sys.mjs",
     "generated/RustContextId.sys.mjs",
     "generated/RustFilterAdult.sys.mjs",

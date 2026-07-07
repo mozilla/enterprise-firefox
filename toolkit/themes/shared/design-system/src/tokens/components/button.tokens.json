@@ -278,7 +278,8 @@
       "ghost": {
         "@base": {
           "value": {
-            "default": "{button.border.color.@base}"
+            "default": "{button.border.color.@base}",
+            "prefersContrast": "{button.border.color.@base}"
           }
         },
         "active": {

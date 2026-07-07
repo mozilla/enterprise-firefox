@@ -514,7 +514,7 @@ FilenameTypeAndDetails nsContentSecurityUtils::FilenameToFilenameType(
   return FilenameTypeAndDetails(kOther, Nothing());
 }
 
-#if defined(EARLY_BETA_OR_EARLIER)
+#ifdef NIGHTLY_BUILD
 // Crash String must be safe from a telemetry point of view.
 // This will be ensured when this function is used.
 void PossiblyCrash(const char* aPrefSuffix, const char* aUnsafeCrashString,

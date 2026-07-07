@@ -224,7 +224,26 @@ nsStandardURL::nsStandardURL(bool aSupportsFileURL, bool aTrackURL)
 #endif
 }
 
-bool nsStandardURL::IsValid() {
+// Reason codes reported by IsValid() to identify the first failing check.
+// Used to disambiguate SanityCheck() crashes in the field.
+enum InvalidURLReason : uint32_t {
+  eURLValid = 0,
+  eURLSegmentBadLen = 1,
+  eURLSegmentOutOfString = 2,
+  eURLSegmentOverflow = 3,
+  eURLSchemeNotAtStart = 4,
+  eURLEmbeddedNul = 5,
+  eURLSchemeNoColon = 6,
+};
+
+bool nsStandardURL::IsValid(uint32_t* aFailReason) {
+  auto fail = [&](uint32_t aReason) {
+    if (aFailReason) {
+      *aFailReason = aReason;
+    }
+    return false;
+  };
+
   auto checkSegment = [&](const nsStandardURL::URLSegment& aSeg) {
 #ifdef EARLY_BETA_OR_EARLIER
     // If the parity is not the same, we assume that this is caused by a memory
@@ -237,7 +256,7 @@ bool nsStandardURL::IsValid() {
 #endif
     // Bad value
     if (NS_WARN_IF(aSeg.mLen < -1)) {
-      return false;
+      return fail(eURLSegmentBadLen);
     }
     if (aSeg.mLen == -1) {
       return true;
@@ -245,12 +264,12 @@ bool nsStandardURL::IsValid() {
 
     // Points out of string
     if (NS_WARN_IF(aSeg.mPos + aSeg.mLen > mSpec.Length())) {
-      return false;
+      return fail(eURLSegmentOutOfString);
     }
 
     // Overflow
     if (NS_WARN_IF(aSeg.mPos + aSeg.mLen < aSeg.mPos)) {
-      return false;
+      return fail(eURLSegmentOverflow);
     }
 
     return true;
@@ -267,40 +286,42 @@ bool nsStandardURL::IsValid() {
   }
 
   if (mScheme.mPos != 0) {
-    return false;
+    return fail(eURLSchemeNotAtStart);
   }
 
   // mSpec must not contain embedded NULs
   if (NS_WARN_IF(mSpec.FindChar('\0') != -1)) {
-    return false;
+    return fail(eURLEmbeddedNul);
   }
 
   // The character immediately after the scheme must be ':', e.g. "http:".
   if (mScheme.mLen > 0 && NS_WARN_IF(mSpec.CharAt(mScheme.mLen) != ':')) {
-    return false;
+    return fail(eURLSchemeNoColon);
   }
 
   return true;
 }
 
 void nsStandardURL::SanityCheck() {
-  if (!IsValid()) {
+  // Record which check failed so field crashes can be disambiguated
+  uint32_t failReason = eURLValid;
+  if (!IsValid(&failReason)) {
     nsPrintfCString msg(
-        "mLen:%zX, mScheme (%X,%X), mAuthority (%X,%X), mUsername (%X,%X), "
-        "mPassword (%X,%X), mHost (%X,%X), mPath (%X,%X), mFilepath (%X,%X), "
-        "mDirectory (%X,%X), mBasename (%X,%X), mExtension (%X,%X), mQuery "
-        "(%X,%X), mRef (%X,%X)",
-        mSpec.Length(), (uint32_t)mScheme.mPos, (int32_t)mScheme.mLen,
-        (uint32_t)mAuthority.mPos, (int32_t)mAuthority.mLen,
-        (uint32_t)mUsername.mPos, (int32_t)mUsername.mLen,
-        (uint32_t)mPassword.mPos, (int32_t)mPassword.mLen, (uint32_t)mHost.mPos,
-        (int32_t)mHost.mLen, (uint32_t)mPath.mPos, (int32_t)mPath.mLen,
-        (uint32_t)mFilepath.mPos, (int32_t)mFilepath.mLen,
-        (uint32_t)mDirectory.mPos, (int32_t)mDirectory.mLen,
-        (uint32_t)mBasename.mPos, (int32_t)mBasename.mLen,
-        (uint32_t)mExtension.mPos, (int32_t)mExtension.mLen,
-        (uint32_t)mQuery.mPos, (int32_t)mQuery.mLen, (uint32_t)mRef.mPos,
-        (int32_t)mRef.mLen);
+        "reason:%X, mLen:%zX, mScheme (%X,%X), mAuthority (%X,%X), mUsername "
+        "(%X,%X), mPassword (%X,%X), mHost (%X,%X), mPath (%X,%X), mFilepath "
+        "(%X,%X), mDirectory (%X,%X), mBasename (%X,%X), mExtension (%X,%X), "
+        "mQuery (%X,%X), mRef (%X,%X)",
+        failReason, mSpec.Length(), (uint32_t)mScheme.mPos,
+        (int32_t)mScheme.mLen, (uint32_t)mAuthority.mPos,
+        (int32_t)mAuthority.mLen, (uint32_t)mUsername.mPos,
+        (int32_t)mUsername.mLen, (uint32_t)mPassword.mPos,
+        (int32_t)mPassword.mLen, (uint32_t)mHost.mPos, (int32_t)mHost.mLen,
+        (uint32_t)mPath.mPos, (int32_t)mPath.mLen, (uint32_t)mFilepath.mPos,
+        (int32_t)mFilepath.mLen, (uint32_t)mDirectory.mPos,
+        (int32_t)mDirectory.mLen, (uint32_t)mBasename.mPos,
+        (int32_t)mBasename.mLen, (uint32_t)mExtension.mPos,
+        (int32_t)mExtension.mLen, (uint32_t)mQuery.mPos, (int32_t)mQuery.mLen,
+        (uint32_t)mRef.mPos, (int32_t)mRef.mLen);
     CrashReporter::RecordAnnotationNSCString(
         CrashReporter::Annotation::URLSegments, msg);
 
@@ -789,8 +810,19 @@ nsresult nsStandardURL::BuildNormalizedSpec(const char* spec,
   }
   mSpec.Truncate(strlen(buf));
   ResetSpecHash();
-  NS_ASSERTION(mSpec.Length() <= approxLen,
-               "We've overflowed the mSpec buffer!");
+
+  if (MOZ_UNLIKELY(mSpec.Length() > approxLen)) {
+    nsPrintfCString msg(
+        "approxLen:%X, mSpecLen:%zX, scheme (%X,%X), host (%X,%X), path "
+        "(%X,%X)",
+        approxLen, mSpec.Length(), (uint32_t)mScheme.mPos,
+        (int32_t)mScheme.mLen, (uint32_t)mHost.mPos, (int32_t)mHost.mLen,
+        (uint32_t)mPath.mPos, (int32_t)mPath.mLen);
+    CrashReporter::RecordAnnotationNSCString(
+        CrashReporter::Annotation::URLSegments, msg);
+    MOZ_CRASH("nsStandardURL::BuildNormalizedSpec overflowed mSpec");
+  }
+
   MOZ_ASSERT(mSpec.Length() <= StaticPrefs::network_standard_url_max_length(),
              "The spec should never be this long, we missed a check.");
 

@@ -85,7 +85,7 @@ export class UrlbarProviderQuickSuggestContextualOptIn extends UrlbarProvider {
       (queryContext.isPrivate ||
         queryContext.restrictSource ||
         queryContext.searchString ||
-        queryContext.searchMode)
+        queryContext.restrictInSearchMode())
     ) {
       return false;
     }

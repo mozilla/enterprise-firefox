@@ -61,6 +61,7 @@ export class SelectControlBaseElement extends MozLitElement {
     name: { type: String },
     value: { type: String },
     headingLevel: { type: Number },
+    orientation: { type: String },
   };
 
   static queries = {
@@ -164,6 +165,7 @@ export class SelectControlBaseElement extends MozLitElement {
     super();
     this.type = "radio";
     this.disabled = false;
+    this.orientation = "horizontal";
     this.#internals = this.attachInternals();
     this.addEventListener("blur", e => this.handleBlur(e), true);
     this.addEventListener("keydown", e => this.handleKeydown(e));
@@ -191,6 +193,7 @@ export class SelectControlBaseElement extends MozLitElement {
       }
 
       item.name = this.name;
+      item.orientation = this.orientation;
     });
     this.syncFocusState();
   }
@@ -290,6 +293,11 @@ export class SelectControlBaseElement extends MozLitElement {
     if (changedProperties.has("type")) {
       this.updateChildRoles();
     }
+    if (changedProperties.has("orientation")) {
+      this.childElements.forEach(item => {
+        item.orientation = this.orientation;
+      });
+    }
     if (changedProperties.has("value")) {
       this.#internals.setFormValue(this.value);
     }
@@ -330,7 +338,7 @@ export class SelectControlBaseElement extends MozLitElement {
         aria-label=${ifDefined(this.ariaLabel)}
         headinglevel=${this.headingLevel}
         exportparts="inputs, support-link"
-        aria-orientation=${ifDefined(this.constructor.orientation)}
+        aria-orientation=${ifDefined(this.orientation)}
       >
         ${!this.supportPage
           ? html`<slot slot="support-link" name="support-link"></slot>`
@@ -363,6 +371,7 @@ export const SelectControlItemMixin = superClass =>
       disabled: { type: Boolean, reflect: true },
       parentDisabled: { type: Boolean, reflect: true },
       checked: { type: Boolean, reflect: true },
+      orientation: { type: String, reflect: true },
       itemTabIndex: { type: Number, state: true },
       role: { type: String, state: true },
       position: { type: Number, state: true },
@@ -400,6 +409,7 @@ export const SelectControlItemMixin = superClass =>
       this.#controller = hostElement;
       this.parentDisabled = this.#controller.disabled;
       this.role = this.#controller.getChildRole();
+      this.orientation = this.#controller.orientation;
       if (this.#controller.hasValue) {
         this.checked = this.value === this.#controller.value;
       }

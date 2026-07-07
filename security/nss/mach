@@ -933,9 +933,10 @@ def _tc_try_options():
     """
     tc = os.path.join(cwd, 'taskcluster')
 
-    # Platforms: scan PLATFORM_ALIASES keys from target_tasks.py, then add any
-    # build_platform values from the build kind YAMLs that aren't alias targets
-    # (e.g. linux64-asan has no alias).
+    # Platforms: the build_platform values from the build kind YAMLs are the
+    # canonical try selectors (matched directly); PLATFORM_ALIASES keys in
+    # target_tasks.py add the build-type variant selectors (e.g. linux-x64-make)
+    # that map onto them. The valid selectors are the union of the two.
     aliases = {}
     target_tasks_path = os.path.join(tc, 'nss_taskgraph', 'target_tasks.py')
     in_aliases = False
@@ -959,7 +960,7 @@ def _tc_try_options():
             if isinstance(key, str) and '/' in key:
                 build_platforms.add(key.split('/')[0])
 
-    platforms = sorted(aliases.keys()) + sorted(build_platforms - set(aliases.values()))
+    platforms = sorted(set(build_platforms) | set(aliases.keys()))
 
     # Tests: walk test kind YAMLs; symbols like SSL(standard) contribute their
     # group name ("ssl") as the user-visible token; ungrouped symbols (Gtest,

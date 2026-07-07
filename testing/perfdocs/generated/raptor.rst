@@ -1899,7 +1899,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **expose chrome trace**: true
-   * **gecko profile features**: stackwalk,js,cpu,java,processcpu,memory
+   * **gecko profile features**: stackwalk,js,java,processcpu,memory
    * **gecko profile interval**: 1
    * **gecko profile threads**: GeckoMain,Compositor,Renderer,SwComposite,RenderBackend,SceneBuilder,WrWorker,CanvasWorkers,TextureUpdate
    * **host from parent**: false
@@ -2220,7 +2220,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **cold**: true
    * **expected**: pass
    * **expose browser profiler**: true
-   * **gecko profile features**: stackwalk,js,cpu,java,processcpu,memory
+   * **gecko profile features**: stackwalk,js,java,processcpu,memory
    * **gecko profile interval**: 1
    * **gecko profile threads**: GeckoMain,Compositor,Renderer,SwComposite,RenderBackend,SceneBuilder,WrWorker,CanvasWorkers,TextureUpdate
    * **host from parent**: false
@@ -2552,7 +2552,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **expose chrome trace**: true
-   * **gecko profile features**: stackwalk,js,cpu,java,processcpu,memory
+   * **gecko profile features**: stackwalk,js,java,processcpu,memory
    * **gecko profile interval**: 1
    * **gecko profile threads**: GeckoMain,Compositor,Renderer,SwComposite,RenderBackend,SceneBuilder,WrWorker,CanvasWorkers,TextureUpdate
    * **host from parent**: false
@@ -2873,7 +2873,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **cold**: true
    * **expected**: pass
    * **expose browser profiler**: true
-   * **gecko profile features**: stackwalk,js,cpu,java,processcpu,memory
+   * **gecko profile features**: stackwalk,js,java,processcpu,memory
    * **gecko profile interval**: 1
    * **gecko profile threads**: GeckoMain,Compositor,Renderer,SwComposite,RenderBackend,SceneBuilder,WrWorker,CanvasWorkers,TextureUpdate
    * **host from parent**: false
@@ -3203,7 +3203,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **gather cpuTime**: true
-   * **gecko profile features**: stackwalk,js,cpu,processcpu,nomarkerstacks
+   * **gecko profile features**: stackwalk,js,processcpu,nomarkerstacks
    * **gecko profile interval**: 1
    * **gecko profile threads**: GeckoMain,Compositor,Renderer,TaskController,StyleThread
    * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/speedometer-desktop.toml#19`
@@ -3599,7 +3599,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **gather cpuTime**: true
-   * **gecko profile features**: stackwalk,js,cpu,processcpu,nomarkerstacks,java
+   * **gecko profile features**: stackwalk,js,processcpu,nomarkerstacks,java
    * **gecko profile interval**: 1
    * **gecko profile threads**: GeckoMain,Compositor,Renderer,TaskController,StyleThread
    * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/benchmarks/speedometer-mobile.toml#19`
@@ -4008,7 +4008,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **gather cpuTime**: true
-   * **gecko profile features**: stackwalk,js,cpu,processcpu,nomarkerstacks
+   * **gecko profile features**: stackwalk,js,processcpu,nomarkerstacks
    * **gecko profile interval**: 1
    * **gecko profile threads**: GeckoMain,Compositor,Renderer,TaskController,StyleThread
    * **host from parent**: false
@@ -4517,7 +4517,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **expected**: pass
    * **expose browser profiler**: true
    * **gather cpuTime**: true
-   * **gecko profile features**: stackwalk,js,cpu,processcpu,nomarkerstacks,java
+   * **gecko profile features**: stackwalk,js,processcpu,nomarkerstacks,java
    * **gecko profile interval**: 1
    * **gecko profile threads**: GeckoMain,Compositor,Renderer,TaskController,StyleThread
    * **host from parent**: false
@@ -10733,7 +10733,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile entries**: 131072000
-   * **gecko profile features**: js,stackwalk,cpu,memory
+   * **gecko profile features**: js,stackwalk,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
    * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#50`
    * **lower is better**: true
@@ -10927,7 +10927,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile entries**: 131072000
-   * **gecko profile features**: js,stackwalk,cpu,memory
+   * **gecko profile features**: js,stackwalk,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
    * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#54`
    * **lower is better**: true
@@ -11121,7 +11121,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile entries**: 131072000
-   * **gecko profile features**: js,stackwalk,cpu,memory
+   * **gecko profile features**: js,stackwalk,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
    * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#58`
    * **lower is better**: true
@@ -11315,7 +11315,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile entries**: 131072000
-   * **gecko profile features**: js,stackwalk,cpu,memory
+   * **gecko profile features**: js,stackwalk,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
    * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#62`
    * **lower is better**: true
@@ -11509,7 +11509,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile entries**: 131072000
-   * **gecko profile features**: js,stackwalk,cpu,memory
+   * **gecko profile features**: js,stackwalk,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
    * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#66`
    * **lower is better**: true
@@ -11703,7 +11703,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile entries**: 131072000
-   * **gecko profile features**: js,stackwalk,cpu,memory
+   * **gecko profile features**: js,stackwalk,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
    * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#70`
    * **lower is better**: true
@@ -11897,7 +11897,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile entries**: 131072000
-   * **gecko profile features**: js,stackwalk,cpu,memory
+   * **gecko profile features**: js,stackwalk,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
    * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#74`
    * **lower is better**: true
@@ -12091,7 +12091,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile entries**: 131072000
-   * **gecko profile features**: js,stackwalk,cpu,memory
+   * **gecko profile features**: js,stackwalk,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
    * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#78`
    * **lower is better**: true
@@ -12285,7 +12285,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile entries**: 131072000
-   * **gecko profile features**: js,stackwalk,cpu,memory
+   * **gecko profile features**: js,stackwalk,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
    * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#82`
    * **lower is better**: true
@@ -12479,7 +12479,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile entries**: 131072000
-   * **gecko profile features**: js,stackwalk,cpu,memory
+   * **gecko profile features**: js,stackwalk,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
    * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#86`
    * **lower is better**: true
@@ -12673,7 +12673,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile entries**: 131072000
-   * **gecko profile features**: js,stackwalk,cpu,memory
+   * **gecko profile features**: js,stackwalk,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
    * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#90`
    * **lower is better**: true
@@ -12867,7 +12867,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile entries**: 131072000
-   * **gecko profile features**: js,stackwalk,cpu,memory
+   * **gecko profile features**: js,stackwalk,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
    * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#94`
    * **lower is better**: true
@@ -13780,7 +13780,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile entries**: 131072000
-   * **gecko profile features**: js,stackwalk,cpu,memory
+   * **gecko profile features**: js,stackwalk,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
    * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#98`
    * **lower is better**: true
@@ -16195,7 +16195,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile entries**: 131072000
-   * **gecko profile features**: js,stackwalk,cpu,memory
+   * **gecko profile features**: js,stackwalk,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
    * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#36`
    * **lower is better**: true
@@ -16389,7 +16389,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile entries**: 131072000
-   * **gecko profile features**: js,stackwalk,cpu,memory
+   * **gecko profile features**: js,stackwalk,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
    * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#40`
    * **lower is better**: true
@@ -16583,7 +16583,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile entries**: 131072000
-   * **gecko profile features**: js,stackwalk,cpu,memory
+   * **gecko profile features**: js,stackwalk,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
    * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#28`
    * **lower is better**: true
@@ -16777,7 +16777,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **custom data**: true
    * **expected**: pass
    * **gecko profile entries**: 131072000
-   * **gecko profile features**: js,stackwalk,cpu,memory
+   * **gecko profile features**: js,stackwalk,memory
    * **gecko profile threads**: GeckoMain,DOM Worker,IndexedDB
    * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-indexeddb.toml#32`
    * **lower is better**: true
@@ -25534,7 +25534,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **benchmark webserver**: true
    * **browser cycles**: 20
    * **expected**: pass
-   * **gecko profile features**: stackwalk,js,cpu,java,processcpu,screenshots,memory
+   * **gecko profile features**: stackwalk,js,java,processcpu,screenshots,memory
    * **gecko profile interval**: 1
    * **gecko profile threads**: BackgroundThreadPool,Compositor,decoder,GeckoMain,gmp,graph,grph,InotifyEventThread,IPDL Background,media,ModuleProcessThread,PacerThread,RemVidChild,RenderBackend,Renderer,SwComposite,TextureUpdate,ImageBridgeChld
    * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-video-playback-latency.toml#37`
@@ -25827,7 +25827,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **benchmark webserver**: true
    * **browser cycles**: 20
    * **expected**: pass
-   * **gecko profile features**: stackwalk,js,cpu,java,processcpu,screenshots,memory
+   * **gecko profile features**: stackwalk,js,java,processcpu,screenshots,memory
    * **gecko profile interval**: 1
    * **gecko profile threads**: BackgroundThreadPool,Compositor,decoder,GeckoMain,gmp,graph,grph,InotifyEventThread,IPDL Background,media,ModuleProcessThread,PacerThread,RemVidChild,RenderBackend,Renderer,SwComposite,TextureUpdate,ImageBridgeChld
    * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-video-playback-latency.toml#31`
@@ -26125,7 +26125,7 @@ Browsertime tests that use a custom pageload test script. These use the pageload
    * **benchmark webserver**: true
    * **browser cycles**: 20
    * **expected**: pass
-   * **gecko profile features**: stackwalk,js,cpu,java,processcpu,screenshots,memory
+   * **gecko profile features**: stackwalk,js,java,processcpu,screenshots,memory
    * **gecko profile interval**: 1
    * **gecko profile threads**: BackgroundThreadPool,Compositor,decoder,GeckoMain,gmp,graph,grph,InotifyEventThread,IPDL Background,media,ModuleProcessThread,PacerThread,RemVidChild,RenderBackend,Renderer,SwComposite,TextureUpdate,ImageBridgeChld
    * **link searchfox**: :searchfox:`testing/raptor/raptor/tests/custom/browsertime-video-playback-latency.toml#34`

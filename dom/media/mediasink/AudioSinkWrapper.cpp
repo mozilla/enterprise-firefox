@@ -96,19 +96,56 @@ TimeUnit AudioSinkWrapper::GetPosition(TimeStamp* aTimeStamp) {
   TimeStamp t = TimeStamp::Now();
 
   if (mAudioSink) {
-    if (mLastClockSource == ClockSource::SystemClock) {
-      TimeUnit switchTime = GetSystemClockPosition(t);
-      // Update the _actual_ start time of the audio stream now that it has
-      // started, preventing any clock discontinuity.
-      mAudioSink->UpdateStartTime(switchTime);
-      LOGV("{}: switching to audio clock at media time {}", fmt::ptr(this),
-           switchTime.ToSeconds());
+    TimeUnit audioPos = mAudioSink->GetPosition();
+    TimeUnit systemPos =
+        mClockStartTime.IsNull() ? audioPos : GetSystemClockPosition(t);
+    // When the sink is (re)created while the system clock is already driving
+    // playback (a seek resume or unmute), the audio stream's callback has not
+    // started yet, so its played position is frozen at the start and switching
+    // to it immediately would freeze the clock until cubeb begins producing.
+    // Until the callback starts, keep advancing on the system clock and keep
+    // the sink's start time + decoded-audio queue aligned to it. Latch to the
+    // audio clock as soon as the callback is running: this is bounded by cubeb
+    // init and so cannot get stuck waiting for the audio position to overtake
+    // real time (which can happen indefinitely if the audio device clock drifts
+    // slower than the wall clock). At that handoff the start time is
+    // re-anchored to the system clock (below), because the position is sampled
+    // on a ~40ms cadence: by the time the callback is seen the system clock has
+    // advanced a cycle while the just-started stream has played almost nothing,
+    // so latching to its raw played position would regress the clock by about
+    // one cycle. This only applies coming from the system clock; an initial
+    // start uses the audio clock directly and must not have its queued audio
+    // dropped here.
+    if (mLastClockSource == ClockSource::SystemClock &&
+        !mAudioSink->AudioStreamCallbackStarted()) {
+      pos = systemPos;
+      mAudioSink->UpdateStartTime(systemPos);
+      DropAudioPacketsIfNeeded(systemPos);
+      LOGV(
+          "{}: Getting position from the system clock, due to the audio stream "
+          "not having started yet {}",
+          fmt::ptr(this), pos.ToSeconds());
+      mLastClockSource = ClockSource::SystemClock;
+    } else {
+      if (mLastClockSource == ClockSource::SystemClock &&
+          !mClockStartTime.IsNull()) {
+        // Handoff: re-anchor the audio stream's start time to the current
+        // system clock so the reported position continues from real time. The
+        // position updates on a ~40ms cadence, so by now the system clock has
+        // advanced a cycle past the last alignment while the just-started
+        // stream has played almost nothing; latching to its raw played position
+        // would regress the clock by about one cycle and cost an extra cycle to
+        // reach the resume point.
+        mAudioSink->UpdateStartTime(systemPos);
+        audioPos = mAudioSink->GetPosition();
+        LOG("{}: Re-anchored the audio sink start time to the system clock {}",
+            fmt::ptr(this), audioPos.ToSeconds());
+      }
+      pos = audioPos;
+      LOGV("{}: Getting position from the Audio Sink {}", fmt::ptr(this),
+           pos.ToSeconds());
+      mLastClockSource = ClockSource::AudioStream;
     }
-    // Rely on the audio sink to report playback position when it is not ended.
-    pos = mAudioSink->GetPosition();
-    LOGV("{}: Getting position from the Audio Sink {}", fmt::ptr(this),
-         pos.ToSeconds());
-    mLastClockSource = ClockSource::AudioStream;
   } else if (!mClockStartTime.IsNull()) {
     // Calculate playback position using system clock if we are still playing,
     // but not rendering the audio, because this audio sink is muted.
@@ -301,7 +338,7 @@ double AudioSinkWrapper::PlaybackRate() const {
 }
 
 nsresult AudioSinkWrapper::Start(const TimeUnit& aStartTime,
-                                 const MediaInfo& aInfo) {
+                                 const MediaInfo& aInfo, StartType aStartType) {
   LOG("{} AudioSinkWrapper::Start", fmt::ptr(this));
   AssertOwnerThread();
   MOZ_ASSERT(!mIsStarted, "playback already started.");
@@ -323,6 +360,19 @@ nsresult AudioSinkWrapper::Start(const TimeUnit& aStartTime,
 
   mEndedPromise = mEndedPromiseHolder.Ensure(__func__);
   if (!NeedAudioSink()) {
+    return NS_OK;
+  }
+  // On a seek resume, initialize the audio stream asynchronously: cubeb stream
+  // init can take tens of milliseconds (CoreAudio/AudioUnit on macOS) and doing
+  // it synchronously here stalls the state machine thread, delaying the
+  // playback clock and the resume. Instead, return immediately; playback
+  // resumes on the system clock and switches to the audio clock once the sink
+  // is ready (the same path used when unmuting). Initial playback start stays
+  // synchronous.
+  if (aStartType == StartType::SeekResume) {
+    LOG("{}: AudioSinkWrapper::Start, async audio sink init for seek resume",
+        fmt::ptr(this));
+    MaybeAsyncCreateAudioSink(mAudioDevice);
     return NS_OK;
   }
   return SyncCreateAudioSink(aStartTime);

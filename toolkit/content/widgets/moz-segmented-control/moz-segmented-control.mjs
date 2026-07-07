@@ -23,7 +23,6 @@ export class MozSegmentedControl extends SelectControlBaseElement {
   #deckElement;
 
   static childElementName = "moz-segmented-control-item";
-  static orientation = "horizontal";
 
   static properties = {
     deck: { type: String },

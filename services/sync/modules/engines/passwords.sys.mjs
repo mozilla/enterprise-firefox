@@ -41,6 +41,11 @@ const VALID_LOGIN_FIELDS = [
 
 import { LoginManagerStorage } from "resource://passwordmgr/passwordstorage.sys.mjs";
 
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  setupLoggerForTarget: "resource://gre/modules/AppServicesTracing.sys.mjs",
+});
+
 // Sync and many tests rely on having an time that is rounded to the nearest
 // 100th of a second otherwise tests can fail intermittently.
 function roundTimeForSync(time) {
@@ -215,6 +220,9 @@ RustPasswordEngine.prototype = {
   async initialize() {
     await SyncEngine.prototype.initialize.call(this);
     await Services.logins.initializationPromise;
+
+    // Forward the Rust logins component's tracing output to this engine's log.
+    lazy.setupLoggerForTarget("logins", this._log);
 
     this._rustStore = LoginManagerStorage.getActiveStore();
     this._bridge = await this._rustStore.bridgedEngine();

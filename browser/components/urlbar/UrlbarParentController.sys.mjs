@@ -763,7 +763,7 @@ class TelemetryEvent {
       this.#recordExposures(queryContext);
     }
 
-    const visibleResults = this._controller.view?.visibleResults ?? [];
+    const visibleResults = this.#engagementData.visibleResults;
 
     // Start tracking for a disable event if there was a Suggest result
     // during an engagement or abandonment event.
@@ -803,7 +803,6 @@ class TelemetryEvent {
    *   already started closing. In that case, no telemetry should be recorded.
    */
   #searchSourceToSap(searchSource) {
-    let browserWindow = this._controller.browserWindow;
     if (searchSource === "urlbar_handoff") {
       return "handoff";
     }
@@ -814,6 +813,7 @@ class TelemetryEvent {
     if (searchSource === "smartbar") {
       return "smartbar";
     }
+    let browserWindow = this._controller.browserWindow;
     if (browserWindow.closed) {
       // If the browser window has already started closing, then we bail-out.
       // We would rather return no telemetry than have telemetry with an
@@ -829,6 +829,37 @@ class TelemetryEvent {
       return "urlbar_addonpage";
     }
     return "urlbar";
+  }
+
+  /**
+   * The content-side state the engagement-telemetry recording needs.
+   *
+   * @type {{searchMode: object, visibleResults: UrlbarResult[], viewIsOpen: boolean, searchSource: string}}
+   */
+  get #engagementData() {
+    return {
+      searchMode: this._controller.input.searchMode,
+      visibleResults: this._controller.view?.visibleResults ?? [],
+      viewIsOpen: this._controller.view?.isOpen ?? false,
+      searchSource: this._controller.input.getSearchSource(),
+    };
+  }
+
+  /**
+   * The smartbar-only telemetry fields, read fresh from the input.
+   *
+   * @type {{chatId: string, intent: string, model: string}}
+   */
+  get #smartbarData() {
+    // Only read when the SAP is `smartbar`, so the input is a SmartbarInput.
+    const input = /** @type {SmartbarInput} */ (
+      /** @type {unknown} */ (this._controller.input)
+    );
+    return {
+      chatId: input.conversationTelemetryInfo?.chat_id ?? "",
+      intent: input.smartbarAction ?? "",
+      model: input.modelName ?? "",
+    };
   }
 
   /**
@@ -904,6 +935,7 @@ class TelemetryEvent {
     if (!sap) {
       return;
     }
+    let engagementData = this.#engagementData;
     // The extra_key `location` is optional, but required for the smartbar.
     // TODO (bug 2024631): Support location for all SAPs.
     if (this._controller.sapName === "smartbar" && !location) {
@@ -911,7 +943,7 @@ class TelemetryEvent {
         "Telemetry extra_key `location` is required for smartbar"
       );
     }
-    searchMode = searchMode ?? this._controller.input.searchMode;
+    searchMode = searchMode ?? engagementData.searchMode;
 
     // Distinguish user typed search strings from persisted search terms.
     const interaction = this.#getInteractionType(
@@ -922,7 +954,7 @@ class TelemetryEvent {
       searchMode
     );
     const search_mode = this.#getSearchMode(searchMode);
-    const currentResults = this._controller.view?.visibleResults ?? [];
+    const currentResults = engagementData.visibleResults;
     let numResults = currentResults.length;
     let groups = currentResults
       .map(r => lazy.UrlbarUtils.searchEngagementTelemetryGroup(r))
@@ -953,10 +985,7 @@ class TelemetryEvent {
           selected_result = `action_${actionKey}`;
         }
 
-        if (
-          selected_result === "input_field" &&
-          !this._controller.view?.isOpen
-        ) {
+        if (selected_result === "input_field" && !engagementData.viewIsOpen) {
           numResults = 0;
           groups = "";
           results = "";
@@ -1100,15 +1129,7 @@ class TelemetryEvent {
     if (!isSmartbar) {
       return null;
     }
-    // If SAP is `smartbar` we can safely cast to type `SmartbarInput`.
-    const input = /** @type {SmartbarInput} */ (
-      /** @type {unknown} */ (this._controller.input)
-    );
-    return {
-      chatId: input.conversationTelemetryInfo?.chat_id ?? "",
-      intent: input.smartbarAction ?? "",
-      model: input.modelName ?? "",
-    };
+    return this.#smartbarData;
   }
 
   /**
@@ -1151,7 +1172,8 @@ class TelemetryEvent {
     if (!exposures.length) {
       return;
     }
-    let sap = this.#searchSourceToSap(this._controller.input.getSearchSource());
+    let { searchSource, visibleResults } = this.#engagementData;
+    let sap = this.#searchSourceToSap(searchSource);
     if (!sap) {
       // Window started closing.
       return;
@@ -1167,7 +1189,7 @@ class TelemetryEvent {
 
         let endResults = result.isHiddenExposure
           ? queryContext.results
-          : this._controller.view?.visibleResults;
+          : visibleResults;
         terminal = endResults?.includes(result);
       }
 

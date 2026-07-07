@@ -465,6 +465,10 @@ function Prefs(prevState = INITIAL_STATE.Prefs, action) {
       newValues = Object.assign({}, prevState.values);
       newValues[action.data.name] = action.data.value;
       return Object.assign({}, prevState, { values: newValues });
+    case at.MULTIPLE_PREFS_CHANGED:
+      return Object.assign({}, prevState, {
+        values: Object.assign({}, prevState.values, action.data.values),
+      });
     default:
       return prevState;
   }

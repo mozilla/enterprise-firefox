@@ -228,11 +228,11 @@ void VideoSink::SetPlaying(bool aPlaying) {
 }
 
 nsresult VideoSink::Start(const media::TimeUnit& aStartTime,
-                          const MediaInfo& aInfo) {
+                          const MediaInfo& aInfo, StartType aStartType) {
   AssertOwnerThread();
   VSINK_LOG("[{}]", __func__);
 
-  nsresult rv = mAudioSink->Start(aStartTime, aInfo);
+  nsresult rv = mAudioSink->Start(aStartTime, aInfo, aStartType);
 
   mHasVideo = aInfo.HasVideo();
 

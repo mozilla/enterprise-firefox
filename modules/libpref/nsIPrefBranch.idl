@@ -238,6 +238,8 @@ interface nsIPrefBranch : nsISupports
    *
    * @note
    * This method does nothing if this object is a default branch.
+   *
+   * @see clearUserBranch
    */
   void clearUserPref(in string aPrefName);
 
@@ -352,6 +354,22 @@ interface nsIPrefBranch : nsISupports
    */
   void    unlockPref(in string aPrefName);
 
+  /**
+   * Called to reset all of the preferences referenced by this branch to their
+   * default
+   * Called to clear the user set value from all preferences referenced by this
+   * branch. This will, in effect, reset the value of the preferences to their
+   * default value. If no default value exists the preference will cease to exist.
+   *
+   * @param aStartingAt The point on the branch at which to start the clearing
+   *                    the preferences. Pass in "" to remove all preferences
+   *                    referenced by this branch.
+   *
+   * @throws Error The preference(s) do not exist or an error occurred.
+   *
+   * @see clearUserPref
+   */
+  void clearUserBranch(in string aStartingAt);
 
   /**
    * Called to remove all of the preferences referenced by this branch.

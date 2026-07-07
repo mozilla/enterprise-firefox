@@ -778,17 +778,12 @@
     }
 
     get selected() {
-      return this.getAttribute("selected") == "true";
+      return this.hasAttribute("selected");
     }
 
     set _selected(val) {
-      if (val) {
-        this.setAttribute("selected", "true");
-        this.setAttribute("visuallyselected", "true");
-      } else {
-        this.removeAttribute("selected");
-        this.removeAttribute("visuallyselected");
-      }
+      this.toggleAttribute("selected", val);
+      this.toggleAttribute("visuallyselected", val);
     }
 
     /** @returns {boolean} */
@@ -848,7 +843,7 @@
       let children = this.allTabs;
       let length = children.length;
       for (var i = 0; i < length; i++) {
-        if (children[i].getAttribute("selected") == "true") {
+        if (children[i].hasAttribute("selected")) {
           this.selectedIndex = i;
           return;
         }

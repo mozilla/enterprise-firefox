@@ -977,6 +977,10 @@ skip-if = [
 
 ["test_http3_421.js"]
 run-sequentially = ["true"] # http3server
+# Some platform consumers may default speculative-parallel-limit to 0, which
+# starves the alt-svc/h3 connection this test routes over before its 421
+# fallback. Enforce the value the test requires to pass.
+prefs = ["network.http.speculative-parallel-limit=20"]
 skip-if = [
   "os == 'android' && os_version == '14' && arch == 'x86_64'",
   "os == 'win' && os_version == '10.2009' && arch == 'x86_64'", # Bug 1807931

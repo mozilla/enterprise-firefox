@@ -526,7 +526,7 @@ RefPtr<DecodedStream::EndedPromise> DecodedStream::OnEnded(TrackType aType) {
 }
 
 nsresult DecodedStream::Start(const TimeUnit& aStartTime,
-                              const MediaInfo& aInfo) {
+                              const MediaInfo& aInfo, StartType) {
   AssertOwnerThread();
   MOZ_ASSERT(mStartTime.isNothing(), "playback already started.");
 

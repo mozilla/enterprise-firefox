@@ -429,21 +429,6 @@
     "dark": "{Colors$color/red/20}",
     "forcedColors": "{Theme$icon/color}"
   },
-  "link/color": {
-    "light": "{Theme$color/accent/primary}",
-    "dark": "{Theme$color/accent/primary}",
-    "forcedColors": "{HCM Theme$LinkText}"
-  },
-  "link/color/hover": {
-    "light": "{Theme$color/accent/primary/hover}",
-    "dark": "{Theme$color/accent/primary/hover}",
-    "forcedColors": "{HCM Theme$LinkText}"
-  },
-  "link/color/active": {
-    "light": "{Theme$color/accent/primary/active}",
-    "dark": "{Theme$color/accent/primary/active}",
-    "forcedColors": "{HCM Theme$ActiveText}"
-  },
   "panel/background/color": {
     "light": "{Theme$background/color/box}",
     "dark": "{Theme$background/color/box}",

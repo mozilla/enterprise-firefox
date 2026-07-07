@@ -50,7 +50,7 @@ add_task(async function () {
 
   let inRange = (val, min, max) => min <= val && val <= max;
   let tabRect = win.gBrowser.tabContainer
-    .querySelector("tab[selected=true] .tab-background")
+    .querySelector("tab[selected] .tab-background")
     .getBoundingClientRect();
   await withPerfObserver(
     async function () {

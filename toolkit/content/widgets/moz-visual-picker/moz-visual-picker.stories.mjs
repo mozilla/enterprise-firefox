@@ -80,6 +80,7 @@ const Template = ({
   pickerL10nId,
   supportPage,
   type,
+  orientation,
   showItemLabels,
   imageSrc,
   showItemDescriptions,
@@ -126,9 +127,16 @@ const Template = ({
       moz-visual-picker-item {
         max-width: 150px;
       }
+
+      /* Items are full-width rows in the vertical orientation, so the
+         horizontal max-width would make them look cramped. */
+      moz-visual-picker[orientation="vertical"] moz-visual-picker-item {
+        max-width: none;
+      }
     </style>
     <moz-visual-picker
       type=${type}
+      orientation=${ifDefined(orientation)}
       data-l10n-id=${pickerL10nId}
       value=${ifDefined(value)}
       support-page=${supportPage}
@@ -212,4 +220,21 @@ export const WithImageAndLabel = Template.bind({});
 WithImageAndLabel.args = {
   ...WithImage.args,
   showItemLabels: true,
+};
+
+const VerticalTemplate = args => html`
+  <style>
+    .vertical-container {
+      max-width: 400px;
+    }
+  </style>
+  <div class="vertical-container">${Template(args)}</div>
+`;
+
+export const Vertical = VerticalTemplate.bind({});
+Vertical.args = {
+  ...WithImage.args,
+  orientation: "vertical",
+  showItemLabels: true,
+  showItemDescriptions: true,
 };

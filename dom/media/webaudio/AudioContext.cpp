@@ -1110,19 +1110,13 @@ already_AddRefed<Promise> AudioContext::Resume(ErrorResult& aRv) {
     return promise.forget();
   }
 
+  // A page resume() clears only the page's own suspend.
   mSuspendedByContent = false;
-  // TODO(bug 2047321): while the tab is under an audio-focus interruption we
-  // have lost focus, and the platform does not expect us to restart on our
-  // own, so a page resume() should be gated until focus is regained. That
-  // gating, tied to the Web Audio interrupted state, is handled in bug 2047321.
-  if (mSuspendedByMediaControl) {
-    MEDIA_CONTROL_LOG(
-        "AudioContext {} page resume() takes over an interruption suspend",
-        fmt::ptr(this));
-    mSuspendedByMediaControl = false;
-  }
   mPendingResumePromises.AppendElement(promise);
 
+  // IsAllowedToPlay() is false while the platform has interrupted the tab's
+  // audio, so a resume() requested during the interruption is not started here;
+  // its promise stays parked above and is settled when the interruption ends.
   const bool isAllowedToPlay = media::AutoplayPolicy::IsAllowedToPlay(*this);
   AUTOPLAY_LOG("Trying to resume AudioContext {}, IsAllowedToPlay={}",
                fmt::ptr(this), isAllowedToPlay);
@@ -1219,6 +1213,14 @@ already_AddRefed<Promise> AudioContext::Close(ErrorResult& aRv) {
         "Can't close an AudioContext twice");
     return promise.forget();
   }
+
+  // A resume() deferred while interrupted can never reach the running state
+  // once the context is closing, so settle those promises now instead of
+  // leaving them pending until the global goes away.
+  for (const auto& p : mPendingResumePromises) {
+    p->MaybeRejectWithInvalidStateError("Closed before resume completed");
+  }
+  mPendingResumePromises.Clear();
 
   mPromiseGripArray.AppendElement(promise);
 

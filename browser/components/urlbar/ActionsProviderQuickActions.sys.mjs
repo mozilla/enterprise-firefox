@@ -47,7 +47,7 @@ class ProviderQuickActions extends ActionsProvider {
     return (
       queryContext.sapName == "urlbar" &&
       lazy.UrlbarPrefs.get(ENABLED_PREF) &&
-      !queryContext.searchMode &&
+      !queryContext.restrictInSearchMode() &&
       queryContext.trimmedSearchString.length < 50 &&
       queryContext.trimmedSearchString.length >=
         lazy.UrlbarPrefs.get(MIN_SEARCH_PREF)
@@ -81,6 +81,7 @@ class ProviderQuickActions extends ActionsProvider {
     return [...results].map(key => {
       let action = this.#actions.get(key);
       return new ActionsResult({
+        providerName: this.name,
         key,
         l10nId: action.label,
         icon: action.icon,

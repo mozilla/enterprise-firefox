@@ -196,11 +196,7 @@
       // in e10s we want to only pseudo-select a tab before its rendering is done, so that
       // the rest of the system knows that the tab is selected, but we don't want to update its
       // visual status to selected until after we receive confirmation that its content has painted.
-      if (val) {
-        this.setAttribute("selected", "true");
-      } else {
-        this.removeAttribute("selected");
-      }
+      this.toggleAttribute("selected", val);
 
       // If we're non-e10s we need to update the visual selection at the same
       // time, otherwise AsyncTabSwitcher will take care of this.

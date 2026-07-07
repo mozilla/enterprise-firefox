@@ -74,6 +74,37 @@ tasks:
                 - sysroot-x86_64-linux-gnu
                 - sysroot-wasm32-wasi
 
+    linux64-nightlyasrelease/opt:
+        description: "Linux64 Nightly-As-Release Instrumented"
+        index:
+            product: firefox
+            job-name: instrumented-nightlyasrelease-linux64
+        shipping-product: firefox
+        treeherder:
+            platform: linux64-nightlyasrelease/opt
+        worker-type: b-linux-docker-amd
+        run:
+            config:
+                - builds/releng_base_firefox.py
+                - builds/releng_base_linux_64_builds.py
+            mozconfig-variant: profile-generate
+            tooltool-downloads: public
+            extra-config:
+                extra_mozconfig_content:
+                    - ac_add_options --as-milestone=release
+        fetches:
+            toolchain:
+                - linux64-clang
+                - linux64-rust
+                - linux64-rust-size
+                - linux64-cbindgen
+                - linux64-dump_syms
+                - linux64-nasm
+                - linux64-node
+                - linux64-pkgconf
+                - sysroot-x86_64-linux-gnu
+                - sysroot-wasm32-wasi
+
     linux64-aarch64-shippable/opt:
         description: "Linux AArch64 (a.k.a. ARM64) Instrumented"
         index:

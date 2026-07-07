@@ -185,18 +185,18 @@ nsresult ZeroRttHandle::Finish0RTT(HappyEyeballsTransaction* aCaller,
     return NS_OK;
   }
 
-  if (mWinner) {
-    // Late Finish0RTT on a loser. Leave stream alone; loser's conn is
-    // being cancelled.
-    LOG(("ZeroRttHandle::Finish0RTT %p winner already declared; ignoring",
-         this));
+  if (mState != State::Open) {
+    // A winner was already declared (and the handle possibly cleaned up, which
+    // nulls mWinner), or the handle was torn down on the real-txn-gone path.
+    // Either way this is a late Finish0RTT from a loser: leave the stream alone
+    // (its conn is being cancelled) and no-op.
+    LOG(("ZeroRttHandle::Finish0RTT %p handle not Open (state=%d); ignoring",
+         this, static_cast<int>(mState)));
     return NS_OK;
   }
 
-  // At this point we are about to declare a winner.  The handle must still be
-  // Open.
-  MOZ_ASSERT(mState == State::Open,
-             "Finish0RTT declaring winner on a non-Open handle");
+  // At this point we are about to declare a winner; the guard above guarantees
+  // the handle is still Open.
 
   // H1/H2, alpnChanged=1: early data was sent for a protocol the server no
   //   longer speaks, so the request must restart.  For H2, Http2Session also

@@ -47,7 +47,10 @@ export class UrlbarProviderRestrictKeywords extends UrlbarProvider {
       return false;
     }
 
-    return !queryContext.searchMode && queryContext.trimmedSearchString == "@";
+    return (
+      !queryContext.restrictInSearchMode() &&
+      queryContext.trimmedSearchString == "@"
+    );
   }
 
   /**

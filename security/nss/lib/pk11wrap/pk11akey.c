@@ -1978,7 +1978,13 @@ PK11_GenerateKeyPairWithOpFlags(PK11SlotInfo *slot, CK_MECHANISM_TYPE type,
     SECITEM_FreeItem(cka_id, PR_TRUE);
 
     if (crv != CKR_OK) {
-        PK11_DestroyObject(slot, pubID);
+        /* SECKEY_DestroyPublicKey frees *pubKey and destroys the underlying
+         * PKCS #11 object, but only for session objects; a freshly generated
+         * token object must be removed explicitly. */
+        SECKEY_DestroyPublicKey(*pubKey);
+        if (pubIsToken) {
+            PK11_DestroyObject(slot, pubID);
+        }
         PK11_DestroyObject(slot, privID);
         PORT_SetError(PK11_MapError(crv));
         *pubKey = NULL;
@@ -1988,6 +1994,9 @@ PK11_GenerateKeyPairWithOpFlags(PK11SlotInfo *slot, CK_MECHANISM_TYPE type,
     privKey = pk11_MakePrivKey(slot, keyType, !token, privID, wincx);
     if (privKey == NULL) {
         SECKEY_DestroyPublicKey(*pubKey);
+        if (pubIsToken) {
+            PK11_DestroyObject(slot, pubID);
+        }
         PK11_DestroyObject(slot, privID);
         *pubKey = NULL;
         return NULL;

@@ -220,18 +220,19 @@ void AudioSink::ReenqueueUnplayedAudioDataIfNeeded() {
   RefPtr<AudioData> frontPacket = mAudioQueue.PeekFront();
   uint32_t offset;
   TimeUnit time;
-  uint32_t typicalPacketFrameCount;
+  uint32_t typicalPacketFrameCount = 1024;  // typical for e.g. AAC
   // Extrapolate mOffset, mTime from the front of the queue
   // We can't really find a good value for `mOffset`, so we take what we have
   // at the front of the queue.
   // For `mTime`, assume there hasn't been a discontinuity recently.
   if (!frontPacket) {
     // We do our best here, but it's not going to be perfect.
-    typicalPacketFrameCount = 1024;  // typical for e.g. AAC
     offset = 0;
     time = GetPosition();
   } else {
-    typicalPacketFrameCount = frontPacket->Frames();
+    if (frontPacket->Frames()) {
+      typicalPacketFrameCount = frontPacket->Frames();
+    }
     offset = frontPacket->mOffset;
     time = frontPacket->mTime;
   }

@@ -60,7 +60,7 @@ export class UrlbarProviderOmnibox extends UrlbarProvider {
         queryContext.searchString,
         queryContext.tokens[0].value
       ) &&
-      !queryContext.searchMode
+      !queryContext.restrictInSearchMode()
     ) {
       return true;
     }

@@ -715,11 +715,28 @@ class MediaDecoderStateMachine::DecodingState
   // decoded. These two fields store how many video frames and audio
   // samples we must consume before are considered to be finished prerolling.
   TimeUnit AudioPrerollThreshold() const {
-    return (mMaster->mAmpleAudioThreshold / 2)
-        .MultDouble(mMaster->mPlaybackRate);
+    // A warm seek-resume uses a smaller, pref-tunable cushion (the pipeline is
+    // primed, so a small amount restarts the clock promptly and refills in the
+    // background); otherwise the normal cold-start cushion. Only the threshold
+    // value differs, so the playback-rate scaling is applied once below.
+    const TimeUnit threshold =
+        mMaster->mStartSinkAfterWarmSeek
+            ? TimeUnit::FromMicroseconds(
+                  StaticPrefs::media_seek_resume_audio_preroll_usecs())
+            : mMaster->mAmpleAudioThreshold / 2;
+    return threshold.MultDouble(mMaster->mPlaybackRate);
   }
 
   uint32_t VideoPrerollFrames() const {
+    if (mMaster->mStartSinkAfterWarmSeek) {
+      // Warm seek-resume: a small, pref-tunable number of frames is enough; the
+      // clock starts on the target frame and the queue refills in the
+      // background. Software decoding is slower, so it uses a larger cushion
+      // than hardware decoding to avoid stalling at resume.
+      return mMaster->mReader->VideoIsHardwareAccelerated()
+                 ? StaticPrefs::media_seek_resume_video_preroll_frames_hw()
+                 : StaticPrefs::media_seek_resume_video_preroll_frames_sw();
+    }
     uint32_t preroll = static_cast<uint32_t>(
         mMaster->GetAmpleVideoFrames() / 2. * mMaster->mPlaybackRate + 1);
     // Keep it under maximal queue size.
@@ -1538,7 +1555,8 @@ class MediaDecoderStateMachine::LoopingDecodingState
 
     // If we can get the last sample, use its frame. Otherwise, use common 1024.
     int64_t typicalPacketFrameCount = 1024;
-    if (RefPtr<AudioData> audio = AudioQueue().PeekBack()) {
+    if (RefPtr<AudioData> audio = AudioQueue().PeekBack();
+        audio && audio->Frames()) {
       typicalPacketFrameCount = audio->Frames();
     }
 
@@ -3206,12 +3224,26 @@ void MediaDecoderStateMachine::LoopingDecodingState::HandleError(
 }
 
 void MediaDecoderStateMachine::SeekingState::SeekCompleted() {
+  MOZ_ASSERT(mMaster->OnTaskQueue());
   const auto newCurrentTime = CalculateNewCurrentTime();
+  const bool seekingToEnd = (newCurrentTime == mMaster->Duration() ||
+                             newCurrentTime.EqualsAtLowestResolution(
+                                 mMaster->Duration().ToBase(USECS_PER_S))) &&
+                            !mMaster->IsLiveStream();
 
-  if ((newCurrentTime == mMaster->Duration() ||
-       newCurrentTime.EqualsAtLowestResolution(
-           mMaster->Duration().ToBase(USECS_PER_S))) &&
-      !mMaster->IsLiveStream()) {
+  // A warm resume (a seek that interrupted active playback and did not land at
+  // the end of the stream) re-creates the audio sink with the decode pipeline
+  // already primed. Only then start the sink asynchronously (resume on the
+  // system clock while cubeb inits off-thread) and use a minimal preroll,
+  // resuming the clock on the target frame and refilling in the background. A
+  // paused seek, or a seek to the end, starts cold or completes instead, so
+  // leave this off so a later unrelated start does not inherit it.
+  mMaster->mStartSinkAfterWarmSeek =
+      !seekingToEnd && mMaster->mPlayState == MediaDecoder::PLAY_STATE_PLAYING;
+  SLOG("SeekCompleted, startSinkAfterWarmSeek={}, seekingToEnd={}",
+       mMaster->mStartSinkAfterWarmSeek, seekingToEnd);
+
+  if (seekingToEnd) {
     SLOG("Seek completed, seeked to end: {}", newCurrentTime.ToString().get());
     // will transition to COMPLETED immediately. Note we don't do
     // this when playing a live stream, since the end of media will advance
@@ -3774,6 +3806,9 @@ void MediaDecoderStateMachine::PlayStateChanged() {
 
   if (mPlayState != MediaDecoder::PLAY_STATE_PLAYING) {
     CancelSuspendTimer();
+    // Leaving the playing state cancels any pending warm seek-resume, so a
+    // later unrelated start does not inherit the reduced preroll.
+    mStartSinkAfterWarmSeek = false;
   } else if (mMinimizePreroll) {
     // Once we start playing, we don't want to minimize our prerolling, as we
     // assume the user is likely to want to keep playing in future. This needs
@@ -4091,8 +4126,13 @@ nsresult MediaDecoderStateMachine::StartMediaSink() {
 
   mAudioCompleted = false;
   const auto startTime = GetMediaTime();
-  LOG("StartMediaSink, mediaTime={}", startTime.ToMicroseconds());
-  nsresult rv = mMediaSink->Start(startTime, Info());
+  const MediaSink::StartType startType = mStartSinkAfterWarmSeek
+                                             ? MediaSink::StartType::SeekResume
+                                             : MediaSink::StartType::Initial;
+  mStartSinkAfterWarmSeek = false;
+  LOG("StartMediaSink, mediaTime={}, startType={}", startTime.ToMicroseconds(),
+      MediaSink::EnumValueToString(startType));
+  nsresult rv = mMediaSink->Start(startTime, Info(), startType);
   StreamNameChanged();
 
   auto videoPromise = mMediaSink->OnEnded(TrackInfo::kVideoTrack);

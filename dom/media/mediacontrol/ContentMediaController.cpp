@@ -410,6 +410,7 @@ void ContentMediaController::HandleAudioFocusInterrupt(
       "num={}",
       EnumValueToString(aAction), mControllableReceivers.Length(),
       mUncontrollableReceivers.Length());
+  mAudioInterruptedByPlatform = suspend;
   // An interrupt targets every potentially audible receiver in both buckets.
   // Iterate backward because a receiver may unregister itself while handling
   // the verb.

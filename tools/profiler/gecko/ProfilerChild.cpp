@@ -261,9 +261,7 @@ mozilla::ipc::IPCResult ProfilerChild::RecvWaitOnePeriodicSampling(
                 "nsProfiler::WaitOnePeriodicSampling result on main thread",
                 [resolve = std::move(resolve), aSamplingState]() {
                   (*resolve)(aSamplingState ==
-                                 SamplingState::SamplingCompleted ||
-                             aSamplingState ==
-                                 SamplingState::NoStackSamplingCompleted);
+                             SamplingState::SamplingCompleted);
                 }));
           })) {
     // Callback was not added (e.g., profiler is not running) and will never be

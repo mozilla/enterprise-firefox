@@ -52,7 +52,7 @@ export class UrlbarProviderClipboard extends UrlbarProvider {
       !lazy.UrlbarPrefs.get("clipboard.featureGate") ||
       !lazy.UrlbarPrefs.get("suggest.clipboard") ||
       queryContext.searchString ||
-      queryContext.searchMode
+      queryContext.restrictInSearchMode()
     ) {
       return false;
     }

@@ -1120,6 +1120,7 @@ projects:
     - components:support-images
     - components:support-ktx
     - components:support-test
+    - components:support-test-libstate
     - components:support-utils
     - components:tooling-lint
     - components:ui-autocomplete

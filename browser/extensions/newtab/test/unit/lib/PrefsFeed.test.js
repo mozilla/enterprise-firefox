@@ -1,4 +1,8 @@
-import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
+import {
+  actionCreators as ac,
+  actionTypes as at,
+  actionUtils as au,
+} from "common/Actions.mjs";
 import { GlobalOverrider } from "test/unit/utils";
 import { PrefsFeed } from "lib/PrefsFeed.sys.mjs";
 
@@ -68,6 +72,53 @@ describe("PrefsFeed", () => {
   it("should set a pref when a SET_PREF action is received", () => {
     feed.onAction(ac.SetPref("foo", 2));
     assert.calledWith(feed._prefs.set, "foo", 2);
+  });
+  it("should set every pref when a SET_MULTIPLE_PREFS action is received", () => {
+    feed.onAction(ac.SetMultiplePrefs({ foo: 2, bar: 3 }));
+    assert.calledWith(feed._prefs.set, "foo", 2);
+    assert.calledWith(feed._prefs.set, "bar", 3);
+  });
+  it("should coalesce SET_MULTIPLE_PREFS into one content MULTIPLE_PREFS_CHANGED while still notifying feeds per pref", () => {
+    // The branch observer fires onPrefChanged synchronously per _prefs.set.
+    feed._prefs.set = sinon.spy((name, value) =>
+      feed.onPrefChanged(name, value)
+    );
+    feed.onAction(ac.SetMultiplePrefs({ foo: 2, bar: 3 }));
+
+    const dispatched = feed.store.dispatch.getCalls().map(call => call.args[0]);
+
+    // Content gets exactly one combined MULTIPLE_PREFS_CHANGED broadcast.
+    const prefsChanged = dispatched.filter(
+      a => a.type === at.MULTIPLE_PREFS_CHANGED
+    );
+    assert.equal(prefsChanged.length, 1);
+    assert.deepEqual(prefsChanged[0].data.values, { foo: 2, bar: 3 });
+    assert.isTrue(au.isBroadcastToContent(prefsChanged[0]));
+
+    // Feeds still get per-pref PREF_CHANGED, but main-only (not re-broadcast
+    // to content, which would re-stagger the resize).
+    const prefChanged = dispatched.filter(a => a.type === at.PREF_CHANGED);
+    assert.equal(prefChanged.length, 2);
+    prefChanged.forEach(a => assert.isFalse(au.isBroadcastToContent(a)));
+  });
+  it("should still route skipBroadcast prefs individually during a SET_MULTIPLE_PREFS transaction", () => {
+    feed._prefs.set = sinon.spy((name, value) =>
+      feed.onPrefChanged(name, value)
+    );
+    feed.onAction(ac.SetMultiplePrefs({ foo: 2, baz: 5 }));
+
+    const dispatched = feed.store.dispatch.getCalls().map(call => call.args[0]);
+    const prefsChanged = dispatched.filter(
+      a => a.type === at.MULTIPLE_PREFS_CHANGED
+    );
+    assert.equal(prefsChanged.length, 1);
+    assert.deepEqual(prefsChanged[0].data.values, { foo: 2 });
+
+    const bazChange = dispatched.find(
+      a => a.type === at.PREF_CHANGED && a.data.name === "baz"
+    );
+    assert.ok(bazChange, "baz should be dispatched individually");
+    assert.equal(bazChange.data.value, 5);
   });
   it("should call clearUserPref with action CLEAR_PREF", () => {
     feed.onAction({ type: at.CLEAR_PREF, data: { name: "pref.test" } });

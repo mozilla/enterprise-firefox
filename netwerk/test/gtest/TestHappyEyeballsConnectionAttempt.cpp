@@ -21,6 +21,7 @@
 #include "NullHttpTransaction.h"
 #include "PendingTransactionInfo.h"
 #include "ZeroRttHandle.h"
+#include "mozilla/Preferences.h"
 #include "mozilla/net/ClassOfService.h"
 #include "mozilla/net/DNS.h"
 #include "nsHttpConnectionInfo.h"
@@ -704,6 +705,125 @@ TEST(HappyEyeballsConnectionAttempt, ZeroRttWinnerUsesItsOwnStreamOffset)
     realTrans->SetConnection(nullptr);
     winnerHandle->Reset();
   });
+}
+
+// Helper: a real, 0-RTT-capable transaction for the ZeroRttHandle tests.
+static already_AddRefed<nsHttpTransaction> MakeRealTransaction(
+    nsHttpConnectionInfo* aCi, nsHttpRequestHead* aReqHead) {
+  aReqHead->SetMethod("GET"_ns);
+  aReqHead->SetVersion(HttpVersion::v1_1);
+  aReqHead->SetRequestURI("/"_ns);
+  RefPtr<nsHttpTransaction> trans = new nsHttpTransaction();
+  nsresult rv = trans->Init(
+      NS_HTTP_USE_HAPPY_EYEBALLS, aCi, aReqHead, /*reqBody*/ nullptr,
+      /*reqContentLength*/ 0, /*target*/ gSocketTransportService,
+      /*callbacks*/ nullptr,
+      /*eventsink*/ nullptr, /*browserId*/ 0, HttpTrafficCategory::eInvalid,
+      /*requestContext*/ nullptr, ClassOfService(), /*initialRwin*/ 0,
+      /*responseTimeoutEnabled*/ false, /*channelId*/ 0,
+      /*transactionObserver*/ nullptr, nsILoadInfo::IPAddressSpace::Unknown,
+      LNAPerms{});
+  MOZ_RELEASE_ASSERT(NS_SUCCEEDED(rv));
+  return trans.forget();
+}
+
+// Regression for bug 2051776 (winner-then-loser). Once a winner is declared,
+// ZeroRttHandle::Cleanup() nulls mWinner and leaves mState == CleanedUp, so a
+// late Finish0RTT from a losing racer must be a no-op -- not trip the
+// MOZ_ASSERT(mState == State::Open) in ZeroRttHandle::Finish0RTT.
+TEST(HappyEyeballsConnectionAttempt, ZeroRttLateLoserFinish0RTTAfterWinner)
+{
+  EnsureHttpHandler();
+  RunOnSocketThread([]() {
+    RefPtr<nsHttpConnectionInfo> ci =
+        new nsHttpConnectionInfo("127.0.0.1"_ns, 443, ""_ns, ""_ns, nullptr,
+                                 OriginAttributes(), /*endToEndSSL*/ true);
+    // The request head is held by weak reference; it must outlive realTrans.
+    nsHttpRequestHead reqHead;
+    RefPtr<nsHttpTransaction> realTrans = MakeRealTransaction(ci, &reqHead);
+
+    RefPtr<HappyEyeballsConnectionAttempt> hca =
+        new HappyEyeballsConnectionAttempt(ci, realTrans, /*caps*/ 0,
+                                           /*speculative*/ false,
+                                           /*urgentStart*/ false);
+    ZeroRttHandle* zrh = hca->ZeroRttHandleForTesting();
+    ASSERT_TRUE(zrh);
+
+    auto noStatus = [](nsITransport*, nsresult, int64_t) {};
+    auto noAuth = []() {};
+    RefPtr<HappyEyeballsTransaction> hetWinner =
+        new HappyEyeballsTransaction(ci, nullptr, /*caps*/ 0, /*browserId*/ 0,
+                                     noStatus, noAuth, noAuth, zrh);
+    RefPtr<HappyEyeballsTransaction> hetLoser =
+        new HappyEyeballsTransaction(ci, nullptr, /*caps*/ 0, /*browserId*/ 0,
+                                     noStatus, noAuth, noAuth, zrh);
+    hetWinner->Request0RttStreamOffset() = Some<uint64_t>(0);
+    hetLoser->Request0RttStreamOffset() = Some<uint64_t>(0);
+
+    RefPtr<FakeHttpConnection> winnerConn =
+        new FakeHttpConnection(/*usingHttp3*/ false, /*usingSpdy*/ true);
+    RefPtr<ConnectionHandle> winnerHandle = new ConnectionHandle(winnerConn);
+    hetWinner->SetConnection(winnerHandle);
+    hetWinner->SetConnectedCallback([](nsresult) {});
+
+    // Declare the winner -> Cleanup() nulls mWinner, mState = CleanedUp.
+    hetWinner->Finish0RTT(/*aRestart*/ false, /*aAlpnChanged*/ false);
+
+    // Late loser Finish0RTT after cleanup: must be a no-op (asserts before
+    // fix).
+    hetLoser->Finish0RTT(/*aRestart*/ false, /*aAlpnChanged*/ false);
+
+    EXPECT_FALSE(realTrans->Closed());
+
+    realTrans->SetConnection(nullptr);
+    winnerHandle->Reset();
+  });
+}
+
+// Regression for bug 2051776 (real-txn-gone path). The first Finish0RTT takes
+// the !realTxn branch and calls Cleanup() without ever declaring a winner
+// (mHadWinner stays false), so a second Finish0RTT must still be a no-op. Only
+// a state-based guard covers this path.
+TEST(HappyEyeballsConnectionAttempt, ZeroRttLateLoserFinish0RTTAfterRealTxnGone)
+{
+  EnsureHttpHandler();
+  Preferences::SetBool("network.http.0rtt_force_txn_gone_for_testing", true);
+  RunOnSocketThread([]() {
+    RefPtr<nsHttpConnectionInfo> ci =
+        new nsHttpConnectionInfo("127.0.0.1"_ns, 443, ""_ns, ""_ns, nullptr,
+                                 OriginAttributes(), /*endToEndSSL*/ true);
+    nsHttpRequestHead reqHead;
+    RefPtr<nsHttpTransaction> realTrans = MakeRealTransaction(ci, &reqHead);
+
+    RefPtr<HappyEyeballsConnectionAttempt> hca =
+        new HappyEyeballsConnectionAttempt(ci, realTrans, /*caps*/ 0,
+                                           /*speculative*/ false,
+                                           /*urgentStart*/ false);
+    ZeroRttHandle* zrh = hca->ZeroRttHandleForTesting();
+    ASSERT_TRUE(zrh);
+
+    auto noStatus = [](nsITransport*, nsresult, int64_t) {};
+    auto noAuth = []() {};
+    RefPtr<HappyEyeballsTransaction> het1 =
+        new HappyEyeballsTransaction(ci, nullptr, /*caps*/ 0, /*browserId*/ 0,
+                                     noStatus, noAuth, noAuth, zrh);
+    RefPtr<HappyEyeballsTransaction> het2 =
+        new HappyEyeballsTransaction(ci, nullptr, /*caps*/ 0, /*browserId*/ 0,
+                                     noStatus, noAuth, noAuth, zrh);
+    het1->Request0RttStreamOffset() = Some<uint64_t>(0);
+    het2->Request0RttStreamOffset() = Some<uint64_t>(0);
+
+    // First Finish0RTT: the force pref makes the real txn "gone", taking the
+    // !realTxn branch -> Cleanup() without declaring a winner.
+    het1->Finish0RTT(/*aRestart*/ false, /*aAlpnChanged*/ false);
+
+    // Second Finish0RTT after that cleanup: must be a no-op (asserts before
+    // fix).
+    het2->Finish0RTT(/*aRestart*/ false, /*aAlpnChanged*/ false);
+
+    realTrans->SetConnection(nullptr);
+  });
+  Preferences::ClearUser("network.http.0rtt_force_txn_gone_for_testing");
 }
 
 }  // namespace net

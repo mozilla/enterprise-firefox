@@ -1383,7 +1383,7 @@ linux64-shippable/opt:
 
 linux64-nightlyasrelease/opt:
     description: "Linux64 Nightly-As-Release"
-    use-pgo: linux64-shippable/opt
+    use-pgo: linux64-nightlyasrelease/opt
     attributes:
         enable-full-crashsymbols: true
     index:

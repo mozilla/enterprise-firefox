@@ -282,7 +282,7 @@ nsresult HTMLEditor::InsertHTMLAsAction(const nsAString& aInString,
   if (IsReadonly()) {
     return NS_OK;
   }
-  if (GetEditContext()) {
+  if (ComputeEditContext()) {
     return NS_SUCCESS_DOM_NO_OPERATION;
   }
 

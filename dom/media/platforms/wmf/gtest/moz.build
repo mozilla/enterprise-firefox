@@ -11,6 +11,11 @@ if CONFIG["MOZ_WMF_MEDIA_ENGINE"]:
         "TestMFVideoTransFunc.cpp",
     ]
 
+if CONFIG["MOZ_WMF_CDM"]:
+    UNIFIED_SOURCES += [
+        "TestMFProtectedPathReadinessMonitor.cpp",
+    ]
+
 LOCAL_INCLUDES += [
     "/dom/media/ipc",
     "/dom/media/platforms/wmf",

@@ -34,7 +34,7 @@ async def test_start_with_preset_and_active_context(
 
 
 async def test_start_with_multiple_features(bidi_session, is_profiler_active):
-    options = {**DEFAULT_START_OPTIONS, "features": ["js", "stackwalk", "cpu"]}
+    options = {**DEFAULT_START_OPTIONS, "features": ["js", "stackwalk"]}
     await bidi_session.moz.profiler.start(**options)
 
     assert await is_profiler_active() is True

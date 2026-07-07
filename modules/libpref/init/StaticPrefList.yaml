@@ -2679,6 +2679,14 @@
   value: false
   mirror: always
 
+# While the platform has interrupted the tab's audio (an audio-focus loss that
+# disallows any audible sound), block the page from starting or resuming audio
+# (media element, Web Audio, Web Speech) on its own until the interrupt ends.
+- name: dom.audio_session.block_start_during_interrupt.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Checks if offscreen animation throttling is enabled.
 - name: dom.animations.offscreen-throttling
   type: bool
@@ -5033,7 +5041,7 @@
 
 - name: dom.security.unexpected_system_load_telemetry_enabled
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: @IS_NIGHTLY_OR_DEV_EDITION@
   mirror: always
 
 # pref controls `Sanitizer` API being exposed
@@ -10523,7 +10531,7 @@
   rust: true
 
 # Whether to enable the CSS alpha() color function.
-# https://drafts.csswg.org/css-values-5/#attr-notation
+# https://drafts.csswg.org/css-color-5/#relative-alpha
 - name: layout.css.alpha-color-function.enabled
   type: RelaxedAtomicBool
   value: @IS_NIGHTLY_BUILD@
@@ -11043,7 +11051,7 @@
   mirror: always
 
 # Is support for the progress() function enabled?
-# https://drafts.csswg.org/css-values-5/#tree-counting
+# https://drafts.csswg.org/css-values-5/#progress
 - name: layout.css.progress-function.enabled
   type: RelaxedAtomicBool
   value: @IS_NIGHTLY_BUILD@
@@ -12862,6 +12870,21 @@
     value: 2
     mirror: always
 
+# Gate protected (hardware DRM) playback activation on readiness: hold the
+# topology build until output protection has settled, instead of attempting
+# blind and reacting on failure. Read once at startup.
+-   name: media.wmf.media-engine.protected-readiness-gate.enabled
+    type: bool
+    value: true
+    mirror: once
+
+# Maximum bounded last-resort recoveries, per playback session, for the two
+# protected-activation errors Media Foundation gives no advance signal for.
+-   name: media.wmf.media-engine.protected-readiness-gate.max-recoveries
+    type: RelaxedAtomicUint32
+    value: 1
+    mirror: always
+
 # Bypass the gfx block list check for the media engine playback.
 -   name: media.wmf.media-engine.bypass-gfx-blocklist
     type: RelaxedAtomicBool
@@ -13622,6 +13645,31 @@
 - name: media.allowed-to-play.enabled
   type: bool
   value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
+# Audio preroll, in microseconds, used when resuming playback after a warm seek
+# (one that interrupted active playback). Smaller than the cold-start cushion
+# because the decode pipeline is already primed; exposed as a pref so the value
+# can be tuned if it regresses underrun behaviour on some content. The normal
+# (cold) audio preroll is ~1s.
+- name: media.seek-resume.audio-preroll-usecs
+  type: RelaxedAtomicUint32
+  value: 100000
+  mirror: always
+
+# Number of video frames to preroll when resuming playback after a warm seek,
+# split by decoder type. Software decoding is slower and needs a larger cushion
+# to avoid stalling at resume, mirroring the asymmetry of the normal (cold)
+# preroll (about 2 frames with hardware decoding, about 6 with software).
+# Exposed as prefs for the same reason as the audio preroll above.
+- name: media.seek-resume.video-preroll-frames-hw
+  type: RelaxedAtomicUint32
+  value: 1
+  mirror: always
+
+- name: media.seek-resume.video-preroll-frames-sw
+  type: RelaxedAtomicUint32
+  value: 3
   mirror: always
 
 # Is support for HTMLMediaElement.seekToNextFrame enabled?
@@ -18191,11 +18239,6 @@
 - name: security.csp.reporting.script-sample.max-length
   type: int32_t
   value: 40
-  mirror: always
-
-- name: security.csp.truncate_blocked_uri_for_frame_navigations
-  type: bool
-  value: false
   mirror: always
 
 # Limit the number of CSP reports that are send in a specific timespan.

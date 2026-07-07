@@ -472,6 +472,7 @@ class _QuickSuggestTestUtils {
     requestId = undefined,
     dismissalKey = undefined,
     categories = [],
+    suggestionId = undefined,
   } = {}) {
     let result = {
       suggestedIndex,
@@ -489,6 +490,7 @@ class _QuickSuggestTestUtils {
         requestId,
         source,
         provider,
+        suggestionId,
         isSponsored: true,
         sponsoredImpressionUrl: impressionUrl,
         sponsoredClickUrl: clickUrl,

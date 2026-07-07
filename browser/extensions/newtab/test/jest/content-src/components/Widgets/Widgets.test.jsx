@@ -324,6 +324,135 @@ describe("<Widgets> row toggle", () => {
   });
 });
 
+describe("<Widgets> maximize toggle", () => {
+  // Nova is disabled, but the size toggle is still offered and only flips
+  // widgets.maximized (no per-widget size prefs).
+  const nonNovaState = (extra = {}) => ({
+    ...ENABLED_STATE,
+    Prefs: {
+      ...ENABLED_STATE.Prefs,
+      values: {
+        ...ENABLED_STATE.Prefs.values,
+        "nova.enabled": false,
+        "widgets.system.maximized": true,
+        "widgets.maximized": false,
+        ...extra,
+      },
+    },
+  });
+
+  const dispatchedActions = store =>
+    store.dispatch.mock.calls.map(([action]) => action);
+
+  it("dispatches a single SET_MULTIPLE_PREFS instead of one SetPref per widget", () => {
+    const state = makeNovaWidgetState(
+      [
+        ["lists", "medium"],
+        ["focusTimer", "medium"],
+      ],
+      {
+        "widgets.system.maximized": true,
+        "widgets.maximized": false,
+        "widgets.weather.size": "small",
+      }
+    );
+    const { container, store } = renderWidgets(state);
+
+    const sizeToggle = container.querySelector("#toggle-widgets-size-button");
+    expect(sizeToggle).toBeInTheDocument();
+    fireEvent.click(sizeToggle);
+
+    const dispatched = dispatchedActions(store);
+
+    const setPrefsCalls = dispatched.filter(
+      a => a.type === at.SET_MULTIPLE_PREFS
+    );
+    expect(setPrefsCalls).toHaveLength(1);
+
+    const { values } = setPrefsCalls[0].data;
+    expect(values["widgets.maximized"]).toBe(true);
+    expect(values["widgets.lists.size"]).toBe("large");
+    expect(values["widgets.focusTimer.size"]).toBe("large");
+    // A sidebar widget at "small" (weather) stays in the sidebar.
+    expect(values["widgets.weather.size"]).toBeUndefined();
+
+    // The resize no longer fans out into per-widget SetPref actions.
+    const sizeSetPrefCalls = dispatched.filter(
+      a => a.type === at.SET_PREF && /^widgets\..*\.size$/.test(a.data?.name)
+    );
+    expect(sizeSetPrefCalls).toHaveLength(0);
+
+    expect(dispatched).toContainEqual(
+      expect.objectContaining({
+        type: at.WIDGETS_CONTAINER_ACTION,
+        data: expect.objectContaining({ action_value: "maximize_widgets" }),
+      })
+    );
+  });
+
+  it("sends non-small widgets to medium in one SET_MULTIPLE_PREFS when minimizing", () => {
+    const state = makeNovaWidgetState(
+      [
+        ["lists", "large"],
+        ["focusTimer", "large"],
+      ],
+      { "widgets.system.maximized": true, "widgets.maximized": true }
+    );
+    const { container, store } = renderWidgets(state);
+
+    fireEvent.click(container.querySelector("#toggle-widgets-size-button"));
+
+    const dispatched = dispatchedActions(store);
+    const setPrefs = dispatched.find(a => a.type === at.SET_MULTIPLE_PREFS);
+    expect(setPrefs.data.values["widgets.maximized"]).toBe(false);
+    expect(setPrefs.data.values["widgets.lists.size"]).toBe("medium");
+    expect(setPrefs.data.values["widgets.focusTimer.size"]).toBe("medium");
+    expect(dispatched).toContainEqual(
+      expect.objectContaining({
+        type: at.WIDGETS_CONTAINER_ACTION,
+        data: expect.objectContaining({ action_value: "minimize_widgets" }),
+      })
+    );
+  });
+
+  it("does not include any size prefs when Nova is disabled", () => {
+    const { container, store } = renderWidgets(nonNovaState());
+
+    fireEvent.click(container.querySelector("#toggle-widgets-size-button"));
+
+    const setPrefs = dispatchedActions(store).find(
+      a => a.type === at.SET_MULTIPLE_PREFS
+    );
+    expect(setPrefs.data.values["widgets.maximized"]).toBe(true);
+    const sizeKeys = Object.keys(setPrefs.data.values).filter(k =>
+      k.endsWith(".size")
+    );
+    expect(sizeKeys).toHaveLength(0);
+  });
+
+  it("toggles via Enter and Space but ignores other keys", () => {
+    const state = makeNovaWidgetState([["lists", "medium"]], {
+      "widgets.system.maximized": true,
+      "widgets.maximized": false,
+    });
+    const { container, store } = renderWidgets(state);
+    const sizeToggle = container.querySelector("#toggle-widgets-size-button");
+
+    fireEvent.keyDown(sizeToggle, { key: "a" });
+    expect(
+      dispatchedActions(store).some(a => a.type === at.SET_MULTIPLE_PREFS)
+    ).toBe(false);
+
+    fireEvent.keyDown(sizeToggle, { key: "Enter" });
+    fireEvent.keyDown(sizeToggle, { key: " " });
+    const setPrefsCalls = dispatchedActions(store).filter(
+      a => a.type === at.SET_MULTIPLE_PREFS
+    );
+    expect(setPrefsCalls).toHaveLength(2);
+    expect(setPrefsCalls[0].data.values["widgets.maximized"]).toBe(true);
+  });
+});
+
 describe("<Widgets> row-collapsed attribute", () => {
   it("is set on the widgets container when nova is enabled and the row is not expanded", () => {
     const state = makeNovaWidgetState([["lists", "medium"]], {
@@ -385,14 +514,16 @@ describe("<Widgets> maximize toggle size sync", () => {
   // The size toggle button only renders when widgets may be maximized.
   const MAXIMIZABLE = { "widgets.system.maximized": true };
 
-  // Collect the per-widget size SetPrefs the maximize toggle dispatches.
+  // Collect the size prefs the maximize toggle batches into its single
+  // SET_MULTIPLE_PREFS, shaped like the old per-widget SetPref actions for assertions.
   function sizePrefSets(store) {
-    return store.dispatch.mock.calls
+    const setPrefs = store.dispatch.mock.calls
       .map(([action]) => action)
-      .filter(
-        action =>
-          action.type === at.SET_PREF && action.data?.name?.endsWith(".size")
-      );
+      .find(action => action.type === at.SET_MULTIPLE_PREFS);
+    const values = setPrefs?.data?.values ?? {};
+    return Object.entries(values)
+      .filter(([name]) => name.endsWith(".size"))
+      .map(([name, value]) => ({ data: { name, value } }));
   }
 
   function clickMaximize(container) {

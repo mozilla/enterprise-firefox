@@ -446,6 +446,9 @@
     --input-width: var(--size-item-small);
 
     /** link **/
+    --link-color: var(--color-accent-primary);
+    --link-color-hover: var(--color-accent-primary-hover);
+    --link-color-active: var(--color-accent-primary-active);
     --link-color-visited: var(--link-color);
     /**
      * Not using --force-outline-offset for links because that's intended for
@@ -610,6 +613,7 @@
 
       /** button **/
       --button-border-color: var(--button-text-color);
+      --button-border-color-ghost: var(--button-border-color);
       --button-text-color-ghost-hover: var(--button-text-color-hover);
       --button-text-color-ghost-active: var(--button-text-color-active);
       --button-text-color-toolbar-hover: var(--button-text-color-hover);
@@ -1007,11 +1011,6 @@
       /** info-bar **/
       --info-bar-margin-block-end: 0;
 
-      /** link **/
-      --link-color: var(--color-accent-primary);
-      --link-color-hover: var(--color-accent-primary-hover);
-      --link-color-active: var(--color-accent-primary-active);
-
       /** page **/
       --page-main-content-width: 664px;
 
@@ -1190,11 +1189,6 @@
         --icon-color-information: var(--icon-color);
         --icon-color-success: var(--icon-color);
         --icon-color-warning: var(--icon-color);
-
-        /** link **/
-        --link-color: LinkText;
-        --link-color-hover: LinkText;
-        --link-color-active: ActiveText;
 
         /** panel **/
         --panel-border-color: var(--border-color);

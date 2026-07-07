@@ -28,11 +28,13 @@ import { ifDefined } from "../vendor/lit.all.mjs";
  * @property {string} value
  *  Selected value for the group. Changing the value updates the checked
  *  state of moz-visual-picker-item children and vice versa.
+ * @property {string} orientation
+ *  Layout orientation of the picker, "horizontal" (default) or "vertical".
+ *  Propagates to moz-visual-picker-item children.
  * @slot default - The picker's content, intended for moz-visual-picker-items.
  */
 export class MozVisualPicker extends SelectControlBaseElement {
   static childElementName = "moz-visual-picker-item";
-  static orientation = "horizontal";
 }
 customElements.define("moz-visual-picker", MozVisualPicker);
 

@@ -680,6 +680,9 @@ const PREF_URLBAR_DEFAULTS = /** @type {PreferenceDefinition[]} */ ([
   // Whether or not Unified Search Button is shown always.
   ["unifiedSearchButton.always", false],
 
+  // Whether or not we show history and other results while in searchMode.
+  ["unifiedSearchButton.historyInSearchMode", false],
+
   // Feature gate pref for weather suggestions in the urlbar.
   ["weather.featureGate", true],
 

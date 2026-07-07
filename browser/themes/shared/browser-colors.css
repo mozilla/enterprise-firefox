@@ -32,7 +32,14 @@
     }
   }
 
-  &[lwtheme] {
+  /**
+   * These colors are for when an AMO LWT is installed, we force blue/cyan for
+   * the link/focus colors. We probably don't want to change this to purple for
+   * Nova but there could be a case for using --color-accent-primary instead.
+   * Any change will affect contrasts for LWTs but using --color-accent-primary
+   * would allow the user to change the color at least.
+   */
+  &[lwtheme]:not([theme-in-app]) {
     --link-color: light-dark(var(--color-blue-60), var(--color-cyan-30));
     --link-color-hover: light-dark(var(--color-blue-70), var(--color-cyan-20));
     --link-color-active: light-dark(var(--color-blue-80), var(--color-cyan-10));

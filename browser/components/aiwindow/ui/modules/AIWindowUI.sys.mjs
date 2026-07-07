@@ -171,19 +171,21 @@ export const AIWindowUI = {
     browserEl.collapsed = false;
 
     const browserStyle = win.getComputedStyle(browserEl);
-    const rtl = win.getComputedStyle(box).direction === "rtl";
     const boxRect = box.getBoundingClientRect();
     const browserRect = browserEl.getBoundingClientRect();
-    const narrowWidth = tabbox.getBoundingClientRect().width;
-    const inlinePadding =
-      parseFloat(browserStyle.paddingInlineStart) +
-      parseFloat(browserStyle.paddingInlineEnd);
+    const tabboxRect = tabbox.getBoundingClientRect();
+    const onRight = boxRect.left >= tabboxRect.right;
+    const paddingLeft = parseFloat(browserStyle.paddingLeft);
+    const paddingRight = parseFloat(browserStyle.paddingRight);
 
-    // Distance from the box's inline-end edge to #browser's inline-end edge.
-    const edgeGap = rtl
-      ? boxRect.left - browserRect.left
-      : browserRect.right - boxRect.right;
-    const clipAmount = browserRect.width - inlinePadding - narrowWidth;
+    // Distance from the box's outer edge to #browser's matching edge.
+    const edgeGap = onRight
+      ? browserRect.right - boxRect.right
+      : boxRect.left - browserRect.left;
+
+    const clipAmount = onRight
+      ? browserRect.right - paddingRight - tabboxRect.right
+      : tabboxRect.left - (browserRect.left + paddingLeft);
 
     if (boxRect.width <= 0 || clipAmount <= 0) {
       this._commitSidebarCollapsed(box, splitter, collapse);
@@ -198,14 +200,14 @@ export const AIWindowUI = {
     box.style.top = `${boxRect.top - browserRect.top}px`;
     box.style.bottom = `${browserRect.bottom - boxRect.bottom}px`;
     box.style.width = `${boxRect.width}px`;
-    box.style.insetInlineEnd = `${edgeGap}px`;
+    box.style[onRight ? "right" : "left"] = `${edgeGap}px`;
     splitter.collapsed = true;
     browserEl.style.overflow = "clip";
 
-    const slide = `${(rtl ? -1 : 1) * (boxRect.width + edgeGap)}px 0 0`;
-    const clipped = rtl
-      ? `inset(0 0 0 ${clipAmount}px)`
-      : `inset(0 ${clipAmount}px 0 0)`;
+    const slide = `${(onRight ? 1 : -1) * (boxRect.width + edgeGap)}px 0 0`;
+    const clipped = onRight
+      ? `inset(0 ${clipAmount}px 0 0)`
+      : `inset(0 0 0 ${clipAmount}px)`;
     const full = "inset(0 0 0 0)";
 
     const options = {

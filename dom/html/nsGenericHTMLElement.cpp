@@ -80,6 +80,7 @@
 #include "nsGlobalWindowInner.h"
 #include "nsHTMLDocument.h"
 #include "nsHTMLParts.h"
+#include "nsIContentInlines.h"
 #include "nsIFormControl.h"
 #include "nsIFrameInlines.h"
 #include "nsILayoutHistoryState.h"

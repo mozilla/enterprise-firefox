@@ -170,7 +170,8 @@ class HTMLEditor final : public EditorBase,
 
   bool IsEmpty() const final;
 
-  dom::EditContext* GetEditContext() const final;
+  dom::EditContext* ComputeEditContext() const final;
+  bool IsFiringTextUpdate() const;
 
   bool CanPaste(nsIClipboard::ClipboardType aClipboardType) const final;
   using EditorBase::CanPaste;

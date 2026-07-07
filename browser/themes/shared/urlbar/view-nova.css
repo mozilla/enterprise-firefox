@@ -35,17 +35,17 @@
      Larger icons should be left-aligned with rich search suggestion icons. */
   --urlbarView-favicon-size: 16px;
   --urlbarView-rich-search-suggestion-icon-size: 28px;
+  --urlbarView-rich-search-suggestion-icon-border-radius: var(--border-radius-small);
   --urlbarView-top-pick-icon-size: 58px;
+  --urlbarView-top-pick-icon-border-radius: calc(
+    var(--urlbarView-row-border-radius) - min(var(--urlbarView-row-padding-block), var(--urlbarView-row-padding-inline))
+  );
 
   /* Icon margin-end not taking into account the size of the icon */
   --urlbarView-icon-margin-end-base: calc(var(--urlbar-icon-padding) + var(--identity-box-margin-inline));
 
   --urlbarView-favicon-margin-start: calc((var(--urlbarView-rich-search-suggestion-icon-size) - var(--urlbarView-favicon-size)) / 2);
   --urlbarView-favicon-margin-end: calc(var(--urlbarView-icon-margin-end-base) + var(--urlbarView-favicon-margin-start));
-
-  --urlbarView-icon-border-radius-rounded: calc(
-    var(--urlbarView-row-border-radius) - min(var(--urlbarView-row-padding-block), var(--urlbarView-row-padding-inline))
-  );
 
   --urlbarView-result-button-size: 24px;
   --urlbarView-result-button-background-opacity: 60%;
@@ -158,8 +158,8 @@
   }
 
   &[type="rich-search"] {
-    --urlbarView-icon-size: 28px;
-    --urlbarView-icon-border-radius: var(--urlbarView-icon-border-radius-rounded);
+    --urlbarView-icon-size: var(--urlbarView-rich-search-suggestion-icon-size);
+    --urlbarView-icon-border-radius: var(--urlbarView-rich-search-suggestion-icon-border-radius);
 
     :root:not([uidensity="compact"]) & {
       min-height: 46px;
@@ -957,11 +957,14 @@
 
 .urlbarView-row[is-top-pick] {
   --urlbarView-icon-size: var(--urlbarView-top-pick-icon-size);
-  --urlbarView-icon-border-radius: var(--urlbarView-icon-border-radius-rounded);
+  --urlbarView-icon-border-radius: var(--urlbarView-top-pick-icon-border-radius);
 }
 
-.urlbarView-row[type$="_adm_sponsored"][is-top-pick] {
-  --urlbarView-icon-size: var(--urlbarView-rich-search-suggestion-icon-size);
+@media not -moz-pref("browser.urlbar.quicksuggest.ampTopPickUseNovaIconSize") {
+  .urlbarView-row[type$="_adm_sponsored"][is-top-pick] {
+    --urlbarView-icon-size: var(--urlbarView-rich-search-suggestion-icon-size);
+    --urlbarView-icon-border-radius: var(--urlbarView-rich-search-suggestion-icon-border-radius);
+  }
 }
 
 .urlbarView-row[type$="_amo"] {
@@ -975,7 +978,7 @@
   > .urlbarView-row-inner > .urlbarView-favicon {
     padding: calc((var(--urlbarView-top-pick-icon-size) - 24px) / 2);
     background-color: var(--urlbar-box-background-color-focus);
-    border-radius: var(--urlbarView-icon-border-radius-rounded);
+    border-radius: var(--urlbarView-top-pick-icon-border-radius);
   }
 
   &:is([selected], :hover) > .urlbarView-row-inner > .urlbarView-favicon {
@@ -1285,7 +1288,7 @@
       height: var(--urlbarView-top-pick-icon-size);
       margin-inline-end: var(--space-medium);
       border: 1px solid transparent;
-      border-radius: var(--urlbarView-icon-border-radius-rounded);
+      border-radius: var(--urlbarView-top-pick-icon-border-radius);
 
       fill: currentColor;
       fill-opacity: var(--urlbar-icon-fill-opacity);
@@ -1434,7 +1437,7 @@
     width: var(--urlbarView-top-pick-icon-size);
     height: var(--urlbarView-top-pick-icon-size);
     flex-basis: var(--urlbarView-top-pick-icon-size);
-    border-radius: var(--urlbarView-icon-border-radius-rounded);
+    border-radius: var(--urlbarView-top-pick-icon-border-radius);
   }
 
   > .urlbarView-realtime-description {

@@ -15,6 +15,17 @@ MozAdsClientBuilder = "Sync"
 MozAdsContextIdProvider = "Sync"
 MozAdsTelemetry = "FireAndForget"
 
+[autofill.async_wrappers]
+# Store opens the SQLite DB and runs migrations in its constructor, and every
+# method performs DB I/O, so the whole interface (including the constructor) is
+# async-wrapped to keep that work off the main thread (cf. logins LoginStore).
+Store = "AsyncWrapped"
+# The crypto helpers are pure in-memory CPU work (key passed in, no I/O), so they
+# run synchronously (cf. logins EncryptorDecryptor.encrypt/decrypt, create_key).
+"create_autofill_key" = "Sync"
+"encrypt_string" = "Sync"
+"decrypt_string" = "Sync"
+
 [context_id.async_wrappers]
 ContextIDComponent = "AsyncWrapped"
 "ContextIDComponent.new" = "Sync"

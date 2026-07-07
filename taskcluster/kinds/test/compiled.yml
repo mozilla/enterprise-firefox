@@ -55,6 +55,8 @@ cppunittest:
 
 gtest:
     description: "GTests run"
+    attributes:
+        code-review: true
     suite: gtest
     treeherder-symbol: GTest
     instance-size:

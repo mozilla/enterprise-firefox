@@ -1547,7 +1547,7 @@ class XPCShellTests:
             self.env.setdefault("MOZ_PROFILER_STARTUP", "1")
             self.env.setdefault(
                 "MOZ_PROFILER_STARTUP_FEATURES",
-                "java,js,cpu,screenshots,processcpu,ipcmessages,memory",
+                "java,js,screenshots,processcpu,ipcmessages,memory",
             )
 
             # Set the sampling interval to 10ms to reduce the sampling overhead

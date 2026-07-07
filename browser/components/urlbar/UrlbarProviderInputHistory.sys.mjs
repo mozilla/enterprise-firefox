@@ -91,7 +91,7 @@ export class UrlbarProviderInputHistory extends UrlbarProvider {
       (lazy.UrlbarPrefs.get("suggest.history") ||
         lazy.UrlbarPrefs.get("suggest.bookmark") ||
         lazy.UrlbarPrefs.get("suggest.openpage")) &&
-      !queryContext.searchMode
+      !queryContext.restrictInSearchMode()
     );
   }
 
@@ -202,7 +202,6 @@ export class UrlbarProviderInputHistory extends UrlbarProvider {
           tags: UrlbarUtils.HIGHLIGHT.TYPED,
         },
       });
-
       addCallback(this, result);
     }
   }

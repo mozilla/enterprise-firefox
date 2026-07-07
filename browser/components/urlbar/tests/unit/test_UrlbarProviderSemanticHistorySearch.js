@@ -64,7 +64,10 @@ add_task(async function setup() {
 add_task(async function test_startQuery_adds_results() {
   const provider = new UrlbarProviderSemanticHistorySearch();
 
-  const queryContext = { searchString: "test page" };
+  const queryContext = {
+    searchString: "test page",
+    restrictInSearchMode: () => false,
+  };
 
   // Trigger isActive() to initialize the semantic manager
   Assert.ok(await provider.isActive(queryContext), "Provider should be active");
@@ -120,7 +123,10 @@ add_task(async function test_isActive_conditions() {
   const canUseStub = sinon.stub(semanticManager, "canUseSemanticSearch");
 
   const shortQuery = { searchString: "hi" };
-  const validQuery = { searchString: "hello world" };
+  const validQuery = {
+    searchString: "hello world",
+    restrictInSearchMode: () => false,
+  };
 
   // Pref is disabled
   Services.prefs.setBoolPref("browser.urlbar.suggest.history", false);
@@ -185,8 +191,16 @@ add_task(async function test_isActive_smartbar_uses_sw_gate() {
   const canUseStub = sinon.stub(semanticManager, "canUseSemanticSearch");
   const swStub = sinon.stub(semanticManager, "isEnabledForSmartWindow");
 
-  const smartbarQuery = { searchString: "hello world", sapName: "smartbar" };
-  const urlbarQuery = { searchString: "hello world", sapName: "urlbar" };
+  const smartbarQuery = {
+    searchString: "hello world",
+    sapName: "smartbar",
+    restrictInSearchMode: () => false,
+  };
+  const urlbarQuery = {
+    searchString: "hello world",
+    sapName: "urlbar",
+    restrictInSearchMode: () => false,
+  };
 
   canUseStub.get(() => false);
   swStub.get(() => true);

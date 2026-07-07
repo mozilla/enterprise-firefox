@@ -604,6 +604,7 @@ function assertQuickSuggestPing(expectedPing) {
     "requestId",
     "source",
     "contextId",
+    "suggestionId",
   ];
 
   Assert.ok(

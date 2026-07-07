@@ -88,7 +88,7 @@ exports.PerfActor = class PerfActor extends Actor {
       entries: options.entries || 1000000,
       duration: options.duration || 0,
       interval: options.interval || 1,
-      features: options.features || ["js", "stackwalk", "cpu", "memory"],
+      features: options.features || ["js", "stackwalk", "memory"],
       threads: options.threads || ["GeckoMain", "Compositor"],
       activeTabID: RecordingUtils.getActiveBrowserID(),
     };

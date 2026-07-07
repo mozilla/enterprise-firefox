@@ -6,15 +6,20 @@
   list-style-image: url("chrome://browser/content/enterprise/site-restrictions.svg");
 }
 
+#access-connector-button .urlbar-icon {
+  list-style-image: url("chrome://browser/content/enterprise/access-connector.svg");
+}
+
 /* use theme colors for HCM */
 @media not (forced-colors) {
-  #lockdown-mode-button .urlbar-icon {
+  #lockdown-mode-button .urlbar-icon,
+  #access-connector-button .urlbar-icon {
     -moz-context-properties: fill;
     fill: var(--icon-color-information);
   }
 }
 
-.lockdown-mode-subview {
+.enterprise-urlbar-panel-subview {
   max-width: var(--size-layout-large);
 
   & .panel-subview-body {

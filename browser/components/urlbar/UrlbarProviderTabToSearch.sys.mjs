@@ -118,7 +118,7 @@ export class UrlbarProviderTabToSearch extends UrlbarProvider {
     return (
       queryContext.searchString &&
       queryContext.tokens.length == 1 &&
-      !queryContext.searchMode &&
+      !queryContext.restrictInSearchMode() &&
       lazy.UrlbarPrefs.get("suggest.engines") &&
       !(
         (await this.queryInstance

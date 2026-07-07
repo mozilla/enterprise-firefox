@@ -1121,7 +1121,7 @@ StaticRefPtr<InsertHTMLCommand> InsertHTMLCommand::sInstance;
 bool InsertHTMLCommand::IsCommandEnabled(Command aCommand,
                                          EditorBase* aEditorBase) const {
   HTMLEditor* htmlEditor = HTMLEditor::GetFrom(aEditorBase);
-  if (!htmlEditor || htmlEditor->GetEditContext()) {
+  if (!htmlEditor || htmlEditor->ComputeEditContext()) {
     return false;
   }
   return htmlEditor->IsModifiable() && htmlEditor->IsSelectionEditable();

@@ -93,6 +93,8 @@ skip-if = [
 
 ["test_parseStreetAddress.js"]
 
+["test_passportStorage.js"]
+
 ["test_paymentsListItems.js"]
 
 ["test_phoneNumber.js"]

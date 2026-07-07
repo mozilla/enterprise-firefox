@@ -44,7 +44,6 @@ import org.mozilla.fenix.components.usecases.FenixBrowserUseCases
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.nav
 import org.mozilla.fenix.home.HomeFragmentDirections
-import org.mozilla.fenix.home.mars.MARSUseCases
 import org.mozilla.fenix.home.topsites.ShortcutsFragmentDirections
 import org.mozilla.fenix.home.topsites.interactor.TopSiteInteractor
 import org.mozilla.fenix.settings.SupportUtils
@@ -126,7 +125,6 @@ class DefaultTopSiteController(
     private val selectTabUseCase: TabsUseCases.SelectTabUseCase,
     private val fenixBrowserUseCases: FenixBrowserUseCases,
     private val topSitesUseCases: TopSitesUseCases,
-    private val marsUseCases: MARSUseCases,
     private val mozAdsUseCases: MozAdsUseCases,
     private val viewLifecycleScope: CoroutineScope,
 ) : TopSiteController {
@@ -256,11 +254,7 @@ class DefaultTopSiteController(
             is TopSite.Frecent -> TopSites.openFrecency.record(NoExtras())
             is TopSite.Pinned -> TopSites.openPinned.record(NoExtras())
             is TopSite.Provided -> {
-                if (settings.enableMozillaAdsClient) {
-                    sendMozAdsClickInteraction(clickUrl = topSite.clickUrl)
-                } else {
-                    sendMarsTopSiteCallback(topSite.clickUrl)
-                }
+                sendMozAdsClickInteraction(clickUrl = topSite.clickUrl)
 
                 TopSites.openContileTopSite.record(NoExtras()).also {
                     recordTopSitesClickTelemetry(topSite, position)
@@ -337,11 +331,7 @@ class DefaultTopSiteController(
     }
 
     override fun handleTopSiteImpression(topSite: TopSite.Provided, position: Int) {
-        if (settings.enableMozillaAdsClient) {
-            sendMozAdsImpressionInteraction(impressionUrl = topSite.impressionUrl)
-        } else {
-            sendMarsTopSiteCallback(topSite.impressionUrl)
-        }
+        sendMozAdsImpressionInteraction(impressionUrl = topSite.impressionUrl)
 
         TopSites.contileImpression.record(
             TopSites.ContileImpressionExtra(
@@ -354,12 +344,6 @@ class DefaultTopSiteController(
         topSite.title?.let { TopSites.contileAdvertiser.set(it.lowercase()) }
 
         Pings.topsitesImpression.submit()
-    }
-
-    private fun sendMarsTopSiteCallback(url: String) {
-        viewLifecycleScope.launch {
-            marsUseCases.recordInteraction(url)
-        }
     }
 
     private fun sendMozAdsClickInteraction(clickUrl: String) {

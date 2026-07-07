@@ -86,7 +86,6 @@
     <string name="pref_key_install_pwa_opened" translatable="false">pref_key_install_pwa_opened</string>
     <string name="pref_key_install_pwa_visits" translatable="false">pref_key_install_pwa_visits</string>
     <string name="pref_key_times_app_opened" translatable="false">pref_key_times_app_opened</string>
-    <string name="pref_key_custom_review_prompt_enabled" translatable="false">pref_key_custom_review_prompt_enabled</string>
     <string name="pref_key_custom_review_prompt_ui_enabled" translatable="false">pref_key_custom_review_prompt_ui_enabled</string>
     <string name="pref_key_last_browse_activity_time" translatable="false">pref_key_last_browse_activity_time</string>
     <string name="pref_key_last_home_activity_time" translatable="false">pref_key_last_home_activity_time</string>
@@ -474,7 +473,7 @@
     <string name="pref_key_enable_homepage_sports_widget" translatable="false">pref_key_enable_homepage_sports_widget</string>
     <string name="pref_key_show_homepage_sports_widget" translatable="false">pref_key_show_homepage_sports_widget</string>
     <string name="pref_key_show_homepage_countdown_widget" translatable="false">pref_key_show_homepage_countdown_widget</string>
-    <string name="pref_key_enable_mozilla_ads_client" translatable="false">pref_key_enable_mozilla_ads_client</string>
+    <string name="pref_key_enable_ads_client_for_stories" translatable="false">pref_key_enable_ads_client_for_stories</string>
     <string name="pref_key_enable_firefox_labs" translatable="false">pref_key_enable_firefox_labs</string>
     <string name="pref_key_top_sites_pager" translatable="false">pref_key_top_sites_pager</string>
     <string name="pref_key_enable_add_shortcuts_improvement" translatable="false">pref_key_enable_add_shortcuts_improvement</string>

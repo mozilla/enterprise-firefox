@@ -429,20 +429,22 @@ var SidebarController = {
       this._state = new this.SidebarState(this);
     }
 
-    // Watch for fullscreen transitions to sync the sidebar attribute.
+    // Watch for the nav toolbox being hidden in fullscreen (both DOM fullscreen
+    // and F11 autohide set fullscreenNavToolboxHidden) to sync the sidebar.
     this._fullscreenObserver = new MutationObserver(() => {
-      const inFullscreen =
-        document.documentElement.hasAttribute("inDOMFullscreen");
-      this._state.fullscreen = inFullscreen;
+      this._state.navToolboxCollapsed = document.documentElement.hasAttribute(
+        "fullscreenNavToolboxHidden"
+      );
     });
 
     this._fullscreenObserver.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["inDOMFullscreen"],
+      attributeFilter: ["fullscreenNavToolboxHidden"],
     });
-    // Initial check: is the window already in fullscreen when we start?
-    this._state.fullscreen =
-      document.documentElement.hasAttribute("inDOMFullscreen");
+    this._state.navToolboxCollapsed = document.documentElement.hasAttribute(
+      "fullscreenNavToolboxHidden"
+    );
+
     this._pinnedTabsContainer = document.getElementById(
       "pinned-tabs-container"
     );

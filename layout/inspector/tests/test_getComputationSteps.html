@@ -565,6 +565,15 @@ add_task(async function() {
       "2",
     ]
   });
+  test({
+    expression: "sibling-index()",
+    el: document.querySelector("li:nth-of-type(2)"),
+    pseudo: "::marker",
+    expected: [
+      "sibling-index()",
+      "2",
+    ]
+  });
 
   /// sibling-count()
   test({
@@ -578,6 +587,15 @@ add_task(async function() {
   test({
     expression: "sibling-count()",
     el: document.querySelector("li:nth-of-type(2)"),
+    expected: [
+      "sibling-count()",
+      "3",
+    ]
+  });
+  test({
+    expression: "sibling-count()",
+    el: document.querySelector("li:nth-of-type(2)"),
+    pseudo: "::marker",
     expected: [
       "sibling-count()",
       "3",

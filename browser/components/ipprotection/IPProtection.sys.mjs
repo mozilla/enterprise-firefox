@@ -60,7 +60,6 @@ class IPProtectionWidget {
     if (!this.created) {
       this.#createWidget();
     }
-
     lazy.CustomizableUI.addListener(this);
   }
 
@@ -71,12 +70,11 @@ class IPProtectionWidget {
     if (!this.#inited) {
       return;
     }
-    this.#destroyWidget();
-    this.#uninitPanels();
-
-    lazy.CustomizableUI.removeListener(this);
-
     this.#inited = false;
+
+    this.#destroyWidget();
+    lazy.CustomizableUI.removeListener(this);
+    this.#uninitPanels();
   }
 
   /**
@@ -97,7 +95,7 @@ class IPProtectionWidget {
     const onDestroyed = this.#onDestroyed.bind(this);
     const item = {
       id: IPProtectionWidget.WIDGET_ID,
-      l10nId: "enterprise-access-connector-button2",
+      l10nId: "ipprotection-button",
       type: "view",
       viewId: IPProtectionWidget.PANEL_ID,
       onViewShowing,

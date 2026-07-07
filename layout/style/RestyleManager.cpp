@@ -989,7 +989,7 @@ static bool RecomputePosition(nsIFrame* aFrame) {
   nsFrameState savedState = parentFrame->GetStateBits();
   ReflowInput parentReflowInput(aFrame->PresContext(), parentFrame, rc.get(),
                                 parentSize);
-  parentFrame->RemoveStateBits(~nsFrameState(0));
+  parentFrame->RemoveStateBits(~NS_FRAME_STATE_NONE);
   parentFrame->AddStateBits(savedState);
 
   // The bogus parent state here was created with no parent state of its own,
@@ -1407,7 +1407,7 @@ static void StyleChangeReflow(nsIFrame* aFrame, nsChangeHint aHint) {
 
   nsFrameState dirtyBits;
   if (aFrame->HasAnyStateBits(NS_FRAME_FIRST_REFLOW)) {
-    dirtyBits = nsFrameState(0);
+    dirtyBits = NS_FRAME_STATE_NONE;
   } else if ((aHint & nsChangeHint_NeedDirtyReflow) ||
              dirtyType == IntrinsicDirty::FrameAncestorsAndDescendants) {
     dirtyBits = NS_FRAME_IS_DIRTY;

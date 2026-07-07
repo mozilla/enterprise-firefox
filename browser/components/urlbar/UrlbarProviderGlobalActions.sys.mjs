@@ -86,10 +86,9 @@ export class UrlbarProviderGlobalActions extends UrlbarProvider {
 
     for (let provider of globalActionsProviders) {
       if (provider.isActive(queryContext)) {
-        for (let action of (await provider.queryActions(queryContext)) || []) {
-          action.providerName = provider.name;
-          actionsResults.push(action);
-        }
+        actionsResults.push(
+          ...((await provider.queryActions(queryContext)) || [])
+        );
       }
     }
 

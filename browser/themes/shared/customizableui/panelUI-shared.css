@@ -2049,9 +2049,6 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
 #PanelUI-profiler-presets {
   margin: 8px 0;
 
-  /* Remove once this is migrated to moz-select. */
-  border: var(--button-border);
-
   &[disabled]::part(label-box) {
     opacity: 0.5;
   }

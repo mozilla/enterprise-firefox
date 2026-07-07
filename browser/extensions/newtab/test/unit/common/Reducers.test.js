@@ -367,6 +367,26 @@ describe("Reducers", () => {
         assert.notEqual(oldState.values, state.values);
       });
     });
+    describe("MULTIPLE_PREFS_CHANGED", () => {
+      it("should merge multiple values in one pass and keep untouched keys", () => {
+        const oldState = { ...INITIAL_STATE.Prefs, values: { foo: 1, bar: 2 } };
+        const state = Prefs(oldState, {
+          type: at.MULTIPLE_PREFS_CHANGED,
+          data: { values: { foo: 3, baz: 4 } },
+        });
+        assert.equal(state.values.foo, 3);
+        assert.equal(state.values.bar, 2);
+        assert.equal(state.values.baz, 4);
+      });
+      it("should return a new .values object instead of mutating", () => {
+        const oldState = { ...INITIAL_STATE.Prefs, values: { foo: 1 } };
+        const state = Prefs(oldState, {
+          type: at.MULTIPLE_PREFS_CHANGED,
+          data: { values: { foo: 2 } },
+        });
+        assert.notEqual(oldState.values, state.values);
+      });
+    });
   });
   describe("Dialog", () => {
     it("should return INITIAL_STATE by default", () => {

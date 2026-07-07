@@ -33,11 +33,6 @@
     /* 13px (in-content) */
     --font-size-small: 0.867rem;
 
-    /** link **/
-    --link-color: var(--color-accent-primary);
-    --link-color-hover: var(--color-accent-primary-hover);
-    --link-color-active: var(--color-accent-primary-active);
-
     /** page **/
     --page-main-content-width: 664px;
     --page-space-block-start: 64px;

@@ -58,8 +58,8 @@ class AudioSinkWrapper : public MediaSink {
 
   double PlaybackRate() const override;
 
-  nsresult Start(const media::TimeUnit& aStartTime,
-                 const MediaInfo& aInfo) override;
+  nsresult Start(const media::TimeUnit& aStartTime, const MediaInfo& aInfo,
+                 StartType aStartType = StartType::Initial) override;
   void Stop() override;
   bool IsStarted() const override;
   bool IsPlaying() const override;

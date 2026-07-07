@@ -291,7 +291,11 @@ void EditContext::UpdateTextAndFireEvent(uint32_t aStart, uint32_t aEnd,
       TextUpdateEvent::Constructor(this, u"textupdate"_ns, options);
   e->SetTrusted(true);
   mTextNextToCaretChangedByTextUpdateHandler = false;
+  // It shouldn't be possible for this to be called recursively.
+  MOZ_ASSERT(!mIsFiringTextUpdate);
+  mIsFiringTextUpdate = true;
   DispatchEvent(*e);
+  mIsFiringTextUpdate = false;
 }
 
 void EditContext::StartComposition(const WidgetCompositionEvent& aEvent) {

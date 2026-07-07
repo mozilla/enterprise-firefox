@@ -106,6 +106,7 @@ for (const type of [
   "MESSAGE_NOTIFY_VISIBILITY",
   "MESSAGE_SET",
   "MESSAGE_TOGGLE_VISIBILITY",
+  "MULTIPLE_PREFS_CHANGED",
   "NEW_TAB_INIT",
   "NEW_TAB_INITIAL_STATE",
   "NEW_TAB_LOAD",
@@ -159,6 +160,7 @@ for (const type of [
   "SECTION_UPDATE_CARD",
   "SETTINGS_CLOSE",
   "SETTINGS_OPEN",
+  "SET_MULTIPLE_PREFS",
   "SET_PREF",
   "SHOW_DOWNLOAD_FILE",
   "SHOW_FIREFOX_ACCOUNTS",
@@ -476,6 +478,15 @@ function SetPref(prefName, value, importContext = globalImportContext) {
   return importContext === UI_CODE ? AlsoToMain(action) : action;
 }
 
+// Routed to main, which applies all values and echoes one MULTIPLE_PREFS_CHANGED.
+const SetMultiplePrefs = (values, importContext = globalImportContext) => {
+  const action = {
+    type: actionTypes.SET_MULTIPLE_PREFS,
+    data: { values },
+  };
+  return importContext === UI_CODE ? AlsoToMain(action) : action;
+};
+
 function WebExtEvent(type, data, importContext = globalImportContext) {
   if (!data || !data.source) {
     throw new Error(
@@ -497,6 +508,7 @@ export const actionCreators = {
   OnlyToMain,
   AlsoToPreloaded,
   SetPref,
+  SetMultiplePrefs,
   WebExtEvent,
   DiscoveryStreamImpressionStats,
   DiscoveryStreamLoadedContent,

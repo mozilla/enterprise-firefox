@@ -362,7 +362,6 @@ class Components(private val context: Context) {
                         val continuousOnboardingCompleted = settings.seventhDayOnboardingCompletedTimestamp != -1L
                         settings.continuousOnboardingFeatureEnabled && !continuousOnboardingCompleted
                     },
-                    shouldUseNewTriggerCriteria = { settings.newReviewPromptTriggerCriteriaEnabled },
                     shouldShowCustomPrompt = { settings.customReviewPromptUiEnabled && settings.isTelemetryEnabled },
                     disableCustomPrompt = { settings.customReviewPromptUiEnabled = false },
                     createJexlHelper = nimbus::createJexlHelper,

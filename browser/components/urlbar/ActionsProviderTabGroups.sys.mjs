@@ -135,6 +135,7 @@ class ProviderTabGroups extends ActionsProvider {
 
   #makeResult({ key, l10nId, l10nArgs, color, dataset }) {
     return new ActionsResult({
+      providerName: this.name,
       key,
       l10nId,
       l10nArgs,

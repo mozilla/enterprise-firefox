@@ -135,7 +135,7 @@ export class FilterAdultComponent extends FilterAdultComponentInterface {
     static init() {
        
         const result = UniFFIScaffolding.callSync(
-            25, // uniffi_filter_adult_fn_constructor_filteradultcomponent_new
+            54, // uniffi_filter_adult_fn_constructor_filteradultcomponent_new
         )
         return handleRustResult(
             result,
@@ -154,7 +154,7 @@ export class FilterAdultComponent extends FilterAdultComponentInterface {
        
         FfiConverterString.checkType(baseDomainToCheck);
         const result = UniFFIScaffolding.callSync(
-            26, // uniffi_filter_adult_fn_method_filteradultcomponent_contains
+            55, // uniffi_filter_adult_fn_method_filteradultcomponent_contains
             FfiConverterTypeFilterAdultComponent.lowerReceiver(this),
             FfiConverterString.lower(baseDomainToCheck),
         )
@@ -189,11 +189,11 @@ export class FfiConverterTypeFilterAdultComponent extends FfiConverter {
     }
 
     static read(dataStream) {
-        return this.lift(dataStream.readPointer(6));
+        return this.lift(dataStream.readPointer(7));
     }
 
     static write(dataStream, value) {
-        dataStream.writePointer(6, this.lower(value));
+        dataStream.writePointer(7, this.lower(value));
     }
 
     static computeSize(value) {

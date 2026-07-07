@@ -911,6 +911,60 @@ pbe_PK11AlgidToParam(SECAlgorithmID *algid, SECItem *mech)
         goto loser;
     }
 
+    if (algorithm == SEC_OID_AES_128_GCM ||
+        algorithm == SEC_OID_AES_192_GCM ||
+        algorithm == SEC_OID_AES_256_GCM) {
+        /* GCMParameters ::= SEQUENCE { aes-nonce OCTET STRING,
+         *                              aes-ICVlen INTEGER DEFAULT 12 } */
+        typedef struct {
+            SECItem nonce;
+            SECItem icvLen;
+        } pbeGCMParamsCarrier;
+        CK_NSS_GCM_PARAMS *gcm;
+        pbeGCMParamsCarrier gcmParams = { { siBuffer, NULL, 0 },
+                                          { siBuffer, NULL, 0 } };
+        static const SEC_ASN1Template gcmParamsTemplate[] = {
+            { SEC_ASN1_SEQUENCE, 0, NULL, sizeof(pbeGCMParamsCarrier) },
+            { SEC_ASN1_OCTET_STRING, offsetof(pbeGCMParamsCarrier, nonce) },
+            { SEC_ASN1_OPTIONAL | SEC_ASN1_INTEGER,
+              offsetof(pbeGCMParamsCarrier, icvLen) },
+            { 0 }
+        };
+        rv = SEC_ASN1DecodeItem(arena, &gcmParams, gcmParamsTemplate,
+                                &(algid->parameters));
+        if (rv != SECSuccess || gcmParams.nonce.data == NULL ||
+            gcmParams.nonce.len == 0 || gcmParams.nonce.len > 1024) {
+            PORT_SetError(SEC_ERROR_INVALID_ALGORITHM);
+            goto loser;
+        }
+        /* Single allocation for struct + IV so one free releases both */
+        gcm = (CK_NSS_GCM_PARAMS *)PORT_ZAlloc(
+            sizeof(CK_NSS_GCM_PARAMS) + gcmParams.nonce.len);
+        if (gcm == NULL) {
+            goto loser;
+        }
+        gcm->pIv = ((CK_BYTE_PTR)gcm) + sizeof(CK_NSS_GCM_PARAMS);
+        PORT_Memcpy(gcm->pIv, gcmParams.nonce.data, gcmParams.nonce.len);
+        gcm->ulIvLen = gcmParams.nonce.len;
+        gcm->pAAD = NULL;
+        gcm->ulAADLen = 0;
+        if (gcmParams.icvLen.data != NULL) {
+            long icvLen = DER_GetInteger(&gcmParams.icvLen);
+            /* RFC 5084: AES-GCM-ICVlen ::= INTEGER (12 | 13 | 14 | 15 | 16) */
+            if (icvLen < 12 || icvLen > 16) {
+                PORT_Free(gcm);
+                PORT_SetError(SEC_ERROR_INVALID_ALGORITHM);
+                goto loser;
+            }
+            gcm->ulTagBits = icvLen * 8;
+        } else {
+            gcm->ulTagBits = (CK_ULONG)12 * 8; /* default per RFC 5084 */
+        }
+        paramData = (unsigned char *)gcm;
+        paramLen = sizeof(CK_NSS_GCM_PARAMS);
+        goto done;
+    }
+
     /*
      * decode the algid based on the pbe type
      */
@@ -1020,6 +1074,7 @@ pbe_PK11AlgidToParam(SECAlgorithmID *algid, SECItem *mech)
         pbe_params->ulIteration = iterations;
     }
 
+done:
     /* copy into the mechanism sec item */
     mech->data = paramData;
     mech->len = paramLen;

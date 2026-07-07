@@ -1082,7 +1082,11 @@ class MuxerUnifiedComplete extends UrlbarMuxer {
 
     // When in an engine search mode, discard URL results whose hostnames don't
     // include the root domain of the search mode engine.
-    if (state.context.searchMode?.engineName && result.payload.url) {
+    if (
+      state.context.searchMode?.engineName &&
+      result.payload.url &&
+      state.context.restrictInSearchMode()
+    ) {
       let engine = lazy.SearchService.getEngineByName(
         state.context.searchMode.engineName
       );

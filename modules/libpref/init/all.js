@@ -1742,7 +1742,7 @@ pref("font.blacklist.underline_offset", "FangSong,Gulim,GulimChe,MingLiU,MingLiU
 pref("security.dialog_enable_delay", 1000);
 pref("security.notification_enable_delay", 500);
 
-#ifdef EARLY_BETA_OR_EARLIER
+#ifdef NIGHTLY_BUILD
   // Disallow web documents loaded with the SystemPrincipal
   pref("security.disallow_non_local_systemprincipal_in_tests", false);
 #endif
@@ -4030,7 +4030,7 @@ pref("security.storage.encryption.sqlite.enabled", false, locked);
 // is not being used in form autofill, but need to exist for migration purposes.
 pref("extensions.formautofill.available", "detect");
 
-#if defined(NIGHTLY_BUILD) && !defined(ANDROID)
+#if !defined(ANDROID)
 pref("extensions.formautofill.addresses.supported", "on");
 // Use ML for address form field detection.
 pref("extensions.formautofill.useml", true);

@@ -263,7 +263,6 @@ nsProfiler::WaitOnePeriodicSampling(JSContext* aCx, Promise** aPromise) {
                       promiseHandleInMT->MaybeReject(NS_ERROR_FAILURE);
                       break;
 
-                    case SamplingState::NoStackSamplingCompleted:
                     case SamplingState::SamplingCompleted:
                       // The parent process has succesfully done a sampling,
                       // check the child processes (if any).

@@ -179,6 +179,7 @@ for (const type of [
   "MESSAGE_NOTIFY_VISIBILITY",
   "MESSAGE_SET",
   "MESSAGE_TOGGLE_VISIBILITY",
+  "MULTIPLE_PREFS_CHANGED",
   "NEW_TAB_INIT",
   "NEW_TAB_INITIAL_STATE",
   "NEW_TAB_LOAD",
@@ -232,6 +233,7 @@ for (const type of [
   "SECTION_UPDATE_CARD",
   "SETTINGS_CLOSE",
   "SETTINGS_OPEN",
+  "SET_MULTIPLE_PREFS",
   "SET_PREF",
   "SHOW_DOWNLOAD_FILE",
   "SHOW_FIREFOX_ACCOUNTS",
@@ -549,6 +551,15 @@ function SetPref(prefName, value, importContext = globalImportContext) {
   return importContext === UI_CODE ? AlsoToMain(action) : action;
 }
 
+// Routed to main, which applies all values and echoes one MULTIPLE_PREFS_CHANGED.
+const SetMultiplePrefs = (values, importContext = globalImportContext) => {
+  const action = {
+    type: actionTypes.SET_MULTIPLE_PREFS,
+    data: { values },
+  };
+  return importContext === UI_CODE ? AlsoToMain(action) : action;
+};
+
 function WebExtEvent(type, data, importContext = globalImportContext) {
   if (!data || !data.source) {
     throw new Error(
@@ -570,6 +581,7 @@ const actionCreators = {
   OnlyToMain,
   AlsoToPreloaded,
   SetPref,
+  SetMultiplePrefs,
   WebExtEvent,
   DiscoveryStreamImpressionStats,
   DiscoveryStreamLoadedContent,
@@ -1711,10 +1723,11 @@ class DSImage extends (external_React_default()).PureComponent {
           srcSetRules.push(srcSetRule);
           srcSetRules.push(srcSetRule2x);
         }
+        const explicitSize = this.props.sizes[this.props.sizes.length - 1];
         if (this.props.sizes.length) {
           // We have to supply a fallback in the very unlikely event that none of
           // the media queries match. The smallest dimension was chosen arbitrarily.
-          sizeRules.push(`${this.props.sizes[this.props.sizes.length - 1].width}px`);
+          sizeRules.push(`${explicitSize.width}px`);
         }
         img = /*#__PURE__*/external_React_default().createElement("img", {
           loading: "lazy",
@@ -1724,7 +1737,11 @@ class DSImage extends (external_React_default()).PureComponent {
           onError: this.onOptimizedImageError,
           sizes: sizeRules.join(","),
           src: securedSource,
-          srcSet: srcSetRules.join(",")
+          srcSet: srcSetRules.join(","),
+          style: explicitSize ? {
+            width: `${explicitSize.width}px`,
+            height: `${explicitSize.height}px`
+          } : undefined
         });
       } else if (this.props.source && !this.state.nonOptimizedImageFailed) {
         img = /*#__PURE__*/external_React_default().createElement("img", {
@@ -7080,6 +7097,10 @@ function Prefs(prevState = INITIAL_STATE.Prefs, action) {
       newValues = Object.assign({}, prevState.values);
       newValues[action.data.name] = action.data.value;
       return Object.assign({}, prevState, { values: newValues });
+    case actionTypes.MULTIPLE_PREFS_CHANGED:
+      return Object.assign({}, prevState, {
+        values: Object.assign({}, prevState.values, action.data.values),
+      });
     default:
       return prevState;
   }
@@ -22569,32 +22590,38 @@ function Widgets() {
   function toggleMaximize() {
     const newMaximizedState = !isMaximized;
     const newWidgetSize = widgetsMayBeMaximized && !newMaximizedState ? "medium" : "large";
-    (0,external_ReactRedux_namespaceObject.batch)(() => {
-      dispatch(actionCreators.SetPref(PREF_WIDGETS_MAXIMIZED, newMaximizedState));
 
-      // When Nova is enabled, treat the shared header control as a toggle
-      // between the default/full widget presentation and the compact one.
-      // Only widgets actually rendered in the sidebar are skipped — that is the
-      // same hasSidebar + size === "small" test used in WidgetsSidebar and by
-      // weatherGoesToSidebar above, not "any small widget". A "small" widget
-      // sitting in the row is resized along with the others so it isn't left
-      // behind by the row toggle. On minimize such a widget lands at "medium"
-      // rather than returning to "small", since the size pref holds the display
-      // state directly and the pre-maximize size isn't retained.
-      if (novaEnabled) {
-        const targetSize = newMaximizedState ? "large" : "medium";
-        for (const widget of WIDGET_REGISTRY) {
-          const inSidebar = resolveWidgetHasSidebar(widget, prefs) && resolveWidgetSize(widget, prefs) === "small";
-          if (!inSidebar) {
-            dispatch(actionCreators.SetPref(widget.sizePref, targetSize));
-          }
+    // Batch into one SET_MULTIPLE_PREFS so the sizes return in a single broadcast,
+    // not one staggered round-trip per widget.
+    const prefUpdates = {
+      [PREF_WIDGETS_MAXIMIZED]: newMaximizedState
+    };
+
+    // When Nova is enabled, treat the shared header control as a toggle
+    // between the default/full widget presentation and the compact one.
+    // Only widgets actually rendered in the sidebar are skipped — that is the
+    // same hasSidebar + size === "small" test used in WidgetsSidebar and by
+    // weatherGoesToSidebar above, not "any small widget". A "small" widget
+    // sitting in the row is resized along with the others so it isn't left
+    // behind by the row toggle. On minimize such a widget lands at "medium"
+    // rather than returning to "small", since the size pref holds the display
+    // state directly and the pre-maximize size isn't retained.
+    if (novaEnabled) {
+      const targetSize = newMaximizedState ? "large" : "medium";
+      for (const widget of WIDGET_REGISTRY) {
+        const inSidebar = resolveWidgetHasSidebar(widget, prefs) && resolveWidgetSize(widget, prefs) === "small";
+        if (!inSidebar) {
+          prefUpdates[widget.sizePref] = targetSize;
         }
       }
-      const telemetryData = {
-        action_type: CONTAINER_ACTION_TYPES.CHANGE_SIZE_ALL,
-        action_value: newMaximizedState ? "maximize_widgets" : "minimize_widgets",
-        widget_size: newWidgetSize
-      };
+    }
+    const telemetryData = {
+      action_type: CONTAINER_ACTION_TYPES.CHANGE_SIZE_ALL,
+      action_value: newMaximizedState ? "maximize_widgets" : "minimize_widgets",
+      widget_size: newWidgetSize
+    };
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.SetMultiplePrefs(prefUpdates));
       dispatch(actionCreators.OnlyToMain({
         type: actionTypes.WIDGETS_CONTAINER_ACTION,
         data: telemetryData

@@ -444,6 +444,12 @@ add_task(async function globalAction() {
             actionsResults: [
               {
                 providerName: "ActionsProviderContextualSearch",
+                key: "matched-contextual-search",
+                l10nId: "urlbar-result-search-with",
+                l10nArgs: { engine: "Amp" },
+                icon: "chrome://browser/skin/search-engine-placeholder@2x.png",
+                dataset: { providesSearchMode: true },
+                engine: "Amp",
               },
             ],
             query: "",

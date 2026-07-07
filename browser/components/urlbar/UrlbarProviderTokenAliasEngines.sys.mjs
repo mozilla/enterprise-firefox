@@ -68,7 +68,7 @@ export class UrlbarProviderTokenAliasEngines extends UrlbarProvider {
     }
 
     // Do not show token alias results in search mode.
-    if (queryContext.searchMode) {
+    if (queryContext.restrictInSearchMode()) {
       return false;
     }
 

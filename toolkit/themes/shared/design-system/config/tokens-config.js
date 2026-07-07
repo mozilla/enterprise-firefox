@@ -700,7 +700,7 @@ function formatTokens({
 ${NEST_MEDIA_QUERIES_COMMENT}
 @layer ${layer} {
   @media not ((forced-colors) or (-moz-native-theme)) {
-    :root:not([lwtheme]),
+    :root:is([theme-in-app], :not([lwtheme])),
     :host(.anonymous-content-host) {
 ${formattedVars}
     }

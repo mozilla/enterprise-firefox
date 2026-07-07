@@ -976,7 +976,10 @@ export const tokensTable = {
       name: "--button-border-color-disabled",
     },
     {
-      value: { default: "var(--button-border-color)" },
+      value: {
+        default: "var(--button-border-color)",
+        prefersContrast: "var(--button-border-color)",
+      },
       name: "--button-border-color-ghost",
     },
     {
@@ -2402,15 +2405,11 @@ export const tokensTable = {
     {
       value: {
         forcedColors: "LinkText",
-        brand: { default: "var(--color-accent-primary)" },
+        default: "var(--color-accent-primary)",
         nativeTheme: "LinkText",
         platform: {
           default: "LinkText",
-          browserTheme: {
-            light: "var(--color-blue-60)",
-            dark: "var(--color-cyan-30)",
-            default: "light-dark(var(--color-blue-60), var(--color-cyan-30))",
-          },
+          browserTheme: { default: "var(--color-accent-primary)" },
         },
       },
       name: "--link-color",
@@ -2418,9 +2417,11 @@ export const tokensTable = {
     {
       value: {
         forcedColors: "LinkText",
-        brand: { default: "var(--color-accent-primary-hover)" },
+        default: "var(--color-accent-primary-hover)",
+        nativeTheme: "color-mix(in srgb, black 10%, var(--link-color))",
         platform: {
           default: "color-mix(in srgb, black 10%, var(--link-color))",
+          browserTheme: { default: "var(--color-accent-primary-hover)" },
         },
       },
       name: "--link-color-hover",
@@ -2428,9 +2429,11 @@ export const tokensTable = {
     {
       value: {
         forcedColors: "ActiveText",
-        brand: { default: "var(--color-accent-primary-active)" },
+        default: "var(--color-accent-primary-active)",
+        nativeTheme: "color-mix(in srgb, black 20%, var(--link-color))",
         platform: {
           default: "color-mix(in srgb, black 20%, var(--link-color))",
+          browserTheme: { default: "var(--color-accent-primary-active)" },
         },
       },
       name: "--link-color-active",
@@ -3948,7 +3951,10 @@ export const variableLookupTable = {
     default: "var(--button-border-color)",
     forcedColors: "var(--border-color-interactive-disabled)",
   },
-  "button-border-color-ghost": { default: "var(--button-border-color)" },
+  "button-border-color-ghost": {
+    default: "var(--button-border-color)",
+    prefersContrast: "var(--button-border-color)",
+  },
   "button-border-color-ghost-active": {
     default: "var(--button-border-color-active)",
   },
@@ -4322,26 +4328,30 @@ export const variableLookupTable = {
   "input-width": "var(--size-item-small)",
   "link-color": {
     forcedColors: "LinkText",
-    brand: { default: "var(--color-accent-primary)" },
+    default: "var(--color-accent-primary)",
     nativeTheme: "LinkText",
     platform: {
       default: "LinkText",
-      browserTheme: {
-        light: "var(--color-blue-60)",
-        dark: "var(--color-cyan-30)",
-        default: "light-dark(var(--color-blue-60), var(--color-cyan-30))",
-      },
+      browserTheme: { default: "var(--color-accent-primary)" },
     },
   },
   "link-color-hover": {
     forcedColors: "LinkText",
-    brand: { default: "var(--color-accent-primary-hover)" },
-    platform: { default: "color-mix(in srgb, black 10%, var(--link-color))" },
+    default: "var(--color-accent-primary-hover)",
+    nativeTheme: "color-mix(in srgb, black 10%, var(--link-color))",
+    platform: {
+      default: "color-mix(in srgb, black 10%, var(--link-color))",
+      browserTheme: { default: "var(--color-accent-primary-hover)" },
+    },
   },
   "link-color-active": {
     forcedColors: "ActiveText",
-    brand: { default: "var(--color-accent-primary-active)" },
-    platform: { default: "color-mix(in srgb, black 20%, var(--link-color))" },
+    default: "var(--color-accent-primary-active)",
+    nativeTheme: "color-mix(in srgb, black 20%, var(--link-color))",
+    platform: {
+      default: "color-mix(in srgb, black 20%, var(--link-color))",
+      browserTheme: { default: "var(--color-accent-primary-active)" },
+    },
   },
   "link-color-visited": {
     forcedColors: "VisitedText",

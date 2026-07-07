@@ -40,8 +40,8 @@ CONFIGS = defaultdict(
         "database": {
             "defines": {},
             "substs": {
-                "CC": "clang",
-                "CXX": "clang++",
+                "CC": ["clang"],
+                "CXX": ["clang++"],
                 "LIB_PREFIX": "lib",
                 "LIB_SUFFIX": "a",
             },
@@ -49,8 +49,8 @@ CONFIGS = defaultdict(
         "database-compiler-wrapper": {
             "defines": {},
             "substs": {
-                "CC": "/usr/bin/kache clang",
-                "CXX": "/usr/bin/kache clang++",
+                "CC": ["/usr/bin/kache", "clang"],
+                "CXX": ["/usr/bin/kache", "clang++"],
                 "COMPILER_WRAPPER": ["/usr/bin/kache"],
                 "LIB_PREFIX": "lib",
                 "LIB_SUFFIX": "a",
@@ -59,8 +59,8 @@ CONFIGS = defaultdict(
         "database-ccache": {
             "defines": {},
             "substs": {
-                "CC": "/usr/bin/ccache clang",
-                "CXX": "/usr/bin/ccache clang++",
+                "CC": ["/usr/bin/ccache", "clang"],
+                "CXX": ["/usr/bin/ccache", "clang++"],
                 "COMPILER_WRAPPER": ["/usr/bin/ccache"],
                 "LIB_PREFIX": "lib",
                 "LIB_SUFFIX": "a",

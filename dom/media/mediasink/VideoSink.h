@@ -56,8 +56,8 @@ class VideoSink : public MediaSink {
 
   void Redraw(const VideoInfo& aInfo) override;
 
-  nsresult Start(const media::TimeUnit& aStartTime,
-                 const MediaInfo& aInfo) override;
+  nsresult Start(const media::TimeUnit& aStartTime, const MediaInfo& aInfo,
+                 StartType aStartType = StartType::Initial) override;
 
   void Stop() override;
 

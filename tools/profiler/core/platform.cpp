@@ -462,8 +462,8 @@ static uint32_t AvailableFeatures() {
 // Default features common to all contexts (even if not available).
 static constexpr uint32_t DefaultFeatures() {
   return ProfilerFeature::Java | ProfilerFeature::JS |
-         ProfilerFeature::StackWalk | ProfilerFeature::CPUUtilization |
-         ProfilerFeature::Screenshots | ProfilerFeature::ProcessCPU;
+         ProfilerFeature::StackWalk | ProfilerFeature::Screenshots |
+         ProfilerFeature::ProcessCPU;
 }
 
 // Extra default features when MOZ_PROFILER_STARTUP is set (even if not
@@ -1133,12 +1133,7 @@ class ActivePS {
       aFeatures |= ProfilerFeature::MainThreadIO;
     }
 
-    if (aFeatures & ProfilerFeature::CPUAllThreads) {
-      aFeatures |= ProfilerFeature::CPUUtilization;
-    }
-
     if (aFeatures & ProfilerFeature::Tracing) {
-      aFeatures &= ~ProfilerFeature::CPUUtilization;
       aFeatures &= ~ProfilerFeature::Memory;
       aFeatures |= ProfilerFeature::NoStackSampling;
       aFeatures |= ProfilerFeature::JS;
@@ -4667,8 +4662,6 @@ void SamplerThread::Run() {
   // Not *no*-stack-sampling means we do want stack sampling.
   const bool stackSampling = !ProfilerFeature::HasNoStackSampling(features);
 
-  const bool cpuUtilization = ProfilerFeature::HasCPUUtilization(features);
-
   // Use local ProfileBuffer and underlying buffer to capture the stack.
   // (This is to avoid touching the core buffer lock while a thread is
   // suspended, because that thread could be working with the core buffer as
@@ -4864,7 +4857,10 @@ void SamplerThread::Run() {
         }
         TimeStamp countersSampled = TimeStamp::Now();
 
-        if (stackSampling || cpuUtilization) {
+        {
+          // Thread CPU utilization is always gathered, even when periodic
+          // stack sampling is disabled, so we always run a sampling pass
+          // (bug 2033816).
           samplingState = SamplingState::SamplingCompleted;
 
           // Prevent threads from ending (or starting) and allow access to all
@@ -4884,10 +4880,8 @@ void SamplerThread::Run() {
 
             const ThreadProfilingFeatures whatToProfile =
                 unlockedThreadData.ProfilingFeatures();
-            const bool threadCPUUtilization =
-                cpuUtilization &&
-                DoFeaturesIntersect(whatToProfile,
-                                    ThreadProfilingFeatures::CPUUtilization);
+            const bool threadCPUUtilization = DoFeaturesIntersect(
+                whatToProfile, ThreadProfilingFeatures::CPUUtilization);
             const bool threadStackSampling =
                 stackSampling &&
                 DoFeaturesIntersect(whatToProfile,
@@ -5163,7 +5157,7 @@ void SamplerThread::Run() {
                              currentEventRunning.ToMilliseconds());
                   });
 
-              if (cpuUtilization) {
+              if (threadCPUUtilization) {
                 // Suspending the thread for sampling could have added some
                 // running time to it, discard any since the call to
                 // GetThreadRunningTimesDiff above.
@@ -5216,8 +5210,6 @@ void SamplerThread::Run() {
             localBuffer.Clear();
             previousState = localBuffer.GetState();
           }
-        } else {
-          samplingState = SamplingState::NoStackSamplingCompleted;
         }
 
 #if defined(USE_LUL_STACKWALK)
@@ -5921,8 +5913,7 @@ void profiler_start_from_signal() {
     // Enabling the JS feature leaks an 8-byte object during testing, but is too
     // useful to disable. See Bug 1904897, Bug 1699681, and browser.toml for
     // more details.
-    uint32_t features = ProfilerFeature::JS | ProfilerFeature::StackWalk |
-                        ProfilerFeature::CPUUtilization;
+    uint32_t features = ProfilerFeature::JS | ProfilerFeature::StackWalk;
     // as we often don't know what threads we'll care about, tell the
     // profiler to profile all threads.
     const char* filters[] = {"*"};

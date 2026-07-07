@@ -91,7 +91,7 @@ export class UrlbarProviderAiChat extends UrlbarProvider {
       lazy.AIWindow.isAIWindowActiveAndEnabled(controller.browserWindow) &&
       queryContext.trimmedSearchString.length >=
         UrlbarProviderAiChat.MIN_CHARS_FOR_CHAT &&
-      !queryContext.searchMode
+      !queryContext.restrictInSearchMode()
     );
   }
 

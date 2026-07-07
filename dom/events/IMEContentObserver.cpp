@@ -248,10 +248,13 @@ bool IMEContentObserver::InitWithEditor(nsPresContext& aPresContext,
   if (NS_WARN_IF(!mRootEditableNodeOrTextControlElement)) {
     return false;
   }
-  MOZ_ASSERT_IF(mRootEditableNodeOrTextControlElement->IsInDesignMode(),
+  MOZ_ASSERT_IF(aEditorBase.IsHTMLEditor() &&
+                    mRootEditableNodeOrTextControlElement->IsInDesignMode(),
                 IsForDesignMode());
-  MOZ_ASSERT_IF(!mRootEditableNodeOrTextControlElement->IsInDesignMode(),
+  MOZ_ASSERT_IF(aEditorBase.IsHTMLEditor() &&
+                    !mRootEditableNodeOrTextControlElement->IsInDesignMode(),
                 !IsForDesignMode());
+  MOZ_ASSERT_IF(aEditorBase.IsTextEditor(), !IsForDesignMode());
 
   mEditorBase = &aEditorBase;
 
@@ -2731,7 +2734,9 @@ void IMEContentObserver::FlatTextCache::ContentAdded(
     const char* aCallerName, const nsIContent& aFirstContent,
     const nsIContent& aLastContent, const Maybe<uint32_t>& aAddedFlatTextLength,
     const Element* aRootElement) {
-  MOZ_ASSERT(nsContentUtils::ComparePoints(
+  // XXX Should use TreeKind::DOM? Editable state won't cross shadow DOM
+  // boundaries.
+  MOZ_ASSERT(nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
                  ConstRawRangeBoundary::FromChild(aFirstContent),
                  ConstRawRangeBoundary::FromChild(aLastContent))
                  .value() <= 0);
@@ -3043,13 +3048,15 @@ Result<std::pair<uint32_t, uint32_t>, nsresult> IMEContentObserver::
         const dom::Element* aRootElement,
         OffsetAndLengthAdjustments& aDifferences) const {
   MOZ_ASSERT(HasCache());
+  // XXX Should use TreeKind::DOM? Editable state won't cross shadow DOM
+  // boundaries.
   const Maybe<int32_t> newLastContentComparedWithCachedFirstContent =
-      nsContentUtils::ComparePoints(
+      nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
           ConstRawRangeBoundary::FromChild(aNewLastContent),
           ConstRawRangeBoundary::FromChild(*mFirst));
   MOZ_RELEASE_ASSERT(newLastContentComparedWithCachedFirstContent.isSome());
   MOZ_ASSERT(*newLastContentComparedWithCachedFirstContent != 0);
-  MOZ_ASSERT((*nsContentUtils::ComparePoints(
+  MOZ_ASSERT((*nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
                   ConstRawRangeBoundary::FromChild(aNewFirstContent),
                   ConstRawRangeBoundary::FromChild(*mFirst)) > 0) ==
                  (*newLastContentComparedWithCachedFirstContent > 0),
@@ -3057,7 +3064,7 @@ Result<std::pair<uint32_t, uint32_t>, nsresult> IMEContentObserver::
   const Maybe<int32_t> newFirstContentComparedWithCachedLastContent =
       mLast->GetNextSibling() == &aNewFirstContent
           ? Some(1)
-          : nsContentUtils::ComparePoints(
+          : nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
                 ConstRawRangeBoundary::FromChild(aNewFirstContent),
                 // aNewFirstContent and aNewLastContent may be descendants of
                 // mLast. Then, we need to ignore the new length.  Therefore,
@@ -3067,7 +3074,7 @@ Result<std::pair<uint32_t, uint32_t>, nsresult> IMEContentObserver::
   MOZ_RELEASE_ASSERT(newFirstContentComparedWithCachedLastContent.isSome());
   MOZ_ASSERT(*newFirstContentComparedWithCachedLastContent != 0);
   MOZ_ASSERT((*newFirstContentComparedWithCachedLastContent > 0) ==
-                 (*nsContentUtils::ComparePoints(
+                 (*nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
                       ConstRawRangeBoundary::FromChild(aNewLastContent),
                       ConstRawRangeBoundary::After(*mLast)) > 0),
              "New nodes shouldn't contain mLast");

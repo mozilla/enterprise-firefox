@@ -133,6 +133,10 @@ class ContentMediaController final : public ContentMediaAgent,
   // both the controllable and uncontrollable buckets.
   void HandleAudioFocusInterrupt(AudioFocusInterruptAction aAction) override;
 
+  bool IsAudioInterruptedByPlatform() const {
+    return mAudioInterruptedByPlatform;
+  }
+
  private:
   ~ContentMediaController() = default;
 
@@ -143,6 +147,11 @@ class ContentMediaController final : public ContentMediaAgent,
 
   nsTArray<RefPtr<ContentMediaControlKeyReceiver>> mControllableReceivers;
   nsTArray<RefPtr<ContentMediaControlKeyReceiver>> mUncontrollableReceivers;
+
+  // True while the platform has interrupted the tab's audio (an audio-focus
+  // loss): no audible sound may start while set, so page-initiated start and
+  // resume are gated; cleared when the platform ends the interrupt.
+  bool mAudioInterruptedByPlatform = false;
 };
 
 }  // namespace mozilla::dom

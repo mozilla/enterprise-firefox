@@ -2713,6 +2713,7 @@ NS_IMETHODIMP EditorBase::DeleteNode(nsINode* aNode, bool aPreserveSelection,
 
 nsresult EditorBase::DeleteNodeWithTransaction(nsIContent& aContent) {
   MOZ_ASSERT(IsEditActionDataAvailable());
+  MOZ_ASSERT(!GetEditActionEditContext());
   MOZ_ASSERT_IF(IsTextEditor(), !aContent.IsText());
 
   // Do nothing if the node is read-only.
@@ -4161,14 +4162,14 @@ nsresult EditorBase::OnCompositionChange(
     }
   }
 
-  if (RefPtr<EditContext> editContext = GetEditContext()) {
+  if (RefPtr editContext = editActionData.GetEditContext()) {
     RefPtr<TextRangeArray> ranges = mComposition->GetRanges();
     editContext->FireTextFormatUpdate(
         ranges, mComposition->ClampedStartOffsetInTextNode());
     if (NS_WARN_IF(Destroyed())) {
       return Err(NS_ERROR_EDITOR_DESTROYED);
     }
-    if (editContext != GetEditContext()) {
+    if (editActionData.EditContextHasBeenChanged()) {
       // textformatupdate handler deactivated this EditContext
       return Err(NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE);
     }
@@ -4929,7 +4930,8 @@ nsresult EditorBase::DeleteSelectionAsSubAction(
     return NS_ERROR_FAILURE;
   }
   if (IsHTMLEditor() && atNewStartOfSelection.IsInTextNode() &&
-      !atNewStartOfSelection.GetContainer()->Length()) {
+      !atNewStartOfSelection.GetContainer()->Length() &&
+      !GetEditActionEditContext()) {
     nsresult rv = DeleteNodeWithTransaction(
         MOZ_KnownLive(*atNewStartOfSelection.ContainerAs<Text>()));
     if (NS_FAILED(rv)) {
@@ -5765,6 +5767,13 @@ nsresult EditorBase::ReplaceTextAsAction(
     restorer.Abort();
   }
 
+  if (editActionData.GetEditContext()) {
+    // For EditContext, we only dispatch beforeinput - we don't
+    // try to do the replacement.
+    // https://w3c.github.io/edit-context/#example-how-beforeinput-can-be-used-to-catch-insertreplacementtext-to-apply-spelling-changes
+    return NS_OK;
+  }
+
   AutoPlaceholderBatch treatAsOneTransaction(
       *this, ScrollSelectionIntoView::Yes, __FUNCTION__);
 
@@ -6466,7 +6475,7 @@ template <typename PT, typename CT>
 EditorBase::AutoCaretBidiLevelManager::AutoCaretBidiLevelManager(
     const EditorBase& aEditorBase, nsIEditor::EDirection aDirectionAndAmount,
     const EditorDOMPointBase<PT, CT>& aPointAtCaret) {
-  if (EditContext* editContext = aEditorBase.GetEditContext()) {
+  if (EditContext* editContext = aEditorBase.GetEditActionEditContext()) {
     InitForEditContext(aEditorBase, aDirectionAndAmount, *editContext);
   } else {
     Init(aEditorBase, aDirectionAndAmount, aPointAtCaret);
@@ -6476,7 +6485,7 @@ EditorBase::AutoCaretBidiLevelManager::AutoCaretBidiLevelManager(
 void EditorBase::AutoCaretBidiLevelManager::InitForEditContext(
     const EditorBase& aEditorBase, nsIEditor::EDirection aDirectionAndAmount,
     const EditContext&) {
-  MOZ_ASSERT(aEditorBase.GetEditContext());
+  MOZ_ASSERT(aEditorBase.GetEditActionEditContext());
   // Get bidi level from selection for EditContext. Since we only
   // do deletion as a top-level subaction for EditContext,
   // this should be okay.
@@ -6782,6 +6791,13 @@ EditorBase::AutoEditActionDataSetter::AutoEditActionDataSetter(
       mTopLevelEditSubActionData.mCachedPendingStyles.emplace();
     }
   }
+
+  if (aEditAction != EditAction::eNone &&
+      aEditAction != EditAction::eNotEditing &&
+      aEditAction != EditAction::eInitializing) {
+    mEditContext = aEditorBase.ComputeEditContext();
+  }
+
   mEditorBase.mEditActionData = this;
 
   if (aEditorBase.IsHTMLEditor() &&
@@ -7337,10 +7353,12 @@ nsresult EditorBase::TopLevelEditSubActionData::AddRangeToChangedRange(
     return rv;
   }
 
+  // XXX Should use TreeKind::DOM? Editable state won't cross shadow DOM
+  // boundaries.
   Maybe<int32_t> relation =
       mChangedRange->StartRef().IsSet()
-          ? nsContentUtils::ComparePoints(mChangedRange->StartRef(),
-                                          aStart.ToRawRangeBoundary())
+          ? nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
+                mChangedRange->StartRef(), aStart.ToRawRangeBoundary())
           : Some(1);
   if (NS_WARN_IF(!relation)) {
     return NS_ERROR_FAILURE;
@@ -7357,8 +7375,8 @@ nsresult EditorBase::TopLevelEditSubActionData::AddRangeToChangedRange(
   }
 
   relation = mChangedRange->EndRef().IsSet()
-                 ? nsContentUtils::ComparePoints(mChangedRange->EndRef(),
-                                                 aEnd.ToRawRangeBoundary())
+                 ? nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
+                       mChangedRange->EndRef(), aEnd.ToRawRangeBoundary())
                  : Some(1);
   if (NS_WARN_IF(!relation)) {
     return NS_ERROR_FAILURE;

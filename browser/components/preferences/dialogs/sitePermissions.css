@@ -13,10 +13,6 @@ label.website-status {
   padding-inline-start: 7px;
 }
 
-#btnBlock {
-  padding-top: var(--space-small);
-}
-
 #permissionsBox {
   flex: 1 auto;
   height: 18em;
@@ -93,4 +89,8 @@ menulist.website-status {
 #permissionsDisableCheckbox {
   margin-inline-start: 4px;
   padding-top: 10px;
+}
+
+.permissions-input-buttons {
+  margin-block-start: var(--space-small);
 }

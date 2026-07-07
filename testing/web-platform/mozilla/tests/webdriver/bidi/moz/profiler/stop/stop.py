@@ -69,7 +69,7 @@ async def test_stop_saved_profile_reflects_start_options(bidi_session):
     options = {
         "entries": 1000000,
         "interval": 2,
-        "features": ["js", "cpu"],
+        "features": ["js", "stackwalk"],
         "threads": ["GeckoMain"],
     }
     await bidi_session.moz.profiler.start(**options)

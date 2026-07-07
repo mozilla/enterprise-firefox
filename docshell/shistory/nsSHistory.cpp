@@ -1053,10 +1053,10 @@ static void LogEntry(SessionHistoryEntry* aEntry, int32_t aIndex,
            uri->GetSpecOrDefault().get()));
   MOZ_LOG(gSHLog, LogLevel::Debug,
           (" %s%s  Title = %s\n", prefix.get(), childCount > 0 ? "|" : " ",
-           NS_LossyConvertUTF16toASCII(title).get()));
+           NS_ConvertUTF16toUTF8(title).get()));
   MOZ_LOG(gSHLog, LogLevel::Debug,
           (" %s%s  Name = %s\n", prefix.get(), childCount > 0 ? "|" : " ",
-           NS_LossyConvertUTF16toASCII(name).get()));
+           NS_ConvertUTF16toUTF8(name).get()));
   MOZ_LOG(gSHLog, LogLevel::Debug,
           (" %s%s  Transient = %s\n", prefix.get(), childCount > 0 ? "|" : " ",
            aEntry->IsTransient() ? "true" : "false"));

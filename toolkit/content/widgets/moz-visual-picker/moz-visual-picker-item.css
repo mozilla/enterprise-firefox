@@ -9,6 +9,29 @@
   display: flex;
 }
 
+:host([orientation="vertical"]) {
+  width: 100%;
+
+  .image-item {
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    gap: var(--space-medium);
+
+    img {
+      width: var(--visual-picker-item-image-size, var(--size-image-xlarge));
+      height: var(--visual-picker-item-image-size, var(--size-image-xlarge));
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+  }
+
+  .text-content:has(.label, .description) {
+    text-align: start;
+    flex: 1;
+  }
+}
+
 .picker-item {
   --visual-picker-item-border-radius-inner: calc(var(--visual-picker-item-border-radius) - var(--visual-picker-item-border-width));
 

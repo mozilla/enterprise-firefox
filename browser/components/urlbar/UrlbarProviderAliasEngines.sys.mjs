@@ -44,7 +44,7 @@ export class UrlbarProviderAliasEngines extends UrlbarProvider {
       (!queryContext.restrictSource ||
         queryContext.restrictSource ==
           lazy.UrlbarShared.RESULT_SOURCE.SEARCH) &&
-      !queryContext.searchMode &&
+      !queryContext.restrictInSearchMode() &&
       !!queryContext.tokens.length
     );
   }

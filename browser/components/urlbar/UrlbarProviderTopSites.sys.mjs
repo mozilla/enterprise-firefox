@@ -81,7 +81,7 @@ export class UrlbarProviderTopSites extends UrlbarProvider {
     return (
       !queryContext.restrictSource &&
       !queryContext.searchString &&
-      !queryContext.searchMode
+      !queryContext.restrictInSearchMode()
     );
   }
 

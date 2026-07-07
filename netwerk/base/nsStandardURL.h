@@ -334,8 +334,10 @@ class nsStandardURL : public nsIFileURL,
   // Asserts that the URL has sane values
   void SanityCheck();
 
-  // Checks if the URL has a valid representation.
-  bool IsValid();
+  // Checks if the URL has a valid representation. On failure, if
+  // aFailReason is non-null, it receives a code identifying the first check
+  // that failed (see the InvalidURLReason values in nsStandardURL.cpp).
+  bool IsValid(uint32_t* aFailReason = nullptr);
 
   // This value will only be updated on the main thread once.
   static Atomic<bool, Relaxed> gInitialized;

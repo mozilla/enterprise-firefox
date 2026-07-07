@@ -46,6 +46,7 @@ category browser-window-domcontentloaded chrome://browser/content/browser-addons
 category browser-window-domcontentloaded chrome://browser/content/browser.js FirefoxViewHandler.init
 #ifdef MOZ_ENTERPRISE
 category browser-window-domcontentloaded resource://gre/modules/enterprise/EnterpriseHandler.sys.mjs EnterpriseHandler.init
+category browser-window-domcontentloaded resource:///modules/enterprise/AccessConnectorButton.sys.mjs AccessConnectorButtonHandler.init
 #endif
 
 category browser-window-load-before-sessionstore-init chrome://browser/content/browser-captivePortal.js CaptivePortalWatcher.init

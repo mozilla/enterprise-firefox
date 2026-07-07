@@ -13,6 +13,7 @@ support-files = [
   "file_empty_title.html",
   "file_error_media.html",
   "file_iframe_media.html",
+  "file_interrupt_blocks_start.html",
   "file_named_media_session.html",
   "file_main_frame_with_multiple_child_session_frames.html",
   "file_multiple_audible_media.html",
@@ -33,6 +34,8 @@ support-files = [
 ]
 
 ["browser_audiblechange_event.js"]
+
+["browser_audio_focus_interrupt_blocks_start.js"]
 
 ["browser_audio_focus_interrupt_suspend_resume.js"]
 

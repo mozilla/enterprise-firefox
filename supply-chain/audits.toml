@@ -4900,6 +4900,12 @@ criteria = "safe-to-deploy"
 delta = "29.0.0 -> 29.0.0@git:43981de526bffe6773403029c2e26f18d9c0a976"
 importable = false
 
+[[audits.naga-types]]
+who = "Andy Leiserson <aleiserson@mozilla.com>"
+criteria = "safe-to-deploy"
+version = "29.0.0@git:43981de526bffe6773403029c2e26f18d9c0a976"
+importable = false
+
 [[audits.net2]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-run"

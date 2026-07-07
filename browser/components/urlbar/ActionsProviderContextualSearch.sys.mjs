@@ -72,7 +72,7 @@ class ProviderContextualSearch extends ActionsProvider {
     return (
       queryContext.trimmedSearchString &&
       lazy.UrlbarPrefs.getScotchBonnetPref(ENABLED_PREF) &&
-      !queryContext.searchMode &&
+      !queryContext.restrictInSearchMode() &&
       lazy.UrlbarPrefs.get("suggest.engines")
     );
   }
@@ -95,6 +95,7 @@ class ProviderContextualSearch extends ActionsProvider {
   async #createActionResult({ type, engine, key = "contextual-search" }) {
     let icon = engine?.icon || (await engine?.getIconURL?.()) || DEFAULT_ICON;
     let result = {
+      providerName: this.name,
       key,
       l10nId: "urlbar-result-search-with",
       l10nArgs: { engine: engine.name || engine.title },

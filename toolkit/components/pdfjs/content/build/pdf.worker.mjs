@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 6.1.208
- * pdfjsBuild = 25eae30e4
+ * pdfjsVersion = 6.1.239
+ * pdfjsBuild = 0cc1718b0
  */
 
 ;// ./src/shared/util.js
@@ -1441,7 +1441,7 @@ function escapePDFName(str) {
       if (start < i) {
         buffer.push(str.substring(start, i));
       }
-      buffer.push(`#${char.toString(16)}`);
+      buffer.push(`#${char.toString(16).padStart(2, "0")}`);
       start = i + 1;
     }
   }
@@ -19614,6 +19614,10 @@ const getNonStdFontMap = getLookupTableFactory(function (t) {
   t["MS-PMincho-Italic"] = "MS PMincho-Italic";
   t.NuptialScript = "Times-Italic";
   t.SegoeUISymbol = "Helvetica";
+  t.TrebuchetMS = "Helvetica";
+  t["TrebuchetMS-Bold"] = "Helvetica-Bold";
+  t["TrebuchetMS-BoldItalic"] = "Helvetica-BoldOblique";
+  t["TrebuchetMS-Italic"] = "Helvetica-Oblique";
 });
 const getSerifFonts = getLookupTableFactory(function (t) {
   t["Adobe Jenson"] = true;
@@ -38155,7 +38159,8 @@ class AppearanceStreamEvaluator extends EvaluatorPreprocessor {
             result = stack.pop() || result;
             break;
           case OPS.setTextMatrix:
-            result.scaleFactor *= Math.hypot(args[0], args[1]);
+            const tm = Util.transform(this.stateManager.state.ctm, args);
+            result.scaleFactor *= Math.hypot(tm[0], tm[1]);
             break;
           case OPS.setFont:
             const [fontName, fontSize] = args;
@@ -53415,6 +53420,8 @@ class Annotation {
     const resources = await this.loadResources(RESOURCES_KEYS_TEXT_CONTENT, this.appearance);
     const text = [];
     const buffer = [];
+    let firstPositionX = Infinity;
+    let firstPositionY = Infinity;
     let firstPosition = null;
     const sink = {
       desiredSize: Math.Infinity,
@@ -53424,7 +53431,8 @@ class Annotation {
           if (item.str === undefined) {
             continue;
           }
-          firstPosition ||= item.transform.slice(-2);
+          firstPositionX = Math.min(firstPositionX, item.transform[4]);
+          firstPositionY = Math.min(firstPositionY, item.transform[5]);
           buffer.push(item.str);
           if (item.hasEOL) {
             text.push(buffer.join("").trimEnd());
@@ -53443,6 +53451,9 @@ class Annotation {
       viewBox
     });
     this.reset();
+    if (firstPositionX !== Infinity) {
+      firstPosition = [firstPositionX, firstPositionY];
+    }
     if (buffer.length) {
       text.push(buffer.join("").trimEnd());
     }
@@ -59448,6 +59459,7 @@ function find(stream, signature, limit = 1024, backwards = false) {
 }
 class PDFDocument {
   #pagePromises = new Map();
+  #signatureData = null;
   #version = null;
   constructor(pdfManager, stream) {
     if (stream.length <= 0) {
@@ -60202,6 +60214,143 @@ class PDFDocument {
       };
     });
     return shadow(this, "fieldObjects", promise);
+  }
+  #collectSignatureFields(fields, out, visitedRefs) {
+    if (!Array.isArray(fields)) {
+      return;
+    }
+    for (const fieldRef of fields) {
+      if (fieldRef instanceof Ref) {
+        if (visitedRefs.has(fieldRef)) {
+          continue;
+        }
+        visitedRefs.put(fieldRef);
+      }
+      const field = this.xref.fetchIfRef(fieldRef);
+      if (!(field instanceof Dict)) {
+        continue;
+      }
+      if (field.has("Kids")) {
+        this.#collectSignatureFields(field.get("Kids"), out, visitedRefs);
+        continue;
+      }
+      if (!isName(field.get("FT"), "Sig")) {
+        continue;
+      }
+      const sigDict = this.xref.fetchIfRef(field.get("V"));
+      if (!(sigDict instanceof Dict)) {
+        continue;
+      }
+      const parsed = this.#parseSignatureDict(field, sigDict, fieldRef);
+      if (parsed) {
+        out.push(parsed);
+      }
+    }
+  }
+  static #WHOLE_DOCUMENT_TAIL_FUZZ = 100;
+  #parseSignatureDict(field, sigDict, fieldRef) {
+    const byteRange = sigDict.get("ByteRange");
+    if (!Array.isArray(byteRange) || byteRange.length !== 4 || byteRange.some(n => !Number.isInteger(n) || n < 0)) {
+      return null;
+    }
+    const contents = sigDict.get("Contents");
+    if (typeof contents !== "string" || contents.length === 0) {
+      return null;
+    }
+    const filterName = sigDict.get("Filter");
+    const filter = filterName instanceof Name ? filterName.name : null;
+    const subFilterName = sigDict.get("SubFilter");
+    const subFilter = subFilterName instanceof Name ? subFilterName.name : null;
+    let signatureType = null;
+    if (subFilter === "adbe.pkcs7.detached") {
+      signatureType = 0;
+    } else if (subFilter === "adbe.pkcs7.sha1") {
+      signatureType = 1;
+    }
+    const [a, b, c, d] = byteRange;
+    const stream = this.stream;
+    const fileLength = stream.end || 0;
+    if (a !== 0 || b <= 0 || d < 0 || a + b > c || c + d > fileLength || fileLength === 0) {
+      return null;
+    }
+    const data = [stream.getByteRange(a, a + b), stream.getByteRange(c, c + d)];
+    const pkcs7 = stringToBytes(contents);
+    const t = field.get("T");
+    const fieldName = typeof t === "string" ? stringToPDFString(t) : "";
+    const name = sigDict.get("Name");
+    const reason = sigDict.get("Reason");
+    const location = sigDict.get("Location");
+    const contactInfo = sigDict.get("ContactInfo");
+    const m = sigDict.get("M");
+    const refKey = fieldRef instanceof Ref ? fieldRef.toString() : "inline";
+    const id = `${refKey}:${a}-${b}-${c}-${d}`;
+    const tailGap = fileLength - (c + d);
+    return {
+      id,
+      fieldName,
+      signerName: typeof name === "string" ? stringToPDFString(name) : null,
+      reason: typeof reason === "string" ? stringToPDFString(reason) : null,
+      location: typeof location === "string" ? stringToPDFString(location) : null,
+      contactInfo: typeof contactInfo === "string" ? stringToPDFString(contactInfo) : null,
+      signingTime: typeof m === "string" ? m : null,
+      filter,
+      subFilter,
+      signatureType,
+      byteRange,
+      pkcs7,
+      data,
+      revisionIndex: 0,
+      parentId: null,
+      coversWholeDocument: tailGap >= 0 && tailGap <= PDFDocument.#WHOLE_DOCUMENT_TAIL_FUZZ
+    };
+  }
+  get signatures() {
+    const promise = this.pdfManager.ensureDoc("formInfo").then(async formInfo => {
+      if (!formInfo.hasSignatures || !formInfo.hasFields) {
+        this.#signatureData = null;
+        return null;
+      }
+      const annotationGlobals = await this.annotationGlobals;
+      if (!annotationGlobals) {
+        this.#signatureData = null;
+        return null;
+      }
+      const fields = annotationGlobals.acroForm.get("Fields");
+      const collected = [];
+      this.#collectSignatureFields(fields, collected, new RefSet());
+      collected.sort((a, b) => b.byteRange[2] + b.byteRange[3] - (a.byteRange[2] + a.byteRange[3]));
+      for (let i = 0, ii = collected.length; i < ii; i++) {
+        const sig = collected[i];
+        sig.revisionIndex = i;
+        for (let j = i - 1; j >= 0; j--) {
+          const candidate = collected[j];
+          if (candidate.byteRange[2] + candidate.byteRange[3] > sig.byteRange[2] + sig.byteRange[3]) {
+            sig.parentId = candidate.id;
+            break;
+          }
+        }
+      }
+      const signatureData = new Map();
+      const metadata = collected.map(sig => {
+        const {
+          data,
+          pkcs7,
+          ...rest
+        } = sig;
+        signatureData.set(sig.id, {
+          data,
+          pkcs7
+        });
+        return rest;
+      });
+      this.#signatureData = signatureData;
+      return metadata.length ? metadata : null;
+    });
+    return shadow(this, "signatures", promise);
+  }
+  async getSignatureData(id) {
+    await this.signatures;
+    return this.#signatureData?.get(id) ?? null;
   }
   get hasJSActions() {
     const promise = this.pdfManager.ensureDoc("_parseHasJSActions");
@@ -63797,7 +63946,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = "6.1.208";
+    const workerVersion = "6.1.239";
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match ` + `the Worker version "${workerVersion}".`);
     }
@@ -64117,6 +64266,12 @@ class WorkerMessageHandler {
     });
     handler.on("GetFieldObjects", function (data) {
       return pdfManager.ensureDoc("fieldObjects").then(fieldObjects => fieldObjects?.allFields || null);
+    });
+    handler.on("GetSignatures", function (data) {
+      return pdfManager.ensureDoc("signatures");
+    });
+    handler.on("GetSignatureData", function (id) {
+      return pdfManager.ensureDoc("getSignatureData", [id]);
     });
     handler.on("HasJSActions", function (data) {
       return pdfManager.ensureDoc("hasJSActions");

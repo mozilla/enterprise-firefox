@@ -57,7 +57,7 @@ export class UrlbarProviderRecentSearches extends UrlbarProvider {
       lazy.UrlbarPrefs.get(ENABLED_PREF) &&
       lazy.UrlbarPrefs.get(SUGGEST_PREF) &&
       !queryContext.searchString &&
-      !queryContext.searchMode &&
+      !queryContext.restrictInSearchMode() &&
       !queryContext.restrictSource
     );
   }

@@ -485,7 +485,7 @@ class Search {
     this.#userContextId = queryContext.userContextId;
     this.#currentPage = queryContext.currentPage;
     this.#searchModeEngine = queryContext.searchMode?.engineName;
-    if (this.#searchModeEngine) {
+    if (this.#searchModeEngine && queryContext.restrictInSearchMode()) {
       // Filter Places results on host.
       let engine = lazy.SearchService.getEngineByName(this.#searchModeEngine);
       this.#filterOnHost = engine.searchUrlDomain;

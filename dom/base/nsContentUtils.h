@@ -43,6 +43,7 @@
 #include "mozilla/fallible.h"
 #include "mozilla/gfx/Point.h"
 #include "nsCOMPtr.h"
+#include "nsIContent.h"
 #include "nsIContentPolicy.h"
 #include "nsINode.h"
 #include "nsIScriptError.h"
@@ -79,7 +80,6 @@ class nsIArray;
 class nsIBidiKeyboard;
 class nsIChannel;
 class nsIConsoleService;
-class nsIContent;
 class nsIDocShell;
 class nsIDocShellTreeItem;
 class nsIDocumentLoaderFactory;
@@ -243,17 +243,6 @@ enum EventNameType {
   EventNameType_HTMLXUL = 0x0003,
   EventNameType_All = 0xFFFF
 };
-
-enum class TreeKind : uint8_t { DOM, ShadowIncludingDOM, Flat };
-
-inline std::ostream& operator<<(std::ostream& aStream, TreeKind aTreeKind) {
-  constexpr static const char* sNames[] = {
-      "DOM",
-      "ShadowIncludingDOM",
-      "Flat",
-  };
-  return aStream << sNames[static_cast<uint8_t>(aTreeKind)];
-}
 
 enum class SerializeShadowRoots : uint8_t { Yes, No };
 
@@ -536,14 +525,15 @@ class nsContentUtils {
       nsTArray<mozilla::Maybe<uint32_t>>& aAncestorOffsets);
 
   /*
-   * Similar as the GetInclusiveAncestorsAndOffsets method, but for flat tree.
+   * Similar as the GetInclusiveAncestorsAndOffsets method, but for flat tree
+   * for selection.
    *
    * When the current content is a ShadowRoot, the offset of it from
    * its ancestor (the host element) will be Nothing().
    *
    * The UAWidget won't be included in the ancestor list.
    */
-  static nsresult GetFlattenedTreeAncestorsAndOffsets(
+  static nsresult GetFlattenedTreeAncestorsAndOffsetsForSelection(
       nsINode* aNode, uint32_t aOffset, nsTArray<nsIContent*>& aAncestorNodes,
       nsTArray<mozilla::Maybe<uint32_t>>& aAncestorOffsets);
 
@@ -629,8 +619,8 @@ class nsContentUtils {
      * Looks up or computes two indices in one loop.
      */
     template <TreeKind aTreeKind>
-    void ComputeIndicesOf(const nsINode* aParent, const nsINode* aChild1,
-                          const nsINode* aChild2,
+    void ComputeIndicesOf(const nsINode* aParent, const nsIContent* aChild1,
+                          const nsIContent* aChild2,
                           mozilla::Maybe<int32_t>& aChild1Index,
                           mozilla::Maybe<int32_t>& aChild2Index) {
       AssertTreeKind(aTreeKind);
@@ -670,7 +660,7 @@ class nsContentUtils {
      */
     template <TreeKind aTreeKind>
     mozilla::Maybe<int32_t> ComputeIndexOf(const nsINode* aParent,
-                                           const nsINode* aChild) {
+                                           const nsIContent* aChild) {
       AssertTreeKind(aTreeKind);
       for (size_t cacheIndex = 0; cacheIndex < cache_size; ++cacheIndex) {
         const nsINode* node = mNodes[cacheIndex];
@@ -691,7 +681,7 @@ class nsContentUtils {
      */
     template <TreeKind aTreeKind>
     mozilla::Maybe<int32_t> ComputeAndInsertIndexIntoCache(
-        const nsINode* aParent, const nsINode* aChild) {
+        const nsINode* aParent, const nsIContent* aChild) {
       AssertTreeKind(aTreeKind);
       mozilla::Maybe<int32_t> childIndex =
           nsContentUtils::GetIndexInParent<aTreeKind>(aParent, aChild);
@@ -726,8 +716,12 @@ class nsContentUtils {
 
     void AssertTreeKind(TreeKind aKind) {
 #ifdef DEBUG
-      MOZ_ASSERT(!mTreeKind || mTreeKind.value() == aKind, "Mixing queries");
-      mTreeKind = mozilla::Some(aKind);
+      // A child node index in TreeKind::DOM and TreeKind::ShadowIncludingDOM is
+      // always same.
+      const TreeKind kind =
+          aKind == TreeKind::DOM ? TreeKind::ShadowIncludingDOM : aKind;
+      MOZ_ASSERT(!mTreeKind || mTreeKind.value() == kind, "Mixing queries");
+      mTreeKind = mozilla::Some(kind);
 #endif
     }
   };
@@ -740,22 +734,6 @@ class nsContentUtils {
   using NodeIndexCache = ResizableNodeIndexCache<100>;
 
   /**
-   *  Utility routine to compare two "points", where a point is a node/offset
-   *  pair.
-   *  Pass a cache object as aIndexCache if you expect to repeatedly
-   *  call this function with the same value as aParent1 or aParent2.
-   *
-   *  @return -1 if point1 < point2,
-   *          1 if point1 > point2,
-   *          0 if point1 == point2.
-   *          `Nothing` if the two nodes aren't in the same connected subtree.
-   */
-  template <TreeKind aKind = TreeKind::ShadowIncludingDOM>
-  static mozilla::Maybe<int32_t> ComparePointsWithIndices(
-      const nsINode* aParent1, uint32_t aOffset1, const nsINode* aParent2,
-      uint32_t aOffset2, NodeIndexCache* aIndexCache = nullptr);
-
-  /**
    *  Utility routine to compare two "points", where a point is a RangeBoundary.
    *  Pass a cache object as aIndexCache if you expect to repeatedly call this
    * function with the same value as aBoundary1 or aBoundary2.
@@ -765,8 +743,8 @@ class nsContentUtils {
    *          0 if point1 == point2.
    *          `Nothing` if the two nodes aren't in the same connected subtree.
    */
-  template <TreeKind aKind = TreeKind::ShadowIncludingDOM, typename PT1,
-            typename RT1, typename PT2, typename RT2>
+  template <TreeKind aKind, typename PT1, typename RT1, typename PT2,
+            typename RT2>
   static mozilla::Maybe<int32_t> ComparePoints(
       const mozilla::RangeBoundaryBase<PT1, RT1>& aBoundary1,
       const mozilla::RangeBoundaryBase<PT2, RT2>& aBoundary2,
@@ -782,7 +760,7 @@ class nsContentUtils {
    * traditional behavior. If you want to use this in new code, it means that
    * you **should** check the offset values and call `ComparePoints` instead.
    */
-  template <TreeKind aKind = TreeKind::ShadowIncludingDOM>
+  template <TreeKind aKind>
   static mozilla::Maybe<int32_t> ComparePoints_AllowNegativeOffsets(
       const nsINode* aParent1, int64_t aOffset1, const nsINode* aParent2,
       int64_t aOffset2) {
@@ -3677,8 +3655,8 @@ class nsContentUtils {
   //   anonymous content (n..m)
   //   ::after (m + 1)
   template <TreeKind>
-  static mozilla::Maybe<int32_t> GetIndexInParent(const nsINode* aParent,
-                                                  const nsINode* aNode);
+  static mozilla::Maybe<int32_t> GetIndexInParent(
+      const nsINode* aParent, const nsIContent* aPossibleChild);
 
   MOZ_CAN_RUN_SCRIPT_BOUNDARY
   static nsIContent* AttachDeclarativeShadowRoot(
@@ -3745,27 +3723,60 @@ class nsContentUtils {
       nsIContent* aContent1, nsIContent* aContent2);
 
   /**
-   * Return 0 if aChild1 is same as aChild2.
-   * Return -1 if aChild1 is a preceding sibling of aChild2.
-   * Return 1 if aChild1 is a following sibling of aChild2.
-   * If aChild1 and/or aChild2 is nullptr, it's treated as end of the parent
-   * node.
-   * Return Nothing if aChild1 is a root of the native anonymous subtree.
+   * Compare aChild1 and aChild2 which are children of aParent at least in a
+   * TreeKind.
+   * If aKind is TreeKind::FlatForSelection, there are some special cases:
+   * - If aChild1 and aChild2 are fallback content of a <slot> element which has
+   *   some assigned nodes, will compare them as in TreeKind::DOM.
+   * - If only aChild1 is a fallback content node of a <slot>, return 1 because
+   *   aChild1 is treated as after the last assigned node of the <slot>.
+   * - If only aChild2 is a fallback content node of a <slot>, return -1 because
+   *   aChild2 is treated as after the last assigned node of the <slot>.
+   *
+   * @param aParent The common parent of aChild1 and aChild2.
+   * @param aChild1 A child of aParent. If this is set to nullptr, it means that
+   * you're comparing aChild2 with end of aParent.
+   * @param aChild2 Another child of aParent (or maybe the same as aChild1). If
+   * this is set to nullptr, it means that you're comparing aChild1 with end of
+   * aParent.
+   * @return 0 if aChild1 is same as aChild2.
+   *         -1 if aChild1 is a preceding sibling of aChild2.
+   *         1 if aChild1 is a following sibling of aChild2.
+   *         Nothing if:
+   *         - aChild1 or aChild2 is a document fragment or a shadow root.
+   *         - aChild1 or aChild2 is assigned to a <slot>, but the other is not
+   *           assigned to the same <slot>.
    */
-  template <TreeKind aKind>
+  template <TreeKind aKind,
+            typename = std::enable_if_t<aKind != TreeKind::ShadowIncludingDOM>>
   static mozilla::Maybe<int32_t> CompareChildNodes(
-      const nsINode* aChild1, const nsINode* aChild2,
-      NodeIndexCache* aIndexCache = nullptr);
+      const nsINode& aParent, const nsIContent* aChild1,
+      const nsIContent* aChild2, NodeIndexCache* aIndexCache = nullptr);
 
   /**
-   * Return 0 if aChild2 is at aOffset1.
-   * Return -1 if aChild2 is a following sibling of a child at aOffset1
-   * Return 1 if aChild2 is a preceding sibling of a child at aOffset1.
-   * Return Nothing if aChild2 is a root of the native anonymous subtree.
+   * Compare aOffset1 in aParent and aChild2 which is a child of aParent at
+   * least in a TreeKind.
+   * If aKind is TreeKind::FlatForSelection and aParent is a <slot> which has
+   * some assigned nodes and aChild2 is a fallback content of the <slot>, this
+   * returns 0 or -1 because this treats fallback content of a <slot> as if they
+   * were collapsed at end of the <slot>.
+   *
+   * @param aParent The common parent of aOffset1 and aChild2.
+   * @param aOffset1 An offset in aParent. Invalid value (a greater offset than
+   * the actual child count of aParent in the tree for aKind is allowed and
+   * treated as after the end of aParent).
+   * @param aChild2 A child in aParent. If this is set to nullptr, it means that
+   * you're comparing aOffset1 with end of aParent, i.e., the result of
+   * aParent.GetChildCount<aKind>().
+   * @return 0 if aOffset1 is same as the offset of aChild2.
+   *         -1 if aOffset1 is a smaller index of aChild2.
+   *         1 if aOffset1 is a greater index of aChild2.
+   *         Nothing if aChild2 is a document fragment or a shadow root.
    */
-  template <TreeKind aKind>
+  template <TreeKind aKind,
+            typename = std::enable_if_t<aKind != TreeKind::ShadowIncludingDOM>>
   static mozilla::Maybe<int32_t> CompareChildOffsetAndChildNode(
-      uint32_t aOffset1, const nsINode& aChild2,
+      const nsINode& aParent, uint32_t aOffset1, const nsIContent& aChild2,
       NodeIndexCache* aIndexCache = nullptr);
 
   /**
@@ -3774,19 +3785,30 @@ class nsContentUtils {
    * Return 1 if aChild1 is a following sibling of a child at aOffset2.
    * Return Nothing if aChild1 is a root of the native anonymous subtree.
    */
-  template <TreeKind aKind>
+  template <TreeKind aKind,
+            typename = std::enable_if_t<aKind != TreeKind::ShadowIncludingDOM>>
   static mozilla::Maybe<int32_t> CompareChildNodeAndChildOffset(
-      const nsINode& aChild1, uint32_t aOffset2,
+      const nsINode& aParent, const nsIContent& aChild1, uint32_t aOffset2,
       NodeIndexCache* aIndexCache = nullptr);
+
+  /**
+   * Helper method for ComparePoints() if and only if the boundaries know the
+   * offset.
+   */
+  template <TreeKind aKind>
+  static mozilla::Maybe<int32_t> ComparePointsWithIndices(
+      const nsINode* aParent1, uint32_t aOffset1, const nsINode* aParent2,
+      uint32_t aOffset2, NodeIndexCache* aIndexCache = nullptr);
 
   /**
    * Helper method for ComparePoints() and ComparePointsWithIndices(). This
    * includes odd traditional behavior. Therefore, do not use this method as a
    * utility method.
    */
-  template <TreeKind aKind = TreeKind::ShadowIncludingDOM>
+  template <TreeKind aKind,
+            typename = std::enable_if_t<aKind != TreeKind::ShadowIncludingDOM>>
   static mozilla::Maybe<int32_t> CompareClosestCommonAncestorChildren(
-      const nsINode&, const nsINode*, const nsINode*,
+      const nsINode&, const nsIContent*, const nsIContent*,
       NodeIndexCache* = nullptr);
 
   static nsIXPConnect* sXPConnect;

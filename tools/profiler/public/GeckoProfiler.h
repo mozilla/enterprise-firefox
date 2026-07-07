@@ -114,11 +114,9 @@ void profiler_remove_sampled_counter(BaseProfilerCount* aCounter);
 enum class SamplingState {
   JustStopped,  // Sampling loop has just stopped without sampling, between the
                 // callback registration and now.
-  SamplingPaused,  // Profiler is active but sampling loop has gone through a
-                   // pause.
-  NoStackSamplingCompleted,  // A full sampling loop has completed in
-                             // no-stack-sampling mode.
-  SamplingCompleted          // A full sampling loop has completed.
+  SamplingPaused,    // Profiler is active but sampling loop has gone through a
+                     // pause.
+  SamplingCompleted  // A full sampling loop has completed.
 };
 
 using PostSamplingCallback = std::function<void(SamplingState)>;

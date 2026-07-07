@@ -73,7 +73,7 @@ export class UrlbarProviderRestrictKeywordsAutofill extends UrlbarProvider {
     this.#autofillData = null;
 
     if (
-      queryContext.searchMode ||
+      queryContext.restrictInSearchMode() ||
       queryContext.tokens.length != 1 ||
       queryContext.searchString.length == 1 ||
       queryContext.restrictSource ||

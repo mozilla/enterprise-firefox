@@ -17,12 +17,9 @@ const FormFill_Config = {
   taskName: ML_TASKNAME,
   featureId: FORM_AUTOFILL_FEATURE_ID,
   engineId: FEATURES[FORM_AUTOFILL_FEATURE_ID].engineId,
-  backend: "onnx-native",
-  fallbackBackend: "onnx",
+  backend: "best-onnx",
+  modelRevision: "main",
   modelId: "mozilla/tinybert-address-autofill",
-  modelRevision: "v0.1.0",
-  // The dtype will need to be updated as needed.
-  dtype: "fp32",
 };
 
 export class FormAutofillML {

@@ -251,6 +251,7 @@ SECItem *PK11_ParamFromIV(CK_MECHANISM_TYPE type, SECItem *iv);
 unsigned char *PK11_IVFromParam(CK_MECHANISM_TYPE type, SECItem *param, int *len);
 SECItem *PK11_BlockData(SECItem *data, unsigned long size);
 int PK11_GetMaxKeyLength(CK_MECHANISM_TYPE type);
+PRBool PK11_IsAEAD(CK_MECHANISM_TYPE type);
 
 /* PKCS #11 to DER mapping functions */
 SECItem *PK11_ParamFromAlgid(SECAlgorithmID *algid);

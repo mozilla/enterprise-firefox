@@ -33,14 +33,26 @@ using namespace mozilla;
 
 #include "mozilla/XREAppData.h"
 
-#if defined(MOZ_THUNDERBIRD)
-#  define EXPECTED_APP_NAME_CASED "Thunderbird"
-#  define EXPECTED_APP_NAME_NONCASED "thunderbird"
-#  define EXPECTED_VENDOR_APP_NAME_NONCASED "thunderbird"
+#if defined(MOZ_ENTERPRISE)
+#  if defined(MOZ_THUNDERBIRD)
+#    define EXPECTED_APP_NAME_CASED "ThunderbirdEnterprise"
+#    define EXPECTED_APP_NAME_NONCASED "thunderbirdenterprise"
+#    define EXPECTED_VENDOR_APP_NAME_NONCASED "thunderbirdenterprise"
+#  else
+#    define EXPECTED_APP_NAME_CASED "FirefoxEnterprise"
+#    define EXPECTED_APP_NAME_NONCASED "firefoxenterprise"
+#    define EXPECTED_VENDOR_APP_NAME_NONCASED "mozilla/firefoxenterprise"
+#  endif
 #else
-#  define EXPECTED_APP_NAME_CASED "Firefox"
-#  define EXPECTED_APP_NAME_NONCASED "firefox"
-#  define EXPECTED_VENDOR_APP_NAME_NONCASED "mozilla/firefox"
+#  if defined(MOZ_THUNDERBIRD)
+#    define EXPECTED_APP_NAME_CASED "Thunderbird"
+#    define EXPECTED_APP_NAME_NONCASED "thunderbird"
+#    define EXPECTED_VENDOR_APP_NAME_NONCASED "thunderbird"
+#  else
+#    define EXPECTED_APP_NAME_CASED "Firefox"
+#    define EXPECTED_APP_NAME_NONCASED "firefox"
+#    define EXPECTED_VENDOR_APP_NAME_NONCASED "mozilla/firefox"
+#  endif
 #endif
 
 class BaseXREAppDir : public ::testing::Test {

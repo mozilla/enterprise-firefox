@@ -195,13 +195,13 @@ internal fun internalReducer(
             AccountStatus.AwaitingAuthentication,
             AccountStatus.AwaitingAuthorization,
             AccountStatus.AwaitingEnrollment,
+            AccountStatus.EnrolledAndEntitled,
                 -> state
 
             AccountStatus.WarmingUp,
             AccountStatus.NeedsAuthentication,
             AccountStatus.NeedsAuthorization,
             AccountStatus.Authenticated,
-            AccountStatus.EnrolledAndEntitled,
                 -> {
                 state.copy(
                     accountState = state.accountState.copy(status = action.status),

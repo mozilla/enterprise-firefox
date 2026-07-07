@@ -42,7 +42,7 @@ export class UrlbarProviderBookmarkKeywords extends UrlbarProvider {
       (!queryContext.restrictSource ||
         queryContext.restrictSource ==
           lazy.UrlbarShared.RESULT_SOURCE.BOOKMARKS) &&
-      !queryContext.searchMode &&
+      !queryContext.restrictInSearchMode() &&
       !!queryContext.tokens.length
     );
   }

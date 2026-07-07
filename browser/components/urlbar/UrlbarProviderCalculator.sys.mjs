@@ -109,7 +109,7 @@ export class UrlbarProviderCalculator extends UrlbarProvider {
   async isActive(queryContext) {
     return (
       queryContext.trimmedSearchString &&
-      !queryContext.searchMode &&
+      !queryContext.restrictInSearchMode() &&
       lazy.UrlbarPrefs.get(ENABLED_PREF)
     );
   }

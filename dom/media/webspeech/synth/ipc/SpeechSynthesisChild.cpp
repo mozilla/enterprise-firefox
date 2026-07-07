@@ -4,6 +4,7 @@
 
 #include "SpeechSynthesisChild.h"
 
+#include "AutoplayPolicy.h"
 #include "mozilla/dom/BrowsingContext.h"
 #include "mozilla/dom/ContentMediaController.h"
 #include "mozilla/dom/MediaControlUtils.h"
@@ -295,12 +296,18 @@ void SpeechTaskChild::Pause() {
 }
 
 void SpeechTaskChild::Resume() {
-  // TODO(bug 2047321): while the tab is under an audio-focus interruption we
-  // have lost focus, and the platform does not expect us to restart on our
-  // own, so a page resume() should be gated until focus is regained. That
-  // gating is handled in bug 2047321.
-  // A resume from the page clears any interruption ownership of the pause.
-  mPausedByMediaControl = false;
+  // The page drives resume from the content process. While the platform has
+  // interrupted the tab's audio, block it and keep the interruption owning the
+  // pause (mPausedByMediaControl stays set) so the utterance resumes when the
+  // interruption ends instead of restarting over the interrupting app. Unlike
+  // speak(), this is a deferral rather than a failure, so no error is fired.
+  if (mUtterance && media::AutoplayPolicy::IsAudioInterruptedByPlatform(
+                        mUtterance->GetOwnerWindow())) {
+    MEDIA_CONTROL_LOG(
+        "SpeechTaskChild {} Resume() deferred: audio interrupted by platform",
+        fmt::ptr(this));
+    return;
+  }
   if (mActor) {
     mActor->SendResume();
   }
@@ -354,6 +361,9 @@ void SpeechTaskChild::ResumeFromMediaControl() {
     return;
   }
   mPausedByMediaControl = false;
+  // This runs only as the platform interruption ends, by which point the
+  // interrupted state that Resume() checks has already been cleared, so its
+  // gate is a no-op and reusing the page-resume path is safe.
   Resume();
 }
 

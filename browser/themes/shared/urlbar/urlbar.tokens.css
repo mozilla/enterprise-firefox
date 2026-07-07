@@ -38,7 +38,7 @@
    until Bug 1879349 lands */
 @layer tokens-browser-theme {
   @media not ((forced-colors) or (-moz-native-theme)) {
-    :root:not([lwtheme]),
+    :root:is([theme-in-app], :not([lwtheme])),
     :host(.anonymous-content-host) {
       --urlbar-box-background-color: light-dark(white, rgb(66, 65, 77));
       --urlbar-icon-fill-opacity: 0.72;

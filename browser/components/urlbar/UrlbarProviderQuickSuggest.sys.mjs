@@ -67,7 +67,7 @@ export class UrlbarProviderQuickSuggest extends UrlbarProvider {
     if (
       !lazy.UrlbarPrefs.get("quickSuggestEnabled") ||
       queryContext.isPrivate ||
-      queryContext.searchMode
+      queryContext.restrictInSearchMode()
     ) {
       return false;
     }
