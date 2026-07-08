@@ -8,6 +8,7 @@ import sys
 
 sys.path.append(os.path.dirname(__file__))
 
+from base_test import Environment
 from felt_tests import FeltTests
 
 
@@ -16,14 +17,21 @@ class FeltDevicePostureExtensions(FeltTests):
 
     def test_device_posture_includes_extensions(self):
         self.policy_extensions.value = 1
+        self.get_driver(Environment.FELT).set_prefs(
+            {"enterprise.felt_tests.should_not_close_window": True},
+            default_branch=True,
+        )
         super().run_felt_base()
         self.connect_child_browser()
-        self.wait_for_extension_installed()
-        self.run_device_posture_extensions()
+
+        assert self.wait_for_extension_installed(), "Extension not installed"
+        self.run_device_posture_extensions(Environment.FIREFOX)
+        self.run_device_posture_extensions(Environment.FELT)
+
 
     def wait_for_extension_installed(self):
         self._child_driver.set_context("chrome")
-        self._child_longwait.until(
+        rv = self._child_longwait.until(
             lambda _: self._child_driver.execute_async_script(
                 """
             const callback = arguments[arguments.length - 1];
@@ -37,11 +45,13 @@ class FeltDevicePostureExtensions(FeltTests):
             )
         )
         self._child_driver.set_context("content")
+        return rv
 
-    def get_device_posture_from_child(self):
-        self._child_driver.set_context("chrome")
+    def get_device_posture(self, env):
+        driver = self.get_driver(env)
+        driver.set_context("chrome")
         try:
-            return self._child_driver.execute_async_script(
+            return driver.execute_async_script(
                 """
                 const callback = arguments[arguments.length - 1];
                 const { DevicePosture } = ChromeUtils.importESModule(
@@ -53,10 +63,10 @@ class FeltDevicePostureExtensions(FeltTests):
                 """,
             )
         finally:
-            self._child_driver.set_context("content")
+            driver.set_context("content")
 
-    def run_device_posture_extensions(self):
-        posture = self.get_device_posture_from_child()
+    def run_device_posture_extensions(self, env):
+        posture = self.get_device_posture(env)
         assert "_error" not in posture, (
             f"Failed to collect device posture: {posture.get('_error')}"
         )

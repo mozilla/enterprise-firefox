@@ -9,9 +9,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
   composeOSNames: "resource://gre/modules/enterprise/EnterpriseOSInfo.sys.mjs",
   createEnterpriseLogger:
     "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+  ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
   EdrDetection: "resource://gre/modules/enterprise/EdrDetection.sys.mjs",
+  GetProfilePath: "chrome://felt/content/FeltCommon.sys.mjs",
   MachineId: "resource://gre/modules/enterprise/MachineId.sys.mjs",
   TelemetryEnvironment: "resource://gre/modules/TelemetryEnvironment.sys.mjs",
+  XPIDatabase: "resource://gre/modules/addons/XPIDatabase.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
@@ -23,6 +26,31 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 const EDR_AGENTS_TO_PROBE = ["crowdstrike", "cortex-xdr"];
 
 export const DevicePosture = {
+  async getDatabaseForFelt() {
+    lazy.log.debug(`getDatabaseForFelt()`);
+    if (!Services.felt.isFeltUI()) {
+      throw new Error("DevicePosture.getDatabaseForFelt() should only be called in Felt");
+    }
+
+    const loggedInUserInfo = await lazy.ConsoleClient.getLoggedInUserInfo();
+    const extensionsJson = PathUtils.join(
+      await lazy.GetProfilePath(loggedInUserInfo),
+      "extensions.json"
+    );
+
+    lazy.log.debug(`getDatabaseForFelt(): extensionsJson:${extensionsJson}`);
+
+    // This makes sure to force a reload of the extensions.json database
+    lazy.XPIDatabase._dbPromise = null;
+
+    // For reading from the app child extensions json file, because
+    // getAddonsByTypes() will force an asyncLoadDB() call that would then
+    // hit the Felt's instance profile.
+    lazy.XPIDatabase.jsonFilePath = extensionsJson;
+
+    return await lazy.XPIDatabase;
+  },
+
   async getDatabaseForApp({ waitForAddons = false } = {}) {
     lazy.log.debug(`getDatabaseForApp(${waitForAddons})`);
 
@@ -48,7 +76,7 @@ export const DevicePosture = {
     try {
       let addonsDatabase = null;
       if (Services.felt.isFeltUI()) {
-        return null;
+        addonsDatabase = await this.getDatabaseForFelt();
       }
 
       if (Services.felt.isFeltBrowser()) {
