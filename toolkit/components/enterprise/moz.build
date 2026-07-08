@@ -9,6 +9,7 @@ with Files("**"):
 
 EXTRA_JS_MODULES.enterprise += [
     "modules/ConsoleClient.sys.mjs",
+    "modules/DevicePosture.sys.mjs",
     "modules/EnterpriseCommon.sys.mjs",
     "modules/EnterpriseEndpoints.sys.mjs",
     "modules/EnterpriseHandler.sys.mjs",

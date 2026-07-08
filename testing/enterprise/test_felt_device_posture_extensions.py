@@ -44,10 +44,10 @@ class FeltDevicePostureExtensions(FeltTests):
             return self._child_driver.execute_async_script(
                 """
                 const callback = arguments[arguments.length - 1];
-                const { ConsoleClient } = ChromeUtils.importESModule(
-                  "resource://gre/modules/enterprise/ConsoleClient.sys.mjs"
+                const { DevicePosture } = ChromeUtils.importESModule(
+                  "resource://gre/modules/enterprise/DevicePosture.sys.mjs"
                 );
-                ConsoleClient.collectDevicePosture()
+                DevicePosture.collect()
                   .then(callback)
                   .catch(err => callback({_error: String(err)}));
                 """,
