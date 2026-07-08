@@ -32,7 +32,16 @@ export const DevicePosture = {
       throw new Error("DevicePosture.getDatabaseForFelt() should only be called in Felt");
     }
 
-    const loggedInUserInfo = await lazy.ConsoleClient.getLoggedInUserInfo();
+    // XXX: Until DevicePosture.collect() is moved after SSO, this will not work
+    // const loggedInUserInfo = await lazy.ConsoleClient.getLoggedInUserInfo();
+
+    // XXX: Hardcode a value to verify things are working locally
+    const loggedInUserInfo = await new Promise((resolve, reject) => {
+      resolve({
+        email: "user@domain.tld",
+        id: "ac4e04ef-fbca-4b2c-b568-cbc842fd5f66",
+      });
+    });
     const extensionsJson = PathUtils.join(
       await lazy.GetProfilePath(loggedInUserInfo),
       "extensions.json"
