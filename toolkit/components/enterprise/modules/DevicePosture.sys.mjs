@@ -23,6 +23,57 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 const EDR_AGENTS_TO_PROBE = ["crowdstrike", "cortex-xdr"];
 
 export const DevicePosture = {
+  async getDatabaseForApp({ waitForAddons = false } = {}) {
+    lazy.log.debug(`getDatabaseForApp(${waitForAddons})`);
+
+    if (!lazy.AddonManager.isReady) {
+      if (waitForAddons) {
+        await lazy.AddonManager.readyPromise;
+      } else {
+        return null;
+      }
+    }
+
+    return await lazy.AddonManager;
+  },
+
+  // AddonManager is only available in the full browser process, not in
+  // the FELT login window. Returns null in the FELT UI. When
+  // waitForAddons is true (periodic poll), blocks until AddonManager is
+  // ready so extensions are always reported. When false (startup),
+  // returns null if AddonManager isn't ready yet to avoid blocking.
+  async getExtensions({ waitForAddons = false } = {}) {
+    lazy.log.debug(`getExtensions(${waitForAddons})`);
+
+    try {
+      let addonsDatabase = null;
+      if (Services.felt.isFeltUI()) {
+        return null;
+      }
+
+      if (Services.felt.isFeltBrowser()) {
+        addonsDatabase = await this.getDatabaseForApp(waitForAddons);
+      }
+
+      return (await addonsDatabase.getAddonsByTypes([
+        "extension",
+        "sitepermission",
+        "siteperm_deprecated",
+        "plugin",
+        "mlmodel",
+      ])).map(addon => ({
+        id: addon.id,
+        name: addon.name ?? "",
+        type: addon.type,
+        version: addon.version ?? "",
+        enabled: addon.isActive,
+      }));
+    } catch (ex) {
+      lazy.log.error(`Error while getting extensions for device posture`, ex);
+      return null;
+    }
+  },
+
   /**
    * @typedef {object} DeviceNetwork
    * @property {null} ipv4 IPv4 address, TBD
@@ -83,42 +134,6 @@ export const DevicePosture = {
       }
     };
 
-    // AddonManager is only available in the full browser process, not in
-    // the FELT login window. Returns null in the FELT UI. When
-    // waitForAddons is true (periodic poll), blocks until AddonManager is
-    // ready so extensions are always reported. When false (startup),
-    // returns null if AddonManager isn't ready yet to avoid blocking.
-    const getExtensions = async () => {
-      try {
-        if (Services.felt.isFeltUI()) {
-          return null;
-        }
-        if (!lazy.AddonManager.isReady) {
-          if (waitForAddons) {
-            await lazy.AddonManager.readyPromise;
-          } else {
-            return null;
-          }
-        }
-        const addons = await lazy.AddonManager.getAddonsByTypes([
-          "extension",
-          "sitepermission",
-          "siteperm_deprecated",
-          "plugin",
-          "mlmodel",
-        ]);
-        return addons.map(addon => ({
-          id: addon.id,
-          name: addon.name ?? "",
-          type: addon.type,
-          version: addon.version ?? "",
-          enabled: addon.isActive,
-        }));
-      } catch {
-        return null;
-      }
-    };
-
     const getMachineId = async () => {
       try {
         const id = await lazy.MachineId.getRawId();
@@ -158,7 +173,7 @@ export const DevicePosture = {
     const [mobileEquipmentId, extensions, machineId, presentEdrs] =
       await Promise.all([
         getImeiValue(),
-        getExtensions(),
+        this.getExtensions(),
         getMachineId(),
         getPresentEDRs(),
       ]);
