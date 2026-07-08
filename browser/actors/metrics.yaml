@@ -36,8 +36,7 @@ security:
     data_sensitivity:
       - highly_sensitive
     description: >
-      Recorded when a user navigates to a top-level site blocked by Safe
-      Browsing (malware, phishing, unwanted software, or harmful application).
+      Recorded when a user navigates to a top-level site blocked by Safe Browsing.
       Only collected when MOZ_ENTERPRISE is defined and enabled.
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2039258
@@ -59,8 +58,7 @@ security:
         type: string
       threat_type:
         description: >
-          The type of threat detected: "malware", "phishing", "unwanted", or
-          "harmful".
+          The type of threat detected.
         type: string
       provider:
         description: >

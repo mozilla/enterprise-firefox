@@ -27,6 +27,7 @@ const UNSAFE_SITES = [
 
 add_setup(async function () {
   await new Promise(resolve => waitForDBInit(resolve));
+  Services.fog.testResetFOG();
   await SpecialPowers.pushPrefEnv({
     set: [
       ["browser.safebrowsing.enterprise.telemetry.testing.disableSubmit", true],
