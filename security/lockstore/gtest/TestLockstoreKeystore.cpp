@@ -729,9 +729,10 @@ TEST_F(LockstoreKeystoreTest, SwitchKekMissingOldWrapping) {
 // "Refresh Firefox" copies an encrypted database into a NEW profile whose own
 // per-profile LocalKey cannot unwrap the source profile's DEK. SQLiteEncryption
 // recovers it by reading the raw DEK from the source keystore and re-importing
-// it into the destination keystore under the destination's own KEK -- a re-wrap,
-// never a keystore-file copy. This verifies that round-trip across two distinct
-// keystores preserves the DEK bytes, so the copied ciphertext stays readable.
+// it into the destination keystore under the destination's own KEK -- a
+// re-wrap, never a keystore-file copy. This verifies that round-trip across two
+// distinct keystores preserves the DEK bytes, so the copied ciphertext stays
+// readable.
 TEST_F(LockstoreKeystoreTest, CrossKeystoreDekRewrap) {
   // Source keystore (this test's profile dir) + its own LocalKey + a DEK.
   nsresult rv = keystore_open(&mProfilePath, &mKeystore);

@@ -576,20 +576,33 @@ export class FeltProcessParent extends JSProcessActorParent {
       // Firefox encryption explicitely reported to delete the profile folder
       // The profile service should do it but it may be incomplete depending
       // on how the profile was locked.
-      lazy.log.debug(`Encryption reported FeltEncryptionExitCode_Delete, ensure profile directory cleanup`);
+      lazy.log.debug(
+        `Encryption reported FeltEncryptionExitCode_Delete, ensure profile directory cleanup`
+      );
       if (this.proc.profilePath) {
         const defProfRt = Services.dirsvc.get("DefProfRt", Ci.nsIFile);
-        const profD = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
+        const profD = Cc["@mozilla.org/file/local;1"].createInstance(
+          Ci.nsIFile
+        );
         profD.initWithPath(this.proc.profilePath);
         // Before removing, ensure the profile path is a direct child of the
         // directory holding profiles.
-	if (profD.parent && profD.parent.equals(defProfRt)) {
+        if (profD.parent && profD.parent.equals(defProfRt)) {
           lazy.log.debug(`Encryption cleanup: ${this.proc.profilePath}`);
-          IOUtils.remove(this.proc.profilePath, { ignoreAbsent: true, recursive: true, retryReadonly: true })
-            .catch(error => lazy.log.debug(`Encryption cleanup IOUtils.remove() failed: ${error}`));
-	} else {
-          lazy.log.debug(`Encryption cleanup skipped: ${this.proc.profilePath} not direct child of ${defProfRt.path}`);
-	}
+          IOUtils.remove(this.proc.profilePath, {
+            ignoreAbsent: true,
+            recursive: true,
+            retryReadonly: true,
+          }).catch(error =>
+            lazy.log.debug(
+              `Encryption cleanup IOUtils.remove() failed: ${error}`
+            )
+          );
+        } else {
+          lazy.log.debug(
+            `Encryption cleanup skipped: ${this.proc.profilePath} not direct child of ${defProfRt.path}`
+          );
+        }
       }
       this.proc.profilePath = null;
     }
@@ -737,7 +750,7 @@ export class FeltProcessParent extends JSProcessActorParent {
 
     try {
       this.proc = await lazy.Subprocess.call(firefoxRun);
-      this.proc.profilePath = foundProfile?.rootDir.path || profilePath;
+      this.proc.profilePath = foundProfile?.rootDir.path || profilePath;
     } catch (e) {
       lazy.log.error("Failed to launch Firefox: ", e.message);
       throw e;

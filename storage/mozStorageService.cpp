@@ -373,10 +373,9 @@ nsresult Service::initialize() {
   // using it by name in either case; callers that name `basevfs` /
   // `quotavfs` / the read-only-no-lock VFS keep their named choice
   // (sqlite3_open_v2 with an explicit zVfs argument bypasses the default).
-  rc = mObfuscatingSqliteVFS.Init(
-      obfsvfs::ConstructVFS(quotavfs::GetVFSName()),
-      /* aMakeDefault = */
-      mozilla::IsProfileEncryptedDatabases());
+  rc = mObfuscatingSqliteVFS.Init(obfsvfs::ConstructVFS(quotavfs::GetVFSName()),
+                                  /* aMakeDefault = */
+                                  mozilla::IsProfileEncryptedDatabases());
   if (rc != SQLITE_OK) {
     return convertResultCode(rc);
   }

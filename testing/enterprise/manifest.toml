@@ -2,6 +2,12 @@
 
 subsuite = "enterprise"
 
+["test_browsing_child_encryption_mismatch.py"]
+disabled = "Bug 1996558: scaffolding for the browsing-child encryption-mismatch flow; not run in CI yet."
+run-if = [
+  "buildapp == 'browser'",
+]
+
 ["test_felt_browser_about_config_blocked.py"]
 run-if = [
   "buildapp == 'browser'", # open new tab
@@ -15,12 +21,6 @@ run-if = [
 ["test_felt_browser_close_warning.py"]
 run-if = [
   "buildapp == 'browser'", # open new tab
-]
-
-["test_browsing_child_encryption_mismatch.py"]
-disabled = "Bug 1996558: scaffolding for the browsing-child encryption-mismatch flow; not run in CI yet."
-run-if = [
-  "buildapp == 'browser'",
 ]
 
 ["test_felt_browser_compulsory_restart.py"]

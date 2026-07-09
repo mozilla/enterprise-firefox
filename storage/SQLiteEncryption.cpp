@@ -141,8 +141,8 @@ mozilla::StaticRefPtr<ProfileObserver> sObserver;
 NS_IMPL_ISUPPORTS(ProfileObserver, nsIObserver)
 
 // The Password KEK is keyed by the Felt-delivered primarySecret, which only
-// exists in enterprise (Felt) builds, so compile this waiter out elsewhere -- it
-// would otherwise be an unused function (its sole caller is already gated on
+// exists in enterprise (Felt) builds, so compile this waiter out elsewhere --
+// it would otherwise be an unused function (its sole caller is already gated on
 // MOZ_ENTERPRISE).
 #if defined(MOZ_ENTERPRISE)
 // Wait for the console-supplied primarySecret to be delivered by the Felt IPC

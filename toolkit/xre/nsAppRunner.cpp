@@ -3072,8 +3072,8 @@ static nsresult HandleBrowsingChildEncryptionMismatch(
       AutoTArray<nsString, 1> params = {appName};
 
       nsAutoString msg;
-      rv = sb->FormatStringFromName("profileNotEncryptedButPrefOn", params,
-                                    msg);
+      rv =
+          sb->FormatStringFromName("profileNotEncryptedButPrefOn", params, msg);
       NS_ENSURE_SUCCESS(rv, rv);
 
       AutoTArray<nsString, 1> titleParams = {appName};
@@ -3094,8 +3094,7 @@ static nsresult HandleBrowsingChildEncryptionMismatch(
       rv = sb->GetStringFromName("profileMismatchQuit", btnQuit);
       NS_ENSURE_SUCCESS(rv, rv);
 
-      nsCOMPtr<nsIPromptService> ps(
-          do_GetService(NS_PROMPTSERVICE_CONTRACTID));
+      nsCOMPtr<nsIPromptService> ps(do_GetService(NS_PROMPTSERVICE_CONTRACTID));
       NS_ENSURE_TRUE(ps, NS_ERROR_FAILURE);
 
       const uint32_t flags = (nsIPromptService::BUTTON_TITLE_IS_STRING *
@@ -3108,8 +3107,8 @@ static nsresult HandleBrowsingChildEncryptionMismatch(
       int32_t button = 2;
       bool checkState = false;
       rv = ps->ConfirmEx(nullptr, title.get(), msg.get(), flags,
-                         btnDelete.get(), btnKeep.get(), btnQuit.get(),
-                         nullptr, &checkState, &button);
+                         btnDelete.get(), btnKeep.get(), btnQuit.get(), nullptr,
+                         &checkState, &button);
       NS_ENSURE_SUCCESS(rv, rv);
 
       switch (button) {
@@ -6126,9 +6125,10 @@ int XREMain::XRE_mainStartup(bool* aExitFlag,
   // new SDR master key, and the migrator's copyTo() will not overwrite an
   // existing key4.db -- so the source SDR key never reaches the new profile and
   // the migrated logins / FxA secure data cannot be decrypted. key4.db does not
-  // exist in the freshly created reset profile yet at this point, so copying the
-  // source key DBs now makes NSS initialize from them. (The migrator's later
-  // copy of these same files becomes a no-op; see FirefoxProfileMigrator.)
+  // exist in the freshly created reset profile yet at this point, so copying
+  // the source key DBs now makes NSS initialize from them. (The migrator's
+  // later copy of these same files becomes a no-op; see
+  // FirefoxProfileMigrator.)
   if (gDoProfileReset && gResetOldProfile && mProfD) {
     nsCOMPtr<nsIFile> srcRoot = gResetOldProfile->GetRootDir();
     if (srcRoot) {
@@ -6145,7 +6145,8 @@ int XREMain::XRE_mainStartup(bool* aExitFlag,
         dst->Exists(&dstEx);
         if (srcEx && !dstEx) {
           if (NS_FAILED(src->CopyTo(mProfD, u""_ns))) {
-            NS_WARNING("Failed to copy source NSS key DB into the reset profile");
+            NS_WARNING(
+                "Failed to copy source NSS key DB into the reset profile");
           }
         }
       };
