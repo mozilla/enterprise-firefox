@@ -58,7 +58,10 @@ class LabsMiddleware(
             is LabsAction.InitAction -> initialize(store = store)
             is LabsAction.RefreshLabs -> refreshLabs(store = store)
             is LabsAction.RestartApplication -> restartApplication()
-            is LabsAction.RestoreDefaults -> restoreDefaults(store = store)
+            is LabsAction.RestoreDefaults -> restoreDefaults(
+                store = store,
+                itemsChanged = store.state.labsItems.filter { it.enrolled }.map { it.slug },
+            )
             is LabsAction.ToggleLabsItem -> toggleLabsItem(
                 store = store,
                 item = action.item,
@@ -75,14 +78,15 @@ class LabsMiddleware(
     private fun initialize(
         store: Store<LabsState, LabsAction>,
     ) = scope.launch {
-        store.dispatch(LabsAction.UpdateLabsItems(fetchLabs()))
+        val items = fetchLabs(store = store) ?: return@launch
+        store.dispatch(LabsAction.UpdateLabsItems(items))
     }
 
     private fun toggleLabsItem(
         store: Store<LabsState, LabsAction>,
         item: LabsItem,
     ) = scope.launch {
-        when (setItemEnrolled(slug = item.slug, enrolled = !item.enrolled)) {
+        when (setItemEnrolled(store = store, slug = item.slug, enrolled = !item.enrolled)) {
             EnrollmentResult.Success -> if (item.requiresRestart) {
                 store.dispatch(LabsAction.RestartApplication)
             } else {
@@ -100,11 +104,15 @@ class LabsMiddleware(
     @Suppress("TooGenericExceptionCaught")
     private fun restoreDefaults(
         store: Store<LabsState, LabsAction>,
+        itemsChanged: List<String>,
     ) = scope.launch {
         val anyRequiresRestart = store.state.labsItems.any { it.enrolled && it.requiresRestart }
 
         try {
             nimbusSdk.unenrollFromAllFirefoxLabs().await()
+            store.dispatch(
+                LabsAction.RestoreDefaultsCompleted(succeeded = true, itemsChanged = itemsChanged),
+            )
             if (anyRequiresRestart) {
                 store.dispatch(LabsAction.RestartApplication)
             }
@@ -113,13 +121,17 @@ class LabsMiddleware(
             logger.warn(message, e)
             crashReporter?.recordCrashBreadcrumb(Breadcrumb(message = message))
             crashReporter?.submitCaughtException(e)
+            store.dispatch(
+                LabsAction.RestoreDefaultsCompleted(succeeded = false, itemsChanged = emptyList()),
+            )
             initialize(store = store)
         }
     }
 
     /**
-     * Applies the enrollment change in Nimbus and maps the outcome to how the screen
-     * should handle the response.
+     * Applies the enrollment change in Nimbus, records the raw Nimbus status via
+     * [LabsAction.ToggleCompleted], and maps the outcome to how the screen should handle the
+     * response.
      *
      * @return
      * [EnrollmentResult.Success] - enrollment proceeded as expected
@@ -127,18 +139,31 @@ class LabsMiddleware(
      * [EnrollmentResult.Invalid] - enrollment item no longer exists, remove item from list
      */
     @Suppress("TooGenericExceptionCaught")
-    private suspend fun setItemEnrolled(slug: String, enrolled: Boolean): EnrollmentResult {
+    private suspend fun setItemEnrolled(
+        store: Store<LabsState, LabsAction>,
+        slug: String,
+        enrolled: Boolean,
+    ): EnrollmentResult {
         return try {
             if (enrolled) {
-                nimbusSdk.enrollInFirefoxLab(slug).await().toEnrollmentResult()
+                val status = nimbusSdk.enrollInFirefoxLab(slug).await()
+                store.dispatch(
+                    LabsAction.ToggleCompleted(slug = slug, enabled = true, status = status.name.lowercase()),
+                )
+                status.toEnrollmentResult()
             } else {
-                nimbusSdk.unenrollFromFirefoxLab(slug).await().toEnrollmentResult()
+                val status = nimbusSdk.unenrollFromFirefoxLab(slug).await()
+                store.dispatch(
+                    LabsAction.ToggleCompleted(slug = slug, enabled = false, status = status.name.lowercase()),
+                )
+                status.toEnrollmentResult()
             }
         } catch (e: Exception) {
             val message = "Failed to set enrollment for Firefox Lab '$slug'"
             logger.warn(message, e)
             crashReporter?.recordCrashBreadcrumb(Breadcrumb(message = message))
             crashReporter?.submitCaughtException(e)
+            store.dispatch(LabsAction.ToggleCompleted(slug = slug, enabled = enrolled, status = "exception"))
             EnrollmentResult.Failed
         }
     }
@@ -153,10 +178,12 @@ class LabsMiddleware(
     /**
      * Fetches the currently available Firefox Labs from Nimbus, sorted by slug.
      *
-     * @return The available Labs as [LabsItem]s, or an empty list if the fetch fails.
+     * @param store The [Store] to dispatch [LabsAction.FetchFailed] to if the fetch throws.
+     * @return The available Labs as [LabsItem]s (possibly empty, if there are no Labs active), or
+     * null if the fetch threw.
      */
     @Suppress("TooGenericExceptionCaught")
-    private suspend fun fetchLabs(): List<LabsItem> {
+    private suspend fun fetchLabs(store: Store<LabsState, LabsAction>): List<LabsItem>? {
         return try {
             nimbusSdk.getAvailableFirefoxLabs().await()
                 .mapNotNull { it.toLabsItem(context) }
@@ -166,7 +193,8 @@ class LabsMiddleware(
             logger.warn(message, e)
             crashReporter?.recordCrashBreadcrumb(Breadcrumb(message = message))
             crashReporter?.submitCaughtException(e)
-            emptyList()
+            store.dispatch(LabsAction.FetchFailed)
+            null
         }
     }
 
@@ -179,7 +207,7 @@ class LabsMiddleware(
     private fun refreshLabs(
         store: Store<LabsState, LabsAction>,
     ) = scope.launch {
-        val latest = fetchLabs()
+        val latest = fetchLabs(store = store) ?: emptyList()
         val merged = mergeLabsConflicts(
             displayed = store.state.labsItems,
             latest = latest,

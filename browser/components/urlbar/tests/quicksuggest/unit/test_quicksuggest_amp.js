@@ -1354,6 +1354,106 @@ add_task(async function online_enabled() {
 
       {
         context,
+        description: "header_text and full_keyword",
+        merinoSuggestions: [
+          {
+            ...MERINO_SUGGESTION,
+            full_keyword: "amp full keyword",
+            custom_details: {
+              ...MERINO_SUGGESTION.custom_details,
+              amp: {
+                ...MERINO_SUGGESTION.custom_details.amp,
+                header_text: "Test header text",
+              },
+            },
+          },
+        ],
+        expected: [
+          QuickSuggestTestUtils.ampResult({
+            ...expected,
+            suggestionId: "amp-suggestion-id",
+            fullKeyword: "Test header text",
+          }),
+        ],
+      },
+
+      {
+        context,
+        description: "header_text instead of full_keyword",
+        merinoSuggestions: [
+          {
+            ...MERINO_SUGGESTION,
+            full_keyword: undefined,
+            custom_details: {
+              ...MERINO_SUGGESTION.custom_details,
+              amp: {
+                ...MERINO_SUGGESTION.custom_details.amp,
+                header_text: "Test header text",
+              },
+            },
+          },
+        ],
+        expected: [
+          QuickSuggestTestUtils.ampResult({
+            ...expected,
+            suggestionId: "amp-suggestion-id",
+            fullKeyword: "Test header text",
+          }),
+        ],
+      },
+
+      {
+        context,
+        description: "Undefined header_text and full_keyword",
+        merinoSuggestions: [
+          {
+            ...MERINO_SUGGESTION,
+            full_keyword: "amp full keyword",
+            custom_details: {
+              ...MERINO_SUGGESTION.custom_details,
+              amp: {
+                ...MERINO_SUGGESTION.custom_details.amp,
+                header_text: undefined,
+              },
+            },
+          },
+        ],
+        expected: [
+          QuickSuggestTestUtils.ampResult({
+            ...expected,
+            suggestionId: "amp-suggestion-id",
+            fullKeyword: "amp full keyword",
+          }),
+        ],
+      },
+
+      {
+        context,
+        description: "Empty-string header_text and full_keyword",
+        merinoSuggestions: [
+          {
+            ...MERINO_SUGGESTION,
+            full_keyword: "amp full keyword",
+            custom_details: {
+              ...MERINO_SUGGESTION.custom_details,
+              amp: {
+                ...MERINO_SUGGESTION.custom_details.amp,
+                header_text: "",
+              },
+            },
+          },
+        ],
+        expected: [
+          QuickSuggestTestUtils.ampResult({
+            ...expected,
+            suggestionId: "amp-suggestion-id",
+            fullKeyword: "",
+          }),
+        ],
+      },
+
+      {
+        context,
         description: "Missing custom_details",
         merinoSuggestions: [noCustomDetails],
         expected: [

@@ -148,6 +148,8 @@ skip-if = [
 ["browser_aboutSupport.js"]
 tags = "remote-settings"
 
+["browser_aboutSupport_graphics_media.js"]
+
 ["browser_aboutSupport_newtab_security_state.js"]
 
 ["browser_aboutSupport_places.js"]

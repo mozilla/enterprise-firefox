@@ -45,7 +45,7 @@
 // triggers it: macOS freezes :hover on the dragged tile, and we can't block it
 // with pointer-events because the placeholder is the drop target.
 // @nova-cleanup(remove-conditional): Nova gets rid of outer hover background
-.nova-enabled .top-sites-list:not(.dnd-active) .top-site-outer:is(.active, :focus-within, :hover) {
+.nova-enabled .top-sites-list:not(.dnd-active) .top-site-outer:is(.active, :has(.top-site-inner:is(:hover, :focus-within))) {
   background: none;
 
   .tile {
@@ -100,10 +100,6 @@
 
   &:active .tile {
     border-color: var(--button-border-color-ghost-active);
-  }
-
-  &.add-button .tile {
-    color-scheme: initial;
   }
 
   .top-site-inner > a:focus .tile {
@@ -161,10 +157,6 @@
     }
   }
 
-  &.add-button .tile {
-    background: var(--newtab-background-card);
-  }
-
   .title {
     .title-label {
       padding: 0;
@@ -203,20 +195,11 @@
     background-color: var(--button-background-color);
   }
 
-  .nova-enabled .top-site-outer:is(:hover, :focus-within, .active) .tile {
+  .nova-enabled .top-site-outer:is(.active, :has(.top-site-inner:is(:hover, :focus-within))) .tile {
     background-color: var(--button-background-color-hover);
   }
 
   .nova-enabled .top-site-outer .sponsored-label {
     color: var(--text-color);
-  }
-
-  .nova-enabled .top-site-outer.add-button .tile .icon-wrapper {
-    color: var(--button-text-color-ghost);
-    fill: var(--button-icon-fill);
-  }
-
-  .nova-enabled .top-site-outer.add-button:hover .tile .icon-wrapper {
-    color: var(--button-text-color-ghost-hover);
   }
 }

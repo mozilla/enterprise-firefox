@@ -2364,6 +2364,24 @@ class Toolbox extends EventEmitter {
   }
 
   /**
+   * Launches the responsive mode with a specific width or height.
+   *
+   * @param  {object} options
+   *         Object with width or/and height properties.
+   */
+  async launchResponsiveMode(options = {}) {
+    const tab = this.commands.descriptorFront.localTab;
+    const win = tab.ownerDocument.defaultView;
+
+    await ResponsiveUIManager.openIfNeeded(win, tab, {
+      trigger: "debugger",
+    });
+    this.emit("responsive-mode-opened");
+
+    ResponsiveUIManager.getResponsiveUIForTab(tab).setViewportSize(options);
+  }
+
+  /**
    * The element picker button enables the ability to select a DOM node by clicking
    * it on the page.
    */

@@ -1505,7 +1505,13 @@ RefPtr<MediaFormatReader::VideoDataPromise> MediaFormatReader::RequestVideoData(
     PROFILER_MARKER_UNTYPED("RequestVideoData SkipVideoDemuxToNextKeyFrame",
                             MEDIA_PLAYBACK);
     RefPtr<VideoDataPromise> p = mVideo.EnsurePromise(__func__);
-    SkipVideoDemuxToNextKeyFrame(*target);
+    // A skip can already be in flight from the decode-error recovery path in
+    // Update(), which starts one without a pending video promise.
+    if (!mSkipRequest.Exists()) {
+      SkipVideoDemuxToNextKeyFrame(*target);
+    } else {
+      LOGV("Video skip already in progress; deferring to its completion");
+    }
     return p;
   }
 

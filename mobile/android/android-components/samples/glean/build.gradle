@@ -57,6 +57,7 @@ dependencies {
     implementation project(':components:service-nimbus')
     implementation project(':components:support-appservices')
     implementation project(':components:support-base')
+    implementation project(':components:ui-widgets')
 
     implementation libs.androidx.appcompat
     implementation libs.androidx.browser
@@ -71,6 +72,7 @@ dependencies {
     androidTestImplementation libs.androidx.test.runner
     androidTestImplementation libs.androidx.test.uiautomator
     androidTestImplementation libs.androidx.work.testing
+    androidTestImplementation libs.kotlin.test
     androidTestImplementation libs.mockwebserver
     androidTestImplementation libs.okhttp
     androidTestRuntimeOnly libs.okio

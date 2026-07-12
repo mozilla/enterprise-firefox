@@ -376,17 +376,7 @@ void MacroAssemblerRiscv64::ma_cmp_mv(Register dst, Register lhs, Register rhs,
   Register scratch = temps.Acquire();
 
   ma_cmp_set(scratch, lhs, rhs, c);
-
-  // Inlined moveIfNotZero to avoid allocating a new scratch register if
-  // "Zicond" is available.
-  if (HasZicondExtension()) {
-    ma_cselnz(dst, src, dst, scratch, scratch);
-  } else {
-    Label done;
-    ma_b(scratch, scratch, &done, Zero, ShortJump);
-    mv(dst, src);
-    bind(&done);
-  }
+  ma_cselnz(dst, src, dst, scratch, scratch);
 }
 
 void MacroAssemblerRiscv64::ma_cmp_mv(Register dst, Register lhs, Imm32 rhs,
@@ -395,22 +385,11 @@ void MacroAssemblerRiscv64::ma_cmp_mv(Register dst, Register lhs, Imm32 rhs,
   Register scratch = temps.Acquire();
 
   ma_cmp_set(scratch, lhs, rhs, c);
-
-  // Inlined moveIfNotZero to avoid allocating a new scratch register if
-  // "Zicond" is available.
-  if (HasZicondExtension()) {
-    ma_cselnz(dst, src, dst, scratch, scratch);
-  } else {
-    Label done;
-    ma_b(scratch, scratch, &done, Zero, ShortJump);
-    mv(dst, src);
-    bind(&done);
-  }
+  ma_cselnz(dst, src, dst, scratch, scratch);
 }
 
 void MacroAssemblerRiscv64::ma_cselz(Register rd, Register rs1, Register rs2,
                                      Register rc, Register rtmp) {
-  MOZ_ASSERT(HasZicondExtension());
   MOZ_ASSERT(rd != rtmp);
 
   // From
@@ -430,29 +409,63 @@ void MacroAssemblerRiscv64::ma_cselz(Register rd, Register rs1, Register rs2,
     return;
   }
 
-  if (rd == rc) {
-    if (rs1 != rtmp) {
-      czero_eqz(rtmp, rs2, rc);
-      czero_nez(rd, rs1, rc);
+  if (HasZicondExtension()) {
+    if (rd == rc) {
+      if (rs1 != rtmp) {
+        czero_eqz(rtmp, rs2, rc);
+        czero_nez(rd, rs1, rc);
+      } else {
+        czero_nez(rtmp, rs1, rc);
+        czero_eqz(rd, rs2, rc);
+      }
     } else {
-      czero_nez(rtmp, rs1, rc);
-      czero_eqz(rd, rs2, rc);
+      if (rd == rs2) {
+        czero_eqz(rd, rs2, rc);
+        czero_nez(rtmp, rs1, rc);
+      } else {
+        czero_nez(rd, rs1, rc);
+        czero_eqz(rtmp, rs2, rc);
+      }
     }
+    add(rd, rd, rtmp);
   } else {
-    if (rd == rs2) {
-      czero_eqz(rd, rs2, rc);
-      czero_nez(rtmp, rs1, rc);
+    if (rd == rs1) {
+      Label done;
+      ma_b(rc, rc, &done, Zero, ShortJump);
+      mv(rd, rs2);
+      bind(&done);
+    } else if (rd == rs2) {
+      Label done;
+      ma_b(rc, rc, &done, NonZero, ShortJump);
+      mv(rd, rs1);
+      bind(&done);
+    } else if (rd == rc) {
+      Label done;
+      if (rtmp == rs1) {
+        ma_b(rc, rc, &done, Zero, ShortJump);
+        mv(rtmp, rs2);
+      } else if (rtmp == rs2) {
+        ma_b(rc, rc, &done, NonZero, ShortJump);
+        mv(rtmp, rs1);
+      } else {
+        mv(rtmp, rs1);
+        ma_b(rc, rc, &done, Zero, ShortJump);
+        mv(rtmp, rs2);
+      }
+      bind(&done);
+      mv(rd, rtmp);
     } else {
-      czero_nez(rd, rs1, rc);
-      czero_eqz(rtmp, rs2, rc);
+      mv(rd, rs1);
+      Label done;
+      ma_b(rc, rc, &done, Zero, ShortJump);
+      mv(rd, rs2);
+      bind(&done);
     }
   }
-  add(rd, rd, rtmp);
 }
 
 void MacroAssemblerRiscv64::ma_cselnz(Register rd, Register rs1, Register rs2,
                                       Register rc, Register rtmp) {
-  MOZ_ASSERT(HasZicondExtension());
   MOZ_ASSERT(rd != rtmp);
 
   // From
@@ -472,24 +485,59 @@ void MacroAssemblerRiscv64::ma_cselnz(Register rd, Register rs1, Register rs2,
     return;
   }
 
-  if (rd == rc) {
-    if (rs1 != rtmp) {
-      czero_nez(rtmp, rs2, rc);
-      czero_eqz(rd, rs1, rc);
+  if (HasZicondExtension()) {
+    if (rd == rc) {
+      if (rs1 != rtmp) {
+        czero_nez(rtmp, rs2, rc);
+        czero_eqz(rd, rs1, rc);
+      } else {
+        czero_eqz(rtmp, rs1, rc);
+        czero_nez(rd, rs2, rc);
+      }
     } else {
-      czero_eqz(rtmp, rs1, rc);
-      czero_nez(rd, rs2, rc);
+      if (rd == rs2) {
+        czero_nez(rd, rs2, rc);
+        czero_eqz(rtmp, rs1, rc);
+      } else {
+        czero_eqz(rd, rs1, rc);
+        czero_nez(rtmp, rs2, rc);
+      }
     }
+    add(rd, rd, rtmp);
   } else {
-    if (rd == rs2) {
-      czero_nez(rd, rs2, rc);
-      czero_eqz(rtmp, rs1, rc);
+    if (rd == rs1) {
+      Label done;
+      ma_b(rc, rc, &done, NonZero, ShortJump);
+      mv(rd, rs2);
+      bind(&done);
+    } else if (rd == rs2) {
+      Label done;
+      ma_b(rc, rc, &done, Zero, ShortJump);
+      mv(rd, rs1);
+      bind(&done);
+    } else if (rd == rc) {
+      Label done;
+      if (rtmp == rs1) {
+        ma_b(rc, rc, &done, NonZero, ShortJump);
+        mv(rtmp, rs2);
+      } else if (rtmp == rs2) {
+        ma_b(rc, rc, &done, Zero, ShortJump);
+        mv(rtmp, rs1);
+      } else {
+        mv(rtmp, rs1);
+        ma_b(rc, rc, &done, NonZero, ShortJump);
+        mv(rtmp, rs2);
+      }
+      bind(&done);
+      mv(rd, rtmp);
     } else {
-      czero_eqz(rd, rs1, rc);
-      czero_nez(rtmp, rs2, rc);
+      mv(rd, rs1);
+      Label done;
+      ma_b(rc, rc, &done, NonZero, ShortJump);
+      mv(rd, rs2);
+      bind(&done);
     }
   }
-  add(rd, rd, rtmp);
 }
 
 void MacroAssemblerRiscv64::ma_compareF32(Register rd, DoubleCondition cc,
@@ -1305,21 +1353,58 @@ void MacroAssemblerRiscv64Compat::truncateFloat32ModUint32(FloatRegister src,
   SignExtendWord(dest, dest);
 }
 
+// Return true if |n| is representable as the addition of two int12.
+static inline bool is_two_int12(int64_t n) {
+  // Note: The caller handles the case when |n| is exactly an int12. We don't
+  // exclude exact int12 values, because Clang/GCC generate slightly smaller
+  // code when testing for the complete range.
+  return -4096 <= n && n <= 4094;
+}
+
+struct TwoInt12 {
+  int16_t first;
+  int16_t second;
+};
+
+constexpr auto ToTwoInt12(int32_t n) {
+  MOZ_ASSERT(is_two_int12(n));
+  return TwoInt12{
+      .first = int16_t(n / 2),
+      .second = int16_t(n - (n / 2)),
+  };
+}
+
 // Memory.
 std::pair<Register, int16_t> MacroAssemblerRiscv64::computeAddress(
     Address address, UseScratchRegisterScope& temps) {
   Register base;
   int16_t encodedOffset;
 
-  if (!is_int12(address.offset)) {
+  int32_t offset = address.offset;
+  if (is_int12(offset)) {
+    base = address.base;
+    encodedOffset = offset;
+  } else if (is_two_int12(offset)) {
+    auto [first, second] = ToTwoInt12(offset);
+
     Register scratch = temps.Acquire();
-    ma_li(scratch, Imm32(address.offset));
+    addi(scratch, address.base, first);
+    base = scratch;
+    encodedOffset = second;
+  } else if (is_int32(int64_t(offset) + 0x800)) {
+    auto [high20, low12] = ToHigh20Low12(offset);
+
+    Register scratch = temps.Acquire();
+    lui(scratch, high20);
+    add(scratch, address.base, scratch);
+    base = scratch;
+    encodedOffset = low12;
+  } else {
+    Register scratch = temps.Acquire();
+    ma_li(scratch, Imm32(offset));
     add(scratch, address.base, scratch);
     base = scratch;
     encodedOffset = 0;
-  } else {
-    base = address.base;
-    encodedOffset = address.offset;
   }
 
   return {base, encodedOffset};
@@ -1339,9 +1424,8 @@ FaultingCodeOffset MacroAssemblerRiscv64::ma_loadDouble(FloatRegister dest,
 FaultingCodeOffset MacroAssemblerRiscv64::ma_loadDouble(FloatRegister dest,
                                                         const BaseIndex& src) {
   UseScratchRegisterScope temps(this);
-  Register scratch = temps.Acquire();
-  computeScaledAddress(src, scratch);
-  return ma_loadDouble(dest, Address(scratch, src.offset));
+  Address address = computeScaledAddress(src, temps);
+  return ma_loadDouble(dest, address);
 }
 
 FaultingCodeOffset MacroAssemblerRiscv64::ma_loadFloat(FloatRegister dest,
@@ -1358,9 +1442,8 @@ FaultingCodeOffset MacroAssemblerRiscv64::ma_loadFloat(FloatRegister dest,
 FaultingCodeOffset MacroAssemblerRiscv64::ma_loadFloat(FloatRegister dest,
                                                        const BaseIndex& src) {
   UseScratchRegisterScope temps(this);
-  Register scratch = temps.Acquire();
-  computeScaledAddress(src, scratch);
-  return ma_loadFloat(dest, Address(scratch, src.offset));
+  Address address = computeScaledAddress(src, temps);
+  return ma_loadFloat(dest, address);
 }
 
 FaultingCodeOffset MacroAssemblerRiscv64::ma_loadFloat16(FloatRegister dest,
@@ -1379,9 +1462,8 @@ FaultingCodeOffset MacroAssemblerRiscv64::ma_loadFloat16(FloatRegister dest,
 FaultingCodeOffset MacroAssemblerRiscv64::ma_loadFloat16(FloatRegister dest,
                                                          const BaseIndex& src) {
   UseScratchRegisterScope temps(this);
-  Register scratch = temps.Acquire();
-  computeScaledAddress(src, scratch);
-  return ma_loadFloat16(dest, Address(scratch, src.offset));
+  Address address = computeScaledAddress(src, temps);
+  return ma_loadFloat16(dest, address);
 }
 
 FaultingCodeOffset MacroAssemblerRiscv64::ma_load(
@@ -1427,20 +1509,16 @@ FaultingCodeOffset MacroAssemblerRiscv64::ma_store(
     Register data, const BaseIndex& dest, LoadStoreSize size,
     LoadStoreExtension extension) {
   UseScratchRegisterScope temps(this);
-  Register scratch2 = temps.Acquire();
-  computeScaledAddress(dest, scratch2);
-  return ma_store(data, Address(scratch2, dest.offset), size, extension);
+  Address address = computeScaledAddress(dest, temps);
+  return ma_store(data, address, size, extension);
 }
 
 FaultingCodeOffset MacroAssemblerRiscv64::ma_store(
     Imm32 imm, const BaseIndex& dest, LoadStoreSize size,
     LoadStoreExtension extension) {
   UseScratchRegisterScope temps(this);
-
-  Register address = temps.Acquire();
-  computeScaledAddress(dest, address);
-
-  return ma_store(imm, Address(address, dest.offset), size, extension);
+  Address address = computeScaledAddress(dest, temps);
+  return ma_store(imm, address, size, extension);
 }
 
 FaultingCodeOffset MacroAssemblerRiscv64::ma_store(
@@ -1499,9 +1577,8 @@ FaultingCodeOffset MacroAssemblerRiscv64::ma_storeDouble(FloatRegister src,
 FaultingCodeOffset MacroAssemblerRiscv64::ma_storeDouble(
     FloatRegister src, const BaseIndex& dest) {
   UseScratchRegisterScope temps(this);
-  Register scratch = temps.Acquire();
-  computeScaledAddress(dest, scratch);
-  return ma_storeDouble(src, Address(scratch, dest.offset));
+  Address address = computeScaledAddress(dest, temps);
+  return ma_storeDouble(src, address);
 }
 
 FaultingCodeOffset MacroAssemblerRiscv64::ma_storeFloat(FloatRegister src,
@@ -1518,9 +1595,8 @@ FaultingCodeOffset MacroAssemblerRiscv64::ma_storeFloat(FloatRegister src,
 FaultingCodeOffset MacroAssemblerRiscv64::ma_storeFloat(FloatRegister src,
                                                         const BaseIndex& dest) {
   UseScratchRegisterScope temps(this);
-  Register scratch = temps.Acquire();
-  computeScaledAddress(dest, scratch);
-  return ma_storeFloat(src, Address(scratch, dest.offset));
+  Address address = computeScaledAddress(dest, temps);
+  return ma_storeFloat(src, address);
 }
 
 FaultingCodeOffset MacroAssemblerRiscv64::ma_storeFloat16(FloatRegister src,
@@ -1539,9 +1615,44 @@ FaultingCodeOffset MacroAssemblerRiscv64::ma_storeFloat16(FloatRegister src,
 FaultingCodeOffset MacroAssemblerRiscv64::ma_storeFloat16(
     FloatRegister src, const BaseIndex& dest) {
   UseScratchRegisterScope temps(this);
+  Address address = computeScaledAddress(dest, temps);
+  return ma_storeFloat16(src, address);
+}
+
+Address MacroAssemblerRiscv64::computeScaledAddress(
+    const BaseIndex& address, UseScratchRegisterScope& temps) {
+  if (address.index == zero) {
+    return Address(address.base, address.offset);
+  }
+
   Register scratch = temps.Acquire();
-  computeScaledAddress(dest, scratch);
-  return ma_storeFloat16(src, Address(scratch, dest.offset));
+  MOZ_ASSERT(scratch != address.base);
+  MOZ_ASSERT(scratch != address.index);
+
+  computeScaledAddress(address, scratch);
+
+  int32_t offset = address.offset;
+  if (is_int12(offset)) {
+    // Nothing to do, offset fits into i12 immediate of load/store instructions.
+  } else if (is_two_int12(offset)) {
+    auto [first, second] = ToTwoInt12(offset);
+
+    addi(scratch, scratch, first);
+    offset = second;
+  } else if (is_int32(int64_t(offset) + 0x800)) {
+    auto [high20, low12] = ToHigh20Low12(offset);
+
+    Register scratch2 = temps.Acquire();
+    lui(scratch2, high20);
+    add(scratch, scratch, scratch2);
+    offset = low12;
+  } else {
+    Register scratch2 = temps.Acquire();
+    ma_li(scratch2, Imm32(offset));
+    add(scratch, scratch, scratch2);
+    offset = 0;
+  }
+  return Address(scratch, offset);
 }
 
 void MacroAssemblerRiscv64::computeScaledAddress(const BaseIndex& address,
@@ -1549,12 +1660,15 @@ void MacroAssemblerRiscv64::computeScaledAddress(const BaseIndex& address,
   Register base = address.base;
   Register index = address.index;
   int32_t shift = Imm32::ShiftOf(address.scale).value;
-  UseScratchRegisterScope temps(this);
-  if (shift && base == zero) {
-    MOZ_ASSERT(shift <= 4);
+  MOZ_ASSERT(shift <= 4);
+
+  if (index == zero) {
+    if (dest != base) {
+      mv(dest, base);
+    }
+  } else if (shift && base == zero) {
     slli(dest, index, shift);
   } else if (shift) {
-    MOZ_ASSERT(shift <= 4);
     if (HasZbaExtension()) {
       switch (shift) {
         case 1:
@@ -1570,6 +1684,8 @@ void MacroAssemblerRiscv64::computeScaledAddress(const BaseIndex& address,
           break;
       }
     }
+
+    UseScratchRegisterScope temps(this);
     Register tmp = dest == base ? temps.Acquire() : dest;
     slli(tmp, index, shift);
     add(dest, base, tmp);
@@ -1583,12 +1699,14 @@ void MacroAssemblerRiscv64::computeScaledAddress32(const BaseIndex& address,
   Register base = address.base;
   Register index = address.index;
   int32_t shift = Imm32::ShiftOf(address.scale).value;
-  UseScratchRegisterScope temps(this);
-  if (shift && base == zero) {
-    MOZ_ASSERT(shift <= 4);
+  MOZ_ASSERT(shift <= 4);
+
+  if (index == zero) {
+    SignExtendWord(dest, base);
+  } else if (shift && base == zero) {
     slliw(dest, index, shift);
   } else if (shift) {
-    MOZ_ASSERT(shift <= 4);
+    UseScratchRegisterScope temps(this);
     Register tmp = dest == base ? temps.Acquire() : dest;
     slliw(tmp, index, shift);
     addw(dest, base, tmp);
@@ -1887,9 +2005,8 @@ void MacroAssemblerRiscv64Compat::unboxInt32(const Address& src,
 void MacroAssemblerRiscv64Compat::unboxInt32(const BaseIndex& src,
                                              Register dest) {
   UseScratchRegisterScope temps(this);
-  Register scratch = temps.Acquire();
-  computeScaledAddress(src, scratch);
-  load32(Address(scratch, src.offset), dest);
+  Address address = computeScaledAddress(src, temps);
+  load32(address, dest);
 }
 
 void MacroAssemblerRiscv64Compat::unboxBoolean(const ValueOperand& operand,
@@ -1909,9 +2026,8 @@ void MacroAssemblerRiscv64Compat::unboxBoolean(const Address& src,
 void MacroAssemblerRiscv64Compat::unboxBoolean(const BaseIndex& src,
                                                Register dest) {
   UseScratchRegisterScope temps(this);
-  Register scratch = temps.Acquire();
-  computeScaledAddress(src, scratch);
-  load32(Address(scratch, src.offset), dest);
+  Address address = computeScaledAddress(src, temps);
+  load32(address, dest);
 }
 
 void MacroAssemblerRiscv64Compat::unboxDouble(const ValueOperand& operand,
@@ -2205,13 +2321,11 @@ void MacroAssemblerRiscv64Compat::loadInt32OrDouble(const Address& src,
   bind(&end);
 }
 
-void MacroAssemblerRiscv64Compat::loadInt32OrDouble(const BaseIndex& addr,
+void MacroAssemblerRiscv64Compat::loadInt32OrDouble(const BaseIndex& src,
                                                     FloatRegister dest) {
   UseScratchRegisterScope temps(this);
-  Register scratch = temps.Acquire();
-
-  computeScaledAddress(addr, scratch);
-  loadInt32OrDouble(Address(scratch, addr.offset), dest);
+  Address address = computeScaledAddress(src, temps);
+  loadInt32OrDouble(address, dest);
 }
 
 void MacroAssemblerRiscv64Compat::loadConstantDouble(double dp,
@@ -2235,8 +2349,9 @@ Register MacroAssemblerRiscv64Compat::extractTag(const Address& address,
 
 Register MacroAssemblerRiscv64Compat::extractTag(const BaseIndex& address,
                                                  Register scratch) {
-  computeScaledAddress(address, scratch);
-  return extractTag(Address(scratch, address.offset), scratch);
+  UseScratchRegisterScope temps(this);
+  Address addr = computeScaledAddress(address, temps);
+  return extractTag(addr, scratch);
 }
 
 /////////////////////////////////////////////////////////////////
@@ -2248,28 +2363,15 @@ Register MacroAssemblerRiscv64Compat::extractTag(const BaseIndex& address,
 void MacroAssemblerRiscv64Compat::storeValue(ValueOperand val,
                                              const BaseIndex& dest) {
   UseScratchRegisterScope temps(this);
-  Register scratch = temps.Acquire();
-  computeScaledAddress(dest, scratch);
-  storeValue(val, Address(scratch, dest.offset));
+  Address address = computeScaledAddress(dest, temps);
+  storeValue(val, address);
 }
 
 void MacroAssemblerRiscv64Compat::storeValue(JSValueType type, Register reg,
                                              BaseIndex dest) {
   UseScratchRegisterScope temps(this);
-  Register scratch = temps.Acquire();
-
-  computeScaledAddress(dest, scratch);
-
-  int32_t offset = dest.offset;
-  if (!is_int12(offset)) {
-    UseScratchRegisterScope temps(this);
-    Register scratch2 = temps.Acquire();
-    ma_li(scratch2, Imm32(offset));
-    add(scratch, scratch, scratch2);
-    offset = 0;
-  }
-
-  storeValue(type, reg, Address(scratch, offset));
+  Address address = computeScaledAddress(dest, temps);
+  storeValue(type, reg, address);
 }
 
 void MacroAssemblerRiscv64Compat::storeValue(ValueOperand val,
@@ -2315,25 +2417,15 @@ void MacroAssemblerRiscv64Compat::storeValue(const Value& val, Address dest) {
 
 void MacroAssemblerRiscv64Compat::storeValue(const Value& val, BaseIndex dest) {
   UseScratchRegisterScope temps(this);
-  Register scratch = temps.Acquire();
-  computeScaledAddress(dest, scratch);
-
-  int32_t offset = dest.offset;
-  if (!is_int12(offset)) {
-    Register scratch2 = temps.Acquire();
-    ma_li(scratch2, Imm32(offset));
-    add(scratch, scratch, scratch2);
-    offset = 0;
-  }
-  storeValue(val, Address(scratch, offset));
+  Address address = computeScaledAddress(dest, temps);
+  storeValue(val, address);
 }
 
 void MacroAssemblerRiscv64Compat::loadValue(const BaseIndex& src,
                                             ValueOperand val) {
   UseScratchRegisterScope temps(this);
-  Register scratch = temps.Acquire();
-  computeScaledAddress(src, scratch);
-  loadValue(Address(scratch, src.offset), val);
+  Address address = computeScaledAddress(src, temps);
+  loadValue(address, val);
 }
 
 void MacroAssemblerRiscv64Compat::loadValue(Address src, ValueOperand val) {
@@ -5385,20 +5477,13 @@ void MacroAssemblerRiscv64::ExtractBits(Register rd, Register rs, uint16_t pos,
   srli(rd, src, MaxBits - size);
 }
 
-// Return true if |n| is representable as the addition of two int12.
-static inline bool is_two_int12(int64_t n) {
-  // Note: The caller handles the case when |n| is exactly an int12. We don't
-  // exclude exact int12 values, because Clang/GCC generate slightly smaller
-  // code when testing for the complete range.
-  return -4096 <= n && n <= 4094;
-}
-
 void MacroAssemblerRiscv64::ma_add32(Register rd, Register rs, Imm32 rt) {
   if (is_int12(rt.value)) {
     addiw(rd, rs, static_cast<int32_t>(rt.value));
   } else if (is_two_int12(rt.value)) {
-    addiw(rd, rs, rt.value / 2);
-    addiw(rd, rd, rt.value - (rt.value / 2));
+    auto [first, second] = ToTwoInt12(rt.value);
+    addiw(rd, rs, first);
+    addiw(rd, rd, second);
   } else {
     UseScratchRegisterScope temps(this);
     Register scratch = temps.Acquire();
@@ -5411,8 +5496,9 @@ void MacroAssemblerRiscv64::ma_add64(Register rd, Register rs, Imm64 rt) {
   if (is_int12(rt.value)) {
     addi(rd, rs, static_cast<int32_t>(rt.value));
   } else if (is_two_int12(rt.value)) {
-    addi(rd, rs, rt.value / 2);
-    addi(rd, rd, rt.value - (rt.value / 2));
+    auto [first, second] = ToTwoInt12(rt.value);
+    addi(rd, rs, first);
+    addi(rd, rd, second);
   } else {
     UseScratchRegisterScope temps(this);
     Register scratch = temps.Acquire();
@@ -5426,8 +5512,9 @@ void MacroAssemblerRiscv64::ma_sub32(Register rd, Register rs, Imm32 rt) {
     // No subi instr, use addi(x, y, -imm).
     addiw(rd, rs, static_cast<int32_t>(-rt.value));
   } else if (is_two_int12(rt.value)) {
-    addiw(rd, rs, -rt.value / 2);
-    addiw(rd, rd, -rt.value - (-rt.value / 2));
+    auto [first, second] = ToTwoInt12(rt.value);
+    addiw(rd, rs, -first);
+    addiw(rd, rd, -second);
   } else {
     UseScratchRegisterScope temps(this);
     Register scratch = temps.Acquire();
@@ -5441,8 +5528,9 @@ void MacroAssemblerRiscv64::ma_sub64(Register rd, Register rs, Imm64 rt) {
     // No subi instr, use addi(x, y, -imm).
     addi(rd, rs, static_cast<int32_t>(-rt.value));
   } else if (is_two_int12(rt.value)) {
-    addi(rd, rs, -rt.value / 2);
-    addi(rd, rd, -rt.value - (-rt.value / 2));
+    auto [first, second] = ToTwoInt12(rt.value);
+    addi(rd, rs, -first);
+    addi(rd, rd, -second);
   } else {
     // li handles the relocation.
     UseScratchRegisterScope temps(this);
@@ -6150,9 +6238,8 @@ FaultingCodeOffset MacroAssemblerRiscv64::ma_load(
     Register dest, const BaseIndex& src, LoadStoreSize size,
     LoadStoreExtension extension) {
   UseScratchRegisterScope temps(this);
-  Register scratch2 = temps.Acquire();
-  computeScaledAddress(src, scratch2);
-  return ma_load(dest, Address(scratch2, src.offset), size, extension);
+  Address address = computeScaledAddress(src, temps);
+  return ma_load(dest, address, size, extension);
 }
 void MacroAssemblerRiscv64::ma_pop(FloatRegister f) {
   if (f.isDouble()) {
@@ -6804,11 +6891,16 @@ void MacroAssemblerRiscv64::Dror(Register rd, Register rs, Register rt) {
 void MacroAssemblerRiscv64::wasmLoadImpl(const wasm::MemoryAccessDesc& access,
                                          Register memoryBase, Register ptr,
                                          AnyRegister output) {
+  BaseIndex address(memoryBase, ptr, TimesOne, access.offset32());
+  wasmLoadImpl(access, address, output);
+}
+
+void MacroAssemblerRiscv64::wasmLoadImpl(const wasm::MemoryAccessDesc& access,
+                                         const BaseIndex& address,
+                                         AnyRegister output) {
   access.assertOffsetInGuardPages();
 
   asMasm().memoryBarrierBefore(access.sync());
-
-  BaseIndex address(memoryBase, ptr, TimesOne, access.offset32());
 
   FaultingCodeOffset fco;
   switch (access.type()) {
@@ -6850,11 +6942,16 @@ void MacroAssemblerRiscv64::wasmLoadImpl(const wasm::MemoryAccessDesc& access,
 void MacroAssemblerRiscv64::wasmStoreImpl(const wasm::MemoryAccessDesc& access,
                                           AnyRegister value,
                                           Register memoryBase, Register ptr) {
+  BaseIndex address(memoryBase, ptr, TimesOne, access.offset32());
+  wasmStoreImpl(access, value, address);
+}
+
+void MacroAssemblerRiscv64::wasmStoreImpl(const wasm::MemoryAccessDesc& access,
+                                          AnyRegister value,
+                                          const BaseIndex& address) {
   access.assertOffsetInGuardPages();
 
   asMasm().memoryBarrierBefore(access.sync());
-
-  BaseIndex address(memoryBase, ptr, TimesOne, access.offset32());
 
   FaultingCodeOffset fco;
   switch (access.type()) {
@@ -6892,6 +6989,38 @@ void MacroAssemblerRiscv64::wasmStoreImpl(const wasm::MemoryAccessDesc& access,
   // Only the last emitted instruction is a memory access.
   append(access, js::wasm::TrapMachineInsnForStore(access.byteSize()), fco);
   asMasm().memoryBarrierAfter(access.sync());
+}
+
+BaseIndex MacroAssemblerRiscv64::toBaseIndex(Register base, uint64_t address,
+                                             UseScratchRegisterScope& temps) {
+  Register index;
+  int32_t offset;
+  if (is_int32(address)) {
+    index = zero;
+    offset = int32_t(address);
+  } else {
+    Register scratch = temps.Acquire();
+    ma_li(scratch, Imm64(address));
+    index = scratch;
+    offset = 0;
+  }
+  return BaseIndex{base, index, TimesOne, offset};
+}
+
+void MacroAssemblerRiscv64::wasmLoadAbsoluteImpl(
+    const wasm::MemoryAccessDesc& access, Register memoryBase, uint64_t offset,
+    AnyRegister output) {
+  UseScratchRegisterScope temps(this);
+  BaseIndex address = toBaseIndex(memoryBase, offset, temps);
+  wasmLoadImpl(access, address, output);
+}
+
+void MacroAssemblerRiscv64::wasmStoreAbsoluteImpl(
+    const wasm::MemoryAccessDesc& access, AnyRegister value,
+    Register memoryBase, uint64_t offset) {
+  UseScratchRegisterScope temps(this);
+  BaseIndex address = toBaseIndex(memoryBase, offset, temps);
+  wasmStoreImpl(access, value, address);
 }
 
 void MacroAssemblerRiscv64::ma_fmv_d(FloatRegister src, ValueOperand dest) {

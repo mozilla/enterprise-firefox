@@ -1,8 +1,4 @@
-if (AppConstants.MOZ_CODE_COVERAGE) {
-  requestLongerTimeout(12);
-} else {
-  requestLongerTimeout(12);
-}
+requestLongerTimeout(2);
 
 AntiTracking.runTestInNormalAndPrivateMode(
   "BroadcastChannel",

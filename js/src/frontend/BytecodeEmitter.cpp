@@ -1129,7 +1129,6 @@ restart:
 
     // These affect visible names in this code, or in other code.
     case ParseNodeKind::ImportDecl:
-    case ParseNodeKind::ImportSourceDecl:
     case ParseNodeKind::ExportFromStmt:
     case ParseNodeKind::ExportDefaultStmt:
       MOZ_ASSERT(pn->is<BinaryNode>());
@@ -1143,7 +1142,6 @@ restart:
       return true;
 
     case ParseNodeKind::CallImportExpr:
-    case ParseNodeKind::CallImportSourceExpr:
     case ParseNodeKind::CallImportSpec:
       MOZ_ASSERT(pn->is<BinaryNode>());
       *answer = true;
@@ -9047,8 +9045,7 @@ bool BytecodeEmitter::emitOptionalTree(
                                 kind == ParseNodeKind::ImportMetaExpr;
 
       bool isCallExpression = kind == ParseNodeKind::SetThis ||
-                              kind == ParseNodeKind::CallImportExpr ||
-                              kind == ParseNodeKind::CallImportSourceExpr;
+                              kind == ParseNodeKind::CallImportExpr;
 
       MOZ_ASSERT(isMemberExpression || isCallExpression,
                  "Unknown ParseNodeKind for OptionalChain");
@@ -12940,10 +12937,6 @@ bool BytecodeEmitter::emitTree(
       MOZ_ASSERT(sc->isModuleContext());
       break;
 
-    case ParseNodeKind::ImportSourceDecl:
-      MOZ_ASSERT(sc->isModuleContext());
-      break;
-
     case ParseNodeKind::ExportStmt: {
       MOZ_ASSERT(sc->isModuleContext());
       UnaryNode* node = &pn->as<UnaryNode>();
@@ -13092,13 +13085,16 @@ bool BytecodeEmitter::emitTree(
       break;
 
     case ParseNodeKind::CallImportExpr: {
-      BinaryNode* spec = &pn->as<BinaryNode>().right()->as<BinaryNode>();
+      CallImportNode* callImport = &pn->as<CallImportNode>();
+      BinaryNode* spec = &callImport->right()->as<BinaryNode>();
 
       if (!emitTree(spec->left())) {
         //          [stack] specifier
         return false;
       }
 
+      // import.source does not have an options parameter, so its spec always
+      // carries a PosHolder in place of the options argument.
       if (!spec->right()->isKind(ParseNodeKind::PosHolder)) {
         //          [stack] specifier options
         if (!emitTree(spec->right())) {
@@ -13111,32 +13107,10 @@ bool BytecodeEmitter::emitTree(
         }
       }
 
-      if (!emit2(JSOp::DynamicImport, uint8_t(ImportPhase::Evaluation))) {
+      if (!emit2(JSOp::DynamicImport, uint8_t(callImport->phase()))) {
         return false;
       }
 
-      break;
-    }
-
-    case ParseNodeKind::CallImportSourceExpr: {
-      BinaryNode* spec = &pn->as<BinaryNode>().right()->as<BinaryNode>();
-
-      if (!emitTree(spec->left())) {
-        //          [stack] specifier
-        return false;
-      }
-
-      // import.source does not have an options parameter
-      MOZ_ASSERT(spec->right()->isKind(ParseNodeKind::PosHolder));
-
-      if (!emit1(JSOp::Undefined)) {
-        //          [stack] specifier undefined
-        return false;
-      }
-
-      if (!emit2(JSOp::DynamicImport, uint8_t(ImportPhase::Source))) {
-        return false;
-      }
       break;
     }
 

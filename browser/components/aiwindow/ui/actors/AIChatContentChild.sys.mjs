@@ -37,9 +37,6 @@ export class AIChatContentChild extends JSWindowActorChild {
     "AIChatContent:AssetsReady": {
       event: "aiChatContentActor:assets-ready",
     },
-    "AIChatContent:HistoryResults": {
-      event: "aiChatContentActor:history-results",
-    },
   };
 
   static #VALID_EVENTS_FROM_CONTENT = new Set([

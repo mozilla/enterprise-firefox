@@ -378,6 +378,7 @@ void nsGenericHTMLElement::SetEditContext(mozilla::dom::EditContext* aContext,
   nsAtom* name = NodeInfo()->NameAtom();
   if (name == nsGkAtoms::canvas &&
       !StaticPrefs::dom_editcontext_allow_canvas()) {
+    OwnerDoc()->SetUseCounter(eUseCounter_custom_EditContextCanvas);
     aRv.ThrowNotSupportedError(
         "<canvas>-based EditContext is currently disabled in Firefox due to "
         "accessibility concerns.");
@@ -932,7 +933,7 @@ void nsGenericHTMLElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
       }
       ChangeEditableState(editableCountDelta);
     } else if (aName == nsGkAtoms::accesskey) {
-      if (aValue && !aValue->Equals(u""_ns, eIgnoreCase)) {
+      if (aValue && !aValue->IsEmptyString()) {
         SetFlags(NODE_HAS_ACCESSKEY);
         RegUnRegAccessKey(true);
       }
@@ -943,12 +944,7 @@ void nsGenericHTMLElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
         RemoveStates(ElementState::INERT);
       }
     } else if (aName == nsGkAtoms::name) {
-      if (aValue && !aValue->Equals(u""_ns, eIgnoreCase)) {
-        // This may not be quite right because we can have subclass code run
-        // before here. But in practice subclasses don't care about this flag,
-        // and in particular selector matching does not care.  Otherwise we'd
-        // want to handle it like we handle id attributes (in PreIdMaybeChange
-        // and PostIdMaybeChange).
+      if (aValue && !aValue->IsEmptyString()) {
         SetHasName();
         if (CanHaveName(NodeInfo()->NameAtom())) {
           AddToNameTable(aValue->GetAtomValue());

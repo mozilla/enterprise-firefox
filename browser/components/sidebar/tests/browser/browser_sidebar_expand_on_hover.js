@@ -280,3 +280,116 @@ add_task(
     await SpecialPowers.popPrefEnv();
   }
 );
+
+/* bug2023350: Prior to the fix for this bug, the sidebar could get stuck open
+ * if it received a popupshowing event without ever receiving the corresponding
+ * popuphidden event (mainly on Linux).
+ */
+
+async function waitForLauncherExpandedState(isExpanded, message) {
+  await TestUtils.waitForCondition(async () => {
+    await SidebarController.waitUntilStable();
+    return SidebarController._state.launcherExpanded === isExpanded;
+  }, message);
+}
+
+// Test that the sidebar is capable from recovering from this failure scenario
+// by artificially forcing a popupshown event without firing a corresponding
+// popuphidden.
+add_task(
+  async function test_bug2023350_expand_on_hover_recovers_from_leaked_popup() {
+    await SidebarController.toggleExpandOnHover(true);
+    await SidebarController.waitUntilStable();
+    window.windowUtils.disableNonTestMouseEvents(true);
+
+    EventUtils.synthesizeMouse(SidebarController.sidebarContainer, 1, 150, {
+      type: "mousemove",
+    });
+    await waitForLauncherExpandedState(true, "Launcher expands on hover");
+
+    // Deliver "popupshown" for a menupopup but never deliver the corresponding "popuphidden".
+    const menupopup = document.getElementById("toolbar-context-menu");
+    menupopup.dispatchEvent(new Event("popupshown", { bubbles: true }));
+
+    EventUtils.synthesizeMouseAtCenter(SidebarController.contentArea, {
+      type: "mousemove",
+    });
+    await waitForLauncherExpandedState(
+      false,
+      "Launcher collapses despite a leaked popup-suppression source"
+    );
+
+    ok(
+      !SidebarController._state.launcherExpanded,
+      "Launcher recovered and collapsed after a leaked popupshown"
+    );
+
+    window.windowUtils.disableNonTestMouseEvents(false);
+    await SidebarController.toggleExpandOnHover(false);
+    await SidebarController.waitUntilStable();
+  }
+);
+
+// Verify that opening a real context menu while the launcher is open does not
+// affect the behaviour of the sidebar, and that it continues to work correctly
+// after the context menu is closed.
+add_task(
+  async function test_bug2023350_expand_on_hover_keeps_hover_tracking_during_popup() {
+    await SidebarController.toggleExpandOnHover(true);
+    await SidebarController.waitUntilStable();
+    window.windowUtils.disableNonTestMouseEvents(true);
+
+    EventUtils.synthesizeMouse(SidebarController.sidebarContainer, 1, 150, {
+      type: "mousemove",
+    });
+    await waitForLauncherExpandedState(true, "Launcher expands on hover");
+
+    const toolbarContextMenu = document.getElementById("toolbar-context-menu");
+    await openAndWaitForContextMenu(
+      toolbarContextMenu,
+      SidebarController.sidebarMain,
+      () => {
+        ok(
+          MousePosTracker._listeners.has(SidebarController),
+          "Hover tracking stays registered while a context menu is open"
+        );
+        ok(
+          SidebarController._state.launcherExpanded,
+          "Launcher stays expanded while the context menu is open"
+        );
+      }
+    );
+
+    const menuHidden = BrowserTestUtils.waitForPopupEvent(
+      toolbarContextMenu,
+      "hidden"
+    );
+    toolbarContextMenu.hidePopup();
+    await menuHidden;
+
+    EventUtils.synthesizeMouseAtCenter(SidebarController.contentArea, {
+      type: "mousemove",
+    });
+    await waitForLauncherExpandedState(
+      false,
+      "Launcher collapses after the popup closes"
+    );
+
+    EventUtils.synthesizeMouse(SidebarController.sidebarContainer, 1, 150, {
+      type: "mousemove",
+    });
+    await waitForLauncherExpandedState(true, "Launcher expands again on hover");
+
+    EventUtils.synthesizeMouseAtCenter(SidebarController.contentArea, {
+      type: "mousemove",
+    });
+    await waitForLauncherExpandedState(
+      false,
+      "Launcher collapses again on leave"
+    );
+
+    window.windowUtils.disableNonTestMouseEvents(false);
+    await SidebarController.toggleExpandOnHover(false);
+    await SidebarController.waitUntilStable();
+  }
+);

@@ -13,17 +13,6 @@
     </issue>
 
     <issue
-        id="ButtonStyleXmlDetector"
-        message="All buttons must have a style, try using NeutralButton or similar."
-        errorLine1="        &lt;Button"
-        errorLine2="         ~~~~~~">
-        <location
-            file="src/main/res/layout/activity_installed_add_on_details.xml"
-            line="86"
-            column="10"/>
-    </issue>
-
-    <issue
         id="MozMultipleConstraintLayoutsAndCustomViews"
         message="Custom views extending `ConstraintLayout` are less efficient because they cannot share other `ConstraintLayout` defined in file."
         errorLine1="        &lt;mozilla.components.feature.readerview.view.ReaderViewControlsBar"
@@ -32,28 +21,6 @@
             file="src/main/res/layout/fragment_browser.xml"
             line="58"
             column="10"/>
-    </issue>
-
-    <issue
-        id="MonochromeLauncherIcon"
-        message="The application adaptive icon is missing a monochrome tag"
-        errorLine1="&lt;adaptive-icon xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;>"
-        errorLine2="^">
-        <location
-            file="src/main/res/mipmap-anydpi/ic_launcher.xml"
-            line="5"
-            column="1"/>
-    </issue>
-
-    <issue
-        id="MonochromeLauncherIcon"
-        message="The application adaptive roundIcon is missing a monochrome tag"
-        errorLine1="&lt;adaptive-icon xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;>"
-        errorLine2="^">
-        <location
-            file="src/main/res/mipmap-anydpi/ic_launcher_round.xml"
-            line="5"
-            column="1"/>
     </issue>
 
 </issues>

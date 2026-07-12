@@ -17,7 +17,7 @@ add_task(async function test() {
         url: "http://mozilla.org/1",
         helpUrl: "http://example.com/",
         isBlockable: true,
-        blockL10n: { id: "urlbar-result-menu-remove-from-history" },
+        blockL10n: { id: "urlbar-result-menu-remove-from-history2" },
       },
     }),
     new UrlbarResult({
@@ -27,7 +27,7 @@ add_task(async function test() {
         url: "http://mozilla.org/2",
         helpUrl: "http://example.com/",
         isBlockable: true,
-        blockL10n: { id: "urlbar-result-menu-remove-from-history" },
+        blockL10n: { id: "urlbar-result-menu-remove-from-history2" },
       },
     }),
     new UrlbarResult({

@@ -33,6 +33,7 @@ browser.jar:
    content/browser/preferences/config/account-sync.mjs                  (config/account-sync.mjs)
    content/browser/preferences/config/accessibility.mjs                 (config/accessibility.mjs)
    content/browser/preferences/config/appearance.mjs                    (config/appearance.mjs)
+   content/browser/preferences/config/browser-icon.mjs                  (config/browser-icon.mjs)
    content/browser/preferences/config/aiFeatures.mjs                    (config/aiFeatures.mjs)
    content/browser/preferences/config/firefoxLabs.mjs                   (config/firefoxLabs.mjs)
    content/browser/preferences/config/moreFromMozilla.mjs               (config/moreFromMozilla.mjs)

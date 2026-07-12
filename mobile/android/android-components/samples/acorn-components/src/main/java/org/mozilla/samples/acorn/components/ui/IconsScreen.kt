@@ -572,15 +572,6 @@ private val iconsShield24 = listOf(
     iconsR.drawable.mozac_ic_shield_dot_24,
 )
 
-private val iconsShopping24 = listOf(
-    iconsR.drawable.mozac_ic_competitiveness_24,
-    iconsR.drawable.mozac_ic_packaging_24,
-    iconsR.drawable.mozac_ic_price_24,
-    iconsR.drawable.mozac_ic_quality_24,
-    iconsR.drawable.mozac_ic_shipping_24,
-    iconsR.drawable.mozac_ic_shopping_24,
-)
-
 private val iconsSort24 = listOf(
     iconsR.drawable.mozac_ic_sort_24,
 )
@@ -750,7 +741,6 @@ private val iconSizeSections = listOf(
             IconCategory("Settings, Tools", iconsSettingsTools24),
             IconCategory("Share", iconsShare24),
             IconCategory("Shield", iconsShield24),
-            IconCategory("Shopping", iconsShopping24),
             IconCategory("Sort", iconsSort24),
             IconCategory("Sports", iconsSports24),
             IconCategory("Swap", iconsSwap24),

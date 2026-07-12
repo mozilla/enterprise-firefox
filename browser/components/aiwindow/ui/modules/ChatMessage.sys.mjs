@@ -5,6 +5,8 @@
 
 import { Message } from "moz-src:///browser/components/aiwindow/models/Message.sys.mjs";
 
+/** @typedef {import("./ChatConversation.sys.mjs").PooledHistoryResult} PooledHistoryResult */
+
 const TOKEN_LABELS = {
   EXISTING_MEMORY: "existing_memory",
   SEARCH: "search",
@@ -63,6 +65,7 @@ export class ChatMessage extends Message {
   pageHistoryDeleted;
   tokens;
   toolUIData;
+  historyResults;
   kit;
 
   /**
@@ -115,6 +118,9 @@ export class ChatMessage extends Message {
    * @param {?object} param.toolUIData - Tool UI data to render with this message
    * @param {?string} param.toolCallId - id of the tool call this message responds to (role == tool)
    * @param {?string} param.toolName - function name for tool messages (role == tool)
+   * @param {PooledHistoryResult[]} [param.historyResults = []] - Snapshot of the
+   * conversation history results pool as of this message's completion, used to
+   * restore the history thumbnail grid.
    */
   constructor({
     ordinal,
@@ -140,6 +146,7 @@ export class ChatMessage extends Message {
     toolUIData = null,
     toolCallId = null,
     toolName = null,
+    historyResults = [],
   } = {}) {
     super({
       id,
@@ -166,6 +173,7 @@ export class ChatMessage extends Message {
     this.followUpSuggestions = followUpSuggestions;
     this.pageHistoryDeleted = pageHistoryDeleted;
     this.toolUIData = toolUIData;
+    this.historyResults = historyResults;
     this.tokens = {
       search: [],
       existing_memory: [],

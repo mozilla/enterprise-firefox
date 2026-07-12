@@ -241,7 +241,22 @@ void FrameMetrics::UpdatePendingScrollInfo(const ScrollPositionUpdate& aInfo) {
 
   SetLayoutScrollOffset(aInfo.GetDestination());
   ClampAndSetVisualScrollOffset(aInfo.GetDestination() + relativeOffset);
+  // The layout offset was set to the raw destination while the visual offset
+  // was clamped independently, so the two are no longer guaranteed to be in
+  // their proper relationship: equal for non-root content, the layout viewport
+  // enclosing the visual viewport for root content. (The independent clamps can
+  // also disagree at sub-pixel precision, since the main thread clamps the
+  // destination in app units while this clamps in CSS pixels.) Re-establish
+  // that relationship the same way every other visual-offset mutator does, e.g.
+  // AsyncPanZoomController::SetVisualScrollOffset.
+  RecalculateLayoutViewportOffset();
   mScrollGeneration = aInfo.GetGeneration();
+
+  // This mutates metadata retained from an earlier paint; a visual scroll
+  // update baked in by that paint is still set here. The scroll update we just
+  // applied supersedes it, so clear it.
+  SetVisualScrollUpdateType(ScrollOffsetUpdateType::None);
+  SetVisualDestination(GetVisualScrollOffset());
 }
 
 std::ostream& operator<<(std::ostream& aStream,

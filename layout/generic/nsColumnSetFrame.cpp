@@ -1385,6 +1385,15 @@ Maybe<nscoord> nsColumnSetFrame::GetNaturalBaselineBOffset(
   return result;
 }
 
+bool nsColumnSetFrame::IsEmpty() {
+  for (nsIFrame* child : mFrames) {
+    if (!child->PrincipalChildList().IsEmpty()) {
+      return false;
+    }
+  }
+  return true;
+}
+
 #ifdef DEBUG
 void nsColumnSetFrame::SetInitialChildList(ChildListID aListID,
                                            nsFrameList&& aChildList) {

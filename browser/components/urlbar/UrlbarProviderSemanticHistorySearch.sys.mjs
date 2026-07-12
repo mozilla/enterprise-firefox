@@ -156,7 +156,7 @@ export class UrlbarProviderSemanticHistorySearch extends UrlbarProvider {
             url: res.url,
             icon: UrlbarUtils.getIconForUrl(res.url),
             isBlockable: true,
-            blockL10n: { id: "urlbar-result-menu-remove-from-history" },
+            blockL10n: { id: "urlbar-result-menu-remove-from-history2" },
             helpUrl:
               Services.urlFormatter.formatURLPref("app.support.baseURL") +
               "awesome-bar-result-menu",

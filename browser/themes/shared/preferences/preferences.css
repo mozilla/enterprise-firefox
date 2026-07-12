@@ -1395,6 +1395,33 @@ richlistitem .text-link:hover {
 }
 /** SRD setting-chooser control END **/
 
+/** Browser icon picker (Windows-only) START **/
+.browser-icon-item {
+  --visual-picker-item-image-size: var(--icon-size-xlarge);
+  --visual-picker-item-padding: var(--space-large);
+}
+
+.browser-icon-item[disabled] {
+  pointer-events: none;
+  opacity: var(--button-opacity-disabled);
+  position: relative;
+
+  /* Gated (Bonus) icons are disabled until unlocked (default browser + pinned);
+   while locked, show a lock pinned to the trailing edge of the item. */
+  &::after {
+    content: url("chrome://global/skin/icons/security.svg");
+    -moz-context-properties: fill;
+    fill: currentColor;
+    position: absolute;
+    height: var(--icon-size);
+    width: var(--icon-size);
+    inset-inline-end: var(--space-large);
+    top: 50%;
+    transform: translateY(-50%);
+  }
+}
+/** Browser icon picker END **/
+
 /** SRD rows control for Homepage START **/
 setting-group[groupid="homepage"] {
   --select-max-width: fit-content;

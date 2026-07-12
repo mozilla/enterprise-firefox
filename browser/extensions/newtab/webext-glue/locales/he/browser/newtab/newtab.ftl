@@ -96,6 +96,12 @@ home-prefs-clocks-header =
 # Privacy is a widget on New Tab that shows tracking protection activity.
 home-prefs-privacy-header =
     .label = פרטיות
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = מניות
+# Picture of the day is a widget on New Tab that shows a daily Wikimedia Commons image.
+home-prefs-picture-header =
+    .label = התמונה של היום
 home-prefs-mission-message2 =
     .message = נותני החסות שלנו תומכים במשימה שלנו לבנות אינטרנט טוב יותר.
 home-prefs-manage-topics-link2 =
@@ -160,6 +166,45 @@ home-prefs-mission-message-learn-more-link-srd = כיצד?
 # Context menu item linking to more information about the Privacy widget.
 newtab-privacy-menu-learn-more = מידע נוסף
 
+## Strings for the Stocks widget
+
+# Context menu item for searching stock ticker symbols.
+newtab-stocks-menu-search = חיפוש סימולי מניות
+# Context menu item that hides the Stocks widget.
+newtab-stocks-menu-hide = הסתרת מניות
+# Context menu item linking to more information about the Stocks widget.
+newtab-stocks-menu-learn-more = מידע נוסף
+
+## Strings for the Picture of the Day widget
+
+# Eyebrow shown at the top of the widget. Wikimedia Commons is a brand name and
+# should not be translated.
+newtab-picture-header = התמונה של היום · Wikimedia Commons
+# Button that sets the current picture as the New Tab background wallpaper. The
+# button collapses to an icon when not hovered/focused, so .title is its tooltip.
+newtab-picture-set-wallpaper =
+    .label = הגדרת תמונת רקע
+    .title = הגדרת תמונת רקע
+    .aria-label = הגדרת התמונה של היום כתמונת הרקע שלך
+# Context menu item that opens the New Tab customization panel.
+newtab-picture-menu-manage-wallpaper = ניהול תמונת רקע
+# Context menu item that hides today’s picture, replacing it with an existing
+# wallpaper.
+newtab-picture-menu-hide-photo = הסתרת התמונה של היום
+# Context menu item that restores today’s picture after it has been hidden.
+newtab-picture-menu-show-photo = הצגת התמונה של היום
+# Context menu item linking to more information about the widget.
+newtab-picture-menu-learn-more = מידע נוסף
+# Icon button shown on the widget once the picture is hidden; restores it.
+newtab-picture-show-button =
+    .title = הצגת התמונה של היום
+    .aria-label = הצגת התמונה של היום
+# Shown when there is no new picture to display yet.
+newtab-picture-check-back = כדאי לחזור מחר לתמונה חדשה
+# Screen-reader text alternative for the picture; fallback used when the source
+# provides no localized description.
+newtab-picture-image-alt = תמונה של היום של Wikimedia Commons
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -195,6 +240,7 @@ newtab-topsites-add-shortcut-label = הוספת קיצור דרך
 newtab-topsites-add-shortcut-title =
     .title = הוספת קיצור דרך
     .aria-label = הוספת קיצור דרך
+newtab-shortcuts-pinned-area = אזור מוצמד
 newtab-topsites-title-label = כותרת
 newtab-topsites-title-input =
     .placeholder = נא להזין כותרת
@@ -500,6 +546,10 @@ newtab-custom-widget-sports-toggle2 =
     .label = ספורט
 newtab-custom-widget-privacy-toggle =
     .label = פרטיות
+newtab-custom-widget-stocks-toggle =
+    .label = מניות
+newtab-custom-widget-picture-toggle =
+    .label = התמונה של היום
 newtab-custom-widget-section-title = ווידג’טים
 newtab-custom-widget-section-toggle =
     .label = ווידג’טים
@@ -1286,6 +1336,15 @@ newtab-sports-widget-message-day-in-play-title = להישאר במשחק עם ה
 newtab-sports-widget-message-day-in-play-body = מעקב אחרי המונדיאל, להישאר ממוקד במשימות, מעקב אחרי השעה ברחבי העולם ועוד.
 newtab-sports-widget-message-explore-widgets-cta =
     .label = צפייה בווידג’טים
+
+## Survey prompts shown after the World Cup to gather feedback on the widgets experience.
+
+newtab-sports-widget-message-survey-title = עזרו לנו לשפר את הווידג’טים
+newtab-sports-widget-message-survey-body = זהו, המונדיאל הסתיים. נשמח לשמוע מה חשבת על חווית השימוש בווידג’ט.
+newtab-sports-widget-message-survey-widget-title = איך היה הווידג’ט של המונדיאל?
+newtab-sports-widget-message-survey-widget-body = באפשרותך לשתף את המשוב שלך כדי לסייע לנו לשפר ווידג’טים עתידיים. אחרי זה ניתן לנסות את הווידג’ט החדש שברשימה.
+newtab-sports-widget-message-survey-cta =
+    .label = לקיחת סקר
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

@@ -125,6 +125,7 @@ class MOZ_STACK_CLASS gfxVarsCollectUpdates;
   _(AdapterDeviceID, nsCString, nsCString())                       \
   _(AdapterDriverVersion, nsCString, nsCString())                  \
   _(UseAImageReaderVideoGpuProcessAndroid, bool, false)            \
+  _(AllowMetalAngleWebGL, bool, false)                             \
 /* Add new entries above this line. */
 
 // Some graphics settings are computed on the UI process and must be

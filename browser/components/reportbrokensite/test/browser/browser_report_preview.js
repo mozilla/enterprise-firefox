@@ -47,8 +47,7 @@ async function getExpectedReportData(win, basic) {
     out[category] = Object.fromEntries(
       Object.entries(values)
         .filter(
-          ([key, { do_not_preview }]) =>
-            !do_not_preview && key != "isTabSpecific"
+          ([key, { doNotPreview }]) => !doNotPreview && key != "isTabSpecific"
         )
         .map(([name, { value }]) => [name, adjustForWrapping(value)])
     );

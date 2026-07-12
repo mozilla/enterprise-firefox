@@ -170,8 +170,7 @@ ${
                       role="listbox"/>
           </html:div>
         </html:div>
-        <menupopup class="urlbarView-result-menu"
-                   consumeoutsideclicks="false"/>
+        <html:panel-list class="urlbarView-result-menu"></html:panel-list>
         <html:moz-urlbar-slot name="search-one-offs" />
    </html:div>`;
   }
@@ -605,6 +604,36 @@ ${
   }
 
   /**
+   * @type {((event: Event) => void)[]}
+   */
+  #contextMenuListeners = [];
+
+  /**
+   * Adds a contextmenu event listener to the input box.
+   * Has to be re-added every time the context menu rebuilds.
+   *
+   * This is preferred over popupshowing listeners because ending
+   * breakout-extend in a popupshowing listener prevents the popup
+   * from showing due to bug 2037468.
+   *
+   * @param {(event: Event) => void} listener
+   *   The event listener to add.
+   */
+  #addContextMenuListener(listener) {
+    let inputBox = this.querySelector("moz-input-box");
+    inputBox.addEventListener("contextmenu", listener);
+    this.#contextMenuListeners.push(listener);
+  }
+
+  #removeContextMenuListeners() {
+    let inputBox = this.querySelector("moz-input-box");
+    for (let listener of this.#contextMenuListeners) {
+      inputBox.removeEventListener("contextmenu", listener);
+    }
+    this.#contextMenuListeners.length = 0;
+  }
+
+  /**
    * This method is used to attach new context menu options to the urlbar
    * context menu, i.e. the context menu of the moz-input-box.
    * It is called when the moz-input-box rebuilds its context menu.
@@ -612,6 +641,8 @@ ${
    * Note that it might be called before #init has finished.
    */
   #onContextMenuRebuilt() {
+    this.#removeContextMenuListeners();
+
     this._initStripOnShare();
     this._initPasteAndGo();
     if (this.#isAddressbar && AppConstants.platform == "macosx") {
@@ -1985,15 +2016,23 @@ ${
           : lazy.UrlbarUtils.clearOriginPageAutofillBlock(url);
         clear
           .then(wasBlocked => {
+            // getBackspaceBlock reads and removes the {blockedAt} entry for
+            // telemetry. clearAutofillBackspaceEntryForUrl then removes any
+            // remaining sub-threshold {count} entry. Together they always
+            // clear the in-memory counter — visiting the url is a positive
+            // signal regardless of whether a database block existed.
+            let entry = lazy.UrlbarUtils.getBackspaceBlock(url);
+            lazy.UrlbarUtils.clearAutofillBackspaceEntryForUrl(url);
+
             if (!wasBlocked) {
               return;
             }
+
             let level = isOrigin ? "origin" : "url";
             Glean.urlbarAutofill.reintegration[level].add(1);
 
             // For backspace-induced blocks, record the unblock delay: fast
             // unblocks suggest the original block was accidental.
-            let entry = lazy.UrlbarUtils.getBackspaceBlock(url);
             if (entry?.level === level) {
               Glean.urlbarAutofill.reintegrationAfterBackspace[
                 level
@@ -2322,6 +2361,9 @@ ${
    * @param {event} [options.event]
    *   The user-generated event that triggered the query, if any.  If given, we
    *   will record engagement event telemetry for the query.
+   * @param {string} [options.interactionType]
+   *   An explicit engagement interaction type for the query, used in preference
+   *   to one derived from the event (e.g. "returned" when reopening a search).
    */
   startQuery({
     allowAutofill,
@@ -2329,6 +2371,7 @@ ${
     searchString,
     resetSearchState = true,
     event,
+    interactionType,
   } = {}) {
     if (!searchString) {
       searchString =
@@ -2344,7 +2387,12 @@ ${
     });
 
     if (event) {
-      this.controller.engagementEvent.start(event, queryContext, searchString);
+      this.controller.engagementEvent.start(
+        event,
+        queryContext,
+        searchString,
+        interactionType
+      );
     }
 
     if (this._suppressStartQuery) {
@@ -2738,7 +2786,8 @@ ${
         }
       }
     }
-    Services.obs.notifyObservers(null, "urlbar-searchmodechanged");
+    lazy.UrlbarSearchTermsPersistence.onSearchModeChanged(this.window);
+    this.dispatchEvent(new Event("searchmodechanged"));
   }
 
   /**
@@ -2918,6 +2967,7 @@ ${
     }
 
     this.toggleAttribute("breakout-extend", true);
+    this.showPopover();
     this.#updateTextboxPosition();
 
     // Enable the animation only after the first extend call to ensure it
@@ -2943,6 +2993,7 @@ ${
       return;
     }
 
+    this.hidePopover();
     this.toggleAttribute("breakout-extend", false);
     this.#updateTextboxPosition();
   }
@@ -3064,14 +3115,19 @@ ${
   }
 
   /**
-   * @param {{wrappedJSObject: SearchEngine}} subject
+   * @param {{wrappedJSObject: SearchEngine} | Window} subject
    * @param {"browser-search-engine-modified"|"ai-window-state-changed"} topic
    * @param {string} data
    */
   observe(subject, topic, data) {
     switch (topic) {
+      // nav-bar-visible event is unique to Smart Window and emits when the urlbar is shown on new tab.
+      // This ensures consistent height and padding around the urlbar
       case "ai-window-state-changed":
-        if (subject == this.window && data == "classic") {
+        if (
+          subject == this.window &&
+          (data == "classic" || data == "nav-bar-visible")
+        ) {
           this.#updateLayoutBreakout();
         }
         break;
@@ -3283,11 +3339,6 @@ ${
     this.removeAttribute("breakout");
     this.parentNode.removeAttribute("breakout");
     this.style.top = "";
-    try {
-      this.hidePopover();
-    } catch (ex) {
-      // No big deal if not a popover already.
-    }
     this._layoutBreakoutUpdateKey = {};
   }
 
@@ -3336,8 +3387,6 @@ ${
 
         this.setAttribute("breakout", "true");
         this.parentNode.setAttribute("breakout", "true");
-        this.showPopover();
-        this.#fixAddressbarSearchbarOrder();
         this.#updateTextboxPosition();
 
         resolve();
@@ -3668,52 +3717,6 @@ ${
         lazy.CustomizableUI.AREA_FIXED_OVERFLOW_PANEL ||
       this.parentElement.getAttribute("overflowedItem") == "true"
     );
-  }
-
-  /**
-   * Should be directly after every showPopover to fix the popover order
-   * among urlbar and searchbar.
-   * Since a moz-urlbar only extends downwards when focused, the moz-urlbar
-   * that's higher (along the y axis) should also be on top (along the z axis).
-   *
-   * Note: this is a hack necessary because of bug 2014481.
-   * Once that's fixed, we can simply always show the focused one on top.
-   */
-  #fixAddressbarSearchbarOrder() {
-    let addressbar = /** @type {?UrlbarInput} */ (
-      this.document.getElementById("urlbar")
-    );
-    let searchbar = /** @type {?UrlbarInput} */ (
-      this.document.getElementById("searchbar-new")
-    );
-    if (
-      !searchbar?.matches(":popover-open") ||
-      !addressbar?.matches(":popover-open")
-    ) {
-      return;
-    }
-
-    let searchbarArea =
-      lazy.CustomizableUI.getPlacementOfWidget("search-container")?.area;
-    if (!searchbarArea) {
-      return;
-    }
-
-    const areasAboveNavbar = [
-      lazy.CustomizableUI.AREA_MENUBAR,
-      lazy.CustomizableUI.AREA_TABSTRIP,
-    ];
-    const areasBelowNavbar = [lazy.CustomizableUI.AREA_BOOKMARKS];
-
-    // If `this` is higher than the other bar, we don't need to do anything since
-    // showPopover was just called (hence we're already on top of the other one).
-    if (areasAboveNavbar.includes(searchbarArea) && this != searchbar) {
-      searchbar.hidePopover();
-      searchbar.showPopover();
-    } else if (areasBelowNavbar.includes(searchbarArea) && this != addressbar) {
-      addressbar.hidePopover();
-      addressbar.showPopover();
-    }
   }
 
   _updateUrlTooltip() {
@@ -4549,7 +4552,6 @@ ${
   // The strip-on-share feature will strip known tracking/decorational
   // query params from the URI and copy the stripped version to the clipboard.
   _initStripOnShare() {
-    let contextMenu = this.querySelector("moz-input-box").menupopup;
     let insertLocation = this.#findMenuItemLocation("cmd_copy");
     // set up the menu item
     let stripOnShare = this.document.createXULElement("menuitem");
@@ -4570,7 +4572,7 @@ ${
     });
 
     // Register a listener that hides the menu item if there is nothing to copy.
-    contextMenu.addEventListener("popupshowing", () => {
+    this.#addContextMenuListener(() => {
       // feature is not enabled
       if (!lazy.QUERY_STRIPPING_STRIP_ON_SHARE) {
         stripOnShare.setAttribute("hidden", true);
@@ -4595,8 +4597,6 @@ ${
   }
 
   _initPasteAndGo() {
-    let inputBox = this.querySelector("moz-input-box");
-    let contextMenu = inputBox.menupopup;
     let insertLocation = this.#findMenuItemLocation("cmd_paste");
     if (!insertLocation) {
       return;
@@ -4621,10 +4621,12 @@ ${
       this._suppressStartQuery = false;
     });
 
-    contextMenu.addEventListener("popupshowing", () => {
+    this.#addContextMenuListener(() => {
       // Close the results pane when the input field contextual menu is open,
       // because paste and go doesn't want a result selection.
       this.view.close();
+      // Paste command will be disabled if focus is not on input field.
+      this.inputField.focus();
 
       let controller =
         this.document.commandDispatcher.getControllerForCommand("cmd_paste");
@@ -4644,13 +4646,12 @@ ${
    * This is only shown on the addressbar and only on macOS.
    */
   #initShareURL() {
-    let contextMenu = this.querySelector("moz-input-box").menupopup;
     let insertLocation = this.#findMenuItemLocation("cmd_selectAll");
 
     let separator = this.document.createXULElement("menuseparator");
     insertLocation.insertAdjacentElement("afterend", separator);
 
-    contextMenu.addEventListener("popupshowing", () => {
+    this.#addContextMenuListener(() => {
       let gBrowser = this.window.gBrowser;
       let browser = gBrowser?.selectedBrowser;
       if (browser) {
@@ -4842,7 +4843,8 @@ ${
       this.setPageProxyState("invalid", true);
     }
 
-    Services.obs.notifyObservers(null, "urlbar-searchmodechanged");
+    lazy.UrlbarSearchTermsPersistence.onSearchModeChanged(this.window);
+    this.dispatchEvent(new Event("searchmodechanged"));
   }
 
   /**
@@ -5149,6 +5151,10 @@ ${
   }
 
   _on_blur(event) {
+    if (this.view.resultMenu.hasAttribute("open")) {
+      return;
+    }
+
     lazy.logger.debug("Blur Event");
     // We cannot count every blur events after a missed engagement as abandoment
     // because the user may have clicked on some view element that executes
@@ -5769,6 +5775,11 @@ ${
   }
 
   _on_keydown(event) {
+    // If the resultMenu is open then let them handle any key events.
+    if (this.view.resultMenu.hasAttribute("open")) {
+      return;
+    }
+
     if (event.currentTarget == this.window) {
       // It would be great if we could more easily detect the user focusing the
       // address bar through a keyboard shortcut, but F6 and TAB bypass are

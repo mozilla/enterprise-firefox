@@ -536,11 +536,20 @@ struct ReflowInput : public SizeComputationInput {
     // for paginated reflow.
     bool mCanHaveClassABreakpoints : 1;
 
-    // These two flags indicate whether an ancestor of this frame has requested
-    // trimming on the start/end side of the first/last line of this frame.
+    // If true, indicates that an ancestor of this frame has requested
+    // text-box-trim on the start side of this frame.
     // https://drafts.csswg.org/css-inline-3/#text-box-trim
     bool mShouldApplyTextBoxTrimStart : 1;
-    bool mShouldApplyTextBoxTrimEnd : 1;
+
+    // These two flags indicate that an ancestor of this frame has requested
+    // text-box-trim on the end side of this frame's block. Note that two
+    // flags are required -- one for trimming the last line of the block,
+    // and one for trimming the last line of each fragment -- because whether
+    // this particular frame is an intermediate fragment is not known until
+    // it is actually reflowed.
+    // https://drafts.csswg.org/css-inline-3/#text-box-trim
+    bool mShouldApplyTextBoxTrimAtBlockEnd : 1;
+    bool mShouldApplyTextBoxTrimAtFragmentEnd : 1;
   };
   Flags mFlags;
 

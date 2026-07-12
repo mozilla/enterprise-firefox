@@ -231,9 +231,21 @@ void RenderThread::ShutDownTask() {
     mRenderTextureOps.clear();
   }
 
-  // Let go of our handle to the (internally ref-counted) thread pool.
-  mThreadPool.Release();
-  mThreadPoolLP.Release();
+  // These must be destroyed before the thread pools as they hold a reference to
+  // the worker threads.
+  mShaders = nullptr;
+  mProgramCache = nullptr;
+
+  // Destroy the thread pools, waiting for the worker threads to join in
+  // leak-checking / ASAN / etc builds. In normal builds we don't care and just
+  // want to shut down quickly.
+#ifdef NS_FREE_PERMANENT_DATA
+  const bool joinWorkers = true;
+#else
+  const bool joinWorkers = false;
+#endif
+  mThreadPool.Destroy(joinWorkers);
+  mThreadPoolLP.Destroy(joinWorkers);
 
   // Releasing on the render thread will allow us to avoid dispatching to remove
   // remaining textures from the texture map.
@@ -1572,11 +1584,11 @@ WebRenderThreadPool::WebRenderThreadPool(bool low_priority) {
   mThreadPool = wr_thread_pool_new(low_priority);
 }
 
-WebRenderThreadPool::~WebRenderThreadPool() { Release(); }
+WebRenderThreadPool::~WebRenderThreadPool() { Destroy(false); }
 
-void WebRenderThreadPool::Release() {
+void WebRenderThreadPool::Destroy(bool aJoinWorkers) {
   if (mThreadPool) {
-    wr_thread_pool_delete(mThreadPool);
+    wr_thread_pool_delete(mThreadPool, aJoinWorkers);
     mThreadPool = nullptr;
   }
 }

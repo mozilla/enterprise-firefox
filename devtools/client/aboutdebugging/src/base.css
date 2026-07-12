@@ -166,7 +166,7 @@ h2 {
 
 /* adds breathing space to the separator */
 .separator--breathe {
-  margin: calc(var(--base-unit) * 5) 0;
+  margin: var(--base-unit);
 }
 
 /* a series of button-like elements, layed out horizontally */

@@ -36,6 +36,8 @@ extern NSString* const kUrlsWithTitlesPboardType;
 extern NSString* const kMozWildcardPboardType;
 extern NSString* const kMozCustomTypesPboardType;
 extern NSString* const kMozFileUrlsPboardType;
+extern NSString* const kWebCustomFormatPboardTypePrefix;
+extern NSString* const kWebCustomFormatMapPboardType;
 
 @interface UTIHelper : NSObject
 + (NSString*)stringFromPboardType:(NSString*)aType;

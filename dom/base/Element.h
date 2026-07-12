@@ -2426,42 +2426,10 @@ class Element : public FragmentOrElement {
                             nsIPrincipal* aMaybeScriptedPrincipal,
                             bool aNotify);
 
-  /**
-   * This function shall be called just before the id attribute changes. It will
-   * be called after BeforeSetAttr. If the attribute being changed is not the id
-   * attribute, this function does nothing. Otherwise, it will remove the old id
-   * from the document's id cache.
-   *
-   * This must happen after BeforeSetAttr (rather than during) because the
-   * the subclasses' calls to BeforeSetAttr may notify on state changes. If they
-   * incorrectly determine whether the element had an id, the element may not be
-   * restyled properly.
-   *
-   * @param aNamespaceID the namespace of the attr being set
-   * @param aName the localname of the attribute being set
-   * @param aValue the new id value. Will be null if the id is being unset.
-   */
-  void PreIdMaybeChange(int32_t aNamespaceID, nsAtom* aName,
-                        const nsAttrValue* aValue);
-
-  /**
-   * This function shall be called just after the id attribute changes. It will
-   * be called before AfterSetAttr. If the attribute being changed is not the id
-   * attribute, this function does nothing. Otherwise, it will add the new id to
-   * the document's id cache and properly set the ElementHasID flag.
-   *
-   * This must happen before AfterSetAttr (rather than during) because the
-   * the subclasses' calls to AfterSetAttr may notify on state changes. If they
-   * incorrectly determine whether the element now has an id, the element may
-   * not be restyled properly.
-   *
-   * @param aNamespaceID the namespace of the attr being set
-   * @param aName the localname of the attribute being set
-   * @param aValue the new id value. Will be null if the id is being unset.
-   */
-  void PostIdMaybeChange(int32_t aNamespaceID, nsAtom* aName,
-                         const nsAttrValue* aValue);
-
+  // TODO(emilio): Inline these in the caller once there's less movement in
+  // this area.
+  void PreIdMaybeChange(const nsAttrValue* aValue);
+  void PostIdMaybeChange(const nsAttrValue* aValue);
   /**
    * Usually, setting an attribute to the value that it already has results in
    * no action. However, in some cases, setting an attribute to its current

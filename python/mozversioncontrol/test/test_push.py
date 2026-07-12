@@ -258,13 +258,12 @@ def test_push_env_passthrough(repo):
     elif repo.vcs == "jj":
         remote, ref = "upstream", "test-bookmark"
 
-    with unittest.mock.patch(
-        "mozversioncontrol.repo.git.subprocess.check_call"
-    ) as mock_check_call:
+    with unittest.mock.patch("mozversioncontrol.repo.base.subprocess.run") as mock_run:
+        mock_run.return_value.stdout = ""
         vcs.push(remote=remote, ref=ref, env={"MVC_TEST_VAR": "sentinel"})
 
-    mock_check_call.assert_called_once()
-    passed_env = mock_check_call.call_args[1]["env"]
+    mock_run.assert_called_once()
+    passed_env = mock_run.call_args[1]["env"]
     assert passed_env.get("MVC_TEST_VAR") == "sentinel"
 
 

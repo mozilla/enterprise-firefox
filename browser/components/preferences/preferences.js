@@ -97,7 +97,7 @@ if (Cc["@mozilla.org/gio-service;1"]) {
 ChromeUtils.defineESModuleGetters(this, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   ContextualIdentityService:
-    "resource://gre/modules/ContextualIdentityService.sys.mjs",
+    "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   DownloadUtils: "resource://gre/modules/DownloadUtils.sys.mjs",
   ExperimentAPI: "resource://nimbus/ExperimentAPI.sys.mjs",
   ExtensionPreferencesManager:
@@ -107,7 +107,7 @@ ChromeUtils.defineESModuleGetters(this, {
   FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
   FirefoxRelay: "resource://gre/modules/FirefoxRelay.sys.mjs",
   HomePage: "resource:///modules/HomePage.sys.mjs",
-  LangPackMatcher: "resource://gre/modules/LangPackMatcher.sys.mjs",
+  LangPackMatcher: "moz-src:///intl/locale/LangPackMatcher.sys.mjs",
   LoginHelper: "resource://gre/modules/LoginHelper.sys.mjs",
   NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
   OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
@@ -266,6 +266,7 @@ const CONFIG_PANES = Object.freeze({
     groupIds: [
       "appearance",
       "browserTheme",
+      "browserIconEntry",
       "windowDensity",
       "relatedSettings",
     ],
@@ -598,6 +599,19 @@ function init_all() {
       groupIds: ["customHomepage"],
       module: "chrome://browser/content/preferences/config/home-startup.mjs",
     });
+
+    if (
+      AppConstants.platform == "win" &&
+      Services.prefs.getBoolPref("browser.shell.customIcon.enabled", false) &&
+      !Services.sysinfo.getProperty("hasWinPackageId")
+    ) {
+      SettingPaneManager.registerPane("browserIcon", {
+        parent: "appearance",
+        l10nId: "appearance-browser-icon-subpage-title",
+        groupIds: ["browserIconBasic", "browserIconBonus"],
+        module: "chrome://browser/content/preferences/config/browser-icon.mjs",
+      });
+    }
   } else {
     NimbusFeatures.moreFromMozilla.recordExposureEvent({ once: true });
     if (NimbusFeatures.moreFromMozilla.getVariable("enabled")) {

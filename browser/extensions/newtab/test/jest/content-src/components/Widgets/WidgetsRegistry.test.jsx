@@ -109,6 +109,7 @@ describe("getWidgetOrder", () => {
       "privacy",
       "crossword",
       "stocks",
+      "pictureOfTheDay",
     ]);
   });
 
@@ -122,6 +123,7 @@ describe("getWidgetOrder", () => {
       "privacy",
       "crossword",
       "stocks",
+      "pictureOfTheDay",
     ]);
   });
 
@@ -135,6 +137,7 @@ describe("getWidgetOrder", () => {
       "privacy",
       "crossword",
       "stocks",
+      "pictureOfTheDay",
     ]);
   });
 
@@ -155,6 +158,7 @@ describe("getWidgetOrder", () => {
       "privacy",
       "crossword",
       "stocks",
+      "pictureOfTheDay",
     ]);
     expect(result.length).toBe(registryIds.length);
   });
@@ -179,6 +183,7 @@ describe("resolveWidgetOrder", () => {
       "privacy",
       "crossword",
       "stocks",
+      "pictureOfTheDay",
     ]);
   });
 
@@ -197,6 +202,7 @@ describe("resolveWidgetOrder", () => {
       "privacy",
       "crossword",
       "stocks",
+      "pictureOfTheDay",
     ]);
   });
 
@@ -215,6 +221,7 @@ describe("resolveWidgetOrder", () => {
       "privacy",
       "crossword",
       "stocks",
+      "pictureOfTheDay",
     ]);
   });
 });

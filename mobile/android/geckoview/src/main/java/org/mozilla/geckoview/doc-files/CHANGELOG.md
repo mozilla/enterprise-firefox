@@ -20,6 +20,9 @@ exclude: true
   ([bug 2042799]({{bugzilla}}2042799))
 - Added [`IPProtectionController.getCountryList`][154.6] and [`IPProtectionController.Country`][154.7] to request the list of countries available in the proxy serverlist, delivered asynchronously via [`Delegate#onCountryListChanged`][154.8] whenever the list changes.
 - Added [`IPProtectionController.activate(boolean, boolean, String)`][154.9] to activate the proxy with explicit user-action, private-browsing, and country options.
+- ⚠️ Made [`ScrollPositionUpdate`][154.10] immutable: its fields are now `final` and instances are constructed via `ScrollPositionUpdate(float, float, float, int)` instead of the previous no-argument constructor with mutable fields. ([bug 1994863]({{bugzilla}}1994863))
+- Added [`GeckoSession.getBrokenSiteReport`][154.11] that returns a `GeckoResult<JSONObject>` containing information for a broken site report. ([bug 2049050]({{bugzilla}}2049050)).
+- Changed [`GeckoSession.setHistoryDelegate`][154.12], [`setContentBlockingDelegate`][154.13], [`setMediaDelegate`][154.14], [`setMediaSessionDelegate`][154.15], [`setTranslationsSessionDelegate`][154.16], [`setPrintDelegate`][154.17], and [`setExperimentDelegate`][154.18] from `@AnyThread` to `@UiThread`, reflecting that they must be called on the UI thread.
 
 [154.1]: {{javadoc_uri}}/Autofill.Node.html#getDatalist()
 [154.2]: https://developer.mozilla.org/en/docs/Web/HTML/Reference/Elements/datalist
@@ -30,6 +33,14 @@ exclude: true
 [154.7]: {{javadoc_uri}}/IPProtectionController.Country.html
 [154.8]: {{javadoc_uri}}/IPProtectionController.Delegate.html#onCountryListChanged(java.util.List)
 [154.9]: {{javadoc_uri}}/IPProtectionController.html#activate(boolean,boolean,java.lang.String)
+[154.10]: {{javadoc_uri}}/GeckoSession.ScrollPositionUpdate.html
+[154.12]: {{javadoc_uri}}/GeckoSession.html#setHistoryDelegate(org.mozilla.geckoview.GeckoSession.HistoryDelegate)
+[154.13]: {{javadoc_uri}}/GeckoSession.html#setContentBlockingDelegate(org.mozilla.geckoview.ContentBlocking.Delegate)
+[154.14]: {{javadoc_uri}}/GeckoSession.html#setMediaDelegate(org.mozilla.geckoview.GeckoSession.MediaDelegate)
+[154.15]: {{javadoc_uri}}/GeckoSession.html#setMediaSessionDelegate(org.mozilla.geckoview.MediaSession.Delegate)
+[154.16]: {{javadoc_uri}}/GeckoSession.html#setTranslationsSessionDelegate(org.mozilla.geckoview.TranslationsController.SessionTranslation.Delegate)
+[154.17]: {{javadoc_uri}}/GeckoSession.html#setPrintDelegate(org.mozilla.geckoview.GeckoSession.PrintDelegate)
+[154.18]: {{javadoc_uri}}/GeckoSession.html#setExperimentDelegate(org.mozilla.geckoview.GeckoSession.ExperimentDelegate)
 
 ## v153
 - Added [`SourceType`][153.1] annotation to [`ScrollPositionUpdate.source`][153.2]
@@ -2007,4 +2018,4 @@ to allow adding gecko profiler markers.
 [65.24]: {{javadoc_uri}}/CrashReporter.html#sendCrashReport(android.content.Context,android.os.Bundle,java.lang.String)
 [65.25]: {{javadoc_uri}}/GeckoResult.html
 
-[api-version]: 6dac40bc656352fb99fab26c0b705d47bdd64ff4
+[api-version]: 6f0139ff02e6b63b6548b24c75ed3cd6b7f003f9

@@ -396,19 +396,19 @@ class TestProvider extends UrlbarTestUtils.TestProvider {
       {
         name: FEEDBACK_COMMAND,
         l10n: {
-          id: "urlbar-result-menu-report-inaccurate-location",
+          id: "urlbar-result-menu-report-inaccurate-location2",
         },
       },
       {
         name: DISMISS_ONE_COMMAND,
         l10n: {
-          id: "firefox-suggest-command-not-interested",
+          id: "firefox-suggest-command-not-interested2",
         },
       },
       {
         name: DISMISS_ALL_COMMAND,
         l10n: {
-          id: "firefox-suggest-command-not-interested",
+          id: "firefox-suggest-command-not-interested2",
         },
       },
     ];

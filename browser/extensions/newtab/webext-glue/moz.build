@@ -79,6 +79,14 @@ FINAL_TARGET_FILES.data.data.content["external-components"][
 # are only included when we build newtab as an XPI.
 FINAL_TARGET_FILES += ["locales/**"]
 
+# English-only New Tab features keep their strings in a preview file to exclude it from the browser/locales/ directory. Package it into
+# the XPI under locales/en-US/preview/ so the existing newtab L10nFileSource
+# (rooted at resource://newtab/locales/{locale}/) serves it and the strings
+# train-hop with the add-on. en-CA and en-GB resolve it via the en-US fallback.
+FINAL_TARGET_FILES.locales["en-US"].preview += [
+    "../../../locales-preview/newtabPreview.ftl",
+]
+
 if not CONFIG["RELEASE_OR_BETA"]:
     FINAL_TARGET_FILES.prerendered += [
         "../prerendered/activity-stream-debug.html",

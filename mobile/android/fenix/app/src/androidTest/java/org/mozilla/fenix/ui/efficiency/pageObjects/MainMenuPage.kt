@@ -33,6 +33,12 @@ class MainMenuPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRul
                 NavigationStep.Click(BrowserPageSelectors.MAIN_MENU_BUTTON),
             ),
         )
+
+        NavigationRegistry.register(
+            from = pageName,
+            to = "BrowserPage",
+            steps = listOf(),
+        )
     }
 
     override fun mozGetSelectorsByGroup(group: String): List<Selector> {

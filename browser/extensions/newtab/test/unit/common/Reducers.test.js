@@ -10,6 +10,7 @@ const {
   Search,
   ExternalComponents,
   SportsWidget,
+  PictureOfTheDay,
 } = reducers;
 import { actionTypes as at } from "common/Actions.mjs";
 
@@ -1278,6 +1279,38 @@ describe("Reducers", () => {
       assert.notDeepEqual(nextState.components, oldComponents);
     });
   });
+  describe("PictureOfTheDay", () => {
+    it("PICTURE_OF_THE_DAY_UPDATE stores the picture fields", () => {
+      const next = PictureOfTheDay(INITIAL_STATE.PictureOfTheDay, {
+        type: at.PICTURE_OF_THE_DAY_UPDATE,
+        data: {
+          imageUrl: "https://example.com/x.jpg",
+          thumbnailUrl: "https://example.com/thumb.jpg",
+          title: "T",
+          description: "D",
+          publishedDate: "2026-06-30",
+          lastUpdated: 123,
+        },
+      });
+      assert.propertyVal(next, "imageUrl", "https://example.com/x.jpg");
+      assert.propertyVal(next, "description", "D");
+      assert.propertyVal(next, "publishedDate", "2026-06-30");
+      assert.propertyVal(next, "initialized", true);
+    });
+
+    it("defaults missing fields and returns prevState for other actions", () => {
+      const updated = PictureOfTheDay(INITIAL_STATE.PictureOfTheDay, {
+        type: at.PICTURE_OF_THE_DAY_UPDATE,
+        data: {},
+      });
+      assert.propertyVal(updated, "imageUrl", "");
+      assert.propertyVal(updated, "description", "");
+
+      const prev = INITIAL_STATE.PictureOfTheDay;
+      assert.equal(PictureOfTheDay(prev, { type: "SOME_OTHER_ACTION" }), prev);
+    });
+  });
+
   describe("SportsWidget", () => {
     const baseMatches = {
       previous: [],
@@ -1609,6 +1642,26 @@ describe("Reducers", () => {
         data: { teams: [], matches: { previous: [], current: [], next: [] } },
       });
       assert.deepEqual(next.loadMore, INITIAL_STATE.SportsWidget.loadMore);
+    });
+  });
+
+  describe("Stocks", () => {
+    it("WIDGETS_STOCKS_UPDATE replaces tickers and sets lastUpdated", () => {
+      const action = {
+        type: at.WIDGETS_STOCKS_UPDATE,
+        data: {
+          tickers: [{ ticker: "SPY", name: "SPDR S&P 500 ETF Trust" }],
+          lastUpdated: 1700000000000,
+        },
+      };
+      const nextState = reducers.Stocks(undefined, action);
+      assert.deepEqual(nextState.tickers, action.data.tickers);
+      assert.equal(nextState.lastUpdated, 1700000000000);
+    });
+
+    it("returns previous state for unrelated actions", () => {
+      const prev = { tickers: [{ ticker: "DIA" }], lastUpdated: 1 };
+      assert.equal(reducers.Stocks(prev, { type: "SOME_OTHER_ACTION" }), prev);
     });
   });
 });

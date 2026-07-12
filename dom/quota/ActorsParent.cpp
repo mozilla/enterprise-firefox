@@ -4293,7 +4293,7 @@ nsresult QuotaManager::InitializeOrigin(
                                 0) {
                               clientUsages[clientType] = usageInfo.TotalUsage();
                             } else {
-#if defined(EARLY_BETA_OR_EARLIER) || defined(DEBUG)
+#if defined(NIGHTLY_BUILD) || defined(DEBUG)
                               const nsCOMPtr<nsIConsoleService> console =
                                   do_GetService(NS_CONSOLESERVICE_CONTRACTID);
                               if (console) {
@@ -7480,6 +7480,14 @@ void QuotaManager::ShutdownStorageInternal() {
       RemoveTemporaryOrigins();
 
       mTemporaryStorageInitializedInternal = false;
+    }
+
+    // Drop the (original-origin <-> uuid-based storage-origin) mappings used
+    // for private-browsing origins.
+    {
+      MutexAutoLock lock(mQuotaMutex);
+      mOriginToStorageOriginMap.Clear();
+      mStorageOriginToOriginMap.Clear();
     }
 
     ReleaseIOThreadObjects();

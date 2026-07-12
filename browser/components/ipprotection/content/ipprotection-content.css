@@ -53,9 +53,7 @@ hr {
 }
 
 .vpn-title {
-  /* Intentionally using a larger font size for clearer visual hierarchy
- * stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  font-size: 1.4em;
+  font-size: var(--font-size-heading-medium);
   font-weight: var(--font-weight-semibold);
   padding-top: var(--space-large);
   padding-bottom: var(--space-xsmall);
@@ -67,9 +65,7 @@ hr {
 }
 
 .vpn-description {
-  /* Intentionally using a larger font size for clearer visual hierarchy
-/* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  font-size: 1.23em;
+  font-size: var(--font-size-large);
 
   ul {
     padding-inline-start: var(--space-large);
@@ -105,17 +101,12 @@ hr {
 }
 
 .vpn-button {
-  /* Intentionally using a larger font size for clearer visual hierarchy
-/* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  font-size: 1.2em;
   display: block;
   padding-top: var(--space-medium);
 }
 
 #unauthenticated-vpn-title {
-  /* Intentionally using a larger font size for clearer visual hierarchy
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  font-size: 1.9em;
+  font-size: var(--font-size-heading-xlarge);
 }
 
 #unauthenticated-vpn-content {
@@ -215,9 +206,7 @@ ipprotection-message-bar.vpn-top-content {
 }
 
 .skeleton-line {
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  font-size: 0.625rem;
-  height: 1lh;
+  height: var(--size-item-xsmall);
   width: var(--size-layout-small);
   border-radius: var(--space-xxsmall);
 }

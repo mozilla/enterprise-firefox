@@ -1116,7 +1116,13 @@ static bool ContainingBlockChangeAffectsDescendants(
   MOZ_ASSERT_IF(aIsFixedPosContainingBlock, aIsAbsPosContainingBlock);
 
   for (const auto& childList : aFrame->ChildLists()) {
+    // Floats are reachable by diving into their real frame from the placeholder
+    // below, so skip the float list to avoid visiting them twice.
+    if (childList.mID == FrameChildListID::Float) {
+      continue;
+    }
     for (nsIFrame* f : childList.mList) {
+      nsIFrame* frameToDiveInto = f;
       if (f->IsPlaceholderFrame()) {
         nsIFrame* outOfFlow = nsPlaceholderFrame::GetRealFrameForPlaceholder(f);
         // If SVG text frames could appear here, they could confuse us since
@@ -1151,6 +1157,12 @@ static bool ContainingBlockChangeAffectsDescendants(
             }
           }
         }
+
+        // For floats, also dive into the real frame since it may be reparented
+        // into an ancestor block outside |aFrame|, so an abspos placeholder
+        // inside that float would be unreachable. For other out-of-flows, we
+        // don't recurse since the placeholder |f| has no children.
+        frameToDiveInto = outOfFlow->IsFloating() ? outOfFlow : nullptr;
       }
       // NOTE:  It's tempting to check f->IsAbsPosContainingBlock() or
       // f->IsFixedPosContainingBlock() here.  However, that would only
@@ -1160,9 +1172,10 @@ static bool ContainingBlockChangeAffectsDescendants(
       // could lead to an unsafe call to
       // cont->MarkAsNotAbsoluteContainingBlock() before we've reframed
       // the descendant and taken it off the absolute list.
-      if (ContainingBlockChangeAffectsDescendants(
-              aPossiblyChangingContainingBlock, f, aIsAbsPosContainingBlock,
-              aIsFixedPosContainingBlock)) {
+      if (frameToDiveInto &&
+          ContainingBlockChangeAffectsDescendants(
+              aPossiblyChangingContainingBlock, frameToDiveInto,
+              aIsAbsPosContainingBlock, aIsFixedPosContainingBlock)) {
         return true;
       }
     }

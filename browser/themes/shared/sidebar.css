@@ -286,12 +286,14 @@ sidebar-main,
 
 /* Drive the sidebar-main shadow DOM's launcher button inline padding from the
  * document's uidensity. Custom properties inherit across shadow boundaries,
- * so this value is consumed by sidebar-main.css. */
+ * so this value is consumed by sidebar-main.css. Note that we round the
+ * padding to the nearest 0.5px, so that the combined start+end padding will be
+ * a whole number of CSS pixels. */
 :root {
-  --sidebar-launcher-button-padding-inline: var(--space-medium);
+  --sidebar-launcher-button-padding-inline: round(var(--space-medium), 0.5px);
 
   &[uidensity="compact"] {
-    --sidebar-launcher-button-padding-inline: var(--space-xsmall);
+    --sidebar-launcher-button-padding-inline: round(var(--space-xsmall), 0.5px);
   }
 }
 

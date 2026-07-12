@@ -218,7 +218,7 @@ bool CanonicalQuotaObject::LockedMaybeUpdateSize(int64_t aSize, bool aTruncate)
   // We unlocked and relocked several times so we need to recompute all the
   // essential variables and recheck the group limit.
 
-  AssertNoUnderflow(aSize, mSize);
+  QM_ASSERT_NO_UNDERFLOW(aSize, mSize);
   const uint64_t increase = aSize - mSize;
 
   if (!originInfo->LockedUpdateUsagesForEviction(mClientType, increase)) {

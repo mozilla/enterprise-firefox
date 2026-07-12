@@ -572,8 +572,11 @@ class BrowserToolbarSearchMiddleware(
                 ),
             )
         } else if (isValidSearchEngine) {
-            if (settings.googleLensIntegrationEnabled &&
-                settings.googleLensIntegrationUserEnabled &&
+            val isLensEnabled = settings.googleLensIntegrationEnabled &&
+                settings.googleLensIntegrationUserEnabled
+
+            if (isLensEnabled &&
+                !browsingModeManager.mode.isPrivate &&
                 selectedSearchEngine.isGoogleSearchEngine()
             ) {
                 add(

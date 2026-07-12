@@ -66,7 +66,7 @@ ChromeUtils.defineLazyGetter(lazy, "console", () =>
 // We also make this limited in a non-configurable way so that it reduces the risk
 // of exfiltration for private data. While most users only have a few tabs open at a time,
 // some users can have thousands of tabs open at once.
-const MAX_TABS = 15;
+export const MAX_TABS = 30;
 
 // Allow list of URL protocols for tabs and pages exposed to the LLM. Only http/https are
 // permitted; internal (about:, chrome:, moz-extension:, file:, data:, etc.)

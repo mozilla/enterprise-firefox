@@ -498,6 +498,10 @@ class CycleCollectedJSContext : dom::PerThreadAtomCache, public JS::JobQueue {
   nsTArray<nsCOMPtr<nsISupports /* UncaughtRejectionObserver */>>
       mUncaughtRejectionObservers;
 
+  bool HasPendingUnhandledRejection(uint64_t aPromiseID) const {
+    return mPendingUnhandledRejections.Contains(aPromiseID);
+  }
+
   virtual bool IsSystemCaller() const = 0;
 
   // Unused on main thread.  Used by AutoJSAPI on Worker and Worklet threads.

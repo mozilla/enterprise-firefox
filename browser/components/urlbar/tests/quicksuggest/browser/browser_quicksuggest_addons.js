@@ -204,7 +204,7 @@ add_task(async function resultMenu_showLessFrequently() {
     openByMouse: true,
   });
   Assert.ok(!menuitem, "Menuitem should be absent before closing the view");
-  gURLBar.view.resultMenu.hidePopup(true);
+  gURLBar.view.resultMenu.removeAttribute("open");
   await UrlbarTestUtils.promisePopupClose(window);
 
   await doShowLessFrequently({

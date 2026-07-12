@@ -64,6 +64,7 @@ codespell:
         - xpcom/docs/
     exclude:
         - devtools/docs/contributor/tools/storage/
+        - docs/mots/index.*
         - remote/test/puppeteer/
         - tools/lint/cpp/mingw-headers.txt
         - tools/lint/test/test_codespell.py

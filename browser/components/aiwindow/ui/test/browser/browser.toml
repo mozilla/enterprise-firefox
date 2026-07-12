@@ -99,6 +99,8 @@ skip-if = [
 
 ["browser_aiwindow_smartbar_ask.js"]
 
+["browser_aiwindow_smartbar_autofill.js"]
+
 ["browser_aiwindow_smartbar_chat_active_navigate.js"]
 
 ["browser_aiwindow_smartbar_context_chips.js"]

@@ -712,14 +712,17 @@ var gProfiles = {
       ...menuPopup.querySelectorAll(":scope > menuitem[profileid]"),
     ];
 
+    // Place the profile items immediately after the separator, repositioning
+    // reused ones too. Anchoring keeps them in their declared slot regardless of
+    // any later items in the popup (e.g. Select All Tabs in the alt layout).
+    let anchor = separator;
     for (let profile of profiles) {
       if (profile.id === currentProfile.id) {
         continue;
       }
 
       let menuitem = existingItems.shift();
-      let isNewItem = !menuitem;
-      if (isNewItem) {
+      if (!menuitem) {
         menuitem = document.createXULElement("menuitem");
         menuitem.setAttribute("tbattr", "tabbrowser-multiple-visible");
         menuitem.setAttribute("data-l10n-id", "move-to-new-profile");
@@ -733,9 +736,8 @@ var gProfiles = {
         JSON.stringify({ profileName: profile.name })
       );
 
-      if (isNewItem) {
-        menuPopup.appendChild(menuitem);
-      }
+      anchor.after(menuitem);
+      anchor = menuitem;
     }
     // If there's any old item to remove, do so now.
     for (let remaining of existingItems) {

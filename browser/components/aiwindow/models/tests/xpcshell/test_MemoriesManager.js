@@ -53,24 +53,18 @@ const TEST_MESSAGE = "Remember I like coffee.";
 const TEST_MEMORIES = [
   {
     memory_summary: "Loves drinking coffee",
-    category: "Food & Drink",
-    intent: "Plan / Organize",
     reasoning: "Frequeently orders coffee online for pickup",
-    score: 3,
+    tags: ["category:Food & Drink", "intent:Plan / Organize"],
   },
   {
     memory_summary: "Buys dog food online",
-    category: "Pets & Animals",
-    intent: "Buy / Acquire",
     reasoning: "Frequently buys dog food on websites like Chewy",
-    score: 4,
+    tags: ["category:Pets & Animals", "intent:Buy / Acquire"],
   },
   {
     memory_summary: "Plays games online",
-    category: "Games",
-    intent: "Entertain / Relax",
     reasoning: "Visits a lot of gaming-related websites",
-    score: 5,
+    tags: ["category:Games", "intent:Entertain / Relax"],
   },
 ];
 
@@ -547,13 +541,18 @@ add_task(async function test_getRelevantMemories_happy_path() {
       async embedMany(_texts) {
         // Return fake embeddings: one for each memory
         // Coffee memory gets [1, 0, 0], dog food gets [0, 1, 0], games gets [0, 0, 1]
-        return {
-          output: [
-            [1, 0, 0], //  "Loves drinking coffee" embedding
-            [0, 1, 0], //  "Buys dog food online" embedding (orthogonal)
-            [0, 0, 1], //  "Plays games online" embedding (orthogonal)
-          ],
-        };
+
+        const embeds = [];
+        for (const text of _texts) {
+          if (text.includes("coffee")) {
+            embeds.push([1, 0, 0]); //  "Loves drinking coffee" embedding
+          } else if (text.includes("dog food")) {
+            embeds.push([0, 1, 0]); //  "Buys dog food online" embedding (orthogonal)
+          } else {
+            embeds.push([0, 0, 1]); //  "Plays games online" embedding (orthogonal)
+          }
+        }
+        return { output: embeds };
       },
       async embed(_text) {
         // Query about coffee should be similar to first memory
@@ -694,41 +693,6 @@ add_task(
         relevantMemories.length,
         0,
         "Result should be an empty array when no memories meet similarity threshold."
-      );
-
-      // Delete memories after test
-      await deleteAllMemories();
-    } finally {
-      sb.restore();
-    }
-  }
-);
-
-/**
- * Tests failed memories retrieval - no memories have sufficient similarity
- */
-add_task(
-  async function test_getRelevantMemories_sad_path_no_memories_in_message_category() {
-    // Add memories so that we pass the existing memories check
-    await addMemories();
-
-    const sb = sinon.createSandbox();
-    try {
-      // Mock getRelevantMemories to return empty (simulates low similarity scores)
-      const stub = sb.stub(MemoriesManager, "getRelevantMemories").resolves([]);
-
-      const relevantMemories =
-        await MemoriesManager.getRelevantMemories(TEST_MESSAGE);
-
-      // Check that the stub was called
-      Assert.ok(stub.calledOnce, "getRelevantMemories should be called once");
-
-      // Check that result is an empty array
-      Assert.ok(Array.isArray(relevantMemories), "Result should be an array.");
-      Assert.equal(
-        relevantMemories.length,
-        0,
-        "Result should be an empty array when no memories have sufficient similarity."
       );
 
       // Delete memories after test
@@ -947,11 +911,10 @@ add_task(async function test_saveRequestedMemory_happy_path_creates() {
       "Prefers Walmart for shopping",
       "memory_summary should match the input summary"
     );
-    Assert.equal(result.memory.category, "", "category defaults to empty");
-    Assert.equal(result.memory.intent, "", "intent defaults to empty");
-    Assert.equal(
-      result.memory.source,
-      SOURCE_USER_REQUEST,
+    Assert.equal(result.memory.tags.length, 0, "Tags array defaults to empty");
+    Assert.deepEqual(
+      result.memory.sources,
+      [SOURCE_USER_REQUEST],
       `Source should be ${SOURCE_USER_REQUEST}`
     );
     // Assert.equal(result.memory.score, 5, "Score should be 5"); #??
@@ -1006,23 +969,19 @@ add_task(async function test_saveMemories_persists_with_source() {
   await deleteAllMemories();
   await MemoriesManager.setLastSessionMemoryTimestamp(777);
 
-  const { persistedMemories } = await MemoriesManager.saveMemories(
-    [
-      {
-        memory_summary: "Likes both dogs and cats",
-        category: "Pets & Animals",
-        intent: "Entertain / Relax",
-        reasoning: "r",
-        score: 4,
-      },
-    ],
-    "session"
-  );
+  const { persistedMemories } = await MemoriesManager.saveMemories([
+    {
+      memory_summary: "Likes both dogs and cats",
+      reasoning: "r",
+      tags: ["category:Pets & Animals", "intent:Entertain / Relax"],
+      sources: ["session"],
+    },
+  ]);
 
   Assert.equal(persistedMemories.length, 1, "Should persist one memory");
-  Assert.equal(
-    persistedMemories[0].source,
-    "session",
+  Assert.deepEqual(
+    persistedMemories[0].sources,
+    ["session"],
     "Persisted memory should carry the session source tag"
   );
   Assert.equal(

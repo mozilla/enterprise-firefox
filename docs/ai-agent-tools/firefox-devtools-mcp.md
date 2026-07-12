@@ -17,8 +17,8 @@ DevTools capabilities such as page navigation, DOM inspection, network
 monitoring, console logs, user input simulation, and Firefox logging. It isn't
 complete yet, but can already be useful.
 
-This documentation refers to a Mozilla-specific fork with more features for
-Firefox development: <https://github.com/padenot/firefox-devtools-mcp>
+This documentation refers to the official Mozilla MCP for
+Firefox development: https://github.com/mozilla/firefox-devtools-mcp
 
 ### Key Features
 
@@ -52,7 +52,7 @@ For installation in other projects or at user scope, Claude Code can configure
 the MCP server with a single command:
 
 ```bash
-claude mcp add firefox-devtools npx @padenot/firefox-devtools-mcp
+claude mcp add firefox-devtools npx @mozilla/firefox-devtools-mcp-moz
 ```
 
 This command registers the MCP server with your Claude Code configuration for
@@ -62,7 +62,7 @@ If a global installation is preferred (so that it works from multiple project
 directories), it can be installed at the user scope:
 
 ```bash
-claude mcp add firefox-devtools npx @padenot/firefox-devtools-mcp --scope user
+claude mcp add firefox-devtools npx @mozilla/firefox-devtools-mcp-moz --scope user
 ```
 
 This changes `~/.claude.json`, either in the project section, or in the global
@@ -115,7 +115,7 @@ Example with multiple options:
 ```json
 {
    "type": "stdio",
-   "command": "@padenot/firefox-devtools-mcp",
+   "command": "@mozilla/firefox-devtools-mcp-moz",
    "args": [
     "--firefox-path",
     "/home/developer/firefox/obj-x86_64-pc-linux-gnu/dist/bin/firefox",
@@ -208,7 +208,7 @@ following [meta bug](https://bugzilla.mozilla.org/show_bug.cgi?id=1722679).
 Try to update to the latest version:
 
 ```bash
-./mach npx @padenot/firefox-devtools-mcp@latest
+./mach npx @mozilla/firefox-devtools-mcp-moz@latest
 ```
 
 then quit when seeing "Ready to accept tool requests".

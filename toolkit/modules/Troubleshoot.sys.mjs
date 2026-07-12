@@ -1114,7 +1114,7 @@ var dataProviders = {
 if (AppConstants.MOZ_CRASHREPORTER) {
   dataProviders.crashes = function crashes(done) {
     const { CrashReports } = ChromeUtils.importESModule(
-      "resource://gre/modules/CrashReports.sys.mjs"
+      "moz-src:///toolkit/crashreporter/CrashReports.sys.mjs"
     );
     let reports = CrashReports.getReports();
     let now = new Date();

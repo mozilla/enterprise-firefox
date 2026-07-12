@@ -399,6 +399,28 @@ class ChromeActions {
     sendResponse(await actor.sendQuery("PDFJS:Parent:loadAIEngine", data));
   }
 
+  async verifyPdfSignature(data, sendResponse) {
+    const actor = getActor(this.domWindow);
+    if (!actor) {
+      sendResponse({ error: "no-actor" });
+      return;
+    }
+    sendResponse(
+      await actor.sendQuery("PDFJS:Parent:verifyPdfSignature", data)
+    );
+  }
+
+  async viewPdfCertificate(data, sendResponse) {
+    const actor = getActor(this.domWindow);
+    if (!actor) {
+      sendResponse(false);
+      return;
+    }
+    sendResponse(
+      await actor.sendQuery("PDFJS:Parent:viewPdfCertificate", data)
+    );
+  }
+
   download(data) {
     if (!this.supportsDownloading()) {
       console.warn("PdfStreamConverter: blocked a download request.");

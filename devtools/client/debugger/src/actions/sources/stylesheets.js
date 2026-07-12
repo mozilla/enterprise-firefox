@@ -33,3 +33,13 @@ export function toggleStylesheetVisibility(sourceActor) {
     });
   };
 }
+
+export function setStyleSheetAtRules(actorId, atRules) {
+  return async ({ dispatch }) => {
+    dispatch({
+      type: "SET_STYLESHEET_AT_RULES",
+      id: actorId,
+      atRules,
+    });
+  };
+}

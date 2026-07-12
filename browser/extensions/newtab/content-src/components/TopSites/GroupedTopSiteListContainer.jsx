@@ -9,6 +9,7 @@ import { TopSiteList } from "./TopSite";
 import { buildTopSitesList } from "./TopSiteListContainer";
 import { isSponsored, TOP_SITES_SOURCE } from "./TopSitesConstants";
 import { useTopSitesDnD } from "./useTopSitesDnD.jsx";
+import { useAppendPinDrop } from "./useAppendPinDrop.jsx";
 import { useZeroPinDrop } from "./useZeroPinDrop.jsx";
 
 // Grouped reorder uses the classic DnD hook: `isShiftable = isPinned` already
@@ -79,12 +80,23 @@ function useBaseSites(props) {
   );
 }
 
-// At least one pin present: a drag reorders within / joins the contiguous group.
-function ReorderTopSiteListContainer(props) {
+// Picks the grouped DnD variant by whether any pin exists: zero pins is a
+// simpler "drag one tile onto one target" interaction with its own hook, while
+// with pins present it's slot reordering, plus an append slot (useAppendPinDrop)
+// layered on the reorder hook for dropping a frecent at the group's end. The
+// hooks all run every render (rules of hooks) and we consume only the active
+// path — that's deliberate: rendering a single TopSiteList across the
+// zero-pin<->has-pin flip keeps the subtree mounted, so sponsored tiles don't
+// remount on the first pin / last unpin and re-fire their ad impressions. While
+// a drag is in flight the hook that owns it (its `draggedSite` is set) stays
+// active regardless of `hasPins`, so a mid-drag pinned-set change can't swap
+// hooks and strand the gesture.
+export function GroupedTopSiteListContainer(props) {
   const baseSites = useBaseSites(props);
   const { onDragStart, onReorder } = useGroupedInsert();
+  const hasPins = props.TopSites.rows.some(site => site?.isPinned);
 
-  const { previewSites, onDragEvent, draggedSite } = useTopSitesDnD({
+  const reorder = useTopSitesDnD({
     baseSites,
     rows: props.TopSites.rows,
     isMovable,
@@ -94,47 +106,45 @@ function ReorderTopSiteListContainer(props) {
     pinInPlace: true,
   });
 
+  // With pins present, dragging a frecent (a new pin) opens a reserved append
+  // slot after the last pin; existing-pin drags just reflow. Layered on the
+  // reorder hook: over a pin its reflow drives, over the slot append takes over.
+  const append = useAppendPinDrop({
+    baseSites,
+    draggedSite: reorder.draggedSite,
+    isMovable,
+    onDragEvent: reorder.onDragEvent,
+    previewActive: !!reorder.previewSites,
+  });
+
+  const zeroPin = useZeroPinDrop({
+    baseSites,
+    isSponsored,
+    onDragStart,
+    onReorder,
+  });
+
+  // A live drag's owner (draggedSite set) wins; only when idle do we pick by
+  // hasPins. Keeps one hook authoritative for the whole gesture across a flip.
+  let active;
+  if (reorder.draggedSite) {
+    active = reorder;
+  } else if (zeroPin.draggedSite) {
+    active = zeroPin;
+  } else {
+    active = hasPins ? reorder : zeroPin;
+  }
+  const isZeroPin = active === zeroPin;
+
   return (
     <TopSiteList
       {...props}
-      sites={previewSites || baseSites}
-      onDragEvent={onDragEvent}
-      draggedSite={draggedSite}
+      sites={isZeroPin ? zeroPin.sites : reorder.previewSites || append.sites}
+      onDragEvent={active.onDragEvent}
+      draggedSite={active.draggedSite}
       groupedPinsEnabled={true}
+      listProps={isZeroPin ? zeroPin.listProps : append.listProps}
+      decorations={isZeroPin ? zeroPin.decorations : append.decorations}
     />
-  );
-}
-
-// No pins yet: a drag just pins one tile at the front of a fresh group.
-function ZeroPinTopSiteListContainer(props) {
-  const baseSites = useBaseSites(props);
-  const { onDragStart, onReorder } = useGroupedInsert();
-
-  const { sites, onDragEvent, draggedSite, listProps, decorations } =
-    useZeroPinDrop({ baseSites, isSponsored, onDragStart, onReorder });
-
-  return (
-    <TopSiteList
-      {...props}
-      sites={sites}
-      onDragEvent={onDragEvent}
-      draggedSite={draggedSite}
-      groupedPinsEnabled={true}
-      listProps={listProps}
-      decorations={decorations}
-    />
-  );
-}
-
-// Routes to the right grouped DnD variant. Zero existing pins is a fundamentally
-// simpler interaction (drag one tile onto one target), so it gets its own hook;
-// with pins present it's slot reordering. `hasPins` only flips on a pin/unpin
-// commit (never mid-drag), so swapping containers here is safe.
-export function GroupedTopSiteListContainer(props) {
-  const hasPins = props.TopSites.rows.some(site => site?.isPinned);
-  return hasPins ? (
-    <ReorderTopSiteListContainer {...props} />
-  ) : (
-    <ZeroPinTopSiteListContainer {...props} />
   );
 }

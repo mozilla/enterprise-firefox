@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <numbers>
 #include <numeric>
 
 #include "DOMSVGPoint.h"
@@ -4118,7 +4119,8 @@ float SVGTextFrame::GetRotationOfChar(dom::SVGTextContentElement* aElement,
   int32_t glyphOrientation =
       90 * (glyphRun.IsSidewaysRight() - glyphRun.IsSidewaysLeft());
 
-  return mPositions[it.TextElementCharIndex()].mAngle * 180.0 / M_PI +
+  return mPositions[it.TextElementCharIndex()].mAngle * 180.0 /
+             std::numbers::pi +
          glyphOrientation;
 }
 
@@ -4315,7 +4317,8 @@ bool SVGTextFrame::ResolvePositionsForNode(nsIContent* aContent,
       uint32_t i = 0, j = 0;
       while (i < rotate->Length() && j < count) {
         if (!mPositions[aIndex + j].mUnaddressable) {
-          mPositions[aIndex + j].mAngle = M_PI * (*rotate)[i] / 180.0;
+          mPositions[aIndex + j].mAngle =
+              std::numbers::pi * (*rotate)[i] / 180.0;
           i++;
         }
         j++;

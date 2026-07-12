@@ -1006,17 +1006,7 @@ features:
         description: >
           Whether or not to enable onboarding for tab groups.
         type: Boolean
-        default: false
-    defaults:
-      - channel: release
-        value:
-          enabled: false
-      - channel: beta
-        value:
-          enabled: false
-      - channel: nightly
-        value:
-          enabled: false
+        default: true
   tab-groups-live-reorder:
     description: Control whether reorder happens live during a drag and drop action for Tab Groups.
     variables:

@@ -23,7 +23,7 @@ prefs = ["browser.ipProtection.override.serverlist=[]"]
 
 ["test_IPPExceptionsManager.js"]
 
-["test_IPPFxaAuthProvider.js"]
+["test_IPPFxaActivateAuthProvider.js"]
 
 ["test_IPPGpiAuthProvider.js"]
 

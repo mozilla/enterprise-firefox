@@ -928,31 +928,13 @@ void LIRGenerator::visitWasmStore(MWasmStore* ins) {
   LAllocation baseAlloc = useRegisterOrConstantAtStart(base);
 
   if (ins->access().type() == Scalar::Int64) {
-    LInt64Allocation valueAlloc = useInt64RegisterAtStart(value);
+    LInt64Allocation valueAlloc = useInt64RegisterOrZeroAtStart(value);
     auto* lir = new (alloc()) LWasmStoreI64(baseAlloc, valueAlloc, memoryBase);
     add(lir, ins);
     return;
   }
 
-  LAllocation valueAlloc;
-  switch (ins->access().type()) {
-    case Scalar::Int8:
-    case Scalar::Uint8:
-    case Scalar::Int16:
-    case Scalar::Uint16:
-    case Scalar::Int32:
-    case Scalar::Uint32:
-      if (value->type() == MIRType::Int32 && value->isConstant() &&
-          value->toConstant()->toInt32() == 0) {
-        valueAlloc = useRegisterOrConstantAtStart(value);
-      } else {
-        valueAlloc = useRegisterAtStart(value);
-      }
-      break;
-    default:
-      valueAlloc = useRegisterAtStart(value);
-      break;
-  }
+  LAllocation valueAlloc = useRegisterOrZeroAtStart(value);
   auto* lir = new (alloc()) LWasmStore(baseAlloc, valueAlloc, memoryBase);
   add(lir, ins);
 }
@@ -1236,11 +1218,7 @@ void LIRGenerator::visitWasmReplaceLaneSimd128(MWasmReplaceLaneSimd128* ins) {
         LWasmReplaceInt64LaneSimd128(lhs, useInt64Register(ins->rhs()));
     defineReuseInput(lir, ins, 0);
   } else {
-    LAllocation rhsAlloc =
-        (ins->rhs()->type() == MIRType::Int32 && ins->rhs()->isConstant() &&
-         ins->rhs()->toConstant()->toInt32() == 0)
-            ? useRegisterOrConstant(ins->rhs())
-            : useRegister(ins->rhs());
+    LAllocation rhsAlloc = useRegisterOrZero(ins->rhs());
     auto* lir = new (alloc()) LWasmReplaceLaneSimd128(lhs, rhsAlloc);
     defineReuseInput(lir, ins, 0);
   }

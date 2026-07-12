@@ -58,7 +58,6 @@ flowchart LR
 
     subgraph FxaAuth["FxA Authentication (fxa/)"]
       IPPAuthProvider
-      IPPFxaAuthProvider
       IPPFxaActivateAuthProvider["Activate Auth Provider"]
       IPPSignInWatcher["Sign-in Observer"]
       IPPEnrollAndEntitleManager["Enroll & Entitle Manager"]
@@ -86,7 +85,7 @@ flowchart LR
   BrowserHelpers -- "addHelpers()" --> IPProtectionActivator
   IPProtectionActivator --> IPProtectionService
   IPProtectionActivator --> CoreHelpers
-  IPProtectionActivator -- "setAuthProvider()" --> IPPFxaAuthProvider
+  IPProtectionActivator -- "setAuthProvider()" --> IPPFxaActivateAuthProvider
   GeckoViewIPProtection -- "setAuthProvider()" --> IPProtectionActivator
 
   %% Service wiring
@@ -94,14 +93,13 @@ flowchart LR
   IPProtectionService -- "authProvider" --> IPPAuthProvider
 
   %% FxA auth wiring
-  IPPFxaAuthProvider -->|extends| IPPAuthProvider
-  IPPFxaActivateAuthProvider -->|extends| IPPFxaAuthProvider
-  IPPFxaAuthProvider --> IPPSignInWatcher
-  IPPFxaAuthProvider --> IPPEnrollAndEntitleManager
-  IPPFxaAuthProvider --> GuardianClient
+  IPPFxaActivateAuthProvider -->|extends| IPPAuthProvider
+  IPPFxaActivateAuthProvider --> IPPSignInWatcher
+  IPPFxaActivateAuthProvider --> IPPEnrollAndEntitleManager
+  IPPFxaActivateAuthProvider --> GuardianClient
 
   %% Android auth wiring
-  IPPAndroidAuthProvider -->|extends| IPPFxaAuthProvider
+  IPPAndroidAuthProvider -->|extends| IPPFxaActivateAuthProvider
   IPPAndroidAuthProvider --> IPPAndroidSignInWatcher
   IPPGpiAuthProvider -->|extends| IPPAuthProvider
 
@@ -198,25 +196,18 @@ IPPAuthProvider
   `IPProtectionService`. The default implementation is a no-op that keeps
   the service in an unauthenticated/inactive state.
 
-IPPFxaAuthProvider
+IPPFxaActivateAuthProvider
 
 : Concrete FxA implementation of `IPPAuthProvider`. It obtains short-lived
   OAuth tokens from `fxAccounts` via `getToken()`, passes them to
-  `GuardianClient` for all Guardian HTTP calls, and runs the enrollment flow
-  before the proxy starts. It also lists the FxA endpoint prefs whose URL values
+  `GuardianClient` for all Guardian HTTP calls, and enrolls the user by sending
+  the FxA Bearer token directly to Guardian's activate endpoint, without using a
+  hidden tab or window. It also lists the FxA endpoint prefs whose URL values
   should bypass the proxy. Its `helpers` getter exposes `IPPSignInWatcher`
   and `IPPEnrollAndEntitleManager` so they can be registered as service helpers.
   The provider and its helpers are wired up from `IPProtectionHelpers.sys.mjs`
   in the browser layer via `IPProtectionActivator.setAuthProvider()` and
   `IPProtectionActivator.addHelpers()`.
-
-IPPFxaActivateAuthProvider
-
-: Alternative FxA provider that extends `IPPFxaAuthProvider`. Enrolls the
-  user by sending the FxA session token directly to Guardian, without using a
-  hidden tab or window. On desktop, the choice between
-  `IPPFxaAuthProvider` and `IPPFxaActivateAuthProvider` is controlled by
-  `browser.ipProtection.fxa.useActivateFlow`.
 
 IPPSignInWatcher
 
@@ -286,7 +277,7 @@ IPProtectionHelpers
 : Registers browser-specific helpers with `IPProtectionActivator` via
   `addHelpers()`: `UIHelper`, `IPPOnboardingMessage`, `IPPOptOutHelper`,
   `IPPUsageHelper`, `IPProtectionAlertManager`, and `IPProtectionInfobarManager`.
-  It also registers `IPPFxaAuthProvider` (and its FxA helpers) via
+  It also registers `IPPFxaActivateAuthProvider` (and its FxA helpers) via
   `setAuthProvider()` and `addHelpers()`.
 
 UIHelper

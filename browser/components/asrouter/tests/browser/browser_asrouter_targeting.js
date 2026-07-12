@@ -44,6 +44,11 @@ const { DefaultBrowserCheck } = ChromeUtils.importESModule(
   "moz-src:///browser/components/DefaultBrowserCheck.sys.mjs"
 );
 
+const FirefoxViewTestUtils = ChromeUtils.importESModule(
+  "resource://testing-common/FirefoxViewTestUtils.sys.mjs"
+);
+FirefoxViewTestUtils.init(this);
+
 const testFeatureCallout = {
   id: "TEST_MESSAGE",
   template: "feature_callout",
@@ -1764,6 +1769,8 @@ add_task(async function test_distributionId() {
 });
 
 add_task(async function test_fxViewButtonAreaType_default() {
+  FirefoxViewTestUtils.enableFirefoxViewButton(window);
+
   is(
     typeof (await ASRouterTargeting.Environment.fxViewButtonAreaType),
     "string",
@@ -2754,6 +2761,16 @@ add_task(async function test_newtabAddonVersion() {
 });
 
 add_task(async function check_backupsInfo() {
+  if (AppConstants.platform === "macosx") {
+    // Bug 2033325: backupsInfo short-circuits on macOS.
+    Assert.deepEqual(
+      await ASRouterTargeting.Environment.backupsInfo,
+      { found: false },
+      "Should return {found: false} on macOS"
+    );
+    return;
+  }
+
   const sandbox = sinon.createSandbox();
   registerCleanupFunction(() => sandbox.restore());
 

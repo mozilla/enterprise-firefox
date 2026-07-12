@@ -20,7 +20,7 @@ add_task(async function () {
           url: TEST_URL,
           helpUrl: "https://example.com/help",
           helpL10n: {
-            id: "urlbar-result-menu-tip-get-help",
+            id: "urlbar-result-menu-tip-get-help2",
           },
         },
       }),

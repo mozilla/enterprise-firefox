@@ -949,7 +949,7 @@ void ScheduleIdleMemoryCleanup(uint32_t aWantsLaterDelay) {
         return RunIdleMemoryCleanup(aDeadline, aWantsLaterDelay);
       },
       "TaskController::IdlePurgeRunner"_ns, TimeDuration(), maxPurgeDelay,
-      minPurgeBudget, true, nullptr, nullptr);
+      minPurgeBudget, true, [] { return AppShutdown::IsShutdownImpending(); });
 }
 }  // namespace mozilla
 

@@ -1,5 +1,12 @@
 # NSPR
 
+```{warning}
+NSPR is a legacy library. We do not recommend using it in new projects.
+It is maintained primarily for existing Mozilla code that still depends
+on it; modern platform and standard-library facilities should be
+preferred instead.
+```
+
 **Netscape Portable Runtime (NSPR)** provides a platform-neutral API for
 system level and libc-like functions. The API is used in the Mozilla
 clients, many of Red Hat's and Oracle's server applications, and other
@@ -20,6 +27,11 @@ software offerings.
 {ref}`NSPR build instructions`
 
 : How to checkout and build from source.
+
+{ref}`NSPR release procedure`
+
+: How to cut a new NSPR release: bumping the version and producing the
+  distributions.
 
 {ref}`NSPR listing`
 

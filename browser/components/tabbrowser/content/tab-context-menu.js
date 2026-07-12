@@ -4,6 +4,476 @@
 
 var TabContextMenu = {
   contextTab: null,
+
+  /*
+   * Declared layout for the tab context menu and its managed submenus, keyed by
+   * mode. Each mode maps a popup id to the ordered sections describing that
+   * popup's contents, using the same grammar at every level. MenuSectionLayout
+   * resolves each selector anywhere under #tabContextMenu and moves the node
+   * into the popup that declares it, so one descriptor can both reorder a popup
+   * and relocate items between popups. Applied on first show and re-applied when
+   * the pref changes (see _ensureMenuArranged); each descriptor is complete over
+   * the popups it manages, so re-applying it restores the structure from any
+   * prior state.
+   *
+   * Selectors grouped in an inner array are kept contiguous as a unit (typically
+   * mutually-exclusive twins toggled by updateContextMenu, where one is visible
+   * at a time). Existing separators are listed explicitly rather than generated.
+   * The share submenu (.share-tab-url-item) is created lazily by SharingUtils
+   * after #context_moveTabOptions, so it is declared optional: positioned when
+   * present, skipped when absent. Runtime-inserted items (tab groups, profiles)
+   * are positioned against their anchor separators by their own code and are
+   * exempt from the layout (see DYNAMIC_MENU_ITEM_SELECTORS).
+   */
+  MENU_SECTIONS: {
+    classic: {
+      tabContextMenu: [
+        {
+          name: "priority-items",
+          items: [
+            "#context_openANewTab",
+            [
+              "#context_moveTabToNewGroup",
+              "#context_moveSplitViewToNewGroup",
+              "#context_moveTabToGroup",
+              "#context_ungroupTab",
+              "#context_ungroupSplitView",
+            ],
+            [
+              "#context_moveTabToSplitView",
+              "#context_separateSplitView",
+              "#context_reverseSplitView",
+            ],
+            "#context_openAndOrganizeSeparator",
+          ],
+        },
+        {
+          name: "action-items",
+          items: [
+            ["#context_reloadTab", "#context_reloadSelectedTabs"],
+            ["#context_playTab", "#context_playSelectedTabs"],
+            ["#context_toggleMuteTab", "#context_toggleMuteSelectedTabs"],
+            [
+              "#context_pinTab",
+              "#context_unpinTab",
+              "#context_pinSelectedTabs",
+              "#context_unpinSelectedTabs",
+            ],
+            "#context_unloadTab",
+            ["#context_duplicateTab", "#context_duplicateTabs"],
+            "#context_tabStateSeparator",
+          ],
+        },
+        {
+          name: "ai",
+          /*
+           * #context_askChatSummarize is the alt layout's flat summarize item;
+           * placed after the separator (hidden here) so #context_askChat keeps
+           * #context_aiSeparator as its next sibling, which buildTabMenu toggles
+           * together with the submenu.
+           */
+          items: [
+            "#context_askChat",
+            "#context_aiSeparator",
+            "#context_askChatSummarize",
+          ],
+        },
+        {
+          name: "tab-tools",
+          items: [
+            ["#context_bookmarkSelectedTabs", "#context_bookmarkTab"],
+            ["#context_addNote", "#context_editNote"],
+            "#context_moveTabOptions",
+            { selector: ".share-tab-url-item", optional: true },
+            "#context_reopenInContainer",
+            "#context_selectAllTabs",
+            "#context_tabToolsSeparator",
+          ],
+        },
+        {
+          name: "sending-items",
+          items: [
+            "#context_shareSelectedTabs",
+            "#context_shareSelectedTabsSeparator",
+            "#context_sendTabToDevice",
+            "#context_sendTabToDeviceSeparator",
+          ],
+        },
+        {
+          name: "close",
+          items: [
+            "#context_closeTab",
+            "#context_closeDuplicateTabs",
+            "#context_closeTabOptions",
+            "#context_undoCloseTab",
+          ],
+        },
+        {
+          name: "fullscreen",
+          items: [
+            "#context_fullscreenSeparator",
+            "#context_fullscreenAutohide",
+            "#context_fullscreenExit",
+          ],
+        },
+        {
+          /*
+           * WebExtension menu items are appended to the end of the tab context
+           * menu by ext-menus.js; this open section lets them sit there without
+           * tripping the layout's coverage check.
+           */
+          name: "extensions",
+          open: true,
+          items: [],
+        },
+      ],
+      /*
+       * The "Move tabs to" submenu keeps its authored contents; the two extra
+       * separators (hidden here) only become visible in the alt layout.
+       */
+      moveTabOptionsMenu: [
+        {
+          name: "positions",
+          items: [
+            "#context_moveToStart",
+            "#context_moveToEnd",
+            "#context_openTabInWindow",
+            "#moveTabSeparator",
+            "#context_moveTabToGroupSeparator",
+            "#context_selectAllSeparator",
+          ],
+        },
+      ],
+      context_moveTabToGroupPopupMenu: [
+        {
+          name: "groups",
+          items: [
+            "#context_moveTabToGroupNewGroup",
+            "#open-tab-groups-separator-upper",
+            "#open-tab-groups-separator-lower",
+            "#context_moveTabToSavedGroup",
+          ],
+        },
+      ],
+      closeTabOptions: [
+        {
+          name: "close-multiple",
+          items: [
+            "#context_closeTabsToTheStart",
+            "#context_closeTabsToTheEnd",
+            "#context_closeOtherTabs",
+          ],
+        },
+      ],
+    },
+    /*
+     * Alternate menu structure, preserves the top few items as-is but attempts to
+     * group together functions and uses shorter labels. Every managed child is placed
+     * (relocated or hidden by per-show logic) so test coverage passes.
+     */
+    altstructure: {
+      tabContextMenu: [
+        {
+          name: "priority-items",
+          items: [
+            "#context_openANewTab",
+            ["#context_duplicateTab", "#context_duplicateTabs"],
+            "#context_openAndOrganizeSeparator",
+          ],
+        },
+        {
+          name: "action-items",
+          items: [
+            [
+              "#context_pinTab",
+              "#context_unpinTab",
+              "#context_pinSelectedTabs",
+              "#context_unpinSelectedTabs",
+            ],
+            ["#context_toggleMuteTab", "#context_toggleMuteSelectedTabs"],
+            ["#context_playTab", "#context_playSelectedTabs"],
+            ["#context_reloadTab", "#context_reloadSelectedTabs"],
+            "#context_unloadTab",
+            "#context_tabStateSeparator",
+          ],
+        },
+        {
+          name: "spatial-items",
+          items: [
+            [
+              "#context_moveTabToSplitView",
+              "#context_separateSplitView",
+              "#context_reverseSplitView",
+            ],
+            /*
+             * "Move Tab to" reuses #context_moveTabOptions; the tab-group entries
+             * and Select All Tabs are flattened into its submenu (see the
+             * moveTabOptionsMenu layout below). The top-level group items stay
+             * listed here for coverage but are hidden by per-show logic.
+             */
+            "#context_moveTabOptions",
+            [
+              "#context_moveTabToNewGroup",
+              "#context_moveSplitViewToNewGroup",
+              "#context_moveTabToGroup",
+              "#context_ungroupTab",
+              "#context_ungroupSplitView",
+            ],
+            "#context_reopenInContainer",
+            /*
+             * The AI submenu separator is unused in this layout (the AI feature is
+             * the flat "Summarize Page" item in remembering-items), so reuse it
+             * as the divider after the open-and-organize group. Shown by the AI
+             * branch of updateContextMenu.
+             */
+            "#context_aiSeparator",
+          ],
+        },
+        {
+          name: "remembering-items",
+          items: [
+            ["#context_bookmarkSelectedTabs", "#context_bookmarkTab"],
+            ["#context_addNote", "#context_editNote"],
+            "#context_askChatSummarize",
+            "#context_tabToolsSeparator",
+          ],
+        },
+        {
+          name: "sending-items",
+          items: [
+            "#context_shareSelectedTabs",
+            /*
+             * Created lazily by SharingUtils (after #context_moveTabOptions); the
+             * layout positions it here when present. Share placement overlaps
+             * bug 2019778 and may be revisited.
+             */
+            { selector: ".share-tab-url-item", optional: true },
+            "#context_shareSelectedTabsSeparator",
+            "#context_sendTabToDevice",
+            "#context_sendTabToDeviceSeparator",
+          ],
+        },
+        {
+          name: "destructive-items",
+          /* Close Duplicates is flattened into the #closeTabOptions submenu. */
+          items: [
+            "#context_closeTab",
+            "#context_closeTabOptions",
+            "#context_undoCloseTab",
+          ],
+        },
+        {
+          name: "fullscreen",
+          items: [
+            "#context_fullscreenSeparator",
+            "#context_fullscreenAutohide",
+            "#context_fullscreenExit",
+          ],
+        },
+        {
+          /* Items that have no place in this layout and should always be hidden */
+          name: "unused",
+          items: ["#context_askChat"],
+        },
+        {
+          /*
+           * WebExtension menu items are appended to the end of the tab context
+           * menu by ext-menus.js; this open section lets them sit there without
+           * tripping the layout's validation check.
+           */
+          name: "extensions",
+          open: true,
+          items: [],
+        },
+      ],
+      /*
+       * "Move Tab to": #context_moveTabOptions with the tab-group entries (from
+       * #context_moveTabToGroupPopupMenu) and Select All Tabs flattened in. Move
+       * to Start/End/New Window are already here; profile items are inserted at
+       * runtime after #moveTabSeparator.
+       */
+      moveTabOptionsMenu: [
+        {
+          name: "groups",
+          items: [
+            "#context_moveTabToGroupNewGroup",
+            "#open-tab-groups-separator-upper",
+            "#open-tab-groups-separator-lower",
+            "#context_moveTabToSavedGroup",
+            "#context_moveTabToGroupSeparator",
+          ],
+        },
+        {
+          name: "positions",
+          items: [
+            "#context_moveToStart",
+            "#context_moveToEnd",
+            "#context_openTabInWindow",
+            "#moveTabSeparator",
+          ],
+        },
+        {
+          name: "select-all",
+          items: ["#context_selectAllSeparator", "#context_selectAllTabs"],
+        },
+      ],
+      /* Emptied here: its entries are flattened into moveTabOptionsMenu above. */
+      context_moveTabToGroupPopupMenu: [],
+      /*
+       * Close Duplicates joins the other close-multiple options in the "Close
+       * Multiple" submenu in this layout (relocated from the top level).
+       */
+      closeTabOptions: [
+        {
+          name: "close-multiple",
+          items: [
+            "#context_closeTabsToTheStart",
+            "#context_closeTabsToTheEnd",
+            "#context_closeOtherTabs",
+            "#context_closeDuplicateTabs",
+          ],
+        },
+      ],
+    },
+  },
+
+  /* Runtime-inserted menu items, exempt from the layout's coverage check. */
+  DYNAMIC_MENU_ITEM_SELECTORS: ["[tab-group-id]", "[profileid]"],
+
+  _tabContextMenuArranged: false,
+  _altTabContextMenuPrefObserved: false,
+
+  /*
+   * Arrange the tab context menu into its declared section order the first time
+   * it is shown, and again after the alt context menu pref changes. Deferring to first show
+   * keeps this work out of startup.
+   */
+  _ensureMenuArranged(aPopupMenu) {
+    if (!this._altTabContextMenuPrefObserved) {
+      XPCOMUtils.defineLazyPreferenceGetter(
+        this,
+        "_altTabContextMenu",
+        "browser.tabs.contextmenu.altstructure.enabled",
+        false,
+        () => {
+          this._tabContextMenuArranged = false;
+        }
+      );
+      this._altTabContextMenuPrefObserved = true;
+    }
+    if (this._tabContextMenuArranged) {
+      return;
+    }
+    /*
+     * Reading the pref selects the structure and arms the observer that resets
+     * _tabContextMenuArranged when the pref changes.
+     */
+    let layout =
+      (this._altTabContextMenu && this.MENU_SECTIONS.altstructure) ||
+      this.MENU_SECTIONS.classic;
+    // MenuSectionLayout throws if the markup and layout disagree and a menuitem is unaccounted for.
+    // Catch these exceptions and log them out.
+    try {
+      new this.MenuSectionLayout(layout, {
+        dynamicItemSelectors: this.DYNAMIC_MENU_ITEM_SELECTORS,
+      }).arrange(aPopupMenu);
+      this._hideUnusedSectionItems(layout);
+      this._updateL10nIds(aPopupMenu, this._altTabContextMenu);
+    } catch (ex) {
+      console.error(ex);
+    }
+    this._tabContextMenuArranged = true;
+  },
+
+  /*
+   * Swap in alternate Fluent ids for items that need different wording in the
+   * alt layout. We cache the authored id so a pref toggle back to classic can
+   * restore it. Runs only when the layout is (re)applied.
+   */
+  _updateL10nIds(aPopupMenu, altEnabled) {
+    for (let item of aPopupMenu.querySelectorAll("[data-alt-l10n-id]")) {
+      if (item._classicL10nId == null) {
+        item._classicL10nId =
+          item.getAttribute("data-lazy-l10n-id") ??
+          item.getAttribute("data-l10n-id");
+      }
+      let id = altEnabled ? item.dataset.altL10nId : item._classicL10nId;
+      if (id) {
+        item.setAttribute("data-l10n-id", id);
+      }
+    }
+  },
+
+  /* Hide every item the active layout parks in its "unused" section; */
+  _hideUnusedSectionItems(layout) {
+    for (let section of layout.tabContextMenu) {
+      if (section.name !== "unused") {
+        continue;
+      }
+      for (let { selector } of this.MenuSectionLayout.placementsFor([
+        section,
+      ])) {
+        let item = document.querySelector(selector);
+        if (item) {
+          item.hidden = true;
+        }
+      }
+    }
+  },
+
+  /*
+   * Set the per-show visibility of the nodes shared by the "Move tabs to"
+   * submenu in both layouts. In the alt layout the tab-group entries and Select
+   * All Tabs are flattened into that submenu (see MENU_SECTIONS.altstructure),
+   * so the top-level group wrapper and the simplified new-group items are hidden
+   * and the submenu's own separators are shown as needed. In the classic layout
+   * these nodes are reset to their authored state (the top-level group items are
+   * managed by the tab-groups block above). Runs every show so neither layout's
+   * visibility leaks across a pref toggle.
+   */
+  _updateMoveTabToFlattenedVisibility(
+    groupsEnabled,
+    hasOpenGroups,
+    hasSavedGroups
+  ) {
+    let byId = id => document.getElementById(id);
+    let newGroup = byId("context_moveTabToGroupNewGroup");
+    let upperSeparator = byId("open-tab-groups-separator-upper");
+    let lowerSeparator = byId("open-tab-groups-separator-lower");
+    let savedGroups = byId("context_moveTabToSavedGroup");
+    let groupSeparator = byId("context_moveTabToGroupSeparator");
+    let selectAllSeparator = byId("context_selectAllSeparator");
+
+    if (!this._altTabContextMenu) {
+      /* Classic: restore the shared submenu nodes; hide the alt-only separators. */
+      newGroup.hidden = false;
+      upperSeparator.hidden = false;
+      savedGroups.hidden = false;
+      groupSeparator.hidden = true;
+      selectAllSeparator.hidden = true;
+      return;
+    }
+
+    /*
+     * Alt: the group entries are flattened into the submenu, so hide the
+     * top-level wrapper and simplified new-group items (ungroup stays at top
+     * level, managed by the tab-groups block).
+     */
+    byId("context_moveTabToGroup").hidden = true;
+    byId("context_moveTabToNewGroup").hidden = true;
+    byId("context_moveSplitViewToNewGroup").hidden = true;
+
+    newGroup.hidden = !groupsEnabled;
+    upperSeparator.hidden = !(
+      groupsEnabled &&
+      (hasOpenGroups || hasSavedGroups)
+    );
+    lowerSeparator.hidden = true;
+    savedGroups.hidden = !(groupsEnabled && hasSavedGroups);
+    groupSeparator.hidden = !groupsEnabled;
+    selectAllSeparator.hidden = false;
+  },
+
   _updateToggleMuteMenuItems(aTab, aConditionFn) {
     ["muted", "soundplaying"].forEach(attr => {
       if (!aConditionFn || aConditionFn(attr)) {
@@ -19,6 +489,8 @@ var TabContextMenu = {
   },
   // eslint-disable-next-line complexity
   updateContextMenu(aPopupMenu) {
+    this._ensureMenuArranged(aPopupMenu);
+
     let triggerTab =
       aPopupMenu.triggerNode &&
       (aPopupMenu.triggerNode.tab || aPopupMenu.triggerNode.closest("tab"));
@@ -108,6 +580,8 @@ var TabContextMenu = {
     let isAllSplitViewTabs = this.contextTabs.every(
       contextTab => contextTab.splitview
     );
+    let openGroupsToMoveTo = [];
+    let savedGroupsToMoveTo = [];
 
     if (gBrowser._tabGroupsEnabled) {
       let selectedGroupCount = new Set(
@@ -115,7 +589,7 @@ var TabContextMenu = {
         this.contextTabs.map(t => t.group).filter(g => g)
       ).size;
 
-      let openGroupsToMoveTo = gBrowser.getAllTabGroups({
+      openGroupsToMoveTo = gBrowser.getAllTabGroups({
         sortByLastSeenActive: true,
       });
 
@@ -133,7 +607,6 @@ var TabContextMenu = {
       // Populate the saved groups context menu
       // Only enable in non-private windows, or if at least one of the tabs is
       // considered saveable
-      let savedGroupsToMoveTo = [];
       if (
         !PrivateBrowsingUtils.isWindowPrivate(window) &&
         SessionStore.shouldSaveTabsToGroup(this.contextTabs)
@@ -180,16 +653,20 @@ var TabContextMenu = {
           contextMoveTabToGroup.setAttribute("data-l10n-args", tabCountInfo);
         }
 
-        const openGroupsMenu = contextMoveTabToGroup.querySelector("menupopup");
+        // Resolve the group anchors by id rather than relative to the group
+        // submenu, so the open/saved group items land correctly whether these
+        // nodes live in their own popup (classic) or are flattened into the
+        // "Move Tab to" submenu (alt layout).
+        const upperSeparator = document.getElementById(
+          "open-tab-groups-separator-upper"
+        );
+        const lowerSeparator = document.getElementById(
+          "open-tab-groups-separator-lower"
+        );
+        const openGroupsMenu = upperSeparator.parentNode;
         openGroupsMenu
           .querySelectorAll("[tab-group-id]")
           .forEach(el => el.remove());
-        const upperSeparator = openGroupsMenu.querySelector(
-          `#open-tab-groups-separator-upper`
-        );
-        const lowerSeparator = openGroupsMenu.querySelector(
-          `#open-tab-groups-separator-lower`
-        );
 
         lowerSeparator.hidden = !openGroupsToMoveTo.length;
 
@@ -198,8 +675,8 @@ var TabContextMenu = {
           upperSeparator.after(item);
         });
 
-        const savedGroupsMenu = contextMoveTabToGroup.querySelector(
-          "#context_moveTabToSavedGroup"
+        const savedGroupsMenu = document.getElementById(
+          "context_moveTabToSavedGroup"
         );
         const savedGroupsMenuPopup = savedGroupsMenu.querySelector("menupopup");
 
@@ -237,6 +714,12 @@ var TabContextMenu = {
       contextMoveSplitViewToNewGroup.hidden = true;
       contextUngroupSplitView.hidden = true;
     }
+
+    this._updateMoveTabToFlattenedVisibility(
+      gBrowser._tabGroupsEnabled,
+      !!openGroupsToMoveTo.length,
+      !!savedGroupsToMoveTo.length
+    );
 
     let contextAddNote = document.getElementById("context_addNote");
     let contextEditNote = document.getElementById("context_editNote");
@@ -290,11 +773,13 @@ var TabContextMenu = {
       !splitViewEnabled || !hasSplitViewTab || this.multiselected;
     if (splitViewEnabled) {
       contextMoveTabToNewSplitView.removeAttribute("data-l10n-id");
+      let splitViewStringId =
+        this._altTabContextMenu || this.contextTabs.length >= 2
+          ? "tab-context-open-in-split-view"
+          : "tab-context-add-split-view";
       contextMoveTabToNewSplitView.setAttribute(
         "data-l10n-id",
-        this.contextTabs.length < 2
-          ? "tab-context-add-split-view"
-          : "tab-context-open-in-split-view"
+        splitViewStringId
       );
 
       let pinnedTabs = this.contextTabs.filter(t => t.pinned);
@@ -355,11 +840,27 @@ var TabContextMenu = {
     contextUnpinSelectedTabs.hidden =
       !this.contextTab.pinned || !this.multiselected;
 
-    // Build Ask Chat items
-    TabContextMenu.GenAI.buildTabMenu(
-      document.getElementById("context_askChat"),
-      this
-    );
+    // Build Ask Chat items. The classic layout shows the full ask-chat submenu
+    // (#context_askChat); the alt layout shows only a flat "Summarize Page" item
+    // (#context_askChatSummarize). Hide whichever one this layout doesn't use so
+    // a pref toggle reverses cleanly.
+    if (!this._altTabContextMenu) {
+      document.getElementById("context_askChatSummarize").hidden = true;
+      TabContextMenu.GenAI.buildTabMenu(
+        document.getElementById("context_askChat"),
+        this
+      );
+    } else {
+      document.getElementById("context_askChat").hidden = true;
+      // In the alt layout #context_aiSeparator is reused as the divider after
+      // the open-and-organize group, so keep it shown (the classic ask-chat
+      // path would otherwise hide it together with #context_askChat).
+      document.getElementById("context_aiSeparator").hidden = false;
+      TabContextMenu.GenAI.buildTabSummarizeItem(
+        document.getElementById("context_askChatSummarize"),
+        this
+      );
+    }
 
     // Move Tab items
     let contextMoveTabOptions = document.getElementById(
@@ -374,7 +875,20 @@ var TabContextMenu = {
       visibleOrCollapsedTabs.length == 1 ||
       visibleOrCollapsedTabs.every(t => t.multiselected);
     contextMoveTabOptions.setAttribute("data-l10n-args", tabCountInfo);
-    contextMoveTabOptions.disabled = this.contextTab.hidden || allTabsSelected;
+    // Label: "Move Tabs" (classic) / "Move Tab to" (alt), or "Move Split View
+    // to" when the context tab is part of a split view in the alt layout. The
+    // label is context-dependent, so it can't use the static data-alt-l10n-id.
+    let moveTabOptionsL10nId = "tab-context-move-tabs";
+    if (this._altTabContextMenu) {
+      moveTabOptionsL10nId = this.contextTab.splitview
+        ? "tab-context-move-split-view"
+        : "tab-context-move-tabs2";
+    }
+    contextMoveTabOptions.setAttribute("data-l10n-id", moveTabOptionsL10nId);
+    // In the alt layout this submenu also holds New Group and Select All Tabs,
+    // so it stays enabled even when the move-position items aren't actionable.
+    contextMoveTabOptions.disabled =
+      this.contextTab.hidden || (allTabsSelected && !this._altTabContextMenu);
     let selectedTabs = gBrowser.selectedTabs;
     let contextMoveTabToEnd = document.getElementById("context_moveToEnd");
     let allSelectedTabsAdjacent = selectedTabs.every(
@@ -480,11 +994,13 @@ var TabContextMenu = {
       this.contextTab
     ).length;
 
-    // Disable "Close Multiple Tabs" if all sub menuitems are disabled
+    // Disable "Close Multiple Tabs" if all sub menuitems are disabled. In the
+    // alt layout Close Duplicates is one of those sub menuitems.
     document.getElementById("context_closeTabOptions").disabled =
       closeTabsToTheStartItem.disabled &&
       closeTabsToTheEndItem.disabled &&
-      closeOtherTabsItem.disabled;
+      closeOtherTabsItem.disabled &&
+      (!this._altTabContextMenu || closeDuplicateTabsItem.disabled);
 
     // Hide "Bookmark Tab…" for multiselection.
     // Update its state if visible.
@@ -520,10 +1036,21 @@ var TabContextMenu = {
     toggleMultiSelectMute.hidden = !this.multiselected;
 
     const isMuted = this.contextTab.hasAttribute("muted");
-    document.l10n.setAttributes(
-      toggleMute,
-      isMuted ? "tabbrowser-context-unmute-tab" : "tabbrowser-context-mute-tab"
-    );
+    if (this._altTabContextMenu) {
+      document.l10n.setAttributes(
+        toggleMute,
+        isMuted
+          ? "tabbrowser-context-unmute-tab2"
+          : "tabbrowser-context-mute-tab2"
+      );
+    } else {
+      document.l10n.setAttributes(
+        toggleMute,
+        isMuted
+          ? "tabbrowser-context-unmute-tab"
+          : "tabbrowser-context-mute-tab"
+      );
+    }
     document.l10n.setAttributes(
       toggleMultiSelectMute,
       isMuted
@@ -539,6 +1066,14 @@ var TabContextMenu = {
     selectAllTabs.disabled = gBrowser.allTabsSelected();
 
     gSync.updateTabContextMenu(aPopupMenu, this.contextTab);
+    if (this._altTabContextMenu) {
+      // gSync sets #context_sendTabToDevice's label dynamically (device / mobile
+      // / count), so the static data-alt-l10n-id mechanism can't own it; apply
+      // the alt wording here, after gSync.
+      document
+        .getElementById("context_sendTabToDevice")
+        .setAttribute("data-l10n-id", "tab-context-send-to-device2");
+    }
 
     let reopenInContainer = document.getElementById(
       "context_reopenInContainer"
@@ -548,10 +1083,18 @@ var TabContextMenu = {
       PrivateBrowsingUtils.isWindowPrivate(window);
     reopenInContainer.disabled = this.contextTab.hidden;
 
+    // Anchor the share submenu where the active layout declares it: after
+    // #context_moveTabOptions in the classic layout, or in the sending section
+    // (after #context_shareSelectedTabs) in the alt layout. Matching the layout
+    // keeps ensureShareMenu from re-inserting it (or duplicating it) elsewhere.
     SharingUtils.ensureShareMenu(
       this.contextTab.linkedBrowser,
       this.multiselected ? this.contextTabs.map(t => t.linkedBrowser) : null,
-      document.getElementById("context_moveTabOptions")
+      document.getElementById(
+        this._altTabContextMenu
+          ? "context_shareSelectedTabs"
+          : "context_moveTabOptions"
+      )
     );
   },
 
@@ -574,15 +1117,15 @@ var TabContextMenu = {
 
     item.style.setProperty(
       "--tab-group-color",
-      `var(--tab-group-color-${group.color})`
+      `var(--tab-group-${group.color})`
     );
     item.style.setProperty(
       "--tab-group-color-invert",
-      `var(--tab-group-color-${group.color}-invert)`
+      `var(--tab-group-${group.color}-invert)`
     );
     item.style.setProperty(
       "--tab-group-color-pale",
-      `var(--tab-group-color-${group.color}-pale)`
+      `var(--tab-group-${group.color}-pale)`
     );
     item.style.setProperty(
       "--tab-group-background-color",
@@ -903,5 +1446,6 @@ var TabContextMenu = {
 
 ChromeUtils.defineESModuleGetters(TabContextMenu, {
   GenAI: "resource:///modules/GenAI.sys.mjs",
+  MenuSectionLayout: "resource:///modules/MenuSectionLayout.sys.mjs",
   TabNotes: "moz-src:///browser/components/tabnotes/TabNotes.sys.mjs",
 });

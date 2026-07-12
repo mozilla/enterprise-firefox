@@ -1244,6 +1244,11 @@ bool nsHttpConnectionMgr::ProcessPendingQForEntry(ConnectionEntry* ent,
   if (ent->PendingQueueIsEmpty() && ent->UrgentStartQueueIsEmpty()) {
     return false;
   }
+
+  // Move any HTTP/3 connection that is still in active list but can no longer
+  // serve new transactions.
+  ent->MoveUnusableH3ConnsToPending();
+
   ProcessSpdyPendingQ(ent);
 
   bool dispatchedSuccessfully = false;

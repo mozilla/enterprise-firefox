@@ -125,6 +125,12 @@ interface nsIBitsCallback extends nsISupports {
   failureString(errorType: nsBitsErrorType, errorAction: nsBitsErrorAction, errorStage: nsBitsErrorStage, errorMessage: string): void;
 }
 
+// https://searchfox.org/firefox-main/source/toolkit/components/sitecategories/nsISiteCategory.idl
+
+interface nsISiteCategory extends nsISupports {
+  getCategory(aPrincipal: nsIPrincipal): string;
+}
+
 // https://searchfox.org/firefox-main/source/accessible/interfaces/nsIAccessibilityService.idl
 
 interface nsIAccessibilityService extends nsISupports {
@@ -1177,6 +1183,7 @@ interface nsIAddonContentPolicy extends nsISupports {
   readonly CSP_ALLOW_WASM?: 8;
 
   validateAddonCSP(aPolicyString: string, aPermittedPolicy: u32): string;
+  validateAddonSandboxCSP(aPolicyString: string): string;
 }
 
 // https://searchfox.org/firefox-main/source/caps/nsIDomainPolicy.idl
@@ -3585,7 +3592,7 @@ interface nsIPushMessage extends nsISupports {
   readonly data: nsIPushData;
 }
 
-// https://searchfox.org/firefox-main/source/dom/interfaces/push/nsIPushService.idl
+// https://searchfox.org/firefox-main/source/dom/push/nsIPushService.idl
 
 interface nsIPushSubscription extends nsISupports {
   readonly endpoint: string;
@@ -15739,6 +15746,7 @@ interface nsIXPCComponents_Interfaces {
   nsIBitsNewRequestCallback: nsJSIID<nsIBitsNewRequestCallback>;
   nsIBitsRequest: nsJSIID<nsIBitsRequest>;
   nsIBitsCallback: nsJSIID<nsIBitsCallback>;
+  nsISiteCategory: nsJSIID<nsISiteCategory>;
   nsIAccessibilityService: nsJSIID<nsIAccessibilityService>;
   nsIAccessible: nsJSIID<nsIAccessible>;
   nsIAccessibleAnnouncementEvent: nsJSIID<nsIAccessibleAnnouncementEvent>;

@@ -30,6 +30,7 @@ class nsAppShell : public nsBaseAppShell {
   NS_IMETHOD Run() override;
 
   static SessionRestoreState UpdateAndGetSessionState();
+  static bool IsSessionRestoreSupported();
   static void InitSessionRestore();
 
   void ScheduleNativeEventCallback() override;

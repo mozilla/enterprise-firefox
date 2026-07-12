@@ -179,6 +179,7 @@ class Registers {
 
   static const SetType NonAllocatableMask =
       (1U << Registers::zero) |  // Always be zero.
+      (1U << Registers::t6) |    // Scratch register.
       (1U << Registers::t7) |    // Scratch register.
       (1U << Registers::t8) |    // Scratch register.
       (1U << Registers::s8) |    // Saved scratch register.

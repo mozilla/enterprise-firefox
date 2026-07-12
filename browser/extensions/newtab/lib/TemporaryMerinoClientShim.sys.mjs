@@ -858,6 +858,57 @@ export class TemporaryMerinoClientShim {
   }
 
   /**
+   * Fetch the daily "Picture of the day" from the Merino endpoint.
+   *
+   * @param {object} options
+   *   Options object
+   * @param {string} options.source
+   *   The source that is requesting this fetch.
+   * @param {string} options.endpointUrl
+   *   The picture-of-the-day endpoint URL.
+   * @param {string} [options.acceptLanguage]
+   *   Optional BCP-47 locale string sent as the Accept-Language header so the
+   *   backend can return a localized description.
+   * @returns {Promise<{data: object|null, error: null | "invalid_url" | "load_error"}>}
+   *   `error: null` with `data: null` means the endpoint is not configured
+   *   (deliberate skip).
+   */
+  async fetchPictureOfTheDay({ source, endpointUrl, acceptLanguage }) {
+    if (!endpointUrl) {
+      return { data: null, error: null };
+    }
+    let url = URL.parse(endpointUrl);
+    if (!url) {
+      this.#lazy.logger.error(
+        "Invalid picture-of-the-day endpoint URL",
+        endpointUrl
+      );
+      return { data: null, error: "invalid_url" };
+    }
+    if (source) {
+      url.searchParams.set("source", source);
+    }
+    const fetchOptions = acceptLanguage
+      ? { headers: { "Accept-Language": acceptLanguage } }
+      : undefined;
+    try {
+      const response = await fetch(url, fetchOptions);
+      if (!response.ok) {
+        this.#lazy.logger.error(
+          `Picture of the day fetch failed with status ${response.status}`
+        );
+        return { data: null, error: "load_error" };
+      }
+      const data = /** @type {any} */ (await response.json());
+      this.#lazy.logger.debug("fetchPictureOfTheDay response", data);
+      return { data, error: null };
+    } catch (e) {
+      this.#lazy.logger.error("Picture of the day fetch error", e);
+      return { data: null, error: "load_error" };
+    }
+  }
+
+  /**
    * Resets the Merino session ID and related state.
    */
   resetSession() {

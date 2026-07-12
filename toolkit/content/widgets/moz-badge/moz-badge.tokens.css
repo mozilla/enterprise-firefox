@@ -16,6 +16,7 @@
     --badge-border-color-filled: light-dark(rgba(251, 251, 254, 0.4), rgba(21, 20, 26, 0.4));
     --badge-border-radius: var(--border-radius-small);
     --badge-border-width: 1px;
+    --badge-font-weight: var(--font-weight-semibold);
     --badge-padding-block: 0;
     --badge-padding-inline: var(--space-xsmall);
     --badge-text-color: var(--text-color-deemphasized);

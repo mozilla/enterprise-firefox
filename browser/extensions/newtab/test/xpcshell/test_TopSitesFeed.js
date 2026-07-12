@@ -3925,3 +3925,159 @@ add_task(async function test_saveGroupedPins_preserves_hole_pattern() {
   NewTabUtils.pinnedLinks._links = origLinks;
   sandbox.restore();
 });
+
+// True if the feed dispatched a topSitesRows grow (optionally to a given value).
+function dispatchedRowGrow(feed, value) {
+  return feed.store.dispatch.calledWithMatch({
+    data:
+      value === undefined
+        ? { name: "topSitesRows" }
+        : { name: "topSitesRows", value },
+  });
+}
+
+add_task(async function test_pinSiteAtGrouped_growsRowWhenFullOfPins() {
+  let sandbox = sinon.createSandbox();
+  let feed = getTopSitesFeedForTest(sandbox);
+  // _groupedPins derives from pinnedLinks.links; an empty group is enough here
+  // since the appended url isn't already pinned.
+  sandbox.stub(NewTabUtils.pinnedLinks, "links").get(() => []);
+  sandbox.stub(feed, "_saveGroupedPins");
+  sandbox.stub(feed, "_clearLinkCustomScreenshot").resolves();
+
+  // A pinned slot at getTopSitesCount - 1 means the visible grid is full of pins.
+  let setGrid = (rows, lastPinned) => {
+    feed.store.dispatch.resetHistory();
+    feed.store.state.Prefs.values = {
+      topSitesRows: rows,
+      topSitesMaxSitesPerRow: 8,
+    };
+    feed.store.state.TopSites.rows = Array(rows * 8).fill("site");
+    if (lastPinned) {
+      feed.store.state.TopSites.rows[rows * 8 - 1] = { isPinned: true };
+    }
+  };
+
+  info("grows a row when the visible grid is full of pins, below max rows");
+  setGrid(1, true);
+  await feed._pinSiteAtGrouped({ url: "https://new1.com" });
+  Assert.ok(dispatchedRowGrow(feed, 2), "grew to keep the new pin visible");
+
+  info("does not grow when the last visible slot is a frecency tile");
+  setGrid(1, false);
+  await feed._pinSiteAtGrouped({ url: "https://new2.com" });
+  Assert.ok(
+    !dispatchedRowGrow(feed),
+    "no grow: a frecency tile can be pushed off instead"
+  );
+
+  info("does not grow once already at the max rows");
+  setGrid(4, true);
+  await feed._pinSiteAtGrouped({ url: "https://new3.com" });
+  Assert.ok(!dispatchedRowGrow(feed), "no grow at the max rows");
+
+  sandbox.restore();
+});
+
+add_task(async function test_pin_replacesLastFrecencyTileOnFullRow() {
+  let sandbox = sinon.createSandbox();
+  let feed = getTopSitesFeedForTest(sandbox);
+  // Classic mode (grouped pref unset). Stub side effects so only pin()'s
+  // eviction/grow decision is under test. Identity index adjustment keeps the
+  // asserted pin slot readable (no preceding sponsored tiles to shift over).
+  sandbox.stub(feed, "_adjustPinIndexForSponsoredLinks").callsFake((s, i) => i);
+  let pinStub = sandbox.stub(NewTabUtils.pinnedLinks, "pin");
+  sandbox.stub(feed, "_clearLinkCustomScreenshot").resolves();
+  sandbox.stub(feed, "_broadcastPinnedSitesUpdated");
+
+  // The add button on a full row sends the slot just past the visible grid.
+  let pinPastGrid = (rows, gridRows) => {
+    feed.store.dispatch.resetHistory();
+    pinStub.resetHistory();
+    feed.store.state.Prefs.values = {
+      topSitesRows: gridRows,
+      topSitesMaxSitesPerRow: 8,
+    };
+    feed.store.state.TopSites.rows = rows;
+    return feed.pin({
+      data: { site: { url: "https://new.com" }, index: gridRows * 8 },
+    });
+  };
+
+  info("replaces the last frecency tile instead of growing a row");
+  await pinPastGrid(Array(8).fill("site"), 1);
+  Assert.ok(!dispatchedRowGrow(feed), "no grow: a frecency tile was replaced");
+  Assert.equal(
+    pinStub.getCall(0).args[1],
+    7,
+    "pinned at the last frecency slot"
+  );
+
+  info("replaces the last frecency tile even when a later slot is pinned");
+  let scattered = Array(8).fill("site");
+  scattered[7] = { isPinned: true };
+  await pinPastGrid(scattered, 1);
+  Assert.ok(
+    !dispatchedRowGrow(feed),
+    "no grow: an earlier frecency tile was replaced"
+  );
+  Assert.equal(
+    pinStub.getCall(0).args[1],
+    6,
+    "pinned at the last frecency slot, not the last position"
+  );
+
+  info("skips sponsored tiles when choosing the tile to replace");
+  let withSponsored = Array(8).fill("site");
+  withSponsored[7] = { sponsored_position: 1 };
+  await pinPastGrid(withSponsored, 1);
+  Assert.equal(
+    pinStub.getCall(0).args[1],
+    6,
+    "did not replace the sponsored tile"
+  );
+
+  info("grows a row when every visible slot is pinned or sponsored");
+  await pinPastGrid(Array(8).fill({ isPinned: true }), 1);
+  Assert.ok(dispatchedRowGrow(feed, 2), "grew: no frecency tile to replace");
+
+  info("does not grow once already at the max rows");
+  await pinPastGrid(Array(32).fill({ isPinned: true }), 4);
+  Assert.ok(!dispatchedRowGrow(feed), "no grow at the max rows");
+
+  sandbox.restore();
+});
+
+// Re-pinning a grouped site with a changed custom screenshot URL must clear the
+// stale cached screenshot. Regression test for the redundant pinnedCache.expire()
+// in _saveGroupedPins, which made _clearLinkCustomScreenshot compare new===new.
+add_task(async function test_pinSiteAtGrouped_clears_stale_custom_screenshot() {
+  let sandbox = sinon.createSandbox();
+  let feed = getTopSitesFeedForTest(sandbox);
+
+  const url = "https://example.com/";
+  const origLinks = NewTabUtils.pinnedLinks._links;
+  // Live backing array so a (buggy) expire would resurface the freshly-saved pin.
+  NewTabUtils.pinnedLinks._links = [{ url, customScreenshotURL: "old-shot" }];
+  sandbox
+    .stub(NewTabUtils.pinnedLinks, "links")
+    .get(() => NewTabUtils.pinnedLinks._links);
+  sandbox.stub(NewTabUtils.pinnedLinks, "save");
+
+  // Prime the cache and stamp a screenshot on the pinned link.
+  let pinned = await feed.pinnedCache.request();
+  pinned[0].__sharedCache.updateLink("screenshot", "cached-screenshot");
+
+  // Edit: re-pin the same site with a different custom screenshot URL.
+  await feed._pinSiteAtGrouped({ url, customScreenshotURL: "new-shot" });
+
+  pinned = await feed.pinnedCache.request();
+  Assert.equal(
+    pinned.find(p => p && p.url === url).screenshot,
+    undefined,
+    "stale custom screenshot cleared when re-pinning with a new custom URL"
+  );
+
+  NewTabUtils.pinnedLinks._links = origLinks;
+  sandbox.restore();
+});

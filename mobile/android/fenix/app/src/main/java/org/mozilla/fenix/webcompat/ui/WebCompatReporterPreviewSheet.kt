@@ -54,7 +54,7 @@ internal fun WebCompatReporterPreviewSheet(
                 onRequestDismiss = onDismissRequest,
                 contentDescription = stringResource(R.string.a11y_action_label_collapse),
                 modifier = Modifier
-                    .width(32.dp)
+                    .width(FirefoxTheme.layout.size.static400)
                     .padding(vertical = FirefoxTheme.layout.space.static200)
                     .semantics { traversalIndex = -1f },
             )

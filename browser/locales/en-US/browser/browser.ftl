@@ -81,32 +81,24 @@ urlbar-result-menu-button =
     .title = Open menu
 urlbar-result-menu-button-feedback = Feedback
     .title = Open menu
-urlbar-result-menu-learn-more =
-    .label = Learn more
+urlbar-result-menu-learn-more2 = Learn more
     .accesskey = L
-urlbar-result-menu-remove-from-history =
-    .label = Remove from history
+urlbar-result-menu-remove-from-history2 = Remove from history
     .accesskey = R
-urlbar-result-menu-tip-get-help =
-    .label = Get help
+urlbar-result-menu-tip-get-help2 = Get help
     .accesskey = h
-urlbar-result-menu-dismiss-suggestion =
-    .label = Dismiss this suggestion
+urlbar-result-menu-dismiss-suggestion2 = Dismiss this suggestion
     .accesskey = D
-urlbar-result-menu-manage-firefox-suggest =
-    .label = Manage { -firefox-suggest-brand-name }
+urlbar-result-menu-manage-firefox-suggest2 = Manage { -firefox-suggest-brand-name }
     .accesskey = M
 # Some urlbar suggestions show the user's approximate location as automatically
 # detected by Firefox (e.g., weather suggestions), and this menu item lets the
 # user tell Firefox that the location is not accurate. Typically the location
 # will be a city name, or a city name combined with the name of its parent
 # administrative division (e.g., a province, prefecture, or state).
-urlbar-result-menu-report-inaccurate-location =
-    .label = Report inaccurate location
-urlbar-result-menu-show-less-frequently =
-    .label = Show less frequently
-urlbar-result-menu-dont-show-weather-suggestions =
-    .label = Don’t show weather suggestions
+urlbar-result-menu-report-inaccurate-location2 = Report inaccurate location
+urlbar-result-menu-show-less-frequently2 = Show less frequently
+urlbar-result-menu-dont-show-weather-suggestions2 = Don’t show weather suggestions
 
 # Used for Split Button.
 urlbar-splitbutton-dropmarker =
@@ -801,12 +793,10 @@ urlbar-result-realtime-opt-in-allow = Show suggestions
 # This string is shown in split button to dismiss activation the Realtime suggestion.
 urlbar-result-realtime-opt-in-not-now = Not now
 urlbar-result-realtime-opt-in-dismiss = Dismiss
-urlbar-result-realtime-opt-in-dismiss-all =
-    .label = Don’t show these suggestions
+urlbar-result-realtime-opt-in-dismiss-all2 = Don’t show these suggestions
 
 # This string is shown in the result menu.
-urlbar-result-menu-dont-show-market =
-  .label = Don’t show market suggestions
+urlbar-result-menu-dont-show-market2 = Don’t show market suggestions
 
 # A message that replaces a result when the user dismisses Market suggestions.
 urlbar-result-dismissal-acknowledgment-market = Thanks for your feedback. You won’t see market suggestions anymore.
@@ -983,9 +973,8 @@ urlbar-group-trending =
   .label = Trending on { $engine }
 
 # The result menu labels shown next to trending results.
-urlbar-result-menu-trending-dont-show =
-    .label = Don’t show trending searches
-    .accesskey = D
+urlbar-result-menu-trending-dont-show2 = Don’t show trending searches
+  .accesskey = D
 
 # A message that replaces a result when the user dismisses all suggestions of a
 # particular type.

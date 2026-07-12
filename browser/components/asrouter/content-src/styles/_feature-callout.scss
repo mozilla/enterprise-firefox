@@ -822,6 +822,7 @@
             // TODO: This is (very) likely to change
             &:not(:disabled):hover {
               background-color: var(--fc-button-background-hover);
+              color: var(--fc-button-color-hover);
             }
 
             &:disabled {

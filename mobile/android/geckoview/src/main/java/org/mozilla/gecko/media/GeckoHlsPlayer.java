@@ -386,6 +386,25 @@ public class GeckoHlsPlayer
       if (mMediaDecoderPlayState != MediaDecoderPlayState.PLAY_STATE_PLAYING) {
         suspendExoplayer();
       }
+      // A fully loaded (static timeline) source that is still buffering without
+      // an initialized demuxer produced no playable samples for its declared
+      // tracks (e.g. an HLS segment that is not actually media). Nothing more
+      // will load, so surface the failure instead of hanging forever.
+      if (!mIsDemuxerInitDone
+          && !isLiveStream()
+          && mPlayer != null
+          && mPlayer.getPlaybackState() == Player.STATE_BUFFERING) {
+        mIsPlayerInitDone = false;
+        if (!mReleasing) {
+          if (mResourceCallbacks != null) {
+            mResourceCallbacks.onError(ResourceError.UNSUPPORTED.code());
+          }
+          if (mDemuxerCallbacks != null) {
+            mDemuxerCallbacks.onError(DemuxerError.UNSUPPORTED.code());
+          }
+        }
+        return;
+      }
       // To update buffered position.
       mComponentEventDispatcher.onDataArrived(C.TRACK_TYPE_DEFAULT);
     }

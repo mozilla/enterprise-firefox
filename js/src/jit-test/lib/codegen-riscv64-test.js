@@ -12,7 +12,8 @@ addi      sp, sp, -8
 sd        ra, 0\\(sp\\)
 addi      sp, sp, -8
 sd        fp, 0\\(sp\\)
-mv        fp, sp
+mv        fp, sp(
+sd        s4, 16\\(fp\\))?
 `,
 
     // Start of epilogue

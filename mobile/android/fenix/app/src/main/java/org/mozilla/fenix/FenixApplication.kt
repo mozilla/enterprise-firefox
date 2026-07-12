@@ -509,7 +509,10 @@ open class FenixApplication : Application(), Provider, ThemeProvider {
                         components.fxSuggest.ingestionScheduler.stopPeriodicIngestion()
                     }
                 }
+
                 components.core.fileUploadsDirCleaner.cleanUploadsDirectory()
+                components.settings.deletePocketDatabaseIfNeeded()
+                components.settings.deleteReportSiteDomainsDataStoreIfNeeded()
             }
             // Account manager initialization needs to happen on the main thread.
             GlobalScope.launch(Dispatchers.Main) {

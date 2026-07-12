@@ -23,6 +23,8 @@
 #include "nsISupports.h"
 #include "nsRefPtrHashtable.h"
 #include "nsTHashMap.h"
+#include "nsTHashtable.h"
+#include "nsURIHashKey.h"
 #include "nsWrapperCache.h"
 
 class nsIPrincipal;
@@ -46,6 +48,16 @@ class WindowSessionStoreState;
 struct WindowSessionStoreUpdate;
 class SSCacheQueryResult;
 enum class FullscreenKeyboardLock : uint8_t;
+
+// No-cors media request state used by Opaque Response Blocking, derived in the
+// parent from state recorded on the owning window so a content process cannot
+// spoof a subsequent request.
+// See: https://whatpr.org/fetch/1442.html#request-no-cors-media-request-state
+enum class NoCorsMediaRequestState : uint8_t {
+  NotAvailable,
+  Initial,
+  Subsequent,
+};
 
 /**
  * A handle in the parent process to a specific nsGlobalWindowInner object.
@@ -264,6 +276,10 @@ class WindowGlobalParent final : public WindowContext,
   // Get the nsIChannel which failed, leading to this error document being
   // loaded, if known.
   already_AddRefed<nsIChannel> GetFailedChannel();
+
+  dom::NoCorsMediaRequestState NoCorsMediaRequestState(nsIURI* aURI) const;
+
+  void RecordSubsequentNoCorsRequestState(nsIURI* aURI);
 
  protected:
   already_AddRefed<JSActor> InitJSActor(JS::Handle<JSObject*> aMaybeActor,
@@ -513,6 +529,11 @@ class WindowGlobalParent final : public WindowContext,
   bool mFullscreen = false;
 
   bool mShouldReportHasBlockedOpaqueResponse = false;
+
+  // URIs of media resources for which an initial no-cors media request has
+  // passed the Opaque Response Blocking media checks in this window. Used to
+  // recognise subsequent (range) requests for the same resource.
+  nsTHashtable<nsCStringHashKey> mNoCorsMediaRequestURIs;
 };
 
 nsCString BFCacheStatusToString(uint32_t aFlags);

@@ -1415,7 +1415,7 @@ bool GLBlitHelper::BlitImage(MacIOSurface* const iosurf,
       return false;
   }
 
-  const GLenum texTarget = MacIOSurface::GetTextureTarget(mGL);
+  const GLenum texTarget = mGL->GetPreferredMacIOSurfaceTextureTarget();
   const ScopedSaveMultiTex saveTex(mGL, planes, texTarget);
   Maybe<ScopedTexture> texs[3];
 

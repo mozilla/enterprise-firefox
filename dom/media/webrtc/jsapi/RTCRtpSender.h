@@ -279,6 +279,7 @@ class RTCRtpSender : public nsISupports,
   void ApplyAudioConfig(const AudioConfig& aConfig);
   void UpdateParametersCodecs();
   void UpdateParametersRtcp();
+  void UpdateParametersHeaderExtensions();
 
   Canonical<Ssrcs> mSsrcs;
   Canonical<Ssrcs> mVideoRtxSsrcs;

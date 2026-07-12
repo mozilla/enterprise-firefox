@@ -1027,6 +1027,14 @@ abstract class EngineSession(
     abstract fun checkForPdfViewer(onResult: (Boolean) -> Unit, onException: (Throwable) -> Unit)
 
     /**
+     * Gets the broken site report.
+     *
+     * @param onResult callback invoked if the engine API returned a valid response.
+     * @param onException callback invoked if there was an error getting the response.
+     */
+    abstract fun getBrokenSiteReport(onResult: (JSONObject) -> Unit, onException: (Throwable) -> Unit)
+
+    /**
      * Gets the web compat info.
      *
      * @param onResult callback invoked if the engine API returned a valid response.

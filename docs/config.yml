@@ -156,7 +156,7 @@ allowed_warnings:
     - "devtools-user/page_inspector/how_to/work_with_animations/index\\.(rst|md):.*: WARNING: undefined label"
     - "js/build\\.rst:.*: WARNING: undefined label"
     - "layout/Reftest\\.md:.*: WARNING: undefined label"
-    - "mots/index.rst:.*: WARNING: undefined label"
+    - "mots/index.md:.*: WARNING: undefined label"
     - "nspr/.* WARNING: undefined label"
     - "tools/fuzzing/fuzzing_interface\\.md:.*: WARNING: undefined label"
     - "tools/fuzzing/index\\.md:.*: WARNING: undefined label"
@@ -237,7 +237,6 @@ allowed_warnings:
     - "toolkit/components/telemetry/obsolete/collection/custom-pings\\.md:.*: WARNING: undefined label"
     - "toolkit/components/telemetry/data/install-ping\\.md:.*: ERROR: Document or section may not begin with a transition"
     - "toolkit/mozapps/extensions/addon-manager/AMRemoteSettings-overview\\.md:.*: WARNING: undefined label"
-    - "code-quality/.*\\.md:.*: WARNING: undefined label"
 exclude_patterns:
     - js/src/doc/Debugger
 

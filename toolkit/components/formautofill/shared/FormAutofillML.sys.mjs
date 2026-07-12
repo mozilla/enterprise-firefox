@@ -18,7 +18,6 @@ const FormFill_Config = {
   featureId: FORM_AUTOFILL_FEATURE_ID,
   engineId: FEATURES[FORM_AUTOFILL_FEATURE_ID].engineId,
   backend: "best-onnx",
-  modelRevision: "main",
   modelId: "mozilla/tinybert-address-autofill",
 };
 

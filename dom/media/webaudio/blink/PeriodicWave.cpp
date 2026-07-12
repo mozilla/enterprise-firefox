@@ -30,6 +30,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numbers>
 
 #include "mozilla/FFTBlock.h"
 
@@ -287,7 +288,7 @@ void PeriodicWave::createBandLimitedTables(float fundamentalFrequency,
 }
 
 void PeriodicWave::generateBasicWaveform(OscillatorType shape) {
-  const float piFloat = float(M_PI);
+  const float piFloat = std::numbers::pi_v<float>;
   unsigned fftSize = periodicWaveSize();
   unsigned halfSize = fftSize / 2;
 

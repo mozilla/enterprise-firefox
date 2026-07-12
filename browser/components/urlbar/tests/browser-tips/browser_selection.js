@@ -20,7 +20,7 @@ add_task(async function tipIsSecondResult() {
         url: "http://mozilla.org/a",
         helpUrl: "http://example.com/",
         isBlockable: true,
-        blockL10n: { id: "urlbar-result-menu-remove-from-history" },
+        blockL10n: { id: "urlbar-result-menu-remove-from-history2" },
       },
     }),
     makeTipResult({
@@ -248,7 +248,7 @@ add_task(async function tipHasNoResultMenuButton() {
         url: "http://mozilla.org/a",
         helpUrl: "http://example.com/",
         isBlockable: true,
-        blockL10n: { id: "urlbar-result-menu-remove-from-history" },
+        blockL10n: { id: "urlbar-result-menu-remove-from-history2" },
       },
     }),
 

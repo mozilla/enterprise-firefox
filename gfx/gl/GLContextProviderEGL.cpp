@@ -564,7 +564,7 @@ bool GLContextEGL::HasKhrPartialUpdate() const {
   return mEgl->IsExtensionSupported(EGLExtension::KHR_partial_update);
 }
 
-EGLint GLContextEGL::GetBindToTextureTargetANGLE() {
+EGLint GLContextEGL::GetBindToTextureTargetANGLE() const {
   if (mBindToTextureTargetANGLE) {
     return *mBindToTextureTargetANGLE;
   }
@@ -589,6 +589,22 @@ EGLint GLContextEGL::GetBindToTextureTargetANGLE() {
   }
   mBindToTextureTargetANGLE.emplace(eglTarget);
   return eglTarget;
+}
+
+GLenum GLContextEGL::GetPreferredMacIOSurfaceTextureTarget() const {
+  const auto eglTarget = GetBindToTextureTargetANGLE();
+  switch (eglTarget) {
+    case LOCAL_EGL_TEXTURE_2D:
+      return LOCAL_GL_TEXTURE_2D;
+      break;
+    case LOCAL_EGL_TEXTURE_RECTANGLE_ANGLE:
+      return LOCAL_GL_TEXTURE_RECTANGLE_ARB;
+      break;
+    default:
+      gfxCriticalErrorOnce() << "Unexpected EGL_BIND_TO_TEXTURE_TARGET_ANGLE: "
+                             << gfx::hexa(eglTarget);
+      return LOCAL_GL_TEXTURE_2D;
+  }
 }
 
 GLint GLContextEGL::GetBufferAge() const {

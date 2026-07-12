@@ -120,11 +120,9 @@ add_task(async function test_aboutwelcome_mr_template_easy_setup_default() {
 
   await test_screen_content(
     browser,
-    "Should render easy setup with all checkboxes (default, pin)",
+    "renders easy setup with pin and default checkbox",
     //Expected selectors:
-    ["main.AW_EASY_SETUP_NEEDS_DEFAULT_AND_PIN"],
-    //Unexpected selectors:
-    ["main.AW_EASY_SETUP_NEEDS_DEFAULT", "main.AW_EASY_SETUP_NEEDS_PIN"]
+    ["main.AW_EASY_SETUP", "#checkbox-1", "#checkbox-2"]
   );
 
   await cleanup();
@@ -146,17 +144,13 @@ add_task(async function test_aboutwelcome_mr_template_easy_setup_needs_pin() {
 
   const { browser, cleanup } = await openMRAboutWelcome();
 
-  //should render easy setup needs pin
   await test_screen_content(
     browser,
-    "Should render easy setup with only pin checkbox",
+    "renders easy setup with only pin checkbox",
     //Expected selectors:
-    ["main.AW_EASY_SETUP_NEEDS_PIN"],
+    ["main.AW_EASY_SETUP", "#checkbox-1"],
     //Unexpected selectors:
-    [
-      "main.AW_EASY_SETUP_NEEDS_DEFAULT",
-      "main.AW_EASY_SETUP_NEEDS_DEFAULT_AND_PIN",
-    ]
+    ["#checkbox-2"]
   );
 
   await cleanup();
@@ -180,17 +174,13 @@ add_task(
 
     const { browser, cleanup } = await openMRAboutWelcome();
 
-    //should render easy setup needs default
     await test_screen_content(
       browser,
-      "Should render easy setup with default only checkbox",
+      "renders easy setup with only set to default checkbox",
       //Expected selectors:
-      ["main.AW_EASY_SETUP_NEEDS_DEFAULT"],
+      ["main.AW_EASY_SETUP", "#checkbox-2"],
       //Unexpected selectors:
-      [
-        "main.AW_EASY_SETUP_NEEDS_PIN",
-        "main.AW_EASY_SETUP_NEEDS_DEFAULT_AND_PIN",
-      ]
+      ["#checkbox-1"]
     );
 
     await cleanup();

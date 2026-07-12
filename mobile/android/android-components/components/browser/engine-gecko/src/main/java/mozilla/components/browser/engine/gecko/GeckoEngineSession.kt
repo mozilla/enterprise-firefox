@@ -691,6 +691,30 @@ class GeckoEngineSession(
     }
 
     /**
+     * See [EngineSession.getBrokenSiteReport].
+     */
+    override fun getBrokenSiteReport(
+        onResult: (JSONObject) -> Unit,
+        onException: (Throwable) -> Unit,
+    ) {
+        geckoSession.brokenSiteReport.then(
+            { result ->
+                if (result == null) {
+                    logger.error("No result from GeckoView getBrokenSiteReport.")
+                    return@then GeckoResult<JSONObject>()
+                }
+                onResult(result)
+                GeckoResult()
+            },
+            { throwable ->
+                logger.error("Getting broken site report failed.", throwable)
+                onException(throwable)
+                GeckoResult()
+            },
+        )
+    }
+
+    /**
      * See [EngineSession.getWebCompatInfo].
      */
     override fun getWebCompatInfo(

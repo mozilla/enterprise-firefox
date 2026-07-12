@@ -191,92 +191,65 @@ let propNameAllowlist = [
 
   // These variables define accent colors for tab group chrome
   // and are used in JS in tabgroup.js
-  { propName: "--tab-group-color-blue", isFromDevTools: false },
-  { propName: "--tab-group-color-blue-invert", isFromDevTools: false },
-  { propName: "--tab-group-color-blue-pale", isFromDevTools: false },
-
-  { propName: "--tab-group-color-purple", isFromDevTools: false },
-  { propName: "--tab-group-color-purple-invert", isFromDevTools: false },
-  { propName: "--tab-group-color-purple-pale", isFromDevTools: false },
-
-  { propName: "--tab-group-color-cyan", isFromDevTools: false },
-  { propName: "--tab-group-color-cyan-invert", isFromDevTools: false },
-  { propName: "--tab-group-color-cyan-pale", isFromDevTools: false },
-
-  { propName: "--tab-group-color-orange", isFromDevTools: false },
-  { propName: "--tab-group-color-orange-invert", isFromDevTools: false },
-  { propName: "--tab-group-color-orange-pale", isFromDevTools: false },
-
-  { propName: "--tab-group-color-yellow", isFromDevTools: false },
-  { propName: "--tab-group-color-yellow-invert", isFromDevTools: false },
-  { propName: "--tab-group-color-yellow-pale", isFromDevTools: false },
-
-  { propName: "--tab-group-color-pink", isFromDevTools: false },
-  { propName: "--tab-group-color-pink-invert", isFromDevTools: false },
-  { propName: "--tab-group-color-pink-pale", isFromDevTools: false },
-
-  { propName: "--tab-group-color-green", isFromDevTools: false },
-  { propName: "--tab-group-color-green-invert", isFromDevTools: false },
-  { propName: "--tab-group-color-green-pale", isFromDevTools: false },
-
-  { propName: "--tab-group-color-red", isFromDevTools: false },
-  { propName: "--tab-group-color-red-invert", isFromDevTools: false },
-  { propName: "--tab-group-color-red-pale", isFromDevTools: false },
-
-  { propName: "--tab-group-color-gray", isFromDevTools: false },
-  { propName: "--tab-group-color-gray-invert", isFromDevTools: false },
-  { propName: "--tab-group-color-gray-pale", isFromDevTools: false },
-
   { propName: "--tab-group-blue", isFromDevTools: false },
   { propName: "--tab-group-blue-invert", isFromDevTools: false },
+  { propName: "--tab-group-blue-pale", isFromDevTools: false },
   { propName: "--tab-group-blue-hover", isFromDevTools: false },
   { propName: "--tab-group-blue-text", isFromDevTools: false },
   { propName: "--tab-group-blue-text-invert", isFromDevTools: false },
 
   { propName: "--tab-group-purple", isFromDevTools: false },
   { propName: "--tab-group-purple-invert", isFromDevTools: false },
+  { propName: "--tab-group-purple-pale", isFromDevTools: false },
   { propName: "--tab-group-purple-hover", isFromDevTools: false },
   { propName: "--tab-group-purple-text", isFromDevTools: false },
   { propName: "--tab-group-purple-text-invert", isFromDevTools: false },
 
   { propName: "--tab-group-cyan", isFromDevTools: false },
   { propName: "--tab-group-cyan-invert", isFromDevTools: false },
+  { propName: "--tab-group-cyan-pale", isFromDevTools: false },
   { propName: "--tab-group-cyan-hover", isFromDevTools: false },
   { propName: "--tab-group-cyan-text", isFromDevTools: false },
   { propName: "--tab-group-cyan-text-invert", isFromDevTools: false },
 
   { propName: "--tab-group-orange", isFromDevTools: false },
   { propName: "--tab-group-orange-invert", isFromDevTools: false },
+  { propName: "--tab-group-orange-pale", isFromDevTools: false },
   { propName: "--tab-group-orange-hover", isFromDevTools: false },
   { propName: "--tab-group-orange-text", isFromDevTools: false },
   { propName: "--tab-group-orange-text-invert", isFromDevTools: false },
 
   { propName: "--tab-group-yellow", isFromDevTools: false },
   { propName: "--tab-group-yellow-invert", isFromDevTools: false },
+  { propName: "--tab-group-yellow-pale", isFromDevTools: false },
   { propName: "--tab-group-yellow-hover", isFromDevTools: false },
   { propName: "--tab-group-yellow-text", isFromDevTools: false },
   { propName: "--tab-group-yellow-text-invert", isFromDevTools: false },
 
   { propName: "--tab-group-pink", isFromDevTools: false },
   { propName: "--tab-group-pink-invert", isFromDevTools: false },
+  { propName: "--tab-group-pink-pale", isFromDevTools: false },
   { propName: "--tab-group-pink-hover", isFromDevTools: false },
   { propName: "--tab-group-pink-text", isFromDevTools: false },
   { propName: "--tab-group-pink-text-invert", isFromDevTools: false },
 
   { propName: "--tab-group-green", isFromDevTools: false },
   { propName: "--tab-group-green-invert", isFromDevTools: false },
+  { propName: "--tab-group-green-pale", isFromDevTools: false },
   { propName: "--tab-group-green-hover", isFromDevTools: false },
   { propName: "--tab-group-green-text", isFromDevTools: false },
   { propName: "--tab-group-green-text-invert", isFromDevTools: false },
 
   { propName: "--tab-group-red", isFromDevTools: false },
   { propName: "--tab-group-red-invert", isFromDevTools: false },
+  { propName: "--tab-group-red-pale", isFromDevTools: false },
   { propName: "--tab-group-red-hover", isFromDevTools: false },
   { propName: "--tab-group-red-text", isFromDevTools: false },
   { propName: "--tab-group-red-text-invert", isFromDevTools: false },
 
   { propName: "--tab-group-gray", isFromDevTools: false },
   { propName: "--tab-group-gray-invert", isFromDevTools: false },
+  { propName: "--tab-group-gray-pale", isFromDevTools: false },
   { propName: "--tab-group-gray-hover", isFromDevTools: false },
   { propName: "--tab-group-gray-text", isFromDevTools: false },
   { propName: "--tab-group-gray-text-invert", isFromDevTools: false },
@@ -476,7 +449,44 @@ function processCSSRules(container) {
       processCSSRules(rule); // @supports, @media, @layer (block), @keyframes, style rules with nested rules.
     }
     if (!rule.style) {
-      continue; // @layer (statement), @font-feature-values, @counter-style
+      // @layer (statement), @font-feature-values, @counter-style, @container, …
+
+      // Look for custom property usage in style queries
+      if (rule.conditionText) {
+        const lexer = new InspectorCSSParser(rule.conditionText);
+        let token;
+        let foundStyleFunc = false;
+        while ((token = lexer.nextToken())) {
+          // we're looking for usages of the `style()` function to collect referenced
+          // custom property names
+          if (token.tokenType === "Function" && token.value === "style") {
+            foundStyleFunc = true;
+            continue;
+          }
+
+          // If we saw a `style(` token before, we're looking for the custom property name
+          // param
+          if (
+            foundStyleFunc &&
+            token.tokenType === "Ident" &&
+            token.text.startsWith("--")
+          ) {
+            foundStyleFunc = false;
+            const prop = token.text;
+            let prevValue = customPropsToReferencesMap.get(prop) || 0;
+            customPropsToReferencesMap.set(prop, prevValue + 1);
+            continue;
+          }
+
+          // When seeing a closing parenthesis we can reset the work variable
+          if (token.tokenType === "CloseParenthesis") {
+            foundStyleFunc = false;
+            continue;
+          }
+        }
+      }
+
+      continue;
     }
 
     // We want to extract urls and variables from the css text.

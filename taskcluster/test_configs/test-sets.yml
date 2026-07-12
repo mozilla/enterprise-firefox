@@ -123,6 +123,7 @@ browsertime:
     - browsertime-network-bench
     - browsertime-webcodecs
     - browsertime-trr-performance
+    - browsertime-hev3-connection
 
 browsertime-clang:
     - browsertime-tp6
@@ -649,6 +650,7 @@ android-hw-browsertime:
     - browsertime-video-playback-latency-mobile
     - browsertime-youtube-playback-power-mobile
     - browsertime-trr-performance-m
+    - browsertime-hev3-connection-m
 
 android-hw-browsertime-profiling:
     - browsertime-tp6m-profiling

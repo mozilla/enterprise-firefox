@@ -1509,9 +1509,9 @@ popupnotificationcontent {
 
 /* AI Window Toggle Button */
 #ai-window-toggle {
-  list-style-image: url("chrome://branding/content/icon32.png");
+  list-style-image: url("chrome://branding/content/about-logo.svg");
   border-radius: var(--border-radius-medium);
-  padding-inline-end: var(--space-small);
+  padding-inline-end: var(--toolbarbutton-padding-inner);
 
   /* Toggle button should only have padding-inline-end if #PanelUI-button both visible and rendered next to it */
   :root:not([aiwindow-first-run]) &:has(+ #PanelUI-button) {
@@ -1519,7 +1519,7 @@ popupnotificationcontent {
   }
 
   > .toolbarbutton-icon {
-    padding: var(--space-small);
+    padding: var(--toolbarbutton-padding-inner);
 
     @media not -moz-pref("browser.nova.enabled") {
       /* The design system does not have any inset box-shadow tokens. */
@@ -1528,22 +1528,23 @@ popupnotificationcontent {
     }
 
     @media -moz-pref("browser.nova.enabled") {
-      --smart-window-toolbarbutton-color: color-mix(in srgb, var(--color-violet-desaturated-50) 15%, transparent);
-      /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-      border: var(--border-width) solid var(--smart-window-toolbarbutton-color);
+      /* set default color for HCM */
+      --smart-window-toolbarbutton-color: var(--border-color-interactive-hover);
       --toolbarbutton-background-color-hover: var(--background-color-box);
       --toolbarbutton-background-color-active: var(--background-color-box);
       --toolbarbutton-outline-color: var(--smart-window-toolbarbutton-color);
+      /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+      border: var(--border-width) solid var(--smart-window-toolbarbutton-color);
+
+      @media not (forced-colors) {
+        --smart-window-toolbarbutton-color: color-mix(in srgb, var(--color-violet-desaturated-50) 15%, transparent);
+      }
     }
   }
 
   /* Smart Window toggle */
   :root[ai-window] & {
     list-style-image: url("chrome://browser/skin/smart-window-simplified.svg");
-
-    @media -moz-pref("browser.nova.enabled") {
-      list-style-image: url("chrome://browser/skin/smart-window-nova.svg");
-    }
 
     > .toolbarbutton-icon {
       @media not -moz-pref("browser.nova.enabled") {
@@ -1554,12 +1555,15 @@ popupnotificationcontent {
         box-shadow: 0 0 16px 4px var(--smartwindow-toggle-shadow-color) inset;
       }
 
-      @media -moz-pref("browser.nova.enabled") {
-        /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-        box-shadow: 0 0 16px 4px var(--background-color-box) inset;
+      @media (not (forced-colors)) and -moz-pref("browser.nova.enabled") {
         /* The design system does not have any outline width tokens. */
         /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
         outline-width: var(--toolbarbutton-padding-inner-compact);
+      }
+
+      @media -moz-pref("browser.nova.enabled") {
+        /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+        box-shadow: 0 0 16px 4px var(--background-color-box) inset;
         --toolbarbutton-background-color-hover: var(--background-color-box);
         --toolbarbutton-background-color-active: var(--background-color-box);
         --toolbarbutton-outline-color-hover: var(--smart-window-toolbarbutton-color);
@@ -1636,7 +1640,7 @@ popupnotificationcontent {
 }
 
 #ai-window-switch-classic {
-  list-style-image: url("chrome://branding/content/icon32.png");
+  list-style-image: url("chrome://branding/content/about-logo.svg");
 
   :root[ai-window] &::after {
     display: none;
@@ -1666,8 +1670,9 @@ popupnotificationcontent {
   margin-inline-start: auto;
 }
 
-/* AI window immersive view (hidden nav bar and buttons) */
-:root[ai-window][aiwindow-immersive-view] {
+/* AI window: hide nav bar on new window or firstrun */
+:root[ai-window][aiwindow-new-window],
+:root[ai-window][aiwindow-first-run] {
   #nav-bar:not(.browser-titlebar) {
     height: 0;
     min-height: 0;
@@ -1676,48 +1681,45 @@ popupnotificationcontent {
 
   #urlbar-container,
   #nav-bar-customization-target > *:not(#sidebar-button),
-  #nav-bar-overflow-button,
-  #smartwindow-ask-button {
+  #nav-bar-overflow-button {
     visibility: hidden;
   }
+}
 
-  /* Show back/forward buttons when navigating back to the Smart Window from a page */
-  &[aiwindow-has-nav-forward] {
-    #nav-bar:not(.browser-titlebar) {
-      height: unset;
-      min-height: unset;
-      visibility: visible;
-    }
-
-    #sidebar-button {
-      display: none;
-    }
-
-    #nav-bar-customization-target > #back-button,
-    #nav-bar-customization-target > #forward-button {
-      visibility: visible;
-      -moz-user-focus: normal;
-    }
+/* Show back/forward buttons when navigating back to the Smart Window from a page */
+:root[ai-window][aiwindow-new-window][aiwindow-has-nav-forward] {
+  #nav-bar:not(.browser-titlebar) {
+    height: unset;
+    min-height: unset;
+    visibility: visible;
   }
 
-  /* immersive view styles exclusive for first run */
-  &[aiwindow-first-run] {
-    #PanelUI-button {
-      display: none;
-    }
+  #nav-bar-customization-target > #back-button,
+  #nav-bar-customization-target > #forward-button {
+    visibility: visible;
+    -moz-user-focus: normal;
+  }
+}
 
-    #TabsToolbar > .toolbar-items {
+/* immersive view styles exclusive for first run (nav-bar/urlbar hiding is
+   shared with new-window above) */
+:root[ai-window][aiwindow-first-run] {
+  #sidebar-button,
+  #PanelUI-button {
+    display: none;
+  }
+
+  #TabsToolbar > .toolbar-items {
+    /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens -- to be addressed in 2033919 */
+    opacity: 0.2;
+    pointer-events: none;
+  }
+
+  @media -moz-pref("sidebar.verticalTabs") {
+    #sidebar-container {
       /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens -- to be addressed in 2033919 */
       opacity: 0.2;
       pointer-events: none;
-    }
-
-    @media -moz-pref("sidebar.verticalTabs") {
-      #sidebar-container {
-        /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens -- to be addressed in 2033919 */
-        opacity: 0.2;
-        pointer-events: none;
-      }
     }
   }
 }

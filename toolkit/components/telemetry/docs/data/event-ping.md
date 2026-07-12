@@ -80,7 +80,7 @@ reason set to "max" or "shutdown".
 
 ### events
 
-A map from process names to arrays of event records that have been {ref}`serialized <events.serializationformat>`.
+A map from process names to arrays of event records that have been {ref}`serialized <events-serializationformat>`.
 
 ## Version History
 

@@ -70,6 +70,10 @@ class GLContextCGL : public GLContext {
   virtual void GetWSIInfo(nsCString* const out) const override;
 
   Maybe<SymbolLoader> GetSymbolLoader() const override;
+
+  GLenum GetPreferredMacIOSurfaceTextureTarget() const override {
+    return LOCAL_GL_TEXTURE_RECTANGLE_ARB;
+  }
 };
 
 }  // namespace gl

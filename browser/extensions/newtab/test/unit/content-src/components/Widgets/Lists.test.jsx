@@ -1009,7 +1009,9 @@ describe("<Lists>", () => {
   });
 
   it("should dispatch OPEN_LINK when the Learn More option is clicked", () => {
-    const learnMoreItem = wrapper.find(".learn-more");
+    const learnMoreItem = wrapper.find(
+      "panel-item[data-l10n-id='newtab-widget-lists-menu-learn-more']"
+    );
     learnMoreItem.props().onClick();
 
     assert.ok(dispatch.calledOnce);

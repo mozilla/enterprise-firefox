@@ -581,7 +581,6 @@ class TabStorageMiddleware(
             }
         }
 
-        // bondbond todo: do a before/after of the recomposition counts
         val (displayTabGroups, displayNormalItems) = generateUiFriendlyModels(
             normalItems = normalItems,
             tabGroupMap = transformedTabGroups,

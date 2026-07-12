@@ -6080,7 +6080,8 @@ firefox_labs:
   toggle_button_pressed:
     type: event
     description: |
-      The user toggled a Firefox Labs item switch.
+      The user toggled a Firefox Labs item switch. Recorded after Nimbus
+      processes the toggle.
     extra_keys:
       slug_id:
         type: string
@@ -6092,10 +6093,19 @@ firefox_labs:
         type: boolean
         description: |
           The new enabled state the user attempted to set.
+      status:
+        type: string
+        description: |
+          The Nimbus enroll/unenroll status, lowercased. One of: "enrolled",
+          "already_enrolled", "unenrolled", "already_unenrolled", "no_experiment",
+          "not_firefox_labs_opt_in", "feature_conflict", "error", or "exception"
+          when the Nimbus call threw.
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2035830
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2046556
     data_reviews:
       - https://phabricator.services.mozilla.com/D305929
+      - https://phabricator.services.mozilla.com/D309436
     data_sensitivity:
       - interaction
     notification_emails:
@@ -6162,8 +6172,15 @@ firefox_labs:
     type: event
     description: |
       The user resolved the restore defaults dialog on the Firefox Labs screen (by confirming or cancelling).
+      When confirmed, recorded after Nimbus processes the request.
     extra_keys:
-      items_changed_count:
+      slug_ids:
+        type: string
+        description: |
+          Comma delimited Nimbus slugs of the Labs items that were enrolled when
+          defaults were restored (and so were toggled off), e.g.
+          "homepage-as-new-tab,reader-view". Empty if the user cancelled the dialog.
+      count:
         type: quantity
         description: |
           Number of items flipped from on to off. Zero if the user cancelled the dialog.
@@ -6172,10 +6189,17 @@ firefox_labs:
         type: boolean
         description: |
           True if the user confirmed the dialog to restore defaults, false if the user dismissed it without restoring.
+      succeeded:
+        type: boolean
+        description: |
+          Whether unenrolling from all Firefox Labs completed without error. False
+          when the user cancelled the dialog without restoring or an issue occurred.
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2035830
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2046556
     data_reviews:
       - https://phabricator.services.mozilla.com/D305929
+      - https://phabricator.services.mozilla.com/D309436
     data_sensitivity:
       - interaction
     notification_emails:
@@ -6191,6 +6215,46 @@ firefox_labs:
       - https://phabricator.services.mozilla.com/D305730
     data_sensitivity:
       - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+  initial_labs_fetch:
+    type: event
+    description: |
+      Recorded when the Firefox Labs screen is populated with the available Labs
+      fetched from Nimbus.
+    extra_keys:
+      slug_ids:
+        type: string
+        description: |
+          Comma delimited Nimbus slugs of the available Labs, e.g.
+          "homepage-as-new-tab,reader-view". These are defined in the experimenter
+          setup and are not unique on a user basis.
+      count:
+        type: quantity
+        description: |
+          The number of available Labs fetched from Nimbus.
+        unit: labs
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2046556
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D309436
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+  fetch_failed:
+    type: event
+    description: |
+      Fetching the available Firefox Labs from Nimbus threw an error, so the
+      Firefox Labs screen could not load or refresh its list of features.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2046556
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D309436
+    data_sensitivity:
+      - technical
     notification_emails:
       - android-probes@mozilla.com
     expires: never
@@ -9241,6 +9305,12 @@ top_sites:
     type: event
     description: |
       A user opened a default top site
+    extra_keys:
+      source: &top_sites_source
+        type: string
+        description: |
+          The surface where the top site interaction occurred.
+          One of "homepage" or "shortcuts_library".
     bugs:
       - https://github.com/mozilla-mobile/fenix/issues/8125
     data_reviews:
@@ -9261,6 +9331,8 @@ top_sites:
     type: event
     description: |
       A user opened the google top site
+    extra_keys:
+      source: *top_sites_source
     bugs:
       - https://github.com/mozilla-mobile/fenix/issues/17418
     data_reviews:
@@ -9301,6 +9373,8 @@ top_sites:
     type: event
     description: |
       A user opened a frecency top site
+    extra_keys:
+      source: *top_sites_source
     bugs:
       - https://github.com/mozilla-mobile/fenix/issues/14565
     data_reviews:
@@ -9321,6 +9395,8 @@ top_sites:
     type: event
     description: |
       A user opened a pinned top site
+    extra_keys:
+      source: *top_sites_source
     bugs:
       - https://github.com/mozilla-mobile/fenix/issues/14565
     data_reviews:
@@ -9372,6 +9448,7 @@ top_sites:
         description: |
           The type of top site. Options are: "FRECENCY", "DEFAULT",
           "PINNED", or "PROVIDED"
+      source: *top_sites_source
     bugs:
       - https://github.com/mozilla-mobile/fenix/issues/14565
       - https://github.com/mozilla-mobile/fenix/issues/23526
@@ -9394,6 +9471,8 @@ top_sites:
     type: event
     description: |
       A user opens a new tab based on a top site item
+    extra_keys:
+      source: *top_sites_source
     bugs:
       - https://github.com/mozilla-mobile/fenix/issues/6757
     data_reviews:
@@ -9414,6 +9493,8 @@ top_sites:
     type: event
     description: |
       A user opens a new private tab based on a top site item
+    extra_keys:
+      source: *top_sites_source
     bugs:
       - https://github.com/mozilla-mobile/fenix/issues/6757
     data_reviews:
@@ -9434,6 +9515,8 @@ top_sites:
     type: event
     description: |
       A user removes a top site item
+    extra_keys:
+      source: *top_sites_source
     bugs:
       - https://github.com/mozilla-mobile/fenix/issues/6757
     data_reviews:
@@ -9450,10 +9533,78 @@ top_sites:
     metadata:
       tags:
         - Shortcuts
+  add:
+    type: event
+    description: |
+      A user added a top site.
+    extra_keys:
+      source:
+        type: string
+        description: |
+          The source of where the shortcut was added. Options are: "popular" (chosen from the
+          popular sites list), "manual" (added directly by the user), or "frecency_promote"
+          (a frecenct top site was pinned by the user).
+      entry_point:
+        type: string
+        description: |
+          Where the add flow was started from. Options are: "homepage",
+          "shortcuts_library", or "page_menu".
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2050288
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2050288
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - Shortcuts
+  add_sheet_shown:
+    type: event
+    description: |
+      The add shortcut bottom sheet for adding a shortcut was opened.
+    extra_keys:
+      entry_point:
+        type: string
+        description: |
+          Where the add shortcut bottom sheet was opened from. Options are: "homepage" or
+          "shortcuts_library".
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2050288
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2050288
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - Shortcuts
+  add_url_shown:
+    type: event
+    description: |
+      The add website modal for adding a shortcut was opened.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2050288
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2050288
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - Shortcuts
   google_top_site_removed:
     type: event
     description: |
       A user removed the default Google top site
+    extra_keys:
+      source: *top_sites_source
     bugs:
       - https://github.com/mozilla-mobile/fenix/issues/21841
     data_reviews:
@@ -9486,6 +9637,8 @@ top_sites:
     type: event
     description: |
       A user has opened a contile top site.
+    extra_keys:
+      source: *top_sites_source
     bugs:
       - https://github.com/mozilla-mobile/fenix/issues/23526
     data_reviews:
@@ -9502,6 +9655,8 @@ top_sites:
     description: |
       A user has opened a contile top site in a private tab via the long
       press context menu.
+    extra_keys:
+      source: *top_sites_source
     bugs:
       - https://github.com/mozilla-mobile/fenix/issues/23526
     data_reviews:
@@ -9518,6 +9673,8 @@ top_sites:
     description: |
       A user has selected "Settings" via the contile top sites
       longpress context menu.
+    extra_keys:
+      source: *top_sites_source
     bugs:
       - https://github.com/mozilla-mobile/fenix/issues/23526
     data_reviews:
@@ -9534,6 +9691,8 @@ top_sites:
     description: |
       A user has selected "Our sponsors & your privacy" via the
       contile top sites longpress context menu.
+    extra_keys:
+      source: *top_sites_source
     bugs:
       - https://github.com/mozilla-mobile/fenix/issues/23526
     data_reviews:
@@ -9638,7 +9797,9 @@ top_sites:
       A user saw a Contile top site
     extra_keys:
       source:
-        description: The source of the event, example "newtab", "urlbar"
+        description: |
+          The surface where the Contile top site was shown.
+          One of "homepage" or "shortcuts_library".
         type: string
       position:
         description: The tile placement (1-based)
@@ -9665,7 +9826,9 @@ top_sites:
       A user clicked a Contile top site
     extra_keys:
       source:
-        description: The source of the event, example "newtab", "urlbar"
+        description: |
+          The surface where the Contile top site was clicked.
+          One of "homepage" or "shortcuts_library".
         type: string
       position:
         description: The tile placement (1-based)
@@ -9756,6 +9919,12 @@ pocket:
     type: event
     description: |
       The Pocket recommended stories are shown on the home screen.
+    extra_keys:
+      source:
+        type: string
+        description: |
+          Where the stories impression was recorded.
+          One of "homepage" or "stories_screen".
     bugs:
       - https://github.com/mozilla-mobile/fenix/issues/21593
     data_reviews:
@@ -9784,6 +9953,11 @@ pocket:
         description: |
           Position of the clicked story in the list shown.
           Uses the [row x column] matrix notation.
+      source:
+        type: string
+        description: |
+          Where the clicked story was shown.
+          One of "homepage" or "stories_screen".
     bugs:
       - https://github.com/mozilla-mobile/fenix/issues/21593
     data_reviews:
@@ -11310,38 +11484,6 @@ cookie_banners:
       - https://github.com/mozilla-mobile/firefox-android/pull/1298#pullrequestreview-1350344223
       - https://github.com/mozilla-mobile/firefox-android/pull/3319
       - https://github.com/mozilla-mobile/firefox-android/pull/4039
-    data_sensitivity:
-      - interaction
-    notification_emails:
-      - android-probes@mozilla.com
-    expires: never
-    metadata:
-      tags:
-        - Privacy&Security
-  cfr_shown:
-    type: event
-    description: The cookie banner cfr has been shown
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1859393
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1859393#c2
-    data_sensitivity:
-      - interaction
-    notification_emails:
-      - android-probes@mozilla.com
-    expires: never
-    metadata:
-      tags:
-        - Privacy&Security
-  cfr_dismissal:
-    type: event
-    description: |
-      The cookie banners CFR was dismissed by the user by interacting
-      with the outside of the popup
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1859393
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1859393#c2
     data_sensitivity:
       - interaction
     notification_emails:
@@ -15379,6 +15521,11 @@ home.content.article:
       topic: &topic
         description: The topic of the recommendation. Like "entertainment".
         type: string
+      source: &source_pocket
+        description: >
+          The surface where the article was shown.
+          One of "homepage" or "stories_screen".
+        type: string
     send_in_pings:
       - home
 
@@ -15404,6 +15551,7 @@ home.content.article:
       received_rank: *received_rank
       recommended_at: *recommended_at
       topic: *topic
+      source: *source_pocket
     send_in_pings:
       - home
 

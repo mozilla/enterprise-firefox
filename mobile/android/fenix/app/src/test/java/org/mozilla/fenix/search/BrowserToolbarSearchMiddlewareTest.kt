@@ -1376,6 +1376,29 @@ class BrowserToolbarSearchMiddlewareTest {
     }
 
     @Test
+    fun `GIVEN Google search engine and Lens enabled WHEN in private mode THEN the QR scanner button is shown instead of the Lens button`() {
+        every { settings.googleLensIntegrationEnabled } returns true
+        every { settings.googleLensIntegrationUserEnabled } returns true
+        val browsingModeManager: BrowsingModeManager = mockk {
+            every { mode } returns Private
+        }
+        val appStore: AppStore = mockk(relaxed = true) {
+            every { state.searchState.selectedSearchEngine?.searchEngine } returns googleSearchEngine()
+        }
+        val (_, store) = buildMiddlewareAndAddToStore(
+            appStore = appStore,
+            browsingModeManager = browsingModeManager,
+        )
+
+        store.dispatch(EnterEditMode(false))
+        store.dispatch(SearchQueryUpdated(BrowserToolbarQuery("")))
+
+        val actions = store.state.editState.editActionsEnd.filterIsInstance<ActionButtonRes>()
+        assertEquals(null, actions.find { it.onClick == LensButtonClicked })
+        assertEquals(expectedQrButton, actions.find { it.onClick == QrScannerClicked })
+    }
+
+    @Test
     fun `WHEN the Lens button is clicked THEN dispatch LensRequested and record telemetry`() {
         every { settings.googleLensIntegrationEnabled } returns true
         every { settings.googleLensIntegrationUserEnabled } returns true
@@ -1486,55 +1509,6 @@ class BrowserToolbarSearchMiddlewareTest {
                 newTab = true,
                 flags = EngineSession.LoadUrlFlags.external(),
                 private = false,
-            )
-        }
-        verify { navController.navigate(R.id.action_global_browser) }
-    }
-
-    @Test
-    fun `GIVEN Lens scan in private mode WHEN receiving a result THEN open it as a new private tab`() {
-        val appStoreActionsCaptor = CaptureActionsMiddleware<AppState, AppAction>()
-        val appStore = AppStore(
-            initialState = AppState(
-                searchState = AppSearchState.EMPTY.copy(
-                    selectedSearchEngine = SelectedSearchEngine(
-                        searchEngine = googleSearchEngine(),
-                        isUserSelected = false,
-                    ),
-                ),
-            ),
-            middlewares = listOf(appStoreActionsCaptor),
-        )
-        val browserUseCases: FenixBrowserUseCases = mockk(relaxed = true)
-        every { components.useCases.fenixBrowserUseCases } returns browserUseCases
-        every { settings.googleLensIntegrationEnabled } returns true
-        every { settings.googleLensIntegrationUserEnabled } returns true
-        val browsingModeManager: BrowsingModeManager = mockk(relaxed = true) {
-            every { mode } returns Private
-        }
-        val (_, store) = buildMiddlewareAndAddToStore(
-            appStore = appStore,
-            components = components,
-            browsingModeManager = browsingModeManager,
-        )
-        store.dispatch(EnterEditMode(true))
-        store.dispatch(SearchQueryUpdated(BrowserToolbarQuery("")))
-
-        val lensButton = store.state.editState.editActionsEnd
-            .filterIsInstance<ActionButtonRes>()
-            .find { it.onClick == LensButtonClicked }!!
-
-        store.dispatch(lensButton.onClick as BrowserToolbarEvent)
-        appStore.dispatch(LensResultAvailable("https://lens.google.com/results"))
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        appStoreActionsCaptor.assertLastAction(LensResultConsumed::class)
-        verify {
-            browserUseCases.loadUrlOrSearch(
-                searchTermOrURL = "https://lens.google.com/results",
-                newTab = true,
-                flags = EngineSession.LoadUrlFlags.external(),
-                private = true,
             )
         }
         verify { navController.navigate(R.id.action_global_browser) }

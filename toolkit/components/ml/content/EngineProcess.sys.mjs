@@ -184,6 +184,9 @@ export const FEATURES = {
   "smart-intent": {
     engineId: "smart-intent",
   },
+  "smart-intent-en-fr": {
+    engineId: "smart-intent-en-fr",
+  },
   chat: {
     engineId: "smart-openai",
   },

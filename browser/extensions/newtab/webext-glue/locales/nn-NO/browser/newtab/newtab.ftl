@@ -96,6 +96,12 @@ home-prefs-clocks-header =
 # Privacy is a widget on New Tab that shows tracking protection activity.
 home-prefs-privacy-header =
     .label = Personvern
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = Aksjar
+# Picture of the day is a widget on New Tab that shows a daily Wikimedia Commons image.
+home-prefs-picture-header =
+    .label = Dagens bilde
 home-prefs-mission-message2 =
     .message = Sponsorane våre støttar oppdraget vårt om å byggje eit betre internett.
 home-prefs-manage-topics-link2 =
@@ -162,8 +168,42 @@ newtab-privacy-menu-learn-more = Les meir
 
 ## Strings for the Stocks widget
 
+# Context menu item for searching stock ticker symbols.
+newtab-stocks-menu-search = Søk etter aksjesymbol
+# Context menu item that hides the Stocks widget.
+newtab-stocks-menu-hide = Skjul aksjar
 # Context menu item linking to more information about the Stocks widget.
 newtab-stocks-menu-learn-more = Les meir
+
+## Strings for the Picture of the Day widget
+
+# Eyebrow shown at the top of the widget. Wikimedia Commons is a brand name and
+# should not be translated.
+newtab-picture-header = Dagens bilde · Wikimedia Commons
+# Button that sets the current picture as the New Tab background wallpaper. The
+# button collapses to an icon when not hovered/focused, so .title is its tooltip.
+newtab-picture-set-wallpaper =
+    .label = Vel bakgrunnsbilde
+    .title = Vel bakgrunnsbilde
+    .aria-label = Bruk dagens bilde som bakgrunnsbilde
+# Context menu item that opens the New Tab customization panel.
+newtab-picture-menu-manage-wallpaper = Behandle bakgrunnsbilde
+# Context menu item that hides today’s picture, replacing it with an existing
+# wallpaper.
+newtab-picture-menu-hide-photo = Skjul dagens bilde
+# Context menu item that restores today’s picture after it has been hidden.
+newtab-picture-menu-show-photo = Vis dagens bilde
+# Context menu item linking to more information about the widget.
+newtab-picture-menu-learn-more = Les meir
+# Icon button shown on the widget once the picture is hidden; restores it.
+newtab-picture-show-button =
+    .title = Vis dagens bilde
+    .aria-label = Vis dagens bilde
+# Shown when there is no new picture to display yet.
+newtab-picture-check-back = Sjekk tilbake i morgon for eit nytt bilde
+# Screen-reader text alternative for the picture; fallback used when the source
+# provides no localized description.
+newtab-picture-image-alt = Dagens bilde frå Wikimedia Commons
 
 ## Search box component.
 
@@ -511,6 +551,10 @@ newtab-custom-widget-sports-toggle2 =
     .label = Sport
 newtab-custom-widget-privacy-toggle =
     .label = Personvern
+newtab-custom-widget-stocks-toggle =
+    .label = Aksjar
+newtab-custom-widget-picture-toggle =
+    .label = Dagens bilde
 newtab-custom-widget-section-title = Widgetar
 newtab-custom-widget-section-toggle =
     .label = Widgetar
@@ -1291,6 +1335,15 @@ newtab-sports-widget-message-day-in-play-title = Hald dagen i gang med widgetar 
 newtab-sports-widget-message-day-in-play-body = Følg VM, hald fokus på oppgåvene dine, følg tida rundt om i verda, og meir.
 newtab-sports-widget-message-explore-widgets-cta =
     .label = Utforsk widgetar
+
+## Survey prompts shown after the World Cup to gather feedback on the widgets experience.
+
+newtab-sports-widget-message-survey-title = Hjelp oss med å gjere widgetane betre
+newtab-sports-widget-message-survey-body = Då er VM over. Fortel oss kva du synest om opplevinga.
+newtab-sports-widget-message-survey-widget-title = Korleis var VM-widgeten?
+newtab-sports-widget-message-survey-widget-body = Del tilbakemeldingane dine for å hjelpe oss med å gjere framtidige widgetar betre. Prøv deretter den nye i utvalet ditt.
+newtab-sports-widget-message-survey-cta =
+    .label = Ver med på undersøkinga
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

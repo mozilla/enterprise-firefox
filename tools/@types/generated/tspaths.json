@@ -226,6 +226,9 @@
       "chrome://browser/content/passwordmgr/login-doorhanger-username-field.mjs": [
         "../../../browser/components/passwordmgr/content/login-doorhanger-username-field.mjs"
       ],
+      "chrome://browser/content/preferences/DefaultBrowserHelper.mjs": [
+        "../../../browser/components/preferences/DefaultBrowserHelper.mjs"
+      ],
       "chrome://browser/content/preferences/FocusHistory.mjs": [
         "../../../browser/components/preferences/FocusHistory.mjs"
       ],
@@ -390,6 +393,9 @@
       ],
       "chrome://browser/content/urlbar/UrlbarShared.mjs": [
         "../../../browser/components/urlbar/content/UrlbarShared.mjs"
+      ],
+      "chrome://browser/content/urlbar/UrlbarTelemetryUtils.mjs": [
+        "../../../browser/components/urlbar/content/UrlbarTelemetryUtils.mjs"
       ],
       "chrome://browser/content/urlbar/UrlbarView.mjs": [
         "../../../browser/components/urlbar/content/UrlbarView.mjs"
@@ -807,6 +813,9 @@
       ],
       "chrome://mozapps/content/extensions/components/addon-updates-message.mjs": [
         "../../../toolkit/mozapps/extensions/content/components/addon-updates-message.mjs"
+      ],
+      "chrome://mozapps/content/extensions/components/addons-promo.mjs": [
+        "../../../toolkit/mozapps/extensions/content/components/addons-promo.mjs"
       ],
       "chrome://mozapps/content/extensions/components/categories-box.mjs": [
         "../../../toolkit/mozapps/extensions/content/components/categories-box.mjs"
@@ -1486,6 +1495,9 @@
       "resource:///modules/MSMigrationUtils.sys.mjs": [
         "../../../browser/components/migration/MSMigrationUtils.sys.mjs"
       ],
+      "resource:///modules/MenuSectionLayout.sys.mjs": [
+        "../../../browser/modules/MenuSectionLayout.sys.mjs"
+      ],
       "resource:///modules/MigrationUtils.sys.mjs": [
         "../../../browser/components/migration/MigrationUtils.sys.mjs"
       ],
@@ -1723,9 +1735,6 @@
       "resource:///modules/backup/SiteSettingsBackupResource.sys.mjs": [
         "../../../browser/components/backup/resources/SiteSettingsBackupResource.sys.mjs"
       ],
-      "resource:///modules/contentsharing/ContentSharingUtils.sys.mjs": [
-        "../../../browser/components/contentsharing/ContentSharingUtils.sys.mjs"
-      ],
       "resource:///modules/distribution.sys.mjs": [
         "../../../browser/components/distribution.sys.mjs"
       ],
@@ -1894,6 +1903,9 @@
       "resource://autofill/FormAutofillSync.sys.mjs": [
         "../../../toolkit/components/formautofill/FormAutofillSync.sys.mjs"
       ],
+      "resource://autofill/PassportStorage.sys.mjs": [
+        "../../../toolkit/components/formautofill/default/PassportStorage.sys.mjs"
+      ],
       "resource://autofill/ProfileAutoCompleteResult.sys.mjs": [
         "../../../toolkit/components/formautofill/ProfileAutoCompleteResult.sys.mjs"
       ],
@@ -2016,9 +2028,6 @@
       ],
       "resource://devtools/client/aboutdebugging/src/components/sidebar/Sidebar.js": [
         "../../../devtools/client/aboutdebugging/src/components/sidebar/Sidebar.js"
-      ],
-      "resource://devtools/client/aboutdebugging/src/components/sidebar/SidebarFixedItem.js": [
-        "../../../devtools/client/aboutdebugging/src/components/sidebar/SidebarFixedItem.js"
       ],
       "resource://devtools/client/aboutdebugging/src/components/sidebar/SidebarItem.js": [
         "../../../devtools/client/aboutdebugging/src/components/sidebar/SidebarItem.js"
@@ -3372,9 +3381,6 @@
       ],
       "resource://devtools/client/netmonitor/src/actions/ui.js": [
         "../../../devtools/client/netmonitor/src/actions/ui.js"
-      ],
-      "resource://devtools/client/netmonitor/src/api.js": [
-        "../../../devtools/client/netmonitor/src/api.js"
       ],
       "resource://devtools/client/netmonitor/src/app.js": [
         "../../../devtools/client/netmonitor/src/app.js"
@@ -5836,23 +5842,14 @@
       "resource://gre/modules/ContentRelevancyManager.sys.mjs": [
         "../../../toolkit/components/contentrelevancy/ContentRelevancyManager.sys.mjs"
       ],
-      "resource://gre/modules/ContextualIdentityService.sys.mjs": [
-        "../../../toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs"
-      ],
       "resource://gre/modules/CoveragePing.sys.mjs": [
         "../../../toolkit/components/telemetry/pings/CoveragePing.sys.mjs"
       ],
       "resource://gre/modules/CrashMonitor.sys.mjs": [
         "../../../toolkit/components/crashmonitor/CrashMonitor.sys.mjs"
       ],
-      "resource://gre/modules/CrashReports.sys.mjs": [
-        "../../../toolkit/crashreporter/CrashReports.sys.mjs"
-      ],
       "resource://gre/modules/CrashService.sys.mjs": [
         "../../../toolkit/components/crashes/CrashService.sys.mjs"
-      ],
-      "resource://gre/modules/CrashSubmit.sys.mjs": [
-        "../../../toolkit/crashreporter/CrashSubmit.sys.mjs"
       ],
       "resource://gre/modules/Credentials.sys.mjs": [
         "../../../services/fxaccounts/Credentials.sys.mjs"
@@ -5877,6 +5874,9 @@
       ],
       "resource://gre/modules/DAPVisitCounter.sys.mjs": [
         "../../../toolkit/components/dap/DAPVisitCounter.sys.mjs"
+      ],
+      "resource://gre/modules/DateNormalizationUtils.sys.mjs": [
+        "../../../toolkit/modules/DateNormalizationUtils.sys.mjs"
       ],
       "resource://gre/modules/DeferredTask.sys.mjs": [
         "../../../toolkit/modules/DeferredTask.sys.mjs"
@@ -6238,9 +6238,6 @@
       "resource://gre/modules/KeywordUtils.sys.mjs": [
         "../../../toolkit/modules/KeywordUtils.sys.mjs"
       ],
-      "resource://gre/modules/LangPackMatcher.sys.mjs": [
-        "../../../intl/locale/LangPackMatcher.sys.mjs"
-      ],
       "resource://gre/modules/LightweightThemeConsumer.sys.mjs": [
         "../../../toolkit/modules/LightweightThemeConsumer.sys.mjs"
       ],
@@ -6457,11 +6454,11 @@
       "resource://gre/modules/RemoteSettingsCrashPull.sys.mjs": [
         "../../../toolkit/components/crashes/RemoteSettingsCrashPull.sys.mjs"
       ],
-      "resource://gre/modules/RemoteWebNavigation.sys.mjs": [
-        "../../../toolkit/components/remotebrowserutils/RemoteWebNavigation.sys.mjs"
-      ],
       "resource://gre/modules/ResetProfile.sys.mjs": [
         "../../../toolkit/modules/ResetProfile.sys.mjs"
+      ],
+      "resource://gre/modules/RosettaUtils.sys.mjs": [
+        "../../../toolkit/modules/RosettaUtils.sys.mjs"
       ],
       "resource://gre/modules/RustSharedRemoteSettingsService.sys.mjs": [
         "../../../toolkit/modules/RustSharedRemoteSettingsService.sys.mjs"
@@ -6712,9 +6709,6 @@
       "resource://gre/modules/jsdebugger.sys.mjs": [
         "../../../devtools/platform/jsdebugger.sys.mjs"
       ],
-      "resource://gre/modules/kvstore.sys.mjs": [
-        "../../../toolkit/components/kvstore/kvstore.sys.mjs"
-      ],
       "resource://gre/modules/media/IdpSandbox.sys.mjs": [
         "../../../dom/media/IdpSandbox.sys.mjs"
       ],
@@ -6768,9 +6762,6 @@
       ],
       "resource://gre/modules/psm/pippki.sys.mjs": [
         "../../../security/manager/pki/pippki.sys.mjs"
-      ],
-      "resource://gre/modules/reflect.sys.mjs": [
-        "../../../toolkit/components/reflect/reflect.sys.mjs"
       ],
       "resource://gre/modules/services-automation/ServicesAutomation.sys.mjs": [
         "../../../services/automation/ServicesAutomation.sys.mjs"
@@ -6859,6 +6850,9 @@
       "resource://gre/modules/shared/NewPasswordModel.sys.mjs": [
         "../../../toolkit/components/passwordmgr/shared/NewPasswordModel.sys.mjs"
       ],
+      "resource://gre/modules/shared/PassportRecord.sys.mjs": [
+        "../../../toolkit/components/formautofill/shared/PassportRecord.sys.mjs"
+      ],
       "resource://gre/modules/shared/PasswordGenerator.sys.mjs": [
         "../../../toolkit/components/passwordmgr/shared/PasswordGenerator.sys.mjs"
       ],
@@ -6945,6 +6939,9 @@
       ],
       "resource://newtab/lib/ActivityStreamPrefs.sys.mjs": [
         "../../../browser/extensions/newtab/lib/ActivityStreamPrefs.sys.mjs"
+      ],
+      "resource://newtab/lib/AdsClient.sys.mjs": [
+        "../../../browser/extensions/newtab/lib/AdsClient.sys.mjs"
       ],
       "resource://newtab/lib/AdsFeed.sys.mjs": [
         "../../../browser/extensions/newtab/lib/AdsFeed.sys.mjs"

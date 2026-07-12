@@ -589,9 +589,18 @@ export class UrlbarValueFormatter {
       Ci.nsISelectionController.SELECTION_FIND
     );
 
+    // The alias autofill appends a trailing space, and the autofill selection
+    // covers it while the alias find-selection stops at the alias. Extend the
+    // find-selection over that space so the two render as a single continuous
+    // rounded shape instead of leaving a notch where the find-selection ends.
+    let end = index + alias.length;
+    if (value[end] === " ") {
+      end++;
+    }
+
     let range = this.#document.createRange();
     range.setStart(textNode, index);
-    range.setEnd(textNode, index + alias.length);
+    range.setEnd(textNode, end);
     selection.addRange(range);
 
     let fg = "#2362d7";

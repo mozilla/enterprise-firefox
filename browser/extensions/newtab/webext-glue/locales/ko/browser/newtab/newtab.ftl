@@ -96,6 +96,12 @@ home-prefs-clocks-header =
 # Privacy is a widget on New Tab that shows tracking protection activity.
 home-prefs-privacy-header =
     .label = 개인 정보 보호
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = 주식
+# Picture of the day is a widget on New Tab that shows a daily Wikimedia Commons image.
+home-prefs-picture-header =
+    .label = 오늘의 사진
 home-prefs-mission-message2 =
     .message = 스폰서는 더 나은 웹을 만들려는 저희를 지원합니다.
 home-prefs-manage-topics-link2 =
@@ -156,6 +162,45 @@ home-prefs-mission-message-learn-more-link-srd = 방법 알아보기
 # Context menu item linking to more information about the Privacy widget.
 newtab-privacy-menu-learn-more = 더 알아보기
 
+## Strings for the Stocks widget
+
+# Context menu item for searching stock ticker symbols.
+newtab-stocks-menu-search = 주식 종목 코드 검색
+# Context menu item that hides the Stocks widget.
+newtab-stocks-menu-hide = 주식 숨기기
+# Context menu item linking to more information about the Stocks widget.
+newtab-stocks-menu-learn-more = 더 알아보기
+
+## Strings for the Picture of the Day widget
+
+# Eyebrow shown at the top of the widget. Wikimedia Commons is a brand name and
+# should not be translated.
+newtab-picture-header = 오늘의 사진 · Wikimedia Commons
+# Button that sets the current picture as the New Tab background wallpaper. The
+# button collapses to an icon when not hovered/focused, so .title is its tooltip.
+newtab-picture-set-wallpaper =
+    .label = 배경 화면 설정
+    .title = 배경 화면 설정
+    .aria-label = 오늘의 사진을 배경 화면으로 설정하세요
+# Context menu item that opens the New Tab customization panel.
+newtab-picture-menu-manage-wallpaper = 배경 화면 관리
+# Context menu item that hides today’s picture, replacing it with an existing
+# wallpaper.
+newtab-picture-menu-hide-photo = 오늘의 사진 숨기기
+# Context menu item that restores today’s picture after it has been hidden.
+newtab-picture-menu-show-photo = 오늘의 사진 보기
+# Context menu item linking to more information about the widget.
+newtab-picture-menu-learn-more = 더 알아보기
+# Icon button shown on the widget once the picture is hidden; restores it.
+newtab-picture-show-button =
+    .title = 오늘의 사진 보기
+    .aria-label = 오늘의 사진 보기
+# Shown when there is no new picture to display yet.
+newtab-picture-check-back = 새로운 사진은 내일 다시 확인해 주세요
+# Screen-reader text alternative for the picture; fallback used when the source
+# provides no localized description.
+newtab-picture-image-alt = 위키미디어 공용 오늘의 사진
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -191,6 +236,7 @@ newtab-topsites-add-shortcut-label = 바로 가기 추가
 newtab-topsites-add-shortcut-title =
     .title = 바로 가기 추가
     .aria-label = 바로 가기 추가
+newtab-shortcuts-pinned-area = 고정된 영역
 newtab-topsites-title-label = 제목
 newtab-topsites-title-input =
     .placeholder = 제목 입력
@@ -500,6 +546,10 @@ newtab-custom-widget-sports-toggle2 =
     .label = 스포츠
 newtab-custom-widget-privacy-toggle =
     .label = 개인 정보 보호
+newtab-custom-widget-stocks-toggle =
+    .label = 주식
+newtab-custom-widget-picture-toggle =
+    .label = 오늘의 사진
 newtab-custom-widget-section-title = 위젯
 newtab-custom-widget-section-toggle =
     .label = 위젯
@@ -1263,13 +1313,22 @@ newtab-sports-widget-message-wallpapers-title = 새로운 배경 화면으로 �
 newtab-sports-widget-message-wallpapers-body = 토너먼트 기간 동안 브라우저에 경기 날의 생생한 열기를 더해 보세요.
 newtab-sports-widget-message-wallpapers-cta = 배경 화면 선택
 newtab-sports-widget-message-wallpapers-semifinals-title = 새 준결승전 배경 화면을 받으세요
-newtab-sports-widget-message-wallpapers-semifinals-body = World 컵에서 가장 큰 성패를 가릴 수 있는 발판을 마련하세요.
+newtab-sports-widget-message-wallpapers-semifinals-body = 월드컵에서 가장 큰 성패를 가릴 수 있는 발판을 마련하세요.
 newtab-sports-widget-message-add-widgets-cta =
     .label = 위젯 추가
 newtab-sports-widget-message-day-in-play-title = { -brand-product-name } 위젯으로 활기를 되찾으세요
 newtab-sports-widget-message-day-in-play-body = 월드컵 소식을 확인하고, 할 일에 집중하며, 세계 각지의 시간을 확인하는 등 다양한 기능을 만나보세요.
 newtab-sports-widget-message-explore-widgets-cta =
     .label = 위젯 살펴보기
+
+## Survey prompts shown after the World Cup to gather feedback on the widgets experience.
+
+newtab-sports-widget-message-survey-title = 더 나은 위젯을 만들 수 있도록 도와주세요
+newtab-sports-widget-message-survey-body = 월드컵이 막을 내렸습니다. 이번 위젯 경험에 대한 피드백을 공유해 주세요.
+newtab-sports-widget-message-survey-widget-title = 월드컵 위젯은 어떠셨나요?
+newtab-sports-widget-message-survey-widget-body = 더 나은 위젯을 만들 수 있도록 피드백을 공유해 주세요. 그런 다음 내 위젯 목록에 추가된 새로운 위젯도 이용해 보세요.
+newtab-sports-widget-message-survey-cta =
+    .label = 설문 조사 참여
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

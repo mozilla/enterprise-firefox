@@ -96,6 +96,12 @@ home-prefs-clocks-header =
 # Privacy is a widget on New Tab that shows tracking protection activity.
 home-prefs-privacy-header =
     .label = Приватность
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = Акции
+# Picture of the day is a widget on New Tab that shows a daily Wikimedia Commons image.
+home-prefs-picture-header =
+    .label = Изображение дня
 home-prefs-mission-message2 =
     .message = Наши спонсоры поддерживают нашу миссию по созданию лучшего Интернета.
 home-prefs-manage-topics-link2 =
@@ -161,6 +167,45 @@ home-prefs-mission-message-learn-more-link-srd = Узнать как
 # Context menu item linking to more information about the Privacy widget.
 newtab-privacy-menu-learn-more = Подробнее
 
+## Strings for the Stocks widget
+
+# Context menu item for searching stock ticker symbols.
+newtab-stocks-menu-search = Поиск по ленте новостей
+# Context menu item that hides the Stocks widget.
+newtab-stocks-menu-hide = Скрыть акции
+# Context menu item linking to more information about the Stocks widget.
+newtab-stocks-menu-learn-more = Узнать больше
+
+## Strings for the Picture of the Day widget
+
+# Eyebrow shown at the top of the widget. Wikimedia Commons is a brand name and
+# should not be translated.
+newtab-picture-header = Изображение дня · Wikimedia Commons
+# Button that sets the current picture as the New Tab background wallpaper. The
+# button collapses to an icon when not hovered/focused, so .title is its tooltip.
+newtab-picture-set-wallpaper =
+    .label = Установка обоев
+    .title = Установка обоев
+    .aria-label = Установите изображение дня в качестве своих обоев
+# Context menu item that opens the New Tab customization panel.
+newtab-picture-menu-manage-wallpaper = Управление обоями
+# Context menu item that hides today’s picture, replacing it with an existing
+# wallpaper.
+newtab-picture-menu-hide-photo = Скрыть сегодняшнее изображение
+# Context menu item that restores today’s picture after it has been hidden.
+newtab-picture-menu-show-photo = Показать сегодняшнее изображение
+# Context menu item linking to more information about the widget.
+newtab-picture-menu-learn-more = Подробнее
+# Icon button shown on the widget once the picture is hidden; restores it.
+newtab-picture-show-button =
+    .title = Показать сегодняшнее изображение
+    .aria-label = Показать сегодняшнее изображение
+# Shown when there is no new picture to display yet.
+newtab-picture-check-back = Зайдите завтра за новым изображением
+# Screen-reader text alternative for the picture; fallback used when the source
+# provides no localized description.
+newtab-picture-image-alt = Изображение дня от Wikimedia Commons
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -196,6 +241,7 @@ newtab-topsites-add-shortcut-label = Добавить ярлык
 newtab-topsites-add-shortcut-title =
     .title = Добавить ярлык
     .aria-label = Добавить ярлык
+newtab-shortcuts-pinned-area = Закрепленная область
 newtab-topsites-title-label = Заголовок
 newtab-topsites-title-input =
     .placeholder = Введите название
@@ -505,6 +551,10 @@ newtab-custom-widget-sports-toggle2 =
     .label = Спорт
 newtab-custom-widget-privacy-toggle =
     .label = Приватность
+newtab-custom-widget-stocks-toggle =
+    .label = Акции
+newtab-custom-widget-picture-toggle =
+    .label = Изображение дня
 newtab-custom-widget-section-title = Виджеты
 newtab-custom-widget-section-toggle =
     .label = Виджеты
@@ -1290,6 +1340,15 @@ newtab-sports-widget-message-day-in-play-title = Проводите день с 
 newtab-sports-widget-message-day-in-play-body = Следите за ЧМ, концентрируйтесь на задачах, отслеживайте время в любой точке земного шара и пр.
 newtab-sports-widget-message-explore-widgets-cta =
     .label = Ознакомьтесь с виджетами
+
+## Survey prompts shown after the World Cup to gather feedback on the widgets experience.
+
+newtab-sports-widget-message-survey-title = Помогите нам сделать виджеты лучше
+newtab-sports-widget-message-survey-body = Вот и подведение итогов ЧМ. Поделитесь своим отзывом об опыте.
+newtab-sports-widget-message-survey-widget-title = Как вам виджет ЧМ?
+newtab-sports-widget-message-survey-widget-body = Поделитесь своим отзывом, чтобы помочь нам улучшить будущие виджеты. После этого попробуйте новый в вашей подборке.
+newtab-sports-widget-message-survey-cta =
+    .label = Пройти опрос
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

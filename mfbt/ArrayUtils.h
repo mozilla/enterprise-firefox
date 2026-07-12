@@ -55,18 +55,17 @@ bool ArrayEqual(const T* const a, const U* const b, const size_t n) {
 
 namespace detail {
 
-template <typename AlignType>
+template <typename AlignType, typename Pointee, typename = void>
 struct AlignedChecker {
-  template <typename Pointee>
   static void test(const Pointee* aPtr) {
     MOZ_ASSERT((uintptr_t(aPtr) % alignof(AlignType)) == 0,
                "performing a range-check with a misaligned pointer");
   }
 };
 
-template <>
-struct AlignedChecker<void> {
-  template <typename Pointee>
+template <typename AlignType, typename Pointee>
+struct AlignedChecker<AlignType, Pointee,
+                      std::enable_if_t<std::is_void_v<AlignType>>> {
   static void test(const Pointee* aPtr) {}
 };
 
@@ -86,12 +85,14 @@ struct AlignedChecker<void> {
  * particular alignment).
  */
 template <typename T, typename U>
-  requires(std::is_same_v<T, U> || std::is_base_of_v<T, U> || std::is_void_v<T>)
-inline bool IsInRange(const T* aPtr, const U* aBegin, const U* aEnd) {
+inline std::enable_if_t<std::is_same_v<T, U> || std::is_base_of<T, U>::value ||
+                            std::is_void_v<T>,
+                        bool>
+IsInRange(const T* aPtr, const U* aBegin, const U* aEnd) {
   MOZ_ASSERT(aBegin <= aEnd);
-  detail::AlignedChecker<U>::test(aPtr);
-  detail::AlignedChecker<U>::test(aBegin);
-  detail::AlignedChecker<U>::test(aEnd);
+  detail::AlignedChecker<U, T>::test(aPtr);
+  detail::AlignedChecker<U, U>::test(aBegin);
+  detail::AlignedChecker<U, U>::test(aEnd);
   return aBegin <= reinterpret_cast<const U*>(aPtr) &&
          reinterpret_cast<const U*>(aPtr) < aEnd;
 }

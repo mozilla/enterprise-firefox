@@ -856,10 +856,10 @@ bool WebRenderBridgeParent::UpdateResources(
   if (scheduleRelease) {
     // When software WR is enabled, shared surfaces are read during rendering
     // rather than copied to the texture cache.
-    wr::Checkpoint when =
-        mLateInit->mApi->GetBackendType() == WebRenderBackend::SOFTWARE
-            ? wr::Checkpoint::FrameRendered
-            : wr::Checkpoint::FrameTexturesUpdated;
+    wr::Checkpoint when = mLateInit->mApi->GetCapabilities().mBackendType ==
+                                  WebRenderBackend::SOFTWARE
+                              ? wr::Checkpoint::FrameRendered
+                              : wr::Checkpoint::FrameTexturesUpdated;
     aUpdates.Notify(when, std::move(scheduleRelease));
   }
 
@@ -901,14 +901,18 @@ bool WebRenderBridgeParent::AddSharedExternalImage(
   // Prefer raw buffers, unless our backend requires native textures.
   IntSize surfaceSize = dSurf->GetSize();
   TextureHost::NativeTexturePolicy policy =
-      TextureHost::BackendNativeTexturePolicy(mLateInit->mApi->GetBackendType(),
-                                              surfaceSize);
+      TextureHost::BackendNativeTexturePolicy(
+          mLateInit->mApi->GetCapabilities().mBackendType, surfaceSize);
   auto imageType =
       policy == TextureHost::NativeTexturePolicy::REQUIRE
           ? wr::ExternalImageType::TextureHandle(wr::ImageBufferKind::Texture2D)
           : wr::ExternalImageType::Buffer();
-  wr::ImageDescriptor descriptor(surfaceSize, dSurf->Stride(),
-                                 dSurf->GetFormat());
+  auto format = wr::SurfaceFormatToImageFormat(dSurf->GetFormat());
+  if (NS_WARN_IF(!format)) {
+    return false;
+  }
+  wr::ImageDescriptor descriptor(surfaceSize, dSurf->Stride(), *format,
+                                 wr::ToOpacityType(dSurf->GetFormat()));
   aResources.AddExternalImage(aKey, descriptor, aExtId, imageType, 0);
   return true;
 }
@@ -969,7 +973,13 @@ bool WebRenderBridgeParent::PushExternalImageForTexture(
   }
 
   IntSize size = dSurf->GetSize();
-  wr::ImageDescriptor descriptor(size, map.mStride, dSurf->GetFormat());
+  auto format = wr::SurfaceFormatToImageFormat(dSurf->GetFormat());
+  if (NS_WARN_IF(!format)) {
+    dSurf->Unmap();
+    return false;
+  }
+  wr::ImageDescriptor descriptor(size, map.mStride, *format,
+                                 wr::ToOpacityType(dSurf->GetFormat()));
   wr::Vec<uint8_t> data;
   data.PushBytes(Range<uint8_t>(map.mData, size.height * map.mStride));
 
@@ -1033,14 +1043,18 @@ bool WebRenderBridgeParent::UpdateSharedExternalImage(
   // Prefer raw buffers, unless our backend requires native textures.
   IntSize surfaceSize = dSurf->GetSize();
   TextureHost::NativeTexturePolicy policy =
-      TextureHost::BackendNativeTexturePolicy(mLateInit->mApi->GetBackendType(),
-                                              surfaceSize);
+      TextureHost::BackendNativeTexturePolicy(
+          mLateInit->mApi->GetCapabilities().mBackendType, surfaceSize);
   auto imageType =
       policy == TextureHost::NativeTexturePolicy::REQUIRE
           ? wr::ExternalImageType::TextureHandle(wr::ImageBufferKind::Texture2D)
           : wr::ExternalImageType::Buffer();
-  wr::ImageDescriptor descriptor(surfaceSize, dSurf->Stride(),
-                                 dSurf->GetFormat());
+  auto format = wr::SurfaceFormatToImageFormat(dSurf->GetFormat());
+  if (NS_WARN_IF(!format)) {
+    return false;
+  }
+  wr::ImageDescriptor descriptor(surfaceSize, dSurf->Stride(), *format,
+                                 wr::ToOpacityType(dSurf->GetFormat()));
   aResources.UpdateExternalImageWithDirtyRect(
       aKey, descriptor, aExtId, imageType, wr::ToDeviceIntRect(aDirtyRect), 0,
       /* aNormalizedUvs */ false);
@@ -3114,11 +3128,12 @@ TextureFactoryIdentifier WebRenderBridgeParent::GetTextureFactoryIdentifier() {
   const bool supportsD3D11NV12 = false;
 #endif
 
+  const auto& capabilities = mLateInit->mApi->GetCapabilities();
   TextureFactoryIdentifier ident(
-      mLateInit->mApi->GetBackendType(), mLateInit->mApi->GetCompositorType(),
-      XRE_GetProcessType(), mLateInit->mApi->GetMaxTextureSize(),
-      mLateInit->mApi->GetUseANGLE(), mLateInit->mApi->GetUseDComp(),
-      mLateInit->mApi->GetUseLayerCompositor(),
+      capabilities.mBackendType, capabilities.mCompositorType,
+      XRE_GetProcessType(), capabilities.mMaxTextureSize,
+      capabilities.mUseANGLE, capabilities.mUseDComp,
+      capabilities.mUseLayerCompositor,
       mLateInit->mAsyncImageManager->UseCompositorWnd(), false, false, false,
       supportsD3D11NV12, mLateInit->mApi->GetSyncHandle());
   return ident;

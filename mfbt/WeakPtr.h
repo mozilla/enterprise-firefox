@@ -14,9 +14,11 @@
  *
  * PLEASE NOTE: This weak pointer implementation is not thread-safe.
  *
- * The overhead of WeakPtr is that accesses to 'Foo' becomes an additional
- * dereference, and an additional heap allocated pointer sized object shared
- * between all of the WeakPtrs.
+ * Overhead of WeakPtr:
+ * 1. Accesses to 'Foo' become an additional dereference.
+ * 2. There is an additional heap allocated object shared between Foo and all of
+ *    its WeakPtrs containing a pointer and a reference count.
+ * 3. Foo (every instance) contains an additional pointer.
  *
  * Example of usage:
  *

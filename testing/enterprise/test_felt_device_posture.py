@@ -259,7 +259,12 @@ class FeltDevicePosture(FeltTests):
                     "Device posture should not report loopback"
                 )
 
-            assert len(interface["mac"]) == 17, "Device posture reports MAC address"
+            assert len(interface["mac"]) == 17, (
+                "Device posture reports some MAC address"
+            )
+            assert interface["mac"] != "00:00:00:00:00:00", (
+                f"Device posture missing MAC address for interface '{interface['name']}'"
+            )
 
             """
             Not all interfaces are expected to have IPv4 and/or IPv6 but we

@@ -4,6 +4,7 @@
 
 package mozilla.components.compose.browser.toolbar
 
+import android.graphics.Color
 import androidx.annotation.StringRes
 import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -14,7 +15,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
@@ -35,6 +35,7 @@ import mozilla.components.compose.cfr.CFR
 import mozilla.components.compose.cfr.CFRBox
 import mozilla.components.compose.cfr.CFRPopup
 import mozilla.components.compose.cfr.CFRPopup.IndicatorDirection
+import mozilla.components.compose.cfr.CFRPopupBackground
 import mozilla.components.compose.cfr.CFRPopupProperties
 import mozilla.components.compose.cfr.rememberCFRPositionProvider
 import mozilla.components.compose.cfr.rememberCFRState
@@ -151,13 +152,7 @@ private fun DisplayToolbarWithCFR(
     displayToolbar: @Composable () -> Unit,
 ) {
     val title: @Composable (() -> Unit)? = cfr.title?.run {
-        {
-            Text(
-                text = stringResource(cfr.title),
-                color = AcornTheme.colors.textOnColorPrimary,
-                style = AcornTheme.typography.subtitle2,
-            )
-        }
+        { Text(text = stringResource(cfr.title)) }
     }
 
     val state = rememberCFRState()
@@ -203,16 +198,13 @@ private fun browserToolbarCFRProperties(
     val indicatorDir =
         if (isBottom) IndicatorDirection.DOWN else IndicatorDirection.UP
 
-    val colors = AcornTheme.colors
+    val cfrBrush = AcornTheme.gradients.cfr.brush
 
     return remember(isBottom) {
         CFRPopupProperties(
             popupAlignment = CFRPopup.PopupAlignment.INDICATOR_CENTERED_IN_ANCHOR,
-            popupBodyColors = listOf(
-                colors.layerGradientEnd.toArgb(),
-                colors.layerGradientStart.toArgb(),
-            ),
-            dismissButtonColor = colors.iconOnColor.toArgb(),
+            popupBodyColors = CFRPopupBackground.Gradient(brush = cfrBrush),
+            dismissButtonColor = Color.WHITE,
             indicatorDirection = indicatorDir,
             popupVerticalOffset = CFR_VERTICAL_OFFSET.dp,
             indicatorArrowStartOffset = CFR_HORIZONTAL_OFFSET.dp,

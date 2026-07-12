@@ -517,6 +517,9 @@ skip-if = [
   "true", # Bug 1616418 Bug 1549985
 ]
 
+["browser_tabContextMenu_altStructure.js"]
+tags = "vertical-tabs"
+
 ["browser_tabContextMenu_keyboard.js"]
 tags = "vertical-tabs"
 
@@ -596,6 +599,8 @@ tags = "vertical-tabs"
 skip-if = [
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && opt", # Bug 1947600
 ]
+
+["browser_tab_interaction_telemetry.js"]
 
 ["browser_tab_groups_tab_interactions_telemetry.js"]
 skip-if = [

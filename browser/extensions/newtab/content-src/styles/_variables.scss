@@ -172,7 +172,6 @@ $textbox-shadow-size: 4px;
 
 $customize-menu-slide-bezier: cubic-bezier(0.46, 0.03, 0.52, 0.96);
 $customize-menu-expand-bezier: cubic-bezier(0.82, 0.085, 0.395, 0.895);
-$customize-menu-border-tint: 1px solid rgba(0, 0, 0, 15%);
 
 @mixin fade-in {
   box-shadow: inset $inner-box-shadow, $shadow-primary;

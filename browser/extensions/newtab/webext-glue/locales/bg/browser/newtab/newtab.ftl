@@ -86,6 +86,11 @@ home-prefs-support-firefox-header-srd =
 # Context menu item linking to more information about the Privacy widget.
 newtab-privacy-menu-learn-more = Научете повече
 
+## Strings for the Picture of the Day widget
+
+# Context menu item linking to more information about the widget.
+newtab-picture-menu-learn-more = Научете повече
+
 ## Search box component.
 
 # "Search" is a verb/action

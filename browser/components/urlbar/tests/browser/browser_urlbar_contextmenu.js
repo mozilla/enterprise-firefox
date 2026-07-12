@@ -171,6 +171,9 @@ add_task(async function toolbar_context_menu() {
   ];
 
   await BrowserTestUtils.withNewTab("https://example.com/", async () => {
+    // Make search mode switcher visible.
+    document.querySelector(".searchmode-switcher").focus();
+
     for (let target of TEST_TARGETS) {
       info(`Test for ${target}`);
       let element = document.querySelector(target);

@@ -202,9 +202,6 @@ nsresult LoadInfoArgsToLoadInfo(const mozilla::net::LoadInfoArgs& aLoadInfoArgs,
   GETTER(bool, IsMediaRequest, isMediaRequest, false)                          \
   SETTER(bool, IsMediaRequest)                                                 \
                                                                                \
-  GETTER(bool, IsMediaInitialRequest, isMediaInitialRequest, false)            \
-  SETTER(bool, IsMediaInitialRequest)                                          \
-                                                                               \
   GETTER(bool, IsFromObjectOrEmbed, isFromObjectOrEmbed, false)                \
   SETTER(bool, IsFromObjectOrEmbed)                                            \
                                                                                \

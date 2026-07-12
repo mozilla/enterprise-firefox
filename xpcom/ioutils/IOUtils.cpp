@@ -1209,6 +1209,11 @@ already_AddRefed<Promise> IOUtils::GetFile(
           return;
         }
 
+        if (!parent) {
+          promise->MaybeResolve(file);
+          return;
+        }
+
         state->mEventQueue
             ->template Dispatch<Ok>([parent = std::move(parent)]() {
               return MakeDirectorySync(parent, /* aCreateAncestors = */ true,

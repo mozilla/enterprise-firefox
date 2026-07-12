@@ -427,6 +427,18 @@ class XPCShellTestThread(Thread):
             self.log_full_output()
             self.failCount = 1
 
+    def _readTimeoutProfileProgress(self, profile_path):
+        # Read the 0..1 streaming progress the profiler writes to the
+        # "<profile>.progress" sidecar while a scheduled dump is in flight.
+        # Returns None if it isn't there yet or can't be parsed.
+        if not profile_path:
+            return None
+        try:
+            with open(profile_path + ".progress") as f:
+                return float(f.read().strip())
+        except (OSError, ValueError):
+            return None
+
     def testTimeout(self, proc):
         # Ensure that we didn't race the test finishing execution between when
         # the timeout timer fired and this code started executing.
@@ -439,6 +451,30 @@ class XPCShellTestThread(Thread):
             self.lock.release()
             return
 
+        # While a scheduled profile dump (see scheduleDumpToFile in head.js) is
+        # still writing, defer the kill so we don't upload truncated JSON. The
+        # profiler reports the dump's 0..1 progress in a "<profile>.progress"
+        # sidecar; keep deferring while it advances, and kill once it stalls (a
+        # genuine hang) or the budget runs out (30 deferrals of 10s, or 3 stalls).
+        profile_path = self.env.get("MOZ_TEST_TIMEOUT_PROFILE_PATH")
+        progress = self._readTimeoutProfileProgress(profile_path)
+        if progress is not None and self._timeout_defer_count < 30:
+            if progress > self._last_timeout_profile_progress + 1e-6:
+                self._last_timeout_profile_progress = progress
+                self._timeout_stall_count = 0
+            else:
+                self._timeout_stall_count += 1
+            if progress < 1.0 and self._timeout_stall_count < 3:
+                self._timeout_defer_count += 1
+                self.log.info(
+                    f"{self.test_object['id']} | timeout profile dump "
+                    f"progressing ({progress * 100:.1f}%), deferring kill"
+                )
+                self.timer = Timer(10, lambda: self.testTimeout(proc))
+                self.timer.start()
+                self.lock.release()
+                return
+
         # Set these flags first to prevent test_end from being logged again
         # while we output the full log.
         self.done = True
@@ -448,6 +484,21 @@ class XPCShellTestThread(Thread):
         # a while due to stack fixing.
         self.killTimeout(proc)
 
+        self.reportTimeoutResult()
+
+        self.log.info(f"xpcshell return code: {self.getReturnCode(proc)}")
+        self.postCheck(proc)
+        self.clean_temp_dirs(self.test_object["path"])
+
+        # Now that we've finished cleaning up after the timed out test we can
+        # relinquish the lock to allow run_test() to finish.
+        self.lock.release()
+
+    def reportTimeoutResult(self):
+        """Log the structured failure for a timed-out test: a FAIL test_status
+        pointing at the uploaded profile (when one was written), followed by a
+        TIMEOUT test_end. Shared by the harness timer (testTimeout) and the path
+        where a profiled test dumps its profile and exits on its own."""
         if self.test_object["expected"] == "pass":
             expected = "PASS"
         else:
@@ -457,14 +508,14 @@ class XPCShellTestThread(Thread):
         if self.timeout_factor > 1:
             extra = {"timeoutfactor": self.timeout_factor}
 
-        # If the profiler dumped a profile from its sampler thread before we
-        # killed the wedged process (scheduled by head.js via scheduleDumpToFile
-        # since the main thread can't write one once it stops returning to the
-        # event loop), report it here as a structured test_status, logged while
-        # the test is still in progress so the artifact is linked to this test.
-        # A structured message (unlike a raw log line) is downgraded to expected
-        # on a retried run, and is recorded as a FAIL marker in the
-        # resource-usage profile the dashboards read.
+        # If the profiler dumped a profile from its sampler thread (scheduled by
+        # head.js via scheduleDumpToFile since the main thread can't write one
+        # once it stops returning to the event loop), report it here as a
+        # structured test_status, logged while the test is still in progress so
+        # the artifact is linked to this test. A structured message (unlike a
+        # raw log line) is downgraded to expected on a retried run, and is
+        # recorded as a FAIL marker in the resource-usage profile the dashboards
+        # read.
         profile_name = self.timeout_profile_name
         upload_dir = self.env.get("MOZ_UPLOAD_DIR")
         if (
@@ -503,14 +554,6 @@ class XPCShellTestThread(Thread):
                 extra=extra,
             )
             self.log_full_output()
-
-        self.log.info("xpcshell return code: %s" % self.getReturnCode(proc))
-        self.postCheck(proc)
-        self.clean_temp_dirs(self.test_object["path"])
-
-        # Now that we've finished cleaning up after the timed out test we can
-        # relinquish the lock to allow run_test() to finish.
-        self.lock.release()
 
     def updateTestPrefsFile(self):
         # If the Manifest file has some additional prefs, merge the
@@ -1018,26 +1061,23 @@ class XPCShellTestThread(Thread):
 
         self.timeout_profile_name = None
         if not self.interactive and not self.debuggerInfo and not self.jsDebuggerInfo:
-            self.timer = Timer(testTimeoutInterval, lambda: self.testTimeout(proc))
-            self.timer.start()
-            self.env["MOZ_TEST_TIMEOUT_INTERVAL"] = str(testTimeoutInterval)
-
             # When the profiler runs by default, have it dump a profile from its
-            # sampler thread shortly before this timeout fires (armed by
-            # head.js), so a test wedged in a synchronous run (where the main
-            # thread can never write one) still leaves a profile. We pick the
-            # artifact name here so the retry of a test that timed out doesn't
-            # overwrite the initial run's profile: the retry gets a "_retry"
-            # suffix, and a numeric counter is only added on an actual name
-            # collision (the same test listed in two manifests). The suffixes go
-            # before the test extension so the name still ends in e.g.
-            # ".js.json" as Treeherder expects. testTimeout reports this name.
+            # sampler thread once this timeout is reached (armed by head.js), so
+            # a test blocked in a synchronous run (where the main thread can
+            # never write one) still leaves a profile. We pick the artifact name here
+            # so the retry of a test that timed out doesn't overwrite the initial
+            # run's profile: the retry gets a "_retry" suffix, and a numeric
+            # counter is only added on an actual name collision (the same test
+            # listed in two manifests). The suffixes go before the test extension
+            # so the name still ends in e.g. ".js.json" as Treeherder expects.
+            # testTimeout reports this name.
             upload_dir = self.env.get("MOZ_UPLOAD_DIR")
-            if (
+            timeout_dump_armed = (
                 upload_dir
                 and self.env.get("MOZ_PROFILER_STARTUP")
                 and "MOZ_PROFILER_SHUTDOWN" not in self.env
-            ):
+            )
+            if timeout_dump_armed:
                 root, ext = os.path.splitext(os.path.basename(name))
                 if self.is_retry:
                     root += "_retry"
@@ -1051,6 +1091,23 @@ class XPCShellTestThread(Thread):
                     upload_dir, filename
                 )
 
+            # head.js dumps the profile from the sampler thread once the timeout
+            # is reached, so when that's armed this timer is only a safety net;
+            # give it 50% more time so the sampler thread can finish writing the
+            # profile before we kill the process.
+            kill_interval = testTimeoutInterval
+            if timeout_dump_armed:
+                kill_interval = testTimeoutInterval * 1.5
+            # Tracks the scheduled profile dump's streaming progress so
+            # testTimeout can defer the kill while the dump is still making
+            # progress, and kill it once progress stalls.
+            self._last_timeout_profile_progress = -1.0
+            self._timeout_stall_count = 0
+            self._timeout_defer_count = 0
+            self.timer = Timer(kill_interval, lambda: self.testTimeout(proc))
+            self.timer.start()
+            self.env["MOZ_TEST_TIMEOUT_INTERVAL"] = str(testTimeoutInterval)
+
         proc = None
         process_output = None
 
@@ -1058,6 +1115,7 @@ class XPCShellTestThread(Thread):
             if self.verbose:
                 self.logCommand(name, self.command, test_dir)
 
+            launch_time = time.monotonic()
             proc = self.launchProcess(
                 self.command,
                 stdout=self.pStdout,
@@ -1080,6 +1138,7 @@ class XPCShellTestThread(Thread):
             # Communicate returns a tuple of (stdout, stderr), however we always
             # redirect stderr to stdout, so the second element is ignored.
             process_output, _ = self.communicate(proc)
+            elapsed = time.monotonic() - launch_time
 
             if self.interactive:
                 # Not sure what else to do here...
@@ -1096,6 +1155,37 @@ class XPCShellTestThread(Thread):
                 self.timer = None
 
             self.lock.release()
+
+            # Drop the scheduled-dump progress sidecar so it isn't uploaded as a
+            # stray artifact (it lives next to the profile inside MOZ_UPLOAD_DIR).
+            # This is the only cleanup site, reached on both the self-exit and
+            # kill paths; the C++ exit-after path _exit()s the process without
+            # removing it, so this is what keeps it out of the upload.
+            timeout_profile = self.env.get("MOZ_TEST_TIMEOUT_PROFILE_PATH")
+            if timeout_profile:
+                try:
+                    os.remove(timeout_profile + ".progress")
+                except OSError:
+                    pass
+
+            # A profiled test that overran its expected timeout dumps a profile
+            # from the sampler thread and exits the process itself (see
+            # scheduleDumpToFile in head.js), rather than waiting for the
+            # harness's safety-net kill. Recognize that here -- the process
+            # ended on its own past the expected timeout and left a profile at
+            # the agreed path -- and report it as a timeout, not a normal result.
+            if (
+                not self.timedout
+                and self.timeout_profile_name
+                and self.env.get("MOZ_UPLOAD_DIR")
+                and elapsed > testTimeoutInterval
+                and os.path.isfile(
+                    os.path.join(self.env["MOZ_UPLOAD_DIR"], self.timeout_profile_name)
+                )
+            ):
+                self.timedout = True
+                self.reportTimeoutResult()
+                return
 
             if process_output:
                 # For the remote case, stdout is not yet depleted, so we parse
@@ -1803,6 +1893,8 @@ class XPCShellTests:
         self.mozInfo["inc_origin_init"] = (
             os.environ.get("MOZ_ENABLE_INC_ORIGIN_INIT") == "1"
         )
+
+        self.mozInfo["privateBrowsing"] = os.environ.get("MOZ_PRIVATE_BROWSING") == "1"
 
         self.mozInfo["condprof"] = options.get("conditionedProfile", False)
         self.mozInfo["msix"] = options.get("variant", "") == "msix"

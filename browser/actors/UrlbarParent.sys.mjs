@@ -104,11 +104,21 @@ export class UrlbarParent extends JSWindowActorParent {
           lazy.UrlbarResult.fromWire(message.data.result),
           message.data.idsByName
         );
+      case "GetHeuristicResult":
+        return controller
+          .getHeuristicResult(
+            lazy.UrlbarQueryContext.fromWire(message.data.queryContext)
+          )
+          .then(result => result?.toWire() ?? null);
       case "StartQuery":
-        controller.startQuery(
-          lazy.UrlbarQueryContext.fromWire(message.data.queryContext)
-        );
-        break;
+        // Round-trips so the proxy's startQuery resolves at true completion with
+        // the finished context. The context's results keep their data in private
+        // fields, so reduce it to wire form like the QUERY_RESULTS notifications.
+        return controller
+          .startQuery(
+            lazy.UrlbarQueryContext.fromWire(message.data.queryContext)
+          )
+          .then(context => context.toWire());
       case "CancelQuery":
         controller.cancelQuery();
         break;
@@ -179,7 +189,7 @@ class UrlbarChildControllerProxy {
     // The view fetches a result's template and menu commands synchronously,
     // which can't cross the boundary on demand, so pre-fetch them here for the
     // results we're about to deliver and ship them alongside.
-    if (name == this.#controller.NOTIFICATIONS.QUERY_RESULTS) {
+    if (name == lazy.UrlbarShared.NOTIFICATIONS.QUERY_RESULTS) {
       let queryContext = params[0];
       data.resultViewData = queryContext.results.map(result => ({
         viewTemplate:

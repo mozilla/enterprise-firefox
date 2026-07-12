@@ -26,7 +26,10 @@ $calculated-max-width-twice-widest: $break-point-widest + 2 * $card-width;
   }
 
   &:not(.dnd-active) {
-    .top-site-outer:is(.active, :focus, :hover) {
+    .top-site-outer:is(
+    .active,
+    :has(.top-site-inner:is(:hover, :focus-within))
+  ) {
       @include wallpaper-contrast-fix;
 
       // Ideally this would just match button --button-background-color-hover.
@@ -227,6 +230,7 @@ $calculated-max-width-twice-widest: $break-point-widest + 2 * $card-width;
   margin-block-end: var(--space-medium);
   border-radius: var(--border-radius-large);
   display: inline-block;
+  position: relative;
 
   .top-site-inner {
     position: relative;
@@ -242,7 +246,7 @@ $calculated-max-width-twice-widest: $break-point-widest + 2 * $card-width;
   // Gated to :not(.dnd-active) so a drag never shows hover chrome — macOS
   // freezes :hover on the dragged tile and we can't use pointer-events (the
   // placeholder is the drop target). Keep new tile-hover styling behind this.
-  .top-sites-list:not(.dnd-active) &:is(:hover, :focus) {
+  .top-sites-list:not(.dnd-active) &:has(.top-site-inner:is(:hover, :focus-within)) {
     .context-menu-button {
       opacity: 1;
       transition: opacity 200ms;
@@ -478,31 +482,6 @@ $calculated-max-width-twice-widest: $break-point-widest + 2 * $card-width;
     }
   }
 
-  &.add-button {
-    .tile {
-      background-color: var(--button-background-color);
-
-      @include wallpaper-contrast-fix;
-
-      .icon-wrapper {
-        background-image: url('chrome://global/skin/icons/plus-20.svg');
-        background-size: cover;
-        background-repeat: no-repeat;
-        height: 20px;
-        width: 20px;
-        fill: var(--icon-color);
-        -moz-context-properties: fill;
-      }
-    }
-
-    &:hover {
-      .tile {
-        background-color: var(--newtab-background-color-secondary);
-        color-scheme: initial;
-      }
-    }
-  }
-
   &.search-shortcut {
     .rich-icon {
       background-color: $white;
@@ -522,13 +501,15 @@ $calculated-max-width-twice-widest: $break-point-widest + 2 * $card-width;
     visibility: hidden;
   }
 
-  // Zero-pin drop placeholder keeps its slot but stays hidden until the drag is
-  // over the drop zone, so only the drop zone shows by default.
+  // Zero-pin drop placeholder keeps its slot but stays invisible until the drag
+  // is over the drop zone. opacity (not visibility) so it stays hit-testable:
+  // when it's the only cell on a new row, visibility:hidden drops it from
+  // hit-testing and dragover never lands on it, so it never reveals.
   &.zero-pin-placeholder {
-    visibility: hidden;
+    opacity: 0;
 
     &.over {
-      visibility: visible;
+      opacity: 1;
     }
   }
 
@@ -543,6 +524,77 @@ $calculated-max-width-twice-widest: $break-point-widest + 2 * $card-width;
     .title {
       visibility: hidden;
     }
+  }
+}
+
+.add-button {
+  @include wallpaper-contrast-fix;
+}
+
+// For a full row, the button is hidden until the last tile is hovered.
+.add-button-hidden {
+  position: absolute;
+  inset-block-start: calc(var(--space-large) + var(--size-item-large));
+  inset-inline-start: 100%;
+  width: var(--col-width);
+  display: flex;
+  justify-content: center;
+  // Transparent block padding enlarges the button's hover hit-area.
+  padding-block: var(--space-xxlarge);
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: opacity 100ms;
+  }
+
+  .top-site-outer:hover & {
+    opacity: 1;
+    transition-delay: 200ms;
+  }
+
+  // Reveal on keyboard focus anywhere within the shortcuts row.
+  .top-sites-list:focus-within & {
+    opacity: 1;
+  }
+
+  // Keep it hidden while a context menu is open (the open tile gets .active):
+  // the menu taking focus would otherwise trigger the reveal.
+  .top-sites-list:has(.top-site-outer.active) & {
+    opacity: 0;
+  }
+}
+
+// In-grid variant: center the button on its own tile. Horizontal centering uses
+// auto inline margins so it stays centered in RTL.
+.add-button-tile .add-button {
+  position: absolute;
+  inset-block-start: calc(var(--space-large) + var(--size-item-large));
+  inset-inline: 0;
+  margin-inline: auto;
+  transform: translateY(-50%);
+}
+
+// Sole item (no shortcuts): span the full row so the button stays centered
+// despite the column gaps, and reserve tile height so the row doesn't collapse
+// around the absolutely-positioned button.
+.add-button-tile:only-child {
+  grid-column: 1 / -1;
+  // Reserves the height of a shortcut tile + label
+  min-height: calc(96px + var(--space-small) * 7);
+}
+
+// @nova-cleanup(remove-conditional): Make default behavior, remove .nova-enabled selector
+.nova-enabled {
+  .add-button-hidden,
+  .add-button-tile .add-button {
+    inset-block-start: calc(var(--col-width) - var(--size-item-large));
+  }
+
+  .add-button-tile:only-child {
+    // Reserves the height of a shortcut tile (75px) + label (32px) + padding
+    min-height: calc(107px + var(--space-small));
   }
 }
 

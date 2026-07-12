@@ -96,6 +96,9 @@ home-prefs-clocks-header =
 # Privacy is a widget on New Tab that shows tracking protection activity.
 home-prefs-privacy-header =
     .label = Súkromie
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = Akcie
 home-prefs-mission-message2 =
     .message = Naši sponzori podporujú našu misiu budovať lepší web.
 home-prefs-manage-topics-link2 =
@@ -161,6 +164,15 @@ home-prefs-mission-message-learn-more-link-srd = Pozrite sa ako
 # Context menu item linking to more information about the Privacy widget.
 newtab-privacy-menu-learn-more = Ďalšie informácie
 
+## Strings for the Stocks widget
+
+# Context menu item for searching stock ticker symbols.
+newtab-stocks-menu-search = Hľadať burzové symboly
+# Context menu item that hides the Stocks widget.
+newtab-stocks-menu-hide = Skryť akcie
+# Context menu item linking to more information about the Stocks widget.
+newtab-stocks-menu-learn-more = Ďalšie informácie
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -196,6 +208,7 @@ newtab-topsites-add-shortcut-label = Pridať skratku
 newtab-topsites-add-shortcut-title =
     .title = Pridať skratku
     .aria-label = Pridať skratku
+newtab-shortcuts-pinned-area = Pripnutá oblasť
 newtab-topsites-title-label = Názov
 newtab-topsites-title-input =
     .placeholder = Zadajte názov
@@ -505,6 +518,8 @@ newtab-custom-widget-sports-toggle2 =
     .label = Šport
 newtab-custom-widget-privacy-toggle =
     .label = Súkromie
+newtab-custom-widget-stocks-toggle =
+    .label = Akcie
 newtab-custom-widget-section-title = Miniaplikácie
 newtab-custom-widget-section-toggle =
     .label = Miniaplikácie

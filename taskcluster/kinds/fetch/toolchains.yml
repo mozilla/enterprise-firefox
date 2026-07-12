@@ -712,7 +712,7 @@ symbol-scrapers:
     fetch:
         type: git
         repo: https://github.com/mozilla/symbol-scrapers
-        revision: 54402d045d400f79f10de9163c0071d64c449f3e
+        revision: 7070f9a4fa7a71413d84c80b3a53ae233e72ee55
 
 xz:
     description: xz 5.8.3 source code
@@ -816,18 +816,75 @@ dxc-src:
         revision: 9c26d96149925760ca86cd43610d9d32b6ec70c2
 
 jj:
+    # Keep minimum supported version in sync:
+    # https://searchfox.org/firefox-main/rev/d154a3eb431156b2bd63d3d5f96c82655b4e782d/python/mozversioncontrol/mozversioncontrol/repo/jj.py#20
     description: jj 0.38.0 source code
     fetch:
         type: git
         repo: https://github.com/jj-vcs/jj
         revision: 2508982cde5c7e4db0933e0b6469f9e778e71e28
 
+searchfox-cli:
+    description: searchfox-cli 0.18.0 source code
+    fetch:
+        type: static-url
+        url: https://crates.io/api/v1/crates/searchfox-cli/0.18.0/download
+        sha256: e284bf3dddb000af548c5651f0f62be2c1a1c8edb25590319f185f8032b0b6be
+        size: 26771
+        artifact-name: searchfox-cli.tar.zst
+        strip-components: 1
+        add-prefix: searchfox-cli/
+
+socorro-cli:
+    description: socorro-cli 0.6.0 source code
+    fetch:
+        type: static-url
+        url: https://crates.io/api/v1/crates/socorro-cli/0.6.0/download
+        sha256: 44536ae58eb5a3c612becd0859f1e83ed0d0c4345f429e0380aed17995aecaf4
+        size: 72287
+        artifact-name: socorro-cli.tar.zst
+        strip-components: 1
+        add-prefix: socorro-cli/
+
+stmo-cli:
+    description: stmo-cli 0.8.0 source code
+    fetch:
+        type: static-url
+        url: https://crates.io/api/v1/crates/stmo-cli/0.8.0/download
+        sha256: 32b826cfbf6a29801a4fe2c46d113650ea79ca73ce8040cab60e89d0bec9e4e0
+        size: 73054
+        artifact-name: stmo-cli.tar.zst
+        strip-components: 1
+        add-prefix: stmo-cli/
+
+treeherder-cli:
+    description: treeherder-cli 0.2.13 source code
+    fetch:
+        type: static-url
+        url: https://crates.io/api/v1/crates/treeherder-cli/0.2.13/download
+        sha256: 05ddb3b2954bf5441b167e2057c98f81c536af5ccf89aa61e21093b39cbafbe1
+        size: 49498
+        artifact-name: treeherder-cli.tar.zst
+        strip-components: 1
+        add-prefix: treeherder-cli/
+
+webspec-index:
+    description: webspec-index 0.10.0 source code
+    fetch:
+        type: static-url
+        url: https://crates.io/api/v1/crates/webspec-index/0.10.0/download
+        sha256: 5b89be8299e086f740e30e6bf028df3501ea7ce219cf49e32b987f902aa68645
+        size: 146433
+        artifact-name: webspec-index.tar.zst
+        strip-components: 1
+        add-prefix: webspec-index/
+
 firefox-profiler:
     description: firefox profiler source code
     fetch:
         type: git
         repo: https://github.com/firefox-devtools/profiler
-        revision: bdc1c36eedce2cd445726a9d0b28b72082ccad4f
+        revision: 03c34e0b5931ea8e25b89e038c6e3be87763747d
 
 # See https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads
 # We can't catch regressions from these updates in CI. Testing should focus on

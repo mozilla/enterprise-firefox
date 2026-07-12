@@ -17,6 +17,7 @@ import androidx.annotation.VisibleForTesting.Companion.PRIVATE
 import androidx.core.content.edit
 import androidx.lifecycle.LifecycleOwner
 import androidx.preference.PreferenceManager
+import mozilla.components.browser.engine.gecko.cookiebanners.ReportSiteDomainsRepository.Companion.REPORT_SITE_DOMAINS_REPOSITORY_NAME
 import mozilla.components.concept.engine.Engine
 import mozilla.components.concept.engine.Engine.HttpsOnlyMode
 import mozilla.components.concept.engine.EngineSession.CookieBannerHandlingMode
@@ -73,6 +74,7 @@ import org.mozilla.fenix.tabstray.DefaultTabManagementFeatureHelper
 import org.mozilla.fenix.termsofuse.TOU_VERSION
 import org.mozilla.fenix.utils.Settings.Companion.LONGFOX_PEEK_ANIMATION_MAX_SHOWS
 import org.mozilla.fenix.wallpapers.Wallpaper
+import java.io.File
 import java.security.InvalidParameterException
 import java.util.concurrent.TimeUnit.MILLISECONDS
 
@@ -92,7 +94,6 @@ class Settings(
     private val appContext: Context,
     private val packageName: String = appContext.packageName,
     private val packageManagerCompatHelper: PackageManagerCompatHelper = appContext.packageManagerCompatHelper,
-    @Suppress("unused")
     private val isBenchmarkBuild: Boolean = BuildConfig.IS_BENCHMARK_BUILD,
 ) : PreferencesHolder {
     companion object {
@@ -561,7 +562,9 @@ class Settings(
     )
 
     val shouldSecureModeBeOverridden
-        get() = allowScreenshotsInPrivateMode || allowScreenCaptureInSecureScreens
+        get() = allowScreenshotsInPrivateMode || allowScreenCaptureInSecureScreens ||
+        // Allow FTL videos from macrobenchmark tests to capture what is happening in the CUJ
+            isBenchmarkBuild
     var allowScreenshotsInPrivateMode by booleanPreference(
         appContext.getPreferenceKey(R.string.pref_key_allow_screenshots_in_private_mode),
         default = false,
@@ -1317,14 +1320,6 @@ class Settings(
         default = appContext.getString(R.string.remote_settings_server_prod),
     )
 
-    /**
-     * Indicates if the cookie banners CRF should be shown.
-     */
-    var shouldShowCookieBannersCFR by booleanPreference(
-        appContext.getPreferenceKey(R.string.pref_key_should_show_cookie_banners_action_popup),
-        default = { shouldShowCookieBannerUI },
-    )
-
     var shouldShowTabSwipeCFR by booleanPreference(
         appContext.getPreferenceKey(R.string.pref_key_toolbar_tab_swipe_cfr),
         default = false,
@@ -1901,6 +1896,44 @@ class Settings(
         default = false,
     )
 
+    /**
+     * Indicates if the "pocket_recommendations" database has been deleted.
+     */
+    private var hasDeletedLegacyPocketDatabase by booleanPreference(
+        appContext.getPreferenceKey(R.string.pref_key_deleted_legacy_pocket_database),
+        default = false,
+    )
+
+    /**
+     * Deletes the "pocket_recommendations" database left behind on existing application after the legacy
+     * Pocket feature was removed.
+     */
+    fun deletePocketDatabaseIfNeeded() {
+        if (!hasDeletedLegacyPocketDatabase) {
+            appContext.deleteDatabase("pocket_recommendations")
+            hasDeletedLegacyPocketDatabase = true
+        }
+    }
+
+    /**
+     * Indicates if the [REPORT_SITE_DOMAINS_REPOSITORY_NAME] DataStore has been deleted.
+     */
+    private var hasDeletedReportSiteDomainsDataStore by booleanPreference(
+        appContext.getPreferenceKey(R.string.pref_key_deleted_report_site_domains_datastore),
+        default = false,
+    )
+
+    /**
+     * Deletes the [REPORT_SITE_DOMAINS_REPOSITORY_NAME] DataStore left behind on existing
+     * application after the legacy cookie banner feature was removed.
+     */
+    fun deleteReportSiteDomainsDataStoreIfNeeded() {
+        if (!hasDeletedReportSiteDomainsDataStore) {
+            File(appContext.filesDir, "datastore/$REPORT_SITE_DOMAINS_REPOSITORY_NAME.preferences_pb").delete()
+            hasDeletedReportSiteDomainsDataStore = true
+        }
+    }
+
     fun incrementNumTimesPrivateModeOpened() = numTimesPrivateModeOpened.increment()
 
     private val numTimesPrivateModeOpened = counterPreference(
@@ -2476,14 +2509,6 @@ class Settings(
     var enableMerinoClient by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_enable_merino_client),
         default = { FxNimbus.features.merinoClient.value().enabled },
-    )
-
-    /**
-     * Indicates if the Unified Trust Panel is enabled.
-     */
-    var enableUnifiedTrustPanel by booleanPreference(
-        key = appContext.getPreferenceKey(R.string.pref_key_enable_unified_trust_panel),
-        default = true,
     )
 
     /**

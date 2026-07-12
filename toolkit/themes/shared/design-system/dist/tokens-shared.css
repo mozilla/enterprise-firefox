@@ -178,13 +178,27 @@
     --card-border: var(--card-border-width) solid var(--card-border-color);
     --card-border-color: light-dark(color-mix(in srgb, currentColor 10%, transparent), color-mix(in srgb, currentColor 6%, transparent));
     --card-border-radius: var(--border-radius-large);
+    --card-border-radius-compact: var(--border-radius-medium);
     --card-border-width: var(--border-width);
     --card-box-shadow: var(--box-shadow-level-2);
     --card-box-shadow-hover: var(--box-shadow-level-4);
     --card-focus-outline: var(--focus-outline);
+    --card-font-size: var(--font-size-root);
+    --card-font-size-compact: var(--font-size-small);
     --card-gap: var(--card-padding);
     --card-gap-article: var(--space-small);
+    --card-gap-compact: var(--space-small);
+    --card-header-background-color: initial;
+    --card-header-background-color-hover: var(--button-background-color-hover);
+    --card-header-background-color-active: var(--button-background-color-active);
+    --card-header-border-color: transparent;
+    --card-header-border-color-hover: transparent;
+    --card-header-border-color-active: transparent;
+    --card-header-text-color: var(--button-text-color);
+    --card-header-text-color-hover: var(--button-text-color-hover);
+    --card-header-text-color-active: var(--button-text-color-active);
     --card-padding: var(--space-large);
+    --card-padding-compact: var(--space-small);
 
     /** checkbox **/
     --checkbox-background-color: var(--button-background-color);
@@ -479,6 +493,9 @@
     --panel-padding: 16px;
     --panel-padding-block: 4px;
     --panel-separator-color: color-mix(in srgb, currentColor 25%, transparent);
+    --panel-separator-padding: var(--panel-separator-padding-block) var(--panel-separator-padding-inline);
+    --panel-separator-padding-block: 4px;
+    --panel-separator-padding-inline: 8px;
     --panel-text-color: light-dark(var(--color-black), rgb(251, 251, 254));
     --panel-width: initial;
 
@@ -621,6 +638,7 @@
 
       /** card **/
       --card-border-color: color-mix(in srgb, currentColor 41%, transparent);
+      --card-header-border-color: var(--button-border-color);
 
       /** color **/
       --color-accent-attention: AccentColor;
@@ -726,6 +744,10 @@
 
       /** card **/
       --card-border-color: CanvasText;
+      --card-header-background-color: var(--button-background-color);
+      --card-header-border-color: var(--button-border-color);
+      --card-header-border-color-hover: var(--button-border-color-hover);
+      --card-header-border-color-active: var(--button-border-color-active);
 
       /** color **/
       --color-accent-primary: ButtonText;
@@ -865,6 +887,8 @@
       /** card **/
       --card-border-color: light-dark(rgba(0, 0, 0, 0.06), rgba(255, 255, 255, 0.04));
       --card-gap: var(--space-medium);
+      --card-header-background-color: var(--button-background-color);
+      --card-header-border-color: transparent;
 
       /** checkbox **/
       --checkbox-border-radius: var(--border-radius-xsmall);
@@ -1175,6 +1199,7 @@
 
         /** card **/
         --card-border-color: CanvasText;
+        --card-header-border-color: var(--button-border-color);
 
         /** color **/
         --color-accent-attention: AccentColor;

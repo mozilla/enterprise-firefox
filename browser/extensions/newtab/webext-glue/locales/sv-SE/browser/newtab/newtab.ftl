@@ -99,6 +99,9 @@ home-prefs-privacy-header =
 # Stocks is a widget on New Tab that shows stock ticker prices.
 home-prefs-stocks-header =
     .label = Aktier
+# Picture of the day is a widget on New Tab that shows a daily Wikimedia Commons image.
+home-prefs-picture-header =
+    .label = Dagens bild
 home-prefs-mission-message2 =
     .message = Våra sponsorer stöder vårt uppdrag att bygga en bättre webb.
 home-prefs-manage-topics-link2 =
@@ -171,6 +174,36 @@ newtab-stocks-menu-search = Sök efter tickersymboler
 newtab-stocks-menu-hide = Dölj aktier
 # Context menu item linking to more information about the Stocks widget.
 newtab-stocks-menu-learn-more = Läs mer
+
+## Strings for the Picture of the Day widget
+
+# Eyebrow shown at the top of the widget. Wikimedia Commons is a brand name and
+# should not be translated.
+newtab-picture-header = Dagens bild · Wikimedia Commons
+# Button that sets the current picture as the New Tab background wallpaper. The
+# button collapses to an icon when not hovered/focused, so .title is its tooltip.
+newtab-picture-set-wallpaper =
+    .label = Välj bakgrundsbild
+    .title = Välj bakgrundsbild
+    .aria-label = Ställ in dagens bild som bakgrund
+# Context menu item that opens the New Tab customization panel.
+newtab-picture-menu-manage-wallpaper = Hantera bakgrundsbild
+# Context menu item that hides today’s picture, replacing it with an existing
+# wallpaper.
+newtab-picture-menu-hide-photo = Dölj dagens bild
+# Context menu item that restores today’s picture after it has been hidden.
+newtab-picture-menu-show-photo = Visa dagens bild
+# Context menu item linking to more information about the widget.
+newtab-picture-menu-learn-more = Läs mer
+# Icon button shown on the widget once the picture is hidden; restores it.
+newtab-picture-show-button =
+    .title = Visa dagens bild
+    .aria-label = Visa dagens bild
+# Shown when there is no new picture to display yet.
+newtab-picture-check-back = Kom tillbaka imorgon för en ny bild
+# Screen-reader text alternative for the picture; fallback used when the source
+# provides no localized description.
+newtab-picture-image-alt = Wikimedia Commons bild för dagen
 
 ## Search box component.
 
@@ -521,6 +554,8 @@ newtab-custom-widget-privacy-toggle =
     .label = Sekretess
 newtab-custom-widget-stocks-toggle =
     .label = Aktier
+newtab-custom-widget-picture-toggle =
+    .label = Dagens bild
 newtab-custom-widget-section-title = Widgetar
 newtab-custom-widget-section-toggle =
     .label = Widgetar
@@ -1302,6 +1337,15 @@ newtab-sports-widget-message-day-in-play-title = Håll igång dagen med { -brand
 newtab-sports-widget-message-day-in-play-body = Följ VM, håll fokus, registrera tiden runt om i världen och mycket mer.
 newtab-sports-widget-message-explore-widgets-cta =
     .label = Utforska widgetar
+
+## Survey prompts shown after the World Cup to gather feedback on the widgets experience.
+
+newtab-sports-widget-message-survey-title = Hjälp oss att göra widgetar bättre
+newtab-sports-widget-message-survey-body = Det är en inblick i världscupen. Dela din feedback om upplevelsen.
+newtab-sports-widget-message-survey-widget-title = Hur var världscupwidgeten?
+newtab-sports-widget-message-survey-widget-body = Dela din feedback för att hjälpa oss förbättra framtida widgets. Testa sedan den nya i din lineup.
+newtab-sports-widget-message-survey-cta =
+    .label = Gör undersökning
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

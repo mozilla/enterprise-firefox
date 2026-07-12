@@ -19,13 +19,12 @@ namespace mozilla {
 // ** `ParameterType<N>` with `N` >= `arity` is allowed and gives `void`.
 // This prevents compilation errors when trying to access a type outside of the
 // function's parameters, which is useful for parameters checks, e.g.:
-//
 //   template<typename F>
-//   requires(
-//     FunctionTypeTraits<F>::arity == 1 &&
-//     std::is_same_v<FunctionTypeTraits<F>::template ParameterType<0>, int>
-//   )
-//   void foo(F&&)
+//   auto foo(F&&)
+//    -> enable_if(FunctionTypeTraits<F>::arity == 1 &&
+//                 is_same<FunctionTypeTraits<F>::template ParameterType<0>,
+//                         int>::value,
+//                 void)
 //   {
 //     // This function will only be enabled if `F` takes one `int`.
 //     // Without the permissive ParameterType<any N>, it wouldn't even compile.

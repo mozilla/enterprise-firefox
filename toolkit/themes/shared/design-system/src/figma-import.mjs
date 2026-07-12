@@ -19,10 +19,13 @@ function joinRelativePath(...args) {
 }
 
 const WIDGETS_PATH = "../../../../content/widgets".split("/");
+const BROWSER_THEMES_PATH = "../../../../../browser/themes/shared".split("/");
 const TOKEN_DIRS = [
   joinRelativePath("tokens", "base"),
   joinRelativePath("tokens", "components"),
   joinRelativePath(...WIDGETS_PATH),
+  joinRelativePath(...BROWSER_THEMES_PATH, "urlbar"),
+  joinRelativePath(...BROWSER_THEMES_PATH, "tabbrowser"),
 ];
 const FIGMA_VALUE_MAP = {
   Light: "/light",
@@ -42,6 +45,8 @@ const FIGMA_IGNORES = new Set([
   "text/color/deemphasized",
   "text/color/disabled",
   "panel/separator/color",
+  // Base already has `inherit`; Figma stores a token reference that would overwrite it.
+  "urlbar/box/text/color",
 ]);
 
 // Nova overrides whose value must keep platform structure that Figma flattens
@@ -72,6 +77,46 @@ const NOVA_STRUCTURAL_OVERRIDES = {
       default: "SelectedItemText",
     },
   },
+  "tab/border/color/accent":
+    "linear-gradient(96deg, var(--tab-border-color-selected-leading) 20.68%, var(--tab-border-color-selected-trailing) 79.34%)",
+  // Tab HCM overrides are handled in CSS; strip forcedColors from these tokens.
+  "tab/background/color/hover": {
+    nativeTheme: "color-mix(in srgb, currentColor 17%, transparent)",
+    default: "{toolbarbutton.background.color.hover}",
+  },
+  "tab/background/color/selected": {
+    nativeTheme: "var(--toolbar-background-color)",
+    default: "{background.color.box.@base}",
+  },
+  "tab/border/color/selected/leading": "{color.violet.30}",
+  "tab/border/color/selected/trailing": {
+    light: "{color.orange.30}",
+    dark: "{color.violet.50}",
+  },
+  "tab/loading/fill": "{color.accent.primary.@base}",
+  "tab/outline/color": "transparent",
+  // color-mix() on currentColor for nativeTheme can't be stored in Figma.
+  "urlbar/box/background/color": {
+    nativeTheme: "color-mix(in srgb, currentColor 16%, transparent)",
+    default: "{urlbarview.background.color.hover}",
+  },
+  "urlbar/box/background/color/hover": {
+    nativeTheme: "color-mix(in srgb, currentColor 22%, transparent)",
+    default: "{urlbarview.background.color.selected}",
+  },
+  "urlbar/box/background/color/active": {
+    nativeTheme: "color-mix(in srgb, currentColor 30%, transparent)",
+    light: "rgba(117, 102, 159, 0.6)",
+    dark: "rgba(176, 163, 210, 0.6)",
+  },
+  // Figma's HCM mode maps to `forcedColors`, but the token intentionally uses
+  // `prefersContrast` (a different media query).
+  "urlbar/icon/fill/opacity": {
+    nativeTheme: "0.9",
+    light: "0.7",
+    dark: "0.95",
+    prefersContrast: "1",
+  },
 };
 
 function transformValue(val, tokenNames, figmaName) {
@@ -80,6 +125,9 @@ function transformValue(val, tokenNames, figmaName) {
       // This is intended for opacity which is exported as a number between 0-100...
       // Likely we need to handle other numbers that are px, etc too
       return String(val / 100);
+    }
+    if (figmaName.includes("line/height")) {
+      return String(val);
     }
     return val === 0 ? String(val) : `${val}px`;
   }
@@ -291,7 +339,8 @@ function walkUpdateNovaTokens(tokens, vars, tokenNames, path = []) {
             simplified.light = newValue.light;
             simplified.dark = newValue.dark;
           }
-          if (newValue.forcedColors) {
+          // Tab group HCM is handled in CSS; strip forcedColors for all tab group tokens.
+          if (newValue.forcedColors && !resolvedPath.startsWith("tab/group/")) {
             if (
               !simplified.default ||
               newValue.forcedColors !== simplified.default

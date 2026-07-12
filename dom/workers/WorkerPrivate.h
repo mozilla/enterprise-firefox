@@ -1090,6 +1090,13 @@ class WorkerPrivate final
 
   void DisableRemoteDebuggerOnWorkerThread(const bool& aForShutdown = false);
 
+  // Whether this worker exposes its debugger through the parent-process
+  // RemoteWorkerDebugger mechanism (true) or registers its nsIWorkerDebugger on
+  // the local main thread (false). Latched at construction from
+  // dom.worker.remoteDebugger.enabled; always false in the parent process. The
+  // two mechanisms are mutually exclusive for a given worker.
+  bool UseRemoteDebugger() const { return mUseRemoteDebugger; }
+
   void SetIsQueued(const bool& aQueued);
 
   bool IsQueued() const;
@@ -1385,6 +1392,16 @@ class WorkerPrivate final
 
   nsresult UnregisterShutdownTask(nsITargetShutdownTask* aTask);
 
+  // Shutdown tasks registered via the debugger-only event target (i.e. the
+  // RemoteWorkerDebugger's MessageChannel). These run on worker shutdown like
+  // regular shutdown tasks, but are tracked separately so they do NOT keep the
+  // worker ineligible for CC: an idle, otherwise-unreferenced worker that only
+  // has a remote debugger registered must still be collectable, otherwise the
+  // Worker<->WorkerPrivate cycle never breaks (bug 1944240).
+  nsresult RegisterDebuggerShutdownTask(nsITargetShutdownTask* aTask);
+
+  nsresult UnregisterDebuggerShutdownTask(nsITargetShutdownTask* aTask);
+
   // Internal logic to dispatch a runnable. This is separate from Dispatch()
   // to allow runnables to be atomically dispatched in bulk.
   nsresult DispatchLockHeld(already_AddRefed<WorkerRunnable> aRunnable,
@@ -1556,6 +1573,8 @@ class WorkerPrivate final
   bool mRemoteDebuggerRegistered MOZ_GUARDED_BY(mMutex);
   bool mRemoteDebuggerReady MOZ_GUARDED_BY(mMutex);
   bool mIsQueued;  // Should only touched on parent thread.
+  // Immutable after construction, safe to read from any thread.
+  const bool mUseRemoteDebugger;
   mozilla::CondVar mDebuggerBindingCondVar MOZ_GUARDED_BY(mMutex);
   RefPtr<WorkerEventTarget> mWorkerDebuggerEventTarget;
 
@@ -1754,6 +1773,10 @@ class WorkerPrivate final
   HashMap<JS::Dispatchable*, RefPtr<StrongWorkerRef>> mPendingJSAsyncTasks;
 
   TargetShutdownTaskSet mShutdownTasks MOZ_GUARDED_BY(mMutex);
+  // Shutdown tasks from the RemoteWorkerDebugger's MessageChannel. Kept out of
+  // mShutdownTasks so they don't block CC eligibility (see
+  // RegisterDebuggerShutdownTask); still run on shutdown.
+  TargetShutdownTaskSet mDebuggerShutdownTasks MOZ_GUARDED_BY(mMutex);
   bool mShutdownTasksRun MOZ_GUARDED_BY(mMutex) = false;
 
   bool mCCFlagSaysEligible MOZ_GUARDED_BY(mMutex){true};

@@ -14,6 +14,7 @@ class nsIScriptElement;
 
 namespace mozilla::dom {
 
+class Document;
 class SpeculationRuleSet;
 
 class SpeculationRules final {
@@ -21,16 +22,26 @@ class SpeculationRules final {
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(SpeculationRules)
   NS_DECL_CYCLE_COLLECTION_NATIVE_CLASS(SpeculationRules)
 
+  explicit SpeculationRules(Document* aDocument);
+
   void RegisterFromScript(nsIScriptElement* aScriptElement,
                           UniquePtr<SpeculationRuleSet> aRuleSet);
   void Unregister(nsIScriptElement* aScriptElement);
 
+  void ConsiderLoads();
+  void InnerConsiderLoads();
+
  private:
   virtual ~SpeculationRules() = default;
+
+  RefPtr<Document> mDocument;
 
   // https://html.spec.whatwg.org/#document-sr-sets
   nsClassHashtable<nsRefPtrHashKey<nsIScriptElement>, SpeculationRuleSet>
       mRuleSetsFromScript;
+
+  // https://html.spec.whatwg.org/#consider-speculative-loads-microtask-queued
+  bool mConsiderSpeculativeLoadsMicrotaskQueued{false};
 };
 
 }  // namespace mozilla::dom

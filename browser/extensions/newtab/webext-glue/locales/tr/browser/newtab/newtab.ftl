@@ -96,6 +96,12 @@ home-prefs-clocks-header =
 # Privacy is a widget on New Tab that shows tracking protection activity.
 home-prefs-privacy-header =
     .label = Gizlilik
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = Borsa
+# Picture of the day is a widget on New Tab that shows a daily Wikimedia Commons image.
+home-prefs-picture-header =
+    .label = Günün resmi
 home-prefs-mission-message2 =
     .message = Sponsorlarımız daha iyi bir web inşa etme misyonumuzu destekliyor.
 home-prefs-manage-topics-link2 =
@@ -160,6 +166,40 @@ home-prefs-mission-message-learn-more-link-srd = Nasıl mı?
 # Context menu item linking to more information about the Privacy widget.
 newtab-privacy-menu-learn-more = Daha fazla bilgi al
 
+## Strings for the Stocks widget
+
+# Context menu item for searching stock ticker symbols.
+newtab-stocks-menu-search = Sembollerde ara
+# Context menu item that hides the Stocks widget.
+newtab-stocks-menu-hide = Borsayı gizle
+# Context menu item linking to more information about the Stocks widget.
+newtab-stocks-menu-learn-more = Daha fazla bilgi al
+
+## Strings for the Picture of the Day widget
+
+# Eyebrow shown at the top of the widget. Wikimedia Commons is a brand name and
+# should not be translated.
+newtab-picture-header = Günün resmi · Wikimedia Commons
+# Button that sets the current picture as the New Tab background wallpaper. The
+# button collapses to an icon when not hovered/focused, so .title is its tooltip.
+newtab-picture-set-wallpaper =
+    .label = Duvar kâğıdı yap
+    .title = Duvar kâğıdı yap
+    .aria-label = Günün resmini duvar kâğıdım yap
+# Context menu item that opens the New Tab customization panel.
+newtab-picture-menu-manage-wallpaper = Duvar kâğıdını yönet
+# Context menu item that hides today’s picture, replacing it with an existing
+# wallpaper.
+newtab-picture-menu-hide-photo = Günün resmini gizle
+# Context menu item that restores today’s picture after it has been hidden.
+newtab-picture-menu-show-photo = Günün resmini göster
+# Context menu item linking to more information about the widget.
+newtab-picture-menu-learn-more = Daha fazla bilgi al
+# Icon button shown on the widget once the picture is hidden; restores it.
+newtab-picture-show-button =
+    .title = Günün resmini göster
+    .aria-label = Günün resmini göster
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -195,6 +235,7 @@ newtab-topsites-add-shortcut-label = Kısayol ekle
 newtab-topsites-add-shortcut-title =
     .title = Kısayol ekle
     .aria-label = Kısayol ekle
+newtab-shortcuts-pinned-area = Sabitlenmiş alan
 newtab-topsites-title-label = Başlık
 newtab-topsites-title-input =
     .placeholder = Başlık yazın
@@ -502,6 +543,8 @@ newtab-custom-widget-sports-toggle2 =
     .label = Spor
 newtab-custom-widget-privacy-toggle =
     .label = Gizlilik
+newtab-custom-widget-stocks-toggle =
+    .label = Borsa
 newtab-custom-widget-section-title = Araçlar
 newtab-custom-widget-section-toggle =
     .label = Araçlar

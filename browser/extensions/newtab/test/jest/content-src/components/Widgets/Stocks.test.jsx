@@ -50,19 +50,32 @@ describe("Stocks widget", () => {
     expect(root.className).toContain("medium-widget");
   });
 
-  it("renders the size submenu with all three sizes", () => {
+  it("renders an always-visible localized title", () => {
     const { container } = renderStocks();
-    const sizes = [...container.querySelectorAll("[data-size]")].map(el =>
-      el.getAttribute("data-size")
+    const title = container.querySelector(
+      '[data-l10n-id="newtab-stocks-widget-title"]'
     );
-    expect(sizes).toEqual(["small", "medium", "large"]);
+    expect(title).toBeTruthy();
+    expect(title.getAttribute("aria-hidden")).toBeNull();
+  });
+
+  it("offers medium and large sizes only", () => {
+    const { container } = renderStocks();
+    const items = [
+      ...container.querySelectorAll(
+        "#stocks-size-submenu panel-item[type='checkbox']"
+      ),
+    ];
+    const sizes = items.map(el => el.getAttribute("data-size"));
+    expect(sizes).toEqual(["medium", "large"]);
+    expect(items.every(el => !el.hasAttribute("disabled"))).toBe(true);
   });
 
   it("hides the widget by setting its enabled pref to false", () => {
     const dispatch = jest.fn();
     const { container } = renderStocks(dispatch);
     const hide = container.querySelector(
-      '[data-l10n-id="newtab-stocks-menu-hide"]'
+      '[data-l10n-id="newtab-widget-menu-hide"]'
     );
     fireEvent.click(hide);
     const setPref = dispatch.mock.calls.find(
@@ -87,5 +100,105 @@ describe("Stocks widget", () => {
         action.data?.user_action === "search_tickers"
     );
     expect(evt).toBeTruthy();
+  });
+
+  function renderStocksWithTickers(tickers, size = "medium") {
+    const state = {
+      ...mockState,
+      Prefs: {
+        ...mockState.Prefs,
+        values: { ...mockState.Prefs.values, "widgets.stocks.size": size },
+      },
+      Stocks: { tickers, lastUpdated: 1 },
+    };
+    return render(
+      <WrapWithProvider state={state}>
+        <Stocks
+          dispatch={jest.fn()}
+          widgetsMayBeMaximized={true}
+          widgetEnabledMap={{}}
+        />
+      </WrapWithProvider>
+    );
+  }
+
+  // Matches what Merino actually returns: last_price ends with " USD" and
+  // todays_change_perc has no "%". The widget formats both for display.
+  const SAMPLE = [
+    {
+      ticker: "SPY",
+      name: "SPDR S&P 500 ETF Trust",
+      last_price: "$559.44 USD",
+      todays_change_perc: "+0.2",
+    },
+    {
+      ticker: "ONEQ",
+      name: "Fidelity Nasdaq Composite",
+      last_price: "$70.10 USD",
+      todays_change_perc: "-0.21",
+    },
+    {
+      ticker: "DIA",
+      name: "SPDR Dow Jones ETF",
+      last_price: "$430.00 USD",
+      todays_change_perc: "0.00",
+    },
+    {
+      ticker: "IWM",
+      name: "iShares Russell 2000 ETF",
+      last_price: "$220.00 USD",
+      todays_change_perc: "+1.0",
+    },
+  ];
+
+  it("renders one card per ticker in the medium grid with formatted price and change", () => {
+    const { container } = renderStocksWithTickers(SAMPLE, "medium");
+    expect(
+      container.querySelectorAll(".stocks-grid .stock-ticker").length
+    ).toBe(4);
+    expect(container.querySelector(".stock-ticker-symbol").textContent).toBe(
+      "SPY"
+    );
+    expect(container.querySelector(".stock-ticker-price").textContent).toBe(
+      "$559.44"
+    );
+    expect(container.querySelector(".stock-ticker-change").textContent).toBe(
+      "+0.2%"
+    );
+  });
+
+  it("renders placeholder cards before data arrives", () => {
+    const { container } = renderStocksWithTickers([], "medium");
+    expect(container.querySelector(".stocks-grid--loading")).toBeTruthy();
+    expect(
+      container.querySelectorAll(".stocks-grid .stock-ticker").length
+    ).toBe(4);
+    expect(container.querySelectorAll(".stock-ticker-sr").length).toBe(0);
+  });
+
+  it("renders the large size as a vertical list showing full names", () => {
+    const { container } = renderStocksWithTickers(SAMPLE, "large");
+    expect(container.querySelector(".stocks-grid")).toBeNull();
+    expect(
+      container.querySelectorAll(".stocks-list .stock-ticker--large").length
+    ).toBe(4);
+    expect(container.querySelector(".stock-ticker-name").textContent).toBe(
+      "SPDR S&P 500 ETF Trust"
+    );
+    expect(container.querySelector(".stock-ticker-price").textContent).toBe(
+      "$559.44"
+    );
+    expect(container.querySelector(".stock-ticker-change").textContent).toBe(
+      "+0.2%"
+    );
+  });
+
+  it("renders placeholder cards before data arrives at the large size", () => {
+    const { container } = renderStocksWithTickers([], "large");
+    expect(container.querySelector(".stocks-list--loading")).toBeTruthy();
+    expect(
+      container.querySelectorAll(".stocks-list .stock-ticker--large").length
+    ).toBe(4);
+    expect(container.querySelectorAll(".stock-ticker-sr").length).toBe(0);
   });
 });

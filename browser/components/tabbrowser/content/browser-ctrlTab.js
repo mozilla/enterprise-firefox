@@ -182,7 +182,12 @@ var tabPreviewPanelHelper = {
     }
 
     if (host.tabToSelect) {
-      gBrowser.selectedTab = host.tabToSelect;
+      gBrowser.setSelectedTab(
+        host.tabToSelect,
+        gBrowser.TabMetrics.userTriggeredContext(
+          gBrowser.TabMetrics.METRIC_SOURCE.CTRL_TAB
+        )
+      );
       host.tabToSelect = null;
     }
   },
@@ -538,7 +543,12 @@ var ctrlTab = {
       this._timer = null;
       this.suspendGUI();
       if (aTabToSelect) {
-        gBrowser.selectedTab = aTabToSelect;
+        gBrowser.setSelectedTab(
+          aTabToSelect,
+          gBrowser.TabMetrics.userTriggeredContext(
+            gBrowser.TabMetrics.METRIC_SOURCE.CTRL_TAB
+          )
+        );
       }
       return;
     }
@@ -592,7 +602,12 @@ var ctrlTab = {
       this.open();
     } else if (tabs.length == 2) {
       let index = tabs[0].selected ? 1 : 0;
-      gBrowser.selectedTab = tabs[index];
+      gBrowser.setSelectedTab(
+        tabs[index],
+        gBrowser.TabMetrics.userTriggeredContext(
+          gBrowser.TabMetrics.METRIC_SOURCE.CTRL_TAB
+        )
+      );
     }
   },
 

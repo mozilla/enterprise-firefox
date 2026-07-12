@@ -32,12 +32,6 @@ loader.lazyRequireGetter(
   "resource://devtools/shared/css/parsing-utils.js",
   true
 );
-loader.lazyRequireGetter(
-  this,
-  "findCssSelector",
-  "resource://devtools/shared/inspector/css-logic.js",
-  true
-);
 loader.lazyGetter(this, "PROPERTY_NAME_INPUT_LABEL", function () {
   return l10n("rule.propertyName.label");
 });
@@ -670,12 +664,6 @@ class TextPropertyEditor {
       };
     }
 
-    // Save focused element inside value span if one exists before wiping the innerHTML
-    let focusedElSelector = null;
-    if (this.valueSpan.contains(this.doc.activeElement)) {
-      focusedElSelector = findCssSelector(this.doc.activeElement);
-    }
-
     this.valueSpan.innerHTML = "";
     this.valueSpan.appendChild(frag);
     if (
@@ -793,16 +781,6 @@ class TextPropertyEditor {
 
     // Update the rule property highlight.
     this.ruleView.updatePropertyHighlight(this);
-
-    // Restore focus back to the element whose markup was recreated above, if
-    // the focus is still in the current document (avoid stealing the focus, see
-    // Bug 1911627).
-    if (this.doc.hasFocus() && focusedElSelector) {
-      const elementToFocus = this.doc.querySelector(focusedElSelector);
-      if (elementToFocus) {
-        elementToFocus.focus();
-      }
-    }
   };
 
   /**

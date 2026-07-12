@@ -45,7 +45,7 @@
       "toolbar": "{color.violet-desaturated.70}",
       "toolbar_text": "#ffffff",
       "toolbar_bottom_separator": "{color.violet-desaturated.60}",
-      "toolbar_field_border_focus": "#ffffff",
+      "toolbar_field_border_focus": "{color.violet.30}",
       "toolbar_field": "{color.gray.75}",
       "toolbar_field_focus": "{color.gray.85}",
       "toolbar_field_text": "{color.violet-desaturated.10}",

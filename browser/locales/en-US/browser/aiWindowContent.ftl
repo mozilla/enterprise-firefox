@@ -110,7 +110,7 @@ smart-window-restore-success-summary =
         [one] Tab closed, then restored.
        *[other] Tabs closed, then restored.
     }
-smart-window-cancelled-label = Request cancelled.
+smart-window-cancelled-label = Request canceled.
 # Button label - "Group" is a verb (action to group tabs)
 smart-window-confirm-group-tab = Group
 # Button label - "Group" is a verb (action to group tabs)

@@ -55,14 +55,14 @@ void GroupInfo::LockedAdjustUsageForRemovedOriginInfo(
   const uint64_t usage = aOriginInfo.LockedUsage();
 
   if (!aOriginInfo.LockedPersisted()) {
-    AssertNoUnderflow(mUsage, usage);
+    QM_ASSERT_NO_UNDERFLOW(mUsage, usage);
     mUsage -= usage;
   }
 
   QuotaManager* const quotaManager = QuotaManager::Get();
   MOZ_ASSERT(quotaManager);
 
-  AssertNoUnderflow(quotaManager->mTemporaryStorageUsage, usage);
+  QM_ASSERT_NO_UNDERFLOW(quotaManager->mTemporaryStorageUsage, usage);
   quotaManager->mTemporaryStorageUsage -= usage;
 }
 

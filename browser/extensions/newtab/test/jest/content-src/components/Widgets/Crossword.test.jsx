@@ -20,6 +20,8 @@ const baseState = {
       "widgets.system.crossword.enabled": true,
       "widgets.crossword.enabled": true,
       "widgets.crossword.size": "",
+      "widgets.crossword.endpoint":
+        "https://prod-games-particle.merino.prod.webservices.mozgcp.net/index.html",
     },
   },
 };
@@ -197,6 +199,43 @@ describe("<Crossword>", () => {
         widget_name: "crossword",
         widget_size: "medium",
       });
+    });
+  });
+
+  describe("crossword iframe", () => {
+    it("renders a sandboxed iframe pointing at the resolved endpoint", () => {
+      const { container } = renderCrossword();
+      const frame = container.querySelector("iframe.crossword-frame");
+      expect(frame).toBeInTheDocument();
+      expect(frame).toHaveAttribute(
+        "sandbox",
+        "allow-scripts allow-same-origin"
+      );
+      expect(frame).toHaveAttribute(
+        "src",
+        "https://prod-games-particle.merino.prod.webservices.mozgcp.net/index.html"
+      );
+    });
+
+    it("prefers the trainhopConfig endpoint over the raw pref", () => {
+      const trainhopEndpoint = "https://example.com/crossword/index.html";
+      const state = {
+        ...baseState,
+        Prefs: {
+          ...baseState.Prefs,
+          values: {
+            ...baseState.Prefs.values,
+            trainhopConfig: {
+              widgets: { crosswordEndpoint: trainhopEndpoint },
+            },
+          },
+        },
+      };
+      const { container } = renderCrossword({ state });
+      expect(container.querySelector("iframe.crossword-frame")).toHaveAttribute(
+        "src",
+        trainhopEndpoint
+      );
     });
   });
 

@@ -53,7 +53,7 @@ const EXPECTED_SPONSORED_URLBAR_RESULT = {
     descriptionL10n: { id: "urlbar-result-action-sponsored" },
     helpUrl: QuickSuggest.HELP_URL,
     helpL10n: {
-      id: "urlbar-result-menu-learn-more",
+      id: "urlbar-result-menu-learn-more2",
     },
     isBlockable: true,
     source: "remote-settings",
@@ -79,7 +79,7 @@ const EXPECTED_NONSPONSORED_URLBAR_RESULT = {
     sponsoredIabCategory: "5 - Education",
     helpUrl: QuickSuggest.HELP_URL,
     helpL10n: {
-      id: "urlbar-result-menu-learn-more",
+      id: "urlbar-result-menu-learn-more2",
     },
     isBlockable: true,
     source: "remote-settings",

@@ -4751,6 +4751,21 @@ bool IMEInputHandler::OnDestroyWidget(nsCocoaWindow* aDestroyingWidget) {
     return false;
   }
 
+  // If the focused widget is being destroyed without a preceding resign-key or
+  // blur (e.g. a popup or window closed while a password field is focused while
+  // the app stays active), release Secure Event Input here.  Otherwise it can
+  // stay enabled process-wide and lock other apps out of keyboard input (bug
+  // 2050794, bug 556873).  Only the focused widget can own Secure Event Input,
+  // so scope the drain to it to avoid disabling input that another window
+  // holds.
+  if (sFocusedIMEHandler == this) {
+    EnsureSecureEventInputDisabled();
+    // The normal blur/resign-key path that would clear sFocusedIMEHandler via
+    // OnFocusChangeInGecko(false) was skipped, so clear it here too.  Otherwise
+    // it keeps pointing at this handler after its widget is gone.
+    sFocusedIMEHandler = nullptr;
+  }
+
   if (IsIMEComposing()) {
     // If our view is in the composition, we should clean up it.
     CancelIMEComposition();

@@ -8,6 +8,12 @@
 
 "use strict";
 
+// Rust storage uses the rust sync bridge, which tracks sync status on its own.
+const isRustBackend = Services.prefs.getBoolPref(
+  "signon.storage.rust.enabled",
+  false
+);
+
 const { LoginManager } = ChromeUtils.importESModule(
   "resource://gre/modules/LoginManager.sys.mjs"
 );
@@ -34,4 +40,4 @@ add_task(async function test_ensureCurrentSyncID() {
     0,
     "last sync should be reset"
   );
-});
+}).skip(isRustBackend);

@@ -216,4 +216,160 @@ describe("<WallpaperFeatureHighlight>", () => {
       data: { wallpaperCategory: "firefox" },
     });
   });
+
+  it("deep-links into the wallpaper category provided by the message", () => {
+    const dispatch = jest.fn();
+    const state = {
+      ...INITIAL_STATE,
+      Prefs: {
+        ...INITIAL_STATE.Prefs,
+        values: {
+          ...INITIAL_STATE.Prefs.values,
+          "nova.enabled": true,
+        },
+      },
+      Messages: {
+        ...INITIAL_STATE.Messages,
+        messageData: {
+          content: {
+            feature: "WALLPAPER",
+            messageType: "WorldCupWallpaperHighlight",
+            wallpaperCategory: "celestial",
+          },
+        },
+      },
+    };
+    const { container } = render(
+      <WrapWithProvider state={state}>
+        <WallpaperFeatureHighlight
+          dispatch={dispatch}
+          handleDismiss={jest.fn()}
+          handleClick={jest.fn()}
+          handleBlock={jest.fn()}
+        />
+      </WrapWithProvider>
+    );
+    fireEvent.click(container.querySelector(".button-wrapper moz-button"));
+    expect(dispatch).toHaveBeenCalledWith({
+      type: at.SHOW_PERSONALIZE,
+      data: { wallpaperCategory: "celestial" },
+    });
+  });
+
+  it("opens the top-level panel when the message sets an empty category", () => {
+    const dispatch = jest.fn();
+    const state = {
+      ...INITIAL_STATE,
+      Prefs: {
+        ...INITIAL_STATE.Prefs,
+        values: {
+          ...INITIAL_STATE.Prefs.values,
+          "nova.enabled": true,
+        },
+      },
+      Messages: {
+        ...INITIAL_STATE.Messages,
+        messageData: {
+          content: {
+            feature: "WALLPAPER",
+            messageType: "WorldCupWallpaperHighlight",
+            wallpaperCategory: null,
+          },
+        },
+      },
+    };
+    const { container } = render(
+      <WrapWithProvider state={state}>
+        <WallpaperFeatureHighlight
+          dispatch={dispatch}
+          handleDismiss={jest.fn()}
+          handleClick={jest.fn()}
+          handleBlock={jest.fn()}
+        />
+      </WrapWithProvider>
+    );
+    fireEvent.click(container.querySelector(".button-wrapper moz-button"));
+    expect(dispatch).toHaveBeenCalledWith({
+      type: at.SHOW_PERSONALIZE,
+      data: { wallpaperCategory: null },
+    });
+  });
+
+  it("opens the top-level panel for an unknown category", () => {
+    const dispatch = jest.fn();
+    const state = {
+      ...INITIAL_STATE,
+      Prefs: {
+        ...INITIAL_STATE.Prefs,
+        values: {
+          ...INITIAL_STATE.Prefs.values,
+          "nova.enabled": true,
+        },
+      },
+      Messages: {
+        ...INITIAL_STATE.Messages,
+        messageData: {
+          content: {
+            feature: "WALLPAPER",
+            messageType: "WorldCupWallpaperHighlight",
+            wallpaperCategory: "not-a-real-category",
+          },
+        },
+      },
+    };
+    const { container } = render(
+      <WrapWithProvider state={state}>
+        <WallpaperFeatureHighlight
+          dispatch={dispatch}
+          handleDismiss={jest.fn()}
+          handleClick={jest.fn()}
+          handleBlock={jest.fn()}
+        />
+      </WrapWithProvider>
+    );
+    fireEvent.click(container.querySelector(".button-wrapper moz-button"));
+    expect(dispatch).toHaveBeenCalledWith({
+      type: at.SHOW_PERSONALIZE,
+      data: { wallpaperCategory: null },
+    });
+  });
+
+  it("opens the top-level panel for the custom-wallpaper category", () => {
+    const dispatch = jest.fn();
+    const state = {
+      ...INITIAL_STATE,
+      Prefs: {
+        ...INITIAL_STATE.Prefs,
+        values: {
+          ...INITIAL_STATE.Prefs.values,
+          "nova.enabled": true,
+        },
+      },
+      Messages: {
+        ...INITIAL_STATE.Messages,
+        messageData: {
+          content: {
+            feature: "WALLPAPER",
+            messageType: "WorldCupWallpaperHighlight",
+            wallpaperCategory: "custom-wallpaper",
+          },
+        },
+      },
+    };
+    const { container } = render(
+      <WrapWithProvider state={state}>
+        <WallpaperFeatureHighlight
+          dispatch={dispatch}
+          handleDismiss={jest.fn()}
+          handleClick={jest.fn()}
+          handleBlock={jest.fn()}
+        />
+      </WrapWithProvider>
+    );
+    fireEvent.click(container.querySelector(".button-wrapper moz-button"));
+    expect(dispatch).toHaveBeenCalledWith({
+      type: at.SHOW_PERSONALIZE,
+      data: { wallpaperCategory: null },
+    });
+  });
 });

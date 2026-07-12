@@ -366,7 +366,9 @@ var BrowserCommands = {
       let excludePinnedTabs =
         event && (event.ctrlKey || event.metaKey || event.altKey);
       gBrowser.removeMultiSelectedTabs({
-        metricsContext: gBrowser.TabMetrics.userTriggeredContext(),
+        metricsContext: gBrowser.TabMetrics.userTriggeredContext(
+          gBrowser.TabMetrics.METRIC_SOURCE.KEYBOARD
+        ),
         excludePinnedTabs,
       });
       return;
@@ -388,7 +390,9 @@ var BrowserCommands = {
     // If the current tab is the last one, this will close the window.
     gBrowser.removeCurrentTab({
       animate: true,
-      metricsContext: gBrowser.TabMetrics.userTriggeredContext(),
+      metricsContext: gBrowser.TabMetrics.userTriggeredContext(
+        gBrowser.TabMetrics.METRIC_SOURCE.KEYBOARD
+      ),
     });
   },
 

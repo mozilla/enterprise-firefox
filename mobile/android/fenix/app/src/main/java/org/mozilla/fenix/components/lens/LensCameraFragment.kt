@@ -49,7 +49,6 @@ import mozilla.components.feature.qr.isLowLightBoostSupported
 import mozilla.components.support.base.log.logger.Logger
 import mozilla.components.support.ktx.android.content.hasCamera
 import mozilla.components.support.utils.ext.handleBackEvents
-import org.mozilla.fenix.R
 import java.io.File
 import java.io.IOException
 import java.util.Collections

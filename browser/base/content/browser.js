@@ -29,9 +29,9 @@ ChromeUtils.defineESModuleGetters(this, {
   ContentAnalysis:
     "moz-src:///browser/components/contentanalysis/content/ContentAnalysis.sys.mjs",
   ContentSharingUtils:
-    "resource:///modules/contentsharing/ContentSharingUtils.sys.mjs",
+    "moz-src:///browser/components/contentsharing/ContentSharingUtils.sys.mjs",
   ContextualIdentityService:
-    "resource://gre/modules/ContextualIdentityService.sys.mjs",
+    "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   CustomizableUI:
     "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
   DevToolsSocketStatus:
@@ -1598,7 +1598,7 @@ var gContainerCreation = {
       this.isPillPinned = true;
     }
 
-    panel.openPopup(anchor, "bottomleft topleft");
+    panel.openPopup(anchor, "bottomright topright");
   },
 
   _unpinAnchor() {
@@ -5081,13 +5081,6 @@ var FirefoxViewHandler = {
     }
   },
   openTab(section) {
-    if (!CustomizableUI.getPlacementOfWidget(this.BUTTON_ID)) {
-      CustomizableUI.addWidgetToArea(
-        this.BUTTON_ID,
-        CustomizableUI.AREA_TABSTRIP,
-        CustomizableUI.getPlacementOfWidget("tabbrowser-tabs").position
-      );
-    }
     let viewURL = "about:firefoxview";
     if (section) {
       viewURL = `${viewURL}#${section}`;
@@ -5106,7 +5099,7 @@ var FirefoxViewHandler = {
       gBrowser.tabContainer.addEventListener("TabSelect", this);
       window.addEventListener("activate", this);
       gBrowser.hideTab(this.tab);
-      this.button.setAttribute("aria-controls", this.tab.linkedPanel);
+      this.button?.setAttribute("aria-controls", this.tab.linkedPanel);
     }
     // we put this here to avoid a race condition that would occur
     // if this was called in response to "TabSelect"

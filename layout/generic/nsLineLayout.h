@@ -341,6 +341,15 @@ class nsLineLayout {
    */
   void SetUsedOverflowWrap() { mUsedOverflowWrap = true; }
 
+  /**
+   * If trimming was requested on the block-end side of the current line's
+   * block (or an ancestor), this returns the amount that the line would be
+   * trimmed by.
+   */
+  nscoord PotentialTextBoxTrimEndAmount() const {
+    return mPotentialTextBoxTrimEndAmount;
+  }
+
  protected:
   // This state is constant for a given block frame doing line layout
 
@@ -566,6 +575,10 @@ class nsLineLayout {
   // Final computed line-bSize value after VerticalAlignFrames for
   // the block has been called.
   nscoord mFinalLineBSize = 0;
+
+  // The amount that the current line would be trimmed by, whether
+  // or not the trim was actually applied to this line.
+  nscoord mPotentialTextBoxTrimEndAmount = 0;
 
   // Amount of trimmable whitespace inline size for the trailing text
   // frame, if any

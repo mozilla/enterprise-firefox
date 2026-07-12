@@ -321,18 +321,27 @@ void profiler_save_profile_to_file(const char* aFilename);
 // main thread once aDelaySeconds have elapsed, writing this process's profile
 // to aFilename (a no-op if the profiler stops first).
 //
-// This exists for the test harnesses: a test that wedges its main thread (a
-// long synchronous run that never returns to the event loop, or a blocking
-// native call) gets force-killed by the harness without leaving a profile,
-// because a main-thread timer can never fire. Dumping from the sampler thread
-// sidesteps that: profiler_save_profile_to_file only needs the profiler state
-// lock, and the sampled main-thread stack it captures shows where the time
-// went. The harness that set the deadline is responsible for reporting the
-// written file. Call profiler_cancel_scheduled_dump() when the test ends
-// normally.
-void profiler_schedule_dump_to_file(double aDelaySeconds,
-                                    const char* aFilename);
+// Because it runs on the sampler thread rather than a main-thread timer, it
+// still fires while the main thread is blocked in a long synchronous run (or a
+// blocking native call) and can't write a profile itself; the sampled
+// main-thread stack shows where the time went. The caller that set the deadline
+// is responsible for reporting the written file, and should call
+// profiler_cancel_scheduled_dump() if it no longer wants the dump.
+//
+// If aExitAfterDump is true, the process exits as soon as the profile has been
+// written.
+void profiler_schedule_dump_to_file(double aDelaySeconds, const char* aFilename,
+                                    bool aExitAfterDump);
 void profiler_cancel_scheduled_dump();
+
+// Block until an in-progress scheduled dump (see
+// profiler_schedule_dump_to_file) finishes; a no-op if none is in progress, and
+// always a no-op outside automation. Lets a caller on a fatal-abort path avoid
+// acting over a half-written profile; when the dump was scheduled with
+// aExitAfterDump the process exits on completion, so the caller never returns.
+// It can block for as long as the dump takes, hence the automation-only
+// restriction.
+void profiler_wait_for_scheduled_dump();
 
 //---------------------------------------------------------------------------
 // RAII classes

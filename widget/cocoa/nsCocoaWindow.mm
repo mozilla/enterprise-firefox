@@ -1180,7 +1180,8 @@ bool nsCocoaWindow::PreRender(WidgetRenderingContext* aContext)
   // composition is done, thus keeping the GL context locked forever.
   mCompositingLock.Lock();
 
-  if (aContext->mGL && StaticPrefs::gfx_compositor_gpu_migration()) {
+  if (aContext->mGL && aContext->mGL->GetContextType() == GLContextType::CGL &&
+      StaticPrefs::gfx_compositor_gpu_migration()) {
     GLContextCGL::Cast(aContext->mGL)->MigrateToActiveGPU();
   }
 
@@ -3647,14 +3648,19 @@ static gfx::IntPoint GetIntegerDeltaForEvent(NSEvent* aEvent) {
 }
 
 - (void)viewsWindowDidResignKey {
+  // Always release Secure Event Input when our window resigns key, even if the
+  // widget has already been torn down.  The window-delegate twin
+  // windowDidResignKey drains unconditionally; matching that here avoids
+  // leaking Secure Event Input and locking other apps out of keyboard input
+  // (bug 2050794).
+  TextInputHandler::EnsureSecureEventInputDisabled();
+
   if (!mGeckoChild) return;
 
   nsAutoRetainCocoaObject kungFuDeathGrip(self);
 
   nsIWidgetListener* listener = mGeckoChild->GetWidgetListener();
   if (listener) listener->WindowDeactivated();
-
-  TextInputHandler::EnsureSecureEventInputDisabled();
 }
 
 // If the call to removeFromSuperview isn't delayed from nsCocoaWindow::

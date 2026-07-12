@@ -6,12 +6,14 @@
     <ID>ClassAcronymCasing:BrowserToolbar.kt$BrowserToolbarCFR</ID>
     <ID>ClassAcronymCasing:BrowserToolbarAction.kt$BrowserDisplayToolbarAction$ToolbarCFRDismissed : BrowserDisplayToolbarAction</ID>
     <ID>ClassAcronymCasing:BrowserToolbarAction.kt$BrowserDisplayToolbarAction$ToolbarCFRShown : BrowserDisplayToolbarAction</ID>
+    <ID>ClassAcronymCasing:CFRBox.kt$CFRBackground</ID>
     <ID>ClassAcronymCasing:CFRBox.kt$CFRColors</ID>
     <ID>ClassAcronymCasing:CFRBox.kt$CFRDefaults</ID>
     <ID>ClassAcronymCasing:CFRBox.kt$CFRPositionProvider : PopupPositionProvider</ID>
     <ID>ClassAcronymCasing:CFRBox.kt$CFRPositionProviderImpl : CFRPositionProvider</ID>
     <ID>ClassAcronymCasing:CFRBox.kt$CFRShape : Shape</ID>
     <ID>ClassAcronymCasing:CFRPopup.kt$CFRPopup</ID>
+    <ID>ClassAcronymCasing:CFRPopup.kt$CFRPopupBackground</ID>
     <ID>ClassAcronymCasing:CFRPopup.kt$CFRPopupProperties</ID>
     <ID>ClassAcronymCasing:CFRPopupFullscreenLayout.kt$CFRPopupFullscreenLayout : AbstractComposeViewViewRootForInspector</ID>
     <ID>ClassAcronymCasing:CFRPopupShape.kt$CFRPopupShape : Shape</ID>

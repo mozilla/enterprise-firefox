@@ -22,9 +22,9 @@ Please obtain an API Token (Settings >> Conduit API Tokens)
 
 2. Download the [MozillaBuild Package.](https://ftp.mozilla.org/pub/mozilla/libraries/win32/MozillaBuildSetup-Latest.exe) Installation directory should be:
 
-   > ```shell
-   > $ c:\mozilla-build\
-   > ```
+   ```shell
+   $ c:\mozilla-build\
+   ```
 
 3. Before moving on to the next steps, make sure to fulfill the {ref}`Windows prerequisites <Building Firefox On Windows>`
 
@@ -177,7 +177,7 @@ For example, here is an example of a good commit message:
 during its own onclick handler. r=person"
 
 To {ref}`find a reviewer or a review group <Getting reviews>`, the easiest way is to run
-`` git log <modified-file>` `` on the relevant files, and look who usually is
+`git log <modified-file>` on the relevant files, and look who usually is
 reviewing the actual changes (ie not reformat, renaming of variables, etc).
 
 To visualize your patch in the repository, run:

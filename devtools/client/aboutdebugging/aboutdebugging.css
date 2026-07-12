@@ -31,6 +31,5 @@
 @import "chrome://devtools/content/aboutdebugging/src/components/shared/IconLabel.css";
 @import "chrome://devtools/content/aboutdebugging/src/components/shared/Message.css";
 @import "chrome://devtools/content/aboutdebugging/src/components/sidebar/Sidebar.css";
-@import "chrome://devtools/content/aboutdebugging/src/components/sidebar/SidebarFixedItem.css";
 @import "chrome://devtools/content/aboutdebugging/src/components/sidebar/SidebarItem.css";
 @import "chrome://devtools/content/aboutdebugging/src/components/sidebar/SidebarRuntimeItem.css";

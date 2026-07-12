@@ -17,6 +17,8 @@ support-files = [
 ]
 tags = "os_integration"
 
+["browser_DefaultBrowserHelper.js"]
+
 ["browser_about_settings.js"]
 
 ["browser_accessibility_pane.js"]
@@ -28,6 +30,14 @@ tags = "os_integration"
 ["browser_backup_visibility.js"]
 
 ["browser_backup_warning_banner.js"]
+
+["browser_browserIcon.js"]
+run-if = [
+  "os == 'win'",
+]
+skip-if = [
+  "msix", # The custom browser icon feature is currently unsupported on packaged (MSIX) builds.
+]
 
 ["browser_bug1018066_resetScrollPosition.js"]
 

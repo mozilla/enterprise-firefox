@@ -348,7 +348,7 @@ function createSourceObject({
 }
 
 /**
- * Create the source object for a source mapped original source that is stored in sources.js reducer.
+ * Create the source object for a source mapped original (script/stylesheet) source that is stored in sources.js reducer.
  * These original sources referred to by source maps.
  * This isn't code that runs in the runtime, so it isn't associated with anything
  * on the server side. It is associated with a generated source for the related bundle file
@@ -362,15 +362,17 @@ function createSourceObject({
  *        The Source object for the related generated source this original source maps to.
  */
 export function createSourceMapOriginalSource(id, url, generatedSource) {
-  return {
-    ...createSourceObject({
-      id,
-      url,
-      isOriginal: true,
-      generatedSource,
-    }),
-    type: ResourceCommand.TYPES.SOURCE,
-  };
+  const type = generatedSource.isStyleSheet
+    ? ResourceCommand.TYPES.STYLESHEET
+    : ResourceCommand.TYPES.SOURCE;
+  return createSourceObject({
+    id,
+    url,
+    isOriginal: true,
+    generatedSource,
+    isStyleSheet: generatedSource.isStyleSheet,
+    type,
+  });
 }
 
 /**

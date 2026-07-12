@@ -163,4 +163,6 @@ preprocessed_intervention_files = [
     "bug2044261-doubao.com-hide_browser_notice.css",
     "bug2044288-www.kuaishou.com-fix_missing_video_thumbnails.css",
     "bug2045731-resultadosegundavuelta.onpe.gob.pe.js",
+    "bug2046741-mylabmastering.pearson.com-hide_unsupported_modal.css",
+    "bug2051501-community.acer.com-fix_clipped_tables.css",
 ]

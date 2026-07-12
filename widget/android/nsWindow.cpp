@@ -10,6 +10,7 @@
 #include <android/native_window_jni.h>
 #include <math.h>
 #include <queue>
+#include <numbers>
 #include <type_traits>
 #include <unistd.h>
 
@@ -697,7 +698,7 @@ class NPZCSupport final
   // aOrientation, centered around the touch point.
   static std::pair<float, ScreenSize> ConvertOrientationAndRadius(
       float aOrientation, float aToolMajor, float aToolMinor) {
-    float angle = aOrientation * 180.0f / M_PI;
+    float angle = aOrientation * 180.0f / std::numbers::pi;
     // w3c touchevents spec does not allow orientations == 90
     // this shifts it to -90, which will be shifted to zero below
     if (angle >= 90.0) {
@@ -732,8 +733,8 @@ class NPZCSupport final
     float x = atan2f(sinf(-aOrientation) * r, z);
     float y = atan2f(cosf(-aOrientation) * r, z);
 
-    aSingleTouchData.mTiltX = int32_t(floorf(x * 180.0 / M_PI));
-    aSingleTouchData.mTiltY = int32_t(floorf(y * 180.0 / M_PI));
+    aSingleTouchData.mTiltX = int32_t(floorf(x * 180.0 / std::numbers::pi));
+    aSingleTouchData.mTiltY = int32_t(floorf(y * 180.0 / std::numbers::pi));
   }
 
   void HandleMotionEvent(

@@ -34,6 +34,9 @@ class LabsMiddlewareTest {
 
     private lateinit var settings: Settings
     private var labs: List<FirefoxLabsMetadata> = emptyList()
+    private var labsThrows = false
+    private var enrollThrows = false
+    private var unenrollAllThrows = false
     private var onRestartCount = 0
     private val onRestart: () -> Unit = { onRestartCount++ }
     private val openedFeedbackUrls = mutableListOf<String>()
@@ -48,6 +51,9 @@ class LabsMiddlewareTest {
     fun setup() {
         settings = Settings(testContext)
         labs = emptyList()
+        labsThrows = false
+        enrollThrows = false
+        unenrollAllThrows = false
         onRestartCount = 0
         openedFeedbackUrls.clear()
         enrolledSlugs.clear()
@@ -141,6 +147,16 @@ class LabsMiddlewareTest {
     }
 
     @Test
+    fun `WHEN InitAction is dispatched AND the Nimbus fetch fails THEN FetchFailed is dispatched and no items are set`() = runTest(UnconfinedTestDispatcher()) {
+        labsThrows = true
+        val captureMiddleware = CaptureActionsMiddleware<LabsState, LabsAction>()
+        createStore(captureMiddleware = captureMiddleware, scope = backgroundScope)
+
+        captureMiddleware.assertLastAction(LabsAction.FetchFailed::class) {}
+        captureMiddleware.assertNotDispatched(LabsAction.UpdateLabsItems::class)
+    }
+
+    @Test
     fun `WHEN RestartApplication action is dispatched THEN onRestart is called`() = runTest(UnconfinedTestDispatcher()) {
         val store = createStore(scope = backgroundScope)
 
@@ -228,6 +244,38 @@ class LabsMiddlewareTest {
     }
 
     @Test
+    fun `WHEN ToggleLabsItem succeeds THEN ToggleCompleted has the lowercased Nimbus status`() = runTest(UnconfinedTestDispatcher()) {
+        enrollStatus = FirefoxLabsEnrollStatus.ENROLLED
+        val item = labsItem(slug = "lab-1", enrolled = false)
+        val captureMiddleware = CaptureActionsMiddleware<LabsState, LabsAction>()
+        val store = createStore(initialState = stateWith(item), captureMiddleware = captureMiddleware, scope = backgroundScope)
+        captureMiddleware.reset()
+
+        store.dispatch(LabsAction.ToggleLabsItem(item))
+
+        captureMiddleware.assertFirstAction(LabsAction.ToggleCompleted::class) { action ->
+            assertEquals("lab-1", action.slug)
+            assertTrue(action.enabled)
+            assertEquals("enrolled", action.status)
+        }
+    }
+
+    @Test
+    fun `WHEN ToggleLabsItem enroll throws THEN ToggleCompleted status is exception`() = runTest(UnconfinedTestDispatcher()) {
+        enrollThrows = true
+        val item = labsItem(slug = "lab-1", enrolled = false)
+        val captureMiddleware = CaptureActionsMiddleware<LabsState, LabsAction>()
+        val store = createStore(initialState = stateWith(item), captureMiddleware = captureMiddleware, scope = backgroundScope)
+        captureMiddleware.reset()
+
+        store.dispatch(LabsAction.ToggleLabsItem(item))
+
+        captureMiddleware.assertFirstAction(LabsAction.ToggleCompleted::class) { action ->
+            assertEquals("exception", action.status)
+        }
+    }
+
+    @Test
     fun `WHEN ToggleLabsItem on an enrolled item is dispatched THEN the lab is unenrolled in Nimbus`() = runTest(UnconfinedTestDispatcher()) {
         val item = labsItem(slug = "lab-1", enrolled = true)
         val store = createStore(initialState = stateWith(item), scope = backgroundScope)
@@ -254,6 +302,51 @@ class LabsMiddlewareTest {
 
         assertEquals(1, unenrollAllCount)
         assertEquals(emptyList<String>(), unenrolledSlugs)
+    }
+
+    @Test
+    fun `WHEN RestoreDefaults succeeds THEN RestoreDefaultsCompleted has succeeded true and the pre-flip slugs`() = runTest(UnconfinedTestDispatcher()) {
+        labs = listOf(
+            firefoxLabsMetadata(
+                slug = "lab-1",
+                titleStringId = RESOURCE_NAME_TITLE,
+                descriptionStringId = RESOURCE_NAME_DESCRIPTION,
+                enrolled = true,
+            ),
+        )
+        val captureMiddleware = CaptureActionsMiddleware<LabsState, LabsAction>()
+        val store = createStore(captureMiddleware = captureMiddleware, scope = backgroundScope)
+        captureMiddleware.reset()
+
+        store.dispatch(LabsAction.RestoreDefaults)
+
+        captureMiddleware.assertFirstAction(LabsAction.RestoreDefaultsCompleted::class) { action ->
+            assertTrue(action.succeeded)
+            assertEquals(listOf("lab-1"), action.itemsChanged)
+        }
+    }
+
+    @Test
+    fun `WHEN RestoreDefaults fails THEN RestoreDefaultsCompleted has succeeded false and no items changed`() = runTest(UnconfinedTestDispatcher()) {
+        labs = listOf(
+            firefoxLabsMetadata(
+                slug = "lab-1",
+                titleStringId = RESOURCE_NAME_TITLE,
+                descriptionStringId = RESOURCE_NAME_DESCRIPTION,
+                enrolled = true,
+            ),
+        )
+        unenrollAllThrows = true
+        val captureMiddleware = CaptureActionsMiddleware<LabsState, LabsAction>()
+        val store = createStore(captureMiddleware = captureMiddleware, scope = backgroundScope)
+        captureMiddleware.reset()
+
+        store.dispatch(LabsAction.RestoreDefaults)
+
+        captureMiddleware.assertFirstAction(LabsAction.RestoreDefaultsCompleted::class) { action ->
+            assertFalse(action.succeeded)
+            assertEquals(emptyList<String>(), action.itemsChanged)
+        }
     }
 
     @Test
@@ -413,12 +506,15 @@ class LabsMiddlewareTest {
             settings = settings,
             nimbusSdk = FakeNimbusApi(
                 context = testContext,
-                labsProvider = { labs },
+                labsProvider = { if (labsThrows) throw RuntimeException("Nimbus fetch failed") else labs },
                 enrolledSlugs = enrolledSlugs,
                 unenrolledSlugs = unenrolledSlugs,
-                enrollStatusProvider = { enrollStatus },
+                enrollStatusProvider = { if (enrollThrows) throw RuntimeException("enroll failed") else enrollStatus },
                 unenrollStatusProvider = { unenrollStatus },
-                onUnenrollAll = { unenrollAllCount++ },
+                onUnenrollAll = {
+                    unenrollAllCount++
+                    if (unenrollAllThrows) throw RuntimeException("unenroll all failed")
+                },
             ),
             onRestart = onRestart,
             onOpenFeedback = onOpenFeedback,

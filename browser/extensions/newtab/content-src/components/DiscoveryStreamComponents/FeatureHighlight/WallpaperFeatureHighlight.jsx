@@ -17,6 +17,8 @@ export function WallpaperFeatureHighlight({
 }) {
   // @nova-cleanup(remove-pref): Remove the nova.enabled pref check and keep the Nova copy and image path as the default once Nova ships.
   const isNova = useSelector(state => state.Prefs.values["nova.enabled"]);
+  // Message content from OMC; drives the copy, feature id, and deep-link category.
+  const { messageData } = useSelector(state => state.Messages);
   const onDismiss = useCallback(() => {
     handleDismiss();
     handleBlock();
@@ -24,20 +26,38 @@ export function WallpaperFeatureHighlight({
 
   const onToggleClick = useCallback(
     elementId => {
-      // Deep-link the customize panel into the Firefox wallpaper category.
+      // Deep-link the customize panel into a wallpaper category. OMC can
+      // target any known category per-message (not just Firefox): an unset
+      // value defaults to Firefox to keep existing messages working, a known
+      // category is forwarded as-is, and an explicit empty or unrecognized
+      // value opens the top-level panel (no deep-link).
+      const { wallpaperCategory } = messageData?.content || {};
+      let category = WALLPAPER_CATEGORIES.Firefox;
+      if (wallpaperCategory !== undefined) {
+        category = Object.values(WALLPAPER_CATEGORIES).includes(
+          wallpaperCategory
+        )
+          ? wallpaperCategory
+          : null;
+      }
+      // The custom-wallpaper category has no dedicated subsection yet, so
+      // deep-linking into it opens a blank panel. Fall back to the top-level
+      // panel for now; remove this guard once a user's uploaded custom
+      // wallpapers get their own subsection.
+      if (category === WALLPAPER_CATEGORIES.CustomWallpaper) {
+        category = null;
+      }
       dispatch({
         type: at.SHOW_PERSONALIZE,
-        data: { wallpaperCategory: WALLPAPER_CATEGORIES.Firefox },
+        data: { wallpaperCategory: category },
       });
       dispatch(ac.UserEvent({ event: "SHOW_PERSONALIZE" }));
       handleClick(elementId);
       onDismiss();
     },
-    [dispatch, onDismiss, handleClick]
+    [dispatch, onDismiss, handleClick, messageData]
   );
 
-  // Extract the strings and feature ID from OMC
-  const { messageData } = useSelector(state => state.Messages);
   const { messageType } = messageData?.content || {};
   const isSemiFinal =
     isNova && messageType === "WorldCupSemiFinalWallpaperHighlight";

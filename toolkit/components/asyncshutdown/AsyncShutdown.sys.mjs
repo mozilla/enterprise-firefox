@@ -1087,6 +1087,12 @@ Barrier.prototype = Object.freeze({
             Services.obs.notifyObservers(null, "profiler-dump-and-quit", msg);
           }
 
+          // If the profiler is mid-write on a scheduled dump, block here until
+          // it finishes rather than aborting over a half-written profile. When
+          // that dump exits the process on completion, this never returns and
+          // the abort below is avoided.
+          Services.profiler.waitForScheduledDump();
+
           fatalerr(msg);
           if (gBrokenAddBlockers.length) {
             fatalerr(

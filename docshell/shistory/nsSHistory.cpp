@@ -5,6 +5,7 @@
 #include "nsSHistory.h"
 
 #include <algorithm>
+#include <numbers>
 
 #include "nsContentUtils.h"
 #include "nsCOMArray.h"
@@ -330,7 +331,7 @@ uint32_t nsSHistory::CalcMaxTotalViewers() {
   // except that we divide the final memory calculation by 4, since
   // we assume each DocumentViewer takes on average 4MB
   uint32_t viewers = 0;
-  double x = std::log(kBytesD) / std::log(2.0) - MAX_TOTAL_VIEWERS_BIAS;
+  double x = std::log(kBytesD) / std::numbers::ln2 - MAX_TOTAL_VIEWERS_BIAS;
   if (x > 0) {
     viewers = (uint32_t)(x * x - x + 2.001);  // add .001 for rounding
     viewers /= 4;

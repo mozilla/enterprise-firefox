@@ -1595,13 +1595,19 @@ void nsLineLayout::ApplyBlockTextBoxTrim(PerSpanData* psd, WritingMode aLineWM,
                                          nsFlowAreaRect* aFlowArea,
                                          bool aIsLastFormattedLine) {
   MOZ_ASSERT(psd == mRootSpan);
+  MOZ_ASSERT(mBlockRS);
   nsIFrame* blockFrame = psd->mFrame->mFrame;
-  const bool shouldTrimStart =
-      mBlockRS && mBlockRS->mFlags.mShouldApplyTextBoxTrimStart;
-  const bool shouldTrimEnd = mBlockRS &&
-                             mBlockRS->mFlags.mShouldApplyTextBoxTrimEnd &&
-                             aIsLastFormattedLine;
-  if (!shouldTrimStart && !shouldTrimEnd) {
+  const bool shouldApplyTrimStart =
+      mBlockRS->mFlags.mShouldApplyTextBoxTrimStart && mLineNumber == 0;
+  const bool shouldApplyTrimEnd =
+      (mBlockRS->mFlags.mShouldApplyTextBoxTrimAtBlockEnd &&
+       aIsLastFormattedLine) ||
+      mLineBox->TextBoxTrimEndForced();
+  const bool shouldComputeTrimEnd =
+      (shouldApplyTrimEnd ||
+       mBlockRS->mFlags.mShouldApplyTextBoxTrimAtFragmentEnd);
+
+  if (!shouldApplyTrimStart && !shouldComputeTrimEnd) {
     return;
   }
 
@@ -1616,7 +1622,7 @@ void nsLineLayout::ApplyBlockTextBoxTrim(PerSpanData* psd, WritingMode aLineWM,
   const auto [trimmedOver, trimmedUnder] =
       ResolveTextBoxEdgeMetrics(textBoxEdge, fm);
 
-  if (shouldTrimStart) {
+  if (shouldApplyTrimStart) {
     // Trim on the start side by moving the block start coordinate
     // and the baseline coordinate up by the trim amount. Additionally
     // move all child frames and any positioned floats on this line
@@ -1641,13 +1647,16 @@ void nsLineLayout::ApplyBlockTextBoxTrim(PerSpanData* psd, WritingMode aLineWM,
     mLineBox->SetTextBoxTrimStartApplied();
   }
 
-  if (shouldTrimEnd) {
-    // Trim on the end side by reducing the block size of the line box.
-    const nscoord trimAmount = aLineWM.IsLineInverted()
-                                   ? totalOver - trimmedOver
-                                   : totalUnder - trimmedUnder;
-    *aLineBSize -= trimAmount;
-    mLineBox->SetTextBoxTrimEndApplied();
+  if (shouldComputeTrimEnd) {
+    mPotentialTextBoxTrimEndAmount = aLineWM.IsLineInverted()
+                                         ? totalOver - trimmedOver
+                                         : totalUnder - trimmedUnder;
+    if (shouldApplyTrimEnd) {
+      // Trim on the end side by reducing the block size of the line box.
+      *aLineBSize -= mPotentialTextBoxTrimEndAmount;
+      mLineBox->SetTextBoxTrimEndApplied();
+      mLineBox->ClearTextBoxTrimEndForced();
+    }
   }
 }
 
@@ -1739,8 +1748,10 @@ void nsLineLayout::VerticalAlignLine(nsFlowAreaRect* aFlowArea,
   PlaceTopBottomCenterFrames(psd, -mBStartEdge, lineBSize);
 
   if (mGotLineBox) {
-    ApplyBlockTextBoxTrim(psd, lineWM, &lineBSize, &baselineBCoord, aFlowArea,
-                          aIsLastFormattedLine);
+    if (mBlockRS) {
+      ApplyBlockTextBoxTrim(psd, lineWM, &lineBSize, &baselineBCoord, aFlowArea,
+                            aIsLastFormattedLine);
+    }
 
     // Fill in returned line-box and max-element-width data
     mLineBox->SetBounds(lineWM, psd->mIStart, mBStartEdge,
@@ -2730,11 +2741,11 @@ void nsLineLayout::VerticalAlignFrames(PerSpanData* psd) {
 
   if (psd != mRootSpan) {
     const StyleTextBoxTrim spanTrim = spanFrame->StyleTextReset()->mTextBoxTrim;
-    bool shouldTrimStart = !!(spanTrim & StyleTextBoxTrim::TRIM_START);
-    bool shouldTrimEnd = !!(spanTrim & StyleTextBoxTrim::TRIM_END);
+    bool shouldApplyTrimStart = bool(spanTrim & StyleTextBoxTrim::TRIM_START);
+    bool shouldApplyTrimEnd = bool(spanTrim & StyleTextBoxTrim::TRIM_END);
 
     // Trims the frame's content box to the resolved text-box-edge metrics.
-    if (shouldTrimStart || shouldTrimEnd) {
+    if (shouldApplyTrimStart || shouldApplyTrimEnd) {
       // Identify the current total height above and below the baseline,
       // to be compared against the target text-box-edge metrics to determine
       // how much to trim on each side.
@@ -2748,7 +2759,7 @@ void nsLineLayout::VerticalAlignFrames(PerSpanData* psd) {
       const auto [trimmedOver, trimmedUnder] =
           ResolveTextBoxEdgeMetrics(textBoxEdge, fm);
 
-      if (shouldTrimStart) {
+      if (shouldApplyTrimStart) {
         // Trim on the start side by moving the block start coordinate
         // and the frame's ascent up by the trim amount. Additionally
         // move all child frames up by the trim amount.
@@ -2765,7 +2776,7 @@ void nsLineLayout::VerticalAlignFrames(PerSpanData* psd) {
         maxBCoord -= trimAmount;
       }
 
-      if (shouldTrimEnd) {
+      if (shouldApplyTrimEnd) {
         // Trim on the end side by reducing the block size of frame.
         const nscoord trimAmount = lineWM.IsLineInverted()
                                        ? contentOver - trimmedOver

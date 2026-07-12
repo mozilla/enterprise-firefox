@@ -46,28 +46,6 @@
     </issue>
 
     <issue
-        id="DuplicateIncludedIds"
-        message="Duplicate id @+id/toolbar_simple_preview, defined or included multiple times in layout/preference_toolbar_shortcut.xml: [layout/preference_toolbar_shortcut.xml => layout/toolbar_simple_shortcut_preview.xml defines @+id/toolbar_simple_preview, layout/preference_toolbar_shortcut.xml => layout/toolbar_simple_no_shortcut_preview.xml defines @+id/toolbar_simple_preview]"
-        errorLine1="    &lt;include"
-        errorLine2="    ^">
-        <location
-            file="src/main/res/layout/preference_toolbar_shortcut.xml"
-            line="28"
-            column="5"
-            message="Duplicate id @+id/toolbar_simple_preview, defined or included multiple times in layout/preference_toolbar_shortcut.xml: [layout/preference_toolbar_shortcut.xml => layout/toolbar_simple_shortcut_preview.xml defines @+id/toolbar_simple_preview, layout/preference_toolbar_shortcut.xml => layout/toolbar_simple_no_shortcut_preview.xml defines @+id/toolbar_simple_preview]"/>
-        <location
-            file="src/main/res/layout/toolbar_simple_shortcut_preview.xml"
-            line="13"
-            column="9"
-            message="Defined here, included via layout/preference_toolbar_shortcut.xml => layout/toolbar_simple_shortcut_preview.xml defines @+id/toolbar_simple_preview"/>
-        <location
-            file="src/main/res/layout/toolbar_simple_no_shortcut_preview.xml"
-            line="15"
-            column="5"
-            message="Defined here, included via layout/preference_toolbar_shortcut.xml => layout/toolbar_simple_no_shortcut_preview.xml defines @+id/toolbar_simple_preview"/>
-    </issue>
-
-    <issue
         id="NoSystemCurrentTimeMillis"
         message="`System.currentTimeMillis()` must be injectable. Only permitted as a default value of a parameter on a top-level function or on a class."
         errorLine1="        val currentTime = System.currentTimeMillis()"
@@ -1203,28 +1181,6 @@
     <issue
         id="MozMultipleConstraintLayouts"
         message="Flatten the view hierarchy by using one `ConstraintLayout`, if possible. If the alternative is several nested `ViewGroup`, it may not help performance and this may be worth suppressing."
-        errorLine1="    &lt;androidx.constraintlayout.widget.ConstraintLayout"
-        errorLine2="     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/component_tracking_protection_panel.xml"
-            line="15"
-            column="6"/>
-    </issue>
-
-    <issue
-        id="MozMultipleConstraintLayouts"
-        message="Flatten the view hierarchy by using one `ConstraintLayout`, if possible. If the alternative is several nested `ViewGroup`, it may not help performance and this may be worth suppressing."
-        errorLine1="    &lt;androidx.constraintlayout.widget.ConstraintLayout"
-        errorLine2="     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/component_tracking_protection_panel.xml"
-            line="180"
-            column="6"/>
-    </issue>
-
-    <issue
-        id="MozMultipleConstraintLayouts"
-        message="Flatten the view hierarchy by using one `ConstraintLayout`, if possible. If the alternative is several nested `ViewGroup`, it may not help performance and this may be worth suppressing."
         errorLine1="        &lt;androidx.constraintlayout.widget.ConstraintLayout"
         errorLine2="         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
@@ -1409,16 +1365,6 @@
             column="10"/>
     </issue>
 
-    <issue
-        id="MozMultipleConstraintLayoutsAndCustomViews"
-        message="Custom views extending `ConstraintLayout` are less efficient because they cannot share other `ConstraintLayout` defined in file."
-        errorLine1="    &lt;org.mozilla.fenix.trackingprotection.SwitchWithDescription"
-        errorLine2="     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/quicksettings_protections_panel.xml"
-            line="18"
-            column="6"/>
-    </issue>
 
     <issue
         id="FrequentlyChangingValue"
@@ -1486,16 +1432,6 @@
             column="5"/>
     </issue>
 
-    <issue
-        id="Overdraw"
-        message="Possible overdraw: Root element paints background `?attr/colorSurface` with a theme that also paints a background (inferred theme is `@style/NormalTheme`)"
-        errorLine1="    android:background=&quot;?attr/colorSurface&quot;>"
-        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/component_cookie_banner_details_panel.xml"
-            line="11"
-            column="5"/>
-    </issue>
 
     <issue
         id="Overdraw"
@@ -1508,27 +1444,7 @@
             column="5"/>
     </issue>
 
-    <issue
-        id="Overdraw"
-        message="Possible overdraw: Root element paints background `?attr/colorSurface` with a theme that also paints a background (inferred theme is `@style/NormalTheme`)"
-        errorLine1="    android:background=&quot;?attr/colorSurface&quot;>"
-        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/component_tracking_protection_panel.xml"
-            line="13"
-            column="5"/>
-    </issue>
 
-    <issue
-        id="Overdraw"
-        message="Possible overdraw: Root element paints background `?attr/colorSurface` with a theme that also paints a background (inferred theme is `@style/NormalTheme`)"
-        errorLine1="    android:background=&quot;?attr/colorSurface&quot;"
-        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/connection_details_website_info.xml"
-            line="13"
-            column="5"/>
-    </issue>
 
     <issue
         id="Overdraw"
@@ -1765,34 +1681,6 @@
             file="src/main/res/drawable-mdpi/ic_logo_wordmark_normal.webp"/>
         <location
             file="src/main/res/drawable-hdpi/ic_logo_wordmark_normal.webp"/>
-    </issue>
-
-    <issue
-        id="IconLocation"
-        message="Found bitmap drawable `res/drawable/ic_japan_onboarding_favicon.webp` in densityless folder">
-        <location
-            file="src/main/res/drawable/ic_japan_onboarding_favicon.webp"/>
-    </issue>
-
-    <issue
-        id="IconLocation"
-        message="Found bitmap drawable `res/drawable/ic_wordmark_logo.webp` in densityless folder">
-        <location
-            file="src/main/res/drawable/ic_wordmark_logo.webp"/>
-    </issue>
-
-    <issue
-        id="IconLocation"
-        message="Found bitmap drawable `res/drawable/ic_wordmark_sport_logo.webp` in densityless folder">
-        <location
-            file="src/main/res/drawable/ic_wordmark_sport_logo.webp"/>
-    </issue>
-
-    <issue
-        id="IconLocation"
-        message="Found bitmap drawable `res/drawable/kit_sleeping_under_laptop.webp` in densityless folder">
-        <location
-            file="src/main/res/drawable/kit_sleeping_under_laptop.webp"/>
     </issue>
 
     <issue

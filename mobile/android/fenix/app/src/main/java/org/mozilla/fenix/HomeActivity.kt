@@ -183,6 +183,7 @@ import org.mozilla.fenix.splashscreen.SplashScreenOperation
 import org.mozilla.fenix.tabhistory.TabHistoryDialogFragment
 import org.mozilla.fenix.theme.DefaultThemeManager
 import org.mozilla.fenix.theme.StatusBarColorManager
+import org.mozilla.fenix.theme.TabStripStatusBarView
 import org.mozilla.fenix.theme.ThemeManager
 import org.mozilla.fenix.translations.TranslationsAIControllableFeatureRegistrar
 import org.mozilla.fenix.translations.TranslationsEnabledSettings
@@ -627,7 +628,13 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
         components.core.requestInterceptor.setNavigationController(navHost.navController)
 
         supportFragmentManager.registerFragmentLifecycleCallbacks(
-            StatusBarColorManager(themeManager, this, components.settings.isTabStripEnabled),
+            StatusBarColorManager(
+                themeManager = themeManager,
+                activity = this,
+                appStore = components.appStore,
+                settings = components.settings,
+                tabStripStatusBarView = TabStripStatusBarView(rootView = window.decorView as ViewGroup),
+            ),
             true,
         )
 
@@ -675,7 +682,7 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
         }
 
         if (components.settings.uninstallSurveyFeatureFlagEnabled) {
-            uninstallSurveyManager.showUninstallSurvey(intent.action, navHost.navController)
+            uninstallSurveyManager.showUninstallSurvey(intent, navHost.navController)
         }
 
         StartupTimeline.onActivityCreateEndHome(this) // DO NOT MOVE ANYTHING BELOW HERE.

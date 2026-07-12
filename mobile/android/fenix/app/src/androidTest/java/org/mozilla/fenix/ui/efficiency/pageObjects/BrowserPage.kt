@@ -27,6 +27,7 @@ import org.mozilla.fenix.ui.efficiency.navigation.NavigationRegistry
 import org.mozilla.fenix.ui.efficiency.navigation.NavigationStep
 import org.mozilla.fenix.ui.efficiency.selectors.BrowserPageSelectors
 import org.mozilla.fenix.ui.efficiency.selectors.HomeSelectors
+import org.mozilla.fenix.ui.efficiency.selectors.MainMenuSelectors
 import org.mozilla.fenix.ui.efficiency.selectors.SearchBarSelectors
 import org.mozilla.fenix.ui.efficiency.selectors.ToolbarSelectors
 
@@ -78,6 +79,16 @@ class BrowserPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule
             steps = listOf(
                 NavigationStep.Click(ToolbarSelectors.NEW_TAB_BUTTON),
                 NavigationStep.PressBack,
+            ),
+        )
+
+        NavigationRegistry.register(
+            from = pageName,
+            to = "AddToHomeScreenComponent",
+            steps = listOf(
+                NavigationStep.Click(BrowserPageSelectors.MAIN_MENU_BUTTON),
+                NavigationStep.Click(MainMenuSelectors.MORE_BUTTON),
+                NavigationStep.Click(MainMenuSelectors.ADD_TO_HOMESCREEN_BUTTON),
             ),
         )
 
@@ -150,6 +161,12 @@ class BrowserPage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule
                 .mapNotNull { it.config.getOrNull(SemanticsProperties.Text)?.joinToString("") }
             throw AssertionError("Expected URL to contain '$expectedText' but found: $actual")
         }
+        return this
+    }
+
+    fun openMainMenu(): BrowserPage {
+        mozClick(BrowserPageSelectors.MAIN_MENU_BUTTON)
+
         return this
     }
 

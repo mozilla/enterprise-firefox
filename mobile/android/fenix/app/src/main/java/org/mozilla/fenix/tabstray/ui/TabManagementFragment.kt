@@ -76,7 +76,7 @@ import org.mozilla.fenix.pbmlock.registerForVerification
 import org.mozilla.fenix.pbmlock.verifyUser
 import org.mozilla.fenix.settings.biometric.DefaultBiometricUtils
 import org.mozilla.fenix.settings.biometric.ext.isAuthenticatorAvailable
-import org.mozilla.fenix.settings.biometric.ext.isHardwareAvailable
+import org.mozilla.fenix.settings.biometric.ext.isDeviceLockCapable
 import org.mozilla.fenix.share.ShareFragment
 import org.mozilla.fenix.tabgroups.AddToTabGroup
 import org.mozilla.fenix.tabgroups.CloseLastTabAndDeleteTabGroupConfirmationDialog
@@ -631,7 +631,7 @@ class TabManagementFragment : Fragment() {
                 showLockBanner = shouldShowLockPbmBanner(
                     isPrivateMode = appState.mode.isPrivate,
                     hasPrivateTabs = coreState.privateTabs.isNotEmpty(),
-                    biometricAvailable = BiometricManager.from(requireContext()).isHardwareAvailable(),
+                    biometricAvailable = BiometricManager.from(requireContext()).isDeviceLockCapable(),
                     privateLockEnabled = settings.privateBrowsingModeLocked,
                     shouldShowBanner = shouldShowBanner(settings),
                 ),

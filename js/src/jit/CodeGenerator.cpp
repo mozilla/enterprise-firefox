@@ -4840,9 +4840,25 @@ void CodeGenerator::visitMegamorphicLoadSlot(LMegamorphicLoadSlot* lir) {
   Register temp3 = ToRegister(lir->temp3());
   ValueOperand output = ToOutValue(lir);
 
-  Label cacheHit;
-  masm.emitMegamorphicCacheLookup(lir->mir()->name(), obj, temp0, temp1, temp2,
-                                  output, &cacheHit);
+  Label done;
+  PropertyKey id = lir->mir()->name();
+  masm.movePropertyKey(id, temp0);
+  masm.move32(Imm32(HashPropertyKeyThreadSafe(id)), temp1);
+
+  MOZ_ASSERT(obj == CallTempReg3);
+  MOZ_ASSERT(temp0 == CallTempReg0);
+  MOZ_ASSERT(temp1 == CallTempReg1);
+  MOZ_ASSERT(temp2 == CallTempReg2);
+#if defined(JS_NUNBOX32)
+  MOZ_ASSERT(output.typeReg() == JSReturnReg_Type);
+  MOZ_ASSERT(output.payloadReg() == JSReturnReg_Data);
+#else
+  MOZ_ASSERT(output.payloadOrValueReg() == JSReturnReg);
+#endif
+  TrampolinePtr megamorphicLoadStub = gen->jitRuntime()->megamorphicLoadStub();
+  masm.call(megamorphicLoadStub);
+  masm.branchPtr(Assembler::Equal, temp2,
+                 Imm32(JitRuntime::MegamorphicLoadStubCacheHit), &done);
 
   Label bail;
   masm.branchIfNonNativeObj(obj, temp0, &bail);
@@ -4867,7 +4883,7 @@ void CodeGenerator::visitMegamorphicLoadSlot(LMegamorphicLoadSlot* lir) {
   masm.Pop(output);
 
   masm.branchIfFalseBool(ReturnReg, &bail);
-  masm.bind(&cacheHit);
+  masm.bind(&done);
 
   bailoutFrom(&bail, lir->snapshot());
 }
@@ -4884,8 +4900,28 @@ void CodeGenerator::visitMegamorphicLoadSlotPermissive(
   masm.movePtr(obj, temp3);
 
   Label done, getter, nullGetter;
-  masm.emitMegamorphicCacheLookup(lir->mir()->name(), obj, temp0, temp1, temp2,
-                                  output, &done, &getter);
+  PropertyKey id = lir->mir()->name();
+  masm.movePropertyKey(id, temp0);
+  masm.move32(Imm32(HashPropertyKeyThreadSafe(id)), temp1);
+
+  MOZ_ASSERT(obj == CallTempReg3);
+  MOZ_ASSERT(temp0 == CallTempReg0);
+  MOZ_ASSERT(temp1 == CallTempReg1);
+  MOZ_ASSERT(temp2 == CallTempReg2);
+#if defined(JS_NUNBOX32)
+  MOZ_ASSERT(output.typeReg() == JSReturnReg_Type);
+  MOZ_ASSERT(output.payloadReg() == JSReturnReg_Data);
+#else
+  MOZ_ASSERT(output.payloadOrValueReg() == JSReturnReg);
+#endif
+  MOZ_ASSERT(!output.aliases(temp3));
+  TrampolinePtr megamorphicLoadStub =
+      gen->jitRuntime()->megamorphicLoadStubPermissive();
+  masm.call(megamorphicLoadStub);
+  masm.branchPtr(Assembler::Equal, temp2,
+                 Imm32(JitRuntime::MegamorphicLoadStubCacheHit), &done);
+  masm.branchPtr(Assembler::Equal, temp2,
+                 Imm32(JitRuntime::MegamorphicLoadStubCacheHitGetter), &getter);
 
   masm.movePropertyKey(lir->mir()->name(), temp1);
   pushArg(temp2);
@@ -4905,7 +4941,6 @@ void CodeGenerator::visitMegamorphicLoadSlotPermissive(
 
   masm.bind(&nullGetter);
   masm.moveValue(UndefinedValue(), output);
-
   masm.bind(&done);
 }
 
@@ -4918,10 +4953,25 @@ void CodeGenerator::visitMegamorphicLoadSlotByValue(
   Register temp2 = ToRegister(lir->temp2());
   ValueOperand output = ToOutValue(lir);
 
-  Label cacheHit, bail;
-  masm.emitMegamorphicCacheLookupByValue(idVal, obj, temp0, temp1, temp2,
-                                         output, &cacheHit);
+  Label done, bail, atomizeMiss;
+  masm.xorPtr(temp2, temp2);
+  masm.loadAtomOrSymbolAndHash(idVal, temp0, temp1, &atomizeMiss);
 
+  MOZ_ASSERT(obj == CallTempReg3);
+  MOZ_ASSERT(temp0 == CallTempReg0);
+  MOZ_ASSERT(temp1 == CallTempReg1);
+  MOZ_ASSERT(temp2 == CallTempReg2);
+#if defined(JS_NUNBOX32)
+  MOZ_ASSERT(output.typeReg() == JSReturnReg_Type);
+  MOZ_ASSERT(output.payloadReg() == JSReturnReg_Data);
+#else
+  MOZ_ASSERT(output.payloadOrValueReg() == JSReturnReg);
+#endif
+  TrampolinePtr megamorphicLoadStub = gen->jitRuntime()->megamorphicLoadStub();
+  masm.call(megamorphicLoadStub);
+  masm.branchTest32(Assembler::NonZero, temp2, Imm32(1), &done);
+
+  masm.bind(&atomizeMiss);
   masm.branchIfNonNativeObj(obj, temp0, &bail);
 
   // idVal will be in vp[0], result will be stored in vp[1].
@@ -4953,7 +5003,7 @@ void CodeGenerator::visitMegamorphicLoadSlotByValue(
   masm.setFramePushed(framePushed);
   masm.Pop(output);
 
-  masm.bind(&cacheHit);
+  masm.bind(&done);
 
   bailoutFrom(&bail, lir->snapshot());
 }
@@ -4965,22 +5015,55 @@ void CodeGenerator::visitMegamorphicLoadSlotByValuePermissive(
   Register temp0 = ToRegister(lir->temp0());
   Register temp1 = ToRegister(lir->temp1());
   Register temp2 = ToRegister(lir->temp2());
-  ValueOperand output = ToOutValue(lir);
+
+  Label done, atomizeMiss;
 
   // If we have enough registers available, we can call getters directly from
   // jitcode. On x86, we have to call into the VM.
 #ifndef JS_CODEGEN_X86
-  Label done, getter, nullGetter;
+  ValueOperand output = ToOutValue(lir);
+  Label getter, nullGetter;
   Register temp3 = ToRegister(lir->temp3());
   masm.movePtr(obj, temp3);
+  masm.xorPtr(temp2, temp2);
+  masm.loadAtomOrSymbolAndHash(idVal, temp0, temp1, &atomizeMiss);
 
-  masm.emitMegamorphicCacheLookupByValue(idVal, obj, temp0, temp1, temp2,
-                                         output, &done, &getter);
+  MOZ_ASSERT(obj == CallTempReg3);
+  MOZ_ASSERT(temp0 == CallTempReg0);
+  MOZ_ASSERT(temp1 == CallTempReg1);
+  MOZ_ASSERT(temp2 == CallTempReg2);
+#  if defined(JS_NUNBOX32)
+  MOZ_ASSERT(output.typeReg() == JSReturnReg_Type);
+  MOZ_ASSERT(output.payloadReg() == JSReturnReg_Data);
+#  else
+  MOZ_ASSERT(output.payloadOrValueReg() == JSReturnReg);
+#  endif
+  MOZ_ASSERT(!output.aliases(temp3));
+  TrampolinePtr megamorphicLoadStub =
+      gen->jitRuntime()->megamorphicLoadStubPermissive();
+  masm.call(megamorphicLoadStub);
+  masm.branchTest32(Assembler::NonZero, temp2, Imm32(1), &done);
+  masm.branchTest32(Assembler::NonZero, temp2, Imm32(2), &getter);
 #else
-  Label done;
-  masm.emitMegamorphicCacheLookupByValue(idVal, obj, temp0, temp1, temp2,
-                                         output, &done);
+  masm.xorPtr(temp2, temp2);
+  masm.loadAtomOrSymbolAndHash(idVal, temp0, temp1, &atomizeMiss);
+
+  MOZ_ASSERT(obj == CallTempReg3);
+  MOZ_ASSERT(temp0 == CallTempReg0);
+  MOZ_ASSERT(temp1 == CallTempReg1);
+  MOZ_ASSERT(temp2 == CallTempReg2);
+#  if defined(JS_NUNBOX32)
+  MOZ_ASSERT(ToOutValue(lir).typeReg() == JSReturnReg_Type);
+  MOZ_ASSERT(ToOutValue(lir).payloadReg() == JSReturnReg_Data);
+#  else
+  MOZ_ASSERT(ToOutValue(lir).payloadOrValueReg() == JSReturnReg);
+#  endif
+  TrampolinePtr megamorphicLoadStub = gen->jitRuntime()->megamorphicLoadStub();
+  masm.call(megamorphicLoadStub);
+  masm.branchTest32(Assembler::NonZero, temp2, Imm32(1), &done);
 #endif
+
+  masm.bind(&atomizeMiss);
 
   pushArg(temp2);
   pushArg(idVal);
@@ -5069,10 +5152,13 @@ void CodeGenerator::visitMegamorphicHasProp(LMegamorphicHasProp* lir) {
   Register temp2 = ToRegister(lir->temp2());
   Register output = ToRegister(lir->output());
 
-  Label bail, cacheHit;
-  masm.emitMegamorphicCacheLookupExists(idVal, obj, temp0, temp1, temp2, output,
+  Label bail, cacheHit, atomizeMiss;
+  masm.xorPtr(temp2, temp2);
+  masm.loadAtomOrSymbolAndHash(idVal, temp0, temp1, &atomizeMiss);
+  masm.emitMegamorphicCacheLookupExists(obj, temp0, temp1, temp2, output,
                                         &cacheHit, lir->mir()->hasOwn());
 
+  masm.bind(&atomizeMiss);
   masm.branchIfNonNativeObj(obj, temp0, &bail);
 
   // idVal will be in vp[0], result will be stored in vp[1].
@@ -6668,6 +6754,74 @@ void JitRuntime::generateIonGenericCallStub(MacroAssembler& masm,
   masm.push(returnAddrReg);
 #endif
   masm.jump(&invokeFunctionVMEntry);
+}
+
+void JitRuntime::generateMegamorphicLoadStub(MacroAssembler& masm) {
+  AutoCreatedBy acb(masm, "JitRuntime::generateMegamorphicLoadStub");
+  megamorphicLoadStubOffset_ = startTrampolineCode(masm);
+
+  Register obj = CallTempReg3;
+  Register id = CallTempReg0;
+  Register idHash = CallTempReg1;
+  Register outEntryPtr = CallTempReg2;
+
+#if defined(JS_NUNBOX32)
+  auto output = ValueOperand(JSReturnReg_Type, JSReturnReg_Data);
+  static_assert(!JSReturnReg_Type.aliases(CallTempReg2));
+  static_assert(!JSReturnReg_Data.aliases(CallTempReg2));
+#else
+  auto output = ValueOperand(JSReturnReg);
+  static_assert(!JSReturnReg.aliases(CallTempReg2));
+#endif
+
+  Label cacheHit;
+  masm.emitMegamorphicCacheLookupByValue(obj, id, idHash, outEntryPtr, output,
+                                         &cacheHit);
+
+  masm.abiret();
+
+  // Given we don't need the entry if we got a cache hit, and the entry pointer
+  // will never point into the first code page, we can use the low bits of the
+  // outEntryPtr to indicate success
+  masm.bind(&cacheHit);
+  masm.movePtr(ImmPtr((void*)(MegamorphicLoadStubCacheHit)), outEntryPtr);
+  masm.abiret();
+}
+
+void JitRuntime::generateMegamorphicLoadStubPermissive(MacroAssembler& masm) {
+  AutoCreatedBy acb(masm, "JitRuntime::generateMegamorphicLoadStubPermissive");
+  megamorphicLoadStubPermissiveOffset_ = startTrampolineCode(masm);
+
+  Register obj = CallTempReg3;
+  Register id = CallTempReg0;
+  Register idHash = CallTempReg1;
+  Register outEntryPtr = CallTempReg2;
+
+#if defined(JS_NUNBOX32)
+  auto output = ValueOperand(JSReturnReg_Type, JSReturnReg_Data);
+  static_assert(!JSReturnReg_Type.aliases(CallTempReg2));
+  static_assert(!JSReturnReg_Data.aliases(CallTempReg2));
+#else
+  auto output = ValueOperand(JSReturnReg);
+  static_assert(!JSReturnReg.aliases(CallTempReg2));
+#endif
+
+  Label cacheHit, cacheHitGetter;
+  masm.emitMegamorphicCacheLookupByValue(obj, id, idHash, outEntryPtr, output,
+                                         &cacheHit, &cacheHitGetter);
+
+  masm.abiret();
+
+  // Given we don't need the entry if we got a cache hit, and the entry pointer
+  // will never point into the first code page, we can use the low bits of the
+  // outEntryPtr to indicate success or that output holds a getter.
+  masm.bind(&cacheHit);
+  masm.movePtr(ImmPtr((void*)(MegamorphicLoadStubCacheHit)), outEntryPtr);
+  masm.abiret();
+
+  masm.bind(&cacheHitGetter);
+  masm.movePtr(ImmPtr((void*)(MegamorphicLoadStubCacheHitGetter)), outEntryPtr);
+  masm.abiret();
 }
 
 void JitRuntime::generateIonGenericHandleUnderflow(MacroAssembler& masm,
@@ -10410,11 +10564,13 @@ void CodeGenerator::visitWasmCall(LWasmCall* lir) {
       reloadPinnedRegs = true;
       switchRealm = false;
       break;
-    case wasm::CalleeDesc::BuiltinInstanceMethod:
-      retOffset = masm.wasmCallBuiltinInstanceMethod(
-          desc, callBase->instanceArg(), callee.builtin(),
-          callBase->builtinMethodFailureMode(),
-          callBase->builtinMethodFailureTrap());
+    case wasm::CalleeDesc::BuiltinInstanceMethod: {
+      CodeOffset unused_trapStackMapKey;
+      masm.wasmCallBuiltinInstanceMethod(desc, callBase->instanceArg(),
+                                         callee.builtin(),
+                                         callBase->builtinMethodFailureMode(),
+                                         callBase->builtinMethodFailureTrap(),
+                                         &retOffset, &unused_trapStackMapKey);
       // The builtin ABI preserves the instance and pinned registers. However,
       // builtins may grow the memory which requires us to reload the pinned
       // registers.
@@ -10422,6 +10578,7 @@ void CodeGenerator::visitWasmCall(LWasmCall* lir) {
       reloadPinnedRegs = true;
       switchRealm = false;
       break;
+    }
     case wasm::CalleeDesc::FuncRef:
       if (isReturnCall) {
         ReturnCallAdjustmentInfo retCallInfo(

@@ -139,7 +139,7 @@ add_task(async function test_switch_to_classic_window() {
 
   let iconListImage = window.getComputedStyle(button)["list-style-image"];
   Assert.ok(
-    iconListImage.includes("icon32.png"),
+    iconListImage.includes("about-logo.svg"),
     "Button icon should change to Classic Window icon"
   );
 

@@ -51,6 +51,7 @@ class nsAnimationManager final
   void RemoveNamedTimelineAnimation(const nsAtom* aName,
                                     mozilla::dom::CSSAnimation* aAnimation);
 
+  void UpdateDeferredTimelineChanges();
   void UpdateNamedTimelineAnimations(
       const nsTArray<RefPtr<const nsAtom>>& aChanged);
   void UpdateAllNamedTimelineAnimations();
@@ -135,6 +136,9 @@ class nsAnimationManager final
   // Also note that we represent `animation-timeline: none` as a named
   // timeline with an empty name, which is not tracked in this hashmap.
   TimelineNamesToAnimationMap mAnimationsWithNamedTimeline;
+  // Animations with updates to named timeline that may result in a null or
+  // inactive timeline attachment.
+  nsTHashSet<RefPtr<mozilla::dom::CSSAnimation>> mAnimationsWithDeferredUpdate;
 
   void DoUpdateAnimations(const mozilla::NonOwningAnimationTarget& aTarget,
                           const nsStyleUIReset& aStyle,

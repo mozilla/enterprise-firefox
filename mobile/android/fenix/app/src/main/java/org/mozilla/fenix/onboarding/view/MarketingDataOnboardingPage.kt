@@ -164,11 +164,32 @@ fun MarketingDataOnboardingPage(
 
             Spacer(Modifier.height(32.dp))
 
-            state.secondaryButton?.let { action ->
-                SecondaryButton(state, action, onMarketingDataSkipClick)
+            if (state.secondaryButton != null) {
+                Row(
+                    modifier = Modifier.width(FirefoxTheme.layout.size.maxWidth.small),
+                    horizontalArrangement = Arrangement.spacedBy(FirefoxTheme.layout.space.static100),
+                ) {
+                    SecondaryButton(
+                        state = state,
+                        action = state.secondaryButton,
+                        onMarketingDataSkipClick = onMarketingDataSkipClick,
+                        modifier = Modifier.weight(1f),
+                    )
+                    PrimaryButton(
+                        state = state,
+                        onMarketingDataContinueClick = onMarketingDataContinueClick,
+                        checkboxChecked = checkboxChecked,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            } else {
+                PrimaryButton(
+                    state = state,
+                    onMarketingDataContinueClick = onMarketingDataContinueClick,
+                    checkboxChecked = checkboxChecked,
+                    modifier = Modifier.width(width = FirefoxTheme.layout.size.maxWidth.small),
+                )
             }
-
-            PrimaryButton(state, onMarketingDataContinueClick, checkboxChecked)
         }
     }
 
@@ -195,13 +216,14 @@ private fun SecondaryButton(
     state: OnboardingPageState,
     action: Action,
     onMarketingDataSkipClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     when (state.marketingData?.marketingCardVariant) {
         MarketingCardVariant.DEFAULT,
         null,
             -> Unit
 
-        else -> SecondaryButtonOutline(action, state, onMarketingDataSkipClick)
+        else -> SecondaryButtonOutline(action, state, onMarketingDataSkipClick, modifier)
     }
 }
 
@@ -232,6 +254,7 @@ private fun PrimaryButton(
     state: OnboardingPageState,
     onMarketingDataContinueClick: (Boolean) -> Unit,
     checkboxChecked: Boolean,
+    modifier: Modifier = Modifier,
 ) {
     val buttonText = state.marketingData?.let {
         primaryButtonCopyForVariant(
@@ -243,21 +266,17 @@ private fun PrimaryButton(
     if (state.marketingData?.marketingCardVariant == MarketingCardVariant.DEFAULT) {
         FilledButton(
             text = buttonText,
-            modifier = Modifier
-                .width(width = FirefoxTheme.layout.size.maxWidth.small)
-                .semantics {
-                    testTag = state.title + "onboarding_card.positive_button"
-                },
+            modifier = modifier.semantics {
+                testTag = state.title + "onboarding_card.positive_button"
+            },
             onClick = { onMarketingDataContinueClick(checkboxChecked) },
         )
     } else {
         FilledButton(
             text = buttonText,
-            modifier = Modifier
-                .width(width = FirefoxTheme.layout.size.maxWidth.small)
-                .semantics {
-                    testTag = state.title + "onboarding_card.positive_button"
-                },
+            modifier = modifier.semantics {
+                testTag = state.title + "onboarding_card.positive_button"
+            },
             icon = painterResource(id = R.drawable.ic_favourite_filled),
             iconModifier = Modifier.size(16.dp),
             iconTint = PhotonColors.Red50,
@@ -271,6 +290,7 @@ private fun SecondaryButtonOutline(
     action: Action,
     state: OnboardingPageState,
     onMarketingDataSkipClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val buttonText = state.marketingData?.let {
         secondaryButtonCopyForVariant(
@@ -281,11 +301,9 @@ private fun SecondaryButtonOutline(
 
     OutlinedButton(
         text = buttonText,
-        modifier = Modifier
-            .width(width = FirefoxTheme.layout.size.maxWidth.small)
-            .semantics {
-                testTag = state.title + "onboarding_card.negative_button"
-            },
+        modifier = modifier.semantics {
+            testTag = state.title + "onboarding_card.negative_button"
+        },
         onClick = { onMarketingDataSkipClick() },
     )
 }
@@ -407,7 +425,7 @@ private fun primaryButtonCopyForVariant(
     MarketingCardVariant.DEFAULT -> defaultString
 
     MarketingCardVariant.TREATMENT_C ->
-        stringResource(R.string.nova_onboarding_marketing_primary_button_text_2)
+        stringResource(R.string.nova_onboarding_marketing_primary_button_text_3)
 }
 
 @Composable
@@ -417,7 +435,7 @@ private fun secondaryButtonCopyForVariant(
 ) = when (marketingCardVariant) {
     MarketingCardVariant.DEFAULT -> defaultString
     MarketingCardVariant.TREATMENT_C,
-        -> stringResource(R.string.nova_onboarding_marketing_secondary_button_text)
+        -> stringResource(R.string.nova_onboarding_marketing_secondary_button_text_2)
 }
 
 private fun imageResourceForVariant(

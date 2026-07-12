@@ -509,3 +509,68 @@ add_task(async function test_window_close_drops_pref_entry() {
 
   await SpecialPowers.popPrefEnv();
 });
+
+add_task(async function test_search_filters_visible_rows() {
+  const appleTab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    "data:text/html,<title>Apple</title>"
+  );
+  const bananaTab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    "data:text/html,<title>Banana</title>"
+  );
+
+  const component = await showOpenTabsPanel();
+  const allTabsCount = getVisibleTabCount();
+  await waitForRowCount(getTabList(component), allTabsCount);
+
+  const searchBox = component.shadowRoot.querySelector("moz-input-search");
+  Assert.ok(searchBox, "Search input is present in the panel.");
+
+  // Searching shows the results header and filters the window card rows.
+  searchBox.dispatchEvent(
+    new CustomEvent("MozInputSearch:search", { detail: { query: "Apple" } })
+  );
+  await BrowserTestUtils.waitForMutationCondition(
+    component.shadowRoot,
+    { childList: true, subtree: true },
+    () =>
+      component.shadowRoot.querySelector(
+        "[data-l10n-id='sidebar-search-results-header']"
+      )
+  );
+  await waitForRowCount(getTabList(component), 1);
+  Assert.ok(
+    getTabList(component).rowEls[0].url.includes("Apple"),
+    "Only the matching tab is shown while searching."
+  );
+  const count = component.shadowRoot.querySelector("[slot='secondary-header']");
+  Assert.equal(
+    JSON.parse(count.getAttribute("data-l10n-args")).count,
+    1,
+    "The results count reflects the single match."
+  );
+
+  // Clearing removes the header and restores all rows.
+  searchBox.dispatchEvent(
+    new CustomEvent("MozInputSearch:search", { detail: { query: "" } })
+  );
+  await BrowserTestUtils.waitForMutationCondition(
+    component.shadowRoot,
+    { childList: true, subtree: true },
+    () =>
+      !component.shadowRoot.querySelector(
+        "[data-l10n-id='sidebar-search-results-header']"
+      )
+  );
+  await waitForRowCount(getTabList(component), allTabsCount);
+  Assert.equal(
+    getTabList(component).rowEls.length,
+    allTabsCount,
+    "Clearing the query restores all tab rows."
+  );
+
+  BrowserTestUtils.removeTab(appleTab);
+  BrowserTestUtils.removeTab(bananaTab);
+  SidebarTestUtils.closePanel(window);
+});

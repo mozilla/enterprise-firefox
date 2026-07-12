@@ -1482,15 +1482,12 @@ void MacroAssembler::cmp8Set(Condition cond, Address lhs, Imm32 rhs,
 }
 void MacroAssembler::cmpPtrMovePtr(Condition cond, Register lhs, Register rhs,
                                    Register src, Register dest) {
-  UseScratchRegisterScope temps(this);
-  Register scratch2 = temps.Acquire();
-  cmpPtrSet(cond, lhs, rhs, scratch2);
-  moveIfNotZero(dest, src, scratch2);
+  ma_cmp_mv(dest, lhs, rhs, src, cond);
 }
 
 void MacroAssembler::cmpPtrMovePtr(Condition cond, Register lhs, Imm32 rhs,
                                    Register src, Register dest) {
-  MOZ_CRASH("NYI");
+  ma_cmp_mv(dest, lhs, rhs, src, cond);
 }
 
 void MacroAssembler::cmpPtrMovePtr(Condition cond, Register lhs,

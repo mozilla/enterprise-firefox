@@ -104,6 +104,20 @@ options-netmonitor-body-limit-restore-default =
 options-netmonitor-body-limit-set =
     .title = Set the current input value as maximum request/response body size.
 
+## Experimental section
+
+# The heading
+options-experimental-label = Experimental Features
+
+# The label for the checkbox that toggles showing stylesheets in the debugger
+options-stylesheets-in-the-debugger-label = Show stylesheets in the debugger
+options-stylesheets-in-the-debugger-tooltip =
+    .title = List and view stylesheets in the debugger
+
+# The message shown for settings that indicates that the attached setting requires the
+# toolbox to be reopened to take effect.
+options-reopen-toolbox-message = (requires reopening the toolbox)
+
 ## Style Editor section
 
 # The heading

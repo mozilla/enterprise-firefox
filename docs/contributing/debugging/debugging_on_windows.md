@@ -211,11 +211,11 @@ continue.
 
 When an assertion happens and there is not a debugger attached, a small
 helper application
-(`` `windbgdlg.exe `` \</En/Automatically_Handle_Failed_Asserts_in_Debug_Builds>\`\_\_)
+(`windbgdlg.exe`)
 is run. That application can automatically select a response to the "Do
 you want to debug" dialog instead of prompting if you configure it, for
 more info, see
-`` `windbgdlg.exe `` \</En/Automatically_Handle_Failed_Asserts_in_Debug_Builds>\`\_\_.
+`windbgdlg.exe`.
 
 ## Debugging optimized builds
 

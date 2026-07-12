@@ -167,7 +167,7 @@ class SurfacePoolCA final : public SurfacePool {
         gl::GLContext* aGL, const gfx::IntSize& aSize);
     UniquePtr<gl::MozFramebuffer> CreateFramebufferForTexture(
         gl::GLContext* aGL, const gfx::IntSize& aSize, GLuint aTexture,
-        bool aNeedsDepthBuffer);
+        GLenum aTarget, bool aNeedsDepthBuffer);
 
     // Every IOSurface that is managed by the pool is wrapped in a
     // SurfacePoolEntry object. Every entry is stored in one of three buckets at

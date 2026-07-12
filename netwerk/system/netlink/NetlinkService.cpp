@@ -275,6 +275,9 @@ class NetlinkLink {
     len = aNlh->nlmsg_len - NLMSG_LENGTH(sizeof(*iface));
 
     bool hasName = false;
+#if defined(MOZ_ENTERPRISE)
+    bool hasMAC = false;
+#endif
     for (attr = IFLA_RTA(iface); RTA_OK(attr, len);
          attr = RTA_NEXT(attr, len)) {
       if (attr->rta_type == IFLA_IFNAME) {
@@ -284,15 +287,24 @@ class NetlinkLink {
 #if defined(MOZ_ENTERPRISE)
       if (attr->rta_type == IFLA_ADDRESS) {
         memcpy(mMAC, RTA_DATA(attr), ETH_ALEN);
+        hasMAC = true;
       }
 #endif
 
-      if (hasName) {
+      if (hasName
+#if defined(MOZ_ENTERPRISE)
+          && (IsTypeEther() && hasMAC)
+#endif
+      ) {
         break;
       }
     }
 
-    if (!hasName) {
+    if (!hasName
+#if defined(MOZ_ENTERPRISE)
+        || (IsTypeEther() && !hasMAC)
+#endif
+    ) {
       return false;
     }
 

@@ -13,9 +13,9 @@ namespace jit {
 
 class MoveEmitterLOONG64 {
   void emitDoubleMove(const MoveOperand& from, const MoveOperand& to);
-  void breakCycle(const MoveOperand& to, MoveOp::Type type, uint32_t slot);
+  void breakCycle(const MoveOperand& to, MoveOp::Type type);
   void completeCycle(const MoveOperand& from, const MoveOperand& to,
-                     MoveOp::Type type, uint32_t slot);
+                     MoveOp::Type type);
 
   MacroAssembler& masm;
 
@@ -27,10 +27,14 @@ class MoveEmitterLOONG64 {
   // stack space has been allocated for that particular spill.
   int32_t pushedAtCycle_ = -1;
 
-  uint32_t inCycle_ = 0;
+  // A scratch general register used to break cycles. `InvalidReg` if no cycles
+  // are present or no spare scratch registers are available.
+  Register cycleGeneralReg_ = InvalidReg;
 
-  void assertDone() { MOZ_ASSERT(inCycle_ == 0); }
-  Address cycleSlot(uint32_t slot) const;
+  bool inCycle_ = false;
+
+  void assertDone() { MOZ_ASSERT(!inCycle_); }
+  Address cycleSlot() const;
   int32_t getAdjustedOffset(const MoveOperand& operand) const;
   Address getAdjustedAddress(const MoveOperand& operand) const;
 

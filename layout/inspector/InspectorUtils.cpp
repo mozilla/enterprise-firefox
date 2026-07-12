@@ -268,7 +268,10 @@ class ReadOnlyInspectorDeclaration final : public nsDOMCSSDeclaration {
   }
   void IndexedGetter(uint32_t aIndex, bool& aFound,
                      nsACString& aPropName) final {
-    aFound = Servo_DeclarationBlock_GetNthProperty(mRaw, aIndex, &aPropName);
+    CSSPropertyId id{eCSSProperty_UNKNOWN};
+    if ((aFound = Servo_DeclarationBlock_GetAt(mRaw, aIndex, &id))) {
+      id.ToString(aPropName);
+    }
   }
   void RemoveProperty(const nsACString& aPropertyName, nsACString& aValue,
                       ErrorResult& aRv) final {

@@ -744,6 +744,51 @@
     "dark": "{Theme$focus/outline}",
     "forcedColors": "{Theme$focus/outline}"
   },
+  "card/header/background/color": {
+    "light": "initial",
+    "dark": "initial",
+    "forcedColors": "{Theme$button/background/color}"
+  },
+  "card/header/background/color/hover": {
+    "light": "{Theme$button/background/color/hover}",
+    "dark": "{Theme$button/background/color/hover}",
+    "forcedColors": "{Theme$button/background/color/hover}"
+  },
+  "card/header/background/color/active": {
+    "light": "{Theme$button/background/color/active}",
+    "dark": "{Theme$button/background/color/active}",
+    "forcedColors": "{Theme$button/background/color/active}"
+  },
+  "card/header/border/color": {
+    "light": "transparent",
+    "dark": "transparent",
+    "forcedColors": "{Theme$button/border/color}"
+  },
+  "card/header/border/color/hover": {
+    "light": "transparent",
+    "dark": "transparent",
+    "forcedColors": "{Theme$button/border/color/hover}"
+  },
+  "card/header/border/color/active": {
+    "light": "transparent",
+    "dark": "transparent",
+    "forcedColors": "{Theme$button/border/color/active}"
+  },
+  "card/header/text/color": {
+    "light": "{Theme$button/text/color}",
+    "dark": "{Theme$button/text/color}",
+    "forcedColors": "{Theme$button/text/color}"
+  },
+  "card/header/text/color/hover": {
+    "light": "{Theme$button/text/color/hover}",
+    "dark": "{Theme$button/text/color/hover}",
+    "forcedColors": "{Theme$button/text/color/hover}"
+  },
+  "card/header/text/color/active": {
+    "light": "{Theme$button/text/color/active}",
+    "dark": "{Theme$button/text/color/active}",
+    "forcedColors": "{Theme$button/text/color/active}"
+  },
   "checkbox/background/color": {
     "light": "{Theme$button/background/color}",
     "dark": "{Theme$button/background/color}",
@@ -939,15 +984,15 @@
     "dark": "rgb(82, 82, 94)",
     "forcedColors": "transparent"
   },
-  "panel/text/color": {
-    "light": "{Colors$color/black}",
-    "dark": "rgb(251, 251, 254)",
-    "forcedColors": "MenuText"
-  },
   "panel/separator/color": {
     "light": "color-mix(in srgb, currentColor 25%, transparent)",
     "dark": "color-mix(in srgb, currentColor 25%, transparent)",
     "forcedColors": "{Theme$border/color}"
+  },
+  "panel/text/color": {
+    "light": "{Colors$color/black}",
+    "dark": "rgb(251, 251, 254)",
+    "forcedColors": "MenuText"
   },
   "sidebar/background/color": {
     "light": "white",
@@ -1910,6 +1955,16 @@
     "dark": "none",
     "forcedColors": "none"
   },
+  "urlbar/background/color": {
+    "light": "{Theme$toolbar/field/background/color}",
+    "dark": "{Theme$toolbar/field/background/color}",
+    "forcedColors": "{Theme$toolbar/field/background/color}"
+  },
+  "urlbar/background/color/focus": {
+    "light": "{Theme$toolbar/field/background/color/focus}",
+    "dark": "{Theme$toolbar/field/background/color/focus}",
+    "forcedColors": "{Theme$toolbar/field/background/color/focus}"
+  },
   "urlbar/box/background/color": {
     "light": "white",
     "dark": "rgb(66, 65, 77)",
@@ -1954,6 +2009,11 @@
     "light": "rgb(91, 91, 102)",
     "dark": "rgb(191, 191, 201)",
     "forcedColors": "transparent"
+  },
+  "urlbarview/text/color/secondary": {
+    "light": "color-mix(in srgb, currentColor 73%, transparent)",
+    "dark": "color-mix(in srgb, currentColor 73%, transparent)",
+    "forcedColors": "currentColor"
   },
   "urlbarview/text/color/selected": {
     "light": "rgb(21, 20, 26)",

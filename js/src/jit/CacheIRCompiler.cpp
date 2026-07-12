@@ -9285,12 +9285,13 @@ bool CacheIRCompiler::emitMegamorphicLoadSlotByValueResult(ObjOperandId objId,
     return false;
   }
 
-#ifdef JS_CODEGEN_X86
   masm.xorPtr(scratch2, scratch2);
-#else
-  Label cacheHit;
-  masm.emitMegamorphicCacheLookupByValue(
-      idVal, obj, scratch1, scratch3, scratch2, output.valueReg(), &cacheHit);
+#ifndef JS_CODEGEN_X86
+  Label cacheHit, atomizeMiss;
+  masm.loadAtomOrSymbolAndHash(idVal, scratch1, scratch3, &atomizeMiss);
+  masm.emitMegamorphicCacheLookupByValue(obj, scratch1, scratch3, scratch2,
+                                         output.valueReg(), &cacheHit);
+  masm.bind(&atomizeMiss);
 #endif
 
   masm.branchIfNonNativeObj(obj, scratch1, failure->label());
@@ -9357,12 +9358,14 @@ bool CacheIRCompiler::emitMegamorphicLoadSlotByValuePermissiveResult(
   AutoScratchRegister scratch3(allocator, masm);
 #endif
 
-#ifdef JS_CODEGEN_X86
   masm.xorPtr(scratch2, scratch2);
-#else
-  Label cacheHit;
-  masm.emitMegamorphicCacheLookupByValue(
-      idVal, obj, scratch1, scratch3, scratch2, output.valueReg(), &cacheHit);
+#ifndef JS_CODEGEN_X86
+  Label cacheHit, atomizeMiss;
+
+  masm.loadAtomOrSymbolAndHash(idVal, scratch1, scratch3, &atomizeMiss);
+  masm.emitMegamorphicCacheLookupByValue(obj, scratch1, scratch3, scratch2,
+                                         output.valueReg(), &cacheHit);
+  masm.bind(&atomizeMiss);
 #endif
 
   callvm.prepare();
@@ -9404,13 +9407,13 @@ bool CacheIRCompiler::emitMegamorphicHasPropResult(ObjOperandId objId,
     return false;
   }
 
-#ifndef JS_CODEGEN_X86
-  Label cacheHit, done;
-  masm.emitMegamorphicCacheLookupExists(idVal, obj, scratch1, scratch3,
-                                        scratch2, output.maybeReg(), &cacheHit,
-                                        hasOwn);
-#else
   masm.xorPtr(scratch2, scratch2);
+#ifndef JS_CODEGEN_X86
+  Label done, cacheHit, atomizeMiss;
+  masm.loadAtomOrSymbolAndHash(idVal, scratch1, scratch3, &atomizeMiss);
+  masm.emitMegamorphicCacheLookupExists(obj, scratch1, scratch3, scratch2,
+                                        output.maybeReg(), &cacheHit, hasOwn);
+  masm.bind(&atomizeMiss);
 #endif
 
   masm.branchIfNonNativeObj(obj, scratch1, failure->label());
@@ -9735,9 +9738,10 @@ bool CacheIRCompiler::emitMegamorphicLoadSlotResult(ObjOperandId objId,
 #else
   Label cacheHit;
   emitLoadStubField(id, idReg);
-  masm.emitMegamorphicCacheLookupByValue(idReg.get(), obj, scratch1, scratch2,
-                                         scratch3, output.valueReg(),
-                                         &cacheHit);
+  masm.movePtr(idReg.get(), scratch1);
+  masm.loadAtomHash(scratch1, scratch2, nullptr);
+  masm.emitMegamorphicCacheLookupByValue(obj, scratch1, scratch2, scratch3,
+                                         output.valueReg(), &cacheHit);
 #endif
 
   FailurePath* failure;
@@ -9798,7 +9802,6 @@ bool CacheIRCompiler::emitMegamorphicLoadSlotPermissiveResult(
   Register obj = allocator.useRegister(masm, objId);
   StubFieldOffset id(idOffset, StubField::Type::Id);
 
-  AutoScratchRegisterMaybeOutput idReg(allocator, masm, output);
   AutoScratchRegister scratch1(allocator, masm);
   AutoScratchRegister scratch2(allocator, masm);
   AutoScratchRegisterMaybeOutputType scratch3(allocator, masm, output);
@@ -9807,10 +9810,10 @@ bool CacheIRCompiler::emitMegamorphicLoadSlotPermissiveResult(
   masm.xorPtr(scratch3, scratch3);
 #else
   Label cacheHit;
-  emitLoadStubField(id, idReg);
-  masm.emitMegamorphicCacheLookupByValue(idReg.get(), obj, scratch1, scratch2,
-                                         scratch3, output.valueReg(),
-                                         &cacheHit);
+  emitLoadStubField(id, scratch1);
+  masm.loadAtomHash(scratch1, scratch2, nullptr);
+  masm.emitMegamorphicCacheLookupByValue(obj, scratch1, scratch2, scratch3,
+                                         output.valueReg(), &cacheHit);
 #endif
 
   callvm.prepare();

@@ -238,6 +238,48 @@ export const presets = {
       },
     },
   },
+  "networking-with-logs": {
+    entries: 128 * 1024 * 1024,
+    interval: 1,
+    features: [
+      "screenshots",
+      "js",
+      "stackwalk",
+      "cpu",
+      "java",
+      "processcpu",
+      "bandwidth",
+      "memory",
+    ],
+    threads: [
+      "Cache2 I/O",
+      "Compositor",
+      "DNS Resolver",
+      "DOM Worker",
+      "GeckoMain",
+      "Renderer",
+      "Socket Thread",
+      "StreamTrans",
+      "SwComposite",
+      "TRR Background",
+    ],
+    // Keep these MOZ_LOG modules in sync with the "networking" logging preset
+    // in toolkit/content/aboutLogging/aboutLogging.mjs (the profiler does not
+    // need the "timestamp" and "sync" modules used there).
+    mozLogs:
+      "nsHttp:5,cache2:5,nsSocketTransport:5,nsHostResolver:5,EarlyHint:5",
+    duration: 0,
+    l10nIds: {
+      popup: {
+        label: "profiler-popup-presets-networking-with-logs-label",
+        description: "profiler-popup-presets-networking-with-logs-description",
+      },
+      devtools: {
+        label: "perftools-presets-networking-with-logs-label",
+        description: "perftools-presets-networking-with-logs-description",
+      },
+    },
+  },
   power: {
     entries: 128 * 1024 * 1024,
     interval: 10,

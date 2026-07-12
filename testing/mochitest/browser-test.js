@@ -1226,7 +1226,10 @@ Tester.prototype = {
         );
       }
 
+      // Last check for uncaught rejections followed by the cleanup of allowed
+      // rejections.
       this.PromiseTestUtils.assertNoUncaughtRejections();
+      this.PromiseTestUtils.clearAllowedUncaughtRejections();
 
       await this.notifyProfilerOfTestEnd();
 

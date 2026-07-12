@@ -6,4 +6,4 @@ jvmTargetCompatibility: 17
 compileSdkMajorVersion: 37
 compileSdkMinorVersion: 1
 minSdkVersion: 26
-targetSdkVersion: 36
+targetSdkVersion: 37

@@ -3,4 +3,4 @@ subsuite = "integration"
 tags = "local os_integration"
 
 ["test_smartwindow_default_startup.py"]
-skip-if = ["enterprise"] # Bug-2046670 Tests expect an overriden identity.fxaccounts.remote.root pref to persist across restart but enterprise builds set and lock the pref on startup
+skip-if = ["enterprise"] # Bug 2046670 Tests expect an overriden identity.fxaccounts.remote.root pref to persist across restart but enterprise builds set and lock the pref on startup

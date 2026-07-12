@@ -62,9 +62,9 @@ class WebRenderThreadPool {
     return mThreadPool;
   }
 
-  /// Prematurely destroys this handle to the thread pool.
-  /// After calling this the object is useless.
-  void Release();
+  /// Prematurely destroys the thread pool, optionally waiting for the worker
+  /// threads to exit. After calling this the object is useless.
+  void Destroy(bool aJoinWorkers);
 
  protected:
   wr::WrThreadPool* mThreadPool;

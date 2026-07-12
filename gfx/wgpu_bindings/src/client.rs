@@ -686,7 +686,6 @@ pub extern "C" fn wgpu_client_receive_server_message(client: &Client, byte_buf: 
                 name,
                 vendor,
                 support_use_shared_texture_in_swap_chain,
-                transient_saves_memory,
                 subgroup_min_size,
                 subgroup_max_size,
             }) = adapter_information
@@ -708,7 +707,6 @@ pub extern "C" fn wgpu_client_receive_server_message(client: &Client, byte_buf: 
                     name: nss(&name),
                     vendor,
                     support_use_shared_texture_in_swap_chain,
-                    transient_saves_memory,
                     subgroup_min_size,
                     subgroup_max_size,
                 };
@@ -770,7 +768,7 @@ pub extern "C" fn wgpu_client_receive_server_message(client: &Client, byte_buf: 
                         Some(&ns_error),
                     );
                 }
-                client.identities.lock().render_pipelines.free(pipeline_id);
+                drop::wgpu_client_drop_render_pipeline(client, pipeline_id);
             } else {
                 unsafe {
                     wgpu_child_resolve_create_pipeline_promise(
@@ -796,7 +794,7 @@ pub extern "C" fn wgpu_client_receive_server_message(client: &Client, byte_buf: 
                         Some(&ns_error),
                     );
                 }
-                client.identities.lock().compute_pipelines.free(pipeline_id);
+                drop::wgpu_client_drop_compute_pipeline(client, pipeline_id);
             } else {
                 unsafe {
                     wgpu_child_resolve_create_pipeline_promise(
@@ -2095,6 +2093,7 @@ pub unsafe extern "C" fn wgpu_render_bundle_set_bind_group(
     offsets: *const DynamicOffset,
     offset_length: usize,
 ) {
+    #[allow(deprecated)]
     wgc::command::bundle_ffi::wgpu_render_bundle_set_bind_group(
         bundle,
         index,
@@ -2109,6 +2108,7 @@ pub extern "C" fn wgpu_render_bundle_set_pipeline(
     bundle: &mut RenderBundleEncoder,
     pipeline_id: id::RenderPipelineId,
 ) {
+    #[allow(deprecated)]
     wgc::command::bundle_ffi::wgpu_render_bundle_set_pipeline(bundle, pipeline_id)
 }
 
@@ -2120,6 +2120,7 @@ pub extern "C" fn wgpu_render_bundle_set_vertex_buffer(
     offset: BufferAddress,
     size: Option<&BufferSize>,
 ) {
+    #[allow(deprecated)]
     wgc::command::bundle_ffi::wgpu_render_bundle_set_vertex_buffer(
         bundle,
         slot,
@@ -2137,6 +2138,7 @@ pub extern "C" fn wgpu_render_bundle_set_index_buffer(
     offset: BufferAddress,
     size: Option<&BufferSize>,
 ) {
+    #[allow(deprecated)]
     wgc::command::bundle_ffi::wgpu_render_bundle_set_index_buffer(
         encoder,
         buffer,
@@ -2154,6 +2156,7 @@ pub extern "C" fn wgpu_render_bundle_draw(
     first_vertex: u32,
     first_instance: u32,
 ) {
+    #[allow(deprecated)]
     wgc::command::bundle_ffi::wgpu_render_bundle_draw(
         bundle,
         vertex_count,
@@ -2172,6 +2175,7 @@ pub extern "C" fn wgpu_render_bundle_draw_indexed(
     base_vertex: i32,
     first_instance: u32,
 ) {
+    #[allow(deprecated)]
     wgc::command::bundle_ffi::wgpu_render_bundle_draw_indexed(
         bundle,
         index_count,
@@ -2188,6 +2192,7 @@ pub extern "C" fn wgpu_render_bundle_draw_indirect(
     buffer_id: id::BufferId,
     offset: BufferAddress,
 ) {
+    #[allow(deprecated)]
     wgc::command::bundle_ffi::wgpu_render_bundle_draw_indirect(bundle, buffer_id, offset)
 }
 
@@ -2197,6 +2202,7 @@ pub extern "C" fn wgpu_render_bundle_draw_indexed_indirect(
     buffer_id: id::BufferId,
     offset: BufferAddress,
 ) {
+    #[allow(deprecated)]
     wgc::command::bundle_ffi::wgpu_render_bundle_draw_indexed_indirect(bundle, buffer_id, offset)
 }
 
@@ -2205,11 +2211,13 @@ pub unsafe extern "C" fn wgpu_render_bundle_push_debug_group(
     _bundle: &mut RenderBundleEncoder,
     _label: RawString,
 ) {
+    #[allow(deprecated)]
     wgc::command::bundle_ffi::wgpu_render_bundle_push_debug_group(_bundle, _label)
 }
 
 #[no_mangle]
 pub extern "C" fn wgpu_render_bundle_pop_debug_group(_bundle: &mut RenderBundleEncoder) {
+    #[allow(deprecated)]
     wgc::command::bundle_ffi::wgpu_render_bundle_pop_debug_group(_bundle)
 }
 
@@ -2218,5 +2226,6 @@ pub unsafe extern "C" fn wgpu_render_bundle_insert_debug_marker(
     _bundle: &mut RenderBundleEncoder,
     _label: RawString,
 ) {
+    #[allow(deprecated)]
     wgc::command::bundle_ffi::wgpu_render_bundle_insert_debug_marker(_bundle, _label)
 }

@@ -63,11 +63,11 @@ class UninstallSurveyManager(
     /**
      * Checks the intent action and routes the user to the uninstall survey dialog if applicable.
      *
-     * @param intentAction The action string from the incoming intent.
+     * @param intent The incoming [Intent] containing the action.
      * @param navController The [NavController] used to trigger the navigation.
      */
-    fun showUninstallSurvey(intentAction: String?, navController: NavController) {
-        if (intentAction == ACTION_UNINSTALL_SURVEY) {
+    fun showUninstallSurvey(intent: Intent?, navController: NavController) {
+        if (intent?.action == ACTION_UNINSTALL_SURVEY) {
             val isAlreadyShowing = navController.currentDestination?.id == R.id.uninstallSurveyBottomSheetFragment
 
             if (!isAlreadyShowing) {
@@ -75,6 +75,7 @@ class UninstallSurveyManager(
                     HomeFragmentDirections.actionGlobalUninstallSurveyDialog(UNINSTALL_MICROSURVEY_ID),
                 )
             }
+            intent.action = null
         }
     }
 

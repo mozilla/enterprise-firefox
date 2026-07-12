@@ -267,6 +267,15 @@ static RefPtr<GLContextCGL> CreateOffscreenFBOContext(
   std::vector<NSOpenGLPixelFormatAttribute> attribs;
   auto& flags = desc.flags;
 
+#if defined(__aarch64__)
+  // Apple Silicon has a single GPU. The HIGH_POWER hint exists to steer
+  // macOS toward the discrete GPU on multi-GPU Intel Macs by requiring the
+  // currently-online renderer. On single-GPU systems the hint accomplishes
+  // nothing but still forces NSOpenGLPixelFormat to consult the WindowServer
+  // for renderer enumeration which the GPU-process sandbox denies.
+  flags &= ~CreateContextFlags::HIGH_POWER;
+#endif
+
   if (!StaticPrefs::gl_allow_high_power()) {
     flags &= ~CreateContextFlags::HIGH_POWER;
   }

@@ -619,7 +619,7 @@ toolbar:not(#TabsToolbar) > #personal-bookmarks {
 
 /* Force the display of the label for bookmarks */
 .bookmark-item > .toolbarbutton-text {
-  display: flex !important;
+  display: block !important;
 }
 
 #PlacesToolbar,
@@ -773,7 +773,7 @@ toolbar[keyNav]:not([collapsed], [customizing]) toolbartabstop,
   --toolbarbutton-background-color-hover: transparent;
   --toolbarbutton-background-color-active: transparent;
   --toolbarbutton-border-radius: 0;
-  --toolbarbutton-padding-outer: var(--space-small);
+  --toolbarbutton-padding-outer: var(--toolbarbutton-padding-inner);
 
   #smartwindow-ask-button:hover > & {
     color: var(--smartwindow-ask-btn-text-color-hover);

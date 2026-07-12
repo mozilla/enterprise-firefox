@@ -1,100 +1,25 @@
 # META: timeout=long
 
-import base64
-import os
 import tempfile
-from copy import deepcopy
 from pathlib import Path
 
 import pytest
-import pytest_asyncio
 from support.addons import get_internal_addon_id
 from tests.support.classic.asserts import assert_error, assert_success
 from tests.support.helpers import get_base64_for_extension_file
-from tests.support.sync import Poll
-from webdriver.error import NoSuchWindowException
 
-from ..addon_install import install_addon, uninstall_addon
+from ..addon_install import install_addon
+from ..addon_uninstall import uninstall_addon
 from . import navigate_to
 
 ABOUT_URL = "about:about"
 RESOURCE_URL = "resource://gre/modules/AppConstants.sys.mjs"
-
-EXTENSION_NEW_TAB_XPI = os.path.join(
-    os.path.abspath(os.path.dirname(__file__)),
-    "..",
-    "..",
-    "support",
-    "webextensions",
-    "extension_new_tab.xpi",
-)
 
 
 def chrome_url(session):
     if session.capabilities["platformName"] == "android":
         return "chrome://geckoview/content/geckoview.xhtml"
     return "chrome://browser/content/browser.xhtml"
-
-
-@pytest.fixture
-def install_new_tab_extension(session):
-    """Install an extension that opens a page on install, wait for the page
-    to load, and return its moz-extension:// URL. Cleans up on teardown."""
-    original_handles = session.handles
-
-    with open(EXTENSION_NEW_TAB_XPI, "rb") as f:
-        xpi_base64 = base64.b64encode(f.read()).decode("utf-8")
-
-    response = install_addon(session, "addon", xpi_base64, True)
-    addon_id = assert_success(response)
-
-    original_handle = session.window_handle
-
-    def find_extension_tab(_):
-        for handle in session.handles:
-            if handle in original_handles:
-                continue
-
-            session.window_handle = handle
-            url = session.url
-
-            if url.startswith("moz-extension://"):
-                return handle, url
-
-        return False
-
-    # Bug 2051944 - On Android the extension's page might be loaded
-    # with a delay, causing the retrieval of the URL to fail due to
-    # a non-existent currentWindowGlobal.
-    wait = Poll(session, timeout=5, ignored_exceptions=NoSuchWindowException)
-    ext_handle, ext_url = wait.until(find_extension_tab)
-
-    session.window_handle = original_handle
-
-    yield ext_handle, ext_url
-
-    uninstall_addon(session, addon_id)
-
-
-@pytest_asyncio.fixture
-async def parent_process_session(session, configuration, geckodriver):
-    """Start a new geckodriver session with about:about opened via command
-    line argument and return the session. Stops the driver on teardown."""
-    config = deepcopy(configuration)
-    config["capabilities"]["moz:firefoxOptions"]["args"].append("about:about")
-    config["capabilities"]["moz:firefoxOptions"]["androidIntentArguments"] = [
-        "-d",
-        "about:about",
-    ]
-
-    driver = geckodriver(config=config, force_new=True)
-    driver.new_session()
-
-    assert driver.session.url == "about:about"
-
-    yield driver.session
-
-    await driver.stop()
 
 
 # To minimize Firefox restarts, run tests requiring system access first,
@@ -180,7 +105,7 @@ def test_resource_url_without_system_access(session):
     assert_error(response, "unsupported operation")
 
 
-@pytest.mark.parametrize("protocol", ["http", "https"], ids=["http", "https"])
+@pytest.mark.parametrize("protocol", ["http", "https"])
 def test_web_safe_url_in_parent_process_context_without_system_access(
     parent_process_session, inline, protocol
 ):

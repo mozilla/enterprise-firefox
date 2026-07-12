@@ -46,11 +46,6 @@ interface FeatureSettingsHelper {
     var isDeleteSitePermissionsEnabled: Boolean
 
     /**
-     * Whether the Unified Trust Panel is enabled or not.
-     */
-    var isUnifiedTrustPanelEnabled: Boolean
-
-    /**
      * Whether the Homepage Sports Widget is visible or not.
      */
     var isHomepageSportsWidgetVisible: Boolean

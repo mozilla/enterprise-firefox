@@ -17,7 +17,7 @@ from mozfile import which
 from mozpack.files import FileListFinder
 from packaging.version import Version
 
-MINIMUM_SUPPORTED_JJ_VERSION = Version("0.28")
+MINIMUM_SUPPORTED_JJ_VERSION = Version("0.38")
 
 from mozversioncontrol.errors import (
     CannotDeleteFromRootOfRepositoryException,
@@ -358,14 +358,14 @@ class JujutsuRepository(Repository):
     def commit(self, message, author=None, date=None, paths=None):
         run_kwargs = {}
         cmd = ["commit", "--message", message]
-        if author:
-            cmd += ["--author", author]
         if date:
             dt = datetime.strptime(date, "%Y-%m-%d %H:%M:%S %z")
             run_kwargs["env"] = {"JJ_TIMESTAMP": dt.isoformat()}
         if paths:
             cmd.extend(paths)
         self._run(*cmd, **run_kwargs)
+        if author:
+            self._run("metaedit", "--author", author, "@-")
 
     def add_note(
         self,
@@ -416,7 +416,7 @@ class JujutsuRepository(Repository):
 
         return dest_branch
 
-    def _push_to_hg_try(self, message, changed_files, allow_log_capture):
+    def _push_to_hg_try(self, message, changed_files, remote, allow_log_capture):
         if not self.has_git_cinnabar:
             raise MissingVCSExtension("cinnabar")
 
@@ -426,9 +426,7 @@ class JujutsuRepository(Repository):
                     "git", "remote", "remove", "mach_tryserver", return_codes=[0, 1]
                 )
             # `jj git remote add` would barf on the cinnabar syntax here.
-            self._git._run(
-                "remote", "add", "mach_tryserver", "hg::ssh://hg.mozilla.org/try"
-            )
+            self._git._run("remote", "add", "mach_tryserver", f"hg::{remote}")
             self._run("git", "import")
             cmd = (
                 str(self._tool),
@@ -439,7 +437,6 @@ class JujutsuRepository(Repository):
                 "mach_tryserver",
                 "--change",
                 head,
-                "--allow-new",
                 "--allow-empty-description",
             )
             if allow_log_capture:
@@ -706,7 +703,7 @@ class JujutsuRepository(Repository):
                     updated_author = True
 
             if updated_author:
-                self._run("describe", "--reset-author", "--no-edit")
+                self._run("metaedit", "--update-author")
 
             immutable_heads_key = 'revset-aliases."immutable_heads()"'
             immutable_heads_default_value = "builtin_immutable_heads() | remote_bookmarks(glob:'*', remote=exact:'origin')"

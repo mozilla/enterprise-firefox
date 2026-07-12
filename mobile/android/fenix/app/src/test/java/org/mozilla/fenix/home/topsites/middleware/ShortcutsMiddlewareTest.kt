@@ -25,7 +25,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.appstate.AppAction
+import org.mozilla.fenix.components.appstate.AppAction.ShortcutAction
 import org.mozilla.fenix.components.appstate.AppState
+import org.mozilla.fenix.home.topsites.AddShortcutEntryPoint
+import org.mozilla.fenix.home.topsites.AddShortcutSource
 import org.mozilla.fenix.home.topsites.store.ShortcutsAction
 import org.mozilla.fenix.home.topsites.store.ShortcutsState
 import org.mozilla.fenix.home.topsites.store.ShortcutsStore
@@ -41,6 +44,7 @@ class ShortcutsMiddlewareTest {
 
     private lateinit var settings: Settings
     private lateinit var appStore: AppStore
+    private val captureMiddleware = CaptureActionsMiddleware<AppState, AppAction>()
     private val topSitesUseCases: TopSitesUseCases = mockk(relaxed = true)
     private val merinoManifestProvider: MerinoManifestProvider = mockk(relaxed = true)
 
@@ -48,7 +52,7 @@ class ShortcutsMiddlewareTest {
     fun setup() {
         settings = Settings(testContext)
         settings.enableAddShortcutsImprovement = false
-        appStore = AppStore()
+        appStore = AppStore(middlewares = listOf(captureMiddleware))
     }
 
     @Test
@@ -104,15 +108,41 @@ class ShortcutsMiddlewareTest {
 
     @Test
     fun `WHEN SaveShortcut action is dispatched THEN addPinnedSites use case is called and dialog is closed`() = runTest(testDispatcher) {
-        val captureMiddleware = CaptureActionsMiddleware<ShortcutsState, ShortcutsAction>()
-        val store = createStore(captureMiddleware = captureMiddleware, scope = backgroundScope)
+        val shortcutsCaptureMiddleware = CaptureActionsMiddleware<ShortcutsState, ShortcutsAction>()
+        val store = createStore(captureMiddleware = shortcutsCaptureMiddleware, scope = backgroundScope)
 
         val title = "Firefox"
         val url = "https://firefox.com"
-        store.dispatch(ShortcutsAction.SaveShortcut(title = title, url = url))
+        store.dispatch(
+            ShortcutsAction.SaveShortcut(title = title, url = url, source = AddShortcutSource.POPULAR),
+        )
 
         coVerify { topSitesUseCases.addPinnedSites(title = title, url = url) }
-        captureMiddleware.assertLastAction(ShortcutsAction.CloseDialog::class)
+        captureMiddleware.assertLastAction(ShortcutAction.ShortcutAdded::class) { action ->
+            assertEquals(AddShortcutSource.POPULAR, action.source)
+            assertEquals(AddShortcutEntryPoint.SHORTCUTS_LIBRARY, action.entryPoint)
+        }
+        shortcutsCaptureMiddleware.assertLastAction(ShortcutsAction.CloseDialog::class)
+    }
+
+    @Test
+    fun `WHEN ShowAddShortcutBottomSheet action is dispatched THEN show add shortcut sheet shown action is dispatched`() = runTest(testDispatcher) {
+        val store = createStore(scope = backgroundScope)
+
+        store.dispatch(ShortcutsAction.ShowAddShortcutBottomSheet)
+
+        captureMiddleware.assertLastAction(ShortcutAction.AddShortcutSheetShown::class) { action ->
+            assertEquals(AddShortcutEntryPoint.SHORTCUTS_LIBRARY, action.entryPoint)
+        }
+    }
+
+    @Test
+    fun `WHEN ShowAddShortcutDialog action is dispatched THEN the add website dialog shown action is dispatched`() = runTest(testDispatcher) {
+        val store = createStore(scope = backgroundScope)
+
+        store.dispatch(ShortcutsAction.ShowAddShortcutDialog)
+
+        captureMiddleware.assertLastAction(ShortcutAction.AddWebsiteDialogShown::class) { }
     }
 
     private fun createStore(

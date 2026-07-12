@@ -107,6 +107,12 @@ class HttpConnectionUDP final : public HttpConnectionBase,
 
   void SetDontExclude() override;
 
+  // True for a connection that finished connecting (mExperienced) and can no
+  // longer serve new transactions (!CanReuse()). Unlike a bare !CanReuse(),
+  // this stays false while the connection is still handshaking, so it is a safe
+  // signal for "was usable, now unusable".
+  bool IsConnectedAndUnusable();
+
  private:
   nsresult InitCommon(nsIUDPSocket* aSocket, const NetAddr& aPeerAddr,
                       nsIInterfaceRequestor* callbacks, uint32_t caps,

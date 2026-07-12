@@ -155,7 +155,7 @@ export class UrlbarProviderRecentSearches extends UrlbarProvider {
           suggestion: result.value,
           title: result.value,
           isBlockable: true,
-          blockL10n: { id: "urlbar-result-menu-remove-from-history" },
+          blockL10n: { id: "urlbar-result-menu-remove-from-history2" },
           helpUrl:
             Services.urlFormatter.formatURLPref("app.support.baseURL") +
             "awesome-bar-result-menu",

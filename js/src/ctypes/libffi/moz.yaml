@@ -31,3 +31,6 @@ vendoring:
     - LICENSE
     - README.md
     - fficonfig.h.in
+
+  patches:
+    - '../libffi-patches/*'

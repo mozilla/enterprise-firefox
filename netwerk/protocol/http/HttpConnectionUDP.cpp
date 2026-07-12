@@ -718,6 +718,11 @@ bool HttpConnectionUDP::JoinConnection(const nsACString& hostname,
 }
 
 bool HttpConnectionUDP::CanReuse() {
+#ifdef DEBUG
+  if (StaticPrefs::network_http_http3_force_cannot_reuse_for_testing()) {
+    return false;
+  }
+#endif
   if (NS_FAILED(mErrorBeforeConnect)) {
     return false;
   }
@@ -729,6 +734,15 @@ bool HttpConnectionUDP::CanReuse() {
     return mHttp3Session->CanReuse();
   }
   return false;
+}
+
+bool HttpConnectionUDP::IsConnectedAndUnusable() {
+  // mExperienced is set only after the QUIC/TLS handshake completes and a real
+  // transaction is served, so it excludes still-handshaking connections (which
+  // report !CanReuse() transiently). Combined with !CanReuse() this identifies
+  // a connection that was usable and can no longer serve new transactions
+  // (either DontReuse'd or its Http3Session went away, e.g. GOAWAY).
+  return mExperienced && !CanReuse();
 }
 
 bool HttpConnectionUDP::CanDirectlyActivate() {

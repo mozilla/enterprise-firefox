@@ -96,6 +96,12 @@ home-prefs-clocks-header =
 # Privacy is a widget on New Tab that shows tracking protection activity.
 home-prefs-privacy-header =
     .label = Priwatnosć
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = Akcije
+# Picture of the day is a widget on New Tab that shows a daily Wikimedia Commons image.
+home-prefs-picture-header =
+    .label = Wobraz dnja
 home-prefs-mission-message2 =
     .message = Naši sponsorojo našu misiju podpěruja, zo bychu lěpši web tworili.
 home-prefs-manage-topics-link2 =
@@ -162,6 +168,43 @@ home-prefs-mission-message-learn-more-link-srd = Zhońće kak
 # Context menu item linking to more information about the Privacy widget.
 newtab-privacy-menu-learn-more = Dalše informacije
 
+## Strings for the Stocks widget
+
+# Context menu item for searching stock ticker symbols.
+newtab-stocks-menu-search = Tikerowe symbole přepytać
+# Context menu item that hides the Stocks widget.
+newtab-stocks-menu-hide = Akcije schować
+# Context menu item linking to more information about the Stocks widget.
+newtab-stocks-menu-learn-more = Dalše informacije
+
+## Strings for the Picture of the Day widget
+
+# Eyebrow shown at the top of the widget. Wikimedia Commons is a brand name and
+# should not be translated.
+newtab-picture-header = Wobraz dnja – Wikimedia Commons
+# Button that sets the current picture as the New Tab background wallpaper. The
+# button collapses to an icon when not hovered/focused, so .title is its tooltip.
+newtab-picture-set-wallpaper =
+    .label = Pozadkowy wobraz nastajić
+    .title = Pozadkowy wobraz nastajić
+    .aria-label = Dźensniši wobraz jako waš pozadkowy wobraz nastajić
+# Context menu item that opens the New Tab customization panel.
+newtab-picture-menu-manage-wallpaper = Pozadkowy wobraz rjadować
+# Context menu item that hides today’s picture, replacing it with an existing
+# wallpaper.
+newtab-picture-menu-hide-photo = Dźensniši wobraz schować
+# Context menu item that restores today’s picture after it has been hidden.
+newtab-picture-menu-show-photo = Dźensniši wobraz pokazać
+# Context menu item linking to more information about the widget.
+newtab-picture-menu-learn-more = Dalše informacije
+# Icon button shown on the widget once the picture is hidden; restores it.
+newtab-picture-show-button =
+    .title = Dźensniši wobraz pokazać
+    .aria-label = Dźensniši wobraz pokazać
+# Screen-reader text alternative for the picture; fallback used when the source
+# provides no localized description.
+newtab-picture-image-alt = Wobraz dnja Wikimedia Commons
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -197,6 +240,7 @@ newtab-topsites-add-shortcut-label = Zwjazanje přidać
 newtab-topsites-add-shortcut-title =
     .title = Zwjazanje přidać
     .aria-label = Zwjazanje přidać
+newtab-shortcuts-pinned-area = Připjaty wobłuk
 newtab-topsites-title-label = Titul
 newtab-topsites-title-input =
     .placeholder = Titul zapodać
@@ -512,6 +556,10 @@ newtab-custom-widget-sports-toggle2 =
     .label = Sport
 newtab-custom-widget-privacy-toggle =
     .label = Priwatnosć
+newtab-custom-widget-stocks-toggle =
+    .label = Akcije
+newtab-custom-widget-picture-toggle =
+    .label = Wobraz dnja
 newtab-custom-widget-section-title = Asistenty
 newtab-custom-widget-section-toggle =
     .label = Asistenty
@@ -1300,6 +1348,11 @@ newtab-sports-widget-message-day-in-play-title = Hrajće z asistentami { -brand-
 newtab-sports-widget-message-day-in-play-body = Slědujće swětowemu mišterstwu, wostańće na nadawku, slědujće časej dokoławokoło globusa a wjace.
 newtab-sports-widget-message-explore-widgets-cta =
     .label = Asistenty wuslědźić
+
+## Survey prompts shown after the World Cup to gather feedback on the widgets experience.
+
+newtab-sports-widget-message-survey-title = Pomhajće nam, asistenty polěpšić
+newtab-sports-widget-message-survey-widget-title = Kak běše asistent swětoweho mišterstwa?
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

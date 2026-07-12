@@ -3300,13 +3300,12 @@ pref("network.lna.etp.enabled", true);
 #ifdef MOZ_ENTERPRISE
 pref("captivedetect.canonicalURL", "");
 #else
-pref("captivedetect.canonicalURL", "http://detectportal.firefox.com/generate_204");
+pref("captivedetect.canonicalURL", "http://detectportal.firefox.com/canonical.html");
 #endif
-pref("captivedetect.canonicalContent", "");
+pref("captivedetect.canonicalContent", "<meta http-equiv=\"refresh\" content=\"0;url=https://support.mozilla.org/kb/captive-portal\"/>");
 pref("captivedetect.maxWaitingTime", 5000);
 pref("captivedetect.pollingTime", 3000);
 pref("captivedetect.maxRetryCount", 5);
-pref("captivedetect.expectedStatus", 204);
 
 // The tables used for Safebrowsing phishing and malware checks
 pref("urlclassifier.malwareTable", "goog-malware-proto,goog-unwanted-proto,moztest-harmful-simple,moztest-malware-simple,moztest-unwanted-simple");

@@ -16,6 +16,24 @@
   padding-inline-end: var(--space-small);
 }
 
+@media (max-width: 340px) {
+  .input-model-select-button {
+    &::part(button) {
+      padding-inline: var(--space-small);
+    }
+    /* Visually hide the label (matches .sr-only) but keep it for a11y */
+    &::part(moz-button-label) {
+      clip: rect(0, 0, 0, 0);
+      clip-path: inset(50%);
+      height: 1px;
+      overflow: hidden;
+      position: absolute;
+      white-space: nowrap;
+      width: 1px;
+    }
+  }
+}
+
 panel-list {
   padding-inline: var(--space-small);
 }

@@ -3851,6 +3851,11 @@ class GLContext : public GenericAtomicRefCounted, public SupportsWeakPtr {
 #endif
   }
 
+  // Returns the texture target Mac IOSurfaces should be bound to
+  virtual GLenum GetPreferredMacIOSurfaceTextureTarget() const {
+    MOZ_CRASH("unimplemented");
+  }
+
   virtual bool RenewSurface(widget::CompositorWidget* aWidget) { return false; }
 
   // Shared code for GL extensions and GLX extensions.

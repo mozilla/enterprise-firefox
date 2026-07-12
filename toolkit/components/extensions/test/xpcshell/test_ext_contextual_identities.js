@@ -1,11 +1,12 @@
 "use strict";
 
 ChromeUtils.defineESModuleGetters(this, {
-  CONTAINER_COLORS: "resource://gre/modules/ContextualIdentityService.sys.mjs",
+  CONTAINER_COLORS:
+    "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   CONTAINER_COLOR_ALIASES:
-    "resource://gre/modules/ContextualIdentityService.sys.mjs",
+    "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   ContextualIdentityService:
-    "resource://gre/modules/ContextualIdentityService.sys.mjs",
+    "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   ExtensionPreferencesManager:
     "resource://gre/modules/ExtensionPreferencesManager.sys.mjs",
   AddonManager: "resource://gre/modules/AddonManager.sys.mjs",

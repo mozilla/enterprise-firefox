@@ -5,6 +5,7 @@
 #include "jit/riscv64/CodeGenerator-riscv64.h"
 
 #include "mozilla/MathAlgorithms.h"
+#include "mozilla/Maybe.h"
 
 #include <bit>
 
@@ -671,50 +672,92 @@ void CodeGenerator::visitUModConstantI64(LUModConstantI64* ins) {
   masm.sub(output, lhs, output);
 }
 
+// If we have a constant base ptr, try to add the offset to it, to generate
+// better code when the full address is known.  The addition may overflow past
+// 32 bits because the front end does nothing special if the base is a large
+// constant and base+offset overflows; sidestep this by performing the addition
+// anyway, overflowing to 64-bit.
+static mozilla::Maybe<uint64_t> ToAbsoluteAddress(
+    const LAllocation* ptr, const wasm::MemoryAccessDesc& access) {
+  if (ptr->isConstantValue()) {
+    const MConstant* c = ptr->toConstant();
+    uint64_t baseAddress = c->type() == MIRType::Int32
+                               ? uint64_t(uint32_t(c->toInt32()))
+                               : uint64_t(c->toInt64());
+    uint64_t offset = access.offset32();
+    return mozilla::Some(baseAddress + offset);
+  }
+  return mozilla::Nothing();
+}
+
 void CodeGenerator::visitWasmLoadI64(LWasmLoadI64* ins) {
   const MWasmLoad* mir = ins->mir();
+  const auto& access = mir->access();
 
   Register memoryBase = ToRegister(ins->memoryBase());
-  Register ptr = ToRegister(ins->ptr());
+  Register64 output = ToOutRegister64(ins);
 
-  // See comment in visitWasmLoad re the type of 'base'.
-  if (mir->base()->type() == MIRType::Int32) {
-    masm.move32ZeroExtendToPtr(ptr, ptr);
+  if (auto address = ToAbsoluteAddress(ins->ptr(), access)) {
+    masm.wasmLoadAbsoluteI64(access, memoryBase, address.value(), output);
+  } else {
+    UseScratchRegisterScope temps(&masm);
+    Register ptr = ToRegister(ins->ptr());
+
+    // See comment in visitWasmLoad re the type of 'base'.
+    if (mir->base()->type() == MIRType::Int32) {
+      Register scratch = temps.Acquire();
+
+      masm.move32ZeroExtendToPtr(ptr, scratch);
+      ptr = scratch;
+    }
+
+    masm.wasmLoadI64(access, memoryBase, ptr, output);
   }
-  masm.wasmLoadI64(mir->access(), memoryBase, ptr, ToOutRegister64(ins));
 }
 
 void CodeGenerator::visitWasmStoreI64(LWasmStoreI64* ins) {
   const MWasmStore* mir = ins->mir();
+  const auto& access = mir->access();
 
   Register memoryBase = ToRegister(ins->memoryBase());
-  Register ptr = ToRegister(ins->ptr());
 
-  // See comment in visitWasmLoad re the type of 'base'.
-  if (mir->base()->type() == MIRType::Int32) {
-    masm.move32ZeroExtendToPtr(ptr, ptr);
+  Register64 value = Register64::Invalid();
+  if (ins->value().value().isBogus()) {
+    value = Register64(zero);
+  } else {
+    value = ToRegister64(ins->value());
   }
-  masm.wasmStoreI64(mir->access(), ToRegister64(ins->value()), memoryBase, ptr);
+
+  if (auto address = ToAbsoluteAddress(ins->ptr(), access)) {
+    masm.wasmStoreAbsoluteI64(access, value, memoryBase, address.value());
+  } else {
+    UseScratchRegisterScope temps(&masm);
+    Register ptr = ToRegister(ins->ptr());
+
+    // See comment in visitWasmLoad re the type of 'base'.
+    if (mir->base()->type() == MIRType::Int32) {
+      Register scratch = temps.Acquire();
+
+      masm.move32ZeroExtendToPtr(ptr, scratch);
+      ptr = scratch;
+    }
+
+    masm.wasmStoreI64(access, value, memoryBase, ptr);
+  }
 }
 
 void CodeGenerator::visitWasmSelectI64(LWasmSelectI64* ins) {
   MOZ_ASSERT(ins->mir()->type() == MIRType::Int64);
 
-  Register cond = ToRegister(ins->condExpr());
-  LInt64Allocation falseExpr = ins->falseExpr();
+  Register condExpr = ToRegister(ins->condExpr());
+  Register64 trueExpr = ToRegister64(ins->trueExpr());
+  Register64 falseExpr = ToRegister64(ins->falseExpr());
+  Register64 output = ToOutRegister64(ins);
 
-  Register64 out = ToOutRegister64(ins);
-  MOZ_ASSERT(ToRegister64(ins->trueExpr()) == out,
-             "true expr is reused for input");
+  UseScratchRegisterScope temps(&masm);
+  Register scratch = temps.Acquire();
 
-  if (falseExpr.value().isGeneralReg()) {
-    masm.moveIfZero(out.reg, ToRegister(falseExpr.value()), cond);
-  } else {
-    Label done;
-    masm.ma_b(cond, cond, &done, Assembler::NonZero, ShortJump);
-    masm.loadPtr(ToAddress(falseExpr.value()), out.reg);
-    masm.bind(&done);
-  }
+  masm.ma_cselnz(output.reg, trueExpr.reg, falseExpr.reg, condExpr, scratch);
 }
 
 void CodeGenerator::visitExtendInt32ToInt64(LExtendInt32ToInt64* ins) {
@@ -2001,36 +2044,60 @@ void CodeGenerator::visitNotF(LNotF* ins) {
 
 void CodeGenerator::visitWasmLoad(LWasmLoad* ins) {
   const MWasmLoad* mir = ins->mir();
-  UseScratchRegisterScope temps(&masm);
-  Register scratch2 = temps.Acquire();
+  const auto& access = mir->access();
 
   Register memoryBase = ToRegister(ins->memoryBase());
-  Register ptr = ToRegister(ins->ptr());
+  AnyRegister output = ToAnyRegister(ins->output());
 
-  // ptr is a GPR and is either a 32-bit value zero-extended to 64-bit, or a
-  // true 64-bit value.
-  if (mir->base()->type() == MIRType::Int32) {
-    masm.move32ZeroExtendToPtr(ptr, scratch2);
-    ptr = scratch2;
+  if (auto address = ToAbsoluteAddress(ins->ptr(), access)) {
+    masm.wasmLoadAbsolute(access, memoryBase, address.value(), output);
+  } else {
+    UseScratchRegisterScope temps(&masm);
+    Register ptr = ToRegister(ins->ptr());
+
+    // ptr is a GPR and is either a 32-bit value zero-extended to 64-bit, or a
+    // true 64-bit value.
+    if (mir->base()->type() == MIRType::Int32) {
+      Register scratch = temps.Acquire();
+
+      masm.move32ZeroExtendToPtr(ptr, scratch);
+      ptr = scratch;
+    }
+
+    masm.wasmLoad(access, memoryBase, ptr, output);
   }
-  masm.wasmLoad(mir->access(), memoryBase, ptr, ToAnyRegister(ins->output()));
 }
 
 void CodeGenerator::visitWasmStore(LWasmStore* ins) {
   const MWasmStore* mir = ins->mir();
-  UseScratchRegisterScope temps(&masm);
-  Register scratch2 = temps.Acquire();
+  const auto& access = mir->access();
 
   Register memoryBase = ToRegister(ins->memoryBase());
-  Register ptr = ToRegister(ins->ptr());
 
-  // ptr is a GPR and is either a 32-bit value zero-extended to 64-bit, or a
-  // true 64-bit value.
-  if (mir->base()->type() == MIRType::Int32) {
-    masm.move32ZeroExtendToPtr(ptr, scratch2);
-    ptr = scratch2;
+  AnyRegister value;
+  if (ins->value()->isBogus()) {
+    value = AnyRegister(zero);
+  } else {
+    value = ToAnyRegister(ins->value());
   }
-  masm.wasmStore(mir->access(), ToAnyRegister(ins->value()), memoryBase, ptr);
+
+  if (auto address = ToAbsoluteAddress(ins->ptr(), access)) {
+    masm.wasmStoreAbsolute(access, value, memoryBase, address.value());
+  } else {
+    UseScratchRegisterScope temps(&masm);
+    Register ptr = ToRegister(ins->ptr());
+
+    // ptr is a GPR and is either a 32-bit value zero-extended to 64-bit, or a
+    // true 64-bit value.
+    if (mir->base()->type() == MIRType::Int32) {
+      Register scratch = temps.Acquire();
+
+      masm.move32ZeroExtendToPtr(ptr, scratch);
+      ptr = scratch;
+    }
+
+    masm.wasmStore(access, value, memoryBase, ptr);
+  }
 }
 
 void CodeGenerator::visitWasmCompareExchangeHeap(
@@ -2132,20 +2199,20 @@ void CodeGenerator::visitWasmSelect(LWasmSelect* ins) {
   MIRType mirType = ins->mir()->type();
 
   Register cond = ToRegister(ins->condExpr());
-  const LAllocation* falseExpr = ins->falseExpr();
 
   if (mirType == MIRType::Int32 || mirType == MIRType::WasmAnyRef) {
+    Register trueExpr = ToRegister(ins->trueExpr());
+    Register falseExpr = ToRegister(ins->falseExpr());
     Register out = ToRegister(ins->output());
-    MOZ_ASSERT(ToRegister(ins->trueExpr()) == out,
-               "true expr input is reused for output");
-    if (falseExpr->isGeneralReg()) {
-      masm.moveIfZero(out, ToRegister(falseExpr), cond);
-    } else {
-      masm.cmp32Load32(Assembler::Zero, cond, cond, ToAddress(falseExpr), out);
-    }
+
+    UseScratchRegisterScope temps(&masm);
+    Register scratch = temps.Acquire();
+
+    masm.ma_cselnz(out, trueExpr, falseExpr, cond, scratch);
     return;
   }
 
+  const LAllocation* falseExpr = ins->falseExpr();
   FloatRegister out = ToFloatRegister(ins->output());
   MOZ_ASSERT(ToFloatRegister(ins->trueExpr()) == out,
              "true expr input is reused for output");
@@ -2172,29 +2239,49 @@ void CodeGenerator::visitWasmSelect(LWasmSelect* ins) {
   masm.bind(&done);
 }
 
-// We expect to handle only the case where compare is {U,}Int32 and select is
-// {U,}Int32, and the "true" input is reused for the output.
+// We expect to handle the cases: compare is {{U,}Int32, {U,}Int64}, Float32,
+// Double}, and select is {{U,}Int32, {U,}Int64}}.
 void CodeGenerator::visitWasmCompareAndSelect(LWasmCompareAndSelect* ins) {
-  bool cmpIs32bit = ins->compareType() == MCompare::Compare_Int32 ||
-                    ins->compareType() == MCompare::Compare_UInt32;
-  bool selIs32bit = ins->mir()->type() == MIRType::Int32;
-
+  MCompare::CompareType compTy = ins->compareType();
   MOZ_RELEASE_ASSERT(
-      cmpIs32bit && selIs32bit,
-      "CodeGenerator::visitWasmCompareAndSelect: unexpected types");
+      compTy == MCompare::Compare_Int32 || compTy == MCompare::Compare_UInt32 ||
+          compTy == MCompare::Compare_Int64 ||
+          compTy == MCompare::Compare_UInt64 ||
+          compTy == MCompare::Compare_Float32 ||
+          compTy == MCompare::Compare_Double,
+      "CodeGenerator::visitWasmCompareAndSelect: unexpected compare type");
+  MOZ_RELEASE_ASSERT(
+      ins->mir()->type() == MIRType::Int32 ||
+          ins->mir()->type() == MIRType::Int64,
+      "CodeGenerator::visitWasmCompareAndSelect: unexpected select type");
 
-  Register trueExprAndDest = ToRegister(ins->output());
-  MOZ_ASSERT(ToRegister(ins->ifTrueExpr()) == trueExprAndDest,
-             "true expr input is reused for output");
+  UseScratchRegisterScope temps(&masm);
+  Register scratch = temps.Acquire();
 
-  Assembler::Condition cond = Assembler::InvertCondition(
-      JSOpToCondition(ins->compareType(), ins->jsop()));
-  const LAllocation* rhs = ins->rightExpr();
-  const LAllocation* falseExpr = ins->ifFalseExpr();
-  Register lhs = ToRegister(ins->leftExpr());
+  if (compTy == MCompare::Compare_Float32 ||
+      compTy == MCompare::Compare_Double) {
+    FloatRegister lhs = ToFloatRegister(ins->leftExpr());
+    FloatRegister rhs = ToFloatRegister(ins->rightExpr());
+    Assembler::DoubleCondition cond = JSOpToDoubleCondition(ins->jsop());
 
-  masm.cmp32Move32(cond, lhs, ToRegister(rhs), ToRegister(falseExpr),
-                   trueExprAndDest);
+    if (compTy == MCompare::Compare_Float32) {
+      masm.ma_compareF32(scratch, cond, lhs, rhs);
+    } else {
+      masm.ma_compareF64(scratch, cond, lhs, rhs);
+    }
+  } else {
+    Register lhs = ToRegister(ins->leftExpr());
+    Register rhs = ToRegister(ins->rightExpr());
+    Assembler::Condition cond = JSOpToCondition(compTy, ins->jsop());
+
+    masm.ma_cmp_set(scratch, lhs, rhs, cond);
+  }
+
+  Register trueExpr = ToRegister(ins->ifTrueExpr());
+  Register falseExpr = ToRegister(ins->ifFalseExpr());
+  Register output = ToRegister(ins->output());
+
+  masm.ma_cselnz(output, trueExpr, falseExpr, scratch, scratch);
 }
 
 void CodeGenerator::visitUDiv(LUDiv* ins) {

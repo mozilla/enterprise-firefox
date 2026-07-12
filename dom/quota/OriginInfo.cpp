@@ -116,21 +116,23 @@ void OriginInfo::LockedDecreaseUsage(Client::Type aClientType, int64_t aSize) {
   AssertCurrentThreadOwnsQuotaMutex();
 
   MOZ_ASSERT(mClientUsages[aClientType].isSome());
-  AssertNoUnderflow(mClientUsages[aClientType].value(), aSize);
+  QM_ASSERT_NO_UNDERFLOW_2(
+      mClientUsages[aClientType].value(), aSize,
+      "mClientUsages["_ns + Client::TypeToText(aClientType) + "]"_ns);
   mClientUsages[aClientType] = Some(mClientUsages[aClientType].value() - aSize);
 
-  AssertNoUnderflow(mUsage, aSize);
+  QM_ASSERT_NO_UNDERFLOW(mUsage, aSize);
   mUsage -= aSize;
 
   if (!LockedPersisted()) {
-    AssertNoUnderflow(mGroupInfo->mUsage, aSize);
+    QM_ASSERT_NO_UNDERFLOW(mGroupInfo->mUsage, aSize);
     mGroupInfo->mUsage -= aSize;
   }
 
   QuotaManager* quotaManager = QuotaManager::Get();
   MOZ_ASSERT(quotaManager);
 
-  AssertNoUnderflow(quotaManager->mTemporaryStorageUsage, aSize);
+  QM_ASSERT_NO_UNDERFLOW(quotaManager->mTemporaryStorageUsage, aSize);
   quotaManager->mTemporaryStorageUsage -= aSize;
 }
 
@@ -141,18 +143,18 @@ void OriginInfo::LockedResetUsageForClient(Client::Type aClientType) {
 
   mClientUsages[aClientType].reset();
 
-  AssertNoUnderflow(mUsage, size);
+  QM_ASSERT_NO_UNDERFLOW(mUsage, size);
   mUsage -= size;
 
   if (!LockedPersisted()) {
-    AssertNoUnderflow(mGroupInfo->mUsage, size);
+    QM_ASSERT_NO_UNDERFLOW(mGroupInfo->mUsage, size);
     mGroupInfo->mUsage -= size;
   }
 
   QuotaManager* quotaManager = QuotaManager::Get();
   MOZ_ASSERT(quotaManager);
 
-  AssertNoUnderflow(quotaManager->mTemporaryStorageUsage, size);
+  QM_ASSERT_NO_UNDERFLOW(quotaManager->mTemporaryStorageUsage, size);
   quotaManager->mTemporaryStorageUsage -= size;
 }
 
@@ -177,7 +179,7 @@ void OriginInfo::LockedPersist() {
   mPersisted = true;
 
   // Remove Usage from GroupInfo
-  AssertNoUnderflow(mGroupInfo->mUsage, mUsage);
+  QM_ASSERT_NO_UNDERFLOW(mGroupInfo->mUsage, mUsage);
   mGroupInfo->mUsage -= mUsage;
 }
 
@@ -188,19 +190,21 @@ void OriginInfo::LockedTruncateUsages(Client::Type aClientType,
   QuotaManager* quotaManager = QuotaManager::Get();
   MOZ_ASSERT(quotaManager);
 
-  AssertNoUnderflow(quotaManager->mTemporaryStorageUsage, aDelta);
+  QM_ASSERT_NO_UNDERFLOW(quotaManager->mTemporaryStorageUsage, aDelta);
   quotaManager->mTemporaryStorageUsage -= aDelta;
 
   if (!LockedPersisted()) {
-    AssertNoUnderflow(mGroupInfo->mUsage, aDelta);
+    QM_ASSERT_NO_UNDERFLOW(mGroupInfo->mUsage, aDelta);
     mGroupInfo->mUsage -= aDelta;
   }
 
-  AssertNoUnderflow(mUsage, aDelta);
+  QM_ASSERT_NO_UNDERFLOW(mUsage, aDelta);
   mUsage -= aDelta;
 
   MOZ_ASSERT(mClientUsages[aClientType].isSome());
-  AssertNoUnderflow(mClientUsages[aClientType].value(), aDelta);
+  QM_ASSERT_NO_UNDERFLOW_2(
+      mClientUsages[aClientType].value(), aDelta,
+      "mClientUsages["_ns + Client::TypeToText(aClientType) + "]"_ns);
   mClientUsages[aClientType] =
       Some(mClientUsages[aClientType].value() - aDelta);
 };

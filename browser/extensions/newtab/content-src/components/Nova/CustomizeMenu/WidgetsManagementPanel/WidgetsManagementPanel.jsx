@@ -25,6 +25,7 @@ function WidgetsManagementPanel({
   mayHavePrivacyWidget,
   mayHaveCrosswordWidget,
   mayHaveStocksWidget,
+  mayHavePictureOfTheDayWidget,
   setPref,
 }) {
   const prefs = useSelector(state => state.Prefs.values);
@@ -82,6 +83,9 @@ function WidgetsManagementPanel({
         case "WIDGET_STOCKS":
           widgetName = "stocks";
           break;
+        case "WIDGET_PICTURE_OF_THE_DAY":
+          widgetName = "picture_of_the_day";
+          break;
       }
 
       if (widgetName) {
@@ -116,6 +120,7 @@ function WidgetsManagementPanel({
     privacyEnabled,
     crosswordEnabled,
     stocksEnabled,
+    pictureOfTheDayEnabled,
   } = enabledWidgets;
   const isRTL = typeof document !== "undefined" && document.dir === "rtl";
   const arrowIconSrc = `chrome://global/skin/icons/shaft-arrow-${isRTL ? "right" : "left"}.svg`;
@@ -221,14 +226,13 @@ function WidgetsManagementPanel({
               )}
               {mayHaveCrosswordWidget && (
                 <div id="crossword-widget-section" className="section">
-                  {/* TODO: Add in fluent string when correct preview files are set up */}
                   <moz-toggle
                     id="crossword-toggle"
                     pressed={crosswordEnabled || null}
                     ontoggle={onToggleWidget}
                     data-preference="widgets.crossword.enabled"
                     data-event-source="WIDGET_CROSSWORD"
-                    label="Crossword"
+                    data-l10n-id="newtab-crossword-widget-toggle"
                   ></moz-toggle>
                 </div>
               )}
@@ -241,6 +245,18 @@ function WidgetsManagementPanel({
                     data-preference="widgets.stocks.enabled"
                     data-event-source="WIDGET_STOCKS"
                     data-l10n-id="newtab-custom-widget-stocks-toggle"
+                  />
+                </div>
+              )}
+              {mayHavePictureOfTheDayWidget && (
+                <div id="picture-widget-section" className="section">
+                  <moz-toggle
+                    id="picture-toggle"
+                    pressed={pictureOfTheDayEnabled || null}
+                    ontoggle={onToggleWidget}
+                    data-preference="widgets.pictureOfTheDay.enabled"
+                    data-event-source="WIDGET_PICTURE_OF_THE_DAY"
+                    data-l10n-id="newtab-custom-widget-picture-toggle"
                   />
                 </div>
               )}

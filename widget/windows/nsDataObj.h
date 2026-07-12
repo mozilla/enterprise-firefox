@@ -37,6 +37,14 @@ class CEnumFormatEtc;
 class nsDataObj : public IDataObject, public IDataObjectAsyncCapability {
   RefPtr<mozilla::LazyIdleThread> mIOThread;
 
+ public:  // web custom format payload
+  void SetWebCustomFormatMapJson(const nsACString& aJson) {
+    mWebCustomFormatMapJson = aJson;
+  }
+  const nsCString& WebCustomFormatMapJson() const {
+    return mWebCustomFormatMapJson;
+  }
+
  public:  // construction, destruction
   explicit nsDataObj(nsIURI* uri = nullptr);
 
@@ -166,6 +174,12 @@ class nsDataObj : public IDataObject, public IDataObjectAsyncCapability {
 
  private:
   nsTArray<nsCString> mDataFlavors;
+
+  // JSON serialization of the WebCustomFormatMap published alongside the
+  // per-clipboard-format data on the clipboard. Set by
+  // nsClipboard::SetupNativeDataObject when the transferable contains any
+  // "web " prefixed flavors.
+  nsCString mWebCustomFormatMapJson;
 
   // the nsITransferable knows nothing about the nsDataObj
   RefPtr<nsITransferable> mTransferable;

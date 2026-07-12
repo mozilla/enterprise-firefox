@@ -589,35 +589,6 @@ ColorDepth MacIOSurface::GetColorDepth() const {
 }
 #endif
 
-/* static */ GLenum MacIOSurface::GetTextureTarget(
-    mozilla::gl::GLContext* aGL) {
-  switch (aGL->GetContextType()) {
-#ifdef XP_MACOSX
-    case mozilla::gl::GLContextType::CGL:
-      return LOCAL_GL_TEXTURE_RECTANGLE_ARB;
-
-    case mozilla::gl::GLContextType::EGL: {
-      auto* gle = gl::GLContextEGL::Cast(aGL);
-      const auto eglTarget = gle->GetBindToTextureTargetANGLE();
-
-      switch (eglTarget) {
-        case LOCAL_EGL_TEXTURE_2D:
-          return LOCAL_GL_TEXTURE_2D;
-        case LOCAL_EGL_TEXTURE_RECTANGLE_ANGLE:
-          return LOCAL_GL_TEXTURE_RECTANGLE_ARB;
-        default:
-          gfxCriticalErrorOnce()
-              << "Unexpected EGL_BIND_TO_TEXTURE_TARGET_ANGLE: "
-              << gfx::hexa(eglTarget);
-          return LOCAL_GL_TEXTURE_2D;
-      }
-    }
-#endif
-    default:
-      MOZ_CRASH("unimplemented");
-  }
-}
-
 bool MacIOSurface::BindTexImage(mozilla::gl::GLContext* aGL, size_t aPlane,
                                 mozilla::gfx::SurfaceFormat* aOutReadFormat) {
 #ifdef XP_MACOSX

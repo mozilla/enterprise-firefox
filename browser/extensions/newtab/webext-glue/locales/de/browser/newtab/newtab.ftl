@@ -99,6 +99,9 @@ home-prefs-privacy-header =
 # Stocks is a widget on New Tab that shows stock ticker prices.
 home-prefs-stocks-header =
     .label = Aktien
+# Picture of the day is a widget on New Tab that shows a daily Wikimedia Commons image.
+home-prefs-picture-header =
+    .label = Bild des Tages
 home-prefs-mission-message2 =
     .message = Unsere Sponsoren unterstützen unsere Mission, ein besseres Web zu erschaffen.
 home-prefs-manage-topics-link2 =
@@ -171,6 +174,36 @@ newtab-stocks-menu-search = Ticker-Symbole durchsuchen
 newtab-stocks-menu-hide = Aktien ausblenden
 # Context menu item linking to more information about the Stocks widget.
 newtab-stocks-menu-learn-more = Weitere Informationen
+
+## Strings for the Picture of the Day widget
+
+# Eyebrow shown at the top of the widget. Wikimedia Commons is a brand name and
+# should not be translated.
+newtab-picture-header = Bild des Tages · Wikimedia Commons
+# Button that sets the current picture as the New Tab background wallpaper. The
+# button collapses to an icon when not hovered/focused, so .title is its tooltip.
+newtab-picture-set-wallpaper =
+    .label = Als Hintergrundbild festlegen
+    .title = Als Hintergrundbild festlegen
+    .aria-label = Bild des Tages als Hintergrundbild festlegen
+# Context menu item that opens the New Tab customization panel.
+newtab-picture-menu-manage-wallpaper = Hintergrundbild verwalten
+# Context menu item that hides today’s picture, replacing it with an existing
+# wallpaper.
+newtab-picture-menu-hide-photo = Das heutige Bild ausblenden
+# Context menu item that restores today’s picture after it has been hidden.
+newtab-picture-menu-show-photo = Das heutige Bild anzeigen
+# Context menu item linking to more information about the widget.
+newtab-picture-menu-learn-more = Weitere Informationen
+# Icon button shown on the widget once the picture is hidden; restores it.
+newtab-picture-show-button =
+    .title = Das heutige Bild anzeigen
+    .aria-label = Das heutige Bild anzeigen
+# Shown when there is no new picture to display yet.
+newtab-picture-check-back = Schauen Sie morgen wieder vorbei, um ein neues Bild zu sehen
+# Screen-reader text alternative for the picture; fallback used when the source
+# provides no localized description.
+newtab-picture-image-alt = Bild des Tages der Wikimedia Commons
 
 ## Search box component.
 
@@ -521,6 +554,8 @@ newtab-custom-widget-privacy-toggle =
     .label = Datenschutz
 newtab-custom-widget-stocks-toggle =
     .label = Aktien
+newtab-custom-widget-picture-toggle =
+    .label = Bild des Tages
 newtab-custom-widget-section-title = Widgets
 newtab-custom-widget-section-toggle =
     .label = Widgets
@@ -1307,6 +1342,10 @@ newtab-sports-widget-message-day-in-play-title = Behalten Sie den Überblick üb
 newtab-sports-widget-message-day-in-play-body = Verfolgen Sie die Weltmeisterschaft, bleiben Sie bei der Aufgabe, verfolgen Sie die Zeit auf der ganzen Welt und mehr.
 newtab-sports-widget-message-explore-widgets-cta =
     .label = Widgets entdecken
+
+## Survey prompts shown after the World Cup to gather feedback on the widgets experience.
+
+newtab-sports-widget-message-survey-title = Helfen Sie uns, Widgets zu verbessern
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

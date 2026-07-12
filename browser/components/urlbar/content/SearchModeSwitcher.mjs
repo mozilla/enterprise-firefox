@@ -34,6 +34,17 @@ ChromeUtils.defineLazyGetter(lazy, "SearchModeSwitcherL10n", () => {
   return new Localization(["browser/browser.ftl"]);
 });
 
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
+);
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "settingsRedesignEnabled",
+  "browser.settings-redesign.enabled",
+  true
+);
+
 // Default icon used for engines that do not have icons loaded.
 const DEFAULT_ENGINE_ICON =
   "chrome://browser/skin/search-engine-placeholder@2x.png";
@@ -191,6 +202,10 @@ export class SearchModeSwitcher {
       }
       return;
     }
+    if (event.type == "searchmodechanged") {
+      this.onSearchModeChanged();
+      return;
+    }
     if (event.type == "focus") {
       this.#input.setUnifiedSearchButtonAvailability(true);
       return;
@@ -266,6 +281,9 @@ export class SearchModeSwitcher {
         ) {
           return;
         }
+        // Prevent the keystroke from generating a
+        // click event and reopening the switcher.
+        keyboardEvent.preventDefault();
         break;
       }
       case "auxclick": {
@@ -335,10 +353,6 @@ export class SearchModeSwitcher {
         ) {
           this.updateSearchIcon();
         }
-        break;
-      }
-      case "urlbar-searchmodechanged": {
-        this.onSearchModeChanged();
         break;
       }
     }
@@ -440,12 +454,20 @@ export class SearchModeSwitcher {
     let searchEngines = (await lazy.SearchService.getVisibleEngines()).filter(
       engine => !engine.hideOneOffButton
     );
-    this.#engines = searchEngines.concat(
-      lazy.UrlbarUtils.LOCAL_SEARCH_MODES.filter(
-        engine =>
-          this.#input.sapName == "urlbar" && lazy.UrlbarPrefs.get(engine.pref)
-      )
-    );
+
+    if (this.#input.sapName != "urlbar") {
+      this.#engines = searchEngines;
+    } else {
+      // After the settings redesign we no longer use the prefs to hide local
+      // search modes. Hence when the settings redesign is enabled we show
+      // all local search modes regardless of the prefs.
+      this.#engines = searchEngines.concat(
+        lazy.UrlbarUtils.LOCAL_SEARCH_MODES.filter(
+          engine =>
+            lazy.settingsRedesignEnabled || lazy.UrlbarPrefs.get(engine.pref)
+        )
+      );
+    }
   }
 
   async updateSearchIcon() {
@@ -802,7 +824,6 @@ export class SearchModeSwitcher {
 
   #enableObservers() {
     Services.obs.addObserver(this, "browser-search-engine-modified", true);
-    Services.obs.addObserver(this, "urlbar-searchmodechanged", true);
 
     this.#button.addEventListener("focus", this);
     this.#button.addEventListener("keydown", this);
@@ -812,11 +833,12 @@ export class SearchModeSwitcher {
 
     this.#closebutton.addEventListener("click", this);
     this.#closebutton.addEventListener("mousedown", this);
+
+    this.#input.addEventListener("searchmodechanged", this);
   }
 
   #disableObservers() {
     Services.obs.removeObserver(this, "browser-search-engine-modified");
-    Services.obs.removeObserver(this, "urlbar-searchmodechanged");
 
     this.#button.removeEventListener("focus", this);
     this.#button.removeEventListener("keydown", this);
@@ -826,6 +848,8 @@ export class SearchModeSwitcher {
 
     this.#closebutton.removeEventListener("click", this);
     this.#closebutton.removeEventListener("mousedown", this);
+
+    this.#input.removeEventListener("searchmodechanged", this);
   }
 
   /**

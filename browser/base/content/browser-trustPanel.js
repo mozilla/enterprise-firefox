@@ -322,7 +322,7 @@ class TrustPanel {
     }
   }
 
-  async showPopup({ event, reason }) {
+  async showPopup(opts = {}) {
     this.#initializePopup();
 
     // Kick off background determination of QWAC status.
@@ -344,11 +344,11 @@ class TrustPanel {
 
     await this.#updatePopup();
 
-    this.#openingReason = reason;
+    this.#openingReason = opts.reason;
 
     PanelMultiView.openPopup(this.#popup, this.#anchor(), {
       position: "bottomleft topleft",
-      triggerEvent: event,
+      triggerEvent: opts.event,
     });
 
     const applicableBreaches = await this.#getApplicableBreaches(this.#host);

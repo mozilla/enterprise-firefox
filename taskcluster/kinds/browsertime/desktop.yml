@@ -1447,3 +1447,40 @@ browsertime-trr-performance:
             default: []
     tier: 3
     treeherder-symbol: Btime(trrperf)
+
+browsertime-hev3-connection:
+    raptor:
+        apps: [firefox, chrome]
+        run-visual-metrics: false
+        subtests:
+            by-app:
+                firefox:
+                    - he3off-dns
+                    - he3off-doh
+                    - he3on-dns
+                    - he3on-doh
+                chrome:
+                    - baseline
+
+    description: Raptor (browsertime) Happy Eyeballs v3 connection tests
+    max-run-time: 900
+    mozharness:
+        extra-options:
+            - --extra-profiler-run
+    run-on-projects:
+        by-app:
+            firefox:
+                by-test-platform:
+                    linux2404-64-shippable/opt: [mozilla-central]
+                    macosx1470-64-shippable/opt: [mozilla-central]
+                    windows11-64-24h2-shippable/opt: [mozilla-central]
+                    default: []
+            chrome:
+                by-test-platform:
+                    linux2404-64-shippable/opt: [mozilla-central]
+                    macosx1470-64-shippable/opt: [mozilla-central]
+                    windows11-64-24h2-shippable/opt: [mozilla-central]
+                    default: []
+            default: []
+    tier: 3
+    treeherder-symbol: Btime(hev3conn)

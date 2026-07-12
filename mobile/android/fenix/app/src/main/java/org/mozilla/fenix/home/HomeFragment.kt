@@ -84,7 +84,6 @@ import org.mozilla.fenix.browser.BrowserFragmentDirections
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.browser.tabstrip.TabStrip
 import org.mozilla.fenix.browser.tabstrip.TabStripColors
-import org.mozilla.fenix.components.Components
 import org.mozilla.fenix.components.HomepageThumbnailIntegration
 import org.mozilla.fenix.components.LensFeature
 import org.mozilla.fenix.components.QrScanFenixFeature
@@ -93,7 +92,6 @@ import org.mozilla.fenix.components.VoiceSearchFeature
 import org.mozilla.fenix.components.accounts.FenixFxAEntryPoint
 import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.components.appstate.AppAction.ContentRecommendationsAction
-import org.mozilla.fenix.components.appstate.AppAction.MessagingAction
 import org.mozilla.fenix.components.appstate.AppAction.MessagingAction.MicrosurveyAction
 import org.mozilla.fenix.components.appstate.AppAction.ReviewPromptAction.CheckIfEligibleForReviewPrompt
 import org.mozilla.fenix.components.appstate.AppAction.SportsWidgetAction
@@ -141,6 +139,7 @@ import org.mozilla.fenix.home.toolbar.HomeToolbarComposable.Companion.DirectToSe
 import org.mozilla.fenix.home.topsites.DefaultTopSitesView
 import org.mozilla.fenix.home.topsites.TopSitesBinding
 import org.mozilla.fenix.home.topsites.controller.DefaultTopSiteController
+import org.mozilla.fenix.home.topsites.controller.TopSitesSource
 import org.mozilla.fenix.home.topsites.getTopSitesConfig
 import org.mozilla.fenix.home.ui.Homepage
 import org.mozilla.fenix.home.ui.WallpaperBackground
@@ -458,15 +457,17 @@ class HomeFragment : Fragment() {
 
     private fun initMessagingFeature(view: View) {
         if (requireComponents.settings.isExperimentationEnabled) {
+            val messagingFeature = MessagingFeature(
+                appStore = requireComponents.appStore,
+                surface = FenixMessageSurfaceId.HOMESCREEN,
+            )
             messagingFeatureHomescreen.set(
-                feature = MessagingFeature(
-                    appStore = requireComponents.appStore,
-                    surface = FenixMessageSurfaceId.HOMESCREEN,
-                    runWhenReadyQueue = requireComponents.performance.visualCompletenessQueue,
-                ),
+                feature = messagingFeature,
                 owner = viewLifecycleOwner,
                 view = view,
             )
+
+            viewLifecycleOwner.lifecycle.addObserver(messagingFeature)
 
             initializeMicrosurveyFeature(requireComponents.settings.microsurveyFeatureEnabled, view)
         }
@@ -475,15 +476,17 @@ class HomeFragment : Fragment() {
     @VisibleForTesting
     internal fun initializeMicrosurveyFeature(isMicrosurveyEnabled: Boolean, view: View) {
         if (isMicrosurveyEnabled) {
+            val messagingFeature = MessagingFeature(
+                appStore = requireComponents.appStore,
+                surface = FenixMessageSurfaceId.MICROSURVEY,
+            )
             messagingFeatureMicrosurvey.set(
-                feature = MessagingFeature(
-                    appStore = requireComponents.appStore,
-                    surface = FenixMessageSurfaceId.MICROSURVEY,
-                    runWhenReadyQueue = requireComponents.performance.visualCompletenessQueue,
-                ),
+                feature = messagingFeature,
                 owner = viewLifecycleOwner,
                 view = view,
             )
+
+            viewLifecycleOwner.lifecycle.addObserver(messagingFeature)
         }
     }
 
@@ -933,8 +936,6 @@ class HomeFragment : Fragment() {
         // update it manually here.
         components.useCases.sessionUseCases.updateLastAccess()
 
-        evaluateMessagesForMicrosurvey(components)
-
         val sportsWidgetState = components.appStore.state.sportsWidgetState
         val needsFetch = sportsWidgetState.hasWorldCupStarted || sportsWidgetState.isOneWeekToWorldCup
         if (sportsWidgetState.isShown && (needsFetch || sportsWidgetState.isCountdownShown)) {
@@ -962,9 +963,6 @@ class HomeFragment : Fragment() {
         BiometricAuthenticationManager.biometricAuthenticationNeededInfo.authenticationStatus =
             AuthenticationStatus.NOT_AUTHENTICATED
     }
-
-    private fun evaluateMessagesForMicrosurvey(components: Components) =
-        components.appStore.dispatch(MessagingAction.Evaluate(FenixMessageSurfaceId.MICROSURVEY))
 
     override fun onPause() {
         super.onPause()
@@ -1330,6 +1328,7 @@ class HomeFragment : Fragment() {
     private fun buildTopSitesController() = DefaultTopSiteController(
         activityRef = WeakReference(requireActivity()),
         store = store,
+        appStore = requireComponents.appStore,
         navControllerRef = WeakReference(findNavController()),
         settings = requireComponents.settings,
         addTabUseCase = requireComponents.useCases.tabsUseCases.addTab,
@@ -1338,6 +1337,7 @@ class HomeFragment : Fragment() {
         topSitesUseCases = requireComponents.useCases.topSitesUseCase,
         mozAdsUseCases = requireComponents.useCases.mozAdsUseCases,
         viewLifecycleScope = viewLifecycleOwner.lifecycleScope,
+        source = TopSitesSource.HOMEPAGE,
     )
 
     private fun initController() {

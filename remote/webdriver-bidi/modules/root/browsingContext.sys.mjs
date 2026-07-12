@@ -1638,6 +1638,17 @@ class BrowsingContextModule extends RootBiDiModule {
 
     const context = this._getNavigable(contextId);
 
+    // Disallow refreshing privileged URLs
+    // unless system access is enabled.
+    if (
+      !lazy.RemoteAgent.allowSystemAccess &&
+      !lazy.isWebdriverSafeNavigationURL(context.currentURI, context)
+    ) {
+      throw new lazy.error.UnsupportedOperationError(
+        lazy.truncate`Reloading "${context.currentURI.spec}" is not allowed in this context`
+      );
+    }
+
     // webProgress will be stable even if the context navigates, retrieve it
     // immediately before doing any asynchronous call.
     const { webProgress } = context;
@@ -2164,6 +2175,18 @@ class BrowsingContextModule extends RootBiDiModule {
       throw new lazy.error.NoSuchHistoryEntryError(
         `History entry with delta ${delta} not found`
       );
+    }
+
+    if (!lazy.RemoteAgent.allowSystemAccess) {
+      const targetEntry = sessionHistory.getEntryAtIndex(targetIndex);
+
+      // Disallow traversing to privileged URLs
+      // unless system access is enabled.
+      if (!lazy.isWebdriverSafeNavigationURL(targetEntry.URI, context)) {
+        throw new lazy.error.UnsupportedOperationError(
+          lazy.truncate`Navigation to "${targetEntry.URI.spec}" is not allowed in this context`
+        );
+      }
     }
 
     context.goToIndex(targetIndex);

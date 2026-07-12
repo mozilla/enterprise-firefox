@@ -27,7 +27,7 @@
 
 .moz-badge-label {
   font-size: var(--font-size-small);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--badge-font-weight);
 }
 
 :host([type="new"]) {

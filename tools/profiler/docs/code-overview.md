@@ -644,10 +644,11 @@ of bytes, at the correct alignment.
 defines the interface of classes that manage chunks.
 
 Concrete implementations are responsible for:
-\* Creating chunks for their user, with a mechanism to pre-allocate chunks before they are actually needed.
-\* Taking back and owning chunks when they are "released" (usually when full).
-\* Automatically destroying or recycling the oldest released chunks.
-\* Giving temporary access to extant released chunks.
+
+- Creating chunks for their user, with a mechanism to pre-allocate chunks before they are actually needed.
+- Taking back and owning chunks when they are "released" (usually when full).
+- Automatically destroying or recycling the oldest released chunks.
+- Giving temporary access to extant released chunks.
 
 #### ProfileBufferChunkManagerSingle
 
@@ -1097,9 +1098,10 @@ i.e., being able to take a whole well-formed JSON string, and directly inserting
 it as a JSON object in the target JSON being streamed.
 
 It also offers some functions that are often useful for the Profiler, such as:
-\* Converting a timestamp into a JSON object in the stream, taking care of keeping a nanosecond precision, without unwanted zeroes or nines at the end.
-\* Adding a number of null elements.
-\* Adding a unique string index, and add that string to a provided unique-string list if necessary. (More about UniqueStrings below.)
+
+- Converting a timestamp into a JSON object in the stream, taking care of keeping a nanosecond precision, without unwanted zeroes or nines at the end.
+- Adding a number of null elements.
+- Adding a unique string index, and add that string to a provided unique-string list if necessary. (More about UniqueStrings below.)
 
 [SpliceableChunkedJSONWriter](https://searchfox.org/mozilla-central/search?q=symbol:T_mozilla%3A%3Abaseprofiler%3A%3ASpliceableChunkedJSONWriter)
 is a subclass of `SpliceableJSONWriter`. Its main attribute is that it provides its own writer

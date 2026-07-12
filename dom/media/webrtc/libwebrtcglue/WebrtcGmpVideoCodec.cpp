@@ -15,6 +15,7 @@
 #include "PlatformDecoderModule.h"
 #include "VideoConduit.h"
 #include "api/video/video_frame_type.h"
+#include "common_video/h264/h264_common.h"
 #include "common_video/include/video_frame_buffer.h"
 #include "gmp-video-frame-encoded.h"
 #include "gmp-video-frame-i420.h"
@@ -991,6 +992,60 @@ int32_t WebrtcGmpVideoDecoder::Decode(const webrtc::EncodedImage& aInputImage,
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
+// OpenH264 treats an Access Unit Delimiter (NALU type 9) as end-of-picture and
+// discards the frame when encountered. Some senders (e.g. GeForce NOW) emit an
+// AUD per access unit, so remove them from the Annex-B bitstream before
+// decoding. Returns true when an AUD was present or false if not.
+// aOut holds every non-empty non-AUD NALU (and is empty if there were none).
+bool StripH264AccessUnitDelimiters(const uint8_t* aData, size_t aSize,
+                                   nsTArray<uint8_t>& aOut) {
+  MOZ_ASSERT(aOut.IsEmpty());
+
+  const std::vector<webrtc::H264::NaluIndex> nalus =
+      webrtc::H264::FindNaluIndices(std::span<const uint8_t>(aData, aSize));
+
+  // Guard payload_size: FindNaluIndices can report an empty NALU (e.g. a
+  // trailing start code) whose header byte is out of bounds.
+  const auto isAud = [&](const webrtc::H264::NaluIndex& aNalu) {
+    return aNalu.payload_size > 0 &&
+           webrtc::H264::ParseNaluType(aData[aNalu.payload_start_offset]) ==
+               webrtc::H264::NaluType::kAud;
+  };
+
+  bool hasAud = false;
+  for (const auto& nalu : nalus) {
+    if (isAud(nalu)) {
+      hasAud = true;
+      break;
+    }
+  }
+  if (!hasAud) {
+    return false;
+  }
+
+  aOut.SetCapacity(aSize);
+  bool wroteFirstKeptNalu = false;
+  for (const auto& nalu : nalus) {
+    if (!nalu.payload_size || isAud(nalu)) {
+      continue;
+    }
+    if (!wroteFirstKeptNalu) {
+      // Normalize the first kept NALU to a 4-byte start code: the GMP packaging
+      // overwrites the leading start code with a 4-byte length, so it must be
+      // that size regardless of the original (possibly 3-byte) start code.
+      static constexpr uint8_t kLongStartCode[] = {0, 0, 0, 1};
+      aOut.AppendElements(kLongStartCode, sizeof(kLongStartCode));
+      aOut.AppendElements(aData + nalu.payload_start_offset, nalu.payload_size);
+      wroteFirstKeptNalu = true;
+      continue;
+    }
+    aOut.AppendElements(
+        aData + nalu.start_offset,
+        nalu.payload_start_offset - nalu.start_offset + nalu.payload_size);
+  }
+  return true;
+}
+
 void WebrtcGmpVideoDecoder::Decode_g(UniquePtr<GMPDecodeData>&& aDecodeData) {
   CheckedInt<uint32_t> dataSize(aDecodeData->mImage.size());
   dataSize -= 4;
@@ -1017,6 +1072,20 @@ void WebrtcGmpVideoDecoder::Decode_g(UniquePtr<GMPDecodeData>&& aDecodeData) {
   MOZ_ASSERT(mQueuedFrames.IsEmpty());
   MOZ_ASSERT(mHost);
 
+  const uint8_t* data = aDecodeData->mImage.data();
+  size_t size = aDecodeData->mImage.size();
+  nsTArray<uint8_t> withoutAud;
+  if (StripH264AccessUnitDelimiters(data, size, withoutAud)) {
+    if (withoutAud.Length() < webrtc::H264::kNaluLongStartSequenceSize) {
+      GMP_LOG_DEBUG("{}: dropping AUD-only H.264 access unit",
+                    __PRETTY_FUNCTION__);
+      mDecoderStatus = GMPNoErr;
+      return;
+    }
+    data = withoutAud.Elements();
+    size = withoutAud.Length();
+  }
+
   GMPVideoFrame* ftmp = nullptr;
   GMPErr err = mHost->CreateFrame(kGMPEncodedVideoFrame, &ftmp);
   if (err != GMPNoErr) {
@@ -1028,7 +1097,7 @@ void WebrtcGmpVideoDecoder::Decode_g(UniquePtr<GMPDecodeData>&& aDecodeData) {
 
   GMPUniquePtr<GMPVideoEncodedFrame> frame(
       static_cast<GMPVideoEncodedFrame*>(ftmp));
-  err = frame->CreateEmptyFrame(aDecodeData->mImage.size());
+  err = frame->CreateEmptyFrame(size);
   if (err != GMPNoErr) {
     GMP_LOG_ERROR("{}: CreateEmptyFrame failed ({})!", __PRETTY_FUNCTION__,
                   static_cast<unsigned>(err));
@@ -1041,8 +1110,7 @@ void WebrtcGmpVideoDecoder::Decode_g(UniquePtr<GMPDecodeData>&& aDecodeData) {
   *(reinterpret_cast<uint32_t*>(frame->Buffer())) = frame->Size();
 
   // XXX It'd be wonderful not to have to memcpy the encoded data!
-  memcpy(frame->Buffer() + 4, aDecodeData->mImage.data() + 4,
-         frame->Size() - 4);
+  memcpy(frame->Buffer() + 4, data + 4, frame->Size() - 4);
 
   frame->SetEncodedWidth(aDecodeData->mImage._encodedWidth);
   frame->SetEncodedHeight(aDecodeData->mImage._encodedHeight);

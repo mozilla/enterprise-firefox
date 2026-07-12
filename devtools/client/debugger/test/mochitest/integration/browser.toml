@@ -36,6 +36,11 @@ skip-if = [
   "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && asan", # Bug 1591064
 ]
 
+["browser_dbg-features-edit-stylesheets.js"]
+fail-if = [
+  "a11y_checks", # Bug 1849028 clicked element may not be focusable and/or labeled
+]
+
 ["browser_dbg-features-source-text-content.js"]
 fail-if = [
   "a11y_checks", # Bug 1849028 clicked element may not be focusable and/or labeled
@@ -46,12 +51,17 @@ fail-if = [
   "a11y_checks", # Bug 1849028 clicked element may not be focusable and/or labeled
 ]
 
-["browser_dbg-features-stylesheets.js"]
+["browser_dbg-features-sourcemap-stylesheets.js"]
 fail-if = [
   "a11y_checks", # Bug 1849028 clicked element may not be focusable and/or labeled
 ]
 
 ["browser_dbg-features-tabs.js"]
+
+["browser_dbg-features-toggle-stylesheets.js"]
+fail-if = [
+  "a11y_checks", # Bug 1849028 clicked element may not be focusable and/or labeled
+]
 
 ["browser_dbg-features-wasm.js"]
 

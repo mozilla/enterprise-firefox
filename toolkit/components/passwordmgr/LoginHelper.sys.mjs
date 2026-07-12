@@ -1847,6 +1847,12 @@ export const LoginHelper = {
    *                    which could be in a different window.
    */
   getBrowserForPrompt(browser) {
+    // The browser may have been torn down (e.g. its tab was closed) while an
+    // async operation was in progress before we got here, in which case its
+    // browsingContext is null and there is no prompt target left.
+    if (!browser.browsingContext) {
+      return browser;
+    }
     let chromeWindow = browser.documentGlobal;
     let openerBrowsingContext = browser.browsingContext.opener;
     let openerBrowser = openerBrowsingContext

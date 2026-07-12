@@ -73,6 +73,14 @@ class DocAccessibleParent : public RemoteAccessible,
   bool IsShutdown() const { return mShutdown; }
 
   /**
+   * Set whether this document is a static clone created for printing. We don't
+   * expose print documents or their descendant Accessibles to platform
+   * accessibility APIs; they are used purely to generate a tagged PDF.
+   */
+  void SetIsPrintDoc(bool aIsPrintDoc) { mIsPrintDoc = aIsPrintDoc; }
+  bool IsPrintDoc() const { return mIsPrintDoc; }
+
+  /**
    * Mark this actor as shutdown without doing any cleanup.  This should only
    * be called on actors that have just been initialized, so probably only from
    * RecvPDocAccessibleConstructor.
@@ -406,6 +414,7 @@ class DocAccessibleParent : public RemoteAccessible,
   bool mTopLevel : 1;
   bool mTopLevelInContentProcess : 1;
   bool mShutdown : 1;
+  bool mIsPrintDoc : 1 = false;
   bool mIsInitialTreeDone : 1 = false;
   RefPtr<dom::CanonicalBrowsingContext> mBrowsingContext;
 

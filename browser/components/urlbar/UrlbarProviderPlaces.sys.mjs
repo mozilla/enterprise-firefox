@@ -324,7 +324,7 @@ function makeUrlbarResult(queryContext, info) {
           payload: {
             engine: action.params.engineName,
             isBlockable: true,
-            blockL10n: { id: "urlbar-result-menu-remove-from-history" },
+            blockL10n: { id: "urlbar-result-menu-remove-from-history2" },
             helpUrl:
               Services.urlFormatter.formatURLPref("app.support.baseURL") +
               "awesome-bar-result-menu",
@@ -382,7 +382,7 @@ function makeUrlbarResult(queryContext, info) {
   } else {
     source = lazy.UrlbarShared.RESULT_SOURCE.HISTORY;
     isBlockable = true;
-    blockL10n = { id: "urlbar-result-menu-remove-from-history" };
+    blockL10n = { id: "urlbar-result-menu-remove-from-history2" };
     helpUrl =
       Services.urlFormatter.formatURLPref("app.support.baseURL") +
       "awesome-bar-result-menu";

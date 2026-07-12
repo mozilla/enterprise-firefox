@@ -7,4 +7,11 @@
          the informational note lint emits about findings filtered by the baseline. Silence just that
          note; the baseline itself still grandfathers the underlying findings. -->
     <issue id="LintBaseline" severity="ignore" />
+
+    <!-- libwebrtc is vendored third-party source, pulled into geckoview's sourceSet via srcDir
+         entries in build.gradle. We don't hand-edit vendored code (it is overwritten on the next
+         libwebrtc update), so exclude the entire tree from every lint check. -->
+    <issue id="all">
+        <ignore regexp="third_party/libwebrtc/" />
+    </issue>
 </lint>

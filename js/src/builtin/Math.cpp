@@ -113,7 +113,7 @@ static bool math_function(JSContext* cx, CallArgs& args) {
   // NB: Always stored as a double so the math function can be inlined
   // through MMathFunction.
   double z = F(x);
-  args.rval().setDouble(z);
+  args.rval().setDoubleAssumeCanonicalNaN(z);
   return true;
 }
 
@@ -132,7 +132,7 @@ static bool math_abs(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  args.rval().setNumber(math_abs_impl(x));
+  args.rval().setNumberAssumeCanonicalNaN(math_abs_impl(x));
   return true;
 }
 
@@ -185,7 +185,7 @@ static bool math_atan2(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   double z = ecmaAtan2(y, x);
-  args.rval().setDouble(z);
+  args.rval().setDoubleAssumeCanonicalNaN(z);
   return true;
 }
 
@@ -208,7 +208,7 @@ static bool math_ceil(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  args.rval().setNumber(math_ceil_impl(x));
+  args.rval().setNumberAssumeCanonicalNaN(math_ceil_impl(x));
   return true;
 }
 
@@ -277,7 +277,7 @@ static bool math_floor(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  args.rval().setNumber(math_floor_impl(x));
+  args.rval().setNumberAssumeCanonicalNaN(math_floor_impl(x));
   return true;
 }
 
@@ -315,7 +315,7 @@ bool js::RoundFloat32(JSContext* cx, HandleValue arg, MutableHandleValue res) {
     return false;
   }
 
-  res.setDouble(static_cast<double>(f));
+  res.setDoubleAssumeCanonicalNaN(static_cast<double>(f));
   return true;
 }
 
@@ -370,7 +370,7 @@ static bool math_f16round(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   // Steps 2-6.
-  args.rval().setDouble(RoundFloat16(d));
+  args.rval().setDoubleAssumeCanonicalNaN(RoundFloat16(d));
   return true;
 }
 
@@ -405,7 +405,7 @@ bool js::math_max(JSContext* cx, unsigned argc, Value* vp) {
     }
     maxval = math_max_impl(x, maxval);
   }
-  args.rval().setNumber(maxval);
+  args.rval().setNumberAssumeCanonicalNaN(maxval);
   return true;
 }
 
@@ -430,7 +430,7 @@ bool js::math_min(JSContext* cx, unsigned argc, Value* vp) {
     }
     minval = math_min_impl(x, minval);
   }
-  args.rval().setNumber(minval);
+  args.rval().setNumberAssumeCanonicalNaN(minval);
   return true;
 }
 
@@ -556,7 +556,7 @@ static bool math_pow(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   double z = ecmaPow(x, y);
-  args.rval().setNumber(z);
+  args.rval().setNumberAssumeCanonicalNaN(z);
   return true;
 }
 
@@ -580,7 +580,7 @@ static bool math_random(JSContext* cx, unsigned argc, Value* vp) {
   if (js::SupportDifferentialTesting()) {
     args.rval().setDouble(0);
   } else {
-    args.rval().setDouble(math_random_impl(cx));
+    args.rval().setDoubleAssumeCanonicalNaN(math_random_impl(cx));
   }
   return true;
 }
@@ -620,7 +620,7 @@ static bool math_round(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  args.rval().setNumber(math_round_impl(x));
+  args.rval().setNumberAssumeCanonicalNaN(math_round_impl(x));
   return true;
 }
 
@@ -834,7 +834,7 @@ bool js::math_hypot_handle(JSContext* cx, HandleValueArray args,
     }
 
     double result = ecmaHypot(x, y);
-    res.setDouble(result);
+    res.setDoubleAssumeCanonicalNaN(result);
     return true;
   }
 
@@ -862,7 +862,7 @@ bool js::math_hypot_handle(JSContext* cx, HandleValueArray args,
   double result = isInfinite ? PositiveInfinity<double>()
                   : isNaN    ? GenericNaN()
                              : scale * std::sqrt(sumsq);
-  res.setDouble(result);
+  res.setDoubleAssumeCanonicalNaN(result);
   return true;
 }
 
@@ -884,7 +884,7 @@ bool js::math_trunc(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  args.rval().setNumber(math_trunc_impl(x));
+  args.rval().setNumberAssumeCanonicalNaN(math_trunc_impl(x));
   return true;
 }
 
@@ -910,7 +910,7 @@ static bool math_sign(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  args.rval().setNumber(math_sign_impl(x));
+  args.rval().setNumberAssumeCanonicalNaN(math_sign_impl(x));
   return true;
 }
 
@@ -1081,7 +1081,7 @@ static bool math_sumPrecise(JSContext* cx, unsigned argc, Value* vp) {
       break;
   }
 
-  args.rval().setNumber(rval);
+  args.rval().setNumberAssumeCanonicalNaN(rval);
   return true;
 }
 

@@ -1489,6 +1489,36 @@ ScrollContainerFrame* nsLayoutUtils::GetNearestScrollContainerFrame(
 }
 
 // static
+ViewID nsLayoutUtils::GetNearestScrollIdFor(nsIFrame* aSearchFrame) {
+  for (nsIFrame* f = aSearchFrame; f;) {
+    ScrollContainerFrame* scrollFrame =
+        // SCROLLABLE_ONLY_ASYNC_SCROLLABLE is intentionally omitted: this
+        // runs during frame construction, before an ancestor scroll container's
+        // scrolled child is attached, and WantAsyncScroll would deref it.
+        nsLayoutUtils::GetNearestScrollContainerFrame(
+            f, nsLayoutUtils::SCROLLABLE_ALWAYS_MATCH_ROOT |
+                   nsLayoutUtils::SCROLLABLE_FIXEDPOS_FINDS_ROOT);
+    if (!scrollFrame) {
+      break;
+    }
+    nsIFrame* scrolled = scrollFrame->GetScrolledFrame();
+    nsIContent* scrolledContent = scrolled ? scrolled->GetContent() : nullptr;
+
+    ViewID scrollId;
+    // We deliberately use FindIDFor (not FindOrCreateIDFor): if no ViewID has
+    // been assigned yet, APZ has no APZC either.
+    if (scrolledContent &&
+        nsLayoutUtils::FindIDFor(scrolledContent, &scrollId)) {
+      return scrollId;
+    }
+    // No ViewID on this one; resume the search from its parent so we pick up
+    // the next scroll container above it.
+    f = scrollFrame->GetParent();
+  }
+  return ScrollableLayerGuid::NULL_SCROLL_ID;
+}
+
+// static
 nsIFrame* nsLayoutUtils::GetNearestOverflowClipFrame(nsIFrame* aFrame) {
   return GetNearestScrollableOrOverflowClipFrame(
       aFrame, SCROLLABLE_SAME_DOC | SCROLLABLE_INCLUDE_HIDDEN,

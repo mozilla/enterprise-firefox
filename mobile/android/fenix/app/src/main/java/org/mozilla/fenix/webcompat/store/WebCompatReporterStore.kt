@@ -213,24 +213,9 @@ sealed class WebCompatReporterAction : Action {
     data class PreviewJSONUpdated(val previewJSON: String) : WebCompatReporterAction()
 
     /**
-     * Dispatched when the WebCompat "Send More Info" report has been submitted.
-     */
-    data object SendMoreInfoSubmitted : WebCompatReporterAction(), NavigationAction
-
-    /**
-     * Dispatched when the user requests to add more info.
-     */
-    data object AddMoreInfoClicked : WebCompatReporterAction(), WebCompatReporterStorageAction
-
-    /**
      * Dispatched when the user requests to cancel the report.
      */
     data object CancelClicked : WebCompatReporterAction(), WebCompatReporterStorageAction, NavigationAction
-
-    /**
-     * Dispatched when the user requests to navigate to the previous page.
-     */
-    data object BackPressed : WebCompatReporterAction(), WebCompatReporterStorageAction, NavigationAction
 
     /**
      * Dispatched when the user clicks the field to open the Edit Url Dialog.
@@ -270,8 +255,7 @@ private fun reduce(
     )
     is WebCompatReporterAction.DeceptiveSiteReportSelected -> state
     is WebCompatReporterAction.NavigationAction -> state
-    WebCompatReporterAction.SendReportClicked -> state // UPDATED: Just return state here!
-    WebCompatReporterAction.AddMoreInfoClicked -> state
+    WebCompatReporterAction.SendReportClicked -> state
     WebCompatReporterAction.LearnMoreClicked -> state
     is WebCompatReporterAction.IncludeEtpBlockedUrlsChanged -> state.copy(includeEtpBlockedUrls = action.include)
     is WebCompatReporterAction.EditUrlChanged -> state.copy(

@@ -55,7 +55,6 @@ abstract class BaseTest(
     private val isPageLoadTranslationsPromptEnabled: Boolean = false,
     private val isPocketEnabled: Boolean = true,
     private val isRecentlyVisitedFeatureEnabled: Boolean = true,
-    private val isUnifiedTrustPanelEnabled: Boolean = true,
 ) {
 
     @get:Rule(order = 0)
@@ -84,7 +83,6 @@ abstract class BaseTest(
                             isPageLoadTranslationsPromptEnabled = isPageLoadTranslationsPromptEnabled,
                             isPocketEnabled = isPocketEnabled,
                             isRecentlyVisitedFeatureEnabled = isRecentlyVisitedFeatureEnabled,
-                            isUnifiedTrustPanelEnabled = isUnifiedTrustPanelEnabled,
                         ),
                     ) { it.activity }
                     try {

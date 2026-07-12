@@ -160,6 +160,7 @@ RTCRtpSender::RTCRtpSender(nsPIDOMWindowInner* aWindow, PeerConnectionImpl* aPc,
 
   mParameters.mCodecs.Construct();
   UpdateParametersRtcp();
+  mParameters.mHeaderExtensions.Construct();
 
   if (mDtmf) {
     mWatchManager.Watch(mTransmitting, &RTCRtpSender::UpdateDtmfSender);
@@ -810,16 +811,19 @@ already_AddRefed<Promise> RTCRtpSender::SetParameters(
 
   if (mLastReturnedParameters.isSome() &&
       paramsCopy.mTransactionId.WasPassed()) {
-    // We check mPastReturnedParameters and presence of transaction id because
+    // We check mLastReturnedParameters and presence of transaction id because
     // if these aren't right and we're letting it slide, we do not expect these
     // read-only members to be present.
-
-    // TODO: Verify remaining read-only parameters
-    // headerExtensions (bug 1765851)
 
     if (oldParams->mRtcp != paramsCopy.mRtcp) {
       p->MaybeRejectWithInvalidModificationError(
           "RTCRtpParameters.rtcp is a read-only parameter");
+      return p.forget();
+    }
+
+    if (oldParams->mHeaderExtensions != paramsCopy.mHeaderExtensions) {
+      p->MaybeRejectWithInvalidModificationError(
+          "RTCRtpParameters.headerExtensions is a read-only parameter");
       return p.forget();
     }
   }
@@ -1327,17 +1331,13 @@ void RTCRtpSender::GetParameters(RTCRtpSendParameters& aParameters) {
   // encodings is set to the value of the [[SendEncodings]] internal slot.
   aParameters.mEncodings = mParameters.mEncodings;
 
-  // The headerExtensions sequence is populated based on the header extensions
-  // that have been negotiated for sending
-  // TODO(bug 1765851): We do not support this yet
-  // aParameters.mHeaderExtensions.Construct();
-
+  aParameters.mHeaderExtensions.Construct(
+      mParameters.mHeaderExtensions.Value());
   aParameters.mRtcp.Construct(mParameters.mRtcp.Value());
   if (mParameters.mDegradationPreference.WasPassed()) {
     aParameters.mDegradationPreference.Construct(
         mParameters.mDegradationPreference.Value());
   }
-  aParameters.mHeaderExtensions.Construct();
   if (mParameters.mCodecs.WasPassed()) {
     aParameters.mCodecs.Construct(mParameters.mCodecs.Value());
   }
@@ -1367,6 +1367,13 @@ bool operator==(const RTCRtpEncodingParameters& a1,
 bool operator==(const RTCRtcpParameters& a1, const RTCRtcpParameters& a2) {
   // webidl does not generate types that are equality comparable
   return a1.mCname == a2.mCname && a1.mReducedSize == a2.mReducedSize;
+}
+
+bool operator==(const RTCRtpHeaderExtensionParameters& a1,
+                const RTCRtpHeaderExtensionParameters& a2) {
+  // webidl does not generate types that are equality comparable
+  return a1.mUri == a2.mUri && a1.mId == a2.mId &&
+         a1.mEncrypted == a2.mEncrypted;
 }
 
 // static
@@ -1591,6 +1598,12 @@ RefPtr<dom::Promise> ReplaceTrackOperation::CallImpl(ErrorResult& aError) {
         // If connection.[[IsClosed]] is true, abort these steps.
         // Set sender.[[SenderTrack]] to withTrack.
         if (sender->SetSenderTrackWithClosedCheck(track)) {
+          // mSenderTrack is now updated. SeamlessTrackSwitch already called
+          // MaybeUpdateConduit() synchronously, but at that point mSenderTrack
+          // still held the old value (spec requires the update to happen in
+          // this queued task). Call it again now that mSenderTrack is final so
+          // the conduit can correctly start or stop based on the new track.
+          sender->MaybeUpdateConduit();
           // Resolve p with undefined.
           p->MaybeResolveWithUndefined();
         }
@@ -1819,6 +1832,16 @@ void RTCRtpSender::UpdateParametersRtcp() {
   mParameters.mRtcp.Value().mReducedSize.Construct(false);
 }
 
+void RTCRtpSender::UpdateParametersHeaderExtensions() {
+  if (const JsepTrackNegotiatedDetails* details =
+          GetJsepTransceiver().mSendTrack.GetNegotiatedDetails()) {
+    mParameters.mHeaderExtensions.Reset();
+    mParameters.mHeaderExtensions.Construct();
+    RTCRtpTransceiver::ToDomHeaderExtensions(
+        *details, mParameters.mHeaderExtensions.Value());
+  }
+}
+
 void RTCRtpSender::SyncFromJsep(const JsepTransceiver& aJsepTransceiver) {
   if (!mSimulcastEnvelopeSet) {
     // JSEP is establishing the simulcast envelope for the first time, right now
@@ -1846,6 +1869,7 @@ void RTCRtpSender::SyncFromJsep(const JsepTransceiver& aJsepTransceiver) {
   }
   UpdateParametersCodecs();
   UpdateParametersRtcp();
+  UpdateParametersHeaderExtensions();
 
   MaybeUpdateConduit();
 }
@@ -2098,6 +2122,8 @@ Maybe<RTCRtpSender::AudioConfig> RTCRtpSender::GetNewAudioConfig() {
         sendCodec.mEncodingConstraints.maxBitrateBps.emplace(
             encoding->mMaxBitrate.Value());
       }
+      // Audio has a single encoding; an inactive encoding must not transmit.
+      newConfig.mTransmitting = newConfig.mTransmitting && encoding->mActive;
     }
 
     std::vector<AudioCodecConfig> dtmfConfigs;
@@ -2168,7 +2194,7 @@ void RTCRtpSender::UpdateBaseConfig(BaseConfig* aConfig) {
   // JsepTrack::GetActive, because that updates before the queued task, which
   // is too early for some of the things we interact with here (eg;
   // RTCDTMFSender).
-  aConfig->mTransmitting = mTransceiver->IsSending();
+  aConfig->mTransmitting = mTransceiver->IsSending() && mSenderTrack;
 }
 
 void RTCRtpSender::ApplyVideoConfig(const VideoConfig& aConfig) {

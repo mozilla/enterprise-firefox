@@ -137,7 +137,7 @@ add_task(async function not_interested() {
     info("Open result menu");
     let { element } = await UrlbarTestUtils.getDetailsOfResultAt(window, 1);
     let popup = gURLBar.view.resultMenu;
-    let onPopupShown = BrowserTestUtils.waitForEvent(popup, "popupshown");
+    let onPopupShown = BrowserTestUtils.waitForEvent(popup, "shown");
     let dropmarker = element.row.querySelector(
       ".urlbarView-splitbutton-dropmarker"
     );
@@ -145,15 +145,9 @@ add_task(async function not_interested() {
     await onPopupShown;
 
     info("Activate the dismiss all item");
-    let onPopupHidden = BrowserTestUtils.waitForEvent(popup, "popuphidden");
-    let targetMenuItem = popup.querySelector("menuitem");
-    if (AppConstants.platform == "macosx") {
-      // Synthesized clicks don't work in the native Mac menu.
-      targetMenuItem.doCommand();
-      popup.hidePopup(true);
-    } else {
-      EventUtils.synthesizeMouseAtCenter(targetMenuItem, {});
-    }
+    let onPopupHidden = BrowserTestUtils.waitForEvent(popup, "hidden");
+    let targetMenuItem = popup.querySelector("panel-item");
+    EventUtils.synthesizeMouseAtCenter(targetMenuItem, {});
     await onPopupHidden;
 
     assertEngagementTelemetry([

@@ -62,6 +62,22 @@ static void SetShowHiddenFileState(NSSavePanel* panel) {
   NS_OBJC_END_TRY_IGNORE_BLOCK;
 }
 
+// On macOS 26 (Tahoe), the panel's sheet completion handler can run before the
+// modal session has fully unwound. Invoking the callback synchronously here
+// would let a consumer open another modal on top of a session that is still
+// tearing down, which hangs (bug 2053177). Deferring to a fresh main-thread
+// turn lets the modal finish unwinding before the callback runs.
+static void InvokeFilePickerCallbackDeferred(
+    nsIFilePickerShownCallback* aCallback, nsIFilePicker::ResultCode aResult) {
+  if (!aCallback) {
+    return;
+  }
+  nsCOMPtr<nsIFilePickerShownCallback> callback = aCallback;
+  NS_DispatchToMainThread(NS_NewRunnableFunction(
+      "nsFilePicker::InvokeCallback",
+      [callback, aResult]() { callback->Done(aResult); }));
+}
+
 nsFilePicker::nsFilePicker() = default;
 
 nsFilePicker::~nsFilePicker() = default;
@@ -285,8 +301,13 @@ static void UpdatePanelFileTypes(NSOpenPanel* aPanel, NSArray* aFilters) {
     if (baseName.length > 0) {
       [mSavePanel setNameFieldStringValue:
                       [baseName stringByAppendingPathExtension:newExtension]];
+      // Keep the panel's allowed type in sync with the name field so the new
+      // extension is preserved on the saved file.
+      mSavePanel.allowedFileTypes = @[ newExtension ];
     }
   }
+  // For the "All Files" filter GetFilterList returns nil; we leave the name
+  // field and the allowed type untouched so the current extension is kept.
 
   NS_OBJC_END_TRY_IGNORE_BLOCK;
 }
@@ -381,9 +402,7 @@ void nsFilePicker::PresentOpenPanel(bool aAllowMultiple,
         retVal = returnOK;
       }
     }
-    if (callback) {
-      callback->Done(retVal);
-    }
+    InvokeFilePickerCallbackDeferred(callback, retVal);
     NS_OBJC_END_TRY_IGNORE_BLOCK;
   });
 
@@ -440,9 +459,7 @@ void nsFilePicker::PresentFolderPanel(nsIFilePickerShownCallback* aCallback) {
         }
       }
     }
-    if (callback) {
-      callback->Done(retVal);
-    }
+    InvokeFilePickerCallbackDeferred(callback, retVal);
     NS_OBJC_END_TRY_IGNORE_BLOCK;
   });
 
@@ -485,6 +502,14 @@ void nsFilePicker::PresentSavePanel(nsIFilePickerShownCallback* aCallback) {
            selector:@selector(menuChangedItem:)
                name:NSMenuWillSendActionNotification
              object:[popupButton menu]];
+  }
+
+  // Declare the default file's extension as the allowed type so that saving
+  // without changing the format popup keeps it on the file. The observer
+  // updates this when the user changes the format.
+  NSString* defaultExtension = defaultFilename.pathExtension;
+  if (defaultExtension.length != 0) {
+    thePanel.allowedFileTypes = @[ defaultExtension ];
   }
 
   // Allow users to change the extension.
@@ -560,9 +585,7 @@ void nsFilePicker::PresentSavePanel(nsIFilePickerShownCallback* aCallback) {
         }
       }
     }
-    if (callback) {
-      callback->Done(retVal);
-    }
+    InvokeFilePickerCallbackDeferred(callback, retVal);
     NS_OBJC_END_TRY_IGNORE_BLOCK;
   });
 

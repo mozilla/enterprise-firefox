@@ -41,7 +41,7 @@ add_task(async function ui() {
       ],
       helpUrl: "https://example.com/help",
       helpL10n: {
-        id: "urlbar-result-menu-tip-get-help",
+        id: "urlbar-result-menu-tip-get-help2",
       },
     },
   });
@@ -105,10 +105,10 @@ add_task(async function ui() {
   });
   Assert.ok(help);
   Assert.deepEqual(document.l10n.getAttributes(help), {
-    id: "urlbar-result-menu-tip-get-help",
+    id: "urlbar-result-menu-tip-get-help2",
     args: null,
   });
-  gURLBar.view.resultMenu.hidePopup(true);
+  gURLBar.view.resultMenu.hide();
 
   info("Check the hidden components");
   let url = row.querySelector(".urlbarView-url");

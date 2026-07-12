@@ -41,7 +41,6 @@ import mozilla.components.compose.browser.toolbar.store.BrowserToolbarInteractio
 import mozilla.components.compose.browser.toolbar.store.BrowserToolbarInteraction.BrowserToolbarEvent
 import mozilla.components.compose.browser.toolbar.store.BrowserToolbarState
 import mozilla.components.compose.browser.toolbar.store.ProgressBarConfig
-import mozilla.components.concept.engine.cookiehandling.CookieBannersStorage
 import mozilla.components.concept.engine.permission.SitePermissions
 import mozilla.components.concept.engine.permission.SitePermissionsStorage
 import mozilla.components.concept.engine.prompt.ShareData
@@ -78,7 +77,6 @@ import org.mozilla.fenix.components.toolbar.CustomTabBrowserToolbarMiddleware.Co
 import org.mozilla.fenix.components.toolbar.CustomTabBrowserToolbarMiddleware.Companion.StartPageActions.SiteInfoClicked
 import org.mozilla.fenix.customtabs.ExternalAppBrowserFragmentDirections
 import org.mozilla.fenix.ext.nav
-import org.mozilla.fenix.settings.quicksettings.protections.cookiebanners.getCookieBannerUIMode
 import org.mozilla.fenix.telemetry.ACTION_CLOSE_CLICKED
 import org.mozilla.fenix.telemetry.ACTION_MENU_CLICKED
 import org.mozilla.fenix.telemetry.ACTION_SECURITY_INDICATOR_CLICKED
@@ -86,7 +84,6 @@ import org.mozilla.fenix.telemetry.ACTION_SHARE_CLICKED
 import org.mozilla.fenix.telemetry.ACTION_SITE_CUSTOM_CLICKED
 import org.mozilla.fenix.telemetry.SOURCE_ADDRESS_BAR
 import org.mozilla.fenix.telemetry.SURFACE_CUSTOM_TAB
-import org.mozilla.fenix.utils.Settings
 import mozilla.components.browser.toolbar.R as toolbarR
 import mozilla.components.feature.customtabs.R as customtabsR
 import mozilla.components.lib.state.Action as MVIAction
@@ -106,7 +103,6 @@ private const val CUSTOM_BUTTON_CLICK_RETURN_CODE = 0
  * @param appStore [AppStore] allowing to integrate with other features of the applications.
  * @param ipProtectionStore [IPProtectionStore] to observe IP protection proxy status.
  * @param permissionsStorage [SitePermissionsStorage] to sync from.
- * @param cookieBannersStorage [CookieBannersStorage] to sync from.
  * @param useCases [CustomTabsUseCases] used for cleanup when closing the custom tab.
  * @param trackingProtectionUseCases [TrackingProtectionUseCases] allowing to query
  * tracking protection data of the current tab.
@@ -114,7 +110,6 @@ private const val CUSTOM_BUTTON_CLICK_RETURN_CODE = 0
  * @param clipboard [ClipboardHandler] to use for reading from device's clipboard.
  * @param navController [NavController] to use for navigating to other in-app destinations.
  * @param closeTabDelegate Callback for when the current custom tab needs to be closed.
- * @param settings [Settings] for accessing user preferences.
  * @param scope [CoroutineScope] used for running long running operations in background.
  * @param isSandboxCustomTab Whether the custom tab is sandboxed.
  */
@@ -126,14 +121,12 @@ class CustomTabBrowserToolbarMiddleware(
     private val appStore: AppStore,
     private val ipProtectionStore: IPProtectionStore,
     private val permissionsStorage: SitePermissionsStorage,
-    private val cookieBannersStorage: CookieBannersStorage,
     private val useCases: CustomTabsUseCases,
     private val trackingProtectionUseCases: TrackingProtectionUseCases,
     private val publicSuffixList: PublicSuffixList,
     private val clipboard: ClipboardHandler,
     private val navController: NavController,
     private val closeTabDelegate: () -> Unit,
-    private val settings: Settings,
     private val scope: CoroutineScope,
     private val isSandboxCustomTab: Boolean = false,
 ) : Middleware<BrowserToolbarState, BrowserToolbarAction> {
@@ -196,13 +189,7 @@ class CustomTabBrowserToolbarMiddleware(
                     scope.launch(Dispatchers.Main) {
                         trackingProtectionUseCases.containsException(customTabId) { isExcepted ->
                             scope.launch {
-                                val cookieBannerUIMode = cookieBannersStorage.getCookieBannerUIMode(
-                                    tab = safeCustomTab,
-                                    isFeatureEnabledInPrivateMode = settings.shouldUseCookieBannerPrivateMode,
-                                    publicSuffixList = publicSuffixList,
-                                )
-
-                                val directions = if (settings.enableUnifiedTrustPanel) {
+                                val directions =
                                     ExternalAppBrowserFragmentDirections.actionGlobalTrustPanelFragment(
                                         sessionId = safeCustomTab.id,
                                         url = safeCustomTab.content.url,
@@ -214,25 +201,7 @@ class CustomTabBrowserToolbarMiddleware(
                                         permissionHighlights = safeCustomTab.content.permissionHighlights,
                                         isTrackingProtectionEnabled =
                                             safeCustomTab.trackingProtection.enabled && !isExcepted,
-                                        cookieBannerUIMode = cookieBannerUIMode,
                                     )
-                                } else {
-                                    ExternalAppBrowserFragmentDirections
-                                        .actionGlobalQuickSettingsSheetDialogFragment(
-                                            sessionId = customTabId,
-                                            url = safeCustomTab.content.url,
-                                            title = safeCustomTab.content.title,
-                                            isLocalPdf = safeCustomTab.content.url.isContentUrl(),
-                                            isSecured = safeCustomTab.content.securityInfo.isSecure,
-                                            sitePermissions = sitePermissions,
-                                            gravity = settings.toolbarPosition.androidGravity,
-                                            certificateName = safeCustomTab.content.securityInfo.issuer,
-                                            permissionHighlights = safeCustomTab.content.permissionHighlights,
-                                            isTrackingProtectionEnabled =
-                                                safeCustomTab.trackingProtection.enabled && !isExcepted,
-                                            cookieBannerUIMode = cookieBannerUIMode,
-                                        )
-                                }
                                 navController.nav(
                                     R.id.externalAppBrowserFragment,
                                     directions,

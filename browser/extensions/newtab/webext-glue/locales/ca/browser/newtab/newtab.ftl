@@ -93,6 +93,15 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = Rellotge
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = Privadesa
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = Accions
+# Picture of the day is a widget on New Tab that shows a daily Wikimedia Commons image.
+home-prefs-picture-header =
+    .label = Imatge del dia
 home-prefs-mission-message2 =
     .message = Els nostres patrocinadors donen suport a la nostra missió de crear un web millor.
 home-prefs-manage-topics-link2 =
@@ -151,6 +160,20 @@ home-prefs-weather-header-srd =
 home-prefs-support-firefox-header-srd =
     .label = Doneu suport al { -brand-product-name }
 home-prefs-mission-message-learn-more-link-srd = Descobriu com
+
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = Més informació
+
+## Strings for the Stocks widget
+
+# Context menu item for searching stock ticker symbols.
+newtab-stocks-menu-search = Cerca símbols de tíquer
+# Context menu item that hides the Stocks widget.
+newtab-stocks-menu-hide = Amaga les accions
+# Context menu item linking to more information about the Stocks widget.
+newtab-stocks-menu-learn-more = Més informació
 
 ## Search box component.
 

@@ -12,10 +12,11 @@ import React, {
 } from "react";
 import { useSelector, batch } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
-import { useIntersectionObserver, useSizeSubmenu } from "../../../lib/utils";
+import { useIntersectionObserver } from "../../../lib/utils";
 import { SportsMatchRow, UpcomingMatchPlaceholder } from "./SportsMatchRow";
 import { LivePagination } from "./LivePagination";
-import { MoveSubmenu } from "../MoveSubmenu";
+import { SizeSubmenu } from "../SizeSubmenu";
+import { WidgetMenuFooter } from "../WidgetMenuFooter";
 import { WatchLiveModal } from "./WatchLiveModal";
 import { WIDGET_REGISTRY, resolveWidgetSize } from "common/WidgetsRegistry.mjs";
 import {
@@ -911,28 +912,6 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
     handleInteraction();
   }
 
-  function handleSportsWidgetHide() {
-    batch(() => {
-      dispatch(
-        ac.OnlyToMain({
-          type: at.SET_PREF,
-          data: { name: "widgets.sportsWidget.enabled", value: false },
-        })
-      );
-      dispatch(
-        ac.OnlyToMain({
-          type: at.WIDGETS_ENABLED,
-          data: {
-            widget_name: "sports",
-            widget_source: "context_menu",
-            enabled: false,
-            widget_size: widgetSize,
-          },
-        })
-      );
-    });
-  }
-
   const handleChangeSize = useCallback(
     size => {
       batch(() => {
@@ -959,8 +938,6 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
     [dispatch]
   );
 
-  const sizeSubmenuRef = useSizeSubmenu(handleChangeSize);
-
   function handleViewMatches(widgetSource) {
     batch(() => {
       dispatch(
@@ -985,28 +962,17 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
   }
 
   function handleLearnMore() {
-    batch(() => {
-      dispatch(
-        ac.OnlyToMain({
-          type: at.OPEN_LINK,
-          data: {
-            url: "https://support.mozilla.org/kb/firefox-new-tab-widgets",
-          },
-        })
-      );
-      const telemetryData = {
-        widget_name: "sports",
-        widget_source: "context_menu",
-        user_action: USER_ACTION_TYPES.LEARN_MORE,
-        widget_size: widgetSize,
-      };
-      dispatch(
-        ac.OnlyToMain({
-          type: at.WIDGETS_USER_EVENT,
-          data: telemetryData,
-        })
-      );
-    });
+    dispatch(
+      ac.OnlyToMain({
+        type: at.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "sports",
+          widget_source: "context_menu",
+          user_action: USER_ACTION_TYPES.LEARN_MORE,
+          widget_size: widgetSize,
+        },
+      })
+    );
     handleInteraction();
   }
 
@@ -1339,37 +1305,25 @@ function SportsWidget({ dispatch, handleUserInteraction, widgetEnabledMap }) {
                 onClick={handleViewResults}
                 disabled={!hasPreviousResults}
               />
-              {widgetsMayBeMaximized && (
-                <panel-item submenu="sports-size-submenu">
-                  <span data-l10n-id="newtab-widget-menu-change-size"></span>
-                  <panel-list
-                    ref={sizeSubmenuRef}
-                    slot="submenu"
-                    id="sports-size-submenu"
-                  >
-                    {["medium", "large"].map(size => (
-                      <panel-item
-                        key={size}
-                        type="checkbox"
-                        checked={widgetSize === size || undefined}
-                        data-size={size}
-                        data-l10n-id={`newtab-widget-size-${size}`}
-                      />
-                    ))}
-                  </panel-list>
-                </panel-item>
-              )}
-              <MoveSubmenu
+              <WidgetMenuFooter
+                dispatch={dispatch}
                 widgetId="sportsWidget"
                 widgetEnabledMap={widgetEnabledMap}
-              />
-              <panel-item
-                data-l10n-id="newtab-widget-menu-hide"
-                onClick={handleSportsWidgetHide}
-              />
-              <panel-item
-                data-l10n-id="newtab-sports-widget-menu-learn-more"
-                onClick={handleLearnMore}
+                widgetName="sports"
+                enabledPref="widgets.sportsWidget.enabled"
+                widgetSize={widgetSize}
+                learnMoreL10nId="newtab-sports-widget-menu-learn-more"
+                onLearnMore={handleLearnMore}
+                sizeSubmenu={
+                  widgetsMayBeMaximized ? (
+                    <SizeSubmenu
+                      submenuId="sports-size-submenu"
+                      sizes={["medium", "large"]}
+                      checkedSize={widgetSize}
+                      onChangeSize={handleChangeSize}
+                    />
+                  ) : null
+                }
               />
             </panel-list>
           </div>

@@ -6,9 +6,11 @@
 import React, { useCallback, useRef } from "react";
 import { useSelector, batch } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
-import { useIntersectionObserver, useSizeSubmenu } from "../../../lib/utils";
+import { useIntersectionObserver } from "../../../lib/utils";
 import { WIDGET_REGISTRY, resolveWidgetSize } from "common/WidgetsRegistry.mjs";
-import { MoveSubmenu } from "../MoveSubmenu";
+import { WidgetMenuFooter } from "../WidgetMenuFooter";
+import { SizeSubmenu } from "../SizeSubmenu";
+import { StockTicker } from "./StockTicker";
 
 const USER_ACTION_TYPES = {
   CHANGE_SIZE: "change_size",
@@ -17,9 +19,11 @@ const USER_ACTION_TYPES = {
 };
 
 const STOCKS_ENTRY = WIDGET_REGISTRY.find(w => w.id === "stocks");
+const STOCKS_PLACEHOLDER_COUNT = 4;
 
 function Stocks({ dispatch, widgetsMayBeMaximized, widgetEnabledMap }) {
   const prefs = useSelector(state => state.Prefs.values);
+  const { tickers } = useSelector(state => state.Stocks);
 
   // Resolve size through the registry helper, not the pref, so trainhop and the
   // default can apply.
@@ -43,28 +47,6 @@ function Stocks({ dispatch, widgetsMayBeMaximized, widgetEnabledMap }) {
   }, [dispatch, widgetSize]);
 
   const widgetRef = useIntersectionObserver(handleIntersection);
-
-  function handleStocksHide() {
-    batch(() => {
-      dispatch(
-        ac.OnlyToMain({
-          type: at.SET_PREF,
-          data: { name: STOCKS_ENTRY.enabledPref, value: false },
-        })
-      );
-      dispatch(
-        ac.OnlyToMain({
-          type: at.WIDGETS_ENABLED,
-          data: {
-            widget_name: "stocks",
-            widget_source: "context_menu",
-            enabled: false,
-            widget_size: widgetSize,
-          },
-        })
-      );
-    });
-  }
 
   const handleChangeSize = useCallback(
     size => {
@@ -92,8 +74,6 @@ function Stocks({ dispatch, widgetsMayBeMaximized, widgetEnabledMap }) {
     [dispatch]
   );
 
-  const sizeSubmenuRef = useSizeSubmenu(handleChangeSize);
-
   // Placeholder: a real ticker search will replace this telemetry-only stub in
   // a follow-up.
   function handleSearchTickers() {
@@ -110,28 +90,19 @@ function Stocks({ dispatch, widgetsMayBeMaximized, widgetEnabledMap }) {
     );
   }
 
+  // The shared footer opens the support link; here we only record the click.
   function handleLearnMore() {
-    batch(() => {
-      dispatch(
-        ac.OnlyToMain({
-          type: at.OPEN_LINK,
-          data: {
-            url: "https://support.mozilla.org/kb/firefox-new-tab-widgets",
-          },
-        })
-      );
-      dispatch(
-        ac.OnlyToMain({
-          type: at.WIDGETS_USER_EVENT,
-          data: {
-            widget_name: "stocks",
-            widget_source: "context_menu",
-            user_action: USER_ACTION_TYPES.LEARN_MORE,
-            widget_size: widgetSize,
-          },
-        })
-      );
-    });
+    dispatch(
+      ac.OnlyToMain({
+        type: at.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "stocks",
+          widget_source: "context_menu",
+          user_action: USER_ACTION_TYPES.LEARN_MORE,
+          widget_size: widgetSize,
+        },
+      })
+    );
   }
 
   return (
@@ -142,58 +113,89 @@ function Stocks({ dispatch, widgetsMayBeMaximized, widgetEnabledMap }) {
       }}
     >
       <div className="stocks-title-wrapper">
+        <span
+          className="stocks-title"
+          data-l10n-id="newtab-stocks-widget-title"
+        ></span>
         <div className="stocks-context-menu-wrapper">
           <moz-button
             className="stocks-context-menu-button"
             iconSrc="chrome://global/skin/icons/more.svg"
             menuId="stocks-context-menu"
-            type="ghost"
+            type="icon ghost"
+            size="small"
+            data-l10n-id="newtab-stocks-widget-menu-button"
           />
           <panel-list id="stocks-context-menu">
             <panel-item
               data-l10n-id="newtab-stocks-menu-search"
               onClick={handleSearchTickers}
             />
-            <hr />
-            {widgetsMayBeMaximized && (
-              <panel-item submenu="stocks-size-submenu">
-                <span data-l10n-id="newtab-widget-menu-change-size"></span>
-                <panel-list
-                  ref={sizeSubmenuRef}
-                  slot="submenu"
-                  id="stocks-size-submenu"
-                >
-                  {["small", "medium", "large"].map(size => (
-                    <panel-item
-                      key={size}
-                      type="checkbox"
-                      checked={widgetSize === size || undefined}
-                      data-size={size}
-                      data-l10n-id={`newtab-widget-size-${size}`}
-                    />
-                  ))}
-                </panel-list>
-              </panel-item>
-            )}
-
-            <MoveSubmenu
+            <WidgetMenuFooter
+              dispatch={dispatch}
               widgetId="stocks"
               widgetEnabledMap={widgetEnabledMap}
-            />
-
-            <panel-item
-              data-l10n-id="newtab-stocks-menu-hide"
-              onClick={handleStocksHide}
-            />
-            <panel-item
-              data-l10n-id="newtab-stocks-menu-learn-more"
-              onClick={handleLearnMore}
+              widgetName="stocks"
+              enabledPref={STOCKS_ENTRY.enabledPref}
+              widgetSize={widgetSize}
+              learnMoreL10nId="newtab-stocks-menu-learn-more"
+              onLearnMore={handleLearnMore}
+              sizeSubmenu={
+                widgetsMayBeMaximized ? (
+                  <SizeSubmenu
+                    submenuId="stocks-size-submenu"
+                    sizes={["medium", "large"]}
+                    checkedSize={widgetSize}
+                    onChangeSize={handleChangeSize}
+                  />
+                ) : null
+              }
             />
           </panel-list>
         </div>
       </div>
 
-      <div className="stocks-body" />
+      <div className="stocks-body">
+        {widgetSize === "medium" && (
+          <ul
+            className={`stocks-grid${tickers.length ? "" : " stocks-grid--loading"}`}
+          >
+            {tickers.length
+              ? tickers.map(t => (
+                  <StockTicker
+                    key={t.ticker}
+                    name={t.name}
+                    ticker={t.ticker}
+                    price={t.last_price}
+                    changePercent={t.todays_change_perc}
+                  />
+                ))
+              : Array.from({ length: STOCKS_PLACEHOLDER_COUNT }).map((_, i) => (
+                  <StockTicker key={i} loading={true} />
+                ))}
+          </ul>
+        )}
+        {widgetSize === "large" && (
+          <ul
+            className={`stocks-list${tickers.length ? "" : " stocks-list--loading"}`}
+          >
+            {tickers.length
+              ? tickers.map(t => (
+                  <StockTicker
+                    key={t.ticker}
+                    size="large"
+                    name={t.name}
+                    ticker={t.ticker}
+                    price={t.last_price}
+                    changePercent={t.todays_change_perc}
+                  />
+                ))
+              : Array.from({ length: STOCKS_PLACEHOLDER_COUNT }).map((_, i) => (
+                  <StockTicker key={i} size="large" loading={true} />
+                ))}
+          </ul>
+        )}
+      </div>
     </article>
   );
 }

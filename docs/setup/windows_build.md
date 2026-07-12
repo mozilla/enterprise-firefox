@@ -17,6 +17,27 @@ Unlike the evaluation versions in Microsoft's pre-built VM images, an
 unactivated Windows VM does not shut down every hour.
 :::
 
+:::{note}
+The Mozilla Build package is for now only compiled for x64. It will run fine via
+emulation on Windows on ARM machines (the official name for Windows running on
+an aarch64 CPU), but the Firefox build system will be (rightfully) confused when
+being invoked on a Windows on ARM machine by a x64 Python, and won't know what
+to do.
+
+This will be fixed, but in the meantime, running `./mach` using a native Windows
+on ARM Python will make everything work appropriately, including bootstrapping
+the right tool-chains and such.
+
+The Python project provides an [official installer](https://www.python.org/downloads/windows/#:~:text=Download%20Windows%20installer%20%28ARM64) for Windows on ARM.
+
+Invoke it like so:
+
+```shell
+C:\path\to\python.ext ./mach build
+```
+
+:::
+
 ## System Requirements
 
 - **Memory:** 4GB RAM minimum, 8GB+ recommended.
@@ -87,7 +108,7 @@ building Firefox for Android, you should also see the {ref}`GeckoView Contributo
 
 ### Ensure antivirus exclusions
 
-(ensure-antivirus-exclusions-1)=
+(ensure-antivirus-exclusions)=
 
 Microsoft Defender Antivirus and some third-party antivirus products
 are known to significantly degrade build times and sometimes even cause failed

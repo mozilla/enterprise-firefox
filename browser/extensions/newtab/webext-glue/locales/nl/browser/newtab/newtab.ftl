@@ -96,6 +96,12 @@ home-prefs-clocks-header =
 # Privacy is a widget on New Tab that shows tracking protection activity.
 home-prefs-privacy-header =
     .label = Privacy
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = Aandelen
+# Picture of the day is a widget on New Tab that shows a daily Wikimedia Commons image.
+home-prefs-picture-header =
+    .label = Foto van de dag
 home-prefs-mission-message2 =
     .message = Onze sponsors steunen onze missie om een beter web te bouwen.
 home-prefs-manage-topics-link2 =
@@ -160,6 +166,45 @@ home-prefs-mission-message-learn-more-link-srd = Lees hier hoe
 # Context menu item linking to more information about the Privacy widget.
 newtab-privacy-menu-learn-more = Meer info
 
+## Strings for the Stocks widget
+
+# Context menu item for searching stock ticker symbols.
+newtab-stocks-menu-search = Tickersymbolen doorzoeken
+# Context menu item that hides the Stocks widget.
+newtab-stocks-menu-hide = Aandelen verbergen
+# Context menu item linking to more information about the Stocks widget.
+newtab-stocks-menu-learn-more = Meer info
+
+## Strings for the Picture of the Day widget
+
+# Eyebrow shown at the top of the widget. Wikimedia Commons is a brand name and
+# should not be translated.
+newtab-picture-header = Afbeelding van de dag · Wikimedia Commons
+# Button that sets the current picture as the New Tab background wallpaper. The
+# button collapses to an icon when not hovered/focused, so .title is its tooltip.
+newtab-picture-set-wallpaper =
+    .label = Achtergrond instellen
+    .title = Achtergrond instellen
+    .aria-label = Foto van vandaag als uw achtergrond instellen
+# Context menu item that opens the New Tab customization panel.
+newtab-picture-menu-manage-wallpaper = Achtergrond beheren
+# Context menu item that hides today’s picture, replacing it with an existing
+# wallpaper.
+newtab-picture-menu-hide-photo = Afbeelding van vandaag verbergen
+# Context menu item that restores today’s picture after it has been hidden.
+newtab-picture-menu-show-photo = Foto van vandaag tonen
+# Context menu item linking to more information about the widget.
+newtab-picture-menu-learn-more = Meer info
+# Icon button shown on the widget once the picture is hidden; restores it.
+newtab-picture-show-button =
+    .title = Foto van vandaag tonen
+    .aria-label = Foto van vandaag tonen
+# Shown when there is no new picture to display yet.
+newtab-picture-check-back = Kom morgen terug voor een nieuwe foto
+# Screen-reader text alternative for the picture; fallback used when the source
+# provides no localized description.
+newtab-picture-image-alt = Wikimedia Commons-afbeelding van de dag
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -195,6 +240,7 @@ newtab-topsites-add-shortcut-label = Snelkoppeling toevoegen
 newtab-topsites-add-shortcut-title =
     .title = Snelkoppeling toevoegen
     .aria-label = Snelkoppeling toevoegen
+newtab-shortcuts-pinned-area = Vastgemaakt gebied
 newtab-topsites-title-label = Titel
 newtab-topsites-title-input =
     .placeholder = Voer een titel in
@@ -506,6 +552,10 @@ newtab-custom-widget-sports-toggle2 =
     .label = Sport
 newtab-custom-widget-privacy-toggle =
     .label = Privacy
+newtab-custom-widget-stocks-toggle =
+    .label = Aandelen
+newtab-custom-widget-picture-toggle =
+    .label = Foto van de dag
 newtab-custom-widget-section-title = Widgets
 newtab-custom-widget-section-toggle =
     .label = Widgets
@@ -1288,6 +1338,15 @@ newtab-sports-widget-message-day-in-play-title = Houd uw dag speels met { -brand
 newtab-sports-widget-message-day-in-play-body = Volg het WK, blijf bij de les, houd wereldwijd de tijd bij, en meer.
 newtab-sports-widget-message-explore-widgets-cta =
     .label = Widgets verkennen
+
+## Survey prompts shown after the World Cup to gather feedback on the widgets experience.
+
+newtab-sports-widget-message-survey-title = Help ons widgets te verbeteren
+newtab-sports-widget-message-survey-body = Het WK zit erop. Deel uw feedback over de ervaring.
+newtab-sports-widget-message-survey-widget-title = Hoe was de WK-widget?
+newtab-sports-widget-message-survey-widget-body = Deel uw feedback om ons te helpen toekomstige widgets te verbeteren. Probeer daarna de nieuwe in uw assortiment.
+newtab-sports-widget-message-survey-cta =
+    .label = Enquête starten
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

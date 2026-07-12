@@ -3158,7 +3158,7 @@ bool VerifyPrincipalInfo(ThreadsafeContentParentHandle* aContentParentHandle,
 
   if (aContentParentHandle &&
       NS_WARN_IF(!ValidatePrincipalCouldPotentiallyBeLoadedBy(
-          prinResult.inspect(), aContentParentHandle->GetRemoteType(), {}))) {
+          prinResult.inspect(), aContentParentHandle->GetRemoteType()))) {
     return false;
   }
 

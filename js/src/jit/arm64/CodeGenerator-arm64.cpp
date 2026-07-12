@@ -29,10 +29,7 @@ using namespace js::jit;
 
 using JS::GenericNaN;
 using mozilla::FloorLog2;
-using mozilla::Maybe;
 using mozilla::NegativeInfinity;
-using mozilla::Nothing;
-using mozilla::Some;
 
 // shared
 CodeGeneratorARM64::CodeGeneratorARM64(MIRGenerator* gen, LIRGraph* graph,
@@ -2351,55 +2348,55 @@ void CodeGenerator::visitMulIntPtr(LMulIntPtr* ins) {
 // constant and base+offset overflows; sidestep this by performing the addition
 // anyway, overflowing to 64-bit.
 
-static Maybe<uint64_t> IsAbsoluteAddress(const LAllocation* ptr,
-                                         const wasm::MemoryAccessDesc& access) {
+static mozilla::Maybe<uint64_t> ToAbsoluteAddress(
+    const LAllocation* ptr, const wasm::MemoryAccessDesc& access) {
   if (ptr->isConstantValue()) {
     const MConstant* c = ptr->toConstant();
     uint64_t base_address = c->type() == MIRType::Int32
                                 ? uint64_t(uint32_t(c->toInt32()))
                                 : uint64_t(c->toInt64());
     uint64_t offset = access.offset32();
-    return Some(base_address + offset);
+    return mozilla::Some(base_address + offset);
   }
-  return Nothing();
+  return mozilla::Nothing();
 }
 
 void CodeGenerator::visitWasmLoad(LWasmLoad* lir) {
   const MWasmLoad* mir = lir->mir();
+  const auto& access = mir->access();
 
-  if (Maybe<uint64_t> absAddr = IsAbsoluteAddress(lir->ptr(), mir->access())) {
-    masm.wasmLoadAbsolute(mir->access(), ToRegister(lir->memoryBase()),
-                          absAddr.value(), ToAnyRegister(lir->output()),
+  Register memoryBase = ToRegister(lir->memoryBase());
+  AnyRegister output = ToAnyRegister(lir->output());
+
+  if (auto address = ToAbsoluteAddress(lir->ptr(), access)) {
+    masm.wasmLoadAbsolute(access, memoryBase, address.value(), output,
                           Register64::Invalid());
-    return;
+  } else {
+    // ptr is a GPR and is either a 32-bit value zero-extended to 64-bit, or a
+    // true 64-bit value.
+    masm.wasmLoad(mir->access(), memoryBase, ToRegister(lir->ptr()), output);
   }
-
-  // ptr is a GPR and is either a 32-bit value zero-extended to 64-bit, or a
-  // true 64-bit value.
-  masm.wasmLoad(mir->access(), ToRegister(lir->memoryBase()),
-                ToRegister(lir->ptr()), ToAnyRegister(lir->output()));
 }
 
 void CodeGenerator::visitWasmStore(LWasmStore* lir) {
   const MWasmStore* mir = lir->mir();
+  const auto& access = mir->access();
+
+  Register memoryBase = ToRegister(lir->memoryBase());
 
   AnyRegister value;
-  if (lir->value()->isConstant()) {
-    // Lowering only produces i32.const 0 here (Int64 uses useRegisterAtStart).
-    MOZ_ASSERT(ToInt32(lir->value()) == 0 && mir->access().byteSize() <= 4);
-    value = AnyRegister(Register::FromCode(Registers::xzr));
+  if (lir->value()->isBogus()) {
+    value = AnyRegister(ZeroRegister);
   } else {
     value = ToAnyRegister(lir->value());
   }
 
-  if (Maybe<uint64_t> absAddr = IsAbsoluteAddress(lir->ptr(), mir->access())) {
-    masm.wasmStoreAbsolute(mir->access(), value, Register64::Invalid(),
-                           ToRegister(lir->memoryBase()), absAddr.value());
-    return;
+  if (auto address = ToAbsoluteAddress(lir->ptr(), access)) {
+    masm.wasmStoreAbsolute(access, value, Register64::Invalid(), memoryBase,
+                           address.value());
+  } else {
+    masm.wasmStore(access, value, memoryBase, ToRegister(lir->ptr()));
   }
-
-  masm.wasmStore(mir->access(), value, ToRegister(lir->memoryBase()),
-                 ToRegister(lir->ptr()));
 }
 
 void CodeGenerator::visitWasmSelect(LWasmSelect* lir) {
@@ -2530,29 +2527,38 @@ void CodeGenerator::visitWasmCompareAndSelect(LWasmCompareAndSelect* ins) {
 
 void CodeGenerator::visitWasmLoadI64(LWasmLoadI64* lir) {
   const MWasmLoad* mir = lir->mir();
+  const auto& access = mir->access();
 
-  if (Maybe<uint64_t> absAddr = IsAbsoluteAddress(lir->ptr(), mir->access())) {
-    masm.wasmLoadAbsolute(mir->access(), ToRegister(lir->memoryBase()),
-                          absAddr.value(), AnyRegister(), ToOutRegister64(lir));
-    return;
+  Register memoryBase = ToRegister(lir->memoryBase());
+  Register64 output = ToOutRegister64(lir);
+
+  if (auto address = ToAbsoluteAddress(lir->ptr(), access)) {
+    masm.wasmLoadAbsolute(access, memoryBase, address.value(), AnyRegister(),
+                          output);
+  } else {
+    masm.wasmLoadI64(access, memoryBase, ToRegister(lir->ptr()), output);
   }
-
-  masm.wasmLoadI64(mir->access(), ToRegister(lir->memoryBase()),
-                   ToRegister(lir->ptr()), ToOutRegister64(lir));
 }
 
 void CodeGenerator::visitWasmStoreI64(LWasmStoreI64* lir) {
   const MWasmStore* mir = lir->mir();
+  const auto& access = mir->access();
 
-  if (Maybe<uint64_t> absAddr = IsAbsoluteAddress(lir->ptr(), mir->access())) {
-    masm.wasmStoreAbsolute(mir->access(), AnyRegister(),
-                           ToRegister64(lir->value()),
-                           ToRegister(lir->memoryBase()), absAddr.value());
-    return;
+  Register memoryBase = ToRegister(lir->memoryBase());
+
+  Register64 value = Register64::Invalid();
+  if (lir->value().value().isBogus()) {
+    value = Register64(ZeroRegister);
+  } else {
+    value = ToRegister64(lir->value());
   }
 
-  masm.wasmStoreI64(mir->access(), ToRegister64(lir->value()),
-                    ToRegister(lir->memoryBase()), ToRegister(lir->ptr()));
+  if (auto address = ToAbsoluteAddress(lir->ptr(), access)) {
+    masm.wasmStoreAbsolute(access, AnyRegister(), value, memoryBase,
+                           address.value());
+  } else {
+    masm.wasmStoreI64(access, value, memoryBase, ToRegister(lir->ptr()));
+  }
 }
 
 void CodeGenerator::visitWasmAddOffset(LWasmAddOffset* lir) {
@@ -3663,21 +3669,17 @@ void CodeGenerator::visitWasmReplaceLaneSimd128(LWasmReplaceLaneSimd128* ins) {
   const LAllocation* rhs = ins->rhs();
   uint32_t laneIndex = ins->mir()->laneIndex();
 
-  if (MOZ_UNLIKELY(rhs->isConstant())) {
+  if (rhs->isBogus()) {
     // Lowering only produces i32.const 0 here (I64x2 uses useRegister).
-    MOZ_ASSERT(ToInt32(rhs) == 0);
     switch (ins->mir()->simdOp()) {
       case wasm::SimdOp::I8x16ReplaceLane:
-        masm.replaceLaneInt8x16(laneIndex, Register::FromCode(Registers::xzr),
-                                lhsDest);
+        masm.replaceLaneInt8x16(laneIndex, ZeroRegister, lhsDest);
         break;
       case wasm::SimdOp::I16x8ReplaceLane:
-        masm.replaceLaneInt16x8(laneIndex, Register::FromCode(Registers::xzr),
-                                lhsDest);
+        masm.replaceLaneInt16x8(laneIndex, ZeroRegister, lhsDest);
         break;
       case wasm::SimdOp::I32x4ReplaceLane:
-        masm.replaceLaneInt32x4(laneIndex, Register::FromCode(Registers::xzr),
-                                lhsDest);
+        masm.replaceLaneInt32x4(laneIndex, ZeroRegister, lhsDest);
         break;
       default:
         MOZ_CRASH();

@@ -193,14 +193,6 @@ class RustLoginsStoreAdapter {
     return await this.#store.count();
   }
 
-  async countByOrigin(origin) {
-    return await this.#store.countByOrigin(origin);
-  }
-
-  async countByFormActionOrigin(formActionOrigin) {
-    return await this.#store.countByFormActionOrigin(formActionOrigin);
-  }
-
   async touch(id) {
     return await this.#store.touch(id);
   }
@@ -258,6 +250,14 @@ class RustLoginsStoreAdapter {
 class RustLoginStorageAuthenticator extends PrimaryPasswordAuthenticator {
   #logger = null;
 
+  // True while a primary-password prompt is displayed, so the storage can
+  // report `uiBusy` like the SDR crypto does.
+  uiBusy = false;
+
+  // Set when the user cancels the prompt. The storage uses this to translate
+  // the resulting store failure into NS_ERROR_ABORT (matching crypto-SDR).
+  authCanceled = false;
+
   constructor() {
     super();
     this.#logger = lazy.LoginHelper.createLogger(
@@ -270,27 +270,34 @@ class RustLoginStorageAuthenticator extends PrimaryPasswordAuthenticator {
   // calling get_key(), so this method is always invoked serially.
   async getPrimaryPassword() {
     this.#logger.log("getPrimaryPassword called");
-    const win = Services.wm.getMostRecentBrowserWindow();
-    // Empty title causes Prompter.sys.mjs to fall back to the localised
-    // "PromptPassword3" string ("Password Required - <AppName>").
-    const message = await lazy.l10n.formatValue(
-      "primary-password-prompt-message"
-    );
-    const result = await Services.prompt.asyncPromptPassword(
-      win?.browsingContext,
-      Services.prompt.MODAL_TYPE_WINDOW,
-      "",
-      message,
-      ""
-    );
+    this.authCanceled = false;
+    this.uiBusy = true;
+    try {
+      const win = Services.wm.getMostRecentBrowserWindow();
+      // Empty title causes Prompter.sys.mjs to fall back to the localised
+      // "PromptPassword3" string ("Password Required - <AppName>").
+      const message = await lazy.l10n.formatValue(
+        "primary-password-prompt-message"
+      );
+      const result = await Services.prompt.asyncPromptPassword(
+        win?.browsingContext,
+        Services.prompt.MODAL_TYPE_WINDOW,
+        "",
+        message,
+        ""
+      );
 
-    if (!result.getProperty("ok")) {
-      Services.obs.notifyObservers(null, "passwordmgr-crypto-loginCanceled");
-      throw new AuthenticationCanceled("User cancelled");
+      if (!result.getProperty("ok")) {
+        this.authCanceled = true;
+        Services.obs.notifyObservers(null, "passwordmgr-crypto-loginCanceled");
+        throw new AuthenticationCanceled("User cancelled");
+      }
+
+      this.#logger.log("got a password");
+      return result.getProperty("pass");
+    } finally {
+      this.uiBusy = false;
     }
-
-    this.#logger.log("got a password");
-    return result.getProperty("pass");
   }
 
   async onAuthenticationSuccess() {
@@ -305,6 +312,7 @@ class RustLoginStorageAuthenticator extends PrimaryPasswordAuthenticator {
 
 export class LoginManagerRustStorage {
   #storageAdapter = null;
+  #authenticator = null;
   #initializationPromise = null;
   // Only the active backend fires storage-changed events to avoid duplicates
   // when both JSON and Rust stores are initialized.
@@ -336,6 +344,7 @@ export class LoginManagerRustStorage {
 
           initRustComponents(profilePath).then(() => {
             const authenticator = new RustLoginStorageAuthenticator();
+            this.#authenticator = authenticator;
             const store = createLoginStoreWithNssKeymanager(
               path,
               authenticator
@@ -611,12 +620,26 @@ export class LoginManagerRustStorage {
       }
     }
 
-    const [logins] = await this.#searchLogins(
-      realMatchData,
-      includeDeleted,
-      options
-    );
-    return logins;
+    try {
+      const [logins] = await this.#searchLogins(
+        realMatchData,
+        includeDeleted,
+        options
+      );
+      return logins;
+    } catch (e) {
+      // When the user cancels the primary-password prompt, the store fails to
+      // decrypt. Translate that into NS_ERROR_ABORT so callers (e.g.
+      // LoginManagerParent) can throttle further prompts, matching crypto-SDR.
+      if (this.#authenticator?.authCanceled) {
+        this.#authenticator.authCanceled = false;
+        throw Components.Exception(
+          "User canceled primary password entry",
+          Cr.NS_ERROR_ABORT
+        );
+      }
+      throw e;
+    }
   }
 
   async #searchLogins(
@@ -757,11 +780,7 @@ export class LoginManagerRustStorage {
    *
    */
   async removeAllLoginsAsync() {
-    const removed = await this.#removeLogins(false, true);
-    if (this.#isActive) {
-      lazy.LoginHelper.notifyStorageChanged("removeAllLogins", removed ?? []);
-    }
-    return removed;
+    return await this.#removeLogins(false, true);
   }
 
   /**
@@ -807,21 +826,23 @@ export class LoginManagerRustStorage {
     if (idsToDelete.length) {
       await this.#storageAdapter.deleteMany(idsToDelete);
     }
+
+    if (this.#isActive) {
+      lazy.LoginHelper.notifyStorageChanged("removeAllLogins", removedLogins);
+    }
+
+    return removedLogins;
   }
 
   async countLoginsAsync(origin, formActionOrigin, httpRealm) {
-    if (!origin && !formActionOrigin && !httpRealm) {
+    // The optimized adapter path only applies when all fields are the empty
+    // string wildcard. Origin and formActionOrigin must go through the generic
+    // search below so that count and search share the same strict matching
+    // semantics; the native countByOrigin/countByFormActionOrigin paths
+    // normalize the origin (e.g. stripping a trailing slash) and would count
+    // logins that searchLoginsAsync does not return.
+    if (origin === "" && formActionOrigin === "" && httpRealm === "") {
       return await this.#storageAdapter.count();
-    }
-
-    if (origin && !formActionOrigin && !httpRealm) {
-      return await this.#storageAdapter.countByOrigin(origin);
-    }
-
-    if (!origin && formActionOrigin && !httpRealm) {
-      return await this.#storageAdapter.countByFormActionOrigin(
-        formActionOrigin
-      );
     }
 
     const loginData = {
@@ -895,7 +916,9 @@ export class LoginManagerRustStorage {
   }
 
   get uiBusy() {
-    return this._crypto.uiBusy;
+    // The Rust store shows its own primary-password prompt via the
+    // authenticator, which the SDR crypto is unaware of.
+    return this.#authenticator?.uiBusy || this._crypto.uiBusy;
   }
 
   get isLoggedIn() {

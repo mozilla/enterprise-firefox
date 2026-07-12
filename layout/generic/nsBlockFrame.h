@@ -580,6 +580,11 @@ class nsBlockFrame : public nsContainerFrame {
    * For text-wrap:balance, we iteratively try reflowing with adjusted inline
    * size to find the "best" result (the tightest size that can be applied
    * without increasing the total line count of the block).
+   *
+   * For text-box-trim, if requested by the previous trial of the frame,
+   * we perform a single retry in order to correctly apply trim-end at a
+   * fragment boundary.
+   *
    * This record is used to manage the state of these "trial reflows", and
    * return results from the final trial.
    */
@@ -607,6 +612,15 @@ class nsBlockFrame : public nsContainerFrame {
           mEffectiveContentBoxBSize(aEffectiveContentBoxBSize),
           mNeedFloatManager(aNeedFloatManager) {}
 
+    // Re-initialize state that the reflow loop will compute.
+    void Reset() {
+      mOcBounds.Clear();
+      mFcBounds.Clear();
+      mBlockEndEdgeOfChildren = 0;
+      mContainerWidth = 0;
+      mUsedOverflowWrap = false;
+    }
+
     // Adjust the inset amount, and reset state for a new trial.
     void ResetForBalance(nscoord aInsetDelta) {
       // Tells the reflow-lines loop we must consider all lines "dirty" (as we
@@ -614,20 +628,22 @@ class nsBlockFrame : public nsContainerFrame {
       mBalancing = true;
       // Adjust inset to apply.
       mInset += aInsetDelta;
-      // Re-initialize state that the reflow loop will compute.
-      mOcBounds.Clear();
-      mFcBounds.Clear();
-      mBlockEndEdgeOfChildren = 0;
-      mContainerWidth = 0;
-      mUsedOverflowWrap = false;
+      Reset();
     }
   };
 
   /**
    * Internal helper for Reflow(); may be called repeatedly during a single
-   * Reflow() in order to implement text-wrap:balance.
-   * This method applies aTrialState.mInset during line-breaking to reduce
-   * the effective available inline-size (without affecting alignment).
+   * Reflow() in order to implement text-wrap:balance and text-box-trim on
+   * fragmented boxes.
+   *
+   * For text-wrap: balance, this method applies aTrialState.mInset during
+   * line-breaking to reduce the effective available inline-size (without
+   * affecting alignment).
+   *
+   * For text-box-trim, this method performs an additional trial if
+   * requested by the frame if it requires trimming on the block end side
+   * of the current fragment of the frame.
    */
   nsReflowStatus TrialReflow(nsPresContext* aPresContext,
                              ReflowOutput& aMetrics,

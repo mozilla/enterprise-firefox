@@ -5,13 +5,14 @@
 import json
 import os
 import threading
-import time
 import urllib.parse
 import urllib.request
+from datetime import datetime, timedelta, timezone
 
 import mozunit
 import pytest
 from tryselect.util.taskcluster import (
+    TC_CREDENTIALS_EXPIRY_DAYS,
     TC_ROOT_URL,
     _scopes_key,
     get_client,
@@ -22,6 +23,28 @@ import taskcluster as tc_module
 DEFAULT_SCOPES = ["some:scope"]
 BROWSER_CLIENT_ID = "browser-client"
 BROWSER_ACCESS_TOKEN = "browser-token"
+TC_CLIENT_URL = f"{TC_ROOT_URL}/api/auth/v1/clients/cached-client"
+
+
+def _expires_iso(offset_s):
+    dt = datetime.now(tz=timezone.utc) + timedelta(seconds=offset_s)
+    return dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
+def _register_tc_client(
+    rsps,
+    disabled=False,
+    expires_offset_s=TC_CREDENTIALS_EXPIRY_DAYS * 86400,
+    status=200,
+):
+    if status != 200:
+        rsps.add(rsps.GET, TC_CLIENT_URL, status=status, json={})
+    else:
+        rsps.add(
+            rsps.GET,
+            TC_CLIENT_URL,
+            json={"disabled": disabled, "expires": _expires_iso(expires_offset_s)},
+        )
 
 
 @pytest.fixture
@@ -33,22 +56,20 @@ def credentials_file(tmp_path, monkeypatch):
     return creds_path
 
 
-def make_cache(credentials_file, scopes=None, expires_offset=7200):
+def make_cache(credentials_file, scopes=None):
     scopes = scopes or DEFAULT_SCOPES
     credentials_file.write_text(
         json.dumps({
             _scopes_key(scopes): {
                 "clientId": "cached-client",
                 "accessToken": "cached-token",
-                "expires": time.time() + expires_offset,
             }
         })
     )
 
 
 @pytest.fixture
-def run_get_client(monkeypatch):
-
+def run_get_client(monkeypatch, responses):
     def fake_webbrowser_open(url):
         params = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
         callback_url = params["callback_url"][0]
@@ -89,8 +110,9 @@ def test_get_client_automation(run_get_client):
     assert result.options["credentials"]["accessToken"] == b"env-token"
 
 
-def test_get_client_cache_hit(credentials_file, run_get_client):
+def test_get_client_cache_hit(credentials_file, run_get_client, responses):
     make_cache(credentials_file)
+    _register_tc_client(responses)
     result = run_get_client()
     assert isinstance(result, tc_module.Queue)
     assert result.options["rootUrl"] == TC_ROOT_URL
@@ -98,8 +120,9 @@ def test_get_client_cache_hit(credentials_file, run_get_client):
     assert result.options["credentials"]["accessToken"] == b"cached-token"
 
 
-def test_get_client_cache_expired(credentials_file, run_get_client):
-    make_cache(credentials_file, expires_offset=200)
+def test_get_client_cache_expired(credentials_file, run_get_client, responses):
+    make_cache(credentials_file)
+    _register_tc_client(responses, expires_offset_s=200)
     result = run_get_client()
     assert isinstance(result, tc_module.Queue)
     assert result.options["rootUrl"] == TC_ROOT_URL
@@ -115,6 +138,27 @@ def test_get_client_browser_auth(credentials_file, run_get_client):
     assert result.options["credentials"]["clientId"] == b"browser-client"
     assert result.options["credentials"]["accessToken"] == b"browser-token"
     assert credentials_file.is_file()
+
+
+def test_get_client_deleted_tc_client(credentials_file, run_get_client, responses):
+    make_cache(credentials_file)
+    _register_tc_client(responses, status=404)
+    result = run_get_client()
+    assert result.options["credentials"]["clientId"] == b"browser-client"
+
+
+def test_get_client_auth_failure(credentials_file, run_get_client, responses):
+    make_cache(credentials_file)
+    _register_tc_client(responses, status=401)
+    result = run_get_client()
+    assert result.options["credentials"]["clientId"] == b"browser-client"
+
+
+def test_get_client_disabled(credentials_file, run_get_client, responses):
+    make_cache(credentials_file)
+    _register_tc_client(responses, disabled=True)
+    result = run_get_client()
+    assert result.options["credentials"]["clientId"] == b"browser-client"
 
 
 if __name__ == "__main__":

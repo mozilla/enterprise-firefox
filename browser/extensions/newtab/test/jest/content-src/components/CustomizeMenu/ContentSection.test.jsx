@@ -92,5 +92,21 @@ describe("<ContentSection>", () => {
         widget_size: "large",
       });
     });
+
+    it("dispatches WIDGETS_ENABLED with widget_name='picture_of_the_day' when the picture toggle fires", () => {
+      const dispatch = jest.fn();
+      const instance = getInstance({ dispatch });
+      instance.inputUserEvent("WIDGET_PICTURE_OF_THE_DAY", true);
+
+      const enabledCall = dispatch.mock.calls.find(
+        ([action]) => action?.type === at.WIDGETS_ENABLED
+      );
+      expect(enabledCall?.[0].data).toMatchObject({
+        widget_name: "picture_of_the_day",
+        widget_source: "customize_panel",
+        enabled: true,
+        widget_size: "large",
+      });
+    });
   });
 });

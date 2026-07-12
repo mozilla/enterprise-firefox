@@ -23,9 +23,6 @@ import { TOP_SITES_MAX_SITES_PER_ROW } from "common/Reducers.sys.mjs";
 import { ContextMenuButton } from "content-src/components/ContextMenu/ContextMenuButton";
 import { TopSiteImpressionWrapper } from "./TopSiteImpressionWrapper";
 import { connect } from "react-redux";
-import { MessageWrapper } from "../MessageWrapper/MessageWrapper";
-import { ShortcutFeatureHighlight } from "../DiscoveryStreamComponents/FeatureHighlight/ShortcutFeatureHighlight";
-import { shouldShowOMCHighlight } from "../../lib/asrouter-message-utils.mjs";
 
 const NEWTAB_SOURCE = "newtab";
 
@@ -89,9 +86,7 @@ export class TopSiteLink extends React.PureComponent {
     if (this.props.groupedPinsEnabled) {
       return !!this.props.link.isPinned;
     }
-    return (
-      this.dragged || (!isSponsored(this.props.link) && !this.props.isAddButton)
-    );
+    return this.dragged || !isSponsored(this.props.link);
   }
 
   onDragEvent(event) {
@@ -172,10 +167,7 @@ export class TopSiteLink extends React.PureComponent {
     // If we have tabbed to a search shortcut top site, and we click 'enter',
     // we should execute the onClick function. This needs to be added because
     // search top sites are anchor tags without an href. See bug 1483135
-    if (
-      event.key === "Enter" &&
-      (this.props.link.searchTopSite || this.props.isAddButton)
-    ) {
+    if (event.key === "Enter" && this.props.link.searchTopSite) {
       this.props.onClick(event);
     }
   }
@@ -273,7 +265,6 @@ export class TopSiteLink extends React.PureComponent {
       link,
       onClick,
       title,
-      isAddButton,
       visibleTopSites,
     } = this.props;
 
@@ -291,12 +282,6 @@ export class TopSiteLink extends React.PureComponent {
       selectedColor,
     } = this.calculateStyle();
 
-    const addButtonLabell10n = {
-      "data-l10n-id": "newtab-topsites-add-shortcut-label",
-    };
-    const addButtonTitlel10n = {
-      "data-l10n-id": "newtab-topsites-add-shortcut-title",
-    };
     const addPinnedTitlel10n = {
       "data-l10n-id": "topsite-label-pinned",
       "data-l10n-args": JSON.stringify({ title }),
@@ -404,8 +389,7 @@ export class TopSiteLink extends React.PureComponent {
             data-is-sponsored-link={!!link.sponsored_tile_id}
             onFocus={this.props.onFocus}
             aria-label={link.isPinned ? undefined : title}
-            {...(isAddButton && { ...addButtonTitlel10n })}
-            {...(!isAddButton && { title })}
+            title={title}
             {...(link.isPinned && { ...addPinnedTitlel10n })}
             data-l10n-args={JSON.stringify({ title })}
           >
@@ -437,11 +421,7 @@ export class TopSiteLink extends React.PureComponent {
                   : ""
               }`}
             >
-              <span
-                className="title-label"
-                dir="auto"
-                {...(isAddButton && { ...addButtonLabell10n })}
-              >
+              <span className="title-label" dir="auto">
                 {link.searchTopSite && (
                   <div className="top-site-icon search-topsite" />
                 )}
@@ -453,26 +433,10 @@ export class TopSiteLink extends React.PureComponent {
               />
             </div>
           </a>
-          {isAddButton &&
-            shouldShowOMCHighlight(
-              this.props.Messages,
-              "ShortcutHighlight"
-            ) && (
-              <MessageWrapper
-                dispatch={this.props.dispatch}
-                onClick={e => e.stopPropagation()}
-              >
-                <ShortcutFeatureHighlight
-                  dispatch={this.props.dispatch}
-                  feature="FEATURE_SHORTCUT_HIGHLIGHT"
-                  position="inset-block-end inset-inline-start"
-                  messageData={this.props.Messages?.messageData}
-                />
-              </MessageWrapper>
-            )}
           {children}
           {impressionStats}
         </div>
+        {this.props.addButton}
       </li>
     );
   }
@@ -731,17 +695,37 @@ export class TopSiteAddButton extends React.PureComponent {
   }
 
   render() {
-    return (
-      <TopSiteLink
-        {...this.props}
-        isAddButton={true}
-        className={`add-button ${this.props.className || ""}`}
-        onClick={this.onEditButtonClick}
-        setPref={this.props.setPref}
-        isDraggable={false}
+    // In-grid buttons are large to match the tile icons; the full-row hover
+    // overlay uses the default size. Both variants participate in the shortcuts'
+    // arrow-key navigation.
+    const button = (
+      <moz-button
+        type="primary"
+        className="add-button"
         tabIndex={this.props.tabIndex}
+        onFocus={this.props.onFocus}
+        {...(this.props.inGrid && { size: "large" })}
+        iconsrc="chrome://global/skin/icons/plus.svg"
+        data-l10n-id="newtab-topsites-add-shortcut-title"
+        onClick={this.onEditButtonClick}
       />
     );
+
+    if (this.props.inGrid) {
+      return (
+        <li
+          className={`top-site-outer add-button-tile ${
+            this.props.className ? `${this.props.className}` : ""
+          }`}
+        >
+          {button}
+        </li>
+      );
+    }
+
+    // For a full row, overlay the button on the last tile; reveal on hover or
+    // when the shortcuts row has focus.
+    return <div className="add-button-hidden">{button}</div>;
   }
 }
 
@@ -783,6 +767,8 @@ export class _TopSiteList extends React.PureComponent {
     this.onTopsiteFocus = this.onTopsiteFocus.bind(this);
     this.onWrapperBlur = this.onWrapperBlur.bind(this);
     this.onKeyDown = this.onKeyDown.bind(this);
+    this.onListDragLeave = this.onListDragLeave.bind(this);
+    this.onListDragOver = this.onListDragOver.bind(this);
   }
 
   componentDidUpdate(prevProps) {
@@ -793,6 +779,14 @@ export class _TopSiteList extends React.PureComponent {
     if (started || ended) {
       // eslint-disable-next-line react/no-did-update-set-state
       this.setState(ended ? _TopSiteList.DEFAULT_STATE : { activeIndex: null });
+    }
+
+    // Keyboard focus: the shortcuts share one roving tab stop (focusedIndex). If
+    // the row count shrinks, the focused tile may no longer be rendered, leaving
+    // the row with no tab stop — reset to the first tile to keep the row focusable.
+    if (prevProps.TopSitesRows !== this.props.TopSitesRows) {
+      // eslint-disable-next-line react/no-did-update-set-state
+      this.setState({ focusedIndex: 0 });
     }
   }
 
@@ -805,22 +799,31 @@ export class _TopSiteList extends React.PureComponent {
       return;
     }
 
-    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-      // Arrow direction should match visual navigation direction in RTL
-      const isRTL = document.dir === "rtl";
-      const navigateToPrevious = isRTL
-        ? e.key === "ArrowRight"
-        : e.key === "ArrowLeft";
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") {
+      return;
+    }
+    // Arrow direction should match visual navigation direction in RTL
+    const isRTL = document.dir === "rtl";
+    const navigateToPrevious = isRTL
+      ? e.key === "ArrowRight"
+      : e.key === "ArrowLeft";
 
-      const targetTopSite = navigateToPrevious
-        ? this.focusedRef?.previousSibling
-        : this.focusedRef?.nextSibling;
-
-      const targetAnchor = targetTopSite?.querySelector("a");
-      if (targetAnchor) {
-        targetAnchor.tabIndex = 0;
-        targetAnchor.focus();
-      }
+    // Walk a flat, DOM-ordered list of focus targets: each tile's link plus
+    // the add-button.
+    const focusTargets = [...this.focusRef.querySelectorAll("a, .add-button")];
+    const currentIndex = focusTargets.indexOf(e.target);
+    if (currentIndex === -1) {
+      return;
+    }
+    // Wrap around the row: stepping forward past the last target returns to the
+    // first, and vice versa. The extra `+ count` keeps the modulo positive when
+    // wrapping backward from index 0.
+    const count = focusTargets.length;
+    const delta = navigateToPrevious ? -1 : 1;
+    const target = focusTargets[(currentIndex + delta + count) % count];
+    if (target) {
+      target.tabIndex = 0;
+      target.focus();
     }
   }
 
@@ -836,16 +839,70 @@ export class _TopSiteList extends React.PureComponent {
     }));
   }
 
+  // dragover fires continuously on whatever's under the cursor, so it's the
+  // reliable "current element" signal (dragenter/dragleave order can't be
+  // trusted between adjacent tiles). The reflow should only live while the
+  // cursor is within the pinned drop region (the purple outline), so hit-test
+  // the live overlay boxes: each box spans a whole pinned row, so crossing the
+  // gaps between pins stays inside and doesn't flicker. Classic has no pinned
+  // region, so it keeps its original behavior.
+  onListDragOver(event) {
+    // Preserve any list-level handler (zero-pin grouped drop geometry).
+    this.props.listProps?.onDragOver?.(event);
+    if (!this.props.groupedPinsEnabled) {
+      return;
+    }
+    const boxes = [...event.currentTarget.querySelectorAll(".pinned-drop-box")];
+    if (!boxes.length) {
+      return;
+    }
+    const inside = boxes.some(box => {
+      const r = box.getBoundingClientRect();
+      return (
+        event.clientX >= r.left &&
+        event.clientX <= r.right &&
+        event.clientY >= r.top &&
+        event.clientY <= r.bottom
+      );
+    });
+    if (!inside) {
+      this.props.onDragEvent(event);
+    }
+  }
+
+  // Safety net for the grouped pinned-region clear: leaving the grid straight
+  // off an edge tile, where no in-region dragover lands first. Filters out
+  // tile-to-tile crossings via relatedTarget. Grouped-only, so classic keeps its
+  // original "placeholder persists until drop/dragend" behavior.
+  onListDragLeave(event) {
+    // Preserve any list-level handler (e.g. zero-pin grouped drop).
+    this.props.listProps?.onDragLeave?.(event);
+    if (!this.props.groupedPinsEnabled) {
+      return;
+    }
+    if (!event.currentTarget.contains(event.relatedTarget)) {
+      this.props.onDragEvent(event);
+    }
+  }
+
   render() {
     const { props } = this;
     const topSites = this.props.sites;
+    const maxSitesPerRow =
+      props.topSitesMaxSitesPerRow ?? TOP_SITES_MAX_SITES_PER_ROW;
+    // The array can be sparse (e.g. dismissed tiles leave holes), so count the
+    // tiles that actually render rather than relying on slot indices.
+    const tileCount = topSites.filter(site => site && !site.isAddButton).length;
+    const rowFull = tileCount > 0 && tileCount % maxSitesPerRow === 0;
     const topSitesUI = [];
     const commonProps = {
       onDragEvent: this.props.onDragEvent,
       dispatch: props.dispatch,
       groupedPinsEnabled: this.props.groupedPinsEnabled,
-      // Zero-pin drops on the list (single target); everything else per-tile.
-      dropsOnList: !!this.props.listProps,
+      // Zero-pin drops on the list (single synthetic target, no per-tile
+      // handlers). The reorder+append path keeps per-tile handlers and adds a
+      // list-level append target, so it passes listProps without this flag.
+      dropsOnList: !!this.props.dropsOnList,
     };
     const { decorations } = this.props;
     // We assign a key to each placeholder slot. We need it to be independent
@@ -883,7 +940,11 @@ export class _TopSiteList extends React.PureComponent {
         });
 
       const slotProps = {
-        key: link?.url || `hole-${holeIndex++}`,
+        // Stable key so the button isn't remounted (and re-flashed) as its slot
+        // shifts on pin/unpin — it has no url to key off of.
+        key: link?.isAddButton
+          ? "add-button"
+          : link?.url || `hole-${holeIndex++}`,
         index: i,
       };
       // @nova-cleanup(remove-conditional): Remove classic path once Nova ships
@@ -924,27 +985,40 @@ export class _TopSiteList extends React.PureComponent {
           );
         }
       } else if (topSites[i]?.isAddButton) {
-        topSiteLink = (
-          <TopSiteAddButton
-            key={slotKey}
-            {...restSlotProps}
-            {...commonProps}
-            setRef={
-              i === this.state.focusedIndex
-                ? el => {
-                    this.focusedRef = el;
-                  }
-                : () => {}
-            }
-            tabIndex={i === this.state.focusedIndex ? 0 : -1}
-            onFocus={() => {
-              this.onTopsiteFocus(i);
-            }}
-            Messages={this.props.Messages}
-            visibleTopSites={this.props.visibleTopSites}
-          />
-        );
+        // Render the add button in-grid when the row isn't full. It carries the
+        // slot's responsive hide class so it drops at the same breakpoints as a
+        // tile in that column would.
+        if (!rowFull) {
+          topSiteLink = (
+            <TopSiteAddButton
+              inGrid={true}
+              className={slotProps.className}
+              key={slotKey}
+              index={i}
+              dispatch={props.dispatch}
+              tabIndex={i === this.state.focusedIndex ? 0 : -1}
+              onFocus={() => {
+                this.onTopsiteFocus(i);
+              }}
+            />
+          );
+        }
       } else {
+        // When this is the last tile of a full row, the add button has no free
+        // cell of its own, so render it as a hover overlay anchored to this tile.
+        let addButton = null;
+        if (topSites[i + 1]?.isAddButton && rowFull) {
+          addButton = (
+            <TopSiteAddButton
+              index={i + 1}
+              dispatch={props.dispatch}
+              tabIndex={i + 1 === this.state.focusedIndex ? 0 : -1}
+              onFocus={() => {
+                this.onTopsiteFocus(i + 1);
+              }}
+            />
+          );
+        }
         topSiteLink = (
           <TopSite
             key={slotKey}
@@ -954,18 +1028,12 @@ export class _TopSiteList extends React.PureComponent {
             {...restSlotProps}
             {...commonProps}
             colors={props.colors}
-            setRef={
-              i === this.state.focusedIndex
-                ? el => {
-                    this.focusedRef = el;
-                  }
-                : () => {}
-            }
             tabIndex={i === this.state.focusedIndex ? 0 : -1}
             onFocus={() => {
               this.onTopsiteFocus(i);
             }}
             visibleTopSites={this.props.visibleTopSites}
+            addButton={addButton}
           />
         );
       }
@@ -983,6 +1051,8 @@ export class _TopSiteList extends React.PureComponent {
           onFocus={this.onWrapperFocus}
           onBlur={this.onWrapperBlur}
           {...this.props.listProps}
+          onDragOver={this.onListDragOver}
+          onDragLeave={this.onListDragLeave}
           ref={el => {
             this.focusRef = el;
             this.props.listRef?.(el);
@@ -1010,6 +1080,5 @@ export class _TopSiteList extends React.PureComponent {
 
 export const TopSiteList = connect(state => ({
   App: state.App,
-  Messages: state.Messages,
   Prefs: state.Prefs,
 }))(_TopSiteList);

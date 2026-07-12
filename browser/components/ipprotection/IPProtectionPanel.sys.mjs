@@ -183,9 +183,7 @@ export class IPProtectionPanel {
     const backButton = view.querySelector(".subviewbutton-back");
     const locationsList = view.querySelector("locations-list");
     const listItems = locationsList
-      ? Array.from(
-          locationsList.querySelectorAll(".location-item:not([disabled])")
-        )
+      ? Array.from(locationsList.querySelectorAll(".location-item"))
       : [];
     const promoButton = view.querySelector("moz-promo moz-button");
     const focused = view.ownerDocument.activeElement;
@@ -236,6 +234,12 @@ export class IPProtectionPanel {
         this.#locationsClosedByKeyboard = true;
         this.panelMultiView?.goBack();
       }
+
+      if (focused?.hasAttribute("aria-disabled")) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+
       return;
     }
 

@@ -82,7 +82,7 @@ function makeSuggestedIndexResult(suggestedIndex, resultSpan = 1) {
       title: "suggested index",
       helpUrl: "http://example.com/",
       isBlockable: true,
-      blockL10n: { id: "urlbar-result-menu-remove-from-history" },
+      blockL10n: { id: "urlbar-result-menu-remove-from-history2" },
     },
   });
 }
@@ -156,7 +156,7 @@ function makeProviderResults({ count = 0, type = undefined, specs = [] }) {
                 title: str,
                 helpUrl: "http://example.com/",
                 isBlockable: true,
-                blockL10n: { id: "urlbar-result-menu-remove-from-history" },
+                blockL10n: { id: "urlbar-result-menu-remove-from-history2" },
               },
             })
           );

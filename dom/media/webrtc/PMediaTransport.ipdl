@@ -23,6 +23,7 @@ using mozilla::dom::RTCIceServer from "mozilla/dom/RTCConfigurationBinding.h";
 using mozilla::dom::RTCIceTransportPolicy from "mozilla/dom/RTCConfigurationBinding.h";
 using mozilla::dom::RTCIceGathererState from "mozilla/dom/RTCIceTransportBinding.h";
 using mozilla::dom::RTCIceTransportState from "mozilla/dom/RTCIceTransportBinding.h";
+using mozilla::dom::RTCErrorInit from "mozilla/dom/RTCErrorBinding.h";
 
 // ParamTraits stuff for our own classes
 using mozilla::MediaPacket from "transport/mediapacket.h";
@@ -32,6 +33,14 @@ using mozilla::net::NrIceStunAddrArray from "mozilla/net/PStunAddrsParams.h";
 
 namespace mozilla {
 namespace dom {
+
+#ifdef MOZ_WEBRTC
+// ipdl does not have tuple/pair
+struct RTCErrorParams {
+  RTCErrorInit errorInit;
+  string message;
+};
+#endif // MOZ_WEBRTC
 
 [ParentProc=Socket, ChildProc=Content]
 async protocol PMediaTransport {
@@ -99,8 +108,8 @@ child:
   async OnPacketReceived(string transportId, MediaPacket packet);
   async OnEncryptedSending(string transportId, MediaPacket packet);
   async OnStateChange(string transportId, TransportLayerState state,
-                      uint8_t[][] remoteCerts);
-  async OnRtcpStateChange(string transportId, TransportLayerState state);
+                      uint8_t[][] remoteCerts, RTCErrorParams? maybeError);
+  async OnRtcpStateChange(string transportId, TransportLayerState state, RTCErrorParams? maybeError);
 
 #endif // MOZ_WEBRTC
 };

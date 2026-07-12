@@ -194,7 +194,12 @@ class TabsListBase {
 
   _selectTab(tab) {
     if (this.gBrowser.selectedTab != tab) {
-      this.gBrowser.selectedTab = tab;
+      this.gBrowser.setSelectedTab(
+        tab,
+        this.gBrowser.TabMetrics.userTriggeredContext(
+          this.gBrowser.TabMetrics.METRIC_SOURCE.TAB_OVERFLOW_MENU
+        )
+      );
     } else {
       this.gBrowser.tabContainer._handleTabSelect();
     }
@@ -597,15 +602,15 @@ export class TabsPanel extends TabsListBase {
 
     row.style.setProperty(
       "--tab-group-color",
-      `var(--tab-group-color-${group.color})`
+      `var(--tab-group-${group.color})`
     );
     row.style.setProperty(
       "--tab-group-color-invert",
-      `var(--tab-group-color-${group.color}-invert)`
+      `var(--tab-group-${group.color}-invert)`
     );
     row.style.setProperty(
       "--tab-group-color-pale",
-      `var(--tab-group-color-${group.color}-pale)`
+      `var(--tab-group-${group.color}-pale)`
     );
     row.style.setProperty(
       "--tab-group-background-color",

@@ -1,9 +1,5 @@
 "use strict";
 
-// This test will run all combinations of CookieBehavior. So, request a longer
-// timeout here
-requestLongerTimeout(3);
-
 const COOKIE_BEHAVIORS = [
   Ci.nsICookieService.BEHAVIOR_ACCEPT,
   Ci.nsICookieService.BEHAVIOR_REJECT_FOREIGN,

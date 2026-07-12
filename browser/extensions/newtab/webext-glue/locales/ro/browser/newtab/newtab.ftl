@@ -93,6 +93,15 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = Ceas
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = Confidențialitate
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = Acțiuni
+# Picture of the day is a widget on New Tab that shows a daily Wikimedia Commons image.
+home-prefs-picture-header =
+    .label = Imaginea zilei
 home-prefs-mission-message2 =
     .message = Sponsorii noștri ne susțin misiunea de a construi un web mai bun.
 home-prefs-manage-topics-link2 =
@@ -153,6 +162,50 @@ home-prefs-support-firefox-header-srd =
     .label = Susține { -brand-product-name }
 home-prefs-mission-message-learn-more-link-srd = Află cum
 
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = Află mai multe
+
+## Strings for the Stocks widget
+
+# Context menu item for searching stock ticker symbols.
+newtab-stocks-menu-search = Caută simboluri bursiere
+# Context menu item that hides the Stocks widget.
+newtab-stocks-menu-hide = Ascunde acțiunile
+# Context menu item linking to more information about the Stocks widget.
+newtab-stocks-menu-learn-more = Află mai multe
+
+## Strings for the Picture of the Day widget
+
+# Eyebrow shown at the top of the widget. Wikimedia Commons is a brand name and
+# should not be translated.
+newtab-picture-header = Imaginea zilei · Wikimedia Commons
+# Button that sets the current picture as the New Tab background wallpaper. The
+# button collapses to an icon when not hovered/focused, so .title is its tooltip.
+newtab-picture-set-wallpaper =
+    .label = Setează imaginea de fundal
+    .title = Setează imaginea de fundal
+    .aria-label = Setează imaginea zilei ca imagine de fundal
+# Context menu item that opens the New Tab customization panel.
+newtab-picture-menu-manage-wallpaper = Gestionează imaginea de fundal
+# Context menu item that hides today’s picture, replacing it with an existing
+# wallpaper.
+newtab-picture-menu-hide-photo = Ascunde imaginea zilei
+# Context menu item that restores today’s picture after it has been hidden.
+newtab-picture-menu-show-photo = Afișează imaginea zilei
+# Context menu item linking to more information about the widget.
+newtab-picture-menu-learn-more = Află mai multe
+# Icon button shown on the widget once the picture is hidden; restores it.
+newtab-picture-show-button =
+    .title = Afișează imaginea zilei
+    .aria-label = Afișează imaginea zilei
+# Shown when there is no new picture to display yet.
+newtab-picture-check-back = Revino mâine pentru o imagine nouă
+# Screen-reader text alternative for the picture; fallback used when the source
+# provides no localized description.
+newtab-picture-image-alt = Imaginea zilei de pe Wikimedia Commons
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -188,6 +241,7 @@ newtab-topsites-add-shortcut-label = Adaugă comanda rapidă
 newtab-topsites-add-shortcut-title =
     .title = Adaugă comanda rapidă
     .aria-label = Adaugă comanda rapidă
+newtab-shortcuts-pinned-area = Zonă fixată
 newtab-topsites-title-label = Titlu
 newtab-topsites-title-input =
     .placeholder = Introdu un titlu
@@ -418,7 +472,7 @@ newtab-pocket-thumbs-down-tooltip =
     .title = Nu-i pentru mine
 # Used to show the user a message upon clicking the thumbs up or down buttons
 newtab-toast-thumbs-up-or-down2 =
-    .message = Mulțumesc. Feedback-ul tău ne va ajuta să-ți îmbunătățim fluxul.
+    .message = Îți mulțumim. Feedback-ul tău ne va ajuta să-ți îmbunătățim fluxul.
 newtab-toast-dismiss-button =
     .title = Respinge
     .aria-label = Respinge
@@ -495,6 +549,12 @@ newtab-custom-widget-clock-toggle =
     .label = Ceas
 newtab-custom-widget-sports-toggle2 =
     .label = Sporturi
+newtab-custom-widget-privacy-toggle =
+    .label = Confidențialitate
+newtab-custom-widget-stocks-toggle =
+    .label = Acțiuni
+newtab-custom-widget-picture-toggle =
+    .label = Imaginea zilei
 newtab-custom-widget-section-title = Widgeturi
 newtab-custom-widget-section-toggle =
     .label = Widgeturi
@@ -1272,12 +1332,23 @@ newtab-sports-widget-team-tbd = De stabilit
 newtab-sports-widget-message-wallpapers-title = Începe Cupa Mondială cu imagini noi de fundal
 newtab-sports-widget-message-wallpapers-body = Adu energia zilei de meci în browser pentru turneu.
 newtab-sports-widget-message-wallpapers-cta = Alege o imagine de fundal
+newtab-sports-widget-message-wallpapers-semifinals-title = Obține o nouă imagine de fundal pentru semifinale
+newtab-sports-widget-message-wallpapers-semifinals-body = Pregătește terenul pentru cele mai importante meciuri ale Cupei Mondiale.
 newtab-sports-widget-message-add-widgets-cta =
     .label = Adaugă widgeturi
 newtab-sports-widget-message-day-in-play-title = Ține-ți ziua în joc cu widgeturi { -brand-product-name }
 newtab-sports-widget-message-day-in-play-body = Urmărești Cupa Mondială, rămâi concentrat(ă) pe sarcini, urmărești ora exactă pe glob și multe altele.
 newtab-sports-widget-message-explore-widgets-cta =
     .label = Explorează widgeturi
+
+## Survey prompts shown after the World Cup to gather feedback on the widgets experience.
+
+newtab-sports-widget-message-survey-title = Ajutați-ne să îmbunătățim widgeturile
+newtab-sports-widget-message-survey-body = Cupa Mondială s-a terminat. Trimite feedback despre experiență.
+newtab-sports-widget-message-survey-widget-title = Cum a fost widgetul Cupei Mondiale?
+newtab-sports-widget-message-survey-widget-body = Trimite-ne feedbackul tău pentru a ne ajuta să îmbunătățim widgeturile viitoare. Apoi, încearcă-l pe cel nou din cele disponibile.
+newtab-sports-widget-message-survey-cta =
+    .label = Participă la sondaj
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

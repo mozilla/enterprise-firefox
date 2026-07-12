@@ -2367,9 +2367,19 @@ class nsIFrame : public nsQueryFrame {
                                     int32_t* aContentOffset,
                                     mozilla::TableSelectionMode* aTarget);
 
+  enum class ForSelectionStart : bool {
+    No,
+    Yes,
+  };
   // Whether this frame should move the selection as a response to mouse moves /
-  // presses / drags.
-  bool ShouldHandleSelectionMovementEvents();
+  // presses / drags (Or a subset of them).
+  bool ShouldHandleSelectionMovementEvents(
+      ForSelectionStart aType = ForSelectionStart::No);
+
+  static mozilla::StyleUserSelect UsedUserSelect(const nsIFrame* aFrame,
+                                                 ForSelectionStart aType);
+  static Maybe<mozilla::StyleUserSelect> UsedUserSelectRecurse(
+      const nsIFrame* aFrame, ForSelectionStart aType);
 
  public:
   /**

@@ -226,6 +226,14 @@ bool JitRuntime::generateTrampolines(JSContext* cx) {
   generateIonGenericCallStub(masm, IonGenericCallKind::Construct);
   rangeRecorder.recordOffset("Trampoline: IonGenericConstruct");
 
+  JitSpew(JitSpew_Codegen, "# Emitting megamorphic load stub");
+  generateMegamorphicLoadStub(masm);
+  rangeRecorder.recordOffset("Trampoline: MegamorphicLoad");
+
+  JitSpew(JitSpew_Codegen, "# Emitting permissive megamorphic load stub");
+  generateMegamorphicLoadStubPermissive(masm);
+  rangeRecorder.recordOffset("Trampoline: MegamorphicLoadPermissive");
+
   JitSpew(JitSpew_Codegen, "# Emitting trampoline natives");
   TrampolineNativeJitEntryOffsets nativeOffsets;
   generateTrampolineNatives(masm, nativeOffsets, rangeRecorder);

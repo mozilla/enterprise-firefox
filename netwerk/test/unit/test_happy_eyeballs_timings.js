@@ -166,6 +166,14 @@ function assertTimingsOrder(timedChannel) {
     timedChannel.domainLookupEndTime,
     "domainLookupStart <= domainLookupEnd"
   );
+  // domainLookupEnd must never fall after the connection started: HE reports it
+  // as min(connectStart, dnsEnd), matching Chrome and the web spec (bug
+  // 2047648) rather than always reporting connectStart.
+  Assert.lessOrEqual(
+    timedChannel.domainLookupEndTime,
+    timedChannel.connectStartTime,
+    "domainLookupEnd <= connectStart"
+  );
   Assert.lessOrEqual(
     timedChannel.connectStartTime,
     timedChannel.secureConnectionStartTime,

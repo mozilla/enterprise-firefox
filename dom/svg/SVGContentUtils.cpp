@@ -6,6 +6,8 @@
 // This is also necessary to ensure our definition of M_SQRT1_2 is picked up
 #include "SVGContentUtils.h"
 
+#include <numbers>
+
 // Keep others in (case-insensitive) order:
 #include "SVGAnimatedPreserveAspectRatio.h"
 #include "SVGGeometryProperty.h"
@@ -651,7 +653,7 @@ float SVGContentUtils::AngleBisect(float a1, float a2) {
   float r = a1 + delta / 2;
   if (delta >= M_PI) {
     /* the arc from a2 to a1 is smaller, so use the ray on that side */
-    r += static_cast<float>(M_PI);
+    r += std::numbers::pi_v<float>;
   }
   return r;
 }

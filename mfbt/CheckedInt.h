@@ -284,8 +284,9 @@ class CheckedInt {
    * documentation for class CheckedInt, this constructor checks that its
    * argument is valid.
    */
-  template <typename U>
-    requires(!std::is_enum_v<U>)
+  template <
+      typename U,
+      std::enable_if_t<!std::is_enum_v<U> && !std::is_same_v<U, bool>, int> = 0>
   MOZ_IMPLICIT MOZ_NO_ARITHMETIC_EXPR_IN_ARGUMENT constexpr CheckedInt(U aValue)
       : mValue(T(aValue)), mIsValid(std::in_range<T>(aValue)) {
     static_assert(
@@ -293,12 +294,12 @@ class CheckedInt {
         "This type is not supported by CheckedInt");
   }
 
-  template <typename U>
-    requires(std::is_enum_v<U>)
+  template <typename U, std::enable_if_t<std::is_enum_v<U>, int> = 0>
   MOZ_IMPLICIT constexpr CheckedInt(U aValue)
       : CheckedInt(static_cast<std::underlying_type_t<U>>(aValue)) {}
 
-  MOZ_IMPLICIT constexpr CheckedInt(bool aValue)
+  template <typename U, std::enable_if_t<std::is_same_v<U, bool>, int> = 0>
+  MOZ_IMPLICIT constexpr CheckedInt(U aValue)
       : CheckedInt(static_cast<uint8_t>(aValue)) {}
 
   template <typename U>

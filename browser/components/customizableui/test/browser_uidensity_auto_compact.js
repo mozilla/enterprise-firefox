@@ -460,19 +460,21 @@ add_task(async function test_compact_shrinks_launcher_padding() {
   await withNewWindow(async win => {
     let medium = cssVar(win, "--space-medium");
     let xsmall = cssVar(win, "--space-xsmall");
+    let roundedMedium = `round(${medium}, 0.5px)`;
+    let roundedXsmall = `round(${xsmall}, 0.5px)`;
     isnot(medium, xsmall, "Sanity: the space tokens have different values");
 
     win.gUIDensity.update(win.gUIDensity.MODE_NORMAL);
     is(
       cssVar(win, "--sidebar-launcher-button-padding-inline"),
-      medium,
+      roundedMedium,
       "Launcher button padding matches --space-medium in normal density"
     );
 
     win.gUIDensity.update(win.gUIDensity.MODE_COMPACT);
     is(
       cssVar(win, "--sidebar-launcher-button-padding-inline"),
-      xsmall,
+      roundedXsmall,
       "Launcher button padding shrinks to --space-xsmall in compact density"
     );
 

@@ -4,11 +4,10 @@
 
 package org.mozilla.fenix.webcompat.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -60,7 +59,6 @@ import mozilla.components.compose.base.button.IconButton
 import mozilla.components.compose.base.button.TextButton
 import mozilla.components.compose.base.textfield.TextField
 import mozilla.components.compose.base.theme.AcornCorners
-import org.mozilla.fenix.Config
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.components
 import org.mozilla.fenix.ext.getBaseDomainUrl
@@ -83,7 +81,6 @@ private const val PROBLEM_DESCRIPTION_MAX_LINES = 5
  *
  * @param store [WebCompatReporterStore] used to manage the state of the Web Compat Reporter feature.
  */
-@Suppress("LongMethod")
 @Composable
 fun WebCompatReporter(
     store: WebCompatReporterStore,
@@ -108,203 +105,256 @@ fun WebCompatReporter(
         }
     }
 
-    BackHandler {
-        store.dispatch(WebCompatReporterAction.BackPressed)
-    }
-
     Scaffold(
         topBar = {
             TempAppBar(
-                onBackClick = {
-                    store.dispatch(WebCompatReporterAction.BackPressed)
+                onCloseClick = {
+                    store.dispatch(WebCompatReporterAction.CancelClicked)
                 },
                 scrollState = scrollState,
             )
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .verticalScroll(scrollState)
-                .padding(paddingValues)
-                .imePadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-                .width(FirefoxTheme.layout.size.containerMaxWidth),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            ReadOnlyUrlField(
-                url = state.enteredUrl,
-                label = stringResource(id = R.string.webcompat_reporter_label_url),
-                onClick = {
-                    store.dispatch(WebCompatReporterAction.EditUrlClicked)
+        WebCompatReporterContent(
+            state = state,
+            baseDomain = baseDomain,
+            scrollState = scrollState,
+            paddingValues = paddingValues,
+            onPreviewReportClick = {
+                previewSheetVisible = true
+                store.dispatch(WebCompatReporterAction.OpenPreviewClicked)
+            },
+            onAction = store::dispatch,
+        )
+    }
+
+    WebCompatReporterDialogs(
+        state = state,
+        previewSheetVisible = previewSheetVisible,
+        onDismissPreview = { previewSheetVisible = false },
+        onAction = store::dispatch,
+    )
+}
+
+@Composable
+private fun WebCompatReporterContent(
+    state: WebCompatReporterState,
+    baseDomain: String,
+    scrollState: ScrollState,
+    paddingValues: PaddingValues,
+    onPreviewReportClick: () -> Unit,
+    onAction: (WebCompatReporterAction) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .verticalScroll(scrollState)
+            .padding(paddingValues)
+            .imePadding()
+            .padding(horizontal = FirefoxTheme.layout.space.static200)
+            .width(FirefoxTheme.layout.size.containerMaxWidth),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        UrlSection(
+            url = state.enteredUrl,
+            baseDomain = baseDomain,
+            onEditUrlClick = { onAction(WebCompatReporterAction.EditUrlClicked) },
+        )
+
+        BrokenSiteReasonSection(
+            selectedReason = state.reason,
+            onReasonSelected = { reason -> onAction(WebCompatReporterAction.ReasonChanged(reason)) },
+            onReasonCleared = { onAction(WebCompatReporterAction.ReasonCleared) },
+        )
+
+        if (state.reason != null) {
+            ProblemDetailsSection(
+                problemDescription = state.problemDescription,
+                hasDescriptionError = state.hasDescriptionError,
+                onProblemDescriptionChange = { description ->
+                    onAction(WebCompatReporterAction.ProblemDescriptionChanged(description))
                 },
-                modifier = Modifier.fillMaxWidth(),
-                baseDomain = baseDomain,
+                includeEtpBlockedUrls = state.includeEtpBlockedUrls,
+                onIncludeEtpBlockedUrlsChange = { include ->
+                    onAction(WebCompatReporterAction.IncludeEtpBlockedUrlsChanged(include))
+                },
+                onPreviewReportClick = onPreviewReportClick,
             )
+        }
 
-            Spacer(modifier = Modifier.height(FirefoxTheme.layout.space.static200))
+        ActionButtonsSection(
+            isSubmitVisible = state.reason != null,
+            isSubmitEnabled = state.isSubmitEnabled,
+            onSendClick = { onAction(WebCompatReporterAction.SendReportClicked) },
+        )
 
-            HorizontalDivider()
-
-            Spacer(modifier = Modifier.height(FirefoxTheme.layout.space.static200))
-
-            BrokenSiteReasonSection(
-                selectedReason = state.reason,
-                onReasonSelected = { reason ->
-                    store.dispatch(WebCompatReporterAction.ReasonChanged(reason))
-                },
-                onReasonCleared = {
-                    store.dispatch(WebCompatReporterAction.ReasonCleared)
-                },
-            )
-
-            if (state.reason != null) {
-                Spacer(modifier = Modifier.height(FirefoxTheme.layout.space.static150))
-
-                ProblemDescriptionInput(
-                    problemDescription = state.problemDescription,
-                    hasDescriptionError = state.hasDescriptionError,
-                    onDescriptionChanged = { newText ->
-                        store.dispatch(WebCompatReporterAction.ProblemDescriptionChanged(newText))
-                    },
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier
-                        .toggleable(
-                            value = state.includeEtpBlockedUrls,
-                            role = Role.Checkbox,
-                            onValueChange = { isChecked ->
-                                store.dispatch(
-                                    WebCompatReporterAction.IncludeEtpBlockedUrlsChanged(
-                                        include = isChecked,
-                                    ),
-                                )
-                            },
-                        )
-                        .padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Checkbox(
-                        checked = state.includeEtpBlockedUrls,
-                        onCheckedChange = null,
-                        modifier = Modifier,
-                    )
-
-                    Spacer(modifier = Modifier.width(16.dp))
-
-                    Column {
-                        Text(
-                            text = stringResource(id = R.string.webcompat_reporter_etp_checkbox_text_2),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            style = FirefoxTheme.typography.body1,
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                TextButton(
-                    text = stringResource(id = R.string.webcompat_reporter_preview_report),
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    onClick = {
-                        previewSheetVisible = true
-                        store.dispatch(WebCompatReporterAction.OpenPreviewClicked)
-                    },
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            FilledButton(
-                text = stringResource(id = R.string.webcompat_reporter_send),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics {
-                        testTagsAsResourceId = true
-                        testTag = BROKEN_SITE_REPORTER_SEND_BUTTON
-                    },
-                enabled = state.isSubmitEnabled,
-            ) {
-                store.dispatch(WebCompatReporterAction.SendReportClicked)
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            TextButton(
-                text = stringResource(id = R.string.webcompat_reporter_cancel),
-                modifier = Modifier
-                    .fillMaxWidth(),
-                onClick = {
-                    store.dispatch(WebCompatReporterAction.CancelClicked)
-                },
-            )
-
-            // Note: the "Add more info" button is not meant for Release, so we're only
-            // enabling it in Beta and Nightly/Debug
-            if (Config.channel.isBeta || Config.channel.isNightlyOrDebug) {
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = stringResource(id = R.string.webcompat_reporter_add_more_info),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            store.dispatch(WebCompatReporterAction.AddMoreInfoClicked)
-                        },
-                    style = FirefoxTheme.typography.body2.copy(textAlign = TextAlign.Center),
-                    color = MaterialTheme.colorScheme.tertiary,
-                    textDecoration = TextDecoration.Underline,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(FirefoxTheme.layout.space.static150))
-
-            LinkText(
-                text = stringResource(
-                    R.string.webcompat_reporter_description_3,
-                    stringResource(R.string.app_name),
-                    stringResource(R.string.webcompat_reporter_learn_more),
-                ),
-                linkTextStates = listOf(
-                    LinkTextState(
-                        text = stringResource(R.string.webcompat_reporter_learn_more),
-                        url = "",
-                        onClick = {
-                            store.dispatch(WebCompatReporterAction.LearnMoreClicked)
-                        },
-                    ),
-                ),
-                style = FirefoxTheme.typography.body2.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
-                linkTextColor = MaterialTheme.colorScheme.primary,
-                linkTextDecoration = TextDecoration.None,
-                textAlign = TextAlign.Start,
-                modifier = Modifier.padding(bottom = FirefoxTheme.layout.space.static150),
+        if (state.reason == null) {
+            WebCompatReporterFooter(
+                onLearnMoreClick = { onAction(WebCompatReporterAction.LearnMoreClicked) },
             )
         }
     }
+}
 
+@Composable
+private fun WebCompatReporterDialogs(
+    state: WebCompatReporterState,
+    previewSheetVisible: Boolean,
+    onDismissPreview: () -> Unit,
+    onAction: (WebCompatReporterAction) -> Unit,
+) {
     if (state.showEditUrlDialog) {
         EditUrlConfirmationDialog(
             url = state.editedUrl,
-            onUrlChange = { newUrl -> store.dispatch(WebCompatReporterAction.EditUrlChanged(newUrl = newUrl)) },
+            onUrlChange = { newUrl ->
+                onAction(WebCompatReporterAction.EditUrlChanged(newUrl = newUrl))
+            },
             isError = state.hasEditedUrlError,
-            onSave = { store.dispatch(WebCompatReporterAction.SaveEditedUrlClicked) },
-            onDismiss = { store.dispatch(WebCompatReporterAction.DismissEditUrlDialog) },
+            onSave = { onAction(WebCompatReporterAction.SaveEditedUrlClicked) },
+            onDismiss = { onAction(WebCompatReporterAction.DismissEditUrlDialog) },
         )
     }
 
     if (previewSheetVisible) {
         WebCompatReporterPreviewSheet(
             previewJSON = state.previewJSON,
-            onDismissRequest = { previewSheetVisible = false },
-            onSendClick = { store.dispatch(WebCompatReporterAction.SendReportClicked) },
+            onDismissRequest = onDismissPreview,
+            onSendClick = { onAction(WebCompatReporterAction.SendReportClicked) },
             isSendButtonEnabled = state.isSubmitEnabled,
         )
     }
+}
+
+@Composable
+private fun UrlSection(
+    url: String,
+    baseDomain: String,
+    onEditUrlClick: () -> Unit,
+) {
+    ReadOnlyUrlField(
+        url = url,
+        label = stringResource(id = R.string.webcompat_reporter_label_url),
+        onClick = onEditUrlClick,
+        modifier = Modifier.fillMaxWidth(),
+        baseDomain = baseDomain,
+    )
+
+    Spacer(modifier = Modifier.height(FirefoxTheme.layout.space.static200))
+
+    HorizontalDivider()
+
+    Spacer(modifier = Modifier.height(FirefoxTheme.layout.space.static200))
+}
+
+@Composable
+private fun ProblemDetailsSection(
+    problemDescription: String,
+    hasDescriptionError: Boolean,
+    includeEtpBlockedUrls: Boolean,
+    onProblemDescriptionChange: (String) -> Unit,
+    onIncludeEtpBlockedUrlsChange: (Boolean) -> Unit,
+    onPreviewReportClick: () -> Unit,
+) {
+    Spacer(modifier = Modifier.height(FirefoxTheme.layout.space.static150))
+
+    ProblemDescriptionInput(
+        problemDescription = problemDescription,
+        hasDescriptionError = hasDescriptionError,
+        onDescriptionChanged = onProblemDescriptionChange,
+    )
+
+    Spacer(modifier = Modifier.height(FirefoxTheme.layout.space.static200))
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = FirefoxTheme.layout.space.static50)
+            .toggleable(
+                value = includeEtpBlockedUrls,
+                role = Role.Checkbox,
+                onValueChange = onIncludeEtpBlockedUrlsChange,
+            )
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(
+            checked = includeEtpBlockedUrls,
+            onCheckedChange = null,
+        )
+
+        Spacer(modifier = Modifier.width(FirefoxTheme.layout.space.static200))
+
+        Text(
+            text = stringResource(id = R.string.webcompat_reporter_etp_checkbox_text_2),
+            color = MaterialTheme.colorScheme.onSurface,
+            style = FirefoxTheme.typography.body1,
+        )
+    }
+
+    Spacer(modifier = Modifier.height(FirefoxTheme.layout.space.static200))
+
+    TextButton(
+        text = stringResource(id = R.string.webcompat_reporter_preview_report),
+        modifier = Modifier
+            .fillMaxWidth(),
+        onClick = onPreviewReportClick,
+    )
+}
+
+@Composable
+private fun ActionButtonsSection(
+    isSubmitVisible: Boolean,
+    isSubmitEnabled: Boolean,
+    onSendClick: () -> Unit,
+) {
+    if (isSubmitVisible) {
+        Spacer(modifier = Modifier.height(FirefoxTheme.layout.space.static200))
+
+        HorizontalDivider()
+
+        Spacer(modifier = Modifier.height(FirefoxTheme.layout.space.static100))
+
+        FilledButton(
+            text = stringResource(id = R.string.webcompat_reporter_send_report),
+            containerColor = MaterialTheme.colorScheme.primary,
+            enabled = isSubmitEnabled,
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics {
+                    testTagsAsResourceId = true
+                    testTag = BROKEN_SITE_REPORTER_SEND_BUTTON
+                },
+        ) {
+            onSendClick()
+        }
+    }
+}
+
+@Composable
+private fun WebCompatReporterFooter(
+    onLearnMoreClick: () -> Unit,
+) {
+    Spacer(modifier = Modifier.height(FirefoxTheme.layout.space.static150))
+
+    LinkText(
+        text = stringResource(
+            R.string.webcompat_reporter_description_3,
+            stringResource(R.string.app_name),
+            stringResource(R.string.webcompat_reporter_learn_more),
+        ),
+        linkTextStates = listOf(
+            LinkTextState(
+                text = stringResource(R.string.webcompat_reporter_learn_more),
+                url = "",
+                onClick = { onLearnMoreClick() },
+            ),
+        ),
+        style = FirefoxTheme.typography.body2.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+        linkTextColor = MaterialTheme.colorScheme.primary,
+        linkTextDecoration = TextDecoration.None,
+        textAlign = TextAlign.Start,
+        modifier = Modifier.padding(bottom = FirefoxTheme.layout.space.static150),
+    )
 }
 
 @Composable
@@ -315,7 +365,7 @@ private fun ProblemDescriptionInput(
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = stringResource(id = R.string.webcompat_reporter_label_description_2),
+            text = stringResource(id = R.string.webcompat_reporter_label_mandatory_description),
             style = FirefoxTheme.typography.headline7,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier
@@ -349,7 +399,7 @@ private fun ProblemDescriptionInput(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TempAppBar(
-    onBackClick: () -> Unit,
+    onCloseClick: () -> Unit,
     scrollState: ScrollState,
 ) {
     TopAppBar(
@@ -359,13 +409,13 @@ private fun TempAppBar(
                 style = FirefoxTheme.typography.headline5,
             )
         },
-        navigationIcon = {
+        actions = {
             IconButton(
-                onClick = onBackClick,
-                contentDescription = stringResource(R.string.bookmark_navigate_back_button_content_description),
+                onClick = onCloseClick,
+                contentDescription = stringResource(R.string.content_description_close_button),
             ) {
                 Icon(
-                    painter = painterResource(iconsR.drawable.mozac_ic_back_24),
+                    painter = painterResource(iconsR.drawable.mozac_ic_cross_24),
                     contentDescription = null,
                 )
             }
@@ -495,11 +545,11 @@ private class WebCompatPreviewParameterProvider : ThemedValueProvider<WebCompatR
             enteredUrl = "www.example.com/url_parameters_that_break_the_page",
             reason = BrokenSiteReason.Slow,
             problemDescription = "The site wouldn’t load and after I tried xyz it still wouldn’t " +
-                    "load and then again site wouldn’t load and after I tried xyz it still wouldn’t " +
-                    "load and then again site wouldn’t load and after I tried xyz it still wouldn’t " +
-                    "load and then again site wouldn’t load and after I tried xyz it still wouldn’t " +
-                    "load and then again site wouldn’t load and after I tried xyz it still wouldn’t " +
-                    "load and then again ",
+                "load and then again site wouldn’t load and after I tried xyz it still wouldn’t " +
+                "load and then again site wouldn’t load and after I tried xyz it still wouldn’t " +
+                "load and then again site wouldn’t load and after I tried xyz it still wouldn’t " +
+                "load and then again site wouldn’t load and after I tried xyz it still wouldn’t " +
+                "load and then again ",
         ),
     ),
 )

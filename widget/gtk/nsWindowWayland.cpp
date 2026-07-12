@@ -2145,10 +2145,8 @@ void nsWindowWayland::ConfigureToplevelWindowNative() {
     LOG("  quit, missing toplevel GdkWindow!");
     return;
   }
-  if (!g_signal_lookup("xdg-toplevel-realized", G_OBJECT_TYPE(window))) {
-    LOG("  quit, missing gtk3 support!");
-    return;
-  }
+  MOZ_ASSERT(g_signal_lookup("xdg-toplevel-realized", G_OBJECT_TYPE(window)),
+             "Session restore support shouldbe disabled!");
   if (g_signal_handler_is_connected(window, mXdgToplevelRealizedID)) {
     return;
   }

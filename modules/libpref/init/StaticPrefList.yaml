@@ -308,7 +308,7 @@
 #ifdef MOZ_ENABLE_SKIA_PDF
 - name: accessibility.tagged_pdf_output.enabled
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 #endif
 
@@ -2355,6 +2355,18 @@
     mirror: always
 #endif
 
+# When false, web custom format flavors written by other applications are
+# hidden from the Async Clipboard read paths (Firefox-authored content read
+# back from the in-process clipboard cache is unaffected).
+- name: clipboard.readCustomFormatsFromClipboard.enabled
+  type: RelaxedAtomicBool
+#if defined(ANDROID)
+  value: false
+#else
+  value: @IS_NIGHTLY_BUILD@
+#endif
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "consoleservice."
 #---------------------------------------------------------------------------
@@ -2755,6 +2767,16 @@
   value: true
   mirror: always
 
+# Master gate for the web custom format support in the Async Clipboard API.
+- name: dom.clipboard.customFormatSupport.enabled
+  type: RelaxedAtomicBool
+#if defined(ANDROID)
+  value: false
+#else
+  value: @IS_NIGHTLY_BUILD@
+#endif
+  mirror: always
+
 # HTML specification says the level should be 5
 # https://html.spec.whatwg.org/#timer-initialisation-steps
 - name: dom.clamp.timeout.nesting.level
@@ -3017,7 +3039,7 @@
 # `.key` of the second `keypress` is set to the empty string.
 - name: dom.event.keypress.key.allow_lone_surrogate
   type: bool
-  value: @IS_NOT_EARLY_BETA_OR_EARLIER@
+  value: false
   mirror: always
 
 # Make EventStateManager restore the last "mouseover" target when it's
@@ -4486,7 +4508,11 @@
 # long-lived profiles with a large number of unused origins.
 - name: dom.quotaManager.temporaryStorage.clearNonPersistedZeroUsageOrigins
   type: RelaxedAtomicBool
+#if defined(NIGHTLY_BUILD) && defined(XP_LINUX) && !defined(ANDROID)
+  value: true
+#else
   value: false
+#endif
   mirror: always
 
 # Controls the maximum number of origins cleared in a single batch during
@@ -6252,6 +6278,20 @@
   value: true
   mirror: always
 
+# Selects which WorkerDebugger mechanism is used to expose a worker to the
+# debugger (DevTools, WebDriver BiDi). When false (default), each content
+# process registers its nsIWorkerDebugger on its own main thread (the legacy
+# mechanism). When true, the worker registers a RemoteWorkerDebugger in the
+# parent process main thread over IPC, so all workers are exposed through the
+# parent-process WorkerDebuggerManager. The two mechanisms are mutually
+# exclusive for a given worker; the value is read when the worker is created
+# and when a debugger session starts, so changing it at runtime only affects
+# workers and sessions created afterwards.
+- name: dom.worker.remoteDebugger.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 - name: dom.workers.testing.enabled
   type: RelaxedAtomicBool
   value: false
@@ -6411,12 +6451,6 @@
   type: String
   value: ""
   mirror: never
-
-# Whether to include common ancestor when serializing HTML data for clipboard copy.
-- name: dom.serializer.includeCommonAncestor.enabled
-  type: bool
-  value: false
-  mirror: always
 
 # Whether to enable XSLT.
 - name: dom.xslt.enabled
@@ -6941,6 +6975,13 @@
 - name: general.aboutConfig.enable
   type: bool
   value: true
+  mirror: always
+
+# Scales the autoscroll speed, as a percentage
+# (100 = default, 200 = double speed, 50 = half speed).
+- name: general.autoscroll.speed_multiplier
+  type: RelaxedAtomicInt32
+  value: 100
   mirror: always
 
 # Limits the depth of recursive conversion of data when opening
@@ -16409,6 +16450,16 @@
   value: false
   mirror: always
 
+#ifdef DEBUG
+  # When true, HttpConnectionUDP::CanReuse() always returns false, simulating an
+  # HTTP/3 connection that has become unusable but still lingers in the entry's
+  # active connections. Testing only.
+-   name: network.http.http3.force_cannot_reuse_for_testing
+    type: RelaxedAtomicBool
+    value: false
+    mirror: always
+#endif
+
 # Maximum time (ms) a session can remain in ZERORTT state before being
 # considered stuck. If a Http3Session doesn't transition to CONNECTED within
 # this timeout, it will be closed.
@@ -16805,6 +16856,18 @@
   value: 5000
   mirror: always
 
+# Backstop timeout (milliseconds) for a channel parked waiting for a cache
+# entry callback that never arrives (e.g. a wedged entry left perpetually
+# "being written" by a writer that was suspended or cancelled without ever
+# closing its output stream).  When it fires the channel stops waiting and
+# races to the network so the load can make progress instead of hanging
+# forever.  Kept generous so it never fires for legitimately slow concurrent
+# reads/writes of large resources.  0 disables the backstop.
+- name: network.cache.entry_wait_timeout_ms
+  type: RelaxedAtomicUint32
+  value: 20000
+  mirror: always
+
 # This is used for a temporary workaround for a web-compat issue. If pref is
 # true CORS preflight requests are allowed to send client certificates.
 - name: network.cors_preflight.allow_client_cert
@@ -16900,7 +16963,7 @@
 # to the connection phase (ms).
 - name: network.http.happy_eyeballs_resolution_delay
   type: RelaxedAtomicUint32
-  value: 50
+  value: 25
   mirror: always
   rust: true
 
@@ -16920,6 +16983,15 @@
   value: 2
   mirror: always
   rust: true
+
+# When Happy Eyeballs is enabled and all TRR-resolved addresses fail to
+# connect, retry the connection with TRR disabled (native DNS). This is the
+# connection-time equivalent of the legacy nsSocketTransport native-DNS
+# fallback.
+- name: network.http.happy_eyeballs_retry_without_trr
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
 
 # If true, it will include extra tags to be sniffed by nsUnknownDecoder
 # These tags were previously sniffed by Firefox for legacy/webcompat but
@@ -19489,6 +19561,15 @@
   value: false
   mirror: always
 
+# Site categories for notification permission telemetry
+# Maps domains to categories for analyzing permission behavior by site type
+# XXX(krosylight): We need to document how this list is chosen for openness.
+- name: toolkit.telemetry.site_categories
+  type: DataMutexString
+  value: '{"facebook.com":"social","instagram.com":"social","twitter.com":"social","x.com":"social","tiktok.com":"social","linkedin.com":"social","reddit.com":"social","pinterest.com":"social","snapchat.com":"social","tumblr.com":"social","slack.com":"chat_communication","discord.com":"chat_communication","teams.microsoft.com":"chat_communication","zoom.us":"chat_communication","whatsapp.com":"chat_communication","telegram.org":"chat_communication","messenger.com":"chat_communication","skype.com":"chat_communication","signal.org":"chat_communication","viber.com":"chat_communication","mail.google.com":"email","gmail.com":"email","outlook.com":"email","outlook.live.com":"email","mail.yahoo.com":"email","yahoo.com":"email","protonmail.com":"email","aol.com":"email","icloud.com":"email","zoho.com":"email","youtube.com":"media_streaming","netflix.com":"media_streaming","twitch.tv":"media_streaming","hulu.com":"media_streaming","disneyplus.com":"media_streaming","hbomax.com":"media_streaming","primevideo.com":"media_streaming","crunchyroll.com":"media_streaming","paramountplus.com":"media_streaming","spotify.com":"media_streaming","soundcloud.com":"media_streaming","pandora.com":"media_streaming","tv.apple.com":"media_streaming","steampowered.com":"gaming","steamcommunity.com":"gaming","store.epicgames.com":"gaming","roblox.com":"gaming","playstation.com":"gaming","xbox.com":"gaming","nintendo.com":"gaming","battle.net":"gaming","itch.io":"gaming","chess.com":"gaming","calendar.google.com":"calendar","outlook.live.com":"calendar","calendar.yahoo.com":"calendar","calendar.com":"calendar","drive.google.com":"productivity_collaboration","docs.google.com":"productivity_collaboration","sheets.google.com":"productivity_collaboration","office.com":"productivity_collaboration","onedrive.live.com":"productivity_collaboration","dropbox.com":"productivity_collaboration","box.com":"productivity_collaboration","notion.so":"productivity_collaboration","trello.com":"productivity_collaboration","asana.com":"productivity_collaboration","monday.com":"productivity_collaboration","atlassian.com":"productivity_collaboration","gitlab.com":"productivity_collaboration","bitbucket.org":"productivity_collaboration","miro.com":"productivity_collaboration","figma.com":"productivity_collaboration","cnn.com":"news_publishers","nytimes.com":"news_publishers","bbc.com":"news_publishers","theguardian.com":"news_publishers","washingtonpost.com":"news_publishers","foxnews.com":"news_publishers","reuters.com":"news_publishers","apnews.com":"news_publishers","bloomberg.com":"news_publishers","wsj.com":"news_publishers","usatoday.com":"news_publishers","nbcnews.com":"news_publishers","abcnews.go.com":"news_publishers","cbsnews.com":"news_publishers","npr.org":"news_publishers","time.com":"news_publishers","newsweek.com":"news_publishers","politico.com":"news_publishers","huffpost.com":"news_publishers","buzzfeednews.com":"news_publishers"}'
+  mirror: always
+  rust: true
+
 #---------------------------------------------------------------------------
 # Prefs starting with "ui."
 #---------------------------------------------------------------------------
@@ -19953,7 +20034,11 @@
 
 - name: webgl.disable-angle
   type: RelaxedAtomicBool
+#if defined(XP_WIN)
   value: false
+#else
+  value: true
+#endif
   mirror: always
 
 - name: webgl.disable-wgl

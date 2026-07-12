@@ -398,36 +398,36 @@ MOZ_GSL_OWNER MOZ_EMPTY_BASES Maybe : private detail::MaybeStorage<T>,
    * Maybe<T> can be copy-constructed from a Maybe<U> if T is constructible from
    * a const U&.
    */
-  template <typename U>
-    requires(std::is_constructible_v<T, const U&>)
+  template <typename U,
+            std::enable_if_t<std::is_constructible_v<T, const U&>, bool> = true>
   MOZ_IMPLICIT Maybe(const Maybe<U>& aOther) {
     if (aOther.isSome()) {
       emplace(*aOther);
     }
   }
 
-  template <typename U>
-    requires(!std::is_constructible_v<T, const U&>)
+  template <typename U, std::enable_if_t<!std::is_constructible_v<T, const U&>,
+                                         bool> = true>
   explicit Maybe(const Maybe<U>& aOther) = delete;
 
   /**
    * Maybe<T> can be move-constructed from a Maybe<U> if T is constructible from
    * a U&&.
    */
-  template <typename U>
-    requires(std::is_constructible_v<T, U &&>)
+  template <typename U,
+            std::enable_if_t<std::is_constructible_v<T, U&&>, bool> = true>
   MOZ_IMPLICIT Maybe(Maybe<U>&& aOther) {
     if (aOther.isSome()) {
       emplace(std::move(*aOther));
       aOther.reset();
     }
   }
-  template <typename U>
-    requires(!std::is_constructible_v<T, U &&>)
+  template <typename U,
+            std::enable_if_t<!std::is_constructible_v<T, U&&>, bool> = true>
   explicit Maybe(Maybe<U>&& aOther) = delete;
 
-  template <typename U>
-    requires(std::is_constructible_v<T, const U&>)
+  template <typename U,
+            std::enable_if_t<std::is_constructible_v<T, const U&>, bool> = true>
   Maybe& operator=(const Maybe<U>& aOther) {
     if (aOther.isSome()) {
       if (mIsSome) {
@@ -441,12 +441,12 @@ MOZ_GSL_OWNER MOZ_EMPTY_BASES Maybe : private detail::MaybeStorage<T>,
     return *this;
   }
 
-  template <typename U>
-    requires(!std::is_constructible_v<T, const U&>)
+  template <typename U, std::enable_if_t<!std::is_constructible_v<T, const U&>,
+                                         bool> = true>
   Maybe& operator=(const Maybe<U>& aOther) = delete;
 
-  template <typename U>
-    requires(std::is_constructible_v<T, U &&>)
+  template <typename U,
+            std::enable_if_t<std::is_constructible_v<T, U&&>, bool> = true>
   Maybe& operator=(Maybe<U>&& aOther) {
     if (aOther.isSome()) {
       if (mIsSome) {
@@ -462,8 +462,8 @@ MOZ_GSL_OWNER MOZ_EMPTY_BASES Maybe : private detail::MaybeStorage<T>,
     return *this;
   }
 
-  template <typename U>
-    requires(!std::is_constructible_v<T, U &&>)
+  template <typename U,
+            std::enable_if_t<!std::is_constructible_v<T, U&&>, bool> = true>
   Maybe& operator=(Maybe<U>&& aOther) = delete;
 
   constexpr Maybe& operator=(Nothing) {
@@ -871,9 +871,10 @@ MOZ_GSL_OWNER MOZ_EMPTY_BASES Maybe : private detail::MaybeStorage<T>,
   constexpr void emplace(Args&&... aArgs);
 
   template <typename U>
-    requires(std::is_same_v<T, U> && std::is_copy_constructible_v<U> &&
-             !std::is_move_constructible_v<U>)
-  constexpr void emplace(U&& aArgs) {
+  constexpr std::enable_if_t<std::is_same_v<T, U> &&
+                             std::is_copy_constructible_v<U> &&
+                             !std::is_move_constructible_v<U>>
+  emplace(U&& aArgs) {
     emplace(aArgs);
   }
 

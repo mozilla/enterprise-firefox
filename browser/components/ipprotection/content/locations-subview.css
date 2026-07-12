@@ -59,7 +59,7 @@
     }
   }
 
-  &[disabled] {
+  &[aria-disabled] {
     .location-label,
     .location-description,
     .location-unavailable-label {

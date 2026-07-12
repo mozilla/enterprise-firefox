@@ -69,15 +69,6 @@ static_assert(std::is_convertible_v<std::vector<int>, Span<const int>>,
 static_assert(!std::is_convertible_v<const std::vector<int>, Span<int>>,
               "std::vector should not drop const in conversion");
 
-static_assert(!std::is_convertible_v<const char*, Span<const char>>,
-              "const char* is not directly convertible to Span");
-static_assert(!std::is_convertible_v<const char16_t*, Span<const char16_t>>,
-              "const char16_t* is not directly convertible to Span");
-static_assert(!std::is_convertible_v<char*, Span<char>>,
-              "char* is not directly convertible to Span");
-static_assert(!std::is_convertible_v<char16_t*, Span<char16_t>>,
-              "char16_t* is not directly convertible to Span");
-
 /**
  * Rust slice-compatible nullptr replacement value.
  */

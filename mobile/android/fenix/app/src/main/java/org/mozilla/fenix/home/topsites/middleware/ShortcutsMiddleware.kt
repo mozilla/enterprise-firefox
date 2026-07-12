@@ -20,6 +20,9 @@ import mozilla.components.lib.state.ext.flow
 import mozilla.components.service.merino.manifest.MerinoManifestProvider
 import mozilla.components.support.ktx.android.net.hostWithoutCommonPrefixes
 import org.mozilla.fenix.components.AppStore
+import org.mozilla.fenix.components.appstate.AppAction.ShortcutAction
+import org.mozilla.fenix.home.topsites.AddShortcutEntryPoint
+import org.mozilla.fenix.home.topsites.AddShortcutSource
 import org.mozilla.fenix.home.topsites.store.ShortcutsAction
 import org.mozilla.fenix.home.topsites.store.ShortcutsState
 import org.mozilla.fenix.home.topsites.store.ShortcutsStore
@@ -33,7 +36,7 @@ internal const val POPULAR_SITES_LIMIT = 8
  * [Middleware] implementation for handling [ShortcutsAction] and managing the [ShortcutsState]
  * for the shortcuts screen.
  *
- * @param appStore The [AppStore] to observe for top site updates.
+ * @param appStore The [AppStore] to observe for top site updates and dispatching actions.
  * @param topSitesUseCases The [TopSitesUseCases] used to persist new pinned shortcuts.
  * @param merinoManifestProvider The [MerinoManifestProvider] used to read popular site suggestions.
  * @param settings The [Settings] used to read whether the add shortcut tile is enabled.
@@ -58,11 +61,29 @@ class ShortcutsMiddleware(
     ) {
         when (action) {
             is ShortcutsAction.InitAction -> initialize(store = store)
-            is ShortcutsAction.SaveShortcut -> saveShortcut(
-                store = store,
-                title = action.title,
-                url = action.url,
-            )
+
+            is ShortcutsAction.ShowAddShortcutBottomSheet -> {
+                appStore.dispatch(
+                    ShortcutAction.AddShortcutSheetShown(
+                        entryPoint = AddShortcutEntryPoint.SHORTCUTS_LIBRARY,
+                    ),
+                )
+            }
+
+            is ShortcutsAction.ShowAddShortcutDialog -> {
+                appStore.dispatch(
+                    ShortcutAction.AddWebsiteDialogShown,
+                )
+            }
+
+            is ShortcutsAction.SaveShortcut -> {
+                saveShortcut(
+                    store = store,
+                    title = action.title,
+                    url = action.url,
+                    source = action.source,
+                )
+            }
 
             else -> Unit
         }
@@ -101,8 +122,15 @@ class ShortcutsMiddleware(
         store: Store<ShortcutsState, ShortcutsAction>,
         title: String,
         url: String,
+        source: AddShortcutSource,
     ) = scope.launch {
         topSitesUseCases.addPinnedSites(title = title, url = url)
+        appStore.dispatch(
+            ShortcutAction.ShortcutAdded(
+                source = source,
+                entryPoint = AddShortcutEntryPoint.SHORTCUTS_LIBRARY,
+            ),
+        )
         store.dispatch(ShortcutsAction.CloseDialog)
     }
 }

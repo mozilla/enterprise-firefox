@@ -16,12 +16,12 @@ import {
   PREF_WIDGETS_CLOCKS_ENABLED,
   WIDGET_REGISTRY,
 } from "common/WidgetsRegistry.mjs";
-import { useSizeSubmenu } from "../../../lib/utils";
 import { useWidgetTelemetry } from "../useWidgetTelemetry";
 import { AddClockForm } from "./AddClockForm";
 import { ClocksRow } from "./ClocksRow";
 import { EditClocksPanel } from "./EditClocksPanel";
-import { MoveSubmenu } from "../MoveSubmenu";
+import { SizeSubmenu } from "../SizeSubmenu";
+import { WidgetMenuFooter } from "../WidgetMenuFooter";
 import {
   backfillClockLabelColors,
   buildNextClockZones,
@@ -122,13 +122,11 @@ function Clocks({ dispatch, size, widgetEnabledMap }) {
       size,
     });
 
-  const { impressionRef, recordUserAction, recordEnabled } = useWidgetTelemetry(
-    {
-      dispatch,
-      widget: CLOCKS_WIDGET,
-      widgetSize: currentSize,
-    }
-  );
+  const { impressionRef, recordUserAction } = useWidgetTelemetry({
+    dispatch,
+    widget: CLOCKS_WIDGET,
+    widgetSize: currentSize,
+  });
 
   // Each tick realigns to the next minute, so paused tabs or device sleep
   // can't compound drift. `now` starts null so the first render stays
@@ -163,8 +161,6 @@ function Clocks({ dispatch, size, widgetEnabledMap }) {
     [dispatch, recordUserAction, closeContextMenu]
   );
 
-  const sizeSubmenuRef = useSizeSubmenu(handleChangeSize);
-
   const handleToggleHourFormat = useCallback(() => {
     const nextFormat = use12HourFormat ? "24" : "12";
     batch(() => {
@@ -182,35 +178,12 @@ function Clocks({ dispatch, size, widgetEnabledMap }) {
     closeContextMenu();
   }, [use12HourFormat, dispatch, recordUserAction, closeContextMenu]);
 
-  const handleHide = useCallback(() => {
-    batch(() => {
-      dispatch(
-        ac.OnlyToMain({
-          type: at.SET_PREF,
-          data: { name: PREF_WIDGETS_CLOCKS_ENABLED, value: false },
-        })
-      );
-      recordEnabled(false, { source: CLOCK_WIDGET_SOURCE.CONTEXT_MENU });
-    });
-    closeContextMenu();
-  }, [dispatch, recordEnabled, closeContextMenu]);
-
   const handleLearnMore = useCallback(() => {
-    batch(() => {
-      dispatch(
-        ac.OnlyToMain({
-          type: at.OPEN_LINK,
-          data: {
-            url: "https://support.mozilla.org/kb/firefox-new-tab-widgets",
-          },
-        })
-      );
-      recordUserAction(USER_ACTION_TYPES.LEARN_MORE, {
-        source: CLOCK_WIDGET_SOURCE.CONTEXT_MENU,
-      });
+    recordUserAction(USER_ACTION_TYPES.LEARN_MORE, {
+      source: CLOCK_WIDGET_SOURCE.CONTEXT_MENU,
     });
     closeContextMenu();
-  }, [dispatch, recordUserAction, closeContextMenu]);
+  }, [recordUserAction, closeContextMenu]);
 
   const clockZones = useMemo(
     () => parseClockZonesPref(clocksZonesPref) || buildDefaultZones(),
@@ -396,25 +369,6 @@ function Clocks({ dispatch, size, widgetEnabledMap }) {
           ref={contextMenuButtonRef}
         />
         <panel-list ref={contextMenuRef} id="clocks-widget-context-menu">
-          <panel-item submenu="clocks-size-submenu">
-            <span data-l10n-id="newtab-widget-menu-change-size"></span>
-            <panel-list
-              ref={sizeSubmenuRef}
-              slot="submenu"
-              id="clocks-size-submenu"
-            >
-              {["small", "medium", "large"].map(s => (
-                <panel-item
-                  key={s}
-                  type="checkbox"
-                  checked={currentSize === s}
-                  data-size={s}
-                  data-l10n-id={`newtab-widget-size-${s}`}
-                />
-              ))}
-            </panel-list>
-          </panel-item>
-          <MoveSubmenu widgetId="clocks" widgetEnabledMap={widgetEnabledMap} />
           <panel-item
             data-l10n-id="newtab-clock-widget-menu-edit"
             onClick={() => {
@@ -430,13 +384,24 @@ function Clocks({ dispatch, size, widgetEnabledMap }) {
             }
             onClick={handleToggleHourFormat}
           />
-          <panel-item
-            data-l10n-id="newtab-clock-widget-menu-hide"
-            onClick={handleHide}
-          />
-          <panel-item
-            data-l10n-id="newtab-clock-widget-menu-learn-more"
-            onClick={handleLearnMore}
+          <WidgetMenuFooter
+            dispatch={dispatch}
+            widgetId="clocks"
+            widgetEnabledMap={widgetEnabledMap}
+            widgetName="clocks"
+            enabledPref={PREF_WIDGETS_CLOCKS_ENABLED}
+            widgetSize={currentSize}
+            learnMoreL10nId="newtab-clock-widget-menu-learn-more"
+            onAfterHide={closeContextMenu}
+            onLearnMore={handleLearnMore}
+            sizeSubmenu={
+              <SizeSubmenu
+                submenuId="clocks-size-submenu"
+                sizes={["small", "medium", "large"]}
+                checkedSize={currentSize}
+                onChangeSize={handleChangeSize}
+              />
+            }
           />
         </panel-list>
       </div>

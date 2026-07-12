@@ -120,6 +120,9 @@ export class AmpSuggestions extends SuggestProvider {
       if (suggestion.custom_details?.amp) {
         let { amp } = suggestion.custom_details;
         normalized.suggestionId = amp.suggestion_id;
+        if (typeof amp.header_text == "string") {
+          normalized.fullKeyword = amp.header_text;
+        }
       }
 
       // Replace URL timestamp templates inline. This isn't necessary for Rust
@@ -188,7 +191,7 @@ export class AmpSuggestions extends SuggestProvider {
       commands.push({
         name: "show_less_frequently",
         l10n: {
-          id: "urlbar-result-menu-show-less-frequently",
+          id: "urlbar-result-menu-show-less-frequently2",
         },
       });
     }
@@ -197,20 +200,20 @@ export class AmpSuggestions extends SuggestProvider {
       {
         name: "dismiss",
         l10n: {
-          id: "urlbar-result-menu-dismiss-suggestion",
+          id: "urlbar-result-menu-dismiss-suggestion2",
         },
       },
       { name: "separator" },
       {
         name: "manage",
         l10n: {
-          id: "urlbar-result-menu-manage-firefox-suggest",
+          id: "urlbar-result-menu-manage-firefox-suggest2",
         },
       },
       {
         name: "help",
         l10n: {
-          id: "urlbar-result-menu-learn-more",
+          id: "urlbar-result-menu-learn-more2",
         },
       }
     );

@@ -807,8 +807,8 @@ class nsDocShell final : public nsDocLoader,
    *        For HTTP channels, the response code (0 otherwise).
    */
   void AddURIVisit(nsIURI* aURI, nsIURI* aPreviousURI,
-                   uint32_t aChannelRedirectFlags,
-                   uint32_t aResponseStatus = 0);
+                   uint32_t aChannelRedirectFlags, uint32_t aResponseStatus = 0,
+                   bool aIsPost = false);
 
   /**
    * Internal helper funtion
@@ -816,7 +816,8 @@ class nsDocShell final : public nsDocLoader,
   static void InternalAddURIVisit(
       nsIURI* aURI, nsIURI* aPreviousURI, uint32_t aChannelRedirectFlags,
       uint32_t aResponseStatus, mozilla::dom::BrowsingContext* aBrowsingContext,
-      nsIWidget* aWidget, uint32_t aLoadType, bool aWasUpgraded);
+      nsIWidget* aWidget, uint32_t aLoadType, bool aWasUpgraded,
+      bool aIsPost = false);
 
   static already_AddRefed<nsIURIFixupInfo> KeywordToURI(
       const nsACString& aKeyword, bool aIsPrivateContext);

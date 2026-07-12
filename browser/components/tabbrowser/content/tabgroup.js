@@ -233,19 +233,14 @@
     set color(code) {
       let diff = code !== this.#colorCode;
       this.#colorCode = code;
-      this.style.setProperty(
-        "--tab-group-color",
-        `var(--tab-group-color-${code})`
-      );
+      this.style.setProperty("--tab-group-color", `var(--tab-group-${code})`);
       this.style.setProperty(
         "--tab-group-color-invert",
-        Services.prefs.getBoolPref("browser.nova.enabled")
-          ? `var(--tab-group-${code}-invert)`
-          : `var(--tab-group-color-${code}-invert)`
+        `var(--tab-group-${code}-invert)`
       );
       this.style.setProperty(
         "--tab-group-color-pale",
-        `var(--tab-group-color-${code}-pale)`
+        `var(--tab-group-${code}-pale)`
       );
       this.style.setProperty(
         "--tab-group-background-color",
@@ -595,6 +590,20 @@
      *   Optional context to record for metrics purposes.
      */
     addTabs(tabsOrSplitViews, metricsContext = null) {
+      if (metricsContext?.isUserTriggered) {
+        let tabCount = tabsOrSplitViews.reduce(
+          (n, item) =>
+            n + (gBrowser.isSplitViewWrapper(item) ? item.tabs.length : 1),
+          0
+        );
+        gBrowser.recordTabMetrics(
+          gBrowser.TabMetrics.METRIC_ACTION.MOVE,
+          metricsContext,
+          { tabCount }
+        );
+        metricsContext = gBrowser.TabMetrics.decomposedContext(metricsContext);
+      }
+
       for (let tabOrSplitView of tabsOrSplitViews) {
         if (gBrowser.isSplitViewWrapper(tabOrSplitView)) {
           let splitViewToMove =

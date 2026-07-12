@@ -80,24 +80,6 @@ class HomePage(composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule, *
         return HomeSelectors.all.filter { it.groups.contains(group) }
     }
 
-    fun verifyTopSiteItem(title: String): HomePage {
-        val rep = org.mozilla.fenix.ui.efficiency.logging.TestLogging.reporter
-        rep?.startCmd(safeId("verify_top_site", title), "Verifying Top Site item with title '$title' is present...", 1)
-
-        try {
-            composeRule.onAllNodesWithTag("top_sites_list.top_site_item")
-                .filter(hasAnyChild(hasText(title)))
-                .onFirst()
-                .assertIsDisplayed()
-
-            rep?.endCmd(success = true, message = "Top Site item with title '$title' verified")
-        } catch (e: Throwable) {
-            rep?.endCmd(success = false, message = "Top Site item with title '$title' not found")
-            throw e
-        }
-        return this
-    }
-
     private fun safeId(prefix: String, raw: String): String {
         val cleaned = raw.replace(Regex("[^A-Za-z0-9_\\-]"), "_")
         return "'$prefix'_$cleaned".take(120)

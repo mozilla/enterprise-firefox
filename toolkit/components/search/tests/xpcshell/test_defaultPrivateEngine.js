@@ -758,6 +758,54 @@ add_task(async function test_defaultPrivateEngine_same_engine_toggle_ui_pref() {
   });
 });
 
+add_task(
+  async function test_enabling_separate_private_default_seeds_app_private_default() {
+    // Turn the feature off, and customize the normal default away from the
+    // app default, so we can tell whether re-enabling seeds the private
+    // default from the app's distinct private default or from the
+    // customized normal default.
+    Services.prefs.setBoolPref(
+      SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault",
+      false
+    );
+    await SearchService.setDefault(
+      engine1,
+      SearchService.CHANGE_REASON.UNKNOWN
+    );
+
+    let promise = promiseDefaultNotification("private");
+    Services.prefs.setBoolPref(
+      SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault",
+      true
+    );
+    Assert.equal(
+      await promise,
+      appPrivateDefault,
+      "Should have notified seeding the private default with the app's private default"
+    );
+
+    Assert.equal(
+      SearchService.defaultPrivateEngine.id,
+      appPrivateDefault.id,
+      "Should seed the private default with the app's distinct private default, not the customized normal default"
+    );
+    Assert.equal(
+      SearchService.defaultEngine.id,
+      engine1.id,
+      "Should not have changed the normal default engine"
+    );
+
+    await SearchService.setDefault(
+      appDefault,
+      SearchService.CHANGE_REASON.UNKNOWN
+    );
+    await SearchService.setDefaultPrivate(
+      appPrivateDefault,
+      SearchService.CHANGE_REASON.UNKNOWN
+    );
+  }
+);
+
 add_task(async function test_no_private_default_falls_back_to_normal_default() {
   SearchTestUtils.setRemoteSettingsConfig(CONFIG_NO_PRIVATE);
   SearchService.reset();
@@ -798,3 +846,32 @@ add_task(async function test_no_private_default_falls_back_to_normal_default() {
     "Should have the same engine for the private default"
   );
 });
+
+add_task(
+  async function test_enabling_separate_private_default_seeds_current_default_when_no_distinct_app_private() {
+    // CONFIG_NO_PRIVATE has no distinct app private default, so re-enabling
+    // the pref should seed the private default from the current (possibly
+    // customized) default engine, rather than resetting to the app default.
+    let otherEngine = SearchService.getEngineById("other");
+
+    Services.prefs.setBoolPref(
+      SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault",
+      false
+    );
+    await SearchService.setDefault(
+      otherEngine,
+      SearchService.CHANGE_REASON.UNKNOWN
+    );
+
+    Services.prefs.setBoolPref(
+      SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault",
+      true
+    );
+
+    Assert.equal(
+      SearchService.defaultPrivateEngine.id,
+      otherEngine.id,
+      "Should seed the private default with the current default engine, not reset to the app default"
+    );
+  }
+);

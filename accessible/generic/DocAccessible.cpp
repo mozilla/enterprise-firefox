@@ -1813,7 +1813,8 @@ void DocAccessible::DoInitialUpdate() {
         if (!ipcDoc) {
           ipcDoc = new DocAccessibleChild(this, browserChild);
           MOZ_RELEASE_ASSERT(browserChild->SendPDocAccessibleConstructor(
-              ipcDoc, nullptr, 0, mDocumentNode->GetBrowsingContext()));
+              ipcDoc, nullptr, 0, mDocumentNode->GetBrowsingContext(),
+              IsPrintDoc()));
           // trying to recover from this failing is problematic
           SetIPCDoc(ipcDoc);
         }
@@ -3377,7 +3378,8 @@ void DocAccessible::BindChildDocument(DocAccessible* aDocument) {
           MOZ_ASSERT(bc);
           bc->SendPDocAccessibleConstructor(
               ipcDoc, mIPCDoc, embedderAcc->ID(),
-              aDocument->DocumentNode()->GetBrowsingContext());
+              aDocument->DocumentNode()->GetBrowsingContext(),
+              aDocument->IsPrintDoc());
         }
       }
     }

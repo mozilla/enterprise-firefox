@@ -136,47 +136,6 @@ SessionHistoryInfo::SessionHistoryInfo(
   }
 }
 
-void SessionHistoryInfo::Reset(nsIURI* aURI, const nsID& aDocShellID,
-                               bool aDynamicCreation,
-                               nsIPrincipal* aTriggeringPrincipal,
-                               nsIPrincipal* aPrincipalToInherit,
-                               nsIPrincipal* aPartitionedPrincipalToInherit,
-                               nsIPolicyContainer* aPolicyContainer,
-                               const nsACString& aContentType) {
-  mURI = aURI;
-  mOriginalURI = nullptr;
-  mResultPrincipalURI = nullptr;
-  mUnstrippedURI = nullptr;
-  mReferrerInfo = nullptr;
-  // Default title is the URL.
-  nsAutoCString spec;
-  if (NS_SUCCEEDED(mURI->GetSpec(spec))) {
-    CopyUTF8toUTF16(spec, mTitle);
-  }
-  mPostData = nullptr;
-  mLoadType = 0;
-  mScrollPositionX = 0;
-  mScrollPositionY = 0;
-  mStateData = nullptr;
-  mSrcdocData = Nothing();
-  mBaseURI = nullptr;
-  mLoadReplace = false;
-  mURIWasModified = false;
-  mScrollRestorationIsManual = false;
-  mTransient = false;
-  mHasUserInteraction = false;
-  mHasUserActivation = false;
-  mNavigationAPIState = nullptr;
-
-  mSharedState.Get()->mTriggeringPrincipal = aTriggeringPrincipal;
-  mSharedState.Get()->mPrincipalToInherit = aPrincipalToInherit;
-  mSharedState.Get()->mPartitionedPrincipalToInherit =
-      aPartitionedPrincipalToInherit;
-  mSharedState.Get()->mPolicyContainer = aPolicyContainer;
-  mSharedState.Get()->mContentType = aContentType;
-  mSharedState.Get()->mLayoutHistoryState = nullptr;
-}
-
 void SessionHistoryInfo::MaybeUpdateTitleFromURI() {
   if (mTitle.IsEmpty() && mURI) {
     // Default title is the URL.

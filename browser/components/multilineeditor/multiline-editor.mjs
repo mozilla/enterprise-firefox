@@ -63,6 +63,14 @@ function generatePlaceholderKeyframeStyles(placeholderCount) {
 }
 
 /**
+ * A ProseMirror transaction.
+ *
+ * TODO (Bug 2052510): Export and use `Transaction` from the ProseMirror bundle.
+ *
+ * @typedef {EditorState["tr"]} Transaction
+ */
+
+/**
  * @typedef {object} MultilineEditorPlugin
  * @property {object} [schemaExtension] - Schema extensions
  * @property {object} [schemaExtension.nodes] - Node specs
@@ -235,20 +243,77 @@ export class MultilineEditor extends MozLitElement {
     const doc = this.#textToDoc(val, state.schema);
 
     const tr = state.tr.replaceWith(0, state.doc.content.size, doc.content);
-    tr.setMeta("addToHistory", false);
-
     const cursorPos = this.#posFromTextOffset(val.length, tr.doc);
-    // Suppress input events when updating only the text selection.
+    tr.setSelection(
+      TextSelection.between(
+        tr.doc.resolve(cursorPos),
+        tr.doc.resolve(cursorPos)
+      )
+    );
+    this.#dispatchSilently(tr);
+  }
+
+  /**
+   * Set a range of text and selection.
+   *
+   * @param {string} replacement - The string to insert.
+   * @param {number} [start] - Index of the first character to replace.
+   * @param {number} [end] - Index of the after the last character to replace.
+   * @param {SelectionMode} [selectionMode] - Selection after the replacement.
+   */
+  setRangeText(replacement, start, end, selectionMode) {
+    if (!this.#view) {
+      return;
+    }
+
+    const state = this.#view.state;
+    const from = this.#posFromTextOffset(
+      start ?? this.selectionStart,
+      state.doc
+    );
+    const to = this.#posFromTextOffset(end ?? this.selectionEnd, state.doc);
+    const tr = state.tr.insertText(replacement, from, to);
+
+    let selectionStart;
+    let selectionEnd;
+    switch (selectionMode) {
+      case "select":
+        selectionStart = from;
+        selectionEnd = tr.mapping.map(to);
+        break;
+      case "start":
+        selectionStart = from;
+        selectionEnd = from;
+        break;
+      case "end":
+        selectionStart = selectionEnd = tr.mapping.map(to);
+        break;
+      case "preserve":
+      default:
+        selectionStart = tr.mapping.map(state.selection.from);
+        selectionEnd = tr.mapping.map(state.selection.to);
+    }
+
+    tr.setSelection(
+      TextSelection.between(
+        tr.doc.resolve(selectionStart),
+        tr.doc.resolve(selectionEnd)
+      )
+    );
+    this.#dispatchSilently(tr);
+  }
+
+  /**
+   * Dispatch a transaction for programmatic updates without adding it to the
+   * history and firing an input event.
+   *
+   * @param {Transaction} tr - The transaction to dispatch.
+   */
+  #dispatchSilently(tr) {
+    tr.setMeta("addToHistory", false);
     this.#suppressInputEvent = true;
     try {
-      this.#view.dispatch(
-        tr.setSelection(
-          TextSelection.between(
-            tr.doc.resolve(cursorPos),
-            tr.doc.resolve(cursorPos)
-          )
-        )
-      );
+      this.#view.dispatch(tr);
     } finally {
       this.#suppressInputEvent = false;
     }
@@ -379,7 +444,6 @@ export class MultilineEditor extends MozLitElement {
     this.#view.dispatch(
       this.#view.state.tr.setSelection(selection).scrollIntoView()
     );
-    this.#dispatchSelectionChange();
   }
 
   /**
@@ -622,6 +686,12 @@ export class MultilineEditor extends MozLitElement {
         {},
         ...this.plugins.map(plugin => plugin.nodeViews).filter(Boolean)
       ),
+    });
+
+    // An `input` event is already dispatched from #dispatchTransaction:
+    // Stop the contenteditable’s duplicate event from propagating.
+    this.#view.dom.addEventListener("input", event => event.stopPropagation(), {
+      capture: true,
     });
 
     if (this.#pendingValue) {

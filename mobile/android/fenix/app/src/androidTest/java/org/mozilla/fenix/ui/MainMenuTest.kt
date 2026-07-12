@@ -360,6 +360,11 @@ class MainMenuTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080113
+    @Converted(
+        replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.MainMenuTest#verifyTheAddToHomeScreenSubMenuOptionTest"],
+        bug = 2052183,
+        since = "2026-07",
+    )
     @SmokeTest
     @Test
     fun verifyTheAddToShortcutsSubMenuOptionTest() {
@@ -385,6 +390,11 @@ class MainMenuTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080114
+    @Converted(
+        replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.MainMenuTest#verifyTheAddToHomeScreenSubMenuOptionTest"],
+        bug = 2051566,
+        since = "2026-06",
+    )
     @SmokeTest
     @Test
     fun verifyTheAddToHomeScreenSubMenuOptionTest() {
@@ -466,6 +476,11 @@ class MainMenuTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080111
+    @Converted(
+        replacedBy = ["org.mozilla.fenix.ui.efficiency.tests.MainMenuTest#verifyTheTranslatePageSubMenuOptionTest"],
+        bug = 2049332,
+        since = "2026-07",
+    )
     @SmokeTest
     @Test
     fun verifyTheTranslatePageSubMenuOptionTest() {
@@ -887,6 +902,7 @@ class MainMenuTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/2937924
+    @Ignore("https://bugzilla.mozilla.org/show_bug.cgi?id=2053348")
     @Test
     fun verifyTheWhatIsBrokenErrorMessageTest() {
         val defaultWebPage = mockWebServer.getGenericAsset(1)
@@ -906,6 +922,7 @@ class MainMenuTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/2937926
+    @Ignore("https://bugzilla.mozilla.org/show_bug.cgi?id=2053348")
     @Test
     fun verifyThatTheBrokenSiteFormSubmissionCanBeCanceledTest() {
         val defaultWebPage = mockWebServer.getGenericAsset(1)
@@ -926,6 +943,7 @@ class MainMenuTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/2937927
+    @Ignore("https://bugzilla.mozilla.org/show_bug.cgi?id=2053348")
     @Test
     fun verifyTheBrokenSiteFormSubmissionWithOptionalFieldsTest() {
         val defaultWebPage = mockWebServer.getGenericAsset(1)
@@ -954,6 +972,7 @@ class MainMenuTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/2937930
+    @Ignore("https://bugzilla.mozilla.org/show_bug.cgi?id=2053348")
     @Test
     fun verifyThatTheBrokenSiteFormInfoPersistsTest() {
         val defaultWebPage = mockWebServer.getGenericAsset(1)
@@ -978,6 +997,7 @@ class MainMenuTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/2937931
+    @Ignore("https://bugzilla.mozilla.org/show_bug.cgi?id=2053348")
     @Test
     fun verifyTheBrokenSiteFormIsEmptyWithoutSubmittingThePreviousOneTest() {
         val firstWebPage = mockWebServer.getGenericAsset(1)
@@ -1009,6 +1029,7 @@ class MainMenuTest {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/2937932
+    @Ignore("https://bugzilla.mozilla.org/show_bug.cgi?id=2053348")
     @Test
     fun verifyThatTheBrokenSiteFormInfoIsErasedWhenKillingTheAppTest() {
         val defaultWebPage = mockWebServer.getGenericAsset(1)

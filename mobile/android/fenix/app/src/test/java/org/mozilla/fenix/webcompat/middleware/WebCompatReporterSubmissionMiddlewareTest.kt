@@ -9,8 +9,6 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -24,7 +22,6 @@ import mozilla.components.support.test.robolectric.testContext
 import mozilla.telemetry.glean.private.NoReasonCodes
 import mozilla.telemetry.glean.private.PingType
 import mozilla.telemetry.glean.testing.GleanTestRule
-import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
@@ -48,9 +45,11 @@ import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.webcompat.WebCompatReporterMoreInfoSender
 import org.mozilla.fenix.webcompat.fake.FakeWebCompatReporterMoreInfoSender
+import org.mozilla.fenix.webcompat.middleware.WebCompatInfoDto.Companion.addWebCompatInfo
 import org.mozilla.fenix.webcompat.store.WebCompatReporterAction
 import org.mozilla.fenix.webcompat.store.WebCompatReporterState
 import org.mozilla.fenix.webcompat.store.WebCompatReporterStore
+import org.mozilla.fenix.webcompat.testdata.WebCompatTestData
 import kotlin.test.assertNotNull
 
 @RunWith(AndroidJUnit4::class) // for GleanTestRule
@@ -325,9 +324,15 @@ class WebCompatReporterSubmissionMiddlewareTest {
         )
 
         val job = Pings.brokenSiteReport.testBeforeNextSubmit {
-            assertNull(BrokenSiteReportTabInfoAntitracking.blockList.testGetValue())
+            assertEquals(
+                "basic",
+                BrokenSiteReportTabInfoAntitracking.blockList.testGetValue(),
+            )
+            assertEquals(
+                "standard",
+                BrokenSiteReportTabInfoAntitracking.etpCategory.testGetValue(),
+            )
             assertNull(BrokenSiteReportTabInfoAntitracking.btpHasPurgedSite.testGetValue())
-            assertNull(BrokenSiteReportTabInfoAntitracking.etpCategory.testGetValue())
             assertNull(BrokenSiteReportTabInfoAntitracking.hasMixedActiveContentBlocked.testGetValue())
             assertNull(BrokenSiteReportTabInfoAntitracking.hasMixedDisplayContentBlocked.testGetValue())
             assertNull(BrokenSiteReportTabInfoAntitracking.hasTrackingContentBlocked.testGetValue())
@@ -586,61 +591,6 @@ class WebCompatReporterSubmissionMiddlewareTest {
     }
 
     @Test
-    fun `WHEN send more info is clicked THEN more WebCompat info is sent`() = runTest {
-        var moreWebCompatInfoSent = false
-        val webCompatReporterMoreInfoSender = object : WebCompatReporterMoreInfoSender {
-            override suspend fun sendMoreWebCompatInfo(
-                reason: WebCompatReporterState.BrokenSiteReason?,
-                problemDescription: String?,
-                enteredUrl: String?,
-                tabUrl: String?,
-                engineSession: EngineSession?,
-            ) {
-                moreWebCompatInfoSent = true
-            }
-        }
-
-        val tab = createTab(
-            url = "https://www.mozilla.org",
-            id = "test-tab",
-            engineSession = mockk(),
-        )
-        val browserStore = BrowserStore(
-            initialState = BrowserState(
-                tabs = listOf(tab),
-                selectedTabId = tab.id,
-            ),
-        )
-
-        val captureActionsMiddleware =
-            CaptureActionsMiddleware<WebCompatReporterState, WebCompatReporterAction>()
-
-        val store = WebCompatReporterStore(
-            initialState = WebCompatReporterState(
-                tabUrl = "https://www.mozilla.org",
-                enteredUrl = "https://www.mozilla.org/en-US/firefox/new/",
-                reason = WebCompatReporterState.BrokenSiteReason.Slow,
-                problemDescription = "",
-            ),
-            middleware = listOf(
-                captureActionsMiddleware,
-                createMiddleware(
-                    browserStore = browserStore,
-                    service = FakeWebCompatReporterRetrievalService(),
-                    scope = this,
-                    webCompatReporterMoreInfoSender = webCompatReporterMoreInfoSender,
-                ),
-            ),
-        )
-
-        store.dispatch(WebCompatReporterAction.AddMoreInfoClicked)
-        testScheduler.advanceUntilIdle()
-
-        assertTrue(moreWebCompatInfoSent)
-        captureActionsMiddleware.assertFirstAction(WebCompatReporterAction.SendMoreInfoSubmitted::class)
-    }
-
-    @Test
     fun `WHEN open preview is clicked AND enteredUrl matches tab url THEN preview contains full raw JSON plus form fields`() = runTest {
         val capture = CaptureActionsMiddleware<WebCompatReporterState, WebCompatReporterAction>()
 
@@ -650,19 +600,13 @@ class WebCompatReporterSubmissionMiddlewareTest {
                 enteredUrl = "https://www.mozilla.org",
                 reason = WebCompatReporterState.BrokenSiteReason.Slow,
                 problemDescription = "",
+                includeEtpBlockedUrls = true,
             ),
             middleware = listOf(
                 capture,
                 createMiddleware(
-                    browserStore = BrowserStore(
-                        BrowserState(
-                        tabs = listOf(createTab("https://www.mozilla.org", id = "t1")),
-                            selectedTabId = "t1",
-                        ),
-                    ),
                     scope = this,
                     service = FakeWebCompatReporterRetrievalService(),
-                    webCompatReporterMoreInfoSender = FakeWebCompatReporterMoreInfoSender(),
                 ),
             ),
         )
@@ -671,15 +615,17 @@ class WebCompatReporterSubmissionMiddlewareTest {
         testScheduler.advanceUntilIdle()
 
         val actual = store.state.previewJSON
-        val expected = JSONObject(
-            Json.encodeToString(
-                (FakeWebCompatReporterRetrievalService()).retrieveInfo(),
-            ),
-        ).apply {
-            put("enteredUrl", "https://www.mozilla.org")
-            put("reason", WebCompatReporterState.BrokenSiteReason.Slow)
-            put("problemDescription", "")
-        }
+        val webCompatInfo = FakeWebCompatReporterRetrievalService().retrieveInfo()
+        val expected = buildJsonObject {
+            put(
+                "basic",
+                buildJsonObject {
+                    put("description", "")
+                    put("reason", WebCompatReporterState.BrokenSiteReason.Slow.name)
+                    put("url", "https://www.mozilla.org")
+                },
+            )
+        }.addWebCompatInfo(webCompatInfo)
 
         assertEquals(expected.toString(), actual)
     }
@@ -687,23 +633,9 @@ class WebCompatReporterSubmissionMiddlewareTest {
     private fun createStore(
         enteredUrl: String = "https://www.mozilla.org",
         service: WebCompatReporterRetrievalService = FakeWebCompatReporterRetrievalService(),
-        webCompatReporterMoreInfoSender: WebCompatReporterMoreInfoSender = FakeWebCompatReporterMoreInfoSender(),
         nimbusExperimentsProvider: NimbusExperimentsProvider = FakeNimbusExperimentsProvider(),
         scope: CoroutineScope,
     ): WebCompatReporterStore {
-        val engineSession: EngineSession = mockk()
-        val tab = createTab(
-            url = "",
-            id = "test-tab",
-            engineSession = engineSession,
-        )
-        val browserStore = BrowserStore(
-            initialState = BrowserState(
-                tabs = listOf(tab),
-                selectedTabId = tab.id,
-            ),
-        )
-
         return WebCompatReporterStore(
             initialState = WebCompatReporterState(
                 tabUrl = "",
@@ -713,9 +645,7 @@ class WebCompatReporterSubmissionMiddlewareTest {
             ),
             middleware = listOf(
                 createMiddleware(
-                    browserStore = browserStore,
                     service = service,
-                    webCompatReporterMoreInfoSender = webCompatReporterMoreInfoSender,
                     nimbusExperimentsProvider = nimbusExperimentsProvider,
                     scope = scope,
                 ),
@@ -724,16 +654,12 @@ class WebCompatReporterSubmissionMiddlewareTest {
     }
 
     private fun createMiddleware(
-        browserStore: BrowserStore,
         service: WebCompatReporterRetrievalService,
-        webCompatReporterMoreInfoSender: WebCompatReporterMoreInfoSender,
         scope: CoroutineScope,
         nimbusExperimentsProvider: NimbusExperimentsProvider = FakeNimbusExperimentsProvider(),
     ) = WebCompatReporterSubmissionMiddleware(
         appStore = appStore,
-        browserStore = browserStore,
         webCompatReporterRetrievalService = service,
-        webCompatReporterMoreInfoSender = webCompatReporterMoreInfoSender,
         scope = scope,
         nimbusExperimentsProvider = nimbusExperimentsProvider,
     )
@@ -741,95 +667,6 @@ class WebCompatReporterSubmissionMiddlewareTest {
     private class FakeWebCompatReporterRetrievalService : WebCompatReporterRetrievalService {
 
         override suspend fun retrieveInfo(): WebCompatInfoDto =
-            WebCompatInfoDto(
-                antitracking = WebCompatInfoDto.WebCompatAntiTrackingDto(
-                    blockList = "basic",
-                    btpHasPurgedSite = false,
-                    etpCategory = "standard",
-                    hasMixedActiveContentBlocked = false,
-                    hasMixedDisplayContentBlocked = false,
-                    hasTrackingContentBlocked = false,
-                    isPrivateBrowsing = false,
-                    blockedOrigins = listOf("https://exampleBlockedURLByETP.com"),
-                ),
-                browser = WebCompatInfoDto.WebCompatBrowserDto(
-                    addons = listOf(
-                        WebCompatInfoDto.WebCompatBrowserDto.AddonDto(
-                            id = "id.temp",
-                            name = "name1",
-                            temporary = true,
-                            version = "version1",
-                        ),
-                        WebCompatInfoDto.WebCompatBrowserDto.AddonDto(
-                            id = "id.perm",
-                            name = "name2",
-                            temporary = false,
-                            version = "version2",
-                        ),
-                    ),
-                    app = WebCompatInfoDto.WebCompatBrowserDto.AppDto(
-                        defaultUserAgent = "testDefaultUserAgent",
-                    ),
-                    graphics = WebCompatInfoDto.WebCompatBrowserDto.GraphicsDto(
-                        devices = buildJsonArray {
-                            addJsonObject {
-                                put("id", JsonPrimitive("device1"))
-                            }
-                            addJsonObject {
-                                put("id", JsonPrimitive("device2"))
-                            }
-                            addJsonObject {
-                                put("id", JsonPrimitive("device3"))
-                            }
-                        },
-                        drivers = buildJsonArray {
-                            addJsonObject {
-                                put("id", JsonPrimitive("driver1"))
-                            }
-                            addJsonObject {
-                                put("id", JsonPrimitive("driver2"))
-                            }
-                            addJsonObject {
-                                put("id", JsonPrimitive("driver3"))
-                            }
-                        },
-                        features = buildJsonObject { put("id", JsonPrimitive("feature1")) },
-                        hasTouchScreen = true,
-                        monitors = buildJsonArray {
-                            addJsonObject {
-                                put("id", JsonPrimitive("monitor1"))
-                            }
-                            addJsonObject {
-                                put("id", JsonPrimitive("monitor2"))
-                            }
-                            addJsonObject {
-                                put("id", JsonPrimitive("monitor3"))
-                            }
-                        },
-                    ),
-                    locales = listOf("en-CA", "en-US"),
-                    platform = WebCompatInfoDto.WebCompatBrowserDto.PlatformDto(
-                        fissionEnabled = false,
-                        memoryMB = 1,
-                    ),
-                    prefs = WebCompatInfoDto.WebCompatBrowserDto.PrefsDto(
-                        browserOpaqueResponseBlocking = false,
-                        extensionsInstallTriggerEnabled = false,
-                        gfxWebRenderSoftware = false,
-                        networkCookieBehavior = 1,
-                        privacyGlobalPrivacyControlEnabled = false,
-                        privacyResistFingerprinting = false,
-                    ),
-                ),
-                url = "https://www.mozilla.org",
-                devicePixelRatio = 1.5,
-                frameworks = WebCompatInfoDto.WebCompatFrameworksDto(
-                    fastclick = true,
-                    marfeel = true,
-                    mobify = true,
-                ),
-                languages = listOf("en-CA", "en-US"),
-                userAgent = "testUserAgent",
-            )
+            WebCompatTestData.createTestObject(blockedOrigins = listOf("https://exampleBlockedURLByETP.com"))
     }
 }

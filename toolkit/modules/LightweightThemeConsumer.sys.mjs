@@ -366,15 +366,13 @@ LightweightThemeConsumer.prototype = {
     } else if (
       shouldMakePrivateWindowDark &&
       this.BROWSER_NOVA_ENABLED &&
-      DEFAULT_THEME_ID === themeId
+      isDefaultOrInApp
     ) {
-      // When in a private window, with nova enabled and the default theme active,
-      // substitute the built-in private-window theme.
-      // Other themes (including built-ins like light, dark, alpenglow) are unchanged.
+      // When in a private window, with nova enabled and any of the in-app themes active,
+      // substitute the built-in private-window theme. Other themes are unchanged.
       if (manager.privateThemeData) {
         themeData = manager.privateThemeData;
         isPrivateThemeActive = true;
-        isDefaultOrInApp = true;
       } else {
         manager.promisePrivateThemeData().then(() => {
           if (this._win && !this._win.closed) {

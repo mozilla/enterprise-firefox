@@ -513,10 +513,10 @@ struct nsXPTConstantInfo {
   const char* Name() const { return xpt::detail::GetString(mName); }
 
   JS::Value JSValue() const {
-    if (mSigned || mValue <= uint32_t(INT32_MAX)) {
+    if (mSigned) {
       return JS::Int32Value(int32_t(mValue));
     }
-    return JS::DoubleValue(mValue);
+    return JS::NumberValue(mValue);
   }
 
   ////////////////////////////////////////////////////////////////

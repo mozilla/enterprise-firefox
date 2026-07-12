@@ -224,7 +224,7 @@ class MediaSessionConduit {
     uint32_t mLibwebrtcTimestampMs;
     uint32_t mSrc;
   };
-  mutable std::map<SourceKey, dom::RTCRtpSourceEntry, std::greater<SourceKey>>
+  mutable std::map<SourceKey, dom::RTCRtpSourceEntry, std::greater<>>
       mSourcesCache;
   // Accessed only on main thread. A flag saying whether mSourcesCache needs
   // updating. Ensures that get*Sources() appear stable from javascript

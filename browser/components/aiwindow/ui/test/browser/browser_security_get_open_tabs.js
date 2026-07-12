@@ -17,7 +17,7 @@ const { MockEngineManager } = ChromeUtils.importESModule(
   "resource://testing-common/AIWindowTestUtils.sys.mjs"
 );
 
-const { GET_OPEN_TABS } = ChromeUtils.importESModule(
+const { GET_OPEN_TABS, MAX_TABS } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/models/Tools.sys.mjs"
 );
 
@@ -31,7 +31,6 @@ const { MESSAGE_ROLE } = ChromeUtils.importESModule(
 
 // Security caps mirrored from the implementation; keep in lockstep.
 const MAX_METADATA_LENGTH = 100;
-const MAX_TABS = 15;
 
 /**
  * Pin a deterministic lastAccessed order. Writes _lastAccessed directly to dodge

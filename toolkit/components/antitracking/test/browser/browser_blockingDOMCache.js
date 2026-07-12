@@ -1,5 +1,4 @@
 /* import-globals-from storageAccessAPIHelpers.js */
-requestLongerTimeout(2);
 
 AntiTracking.runTest(
   "DOM Cache Always Partition Storage and Storage Access API",

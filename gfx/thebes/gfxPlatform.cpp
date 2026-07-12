@@ -1332,13 +1332,10 @@ void gfxPlatform::Shutdown() {
   // Shut down the default GL context provider.
   GLContextProvider::Shutdown();
 
-#if defined(XP_WIN)
-  // The above shutdown calls operate on the available context providers on
-  // most platforms.  Windows is a "special snowflake", though, and has three
-  // context providers available, so we have to shut all of them down.
-  // We should only support the default GL provider on Windows; then, this
-  // could go away. Unfortunately, we currently support WGL (the default) for
-  // WebGL on Optimus.
+#if defined(XP_WIN) || defined(XP_MACOSX)
+  // The above shutdown call shuts down the default context provider, which is
+  // the only context provider on most platforms. Windows and Mac, however, may
+  // initialize EGL for ANGLE in addition to their respective defaults.
   GLContextProviderEGL::Shutdown();
 #endif
 
@@ -3265,6 +3262,8 @@ void gfxPlatform::InitWebGLConfig() {
       IsFeatureOk(nsIGfxInfo::FEATURE_WEBGL_ANGLE));
   gfxVars::SetWebglUseHardware(
       IsFeatureOk(nsIGfxInfo::FEATURE_WEBGL_USE_HARDWARE));
+  gfxVars::SetAllowMetalAngleWebGL(
+      IsFeatureOk(nsIGfxInfo::FEATURE_WEBGL_ANGLE_METAL));
 
   if (kIsMacOS) {
     // Avoid crash for Intel HD Graphics 3000 on OSX. (Bug 1413269)

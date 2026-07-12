@@ -2009,7 +2009,6 @@ class HTMLMediaElement::ChannelLoader final {
           triggeringPrincipal->OriginAttributesRef());
     }
     loadInfo->SetIsMediaRequest(true);
-    loadInfo->SetIsMediaInitialRequest(true);
 
     if (nsCOMPtr<nsITimedChannel> timedChannel = do_QueryInterface(channel)) {
       nsString initiatorType =
@@ -5590,6 +5589,9 @@ void HTMLMediaElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
       if (mMutedState == MutedState::Default) {
         SetMutedInternal(aValue ? (mMuted | MUTED_BY_CONTENT)
                                 : (mMuted & ~MUTED_BY_CONTENT));
+        if (IsInComposedDoc()) {
+          NotifyUAWidgetSetupOrChange();
+        }
       }
     }
   }

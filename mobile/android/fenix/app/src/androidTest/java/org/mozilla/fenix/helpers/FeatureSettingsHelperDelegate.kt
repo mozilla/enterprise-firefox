@@ -36,7 +36,6 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
         isWallpaperOnboardingEnabled = settings.showWallpaperOnboarding,
         isDeleteSitePermissionsEnabled = settings.deleteSitePermissions,
         isOpenInAppBannerEnabled = settings.shouldShowOpenInAppBanner,
-        isUnifiedTrustPanelEnabled = settings.enableUnifiedTrustPanel,
         isHomepageSportsWidgetVisible = settings.showHomepageSportsWidget,
         etpPolicy = getETPPolicy(settings),
         isLocationPermissionEnabled = getFeaturePermission(PhoneFeature.LOCATION, settings),
@@ -66,7 +65,6 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
     override var isRecentlyVisitedFeatureEnabled: Boolean by updatedFeatureFlags::isRecentlyVisitedFeatureEnabled
     override var isPWAsPromptEnabled: Boolean by updatedFeatureFlags::isPWAsPromptEnabled
     override var isOpenInAppBannerEnabled: Boolean by updatedFeatureFlags::isOpenInAppBannerEnabled
-    override var isUnifiedTrustPanelEnabled: Boolean by updatedFeatureFlags::isUnifiedTrustPanelEnabled
     override var isHomepageSportsWidgetVisible: Boolean by updatedFeatureFlags::isHomepageSportsWidgetVisible
     override var etpPolicy: ETPPolicy by updatedFeatureFlags::etpPolicy
     override var isLocationPermissionEnabled: SitePermissionsRules.Action by updatedFeatureFlags::isLocationPermissionEnabled
@@ -108,7 +106,6 @@ class FeatureSettingsHelperDelegate : FeatureSettingsHelper {
         settings.shouldShowOpenInAppBanner = featureFlags.isOpenInAppBannerEnabled
         settings.microsurveyFeatureEnabled = featureFlags.isMicrosurveyEnabled
         settings.shouldUseBottomToolbar = featureFlags.shouldUseBottomToolbar
-        settings.enableUnifiedTrustPanel = featureFlags.isUnifiedTrustPanelEnabled
         settings.showHomepageSportsWidget = featureFlags.isHomepageSportsWidgetVisible
         setSportsWidgetVisibility(featureFlags.isHomepageSportsWidgetVisible)
         setETPPolicy(featureFlags.etpPolicy)
@@ -135,7 +132,6 @@ private data class FeatureFlags(
     var isWallpaperOnboardingEnabled: Boolean,
     var isDeleteSitePermissionsEnabled: Boolean,
     var isOpenInAppBannerEnabled: Boolean,
-    var isUnifiedTrustPanelEnabled: Boolean,
     var isHomepageSportsWidgetVisible: Boolean,
     var etpPolicy: ETPPolicy,
     var isLocationPermissionEnabled: SitePermissionsRules.Action,

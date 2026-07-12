@@ -1564,8 +1564,7 @@ describe("<TopSiteList>", () => {
     let sandbox;
     let wrapper;
     let instance;
-    let mockAnchor;
-    let mockTargetSibling;
+    let focusTargets;
 
     beforeEach(() => {
       sandbox = sinon.createSandbox();
@@ -1579,36 +1578,40 @@ describe("<TopSiteList>", () => {
       );
       instance = wrapper.instance();
 
-      mockAnchor = { focus: sandbox.spy(), tabIndex: -1 };
-      mockTargetSibling = { querySelector: sandbox.stub().returns(mockAnchor) };
+      // The flat focus order onKeyDown walks: tile links and the add button
+      // (both matched by "a, .add-button") in DOM order.
+      focusTargets = [
+        { focus: sandbox.spy(), tabIndex: -1 },
+        { focus: sandbox.spy(), tabIndex: -1 },
+        { focus: sandbox.spy(), tabIndex: -1 },
+      ];
+      instance.focusRef = { querySelectorAll: () => focusTargets };
     });
 
     afterEach(() => {
       sandbox.restore();
     });
 
-    it("should navigate to next site with ArrowRight", () => {
-      instance.focusedRef = { nextSibling: mockTargetSibling };
-      const mockEvent = { key: "ArrowRight" };
+    it("should navigate to the next focus target with ArrowRight", () => {
+      instance.onKeyDown({ key: "ArrowRight", target: focusTargets[0] });
 
-      instance.onKeyDown(mockEvent);
-
-      assert.calledOnce(mockTargetSibling.querySelector);
-      assert.calledWith(mockTargetSibling.querySelector, "a");
-      assert.calledOnce(mockAnchor.focus);
-      assert.equal(mockAnchor.tabIndex, 0);
+      assert.calledOnce(focusTargets[1].focus);
+      assert.equal(focusTargets[1].tabIndex, 0);
     });
 
-    it("should navigate to previous site with ArrowLeft", () => {
-      instance.focusedRef = { previousSibling: mockTargetSibling };
-      const mockEvent = { key: "ArrowLeft" };
+    it("should navigate to the previous focus target with ArrowLeft", () => {
+      instance.onKeyDown({ key: "ArrowLeft", target: focusTargets[1] });
 
-      instance.onKeyDown(mockEvent);
+      assert.calledOnce(focusTargets[0].focus);
+      assert.equal(focusTargets[0].tabIndex, 0);
+    });
 
-      assert.calledOnce(mockTargetSibling.querySelector);
-      assert.calledWith(mockTargetSibling.querySelector, "a");
-      assert.calledOnce(mockAnchor.focus);
-      assert.equal(mockAnchor.tabIndex, 0);
+    it("should reset the roving focus index when the row count changes", () => {
+      // A stale focusedIndex (from a now-removed row) would leave the row with
+      // no tab stop; changing the row count re-homes it to the first tile.
+      instance.setState({ focusedIndex: 15 });
+      wrapper.setProps({ TopSitesRows: 2 });
+      assert.equal(instance.state.focusedIndex, 0);
     });
   });
 });
@@ -1616,11 +1619,9 @@ describe("<TopSiteList>", () => {
 describe("TopSiteAddButton", () => {
   it("should dispatch a TOP_SITES_EDIT action when the addbutton is clicked", () => {
     const dispatch = sinon.spy();
-    const wrapper = shallow(
-      <TopSiteAddButton dispatch={dispatch} index={7} isAddButton={true} />
-    );
+    const wrapper = shallow(<TopSiteAddButton dispatch={dispatch} index={7} />);
 
-    wrapper.find(".add-button").first().simulate("click");
+    wrapper.find("moz-button").first().simulate("click");
 
     assert.calledOnce(dispatch);
     assert.calledWithExactly(dispatch, {

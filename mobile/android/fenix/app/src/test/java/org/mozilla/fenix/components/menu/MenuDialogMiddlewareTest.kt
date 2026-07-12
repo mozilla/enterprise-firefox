@@ -47,6 +47,7 @@ import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.components.appstate.AppAction.BookmarkAction
 import org.mozilla.fenix.components.appstate.AppAction.FindInPageAction
 import org.mozilla.fenix.components.appstate.AppAction.ReaderViewAction
+import org.mozilla.fenix.components.appstate.AppAction.ShortcutAction
 import org.mozilla.fenix.components.appstate.AppState
 import org.mozilla.fenix.components.bookmarks.BookmarksUseCase.AddBookmarksUseCase
 import org.mozilla.fenix.components.bookmarks.LastSavedFolderCache
@@ -56,6 +57,8 @@ import org.mozilla.fenix.components.menu.store.BrowserMenuState
 import org.mozilla.fenix.components.menu.store.MenuAction
 import org.mozilla.fenix.components.menu.store.MenuState
 import org.mozilla.fenix.components.menu.store.MenuStore
+import org.mozilla.fenix.home.topsites.AddShortcutEntryPoint
+import org.mozilla.fenix.home.topsites.AddShortcutSource
 import org.mozilla.fenix.settings.summarize.FakeSummarizationFeatureConfiguration
 import org.mozilla.fenix.summarization.eligibility.SummarizationEligibilityChecker
 import org.mozilla.fenix.utils.Settings
@@ -421,7 +424,10 @@ class MenuDialogMiddlewareTest {
         coVerify { addPinnedSiteUseCase.invoke(url = url, title = title) }
         verify {
             appStore.dispatch(
-                AppAction.ShortcutAction.ShortcutAdded,
+                ShortcutAction.ShortcutAdded(
+                    source = AddShortcutSource.MANUAL,
+                    entryPoint = AddShortcutEntryPoint.PAGE_MENU,
+                ),
             )
         }
         assertTrue(dismissedWasCalled)
@@ -472,7 +478,10 @@ class MenuDialogMiddlewareTest {
         coVerify(exactly = 0) { addPinnedSiteUseCase.invoke(url = url, title = title) }
         verify(exactly = 0) {
             appStore.dispatch(
-                AppAction.ShortcutAction.ShortcutAdded,
+                ShortcutAction.ShortcutAdded(
+                    source = AddShortcutSource.MANUAL,
+                    entryPoint = AddShortcutEntryPoint.PAGE_MENU,
+                ),
             )
         }
         assertFalse(dismissedWasCalled)
@@ -604,7 +613,10 @@ class MenuDialogMiddlewareTest {
         coVerify(exactly = 0) { addPinnedSiteUseCase.invoke(url = url, title = title) }
         verify(exactly = 0) {
             appStore.dispatch(
-                AppAction.ShortcutAction.ShortcutAdded,
+                ShortcutAction.ShortcutAdded(
+                    source = AddShortcutSource.MANUAL,
+                    entryPoint = AddShortcutEntryPoint.PAGE_MENU,
+                ),
             )
         }
         assertTrue(dismissedWasCalled)

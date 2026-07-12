@@ -6,6 +6,7 @@ package org.mozilla.fenix.ui.efficiency.helpers
 
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import org.mozilla.fenix.helpers.HomeActivityIntentTestRule
+import org.mozilla.fenix.ui.efficiency.pageObjects.AddToHomeScreenComponent
 import org.mozilla.fenix.ui.efficiency.pageObjects.BookmarkSearchPage
 import org.mozilla.fenix.ui.efficiency.pageObjects.BookmarksPage
 import org.mozilla.fenix.ui.efficiency.pageObjects.BrowserPage
@@ -54,6 +55,7 @@ import androidx.compose.ui.test.junit4.v2.AndroidComposeTestRule as AndroidCompo
 
 class PageContext(val composeRule: AndroidComposeTestRule<HomeActivityIntentTestRule, *>) {
     // Let's make sure we have them in a lexicographic order
+    val addToHomescreen = AddToHomeScreenComponent(composeRule)
     val bookmarkSearch = BookmarkSearchPage(composeRule)
     val bookmarks = BookmarksPage(composeRule)
     val browserPage = BrowserPage(composeRule)

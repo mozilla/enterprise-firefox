@@ -82,6 +82,7 @@ export default class IPProtectionStatusBox extends MozLitElement {
           <div>
             <h1
               id="title"
+              class="heading-xlarge"
               data-l10n-id=${this.headerL10nId}
               data-l10n-attrs="aria-label"
               tabindex="-1"

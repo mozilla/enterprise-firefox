@@ -93,6 +93,15 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = Aravopapaha
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = Ñemigua
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = Jejapo
+# Picture of the day is a widget on New Tab that shows a daily Wikimedia Commons image.
+home-prefs-picture-header =
+    .label = Ta’ãnga araguáva
 home-prefs-mission-message2 =
     .message = Ore ykekohára oipytyvõ romombareteve hag̃ua ñanduti rogue.
 home-prefs-manage-topics-link2 =
@@ -152,6 +161,35 @@ home-prefs-support-firefox-header-srd =
     .label = Eipytyvõ { -brand-product-name }
 home-prefs-mission-message-learn-more-link-srd = Eikuaa mba’éichapa
 
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = Eikuaave
+
+## Strings for the Stocks widget
+
+# Context menu item for searching stock ticker symbols.
+newtab-stocks-menu-search = Eheka jeku’e reheguáva
+# Context menu item that hides the Stocks widget.
+newtab-stocks-menu-hide = Eñomi jeku’ekue
+# Context menu item linking to more information about the Stocks widget.
+newtab-stocks-menu-learn-more = Eikuaave
+
+## Strings for the Picture of the Day widget
+
+# Context menu item that opens the New Tab customization panel.
+newtab-picture-menu-manage-wallpaper = Emongu’e jehechaha rugua
+# Context menu item that hides today’s picture, replacing it with an existing
+# wallpaper.
+newtab-picture-menu-hide-photo = Eñomi ta’ãnga aragua
+# Context menu item that restores today’s picture after it has been hidden.
+newtab-picture-menu-show-photo = Ehechauka ta’ãnga aragua
+# Context menu item linking to more information about the widget.
+newtab-picture-menu-learn-more = Eikuaave
+# Screen-reader text alternative for the picture; fallback used when the source
+# provides no localized description.
+newtab-picture-image-alt = Wikimedia Commons ra’ãnga araguáva
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -187,6 +225,7 @@ newtab-topsites-add-shortcut-label = Embojuaju jeike pya’eha
 newtab-topsites-add-shortcut-title =
     .title = Embojuaju jeike pya’eha
     .aria-label = Embojuaju jeike pya’eha
+newtab-shortcuts-pinned-area = Pa’ũguasu poravopyre
 newtab-topsites-title-label = Teratee
 newtab-topsites-title-input =
     .placeholder = Ehai herarã
@@ -495,6 +534,12 @@ newtab-custom-widget-clock-toggle =
     .label = Aravopapaha
 newtab-custom-widget-sports-toggle2 =
     .label = Tetemongu’e
+newtab-custom-widget-privacy-toggle =
+    .label = Ñemigua
+newtab-custom-widget-stocks-toggle =
+    .label = Jejapo
+newtab-custom-widget-picture-toggle =
+    .label = Ta’ãnga araguáva
 newtab-custom-widget-section-title = Widgets
 newtab-custom-widget-section-toggle =
     .label = Widgets
@@ -971,6 +1016,8 @@ newtab-widget-timer-reset =
 newtab-widget-timer-menu-notifications = Eipe’a ñemomarandu
 newtab-widget-timer-menu-notifications-on = Emyandy marandu’i
 newtab-widget-timer-menu-learn-more = Kuaave
+newtab-widget-timer-menu-button =
+    .aria-label = Aravomoĩha porurã
 # The title displays above a set of top news headlines.
 newtab-daily-briefing-card-title = Marandu mba’eguasuvéva
 newtab-daily-briefing-card-menu-dismiss = Mokañy
@@ -1272,6 +1319,11 @@ newtab-sports-widget-message-day-in-play-title = Ereko nde ára pukukue jeku’�
 newtab-sports-widget-message-day-in-play-body = Ehecha Mundial, pepyta py’aguapýpe, pehecha aravo arapy tuichakue ha hetave.
 newtab-sports-widget-message-explore-widgets-cta =
     .label = Emyasãi widgets
+
+## Survey prompts shown after the World Cup to gather feedback on the widgets experience.
+
+newtab-sports-widget-message-survey-cta =
+    .label = Ejapo encuesta
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

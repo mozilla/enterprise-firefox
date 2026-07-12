@@ -4419,18 +4419,15 @@ DeviceListener::InitializeAsync() {
           [self = RefPtr<DeviceListener>(this), this](nsresult aRv) {
             auto kind = mDeviceState->mDevice->Kind();
             RefPtr<MediaMgrError> err;
-            if (aRv == NS_ERROR_NOT_AVAILABLE &&
-                kind == MediaDeviceKind::Audioinput) {
-              nsCString log;
-              log.AssignLiteral("Concurrent mic process limit.");
-              err = MakeRefPtr<MediaMgrError>(
-                  MediaMgrError::Name::NotReadableError, std::move(log));
-            } else if (NS_FAILED(aRv)) {
+            if (NS_FAILED(aRv)) {
+              auto name =
+                  (aRv == NS_ERROR_FAILURE || aRv == NS_ERROR_NOT_AVAILABLE)
+                      ? MediaMgrError::Name::NotReadableError
+                      : MediaMgrError::Name::AbortError;
               nsCString log;
               log.AppendPrintf("Starting %s failed",
                                dom::GetEnumString(kind).get());
-              err = MakeRefPtr<MediaMgrError>(MediaMgrError::Name::AbortError,
-                                              std::move(log));
+              err = MakeRefPtr<MediaMgrError>(name, std::move(log));
             }
 
             if (mStopped) {

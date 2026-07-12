@@ -239,6 +239,10 @@ profiler-popup-presets-networking-description = Preset for investigating network
 profiler-popup-presets-networking-label =
   .label = Networking
 
+profiler-popup-presets-networking-with-logs-description = Preset for investigating networking bugs in { -brand-shorter-name }, including networking logs. These logs may contain sensitive information such as the URLs you visit.
+profiler-popup-presets-networking-with-logs-label =
+  .label = Networking with Logs
+
 profiler-popup-presets-power-description = Preset for investigating power use bugs in { -brand-shorter-name }, with low overhead.
 # "Power" is used in the sense of energy (electricity used by the computer).
 profiler-popup-presets-power-label =

@@ -95,6 +95,15 @@ object HomeSelectors {
         groups = listOf("recentBookmarksSection"),
     )
 
+    @Suppress("ktlint:standard:function-naming", "FunctionName")
+    fun TOP_SITE_ITEM(topSiteTitle: String = "") = Selector(
+        strategy = SelectorStrategy.COMPOSE_ON_ALL_NODES_BY_TAG_WITH_CHILD_TEXT_ON_FIRST,
+        value = "top_sites_list.top_site_item",
+        secondaryValue = topSiteTitle,
+        description = "Top site item with title: $topSiteTitle",
+        groups = listOf("topSiteItem"),
+    )
+
     val all = listOf(
         TOP_SITES_LIST,
         TOP_SITES_LIST_COMPOSE,
@@ -109,5 +118,6 @@ object HomeSelectors {
         JUMP_BACK_IN_SECTION,
         JUMP_BACK_IN_SHOW_ALL,
         RECENT_BOOKMARKS_SECTION,
+        TOP_SITE_ITEM(),
     )
 }

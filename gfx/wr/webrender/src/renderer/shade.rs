@@ -395,8 +395,7 @@ impl BrushShader {
             BlendMode::Advanced(_) => {
                 self.advanced_blend.expect("bug: no advanced blend shader loaded")
             }
-            BlendMode::SubpixelDualSource |
-            BlendMode::MultiplyDualSource => {
+            BlendMode::SubpixelDualSource => {
                 self.dual_source.expect("bug: no dual source shader loaded")
             }
         }
@@ -553,11 +552,9 @@ pub struct Shaders {
     cs_svg_filter_node: ShaderHandle,
 
     // Brush shaders
-    brush_solid: BrushShader,
     brush_image: Vec<Option<BrushShader>>,
     brush_fast_image: Vec<Option<BrushShader>>,
     brush_mix_blend: BrushShader,
-    brush_yuv_image: Vec<Option<BrushShader>>,
 
     // The are "primitive shaders". These shaders draw and blend
     // final results on screen. They are aware of tile boundaries.
@@ -628,15 +625,6 @@ impl Shaders {
         let shader_list = get_shader_features(shader_flags);
 
         let mut loader = ShaderLoader::new();
-
-        let brush_solid = BrushShader::new(
-            "brush_solid",
-            &[],
-            &shader_list,
-            false /* advanced blend */,
-            false /* dual source */,
-            &mut loader,
-        )?;
 
         let brush_mix_blend = BrushShader::new(
             "brush_mix_blend",
@@ -946,55 +934,6 @@ impl Shaders {
             image_features.clear();
         }
 
-        // All yuv_image configuration.
-        let mut yuv_features = Vec::new();
-        let mut rgba_features = Vec::new();
-        let mut fast_path_features = Vec::new();
-        let yuv_shader_num = IMAGE_BUFFER_KINDS.len();
-        let mut brush_yuv_image = Vec::new();
-        // PrimitiveShader is not clonable. Use push() to initialize the vec.
-        for _ in 0 .. yuv_shader_num {
-            brush_yuv_image.push(None);
-        }
-        for image_buffer_kind in &IMAGE_BUFFER_KINDS {
-            if has_platform_support(*image_buffer_kind, device) {
-                yuv_features.push("YUV");
-                fast_path_features.push("FAST_PATH");
-
-                let index = Self::get_compositing_shader_index(
-                    *image_buffer_kind,
-                );
-
-                let feature_string = get_feature_string(
-                    *image_buffer_kind,
-                    texture_external_version,
-                );
-                if feature_string != "" {
-                    yuv_features.push(feature_string);
-                    rgba_features.push(feature_string);
-                    fast_path_features.push(feature_string);
-                }
-
-                // YUV shaders are not compatible with ESSL1
-                if *image_buffer_kind != ImageBufferKind::TextureExternal ||
-                    texture_external_version == TextureExternalVersion::ESSL3 {
-                    let brush_shader = BrushShader::new(
-                        "brush_yuv_image",
-                        &yuv_features,
-                        &shader_list,
-                        false /* advanced blend */,
-                        false /* dual source */,
-                        &mut loader,
-                    )?;
-                    brush_yuv_image[index] = Some(brush_shader);
-                }
-
-                yuv_features.clear();
-                rgba_features.clear();
-                fast_path_features.clear();
-            }
-        }
-
         let cs_line_decoration = loader.create_shader(
             ShaderKind::Cache(VertexArrayKind::LineDecoration),
             "cs_line_decoration",
@@ -1028,11 +967,9 @@ impl Shaders {
             cs_border_solid,
             cs_scale,
             cs_svg_filter_node,
-            brush_solid,
             brush_image,
             brush_fast_image,
             brush_mix_blend,
-            brush_yuv_image,
             ps_text_run,
             ps_text_run_dual_source,
             ps_quad_textured,
@@ -1218,9 +1155,6 @@ impl Shaders {
                     features.remove(BatchFeatures::ANTIALIASING);
                 }
                 let brush_shader = match brush_kind {
-                    BrushBatchKind::Solid => {
-                        &mut self.brush_solid
-                    }
                     BrushBatchKind::Image(image_buffer_kind) => {
                         if features.contains(BatchFeatures::ANTIALIASING) ||
                             features.contains(BatchFeatures::REPETITION) {
@@ -1236,13 +1170,6 @@ impl Shaders {
                     }
                     BrushBatchKind::MixBlend { .. } => {
                         &mut self.brush_mix_blend
-                    }
-                    BrushBatchKind::YuvImage(image_buffer_kind, ..) => {
-                        let shader_index =
-                            Self::get_compositing_shader_index(image_buffer_kind);
-                        self.brush_yuv_image[shader_index]
-                            .as_mut()
-                            .expect("Unsupported YUV shader kind")
                     }
                 };
                 brush_shader.get_handle(key.blend_mode, features, debug_flags)

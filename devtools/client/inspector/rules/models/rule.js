@@ -391,6 +391,8 @@ class Rule {
         prop.updateEditor();
       }
     }
+
+    this.elementStyle.onRuleUpdated();
   }
 
   /**
@@ -421,8 +423,6 @@ class Rule {
         return this.#applyPropertiesNoAuthored(modifications);
       })
       .then(() => {
-        this.elementStyle.onRuleUpdated();
-
         if (resultPromise === this.applyingModifications) {
           this.applyingModifications = null;
           this.elementStyle.notifyChanged();

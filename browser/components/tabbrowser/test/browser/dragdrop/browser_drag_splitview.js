@@ -6,6 +6,11 @@
 
 let currentReduceMotionOverride;
 
+const FirefoxViewTestUtils = ChromeUtils.importESModule(
+  "resource://testing-common/FirefoxViewTestUtils.sys.mjs"
+);
+FirefoxViewTestUtils.init(this);
+
 add_setup(() => {
   currentReduceMotionOverride = gReduceMotionOverride;
   // Disable tab animations
@@ -16,6 +21,8 @@ registerCleanupFunction(() => {
   Services.prefs.clearUserPref("browser.tabs.splitview.hasUsed");
   Services.prefs.clearUserPref("sidebar.verticalTabs.dragToPinPromo.dismissed");
 });
+
+FirefoxViewTestUtils.enableFirefoxViewButton(window);
 
 add_task(async function test_drag_splitview_tab() {
   let [tab1, tab2, tab3] = await Promise.all(

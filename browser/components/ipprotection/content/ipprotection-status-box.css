@@ -88,15 +88,11 @@
   font-weight: var(--font-weight-semibold);
   padding-bottom: var(--space-xsmall);
   margin-block: 0;
-  /* Intentionally using a larger font size for clearer visual hierarchy */
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  font-size: 1.4lh;
 }
 
 #description {
-  /* Intentionally using a larger font size for clearer visual hierarchy */
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  font-size: 1.23em;
+  /* Increased font size used for bandwidth usage messaging to make usage state prominent when bandwidth is limited*/
+  font-size: var(--font-size-large);
   color: var(--text-color-deemphasized);
 }
 
@@ -132,6 +128,8 @@
 
 ::slotted([slot="bandwidth"]) {
   color: var(--text-color-deemphasized);
+  /* Increased font size used for bandwidth usage messaging to make usage state prominent when bandwidth is limited*/
+  font-size: var(--font-size-large);
 }
 
 ::slotted([slot="action"]) {

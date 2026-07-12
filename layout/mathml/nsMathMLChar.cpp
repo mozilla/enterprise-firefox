@@ -5,6 +5,7 @@
 #include "nsMathMLChar.h"
 
 #include <algorithm>
+#include <numbers>
 #include <numeric>
 
 #include "gfxContext.h"
@@ -45,7 +46,7 @@ using namespace mozilla::image;
 // are installed. "kMaxScaleFactor" is required to limit the scale for the
 // vertical and horizontal stretchy operators.
 static const float kMaxScaleFactor = 20.0;
-static const float kLargeOpFactor = float(M_SQRT2);
+static const float kLargeOpFactor = std::numbers::sqrt2_v<float>;
 static const float kIntegralFactor = 2.0;
 
 static void NormalizeDefaultFont(nsFont& aFont, float aFontSizeInflation) {

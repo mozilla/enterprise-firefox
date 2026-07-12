@@ -101,6 +101,7 @@ SOURCES += [
     "/third_party/abseil-cpp/absl/strings/internal/str_format/float_conversion.cc",
     "/third_party/abseil-cpp/absl/strings/internal/str_format/output.cc",
     "/third_party/abseil-cpp/absl/strings/internal/str_format/parser.cc",
+    "/third_party/abseil-cpp/absl/strings/internal/utf8.cc",
     "/third_party/abseil-cpp/absl/strings/match.cc",
     "/third_party/abseil-cpp/absl/strings/numbers.cc",
 ]

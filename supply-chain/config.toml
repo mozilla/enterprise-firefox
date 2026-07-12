@@ -35,9 +35,9 @@ notes = "This is a first-party crate which is no longer published through crates
 audit-as-crates-io = true
 notes = "This is the upstream code plus a few local fixes, see bug 1685697."
 
-[policy."bindgen:0.72.0@git:9366e0af8da529c958b4cd4fcbe492d951c86f5c"]
+[policy."bindgen:0.72.0@git:5274da5a06411accb266c10819b989ac25a81b7d"]
 audit-as-crates-io = true
-notes = "This is the upstream code not yet released"
+notes = "This is the upstream code not yet released plus a local fix"
 
 [policy.cose]
 audit-as-crates-io = true

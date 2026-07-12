@@ -229,6 +229,7 @@
 #include "mozilla/dom/ProcessingInstruction.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/PromiseNativeHandler.h"
+#include "mozilla/dom/ReferrerPolicyBinding.h"
 #include "mozilla/dom/RemoteBrowser.h"
 #include "mozilla/dom/ReportDeliver.h"
 #include "mozilla/dom/ResizeObserver.h"
@@ -304,6 +305,7 @@
 #include "mozilla/net/NeckoChannelParams.h"
 #include "mozilla/net/RequestContextService.h"
 #include "nsAboutProtocolUtils.h"
+#include "nsAnimationManager.h"
 #include "nsAtom.h"
 #include "nsAttrValue.h"
 #include "nsAttrValueInlines.h"
@@ -3859,9 +3861,12 @@ nsresult Document::InitCSP(nsIChannel* aChannel) {
 
   // ----- if the doc is an addon, apply its CSP.
   if (addonPolicy) {
-    csp->AppendPolicy(addonPolicy->BaseCSP(), false, false);
-
-    csp->AppendPolicy(addonPolicy->ExtensionPageCSP(), false, false);
+    if (addonPolicy->Core()->IsSandboxPage(mDocumentURI)) {
+      csp->AppendPolicy(addonPolicy->SandboxPageCSP(), false, false);
+    } else {
+      csp->AppendPolicy(addonPolicy->BaseCSP(), false, false);
+      csp->AppendPolicy(addonPolicy->ExtensionPageCSP(), false, false);
+    }
   }
 
   // ----- if there's a full-strength CSP header, apply it.
@@ -19387,6 +19392,9 @@ void Document::DetermineProximityToViewportAndNotifyResizeObservers() {
   //
   // Bug 2040244 - Move this into RO loop.
   // https://github.com/whatwg/html/pull/11613
+  if (auto* pc = GetPresContext()) {
+    pc->AnimationManager()->UpdateDeferredTimelineChanges();
+  }
   if (mTimelinesController.UpdateStaleTimelines()) {
     FlushPendingNotifications(ctf);
   }
@@ -21342,7 +21350,7 @@ bool Document::HasFullscreenKeyboardLockEnabled() {
 
 class SpeculationRules& Document::SpeculationRules() {
   if (!mSpeculationRules) {
-    mSpeculationRules = MakeRefPtr<class SpeculationRules>();
+    mSpeculationRules = MakeRefPtr<class SpeculationRules>(this);
   }
   return *mSpeculationRules;
 }

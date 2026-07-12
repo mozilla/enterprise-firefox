@@ -65,7 +65,7 @@ system consistency.
 
 ```css
 .tab {
-  box-shadow: var(--tab-selected-box-shadow);
+  box-shadow: var(--tab-box-shadow-selected);
 }
 ```
 

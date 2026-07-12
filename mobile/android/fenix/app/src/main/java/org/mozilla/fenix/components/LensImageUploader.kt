@@ -276,7 +276,7 @@ class LensImageUploader(
         internal const val EP_BY_URL = "fntpubu"
 
         private const val MAX_IMAGE_DIMENSION = 1000
-        private const val JPEG_QUALITY = 85
+        private const val JPEG_QUALITY = 40
         private const val CONNECT_TIMEOUT_MS = 15_000
         private const val READ_TIMEOUT_MS = 30_000
         private const val ROTATE_90 = 90f

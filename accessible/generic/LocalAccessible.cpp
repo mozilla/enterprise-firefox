@@ -2948,7 +2948,7 @@ void LocalAccessible::BindToParent(LocalAccessible* aParent,
     // queue cache updates for that popover's invokers. This handles the case
     // where interactive descendants are added to the hint popover after it's
     // already been shown.
-    if (aParent && aParent->Elm() && IsOpenHintPopover(aParent->Elm())) {
+    if (aParent->Elm() && IsOpenHintPopover(aParent->Elm())) {
       mDoc->QueueCacheUpdateForPopoverInvokers(aParent->Elm());
     }
   }

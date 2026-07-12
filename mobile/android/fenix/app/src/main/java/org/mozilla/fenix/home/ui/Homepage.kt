@@ -53,6 +53,7 @@ import org.mozilla.fenix.GleanMetrics.RecentlyVisitedHomepage
 import org.mozilla.fenix.R
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.components.appstate.AppAction
+import org.mozilla.fenix.components.appstate.AppAction.ShortcutAction
 import org.mozilla.fenix.components.appstate.setup.checklist.SetupChecklistState
 import org.mozilla.fenix.components.appstate.sports.SportsWidgetState
 import org.mozilla.fenix.components.components
@@ -91,6 +92,8 @@ import org.mozilla.fenix.home.store.HomepageState
 import org.mozilla.fenix.home.store.NimbusMessageState
 import org.mozilla.fenix.home.termsofuse.PrivacyNoticeBanner
 import org.mozilla.fenix.home.termsofuse.PrivacyNoticeBannerInteractor
+import org.mozilla.fenix.home.topsites.AddShortcutEntryPoint
+import org.mozilla.fenix.home.topsites.AddShortcutSource
 import org.mozilla.fenix.home.topsites.TOP_SITES_TO_SHOW
 import org.mozilla.fenix.home.topsites.TopSiteColors
 import org.mozilla.fenix.home.topsites.TopSites
@@ -127,6 +130,7 @@ internal fun Homepage(
 ) {
     val scrollState = rememberScrollState()
     val browsingModeChanged = interactor::onPrivateModeButtonClicked
+    val appStore = components.appStore
     var showSportsCountrySelector by remember { mutableStateOf(false) }
     var shortcutsDialogState by remember { mutableStateOf<DialogState>(DialogState.Closed) }
 
@@ -251,6 +255,11 @@ internal fun Homepage(
                                     showAddShortcut = components.settings.enableAddShortcutsImprovement &&
                                         topSites.size < TOP_SITES_TO_SHOW,
                                     onAddShortcutClicked = {
+                                        appStore.dispatch(
+                                            ShortcutAction.AddShortcutSheetShown(
+                                                entryPoint = AddShortcutEntryPoint.HOMEPAGE,
+                                            ),
+                                        )
                                         shortcutsDialogState = DialogState.AddShortcutBottomSheet
                                     },
                                 )
@@ -406,10 +415,18 @@ internal fun Homepage(
                                         popularSites = popularSites,
                                         onDismiss = { shortcutsDialogState = DialogState.Closed },
                                         onAddWebsiteClicked = {
+                                            appStore.dispatch(
+                                                ShortcutAction.AddWebsiteDialogShown,
+                                            )
                                             shortcutsDialogState = DialogState.AddShortcut
                                         },
                                         onAddPopularSiteClick = { site ->
-                                            interactor.onSaveShortcut(title = site.title, url = site.url)
+                                            interactor.onSaveShortcut(
+                                                title = site.title,
+                                                url = site.url,
+                                                source = AddShortcutSource.POPULAR,
+                                                entryPoint = AddShortcutEntryPoint.HOMEPAGE,
+                                            )
                                             shortcutsDialogState = DialogState.Closed
                                         },
                                     )
@@ -419,7 +436,12 @@ internal fun Homepage(
                                     AddShortcutDialog(
                                         onDismiss = { shortcutsDialogState = DialogState.Closed },
                                         onConfirm = { title, url ->
-                                            interactor.onSaveShortcut(title = title, url = url)
+                                            interactor.onSaveShortcut(
+                                                title = title,
+                                                url = url,
+                                                source = AddShortcutSource.MANUAL,
+                                                entryPoint = AddShortcutEntryPoint.HOMEPAGE,
+                                            )
                                             shortcutsDialogState = DialogState.Closed
                                         },
                                     )

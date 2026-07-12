@@ -8,9 +8,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import mozilla.appservices.RustComponentsInitializer
 import mozilla.appservices.remotesettings.RemoteSettingsServer
 import mozilla.components.support.test.robolectric.testContext
-import org.junit.Assert.assertNotNull
 import org.junit.Test
 import org.junit.runner.RunWith
+import kotlin.test.assertNotNull
 import mozilla.appservices.remotesettings.RemoteSettingsService as AppServicesRemoteSettingsService
 
 @RunWith(AndroidJUnit4::class)

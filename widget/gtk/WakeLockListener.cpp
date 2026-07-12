@@ -598,9 +598,9 @@ void WakeLockTopic::InhibitFreeDesktopPower() {
 void WakeLockTopic::InhibitGNOME() {
   WAKE_LOCK_LOG("InhibitGNOME() background %d", mLockOnBackground);
   static const uint32_t xid = 0;
-  static const uint32_t flags = mLockOnBackground
-                                    ? SESSION_MANAGER_INHIBIT_SUSPEND_FLAG
-                                    : SESSION_MANAGER_INHIBIT_IDLE_FLAG;
+  const uint32_t flags = mLockOnBackground
+                             ? SESSION_MANAGER_INHIBIT_SUSPEND_FLAG
+                             : SESSION_MANAGER_INHIBIT_IDLE_FLAG;
   DBusInhibitScreensaver(
       SESSION_MANAGER_TARGET, SESSION_MANAGER_OBJECT, SESSION_MANAGER_INTERFACE,
       "Inhibit",

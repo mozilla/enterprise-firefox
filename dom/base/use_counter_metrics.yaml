@@ -108,8 +108,8 @@ use.counter:
     send_in_pings:
       - use-counters
 
-# Total of 2569 use counter metrics (excludes denominators).
-# Total of 401 'page' use counters.
+# Total of 2571 use counter metrics (excludes denominators).
+# Total of 402 'page' use counters.
 use.counter.page:
   svgsvgelement_getelementbyid:
     type: counter
@@ -6877,6 +6877,23 @@ use.counter.page:
     send_in_pings:
       - use-counters
 
+  edit_context_canvas:
+    type: counter
+    description: >
+      Whether a page attaches an EditContext to a canvas element.
+      Compare against `use.counter.top_level_content_documents_destroyed`
+      to calculate the rate.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1852098
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1852098
+    notification_emails:
+      - dom-core@mozilla.com
+      - emilio@mozilla.com
+    expires: never
+    send_in_pings:
+      - use-counters
+
   element_requestpointerlock:
     type: counter
     description: >
@@ -6928,7 +6945,7 @@ use.counter.page:
     send_in_pings:
       - use-counters
 
-# Total of 401 'document' use counters.
+# Total of 402 'document' use counters.
 use.counter.doc:
   svgsvgelement_getelementbyid:
     type: counter
@@ -13683,6 +13700,23 @@ use.counter.doc:
     type: counter
     description: >
       Whether a document called called EditContext.constructor.
+      Compare against `use.counter.content_documents_destroyed`
+      to calculate the rate.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1852098
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1852098
+    notification_emails:
+      - dom-core@mozilla.com
+      - emilio@mozilla.com
+    expires: never
+    send_in_pings:
+      - use-counters
+
+  edit_context_canvas:
+    type: counter
+    description: >
+      Whether a document attaches an EditContext to a canvas element.
       Compare against `use.counter.content_documents_destroyed`
       to calculate the rate.
     bugs:

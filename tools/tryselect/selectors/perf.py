@@ -195,10 +195,11 @@ class PerfParser(CompareParser):
         [
             ["-q", "--query"],
             {
-                "type": str,
-                "default": None,
+                "action": "append",
+                "default": [],
                 "help": "Query to run in either the perf-category selector, "
-                "or the fuzzy selector if --show-all/--full is provided.",
+                "or the fuzzy selector if --show-all/--full is provided. "
+                "Specifying multiple times schedules the union of computed tasks.",
             },
         ],
         [
@@ -356,13 +357,18 @@ class PerfParser(CompareParser):
     ]
 
     def get_tasks(base_cmd, queries, query_arg=None, candidate_tasks=None):
-        cmd = base_cmd[:]
-        if query_arg:
-            cmd.extend(["-f", query_arg])
+        query_args = query_arg if isinstance(query_arg, list) else [query_arg]
 
-        query_str, tasks = run_fzf(cmd, sorted(candidate_tasks))
-        queries.append(query_str)
-        return set(tasks)
+        selected_tasks = set()
+        for query in query_args or [None]:
+            cmd = base_cmd[:]
+            if query:
+                cmd.extend(["-f", query])
+
+            query_str, tasks = run_fzf(cmd, sorted(candidate_tasks))
+            queries.append(query_str)
+            selected_tasks |= set(tasks)
+        return selected_tasks
 
     def get_perf_tasks(base_cmd, all_tg_tasks, perf_categories, query=None):
         # Convert the categories to tasks

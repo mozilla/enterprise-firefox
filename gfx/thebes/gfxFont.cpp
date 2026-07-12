@@ -801,6 +801,16 @@ void gfxShapedText::SetupClusterBoundaries(uint32_t aOffset,
   }
 }
 
+void gfxShapedText::ClearGlyphs() {
+  auto* cg = GetCharacterGlyphs();
+  const auto* end = cg + GetLength();
+  while (cg < end) {
+    cg->ClearGlyph();
+    ++cg;
+  }
+  mDetailedGlyphs = nullptr;
+}
+
 gfxShapedText::DetailedGlyph* gfxShapedText::AllocateDetailedGlyphs(
     uint32_t aIndex, uint32_t aCount) {
   NS_ASSERTION(aIndex < GetLength(), "Index out of range");
@@ -3329,8 +3339,8 @@ static uint8_t IsBoundarySpace(uint8_t aChar, uint8_t aNextChar) {
 
 template <typename T, typename Func>
 bool gfxFont::ProcessShapedWordInternal(
-    const T* aText, uint32_t aLength, uint32_t aHash, Script aRunScript,
-    nsAtom* aLanguage, bool aVertical, int32_t aAppUnitsPerDevUnit,
+    const T* aText, uint8_t aLength, uint32_t aHash, Script aRunScript,
+    nsAtom* aLanguage, bool aVertical, uint16_t aAppUnitsPerDevUnit,
     gfx::ShapedTextFlags aFlags, RoundingFlags aRounding,
     gfxTextPerfMetrics* aTextPerf GFX_MAYBE_UNUSED, Func aCallback) {
   WordCacheKey key(aText, aLength, aHash, aRunScript, aLanguage,
@@ -3451,14 +3461,14 @@ bool gfxFont::WordCacheKey::HashPolicy::match(const Key& aKey,
 }
 
 bool gfxFont::ProcessSingleSpaceShapedWord(
-    bool aVertical, int32_t aAppUnitsPerDevUnit, gfx::ShapedTextFlags aFlags,
+    bool aVertical, uint16_t aAppUnitsPerDevUnit, gfx::ShapedTextFlags aFlags,
     RoundingFlags aRounding,
     const std::function<void(gfxShapedWord*)>& aCallback) {
   static const uint8_t space = ' ';
   return ProcessShapedWordInternal(
-      &space, 1, gfxShapedWord::HashMix(0, ' '), Script::LATIN,
-      /* aLanguage = */ nullptr, aVertical, aAppUnitsPerDevUnit, aFlags,
-      aRounding, nullptr, aCallback);
+      &space, 1, gfxShapedWord::HashMix(gfxShapedWord::sHashInitialValue, ' '),
+      Script::LATIN, /* aLanguage = */ nullptr, aVertical, aAppUnitsPerDevUnit,
+      aFlags, aRounding, nullptr, aCallback);
 }
 
 bool gfxFont::ShapeText(const uint8_t* aText, uint32_t aOffset,
@@ -3725,8 +3735,10 @@ bool gfxFont::SplitAndInitTextRun(
   }
 #endif
 
-  uint32_t wordCacheCharLimit =
-      gfxPlatform::GetPlatform()->WordCacheCharLimit();
+  // TODO: Is there really a good reason to have this tied to a pref?
+  const uint32_t wordCacheCharLimit =
+      std::min(gfxPlatform::GetPlatform()->WordCacheCharLimit(),
+               static_cast<uint32_t>(std::numeric_limits<uint8_t>::max()));
 
   bool vertical = aOrientation == ShapedTextFlags::TEXT_ORIENT_VERTICAL_UPRIGHT;
 
@@ -3763,9 +3775,9 @@ bool gfxFont::SplitAndInitTextRun(
   }
 
   uint32_t wordStart = 0;
-  uint32_t hash = 0;
+  uint32_t hash = gfxShapedWord::sHashInitialValue;
   bool wordIs8Bit = true;
-  int32_t appUnitsPerDevUnit = aTextRun->GetAppUnitsPerDevUnit();
+  uint16_t appUnitsPerDevUnit = aTextRun->GetAppUnitsPerDevUnit();
 
   T nextCh = aString[0];
   for (uint32_t i = 0; i <= aRunLength; ++i) {
@@ -3809,9 +3821,10 @@ bool gfxFont::SplitAndInitTextRun(
           wordFlags |= gfx::ShapedTextFlags::TEXT_IS_8BIT;
         }
       }
+      MOZ_ASSERT(length <= std::numeric_limits<uint8_t>::max());
       bool processed = ProcessShapedWordInternal(
-          aString + wordStart, length, hash, aRunScript, aLanguage, vertical,
-          appUnitsPerDevUnit, wordFlags, rounding, tp,
+          aString + wordStart, static_cast<uint8_t>(length), hash, aRunScript,
+          aLanguage, vertical, appUnitsPerDevUnit, wordFlags, rounding, tp,
           [&](gfxShapedWord* aShapedWord) {
             aTextRun->CopyGlyphDataFrom(aShapedWord, aRunStart + wordStart);
           });
@@ -3834,8 +3847,9 @@ bool gfxFont::SplitAndInitTextRun(
         DebugOnly<char16_t> boundary16 = boundary;
         NS_ASSERTION(boundary16 < 256, "unexpected boundary!");
         bool processed = ProcessShapedWordInternal(
-            &boundary, 1, gfxShapedWord::HashMix(0, boundary), aRunScript,
-            aLanguage, vertical, appUnitsPerDevUnit,
+            &boundary, 1,
+            gfxShapedWord::HashMix(gfxShapedWord::sHashInitialValue, boundary),
+            aRunScript, aLanguage, vertical, appUnitsPerDevUnit,
             flags | gfx::ShapedTextFlags::TEXT_IS_8BIT, rounding, tp,
             [&](gfxShapedWord* aShapedWord) {
               aTextRun->CopyGlyphDataFrom(aShapedWord, aRunStart + i);
@@ -3847,7 +3861,7 @@ bool gfxFont::SplitAndInitTextRun(
           return false;
         }
       }
-      hash = 0;
+      hash = gfxShapedWord::sHashInitialValue;
       wordStart = i + 1;
       wordIs8Bit = true;
       continue;
@@ -3879,7 +3893,7 @@ bool gfxFont::SplitAndInitTextRun(
       }
     }
 
-    hash = 0;
+    hash = gfxShapedWord::sHashInitialValue;
     wordStart = i + 1;
     wordIs8Bit = true;
   }

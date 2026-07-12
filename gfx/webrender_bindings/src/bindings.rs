@@ -23,7 +23,8 @@ use std::os::windows::ffi::OsStringExt;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::thread::JoinHandle;
 use std::time::Duration;
 use std::{env, mem, ptr, slice};
 use thin_vec::ThinVec;
@@ -1127,7 +1128,10 @@ extern "C" {
     fn wr_register_thread_local_arena();
 }
 
-pub struct WrThreadPool(Arc<rayon::ThreadPool>);
+pub struct WrThreadPool {
+    workers: Arc<rayon::ThreadPool>,
+    join_handles: Mutex<Vec<JoinHandle<()>>>,
+}
 
 #[no_mangle]
 pub extern "C" fn wr_thread_pool_new(low_priority: bool) -> *mut WrThreadPool {
@@ -1141,19 +1145,33 @@ pub extern "C" fn wr_thread_pool_new(low_priority: bool) -> *mut WrThreadPool {
     let num_threads = num_cpus::get().min(max);
 
     let priority_tag = if low_priority { "LP" } else { "" };
+    let thread_name = move |idx| format!("WRWorker{}#{}", priority_tag, idx);
 
     let use_thread_local_arena = static_prefs::pref!("gfx.webrender.worker-thread-local-arena");
+    let join_handles = Mutex::new(Vec::new());
 
     let worker = rayon::ThreadPoolBuilder::new()
-        .thread_name(move |idx| format!("WRWorker{}#{}", priority_tag, idx))
+        .thread_name(move |idx| thread_name(idx))
         .num_threads(num_threads)
+        .spawn_handler(|thread| {
+            let mut builder = std::thread::Builder::new();
+            if let Some(name) = thread.name() {
+                builder = builder.name(name.to_string());
+            }
+            if let Some(stack_size) = thread.stack_size() {
+                builder = builder.stack_size(stack_size);
+            }
+            let handle = builder.spawn(|| thread.run())?;
+            join_handles.lock().unwrap().push(handle);
+            Ok(())
+        })
         .start_handler(move |idx| {
             if use_thread_local_arena {
                 unsafe {
                     wr_register_thread_local_arena();
                 }
             }
-            let name = format!("WRWorker{}#{}", priority_tag, idx);
+            let name = thread_name(idx);
             register_thread_with_profiler(name.clone());
             gecko_profiler::register_thread(&name);
         })
@@ -1164,12 +1182,26 @@ pub extern "C" fn wr_thread_pool_new(low_priority: bool) -> *mut WrThreadPool {
 
     let workers = Arc::new(worker.unwrap());
 
-    Box::into_raw(Box::new(WrThreadPool(workers)))
+    Box::into_raw(Box::new(WrThreadPool { workers, join_handles }))
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wr_thread_pool_delete(thread_pool: *mut WrThreadPool) {
-    mem::drop(Box::from_raw(thread_pool));
+pub unsafe extern "C" fn wr_thread_pool_delete(thread_pool: *mut WrThreadPool, join_workers: bool) {
+    let WrThreadPool { workers, join_handles } = *Box::from_raw(thread_pool);
+
+    if !join_workers {
+        return;
+    }
+
+    let Some(workers) = Arc::into_inner(workers) else {
+        panic!("All other references to workers must be dropped before calling wr_thread_pool_delete");
+    };
+    mem::drop(workers);
+
+    let join_handles = join_handles.into_inner().unwrap();
+    for join_handle in join_handles {
+        let _ = join_handle.join();
+    }
 }
 
 pub struct WrChunkPool(Arc<ChunkPool>);
@@ -1194,7 +1226,7 @@ pub unsafe extern "C" fn wr_program_cache_new(
     prof_path: &nsAString,
     thread_pool: *mut WrThreadPool,
 ) -> *mut WrProgramCache {
-    let workers = &(*thread_pool).0;
+    let workers = &(*thread_pool).workers;
     let program_cache = WrProgramCache::new(prof_path, workers);
     Box::into_raw(Box::new(program_cache))
 }
@@ -2032,12 +2064,12 @@ pub extern "C" fn wr_window_new(
 
     info!("WebRender - OpenGL version new {}", version);
 
-    let workers = unsafe { Arc::clone(&(*thread_pool).0) };
+    let workers = unsafe { Arc::clone(&(*thread_pool).workers) };
     let workers_low_priority = unsafe {
         if support_low_priority_threadpool {
-            Arc::clone(&(*thread_pool_low_priority).0)
+            Arc::clone(&(*thread_pool_low_priority).workers)
         } else {
-            Arc::clone(&(*thread_pool).0)
+            Arc::clone(&(*thread_pool).workers)
         }
     };
 
@@ -3129,7 +3161,6 @@ pub extern "C" fn wr_dp_push_stacking_context(
                 is_2d_scale_translation: params.is_2d_scale_translation,
                 should_snap: params.should_snap,
                 paired_with_perspective: params.paired_with_perspective,
-                is_offset_only: false,
             },
             WrReferenceFrameKind::Perspective => ReferenceFrameKind::Perspective { scrolling_relative_to },
         };
@@ -3173,7 +3204,6 @@ pub extern "C" fn wr_dp_push_stacking_context(
                 is_2d_scale_translation: true,
                 should_snap: false,
                 paired_with_perspective: false,
-                is_offset_only: true,
             },
         );
         result.id = wr_spatial_id.0;

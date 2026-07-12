@@ -1044,17 +1044,6 @@ export let ProfileDataUpgrader = {
       });
     }
 
-    if (
-      existingDataVersion < 177 &&
-      !Services.prefs.getBoolPref("sidebar.verticalTabs", false) &&
-      Services.prefs.getStringPref("sidebar.visibility", "") === "hide-sidebar"
-    ) {
-      // Bug 2047653: the legacy horizontal-tabs default was stored as
-      // "hide-sidebar", a value now reserved for vertical tabs. Horizontal tabs
-      // now have their own default value, "hide-on-close".
-      Services.prefs.setStringPref("sidebar.visibility", "hide-on-close");
-    }
-
     // Update the migration version.
     Services.prefs.setIntPref("browser.migration.version", newVersion);
   },

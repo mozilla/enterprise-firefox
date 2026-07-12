@@ -17,7 +17,7 @@ class UnifiedTrustPanelPage(composeRule: AndroidComposeTestRule<HomeActivityInte
             from = "BrowserPage",
             to = pageName,
             steps = listOf(
-                NavigationStep.Click(ToolbarSelectors.SITE_INFORMATION_BUTTON),
+                NavigationStep.ClickIfPresent(ToolbarSelectors.SECURE_SITE_INFORMATION_BUTTON),
             ),
         )
     }

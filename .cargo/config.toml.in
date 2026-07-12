@@ -20,14 +20,19 @@ git = "https://github.com/franziskuskiefer/cose-rust"
 rev = "43c22248d136c8b38fe42ea709d08da6355cf04b"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/gfx-rs/wgpu?rev=43981de526bffe6773403029c2e26f18d9c0a976"]
+[source."git+https://github.com/gfx-rs/wgpu?rev=93e00976015c937fc86f02bd9efcf343c6ce5e5d"]
 git = "https://github.com/gfx-rs/wgpu"
-rev = "43981de526bffe6773403029c2e26f18d9c0a976"
+rev = "93e00976015c937fc86f02bd9efcf343c6ce5e5d"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/glandium/allocator-api2?rev=ad5f3d56a5a4519eff52af4ff85293431466ef5c"]
 git = "https://github.com/glandium/allocator-api2"
 rev = "ad5f3d56a5a4519eff52af4ff85293431466ef5c"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/glandium/rust-bindgen?rev=5274da5a06411accb266c10819b989ac25a81b7d"]
+git = "https://github.com/glandium/rust-bindgen"
+rev = "5274da5a06411accb266c10819b989ac25a81b7d"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/glandium/rust-objc?rev=4de89f5aa9851ceca4d40e7ac1e2759410c04324"]
@@ -80,9 +85,9 @@ git = "https://github.com/mozilla/cubeb-coreaudio-rs"
 rev = "840f69c1b3f95accd582555e10abcef8ee67514b"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/cubeb-pulse-rs?rev=a3770b75c22ae3fdc12539a0cdccc04d46d791f7"]
+[source."git+https://github.com/mozilla/cubeb-pulse-rs?rev=88194f91c8778fa608a19af7b91306094525595d"]
 git = "https://github.com/mozilla/cubeb-pulse-rs"
-rev = "a3770b75c22ae3fdc12539a0cdccc04d46d791f7"
+rev = "88194f91c8778fa608a19af7b91306094525595d"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/mozilla/ipc-channel?rev=f2b5aed36a60f07589579d31aaace2f90d2e5e9e"]
@@ -95,9 +100,9 @@ git = "https://github.com/mozilla/glean"
 tag = "v68.0.0"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/happy-eyeballs?tag=v0.9.0"]
+[source."git+https://github.com/mozilla/happy-eyeballs?tag=v0.10.0"]
 git = "https://github.com/mozilla/happy-eyeballs"
-tag = "v0.9.0"
+tag = "v0.10.0"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/mozilla/ipc-channel?rev=2e47e642b34aebfaaf953497c3834f96c365c8a0"]
@@ -139,14 +144,9 @@ git = "https://github.com/mozilla/postcard"
 rev = "728ed1af0e844733f827e0699bc9c15a621d297c"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/rust-lang/rust-bindgen?rev=9366e0af8da529c958b4cd4fcbe492d951c86f5c"]
-git = "https://github.com/rust-lang/rust-bindgen"
-rev = "9366e0af8da529c958b4cd4fcbe492d951c86f5c"
-replace-with = "vendored-sources"
-
-[source."git+https://github.com/rust-minidump/minidump-writer.git?rev=107e531a7a06f8e886ffcee13eb07e9ded43473b"]
+[source."git+https://github.com/rust-minidump/minidump-writer.git?rev=45f5459790d264098346343f0ad58d008c386fa5"]
 git = "https://github.com/rust-minidump/minidump-writer.git"
-rev = "107e531a7a06f8e886ffcee13eb07e9ded43473b"
+rev = "45f5459790d264098346343f0ad58d008c386fa5"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/servo/unicode-bidi?rev=ca612daf1c08c53abe07327cb3e6ef6e0a760f0c"]

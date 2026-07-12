@@ -1,12 +1,35 @@
 {
-  "block": {
-    "margin": {
+  "margin": {
+    "block": {
       "value": "{dimension.4}"
     }
   },
   "border": {
     "radius": {
       "value": "var(--toolbarbutton-border-radius)"
+    },
+    "color": {
+      "accent": {
+        "override": true,
+        "value": "unset"
+      },
+      "selected": {
+        "leading": {
+          "override": true,
+          "value": "unset"
+        },
+        "trailing": {
+          "override": true,
+          "value": "unset"
+        }
+      }
+    }
+  },
+  "box": {
+    "shadow": {
+      "selected": {
+        "value": "{box-shadow.level-1}"
+      }
     }
   },
   "attention": {
@@ -136,9 +159,6 @@
         "dark": "{color.white.@base}",
         "nativeTheme": "var(--toolbar-text-color)"
       }
-    },
-    "box-shadow": {
-      "value": "{box-shadow.level-1}"
     }
   },
   "vertical": {

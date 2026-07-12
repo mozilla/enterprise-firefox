@@ -31,7 +31,7 @@ static Maybe<GLenum> BackTextureWithIOSurf(GLContext* const gl,
                                            MacIOSurface* const ioSurf) {
   MOZ_ASSERT(gl->IsCurrent());
 
-  GLenum target = MacIOSurface::GetTextureTarget(gl);
+  const GLenum target = gl->GetPreferredMacIOSurfaceTextureTarget();
 
   ScopedBindTexture texture(gl, tex, target);
 

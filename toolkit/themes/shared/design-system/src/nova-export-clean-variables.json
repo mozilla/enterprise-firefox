@@ -379,7 +379,7 @@
       },
       "margin": {
         "block": {
-          "Value": 0,
+          "Value": 6,
           "vertical": {
             "Value": 2
           }
@@ -420,6 +420,13 @@
       "outline": {
         "offset": {
           "Value": -1
+        }
+      },
+      "box": {
+        "shadow": {
+          "selected": {
+            "Value": "none"
+          }
         }
       }
     }
@@ -1496,283 +1503,263 @@
     "tab": {
       "group": {
         "yellow": {
-          "default": {
-            "Light": "{color/yellow/50}",
-            "Dark": "{color/yellow/10}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/yellow/10}",
-            "Smart Light (WIP)": "{color/yellow/50}"
-          },
+          "Light": "{color/yellow/50}",
+          "Dark": "{color/yellow/30}",
+          "HCM": "{color/yellow/30}",
+          "Private": "{color/yellow/30}",
+          "Smart Light (WIP)": "{color/yellow/50}",
           "hover": {
             "Light": "{color/yellow/60}",
-            "Dark": "{color/yellow/20}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/yellow/20}",
+            "Dark": "{color/yellow/40}",
+            "HCM": "{color/yellow/40}",
+            "Private": "{color/yellow/40}",
             "Smart Light (WIP)": "{color/yellow/60}"
           },
           "focused": {
             "Light": "{color/yellow/50}",
-            "Dark": "{color/yellow/10}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/yellow/10}",
+            "Dark": "{color/yellow/30}",
+            "HCM": "{color/yellow/30}",
+            "Private": "{color/yellow/30}",
             "Smart Light (WIP)": "{color/yellow/50}"
           },
           "text": {
             "Light": "{color/white}",
-            "Dark": "{color/yellow/60}",
+            "Dark": "{color/yellow/90}",
             "HCM": "{color/yellow/60}",
-            "Private": "{color/yellow/60}",
+            "Private": "{color/yellow/90}",
             "Smart Light (WIP)": "#FFFFFF"
           }
         },
         "orange": {
-          "default": {
-            "Light": "{color/orange/50}",
-            "Dark": "{color/orange/10}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/orange/10}",
-            "Smart Light (WIP)": "{color/orange/50}"
-          },
+          "Light": "{color/orange/50}",
+          "Dark": "{color/orange/30}",
+          "HCM": "{color/orange/30}",
+          "Private": "{color/orange/30}",
+          "Smart Light (WIP)": "{color/orange/50}",
           "hover": {
             "Light": "{color/orange/60}",
-            "Dark": "{color/orange/20}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/orange/20}",
+            "Dark": "{color/orange/40}",
+            "HCM": "{color/orange/40}",
+            "Private": "{color/orange/40}",
             "Smart Light (WIP)": "{color/orange/60}"
           },
           "focused": {
             "Light": "{color/orange/50}",
-            "Dark": "{color/orange/10}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/orange/10}",
+            "Dark": "{color/orange/30}",
+            "HCM": "{color/orange/30}",
+            "Private": "{color/orange/30}",
             "Smart Light (WIP)": "{color/orange/50}"
           },
           "text": {
             "Light": "{color/white}",
-            "Dark": "{color/orange/60}",
+            "Dark": "{color/orange/90}",
             "HCM": "{color/orange/60}",
-            "Private": "{color/orange/60}",
+            "Private": "{color/orange/90}",
             "Smart Light (WIP)": "#FFFFFF"
           }
         },
         "red": {
-          "default": {
-            "Light": "{color/red/50}",
-            "Dark": "{color/red/10}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/red/10}",
-            "Smart Light (WIP)": "{color/red/50}"
-          },
+          "Light": "{color/red/50}",
+          "Dark": "{color/red/30}",
+          "HCM": "{color/red/30}",
+          "Private": "{color/red/30}",
+          "Smart Light (WIP)": "{color/red/50}",
           "hover": {
             "Light": "{color/red/60}",
-            "Dark": "{color/red/20}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/red/20}",
+            "Dark": "{color/red/40}",
+            "HCM": "{color/red/40}",
+            "Private": "{color/red/40}",
             "Smart Light (WIP)": "{color/red/60}"
           },
           "focused": {
             "Light": "{color/red/50}",
-            "Dark": "{color/red/10}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/red/10}",
+            "Dark": "{color/red/30}",
+            "HCM": "{color/red/30}",
+            "Private": "{color/red/30}",
             "Smart Light (WIP)": "{color/red/50}"
           },
           "text": {
             "Light": "{color/white}",
-            "Dark": "{color/red/60}",
+            "Dark": "{color/red/90}",
             "HCM": "#8F4000",
-            "Private": "{color/red/60}",
+            "Private": "{color/red/90}",
             "Smart Light (WIP)": "#FFFFFF"
           }
         },
         "pink": {
-          "default": {
-            "Light": "{color/pink/50}",
-            "Dark": "{color/pink/10}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/pink/10}",
-            "Smart Light (WIP)": "{color/pink/50}"
-          },
+          "Light": "{color/pink/50}",
+          "Dark": "{color/pink/30}",
+          "HCM": "{color/pink/30}",
+          "Private": "{color/pink/30}",
+          "Smart Light (WIP)": "{color/pink/50}",
           "hover": {
             "Light": "{color/pink/60}",
-            "Dark": "{color/pink/20}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/pink/20}",
+            "Dark": "{color/pink/40}",
+            "HCM": "{color/pink/40}",
+            "Private": "{color/pink/40}",
             "Smart Light (WIP)": "{color/pink/60}"
           },
           "focused": {
             "Light": "{color/pink/50}",
-            "Dark": "{color/pink/10}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/pink/10}",
+            "Dark": "{color/pink/30}",
+            "HCM": "{color/pink/30}",
+            "Private": "{color/pink/30}",
             "Smart Light (WIP)": "{color/pink/50}"
           },
           "text": {
             "Light": "{color/white}",
-            "Dark": "{color/pink/60}",
+            "Dark": "{color/pink/90}",
             "HCM": "#96236F",
-            "Private": "{color/pink/60}",
+            "Private": "{color/pink/90}",
             "Smart Light (WIP)": "#FFFFFF"
           }
         },
         "purple": {
-          "default": {
-            "Light": "{color/purple/50}",
-            "Dark": "{color/purple/10}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/purple/10}",
-            "Smart Light (WIP)": "{color/purple/50}"
-          },
+          "Light": "{color/purple/50}",
+          "Dark": "{color/purple/30}",
+          "HCM": "{color/purple/30}",
+          "Private": "{color/purple/30}",
+          "Smart Light (WIP)": "{color/purple/50}",
           "hover": {
             "Light": "{color/purple/60}",
-            "Dark": "{color/purple/20}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/purple/20}",
+            "Dark": "{color/purple/40}",
+            "HCM": "{color/purple/40}",
+            "Private": "{color/purple/40}",
             "Smart Light (WIP)": "{color/purple/60}"
           },
           "focused": {
             "Light": "{color/purple/50}",
-            "Dark": "{color/purple/10}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/purple/10}",
+            "Dark": "{color/purple/30}",
+            "HCM": "{color/purple/30}",
+            "Private": "{color/purple/30}",
             "Smart Light (WIP)": "{color/purple/50}"
           },
           "text": {
             "Light": "{color/white}",
-            "Dark": "{color/purple/60}",
+            "Dark": "{color/purple/90}",
             "HCM": "#7E29A3",
-            "Private": "{color/purple/60}",
+            "Private": "{color/purple/90}",
             "Smart Light (WIP)": "#FFFFFF"
           }
         },
         "violet": {
-          "default": {
-            "Light": "{color/violet/50}",
-            "Dark": "{color/violet/10}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/violet/10}",
-            "Smart Light (WIP)": "{color/violet/50}"
-          },
+          "Light": "{color/violet/50}",
+          "Dark": "{color/violet/30}",
+          "HCM": "{color/violet/30}",
+          "Private": "{color/violet/30}",
+          "Smart Light (WIP)": "{color/violet/50}",
           "hover": {
             "Light": "{color/violet/60}",
-            "Dark": "{color/violet/20}",
-            "HCM": "#FFFFFF",
+            "Dark": "{color/violet/40}",
+            "HCM": "{color/violet/40}",
             "Private": "{color/violet/20}",
             "Smart Light (WIP)": "{color/violet/60}"
           },
           "focused": {
             "Light": "{color/violet/50}",
-            "Dark": "{color/violet/10}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/violet/10}",
+            "Dark": "{color/violet/30}",
+            "HCM": "{color/violet/30}",
+            "Private": "{color/violet/30}",
             "Smart Light (WIP)": "{color/violet/50}"
           },
           "text": {
             "Light": "{color/white}",
-            "Dark": "{color/violet/60}",
+            "Dark": "{color/violet/90}",
             "HCM": "#5111A3",
-            "Private": "{color/violet/60}",
+            "Private": "{color/violet/90}",
             "Smart Light (WIP)": "#FFFFFF"
           }
         },
         "blue": {
-          "default": {
-            "Light": "{color/blue/50}",
-            "Dark": "{color/blue/10}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/blue/10}",
-            "Smart Light (WIP)": "{color/blue/50}"
-          },
+          "Light": "{color/blue/50}",
+          "Dark": "{color/blue/30}",
+          "HCM": "{color/blue/30}",
+          "Private": "{color/blue/30}",
+          "Smart Light (WIP)": "{color/blue/50}",
           "hover": {
             "Light": "{color/blue/60}",
-            "Dark": "{color/blue/20}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/blue/20}",
+            "Dark": "{color/blue/40}",
+            "HCM": "{color/blue/40}",
+            "Private": "{color/blue/40}",
             "Smart Light (WIP)": "{color/blue/60}"
           },
           "focused": {
             "Light": "{color/blue/50}",
-            "Dark": "{color/blue/10}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/blue/10}",
+            "Dark": "{color/blue/30}",
+            "HCM": "{color/blue/30}",
+            "Private": "{color/blue/30}",
             "Smart Light (WIP)": "{color/blue/50}"
           },
           "text": {
             "Light": "{color/white}",
-            "Dark": "{color/blue/60}",
+            "Dark": "{color/blue/90}",
             "HCM": "#2053B4",
-            "Private": "{color/blue/60}",
+            "Private": "{color/blue/90}",
             "Smart Light (WIP)": "#FFFFFF"
           }
         },
         "cyan": {
-          "default": {
-            "Light": "{color/cyan/50}",
-            "Dark": "{color/cyan/10}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/cyan/10}",
-            "Smart Light (WIP)": "{color/cyan/50}"
-          },
+          "Light": "{color/cyan/50}",
+          "Dark": "{color/cyan/30}",
+          "HCM": "{color/cyan/30}",
+          "Private": "{color/cyan/30}",
+          "Smart Light (WIP)": "{color/cyan/50}",
           "hover": {
             "Light": "{color/cyan/60}",
-            "Dark": "{color/cyan/20}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/cyan/20}",
+            "Dark": "{color/cyan/40}",
+            "HCM": "{color/cyan/40}",
+            "Private": "{color/cyan/40}",
             "Smart Light (WIP)": "{color/cyan/60}"
           },
           "focused": {
             "Light": "{color/cyan/50}",
-            "Dark": "{color/cyan/10}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/cyan/10}",
+            "Dark": "{color/cyan/30}",
+            "HCM": "{color/cyan/30}",
+            "Private": "{color/cyan/30}",
             "Smart Light (WIP)": "{color/cyan/50}"
           },
           "text": {
             "Light": "{color/white}",
-            "Dark": "{color/cyan/60}",
+            "Dark": "{color/cyan/90}",
             "HCM": "#00638A",
-            "Private": "{color/cyan/60}",
+            "Private": "{color/cyan/90}",
             "Smart Light (WIP)": "#FFFFFF"
           }
         },
         "green": {
-          "default": {
-            "Light": "{color/green/50}",
-            "Dark": "{color/green/10}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/green/10}",
-            "Smart Light (WIP)": "{color/green/50}"
-          },
+          "Light": "{color/green/50}",
+          "Dark": "{color/green/30}",
+          "HCM": "{color/green/30}",
+          "Private": "{color/green/10}",
+          "Smart Light (WIP)": "{color/green/50}",
           "hover": {
             "Light": "{color/green/60}",
-            "Dark": "{color/green/20}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/green/20}",
+            "Dark": "{color/green/40}",
+            "HCM": "{color/green/40}",
+            "Private": "{color/green/40}",
             "Smart Light (WIP)": "{color/green/60}"
           },
           "focused": {
             "Light": "{color/green/50}",
-            "Dark": "{color/green/10}",
-            "HCM": "#FFFFFF",
+            "Dark": "{color/green/30}",
+            "HCM": "{color/green/30}",
             "Private": "{color/green/10}",
             "Smart Light (WIP)": "{color/green/50}"
           },
           "text": {
             "Light": "{color/white}",
-            "Dark": "{color/green/60}",
+            "Dark": "{color/green/90}",
             "HCM": "#186D00",
-            "Private": "{color/green/60}",
+            "Private": "{color/green/90}",
             "Smart Light (WIP)": "#FFFFFF"
           }
         },
         "grey": {
-          "default": {
-            "Light": "{color/gray/55}",
-            "Dark": "{color/gray/05}",
-            "HCM": "#FFFFFF",
-            "Private": "{color/gray/05}",
-            "Smart Light (WIP)": "{color/gray/55}"
-          },
+          "Light": "{color/gray/55}",
+          "Dark": "{color/gray/05}",
+          "HCM": "#FFFFFF",
+          "Private": "{color/gray/05}",
+          "Smart Light (WIP)": "{color/gray/55}",
           "hover": {
             "Light": "{color/gray/65}",
             "Dark": "{color/gray/10}",

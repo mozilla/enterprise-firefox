@@ -15,14 +15,12 @@ import io.mockk.verify
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.StandardTestDispatcher
-import mozilla.components.browser.state.action.CookieBannerAction
 import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.state.CustomTabSessionState
 import mozilla.components.browser.state.state.TabSessionState
 import mozilla.components.browser.state.state.createTab
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.browser.toolbar.BrowserToolbar
-import mozilla.components.concept.engine.EngineSession
 import mozilla.components.support.test.robolectric.testContext
 import org.junit.Rule
 import org.junit.Test
@@ -31,7 +29,6 @@ import org.mozilla.fenix.ext.isLargeWindow
 import org.mozilla.fenix.helpers.FenixGleanTestRule
 import org.mozilla.fenix.utils.Settings
 import org.robolectric.RobolectricTestRunner
-import kotlin.test.assertNotNull
 import mozilla.components.browser.toolbar.R as toolbarR
 
 @RunWith(RobolectricTestRunner::class)
@@ -41,38 +38,6 @@ class BrowserToolbarCFRPresenterTest {
 
     @get:Rule
     val gleanTestRule = FenixGleanTestRule(testContext)
-
-    @Test
-    fun `GIVEN the cookie banners handling CFR should be shown for a custom tab WHEN the custom tab is fully loaded THEN the TCP CFR is shown`() {
-        val privateTab = createTab(url = "", private = true)
-        val browserStore = createBrowserStore(tab = privateTab, selectedTabId = privateTab.id)
-        val settings: Settings = mockk(relaxed = true) {
-            every { shouldShowCookieBannersCFR } returns true
-            every { shouldUseCookieBannerPrivateMode } returns true
-            every { cfrPopupsEnabled } returns true
-        }
-        val presenter = createPresenter(
-            isPrivate = true,
-            browserStore = browserStore,
-            settings = settings,
-        )
-
-        presenter.start()
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        assertNotNull(presenter.scope)
-
-        browserStore.dispatch(
-            CookieBannerAction.UpdateStatusAction(
-                privateTab.id,
-                EngineSession.CookieBannerHandlingStatus.HANDLED,
-            ),
-        )
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        verify { presenter.showCookieBannersCFR() }
-        verify { settings.shouldShowCookieBannersCFR = false }
-    }
 
     @Test
     fun `GIVEN the store is observed for updates WHEN the presenter is stopped THEN stop observing the store`() {
@@ -92,8 +57,6 @@ class BrowserToolbarCFRPresenterTest {
         val normalTab = createTab(url = "", private = false)
         val browserStore = createBrowserStore(tab = normalTab, selectedTabId = normalTab.id)
         val settings: Settings = mockk(relaxed = true) {
-            every { shouldShowCookieBannersCFR } returns false
-            every { shouldUseCookieBannerPrivateMode } returns false
             every { shouldShowTabSwipeCFR } returns true
             every { isSwipeToolbarToSwitchTabsEnabled } returns true
             every { hasShownTabSwipeCFR } returns false
@@ -120,8 +83,6 @@ class BrowserToolbarCFRPresenterTest {
         val normalTab = createTab(url = "", private = false)
         val browserStore = createBrowserStore(tab = normalTab, selectedTabId = normalTab.id)
         val settings: Settings = mockk(relaxed = true) {
-            every { shouldShowCookieBannersCFR } returns false
-            every { shouldUseCookieBannerPrivateMode } returns false
             every { shouldShowTabSwipeCFR } returns true
             every { isSwipeToolbarToSwitchTabsEnabled } returns true
             every { hasShownTabSwipeCFR } returns false
@@ -147,8 +108,6 @@ class BrowserToolbarCFRPresenterTest {
         val normalTab = createTab(url = "", private = false)
         val browserStore = createBrowserStore(tab = normalTab, selectedTabId = normalTab.id)
         val settings: Settings = mockk(relaxed = true) {
-            every { shouldShowCookieBannersCFR } returns false
-            every { shouldUseCookieBannerPrivateMode } returns false
             every { shouldShowTabSwipeCFR } returns true
             every { isSwipeToolbarToSwitchTabsEnabled } returns false
             every { hasShownTabSwipeCFR } returns false
@@ -180,7 +139,6 @@ class BrowserToolbarCFRPresenterTest {
         browserStore: BrowserStore = BrowserStore(),
         settings: Settings = mockk(relaxed = true) {
             every { openTabsCount } returns 5
-            every { shouldShowCookieBannersCFR } returns true
             every { shouldShowTabSwipeCFR } returns false
             every { hasShownTabSwipeCFR } returns false
         },
@@ -190,7 +148,6 @@ class BrowserToolbarCFRPresenterTest {
             every { findViewById<View>(toolbarR.id.mozac_browser_toolbar_page_actions) } returns anchor
             every { findViewById<View>(toolbarR.id.mozac_browser_toolbar_navigation_actions) } returns anchor
         },
-        sessionId: String? = null,
         isPrivate: Boolean = false,
     ) = spyk(
         BrowserToolbarCFRPresenter(
@@ -198,12 +155,10 @@ class BrowserToolbarCFRPresenterTest {
             browserStore = browserStore,
             settings = settings,
             toolbar = toolbar,
-            customTabId = sessionId,
             isPrivate = isPrivate,
             mainDispatcher = testDispatcher,
         ),
     ) {
-        every { showCookieBannersCFR() } just Runs
         every { showTabSwipeCFR() } just Runs
     }
 

@@ -99,7 +99,7 @@ describe("<FocusTimer>", () => {
       ).toBeInTheDocument();
     });
 
-    it("disables the small size entry and leaves medium/large enabled", () => {
+    it("offers only medium/large sizes (no small entry)", () => {
       const { container } = renderTimer({
         state: novaState(),
         props: { widgetsMayBeMaximized: true },
@@ -107,13 +107,8 @@ describe("<FocusTimer>", () => {
       const items = container.querySelectorAll(
         "#focus-timer-size-submenu panel-item[type='checkbox']"
       );
-      const bySize = Array.from(items).reduce((acc, el) => {
-        acc[el.getAttribute("data-size")] = el;
-        return acc;
-      }, {});
-      expect(bySize.small.hasAttribute("disabled")).toBe(true);
-      expect(bySize.medium.hasAttribute("disabled")).toBe(false);
-      expect(bySize.large.hasAttribute("disabled")).toBe(false);
+      const sizes = Array.from(items).map(el => el.getAttribute("data-size"));
+      expect(sizes).toEqual(["medium", "large"]);
     });
   });
 

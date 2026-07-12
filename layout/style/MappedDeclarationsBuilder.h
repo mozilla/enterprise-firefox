@@ -8,6 +8,7 @@
 #define mozilla_MappedDeclarationsBuilder_h
 
 #include "NonCustomCSSPropertyId.h"
+#include "mozilla/CSSPropertyId.h"
 #include "mozilla/FontPropertyTypes.h"
 #include "mozilla/ServoBindingTypes.h"
 #include "mozilla/ServoBindings.h"
@@ -45,7 +46,8 @@ class MOZ_STACK_CLASS MappedDeclarationsBuilder final {
 
   // Check if we already contain a certain longhand
   bool PropertyIsSet(NonCustomCSSPropertyId aId) const {
-    return mDecls && Servo_DeclarationBlock_PropertyIsSet(mDecls, aId);
+    CSSPropertyId id{aId};
+    return mDecls && Servo_DeclarationBlock_HasProperty(mDecls, &id);
   }
 
   // Set a property to an identifier (string)

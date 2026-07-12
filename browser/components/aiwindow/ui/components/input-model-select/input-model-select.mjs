@@ -29,6 +29,7 @@ export class InputModelSelect extends MozLitElement {
     defaultModelChoiceId: { type: String },
     availableModels: { type: Object },
     panelOpen: { type: Boolean, state: true },
+    sidebarMode: { type: Boolean, reflect: true },
   };
 
   constructor() {
@@ -37,6 +38,7 @@ export class InputModelSelect extends MozLitElement {
     this.defaultModelChoiceId = null;
     this.availableModels = null;
     this.panelOpen = false;
+    this.sidebarMode = false;
     this._menuId = `models-menu-${crypto.randomUUID()}`;
   }
 

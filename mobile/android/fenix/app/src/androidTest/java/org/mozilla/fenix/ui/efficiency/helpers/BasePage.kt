@@ -65,10 +65,8 @@ import androidx.test.uiautomator.UiSelector
 import org.hamcrest.CoreMatchers.allOf
 import org.hamcrest.CoreMatchers.not
 import org.hamcrest.Matchers.containsString
-import org.mozilla.fenix.compose.snackbar.SNACKBAR_TEST_TAG
 import org.mozilla.fenix.helpers.HomeActivityIntentTestRule
 import org.mozilla.fenix.helpers.TestAssetHelper
-import org.mozilla.fenix.helpers.TestAssetHelper.waitingTime
 import org.mozilla.fenix.helpers.TestHelper.mDevice
 import org.mozilla.fenix.helpers.TestHelper.packageName
 import org.mozilla.fenix.ui.efficiency.navigation.NavigationRegistry
@@ -342,43 +340,6 @@ abstract class BasePage(
         }
         rep?.endCmd(success = false, message = "No '${selector.description}' with child text '$text' after ${timeout}ms")
         throw AssertionError("No '${selector.description}' found with a child containing text '$text' after ${timeout}ms")
-    }
-
-    fun verifySnackbarText(text: String): BasePage {
-        val rep = rep()
-        rep?.startCmd(safeId("verify_snackbar", text), "Verifying snackbar with text '$text' is present...", 1)
-
-        val selector = Selector(
-            strategy = SelectorStrategy.COMPOSE_BY_TEXT,
-            value = text,
-            description = "Snackbar with text '$text'",
-            groups = listOf("snackbar"),
-        )
-
-        try {
-            mozVerify(selector)
-            rep?.endCmd(success = true, message = "Snackbar with text '$text' verified")
-        } catch (e: Throwable) {
-            rep?.endCmd(success = false, message = "Snackbar with text '$text' not found")
-            throw e
-        }
-        return this
-    }
-
-    fun waitForSnackbarToBeDismissed(): BasePage {
-        val rep = rep()
-        rep?.startCmd(safeId("wait_snackbar", "snackbar"), "Waiting for snackbar to be dismissed...", 1)
-
-        try {
-            mDevice.findObject(
-                UiSelector().resourceId(SNACKBAR_TEST_TAG),
-            ).waitUntilGone(waitingTime)
-            rep?.endCmd(success = true, message = "Snackbar was dismissed")
-        } catch (e: Throwable) {
-            rep?.endCmd(success = false, message = "Snackbar did not dismiss within timeout")
-            throw e
-        }
-        return this
     }
 
     fun mozVerifyNoneContainText(selector: Selector, text: String): BasePage {

@@ -84,16 +84,6 @@ const BEHAVIOR_REJECT_TRACKER = Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER;
 const BEHAVIOR_PARTITION_FOREIGN =
   Ci.nsICookieService.BEHAVIOR_PARTITION_FOREIGN;
 
-let originalRequestLongerTimeout = requestLongerTimeout;
-// eslint-disable-next-line no-global-assign
-requestLongerTimeout = function AntiTrackingRequestLongerTimeout(factor) {
-  let ccovMultiplier = AppConstants.MOZ_CODE_COVERAGE ? 2 : 1;
-  let fissionMultiplier = SpecialPowers.useRemoteSubframes ? 2 : 1;
-  originalRequestLongerTimeout(ccovMultiplier * fissionMultiplier * factor);
-};
-
-requestLongerTimeout(3);
-
 const { UrlClassifierTestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/UrlClassifierTestUtils.sys.mjs"
 );

@@ -13,9 +13,17 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WindowsVersionInfo:
     "resource://gre/modules/components-utils/WindowsVersionInfo.sys.mjs",
+  ICON_CATALOG: "moz-src:///browser/components/shell/CustomIconManager.sys.mjs",
+  resolvePreview:
+    "moz-src:///browser/components/shell/CustomIconManager.sys.mjs",
 });
 
+const PREF_ICON_ID = "browser.shell.customIcon.id";
+
 const FORCED_COLORS_QUERY = matchMedia("(forced-colors)");
+// The readout thumbnail follows this (chrome) document's color scheme, so a
+// theme-aware icon shows the variant matching the surface it's previewed on.
+const COLOR_SCHEME_QUERY = matchMedia("(prefers-color-scheme: dark)");
 
 // browser.uidensity mode values are defined by gUIDensity in browser.js;
 // reference them through the chrome window so the two stay in sync.
@@ -34,6 +42,16 @@ function isAutoTouchModeAvailable() {
   return (
     isWindows &&
     lazy.WindowsVersionInfo.get({ throwOnError: false }).buildNumber < 22000
+  );
+}
+
+// The custom browser-icon picker is gated behind a feature pref, is
+// Windows-only, and is not yet offered on MSIX builds.
+function isBrowserIconAvailable() {
+  return (
+    isWindows &&
+    Services.prefs.getBoolPref("browser.shell.customIcon.enabled", false) &&
+    !Services.sysinfo.getProperty("hasWinPackageId")
   );
 }
 
@@ -188,6 +206,51 @@ Preferences.addSetting({
   },
 });
 
+Preferences.addSetting({
+  id: "browser-icon-button",
+  onUserClick: e => {
+    e.preventDefault();
+    window.gotoPref("browserIcon");
+  },
+});
+
+Preferences.addSetting({
+  id: "browser-icon-box-group",
+  visible: () => isBrowserIconAvailable(),
+});
+
+// Non-interactive readout of the currently selected browser icon (label +
+// thumbnail), shown above the "Change browser icon" button. Reads the active
+// icon from the catalog so the strings/preview stay in one place; re-renders
+// when the pref changes (including from the sub-pane picker).
+Preferences.addSetting({
+  id: "current-browser-icon",
+  setup(emitChange) {
+    let observer = () => emitChange();
+    Services.prefs.addObserver(PREF_ICON_ID, observer);
+    COLOR_SCHEME_QUERY.addEventListener("change", emitChange);
+    return () => {
+      Services.prefs.removeObserver(PREF_ICON_ID, observer);
+      COLOR_SCHEME_QUERY.removeEventListener("change", emitChange);
+    };
+  },
+  getControlConfig(config) {
+    if (!isBrowserIconAvailable()) {
+      return config;
+    }
+    let id = Services.prefs.getStringPref(PREF_ICON_ID, "");
+    // An unset/unknown pref is the "default" (no-override) state, which is
+    // itself a catalog entry, so the label/preview come from the catalog.
+    let entry = lazy.ICON_CATALOG[id] || lazy.ICON_CATALOG.default;
+    let scheme = COLOR_SCHEME_QUERY.matches ? "dark" : "light";
+    return {
+      ...config,
+      l10nId: entry.l10nId,
+      iconSrc: lazy.resolvePreview(entry, scheme),
+    };
+  },
+});
+
 SettingGroupManager.registerGroups({
   appearance: {
     l10nId: "appearance-group2",
@@ -294,6 +357,31 @@ SettingGroupManager.registerGroups({
         controlAttrs: {
           href: "about:addons",
         },
+      },
+    ],
+  },
+  browserIconEntry: {
+    l10nId: "appearance-browser-icon-entry-group",
+    iconSrc: "chrome://browser/skin/customize.svg",
+    headingLevel: 2,
+    controlAttrs: { badge: "new" },
+    items: [
+      {
+        id: "browser-icon-box-group",
+        control: "moz-box-group",
+        items: [
+          {
+            id: "current-browser-icon",
+            control: "moz-box-item",
+            controlAttrs: { layout: "large-icon" },
+          },
+          {
+            id: "browser-icon-button",
+            l10nId: "appearance-browser-icon-button",
+            control: "moz-box-button",
+            loadPane: "browserIcon",
+          },
+        ],
       },
     ],
   },

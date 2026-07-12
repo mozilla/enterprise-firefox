@@ -409,7 +409,6 @@ devtools.jar:
     content/aboutdebugging/src/components/shared/IconLabel.css (aboutdebugging/src/components/shared/IconLabel.css)
     content/aboutdebugging/src/components/shared/Message.css (aboutdebugging/src/components/shared/Message.css)
     content/aboutdebugging/src/components/sidebar/Sidebar.css (aboutdebugging/src/components/sidebar/Sidebar.css)
-    content/aboutdebugging/src/components/sidebar/SidebarFixedItem.css (aboutdebugging/src/components/sidebar/SidebarFixedItem.css)
     content/aboutdebugging/src/components/sidebar/SidebarItem.css (aboutdebugging/src/components/sidebar/SidebarItem.css)
     content/aboutdebugging/src/components/sidebar/SidebarRuntimeItem.css (aboutdebugging/src/components/sidebar/SidebarRuntimeItem.css)
 

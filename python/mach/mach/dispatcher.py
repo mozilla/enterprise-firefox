@@ -20,6 +20,19 @@ class CommandFormatter(argparse.HelpFormatter):
         pass
 
 
+class CommandArgumentParser(argparse.ArgumentParser):
+    """An ArgumentParser that prints the command help on error.
+
+    argparse's default error handling prints only the usage line, which hides
+    the descriptions of the arguments involved. Printing the help makes errors
+    such as a missing required argument self-explanatory.
+    """
+
+    def error(self, message):
+        self.print_help(sys.stderr)
+        self.exit(2, f"\n{self.prog}: error: {message}\n")
+
+
 class CommandAction(argparse.Action):
     """An argparse action that handles mach commands.
 
@@ -198,7 +211,7 @@ class CommandAction(argparse.Action):
                         {"default": arg.default, "nargs": arg.nargs, "help": arg.help},
                     )
         else:
-            subparser = argparse.ArgumentParser(**parser_args)
+            subparser = CommandArgumentParser(**parser_args)
 
         for arg in handler.arguments:
             # Remove our group keyword; it's not needed here.

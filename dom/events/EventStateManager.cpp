@@ -59,6 +59,7 @@
 #include "mozilla/dom/DataTransfer.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/DragEvent.h"
+#include "mozilla/dom/EditContext.h"
 #include "mozilla/dom/ElementInlines.h"
 #include "mozilla/dom/Event.h"
 #include "mozilla/dom/FrameLoaderBinding.h"
@@ -7409,6 +7410,13 @@ nsresult EventStateManager::DoContentCommandReplaceTextEvent(
   if (NS_WARN_IF(composition)) {
     // We don't support replace text action during composition.
     aEvent->mSucceeded = true;
+    return NS_OK;
+  }
+
+  // Don't try to compute range in DOM from text offsets for EditContext,
+  // since it will often be incorrect.
+  if (RefPtr editContext = activeEditor->ComputeEditContext()) {
+    editContext->DoContentCommandReplaceText(*aEvent);
     return NS_OK;
   }
 

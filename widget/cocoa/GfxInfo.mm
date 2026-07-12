@@ -533,6 +533,24 @@ nsresult GfxInfo::GetFeatureStatusImpl(
       *aStatus = nsIGfxInfo::FEATURE_BLOCKED_DEVICE;
       aFailureId = "FEATURE_UNQUALIFIED_WEBRENDER_MAC_ROSETTA";
       return NS_OK;
+    } else if (aFeature == nsIGfxInfo::FEATURE_WEBGL_ANGLE_METAL) {
+      if (mMacOSVersionEx.Compare(GfxVersionEx(12, 0, 0)) < 0) {
+        // ANGLE only supports macOS 12 onwards. Blocked until we restore
+        // support for earlier OS versions. See bug 2053051.
+        *aStatus = nsIGfxInfo::FEATURE_BLOCKED_OS_VERSION;
+        aFailureId = "FEATURE_FAILURE_METAL_ANGLE_MACOS_VERSION";
+      } else if (mNumGPUsDetected > 1) {
+        // Blocked on devices with multiple GPUs until we implement support for
+        // power preference. See bug 2048264.
+        *aStatus = nsIGfxInfo::FEATURE_BLOCKED_DEVICE;
+        aFailureId = "FEATURE_FAILURE_METAL_ANGLE_MULTIPLE_GPUS";
+      } else {
+        // We don't yet build or ship ANGLE libraries on macOS, so always block
+        // for now. See bug 2027951.
+        *aStatus = nsIGfxInfo::FEATURE_BLOCKED_DEVICE;
+        aFailureId = "FEATURE_FAILURE_METAL_ANGLE_UNIMPLEMENTED";
+      }
+      return NS_OK;
     }
   }
 

@@ -96,6 +96,9 @@ home-prefs-clocks-header =
 # Privacy is a widget on New Tab that shows tracking protection activity.
 home-prefs-privacy-header =
     .label = Privacy
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = Oandielen
 home-prefs-mission-message2 =
     .message = Us sponsors stypje ús misje om in better web te bouwen.
 home-prefs-manage-topics-link2 =
@@ -159,6 +162,16 @@ home-prefs-mission-message-learn-more-link-srd = Lês hjir hoe
 
 # Context menu item linking to more information about the Privacy widget.
 newtab-privacy-menu-learn-more = Mear ynfo
+
+## Strings for the Stocks widget
+
+# Context menu item linking to more information about the Stocks widget.
+newtab-stocks-menu-learn-more = Mear ynfo
+
+## Strings for the Picture of the Day widget
+
+# Context menu item linking to more information about the widget.
+newtab-picture-menu-learn-more = Mear ynfo
 
 ## Search box component.
 
@@ -506,6 +519,8 @@ newtab-custom-widget-sports-toggle2 =
     .label = Sport
 newtab-custom-widget-privacy-toggle =
     .label = Privacy
+newtab-custom-widget-stocks-toggle =
+    .label = Oandielen
 newtab-custom-widget-section-title = Widgets
 newtab-custom-widget-section-toggle =
     .label = Widgets
@@ -1288,6 +1303,14 @@ newtab-sports-widget-message-day-in-play-title = Hâld jo dei yn beweging mei { 
 newtab-sports-widget-message-day-in-play-body = Folgje it WK, bliuw by it wurk, hâld de tiid oer de hiele wrâld by, en mear.
 newtab-sports-widget-message-explore-widgets-cta =
     .label = Widgets ferkenne
+
+## Survey prompts shown after the World Cup to gather feedback on the widgets experience.
+
+newtab-sports-widget-message-survey-body = It WK sit derop. Diel jo kommentaar oer de ûnderfining.
+newtab-sports-widget-message-survey-widget-title = Hoe wie de WK-widget?
+newtab-sports-widget-message-survey-widget-body = Diel jo kommentaar om ús te helpen takomstige widgets te ferbetterjen. Probearje dêrnei de nije yn jo assortimint.
+newtab-sports-widget-message-survey-cta =
+    .label = Enkête starte
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

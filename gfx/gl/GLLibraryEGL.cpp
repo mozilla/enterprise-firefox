@@ -989,6 +989,9 @@ std::shared_ptr<EglDisplay> GLLibraryEGL::CreateDisplayLocked(
       }
     }
 #  endif
+#elif defined(XP_MACOSX)
+    MOZ_ASSERT(!forceSoftware,
+               "Software rendering not supported by EGL on macOS");
 #endif
     if (!ret && !forceSoftware) {
       ret = GetAndInitDisplay(*this, nativeDisplay, aProofOfLock);

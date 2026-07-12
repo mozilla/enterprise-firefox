@@ -354,8 +354,15 @@ nsProfiler::DumpProfileToFile(const char* aFilename) {
 }
 
 NS_IMETHODIMP
-nsProfiler::ScheduleDumpToFile(double aDelaySeconds, const char* aFilename) {
-  profiler_schedule_dump_to_file(aDelaySeconds, aFilename);
+nsProfiler::ScheduleDumpToFile(double aDelaySeconds, const char* aFilename,
+                               bool aExitAfterDump) {
+  profiler_schedule_dump_to_file(aDelaySeconds, aFilename, aExitAfterDump);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsProfiler::WaitForScheduledDump() {
+  profiler_wait_for_scheduled_dump();
   return NS_OK;
 }
 

@@ -32,7 +32,7 @@ The `AMRemoteSettings` singleton queries RemoteSettings and processes all the en
 the `"filter_expression"` property (See <https://remote-settings.readthedocs.io/en/latest/target-filters.html#how>).
 
 Each of the entries created in the `"main/addons-manager-settings"` collection and is expected to match the JSONSchema
-described in the {ref}`JSON Schema section below<JSON Schema>`.
+described in the {ref}`JSON Schema section below <json-schema>`.
 
 For each entry found in the collection, only the properties that are explicitly included in the
 `AMRemoteSettings.RS_ENTRIES_MAP` object are going to be processed (e.g. new Firefox versions may have introduced new
@@ -81,19 +81,19 @@ Group of settings to control the list of quarantined domains (Bug 1832791)
 
 - **extensions.quarantinedDomains.list** (string), controls the list of domains to be quarantined
 
-  > :::{note}
-  > The WebExtensions and Add-ons Operations teams should be consulted before applying changes to
-  > the list of quarantined domains.
-  > :::
+  :::{note}
+  The WebExtensions and Add-ons Operations teams should be consulted before applying changes to
+  the list of quarantined domains.
+  :::
 
 ## How to define new remotely controlled settings
 
 :::{note}
-Please update the {ref}`JSON Schema` and {ref}`UI Schema` in this documentation page updated when the ones used on the
-RemoteSettings service side have been changed, and document new controlled settings in the section {ref}`Controlled Settings Groups`.
+Please update the {ref}`JSON Schema <json-schema>` and {ref}`UI Schema <ui-schema>` in this documentation page updated when the ones used on the
+RemoteSettings service side have been changed, and document new controlled settings in the section {ref}`Controlled Settings Groups <controlled-settings-groups>`.
 :::
 
-- Confirm that the {ref}`JSON Schema` and {ref}`UI Schema` included in this page are in sync with the one actually used on the
+- Confirm that the {ref}`JSON Schema <json-schema>` and {ref}`UI Schema <ui-schema>` included in this page are in sync with the one actually used on the
   RemoteSettings service side, and use it as the starting point to update it to include a new type on remotely controlled setting:
 
   - choose a new unique string for the group of settings to be used in the `definitions` and `properties`
@@ -115,13 +115,15 @@ RemoteSettings service side have been changed, and document new controlled setti
 
 - Add a new test to cover the expected behaviors on the new remotely controlled settings, the following RemoteSettings
   documentation page provides some useful pointers:
-  \* <https://firefox-source-docs.mozilla.org/services/settings/index.html#unit-tests>
+
+  - <https://firefox-source-docs.mozilla.org/services/settings/index.html#unit-tests>
 
 - Refer to the RemoteSettings docs for more details about managing the JSONSchema for the `"main/addons-manager-settings"`
   collection and how to test it interactively in a Firefox instance:
-  \* <https://remote-settings.readthedocs.io/en/latest/getting-started.html>
-  \* <https://firefox-source-docs.mozilla.org/services/settings/index.html#create-new-remote-settings>
-  \* <https://firefox-source-docs.mozilla.org/services/settings/index.html#remote-settings-dev-tools>
+
+  - <https://remote-settings.readthedocs.io/en/latest/getting-started.html>
+  - <https://firefox-source-docs.mozilla.org/services/settings/index.html#create-new-remote-settings>
+  - <https://firefox-source-docs.mozilla.org/services/settings/index.html#remote-settings-dev-tools>
 
 (json-schema)=
 
@@ -130,13 +132,14 @@ RemoteSettings service side have been changed, and document new controlled setti
 The entries part of the `"addons-manager-settings"` collection are validated using a JSON Schema structured as follows:
 
 - The mandatory `"id"` property
-  \* defaults to `"AddonManagerSettings"` (which enforces only one entry in the collection as the preferred use case)
-  \* **should NOT be changed unless there is a specific need to create separate collection entries which target or exclude specific Firefox versions.**
-  \* when changed and multiple entries are created in this collection, it is advisable to:
 
-  > - set the id to a short string value that make easier to understand the purpose of the additional entry in the collection
-  >   (eg. `AddonManagerSettings-fx98-99` for an entry created that targets Firefox 98 and 99)
-  > - make sure only one applied to each targeted Firefox version ranges, or at least that each entry is controlling a different settings group
+  - defaults to `"AddonManagerSettings"` (which enforces only one entry in the collection as the preferred use case)
+  - **should NOT be changed unless there is a specific need to create separate collection entries which target or exclude specific Firefox versions.**
+  - when changed and multiple entries are created in this collection, it is advisable to:
+
+    - set the id to a short string value that make easier to understand the purpose of the additional entry in the collection
+      (eg. `AddonManagerSettings-fx98-99` for an entry created that targets Firefox 98 and 99)
+    - make sure only one applied to each targeted Firefox version ranges, or at least that each entry is controlling a different settings group
 
 - Each supported group of controlled settings is described by its own property (e.g. `"installTriggerDeprecation"`)
 

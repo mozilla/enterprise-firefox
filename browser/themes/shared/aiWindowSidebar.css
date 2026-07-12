@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 :root {
+  --ai-window-sidebar-min-width: 216px;
   --ai-window-sidebar-width-default: 412px;
 }
 
@@ -15,6 +16,7 @@
 }
 
 .ai-window-right-sidebar {
+  min-width: var(--ai-window-sidebar-min-width);
   width: var(--ai-window-sidebar-width-default);
 }
 

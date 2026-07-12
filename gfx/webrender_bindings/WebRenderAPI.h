@@ -76,6 +76,21 @@ struct Line {
   wr::LineStyle style;
 };
 
+struct WebRenderCapabilities {
+  layers::WebRenderBackend mBackendType = layers::WebRenderBackend::HARDWARE;
+  layers::WebRenderCompositor mCompositorType =
+      layers::WebRenderCompositor::DRAW;
+  int32_t mMaxTextureSize = 0;
+  bool mUseANGLE = false;
+  bool mUseDComp = false;
+  bool mUseLayerCompositor = false;
+  bool mUseTripleBuffering = false;
+  bool mSupportsExternalBufferTextures = false;
+#ifdef XP_DARWIN
+  wr::ImageBufferKind mIOSurfaceImageKind = wr::ImageBufferKind::Texture2D;
+#endif
+};
+
 /// A handler that can be bundled into a transaction and notified at specific
 /// points in the rendering pipeline, such as after scene building or after
 /// frame building.
@@ -212,7 +227,7 @@ class TransactionBuilder final {
   Transaction* Take();
 
   bool UseSceneBuilderThread() const { return mUseSceneBuilderThread; }
-  layers::WebRenderBackend GetBackendType() { return mApiBackend; }
+  const WebRenderCapabilities& GetCapabilities() const { return mCapabilities; }
   Transaction* Raw() const { return mTxn; }
 
   const RefPtr<layers::RemoteTextureTxnScheduler> mRemoteTextureTxnScheduler;
@@ -221,7 +236,7 @@ class TransactionBuilder final {
  protected:
   Transaction* mTxn;
   bool mUseSceneBuilderThread;
-  layers::WebRenderBackend mApiBackend;
+  WebRenderCapabilities mCapabilities;
   bool mOwnsData;
 };
 
@@ -296,16 +311,7 @@ class WebRenderAPI final {
   void AccumulateMemoryReport(wr::MemoryReport*);
 
   wr::WrIdNamespace GetNamespace();
-  layers::WebRenderBackend GetBackendType() { return mBackend; }
-  layers::WebRenderCompositor GetCompositorType() { return mCompositor; }
-  uint32_t GetMaxTextureSize() const { return mMaxTextureSize; }
-  bool GetUseANGLE() const { return mUseANGLE; }
-  bool GetUseDComp() const { return mUseDComp; }
-  bool GetUseLayerCompositor() const { return mUseLayerCompositor; }
-  bool GetUseTripleBuffering() const { return mUseTripleBuffering; }
-  bool SupportsExternalBufferTextures() const {
-    return mSupportsExternalBufferTextures;
-  }
+  const WebRenderCapabilities& GetCapabilities() const { return mCapabilities; }
   layers::SyncHandle GetSyncHandle() const { return mSyncHandle; }
 
   void Capture();
@@ -344,11 +350,7 @@ class WebRenderAPI final {
 
  protected:
   WebRenderAPI(wr::DocumentHandle* aHandle, wr::WindowId aId,
-               layers::WebRenderBackend aBackend,
-               layers::WebRenderCompositor aCompositor,
-               uint32_t aMaxTextureSize, bool aUseANGLE, bool aUseDComp,
-               bool aUseLayerCompositor, bool aUseTripleBuffering,
-               bool aSupportsExternalBufferTextures,
+               WebRenderCapabilities aCapabilities,
                layers::SyncHandle aSyncHandle,
                wr::WebRenderAPI* aRootApi = nullptr,
                wr::WebRenderAPI* aRootDocumentApi = nullptr);
@@ -485,14 +487,7 @@ class WebRenderAPI final {
 
   wr::DocumentHandle* mDocHandle;
   wr::WindowId mId;
-  layers::WebRenderBackend mBackend;
-  layers::WebRenderCompositor mCompositor;
-  int32_t mMaxTextureSize;
-  bool mUseANGLE;
-  bool mUseDComp;
-  bool mUseLayerCompositor;
-  bool mUseTripleBuffering;
-  bool mSupportsExternalBufferTextures;
+  const WebRenderCapabilities mCapabilities;
   bool mCaptureSequence;
   layers::SyncHandle mSyncHandle;
   bool mRendererDestroyed;

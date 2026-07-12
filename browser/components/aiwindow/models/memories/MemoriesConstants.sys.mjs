@@ -10,6 +10,49 @@ export const CONVERSATION_USER_REQUEST = "user_request";
 export const SESSION = "session";
 
 /**
+ * Memory types
+ */
+export const MEMORY_TYPE_PROFILE_FACT = "profile_fact";
+export const MEMORY_TYPE_DURABLE_MEMORY = "durable_memory";
+export const MEMORY_TYPE_LONG_TERM_MEMORY = "long_term_memory";
+export const MEMORY_TYPE_SHORT_TERM_MEMORY = "short_term_memory";
+export const MEMORY_TYPES = Object.freeze([
+  MEMORY_TYPE_PROFILE_FACT,
+  MEMORY_TYPE_DURABLE_MEMORY,
+  MEMORY_TYPE_LONG_TERM_MEMORY,
+  MEMORY_TYPE_SHORT_TERM_MEMORY,
+]);
+
+/**
+ * Memory strength constants
+ */
+export const INITIAL_MEMORY_TYPE_STRENGTH = Object.freeze({
+  [MEMORY_TYPE_DURABLE_MEMORY]: 100,
+  [MEMORY_TYPE_LONG_TERM_MEMORY]: 50,
+  [MEMORY_TYPE_SHORT_TERM_MEMORY]: 10,
+});
+export const MEMORY_EVIDENCE_WEIGHT = 0.2;
+export const MEMORY_LIFETIME_ACCESSED_WEIGHT = 0.2;
+export const MEMORY_MERGE_COUNT_WEIGHT = 0.2;
+export const MEMORY_USER_REQUEST_MODIFIER = 5;
+
+/**
+ * Memory frecency constants
+ */
+export const MEMORY_FRECENCY_MAX_DAYS = 7;
+export const MEMORY_FRECENCY_DAY_HALFLIFE = 3;
+
+/**
+ * Memory sensitivity types
+ */
+export const MEMORY_SENSITIVITY_CATEGORY_NOT_SENSITIVE = "not_sensitive";
+export const MEMORY_SENSITIVITY_CATEGORY_SENSITIVE = "sensitive";
+export const MEMORY_SENSIVITITY_CATEGORIES = Object.freeze([
+  MEMORY_SENSITIVITY_CATEGORY_NOT_SENSITIVE,
+  MEMORY_SENSITIVITY_CATEGORY_SENSITIVE,
+]);
+
+/**
  * Memory categories
  */
 export const CATEGORIES = "categories";
@@ -38,31 +81,6 @@ export const CATEGORIES_LIST = [
   "Sports",
   "Travel & Transportation",
 ];
-export const CATEGORY_TO_ID_PREFIX = {
-  "Arts & Entertainment": "arts_entertainment",
-  "Autos & Vehicles": "vehicles",
-  "Beauty & Fitness": "beauty_fitness",
-  "Books & Literature": "books_literature",
-  "Business & Industrial": "business_industrial",
-  "Computers & Electronics": "computers_electronics",
-  "Food & Drink": "food_drink",
-  Games: "games",
-  "Hobbies & Leisure": "hobbies_leisure",
-  "Home & Garden": "home_garden",
-  "Internet & Telecom": "internet_telecom",
-  "Jobs & Education": "jobs_education",
-  "Law & Government": "law_government",
-  News: "news",
-  "Online Communities": "online_communities",
-  "People & Society": "people_society",
-  "Pets & Animals": "pets_animals",
-  "Real Estate": "real_estate",
-  Reference: "reference",
-  Science: "science",
-  Shopping: "shopping",
-  Sports: "sports",
-  "Travel & Transportation": "travel_transportation",
-};
 
 /**
  * Memory intents

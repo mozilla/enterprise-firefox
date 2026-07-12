@@ -52,22 +52,27 @@ export default class LocationsList extends MozLitElement {
     return this.selectedLocation;
   }
 
-  handleSelectLocation(code) {
-    if (this.selectedLocation === code) {
+  handleSelectLocation(selectedLocation) {
+    if (
+      this.selectedLocation === selectedLocation.code ||
+      !selectedLocation.available
+    ) {
       return;
     }
-    this.selectedLocation = code;
+    this.selectedLocation = selectedLocation.code;
     this.dispatchEvent(
       new CustomEvent("IPProtection:UserSelectLocation", {
         bubbles: true,
         composed: true,
-        detail: { code },
+        detail: { code: selectedLocation.code },
       })
     );
   }
 
   #locationRow(aLocation) {
     const isSelected = aLocation.code === this.getSelectedLocation();
+    // Use aria-disabled instead of the native disabled attribute so that unavailable locations can be reached by keyboard
+    // and announced by screen readers
     return html`
       <li role="presentation">
         <button
@@ -75,8 +80,8 @@ export default class LocationsList extends MozLitElement {
           role="radio"
           id="location-option-${aLocation.code}"
           aria-checked=${isSelected ? "true" : "false"}
-          @click=${() => this.handleSelectLocation(aLocation.code)}
-          ?disabled=${!aLocation.available}
+          @click=${() => this.handleSelectLocation(aLocation)}
+          ?aria-disabled=${!aLocation.available}
         >
           <img
             class="location-check"
@@ -102,7 +107,7 @@ export default class LocationsList extends MozLitElement {
             ? html`
                 <span
                   class="location-unavailable-label"
-                  data-l10n-id="ipprotection-locations-unavailable-label"
+                  data-l10n-id="ipprotection-locations-unavailable-label-1"
                 ></span>
               `
             : null}

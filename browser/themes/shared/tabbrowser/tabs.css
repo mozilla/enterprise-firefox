@@ -14,6 +14,7 @@
   @media not -moz-pref("browser.nova.enabled") {
     --tab-min-height: 36px;
     --tab-group-label-size: 24px;
+    --tab-box-shadow-selected: var(--box-shadow-level-1);
     &[uidensity="compact"] {
       --tab-min-height: 29px;
     }
@@ -25,7 +26,7 @@
   --tab-group-counter-size: 24px;
   --split-view-padding-block: 2px;
   --split-view-tab-padding-inline: 2px;
-  --tabstrip-min-height: calc(var(--tab-min-height) + 2 * var(--tab-block-margin));
+  --tabstrip-min-height: calc(var(--tab-min-height) + 2 * var(--tab-margin-block));
   --tab-group-label-height: max(1.5em, var(--tab-min-height) - 14px);
   --tab-group-label-padding: 4px;
   --tab-group-label-highlight-thickness: 3px;
@@ -61,47 +62,45 @@
     --tab-vertical-scrollbar-color: color-mix(in srgb, currentColor 26%, transparent) transparent;
   }
 
-  /* TAB GROUP COLORS
-   * tab-group-color-* is used for expanded groups in light mode and collapsed groups in dark mode
-   * tab-group-color-*-invert is used for expanded groups in dark mode
-   * tab-group-color-*-pale is used for collapsed groups in light mode */
-  --tab-group-color-blue: var(--color-blue-70);
-  --tab-group-color-blue-invert: var(--color-blue-20);
-  --tab-group-color-blue-pale: var(--color-blue-0);
-  --tab-group-color-purple: var(--color-purple-70);
-  --tab-group-color-purple-invert: var(--color-purple-20);
-  --tab-group-color-purple-pale: var(--color-purple-0);
-  --tab-group-color-cyan: var(--color-cyan-70);
-  --tab-group-color-cyan-invert: var(--color-cyan-20);
-  --tab-group-color-cyan-pale: var(--color-cyan-0);
-  --tab-group-color-orange: var(--color-orange-70);
-  --tab-group-color-orange-invert: var(--color-orange-20);
-  --tab-group-color-orange-pale: var(--color-orange-0);
-  --tab-group-color-yellow: var(--color-yellow-70);
-  --tab-group-color-yellow-invert: var(--color-yellow-20);
-  --tab-group-color-yellow-pale: var(--color-yellow-0);
-  --tab-group-color-pink: var(--color-pink-70);
-  --tab-group-color-pink-invert: var(--color-pink-20);
-  --tab-group-color-pink-pale: var(--color-pink-0);
-  --tab-group-color-green: var(--color-green-70);
-  --tab-group-color-green-invert: var(--color-green-20);
-  --tab-group-color-green-pale: var(--color-green-0);
-  --tab-group-color-red: var(--color-red-70);
-  --tab-group-color-red-invert: var(--color-red-20);
-  --tab-group-color-red-pale: var(--color-red-0);
-  --tab-group-color-gray: #5e6a77;
-  --tab-group-color-gray-invert: #99a6b4;
-  --tab-group-color-gray-pale: #f2f9ff;
+  @media not -moz-pref("browser.nova.enabled") {
+    --tab-group-blue: light-dark(var(--color-blue-70), var(--color-blue-20));
+    --tab-group-blue-invert: light-dark(var(--color-blue-0), var(--color-blue-70));
+    --tab-group-blue-pale: var(--color-blue-0);
+    --tab-group-purple: light-dark(var(--color-purple-70), var(--color-purple-20));
+    --tab-group-purple-invert: light-dark(var(--color-purple-0), var(--color-purple-70));
+    --tab-group-purple-pale: var(--color-purple-0);
+    --tab-group-cyan: light-dark(var(--color-cyan-70), var(--color-cyan-20));
+    --tab-group-cyan-invert: light-dark(var(--color-cyan-0), var(--color-cyan-70));
+    --tab-group-cyan-pale: var(--color-cyan-0);
+    --tab-group-orange: light-dark(var(--color-orange-70), var(--color-orange-20));
+    --tab-group-orange-invert: light-dark(var(--color-orange-0), var(--color-orange-70));
+    --tab-group-orange-pale: var(--color-orange-0);
+    --tab-group-yellow: light-dark(var(--color-yellow-70), var(--color-yellow-20));
+    --tab-group-yellow-invert: light-dark(var(--color-yellow-0), var(--color-yellow-70));
+    --tab-group-yellow-pale: var(--color-yellow-0);
+    --tab-group-pink: light-dark(var(--color-pink-70), var(--color-pink-20));
+    --tab-group-pink-invert: light-dark(var(--color-pink-0), var(--color-pink-70));
+    --tab-group-pink-pale: var(--color-pink-0);
+    --tab-group-green: light-dark(var(--color-green-70), var(--color-green-20));
+    --tab-group-green-invert: light-dark(var(--color-green-0), var(--color-green-70));
+    --tab-group-green-pale: var(--color-green-0);
+    --tab-group-red: light-dark(var(--color-red-70), var(--color-red-20));
+    --tab-group-red-invert: light-dark(var(--color-red-0), var(--color-red-70));
+    --tab-group-red-pale: var(--color-red-0);
+    --tab-group-gray: light-dark(#5e6a77, #99a6b4);
+    --tab-group-gray-invert: light-dark(#f2f9ff, #5e6a77);
+    --tab-group-gray-pale: #f2f9ff;
+  }
 
   --tab-group-label-text-dark: var(--color-gray-100);
   /* 5px of padding-block are adding to .tabbrowser-tab */
-  --tab-height-with-margin-padding: calc(5px + var(--tab-min-height) + (2 * var(--tab-block-margin)));
+  --tab-height-with-margin-padding: calc(5px + var(--tab-min-height) + (2 * var(--tab-margin-block)));
 }
 
 @media -moz-pref("sidebar.verticalTabs") {
   :root {
     --tab-min-height: max(32px, calc(var(--tab-label-line-height) * 1em));
-    --tab-block-margin: var(--tab-vertical-block-margin);
+    --tab-margin-block: var(--tab-vertical-block-margin);
     --tab-inline-padding: var(--tab-vertical-inline-padding);
 
     /* In compact mode, shrink the inline margin around vertical tabs and
@@ -150,7 +149,7 @@
   }
 
   &[noshadowfortests] {
-    --tab-selected-box-shadow: none;
+    --tab-box-shadow-selected: none;
   }
 
   &[orient="horizontal"] {
@@ -906,7 +905,7 @@ tab-split-view-wrapper[dragtarget] {
 
 .tab-background {
   border-radius: var(--tab-border-radius);
-  margin-block: var(--tab-block-margin);
+  margin-block: var(--tab-margin-block);
   min-height: var(--tab-min-height);
   outline: var(--tab-outline);
   outline-offset: var(--tab-outline-offset);
@@ -923,7 +922,7 @@ tab-split-view-wrapper[dragtarget] {
   &:is([selected], [multiselected]) {
     background-color: var(--tab-background-color-selected);
     outline-color: var(--tab-selected-outline-color);
-    box-shadow: var(--tab-selected-box-shadow);
+    box-shadow: var(--tab-box-shadow-selected);
   }
 
   &:is([selected]:not([multiselected])) {
@@ -1211,7 +1210,7 @@ tab-group > tab-split-view-wrapper {
 }
 
 #tabbrowser-tabs[orient="horizontal"] tab-split-view-wrapper {
-  margin-block: var(--tab-block-margin);
+  margin-block: var(--tab-margin-block);
   margin-inline: 0;
   align-items: flex-end;
   flex: 100 100;
@@ -1221,7 +1220,7 @@ tab-group > tab-split-view-wrapper {
   transition: var(--tab-width-transition);
 
   .tab-group-line {
-    inset-block-end: calc(var(--tab-group-line-toolbar-border-distance) - var(--tab-block-margin) - var(--split-view-padding-block));
+    inset-block-end: calc(var(--tab-group-line-toolbar-border-distance) - var(--tab-margin-block) - var(--split-view-padding-block));
     @media not -moz-pref("browser.nova.enabled") {
       inset-inline-start: calc(var(--space-small) * -2);
     }
@@ -1757,7 +1756,7 @@ tab-group {
    */
   display: contents;
 
-  --tab-group-line-color: light-dark(var(--tab-group-color), var(--tab-group-color-invert));
+  --tab-group-line-color: var(--tab-group-color);
   @media -moz-pref("browser.nova.enabled") {
     --tab-group-line-color: var(--tab-group-background-color);
   }
@@ -2011,7 +2010,7 @@ tab-group {
   max-width: 10em;
   padding-inline: var(--tab-group-label-padding);
   color: light-dark(var(--tab-group-color-pale), var(--tab-group-label-text-dark));
-  background-color: light-dark(var(--tab-group-color), var(--tab-group-color-invert));
+  background-color: var(--tab-group-color);
   margin: auto 0;
 
   @media -moz-pref("browser.nova.enabled") {
@@ -2033,15 +2032,14 @@ tab-group {
   transition: box-shadow var(--tab-group-label-animation-duration);
 
   &[dragover-groupTarget] {
-    box-shadow: color-mix(in oklab, light-dark(var(--tab-group-color), var(--tab-group-color-pale)) 30%, transparent) 0 0 0
-      var(--tab-group-label-highlight-thickness);
+    box-shadow: color-mix(in oklab, var(--tab-group-color) 30%, transparent) 0 0 0 var(--tab-group-label-highlight-thickness);
     @media -moz-pref("browser.nova.enabled") {
       box-shadow: none;
     }
   }
 
   tab-group[collapsed] > .tab-group-label-container & {
-    background-color: light-dark(var(--tab-group-color-pale), var(--tab-group-color));
+    background-color: var(--tab-group-color-invert);
     color: light-dark(var(--tab-group-color), var(--tab-group-color-pale));
     outline: 1px solid light-dark(var(--tab-group-color), var(--tab-group-color-pale));
     outline-offset: -1px;
@@ -2379,7 +2377,7 @@ tab-group {
  * we don't want a gap (between tabs), so we have to add some margin.
  */
 #tabbrowser-arrowscrollbox[orient="vertical"] > #tabbrowser-arrowscrollbox-periphery > #tabs-newtab-button {
-  margin-block: var(--tab-block-margin);
+  margin-block: var(--tab-margin-block);
 }
 
 #tabbrowser-tabs[expanded] {
@@ -2602,7 +2600,7 @@ tab-group {
       background-image: image(var(--close-button-extra-background)), image(var(--tab-background-color-selected)), image(var(--toolbox-background-color));
       color-scheme: var(--tab-selected-color-scheme);
       outline-color: var(--tab-selected-outline-color);
-      box-shadow: var(--tab-selected-box-shadow);
+      box-shadow: var(--tab-box-shadow-selected);
       border-radius: var(--border-radius-circle);
       display: block;
       position: absolute;
@@ -2684,7 +2682,7 @@ tab-group {
 
 #TabsToolbar #firefox-view-button[open] > .toolbarbutton-icon {
   background-color: var(--tab-background-color-selected);
-  box-shadow: var(--tab-selected-box-shadow);
+  box-shadow: var(--tab-box-shadow-selected);
   outline-color: var(--tab-selected-outline-color);
   color: var(--tab-selected-textcolor);
   color-scheme: var(--tab-selected-color-scheme);

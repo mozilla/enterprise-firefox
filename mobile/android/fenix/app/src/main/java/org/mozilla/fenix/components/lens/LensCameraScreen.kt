@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.selectable
@@ -39,16 +40,23 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import mozilla.components.compose.base.button.IconButton
+import mozilla.components.ui.colors.NovaColors
 import org.mozilla.fenix.R
+import org.mozilla.fenix.theme.FirefoxTheme
 import mozilla.components.feature.qr.R as qrR
 import mozilla.components.ui.icons.R as iconsR
 
 private val ShutterButtonSize = 64.dp
 private val ButtonSize = 48.dp
+private val TopBarPadding = 24.dp
+private val CloseButtonStartPadding = 12.dp
+private val TitleHorizontalPadding = ButtonSize + CloseButtonStartPadding
 private val ShutterBorderWidth = 3.dp
 private val ShutterBorderColor = Color.White.copy(alpha = 0.5f)
 
@@ -128,7 +136,7 @@ fun LensCameraScreen(
         if (state.showError) {
             Text(
                 text = stringResource(qrR.string.mozac_feature_qr_scanner_no_camera),
-                color = Color.White,
+                color = NovaColors.White,
                 modifier = Modifier.align(Alignment.Center),
             )
         }
@@ -137,20 +145,11 @@ fun LensCameraScreen(
             QrViewfinderOverlay()
         }
 
-        IconButton(
-            onClick = onClose,
-            contentDescription = stringResource(R.string.content_description_close_button),
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(top = 48.dp, start = 12.dp)
-                .size(ButtonSize),
-        ) {
-            Icon(
-                painter = painterResource(iconsR.drawable.mozac_ic_cross_24),
-                contentDescription = null,
-                tint = Color.White,
-            )
-        }
+        CameraTopBar(
+            mode = state.mode,
+            onClose = onClose,
+            modifier = Modifier.align(Alignment.TopStart),
+        )
 
         Column(
             modifier = Modifier
@@ -174,6 +173,50 @@ fun LensCameraScreen(
                 onModeChange = onModeChange,
             )
         }
+    }
+}
+
+@Composable
+private fun CameraTopBar(
+    mode: CameraMode,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .padding(top = TopBarPadding)
+            .height(ButtonSize),
+    ) {
+        IconButton(
+            onClick = onClose,
+            contentDescription = stringResource(R.string.content_description_close_button),
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = CloseButtonStartPadding)
+                .size(ButtonSize),
+        ) {
+            Icon(
+                painter = painterResource(iconsR.drawable.mozac_ic_back_24),
+                contentDescription = null,
+                tint = NovaColors.White,
+            )
+        }
+        Text(
+            text = when (mode) {
+                CameraMode.LENS -> stringResource(R.string.lens_camera_title_lens)
+                CameraMode.QR -> stringResource(R.string.lens_camera_title_qr)
+            },
+            color = NovaColors.White,
+            style = FirefoxTheme.typography.headline5,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(horizontal = TitleHorizontalPadding)
+                .semantics { heading() },
+        )
     }
 }
 
@@ -288,7 +331,7 @@ private fun GalleryButton(
         Icon(
             painter = painterResource(iconsR.drawable.mozac_ic_image_24),
             contentDescription = null,
-            tint = Color.White,
+            tint = NovaColors.White,
         )
     }
 }
@@ -327,7 +370,7 @@ private fun BottomControls(
                 .background(Color.White, CircleShape),
         ) {
             Icon(
-                painter = painterResource(iconsR.drawable.mozac_ic_camera_24),
+                painter = painterResource(iconsR.drawable.mozac_ic_search_24),
                 contentDescription = null,
                 tint = Color.Black,
             )

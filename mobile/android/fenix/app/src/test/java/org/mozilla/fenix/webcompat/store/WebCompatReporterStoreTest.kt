@@ -176,22 +176,6 @@ class WebCompatReporterStoreTest {
     }
 
     @Test
-    fun `WHEN the send more info button is clicked THEN the state remains the same`() {
-        val expected = store.state
-
-        store.dispatch(WebCompatReporterAction.AddMoreInfoClicked)
-        assertEquals(expected, store.state)
-    }
-
-    @Test
-    fun `WHEN the send more info button is submitted THEN the state remains the same`() {
-        val expected = store.state
-
-        store.dispatch(WebCompatReporterAction.SendMoreInfoSubmitted)
-        assertEquals(expected, store.state)
-    }
-
-    @Test
     fun `WHEN the learn more button is clicked THEN the state remains the same`() {
         val expected = store.state
 
@@ -204,14 +188,6 @@ class WebCompatReporterStoreTest {
         val expected = store.state
 
         store.dispatch(WebCompatReporterAction.CancelClicked)
-        assertEquals(expected, store.state)
-    }
-
-    @Test
-    fun `WHEN the back button is clicked THEN the state remains the same`() {
-        val expected = store.state
-
-        store.dispatch(WebCompatReporterAction.BackPressed)
         assertEquals(expected, store.state)
     }
 

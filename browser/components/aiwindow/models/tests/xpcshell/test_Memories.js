@@ -23,8 +23,18 @@ const {
   runSessionMemoryPipeline,
   deduplicateMemories,
   applyQualityAndSensitivityFilter,
+  computeMemoryStrength,
+  computeMemoryFrecency,
 } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/models/memories/Memories.sys.mjs"
+);
+
+const {
+  MEMORY_TYPE_SHORT_TERM_MEMORY,
+  MEMORY_TYPE_DURABLE_MEMORY,
+  MEMORY_SENSITIVITY_CATEGORY_NOT_SENSITIVE,
+} = ChromeUtils.importESModule(
+  "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs"
 );
 
 /**
@@ -102,6 +112,7 @@ add_task(async function test_generateInitialMemoriesList_happy_path() {
     "intent": "Research / Learn",
     "memory_summary": "Searches for Firefox information",
     "score": 7,
+    "entities": ["Firefox", "Mozilla"],
     "evidence": [
       {
         "type": "search",
@@ -163,13 +174,25 @@ add_task(async function test_generateInitialMemoriesList_happy_path() {
     );
     Assert.equal(
       Object.keys(firstMemory).length,
-      7,
-      "First memory should have 7 keys (incl. derived source and source_ids)"
+      18,
+      "First memory should have 18 keys (incl. derived source and source_ids)"
     );
+
+    // Check system fields
     Assert.equal(
-      firstMemory.source,
-      "history",
-      "Source should be derived from the search/title evidence"
+      firstMemory.type,
+      MEMORY_TYPE_SHORT_TERM_MEMORY,
+      "First memory type should be short term"
+    );
+    Assert.ok(Array.isArray(firstMemory.sources), "Sources should be an array");
+    Assert.equal(
+      firstMemory.sources.length,
+      1,
+      "Sources array should have 1 entry to start with"
+    );
+    Assert.ok(
+      firstMemory.sources.includes("history"),
+      "First memory sources should include history"
     );
     Assert.deepEqual(
       firstMemory.source_ids,
@@ -177,32 +200,93 @@ add_task(async function test_generateInitialMemoriesList_happy_path() {
       "source_ids present (empty here: evidence strings don't match the session)"
     );
     Assert.equal(
-      firstMemory.category,
-      "Internet & Telecom",
-      "First memory should have expected category (Internet & Telecom)"
+      firstMemory.sensitivity_category,
+      MEMORY_SENSITIVITY_CATEGORY_NOT_SENSITIVE,
+      "First memory sensitivity type should be not sensitive"
     );
     Assert.equal(
-      firstMemory.intent,
-      "Research / Learn",
-      "First memory should have expected intent (Research / Learn)"
+      firstMemory.is_deleted,
+      false,
+      "First memory should not be soft deleted"
     );
+
+    // Check descriptive fields
     Assert.equal(
       firstMemory.memory_summary,
       "Searches for Firefox information",
       "First memory should have expected summary"
     );
     Assert.equal(
-      firstMemory.score,
-      5,
-      "First memory should have expected score, clamping 7 to 5"
+      firstMemory.reasoning,
+      "User has recently searched for Firefox history and visited mozilla.org.",
+      "First memory should have the expected reasoning"
+    );
+    Assert.ok(
+      Array.isArray(firstMemory.tags),
+      "First memory tags should be an array"
+    );
+    Assert.deepEqual(
+      firstMemory.tags,
+      ["category:Internet & Telecom", "intent:Research / Learn"],
+      "First memory should have the expected initial tags (category and intent)"
+    );
+    Assert.ok(
+      Array.isArray(firstMemory.keywords),
+      "First memory keywords should be an array"
+    );
+    Assert.deepEqual(
+      firstMemory.keywords,
+      ["Firefox", "Mozilla"],
+      "First memory should have the expected keywords"
+    );
+    Assert.ok(
+      Array.isArray(firstMemory.component_summaries),
+      "First memory component summaries should be an array"
+    );
+    Assert.equal(
+      firstMemory.component_summaries,
+      0,
+      "First memory component summaries should be empty"
     );
 
-    // Check that the second memory's score was clamped to the minimum
-    const secondMemory = memoriesList[1];
+    // Check tracker fields
+    Assert.ok(
+      Number.isFinite(firstMemory.created_at),
+      "First memory created at timestamp should be a valid number"
+    );
+    Assert.ok(
+      Number.isFinite(firstMemory.updated_at),
+      "First memory updated at timestamp should be a valid number"
+    );
     Assert.equal(
-      secondMemory.score,
-      1,
-      "Second memory should have expected score, clamping -1 to 1"
+      firstMemory.last_accessed,
+      null,
+      "First memory last accessed timestamp should be null (never used)"
+    );
+    Assert.equal(
+      typeof firstMemory.recent_accessed_counts,
+      "object",
+      "First memory recent accessed counts should be an object"
+    );
+    Assert.deepEqual(
+      firstMemory.recent_accessed_counts,
+      { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 },
+      "First memory recent acceessed counts object should have 1 key per day for 7 days with values set to 0 (never used)"
+    );
+    Assert.equal(
+      firstMemory.lifetime_accessed_count,
+      0,
+      "First memory lifetime accessed count should be 0 (never used)"
+    );
+    Assert.equal(
+      firstMemory.frecency,
+      0,
+      "First memory frequency should be 0 (never used)"
+    );
+    Assert.equal(
+      firstMemory.merge_count,
+      0,
+      "First memory merge count should be 0 (never merged)"
     );
   } finally {
     sb.restore();
@@ -1187,23 +1271,17 @@ add_task(async function test_mapFilteredMemoriesToInitialList() {
   const initialMemoriesList = [
     // Imagined duplicate - should have been filtered out
     {
-      category: "Pets & Animals",
-      intent: "Buy / Acquire",
       memory_summary: "Buys dog food online",
-      score: 4,
+      tags: ["category:Pets & Animals", "intent:Buy / Acquire"],
     },
     // Sensitive content (stocks) - should have been filtered out
     {
-      category: "News",
-      intent: "Research / Learn",
       memory_summary: "Likes to invest in risky stocks",
-      score: 5,
+      tags: ["category:News", "intent:Research / Learn"],
     },
     {
-      category: "Games",
-      intent: "Entertain / Relax",
       memory_summary: "Enjoys strategy games",
-      score: 3,
+      tags: ["category:Games", "intent: Entertain / Relax"],
     },
   ];
 
@@ -1222,24 +1300,14 @@ add_task(async function test_mapFilteredMemoriesToInitialList() {
     "Final memories should contain 1 memory"
   );
   Assert.equal(
-    finalMemoriesList[0].category,
-    "Games",
-    "Final memory should have the correct category"
-  );
-  Assert.equal(
-    finalMemoriesList[0].intent,
-    "Entertain / Relax",
-    "Final memory should have the correct intent"
-  );
-  Assert.equal(
     finalMemoriesList[0].memory_summary,
     "Enjoys strategy games",
     "Final memory should match the filtered memory"
   );
-  Assert.equal(
-    finalMemoriesList[0].score,
-    3,
-    "Final memory should have the correct score"
+  Assert.deepEqual(
+    finalMemoriesList[0].tags,
+    ["category:Games", "intent: Entertain / Relax"],
+    "Final memory should have the expected tags"
   );
 });
 
@@ -1604,9 +1672,9 @@ add_task(async function test_generateInitialMemoriesList_source_attribution() {
       sessions,
     });
 
-    Assert.equal(
-      memory.source,
-      "session",
+    Assert.deepEqual(
+      memory.sources,
+      ["session"],
       "Cross-modal evidence (search + chat) should derive source 'session'"
     );
     Assert.deepEqual(
@@ -1621,4 +1689,76 @@ add_task(async function test_generateInitialMemoriesList_source_attribution() {
   } finally {
     sb.restore();
   }
+});
+
+add_task(async function test_compute_memory_strength() {
+  const memoryNotUserRequested = {
+    type: MEMORY_TYPE_DURABLE_MEMORY,
+    sources: ["history"],
+    source_ids: {
+      history_source_ids: [1, 2, 3],
+      conversation_source_ids: [4, 5, 6],
+    },
+    lifetime_accessed_count: 2,
+    merge_count: 4,
+  };
+
+  Assert.equal(
+    computeMemoryStrength(memoryNotUserRequested),
+    102.4,
+    "Memory without the user request source and durable type should have the expected strength"
+  );
+
+  const memoryUserRequested = {
+    type: MEMORY_TYPE_SHORT_TERM_MEMORY,
+    sources: ["user_request"],
+    source_ids: {
+      history_source_ids: [1, 2, 3],
+      conversation_source_ids: [4, 5, 6],
+    },
+    lifetime_accessed_count: 2,
+    merge_count: 4,
+  };
+
+  Assert.equal(
+    computeMemoryStrength(memoryUserRequested),
+    17.4,
+    "Memory with the user request source and short term type should have the expected strength"
+  );
+});
+
+add_task(async function test_compute_memory_frecency() {
+  const memoryAllZeros = {
+    recent_accessed_counts: {
+      0: 0,
+      1: 0,
+      2: 0,
+      3: 0,
+      4: 0,
+      5: 0,
+      6: 0,
+    },
+  };
+  Assert.equal(
+    computeMemoryFrecency(memoryAllZeros),
+    0,
+    "All zeros for all days in recent accessed counts should compute 0 frecency"
+  );
+
+  const memoryWithValues = {
+    recent_accessed_counts: {
+      0: 4,
+      1: 3,
+      2: 2,
+      3: 1,
+      4: 0,
+      5: 0,
+      6: 0,
+    },
+  };
+  Assert.equal(
+    computeMemoryFrecency(memoryWithValues).toFixed(2),
+    8.14,
+    "Some days with counts should compute the expected frecency"
+  );
 });

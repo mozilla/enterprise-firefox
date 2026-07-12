@@ -12,6 +12,7 @@
 }
 
 panel-list {
+  --panel-inline-margin: 0;
   --panel-list-border-radius: var(--space-medium);
   --panel-list-box-shadow: var(--box-shadow-level-3);
   --panel-max-width: 392px;
@@ -21,6 +22,7 @@ panel-list {
   --panel-section-header-padding-inline-start: calc(var(--size-item-small) / 2);
   --panel-item-icon-size: var(--icon-size-small);
   --panel-item-button-border-radius: var(--border-radius-medium);
+  margin-inline: var(--panel-inline-margin);
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   max-width: var(--panel-max-width);
   white-space: normal;
@@ -31,6 +33,11 @@ panel-list {
     --panel-list-color: light-dark(var(--color-violet-110), var(--color-violet-0));
     --button-background-color-hover: light-dark(var(--color-violet-0), var(--color-violet-100));
   }
+}
+
+:host([sidebarmode]) panel-list {
+  --panel-inline-margin: var(--space-medium);
+  --panel-max-width: min(392px, calc(100% - 2 * var(--panel-inline-margin)));
 }
 
 @media -moz-pref("browser.nova.enabled") {
@@ -82,7 +89,7 @@ panel-item:not(.panel-section-header)::part(button) {
   cursor: pointer;
   margin-inline: var(--space-small);
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  max-width: calc(var(--panel-max-width) - var(--space-large));
+  max-width: calc(100% - 2 * var(--space-small));
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   padding: var(--panel-item-padding);
 }

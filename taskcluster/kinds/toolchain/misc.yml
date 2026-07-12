@@ -47,6 +47,7 @@ linux64-cctools-port:
     run:
         script: build-cctools-port.sh
         resources:
+            - taskcluster/scripts/misc/cctools-ld64-dead-strip-compiler-builtins.patch
             - taskcluster/scripts/misc/libtapi.patch
         toolchain-artifact: public/build/cctools.tar.zst
     fetches:

@@ -56,8 +56,10 @@ export const MultiStageAboutWelcome = props => {
       // Use existing screen for the filtered screen to carry over any modification
       // e.g. if AW_LANGUAGE_MISMATCH exists, use it from existing screens
       setScreens(
-        filteredScreens.map(
-          filtered => screens.find(s => s.id === filtered.id) ?? filtered
+        filteredScreens.map(filtered =>
+          filtered.id === LANGUAGE_MISMATCH_SCREEN_ID
+            ? (screens.find(s => s.id === filtered.id) ?? filtered)
+            : filtered
         )
       );
       // Mark the initial filter pass complete and allow the first paint.
@@ -890,7 +892,7 @@ export class WelcomeScreen extends React.PureComponent {
 
       const multiSelectId = `tile-${tileIndex}`;
 
-      const activeSelections = props.activeMultiSelect[multiSelectId] || [];
+      const activeSelections = props.activeMultiSelect?.[multiSelectId] || [];
 
       for (const checkbox of tile.data) {
         let checkboxAction;
@@ -920,7 +922,7 @@ export class WelcomeScreen extends React.PureComponent {
     // Prepend the collected multi-select actions to the CTA's actions array
     action.data.actions.unshift(...multiSelectActions);
 
-    for (const value of Object.values(props.activeMultiSelect)) {
+    for (const value of Object.values(props.activeMultiSelect || {})) {
       // Send telemetry with selected checkbox ids
       MultiStageUtils.sendActionTelemetry(
         props.messageId,

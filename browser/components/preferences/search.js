@@ -334,6 +334,7 @@ class EngineStore {
     return lazy.SearchService.moveEngine(
       aEngine.originalEngine,
       aNewIndex,
+      null,
       true
     );
   }
@@ -421,7 +422,7 @@ class EngineStore {
         this.engines.splice(i, 0, e);
         let engine = e.originalEngine;
         engine.hidden = false;
-        await lazy.SearchService.moveEngine(engine, i, true);
+        await lazy.SearchService.moveEngine(engine, i, null, true);
         added++;
       }
     }

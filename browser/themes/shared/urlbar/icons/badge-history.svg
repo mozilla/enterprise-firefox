@@ -1,0 +1,21 @@
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at https://mozilla.org/MPL/2.0/. -->
+<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<view id="ltr-icon" viewBox="0 0 24 24"/>
+<view id="ltr-mask" viewBox="24 0 24 24"/>
+<view id="rtl-icon" viewBox="48 0 24 24"/>
+<view id="rtl-mask" viewBox="72 0 24 24"/>
+<g id="icon">
+  <path d="M18 14.6016C18.3148 14.6016 18.5703 14.8571 18.5703 15.1719V17.5049C18.5703 17.6132 18.6372 17.71 18.7129 17.7539L20.7656 18.9385C21.0382 19.0959 21.1319 19.4452 20.9746 19.7178C20.8171 19.9902 20.4678 20.0831 20.1953 19.9258L18.1445 18.7412C18.0496 18.6864 17.942 18.6252 17.8545 18.5625C17.7568 18.4925 17.6478 18.3963 17.5645 18.252C17.481 18.1075 17.4522 17.9644 17.4404 17.8447C17.4299 17.7377 17.4297 17.6144 17.4297 17.5049V15.1719C17.4297 14.8571 17.6852 14.6016 18 14.6016Z" fill="context-fill"/>
+  <path fill-rule="evenodd" clip-rule="evenodd" d="M18 12C21.3137 12 24 14.6863 24 18C24 21.3137 21.3137 24 18 24C14.6863 24 12 21.3137 12 18C12 14.6863 14.6863 12 18 12ZM18 13.3301C15.4208 13.3301 13.3301 15.4208 13.3301 18C13.3301 20.5792 15.4208 22.6699 18 22.6699C20.5792 22.6699 22.6699 20.5792 22.6699 18C22.6699 15.4208 20.5792 13.3301 18 13.3301Z" fill="context-fill"/>
+</g>
+<g id="mask" transform="translate(24 0)">
+  <mask id="m" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
+    <path d="M24 13.5C22.6317 11.6785 20.4536 10.5 18 10.5C13.8579 10.5 10.5 13.8579 10.5 18C10.5 20.4536 11.6785 22.6317 13.5 24H0V0H24V13.5ZM24 24H22.5C23.0682 23.5732 23.5732 23.0673 24 22.499V24Z" fill="#fff"/>
+  </mask>
+  <rect mask="url(#m)" x="0" y="0" width="24" height="24" fill="#000"/>
+</g>
+<use href="#icon" transform="translate(72 0) scale(-1 1)"/>
+<use href="#mask" transform="translate(120 0) scale(-1 1)"/>
+</svg>

@@ -912,6 +912,9 @@ public class WebExtension {
      * @param nativeApp which native app id this message delegate will handle messaging for.
      * @see WebExtension#setMessageDelegate
      */
+    // ThreadConstraint false positive: delegate registration is thread-safe; delivery is dispatched
+    // to the UI thread.
+    @SuppressLint("ThreadConstraint")
     @AnyThread
     public void setMessageDelegate(
         final @NonNull WebExtension webExtension,

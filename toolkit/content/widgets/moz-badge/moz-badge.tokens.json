@@ -36,6 +36,11 @@
       "value": "1px"
     }
   },
+  "font": {
+    "weight": {
+      "value": "{font.weight.semibold}"
+    }
+  },
   "padding": {
     "block": {
       "value": "0"

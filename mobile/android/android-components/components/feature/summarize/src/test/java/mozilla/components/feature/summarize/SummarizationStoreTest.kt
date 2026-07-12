@@ -40,6 +40,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import kotlin.test.assertIs
 import kotlin.time.Duration.Companion.seconds
 
 class SummarizationStoreTest {
@@ -347,10 +348,10 @@ class SummarizationStoreTest {
 
         val terminal = states.last() as Error
         val failure = terminal.error as SummarizationError.SummarizationFailed
-        assertTrue(failure.exception.cause is TimeoutCancellationException)
+        assertIs<TimeoutCancellationException>(failure.exception.cause)
 
         assertEquals(1, reportedErrors.size)
-        assertTrue(reportedErrors.single().cause is TimeoutCancellationException)
+        assertIs<TimeoutCancellationException>(reportedErrors.single().cause)
     }
 
     @Test

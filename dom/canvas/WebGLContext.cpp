@@ -363,6 +363,15 @@ bool WebGLContext::CreateAndInitGL(
     tryNativeGL = true;
     tryANGLE = false;
   }
+#elif defined(XP_MACOSX)
+  if (gfx::gfxVars::AllowMetalAngleWebGL() &&
+      !StaticPrefs::webgl_disable_angle() &&
+      // Metal does not expose a software renderer. Fall back to native (CGL) if
+      // a hardware context is forbidden.
+      !(flags & gl::CreateContextFlags::FORBID_HARDWARE)) {
+    tryNativeGL = false;
+    tryANGLE = true;
+  }
 #endif
 
   if (tryNativeGL && !forceEnabled) {

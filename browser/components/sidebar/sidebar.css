@@ -15,6 +15,7 @@
   --sidebar-box-color: currentColor;
   background-color: transparent;
   color: var(--sidebar-text-color);
+  font: menu;
   height: 100%;
 
   &[lwt-sidebar="light"] {
@@ -121,12 +122,6 @@ fxview-empty-state {
       max-width: 350px;
     }
   }
-}
-
-.options-container {
-  display: flex;
-  width: 100%;
-  align-items: center;
 }
 
 moz-input-search {

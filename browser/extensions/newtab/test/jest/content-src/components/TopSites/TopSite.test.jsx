@@ -1,7 +1,13 @@
-import { render } from "@testing-library/react";
+import { render, fireEvent } from "@testing-library/react";
 import { WrapWithProvider } from "test/jest/test-utils";
-import { TopSite, TopSiteLink } from "content-src/components/TopSites/TopSite";
+import {
+  TopSite,
+  TopSiteLink,
+  TopSiteAddButton,
+  _TopSiteList as TopSiteList,
+} from "content-src/components/TopSites/TopSite";
 import { buildTopSitesList } from "content-src/components/TopSites/TopSiteListContainer";
+import { actionTypes as at } from "common/Actions.mjs";
 
 const DEFAULT_LINK = {
   url: "https://example.com",
@@ -10,6 +16,31 @@ const DEFAULT_LINK = {
   label: "Example",
   iconType: "no_image",
 };
+
+// Unique urls keep React keys distinct when the rows are rendered.
+const makeRows = n =>
+  Array.from({ length: n }, (_, i) => ({
+    ...DEFAULT_LINK,
+    url: `https://example${i}.com`,
+  }));
+
+const LIST_PROPS = {
+  dispatch: jest.fn(),
+  onDragEvent: jest.fn(),
+  topSiteIconType: () => "no_image",
+  topSitesMaxSitesPerRow: 8,
+  TopSitesRows: 1,
+  App: { isForStartupCache: {} },
+  Prefs: { values: {} },
+};
+
+function renderList(sites) {
+  return render(
+    <WrapWithProvider>
+      <TopSiteList {...LIST_PROPS} sites={sites} />
+    </WrapWithProvider>
+  );
+}
 
 describe("<TopSite>", () => {
   it("should render", () => {
@@ -52,6 +83,150 @@ describe("buildTopSitesList Add button placement", () => {
     expect(
       addButtonIndex(getSites([DEFAULT_LINK, DEFAULT_LINK, DEFAULT_LINK]))
     ).toBe(3);
+  });
+
+  it("keeps the Add button when the grid is full but can still grow a row", () => {
+    expect(
+      addButtonIndex(getSites(makeRows(8), { rowsCount: 1, perRow: 8 }))
+    ).toBe(8);
+  });
+
+  it("drops the Add button when the grid is full at the max rows", () => {
+    expect(
+      addButtonIndex(getSites(makeRows(32), { rowsCount: 4, perRow: 8 }))
+    ).toBe(-1);
+  });
+});
+
+describe("<TopSiteAddButton>", () => {
+  it("renders an in-grid tile with a large button", () => {
+    const { container } = render(
+      <TopSiteAddButton inGrid={true} index={3} dispatch={jest.fn()} />
+    );
+    const tile = container.querySelector("li.add-button-tile");
+    expect(tile).toBeInTheDocument();
+    const button = tile.querySelector("moz-button.add-button");
+    expect(button).toBeInTheDocument();
+    expect(button.getAttribute("size")).toBe("large");
+  });
+
+  it("renders a hover overlay (default size) when not in-grid", () => {
+    const { container } = render(
+      <TopSiteAddButton index={8} dispatch={jest.fn()} />
+    );
+    const overlay = container.querySelector("div.add-button-hidden");
+    expect(overlay).toBeInTheDocument();
+    expect(
+      container.querySelector("li.add-button-tile")
+    ).not.toBeInTheDocument();
+    const button = overlay.querySelector("moz-button.add-button");
+    expect(button).toBeInTheDocument();
+    expect(button.hasAttribute("size")).toBe(false);
+  });
+
+  it("carries the slot's responsive hide class on the in-grid tile", () => {
+    const { container } = render(
+      <TopSiteAddButton
+        inGrid={true}
+        className="hide-for-small"
+        index={3}
+        dispatch={jest.fn()}
+      />
+    );
+    expect(
+      container.querySelector("li.add-button-tile.hide-for-small")
+    ).toBeInTheDocument();
+  });
+
+  it("dispatches TOP_SITES_EDIT with its index when clicked", () => {
+    const dispatch = jest.fn();
+    const { container } = render(
+      <TopSiteAddButton inGrid={true} index={7} dispatch={dispatch} />
+    );
+    fireEvent.click(container.querySelector("moz-button"));
+    expect(dispatch).toHaveBeenCalledWith({
+      type: at.TOP_SITES_EDIT,
+      data: { index: 7 },
+    });
+  });
+});
+
+describe("<TopSiteList> Add button rendering", () => {
+  it("renders the add button in-grid when the row isn't full", () => {
+    const { container } = renderList(buildTopSitesList(makeRows(2), 1, 8));
+    expect(container.querySelector(".add-button-tile")).toBeInTheDocument();
+    expect(
+      container.querySelector(".add-button-hidden")
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders the add button as a hover overlay when the row is full", () => {
+    const { container } = renderList(buildTopSitesList(makeRows(8), 1, 8));
+    expect(container.querySelector(".add-button-hidden")).toBeInTheDocument();
+    expect(container.querySelector(".add-button-tile")).not.toBeInTheDocument();
+  });
+});
+
+describe("<TopSiteList> arrow-key navigation", () => {
+  // The flat focus order onKeyDown walks: each tile's link plus either
+  // add-button variant (both carry .add-button), in DOM order.
+  function focusTargetsFor(sites) {
+    const { container } = renderList(sites);
+    return [...container.querySelectorAll("a, .add-button")];
+  }
+
+  it("moves focus to the next tile on ArrowRight", () => {
+    const targets = focusTargetsFor(buildTopSitesList(makeRows(3), 1, 8));
+    targets[0].focus();
+    fireEvent.keyDown(targets[0], { key: "ArrowRight" });
+    expect(document.activeElement).toBe(targets[1]);
+  });
+
+  it("moves focus to the previous tile on ArrowLeft", () => {
+    const targets = focusTargetsFor(buildTopSitesList(makeRows(3), 1, 8));
+    targets[1].focus();
+    fireEvent.keyDown(targets[1], { key: "ArrowLeft" });
+    expect(document.activeElement).toBe(targets[0]);
+  });
+
+  it("steps onto the in-grid add button from the last tile", () => {
+    // 2 tiles + a free slot: the add button renders in-grid as the last target.
+    const targets = focusTargetsFor(buildTopSitesList(makeRows(2), 1, 8));
+    const addButton = targets.at(-1);
+    expect(addButton).toHaveClass("add-button");
+
+    targets[1].focus();
+    fireEvent.keyDown(targets[1], { key: "ArrowRight" });
+    expect(document.activeElement).toBe(addButton);
+  });
+
+  it("steps onto the full-row overlay add button and back", () => {
+    // Full row: the add button renders as the nested overlay, still the last
+    // target — reached and left the same way as the in-grid variant.
+    const targets = focusTargetsFor(buildTopSitesList(makeRows(8), 1, 8));
+    const overlay = targets.at(-1);
+    const lastTile = targets.at(-2);
+    expect(overlay).toHaveClass("add-button");
+
+    lastTile.focus();
+    fireEvent.keyDown(lastTile, { key: "ArrowRight" });
+    expect(document.activeElement).toBe(overlay);
+
+    fireEvent.keyDown(overlay, { key: "ArrowLeft" });
+    expect(document.activeElement).toBe(lastTile);
+  });
+
+  it("wraps from the last focus target to the first and back", () => {
+    const targets = focusTargetsFor(buildTopSitesList(makeRows(3), 1, 8));
+    const [first] = targets;
+    const last = targets.at(-1);
+
+    last.focus();
+    fireEvent.keyDown(last, { key: "ArrowRight" });
+    expect(document.activeElement).toBe(first);
+
+    fireEvent.keyDown(first, { key: "ArrowLeft" });
+    expect(document.activeElement).toBe(last);
   });
 });
 

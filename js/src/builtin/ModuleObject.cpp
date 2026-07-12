@@ -2163,8 +2163,7 @@ bool ModuleBuilder::processAttributes(frontend::StencilModuleRequest& request,
 bool ModuleBuilder::processImport(frontend::BinaryNode* importNode) {
   using namespace js::frontend;
 
-  MOZ_ASSERT(importNode->isKind(ParseNodeKind::ImportDecl) ||
-             importNode->isKind(ParseNodeKind::ImportSourceDecl));
+  MOZ_ASSERT(importNode->isKind(ParseNodeKind::ImportDecl));
 
   auto* moduleRequest = &importNode->right()->as<BinaryNode>();
   MOZ_ASSERT(moduleRequest->isKind(ParseNodeKind::ImportModuleRequest));
@@ -2174,7 +2173,7 @@ bool ModuleBuilder::processImport(frontend::BinaryNode* importNode) {
 
   auto specifier = moduleSpec->atom();
 
-  if (importNode->isKind(ParseNodeKind::ImportSourceDecl)) {
+  if (importNode->as<ImportDeclarationNode>().phase() == ImportPhase::Source) {
     auto* localNameNode = &importNode->left()->as<NameNode>();
     MOZ_ASSERT(localNameNode->isKind(ParseNodeKind::Name));
 

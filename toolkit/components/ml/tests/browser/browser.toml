@@ -81,4 +81,14 @@ support-files = [
 
 ["browser_ml_thompson_sample.js"]
 
+["browser_ml_utf8_codepoint.js"]
+skip-if = [
+  "arch == 'x86'",
+  "asan",
+  "debug",
+  "os == 'android'",
+  "tsan",
+  "verify",
+]
+
 ["browser_ml_utils.js"]

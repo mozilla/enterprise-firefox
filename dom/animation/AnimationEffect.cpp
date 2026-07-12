@@ -51,14 +51,15 @@ bool AnimationEffect::IsCurrent() const {
     return false;
   }
 
+  const AnimationTimeline* timeline = mAnimation->GetTimeline();
+  // An inactive timeline does not produce any effect, and so cannot be current.
+  if (timeline && timeline->IsInactiveTimeline()) {
+    return false;
+  }
   // An animation effect is current if it is associated with an animation not
   // in the idle play state with a non-null associated timeline that is not
   // monotonically increasing.
   // https://drafts.csswg.org/web-animations-1/#current (fourth bullet)
-  const AnimationTimeline* timeline = mAnimation->GetTimeline();
-  if (timeline && timeline->IsInactiveTimeline()) {
-    return false;
-  }
   if (timeline && !timeline->IsMonotonicallyIncreasing() &&
       mAnimation->PlayState() != AnimationPlayState::Idle) {
     return true;
@@ -82,6 +83,8 @@ bool AnimationEffect::IsCurrent() const {
 // https://drafts.csswg.org/web-animations/#in-effect
 bool AnimationEffect::IsInEffect() const {
   const auto* timeline = mAnimation ? mAnimation->GetTimeline() : nullptr;
+  // https://github.com/w3c/csswg-drafts/issues/9256
+  // Start time is indeterminate, so our progress cannot possibly be resolved.
   if (timeline && timeline->IsInactiveTimeline()) {
     return false;
   }

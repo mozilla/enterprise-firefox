@@ -4,8 +4,16 @@
 
 "use strict";
 
-const { MemoryStore, makeMemoryId } = ChromeUtils.importESModule(
-  "moz-src:///browser/components/aiwindow/services/MemoryStore.sys.mjs"
+const { MemoryStore, makeMemoryId, migrateMemoryStoreVersionOneToTwo } =
+  ChromeUtils.importESModule(
+    "moz-src:///browser/components/aiwindow/services/MemoryStore.sys.mjs"
+  );
+const {
+  MEMORY_TYPE_SHORT_TERM_MEMORY,
+  MEMORY_SENSITIVITY_CATEGORY_NOT_SENSITIVE,
+  MEMORY_FRECENCY_MAX_DAYS,
+} = ChromeUtils.importESModule(
+  "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs"
 );
 
 add_task(async function test_init_empty_state() {
@@ -29,10 +37,8 @@ add_task(async function test_addMemory() {
 
   const memory1 = await MemoryStore.addMemory({
     memory_summary: "i love driking coffee",
-    category: "Food & Drink",
-    intent: "Plan / Organize",
-    score: 3,
     reasoning: "searches for nearest coffee places",
+    tags: ["category:Food & Drink", "intent:Plan / Organize"],
   });
 
   equal(
@@ -40,9 +46,11 @@ add_task(async function test_addMemory() {
     "i love driking coffee",
     "memory summary should match input"
   );
-  equal(memory1.category, "Food & Drink", "Category should match input");
-  equal(memory1.intent, "Plan / Organize", "Intent should match with input");
-  equal(memory1.score, 3, "Score should match input");
+  Assert.deepEqual(
+    memory1.tags,
+    ["category:Food & Drink", "intent:Plan / Organize"],
+    "Tags should match input"
+  );
   equal(
     memory1.reasoning,
     "searches for nearest coffee places",
@@ -51,14 +59,76 @@ add_task(async function test_addMemory() {
   await MemoryStore.hardDeleteMemory(memory1.id);
 });
 
+add_task(async function test_addMemoryWithoutSource() {
+  await MemoryStore.ensureInitialized();
+
+  const memoryBothHistAndChat = await MemoryStore.addMemory({
+    memory_summary: "no source",
+    reasoning: "no source",
+    source_ids: {
+      history_source_ids: [1],
+      conversation_source_ids: [1],
+    },
+  });
+  Assert.deepEqual(
+    memoryBothHistAndChat.sources,
+    ["session"],
+    "Memory without source but history & conversation IDs should impute session source"
+  );
+  await MemoryStore.hardDeleteMemory(memoryBothHistAndChat.id);
+
+  const memoryOnlyHist = await MemoryStore.addMemory({
+    memory_summary: "no source",
+    reasoning: "no source",
+    source_ids: {
+      history_source_ids: [1],
+      conversation_source_ids: [],
+    },
+  });
+  Assert.deepEqual(
+    memoryOnlyHist.sources,
+    ["history"],
+    "Memory without source but history IDs should impute history source"
+  );
+  await MemoryStore.hardDeleteMemory(memoryOnlyHist.id);
+
+  const memoryOnlyChat = await MemoryStore.addMemory({
+    memory_summary: "no source",
+    reasoning: "no source",
+    source_ids: {
+      history_source_ids: [],
+      conversation_source_ids: [1],
+    },
+  });
+  Assert.deepEqual(
+    memoryOnlyChat.sources,
+    ["conversation"],
+    "Memory without source but conversation IDs should impute conversation source"
+  );
+  await MemoryStore.hardDeleteMemory(memoryOnlyChat.id);
+
+  const memoryNoSourceIDs = await MemoryStore.addMemory({
+    memory_summary: "no source",
+    reasoning: "no source",
+    source_ids: {
+      history_source_ids: [],
+      conversation_source_ids: [],
+    },
+  });
+  Assert.deepEqual(
+    memoryNoSourceIDs.sources,
+    [],
+    "Memory without any source IDs should imput no source"
+  );
+  await MemoryStore.hardDeleteMemory(memoryNoSourceIDs.id);
+});
+
 add_task(async function test_addMemory_and_upsert_by_content() {
   await MemoryStore.ensureInitialized();
 
   const memory1 = await MemoryStore.addMemory({
     memory_summary: "trip plans to Italy",
-    category: "Travel & Transportation",
-    intent: "Plan / Organize",
-    score: 3,
+    tags: ["category:Travel & Transportation", "intent:Plan / Organize"],
   });
 
   ok(memory1.id, "Memory should have an id");
@@ -76,26 +146,24 @@ add_task(async function test_addMemory_and_upsert_by_content() {
   // Add another memory with same (summary, category, intent) – should upsert, not duplicate.
   const memory2 = await MemoryStore.addMemory({
     memory_summary: "trip plans to Italy",
-    category: "Travel & Transportation",
-    intent: "Plan / Organize",
-    score: 5,
     reasoning: "User searches for Italy travel guides and visits booking sites",
+    tags: ["category:Travel & Transportation", "intent:Plan / Organize"],
   });
 
   equal(
     memory1.id,
     memory2.id,
-    "Same (summary, category, intent) should produce same deterministic id"
-  );
-  equal(
-    memory2.score,
-    5,
-    "Second addMemory call for same id should update score"
+    "Same summary should produce same deterministic id"
   );
   equal(
     memory2.reasoning,
     "User searches for Italy travel guides and visits booking sites",
     "Second addMemory call for same id should update reasoning"
+  );
+  Assert.deepEqual(
+    memory2.tags,
+    ["category:Travel & Transportation", "intent:Plan / Organize"],
+    "Should have the expected category and intent tags"
   );
 
   const memories = await MemoryStore.getMemories();
@@ -103,43 +171,22 @@ add_task(async function test_addMemory_and_upsert_by_content() {
   await MemoryStore.hardDeleteMemory(memory1.id);
 });
 
-add_task(async function test_addMemory_different_intent_produces_new_id() {
-  await MemoryStore.ensureInitialized();
-
-  const a = await MemoryStore.addMemory({
-    memory_summary: "trip plans to Italy",
-    category: "Travel & Transportation",
-    intent: "trip_planning",
-    score: 3,
-  });
-
-  const b = await MemoryStore.addMemory({
-    memory_summary: "trip plans to Italy",
-    category: "Travel & Transportation",
-    intent: "travel_budgeting",
-    score: 4,
-  });
-
-  notEqual(a.id, b.id, "Different intent should yield different ids");
-
-  const memories = await MemoryStore.getMemories();
-  equal(
-    memories.length == 2,
-    true,
-    "Store should contain at least two memories now"
-  );
-});
-
 add_task(async function test_updateMemory_and_soft_delete() {
   await MemoryStore.ensureInitialized();
 
   const memory = await MemoryStore.addMemory({
     memory_summary: "debug memory",
-    category: "debug",
-    intent: "Monitor / Track",
-    score: 1,
     reasoning: "Initial reasoning for debugging",
+    tags: ["category:debug", "intent:Monitor / Track"],
+    sources: ["history"],
+    source_ids: {
+      history_source_ids: [1, 2, 3],
+      conversation_source_ids: [4, 5, 6],
+    },
+    keywords: ["one", "two"],
+    merge_count: 3,
   });
+  const originalCreatedAt = memory.created_at;
 
   equal(
     memory.reasoning,
@@ -148,14 +195,89 @@ add_task(async function test_updateMemory_and_soft_delete() {
   );
 
   const updated = await MemoryStore.updateMemory(memory.id, {
-    score: 4,
     reasoning: "Updated reasoning after more data",
+    sources: ["history", "session"],
+    tags: ["category:debug", "something:else"],
+    source_ids: {
+      history_source_ids: [7, 8],
+      conversation_source_ids: [9, 10],
+    },
+    keywords: ["three"],
+    lifetime_accessed_count: 2,
+    merge_count: 5,
   });
-  equal(updated.score, 4, "updateMemory should update score");
   equal(
     updated.reasoning,
     "Updated reasoning after more data",
     "updateMemory should update reasoning"
+  );
+
+  Assert.equal(
+    originalCreatedAt,
+    updated.created_at,
+    "Updated memory should keep its original creation timestamp"
+  );
+
+  const expectedSources = ["history", "session"];
+  equal(updated.sources.length, 2, "Updated memory should have 2 sources");
+  Assert.ok(
+    updated.sources.every(s => expectedSources.includes(s)),
+    "Updated memory should have the expected sources"
+  );
+
+  const expectedTags = [
+    "category:debug",
+    "intent:Monitor / Track",
+    "something:else",
+  ];
+  equal(updated.tags.length, 3, "Updated memory should have 3 tags");
+  Assert.ok(
+    updated.tags.every(t => expectedTags.includes(t)),
+    "Updated memory should have the expected tags"
+  );
+
+  const expectedHistorySourceIds = [1, 2, 3, 7, 8];
+  equal(
+    updated.source_ids.history_source_ids.length,
+    5,
+    "Updated memory should have 5 history source IDs"
+  );
+  Assert.ok(
+    updated.source_ids.history_source_ids.every(i =>
+      expectedHistorySourceIds.includes(i)
+    ),
+    "Updated memory should have the expected history source IDs"
+  );
+
+  const expectedConvoSourceIds = [4, 5, 6, 9, 10];
+  equal(
+    updated.source_ids.conversation_source_ids.length,
+    5,
+    "Updated memory should have 5 conversation source IDs"
+  );
+  Assert.ok(
+    updated.source_ids.conversation_source_ids.every(i =>
+      expectedConvoSourceIds.includes(i)
+    ),
+    "Updated memory should have the expected conversation source IDs"
+  );
+
+  const expectedKeywords = ["one", "two", "three"];
+  equal(updated.keywords.length, 3, "Updated memory should have 3 keywords");
+  Assert.ok(
+    updated.keywords.every(k => expectedKeywords.includes(k)),
+    "Updated memory should have the expected keywords"
+  );
+
+  Assert.equal(
+    updated.lifetime_accessed_count,
+    2,
+    "Updated memory should have the lifetime_accessed_count from updates"
+  );
+  Assert.equal(
+    updated.merge_count,
+    5,
+    "Updated memory should have the lifetime_accessed_count from updates"
   );
 
   const deleted = await MemoryStore.softDeleteMemory(memory.id);
@@ -181,9 +303,7 @@ add_task(async function test_hard_delete() {
 
   const memory = await MemoryStore.addMemory({
     memory_summary: "to be hard deleted",
-    category: "debug",
-    intent: "Monitor / Track",
-    score: 2,
+    tags: ["category:debug", "intent: Monitor / Track"],
   });
 
   let memories = await MemoryStore.getMemories();
@@ -280,9 +400,7 @@ add_task(async function test_reasoning_field_persistence() {
 
   const memory = await MemoryStore.addMemory({
     memory_summary: "Loves specialty coffee",
-    category: "Food & Drink",
-    intent: "Buy / Acquire",
-    score: 4,
+    tags: ["category: Food & Drink", "intent: Buy / Acquire"],
     reasoning: testReasoning,
   });
 
@@ -330,21 +448,15 @@ add_task(async function test_getMemories_filters_by_memoryIds_set() {
 
   const mem1 = await MemoryStore.addMemory({
     memory_summary: "likes coffee",
-    category: "Food & Drink",
-    intent: "Plan / Organize",
-    score: 1,
+    tags: ["category: Food & Drink", "intent: Plan / Organize"],
   });
   const mem2 = await MemoryStore.addMemory({
     memory_summary: "likes tea",
-    category: "Food & Drink",
-    intent: "Communicate / Share",
-    score: 1,
+    tags: ["category: Food & Drink", "intent: Communicate / Share"],
   });
   const mem3 = await MemoryStore.addMemory({
     memory_summary: "likes playing tennis",
-    category: "Sports & Fitness",
-    intent: "Plan / Organize",
-    score: 1,
+    tags: ["category: Sports & Fitness", "intent: Plan / Organize"],
   });
 
   const result = await MemoryStore.getMemories({
@@ -370,30 +482,158 @@ add_task(async function test_getMemories_filters_by_memoryIds_set() {
   await MemoryStore.hardDeleteMemory(mem3.id);
 });
 
-add_task(async function test_create_memory_id_from_valid_category() {
+add_task(async function test_create_memory_id() {
   const memoryPartial = {
     memory_summary: "Likes coffee",
-    category: "Food & Drink",
-    intent: "Communicate / Share",
-  };
-  const memoryId = makeMemoryId(memoryPartial);
-  Assert.equal(
-    memoryId.split(".")[0],
-    "food_drink",
-    "Memory ID should start with the correct category prefix"
-  );
-});
-
-add_task(async function test_create_memory_id_from_invalid_category() {
-  const memoryPartial = {
-    memory_summary: "Likes coffee",
-    category: "Foods & Drinks",
-    intent: "Communicate / Share",
+    tags: ["category:Food & Drink", "intent:Communicate / Share"],
   };
   const memoryId = makeMemoryId(memoryPartial);
   Assert.equal(
     memoryId.split(".")[0],
     "mem",
-    "Memory ID should start with the correct category prefix"
+    "Memory ID should start with the correct prefix"
+  );
+});
+
+add_task(async function test_migrate_memories_from_v1_to_v2() {
+  const memoriesV1 = [
+    {
+      id: "mem.123",
+      memory_summary: "Likes dogs",
+      reasoning: "User researches dog facts, treats, and training advice",
+      category: "Dogs",
+      intent: "Share / Communicate",
+      score: 1.0,
+      source: "history",
+      source_ids: {
+        history_source_ids: [1, 2, 3],
+        conversation_source_ids: [4, 5, 6],
+      },
+      is_deleted: false,
+      updated_at: Date.now(),
+    },
+  ];
+
+  const memoriesV2 = migrateMemoryStoreVersionOneToTwo(memoriesV1);
+
+  // Check that 1 memory comes out
+  Assert.ok(
+    Array.isArray(memoriesV2),
+    "Migrated memories should be in an array"
+  );
+  Assert.equal(
+    memoriesV2.length,
+    1,
+    "Migrated memories array should have only 1 entry"
+  );
+
+  const memoryV2 = memoriesV2[0];
+  // Check fields that should have been deleted
+  for (const prop of ["score", "source", "category", "intent"]) {
+    Assert.ok(
+      !memoryV2.hasOwnProperty(prop),
+      `"${prop}" should be deleted from the migrated memory`
+    );
+  }
+
+  // Check system fields
+  Assert.equal(
+    memoryV2.id,
+    "mem.123",
+    "Migrated memory should have its original ID"
+  );
+  Assert.equal(
+    memoryV2.type,
+    MEMORY_TYPE_SHORT_TERM_MEMORY,
+    `Migrated memory type should be "${MEMORY_TYPE_SHORT_TERM_MEMORY}"`
+  );
+  Assert.deepEqual(
+    memoryV2.sources,
+    ["history"],
+    'Migrated memory sources should have 1 entry: "history"'
+  );
+  Assert.deepEqual(
+    memoryV2.source_ids,
+    { history_source_ids: [1, 2, 3], conversation_source_ids: [4, 5, 6] },
+    "Migrated memory should have its original source IDs"
+  );
+  Assert.equal(
+    memoryV2.sensitivity_category,
+    MEMORY_SENSITIVITY_CATEGORY_NOT_SENSITIVE,
+    `Migrated memory sensitivity category should be "${MEMORY_SENSITIVITY_CATEGORY_NOT_SENSITIVE}\"`
+  );
+  Assert.equal(
+    memoryV2.is_deleted,
+    false,
+    "Migrated memory should not be soft deleted"
+  );
+
+  // Check descriptive fields
+  Assert.equal(
+    memoryV2.memory_summary,
+    "Likes dogs",
+    "Migrated memory should have its original summary"
+  );
+  Assert.equal(
+    memoryV2.reasoning,
+    "User researches dog facts, treats, and training advice",
+    "Migrated memory should have its original reasoning"
+  );
+  Assert.deepEqual(
+    memoryV2.tags,
+    ["category:Dogs", "intent:Share / Communicate"],
+    "Migrated memory tags should include its original category and intent"
+  );
+  Assert.deepEqual(
+    memoryV2.keywords,
+    [],
+    "Migrated memory without entities in v1 should have an empty array in v2"
+  );
+  Assert.deepEqual(
+    memoryV2.component_summaries,
+    [],
+    "Migrated memory should have an empty component_summaries array"
+  );
+
+  // Check tracker fields
+  Assert.ok(
+    Number.isFinite(memoryV2.created_at),
+    "Migrated memory creation timestamp should be a number"
+  );
+  Assert.ok(
+    Number.isFinite(memoryV2.updated_at),
+    "Migrated memory update timestamp should be a number"
+  );
+  Assert.equal(
+    memoryV2.created_at,
+    memoryV2.updated_at,
+    "Migrated memory creation and update timestamps should be the same"
+  );
+  Assert.equal(
+    memoryV2.last_accessed,
+    null,
+    "Migrated memory last accessed timestamp should be null (never used)"
+  );
+  Assert.deepEqual(
+    memoryV2.recent_accessed_counts,
+    Object.fromEntries(
+      Array.from({ length: MEMORY_FRECENCY_MAX_DAYS }, (_, i) => [i, 0])
+    ),
+    "Migrated memory recent accessed counts object should have the expected base structure"
+  );
+  Assert.equal(
+    memoryV2.lifetime_accessed_count,
+    0,
+    "Migrated memory lifetime accessed count should be 0 (never used)"
+  );
+  Assert.equal(
+    memoryV2.frecency,
+    0,
+    "Migrated memory frecency should be 0 (never used)"
+  );
+  Assert.equal(
+    memoryV2.merge_count,
+    0,
+    "Migrated memory merge count should be 0 (never used)"
   );
 });

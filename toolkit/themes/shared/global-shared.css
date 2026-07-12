@@ -62,6 +62,13 @@
   }
 }
 
+/* Reset default heading font-sizes in the chrome. */
+h1,
+h2,
+h3 {
+  font-size: unset;
+}
+
 :is(menupopup, panel):where([type="arrow"]) {
   --menuitem-border-radius: var(--panel-menuitem-border-radius);
   --menuitem-padding: var(--panel-menuitem-padding);

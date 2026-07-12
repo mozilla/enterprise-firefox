@@ -280,6 +280,58 @@ add_task(
 );
 
 /**
+ * Tests that an unavailable location cannot be selected via mouse click or
+ * keyboard activation: switch is not called and neither the panel state nor
+ * the egressLocation pref change.
+ */
+add_task(async function test_locations_list_unavailable_not_selectable() {
+  const EGRESS_LOCATION_PREF = "browser.ipProtection.egressLocation";
+
+  registerCleanupFunction(() => {
+    Services.prefs.clearUserPref(EGRESS_LOCATION_PREF);
+  });
+
+  let sandbox = sinon.createSandbox();
+  sandbox.stub(IPPProxyManager, "state").get(() => IPPProxyStates.ACTIVE);
+
+  let switchStub = sandbox.stub(IPPProxyManager, "switch").returns({
+    switched: true,
+  });
+
+  let { locationsList } = await openLocationsList({ location: null });
+
+  let deButton = locationsList.querySelector("#location-option-DE");
+  Assert.ok(deButton, "DE location button should be present");
+
+  deButton.click();
+
+  deButton.focus();
+  EventUtils.synthesizeKey("KEY_Enter", {}, window);
+  EventUtils.synthesizeKey(" ", {}, window);
+
+  let panel = IPProtection.getPanel(window);
+
+  Assert.ok(
+    switchStub.notCalled,
+    "switch should not be called for an unavailable location"
+  );
+  Assert.notEqual(
+    panel.state.location,
+    "DE",
+    "panel state.location should not update to the unavailable code"
+  );
+  Assert.notEqual(
+    Services.prefs.getStringPref(EGRESS_LOCATION_PREF, ""),
+    "DE",
+    "egressLocation pref should not hold the unavailable code"
+  );
+
+  await closePanel();
+  cleanupService();
+  sandbox.restore();
+});
+
+/**
  * Tests that disabled locations are rendered with the disabled attribute.
  */
 add_task(async function test_locations_list_disabled_locations() {
@@ -287,14 +339,20 @@ add_task(async function test_locations_list_disabled_locations() {
 
   let deButton = locationsList.querySelector("#location-option-DE");
   Assert.ok(deButton, "DE location button should be present");
-  Assert.ok(deButton.disabled, "unavailable location should be disabled");
+  Assert.ok(
+    deButton.hasAttribute("aria-disabled"),
+    "unavailable location should be disabled"
+  );
   Assert.ok(
     deButton.querySelector(".location-unavailable-label"),
     "unavailable location should have unavailable label"
   );
 
   let usButton = locationsList.querySelector("#location-option-US");
-  Assert.ok(!usButton.disabled, "available location should not be disabled");
+  Assert.ok(
+    !usButton.hasAttribute("aria-disabled"),
+    "available location should not be disabled"
+  );
   Assert.ok(
     !usButton.querySelector(".location-unavailable-label"),
     "available location should not have unavailable label"

@@ -31,8 +31,9 @@
 
 "use strict";
 
-const { setAndLockPref, unsetAndUnlockPref, PoliciesUtils } =
-  ChromeUtils.importESModule("resource:///modules/policies/Policies.sys.mjs");
+const { PoliciesUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/PoliciesHelpers.sys.mjs"
+);
 
 const PREF_VALUE = {
   INITIAL_DEFAULT: "initial-default-value",
@@ -72,7 +73,7 @@ add_task(
     info(
       "Set the preference's default value to the policy value and lock the preference"
     );
-    setAndLockPref(prefName, PREF_VALUE.POLICY_DEFAULT);
+    PoliciesUtils.setAndLockPref(prefName, PREF_VALUE.POLICY_DEFAULT);
 
     info("Verifying that the policy value is applied");
     Assert.equal(
@@ -106,7 +107,7 @@ add_task(
     );
 
     info("Restoring preference state");
-    unsetAndUnlockPref(prefName);
+    PoliciesUtils.unsetAndUnlockPref(prefName);
 
     info("Verifying that the initial default value is restored");
     Assert.equal(
@@ -196,7 +197,7 @@ add_task(
     info(
       "Set the preference's default value to the policy value and lock the preference"
     );
-    setAndLockPref(prefName, PREF_VALUE.POLICY_DEFAULT);
+    PoliciesUtils.setAndLockPref(prefName, PREF_VALUE.POLICY_DEFAULT);
 
     info("Verifying that the policy value is applied");
     Assert.equal(
@@ -212,7 +213,7 @@ add_task(
     Services.prefs.setStringPref(prefName, PREF_VALUE.USER_CHANGED);
 
     info("Restoring preference state");
-    unsetAndUnlockPref(prefName);
+    PoliciesUtils.unsetAndUnlockPref(prefName);
 
     info("Verifying that the initial default value is restored");
     Assert.equal(
@@ -298,7 +299,7 @@ add_task(
     info(
       "Set the preference's default value to the policy value and lock the preference"
     );
-    setAndLockPref(prefName, PREF_VALUE.POLICY_DEFAULT);
+    PoliciesUtils.setAndLockPref(prefName, PREF_VALUE.POLICY_DEFAULT);
 
     info("Verifying that the policy value is applied");
     Assert.equal(
@@ -320,7 +321,7 @@ add_task(
     ok(Services.prefs.prefIsLocked(prefName), "Preference is locked");
 
     info("Restoring preference state");
-    unsetAndUnlockPref(prefName);
+    PoliciesUtils.unsetAndUnlockPref(prefName);
 
     info(
       "Verifying that there is no default value since the preference was removed"
@@ -362,7 +363,7 @@ add_task(
     info(
       "Set the preference's default value to the policy value and lock the preference"
     );
-    setAndLockPref(prefName, PREF_VALUE.POLICY_DEFAULT);
+    PoliciesUtils.setAndLockPref(prefName, PREF_VALUE.POLICY_DEFAULT);
 
     info("Verifying that the policy value is applied");
     Assert.equal(
@@ -375,7 +376,7 @@ add_task(
     ok(Services.prefs.prefIsLocked(prefName), "Preference is locked");
 
     info("Restoring preference state");
-    unsetAndUnlockPref(prefName);
+    PoliciesUtils.unsetAndUnlockPref(prefName);
 
     info(
       "Verifying that there is no default value, since none existed before the policy was applied"
@@ -420,7 +421,7 @@ add_task(
     info(
       "Set the preference's default value to the policy value and lock the preference"
     );
-    setAndLockPref(prefName, PREF_VALUE.POLICY_DEFAULT);
+    PoliciesUtils.setAndLockPref(prefName, PREF_VALUE.POLICY_DEFAULT);
 
     info("Verifying that the policy is locked");
     ok(Services.prefs.prefIsLocked(prefName), "Preference is locked");
@@ -430,7 +431,7 @@ add_task(
     ok(!Services.prefs.prefHasUserValue(prefName), "No user value mid-policy");
 
     info("Restoring preference state");
-    unsetAndUnlockPref(prefName);
+    PoliciesUtils.unsetAndUnlockPref(prefName);
 
     info(
       "Verifying that there is no default value, since none existed before the policy was applied"

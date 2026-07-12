@@ -14,7 +14,7 @@
     "resource:///modules/sessionstore/TabStateFlusher.sys.mjs"
   );
   const { ContentSharingUtils } = ChromeUtils.importESModule(
-    "resource:///modules/contentsharing/ContentSharingUtils.sys.mjs"
+    "moz-src:///browser/components/contentsharing/ContentSharingUtils.sys.mjs"
   );
 
   ChromeUtils.importESModule(
@@ -751,13 +751,11 @@
         label.htmlFor = input.id;
         label.style.setProperty(
           "--tabgroup-swatch-color",
-          Services.prefs.getBoolPref("browser.nova.enabled")
-            ? `var(--tab-group-${colorCode})`
-            : `var(--tab-group-color-${colorCode})`
+          `var(--tab-group-${colorCode})`
         );
         label.style.setProperty(
           "--tabgroup-swatch-color-invert",
-          `var(--tab-group-color-${colorCode}-invert)`
+          `var(--tab-group-${colorCode}-invert)`
         );
         this.#swatchesContainer.append(input, label);
         this.#swatches.push(input);

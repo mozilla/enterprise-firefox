@@ -839,6 +839,14 @@ class nsHttpChannel final : public HttpBaseChannel,
   nsresult OnSuspendTimeout();
   void CancelNetworkRequest(nsresult aStatus);
 
+  // Backstop for a wedged cache entry: arm/cancel a one-shot timer while the
+  // channel is parked in AwaitingCacheCallbacks(), and force the load to the
+  // network if the cache callback never arrives.  See
+  // network.cache.entry_wait_timeout_ms.
+  void MaybeStartCacheWaitTimer();
+  void CancelCacheWaitTimer();
+  nsresult OnCacheWaitTimeout();
+
   nsresult LogConsoleError(const char* aTag);
 
   void SetHTTPSSVCRecord(already_AddRefed<nsIDNSHTTPSSVCRecord> aRecord);
@@ -854,12 +862,25 @@ class nsHttpChannel final : public HttpBaseChannel,
   // cache. When the timer fires we'll notify the cache entry to make
   // all other listeners continue.
   nsCOMPtr<nsITimer> mSuspendTimer;
+  // Backstop timer armed while parked in AwaitingCacheCallbacks(); if the
+  // cache entry callback never arrives we give up and race to the network.
+  nsCOMPtr<nsITimer> mCacheWaitTimer;
+  // Set once the cache-wait backstop has fired and we've forced the network,
+  // so a late OnCacheEntryAvailable callback is ignored.
+  bool mCacheWaitTimedOut{false};
   // Tri-state to track whether anti-tracking classification happened
   // and has completed or not.
   // Nothing: No anti-tracking classification
   // Some(true): classification ongoing
   // Some(false): classification done
   Maybe<Atomic<bool>> mSuspendAfterExamineResponse;
+  // Set while a Suspend() taken by MaybeSuspendAfterExamineResponse() is
+  // outstanding, i.e. not yet undone by
+  // CancelSuspendOrResumeAfterExamineResponse(). Guards the compensating
+  // Resume() so it fires at most once per real Suspend(), even though
+  // CancelSuspendOrResumeAfterExamineResponse() can now be reached both from
+  // the classification callback and from CancelInternal.
+  Atomic<bool> mSuspendedForExamineResponse{false};
   bool mWritingToCache = false;
   bool mWaitingForProxy = false;
   bool mStaleRevalidation = false;

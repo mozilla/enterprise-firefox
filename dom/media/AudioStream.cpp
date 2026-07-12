@@ -7,6 +7,7 @@
 #include <stdio.h>
 
 #include <algorithm>
+#include <mutex>
 
 #include "AudioConverter.h"
 #include "CubebUtils.h"
@@ -27,6 +28,7 @@
 #include "RLBoxSoundTouch.h"
 #include "Tracing.h"
 #include "mozilla/StaticPrefs_media.h"
+#include "rlbox_wasm2c_thread_locals.h"
 #include "webaudio/blink/DenormalDisabler.h"
 
 namespace mozilla {
@@ -158,9 +160,23 @@ size_t AudioStream::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const {
   return amount;
 }
 
+#ifdef MOZ_WASM_SANDBOXING_SOUNDTOUCH
+static std::once_flag gSetupSoundtouchReporting;
+#endif
+
 nsresult AudioStream::EnsureTimeStretcherInitialized() {
   AssertIsOnAudioThread();
   if (!mTimeStretcher) {
+#ifdef MOZ_WASM_SANDBOXING_SOUNDTOUCH
+    // Redirect all soundtouch Wasm OOM reporting to main process reporting.
+    // This only has to be done once for the Wasm runtime (although repeated
+    // calls are also ok).
+    std::call_once(gSetupSoundtouchReporting, []() {
+      auto current_handler = &moz_wasm2c_memgrow_failed;
+      RLBoxSoundTouch::redirectRLBoxSbxGrowFail(current_handler);
+    });
+#endif
+
     auto timestretcher = MakeUnique<RLBoxSoundTouch>();
     if (!timestretcher || !timestretcher->Init()) {
       return NS_ERROR_FAILURE;

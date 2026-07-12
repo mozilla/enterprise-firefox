@@ -53,13 +53,6 @@ class SessionHistoryInfo {
                      nsIPrincipal* aPartitionedPrincipalToInherit,
                      nsIPolicyContainer* aPolicyContainer);
 
-  void Reset(nsIURI* aURI, const nsID& aDocShellID, bool aDynamicCreation,
-             nsIPrincipal* aTriggeringPrincipal,
-             nsIPrincipal* aPrincipalToInherit,
-             nsIPrincipal* aPartitionedPrincipalToInherit,
-             nsIPolicyContainer* aPolicyContainer,
-             const nsACString& aContentType);
-
   bool operator==(const SessionHistoryInfo& aInfo) const {
     return false;  // FIXME
   }

@@ -3280,7 +3280,7 @@ describe("<SportsWidget> telemetry", () => {
     expect(handleUserInteraction).not.toHaveBeenCalled();
   });
 
-  it("opens the support link and records an interaction when the Learn more menu item is clicked", () => {
+  it("opens the support link in a new tab and records an interaction when the Learn more menu item is clicked", () => {
     const { container } = renderWidget();
     fireEvent.click(
       container.querySelector(
@@ -3292,10 +3292,17 @@ describe("<SportsWidget> telemetry", () => {
         type: at.OPEN_LINK,
         data: expect.objectContaining({
           url: "https://support.mozilla.org/kb/firefox-new-tab-widgets",
+          where: "tab",
         }),
       })
     );
     expect(handleUserInteraction).toHaveBeenCalledWith("sportsWidget");
+  });
+
+  it("renders a divider before the shared menu footer", () => {
+    const { container } = renderWidget();
+    const menu = container.querySelector("#sports-context-menu");
+    expect(menu.querySelector("hr")).toBeInTheDocument();
   });
 
   it("should dispatch view_key_dates telemetry with context_menu source when the View schedule menu item is clicked", () => {

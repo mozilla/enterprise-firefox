@@ -4,8 +4,6 @@
 
 "use strict";
 
-requestLongerTimeout(6);
-
 const TEST_THIRD_PARTY_DOMAIN = TEST_DOMAIN_2;
 const TEST_THIRD_PARTY_SUB_DOMAIN = "http://sub1.xn--exmple-cua.test/";
 

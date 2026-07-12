@@ -340,6 +340,9 @@ class MacroAssemblerRiscv64 : public Assembler {
   void computeScaledAddress(const BaseIndex& address, Register dest);
   void computeScaledAddress32(const BaseIndex& address, Register dest);
 
+  Address computeScaledAddress(const BaseIndex& address,
+                               UseScratchRegisterScope& temps);
+
  private:
   bool UseShortBranch(Label* L, JumpKind jumpKind, OffsetSize bits,
                       mozilla::Maybe<AutoForbidNops>& maybeAfn);
@@ -509,11 +512,49 @@ class MacroAssemblerRiscv64 : public Assembler {
 
   inline void NegateBool(Register rd, Register rs) { xori(rd, rs, 1); }
 
+  // The complete address is in `address`, and `access` is used for its type
+  // attributes only; its `offset` is ignored.
+  void wasmLoadAbsolute(const wasm::MemoryAccessDesc& access,
+                        Register memoryBase, uint64_t address,
+                        AnyRegister output) {
+    wasmLoadAbsoluteImpl(access, memoryBase, address, output);
+  }
+  void wasmLoadAbsoluteI64(const wasm::MemoryAccessDesc& access,
+                           Register memoryBase, uint64_t address,
+                           Register64 output) {
+    wasmLoadAbsoluteImpl(access, memoryBase, address, AnyRegister(output.reg));
+  }
+  void wasmStoreAbsolute(const wasm::MemoryAccessDesc& access,
+                         AnyRegister value, Register memoryBase,
+                         uint64_t address) {
+    wasmStoreAbsoluteImpl(access, value, memoryBase, address);
+  }
+  void wasmStoreAbsoluteI64(const wasm::MemoryAccessDesc& access,
+                            Register64 value, Register memoryBase,
+                            uint64_t address) {
+    wasmStoreAbsoluteImpl(access, AnyRegister(value.reg), memoryBase, address);
+  }
+
  protected:
+  BaseIndex toBaseIndex(Register base, uint64_t address,
+                        UseScratchRegisterScope& temps);
+
+  void wasmLoadAbsoluteImpl(const wasm::MemoryAccessDesc& access,
+                            Register memoryBase, uint64_t offset,
+                            AnyRegister output);
+  void wasmStoreAbsoluteImpl(const wasm::MemoryAccessDesc& access,
+                             AnyRegister value, Register memoryBase,
+                             uint64_t offset);
+
   void wasmLoadImpl(const wasm::MemoryAccessDesc& access, Register memoryBase,
                     Register ptr, AnyRegister output);
   void wasmStoreImpl(const wasm::MemoryAccessDesc& access, AnyRegister value,
                      Register memoryBase, Register ptr);
+
+  void wasmLoadImpl(const wasm::MemoryAccessDesc& access,
+                    const BaseIndex& address, AnyRegister output);
+  void wasmStoreImpl(const wasm::MemoryAccessDesc& access, AnyRegister value,
+                     const BaseIndex& address);
 };
 
 class MacroAssemblerRiscv64Compat : public MacroAssemblerRiscv64 {
@@ -536,11 +577,8 @@ class MacroAssemblerRiscv64Compat : public MacroAssemblerRiscv64 {
   };
   void convertInt32ToDouble(const BaseIndex& src, FloatRegister dest) {
     UseScratchRegisterScope temps(this);
-    Register scratch = temps.Acquire();
-    MOZ_ASSERT(scratch != src.base);
-    MOZ_ASSERT(scratch != src.index);
-    computeScaledAddress(src, scratch);
-    convertInt32ToDouble(Address(scratch, src.offset), dest);
+    Address address = computeScaledAddress(src, temps);
+    convertInt32ToDouble(address, dest);
   };
   void convertUInt32ToDouble(Register src, FloatRegister dest);
   void convertUInt32ToFloat32(Register src, FloatRegister dest);
@@ -761,36 +799,6 @@ class MacroAssemblerRiscv64Compat : public MacroAssemblerRiscv64 {
     splitSignExtTag(value, tag);
   }
 
-  void moveIfZero(Register dst, Register src, Register cond) {
-    if (HasZicondExtension()) {
-      UseScratchRegisterScope temps(this);
-      Register scratch = temps.Acquire();
-
-      ma_cselz(dst, src, dst, cond, scratch);
-      return;
-    }
-
-    Label done;
-    ma_b(cond, cond, &done, NonZero, ShortJump);
-    mv(dst, src);
-    bind(&done);
-  }
-
-  void moveIfNotZero(Register dst, Register src, Register cond) {
-    if (HasZicondExtension()) {
-      UseScratchRegisterScope temps(this);
-      Register scratch = temps.Acquire();
-
-      ma_cselnz(dst, src, dst, cond, scratch);
-      return;
-    }
-
-    Label done;
-    ma_b(cond, cond, &done, Zero, ShortJump);
-    mv(dst, src);
-    bind(&done);
-  }
-
   // unboxing code
   void unboxNonDouble(const ValueOperand& operand, Register dest,
                       JSValueType type) {
@@ -939,7 +947,7 @@ class MacroAssemblerRiscv64Compat : public MacroAssemblerRiscv64 {
   }
 
   void loadInt32OrDouble(const Address& src, FloatRegister dest);
-  void loadInt32OrDouble(const BaseIndex& addr, FloatRegister dest);
+  void loadInt32OrDouble(const BaseIndex& src, FloatRegister dest);
   void loadConstantDouble(double dp, FloatRegister dest);
   void loadConstantFloat32(float f, FloatRegister dest);
 

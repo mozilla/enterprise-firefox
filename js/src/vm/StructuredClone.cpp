@@ -3189,7 +3189,7 @@ bool JSStructuredCloneReader::startReadUnchecked(
       if (!in.readDouble(&d)) {
         return false;
       }
-      vp.setDouble(CanonicalizeNaN(d));
+      vp.setDouble(d);
       if (!PrimitiveToObject(context(), vp)) {
         return false;
       }
@@ -3404,7 +3404,7 @@ bool JSStructuredCloneReader::startReadUnchecked(
     default: {
       if (tag <= SCTAG_FLOAT_MAX) {
         double d = ReinterpretPairAsDouble(tag, data);
-        vp.setNumber(CanonicalizeNaN(d));
+        vp.setNumber(d);
         break;
       }
 

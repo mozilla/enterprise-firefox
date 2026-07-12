@@ -88,9 +88,9 @@ class TabGroupsList extends MozLitElement {
   #groupRow(group, isOpen) {
     const groupName = group.name || this._defaultGroupName;
     const style = styleMap({
-      "--tab-group-color": `var(--tab-group-color-${group.color})`,
-      "--tab-group-color-invert": `var(--tab-group-color-${group.color}-invert)`,
-      "--tab-group-color-pale": `var(--tab-group-color-${group.color}-pale)`,
+      "--tab-group-color": `var(--tab-group-${group.color})`,
+      "--tab-group-color-invert": `var(--tab-group-${group.color}-invert)`,
+      "--tab-group-color-pale": `var(--tab-group-${group.color}-pale)`,
       "--tab-group-background-color": `var(--tab-group-${group.color})`,
     });
     return html`

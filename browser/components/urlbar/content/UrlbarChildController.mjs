@@ -98,11 +98,8 @@ export class UrlbarChildController {
   get engagementEvent() {
     return this.#parent.engagementEvent;
   }
-  get NOTIFICATIONS() {
-    return this.#parent.NOTIFICATIONS;
-  }
   get platform() {
-    return this.#parent.platform;
+    return AppConstants.platform;
   }
   /**
    * The selection behavior that the user has used to select a result. The
@@ -201,6 +198,11 @@ export class UrlbarChildController {
    */
   // eslint-disable-next-line complexity
   handleKeyNavigation(event, executeAction = true) {
+    // If the resultMenu is open then let them handle any key events.
+    if (this.view.resultMenu.hasAttribute("open")) {
+      return;
+    }
+
     const isMac = AppConstants.platform == "macosx";
     // Handle readline/emacs-style navigation bindings on Mac.
     if (

@@ -5,6 +5,7 @@
 package org.mozilla.fenix.experiments
 
 import android.content.Context
+import android.content.Intent
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination
@@ -23,6 +24,7 @@ import org.robolectric.RobolectricTestRunner
 class UninstallSurveyManagerTest {
 
     private lateinit var context: Context
+    val intent = Intent(UninstallSurveyManager.ACTION_UNINSTALL_SURVEY)
 
     @Before
     fun setUp() {
@@ -88,7 +90,7 @@ class UninstallSurveyManagerTest {
         val manager = UninstallSurveyManager(context, FakeShortcutManagerCompatWrapper(), settings)
 
         // When
-        manager.showUninstallSurvey(UninstallSurveyManager.ACTION_UNINSTALL_SURVEY, fakeNavController)
+        manager.showUninstallSurvey(intent, fakeNavController)
 
         // Then
         assertEquals(1, fakeNavController.navigateInvocations)
@@ -103,7 +105,7 @@ class UninstallSurveyManagerTest {
         val manager = UninstallSurveyManager(context, FakeShortcutManagerCompatWrapper(), settings)
 
         // When
-        manager.showUninstallSurvey(UninstallSurveyManager.ACTION_UNINSTALL_SURVEY, fakeNavController)
+        manager.showUninstallSurvey(intent, fakeNavController)
 
         // Then
         assertEquals(0, fakeNavController.navigateInvocations)
@@ -117,7 +119,7 @@ class UninstallSurveyManagerTest {
         val manager = UninstallSurveyManager(context, FakeShortcutManagerCompatWrapper(), settings)
 
         // When
-        manager.showUninstallSurvey("SOME_OTHER_ACTION", fakeNavController)
+        manager.showUninstallSurvey(Intent("SOME_OTHER_ACTION"), fakeNavController)
 
         // Then
         assertEquals(0, fakeNavController.navigateInvocations)

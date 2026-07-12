@@ -21,6 +21,8 @@
 #include <math.h>
 #include "nsIUserIdleService.h"
 
+#include <numbers>
+
 namespace mozilla::net {
 
 StaticRefPtr<CacheObserver> CacheObserver::sSelf;
@@ -117,7 +119,7 @@ uint32_t CacheObserver::MemoryCacheCapacity() {
     }
     uint64_t kbytes = bytes >> 10;
     double kBytesD = double(kbytes);
-    double x = log(kBytesD) / log(2.0) - 14;
+    double x = log(kBytesD) / std::numbers::ln2 - 14;
 
     int32_t capacity = 0;
     if (x > 0) {

@@ -21,6 +21,7 @@
     img {
       width: var(--visual-picker-item-image-size, var(--size-image-xlarge));
       height: var(--visual-picker-item-image-size, var(--size-image-xlarge));
+      padding: var(--visual-picker-item-padding, 0);
       object-fit: cover;
       flex-shrink: 0;
     }

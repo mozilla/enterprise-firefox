@@ -1514,12 +1514,12 @@ class nsCSSFrameConstructor final : public nsFrameManager {
    * ConstructOuterSVG and ConstructMarker, which both want an anonymous block
    * child for their children to go in to.
    */
-  nsContainerFrame* ConstructFrameWithAnonymousChild(
+  nsContainerFrame* ConstructSVGFrameWithAnonymousChild(
       nsFrameConstructorState& aState, FrameConstructionItem& aItem,
       nsContainerFrame* aParentFrame, nsFrameList& aFrameList,
       ContainerFrameCreationFunc aConstructor,
       ContainerFrameCreationFunc aInnerConstructor,
-      mozilla::PseudoStyleType aInnerPseudo, bool aCandidateRootFrame);
+      PseudoStyleType aInnerPseudo, bool aCandidateRootFrame);
 
   /**
    * Construct an SVGOuterSVGFrame.

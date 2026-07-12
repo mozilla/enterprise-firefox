@@ -23,28 +23,6 @@ function navigateTab(tab, url) {
   return BrowserTestUtils.browserLoaded(tab.linkedBrowser);
 }
 
-async function openTabContextMenu(tab) {
-  const tabContextMenu = document.getElementById("tabContextMenu");
-  const contextMenuShown = BrowserTestUtils.waitForPopupEvent(
-    tabContextMenu,
-    "shown"
-  );
-  tab.scrollIntoView({ behavior: "instant" });
-  EventUtils.synthesizeMouseAtCenter(
-    tab,
-    { type: "contextmenu", button: 2 },
-    window
-  );
-  await contextMenuShown;
-  return tabContextMenu;
-}
-
-async function closeTabContextMenu(menu) {
-  const contextMenuHidden = BrowserTestUtils.waitForPopupEvent(menu, "hidden");
-  menu.hidePopup();
-  await contextMenuHidden;
-}
-
 async function openSplitViewIconMenu() {
   const urlbarButton = document.getElementById("split-view-button");
   await BrowserTestUtils.waitForMutationCondition(

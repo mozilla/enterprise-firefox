@@ -19,11 +19,6 @@
 
 namespace mozilla::dom {
 
-CSSMathProduct::CSSMathProduct(nsCOMPtr<nsISupports> aParent,
-                               RefPtr<CSSNumericArray> aValues)
-    : CSSMathValue(std::move(aParent), MathValueType::MathProduct),
-      mValues(std::move(aValues)) {}
-
 CSSMathProduct::CSSMathProduct(
     nsCOMPtr<nsISupports> aParent,
     MovingNotNull<UniquePtr<StyleNumericType>> aNumericType,
@@ -37,13 +32,17 @@ RefPtr<CSSMathProduct> CSSMathProduct::Create(
     nsCOMPtr<nsISupports> aParent, const StyleMathProduct& aMathProduct) {
   nsTArray<RefPtr<CSSNumericValue>> values;
 
-  for (const auto& value : aMathProduct) {
+  for (const auto& value : aMathProduct.values) {
     values.AppendElement(CSSNumericValue::Create(aParent, value));
   }
 
   auto array = MakeRefPtr<CSSNumericArray>(aParent, std::move(values));
 
-  return MakeRefPtr<CSSMathProduct>(std::move(aParent), std::move(array));
+  return MakeRefPtr<CSSMathProduct>(
+      std::move(aParent),
+      WrapMovingNotNull(
+          MakeUnique<StyleNumericType>(aMathProduct.numeric_type)),
+      std::move(array));
 }
 
 NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED_0(CSSMathProduct, CSSMathValue)
@@ -82,7 +81,7 @@ already_AddRefed<CSSMathProduct> CSSMathProduct::Constructor(
 
   // Step 3.
 
-  nsTArray<const StyleNumericType*> numericTypes;
+  AutoTArray<const StyleNumericType*, 8> numericTypes;
   numericTypes.SetCapacity(values.Length());
 
   for (const auto& value : values) {
@@ -152,7 +151,7 @@ StyleMathProduct CSSMathProduct::ToStyleMathProduct() const {
     values.AppendElement(value->ToStyleNumericValue());
   }
 
-  return StyleMathProduct{std::move(values)};
+  return StyleMathProduct{GetNumericType(), std::move(values)};
 }
 
 const CSSMathProduct& CSSMathValue::GetAsCSSMathProduct() const {

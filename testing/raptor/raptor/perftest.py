@@ -835,6 +835,8 @@ class PerftestAndroid(Perftest):
             self.profile.merge(path)
 
     def clear_app_data(self):
+        if not self.device.confirm_clear_app_data(self.config["binary"]):
+            raise Exception("Abort: Declined to clear app data, can't run tests.")
         LOG.info(f"clearing {self.config['binary']} app data")
         self.device.shell(f"pm clear {self.config['binary']}")
 

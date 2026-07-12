@@ -7,8 +7,11 @@
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/EventDispatcher.h"
+#include "mozilla/HTMLEditor.h"
 #include "mozilla/IMEContentObserver.h"
 #include "mozilla/IMEStateManager.h"
+#include "mozilla/InputEventOptions.h"
+#include "mozilla/MiscEvents.h"
 #include "mozilla/TextEvents.h"
 #include "mozilla/dom/AnonymousContent.h"
 #include "mozilla/dom/CharacterBoundsUpdateEvent.h"
@@ -98,7 +101,6 @@ void EditContext::Deactivate() {
   }
 
   // 1. Set editContext's is composing to false.
-  mIsComposing = false;
   // 2. Fire an event named compositionend at editContext using
   //    CompositionEvent.
   // TODO
@@ -147,6 +149,13 @@ EditContext::EditContext(nsIGlobalObject* aGlobalObject,
   UpdateText(0, 0, aInit.mText, aRv);
 }
 
+void EditContext::SetAssociatedElement(nsGenericHTMLElement* aElement) {
+  mAssociatedElement = aElement;
+  if (aElement && aElement->IsHTMLElement(nsGkAtoms::canvas)) {
+    aElement->OwnerDoc()->SetUseCounter(eUseCounter_custom_EditContextCanvas);
+  }
+}
+
 void EditContext::GetText(nsAString& aText) const { mText->GetData(aText); }
 
 void EditContext::GetTextSubstring(uint32_t aStart, uint32_t aEnd,
@@ -154,13 +163,28 @@ void EditContext::GetTextSubstring(uint32_t aStart, uint32_t aEnd,
   mText->SubstringData(aStart, aEnd - aStart, aText, IgnoreErrors());
 }
 
-RefPtr<DOMRect> EditContext::ToDOMRect(const Rect& copy) const {
-  return MakeRefPtr<DOMRect>(GetRelevantGlobal(), copy.x, copy.y, copy.width,
-                             copy.height);
+RefPtr<DOMRect> EditContext::ToDOMRect(const Rect& aCopy) const {
+  return MakeRefPtr<DOMRect>(GetRelevantGlobal(), aCopy.x, aCopy.y, aCopy.width,
+                             aCopy.height);
 }
 
-auto EditContext::ToRect(const DOMRect& rect) const -> Rect {
-  return Rect(rect.X(), rect.Y(), rect.Width(), rect.Height());
+auto EditContext::ToRect(const DOMRect& aRect) const -> Rect {
+  return Rect(aRect.X(), aRect.Y(), aRect.Width(), aRect.Height());
+}
+
+LayoutDeviceIntRect EditContext::ToDeviceRect(const nsPresContext& aPresContext,
+                                              const Rect& aRect) {
+  CSSIntRect rect;
+  aRect.ToIntRect(&rect);
+  LayoutDeviceIntRect deviceRect;
+  deviceRect.x = aPresContext.CSSPixelsToDevPixels(rect.x);
+  deviceRect.y = aPresContext.CSSPixelsToDevPixels(rect.y);
+  // ContentCache, etc. is confused if the rectangles are empty,
+  // so ensure that they aren't.
+  deviceRect.width = std::max(1, aPresContext.CSSPixelsToDevPixels(rect.width));
+  deviceRect.height =
+      std::max(1, aPresContext.CSSPixelsToDevPixels(rect.height));
+  return deviceRect;
 }
 
 void EditContext::UpdateSelection(uint32_t aStart, uint32_t aEnd) {
@@ -255,15 +279,16 @@ void EditContext::UpdateText(uint32_t aRangeStart, uint32_t aRangeEnd,
 }
 
 void EditContext::UpdateControlBounds(DOMRect& aControlBounds) {
-  mControlBounds = ToRect(aControlBounds);
+  mControlBounds = Some(ToRect(aControlBounds));
 }
 
 void EditContext::UpdateSelectionBounds(DOMRect& aSelectionBounds) {
-  mSelectionBounds = ToRect(aSelectionBounds);
+  mSelectionBounds = Some(ToRect(aSelectionBounds));
 }
 
-void EditContext::UpdateTextAndFireEvent(uint32_t aStart, uint32_t aEnd,
-                                         const nsAString& aString) {
+void EditContext::UpdateTextAndFireEvent(
+    uint32_t aStart, uint32_t aEnd, const nsAString& aString,
+    PreventSetSelection aPreventSetSelection) {
   aStart = std::min(aStart, TextLength());
   aEnd = std::min(aEnd, TextLength());
   if (aStart == aEnd && aString.IsEmpty()) {
@@ -278,7 +303,19 @@ void EditContext::UpdateTextAndFireEvent(uint32_t aStart, uint32_t aEnd,
   if (rv.Failed()) {
     return;
   }
-  mSelectionStart = mSelectionEnd = aStart + aString.Length();
+  if (aPreventSetSelection == PreventSetSelection::Yes) {
+    // Don't move selection to end of replaced text - just
+    // fix up the offsets if they are inside/after the replaced text.
+    for (uint32_t* offset : {&mSelectionStart, &mSelectionEnd}) {
+      if (*offset >= aStart && *offset < aEnd) {
+        *offset = aStart;
+      } else if (*offset >= aEnd) {
+        *offset += aString.Length() - (aEnd - aStart);
+      }
+    }
+  } else {
+    mSelectionStart = mSelectionEnd = aStart + aString.Length();
+  }
   TextUpdateEventInit options;
   options.mText = aString;
   options.mSelectionStart = mSelectionStart;
@@ -291,11 +328,13 @@ void EditContext::UpdateTextAndFireEvent(uint32_t aStart, uint32_t aEnd,
       TextUpdateEvent::Constructor(this, u"textupdate"_ns, options);
   e->SetTrusted(true);
   mTextNextToCaretChangedByTextUpdateHandler = false;
-  // It shouldn't be possible for this to be called recursively.
-  MOZ_ASSERT(!mIsFiringTextUpdate);
+  // textupdate can be fired recursively if the editor is blurred
+  // during a composition (since that cancels the composition).
+  // XXX: Some web apps may not handle this properly
+  //      - perhaps add mPendingTextUpdateEvent/TextFormatUpdateEvent?
+  AutoRestore restore(mIsFiringTextUpdate);
   mIsFiringTextUpdate = true;
   DispatchEvent(*e);
-  mIsFiringTextUpdate = false;
 }
 
 void EditContext::StartComposition(const WidgetCompositionEvent& aEvent) {
@@ -312,6 +351,55 @@ void EditContext::EndComposition(const WidgetCompositionEvent& aEvent) {
   RefPtr presContext = mText->OwnerDoc()->GetPresContext();
   EventDispatcher::Dispatch(this, presContext, &event);
   mIsComposing = false;
+}
+
+void EditContext::DoContentCommandReplaceText(
+    WidgetContentCommandEvent& aEvent) {
+  MOZ_ASSERT(aEvent.mMessage == eContentCommandReplaceText);
+  MOZ_ASSERT(aEvent.mString);
+  if (!aEvent.mString) {
+    aEvent.mSucceeded = false;
+    return;
+  }
+  MOZ_ASSERT(IsActive(), "Should be the active EditContext.");
+  nsAutoString text;
+  const uint32_t replaceOffset = aEvent.mSelection.mOffset;
+  const uint32_t replaceLength = aEvent.mSelection.mReplaceSrcString.Length();
+  mText->SubstringData(replaceOffset, replaceLength, text, IgnoreErrors());
+  if (text != aEvent.mSelection.mReplaceSrcString) {
+    // String to replace doesn't match the text.
+    aEvent.mSucceeded = false;
+    return;
+  }
+  // Dispatch beforeinput
+  // XXX: We can't really determine the target ranges here.
+  //      See https://github.com/w3c/edit-context/issues/133
+  InputEventOptions options(*aEvent.mString,
+                            InputEventOptions::NeverCancelable::No);
+  nsEventStatus status = nsEventStatus_eIgnore;
+  RefPtr<nsGenericHTMLElement> associatedElement = GetAssociatedElement();
+  MOZ_ASSERT(associatedElement);
+  RefPtr<HTMLEditor> htmlEditor =
+      associatedElement->OwnerDoc()->GetHTMLEditor();
+  MOZ_ASSERT(htmlEditor);
+  // We are using the insertText inputType instead of insertReplacementText,
+  // since insertReplacementText is used for spellcheck with no textupdate
+  // fired, so editors with spellcheck enabled will do the replacement
+  // twice if we fire both insertReplacementText and textupdate.
+  nsresult rv = nsContentUtils::DispatchInputEvent(
+      associatedElement, eEditorBeforeInput, EditorInputType::eInsertText,
+      htmlEditor, std::move(options), &status);
+  if (NS_FAILED(rv) || status == nsEventStatus_eConsumeNoDefault ||
+      !IsActive()) {
+    aEvent.mSucceeded = false;
+    return;
+  }
+  // Dispatch textupdate
+  UpdateTextAndFireEvent(
+      replaceOffset, replaceOffset + replaceLength, *aEvent.mString,
+      aEvent.mSelection.mPreventSetSelection ? PreventSetSelection::Yes
+                                             : PreventSetSelection::No);
+  aEvent.mSucceeded = true;
 }
 
 static UnderlineStyle ToDOMStyle(LineStyle aStyle) {
@@ -411,11 +499,11 @@ nsresult EditContext::FireCharacterBoundsUpdateAndGetRects(
   };
   CollapseDirection collapse = CollapseDirection::None;
   if (aStart == aEnd) {
-    if (TextLength() == 0) {
-      // TODO: fall back to selection or control bounds in this case
-      return NS_ERROR_FAILURE;
-    }
     // In this case, ContentEventHandler still wants a rectangle for the caret
+    if (TextLength() == 0) {
+      aRects.AppendElement(FallbackBounds());
+      return NS_OK;
+    }
     if (aEnd < TextLength()) {
       // If requested range is before end of text, query the next character,
       // and collapse its rectangle in the opposite direction of the writing.
@@ -494,17 +582,8 @@ nsresult EditContext::FireCharacterBoundsUpdateAndGetRects(
       // XXX: Should we emit a console warning about this?
       return NS_ERROR_FAILURE;
     }
-    CSSIntRect rect;
-    mCodepointRects[indexInCodepointRects.value()].ToIntRect(&rect);
-    LayoutDeviceIntRect deviceRect;
-    deviceRect.x = presContext->CSSPixelsToDevPixels(rect.x);
-    deviceRect.y = presContext->CSSPixelsToDevPixels(rect.y);
-    // ContentCache, etc. is confused if the rectangles are empty,
-    // so ensure that they aren't.
-    deviceRect.width =
-        std::max(1, presContext->CSSPixelsToDevPixels(rect.width));
-    deviceRect.height =
-        std::max(1, presContext->CSSPixelsToDevPixels(rect.height));
+    Rect cssRect = mCodepointRects[indexInCodepointRects.value()];
+    LayoutDeviceIntRect deviceRect = ToDeviceRect(*presContext, cssRect);
     aRects.AppendElement(deviceRect);
   }
   if (collapse != CollapseDirection::None) {
@@ -541,6 +620,51 @@ nsresult EditContext::FireCharacterBoundsUpdateAndGetRects(
     }
   }
   return NS_OK;
+}
+
+Maybe<LayoutDeviceIntRect> EditContext::GetControlBounds() const {
+  nsPresContext* presContext = mText->OwnerDoc()->GetPresContext();
+  if (!presContext || !mControlBounds) {
+    // Control bounds were never set.
+    return Nothing();
+  }
+  return Some(ToDeviceRect(*presContext, *mControlBounds));
+}
+
+Maybe<LayoutDeviceIntRect> EditContext::GetSelectionBounds() const {
+  nsPresContext* presContext = mText->OwnerDoc()->GetPresContext();
+  if (!presContext || !mSelectionBounds) {
+    // Selection bounds were never set.
+    return Nothing();
+  }
+  return Some(ToDeviceRect(*presContext, *mSelectionBounds));
+}
+
+LayoutDeviceIntRect EditContext::FallbackBounds() const {
+  if (Maybe<LayoutDeviceIntRect> bounds = GetSelectionBounds()) {
+    return *bounds;
+  }
+  if (Maybe<LayoutDeviceIntRect> bounds = GetControlBounds()) {
+    return *bounds;
+  }
+  if (NS_WARN_IF(!mAssociatedElement) ||
+      NS_WARN_IF(!mAssociatedElement->GetPrimaryFrame())) {
+    // Nothing good we can return here.
+    return {0, 0, 1, 1};
+  }
+  nsPresContext* presContext =
+      mAssociatedElement->GetPrimaryFrame()->PresContext();
+  nsRect appUnitsRect = mAssociatedElement->GetPrimaryFrame()->GetRect();
+  LayoutDeviceIntRect deviceRect;
+  deviceRect.x = presContext->AppUnitsToDevPixels(appUnitsRect.x);
+  deviceRect.y = presContext->AppUnitsToDevPixels(appUnitsRect.y);
+  // ContentCache, etc. is confused if the rectangles are empty,
+  // so ensure that they aren't.
+  deviceRect.width =
+      std::max(1, presContext->AppUnitsToDevPixels(appUnitsRect.width));
+  deviceRect.height =
+      std::max(1, presContext->AppUnitsToDevPixels(appUnitsRect.height));
+  return deviceRect;
 }
 
 }  // namespace mozilla::dom

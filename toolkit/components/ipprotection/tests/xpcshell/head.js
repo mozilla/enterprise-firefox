@@ -19,6 +19,9 @@ const { ProxyPass, ProxyUsage, Entitlement } = ChromeUtils.importESModule(
 const { RemoteSettings } = ChromeUtils.importESModule(
   "resource://services-settings/remote-settings.sys.mjs"
 );
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
+);
 const { IPProtectionActivator } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/ipprotection/IPProtectionActivator.sys.mjs"
 );
@@ -95,8 +98,33 @@ async function putServerInRemoteSettings(
   await client.db.clear();
   await client.db.create(US);
   await client.db.importChanges({}, Date.now());
+
+  maybeSetEnterpriseServerlistOverride([US]);
 }
 /* exported putServerInRemoteSettings */
+
+/**
+ * Mirrors a serverlist into the pref read by PrefServerList on MOZ_ENTERPRISE
+ * builds, where the RemoteSettings-backed serverlist is not used. No-op on
+ * other builds.
+ *
+ * The value is set on the default branch so that per-test user-branch changes
+ * and clearUserPref() calls revert to this list rather than emptying it.
+ *
+ * @param {Array<object>} countries - Country entries, as stored in RemoteSettings.
+ */
+function maybeSetEnterpriseServerlistOverride(countries) {
+  if (!AppConstants.MOZ_ENTERPRISE) {
+    return;
+  }
+  Services.prefs
+    .getDefaultBranch("")
+    .setStringPref(
+      "browser.ipProtection.override.serverlist",
+      JSON.stringify(countries)
+    );
+}
+/* exported maybeSetEnterpriseServerlistOverride */
 
 /* exported setupStubs */
 

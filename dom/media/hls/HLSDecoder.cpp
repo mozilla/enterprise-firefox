@@ -280,6 +280,9 @@ void HLSResourceCallbacksSupport::DoOpenChannel(
     return;
   }
 
+  nsCOMPtr<nsILoadInfo> loadInfo = newChannel->LoadInfo();
+  loadInfo->SetIsMediaRequest(true);
+
   nsCOMPtr<nsIHttpChannel> httpChannel = do_QueryInterface(newChannel);
   if (httpChannel) {
     const auto keys = requestBase->GetHeaderKeys();

@@ -5,7 +5,9 @@
 #include "mozilla/dom/SpeculationRuleSet.h"
 
 #include "js/friend/ErrorMessages.h"
+#include "mozilla/dom/PrefetchCandidates.h"
 #include "mozilla/dom/ScriptSettings.h"
+#include "mozilla/dom/speculationrules_ffi_generated.h"
 #include "nsIURI.h"
 
 namespace mozilla::dom {
@@ -62,6 +64,10 @@ SpeculationRuleSet::Parse(const nsACString& aSource, nsIURI* aDocumentBaseUri,
   }
   JS_ReportErrorNumberASCII(jsapi.cx(), js::GetErrorMessage, nullptr,
                             errorNumber);
+}
+
+void SpeculationRuleSet::ConsiderLoads(PrefetchCandidates* aCandidates) {
+  consider_speculative_loads_for_rule_set(this, aCandidates);
 }
 
 }  // namespace mozilla::dom

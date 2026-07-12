@@ -4663,6 +4663,8 @@ interface WebExtensionInit {
     baseURL: string;
     contentScripts?: WebExtensionContentScriptInit[];
     extensionPageCSP?: string | null;
+    sandboxPageCSP?: string | null;
+    sandboxPages?: MatchGlobOrString[] | null;
     hasRecommendedState?: boolean;
     id: string;
     ignoreQuarantine?: boolean;

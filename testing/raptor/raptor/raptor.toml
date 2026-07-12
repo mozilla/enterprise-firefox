@@ -53,6 +53,9 @@
 ["include:tests/custom/browsertime-custom.toml"]
 # Local custom browsertime tests
 
+["include:tests/custom/browsertime-hev3-connection.toml"]
+# Custom Happy Eyeballs v3 connection tests
+
 ["include:tests/custom/browsertime-indexeddb.toml"]
 # Custom indexeddb test
 

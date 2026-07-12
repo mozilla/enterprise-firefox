@@ -1864,9 +1864,9 @@ def test_max_perf_tasks(
     ) as fzf, mock.patch(
         "tryselect.selectors.perf.fzf_bootstrap", return_value=mock.MagicMock()
     ):
-        tasks = ["a-task"] * total_tasks
-        get_tasks_mock.return_value = tasks
-        get_perf_tasks_mock.return_value = tasks, [], []
+        tasks = [f"a-task-{i}" for i in range(total_tasks)]
+        get_tasks_mock.return_value = set(tasks)
+        get_perf_tasks_mock.return_value = set(tasks), [], []
 
         PerfParser.push_info.finished_run = not expected_failure
 
@@ -1878,6 +1878,59 @@ def test_max_perf_tasks(
         assert perf_print.call_count == call_counts[3]
         assert fzf.call_count == 0
         assert perf_print.call_args_list[-1][0][0] == expected_log_message
+
+
+def test_get_tasks_unions_multiple_queries():
+    with mock.patch("tryselect.selectors.perf.run_fzf") as run_fzf_mock:
+        run_fzf_mock.side_effect = [
+            ["query-a", ["task-a"]],
+            ["query-b", ["task-b"]],
+        ]
+
+        queries = []
+        selected_tasks = PerfParser.get_tasks(
+            [], queries, ["'query-a", "'query-b"], {"task-a", "task-b", "task-c"}
+        )
+
+        assert selected_tasks == {"task-a", "task-b"}
+        assert run_fzf_mock.call_count == 2
+        # Each query is forwarded to fzf through the `-f` filter flag.
+        assert [call.args[0][-1] for call in run_fzf_mock.call_args_list] == [
+            "'query-a",
+            "'query-b",
+        ]
+        assert queries == ["query-a", "query-b"]
+
+
+@pytest.mark.skipif(os.name == "nt", reason="fzf not installed on host")
+def test_show_all_unions_multiple_queries():
+    setup_perfparser()
+
+    with mock.patch("tryselect.selectors.perf.push_to_try"), mock.patch(
+        "tryselect.selectors.perf.print"
+    ), mock.patch(
+        "tryselect.selectors.perf.LogProcessor.revision",
+        new_callable=mock.PropertyMock,
+        return_value="revision",
+    ), mock.patch(
+        "tryselect.selectors.perf.PerfParser.perf_push_to_try",
+        new_callable=mock.MagicMock,
+    ) as perf_push_to_try_mock, mock.patch(
+        "tryselect.selectors.perf.run_fzf"
+    ) as run_fzf_mock, mock.patch(
+        "tryselect.selectors.perf.fzf_bootstrap", return_value=mock.MagicMock()
+    ):
+        run_fzf_mock.side_effect = [
+            ["query-a", ["task-a"]],
+            ["query-b", ["task-b"]],
+        ]
+
+        PerfParser.push_info.finished_run = True
+
+        run(show_all=True, query=["'query-a", "'query-b"], push_to_vcs=True)
+
+        assert run_fzf_mock.call_count == 2
+        assert perf_push_to_try_mock.call_args.args[0] == {"task-a", "task-b"}
 
 
 @pytest.mark.parametrize(

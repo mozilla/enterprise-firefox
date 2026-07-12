@@ -127,6 +127,7 @@
 
 .onboardingContainer .screen[pos="center"] {
   background-color: transparent;
+  border-radius: 0;
   min-width: 100%;
 }
 

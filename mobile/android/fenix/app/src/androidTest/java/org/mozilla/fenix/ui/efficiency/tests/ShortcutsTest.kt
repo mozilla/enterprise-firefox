@@ -5,13 +5,12 @@
 package org.mozilla.fenix.ui.efficiency.tests
 
 import org.junit.Test
-import org.mozilla.fenix.R
 import org.mozilla.fenix.customannotations.SmokeTest
-import org.mozilla.fenix.helpers.DataGenerationHelper.getStringResource
 import org.mozilla.fenix.helpers.TestAssetHelper.getGenericAsset
 import org.mozilla.fenix.ui.efficiency.helpers.BaseTest
-import org.mozilla.fenix.ui.efficiency.selectors.MainMenuSelectors.ADD_TO_SHORTCUTS_BUTTON
-import org.mozilla.fenix.ui.efficiency.selectors.MainMenuSelectors.MORE_BUTTON
+import org.mozilla.fenix.ui.efficiency.selectors.BrowserPageSelectors
+import org.mozilla.fenix.ui.efficiency.selectors.HomeSelectors
+import org.mozilla.fenix.ui.efficiency.selectors.MainMenuSelectors
 
 class ShortcutsTest : BaseTest() {
 
@@ -28,13 +27,13 @@ class ShortcutsTest : BaseTest() {
         on.browserPage.navigateToPage(defaultWebPage.url.toString())
             .verifyPageContent(defaultWebPage.content)
         on.mainMenu.navigateToPage()
-            .mozClick(MORE_BUTTON)
-            .mozVerify(ADD_TO_SHORTCUTS_BUTTON)
-            .mozClick(ADD_TO_SHORTCUTS_BUTTON)
-            .verifySnackbarText(getStringResource(R.string.snackbar_added_to_shortcuts))
-            .waitForSnackbarToBeDismissed()
+            .mozClick(MainMenuSelectors.MORE_BUTTON)
+            .mozVerify(MainMenuSelectors.ADD_TO_SHORTCUTS_BUTTON)
+            .mozClick(MainMenuSelectors.ADD_TO_SHORTCUTS_BUTTON)
+        on.browserPage.navigateToPage()
+            .mozVerify(BrowserPageSelectors.ADDED_TO_SHORTCUTS_SNACKBAR_TEXT)
         on.home.navigateToPage()
             .mozVerifyElementsByGroup("topSitesCompose")
-        on.home.verifyTopSiteItem(defaultWebPage.title)
+            .mozVerify(HomeSelectors.TOP_SITE_ITEM(defaultWebPage.title))
     }
 }

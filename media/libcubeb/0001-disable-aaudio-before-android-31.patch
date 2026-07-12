@@ -1,0 +1,20 @@
+--- a/src/cubeb_aaudio.cpp
++++ b/src/cubeb_aaudio.cpp
+@@ -11,6 +11,7 @@
+ #include "cubeb_resampler.h"
+ #include "cubeb_triple_buffer.h"
+ #include <aaudio/AAudio.h>
++#include <android/api-level.h>
+ #include <atomic>
+ #include <cassert>
+ #include <chrono>
+@@ -2158,6 +2159,9 @@ const static struct cubeb_ops aaudio_ops = {
+ extern "C" /*static*/ int
+ aaudio_init(cubeb ** context, char const * /* context_name */)
+ {
++  if (android_get_device_api_level() <= 30) {
++    return CUBEB_ERROR;
++  }
+ #ifndef DISABLE_LIBAAUDIO_DLOPEN
+   if (!AAudioLibrary::get().load()) {
+     return CUBEB_ERROR;

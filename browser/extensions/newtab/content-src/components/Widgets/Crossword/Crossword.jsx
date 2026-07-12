@@ -7,7 +7,11 @@ import React, { useCallback, useRef } from "react";
 import { useSelector, batch } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import { useIntersectionObserver, useSizeSubmenu } from "../../../lib/utils";
-import { WIDGET_REGISTRY, resolveWidgetSize } from "common/WidgetsRegistry.mjs";
+import {
+  WIDGET_REGISTRY,
+  resolveWidgetSize,
+  resolveCrosswordEndpoint,
+} from "common/WidgetsRegistry.mjs";
 import { MoveSubmenu } from "../MoveSubmenu";
 
 const USER_ACTION_TYPES = {
@@ -19,6 +23,7 @@ const CROSSWORD_ENTRY = WIDGET_REGISTRY.find(w => w.id === "crossword");
 function Crossword({ dispatch, widgetsMayBeMaximized, widgetEnabledMap }) {
   const prefs = useSelector(state => state.Prefs.values);
   const widgetSize = resolveWidgetSize(CROSSWORD_ENTRY, prefs);
+  const crosswordEndpoint = resolveCrosswordEndpoint(prefs);
   const impressionFired = useRef(false);
 
   const handleIntersection = useCallback(() => {
@@ -121,7 +126,10 @@ function Crossword({ dispatch, widgetsMayBeMaximized, widgetEnabledMap }) {
       }}
     >
       <div className="crossword-title-wrapper">
-        <h3 className="newtab-crossword-title"></h3>
+        <h3
+          className="newtab-crossword-title"
+          data-l10n-id="newtab-crossword-widget-header"
+        ></h3>
         <div className="crossword-context-menu-wrapper">
           <moz-button
             className="crossword-context-menu-button"
@@ -160,15 +168,25 @@ function Crossword({ dispatch, widgetsMayBeMaximized, widgetEnabledMap }) {
               data-l10n-id="newtab-widget-menu-hide"
               onClick={handleCrosswordHide}
             />
-            {/* TODO: Add in fluent string when correct preview files are set up */}
-            <panel-item className="learn-more" onClick={handleLearnMore}>
-              Learn more
-            </panel-item>
+            <panel-item
+              className="learn-more"
+              data-l10n-id="newtab-crossword-menu-learn-more"
+              onClick={handleLearnMore}
+            />
           </panel-list>
         </div>
       </div>
 
-      <div className="crossword-body"></div>
+      <div className="crossword-body">
+        <iframe
+          className="crossword-frame"
+          title="Crossword"
+          src={crosswordEndpoint}
+          // allow-same-origin is required for the crossword to work, but is
+          // currently under security review to see if it's safe to keep in our codebase right now.
+          sandbox="allow-scripts allow-same-origin"
+        />
+      </div>
     </article>
   );
 }

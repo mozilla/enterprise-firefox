@@ -77,6 +77,11 @@ hazardous behaviors. See <https://firefox-source-docs.mozilla.org/js/HazardAnaly
 The l10n kind repacks a build (from the same source) for a subset of locales,
 to exercise the localized repack logic in CI.
 
+## linux-install-test
+
+Tests the Firefox Linux installer script (``browser/installer/linux/script/install-firefox.sh``)
+across distros, install methods, channels, locales, and architectures.
+
 ## shippable-l10n
 
 The nightly l10n kind repacks a shippable build (from the same source code)

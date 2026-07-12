@@ -5,7 +5,10 @@
 import React, { useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
-import { TOP_SITES_MAX_SITES_PER_ROW } from "common/Reducers.sys.mjs";
+import {
+  TOP_SITES_MAX_ROWS,
+  TOP_SITES_MAX_SITES_PER_ROW,
+} from "common/Reducers.sys.mjs";
 import { TopSiteList } from "./TopSite";
 import { isSponsored, TOP_SITES_SOURCE } from "./TopSitesConstants";
 import { useTopSitesDnD } from "./useTopSitesDnD.jsx";
@@ -27,7 +30,9 @@ export function buildTopSitesList(rows, topSitesRows, maxSitesPerRow) {
   }
 
   if (addButtonIndex === -1) {
-    if (targetPosition < topSites.length) {
+    // Show the add button when there's a free slot, or when the grid is full
+    // but can still grow a row. Hidden once the grid is full at the max rows.
+    if (targetPosition < topSites.length || topSitesRows < TOP_SITES_MAX_ROWS) {
       topSites[targetPosition] = { isAddButton: true };
     }
   } else if (addButtonIndex !== targetPosition) {

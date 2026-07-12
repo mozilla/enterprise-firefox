@@ -283,6 +283,11 @@ class nsHostResolver : public nsISupports, public AHostResolver {
       nsIDNSService::DNSFlags aFlags, uint16_t af, bool aPb, nsresult& aStatus)
       MOZ_REQUIRES(mDBLock) MOZ_REQUIRES(mQueue.mLock);
 
+  bool OtherFamilyHasUsablePositiveResult(const nsHostKey& aKey, uint16_t aAf,
+                                          const mozilla::TimeStamp& aNow,
+                                          nsIDNSService::DNSFlags aFlags)
+      MOZ_REQUIRES(mDBLock);
+
   enum {
     METHOD_HIT = 1,
     METHOD_RENEWAL = 2,

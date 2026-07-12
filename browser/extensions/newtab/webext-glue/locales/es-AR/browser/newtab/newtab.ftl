@@ -96,6 +96,12 @@ home-prefs-clocks-header =
 # Privacy is a widget on New Tab that shows tracking protection activity.
 home-prefs-privacy-header =
     .label = Privacidad
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = Acciones
+# Picture of the day is a widget on New Tab that shows a daily Wikimedia Commons image.
+home-prefs-picture-header =
+    .label = Foto del día
 home-prefs-mission-message2 =
     .message = Nuestros patrocinadores apoyan nuestra misión de construir una web mejor.
 home-prefs-manage-topics-link2 =
@@ -159,6 +165,45 @@ home-prefs-mission-message-learn-more-link-srd = Descubra cómo
 
 # Context menu item linking to more information about the Privacy widget.
 newtab-privacy-menu-learn-more = Conocer más
+
+## Strings for the Stocks widget
+
+# Context menu item for searching stock ticker symbols.
+newtab-stocks-menu-search = Buscar símbolos de acciones
+# Context menu item that hides the Stocks widget.
+newtab-stocks-menu-hide = Ocultar acciones
+# Context menu item linking to more information about the Stocks widget.
+newtab-stocks-menu-learn-more = Conocer más
+
+## Strings for the Picture of the Day widget
+
+# Eyebrow shown at the top of the widget. Wikimedia Commons is a brand name and
+# should not be translated.
+newtab-picture-header = Foto del día · Wikimedia Commons
+# Button that sets the current picture as the New Tab background wallpaper. The
+# button collapses to an icon when not hovered/focused, so .title is its tooltip.
+newtab-picture-set-wallpaper =
+    .label = Establecer fondo de pantalla
+    .title = Establecer fondo de pantalla
+    .aria-label = Establecer la foto de hoy como fondo de pantalla
+# Context menu item that opens the New Tab customization panel.
+newtab-picture-menu-manage-wallpaper = Administrar fondo de pantalla
+# Context menu item that hides today’s picture, replacing it with an existing
+# wallpaper.
+newtab-picture-menu-hide-photo = Ocultar la foto de hoy
+# Context menu item that restores today’s picture after it has been hidden.
+newtab-picture-menu-show-photo = Mostrar la foto de hoy
+# Context menu item linking to more information about the widget.
+newtab-picture-menu-learn-more = Conocer más
+# Icon button shown on the widget once the picture is hidden; restores it.
+newtab-picture-show-button =
+    .title = Mostrar la foto de hoy
+    .aria-label = Mostrar la foto de hoy
+# Shown when there is no new picture to display yet.
+newtab-picture-check-back = Vuelva mañana para una nueva foto
+# Screen-reader text alternative for the picture; fallback used when the source
+# provides no localized description.
+newtab-picture-image-alt = Foto del día de Wikimedia Commons
 
 ## Search box component.
 
@@ -505,6 +550,10 @@ newtab-custom-widget-sports-toggle2 =
     .label = Deportes
 newtab-custom-widget-privacy-toggle =
     .label = Privacidad
+newtab-custom-widget-stocks-toggle =
+    .label = Acciones
+newtab-custom-widget-picture-toggle =
+    .label = Foto del día
 newtab-custom-widget-section-title = Widgets
 newtab-custom-widget-section-toggle =
     .label = Widgets
@@ -1275,6 +1324,13 @@ newtab-sports-widget-message-add-widgets-cta =
     .label = Agregar widgets
 newtab-sports-widget-message-explore-widgets-cta =
     .label = Explorar widgets
+
+## Survey prompts shown after the World Cup to gather feedback on the widgets experience.
+
+newtab-sports-widget-message-survey-title = Ayúdenos a mejorar los widgets
+newtab-sports-widget-message-survey-widget-title = ¿Cómo estuvo el widget de la Copa del Mundo?
+newtab-sports-widget-message-survey-cta =
+    .label = Responder encuesta
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

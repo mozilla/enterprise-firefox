@@ -35,7 +35,7 @@ export class SmartwindowPanelList extends MozLitElement {
     anchor: { type: Object },
     placeholderL10nId: { type: String },
     alwaysOpen: { type: Boolean },
-    sidebarMode: { type: Boolean },
+    sidebarMode: { type: Boolean, reflect: true },
   };
 
   #panelList = null;
@@ -67,14 +67,17 @@ export class SmartwindowPanelList extends MozLitElement {
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     const panelRect = panelEl.getBoundingClientRect();
-    const effectiveWidth = Math.min(panelRect.width, viewportWidth);
+    const margin = parseFloat(getComputedStyle(panelEl).marginInlineStart) || 0;
+    const effectiveWidth = Math.min(
+      panelRect.width,
+      viewportWidth - 2 * margin
+    );
     const effectiveHeight = Math.min(panelRect.height, viewportHeight);
 
     let x = parseFloat(panelEl.style.left) || 0;
     let y = parseFloat(panelEl.style.top) || 0;
-    x = Math.max(0, Math.min(x, viewportWidth - effectiveWidth));
+    x = Math.max(0, Math.min(x, viewportWidth - effectiveWidth - 2 * margin));
     y = Math.max(0, Math.min(y, viewportHeight - effectiveHeight));
-    panelEl.style.maxWidth = `${viewportWidth}px`;
     panelEl.style.left = `${x}px`;
     panelEl.style.top = `${y}px`;
   }

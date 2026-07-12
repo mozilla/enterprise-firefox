@@ -4,15 +4,15 @@ Documentation has two try jobs associated:
 
 - `doc-generate` - This generates the documentation with the committed changes on the try server and gives the same output as if it has landed on regular integration branch.
 
-> ```shell
-> mach try fuzzy -q "'doc-generate"
-> ```
+  ```shell
+  mach try fuzzy -q "'doc-generate"
+  ```
 
 - `doc-upload` - This uploads documentation to [gecko-l1 bucket](http://gecko-docs.mozilla.org-l1.s3.us-west-2.amazonaws.com/index.html) with the committed changes.
 
-> ```shell
-> mach try fuzzy -q "'doc-upload"
-> ```
+  ```shell
+  mach try fuzzy -q "'doc-upload"
+  ```
 
 When the documentation is modified, at review phase, reviewbot will automatically generate a temporary documentation with a direct link to the modified pages.
 

@@ -184,6 +184,35 @@ export class PrivacySettingHelpers {
     Preferences.getSetting("reloadTabsHint").value = true;
   }
 
+  /**
+   * Forces the URL classifier to refresh the cryptomining tracker tables so the
+   * change takes effect immediately rather than at the next scheduled update.
+   */
+  static updateCryptominingLists() {
+    let listValue = [
+      "urlclassifier.features.cryptomining.blacklistTables",
+      "urlclassifier.features.cryptomining.whitelistTables",
+    ]
+      .map(l => Services.prefs.getStringPref(l))
+      .join(",");
+    lazy.listManager.forceUpdates(listValue);
+  }
+
+  /**
+   * Forces the URL classifier to refresh the fingerprinting tracker tables so
+   * the change takes effect immediately rather than at the next scheduled
+   * update.
+   */
+  static updateFingerprintingLists() {
+    let listValue = [
+      "urlclassifier.features.fingerprinting.blacklistTables",
+      "urlclassifier.features.fingerprinting.whitelistTables",
+    ]
+      .map(l => Services.prefs.getStringPref(l))
+      .join(",");
+    lazy.listManager.forceUpdates(listValue);
+  }
+
   static async onBaselineAllowListSettingChange(value, setting) {
     if (value) {
       PrivacySettingHelpers.maybeNotifyUserToReload();
@@ -1257,8 +1286,9 @@ SettingGroupManager.registerGroups({
         id: "reloadTabsHint",
         control: "moz-message-bar",
         l10nId: "preferences-etp-reload-tabs-hint",
-        options: [
+        items: [
           {
+            id: "reloadTabsHintButton",
             control: "moz-button",
             l10nId: "preferences-etp-reload-tabs-hint-button",
             slot: "actions",
@@ -1315,8 +1345,9 @@ SettingGroupManager.registerGroups({
         id: "reloadTabsHint",
         control: "moz-message-bar",
         l10nId: "preferences-etp-reload-tabs-hint",
-        options: [
+        items: [
           {
+            id: "reloadTabsHintButton",
             control: "moz-button",
             l10nId: "preferences-etp-reload-tabs-hint-button",
             slot: "actions",
@@ -3694,6 +3725,10 @@ Preferences.addSetting({
   visible(_, setting) {
     return setting.value;
   },
+});
+
+Preferences.addSetting({
+  id: "reloadTabsHintButton",
   onUserClick() {
     PrivacySettingHelpers.reloadAllOtherTabs();
   },
@@ -3821,9 +3856,43 @@ Preferences.addSetting({
   pref: "privacy.trackingprotection.pbmode.enabled",
 });
 
+// We don't expose email tracking protection directly on the privacy UI;
+// instead it follows the tracking protection controls. The all-windows email
+// pref mirrors the all-windows tracking protection pref, and the private
+// windows email pref mirrors the private windows tracking protection pref.
+Preferences.addSetting({
+  id: "trackingProtectionEmailEnabled",
+  pref: "privacy.trackingprotection.emailtracking.enabled",
+});
+
+Preferences.addSetting({
+  id: "trackingProtectionEmailEnabledPBM",
+  pref: "privacy.trackingprotection.emailtracking.pbmode.enabled",
+});
+
+// Social tracking protection isn't exposed directly either; it follows the
+// all-windows tracking protection control, but only when the user is blocking
+// social tracking cookies (socialBlockCookies). This mirrors the old UI.
+Preferences.addSetting({
+  id: "trackingProtectionSocialEnabled",
+  pref: "privacy.trackingprotection.socialtracking.enabled",
+});
+
+Preferences.addSetting({
+  id: "socialBlockCookies",
+  pref: "privacy.socialtracking.block_cookies.enabled",
+});
+
 Preferences.addSetting({
   id: "etpCustomTrackingProtectionEnabledContext",
-  deps: ["trackingProtectionEnabled", "trackingProtectionEnabledPBM"],
+  deps: [
+    "trackingProtectionEnabled",
+    "trackingProtectionEnabledPBM",
+    "trackingProtectionEmailEnabled",
+    "trackingProtectionEmailEnabledPBM",
+    "trackingProtectionSocialEnabled",
+    "socialBlockCookies",
+  ],
   get(_, { trackingProtectionEnabled, trackingProtectionEnabledPBM }) {
     if (trackingProtectionEnabled.value && trackingProtectionEnabledPBM.value) {
       return "all";
@@ -3832,20 +3901,47 @@ Preferences.addSetting({
     }
     return null;
   },
-  set(value, { trackingProtectionEnabled, trackingProtectionEnabledPBM }) {
+  set(
+    value,
+    {
+      trackingProtectionEnabled,
+      trackingProtectionEnabledPBM,
+      trackingProtectionEmailEnabled,
+      trackingProtectionEmailEnabledPBM,
+      trackingProtectionSocialEnabled,
+      socialBlockCookies,
+    }
+  ) {
     if (value == "all") {
       trackingProtectionEnabled.value = true;
       trackingProtectionEnabledPBM.value = true;
+      trackingProtectionEmailEnabled.value = true;
+      trackingProtectionEmailEnabledPBM.value = true;
+      if (socialBlockCookies.value) {
+        trackingProtectionSocialEnabled.value = true;
+      }
     } else if (value == "pbmOnly") {
       trackingProtectionEnabled.value = false;
       trackingProtectionEnabledPBM.value = true;
+      trackingProtectionEmailEnabled.value = false;
+      trackingProtectionEmailEnabledPBM.value = true;
+      if (socialBlockCookies.value) {
+        trackingProtectionSocialEnabled.value = false;
+      }
     }
   },
 });
 
 Preferences.addSetting({
   id: "etpCustomTrackingProtectionEnabled",
-  deps: ["trackingProtectionEnabled", "trackingProtectionEnabledPBM"],
+  deps: [
+    "trackingProtectionEnabled",
+    "trackingProtectionEnabledPBM",
+    "trackingProtectionEmailEnabled",
+    "trackingProtectionEmailEnabledPBM",
+    "trackingProtectionSocialEnabled",
+    "socialBlockCookies",
+  ],
   disabled: ({ trackingProtectionEnabled, trackingProtectionEnabledPBM }) => {
     return (
       trackingProtectionEnabled.locked || trackingProtectionEnabledPBM.locked
@@ -3856,13 +3952,32 @@ Preferences.addSetting({
       trackingProtectionEnabled.value || trackingProtectionEnabledPBM.value
     );
   },
-  set(value, { trackingProtectionEnabled, trackingProtectionEnabledPBM }) {
+  set(
+    value,
+    {
+      trackingProtectionEnabled,
+      trackingProtectionEnabledPBM,
+      trackingProtectionEmailEnabled,
+      trackingProtectionEmailEnabledPBM,
+      trackingProtectionSocialEnabled,
+      socialBlockCookies,
+    }
+  ) {
     if (value) {
       trackingProtectionEnabled.value = false;
       trackingProtectionEnabledPBM.value = true;
+      trackingProtectionEmailEnabled.value = false;
+      trackingProtectionEmailEnabledPBM.value = true;
     } else {
       trackingProtectionEnabled.value = false;
       trackingProtectionEnabledPBM.value = false;
+      trackingProtectionEmailEnabled.value = false;
+      trackingProtectionEmailEnabledPBM.value = false;
+    }
+    // Neither toggle branch enables all-windows tracking protection, so social
+    // trackers are never blocked here; clear the pref to match the old UI.
+    if (socialBlockCookies.value) {
+      trackingProtectionSocialEnabled.value = false;
     }
   },
 });
@@ -3870,11 +3985,17 @@ Preferences.addSetting({
 Preferences.addSetting({
   id: "etpCustomCryptominingProtectionEnabled",
   pref: "privacy.trackingprotection.cryptomining.enabled",
+  onUserChange() {
+    PrivacySettingHelpers.updateCryptominingLists();
+  },
 });
 
 Preferences.addSetting({
   id: "etpCustomKnownFingerprintingProtectionEnabled",
   pref: "privacy.trackingprotection.fingerprinting.enabled",
+  onUserChange() {
+    PrivacySettingHelpers.updateFingerprintingLists();
+  },
 });
 
 Preferences.addSetting({
@@ -3929,6 +4050,9 @@ Preferences.addSetting({
       etpCustomFingerprintingProtectionEnabledPBM.value = false;
     }
   },
+  onUserChange(value) {
+    Glean.privacyUiFppClick.checkbox.record({ checked: value });
+  },
 });
 
 Preferences.addSetting({
@@ -3968,5 +4092,8 @@ Preferences.addSetting({
       etpCustomFingerprintingProtectionEnabled.value = false;
       etpCustomFingerprintingProtectionEnabledPBM.value = true;
     }
+  },
+  onUserChange(value) {
+    Glean.privacyUiFppClick.menu.record({ value });
   },
 });

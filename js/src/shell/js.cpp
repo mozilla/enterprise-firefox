@@ -13782,19 +13782,14 @@ bool SetContextWasmOptions(JSContext* cx, const OptionParser& op) {
       MOZ_ASSERT(enableWasmBaseline);
       enableWasmOptimizing = false;
     } else if (strcmp(str, "optimizing") == 0 ||
-               strcmp(str, "optimized") == 0) {
+               strcmp(str, "optimized") == 0 || strcmp(str, "ion") == 0) {
       enableWasmBaseline = false;
       MOZ_ASSERT(enableWasmOptimizing);
     } else if (strcmp(str, "baseline+optimizing") == 0 ||
-               strcmp(str, "baseline+optimized") == 0) {
+               strcmp(str, "baseline+optimized") == 0 ||
+               strcmp(str, "baseline+ion") == 0) {
       MOZ_ASSERT(enableWasmBaseline);
       MOZ_ASSERT(enableWasmOptimizing);
-    } else if (strcmp(str, "ion") == 0) {
-      enableWasmBaseline = false;
-      enableWasmOptimizing = true;
-    } else if (strcmp(str, "baseline+ion") == 0) {
-      MOZ_ASSERT(enableWasmBaseline);
-      enableWasmOptimizing = true;
     } else {
       return OptionFailure("wasm-compiler", str);
     }

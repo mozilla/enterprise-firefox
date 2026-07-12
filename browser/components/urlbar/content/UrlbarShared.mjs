@@ -15,6 +15,20 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 export const UrlbarShared = {
+  // The query-lifecycle notifications the controller dispatches to its
+  // listeners. Defined here so both the parent controller and the content-side
+  // child controller name them identically without the child reaching into the
+  // parent module.
+  NOTIFICATIONS: Object.freeze({
+    QUERY_STARTED: "onQueryStarted",
+    QUERY_RESULTS: "onQueryResults",
+    QUERY_RESULT_REMOVED: "onQueryResultRemoved",
+    QUERY_CANCELLED: "onQueryCancelled",
+    QUERY_FINISHED: "onQueryFinished",
+    VIEW_OPEN: "onViewOpen",
+    VIEW_CLOSE: "onViewClose",
+  }),
+
   TOKEN_TYPE: Object.freeze({
     TEXT: 1,
     // `looksLikeOrigin()` returned a value for this token that was neither

@@ -8,9 +8,11 @@ import org.junit.Ignore
 import org.junit.Test
 import org.mozilla.fenix.customannotations.SmokeTest
 import org.mozilla.fenix.helpers.MockBrowserDataHelper
+import org.mozilla.fenix.helpers.TestAssetHelper.firstForeignWebPageAsset
 import org.mozilla.fenix.helpers.TestAssetHelper.getGenericAsset
 import org.mozilla.fenix.helpers.TestAssetHelper.pdfFormAsset
 import org.mozilla.fenix.ui.efficiency.helpers.BaseTest
+import org.mozilla.fenix.ui.efficiency.selectors.AddToHomeScreenSelectors
 import org.mozilla.fenix.ui.efficiency.selectors.BookmarksSelectors
 import org.mozilla.fenix.ui.efficiency.selectors.BookmarksSelectors.DELETE_BOOKMARK_BUTTON
 import org.mozilla.fenix.ui.efficiency.selectors.BrowserPageSelectors
@@ -26,7 +28,9 @@ import org.mozilla.fenix.ui.efficiency.selectors.MainMenuSelectors.DESKTOP_SITE_
 import org.mozilla.fenix.ui.efficiency.selectors.MainMenuSelectors.EDIT_BOOKMARK_BUTTON
 import org.mozilla.fenix.ui.efficiency.selectors.MainMenuSelectors.FORWARD_BUTTON
 
-class MainMenuTest : BaseTest() {
+class MainMenuTest : BaseTest(
+    isPageLoadTranslationsPromptEnabled = false,
+) {
 
     private val mockWebServer get() = fenixTestRule.mockWebServer
 
@@ -253,5 +257,72 @@ class MainMenuTest : BaseTest() {
             .mozClick(CollectionsSelectors.COLLECTION_WITH_TITLE(collectionTitle))
             .mozVerify(CollectionsSelectors.COLLECTION_TAB_WITH_TITLE(firstTestPage.title))
             .mozVerify(CollectionsSelectors.COLLECTION_TAB_WITH_TITLE(secondTestPage.title))
+    }
+
+    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080111
+    @SmokeTest
+    @Test
+    fun verifyTheTranslatePageSubMenuOptionTest() {
+        val testPage = mockWebServer.firstForeignWebPageAsset
+
+        on.browserPage.navigateToPage(testPage.url.toString())
+            .openMainMenu()
+            .mozClick(MainMenuSelectors.MORE_BUTTON)
+            .mozClick(MainMenuSelectors.TRANSLATE_BUTTON)
+            .mozClickIfPresent(BrowserPageSelectors.TRANSLATION_SHEET_TRANSLATE_BUTTON)
+            .mozWaitUntilAbsent(BrowserPageSelectors.TRANSLATION_SHEET_TRANSLATE_BUTTON)
+        on.browserPage
+            .openMainMenu()
+            .mozClick(MainMenuSelectors.MORE_BUTTON)
+            .mozClick(MainMenuSelectors.TRANSLATED_BUTTON)
+            .mozClickIfPresent(BrowserPageSelectors.TRANSLATION_SHEET_SHOW_ORIGINAL_BUTTON)
+            .mozWaitUntilAbsent(BrowserPageSelectors.TRANSLATION_SHEET_SHOW_ORIGINAL_BUTTON)
+        on.browserPage
+            .verifyPageContent(testPage.content)
+            .openMainMenu()
+            .mozClick(MainMenuSelectors.MORE_BUTTON)
+            .mozVerify(MainMenuSelectors.TRANSLATE_BUTTON)
+    }
+
+    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080113
+    @SmokeTest
+    @Test
+    fun verifyTheAddToShortcutsSubMenuOptionTest() {
+        val testPage = mockWebServer.getGenericAsset(1)
+
+        on.browserPage.navigateToPage(testPage.url.toString())
+        on.mainMenu.navigateToPage()
+            .mozClick(MainMenuSelectors.MORE_BUTTON)
+            .mozClick(MainMenuSelectors.ADD_TO_SHORTCUTS_BUTTON)
+        on.browserPage.navigateToPage()
+            .mozVerifyElementsByGroup("addedToShortcutsSnackbar")
+        on.home.navigateToPage()
+            .mozVerify(HomeSelectors.TOP_SITE_ITEM(testPage.title))
+            .mozClick(HomeSelectors.TOP_SITE_ITEM(testPage.title))
+        on.browserPage.navigateToPage()
+        on.mainMenu.navigateToPage()
+            .mozClick(MainMenuSelectors.MORE_BUTTON)
+            .mozClick(MainMenuSelectors.REMOVE_FROM_SHORTCUTS_BUTTON)
+        on.browserPage.navigateToPage()
+        on.home.navigateToPage()
+            .mozWaitUntilAbsent(HomeSelectors.TOP_SITE_ITEM(testPage.title))
+    }
+
+    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080114
+    @SmokeTest
+    @Test
+    fun verifyTheAddToHomeScreenSubMenuOptionTest() {
+        val testPage = mockWebServer.getGenericAsset(1)
+
+        on.browserPage.navigateToPage(testPage.url.toString())
+        on.addToHomescreen.navigateToPage()
+            .mozClickIfPresent(AddToHomeScreenSelectors.CANCEL_DIALOG_BUTTON)
+        on.browserPage.navigateToPage()
+        on.addToHomescreen.navigateToPage()
+            .mozClickIfPresent(AddToHomeScreenSelectors.ADD_DIALOG_BUTTON)
+            .mozClick(AddToHomeScreenSelectors.SYSTEM_PROMPT_ADD_TO_HOME_SCREEN_BUTTON)
+            .mozClickIfPresent(AddToHomeScreenSelectors.HOME_SCREEN_SHORTCUT(testPage.title))
+        on.browserPage.navigateToPage()
+            .verifyPageContent(testPage.content)
     }
 }

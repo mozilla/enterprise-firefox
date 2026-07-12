@@ -143,34 +143,30 @@ build. Firefox is the default.
 
 Choose one of the following options to add to your `mozconfig` file:
 
-Browser (Firefox)
+**Browser (Firefox)** (the default):
 
-: ```
-  ac_add_options --enable-project=browser
-  ```
+```
+ac_add_options --enable-project=browser
+```
 
-  :::{note}
-  This is the default
-  :::
+**Mail (Thunderbird)**:
 
-Mail (Thunderbird)
+```
+ac_add_options --enable-project=comm/mail
+```
 
-: ```
-  ac_add_options --enable-project=comm/mail
-  ```
+**Mozilla Suite (SeaMonkey)**:
 
-Mozilla Suite (SeaMonkey)
+```
+ac_add_options --enable-project=suite
+```
 
-: ```
-  ac_add_options --enable-project=suite
-  ```
+**Calendar (Lightning Extension, uses Thunderbird)**:
 
-Calendar (Lightning Extension, uses Thunderbird)
-
-: ```
-  ac_add_options --enable-project=comm/mail
-  ac_add_options --enable-calendar
-  ```
+```
+ac_add_options --enable-project=comm/mail
+ac_add_options --enable-calendar
+```
 
 ## Selecting build options
 

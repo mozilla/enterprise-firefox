@@ -575,8 +575,8 @@ void SurfaceTextureHost::PushResourceUpdates(
 
   // Prefer TextureExternal unless the backend requires TextureRect.
   TextureHost::NativeTexturePolicy policy =
-      TextureHost::BackendNativeTexturePolicy(aResources.GetBackendType(),
-                                              GetSize());
+      TextureHost::BackendNativeTexturePolicy(
+          aResources.GetCapabilities().mBackendType, GetSize());
   auto imageType = wr::ExternalImageType::TextureHandle(
       wr::ImageBufferKind::TextureExternal);
   if (policy == TextureHost::NativeTexturePolicy::REQUIRE) {
@@ -594,7 +594,7 @@ void SurfaceTextureHost::PushResourceUpdates(
   // See RenderAndroidSurfaceTextureHost::Lock() and
   // RenderAndroidSurfaceTextureHost::ReadTexImage(), respectively.
   const bool normalizedUvs =
-      aResources.GetBackendType() == WebRenderBackend::HARDWARE;
+      aResources.GetCapabilities().mBackendType == WebRenderBackend::HARDWARE;
 
   switch (GetFormat()) {
     case gfx::SurfaceFormat::R8G8B8X8:
@@ -606,10 +606,10 @@ void SurfaceTextureHost::PushResourceUpdates(
 
       // XXX Add RGBA handling. Temporary hack to avoid crash
       // With BGRA format setting, rendering works without problem.
-      auto format = GetFormat() == gfx::SurfaceFormat::R8G8B8A8
-                        ? gfx::SurfaceFormat::B8G8R8A8
-                        : gfx::SurfaceFormat::B8G8R8X8;
-      wr::ImageDescriptor descriptor(GetSize(), format);
+      wr::ImageDescriptor descriptor(GetSize(), wr::ImageFormat::BGRA8,
+                                     GetFormat() == gfx::SurfaceFormat::R8G8B8A8
+                                         ? wr::OpacityType::HasAlphaChannel
+                                         : wr::OpacityType::Opaque);
       (aResources.*method)(aImageKeys[0], descriptor, aExtID, imageType, 0,
                            normalizedUvs);
       break;
@@ -877,8 +877,8 @@ void AndroidHardwareBufferTextureHost::PushResourceUpdates(
 
   // Prefer TextureExternal unless the backend requires TextureRect.
   TextureHost::NativeTexturePolicy policy =
-      TextureHost::BackendNativeTexturePolicy(aResources.GetBackendType(),
-                                              GetSize());
+      TextureHost::BackendNativeTexturePolicy(
+          aResources.GetCapabilities().mBackendType, GetSize());
   auto imageType = policy == TextureHost::NativeTexturePolicy::REQUIRE
                        ? wr::ExternalImageType::TextureHandle(
                              wr::ImageBufferKind::TextureRect)
@@ -895,10 +895,10 @@ void AndroidHardwareBufferTextureHost::PushResourceUpdates(
 
       // XXX Add RGBA handling. Temporary hack to avoid crash
       // With BGRA format setting, rendering works without problem.
-      auto format = GetFormat() == gfx::SurfaceFormat::R8G8B8A8
-                        ? gfx::SurfaceFormat::B8G8R8A8
-                        : gfx::SurfaceFormat::B8G8R8X8;
-      wr::ImageDescriptor descriptor(GetSize(), format);
+      wr::ImageDescriptor descriptor(GetSize(), wr::ImageFormat::BGRA8,
+                                     GetFormat() == gfx::SurfaceFormat::R8G8B8A8
+                                         ? wr::OpacityType::HasAlphaChannel
+                                         : wr::OpacityType::Opaque);
       (aResources.*method)(aImageKeys[0], descriptor, aExtID, imageType, 0,
                            /* aNormalizedUvs */ false);
       break;
@@ -1024,8 +1024,8 @@ void AndroidImageReaderImageTextureHost::PushResourceUpdates(
 
   // Prefer TextureExternal unless the backend requires TextureRect.
   TextureHost::NativeTexturePolicy policy =
-      TextureHost::BackendNativeTexturePolicy(aResources.GetBackendType(),
-                                              GetSize());
+      TextureHost::BackendNativeTexturePolicy(
+          aResources.GetCapabilities().mBackendType, GetSize());
   auto imageType = wr::ExternalImageType::TextureHandle(
       wr::ImageBufferKind::TextureExternal);
   if (policy == TextureHost::NativeTexturePolicy::REQUIRE) {
@@ -1043,10 +1043,10 @@ void AndroidImageReaderImageTextureHost::PushResourceUpdates(
 
       // XXX Add RGBA handling. Temporary hack to avoid crash
       // With BGRA format setting, rendering works without problem.
-      auto format = GetFormat() == gfx::SurfaceFormat::R8G8B8A8
-                        ? gfx::SurfaceFormat::B8G8R8A8
-                        : gfx::SurfaceFormat::B8G8R8X8;
-      wr::ImageDescriptor descriptor(GetSize(), format);
+      wr::ImageDescriptor descriptor(GetSize(), wr::ImageFormat::BGRA8,
+                                     GetFormat() == gfx::SurfaceFormat::R8G8B8A8
+                                         ? wr::OpacityType::HasAlphaChannel
+                                         : wr::OpacityType::Opaque);
       (aResources.*method)(aImageKeys[0], descriptor, aExtID, imageType, 0,
                            /* aNormalizedUvs */ false);
       break;
@@ -1190,8 +1190,8 @@ void EGLImageTextureHost::PushResourceUpdates(
 
   // Prefer TextureExternal unless the backend requires TextureRect.
   TextureHost::NativeTexturePolicy policy =
-      TextureHost::BackendNativeTexturePolicy(aResources.GetBackendType(),
-                                              GetSize());
+      TextureHost::BackendNativeTexturePolicy(
+          aResources.GetCapabilities().mBackendType, GetSize());
   auto imageType = policy == TextureHost::NativeTexturePolicy::REQUIRE
                        ? wr::ExternalImageType::TextureHandle(
                              wr::ImageBufferKind::TextureRect)
@@ -1207,10 +1207,10 @@ void EGLImageTextureHost::PushResourceUpdates(
 
   // XXX Add RGBA handling. Temporary hack to avoid crash
   // With BGRA format setting, rendering works without problem.
-  auto formatTmp = format == gfx::SurfaceFormat::R8G8B8A8
-                       ? gfx::SurfaceFormat::B8G8R8A8
-                       : gfx::SurfaceFormat::B8G8R8X8;
-  wr::ImageDescriptor descriptor(GetSize(), formatTmp);
+  wr::ImageDescriptor descriptor(GetSize(), wr::ImageFormat::BGRA8,
+                                 format == gfx::SurfaceFormat::R8G8B8A8
+                                     ? wr::OpacityType::HasAlphaChannel
+                                     : wr::OpacityType::Opaque);
   (aResources.*method)(aImageKeys[0], descriptor, aExtID, imageType, 0,
                        /* aNormalizedUvs */ false);
 }

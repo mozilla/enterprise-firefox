@@ -283,6 +283,8 @@ skip-if = [
 
 ["test_webgl_force_enable.html"]
 
+["test_webgl_high_power.html"]
+
 ["test_webgl_renderer_constant_fpp.html"]
 
 ["test_webgl_renderer_constant_fpp_explicit.html"]

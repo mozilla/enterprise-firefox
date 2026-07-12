@@ -33,6 +33,11 @@ sealed class LabsAction : Action {
     data class UpdateLabsItems(val items: List<LabsItem>) : LabsAction()
 
     /**
+     * [LabsAction] dispatched when fetching the available Labs from Nimbus failed.
+     */
+    data object FetchFailed : LabsAction()
+
+    /**
      * [LabsAction] dispatched when a Labs item is toggled.
      *
      * @property item The [LabsItem] to toggle.
@@ -48,9 +53,35 @@ sealed class LabsAction : Action {
     data class RemoveLabsItem(val slug: String) : LabsAction()
 
     /**
+     * [LabsAction] dispatched after Nimbus processes a toggle.
+     *
+     * @property slug The Nimbus slug of the toggled Labs item.
+     * @property enabled The enrollment state the user attempted to set.
+     * @property status The raw Nimbus enroll/unenroll status (lowercased), or "exception" if the
+     * Nimbus call threw.
+     */
+    data class ToggleCompleted(
+        val slug: String,
+        val enabled: Boolean,
+        val status: String,
+    ) : LabsAction()
+
+    /**
      * [LabsAction] dispatched to restore the default settings without any Labs items enabled.
      */
     data object RestoreDefaults : LabsAction()
+
+    /**
+     * [LabsAction] dispatched after Nimbus processes a restore-defaults request.
+     *
+     * @property succeeded Whether unenrolling from all Firefox Labs completed without error.
+     * @property itemsChanged The Nimbus slugs of the items that were enrolled when defaults were
+     * restored.
+     */
+    data class RestoreDefaultsCompleted(
+        val succeeded: Boolean,
+        val itemsChanged: List<String>,
+    ) : LabsAction()
 
     /**
      * [LabsAction] dispatched to restart the application.

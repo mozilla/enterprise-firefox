@@ -1650,12 +1650,11 @@ export var Bookmarks = Object.freeze({
       return Object.assign({}, r);
     });
 
-    if (options.includePath) {
+    if (options.includePath && results.length) {
+      let parentGuids = [...new Set(results.map(r => r.parentGuid))];
+      let pathsByGuid = await retrieveFullBookmarkPaths(parentGuids);
       for (let result of results) {
-        let folderPath = await retrieveFullBookmarkPath(result.parentGuid);
-        if (folderPath) {
-          result.path = folderPath;
-        }
+        result.path = pathsByGuid.get(result.parentGuid) ?? [];
       }
     }
 
@@ -2590,6 +2589,64 @@ async function fetchBookmarksByGUIDPrefix(info, options = {}) {
   );
 }
 
+// eslint-disable-next-line no-unused-vars
+async function fetchBookmarksByURLs(urls, options = {}) {
+  if (!urls.length) {
+    throw new Error("URLs array must not be empty");
+  }
+  let query = async function (db) {
+    let params = {
+      tagsFolderId: lazy.PlacesUtils.tagsFolderId,
+      urls,
+    };
+    let rows = await db.executeCached(
+      `/* do not warn (bug no): not worth to add an index */
+      WITH urls(url, url_hash) AS (
+        SELECT value, hash(value) FROM carray(:urls)
+      )
+      SELECT b.guid, IFNULL(p.guid, '') AS parentGuid, b.position AS 'index',
+              b.dateAdded, b.lastModified, b.type, IFNULL(b.title, '') AS title,
+              h.url AS url, b.id AS _id, b.parent AS _parentId,
+              NULL AS _childCount,
+              p.parent AS _grandParentId, b.syncStatus AS _syncStatus,
+              (SELECT group_concat(pp.title ORDER BY pp.title)
+               FROM moz_bookmarks bb
+               JOIN moz_bookmarks pp ON bb.parent = pp.id
+               JOIN moz_bookmarks gg ON pp.parent = gg.id
+               WHERE bb.fk = h.id
+               AND gg.guid = '${Bookmarks.tagsGuid}'
+              ) AS _tags
+      FROM moz_bookmarks b
+      JOIN moz_bookmarks p ON p.id = b.parent
+      JOIN moz_places h ON h.id = b.fk
+      JOIN urls ON urls.url = h.url AND urls.url_hash = h.url_hash
+      WHERE _grandParentId <> :tagsFolderId
+      ORDER BY h.url, b.lastModified DESC`,
+      params
+    );
+
+    let map = new Map();
+    for (let item of rowsToItemsArray(rows)) {
+      let href = item.url.href;
+      let arr = map.get(href);
+      if (!arr) {
+        map.set(href, (arr = []));
+      }
+      arr.push(item);
+    }
+    return map;
+  };
+
+  if (options.concurrent) {
+    let db = await lazy.PlacesUtils.promiseDBConnection();
+    return query(db);
+  }
+  return lazy.PlacesUtils.withConnectionWrapper(
+    "Bookmarks.sys.mjs: fetchBookmarksByURLs",
+    query
+  );
+}
+
 async function fetchBookmarksByURL(info, options = {}) {
   let query = async function (db) {
     let rows = await db.executeCached(
@@ -3313,41 +3370,60 @@ function adjustSeparatorsSyncCounter(
 /**
  * Return the full path, from parent to root folder, of a bookmark.
  *
- * @param {string} guid
- *        The globally unique identifier of the item to determine the full
+ * @param {string[]} guids
+ *        An array of globally unique identifiers to determine the full
  *        bookmark path for.
  * @param {object} [options]
  * @param {boolean} [options.concurrent]
  *   Queries concurrently to any writes, returning results faster. On the
  *   negative side, it may return stale information missing the currently
  *   ongoing write.
- * @returns {Promise<{guid: string, title: string}[]>} When the query is
- *   complete, resolves to an array of {guid, title} objects that represent the
- *   full path from parent to root for the passed in bookmark. Rejects if an
- *   error happens while querying.
+ * @returns {Promise<Map<string, {guid: string, title: string}[]>>} When the
+ *   query is complete, resolves to a Map from each input guid to an array of
+ *   {guid, title} objects representing the full path from parent to root.
+ *   Rejects if an error happens while querying.
  */
-async function retrieveFullBookmarkPath(guid, options = {}) {
+async function retrieveFullBookmarkPaths(guids, options = {}) {
+  if (!guids || !guids.length) {
+    throw new Error("No GUIDs provided to retrieveFullBookmarkPaths.");
+  }
+
   let query = async function (db) {
     let rows = await db.executeCached(
-      `WITH RECURSIVE parents(guid, _id, _parent, title) AS
-          (SELECT guid, id AS _id, parent AS _parent,
+      `WITH RECURSIVE parents(start_guid, guid, _id, _parent, title) AS
+          (SELECT guid AS start_guid, guid, id AS _id, parent AS _parent,
                   IFNULL(title, '') AS title
            FROM moz_bookmarks
-           WHERE guid = :pguid
+           WHERE guid IN carray(:guidArray)
            UNION ALL
-           SELECT b.guid, b.id AS _id, b.parent AS _parent,
+           SELECT p.start_guid, b.guid, b.id AS _id, b.parent AS _parent,
                   IFNULL(b.title, '') AS title
            FROM moz_bookmarks b
-           INNER JOIN parents ON b.id=parents._parent)
+           INNER JOIN parents p ON b.id = p._parent)
         SELECT * FROM parents WHERE guid != :rootGuid;
       `,
-      { pguid: guid, rootGuid: lazy.PlacesUtils.bookmarks.rootGuid }
+      { guidArray: guids, rootGuid: lazy.PlacesUtils.bookmarks.rootGuid }
     );
 
-    return rows.reverse().map(r => ({
-      guid: r.getResultByName("guid"),
-      title: r.getResultByName("title"),
-    }));
+    let pathsByGuid = new Map();
+    for (let r of rows) {
+      let startGuid = r.getResultByName("start_guid");
+      let node = {
+        guid: r.getResultByName("guid"),
+        title: r.getResultByName("title"),
+      };
+
+      if (!pathsByGuid.has(startGuid)) {
+        pathsByGuid.set(startGuid, []);
+      }
+      pathsByGuid.get(startGuid).push(node);
+    }
+
+    for (let pathArray of pathsByGuid.values()) {
+      pathArray.reverse();
+    }
+
+    return pathsByGuid;
   };
 
   if (options.concurrent) {
@@ -3355,7 +3431,7 @@ async function retrieveFullBookmarkPath(guid, options = {}) {
     return query(db);
   }
   return lazy.PlacesUtils.withConnectionWrapper(
-    "Bookmarks.sys.mjs: retrieveFullBookmarkPath",
+    "Bookmarks.sys.mjs: retrieveFullBookmarkPaths",
     query
   );
 }

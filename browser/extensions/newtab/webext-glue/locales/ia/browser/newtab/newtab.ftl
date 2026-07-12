@@ -96,6 +96,12 @@ home-prefs-clocks-header =
 # Privacy is a widget on New Tab that shows tracking protection activity.
 home-prefs-privacy-header =
     .label = Confidentialitate
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = Actiones
+# Picture of the day is a widget on New Tab that shows a daily Wikimedia Commons image.
+home-prefs-picture-header =
+    .label = Imagine del die
 home-prefs-mission-message2 =
     .message = Nostre patrocinatores supporta nostre mission pro construer un web melior.
 home-prefs-manage-topics-link2 =
@@ -162,8 +168,42 @@ newtab-privacy-menu-learn-more = Pro saper plus
 
 ## Strings for the Stocks widget
 
+# Context menu item for searching stock ticker symbols.
+newtab-stocks-menu-search = Recercar symbolos de actiones
+# Context menu item that hides the Stocks widget.
+newtab-stocks-menu-hide = Celar actiones
 # Context menu item linking to more information about the Stocks widget.
 newtab-stocks-menu-learn-more = Pro saper plus
+
+## Strings for the Picture of the Day widget
+
+# Eyebrow shown at the top of the widget. Wikimedia Commons is a brand name and
+# should not be translated.
+newtab-picture-header = Imagine del die · Wikimedia Commons
+# Button that sets the current picture as the New Tab background wallpaper. The
+# button collapses to an icon when not hovered/focused, so .title is its tooltip.
+newtab-picture-set-wallpaper =
+    .label = Fixar fundo de schermo
+    .title = Fixar fundo de schermo
+    .aria-label = Fixa imagine de hodie como fundo de schermo
+# Context menu item that opens the New Tab customization panel.
+newtab-picture-menu-manage-wallpaper = Gerer fundo de schermo
+# Context menu item that hides today’s picture, replacing it with an existing
+# wallpaper.
+newtab-picture-menu-hide-photo = Celar imagine de hodie
+# Context menu item that restores today’s picture after it has been hidden.
+newtab-picture-menu-show-photo = Monstrar imagine de hodie
+# Context menu item linking to more information about the widget.
+newtab-picture-menu-learn-more = Pro saper plus
+# Icon button shown on the widget once the picture is hidden; restores it.
+newtab-picture-show-button =
+    .title = Montrar imagine de hodie
+    .aria-label = Montrar imagine de hodie
+# Shown when there is no new picture to display yet.
+newtab-picture-check-back = Re-controla deman pro un nove imagine
+# Screen-reader text alternative for the picture; fallback used when the source
+# provides no localized description.
+newtab-picture-image-alt = Imagine del die de Wikimedia Commons
 
 ## Search box component.
 
@@ -200,6 +240,7 @@ newtab-topsites-add-shortcut-label = Adder accesso directe
 newtab-topsites-add-shortcut-title =
     .title = Adder accesso directe
     .aria-label = Adder accesso directe
+newtab-shortcuts-pinned-area = Area de sitos clavate
 newtab-topsites-title-label = Titulo
 newtab-topsites-title-input =
     .placeholder = Scriber un titulo
@@ -507,6 +548,10 @@ newtab-custom-widget-sports-toggle2 =
     .label = Sports
 newtab-custom-widget-privacy-toggle =
     .label = Confidentialitate
+newtab-custom-widget-stocks-toggle =
+    .label = Actiones
+newtab-custom-widget-picture-toggle =
+    .label = Imagine del die
 newtab-custom-widget-section-title = Widgets
 newtab-custom-widget-section-toggle =
     .label = Widgets
@@ -1289,6 +1334,15 @@ newtab-sports-widget-message-day-in-play-title = Mantene tu die in joco con le w
 newtab-sports-widget-message-day-in-play-body = Seque le Cuppa del mundo, resta sur le activitate, tracia le tempore circum le mundo, e plus.
 newtab-sports-widget-message-explore-widgets-cta =
     .label = Explorar widgets
+
+## Survey prompts shown after the World Cup to gather feedback on the widgets experience.
+
+newtab-sports-widget-message-survey-title = Adjuta nos a facer widgets melior
+newtab-sports-widget-message-survey-body = Le Cuppa del mundo se ha concludite. Condivide un commentario sur tu experientia.
+newtab-sports-widget-message-survey-widget-title = Como era le widget del Cuppa del mundo?
+newtab-sports-widget-message-survey-widget-body = Condivide tu commentario pro adjutar nos a meliorar futur widgets.
+newtab-sports-widget-message-survey-cta =
+    .label = Participa al questionario
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

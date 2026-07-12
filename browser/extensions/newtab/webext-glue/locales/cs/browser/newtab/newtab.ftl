@@ -93,6 +93,15 @@ home-prefs-sports-widget-header =
 # Clock is a widget on New Tab that displays time zones around the world.
 home-prefs-clocks-header =
     .label = Hodiny
+# Privacy is a widget on New Tab that shows tracking protection activity.
+home-prefs-privacy-header =
+    .label = Soukromí
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = Akcie
+# Picture of the day is a widget on New Tab that shows a daily Wikimedia Commons image.
+home-prefs-picture-header =
+    .label = Obrázek dne
 home-prefs-mission-message2 =
     .message = Naši sponzoři podporují naši misi budovat lepší web.
 home-prefs-manage-topics-link2 =
@@ -160,6 +169,26 @@ home-prefs-support-firefox-header-srd =
            *[no-cases] Podpora aplikace { -brand-product-name }
         }
 home-prefs-mission-message-learn-more-link-srd = Zjistěte jak
+
+## Strings for the Privacy widget
+
+# Context menu item linking to more information about the Privacy widget.
+newtab-privacy-menu-learn-more = Zjistit více
+
+## Strings for the Stocks widget
+
+# Context menu item that hides the Stocks widget.
+newtab-stocks-menu-hide = Skrýt akcie
+# Context menu item linking to more information about the Stocks widget.
+newtab-stocks-menu-learn-more = Zjistit více
+
+## Strings for the Picture of the Day widget
+
+# Eyebrow shown at the top of the widget. Wikimedia Commons is a brand name and
+# should not be translated.
+newtab-picture-header = Obrázek dne · Wikimedia Commons
+# Context menu item linking to more information about the widget.
+newtab-picture-menu-learn-more = Zjistit více
 
 ## Search box component.
 
@@ -513,6 +542,12 @@ newtab-custom-widget-clock-toggle =
     .label = Hodiny
 newtab-custom-widget-sports-toggle2 =
     .label = Sporty
+newtab-custom-widget-privacy-toggle =
+    .label = Soukromí
+newtab-custom-widget-stocks-toggle =
+    .label = Akcie
+newtab-custom-widget-picture-toggle =
+    .label = Obrázek dne
 newtab-custom-widget-section-title = Widgety
 newtab-custom-widget-section-toggle =
     .label = Widgety
@@ -1331,6 +1366,11 @@ newtab-sports-widget-message-day-in-play-title =
 newtab-sports-widget-message-day-in-play-body = Sledujte mistrovství světa, soustřeďte se na své úkoly, sledujte čas v různých částech světa a mnoho dalšího.
 newtab-sports-widget-message-explore-widgets-cta =
     .label = Prozkoumejte widgety
+
+## Survey prompts shown after the World Cup to gather feedback on the widgets experience.
+
+newtab-sports-widget-message-survey-cta =
+    .label = Vyplnit průzkum
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

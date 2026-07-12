@@ -504,6 +504,8 @@ prefs = ["browser.cache.disk.encryption.enabled=true"]
 
 ["test_cache2-41-fetchcount-durable.js"]
 
+["test_cache2-42-no_cache_writer_hang.js"]
+
 ["test_cache2_clear_with_principal.js"]
 run-sequentially = ["true"] # httpd server
 
@@ -786,6 +788,12 @@ skip-if = [
   "os == 'win' && msix",
 ]
 
+["test_happy_eyeballs_trr_connect_fallback.js"]
+skip-if = [
+  "os == 'android'",
+  "os == 'win' && msix",
+]
+
 ["test_happy_eyeballs_dns_prefetch_reuse.js"]
 run-sequentially = ["true"] # node server exceptions dont replay well
 
@@ -831,6 +839,15 @@ skip-if = [
 
 ["test_happy_eyeballs_h3_fallback.js"]
 run-sequentially = ["true"] # node server exceptions dont replay well
+skip-if = [
+  "os == 'android'",
+  "os == 'win'",
+]
+
+["test_happy_eyeballs_h3_stuck_conn.js"]
+run-if = [
+  "debug", # relies on a DEBUG-only test pref
+]
 skip-if = [
   "os == 'android'",
   "os == 'win'",
@@ -1474,7 +1491,12 @@ skip-if = [
 ]
 
 ["test_port_remapping.js"]
-skip-if = ["socketprocess_networking"] # Fails due to Mochia (bug 1982446)
+skip-if = [
+  "os == 'win' && os_version == '11.26100' && arch == 'x86' && socketprocess_networking",
+  "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && socketprocess_networking",
+  "os == 'win' && os_version == '11.26200' && arch == 'x86' && socketprocess_networking",
+  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && socketprocess_networking",
+]
 
 ["test_post.js"]
 

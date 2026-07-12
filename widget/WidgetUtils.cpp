@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include <numbers>
+
 #include "mozilla/WidgetUtils.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/Components.h"
@@ -16,7 +18,7 @@ namespace mozilla {
 gfx::Matrix ComputeTransformForRotation(const nsIntRect& aBounds,
                                         ScreenRotation aRotation) {
   gfx::Matrix transform;
-  static const gfx::Float floatPi = static_cast<gfx::Float>(M_PI);
+  static const gfx::Float floatPi = std::numbers::pi_v<gfx::Float>;
 
   switch (aRotation) {
     case ROTATION_0:
@@ -42,7 +44,7 @@ gfx::Matrix ComputeTransformForRotation(const nsIntRect& aBounds,
 gfx::Matrix ComputeTransformForUnRotation(const nsIntRect& aBounds,
                                           ScreenRotation aRotation) {
   gfx::Matrix transform;
-  static const gfx::Float floatPi = static_cast<gfx::Float>(M_PI);
+  static const gfx::Float floatPi = std::numbers::pi_v<gfx::Float>;
 
   switch (aRotation) {
     case ROTATION_0:

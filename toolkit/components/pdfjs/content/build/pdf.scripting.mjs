@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 6.1.239
- * pdfjsBuild = 0cc1718b0
+ * pdfjsVersion = 6.1.283
+ * pdfjsBuild = 8bc2fe68e
  */
 
 ;// ./src/scripting_api/constants.js
@@ -629,28 +629,18 @@ class Field extends PDFObject {
     }
   }
   buttonGetCaption(nFace = 0) {
-    if (this._buttonCaption) {
-      return this._buttonCaption[nFace];
-    }
-    return "";
+    return this._buttonCaption ? this._buttonCaption[nFace] : "";
   }
   buttonGetIcon(nFace = 0) {
-    if (this._buttonIcon) {
-      return this._buttonIcon[nFace];
-    }
-    return null;
+    return this._buttonIcon ? this._buttonIcon[nFace] : null;
   }
   buttonImportIcon(cPath = null, nPave = 0) {}
   buttonSetCaption(cCaption, nFace = 0) {
-    if (!this._buttonCaption) {
-      this._buttonCaption = ["", "", ""];
-    }
+    this._buttonCaption ??= ["", "", ""];
     this._buttonCaption[nFace] = cCaption;
   }
   buttonSetIcon(oIcon, nFace = 0) {
-    if (!this._buttonIcon) {
-      this._buttonIcon = [null, null, null];
-    }
+    this._buttonIcon ??= [null, null, null];
     this._buttonIcon[nFace] = oIcon;
   }
   checkThisBox(nWidget, bCheckIt = true) {}
@@ -1464,7 +1454,7 @@ class EventDispatcher {
   }
   userActivation() {
     this._document.obj._userActivation = true;
-    this._externalCall("setTimeout", [USERACTIVATION_CALLBACKID, USERACTIVATION_MAXTIME_VALIDITY]);
+    this._externalCall("setTimeout", [(/* inlined export .USERACTIVATION_CALLBACKID */0), (/* inlined export .USERACTIVATION_MAXTIME_VALIDITY */5000)]);
   }
   dispatch(baseEvent) {
     const id = baseEvent.id;
@@ -1806,7 +1796,7 @@ class App extends PDFObject {
     this._timeoutIds = new WeakMap();
     this._timeoutIdsRegistry = new FinalizationRegistry(this._cleanTimeout.bind(this));
     this._timeoutCallbackIds = new Map();
-    this._timeoutCallbackId = USERACTIVATION_CALLBACKID + 1;
+    this._timeoutCallbackId = (/* inlined export .USERACTIVATION_CALLBACKID */0) + 1;
     this._globalEval = data.globalEval;
     this._externalCall = data.externalCall;
   }
@@ -1826,7 +1816,7 @@ class App extends PDFObject {
     interval
   }) {
     const documentObj = this._document.obj;
-    if (callbackId === USERACTIVATION_CALLBACKID) {
+    if (callbackId === (/* inlined export .USERACTIVATION_CALLBACKID */0)) {
       documentObj._userActivation = false;
       return;
     }
@@ -2062,13 +2052,13 @@ class App extends PDFObject {
     this.toolbar = value;
   }
   get viewerType() {
-    return VIEWER_TYPE;
+    return (/* inlined export .VIEWER_TYPE */"PDF.js");
   }
   set viewerType(_) {
     throw new Error("app.viewerType is read-only");
   }
   get viewerVariation() {
-    return VIEWER_VARIATION;
+    return (/* inlined export .VIEWER_VARIATION */"Full");
   }
   set viewerVariation(_) {
     throw new Error("app.viewerVariation is read-only");
@@ -3398,9 +3388,7 @@ class Util extends PDFObject {
         }
       }
       cFlags = flags;
-      if (nWidth) {
-        nWidth = parseInt(nWidth);
-      }
+      nWidth &&= parseInt(nWidth);
       let intPart = Math.trunc(arg);
       if (cConvChar === "x") {
         let hex = Math.abs(intPart).toString(16).toUpperCase();
@@ -3412,9 +3400,7 @@ class Util extends PDFObject {
         }
         return hex;
       }
-      if (nPrecision) {
-        nPrecision = parseInt(nPrecision.substring(1));
-      }
+      nPrecision &&= parseInt(nPrecision.substring(1));
       nDecSep = nDecSep ? nDecSep.substring(1) : "0";
       const separators = {
         0: [",", "."],

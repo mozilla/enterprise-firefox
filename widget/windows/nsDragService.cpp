@@ -429,9 +429,12 @@ nsDragSession::GetNumDropItems(uint32_t* aNumItems) {
   STGMEDIUM stm;
 
   if (SUCCEEDED(mDataObject->GetData(&fe2, &stm))) {
+    *aNumItems = 0;
     LPFILEGROUPDESCRIPTOR pDesc =
         static_cast<LPFILEGROUPDESCRIPTOR>(GlobalLock(stm.hGlobal));
-    if (pDesc) {
+    // Validate that pDesc actualy has the contents it claims.
+    if (pDesc && nsClipboard::FileGroupDescriptorHasItems<FILEGROUPDESCRIPTORW>(
+                     stm.hGlobal, pDesc->cItems)) {
       *aNumItems = pDesc->cItems;
     }
     GlobalUnlock(stm.hGlobal);
@@ -455,6 +458,7 @@ nsDragSession::GetData(nsITransferable* aTransferable, uint32_t anItem) {
   if (IsCollectionObject(mDataObject)) {
     // multiple items, use |anItem| as an index into our collection
     nsDataObjCollection* dataObjCol = GetDataObjCollection(mDataObject);
+    NS_ENSURE_TRUE(dataObjCol, NS_ERROR_FAILURE);
     uint32_t cnt = dataObjCol->GetNumDataObjects();
     if (anItem < cnt) {
       IDataObject* dataObj = dataObjCol->GetDataObjectAt(anItem);

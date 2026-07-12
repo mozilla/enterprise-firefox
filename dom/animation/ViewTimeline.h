@@ -9,7 +9,6 @@
 
 namespace mozilla {
 class ScrollContainerFrame;
-struct TimelineRangeOffset;
 }  // namespace mozilla
 
 namespace mozilla::dom {

@@ -576,7 +576,19 @@
       }
 
       if (eventMaySelectTab) {
+        let prevTab = gBrowser.selectedTab;
+        // super.on_mousedown sets gBrowser.selectedTab via the property setter,
+        // which calls setSelectedTab(val) without a metricsContext. We detect
+        // the change after the fact so we can supply the TAB_STRIP source.
         super.on_mousedown(event);
+        if (gBrowser.selectedTab !== prevTab) {
+          gBrowser.recordTabMetrics(
+            gBrowser.TabMetrics.METRIC_ACTION.ACTIVATE,
+            gBrowser.TabMetrics.userTriggeredContext(
+              gBrowser.TabMetrics.METRIC_SOURCE.TAB_STRIP
+            )
+          );
+        }
       }
     }
 
@@ -691,6 +703,9 @@
         gBrowser.removeTab(this, {
           animate: true,
           triggeringEvent: event,
+          metricsContext: lazy.TabMetrics.userTriggeredContext(
+            lazy.TabMetrics.METRIC_SOURCE.TAB_STRIP
+          ),
         });
       }
     }

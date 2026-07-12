@@ -35,6 +35,17 @@ import { Conversation } from "moz-src:///browser/components/aiwindow/models/Conv
 import { consumeStreamChunk } from "moz-src:///browser/components/aiwindow/models/TokenStreamParser.sys.mjs";
 import { SecurityProperties } from "moz-src:///browser/components/aiwindow/models/SecurityProperties.sys.mjs";
 
+/** @typedef {import("moz-src:///browser/components/aiwindow/models/SearchBrowsingHistory.sys.mjs").HistoryRow} HistoryRow */
+
+/**
+ * A pooled history result: the subset of `HistoryRow` fields the
+ * `search_browsing_history` tool projects into the pool (Tools.sys.mjs) minus
+ * `relevanceScore`, plus a localized `timestamp` and the resolved `image` and
+ * `hasFavicon` asset fields.
+ *
+ * @typedef {Omit<HistoryRow, "relevanceScore"> & { timestamp?: string, image?: (string|null), hasFavicon?: boolean }} PooledHistoryResult
+ */
+
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   convertTimestamp: "chrome://browser/content/firefoxview/helpers.mjs",
@@ -195,21 +206,13 @@ export class ChatConversation extends Conversation {
    * snapshots this pool when it completes (see `receiveResponse`), so any
    * assistant message that lists previously-searched URLs renders a history
    * grid — even when the model answered a follow-up from prior results without
-   * re-invoking the tool. Not persisted to the database.
+   * re-invoking the tool. The pool itself is not persisted; instead each
+   * message persists its own snapshot, and the pool is rehydrated from those
+   * snapshots when the conversation is constructed from the database.
    *
    * @type {Map<string, object>}
    */
   #historyResultsPool = new Map();
-
-  /**
-   * Dispatcher that forwards the history results pool to the
-   * content page. Injected by the owner (ai-window). Called from
-   * `addHistoryResults` during tool execution; actor delivers
-   * the pool to content before the follow-up answer streams.
-   *
-   * @type {?function(object): void}
-   */
-  #historyResultsDispatcher = null;
 
   /**
    * @param {object} params
@@ -245,6 +248,7 @@ export class ChatConversation extends Conversation {
     this.description = description;
     this.pageUrl = pageUrl;
     this.pageMeta = pageMeta;
+    this.rehydrateHistoryResultsPool();
     this.seenUrls = seenUrls ? new Set(seenUrls) : new Set();
     this.serpUrlsForAnonymousFetch = serpUrlsForAnonymousFetch
       ? new Set(serpUrlsForAnonymousFetch)
@@ -397,33 +401,44 @@ export class ChatConversation extends Conversation {
    */
   async receiveResponse(stream) {
     const currentMessage = this.#getCurrentAssistantResponse();
+    if (!currentMessage) {
+      return {
+        pendingToolCalls: [],
+        fullResponseText: "",
+        usage: null,
+      };
+    }
 
-    if (currentMessage?.content?.body) {
+    if (currentMessage.content?.body) {
       currentMessage.content.body += "\n\n";
+    }
+
+    // Set the browsing history snapshot on the message before streaming so its
+    // list is recognized while streaming and swapped to a grid on completion.
+    if (this.#historyResultsPool.size) {
+      currentMessage.historyResults = this.getHistoryResultsSnapshot();
     }
 
     const result = await super.receiveResponse(stream, currentMessage);
 
     if (result.currentMessage?.content?.body) {
-      this.emit("chat-conversation:message-update", result.currentMessage);
+      // Expand URL tokens and remove any hallucinated ones.
+      if (this.urlToToken.size) {
+        result.currentMessage.content.body = stripUnresolvedUrlTokens(
+          result.currentMessage.content.body
+        );
+      }
+
+      this.emit("chat-conversation:message-update", currentMessage);
     }
 
-    if (currentMessage?.memoriesApplied?.length) {
+    if (currentMessage.memoriesApplied.length) {
       currentMessage.memoriesApplied =
         await lazy.MemoriesManager.getMemoriesByID(
           new Set(currentMessage.memoriesApplied)
         );
 
       this.emit("chat-conversation:message-update", currentMessage);
-    }
-
-    // Expand URL tokens and remove any hallucinated ones.
-    if (this.urlToToken.size && currentMessage?.content?.body) {
-      let body = stripUnresolvedUrlTokens(currentMessage.content.body);
-      if (body !== currentMessage.content.body) {
-        currentMessage.content.body = body;
-        this.emit("chat-conversation:message-update", currentMessage);
-      }
     }
 
     await lazy.ChatStore.updateConversation(this);
@@ -1193,7 +1208,7 @@ export class ChatConversation extends Conversation {
    * triggered the search and any later message reusing those results
    * can both render a grid.
    *
-   * @param {Iterable<object>} records - Per-URL records from search_browsing_history.
+   * @param {Iterable<PooledHistoryResult>} records - Per-URL records from search_browsing_history.
    */
   addHistoryResults(records) {
     for (const record of records) {
@@ -1203,36 +1218,46 @@ export class ChatConversation extends Conversation {
       );
       this.#historyResultsPool.set(record.url, record);
     }
-
-    // Deliver to the content page. This runs during tool
-    // execution, so it's dispatched before the assistant's follow-up answer
-    // streams, content side should have the pool
-    // before it renders the list. Tool execution should not block content
-    // process side.
-    this.#historyResultsDispatcher?.({
-      records: [...this.#historyResultsPool.values()],
-    });
-  }
-
-  /**
-   * Register the dispatcher used to forward history results to the content
-   * page. See {@link ChatConversation#addHistoryResults}.
-   *
-   * @param {?function(object): void} dispatcher
-   */
-  setHistoryResultsDispatcher(dispatcher) {
-    this.#historyResultsDispatcher = dispatcher;
   }
 
   /**
    * A snapshot of the accumulated history results pool, as a records array.
-   * Attached to a message when it completes so the content page can render the
-   * history grid deterministically — independent of the streaming-time
-   * dispatch, whose delivery races the message lifecycle.
+   * Set on the active assistant message in `receiveResponse` so the content
+   * page can render the history grid.
    *
-   * @returns {object[]}
+   * @returns {PooledHistoryResult[]}
    */
   getHistoryResultsSnapshot() {
     return [...this.#historyResultsPool.values()];
+  }
+
+  /**
+   * Apply resolved page assets (thumbnail image URI and favicon availability)
+   * onto the pooled history records by URL, so snapshots dispatched afterward
+   * already include them.
+   *
+   * @param {Array<{url: string, image: ?string, hasFavicon: boolean}>} assets
+   */
+  applyHistoryAssets(assets) {
+    for (const { url, image, hasFavicon } of assets) {
+      const record = this.#historyResultsPool.get(url);
+      if (record) {
+        record.image = image;
+        record.hasFavicon = hasFavicon;
+      }
+    }
+  }
+
+  /**
+   * Rehydrate the history results pool from each message's persisted snapshot so
+   * follow-ups that reference prior URLs still render a grid after reload. Safe
+   * to call after messages are attached post-construction (e.g. DB load).
+   */
+  rehydrateHistoryResultsPool() {
+    for (const message of this.messages) {
+      for (const record of message.historyResults) {
+        this.#historyResultsPool.set(record.url, record);
+      }
+    }
   }
 }

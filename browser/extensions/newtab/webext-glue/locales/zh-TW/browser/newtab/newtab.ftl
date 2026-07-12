@@ -96,6 +96,12 @@ home-prefs-clocks-header =
 # Privacy is a widget on New Tab that shows tracking protection activity.
 home-prefs-privacy-header =
     .label = 隱私權
+# Stocks is a widget on New Tab that shows stock ticker prices.
+home-prefs-stocks-header =
+    .label = 股市
+# Picture of the day is a widget on New Tab that shows a daily Wikimedia Commons image.
+home-prefs-picture-header =
+    .label = 每日一圖
 home-prefs-mission-message2 =
     .message = 贊助商支持我們打造出一個更好的網路環境的使命。
 home-prefs-manage-topics-link2 =
@@ -160,6 +166,45 @@ home-prefs-mission-message-learn-more-link-srd = 看看是如何達成的
 # Context menu item linking to more information about the Privacy widget.
 newtab-privacy-menu-learn-more = 更多資訊
 
+## Strings for the Stocks widget
+
+# Context menu item for searching stock ticker symbols.
+newtab-stocks-menu-search = 搜尋個股代碼
+# Context menu item that hides the Stocks widget.
+newtab-stocks-menu-hide = 隱藏股市資訊
+# Context menu item linking to more information about the Stocks widget.
+newtab-stocks-menu-learn-more = 更多資訊
+
+## Strings for the Picture of the Day widget
+
+# Eyebrow shown at the top of the widget. Wikimedia Commons is a brand name and
+# should not be translated.
+newtab-picture-header = 每日一圖 · 維基共享資源
+# Button that sets the current picture as the New Tab background wallpaper. The
+# button collapses to an icon when not hovered/focused, so .title is its tooltip.
+newtab-picture-set-wallpaper =
+    .label = 設為背景圖
+    .title = 設為背景圖
+    .aria-label = 將今天的每日一圖設定為背景圖
+# Context menu item that opens the New Tab customization panel.
+newtab-picture-menu-manage-wallpaper = 管理背景圖
+# Context menu item that hides today’s picture, replacing it with an existing
+# wallpaper.
+newtab-picture-menu-hide-photo = 隱藏今天的照片
+# Context menu item that restores today’s picture after it has been hidden.
+newtab-picture-menu-show-photo = 顯示今天的照片
+# Context menu item linking to more information about the widget.
+newtab-picture-menu-learn-more = 更多資訊
+# Icon button shown on the widget once the picture is hidden; restores it.
+newtab-picture-show-button =
+    .title = 顯示今天的照片
+    .aria-label = 顯示今天的照片
+# Shown when there is no new picture to display yet.
+newtab-picture-check-back = 請於明天再回來看看新照片
+# Screen-reader text alternative for the picture; fallback used when the source
+# provides no localized description.
+newtab-picture-image-alt = 來自維基共享資源的每日一圖
+
 ## Search box component.
 
 # "Search" is a verb/action
@@ -195,6 +240,7 @@ newtab-topsites-add-shortcut-label = 新增捷徑
 newtab-topsites-add-shortcut-title =
     .title = 新增捷徑
     .aria-label = 新增捷徑
+newtab-shortcuts-pinned-area = 釘選區域
 newtab-topsites-title-label = 標題
 newtab-topsites-title-input =
     .placeholder = 輸入標題
@@ -502,6 +548,10 @@ newtab-custom-widget-sports-toggle2 =
     .label = 體育
 newtab-custom-widget-privacy-toggle =
     .label = 隱私權
+newtab-custom-widget-stocks-toggle =
+    .label = 股市
+newtab-custom-widget-picture-toggle =
+    .label = 每日一圖
 newtab-custom-widget-section-title = 小工具
 newtab-custom-widget-section-toggle =
     .label = 小工具
@@ -1272,6 +1322,15 @@ newtab-sports-widget-message-day-in-play-title = 使用 { -brand-product-name } 
 newtab-sports-widget-message-day-in-play-body = 關注足球世界盃，同時專注工作、追蹤各地時間與更多功能。
 newtab-sports-widget-message-explore-widgets-cta =
     .label = 探索小工具
+
+## Survey prompts shown after the World Cup to gather feedback on the widgets experience.
+
+newtab-sports-widget-message-survey-title = 幫助我們讓小工具功能變得更好
+newtab-sports-widget-message-survey-body = 世界盃足球賽到此已告一段落，請分享您使用體驗的相關意見回饋。
+newtab-sports-widget-message-survey-widget-title = 世界盃足球賽小工具做得如何？
+newtab-sports-widget-message-survey-widget-body = 請分享您的意見，幫助我們在改善未來的小工具功能。然後試試新的小工具。
+newtab-sports-widget-message-survey-cta =
+    .label = 填寫問卷
 
 ## Strings for activation window message variants. In certain experiment configurations,
 ## the strings from these variants may be displayed in a message below the search input

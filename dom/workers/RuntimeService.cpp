@@ -2302,9 +2302,9 @@ WorkerThreadPrimaryRunnable::Run() {
 
       failureCleanup.release();
 
-      // Binding the RemoteWorkerDebugger child endpoint after initailzation
-      // successfully.
-      // mWorkerPrivate->BindRemoteWorkerDebuggerChild();
+      // Binding the RemoteWorkerDebugger child endpoint after initialization
+      // successfully. Self-gates on UseRemoteDebugger().
+      mWorkerPrivate->BindRemoteWorkerDebuggerChild();
 
       runLoopRan = true;
 

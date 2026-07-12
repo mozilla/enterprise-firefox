@@ -110,6 +110,18 @@ export function useTopSitesDnD({
             setPreviewSites(makeTopSitesPreview(index));
           }
           break;
+        case "dragover":
+          // List-level signal (no index) that the cursor left the pinned drop
+          // region. Tiles pass their index, so a tile's own dragover is ignored.
+          if (index === undefined) {
+            setPreviewSites(null);
+          }
+          break;
+        case "dragleave":
+          // Safety net for leaving the grid entirely off an edge tile, where no
+          // bare-grid dragover lands first.
+          setPreviewSites(null);
+          break;
         case "drop":
           if (
             index !== draggedIndex ||

@@ -220,9 +220,9 @@ class EncryptedRandomAccessStream final
   friend RefPtr<T> mozilla::MakeRefPtr(Args&&... aArgs);
 
   // This class must be initialized by |Create()|.
-  EncryptedRandomAccessStream<CipherStrategy>(
+  EncryptedRandomAccessStream(
       MovingNotNull<nsCOMPtr<nsIRandomAccessStream>> aStream,
-      CipherStrategy::KeyType aMasterKey)
+      typename CipherStrategy::KeyType aMasterKey)
       : EncryptedRandomAccessStreamBase(std::move(aStream)),
         mMasterKey(aMasterKey) {}
 
@@ -240,7 +240,7 @@ class EncryptedRandomAccessStream final
 
   // Because the current cipher strategies for random access are
   // stateless, this class doesn't have to own a strategy.
-  const CipherStrategy::KeyType mMasterKey;
+  const typename CipherStrategy::KeyType mMasterKey;
 };
 
 }  // namespace mozilla::dom::quota

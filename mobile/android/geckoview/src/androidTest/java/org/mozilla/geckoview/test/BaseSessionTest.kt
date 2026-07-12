@@ -42,6 +42,7 @@ open class BaseSessionTest(
         const val DND_HTML_PATH = "/assets/www/dnd.html"
         const val DND_XORIGIN_HTML_PATH = "/assets/www/dnd_xorigin.html"
         const val DOWNLOAD_HTML_PATH = "/assets/www/download.html"
+        const val DOWNLOAD_WEBPAGE_HTML_PATH = "/assets/www/download_webpage.html"
         const val FORM_BLANK_HTML_PATH = "/assets/www/form_blank.html"
         const val FORMS_HTML_PATH = "/assets/www/forms.html"
         const val FORMS_XORIGIN_HTML_PATH = "/assets/www/forms_xorigin.html"

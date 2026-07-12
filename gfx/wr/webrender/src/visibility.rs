@@ -15,7 +15,7 @@ use crate::composite::CompositeState;
 use crate::profiler::TransactionProfile;
 use crate::renderer::GpuBufferBuilder;
 use crate::spatial_tree::{SpatialTree, SpatialNodeIndex};
-use crate::clip::{ClipChainInstance, ClipTree};
+use crate::clip::{ClipChainInstance, ClipTree, ClipNodeId};
 use crate::composite::CompositorSurfaceKind;
 use crate::frame_builder::FrameBuilderConfig;
 use crate::picture::{PictureCompositeMode, ClusterFlags, SurfaceInfo};
@@ -26,7 +26,6 @@ use crate::prim_store::{ClipTaskIndex, PictureIndex, PrimitiveKind, SegmentInsta
 use crate::prim_store::{PrimitiveStore, PrimitiveInstance, PrimitiveInstanceIndex};
 use crate::prim_store::borders::ImageBorderScratch;
 use crate::prim_store::image::ImageScratch;
-use crate::prim_store::rectangle::RectangleScratch;
 use crate::prim_store::storage;
 use crate::prim_store::text_run::TextRunScratch;
 use crate::render_backend::{DataStores, ScratchBuffer};
@@ -123,7 +122,6 @@ pub enum DrawState {
 #[cfg_attr(feature = "capture", derive(Serialize))]
 pub enum KindScratchHandle {
     None,
-    Rectangle(storage::Index<RectangleScratch>),
     ImageBorder(storage::Index<ImageBorderScratch>),
     Image(storage::Index<ImageScratch>),
     TextRun(storage::Index<TextRunScratch>),
@@ -131,15 +129,6 @@ pub enum KindScratchHandle {
 }
 
 impl KindScratchHandle {
-    /// Extract the specific scratch index. Panics if the variant
-    /// doesn't match — readers in the specific arm of the
-    /// PrimitiveKind match know the variant by construction.
-   pub fn unwrap_rectangle(&self) -> storage::Index<RectangleScratch> {
-        match *self {
-            KindScratchHandle::Rectangle(h) => h,
-            _ => panic!("kind_scratch mismatch: expected Rectangle, got {:?}", self),
-        }
-    }
     /// Extract the specific scratch index. Panics if the variant
     /// doesn't match — readers in the specific arm of the
     /// PrimitiveKind match know the variant by construction.
@@ -370,20 +359,34 @@ pub fn update_prim_visibility(
         snapper.set_target_spatial_node(cluster.spatial_node_index, frame_context.spatial_tree);
 
         for prim_instance_index in cluster.prim_range() {
-            let snapped_local_rect = snapper.snap_rect(
-                &frame_state.prim_instances[prim_instance_index].unsnapped_prim_rect,
-            );
+            // A prim's snap policy is folded into its clip leaf: device-space
+            // prims (text) carry the `INVALID` sentinel and snap nothing - their
+            // rect and clips stay at exact sub-pixel positions so a fractional
+            // clip edge is an AA boundary through the glyphs (bug 2050692).
+            // Everyone else snaps their rect and own clips to the device grid.
+            // How the rect itself is rounded (nearest / round-out for unsnapped
+            // text / thickness-preserving for decoration lines) is decided by
+            // `PrimitiveInstance::snap_rounding`.
+            let prim_instance = &frame_state.prim_instances[prim_instance_index];
+            let leaf_id = prim_instance.clip_leaf_id;
+            let snaps = frame_state.clip_tree.get_leaf(leaf_id).prim_clip_root
+                != ClipNodeId::INVALID;
+
+            let rounding = prim_instance.snap_rounding(snaps, frame_state.data_stores);
+            let snapped_local_rect =
+                snapper.snap_rect_rounded(&prim_instance.unsnapped_prim_rect, rounding);
             frame_state.scratch.primitive.frame.draws[prim_instance_index].snapped_local_rect =
                 snapped_local_rect;
 
-            // Picture / tile-cache leaves carry `max_rect`; snapping `max_rect`
-            // would overflow through the snap transform, so pass those through.
-            let leaf_id = frame_state.prim_instances[prim_instance_index].clip_leaf_id;
+            // Picture / tile-cache leaves carry `max_rect` (snapping it would
+            // overflow the snap transform) and device-space leaves don't snap;
+            // both pass through. Other prims snap their own leaf clip for crisp
+            // fill/border edges.
             let leaf = frame_state.clip_tree.get_leaf_mut(leaf_id);
-            if leaf.unsnapped_local_clip_rect == LayoutRect::max_rect() {
-                leaf.snapped_local_clip_rect = leaf.unsnapped_local_clip_rect;
+            let unsnapped = leaf.unsnapped_local_clip_rect;
+            if unsnapped == LayoutRect::max_rect() || !snaps {
+                leaf.snapped_local_clip_rect = unsnapped;
             } else {
-                let unsnapped = leaf.unsnapped_local_clip_rect;
                 leaf.snapped_local_clip_rect = snapper.snap_rect(&unsnapped);
             }
 

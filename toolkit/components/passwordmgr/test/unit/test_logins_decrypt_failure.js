@@ -7,6 +7,14 @@
 
 "use strict";
 
+// Decryption failures are transparent in Rust. Cleanup is done via
+// `run_maintenance()` when idle.
+// See Bug 2052523
+const isRustBackend = Services.prefs.getBoolPref(
+  "signon.storage.rust.enabled",
+  false
+);
+
 // Globals
 
 /**
@@ -92,7 +100,7 @@ add_task(async function test_logins_decrypt_failure() {
   await Services.logins.removeAllUserFacingLoginsAsync();
   Assert.equal((await Services.logins.getAllLogins()).length, 0);
   Assert.equal(await Services.logins.countLoginsAsync("", "", ""), 0);
-});
+}).skip(isRustBackend);
 
 // Bug 621846 - If a login has a GUID but can't be decrypted, a search for
 // that GUID will (correctly) fail. Ensure we can add a new login with that
@@ -155,7 +163,7 @@ add_task(async function test_add_logins_with_decrypt_failure() {
   equal(result2.length, 1);
 
   await Services.logins.removeAllUserFacingLoginsAsync();
-});
+}).skip(isRustBackend);
 
 // Test the "syncID" metadata works as expected on decryption failure.
 add_task(async function test_sync_metadata_with_decrypt_failure() {
@@ -176,4 +184,4 @@ add_task(async function test_sync_metadata_with_decrypt_failure() {
   // But we should be able to set it again.
   await Services.logins.setSyncID("new-id");
   equal(await Services.logins.getSyncID(), "new-id");
-});
+}).skip(isRustBackend);

@@ -225,3 +225,52 @@ add_task(async function test_reintegration_origins_autofill() {
   await PlacesUtils.history.clear();
   resetBackspaceState();
 });
+
+// Picking a non-autofill history result for an origin while its backspace
+// counter is sub-threshold (no DB block yet) must clear the counter, so that
+// subsequent backspaces start from zero rather than continuing toward the
+// block threshold.
+add_task(async function test_reintegration_clears_sub_threshold_counter() {
+  await seedAdaptiveHistory(TEST_ORIGIN_URL, TEST_INPUT);
+
+  // Dismiss autofill sub-threshold times — no DB block should be written.
+  await backspaces(BACKSPACE_THRESHOLD - 1);
+  Assert.equal(
+    UrlbarUtils._backspaceBlocks.get("origin:example.com").count,
+    BACKSPACE_THRESHOLD - 1,
+    "Counter is at sub-threshold"
+  );
+  let state = await getOriginBlockState(TEST_ORIGIN_URL);
+  Assert.equal(state.blockUntilMs, 0, "No DB block before threshold");
+
+  // Use a substring that's not a URL prefix so autofill doesn't trigger,
+  // but the origin still surfaces as a plain history result.
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    value: "xample",
+  });
+  await UrlbarTestUtils.pickResultAndWaitForLoad(window, TEST_ORIGIN_URL);
+
+  Assert.ok(
+    !UrlbarUtils._backspaceBlocks.has("origin:example.com"),
+    "Sub-threshold counter is cleared after picking the origin"
+  );
+
+  // A full new round of backspaces must be needed to trigger the block.
+  await backspaces(BACKSPACE_THRESHOLD - 1);
+  state = await getOriginBlockState(TEST_ORIGIN_URL);
+  Assert.equal(
+    state.blockUntilMs,
+    0,
+    "No DB block after reintegration + sub-threshold backspaces"
+  );
+
+  await BrowserTestUtils.loadURIString({
+    browser: gBrowser.selectedBrowser,
+    uriString: "about:blank",
+  });
+
+  await UrlbarTestUtils.promisePopupClose(window);
+  await PlacesUtils.history.clear();
+  resetBackspaceState();
+});

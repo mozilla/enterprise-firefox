@@ -132,9 +132,6 @@ class MacIOSurface final
     return mozilla::gfx::IsHDRTransferFunction(mTransferFunction);
   }
 
-  // Returns the GL texture target the IOSurface should be bound to.
-  static GLenum GetTextureTarget(mozilla::gl::GLContext* aGL);
-
   // Bind this IOSurface to a texture using the most efficient mechanism
   // available on the current platform.
   //

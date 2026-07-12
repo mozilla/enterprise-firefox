@@ -223,7 +223,7 @@ open class FxaAccountManager(
             FxaState.Connected -> {
                 // Make sure auth cache is populated before we try to sync.
                 try {
-                    maybeUpdateSyncAuthInfoCache()
+                    updateSyncAuthInfoCache()
                 } catch (e: AccessTokenUnexpectedlyWithoutKey) {
                     crashReporter?.submitCaughtException(
                         AccountManagerException.MissingKeyFromSyncScopedAccessToken("syncNow"),
@@ -621,15 +621,9 @@ open class FxaAccountManager(
         clearSyncState(context)
     }
 
-    private suspend fun maybeUpdateSyncAuthInfoCache() {
+    private suspend fun updateSyncAuthInfoCache() {
         // Update cached sync auth info only if we have a syncConfig (e.g. sync is enabled)...
         if (syncConfig == null) {
-            return
-        }
-
-        // .. and our cache is stale.
-        val cache = SyncAuthInfoCache(context)
-        if (!cache.expired()) {
             return
         }
 
@@ -702,7 +696,7 @@ open class FxaAccountManager(
     private suspend fun authenticationSideEffects(operation: String): Boolean {
         // Make sure our SyncAuthInfo cache is hot, background sync worker needs it to function.
         try {
-            maybeUpdateSyncAuthInfoCache()
+            updateSyncAuthInfoCache()
         } catch (e: AccessTokenUnexpectedlyWithoutKey) {
             crashReporter?.submitCaughtException(
                 AccountManagerException.MissingKeyFromSyncScopedAccessToken(operation),

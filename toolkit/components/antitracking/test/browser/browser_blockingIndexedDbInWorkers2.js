@@ -1,5 +1,3 @@
-requestLongerTimeout(6);
-
 AntiTracking.runTestInNormalAndPrivateMode(
   "IndexedDB in workers and Storage Access API",
   async _ => {

@@ -33,6 +33,7 @@ struct WindowGlobalInit
 
   bool isInitialDocument;
   bool isUncommittedInitialDocument;
+  bool isVideoDocument;
   bool blockAllMixedContent;
   bool upgradeInsecureRequests;
   uint32_t sandboxFlags;

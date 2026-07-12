@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
 // Drag-and-drop for the zero-pin case: with no pins there's nothing to reorder,
 // so this is just "drag one tile onto one target." A single placeholder marks
@@ -118,6 +118,18 @@ export function useZeroPinDrop({
     },
     [over]
   );
+
+  // The container no longer unmounts on the first pin, so clear our own drag
+  // state once the drop commits (new baseSites arrive after the refresh). Layout
+  // effect so the source doesn't un-collapse for a frame before the pin lands.
+  const prevBaseRef = useRef(baseSites);
+  useLayoutEffect(() => {
+    if (droppedRef.current && prevBaseRef.current !== baseSites) {
+      droppedRef.current = false;
+      resetDrag();
+    }
+    prevBaseRef.current = baseSites;
+  }, [baseSites, resetDrag]);
 
   // Collapse the dragged source out of flow; the placeholder stands in for it
   // (net-zero cells, so a full row won't overflow).

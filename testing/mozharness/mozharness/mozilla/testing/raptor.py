@@ -1338,6 +1338,21 @@ class Raptor(
             )
 
     def install(self):
+        if self.app in self.android_browsers:
+            # Clear app data/cache so leftover state (e.g. a profile written
+            # under the wrong storage path on a previous iteration) doesn't
+            # carry over into the next run. Done even when --no-install is
+            # set since stale data is what we're trying to flush.
+            if not self.device.confirm_clear_app_data(self.binary_path):
+                raise Exception("Abort: Declined to clear app data, can't run tests.")
+            try:
+                self.device.shell_output(f"pm clear {self.binary_path}")
+            except Exception as e:
+                self.info(
+                    f"pm clear {self.binary_path} failed "
+                    f"(app may not be installed yet): {e}"
+                )
+
         if not self.config.get("no_install", False):
             if self.app in self.firefox_android_browsers:
                 self.device.uninstall_app(self.binary_path)

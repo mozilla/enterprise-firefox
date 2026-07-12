@@ -225,25 +225,27 @@ describe("Smartbar tab state input tracking", () => {
       );
     });
 
-    it("should submit when re-selecting the current action from the dropdown", async () => {
+    it("should not submit when re-selecting the current action from the dropdown", async () => {
       await typeInSmartbar(sidebarBrowser, "hello");
-      await SpecialPowers.spawn(sidebarBrowser, [], async () => {
-        const aiWindowElement = content.document.querySelector("ai-window");
-        const smartbar = await ContentTaskUtils.waitForCondition(
-          () =>
-            aiWindowElement.shadowRoot?.querySelector("#ai-window-smartbar"),
-          "Wait for Smartbar to be rendered"
-        );
-        const inputCta = smartbar.querySelector("input-cta");
-        inputCta.shadowRoot
-          .querySelector("panel-list")
-          .querySelector(`panel-item[icon="chat"]`)
-          .click();
-        await ContentTaskUtils.waitForCondition(
-          () => smartbar.value === "",
-          "Smartbar should be cleared after re-selecting the same action"
-        );
-      });
+
+      const smartbar = BrowserTestUtils.querySelectorDeep(
+        sidebarBrowser.contentDocument,
+        "#ai-window-smartbar"
+      );
+      const panelItem = BrowserTestUtils.querySelectorDeep(
+        sidebarBrowser.contentDocument,
+        `panel-item[icon="chat"]`
+      );
+      panelItem.click();
+
+      // Picking an action only changes/locks the button; it does not submit,
+      // so the typed value is preserved.
+      await TestUtils.waitForTick();
+      Assert.equal(
+        smartbar.value,
+        "hello",
+        "Re-selecting the same action should not submit or clear the input"
+      );
     });
 
     it("should preserve input from URL bar navigation", async () => {

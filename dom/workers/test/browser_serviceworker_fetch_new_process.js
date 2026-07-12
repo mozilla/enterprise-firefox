@@ -26,6 +26,14 @@ add_setup(async function () {
       // `waitForWorkerAndProcessShutdown`.
       ["dom.serviceWorkers.idle_timeout", 299999],
       ["dom.serviceWorkers.idle_extended_timeout", 299999],
+      // This test introspects worker process placement via the content-process
+      // nsIWorkerDebuggerManager enumeration, which only lists workers whose
+      // debugger lives in the content process. Force the local WorkerDebugger
+      // instead of the parent-process RemoteWorkerDebugger (bug 1944240). Remove
+      // this pin (or the test) once the local WorkerDebugger mechanism is
+      // removed; this legacy worker-introspection path still needs to be
+      // modernized to the RemoteWorkerDebugger model.
+      ["dom.worker.remoteDebugger.enabled", false],
     ],
   });
 });

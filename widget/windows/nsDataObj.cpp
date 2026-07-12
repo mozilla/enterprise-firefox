@@ -782,6 +782,8 @@ STDMETHODIMP nsDataObj::GetData(LPFORMATETC aFormat, LPSTGMEDIUM pSTM) {
       if (format == fileFlavor) return GetFileContents(*aFormat, *pSTM);
       if (format == PreferredDropEffect)
         return GetPreferredDropEffect(*aFormat, *pSTM);
+      if (format == nsClipboard::GetWebCustomFormatMapClipboardFormat())
+        return GetText(df, *aFormat, *pSTM);
       // MOZ_LOG(gWindowsLog, LogLevel::Info,
       //       ("***** nsDataObj::GetData - Unknown format %u\n", format));
       return GetText(df, *aFormat, *pSTM);
@@ -1175,9 +1177,9 @@ static bool CreateURLFilenameFromTextA(nsAutoString& aText, char* aFilename) {
   // an extra check to verify for the local code page that the converted text
   // doesn't go over MAX_PATH and just return false if it does.
   char defaultChar = '_';
-  int currLen = WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK | WC_DEFAULTCHAR,
-                                    aText.get(), -1, aFilename, MAX_PATH,
-                                    &defaultChar, nullptr);
+  int currLen = WideCharToMultiByte(
+      CP_ACP, WC_COMPOSITECHECK | WC_DEFAULTCHAR | WC_NO_BEST_FIT_CHARS,
+      aText.get(), -1, aFilename, MAX_PATH, &defaultChar, nullptr);
   return currLen != 0;
 }
 
@@ -1570,6 +1572,15 @@ HRESULT nsDataObj::GetText(const nsACString& aDataFlavor, FORMATETC& aFE,
     return S_OK;
   };
 
+  // kWebCustomFormatMapType is synthetic: the JSON is held on the data object
+  // (set by nsClipboard::SetupNativeDataObject) rather than in the
+  // transferable. Serve it without the trailing UTF-16 null pad.
+  if (aDataFlavor.EqualsLiteral(kWebCustomFormatMapType)) {
+    MOZ_ASSERT(!mWebCustomFormatMapJson.IsEmpty());
+    return assignDataToStg(const_cast<char*>(mWebCustomFormatMapJson.get()),
+                           mWebCustomFormatMapJson.Length());
+  }
+
   const nsPromiseFlatCString& flavorStr = PromiseFlatCString(aDataFlavor);
 
   nsCOMPtr<nsISupports> genericDataWrapper;
@@ -1645,9 +1656,12 @@ HRESULT nsDataObj::GetText(const nsACString& aDataFlavor, FORMATETC& aFE,
 
   // We assume that any data-format that isn't caught above can be satisfied by
   // Unicode text. (This may be an erroneous assumption, but seems to have been
-  // true so far.)
+  // true so far.) Web custom formats are byte payloads (nsISupportsCString), so
+  // they must skip the trailing UTF-16 null pad just like the legacy custom
+  // clipboard format does.
   bool const excludeNull =
-      aFE.cfFormat == nsClipboard::GetCustomClipboardFormat();
+      aFE.cfFormat == nsClipboard::GetCustomClipboardFormat() ||
+      StringBeginsWith(aDataFlavor, nsLiteralCString(kWebCustomFormatPrefix));
 
   return assignDataToStg(data, len + (excludeNull ? 0 : sizeof(char16_t)));
 }

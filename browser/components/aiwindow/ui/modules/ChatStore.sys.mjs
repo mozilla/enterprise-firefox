@@ -28,6 +28,9 @@ import {
   MESSAGE_CREATED_DATE_INDEX,
   MESSAGE_CONV_ID_INDEX,
   MESSAGE_INSERT,
+  TOOL_RESULT_TABLE,
+  TOOL_RESULT_HISTORY_URL_INDEX,
+  TOOL_RESULT_INSERT,
   CONVERSATIONS_MOST_RECENT,
   CONVERSATION_BY_ID,
   CONVERSATIONS_BY_DATE,
@@ -74,6 +77,7 @@ import {
   DB_FILE_NAME,
   PREF_BRANCH,
   CONVERSATION_STATUS,
+  TOOL_RESULT_TYPE,
 } from "./AIWindowConstants.sys.mjs";
 
 import {
@@ -81,6 +85,7 @@ import {
   parseMessageRows,
   parseChatHistoryViewRows,
   toJSONOrNull,
+  stripHistoryResultAssets,
 } from "./ChatUtils.sys.mjs";
 
 // NOTE: Reference to migrations file, migrations.mjs has an example
@@ -219,9 +224,10 @@ class ChatStore {
           memories_flag_source: m.memoriesFlagSource,
           memories_applied_jsonb: toJSONOrNull(m.memoriesApplied),
           web_search_queries_jsonb: toJSONOrNull(m.webSearchQueries),
-          tool_ui_data_jsonb: toJSONOrNull(m.toolUIData),
         }));
         await this.#conn.executeCached(MESSAGE_INSERT, messages);
+
+        await this.#applyToolResults(conversation);
       })
       .catch(e => {
         lazy.log.error("Transaction failed to execute", e.message, e.stack);
@@ -229,6 +235,39 @@ class ChatStore {
       });
 
     this.#recordDatabaseSize();
+  }
+
+  async #applyToolResults(conversation) {
+    // Upsert only: tool_result rows for a live message are grow-only (added or
+    // updated in place). Removal happens via message deletion, which cascades,
+    // so rows should never grow stale as tool results never change unless a
+    // message gets retried. In this case, the message being retried is deleted
+    // and the deletion cascades to the tool_result table. If in the future the
+    // tool result data can change then potentially stale rows must be removed.
+
+    const toolResults = [];
+    for (const m of conversation.messages) {
+      if (m.toolUIData) {
+        toolResults.push({
+          message_id: m.id,
+          type: TOOL_RESULT_TYPE.TOOL_UI,
+          ordinal: 0,
+          payload: toJSONOrNull(m.toolUIData),
+        });
+      }
+      m.historyResults.forEach((record, index) => {
+        toolResults.push({
+          message_id: m.id,
+          type: TOOL_RESULT_TYPE.HISTORY_RESULTS,
+          ordinal: index,
+          payload: toJSONOrNull(stripHistoryResultAssets(record)),
+        });
+      });
+    }
+
+    if (toolResults.length) {
+      await this.#conn.executeCached(TOOL_RESULT_INSERT, toolResults);
+    }
   }
 
   /**
@@ -840,6 +879,7 @@ class ChatStore {
    * This method is meant to only be used for testing cleanup
    */
   async destroyDatabase() {
+    await this.#promiseConn?.catch(() => {});
     await this.#removeDatabaseFiles();
     this.#promiseConn = null;
     this.#recordDatabaseSizeValue(0);
@@ -917,6 +957,12 @@ class ChatStore {
     for (const [convId, messages] of Object.entries(byConv)) {
       convs[convId].messages = messages;
     }
+
+    // Rebuild the history results map for ai-chat-grid
+    // instances now that all messages are retrieved
+    conversations.forEach(conversation =>
+      conversation.rehydrateHistoryResultsPool()
+    );
 
     return conversations;
   }
@@ -1441,6 +1487,8 @@ class ChatStore {
     await this.#conn.execute(MESSAGE_URL_INDEX);
     await this.#conn.execute(MESSAGE_CREATED_DATE_INDEX);
     await this.#conn.execute(MESSAGE_CONV_ID_INDEX);
+    await this.#conn.execute(TOOL_RESULT_TABLE);
+    await this.#conn.execute(TOOL_RESULT_HISTORY_URL_INDEX);
     await this.#conn.execute(LLM_TELEMETRY_TABLE);
   }
 

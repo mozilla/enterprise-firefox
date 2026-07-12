@@ -40,11 +40,6 @@ class LabsTelemetryMiddlewareTest {
         requiresRestart = true,
     )
 
-    private fun stateWithItems(items: List<LabsItem>) = LabsState(
-        labsItems = items,
-        dialogState = DialogState.Closed,
-    )
-
     private fun stateWithDialog(item: LabsItem, dialog: DialogState) = LabsState(
         labsItems = listOf(item),
         dialogState = dialog,
@@ -69,6 +64,62 @@ class LabsTelemetryMiddlewareTest {
     }
 
     @Test
+    fun `WHEN the screen is populated THEN initial_labs_fetch is recorded with the slugs and count`() {
+        val store = buildStore()
+
+        store.dispatch(
+            LabsAction.UpdateLabsItems(
+                listOf(
+                    homepageItem(),
+                    homepageItem().copy(slug = "other-lab"),
+                ),
+            ),
+        )
+
+        val extra = FirefoxLabs.initialLabsFetch.testGetValue()!!.single().extra
+        assertEquals("homepage-as-new-tab,other-lab", extra?.get("slug_ids"))
+        assertEquals("2", extra?.get("count"))
+    }
+
+    @Test
+    fun `WHEN FetchFailed is dispatched THEN fetch_failed is recorded`() {
+        val store = buildStore()
+
+        store.dispatch(LabsAction.FetchFailed)
+
+        assertEquals(1, FirefoxLabs.fetchFailed.testGetValue()!!.size)
+    }
+
+    @Test
+    fun `WHEN ToggleCompleted is dispatched THEN toggle_button_pressed is recorded with the Nimbus status`() {
+        val store = buildStore()
+
+        store.dispatch(
+            LabsAction.ToggleCompleted(slug = "homepage-as-new-tab", enabled = true, status = "feature_conflict"),
+        )
+
+        val extra = FirefoxLabs.toggleButtonPressed.testGetValue()!!.single().extra
+        assertEquals("homepage-as-new-tab", extra?.get("slug_id"))
+        assertEquals("true", extra?.get("enabled"))
+        assertEquals("feature_conflict", extra?.get("status"))
+    }
+
+    @Test
+    fun `WHEN RestoreDefaultsCompleted is dispatched THEN restore_defaults_dialog is recorded with succeeded`() {
+        val store = buildStore()
+
+        store.dispatch(
+            LabsAction.RestoreDefaultsCompleted(succeeded = false, itemsChanged = listOf("lab-a", "lab-b")),
+        )
+
+        val extra = FirefoxLabs.restoreDefaultsDialog.testGetValue()!!.single().extra
+        assertEquals("lab-a,lab-b", extra?.get("slug_ids"))
+        assertEquals("2", extra?.get("count"))
+        assertEquals("true", extra?.get("did_user_confirm"))
+        assertEquals("false", extra?.get("succeeded"))
+    }
+
+    @Test
     fun `WHEN ToggleLabsItem is dispatched from the dialog flow THEN toggled_dialog is recorded with did_user_confirm true`() {
         val item = homepageItem()
         val store = buildStore(
@@ -90,31 +141,6 @@ class LabsTelemetryMiddlewareTest {
         store.dispatch(LabsAction.ToggleLabsItem(item))
 
         assertNull(FirefoxLabs.toggledDialog.testGetValue())
-    }
-
-    @Test
-    fun `WHEN RestoreDefaults is dispatched THEN restore_defaults_dialog is recorded with the pre-flip enrolled count and did_user_confirm true`() {
-        val store = buildStore(
-            initialState = stateWithItems(listOf(homepageItem(enrolled = true))),
-        )
-
-        store.dispatch(LabsAction.RestoreDefaults)
-
-        val extra = FirefoxLabs.restoreDefaultsDialog.testGetValue()!!.single().extra
-        assertEquals("1", extra?.get("items_changed_count"))
-        assertEquals("true", extra?.get("did_user_confirm"))
-    }
-
-    @Test
-    fun `WHEN ShowToggleLabsItemDialog is dispatched THEN toggle_button_pressed is recorded with attempted enabled`() {
-        val item = homepageItem(enrolled = false)
-        val store = buildStore()
-
-        store.dispatch(LabsAction.ShowToggleLabsItemDialog(item))
-
-        val extra = FirefoxLabs.toggleButtonPressed.testGetValue()!!.single().extra
-        assertEquals("homepage-as-new-tab", extra?.get("slug_id"))
-        assertEquals("true", extra?.get("enabled"))
     }
 
     @Test
@@ -152,8 +178,10 @@ class LabsTelemetryMiddlewareTest {
         store.dispatch(LabsAction.CloseDialog)
 
         val extra = FirefoxLabs.restoreDefaultsDialog.testGetValue()!!.single().extra
-        assertEquals("0", extra?.get("items_changed_count"))
+        assertEquals("", extra?.get("slug_ids"))
+        assertEquals("0", extra?.get("count"))
         assertEquals("false", extra?.get("did_user_confirm"))
+        assertEquals("false", extra?.get("succeeded"))
         assertNull(FirefoxLabs.toggledDialog.testGetValue())
         assertNull(FirefoxLabs.toggleButtonPressed.testGetValue())
     }

@@ -649,7 +649,7 @@ export class UrlbarProviderInterventions extends UrlbarProvider {
         type: this.currentTip,
         icon: UrlbarUtils.ICON.TIP,
         helpL10n: {
-          id: "urlbar-result-menu-tip-get-help",
+          id: "urlbar-result-menu-tip-get-help2",
         },
       },
     });

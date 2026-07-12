@@ -10,11 +10,11 @@ repo: mozilla-central
 created_at: '2021-10-14T12:50:40.073465'
 updated_at: '2026-06-24T13:35:09.623323+00:00'
 export:
-  path: ./docs/mots/index.rst
-  format: rst
+  path: ./docs/mots/index.md
+  format: md
   searchfox_enabled: true
 description: |
-  Mozilla operates under a `module ownership governance system <https://www.mozilla.org/hacking/module-ownership.html>`_. A module is a discrete unit of code or activity. An owner is the person in charge of a module or sub-module. A peer is a person whom the owner has appointed to help them. A module may have multiple peers and, very occasionally, multiple owners.
+  Mozilla operates under a [module ownership governance system](https://www.mozilla.org/hacking/module-ownership.html). A module is a discrete unit of code or activity. An owner is the person in charge of a module or sub-module. A peer is a person whom the owner has appointed to help them. A module may have multiple peers and, very occasionally, multiple owners.
 
   The system is overseen by the owner and peers of the Module Ownership module. For the modules that make up Firefox, oversight is provided by the Firefox Technical Leadership module. Owners may add and remove peers from their modules as they wish, without reference to anyone else.
 
@@ -1477,7 +1477,7 @@ modules:
         - Mitchell Hentges
         - *andi
       group: dev-builds
-      url: :ref:`Build System`
+      url: '{ref}`Build System`'
       components:
         - Core::Build Config
     owners:
@@ -1617,7 +1617,7 @@ modules:
         - Aria Beingessner
         - Kris Wright
       group: dev-platform
-      url: :ref:`Crash Reporter`
+      url: '{ref}`Crash Reporter`'
       components:
         - Toolkit::Crash Reporting
     owners:
@@ -1825,7 +1825,7 @@ modules:
       owners_emeritus:
         - Ehsan Akhgari
       group: dev-platform
-      url: :ref:`Editor`
+      url: '{ref}`Editor`'
       components:
         - 'Core::DOM: Editor'
     owners:
@@ -2039,7 +2039,7 @@ modules:
         - Jungshik Shin
         - Simon Montagu
       group: dev-i18n
-      url: :ref:`Internationalization`
+      url: '{ref}`Internationalization`'
       components:
         - Core::Internationalization
     owners:
@@ -2515,7 +2515,7 @@ modules:
         - Jason Duell
         - Junior Hsu
       group: dev-tech-network
-      url: :ref:`Networking`
+      url: '{ref}`Networking`'
       components:
         - Core::Networking
         - 'Core::Networking: Cache'
@@ -2591,7 +2591,7 @@ modules:
       owners_emeritus:
         - Wan-Teh Chang
       group: dev-tech-nspr
-      url: :ref:`NSPR`
+      url: '{ref}`NSPR`'
       components:
         - NSPR
     owners:
@@ -2831,7 +2831,7 @@ modules:
         - Franziskus Kiefer
         - Kevin Jacobs
       group: dev-tech-crypto
-      url: :ref:`Network Security Services (NSS)`
+      url: '{ref}`Network Security Services (NSS)`'
       components:
         - NSS
         - JSS
@@ -2941,7 +2941,7 @@ modules:
       - xpcom/string/**/*
     meta:
       group: dev-tech-xpcom
-      url: :ref:`String Guide`
+      url: '{ref}`String Guide`'
       components:
         - Core::String
       owners_emeritus:
@@ -3083,7 +3083,7 @@ modules:
       # TODO: "the display list and layer related methods on nsIFrame and its subclasses"
     meta:
       group: dev-platform
-      url: :ref:`Style system (CSS) & Layout`
+      url: '{ref}`Style system (CSS) & Layout`'
       components:
         - 'Core::Layout: Web Painting'
       owners_emeritus:
@@ -3435,7 +3435,7 @@ modules:
         - Simon Giesecke
         - *KrisWright
       group: dev-platform
-      url: :ref:`XPCOM`
+      url: '{ref}`XPCOM`'
       components:
         - Core::XPCOM
         - Toolkit::IOUtils and PathUtils
@@ -3485,7 +3485,7 @@ modules:
         - Mike Shaver
         - Josh 'timeless' Soref
       group: dev-tech-xpcom
-      url: :ref:`XPIDL`
+      url: '{ref}`XPIDL`'
     owners:
       - *nika
     peers:
@@ -4550,7 +4550,7 @@ modules:
         - 'Testing :: Performance'
         - 'Testing :: mozperftest'
         - 'Testing :: Condprofile'
-      url: :ref:`Performance Testing`
+      url: '{ref}`Performance Testing`'
       review_group: perftest-reviewers
   - machine_name: testing_reftest
     name: Reftest (+ jsreftest + crashtest)
@@ -4658,7 +4658,7 @@ modules:
           owners_emeritus:
             - Georg Fritzsche
           group: fx-data-dev
-          url: :ref:`Telemetry`
+          url: '{ref}`Telemetry`'
           peers_emeritus:
             - *perrymcmanis
         owners:

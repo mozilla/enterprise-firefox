@@ -15,10 +15,8 @@ async function assertBreakout(enabled, message) {
   let searchbar = document.querySelector("#searchbar-new");
   if (enabled) {
     Assert.ok(searchbar.hasAttribute("breakout"), message + ": breakout on");
-    Assert.ok(searchbar.matches(":popover-open"), message + ": popover on");
   } else {
     Assert.ok(!searchbar.hasAttribute("breakout"), message + ": breakout off");
-    Assert.ok(!searchbar.matches(":popover-open"), message + ": popover off");
   }
 }
 

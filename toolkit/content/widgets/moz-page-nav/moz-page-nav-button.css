@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 :host {
-  @media (max-width: 950px) {
+  @container style(--page-nav-collapsed: collapsed) {
     --page-nav-button-padding: var(--page-nav-button-padding-small);
   }
 }
@@ -14,7 +14,7 @@
 }
 
 :host([iconsrc]) {
-  @media (max-width: 950px) {
+  @container style(--page-nav-collapsed: collapsed) {
     width: var(--button-size-icon);
   }
 }
@@ -46,7 +46,7 @@ button {
     border: 1px solid var(--page-nav-button-border-color, var(--border-color-transparent));
   }
 
-  @media (max-width: 950px) {
+  @container style(--page-nav-collapsed: collapsed) {
     height: var(--button-size-icon);
     justify-content: center;
   }
@@ -126,7 +126,7 @@ slot {
   padding-inline-start: 0;
   user-select: none;
 
-  @media (max-width: 950px) {
+  @container style(--page-nav-collapsed: collapsed) {
     display: inline-block;
     overflow: hidden;
     text-overflow: ellipsis;

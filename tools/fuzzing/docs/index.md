@@ -55,7 +55,7 @@ and [Avalanche](https://github.com/MozillaSecurity/avalanche).
 
 Randomly testing APIs is especially helpful with parts of software that
 expose a well-defined interface (see also {ref}`Well-defined
-behavior and Safety <Well defined behaviour and safety>`). If this interface is additionally exposed to
+behavior and Safety <well-defined-behaviour-and-safety>`). If this interface is additionally exposed to
 untrusted parties/content, then this is a strong sign that random API
 testing would be worthwhile here, also for security reasons. APIs can be
 anything from C++ layer code to APIs offered in the browser.
@@ -76,7 +76,7 @@ example an automated browser that surfs through the web and randomly
 performs actions such as scrolling, zooming and clicking links. The nice
 thing about this approach is that you likely find many issues that the
 end-user also experiences. However, this approach typically suffers from
-bad reproducibility (see also {ref}`Reproducibility <Reproducibility>`) and is therefore
+bad reproducibility (see also {ref}`Reproducibility <reproducibility>`) and is therefore
 often of limited use.
 
 An example for a fuzzing tool using this technique is [Android
@@ -94,7 +94,7 @@ time there are two common things you will be confronted with:
 find all sorts of bugs in various corners of your component, even
 obscure ones. This automatically leads to a larger number of bugs that
 either don’t seem to be bugs (see also the {ref}`Well-defined behavior and
-safety <Well defined behaviour and safety>` section below) or that don’t seem to be important bugs.
+safety <well-defined-behaviour-and-safety>` section below) or that don’t seem to be important bugs.
 
 Fixing these bugs is still important for the fuzzers because ignoring them
 in fuzzing costs resources (performance, human resources) and might even
@@ -160,7 +160,7 @@ below) if your code can be exercised in this way.
 
 ### The Fuzzing Interface
 
-## Fuzzing Interface
+**Fuzzing Interface**
 
 The fuzzing interface is glue code living in mozilla-central in order to make it
 easier for developers and security researchers to test C/C++ code with either libFuzzer or afl-fuzz.

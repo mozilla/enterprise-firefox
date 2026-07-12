@@ -2313,8 +2313,13 @@ projects:
     path: samples/crash
     publish: false
     upstream_dependencies:
+    - components:browser-errorpages
     - components:concept-base
+    - components:concept-engine
     - components:concept-fetch
+    - components:concept-storage
+    - components:concept-storage-bookmarks
+    - components:concept-toolbar
     - components:lib-crash
     - components:lib-fetch-httpurlconnection
     - components:lib-publicsuffixlist
@@ -2323,6 +2328,9 @@ projects:
     - components:support-ktx
     - components:support-utils
     - components:tooling-lint
+    - components:ui-colors
+    - components:ui-icons
+    - components:ui-widgets
   components:samples-dataprotect:
     description: An app demoing how to use the Dataprotect component to load and store
       encrypted data in SharedPreferences.
@@ -2342,11 +2350,14 @@ projects:
     path: samples/firefox-accounts
     publish: false
     upstream_dependencies:
+    - components:browser-errorpages
     - components:concept-base
+    - components:concept-engine
     - components:concept-fetch
     - components:concept-storage
     - components:concept-storage-bookmarks
     - components:concept-sync
+    - components:concept-toolbar
     - components:feature-qr
     - components:lib-dataprotect
     - components:lib-fetch-httpurlconnection
@@ -2358,18 +2369,23 @@ projects:
     - components:support-ktx
     - components:support-utils
     - components:tooling-lint
+    - components:ui-colors
     - components:ui-icons
+    - components:ui-widgets
   components:samples-firefox-relay:
     description: A simple app demoing Firefox Relay integration.
     path: samples/firefox-relay
     publish: false
     upstream_dependencies:
+    - components:browser-errorpages
     - components:compose-base
     - components:concept-base
+    - components:concept-engine
     - components:concept-fetch
     - components:concept-storage
     - components:concept-storage-bookmarks
     - components:concept-sync
+    - components:concept-toolbar
     - components:lib-dataprotect
     - components:lib-fetch-httpurlconnection
     - components:lib-publicsuffixlist
@@ -2383,6 +2399,7 @@ projects:
     - components:tooling-lint
     - components:ui-colors
     - components:ui-icons
+    - components:ui-widgets
   components:samples-glean:
     description: An app demoing how to use the Glean library to collect and send telemetry
       data.
@@ -2397,6 +2414,7 @@ projects:
     - components:concept-fetch
     - components:concept-storage
     - components:concept-storage-bookmarks
+    - components:concept-toolbar
     - components:lib-fetch-httpurlconnection
     - components:lib-publicsuffixlist
     - components:lib-state
@@ -2409,7 +2427,9 @@ projects:
     - components:support-locale
     - components:support-utils
     - components:tooling-lint
+    - components:ui-colors
     - components:ui-icons
+    - components:ui-widgets
   components:samples-glean-library:
     description: A third-party library used by samples-glean to demonstrate multi-library
       support for Glean.
@@ -2422,8 +2442,10 @@ projects:
     path: samples/sync
     publish: false
     upstream_dependencies:
+    - components:browser-errorpages
     - components:browser-storage-sync
     - components:concept-base
+    - components:concept-engine
     - components:concept-fetch
     - components:concept-storage
     - components:concept-storage-bookmarks
@@ -2441,16 +2463,22 @@ projects:
     - components:support-ktx
     - components:support-utils
     - components:tooling-lint
+    - components:ui-colors
+    - components:ui-icons
+    - components:ui-widgets
   components:samples-sync-logins:
     description: A simple app demoing Firefox Sync (Logins) integration.
     path: samples/sync-logins
     publish: false
     upstream_dependencies:
+    - components:browser-errorpages
     - components:concept-base
+    - components:concept-engine
     - components:concept-fetch
     - components:concept-storage
     - components:concept-storage-bookmarks
     - components:concept-sync
+    - components:concept-toolbar
     - components:lib-dataprotect
     - components:lib-fetch-httpurlconnection
     - components:lib-publicsuffixlist
@@ -2462,6 +2490,9 @@ projects:
     - components:support-ktx
     - components:support-utils
     - components:tooling-lint
+    - components:ui-colors
+    - components:ui-icons
+    - components:ui-widgets
   components:samples-toolbar:
     description: An app demoing multiple customized toolbars using the browser-toolbar
       component.

@@ -44,9 +44,6 @@ class WebCompatReporterNavigationMiddlewareTest {
             ),
         )
 
-        // This event will be dropped as no collector is subscribed when this action is dispatched
-        store.dispatch(WebCompatReporterAction.BackPressed)
-
         // backgroundScope is used so the coroutine is cancelled when the test finishes.
         // If this is not used, then the test will never finish, since sharedFlow is a hot flow and never completes
         backgroundScope.launch {

@@ -3,10 +3,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use api::ColorF;
-use api::{ImageRendering, PrimitiveFlags};
+use api::{ImageRendering, LineOrientation, PrimitiveFlags};
 use api::units::*;
 use malloc_size_of::MallocSizeOf;
 use crate::clip::ClipLeafId;
+use crate::render_backend::DataStores;
+use crate::space::SnapRounding;
 use crate::quad::QuadTileClassifier;
 use crate::renderer::{GpuBufferAddress, GpuBufferHandle, GpuBufferWriterF};
 use crate::segment::EdgeMask;
@@ -41,7 +43,7 @@ use gradient::{LinearGradientDataHandle, RadialGradientDataHandle, ConicGradient
 use image::{ImageDataHandle, ImageScratch, VisibleImageTile, YuvImageDataHandle};
 use line_dec::LineDecorationDataHandle;
 use picture::PictureDataHandle;
-use rectangle::{RectangleDataHandle, RectangleScratch};
+use rectangle::RectangleDataHandle;
 use text_run::{TextRunDataHandle, TextRunScratch};
 use crate::box_shadow::BoxShadowDataHandle;
 
@@ -428,6 +430,26 @@ impl PrimitiveInstance {
         }
     }
 
+    /// How this prim's rect should be rounded to the device pixel grid.
+    ///
+    /// `snaps` is the prim's snap policy, taken from its clip leaf: `false` for
+    /// a device-space prim (text) that stays at exact sub-pixel positions and
+    /// only needs a conservative, grid-aligned footprint. A decoration line
+    /// snaps its thickness specially so it can't vanish or double with scale
+    /// (bug 1783779); everything else snaps to the nearest pixel.
+    pub fn snap_rounding(&self, snaps: bool, data_stores: &DataStores) -> SnapRounding {
+        if !snaps {
+            return SnapRounding::RoundOut;
+        }
+        match self.kind {
+            PrimitiveKind::LineDecoration { data_handle, .. } => SnapRounding::Line {
+                horizontal: data_stores.line_decoration[data_handle].kind.orientation
+                    == LineOrientation::Horizontal,
+            },
+            _ => SnapRounding::Nearest,
+        }
+    }
+
     pub fn uid(&self) -> intern::ItemUid {
         match &self.kind {
             PrimitiveKind::Rectangle { data_handle, .. } => {
@@ -501,11 +523,6 @@ pub struct PrimitiveFrameScratch {
     /// visible primitive.
     pub draws: Vec<PrimitiveDrawHeader>,
 
-    /// Per-frame scratch for legacy-path Rectangle primitives. Holds the
-    /// per-instance GPU block address. Indexed by `kind_scratch` on
-    /// `PrimitiveKind::Rectangle`.
-    pub rectangle: storage::Storage<RectangleScratch>,
-
     /// Per-frame scratch for Picture primitives. Holds the picture's
     /// primary/secondary render task ids and any per-composite-mode
     /// extra GPU buffer addresses. Indexed by `scratch_handle` on
@@ -571,7 +588,6 @@ impl Default for PrimitiveFrameScratch {
     fn default() -> Self {
         PrimitiveFrameScratch {
             draws: Vec::new(),
-            rectangle: storage::Storage::new(0),
             pictures: storage::Storage::new(0),
             images: storage::Storage::new(0),
             visible_image_tiles: storage::Storage::new(0),
@@ -592,7 +608,6 @@ impl Default for PrimitiveFrameScratch {
 impl PrimitiveFrameScratch {
     pub fn recycle(&mut self, recycler: &mut Recycler) {
         recycler.recycle_vec(&mut self.draws);
-        self.rectangle.recycle(recycler);
         self.pictures.recycle(recycler);
         self.images.recycle(recycler);
         self.visible_image_tiles.recycle(recycler);
@@ -608,7 +623,6 @@ impl PrimitiveFrameScratch {
     }
 
     pub fn begin_frame(&mut self) {
-        self.rectangle.clear();
         self.pictures.clear();
         self.images.clear();
         self.visible_image_tiles.clear();
@@ -868,6 +882,12 @@ impl Default for PrimitiveStore {
 /// Trait for primitives that are directly internable.
 /// see SceneBuilder::add_primitive<P>
 pub trait InternablePrimitive: intern::Internable<InternData = ()> + Sized {
+    /// Whether this primitive snaps its geometry and clips to the device pixel
+    /// grid. Overridden to `false` for device-space content (text runs), whose
+    /// clips must stay at their exact sub-pixel position (bug 2050692). Used
+    /// when building the primitive's clip leaf.
+    const SNAP_CLIPS: bool = true;
+
     /// Build a new key from self with `info`.
     fn into_key(
         self,

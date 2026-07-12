@@ -7,6 +7,7 @@ package org.mozilla.fenix.ui.efficiency.selectors
 import org.mozilla.fenix.R
 import org.mozilla.fenix.compose.snackbar.SNACKBAR_BUTTON_TEST_TAG
 import org.mozilla.fenix.helpers.DataGenerationHelper.getStringResource
+import org.mozilla.fenix.helpers.TestHelper.shortAppName
 import org.mozilla.fenix.ui.efficiency.helpers.Selector
 import org.mozilla.fenix.ui.efficiency.helpers.SelectorStrategy
 
@@ -82,6 +83,34 @@ object BrowserPageSelectors {
         groups = listOf(),
     )
 
+    val TRANSLATION_SHEET_TITLE = Selector(
+        strategy = SelectorStrategy.COMPOSE_BY_TEXT,
+        value = getStringResource(R.string.translations_bottom_sheet_title_first_time, argument = shortAppName),
+        description = "Translation bottom sheet translate button",
+        groups = listOf("notTranslatedPageTranslationSheet"),
+    )
+
+    val TRANSLATION_SHEET_TRANSLATE_BUTTON = Selector(
+        strategy = SelectorStrategy.COMPOSE_BY_TEXT,
+        value = getStringResource(R.string.translations_bottom_sheet_positive_button),
+        description = "Translation bottom sheet translate button",
+        groups = listOf("notTranslatedPageTranslationSheet"),
+    )
+
+    val TRANSLATION_SHEET_SHOW_ORIGINAL_BUTTON = Selector(
+        strategy = SelectorStrategy.COMPOSE_BY_TEXT,
+        value = getStringResource(R.string.translations_bottom_sheet_negative_button_restore),
+        description = "Translation bottom sheet show original button",
+        groups = listOf("translatedPageTranslationSheet"),
+    )
+
+    val ADDED_TO_SHORTCUTS_SNACKBAR_TEXT = Selector(
+        strategy = SelectorStrategy.UIAUTOMATOR_WITH_TEXT,
+        value = getStringResource(R.string.snackbar_added_to_shortcuts),
+        description = "Added to shortcuts snackbar text",
+        groups = listOf("addedToShortcutsSnackbar"),
+    )
+
     val all = listOf(
         ENGINE_VIEW,
         PAGE_CONTENT,
@@ -92,6 +121,10 @@ object BrowserPageSelectors {
         TAB_CRASH_REPORTER_MESSAGE,
         TAB_CRASH_REPORTER_RESTORE_BUTTON,
         TAB_CRASH_REPORTER_CLOSE_BUTTON,
-        PAGE_CONTENT,
+        PAGE_CONTENT(),
+        TRANSLATION_SHEET_TITLE,
+        TRANSLATION_SHEET_TRANSLATE_BUTTON,
+        TRANSLATION_SHEET_SHOW_ORIGINAL_BUTTON,
+        ADDED_TO_SHORTCUTS_SNACKBAR_TEXT,
     )
 }

@@ -258,16 +258,14 @@ def report_gradlew(config, fix, subdir, project_name, lint_tasks=[], **lintargs)
     ktlint_file = "ktlint.json"
     if fix:
         ktlint_file = "ktlintFormat.json"
-    try:
-        issues = json.load(
-            open(
-                os.path.join(
-                    reports,
-                    "ktlint",
-                    ktlint_file,
-                ),
-            )
+
+    ktlint_report = os.path.join(reports, "ktlint", ktlint_file)
+    if not os.path.exists(ktlint_report):
+        ktlint_report = os.path.join(
+            topsrcdir, subdir, "app", "build", "reports", "ktlint", ktlint_file
         )
+    try:
+        issues = json.load(open(ktlint_report))
 
         for issue in issues:
             name = issue["file"]
@@ -284,7 +282,7 @@ def report_gradlew(config, fix, subdir, project_name, lint_tasks=[], **lintargs)
                 }
                 results.append(result.from_config(config, **err))
     except FileNotFoundError:
-        print(f"Could not read ktlint report: `{ktlint_file}`")
+        print(f"Could not read ktlint report: `{ktlint_report}`")
         pass
 
     return results + parse_lint_report(

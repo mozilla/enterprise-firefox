@@ -1,15 +1,10 @@
 # META: timeout=long
 
-import base64
-import os
 import tempfile
-from copy import deepcopy
 from pathlib import Path
 
 import pytest
-import pytest_asyncio
 from support.addons import get_internal_addon_id
-from tests.support.sync import AsyncPoll
 from webdriver.bidi.error import UnsupportedOperationException
 from webdriver.bidi.modules.script import ContextTarget
 
@@ -18,78 +13,12 @@ pytestmark = pytest.mark.asyncio
 ABOUT_URL = "about:about"
 RESOURCE_URL = "resource://gre/modules/AppConstants.sys.mjs"
 
-EXTENSION_NEW_TAB_XPI = os.path.join(
-    os.path.abspath(os.path.dirname(__file__)),
-    "..",
-    "..",
-    "..",
-    "support",
-    "webextensions",
-    "extension_new_tab.xpi",
-)
-
 
 @pytest.fixture
 def chrome_url(current_session):
     if current_session.capabilities["platformName"] == "android":
         return "chrome://geckoview/content/geckoview.xhtml"
     return "chrome://browser/content/browser.xhtml"
-
-
-@pytest_asyncio.fixture
-async def install_new_tab_extension(bidi_session, install_webextension):
-    """Install an extension that opens a page on install, wait for the page
-    to load, and return its context id and moz-extension:// URL."""
-    with open(EXTENSION_NEW_TAB_XPI, "rb") as f:
-        xpi_base64 = base64.b64encode(f.read()).decode("utf-8")
-
-    original_contexts = await bidi_session.browsing_context.get_tree(max_depth=0)
-    original_context_ids = {ctx["context"] for ctx in original_contexts}
-
-    await install_webextension(extension_data={"type": "base64", "value": xpi_base64})
-
-    async def find_extension_context(_):
-        contexts = await bidi_session.browsing_context.get_tree(max_depth=0)
-        for ctx in contexts:
-            if ctx["context"] not in original_context_ids and ctx["url"].startswith(
-                "moz-extension://"
-            ):
-                return ctx["context"], ctx["url"]
-        return False
-
-    wait = AsyncPoll(bidi_session, timeout=5)
-    ext_context_id, ext_url = await wait.until(find_extension_context)
-
-    yield ext_context_id, ext_url
-
-
-@pytest_asyncio.fixture
-async def parent_process_context(session, configuration, geckodriver):
-    """Start a geckodriver session with about:about opened via command line
-    argument and return the BiDi session and the parent process context id.
-
-    Note: This uses geckodriver instead of the browser/new_session fixture
-    because the browser fixture doesn't support Android yet (bug 2040886).
-    """
-    config = deepcopy(configuration)
-    config["capabilities"]["moz:firefoxOptions"]["args"].append("about:about")
-    config["capabilities"]["moz:firefoxOptions"]["androidIntentArguments"] = [
-        "-d",
-        "about:about",
-    ]
-
-    driver = geckodriver(config=config, force_new=True)
-    driver.new_session()
-    driver.session.timeouts.page_load = 3
-
-    bidi_session = driver.session.bidi_session
-    await bidi_session.start()
-
-    contexts = await bidi_session.browsing_context.get_tree(max_depth=0)
-    page_context = next((ctx for ctx in contexts if ctx["url"] == "about:about"), None)
-    assert page_context is not None, "No context found with URL about:about"
-
-    yield bidi_session, page_context["context"]
 
 
 # To minimize Firefox restarts, run tests requiring system access first,
@@ -109,7 +38,7 @@ async def test_about_pages_with_system_access(bidi_session, new_tab):
 
 
 @pytest.mark.geckodriver(allow_system_access=True)
-async def tst_chrome_url_with_system_access(bidi_session, chrome_url, new_tab):
+async def test_chrome_url_with_system_access(bidi_session, chrome_url, new_tab):
     """Bug 2040978: Disabled because it crashes/hangs Firefox builds"""
     await bidi_session.browsing_context.navigate(
         context=new_tab["context"], url=chrome_url, wait="complete"
@@ -213,7 +142,7 @@ async def test_resource_url_without_system_access(bidi_session, top_context):
         )
 
 
-@pytest.mark.parametrize("protocol", ["http", "https"], ids=["http", "https"])
+@pytest.mark.parametrize("protocol", ["http", "https"])
 async def test_web_safe_url_in_parent_process_context_without_system_access(
     parent_process_context, inline, protocol
 ):

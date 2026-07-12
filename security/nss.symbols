@@ -671,6 +671,7 @@ SGN_DestroyDigestInfo_Util
 SGN_End
 SGN_NewContext
 SGN_Update
+SSL_AlertReceivedCallback
 SSL_AlertSentCallback
 SSL_AuthCertificateComplete
 SSL_AuthCertificateHook

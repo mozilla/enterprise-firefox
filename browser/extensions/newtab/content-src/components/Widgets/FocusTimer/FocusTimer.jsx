@@ -5,11 +5,12 @@
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSelector, batch } from "react-redux";
-import { useIntersectionObserver, useSizeSubmenu } from "../../../lib/utils";
+import { useIntersectionObserver } from "../../../lib/utils";
 import { WIDGET_REGISTRY, resolveWidgetSize } from "common/WidgetsRegistry.mjs";
 import { WidgetCelebration } from "../WidgetCelebration";
 import { useWidgetCelebration } from "../useWidgetCelebration";
-import { MoveSubmenu } from "../MoveSubmenu";
+import { SizeSubmenu } from "../SizeSubmenu";
+import { WidgetMenuFooter } from "../WidgetMenuFooter";
 
 const FOCUS_TIMER_CELEBRATION_GRADIENT_STOPS = [
   { offset: "0%", color: "var(--timer-celebration-leading)" },
@@ -751,18 +752,6 @@ export const FocusTimer = ({
     }
   };
 
-  function handleLearnMore() {
-    dispatch(
-      ac.OnlyToMain({
-        type: at.OPEN_LINK,
-        data: {
-          url: "https://support.mozilla.org/kb/firefox-new-tab-widgets",
-        },
-      })
-    );
-    handleTimerInteraction();
-  }
-
   function handlePrefUpdate(prefName, prefValue) {
     dispatch(
       ac.OnlyToMain({
@@ -964,8 +953,6 @@ export const FocusTimer = ({
     toggleType(timerType === "focus" ? "break" : "focus");
   };
 
-  const sizeSubmenuRef = useSizeSubmenu(handleChangeSize);
-
   // Keep the running-state body layout through the celebration so the ring
   // doesn't shift to a third position during the animation.
   const bodyShowsRunningLayout = hasProgressed || isCelebrating || isComplete;
@@ -1026,77 +1013,27 @@ export const FocusTimer = ({
                 );
               }}
             />
-            <panel-item
-              // @nova-cleanup(remove-conditional): Drop the ternary and keep
-              // newtab-widget-timer-menu-hide once Nova ships.
-              data-l10n-id={
-                novaEnabled
-                  ? "newtab-widget-timer-menu-hide"
-                  : "newtab-widget-menu-hide"
-              }
-              onClick={() => {
-                batch(() => {
-                  dispatch(
-                    ac.OnlyToMain({
-                      type: at.SET_PREF,
-                      data: {
-                        name: "widgets.focusTimer.enabled",
-                        value: false,
-                      },
-                    })
-                  );
-
-                  const telemetryData = {
-                    widget_name: "focus_timer",
-                    widget_source: "context_menu",
-                    enabled: false,
-                    widget_size: widgetSize,
-                  };
-
-                  dispatch(
-                    ac.OnlyToMain({
-                      type: at.WIDGETS_ENABLED,
-                      data: telemetryData,
-                    })
-                  );
-                });
-              }}
-            />
-            {
-              // @nova-cleanup(remove-conditional): Remove the `novaEnabled &&` check; keep widgetsMayBeMaximized
-              novaEnabled && widgetsMayBeMaximized && (
-                <panel-item submenu="focus-timer-size-submenu">
-                  <span data-l10n-id="newtab-widget-menu-change-size"></span>
-                  <panel-list
-                    ref={sizeSubmenuRef}
-                    slot="submenu"
-                    id="focus-timer-size-submenu"
-                  >
-                    {["small", "medium", "large"].map(size => (
-                      <panel-item
-                        key={size}
-                        type="checkbox"
-                        checked={widgetSize === size || undefined}
-                        data-size={size}
-                        data-l10n-id={`newtab-widget-size-${size}`}
-                        {...(size === "small" ? { disabled: true } : {})}
-                      />
-                    ))}
-                  </panel-list>
-                </panel-item>
-              )
-            }
-            <MoveSubmenu
+            <WidgetMenuFooter
+              dispatch={dispatch}
               widgetId="focusTimer"
               widgetEnabledMap={widgetEnabledMap}
-            />
-            {
-              // @nova-cleanup(remove-conditional): Remove the `novaEnabled &&` check; always render the divider.
-              novaEnabled && <hr />
-            }
-            <panel-item
-              data-l10n-id="newtab-widget-timer-menu-learn-more"
-              onClick={handleLearnMore}
+              widgetName="focus_timer"
+              enabledPref="widgets.focusTimer.enabled"
+              widgetSize={widgetSize}
+              learnMoreL10nId="newtab-widget-timer-menu-learn-more"
+              onLearnMore={handleTimerInteraction}
+              sizeSubmenu={
+                // @nova-cleanup(remove-conditional): Remove the `novaEnabled &&` check; keep widgetsMayBeMaximized
+                novaEnabled &&
+                widgetsMayBeMaximized && (
+                  <SizeSubmenu
+                    submenuId="focus-timer-size-submenu"
+                    sizes={["medium", "large"]}
+                    checkedSize={widgetSize}
+                    onChangeSize={handleChangeSize}
+                  />
+                )
+              }
             />
           </panel-list>
         </div>
