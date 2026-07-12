@@ -25,6 +25,11 @@
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Services.h"
 
+#ifdef MOZ_ENTERPRISE
+#  include "mozilla/glean/GleanPings.h"
+#  include "mozilla/glean/UrlClassifierMetrics.h"
+#endif
+
 namespace mozilla {
 namespace net {
 
@@ -381,6 +386,78 @@ nsresult nsChannelClassifier::SendThreatHitReport(nsIChannel* aChannel,
   return NS_OK;
 }
 
+#ifdef MOZ_ENTERPRISE
+// Records an enterprise security event for every Safe Browsing hit (top-level,
+// subframe, or subresource) and submits the enterprise ping so administrators
+// can monitor unsafe-site access. The URL collection level is governed by the
+// browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit.urlLogging pref.
+static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
+                                  const nsACString& aList,
+                                  const nsACString& aProvider) {
+  MOZ_ASSERT(XRE_IsParentProcess());
+
+  nsCString threatType;
+  switch (aErrorCode) {
+    case NS_ERROR_MALWARE_URI:
+      threatType.AssignLiteral("malware");
+      break;
+    case NS_ERROR_PHISHING_URI:
+      threatType.AssignLiteral("phishing");
+      break;
+    case NS_ERROR_UNWANTED_URI:
+      threatType.AssignLiteral("unwanted");
+      break;
+    case NS_ERROR_HARMFUL_URI:
+      threatType.AssignLiteral("harmful");
+      break;
+    default:
+      // Not an unsafe-site threat; nothing to record.
+      return;
+  }
+
+  if (!Preferences::GetBool(
+          "browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit.enabled",
+          true)) {
+    return;
+  }
+
+  nsCString policy;
+  if (NS_FAILED(Preferences::GetCString(
+          "browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit."
+          "urlLogging",
+          policy)) ||
+      policy.IsEmpty()) {
+    policy.AssignLiteral("full");
+  }
+
+  nsCString url;
+  if (!policy.EqualsLiteral("none") && aChannel) {
+    nsCOMPtr<nsIURI> uri;
+    aChannel->GetURI(getter_AddRefs(uri));
+    if (uri) {
+      if (policy.EqualsLiteral("domain")) {
+        uri->GetHost(url);
+      } else {
+        url = uri->GetSpecOrDefault();
+      }
+    }
+  }
+
+  glean::security::UnsafeSiteVisitExtra extra = {
+      .list = Some(nsCString(aList)),
+      .provider = Some(nsCString(aProvider)),
+      .threatType = Some(threatType),
+      .url = Some(url)};
+  glean::security::unsafe_site_visit.Record(Some(extra));
+
+  if (!Preferences::GetBool(
+          "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
+          false)) {
+    glean_pings::Enterprise.Submit();
+  }
+}
+#endif
+
 NS_IMETHODIMP
 nsChannelClassifier::OnClassifyComplete(nsresult aErrorCode,
                                         const nsACString& aList,
@@ -422,6 +499,9 @@ nsChannelClassifier::OnClassifyComplete(nsresult aErrorCode,
           aErrorCode == NS_ERROR_UNWANTED_URI ||
           aErrorCode == NS_ERROR_HARMFUL_URI) {
         SendThreatHitReport(mChannel, aProvider, aList, aFullHash);
+#ifdef MOZ_ENTERPRISE
+        RecordUnsafeSiteVisit(mChannel, aErrorCode, aList, aProvider);
+#endif
       }
 
       mChannel->Cancel(aErrorCode);

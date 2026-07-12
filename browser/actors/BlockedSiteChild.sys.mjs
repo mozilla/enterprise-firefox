@@ -2,22 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
-
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   SafeBrowsing: "resource://gre/modules/SafeBrowsing.sys.mjs",
 });
-
-// Safe Browsing threat types that represent an unsafe site visit. Note that
-// "addon" (addonBlocked) is intentionally excluded as it is not a site threat.
-const UNSAFE_SITE_THREAT_TYPES = new Set([
-  "malware",
-  "phishing",
-  "unwanted",
-  "harmful",
-]);
 
 function getSiteBlockedErrorDetails(docShell) {
   let blockedInfo = {};
@@ -55,21 +44,6 @@ export class BlockedSiteChild extends JSWindowActorChild {
     let doc = aEvent.target;
     let blockedInfo = getSiteBlockedErrorDetails(this.docShell);
     let provider = blockedInfo.provider || "";
-
-    // In enterprise builds, report a security event when a user lands on an
-    // unsafe site so that administrators can monitor Safe Browsing hits.
-    if (
-      AppConstants.MOZ_ENTERPRISE &&
-      this.browsingContext === this.browsingContext.top &&
-      UNSAFE_SITE_THREAT_TYPES.has(aEvent.detail.err)
-    ) {
-      this.sendAsyncMessage("Browser:UnsafeSiteVisited", {
-        url: aEvent.detail.url,
-        threatType: aEvent.detail.err,
-        provider,
-        list: blockedInfo.list || "",
-      });
-    }
 
     /**
      * Set error description link in error details.

@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { EscapablePageParent } from "resource://gre/actors/NetErrorParent.sys.mjs";
-import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 let lazy = {};
 
@@ -121,90 +120,6 @@ export class BlockedSiteParent extends EscapablePageParent {
           msg.data.blockedInfo
         );
         break;
-      case "Browser:UnsafeSiteVisited":
-        this._recordUnsafeSiteVisit(msg.data);
-        break;
-    }
-  }
-
-  /**
-   * Records an enterprise security event for a Safe Browsing hit and submits
-   * the enterprise ping. Only active in MOZ_ENTERPRISE builds.
-   *
-   * @param {object} data
-   * @param {string} data.url - The URL of the blocked unsafe site.
-   * @param {string} data.threatType - "malware", "phishing", "unwanted", or "harmful".
-   * @param {string} data.provider - The Safe Browsing provider that flagged the site.
-   * @param {string} data.list - The Safe Browsing list that matched the site.
-   */
-  _recordUnsafeSiteVisit({ url, threatType, provider, list }) {
-    if (!AppConstants.MOZ_ENTERPRISE) {
-      return;
-    }
-    if (
-      !Services.prefs.getBoolPref(
-        "browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit.enabled",
-        true
-      )
-    ) {
-      return;
-    }
-
-    try {
-      Glean.security.unsafeSiteVisit.record({
-        url: this._processTelemetryUrl(url) || "",
-        threat_type: threatType || "",
-        provider: provider || "",
-        list: list || "",
-      });
-      if (
-        !Services.prefs.getBoolPref(
-          "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
-          false
-        )
-      ) {
-        GleanPings.enterprise.submit();
-      }
-    } catch (ex) {
-      // Silently fail - telemetry errors should not break safe browsing.
-      console.error(
-        `[BlockedSiteParent] Unsafe site visit telemetry recording failed:`,
-        ex
-      );
-    }
-  }
-
-  /**
-   * Processes a URL for telemetry based on the configured logging policy.
-   *
-   * @param {string} sourceUrl - The URL to process.
-   * @returns {string|null} The processed URL, or null when logging is disabled
-   *   or the URL cannot be parsed.
-   */
-  _processTelemetryUrl(sourceUrl) {
-    if (!sourceUrl) {
-      return null;
-    }
-
-    const policy = Services.prefs.getCharPref(
-      "browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit.urlLogging",
-      "full"
-    );
-
-    switch (policy) {
-      case "none":
-        return null;
-
-      case "domain":
-        try {
-          return new URL(sourceUrl).hostname || null;
-        } catch (ex) {
-          return null;
-        }
-
-      case "full":
-      default:
-        return sourceUrl;
     }
   }
 
