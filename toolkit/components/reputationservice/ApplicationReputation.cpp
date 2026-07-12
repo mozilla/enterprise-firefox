@@ -33,6 +33,10 @@
 #include "mozilla/ScopeExit.h"
 #include "mozilla/Services.h"
 #include "mozilla/glean/ReputationserviceMetrics.h"
+#ifdef MOZ_ENTERPRISE
+#  include "mozilla/glean/GleanPings.h"
+#  include "nsXULAppAPI.h"
+#endif
 #include "mozilla/TimeStamp.h"
 #include "mozilla/intl/LocaleService.h"
 
@@ -1485,6 +1489,76 @@ nsresult PendingLookup::DoLookupInternal() {
   return LookupNext();
 }
 
+#ifdef MOZ_ENTERPRISE
+// Records an enterprise security event whenever download protection flags a
+// download as unsafe and submits the enterprise ping so administrators can
+// monitor unsafe downloads. Recording is independent of the block prefs so a
+// detection is reported even when the corresponding block pref is disabled.
+// The URL collection level is governed by the
+// browser.safebrowsing.enterprise.telemetry.unsafeDownload.urlLogging pref.
+static void RecordUnsafeDownload(nsIApplicationReputationQuery* aQuery,
+                                 uint32_t aVerdict) {
+  MOZ_ASSERT(XRE_IsParentProcess());
+
+  nsCString verdict;
+  switch (aVerdict) {
+    case nsIApplicationReputationService::VERDICT_DANGEROUS:
+      verdict.AssignLiteral("dangerous");
+      break;
+    case nsIApplicationReputationService::VERDICT_DANGEROUS_HOST:
+      verdict.AssignLiteral("dangerous_host");
+      break;
+    case nsIApplicationReputationService::VERDICT_UNCOMMON:
+      verdict.AssignLiteral("uncommon");
+      break;
+    case nsIApplicationReputationService::VERDICT_POTENTIALLY_UNWANTED:
+      verdict.AssignLiteral("potentially_unwanted");
+      break;
+    default:
+      // VERDICT_SAFE or unknown; nothing to record.
+      return;
+  }
+
+  if (!Preferences::GetBool(
+          "browser.safebrowsing.enterprise.telemetry.unsafeDownload.enabled",
+          true)) {
+    return;
+  }
+
+  nsCString policy;
+  if (NS_FAILED(Preferences::GetCString(
+          "browser.safebrowsing.enterprise.telemetry.unsafeDownload."
+          "urlLogging",
+          policy)) ||
+      policy.IsEmpty()) {
+    policy.AssignLiteral("full");
+  }
+
+  nsCString url;
+  if (!policy.EqualsLiteral("none") && aQuery) {
+    nsCOMPtr<nsIURI> uri;
+    aQuery->GetSourceURI(getter_AddRefs(uri));
+    if (uri) {
+      if (policy.EqualsLiteral("domain")) {
+        uri->GetHost(url);
+      } else {
+        url = uri->GetSpecOrDefault();
+      }
+    }
+  }
+
+  mozilla::glean::security::UnsafeDownloadExtra extra = {
+      .url = mozilla::Some(url), .verdict = mozilla::Some(verdict)};
+  mozilla::glean::security::unsafe_download.Record(mozilla::Some(extra));
+
+  if (!Preferences::GetBool(
+          "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
+          false)) {
+    mozilla::glean_pings::Enterprise.Submit();
+  }
+}
+#endif
+
 nsresult PendingLookup::OnComplete(uint32_t aVerdict, Reason aReason,
                                    nsresult aRv) {
   if (NS_FAILED(aRv)) {
@@ -1538,6 +1612,10 @@ nsresult PendingLookup::OnComplete(uint32_t aVerdict, Reason aReason,
           static_cast<mozilla::glean::application_reputation::ShouldBlockLabel>(
               shouldBlock))
       .Add();
+
+#ifdef MOZ_ENTERPRISE
+  RecordUnsafeDownload(mQuery, aVerdict);
+#endif
 
   double t = (TimeStamp::Now() - mStartTime).ToMilliseconds();
   LOG(("Application Reputation verdict is %u, obtained in %f ms [this = %p]",

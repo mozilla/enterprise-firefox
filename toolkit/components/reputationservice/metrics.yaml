@@ -308,3 +308,39 @@ application_reputation:
       - safebrowsing-telemetry@mozilla.org
     expires: never
     telemetry_mirror: h#APPLICATION_REPUTATION_REASON
+
+#ifdef MOZ_ENTERPRISE
+security:
+  unsafe_download:
+    type: event
+    data_sensitivity:
+      - highly_sensitive
+    description: >
+      Recorded when download protection (the Google Safe Browsing download
+      protection API) flags a download as unsafe, regardless of whether the
+      configured block prefs cause the download to be blocked. Only collected
+      when MOZ_ENTERPRISE is defined and enabled.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2039258
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2039258
+    notification_emails:
+      - security-telemetry@mozilla.org
+      - enterprise-telemetry@mozilla.org
+    expires: never
+    send_in_pings:
+      - enterprise
+    extra_keys:
+      url:
+        description: >
+          The source URL the download originated from. Collection level is
+          configurable via the
+          browser.safebrowsing.enterprise.telemetry.unsafeDownload.urlLogging
+          pref: "full" (default), "domain", or "none".
+        type: string
+      verdict:
+        description: >
+          The download protection verdict: "dangerous", "dangerous_host",
+          "uncommon", or "potentially_unwanted".
+        type: string
+#endif
