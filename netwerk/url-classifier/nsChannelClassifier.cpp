@@ -436,9 +436,15 @@ static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
     aChannel->GetURI(getter_AddRefs(uri));
     if (uri) {
       if (policy.EqualsLiteral("domain")) {
-        uri->GetHost(url);
+        nsCString host;
+        if (NS_SUCCEEDED(uri->GetHost(host))) {
+          url = host;
+        }
       } else {
-        url = uri->GetSpecOrDefault();
+        nsCString spec;
+        if (NS_SUCCEEDED(uri->GetSpec(spec))) {
+          url = spec;
+        }
       }
     }
   }
