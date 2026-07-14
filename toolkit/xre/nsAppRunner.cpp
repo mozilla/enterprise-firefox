@@ -5522,21 +5522,6 @@ int XREMain::XRE_mainStartup(bool* aExitFlag,
 #  endif
 
     if (NS_SUCCEEDED(rv)) {
-#  if defined(MOZ_ENTERPRISE)
-      if (is_felt_ui()) {
-        // Key remoting on the profile's leaf name rather than its full path.
-        // The FELT profile holds no important state (hence it lives under
-        // %TEMP%), but that %TEMP% prefix varies by launch context (8.3 vs long
-        // form, per-session or relocated temp), which breaks the remote-window
-        // lookup across launchers. The leaf name is hardcoded and embeds the
-        // update channel ("felt-<channel>"), so it is stable across launchers
-        // and unlikely to collide with other channels running in parallel.
-        nsAutoString profileName;
-        if (NS_SUCCEEDED(mProfD->GetLeafName(profileName))) {
-          CopyUTF16toUTF8(profileName, profilePath);
-        }
-      }
-#  endif
       gRemoteService->SetProfile(profilePath);
 
       if (!mDisableRemoteClient) {
