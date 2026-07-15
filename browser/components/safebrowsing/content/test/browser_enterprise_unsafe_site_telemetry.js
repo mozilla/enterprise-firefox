@@ -39,6 +39,10 @@ add_setup(async function () {
         "browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit.urlLogging",
         "full",
       ],
+      // Classify subframes too, not just the top-level document, so the
+      // subframe and burst tests below see Safe Browsing hits for their
+      // iframes. Restored automatically at the end of this file.
+      ["browser.safebrowsing.only_top_level", false],
     ],
   });
 });
@@ -108,7 +112,7 @@ add_task(async function test_records_for_subframe_load() {
       content.document.body.appendChild(iframe);
     });
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => Glean.security.unsafeSiteVisit.testGetValue("enterprise")?.length,
       "Should record an event for the blocked subframe"
     );
@@ -226,7 +230,7 @@ add_task(async function test_burst_submits_once_then_throttles() {
       }
     });
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => submitCount >= 1,
       "The enterprise ping should be submitted immediately on the first hit",
       200,
@@ -241,13 +245,16 @@ add_task(async function test_burst_submits_once_then_throttles() {
       "The immediately-submitted ping carries only the first hit's event"
     );
 
-    // Wait for the rest of the burst to be recorded, then confirm no extra ping
+    // Submitting the enterprise ping clears the staged unsafeSiteVisit events,
+    // so the hits that arrive during the cooldown accumulate from zero and are
+    // held for the next ping. Wait for all of them, then confirm no extra ping
     // was submitted during the cooldown window.
-    await BrowserTestUtils.waitForCondition(
+    const stagedAfterFirstPing = iframeUrls.length - 1;
+    await TestUtils.waitForCondition(
       () =>
         (Glean.security.unsafeSiteVisit.testGetValue("enterprise")?.length ??
-          0) === iframeUrls.length,
-      "Every hit in the burst should be recorded as an event",
+          0) === stagedAfterFirstPing,
+      "Hits after the first are staged for the next ping",
       200,
       100
     );
@@ -256,6 +263,14 @@ add_task(async function test_burst_submits_once_then_throttles() {
       submitCount,
       1,
       "Further hits during the cooldown must not submit additional pings"
+    );
+
+    // Every hit was recorded exactly once: one rode the first ping, the rest
+    // remain staged.
+    Assert.equal(
+      eventsAtFirstSubmit + stagedAfterFirstPing,
+      iframeUrls.length,
+      "Each hit in the burst is recorded as its own event"
     );
   } finally {
     BrowserTestUtils.removeTab(tab);
