@@ -6,7 +6,7 @@
  * Tests for the enterprise "unsafe download" security telemetry recorded when
  * download protection flags a download as unsafe.
  *
- * These tests only run in MOZ_ENTERPRISE builds, where the security.unsafe_download
+ * These tests only run in MOZ_ENTERPRISE builds, where the safebrowsing.download
  * event exists. The manifest (xpcshell.toml) uses run-if = ["enterprise"].
  */
 
@@ -173,7 +173,7 @@ add_task(async function test_records_dangerous_download() {
   Assert.equal(status, Cr.NS_OK, "Query should succeed");
   Assert.ok(shouldBlock, "Blocklisted download should be blocked");
 
-  let events = Glean.security.unsafeDownload.testGetValue("enterprise");
+  let events = Glean.safebrowsing.download.testGetValue("enterprise");
   Assert.equal(events?.length, 1, "Should record one unsafe download event");
   const event = events.at(-1);
   Assert.ok(event.extra, "Event should have extra data");
@@ -202,7 +202,7 @@ add_task(async function test_url_logging_domain() {
     });
     Assert.ok(shouldBlock, "Blocklisted download should be blocked");
 
-    let events = Glean.security.unsafeDownload.testGetValue("enterprise");
+    let events = Glean.safebrowsing.download.testGetValue("enterprise");
     Assert.equal(events?.length, 1, "Should record one event");
     Assert.equal(
       events.at(-1).extra.url,
@@ -230,7 +230,7 @@ add_task(async function test_url_logging_none() {
     });
     Assert.ok(shouldBlock, "Blocklisted download should be blocked");
 
-    let events = Glean.security.unsafeDownload.testGetValue("enterprise");
+    let events = Glean.safebrowsing.download.testGetValue("enterprise");
     Assert.equal(events?.length, 1, "Should record one event");
     Assert.equal(
       events.at(-1).extra.url,
@@ -258,7 +258,7 @@ add_task(async function test_disabled_records_nothing() {
     });
     Assert.ok(shouldBlock, "Download is still blocked when telemetry is off");
 
-    let events = Glean.security.unsafeDownload.testGetValue("enterprise");
+    let events = Glean.safebrowsing.download.testGetValue("enterprise");
     Assert.ok(!events?.length, "Should not record when disabled");
   } finally {
     Services.prefs.setBoolPref(

@@ -1533,9 +1533,9 @@ static void RecordUnsafeDownload(nsIApplicationReputationQuery* aQuery,
   nsAutoCString url;
   mozilla::enterprise::RedactUrl(kPrefPrefix, uri, url);
 
-  mozilla::glean::security::UnsafeDownloadExtra extra = {
+  mozilla::glean::safebrowsing::DownloadExtra extra = {
       .url = mozilla::Some(nsCString(url)), .verdict = mozilla::Some(verdict)};
-  mozilla::glean::security::unsafe_download.Record(mozilla::Some(extra));
+  mozilla::glean::safebrowsing::download.Record(mozilla::Some(extra));
 
   mozilla::enterprise::MaybeSubmitEnterprisePing();
 }

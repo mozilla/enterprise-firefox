@@ -752,8 +752,8 @@ urlclassifier:
     expires: never
 
 #ifdef MOZ_ENTERPRISE
-security:
-  unsafe_site_visit:
+safebrowsing:
+  site_visit:
     type: event
     data_sensitivity:
       - highly_sensitive

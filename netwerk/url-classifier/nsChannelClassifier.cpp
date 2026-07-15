@@ -430,12 +430,12 @@ static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
   nsAutoCString url;
   enterprise::RedactUrl(kPrefPrefix, uri, url);
 
-  glean::security::UnsafeSiteVisitExtra extra = {
+  glean::safebrowsing::SiteVisitExtra extra = {
       .list = Some(nsCString(aList)),
       .provider = Some(nsCString(aProvider)),
       .threatType = Some(threatType),
       .url = Some(nsCString(url))};
-  glean::security::unsafe_site_visit.Record(Some(extra));
+  glean::safebrowsing::site_visit.Record(Some(extra));
 
   enterprise::MaybeSubmitEnterprisePing();
 }

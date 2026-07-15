@@ -310,8 +310,8 @@ application_reputation:
     telemetry_mirror: h#APPLICATION_REPUTATION_REASON
 
 #ifdef MOZ_ENTERPRISE
-security:
-  unsafe_download:
+safebrowsing:
+  download:
     type: event
     data_sensitivity:
       - highly_sensitive

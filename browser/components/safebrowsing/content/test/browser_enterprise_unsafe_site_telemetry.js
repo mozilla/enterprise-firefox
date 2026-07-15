@@ -61,7 +61,7 @@ add_task(async function test_unsafe_site_visit_records_event() {
   for (const { threatType, url } of UNSAFE_SITES) {
     let tab = await loadUnsafeSite(url);
     try {
-      let events = Glean.security.unsafeSiteVisit.testGetValue("enterprise");
+      let events = Glean.safebrowsing.siteVisit.testGetValue("enterprise");
       Assert.equal(
         events?.length,
         1,
@@ -113,11 +113,11 @@ add_task(async function test_records_for_subframe_load() {
     });
 
     await TestUtils.waitForCondition(
-      () => Glean.security.unsafeSiteVisit.testGetValue("enterprise")?.length,
+      () => Glean.safebrowsing.siteVisit.testGetValue("enterprise")?.length,
       "Should record an event for the blocked subframe"
     );
 
-    let events = Glean.security.unsafeSiteVisit.testGetValue("enterprise");
+    let events = Glean.safebrowsing.siteVisit.testGetValue("enterprise");
     Assert.equal(
       events.at(-1).extra.threat_type,
       "malware",
@@ -141,7 +141,7 @@ add_task(async function test_url_logging_domain() {
 
   let tab = await loadUnsafeSite(UNSAFE_SITES[0].url);
   try {
-    let events = Glean.security.unsafeSiteVisit.testGetValue("enterprise");
+    let events = Glean.safebrowsing.siteVisit.testGetValue("enterprise");
     Assert.equal(events?.length, 1, "Should record one event");
     Assert.equal(
       events.at(-1).extra.url,
@@ -167,7 +167,7 @@ add_task(async function test_url_logging_none() {
 
   let tab = await loadUnsafeSite(UNSAFE_SITES[0].url);
   try {
-    let events = Glean.security.unsafeSiteVisit.testGetValue("enterprise");
+    let events = Glean.safebrowsing.siteVisit.testGetValue("enterprise");
     Assert.equal(events?.length, 1, "Should record one event");
     Assert.equal(
       events.at(-1).extra.url,
@@ -209,7 +209,7 @@ add_task(async function test_burst_submits_once_then_throttles() {
       submitCount++;
       if (submitCount === 1) {
         eventsAtFirstSubmit =
-          Glean.security.unsafeSiteVisit.testGetValue("enterprise")?.length ??
+          Glean.safebrowsing.siteVisit.testGetValue("enterprise")?.length ??
           0;
       }
       registerHook();
@@ -252,7 +252,7 @@ add_task(async function test_burst_submits_once_then_throttles() {
     const stagedAfterFirstPing = iframeUrls.length - 1;
     await TestUtils.waitForCondition(
       () =>
-        (Glean.security.unsafeSiteVisit.testGetValue("enterprise")?.length ??
+        (Glean.safebrowsing.siteVisit.testGetValue("enterprise")?.length ??
           0) === stagedAfterFirstPing,
       "Hits after the first are staged for the next ping",
       200,
@@ -291,7 +291,7 @@ add_task(async function test_disabled_records_nothing() {
 
   let tab = await loadUnsafeSite(UNSAFE_SITES[0].url);
   try {
-    let events = Glean.security.unsafeSiteVisit.testGetValue("enterprise");
+    let events = Glean.safebrowsing.siteVisit.testGetValue("enterprise");
     Assert.ok(!events?.length, "Should not record when disabled");
   } finally {
     BrowserTestUtils.removeTab(tab);
