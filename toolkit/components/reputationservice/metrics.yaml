@@ -336,7 +336,8 @@ safebrowsing:
           The source URL the download originated from. Collection level is
           configurable via the
           browser.safebrowsing.enterprise.telemetry.unsafeDownload.urlLogging
-          pref: "full" (default), "domain", or "none".
+          pref: "full" (default), "domain", or "none". In "full" mode any
+          password in the URL is masked.
         type: string
       verdict:
         description: >

@@ -777,7 +777,8 @@ safebrowsing:
           The URL of the unsafe site that was blocked. Collection level is
           configurable via the
           browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit.urlLogging
-          pref: "full" (default), "domain", or "none".
+          pref: "full" (default), "domain", or "none". In "full" mode any
+          password in the URL is masked.
         type: string
       referrer:
         description: >

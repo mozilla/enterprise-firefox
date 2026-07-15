@@ -10,6 +10,7 @@
 #  include "mozilla/TimeStamp.h"
 #  include "mozilla/glean/GleanPings.h"
 #  include "nsIURI.h"
+#  include "nsNetUtil.h"
 #  include "nsString.h"
 #  include "nsThreadUtils.h"
 
@@ -44,10 +45,7 @@ void RedactUrl(const nsACString& aPrefPrefix, nsIURI* aURI,
       aResult = host;
     }
   } else {
-    nsAutoCString spec;
-    if (NS_SUCCEEDED(aURI->GetSpec(spec))) {
-      aResult = spec;
-    }
+    NS_GetSanitizedURIStringFromURI(aURI, aResult);
   }
 }
 

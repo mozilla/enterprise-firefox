@@ -23,9 +23,9 @@ namespace mozilla::enterprise {
 bool EventReportingEnabled(const nsACString& aPrefPrefix);
 
 // Redacts aURI according to the "<aPrefPrefix>.urlLogging" policy: "full"
-// (the default) yields the full spec, "domain" the host only, and "none"
-// nothing. aResult is cleared and left empty for the "none" policy, a null
-// aURI, or a URI retrieval failure.
+// (the default) yields the full spec with any password masked, "domain" the
+// host only, and "none" nothing. aResult is cleared and left empty for the
+// "none" policy, a null aURI, or a URI retrieval failure.
 void RedactUrl(const nsACString& aPrefPrefix, nsIURI* aURI,
                nsACString& aResult);
 

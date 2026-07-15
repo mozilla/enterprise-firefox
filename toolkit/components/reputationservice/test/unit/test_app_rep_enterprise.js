@@ -186,6 +186,10 @@ add_task(async function test_records_dangerous_download() {
     event.extra.url.includes("blocklisted.com"),
     `Full URL should be logged, got ${event.extra.url}`
   );
+  Assert.ok(
+    !event.extra.url.includes("qux") && event.extra.url.includes("****"),
+    `The password must be masked in the logged URL, got ${event.extra.url}`
+  );
 
   Services.fog.testResetFOG();
 });
