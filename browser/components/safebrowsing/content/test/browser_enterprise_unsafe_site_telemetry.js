@@ -192,7 +192,7 @@ add_task(async function test_burst_submits_once_then_throttles() {
         false,
       ],
       [
-        "browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit.submitCooldownMs",
+        "browser.safebrowsing.enterprise.telemetry.submitCooldownMs",
         5000,
       ],
     ],

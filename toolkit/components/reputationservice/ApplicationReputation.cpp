@@ -34,7 +34,7 @@
 #include "mozilla/Services.h"
 #include "mozilla/glean/ReputationserviceMetrics.h"
 #ifdef MOZ_ENTERPRISE
-#  include "mozilla/glean/GleanPings.h"
+#  include "mozilla/EnterpriseTelemetry.h"
 #  include "nsXULAppAPI.h"
 #endif
 #include "mozilla/TimeStamp.h"
@@ -1491,14 +1491,20 @@ nsresult PendingLookup::DoLookupInternal() {
 
 #ifdef MOZ_ENTERPRISE
 // Records an enterprise security event whenever download protection flags a
-// download as unsafe and submits the enterprise ping so administrators can
-// monitor unsafe downloads. Recording is independent of the block prefs so a
-// detection is reported even when the corresponding block pref is disabled.
-// The URL collection level is governed by the
-// browser.safebrowsing.enterprise.telemetry.unsafeDownload.urlLogging pref.
+// download as unsafe so administrators can monitor unsafe downloads. Recording
+// is independent of the block prefs so a detection is reported even when the
+// corresponding block pref is disabled. The enabled-check, URL redaction and
+// (throttled) ping submission use the shared mozilla::enterprise helpers so the
+// policy stays in sync with other enterprise security events.
 static void RecordUnsafeDownload(nsIApplicationReputationQuery* aQuery,
                                  uint32_t aVerdict) {
   MOZ_ASSERT(XRE_IsParentProcess());
+
+  constexpr auto kPrefPrefix =
+      "browser.safebrowsing.enterprise.telemetry.unsafeDownload"_ns;
+  if (!mozilla::enterprise::EventReportingEnabled(kPrefPrefix)) {
+    return;
+  }
 
   nsCString verdict;
   switch (aVerdict) {
@@ -1519,43 +1525,19 @@ static void RecordUnsafeDownload(nsIApplicationReputationQuery* aQuery,
       return;
   }
 
-  if (!Preferences::GetBool(
-          "browser.safebrowsing.enterprise.telemetry.unsafeDownload.enabled",
-          true)) {
-    return;
-  }
-
-  nsCString policy;
-  if (NS_FAILED(Preferences::GetCString(
-          "browser.safebrowsing.enterprise.telemetry.unsafeDownload."
-          "urlLogging",
-          policy)) ||
-      policy.IsEmpty()) {
-    policy.AssignLiteral("full");
-  }
-
-  nsCString url;
-  if (!policy.EqualsLiteral("none") && aQuery) {
-    nsCOMPtr<nsIURI> uri;
+  nsCOMPtr<nsIURI> uri;
+  if (aQuery) {
     aQuery->GetSourceURI(getter_AddRefs(uri));
-    if (uri) {
-      if (policy.EqualsLiteral("domain")) {
-        uri->GetHost(url);
-      } else {
-        url = uri->GetSpecOrDefault();
-      }
-    }
   }
+
+  nsAutoCString url;
+  mozilla::enterprise::RedactUrl(kPrefPrefix, uri, url);
 
   mozilla::glean::security::UnsafeDownloadExtra extra = {
-      .url = mozilla::Some(url), .verdict = mozilla::Some(verdict)};
+      .url = mozilla::Some(nsCString(url)), .verdict = mozilla::Some(verdict)};
   mozilla::glean::security::unsafe_download.Record(mozilla::Some(extra));
 
-  if (!Preferences::GetBool(
-          "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
-          false)) {
-    mozilla::glean_pings::Enterprise.Submit();
-  }
+  mozilla::enterprise::MaybeSubmitEnterprisePing();
 }
 #endif
 
