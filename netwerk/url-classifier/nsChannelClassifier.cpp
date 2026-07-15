@@ -28,6 +28,7 @@
 #ifdef MOZ_ENTERPRISE
 #  include "mozilla/glean/GleanPings.h"
 #  include "mozilla/glean/UrlClassifierMetrics.h"
+#  include "mozilla/TimeStamp.h"
 #endif
 
 namespace mozilla {
@@ -387,9 +388,46 @@ nsresult nsChannelClassifier::SendThreatHitReport(nsIChannel* aChannel,
 }
 
 #ifdef MOZ_ENTERPRISE
+// A single page load can produce many Safe Browsing hits at once (for example a
+// page embedding several unsafe subframes or subresources). We record one
+// enterprise event per hit, but throttle the enterprise ping submission so that
+// a burst of hits does not produce one ping per hit. We remember when the last
+// ping was submitted: a ping is sent immediately only if the cooldown interval
+// has elapsed since then, otherwise it is dropped (its event remains staged and
+// rides along with the next ping submitted once the cooldown has passed).
+static TimeStamp sLastEnterprisePingTime;
+
+static void MaybeSubmitEnterprisePing() {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  if (Preferences::GetBool(
+          "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
+          false)) {
+    return;
+  }
+
+  uint32_t cooldownMs = Preferences::GetUint(
+      "browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit."
+      "submitCooldownMs",
+      1000);
+
+  TimeStamp now = TimeStamp::Now();
+  if (!sLastEnterprisePingTime.IsNull() &&
+      (now - sLastEnterprisePingTime).ToMilliseconds() < cooldownMs) {
+    // Still within the cooldown window opened by the last submitted ping; drop
+    // this ping. The event has already been staged and will be sent with the
+    // next ping submitted after the cooldown has elapsed.
+    return;
+  }
+
+  sLastEnterprisePingTime = now;
+  glean_pings::Enterprise.Submit();
+}
+
 // Records an enterprise security event for every Safe Browsing hit (top-level,
 // subframe, or subresource) and submits the enterprise ping so administrators
-// can monitor unsafe-site access. The URL collection level is governed by the
+// can monitor unsafe-site access. Submissions are throttled: see
+// MaybeSubmitEnterprisePing. The URL collection level is governed by the
 // browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit.urlLogging pref.
 static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
                                   const nsACString& aList,
@@ -456,11 +494,7 @@ static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
       .url = Some(url)};
   glean::security::unsafe_site_visit.Record(Some(extra));
 
-  if (!Preferences::GetBool(
-          "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
-          false)) {
-    glean_pings::Enterprise.Submit();
-  }
+  MaybeSubmitEnterprisePing();
 }
 #endif
 

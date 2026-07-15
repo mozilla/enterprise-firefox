@@ -177,6 +177,93 @@ add_task(async function test_url_logging_none() {
   }
 });
 
+add_task(async function test_burst_submits_once_then_throttles() {
+  // A page load that triggers several Safe Browsing hits at once (multiple
+  // unsafe subframes) should submit the enterprise ping immediately on the
+  // first hit and then drop every further ping for the duration of the cooldown
+  // window, rather than emitting one ping per hit. Every hit is still recorded
+  // as its own event.
+  const iframeUrls = UNSAFE_SITES.map(s => s.url);
+
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [
+        "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
+        false,
+      ],
+      [
+        "browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit.submitCooldownMs",
+        5000,
+      ],
+    ],
+  });
+
+  let submitCount = 0;
+  let eventsAtFirstSubmit = 0;
+  function registerHook() {
+    GleanPings.enterprise.testBeforeNextSubmit(() => {
+      submitCount++;
+      if (submitCount === 1) {
+        eventsAtFirstSubmit =
+          Glean.security.unsafeSiteVisit.testGetValue("enterprise")?.length ??
+          0;
+      }
+      registerHook();
+    });
+  }
+  registerHook();
+
+  let tab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    "data:text/html,<body></body>"
+  );
+  try {
+    await SpecialPowers.spawn(tab.linkedBrowser, [iframeUrls], srcs => {
+      for (const src of srcs) {
+        let iframe = content.document.createElement("iframe");
+        iframe.src = src;
+        content.document.body.appendChild(iframe);
+      }
+    });
+
+    await BrowserTestUtils.waitForCondition(
+      () => submitCount >= 1,
+      "The enterprise ping should be submitted immediately on the first hit",
+      200,
+      100
+    );
+
+    // The first ping fires synchronously on the first hit, so only that hit's
+    // event is staged at submit time.
+    Assert.equal(
+      eventsAtFirstSubmit,
+      1,
+      "The immediately-submitted ping carries only the first hit's event"
+    );
+
+    // Wait for the rest of the burst to be recorded, then confirm no extra ping
+    // was submitted during the cooldown window.
+    await BrowserTestUtils.waitForCondition(
+      () =>
+        (Glean.security.unsafeSiteVisit.testGetValue("enterprise")?.length ??
+          0) === iframeUrls.length,
+      "Every hit in the burst should be recorded as an event",
+      200,
+      100
+    );
+
+    Assert.equal(
+      submitCount,
+      1,
+      "Further hits during the cooldown must not submit additional pings"
+    );
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    Services.fog.testResetFOG();
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
 add_task(async function test_disabled_records_nothing() {
   await SpecialPowers.pushPrefEnv({
     set: [
