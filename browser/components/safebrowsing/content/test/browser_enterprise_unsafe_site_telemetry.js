@@ -25,6 +25,14 @@ const UNSAFE_SITES = [
   },
 ];
 
+// A real, safe top-level page (served over https) used as the embedder in the
+// referrer test, so the blocked subframe load carries a deterministic referrer.
+const EMBEDDER_URL =
+  getRootDirectory(gTestPath).replace(
+    "chrome://mochitests/content",
+    "https://example.com"
+  ) + "empty_file.html";
+
 add_setup(async function () {
   await new Promise(resolve => waitForDBInit(resolve));
   Services.fog.testResetFOG();
@@ -73,6 +81,11 @@ add_task(async function test_unsafe_site_visit_records_event() {
         event.extra.url,
         url,
         "Telemetry should include the blocked URL"
+      );
+      Assert.equal(
+        event.extra.referrer,
+        "",
+        "A direct top-level load has no referrer"
       );
       Assert.equal(
         event.extra.threat_type,
@@ -126,6 +139,79 @@ add_task(async function test_records_for_subframe_load() {
   } finally {
     BrowserTestUtils.removeTab(tab);
     Services.fog.testResetFOG();
+  }
+});
+
+add_task(async function test_records_referrer_of_embedder() {
+  // The blocked resource alone does not tell an administrator which page pulled
+  // it in. Load a safe page that embeds an unsafe iframe and confirm the
+  // recorded event attributes the hit to that embedding page via the referrer.
+  const iframeUrl = UNSAFE_SITES[0].url;
+  let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, EMBEDDER_URL);
+  try {
+    await SpecialPowers.spawn(tab.linkedBrowser, [iframeUrl], src => {
+      let iframe = content.document.createElement("iframe");
+      iframe.src = src;
+      content.document.body.appendChild(iframe);
+    });
+
+    await TestUtils.waitForCondition(
+      () => Glean.safebrowsing.siteVisit.testGetValue("enterprise")?.length,
+      "Should record an event for the blocked subframe"
+    );
+
+    let event = Glean.safebrowsing.siteVisit.testGetValue("enterprise").at(-1);
+    Assert.equal(
+      event.extra.url,
+      iframeUrl,
+      "The blocked subresource is still recorded as the url"
+    );
+    Assert.equal(
+      event.extra.referrer,
+      EMBEDDER_URL,
+      "The embedding page is recorded as the referrer"
+    );
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    Services.fog.testResetFOG();
+  }
+});
+
+add_task(async function test_referrer_redaction_domain() {
+  // The referrer honours the same urlLogging policy as the url.
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [
+        "browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit.urlLogging",
+        "domain",
+      ],
+    ],
+  });
+
+  const iframeUrl = UNSAFE_SITES[0].url;
+  let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, EMBEDDER_URL);
+  try {
+    await SpecialPowers.spawn(tab.linkedBrowser, [iframeUrl], src => {
+      let iframe = content.document.createElement("iframe");
+      iframe.src = src;
+      content.document.body.appendChild(iframe);
+    });
+
+    await TestUtils.waitForCondition(
+      () => Glean.safebrowsing.siteVisit.testGetValue("enterprise")?.length,
+      "Should record an event for the blocked subframe"
+    );
+
+    let event = Glean.safebrowsing.siteVisit.testGetValue("enterprise").at(-1);
+    Assert.equal(
+      event.extra.referrer,
+      "example.com",
+      "Only the referrer hostname is logged in domain mode"
+    );
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    Services.fog.testResetFOG();
+    await SpecialPowers.popPrefEnv();
   }
 });
 
@@ -195,10 +281,7 @@ add_task(async function test_burst_submits_once_then_throttles() {
         "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
         false,
       ],
-      [
-        "browser.safebrowsing.enterprise.telemetry.submitCooldownMs",
-        5000,
-      ],
+      ["browser.safebrowsing.enterprise.telemetry.submitCooldownMs", 5000],
     ],
   });
 
@@ -209,8 +292,7 @@ add_task(async function test_burst_submits_once_then_throttles() {
       submitCount++;
       if (submitCount === 1) {
         eventsAtFirstSubmit =
-          Glean.safebrowsing.siteVisit.testGetValue("enterprise")?.length ??
-          0;
+          Glean.safebrowsing.siteVisit.testGetValue("enterprise")?.length ?? 0;
       }
       registerHook();
     });

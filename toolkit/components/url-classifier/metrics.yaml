@@ -779,6 +779,14 @@ safebrowsing:
           browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit.urlLogging
           pref: "full" (default), "domain", or "none".
         type: string
+      referrer:
+        description: >
+          The referrer of the blocked load, i.e. the page that embedded or
+          linked to the unsafe resource. Empty when there is no referrer.
+          Redacted with the same collection level as the url key, per the
+          browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit.urlLogging
+          pref.
+        type: string
       threat_type:
         description: >
           The type of threat detected.

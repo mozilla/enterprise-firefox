@@ -28,6 +28,8 @@
 #ifdef MOZ_ENTERPRISE
 #  include "mozilla/EnterpriseTelemetry.h"
 #  include "mozilla/glean/UrlClassifierMetrics.h"
+#  include "nsIHttpChannel.h"
+#  include "nsIReferrerInfo.h"
 #endif
 
 namespace mozilla {
@@ -430,9 +432,24 @@ static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
   nsAutoCString url;
   enterprise::RedactUrl(kPrefPrefix, uri, url);
 
+  // The referrer tells the administrator which page embedded or linked to the
+  // blocked resource, which is otherwise invisible for subframe and subresource
+  // hits. It is redacted with the same urlLogging policy as the url above.
+  nsCOMPtr<nsIURI> referrerUri;
+  if (nsCOMPtr<nsIHttpChannel> httpChannel = do_QueryInterface(aChannel)) {
+    if (nsCOMPtr<nsIReferrerInfo> referrerInfo =
+            httpChannel->GetReferrerInfo()) {
+      referrerUri = referrerInfo->GetOriginalReferrer();
+    }
+  }
+
+  nsAutoCString referrer;
+  enterprise::RedactUrl(kPrefPrefix, referrerUri, referrer);
+
   glean::safebrowsing::SiteVisitExtra extra = {
       .list = Some(nsCString(aList)),
       .provider = Some(nsCString(aProvider)),
+      .referrer = Some(nsCString(referrer)),
       .threatType = Some(threatType),
       .url = Some(nsCString(url))};
   glean::safebrowsing::site_visit.Record(Some(extra));
