@@ -55,6 +55,7 @@ class DesktopSingleLocale(LocalesMixin, AutomationMixin, VCSMixin, BaseScript):
                 "clone-locales",
                 "list-locales",
                 "setup",
+                "tbrust-vendor",
                 "repack",
                 "summary",
             ],
