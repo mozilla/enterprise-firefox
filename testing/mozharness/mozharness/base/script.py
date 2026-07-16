@@ -2434,6 +2434,38 @@ class BaseScript(ScriptMixin, LogMixin):
             self.warning("returning nonzero exit status %d" % rc)
         sys.exit(rc)
 
+    def tbrust_vendor(self):
+        args = ["tb-rust", "vendor"]
+
+        restore_env = None
+        if "MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE" in os.environ:
+            restore_env = os.environ["MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE"]
+            del os.environ["MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE"]
+
+        dirs = self.query_abs_dirs()
+        mach = [sys.executable, "mach"]
+
+        return_code = self.run_command(
+            command=mach + ["--log-no-times"] + args,
+            cwd=dirs["abs_src_dir"],
+            env=os.environ,
+            output_timeout=self.config.get("max_build_output_timeout", 60 * 40),
+        )
+
+        if restore_env:
+            os.environ["MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE"] = restore_env
+
+        if return_code:
+            self.return_code = self.worst_level(
+                EXIT_STATUS_DICT[TBPL_FAILURE],
+                self.return_code,
+                AUTOMATION_EXIT_CODES[::-1],
+            )
+            self.fatal(
+                "'mach %s' did not run successfully. Please check "
+                "log for errors." % " ".join(args)
+            )
+
     def clobber(self):
         """
         Delete the working directory
