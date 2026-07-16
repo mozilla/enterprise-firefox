@@ -1119,72 +1119,64 @@ BrowserGlue.prototype = {
             false
           ),
         task: async () => {
-          // Get the primary secret from the console backend
-          // The API returns { data: "secret_value" }
+          // A managed browser that cannot establish its SDR unlock must not keep
+          // running: it would prompt for a primarySecret the user does not know,
+          // or operate against a profile it cannot decrypt. Fail the launch with
+          // a dedicated exit code (Bug 2020682), mirroring the launcher-side
+          // abort in FeltProcessParent.
+          const fail = (msg, e) => {
+            console.error(
+              `EnterpriseStorageEncryption.load: ${msg}${e ? ": " + e : ""}`
+            );
+            Services.startup.quit(
+              Ci.nsIAppStartup.eForceQuit,
+              Ci.nsIFelt.FeltEncryptionExitCode_UnlockFailed
+            );
+          };
+
+          // The API returns { data: "secret_value" }.
           let primarySecret;
           try {
-            const payload = await lazy.ConsoleClient.getPrimarySecret();
-            primarySecret = payload.data;
-            if (!primarySecret) {
-              console.error(
-                "EnterpriseStorageEncryption.load: No data field in payload:",
-                payload
-              );
-              return;
-            }
+            primarySecret = (await lazy.ConsoleClient.getPrimarySecret()).data;
           } catch (e) {
-            console.error(
-              "EnterpriseStorageEncryption.load: Failed to get primary secret:",
-              e
-            );
-            return;
+            return fail("Failed to get primary secret", e);
+          }
+          if (!primarySecret) {
+            return fail("No primary secret in payload");
           }
 
-          // Load the PK11 token
           let pk11token;
           try {
             pk11token = Cc[
               "@mozilla.org/security/internalkeytoken;1"
             ].createInstance(Ci.nsIPKCS11Token);
           } catch (e) {
-            console.error(
-              "EnterpriseStorageEncryption.load: Error getting PK11 token: " + e
-            );
-            return;
+            return fail("Error getting PK11 token", e);
           }
 
-          // Check if the PK11 token needs initialization
+          // Ensure the internal token's password is the primarySecret.
           if (!pk11token.hasPassword) {
-            // Token doesn't need login (empty password), set it to primarySecret
             try {
               await pk11token.changePassword("", primarySecret);
             } catch (e) {
-              console.error(
-                "EnterpriseStorageEncryption.load: Failed to change password from empty to primarySecret: " +
-                  e
-              );
+              return fail("Failed to set the primary secret on the token", e);
             }
-          } else {
-            // Token needs login - verify the password matches primarySecret
-            let isPasswordValid;
-            try {
-              let sdr = Cc["@mozilla.org/security/sdr;1"].getService(
-                Ci.nsISecretDecoderRing
-              );
-              isPasswordValid = sdr.login(primarySecret);
-            } catch (e) {
-              console.error(
-                "EnterpriseStorageEncryption.load: Error logging into the Secret Decoder Ring with the primary secret: " +
-                  e
-              );
-              return;
-            }
+          }
 
-            if (!isPasswordValid) {
-              console.error(
-                "EnterpriseStorageEncryption.load: Password against the PK11 token is not valid"
-              );
+          // Setting the password (PK11_ChangePW) does not leave the token logged
+          // in, and on a returning profile the token starts this session logged
+          // out. Log in explicitly and verify, so the SDR is unlocked for the
+          // whole session; otherwise the first login/cookie/import SDR operation
+          // would prompt for a primary password the user cannot supply.
+          try {
+            const sdr = Cc["@mozilla.org/security/sdr;1"].getService(
+              Ci.nsISecretDecoderRing
+            );
+            if (!sdr.login(primarySecret) || !pk11token.isLoggedIn) {
+              return fail("Internal token not logged in after unlock");
             }
+          } catch (e) {
+            return fail("SDR login failed", e);
           }
         },
       },

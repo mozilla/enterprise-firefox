@@ -10,6 +10,10 @@
 interface nsIFelt : nsISupports {
   const unsigned long FeltEncryptionExitCode_Archive = 0x93;
   const unsigned long FeltEncryptionExitCode_Delete = 0x94;
+  // The spawned browser could not establish its SDR unlock (no primarySecret,
+  // or the internal token could not be logged in). Exit with this code rather
+  // than run against a profile it cannot decrypt (Bug 2020682).
+  const unsigned long FeltEncryptionExitCode_UnlockFailed = 0x95;
 
   [must_use]
   ACString oneShotIpcServer();
