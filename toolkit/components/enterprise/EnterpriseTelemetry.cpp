@@ -16,6 +16,11 @@
 
 namespace mozilla::enterprise {
 
+// Time and originating tab of the last submitted enterprise ping, used to
+// throttle submissions.
+static TimeStamp sLastEnterprisePingTime;
+static uint64_t sLastEnterpriseBrowserId = 0;
+
 bool EventReportingEnabled(const nsACString& aPrefPrefix) {
   nsAutoCString pref(aPrefPrefix);
   pref.AppendLiteral(".enabled");
@@ -48,11 +53,6 @@ void RedactUrl(const nsACString& aPrefPrefix, nsIURI* aURI,
     NS_GetSanitizedURIStringFromURI(aURI, aResult);
   }
 }
-
-// Time and originating tab of the last submitted enterprise ping, used to
-// throttle submissions.
-static TimeStamp sLastEnterprisePingTime;
-static uint64_t sLastEnterpriseBrowserId = 0;
 
 EnterprisePingAction ThrottleEnterprisePing(uint64_t aBrowserId) {
   MOZ_ASSERT(NS_IsMainThread());
