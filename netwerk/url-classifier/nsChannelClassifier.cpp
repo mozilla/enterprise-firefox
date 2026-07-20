@@ -27,8 +27,10 @@
 
 #ifdef MOZ_ENTERPRISE
 #  include "mozilla/EnterpriseTelemetry.h"
+#  include "mozilla/dom/BrowsingContext.h"
 #  include "mozilla/glean/UrlClassifierMetrics.h"
 #  include "nsIHttpChannel.h"
+#  include "nsILoadInfo.h"
 #  include "nsIReferrerInfo.h"
 #endif
 
@@ -424,6 +426,25 @@ static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
       return;
   }
 
+  uint64_t browserId = 0;
+  if (aChannel) {
+    if (nsCOMPtr<nsILoadInfo> loadInfo = aChannel->LoadInfo()) {
+      uint64_t bcId = 0;
+      loadInfo->GetBrowsingContextID(&bcId);
+      if (RefPtr<dom::BrowsingContext> bc = dom::BrowsingContext::Get(bcId)) {
+        browserId = bc->Top()->BrowserId();
+      }
+    }
+  }
+
+  enterprise::EnterprisePingAction action =
+      enterprise::ThrottleEnterprisePing(browserId);
+  if (action == enterprise::EnterprisePingAction::Drop) {
+    // A same-tab burst inside the cooldown window; drop without recording so we
+    // only keep events we send telemetry for.
+    return;
+  }
+
   nsCOMPtr<nsIURI> uri;
   if (aChannel) {
     aChannel->GetURI(getter_AddRefs(uri));
@@ -451,10 +472,13 @@ static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
       .provider = Some(nsCString(aProvider)),
       .referrer = Some(nsCString(referrer)),
       .threatType = Some(threatType),
-      .url = Some(nsCString(url))};
+      .url = Some(nsCString(url)),
+  };
   glean::safebrowsing::site_visit.Record(Some(extra));
 
-  enterprise::MaybeSubmitEnterprisePing();
+  if (action == enterprise::EnterprisePingAction::RecordAndSubmit) {
+    enterprise::SubmitEnterprisePing();
+  }
 }
 #endif
 

@@ -7,6 +7,8 @@
 
 #ifdef MOZ_ENTERPRISE
 
+#  include <cstdint>
+
 #  include "nsStringFwd.h"
 
 class nsIURI;
@@ -14,8 +16,10 @@ class nsIURI;
 // Shared building blocks for enterprise security telemetry, so that the
 // enabled-check, URL redaction and (throttled) ping submission cannot drift
 // between events. A recording site composes them around its own event-specific
-// work: check EventReportingEnabled, build the event's Extra with `url` set from
-// RedactUrl, Record it, then MaybeSubmitEnterprisePing.
+// work: check EventReportingEnabled, ask ThrottleEnterprisePing what to do and
+// bail on Drop, build the event's Extra with `url` set from RedactUrl, Record
+// it, then SubmitEnterprisePing when ThrottleEnterprisePing returned
+// RecordAndSubmit.
 namespace mozilla::enterprise {
 
 // Whether enterprise security telemetry is enabled for the event whose prefs
@@ -29,12 +33,40 @@ bool EventReportingEnabled(const nsACString& aPrefPrefix);
 void RedactUrl(const nsACString& aPrefPrefix, nsIURI* aURI,
                nsACString& aResult);
 
-// Submits the enterprise ping, throttled so a burst of events (for example the
-// many Safe Browsing hits produced by a single page load) does not result in
-// one ping per event. A no-op while the shared
-// "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit" pref is
-// set. Must be called on the main thread of the parent process.
-void MaybeSubmitEnterprisePing();
+// How a recording site should handle the next enterprise security event, as
+// decided by ThrottleEnterprisePing.
+enum class EnterprisePingAction {
+  // The cooldown has elapsed, or the event comes from a different tab: record
+  // the event and then call SubmitEnterprisePing.
+  RecordAndSubmit,
+  // Submission is disabled via the testing.disableSubmit pref: still record the
+  // event so tests can inspect it, but do not submit a ping.
+  RecordOnly,
+  // The event comes from the same tab as the last submission and is inside the
+  // cooldown window: drop it entirely, without recording it.
+  Drop,
+};
+
+// Decides how to handle the next enterprise security event, throttling
+// submissions so a burst of events (for example the many Safe Browsing hits
+// produced by a single page load) does not result in one ping per event. A
+// single cooldown window is shared across all enterprise event types.
+//
+// aBrowserId is the id of the tab the event originates from, or 0 when there is
+// no tab (for example downloads). A burst is only collapsed when the follow-up
+// events come from the same tab, so unsafe subresources in one page load fold
+// into a single ping while genuinely distinct hits in other tabs are always
+// reported. The cooldown interval is read from
+// "browser.safebrowsing.enterprise.telemetry.submitCooldownMs" (default 1000).
+// While the "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit"
+// pref is set the throttle is disabled and reset, and RecordOnly is always
+// returned. Must be called on the main thread of the parent process.
+EnterprisePingAction ThrottleEnterprisePing(uint64_t aBrowserId);
+
+// Submits the enterprise ping. Callers that got RecordAndSubmit from
+// ThrottleEnterprisePing call this after recording their event. Must be called
+// on the main thread of the parent process.
+void SubmitEnterprisePing();
 
 }  // namespace mozilla::enterprise
 

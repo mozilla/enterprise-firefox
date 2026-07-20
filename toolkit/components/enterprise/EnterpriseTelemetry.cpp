@@ -49,31 +49,47 @@ void RedactUrl(const nsACString& aPrefPrefix, nsIURI* aURI,
   }
 }
 
-// Time the last enterprise ping was submitted, used to throttle submissions.
+// Time and originating tab of the last submitted enterprise ping, used to
+// throttle submissions.
 static TimeStamp sLastEnterprisePingTime;
+static uint64_t sLastEnterpriseBrowserId = 0;
 
-void MaybeSubmitEnterprisePing() {
+EnterprisePingAction ThrottleEnterprisePing(uint64_t aBrowserId) {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (Preferences::GetBool(
           "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
           false)) {
-    return;
+    // Testing escape hatch: record so tests can inspect the event, but never
+    // submit and never throttle (reset any window a prior test left behind).
+    sLastEnterprisePingTime = TimeStamp();
+    sLastEnterpriseBrowserId = 0;
+    return EnterprisePingAction::RecordOnly;
   }
 
   uint32_t cooldownMs = Preferences::GetUint(
       "browser.safebrowsing.enterprise.telemetry.submitCooldownMs", 1000);
 
   TimeStamp now = TimeStamp::Now();
-  if (!sLastEnterprisePingTime.IsNull() &&
-      (now - sLastEnterprisePingTime).ToMilliseconds() < cooldownMs) {
-    // Still within the cooldown window opened by the last submitted ping; drop
-    // this ping. The event has already been staged and will be sent with the
-    // next ping submitted after the cooldown has elapsed.
-    return;
+  bool withinCooldown =
+      !sLastEnterprisePingTime.IsNull() &&
+      (now - sLastEnterprisePingTime).ToMilliseconds() < cooldownMs;
+
+  // Only collapse a burst that comes from the same tab, so unsafe subresources
+  // in one page load fold into a single ping while genuinely distinct hits in
+  // other tabs are always reported. Events without a tab (aBrowserId == 0, for
+  // example downloads) collapse only against each other.
+  if (withinCooldown && aBrowserId == sLastEnterpriseBrowserId) {
+    return EnterprisePingAction::Drop;
   }
 
   sLastEnterprisePingTime = now;
+  sLastEnterpriseBrowserId = aBrowserId;
+  return EnterprisePingAction::RecordAndSubmit;
+}
+
+void SubmitEnterprisePing() {
+  MOZ_ASSERT(NS_IsMainThread());
   glean_pings::Enterprise.Submit();
 }
 

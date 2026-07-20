@@ -267,21 +267,27 @@ add_task(async function test_url_logging_none() {
   }
 });
 
-add_task(async function test_burst_submits_once_then_throttles() {
-  // A page load that triggers several Safe Browsing hits at once (multiple
-  // unsafe subframes) should submit the enterprise ping immediately on the
-  // first hit and then drop every further ping for the duration of the cooldown
-  // window, rather than emitting one ping per hit. Every hit is still recorded
-  // as its own event.
-  const iframeUrls = UNSAFE_SITES.map(s => s.url);
+// Navigates a browser to an unsafe URL and resolves once the (about:blocked)
+// load has finished, i.e. once Safe Browsing classification has definitely run.
+async function loadUnsafeInto(browser, url) {
+  BrowserTestUtils.startLoadingURIString(browser, url);
+  await BrowserTestUtils.browserLoaded(browser, false, url, true);
+}
 
+add_task(async function test_cooldown_is_per_tab() {
+  // The enterprise ping is throttled so that repeated Safe Browsing hits do not
+  // produce one ping per hit. The throttle is keyed on the originating tab:
+  // hits from the same tab inside the cooldown window are dropped entirely (not
+  // recorded), while a hit from a different tab is always reported even inside
+  // the window. The cooldown is set far longer than the test so both branches
+  // are exercised deterministically within a single window.
   await SpecialPowers.pushPrefEnv({
     set: [
       [
         "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
         false,
       ],
-      ["browser.safebrowsing.enterprise.telemetry.submitCooldownMs", 5000],
+      ["browser.safebrowsing.enterprise.telemetry.submitCooldownMs", 60000],
     ],
   });
 
@@ -299,63 +305,55 @@ add_task(async function test_burst_submits_once_then_throttles() {
   }
   registerHook();
 
-  let tab = await BrowserTestUtils.openNewForegroundTab(
+  let tab1 = await BrowserTestUtils.openNewForegroundTab(
     gBrowser,
-    "data:text/html,<body></body>"
+    "about:blank"
   );
+  let tab2;
   try {
-    await SpecialPowers.spawn(tab.linkedBrowser, [iframeUrls], srcs => {
-      for (const src of srcs) {
-        let iframe = content.document.createElement("iframe");
-        iframe.src = src;
-        content.document.body.appendChild(iframe);
-      }
-    });
-
+    // First hit in tab1: submitted immediately, carrying only its own event.
+    await loadUnsafeInto(tab1.linkedBrowser, UNSAFE_SITES[0].url);
     await TestUtils.waitForCondition(
       () => submitCount >= 1,
-      "The enterprise ping should be submitted immediately on the first hit",
-      200,
-      100
+      "The first hit submits the enterprise ping immediately"
     );
-
-    // The first ping fires synchronously on the first hit, so only that hit's
-    // event is staged at submit time.
     Assert.equal(
       eventsAtFirstSubmit,
       1,
       "The immediately-submitted ping carries only the first hit's event"
     );
 
-    // Submitting the enterprise ping clears the staged unsafeSiteVisit events,
-    // so the hits that arrive during the cooldown accumulate from zero and are
-    // held for the next ping. Wait for all of them, then confirm no extra ping
-    // was submitted during the cooldown window.
-    const stagedAfterFirstPing = iframeUrls.length - 1;
-    await TestUtils.waitForCondition(
-      () =>
-        (Glean.safebrowsing.siteVisit.testGetValue("enterprise")?.length ??
-          0) === stagedAfterFirstPing,
-      "Hits after the first are staged for the next ping",
-      200,
-      100
-    );
-
+    // A second hit in the same tab, inside the cooldown window, is dropped and
+    // never recorded, so nothing is left staged behind the submitted ping.
+    await loadUnsafeInto(tab1.linkedBrowser, UNSAFE_SITES[1].url);
     Assert.equal(
       submitCount,
       1,
-      "Further hits during the cooldown must not submit additional pings"
+      "A same-tab hit inside the cooldown must not submit a further ping"
+    );
+    Assert.ok(
+      !Glean.safebrowsing.siteVisit.testGetValue("enterprise"),
+      "The dropped same-tab hit is not recorded"
     );
 
-    // Every hit was recorded exactly once: one rode the first ping, the rest
-    // remain staged.
+    // A hit from a different tab, still inside the cooldown window, is always
+    // reported: the throttle only collapses hits within a single tab.
+    tab2 = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+    await loadUnsafeInto(tab2.linkedBrowser, UNSAFE_SITES[0].url);
+    await TestUtils.waitForCondition(
+      () => submitCount >= 2,
+      "A hit from a different tab bypasses the cooldown and submits a ping"
+    );
     Assert.equal(
-      eventsAtFirstSubmit + stagedAfterFirstPing,
-      iframeUrls.length,
-      "Each hit in the burst is recorded as its own event"
+      submitCount,
+      2,
+      "A different tab's hit submits its own ping inside the cooldown window"
     );
   } finally {
-    BrowserTestUtils.removeTab(tab);
+    BrowserTestUtils.removeTab(tab1);
+    if (tab2) {
+      BrowserTestUtils.removeTab(tab2);
+    }
     Services.fog.testResetFOG();
     await SpecialPowers.popPrefEnv();
   }
