@@ -298,6 +298,10 @@ add_task(async function test_cooldown_is_per_tab() {
     ],
   });
 
+  // This test expects two submits: one from the first hit, one from the
+  // different tab. Re-arm the hook only while more are expected so we don't
+  // leave a dangling testBeforeNextSubmit callback that fires in later tests.
+  const EXPECTED_SUBMITS = 2;
   let submitCount = 0;
   let eventsAtFirstSubmit = 0;
   function registerHook() {
@@ -307,7 +311,9 @@ add_task(async function test_cooldown_is_per_tab() {
         eventsAtFirstSubmit =
           Glean.safebrowsing.siteVisit.testGetValue("enterprise")?.length ?? 0;
       }
-      registerHook();
+      if (submitCount < EXPECTED_SUBMITS) {
+        registerHook();
+      }
     });
   }
   registerHook();
@@ -357,6 +363,10 @@ add_task(async function test_cooldown_is_per_tab() {
       "A different tab's hit submits its own ping inside the cooldown window"
     );
   } finally {
+    // Overwrite any pending one-shot hook with a no-op so a failure path that
+    // exited before the expected submits does not leave a callback armed for
+    // later tests.
+    GleanPings.enterprise.testBeforeNextSubmit(() => {});
     BrowserTestUtils.removeTab(tab1);
     if (tab2) {
       BrowserTestUtils.removeTab(tab2);
