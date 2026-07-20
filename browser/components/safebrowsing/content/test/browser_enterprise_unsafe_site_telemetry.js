@@ -5,23 +5,30 @@
 "use strict";
 
 // Maps each Safe Browsing threat type to a test URL that is added to the
-// moztest lists in LookupCache.cpp / head.js.
+// moztest lists in LookupCache.cpp / head.js, along with the moztest list that
+// matches it. Test tables report the provider "test" (TESTING_TABLE_PROVIDER
+// _NAME in nsUrlClassifierUtils).
+const TEST_PROVIDER = "test";
 const UNSAFE_SITES = [
   {
     threatType: "malware",
     url: "https://www.itisatrap.org/firefox/its-an-attack.html",
+    list: "moztest-malware-simple",
   },
   {
     threatType: "phishing",
     url: "https://www.itisatrap.org/firefox/its-a-trap.html",
+    list: "moztest-phish-simple",
   },
   {
     threatType: "unwanted",
     url: "https://www.itisatrap.org/firefox/unwanted.html",
+    list: "moztest-unwanted-simple",
   },
   {
     threatType: "harmful",
     url: "https://www.itisatrap.org/firefox/harmful.html",
+    list: "moztest-harmful-simple",
   },
 ];
 
@@ -66,7 +73,7 @@ async function loadUnsafeSite(url) {
 }
 
 add_task(async function test_unsafe_site_visit_records_event() {
-  for (const { threatType, url } of UNSAFE_SITES) {
+  for (const { threatType, url, list } of UNSAFE_SITES) {
     let tab = await loadUnsafeSite(url);
     try {
       let events = Glean.safebrowsing.siteVisit.testGetValue("enterprise");
@@ -93,14 +100,14 @@ add_task(async function test_unsafe_site_visit_records_event() {
         "Telemetry should include the threat type"
       );
       Assert.equal(
-        typeof event.extra.provider,
-        "string",
-        "Telemetry should include a provider string"
+        event.extra.provider,
+        TEST_PROVIDER,
+        "Telemetry should include the Safe Browsing provider"
       );
       Assert.equal(
-        typeof event.extra.list,
-        "string",
-        "Telemetry should include a list string"
+        event.extra.list,
+        list,
+        "Telemetry should include the matching Safe Browsing list"
       );
     } finally {
       BrowserTestUtils.removeTab(tab);
