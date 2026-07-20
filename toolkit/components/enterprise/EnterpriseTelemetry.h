@@ -61,7 +61,7 @@ enum class EnterprisePingAction {
 // While the "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit"
 // pref is set the throttle is disabled and reset, and RecordOnly is always
 // returned. Must be called on the main thread of the parent process.
-EnterprisePingAction ThrottleEnterprisePing(uint64_t aBrowserId);
+[[nodiscard]] EnterprisePingAction ThrottleEnterprisePing(uint64_t aBrowserId);
 
 // Submits the enterprise ping. Callers that got RecordAndSubmit from
 // ThrottleEnterprisePing call this after recording their event. Must be called
