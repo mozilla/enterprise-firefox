@@ -437,7 +437,7 @@ static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
     }
   }
 
-  enterprise::EnterprisePingAction action =
+  const enterprise::EnterprisePingAction action =
       enterprise::ThrottleEnterprisePing(browserId);
   if (action == enterprise::EnterprisePingAction::Drop) {
     // A same-tab burst inside the cooldown window; drop without recording so we
@@ -467,7 +467,7 @@ static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
   nsAutoCString referrer;
   enterprise::RedactUrl(kPrefPrefix, referrerUri, referrer);
 
-  glean::safebrowsing::SiteVisitExtra extra = {
+  const glean::safebrowsing::SiteVisitExtra extra = {
       .list = Some(nsCString(aList)),
       .provider = Some(nsCString(aProvider)),
       .referrer = Some(nsCString(referrer)),

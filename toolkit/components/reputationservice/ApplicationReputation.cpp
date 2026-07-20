@@ -1528,7 +1528,7 @@ static void RecordUnsafeDownload(nsIApplicationReputationQuery* aQuery,
   // Downloads have no originating tab, so pass the 0 sentinel: they share the
   // enterprise cooldown window but are never dropped on account of another
   // tab's Safe Browsing hits.
-  mozilla::enterprise::EnterprisePingAction action =
+  const mozilla::enterprise::EnterprisePingAction action =
       mozilla::enterprise::ThrottleEnterprisePing(0);
   if (action == mozilla::enterprise::EnterprisePingAction::Drop) {
     return;
@@ -1542,7 +1542,7 @@ static void RecordUnsafeDownload(nsIApplicationReputationQuery* aQuery,
   nsAutoCString url;
   mozilla::enterprise::RedactUrl(kPrefPrefix, uri, url);
 
-  mozilla::glean::safebrowsing::DownloadExtra extra = {
+  const mozilla::glean::safebrowsing::DownloadExtra extra = {
       .url = mozilla::Some(nsCString(url)),
       .verdict = mozilla::Some(verdict),
   };

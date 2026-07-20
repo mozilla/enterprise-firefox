@@ -67,11 +67,11 @@ EnterprisePingAction ThrottleEnterprisePing(uint64_t aBrowserId) {
     return EnterprisePingAction::RecordOnly;
   }
 
-  uint32_t cooldownMs = Preferences::GetUint(
+  const uint32_t cooldownMs = Preferences::GetUint(
       "browser.safebrowsing.enterprise.telemetry.submitCooldownMs", 1000);
 
-  TimeStamp now = TimeStamp::Now();
-  bool withinCooldown =
+  const TimeStamp now = TimeStamp::Now();
+  const bool withinCooldown =
       !sLastEnterprisePingTime.IsNull() &&
       (now - sLastEnterprisePingTime).ToMilliseconds() < cooldownMs;
 
