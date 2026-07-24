@@ -88,11 +88,6 @@ EnterprisePingAction ThrottleEnterprisePing(uint64_t aBrowserId) {
   return EnterprisePingAction::RecordAndSubmit;
 }
 
-void SubmitEnterprisePing() {
-  MOZ_ASSERT(NS_IsMainThread());
-  glean_pings::Enterprise.Submit();
-}
-
 }  // namespace mozilla::enterprise
 
 #endif  // MOZ_ENTERPRISE

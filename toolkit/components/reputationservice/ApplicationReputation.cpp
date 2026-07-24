@@ -35,6 +35,7 @@
 #include "mozilla/glean/ReputationserviceMetrics.h"
 #ifdef MOZ_ENTERPRISE
 #  include "mozilla/EnterpriseTelemetry.h"
+#  include "mozilla/glean/GleanPings.h"
 #  include "nsXULAppAPI.h"
 #endif
 #include "mozilla/TimeStamp.h"
@@ -1549,7 +1550,7 @@ static void RecordUnsafeDownload(nsIApplicationReputationQuery* aQuery,
   mozilla::glean::safebrowsing::download.Record(mozilla::Some(extra));
 
   if (action == mozilla::enterprise::EnterprisePingAction::RecordAndSubmit) {
-    mozilla::enterprise::SubmitEnterprisePing();
+    mozilla::glean_pings::Enterprise.Submit();
   }
 }
 #endif

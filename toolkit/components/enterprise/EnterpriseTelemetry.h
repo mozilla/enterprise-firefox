@@ -18,8 +18,8 @@ class nsIURI;
 // between events. A recording site composes them around its own event-specific
 // work: check EventReportingEnabled, ask ThrottleEnterprisePing what to do and
 // bail on Drop, build the event's Extra with `url` set from MaybeRedactUrl,
-// Record it, then SubmitEnterprisePing when ThrottleEnterprisePing returned
-// RecordAndSubmit.
+// Record it, then submit the enterprise ping (glean_pings::Enterprise.Submit())
+// when ThrottleEnterprisePing returned RecordAndSubmit.
 namespace mozilla::enterprise {
 
 // Whether enterprise security telemetry is enabled for the event whose prefs
@@ -37,7 +37,8 @@ void MaybeRedactUrl(const nsACString& aPrefPrefix, nsIURI* aURI,
 // decided by ThrottleEnterprisePing.
 enum class EnterprisePingAction {
   // The cooldown has elapsed, or the event comes from a different tab: record
-  // the event and then call SubmitEnterprisePing.
+  // the event and then submit the enterprise ping
+  // (glean_pings::Enterprise.Submit()).
   RecordAndSubmit,
   // Submission is disabled via the testing.disableSubmit pref: still record the
   // event so tests can inspect it, but do not submit a ping.
@@ -62,11 +63,6 @@ enum class EnterprisePingAction {
 // pref is set the throttle is disabled and reset, and RecordOnly is always
 // returned. Must be called on the main thread of the parent process.
 [[nodiscard]] EnterprisePingAction ThrottleEnterprisePing(uint64_t aBrowserId);
-
-// Submits the enterprise ping. Callers that got RecordAndSubmit from
-// ThrottleEnterprisePing call this after recording their event. Must be called
-// on the main thread of the parent process.
-void SubmitEnterprisePing();
 
 }  // namespace mozilla::enterprise
 

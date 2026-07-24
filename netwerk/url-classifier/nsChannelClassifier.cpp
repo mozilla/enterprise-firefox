@@ -28,6 +28,7 @@
 #ifdef MOZ_ENTERPRISE
 #  include "mozilla/EnterpriseTelemetry.h"
 #  include "mozilla/dom/BrowsingContext.h"
+#  include "mozilla/glean/GleanPings.h"
 #  include "mozilla/glean/UrlClassifierMetrics.h"
 #  include "nsIHttpChannel.h"
 #  include "nsILoadInfo.h"
@@ -477,7 +478,7 @@ static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
   glean::safebrowsing::site_visit.Record(Some(extra));
 
   if (action == enterprise::EnterprisePingAction::RecordAndSubmit) {
-    enterprise::SubmitEnterprisePing();
+    glean_pings::Enterprise.Submit();
   }
 }
 #endif
