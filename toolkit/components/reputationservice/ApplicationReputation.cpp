@@ -1494,9 +1494,7 @@ nsresult PendingLookup::DoLookupInternal() {
 // Records an enterprise security event whenever download protection flags a
 // download as unsafe so administrators can monitor unsafe downloads. Recording
 // is independent of the block prefs so a detection is reported even when the
-// corresponding block pref is disabled. The enabled-check, URL redaction and
-// (throttled) ping submission use the shared mozilla::enterprise helpers so the
-// policy stays in sync with other enterprise security events.
+// corresponding block pref is disabled.
 static void RecordUnsafeDownload(nsIApplicationReputationQuery* aQuery,
                                  uint32_t aVerdict) {
   MOZ_ASSERT(XRE_IsParentProcess());

@@ -117,9 +117,9 @@ add_task(async function test_unsafe_site_visit_records_event() {
 });
 
 add_task(async function test_records_for_subframe_load() {
-  // A safe top-level page that embeds an unsafe iframe. The old about:blocked
-  // hook only reported top-level blocks, so this produced no telemetry; the
-  // classifier-level hook records it regardless of frame level.
+  // A safe top-level page that embeds an unsafe iframe: the block is recorded
+  // regardless of frame level, so a subframe load is reported like a top-level
+  // one.
   const iframeUrl = UNSAFE_SITES[0].url;
   let tab = await BrowserTestUtils.openNewForegroundTab(
     gBrowser,

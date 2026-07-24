@@ -394,9 +394,6 @@ nsresult nsChannelClassifier::SendThreatHitReport(nsIChannel* aChannel,
 #ifdef MOZ_ENTERPRISE
 // Records an enterprise security event for every Safe Browsing hit (top-level,
 // subframe, or subresource) so administrators can monitor unsafe-site access.
-// The enabled-check, URL redaction and (throttled) ping submission use the
-// shared mozilla::enterprise helpers so the policy stays in sync with other
-// enterprise security events.
 static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
                                   const nsACString& aList,
                                   const nsACString& aProvider) {
