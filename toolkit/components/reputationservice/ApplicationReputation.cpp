@@ -1540,7 +1540,7 @@ static void RecordUnsafeDownload(nsIApplicationReputationQuery* aQuery,
   }
 
   nsAutoCString url;
-  mozilla::enterprise::RedactUrl(kPrefPrefix, uri, url);
+  mozilla::enterprise::MaybeRedactUrl(kPrefPrefix, uri, url);
 
   const mozilla::glean::safebrowsing::DownloadExtra extra = {
       .url = mozilla::Some(nsCString(url)),

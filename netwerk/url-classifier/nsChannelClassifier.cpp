@@ -451,7 +451,7 @@ static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
   }
 
   nsAutoCString url;
-  enterprise::RedactUrl(kPrefPrefix, uri, url);
+  enterprise::MaybeRedactUrl(kPrefPrefix, uri, url);
 
   // The referrer tells the administrator which page embedded or linked to the
   // blocked resource, which is otherwise invisible for subframe and subresource
@@ -465,7 +465,7 @@ static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
   }
 
   nsAutoCString referrer;
-  enterprise::RedactUrl(kPrefPrefix, referrerUri, referrer);
+  enterprise::MaybeRedactUrl(kPrefPrefix, referrerUri, referrer);
 
   const glean::safebrowsing::SiteVisitExtra extra = {
       .list = Some(nsCString(aList)),

@@ -17,8 +17,8 @@ class nsIURI;
 // enabled-check, URL redaction and (throttled) ping submission cannot drift
 // between events. A recording site composes them around its own event-specific
 // work: check EventReportingEnabled, ask ThrottleEnterprisePing what to do and
-// bail on Drop, build the event's Extra with `url` set from RedactUrl, Record
-// it, then SubmitEnterprisePing when ThrottleEnterprisePing returned
+// bail on Drop, build the event's Extra with `url` set from MaybeRedactUrl,
+// Record it, then SubmitEnterprisePing when ThrottleEnterprisePing returned
 // RecordAndSubmit.
 namespace mozilla::enterprise {
 
@@ -28,10 +28,10 @@ bool EventReportingEnabled(const nsACString& aPrefPrefix);
 
 // Redacts aURI according to the "<aPrefPrefix>.urlLogging" policy: "full"
 // (the default) yields the full spec with any password masked, "domain" the
-// host only, and "none" nothing. aResult is cleared and left empty for the
-// "none" policy, a null aURI, or a URI retrieval failure.
-void RedactUrl(const nsACString& aPrefPrefix, nsIURI* aURI,
-               nsACString& aResult);
+// host only, and "none" nothing. aProcessedUrl is cleared and left empty for
+// the "none" policy, a null aURI, or a URI retrieval failure.
+void MaybeRedactUrl(const nsACString& aPrefPrefix, nsIURI* aURI,
+                    nsACString& aProcessedUrl);
 
 // How a recording site should handle the next enterprise security event, as
 // decided by ThrottleEnterprisePing.

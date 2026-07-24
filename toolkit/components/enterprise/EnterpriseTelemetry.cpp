@@ -27,9 +27,9 @@ bool EventReportingEnabled(const nsACString& aPrefPrefix) {
   return Preferences::GetBool(pref.get(), true);
 }
 
-void RedactUrl(const nsACString& aPrefPrefix, nsIURI* aURI,
-               nsACString& aResult) {
-  aResult.Truncate();
+void MaybeRedactUrl(const nsACString& aPrefPrefix, nsIURI* aURI,
+                    nsACString& aProcessedUrl) {
+  aProcessedUrl.Truncate();
 
   nsAutoCString pref(aPrefPrefix);
   pref.AppendLiteral(".urlLogging");
@@ -47,10 +47,10 @@ void RedactUrl(const nsACString& aPrefPrefix, nsIURI* aURI,
   if (policy.EqualsLiteral("domain")) {
     nsAutoCString host;
     if (NS_SUCCEEDED(aURI->GetHost(host))) {
-      aResult = host;
+      aProcessedUrl = host;
     }
   } else {
-    NS_GetSanitizedURIStringFromURI(aURI, aResult);
+    NS_GetSanitizedURIStringFromURI(aURI, aProcessedUrl);
   }
 }
 
