@@ -8,11 +8,8 @@
 
 #  include "mozilla/Preferences.h"
 #  include "mozilla/TimeStamp.h"
-#  include "mozilla/glean/GleanPings.h"
 #  include "nsIURI.h"
 #  include "nsNetUtil.h"
-#  include "nsString.h"
-#  include "nsThreadUtils.h"
 
 namespace mozilla::enterprise {
 
