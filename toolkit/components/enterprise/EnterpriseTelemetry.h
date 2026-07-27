@@ -56,7 +56,8 @@ enum class EnterprisePingAction {
 // window is open, so a tab that goes quiet or is closed costs nothing.
 //
 // The cooldown is read from
-// "browser.safebrowsing.enterprise.telemetry.submitCooldownMs" (default 1000).
+// "browser.safebrowsing.enterprise.telemetry.submitCooldownMs" (default 60000,
+// i.e. one minute).
 // While "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit" is
 // set the throttle is disabled and reset, and RecordOnly is always returned.
 // Must be called on the main thread of the parent process.

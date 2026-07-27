@@ -6,6 +6,7 @@
 
 #ifdef MOZ_ENTERPRISE
 
+#  include "MainThreadUtils.h"
 #  include "mozilla/ClearOnShutdown.h"
 #  include "mozilla/Preferences.h"
 #  include "mozilla/StaticPtr.h"
@@ -17,7 +18,7 @@
 namespace mozilla::enterprise {
 
 // Time of the last submitted enterprise ping, per originating tab.
-static StaticAutoPtr<nsTHashMap<nsUint64HashKey, TimeStamp>> sLastPingTimes;
+static StaticAutoPtr<nsTHashMap<uint64_t, TimeStamp>> sLastPingTimes;
 
 bool EventReportingEnabled(const nsACString& aPrefPrefix) {
   nsAutoCString pref(aPrefPrefix);
@@ -78,14 +79,13 @@ EnterprisePingAction ThrottleEnterprisePing(uint64_t aBrowserId) {
     return EnterprisePingAction::RecordOnly;
   }
 
-  const uint32_t cooldownMs = Preferences::GetUint(
-      "browser.safebrowsing.enterprise.telemetry.submitCooldownMs", 1000);
-
   if (!sLastPingTimes) {
-    sLastPingTimes = new nsTHashMap<nsUint64HashKey, TimeStamp>();
+    sLastPingTimes = new nsTHashMap<uint64_t, TimeStamp>();
     ClearOnShutdown(&sLastPingTimes);
   }
 
+  const uint32_t cooldownMs = Preferences::GetUint(
+      "browser.safebrowsing.enterprise.telemetry.submitCooldownMs", 60000);
   const TimeStamp now = TimeStamp::Now();
 
   // A tab whose window has elapsed can no longer be throttled, so drop it here

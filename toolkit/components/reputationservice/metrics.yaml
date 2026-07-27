@@ -321,12 +321,11 @@ safebrowsing:
       configured block prefs cause the download to be blocked. Only collected
       when MOZ_ENTERPRISE is defined and enabled.
 
-      Detections share the enterprise submit throttle
-      (browser.safebrowsing.enterprise.telemetry.submitCooldownMs, default
-      1000ms, shared with safebrowsing.site_visit). Downloads have no
-      originating tab and use the no-tab sentinel, so back-to-back detections
-      within the cooldown window are dropped and not recorded. Event counts are
-      therefore not a 1:1 mapping with unsafe-download detections.
+      Detections are exempt from the enterprise submit throttle
+      (browser.safebrowsing.enterprise.telemetry.submitCooldownMs), which only
+      applies to safebrowsing.site_visit: a download is one deliberate user
+      action rather than a burst, so every detection is recorded and submits its
+      own ping, even back to back.
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2039258
     data_reviews:

@@ -388,6 +388,159 @@ add_task(async function test_cooldown_is_per_tab() {
   }
 });
 
+// Records what each enterprise ping carried at submit time. testBeforeNextSubmit
+// is a one-shot hook, so it re-arms itself after every submit: the assertions
+// below need every submit counted, not just the first. The events have to be
+// read inside the hook because submitting the ping clears them.
+function recordEnterpriseSubmits() {
+  const submits = [];
+  function arm() {
+    GleanPings.enterprise.testBeforeNextSubmit(() => {
+      const events = Glean.safebrowsing.siteVisit.testGetValue("enterprise");
+      submits.push({
+        eventCount: events?.length ?? 0,
+        lastUrl: events?.at(-1)?.extra.url ?? null,
+      });
+      arm();
+    });
+  }
+  arm();
+
+  return {
+    submits,
+    // Total events reported across every ping. A dropped hit is never recorded,
+    // so this counts the hits that survived the throttle, whether they arrived
+    // in one ping or several.
+    totalEvents: () =>
+      submits.reduce((sum, submit) => sum + submit.eventCount, 0),
+    // Overwrite the pending one-shot hook with a no-op so it does not stay armed
+    // for later tests.
+    disarm: () => GleanPings.enterprise.testBeforeNextSubmit(() => {}),
+  };
+}
+
+add_task(
+  async function test_background_tab_reports_while_foreground_throttled() {
+    // A hit must be attributed to the tab whose load produced it, not to whichever
+    // tab happens to be selected. The foreground tab hits first so its cooldown
+    // window is open, then an unsafe load runs in a background tab: that tab has
+    // its own window, so the hit is reported even though the selected tab is
+    // throttled. Keying the cooldown off the selected tab instead would drop it.
+    await SpecialPowers.pushPrefEnv({
+      set: [
+        [
+          "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
+          false,
+        ],
+        ["browser.safebrowsing.enterprise.telemetry.submitCooldownMs", 60000],
+      ],
+    });
+
+    const recorder = recordEnterpriseSubmits();
+    const backgroundUrl = UNSAFE_SITES[1].url;
+
+    let foregroundTab = await BrowserTestUtils.openNewForegroundTab(
+      gBrowser,
+      "about:blank"
+    );
+    let backgroundTab;
+    try {
+      await loadUnsafeInto(foregroundTab.linkedBrowser, UNSAFE_SITES[0].url);
+      await TestUtils.waitForCondition(
+        () => recorder.submits.length >= 1,
+        "The foreground tab's hit opens its cooldown window and submits"
+      );
+
+      backgroundTab = BrowserTestUtils.addTab(gBrowser, backgroundUrl);
+      Assert.equal(
+        gBrowser.selectedTab,
+        foregroundTab,
+        "The throttled tab is still the selected one"
+      );
+      await BrowserTestUtils.browserLoaded(
+        backgroundTab.linkedBrowser,
+        false,
+        backgroundUrl,
+        true
+      );
+
+      await TestUtils.waitForCondition(
+        () => recorder.totalEvents() >= 2,
+        "The background tab's hit is reported while the selected tab is throttled"
+      );
+      Assert.equal(
+        recorder.totalEvents(),
+        2,
+        "Both hits are reported, so the background tab has its own window"
+      );
+      Assert.ok(
+        recorder.submits.some(submit => submit.lastUrl === backgroundUrl),
+        "The reported hit is attributed to the background tab's load"
+      );
+    } finally {
+      recorder.disarm();
+      BrowserTestUtils.removeTab(foregroundTab);
+      if (backgroundTab) {
+        BrowserTestUtils.removeTab(backgroundTab);
+      }
+      Services.fog.testResetFOG();
+      await SpecialPowers.popPrefEnv();
+    }
+  }
+);
+
+add_task(async function test_simultaneous_hits_in_two_tabs() {
+  // Two tabs whose unsafe loads overlap rather than being neatly sequenced, so
+  // the order the two hits reach the throttle is not fixed. Each tab has its own
+  // cooldown window, so both hits are reported either way. The cooldown is far
+  // longer than the test, so a window shared between the tabs would drop
+  // whichever hit lost the race, and it would never be recorded.
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [
+        "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
+        false,
+      ],
+      ["browser.safebrowsing.enterprise.telemetry.submitCooldownMs", 60000],
+    ],
+  });
+
+  const recorder = recordEnterpriseSubmits();
+  const urls = [UNSAFE_SITES[0].url, UNSAFE_SITES[2].url];
+
+  // addTab starts the load, so both tabs are loading before either is awaited.
+  let tabs = urls.map(url => BrowserTestUtils.addTab(gBrowser, url));
+  try {
+    await Promise.all(
+      tabs.map((tab, i) =>
+        BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, urls[i], true)
+      )
+    );
+
+    await TestUtils.waitForCondition(
+      () => recorder.totalEvents() >= 2,
+      "Both simultaneous hits are reported"
+    );
+    Assert.equal(
+      recorder.totalEvents(),
+      2,
+      "Neither of the simultaneous hits is dropped"
+    );
+    Assert.lessOrEqual(
+      recorder.submits.length,
+      2,
+      "No more pings are submitted than there are reported hits"
+    );
+  } finally {
+    recorder.disarm();
+    for (const tab of tabs) {
+      BrowserTestUtils.removeTab(tab);
+    }
+    Services.fog.testResetFOG();
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
 add_task(async function test_disabled_records_nothing() {
   await SpecialPowers.pushPrefEnv({
     set: [
