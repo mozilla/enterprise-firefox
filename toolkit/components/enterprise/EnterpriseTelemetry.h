@@ -33,28 +33,30 @@ void MaybeRedactUrl(const nsACString& aPrefPrefix, nsIURI* aURI,
 // How a recording site should handle the next enterprise security event, as
 // decided by ThrottleEnterprisePing.
 enum class EnterprisePingAction {
-  // The cooldown has elapsed, or the event comes from a different tab: record
-  // the event and then submit the enterprise ping
-  // (glean_pings::Enterprise.Submit()).
+  // The originating tab has no cooldown window open: record the event and then
+  // submit the enterprise ping (glean_pings::Enterprise.Submit()).
   RecordAndSubmit,
   // Submission is disabled via the testing.disableSubmit pref: still record the
   // event so tests can inspect it, but do not submit a ping.
   RecordOnly,
-  // The event comes from the same tab as the last submission and is inside the
-  // cooldown window: drop it entirely, without recording it.
+  // The originating tab already submitted a ping inside the cooldown window:
+  // drop the event entirely, without recording it.
   Drop,
 };
 
 // Decides how to handle the next enterprise security event, throttling
 // submissions so a burst of events (for example the many Safe Browsing hits
-// produced by a single page load) does not result in one ping per event. A
-// single cooldown window is shared across all enterprise event types.
+// produced by a single page load) does not result in one ping per event. Only
+// the event that opens a window is reported; the ones throttled behind it are
+// discarded rather than batched into the next ping.
 //
 // aBrowserId is the id of the tab the event originates from, or 0 when there is
-// no tab (for example downloads). A burst is only collapsed when the follow-up
-// events come from the same tab, so unsafe subresources in one page load fold
-// into a single ping while genuinely distinct hits in other tabs are always
-// reported. The cooldown interval is read from
+// no tab (for example downloads). Each tab has its own cooldown window, shared
+// across all enterprise event types, so a page load reports its first unsafe
+// hit and discards the rest while hits in other tabs are reported on their own
+// schedule. Events without a tab share a single window among themselves. Tabs
+// are tracked only while their window is open, so a tab that goes quiet (or is
+// closed) costs nothing. The cooldown interval is read from
 // "browser.safebrowsing.enterprise.telemetry.submitCooldownMs" (default 1000).
 // While the "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit"
 // pref is set the throttle is disabled and reset, and RecordOnly is always

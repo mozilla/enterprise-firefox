@@ -283,11 +283,13 @@ async function loadUnsafeInto(browser, url) {
 
 add_task(async function test_cooldown_is_per_tab() {
   // The enterprise ping is throttled so that repeated Safe Browsing hits do not
-  // produce one ping per hit. The throttle is keyed on the originating tab:
-  // hits from the same tab inside the cooldown window are dropped entirely (not
-  // recorded), while a hit from a different tab is always reported even inside
-  // the window. The cooldown is set far longer than the test so both branches
-  // are exercised deterministically within a single window.
+  // produce one ping per hit. Each tab has its own cooldown window: a hit from
+  // a tab with no window open is reported, and further hits from that tab
+  // inside its window are dropped entirely (not recorded). Because the windows
+  // are independent, a tab that already submitted stays throttled even after
+  // another tab submits in the meantime. The cooldown is set far longer than
+  // the test so every branch is exercised deterministically within a single
+  // window.
   await SpecialPowers.pushPrefEnv({
     set: [
       [
@@ -298,10 +300,10 @@ add_task(async function test_cooldown_is_per_tab() {
     ],
   });
 
-  // This test expects two submits: one from the first hit, one from the
-  // different tab. Re-arm the hook only while more are expected so we don't
-  // leave a dangling testBeforeNextSubmit callback that fires in later tests.
-  const EXPECTED_SUBMITS = 2;
+  // testBeforeNextSubmit is a one-shot hook, so re-arm it after every submit:
+  // the assertions below check that throttled hits do *not* submit, which only
+  // holds if an unexpected submit would still be counted. The finally block
+  // disarms it so no callback survives into later tests.
   let submitCount = 0;
   let eventsAtFirstSubmit = 0;
   function registerHook() {
@@ -311,9 +313,7 @@ add_task(async function test_cooldown_is_per_tab() {
         eventsAtFirstSubmit =
           Glean.safebrowsing.siteVisit.testGetValue("enterprise")?.length ?? 0;
       }
-      if (submitCount < EXPECTED_SUBMITS) {
-        registerHook();
-      }
+      registerHook();
     });
   }
   registerHook();
@@ -349,23 +349,35 @@ add_task(async function test_cooldown_is_per_tab() {
       "The dropped same-tab hit is not recorded"
     );
 
-    // A hit from a different tab, still inside the cooldown window, is always
-    // reported: the throttle only collapses hits within a single tab.
+    // A hit from a different tab has its own window, which is still closed, so
+    // it is reported even though tab1's window is open.
     tab2 = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
     await loadUnsafeInto(tab2.linkedBrowser, UNSAFE_SITES[0].url);
     await TestUtils.waitForCondition(
       () => submitCount >= 2,
-      "A hit from a different tab bypasses the cooldown and submits a ping"
+      "A hit from a different tab opens its own window and submits a ping"
     );
     Assert.equal(
       submitCount,
       2,
-      "A different tab's hit submits its own ping inside the cooldown window"
+      "A different tab's hit submits its own ping inside tab1's window"
+    );
+
+    // Back to tab1, whose window is still open: another tab having submitted in
+    // between must not reopen it, so this hit is still dropped.
+    await loadUnsafeInto(tab1.linkedBrowser, UNSAFE_SITES[1].url);
+    Assert.equal(
+      submitCount,
+      2,
+      "A tab's window survives another tab submitting inside it"
+    );
+    Assert.ok(
+      !Glean.safebrowsing.siteVisit.testGetValue("enterprise"),
+      "The hit dropped after the other tab's submit is not recorded"
     );
   } finally {
-    // Overwrite any pending one-shot hook with a no-op so a failure path that
-    // exited before the expected submits does not leave a callback armed for
-    // later tests.
+    // Overwrite the pending one-shot hook with a no-op so it does not stay
+    // armed for later tests.
     GleanPings.enterprise.testBeforeNextSubmit(() => {});
     BrowserTestUtils.removeTab(tab1);
     if (tab2) {
