@@ -5,6 +5,7 @@
 policy-AccessConnector2 = Configure the { -enterprise-feature-access-connector } for proxying web traffic.
 policy-AIChatbot = Configure available AI chatbot providers, default provider, and prompt features.
 policy-BlocklistDomainBrowsedTelemetry = Enable and configure security logging/telemetry when { -brand-short-name } blocks a visit to a blocklisted domain.
+policy-ContentAnalysisTelemetry = Enable and configure security logging/telemetry when a DLP rule is triggered.
 policy-DisableLocalPolicies = Disable all local policy sources (policies.json, Windows GPO and macOS plist).
 policy-DownloadTelemetry = Enable and configure security logging/telemetry when a download is triggered.
 policy-EnterpriseStorageEncryption = Enable enterprise-managed primary password for encrypted storage.

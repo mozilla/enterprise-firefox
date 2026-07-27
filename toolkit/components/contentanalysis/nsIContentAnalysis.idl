@@ -418,6 +418,12 @@ interface nsIContentAnalysis : nsISupports
   /**
    * Indicates that the user has responded to a WARN dialog. aAllowContent represents
    * whether the user wants to allow the request to go through.
+   *
+   * This fires a "dlp-warn-resolved" observer notification with the
+   * resolved nsIContentAnalysisResponse (action will be either eAllow or eBlock)
+   * as the subject, and "user" as the data. (cancelAllRequests() resolves any
+   * outstanding warn dialogs the same way, but passes "cancel" as the data,
+   * since the resolution does not represent a choice the user made.)
    */
   void respondToWarnDialog(in ACString aRequestToken, in boolean aAllowContent);
 

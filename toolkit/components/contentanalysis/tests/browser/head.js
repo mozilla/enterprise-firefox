@@ -142,7 +142,14 @@ function makeMockContentAnalysis() {
     /**
      * Sets up the mock CA service
      *
-     * @param {boolean} shouldAllowRequest Whether requests should be allowed.
+     * @param {boolean|string} shouldAllowRequest Whether requests should be
+     *                               allowed (true), blocked (false), or
+     *                               made to return a warn verdict
+     *                               (the string "warn"). For "warn",
+     *                               respondToWarnDialog() must be called
+     *                               (typically indirectly, by interacting
+     *                               with the warn dialog UI) before the
+     *                               request will resolve.
      * @param {boolean} waitForEvent If this is true, a response will not be
      *                               returned until an event is dispatched by the
      *                               test. Helpful for testing timing scenarios.
@@ -180,13 +187,14 @@ function makeMockContentAnalysis() {
       this.agentCancelCalls = 0;
       this.cancelledUserActions = [];
       this.cancelledRequestTokens = [];
+      this.pendingWarnResponses = new Map();
     },
 
     getAction() {
-      if (this.shouldAllowRequest === undefined) {
-        this.shouldAllowRequest = true;
+      if (this.shouldAllowRequest === "warn") {
+        return Ci.nsIContentAnalysisResponse.eWarn;
       }
-      return this.shouldAllowRequest
+      return (this.shouldAllowRequest ?? true)
         ? Ci.nsIContentAnalysisResponse.eAllow
         : Ci.nsIContentAnalysisResponse.eBlock;
     },
@@ -303,8 +311,38 @@ function makeMockContentAnalysis() {
         if (this.showDialogs) {
           Services.obs.notifyObservers(response, "dlp-response");
         }
-        callback.contentResult(response);
+        if (response.action === Ci.nsIContentAnalysisResponse.eWarn) {
+          // As in the real content analysis service, a warn verdict doesn't
+          // resolve the request until respondToWarnDialog() is called.
+          this.pendingWarnResponses.set(request.requestToken, {
+            response,
+            callback,
+          });
+        } else {
+          callback.contentResult(response);
+        }
       }, 0);
+    },
+
+    respondToWarnDialog(aRequestToken, aAllowContent) {
+      let entry = this.pendingWarnResponses.get(aRequestToken);
+      if (!entry) {
+        return;
+      }
+      this.pendingWarnResponses.delete(aRequestToken);
+      let resolvedResponse = this.realCAService.makeResponseForTest(
+        aAllowContent
+          ? Ci.nsIContentAnalysisResponse.eAllow
+          : Ci.nsIContentAnalysisResponse.eBlock,
+        aRequestToken,
+        entry.response.userActionId
+      );
+      Services.obs.notifyObservers(
+        resolvedResponse,
+        "dlp-warn-resolved",
+        "user"
+      );
+      entry.callback.contentResult(resolvedResponse);
     },
 
     cancelAllRequests() {

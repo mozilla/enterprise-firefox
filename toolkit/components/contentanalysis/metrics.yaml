@@ -294,3 +294,89 @@ content_analysis:
       - gstoll@mozilla.com
       - haftandilian@mozilla.com
       - dparks@mozilla.com
+#ifdef MOZ_ENTERPRISE
+  rule_triggered:
+    type: event
+    description: Recorded when content analysis (DLP) makes a decision
+     about a user action (paste, upload, download, print, etc), subject
+     to the ContentAnalysisTelemetry enterprise policy's filtering.
+     Only collected when MOZ_ENTERPRISE is defined and enabled.
+    bugs:
+      - https://bugzil.la/2043142
+    data_reviews:
+      - https://bugzil.la/TBD
+    data_sensitivity:
+      - highly_sensitive
+    expires: never
+    notification_emails:
+      - gstoll@mozilla.com
+      - jmendez@mozilla.com
+      - enterprise-telemetry@mozilla.org
+    send_in_pings:
+      - enterprise
+    extra_keys:
+      operation:
+        description: >
+          The user action that triggered content analysis (e.g. "clipboard",
+          "dropped_text", "print", "upload", "download").
+        type: string
+      url:
+        description: >
+          The URL of the page/content the action was performed on. Full
+          URL, hostname only, or omitted (empty string) depending on the
+          ContentAnalysisTelemetry policy's UrlLogging setting.
+        type: string
+      action:
+        description: >
+          The DLP verdict: "block", "warn", "allow", "report_only", or
+          "canceled". "canceled" means the operation did not proceed but no
+          block dialog was shown, which is what content analysis reports when
+          a request fails while browser.contentanalysis.default_result is
+          "block", and when the user cancels the operation themselves; see
+          the cancel_error extra key to tell those apart.
+        type: string
+      type:
+        description: >
+          One of "verdict" (a genuine DLP verdict), "error_fallback" (Firefox
+          fell back to the configured default result because content analysis
+          itself failed, e.g. the agent was unreachable or timed out),
+          "warn_resolution" (a report of what the user chose to do after a
+          "warn" verdict), or "warn_cancel" (a "warn" verdict was resolved
+          because the request was canceled, e.g. at shutdown, rather than
+          because the user chose something). For the last two, see the action
+          extra key for the allow/block the warn was resolved to.
+        type: string
+      is_builtin:
+        description: >
+          Whether the in-process WASM engine (true) or an external agent
+          (false) produced the verdict.
+        type: boolean
+      analysis_type:
+        description: >
+          The analysisType of the request, which corresponds to a value in
+          the AnalysisConnector enum in analysis.proto (e.g.
+          "FILE_DOWNLOADED", "FILE_ATTACHED", "BULK_DATA_ENTRY"). Matches
+          the labels used by content_analysis.request_sent_by_analysis_type.
+        type: string
+      reason:
+        description: >
+          The reason the request was created, which corresponds to a value
+          in the ContentAnalysisRequest::Reason enum in analysis.proto (e.g.
+          "CLIPBOARD_PASTE", "DRAG_AND_DROP"). Matches the labels used by
+          content_analysis.request_sent_by_reason.
+        type: string
+      cancel_error:
+        description: >
+          Why the request was canceled or why content analysis failed, for
+          "canceled" actions and "error_fallback" events: one of
+          "user_initiated", "no_agent", "invalid_agent_signature",
+          "error_other", "other_request_in_group_cancelled", "shutdown", or
+          "timeout". Empty string otherwise, where content analysis does not
+          define it.
+        type: string
+      is_cached:
+        description: >
+          Whether this verdict was reused from an identical request that was
+          analyzed earlier, rather than being sent for analysis again.
+        type: boolean
+#endif

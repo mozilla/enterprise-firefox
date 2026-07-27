@@ -807,6 +807,32 @@
       }
     },
 
+    "ContentAnalysisTelemetry": {
+      "type": "object",
+      "x-category": "Cloud reporting",
+      "description": "Enable and configure security logging/telemetry when a DLP rule is triggered.",
+      "examples": [
+        {
+          "Enabled": true,
+          "UrlLogging": "domain",
+          "RecordEvents": "all"
+        }
+      ],
+      "properties": {
+        "Enabled": {
+          "type": "boolean"
+        },
+        "UrlLogging": {
+          "type": "string",
+          "enum": ["full", "domain", "none"]
+        },
+        "RecordEvents": {
+          "type": "string",
+          "enum": ["all", "nonAllow"]
+        }
+      }
+    },
+
     "Cookies": {
       "type": "object",
       "x-category": "Network security",

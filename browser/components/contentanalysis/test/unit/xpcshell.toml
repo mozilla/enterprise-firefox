@@ -1,0 +1,9 @@
+[DEFAULT]
+head = "head.js"
+firefox-appdir = "browser"
+
+["test_ContentAnalysisTelemetry_enterprise.js"]
+run-if = ["enterprise"]
+
+["test_ContentAnalysis_telemetry_mapping.js"]
+run-if = ["enterprise"]

@@ -7,4 +7,10 @@ with Files("**"):
 
 MOZ_SRC_FILES += [
     "content/ContentAnalysis.sys.mjs",
+    "content/ContentAnalysisTelemetry.sys.mjs",
 ]
+
+if CONFIG["MOZ_ENTERPRISE"]:
+    MOZ_SRC_FILES += ["content/ContentAnalysisTelemetry.enterprise.sys.mjs"]
+
+XPCSHELL_TESTS_MANIFESTS += ["test/unit/xpcshell.toml"]

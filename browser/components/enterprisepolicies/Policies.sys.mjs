@@ -1076,6 +1076,58 @@ export var Policies = {
     },
   },
 
+  ContentAnalysisTelemetry: {
+    onBeforeAddons(manager, param) {
+      if (param && typeof param === "object") {
+        if (typeof param.Enabled === "boolean") {
+          lazy.PoliciesUtils.setAndLockPref(
+            "browser.contentanalysis.enterprise.telemetry.enabled",
+            param.Enabled
+          );
+        }
+
+        if (
+          typeof param.UrlLogging === "string" &&
+          ["full", "domain", "none"].includes(param.UrlLogging)
+        ) {
+          lazy.PoliciesUtils.setAndLockPref(
+            "browser.contentanalysis.enterprise.telemetry.urlLogging",
+            param.UrlLogging
+          );
+        }
+
+        if (
+          typeof param.RecordEvents === "string" &&
+          ["all", "nonAllow"].includes(param.RecordEvents)
+        ) {
+          lazy.PoliciesUtils.setAndLockPref(
+            "browser.contentanalysis.enterprise.telemetry.recordEvents",
+            param.RecordEvents
+          );
+        }
+      }
+    },
+    onRemove(manager, oldParams) {
+      if (oldParams && typeof oldParams === "object") {
+        if ("Enabled" in oldParams) {
+          lazy.PoliciesUtils.unsetAndUnlockPref(
+            "browser.contentanalysis.enterprise.telemetry.enabled"
+          );
+        }
+        if ("UrlLogging" in oldParams) {
+          lazy.PoliciesUtils.unsetAndUnlockPref(
+            "browser.contentanalysis.enterprise.telemetry.urlLogging"
+          );
+        }
+        if ("RecordEvents" in oldParams) {
+          lazy.PoliciesUtils.unsetAndUnlockPref(
+            "browser.contentanalysis.enterprise.telemetry.recordEvents"
+          );
+        }
+      }
+    },
+  },
+
   Cookies: {
     onBeforeUIStartup(manager, param) {
       lazy.addAllowDenyPermissions("cookie", param.Allow, param.Block);
