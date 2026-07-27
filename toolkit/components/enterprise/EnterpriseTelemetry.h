@@ -5,11 +5,8 @@
 #ifndef mozilla_EnterpriseTelemetry_h
 #define mozilla_EnterpriseTelemetry_h
 
-#ifdef MOZ_ENTERPRISE
-
-#  include <cstdint>
-
-#  include "nsStringFwd.h"
+#include <cstdint>
+#include "nsStringFwd.h"
 
 class nsIURI;
 
@@ -66,5 +63,4 @@ enum class EnterprisePingAction {
 
 }  // namespace mozilla::enterprise
 
-#endif  // MOZ_ENTERPRISE
 #endif  // mozilla_EnterpriseTelemetry_h
