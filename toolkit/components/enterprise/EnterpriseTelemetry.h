@@ -33,8 +33,8 @@ void MaybeRedactUrl(const nsACString& aPrefPrefix, nsIURI* aURI,
 // How a recording site should handle the next enterprise security event, as
 // decided by ThrottleEnterprisePing.
 enum class EnterprisePingAction {
-  // The originating tab has no cooldown window open: record the event and then
-  // submit the enterprise ping (glean_pings::Enterprise.Submit()).
+  // No cooldown window holds this event back: record it and then submit the
+  // enterprise ping (glean_pings::Enterprise.Submit()).
   RecordAndSubmit,
   // Submission is disabled via the testing.disableSubmit pref: still record the
   // event so tests can inspect it, but do not submit a ping.
@@ -44,24 +44,33 @@ enum class EnterprisePingAction {
   Drop,
 };
 
-// Decides how to handle the next enterprise security event, throttling
-// submissions so a burst of events (for example the many Safe Browsing hits
-// produced by a single page load) does not result in one ping per event. Only
-// the event that opens a window is reported; the ones throttled behind it are
-// discarded rather than batched into the next ping.
+// Decides how to handle the next enterprise security event, so that a burst
+// (for example the many Safe Browsing hits of a single page load) does not
+// result in one ping per event. Only the event that opens a cooldown window is
+// reported; the ones throttled behind it are discarded, not batched into the
+// next ping.
 //
-// aBrowserId is the id of the tab the event originates from, or 0 when there is
-// no tab (for example downloads). Each tab has its own cooldown window, shared
-// across all enterprise event types, so a page load reports its first unsafe
-// hit and discards the rest while hits in other tabs are reported on their own
-// schedule. Events without a tab share a single window among themselves. Tabs
-// are tracked only while their window is open, so a tab that goes quiet (or is
-// closed) costs nothing. The cooldown interval is read from
+// aBrowserId is the id of the tab the event originates from, or 0 when the load
+// has no browsing context to attribute it to; events sharing an id share a
+// window, across all enterprise event types. Tabs are tracked only while their
+// window is open, so a tab that goes quiet or is closed costs nothing.
+//
+// The cooldown is read from
 // "browser.safebrowsing.enterprise.telemetry.submitCooldownMs" (default 1000).
-// While the "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit"
-// pref is set the throttle is disabled and reset, and RecordOnly is always
-// returned. Must be called on the main thread of the parent process.
+// While "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit" is
+// set the throttle is disabled and reset, and RecordOnly is always returned.
+// Must be called on the main thread of the parent process.
 [[nodiscard]] EnterprisePingAction ThrottleEnterprisePing(uint64_t aBrowserId);
+
+// Like ThrottleEnterprisePing, but for events that are exempt from throttling
+// and must always be reported: it never returns Drop, and neither consults nor
+// opens a cooldown window, so an exempt event neither throttles nor is
+// throttled by any tab. Use it only for events that cannot burst the way the
+// Safe Browsing hits of a single page load do, such as download reputation
+// verdicts, which are bounded by the downloads the user actually starts.
+// RecordOnly is still returned while the testing.disableSubmit pref is set.
+// Must be called on the main thread of the parent process.
+[[nodiscard]] EnterprisePingAction UnthrottledEnterprisePing();
 
 }  // namespace mozilla::enterprise
 

@@ -250,6 +250,60 @@ add_task(async function test_url_logging_none() {
   }
 });
 
+add_task(async function test_downloads_are_never_throttled() {
+  // Safe Browsing hits are throttled per tab so a single page load cannot
+  // produce one ping per hit, but downloads are exempt: every unsafe verdict
+  // submits its own ping, even back to back inside a cooldown window. The
+  // cooldown is set far longer than the test so the window is certainly open
+  // for the second download.
+  Services.prefs.setBoolPref(
+    "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
+    false
+  );
+  Services.prefs.setIntPref(
+    "browser.safebrowsing.enterprise.telemetry.submitCooldownMs",
+    60000
+  );
+
+  // testBeforeNextSubmit is a one-shot hook, so re-arm it after every submit to
+  // keep counting.
+  let submitCount = 0;
+  function registerHook() {
+    GleanPings.enterprise.testBeforeNextSubmit(() => {
+      submitCount++;
+      registerHook();
+    });
+  }
+  registerHook();
+
+  try {
+    for (const attempt of [1, 2]) {
+      let { shouldBlock } = await queryReputation({
+        sourceURI: blocklistedURI,
+        fileSize: 12,
+      });
+      Assert.ok(shouldBlock, `Download ${attempt} should be blocked`);
+      Assert.equal(
+        submitCount,
+        attempt,
+        `Download ${attempt} submits its own enterprise ping`
+      );
+    }
+  } finally {
+    // Overwrite the pending one-shot hook with a no-op so it does not stay
+    // armed for later tests.
+    GleanPings.enterprise.testBeforeNextSubmit(() => {});
+    Services.prefs.setBoolPref(
+      "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
+      true
+    );
+    Services.prefs.clearUserPref(
+      "browser.safebrowsing.enterprise.telemetry.submitCooldownMs"
+    );
+    Services.fog.testResetFOG();
+  }
+});
+
 add_task(async function test_disabled_records_nothing() {
   Services.prefs.setBoolPref(
     "browser.safebrowsing.enterprise.telemetry.unsafeDownload.enabled",

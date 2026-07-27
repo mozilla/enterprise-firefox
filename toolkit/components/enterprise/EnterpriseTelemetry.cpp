@@ -16,12 +16,8 @@
 
 namespace mozilla::enterprise {
 
-// Time of the last submitted enterprise ping per originating tab, used to
-// throttle submissions. Entries older than the cooldown are pruned on every
-// call, so this only ever holds the tabs that submitted within the current
-// window.
-static StaticAutoPtr<nsTHashMap<nsUint64HashKey, TimeStamp>>
-    sLastEnterprisePingTimes;
+// Time of the last submitted enterprise ping, per originating tab.
+static StaticAutoPtr<nsTHashMap<nsUint64HashKey, TimeStamp>> sLastPingTimes;
 
 bool EventReportingEnabled(const nsACString& aPrefPrefix) {
   nsAutoCString pref(aPrefPrefix);
@@ -37,12 +33,9 @@ void MaybeRedactUrl(const nsACString& aPrefPrefix, nsIURI* aURI,
   pref.AppendLiteral(".urlLogging");
 
   nsAutoCString policy;
-  if (NS_FAILED(Preferences::GetCString(pref.get(), policy)) ||
-      policy.IsEmpty()) {
-    policy.AssignLiteral("full");
-  }
+  Preferences::GetCString(pref.get(), policy);
 
-  if (policy.EqualsLiteral("none") || !aURI) {
+  if (!aURI || policy.EqualsLiteral("none")) {
     return;
   }
 
@@ -56,36 +49,50 @@ void MaybeRedactUrl(const nsACString& aPrefPrefix, nsIURI* aURI,
   }
 }
 
+// Testing escape hatch: tests record events but never submit. Also resets the
+// throttle, so a window a prior test left behind cannot leak into the next one.
+static bool SubmitDisabledForTesting() {
+  if (!Preferences::GetBool(
+          "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
+          false)) {
+    return false;
+  }
+
+  if (sLastPingTimes) {
+    sLastPingTimes->Clear();
+  }
+  return true;
+}
+
+EnterprisePingAction UnthrottledEnterprisePing() {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  return SubmitDisabledForTesting() ? EnterprisePingAction::RecordOnly
+                                    : EnterprisePingAction::RecordAndSubmit;
+}
+
 EnterprisePingAction ThrottleEnterprisePing(uint64_t aBrowserId) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  if (Preferences::GetBool(
-          "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
-          false)) {
-    // Testing escape hatch: record so tests can inspect the event, but never
-    // submit and never throttle (reset any window a prior test left behind).
-    if (sLastEnterprisePingTimes) {
-      sLastEnterprisePingTimes->Clear();
-    }
+  if (SubmitDisabledForTesting()) {
     return EnterprisePingAction::RecordOnly;
   }
 
   const uint32_t cooldownMs = Preferences::GetUint(
       "browser.safebrowsing.enterprise.telemetry.submitCooldownMs", 1000);
 
-  const TimeStamp now = TimeStamp::Now();
-
-  if (!sLastEnterprisePingTimes) {
-    sLastEnterprisePingTimes = new nsTHashMap<nsUint64HashKey, TimeStamp>();
-    ClearOnShutdown(&sLastEnterprisePingTimes);
+  if (!sLastPingTimes) {
+    sLastPingTimes = new nsTHashMap<nsUint64HashKey, TimeStamp>();
+    ClearOnShutdown(&sLastPingTimes);
   }
+
+  const TimeStamp now = TimeStamp::Now();
 
   // A tab whose window has elapsed can no longer be throttled, so drop it here
   // rather than growing the map by every tab that ever reported an event. This
-  // also means any surviving entry is inside the window by construction.
-  for (auto iter = sLastEnterprisePingTimes->Iter(); !iter.Done();
-       iter.Next()) {
-    const auto dt = (now - iter.Data()).ToMilliseconds();
+  // also means any surviving entry is inside its window by construction.
+  for (auto iter = sLastPingTimes->Iter(); !iter.Done(); iter.Next()) {
+    const double dt = (now - iter.Data()).ToMilliseconds();
     if (dt >= cooldownMs) {
       iter.Remove();
     }
@@ -93,13 +100,13 @@ EnterprisePingAction ThrottleEnterprisePing(uint64_t aBrowserId) {
 
   // Each tab gets its own cooldown window, so one page load reports its first
   // unsafe hit and discards the rest, while hits in other tabs are reported on
-  // their own schedule. Events without a tab (aBrowserId == 0, for example
-  // downloads) share a single window among themselves.
-  if (sLastEnterprisePingTimes->Contains(aBrowserId)) {
+  // their own schedule. Events whose load has no browsing context to attribute
+  // it to (aBrowserId == 0) share a single window among themselves.
+  if (sLastPingTimes->Contains(aBrowserId)) {
     return EnterprisePingAction::Drop;
   }
 
-  sLastEnterprisePingTimes->InsertOrUpdate(aBrowserId, now);
+  sLastPingTimes->InsertOrUpdate(aBrowserId, now);
   return EnterprisePingAction::RecordAndSubmit;
 }
 

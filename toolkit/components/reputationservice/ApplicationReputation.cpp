@@ -1524,14 +1524,11 @@ static void RecordUnsafeDownload(nsIApplicationReputationQuery* aQuery,
       return;
   }
 
-  // Downloads have no originating tab, so pass the 0 sentinel: they share the
-  // enterprise cooldown window but are never dropped on account of another
-  // tab's Safe Browsing hits.
+  // Downloads are exempt from the enterprise throttle: a verdict is one
+  // deliberate user action rather than a burst, and every one of them must be
+  // reported.
   const mozilla::enterprise::EnterprisePingAction action =
-      mozilla::enterprise::ThrottleEnterprisePing(0);
-  if (action == mozilla::enterprise::EnterprisePingAction::Drop) {
-    return;
-  }
+      mozilla::enterprise::UnthrottledEnterprisePing();
 
   nsCOMPtr<nsIURI> uri;
   if (aQuery) {
