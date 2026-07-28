@@ -872,6 +872,8 @@ tasks:
                                         else: >
                                           cd /builds/worker/checkouts/gecko &&
                                           ln -s /builds/worker/artifacts artifacts &&
+                                          sed -i 's|^trust-domain: .*|trust-domain: enterprise|g' comm/taskcluster/config.yml &&
+                                          sed -i 's|^    scope-prefix: .*|    scope-prefix: project:enterprise:releng|g' comm/taskcluster/config.yml &&
                                           ./mach --log-no-times taskgraph decision \
                                            --root=comm/taskcluster \
                                            --pushlog-id='0' \
