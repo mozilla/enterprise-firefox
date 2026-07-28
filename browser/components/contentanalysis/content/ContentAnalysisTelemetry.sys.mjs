@@ -12,21 +12,24 @@
  * - In regular builds: No-op implementation (enterprise code completely absent)
  */
 
-let ContentAnalysisTelemetryImpl;
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
-try {
-  const { ContentAnalysisTelemetryEnterprise } = ChromeUtils.importESModule(
-    "moz-src:///browser/components/contentanalysis/content/ContentAnalysisTelemetry.enterprise.sys.mjs"
-  );
-  ContentAnalysisTelemetryImpl = ContentAnalysisTelemetryEnterprise;
-} catch (ex) {
-  console.warn(
-    "[ContentAnalysisTelemetry] Enterprise implementation not available, using no-op shim. Error:",
-    ex.message
-  );
-  ContentAnalysisTelemetryImpl = {
-    recordRuleTriggered: () => {},
-  };
+let ContentAnalysisTelemetryImpl = {
+  recordRuleTriggered: () => {},
+};
+
+if (AppConstants.MOZ_ENTERPRISE) {
+  try {
+    const { ContentAnalysisTelemetryEnterprise } = ChromeUtils.importESModule(
+      "moz-src:///browser/components/contentanalysis/content/ContentAnalysisTelemetry.enterprise.sys.mjs"
+    );
+    ContentAnalysisTelemetryImpl = ContentAnalysisTelemetryEnterprise;
+  } catch (ex) {
+    console.error(
+      "[ContentAnalysisTelemetry] Enterprise implementation not available, using no-op shim. Error:",
+      ex.message
+    );
+  }
 }
 
 export const ContentAnalysisTelemetry = ContentAnalysisTelemetryImpl;
