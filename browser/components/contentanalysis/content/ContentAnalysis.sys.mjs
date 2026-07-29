@@ -106,16 +106,6 @@ export const ContentAnalysis = {
   requestTokenToRequestInfo: new Map(),
 
   /**
-   * Telemetry context for warn responses, kept around between the initial
-   * "warn" rule_triggered event and the "dlp-warn-resolved" notification
-   * that reports how the warn was resolved.
-   *
-   * @type {Map<string, {operation: string, url: string,
-   *   analysisType: string, reason: string}>}
-   */
-  _pendingWarnTelemetryInfo: new Map(),
-
-  /**
    * Whether we are resolving warn dialogs because the application is quitting,
    * in which case the resolutions aren't choices the user made.
    *
@@ -203,7 +193,7 @@ export const ContentAnalysis = {
     if (this.isInitialized) {
       this.isInitialized = false;
       this.requestTokenToRequestInfo.clear();
-      this._pendingWarnTelemetryInfo.clear();
+      lazy.ContentAnalysisTelemetry.reset();
       this.userActionToBusyDialogMap.clear();
       this.uninitializeObservers();
     }
@@ -300,8 +290,8 @@ export const ContentAnalysis = {
         // Clear this first so the handler showing the dialog will know not
         // to call respondToWarnDialog() again.
         this.warnDialogRequestTokens = new Set();
-        // Tells _recordWarnResolutionTelemetry() that these resolutions are
-        // not choices the user made.
+        // Tells ContentAnalysisTelemetry.recordWarnResolution() that these
+        // resolutions are not choices the user made.
         this._isRespondingToWarnDialogsForQuit = true;
         try {
           for (let warnDialogRequestToken of requestTokensToCancel) {
@@ -381,7 +371,7 @@ export const ContentAnalysis = {
         }
         this.requestTokenToRequestInfo.delete(response.requestToken);
         this._removeSlowCAMessage(response.userActionId, response.requestToken);
-        this._maybeRecordRuleTriggeredTelemetry(requestInfo, response);
+        lazy.ContentAnalysisTelemetry.recordVerdict(requestInfo, response);
         if (
           requestInfo.resourceNameOrOperationType?.operationType ===
           Ci.nsIContentAnalysisRequest.eDownload
@@ -413,7 +403,11 @@ export const ContentAnalysis = {
             "Got dlp-warn-resolved message but no response object was passed"
           );
         }
-        this._recordWarnResolutionTelemetry(response, aData);
+        lazy.ContentAnalysisTelemetry.recordWarnResolution(
+          response,
+          aData,
+          this._isRespondingToWarnDialogsForQuit
+        );
         break;
       }
     }
@@ -623,169 +617,6 @@ export const ContentAnalysis = {
       }
     }
     return nameOrOperationType;
-  },
-
-  _OPERATION_TYPE_TELEMETRY_STRINGS: {
-    [Ci.nsIContentAnalysisRequest.eClipboard]: "clipboard",
-    [Ci.nsIContentAnalysisRequest.eDroppedText]: "dropped_text",
-    [Ci.nsIContentAnalysisRequest.eOperationPrint]: "print",
-    [Ci.nsIContentAnalysisRequest.eUpload]: "upload",
-    [Ci.nsIContentAnalysisRequest.eDownload]: "download",
-  },
-
-  _ACTION_TELEMETRY_STRINGS: {
-    [Ci.nsIContentAnalysisResponse.eUnspecified]: "unspecified",
-    [Ci.nsIContentAnalysisResponse.eReportOnly]: "report_only",
-    [Ci.nsIContentAnalysisResponse.eBlock]: "block",
-    [Ci.nsIContentAnalysisResponse.eWarn]: "warn",
-    [Ci.nsIContentAnalysisResponse.eAllow]: "allow",
-    // Content analysis uses eCanceled rather than eBlock when the content
-    // should be blocked without showing a block dialog. (an example is
-    // the agent being unreachable while
-    // browser.contentanalysis.default_result is "block")
-    [Ci.nsIContentAnalysisResponse.eCanceled]: "canceled",
-  },
-
-  _CANCEL_ERROR_TELEMETRY_STRINGS: {
-    [Ci.nsIContentAnalysisResponse.eUserInitiated]: "user_initiated",
-    [Ci.nsIContentAnalysisResponse.eNoAgent]: "no_agent",
-    [Ci.nsIContentAnalysisResponse.eInvalidAgentSignature]:
-      "invalid_agent_signature",
-    [Ci.nsIContentAnalysisResponse.eErrorOther]: "error_other",
-    [Ci.nsIContentAnalysisResponse.eOtherRequestInGroupCancelled]:
-      "other_request_in_group_cancelled",
-    [Ci.nsIContentAnalysisResponse.eShutdown]: "shutdown",
-    [Ci.nsIContentAnalysisResponse.eTimeout]: "timeout",
-  },
-
-  // These match the AnalysisConnector enum names in analysis.proto, so the
-  // values line up with the labels of the
-  // content_analysis.request_sent_by_analysis_type counter.
-  _ANALYSIS_TYPE_TELEMETRY_STRINGS: {
-    [Ci.nsIContentAnalysisRequest.eUnspecified]:
-      "ANALYSIS_CONNECTOR_UNSPECIFIED",
-    [Ci.nsIContentAnalysisRequest.eFileDownloaded]: "FILE_DOWNLOADED",
-    [Ci.nsIContentAnalysisRequest.eFileAttached]: "FILE_ATTACHED",
-    [Ci.nsIContentAnalysisRequest.eBulkDataEntry]: "BULK_DATA_ENTRY",
-    [Ci.nsIContentAnalysisRequest.ePrint]: "PRINT",
-    [Ci.nsIContentAnalysisRequest.eFileTransfer]: "FILE_TRANSFER",
-    [Ci.nsIContentAnalysisRequest.eDataCopied]: "DATA_COPIED",
-  },
-
-  // These match the ContentAnalysisRequest::Reason enum names in
-  // analysis.proto, so the values line up with the labels of the
-  // content_analysis.request_sent_by_reason counter.
-  _REASON_TELEMETRY_STRINGS: {
-    [Ci.nsIContentAnalysisRequest.eUnknown]: "UNKNOWN",
-    [Ci.nsIContentAnalysisRequest.eClipboardPaste]: "CLIPBOARD_PASTE",
-    [Ci.nsIContentAnalysisRequest.eDragAndDrop]: "DRAG_AND_DROP",
-    [Ci.nsIContentAnalysisRequest.eFilePickerDialog]: "FILE_PICKER_DIALOG",
-    [Ci.nsIContentAnalysisRequest.ePrintPreviewPrint]: "PRINT_PREVIEW_PRINT",
-    [Ci.nsIContentAnalysisRequest.eSystemDialogPrint]: "SYSTEM_DIALOG_PRINT",
-    [Ci.nsIContentAnalysisRequest.eNormalDownload]: "NORMAL_DOWNLOAD",
-    [Ci.nsIContentAnalysisRequest.eSaveAsDownload]: "SAVE_AS_DOWNLOAD",
-    [Ci.nsIContentAnalysisRequest.eClipboardCopy]: "CLIPBOARD_COPY",
-  },
-
-  /**
-   * Records rule_triggered telemetry for a content analysis response. The
-   * enterprise policy-configured ContentAnalysisTelemetry module decides
-   * whether the event is actually recorded (e.g. it may filter out allow
-   * verdicts).
-   *
-   * @param {object} aRequestInfo The cached request info for this response's
-   *   requestToken (see requestTokenToRequestInfo).
-   * @param {nsIContentAnalysisResponse} aResponse
-   */
-  _maybeRecordRuleTriggeredTelemetry(aRequestInfo, aResponse) {
-    const action =
-      this._ACTION_TELEMETRY_STRINGS[aResponse.action] ??
-      "unknown:" + aResponse.action;
-    const isCancel =
-      aResponse.action === Ci.nsIContentAnalysisResponse.eCanceled;
-    const requestDetails = {
-      operation:
-        this._OPERATION_TYPE_TELEMETRY_STRINGS[
-          aRequestInfo.resourceNameOrOperationType?.operationType
-        ] ??
-        "unknown:" + aRequestInfo.resourceNameOrOperationType?.operationType,
-      url: aRequestInfo.url,
-      analysisType:
-        this._ANALYSIS_TYPE_TELEMETRY_STRINGS[aRequestInfo.analysisType] ??
-        "unknown:" + aRequestInfo.analysisType,
-      reason:
-        this._REASON_TELEMETRY_STRINGS[aRequestInfo.reason] ??
-        "unknown:" + aRequestInfo.reason,
-      ruleName: aResponse.ruleName || "",
-    };
-    if (aResponse.action === Ci.nsIContentAnalysisResponse.eWarn) {
-      // The user hasn't made a choice yet; that's reported separately via
-      // "dlp-warn-resolved" once respondToWarnDialog() is called (either
-      // from this file's warn dialog, or from the downloads panel for
-      // download operations, which don't go through this file at all).
-      this._pendingWarnTelemetryInfo.set(
-        aResponse.requestToken,
-        requestDetails
-      );
-    }
-    // A synthetic response is one Firefox generated itself rather than one an
-    // agent sent. cancelError is only set on those when content analysis
-    // failed (agent unreachable, timed out, ...), in which case the action
-    // reflects browser.contentanalysis.default_result or timeout_result
-    // rather than a verdict about the content. Firefox also synthesizes
-    // responses for reasons that aren't failures, e.g. a URL matching
-    // browser.contentanalysis.deny_url_regex_list, and those leave
-    // cancelError at its eUserInitiated default.
-    const isErrorFallback =
-      aResponse.isSyntheticResponse &&
-      aResponse.cancelError !== Ci.nsIContentAnalysisResponse.eUserInitiated;
-    // Anywhere else cancelError is not meaningful, so report it as unset.
-    const cancelError =
-      isErrorFallback || isCancel
-        ? (this._CANCEL_ERROR_TELEMETRY_STRINGS[aResponse.cancelError] ??
-          "unknown:" + aResponse.cancelError)
-        : "";
-    lazy.ContentAnalysisTelemetry.recordRuleTriggered({
-      ...requestDetails,
-      action,
-      cancelError,
-      type: isErrorFallback ? "error_fallback" : "verdict",
-      isCached: aResponse.isCachedResponse,
-    });
-  },
-
-  /**
-   * Records rule_triggered telemetry reporting how a warn verdict was
-   * resolved (for either the warn dialog shown by this file, or the
-   * downloads panel's own warn UI). Fired from the "dlp-warn-resolved"
-   * notification, which C++ sends whenever respondToWarnDialog() is called,
-   * regardless of caller.
-   *
-   * @param {nsIContentAnalysisResponse} aResponse The resolved response;
-   *   action will be eAllow or eBlock, never eWarn.
-   * @param {string} aData The notification's data: "cancel" if the warn was
-   *   resolved because the request was cancelled rather than because the user
-   *   made a choice. See nsIContentAnalysis.respondToWarnDialog().
-   */
-  _recordWarnResolutionTelemetry(aResponse, aData) {
-    const pendingInfo = this._pendingWarnTelemetryInfo.get(
-      aResponse.requestToken
-    );
-    if (!pendingInfo) {
-      return;
-    }
-    this._pendingWarnTelemetryInfo.delete(aResponse.requestToken);
-    const action =
-      this._ACTION_TELEMETRY_STRINGS[aResponse.action] ??
-      "unknown:" + aResponse.action;
-    lazy.ContentAnalysisTelemetry.recordRuleTriggered({
-      ...pendingInfo,
-      action,
-      type:
-        aData === "cancel" || this._isRespondingToWarnDialogsForQuit
-          ? "warn_cancel"
-          : "warn_resolution",
-    });
   },
 
   /**

@@ -15,7 +15,9 @@
 import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 let ContentAnalysisTelemetryImpl = {
-  recordRuleTriggered: () => {},
+  recordVerdict: () => {},
+  recordWarnResolution: () => {},
+  reset: () => {},
 };
 
 if (AppConstants.MOZ_ENTERPRISE) {

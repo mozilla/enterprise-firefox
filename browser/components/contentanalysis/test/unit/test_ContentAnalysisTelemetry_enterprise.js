@@ -43,12 +43,12 @@ const BASE_DETAILS = {
  * Records one event and returns the extras of everything recorded, or null if
  * nothing was recorded.
  *
- * @param {object} details Passed through to recordRuleTriggered().
+ * @param {object} details Passed through to _record().
  * @returns {object[]|null}
  */
 function recordAndGetExtras(details) {
   Services.fog.testResetFOG();
-  ContentAnalysisTelemetryEnterprise.recordRuleTriggered(details);
+  ContentAnalysisTelemetryEnterprise._record(details);
   const events = Glean.contentAnalysis.ruleTriggered.testGetValue("enterprise");
   return events ? events.map(event => event.extra) : null;
 }

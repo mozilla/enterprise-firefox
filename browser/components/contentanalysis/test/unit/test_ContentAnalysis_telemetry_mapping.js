@@ -2,16 +2,16 @@
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
 /**
- * Tests how ContentAnalysis.sys.mjs turns nsIContentAnalysisResponses into
- * rule_triggered telemetry, in particular the cases that are hard to produce
+ * Tests how ContentAnalysisTelemetryEnterprise turns nsIContentAnalysisResponses
+ * into rule_triggered telemetry, in particular the cases that are hard to produce
  * from a browser test: responses Firefox synthesized because content analysis
  * itself failed, and warn verdicts resolved by the request being canceled.
  *
  * Only run in MOZ_ENTERPRISE builds.
  */
 
-const { ContentAnalysis } = ChromeUtils.importESModule(
-  "moz-src:///browser/components/contentanalysis/content/ContentAnalysis.sys.mjs"
+const { ContentAnalysisTelemetryEnterprise } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/contentanalysis/content/ContentAnalysisTelemetry.enterprise.sys.mjs"
 );
 
 const RECORD_EVENTS_PREF =
@@ -64,7 +64,7 @@ function getRecordedExtras() {
 
 function recordResponseAndGetExtras(properties) {
   Services.fog.testResetFOG();
-  ContentAnalysis._maybeRecordRuleTriggeredTelemetry(
+  ContentAnalysisTelemetryEnterprise.recordVerdict(
     REQUEST_INFO,
     makeResponse(properties)
   );
@@ -98,16 +98,17 @@ add_task(async function test_rule_name_is_forwarded_from_response() {
 
 add_task(async function test_rule_name_carries_into_warn_resolution() {
   Services.fog.testResetFOG();
-  ContentAnalysis._maybeRecordRuleTriggeredTelemetry(
+  ContentAnalysisTelemetryEnterprise.recordVerdict(
     REQUEST_INFO,
     makeResponse({
       action: Ci.nsIContentAnalysisResponse.eWarn,
       ruleName: "warn-ai-paste",
     })
   );
-  ContentAnalysis._recordWarnResolutionTelemetry(
+  ContentAnalysisTelemetryEnterprise.recordWarnResolution(
     makeResponse({ action: Ci.nsIContentAnalysisResponse.eAllow }),
-    "user"
+    "user",
+    /* aIsQuitting */ false
   );
   const extras = getRecordedExtras();
   Assert.equal(extras[0].rule_name, "warn-ai-paste");
@@ -143,7 +144,7 @@ add_task(async function test_action_names() {
     );
   }
   // Clear the pending warn state the eWarn case above left behind.
-  ContentAnalysis._pendingWarnTelemetryInfo.clear();
+  ContentAnalysisTelemetryEnterprise.reset();
 });
 
 add_task(async function test_agent_failure_is_an_error_fallback() {
@@ -224,21 +225,24 @@ add_task(async function test_cached_response_is_recorded() {
  *
  * @param {boolean} aAllowContent What the warn was resolved to.
  * @param {string} aData The "dlp-warn-resolved" notification's data.
+ * @param {boolean} [aIsQuitting] Whether the warn is being resolved because
+ *   the application is quitting.
  * @returns {object[]}
  */
-function recordWarnAndResolution(aAllowContent, aData) {
+function recordWarnAndResolution(aAllowContent, aData, aIsQuitting = false) {
   Services.fog.testResetFOG();
-  ContentAnalysis._maybeRecordRuleTriggeredTelemetry(
+  ContentAnalysisTelemetryEnterprise.recordVerdict(
     REQUEST_INFO,
     makeResponse({ action: Ci.nsIContentAnalysisResponse.eWarn })
   );
-  ContentAnalysis._recordWarnResolutionTelemetry(
+  ContentAnalysisTelemetryEnterprise.recordWarnResolution(
     makeResponse({
       action: aAllowContent
         ? Ci.nsIContentAnalysisResponse.eAllow
         : Ci.nsIContentAnalysisResponse.eBlock,
     }),
-    aData
+    aData,
+    aIsQuitting
   );
   return getRecordedExtras();
 }
@@ -271,23 +275,18 @@ add_task(async function test_warn_resolved_by_cancel() {
 add_task(async function test_warn_resolved_during_quit() {
   // Quitting resolves warn dialogs from the front-end rather than from
   // cancelAllRequests(), so the notification's data says "user".
-  ContentAnalysis._isRespondingToWarnDialogsForQuit = true;
-  let extras;
-  try {
-    extras = recordWarnAndResolution(false, "user");
-  } finally {
-    ContentAnalysis._isRespondingToWarnDialogsForQuit = false;
-  }
+  const extras = recordWarnAndResolution(false, "user", /* aIsQuitting */ true);
   Assert.equal(extras.length, 2, "should record the warn and its resolution");
   Assert.equal(extras[1].type, "warn_cancel");
 });
 
 add_task(async function test_unknown_resolution_is_ignored() {
   Services.fog.testResetFOG();
-  ContentAnalysis._pendingWarnTelemetryInfo.clear();
-  ContentAnalysis._recordWarnResolutionTelemetry(
+  ContentAnalysisTelemetryEnterprise.reset();
+  ContentAnalysisTelemetryEnterprise.recordWarnResolution(
     makeResponse({ action: Ci.nsIContentAnalysisResponse.eAllow }),
-    "user"
+    "user",
+    /* aIsQuitting */ false
   );
   Assert.equal(
     getRecordedExtras(),

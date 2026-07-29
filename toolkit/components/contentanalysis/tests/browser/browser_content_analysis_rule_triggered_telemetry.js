@@ -10,8 +10,8 @@ let mockCA = makeMockContentAnalysis();
 
 add_setup(async function test_setup() {
   mockCA = await mockContentAnalysisService(mockCA);
-  // Each recordRuleTriggered() call submits the "enterprise" ping
-  // immediately, which clears its buffered events. Disable that here so
+  // Each recorded event submits the "enterprise" ping immediately, which
+  // clears its buffered events. Disable that here so
   // testGetValue() can see every event recorded during a test, including
   // cases (like a warn verdict followed by its resolution) where more than
   // one event is recorded per test.
