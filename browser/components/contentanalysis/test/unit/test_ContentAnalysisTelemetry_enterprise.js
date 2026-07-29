@@ -13,8 +13,6 @@ const { ContentAnalysisTelemetryEnterprise } = ChromeUtils.importESModule(
 const ENABLED_PREF = "browser.contentanalysis.enterprise.telemetry.enabled";
 const URL_LOGGING_PREF =
   "browser.contentanalysis.enterprise.telemetry.urlLogging";
-const RECORD_EVENTS_PREF =
-  "browser.contentanalysis.enterprise.telemetry.recordEvents";
 const DISABLE_SUBMIT_PREF =
   "browser.contentanalysis.enterprise.telemetry.testing.disableSubmit";
 
@@ -26,7 +24,6 @@ add_setup(function () {
     Services.prefs.clearUserPref(DISABLE_SUBMIT_PREF);
     Services.prefs.clearUserPref(ENABLED_PREF);
     Services.prefs.clearUserPref(URL_LOGGING_PREF);
-    Services.prefs.clearUserPref(RECORD_EVENTS_PREF);
   });
 });
 
@@ -121,31 +118,21 @@ add_task(async function test_url_processing_policies() {
 
 add_task(async function test_should_record_action() {
   const testCases = [
-    { action: "block", policy: "nonAllow", expected: true },
-    { action: "warn", policy: "nonAllow", expected: true },
-    { action: "canceled", policy: "nonAllow", expected: true },
+    { action: "block", expected: true },
+    { action: "warn", expected: true },
+    { action: "canceled", expected: true },
     // Recording is the whole point of a report-only verdict.
-    { action: "report_only", policy: "nonAllow", expected: true },
+    { action: "report_only", expected: true },
     // Unrecognized actions are recorded rather than silently dropped.
-    { action: "unknown:1234", policy: "nonAllow", expected: true },
-    { action: "allow", policy: "nonAllow", expected: false },
-    { action: "block", policy: "all", expected: true },
-    { action: "warn", policy: "all", expected: true },
-    { action: "canceled", policy: "all", expected: true },
-    { action: "allow", policy: "all", expected: true },
-    { action: "report_only", policy: "all", expected: true },
-    // An unrecognized policy value falls back to "nonAllow".
-    { action: "block", policy: "bogus", expected: true },
-    { action: "allow", policy: "bogus", expected: false },
+    { action: "unknown:1234", expected: true },
+    { action: "allow", expected: false },
   ];
 
   for (const testCase of testCases) {
-    Services.prefs.setCharPref(RECORD_EVENTS_PREF, testCase.policy);
-
     Assert.strictEqual(
       ContentAnalysisTelemetryEnterprise._shouldRecordAction(testCase.action),
       testCase.expected,
-      `_shouldRecordAction failed for action: ${testCase.action}, policy: ${testCase.policy}`
+      `_shouldRecordAction failed for action: ${testCase.action}`
     );
 
     const extras = recordAndGetExtras({
@@ -155,11 +142,9 @@ add_task(async function test_should_record_action() {
     Assert.equal(
       extras !== null,
       testCase.expected,
-      `recording a ${testCase.action} verdict under the ${testCase.policy} policy`
+      `recording a ${testCase.action} verdict`
     );
   }
-
-  Services.prefs.clearUserPref(RECORD_EVENTS_PREF);
 });
 
 add_task(async function test_record_rule_triggered() {
@@ -238,7 +223,7 @@ add_task(async function test_disabled_does_not_record() {
       null,
       "Should not record when disabled"
     );
-    // Not even the types that bypass the RecordEvents filter.
+    // Not even the types that bypass the "allow" outcome filter.
     Assert.equal(
       recordAndGetExtras({
         ...BASE_DETAILS,
@@ -255,8 +240,8 @@ add_task(async function test_disabled_does_not_record() {
 });
 
 add_task(async function test_always_recorded_types_bypass_outcome_filter() {
-  // Each of these has an action that RecordEvents=nonAllow would otherwise
-  // filter out.
+  // Each of these has an action ("allow") that would otherwise be filtered
+  // out.
   const testCases = [
     {
       what: "an error fallback that allowed the operation",
@@ -272,39 +257,29 @@ add_task(async function test_always_recorded_types_bypass_outcome_filter() {
     },
   ];
 
-  Services.prefs.setCharPref(RECORD_EVENTS_PREF, "nonAllow");
-  try {
-    for (const testCase of testCases) {
-      const extras = recordAndGetExtras({
-        ...BASE_DETAILS,
-        ...testCase.details,
-      });
-      Assert.ok(extras, `should record ${testCase.what}`);
-      Assert.equal(extras[0].action, testCase.details.action);
-      Assert.equal(extras[0].type, testCase.details.type);
-    }
-  } finally {
-    Services.prefs.clearUserPref(RECORD_EVENTS_PREF);
+  for (const testCase of testCases) {
+    const extras = recordAndGetExtras({
+      ...BASE_DETAILS,
+      ...testCase.details,
+    });
+    Assert.ok(extras, `should record ${testCase.what}`);
+    Assert.equal(extras[0].action, testCase.details.action);
+    Assert.equal(extras[0].type, testCase.details.type);
   }
 });
 
 add_task(async function test_error_fallback_block_is_recorded() {
   // The common agent-failure case: browser.contentanalysis.default_result is
   // "block", so content analysis reports a canceled action rather than a
-  // block. This must be recorded under the default policy.
-  Services.prefs.setCharPref(RECORD_EVENTS_PREF, "nonAllow");
-  try {
-    const extras = recordAndGetExtras({
-      ...BASE_DETAILS,
-      action: "canceled",
-      type: "error_fallback",
-      cancelError: "no_agent",
-    });
-    Assert.ok(extras, "should record a canceled error fallback");
-    Assert.equal(extras[0].action, "canceled");
-    Assert.equal(extras[0].type, "error_fallback");
-    Assert.equal(extras[0].cancel_error, "no_agent");
-  } finally {
-    Services.prefs.clearUserPref(RECORD_EVENTS_PREF);
-  }
+  // block. This must be recorded.
+  const extras = recordAndGetExtras({
+    ...BASE_DETAILS,
+    action: "canceled",
+    type: "error_fallback",
+    cancelError: "no_agent",
+  });
+  Assert.ok(extras, "should record a canceled error fallback");
+  Assert.equal(extras[0].action, "canceled");
+  Assert.equal(extras[0].type, "error_fallback");
+  Assert.equal(extras[0].cancel_error, "no_agent");
 });

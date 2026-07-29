@@ -1428,13 +1428,11 @@ const POLICIES_TESTS = [
       ContentAnalysisTelemetry: {
         Enabled: true,
         UrlLogging: "domain",
-        RecordEvents: "all",
       },
     },
     lockedPrefs: {
       "browser.contentanalysis.enterprise.telemetry.enabled": true,
       "browser.contentanalysis.enterprise.telemetry.urlLogging": "domain",
-      "browser.contentanalysis.enterprise.telemetry.recordEvents": "all",
     },
   },
   {
@@ -1442,13 +1440,11 @@ const POLICIES_TESTS = [
       ContentAnalysisTelemetry: {
         Enabled: false,
         UrlLogging: "none",
-        RecordEvents: "nonAllow",
       },
     },
     lockedPrefs: {
       "browser.contentanalysis.enterprise.telemetry.enabled": false,
       "browser.contentanalysis.enterprise.telemetry.urlLogging": "none",
-      "browser.contentanalysis.enterprise.telemetry.recordEvents": "nonAllow",
     },
   },
 ];

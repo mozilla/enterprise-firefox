@@ -1095,16 +1095,6 @@ export var Policies = {
             param.UrlLogging
           );
         }
-
-        if (
-          typeof param.RecordEvents === "string" &&
-          ["all", "nonAllow"].includes(param.RecordEvents)
-        ) {
-          lazy.PoliciesUtils.setAndLockPref(
-            "browser.contentanalysis.enterprise.telemetry.recordEvents",
-            param.RecordEvents
-          );
-        }
       }
     },
     onRemove(_manager, _oldParams) {
@@ -1113,9 +1103,6 @@ export var Policies = {
       );
       lazy.PoliciesUtils.unsetAndUnlockPref(
         "browser.contentanalysis.enterprise.telemetry.urlLogging"
-      );
-      lazy.PoliciesUtils.unsetAndUnlockPref(
-        "browser.contentanalysis.enterprise.telemetry.recordEvents"
       );
     },
   },

@@ -814,8 +814,7 @@
       "examples": [
         {
           "Enabled": true,
-          "UrlLogging": "domain",
-          "RecordEvents": "all"
+          "UrlLogging": "domain"
         }
       ],
       "properties": {
@@ -825,10 +824,6 @@
         "UrlLogging": {
           "type": "string",
           "enum": ["full", "domain", "none"]
-        },
-        "RecordEvents": {
-          "type": "string",
-          "enum": ["all", "nonAllow"]
         }
       }
     },

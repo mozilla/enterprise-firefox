@@ -14,19 +14,13 @@ const { ContentAnalysisTelemetryEnterprise } = ChromeUtils.importESModule(
   "moz-src:///browser/components/contentanalysis/content/ContentAnalysisTelemetry.enterprise.sys.mjs"
 );
 
-const RECORD_EVENTS_PREF =
-  "browser.contentanalysis.enterprise.telemetry.recordEvents";
 const DISABLE_SUBMIT_PREF =
   "browser.contentanalysis.enterprise.telemetry.testing.disableSubmit";
 
 add_setup(function () {
   Services.prefs.setBoolPref(DISABLE_SUBMIT_PREF, true);
-  // Be explicit that these tests run under the default filtering policy, so
-  // they show that these events survive it.
-  Services.prefs.setCharPref(RECORD_EVENTS_PREF, "nonAllow");
   registerCleanupFunction(() => {
     Services.prefs.clearUserPref(DISABLE_SUBMIT_PREF);
-    Services.prefs.clearUserPref(RECORD_EVENTS_PREF);
   });
 });
 
@@ -134,7 +128,7 @@ add_task(async function test_action_names() {
     },
   ];
   for (const testCase of testCases) {
-    // None of these is an allow, so all are recorded under the default policy.
+    // None of these is an allow, so all are recorded.
     const extras = recordResponseAndGetExtras({ action: testCase.action });
     Assert.ok(extras, `should have recorded a ${testCase.expected} action`);
     Assert.equal(
@@ -156,10 +150,7 @@ add_task(async function test_agent_failure_is_an_error_fallback() {
     cancelError: Ci.nsIContentAnalysisResponse.eNoAgent,
     isSyntheticResponse: true,
   });
-  Assert.ok(
-    extras,
-    "an agent failure should be recorded under the default policy"
-  );
+  Assert.ok(extras, "an agent failure should be recorded");
   Assert.equal(extras[0].action, "canceled");
   Assert.equal(extras[0].type, "error_fallback");
   Assert.equal(extras[0].cancel_error, "no_agent");
@@ -168,7 +159,7 @@ add_task(async function test_agent_failure_is_an_error_fallback() {
 add_task(async function test_agent_timeout_allow_fallback() {
   // The same, but with a default result of "allow": the action is an allow
   // Firefox chose rather than a verdict, so it's still an error fallback and
-  // is recorded despite the default policy filtering allows out.
+  // is recorded despite allow verdicts normally being filtered out.
   const extras = recordResponseAndGetExtras({
     action: Ci.nsIContentAnalysisResponse.eAllow,
     cancelError: Ci.nsIContentAnalysisResponse.eTimeout,

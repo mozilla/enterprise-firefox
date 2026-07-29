@@ -19,8 +19,7 @@
  *   "policies": {
  *     "ContentAnalysisTelemetry": {
  *       "Enabled": true,
- *       "UrlLogging": "full",
- *       "RecordEvents": "nonAllow"
+ *       "UrlLogging": "full"
  *     }
  *   }
  * }
@@ -31,11 +30,9 @@
  *   - "full" (default): Collect the complete URL
  *   - "domain": Collect only the hostname portion of the URL
  *   - "none": Do not collect any URL information
- * - RecordEvents (string): Which outcomes to record, with values:
- *   - "nonAllow" (default): Record everything except verdicts that silently
- *     allowed the operation the user asked for. Report-only verdicts are
- *     recorded, since reporting is the only thing they ask for.
- *   - "all": Also record verdicts that allowed the operation
+ *
+ * Verdicts that silently allowed the operation the user asked for aren't
+ * recorded.
  */
 
 export const ContentAnalysisTelemetryEnterprise = {
@@ -70,25 +67,6 @@ export const ContentAnalysisTelemetryEnterprise = {
   },
 
   /**
-   * Gets the configured outcome-filtering policy from enterprise policy
-   * preferences.
-   *
-   * @returns {string} One of: "all", "nonAllow"
-   */
-  _getRecordEventsPolicy() {
-    const recordEvents = Services.prefs.getCharPref(
-      "browser.contentanalysis.enterprise.telemetry.recordEvents",
-      "nonAllow"
-    );
-
-    if (["all", "nonAllow"].includes(recordEvents)) {
-      return recordEvents;
-    }
-
-    return "nonAllow";
-  },
-
-  /**
    * Processes a URL based on the configured logging policy.
    *
    * @param {string} url - The original URL
@@ -117,16 +95,14 @@ export const ContentAnalysisTelemetryEnterprise = {
   },
 
   /**
-   * Determines whether an event for the given action should be recorded,
-   * based on the configured RecordEvents policy.
+   * Determines whether an event for the given action should be recorded.
+   * Verdicts that silently allowed the operation the user asked for aren't
+   * recorded, since they aren't relevant to a DLP audit.
    *
    * @param {string} action - e.g. "block", "warn", "canceled", or "allow"
    * @returns {boolean} True if this action should be recorded
    */
   _shouldRecordAction(action) {
-    if (this._getRecordEventsPolicy() === "all") {
-      return true;
-    }
     return action !== "allow";
   },
 
@@ -144,10 +120,11 @@ export const ContentAnalysisTelemetryEnterprise = {
   },
 
   /**
-   * Event types that are recorded whenever telemetry is enabled, regardless
-   * of the RecordEvents policy. "warn_resolution" and "warn_cancel" follow up
-   * on a warn that was already reportable, and "error_fallback" means content
-   * analysis itself failed, which is always reportable.
+   * Event types that are recorded whenever telemetry is enabled, even if
+   * their action is "allow" (see _shouldRecordAction). "warn_resolution" and
+   * "warn_cancel" follow up on a warn that was already reportable, and
+   * "error_fallback" means content analysis itself failed, which is always
+   * reportable.
    */
   _ALWAYS_RECORDED_TYPES: ["warn_resolution", "warn_cancel", "error_fallback"],
 

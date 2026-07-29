@@ -115,26 +115,13 @@ add_task(async function testBlockVerdictRecordsTelemetryByDefault() {
   is(events[0].extra.is_cached, "false");
 });
 
-add_task(async function testAllowVerdictDoesNotRecordTelemetryByDefault() {
+add_task(async function testAllowVerdictDoesNotRecordTelemetry() {
   const events = await pasteAndGetTelemetryEvents({ allow: true });
   is(
     events,
     null,
-    "should not record rule_triggered telemetry for an allow verdict when RecordEvents is nonAllow (default)"
+    "should not record rule_triggered telemetry for an allow verdict"
   );
-});
-
-add_task(async function testAllowVerdictRecordsTelemetryWhenPolicyIsAll() {
-  await SpecialPowers.pushPrefEnv({
-    set: [["browser.contentanalysis.enterprise.telemetry.recordEvents", "all"]],
-  });
-  const events = await pasteAndGetTelemetryEvents({ allow: true });
-  ok(
-    events,
-    "should record rule_triggered telemetry for an allow verdict when RecordEvents is all"
-  );
-  is(events[0].extra.action, "allow");
-  await SpecialPowers.popPrefEnv();
 });
 
 add_task(async function testUrlLoggingPolicyNone() {
