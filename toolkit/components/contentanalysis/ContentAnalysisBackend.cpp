@@ -228,6 +228,7 @@ ContentAnalysisBackend::ConvertResponseFromProtobuf(
     const nsCString& aUserActionId) {
   ContentAnalysisResponse::Action action =
       ContentAnalysisResponse::Action::eUnspecified;
+  nsString ruleName;
   for (const auto& result : aResponse.results()) {
     if (!result.has_status() ||
         result.status() !=
@@ -236,8 +237,12 @@ ContentAnalysisBackend::ConvertResponseFromProtobuf(
     }
     // The action values increase with severity, so the max is the most severe.
     for (const auto& rule : result.triggered_rules()) {
-      action = static_cast<ContentAnalysisResponse::Action>(std::max(
-          static_cast<uint32_t>(action), static_cast<uint32_t>(rule.action())));
+      if (static_cast<uint32_t>(rule.action()) >
+          static_cast<uint32_t>(action)) {
+        action = static_cast<ContentAnalysisResponse::Action>(rule.action());
+        ruleName = NS_ConvertUTF8toUTF16(rule.rule_name().data(),
+                                         rule.rule_name().size());
+      }
     }
   }
 
@@ -251,7 +256,8 @@ ContentAnalysisBackend::ConvertResponseFromProtobuf(
   requestTokenStr.Assign(requestToken.data(), requestToken.size());
 
   return MakeRefPtr<ContentAnalysisResponse>(action, requestTokenStr,
-                                             aUserActionId)
+                                             aUserActionId,
+                                             /* aIsSynthetic */ false, ruleName)
       .forget();
 }
 

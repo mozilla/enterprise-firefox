@@ -718,6 +718,7 @@ export const ContentAnalysis = {
       reason:
         this._REASON_TELEMETRY_STRINGS[aRequestInfo.reason] ??
         "unknown:" + aRequestInfo.reason,
+      ruleName: aResponse.ruleName || "",
     };
     if (aResponse.action === Ci.nsIContentAnalysisResponse.eWarn) {
       // The user hasn't made a choice yet; that's reported separately via

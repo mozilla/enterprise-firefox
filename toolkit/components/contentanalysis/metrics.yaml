@@ -352,6 +352,12 @@ content_analysis:
           Whether the in-process WASM engine (true) or an external agent
           (false) produced the verdict.
         type: boolean
+      rule_name:
+        description: >
+          The name of the rule that determined the verdict, as reported by
+          whatever produced it. Empty string if nothing reported one,
+          e.g. no rule matched.
+        type: string
       analysis_type:
         description: >
           The analysisType of the request, which corresponds to a value in

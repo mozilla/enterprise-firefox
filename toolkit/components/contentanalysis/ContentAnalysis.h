@@ -480,7 +480,8 @@ class ContentAnalysisResponse final : public nsIContentAnalysisResponse,
   virtual ~ContentAnalysisResponse() = default;
   ContentAnalysisResponse(Action aAction, const nsACString& aRequestToken,
                           const nsACString& aUserActionId,
-                          bool aIsSynthetic = false);
+                          bool aIsSynthetic = false,
+                          const nsAString& aRuleName = u""_ns);
 
   // Use MakeRefPtr as factory.
   template <typename T, typename... Args>
@@ -498,6 +499,9 @@ class ContentAnalysisResponse final : public nsIContentAnalysisResponse,
   // If mAction is eCanceled, this is the error explaining why the request was
   // canceled, or eUserInitiated if the user canceled it.
   CancelError mCancelError = CancelError::eUserInitiated;
+
+  // The name of the rule that determined mAction, or empty if none did.
+  nsString mRuleName;
 
   // ContentAnalysis (or, more precisely, its Client object) must outlive
   // the transaction.

@@ -187,6 +187,34 @@ add_task(async function test_record_rule_triggered() {
     "false",
     "is_cached should be false when not passed"
   );
+  Assert.equal(
+    extras[0].rule_name,
+    "",
+    "rule_name should be empty when not passed"
+  );
+});
+
+add_task(async function test_rule_name_is_reported_for_either_engine() {
+  const details = { ...BASE_DETAILS, ruleName: "block-confidential-content" };
+
+  // External agent (the default; browser.contentanalysis.use_wasm_backend
+  // defaults to false).
+  let extras = recordAndGetExtras(details);
+  Assert.equal(extras[0].is_builtin, "false");
+  Assert.equal(extras[0].rule_name, "block-confidential-content");
+
+  Services.prefs.setBoolPref("browser.contentanalysis.use_wasm_backend", true);
+  try {
+    extras = recordAndGetExtras(details);
+    Assert.equal(extras[0].is_builtin, "true");
+    Assert.equal(
+      extras[0].rule_name,
+      "block-confidential-content",
+      "rule_name should be reported for the built-in engine too"
+    );
+  } finally {
+    Services.prefs.clearUserPref("browser.contentanalysis.use_wasm_backend");
+  }
 });
 
 add_task(async function test_optional_keys_are_recorded() {

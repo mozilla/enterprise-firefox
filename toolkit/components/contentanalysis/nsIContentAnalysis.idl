@@ -81,6 +81,11 @@ interface nsIContentAnalysisResponse : nsIContentAnalysisResult
   // or eUserInitiated if the user canceled it.
   [infallible] readonly attribute nsIContentAnalysisResponse_CancelError cancelError;
 
+  // The name of the rule that determined `action` (the rule's config "Name";
+  // see nsIContentAnalysisRule.name). Empty if nothing reported one,
+  // e.g. this is a synthetic response Firefox produced itself.
+  readonly attribute AString ruleName;
+
   // Identifier for the corresponding nsIContentAnalysisRequest
   readonly attribute ACString requestToken;
   readonly attribute ACString userActionId;

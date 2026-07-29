@@ -453,10 +453,12 @@ nsresult ContentAnalysisRequest::GetFileDigest(const nsAString& aFilePath,
 
 ContentAnalysisResponse::ContentAnalysisResponse(
     Action aAction, const nsACString& aRequestToken,
-    const nsACString& aUserActionId, bool aIsSynthetic)
+    const nsACString& aUserActionId, bool aIsSynthetic,
+    const nsAString& aRuleName)
     : mAction(aAction),
       mRequestToken(aRequestToken),
       mUserActionId(aUserActionId),
+      mRuleName(aRuleName),
       mIsSyntheticResponse(aIsSynthetic) {
   MOZ_ASSERT(mAction != Action::eUnspecified);
 }
@@ -482,6 +484,12 @@ ContentAnalysisResponse::GetAction(Action* aAction) {
 NS_IMETHODIMP
 ContentAnalysisResponse::GetCancelError(CancelError* aCancelError) {
   *aCancelError = mCancelError;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+ContentAnalysisResponse::GetRuleName(nsAString& aRuleName) {
+  aRuleName = mRuleName;
   return NS_OK;
 }
 

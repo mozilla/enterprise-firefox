@@ -171,6 +171,8 @@ export const ContentAnalysisTelemetryEnterprise = {
    *   "canceled" actions, e.g. "no_agent" or "timeout".
    * @param {boolean} [details.isCached] - Whether the verdict was reused from
    *   an identical earlier request instead of being analyzed again.
+   * @param {string} [details.ruleName] - The name of the rule that produced
+   *   the verdict, if any.
    */
   recordRuleTriggered({
     operation,
@@ -181,6 +183,7 @@ export const ContentAnalysisTelemetryEnterprise = {
     reason,
     cancelError,
     isCached,
+    ruleName,
   }) {
     if (!this._isEnabled()) {
       return;
@@ -204,6 +207,7 @@ export const ContentAnalysisTelemetryEnterprise = {
         reason: reason || "",
         cancel_error: cancelError || "",
         is_cached: !!isCached,
+        rule_name: ruleName || "",
       });
 
       // Allow tests to disable submission to inspect recorded telemetry

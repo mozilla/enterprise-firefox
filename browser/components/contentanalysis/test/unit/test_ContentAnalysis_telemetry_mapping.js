@@ -52,6 +52,7 @@ function makeResponse(properties) {
     cancelError: Ci.nsIContentAnalysisResponse.eUserInitiated,
     isSyntheticResponse: false,
     isCachedResponse: false,
+    ruleName: "",
     ...properties,
   };
 }
@@ -82,6 +83,39 @@ add_task(async function test_request_details_are_mapped_to_enum_names() {
   Assert.equal(extras[0].type, "verdict");
   Assert.equal(extras[0].cancel_error, "");
   Assert.equal(extras[0].is_cached, "false");
+  Assert.equal(extras[0].rule_name, "");
+});
+
+add_task(async function test_rule_name_is_forwarded_from_response() {
+  // Reported regardless of which engine produced the response (the default
+  // here is an external agent; browser.contentanalysis.use_wasm_backend
+  // defaults to false).
+  const extras = recordResponseAndGetExtras({
+    ruleName: "block-confidential-content",
+  });
+  Assert.equal(extras[0].rule_name, "block-confidential-content");
+});
+
+add_task(async function test_rule_name_carries_into_warn_resolution() {
+  Services.fog.testResetFOG();
+  ContentAnalysis._maybeRecordRuleTriggeredTelemetry(
+    REQUEST_INFO,
+    makeResponse({
+      action: Ci.nsIContentAnalysisResponse.eWarn,
+      ruleName: "warn-ai-paste",
+    })
+  );
+  ContentAnalysis._recordWarnResolutionTelemetry(
+    makeResponse({ action: Ci.nsIContentAnalysisResponse.eAllow }),
+    "user"
+  );
+  const extras = getRecordedExtras();
+  Assert.equal(extras[0].rule_name, "warn-ai-paste");
+  Assert.equal(
+    extras[1].rule_name,
+    "warn-ai-paste",
+    "the resolution should report the rule that caused the original warn"
+  );
 });
 
 add_task(async function test_action_names() {
