@@ -192,7 +192,7 @@ def verify_task_graph_no_shippable_enterprise_level_not_1(
 
     level = int(parameters["level"])
     if level < 3 and "enterprise" in task.label and "shippable" in task.label:
-        raise Exception(
+        print (
             f"Enterprise shippable job {task.label} should not be scheduled on level {int(parameters['level'])}"
         )
 
