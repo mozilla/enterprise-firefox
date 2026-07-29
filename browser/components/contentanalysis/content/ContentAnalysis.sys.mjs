@@ -367,9 +367,10 @@ export const ContentAnalysis = {
           );
         }
 
-        let windowAndResourceNameOrOperationType =
-          this.requestTokenToRequestInfo.get(response.requestToken);
-        if (!windowAndResourceNameOrOperationType) {
+        let requestInfo = this.requestTokenToRequestInfo.get(
+          response.requestToken
+        );
+        if (!requestInfo) {
           // We may get multiple responses, for example, if we are blocked or
           // canceled after receiving our verdict because we were part of a
           // multipart transaction.  Just ignore that.
@@ -380,13 +381,10 @@ export const ContentAnalysis = {
         }
         this.requestTokenToRequestInfo.delete(response.requestToken);
         this._removeSlowCAMessage(response.userActionId, response.requestToken);
-        this._maybeRecordRuleTriggeredTelemetry(
-          windowAndResourceNameOrOperationType,
-          response
-        );
+        this._maybeRecordRuleTriggeredTelemetry(requestInfo, response);
         if (
-          windowAndResourceNameOrOperationType.resourceNameOrOperationType
-            ?.operationType === Ci.nsIContentAnalysisRequest.eDownload
+          requestInfo.resourceNameOrOperationType?.operationType ===
+          Ci.nsIContentAnalysisRequest.eDownload
         ) {
           // Don't show warn/block/error dialogs for downloads; they're shown
           // inside the downloads panel.
@@ -397,8 +395,8 @@ export const ContentAnalysis = {
         // Don't show dialog if this is a cached response
         if (!response?.isCachedResponse) {
           await this._showCAResult(
-            windowAndResourceNameOrOperationType.resourceNameOrOperationType,
-            windowAndResourceNameOrOperationType.browsingContext,
+            requestInfo.resourceNameOrOperationType,
+            requestInfo.browsingContext,
             response.requestToken,
             response.userActionId,
             responseResult,
