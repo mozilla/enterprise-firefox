@@ -115,6 +115,11 @@ run-if = [
   "buildapp == 'browser'", # browser specific: notification
 ]
 
+["test_felt_browser_updates_forward_offline.py"]
+run-if = [
+  "buildapp == 'browser'", # browser specific: notification
+]
+
 ["test_felt_browser_watermark.py"]
 run-if = [
   "buildapp == 'browser'", # browser specific: watermark drawn on a tab

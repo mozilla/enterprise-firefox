@@ -133,6 +133,7 @@ export const Updates = {
     this._appUpdater = new lazy.AppUpdater();
     this._updaterCallback = this.appUpdaterCallback.bind(this);
     this._appUpdater.addListener(this._updaterCallback);
+    Services.obs.addObserver(this, "felt-ready");
     Services.obs.addObserver(this, "update-staged");
     Services.obs.addObserver(this, "update-downloaded");
     Services.obs.addObserver(this, "update-error");
@@ -366,6 +367,7 @@ export const Updates = {
   },
 
   unobserve() {
+    Services.obs.removeObserver(this, "felt-ready");
     Services.obs.removeObserver(this, "update-staged");
     Services.obs.removeObserver(this, "update-downloaded");
     Services.obs.removeObserver(this, "update-error");
@@ -375,7 +377,9 @@ export const Updates = {
   sendUpdateReady() {
     try {
       Services.felt?.sendUpdateReady();
+      this._pendingUpdateReady = false;
     } catch (ex) {
+      this._pendingUpdateReady = true;
       if (ex.result === Cr.NS_ERROR_NOT_CONNECTED) {
         lazy.log.warn(
           `FeltUpdates: sendUpdateReady() failed because not connected: no browser ?`
@@ -397,6 +401,15 @@ export const Updates = {
     switch (topic) {
       case "xpcom-shutdown":
         this.unobserve();
+        break;
+      case "felt-ready":
+        lazy.log.warn(
+          "Browser is ready checking for pending update notification"
+        );
+        if (this._pendingUpdateReady) {
+          lazy.log.warn("Informing browser of pending update");
+          this.sendUpdateReady();
+        }
         break;
       case "update-staged":
       case "update-downloaded":
