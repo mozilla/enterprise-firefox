@@ -318,7 +318,8 @@ content_analysis:
       operation:
         description: >
           The user action that triggered content analysis (e.g. "clipboard",
-          "dropped_text", "print", "upload", "download").
+          "dropped_text", "print", "upload", "download"). It corresponds to a value
+          in the nsIContentAnalysisRequest::OperationType enum.
         type: string
       url:
         description: >
