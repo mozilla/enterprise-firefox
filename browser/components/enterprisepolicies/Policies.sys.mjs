@@ -1107,24 +1107,16 @@ export var Policies = {
         }
       }
     },
-    onRemove(manager, oldParams) {
-      if (oldParams && typeof oldParams === "object") {
-        if ("Enabled" in oldParams) {
-          lazy.PoliciesUtils.unsetAndUnlockPref(
-            "browser.contentanalysis.enterprise.telemetry.enabled"
-          );
-        }
-        if ("UrlLogging" in oldParams) {
-          lazy.PoliciesUtils.unsetAndUnlockPref(
-            "browser.contentanalysis.enterprise.telemetry.urlLogging"
-          );
-        }
-        if ("RecordEvents" in oldParams) {
-          lazy.PoliciesUtils.unsetAndUnlockPref(
-            "browser.contentanalysis.enterprise.telemetry.recordEvents"
-          );
-        }
-      }
+    onRemove(_manager, _oldParams) {
+      lazy.PoliciesUtils.unsetAndUnlockPref(
+        "browser.contentanalysis.enterprise.telemetry.enabled"
+      );
+      lazy.PoliciesUtils.unsetAndUnlockPref(
+        "browser.contentanalysis.enterprise.telemetry.urlLogging"
+      );
+      lazy.PoliciesUtils.unsetAndUnlockPref(
+        "browser.contentanalysis.enterprise.telemetry.recordEvents"
+      );
     },
   },
 
