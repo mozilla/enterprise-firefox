@@ -504,6 +504,9 @@ def target_tasks_enterprise_firefox_with_tests(
     )
 
     def filter(task):
+        if "shippable" in task.label:
+            return True
+
         test_platform = task.attributes.get("test_platform")
         # Skip android-hw tests, windows11-aarch64: they require special hardware and credentials
         if (
