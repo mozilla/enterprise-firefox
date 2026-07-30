@@ -34,11 +34,16 @@ const UNSAFE_SITES = [
 
 // A real, safe top-level page (served over https) used as the embedder in the
 // referrer test, so the blocked subframe load carries a deterministic referrer.
-const EMBEDDER_URL =
-  getRootDirectory(gTestPath).replace(
-    "chrome://mochitests/content",
-    "https://example.com"
-  ) + "empty_file.html";
+// The burst test needs one embedder per tab, on distinct origins, so that the
+// referrer of a reported hit says which tab it came from.
+function embedderUrl(origin) {
+  return (
+    getRootDirectory(gTestPath).replace("chrome://mochitests/content", origin) +
+    "empty_file.html"
+  );
+}
+const EMBEDDER_URL = embedderUrl("https://example.com");
+const SECOND_EMBEDDER_URL = embedderUrl("https://example.org");
 
 add_setup(async function () {
   await new Promise(resolve => waitForDBInit(resolve));
@@ -55,8 +60,8 @@ add_setup(async function () {
         "full",
       ],
       // Classify subframes too, not just the top-level document, so the
-      // subframe and burst tests below see Safe Browsing hits for their
-      // iframes. Restored automatically at the end of this file.
+      // subframe, referrer and burst tests below see Safe Browsing hits for
+      // their iframes. Restored automatically at the end of this file.
       ["browser.safebrowsing.only_top_level", false],
     ],
   });
@@ -400,6 +405,7 @@ function recordEnterpriseSubmits() {
       submits.push({
         eventCount: events?.length ?? 0,
         lastUrl: events?.at(-1)?.extra.url ?? null,
+        lastReferrer: events?.at(-1)?.extra.referrer ?? null,
       });
       arm();
     });
@@ -530,6 +536,156 @@ add_task(async function test_simultaneous_hits_in_two_tabs() {
       recorder.submits.length,
       2,
       "No more pings are submitted than there are reported hits"
+    );
+  } finally {
+    recorder.disarm();
+    for (const tab of tabs) {
+      BrowserTestUtils.removeTab(tab);
+    }
+    Services.fog.testResetFOG();
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+// Appends an unsafe iframe per url, all before any of them is classified, so the
+// hits arrive as one burst.
+async function burstUnsafeIframes(browser, urls) {
+  await SpecialPowers.spawn(browser, [urls], srcs => {
+    for (const src of srcs) {
+      const iframe = content.document.createElement("iframe");
+      iframe.src = src;
+      content.document.body.appendChild(iframe);
+    }
+  });
+}
+
+// Resolves once every subframe of browser has been replaced by about:blocked,
+// i.e. once Safe Browsing has classified the whole burst and the throttle has
+// decided each hit. Dropped hits leave no trace, so the assertions that count
+// them need this rather than a wait on the events themselves.
+async function waitForBlockedSubframes(browser, expectedCount) {
+  await TestUtils.waitForCondition(() => {
+    const frames = browser.browsingContext.children;
+    return (
+      frames.length === expectedCount &&
+      frames.every(frame =>
+        frame.currentWindowGlobal?.documentURI?.spec.startsWith("about:blocked")
+      )
+    );
+  }, `All ${expectedCount} unsafe subframes are blocked`);
+}
+
+add_task(async function test_burst_in_one_tab_reports_one_hit() {
+  // The case the throttle exists for: one page load that trips Safe Browsing
+  // several times over, here through several unsafe subframes classified at
+  // once. The hit that opens the tab's cooldown window is reported on its own,
+  // and the rest of the burst is dropped rather than staged for a later ping, so
+  // the load costs exactly one ping and one event however many hits it produced.
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [
+        "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
+        false,
+      ],
+      ["browser.safebrowsing.enterprise.telemetry.submitCooldownMs", 60000],
+    ],
+  });
+
+  const recorder = recordEnterpriseSubmits();
+  const burstUrls = UNSAFE_SITES.map(site => site.url);
+
+  let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, EMBEDDER_URL);
+  try {
+    await burstUnsafeIframes(tab.linkedBrowser, burstUrls);
+    await waitForBlockedSubframes(tab.linkedBrowser, burstUrls.length);
+
+    await TestUtils.waitForCondition(
+      () => recorder.submits.length >= 1,
+      "The hit that opens the cooldown window submits a ping"
+    );
+    Assert.equal(
+      recorder.submits.length,
+      1,
+      "A burst of hits in one tab submits a single ping"
+    );
+    Assert.equal(
+      recorder.submits[0].eventCount,
+      1,
+      "That ping carries only the hit that opened the window, not the burst"
+    );
+    Assert.equal(
+      recorder.submits[0].lastReferrer,
+      EMBEDDER_URL,
+      "The reported hit is attributed to the page that embedded the burst"
+    );
+    Assert.ok(
+      !Glean.safebrowsing.siteVisit.testGetValue("enterprise"),
+      "The dropped hits are not left staged behind the submitted ping"
+    );
+  } finally {
+    recorder.disarm();
+    BrowserTestUtils.removeTab(tab);
+    Services.fog.testResetFOG();
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+add_task(async function test_simultaneous_bursts_in_two_tabs() {
+  // Two tabs each load several unsafe subframes at once, with both bursts in
+  // flight together. Every tab collapses its own burst to the single hit that
+  // opens its cooldown window, and the two windows are independent, so exactly
+  // one hit per tab is reported however the two bursts interleave. A window
+  // shared between the tabs would report one hit in total, and a per-frame
+  // window would report all of them. The cooldown is far longer than the test,
+  // so a hit dropped here is never recorded later.
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [
+        "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
+        false,
+      ],
+      ["browser.safebrowsing.enterprise.telemetry.submitCooldownMs", 60000],
+    ],
+  });
+
+  const recorder = recordEnterpriseSubmits();
+  const burstUrls = UNSAFE_SITES.map(site => site.url);
+  const embedders = [EMBEDDER_URL, SECOND_EMBEDDER_URL];
+
+  let tabs = embedders.map(url => BrowserTestUtils.addTab(gBrowser, url));
+  try {
+    await Promise.all(
+      tabs.map((tab, i) =>
+        BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, embedders[i])
+      )
+    );
+
+    await Promise.all(
+      tabs.map(tab => burstUnsafeIframes(tab.linkedBrowser, burstUrls))
+    );
+    await Promise.all(
+      tabs.map(tab =>
+        waitForBlockedSubframes(tab.linkedBrowser, burstUrls.length)
+      )
+    );
+
+    await TestUtils.waitForCondition(
+      () => recorder.submits.length >= embedders.length,
+      "Each tab's burst submits a ping"
+    );
+    Assert.equal(
+      recorder.totalEvents(),
+      embedders.length,
+      "Each tab reports exactly one hit out of its burst"
+    );
+    Assert.ok(
+      recorder.submits.every(submit => submit.eventCount === 1),
+      "Every ping carries only the hit that opened its tab's window"
+    );
+    Assert.deepEqual(
+      recorder.submits.map(submit => submit.lastReferrer).sort(),
+      [...embedders].sort(),
+      "One hit is reported per tab, not two from the same tab"
     );
   } finally {
     recorder.disarm();
