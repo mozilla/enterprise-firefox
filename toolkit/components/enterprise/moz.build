@@ -16,14 +16,4 @@ EXTRA_JS_MODULES.enterprise += [
     "modules/Updates.sys.mjs",
 ]
 
-EXPORTS.mozilla += [
-    "EnterpriseTelemetry.h",
-]
-
-UNIFIED_SOURCES += [
-    "EnterpriseTelemetry.cpp",
-]
-
-FINAL_LIBRARY = "xul"
-
 BROWSER_CHROME_MANIFESTS += ["tests/browser/browser.toml"]

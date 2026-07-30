@@ -34,7 +34,6 @@
 #include "mozilla/Services.h"
 #include "mozilla/glean/ReputationserviceMetrics.h"
 #ifdef MOZ_ENTERPRISE
-#  include "mozilla/EnterpriseTelemetry.h"
 #  include "mozilla/glean/GleanPings.h"
 #  include "nsXULAppAPI.h"
 #endif
@@ -1491,6 +1490,43 @@ nsresult PendingLookup::DoLookupInternal() {
 }
 
 #ifdef MOZ_ENTERPRISE
+
+// Redacts aURI according to the "<aPrefPrefix>.urlLogging" policy: "full"
+// (the default) yields the full spec with any password masked, "domain" the
+// host only, and "none" nothing. aProcessedUrl is cleared and left empty for
+// the "none" policy, a null aURI, or a URI retrieval failure.
+static void MaybeRedactUrl(const nsACString& aPrefPrefix, nsIURI* aURI,
+                           nsACString& aProcessedUrl) {
+  aProcessedUrl.Truncate();
+
+  nsAutoCString pref(aPrefPrefix);
+  pref.AppendLiteral(".urlLogging");
+
+  nsAutoCString policy;
+  Preferences::GetCString(pref.get(), policy);
+
+  if (!aURI || policy.EqualsLiteral("none")) {
+    return;
+  }
+
+  if (policy.EqualsLiteral("domain")) {
+    nsAutoCString host;
+    if (NS_SUCCEEDED(aURI->GetHost(host))) {
+      aProcessedUrl = host;
+    }
+  } else {
+    NS_GetSanitizedURIStringFromURI(aURI, aProcessedUrl);
+  }
+}
+
+// Whether enterprise security telemetry is enabled for the event whose prefs
+// live under aPrefPrefix. Reads "<aPrefPrefix>.enabled" (default true).
+[[nodiscard]] static bool EventReportingEnabled(const nsACString& aPrefPrefix) {
+  nsAutoCString pref(aPrefPrefix);
+  pref.AppendLiteral(".enabled");
+  return Preferences::GetBool(pref.get(), true);
+}
+
 // Records an enterprise security event whenever download protection flags a
 // download as unsafe so administrators can monitor unsafe downloads. Recording
 // is independent of the block prefs so a detection is reported even when the
@@ -1498,10 +1534,11 @@ nsresult PendingLookup::DoLookupInternal() {
 static void RecordUnsafeDownload(nsIApplicationReputationQuery* aQuery,
                                  uint32_t aVerdict) {
   MOZ_ASSERT(XRE_IsParentProcess());
+  MOZ_ASSERT(NS_IsMainThread());
 
   constexpr auto kPrefPrefix =
       "browser.safebrowsing.enterprise.telemetry.unsafeDownload"_ns;
-  if (!mozilla::enterprise::EventReportingEnabled(kPrefPrefix)) {
+  if (!EventReportingEnabled(kPrefPrefix)) {
     return;
   }
 
@@ -1524,19 +1561,13 @@ static void RecordUnsafeDownload(nsIApplicationReputationQuery* aQuery,
       return;
   }
 
-  // Downloads are exempt from the enterprise throttle: a verdict is one
-  // deliberate user action rather than a burst, and every one of them must be
-  // reported.
-  const mozilla::enterprise::EnterprisePingAction action =
-      mozilla::enterprise::UnthrottledEnterprisePing();
-
   nsCOMPtr<nsIURI> uri;
   if (aQuery) {
     aQuery->GetSourceURI(getter_AddRefs(uri));
   }
 
   nsAutoCString url;
-  mozilla::enterprise::MaybeRedactUrl(kPrefPrefix, uri, url);
+  MaybeRedactUrl(kPrefPrefix, uri, url);
 
   const mozilla::glean::safebrowsing::DownloadExtra extra = {
       .url = mozilla::Some(nsCString(url)),
@@ -1544,7 +1575,13 @@ static void RecordUnsafeDownload(nsIApplicationReputationQuery* aQuery,
   };
   mozilla::glean::safebrowsing::download.Record(mozilla::Some(extra));
 
-  if (action == mozilla::enterprise::EnterprisePingAction::RecordAndSubmit) {
+  // Downloads are exempt from the enterprise throttle: a verdict is one
+  // deliberate user action rather than a burst, and every one of them must be
+  // reported.
+  // Testing escape hatch: tests record events but never submit
+  if (!Preferences::GetBool(
+          "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
+          false)) {
     mozilla::glean_pings::Enterprise.Submit();
   }
 }

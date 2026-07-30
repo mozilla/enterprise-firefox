@@ -26,13 +26,16 @@
 #include "mozilla/Services.h"
 
 #ifdef MOZ_ENTERPRISE
-#  include "mozilla/EnterpriseTelemetry.h"
 #  include "mozilla/dom/BrowsingContext.h"
 #  include "mozilla/glean/GleanPings.h"
 #  include "mozilla/glean/UrlClassifierMetrics.h"
+#  include "mozilla/StaticPtr.h"
+#  include "mozilla/TimeStamp.h"
 #  include "nsIHttpChannel.h"
 #  include "nsILoadInfo.h"
 #  include "nsIReferrerInfo.h"
+#  include "nsTHashMap.h"
+#  include "MainThreadUtils.h"
 #endif
 
 namespace mozilla {
@@ -392,6 +395,131 @@ nsresult nsChannelClassifier::SendThreatHitReport(nsIChannel* aChannel,
 }
 
 #ifdef MOZ_ENTERPRISE
+
+// Time of the last submitted enterprise ping, per originating tab.
+static StaticAutoPtr<nsTHashMap<uint64_t, TimeStamp>> sLastPingTimes;
+
+// Whether enterprise security telemetry is enabled for the event whose prefs
+// live under aPrefPrefix. Reads "<aPrefPrefix>.enabled" (default true).
+[[nodiscard]] static bool EventReportingEnabled(const nsACString& aPrefPrefix) {
+  nsAutoCString pref(aPrefPrefix);
+  pref.AppendLiteral(".enabled");
+  return Preferences::GetBool(pref.get(), true);
+}
+
+// How a recording site should handle the next enterprise security event, as
+// decided by ThrottleEnterprisePing.
+enum class EnterprisePingAction {
+  // No cooldown window holds this event back: record it and then submit the
+  // enterprise ping (glean_pings::Enterprise.Submit()).
+  RecordAndSubmit,
+  // Submission is disabled via the testing.disableSubmit pref: still record the
+  // event so tests can inspect it, but do not submit a ping.
+  RecordOnly,
+  // The originating tab already submitted a ping inside the cooldown window:
+  // drop the event entirely, without recording it.
+  Drop,
+};
+
+// Redacts aURI according to the "<aPrefPrefix>.urlLogging" policy: "full"
+// (the default) yields the full spec with any password masked, "domain" the
+// host only, and "none" nothing. aProcessedUrl is cleared and left empty for
+// the "none" policy, a null aURI, or a URI retrieval failure.
+static void MaybeRedactUrl(const nsACString& aPrefPrefix, nsIURI* aURI,
+                           nsACString& aProcessedUrl) {
+  aProcessedUrl.Truncate();
+
+  nsAutoCString pref(aPrefPrefix);
+  pref.AppendLiteral(".urlLogging");
+
+  nsAutoCString policy;
+  Preferences::GetCString(pref.get(), policy);
+
+  if (!aURI || policy.EqualsLiteral("none")) {
+    return;
+  }
+
+  if (policy.EqualsLiteral("domain")) {
+    nsAutoCString host;
+    if (NS_SUCCEEDED(aURI->GetHost(host))) {
+      aProcessedUrl = host;
+    }
+  } else {
+    NS_GetSanitizedURIStringFromURI(aURI, aProcessedUrl);
+  }
+}
+
+// Testing escape hatch: tests record events but never submit. Also resets the
+// throttle, so a window a prior test left behind cannot leak into the next one.
+static bool SubmitDisabledForTesting() {
+  if (!Preferences::GetBool(
+          "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
+          false)) {
+    return false;
+  }
+
+  if (sLastPingTimes) {
+    sLastPingTimes->Clear();
+  }
+  return true;
+}
+
+// Decides how to handle the next enterprise security event, so that a burst
+// (for example the many Safe Browsing hits of a single page load) does not
+// result in one ping per event. Only the event that opens a cooldown window is
+// reported; the ones throttled behind it are discarded, not batched into the
+// next ping.
+//
+// aBrowserId is the id of the tab the event originates from, or 0 when the load
+// has no browsing context to attribute it to; events sharing an id share a
+// window. Tabs are tracked only while their window is open, so a tab that goes
+// quiet or is closed costs nothing.
+//
+// The cooldown is read from
+// "browser.safebrowsing.enterprise.telemetry.submitCooldownMs" (default 60000,
+// i.e. one minute).
+// While "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit" is
+// set the throttle is disabled and reset, and RecordOnly is always returned.
+// Must be called on the main thread of the parent process.
+[[nodiscard]]
+static EnterprisePingAction ThrottleEnterprisePing(uint64_t aBrowserId) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  if (SubmitDisabledForTesting()) {
+    return EnterprisePingAction::RecordOnly;
+  }
+
+  if (!sLastPingTimes) {
+    sLastPingTimes = new nsTHashMap<uint64_t, TimeStamp>();
+    ClearOnShutdown(&sLastPingTimes);
+  }
+
+  const uint32_t cooldownMs = Preferences::GetUint(
+      "browser.safebrowsing.enterprise.telemetry.submitCooldownMs", 60000);
+  const TimeStamp now = TimeStamp::Now();
+
+  // A tab whose window has elapsed can no longer be throttled, so drop it here
+  // rather than growing the map by every tab that ever reported an event. This
+  // also means any surviving entry is inside its window by construction.
+  for (auto iter = sLastPingTimes->Iter(); !iter.Done(); iter.Next()) {
+    const double dt = (now - iter.Data()).ToMilliseconds();
+    if (dt >= cooldownMs) {
+      iter.Remove();
+    }
+  }
+
+  // Each tab gets its own cooldown window, so one page load reports its first
+  // unsafe hit and discards the rest, while hits in other tabs are reported on
+  // their own schedule. Events whose load has no browsing context to attribute
+  // it to (aBrowserId == 0) share a single window among themselves.
+  if (sLastPingTimes->Contains(aBrowserId)) {
+    return EnterprisePingAction::Drop;
+  }
+
+  sLastPingTimes->InsertOrUpdate(aBrowserId, now);
+  return EnterprisePingAction::RecordAndSubmit;
+}
+
 // Records an enterprise security event for every Safe Browsing hit (top-level,
 // subframe, or subresource) so administrators can monitor unsafe-site access.
 static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
@@ -401,7 +529,7 @@ static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
 
   constexpr auto kPrefPrefix =
       "browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit"_ns;
-  if (!enterprise::EventReportingEnabled(kPrefPrefix)) {
+  if (!EventReportingEnabled(kPrefPrefix)) {
     return;
   }
 
@@ -435,9 +563,8 @@ static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
     }
   }
 
-  const enterprise::EnterprisePingAction action =
-      enterprise::ThrottleEnterprisePing(browserId);
-  if (action == enterprise::EnterprisePingAction::Drop) {
+  const EnterprisePingAction action = ThrottleEnterprisePing(browserId);
+  if (action == EnterprisePingAction::Drop) {
     // A same-tab burst inside the cooldown window; drop without recording so we
     // only keep events we send telemetry for.
     return;
@@ -449,7 +576,7 @@ static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
   }
 
   nsAutoCString url;
-  enterprise::MaybeRedactUrl(kPrefPrefix, uri, url);
+  MaybeRedactUrl(kPrefPrefix, uri, url);
 
   // The referrer tells the administrator which page embedded or linked to the
   // blocked resource, which is otherwise invisible for subframe and subresource
@@ -463,7 +590,7 @@ static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
   }
 
   nsAutoCString referrer;
-  enterprise::MaybeRedactUrl(kPrefPrefix, referrerUri, referrer);
+  MaybeRedactUrl(kPrefPrefix, referrerUri, referrer);
 
   const glean::safebrowsing::SiteVisitExtra extra = {
       .list = Some(nsCString(aList)),
@@ -474,7 +601,7 @@ static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
   };
   glean::safebrowsing::site_visit.Record(Some(extra));
 
-  if (action == enterprise::EnterprisePingAction::RecordAndSubmit) {
+  if (action == EnterprisePingAction::RecordAndSubmit) {
     glean_pings::Enterprise.Submit();
   }
 }
