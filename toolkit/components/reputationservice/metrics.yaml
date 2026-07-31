@@ -320,12 +320,6 @@ safebrowsing:
       protection API) flags a download as unsafe, regardless of whether the
       configured block prefs cause the download to be blocked. Only collected
       when MOZ_ENTERPRISE is defined and enabled.
-
-      Detections are exempt from the enterprise submit throttle
-      (browser.safebrowsing.enterprise.telemetry.submitCooldownMs), which only
-      applies to safebrowsing.site_visit: a download is one deliberate user
-      action rather than a burst, so every detection is recorded and submits its
-      own ping, even back to back.
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2039258
     data_reviews:

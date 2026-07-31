@@ -34,7 +34,7 @@ const UNSAFE_SITES = [
 
 // A real, safe top-level page (served over https) used as the embedder in the
 // referrer test, so the blocked subframe load carries a deterministic referrer.
-// The burst test needs one embedder per tab, on distinct origins, so that the
+// The burst tests need one embedder per tab, on distinct origins, so that the
 // referrer of a reported hit says which tab it came from.
 function embedderUrl(origin) {
   return (
@@ -279,273 +279,32 @@ add_task(async function test_url_logging_none() {
   }
 });
 
-// Navigates a browser to an unsafe URL and resolves once the (about:blocked)
-// load has finished, i.e. once Safe Browsing classification has definitely run.
-async function loadUnsafeInto(browser, url) {
-  BrowserTestUtils.startLoadingURIString(browser, url);
-  await BrowserTestUtils.browserLoaded(browser, false, url, true);
-}
-
-add_task(async function test_cooldown_is_per_tab() {
-  // The enterprise ping is throttled so that repeated Safe Browsing hits do not
-  // produce one ping per hit. Each tab has its own cooldown window: a hit from
-  // a tab with no window open is reported, and further hits from that tab
-  // inside its window are dropped entirely (not recorded). Because the windows
-  // are independent, a tab that already submitted stays throttled even after
-  // another tab submits in the meantime. The cooldown is set far longer than
-  // the test so every branch is exercised deterministically within a single
-  // window.
-  await SpecialPowers.pushPrefEnv({
-    set: [
-      [
-        "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
-        false,
-      ],
-      ["browser.safebrowsing.enterprise.telemetry.submitCooldownMs", 60000],
-    ],
-  });
-
-  // testBeforeNextSubmit is a one-shot hook, so re-arm it after every submit:
-  // the assertions below check that throttled hits do *not* submit, which only
-  // holds if an unexpected submit would still be counted. The finally block
-  // disarms it so no callback survives into later tests.
-  let submitCount = 0;
-  let eventsAtFirstSubmit = 0;
-  function registerHook() {
-    GleanPings.enterprise.testBeforeNextSubmit(() => {
-      submitCount++;
-      if (submitCount === 1) {
-        eventsAtFirstSubmit =
-          Glean.safebrowsing.siteVisit.testGetValue("enterprise")?.length ?? 0;
-      }
-      registerHook();
-    });
-  }
-  registerHook();
-
-  let tab1 = await BrowserTestUtils.openNewForegroundTab(
-    gBrowser,
-    "about:blank"
-  );
-  let tab2;
-  try {
-    // First hit in tab1: submitted immediately, carrying only its own event.
-    await loadUnsafeInto(tab1.linkedBrowser, UNSAFE_SITES[0].url);
-    await TestUtils.waitForCondition(
-      () => submitCount >= 1,
-      "The first hit submits the enterprise ping immediately"
-    );
-    Assert.equal(
-      eventsAtFirstSubmit,
-      1,
-      "The immediately-submitted ping carries only the first hit's event"
-    );
-
-    // A second hit in the same tab, inside the cooldown window, is dropped and
-    // never recorded, so nothing is left staged behind the submitted ping.
-    await loadUnsafeInto(tab1.linkedBrowser, UNSAFE_SITES[1].url);
-    Assert.equal(
-      submitCount,
-      1,
-      "A same-tab hit inside the cooldown must not submit a further ping"
-    );
-    Assert.ok(
-      !Glean.safebrowsing.siteVisit.testGetValue("enterprise"),
-      "The dropped same-tab hit is not recorded"
-    );
-
-    // A hit from a different tab has its own window, which is still closed, so
-    // it is reported even though tab1's window is open.
-    tab2 = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
-    await loadUnsafeInto(tab2.linkedBrowser, UNSAFE_SITES[0].url);
-    await TestUtils.waitForCondition(
-      () => submitCount >= 2,
-      "A hit from a different tab opens its own window and submits a ping"
-    );
-    Assert.equal(
-      submitCount,
-      2,
-      "A different tab's hit submits its own ping inside tab1's window"
-    );
-
-    // Back to tab1, whose window is still open: another tab having submitted in
-    // between must not reopen it, so this hit is still dropped.
-    await loadUnsafeInto(tab1.linkedBrowser, UNSAFE_SITES[1].url);
-    Assert.equal(
-      submitCount,
-      2,
-      "A tab's window survives another tab submitting inside it"
-    );
-    Assert.ok(
-      !Glean.safebrowsing.siteVisit.testGetValue("enterprise"),
-      "The hit dropped after the other tab's submit is not recorded"
-    );
-  } finally {
-    // Overwrite the pending one-shot hook with a no-op so it does not stay
-    // armed for later tests.
-    GleanPings.enterprise.testBeforeNextSubmit(() => {});
-    BrowserTestUtils.removeTab(tab1);
-    if (tab2) {
-      BrowserTestUtils.removeTab(tab2);
-    }
-    Services.fog.testResetFOG();
-    await SpecialPowers.popPrefEnv();
-  }
-});
-
-// Records what each enterprise ping carried at submit time. testBeforeNextSubmit
-// is a one-shot hook, so it re-arms itself after every submit: the assertions
-// below need every submit counted, not just the first. The events have to be
-// read inside the hook because submitting the ping clears them.
+// Records the events every enterprise ping carried at submit time.
+// testBeforeNextSubmit is a one-shot hook, so it re-arms itself after every
+// submit: the assertions below need every submit counted, not just the first.
+// The events have to be read inside the hook because submitting the ping clears
+// them.
 function recordEnterpriseSubmits() {
   const submits = [];
   function arm() {
     GleanPings.enterprise.testBeforeNextSubmit(() => {
       const events = Glean.safebrowsing.siteVisit.testGetValue("enterprise");
-      submits.push({
-        eventCount: events?.length ?? 0,
-        lastUrl: events?.at(-1)?.extra.url ?? null,
-        lastReferrer: events?.at(-1)?.extra.referrer ?? null,
-      });
+      submits.push(events?.map(event => event.extra.referrer) ?? []);
       arm();
     });
   }
   arm();
 
   return {
-    submits,
-    // Total events reported across every ping. A dropped hit is never recorded,
-    // so this counts the hits that survived the throttle, whether they arrived
-    // in one ping or several.
-    totalEvents: () =>
-      submits.reduce((sum, submit) => sum + submit.eventCount, 0),
+    // The referrer of every event reported across all pings, which says which
+    // tab each hit came from. Counting these counts the hits that were
+    // reported, however they were spread over pings.
+    reportedReferrers: () => submits.flat(),
     // Overwrite the pending one-shot hook with a no-op so it does not stay armed
     // for later tests.
     disarm: () => GleanPings.enterprise.testBeforeNextSubmit(() => {}),
   };
 }
-
-add_task(
-  async function test_background_tab_reports_while_foreground_throttled() {
-    // A hit must be attributed to the tab whose load produced it, not to whichever
-    // tab happens to be selected. The foreground tab hits first so its cooldown
-    // window is open, then an unsafe load runs in a background tab: that tab has
-    // its own window, so the hit is reported even though the selected tab is
-    // throttled. Keying the cooldown off the selected tab instead would drop it.
-    await SpecialPowers.pushPrefEnv({
-      set: [
-        [
-          "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
-          false,
-        ],
-        ["browser.safebrowsing.enterprise.telemetry.submitCooldownMs", 60000],
-      ],
-    });
-
-    const recorder = recordEnterpriseSubmits();
-    const backgroundUrl = UNSAFE_SITES[1].url;
-
-    let foregroundTab = await BrowserTestUtils.openNewForegroundTab(
-      gBrowser,
-      "about:blank"
-    );
-    let backgroundTab;
-    try {
-      await loadUnsafeInto(foregroundTab.linkedBrowser, UNSAFE_SITES[0].url);
-      await TestUtils.waitForCondition(
-        () => recorder.submits.length >= 1,
-        "The foreground tab's hit opens its cooldown window and submits"
-      );
-
-      backgroundTab = BrowserTestUtils.addTab(gBrowser, backgroundUrl);
-      Assert.equal(
-        gBrowser.selectedTab,
-        foregroundTab,
-        "The throttled tab is still the selected one"
-      );
-      await BrowserTestUtils.browserLoaded(
-        backgroundTab.linkedBrowser,
-        false,
-        backgroundUrl,
-        true
-      );
-
-      await TestUtils.waitForCondition(
-        () => recorder.totalEvents() >= 2,
-        "The background tab's hit is reported while the selected tab is throttled"
-      );
-      Assert.equal(
-        recorder.totalEvents(),
-        2,
-        "Both hits are reported, so the background tab has its own window"
-      );
-      Assert.ok(
-        recorder.submits.some(submit => submit.lastUrl === backgroundUrl),
-        "The reported hit is attributed to the background tab's load"
-      );
-    } finally {
-      recorder.disarm();
-      BrowserTestUtils.removeTab(foregroundTab);
-      if (backgroundTab) {
-        BrowserTestUtils.removeTab(backgroundTab);
-      }
-      Services.fog.testResetFOG();
-      await SpecialPowers.popPrefEnv();
-    }
-  }
-);
-
-add_task(async function test_simultaneous_hits_in_two_tabs() {
-  // Two tabs whose unsafe loads overlap rather than being neatly sequenced, so
-  // the order the two hits reach the throttle is not fixed. Each tab has its own
-  // cooldown window, so both hits are reported either way. The cooldown is far
-  // longer than the test, so a window shared between the tabs would drop
-  // whichever hit lost the race, and it would never be recorded.
-  await SpecialPowers.pushPrefEnv({
-    set: [
-      [
-        "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
-        false,
-      ],
-      ["browser.safebrowsing.enterprise.telemetry.submitCooldownMs", 60000],
-    ],
-  });
-
-  const recorder = recordEnterpriseSubmits();
-  const urls = [UNSAFE_SITES[0].url, UNSAFE_SITES[2].url];
-
-  // addTab starts the load, so both tabs are loading before either is awaited.
-  let tabs = urls.map(url => BrowserTestUtils.addTab(gBrowser, url));
-  try {
-    await Promise.all(
-      tabs.map((tab, i) =>
-        BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, urls[i], true)
-      )
-    );
-
-    await TestUtils.waitForCondition(
-      () => recorder.totalEvents() >= 2,
-      "Both simultaneous hits are reported"
-    );
-    Assert.equal(
-      recorder.totalEvents(),
-      2,
-      "Neither of the simultaneous hits is dropped"
-    );
-    Assert.lessOrEqual(
-      recorder.submits.length,
-      2,
-      "No more pings are submitted than there are reported hits"
-    );
-  } finally {
-    recorder.disarm();
-    for (const tab of tabs) {
-      BrowserTestUtils.removeTab(tab);
-    }
-    Services.fog.testResetFOG();
-    await SpecialPowers.popPrefEnv();
-  }
-});
 
 // Appends an unsafe iframe per url, all before any of them is classified, so the
 // hits arrive as one burst.
@@ -560,9 +319,7 @@ async function burstUnsafeIframes(browser, urls) {
 }
 
 // Resolves once every subframe of browser has been replaced by about:blocked,
-// i.e. once Safe Browsing has classified the whole burst and the throttle has
-// decided each hit. Dropped hits leave no trace, so the assertions that count
-// them need this rather than a wait on the events themselves.
+// i.e. once Safe Browsing has classified the whole burst.
 async function waitForBlockedSubframes(browser, expectedCount) {
   await TestUtils.waitForCondition(() => {
     const frames = browser.browsingContext.children;
@@ -575,19 +332,16 @@ async function waitForBlockedSubframes(browser, expectedCount) {
   }, `All ${expectedCount} unsafe subframes are blocked`);
 }
 
-add_task(async function test_burst_in_one_tab_reports_one_hit() {
-  // The case the throttle exists for: one page load that trips Safe Browsing
-  // several times over, here through several unsafe subframes classified at
-  // once. The hit that opens the tab's cooldown window is reported on its own,
-  // and the rest of the burst is dropped rather than staged for a later ping, so
-  // the load costs exactly one ping and one event however many hits it produced.
+add_task(async function test_burst_in_one_tab_reports_every_hit() {
+  // One page load that trips Safe Browsing several times over, here through
+  // several unsafe subframes classified at once. Every hit of the burst is
+  // reported, so the load costs one ping and one event per hit.
   await SpecialPowers.pushPrefEnv({
     set: [
       [
         "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
         false,
       ],
-      ["browser.safebrowsing.enterprise.telemetry.submitCooldownMs", 60000],
     ],
   });
 
@@ -600,27 +354,13 @@ add_task(async function test_burst_in_one_tab_reports_one_hit() {
     await waitForBlockedSubframes(tab.linkedBrowser, burstUrls.length);
 
     await TestUtils.waitForCondition(
-      () => recorder.submits.length >= 1,
-      "The hit that opens the cooldown window submits a ping"
+      () => recorder.reportedReferrers().length >= burstUrls.length,
+      "Every hit of the burst is reported"
     );
-    Assert.equal(
-      recorder.submits.length,
-      1,
-      "A burst of hits in one tab submits a single ping"
-    );
-    Assert.equal(
-      recorder.submits[0].eventCount,
-      1,
-      "That ping carries only the hit that opened the window, not the burst"
-    );
-    Assert.equal(
-      recorder.submits[0].lastReferrer,
-      EMBEDDER_URL,
-      "The reported hit is attributed to the page that embedded the burst"
-    );
-    Assert.ok(
-      !Glean.safebrowsing.siteVisit.testGetValue("enterprise"),
-      "The dropped hits are not left staged behind the submitted ping"
+    Assert.deepEqual(
+      recorder.reportedReferrers(),
+      burstUrls.map(() => EMBEDDER_URL),
+      "The burst reports one event per hit, all attributed to the embedding page"
     );
   } finally {
     recorder.disarm();
@@ -632,25 +372,24 @@ add_task(async function test_burst_in_one_tab_reports_one_hit() {
 
 add_task(async function test_simultaneous_bursts_in_two_tabs() {
   // Two tabs each load several unsafe subframes at once, with both bursts in
-  // flight together. Every tab collapses its own burst to the single hit that
-  // opens its cooldown window, and the two windows are independent, so exactly
-  // one hit per tab is reported however the two bursts interleave. A window
-  // shared between the tabs would report one hit in total, and a per-frame
-  // window would report all of them. The cooldown is far longer than the test,
-  // so a hit dropped here is never recorded later.
+  // flight together, so the order the hits arrive in is not fixed. Every hit is
+  // still reported, and each one is attributed to the tab whose load produced
+  // it rather than to whichever tab happens to be selected.
   await SpecialPowers.pushPrefEnv({
     set: [
       [
         "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
         false,
       ],
-      ["browser.safebrowsing.enterprise.telemetry.submitCooldownMs", 60000],
     ],
   });
 
   const recorder = recordEnterpriseSubmits();
   const burstUrls = UNSAFE_SITES.map(site => site.url);
   const embedders = [EMBEDDER_URL, SECOND_EMBEDDER_URL];
+  const expectedReferrers = embedders
+    .flatMap(embedder => burstUrls.map(() => embedder))
+    .sort();
 
   let tabs = embedders.map(url => BrowserTestUtils.addTab(gBrowser, url));
   try {
@@ -670,22 +409,13 @@ add_task(async function test_simultaneous_bursts_in_two_tabs() {
     );
 
     await TestUtils.waitForCondition(
-      () => recorder.submits.length >= embedders.length,
-      "Each tab's burst submits a ping"
-    );
-    Assert.equal(
-      recorder.totalEvents(),
-      embedders.length,
-      "Each tab reports exactly one hit out of its burst"
-    );
-    Assert.ok(
-      recorder.submits.every(submit => submit.eventCount === 1),
-      "Every ping carries only the hit that opened its tab's window"
+      () => recorder.reportedReferrers().length >= expectedReferrers.length,
+      "Every hit of both bursts is reported"
     );
     Assert.deepEqual(
-      recorder.submits.map(submit => submit.lastReferrer).sort(),
-      [...embedders].sort(),
-      "One hit is reported per tab, not two from the same tab"
+      recorder.reportedReferrers().sort(),
+      expectedReferrers,
+      "Both bursts report one event per hit, attributed to their own tab"
     );
   } finally {
     recorder.disarm();

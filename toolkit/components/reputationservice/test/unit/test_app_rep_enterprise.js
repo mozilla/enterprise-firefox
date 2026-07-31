@@ -250,19 +250,11 @@ add_task(async function test_url_logging_none() {
   }
 });
 
-add_task(async function test_downloads_are_never_throttled() {
-  // Safe Browsing hits are throttled per tab so a single page load cannot
-  // produce one ping per hit, but downloads are exempt: every unsafe verdict
-  // submits its own ping, even back to back inside a cooldown window. The
-  // cooldown is set far longer than the test so the window is certainly open
-  // for the second download.
+add_task(async function test_every_detection_submits_a_ping() {
+  // Every unsafe verdict submits its own ping, even back to back.
   Services.prefs.setBoolPref(
     "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
     false
-  );
-  Services.prefs.setIntPref(
-    "browser.safebrowsing.enterprise.telemetry.submitCooldownMs",
-    60000
   );
 
   // testBeforeNextSubmit is a one-shot hook, so re-arm it after every submit to
@@ -296,9 +288,6 @@ add_task(async function test_downloads_are_never_throttled() {
     Services.prefs.setBoolPref(
       "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
       true
-    );
-    Services.prefs.clearUserPref(
-      "browser.safebrowsing.enterprise.telemetry.submitCooldownMs"
     );
     Services.fog.testResetFOG();
   }

@@ -761,13 +761,6 @@ safebrowsing:
       Recorded when the URL classifier blocks a load (top-level, subframe, or
       subresource) because it matched a Safe Browsing threat list. Only
       collected when MOZ_ENTERPRISE is defined and enabled.
-
-      Submissions are throttled per originating tab: to avoid one ping per hit
-      on a page that embeds many blocked resources, hits from the same tab
-      within the cooldown window
-      (browser.safebrowsing.enterprise.telemetry.submitCooldownMs, default
-      60000ms) are dropped and not recorded. Event counts are therefore not a
-      1:1 mapping with blocked loads.
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2039258
     data_reviews:

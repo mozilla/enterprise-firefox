@@ -1575,9 +1575,6 @@ static void RecordUnsafeDownload(nsIApplicationReputationQuery* aQuery,
   };
   mozilla::glean::safebrowsing::download.Record(mozilla::Some(extra));
 
-  // Downloads are exempt from the enterprise throttle: a verdict is one
-  // deliberate user action rather than a burst, and every one of them must be
-  // reported.
   // Testing escape hatch: tests record events but never submit
   if (!Preferences::GetBool(
           "browser.safebrowsing.enterprise.telemetry.testing.disableSubmit",
