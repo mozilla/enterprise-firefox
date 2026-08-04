@@ -8,3 +8,39 @@ imply_option("MOZ_APP_VENDOR", "Mozilla")
 imply_option("MOZ_PLACES", True)
 
 include("../../toolkit/moz.configure")
+
+# Firefox Enterprise
+# ==============================================================
+
+option(
+    "--enable-enterprise",
+    default=False,
+    help="Build with enterprise support",
+)
+
+
+@depends("--enable-enterprise")
+def enable_enterprise(value):
+    if value:
+        return True
+
+
+set_config("MOZ_ENTERPRISE", enable_enterprise)
+set_define("MOZ_ENTERPRISE", enable_enterprise)
+
+# Clear the default value to avoid mozilla.com url compiled into product
+imply_option("--with-crashreporter-url", "", when="--enable-enterprise")
+
+
+@depends("--enable-enterprise", "--enable-project")
+def is_firefox_enterprise(enterprise, project):
+    return enterprise and project[0] == "browser"
+
+
+imply_option("--with-app-basename", "FirefoxEnterprise", when=is_firefox_enterprise)
+imply_option("--with-app-name", "firefox", when=is_firefox_enterprise)
+imply_option(
+    "--with-branding", "browser/branding/enterprise", when=is_firefox_enterprise
+)
+
+imply_option("MOZ_APP_UA_NAME", "Firefox", when=is_firefox_enterprise)

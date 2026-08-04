@@ -4641,26 +4641,3 @@ def libmegazord_artifacts(value):
 
 
 set_config("MOZ_LIBMEGAZORD_ARTIFACTS", libmegazord_artifacts)
-
-
-# Firefox Enterprise
-# ==============================================================
-
-option(
-    "--enable-enterprise",
-    default=False,
-    help="Build with enterprise support",
-)
-
-
-@depends("--enable-enterprise")
-def enable_enterprise(value):
-    if value:
-        return True
-
-
-set_config("MOZ_ENTERPRISE", enable_enterprise)
-set_define("MOZ_ENTERPRISE", enable_enterprise)
-
-# Clear the default value to avoid mozilla.com url compiled into product
-imply_option("--with-crashreporter-url", "", when="--enable-enterprise")
