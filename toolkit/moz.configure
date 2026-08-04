@@ -4556,26 +4556,3 @@ def enable_appservices_in_tree(value):
 
 
 set_config("MOZ_APPSERVICES_IN_TREE", enable_appservices_in_tree)
-
-
-# Firefox Enterprise
-# ==============================================================
-
-option(
-    "--enable-enterprise",
-    default=False,
-    help="Build with enterprise support",
-)
-
-
-@depends("--enable-enterprise")
-def enable_enterprise(value):
-    if value:
-        return True
-
-
-set_config("MOZ_ENTERPRISE", enable_enterprise)
-set_define("MOZ_ENTERPRISE", enable_enterprise)
-
-# Clear the default value to avoid mozilla.com url compiled into product
-imply_option("--with-crashreporter-url", "", when="--enable-enterprise")
