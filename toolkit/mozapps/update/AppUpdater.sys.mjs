@@ -255,8 +255,10 @@ export class AppUpdater {
           "AppUpdater:check -" +
             "AppConstants.MOZ_UPDATER=" +
             AppConstants.MOZ_UPDATER +
-            "this.#updateDisabledByPackage: " +
-            this.#updateDisabledByPackage
+            " this.#updateDisabledByPackage: " +
+            this.#updateDisabledByPackage +
+            " this.aus: " +
+            this.aus
         );
         this.#setStatus(AppUpdater.STATUS.NO_UPDATER);
         return;
@@ -421,7 +423,12 @@ export class AppUpdater {
   // may not be, and we don't have a good way to tell the difference from here,
   // so we err to the side of less confusion for unmanaged users.
   get #updateDisabledByPackage() {
-    return Services.sysinfo.getProperty("isPackagedApp");
+    if (this.aus?.supportsUpdates) {
+      // There is an update service, and it is willing to handle updates now.
+      return false;
+    }
+    // Either there is no update service, or it is not willing to handle updates.
+    return true;
   }
 
   /**
@@ -778,24 +785,50 @@ export class AppUpdater {
   }
 }
 
-XPCOMUtils.defineLazyServiceGetter(
-  AppUpdater.prototype,
-  "aus",
-  "@mozilla.org/updates/update-service;1",
-  Ci.nsIApplicationUpdateService
-);
-XPCOMUtils.defineLazyServiceGetter(
-  AppUpdater.prototype,
-  "checker",
-  "@mozilla.org/updates/update-checker;1",
-  Ci.nsIUpdateChecker
-);
-XPCOMUtils.defineLazyServiceGetter(
-  AppUpdater.prototype,
-  "um",
-  "@mozilla.org/updates/update-manager;1",
-  Ci.nsIUpdateManager
-);
+if (Services.prefs.getBoolPref("app.update.use_package_kit", false)) {
+  LOG(
+    `UpdateService.sys.mjs: @mozilla.org/updates/packagekit-update-checker;1`
+  );
+  XPCOMUtils.defineLazyServiceGetter(
+    AppUpdater.prototype,
+    "aus",
+    "@mozilla.org/updates/packagekit-update-service;1",
+    Ci.nsIApplicationUpdateService
+  );
+  XPCOMUtils.defineLazyServiceGetter(
+    AppUpdater.prototype,
+    "checker",
+    "@mozilla.org/updates/packagekit-update-checker;1",
+    Ci.nsIUpdateChecker
+  );
+  XPCOMUtils.defineLazyServiceGetter(
+    AppUpdater.prototype,
+    "um",
+    // "@mozilla.org/updates/packagekit-update-manager;1",
+    "@mozilla.org/updates/update-manager;1",
+    Ci.nsIUpdateManager
+  );
+} else {
+  LOG(`UpdateService.sys.mjs: @mozilla.org/updates/update-checker;1`);
+  XPCOMUtils.defineLazyServiceGetter(
+    AppUpdater.prototype,
+    "aus",
+    "@mozilla.org/updates/update-service;1",
+    Ci.nsIApplicationUpdateService
+  );
+  XPCOMUtils.defineLazyServiceGetter(
+    AppUpdater.prototype,
+    "checker",
+    "@mozilla.org/updates/update-checker;1",
+    Ci.nsIUpdateChecker
+  );
+  XPCOMUtils.defineLazyServiceGetter(
+    AppUpdater.prototype,
+    "um",
+    "@mozilla.org/updates/update-manager;1",
+    Ci.nsIUpdateManager
+  );
+}
 
 AppUpdater.STATUS = {
   // Updates are allowed and there's no downloaded or staged update, but the
