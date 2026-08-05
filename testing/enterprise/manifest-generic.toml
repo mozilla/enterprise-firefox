@@ -58,7 +58,12 @@ disabled = "Bug 1996558: scaffolding for the Felt UI scratch-reset flow; not run
 
 ["test_felt_updater_errors.py"]
 
-["test_felt_updates_apply.py"]
+["test_felt_updates_apply_from_packagekit.py"]
+run-if = [
+  "os == 'linux'",
+]
+
+["test_felt_updates_apply_from_updater.py"]
 
 ["test_felt_updates_autoconfig.py"]
 
