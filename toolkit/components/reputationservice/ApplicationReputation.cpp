@@ -1491,42 +1491,6 @@ nsresult PendingLookup::DoLookupInternal() {
 
 #ifdef MOZ_ENTERPRISE
 
-// Redacts aURI according to the "<aPrefPrefix>.urlLogging" policy: "full"
-// (the default) yields the full spec with any password masked, "domain" the
-// host only, and "none" nothing. aProcessedUrl is cleared and left empty for
-// the "none" policy, a null aURI, or a URI retrieval failure.
-static void MaybeRedactUrl(const nsACString& aPrefPrefix, nsIURI* aURI,
-                           nsACString& aProcessedUrl) {
-  aProcessedUrl.Truncate();
-
-  nsAutoCString pref(aPrefPrefix);
-  pref.AppendLiteral(".urlLogging");
-
-  nsAutoCString policy;
-  Preferences::GetCString(pref.get(), policy);
-
-  if (!aURI || policy.EqualsLiteral("none")) {
-    return;
-  }
-
-  if (policy.EqualsLiteral("domain")) {
-    nsAutoCString host;
-    if (NS_SUCCEEDED(aURI->GetHost(host))) {
-      aProcessedUrl = host;
-    }
-  } else {
-    NS_GetSanitizedURIStringFromURI(aURI, aProcessedUrl);
-  }
-}
-
-// Whether enterprise security telemetry is enabled for the event whose prefs
-// live under aPrefPrefix. Reads "<aPrefPrefix>.enabled" (default true).
-[[nodiscard]] static bool EventReportingEnabled(const nsACString& aPrefPrefix) {
-  nsAutoCString pref(aPrefPrefix);
-  pref.AppendLiteral(".enabled");
-  return Preferences::GetBool(pref.get(), true);
-}
-
 // Records an enterprise security event whenever download protection flags a
 // download as unsafe so administrators can monitor unsafe downloads. Recording
 // is independent of the block prefs so a detection is reported even when the
@@ -1536,9 +1500,9 @@ static void RecordUnsafeDownload(nsIApplicationReputationQuery* aQuery,
   MOZ_ASSERT(XRE_IsParentProcess());
   MOZ_ASSERT(NS_IsMainThread());
 
-  constexpr auto kPrefPrefix =
-      "browser.safebrowsing.enterprise.telemetry.unsafeDownload"_ns;
-  if (!EventReportingEnabled(kPrefPrefix)) {
+  constexpr auto kPrefEnabled =
+      "browser.safebrowsing.enterprise.telemetry.unsafeDownload.enabled"_ns;
+  if (!Preferences::GetBool(kPrefEnabled.get(), true)) {
     return;
   }
 
@@ -1566,8 +1530,24 @@ static void RecordUnsafeDownload(nsIApplicationReputationQuery* aQuery,
     aQuery->GetSourceURI(getter_AddRefs(uri));
   }
 
+  // "full" (the default) logs the full spec with any password masked, "domain"
+  // the host only, and "none" nothing.
+  constexpr auto kPrefUrlLogging =
+      "browser.safebrowsing.enterprise.telemetry.unsafeDownload.urlLogging"_ns;
+  nsAutoCString policy;
+  Preferences::GetCString(kPrefUrlLogging.get(), policy);
+
   nsAutoCString url;
-  MaybeRedactUrl(kPrefPrefix, uri, url);
+  if (uri && !policy.EqualsLiteral("none")) {
+    if (policy.EqualsLiteral("domain")) {
+      nsAutoCString host;
+      if (NS_SUCCEEDED(uri->GetHost(host))) {
+        url = host;
+      }
+    } else {
+      NS_GetSanitizedURIStringFromURI(uri, url);
+    }
+  }
 
   const mozilla::glean::safebrowsing::DownloadExtra extra = {
       .url = mozilla::Some(nsCString(url)),

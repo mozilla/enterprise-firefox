@@ -762,9 +762,9 @@ safebrowsing:
       subresource) because it matched a Safe Browsing threat list. Only
       collected when MOZ_ENTERPRISE is defined and enabled.
     bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=2039258
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
     data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=2039258
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
     notification_emails:
       - security-telemetry@mozilla.org
       - enterprise-telemetry@mozilla.org

@@ -390,27 +390,18 @@ nsresult nsChannelClassifier::SendThreatHitReport(nsIChannel* aChannel,
 
 #ifdef MOZ_ENTERPRISE
 
-// Whether enterprise security telemetry is enabled for the event whose prefs
-// live under aPrefPrefix. Reads "<aPrefPrefix>.enabled" (default true).
-[[nodiscard]] static bool EventReportingEnabled(const nsACString& aPrefPrefix) {
-  nsAutoCString pref(aPrefPrefix);
-  pref.AppendLiteral(".enabled");
-  return Preferences::GetBool(pref.get(), true);
-}
-
-// Redacts aURI according to the "<aPrefPrefix>.urlLogging" policy: "full"
+// Redacts aURI according to the unsafe-site-visit urlLogging policy: "full"
 // (the default) yields the full spec with any password masked, "domain" the
 // host only, and "none" nothing. aProcessedUrl is cleared and left empty for
 // the "none" policy, a null aURI, or a URI retrieval failure.
-static void MaybeRedactUrl(const nsACString& aPrefPrefix, nsIURI* aURI,
-                           nsACString& aProcessedUrl) {
+static void RedactUnsafeSiteVisitUrl(nsIURI* aURI, nsACString& aProcessedUrl) {
   aProcessedUrl.Truncate();
 
-  nsAutoCString pref(aPrefPrefix);
-  pref.AppendLiteral(".urlLogging");
+  constexpr auto kPrefUrlLogging =
+      "browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit.urlLogging"_ns;
 
   nsAutoCString policy;
-  Preferences::GetCString(pref.get(), policy);
+  Preferences::GetCString(kPrefUrlLogging.get(), policy);
 
   if (!aURI || policy.EqualsLiteral("none")) {
     return;
@@ -434,9 +425,9 @@ static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
                                   const nsACString& aProvider) {
   MOZ_ASSERT(XRE_IsParentProcess());
 
-  constexpr auto kPrefPrefix =
-      "browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit"_ns;
-  if (!EventReportingEnabled(kPrefPrefix)) {
+  constexpr auto kPrefEnabled =
+      "browser.safebrowsing.enterprise.telemetry.unsafeSiteVisit.enabled"_ns;
+  if (!Preferences::GetBool(kPrefEnabled.get(), true)) {
     return;
   }
 
@@ -465,7 +456,7 @@ static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
   }
 
   nsAutoCString url;
-  MaybeRedactUrl(kPrefPrefix, uri, url);
+  RedactUnsafeSiteVisitUrl(uri, url);
 
   // The referrer tells the administrator which page embedded or linked to the
   // blocked resource, which is otherwise invisible for subframe and subresource
@@ -479,7 +470,7 @@ static void RecordUnsafeSiteVisit(nsIChannel* aChannel, nsresult aErrorCode,
   }
 
   nsAutoCString referrer;
-  MaybeRedactUrl(kPrefPrefix, referrerUri, referrer);
+  RedactUnsafeSiteVisitUrl(referrerUri, referrer);
 
   const glean::safebrowsing::SiteVisitExtra extra = {
       .list = Some(nsCString(aList)),
