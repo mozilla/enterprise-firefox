@@ -35,6 +35,7 @@
 #include "mozilla/glean/ReputationserviceMetrics.h"
 #ifdef MOZ_ENTERPRISE
 #  include "mozilla/glean/GleanPings.h"
+#  include "nsNetUtil.h"
 #  include "nsXULAppAPI.h"
 #endif
 #include "mozilla/TimeStamp.h"
