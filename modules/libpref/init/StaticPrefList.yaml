@@ -1321,13 +1321,6 @@
   value: false
   mirror: always
 
-# If true, the content analysis extension must be signed before Firefox will
-# read and run its DLP module. Should only be set to false for testing.
-- name: browser.contentanalysis.wasm_module_extension_require_signature
-  type: bool
-  value: true
-  mirror: never
-
 # The rule set (the DLPRules JSON) consulted by the built-in DLP backend.
 # Set by the DataLossPrevention enterprise policy.
 # Empty means no rules.

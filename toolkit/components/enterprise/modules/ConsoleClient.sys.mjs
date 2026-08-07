@@ -142,6 +142,11 @@ export const ConsoleClient = {
    * Paths to API endpoints of the remote enterprise console
    */
   get _paths() {
+    // Strip off any trailing "a1", etc.
+    let majorMinorPatchVersion = Services.appinfo.appBuildID.replace(
+      /[a-zA-Z].*$/,
+      ""
+    );
     return {
       SSO: "/sso/login",
       SIGNOUT: "/sso/logout",
@@ -153,6 +158,7 @@ export const ConsoleClient = {
       DEVICE_POSTURE: "/sso/device_posture",
       WHOAMI: "/api/browser/whoami",
       FXACCOUNT: "/api/browser/account",
+      DLP_WASM: `/api/browser/content-analysis-wasm/update/156.0/${majorMinorPatchVersion}/0.0.0`,
     };
   },
 
@@ -267,23 +273,32 @@ export const ConsoleClient = {
    * which native fetch() does not expose.
    *
    * Limitations compared to native fetch():
-   * - Response object only has: ok, status, json(), text()
-   * - Missing: statusText, headers, url, redirected, clone(),
-   *   arrayBuffer(), blob(), formData()
+   * - Response object only has: ok, status, json(), text(), arrayBuffer()
+   * - Missing: statusText, headers, url, redirected, clone(), blob(),
+   *   formData()
    * - json()/text() can be called multiple times (no body consumption)
+   *
+   * If the passed in responseType is "arraybuffer", then calling json() or text()
+   * will throw an exception.
    *
    * @param {string} url - The URL to fetch
    * @param {object} options - Fetch-like options
    * @param {string} [options.method="GET"] - HTTP method
    * @param {object} [options.headers={}] - Request headers
    * @param {string|null} [options.body=null] - Request body
-   * @returns {Promise<{ok: boolean, status: number, json: Function, text: Function}>}
+   * @param {""|"arraybuffer"} [options.responseType=""] - XHR response type -
+   *   use "arraybuffer" for binary responses and "" for text responses.
+   * @returns {Promise<{ok: boolean, status: number, json: Function, text: Function, arrayBuffer: Function}>}
    */
-  _xhrFetch(url, { method = "GET", headers = {}, body = null } = {}) {
+  _xhrFetch(
+    url,
+    { method = "GET", headers = {}, body = null, responseType = "" } = {}
+  ) {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open(method, url, true);
       xhr.timeout = XHR_TIMEOUT_MS;
+      xhr.responseType = responseType;
 
       // Handle both plain objects and Headers instances
       const headerEntries = Headers.isInstance(headers)
@@ -305,6 +320,7 @@ export const ConsoleClient = {
             }
           },
           text: () => Promise.resolve(xhr.responseText),
+          arrayBuffer: () => Promise.resolve(xhr.response),
         };
         resolve(response);
       };
@@ -377,6 +393,15 @@ export const ConsoleClient = {
   },
 
   /**
+   * Fetches the bytes of the DLP wasm module.
+   *
+   * @returns {Promise<ArrayBuffer>}
+   */
+  async getDlpWasmModule() {
+    return this._fetchBinary(this._paths.DLP_WASM);
+  },
+
+  /**
    * Ensures that we have a valid session and performs an authenticated fetch against
    * a registered console endpoint. If we get a 401 or 403 refresh and retry once.
    *
@@ -419,6 +444,40 @@ export const ConsoleClient = {
 
     const text = await res.text().catch(() => "");
     throw new Error(`Fetch ${method} ${path} failed (${res.status}): ${text}`);
+  },
+
+  /**
+   * Ensures that we have a valid session and performs an authenticated GET
+   * against a registered console endpoint, returning the raw binary body.
+   * If we get a 401 or 403 refresh and retry once.
+   *
+   * @param {string} path - Console API to request
+   * @param {{ _didRefresh?: boolean }} [options]
+   * @throws {Error}
+   * @returns {Promise<ArrayBuffer>}
+   */
+  async _fetchBinary(path, { _didRefresh = false } = {}) {
+    const headers = new Headers({});
+    const accessToken = await this.getAccessToken();
+    headers.set("Authorization", `Bearer ${accessToken}`);
+
+    const url = await this.constructURI(path);
+    const res = await this._xhrFetch(url, {
+      method: "GET",
+      headers,
+      responseType: "arraybuffer",
+    });
+
+    if (res.ok) {
+      return res.arrayBuffer();
+    }
+
+    if ((res.status === 403 || res.status === 401) && !_didRefresh) {
+      await this._refreshSession();
+      return this._fetchBinary(path, { _didRefresh: true });
+    }
+
+    throw new Error(`Fetch GET ${path} failed (${res.status})`);
   },
 
   /**

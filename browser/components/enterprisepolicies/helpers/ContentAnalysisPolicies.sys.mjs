@@ -58,7 +58,6 @@ const CA_PLAIN_TEXT_POINTS = [
 const CA_SHARED_PREFS = [
   "enabled",
   "use_wasm_backend",
-  "wasm_module_extension_require_signature",
   "default_result",
   "timeout_result",
   "dlp_rules",
@@ -151,10 +150,6 @@ export const ContentAnalysisPolicies = {
 function applyExternalContentAnalysis(caParam) {
   lazy.PoliciesUtils.setAndLockPref(caPrefName("enabled"), true);
   lazy.PoliciesUtils.setAndLockPref(caPrefName("use_wasm_backend"), false);
-  lazy.PoliciesUtils.setAndLockPref(
-    caPrefName("wasm_module_extension_require_signature"),
-    true
-  );
 
   applyContentAnalysisConfig(caParam);
 }
@@ -163,10 +158,6 @@ function applyExternalContentAnalysis(caParam) {
 function applyBuiltinDlp(dlpParam) {
   lazy.PoliciesUtils.setAndLockPref(caPrefName("enabled"), true);
   lazy.PoliciesUtils.setAndLockPref(caPrefName("use_wasm_backend"), true);
-  lazy.PoliciesUtils.setAndLockPref(
-    caPrefName("wasm_module_extension_require_signature"),
-    true
-  );
 
   // Built-in DLP policy does not have an explicit deny list, but encodes
   // domain deny behavior in the DLP rules for processing by the engine.
@@ -251,10 +242,6 @@ function applyBuiltinDlp(dlpParam) {
 function activelyDisableContentAnalysis(caParam) {
   lazy.PoliciesUtils.setAndLockPref(caPrefName("enabled"), false);
   lazy.PoliciesUtils.setAndLockPref(caPrefName("use_wasm_backend"), false);
-  lazy.PoliciesUtils.setAndLockPref(
-    caPrefName("wasm_module_extension_require_signature"),
-    true
-  );
   applyContentAnalysisConfig(caParam);
 }
 

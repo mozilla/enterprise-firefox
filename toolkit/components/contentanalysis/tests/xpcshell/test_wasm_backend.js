@@ -8,19 +8,14 @@
 // to the content_analysis SDK protobuf, resolves the request's content,
 // and hands both to the in-process wasm DLP module via nsIContentAnalysisWasmRunner.
 //
-// The wasm module is bundled in a WebExtension and read through the real
-// production path, exactly as test_wasm_runner.js does. The rules below are
-// delivered the way the DataLossPrevention policy delivers them in production,
-// through the browser.contentanalysis.dlp_rules pref that WasmModuleBackend
-// reads (block uploads to cloud-storage domains, warn on AI domains, block
-// content marked CONFIDENTIAL).
-
-const { AddonManager } = ChromeUtils.importESModule(
-  "resource://gre/modules/AddonManager.sys.mjs"
-);
-
-const REQUIRE_SIGNATURE_PREF =
-  "browser.contentanalysis.wasm_module_extension_require_signature";
+// The wasm module is fetched from the enterprise console (ConsoleClient) and
+// read through the real production path, with ConsoleClient's fetch methods
+// stubbed to serve the module bundled as a test support-file (see
+// stubDlpWasmModule in head.js). The rules below are delivered the way
+// the DataLossPrevention policy delivers them in production, through the
+// browser.contentanalysis.dlp_rules pref that WasmModuleBackend reads (block
+// uploads to cloud-storage domains, warn on AI domains, block content marked
+// CONFIDENTIAL).
 
 const DLP_RULES = {
   DLPRules: {
@@ -56,7 +51,6 @@ const DLP_RULES = {
 // since the backend is chosen once in its constructor.
 Services.prefs.setBoolPref("browser.contentanalysis.use_wasm_backend", true);
 Services.prefs.setBoolPref("browser.contentanalysis.enabled", true);
-Services.prefs.setBoolPref(REQUIRE_SIGNATURE_PREF, false);
 Services.prefs.setBoolPref(
   "browser.contentanalysis.interception_point.file_upload.enabled",
   true
@@ -162,7 +156,7 @@ add_setup(async function () {
 // reading the file's contents off the main thread before handing them to the
 // module.
 add_task(async function test_file_upload_to_blocked_domain_is_blocked() {
-  const extension = await installModuleExtension();
+  await stubDlpWasmModule();
   const filePath = await makeTempFile(
     "dlp_blocked_upload.txt",
     "contents of a file being uploaded to cloud storage"
@@ -186,14 +180,12 @@ add_task(async function test_file_upload_to_blocked_domain_is_blocked() {
     !result.shouldAllowContent,
     "file upload to drive.google.com is blocked"
   );
-
-  await extension.unload();
 });
 
 // The same file uploaded to an unlisted domain is allowed. This still reads the
 // file off the main thread and round-trips it through the module.
 add_task(async function test_file_upload_to_unlisted_domain_is_allowed() {
-  const extension = await installModuleExtension();
+  await stubDlpWasmModule();
   const filePath = await makeTempFile(
     "dlp_allowed_upload.txt",
     "contents of a file being uploaded to an ordinary site"
@@ -214,15 +206,13 @@ add_task(async function test_file_upload_to_unlisted_domain_is_allowed() {
   );
 
   Assert.ok(result.shouldAllowContent, "file upload to example.com is allowed");
-
-  await extension.unload();
 });
 
 // An empty file must still round-trip cleanly (the off-main-thread read handles
 // a zero-length file by passing empty content) and be allowed on an unlisted
 // domain.
 add_task(async function test_empty_file_upload_is_allowed() {
-  const extension = await installModuleExtension();
+  await stubDlpWasmModule();
   const filePath = await makeTempFile("dlp_empty_upload.txt", "");
 
   const result = await contentAnalysis.analyzeContentRequests(
@@ -240,14 +230,12 @@ add_task(async function test_empty_file_upload_is_allowed() {
   );
 
   Assert.ok(result.shouldAllowContent, "empty file upload is allowed");
-
-  await extension.unload();
 });
 
 // Text (bulk data entry) requests take the synchronous, no-file path in the
 // backend; verify it still works alongside the file path.
 add_task(async function test_text_paste_to_unlisted_domain_is_allowed() {
-  const extension = await installModuleExtension();
+  await stubDlpWasmModule();
 
   const result = await contentAnalysis.analyzeContentRequests(
     [
@@ -263,8 +251,6 @@ add_task(async function test_text_paste_to_unlisted_domain_is_allowed() {
   );
 
   Assert.ok(result.shouldAllowContent, "text paste to example.com is allowed");
-
-  await extension.unload();
 });
 
 // Pasted text is handed to the module as content bytes, separately from the
@@ -274,7 +260,7 @@ add_task(async function test_text_paste_to_unlisted_domain_is_allowed() {
 // destination domain here isn't covered by any domain-based rule, isolating
 // the content path from the domain path.
 add_task(async function test_text_paste_with_confidential_marker_is_blocked() {
-  const extension = await installModuleExtension();
+  await stubDlpWasmModule();
 
   const result = await contentAnalysis.analyzeContentRequests(
     [
@@ -293,15 +279,13 @@ add_task(async function test_text_paste_with_confidential_marker_is_blocked() {
     !result.shouldAllowContent,
     "text paste containing a CONFIDENTIAL marker is blocked"
   );
-
-  await extension.unload();
 });
 
 // Same content-pattern rule, but content resolved from a file instead of
 // inline text_content, to confirm the file-content path also reaches the
 // module's pattern matching.
 add_task(async function test_file_with_confidential_marker_is_blocked() {
-  const extension = await installModuleExtension();
+  await stubDlpWasmModule();
   const filePath = await makeTempFile(
     "dlp_confidential.txt",
     "top secret plan: CONFIDENTIAL launch details"
@@ -325,8 +309,6 @@ add_task(async function test_file_with_confidential_marker_is_blocked() {
     !result.shouldAllowContent,
     "file upload containing a CONFIDENTIAL marker is blocked"
   );
-
-  await extension.unload();
 });
 
 // Print requests fetch their content via the cross-platform GetPrintData,
@@ -335,7 +317,7 @@ add_task(async function test_file_with_confidential_marker_is_blocked() {
 // shared-memory handle. Verify the WASM backend correctly hands print data to
 // the module on every platform.
 add_task(async function test_print_to_unlisted_domain_is_allowed() {
-  const extension = await installModuleExtension();
+  await stubDlpWasmModule();
 
   const before = await contentAnalysis.getDiagnosticInfo();
 
@@ -369,14 +351,12 @@ add_task(async function test_print_to_unlisted_domain_is_allowed() {
     after.connectedToAgent,
     "connected after analyzing a print request"
   );
-
-  await extension.unload();
 });
 
 // GetDiagnosticInfo should track the number of analyze() calls and report
 // that the module is connected after it runs successfully.
 add_task(async function test_diagnostic_info_tracks_successful_analysis() {
-  const extension = await installModuleExtension();
+  await stubDlpWasmModule();
 
   const before = await contentAnalysis.getDiagnosticInfo();
 
@@ -404,73 +384,6 @@ add_task(async function test_diagnostic_info_tracks_successful_analysis() {
     !after.failedSignatureVerification,
     "no signature failure after a successful analysis"
   );
-
-  await extension.unload();
-});
-
-// A module extension that fails signature verification should be reflected in
-// GetDiagnosticInfo, mirroring how ExternalAgentBackend reports a mismatched
-// agent signature.
-add_task(async function test_diagnostic_info_on_signature_failure() {
-  Services.prefs.setBoolPref(REQUIRE_SIGNATURE_PREF, true);
-  const extension = await installModuleExtension();
-  extension.extension.addonData.signedState = AddonManager.SIGNEDSTATE_MISSING;
-
-  await contentAnalysis.analyzeContentRequests(
-    [
-      makeRequest({
-        analysisType: Ci.nsIContentAnalysisRequest.eBulkDataEntry,
-        reason: Ci.nsIContentAnalysisRequest.eClipboardPaste,
-        operationTypeForDisplay: Ci.nsIContentAnalysisRequest.eClipboard,
-        urlSpec: "https://example.com/",
-        textContent: "text that can't be analyzed",
-      }),
-    ],
-    true
-  );
-
-  const info = await contentAnalysis.getDiagnosticInfo();
-  Assert.ok(
-    !info.connectedToAgent,
-    "not connected after a signature verification failure"
-  );
-  Assert.ok(
-    info.failedSignatureVerification,
-    "failedSignatureVerification is set after a signature verification " +
-      "failure"
-  );
-
-  Services.prefs.setBoolPref(REQUIRE_SIGNATURE_PREF, false);
-  await extension.unload();
-});
-
-add_task(async function test_succeeds_with_signature_check_if_signed() {
-  Services.prefs.setBoolPref(REQUIRE_SIGNATURE_PREF, true);
-  const extension = await installModuleExtension();
-  extension.extension.addonData.signedState = AddonManager.SIGNEDSTATE_SYSTEM;
-
-  await contentAnalysis.analyzeContentRequests(
-    [
-      makeRequest({
-        analysisType: Ci.nsIContentAnalysisRequest.eBulkDataEntry,
-        reason: Ci.nsIContentAnalysisRequest.eClipboardPaste,
-        operationTypeForDisplay: Ci.nsIContentAnalysisRequest.eClipboard,
-        urlSpec: "https://example.com/",
-        textContent: "text that can't be analyzed",
-      }),
-    ],
-    true
-  );
-
-  const info = await contentAnalysis.getDiagnosticInfo();
-  Assert.ok(info.connectedToAgent, "connected after using a signed extension");
-  Assert.ok(
-    !info.failedSignatureVerification,
-    "failedSignatureVerification is not set after using a signed extension"
-  );
-
-  Services.prefs.setBoolPref(REQUIRE_SIGNATURE_PREF, false);
-  await extension.unload();
 });
 
 // Upload the same file to the same domain repeatedly; only the rule set varies.
@@ -509,7 +422,7 @@ async function uploadWasAllowed() {
 // comparison is the only thing keeping the rules current after a live policy
 // update -- if it regressed, the first rule set would be enforced forever.
 add_task(async function test_changed_rules_take_effect_without_invalidation() {
-  const extension = await installModuleExtension();
+  await stubDlpWasmModule();
 
   setDlpRules([
     {
@@ -547,14 +460,13 @@ add_task(async function test_changed_rules_take_effect_without_invalidation() {
   );
 
   restoreDefaultDlpRules();
-  await extension.unload();
 });
 
 // A rule set that fails to parse must not be cached as "no rules", which would
 // turn a single bad policy into a silent allow-everything from the second
 // request onward. Both requests below must fail closed.
 add_task(async function test_unparsable_rules_are_not_cached_as_no_rules() {
-  const extension = await installModuleExtension();
+  await stubDlpWasmModule();
 
   Services.prefs.setStringPref(DLP_RULES_PREF, "{ this is not valid JSON");
 
@@ -580,5 +492,4 @@ add_task(async function test_unparsable_rules_are_not_cached_as_no_rules() {
   );
 
   restoreDefaultDlpRules();
-  await extension.unload();
 });

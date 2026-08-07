@@ -17,16 +17,13 @@ class ContentAnalysisRequest;
 
 namespace mozilla::contentanalysis {
 
-// keep in sync with EXTENSION_ID in ContentAnalysisWasmRunner.sys.mjs
-const auto kWasmModuleExtensionId = u"dlp-wasm-provider@mozilla.org"_ns;
-
 // Backend that produces verdicts from an in-process WebAssembly DLP module.
 //
 // The module is loaded and executed by SpiderMonkey's wasm engine through a JS
 // runner (nsIContentAnalysisWasmRunner).  This backend serializes the request
 // to the canonical content_analysis SDK protobuf, hands the bytes to the
-// runner, and converts the response back.  The module is read from the
-// extension named by kWasmModuleExtensionId.
+// runner, and converts the response back.  The module is fetched by the
+// runner from the enterprise console.
 class WasmModuleBackend final : public ContentAnalysisBackend {
  public:
   WasmModuleBackend() = default;
@@ -71,11 +68,6 @@ class WasmModuleBackend final : public ContentAnalysisBackend {
   // Whether the module most recently ran successfully. Updated whenever an
   // analyze() call to the runner settles.
   bool mConnectedToAgent MOZ_GUARDED_BY(sMainThreadCapability) = false;
-
-  // Whether the most recent analyze() failure was because the module's
-  // extension is not signed.
-  bool mFailedSignatureVerification MOZ_GUARDED_BY(sMainThreadCapability) =
-      false;
 
   // Set once Shutdown() runs (e.g. when the service swaps this backend out on a
   // live policy change). A runner promise that resolves afterward is dropped so

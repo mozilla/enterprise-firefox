@@ -102,12 +102,28 @@ static nsresult ReadFileContents(const nsString& aFilePath,
 
 nsresult WasmModuleBackend::EnsureReady() {
   AssertIsOnMainThread();
-  // The runner loads the wasm module lazily on first analyze; getting the
-  // service here surfaces gross misconfiguration (e.g. missing component) early
-  // without paying for module compilation until a request actually arrives.
   nsCOMPtr<nsIContentAnalysisWasmRunner> runner =
       do_GetService(WASM_RUNNER_CONTRACTID);
-  return runner ? NS_OK : NS_ERROR_NOT_AVAILABLE;
+  if (!runner) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+
+  // Kick off fetching the module now instead of waiting for the first
+  // Analyze(), so the console round trip isn't on the critical path of the
+  // first real request.
+  // If this doesn't succeed, the EnsureModuleReady() call will try again
+  // the next time it's called.
+  RefPtr<dom::Promise> promise;
+  if (NS_SUCCEEDED(runner->EnsureModuleReady(getter_AddRefs(promise))) &&
+      promise) {
+    promise->AddCallbacksWithCycleCollectedArgs(
+        [](JSContext*, JS::Handle<JS::Value>, ErrorResult&) {},
+        [](JSContext*, JS::Handle<JS::Value>, ErrorResult&) {
+          MOZ_LOG(gContentAnalysisLog, LogLevel::Warning,
+                  ("Failed to prefetch the DLP wasm module at startup"));
+        });
+  }
+  return NS_OK;
 }
 
 nsresult WasmModuleBackend::LoadDlpRules(
@@ -283,10 +299,8 @@ void WasmModuleBackend::HandleWasmResponse(JSContext* aCx,
     return;
   }
 
-  // The module produced a real verdict, so it's genuinely connected and (if
-  // it had previously failed signature verification) that's no longer true.
+  // The module produced a real verdict, so it's genuinely connected.
   mConnectedToAgent = true;
-  mFailedSignatureVerification = false;
   owner->HandleResponseFromAgent(response, aAutoAcknowledge);
 }
 
@@ -341,7 +355,6 @@ nsresult WasmModuleBackend::InvokeRunner(
         }
         nsresult rv = ExtractExceptionResult(aCx, aValue);
         self->mConnectedToAgent = false;
-        self->mFailedSignatureVerification = rv == NS_ERROR_INVALID_SIGNATURE;
         owner->CancelWithError(nsCString(userActionId), rv);
       });
   return NS_OK;
@@ -350,10 +363,17 @@ nsresult WasmModuleBackend::InvokeRunner(
 RefPtr<ContentAnalysisBackend::DiagnosticInfoPromise>
 WasmModuleBackend::GetDiagnosticInfo() {
   AssertIsOnMainThread();
-  nsString moduleExtensionId = kWasmModuleExtensionId;
+  // No agent path or signature verification applies to this backend, so just
+  // report the module's version in the agent path field instead.
+  nsAutoString version;
+  nsCOMPtr<nsIContentAnalysisWasmRunner> runner =
+      do_GetService(WASM_RUNNER_CONTRACTID);
+  if (runner) {
+    MOZ_ALWAYS_SUCCEEDS(runner->GetCachedModuleVersion(version));
+    version.Insert(u"version ", 0);
+  }
   auto info = MakeRefPtr<ContentAnalysisDiagnosticInfo>(
-      mConnectedToAgent, std::move(moduleExtensionId),
-      mFailedSignatureVerification, mRequestCount);
+      mConnectedToAgent, std::move(version), false, mRequestCount);
   return DiagnosticInfoPromise::CreateAndResolve(info, __func__);
 }
 
