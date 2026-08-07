@@ -579,10 +579,10 @@ interface nsIContentAnalysisRule : nsISupports {
 
 /**
  * Runs an in-process WebAssembly DLP module. Implemented in JS
- * (ContentAnalysisWasmRunner.sys.mjs). The parent-process service reads and
- * signature-checks the module out of the configured extension, then compiles and
- * runs it in a content process (via the ContentAnalysisWasm actor) because the
- * parent process forbids wasm compilation. The C++ WasmModuleBackend calls this.
+ * (ContentAnalysisWasmRunner.sys.mjs). The parent-process service fetches the
+ * module from the enterprise console, then compiles and runs it in a content
+ * process (via the ContentAnalysisWasm actor) because the parent process
+ * forbids wasm compilation. The C++ WasmModuleBackend calls this.
  */
 [scriptable, uuid(909ea37a-71a0-4454-82ec-98a64087fe22)]
 interface nsIContentAnalysisWasmRunner : nsISupports {
@@ -596,10 +596,26 @@ interface nsIContentAnalysisWasmRunner : nsISupports {
    *                       module's FfiRule ABI.
    * @return A Promise that resolves with the serialized
    *         content_analysis.sdk.ContentAnalysisResponse (as an Array<octet>), or
-   *         rejects if the module is unavailable or the extension is not acceptably
-   *         signed.
+   *         rejects if the module is unavailable.
    */
   Promise analyze(in Array<octet> aRequestBytes,
                   in Array<octet> aContentBytes,
                   in Array<nsIContentAnalysisRule> aRules);
+
+  /**
+   * Ensures the module has been fetched from the console, fetching it only
+   * once for the runner's lifetime, so it's safe to call redundantly. Called eagerly
+   * by WasmModuleBackend::EnsureReady() so the fetch isn't on the critical
+   * path of the first real request.
+   *
+   * @return A Promise that resolves once the module is cached, or rejects if
+   *         the fetch failed (a later call will retry).
+   */
+  Promise ensureModuleReady();
+
+  /**
+   * The version of the module currently cached in memory, as published by the
+   * console's wasm-version endpoint. Empty if no module has been fetched yet.
+   */
+  readonly attribute AString cachedModuleVersion;
 };

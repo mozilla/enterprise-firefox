@@ -311,7 +311,6 @@ add_task(async function test_builtin_fixed_prefs_are_set_and_locked() {
 
   checkLockedPref(CA_PREFIX + "enabled", true);
   checkLockedPref(CA_PREFIX + "use_wasm_backend", true);
-  checkLockedPref(CA_PREFIX + "wasm_module_extension_require_signature", true);
   checkLockedPref(CA_PREFIX + "deny_url_regex_list", "");
   checkLockedPref(CA_PREFIX + "agent_timeout", 300);
   checkLockedPref(CA_PREFIX + "show_blocked_result", true);
