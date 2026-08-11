@@ -276,7 +276,10 @@ export const ConsoleClient = {
    * - Missing: statusText, headers, url, redirected, clone(), blob(),
    *   formData()
    * - json()/text() can be called multiple times (no body consumption)
-   *
+   * 
+   * If the passed in responseType is "arraybuffer", then calling json() or text()
+   * will throw an exception.
+   * 
    * @param {string} url - The URL to fetch
    * @param {object} options - Fetch-like options
    * @param {string} [options.method="GET"] - HTTP method
