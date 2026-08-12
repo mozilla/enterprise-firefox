@@ -61,7 +61,12 @@
     "AccessConnector": {
       "type": "object",
       "x-category": "Network",
-      "description": "AccessConnector",
+      "x-compatibility": {
+        "firefox": { "version_added": false },
+        "firefox_esr": { "version_added": false },
+        "firefox_enterprise": { "version_added": "151" }
+      },
+      "description": "Configures an Access Connector for proxying web traffic. Traffic is routed through the server by 'Host' and 'Port'. If 'MatchPatterns' is set, only URLs matching those patterns are routed through the connector.",
       "examples": [
         {
           "Host": "company-hq.company.com",
@@ -97,7 +102,12 @@
     "AIChatbot": {
       "type": "object",
       "x-category": "Content settings",
-      "description": "Controls access to AI chat services. The built-in providers are Anthropic Claude, ChatGPT, Copilot, Google Gemini, HuggingChat, Le Chat Mistral, and a locally running AI chatbot. These can be enabled individually. For custom providers, add them to the 'Add' array. The 'Default' field specifies which provider is used by default.",
+      "x-compatibility": {
+        "firefox": { "version_added": false },
+        "firefox_esr": { "version_added": false },
+        "firefox_enterprise": { "version_added": "151" }
+      },
+      "description": "Controls access to AI chat services. The built-in providers are Anthropic Claude, ChatGPT, Copilot, Google Gemini, HuggingChat, Le Chat Mistral, and a locally running AI chatbot, all of which can be enabled individually.",
       "examples": [
         {
           "Providers": {
@@ -573,7 +583,12 @@
     "BlocklistDomainBrowsedTelemetry": {
       "type": "object",
       "x-category": "Cloud reporting",
-      "description": "Enable and configure security logging/telemetry when Firefox blocks a visit to a blocklisted domain.",
+      "x-compatibility": {
+        "firefox": { "version_added": false },
+        "firefox_esr": { "version_added": false },
+        "firefox_enterprise": { "version_added": "149" }
+      },
+      "description": "Enable and configure security logging when Firefox blocks a visit to a blocklisted domain.",
       "examples": [
         {
           "Enabled": true,
@@ -926,7 +941,12 @@
     "ContentAnalysisTelemetry": {
       "type": "object",
       "x-category": "Cloud reporting",
-      "description": "Enable and configure security logging/telemetry when a DLP rule is triggered.",
+      "x-compatibility": {
+        "firefox": { "version_added": false },
+        "firefox_esr": { "version_added": false },
+        "firefox_enterprise": { "version_added": "155" }
+      },
+      "description": "Enable and configure security logging when a DLP rule is triggered.",
       "examples": [
         {
           "Enabled": true,
@@ -1022,6 +1042,11 @@
     "CrashReportsSubmit": {
       "type": "object",
       "x-category": "Cloud reporting",
+      "x-compatibility": {
+        "firefox": { "version_added": false },
+        "firefox_esr": { "version_added": false },
+        "firefox_enterprise": { "version_added": "151" }
+      },
       "description": "Configure crash report submission settings.",
       "examples": [
         {
@@ -1041,6 +1066,11 @@
     "DataLossPrevention": {
       "type": "object",
       "x-category": "Cloud reporting",
+      "x-compatibility": {
+        "firefox": { "version_added": false },
+        "firefox_esr": { "version_added": false },
+        "firefox_enterprise": { "version_added": "155" }
+      },
       "description": "Configure built-in Data Loss Prevention rules that warn on or block data actions (paste, copy, upload, download, print) per domain.",
       "examples": [
         {
@@ -1389,6 +1419,11 @@
     "DisableLocalPolicies": {
       "type": "boolean",
       "x-category": "Miscellaneous",
+      "x-compatibility": {
+        "firefox": { "version_added": false },
+        "firefox_esr": { "version_added": false },
+        "firefox_enterprise": { "version_added": "154" }
+      },
       "description": "Disable all local policy sources (policies.json, Windows GPO and macOS plist).",
       "examples": [true, false]
     },
@@ -1671,8 +1706,27 @@
     "DownloadTelemetry": {
       "type": "object",
       "x-category": "Cloud reporting",
-      "description": "DownloadTelemetry",
-      "examples": [],
+      "x-compatibility": {
+        "firefox": { "version_added": false },
+        "firefox_esr": { "version_added": false },
+        "firefox_enterprise": { "version_added": "149" }
+      },
+      "description": "Enable and configure security logging when a download is triggered. 'UrlLogging' and 'FileLogging' control how much detail about the download source and the file is included in the log.",
+      "examples": [
+        {
+          "Enabled": true,
+          "UrlLogging": "full",
+          "FileLogging": "metadata"
+        },
+        {
+          "Enabled": false
+        },
+        {
+          "Enabled": true,
+          "UrlLogging": "none",
+          "FileLogging": "none"
+        }
+      ],
       "properties": {
         "Enabled": {
           "type": "boolean"
@@ -1775,8 +1829,14 @@
     "EnterpriseStorageEncryption": {
       "type": "boolean",
       "x-category": "Miscellaneous",
-      "description": "EnterpriseStorageEncryption",
-      "examples": []
+      "x-compatibility": {
+        "firefox": { "version_added": false },
+        "firefox_esr": { "version_added": false },
+        "firefox_enterprise": { "version_added": "149" }
+      },
+      "description": "Enable an enterprise-managed primary password so that stored credentials and other sensitive profile data are kept encrypted at rest.",
+      "default": false,
+      "examples": [true, false]
     },
 
     "ExemptDomainFileTypePairsFromFileTypeDownloadWarnings": {
@@ -3028,8 +3088,25 @@
     "PrintPageTelemetry": {
       "type": "object",
       "x-category": "Cloud reporting",
-      "description": "PrintPageTelemetry",
-      "examples": [],
+      "x-compatibility": {
+        "firefox": { "version_added": false },
+        "firefox_esr": { "version_added": false },
+        "firefox_enterprise": { "version_added": "149" }
+      },
+      "description": "Enable and configure security logging when a page is printed. 'UrlLogging' controls how much detail about the printed page's address is included in the log.",
+      "examples": [
+        {
+          "Enabled": true,
+          "UrlLogging": "domain"
+        },
+        {
+          "Enabled": false
+        },
+        {
+          "Enabled": true,
+          "UrlLogging": "none"
+        }
+      ],
       "properties": {
         "Enabled": {
           "type": "boolean"
@@ -3582,6 +3659,11 @@
     "Sync": {
       "type": "object",
       "x-category": "Local data storage",
+      "x-compatibility": {
+        "firefox": { "version_added": false },
+        "firefox_esr": { "version_added": false },
+        "firefox_enterprise": { "version_added": "149" }
+      },
       "description": "Enable or disable sync and define which data to include.",
       "examples": [
         {
@@ -3721,6 +3803,11 @@
     "Watermark": {
       "type": "object",
       "x-category": "Miscellaneous",
+      "x-compatibility": {
+        "firefox": { "version_added": false },
+        "firefox_esr": { "version_added": false },
+        "firefox_enterprise": { "version_added": "154" }
+      },
       "description": "Display a tiled, diagonal watermark over a list of websites.",
       "examples": [
         {
