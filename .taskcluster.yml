@@ -670,7 +670,7 @@ tasks:
                     eventAction: null
                     commBaseRepoUrl: https://github.com/mozilla/enterprise-thunderbird
                     commHeadRepoUrl: https://github.com/lissyx/enterprise-thunderbird
-                    commHeadRef: refs/heads/comm-central_enterprise-main
+                    commHeadRef: refs/heads/comm-central_enterprise-main_devScriptWorker
                   - $switch:
                         'tasks_for[:6] == "github"':
                             geckoTaskId: {$eval: as_slugid("gecko_decision_task")}
