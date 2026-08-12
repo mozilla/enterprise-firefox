@@ -107,7 +107,7 @@
         "firefox_esr": { "version_added": false },
         "firefox_enterprise": { "version_added": "151" }
       },
-      "description": "Controls access to AI chat services. The built-in providers are Anthropic Claude, ChatGPT, Copilot, Google Gemini, HuggingChat, Le Chat Mistral, and a locally running AI chatbot, all of which can be enabled individually.",
+      "description": "Controls access to AI chat services. Built-in providers can be enabled individually. For custom providers, add them to the 'Add' array. The 'Default' field specifies which provider is used by default.",
       "examples": [
         {
           "Providers": {
@@ -1835,7 +1835,6 @@
         "firefox_enterprise": { "version_added": "149" }
       },
       "description": "Enable an enterprise-managed primary password so that stored credentials and other sensitive profile data are kept encrypted at rest.",
-      "default": false,
       "examples": [true, false]
     },
 
