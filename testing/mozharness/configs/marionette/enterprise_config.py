@@ -4,7 +4,7 @@
 
 # This is a template config file for marionette production.
 config = {
-    "test_manifest": "../../../../enterprise/manifest.toml",
+    "test_manifest": "enterprise-tests.toml",
     "suite_definitions": {
         "marionette_desktop": {
             "options": [

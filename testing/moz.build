@@ -29,4 +29,7 @@ PERFTESTS_MANIFESTS += [
     "performance/perftest.toml",
 ]
 
-MARIONETTE_MANIFESTS += ["enterprise/manifest.toml"]
+MARIONETTE_MANIFESTS += [
+    "enterprise/manifest-browser.toml",
+    "enterprise/manifest-generic.toml"
+]

@@ -93,7 +93,7 @@ def marionette_test(command_context, tests, allow_nonlocal_connections=False, **
             tests = [
                 os.path.join(
                     command_context.topsrcdir,
-                    "testing/enterprise/manifest.toml",
+                    "testing/marionette/harness/marionette_harness/tests/enterprise-tests.toml",
                 )
             ]
         else:

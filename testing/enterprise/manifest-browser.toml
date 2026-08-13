@@ -1,0 +1,75 @@
+[DEFAULT]
+
+subsuite = "enterprise"
+
+run-if = [
+  "buildapp == 'browser'",
+]
+
+["test_browsing_child_encryption_mismatch.py"]
+disabled = "Bug 1996558: scaffolding for the browsing-child encryption-mismatch flow; not run in CI yet."
+
+["test_felt_browser_about_config_blocked.py"]
+
+["test_felt_browser_access_connector.py"]
+
+["test_felt_browser_close_warning.py"]
+
+["test_felt_browser_compulsory_restart.py"]
+
+["test_felt_browser_console_proxy_bypass.py"]
+
+["test_felt_browser_crash_abort_restart.py"]
+
+["test_felt_browser_crash_restart.py"]
+
+["test_felt_browser_enterprise_toolbar_button.py"]
+
+["test_felt_browser_external_link.py"]
+
+["test_felt_browser_fxa.py"]
+
+["test_felt_browser_new_window_from_cli.py"]
+
+["test_felt_browser_rapid_new_tabs_from_cli.py"]
+run-if = [
+  "os == 'mac'",
+]
+
+["test_felt_browser_rapid_new_windows_from_cli.py"]
+run-if = [
+  "os == 'mac'",
+]
+
+["test_felt_browser_safe_mode.py"]
+
+["test_felt_browser_shutdown_crash_exit.py"]
+
+["test_felt_browser_signout.py"]
+
+["test_felt_browser_signout_on_exit.py"]
+
+["test_felt_browser_signout_verify.py"]
+
+["test_felt_browser_skeleton_ui.py"]
+run-if = [
+  "os == 'win'",
+]
+
+["test_felt_browser_starts.py"]
+
+["test_felt_browser_token_refresh.py"]
+
+["test_felt_browser_updates_forward.py"]
+
+["test_felt_browser_updates_forward_offline.py"]
+
+["test_felt_browser_watermark.py"]
+
+["test_felt_external_link.py"]
+
+["test_felt_harness_prefs.py"]
+
+["test_felt_restart_persists_session.py"]
+
+["test_firefox_start.py"]

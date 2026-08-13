@@ -131,8 +131,7 @@ marionette-integration:
 marionette-enterprise:
     description: "Marionette integration enterprise run"
     treeherder-symbol: MnEnt()
-    suite:
-        name: marionette-enterprise
+    suite: marionette-enterprise
     run-on-projects: built-projects
     tier: default
     max-run-time:
@@ -140,10 +139,8 @@ marionette-enterprise:
             .*-debug.*: 3600
             default: 2700
     instance-size: default
-    chunks:
-        by-test-platform:
-            .*-debug.*: 2
-            default: 1
+    chunks: dynamic
+    default-chunks: 2
     mozharness:
         config:
             by-test-platform:

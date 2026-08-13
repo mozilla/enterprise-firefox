@@ -13,4 +13,5 @@
 
 # enterprise tests
 
-["include:../../../../../testing/enterprise/manifest.toml"]
+["include:../../../../../testing/enterprise/manifest-generic.toml"]
+["include:../../../../../testing/enterprise/manifest-browser.toml"]
