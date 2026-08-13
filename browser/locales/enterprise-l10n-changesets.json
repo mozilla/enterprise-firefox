@@ -21,6 +21,28 @@
         ],
         "revision": "c0299aa65c653ffc826cc228727db0ca0f8641ad"
     },
+    "en-GB": {
+        "pin": false,
+        "platforms": [
+            "linux64",
+            "linux64-enterprise",
+            "linux64-aarch64",
+            "linux64-aarch64-enterprise",
+            "linux64-aarch64-devedition",
+            "linux64-devedition",
+            "macosx64",
+            "macosx64-enterprise",
+            "macosx64-devedition",
+            "win32",
+            "win32-devedition",
+            "win64",
+            "win64-enterprise",
+            "win64-aarch64",
+            "win64-aarch64-devedition",
+            "win64-devedition"
+        ],
+        "revision": "c0299aa65c653ffc826cc228727db0ca0f8641ad"
+    },
     "es-ES": {
         "pin": false,
         "platforms": [
