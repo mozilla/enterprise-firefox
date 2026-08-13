@@ -668,9 +668,6 @@ tasks:
                     prNumber: null
                     eventType: '${tasks_for}'
                     eventAction: null
-                    commBaseRepoUrl: https://github.com/mozilla/enterprise-thunderbird
-                    commHeadRepoUrl: https://github.com/lissyx/enterprise-thunderbird
-                    commHeadRef: refs/heads/comm-central_enterprise-main_devScriptWorker
                   - $switch:
                         'tasks_for[:6] == "github"':
                             geckoTaskId: {$eval: as_slugid("gecko_decision_task")}
@@ -697,6 +694,7 @@ tasks:
                             repoUrl: '${event.repository.html_url}'
                             project: '${event.repository.name}'
                             ref: '${event.ref}'
+                            baseRef: '${event.ref}'
                             baseRev: '${event.before}'
                             headRev: '${event.after}'
                         'tasks_for[:19] == "github-pull-request"':
@@ -722,6 +720,16 @@ tasks:
                           'repoUrl == "https://github.com/mozilla-releng/staging-firefox"': "dev"
                           'repoUrl == "https://github.com/mozilla-firefox/firefox"': "prod"
                           $default: null
+                  commBaseRepoUrl: https://github.com/thunderbird/thunderbird-desktop
+                  # baseRef is from enterprise-firefox, it needs to be mapped to thunderbird-desktop
+                  commBaseRef:
+                      $switch:
+                          'baseRef == "enterprise-main" || baseRef == "refs/heads/enterprise-main"': "refs/heads/main"
+                          'baseRef == "enterprise-beta" || baseRef == "refs/heads/enterprise-beta"': "refs/heads/beta"
+                          'baseRef == "enterprise-release" || baseRef == "refs/heads/enterprise-release"': "refs/heads/release"
+                          $default: "master"
+                  commHeadRepoUrl: https://github.com/lissyx/thunderbird-desktop
+                  commHeadRef: refs/heads/comm-central_enterprise-main_devScriptWorker
                   shortRef:
                       $if: 'ref[:11] == "refs/heads/"'
                       then: {$eval: 'ref[11:]'}
@@ -808,7 +816,7 @@ tasks:
                                         GECKO_HEAD_REV: '${headRev}'
                                         GECKO_REPOSITORY_TYPE: git
                                         COMM_BASE_REPOSITORY: '${commBaseRepoUrl}'
-                                        COMM_BASE_REF: '${baseRef}'
+                                        COMM_BASE_REF: '${commBaseRef}'
                                         COMM_HEAD_REPOSITORY: '${commHeadRepoUrl}'
                                         COMM_HEAD_REF: '${commHeadRef}'
                                         COMM_REPOSITORY_TYPE: git
