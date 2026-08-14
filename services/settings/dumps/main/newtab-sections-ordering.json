@@ -1,0 +1,17 @@
+{
+  "data": [
+    {
+      "name": "default",
+      "schema": 1784565249202,
+      "sectionLayouts": [
+        "7-double-row-2-ad",
+        "6-small-medium-1-ad",
+        "4-large-small-medium-1-ad",
+        "4-medium-small-1-ad"
+      ],
+      "id": "4cbfb72a-4990-46af-8090-202a8460448b",
+      "last_modified": 1784824878486
+    }
+  ],
+  "timestamp": 1784824878486
+}

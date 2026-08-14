@@ -192,6 +192,9 @@ ContentParent* InProcessParent::AsContentParent() { return nullptr; }
 
 JSActorManager* InProcessParent::AsJSActorManager() { return this; }
 
+NS_IMETHODIMP
+InProcessParent::AboutToLoadOrigin(nsIPrincipal* aPrincipal) { return NS_OK; }
+
 ////////////////////////
 // nsIDOMProcessChild //
 ////////////////////////

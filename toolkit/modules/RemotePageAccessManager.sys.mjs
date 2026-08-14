@@ -52,6 +52,11 @@ export let RemotePageAccessManager = {
         "browser.ipProtection.userEnabled",
         "browser.ipProtection.enabled",
         "network.sslkeylog_warning",
+        // net-error-card.mjs is shared with about:neterror and reads this at
+        // module scope, so it must be allowed here too even though the search
+        // CTA itself only ever renders on about:neterror. A denied read throws,
+        // which would leave every cert error page blank.
+        "browser.netError.searchCTA.enabled",
       ],
       RPMGetIntPref: [
         "security.dialog_enable_delay",
@@ -137,6 +142,7 @@ export let RemotePageAccessManager = {
         "browser.ipProtection.userEnabled",
         "browser.ipProtection.enabled",
         "network.sslkeylog_warning",
+        "browser.netError.searchCTA.enabled",
       ],
       RPMGetHostForDisplay: ["*"],
       RPMGetInnermostAsciiHost: ["*"],

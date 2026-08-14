@@ -297,7 +297,7 @@ bool WeakMap<K, V, AP>::markEntry(GCMarker* marker, gc::CellColor mapColor,
 
 template <class K, class V, class AP>
 void WeakMap<K, V, AP>::trace(JSTracer* trc) {
-  MOZ_ASSERT(isInList());
+  MOZ_ASSERT_IF(!trc->isMarkingTracer(), isInList());
 
   TraceEdge(trc, &memberOf, "WeakMap owner");
 
@@ -321,6 +321,9 @@ void WeakMap<K, V, AP>::trace(JSTracer* trc) {
         lock.emplace(marker->runtime());
       }
     }
+
+    // It's only safe to check this after maybe taking the lock above.
+    MOZ_ASSERT(isInList());
 
     if (!memberOf) {
       (void)markEntries(marker);

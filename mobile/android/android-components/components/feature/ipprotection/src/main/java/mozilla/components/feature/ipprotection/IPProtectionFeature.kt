@@ -169,6 +169,10 @@ class IPProtectionFeature(
                 override fun onStateChanged(info: IPProtectionHandler.StateInfo) {
                     store.dispatch(IPProtectionAction.EngineStateChanged(info))
                 }
+
+                override fun onCountryListChanged(countries: List<IPProtectionHandler.Country>) {
+                    store.dispatch(IPProtectionAction.CountryListChanged(countries))
+                }
             },
         )
         handler?.run {
@@ -198,6 +202,8 @@ class IPProtectionFeature(
             // as a side effect, the init call triggers `IPProtectionController#onServiceStateChanged`
             // that can trigger the account manager that leads to `AuthProvider#getToken`.
             init()
+
+            updateCountryList()
         }
     }
 
@@ -218,7 +224,10 @@ class IPProtectionFeature(
                     }
                 }
                 if (activate) {
-                    handler?.activate(onResult)
+                    handler?.activate(
+                        countryCode = store.state.locationState.selectedLocation.countryCode,
+                        onResult = onResult,
+                    )
                 } else {
                     handler?.deactivate(onResult)
                 }

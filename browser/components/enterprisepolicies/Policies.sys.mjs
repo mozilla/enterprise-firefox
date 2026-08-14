@@ -31,6 +31,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   QuickSuggest: "moz-src:///browser/components/urlbar/QuickSuggest.sys.mjs",
   WebsiteFilter: "resource:///modules/policies/WebsiteFilter.sys.mjs",
   SyncPolicy: "resource:///modules/policies/SyncPolicy.sys.mjs",
+  WindowsLaunchOnLogin: "resource://gre/modules/WindowsLaunchOnLogin.sys.mjs",
 
   PoliciesUtils: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   addAllowDenyPermissions: "resource://gre/modules/PoliciesHelpers.sys.mjs",
@@ -1642,6 +1643,20 @@ export var Policies = {
       } else {
         lazy.PoliciesUtils.setAndLockPref("browser.formfill.enable", true);
       }
+    },
+  },
+
+  DisableLaunchOnLogin: {
+    onBeforeAddons(manager, param) {
+      if (!param || AppConstants.platform !== "win") {
+        return;
+      }
+      manager.disallowFeature("launchOnLogin");
+      lazy.PoliciesUtils.setAndLockPref(
+        "browser.startup.windowsLaunchOnLogin.enabled",
+        false
+      );
+      lazy.WindowsLaunchOnLogin.removeLaunchOnLogin();
     },
   },
 
@@ -4087,6 +4102,10 @@ export var Policies = {
 
       if ("DisableJit" in policies) {
         features.jit = !policies.DisableJit;
+      }
+
+      if ("HttpsOnly" in policies) {
+        features.http = !policies.HttpsOnly;
       }
 
       return features;

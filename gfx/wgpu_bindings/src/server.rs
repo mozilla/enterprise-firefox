@@ -26,7 +26,7 @@ use std::collections::HashMap;
 use std::mem;
 #[cfg(target_os = "linux")]
 use std::os::fd::{FromRawFd, IntoRawFd, OwnedFd, RawFd};
-use std::os::raw::c_char;
+use std::os::raw::{c_char, c_void};
 use std::ptr;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
@@ -440,13 +440,14 @@ fn create_next_numbered_dir(dir: &std::path::Path) -> std::io::Result<std::path:
     }
 }
 
+#[deny(unsafe_op_in_unsafe_fn)]
 unsafe fn adapter_request_device(
     global: &Global,
     self_id: id::AdapterId,
     desc: wgc::device::DeviceDescriptor,
     new_device_id: id::DeviceId,
     new_queue_id: id::QueueId,
-) -> Option<String> {
+) -> Result<(), String> {
     let mut sanitized_desc = {
         let wgc::device::DeviceDescriptor {
             label,
@@ -485,7 +486,7 @@ unsafe fn adapter_request_device(
         }
     }
 
-    if wgpu_parent_is_external_texture_enabled() {
+    if unsafe { wgpu_parent_is_external_texture_enabled() } {
         // Enable features used for external texture support, if available. We
         // avoid adding unsupported features to required_features so that we
         // can still create a device in their absence, and will only fail when
@@ -504,7 +505,7 @@ unsafe fn adapter_request_device(
 
     #[cfg(target_os = "linux")]
     {
-        let hal_adapter = global.adapter_as_hal::<wgc::api::Vulkan>(self_id);
+        let hal_adapter = unsafe { global.adapter_as_hal::<wgc::api::Vulkan>(self_id) };
 
         let support_dma_buf = hal_adapter.as_ref().is_some_and(|hal_adapter| {
             let capabilities = hal_adapter.physical_device_capabilities();
@@ -521,6 +522,10 @@ unsafe fn adapter_request_device(
             }
             (Some(_), false) => {}
             (Some(hal_adapter), true) => {
+                global
+                    .adapter_validate_device_descriptor(self_id, &mut sanitized_desc)
+                    .map_err(|err| err.to_string())?;
+
                 let mut enabled_extensions =
                     hal_adapter.required_device_extensions(sanitized_desc.required_features);
                 enabled_extensions.push(khr::external_memory_fd::NAME);
@@ -536,22 +541,24 @@ unsafe fn adapter_request_device(
                 let raw_instance = hal_adapter.shared_instance().raw_instance();
                 let raw_physical_device = hal_adapter.raw_physical_device();
 
-                let queue_family_index = raw_instance
-                    .get_physical_device_queue_family_properties(raw_physical_device)
-                    .into_iter()
-                    .enumerate()
-                    .find_map(|(queue_family_index, info)| {
-                        if info.queue_flags.contains(vk::QueueFlags::GRAPHICS) {
-                            Some(queue_family_index as u32)
-                        } else {
-                            None
-                        }
-                    });
+                let queue_family_index = unsafe {
+                    raw_instance
+                        .get_physical_device_queue_family_properties(raw_physical_device)
+                        .into_iter()
+                        .enumerate()
+                        .find_map(|(queue_family_index, info)| {
+                            if info.queue_flags.contains(vk::QueueFlags::GRAPHICS) {
+                                Some(queue_family_index as u32)
+                            } else {
+                                None
+                            }
+                        })
+                };
 
                 let Some(queue_family_index) = queue_family_index else {
                     let msg = c"Vulkan device has no graphics queue";
-                    gfx_critical_note(msg.as_ptr());
-                    return Some(format!("Internal Error: Failed to create ash::Device"));
+                    unsafe { gfx_critical_note(msg.as_ptr()) };
+                    return Err(format!("Internal Error: Failed to create ash::Device"));
                 };
 
                 let family_info = vk::DeviceQueueCreateInfo::default()
@@ -572,62 +579,75 @@ unsafe fn adapter_request_device(
                     .enabled_extension_names(&str_pointers);
                 let info = enabled_phd_features.add_to_device_create(pre_info);
 
-                let raw_device = match raw_instance.create_device(raw_physical_device, &info, None)
-                {
-                    Err(err) => {
-                        let msg =
-                            CString::new(format!("create_device() failed: {:?}", err)).unwrap();
-                        gfx_critical_note(msg.as_ptr());
-                        return Some(format!("Internal Error: Failed to create ash::Device"));
-                    }
-                    Ok(raw_device) => raw_device,
+                let raw_device = unsafe {
+                    // SAFETY: We either transfer the returned `raw_device` to `wgpu`, which then
+                    // keeps an `Arc` for the parent instance, or if an error occurs before we do
+                    // that, we destroy the device.
+                    raw_instance
+                        .create_device(raw_physical_device, &info, None)
+                        .map_err(|err| {
+                            let msg =
+                                CString::new(format!("create_device() failed: {:?}", err)).unwrap();
+                            gfx_critical_note(msg.as_ptr());
+                            format!("Internal Error: Failed to create ash::Device")
+                        })?
                 };
 
-                let hal_device = match hal_adapter.device_from_raw(
-                    raw_device,
-                    None,
-                    &enabled_extensions,
-                    sanitized_desc.required_features,
-                    &sanitized_desc.required_limits,
-                    &sanitized_desc.memory_hints,
-                    family_info.queue_family_index,
-                    0,
-                ) {
-                    Err(err) => {
-                        let msg =
-                            CString::new(format!("device_from_raw() failed: {:?}", err)).unwrap();
-                        gfx_critical_note(msg.as_ptr());
-                        return Some(format!("Internal Error: Failed to create ash::Device"));
-                    }
-                    Ok(hal_device) => hal_device,
+                let hal_device = unsafe {
+                    // SAFETY:
+                    // - The raw device was created from this adapter.
+                    // - We did not remove any extensions.
+                    // - On success, `wgpu` takes ownership of the device. We destroy
+                    //   it ourselves if and only if this call fails.
+                    hal_adapter
+                        .device_from_raw(
+                            raw_device.clone(),
+                            None,
+                            &enabled_extensions,
+                            sanitized_desc.required_features,
+                            &sanitized_desc.required_limits,
+                            &sanitized_desc.memory_hints,
+                            family_info.queue_family_index,
+                            0,
+                        )
+                        .map_err(move |err| {
+                            raw_device.destroy_device(None);
+                            let msg = CString::new(format!("device_from_raw() failed: {:?}", err))
+                                .unwrap();
+                            gfx_critical_note(msg.as_ptr());
+                            format!("Internal Error: Failed to create ash::Device")
+                        })?
                 };
 
-                let res = global.create_device_from_hal(
-                    self_id,
-                    hal_device.into(),
-                    &sanitized_desc,
-                    Some(new_device_id),
-                    Some(new_queue_id),
-                );
-                if let Err(err) = res {
-                    return Some(format!("{err}"));
+                unsafe {
+                    // SAFETY:
+                    // - The hal device was created from this adapter.
+                    global
+                        .create_device_from_hal(
+                            self_id,
+                            hal_device.into(),
+                            &sanitized_desc,
+                            Some(new_device_id),
+                            Some(new_queue_id),
+                        )
+                        .map_err(|err| err.to_string())?;
                 }
-                return None;
+
+                return Ok(());
             }
         }
     }
 
-    let res = global.adapter_request_device(
-        self_id,
-        &sanitized_desc,
-        Some(new_device_id),
-        Some(new_queue_id),
-    );
-    if let Err(err) = res {
-        return Some(format!("{err}"));
-    } else {
-        return None;
-    }
+    global
+        .adapter_request_device(
+            self_id,
+            &sanitized_desc,
+            Some(new_device_id),
+            Some(new_queue_id),
+        )
+        .map_err(|err| err.to_string())?;
+
+    Ok(())
 }
 
 #[repr(C)]
@@ -1430,20 +1450,15 @@ pub extern "C" fn wgpu_vkimage_get_dma_buf_info(handle: &VkImageHandle) -> DMABu
     }
 }
 
-#[cfg(target_os = "macos")]
-pub struct MetalSharedEventHandle(
-    objc2::rc::Retained<objc2::runtime::ProtocolObject<dyn objc2_metal::MTLSharedEvent>>,
-);
-#[cfg(not(target_os = "macos"))]
-pub struct MetalSharedEventHandle;
-
+/// The caller assumes responsibility for one reference to the returned shared
+/// event, and must release it when no longer required.
 #[no_mangle]
 #[allow(unreachable_code)]
 #[allow(unused_variables)]
 pub extern "C" fn wgpu_server_get_device_fence_metal_shared_event(
     global: &Global,
     device_id: id::DeviceId,
-) -> *mut MetalSharedEventHandle {
+) -> *mut c_void {
     #[cfg(target_os = "macos")]
     {
         use objc2::Message as _;
@@ -1459,35 +1474,10 @@ pub extern "C" fn wgpu_server_get_device_fence_metal_shared_event(
                 return ptr::null_mut();
             }
         };
-        return Box::into_raw(Box::new(MetalSharedEventHandle(shared_event)));
+        return objc2::rc::Retained::into_raw(shared_event).cast();
     }
 
     ptr::null_mut()
-}
-
-#[no_mangle]
-#[allow(unreachable_code)]
-#[allow(unused_variables)]
-pub extern "C" fn wgpu_server_metal_shared_event_signaled_value(
-    shared_event: &mut MetalSharedEventHandle,
-) -> u64 {
-    #[cfg(target_os = "macos")]
-    {
-        use objc2_metal::MTLSharedEvent as _;
-        return shared_event.0.signaledValue();
-    }
-
-    u64::MAX
-}
-
-#[no_mangle]
-#[allow(unreachable_code)]
-#[allow(unused_variables)]
-pub extern "C" fn wgpu_server_delete_metal_shared_event(shared_event: *mut MetalSharedEventHandle) {
-    #[cfg(target_os = "macos")]
-    {
-        let _ = unsafe { Box::from_raw(shared_event) };
-    }
 }
 
 extern "C" {
@@ -3012,14 +3002,16 @@ unsafe fn process_message(
             queue_id,
             desc,
         } => {
-            let error = adapter_request_device(global, adapter_id, desc, device_id, queue_id);
+            let res = adapter_request_device(global, adapter_id, desc, device_id, queue_id);
 
-            if error.is_none() {
+            if res.is_ok() {
                 wgpu_parent_post_request_device(global.owner, device_id);
             }
 
             *response_byte_buf = make_byte_buf(&ServerMessage::RequestDeviceResponse(
-                device_id, queue_id, error,
+                device_id,
+                queue_id,
+                res.err(),
             ));
         }
         Message::Device(id, action) => {

@@ -144,7 +144,7 @@ class WorkerCheckMayLoadSyncRunnable final : public WorkerMainThreadRunnable {
       std::function<void(ErrorResult&)>&& aCheckFunc)
       : WorkerMainThreadRunnable(GetCurrentThreadWorkerPrivate(),
                                  "WorkerCheckMayLoadSyncRunnable"_ns),
-        mCheckFunc(aCheckFunc) {}
+        mCheckFunc(std::move(aCheckFunc)) {}
 
   bool MainThreadRun() override {
     ErrorResult localResult;

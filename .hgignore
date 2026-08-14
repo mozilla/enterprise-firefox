@@ -104,6 +104,10 @@
 
 # Ignore newtab component build assets
 ^browser/extensions/newtab/logs/
+^browser/extensions/newtab/data/content/activity-stream\.bundle\.js$
+^browser/extensions/newtab/data/content/vendor\.bundle\.js$
+^browser/extensions/newtab/css/activity-stream\.css$
+^browser/extensions/newtab/css/nova/activity-stream\.css$
 
 # Ignore about:welcome component build assets
 ^browser/components/aboutwelcome/logs/
@@ -231,6 +235,12 @@ _OPT\.OBJ/
 
 # Android Gradle artifacts.
 ^mobile/android/gradle/\.gradle
+
+# Written by `mach android gradle-dependencies`, one per Gradle build it
+# enumerates, plus the copies it collects for the toolchain task to check.
+^gradle/verification-metadata\.dryrun\.xml
+^gradle/dependency-inventories/
+^mobile/android/.*/gradle/verification-metadata\.dryrun\.xml
 
 # Android build cache
 ^mobile/android/.*/.build-cache

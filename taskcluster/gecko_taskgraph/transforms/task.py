@@ -1682,7 +1682,8 @@ class L10nBumpInfo(Schema):
 
 class TagConfig(Schema):
     types: list[Literal["buildN", "release"]]
-    hg_repo_url: str
+    revision: str
+    hg_repo_url: Optional[str]
 
 
 class VersionBumpConfig(Schema):
@@ -1723,16 +1724,6 @@ class MainBumpConfig(Schema):
     end_tag: Optional[str] = None
 
 
-class EarlyToLateBetaConfig(Schema):
-    to_branch: str
-    # technically not used, but passing it keeps landoscript
-    # code cleaner, so we may as well require a real value
-    # for it.
-    fetch_version_from: str
-    to_revision: str = ""
-    replacements: Optional[list[list[str]]] = None
-
-
 class UpliftConfig(Schema):
     fetch_version_from: str
     version_files: list[VersionFile]
@@ -1770,7 +1761,6 @@ class LandoAction(Schema, forbid_unknown_fields=False, kw_only=True):
     version_bump: Optional[VersionBumpConfig] = None
     esr_bump: Optional[EsrBumpConfig] = None
     main_bump: Optional[MainBumpConfig] = None
-    early_to_late_beta: Optional[EarlyToLateBetaConfig] = None
     uplift: Optional[UpliftConfig] = None
     merge_day: Optional[MergeDayConfig] = None
 
@@ -1843,11 +1833,11 @@ def build_lando_payload(config, task, task_def):
                 tag_names.extend([f"{product}_{version}_RELEASE"])
             tag_info = {
                 "tags": tag_names,
-                "hg_repo_url": info["hg-repo-url"],
-                "revision": config.params[
-                    "{}head_rev".format(worker.get("repo-param-prefix", ""))
-                ],
+                "revision": info["revision"],
             }
+            if repo_url := info.get("hg-repo-url"):
+                tag_info["hg_repo_url"] = repo_url
+
             task_def["payload"]["tag_info"] = tag_info
             actions.append("tag")
 
@@ -1873,10 +1863,6 @@ def build_lando_payload(config, task, task_def):
                 dash_to_underscore(vf) for vf in info["version-files"]
             ]
             task_def["payload"]["merge_info"] = merge_info
-            actions.append("merge_day")
-
-        if info := action.get("early-to-late-beta"):
-            task_def["payload"]["merge_info"] = dash_to_underscore(info)
             actions.append("merge_day")
 
         if info := action.get("uplift"):
@@ -2074,6 +2060,13 @@ def validate_shipping_product(config, product):
 
 @transforms.add
 def validate(config, tasks):
+    # Schema validation is a no-op in fast mode (see validate_schema), so skip
+    # this whole transform, including the costly per-task worker schema
+    # construction whose result would only be discarded.
+    if taskgraph.fast:
+        yield from tasks
+        return
+
     for task in tasks:
         validate_schema(
             TaskDescriptionSchema,
@@ -2438,6 +2431,7 @@ def set_task_and_artifact_expiry(config, jobs):
         job_expiry_from_now = fromNow(job_expiry, now)
         if cap and job_expiry_from_now > cap_from_now:
             job_expiry, job_expiry_from_now = cap, cap_from_now
+            job["expires-after"] = job_expiry
         # If the task has no explicit expiration-policy, but has an expires-after,
         # we use that as the default artifact expiry.
         artifact_expires = expires if "expiration-policy" in job else job_expiry
@@ -2457,11 +2451,11 @@ def set_task_and_artifact_expiry(config, jobs):
         yield job
 
 
-def group_name_variant(group_names, groupSymbol):
-    # iterate through variants, allow for Base-[variant_list]
+@functools.cache
+def _variant_symbols():
     # sorting longest->shortest allows for finding variants when
     # other variants have a suffix that is a subset
-    variant_symbols = sorted(
+    return sorted(
         [
             (
                 v,
@@ -2474,6 +2468,11 @@ def group_name_variant(group_names, groupSymbol):
         key=lambda tup: len(tup[1]),
         reverse=True,
     )
+
+
+def group_name_variant(group_names, groupSymbol):
+    # iterate through variants, allow for Base-[variant_list]
+    variant_symbols = _variant_symbols()
 
     # strip known variants
     # build a list of known variants

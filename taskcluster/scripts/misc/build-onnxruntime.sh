@@ -39,18 +39,22 @@ case ${target_platform} in
     Linux)
         prefix=lib
         extension=so
+        EXTRA_CXX_FLAGS="-Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -fstack-clash-protection -fstack-protector-strong"
+
         ;;
     Android)
         extra_args="--android --android_ndk_path=$MOZ_FETCHES_DIR/android-ndk --android_sdk_path=$MOZ_FETCHES_DIR/android-sdk-linux --android_abi=$target_arch"
         prefix=lib
         extension=so
+        EXTRA_CXX_FLAGS="-Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -fstack-clash-protection -fstack-protector-strong"
         ;;
     Windows)
         # Still use visual studio there, compilation through clang-cl is not
         # supported upstream.
         case $target_arch in
             x86)
-                extra_args="--x86"
+                extra_args="--cmake_extra_defines CMAKE_SYSTEM_NAME=Windows CMAKE_SYSTEM_PROCESSOR=x86"
+                export TARGET=i686-pc-windows-msvc
                 ;;
         esac
         extra_args="$extra_args --cmake_extra_defines CMAKE_SHARED_LINKER_FLAGS=/MANIFEST:NO"
@@ -117,13 +121,35 @@ python3 tools/ci_build/build.py \
     --cmake_extra_defines PYTHON_EXECUTABLE=$(which python3)\
     --cmake_extra_defines ONNX_USE_LITE_PROTO=ON\
     --disable_exceptions \
-    --cmake_extra_defines CMAKE_CXX_FLAGS=-fno-exceptions\ -DORT_NO_EXCEPTIONS\ -DONNX_NO_EXCEPTIONS\ -DMLAS_NO_EXCEPTION\
+    --cmake_extra_defines CMAKE_CXX_FLAGS="-fno-exceptions $EXTRA_CXX_FLAGS -DORT_NO_EXCEPTIONS -DONNX_NO_EXCEPTIONS -DMLAS_NO_EXCEPTION"\
     ${extra_args}
 
 ###
 # Pack the result and upload.
 mkdir $onnx_folder
 cp $onnx_builddir/$build_type/${prefix}onnxruntime.${extension} $onnx_folder/
+
+# The architecture names the tasks pass are platform-specific and don't match the names
+# llvm-readobj reports, so map each one to the Arch: value it should produce.
+case $target_arch in
+    x86) expected_arch=i386 ;;
+    x64|x86_64) expected_arch=x86_64 ;;
+    arm64|arm64-v8a) expected_arch=aarch64 ;;
+    armeabi-v7a) expected_arch=arm ;;
+    *)
+        echo "ERROR: no expected architecture declared for $target_platform $target_arch" >&2
+        exit 1
+        ;;
+esac
+built_arch=$(llvm-readobj --file-headers "$onnx_folder/${prefix}onnxruntime.${extension}" | awk '/^Arch:/ {print $2}')
+if [ -z "$built_arch" ]; then
+    echo "ERROR: could not read the architecture of ${prefix}onnxruntime.${extension}" >&2
+    exit 1
+fi
+if [ "$built_arch" != "$expected_arch" ]; then
+    echo "ERROR: built $built_arch, expected $expected_arch for $target_arch" >&2
+    exit 1
+fi
 
 ls -la "$onnx_folder"
 

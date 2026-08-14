@@ -7,7 +7,7 @@
 "use strict";
 
 Services.scriptloader.loadSubScript(
-  "chrome://mochitests/content/browser/devtools/client/inspector/shared/test/head.js",
+  "chrome://mochitests/content/browser/devtools/client/inspector/rules/test/head.js",
   this
 );
 
@@ -215,4 +215,21 @@ async function assertRuleCount(editor, expected) {
     return parseInt(element.textContent, 10) === expected;
   });
   is(parseInt(element.textContent, 10), expected, "the rule count is correct");
+}
+
+/**
+ * Get the URL for a local test file.
+ *
+ * @param {string} path
+ *        relative path to the test file.
+ * @return {nsIFileURL}
+ *        file:// URL to that test file.
+ */
+function getSupportsFile(path) {
+  const cr = Cc["@mozilla.org/chrome/chrome-registry;1"].getService(
+    Ci.nsIChromeRegistry
+  );
+  const uri = Services.io.newURI(CHROME_URL_ROOT + path);
+  const fileurl = cr.convertChromeURL(uri);
+  return fileurl.QueryInterface(Ci.nsIFileURL);
 }

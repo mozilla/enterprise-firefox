@@ -246,3 +246,127 @@ add_task(async function test_resize_of_pinned_tabs() {
     BrowserTestUtils.removeTab(gBrowser.tabs.at(-1));
   }
 });
+
+add_task(async function test_stale_pinned_tabs_height_clamped_on_restore() {
+  await SidebarController.updateUIState({
+    launcherExpanded: true,
+  });
+
+  info("Open and pin a few tabs.");
+  for (let i = 0; i < 3; i++) {
+    await BrowserTestUtils.openNewForegroundTab(
+      gBrowser,
+      `data:text/html,<title>${i + 1}</title>`
+    );
+    gBrowser.pinTab(gBrowser.selectedTab);
+  }
+  await SidebarController.waitUntilStable();
+
+  const container = SidebarController._pinnedTabsContainer;
+  const contentHeight =
+    SidebarController._pinnedTabsItemsWrapper.getBoundingClientRect().height;
+  Assert.greater(contentHeight, 0, "Pinned tabs have a measurable height.");
+
+  // Simulate a persisted height that is larger than the current content, as
+  // happens when the height was saved at a narrower sidebar width and then the
+  // sidebar was widened without re-dragging the pinned tabs splitter.
+  const staleHeight = Math.round(contentHeight + 200);
+  info(`Apply a stale persisted height of ${staleHeight}px on restore.`);
+  SidebarController._state.expandedPinnedTabsHeight = staleHeight;
+  SidebarController._state.updatePinnedTabsHeight();
+  await SidebarController.waitUntilStable();
+
+  const appliedHeight = container.getBoundingClientRect().height;
+  info(
+    `content: ${contentHeight}, stale: ${staleHeight}, applied: ${appliedHeight}`
+  );
+  Assert.less(
+    appliedHeight,
+    staleHeight,
+    "The stale, oversized persisted height is not applied verbatim."
+  );
+  Assert.less(
+    appliedHeight - contentHeight,
+    50,
+    "Pinned tabs container is clamped to its content height, leaving no gap."
+  );
+
+  SidebarController._state.expandedPinnedTabsHeight = undefined;
+  for (let tab of [...gBrowser.tabs]) {
+    if (tab.pinned) {
+      gBrowser.unpinTab(tab);
+    }
+  }
+  while (gBrowser.tabs.length > 1) {
+    BrowserTestUtils.removeTab(gBrowser.tabs.at(-1));
+  }
+});
+
+add_task(
+  async function test_pinned_tabs_height_reclamped_on_visibility_change() {
+    info("Pin enough tabs that a single column is much taller than a grid.");
+    for (let i = 0; i < 7; i++) {
+      await BrowserTestUtils.openNewForegroundTab(
+        gBrowser,
+        `data:text/html,<title>${i + 1}</title>`
+      );
+      gBrowser.pinTab(gBrowser.selectedTab);
+    }
+
+    await SpecialPowers.pushPrefEnv({
+      set: [[SIDEBAR_VISIBILITY_PREF, "expand-on-hover"]],
+    });
+    await SidebarController.waitUntilStable();
+
+    const container = SidebarController._pinnedTabsContainer;
+    const wrapper = SidebarController._pinnedTabsItemsWrapper;
+    const columnHeight = Math.round(wrapper.getBoundingClientRect().height);
+    Assert.greater(columnHeight, 0, "Pinned tabs have a measurable height.");
+
+    // Restore the state that a session save leaves behind for an expand-on-hover
+    // user: the launcher sits collapsed at rest, so `pinnedTabsHeight` holds the
+    // collapsed height while the expanded height is persisted separately.
+    info(`Restore a persisted pinned tabs height of ${columnHeight}px.`);
+    await SidebarController._state.loadCurrentState({
+      launcherVisible: true,
+      pinnedTabsHeight: columnHeight,
+      expandedPinnedTabsHeight: columnHeight,
+      collapsedPinnedTabsHeight: columnHeight,
+    });
+    await SidebarController.waitUntilStable();
+
+    info(
+      "Leave expand-on-hover, which restyles the pinned tabs as an icon grid."
+    );
+    await SpecialPowers.pushPrefEnv({
+      set: [[SIDEBAR_VISIBILITY_PREF, "always-show"]],
+    });
+    await SidebarController.waitUntilStable();
+
+    await TestUtils.waitForCondition(() => {
+      const gridHeight = wrapper.getBoundingClientRect().height;
+      return gridHeight > 0 && gridHeight < columnHeight;
+    }, "Pinned tabs are laid out as a grid, which is shorter than one column.");
+
+    await TestUtils.waitForCondition(() => {
+      const gap =
+        container.getBoundingClientRect().height -
+        wrapper.getBoundingClientRect().height;
+      info(`Gap between the pinned tabs container and its contents: ${gap}`);
+      return gap < 5;
+    }, "Pinned tabs container is re-clamped to its contents, leaving no gap.");
+
+    await SpecialPowers.popPrefEnv();
+    await SpecialPowers.popPrefEnv();
+    SidebarController._state.expandedPinnedTabsHeight = undefined;
+    SidebarController._state.collapsedPinnedTabsHeight = undefined;
+    for (let tab of [...gBrowser.tabs]) {
+      if (tab.pinned) {
+        gBrowser.unpinTab(tab);
+      }
+    }
+    while (gBrowser.tabs.length > 1) {
+      BrowserTestUtils.removeTab(gBrowser.tabs.at(-1));
+    }
+  }
+);

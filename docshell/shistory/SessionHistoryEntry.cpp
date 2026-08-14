@@ -1373,7 +1373,7 @@ NS_IMETHODIMP
 SessionHistoryEntry::GetWireframe(JSContext* aCx,
                                   JS::MutableHandle<JS::Value> aOut) {
   if (mWireframe.isNothing()) {
-    aOut.set(JS::NullValue());
+    aOut.setNull();
   } else if (NS_WARN_IF(!mWireframe->ToObjectInternal(aCx, aOut))) {
     return NS_ERROR_FAILURE;
   }

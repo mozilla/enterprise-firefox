@@ -18,6 +18,7 @@ task-defaults:
     fetches:
         toolchain:
             - linux64-node
+            - newtab-node-modules
     optimization:
         skip-unless-expanded: null
 
@@ -48,8 +49,11 @@ tasks:
                 MOZ_OBJDIR: ../../workspace/obj-build
                 MOZCONFIG: browser/config/mozconfigs/linux64/browser-extensions
                 PERFHERDER_EXTRA_OPTIONS: browser-extensions
+                MOZ_BROWSER_NEWTAB_METRICS_FETCH: "1"
+                MOZ_BROWSER_NEWTAB_LOCALES_ALL: "1"
             max-run-time: 1800
         run:
+            clone-with: hg
             using: mach
             mach: build
         run-on-projects: ['mozilla-central']

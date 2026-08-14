@@ -591,6 +591,7 @@ class HTMLMediaElement::MediaControlKeyListener final
     MEDIACONTROL_LOG("ResumeFromInterrupt, resume={}", willResume);
     if (willResume) {
       Owner()->Play();
+      glean::media_audio_focus::resume_decision.Get("media"_ns).Add(1);
     }
     mSuspendedByInterrupt = false;
   }
@@ -8807,6 +8808,11 @@ bool HTMLMediaElement::IsControllableMediaSource() const {
 
   if (IsInFullScreen()) {
     MEDIACONTROL_LOG("Controllable: media is in fullscreen");
+    return true;
+  }
+
+  if (mDecoder && mDecoder->IsLiveStream()) {
+    MEDIACONTROL_LOG("Controllable: live stream");
     return true;
   }
 

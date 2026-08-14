@@ -859,6 +859,15 @@ static void RecordZeroLengthEvent(bool aIsSync, const nsCString& aSpec,
     return;
   }
 
+  // A document channel opened in the parent process for process selection is
+  // routinely canceled with this error once the selected content process opens
+  // its own channel instead of linking up with the parent one (common for
+  // about: documents). This is expected and not a real zero-byte-load failure,
+  // so don't report it.
+  if (aStatus == NS_ERROR_DOCUMENT_LOAD_LISTENER_NO_PARENT_CHANNEL) {
+    return;
+  }
+
   // If the BrowsingContext performing the load has already been discarded, and
   // we're getting a zero-length event due to the channel being canceled, this
   // event isn't interesting for YSOD analysis, so can be skipped.

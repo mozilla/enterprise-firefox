@@ -1403,7 +1403,7 @@ void GridItemInfo::AdjustForRemovedTracks(
  * writing-mode, same as in other track-sizing functions.
  */
 struct nsGridContainerFrame::UsedTrackSizes {
-  UsedTrackSizes() : mCanResolveLineRangeSize{false, false} {}
+  UsedTrackSizes() = default;
 
   /**
    * Setup mTrackPlans by copying track sizes from aFrame's grid container
@@ -1427,7 +1427,7 @@ struct nsGridContainerFrame::UsedTrackSizes {
   // subgrids/items may have zero tracks).
   PerLogicalAxis<TrackPlan> mTrackPlans;
   // True if mTrackPlans can be used to resolve line range sizes in an axis.
-  PerLogicalAxis<bool> mCanResolveLineRangeSize;
+  PerLogicalAxis<bool> mCanResolveLineRangeSize{false, false};
 
   NS_DECLARE_FRAME_PROPERTY_DELETABLE(Prop, UsedTrackSizes)
 };

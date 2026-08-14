@@ -260,6 +260,8 @@ namespace detail {
 
 // Given aPath of /foo/bar/baz and aRelativePath of /bar/baz, returns the
 // absolute portion of aPath /foo by removing the common suffix from aPath.
+// Both paths must use the same separator convention; all callers use _sp
+// literals which match __FILE__ on the current platform.
 nsDependentCSubstring GetTreeBase(const nsLiteralCString& aPath,
                                   const nsLiteralCString& aRelativePath) {
   MOZ_ASSERT(StringEndsWith(aPath, aRelativePath));
@@ -356,18 +358,20 @@ nsDependentCSubstring MakeSourceFileRelativePath(
 
   static const auto sourceTreeBase = GetSourceTreeBase();
 
-  if (MOZ_LIKELY(StringBeginsWith(aSourceFilePath, sourceTreeBase))) {
-    return Substring(aSourceFilePath, sourceTreeBase.Length() + 1);
-  }
-
   // The source file could have been exported to the OBJDIR/dist/include
-  // directory, so we need to check that case as well.
+  // directory. Check the objdir base first because when the objdir is under
+  // the source tree, the source tree base is a prefix of the objdir base and
+  // would incorrectly match exported headers.
   static const auto objdirDistIncludeTreeBase = GetObjdirDistIncludeTreeBase();
 
   if (MOZ_LIKELY(
           StringBeginsWith(aSourceFilePath, objdirDistIncludeTreeBase))) {
     return MapDistIncludePathToSource(
         Substring(aSourceFilePath, objdirDistIncludeTreeBase.Length() + 1));
+  }
+
+  if (MOZ_LIKELY(StringBeginsWith(aSourceFilePath, sourceTreeBase))) {
+    return Substring(aSourceFilePath, sourceTreeBase.Length() + 1);
   }
 
   nsCString::const_iterator begin, end;

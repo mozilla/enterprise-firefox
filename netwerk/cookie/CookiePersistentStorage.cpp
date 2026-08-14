@@ -509,11 +509,6 @@ already_AddRefed<CookiePersistentStorage> CookiePersistentStorage::Create() {
   return storage.forget();
 }
 
-CookiePersistentStorage::CookiePersistentStorage()
-    : mMonitor("CookiePersistentStorage"),
-      mInitialized(false),
-      mCorruptFlag(OK) {}
-
 void CookiePersistentStorage::NotifyChangedInternal(
     nsICookieNotification* aNotification, bool aOldCookieIsSession) {
   MOZ_ASSERT(aNotification);
@@ -2001,7 +1996,7 @@ CookiePersistentStorage::OpenDBResult CookiePersistentStorage::Read() {
            host.get()));
       CookieDomainTuple* cleanupTuple = mCleanupArray.AppendElement();
       cleanupTuple->key = CookieKey(baseDomain, attrs);
-      cleanupTuple->originAttributes = attrs;
+      cleanupTuple->originAttributes = std::move(attrs);
       cleanupTuple->cookie = Cookie::Create(*cookieStruct, attrs);
       continue;
     }
@@ -2236,8 +2231,9 @@ nsresult CookiePersistentStorage::InitDBConnInternal() {
   // Grow cookie db in 512KB increments
   mDBConn->SetGrowthIncrement(512 * 1024, ""_ns);
 
-  // make operations on the table asynchronous, for performance
-  mDBConn->ExecuteSimpleSQL("PRAGMA synchronous = OFF"_ns);
+  // In WAL mode, NORMAL avoids the per-commit fsync cost while still keeping
+  // the database safe from corruption on crash or power loss, unlike OFF.
+  mDBConn->ExecuteSimpleSQL("PRAGMA synchronous = NORMAL"_ns);
 
   // Use write-ahead-logging for performance. We cap the autocheckpoint limit at
   // 16 pages (around 500KB).

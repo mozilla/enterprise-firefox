@@ -306,7 +306,7 @@ conditioned_profile:
 socketprocess:
     description: "{description} with socket process enabled"
     component: "Core::Networking"
-    expiration: "2026-09-01"
+    expiration: "2027-06-01"
     suffix: "spi"
     mozinfo: "socketprocess_e10s"
     when:
@@ -532,7 +532,7 @@ msix:
 http3:
     description: "{description} with http3 server"
     component: "Core::Networking"
-    expiration: "2026-09-01"
+    expiration: "2027-06-01"
     suffix: "http3"
     mozinfo: "http3"
     when:
@@ -551,7 +551,7 @@ http3:
 http2:
     description: "{description} with http2 server"
     component: "Core::Networking"
-    expiration: "2026-09-01"
+    expiration: "2027-06-01"
     suffix: "http2"
     mozinfo: "http2"
     when:
@@ -601,6 +601,7 @@ async-event-dispatching:
         mozharness:
             extra-options:
                 - "--setpref=remote.events.async.mouse.enabled=true"
+                - "--setpref=remote.events.async.touch.enabled=true"
                 - "--setpref=remote.events.async.wheel.enabled=true"
 
 vertical-tabs:
@@ -667,14 +668,29 @@ privatebrowsing-inc-origin-init:
             extra-options:
                 - "--setpref=browser.privatebrowsing.autostart=true"
 
-nova:
-    description: "{description} with Nova enabled"
+no-nova:
+    description: "{description} with Nova disabled"
     component: "Firefox::Theme"
     expiration: "2026-12-31"
-    suffix: "nv"
-    replace:
-        tier: 3
+    suffix: "no-nv"
     merge:
         mozharness:
             extra-options:
-                - "--setpref=browser.nova.enabled=true"
+                - "--setpref=browser.nova.enabled=false"
+
+urlbar-ipc:
+    description: "{description} with the urlbar actor message-passing path forced on"
+    component: "Firefox::Address Bar"
+    expiration: "2027-06-01"
+    suffix: "uipc"
+    mozinfo: "urlbar_ipc"
+    replace:
+        tier: 2
+    merge:
+        worker:
+            env:
+                MOZHARNESS_TEST_TAG:
+                    - "urlbar"
+        mozharness:
+            extra-options:
+                - "--setpref=browser.urlbar.ipc.chromeMessagePassing=true"

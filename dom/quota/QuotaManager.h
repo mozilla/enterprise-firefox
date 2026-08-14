@@ -1291,6 +1291,7 @@ class QuotaManager final : public BackgroundThreadObject {
   bool mInitializingAllTemporaryOrigins;
   bool mAllTemporaryOriginsInitialized;
   bool mCacheUsable;
+  bool mCacheRequiresFullScan;
   std::atomic<bool> mUsageModificationDisabled{false};
 };
 

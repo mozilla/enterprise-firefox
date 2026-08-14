@@ -227,12 +227,12 @@ export const GenAI = {
       {
         iconUrl: "chrome://browser/content/genai/assets/brands/lechat.svg",
         id: "lechat",
-        link1: "https://mistral.ai/terms/#terms-of-service-le-chat",
-        link2: "https://mistral.ai/terms/#privacy-policy",
-        linksId: "genai-settings-chat-lechat-links",
+        link1: "https://chat.mistral.ai/legal/terms",
+        link2: "https://chat.mistral.ai/legal/privacy-policy",
+        linksId: "genai-settings-chat-lechat-links-2",
         maxLength: 13350,
-        name: "Le Chat Mistral",
-        tooltipId: "genai-onboarding-lechat-tooltip",
+        name: "Mistral Vibe",
+        tooltipId: "genai-onboarding-lechat-tooltip-2",
       },
     ],
     [

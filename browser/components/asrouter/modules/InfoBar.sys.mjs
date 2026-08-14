@@ -34,6 +34,7 @@ class InfoBarNotification {
     this.infobarCallback = this.infobarCallback.bind(this);
     this.message = message;
     this.notification = null;
+    this._browser = null;
     const dismissPrefConfig = message?.content?.dismissOnPrefChange;
     // If set, these are the prefs to watch for changes to auto-dismiss the infobar.
     if (Array.isArray(dismissPrefConfig)) {
@@ -176,6 +177,9 @@ class InfoBarNotification {
    * @param {object} browser - The browser reference for the currently selected tab.
    */
   async showNotification(browser) {
+    if (this.message.content.dismiss_action) {
+      this._browser = browser;
+    }
     let { content } = this.message;
     let { gBrowser } = browser.documentGlobal;
     let doc = gBrowser.ownerDocument;
@@ -412,12 +416,21 @@ class InfoBarNotification {
       InfoBar._activeInfobar?.message?.id === this.message.id;
     if (eventType === "removed") {
       this.notification = null;
+      this._browser = null;
       if (isActiveMessage) {
         InfoBar._activeInfobar = null;
       }
     } else if (this.notification) {
       this.sendUserEventTelemetry("DISMISSED");
+      if (eventType === "dismissed" && this.message.content.dismiss_action) {
+        this.dispatchUserAction(
+          this.message.content.dismiss_action,
+          this._browser
+        );
+      }
+
       this.notification = null;
+      this._browser = null;
 
       if (isActiveMessage) {
         InfoBar._activeInfobar = null;

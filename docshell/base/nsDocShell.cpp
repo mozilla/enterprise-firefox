@@ -124,6 +124,7 @@
 #include "nsIDOMWindow.h"
 #include "nsIEditingSession.h"
 #include "nsIEffectiveTLDService.h"
+#include "nsExternalHelperAppService.h"
 #include "nsIExternalProtocolService.h"
 #include "nsIFormPOSTActionChannel.h"
 #include "nsIFrame.h"
@@ -9016,9 +9017,10 @@ bool nsDocShell::CanLoadInParentProcess(nsIURI* aURI) {
       break;
     }
   }
-  // Allow about: URIs, and allow moz-extension ones if we're running
-  // extension content in the parent process.
-  if (!uri || uri->SchemeIs("about") ||
+  // Allow about: URIs, execept about:srcdoc, which can include arbitrary code.
+  // And allow moz-extension ones if we're running extension content in the
+  // parent process.
+  if (!uri || (uri->SchemeIs("about") && !NS_IsAboutSrcdoc(uri)) ||
       (!StaticPrefs::extensions_webextensions_remote() &&
        uri->SchemeIs("moz-extension"))) {
     return true;
@@ -9253,12 +9255,6 @@ nsIPrincipal* nsDocShell::GetInheritedPrincipal(
     referrerInfo->GetOriginalReferrer(getter_AddRefs(referrer));
   }
   if (httpChannelInternal) {
-    if (aLoadState->HasInternalLoadFlags(
-            INTERNAL_LOAD_FLAGS_FORCE_ALLOW_COOKIES)) {
-      aRv = httpChannelInternal->SetThirdPartyFlags(
-          nsIHttpChannelInternal::THIRD_PARTY_FORCE_ALLOW);
-      MOZ_ASSERT(NS_SUCCEEDED(aRv));
-    }
     if (aLoadState->FirstParty()) {
       aRv = httpChannelInternal->SetDocumentURI(aLoadState->URI());
       MOZ_ASSERT(NS_SUCCEEDED(aRv));
@@ -9510,13 +9506,13 @@ bool nsDocShell::ShouldDoInitialAboutBlankSyncLoad(
         mDocumentViewer->GetDocument()->NodePrincipal()->GetIsNullPrincipal(),
         "Load looks like first load but does not want principal inheritance.");
   } else {
-    if (XRE_IsContentProcess() &&
-        !ValidatePrincipalCouldPotentiallyBeLoadedBy(
-            aPrincipalToInherit, ContentChild::GetSingleton()->GetRemoteType(),
-            {})) {
-      // Principal doesn't match our remote type, so the we need the normal
-      // load path to do a process switch.
-      return false;
+    if (XRE_IsContentProcess()) {
+      RefPtr<LoadedOriginSet> loadedOrigins = CurrentLoadedOriginSet();
+      if (!loadedOrigins->ValidatePrincipal(aPrincipalToInherit)) {
+        // We can't directly load this principal, so we need the normal load
+        // path to do a process switch.
+        return false;
+      }
     }
 
     // If a page opens about:blank, it will have a content principal.
@@ -10099,24 +10095,17 @@ nsresult nsDocShell::CompleteInitialAboutBlankLoad(
   nsresult rv;
   // Match the DocumentChannel case where the default for third-partiness
   // differs from the default in LoadInfo construction here.
-  // toolkit/components/antitracking/test/browser/browser_aboutblank.js
-  // fails without this.
   BrowsingContext* top = mBrowsingContext->Top();
   if (top == mBrowsingContext) {
-    // If we're at the top, this must be a window.open()ed
-    // window, and we can't be third-party relative to ourselves.
     aLoadInfo->SetIsThirdPartyContextToTopWindow(false);
   } else {
-    if (Document* topDoc = top->GetDocument()) {
-      bool thirdParty = false;
+    bool thirdParty = true;
+    if (Document* topDoc = top->GetExtantDocument();
+        topDoc && aLoadState->PrincipalToInherit()) {
       (void)topDoc->GetPrincipal()->IsThirdPartyPrincipal(
           aLoadState->PrincipalToInherit(), &thirdParty);
-      aLoadInfo->SetIsThirdPartyContextToTopWindow(thirdParty);
-    } else {
-      // If top is in a different process, we have to be third-party relative
-      // to it.
-      aLoadInfo->SetIsThirdPartyContextToTopWindow(true);
     }
+    aLoadInfo->SetIsThirdPartyContextToTopWindow(thirdParty);
   }
 
   if (!mDocumentViewer) {
@@ -11272,9 +11261,11 @@ void nsDocShell::UpdateActiveEntry(
     // Link this entry to the previous active entry.
     mActiveEntry = MakeUnique<SessionHistoryInfo>(*previousActiveEntry, aURI);
   } else {
+    Document* doc = GetDocument();
+    MOZ_ASSERT(doc);
     mActiveEntry = MakeUnique<SessionHistoryInfo>(
-        aURI, aTriggeringPrincipal, nullptr, nullptr, aPolicyContainer,
-        mContentTypeHint);
+        aURI, aTriggeringPrincipal, doc->NodePrincipal(), nullptr,
+        aPolicyContainer, mContentTypeHint);
   }
   mActiveEntry->SetOriginalURI(aOriginalURI);
   mActiveEntry->SetUnstrippedURI(nullptr);
@@ -12296,6 +12287,19 @@ nsresult nsDocShell::OnLinkClick(
   const bool hasValidUserGestureActivation =
       ownerDoc->HasValidTransientUserGestureActivation();
   loadState->SetHasValidUserGestureActivation(hasValidUserGestureActivation);
+
+  // For protocols that would launch without a prompt (e.g. mailto), consume the
+  // transient user gesture activation so a single gesture can't chain multiple
+  // launches. Do this here, at the same point the activation value is captured
+  // on the load state, rather than later in OnLinkClickSync: that runs
+  // asynchronously, and consuming there would be inconsistent with the scripted
+  // navigation path (see BrowsingContext::Navigate). The pre-consume value is
+  // already recorded on the load state above. See bug 299116.
+  if (nsAutoCString scheme; NS_SUCCEEDED(aURI->GetScheme(scheme))) {
+    nsExternalHelperAppService::MaybeConsumeUserActivationForExternalScheme(
+        ownerDoc->GetWindowContext(), loadState->TriggeringPrincipal(), scheme);
+  }
+
   loadState->SetTextDirectiveUserActivation(
       ownerDoc->ConsumeTextDirectiveUserActivation() ||
       hasValidUserGestureActivation);
@@ -12409,13 +12413,19 @@ nsresult nsDocShell::OnLinkClickSync(nsIContent* aContent,
         nsresult rv =
             extProtService->IsExposedProtocol(scheme.get(), &isExposed);
         if (NS_SUCCEEDED(rv) && !isExposed) {
-          return extProtService->LoadURI(
-              aLoadState->URI(), triggeringPrincipal, nullptr, mBrowsingContext,
-              /* aTriggeredExternally */
-              false,
-              /* aHasValidUserGestureActivation */
-              aContent->OwnerDoc()->HasValidTransientUserGestureActivation(),
-              /* aNewWindowTarget */ false);
+          // Use the activation captured on the load state at click/submit time
+          // (OnLinkClick, HTMLFormElement::SubmitSubmission), rather than
+          // re-reading from the document here: this runs asynchronously, by
+          // which point the transient activation may have expired. Consumption
+          // of the activation (for gated schemes like mailto) also happens at
+          // that capture point. See bug 299116.
+          bool hasValidUserGestureActivation =
+              aLoadState->HasValidUserGestureActivation();
+          return extProtService->LoadURI(aLoadState->URI(), triggeringPrincipal,
+                                         nullptr, mBrowsingContext,
+                                         /* aTriggeredExternally */
+                                         false, hasValidUserGestureActivation,
+                                         /* aNewWindowTarget */ false);
         }
       }
     }

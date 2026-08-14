@@ -51,6 +51,10 @@ the UI layer.
   still in the `ACTIVATING` state. The UI suppresses the error message
   in this case.
 
+`ERRORS.VPN_UNAVAILABLE`
+
+: VPN service is unavailable in the given region.
+
 ### Error propagation
 
 Errors thrown inside `IPPProxyManager.start()` are caught by the activation

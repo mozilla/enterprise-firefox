@@ -13,8 +13,6 @@ export const AppConstants: Readonly<{
 
   MOZ_ENTERPRISE: boolean;
 
-  ENABLE_EXPLICIT_RESOURCE_MANAGEMENT: boolean;
-
   RELEASE_OR_BETA: boolean;
 
   EARLY_BETA_OR_EARLIER: boolean;

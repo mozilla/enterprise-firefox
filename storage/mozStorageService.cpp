@@ -205,8 +205,6 @@ Service::AutoVFSRegistration::~AutoVFSRegistration() {
   }
 }
 
-Service::Service() : mRegistrationMutex("Service::mRegistrationMutex") {}
-
 Service::~Service() {
   mozilla::UnregisterWeakMemoryReporter(this);
   mozilla::UnregisterStorageSQLiteDistinguishedAmount();

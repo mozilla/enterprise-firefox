@@ -25,6 +25,11 @@ trustpanel:
       - monitor-ops@mozilla.com
     expires: never
     extra_keys:
+      trackers_blocked:
+        description: >
+          Whether any trackers were blocked on the page the Trust Panel was opened on.
+          (Which implies that the number of blocked trackers was shown next to the shield icon.)
+        type: boolean
       breach_status:
         description: >
           Whether and what type of breach alert was shown.

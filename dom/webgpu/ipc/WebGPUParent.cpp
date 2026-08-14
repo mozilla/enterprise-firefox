@@ -1902,7 +1902,7 @@ void WebGPUParent::EnsureSharedTextureForReadBackPresent(
 
   texture->SetOwnerId(ownerId);
   std::shared_ptr<SharedTexture> shared(texture.release());
-  mSharedTextures[aTextureId] = shared;
+  mSharedTextures[aTextureId] = std::move(shared);
 }
 
 std::shared_ptr<SharedTexture> WebGPUParent::CreateSharedTexture(

@@ -176,6 +176,19 @@ export const FEATURES = {
     engineId: "formfill-classification-engine",
     fluentId: "mlmodel-formfill-engine",
   },
+  // Triple-encoder Approach 3: the field-type classifier is split into a stock
+  // feature-extraction encoder (produces per-field pooled embeddings) and a
+  // small ONNX fusion "head" (windowed embeddings -> field-type logits).
+  // Both engines are driven from
+  // toolkit/components/formautofill/shared/FormAutofillML.sys.mjs
+  "formfill-encoder": {
+    engineId: "formfill-encoder-engine",
+    fluentId: "mlmodel-formfill-engine",
+  },
+  "formfill-head": {
+    engineId: "formfill-head-engine",
+    fluentId: "mlmodel-formfill-engine",
+  },
   // see toolkit/components/ml/content/nlp/EmbeddingsGenerator.sys.mjs
   "simple-text-embedder": {
     engineId: "simple-text-embedder-engine",
@@ -195,6 +208,9 @@ export const FEATURES = {
   chat: {
     engineId: "smart-openai",
   },
+  "smart-form-fill": {
+    engineId: "smart-openai",
+  },
   "title-generation": {
     engineId: "title-generation-engine",
   },
@@ -202,6 +218,9 @@ export const FEATURES = {
     engineId: "smart-openai",
   },
   "conversation-suggestions-followup": {
+    engineId: "smart-openai",
+  },
+  "resume-activity-conversation-starter": {
     engineId: "smart-openai",
   },
   "memories-initial-generation-system": {
@@ -1256,6 +1275,13 @@ export class EngineProcess {
     }
 
     try {
+      // The inference engine starts system-principal ChromeWorker instances
+      // within the content process, so needs to be marked as having loaded that
+      // principal. Remove this when we stop using system workers for inference.
+      keepAlive.domProcess.aboutToLoadOrigin(
+        Services.scriptSecurityManager.getSystemPrincipal()
+      );
+
       const actor = keepAlive.domProcess.getActor(actorName);
 
       // keep track of the childID for the inference process, so we can observe its shutdowns.

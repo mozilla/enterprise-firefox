@@ -1171,7 +1171,7 @@ nsresult CookieService::NormalizeHost(nsCString& aHost) {
     if (NS_FAILED(rv)) {
       return rv;
     }
-    aHost = host;
+    aHost = std::move(host);
   }
 
   return NS_OK;

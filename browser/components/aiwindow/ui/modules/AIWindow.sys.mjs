@@ -123,6 +123,15 @@ export const AIWindow = {
         new lazy.AIWindowTabStatesManager(win)
       );
       this._markActiveStart(win);
+
+      // Check scheduler startup for every AI window. Otherwise, if a non-AI
+      // window initialized first (e.g. on startup), the first AI window
+      // would never start the memories schedulers. Defer until delayed startup
+      // so MemoriesManager sees this window as ready before starting the schedulers.
+      win.delayedStartupPromise.then(() => {
+        lazy.MemoriesSchedulers.maybeRunAndSchedule();
+        lazy.TelemetryScheduler.maybeInit();
+      });
     }
 
     if (this._initialized) {
@@ -142,13 +151,6 @@ export const AIWindow = {
     lazy.NimbusFeatures.smartWindow.onUpdate(this.onNimbusUpdate);
     this._initialized = true;
     this._updateSwitcherWidgetRegistration();
-
-    // On startup/restart, if the first window initialized is an
-    // AI window, we need to start the memories schedulers.
-    if (this.isAIWindowActive(win)) {
-      lazy.MemoriesSchedulers.maybeRunAndSchedule();
-      lazy.TelemetryScheduler.maybeInit();
-    }
   },
 
   handlePlacesEvents(events) {
@@ -614,6 +616,17 @@ export const AIWindow = {
     return (
       AIWINDOW_URI.equalsExceptRef(uri) || FIRSTRUN_URI.equalsExceptRef(uri)
     );
+  },
+
+  /**
+   * Is the given URI the Smart Window new tab page. Unlike
+   * isAIWindowContentPage, this excludes the firstrun page.
+   *
+   * @param {nsIURI} uri current URI
+   * @returns {boolean} whether the URI is the Smart Window new tab page
+   */
+  isAIWindowNewTabPage(uri) {
+    return AIWINDOW_URI.equalsExceptRef(uri);
   },
 
   /**
@@ -1097,22 +1110,19 @@ export const AIWindow = {
     lazy.CustomizableUI.createWidget({
       id: "ai-window-toggle",
       l10nId: "toolbar-switcher-customizable-label",
-      type: "button",
+      type: "view",
+      viewId: "ai-window-toggle-view",
       defaultArea: lazy.CustomizableUI.AREA_TABSTRIP,
       removable: true,
       showInPrivateBrowsing: false,
       onCreated: node => {
+        node.classList.add("subviewbutton-nav");
         node.setAttribute("aria-haspopup", "true");
         this._updateButtonVisibility(node);
       },
-      onCommand: event => {
-        const win = event.view;
-        if (win.PanelUI.panel.state == "open") {
-          win.PanelUI.hide();
-        } else if (win.PanelUI.panel.state == "closed") {
-          this.handleAIWindowSwitcher(win);
-          win.PanelUI.showSubView("ai-window-toggle-view", event.target, event);
-        }
+      onViewShowing: event => {
+        const win = event.target.documentGlobal;
+        this.handleAIWindowSwitcher(win);
       },
     });
     this._switcherWidgetCreated = true;

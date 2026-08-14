@@ -38,7 +38,7 @@ extern void DumpWeakMapLog(JSRuntime* rt);
 namespace gc {
 
 // Ensure a Symbol read out of a weak map is marked black in |zone|'s atom
-// marking bitmap before it can escape to script.
+// reference bitmap before it can escape to script.
 void MarkSymbolForWeakMapReadBarrier(JS::Zone* zone, JS::Symbol* sym);
 
 #if defined(JS_GC_ZEAL) || defined(DEBUG)

@@ -32,6 +32,8 @@ extern crate encoding_glue;
 #[cfg(feature = "felt")]
 extern crate felt;
 extern crate fog_control;
+#[cfg(feature = "fontations")]
+extern crate fontations_glue;
 extern crate gecko_profiler;
 extern crate gkrust_utils;
 extern crate harfbuzz_glue;
@@ -134,6 +136,8 @@ extern crate crash_helper_client;
 #[cfg(feature = "webmidi_midir_impl")]
 extern crate midir_impl;
 
+#[cfg(all(target_os = "windows", feature = "backgroundtaskregistrar"))]
+extern crate backgroundtaskregistrar;
 #[cfg(target_os = "windows")]
 extern crate detect_win32k_conflicts;
 #[cfg(all(target_os = "windows", feature = "shell_windows"))]

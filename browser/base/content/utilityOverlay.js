@@ -22,6 +22,7 @@ ChromeUtils.defineESModuleGetters(this, {
     "resource://gre/modules/ExtensionSettingsStore.sys.mjs",
   ExtensionUtils: "resource://gre/modules/ExtensionUtils.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  Referrals: "resource:///modules/referrals/Referrals.sys.mjs",
   ShellService: "moz-src:///browser/components/shell/ShellService.sys.mjs",
   URILoadingHelper: "resource:///modules/URILoadingHelper.sys.mjs",
 });
@@ -395,6 +396,10 @@ function openAboutDialog() {
   win.openDialog("chrome://browser/content/aboutDialog.xhtml", "", features);
 }
 
+function openReferralsPage() {
+  Referrals.openReferralsTab(window);
+}
+
 async function openPreferences(paneID, extraArgs) {
   // This function is duplicated from preferences.js.
   function internalPrefCategoryNameToFriendlyName(aName) {
@@ -517,6 +522,9 @@ function buildHelpMenu() {
 
   document.getElementById("troubleShooting").disabled =
     !Services.policies.isAllowed("aboutSupport");
+
+  document.getElementById("menu_referralsPage").hidden =
+    !Services.prefs.getBoolPref("browser.referrals.enabled");
 
   let supportMenu = Services.policies.getSupportMenu();
   if (supportMenu) {

@@ -87,11 +87,17 @@ if CONFIG["USE_LIBZ_RS"]:
 if CONFIG["MOZ_ENTERPRISE"]:
     gkrust_features += ["felt"]
 
+if CONFIG["MOZ_FONTATIONS"]:
+    gkrust_features += ["fontations"]
+
 if CONFIG["MOZ_JXL"]:
     gkrust_features += ["jxl_decoder"]
 
 if CONFIG["MOZ_BUILD_APP"] == "browser" and CONFIG["OS_ARCH"] == "WINNT":
     gkrust_features += ["shell_windows"]
+
+if CONFIG["MOZ_BACKGROUNDTASKS"] and CONFIG["OS_ARCH"] == "WINNT":
+    gkrust_features += ["backgroundtaskregistrar"]
 
 if CONFIG["ENABLE_TESTS"]:
     gkrust_features += ["enable_tests"]

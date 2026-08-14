@@ -10,6 +10,8 @@ document.addEventListener(
       TranslationsParent: "resource://gre/actors/TranslationsParent.sys.mjs",
       AIWindowUI:
         "moz-src:///browser/components/aiwindow/ui/modules/AIWindowUI.sys.mjs",
+      ContainerCreationPanel:
+        "chrome://browser/content/usercontext/ContainerCreationPanel.mjs",
       Referrals: "resource:///modules/referrals/Referrals.sys.mjs",
     });
 
@@ -247,7 +249,7 @@ document.addEventListener(
             openNewUserContextTab(event.sourceEvent);
             break;
           case "Browser:AddContainer":
-            gContainerCreation.open();
+            lazy.ContainerCreationPanel.open(window);
             break;
           case "Browser:OpenAboutContainers":
             openPreferences("paneContainers");

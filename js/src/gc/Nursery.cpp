@@ -1647,8 +1647,12 @@ void js::Nursery::swapSpaces() {
 void js::Nursery::traceRoots(AutoGCSession& session, TenuringTracer& mover) {
   {
     // Suppress the sampling profiler to prevent it observing moved functions.
+    // Minor GC does not move JSScripts (they are tenured), so allow the
+    // sampler to keep reading tenured script data such as line/column via
+    // ProfilingStackFrame::script(); its JSFunction may be in the nursery and
+    // moving, so function() stays suppressed.
     AutoSuppressProfilerSampling suppressProfiler(
-        runtime()->mainContextFromOwnThread());
+        runtime()->mainContextFromOwnThread(), ProfilerScriptAccess::Allow);
 
     // Trace the store buffer, which must happen first.
 

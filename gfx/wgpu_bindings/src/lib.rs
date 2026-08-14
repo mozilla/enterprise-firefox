@@ -380,7 +380,7 @@ enum DeviceAction<'a> {
     ComputePipelineGetBindGroupLayout(id::ComputePipelineId, u32, id::BindGroupLayoutId),
     CreatePipelineLayout(
         id::PipelineLayoutId,
-        wgc::binding_model::PipelineLayoutDescriptor<'a>,
+        wgc::binding_model::PipelineLayoutDescriptor<'a, id::BindGroupLayoutId>,
     ),
     CreateBindGroup(id::BindGroupId, wgc::binding_model::BindGroupDescriptor<'a>),
     CreateShaderModule(id::ShaderModuleId, wgc::Label<'a>, Cow<'a, str>),

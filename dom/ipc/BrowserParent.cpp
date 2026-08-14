@@ -194,7 +194,7 @@ class RequestingAccessKeyEventData {
   RequestingAccessKeyEventData() = delete;
 
   static void OnBrowserParentCreated() {
-    MOZ_ASSERT(sBrowserParentCount <= INT32_MAX);
+    MOZ_ASSERT(sBrowserParentCount < INT32_MAX);
     sBrowserParentCount++;
   }
   static void OnBrowserParentDestroyed() {
@@ -1258,6 +1258,16 @@ mozilla::ipc::IPCResult BrowserParent::RecvPDocAccessibleConstructor(
 #  endif
   auto doc = static_cast<a11y::DocAccessibleParent*>(aDoc);
   doc->SetIsPrintDoc(aIsPrintDoc);
+  auto allow = doc->ShouldAllowConstruction();
+  if (allow == a11y::DocAccessibleParent::AllowConstruction::Disallow) {
+    return IPC_FAIL(
+        this,
+        "Attempt to construct PDocAccessible when accessibility not in use");
+  } else if (allow ==
+             a11y::DocAccessibleParent::AllowConstruction::AllowButIgnore) {
+    doc->MarkAsShutdown();
+    return IPC_OK();
+  }
 
   // If this tab is already shutting down just mark the new actor as shutdown
   // and ignore it.  When the tab actor is destroyed it will be too.
@@ -1411,7 +1421,7 @@ IPCResult BrowserParent::RecvNewWindowGlobal(
 
   // Ensure we never load a document with a content principal in
   // the wrong type of webIsolated process
-  // NOTE: Keep this in sync with the similar check in
+  // NOTE: Keep the AllowSystem condition in sync with the similar check in
   // DocumentLoadListener::TriggerRedirectToRealChannel.
   EnumSet<ValidatePrincipalOptions> validationOptions = {};
   if (xpc::IsInAutomation()) {
@@ -1426,7 +1436,7 @@ IPCResult BrowserParent::RecvNewWindowGlobal(
     if (isChromeReftest ||
         (NS_IsAboutBlank(docURI) && parentWgp && parentWgp->Manager() == this &&
          parentWgp->DocumentPrincipal()->IsSystemPrincipal())) {
-      validationOptions += ValidatePrincipalOptions::AllowSystem;
+      validationOptions += ValidatePrincipalOptions::AllowSystemIfLoaded;
     }
   }
   if (!Manager()->ValidatePrincipal(aInit.principal(), validationOptions)) {
@@ -2147,7 +2157,7 @@ void BrowserParent::SendRealKeyEvent(WidgetKeyboardEvent& aEvent) {
   // NOTE: If you call `InitAllEditCommands()` for the other messages too,
   //       you also need to update
   //       TextEventDispatcher::DispatchKeyboardEventInternal().
-  if (aEvent.mMessage == eKeyPress) {
+  if (aEvent.mMessage == eKeyPress || aEvent.mMessage == eKeyDown) {
     // If current input context is editable, the edit commands are initialized
     // by TextEventDispatcher::DispatchKeyboardEventInternal().  Otherwise,
     // we need to do it here (they are not necessary for the parent process,
@@ -3977,6 +3987,7 @@ mozilla::ipc::IPCResult BrowserParent::RecvInvokeDragSession(
     return IPC_OK();
   }
 
+  // XXX: Can we remove AllowNullPtr here?
   if (!Manager()->ValidatePrincipal(aPrincipal,
                                     {ValidatePrincipalOptions::AllowNullPtr})) {
     return ContentParent::PrincipalValidationIpcFail(aPrincipal, this,
@@ -4274,6 +4285,18 @@ mozilla::ipc::IPCResult BrowserParent::RecvScrollRectIntoView(
 
   (void)bridge->SendScrollRectIntoView(aRect, aVertical, aHorizontal,
                                        aScrollFlags, aAppUnitsPerDevPixel);
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult BrowserParent::RecvScrollForKeyboard(
+    const KeyboardScrollAction& aAction) {
+  // We do deliberately not support handing off keyboard scrolling to the
+  // browser chrome.
+  BrowserBridgeParent* bridge = GetBrowserBridgeParent();
+  if (!bridge || !bridge->CanSend()) {
+    return IPC_OK();
+  }
+  (void)bridge->SendScrollForKeyboard(aAction);
   return IPC_OK();
 }
 

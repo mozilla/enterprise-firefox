@@ -22,8 +22,17 @@ internal class GeckoIPProtectionHandler(
 
     private val logger = Logger("IPP:GeckoHandler")
 
-    override fun activate(onResult: (Throwable?) -> Unit) {
-        runtime.ipProtectionController.activate().then(
+    override fun activate(
+        countryCode: String?,
+        onResult: (Throwable?) -> Unit,
+    ) {
+        // `userAction` differentiates between user and system initiated actions, `false` is used by
+        // the toolkit code internally; we are reporting `true`.
+        // Both fields are used for toolkit telemetry, and since projects track telemetry independently,
+        // defaulting `inPrivateBrowsing` to `false` for android is fine.
+        val userAction = true
+        val inPrivateBrowsing = false
+        runtime.ipProtectionController.activate(userAction, inPrivateBrowsing, countryCode).then(
             {
                 onResult(null)
                 GeckoResult.fromValue(null)
@@ -97,6 +106,10 @@ internal class GeckoIPProtectionHandler(
                 GeckoResult()
             },
         )
+    }
+
+    override fun updateCountryList() {
+        runtime.ipProtectionController.getCountryList()
     }
 
     override fun setAuthProvider(

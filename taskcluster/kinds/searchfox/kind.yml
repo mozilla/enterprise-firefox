@@ -30,6 +30,7 @@ task-defaults:
     # the files that sccache optimizes away compilation for.
     use-sccache: false
     run:
+        clone-with: hg
         using: mozharness
         actions: [build]
         extra-config:
@@ -39,6 +40,9 @@ task-defaults:
         env:
             MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE: system
             PERFHERDER_EXTRA_OPTIONS: searchfox
+    fetches:
+        toolchain:
+            - newtab-node-modules
 
 tasks:
     linux64-searchfox/opt:
@@ -52,6 +56,7 @@ tasks:
             env:
                 MOZSEARCH_PLATFORM: "linux64-opt"
         run:
+            clone-with: hg
             config:
                 - builds/releng_base_firefox.py
                 - builds/releng_sub_linux_configs/64_searchfox_and_opt.py
@@ -82,6 +87,7 @@ tasks:
             env:
                 MOZSEARCH_PLATFORM: "linux64"
         run:
+            clone-with: hg
             config:
                 - builds/releng_base_firefox.py
                 - builds/releng_sub_linux_configs/64_searchfox_and_debug.py
@@ -111,6 +117,7 @@ tasks:
             env:
                 MOZSEARCH_PLATFORM: "macosx64"
         run:
+            clone-with: hg
             config:
                 - builds/releng_base_firefox.py
                 - builds/releng_base_mac_64_cross_builds.py
@@ -142,6 +149,7 @@ tasks:
             env:
                 MOZSEARCH_PLATFORM: "macosx64-aarch64-opt"
         run:
+            clone-with: hg
             config:
                 - builds/releng_base_firefox.py
                 - builds/releng_base_mac_64_cross_builds.py
@@ -177,6 +185,7 @@ tasks:
             env:
                 MOZSEARCH_PLATFORM: "macosx64-aarch64"
         run:
+            clone-with: hg
             config:
                 - builds/releng_base_firefox.py
                 - builds/releng_base_mac_64_cross_builds.py
@@ -211,6 +220,7 @@ tasks:
             env:
                 MOZSEARCH_PLATFORM: "ios"
         run:
+            clone-with: hg
             config:
                 - builds/releng_base_firefox.py
             script: "mozharness/scripts/fx_desktop_build.py"
@@ -247,6 +257,7 @@ tasks:
             env:
                 MOZSEARCH_PLATFORM: "win64-opt"
         run:
+            clone-with: hg
             options: [append-env-variables-from-configs]
             script: mozharness/scripts/fx_desktop_build.py
             config:
@@ -289,6 +300,7 @@ tasks:
             env:
                 MOZSEARCH_PLATFORM: "win64"
         run:
+            clone-with: hg
             options: [append-env-variables-from-configs]
             script: mozharness/scripts/fx_desktop_build.py
             config:
@@ -333,6 +345,7 @@ tasks:
                 GRADLE_USER_HOME: "/builds/worker/checkouts/gecko/mobile/android/gradle/dotgradle-offline"
                 TOOLTOOL_MANIFEST: "mobile/android/config/tooltool-manifests/android/releng.manifest"
         run:
+            clone-with: hg
             config:
                 - builds/releng_base_android_64_builds.py
             script: "mozharness/scripts/fx_desktop_build.py"

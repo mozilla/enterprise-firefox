@@ -20,6 +20,11 @@ async function withReferralsPref(enabled, task) {
   }
 }
 
+registerCleanupFunction(() => {
+  Services.prefs.unlockPref("browser.referrals.code");
+  Services.prefs.clearUserPref("browser.referrals.code");
+});
+
 add_task(async function test_hidden_when_disabled() {
   await withReferralsPref(false, async () => {
     await gCUITestUtils.openMainMenu();
@@ -62,7 +67,11 @@ add_task(async function test_visible_and_opens_tab_when_enabled() {
     await promiseHidden;
 
     await TestUtils.waitForCondition(
-      () => gBrowser.currentURI.displaySpec === "about:referrals",
+      () =>
+        gBrowser.currentURI.displaySpec === "about:referrals" ||
+        gBrowser.currentURI.displaySpec.startsWith(
+          "https://www.firefox.com/invite"
+        ),
       "Waiting for the referrals tab to be opened"
     );
 

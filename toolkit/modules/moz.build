@@ -222,6 +222,7 @@ MOZ_SRC_FILES += [
     "DateTimePickerPanel.sys.mjs",
     "FaviconUtils.sys.mjs",
     "InputPickerPanelCommon.sys.mjs",
+    "RegionLocaleMap.sys.mjs",
 ]
 
 if CONFIG["MOZ_ENTERPRISE"]:
@@ -294,6 +295,7 @@ for var in (
     "MOZ_APP_DISPLAYNAME",
     "MOZ_APP_VERSION",
     "MOZ_APP_VERSION_DISPLAY",
+    "MOZ_BACKGROUNDTASK_CLSID",
     "MOZ_BING_API_CLIENTID",
     "MOZ_BING_API_KEY",
     "MOZ_GOOGLE_SAFEBROWSING_API_KEY",
@@ -323,7 +325,6 @@ for var in (
 
 for var in (
     "NIGHTLY_BUILD",
-    "ENABLE_EXPLICIT_RESOURCE_MANAGEMENT",
     "RELEASE_OR_BETA",
     "EARLY_BETA_OR_EARLIER",
     "MOZ_ESR",
@@ -358,6 +359,7 @@ for var in (
     "MOZ_CODE_COVERAGE",
     "ENABLE_WEBDRIVER",
     "MOZ_GLEAN_ANDROID",
+    "MOZ_FONTATIONS",
     "MOZ_JXL",
     "MOZ_SYSTEM_POLICIES",
     "MOZ_SELECTABLE_PROFILES",

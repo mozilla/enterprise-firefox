@@ -82,6 +82,30 @@ add_task(function test_ChatMessage_historyResults() {
   );
 });
 
+add_task(function test_ChatMessage_citations() {
+  const defaulted = new ChatMessage({
+    ordinal: 0,
+    role: 0,
+    turnIndex: 0,
+    content: "some content",
+  });
+  Assert.deepEqual(defaulted.citations, [], "citations should default to []");
+
+  const records = [{ url: "https://example.com/", title: "Example" }];
+  const withCitations = new ChatMessage({
+    ordinal: 0,
+    role: 0,
+    turnIndex: 0,
+    content: "some content",
+    citations: records,
+  });
+  Assert.deepEqual(
+    withCitations.citations,
+    records,
+    "citations should preserve a passed array"
+  );
+});
+
 add_task(function test_pageUrl_as_URL_ChatConversation() {
   const message = new ChatMessage({
     ordinal: 0,

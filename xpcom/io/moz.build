@@ -96,6 +96,7 @@ EXPORTS.mozilla += [
     "Hex.h",
     "InputStreamLengthHelper.h",
     "InputStreamLengthWrapper.h",
+    "MemoryMappedFile.h",
     "NonBlockingAsyncInputStream.h",
     "SlicedInputStream.h",
     "SnappyCompressOutputStream.h",
@@ -153,6 +154,15 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
 if CONFIG["OS_ARCH"] == "Darwin":
     UNIFIED_SOURCES += [
         "DarwinFileUtils.mm",
+    ]
+
+if CONFIG["OS_ARCH"] == "WINNT":
+    UNIFIED_SOURCES += [
+        "MemoryMappedFileWin32.cpp",
+    ]
+else:
+    UNIFIED_SOURCES += [
+        "MemoryMappedFileUnix.cpp",
     ]
 
 DEFINES["MOZ_APP_BASENAME"] = '"%s"' % CONFIG["MOZ_APP_BASENAME"]

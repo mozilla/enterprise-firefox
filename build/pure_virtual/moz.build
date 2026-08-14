@@ -14,6 +14,8 @@ USE_STATIC_MSVCRT = True
 # is never used.
 NO_EXPAND_LIBS = True
 
+DIST_INSTALL = True
+
 # LTO can mess things up.
 if CONFIG["CC_TYPE"] == "clang-cl":
     CFLAGS += ["-clang:-fno-lto"]

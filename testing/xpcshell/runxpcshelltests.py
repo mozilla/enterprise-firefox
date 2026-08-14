@@ -55,6 +55,10 @@ except ImportError:
     build = None
 
 HARNESS_TIMEOUT = 30
+# How long to wait for a force-killed process to exit on its own after
+# kill_and_get_minidump asked it for a minidump (a SIGABRT the process handles
+# itself on Linux/macOS), before giving up and letting postCheck SIGKILL it.
+TIMEOUT_MINIDUMP_WAIT = 30
 TBPL_RETRY = 4  # defined in mozharness
 
 # Based on recent benchmarking on highcpu pools, this value gives the best
@@ -475,14 +479,40 @@ class XPCShellTestThread(Thread):
                 self.lock.release()
                 return
 
-        # Set these flags first to prevent test_end from being logged again
-        # while we output the full log.
-        self.done = True
+        # Mark timed out so run_test reports the timeout instead of a result for
+        # the process we're killing. Leave self.done for run() to set after the
+        # TIMEOUT test_end below; setting it now lets the scheduler start the
+        # retry mid-dump, interleaving its test_start with our late test_end.
         self.timedout = True
 
         # Kill the test process before calling log_full_output that can take a
         # a while due to stack fixing.
         self.killTimeout(proc)
+
+        # On Linux/macOS kill_and_get_minidump only sends SIGABRT, so wait for
+        # the process to finish writing its minidump before postCheck's SIGKILL
+        # cuts it off, then symbolicate it -- this timeout path returns before
+        # run_test's own checkForCrashes.
+        if proc is not None and hasattr(proc, "pid"):
+            deadline = time.time() + TIMEOUT_MINIDUMP_WAIT
+            while self.poll(proc) is None and time.time() < deadline:
+                time.sleep(0.1)
+        self.checkForCrashes(
+            self.tempDir, self.symbolsPath, test_name=self.test_object["id"]
+        )
+
+        # Note that the crash above is this force-killed process, not a real
+        # crash. Buffered as a test message so the retry replay demotes it out of
+        # the failure summary, like the crash itself.
+        self.report_message({
+            "action": "log",
+            "level": "ERROR",
+            "message": (
+                f"{self.test_object['id']} | Timed out and was force-killed by "
+                "the harness; the crash dump reported for this test is that "
+                "force-killed process, not an actual crash."
+            ),
+        })
 
         self.reportTimeoutResult()
 

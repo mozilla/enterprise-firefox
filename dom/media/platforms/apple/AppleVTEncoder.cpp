@@ -395,8 +395,14 @@ static Result<OSType, MediaResult> MapPixelFormat(
 }
 
 RefPtr<MediaDataEncoder::InitPromise> AppleVTEncoder::Init() {
-  MOZ_ASSERT(!mSession,
-             "Cannot initialize encoder again without shutting down");
+  if (mSession) {
+    MOZ_ASSERT_UNREACHABLE(
+        "Cannot initialize encoder again without shutting down");
+    return InitPromise::CreateAndReject(
+        MediaResult(NS_ERROR_ALREADY_INITIALIZED,
+                    RESULT_DETAIL("Encoder is already initialized")),
+        __func__);
+  }
 
   MediaResult r = InitSession();
   if (NS_FAILED(r.Code())) {

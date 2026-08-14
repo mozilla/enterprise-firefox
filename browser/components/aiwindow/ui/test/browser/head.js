@@ -54,7 +54,7 @@ let gIntentEngineStub;
 // Minimal RS records returned by the global getRemoteClient stub.
 // Version numbers must match FEATURE_MAJOR_VERSIONS in models/Utils.sys.mjs.
 const MOCK_RS_RECORDS = [
-  ["chat", 8],
+  ["chat", 11],
   ["title-generation", 1],
   ["conversation-starters-sidebar-system", 1],
   ["conversation-suggestions-sidebar-starter", 3],
@@ -63,8 +63,6 @@ const MOCK_RS_RECORDS = [
   ["conversation-suggestions-memories", 1],
   ["memories-initial-generation-system", 2],
   ["memories-initial-generation-user", 2],
-  ["memories-deduplication-system", 1],
-  ["memories-deduplication-user", 1],
   ["memories-sensitivity-filter-system", 1],
   ["memories-sensitivity-filter-user", 1],
   ["memories-quality-filter-system", 1],
@@ -88,9 +86,33 @@ const MOCK_RS_RECORDS = [
     version: `v${major}.0`,
     is_default: true,
   }))
-  // Per-choice records for chat so resolveChatModelChoice returns correct model names.
+  // The memories relevant context prompt renders the retrieved memory list, so
+  // it needs the placeholder the real prompt has.
+  .map(record =>
+    record.feature === "memories-relevant-context"
+      ? {
+          ...record,
+          prompts:
+            "# Existing Memories\n\n## Existing Memories\n{relevantMemoriesList}",
+        }
+      : record
+  )
+  // Chat resolves model+params from v2 kind:"params" records (one generic
+  // fallback + one per model choice).
   .concat([
     {
+      kind: "params",
+      feature: "chat",
+      model: "generic",
+      model_choice_id: "0",
+      service_type: "ai",
+      purpose: "chat",
+      parameters: {},
+      is_default: true,
+      version: "v10.0",
+    },
+    {
+      kind: "params",
       feature: "chat",
       model: "gemini-3.1-flash-lite",
       model_choice_id: "1",
@@ -105,9 +127,10 @@ const MOCK_RS_RECORDS = [
       purpose: "chat",
       parameters: {},
       prompts: "Test system prompt.",
-      version: "v8.0",
+      version: "v10.0",
     },
     {
+      kind: "params",
       feature: "chat",
       model: "qwen3-235b-a22b-instruct-2507-maas",
       model_choice_id: "2",
@@ -122,9 +145,10 @@ const MOCK_RS_RECORDS = [
       purpose: "chat",
       parameters: {},
       prompts: "Test system prompt.",
-      version: "v8.0",
+      version: "v10.0",
     },
     {
+      kind: "params",
       feature: "chat",
       model: "gpt-oss-120b",
       model_choice_id: "3",
@@ -139,20 +163,41 @@ const MOCK_RS_RECORDS = [
       purpose: "chat",
       parameters: {},
       prompts: "Test system prompt.",
-      version: "v8.0",
+      version: "v10.0",
     },
     // TODO 2053495
-    // v9 records for mistral release (browser.smartwindow.mistralRelease pref)
+    // v11 records for mistral release (browser.smartwindow.mistralRelease pref)
     {
+      kind: "params",
       feature: "chat",
       model: "generic",
+      model_choice_id: "0",
       service_type: "ai",
+      purpose: "chat",
       parameters: {},
       prompts: "Test system prompt.",
-      version: "v9.0",
+      version: "v11.0",
       is_default: true,
     },
     {
+      kind: "params",
+      feature: "chat",
+      model: "mistral-small-2603",
+      model_choice_id: "3",
+      model_details: {
+        model: "mistral-small-2603",
+        ownerName: "Mistral",
+        labelId: "personal",
+        shortName: "Mistral Small 4",
+        brandName: "Mistral",
+      },
+      service_type: "ai",
+      purpose: "chat",
+      parameters: {},
+      version: "v11.0",
+    },
+    {
+      kind: "params",
       feature: "chat",
       model: "gemini-3.1-flash-lite",
       model_choice_id: "1",
@@ -167,9 +212,10 @@ const MOCK_RS_RECORDS = [
       purpose: "chat",
       parameters: {},
       prompts: "Test system prompt.",
-      version: "v9.0",
+      version: "v11.0",
     },
     {
+      kind: "params",
       feature: "chat",
       model: "qwen3-235b-a22b-instruct-2507-maas",
       model_choice_id: "2",
@@ -183,25 +229,7 @@ const MOCK_RS_RECORDS = [
       service_type: "ai",
       purpose: "chat",
       parameters: {},
-      prompts: "Test system prompt.",
-      version: "v9.0",
-    },
-    {
-      feature: "chat",
-      model: "mistral-small-2603",
-      model_choice_id: "3",
-      model_details: {
-        model: "mistral-small-2603",
-        ownerName: "Mistral",
-        labelId: "personal",
-        shortName: "Mistral Small 4",
-        brandName: "Mistral",
-      },
-      service_type: "ai",
-      purpose: "chat",
-      parameters: {},
-      prompts: "Test system prompt.",
-      version: "v9.0",
+      version: "v11.0",
     },
   ]);
 
@@ -759,7 +787,8 @@ async function waitForSmartbarAction(browser, expectedAction) {
 }
 
 /**
- * Stub the smartbar method _loadURL to prevent navigation.
+ * Stub the smartbar's load path to prevent navigation. The load funnels through
+ * the private #loadURL into controller.loadURL, so the controller is the seam.
  *
  * @param {MozBrowser} browser - The browser element
  * @param {object} [options] - Options for the stub
@@ -777,12 +806,13 @@ async function stubLoadURL(browser, { captureURL = false } = {}) {
     if (capture) {
       content._stubLoadURLCalled = false;
       content._stubLoadedURL = null;
-      smartbar._loadURL = url => {
+      smartbar.controller.loadURL = ({ url }) => {
         content._stubLoadURLCalled = true;
         content._stubLoadedURL = url;
+        return {};
       };
     } else {
-      smartbar._loadURL = () => {};
+      smartbar.controller.loadURL = () => ({});
     }
   });
 }
@@ -798,6 +828,45 @@ async function getStubLoadURLResult(browser) {
     return {
       called: content._stubLoadURLCalled,
       url: content._stubLoadedURL,
+    };
+  });
+}
+
+/**
+ * Stub the controller's openSERP method to capture the search terms instead of
+ * running a real search.
+ *
+ * @param {MozBrowser} browser - The browser element
+ */
+async function stubOpenSERP(browser) {
+  await SpecialPowers.spawn(browser, [], async () => {
+    const aiWindow = content.document.querySelector("ai-window");
+    const smartbar = await ContentTaskUtils.waitForCondition(() =>
+      ContentTaskUtils.querySelectorDeep(aiWindow, "#ai-window-smartbar")
+    );
+    content._stubOpenSERPCalled = false;
+    content._stubOpenSERPTerms = null;
+    content._stubOpenSERPEngine = null;
+    smartbar.controller.openSERP = (engineId, searchTerms) => {
+      content._stubOpenSERPCalled = true;
+      content._stubOpenSERPTerms = searchTerms;
+      content._stubOpenSERPEngine = engineId;
+    };
+  });
+}
+
+/**
+ * Get the result of a stubbed openSERP call.
+ *
+ * @param {MozBrowser} browser - The browser element
+ * @returns {Promise<{called: boolean, terms: ?string, engineId: ?string}>}
+ */
+async function getStubOpenSERPResult(browser) {
+  return SpecialPowers.spawn(browser, [], async () => {
+    return {
+      called: content._stubOpenSERPCalled,
+      terms: content._stubOpenSERPTerms,
+      engineId: content._stubOpenSERPEngine,
     };
   });
 }
@@ -1715,4 +1784,43 @@ async function withServer(serverOptions, task) {
     await SpecialPowers.popPrefEnv();
     await stopMockOpenAI(server);
   }
+}
+
+/**
+ * Waits for ai-window, then its shadowRoot, then the loaded #aichat-browser.
+ *
+ * @param {object} browser - The chrome browser element hosting ai-window
+ * @returns {Promise<object>} The aichat browser element
+ */
+async function getAichatBrowser(browser) {
+  const aiWindowEl = await TestUtils.waitForCondition(
+    () => browser.contentDocument?.querySelector("ai-window"),
+    "Wait for ai-window element to exist"
+  );
+
+  await TestUtils.waitForCondition(
+    () => aiWindowEl.shadowRoot,
+    "Wait for ai-window shadowRoot to be ready"
+  );
+
+  const aichatBrowser = await TestUtils.waitForCondition(
+    () => aiWindowEl.shadowRoot.querySelector("#aichat-browser"),
+    "Wait for aichat-browser element"
+  );
+
+  if (aichatBrowser.currentURI?.spec !== "about:aichatcontent") {
+    await BrowserTestUtils.browserLoaded(
+      aichatBrowser,
+      false,
+      "about:aichatcontent"
+    );
+  }
+
+  Assert.equal(
+    aichatBrowser.currentURI.spec,
+    "about:aichatcontent",
+    "aichat-browser should be loaded with about:aichatcontent"
+  );
+
+  return aichatBrowser;
 }

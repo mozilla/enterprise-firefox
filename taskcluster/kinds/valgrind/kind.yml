@@ -44,6 +44,7 @@ tasks:
                 PERFHERDER_EXTRA_OPTIONS: valgrind
                 MOZ_PERFHERDER_UPLOAD: /builds/worker/perfherder-data-valgrind.json
         run:
+            clone-with: hg
             using: mozharness
             actions: [get-secrets, build, valgrind-test]
             custom-build-variant-cfg: valgrind
@@ -69,5 +70,6 @@ tasks:
                 - sysroot-x86_64-linux-gnu
                 - sysroot-wasm32-wasi
                 - terser
+                - newtab-node-modules
         optimization:
             skip-unless-expanded: null

@@ -911,3 +911,88 @@ export async function countRecentVisits({ days = DEFAULT_DAYS } = {}) {
     return 0;
   }
 }
+
+/**
+ * Convenience function to extract the `source_ids.history_source_ids` array from a memory object.
+ *
+ * @param {*} memory
+ * @returns {Array<number>} Array of history source IDs
+ */
+export function getHistorySourceIdsFromMemory(memory) {
+  return memory?.source_ids?.history_source_ids ?? [];
+}
+
+/**
+ * Resolves the Places URL hashes referenced by memories.
+ * Omits any URLs that are not found in the Places database by hash or
+ * have null title/URL/last_visit_date. Also omits hash collisions.
+ *
+ * @param {Array<object>} memories - Memories whose history sources to resolve
+ * @returns {Promise<Map<number, object>>} Places data keyed by URL hash
+ */
+export async function resolveUrlsForMemories(memories) {
+  const historyEnabled = Services.prefs.getBoolPref("places.history.enabled");
+  const privateBrowsing = Services.prefs.getBoolPref(
+    "browser.privatebrowsing.autostart"
+  );
+  if (!historyEnabled || privateBrowsing) {
+    return new Map();
+  }
+
+  const urlHashes = [
+    ...new Set(
+      memories.flatMap(memory => getHistorySourceIdsFromMemory(memory))
+    ),
+  ];
+  if (!urlHashes.length) {
+    return new Map();
+  }
+
+  const bindings = {};
+  const placeholders = urlHashes.map((urlHash, index) => {
+    const name = `urlHash${index}`;
+    bindings[name] = urlHash;
+    return `:${name}`;
+  });
+
+  const sql = `
+    WITH unique_hashes AS (
+      SELECT url_hash
+      FROM moz_places
+      WHERE url_hash IN (${placeholders.join(", ")})
+      GROUP BY url_hash
+      HAVING COUNT(*) = 1
+    )
+    SELECT url_hash, url, title, last_visit_date
+    FROM moz_places
+    JOIN unique_hashes USING (url_hash)
+    WHERE last_visit_date IS NOT NULL
+      AND url IS NOT NULL
+      AND title IS NOT NULL
+  `;
+
+  try {
+    return await PlacesUtils.withConnectionWrapper(
+      "smartwindow-resolve-urls-for-memories",
+      async db => {
+        const rows = await db.execute(sql, bindings);
+        return new Map(
+          rows.map(row => {
+            const urlHash = row.getResultByName("url_hash");
+            return [
+              urlHash,
+              {
+                url: row.getResultByName("url"),
+                title: row.getResultByName("title"),
+                lastVisitDate: row.getResultByName("last_visit_date"),
+              },
+            ];
+          })
+        );
+      }
+    );
+  } catch (error) {
+    console.error("Failed to resolve Places URLs for memories:", error);
+    return new Map();
+  }
+}

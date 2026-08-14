@@ -15,6 +15,8 @@ class JSActorManager;
 [ptr] native ContentParentPtr(mozilla::dom::ContentParent);
 [ptr] native JSActorManagerPtr(mozilla::dom::JSActorManager);
 
+interface nsIPrincipal;
+
 webidl JSProcessActorParent;
 
 /**
@@ -48,6 +50,12 @@ interface nsIDOMProcessParent: nsISupports {
 
   /** Cast this nsIDOMProcessParent to a JSActorManager */
   [notxpcom, nostdcall] JSActorManagerPtr AsJSActorManager();
+
+  /**
+   * Called when we are about to load an origin within a content process.
+   * e.g. due to loading a document or remote worker.
+   */
+  void aboutToLoadOrigin(in nsIPrincipal principal);
 
   /**
    * Remote type of the process.

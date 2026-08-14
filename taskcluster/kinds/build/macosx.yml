@@ -21,6 +21,7 @@ task-defaults:
               path: checkouts/gecko/security/mac/hardenedruntime/{entitlement_directory}/security-module-helper.xml
               type: file
     run:
+        clone-with: hg
         using: mozharness
         actions: [get-secrets, build]
         secrets: true
@@ -53,6 +54,7 @@ macosx64/debug:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
+        clone-with: hg
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_mac_64_cross_builds.py
@@ -126,6 +128,7 @@ macosx64-aarch64/debug:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             PERFHERDER_EXTRA_OPTIONS: aarch64
     run:
+        clone-with: hg
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_mac_64_cross_builds.py
@@ -162,6 +165,7 @@ macosx64-aarch64/opt:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             PERFHERDER_EXTRA_OPTIONS: aarch64
     run:
+        clone-with: hg
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_mac_64_cross_builds.py
@@ -193,6 +197,7 @@ macosx64-non-unified/plain:
             MOZ_AUTOMATION_BUILD_SYMBOLS: '0'
             PERFHERDER_EXTRA_OPTIONS: non-unified
     run:
+        clone-with: hg
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_mac_64_cross_builds.py
@@ -227,6 +232,7 @@ macosx64/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
+        clone-with: hg
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_mac_64_cross_builds.py
@@ -524,6 +530,7 @@ macosx64-asan-fuzzing/opt:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             PERFHERDER_EXTRA_OPTIONS: asan-fuzzing
     run:
+        clone-with: hg
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_mac_64_cross_builds.py
@@ -558,6 +565,7 @@ macosx64-fuzzing/debug:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             PERFHERDER_EXTRA_OPTIONS: fuzzing
     run:
+        clone-with: hg
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_mac_64_cross_builds.py
@@ -591,6 +599,7 @@ macosx64-aarch64-asan-fuzzing/opt:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             PERFHERDER_EXTRA_OPTIONS: aarch64-asan-fuzzing
     run:
+        clone-with: hg
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_mac_64_cross_builds.py
@@ -627,6 +636,7 @@ macosx64-aarch64-fuzzing/debug:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             PERFHERDER_EXTRA_OPTIONS: aarch64-fuzzing
     run:
+        clone-with: hg
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_mac_64_cross_builds.py
@@ -668,6 +678,7 @@ macosx64-x64-devedition/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
+        clone-with: hg
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_mac_64_cross_builds.py
@@ -707,6 +718,7 @@ macosx64-aarch64-devedition/opt:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             PERFHERDER_EXTRA_OPTIONS: aarch64
     run:
+        clone-with: hg
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_mac_64_cross_builds.py
@@ -745,6 +757,7 @@ macosx64-devedition/opt:
     worker:
         max-run-time: 1800
     run:
+        clone-with: hg
         job-script: taskcluster/scripts/misc/unify.sh
         config:
             - builds/releng_base_firefox.py
@@ -885,6 +898,7 @@ macosx64-noopt/debug:
     worker:
         max-run-time: 3600
     run:
+        clone-with: hg
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_mac_64_cross_builds.py
@@ -914,6 +928,7 @@ macosx64-aarch64-noopt/debug:
         env:
             PERFHERDER_EXTRA_OPTIONS: aarch64
     run:
+        clone-with: hg
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_mac_64_cross_builds.py
@@ -945,6 +960,7 @@ macosx64-x64-add-on-devel/opt:
         env:
             PERFHERDER_EXTRA_OPTIONS: x64
     run:
+        clone-with: hg
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_mac_64_cross_builds.py
@@ -973,6 +989,7 @@ macosx64-aarch64-add-on-devel/opt:
         env:
             PERFHERDER_EXTRA_OPTIONS: aarch64
     run:
+        clone-with: hg
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_mac_64_cross_builds.py
@@ -1001,6 +1018,7 @@ macosx64-add-on-devel/opt:
     worker:
         max-run-time: 1800
     run:
+        clone-with: hg
         job-script: taskcluster/scripts/misc/unify.sh
         config:
             - builds/releng_base_firefox.py
@@ -1079,6 +1097,7 @@ macosx64-nightlyasrelease/opt:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             PERFHERDER_EXTRA_OPTIONS: nightly-as-release
     run:
+        clone-with: hg
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_mac_64_cross_builds.py
@@ -1151,6 +1170,7 @@ macosx64-x64-shippable/opt:
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
+        clone-with: hg
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_mac_64_cross_builds.py
@@ -1186,6 +1206,7 @@ macosx64-aarch64-shippable/opt:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             PERFHERDER_EXTRA_OPTIONS: aarch64
     run:
+        clone-with: hg
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_mac_64_cross_builds.py
@@ -1221,6 +1242,7 @@ macosx64-shippable/opt:
     worker:
         max-run-time: 1800
     run:
+        clone-with: hg
         job-script: taskcluster/scripts/misc/unify.sh
         config:
             - builds/releng_base_firefox.py

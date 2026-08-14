@@ -456,7 +456,7 @@ INSTANTIATE_INTERNAL_TRACE_FUNCTIONS(TaggedProto)
 // Records the source zone (and, in debug builds, compartment) before calling
 // a trace hook or traceChildren() method on a GC thing. The source zone is
 // required in all builds so that MarkingTracerT::onEdge can keep the per-zone
-// atom-marking bitmap in sync for Symbol edges traced via the generic tracer.
+// atom reference bitmap in sync for Symbol edges traced via the generic tracer.
 class MOZ_RAII AutoSetTracingSource {
   GCMarker* marker = nullptr;
 
@@ -897,9 +897,9 @@ static inline void MaybeUnmarkGraySymbol(JSRuntime* runtime,
     return;
   }
 
-  AtomMarkingRuntime& atomMarking = runtime->gc.atomMarking;
-  MOZ_ASSERT(atomMarking.atomIsMarked(sourceZone, target));
-  atomMarking.maybeUnmarkGrayAtomically(sourceZone, target);
+  AtomRefRuntime& atomReferences = runtime->gc.atomReferences;
+  MOZ_ASSERT(atomReferences.hasRef(sourceZone, target));
+  atomReferences.maybeUnmarkGrayAtomically(sourceZone, target);
 }
 
 template <uint32_t opts>
@@ -1085,7 +1085,7 @@ void js::gc::PerformIncrementalBarrierDuringFlattening(JSString* str) {
   // Skip eager marking of ropes during flattening. Their children will also be
   // barriered by flattening process so we don't need to traverse them.
   if (str->isRope()) {
-    cell->markBlack();
+    cell->markBlackAtomic();
     return;
   }
 
@@ -1259,7 +1259,7 @@ inline void GCMarker::checkTraversedEdge(S source, T* target) {
       targetZone->isAtomsZone()) {
     GCRuntime* gc = &target->runtimeFromAnyThread()->gc;
     TenuredCell* atom = &target->asTenured();
-    MOZ_ASSERT(gc->atomMarking.getAtomMarkColor(sourceZone, atom) >=
+    MOZ_ASSERT(gc->atomReferences.getRefColor(sourceZone, atom) >=
                AsCellColor(markColor()));
   }
 
@@ -1412,6 +1412,15 @@ void GCMarker::freeStack() {
   MOZ_ASSERT(!isActive());
   MOZ_ASSERT(markColor_ == gc::MarkColor::Black);
   stack.clearAndFreeStack();
+}
+
+size_t GCMarker::stackHighWaterMark() const {
+  return std::max(stack.highWaterMark(), otherStack.highWaterMark());
+}
+
+void GCMarker::resetStackHighWaterMark() {
+  stack.resetHighWaterMark();
+  otherStack.resetHighWaterMark();
 }
 
 bool GCMarker::markUntilBudgetExhausted(SliceBudget& budget,
@@ -2202,6 +2211,10 @@ bool MarkStack::resetStackCapacity() {
   return resize(capacity);
 }
 
+size_t MarkStack::highWaterMark() const { return highWaterMark_; }
+
+void MarkStack::resetHighWaterMark() { highWaterMark_ = capacity_; }
+
 #ifdef JS_GC_ZEAL
 void MarkStack::setMaxCapacity(size_t maxCapacity) {
   MOZ_ASSERT(maxCapacity != 0);
@@ -2493,6 +2506,7 @@ bool MarkStack::resize(size_t newCapacity) {
 
   stack_ = newStack;
   capacity_ = newCapacity;
+  highWaterMark_ = std::max<size_t>(highWaterMark_, capacity_);
   return true;
 }
 
@@ -2794,6 +2808,8 @@ bool GCMarker::enterWeakMarkingMode() {
   return true;
 }
 
+// Ensure: if a WeakMap in this Zone is alive, and it has an entry with a live
+// key, then that key's value is marked.
 IncrementalProgress JS::Zone::enterWeakMarkingMode(GCMarker* marker,
                                                    SliceBudget& budget) {
   MOZ_ASSERT(isGCMarking());
@@ -3360,13 +3376,13 @@ bool UnmarkGrayTracer<opts>::onChild(T* thing) {
   Zone* zone = tenured.zoneFromAnyThread();
 
   // As well as updating the mark bits, we may need to update the color in the
-  // atom marking bitmap for symbols to record that |sourceZone| now has a black
-  // edge to |thing|.
+  // atom reference bitmap for symbols to record that |sourceZone| now has a
+  // black edge to |thing|.
   if constexpr (std::is_same_v<T, JS::Symbol>) {
     MOZ_ASSERT(zone->isAtomsZone());
     if (sourceZone) {
       GCRuntime* gc = &this->runtime()->gc;
-      gc->atomMarking.maybeUnmarkGrayAtomically(sourceZone, thing);
+      gc->atomReferences.maybeUnmarkGrayAtomically(sourceZone, thing);
     }
   }
 

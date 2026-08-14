@@ -81,6 +81,7 @@ export const ERRORS = Object.freeze({
   PASS_UNAVAILABLE: "pass-unavailable", // No pass was returned from the server
   SERVER_NOT_FOUND: "server-not-found", // No server was found for the location
   CANCELED: "activation-canceled", // Activation was canceled
+  VPN_UNAVAILABLE: "vpn-unavailable", // VPN unavailable in local region
 });
 
 const LOG_PREF = "browser.ipProtection.log";
@@ -437,6 +438,12 @@ class IPPProxyManagerSingleton extends EventTarget {
       if (error || !pass) {
         if (status === 500) {
           throw ERRORS.CATASTROPHIC;
+        } else if (status === 451) {
+          // This next block should be removed when bug 2058331 is addressed, adding this to Android.
+          if (Services.appinfo.OS === "Android") {
+            throw ERRORS.CATASTROPHIC;
+          }
+          throw ERRORS.VPN_UNAVAILABLE;
         }
         throw ERRORS.PASS_UNAVAILABLE;
       }

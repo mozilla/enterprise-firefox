@@ -508,6 +508,9 @@ public class IPProtectionController {
   /**
    * Activates the IP proxy.
    *
+   * <p>If the proxy is already active, calling this again with a different {@code country} switches
+   * the active connection to a server in that country without tearing down the proxy.
+   *
    * @param userAction Whether activation was triggered by an explicit user action, as opposed to a
    *     system action.
    * @param inPrivateBrowsing Whether activation was triggered from a private browsing context.
